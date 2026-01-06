@@ -111,6 +111,7 @@
         >
           <a-button
             class="setting-button"
+            size="small"
             @click="openAgentConfig"
             >{{ $t('common.setting') }}</a-button
           >
@@ -121,6 +122,7 @@
         >
           <a-button
             class="setting-button"
+            size="small"
             @click="openProxyConfig"
             >{{ $t('common.setting') }}</a-button
           >
@@ -218,6 +220,7 @@
       v-model:visible="sshProxyConfigShowModalVisible"
       :title="$t('user.proxySettings')"
       width="700px"
+      class="proxy-config-modal"
     >
       <a-table
         :row-key="(record) => record.name"
@@ -254,6 +257,7 @@
       :title="$t('user.addProxy')"
       :ok-text="$t('common.confirm')"
       :cancel-text="$t('common.cancel')"
+      class="proxy-config-add-modal"
       @ok="handleAddSshProxyConfigConfirm"
       @cancel="handleAddSshProxyConfigClose"
     >
@@ -779,7 +783,7 @@ onBeforeUnmount(() => {
 }
 
 .proxy-form :deep(.ant-form-item-label > label) {
-  color: #000000 !important;
+  color: var(--text-color) !important;
 }
 
 .custom-form {
@@ -995,13 +999,7 @@ onBeforeUnmount(() => {
     }
   }
 }
-::v-deep(.agent-table .ant-table-tbody > tr > td),
-::v-deep(.agent-table .ant-table-thead > tr > th) {
-  padding-top: 2px !important;
-  padding-bottom: 2px !important;
-  line-height: 1 !important;
-  font-size: 12px !important;
-}
+
 .agent-table .ant-table-tbody > tr {
   height: 28px !important;
 }
@@ -1010,37 +1008,19 @@ onBeforeUnmount(() => {
   margin-bottom: 12px !important;
 }
 
-/* Setting button styles - consistent with host management import button */
+/* Setting button styles - consistent with model check button */
 .setting-button {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  height: 32px;
-  padding: 0 12px;
-  border-radius: 4px;
-  background: var(--bg-color);
-  border: 1px solid var(--border-color);
-  color: var(--text-color);
-  transition: all 0.3s ease;
-  /* Ensure button inherits right alignment from parent */
-  margin-left: auto;
-  margin-right: 0;
+  width: 90px;
+  background-color: var(--bg-color-octonary) !important;
+  color: var(--text-color) !important;
+  border: none !important;
+  box-shadow: none !important;
+  transition: background 0.2s;
 }
 
-.setting-button:hover {
-  background: var(--hover-bg-color);
-  border-color: #1890ff;
-  color: #1890ff;
-}
-
-.setting-button:active {
-  background: var(--active-bg-color);
-}
-
-/* Override Ant Design default button styles for setting buttons */
-.setting-button:deep(.ant-btn) {
-  background: var(--bg-color) !important;
-  border-color: var(--border-color) !important;
+.setting-button:hover,
+.setting-button:focus {
+  background-color: var(--bg-color-novenary) !important;
   color: var(--text-color) !important;
 }
 
@@ -1053,155 +1033,251 @@ onBeforeUnmount(() => {
   text-align: right;
 }
 
-.setting-button:deep(.ant-btn:hover) {
-  background: var(--hover-bg-color) !important;
-  border-color: #1890ff !important;
-  color: #1890ff !important;
-}
-
-.setting-button:deep(.ant-btn:active) {
-  background: var(--active-bg-color) !important;
-}
-
 /* Proxy form select styles - white background for dark theme */
 .proxy-form-select {
   width: 100% !important;
 }
 
 .proxy-form-select :deep(.ant-select-selector) {
-  background-color: #ffffff !important;
-  border: 1px solid #d9d9d9 !important;
+  background-color: var(--bg-color-octonary) !important;
+  border: 1px solid var(--border-color) !important;
   border-radius: 6px;
-  color: #000000 !important;
+  color: var(--text-color) !important;
   transition: all 0.3s;
   height: 32px;
 }
 
 .proxy-form-select :deep(.ant-select-selector:hover) {
   border-color: #1890ff !important;
-  background-color: #ffffff !important;
+  background-color: var(--select-hover-bg) !important;
 }
 
 .proxy-form-select :deep(.ant-select-focused .ant-select-selector),
 .proxy-form-select :deep(.ant-select-selector:focus) {
   border-color: #1890ff !important;
   box-shadow: 0 0 0 2px rgba(24, 144, 255, 0.2) !important;
-  background-color: #ffffff !important;
+  background-color: var(--select-hover-bg) !important;
 }
 
 .proxy-form-select :deep(.ant-select-selection-item) {
-  color: #000000 !important;
+  color: var(--text-color) !important;
   font-size: 14px;
   line-height: 32px;
 }
 
 .proxy-form-select :deep(.ant-select-arrow) {
-  color: #000000 !important;
+  color: var(--text-color) !important;
   opacity: 0.7;
 }
 
-/* Proxy form select dropdown styles - white background */
+/* Proxy form select dropdown styles */
 .proxy-form-select :deep(.ant-select-dropdown) {
-  background-color: #ffffff !important;
-  border: 1px solid #d9d9d9 !important;
+  background-color: var(--bg-color-secondary) !important;
+  border: 1px solid var(--border-color) !important;
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15) !important;
 }
 
 .proxy-form-select :deep(.ant-select-item) {
-  color: #000000 !important;
-  background-color: #ffffff !important;
+  color: var(--text-color) !important;
+  background-color: var(--bg-color-secondary) !important;
   font-size: 14px;
 }
 
 .proxy-form-select :deep(.ant-select-item-option-active),
 .proxy-form-select :deep(.ant-select-item-option-selected) {
-  color: #000000 !important;
-  background-color: #f5f5f5 !important;
+  color: var(--text-color) !important;
+  background-color: var(--hover-bg-color) !important;
 }
 
 .proxy-form-select :deep(.ant-select-item-option:hover) {
-  color: #000000 !important;
-  background-color: #f5f5f5 !important;
+  color: var(--text-color) !important;
+  background-color: var(--hover-bg-color) !important;
 }
 
 /* SSH Agent modal key selection styles - dark theme overrides */
 .agent-config-modal :deep(.ant-form-item-label > label) {
-  color: #000000 !important;
+  color: var(--text-color) !important;
 }
 
 /* Key selection select styles - white background for dark theme */
 .key-selection-select :deep(.ant-select-selector) {
-  background-color: #ffffff !important;
-  border: 1px solid #d9d9d9 !important;
+  background-color: var(--bg-color-octonary) !important;
+  border: 1px solid var(--border-color) !important;
   border-radius: 6px;
-  color: #000000 !important;
+  color: var(--text-color) !important;
   transition: all 0.3s;
   height: 32px;
 }
 
 .key-selection-select :deep(.ant-select-selector:hover) {
   border-color: #1890ff !important;
-  background-color: #ffffff !important;
+  background-color: var(--select-hover-bg) !important;
 }
 
 .key-selection-select :deep(.ant-select-focused .ant-select-selector),
 .key-selection-select :deep(.ant-select-selector:focus) {
   border-color: #1890ff !important;
   box-shadow: 0 0 0 2px rgba(24, 144, 255, 0.2) !important;
-  background-color: #ffffff !important;
+  background-color: var(--select-hover-bg) !important;
 }
 
 .key-selection-select :deep(.ant-select-selection-item) {
-  color: #000000 !important;
+  color: var(--text-color) !important;
   font-size: 14px;
   line-height: 32px;
 }
 
 .key-selection-select :deep(.ant-select-arrow) {
-  color: #000000 !important;
+  color: var(--text-color) !important;
   opacity: 0.7;
 }
 
-/* Key selection select dropdown styles - white background */
+/* Key selection select dropdown styles */
 .key-selection-select :deep(.ant-select-dropdown) {
-  background-color: #ffffff !important;
-  border: 1px solid #d9d9d9 !important;
+  background-color: var(--bg-color-secondary) !important;
+  border: 1px solid var(--border-color) !important;
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15) !important;
 }
 
 .key-selection-select :deep(.ant-select-item) {
-  color: #000000 !important;
-  background-color: #ffffff !important;
+  color: var(--text-color) !important;
+  background-color: var(--bg-color-secondary) !important;
   font-size: 14px;
 }
 
 .key-selection-select :deep(.ant-select-item-option-active),
 .key-selection-select :deep(.ant-select-item-option-selected) {
-  color: #000000 !important;
-  background-color: #f5f5f5 !important;
+  color: var(--text-color) !important;
+  background-color: var(--hover-bg-color) !important;
 }
 
 .key-selection-select :deep(.ant-select-item-option:hover) {
-  color: #000000 !important;
-  background-color: #f5f5f5 !important;
+  color: var(--text-color) !important;
+  background-color: var(--hover-bg-color) !important;
 }
 
 /* More specific styles for key form item */
 .key-form-item :deep(.ant-form-item-label > label) {
-  color: #000000 !important;
+  color: var(--text-color) !important;
 }
 
 .key-form-item .key-selection-select :deep(.ant-select-selector) {
-  background-color: #ffffff !important;
-  border: 1px solid #d9d9d9 !important;
-  color: #000000 !important;
+  background-color: var(--bg-color-octonary) !important;
+  border: 1px solid var(--border-color) !important;
+  color: var(--text-color) !important;
 }
 
 .key-form-item .key-selection-select :deep(.ant-select-selection-item) {
-  color: #000000 !important;
+  color: var(--text-color) !important;
 }
 
 .key-form-item .key-selection-select :deep(.ant-select-arrow) {
-  color: #000000 !important;
+  color: var(--text-color) !important;
+}
+</style>
+
+<style>
+/* Global styles for modal theming - adapt to light/dark theme */
+.agent-config-modal .ant-modal-content,
+.proxy-config-modal .ant-modal-content,
+.proxy-config-add-modal .ant-modal-content {
+  background-color: var(--bg-color-secondary) !important;
+  color: var(--text-color) !important;
+  border: 1px solid var(--border-color-light) !important;
+}
+
+.agent-config-modal .ant-modal-header,
+.proxy-config-modal .ant-modal-header,
+.proxy-config-add-modal .ant-modal-header {
+  background-color: var(--bg-color-secondary) !important;
+  border-bottom: none !important;
+}
+
+.agent-config-modal .ant-modal-title,
+.proxy-config-modal .ant-modal-title,
+.proxy-config-add-modal .ant-modal-title {
+  color: var(--text-color) !important;
+}
+
+.agent-config-modal .ant-modal-close,
+.agent-config-modal .ant-modal-close-x,
+.agent-config-modal .ant-modal-close .ant-modal-close-icon,
+.proxy-config-modal .ant-modal-close,
+.proxy-config-modal .ant-modal-close-x,
+.proxy-config-modal .ant-modal-close .ant-modal-close-icon,
+.proxy-config-add-modal .ant-modal-close,
+.proxy-config-add-modal .ant-modal-close-x,
+.proxy-config-add-modal .ant-modal-close .ant-modal-close-icon {
+  color: var(--text-color-secondary-light) !important;
+}
+
+.agent-config-modal .ant-modal-body,
+.proxy-config-modal .ant-modal-body,
+.proxy-config-add-modal .ant-modal-body {
+  background-color: var(--bg-color-secondary) !important;
+}
+
+.agent-config-modal .ant-modal-footer,
+.proxy-config-modal .ant-modal-footer,
+.proxy-config-add-modal .ant-modal-footer {
+  background-color: var(--bg-color-secondary) !important;
+  border-top: none !important;
+  padding-top: 4px !important;
+}
+
+/* Table styles in modals */
+.agent-config-modal .agent-table .ant-table,
+.proxy-config-modal .agent-table .ant-table {
+  background-color: transparent !important;
+}
+
+.agent-config-modal .agent-table .ant-table-thead > tr > th,
+.proxy-config-modal .agent-table .ant-table-thead > tr > th {
+  background-color: var(--bg-color-tertiary) !important;
+  color: var(--text-color) !important;
+  border-bottom: 1px solid var(--border-color-light) !important;
+}
+
+.agent-config-modal .agent-table .ant-table-thead > tr > th::before,
+.proxy-config-modal .agent-table .ant-table-thead > tr > th::before {
+  background-color: rgba(255, 255, 255, 0.06) !important;
+}
+
+.agent-config-modal .agent-table .ant-table-tbody > tr > td,
+.proxy-config-modal .agent-table .ant-table-tbody > tr > td {
+  background-color: var(--bg-color-secondary) !important;
+  color: var(--text-color) !important;
+  border-bottom: 1px solid var(--border-color-light) !important;
+}
+
+.agent-config-modal .agent-table .ant-table-tbody > tr:hover > td,
+.proxy-config-modal .agent-table .ant-table-tbody > tr:hover > td {
+  background-color: var(--hover-bg-color) !important;
+}
+
+/* Form styles in modals */
+.agent-config-modal .ant-form-item-label > label,
+.proxy-config-add-modal .ant-form-item-label > label {
+  color: var(--text-color) !important;
+}
+
+.agent-config-modal .ant-input,
+.proxy-config-add-modal .ant-input,
+.agent-config-modal .ant-input-password,
+.proxy-config-add-modal .ant-input-password {
+  background-color: var(--bg-color-octonary) !important;
+  color: var(--text-color) !important;
+  border-color: var(--border-color) !important;
+}
+
+.agent-config-modal .ant-input-number,
+.proxy-config-add-modal .ant-input-number {
+  background-color: var(--bg-color-octonary) !important;
+}
+
+.agent-config-modal .ant-input-number-input,
+.proxy-config-add-modal .ant-input-number-input {
+  background-color: var(--bg-color-octonary) !important;
+  color: var(--text-color) !important;
 }
 </style>

@@ -63,6 +63,7 @@ import { RemoteTerminalManager, ConnectionInfo, RemoteTerminalInfo, RemoteTermin
 import { LocalTerminalManager, LocalCommandProcess } from '../../integrations/local-terminal'
 import { formatResponse } from '@core/prompts/responses'
 import { addUserInstructions, SYSTEM_PROMPT, SYSTEM_PROMPT_CHAT, SYSTEM_PROMPT_CN, SYSTEM_PROMPT_CHAT_CN } from '@core/prompts/system'
+import { getSwitchPromptByAssetType } from '@core/prompts/switch-prompts'
 import { CommandSecurityManager } from '../security/CommandSecurityManager'
 import { getContextWindowInfo } from '@core/context/context-management/context-window-utils'
 import { ModelContextTracker } from '@core/context/context-tracking/ModelContextTracker'
@@ -1148,6 +1149,9 @@ export class Task {
     let result = ''
     let chunkTimer: NodeJS.Timeout | null = null
 
+    // Get host info for local host (127.0.0.1) for multi-host identification
+    const hostInfo = this.buildHostInfo('127.0.0.1')
+
     try {
       const terminal = await this.localTerminalManager.createTerminal()
       const process = this.localTerminalManager.runCommand(terminal, command, this.cwd.get('127.0.0.1') || undefined)
@@ -1173,7 +1177,8 @@ export class Task {
         chunkEnroute = true
         try {
           // Send the complete output up to now, for the frontend to replace entirely
-          await this.say('command_output', result, true)
+          // Include host info for multi-host identification
+          await this.say('command_output', result, true, hostInfo)
         } catch (error) {
           console.error('Error while saying for command output:', error) // Log error
         } finally {
@@ -1242,6 +1247,17 @@ export class Task {
         }
         checkCompletion()
       })
+
+      // Wait for a short delay to ensure all messages are sent to the webview
+      // This delay allows time for non-awaited promises to be created and
+      // for their associated messages to be sent to the webview, maintaining
+      // the correct order of messages
+      await new Promise((resolve) => setTimeout(resolve, 100))
+
+      const lastMessage = this.chatermMessages.at(-1)
+      if (lastMessage?.say === 'command_output') {
+        await this.say('command_output', lastMessage.text, false, hostInfo)
+      }
 
       const truncatedResult = this.truncateCommandOutput(result)
 
@@ -1996,6 +2012,9 @@ export class Task {
       details += `\n\n# ${this.messages.currentHostsTitle}:\n${this.hosts.map((h) => h.host).join(', ')}`
 
       for (const host of this.hosts) {
+        if (host.assetType?.startsWith('person-switch-')) {
+          continue
+        }
         let currentCwd = this.cwd.get(host.host)
         if (!currentCwd) {
           const rawCwd = (await this.executeCommandInRemoteServer('pwd', host.host))?.trim()
@@ -3221,7 +3240,12 @@ export class Task {
     // Select system prompt based on language and mode
     let systemPrompt: string
 
-    if (userLanguage === 'zh-CN') {
+    // Check if connected host is a network switch - use switch-specific prompt with language support
+    const switchPrompt = this.hosts && this.hosts.length > 0 ? getSwitchPromptByAssetType(this.hosts[0].assetType, userLanguage) : null
+    if (switchPrompt) {
+      // Use switch-specific prompt (switch only supports Command mode)
+      systemPrompt = switchPrompt
+    } else if (userLanguage === 'zh-CN') {
       if (chatSettings?.mode === 'chat') {
         systemPrompt = SYSTEM_PROMPT_CHAT_CN
       } else {
@@ -3250,6 +3274,9 @@ export class Task {
 
       for (const host of this.hosts) {
         try {
+          if (host.assetType?.startsWith('person-switch-')) {
+            continue
+          }
           // Check cache, if no cache, get system info and cache it
           let hostInfo = this.hostSystemInfoCache.get(host.host)
           if (!hostInfo) {

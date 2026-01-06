@@ -599,6 +599,16 @@ export default {
     personalAsset: '个人',
     enterpriseAsset: '企业',
     organizationTip: '仅支持 Jumpserver',
+    // Device type selection
+    deviceCategory: '设备类型',
+    selectDeviceType: '请选择设备类型',
+    deviceServer: '服务器',
+    deviceNetwork: '网络设备',
+    deviceSwitch: '交换机',
+    switchBrand: '交换机品牌',
+    switchCisco: '思科',
+    switchHuawei: '华为',
+    switchTip: '交换机仅支持 Command 模式',
     refreshAssets: '资产',
     refreshingAssets: '正在刷新资产...',
     refreshSuccess: '资产刷新成功',
@@ -810,7 +820,8 @@ export default {
     exportChatEmpty: '没有可导出的聊天记录',
     exportedOn: '导出时间',
     maxHostsLimitReached: '最多只能选择 {max} 台主机',
-    maxHostsLimit: '主机数量已达上限'
+    maxHostsLimit: '主机数量已达上限',
+    switchNotSupportAgent: '网络设备不支持 Agent 模式，已自动切换为 Command 模式'
   },
   keyChain: {
     newKey: '添加密钥',
@@ -894,11 +905,12 @@ export default {
     emailBindFailed: '邮箱绑定失败',
     bindMobile: '绑定手机号',
     modifyMobile: '修改手机号',
-    pleaseInputMobileCode: '请输入手机号验证码',
+    pleaseInputMobileCode: '请输入验证码',
     sendMobileCode: '获取验证码',
     mobileCodeSent: '验证码已发送',
     mobileBindSuccess: '手机号绑定成功',
-    mobileBindFailed: '手机号绑定失败'
+    mobileBindFailed: '手机号绑定失败',
+    verificationCode: '验证码'
   },
   update: {
     available: '有最新版本可以更新',

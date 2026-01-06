@@ -974,7 +974,7 @@ const closeGlobalInput = () => {
 }
 const DEFAULT_WIDTH_PX = 250
 const DEFAULT_WIDTH_RIGHT_PX = 350
-const MIN_AI_SIDEBAR_WIDTH_PX = 350 // AI sidebar minimum usable width
+const MIN_AI_SIDEBAR_WIDTH_PX = 280 // AI sidebar minimum usable width
 const SNAP_THRESHOLD_PX = 200 // Sticky resistance threshold
 // Left sidebar constants
 const MIN_LEFT_SIDEBAR_WIDTH_PX = 200 // Left sidebar minimum usable width
@@ -1662,7 +1662,8 @@ const getActiveTabAssetInfo = async () => {
     organizationId: params.organizationId || params.data?.organizationId,
     type: params.type || params.data?.type,
     outputContext: outputContext,
-    tabSessionId: activePanel.id
+    tabSessionId: activePanel.id,
+    assetType: params.data?.asset_type
   }
 }
 
@@ -1913,7 +1914,8 @@ const handleActivePanelChange = async () => {
     eventBus.emit('activeTabChanged', {
       ip,
       data: {
-        uuid
+        uuid,
+        asset_type: params.data?.asset_type
       },
       connection: params.data?.connection || 'personal',
       title: activePanel.api.title || params.title,
@@ -1954,6 +1956,9 @@ const addDockPanel = (params) => {
     displayTitle = params.title
   } else if (params.title === 'mcpConfigEditor') {
     displayTitle = t('mcp.configEditor')
+  } else if (params.content === 'securityConfigEditor' || params.content === 'keywordHighlightEditor') {
+    // For config editors, title is already set to file name in switch statement, use it directly
+    displayTitle = params.title
   } else {
     displayTitle = t(`common.${params.title}`)
   }

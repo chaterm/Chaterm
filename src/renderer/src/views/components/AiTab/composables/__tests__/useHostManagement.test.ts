@@ -210,6 +210,36 @@ describe('useHostManagement', () => {
 
       expect(autoUpdateHost.value).toBe(false)
     })
+
+    it('should switch to cmd mode when selecting switch host in agent mode', async () => {
+      const { Notice } = await import('@/views/components/Notice')
+      const { onHostClick } = useHostManagement()
+
+      const switchHostOption: HostOption = {
+        label: 'switch-1',
+        value: 'switch-1',
+        key: 'switch-1',
+        uuid: 'switch-uuid-1',
+        connect: 'ssh',
+        type: 'personal',
+        selectable: true,
+        level: 0,
+        assetType: 'person-switch-cisco'
+      }
+
+      chatTypeValue.value = 'agent'
+
+      onHostClick(switchHostOption)
+
+      expect(chatTypeValue.value).toBe('cmd')
+      expect(hosts.value).toHaveLength(1)
+      expect(hosts.value[0].assetType).toBe('person-switch-cisco')
+      expect(vi.mocked(Notice.open)).toHaveBeenCalledWith(
+        expect.objectContaining({
+          description: 'ai.switchNotSupportAgent'
+        })
+      )
+    })
   })
 
   describe('removeHost', () => {

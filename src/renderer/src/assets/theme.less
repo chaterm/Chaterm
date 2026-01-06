@@ -227,6 +227,37 @@ body {
         }
       }
 
+      // Cascader dropdown (Device Type selection)
+      .ant-cascader-dropdown {
+        background-color: rgba(37, 37, 38, 0.85) !important;
+        backdrop-filter: blur(20px) saturate(180%);
+        -webkit-backdrop-filter: blur(20px) saturate(180%);
+        border: 1px solid rgba(60, 60, 60, 0.5) !important;
+
+        .ant-cascader-menu {
+          background-color: transparent !important;
+          border-right: 1px solid rgba(60, 60, 60, 0.5) !important;
+        }
+
+        .ant-cascader-menu-item {
+          background-color: transparent !important;
+          color: #e0e0e0 !important;
+        }
+
+        .ant-cascader-menu-item-active {
+          background-color: rgba(255, 255, 255, 0.1) !important;
+          color: #ffffff !important;
+        }
+
+        .ant-cascader-menu-item:hover {
+          background-color: rgba(255, 255, 255, 0.08) !important;
+        }
+
+        .ant-cascader-menu-item-expand-icon {
+          color: #e0e0e0 !important;
+        }
+      }
+
       // History dropdown menu (AI chat history in Agent mode)
       .history-dropdown-menu {
         background-color: rgba(37, 37, 38, 0.85) !important;
@@ -352,6 +383,37 @@ body {
         .ant-select-item-option:hover,
         .ant-select-item-option-active {
           background-color: rgba(0, 0, 0, 0.04) !important;
+        }
+      }
+
+      // Cascader dropdown (Device Type selection) - Light Theme
+      .ant-cascader-dropdown {
+        background-color: rgba(255, 255, 255, 0.85) !important;
+        backdrop-filter: blur(20px) saturate(180%);
+        -webkit-backdrop-filter: blur(20px) saturate(180%);
+        border: 1px solid rgba(203, 213, 225, 0.5) !important;
+
+        .ant-cascader-menu {
+          background-color: transparent !important;
+          border-right: 1px solid rgba(203, 213, 225, 0.5) !important;
+        }
+
+        .ant-cascader-menu-item {
+          background-color: transparent !important;
+          color: #334155 !important;
+        }
+
+        .ant-cascader-menu-item-active {
+          background-color: rgba(0, 0, 0, 0.06) !important;
+          color: #0f172a !important;
+        }
+
+        .ant-cascader-menu-item:hover {
+          background-color: rgba(0, 0, 0, 0.04) !important;
+        }
+
+        .ant-cascader-menu-item-expand-icon {
+          color: #94a3b8 !important;
         }
       }
 
@@ -610,6 +672,40 @@ html.theme-dark .ant-dropdown-menu-item {
   }
 }
 
+// Dark theme cascader dropdown menu styles
+html.theme-dark .ant-cascader-dropdown {
+  background-color: #252526 !important;
+  border: 1px solid #3c3c3c !important;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4) !important;
+}
+
+html.theme-dark .ant-cascader-menu {
+  background-color: transparent !important;
+  border-right: 1px solid #3c3c3c !important;
+}
+
+html.theme-dark .ant-cascader-menu-item {
+  color: #ffffff !important;
+  background-color: transparent !important;
+
+  &:hover {
+    background-color: rgba(255, 255, 255, 0.08) !important;
+  }
+
+  .anticon {
+    color: #ffffff !important;
+  }
+}
+
+html.theme-dark .ant-cascader-menu-item-active {
+  background-color: rgba(255, 255, 255, 0.08) !important;
+  color: #ffffff !important;
+}
+
+html.theme-dark .ant-cascader-menu-item-expand .ant-cascader-menu-item-expand-icon {
+  color: #ffffff !important;
+}
+
 .ant-modal-confirm .ant-modal-confirm-title,
 .ant-modal-confirm .ant-modal-confirm-content {
   color: var(--text-color) !important;
@@ -638,6 +734,45 @@ html.theme-light .ant-dropdown-menu-item {
   &:hover .anticon {
     color: #0f172a !important;
   }
+}
+
+// Light theme cascader dropdown styles
+html.theme-light .ant-cascader-dropdown {
+  background-color: #f8fafc !important;
+  border: 1px solid #e8e8e8 !important;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1) !important;
+}
+
+html.theme-light .ant-cascader-menu {
+  background-color: transparent !important;
+  border-right: 1px solid #e8e8e8 !important;
+}
+
+html.theme-light .ant-cascader-menu-item {
+  color: #334155 !important;
+  background-color: transparent !important;
+
+  &:hover {
+    background-color: rgba(0, 0, 0, 0.06) !important;
+    color: #0f172a !important;
+  }
+
+  .anticon {
+    color: #94a3b8 !important;
+  }
+
+  &:hover .anticon {
+    color: #0f172a !important;
+  }
+}
+
+html.theme-light .ant-cascader-menu-item-active {
+  background-color: rgba(0, 0, 0, 0.06) !important;
+  color: #0f172a !important;
+}
+
+html.theme-light .ant-cascader-menu-item-expand .ant-cascader-menu-item-expand-icon {
+  color: #94a3b8 !important;
 }
 // Input box clear icon styles
 .ant-input-clear-icon {
@@ -694,6 +829,30 @@ html.theme-light .ant-dropdown-menu-item {
 
 .theme-light .ant-select-dropdown .ant-select-item-option:hover.ant-select-item-option-active {
   background-color: rgba(0, 0, 0, 0.12) !important;
+}
+
+// General Cascader styles (fallback)
+.ant-cascader-dropdown {
+  background-color: var(--bg-color) !important;
+  color: var(--text-color) !important;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1) !important;
+}
+
+.ant-cascader-menu {
+  border-right-color: var(--border-color-light) !important;
+}
+
+.ant-cascader-menu-item {
+  color: var(--text-color) !important;
+}
+
+.ant-cascader-menu-item-active {
+  background-color: var(--hover-bg-color) !important;
+  font-weight: 600;
+}
+
+.ant-cascader-menu-item:hover {
+  background-color: var(--hover-bg-color) !important;
 }
 .ant-input-clear-icon {
   color: var(--text-color-tertiary);

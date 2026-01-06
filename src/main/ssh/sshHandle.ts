@@ -1,6 +1,6 @@
 import { BrowserWindow, dialog, ipcMain } from 'electron'
 import { Client } from 'ssh2'
-import type { SFTPWrapper, Algorithms } from 'ssh2'
+import type { SFTPWrapper } from 'ssh2'
 
 const { app } = require('electron')
 const appPath = app.getAppPath()
@@ -35,6 +35,7 @@ import {
 import path from 'path'
 import fs from 'fs'
 import { SSHAgentManager } from './ssh-agent/ChatermSSHAgent'
+import { getAlgorithmsByAssetType } from './algorithms'
 
 // Hybrid buffer strategy configuration
 const FLUSH_CONFIG = {
@@ -46,18 +47,6 @@ const FLUSH_CONFIG = {
   LARGE_DELAY: 30, // 30ms
   BULK_DELAY: 50 // >= 1KB: long delay (bulk output)
 }
-
-// Legacy algorithm support for older SSH servers
-// Using 'append' to keep default secure algorithms with higher priority
-// Note: ssh2 runtime supports partial Record with only 'append', but TypeScript types require all keys
-export const LEGACY_ALGORITHMS = {
-  kex: {
-    append: ['diffie-hellman-group14-sha1', 'diffie-hellman-group-exchange-sha1', 'diffie-hellman-group1-sha1']
-  },
-  serverHostKey: {
-    append: ['ssh-rsa', 'ssh-dss']
-  }
-} as Algorithms
 
 // Helper function to determine delay based on buffer size
 const getDelayByBufferSize = (size: number): number => {
@@ -239,8 +228,29 @@ export const handleRequestKeyboardInteractive = (event, id, prompts, finish) => 
 }
 
 export const attemptSecondaryConnection = async (event, connectionInfo, ident) => {
-  const { id, host, port, username, password, privateKey, passphrase, needProxy, proxyConfig } = connectionInfo
+  const { id, host, port, username, password, privateKey, passphrase, needProxy, proxyConfig, asset_type } = connectionInfo
+
+  // Check if this is a network switch connection
+  const isSwitch = asset_type?.startsWith('person-switch-')
+  const switchBrand = isSwitch ? (asset_type === 'person-switch-cisco' ? 'cisco' : 'huawei') : null
+
+  // For switches, skip secondary connection logic and return minimal ready data
+  if (isSwitch && switchBrand) {
+    const readyResult = {
+      isSwitch: true,
+      switchBrand,
+      hasSudo: false,
+      commandList: []
+    }
+    event.sender.send(`ssh:connect:data:${id}`, readyResult)
+    if (keyboardInteractiveOpts.has(id)) {
+      keyboardInteractiveOpts.delete(id)
+    }
+    return
+  }
+
   const conn = new Client()
+  const algorithms = getAlgorithmsByAssetType(asset_type)
   const connectConfig: any = {
     host,
     port: port || 22,
@@ -248,7 +258,7 @@ export const attemptSecondaryConnection = async (event, connectionInfo, ident) =
     keepaliveInterval: 10000,
     readyTimeout: KeyboardInteractiveTimeout,
     ident: ident,
-    algorithms: LEGACY_ALGORITHMS
+    algorithms
   }
 
   if (privateKey) {
@@ -409,7 +419,8 @@ export const attemptSecondaryConnection = async (event, connectionInfo, ident) =
 }
 
 const handleAttemptConnection = async (event, connectionInfo, resolve, reject, retryCount) => {
-  const { id, host, port, username, password, privateKey, passphrase, agentForward, needProxy, proxyConfig, connIdentToken } = connectionInfo
+  const { id, host, port, username, password, privateKey, passphrase, agentForward, needProxy, proxyConfig, connIdentToken, asset_type } =
+    connectionInfo
   retryCount++
 
   connectionStatus.set(id, { isVerified: false }) // Update connection status
@@ -504,6 +515,7 @@ const handleAttemptConnection = async (event, connectionInfo, resolve, reject, r
   })
 
   // Configure connection settings
+  const algorithms = getAlgorithmsByAssetType(asset_type)
   const connectConfig: any = {
     host,
     port: port || 22,
@@ -511,7 +523,7 @@ const handleAttemptConnection = async (event, connectionInfo, resolve, reject, r
     keepaliveInterval: 10000, // Keep connection alive
     tryKeyboard: true, // Enable keyboard interactive authentication
     readyTimeout: KeyboardInteractiveTimeout, // Connection timeout, 30 seconds
-    algorithms: LEGACY_ALGORITHMS
+    algorithms
   }
   if (needProxy) {
     connectConfig.sock = await createProxySocket(proxyConfig, host, port)

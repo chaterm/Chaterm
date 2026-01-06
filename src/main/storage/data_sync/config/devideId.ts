@@ -1,6 +1,14 @@
 import * as os from 'os'
 import { execSync } from 'child_process'
 
+const formatMachineIdAsUuid = (value: string): string => {
+  const trimmed = value.trim()
+  if (/^[0-9a-f]{32}$/i.test(trimmed)) {
+    return `${trimmed.slice(0, 8)}-${trimmed.slice(8, 12)}-${trimmed.slice(12, 16)}-${trimmed.slice(16, 20)}-${trimmed.slice(20)}`
+  }
+  return trimmed
+}
+
 const getSystemUUID = (): string => {
   const platform = os.platform()
   let uuid = ''
@@ -43,13 +51,24 @@ const getSystemUUID = (): string => {
       }
 
       case 'linux': {
+        // Try /etc/machine-id first (no root required, 128-bit unique ID)
+        try {
+          const machineId = formatMachineIdAsUuid(execSync('cat /etc/machine-id', { encoding: 'utf8', timeout: 5000 }))
+          if (/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(machineId)) {
+            uuid = machineId
+            break
+          }
+        } catch {}
+
+        // Fallback to other methods (require root)
         const cmds = [
-          'cat /sys/class/dmi/id/product_uuid', // Most common, readable by regular users
-          'dmidecode -s system-uuid' // Requires root
+          'cat /var/lib/dbus/machine-id', // Older systems fallback
+          'cat /sys/class/dmi/id/product_uuid',
+          'dmidecode -s system-uuid'
         ]
         for (const cmd of cmds) {
           try {
-            uuid = execSync(cmd, { encoding: 'utf8', timeout: 5000 }).trim()
+            uuid = formatMachineIdAsUuid(execSync(cmd, { encoding: 'utf8', timeout: 5000 }))
             if (uuid && !uuid.toLowerCase().includes('permission denied')) break
           } catch {}
         }

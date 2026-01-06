@@ -5,7 +5,7 @@ import { v4 as uuidv4 } from 'uuid'
 export function connectAssetInfoLogic(db: Database.Database, uuid: string): any {
   try {
     const stmt = db.prepare(`
-        SELECT uuid, asset_ip, auth_type, port, username, password, key_chain_id, need_proxy, proxy_name
+        SELECT uuid, asset_ip, asset_type, auth_type, port, username, password, key_chain_id, need_proxy, proxy_name
         FROM t_assets
         WHERE uuid = ?
       `)
@@ -15,7 +15,7 @@ export function connectAssetInfoLogic(db: Database.Database, uuid: string): any 
     if (!result) {
       const orgAssetStmt = db.prepare(`
         SELECT oa.hostname, oa.host, a.asset_ip, oa.organization_uuid, oa.uuid, oa.jump_server_type,
-              a.auth_type, a.port, a.username, a.password, a.key_chain_id, a.need_proxy, a.proxy_name
+              a.asset_type, a.auth_type, a.port, a.username, a.password, a.key_chain_id, a.need_proxy, a.proxy_name
         FROM t_organization_assets oa
         JOIN t_assets a ON oa.organization_uuid = a.uuid
         WHERE oa.uuid = ?
@@ -74,12 +74,12 @@ export function getUserHostsLogic(db: Database.Database, search: string, limit: 
     `)
     deleteOrphanedStmt.run()
 
-    // Step 1: Query personal assets (asset_type='person')
+    // Step 1: Query personal assets (asset_type='person' or switch types)
     const personalStmt = db.prepare(`
-        SELECT asset_ip as host, uuid
+        SELECT asset_ip as host, uuid, asset_type
         FROM t_assets
-        WHERE asset_ip LIKE ? AND asset_type = 'person'
-        GROUP BY asset_ip, uuid
+        WHERE asset_ip LIKE ? AND asset_type IN ('person', 'person-switch-cisco', 'person-switch-huawei')
+        GROUP BY asset_ip, uuid, asset_type
       `)
     const personalResults = personalStmt.all(searchPattern) || []
 
@@ -113,7 +113,8 @@ export function getUserHostsLogic(db: Database.Database, search: string, limit: 
       type: 'personal',
       selectable: true,
       uuid: item.uuid,
-      connection: 'person'
+      connection: 'person',
+      assetType: item.asset_type
     }))
 
     // Group org assets by organization_uuid

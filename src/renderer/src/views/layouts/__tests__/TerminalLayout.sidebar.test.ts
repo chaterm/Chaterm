@@ -55,10 +55,10 @@ const mockContainer = {
 
 describe('TerminalLayout - AI Sidebar Sticky Logic (Core)', () => {
   // Constants from the component
-  const MIN_AI_SIDEBAR_WIDTH_PX = 350
+  const MIN_AI_SIDEBAR_WIDTH_PX = 280
   const SNAP_THRESHOLD_PX = 200
-  const DEFAULT_WIDTH_RIGHT_PX = 500
-  const MIN_LEFT_SIDEBAR_WIDTH_PX = 180
+  const DEFAULT_WIDTH_RIGHT_PX = 350
+  const MIN_LEFT_SIDEBAR_WIDTH_PX = 200
 
   // Mock reactive variables
   let aiSidebarSize: any
@@ -285,7 +285,7 @@ describe('TerminalLayout - AI Sidebar Sticky Logic (Core)', () => {
       const container = global.document.querySelector('.main-split-container') || global.document.querySelector('.splitpanes')
       const containerWidth = container ? (container as HTMLElement).offsetWidth : 1000
 
-      savedAiSidebarState.value = { size: 50 } // 50% of 800px = 400px > 350px minimum
+      savedAiSidebarState.value = { size: 50 } // 50% of 800px = 400px > 280px minimum
       showAiSidebar.value = false
 
       // Simulate toggle open
@@ -320,12 +320,12 @@ describe('TerminalLayout - AI Sidebar Sticky Logic (Core)', () => {
       currentMode.value = 'terminal'
       leftPaneSize.value = 0
       savedLeftSidebarState.value = { size: 10, currentMenu: 'workspace', isExpanded: true }
-      // 10% of 1000px = 100px < 180px minimum
+      // 10% of 1000px = 100px < 200px minimum
 
       restoreLeftSidebarState()
 
-      // Should use minimum: (180 / 1000) * 100 = 18%
-      expect(getLeftSidebarSize()).toBe(18)
+      // Should use minimum: (200 / 1000) * 100 = 20%
+      expect(getLeftSidebarSize()).toBe(20)
     })
   })
 
