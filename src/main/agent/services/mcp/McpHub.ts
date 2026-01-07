@@ -27,7 +27,6 @@ import {
   McpToolInputSchema
 } from '@shared/mcp'
 import { secondsToMs } from '@utils/time'
-import chokidar, { FSWatcher } from 'chokidar'
 import deepEqual from 'fast-deep-equal'
 import * as fs from 'fs/promises'
 import { z } from 'zod'
@@ -44,6 +43,10 @@ import {
 import { McpSettingsSchema, ServerConfigSchema } from './schemas'
 import { McpConnection, McpServerConfig, Transport } from './types'
 import { ChatermDatabaseService } from '../../../storage/db/chaterm.service'
+
+// Dynamic import type for chokidar (ESM module)
+type ChokidarModule = typeof import('chokidar')
+type FSWatcher = Awaited<ReturnType<ChokidarModule['watch']>>
 
 /**
  * Parse a command string that may contain arguments into separate command and args
@@ -228,6 +231,8 @@ export class McpHub {
   private async watchMcpSettingsFile(): Promise<void> {
     const settingsPath = await this.getMcpSettingsFilePath()
 
+    // Dynamic import for chokidar (ESM module)
+    const chokidar = await import('chokidar')
     this.settingsWatcher = chokidar.watch(settingsPath, {
       persistent: true, // Keep the process running as long as files are being watched
       ignoreInitial: true, // Don't fire 'add' events when discovering the file initially
@@ -839,7 +844,7 @@ export class McpHub {
           (async () => {
             try {
               if (config.type === 'stdio') {
-                this.setupFileWatcher(name, config)
+                await this.setupFileWatcher(name, config)
               }
               await this.connectToServer(name, config, 'internal')
             } catch (error) {
@@ -853,7 +858,7 @@ export class McpHub {
           (async () => {
             try {
               if (config.type === 'stdio') {
-                this.setupFileWatcher(name, config)
+                await this.setupFileWatcher(name, config)
               }
               await this.deleteConnection(name)
               await this.connectToServer(name, config, 'internal')
@@ -872,7 +877,7 @@ export class McpHub {
     this.isConnecting = false
   }
 
-  private setupFileWatcher(name: string, config: Extract<McpServerConfig, { type: 'stdio' }>) {
+  private async setupFileWatcher(name: string, config: Extract<McpServerConfig, { type: 'stdio' }>) {
     // Get the actual args to search for file paths
     // Handle both standard format (args array) and Cursor format (command with spaces)
     let argsToSearch: string[] = []
@@ -896,6 +901,8 @@ export class McpHub {
     const filePath = argsToSearch.find((arg: string) => arg.includes('build/index.js'))
     if (filePath) {
       // we use chokidar instead of onDidSaveTextDocument because it doesn't require the file to be open in the editor. The settings config is better suited for onDidSave since that will be manually updated by the user or Chaterm (and we want to detect save events, not every file change)
+      // Dynamic import for chokidar (ESM module)
+      const chokidar = await import('chokidar')
       const watcher = chokidar.watch(filePath, {
         // persistent: true,
         // ignoreInitial: true,
