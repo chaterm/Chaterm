@@ -253,7 +253,7 @@ const pluginMenuClick = (viewId: string) => {
     menu: viewId,
     type,
     beforeActive,
-    isPlugin: true // 标记为插件，通知父组件渲染 ExtensionViewHost
+    isPlugin: true
   })
 }
 const openAiRight = () => {

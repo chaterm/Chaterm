@@ -102,7 +102,6 @@ export function setupPluginIpc() {
     }
   })
 
-  // 写入文件
   ipcMain.handle('plugin:write-file', async (_event, { filePath, content }) => {
     try {
       const dir = path.dirname(filePath)

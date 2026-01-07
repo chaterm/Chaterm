@@ -307,7 +307,6 @@ export class Task {
       return new Promise<string>((resolve, reject) => {
         const outputLines: string[] = []
         let isCompleted = false
-        console.log(`[Terminal] 准备执行命令: ${command}，SessionId: ${terminalInfo.sessionId}`)
         const process = this.remoteTerminalManager.runCommand(terminalInfo, command, cwd)
         const timeout = setTimeout(() => {
           if (!isCompleted) {
@@ -315,14 +314,12 @@ export class Task {
             const result = outputLines.join('\n')
             resolve(result)
           }
-        }, 40000)
+        }, 10000)
         process.on('line', (line) => {
-          console.log('收到输出行:', line) // 加日志
           outputLines.push(line)
         })
 
         process.on('error', (error) => {
-          console.error('命令执行流错误:', error)
           reject(new Error(`Command execution failed: ${error.message}`))
           clearTimeout(timeout)
           if (!isCompleted) {
