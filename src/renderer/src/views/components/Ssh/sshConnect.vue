@@ -2252,8 +2252,9 @@ const handleServerOutput = (response: MarkedResponse) => {
 // Helper function to handle command output processing
 const handleCommandOutput = (data: string, isInitialCommand: boolean) => {
   const cleanOutput = stripAnsi(data)
-  const trimmedOutput = cleanOutput.trim()
-  commandOutput.value += trimmedOutput + '\n'
+  // Accumulate raw output without trimming each chunk to avoid splitting commands incorrectly
+  // Only normalize line endings, preserve the original structure
+  commandOutput.value += cleanOutput.replace(/\r\n/g, '\n').replace(/\r/g, '\n')
 
   // Detect SSH command prompt to determine if command output has ended.
   // For local connections, check the accumulated output instead of just the current chunk
@@ -2278,7 +2279,63 @@ const handleCommandOutput = (data: string, isInitialCommand: boolean) => {
       .split('\n')
       .filter((line) => line.trim())
 
-    const outputLines = lines.slice(1, -1)
+    // Helper function to detect if a line looks like part of a command echo
+    // Command echoes typically contain: pipes, command keywords, quotes, special shell characters
+    const isCommandEchoLine = (line: string): boolean => {
+      const trimmed = line.trim()
+      // Empty lines are not command echoes
+      if (!trimmed) return false
+
+      // Check for command continuation patterns (lines that start with special chars indicating continuation)
+      // Examples: ", $2}' | head -20", ",", "} |", etc.
+      if (/^[,}]\s*/.test(trimmed)) {
+        // Starts with comma or closing brace - likely a command continuation
+        return true
+      }
+
+      // Check for common command patterns
+      const commandPatterns = [
+        /\|\s*(head|tail|grep|awk|sed|sort|uniq|wc|cut|xargs)/i, // Pipe followed by command
+        /\b(awk|sed|grep|head|tail|cut|sort|uniq|wc|find|xargs|ifconfig|ls|cat|echo)\b.*\|/, // Command keyword followed by pipe
+        /['"].*['"]\s*\|/, // Quoted string followed by pipe
+        /\$\{/, // Variable expansion
+        /\/[^\/]*\/[gimsx]*\s*\{/, // Regex pattern with action
+        /^[^:]*:\s*$/, // Looks like a continuation (ends with colon and space)
+        /^[^a-zA-Z0-9]*['"}]/ // Starts with special chars and quotes/braces (likely continuation)
+      ]
+
+      // If line matches command patterns, it's likely a command echo
+      if (commandPatterns.some((pattern) => pattern.test(trimmed))) {
+        return true
+      }
+
+      // Lines that are very short (less than 5 chars) and contain only special characters/punctuation
+      // are likely command fragments (e.g., ",", "}", "|", etc.)
+      if (trimmed.length < 5 && /^[^a-zA-Z0-9:]*$/.test(trimmed.replace(/['"]/g, ''))) {
+        return true
+      }
+
+      return false
+    }
+
+    // Remove command echo lines from the beginning and prompt from the end
+    // Command may span multiple lines due to terminal width, so we need to remove all command lines
+    let startIndex = 0
+    let endIndex = lines.length
+
+    // Remove prompt from the end (last line that matches prompt pattern)
+    if (endIndex > 0 && isTerminalPromptLine(lines[endIndex - 1])) {
+      endIndex--
+    }
+
+    // Remove command echo lines from the beginning
+    // Keep removing lines that look like command echoes until we find actual output
+    while (startIndex < endIndex && isCommandEchoLine(lines[startIndex])) {
+      startIndex++
+    }
+
+    // Extract the actual output lines
+    const outputLines = lines.slice(startIndex, endIndex)
     const finalOutput = outputLines.join('\n').trim()
 
     if (finalOutput) {
