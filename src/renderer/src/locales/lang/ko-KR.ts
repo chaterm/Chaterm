@@ -1027,6 +1027,7 @@ export default {
       connectingToTarget: '대상 서버에 연결 중...',
       authenticating: '인증 중...',
       connectedToTarget: '대상 서버에 성공적으로 연결되었습니다. 작업을 시작할 수 있습니다',
+      assetNotFound: '자산이 존재하지 않습니다. 자산을 새로고침하세요.',
       reuseConnection: '기존 연결을 재사용하여 새 셸 세션을 생성 중...',
       mfaRequired: '2단계 인증이 필요합니다. 인증 코드를 입력해주세요...',
       mfaRetry: '인증 실패. 인증 코드를 다시 입력해주세요 ({attempt}/{max})...',

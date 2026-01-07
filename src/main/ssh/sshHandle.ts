@@ -21,6 +21,7 @@ try {
   packageInfo = { name: 'chaterm', version: 'unknown' }
 }
 import { createProxySocket } from './proxy'
+import { buildErrorResponse } from './jumpserver/errorUtils'
 
 import {
   jumpserverConnections,
@@ -798,7 +799,7 @@ export const registerSSHHandlers = () => {
         const result = await handleJumpServerConnection(connectionInfo, _event)
         return result
       } catch (error: unknown) {
-        return { status: 'error', message: error instanceof Error ? error.message : String(error) }
+        return buildErrorResponse(error)
       }
     } else {
       // Default to SSH connection

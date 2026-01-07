@@ -11,6 +11,7 @@ import type { JumpServerConnectionInfo } from './constants'
 import { MAX_JUMPSERVER_MFA_ATTEMPTS } from './constants'
 import { setupJumpServerInteraction } from './interaction'
 import { handleJumpServerKeyboardInteractive } from './mfa'
+import { buildErrorResponse } from './errorUtils'
 import path from 'path'
 import fs from 'fs'
 
@@ -313,7 +314,7 @@ export const registerJumpServerHandlers = () => {
     try {
       return await handleJumpServerConnection(connectionInfo, event)
     } catch (error: unknown) {
-      return { status: 'error', message: error instanceof Error ? error.message : String(error) }
+      return buildErrorResponse(error)
     }
   })
 

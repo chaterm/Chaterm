@@ -5,7 +5,7 @@ import { jumpserverConnections, jumpserverShellStreams, jumpserverConnectionStat
 import { createJumpServerExecStream, executeCommandOnJumpServerExec } from './streamManager'
 import { parseJumpServerUsers, hasUserSelectionPrompt } from './parser'
 import { handleJumpServerUserSelectionWithEvent } from './userSelection'
-import { hasPasswordPrompt, hasPasswordError, detectDirectConnectionReason } from './navigator'
+import { hasPasswordPrompt, hasPasswordError, detectDirectConnectionReason, hasNoAssetsPrompt, createNoAssetsError } from './navigator'
 import { JUMPSERVER_CONSTANTS } from './constants'
 
 const sendPasswordToStream = (stream: any, password: string, navigationPath: JumpServerNavigationPath, context: string = '') => {
@@ -38,6 +38,7 @@ export const setupJumpServerInteraction = (
   let outputBuffer = ''
   let connectionPhase: 'connecting' | 'inputIp' | 'selectUser' | 'inputPassword' | 'connected' = 'connecting'
   let connectionEstablished = false
+  let connectionFailed = false
 
   const navigationPath: JumpServerNavigationPath = {
     needsPassword: false
@@ -138,6 +139,21 @@ export const setupJumpServerInteraction = (
     }
 
     if (connectionPhase === 'inputIp') {
+      if (hasNoAssetsPrompt(outputBuffer)) {
+        console.log(`JumpServer asset not found for target IP: ${connectionInfo.targetIp}`)
+        connectionFailed = true
+        outputBuffer = ''
+        stream.end()
+
+        const hasOtherSessions = Array.from(jumpserverConnections.values()).some((item) => item.conn === conn)
+        if (!hasOtherSessions) {
+          conn.end()
+        }
+
+        reject(createNoAssetsError())
+        return
+      }
+
       if (hasUserSelectionPrompt(outputBuffer)) {
         console.log('Multiple user prompt detected, user selection required')
         sendStatusUpdate('Multiple user accounts detected, please select...', 'info', 'ssh.jumpserver.multipleUsersDetected')
@@ -277,7 +293,7 @@ export const setupJumpServerInteraction = (
     jumpserverLastCommand.delete(connectionId)
     jumpserverInputBuffer.delete(connectionId)
 
-    if (connectionPhase !== 'connected') {
+    if (connectionPhase !== 'connected' && !connectionFailed) {
       reject(new Error('Connection closed before completion'))
     }
   })

@@ -5,6 +5,7 @@ import tls from 'tls'
 import { getUserConfigFromRenderer } from '../../../index'
 import { createProxySocket } from '../../../ssh/proxy'
 import { parseJumpServerUsers, hasUserSelectionPrompt } from '../../../ssh/jumpserver/parser'
+import { hasNoAssetsPrompt, createNoAssetsError } from '../../../ssh/jumpserver/navigator'
 import { handleJumpServerUserSelectionWithWindow } from '../../../ssh/jumpserver/userSelection'
 import { jumpserverConnections as globalJumpserverConnections } from '../../../ssh/jumpserverHandle'
 
@@ -81,6 +82,7 @@ const initializeJumpServerShell = (
   console.log(`[JumpServer ${connectionId}] Shell created successfully, waiting for JumpServer menu`)
 
   let connectionEstablished = false
+  let connectionFailed = false
   let outputBuffer = ''
   let connectionPhase = 'connecting'
 
@@ -159,6 +161,21 @@ const initializeJumpServerShell = (
       outputBuffer = ''
       stream.write(connectionInfo.targetIp + '\r')
     } else if (connectionPhase === 'inputIp') {
+      if (hasNoAssetsPrompt(outputBuffer)) {
+        console.error(`[JumpServer ${connectionId}] Target asset not found for IP: ${connectionInfo.targetIp}`)
+        connectionFailed = true
+        outputBuffer = ''
+        if (connectionTimeout) {
+          clearTimeout(connectionTimeout)
+        }
+        stream.end()
+        if (connectionSource === 'agent') {
+          conn.end()
+        }
+        reject(createNoAssetsError())
+        return
+      }
+
       // Check if user selection is required
       if (hasUserSelectionPrompt(outputBuffer)) {
         console.log(`[JumpServer ${connectionId}] Detected multi-user prompt, user needs to select account`)
@@ -280,7 +297,7 @@ const initializeJumpServerShell = (
     jumpserverConnectionStatus.delete(connectionId)
     jumpserverLastCommand.delete(connectionId)
     jumpserverInputBuffer.delete(connectionId)
-    if (connectionPhase !== 'connected') {
+    if (connectionPhase !== 'connected' && !connectionFailed) {
       reject(new Error('Connection closed before completion'))
     }
   })
