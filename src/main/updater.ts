@@ -1,8 +1,8 @@
 import { ipcMain } from 'electron'
+// import { ipcMain, autoUpdater as nativeUpdater } from 'electron'
 import { autoUpdater } from 'electron-updater'
-import { getUpdateServerUrl } from './config/edition'
 
-export const registerUpdater = (targetWindow) => {
+export const registerUpdater = (targetWindow, setForceQuit: (value: boolean) => void) => {
   // Status
   const status = {
     error: -1,
@@ -14,14 +14,6 @@ export const registerUpdater = (targetWindow) => {
 
   autoUpdater.autoDownload = false
   autoUpdater.autoInstallOnAppQuit = false
-
-  // Configure update server based on edition
-  if (process.platform === 'darwin') {
-    autoUpdater.setFeedURL({
-      provider: 'generic',
-      url: getUpdateServerUrl()
-    })
-  }
 
   /**
    * Check for updates (connect to GitHub Releases)
@@ -52,6 +44,13 @@ export const registerUpdater = (targetWindow) => {
   })
 
   ipcMain.handle('update:quitAndInstall', async () => {
+    if (process.platform === 'darwin') {
+      setForceQuit(true)
+
+      // nativeUpdater.once('before-quit-for-update', () => {
+      //   app.exit()
+      // })
+    }
     return autoUpdater.quitAndInstall()
   })
 
@@ -109,6 +108,11 @@ export const registerUpdater = (targetWindow) => {
   })
 
   function sendStatusToWindow(content = {}) {
+    if (!targetWindow) return
+    if (targetWindow.isDestroyed()) return
+
+    const wc = targetWindow.webContents
+    if (!wc || wc.isDestroyed()) return
     const channel = 'update:autoUpdate'
     if (targetWindow) {
       targetWindow.webContents.send(channel, content)

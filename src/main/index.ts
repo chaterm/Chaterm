@@ -188,7 +188,7 @@ app.whenReady().then(async () => {
   registerSSHHandlers()
   registerLocalSSHHandlers()
   registerRemoteTerminalHandlers()
-  registerUpdater(mainWindow)
+  registerUpdater(mainWindow, (value) => (forceQuit = value))
 
   // Register K8s handlers
   registerK8sHandlers()
