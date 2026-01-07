@@ -12,7 +12,7 @@ import os from 'os'
 import crypto from 'crypto'
 import path from 'path'
 import fs from 'fs'
-import { getUserDataPath } from '../../../config/edition'
+import { getUserDataPath, getEdition } from '../../../config/edition'
 
 /**
  * PostHogClient handles telemetry event tracking for the Cline extension
@@ -153,7 +153,8 @@ class PostHogClient {
       const propertiesWithVersion = {
         ...event.properties,
         extension_version: this.version,
-        is_dev: process.env.IS_DEV
+        is_dev: process.env.IS_DEV,
+        edition: getEdition()
       }
       console.log('[PostHog] Capturing event properties:', propertiesWithVersion)
       this.client.capture({
