@@ -79,6 +79,7 @@ import { ChatermDatabaseService } from '../../../storage/db/chaterm.service'
 import type { McpTool } from '@shared/mcp'
 
 import type { Host } from '@shared/WebviewMessage'
+import { ExternalAssetCache } from '../../../plugin/pluginIpc'
 
 type ToolResponse = string | Array<Anthropic.TextBlockParam | Anthropic.ImageBlockParam>
 type UserContent = Array<Anthropic.ContentBlockParam>
@@ -306,6 +307,7 @@ export class Task {
       return new Promise<string>((resolve, reject) => {
         const outputLines: string[] = []
         let isCompleted = false
+        console.log(`[Terminal] 准备执行命令: ${command}，SessionId: ${terminalInfo.sessionId}`)
         const process = this.remoteTerminalManager.runCommand(terminalInfo, command, cwd)
         const timeout = setTimeout(() => {
           if (!isCompleted) {
@@ -313,12 +315,14 @@ export class Task {
             const result = outputLines.join('\n')
             resolve(result)
           }
-        }, 10000)
+        }, 40000)
         process.on('line', (line) => {
+          console.log('收到输出行:', line) // 加日志
           outputLines.push(line)
         })
 
         process.on('error', (error) => {
+          console.error('命令执行流错误:', error)
           reject(new Error(`Command execution failed: ${error.message}`))
           clearTimeout(timeout)
           if (!isCompleted) {
@@ -394,15 +398,20 @@ export class Task {
       return
     }
     const terminalUuid = targetHost.uuid
-
     try {
-      const connectionInfo = await connectAssetInfo(terminalUuid)
+      console.log('testAgentTerminal-terminalUuid', terminalUuid)
+      let connectionInfo = await connectAssetInfo(terminalUuid)
+      if (!connectionInfo) {
+        connectionInfo = ExternalAssetCache.get(terminalUuid)
+      }
+      console.log('testAgentTerminal-connectionInfo', connectionInfo)
       this.remoteTerminalManager.setConnectionInfo(connectionInfo)
 
       const hostLabel = connectionInfo?.host || targetHost.host || ip || 'unknown'
       // Create a unique connection identifier
       const currentConnectionId = `${connectionInfo.host}:${connectionInfo.port}:${connectionInfo.username}`
       const isNewConnection = !this.connectedHosts.has(currentConnectionId)
+      console.log('testAgentTerminal-isNewConnection', isNewConnection)
 
       // Check if this is an agent mode + local connection scenario that will fail
       const chatSettings = await getGlobalState('chatSettings')
@@ -425,6 +434,7 @@ export class Task {
           }
         })
       }
+      console.log('testAgentTerminal-createTerminal')
 
       terminalInfo = await this.remoteTerminalManager.createTerminal()
 

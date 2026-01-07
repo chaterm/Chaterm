@@ -61,6 +61,7 @@ export interface ConnectionInfo {
   needProxy: boolean
   proxyName?: string
   ident?: string
+  proxyCommand?: string
 }
 
 export interface RemoteTerminalInfo {
@@ -159,9 +160,9 @@ export class RemoteTerminalProcess extends BrownEventEmitter<RemoteTerminalProce
     this.sessionId = sessionId
     this.sshType = sshType || 'ssh'
     try {
-      if (sshType === 'jumpserver') {
+      if (this.sshType === 'jumpserver') {
         await this.runJumpServerCommand(sessionId, command, cwd)
-      } else if (sshType === 'ssh') {
+      } else if (this.sshType === 'ssh') {
         await this.runSshCommand(sessionId, command, cwd)
       }
     } catch (error) {
@@ -196,6 +197,7 @@ export class RemoteTerminalProcess extends BrownEventEmitter<RemoteTerminalProce
   private async runSshCommand(sessionId: string, command: string, cwd?: string): Promise<void> {
     const cleanCwd = cwd ? cwd.replace(/\x1B\[[^m]*m/g, '').replace(/\x1B\[[?][0-9]*[hl]/g, '') : undefined
     // Handle permission issues by using sudo when cd fails
+    console.log('runSshCommand:1', command)
     const commandToExecute = this.buildCommandWithWorkingDirectory(command, cleanCwd)
 
     let lineBuffer = ''
@@ -626,9 +628,9 @@ export class RemoteTerminalManager {
   setConnectionInfo(info: ConnectionInfo): void {
     const rawInfo = info as unknown as Record<string, unknown>
     const assetUuid =
-      info.assetUuid ??
-      (typeof rawInfo.organization_uuid === 'string' ? (rawInfo.organization_uuid as string) : undefined) ??
-      (typeof rawInfo.uuid === 'string' ? (rawInfo.uuid as string) : undefined)
+      info?.assetUuid ??
+      (typeof rawInfo?.organization_uuid === 'string' ? (rawInfo?.organization_uuid as string) : undefined) ??
+      (typeof rawInfo?.uuid === 'string' ? (rawInfo?.uuid as string) : undefined)
     this.connectionInfo = {
       ...info,
       assetUuid
@@ -735,6 +737,7 @@ export class RemoteTerminalManager {
       process.once('error', (error) => {
         reject(error)
       })
+      console.log('process.run:', command)
       process.run(terminalInfo.sessionId, command, cwd, terminalInfo.connectionInfo.sshType).catch(reject)
     })
     const result = mergeRemotePromise(process, promise)
