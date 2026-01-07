@@ -10,7 +10,7 @@
     "experimentalDecorators": true,
     "emitDecoratorMetadata": true,
     "sourceMap": true,
-    "moduleResolution": "node",
+    "moduleResolution": "bundler",
     "allowSyntheticDefaultImports": true,
     "esModuleInterop": true,
     "paths": {
