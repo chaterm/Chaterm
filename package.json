@@ -131,7 +131,7 @@
     "@types/node": "^25.0.3",
     "@types/uuid": "^10.0.0",
     "@types/ws": "^8.5.11",
-    "@vitejs/plugin-vue": "^5.2.4",
+    "@vitejs/plugin-vue": "^6.0.3",
     "@vitest/browser": "^4.0.16",
     "@vitest/browser-playwright": "^4.0.16",
     "@vitest/coverage-v8": "^4.0.16",
