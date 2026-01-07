@@ -1055,6 +1055,7 @@ export default {
       connectingToTarget: 'Connecting to target server...',
       authenticating: 'Authenticating...',
       connectedToTarget: 'Successfully connected to target server, you can start operating',
+      assetNotFound: 'Asset not found. Please refresh assets.',
       reuseConnection: 'Reusing existing connection, creating new shell session...',
       mfaRequired: 'Two-factor authentication required, please enter verification code...',
       mfaRetry: 'Verification failed, please re-enter verification code ({attempt}/{max})...',

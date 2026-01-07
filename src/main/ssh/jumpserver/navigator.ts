@@ -1,3 +1,5 @@
+import type { JumpServerErrorPayload } from './errorUtils'
+
 /**
  * JumpServer navigation helper functions
  * Extract common connection detection and state judgment logic
@@ -50,4 +52,21 @@ export const detectDirectConnectionReason = (text: string): string | null => {
   }
 
   return null
+}
+
+export const hasNoAssetsPrompt = (text: string): boolean => {
+  if (!text) return false
+  const normalized = text.toLowerCase()
+
+  if (normalized.includes('no assets')) {
+    return true
+  }
+
+  return text.includes('没有资产') || text.includes('資産なし') || text.includes('자산이 없')
+}
+
+export const createNoAssetsError = (): Error & JumpServerErrorPayload => {
+  const error = new Error('Asset not found, please refresh assets') as Error & JumpServerErrorPayload
+  error.messageKey = 'ssh.jumpserver.assetNotFound'
+  return error
 }

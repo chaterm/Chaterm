@@ -1199,7 +1199,8 @@ const connectSSH = async () => {
         terminal.value?.focus()
       }, 200)
     } else {
-      const errorMsg = formatStatusMessage(t('ssh.connectionFailed', { message: result.message }), 'error')
+      const resolvedMessage = result?.messageKey ? t(result.messageKey, result.messageParams || {}) : (result?.message as string)
+      const errorMsg = formatStatusMessage(t('ssh.connectionFailed', { message: resolvedMessage }), 'error')
       terminal.value?.writeln(errorMsg)
     }
   } catch (error: any) {
