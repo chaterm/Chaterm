@@ -39,6 +39,7 @@ import { getAllPluginVersions, installPlugin, listPlugins, PluginManifest, unins
 import { getPluginDetailsByName } from './plugin/pluginDetails'
 import { getActualTheme, loadUserTheme } from './themeManager'
 import { getLoginBaseUrl, getEdition, getProtocolPrefix, getProtocolName } from './config/edition'
+import { TelemetrySetting } from '@shared/TelemetrySetting'
 
 let mainWindow: BrowserWindow
 let COOKIE_URL = 'http://localhost'
@@ -262,9 +263,9 @@ app.whenReady().then(async () => {
 
   // Function to initialize telemetry setting
   const initializeTelemetrySetting = async () => {
-    let telemetrySetting
+    let telemetrySetting: TelemetrySetting
     try {
-      telemetrySetting = await getGlobalState('telemetrySetting')
+      telemetrySetting = (await getGlobalState('telemetrySetting')) || 'enabled'
     } catch (error) {
       telemetrySetting = 'enabled'
     }
