@@ -396,19 +396,16 @@ export class Task {
     }
     const terminalUuid = targetHost.uuid
     try {
-      console.log('testAgentTerminal-terminalUuid', terminalUuid)
       let connectionInfo = await connectAssetInfo(terminalUuid)
       if (!connectionInfo) {
         connectionInfo = ExternalAssetCache.get(terminalUuid)
       }
-      console.log('testAgentTerminal-connectionInfo', connectionInfo)
       this.remoteTerminalManager.setConnectionInfo(connectionInfo)
 
       const hostLabel = connectionInfo?.host || targetHost.host || ip || 'unknown'
       // Create a unique connection identifier
       const currentConnectionId = `${connectionInfo.host}:${connectionInfo.port}:${connectionInfo.username}`
       const isNewConnection = !this.connectedHosts.has(currentConnectionId)
-      console.log('testAgentTerminal-isNewConnection', isNewConnection)
 
       // Check if this is an agent mode + local connection scenario that will fail
       const chatSettings = await getGlobalState('chatSettings')
@@ -431,7 +428,6 @@ export class Task {
           }
         })
       }
-      console.log('testAgentTerminal-createTerminal')
 
       terminalInfo = await this.remoteTerminalManager.createTerminal()
 

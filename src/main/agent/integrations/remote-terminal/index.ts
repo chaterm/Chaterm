@@ -197,7 +197,6 @@ export class RemoteTerminalProcess extends BrownEventEmitter<RemoteTerminalProce
   private async runSshCommand(sessionId: string, command: string, cwd?: string): Promise<void> {
     const cleanCwd = cwd ? cwd.replace(/\x1B\[[^m]*m/g, '').replace(/\x1B\[[?][0-9]*[hl]/g, '') : undefined
     // Handle permission issues by using sudo when cd fails
-    console.log('runSshCommand:1', command)
     const commandToExecute = this.buildCommandWithWorkingDirectory(command, cleanCwd)
 
     let lineBuffer = ''
@@ -737,7 +736,6 @@ export class RemoteTerminalManager {
       process.once('error', (error) => {
         reject(error)
       })
-      console.log('process.run:', command)
       process.run(terminalInfo.sessionId, command, cwd, terminalInfo.connectionInfo.sshType).catch(reject)
     })
     const result = mergeRemotePromise(process, promise)
