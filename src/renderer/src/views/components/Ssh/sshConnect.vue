@@ -190,6 +190,9 @@ export interface sshConnectData {
   authType: string
   passphrase: string
   asset_type?: string
+  proxyCommand?: string
+  hostname?: string
+  host?: string
 }
 
 const handleRightClick = (event) => {
@@ -1120,16 +1123,25 @@ const connectSSH = async () => {
 
     const email = userInfoStore().userInfo.email
 
-    const orgType = props.serverInfo.organizationId === 'personal' ? 'local' : 'local-team'
-    const hostnameBase64 =
-      props.serverInfo.organizationId === 'personal' ? Base64Util.encode(assetInfo.asset_ip) : Base64Util.encode(assetInfo.hostname)
+    const connOrgType = props.serverInfo.organizationId === 'personal' ? 'local' : 'local-team'
+    const connConnectHost = assetInfo?.asset_ip || props.connectData.host || props.connectData.ip
+    const connUsername = assetInfo?.username || props.connectData.username
+    const connAssetIp = assetInfo?.asset_ip || props.connectData.host
+    const connHostname = assetInfo?.hostname || props.connectData.hostname
+    const connPort = assetInfo?.port || props.connectData.port
+    const connHost = assetInfo?.host || props.connectData.host
+    const connPassword = assetInfo?.password || props.connectData.password
+    const connSshType = assetInfo?.sshType || 'ssh'
+    const connAssetType = assetInfo?.asset_type || ''
+
+    const hostnameBase64 = props.serverInfo.organizationId === 'personal' ? Base64Util.encode(connAssetIp) : Base64Util.encode(connHostname)
 
     const sessionId = uuidv4() // Different for each tab
-    const jumpserverUuid = assetInfo.organization_uuid || props.connectData.uuid
+    const jumpserverUuid = assetInfo?.organization_uuid || props.connectData.uuid
 
-    connectionId.value = `${assetInfo.username}@${props.connectData.ip}:${orgType}:${hostnameBase64}:${sessionId}`
+    connectionId.value = `${connUsername}@${props.connectData.ip}:${connOrgType}:${hostnameBase64}:${sessionId}`
 
-    if (assetInfo.sshType === 'jumpserver' && terminal.value) {
+    if (connSshType === 'jumpserver' && terminal.value) {
       jumpServerStatusHandler = createJumpServerStatusHandler(terminal.value, connectionId.value, translateJumpServerStatus)
       jumpServerStatusHandler.setupStatusListener(api)
     }
@@ -1139,23 +1151,24 @@ const connectSSH = async () => {
     const connData: any = {
       id: connectionId.value, // Session ID (unique for each tab)
       assetUuid: jumpserverUuid, // JumpServer UUID (for connection pool reuse)
-      host: assetInfo.asset_ip,
-      port: assetInfo.port,
-      username: assetInfo.username,
-      password: assetInfo.password,
+      host: connConnectHost,
+      port: connPort,
+      username: connUsername,
+      password: connPassword,
       privateKey: privateKey.value,
       passphrase: passphrase.value,
-      targetIp: assetInfo.host,
-      sshType: assetInfo.sshType,
+      targetIp: connHost,
+      sshType: connSshType,
       terminalType: config.terminalType,
       agentForward: config.sshAgentsStatus === 1,
       isOfficeDevice: isOfficeDevice.value,
       connIdentToken: jmsToken.value || '',
-      asset_type: assetInfo.asset_type // Pass asset_type to main process for switch handling
+      asset_type: connAssetType, // Pass asset_type to main process for switch handling
+      proxyCommand: props.connectData.proxyCommand || ''
     }
-    connData.needProxy = assetInfo.need_proxy === 1 || false
+    connData.needProxy = assetInfo?.need_proxy === 1 || false
     if (connData.needProxy) {
-      connData.proxyConfig = config.sshProxyConfigs.find((item) => item.name === assetInfo.proxy_name)
+      connData.proxyConfig = config.sshProxyConfigs.find((item) => item.name === assetInfo?.proxy_name)
     }
 
     const result = await api.connect(connData)
@@ -1165,7 +1178,7 @@ const connectSSH = async () => {
       jumpServerStatusHandler = null
     }
 
-    const isSwitchDevice = assetInfo.asset_type?.startsWith('person-switch-') ?? false
+    const isSwitchDevice = connAssetType?.startsWith('person-switch-') ?? false
     if (isSwitchDevice) {
       connectionHasSudo.value = false
       getCmdList([])

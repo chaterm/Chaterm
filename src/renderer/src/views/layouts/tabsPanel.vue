@@ -55,6 +55,12 @@
           <AssetConfig v-if="localTab.content === 'assetConfig'" />
           <KeyChainConfig v-if="localTab.content === 'keyChainConfig'" />
           <McpConfigEditor v-if="localTab.content === 'mcpConfigEditor'" />
+          <CommonConfigEditor
+            v-if="localTab.content === 'CommonConfigEditor' && localTab.props"
+            :file-path="localTab.props.filePath || ''"
+            :plugin-id="localTab.props.pluginId || ''"
+            :initial-content="localTab.props.initialContent || ''"
+          />
           <SecurityConfigEditor v-if="localTab.content === 'securityConfigEditor'" />
           <KeywordHighlightEditor v-if="localTab.content === 'keywordHighlightEditor'" />
           <PluginDetail
@@ -81,6 +87,7 @@ import SshConnect from '@views/components/Ssh/sshConnect.vue'
 import Files from '@views/components/Files/index.vue'
 import Kubernetes from '@views/components/Kubernetes/index.vue'
 import McpConfigEditor from '@views/components/McpConfigEditor/index.vue'
+import CommonConfigEditor from '@views/components/CommonConfigEditor/index.vue'
 import SecurityConfigEditor from '@views/components/SecurityConfigEditor/index.vue'
 import KeywordHighlightEditor from '@views/components/KeywordHighlightEditor/index.vue'
 import PluginDetail from '@views/components/Extensions/pluginDetail.vue'
@@ -98,6 +105,8 @@ interface TabItem {
   props?: {
     pluginId: string
     fromLocal?: boolean
+    filePath?: string
+    initialContent?: string
   }
   closeCurrentPanel?: (panelId?: string) => void
   createNewPanel?: (isClone: boolean, direction: string, panelId?: string) => void

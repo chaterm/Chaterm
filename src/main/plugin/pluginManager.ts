@@ -11,6 +11,13 @@ export interface PluginManifest {
   main: string
   icon?: string
   type?: string
+  contributes?: {
+    views?: Array<{
+      id: string
+      name: string
+      icon?: string
+    }>
+  }
 }
 
 export interface InstalledPlugin {

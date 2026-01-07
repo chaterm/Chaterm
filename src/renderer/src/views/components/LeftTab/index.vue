@@ -75,7 +75,33 @@
           />
         </p>
       </a-tooltip>
+
+      <a-tooltip
+        v-for="view in pluginViews"
+        :key="view.id"
+        :title="view.name"
+        placement="right"
+        :mouse-enter-delay="3"
+      >
+        <p
+          class="term_menu"
+          :class="{ active: activeKey === view.id }"
+          @click="pluginMenuClick(view.id)"
+        >
+          <img
+            v-if="view.icon.includes('/')"
+            :src="view.icon"
+            alt=""
+          />
+          <i
+            v-else
+            :class="view.icon"
+            class="plugin-icon"
+          ></i>
+        </p>
+      </a-tooltip>
     </div>
+
     <div class="bottom-menu">
       <a-tooltip
         v-for="i in menuTabsData.slice(-3)"
@@ -121,6 +147,7 @@
         </div>
       </a-tooltip>
     </div>
+
     <div
       v-if="showUserMenu"
       class="user-menu"
@@ -146,6 +173,7 @@
     </div>
   </div>
 </template>
+
 <script setup lang="ts">
 import { removeToken } from '@/utils/permission'
 const snippetsIcon = new URL('@/assets/menu/snippet.svg', import.meta.url).href
@@ -162,7 +190,7 @@ import { dataSyncService } from '@/services/dataSyncService'
 import { getDocsBaseUrl } from '@/utils/edition'
 
 let storageEventHandler: ((e: StorageEvent) => void) | null = null
-
+const pluginViews = ref<any[]>([])
 const keychainConfigClick = () => {
   emit('open-user-tab', 'keyChainConfig')
 }
@@ -204,10 +232,30 @@ const menuClick = (key) => {
   emit('toggle-menu', {
     menu: activeKey.value,
     type,
-    beforeActive
+    beforeActive,
+    isPlugin: false
   })
 }
 
+const pluginMenuClick = (viewId: string) => {
+  let type = ''
+  let beforeActive = activeKey.value
+
+  if (activeKey.value === viewId) {
+    type = 'same'
+  } else {
+    type = 'dif'
+    userStore.updateStashMenu(activeKey.value)
+    activeKey.value = viewId
+  }
+
+  emit('toggle-menu', {
+    menu: viewId,
+    type,
+    beforeActive,
+    isPlugin: true
+  })
+}
 const openAiRight = () => {
   let type = ''
   let beforeActive = ''
@@ -283,12 +331,27 @@ const logout = async () => {
 
   showUserMenu.value = false
 }
-onMounted(() => {
+const api = (window as any).api
+
+const refreshPluginViews = async () => {
+  const views = await api.getPluginViews()
+  pluginViews.value = views
+}
+
+onMounted(async () => {
   eventBus.on('openAiRight', openAiRight)
   eventBus.on('openUserTab', (tab) => {
     emit('open-user-tab', tab)
   })
-
+  try {
+    const views = await api.getPluginViews()
+    pluginViews.value = views
+  } catch (e) {
+    console.error('Get View Error', e)
+  }
+  api.onPluginMetadataChanged(async () => {
+    await refreshPluginViews()
+  })
   storageEventHandler = (e: StorageEvent) => {
     if (e.key === 'login-skipped') {
       isSkippedLogin.value = e.newValue === 'true'

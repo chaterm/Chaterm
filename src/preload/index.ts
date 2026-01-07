@@ -937,6 +937,57 @@ const api = {
   getInstallHint(pluginId: string) {
     return ipcRenderer.invoke('plugins:get-install-hint', pluginId)
   },
+  getPluginViews: () => ipcRenderer.invoke('plugin:get-views'),
+
+  // Obtain detailed configuration of the view
+  getViewMetadata: (viewId: string) => ipcRenderer.invoke('plugin:get-view-metadata', viewId),
+  onPluginMetadataChanged: (callback) => {
+    const listener = () => callback()
+    ipcRenderer.on('plugin:metadata-changed', listener)
+    return () => ipcRenderer.removeListener('plugin:metadata-changed', listener)
+  },
+
+  // Request the plugin to provide tree node data
+  getTreeNodes: (params: { viewId: string; element?: any }) => ipcRenderer.invoke('plugin:get-tree-nodes', params),
+
+  // Retrieve all context variables currently in memory (for initializing ExtensionViewHost)
+  getAllContexts: () => ipcRenderer.invoke('plugin:get-all-contexts'),
+
+  // Monitor context changes pushed by the main process
+  onContextUpdate: (callback: (data: { key: string; value: any }) => void) => {
+    const subscription = (_event: any, data: any) => callback(data)
+    ipcRenderer.on('plugin:context-changed', subscription)
+    return () => ipcRenderer.removeListener('plugin:context-changed', subscription)
+  },
+
+  // Monitor refresh view instructions from the plugin or main process
+  onRefreshView: (viewId: string, callback: () => void) => {
+    const channel = `plugin:refresh-view:${viewId}`
+    const subscription = () => callback()
+    ipcRenderer.on(channel, subscription)
+    return () => ipcRenderer.removeListener(channel, subscription)
+  },
+
+  readFile: (filePath: string) => ipcRenderer.invoke('plugin:read-file', filePath),
+
+  writeFile: (filePath: string, content: string) => ipcRenderer.invoke('plugin:write-file', { filePath, content }),
+
+  // Execute the command for plugin registration or the host core command
+  executeCommand: (commandId: string, ...args: any[]) =>
+    ipcRenderer.invoke('plugin:execute-command', { commandId, args: args.length === 1 ? args[0] : args }),
+
+  // Listen for the "Open Editor" request
+  onOpenEditorRequest: (callback: (params: any) => void) => {
+    const subscription = (_event: any, params: any) => callback(params)
+    ipcRenderer.on('plugin:open-editor-request', subscription)
+    return () => ipcRenderer.removeListener('plugin:open-editor-request', subscription)
+  },
+  // Listen for the "Open User Tab" request
+  onOpenUserTabRequest: (callback: (params: any) => void) => {
+    const subscription = (_event: any, params: any) => callback(params)
+    ipcRenderer.on('plugin:open-user-tab-request', subscription)
+    return () => ipcRenderer.removeListener('plugin:open-user-tab-request', subscription)
+  },
   // XTS file parsing
   parseXtsFile: (data: { data: number[]; fileName: string }) => ipcRenderer.invoke('parseXtsFile', data),
 

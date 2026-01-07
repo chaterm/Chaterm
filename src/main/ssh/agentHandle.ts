@@ -2,7 +2,7 @@ import { ipcMain } from 'electron'
 import { Client, ConnectConfig } from 'ssh2'
 import { ConnectionInfo } from '../agent/integrations/remote-terminal'
 import { createProxySocket } from './proxy'
-import { getReusableSshConnection, registerReusableSshSession, releaseReusableSshSession } from './sshHandle'
+import { createProxyCommandSocket, getReusableSshConnection, registerReusableSshSession, releaseReusableSshSession } from './sshHandle'
 import { LEGACY_ALGORITHMS } from './algorithms'
 import net from 'net'
 import tls from 'tls'
@@ -42,7 +42,10 @@ export async function remoteSshConnect(connectionInfo: ConnectionInfo): Promise<
   }
 
   let sock: net.Socket | tls.TLSSocket
-  if (connectionInfo.needProxy) {
+
+  if (connectionInfo.proxyCommand) {
+    sock = await createProxyCommandSocket(connectionInfo.proxyCommand, connectionInfo.host || '', port || 22)
+  } else if (connectionInfo.needProxy) {
     const cfg = await getUserConfigFromRenderer()
     if (connectionInfo.proxyName) {
       const proxyConfig = cfg.sshProxyConfigs.find((item) => item.name === connectionInfo.proxyName)
@@ -100,7 +103,7 @@ export async function remoteSshConnect(connectionInfo: ConnectionInfo): Promise<
 
     connectConfig.ident = connectionInfo.ident
 
-    if (connectionInfo.needProxy) {
+    if (connectionInfo.needProxy || connectionInfo.proxyCommand) {
       connectConfig.sock = sock
     }
 

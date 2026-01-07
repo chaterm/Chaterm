@@ -1,6 +1,8 @@
 import { BrowserWindow, dialog, ipcMain } from 'electron'
 import { Client } from 'ssh2'
 import type { SFTPWrapper } from 'ssh2'
+import { spawn } from 'child_process'
+import { Duplex } from 'stream'
 
 const { app } = require('electron')
 const appPath = app.getAppPath()
@@ -419,9 +421,98 @@ export const attemptSecondaryConnection = async (event, connectionInfo, ident) =
   conn.connect(connectConfig)
 }
 
+function splitCommand(cmd: string): string[] {
+  return cmd.match(/(?:[^\s"]+|"[^"]*")+/g)?.map((s) => s.replace(/^"(.*)"$/, '$1')) || []
+}
+
+export async function createProxyCommandSocket(commandStr: string, host: string, port: number): Promise<any> {
+  const replaced = commandStr.replace(/%h/g, host).replace(/%p/g, String(port))
+
+  // Use shell: true to handle cmd.exe /c command under Windows
+  const isWindowsCmd = process.platform === 'win32' && replaced.trim().startsWith('cmd.exe /c')
+
+  let proc
+  if (isWindowsCmd) {
+    proc = spawn(replaced, [], {
+      stdio: ['pipe', 'pipe', 'inherit'],
+      windowsHide: true,
+      shell: true
+    })
+  } else {
+    // segmentation parameters
+    const [cmd, ...args] = splitCommand(replaced)
+    proc = spawn(cmd, args, {
+      stdio: ['pipe', 'pipe', 'inherit'],
+      windowsHide: true
+    })
+  }
+
+  // Create bidirectional packaging flow
+  const socketProxy = new Duplex({
+    read() {
+      /* No-op: Data is pushed externally from process stdout */
+    },
+    write(chunk, encoding, callback) {
+      if (proc.stdin && proc.stdin.writable) {
+        proc.stdin.write(chunk, encoding, callback)
+      } else {
+        callback(new Error('ProxyCommand stdin is not writable'))
+      }
+    }
+  })
+
+  // Bridge the stdout data of the child process to the wrapper stream
+  proc.stdout.on('data', (chunk) => {
+    if (!socketProxy.push(chunk)) {
+      proc.stdout.pause()
+    }
+  })
+
+  // backpressure handling
+  socketProxy.on('drain', () => {
+    if (proc.stdout.isPaused()) {
+      proc.stdout.resume()
+    }
+  })
+
+  const cleanup = () => {
+    if (proc && !proc.killed) proc.kill()
+    if (!socketProxy.destroyed) socketProxy.destroy()
+  }
+
+  proc.stdout.on('end', () => socketProxy.push(null))
+  proc.on('error', (err) => socketProxy.emit('error', err))
+  proc.on('exit', (code) => {
+    if (code !== 0 && code !== null) {
+      socketProxy.emit('error', new Error(`Exit code ${code}`))
+    }
+  })
+
+  socketProxy.on('close', cleanup)
+  socketProxy.on('finish', () => {
+    if (proc.stdin && proc.stdin.writable) proc.stdin.end()
+  })
+  ;(socketProxy as any).writable = true
+  ;(socketProxy as any).readable = true
+
+  return socketProxy
+}
 const handleAttemptConnection = async (event, connectionInfo, resolve, reject, retryCount) => {
-  const { id, host, port, username, password, privateKey, passphrase, agentForward, needProxy, proxyConfig, connIdentToken, asset_type } =
-    connectionInfo
+  const {
+    id,
+    host,
+    port,
+    username,
+    password,
+    privateKey,
+    passphrase,
+    agentForward,
+    needProxy,
+    proxyConfig,
+    connIdentToken,
+    asset_type,
+    proxyCommand
+  } = connectionInfo
   retryCount++
 
   connectionStatus.set(id, { isVerified: false }) // Update connection status
@@ -526,9 +617,6 @@ const handleAttemptConnection = async (event, connectionInfo, resolve, reject, r
     readyTimeout: KeyboardInteractiveTimeout, // Connection timeout, 30 seconds
     algorithms
   }
-  if (needProxy) {
-    connectConfig.sock = await createProxySocket(proxyConfig, host, port)
-  }
 
   connectConfig.ident = ident
 
@@ -569,6 +657,19 @@ const handleAttemptConnection = async (event, connectionInfo, resolve, reject, r
     } else {
       reject(new Error('No valid authentication method provided'))
       return
+    }
+
+    try {
+      if (proxyCommand) {
+        connectConfig.sock = await createProxyCommandSocket(proxyCommand, host, port || 22)
+        delete connectConfig.host
+        delete connectConfig.port
+      } else if (needProxy) {
+        connectConfig.sock = await createProxySocket(proxyConfig, host, port)
+      }
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : String(err)
+      return reject(new Error(`Failed to establish a transport layer tunnel: ${errorMessage}`))
     }
     conn.connect(connectConfig) // Attempt to connect
   } catch (err) {
