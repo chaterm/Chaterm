@@ -128,7 +128,7 @@
     "@rushstack/eslint-patch": "^1.7.1",
     "@types/clone-deep": "^4.0.4",
     "@types/get-folder-size": "^3.0.4",
-    "@types/node": "^20.19.0",
+    "@types/node": "^25.0.3",
     "@types/uuid": "^10.0.0",
     "@types/ws": "^8.5.11",
     "@vitejs/plugin-vue": "^5.2.4",
