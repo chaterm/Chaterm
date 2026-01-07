@@ -558,6 +558,24 @@ export function useChatMessages(
     return !!currentTab.value?.session.messageFeedbacks[messageId]
   }
 
+  /**
+   * Handle edit and resend from UserMessage
+   */
+  const handleTruncateAndSend = async ({ message, newContent }: { message: ChatMessage; newContent: string }) => {
+    if (!currentSession.value) return
+
+    const chatHistory = currentSession.value.chatHistory
+
+    const index = chatHistory.findIndex((m) => m.id === message.id)
+    if (index === -1) return
+
+    const truncateAtMessageTs = message.ts
+
+    chatHistory.splice(index)
+
+    await sendMessageWithContent(newContent, 'send', undefined, truncateAtMessageTs)
+  }
+
   return {
     markdownRendererRefs,
     isCurrentChatMessage,
@@ -574,6 +592,7 @@ export function useChatMessages(
     formatParamValue,
     cleanupPartialCommandMessages,
     isLocalHost,
-    updateCwdForAllHosts
+    updateCwdForAllHosts,
+    handleTruncateAndSend
   }
 }
