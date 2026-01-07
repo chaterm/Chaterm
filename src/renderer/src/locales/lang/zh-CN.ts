@@ -1048,6 +1048,7 @@ export default {
       connectingToTarget: '正在连接目标服务器...',
       authenticating: '正在认证...',
       connectedToTarget: '已成功连接目标服务器，可以开始操作',
+      assetNotFound: '资产不存在，请刷新资产。',
       reuseConnection: '正在复用已有连接，创建新的 Shell 会话...',
       mfaRequired: '需要双重认证，请输入验证码...',
       mfaRetry: '验证失败，请重新输入验证码（{attempt}/{max}）...',

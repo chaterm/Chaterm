@@ -1051,6 +1051,7 @@ export default {
       connectingToTarget: 'ターゲットサーバーに接続中...',
       authenticating: '認証中...',
       connectedToTarget: 'ターゲットサーバーに接続しました。操作を開始できます',
+      assetNotFound: '資産が見つかりません。資産を更新してください。',
       reuseConnection: '既存の接続を再利用し、新しいシェルセッションを作成中...',
       mfaRequired: '二要素認証が必要です。認証コードを入力してください...',
       mfaRetry: '認証に失敗しました。認証コードを再入力してください（{attempt}/{max}）...',
