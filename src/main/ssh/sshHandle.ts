@@ -438,6 +438,16 @@ export async function createProxyCommandSocket(commandStr: string, host: string,
       windowsHide: true,
       shell: true
     })
+  } else if (replaced.trim().startsWith('sh -c ')) {
+    let cmdString = replaced.trim().slice(6).trim()
+
+    if ((cmdString.startsWith('"') && cmdString.endsWith('"')) || (cmdString.startsWith("'") && cmdString.endsWith("'"))) {
+      cmdString = cmdString.slice(1, -1)
+    }
+    proc = spawn('sh', ['-c', cmdString], {
+      stdio: ['pipe', 'pipe', 'inherit'],
+      windowsHide: true
+    })
   } else {
     // segmentation parameters
     const [cmd, ...args] = splitCommand(replaced)
