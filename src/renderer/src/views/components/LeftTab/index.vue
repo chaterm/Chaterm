@@ -20,10 +20,10 @@
           />
         </p>
         <p
-          v-else-if="i.key === 'keychain'"
+          v-else-if="i.key === 'assets'"
           class="term_menu"
           :class="{ active: activeKey === i.key }"
-          @click="keychainConfigClick"
+          @click="menuClick(i.key)"
         >
           <img
             :src="i.icon"
@@ -37,7 +37,7 @@
           @click="menuClick(i.key)"
         >
           <img
-            :src="snippetsIcon"
+            :src="i.icon"
             alt=""
           />
         </p>
@@ -46,17 +46,6 @@
           class="term_menu"
           :class="{ active: activeKey === i.key }"
           @click="kubernetes"
-        >
-          <img
-            :src="i.icon"
-            alt=""
-          />
-        </p>
-        <p
-          v-else-if="i.key === 'doc'"
-          class="term_menu"
-          :class="{ active: activeKey === i.key }"
-          @click="openDocumentation"
         >
           <img
             :src="i.icon"
@@ -176,7 +165,6 @@
 
 <script setup lang="ts">
 import { removeToken } from '@/utils/permission'
-const snippetsIcon = new URL('@/assets/menu/snippet.svg', import.meta.url).href
 const emit = defineEmits(['toggle-menu', 'open-user-tab'])
 import { menuTabsData } from './constants/data'
 import { onMounted, onUnmounted, ref } from 'vue'
@@ -187,18 +175,8 @@ import { pinia } from '@/main'
 import eventBus from '@/utils/eventBus'
 import { shortcutService } from '@/services/shortcutService'
 import { dataSyncService } from '@/services/dataSyncService'
-import { getDocsBaseUrl } from '@/utils/edition'
-
 let storageEventHandler: ((e: StorageEvent) => void) | null = null
 const pluginViews = ref<any[]>([])
-const keychainConfigClick = () => {
-  emit('open-user-tab', 'keyChainConfig')
-}
-
-const openDocumentation = () => {
-  const baseUrl = getDocsBaseUrl()
-  window.open(`${baseUrl}/`, '_blank')
-}
 const userStore = userInfoStore(pinia)
 const activeKey = ref('workspace')
 const showUserMenu = ref<boolean>(false)
@@ -223,10 +201,6 @@ const menuClick = (key) => {
     type = 'dif'
     userStore.updateStashMenu(activeKey.value)
     activeKey.value = key
-  }
-
-  if (key === 'keychain') {
-    emit('open-user-tab', 'keyChainConfig')
   }
 
   emit('toggle-menu', {
