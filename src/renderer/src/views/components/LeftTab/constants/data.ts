@@ -43,11 +43,11 @@ const menuTabsData = [
     name: 'Setting',
     key: 'setting',
     icon: new URL('@/assets/menu/setting.svg', import.meta.url).href
-  },
-  {
-    name: 'Notice',
-    key: 'notice',
-    icon: new URL('@/assets/menu/notice.svg', import.meta.url).href
   }
+  // {
+  //   name: 'Notice',
+  //   key: 'notice',
+  //   icon: new URL('@/assets/menu/notice.svg', import.meta.url).href
+  // }
 ]
 export { menuTabsData }
