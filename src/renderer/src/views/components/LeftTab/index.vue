@@ -397,7 +397,7 @@ onUnmounted(() => {
 
   .user-menu {
     position: absolute;
-    bottom: 120px;
+    bottom: 40px;
     left: 40px;
     background: var(--bg-color-secondary);
     border-radius: 8px;
