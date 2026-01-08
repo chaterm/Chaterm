@@ -2,11 +2,11 @@
   <div class="term_left_tab">
     <div class="main-menu">
       <a-tooltip
-        v-for="i in menuTabsData.slice(0, -3)"
+        v-for="i in menuTabsData.slice(0, -2)"
         :key="i.key"
         :title="i.name"
         placement="right"
-        :mouse-enter-delay="3"
+        :mouse-enter-delay="1"
       >
         <p
           v-if="i.key === 'files'"
@@ -20,10 +20,10 @@
           />
         </p>
         <p
-          v-else-if="i.key === 'keychain'"
+          v-else-if="i.key === 'assets'"
           class="term_menu"
           :class="{ active: activeKey === i.key }"
-          @click="keychainConfigClick"
+          @click="menuClick(i.key)"
         >
           <img
             :src="i.icon"
@@ -37,7 +37,7 @@
           @click="menuClick(i.key)"
         >
           <img
-            :src="snippetsIcon"
+            :src="i.icon"
             alt=""
           />
         </p>
@@ -46,17 +46,6 @@
           class="term_menu"
           :class="{ active: activeKey === i.key }"
           @click="kubernetes"
-        >
-          <img
-            :src="i.icon"
-            alt=""
-          />
-        </p>
-        <p
-          v-else-if="i.key === 'doc'"
-          class="term_menu"
-          :class="{ active: activeKey === i.key }"
-          @click="openDocumentation"
         >
           <img
             :src="i.icon"
@@ -75,13 +64,39 @@
           />
         </p>
       </a-tooltip>
+
+      <a-tooltip
+        v-for="view in pluginViews"
+        :key="view.id"
+        :title="view.name"
+        placement="right"
+        :mouse-enter-delay="1"
+      >
+        <p
+          class="term_menu"
+          :class="{ active: activeKey === view.id }"
+          @click="pluginMenuClick(view.id)"
+        >
+          <img
+            v-if="view.icon.includes('/')"
+            :src="view.icon"
+            alt=""
+          />
+          <i
+            v-else
+            :class="view.icon"
+            class="plugin-icon"
+          ></i>
+        </p>
+      </a-tooltip>
     </div>
+
     <div class="bottom-menu">
       <a-tooltip
-        v-for="i in menuTabsData.slice(-3)"
+        v-for="i in menuTabsData.slice(-2)"
         :key="i.key"
         :title="i.name"
-        :mouse-enter-delay="3"
+        :mouse-enter-delay="1"
       >
         <div v-if="i.key === 'user'">
           <p
@@ -121,6 +136,7 @@
         </div>
       </a-tooltip>
     </div>
+
     <div
       v-if="showUserMenu"
       class="user-menu"
@@ -146,9 +162,9 @@
     </div>
   </div>
 </template>
+
 <script setup lang="ts">
 import { removeToken } from '@/utils/permission'
-const snippetsIcon = new URL('@/assets/menu/snippet.svg', import.meta.url).href
 const emit = defineEmits(['toggle-menu', 'open-user-tab'])
 import { menuTabsData } from './constants/data'
 import { onMounted, onUnmounted, ref } from 'vue'
@@ -159,18 +175,8 @@ import { pinia } from '@/main'
 import eventBus from '@/utils/eventBus'
 import { shortcutService } from '@/services/shortcutService'
 import { dataSyncService } from '@/services/dataSyncService'
-import { getDocsBaseUrl } from '@/utils/edition'
-
 let storageEventHandler: ((e: StorageEvent) => void) | null = null
-
-const keychainConfigClick = () => {
-  emit('open-user-tab', 'keyChainConfig')
-}
-
-const openDocumentation = () => {
-  const baseUrl = getDocsBaseUrl()
-  window.open(`${baseUrl}/`, '_blank')
-}
+const pluginViews = ref<any[]>([])
 const userStore = userInfoStore(pinia)
 const activeKey = ref('workspace')
 const showUserMenu = ref<boolean>(false)
@@ -197,17 +203,33 @@ const menuClick = (key) => {
     activeKey.value = key
   }
 
-  if (key === 'keychain') {
-    emit('open-user-tab', 'keyChainConfig')
-  }
-
   emit('toggle-menu', {
     menu: activeKey.value,
     type,
-    beforeActive
+    beforeActive,
+    isPlugin: false
   })
 }
 
+const pluginMenuClick = (viewId: string) => {
+  let type = ''
+  let beforeActive = activeKey.value
+
+  if (activeKey.value === viewId) {
+    type = 'same'
+  } else {
+    type = 'dif'
+    userStore.updateStashMenu(activeKey.value)
+    activeKey.value = viewId
+  }
+
+  emit('toggle-menu', {
+    menu: viewId,
+    type,
+    beforeActive,
+    isPlugin: true
+  })
+}
 const openAiRight = () => {
   let type = ''
   let beforeActive = ''
@@ -283,12 +305,27 @@ const logout = async () => {
 
   showUserMenu.value = false
 }
-onMounted(() => {
+const api = (window as any).api
+
+const refreshPluginViews = async () => {
+  const views = await api.getPluginViews()
+  pluginViews.value = views
+}
+
+onMounted(async () => {
   eventBus.on('openAiRight', openAiRight)
   eventBus.on('openUserTab', (tab) => {
     emit('open-user-tab', tab)
   })
-
+  try {
+    const views = await api.getPluginViews()
+    pluginViews.value = views
+  } catch (e) {
+    console.error('Get View Error', e)
+  }
+  api.onPluginMetadataChanged(async () => {
+    await refreshPluginViews()
+  })
   storageEventHandler = (e: StorageEvent) => {
     if (e.key === 'login-skipped') {
       isSkippedLogin.value = e.newValue === 'true'
@@ -360,7 +397,7 @@ onUnmounted(() => {
 
   .user-menu {
     position: absolute;
-    bottom: 120px;
+    bottom: 40px;
     left: 40px;
     background: var(--bg-color-secondary);
     border-radius: 8px;

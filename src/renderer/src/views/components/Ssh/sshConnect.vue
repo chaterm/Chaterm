@@ -190,6 +190,9 @@ export interface sshConnectData {
   authType: string
   passphrase: string
   asset_type?: string
+  proxyCommand?: string
+  hostname?: string
+  host?: string
 }
 
 const handleRightClick = (event) => {
@@ -1120,16 +1123,25 @@ const connectSSH = async () => {
 
     const email = userInfoStore().userInfo.email
 
-    const orgType = props.serverInfo.organizationId === 'personal' ? 'local' : 'local-team'
-    const hostnameBase64 =
-      props.serverInfo.organizationId === 'personal' ? Base64Util.encode(assetInfo.asset_ip) : Base64Util.encode(assetInfo.hostname)
+    const connOrgType = props.serverInfo.organizationId === 'personal' ? 'local' : 'local-team'
+    const connConnectHost = assetInfo?.asset_ip || props.connectData.host || props.connectData.ip
+    const connUsername = assetInfo?.username || props.connectData.username
+    const connAssetIp = assetInfo?.asset_ip || props.connectData.host
+    const connHostname = assetInfo?.hostname || props.connectData.hostname
+    const connPort = assetInfo?.port || props.connectData.port
+    const connHost = assetInfo?.host || props.connectData.host
+    const connPassword = assetInfo?.password || props.connectData.password
+    const connSshType = assetInfo?.sshType || 'ssh'
+    const connAssetType = assetInfo?.asset_type || ''
+
+    const hostnameBase64 = props.serverInfo.organizationId === 'personal' ? Base64Util.encode(connAssetIp) : Base64Util.encode(connHostname)
 
     const sessionId = uuidv4() // Different for each tab
-    const jumpserverUuid = assetInfo.organization_uuid || props.connectData.uuid
+    const jumpserverUuid = assetInfo?.organization_uuid || props.connectData.uuid
 
-    connectionId.value = `${assetInfo.username}@${props.connectData.ip}:${orgType}:${hostnameBase64}:${sessionId}`
+    connectionId.value = `${connUsername}@${props.connectData.ip}:${connOrgType}:${hostnameBase64}:${sessionId}`
 
-    if (assetInfo.sshType === 'jumpserver' && terminal.value) {
+    if (connSshType === 'jumpserver' && terminal.value) {
       jumpServerStatusHandler = createJumpServerStatusHandler(terminal.value, connectionId.value, translateJumpServerStatus)
       jumpServerStatusHandler.setupStatusListener(api)
     }
@@ -1139,23 +1151,24 @@ const connectSSH = async () => {
     const connData: any = {
       id: connectionId.value, // Session ID (unique for each tab)
       assetUuid: jumpserverUuid, // JumpServer UUID (for connection pool reuse)
-      host: assetInfo.asset_ip,
-      port: assetInfo.port,
-      username: assetInfo.username,
-      password: assetInfo.password,
+      host: connConnectHost,
+      port: connPort,
+      username: connUsername,
+      password: connPassword,
       privateKey: privateKey.value,
       passphrase: passphrase.value,
-      targetIp: assetInfo.host,
-      sshType: assetInfo.sshType,
+      targetIp: connHost,
+      sshType: connSshType,
       terminalType: config.terminalType,
       agentForward: config.sshAgentsStatus === 1,
       isOfficeDevice: isOfficeDevice.value,
       connIdentToken: jmsToken.value || '',
-      asset_type: assetInfo.asset_type // Pass asset_type to main process for switch handling
+      asset_type: connAssetType, // Pass asset_type to main process for switch handling
+      proxyCommand: props.connectData.proxyCommand || ''
     }
-    connData.needProxy = assetInfo.need_proxy === 1 || false
+    connData.needProxy = assetInfo?.need_proxy === 1 || false
     if (connData.needProxy) {
-      connData.proxyConfig = config.sshProxyConfigs.find((item) => item.name === assetInfo.proxy_name)
+      connData.proxyConfig = config.sshProxyConfigs.find((item) => item.name === assetInfo?.proxy_name)
     }
 
     const result = await api.connect(connData)
@@ -1165,7 +1178,7 @@ const connectSSH = async () => {
       jumpServerStatusHandler = null
     }
 
-    const isSwitchDevice = assetInfo.asset_type?.startsWith('person-switch-') ?? false
+    const isSwitchDevice = connAssetType?.startsWith('person-switch-') ?? false
     if (isSwitchDevice) {
       connectionHasSudo.value = false
       getCmdList([])
@@ -2252,8 +2265,9 @@ const handleServerOutput = (response: MarkedResponse) => {
 // Helper function to handle command output processing
 const handleCommandOutput = (data: string, isInitialCommand: boolean) => {
   const cleanOutput = stripAnsi(data)
-  const trimmedOutput = cleanOutput.trim()
-  commandOutput.value += trimmedOutput + '\n'
+  // Accumulate raw output without trimming each chunk to avoid splitting commands incorrectly
+  // Only normalize line endings, preserve the original structure
+  commandOutput.value += cleanOutput.replace(/\r\n/g, '\n').replace(/\r/g, '\n')
 
   // Detect SSH command prompt to determine if command output has ended.
   // For local connections, check the accumulated output instead of just the current chunk
@@ -2278,7 +2292,63 @@ const handleCommandOutput = (data: string, isInitialCommand: boolean) => {
       .split('\n')
       .filter((line) => line.trim())
 
-    const outputLines = lines.slice(1, -1)
+    // Helper function to detect if a line looks like part of a command echo
+    // Command echoes typically contain: pipes, command keywords, quotes, special shell characters
+    const isCommandEchoLine = (line: string): boolean => {
+      const trimmed = line.trim()
+      // Empty lines are not command echoes
+      if (!trimmed) return false
+
+      // Check for command continuation patterns (lines that start with special chars indicating continuation)
+      // Examples: ", $2}' | head -20", ",", "} |", etc.
+      if (/^[,}]\s*/.test(trimmed)) {
+        // Starts with comma or closing brace - likely a command continuation
+        return true
+      }
+
+      // Check for common command patterns
+      const commandPatterns = [
+        /\|\s*(head|tail|grep|awk|sed|sort|uniq|wc|cut|xargs)/i, // Pipe followed by command
+        /\b(awk|sed|grep|head|tail|cut|sort|uniq|wc|find|xargs|ifconfig|ls|cat|echo)\b.*\|/, // Command keyword followed by pipe
+        /['"].*['"]\s*\|/, // Quoted string followed by pipe
+        /\$\{/, // Variable expansion
+        /\/[^\/]*\/[gimsx]*\s*\{/, // Regex pattern with action
+        /^[^:]*:\s*$/, // Looks like a continuation (ends with colon and space)
+        /^[^a-zA-Z0-9]*['"}]/ // Starts with special chars and quotes/braces (likely continuation)
+      ]
+
+      // If line matches command patterns, it's likely a command echo
+      if (commandPatterns.some((pattern) => pattern.test(trimmed))) {
+        return true
+      }
+
+      // Lines that are very short (less than 5 chars) and contain only special characters/punctuation
+      // are likely command fragments (e.g., ",", "}", "|", etc.)
+      if (trimmed.length < 5 && /^[^a-zA-Z0-9:]*$/.test(trimmed.replace(/['"]/g, ''))) {
+        return true
+      }
+
+      return false
+    }
+
+    // Remove command echo lines from the beginning and prompt from the end
+    // Command may span multiple lines due to terminal width, so we need to remove all command lines
+    let startIndex = 0
+    let endIndex = lines.length
+
+    // Remove prompt from the end (last line that matches prompt pattern)
+    if (endIndex > 0 && isTerminalPromptLine(lines[endIndex - 1])) {
+      endIndex--
+    }
+
+    // Remove command echo lines from the beginning
+    // Keep removing lines that look like command echoes until we find actual output
+    while (startIndex < endIndex && isCommandEchoLine(lines[startIndex])) {
+      startIndex++
+    }
+
+    // Extract the actual output lines
+    const outputLines = lines.slice(startIndex, endIndex)
     const finalOutput = outputLines.join('\n').trim()
 
     if (finalOutput) {

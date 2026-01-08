@@ -79,6 +79,7 @@ import { ChatermDatabaseService } from '../../../storage/db/chaterm.service'
 import type { McpTool } from '@shared/mcp'
 
 import type { Host } from '@shared/WebviewMessage'
+import { ExternalAssetCache } from '../../../plugin/pluginIpc'
 
 type ToolResponse = string | Array<Anthropic.TextBlockParam | Anthropic.ImageBlockParam>
 type UserContent = Array<Anthropic.ContentBlockParam>
@@ -394,9 +395,11 @@ export class Task {
       return
     }
     const terminalUuid = targetHost.uuid
-
     try {
-      const connectionInfo = await connectAssetInfo(terminalUuid)
+      let connectionInfo = await connectAssetInfo(terminalUuid)
+      if (!connectionInfo) {
+        connectionInfo = ExternalAssetCache.get(terminalUuid)
+      }
       this.remoteTerminalManager.setConnectionInfo(connectionInfo)
 
       const hostLabel = connectionInfo?.host || targetHost.host || ip || 'unknown'

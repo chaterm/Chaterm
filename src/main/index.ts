@@ -28,6 +28,7 @@ import { initializeStorageMain, testStorageFromMain as testRendererStorageFromMa
 import { getTaskMetadata } from './agent/core/storage/disk'
 import { createMainWindow } from './windowManager'
 import { registerUpdater } from './updater'
+import { setupPluginIpc } from './plugin/pluginIpc'
 import { telemetryService, checkIsFirstLaunch, getMacAddress } from './agent/services/telemetry/TelemetryService'
 import { envelopeEncryptionService } from './storage/data_sync/envelope_encryption/service'
 import { versionPromptService } from './version/versionPromptService'
@@ -189,6 +190,7 @@ app.whenReady().then(async () => {
   registerLocalSSHHandlers()
   registerRemoteTerminalHandlers()
   registerUpdater(mainWindow, (value) => (forceQuit = value))
+  setupPluginIpc()
 
   // Register K8s handlers
   registerK8sHandlers()

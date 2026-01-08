@@ -155,11 +155,22 @@
                   @open-user-tab="openUserTab"
                 />
                 <Extensions
-                  v-if="currentMenu == 'extensions'"
+                  v-else-if="currentMenu == 'extensions'"
                   :toggle-sidebar="toggleSideBar"
                   @open-user-tab="openUserTab"
                 />
-                <Snippets v-if="currentMenu == 'snippets'" />
+                <Assets
+                  v-else-if="currentMenu == 'assets'"
+                  :toggle-sidebar="toggleSideBar"
+                  @open-user-tab="openUserTab"
+                />
+                <Snippets v-else-if="currentMenu == 'snippets'" />
+
+                <ExtensionViewHost
+                  v-else
+                  :view-id="currentMenu"
+                  @open-user-tab="openUserTab"
+                />
               </pane>
               <pane :size="100 - leftPaneSize">
                 <splitpanes
@@ -283,10 +294,12 @@ import Header from '@views/components/Header/index.vue'
 import LeftTab from '@views/components/LeftTab/index.vue'
 import Workspace from '@views/components/Workspace/index.vue'
 import Extensions from '@views/components/Extensions/index.vue'
+import Assets from '@views/components/Assets/index.vue'
 import Snippets from '@views/components/LeftTab/config/snippets.vue'
 import AgentsSidebar from '@views/components/AgentsSidebar/index.vue'
 import TabsPanel from './tabsPanel.vue'
 import tabsPanel from './tabsPanel.vue'
+import ExtensionViewHost from './ExtensionViewHost.vue'
 import { v4 as uuidv4 } from 'uuid'
 import { userInfoStore } from '@/store'
 import { aliasConfigStore } from '@/store/aliasConfigStore'
@@ -1539,19 +1552,55 @@ onUnmounted(() => {
   eventBus.off('searchHost', handleSearchHost)
 })
 
-type OpenUserTabArg =
-  | string
-  | {
-      key: string
-      fromLocal?: boolean
-      pluginId?: string
-    }
+interface OpenUserTabObject {
+  key: string
+  content?: string
+  title?: string
+  id?: string
+  fromLocal?: boolean
+  pluginId?: string
+  props?: {
+    pluginId?: string
+    filePath?: string
+    initialContent?: string
+    [key: string]: any
+  }
+}
+
+type OpenUserTabArg = string | OpenUserTabObject
 const openUserTab = async function (arg: OpenUserTabArg) {
-  const value = typeof arg === 'string' ? arg : arg.key
+  const isStringArg = typeof arg === 'string'
+
+  const value = isStringArg ? arg : arg.key || arg.content || ''
+
+  if (value === 'CommonConfigEditor') {
+    if (isStringArg) return
+
+    const target = arg as Exclude<OpenUserTabArg, string>
+
+    const p = {
+      title: target.title || 'Plugin Editor',
+      key: 'CommonConfigEditor',
+      type: 'config',
+      id: target.id || `editor_${target.props?.pluginId || Date.now()}`,
+      props: target.props
+    }
+
+    if (dockApi) {
+      const existing = dockApi.panels.find((panel) => panel.params?.props?.pluginId === target.props?.pluginId)
+      if (existing) {
+        existing.api.setActive()
+        return
+      }
+    }
+
+    currentClickServer(p)
+    return
+  }
 
   if (
     value === 'assetConfig' ||
-    value === 'keyChainConfig' ||
+    value === 'keyManagement' ||
     value === 'userInfo' ||
     value === 'userConfig' ||
     value === 'mcpConfigEditor' ||
@@ -1952,7 +2001,10 @@ const addDockPanel = (params) => {
 
   const id = 'panel_' + params.id
   let displayTitle
-  if (params.ip || params.content.startsWith('plugins:')) {
+
+  if (params.content === 'CommonConfigEditor') {
+    displayTitle = params.title
+  } else if (params.ip || params.content.startsWith('plugins:')) {
     displayTitle = params.title
   } else if (params.title === 'mcpConfigEditor') {
     displayTitle = t('mcp.configEditor')
@@ -1960,7 +2012,7 @@ const addDockPanel = (params) => {
     // For config editors, title is already set to file name in switch statement, use it directly
     displayTitle = params.title
   } else {
-    displayTitle = t(`common.${params.title}`)
+    displayTitle = t(`common.${params.title}`) === `common.${params.title}` ? params.title : t(`common.${params.title}`)
   }
   dockApi.addPanel({
     id,
