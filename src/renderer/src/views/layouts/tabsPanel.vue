@@ -53,7 +53,7 @@
           <AliasConfig v-if="localTab.content === 'aliasConfig'" />
           <jumpserverSupport v-if="localTab.content === 'jumpserverSupport'" />
           <AssetConfig v-if="localTab.content === 'assetConfig'" />
-          <KeyChainConfig v-if="localTab.content === 'keyChainConfig'" />
+          <KeyManagement v-if="localTab.content === 'keyManagement'" />
           <McpConfigEditor v-if="localTab.content === 'mcpConfigEditor'" />
           <CommonConfigEditor
             v-if="localTab.content === 'CommonConfigEditor' && localTab.props"
@@ -82,7 +82,7 @@ import UserConfig from '@views/components/LeftTab/config/userConfig.vue'
 import AssetConfig from '@views/components/LeftTab/config/assetConfig.vue'
 import AliasConfig from '@views/components/Extensions/aliasConfig.vue'
 import jumpserverSupport from '@views/components/Extensions/jumpserverSupport.vue'
-import KeyChainConfig from '@views/components/LeftTab/config/keyChainConfig.vue'
+import KeyManagement from '@views/components/LeftTab/config/keyManagement.vue'
 import SshConnect from '@views/components/Ssh/sshConnect.vue'
 import Files from '@views/components/Files/index.vue'
 import Kubernetes from '@views/components/Kubernetes/index.vue'
