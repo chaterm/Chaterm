@@ -17,7 +17,6 @@ import { nextTick } from 'vue'
 import { createPinia, setActivePinia } from 'pinia'
 import AssetsComponent from '../index.vue'
 import { getActualTheme, addSystemThemeListener } from '@/utils/themeUtils'
-import { userConfigStore } from '@/store/userConfigStore'
 
 // Mock i18n - must be defined before vi.mock
 vi.mock('@/locales', () => {
@@ -76,7 +75,7 @@ vi.mock('@/utils/themeUtils', () => {
     return theme
   })
 
-  const mockAddSystemThemeListener = vi.fn((callback: () => void) => {
+  const mockAddSystemThemeListener = vi.fn((_callback: () => void) => {
     return () => {} // Return cleanup function
   })
 
