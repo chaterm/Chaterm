@@ -2,11 +2,11 @@
   <div class="term_left_tab">
     <div class="main-menu">
       <a-tooltip
-        v-for="i in menuTabsData.slice(0, -3)"
+        v-for="i in menuTabsData.slice(0, -2)"
         :key="i.key"
         :title="i.name"
         placement="right"
-        :mouse-enter-delay="3"
+        :mouse-enter-delay="1"
       >
         <p
           v-if="i.key === 'files'"
@@ -70,7 +70,7 @@
         :key="view.id"
         :title="view.name"
         placement="right"
-        :mouse-enter-delay="3"
+        :mouse-enter-delay="1"
       >
         <p
           class="term_menu"
@@ -93,10 +93,10 @@
 
     <div class="bottom-menu">
       <a-tooltip
-        v-for="i in menuTabsData.slice(-3)"
+        v-for="i in menuTabsData.slice(-2)"
         :key="i.key"
         :title="i.name"
-        :mouse-enter-delay="3"
+        :mouse-enter-delay="1"
       >
         <div v-if="i.key === 'user'">
           <p
