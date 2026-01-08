@@ -1,0 +1,158 @@
+# CodeRabbit AI Configuration for Chaterm
+# This file configures CodeRabbit AI to align with project standards
+
+# General settings
+language: en
+reviews:
+  # Review behavior
+  high_level_summary: true
+  review_status: true
+  path_filters:
+    # Focus on source code, ignore generated files
+    global_filter:
+      exclude_paths:
+        - '**/node_modules/**'
+        - '**/dist/**'
+        - '**/out/**'
+        - '**/coverage/**'
+        - '**/*.d.ts'
+        - '**/package-lock.json'
+        - '**/.git/**'
+        - '**/build/**'
+        - '**/playwright-report/**'
+        - '**/test-results/**'
+
+  # Review focus areas aligned with AGENTS.md
+  focus_areas:
+    - 'type_safety'
+    - 'code_quality'
+    - 'security'
+    - 'performance'
+    - 'maintainability'
+    - 'test_coverage'
+
+  # Disable certain checks that conflict with existing tools
+  disable:
+    - 'dependencies' # Dependabot handles this
+    - 'docker' # Not applicable
+    - 'kubernetes' # Only review k8s code in src/main/k8s/
+
+  # Comment behavior
+  collapse_when_outdated: true
+  collapse_when_resolved: true
+  max_comments_per_review: 50
+  max_files_per_review: 100
+
+# Chat settings
+chat:
+  enabled: true
+  auto_reply: false # Manual interaction only
+
+# Summarization
+summaries:
+  enabled: true
+  bullet_points: true
+  diff_summary: true
+  section_summary: true
+
+# Code suggestions
+suggestions:
+  # Align with project's code style
+  apply_suggestions_on_merge: false # Require manual review
+  auto_apply: false # Always require approval
+
+  # Focus on critical issues
+  min_severity: 'info' # info, minor, major, critical, blocker
+
+  # TypeScript-specific
+  typescript:
+    strict_type_checking: true
+    prefer_type_annotations: true
+
+# Path-specific rules
+path_rules:
+  # Main process code (Electron)
+  - paths:
+      - 'src/main/**'
+    review_guidelines:
+      - 'Check for event loop blocking'
+      - 'Verify IPC channel naming uniqueness'
+      - 'Ensure payload serialization'
+      - 'Check async/child process usage for long tasks'
+
+  # Renderer code (Vue)
+  - paths:
+      - 'src/renderer/**'
+    review_guidelines:
+      - 'Use Composition API'
+      - 'Check Pinia store usage'
+      - 'Verify route guard implementation'
+      - 'Ensure i18n for user-visible text'
+
+  # Agent subsystem
+  - paths:
+      - 'src/main/agent/**'
+    review_guidelines:
+      - 'Follow provider extension patterns'
+      - 'Use api/retry.ts for network calls'
+      - 'Check storage interface usage'
+      - 'Verify tool/integration naming'
+
+  # Database code
+  - paths:
+      - 'src/main/storage/db/**'
+    review_guidelines:
+      - 'Verify migration idempotency'
+      - 'Check service layer usage'
+      - 'Ensure type definitions in types.ts'
+
+  # Test files
+  - paths:
+      - '**/*.test.ts'
+      - '**/*.spec.ts'
+      - 'tests/**'
+    review_guidelines:
+      - 'Verify test coverage'
+      - 'Check test isolation'
+      - 'Ensure meaningful assertions'
+
+# Issue validation
+issues:
+  validate_linked_issues: true
+  identify_related_issues: true
+
+# Commit message validation (align with project standards)
+commit_message:
+  enabled: true
+  min_length: 10
+  max_length: 72
+  patterns:
+    - '^chore:'
+    - '^feat:'
+    - '^fix:'
+    - '^docs:'
+    - '^test:'
+    - '^refactor:'
+    - '^ci:'
+
+# Ignore patterns (align with AGENTS.md principles)
+ignore:
+  # Don't review formatting-only changes
+  - 'formatting'
+  - 'whitespace'
+
+  # Don't review dependency updates (Dependabot handles this)
+  - 'dependency_updates'
+
+  # Don't review generated files
+  - 'generated_code'
+
+# Response behavior
+response:
+  # Be concise but thorough
+  max_length: 500
+  use_emoji: false # Align with project's "No Emojis" rule
+
+  # Language preference
+  language: 'en' # Comments in English per AGENTS.md
+
