@@ -159,6 +159,11 @@
                   :toggle-sidebar="toggleSideBar"
                   @open-user-tab="openUserTab"
                 />
+                <Assets
+                  v-else-if="currentMenu == 'assets'"
+                  :toggle-sidebar="toggleSideBar"
+                  @open-user-tab="openUserTab"
+                />
                 <Snippets v-else-if="currentMenu == 'snippets'" />
 
                 <ExtensionViewHost
@@ -289,6 +294,7 @@ import Header from '@views/components/Header/index.vue'
 import LeftTab from '@views/components/LeftTab/index.vue'
 import Workspace from '@views/components/Workspace/index.vue'
 import Extensions from '@views/components/Extensions/index.vue'
+import Assets from '@views/components/Assets/index.vue'
 import Snippets from '@views/components/LeftTab/config/snippets.vue'
 import AgentsSidebar from '@views/components/AgentsSidebar/index.vue'
 import TabsPanel from './tabsPanel.vue'
@@ -1594,7 +1600,7 @@ const openUserTab = async function (arg: OpenUserTabArg) {
 
   if (
     value === 'assetConfig' ||
-    value === 'keyChainConfig' ||
+    value === 'keyManagement' ||
     value === 'userInfo' ||
     value === 'userConfig' ||
     value === 'mcpConfigEditor' ||
