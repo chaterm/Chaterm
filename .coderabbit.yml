@@ -8,18 +8,16 @@ reviews:
   review_status: true
 
   path_filters:
-    global_filter:
-      exclude_paths:
-        - '**/node_modules/**'
-        - '**/dist/**'
-        - '**/out/**'
-        - '**/coverage/**'
-        - '**/*.d.ts'
-        - '**/package-lock.json'
-        - '**/.git/**'
-        - '**/build/**'
-        - '**/playwright-report/**'
-        - '**/test-results/**'
+    - '!**/node_modules/**'
+    - '!**/dist/**'
+    - '!**/out/**'
+    - '!**/coverage/**'
+    - '!**/*.d.ts'
+    - '!**/package-lock.json'
+    - '!**/.git/**'
+    - '!**/build/**'
+    - '!**/playwright-report/**'
+    - '!**/test-results/**'
 
   disable:
     - 'dependencies'
