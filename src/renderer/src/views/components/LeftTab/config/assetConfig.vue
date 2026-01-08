@@ -1199,7 +1199,7 @@ const getAssetGroup = () => {
 }
 
 const addKeychain = () => {
-  eventBus.emit('openUserTab', 'keyChainConfig')
+  eventBus.emit('openUserTab', 'keyManagement')
 }
 
 const handleFormSubmit = async (data: AssetFormData) => {
