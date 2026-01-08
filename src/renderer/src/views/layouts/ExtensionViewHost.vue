@@ -516,8 +516,8 @@ onUnmounted(() => {
     }
   }
 
-  .ant-tree-indent {
-    display: none !important;
+  .ant-tree-indent-unit {
+    width: 5px;
   }
 }
 
