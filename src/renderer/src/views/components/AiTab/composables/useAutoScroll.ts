@@ -239,7 +239,7 @@ export function useAutoScroll() {
       startObservingDom()
 
       updateContainerHeight()
-      if (chatContainer.value) {
+      if (chatContainer.value && typeof ResizeObserver !== 'undefined') {
         resizeObserver = new ResizeObserver(() => {
           updateContainerHeight()
         })
