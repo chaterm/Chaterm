@@ -10,6 +10,9 @@ export function useAutoScroll() {
   const { shouldStickToBottom, chatContainerScrollSignal } = useSessionState()
   const chatContainer = ref<HTMLElement | null>(null)
   const chatResponse = ref<HTMLElement | null>(null)
+  // Container height for dynamic min-height on last message pair
+  const containerHeight = ref<number>(0)
+  let resizeObserver: ResizeObserver | null = null
 
   const STICKY_THRESHOLD = 24
 
@@ -234,6 +237,14 @@ export function useAutoScroll() {
         lastScrollHeight.value = container.scrollHeight // Initialize lastScrollHeight
       }
       startObservingDom()
+
+      updateContainerHeight()
+      if (chatContainer.value && typeof ResizeObserver !== 'undefined') {
+        resizeObserver = new ResizeObserver(() => {
+          updateContainerHeight()
+        })
+        resizeObserver.observe(chatContainer.value)
+      }
     })
   }
 
@@ -246,6 +257,22 @@ export function useAutoScroll() {
       scrollToBottomWithRetry()
       focusChatInput()
     })
+  }
+
+  const updateContainerHeight = () => {
+    if (chatContainer.value) {
+      containerHeight.value = chatContainer.value.clientHeight
+    }
+  }
+
+  const getMessagePairStyle = (pairIndex: number, totalPairs: number) => {
+    // Apply min-height only to the last message pair
+    if (pairIndex === totalPairs - 1 && containerHeight.value > 0) {
+      return {
+        minHeight: `${containerHeight.value}px`
+      }
+    }
+    return {}
   }
 
   watch(
@@ -293,6 +320,11 @@ export function useAutoScroll() {
     if (container) {
       container.removeEventListener('scroll', handleContainerScroll)
     }
+
+    if (resizeObserver) {
+      resizeObserver.disconnect()
+      resizeObserver = null
+    }
   })
 
   return {
@@ -303,6 +335,7 @@ export function useAutoScroll() {
     initializeAutoScroll,
     handleTabSwitch,
     isAtBottom,
-    executeScroll
+    executeScroll,
+    getMessagePairStyle
   }
 }

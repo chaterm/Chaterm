@@ -81,10 +81,13 @@
             class="chat-response"
           >
             <template
-              v-for="pair in getTabUserAssistantPairs(tab.id)"
+              v-for="(pair, pairIndex) in getTabUserAssistantPairs(tab.id)"
               :key="pair.user?.message.id"
             >
-              <div class="user-assistant-pair-message">
+              <div
+                class="user-assistant-pair-message"
+                :style="getMessagePairStyle(pairIndex, getTabUserAssistantPairs(tab.id).length)"
+              >
                 <UserMessage
                   v-if="pair.user"
                   :message="pair.user.message"
@@ -702,7 +705,7 @@ import {
 } from '@ant-design/icons-vue'
 import { isFocusInAiTab } from '@/utils/domUtils'
 import { getGlobalState } from '@renderer/agent/storage/state'
-import type { MessageContent, ChatMessage } from './types'
+import type { MessageContent } from './types'
 import i18n from '@/locales'
 import eventBus from '@/utils/eventBus'
 import historyIcon from '@/assets/icons/history.svg'
@@ -764,7 +767,7 @@ const { currentTodos, shouldShowTodoAfterMessage, getTodosForMessage, markLatest
 // Host management
 const { updateHosts, updateHostsForCommandMode, getCurentTabAssetInfo } = useHostManagement()
 // Auto scroll
-const { chatContainer, chatResponse, scrollToBottom, initializeAutoScroll, handleTabSwitch } = useAutoScroll()
+const { chatContainer, chatResponse, scrollToBottom, initializeAutoScroll, handleTabSwitch, getMessagePairStyle } = useAutoScroll()
 
 // Message options management
 const { handleOptionSelect, getSelectedOption, handleCustomInputChange, getCustomInput, canSubmitOption, handleOptionSubmit } = useMessageOptions()
@@ -778,7 +781,8 @@ const {
   formatParamValue,
   handleFeedback,
   getMessageFeedback,
-  isMessageFeedbackSubmitted
+  isMessageFeedbackSubmitted,
+  handleTruncateAndSend
 } = useChatMessages(scrollToBottom, clearTodoState, markLatestMessageWithTodoUpdate, currentTodos, checkModelConfig)
 
 // Command interactions
@@ -839,24 +843,6 @@ useEventBusListeners({
   updateHosts,
   isAgentMode: props.isAgentMode
 })
-
-/**
- * Handle edit and resend from UserMessage
- */
-const handleTruncateAndSend = async ({ message, newContent }: { message: ChatMessage; newContent: string }) => {
-  if (!currentSession.value) return
-
-  const chatHistory = currentSession.value.chatHistory
-
-  const index = chatHistory.findIndex((m) => m.id === message.id)
-  if (index === -1) return
-
-  const truncateAtMessageTs = message.ts
-
-  chatHistory.splice(index)
-
-  await sendMessageWithContent(newContent, 'send', undefined, truncateAtMessageTs)
-}
 
 const goToLogin = () => {
   router.push('/login')
