@@ -101,7 +101,7 @@
     "strip-ansi": "^7.1.0",
     "superjson": "^2.2.5",
     "v-contextmenu": "^3.2.0",
-    "vue-i18n": "^9.14.3",
+    "vue-i18n": "^11.2.8",
     "vuedraggable": "^4.1.0",
     "ws": "^8.18.0",
     "xterm": "^5.3.0",
