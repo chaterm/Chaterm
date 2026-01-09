@@ -6,7 +6,7 @@ updates:
     schedule:
       interval: 'weekly'
       day: 'monday'
-      time: '10:00'
+      time: '02:00'
     open-pull-requests-limit: 10
     reviewers:
       - 'chaterm/maintainers'
@@ -54,7 +54,7 @@ updates:
     schedule:
       interval: 'weekly'
       day: 'monday'
-      time: '10:00'
+      time: '02:00'
     open-pull-requests-limit: 5
     reviewers:
       - 'chaterm/maintainers'
