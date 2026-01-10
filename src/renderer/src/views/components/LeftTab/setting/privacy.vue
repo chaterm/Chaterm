@@ -135,7 +135,7 @@ const privacyUrl = getPrivacyPolicyUrl()
 
 const userConfig = ref({
   secretRedaction: 'disabled',
-  dataSync: 'disabled',
+  dataSync: 'enabled',
   telemetry: 'enabled'
 })
 
