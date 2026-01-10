@@ -129,7 +129,7 @@
     "@types/clone-deep": "^4.0.4",
     "@types/get-folder-size": "^3.0.4",
     "@types/node": "^25.0.5",
-    "@types/uuid": "^10.0.0",
+    "@types/uuid": "^11.0.0",
     "@types/ws": "^8.5.11",
     "@vitejs/plugin-vue": "^6.0.3",
     "@vitest/browser": "^4.0.16",
