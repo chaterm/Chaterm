@@ -16,6 +16,7 @@
           @click="handleAssetClick"
           @double-click="handleAssetDoubleClick"
           @edit="handleAssetEdit"
+          @delete="handleAssetDelete"
           @context-menu="handleAssetContextMenu"
         />
       </div>
@@ -60,6 +61,7 @@ const emit = defineEmits<{
   'asset-click': [asset: AssetNode]
   'asset-double-click': [asset: AssetNode]
   'asset-edit': [asset: AssetNode]
+  'asset-delete': [asset: AssetNode]
   'asset-context-menu': [event: MouseEvent, asset: AssetNode]
 }>()
 
@@ -112,6 +114,10 @@ const handleAssetDoubleClick = (asset: AssetNode) => {
 
 const handleAssetEdit = (asset: AssetNode) => {
   emit('asset-edit', asset)
+}
+
+const handleAssetDelete = (asset: AssetNode) => {
+  emit('asset-delete', asset)
 }
 
 const handleAssetContextMenu = (event: MouseEvent, asset: AssetNode) => {
