@@ -66,11 +66,21 @@
                     <div class="keychain-name">{{ item.chain_name }}</div>
                     <div class="keychain-type">{{ t('keyChain.type') }}{{ item.chain_type }}</div>
                   </div>
-                  <div
-                    class="edit-icon"
-                    @click.stop="handleEdit(item)"
-                  >
-                    <EditOutlined />
+                  <div class="action-buttons">
+                    <div
+                      class="action-button edit-button"
+                      :title="t('common.edit')"
+                      @click.stop="handleEdit(item)"
+                    >
+                      <EditOutlined />
+                    </div>
+                    <div
+                      class="action-button delete-button"
+                      :title="t('common.remove')"
+                      @click.stop="handleRemove(item)"
+                    >
+                      <DeleteOutlined />
+                    </div>
                   </div>
                 </div>
               </a-card>
@@ -757,7 +767,7 @@ watch(isRightSectionVisible, (val) => {
 
 .keychain-card {
   position: relative;
-  padding-right: 36px;
+  padding-right: 60px;
   background-color: var(--bg-color-secondary);
   border-radius: 6px;
   overflow: hidden;
@@ -773,13 +783,14 @@ watch(isRightSectionVisible, (val) => {
   }
 }
 
-.edit-icon {
+.action-buttons {
   position: absolute;
   top: 50%;
-  right: 24px;
+  right: 12px;
   transform: translateY(-50%);
-  color: var(--text-color-tertiary);
-  font-size: 22px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
   opacity: 0;
   pointer-events: none;
   transition:
@@ -787,13 +798,41 @@ watch(isRightSectionVisible, (val) => {
     color 0.2s ease;
 }
 
-.keychain-card:hover .edit-icon {
+.keychain-card:hover .action-buttons {
   opacity: 1;
-  pointer-events: auto; /* Allow clicking */
+  pointer-events: auto;
 }
 
-.edit-icon:hover {
+.action-button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 4px;
+  color: var(--text-color-tertiary);
+  font-size: 16px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  background-color: transparent;
+
+  &:hover {
+    background-color: var(--hover-bg-color);
+    color: #1890ff;
+  }
+
+  &:active {
+    transform: scale(0.95);
+  }
+}
+
+.edit-button:hover {
   color: #1890ff;
+}
+
+.delete-button:hover {
+  color: #ff6b6b;
+  background-color: rgba(255, 107, 107, 0.15);
 }
 
 .keychain-card-content {
