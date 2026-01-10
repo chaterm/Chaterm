@@ -43,9 +43,8 @@
               rel="noopener noreferrer"
               class="privacy-link"
             >
-              {{ $t('user.privacyPolicy') }}
+              {{ $t('user.privacyPolicy') }}.
             </a>
-            。
           </div>
         </a-form-item>
         <a-form-item
@@ -305,20 +304,20 @@ const changeDataSync = async () => {
 
     if (success) {
       notification.success({
-        message: '数据同步设置已更新',
-        description: isEnabled ? '已开启数据同步' : '已关闭数据同步'
+        message: t('user.dataSyncUpdateSuccess'),
+        description: isEnabled ? t('user.dataSyncEnabledSuccess') : t('user.dataSyncDisabledSuccess')
       })
     } else {
       notification.error({
-        message: '数据同步设置更新失败',
-        description: '请稍后重试'
+        message: t('user.dataSyncUpdateFailed'),
+        description: t('user.retryLater')
       })
     }
   } catch (error) {
     console.error('Failed to change data sync setting:', error)
     notification.error({
-      message: '数据同步设置更新失败',
-      description: '请稍后重试'
+      message: t('user.dataSyncUpdateFailed'),
+      description: t('user.retryLater')
     })
   }
 }

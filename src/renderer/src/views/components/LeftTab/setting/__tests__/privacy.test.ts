@@ -45,6 +45,11 @@ const mockTranslations: Record<string, string> = {
   'user.dataSyncEnabled': '开启',
   'user.dataSyncDisabled': '关闭',
   'user.dataSyncDescription': '数据同步旨在将用户配置的资产、密钥等信息进行跨设备同步',
+  'user.dataSyncUpdateSuccess': '数据同步设置已更新',
+  'user.dataSyncEnabledSuccess': '已开启数据同步',
+  'user.dataSyncDisabledSuccess': '已关闭数据同步',
+  'user.dataSyncUpdateFailed': '数据同步设置更新失败',
+  'user.retryLater': '请稍后重试',
   'user.loadConfigFailed': '加载配置失败',
   'user.loadConfigFailedDescription': '无法加载配置，请稍后重试',
   'user.error': '错误',
@@ -227,8 +232,8 @@ describe('Privacy Component', () => {
       await nextTick()
 
       expect(notification.error).toHaveBeenCalledWith({
-        message: '加载配置失败',
-        description: '无法加载配置，请稍后重试'
+        message: mockTranslations['user.loadConfigFailed'],
+        description: mockTranslations['user.loadConfigFailedDescription']
       })
     })
 
@@ -317,8 +322,8 @@ describe('Privacy Component', () => {
       await vm.updateTelemetry()
 
       expect(notification.error).toHaveBeenCalledWith({
-        message: '遥测设置更新失败',
-        description: '请稍后重试'
+        message: mockTranslations['user.telemetryUpdateFailed'],
+        description: mockTranslations['user.telemetryUpdateFailedDescription']
       })
     })
 
@@ -450,8 +455,8 @@ describe('Privacy Component', () => {
       await vm.changeDataSync()
 
       expect(notification.success).toHaveBeenCalledWith({
-        message: '数据同步设置已更新',
-        description: '已开启数据同步'
+        message: mockTranslations['user.dataSyncUpdateSuccess'],
+        description: mockTranslations['user.dataSyncEnabledSuccess']
       })
     })
 
@@ -463,8 +468,8 @@ describe('Privacy Component', () => {
       await vm.changeDataSync()
 
       expect(notification.success).toHaveBeenCalledWith({
-        message: '数据同步设置已更新',
-        description: '已关闭数据同步'
+        message: mockTranslations['user.dataSyncUpdateSuccess'],
+        description: mockTranslations['user.dataSyncDisabledSuccess']
       })
     })
 
@@ -478,8 +483,8 @@ describe('Privacy Component', () => {
       await vm.changeDataSync()
 
       expect(notification.error).toHaveBeenCalledWith({
-        message: '数据同步设置更新失败',
-        description: '请稍后重试'
+        message: mockTranslations['user.dataSyncUpdateFailed'],
+        description: mockTranslations['user.retryLater']
       })
     })
 
@@ -493,8 +498,8 @@ describe('Privacy Component', () => {
       await vm.changeDataSync()
 
       expect(notification.error).toHaveBeenCalledWith({
-        message: '数据同步设置更新失败',
-        description: '请稍后重试'
+        message: mockTranslations['user.dataSyncUpdateFailed'],
+        description: mockTranslations['user.retryLater']
       })
     })
 
@@ -509,8 +514,8 @@ describe('Privacy Component', () => {
       await vm.changeDataSync()
 
       expect(notification.error).toHaveBeenCalledWith({
-        message: '数据同步设置更新失败',
-        description: '请稍后重试'
+        message: mockTranslations['user.dataSyncUpdateFailed'],
+        description: mockTranslations['user.retryLater']
       })
     })
   })
@@ -555,8 +560,8 @@ describe('Privacy Component', () => {
       await nextTick()
 
       expect(notification.error).toHaveBeenCalledWith({
-        message: '错误',
-        description: '保存配置失败，请稍后重试'
+        message: mockTranslations['user.error'],
+        description: mockTranslations['user.saveConfigFailedDescription']
       })
     })
   })
