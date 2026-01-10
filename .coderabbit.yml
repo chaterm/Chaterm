@@ -34,37 +34,3 @@ reviews:
 chat:
   enabled: true
   auto_reply: false
-
-summaries:
-  enabled: true
-  bullet_points: true
-  diff_summary: true
-  section_summary: true
-
-suggestions:
-  apply_suggestions_on_merge: false
-  auto_apply: false
-  min_severity: 'info'
-
-issues:
-  validate_linked_issues: true
-  identify_related_issues: true
-
-commit_message:
-  enabled: true
-  min_length: 10
-  max_length: 72
-  patterns:
-    - '^chore:'
-    - '^feat:'
-    - '^fix:'
-    - '^docs:'
-    - '^test:'
-    - '^refactor:'
-    - '^ci:'
-
-ignore:
-  - 'formatting'
-  - 'whitespace'
-  - 'dependency_updates'
-  - 'generated_code'
