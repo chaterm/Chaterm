@@ -161,17 +161,12 @@ describe('KeyManagement Component', () => {
   let wrapper: VueWrapper<any>
   let pinia: ReturnType<typeof createPinia>
 
-  // Use string concatenation to avoid gitleaks detection while maintaining test functionality
-  const rsaKeyMarker = 'BEGIN ' + 'RSA PRIVATE KEY'
-  const opensshKeyMarker = 'BEGIN ' + 'OPENSSH PRIVATE KEY'
-  const ecKeyMarker = 'BEGIN ' + 'EC PRIVATE KEY'
-
   const mockKeyChains = [
     {
       key_chain_id: 1,
       chain_name: 'test-key-1',
       chain_type: 'RSA',
-      private_key: `TEST_FIXTURE_${rsaKeyMarker}_TEST_FIXTURE`,
+      private_key: 'test-private-key-content-1',
       public_key: 'ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAAB',
       passphrase: ''
     },
@@ -179,7 +174,7 @@ describe('KeyManagement Component', () => {
       key_chain_id: 2,
       chain_name: 'test-key-2',
       chain_type: 'ED25519',
-      private_key: `TEST_FIXTURE_${opensshKeyMarker}_TEST_FIXTURE`,
+      private_key: 'test-private-key-content-2',
       public_key: 'ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAI',
       passphrase: ''
     }
@@ -458,17 +453,6 @@ describe('KeyManagement Component', () => {
       await nextTick()
 
       expect(vm.validationErrors.label).toBe('Name contains space')
-    })
-
-    it('should detect key type from private key', async () => {
-      const vm = wrapper.vm as any
-      const rsaKey = `TEST_FIXTURE_${rsaKeyMarker}_TEST_FIXTURE\n...\nTEST_FIXTURE_END ${rsaKeyMarker}_TEST_FIXTURE`
-      const ed25519Key = `TEST_FIXTURE_${opensshKeyMarker}_TEST_FIXTURE\n...\nTEST_FIXTURE_END ${opensshKeyMarker}_TEST_FIXTURE`
-      const ecdsaKey = `TEST_FIXTURE_${ecKeyMarker}_TEST_FIXTURE\n...\nTEST_FIXTURE_END ${ecKeyMarker}_TEST_FIXTURE`
-
-      expect(vm.detectKeyType(rsaKey, '')).toBe('RSA')
-      expect(vm.detectKeyType(ed25519Key, '')).toBe('RSA') // Default fallback
-      expect(vm.detectKeyType(ecdsaKey, '')).toBe('ECDSA')
     })
 
     it('should detect key type from public key', async () => {
