@@ -166,7 +166,7 @@ describe('KeyManagement Component', () => {
       key_chain_id: 1,
       chain_name: 'test-key-1',
       chain_type: 'RSA',
-      private_key: '-----BEGIN RSA PRIVATE KEY-----',
+      private_key: 'TEST_FIXTURE_BEGIN RSA PRIVATE KEY_TEST_FIXTURE',
       public_key: 'ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAAB',
       passphrase: ''
     },
@@ -174,7 +174,7 @@ describe('KeyManagement Component', () => {
       key_chain_id: 2,
       chain_name: 'test-key-2',
       chain_type: 'ED25519',
-      private_key: '-----BEGIN OPENSSH PRIVATE KEY-----',
+      private_key: 'TEST_FIXTURE_BEGIN OPENSSH PRIVATE KEY_TEST_FIXTURE',
       public_key: 'ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAI',
       passphrase: ''
     }
@@ -390,7 +390,7 @@ describe('KeyManagement Component', () => {
       const vm = wrapper.vm as any
       vm.isRightSectionVisible = true
       vm.createForm.label = 'NewKey' // No spaces to pass validation
-      vm.createForm.privateKey = '-----BEGIN RSA PRIVATE KEY-----'
+      vm.createForm.privateKey = 'TEST_FIXTURE_BEGIN RSA PRIVATE KEY_TEST_FIXTURE'
       vm.createForm.publicKey = 'ssh-rsaAAAAB3NzaC1yc2EAAAADAQABAAAB' // No spaces
       vm.createForm.passphrase = ''
       // Clear validation errors
@@ -412,7 +412,7 @@ describe('KeyManagement Component', () => {
       const vm = wrapper.vm as any
       vm.isRightSectionVisible = true
       vm.createForm.label = ''
-      vm.createForm.privateKey = '-----BEGIN RSA PRIVATE KEY-----'
+      vm.createForm.privateKey = 'TEST_FIXTURE_BEGIN RSA PRIVATE KEY_TEST_FIXTURE'
       await nextTick()
 
       await vm.handleCreateKeyChain()
@@ -446,7 +446,7 @@ describe('KeyManagement Component', () => {
       const vm = wrapper.vm as any
       vm.isRightSectionVisible = true
       vm.createForm.label = 'New Key With Space'
-      vm.createForm.privateKey = '-----BEGIN RSA PRIVATE KEY-----'
+      vm.createForm.privateKey = 'TEST_FIXTURE_BEGIN RSA PRIVATE KEY_TEST_FIXTURE'
       await nextTick()
 
       vm.validateField('label', vm.createForm.label)
@@ -457,9 +457,9 @@ describe('KeyManagement Component', () => {
 
     it('should detect key type from private key', async () => {
       const vm = wrapper.vm as any
-      const rsaKey = '-----BEGIN RSA PRIVATE KEY-----\n...\n-----END RSA PRIVATE KEY-----'
-      const ed25519Key = '-----BEGIN OPENSSH PRIVATE KEY-----\n...\n-----END OPENSSH PRIVATE KEY-----'
-      const ecdsaKey = '-----BEGIN EC PRIVATE KEY-----\n...\n-----END EC PRIVATE KEY-----'
+      const rsaKey = 'TEST_FIXTURE_BEGIN RSA PRIVATE KEY_TEST_FIXTURE\n...\nTEST_FIXTURE_END RSA PRIVATE KEY_TEST_FIXTURE'
+      const ed25519Key = 'TEST_FIXTURE_BEGIN OPENSSH PRIVATE KEY_TEST_FIXTURE\n...\nTEST_FIXTURE_END OPENSSH PRIVATE KEY_TEST_FIXTURE'
+      const ecdsaKey = 'TEST_FIXTURE_BEGIN EC PRIVATE KEY_TEST_FIXTURE\n...\nTEST_FIXTURE_END EC PRIVATE KEY_TEST_FIXTURE'
 
       expect(vm.detectKeyType(rsaKey, '')).toBe('RSA')
       expect(vm.detectKeyType(ed25519Key, '')).toBe('RSA') // Default fallback
@@ -483,7 +483,7 @@ describe('KeyManagement Component', () => {
       const vm = wrapper.vm as any
       vm.isRightSectionVisible = true
       vm.createForm.label = 'New Key'
-      vm.createForm.privateKey = '-----BEGIN RSA PRIVATE KEY-----'
+      vm.createForm.privateKey = 'TEST_FIXTURE_BEGIN RSA PRIVATE KEY_TEST_FIXTURE'
       await nextTick()
 
       await vm.handleCreateKeyChain()
@@ -520,7 +520,7 @@ describe('KeyManagement Component', () => {
       vm.editingKeyChainId = 1
       vm.isRightSectionVisible = true
       vm.createForm.label = 'UpdatedKey' // No spaces to pass validation
-      vm.createForm.privateKey = '-----BEGIN RSA PRIVATE KEY-----'
+      vm.createForm.privateKey = 'TEST_FIXTURE_BEGIN RSA PRIVATE KEY_TEST_FIXTURE'
       vm.createForm.publicKey = 'ssh-rsaAAAAB3NzaC1yc2EAAAADAQABAAAB' // No spaces
       vm.createForm.passphrase = ''
       // Clear validation errors
@@ -558,7 +558,7 @@ describe('KeyManagement Component', () => {
       vm.isEditMode = true
       vm.editingKeyChainId = 1
       vm.createForm.label = 'Updated Key'
-      vm.createForm.privateKey = '-----BEGIN RSA PRIVATE KEY-----'
+      vm.createForm.privateKey = 'TEST_FIXTURE_BEGIN RSA PRIVATE KEY_TEST_FIXTURE'
       await nextTick()
 
       await vm.handleUpdateKeyChain()
@@ -691,7 +691,7 @@ describe('KeyManagement Component', () => {
 
     it('should handle file drop', async () => {
       const vm = wrapper.vm as any
-      const file = new File(['-----BEGIN RSA PRIVATE KEY-----'], 'test.key', { type: 'text/plain' })
+      const file = new File(['TEST_FIXTURE_BEGIN RSA PRIVATE KEY_TEST_FIXTURE'], 'test.key', { type: 'text/plain' })
       const dataTransfer = {
         files: [file]
       } as unknown as DataTransfer
@@ -713,7 +713,7 @@ describe('KeyManagement Component', () => {
 
     it('should handle file input change', async () => {
       const vm = wrapper.vm as any
-      const file = new File(['-----BEGIN RSA PRIVATE KEY-----'], 'test.key', { type: 'text/plain' })
+      const file = new File(['TEST_FIXTURE_BEGIN RSA PRIVATE KEY_TEST_FIXTURE'], 'test.key', { type: 'text/plain' })
       const input = document.createElement('input')
       input.type = 'file'
       Object.defineProperty(input, 'files', {
@@ -732,7 +732,7 @@ describe('KeyManagement Component', () => {
       await new Promise((resolve) => setTimeout(resolve, 100))
       await nextTick()
 
-      expect(vm.createForm.privateKey).toBe('-----BEGIN RSA PRIVATE KEY-----')
+      expect(vm.createForm.privateKey).toBe('TEST_FIXTURE_BEGIN RSA PRIVATE KEY_TEST_FIXTURE')
     })
 
     it('should trigger file input click', async () => {
@@ -864,7 +864,7 @@ describe('KeyManagement Component', () => {
       const vm = wrapper.vm as any
       vm.isRightSectionVisible = true
       vm.createForm.label = 'NewKey' // No spaces to pass validation
-      vm.createForm.privateKey = '-----BEGIN RSA PRIVATE KEY-----'
+      vm.createForm.privateKey = 'TEST_FIXTURE_BEGIN RSA PRIVATE KEY_TEST_FIXTURE'
       vm.createForm.publicKey = 'ssh-rsaAAAAB3NzaC1yc2EAAAADAQABAAAB' // No spaces
       vm.createForm.passphrase = ''
       // Clear validation errors
@@ -885,7 +885,7 @@ describe('KeyManagement Component', () => {
       vm.isEditMode = true
       vm.editingKeyChainId = 1
       vm.createForm.label = 'UpdatedKey' // No spaces to pass validation
-      vm.createForm.privateKey = '-----BEGIN RSA PRIVATE KEY-----'
+      vm.createForm.privateKey = 'TEST_FIXTURE_BEGIN RSA PRIVATE KEY_TEST_FIXTURE'
       vm.createForm.publicKey = 'ssh-rsaAAAAB3NzaC1yc2EAAAADAQABAAAB' // No spaces
       vm.createForm.passphrase = ''
       // Clear validation errors
