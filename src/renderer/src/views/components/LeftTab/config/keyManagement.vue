@@ -722,21 +722,21 @@ watch(isRightSectionVisible, (val) => {
 .keychain-cards {
   display: flex;
   flex-wrap: wrap;
-  gap: 15px;
-  margin-bottom: 20px;
+  gap: 8px;
+  margin-bottom: 16px;
 }
 
 /* Show more cards when right panel is closed */
 .keychain-cards.wide-layout {
   .card-wrapper {
-    width: calc(33.33% - 10px); /* Display 3 per row, accounting for 15px spacing */
+    width: calc(33.33% - 8px); /* Display 3 per row, accounting for 8px spacing */
   }
 }
 
 /* Show fewer cards when right panel is open */
 .keychain-cards:not(.wide-layout) {
   .card-wrapper {
-    width: calc(50% - 7.5px); /* Display 2 per row, accounting for 15px spacing */
+    width: calc(50% - 6px); /* Display 2 per row, accounting for 8px spacing */
   }
 }
 
@@ -759,13 +759,17 @@ watch(isRightSectionVisible, (val) => {
   position: relative;
   padding-right: 36px;
   background-color: var(--bg-color-secondary);
-  border-radius: 8px;
+  border-radius: 6px;
   overflow: hidden;
   cursor: pointer;
   transition: all 0.3s ease;
 
   &:hover {
     background-color: var(--hover-bg-color);
+  }
+
+  :deep(.ant-card-body) {
+    padding: 8px 12px;
   }
 }
 
@@ -795,17 +799,19 @@ watch(isRightSectionVisible, (val) => {
 .keychain-card-content {
   display: flex;
   align-items: center;
-  min-height: 60px; /* Ensure card has minimum height */
+  min-height: 48px;
 }
 
 .keychain-icon {
-  width: 40px;
-  height: 40px;
-  min-width: 40px; /* Ensure icon is not compressed */
+  width: 32px;
+  height: 32px;
+  min-width: 32px;
   display: flex;
   align-items: center;
   justify-content: center;
-  margin-right: 12px;
+  color: #1890ff;
+  margin-right: 8px;
+  position: relative;
 
   img {
     filter: brightness(0) saturate(100%) invert(48%) sepia(57%) saturate(2303%) hue-rotate(198deg) brightness(102%) contrast(96%);
@@ -822,13 +828,16 @@ watch(isRightSectionVisible, (val) => {
 }
 
 .keychain-name {
-  font-size: 14px;
+  font-size: 13px;
   font-weight: bold;
   color: var(--text-color);
-  margin-bottom: 4px;
+  margin-bottom: 2px;
   white-space: nowrap;
   overflow: hidden;
-  text-overflow: ellipsis; /* Show ellipsis when text is too long */
+  text-overflow: ellipsis;
+  display: flex;
+  align-items: center;
+  gap: 6px;
 }
 
 .keychain-type {
