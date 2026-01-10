@@ -10,9 +10,6 @@ updates:
     open-pull-requests-limit: 10
     reviewers:
       - 'chaterm/maintainers'
-    labels:
-      - 'dependencies'
-      - 'npm'
     # Rebase strategy to keep PRs clean
     rebase-strategy: 'auto'
     commit-message:
@@ -58,9 +55,6 @@ updates:
     open-pull-requests-limit: 5
     reviewers:
       - 'chaterm/maintainers'
-    labels:
-      - 'dependencies'
-      - 'github-actions'
     commit-message:
       prefix: 'ci'
       include: 'scope'
