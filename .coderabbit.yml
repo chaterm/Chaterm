@@ -7,6 +7,9 @@ reviews:
   high_level_summary: true
   review_status: true
 
+  walkthrough:
+    sequence_diagrams: false
+
   path_filters:
     - '!**/node_modules/**'
     - '!**/dist/**'
