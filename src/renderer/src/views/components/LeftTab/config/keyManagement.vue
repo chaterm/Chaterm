@@ -88,26 +88,15 @@
           </div>
         </div>
 
-        <div
+        <KeyContextMenu
           v-if="contextMenuVisible"
-          class="context-menu"
-          :style="{ top: contextMenuPosition.y + 'px', left: contextMenuPosition.x + 'px' }"
-        >
-          <div
-            class="context-menu-item"
-            @click="handleEdit(selectedKeyChain)"
-          >
-            <div class="context-menu-icon"><EditOutlined /></div>
-            <div class="context-menu-text">{{ t('common.edit') }}</div>
-          </div>
-          <div
-            class="context-menu-item delete"
-            @click="handleRemove(selectedKeyChain)"
-          >
-            <div class="context-menu-icon"><DeleteOutlined /></div>
-            <div class="context-menu-text">{{ t('common.remove') }}</div>
-          </div>
-        </div>
+          :visible="contextMenuVisible"
+          :position="contextMenuPosition"
+          :key-chain="selectedKeyChain"
+          @close="closeContextMenu"
+          @edit="handleContextMenuEdit"
+          @remove="handleContextMenuRemove"
+        />
       </div>
 
       <div
@@ -266,6 +255,7 @@ import { EditOutlined, DeleteOutlined, ToTopOutlined, SearchOutlined } from '@an
 import keyIcon from '@/assets/menu/key.svg'
 import i18n from '@/locales'
 import eventBus from '@/utils/eventBus'
+import KeyContextMenu from '../components/KeyContextMenu.vue'
 const { t } = i18n.global
 
 interface KeyChainItem {
@@ -382,25 +372,11 @@ const openNewPanel = () => {
 
 const showContextMenu = (event: MouseEvent, keyChain: KeyChainItem) => {
   event.preventDefault()
-  const menuWidth = 160
-  const menuHeight = 120
-  const viewportWidth = window.innerWidth
-  const viewportHeight = window.innerHeight
-  let x = event.clientX
-  let y = event.clientY
-  if (x + menuWidth > viewportWidth) {
-    x = viewportWidth - menuWidth - 10
-  }
-  if (y + menuHeight > viewportHeight) {
-    y = viewportHeight - menuHeight - 10
-  }
-  x = Math.max(10, x)
-  y = Math.max(10, y)
-
-  contextMenuPosition.x = x
-  contextMenuPosition.y = y
+  contextMenuPosition.x = event.clientX
+  contextMenuPosition.y = event.clientY
   selectedKeyChain.value = keyChain
   contextMenuVisible.value = true
+
   const closeMenu = () => {
     contextMenuVisible.value = false
     document.removeEventListener('click', closeMenu)
@@ -413,6 +389,23 @@ const showContextMenu = (event: MouseEvent, keyChain: KeyChainItem) => {
 
 const handleCardClick = (keyChain: KeyChainItem) => {
   console.log('Card clicked:', keyChain)
+}
+
+const closeContextMenu = () => {
+  contextMenuVisible.value = false
+}
+
+const handleContextMenuEdit = () => {
+  if (selectedKeyChain.value) {
+    handleEdit(selectedKeyChain.value)
+  }
+  closeContextMenu()
+}
+
+const handleContextMenuRemove = () => {
+  if (selectedKeyChain.value) {
+    handleRemove(selectedKeyChain.value)
+  }
 }
 
 const handleEdit = async (keyChain: KeyChainItem | null) => {
@@ -556,12 +549,6 @@ const handleUpdateKeyChain = async () => {
 
 const handleSearch = () => {}
 
-const handleDocumentClick = () => {
-  if (contextMenuVisible.value) {
-    contextMenuVisible.value = false
-  }
-}
-
 function detectKeyType(privateKey = '', publicKey = ''): 'RSA' | 'ED25519' | 'ECDSA' {
   if (publicKey.trim()) {
     const algo = publicKey.trim().split(/\s+/)[0]
@@ -632,7 +619,6 @@ function handleFileChange(e: Event) {
 
 onMounted(() => {
   fetchKeyChainList()
-  document.addEventListener('click', handleDocumentClick)
   document.addEventListener('keydown', (event) => {
     if (event.key === 'Escape' && contextMenuVisible.value) {
       contextMenuVisible.value = false
@@ -641,7 +627,6 @@ onMounted(() => {
 })
 
 onBeforeUnmount(() => {
-  document.removeEventListener('click', handleDocumentClick)
   document.removeEventListener('keydown', (event) => {
     if (event.key === 'Escape' && contextMenuVisible.value) {
       contextMenuVisible.value = false
@@ -995,118 +980,6 @@ watch(isRightSectionVisible, (val) => {
   margin-bottom: 20px;
   display: flex;
   width: 60%;
-}
-
-.context-menu {
-  position: fixed;
-  z-index: 1000;
-  background-color: var(--bg-color);
-  border: 1px solid var(--border-color);
-  border-radius: 12px;
-  box-shadow:
-    0 8px 32px rgba(0, 0, 0, 0.1),
-    0 4px 16px rgba(0, 0, 0, 0.08),
-    inset 0 1px 0 rgba(255, 255, 255, 0.1);
-  min-width: 160px;
-  padding: 6px 0;
-  backdrop-filter: blur(20px);
-  animation: contextMenuFadeIn 0.2s cubic-bezier(0.4, 0, 0.2, 1);
-  overflow: hidden;
-}
-
-@keyframes contextMenuFadeIn {
-  from {
-    opacity: 0;
-    transform: scale(0.9) translateY(-8px);
-  }
-  to {
-    opacity: 1;
-    transform: scale(1) translateY(0);
-  }
-}
-
-.context-menu-item {
-  display: flex;
-  align-items: center;
-  padding: 8px 16px;
-  cursor: pointer;
-  color: var(--text-color);
-  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
-  position: relative;
-  font-size: 14px;
-  font-weight: 500;
-  margin: 0 4px;
-  border-radius: 8px;
-
-  &:hover {
-    background-color: var(--hover-bg-color);
-    color: var(--text-color);
-    transform: translateX(2px);
-
-    .context-menu-icon {
-      transform: scale(1.1);
-      color: #1890ff;
-    }
-  }
-
-  &:active {
-    background-color: var(--active-bg-color);
-    transform: translateX(2px) scale(0.98);
-  }
-
-  &.delete {
-    color: #ff6b6b;
-
-    &:hover {
-      background-color: rgba(255, 107, 107, 0.15);
-      color: #ff8e8e;
-
-      .context-menu-icon {
-        color: #ff6b6b;
-      }
-    }
-
-    &:active {
-      background-color: rgba(255, 107, 107, 0.2);
-    }
-  }
-
-  /* Add separator line */
-  &:not(:last-child)::after {
-    content: '';
-    position: absolute;
-    bottom: 0;
-    left: 20px;
-    right: 20px;
-    height: 1px;
-    background: linear-gradient(90deg, transparent 0%, var(--border-color) 50%, transparent 100%);
-  }
-}
-
-.context-menu-icon {
-  margin-right: 12px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 16px;
-  height: 16px;
-  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
-  font-size: 14px;
-  color: var(--text-color-tertiary);
-}
-
-.context-menu-text {
-  flex: 1;
-  font-weight: 500;
-  letter-spacing: 0.3px;
-  user-select: none;
-}
-
-/* Ensure context menu displays within boundaries */
-.context-menu {
-  max-width: calc(100vw - 20px);
-  max-height: calc(100vh - 20px);
-  overflow: hidden;
 }
 
 .drag-drop-area {
