@@ -1,0 +1,170 @@
+<template>
+  <Teleport to="body">
+    <div
+      v-if="visible"
+      ref="contextMenuRef"
+      class="context-menu"
+      :style="menuStyle"
+      @click="handleClose"
+    >
+      <div
+        class="context-menu-item"
+        @click.stop="handleEdit"
+      >
+        <div class="context-menu-icon"><EditOutlined /></div>
+        <div>{{ t('common.edit') }}</div>
+      </div>
+
+      <div
+        class="context-menu-item delete"
+        @click.stop="handleRemove"
+      >
+        <div class="context-menu-icon"><DeleteOutlined /></div>
+        <div>{{ t('common.remove') }}</div>
+      </div>
+    </div>
+  </Teleport>
+</template>
+
+<script setup lang="ts">
+import { ref, computed, nextTick, watch } from 'vue'
+import { EditOutlined, DeleteOutlined } from '@ant-design/icons-vue'
+import i18n from '@/locales'
+import type { Position } from '../utils/types'
+
+const { t } = i18n.global
+
+interface KeyChainItem {
+  key_chain_id: number
+  chain_name: string
+  chain_type: string
+  private_key?: string
+  public_key?: string
+  passphrase?: string
+}
+
+interface Props {
+  visible: boolean
+  position: Position
+  keyChain: KeyChainItem | null
+}
+
+const props = defineProps<Props>()
+
+const contextMenuRef = ref<HTMLElement | null>(null)
+
+const actualMenuSize = ref({ width: 150, height: 200 })
+
+const menuStyle = computed(() => {
+  if (!props.visible) return {}
+
+  const { x, y } = props.position
+  const { width: menuWidth, height: menuHeight } = actualMenuSize.value
+  const padding = 10 // margin
+
+  const windowWidth = window.innerWidth
+  const windowHeight = window.innerHeight
+
+  let adjustedX = x
+  let adjustedY = y
+
+  if (x + menuWidth + padding > windowWidth) {
+    adjustedX = windowWidth - menuWidth - padding
+  }
+  if (adjustedX < padding) {
+    adjustedX = padding
+  }
+
+  if (y + menuHeight + padding > windowHeight) {
+    adjustedY = windowHeight - menuHeight - padding
+  }
+  if (adjustedY < padding) {
+    adjustedY = padding
+  }
+
+  return {
+    top: `${adjustedY}px`,
+    left: `${adjustedX}px`
+  }
+})
+
+const emit = defineEmits<{
+  close: []
+  edit: []
+  remove: []
+}>()
+
+const handleClose = () => {
+  emit('close')
+}
+
+const handleEdit = () => {
+  emit('edit')
+}
+
+const handleRemove = () => {
+  emit('remove')
+}
+
+const updateMenuSize = () => {
+  if (contextMenuRef.value) {
+    const rect = contextMenuRef.value.getBoundingClientRect()
+    actualMenuSize.value = {
+      width: rect.width,
+      height: rect.height
+    }
+  }
+}
+
+watch(
+  () => props.visible,
+  (visible) => {
+    if (visible) {
+      nextTick(() => {
+        updateMenuSize()
+      })
+    }
+  }
+)
+</script>
+
+<style lang="less" scoped>
+.context-menu {
+  position: fixed;
+  z-index: 1000;
+  background-color: var(--bg-color);
+  border-radius: 4px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+  min-width: 150px;
+  padding: 5px 0;
+}
+
+.context-menu-item {
+  display: flex;
+  align-items: center;
+  padding: 8px 16px;
+  cursor: pointer;
+  color: var(--text-color);
+  transition: background-color 0.2s;
+
+  &:hover {
+    background-color: var(--hover-bg-color);
+  }
+
+  &.delete {
+    color: #ff4d4f;
+
+    &:hover {
+      background-color: rgba(255, 77, 79, 0.15);
+    }
+  }
+}
+
+.context-menu-icon {
+  margin-right: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+}
+</style>

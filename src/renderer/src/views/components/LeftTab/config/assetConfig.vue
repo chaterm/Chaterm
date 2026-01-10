@@ -17,6 +17,7 @@
           @asset-click="handleAssetClick"
           @asset-double-click="handleAssetConnect"
           @asset-edit="handleAssetEdit"
+          @asset-delete="handleAssetRemove"
           @asset-context-menu="handleAssetContextMenu"
         />
         <AssetContextMenu

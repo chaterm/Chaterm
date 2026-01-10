@@ -33,11 +33,22 @@
           </div>
           <div class="asset-type"> {{ t('personal.hostType') }}{{ asset.username ? ', ' + asset.username : '' }} </div>
         </div>
-        <div
-          class="edit-icon"
-          @click.stop="handleEdit"
-        >
-          <EditOutlined />
+        <div class="action-buttons">
+          <div
+            class="action-button edit-button"
+            :title="t('common.edit')"
+            @click.stop="handleEdit"
+          >
+            <EditOutlined />
+          </div>
+          <div
+            v-if="asset.asset_type !== 'organization'"
+            class="action-button delete-button"
+            :title="t('common.remove')"
+            @click.stop="handleDelete"
+          >
+            <DeleteOutlined />
+          </div>
         </div>
       </div>
     </a-card>
@@ -45,7 +56,7 @@
 </template>
 
 <script setup lang="ts">
-import { DatabaseOutlined, EditOutlined, ApiOutlined, ClusterOutlined } from '@ant-design/icons-vue'
+import { DatabaseOutlined, EditOutlined, ApiOutlined, ClusterOutlined, DeleteOutlined } from '@ant-design/icons-vue'
 import i18n from '@/locales'
 import type { AssetNode } from '../utils/types'
 import { isSwitch } from '../utils/types'
@@ -62,6 +73,7 @@ const emit = defineEmits<{
   click: [asset: AssetNode]
   'double-click': [asset: AssetNode]
   edit: [asset: AssetNode]
+  delete: [asset: AssetNode]
   'context-menu': [event: MouseEvent, asset: AssetNode]
 }>()
 
@@ -75,6 +87,10 @@ const handleDoubleClick = () => {
 
 const handleEdit = () => {
   emit('edit', props.asset)
+}
+
+const handleDelete = () => {
+  emit('delete', props.asset)
 }
 
 const handleContextMenu = (event: MouseEvent) => {
@@ -91,7 +107,7 @@ const handleContextMenu = (event: MouseEvent) => {
 
 .asset-card {
   position: relative;
-  padding-right: 36px;
+  padding-right: 60px;
   background-color: var(--bg-color-secondary);
   border-radius: 6px;
   overflow: hidden;
@@ -107,13 +123,14 @@ const handleContextMenu = (event: MouseEvent) => {
   }
 }
 
-.edit-icon {
+.action-buttons {
   position: absolute;
   top: 50%;
-  right: 24px;
+  right: 12px;
   transform: translateY(-50%);
-  color: var(--text-color-tertiary);
-  font-size: 22px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
   opacity: 0;
   pointer-events: none;
   transition:
@@ -121,13 +138,41 @@ const handleContextMenu = (event: MouseEvent) => {
     color 0.2s ease;
 }
 
-.asset-card:hover .edit-icon {
+.asset-card:hover .action-buttons {
   opacity: 1;
   pointer-events: auto;
 }
 
-.edit-icon:hover {
+.action-button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 4px;
+  color: var(--text-color-tertiary);
+  font-size: 16px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  background-color: transparent;
+
+  &:hover {
+    background-color: var(--hover-bg-color);
+    color: #1890ff;
+  }
+
+  &:active {
+    transform: scale(0.95);
+  }
+}
+
+.edit-button:hover {
   color: #1890ff;
+}
+
+.delete-button:hover {
+  color: #ff6b6b;
+  background-color: rgba(255, 107, 107, 0.15);
 }
 
 .asset-card-content {
