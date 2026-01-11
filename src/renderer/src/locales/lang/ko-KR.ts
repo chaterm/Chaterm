@@ -590,6 +590,7 @@ export default {
     favoriteUpdateFailure: '즐겨찾기 상태 업데이트 실패',
     favoriteUpdateError: '즐겨찾기 상태 업데이트 오류',
     defaultGroup: '호스트',
+    noAssets: '자산 없음',
     hostType: 'ssh',
     personalAsset: '개인',
     enterpriseAsset: '기업',

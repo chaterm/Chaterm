@@ -610,6 +610,7 @@ export default {
     favoriteUpdateFailure: 'お気に入り状態の更新に失敗しました',
     favoriteUpdateError: 'お気に入り状態の更新エラー',
     defaultGroup: 'ホスト',
+    noAssets: '資産がありません',
     hostType: 'ssh',
     personalAsset: '個人資産',
     enterpriseAsset: '企業資産',

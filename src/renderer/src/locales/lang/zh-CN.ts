@@ -607,6 +607,7 @@ export default {
     favoriteUpdateFailure: '更新收藏状态失败',
     favoriteUpdateError: '更新收藏状态出错',
     defaultGroup: '主机',
+    noAssets: '暂无资产',
     hostType: 'ssh',
     personalAsset: '个人',
     enterpriseAsset: '企业',

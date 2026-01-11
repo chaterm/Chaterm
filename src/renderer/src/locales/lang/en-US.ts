@@ -612,6 +612,7 @@ export default {
     favoriteUpdateFailure: 'Failed to update favorite status',
     favoriteUpdateError: 'Error updating favorite status',
     defaultGroup: 'Hosts',
+    noAssets: 'No assets',
     hostType: 'ssh',
     personalAsset: 'Personal Asset',
     enterpriseAsset: 'Enterprise Asset',
