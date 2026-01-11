@@ -567,7 +567,7 @@ export default {
     }
   },
   personal: {
-    host: '資産設定',
+    host: 'ホスト管理',
     newHost: '新しいホスト',
     keyChain: 'キーチェーン',
     address: '接続アドレス',

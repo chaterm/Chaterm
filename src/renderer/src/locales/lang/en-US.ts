@@ -569,7 +569,7 @@ export default {
     }
   },
   personal: {
-    host: 'Asset Config',
+    host: 'Host Management',
     newHost: 'New Host',
     keyChain: 'KeyChain',
     address: 'Connection Address',

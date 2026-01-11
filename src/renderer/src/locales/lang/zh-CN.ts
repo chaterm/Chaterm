@@ -564,7 +564,7 @@ export default {
     }
   },
   personal: {
-    host: '资产管理',
+    host: '主机管理',
     newHost: '添加主机',
     keyChain: '密钥',
     address: '连接信息',

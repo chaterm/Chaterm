@@ -547,7 +547,7 @@ export default {
     }
   },
   personal: {
-    host: '자산 설정',
+    host: '호스트 관리',
     newHost: '새 호스트',
     keyChain: '키체인',
     address: '연결 주소',
