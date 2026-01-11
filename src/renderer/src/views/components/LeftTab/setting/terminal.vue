@@ -493,7 +493,6 @@ const proxyConfigColumns = [
   }
 ]
 
-// Get default font family based on platform
 const getDefaultFontFamily = async (): Promise<string> => {
   try {
     const platform = await api.getPlatform()
@@ -518,7 +517,6 @@ const loadSavedConfig = async () => {
         sshProxyConfigs: (savedConfig.sshProxyConfigs || []) as ProxyConfig[]
       }
     } else {
-      // If no saved config, use platform-specific default font
       userConfig.value.fontFamily = await getDefaultFontFamily()
     }
   } catch (error) {
