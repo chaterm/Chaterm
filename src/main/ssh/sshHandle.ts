@@ -361,10 +361,10 @@ export const attemptSecondaryConnection = async (event, connectionInfo, ident) =
             } else {
               stream
                 .on('data', (data: Buffer) => {
-                  stdout += data.toString()
+                  stdout += data.toString('utf8')
                 })
                 .stderr.on('data', (data: Buffer) => {
-                  stderr += data.toString()
+                  stderr += data.toString('utf8')
                 })
                 .on('close', () => {
                   if (stderr) {
@@ -391,7 +391,7 @@ export const attemptSecondaryConnection = async (event, connectionInfo, ident) =
           } else {
             stream
               .on('data', (data: Buffer) => {
-                const result = data.toString().trim()
+                const result = data.toString('utf8').trim()
                 readyResult.hasSudo = result === 'true'
               })
               .stderr.on('data', () => {
@@ -983,7 +983,7 @@ export const registerSSHHandlers = () => {
       }
 
       stream.on('data', (data) => {
-        const dataStr = data.toString()
+        const dataStr = data.toString('utf8')
         const lastCommand = jumpserverLastCommand.get(id)
         const exitCommands = ['exit', 'logout', '\x04']
 
@@ -1037,7 +1037,7 @@ export const registerSSHHandlers = () => {
       })
 
       stream.stderr.on('data', (data) => {
-        event.sender.send(`ssh:shell:stderr:${id}`, data.toString())
+        event.sender.send(`ssh:shell:stderr:${id}`, data.toString('utf8'))
       })
 
       stream.on('close', () => {
@@ -1102,7 +1102,7 @@ export const registerSSHHandlers = () => {
 
       stream.on('data', (data) => {
         const markedCmd = markedCommands.get(id)
-        const chunk = data.toString()
+        const chunk = data.toString('utf8')
 
         if (markedCmd !== undefined) {
           markedCmd.output += chunk
@@ -1132,7 +1132,7 @@ export const registerSSHHandlers = () => {
       })
 
       stream.stderr?.on('data', (data) => {
-        event.sender.send(`ssh:shell:stderr:${id}`, data.toString())
+        event.sender.send(`ssh:shell:stderr:${id}`, data.toString('utf8'))
       })
 
       stream.on('close', () => {
@@ -1337,7 +1337,7 @@ export const registerSSHHandlers = () => {
 
       // Output listener
       const dataHandler = (data: Buffer) => {
-        outputBuffer += data.toString()
+        outputBuffer += data.toString('utf8')
 
         // End marker detected
         if (outputBuffer.includes(marker)) {
@@ -1466,8 +1466,8 @@ export const registerSSHHandlers = () => {
           const finalCode = exitCode !== undefined ? exitCode : code
           const finalSignal = exitSignal !== undefined ? exitSignal : signal
 
-          const stdout = Buffer.concat(stdoutChunks).toString()
-          const stderr = Buffer.concat(stderrChunks).toString()
+          const stdout = Buffer.concat(stdoutChunks).toString('utf8')
+          const stderr = Buffer.concat(stderrChunks).toString('utf8')
 
           resolve({
             success: true,
@@ -1481,8 +1481,8 @@ export const registerSSHHandlers = () => {
         // Handle stream errors
         stream.on('error', (streamErr) => {
           // Optimization: use same concatenation method on error
-          const stdout = Buffer.concat(stdoutChunks).toString()
-          const stderr = Buffer.concat(stderrChunks).toString()
+          const stdout = Buffer.concat(stdoutChunks).toString('utf8')
+          const stderr = Buffer.concat(stderrChunks).toString('utf8')
 
           resolve({
             success: false,
@@ -1922,11 +1922,11 @@ const getSystemInfo = async (
       let stderr = ''
 
       stream.on('data', (data: Buffer) => {
-        stdout += data.toString()
+        stdout += data.toString('utf8')
       })
 
       stream.stderr.on('data', (data: Buffer) => {
-        stderr += data.toString()
+        stderr += data.toString('utf8')
       })
 
       stream.on('close', () => {
