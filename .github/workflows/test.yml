@@ -23,6 +23,7 @@ jobs:
         uses: actions/setup-node@v6
         with:
           node-version: 20.x
+          cache: 'npm'
 
       - name: Fix package-lock.json
         run: node scripts/patch-package-lock.js
@@ -37,10 +38,34 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-node-
 
+      - name: Set Playwright cache path
+        id: playwright-path
+        shell: bash
+        run: |
+          if [ "$RUNNER_OS" == "Linux" ]; then
+            echo "path=~/.cache/ms-playwright" >> $GITHUB_OUTPUT
+          elif [ "$RUNNER_OS" == "macOS" ]; then
+            echo "path=~/Library/Caches/ms-playwright" >> $GITHUB_OUTPUT
+          elif [ "$RUNNER_OS" == "Windows" ]; then
+            # On Windows, use PowerShell to get LOCALAPPDATA
+            PLAYWRIGHT_PATH=$(powershell -Command "Write-Output $env:LOCALAPPDATA\ms-playwright")
+            echo "path=$PLAYWRIGHT_PATH" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Cache Playwright Browsers
+        uses: actions/cache@v5
+        id: playwright-cache
+        with:
+          path: ${{ steps.playwright-path.outputs.path }}
+          key: ${{ runner.os }}-playwright-${{ hashFiles('**/package-lock.json') }}
+          restore-keys: |
+            ${{ runner.os }}-playwright-
+
       - name: Install dependencies
         run: npm ci
 
       - name: Install Playwright Browsers
+        if: steps.playwright-cache.outputs.cache-hit != 'true'
         run: npx playwright install --with-deps chromium
 
       - name: Run linting
@@ -51,6 +76,8 @@ jobs:
 
       - name: Run unit tests with coverage
         run: npm run test:coverage
+        env:
+          CI: true
 
       - name: Save Coverage Reports
         uses: actions/upload-artifact@v6
