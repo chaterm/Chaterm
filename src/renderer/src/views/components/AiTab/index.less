@@ -62,28 +62,14 @@
 }
 
 .ai-chat-custom-tabs {
-  :deep(.ant-tabs-tab:not(.ant-tabs-tab-active) .ant-tabs-tab-btn) {
-    color: var(--text-color-secondary);
-    transition:
-      color 0.2s,
-      background-color 0.2s;
-  }
-
-  // Control tab title width and text ellipsis
-  :deep(.ant-tabs-tab-btn) {
-    max-width: 200px; // Set max width
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-    display: inline-block;
-  }
 
   // Custom tab styles: title and close button
   // Use flex layout to ensure close button is always visible
   :deep(.ant-tabs-tab-btn) {
-    display: flex !important;
+    color: var(--text-color-secondary);
+    max-width: 200px; 
+    display: flex;
     align-items: center;
-    gap: 4px; // Reduce spacing
     padding: 0 8px;
     border-radius: 4px;
   }
@@ -109,8 +95,9 @@
     cursor: pointer;
     opacity: 0;
     color: var(--text-color-tertiary);
-    padding: 2px;
+    // padding: 2px;
     border-radius: 3px;
+    margin: 0px 0px 0px 4px;
     display: flex;
     align-items: center;
     justify-content: center;
@@ -128,38 +115,15 @@
     height: 32px;
     line-height: 32px;
     font-size: 12px;
-    border-radius: 6px;
     background-color: transparent;
     border: none;
     position: relative;
-    transition: background-color 0.2s ease-in-out;
-
-    // Separator between tabs
-    &:not(:last-child)::after {
-      content: '';
-      position: absolute;
-      right: -1px;
-      top: 50%;
-      transform: translateY(-50%);
-      width: 1px;
-      height: 16px;
-      background-color: var(--border-color-light);
-      opacity: 0.5;
-    }
 
     // Active tab
     &.ant-tabs-tab-active {
-      background-color: var(--bg-color-secondary);
-      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
-
-      // Active tab doesn't show separator
-      &::after {
-        display: none;
-      }
-
-      // Previous tab of active tab also doesn't show separator
-      & + .ant-tabs-tab::after {
-        display: none;
+      background-color: var(--bg-color-tertiary);
+      .tab-close-icon {
+        opacity: 1;
       }
     }
 
@@ -171,17 +135,6 @@
         opacity: 1;
       }
 
-      // Hide separator on hover
-      &::after {
-        opacity: 0;
-      }
-    }
-
-    // Selected tab - close button always visible
-    &.ant-tabs-tab-active {
-      .tab-close-icon {
-        opacity: 1;
-      }
     }
   }
 
