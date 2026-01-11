@@ -23,6 +23,7 @@ jobs:
         uses: actions/setup-node@v6
         with:
           node-version: 20.x
+          cache: 'npm'
 
       - name: Fix package-lock.json
         run: node scripts/patch-package-lock.js
@@ -37,10 +38,21 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-node-
 
+      - name: Cache Playwright Browsers
+        uses: actions/cache@v5
+        id: playwright-cache
+        with:
+          path: |
+            ~/.cache/ms-playwright
+          key: ${{ runner.os }}-playwright-${{ hashFiles('**/package-lock.json') }}
+          restore-keys: |
+            ${{ runner.os }}-playwright-
+
       - name: Install dependencies
         run: npm ci
 
       - name: Install Playwright Browsers
+        if: steps.playwright-cache.outputs.cache-hit != 'true'
         run: npx playwright install --with-deps chromium
 
       - name: Run linting
@@ -51,6 +63,8 @@ jobs:
 
       - name: Run unit tests with coverage
         run: npm run test:coverage
+        env:
+          CI: true
 
       - name: Save Coverage Reports
         uses: actions/upload-artifact@v6
