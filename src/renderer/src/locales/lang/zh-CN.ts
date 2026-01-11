@@ -122,7 +122,8 @@ export default {
     agentsMode: 'Agents',
     daysAgo: '天前',
     run: '执行',
-    jumpserverSupportPlugin: 'Jumpserver Support'
+    jumpserverSupportPlugin: 'Jumpserver Support',
+    noSearchResults: '无搜索结果'
   },
   term: {
     welcome: '欢迎使用 Chaterm',
@@ -867,7 +868,8 @@ export default {
     nameContainsSpace: '密钥名称不能包含空格',
     privateKeyContainsSpace: '私钥不能包含空格',
     publicKeyContainsSpace: '公钥不能包含空格',
-    passphraseContainsSpace: '私钥密码不能包含空格'
+    passphraseContainsSpace: '私钥密码不能包含空格',
+    noKeys: '暂无密钥'
   },
   userInfo: {
     enterprise: '企业用户',

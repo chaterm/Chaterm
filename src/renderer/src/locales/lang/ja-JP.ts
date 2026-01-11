@@ -122,7 +122,8 @@ export default {
     agentsMode: 'エージェント',
     daysAgo: ' 日前',
     run: '実行',
-    jumpserverSupportPlugin: 'Jumpserver Support'
+    jumpserverSupportPlugin: 'Jumpserver Support',
+    noSearchResults: '検索結果がありません'
   },
   term: {
     welcome: 'Chaterm へようこそ',
@@ -872,7 +873,8 @@ export default {
     nameContainsSpace: 'キー名にスペースが含まれています',
     privateKeyContainsSpace: '秘密鍵にスペースが含まれています',
     publicKeyContainsSpace: '公開鍵にスペースが含まれています',
-    passphraseContainsSpace: 'パスフレーズにスペースが含まれています'
+    passphraseContainsSpace: 'パスフレーズにスペースが含まれています',
+    noKeys: 'キーがありません'
   },
   userInfo: {
     enterprise: 'エンタープライズユーザー',

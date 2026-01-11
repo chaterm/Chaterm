@@ -122,7 +122,8 @@ export default {
     agentsMode: 'Agents',
     daysAgo: ' days ago',
     run: 'Run',
-    jumpserverSupportPlugin: 'Jumpserver Support'
+    jumpserverSupportPlugin: 'Jumpserver Support',
+    noSearchResults: 'No search results'
   },
   term: {
     welcome: 'Welcome to use Chaterm',
@@ -874,7 +875,8 @@ export default {
     nameContainsSpace: 'Key name cannot contain spaces',
     privateKeyContainsSpace: 'Private key cannot contain spaces',
     publicKeyContainsSpace: 'Public key cannot contain spaces',
-    passphraseContainsSpace: 'Passphrase cannot contain spaces'
+    passphraseContainsSpace: 'Passphrase cannot contain spaces',
+    noKeys: 'No keys'
   },
   userInfo: {
     enterprise: 'Enterprise User',

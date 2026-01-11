@@ -113,7 +113,8 @@ export default {
     agentsMode: '에이전트',
     daysAgo: ' 일 전',
     run: '실행',
-    jumpserverSupportPlugin: 'Jumpserver Support'
+    jumpserverSupportPlugin: 'Jumpserver Support',
+    noSearchResults: '검색 결과 없음'
   },
   term: {
     welcome: 'Chaterm 사용을 환영합니다',
@@ -846,7 +847,8 @@ export default {
     nameContainsSpace: '키 이름에 공백이 포함될 수 없습니다',
     privateKeyContainsSpace: '비밀키에 공백이 포함될 수 없습니다',
     publicKeyContainsSpace: '공개키에 공백이 포함될 수 없습니다',
-    passphraseContainsSpace: '비밀번호에 공백이 포함될 수 없습니다'
+    passphraseContainsSpace: '비밀번호에 공백이 포함될 수 없습니다',
+    noKeys: '키 없음'
   },
   userInfo: {
     enterprise: '엔터프라이즈 사용자',

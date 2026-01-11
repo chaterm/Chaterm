@@ -86,6 +86,22 @@
               </a-card>
             </div>
           </div>
+
+          <div
+            v-if="filteredKeyChainList.length === 0"
+            class="empty-state"
+          >
+            <div class="empty-icon">
+              <img
+                :src="keyIcon"
+                alt="Key Icon"
+                style="width: 48px; height: 48px; opacity: 0.5"
+              />
+            </div>
+            <div class="empty-text">
+              {{ searchValue ? t('common.noSearchResults') : t('keyChain.noKeys') }}
+            </div>
+          </div>
         </div>
 
         <KeyContextMenu
@@ -1005,5 +1021,23 @@ watch(isRightSectionVisible, (val) => {
 
 .error-input:hover {
   border-color: #ff4d4f !important;
+}
+
+.empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 60px 20px;
+  text-align: center;
+}
+
+.empty-icon {
+  margin-bottom: 16px;
+}
+
+.empty-text {
+  font-size: 14px;
+  color: var(--text-color-secondary);
 }
 </style>
