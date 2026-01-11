@@ -1008,6 +1008,7 @@ export default {
     taskList: '传输列表',
     doubleClickToOpen: '双击打开',
     sftpConnectFailed: 'SFTP连接失败',
+    noDataAvailable: '暂无数据，请先连接到服务器',
     pleaseInputNewFileName: '请输入新文件名'
   },
   about: {

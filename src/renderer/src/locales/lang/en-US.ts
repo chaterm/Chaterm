@@ -1015,6 +1015,7 @@ export default {
     download: 'Download',
     doubleClickToOpen: 'Double Click to Open',
     sftpConnectFailed: 'SFTP connection failed',
+    noDataAvailable: 'No data available, please connect to a server first',
     pleaseInputNewFileName: 'Please input new file name'
   },
   about: {

@@ -987,6 +987,7 @@ export default {
     download: '다운로드',
     doubleClickToOpen: '더블 클릭으로 열기',
     sftpConnectFailed: 'SFTP 연결 실패',
+    noDataAvailable: '데이터가 없습니다. 먼저 서버에 연결해주세요',
     pleaseInputNewFileName: '새 파일 이름을 입력해주세요'
   },
   about: {

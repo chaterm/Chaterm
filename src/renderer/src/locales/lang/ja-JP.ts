@@ -1011,6 +1011,7 @@ export default {
     download: 'ダウンロード',
     doubleClickToOpen: 'ダブルクリックで開く',
     sftpConnectFailed: 'SFTP接続に失敗しました',
+    noDataAvailable: 'データがありません。まずサーバーに接続してください',
     pleaseInputNewFileName: '新しいファイル名を入力してください'
   },
   about: {

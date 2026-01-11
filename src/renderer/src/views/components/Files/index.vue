@@ -31,10 +31,21 @@
         </div>
       </template>
     </a-tree>
-    <a-empty
+    <div
       v-else
-      description="No data available, please connect to a server first"
-    />
+      class="empty-state"
+    >
+      <div class="empty-icon">
+        <img
+          :src="fileIcon"
+          alt="File Icon"
+          style="width: 48px; height: 48px; opacity: 0.5"
+        />
+      </div>
+      <div class="empty-text">
+        {{ t('files.noDataAvailable') }}
+      </div>
+    </div>
   </div>
   <div
     v-for="editor in openEditors"
@@ -65,6 +76,7 @@ import { Base64Util } from '../../../utils/base64'
 import eventBus from '../../../utils/eventBus'
 import { initTransferListener } from './fileTransfer'
 import TransferPanel from './fileTransferProgress.vue'
+import fileIcon from '@/assets/menu/files.svg'
 
 const { t } = useI18n()
 
@@ -570,5 +582,23 @@ defineExpose({
 
 :deep(.active-terminal:hover) {
   background-color: var(--primary-color) !important;
+}
+
+.empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 60px 20px;
+  text-align: center;
+}
+
+.empty-icon {
+  margin-bottom: 16px;
+}
+
+.empty-text {
+  font-size: 14px;
+  color: var(--text-color-secondary);
 }
 </style>
