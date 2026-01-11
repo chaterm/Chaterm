@@ -67,7 +67,7 @@
     "@vueuse/core": "^14.1.0",
     "adm-zip": "^0.5.16",
     "axios": "^1.8.4",
-    "better-sqlite3": "^12.5.0",
+    "better-sqlite3": "^12.6.0",
     "chokidar": "^5.0.0",
     "clone-deep": "^4.0.1",
     "crypto-js": "^4.2.0",
