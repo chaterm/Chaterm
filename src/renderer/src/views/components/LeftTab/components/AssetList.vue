@@ -27,7 +27,11 @@
       class="empty-state"
     >
       <div class="empty-icon">
-        <DatabaseOutlined style="font-size: 48px; color: var(--text-color-tertiary)" />
+        <img
+          :src="laptopIcon"
+          alt="empty"
+          style="width: 48px; height: 48px; opacity: 0.5"
+        />
       </div>
       <div class="empty-text">
         {{ searchValue ? t('common.noSearchResults') : t('personal.noAssets') }}
@@ -38,11 +42,11 @@
 
 <script setup lang="ts">
 import { computed } from 'vue'
-import { DatabaseOutlined } from '@ant-design/icons-vue'
 import assetCard from './AssetCard.vue'
 import { deepClone } from '@/utils/util'
 import i18n from '@/locales'
 import type { AssetNode } from '../utils/types'
+import laptopIcon from '@/assets/menu/laptop.svg'
 
 const { t } = i18n.global
 
