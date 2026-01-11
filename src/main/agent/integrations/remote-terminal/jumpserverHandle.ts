@@ -149,7 +149,7 @@ const initializeJumpServerShell = (
   // Handle data output
   stream.on('data', (data: Buffer) => {
     const ansiRegex = /[\u001b\u009b][[()#;?]*.{0,2}(?:[0-9]{1,4}(?:;[0-9]{0,4})*)?[0-9A-ORZcf-nry=><]/g
-    const chunk = data.toString().replace(ansiRegex, '')
+    const chunk = data.toString('utf8').replace(ansiRegex, '')
     outputBuffer += chunk
 
     console.log(`[JumpServer ${connectionId}] Received data (phase: ${connectionPhase}): "${chunk.replace(/\r?\n/g, '\\n')}"`)
@@ -283,7 +283,7 @@ const initializeJumpServerShell = (
   })
 
   stream.stderr.on('data', (data: Buffer) => {
-    console.error(`[JumpServer ${connectionId}] stderr:`, data.toString())
+    console.error(`[JumpServer ${connectionId}] stderr:`, data.toString('utf8'))
   })
 
   stream.on('close', () => {
@@ -579,11 +579,11 @@ export const jumpServerExec = async (sessionId: string, command: string): Promis
       let stderr = ''
 
       stream.on('data', (data: Buffer) => {
-        stdout += data.toString()
+        stdout += data.toString('utf8')
       })
 
       stream.stderr.on('data', (data: Buffer) => {
-        stderr += data.toString()
+        stderr += data.toString('utf8')
       })
 
       stream.on('close', (code: number, signal: string) => {

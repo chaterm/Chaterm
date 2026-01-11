@@ -493,6 +493,18 @@ const proxyConfigColumns = [
   }
 ]
 
+const getDefaultFontFamily = async (): Promise<string> => {
+  try {
+    const platform = await api.getPlatform()
+    if (platform === 'darwin') {
+      return '"SF Mono", Monaco, "Courier New", Courier, monospace'
+    }
+  } catch (error) {
+    console.warn('Failed to get platform, using default font:', error)
+  }
+  return 'Menlo, Monaco, "Courier New", Consolas, Courier, monospace'
+}
+
 // Load saved configuration
 const loadSavedConfig = async () => {
   try {
@@ -504,6 +516,8 @@ const loadSavedConfig = async () => {
         cursorStyle: (savedConfig.cursorStyle || 'block') as string,
         sshProxyConfigs: (savedConfig.sshProxyConfigs || []) as ProxyConfig[]
       }
+    } else {
+      userConfig.value.fontFamily = await getDefaultFontFamily()
     }
   } catch (error) {
     console.error('Failed to load config:', error)

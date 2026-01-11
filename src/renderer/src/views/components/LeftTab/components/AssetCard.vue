@@ -15,9 +15,11 @@
             style="font-size: 24px"
           />
           <!-- Default server icon -->
-          <DatabaseOutlined
+          <img
             v-else
-            style="font-size: 24px"
+            :src="laptopIcon"
+            alt="server"
+            style="width: 24px; height: 24px"
           />
           <!-- Enterprise indicator -->
           <div
@@ -56,10 +58,11 @@
 </template>
 
 <script setup lang="ts">
-import { DatabaseOutlined, EditOutlined, ApiOutlined, ClusterOutlined, DeleteOutlined } from '@ant-design/icons-vue'
+import { EditOutlined, ApiOutlined, ClusterOutlined, DeleteOutlined } from '@ant-design/icons-vue'
 import i18n from '@/locales'
 import type { AssetNode } from '../utils/types'
 import { isSwitch } from '../utils/types'
+import laptopIcon from '@/assets/menu/laptop.svg'
 
 const { t } = i18n.global
 
@@ -191,6 +194,14 @@ const handleContextMenu = (event: MouseEvent) => {
   color: #1890ff;
   margin-right: 8px;
   position: relative;
+
+  img {
+    filter: brightness(0) saturate(100%) invert(48%) sepia(57%) saturate(2303%) hue-rotate(198deg) brightness(102%) contrast(96%);
+  }
+
+  :global(.light-theme) & img {
+    filter: brightness(0) saturate(100%) invert(31%) sepia(98%) saturate(1720%) hue-rotate(199deg) brightness(95%) contrast(107%);
+  }
 }
 
 .enterprise-indicator {

@@ -122,7 +122,8 @@ export default {
     agentsMode: 'Agents',
     daysAgo: '天前',
     run: '执行',
-    jumpserverSupportPlugin: 'Jumpserver Support'
+    jumpserverSupportPlugin: 'Jumpserver Support',
+    noSearchResults: '无搜索结果'
   },
   term: {
     welcome: '欢迎使用 Chaterm',
@@ -564,7 +565,7 @@ export default {
     }
   },
   personal: {
-    host: '资产管理',
+    host: '主机管理',
     newHost: '添加主机',
     keyChain: '密钥',
     address: '连接信息',
@@ -607,6 +608,7 @@ export default {
     favoriteUpdateFailure: '更新收藏状态失败',
     favoriteUpdateError: '更新收藏状态出错',
     defaultGroup: '主机',
+    noAssets: '暂无资产',
     hostType: 'ssh',
     personalAsset: '个人',
     enterpriseAsset: '企业',
@@ -866,7 +868,8 @@ export default {
     nameContainsSpace: '密钥名称不能包含空格',
     privateKeyContainsSpace: '私钥不能包含空格',
     publicKeyContainsSpace: '公钥不能包含空格',
-    passphraseContainsSpace: '私钥密码不能包含空格'
+    passphraseContainsSpace: '私钥密码不能包含空格',
+    noKeys: '暂无密钥'
   },
   userInfo: {
     enterprise: '企业用户',
@@ -1005,6 +1008,7 @@ export default {
     taskList: '传输列表',
     doubleClickToOpen: '双击打开',
     sftpConnectFailed: 'SFTP连接失败',
+    noDataAvailable: '暂无数据，请先连接到服务器',
     pleaseInputNewFileName: '请输入新文件名'
   },
   about: {

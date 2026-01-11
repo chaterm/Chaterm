@@ -122,7 +122,8 @@ export default {
     agentsMode: 'エージェント',
     daysAgo: ' 日前',
     run: '実行',
-    jumpserverSupportPlugin: 'Jumpserver Support'
+    jumpserverSupportPlugin: 'Jumpserver Support',
+    noSearchResults: '検索結果がありません'
   },
   term: {
     welcome: 'Chaterm へようこそ',
@@ -567,7 +568,7 @@ export default {
     }
   },
   personal: {
-    host: '資産設定',
+    host: 'ホスト管理',
     newHost: '新しいホスト',
     keyChain: 'キーチェーン',
     address: '接続アドレス',
@@ -610,6 +611,7 @@ export default {
     favoriteUpdateFailure: 'お気に入り状態の更新に失敗しました',
     favoriteUpdateError: 'お気に入り状態の更新エラー',
     defaultGroup: 'ホスト',
+    noAssets: '資産がありません',
     hostType: 'ssh',
     personalAsset: '個人資産',
     enterpriseAsset: '企業資産',
@@ -871,7 +873,8 @@ export default {
     nameContainsSpace: 'キー名にスペースが含まれています',
     privateKeyContainsSpace: '秘密鍵にスペースが含まれています',
     publicKeyContainsSpace: '公開鍵にスペースが含まれています',
-    passphraseContainsSpace: 'パスフレーズにスペースが含まれています'
+    passphraseContainsSpace: 'パスフレーズにスペースが含まれています',
+    noKeys: 'キーがありません'
   },
   userInfo: {
     enterprise: 'エンタープライズユーザー',
@@ -1008,6 +1011,7 @@ export default {
     download: 'ダウンロード',
     doubleClickToOpen: 'ダブルクリックで開く',
     sftpConnectFailed: 'SFTP接続に失敗しました',
+    noDataAvailable: 'データがありません。まずサーバーに接続してください',
     pleaseInputNewFileName: '新しいファイル名を入力してください'
   },
   about: {

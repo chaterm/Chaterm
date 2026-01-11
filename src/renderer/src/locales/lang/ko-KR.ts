@@ -113,7 +113,8 @@ export default {
     agentsMode: '에이전트',
     daysAgo: ' 일 전',
     run: '실행',
-    jumpserverSupportPlugin: 'Jumpserver Support'
+    jumpserverSupportPlugin: 'Jumpserver Support',
+    noSearchResults: '검색 결과 없음'
   },
   term: {
     welcome: 'Chaterm 사용을 환영합니다',
@@ -547,7 +548,7 @@ export default {
     }
   },
   personal: {
-    host: '자산 설정',
+    host: '호스트 관리',
     newHost: '새 호스트',
     keyChain: '키체인',
     address: '연결 주소',
@@ -590,6 +591,7 @@ export default {
     favoriteUpdateFailure: '즐겨찾기 상태 업데이트 실패',
     favoriteUpdateError: '즐겨찾기 상태 업데이트 오류',
     defaultGroup: '호스트',
+    noAssets: '자산 없음',
     hostType: 'ssh',
     personalAsset: '개인',
     enterpriseAsset: '기업',
@@ -845,7 +847,8 @@ export default {
     nameContainsSpace: '키 이름에 공백이 포함될 수 없습니다',
     privateKeyContainsSpace: '비밀키에 공백이 포함될 수 없습니다',
     publicKeyContainsSpace: '공개키에 공백이 포함될 수 없습니다',
-    passphraseContainsSpace: '비밀번호에 공백이 포함될 수 없습니다'
+    passphraseContainsSpace: '비밀번호에 공백이 포함될 수 없습니다',
+    noKeys: '키 없음'
   },
   userInfo: {
     enterprise: '엔터프라이즈 사용자',
@@ -984,6 +987,7 @@ export default {
     download: '다운로드',
     doubleClickToOpen: '더블 클릭으로 열기',
     sftpConnectFailed: 'SFTP 연결 실패',
+    noDataAvailable: '데이터가 없습니다. 먼저 서버에 연결해주세요',
     pleaseInputNewFileName: '새 파일 이름을 입력해주세요'
   },
   about: {

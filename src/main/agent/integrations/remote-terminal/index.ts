@@ -540,7 +540,7 @@ export class RemoteTerminalProcess extends BrownEventEmitter<RemoteTerminalProce
     const dataHandler = (data: Buffer) => {
       if (commandCompleted) return
 
-      const chunk = data.toString()
+      const chunk = data.toString('utf8')
       this.fullOutput += chunk
 
       if (!this.isListening) return

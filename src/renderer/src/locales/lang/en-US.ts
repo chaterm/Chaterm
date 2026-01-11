@@ -122,7 +122,8 @@ export default {
     agentsMode: 'Agents',
     daysAgo: ' days ago',
     run: 'Run',
-    jumpserverSupportPlugin: 'Jumpserver Support'
+    jumpserverSupportPlugin: 'Jumpserver Support',
+    noSearchResults: 'No search results'
   },
   term: {
     welcome: 'Welcome to use Chaterm',
@@ -569,7 +570,7 @@ export default {
     }
   },
   personal: {
-    host: 'Asset Config',
+    host: 'Host Management',
     newHost: 'New Host',
     keyChain: 'KeyChain',
     address: 'Connection Address',
@@ -612,6 +613,7 @@ export default {
     favoriteUpdateFailure: 'Failed to update favorite status',
     favoriteUpdateError: 'Error updating favorite status',
     defaultGroup: 'Hosts',
+    noAssets: 'No assets',
     hostType: 'ssh',
     personalAsset: 'Personal Asset',
     enterpriseAsset: 'Enterprise Asset',
@@ -873,7 +875,8 @@ export default {
     nameContainsSpace: 'Key name cannot contain spaces',
     privateKeyContainsSpace: 'Private key cannot contain spaces',
     publicKeyContainsSpace: 'Public key cannot contain spaces',
-    passphraseContainsSpace: 'Passphrase cannot contain spaces'
+    passphraseContainsSpace: 'Passphrase cannot contain spaces',
+    noKeys: 'No keys'
   },
   userInfo: {
     enterprise: 'Enterprise User',
@@ -1012,6 +1015,7 @@ export default {
     download: 'Download',
     doubleClickToOpen: 'Double Click to Open',
     sftpConnectFailed: 'SFTP connection failed',
+    noDataAvailable: 'No data available, please connect to a server first',
     pleaseInputNewFileName: 'Please input new file name'
   },
   about: {
