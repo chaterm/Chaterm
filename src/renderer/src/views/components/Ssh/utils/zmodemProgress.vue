@@ -83,16 +83,16 @@ import { useI18n } from 'vue-i18n'
 const { t } = useI18n()
 
 interface Props {
-  visible: boolean
-  type: 'upload' | 'download'
-  progress: number
-  transferSpeed: number
-  transferSize: number
-  totalSize: number
-  fileName: string
-  isCanceling: boolean
-  status: 'normal' | 'error'
-  getContainer: () => HTMLElement
+  visible?: boolean
+  type?: 'upload' | 'download'
+  progress?: number
+  transferSpeed?: number
+  transferSize?: number
+  totalSize?: number
+  fileName?: string
+  isCanceling?: boolean
+  status?: 'normal' | 'error'
+  getContainer?: () => HTMLElement
 }
 
 const props = withDefaults(defineProps<Props>(), {
