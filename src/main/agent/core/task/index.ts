@@ -93,7 +93,6 @@ export class Task {
 
   readonly taskId: string
   hosts: Host[]
-  cwd: Map<string, string> = new Map()
   private taskIsFavorited?: boolean
   chatTitle?: string // Store the LLM-generated chat title
   api: ApiHandler
@@ -175,7 +174,6 @@ export class Task {
     customInstructions?: string,
     task?: string,
     historyItem?: HistoryItem,
-    cwd?: Map<string, string>,
     chatTitle?: string,
     taskId?: string
   ) {
@@ -192,11 +190,6 @@ export class Task {
     console.log(`[Task Init] AutoApprovalSettings initialized:`, JSON.stringify(autoApprovalSettings, null, 2))
     this.hosts = hosts
     this.chatTitle = chatTitle
-    if (hosts) {
-      for (const host of hosts) {
-        this.cwd.set(host.host, cwd?.get(host.host) || '')
-      }
-    }
     this.updateMessagesLanguage()
 
     // Set up MCP notification callback for real-time notifications
@@ -739,19 +732,13 @@ export class Task {
     }
   }
 
-  async handleWebviewAskResponse(askResponse: ChatermAskResponse, text?: string, cwd?: Map<string, string>, truncateAtMessageTs?: number) {
+  async handleWebviewAskResponse(askResponse: ChatermAskResponse, text?: string, truncateAtMessageTs?: number) {
     if (truncateAtMessageTs !== undefined) {
       await this.truncateHistoryAtTimestamp(truncateAtMessageTs)
     }
 
     this.askResponse = askResponse
     this.askResponseText = text
-    if (!cwd) return
-    for (const [key, value] of cwd.entries()) {
-      if (this.cwd.has(key)) {
-        this.cwd.set(key, value)
-      }
-    }
   }
 
   // Handle interactive command input from frontend
@@ -1157,7 +1144,7 @@ export class Task {
 
     try {
       const terminal = await this.localTerminalManager.createTerminal()
-      const process = this.localTerminalManager.runCommand(terminal, command, this.cwd.get('127.0.0.1') || undefined)
+      const process = this.localTerminalManager.runCommand(terminal, command)
 
       // Store the current running process so it can receive interactive input
       this.currentRunningProcess = process
@@ -1302,7 +1289,7 @@ export class Task {
         return 'Failed to connect to terminal'
       }
       terminalInfo.terminal.show()
-      const process = this.remoteTerminalManager.runCommand(terminalInfo, command, this.cwd.get(ip) || undefined)
+      const process = this.remoteTerminalManager.runCommand(terminalInfo, command)
 
       // Store the current running process so it can receive interactive input
       this.currentRunningProcess = process
@@ -2018,32 +2005,10 @@ export class Task {
         if (host.assetType?.startsWith('person-switch-')) {
           continue
         }
-        let currentCwd = this.cwd.get(host.host)
-        if (!currentCwd) {
-          const rawCwd = (await this.executeCommandInRemoteServer('pwd', host.host))?.trim()
-          // Clean the pwd output: remove ANSI sequences, prompts, and extract only the path
-          currentCwd = rawCwd
-            // First, split by newlines and take only the first line
-            .split(/[\r\n]/)[0]
-            // Remove OSC (Operating System Command) sequences like ]0;title or ]2;title
-            .replace(/\x1B\][0-9];[^\x07\x1B]*(\x07|\x1B\\)/g, '')
-            .replace(/\][0-9];[^\x07\x1B]*(\x07|\x1B\\)?/g, '')
-            // Remove CSI (Control Sequence Introducer) sequences
-            .replace(/\x1B\[[0-9;]*[a-zA-Z]/g, '')
-            .replace(/\x1B[=>]/g, '')
-            // Remove terminal prompt patterns (like: [user@host dir]$ or user@host:dir$)
-            .replace(/\[[^\]]*\]\$.*$/g, '')
-            .replace(/[^@]*@[^:]*:[^$]*\$.*$/g, '')
-            .replace(/.*\$.*$/g, '')
-            // Remove control characters (but preserve spaces)
-            .replace(/[\x00-\x08\x0B-\x1F\x7F]/g, '')
-            .trim()
-          this.cwd.set(host.host, currentCwd)
-        }
 
-        details += `\n\n# ${formatMessage(this.messages.hostWorkingDirectory, { host: host.host, cwd: currentCwd })}:\n`
+        details += `\n\n# ${formatMessage(this.messages.hostWorkingDirectory, { host: host.host })}:\n`
 
-        const res = await this.executeCommandInRemoteServer('ls -al', host.host, currentCwd)
+        const res = await this.executeCommandInRemoteServer('ls -al', host.host)
 
         const processLsOutput = (output: string): string => {
           const lines = output.split('\n')
@@ -3373,7 +3338,6 @@ SUDO_CHECK:${localSystemInfo.sudoCheck}`
             ${this.messages.osVersion}: ${hostInfo.osVersion}
             ${this.messages.defaultShell}: ${hostInfo.defaultShell}
             ${this.messages.homeDirectory}: ${hostInfo.homeDir.toPosix()}
-            ${this.messages.currentWorkingDirectory}: ${this.cwd.get(host.host) || hostInfo.homeDir}
             ${this.messages.hostname}: ${hostInfo.hostName}
             ${this.messages.user}: ${hostInfo.userName}
             ${this.messages.sudoAccess}: ${hostInfo.sudoCheck}
@@ -3395,7 +3359,6 @@ SUDO_CHECK:${localSystemInfo.sudoCheck}`
             ${this.messages.osVersion}: ${this.messages.unableToRetrieve} (${error instanceof Error ? error.message : this.messages.unknown})
             ${this.messages.defaultShell}: ${this.messages.unableToRetrieve}
             ${this.messages.homeDirectory}: ${this.messages.unableToRetrieve}
-            ${this.messages.currentWorkingDirectory}: ${this.cwd.get(host.host) || this.messages.unknown}
             ${this.messages.hostname}: ${this.messages.unableToRetrieve}
             ${this.messages.user}: ${this.messages.unableToRetrieve}
             ${this.messages.sudoAccess}: ${this.messages.unableToRetrieve}

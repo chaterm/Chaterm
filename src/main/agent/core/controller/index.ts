@@ -30,6 +30,7 @@ import { Task } from '../task'
 import { ApiConfiguration, ApiProvider, PROVIDER_MODEL_KEY_MAP } from '@shared/api'
 import { TITLE_GENERATION_PROMPT, TITLE_GENERATION_PROMPT_CN } from '../prompts/system'
 import { DEFAULT_LANGUAGE_SETTINGS } from '@shared/Languages'
+import type { CommandGenerationContext } from '@shared/WebviewMessage'
 
 export class Controller {
   private postMessage: (message: ExtensionMessage) => Promise<boolean> | undefined
@@ -94,7 +95,7 @@ export class Controller {
     await updateGlobalState('userInfo', info)
   }
 
-  async initTask(hosts: Host[], task?: string, historyItem?: HistoryItem, cwd?: Map<string, string>, taskId?: string) {
+  async initTask(hosts: Host[], task?: string, historyItem?: HistoryItem, taskId?: string) {
     console.log('initTask', task, historyItem, 'taskId:', taskId)
     const resolvedTaskId = taskId ?? historyItem?.id
     if (resolvedTaskId) {
@@ -120,7 +121,6 @@ export class Controller {
       customInstructions,
       task,
       historyItem,
-      cwd,
       undefined, // Don't pass generated title initially
       taskId
     )
@@ -142,7 +142,7 @@ export class Controller {
     if (history) {
       const existingTask = this.getTaskFromId(taskId)
       const hosts = existingTask?.hosts || []
-      await this.initTask(hosts, undefined, history.historyItem, existingTask?.cwd, taskId)
+      await this.initTask(hosts, undefined, history.historyItem, taskId)
     }
   }
 
@@ -179,7 +179,7 @@ export class Controller {
 
     switch (message.type) {
       case 'newTask':
-        await this.initTask(message.hosts!, message.text, undefined, message.cwd, message.taskId)
+        await this.initTask(message.hosts!, message.text, undefined, message.taskId)
         if (message.taskId && message.hosts) {
           await updateTaskHosts(message.taskId, message.hosts)
         }
@@ -203,13 +203,6 @@ export class Controller {
         if (targetTask) {
           if (message.hosts) {
             targetTask.hosts = message.hosts
-            if (message.cwd) {
-              for (const host of message.hosts) {
-                if (!targetTask.cwd.has(host.host)) {
-                  targetTask.cwd.set(host.host, message.cwd.get(host.host) || '')
-                }
-              }
-            }
             if (targetTaskId) {
               await updateTaskHosts(targetTaskId, message.hosts)
             }
@@ -217,11 +210,11 @@ export class Controller {
           if (message.askResponse === 'messageResponse') {
             await targetTask.clearTodos('new_user_input')
           }
-          await targetTask.handleWebviewAskResponse(message.askResponse!, message.text, message.cwd, message.truncateAtMessageTs)
+          await targetTask.handleWebviewAskResponse(message.askResponse!, message.text, message.truncateAtMessageTs)
         }
         break
       case 'showTaskWithId':
-        this.showTaskWithId(message.text!, message.hosts || [], message.cwd)
+        this.showTaskWithId(message.text!, message.hosts || [])
         break
       case 'deleteTaskWithId':
         this.deleteTaskWithId(message.text!)
@@ -283,7 +276,7 @@ export class Controller {
     }
 
     currentTask.abandoned = true
-    await this.initTask(currentTask.hosts, undefined, historyItem, currentTask.cwd, currentTask.taskId)
+    await this.initTask(currentTask.hosts, undefined, historyItem, currentTask.taskId)
   }
 
   async gracefulCancelTask(tabId?: string) {
@@ -329,7 +322,7 @@ export class Controller {
     throw new Error('Task not found')
   }
 
-  async showTaskWithId(id: string, hosts: Host[], cwd?: Map<string, string>) {
+  async showTaskWithId(id: string, hosts: Host[]) {
     const existingTask = this.tasks.get(id)
     if (existingTask) {
       // Task already exists, no need to reinitialize
@@ -337,7 +330,7 @@ export class Controller {
     }
 
     const { historyItem } = await this.getTaskWithId(id)
-    await this.initTask(hosts, undefined, historyItem, cwd, id)
+    await this.initTask(hosts, undefined, historyItem, id)
   }
 
   async deleteTaskWithId(id: string) {
@@ -462,7 +455,7 @@ export class Controller {
    * Handle command generation request from webview
    * Converts natural language instruction to executable terminal command
    */
-  async handleCommandGeneration(instruction: string, context?: { cwd: string; platform: string; shell: string }, tabId?: string, modelName?: string) {
+  async handleCommandGeneration(instruction: string, context?: CommandGenerationContext, tabId?: string, modelName?: string) {
     try {
       // Get API configuration
       const { apiConfiguration } = await getAllExtensionState()

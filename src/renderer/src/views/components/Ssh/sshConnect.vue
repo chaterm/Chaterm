@@ -94,7 +94,6 @@ import Context from './components/contextComp.vue'
 import SuggComp from './components/suggestion.vue'
 import eventBus from '@/utils/eventBus'
 import { getActualTheme } from '@/utils/themeUtils'
-import { useCurrentCwdStore } from '@/store/currentCwdStore'
 import { markRaw, onBeforeUnmount, onMounted, PropType, nextTick, reactive, ref, watch, computed } from 'vue'
 import { shortcutService } from '@/services/shortcutService'
 import { useI18n } from 'vue-i18n'
@@ -322,7 +321,6 @@ const EDITOR_SEQUENCES = {
   ]
 }
 const userInputFlag = ref(false)
-const currentCwdStore = useCurrentCwdStore()
 
 // Global debounce state to prevent rapid consecutive closing of multiple windows
 const CLOSE_DEBOUNCE_TIME = 100 // 100ms debounce time
@@ -623,12 +621,6 @@ onMounted(async () => {
     termInstance.focus()
   }
 
-  const handleRequestUpdateCwdForHost = (hostIp: string) => {
-    if (props.connectData.ip !== hostIp) return
-    if (props.connectData.asset_type?.startsWith('person-switch-')) return
-
-    sendMarkedData('pwd\r', 'Chaterm:pwd')
-  }
   const handleUpdateTheme = (theme) => {
     if (terminal.value) {
       const actualTheme = getActualTheme(theme)
@@ -668,7 +660,6 @@ onMounted(async () => {
   eventBus.on('autoExecuteCode', autoExecuteCode)
   eventBus.on('getCursorPosition', handleGetCursorPosition)
   eventBus.on('sendOrToggleAiFromTerminalForTab', handleSendOrToggleAiForTab)
-  eventBus.on('requestUpdateCwdForHost', handleRequestUpdateCwdForHost)
   eventBus.on('updateTheme', handleUpdateTheme)
   eventBus.on('openSearch', openSearch)
   eventBus.on('pinchZoomStatusChanged', handlePinchZoomStatusChanged)
@@ -713,7 +704,6 @@ onMounted(async () => {
     eventBus.off('autoExecuteCode', autoExecuteCode)
     eventBus.off('getCursorPosition', handleGetCursorPosition)
     eventBus.off('sendOrToggleAiFromTerminalForTab', handleSendOrToggleAiForTab)
-    eventBus.off('requestUpdateCwdForHost', handleRequestUpdateCwdForHost)
     eventBus.off('openSearch', openSearch)
     eventBus.off('pinchZoomStatusChanged', handlePinchZoomStatusChanged)
     eventBus.off('clearCurrentTerminal')
@@ -2232,19 +2222,6 @@ const handleServerOutput = (response: MarkedResponse) => {
     } else {
       cusWrite?.(data)
     }
-  } else if (response.marker === 'Chaterm:pwd') {
-    let currentCwd = ''
-    const temp = stripAnsi(data)
-
-    const lines = temp.trim().split(/\r?\n/)
-
-    if (lines.length >= 2 && lines[0].trim() === 'pwd') {
-      currentCwd = lines[1].trim()
-    }
-
-    currentCwdStore.setKeyValue(props.connectData.ip, currentCwd)
-
-    eventBus.emit('cwdUpdatedForHost', props.connectData.ip)
   } else if (response.marker === 'Chaterm:command' || response.marker?.startsWith('Chaterm:command:')) {
     isCollectingOutput.value = true
 

@@ -95,13 +95,11 @@ vi.mock('@core/task', () => {
         _customInstructions?: unknown,
         _task?: unknown,
         historyItem?: { id: string },
-        cwd?: Map<string, string>,
         chatTitle?: string,
         taskId?: string
       ) {
         this.taskId = historyItem?.id ?? taskId ?? 'mock-task'
         this.hosts = hosts
-        this.cwd = cwd ?? new Map()
         this.chatTitle = chatTitle ?? ''
       }
 
@@ -119,7 +117,6 @@ vi.mock('@core/task', () => {
 
 import { Controller } from '../index'
 import type { Host } from '@shared/WebviewMessage'
-import { saveTaskMetadata } from '@core/storage/disk'
 
 // Test helper: 创建测试用的 Host 对象
 // 当 Host 类型定义变更时，只需修改这个函数
@@ -173,8 +170,8 @@ describe('Controller', () => {
       async () => '/tmp/mcp_settings.json'
     )
 
-    await controller.initTask([createMockHost('1')], 'task 1', undefined, undefined, 't1')
-    await controller.initTask([createMockHost('2')], 'task 2', undefined, undefined, 't2')
+    await controller.initTask([createMockHost('1')], 'task 1', undefined, 't1')
+    await controller.initTask([createMockHost('2')], 'task 2', undefined, 't2')
 
     const apiConfiguration = {
       apiProvider: 'default',
@@ -202,39 +199,13 @@ describe('Controller', () => {
       async () => '/tmp/mcp_settings.json'
     )
 
-    await controller.initTask([createMockHost('1')], 'task 1', undefined, undefined, 'task-1')
-    await controller.initTask([createMockHost('2')], 'task 2', undefined, undefined, 'task-2')
+    await controller.initTask([createMockHost('1')], 'task 1', undefined, 'task-1')
+    await controller.initTask([createMockHost('2')], 'task 2', undefined, 'task-2')
 
     const result = controller.getAllTasks()
     expect(result).toHaveLength(2)
     expect(result[0].taskId).toBe('task-1')
     expect(result[1].taskId).toBe('task-2')
-  })
-
-  it('askResponse should update task hosts when provided', async () => {
-    const controller = new Controller(
-      async () => true,
-      async () => '/tmp/mcp_settings.json'
-    )
-
-    await controller.initTask([createMockHost('1')], 'task 1', undefined, undefined, 'task-1')
-
-    const newHosts = [createMockHost('2')]
-    const cwd = new Map([['host-2', '/var/tmp']])
-
-    await controller.handleWebviewMessage({
-      type: 'askResponse',
-      askResponse: 'messageResponse',
-      text: 'switch host',
-      tabId: 'task-1',
-      hosts: newHosts,
-      cwd
-    } as WebviewMessage)
-
-    const updatedTask = controller.getAllTasks().find((task) => task.taskId === 'task-1')
-    expect(updatedTask?.hosts).toEqual(newHosts)
-    expect(updatedTask?.cwd.get('host-2')).toBe('/var/tmp')
-    expect(saveTaskMetadata).toHaveBeenCalled()
   })
 
   it('clearTask should remove specific task when taskId is provided', async () => {
@@ -243,8 +214,8 @@ describe('Controller', () => {
       async () => '/tmp/mcp_settings.json'
     )
 
-    await controller.initTask([createMockHost('1')], 'task 1', undefined, undefined, 'task-1')
-    await controller.initTask([createMockHost('2')], 'task 2', undefined, undefined, 'task-2')
+    await controller.initTask([createMockHost('1')], 'task 1', undefined, 'task-1')
+    await controller.initTask([createMockHost('2')], 'task 2', undefined, 'task-2')
 
     expect(controller.getAllTasks()).toHaveLength(2)
 
@@ -261,8 +232,8 @@ describe('Controller', () => {
       async () => '/tmp/mcp_settings.json'
     )
 
-    await controller.initTask([createMockHost('1')], 'task 1', undefined, undefined, 'task-1')
-    await controller.initTask([createMockHost('2')], 'task 2', undefined, undefined, 'task-2')
+    await controller.initTask([createMockHost('1')], 'task 1', undefined, 'task-1')
+    await controller.initTask([createMockHost('2')], 'task 2', undefined, 'task-2')
 
     expect(controller.getAllTasks()).toHaveLength(2)
 
@@ -352,7 +323,7 @@ describe('Controller', () => {
       async () => '/tmp/mcp_settings.json'
     )
 
-    await controller.initTask([createMockHost('1')], 'task 1', undefined, undefined, 'task-1')
+    await controller.initTask([createMockHost('1')], 'task 1', undefined, 'task-1')
 
     const tasks = controller.getAllTasks()
     const task = tasks.find((t) => t.taskId === 'task-1')
@@ -369,7 +340,7 @@ describe('Controller', () => {
     } as WebviewMessage)
 
     expect(clearTodosSpy).toHaveBeenCalledWith('new_user_input')
-    expect(handleResponseSpy).toHaveBeenCalledWith('messageResponse', 'response text', undefined, undefined)
+    expect(handleResponseSpy).toHaveBeenCalledWith('messageResponse', 'response text', undefined)
   })
 
   it('reloadSecurityConfigForAllTasks should reload config for all tasks', async () => {
@@ -378,8 +349,8 @@ describe('Controller', () => {
       async () => '/tmp/mcp_settings.json'
     )
 
-    await controller.initTask([createMockHost('1')], 'task 1', undefined, undefined, 'task-1')
-    await controller.initTask([createMockHost('2')], 'task 2', undefined, undefined, 'task-2')
+    await controller.initTask([createMockHost('1')], 'task 1', undefined, 'task-1')
+    await controller.initTask([createMockHost('2')], 'task 2', undefined, 'task-2')
 
     const tasks = controller.getAllTasks()
     const spy1 = vi.spyOn(tasks[0], 'reloadSecurityConfig')
@@ -397,8 +368,8 @@ describe('Controller', () => {
       async () => '/tmp/mcp_settings.json'
     )
 
-    await controller.initTask([createMockHost('1')], 'task 1', undefined, undefined, 'task-1')
-    await controller.initTask([createMockHost('2')], 'task 2', undefined, undefined, 'task-2')
+    await controller.initTask([createMockHost('1')], 'task 1', undefined, 'task-1')
+    await controller.initTask([createMockHost('2')], 'task 2', undefined, 'task-2')
 
     const tasks = controller.getAllTasks()
     const spy1 = vi.spyOn(tasks[0], 'reloadSecurityConfig').mockRejectedValue(new Error('Reload failed'))

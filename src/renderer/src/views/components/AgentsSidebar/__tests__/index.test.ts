@@ -810,8 +810,7 @@ describe('AgentsSidebar Component', () => {
       expect(mockSendToMain).toHaveBeenCalledWith({
         type: 'deleteTaskWithId',
         text: 'task-0',
-        taskId: 'task-0',
-        cwd: ''
+        taskId: 'task-0'
       })
     })
 
