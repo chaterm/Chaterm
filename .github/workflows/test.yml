@@ -19,10 +19,10 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v6
 
-      - name: Use Node.js 20.x
+      - name: Use Node.js 22.x
         uses: actions/setup-node@v6
         with:
-          node-version: 20.x
+          node-version: 22.x
           cache: 'npm'
 
       - name: Fix package-lock.json
