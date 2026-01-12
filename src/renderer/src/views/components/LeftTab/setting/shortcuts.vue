@@ -76,7 +76,7 @@
 
     <!-- Modal for recording shortcuts -->
     <a-modal
-      v-model:visible="showRecordingModal"
+      v-model:open="showRecordingModal"
       class="shortcut-modal"
       :footer="null"
       :closable="false"

@@ -2,6 +2,7 @@ import { notification } from 'ant-design-vue'
 import type { Ref } from 'vue'
 import eventBus from '@/utils/eventBus'
 import type { MessageContent, AssetInfo } from '../types'
+import type { WebviewMessage } from '@shared/WebviewMessage'
 import { useSessionState } from './useSessionState'
 import i18n from '@/locales'
 
@@ -98,7 +99,7 @@ export function useCommandInteraction(params: CommandInteractionOptions) {
     }
 
     try {
-      let messageRsp = {
+      let messageRsp: WebviewMessage = {
         type: 'askResponse',
         askResponse: 'noButtonClicked',
         text: ''
@@ -148,7 +149,7 @@ export function useCommandInteraction(params: CommandInteractionOptions) {
     }
 
     try {
-      let messageRsp = {
+      let messageRsp: WebviewMessage = {
         type: 'askResponse',
         askResponse: 'yesButtonClicked',
         text: ''
@@ -215,7 +216,7 @@ export function useCommandInteraction(params: CommandInteractionOptions) {
       await window.api.setMcpToolAutoApprove(serverName, toolName, true)
       console.log(`Set auto-approve for ${serverName}/${toolName}`)
 
-      let messageRsp = {
+      let messageRsp: WebviewMessage = {
         type: 'askResponse',
         askResponse: 'yesButtonClicked',
         text: ''
@@ -290,7 +291,7 @@ export function useCommandInteraction(params: CommandInteractionOptions) {
     }
     console.log('handleResume: resume')
     session.isCancelled = false
-    const messageRsp = {
+    const messageRsp: WebviewMessage = {
       type: 'askResponse',
       askResponse: 'yesButtonClicked'
     }
@@ -307,7 +308,7 @@ export function useCommandInteraction(params: CommandInteractionOptions) {
 
     console.log('handleRetry: retry')
     session.isCancelled = false
-    const messageRsp = {
+    const messageRsp: WebviewMessage = {
       type: 'askResponse',
       askResponse: 'yesButtonClicked'
     }

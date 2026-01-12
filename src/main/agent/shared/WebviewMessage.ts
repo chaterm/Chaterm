@@ -10,6 +10,16 @@ import { z } from 'zod'
 
 export type Host = { host: string; uuid: string; connection: string; assetType?: string }
 
+export type CommandGenerationContext = {
+  platform: string
+  shell: string
+  osVersion?: string
+  hostname?: string
+  username?: string
+  homeDir?: string
+  sudoPermission?: boolean
+}
+
 export interface WebviewMessage {
   type:
     | 'apiConfiguration'
@@ -28,17 +38,12 @@ export interface WebviewMessage {
   telemetrySetting?: TelemetrySetting
   askResponse?: ChatermAskResponse
   hosts?: Host[]
-  cwd?: Map<string, string>
   feedbackType?: TaskFeedbackType
   input?: string // For interactive command input
   instruction?: string // For command generation
   modelName?: string
   tabId?: string
-  context?: {
-    cwd: string
-    platform: string
-    shell: string
-  }
+  context?: CommandGenerationContext
 
   todos?: unknown[] // For todo updates
   sessionId?: string

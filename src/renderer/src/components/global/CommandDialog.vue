@@ -82,6 +82,7 @@ import { ref, nextTick, onMounted, onUnmounted, watch, computed } from 'vue'
 import { useI18n } from 'vue-i18n'
 import eventBus from '@/utils/eventBus'
 import { useModelConfiguration } from '@/views/components/AiTab/composables/useModelConfiguration'
+import type { CommandGenerationContext } from '@shared/WebviewMessage'
 
 interface Props {
   visible: boolean
@@ -283,7 +284,7 @@ const handleSubmit = async () => {
   }
 }
 
-const getCurrentContext = async () => {
+const getCurrentContext = async (): Promise<CommandGenerationContext> => {
   try {
     let sshConnectId = props.connectionId
 
@@ -293,8 +294,9 @@ const getCurrentContext = async () => {
 
     if (!sshConnectId) {
       console.warn('No SSH connection ID found, using fallback context')
+      const platform = await window.api.getPlatform().catch(() => 'unknown')
       return {
-        platform: 'linux',
+        platform,
         shell: 'bash',
         osVersion: 'Unknown',
         hostname: 'localhost',
@@ -310,11 +312,16 @@ const getCurrentContext = async () => {
       throw new Error(systemInfoResult.error || 'Failed to get system info')
     }
 
+    if (!systemInfoResult.data) {
+      throw new Error('Failed to get system info')
+    }
+
     return systemInfoResult.data
   } catch (error) {
     console.warn('Failed to get remote context:', error)
+    const platform = await window.api.getPlatform().catch(() => 'unknown')
     return {
-      platform: 'linux',
+      platform,
       shell: 'bash',
       osVersion: 'Unknown',
       hostname: 'localhost',

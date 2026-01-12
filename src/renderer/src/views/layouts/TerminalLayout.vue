@@ -312,6 +312,7 @@ import Dashboard from '@renderer/views/components/Ssh/components/dashboard.vue'
 import { getGlobalState } from '@/agent/storage/state'
 import 'dockview-vue/dist/styles/dockview.css'
 import { type DockviewReadyEvent, DockviewVue } from 'dockview-vue'
+import type { DockviewApi } from 'dockview-core'
 
 const props = defineProps<{
   currentMode: 'terminal' | 'agents'
@@ -1908,7 +1909,7 @@ const handleConversationDelete = async (conversationId: string) => {
 const dockviewRef = ref<InstanceType<typeof DockviewVue> | null>(null)
 const panelCount = ref(0)
 const hasPanels = computed(() => panelCount.value > 0)
-let dockApi: any = null
+let dockApi: DockviewApi | null = null
 
 defineOptions({
   components: {
@@ -1978,11 +1979,11 @@ const onDockReady = (event: DockviewReadyEvent) => {
   dockApi = event.api
 
   dockApi.onDidAddPanel(() => {
-    panelCount.value = dockApi.panels.length
+    panelCount.value = dockApi?.panels.length ?? 0
   })
 
   dockApi.onDidRemovePanel(() => {
-    panelCount.value = dockApi.panels.length
+    panelCount.value = dockApi?.panels.length ?? 0
   })
 
   dockApi.onDidActivePanelChange(() => {

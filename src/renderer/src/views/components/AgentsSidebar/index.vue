@@ -83,6 +83,7 @@ import { ref, computed, onMounted, onUnmounted, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { PlusOutlined, SearchOutlined, DeleteOutlined } from '@ant-design/icons-vue'
 import { getGlobalState, updateGlobalState } from '@/agent/storage/state'
+import type { WebviewMessage } from '@shared/WebviewMessage'
 import eventBus from '@/utils/eventBus'
 
 interface Host {
@@ -260,11 +261,10 @@ const handleDeleteConversation = async (conversationId: string) => {
     }
 
     // Send message to main process to delete task
-    const message = {
+    const message: WebviewMessage = {
       type: 'deleteTaskWithId',
       text: conversationId,
-      taskId: conversationId,
-      cwd: ''
+      taskId: conversationId
     }
     await window.api.sendToMain(message)
 

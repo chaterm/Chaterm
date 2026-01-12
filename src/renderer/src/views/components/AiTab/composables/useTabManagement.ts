@@ -70,7 +70,7 @@ export function useTabManagement(options: TabManagementOptions) {
   }
 
   const createNewEmptyTab = async (): Promise<string> => {
-    console.log('createNewEmptyTab   begin')
+    // console.log('createNewEmptyTab   begin')
     const newChatId = uuidv4()
 
     const defaultChatType = currentTab.value?.chatType || 'agent'
@@ -137,7 +137,7 @@ export function useTabManagement(options: TabManagementOptions) {
     emitStateChange?.()
 
     focusChatInput()
-    console.log('createNewEmptyTab   end')
+    // console.log('createNewEmptyTab   end')
 
     return newChatId
   }
