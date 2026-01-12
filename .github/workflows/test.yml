@@ -28,22 +28,24 @@ jobs:
       - name: Fix package-lock.json
         run: node scripts/patch-package-lock.js
 
-      - name: Set Playwright cache path (Linux/macOS)
-        if: runner.os != 'Windows'
+      - name: Set Playwright cache path
         id: playwright-path
         run: |
           if [ "$RUNNER_OS" == "Linux" ]; then
             echo "path=$HOME/.cache/ms-playwright" >> $GITHUB_OUTPUT
-          else
+          elif [ "$RUNNER_OS" == "macOS" ]; then
             echo "path=$HOME/Library/Caches/ms-playwright" >> $GITHUB_OUTPUT
+          elif [ "$RUNNER_OS" == "Windows" ]; then
+            # On Windows, LOCALAPPDATA is available in bash (Git Bash)
+            if [ -n "$LOCALAPPDATA" ]; then
+              echo "path=$LOCALAPPDATA/ms-playwright" >> $GITHUB_OUTPUT
+            else
+              # Fallback: use PowerShell to get the path
+              PLAYWRIGHT_PATH=$(powershell -Command "Write-Output $env:LOCALAPPDATA\ms-playwright")
+              echo "path=$PLAYWRIGHT_PATH" >> $GITHUB_OUTPUT
+            fi
           fi
         shell: bash
-
-      - name: Set Playwright cache path (Windows)
-        if: runner.os == 'Windows'
-        id: playwright-path
-        run: echo "path=$env:LOCALAPPDATA/ms-playwright" >> $GITHUB_OUTPUT
-        shell: pwsh
 
       - name: Cache Playwright Browsers
         uses: actions/cache@v5
