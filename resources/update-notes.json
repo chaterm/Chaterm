@@ -2,6 +2,32 @@
   "releaseNotesUrl": "https://github.com/chaterm/Chaterm/releases/tag/v",
   "versions": [
     {
+      "version": "0.8.1",
+      "date": "2026-01-12",
+      "highlights": {
+        "zh-CN": [
+          "统一左侧栏点击的操作风格",
+          "支持交换机网络设备连接",
+          "数据同步设置默认启用状态",
+          "优化主机管理页面和密钥管理页面",
+          "SSH连接新增ProxyCommand参数支持",
+          "新增通用插件显示和编辑页面功能",
+          "优化主题和AiTab样式",
+          "优化若干问题，提升操作体验"
+        ],
+        "en-US": [
+          "Unify the operation style of the left sidebar click",
+          "Support switch network device connections",
+          "Set dataSync enabled by default status",
+          "Optimize host management page and key management page",
+          "Add ProxyCommand parameter support for SSH connections",
+          "Add generic plugin display and editing page functionality",
+          "Optimize theme and AiTab styles",
+          "Optimize several issues and enhance the operational experience"
+        ]
+      }
+    },
+    {
       "version": "0.8.0",
       "date": "2026-01-07",
       "highlights": {
