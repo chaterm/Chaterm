@@ -148,7 +148,7 @@
     "eslint-plugin-vue": "^10.6.2",
     "highlight.js": "^11.11.1",
     "husky": "^9.1.7",
-    "jsdom": "^24.1.0",
+    "jsdom": "^27.4.0",
     "less": "^4.2.2",
     "lint-staged": "^16.2.7",
     "marked": "^17.0.1",
