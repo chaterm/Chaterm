@@ -28,45 +28,43 @@ jobs:
       - name: Fix package-lock.json
         run: node scripts/patch-package-lock.js
 
-      - name: Cache dependencies
-        uses: actions/cache@v5
-        with:
-          path: |
-            ~/.npm
-            node_modules
-          key: ${{ runner.os }}-node-${{ hashFiles('**/package-lock.json') }}
-          restore-keys: |
-            ${{ runner.os }}-node-
-
-      - name: Set Playwright cache path
+      - name: Set Playwright cache path (Linux/macOS)
+        if: runner.os != 'Windows'
         id: playwright-path
-        shell: bash
         run: |
           if [ "$RUNNER_OS" == "Linux" ]; then
-            echo "path=~/.cache/ms-playwright" >> $GITHUB_OUTPUT
-          elif [ "$RUNNER_OS" == "macOS" ]; then
-            echo "path=~/Library/Caches/ms-playwright" >> $GITHUB_OUTPUT
-          elif [ "$RUNNER_OS" == "Windows" ]; then
-            # On Windows, use PowerShell to get LOCALAPPDATA
-            PLAYWRIGHT_PATH=$(powershell -Command "Write-Output $env:LOCALAPPDATA\ms-playwright")
-            echo "path=$PLAYWRIGHT_PATH" >> $GITHUB_OUTPUT
+            echo "path=$HOME/.cache/ms-playwright" >> $GITHUB_OUTPUT
+          else
+            echo "path=$HOME/Library/Caches/ms-playwright" >> $GITHUB_OUTPUT
           fi
+        shell: bash
+
+      - name: Set Playwright cache path (Windows)
+        if: runner.os == 'Windows'
+        id: playwright-path
+        run: echo "path=$env:LOCALAPPDATA/ms-playwright" >> $GITHUB_OUTPUT
+        shell: pwsh
 
       - name: Cache Playwright Browsers
         uses: actions/cache@v5
         id: playwright-cache
         with:
           path: ${{ steps.playwright-path.outputs.path }}
-          key: ${{ runner.os }}-playwright-${{ hashFiles('**/package-lock.json') }}
+          key: ${{ runner.os }}-playwright-chromium-${{ hashFiles('**/package-lock.json') }}
           restore-keys: |
+            ${{ runner.os }}-playwright-chromium-
             ${{ runner.os }}-playwright-
 
       - name: Install dependencies
-        run: npm ci
+        run: npm ci --prefer-offline
 
-      - name: Install Playwright Browsers
+      - name: Install Playwright Browsers (full)
         if: steps.playwright-cache.outputs.cache-hit != 'true'
         run: npx playwright install --with-deps chromium
+
+      - name: Install Playwright System Dependencies
+        if: steps.playwright-cache.outputs.cache-hit == 'true'
+        run: npx playwright install-deps chromium
 
       - name: Run linting
         run: npm run lint
