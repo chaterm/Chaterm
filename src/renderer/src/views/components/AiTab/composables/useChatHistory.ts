@@ -2,6 +2,7 @@ import { ref, computed, watch, nextTick } from 'vue'
 import { getGlobalState, updateGlobalState } from '@renderer/agent/storage/state'
 import type { HistoryItem, TaskHistoryItem } from '../types'
 import { useSessionState } from './useSessionState'
+import type { WebviewMessage } from '@shared/WebviewMessage'
 import { getDateLabel } from '../utils'
 import i18n from '@/locales'
 const { t } = i18n.global
@@ -190,7 +191,7 @@ export function useChatHistory(createNewEmptyTab?: () => Promise<string>) {
     }
 
     // Send message to main process
-    const message = {
+    const message: WebviewMessage = {
       type: 'deleteTaskWithId',
       text: history.id,
       taskId: history.id

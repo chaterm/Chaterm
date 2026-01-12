@@ -150,11 +150,11 @@
           placement="top"
           :get-popup-container="(triggerNode) => triggerNode.parentElement"
           :mouse-enter-delay="0.3"
-          :visible="aiModeTooltipVisible && !aiModeSelectOpen"
+          :open="aiModeTooltipVisible && !aiModeSelectOpen"
           overlay-class-name="ai-mode-tooltip"
-          @visible-change="
-            (visible: boolean) => {
-              aiModeTooltipVisible = visible
+          @open-change="
+            (open: boolean) => {
+              aiModeTooltipVisible = open
             }
           "
         >
@@ -165,7 +165,7 @@
             style="width: 95px"
             :options="AiTypeOptions"
             data-testid="ai-mode-select"
-            dropdown-class-name="input-controls-select-dropdown"
+            popup-class-name="input-controls-select-dropdown"
             @dropdown-visible-change="handleAiModeSelectOpenChange"
             @keydown.esc.stop
           ></a-select>
@@ -177,7 +177,7 @@
           class="model-select-responsive"
           style="width: 140px"
           show-search
-          dropdown-class-name="input-controls-select-dropdown"
+          popup-class-name="input-controls-select-dropdown"
           @dropdown-visible-change="modelSelectOpen = $event"
           @change="handleChatAiModelChange"
           @keydown.esc.stop

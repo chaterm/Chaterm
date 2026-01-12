@@ -1,5 +1,6 @@
 import { ElectronAPI } from '@electron-toolkit/preload'
 import type { TaskMetadata } from '../main/agent/core/context/context-tracking/ContextTrackerTypes'
+import type { CommandGenerationContext, WebviewMessage } from '../main/agent/shared/WebviewMessage'
 
 interface Cookie {
   name: string
@@ -63,7 +64,7 @@ interface ApiType {
   sshSftpList: (opts: { id: string; remotePath: string }) => Promise<any>
   sftpConnList: () => Promise<string[]>
   sshConnExec: (args: { id: string; cmd: string }) => Promise<any>
-  sendToMain: (message: any) => Promise<any>
+  sendToMain: (message: WebviewMessage) => Promise<void | null>
   onMainMessage: (callback: (message: any) => void) => () => void
   onCommandGenerationResponse: (callback: (response: { command?: string; error?: string; tabId: string }) => void) => () => void
   cancelTask: (tabContext?: { tabId?: string } | string) => Promise<any>
@@ -164,7 +165,11 @@ interface ApiType {
   writeKeywordHighlightConfig: (content: string) => Promise<{ success: boolean }>
   onKeywordHighlightConfigFileChanged: (callback: (content: string) => void) => () => void
   setDataSyncEnabled: (enabled: boolean) => Promise<any>
-  getSystemInfo: (id: string) => Promise<any>
+  getSystemInfo: (id: string) => Promise<{
+    success: boolean
+    data?: CommandGenerationContext
+    error?: string
+  }>
 
   // K8s related APIs
   k8sGetContexts: () => Promise<{

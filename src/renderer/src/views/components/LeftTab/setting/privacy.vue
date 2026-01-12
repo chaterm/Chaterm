@@ -127,6 +127,7 @@ import { userConfigStore } from '@/services/userConfigStoreService'
 import { dataSyncService } from '@/services/dataSyncService'
 import { useI18n } from 'vue-i18n'
 import { getPrivacyPolicyUrl } from '@/utils/edition'
+import type { TelemetrySetting } from '@shared/TelemetrySetting'
 
 const { t } = useI18n()
 
@@ -271,7 +272,7 @@ const updateTelemetry = async () => {
   try {
     await window.api.sendToMain({
       type: 'telemetrySetting',
-      telemetrySetting: userConfig.value.telemetry
+      telemetrySetting: userConfig.value.telemetry as TelemetrySetting
     })
 
     await saveConfig()

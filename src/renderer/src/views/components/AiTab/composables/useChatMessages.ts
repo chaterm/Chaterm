@@ -1,4 +1,4 @@
-import { ref, onMounted, computed, watch } from 'vue'
+import { ref, onMounted, watch } from 'vue'
 import { v4 as uuidv4 } from 'uuid'
 import { notification } from 'ant-design-vue'
 import eventBus from '@/utils/eventBus'
@@ -6,9 +6,9 @@ import type { ChatMessage } from '../types'
 import type { Todo } from '@/types/todo'
 import type { ChatTab } from './useSessionState'
 import type { ExtensionMessage } from '@shared/ExtensionMessage'
+import type { WebviewMessage } from '@shared/WebviewMessage'
 import { createNewMessage, parseMessageContent, pickHostInfo, isSwitchAssetType } from '../utils'
 import { Notice } from '@/views/components/Notice'
-import { useCurrentCwdStore } from '@/store/currentCwdStore'
 import { useSessionState } from './useSessionState'
 import { getGlobalState, updateGlobalState } from '@renderer/agent/storage/state'
 import i18n from '@/locales'
@@ -28,8 +28,6 @@ export function useChatMessages(
 ) {
   const { chatTabs, currentChatId, currentTab, currentSession, chatInputValue, hosts, chatTypeValue } = useSessionState()
 
-  const currentCwdStore = useCurrentCwdStore()
-  const currentCwd = computed(() => currentCwdStore.keyValueMap)
   const markdownRendererRefs = ref<Array<{ setThinkingLoading: (loading: boolean) => void }>>([])
 
   const isCurrentChatMessage = ref(true)
@@ -79,45 +77,6 @@ export function useChatMessages(
     return ip === '127.0.0.1' || ip === 'localhost' || ip === '::1'
   }
 
-  const updateCwdForAllHosts = async () => {
-    if (hosts.value.length > 0) {
-      const updatePromises = hosts.value.map((host) => {
-        if (isLocalHost(host.host)) {
-          return (async () => {
-            try {
-              const result = await window.api.getLocalWorkingDirectory?.()
-              if (result && result.success) {
-                currentCwdStore.updateCwd(host.host, result.cwd)
-              }
-            } catch (error) {
-              console.error('Failed to get local working directory:', error)
-            }
-          })()
-        }
-
-        return new Promise<void>((resolve) => {
-          const timeout = setTimeout(() => {
-            eventBus.off('cwdUpdatedForHost', handleCwdUpdated)
-            resolve()
-          }, 1000)
-
-          const handleCwdUpdated = (updatedHost: string) => {
-            if (updatedHost === host.host) {
-              clearTimeout(timeout)
-              eventBus.off('cwdUpdatedForHost', handleCwdUpdated)
-              resolve()
-            }
-          }
-
-          eventBus.on('cwdUpdatedForHost', handleCwdUpdated)
-          eventBus.emit('requestUpdateCwdForHost', host.host)
-        })
-      })
-
-      await Promise.all(updatePromises)
-    }
-  }
-
   const sendMessageToMain = async (userContent: string, sendType: string, tabId?: string, truncateAtMessageTs?: number) => {
     try {
       const targetTab = tabId ? chatTabs.value.find((tab) => tab.id === tabId) : currentTab.value
@@ -129,14 +88,6 @@ export function useChatMessages(
       const session = targetTab.session
       const targetHosts = targetTab.hosts || []
 
-      await updateCwdForAllHosts()
-
-      const filteredCwd = new Map()
-      targetHosts.forEach((h) => {
-        if (h.host && currentCwd.value[h.host]) {
-          filteredCwd.set(h.host, currentCwd.value[h.host])
-        }
-      })
       const hostsArray = targetHosts.map((h) => ({
         host: h.host,
         uuid: h.uuid,
@@ -144,7 +95,7 @@ export function useChatMessages(
         ...(h.assetType ? { assetType: h.assetType } : {})
       }))
 
-      let message
+      let message: WebviewMessage
       if (session.isExecutingCommand && session.chatHistory.length > 0) {
         message = {
           type: 'interactiveCommandInput',
@@ -157,7 +108,6 @@ export function useChatMessages(
           askResponse: 'messageResponse',
           text: userContent,
           hosts: hostsArray,
-          cwd: filteredCwd,
           taskId: tabId || currentChatId.value
         }
       } else if (sendType === 'commandSend') {
@@ -165,7 +115,6 @@ export function useChatMessages(
           type: 'askResponse',
           askResponse: 'yesButtonClicked',
           text: userContent,
-          cwd: filteredCwd,
           hosts: hostsArray
         }
       } else {
@@ -173,20 +122,19 @@ export function useChatMessages(
           type: 'askResponse',
           askResponse: 'messageResponse',
           text: userContent,
-          cwd: filteredCwd,
           hosts: hostsArray,
           truncateAtMessageTs
         }
       }
 
-      const messageWithTabId = {
+      const messageWithTabId: WebviewMessage = {
         ...message,
         tabId: tabId || currentChatId.value,
         taskId: tabId || currentChatId.value
       }
-      console.log('Send message to main process:', messageWithTabId)
-      const response = await window.api.sendToMain(messageWithTabId)
-      console.log('Main process response:', response)
+      // console.log('Send message to main process:', messageWithTabId)
+      await window.api.sendToMain(messageWithTabId)
+      // console.log('Main process response:', response)
     } catch (error) {
       console.error('Failed to send message to main process:', error)
     }
@@ -542,7 +490,7 @@ export function useChatMessages(
     const feedbacks = ((await getGlobalState('messageFeedbacks')) || {}) as Record<string, 'like' | 'dislike'>
     feedbacks[message.id] = type
     await updateGlobalState('messageFeedbacks', feedbacks)
-    let messageRsp = {
+    const messageRsp: WebviewMessage = {
       type: 'taskFeedback',
       feedbackType: type === 'like' ? 'thumbs_up' : 'thumbs_down',
       taskId: currentChatId.value || undefined
@@ -592,7 +540,6 @@ export function useChatMessages(
     formatParamValue,
     cleanupPartialCommandMessages,
     isLocalHost,
-    updateCwdForAllHosts,
     handleTruncateAndSend
   }
 }

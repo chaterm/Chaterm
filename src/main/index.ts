@@ -41,6 +41,7 @@ import { getPluginDetailsByName } from './plugin/pluginDetails'
 import { getActualTheme, loadUserTheme } from './themeManager'
 import { getLoginBaseUrl, getEdition, getProtocolPrefix, getProtocolName } from './config/edition'
 import { TelemetrySetting } from '@shared/TelemetrySetting'
+import type { WebviewMessage } from '@shared/WebviewMessage'
 
 let mainWindow: BrowserWindow
 let COOKIE_URL = 'http://localhost'
@@ -968,10 +969,11 @@ function setupIPC(): void {
     return null
   })
   // Add message handler from renderer process to main process
-  ipcMain.handle('webview-to-main', async (_, message) => {
-    console.log('webview-to-main', message)
+  ipcMain.handle('webview-to-main', async (_event, message: WebviewMessage): Promise<void | null> => {
+    // console.log('webview-to-main', message)
     if (controller) {
-      return await controller.handleWebviewMessage(message)
+      await controller.handleWebviewMessage(message)
+      return
     }
     return null
   })

@@ -1,5 +1,6 @@
 import { contextBridge, ipcRenderer } from 'electron'
 import { electronAPI } from '@electron-toolkit/preload'
+import type { WebviewMessage } from '../main/agent/shared/WebviewMessage'
 
 import * as dotenv from 'dotenv'
 import * as path from 'path'
@@ -746,7 +747,7 @@ const api = {
       return Promise.reject(error)
     }
   },
-  sendToMain: (message: unknown) => ipcRenderer.invoke('webview-to-main', message),
+  sendToMain: (message: WebviewMessage) => ipcRenderer.invoke('webview-to-main', message) as Promise<void | null>,
   onMainMessage: (callback) => {
     const handler = (_event, message) => callback(message)
     ipcRenderer.on('main-to-webview', handler)

@@ -1,5 +1,6 @@
 import { ref } from 'vue'
 import type { ChatMessage } from '../types'
+import type { WebviewMessage } from '@shared/WebviewMessage'
 import { useSessionState } from './useSessionState'
 
 /**
@@ -57,9 +58,9 @@ export function useMessageOptions() {
       if (option) {
         message.selectedOption = option
       }
-      let messageRsp = {
+      let messageRsp: WebviewMessage = {
         type: 'askResponse',
-        askResponse: option || 'yesButtonClicked',
+        askResponse: 'yesButtonClicked',
         text: ''
       }
       switch (message.ask) {

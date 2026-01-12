@@ -3,6 +3,7 @@ import { Client } from 'ssh2'
 import type { SFTPWrapper } from 'ssh2'
 import { spawn } from 'child_process'
 import { Duplex } from 'stream'
+import type { CommandGenerationContext } from '@shared/WebviewMessage'
 
 const { app } = require('electron')
 const appPath = app.getAppPath()
@@ -1891,16 +1892,7 @@ export const registerSSHHandlers = () => {
   })
 }
 
-const getSystemInfo = async (
-  id: string
-): Promise<{
-  osVersion: string
-  defaultShell: string
-  homeDir: string
-  hostname: string
-  username: string
-  sudoPermission: boolean
-}> => {
+const getSystemInfo = async (id: string): Promise<CommandGenerationContext> => {
   let conn = sshConnections.get(id)
   if (!conn) {
     const connData = jumpserverConnections.get(id)
@@ -1911,6 +1903,14 @@ const getSystemInfo = async (
   }
 
   const systemInfoScript = `uname -a | sed 's/^/OS_VERSION:/' && echo "DEFAULT_SHELL:$SHELL" && echo "HOME_DIR:$HOME" && hostname | sed 's/^/HOSTNAME:/' && whoami | sed 's/^/USERNAME:/' && (sudo -n true 2>/dev/null && echo "SUDO_CHECK:has sudo permission" || echo "SUDO_CHECK:no sudo permission")`
+
+  const inferPlatformFromOsVersion = (osVersion: string): string => {
+    const v = (osVersion || '').toLowerCase()
+    if (v.includes('darwin')) return 'darwin'
+    if (v.includes('linux')) return 'linux'
+    if (v.includes('mingw') || v.includes('msys') || v.includes('cygwin')) return 'win32'
+    return 'unknown'
+  }
 
   return new Promise((resolve, reject) => {
     conn.exec(systemInfoScript, (err, stream) => {
@@ -1935,12 +1935,13 @@ const getSystemInfo = async (
         }
 
         const lines = stdout.trim().split('\n')
-        const result = {
+        const result: CommandGenerationContext = {
+          platform: 'unknown',
+          shell: 'bash',
           osVersion: '',
-          defaultShell: '',
-          homeDir: '',
           hostname: '',
           username: '',
+          homeDir: '',
           sudoPermission: false
         }
 
@@ -1948,7 +1949,7 @@ const getSystemInfo = async (
           if (line.startsWith('OS_VERSION:')) {
             result.osVersion = line.replace('OS_VERSION:', '')
           } else if (line.startsWith('DEFAULT_SHELL:')) {
-            result.defaultShell = line.replace('DEFAULT_SHELL:', '')
+            result.shell = line.replace('DEFAULT_SHELL:', '')
           } else if (line.startsWith('HOME_DIR:')) {
             result.homeDir = line.replace('HOME_DIR:', '')
           } else if (line.startsWith('HOSTNAME:')) {
@@ -1959,6 +1960,11 @@ const getSystemInfo = async (
             result.sudoPermission = line.includes('has sudo permission')
           }
         })
+
+        result.platform = inferPlatformFromOsVersion(result.osVersion || '')
+        if (!result.shell) {
+          result.shell = 'bash'
+        }
 
         resolve(result)
       })
