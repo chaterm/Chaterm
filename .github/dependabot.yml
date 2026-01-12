@@ -44,6 +44,12 @@ updates:
         update-types:
           - 'minor'
           - 'patch'
+    # Ignore uuid >= 10.0.0 to prevent ESM compatibility issues
+    # uuid 9.x is the last version supporting CommonJS, which is required by @aws-crypto/branch-keystore-node
+    # This allows safe patch/minor updates within 9.x while blocking breaking major updates
+    ignore:
+      - dependency-name: 'uuid'
+        versions: ['>=10.0.0']
 
   # Check for GitHub Actions dependency updates
   - package-ecosystem: 'github-actions'
