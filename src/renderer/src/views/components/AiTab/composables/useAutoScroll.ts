@@ -239,6 +239,8 @@ export function useAutoScroll() {
       startObservingDom()
 
       updateContainerHeight()
+      // ResizeObserver is not available in jsdom (used by Vitest renderer-process in CI),
+      // so we guard it to avoid unhandled rejections during tests.
       if (chatContainer.value && typeof ResizeObserver !== 'undefined') {
         resizeObserver = new ResizeObserver(() => {
           updateContainerHeight()
@@ -310,10 +312,14 @@ export function useAutoScroll() {
             if (resizeObserver) {
               resizeObserver.disconnect()
             }
-            resizeObserver = new ResizeObserver(() => {
-              updateContainerHeight()
-            })
-            resizeObserver.observe(container)
+            // ResizeObserver is not available in jsdom (used by Vitest renderer-process in CI),
+            // so we guard it to avoid unhandled rejections during tests.
+            if (typeof ResizeObserver !== 'undefined') {
+              resizeObserver = new ResizeObserver(() => {
+                updateContainerHeight()
+              })
+              resizeObserver.observe(container)
+            }
           }
         })
       }
