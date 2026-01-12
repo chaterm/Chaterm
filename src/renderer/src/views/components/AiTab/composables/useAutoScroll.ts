@@ -306,6 +306,14 @@ export function useAutoScroll() {
             shouldStickToBottom.value = isAtBottom(container)
             lastScrollTop.value = container.scrollTop // Initialize lastScrollTop
             lastScrollHeight.value = container.scrollHeight // Initialize lastScrollHeight
+
+            if (resizeObserver) {
+              resizeObserver.disconnect()
+            }
+            resizeObserver = new ResizeObserver(() => {
+              updateContainerHeight()
+            })
+            resizeObserver.observe(container)
           }
         })
       }
