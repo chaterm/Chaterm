@@ -10,6 +10,9 @@ const translations = {
   'zh-CN': {
     localhost: '本地连接'
   },
+  'zh-TW': {
+    localhost: '本地連接'
+  },
   'en-US': {
     localhost: 'Localhost'
   },
@@ -18,6 +21,21 @@ const translations = {
   },
   'ko-KR': {
     localhost: '로컬 호스트'
+  },
+  'de-DE': {
+    localhost: 'Lokaler Host'
+  },
+  'fr-FR': {
+    localhost: 'Hôte local'
+  },
+  'it-IT': {
+    localhost: 'Host locale'
+  },
+  'pt-PT': {
+    localhost: 'Host local'
+  },
+  'ru-RU': {
+    localhost: 'Локальный хост'
   }
 }
 
