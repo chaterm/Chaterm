@@ -139,16 +139,16 @@
           :label="$t('user.language')"
           class="user_my-ant-form-item"
         >
-          <a-radio-group
+          <a-select
             v-model:value="userConfig.language"
-            class="custom-radio-group"
+            class="language-select"
             @change="changeLanguage"
           >
-            <a-radio value="zh-CN">简体中文</a-radio>
-            <a-radio value="en-US">English</a-radio>
-            <a-radio value="ja-JP">日本語</a-radio>
-            <a-radio value="ko-KR">한국어</a-radio>
-          </a-radio-group>
+            <a-select-option value="zh-CN">简体中文</a-select-option>
+            <a-select-option value="en-US">English</a-select-option>
+            <a-select-option value="ja-JP">日本語</a-select-option>
+            <a-select-option value="ko-KR">한국어</a-select-option>
+          </a-select>
         </a-form-item>
         <a-form-item
           :label="$t('user.watermark')"
@@ -538,6 +538,43 @@ const changeBackgroundBrightness = async () => {
   margin-bottom: 14px;
   vertical-align: top;
   color: #ffffff;
+}
+
+.language-select {
+  width: 180px !important;
+  text-align: left;
+}
+
+.language-select :deep(.ant-select-selector) {
+  background-color: var(--select-bg);
+  border: 1px solid var(--select-border);
+  border-radius: 6px;
+  color: var(--text-color);
+  transition: all 0.3s;
+  height: 32px;
+}
+
+.language-select :deep(.ant-select-selector:hover) {
+  border-color: #1890ff;
+  background-color: var(--select-hover-bg);
+}
+
+.language-select :deep(.ant-select-focused .ant-select-selector),
+.language-select :deep(.ant-select-selector:focus) {
+  border-color: #1890ff;
+  box-shadow: 0 0 0 2px rgba(24, 144, 255, 0.2);
+  background-color: var(--select-hover-bg);
+}
+
+.language-select :deep(.ant-select-selection-item) {
+  color: var(--text-color);
+  font-size: 14px;
+  line-height: 32px;
+}
+
+.language-select :deep(.ant-select-arrow) {
+  color: var(--text-color);
+  opacity: 0.7;
 }
 
 .divider-container {
