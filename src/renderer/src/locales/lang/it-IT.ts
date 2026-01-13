@@ -188,7 +188,7 @@ export default {
     linuxPlatformHandleAuth: 'Gestione callback autenticazione su piattaforma Linux'
   },
   workspace: {
-    workspace: 'WorkSpace',
+    workspace: 'Spazio di lavoro',
     personal: 'Personale',
     searchHost: 'Cerca host'
   },
@@ -1173,7 +1173,7 @@ export default {
     autoApproveHelp: 'Strumenti auto-approvati eseguiranno senza conferma utente'
   },
   macro: {
-    startRecording: 'Macro Record',
+    startRecording: 'Registrazione macro',
     stopRecording: 'Ferma registrazione',
     saveRecording: 'Salva registrazione',
     noActiveTerminal: 'Nessun terminale attivo, per favore connetti a un terminale prima',
