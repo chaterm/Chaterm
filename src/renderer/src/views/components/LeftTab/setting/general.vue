@@ -145,7 +145,13 @@
             @change="changeLanguage"
           >
             <a-select-option value="zh-CN">简体中文</a-select-option>
+            <a-select-option value="zh-TW">繁體中文</a-select-option>
             <a-select-option value="en-US">English</a-select-option>
+            <a-select-option value="de-DE">Deutsch</a-select-option>
+            <a-select-option value="fr-FR">Français</a-select-option>
+            <a-select-option value="it-IT">Italiano</a-select-option>
+            <a-select-option value="pt-PT">Português</a-select-option>
+            <a-select-option value="ru-RU">Русский</a-select-option>
             <a-select-option value="ja-JP">日本語</a-select-option>
             <a-select-option value="ko-KR">한국어</a-select-option>
           </a-select>
