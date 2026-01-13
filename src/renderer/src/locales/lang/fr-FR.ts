@@ -260,6 +260,8 @@ export default {
     general: 'Général',
     extensions: 'Extensions',
     about: 'À propos',
+    documentation: 'Documentation',
+    privacy: 'Confidentialité',
     secretRedaction: 'Redaction secrète',
     secretRedactionDescription:
       'La rédaction secrète essaie de rediger automatiquement les secrets et les informations sensibles dans la sortie de votre dialogue AI, y compris les mots de passe, les adresses IP, les clés API et les PII.',

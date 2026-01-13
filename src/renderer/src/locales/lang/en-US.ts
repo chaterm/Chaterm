@@ -431,7 +431,6 @@ export default {
     saveDeepSeekConfigFailed: 'Failed to save DeepSeek configuration',
     saveOpenAiConfigFailed: 'Failed to save OpenAI configuration',
     saveOllamaConfigFailed: 'Failed to save Ollama configuration',
-    // Security configuration
     securityConfig: 'Security Configuration',
     openSecurityConfig: 'Open Config',
     securityConfigDescribe:
@@ -618,7 +617,6 @@ export default {
     personalAsset: 'Personal Asset',
     enterpriseAsset: 'Enterprise Asset',
     organizationTip: 'Connect to enterprise assets via Jumpserver',
-    // Device type selection
     deviceCategory: 'Device Type',
     selectDeviceType: 'Select device type',
     deviceServer: 'Server',
@@ -769,7 +767,6 @@ export default {
     codePreview: 'Code Preview ({lines} lines)',
     enterCustomOption: 'Enter your answer...',
     submit: 'Submit',
-    // Voice input related
     startVoiceInput: 'Start Voice Input',
     stopRecording: 'Stop Voice Recording',
     startRecording: 'Start Voice Recording',

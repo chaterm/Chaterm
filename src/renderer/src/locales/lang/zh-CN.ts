@@ -430,7 +430,6 @@ export default {
     saveDeepSeekConfigFailed: '保存DeepSeek配置失败',
     saveOpenAiConfigFailed: '保存OpenAI配置失败',
     saveOllamaConfigFailed: '保存Ollama配置失败',
-    // 安全配置相关
     securityConfig: '安全配置',
     openSecurityConfig: '打开配置',
     securityConfigDescribe: '点击按钮直接打开安全配置文件，管理命令执行的安全策略和白名单/黑名单设置。',
@@ -612,7 +611,6 @@ export default {
     personalAsset: '个人',
     enterpriseAsset: '企业',
     organizationTip: '仅支持 Jumpserver',
-    // Device type selection
     deviceCategory: '设备类型',
     selectDeviceType: '请选择设备类型',
     deviceServer: '服务器',
@@ -761,7 +759,6 @@ export default {
     codePreview: '代码预览 ({lines}行)',
     enterCustomOption: '请输入您的答案...',
     submit: '提交',
-    // 语音输入相关
     startVoiceInput: '开始语音输入',
     stopRecording: '停止语音录制',
     startRecording: '开始语音录制',

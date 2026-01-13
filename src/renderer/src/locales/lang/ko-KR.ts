@@ -421,7 +421,6 @@ export default {
     saveDeepSeekConfigFailed: 'DeepSeek 설정 저장 실패',
     saveOpenAiConfigFailed: 'OpenAI 설정 저장 실패',
     saveOllamaConfigFailed: 'Ollama 설정 저장 실패',
-    // Security configuration
     securityConfig: '보안 설정',
     openSecurityConfig: '설정 열기',
     securityConfigDescribe: '보안 설정 파일을 직접 열어 명령 실행 보안 정책과 허용 목록/거절 목록 설정을 관리합니다.',
@@ -603,7 +602,6 @@ export default {
     personalAsset: '개인',
     enterpriseAsset: '기업',
     organizationTip: 'Jumpserver를 통해 기업 자산에 연결',
-    // Device type selection
     deviceCategory: '장치 유형',
     selectDeviceType: '장치 유형을 선택하세요',
     deviceServer: '서버',
@@ -754,7 +752,6 @@ export default {
     codePreview: '코드 미리보기 ({lines} 줄)',
     enterCustomOption: '답변을 입력해주세요...',
     submit: '제출',
-    // Voice input related
     startVoiceInput: '음성 입력 시작',
     stopRecording: '음성 녹음 중지',
     startRecording: '음성 녹음 시작',

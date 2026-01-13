@@ -431,7 +431,6 @@ export default {
     saveDeepSeekConfigFailed: 'DeepSeek設定の保存に失敗しました',
     saveOpenAiConfigFailed: 'OpenAI設定の保存に失敗しました',
     saveOllamaConfigFailed: 'Ollama設定の保存に失敗しました',
-    // Security configuration
     securityConfig: 'セキュリティ設定',
     openSecurityConfig: '設定を開く',
     securityConfigDescribe:
@@ -616,7 +615,6 @@ export default {
     personalAsset: '個人資産',
     enterpriseAsset: '企業資産',
     organizationTip: 'Jumpserverを介して企業資産に接続します',
-    // Device type selection
     deviceCategory: 'デバイスタイプ',
     selectDeviceType: 'デバイスタイプを選択',
     deviceServer: 'サーバー',
@@ -767,7 +765,6 @@ export default {
     codePreview: 'コードプレビュー ({lines} 行)',
     enterCustomOption: '答えを入力してください...',
     submit: '送信',
-    // Voice input related
     startVoiceInput: '音声入力を開始',
     stopRecording: '音声録音を停止',
     startRecording: '音声録音を開始',
