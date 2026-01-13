@@ -521,6 +521,7 @@ export default {
       jmsPluginFuncAgentDetail:
         'Support AI agents to penetrate fortress machines and directly connect to target servers, breaking through operational isolation limitations and achieving target machine instruction execution and deep AI interaction.',
       jmsPluginFuncAgentLog: 'Operation Demo (Mock Logs)',
+      jmsPluginGuide: 'Configuration Guide',
       jmsStep1: "1. Open 'Key Management' in the sidebar, click 'Add Key' and save the configuration.",
       jmsStep2: "2. Click 'Server List' in the sidebar, then go to 'Asset Management' and click 'Add Host'.",
       jmsStep3: "3. Select 'Enterprise Asset', fill in the Address, User, Port, and Key (configure the password if MFA is required), then save.",
@@ -801,7 +802,7 @@ export default {
     recognitionEmptyDesc: 'Please re-record or check voice content',
     voiceRecognitionFailed: 'Voice Transcription Failed',
     voiceRecognitionServiceUnavailable: 'Voice transcription service temporarily unavailable',
-    startRecordingDesc: 'Please start speaking, recording up to 60 seconds',
+    startRecordingDesc: 'Please start speaking, recording up to 60 seconds. Backend supported formats: {formats}',
     recordingFormat: 'Format used',
     stopAudioTracks: 'Stop all audio tracks',
     startRecordingNote: 'Start recording, collect data every 100ms',

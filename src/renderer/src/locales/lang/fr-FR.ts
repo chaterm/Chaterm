@@ -523,6 +523,7 @@ export default {
       jmsPluginFuncAgentDetail:
         "Support des agents AI pour pénétrer les machines de forteresse et se connecter directement aux serveurs cibles, en brisant les limitations d'isolement opérationnel et en atteignant l'exécution des instructions de la machine cible et l'interaction profonde avec l'IA.",
       jmsPluginFuncAgentLog: "Démonstration de l'opération (journaux simulés)",
+      jmsPluginGuide: 'Guide de configuration',
       jmsStep1: "1. Ouvrir 'Gestion des clés' dans la barre latérale, cliquer sur 'Ajouter une clé' et enregistrer la configuration.",
       jmsStep2: "2. Cliquer sur 'Liste des serveurs' dans la barre latérale, puis aller à 'Gestion des actifs' et cliquer sur 'Ajouter un hôte'.",
       jmsStep3:
@@ -810,7 +811,7 @@ export default {
     recognitionEmptyDesc: 'Veuillez enregistrer ou vérifier le contenu vocal',
     voiceRecognitionFailed: 'Transcription vocale échouée',
     voiceRecognitionServiceUnavailable: 'Service de transcription vocale temporairement indisponible',
-    startRecordingDesc: "Veuillez commencer à parler, enregistrer jusqu'à 60 secondes",
+    startRecordingDesc: "Veuillez commencer à parler, enregistrer jusqu'à 60 secondes. Formats pris en charge par le backend : {formats}",
     recordingFormat: 'Format utilisé',
     stopAudioTracks: 'Arrêter tous les pistes audio',
     startRecordingNote: "Commencer l'enregistrement, collecter les données toutes les 100ms",

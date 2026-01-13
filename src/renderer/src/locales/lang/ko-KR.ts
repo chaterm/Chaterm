@@ -507,6 +507,7 @@ export default {
       jmsPluginFuncAgentDetail:
         'AI Agent가 요새기를 관통하여 대상 서버에 직접 연결하고, 조작 격리 제한을 돌파하여 목표기 명령 실행과 심도 있는 AI 인터렉션을 실현할 수 있도록 지원한다.',
       jmsPluginFuncAgentLog: '작업 시연 (로그 시뮬레이션)',
+      jmsPluginGuide: '구성 가이드',
       jmsStep1: '1. 사이드바에서 「키 관리」를 열고 「키 추가」를 클릭한 후 설정을 저장합니다.',
       jmsStep2: '2. 사이드바에서 「서버 목록」을 클릭하고 「자산 관리」로 들어가 「호스트 추가」를 클릭합니다.',
       jmsStep3: '3. 「기업 자산」을 선택하고 주소, 사용자, 포트, 키 정보를 입력(2단계 인증이 필요한 경우 비밀번호 설정)한 후 저장합니다.',
@@ -786,7 +787,7 @@ export default {
     recognitionEmptyDesc: '다시 녹음하거나 음성 내용을 확인해주세요',
     voiceRecognitionFailed: '인식 실패',
     voiceRecognitionServiceUnavailable: '인식 서비스 임시 사용 불가',
-    startRecordingDesc: '음성을 시작하여 최대 60초 녹음해주세요',
+    startRecordingDesc: '음성을 시작하여 최대 60초 녹음해주세요. 백엔드 지원 형식: {formats}',
     recordingFormat: '사용된 형식',
     fileTooLarge: '파일이 너무 큽니다',
     fileTooLargeDesc: '파일 크기는 1MB를 초과할 수 없습니다, 더 작은 파일을 선택해주세요',

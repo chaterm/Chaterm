@@ -354,7 +354,7 @@ export default {
     apiConfiguration: 'API 設置',
     apiProvider: 'API 提供者',
     apiProviderDescribe:
-      '通過提供上述密鑰或使用默認的AWS憑據提供程序（即~/.AWS/rentials或環境變量）進行身份驗證。這些憑據僅在本地用於從此客戶端發出API請求。',
+      '通過提供上述密鑰或使用默認的AWS憑據提供程序（即~/.aws/credentials或環境變量）進行身份驗證。這些憑據僅在本地用於從此客戶端發出API請求。',
     awsAccessKey: 'AWS Access Key',
     awsAccessKeyPh: '請輸入AWS Access Key',
     awsSecretKey: 'AWS Secret Key',
@@ -460,7 +460,6 @@ export default {
     errorNetWork: '網路請求異常',
     warning: '提示',
     missingAliasCommand: '缺少別名或命令！',
-    deleteSuccess: '刪除成功！',
     aliasAlreadyExists: '別名已存在！',
     addCommand: '添加命令',
     noDescription: '暫無描述',

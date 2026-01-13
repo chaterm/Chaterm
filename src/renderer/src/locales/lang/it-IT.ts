@@ -523,6 +523,7 @@ export default {
       jmsPluginFuncAgentDetail:
         "Supporta gli agenti AI per penetrare le macchine bastion e connettersi direttamente ai server target, superando le limitazioni di isolamento operativo e raggiungendo l'esecuzione di istruzioni sulla macchina target e l'interazione AI profonda.",
       jmsPluginFuncAgentLog: 'Demo operazione (Log mock)',
+      jmsPluginGuide: 'Guida alla configurazione',
       jmsStep1: "1. Apri 'Gestione chiavi' nella sidebar, clicca 'Aggiungi chiave' e salva la configurazione.",
       jmsStep2: "2. Clicca 'Lista server' nella sidebar, poi vai a 'Gestione asset' e clicca 'Aggiungi host'.",
       jmsStep3:
@@ -808,7 +809,7 @@ export default {
     recognitionEmptyDesc: 'Per favore riregistra o controlla il contenuto vocale',
     voiceRecognitionFailed: 'Riconoscimento voce fallito',
     voiceRecognitionServiceUnavailable: 'Riconoscimento voce temporaneamente non disponibile',
-    startRecordingDesc: 'Per favore inizia a parlare, registra fino a 60 secondi',
+    startRecordingDesc: 'Per favore inizia a parlare, registra fino a 60 secondi. Formati supportati dal backend: {formats}',
     recordingFormat: 'Formato usato',
     stopAudioTracks: 'Stoppa tutti i tracci audio',
     startRecordingNote: 'Inizia registrazione, raccogli dati ogni 100ms',

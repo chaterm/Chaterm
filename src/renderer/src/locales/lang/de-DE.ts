@@ -520,10 +520,11 @@ export default {
       jmsPluginFuncAuth: 'Persistente Authentifizierungsstatus',
       jmsPluginFuncAuthDetail:
         'Automatisch Login-Sessions nach erfolgreicher Authentifizierung beibehalten, um die Wiederholung von MFA-Codes für mehrere Verbindungen zu vermeiden und die Betriebswirtschaftlichkeit zu steigern.',
-      jmsPluginAgent: 'Agent-Verbindungsverbesserung',
-      jmsPluginAgentDetail:
+      jmsPluginFuncAgent: 'Agent-Verbindungsverbesserung',
+      jmsPluginFuncAgentDetail:
         'Unterstützt AI-Agents, um Bastion-Maschinen zu durchdringen und direkt zu Ziel-Servern zu verbinden, um Betriebsisolation-Einschränkungen zu überwinden und Zielmaschinen-Befehlsausführung und tiefere AI-Interaktion zu erreichen.',
-      jmsPluginAgentLog: 'Verbindungsdemo (Mock-Logs)',
+      jmsPluginFuncAgentLog: 'Verbindungsdemo (Mock-Logs)',
+      jmsPluginGuide: 'Konfigurationsanleitung',
       jmsStep1: "1. Öffnen Sie 'Key Management' in der Seitenleiste, klicken Sie auf 'Add Key' und speichern Sie die Konfiguration.",
       jmsStep2: "2. Klicken Sie auf 'Server List' in der Seitenleiste, dann gehen Sie zu 'Asset Management' und klicken Sie auf 'Add Host'.",
       jmsStep3:
@@ -808,6 +809,9 @@ export default {
     rollbackBlocked: 'Rückgängig machen blockiert',
     rollbackDangerousCommand: 'Gefährlicher Befehl erkannt, Rückgängig machen-Operation wurde aus Systemsicherheitsgründen blockiert',
     recognitionEmptyDesc: 'Bitte erneut aufnehmen oder Sprachinhalt prüfen',
+    voiceRecognitionFailed: 'Spracherkennung fehlgeschlagen',
+    voiceRecognitionServiceUnavailable: 'Spracherkennungsdienst vorübergehend nicht verfügbar',
+    startRecordingDesc: 'Bitte beginnen Sie zu sprechen, Aufnahme bis zu 60 Sekunden. Vom Backend unterstützte Formate: {formats}',
     recordingFormat: 'Format verwendet',
     stopAudioTracks: 'Alle Audio-Tracks stoppen',
     startRecordingNote: 'Sprachaufzeichnung starten, alle 100ms Daten sammeln',

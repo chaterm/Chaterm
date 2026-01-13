@@ -799,7 +799,7 @@ export default {
     recognitionEmptyDesc: '音声内容を再録音または確認してください',
     voiceRecognitionFailed: '音声認識に失敗しました',
     voiceRecognitionServiceUnavailable: '音声認識サービスが一時的に利用できません',
-    startRecordingDesc: '話し始めてください、最大60秒録音します',
+    startRecordingDesc: '話し始めてください、最大60秒録音します。バックエンドでサポートされている形式：{formats}',
     recordingFormat: '使用されるフォーマット',
     stopAudioTracks: 'すべての音声トラックを停止',
     startRecordingNote: '録音を開始し、100msごとにデータを収集します',
