@@ -420,7 +420,6 @@ export default {
     saveDeepSeekConfigFailed: '保存DeepSeek設置失敗',
     saveOpenAiConfigFailed: '保存OpenAI設置失敗',
     saveOllamaConfigFailed: '保存Ollama設置失敗',
-    // 安全配置相关
     securityConfig: '安全設置',
     openSecurityConfig: '打開設置',
     securityConfigDescribe: '點擊按鈕直接打開安全設置文件，管理命令執行的安全策略和白名單/黑名單設置。',
@@ -603,7 +602,6 @@ export default {
     personalAsset: '個人',
     enterpriseAsset: '企業',
     organizationTip: '僅支持 Jumpserver',
-    // Device type selection
     deviceCategory: '設備類型',
     selectDeviceType: '請選擇設備類型',
     deviceServer: '伺服器',
