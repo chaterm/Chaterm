@@ -7,7 +7,7 @@ const translations = {
     favoriteBar: '收藏栏'
   },
   'zh-TW': {
-    favoriteBar: '收藏栏'
+    favoriteBar: '收藏欄'
   },
   'en-US': {
     favoriteBar: 'Favorites'
