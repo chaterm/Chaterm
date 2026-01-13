@@ -830,7 +830,7 @@ export default {
     commandCopied: 'Commande copiée',
     commandCopiedToClipboard: 'Commande copiée dans le presse-papiers',
     executionCompleted: 'Exécution terminée',
-    commandExecutionFailed: 'Commande exécutée avec succès',
+    commandExecutionFailed: "Échec de l'exécution de la commande",
     localCommandExecutionError: "Erreur d'exécution de commande locale",
     cannotExecuteCommand: "Impossible d'exécuter la commande",
     wrongServerWindow:
