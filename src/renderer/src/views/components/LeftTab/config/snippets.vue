@@ -193,7 +193,7 @@
             class="help-header"
             @click="toggleHelp"
           >
-            <span class="help-title">{{ $t('quickCommand.scriptSyntaxHelp') }}</span>
+            <span class="help-title">📖 {{ $t('quickCommand.scriptSyntaxHelp') }}</span>
             <span class="toggle-icon">{{ showHelp ? '▼' : '▶' }}</span>
           </div>
 
@@ -205,18 +205,18 @@
               <!-- Left: Command descriptions -->
               <div class="help-left">
                 <div class="help-item">
-                  <strong>{{ $t('quickCommand.basicCommands') }}</strong>
+                  <strong>⚡ {{ $t('quickCommand.basicCommands') }}</strong>
                   <span>{{ $t('quickCommand.basicCommandsDesc') }}</span>
                 </div>
 
                 <div class="help-item">
-                  <strong>{{ $t('quickCommand.delayCommand') }}</strong>
+                  <strong>⏰ {{ $t('quickCommand.delayCommand') }}</strong>
                   <code>sleep=={{ $t('quickCommand.milliseconds') }}</code>
                   <span>{{ $t('quickCommand.delayCommandDesc') }}<code>sleep==3000</code></span>
                 </div>
 
                 <div class="help-item">
-                  <strong>{{ $t('quickCommand.specialKeys') }}</strong>
+                  <strong>⌨️ {{ $t('quickCommand.specialKeys') }}</strong>
                   <div class="key-list">
                     <code>esc</code>
                     <code>tab</code>
@@ -226,7 +226,7 @@
                 </div>
 
                 <div class="help-item">
-                  <strong>{{ $t('quickCommand.arrowKeys') }}</strong>
+                  <strong>➡️ {{ $t('quickCommand.arrowKeys') }}</strong>
                   <div class="key-list">
                     <code>up</code>
                     <code>down</code>
@@ -246,7 +246,7 @@
                 </div>
 
                 <div class="help-item">
-                  <strong>{{ $t('quickCommand.comments') }}</strong>
+                  <strong>💬 {{ $t('quickCommand.comments') }}</strong>
                   <span>{{ $t('quickCommand.commentsDesc') }}</span>
                 </div>
               </div>
@@ -254,7 +254,7 @@
               <!-- Right: Example code -->
               <div class="help-right">
                 <div class="example-header">
-                  <span>{{ $t('quickCommand.exampleScript') }}</span>
+                  <span>💡 {{ $t('quickCommand.exampleScript') }}</span>
                   <button
                     class="copy-btn"
                     :class="{ copied: copySuccess }"
