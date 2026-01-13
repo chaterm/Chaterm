@@ -621,7 +621,7 @@ export default {
     validationKeychainRequired: '密鑰不能為空',
     validationEnterpriseRequiredFields: '企業資產的遠程地址、端口、用戶名、密碼或密鑰不能為空',
     validationNoSpaces: '輸入內容不能包含空格',
-    validationIpNoSpaces: 'IP地址不能包含空格IP地址不能包含空格',
+    validationIpNoSpaces: 'IP地址不能包含空格',
     validationPortNoSpaces: '端口不能包含空格',
     validationUsernameNoSpaces: '用戶名不能包含空格',
     validationPasswordNoSpaces: '密碼不能包含空格',
