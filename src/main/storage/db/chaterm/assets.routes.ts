@@ -6,6 +6,9 @@ const translations = {
   'zh-CN': {
     favoriteBar: '收藏栏'
   },
+  'zh-TW': {
+    favoriteBar: '收藏欄'
+  },
   'en-US': {
     favoriteBar: 'Favorites'
   },
@@ -14,6 +17,21 @@ const translations = {
   },
   'ko-KR': {
     favoriteBar: '즐겨찾기'
+  },
+  'de-DE': {
+    favoriteBar: 'Favoriten'
+  },
+  'fr-FR': {
+    favoriteBar: 'Favoris'
+  },
+  'it-IT': {
+    favoriteBar: 'Preferiti'
+  },
+  'pt-PT': {
+    favoriteBar: 'Favoritos'
+  },
+  'ru-RU': {
+    favoriteBar: 'Избранное'
   }
 }
 
