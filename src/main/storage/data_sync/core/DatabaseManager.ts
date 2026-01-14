@@ -446,19 +446,161 @@ export class DatabaseManager {
       return value
     })
 
-    const sql = `INSERT INTO t_assets (${columns.join(',')}) VALUES (${placeholders})
-      ON CONFLICT(uuid) DO UPDATE SET
-      label=excluded.label, asset_ip=excluded.asset_ip, group_name=excluded.group_name,
-      auth_type=excluded.auth_type, port=excluded.port, username=excluded.username,
-      password=excluded.password, key_chain_id=excluded.key_chain_id, favorite=excluded.favorite,
-      asset_type=excluded.asset_type, need_proxy=excluded.need_proxy, proxy_name=excluded.proxy_name,
-      updated_at=excluded.updated_at, version=excluded.version`
-
     try {
-      this.db.prepare(sql).run(...values)
+      // First check if a record exists with the same composite unique constraint
+      // (asset_ip, username, port, label, asset_type)
+      const checkStmt = this.db.prepare(`
+        SELECT uuid FROM t_assets 
+        WHERE asset_ip = ? AND username = ? AND port = ? AND label = ? AND asset_type = ?
+      `)
+      const existingRecord = checkStmt.get(asset.asset_ip, asset.username, asset.port, asset.label, asset.asset_type) as { uuid: string } | undefined
+
+      if (existingRecord) {
+        // If a record exists with the same composite unique constraint, update it
+        // Use the existing uuid to avoid composite unique constraint conflicts
+        // If the new uuid is different, we need to handle it carefully
+        if (existingRecord.uuid !== asset.uuid) {
+          // Check if the new uuid already exists in another record
+          const uuidCheckStmt = this.db.prepare(`SELECT uuid FROM t_assets WHERE uuid = ?`)
+          const uuidExists = uuidCheckStmt.get(asset.uuid) as { uuid: string } | undefined
+
+          if (uuidExists) {
+            // New uuid already exists in another record, delete the old record first
+            // Then update the existing record with new uuid
+            const deleteStmt = this.db.prepare(`DELETE FROM t_assets WHERE uuid = ?`)
+            deleteStmt.run(existingRecord.uuid)
+
+            // Now update the record with new uuid
+            const updateSql = `
+              UPDATE t_assets SET
+                label = ?,
+                asset_ip = ?,
+                group_name = ?,
+                auth_type = ?,
+                port = ?,
+                username = ?,
+                password = ?,
+                key_chain_id = ?,
+                favorite = ?,
+                asset_type = ?,
+                need_proxy = ?,
+                proxy_name = ?,
+                updated_at = ?,
+                version = ?
+              WHERE uuid = ?
+            `
+            const updateValues = [
+              asset.label,
+              asset.asset_ip,
+              asset.group_name,
+              asset.auth_type,
+              asset.port,
+              asset.username,
+              asset.password,
+              asset.key_chain_id ?? null,
+              asset.favorite ?? 2,
+              asset.asset_type,
+              asset.need_proxy ?? 0,
+              asset.proxy_name ?? '',
+              asset.updated_at ?? new Date().toISOString(),
+              asset.version ?? 1,
+              asset.uuid
+            ]
+            this.db.prepare(updateSql).run(...updateValues)
+          } else {
+            // New uuid doesn't exist, update existing record with new uuid
+            const updateSql = `
+              UPDATE t_assets SET
+                uuid = ?,
+                label = ?,
+                asset_ip = ?,
+                group_name = ?,
+                auth_type = ?,
+                port = ?,
+                username = ?,
+                password = ?,
+                key_chain_id = ?,
+                favorite = ?,
+                asset_type = ?,
+                need_proxy = ?,
+                proxy_name = ?,
+                updated_at = ?,
+                version = ?
+              WHERE uuid = ?
+            `
+            const updateValues = [
+              asset.uuid,
+              asset.label,
+              asset.asset_ip,
+              asset.group_name,
+              asset.auth_type,
+              asset.port,
+              asset.username,
+              asset.password,
+              asset.key_chain_id ?? null,
+              asset.favorite ?? 2,
+              asset.asset_type,
+              asset.need_proxy ?? 0,
+              asset.proxy_name ?? '',
+              asset.updated_at ?? new Date().toISOString(),
+              asset.version ?? 1,
+              existingRecord.uuid
+            ]
+            this.db.prepare(updateSql).run(...updateValues)
+          }
+        } else {
+          // Same uuid, just update the record
+          const updateSql = `
+            UPDATE t_assets SET
+              label = ?,
+              asset_ip = ?,
+              group_name = ?,
+              auth_type = ?,
+              port = ?,
+              username = ?,
+              password = ?,
+              key_chain_id = ?,
+              favorite = ?,
+              asset_type = ?,
+              need_proxy = ?,
+              proxy_name = ?,
+              updated_at = ?,
+              version = ?
+            WHERE uuid = ?
+          `
+          const updateValues = [
+            asset.label,
+            asset.asset_ip,
+            asset.group_name,
+            asset.auth_type,
+            asset.port,
+            asset.username,
+            asset.password,
+            asset.key_chain_id ?? null,
+            asset.favorite ?? 2,
+            asset.asset_type,
+            asset.need_proxy ?? 0,
+            asset.proxy_name ?? '',
+            asset.updated_at ?? new Date().toISOString(),
+            asset.version ?? 1,
+            existingRecord.uuid
+          ]
+          this.db.prepare(updateSql).run(...updateValues)
+        }
+      } else {
+        // No conflict on composite unique constraint, try insert with ON CONFLICT for uuid
+        const sql = `INSERT INTO t_assets (${columns.join(',')}) VALUES (${placeholders})
+          ON CONFLICT(uuid) DO UPDATE SET
+          label=excluded.label, asset_ip=excluded.asset_ip, group_name=excluded.group_name,
+          auth_type=excluded.auth_type, port=excluded.port, username=excluded.username,
+          password=excluded.password, key_chain_id=excluded.key_chain_id, favorite=excluded.favorite,
+          asset_type=excluded.asset_type, need_proxy=excluded.need_proxy, proxy_name=excluded.proxy_name,
+          updated_at=excluded.updated_at, version=excluded.version`
+        this.db.prepare(sql).run(...values)
+      }
     } catch (error) {
       console.error('SQLite execution failed:', error)
-      console.error('SQL:', sql)
+      console.error('SQL:', 'upsertAsset')
       console.error('Values:', values)
       throw error
     }
