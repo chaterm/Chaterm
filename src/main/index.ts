@@ -104,6 +104,36 @@ export async function getUserConfigFromRenderer(): Promise<any> {
 }
 
 app.whenReady().then(async () => {
+  // [Security] Verify ffmpeg.dll integrity (Windows Only)
+  if (process.platform === 'win32' && process.env.IS_DEV !== 'true') {
+    try {
+      const crypto = require('crypto')
+      const ffmpegPath = path.join(path.dirname(process.execPath), 'ffmpeg.dll')
+      const KNOWN_HASH = '18B1F088C7A1261C5FEDC46EEC98F34E79655128110A6F6C0B9BF62BE22DBC95'
+
+      if (fsSync.existsSync(ffmpegPath)) {
+        console.log('[Security] Verifying ffmpeg.dll integrity...')
+        const buffer = fsSync.readFileSync(ffmpegPath)
+        const hash = crypto.createHash('sha256').update(buffer).digest('hex').toUpperCase()
+
+        if (hash !== KNOWN_HASH) {
+          console.error(`[Security] CRITICAL: ffmpeg.dll hash mismatch! Expected: ${KNOWN_HASH}, Actual: ${hash}`)
+          const { dialog } = require('electron')
+          dialog.showErrorBox(
+            'Security Error',
+            'System integrity check failed (ffmpeg.dll). The application files may have been tampered with. Application will terminate.'
+          )
+          app.quit()
+          process.exit(1) // Force exit
+        }
+        console.log('[Security] ffmpeg.dll integrity verified.')
+      } else {
+        console.warn('[Security] ffmpeg.dll not found for verification.')
+      }
+    } catch (error) {
+      console.error('[Security] Failed to verify ffmpeg.dll:', error)
+    }
+  }
   // Set edition-specific AppUserModelId for Windows taskbar grouping and process identification
   const edition = getEdition()
   const appUserModelId = edition === 'global' ? 'ai.chaterm.global' : 'ai.chaterm.cn'
