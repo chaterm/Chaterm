@@ -42,7 +42,6 @@ import { getActualTheme, loadUserTheme } from './themeManager'
 import { getLoginBaseUrl, getEdition, getProtocolPrefix, getProtocolName } from './config/edition'
 import { TelemetrySetting } from '@shared/TelemetrySetting'
 import type { WebviewMessage } from '@shared/WebviewMessage'
-import { verifyCriticalDllsOrThrow, checkDllInAppDirectory } from './security/DllSignatureVerifier'
 
 let mainWindow: BrowserWindow
 let COOKIE_URL = 'http://localhost'
@@ -105,27 +104,6 @@ export async function getUserConfigFromRenderer(): Promise<any> {
 }
 
 app.whenReady().then(async () => {
-  // Verify critical DLL signatures on Windows to prevent DLL hijacking attacks
-  if (process.platform === 'win32') {
-    try {
-      verifyCriticalDllsOrThrow()
-      console.log('DLL signature verification passed')
-    } catch (error: any) {
-      console.error('DLL signature verification failed:', error.message)
-      // In production, we should show an error dialog and exit
-      // In development, we log the error but continue
-      if (app.isPackaged) {
-        const { dialog } = require('electron')
-        dialog.showErrorBox(
-          'Security Warning',
-          `Critical DLL signature verification failed. The application may have been tampered with.\n\n${error.message}\n\nThe application will now exit for security reasons.`
-        )
-        app.quit()
-        return
-      }
-    }
-  }
-
   // Set edition-specific AppUserModelId for Windows taskbar grouping and process identification
   const edition = getEdition()
   const appUserModelId = edition === 'global' ? 'ai.chaterm.global' : 'ai.chaterm.cn'
@@ -2274,32 +2252,6 @@ ipcMain.handle('plugins.getPluginsVersion', async () => {
 ipcMain.handle('plugins.details', async (_event, pluginName: string) => {
   return getPluginDetailsByName(pluginName)
 })
-
-// ============ Early DLL Security Check (before app.whenReady) ============
-// Check for DLL hijacking attempts in application directory on Windows
-// This must be done before app.whenReady() to catch DLLs that might be loaded early
-if (process.platform === 'win32') {
-  const criticalDlls = ['ffmpeg.dll']
-  for (const dllName of criticalDlls) {
-    // Check if DLL exists in app directory (most common hijacking location)
-    if (checkDllInAppDirectory(dllName)) {
-      try {
-        // Verify signature immediately - if invalid, exit before app starts
-        verifyCriticalDllsOrThrow([{ dllName, requireSignature: true, allowUnsigned: false }])
-      } catch (error: any) {
-        console.error('Critical DLL security check failed:', error.message)
-        // In production, exit immediately to prevent DLL hijacking
-        if (app.isPackaged) {
-          // Note: dialog might not work before app is ready, so we use process.exit
-          console.error('SECURITY ALERT: Invalid DLL detected. Application will exit.')
-          process.exit(1)
-        }
-        // In development, log but continue for debugging
-      }
-    }
-  }
-}
-// ============ Early DLL Security Check complete ============
 
 // Register the agreement before the app is ready
 const protocolName = getProtocolName()
