@@ -162,7 +162,7 @@ const attemptJumpServerConnection = async (
       port: connectionInfo.port || 22,
       username: connectionInfo.username,
       keepaliveInterval: 10000,
-      readyTimeout: 30000,
+      readyTimeout: 180000,
       tryKeyboard: true,
       ident: ident,
       algorithms: LEGACY_ALGORITHMS

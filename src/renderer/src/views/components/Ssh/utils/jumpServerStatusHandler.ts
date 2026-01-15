@@ -152,3 +152,11 @@ export function formatStatusMessage(message: string, type: string = 'info'): str
 
   return `\x1b[90m[${timestamp}]\x1b[0m \x1b[${colorCode}m${prefix}\x1b[0m ${message}`
 }
+
+/**
+ * Determine whether a connection should use the bastion status channel.
+ * All non-SSH bastion types (jumpserver or plugin-based) reuse this channel.
+ */
+export function shouldUseBastionStatusChannel(sshType?: string): boolean {
+  return Boolean(sshType && sshType !== 'ssh')
+}
