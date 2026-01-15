@@ -2,8 +2,15 @@ import { BrowserWindow, dialog, ipcMain } from 'electron'
 import { Client } from 'ssh2'
 import type { SFTPWrapper } from 'ssh2'
 
-const { app } = require('electron')
-const appPath = app.getAppPath()
+function safeAppPath(): string {
+  try {
+    const { app } = require('electron') as { app?: { getAppPath?: () => string } }
+    if (app?.getAppPath) return app.getAppPath()
+  } catch { }
+  return process.cwd()
+}
+
+const appPath = safeAppPath()
 const packagePath = path.join(appPath, 'package.json')
 
 // Try to read package.json from appPath first, fallback to __dirname if not exists
@@ -37,6 +44,13 @@ import path from 'path'
 import fs from 'fs'
 import { SSHAgentManager } from './ssh-agent/ChatermSSHAgent'
 import { getAlgorithmsByAssetType } from './algorithms'
+import {
+  connectBastionByType,
+  shellBastionSession,
+  resizeBastionSession,
+  writeBastionSession,
+  disconnectBastionSession
+} from './bastionPlugin'
 
 // Hybrid buffer strategy configuration
 const FLUSH_CONFIG = {
@@ -801,13 +815,18 @@ export const registerSSHHandlers = () => {
       } catch (error: unknown) {
         return buildErrorResponse(error)
       }
-    } else {
-      // Default to SSH connection
-      const retryCount = 0
-      return new Promise((resolve, reject) => {
-        handleAttemptConnection(_event, connectionInfo, resolve, reject, retryCount)
-      })
     }
+
+    const bastionResult = await connectBastionByType(sshType, connectionInfo, _event)
+    if (bastionResult !== null) {
+      return bastionResult
+    }
+
+    // Default to SSH connection when sshType is missing or explicitly 'ssh'
+    const retryCount = 0
+    return new Promise((resolve, reject) => {
+      handleAttemptConnection(_event, connectionInfo, resolve, reject, retryCount)
+    })
   })
 
   ipcMain.handle('ssh:sftp:conn:check', async (_event, { id }) => {
@@ -937,6 +956,11 @@ export const registerSSHHandlers = () => {
       })
 
       return { status: 'success', message: 'JumpServer Shell ready' }
+    }
+
+    const bastionShellResult = await shellBastionSession(event, id, terminalType)
+    if (bastionShellResult !== null) {
+      return bastionShellResult
     }
 
     // Default SSH shell handling
@@ -1087,6 +1111,11 @@ export const registerSSHHandlers = () => {
       }
     }
 
+    const bastionResizeResult = await resizeBastionSession(id, cols, rows)
+    if (bastionResizeResult !== null) {
+      return bastionResizeResult
+    }
+
     // Default SSH handling
     const stream = shellStreams.get(id)
     if (!stream) {
@@ -1139,6 +1168,10 @@ export const registerSSHHandlers = () => {
       } else {
         console.warn('Attempting to write to non-existent JumpServer stream:', id)
       }
+      return
+    }
+
+    if (writeBastionSession(id, data, marker, lineCommand, isBinary)) {
       return
     }
 
@@ -1480,6 +1513,11 @@ export const registerSSHHandlers = () => {
       return { status: 'warning', message: 'No active JumpServer connection' }
     }
 
+    const bastionDisconnectResult = await disconnectBastionSession(id)
+    if (bastionDisconnectResult !== null) {
+      return bastionDisconnectResult
+    }
+
     // Default SSH handling
     const stream = shellStreams.get(id)
     if (stream) {
@@ -1503,7 +1541,7 @@ export const registerSSHHandlers = () => {
 
       if (poolKey && reusableConn) {
         // Remove current session from session set
-        ;(reusableConn as ReusableConnection).sessions.delete(id)
+        ; (reusableConn as ReusableConnection).sessions.delete(id)
 
         // If no other sessions are using this connection, close connection and clean up pool
         if ((reusableConn as ReusableConnection).sessions.size === 0) {

@@ -1,5 +1,72 @@
-// Asset type definition: person (server), organization (jumpserver), person-switch-* (network switches)
-export type AssetType = 'person' | 'organization' | 'person-switch-cisco' | 'person-switch-huawei'
+// Asset type definition: person (server), organization (jumpserver), organization-* (plugin bastions), person-switch-* (network switches)
+// Note: Plugin-based bastions use 'organization-${type}' pattern (e.g., 'organization-qizhi', 'organization-tencent')
+export type AssetType =
+  | 'person' // Personal server
+  | 'organization' // Bastion host (built-in = JumpServer)
+  | `organization-${string}` // Plugin-based bastion hosts (dynamic)
+  | 'person-switch-cisco'
+  | 'person-switch-huawei'
+
+export type BastionAuthPolicy = 'password' | 'keyBased'
+
+export interface BastionDefinitionSummary {
+  type: string
+  authPolicy: BastionAuthPolicy[]
+  displayNameKey?: string
+  assetTypePrefix?: string
+}
+
+// Helper function to check if asset type is an organization asset (bastion host)
+// Supports both built-in JumpServer ('organization') and plugin-based bastions ('organization-*')
+export function isOrganizationAsset(assetType: string | undefined): boolean {
+  if (!assetType) return false
+  return assetType === 'organization' || assetType.startsWith('organization-')
+}
+
+// Helper function to get bastion host type from asset type
+// Returns 'jumpserver' for built-in, or the plugin type name for plugin-based bastions
+export function getBastionHostType(assetType: string | undefined): string | null {
+  if (!assetType) return null
+  if (assetType === 'organization') return 'jumpserver' // Built-in JumpServer
+  if (assetType.startsWith('organization-')) {
+    // Extract plugin type: 'organization-qizhi' -> 'qizhi'
+    return assetType.substring('organization-'.length)
+  }
+  return null
+}
+
+// Helper function to get asset type from bastion type
+export function getAssetTypeFromBastionType(bastionType: string): AssetType {
+  if (bastionType === 'jumpserver') return 'organization'
+  return `organization-${bastionType}` as AssetType
+}
+
+// Resolve auth type for bastion assets based on available definitions and current selection
+export function resolveBastionAuthType(
+  assetType: string | undefined,
+  definitions: BastionDefinitionSummary[],
+  currentAuthType?: BastionAuthPolicy
+): BastionAuthPolicy {
+  if (assetType === 'organization') return 'keyBased'
+
+  if (isOrganizationAsset(assetType)) {
+    const bastionType = getBastionHostType(assetType)
+    const definition = bastionType ? definitions.find((d) => d.type === bastionType) : undefined
+
+    if (currentAuthType) {
+      if (!definition) return currentAuthType
+      if (definition.authPolicy.includes(currentAuthType)) return currentAuthType
+    }
+
+    if (definition?.authPolicy?.length) {
+      return definition.authPolicy[0]
+    }
+
+    return 'password'
+  }
+
+  return 'password'
+}
 
 // Helper function to check if asset type is a switch device
 export function isSwitch(assetType: string | undefined): boolean {

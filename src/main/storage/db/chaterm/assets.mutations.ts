@@ -1,6 +1,11 @@
 import Database from 'better-sqlite3'
 import { v4 as uuidv4 } from 'uuid'
 
+// Helper function to check if asset type is an organization type
+const isOrganizationType = (assetType: string): boolean => {
+  return assetType === 'organization' || assetType.startsWith('organization-')
+}
+
 // Use dynamically imported incremental sync trigger, keep consistent with original implementation
 function triggerIncrementalSync(): void {
   setImmediate(async () => {
@@ -295,7 +300,7 @@ export function deleteAssetLogic(db: Database.Database, uuid: string): any {
     `)
     const asset = checkStmt.get(uuid)
 
-    if (asset && asset.asset_type === 'organization') {
+    if (asset && isOrganizationType(asset.asset_type)) {
       const deleteOrgAssetsStmt = db.prepare(`
         DELETE FROM t_organization_assets
         WHERE organization_uuid = ?

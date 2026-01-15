@@ -937,6 +937,29 @@ const api = {
   getInstallHint(pluginId: string) {
     return ipcRenderer.invoke('plugins:get-install-hint', pluginId)
   },
+
+  // Get registered bastion types (plugin-based, not including built-in JumpServer)
+  getRegisteredBastionTypes(): Promise<string[]> {
+    return ipcRenderer.invoke('plugin:getRegisteredBastionTypes')
+  },
+
+  // Get all registered bastion definitions (plugin metadata for UI rendering)
+  // Returns BastionDefinition[] as defined in index.d.ts
+  getBastionDefinitions(): Promise<import('./index.d').BastionDefinition[]> {
+    return ipcRenderer.invoke('plugin:getBastionDefinitions')
+  },
+
+  // Get a specific bastion definition by type
+  // Returns BastionDefinition | undefined as defined in index.d.ts
+  getBastionDefinition(type: string): Promise<import('./index.d').BastionDefinition | undefined> {
+    return ipcRenderer.invoke('plugin:getBastionDefinition', type)
+  },
+
+  // Check if a specific bastion type is available
+  hasBastionCapability(type: string): Promise<boolean> {
+    return ipcRenderer.invoke('plugin:hasBastionCapability', type)
+  },
+
   // XTS file parsing
   parseXtsFile: (data: { data: number[]; fileName: string }) => ipcRenderer.invoke('parseXtsFile', data),
 

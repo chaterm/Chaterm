@@ -3,6 +3,11 @@ import path from 'path'
 import AdmZip from 'adm-zip'
 import { getUserDataPath } from '../config/edition'
 
+export interface PluginI18nStrings {
+  displayName?: string
+  description?: string
+}
+
 export interface PluginManifest {
   id: string
   displayName: string
@@ -11,6 +16,7 @@ export interface PluginManifest {
   main: string
   icon?: string
   type?: string
+  i18n?: Record<string, PluginI18nStrings>
 }
 
 export interface InstalledPlugin {

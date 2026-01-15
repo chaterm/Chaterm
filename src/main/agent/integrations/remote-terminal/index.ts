@@ -7,9 +7,11 @@
 import { BrownEventEmitter } from './event'
 import { remoteSshConnect, remoteSshExecStream, remoteSshDisconnect } from '../../../ssh/agentHandle'
 import { handleJumpServerConnection, jumpserverShellStreams, jumpserverMarkedCommands } from './jumpserverHandle'
+import { capabilityRegistry, BastionErrorCode } from '../../../ssh/capabilityRegistry'
 
 const { app } = require('electron')
 import { webContents } from 'electron'
+import type { IpcMainInvokeEvent } from 'electron'
 import path from 'path'
 import fs from 'fs'
 
@@ -57,6 +59,7 @@ export interface ConnectionInfo {
   passphrase?: string
   asset_ip?: string
   targetIp?: string
+  asset_type?: string
   sshType?: string
   needProxy: boolean
   proxyName?: string
@@ -157,12 +160,26 @@ export class RemoteTerminalProcess extends BrownEventEmitter<RemoteTerminalProce
 
   async run(sessionId: string, command: string, cwd?: string, sshType?: string): Promise<void> {
     this.sessionId = sessionId
-    this.sshType = sshType || 'ssh'
+    const resolvedType = sshType || 'ssh'
+    this.sshType = resolvedType
     try {
-      if (sshType === 'jumpserver') {
+      if (resolvedType === 'jumpserver') {
         await this.runJumpServerCommand(sessionId, command, cwd)
-      } else if (sshType === 'ssh') {
+      } else if (resolvedType === 'ssh') {
         await this.runSshCommand(sessionId, command, cwd)
+      } else {
+        // Check if this is a plugin-based bastion type
+        const bastionCapability = capabilityRegistry.getBastion(resolvedType)
+        if (!bastionCapability) {
+          throw new Error(`${BastionErrorCode.CAPABILITY_NOT_FOUND}: ${resolvedType} capability not registered`)
+        }
+        if (!bastionCapability.getShellStream) {
+          throw new Error(
+            `${BastionErrorCode.AGENT_EXEC_UNAVAILABLE}: ${resolvedType} does not support getShellStream`
+          )
+        }
+        // Route to generalized bastion command execution
+        await this.runBastionCommand(resolvedType, sessionId, command, cwd)
       }
     } catch (error) {
       this.emit('error', error instanceof Error ? error : new Error(String(error)))
@@ -181,11 +198,19 @@ export class RemoteTerminalProcess extends BrownEventEmitter<RemoteTerminalProce
           return true
         }
         return false
-      } else {
+      } else if (this.sshType === 'ssh') {
         // For SSH, call handler function directly
         const { handleRemoteExecInput } = await import('../../../ssh/agentHandle')
         const result = handleRemoteExecInput(this.sessionId, input)
         return result.success
+      } else {
+        // Plugin-based bastion: use capability's write method
+        const bastionCapability = capabilityRegistry.getBastion(this.sshType || '')
+        if (bastionCapability) {
+          bastionCapability.write({ id: this.sessionId, data: input })
+          return true
+        }
+        return false
       }
     } catch (error) {
       console.error('Failed to send input to command:', error)
@@ -594,6 +619,171 @@ export class RemoteTerminalProcess extends BrownEventEmitter<RemoteTerminalProce
       }
     }, this.JUMPSERVER_COMMAND_TIMEOUT)
   }
+
+  /**
+   * Run command on plugin-based bastion host (e.g., Qizhi, Tencent)
+   * Uses stream-based execution via capability registry
+   * @param bastionType The bastion type identifier (e.g., 'qizhi', 'tencent')
+   * @param sessionId The session ID
+   * @param command The command to execute
+   * @param cwd Optional working directory
+   */
+  private async runBastionCommand(bastionType: string, sessionId: string, command: string, cwd?: string): Promise<void> {
+    const bastionCapability = capabilityRegistry.getBastion(bastionType)
+    if (!bastionCapability || !bastionCapability.getShellStream) {
+      throw new Error(`${bastionType} capability shell stream not available`)
+    }
+
+    const stream = bastionCapability.getShellStream(sessionId) as any
+    if (!stream) {
+      throw new Error(`${bastionType} connection not found`)
+    }
+
+    // Path cleaning (same as JumpServer)
+    let cleanCwd: string | undefined = undefined
+    if (cwd) {
+      cleanCwd = cwd
+        .replace(/\x1B\[[0-9;]*[JKmsu]/g, '')
+        .replace(/\x1B\[[?][0-9]*[hl]/g, '')
+        .replace(/\x1B\[K/g, '')
+        .replace(/\x1B\[[0-9]+[ABCD]/g, '')
+        .replace(/\[[^\]]*\]\$.*$/g, '')
+        .replace(/[^@]*@[^:]*:[^$]*\$.*$/g, '')
+        .replace(/.*\$.*$/g, '')
+        .replace(/[\r\n\x00-\x1F\x7F]/g, '')
+        .trim()
+
+      if (cleanCwd && !cleanCwd.match(/^[\/~]|^[a-zA-Z0-9_\-\.\/]+$/)) {
+        console.log(`[${bastionType} ${sessionId}] Invalid working directory path, ignoring: "${cleanCwd}"`)
+        cleanCwd = undefined
+      }
+    }
+
+    // Build wrapped command with markers
+    const { wrappedCommand, startMarker, endMarker } = this.buildJumpServerWrappedCommand(command, cleanCwd)
+
+    let lineBuffer = ''
+    let commandStarted = false
+    let commandCompleted = false
+    let exitCode = 0
+    let commandEchoFiltered = false
+    let commandTimeout: NodeJS.Timeout | null = null
+
+    const clearCommandTimeout = () => {
+      if (commandTimeout) {
+        clearTimeout(commandTimeout)
+        commandTimeout = null
+      }
+    }
+
+    const dataHandler = (data: Buffer) => {
+      if (commandCompleted) return
+
+      const chunk = data.toString()
+      lineBuffer += chunk
+
+      // Process line by line
+      const lines = lineBuffer.split(/\r?\n/)
+      lineBuffer = lines.pop() || ''
+
+      for (const line of lines) {
+        const cleanLine = line
+          .replace(/\x1B\[[0-9;]*[JKmsu]/g, '')
+          .replace(/\x1B\[[?][0-9]*[hl]/g, '')
+          .replace(/\x1B\[K/g, '')
+          .replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/g, '')
+          .replace(/\r/g, '')
+          .trim()
+
+        if (!cleanLine) continue
+
+        // Filter command echo
+        if (!commandEchoFiltered && cleanLine.includes('echo') && cleanLine.includes(startMarker)) {
+          console.log(`[${bastionType} ${sessionId}] Filtering command echo`)
+          commandEchoFiltered = true
+          continue
+        }
+
+        // Check for start marker
+        if (!commandStarted && cleanLine.includes(startMarker)) {
+          console.log(`[${bastionType} ${sessionId}] Detected command start marker`)
+          commandStarted = true
+          continue
+        }
+
+        // Check for end marker
+        if (commandStarted && cleanLine.includes(endMarker)) {
+          console.log(`[${bastionType} ${sessionId}] Detected command end marker`)
+          const exitCodeMatch = cleanLine.match(new RegExp(`${endMarker.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}:(\\d+)`))
+          if (exitCodeMatch) {
+            exitCode = parseInt(exitCodeMatch[1], 10)
+            console.log(`[${bastionType} ${sessionId}] Command exit code: ${exitCode}`)
+          }
+
+          commandCompleted = true
+          clearCommandTimeout()
+          stream.removeListener('data', dataHandler)
+
+          this.emit('completed')
+          this.emit('exitCode', exitCode)
+          this.emit('continue')
+          return
+        }
+
+        // Emit output line if command has started
+        if (commandStarted && this.isListening) {
+          this.emit('line', cleanLine)
+        }
+      }
+
+      // Handle remaining buffer
+      if (lineBuffer && commandStarted) {
+        const cleanBuffer = lineBuffer
+          .replace(/\x1B\[[0-9;]*[JKmsu]/g, '')
+          .replace(/\x1B\[[?][0-9]*[hl]/g, '')
+          .replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/g, '')
+          .replace(/\r/g, '')
+
+        if (cleanBuffer.includes(endMarker)) {
+          console.log(`[${bastionType} ${sessionId}] Detected end marker in buffer`)
+          const exitCodeMatch = cleanBuffer.match(new RegExp(`${endMarker.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}:(\\d+)`))
+          if (exitCodeMatch) {
+            exitCode = parseInt(exitCodeMatch[1], 10)
+            console.log(`[${bastionType} ${sessionId}] Command exit code from buffer: ${exitCode}`)
+          }
+          commandCompleted = true
+          clearCommandTimeout()
+          stream.removeListener('data', dataHandler)
+          this.emit('completed')
+          this.emit('exitCode', exitCode)
+          this.emit('continue')
+          return
+        }
+      }
+    }
+
+    stream.on('data', dataHandler)
+
+    // Send command
+    console.log(`[${bastionType} ${sessionId}] Sending wrapped command`)
+    stream.write(`${wrappedCommand}\r`)
+
+    // Timeout mechanism
+    commandTimeout = setTimeout(() => {
+      if (!commandCompleted) {
+        clearCommandTimeout()
+        commandCompleted = true
+        console.log(`[${bastionType} ${sessionId}] Command execution timeout, forcing completion`)
+        stream.removeListener('data', dataHandler)
+
+        const timeoutMinutes = Math.max(1, Math.round(this.JUMPSERVER_COMMAND_TIMEOUT / 60000))
+        const timeoutMessage = `Command execution timed out after ${timeoutMinutes} minute${timeoutMinutes > 1 ? 's' : ''}.`
+        this.emit('line', timeoutMessage)
+        this.emit('completed')
+        this.emit('continue')
+      }
+    }, this.JUMPSERVER_COMMAND_TIMEOUT)
+  }
 }
 
 // Remote terminal process result Promise type
@@ -664,8 +854,9 @@ export class RemoteTerminalManager {
       }
       this.connectionInfo.ident = `${packageInfo.name}_${packageInfo.version}` + identToken
 
+      const sshType = this.connectionInfo.sshType || 'ssh'
       // Choose connection method based on sshType
-      if (this.connectionInfo.sshType === 'jumpserver') {
+      if (sshType === 'jumpserver') {
         // Use JumpServer connection
         const jumpServerSessionId = `jumpserver_${Date.now()}_${Math.random().toString(36).substring(2, 14)}`
         const assetUuid = this.connectionInfo.assetUuid || this.connectionInfo.id || jumpServerSessionId
@@ -691,6 +882,46 @@ export class RemoteTerminalManager {
 
         // Set ID for JumpServer connection
         connectResult.id = jumpServerConnectionInfo.id
+      } else if (sshType !== 'ssh') {
+        // Use plugin-based bastion host connection
+        const bastionCapability = capabilityRegistry.getBastion(sshType)
+        if (!bastionCapability) {
+          throw new Error(`${sshType} plugin not installed`)
+        }
+        const bastionSessionId = `${sshType}_${Date.now()}_${Math.random().toString(36).substring(2, 14)}`
+        const bastionHost = this.connectionInfo.asset_ip || this.connectionInfo.host
+        if (!bastionHost) {
+          throw new Error(`${sshType} bastion host is missing`)
+        }
+        const bastionConnectionInfo = {
+          id: bastionSessionId,
+          host: bastionHost,
+          port: this.connectionInfo.port || 22,
+          username: this.connectionInfo.username!,
+          password: this.connectionInfo.password,
+          privateKey: this.connectionInfo.privateKey,
+          passphrase: this.connectionInfo.passphrase,
+          targetIp: this.connectionInfo.host,
+          targetAsset: this.connectionInfo.host,
+          needProxy: this.connectionInfo.needProxy || false,
+          proxyName: this.connectionInfo.proxyName || '',
+          proxyConfig: this.connectionInfo.proxyName ? { name: this.connectionInfo.proxyName } : undefined,
+          asset_type: this.connectionInfo.asset_type || `organization-${sshType}`,
+          connIdentToken: identToken,
+          ident: this.connectionInfo.ident,
+          assetUuid: this.connectionInfo.assetUuid
+        }
+
+        connectResult = await bastionCapability.connect(
+          bastionConnectionInfo as any,
+          wc ? ({ sender: wc } as IpcMainInvokeEvent) : undefined
+        )
+        if (!connectResult || connectResult.status !== 'connected') {
+          throw new Error(`${sshType} connection failed: ` + (connectResult?.message || 'Unknown error'))
+        }
+
+        // Set ID for bastion connection
+        connectResult.id = bastionConnectionInfo.id
       } else {
         // Use standard SSH connection
         connectResult = await remoteSshConnect(this.connectionInfo)
@@ -788,10 +1019,19 @@ export class RemoteTerminalManager {
       this.processes.delete(terminalId)
       this.terminals.delete(terminalId)
       try {
-        if (terminalInfo.connectionInfo.sshType === 'jumpserver') {
+        const sshType = terminalInfo.connectionInfo.sshType || 'ssh'
+        if (sshType === 'jumpserver') {
           const { jumpServerDisconnect } = await import('./jumpserverHandle')
           await jumpServerDisconnect(terminalInfo.sessionId)
           console.log(`JumpServer terminal ${terminalId} (Session: ${terminalInfo.sessionId}) disconnected.`)
+        } else if (sshType !== 'ssh') {
+          const bastionCapability = capabilityRegistry.getBastion(sshType)
+          if (bastionCapability) {
+            await bastionCapability.disconnect({ id: terminalInfo.sessionId })
+          } else {
+            console.warn(`${sshType} capability not registered, skipping disconnect.`)
+          }
+          console.log(`${sshType} terminal ${terminalId} (Session: ${terminalInfo.sessionId}) disconnected.`)
         } else {
           await remoteSshDisconnect(terminalInfo.sessionId)
           console.log(`SSH terminal ${terminalId} (Session: ${terminalInfo.sessionId}) disconnected.`)

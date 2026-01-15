@@ -56,7 +56,7 @@ class JumpServerClient {
         port: this.config.port || 22,
         username: this.config.username,
         keepaliveInterval: 10000,
-        readyTimeout: 30000,
+        readyTimeout: 180000,
         tryKeyboard: true, // Enable keyboard interactive authentication for 2FA
         algorithms: LEGACY_ALGORITHMS
       }

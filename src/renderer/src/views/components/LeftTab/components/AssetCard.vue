@@ -21,7 +21,7 @@
           />
           <!-- Enterprise indicator -->
           <div
-            v-if="asset.asset_type === 'organization'"
+            v-if="isOrganizationAsset(asset.asset_type)"
             class="enterprise-indicator"
           >
             <ApiOutlined />
@@ -48,7 +48,7 @@
 import { DatabaseOutlined, EditOutlined, ApiOutlined, ClusterOutlined } from '@ant-design/icons-vue'
 import i18n from '@/locales'
 import type { AssetNode } from '../utils/types'
-import { isSwitch } from '../utils/types'
+import { isSwitch, isOrganizationAsset } from '../utils/types'
 
 const { t } = i18n.global
 

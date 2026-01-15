@@ -118,7 +118,12 @@ import { userInfoStore } from '@/store/index'
 import stripAnsi from 'strip-ansi'
 import { inputManager, commandBarHeight } from './utils/termInputManager'
 import { shellCommands } from './utils/shellCmd'
-import { createJumpServerStatusHandler, formatStatusMessage, type JumpServerStatusData } from './utils/jumpServerStatusHandler'
+import {
+  createJumpServerStatusHandler,
+  formatStatusMessage,
+  shouldUseBastionStatusChannel,
+  type JumpServerStatusData
+} from './utils/jumpServerStatusHandler'
 import { getLastNonEmptyLine, isTerminalPromptLine } from './utils/terminalPrompt'
 import { useDeviceStore } from '@/store/useDeviceStore'
 import { isFocusInAiTab } from '@/utils/domUtils'
@@ -1129,7 +1134,9 @@ const connectSSH = async () => {
 
     connectionId.value = `${assetInfo.username}@${props.connectData.ip}:${orgType}:${hostnameBase64}:${sessionId}`
 
-    if (assetInfo.sshType === 'jumpserver' && terminal.value) {
+    // Setup status listener for bastion host connections
+    // All plugin bastions reuse the jumpserver:status-update channel
+    if (shouldUseBastionStatusChannel(assetInfo.sshType) && terminal.value) {
       jumpServerStatusHandler = createJumpServerStatusHandler(terminal.value, connectionId.value, translateJumpServerStatus)
       jumpServerStatusHandler.setupStatusListener(api)
     }
