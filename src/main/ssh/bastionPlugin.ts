@@ -18,37 +18,6 @@ export const deleteBastionSessionType = (id: string) => {
 export async function connectBastionByType(sshType: string | undefined, connectionInfo: any, event: IpcMainInvokeEvent): Promise<any | null> {
   if (!sshType || sshType === 'ssh' || sshType === 'jumpserver') return null
 
-  if (sshType === 'qizhi') {
-    // Route to Qizhi bastion host connection via capability registry
-    // Note: This specific branch is kept for backwards compatibility
-    // New plugin-based bastions should use the generic routing below
-    const qizhiDefinition = capabilityRegistry.getBastionDefinition('qizhi')
-    if (!qizhiDefinition) {
-      console.error(`[SSH] Bastion definition missing for 'qizhi'. Plugin may not be installed.`)
-      return buildBastionError(
-        BastionErrorCode.DEFINITION_MISSING,
-        `Bastion plugin 'qizhi' is not properly installed. Please check plugin installation.`
-      )
-    }
-    const qizhiCapability = capabilityRegistry.getBastion('qizhi')
-    if (qizhiCapability) {
-      try {
-        const result = await qizhiCapability.connect(connectionInfo, event)
-        if (result?.status === 'connected') {
-          const sessionId = connectionInfo.id || result.sessionId
-          if (sessionId) {
-            registerBastionSessionType(sessionId, 'qizhi')
-          }
-        }
-        return result
-      } catch (error: unknown) {
-        const errorMessage = error instanceof Error ? error.message : String(error)
-        return buildBastionError(BastionErrorCode.CONNECT_FAILED, errorMessage)
-      }
-    }
-    return buildBastionError(BastionErrorCode.CAPABILITY_NOT_FOUND, 'Qizhi plugin not installed')
-  }
-
   // Check if sshType matches a registered plugin-based bastion
   const bastionDefinition = capabilityRegistry.getBastionDefinition(sshType || '')
   const bastionCapability = capabilityRegistry.getBastion(sshType || '')
