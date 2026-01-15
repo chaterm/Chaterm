@@ -54,6 +54,17 @@ vi.mock('@/views/components/Notice/index', () => ({
   }
 }))
 
+vi.mock('../../LeftTab/utils/types', () => ({
+  getBastionHostType: vi.fn((assetType: string | undefined) => {
+    if (!assetType) return null
+    if (assetType === 'organization') return 'jumpserver'
+    if (assetType.startsWith('organization-')) {
+      return assetType.substring('organization-'.length)
+    }
+    return null
+  })
+}))
+
 describe('useHostManagement', () => {
   const mockHostOption: HostOption = {
     label: 'server1.example.com',

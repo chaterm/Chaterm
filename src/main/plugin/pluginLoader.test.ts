@@ -3,6 +3,12 @@ import * as fs from 'fs'
 import path from 'path'
 import os from 'os'
 
+const { mockBrowserWindow } = vi.hoisted(() => ({
+  mockBrowserWindow: {
+    getAllWindows: vi.fn(() => [])
+  }
+}))
+
 // Mock electron and all problematic transitive dependencies first
 vi.mock('electron', () => ({
   app: {
@@ -10,9 +16,7 @@ vi.mock('electron', () => ({
     getPath: vi.fn(() => '/mock/path')
   },
   ipcMain: { handle: vi.fn(), on: vi.fn() },
-  BrowserWindow: {
-    getAllWindows: vi.fn(() => [])
-  }
+  BrowserWindow: mockBrowserWindow
 }))
 
 vi.mock('./pluginManager', () => ({

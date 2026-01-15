@@ -1,9 +1,14 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
 import { ipcMain } from 'electron'
 
-const { appMock, ipcMainMock } = vi.hoisted(() => ({
+const { appMock, ipcMainMock, mockBuildBastionError } = vi.hoisted(() => ({
   appMock: { getAppPath: () => process.cwd() },
-  ipcMainMock: { handle: vi.fn(), on: vi.fn() }
+  ipcMainMock: { handle: vi.fn(), on: vi.fn() },
+  mockBuildBastionError: vi.fn((code: string, message: string) => ({
+    status: 'error',
+    code,
+    message
+  }))
 }))
 
 vi.mock('electron', () => ({
@@ -28,11 +33,7 @@ vi.mock('../capabilityRegistry', () => ({
     REFRESH_FAILED: 'BASTION_REFRESH_FAILED',
     AGENT_EXEC_UNAVAILABLE: 'BASTION_AGENT_EXEC_UNAVAILABLE'
   },
-  buildBastionError: vi.fn((code: string, message: string) => ({
-    status: 'error',
-    code,
-    message
-  }))
+  buildBastionError: mockBuildBastionError
 }))
 
 describe('ssh:connect bastion definition checks', () => {
