@@ -384,7 +384,7 @@ onMounted(async () => {
       theme:
         actualTheme === 'light'
           ? {
-              background: config.background?.image ? 'transparent' : '#ffffff',
+              background: config.background?.image ? 'transparent' : '#f5f5f5',
               foreground: '#000000',
               cursor: '#000000',
               cursorAccent: '#000000',
@@ -627,7 +627,7 @@ onMounted(async () => {
       terminal.value.options.theme =
         actualTheme === 'light'
           ? {
-              background: configStore.getUserConfig.background.image ? 'transparent' : '#ffffff',
+              background: configStore.getUserConfig.background.image ? 'transparent' : '#f5f5f5',
               foreground: '#000000',
               cursor: '#000000',
               cursorAccent: '#000000',
