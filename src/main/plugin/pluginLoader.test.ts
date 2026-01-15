@@ -9,7 +9,10 @@ vi.mock('electron', () => ({
     getAppPath: vi.fn(() => '/mock/app/path'),
     getPath: vi.fn(() => '/mock/path')
   },
-  ipcMain: { handle: vi.fn(), on: vi.fn() }
+  ipcMain: { handle: vi.fn(), on: vi.fn() },
+  BrowserWindow: {
+    getAllWindows: vi.fn(() => [])
+  }
 }))
 
 vi.mock('./pluginManager', () => ({

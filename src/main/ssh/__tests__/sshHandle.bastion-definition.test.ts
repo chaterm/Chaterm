@@ -19,7 +19,20 @@ vi.mock('../capabilityRegistry', () => ({
   capabilityRegistry: {
     getBastionDefinition: vi.fn(),
     getBastion: vi.fn()
-  }
+  },
+  BastionErrorCode: {
+    DEFINITION_MISSING: 'BASTION_DEFINITION_MISSING',
+    CAPABILITY_NOT_FOUND: 'BASTION_CAPABILITY_NOT_FOUND',
+    UNSUPPORTED_OPERATION: 'BASTION_UNSUPPORTED_OPERATION',
+    CONNECT_FAILED: 'BASTION_CONNECT_FAILED',
+    REFRESH_FAILED: 'BASTION_REFRESH_FAILED',
+    AGENT_EXEC_UNAVAILABLE: 'BASTION_AGENT_EXEC_UNAVAILABLE'
+  },
+  buildBastionError: vi.fn((code: string, message: string) => ({
+    status: 'error',
+    code,
+    message
+  }))
 }))
 
 describe('ssh:connect bastion definition checks', () => {

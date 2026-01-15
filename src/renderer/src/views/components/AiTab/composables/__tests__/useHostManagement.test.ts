@@ -365,6 +365,7 @@ describe('useHostManagement', () => {
         title: 'Test Server',
         ip: '192.168.1.1',
         organizationId: 'org-123',
+        assetType: 'organization',
         connection: undefined
       }
 
