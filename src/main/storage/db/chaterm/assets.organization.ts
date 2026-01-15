@@ -1,6 +1,32 @@
 import Database from 'better-sqlite3'
 import JumpServerClient from '../../../ssh/jumpserver/asset'
 import { v4 as uuidv4 } from 'uuid'
+import { capabilityRegistry } from '../../../ssh/capabilityRegistry'
+import { getOrganizationAssetTypesWithExisting } from './assets.routes'
+
+/**
+ * Extract bastion type from asset_type.
+ * Examples:
+ *   'organization' -> 'jumpserver' (built-in)
+ *   'organization-qizhi' -> 'qizhi'
+ *   'organization-tencent' -> 'tencent'
+ */
+function extractBastionType(assetType: string): string {
+  if (assetType === 'organization') {
+    return 'jumpserver'
+  }
+  if (assetType.startsWith('organization-')) {
+    return assetType.replace('organization-', '')
+  }
+  return 'jumpserver'
+}
+
+/**
+ * Check if asset type is a plugin-based bastion (not built-in JumpServer).
+ */
+function isPluginBastion(assetType: string): boolean {
+  return assetType.startsWith('organization-')
+}
 
 export function connectAssetInfoLogic(db: Database.Database, uuid: string): any {
   try {
@@ -22,7 +48,14 @@ export function connectAssetInfoLogic(db: Database.Database, uuid: string): any 
       `)
       result = orgAssetStmt.get(uuid)
       if (result) {
-        sshType = result.jump_server_type || 'jumpserver'
+        // Determine sshType based on jump_server_type or parent asset_type
+        // Priority: jump_server_type field > extracted from asset_type
+        if (result.jump_server_type) {
+          sshType = result.jump_server_type
+        } else {
+          // Extract bastion type from asset_type (e.g., 'organization-qizhi' -> 'qizhi')
+          sshType = extractBastionType(result.asset_type || 'organization')
+        }
       }
     } else {
       ;(result as any).host = (result as any).asset_ip
@@ -62,17 +95,22 @@ export function getUserHostsLogic(db: Database.Database, search: string, limit: 
     const searchPattern = safeSearch ? `%${safeSearch}%` : '%'
     const maxItems = Math.max(1, Math.floor(limit) || 50)
 
+    // Get available organization types dynamically, INCLUDING existing DB types
+    // This prevents accidental deletion of assets when plugins are not loaded
+    const orgTypes = getOrganizationAssetTypesWithExisting(db)
+    const orgTypePlaceholders = orgTypes.map(() => '?').join(', ')
+
     // Auto cleanup orphaned organization assets
     const deleteOrphanedStmt = db.prepare(`
       DELETE FROM t_organization_assets
       WHERE uuid IN (
         SELECT oa.uuid
         FROM t_organization_assets oa
-        LEFT JOIN t_assets a ON oa.organization_uuid = a.uuid AND a.asset_type = 'organization'
+        LEFT JOIN t_assets a ON oa.organization_uuid = a.uuid AND a.asset_type IN (${orgTypePlaceholders})
         WHERE a.uuid IS NULL
       )
     `)
-    deleteOrphanedStmt.run()
+    deleteOrphanedStmt.run(...orgTypes)
 
     // Step 1: Query personal assets (asset_type='person' or switch types)
     const personalStmt = db.prepare(`
@@ -83,13 +121,13 @@ export function getUserHostsLogic(db: Database.Database, search: string, limit: 
       `)
     const personalResults = personalStmt.all(searchPattern) || []
 
-    // Step 2: Query jumpserver nodes (asset_type='organization')
+    // Step 2: Query bastion host nodes (organization types - dynamically)
     const jumpserverStmt = db.prepare(`
-        SELECT uuid, asset_ip as host
+        SELECT uuid, asset_ip as host, asset_type
         FROM t_assets
-        WHERE asset_type = 'organization'
+        WHERE asset_type IN (${orgTypePlaceholders})
       `)
-    const jumpserverResults = jumpserverStmt.all() || []
+    const jumpserverResults = jumpserverStmt.all(...orgTypes) || []
 
     // Step 3: Query jumpserver child assets with optional search filter
     const orgAssetsStmt = db.prepare(`
@@ -127,34 +165,39 @@ export function getUserHostsLogic(db: Database.Database, search: string, limit: 
       orgAssetsMap.get(orgUuid)!.push(asset)
     }
 
-    // Build jumpserver tree nodes
-    const jumpserverData = (jumpserverResults as any[])
+    // Build bastion host tree nodes
+    const bastionData = (jumpserverResults as any[])
       .filter((js: any) => {
-        // Include jumpserver if it has matching children or no search term
+        // Include bastion host if it has matching children or no search term
         return !safeSearch || orgAssetsMap.has(js.uuid)
       })
-      .map((js: any) => ({
-        key: `jumpserver_${js.uuid}`,
-        label: js.host,
-        type: 'jumpserver',
-        selectable: false,
-        uuid: js.uuid,
-        connection: 'organization',
-        children: (orgAssetsMap.get(js.uuid) || []).map((child: any) => ({
-          key: `jumpserver_${js.uuid}_${child.asset_uuid}`,
-          label: child.host,
-          type: 'jumpserver_child',
-          selectable: true,
-          uuid: child.asset_uuid,
-          connection: child.connection_type || 'jumpserver',
-          organizationUuid: js.uuid
-        }))
-      }))
-      .filter((js: any) => js.children.length > 0) // Only include jumpservers with children
+      .map((js: any) => {
+        // Determine connection type based on asset_type (generalized)
+        const connectionType = extractBastionType(js.asset_type)
+        return {
+          key: `bastion_${js.uuid}`,
+          label: js.host,
+          type: 'bastion',
+          selectable: false,
+          uuid: js.uuid,
+          connection: js.asset_type, // Keep original asset_type as connection identifier
+          assetType: js.asset_type,
+          children: (orgAssetsMap.get(js.uuid) || []).map((child: any) => ({
+            key: `bastion_${js.uuid}_${child.asset_uuid}`,
+            label: child.host,
+            type: 'bastion_child',
+            selectable: true,
+            uuid: child.asset_uuid,
+            connection: child.connection_type || connectionType,
+            organizationUuid: js.uuid
+          }))
+        }
+      })
+      .filter((js: any) => js.children.length > 0) // Only include bastion hosts with children
 
     // Calculate total count
-    const childrenCount = jumpserverData.reduce((sum: number, js: any) => sum + js.children.length, 0)
-    const total = personalData.length + jumpserverData.length + childrenCount
+    const childrenCount = bastionData.reduce((sum: number, js: any) => sum + js.children.length, 0)
+    const total = personalData.length + bastionData.length + childrenCount
 
     // Step 5: Apply maxItems limit while keeping tree integrity
     const trimmedPersonal: any[] = []
@@ -166,9 +209,9 @@ export function getUserHostsLogic(db: Database.Database, search: string, limit: 
       remaining -= 1
     }
 
-    const trimmedJumpservers: any[] = []
+    const trimmedBastions: any[] = []
 
-    for (const js of jumpserverData) {
+    for (const js of bastionData) {
       if (remaining <= 1) break // need at least space for parent + one child
 
       const availableForChildren = remaining - 1
@@ -182,7 +225,7 @@ export function getUserHostsLogic(db: Database.Database, search: string, limit: 
         continue
       }
 
-      trimmedJumpservers.push({
+      trimmedBastions.push({
         ...js,
         children
       })
@@ -194,7 +237,7 @@ export function getUserHostsLogic(db: Database.Database, search: string, limit: 
     return {
       data: {
         personal: trimmedPersonal,
-        jumpservers: trimmedJumpservers
+        jumpservers: trimmedBastions
       },
       total: total > maxItems ? maxItems : total,
       hasMore: false // No pagination; rely on search to narrow results
@@ -214,6 +257,19 @@ export async function refreshOrganizationAssetsLogic(
 ): Promise<any> {
   try {
     console.log('Starting to refresh organization assets, organization UUID:', organizationUuid)
+
+    // Query asset_type to determine which client to use
+    const assetTypeStmt = db.prepare(`
+      SELECT asset_type FROM t_assets WHERE uuid = ?
+    `)
+    const assetTypeResult = assetTypeStmt.get(organizationUuid)
+    const assetType = assetTypeResult?.asset_type || 'organization'
+
+    // Extract bastion type and check if it's plugin-based
+    const bastionType = extractBastionType(assetType)
+    const isPluginBased = isPluginBastion(assetType)
+
+    console.log(`Organization type: ${assetType}, bastionType: ${bastionType}, isPluginBased: ${isPluginBased}`)
 
     let finalConfig = {
       host: jumpServerConfig.host,
@@ -249,13 +305,66 @@ export async function refreshOrganizationAssetsLogic(
 
     console.log('Final configuration:', { ...finalConfig, privateKey: finalConfig.privateKey ? '[HIDDEN]' : undefined })
 
-    console.log('Creating JumpServerClient instance...')
-    const client = new JumpServerClient(finalConfig, keyboardInteractiveHandler, authResultCallback)
+    // Route to different client based on asset type
+    let assets: Array<{ name: string; address: string; description?: string }>
+    if (isPluginBased) {
+      // Use plugin-based bastion asset refresh via capability registry
+      const bastionCapability = capabilityRegistry.getBastion(bastionType)
 
-    console.log('Starting to call getAllAssets()...')
-    const assets = await client.getAllAssets()
+      if (!bastionCapability || !bastionCapability.refreshAssets) {
+        throw new Error(`Bastion plugin '${bastionType}' not installed or does not support asset refresh`)
+      }
 
-    console.log('getAllAssets() call completed, number of assets retrieved:', assets.length)
+      console.log(`Using ${bastionType} asset refresh via capability registry...`)
+      const capabilityResult = await bastionCapability.refreshAssets({
+        organizationUuid,
+        host: finalConfig.host,
+        port: finalConfig.port,
+        username: finalConfig.username,
+        password: finalConfig.password || undefined,
+        privateKey: finalConfig.privateKey || undefined,
+        passphrase: finalConfig.passphrase || undefined,
+        onProgress: (message, current, total) => {
+          console.log(`[${bastionType} Refresh] ${message}${current !== undefined ? ` (${current}/${total})` : ''}`)
+        },
+        onMfaRequired: keyboardInteractiveHandler
+          ? async () => {
+              return new Promise((resolve) => {
+                keyboardInteractiveHandler([{ prompt: 'MFA Token:' }], (responses: string[]) => {
+                  resolve(responses?.[0] || null)
+                }).catch((error) => {
+                  console.warn(`${bastionType} MFA handler error:`, error)
+                  resolve(null)
+                })
+              })
+            }
+          : undefined,
+        onMfaResult: authResultCallback
+          ? (success: boolean, message?: string) => {
+              authResultCallback(success, message)
+            }
+          : undefined
+      })
+
+      if (!capabilityResult.success) {
+        throw new Error(capabilityResult.error || `Failed to refresh ${bastionType} assets via capability`)
+      }
+
+      assets = (capabilityResult.assets || []).map((a: any) => ({
+        name: a.hostname || a.name,
+        address: a.host || a.address,
+        description: a.comment || a.description
+      }))
+      console.log(`${bastionType} assets retrieved via capability: ${assets.length}`)
+    } else {
+      // Use JumpServer client
+      console.log('Using JumpServer client...')
+      const client = new JumpServerClient(finalConfig, keyboardInteractiveHandler, authResultCallback)
+      assets = await client.getAllAssets()
+      client.close()
+    }
+
+    console.log('Assets retrieved, count:', assets.length)
     if (assets.length > 0) {
       console.log('First few asset examples:', assets.slice(0, 3))
     }
@@ -270,7 +379,14 @@ export async function refreshOrganizationAssetsLogic(
     console.log('Number of existing organization assets:', existingAssets.length)
     const existingAssetsByHost = new Map(existingAssets.map((asset) => [asset.host, asset]))
 
-    const updateStmt = db.prepare(`
+    // Use different update statement for plugin-based bastions (includes jump_server_type)
+    const updateStmt = isPluginBased
+      ? db.prepare(`
+      UPDATE t_organization_assets
+      SET hostname = ?, jump_server_type = ?, updated_at = CURRENT_TIMESTAMP
+      WHERE organization_uuid = ? AND host = ?
+    `)
+      : db.prepare(`
       UPDATE t_organization_assets
       SET hostname = ?, updated_at = CURRENT_TIMESTAMP
       WHERE organization_uuid = ? AND host = ?
@@ -283,16 +399,22 @@ export async function refreshOrganizationAssetsLogic(
     `)
 
     const currentAssetHosts = new Set<string>()
-    console.log('Starting to process assets retrieved from JumpServer...')
+    // Note: jump_server_type field stores the bastion type (historical field name, see design doc)
+    const jumpServerType = bastionType
+    console.log(`Starting to process assets retrieved from ${bastionType}...`)
     for (const asset of assets) {
       currentAssetHosts.add(asset.address)
       if (existingAssetsByHost.has(asset.address)) {
         console.log(`Updating existing asset: ${asset.name} (${asset.address})`)
-        updateStmt.run(asset.name, organizationUuid, asset.address)
+        if (isPluginBased) {
+          updateStmt.run(asset.name, jumpServerType, organizationUuid, asset.address)
+        } else {
+          updateStmt.run(asset.name, organizationUuid, asset.address)
+        }
       } else {
         const assetUuid = uuidv4()
         console.log(`Inserting new asset: ${asset.name} (${asset.address})`)
-        insertStmt.run(organizationUuid, asset.name, asset.address, assetUuid, 'jumpserver')
+        insertStmt.run(organizationUuid, asset.name, asset.address, assetUuid, jumpServerType)
       }
     }
     console.log('Asset processing completed')
@@ -307,9 +429,6 @@ export async function refreshOrganizationAssetsLogic(
         deleteStmt.run(organizationUuid, existingAsset.host)
       }
     }
-
-    console.log('Closing JumpServer client connection')
-    client.close()
 
     console.log('Organization asset refresh completed, returning success result')
     return {

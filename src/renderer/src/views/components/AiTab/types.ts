@@ -83,7 +83,13 @@ export interface Host {
 }
 
 // Tree structure types for host list
-export type HostItemType = 'personal' | 'jumpserver' | 'jumpserver_child'
+// 'bastion' represents all bastion host types (JumpServer, Qizhi, etc.)
+export type HostItemType = 'personal' | 'bastion' | 'bastion_child'
+
+// Helper function to check if type is a bastion host parent node
+export function isBastionHostType(type: string | undefined): boolean {
+  return type === 'bastion'
+}
 
 export interface TreeHostOption {
   key: string

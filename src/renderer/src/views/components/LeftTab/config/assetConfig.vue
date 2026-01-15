@@ -66,6 +66,7 @@ import eventBus from '@/utils/eventBus'
 import i18n from '@/locales'
 import { handleRefreshOrganizationAssets } from '../components/refreshOrganizationAssets'
 import type { AssetNode, AssetFormData, KeyChainItem, SshProxyConfigItem } from '../utils/types'
+import { isOrganizationAsset } from '../utils/types'
 
 interface ParsedSession {
   name: string
@@ -223,7 +224,7 @@ const handleAssetClone = (asset: AssetNode) => {
 }
 
 const handleAssetRefresh = async (asset: AssetNode) => {
-  if (!asset || asset.asset_type !== 'organization') return
+  if (!asset || !isOrganizationAsset(asset.asset_type)) return
 
   await handleRefreshOrganizationAssets(asset, () => {
     getAssetList()
