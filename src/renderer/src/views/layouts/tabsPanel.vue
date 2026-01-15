@@ -63,9 +63,10 @@
           />
           <SecurityConfigEditor v-if="localTab.content === 'securityConfigEditor'" />
           <KeywordHighlightEditor v-if="localTab.content === 'keywordHighlightEditor'" />
+          <!-- prettier-ignore -->
           <PluginDetail
             v-if="localTab.content.startsWith('plugins:') && localTab.props"
-            :plugin-info="localTab as any"
+            :plugin-info="(localTab as any)"
             @uninstall-plugin="uninstallPlugin"
           />
         </template>
@@ -86,7 +87,7 @@ import KeyManagement from '@views/components/LeftTab/config/keyManagement.vue'
 import SshConnect from '@views/components/Ssh/sshConnect.vue'
 import Files from '@views/components/Files/index.vue'
 import Kubernetes from '@views/components/Kubernetes/index.vue'
-import McpConfigEditor from '@views/components/McpConfigEditor/index.vue'
+import McpConfigEditor from '@views/components/Ssh/editors/mcpConfigEditor.vue'
 import CommonConfigEditor from '@views/components/CommonConfigEditor/index.vue'
 import SecurityConfigEditor from '@views/components/SecurityConfigEditor/index.vue'
 import KeywordHighlightEditor from '@views/components/KeywordHighlightEditor/index.vue'

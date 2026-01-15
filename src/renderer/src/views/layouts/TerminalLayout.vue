@@ -298,7 +298,6 @@ import Assets from '@views/components/Assets/index.vue'
 import Snippets from '@views/components/LeftTab/config/snippets.vue'
 import AgentsSidebar from '@views/components/AgentsSidebar/index.vue'
 import TabsPanel from './tabsPanel.vue'
-import tabsPanel from './tabsPanel.vue'
 import ExtensionViewHost from './ExtensionViewHost.vue'
 import { v4 as uuidv4 } from 'uuid'
 import { userInfoStore } from '@/store'
@@ -1912,8 +1911,9 @@ const hasPanels = computed(() => panelCount.value > 0)
 let dockApi: DockviewApi | null = null
 
 defineOptions({
+  name: 'TerminalLayout',
   components: {
-    tabsPanel
+    TabsPanel
   }
 })
 
@@ -2017,7 +2017,7 @@ const addDockPanel = (params) => {
   }
   dockApi.addPanel({
     id,
-    component: 'tabsPanel',
+    component: 'TabsPanel',
     title: displayTitle,
     params: {
       ...params,
