@@ -41,6 +41,7 @@ import { getPluginDetailsByName } from './plugin/pluginDetails'
 import { getActualTheme, loadUserTheme } from './themeManager'
 import { getLoginBaseUrl, getEdition, getProtocolPrefix, getProtocolName } from './config/edition'
 import { TelemetrySetting } from '@shared/TelemetrySetting'
+import { registerKnowledgeBaseHandlers } from './services/knowledgebase'
 import type { WebviewMessage } from '@shared/WebviewMessage'
 
 let mainWindow: BrowserWindow
@@ -675,6 +676,9 @@ function updateNavigationState(): void {
 
 // Setup IPC handlers
 function setupIPC(): void {
+  // KnowledgeBase module (local file-based KB) IPC handlers
+  registerKnowledgeBaseHandlers()
+
   ipcMain.handle('init-user-database', async (event, { uid }) => {
     try {
       const isSkippedLogin = await event.sender.executeJavaScript("localStorage.getItem('login-skipped') === 'true'")

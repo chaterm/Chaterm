@@ -1,0 +1,1061 @@
+<template>
+  <div
+    class="kb-sidebar-root"
+    @dragover.prevent
+    @drop.prevent="handleDropImport"
+  >
+    <div class="kb-toolbar">
+      <a-input
+        v-model:value="nameSearch"
+        class="transparent-Input"
+        size="small"
+        :placeholder="$t('common.search')"
+        allow-clear
+      />
+      <a-space size="small">
+        <a-tooltip title="New File">
+          <a-button
+            size="small"
+            class="kb-button"
+            @click="openCreateInline('file')"
+          >
+            <template #icon><FileAddOutlined /></template>
+          </a-button>
+        </a-tooltip>
+        <a-tooltip title="New Folder">
+          <a-button
+            size="small"
+            class="kb-button"
+            @click="openCreateInline('folder')"
+          >
+            <template #icon><FolderAddOutlined /></template>
+          </a-button>
+        </a-tooltip>
+        <a-tooltip title="Import">
+          <a-button
+            size="small"
+            class="kb-button"
+            @click="pickAndImport"
+          >
+            <template #icon><CloudUploadOutlined /></template>
+          </a-button>
+        </a-tooltip>
+        <a-tooltip title="Refresh">
+          <a-button
+            size="small"
+            class="kb-button"
+            @click="refreshCurrentDir"
+          >
+            <template #icon><RedoOutlined /></template>
+          </a-button>
+        </a-tooltip>
+      </a-space>
+    </div>
+
+    <a-dropdown :trigger="['contextmenu']">
+      <div
+        class="kb-tree-wrapper"
+        :class="{
+          'scrollbar-visible': isTreeScrolling,
+          'has-context-menu': isContextMenuOpen
+        }"
+        @click="handleTreeBlankClick"
+        @scroll="handleTreeScroll"
+        @contextmenu="handleWrapperContextMenu"
+      >
+        <a-directory-tree
+          v-model:expanded-keys="expandedKeys"
+          v-model:selected-keys="selectedKeys"
+          multiple
+          class="kb-tree"
+          block-node
+          draggable
+          :tree-data="filteredTreeData"
+          @select="onSelect"
+          @drop="onDrop"
+        >
+          <template #title="{ dataRef }">
+            <a-dropdown
+              :trigger="['contextmenu']"
+              placement="bottomLeft"
+              @visible-change="
+                (visible) => {
+                  if (visible) {
+                    menuKey = dataRef.key
+                  } else if (menuKey === dataRef.key) {
+                    menuKey = null
+                  }
+                }
+              "
+            >
+              <div
+                class="kb-tree-title"
+                :class="{ 'context-menu-active': menuKey === dataRef.key }"
+                @contextmenu.stop
+              >
+                <span
+                  v-if="editingKey !== dataRef.key"
+                  class="kb-title-text"
+                  >{{ dataRef.title }}</span
+                >
+                <a-input
+                  v-else
+                  ref="inputRef"
+                  v-model:value="editingName"
+                  size="small"
+                  class="kb-rename-input"
+                  @keydown.enter="confirmRename"
+                  @keydown.esc="cancelRename"
+                  @keydown.stop
+                  @blur="handleBlur"
+                  @contextmenu.stop
+                />
+              </div>
+              <template #overlay>
+                <a-menu @click="({ key }) => onContextAction(String(key), dataRef)">
+                  <template v-if="selectedKeys.length > 1 && selectedKeys.includes(dataRef.relPath)">
+                    <a-menu-item key="copy">Copy</a-menu-item>
+                    <a-menu-item key="cut">Cut</a-menu-item>
+                    <a-menu-item key="delete">Delete</a-menu-item>
+                  </template>
+                  <template v-else>
+                    <a-menu-item
+                      v-if="dataRef.type === 'dir'"
+                      key="newFile"
+                    >
+                      New File
+                    </a-menu-item>
+                    <a-menu-item
+                      v-if="dataRef.type === 'dir'"
+                      key="newFolder"
+                    >
+                      New Folder
+                    </a-menu-item>
+                    <a-menu-divider v-if="dataRef.type === 'dir'" />
+                    <a-menu-item key="rename">Rename</a-menu-item>
+                    <a-menu-item key="delete">Delete</a-menu-item>
+                    <a-menu-divider />
+                    <a-menu-item key="copy">Copy</a-menu-item>
+                    <a-menu-item key="cut">Cut</a-menu-item>
+                    <a-menu-item
+                      v-if="clipboard"
+                      key="paste"
+                    >
+                      Paste
+                    </a-menu-item>
+                  </template>
+                </a-menu>
+              </template>
+            </a-dropdown>
+          </template>
+        </a-directory-tree>
+      </div>
+      <template #overlay>
+        <a-menu @click="({ key }) => onBlankContextAction(String(key))">
+          <a-menu-item key="newFile">New File</a-menu-item>
+          <a-menu-item key="newFolder">New Folder</a-menu-item>
+          <a-menu-item
+            key="paste"
+            :disabled="!clipboard"
+          >
+            Paste
+          </a-menu-item>
+          <a-menu-item key="refresh">Refresh</a-menu-item>
+        </a-menu>
+      </template>
+    </a-dropdown>
+
+    <div
+      v-if="Object.keys(importJobs).length"
+      class="kb-transfer"
+    >
+      <div
+        v-for="job in importJobList"
+        :key="job.jobId"
+        class="kb-transfer-item"
+      >
+        <div class="kb-transfer-title">{{ job.destRelPath }}</div>
+        <a-progress
+          :percent="job.percent"
+          size="small"
+        />
+      </div>
+    </div>
+  </div>
+</template>
+
+<script setup lang="ts">
+import { computed, nextTick, onBeforeUnmount, onMounted, reactive, ref } from 'vue'
+import { message, Modal } from 'ant-design-vue'
+import eventBus from '@/utils/eventBus'
+import { CloudUploadOutlined, FileAddOutlined, FolderAddOutlined, RedoOutlined } from '@ant-design/icons-vue'
+
+type KbNodeType = 'file' | 'dir'
+type TreeNode = {
+  key: string
+  title: string
+  type: KbNodeType
+  relPath: string
+  isLeaf: boolean
+  children?: TreeNode[]
+}
+
+const api = window.api
+
+const expandedKeys = ref<string[]>([])
+const selectedKeys = ref<string[]>([])
+const treeData = ref<TreeNode[]>([])
+const nameSearch = ref('')
+
+const editingKey = ref<string | null>(null)
+const editingName = ref('')
+const editingOriginalName = ref('')
+const inputRef = ref<{ focus: () => void } | null>(null)
+
+const clipboard = ref<{ mode: 'copy' | 'cut'; sources: string[] } | null>(null)
+const createDraft = ref<null | { kind: 'file' | 'folder'; parentRelDir: string; tempKey: string }>(null)
+
+const isTreeScrolling = ref(false)
+let treeScrollTimer: any = null
+const handleTreeScroll = () => {
+  isTreeScrolling.value = true
+  if (treeScrollTimer) clearTimeout(treeScrollTimer)
+  treeScrollTimer = setTimeout(() => {
+    isTreeScrolling.value = false
+  }, 3000)
+}
+
+const menuKey = ref<string | null>(null) // right click selected item key
+const isContextMenuOpen = computed(() => !!menuKey.value)
+
+function toTreeNodes(entries: Array<{ name: string; relPath: string; type: KbNodeType }>): TreeNode[] {
+  return entries.map((e) => ({
+    key: e.relPath,
+    relPath: e.relPath,
+    title: e.name,
+    type: e.type,
+    isLeaf: e.type === 'file',
+    children: e.type === 'dir' ? [] : undefined
+  }))
+}
+
+// Recursively load all directories and files
+async function loadFullTree(relDir: string): Promise<TreeNode[]> {
+  const list = await api.kbListDir(relDir)
+  const nodes = toTreeNodes(list)
+
+  // Recursively load children for all directories
+  for (const node of nodes) {
+    if (node.type === 'dir') {
+      node.children = await loadFullTree(node.relPath)
+    }
+  }
+
+  return nodes
+}
+
+async function refreshDir(relDir: string) {
+  if (!relDir) {
+    // Load entire tree from root
+    treeData.value = await loadFullTree('')
+    return
+  }
+
+  // Refresh specific directory
+  const children = await loadFullTree(relDir)
+
+  const update = (nodes: TreeNode[]): boolean => {
+    for (const n of nodes) {
+      if (n.relPath === relDir && n.type === 'dir') {
+        n.children = children
+        return true
+      }
+      if (n.children && update(n.children)) return true
+    }
+    return false
+  }
+  update(treeData.value)
+}
+
+const filteredTreeData = computed(() => {
+  const q = nameSearch.value.trim().toLowerCase()
+  if (!q) return treeData.value
+
+  const filter = (nodes: TreeNode[]): TreeNode[] => {
+    return nodes
+      .map((n) => {
+        const hit = n.title.toLowerCase().includes(q)
+        if (hit) return { ...n }
+        if (n.children && n.children.length) {
+          const children = filter(n.children)
+          if (children.length) return { ...n, children }
+        }
+        return null
+      })
+      .filter(Boolean) as TreeNode[]
+  }
+  return filter(treeData.value)
+})
+
+function getDirOf(relPath: string): string {
+  const parts = relPath.split('/').filter(Boolean)
+  if (parts.length <= 1) return ''
+  return parts.slice(0, -1).join('/')
+}
+
+function getAncestorDirs(relPath: string): string[] {
+  const parts = relPath.split('/').filter(Boolean)
+  if (parts.length <= 1) return []
+  const dirs: string[] = []
+  for (let i = 1; i < parts.length; i += 1) {
+    dirs.push(parts.slice(0, i).join('/'))
+  }
+  return dirs
+}
+
+function syncSelectionFromTab(relPath: string) {
+  if (!relPath) return
+  selectedKeys.value = [relPath]
+  // Ancestor directories to expand for visibility
+  const ancestors = getAncestorDirs(relPath)
+  if (ancestors.length === 0) return
+  const nextExpanded = new Set<string>(expandedKeys.value)
+  for (const dir of ancestors) {
+    nextExpanded.add(dir)
+  }
+  expandedKeys.value = Array.from(nextExpanded)
+}
+
+// Sync tree selection with active editor tab
+const handleActiveKbTab = (payload: { relPath: string }) => {
+  syncSelectionFromTab(payload.relPath)
+}
+
+function treeNodeType(relPath: string): KbNodeType | null {
+  const find = (nodes: TreeNode[]): TreeNode | null => {
+    for (const n of nodes) {
+      if (n.relPath === relPath) return n
+      if (n.children) {
+        const hit = find(n.children)
+        if (hit) return hit
+      }
+    }
+    return null
+  }
+  const node = relPath ? find(treeData.value) : null
+  return node?.type ?? null
+}
+
+function openFileInMainPane(relPath: string) {
+  const fileName = relPath.split('/').pop() || relPath
+  eventBus.emit('openUserTab', {
+    key: 'KnowledgeCenterEditor',
+    title: fileName,
+    id: `kb:${relPath}`,
+    props: { relPath }
+  })
+}
+
+type TreeSelectInfo = {
+  node?: TreeNode
+  nativeEvent?: MouseEvent
+}
+
+const onSelect = async (keys: string[], info: TreeSelectInfo) => {
+  const node = info?.node
+  if (!node) return
+
+  if (menuKey.value) menuKey.value = null
+
+  if (node.type === 'file') {
+    if (keys.length !== 1) return
+    openFileInMainPane(node.relPath)
+  }
+}
+
+const handleTreeBlankClick = (event: MouseEvent) => {
+  const target = event.target as HTMLElement | null
+  if (!target) return
+  if (target.closest('.ant-tree-treenode')) return
+  if (selectedKeys.value.length === 0) return
+  selectedKeys.value = []
+  if (menuKey.value) menuKey.value = null
+}
+
+const handleWrapperContextMenu = () => {
+  // const target = event.target as HTMLElement | null
+  // if (target?.closest('.ant-tree-treenode')) {
+  //   event.stopPropagation()
+  //   return
+  // }
+  if (selectedKeys.value.length > 0) {
+    selectedKeys.value = []
+  }
+}
+
+async function onBlankContextAction(action: string) {
+  switch (action) {
+    case 'newFile':
+      await openCreateInline('file')
+      break
+    case 'newFolder':
+      await openCreateInline('folder')
+      break
+    case 'paste':
+      if (clipboard.value) {
+        // Paste into root
+        await onContextAction('paste', { relPath: '', type: 'dir' } as TreeNode)
+      }
+      break
+    case 'refresh':
+      await refreshCurrentDir()
+      break
+  }
+}
+
+async function refreshCurrentDir() {
+  const current = selectedKeys.value[0] || ''
+  const dir = current ? (current.endsWith('/') ? current.slice(0, -1) : current) : ''
+  const relDir = treeNodeType(current) === 'dir' ? dir : getDirOf(dir)
+  await refreshDir(relDir)
+}
+
+async function startRename(node: TreeNode) {
+  editingKey.value = node.key
+  editingName.value = node.title
+  editingOriginalName.value = node.title
+  await nextTick()
+  inputRef.value?.focus()
+}
+
+function removeNodeByRelPath(relPath: string) {
+  const remove = (nodes: TreeNode[]): boolean => {
+    const idx = nodes.findIndex((n) => n.relPath === relPath)
+    if (idx !== -1) {
+      nodes.splice(idx, 1)
+      return true
+    }
+    for (const n of nodes) {
+      if (n.children && remove(n.children)) return true
+    }
+    return false
+  }
+  remove(treeData.value)
+}
+
+const emitKbEntriesRemoved = (entries: Array<{ relPath: string; isDir: boolean }>) => {
+  if (entries.length === 0) return
+  eventBus.emit('kbEntriesRemoved', { entries })
+}
+
+async function confirmRename() {
+  const key = editingKey.value
+  const newName = editingName.value.trim()
+  if (!key || !newName) {
+    cancelRename()
+    return
+  }
+
+  // Inline create flow (VSCode-like)
+  if (createDraft.value && createDraft.value.tempKey === key) {
+    const draft = createDraft.value
+    try {
+      const parentRelDir = draft.parentRelDir
+      if (draft.kind === 'folder') {
+        await api.kbMkdir(parentRelDir, newName)
+      } else {
+        const res = await api.kbCreateFile(parentRelDir, newName, '')
+        openFileInMainPane(res.relPath)
+      }
+      createDraft.value = null
+      editingKey.value = null
+      editingName.value = ''
+      editingOriginalName.value = ''
+      await refreshDir(parentRelDir)
+    } catch (e: unknown) {
+      const error = e as Error
+      message.error(error?.message || String(e))
+    }
+    return
+  }
+
+  // Check if name actually changed
+  if (newName === editingOriginalName.value) {
+    // Name unchanged, just exit editing mode
+    editingKey.value = null
+    editingName.value = ''
+    editingOriginalName.value = ''
+    return
+  }
+
+  try {
+    await api.kbRename(key, newName)
+    editingKey.value = null
+    editingName.value = ''
+    editingOriginalName.value = ''
+    await refreshDir(getDirOf(key))
+  } catch (e: unknown) {
+    const error = e as Error
+    message.error(error?.message || String(e))
+  }
+}
+
+function cancelRename() {
+  if (createDraft.value && editingKey.value === createDraft.value.tempKey) {
+    const tempKey = createDraft.value.tempKey
+    const parentRelDir = createDraft.value.parentRelDir
+    createDraft.value = null
+    removeNodeByRelPath(tempKey)
+    refreshDir(parentRelDir).catch(() => {})
+  }
+  editingKey.value = null
+  editingName.value = ''
+  editingOriginalName.value = ''
+}
+
+function handleBlur() {
+  // Cancel on blur for both creating and renaming (consistent with VSCode behavior)
+  cancelRename()
+}
+
+async function removeNode(node: TreeNode) {
+  Modal.confirm({
+    title: 'Delete',
+    content: node.type === 'dir' ? 'Delete folder and its contents?' : 'Delete file?',
+    okType: 'danger',
+    onOk: async () => {
+      try {
+        await api.kbDelete(node.relPath, node.type === 'dir')
+        await refreshDir(getDirOf(node.relPath))
+        emitKbEntriesRemoved([{ relPath: node.relPath, isDir: node.type === 'dir' }])
+      } catch (e: unknown) {
+        const error = e as Error
+        message.error(error?.message || String(e))
+      }
+    }
+  })
+}
+
+function insertTempNode(parentRelDir: string, node: TreeNode) {
+  if (!parentRelDir) {
+    treeData.value = [node, ...treeData.value]
+    return
+  }
+  const insert = (nodes: TreeNode[]): boolean => {
+    for (const n of nodes) {
+      if (n.relPath === parentRelDir && n.type === 'dir') {
+        n.children = n.children || []
+        n.children.unshift(node)
+        return true
+      }
+      if (n.children && insert(n.children)) return true
+    }
+    return false
+  }
+  if (!insert(treeData.value)) {
+    refreshDir(parentRelDir)
+      .then(() => insert(treeData.value))
+      .catch(() => {})
+  }
+}
+
+async function openCreateInline(kind: 'file' | 'folder') {
+  nameSearch.value = ''
+
+  const target = selectedKeys.value[0] || ''
+  const t = treeNodeType(target)
+  const parentRelDir = t === 'dir' ? target : getDirOf(target)
+
+  if (createDraft.value) cancelRename()
+
+  if (parentRelDir && !expandedKeys.value.includes(parentRelDir)) {
+    expandedKeys.value = [...expandedKeys.value, parentRelDir]
+  }
+
+  const tempKey = `.draft/${Date.now()}`
+  createDraft.value = { kind, parentRelDir, tempKey }
+  const tempNode: TreeNode = {
+    key: tempKey,
+    relPath: tempKey,
+    title: kind === 'folder' ? 'New Folder' : 'New File',
+    type: kind === 'folder' ? 'dir' : 'file',
+    // Mark as leaf to prevent lazy loading for temporary nodes
+    isLeaf: true,
+    children: kind === 'folder' ? [] : undefined
+  }
+  insertTempNode(parentRelDir, tempNode)
+  editingKey.value = tempKey
+  editingName.value = ''
+  await nextTick()
+  inputRef.value?.focus()
+}
+
+async function onContextAction(action: string, node: TreeNode) {
+  const isBatch = selectedKeys.value.length > 1 && selectedKeys.value.includes(node.relPath)
+  const targets = isBatch ? [...selectedKeys.value] : [node.relPath]
+  switch (action) {
+    case 'newFile':
+      selectedKeys.value = [node.relPath]
+      await openCreateInline('file')
+      return
+    case 'newFolder':
+      selectedKeys.value = [node.relPath]
+      await openCreateInline('folder')
+      return
+    case 'rename':
+      await startRename(node)
+      return
+    case 'delete':
+      if (!isBatch) {
+        await removeNode(node)
+        return
+      }
+      Modal.confirm({
+        title: 'Delete',
+        content: `Delete ${targets.length} items?`,
+        okType: 'danger',
+        onOk: async () => {
+          try {
+            // Delete deeper paths first to reduce parent/child conflicts
+            const sortedTargets = targets.slice().sort((a, b) => b.split('/').filter(Boolean).length - a.split('/').filter(Boolean).length)
+            const removedEntries = sortedTargets.map((relPath) => ({
+              relPath,
+              isDir: treeNodeType(relPath) === 'dir'
+            }))
+
+            for (const relPath of sortedTargets) {
+              const t = treeNodeType(relPath)
+              const isDir = t === 'dir'
+              await api.kbDelete(relPath, isDir)
+            }
+
+            selectedKeys.value = []
+            await refreshDir('')
+            emitKbEntriesRemoved(removedEntries)
+          } catch (e: unknown) {
+            const error = e as Error
+            message.error(error?.message || String(e))
+          }
+        }
+      })
+      return
+    case 'copy':
+      clipboard.value = { mode: 'copy', sources: targets }
+      return
+    case 'cut':
+      clipboard.value = { mode: 'cut', sources: targets }
+      return
+    case 'paste': {
+      if (!clipboard.value) return
+      const mode = clipboard.value.mode
+      const sources = clipboard.value.sources.slice()
+      const dstRelDir = node.type === 'dir' ? node.relPath : getDirOf(node.relPath)
+      // Dirs need to be refreshed to keep tree UI consistent after copy/move
+      const dirsToRefresh = new Set<string>([dstRelDir])
+      const removedEntries: Array<{ relPath: string; isDir: boolean }> = []
+
+      let lastOpenedFileRelPath = ''
+
+      for (const src of sources) {
+        const srcType = treeNodeType(src)
+        let res: { relPath: string }
+        if (mode === 'copy') {
+          res = await api.kbCopy(src, dstRelDir)
+        } else {
+          res = await api.kbMove(src, dstRelDir)
+          dirsToRefresh.add(getDirOf(src))
+          removedEntries.push({ relPath: src, isDir: srcType === 'dir' })
+        }
+        if (srcType === 'file') lastOpenedFileRelPath = res.relPath
+      }
+      if (mode === 'cut') {
+        clipboard.value = null
+      }
+      for (const d of dirsToRefresh) {
+        await refreshDir(d)
+      }
+      if (lastOpenedFileRelPath) {
+        openFileInMainPane(lastOpenedFileRelPath)
+      }
+      if (mode === 'cut') {
+        emitKbEntriesRemoved(removedEntries)
+      }
+      return
+    }
+  }
+}
+
+async function onDrop(info: { dragNode?: TreeNode; node?: TreeNode; dropToGap?: boolean; dropPosition?: number }) {
+  const dragNode = info?.dragNode
+  const node = info?.node
+  if (!dragNode || !node) return
+
+  const srcRelPath = dragNode.relPath
+  const dropToGap = !!info.dropToGap
+  const dropPosition = info.dropPosition ?? 0
+
+  let dstRelDir = ''
+
+  // Determine target directory based on drop position and node type
+  if (!dropToGap) {
+    // Dropped on node content - only valid for directories
+    if (node.type === 'dir') {
+      dstRelDir = node.relPath
+    } else {
+      message.warning('Cannot drop into a file')
+      return
+    }
+  } else if (node.type === 'dir' && (node.children || []).length > 0 && expandedKeys.value.includes(node.relPath) && dropPosition === 1) {
+    // Dropped at bottom gap of expanded folder with children
+    dstRelDir = node.relPath
+  } else {
+    // Dropped at gap - move to parent directory
+    dstRelDir = getDirOf(node.relPath)
+  }
+
+  // Check if moving to same directory
+  const srcParent = getDirOf(srcRelPath)
+  if (srcParent === dstRelDir) {
+    message.info('File is already in this directory')
+    return
+  }
+
+  try {
+    await api.kbMove(srcRelPath, dstRelDir)
+    await refreshDir(srcParent)
+    emitKbEntriesRemoved([{ relPath: srcRelPath, isDir: dragNode.type === 'dir' }])
+    if (srcParent !== dstRelDir) {
+      await refreshDir(dstRelDir)
+    }
+  } catch (e: unknown) {
+    const error = e as Error
+    message.error(error?.message || String(e))
+  }
+}
+
+const importJobs = reactive<Record<string, { jobId: string; destRelPath: string; transferred: number; total: number }>>({})
+const importJobList = computed(() => {
+  return Object.values(importJobs).map((j) => ({
+    ...j,
+    percent: j.total ? Math.floor((j.transferred / j.total) * 100) : 0
+  }))
+})
+
+const unsubscribeProgress = ref<(() => void) | null>(null)
+
+async function importOneFile(srcAbsPath: string, dstRelDir: string) {
+  const res = await api.kbImportFile(srcAbsPath, dstRelDir)
+  importJobs[res.jobId] = { jobId: res.jobId, destRelPath: res.relPath, transferred: 0, total: 1 }
+  await refreshDir(dstRelDir)
+  openFileInMainPane(res.relPath)
+}
+
+async function importOneFolder(srcAbsPath: string, dstRelDir: string) {
+  const res = await api.kbImportFolder(srcAbsPath, dstRelDir)
+  importJobs[res.jobId] = { jobId: res.jobId, destRelPath: res.relPath, transferred: 0, total: 0 }
+  await refreshDir(dstRelDir)
+}
+
+async function pickAndImport() {
+  const target = selectedKeys.value[0] || ''
+  const t = treeNodeType(target)
+  const dstRelDir = t === 'dir' ? target : getDirOf(target)
+
+  const result = await api.showOpenDialog({
+    properties: ['openFile', 'openDirectory', 'multiSelections'],
+    filters: [{ name: 'Text', extensions: ['txt', 'md', 'markdown', 'json', 'yaml', 'yml', 'log', 'csv'] }]
+  })
+  if (result?.canceled) return
+  const filePaths: string[] = result?.filePaths || []
+
+  for (const p of filePaths) {
+    const pathInfo = await api.kbCheckPath(p)
+    if (pathInfo.isDirectory) {
+      await importOneFolder(p, dstRelDir)
+    } else if (pathInfo.isFile) {
+      await importOneFile(p, dstRelDir)
+    }
+  }
+}
+
+async function handleDropImport(e: DragEvent) {
+  const files = e.dataTransfer?.files
+  if (!files || files.length === 0) return
+  const target = selectedKeys.value[0] || ''
+  const t = treeNodeType(target)
+  const dstRelDir = t === 'dir' ? target : getDirOf(target)
+  for (const f of Array.from(files)) {
+    const p = (f as File & { path: string }).path
+    if (p) {
+      const pathInfo = await api.kbCheckPath(p)
+      if (pathInfo.isDirectory) {
+        await importOneFolder(p, dstRelDir)
+      } else if (pathInfo.isFile) {
+        await importOneFile(p, dstRelDir)
+      }
+    }
+  }
+}
+
+onMounted(async () => {
+  await api.kbEnsureRoot()
+  await refreshDir('')
+  eventBus.on('kbActiveFileChanged', handleActiveKbTab)
+  unsubscribeProgress.value = api.onKbTransferProgress((data) => {
+    const job = importJobs[data.jobId]
+    if (!job) {
+      importJobs[data.jobId] = { jobId: data.jobId, destRelPath: data.destRelPath, transferred: data.transferred, total: data.total }
+      if (data.total === 0) {
+        window.setTimeout(() => {
+          delete importJobs[data.jobId]
+        }, 1500)
+      }
+      return
+    }
+    job.transferred = data.transferred
+    job.total = data.total
+    if (data.total > 0 && data.transferred >= data.total) {
+      window.setTimeout(() => {
+        delete importJobs[data.jobId]
+      }, 1500)
+    }
+  })
+})
+
+onBeforeUnmount(() => {
+  eventBus.off('kbActiveFileChanged', handleActiveKbTab)
+  if (unsubscribeProgress.value) unsubscribeProgress.value()
+  if (treeScrollTimer) clearTimeout(treeScrollTimer)
+})
+</script>
+
+<style scoped lang="less">
+// Local variables for consistent theme management
+@kb-primary-color: #1890ff;
+@kb-primary-hover: #40a9ff;
+
+// Mixin for common input styles in Knowledge Center
+.kb-transparent-input() {
+  background-color: var(--bg-color-secondary) !important;
+  border: 1px solid var(--border-color) !important;
+  color: var(--text-color) !important;
+
+  :deep(.ant-input) {
+    background-color: var(--bg-color-secondary) !important;
+    color: var(--text-color) !important;
+    &::placeholder {
+      color: var(--text-color-tertiary) !important;
+    }
+  }
+}
+
+.kb-sidebar-root {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  background: var(--bg-color);
+  color: var(--text-color);
+  overflow: hidden;
+}
+
+.kb-toolbar {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 4px 4px 0 4px;
+}
+
+.transparent-Input {
+  .kb-transparent-input();
+
+  :deep(.ant-input-suffix) {
+    color: var(--text-color-tertiary) !important;
+  }
+}
+
+.kb-button {
+  background-color: var(--bg-color-secondary) !important;
+  border: 1px solid var(--border-color) !important;
+  color: var(--text-color) !important;
+
+  &:hover,
+  &:focus {
+    color: @kb-primary-color !important;
+    border-color: @kb-primary-color !important;
+  }
+}
+
+.kb-tree-wrapper {
+  flex: 1;
+  overflow-y: auto;
+  overflow-x: hidden;
+  margin-top: 4px;
+  padding-bottom: 25px;
+
+  /* Scrollbar styles - align with Workspace */
+  &::-webkit-scrollbar {
+    width: 10px;
+  }
+
+  &::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  &::-webkit-scrollbar-thumb {
+    background-color: transparent;
+    border-radius: 0;
+    transition: background-color 0.3s;
+  }
+
+  &.scrollbar-visible::-webkit-scrollbar-thumb {
+    background-color: var(--border-color-light);
+  }
+
+  &.scrollbar-visible::-webkit-scrollbar-thumb:hover {
+    background-color: var(--text-color-tertiary);
+  }
+
+  /* Firefox scrollbar styles */
+  scrollbar-width: thin;
+  scrollbar-color: transparent transparent;
+  transition: scrollbar-color 0.3s;
+
+  &.scrollbar-visible {
+    scrollbar-color: var(--border-color-light) transparent;
+  }
+}
+
+.kb-tree {
+  background: transparent;
+  padding: 0;
+}
+
+:deep(.kb-tree) {
+  background-color: transparent;
+
+  // DirectoryTree uses ::before for selected background; override it here
+  &.ant-tree.ant-tree-directory {
+    .ant-tree-treenode-selected::before,
+    .ant-tree-treenode-selected:hover::before {
+      background: none !important;
+    }
+  }
+
+  .ant-tree-node-content-wrapper,
+  .ant-tree-title {
+    color: var(--text-color) !important;
+    display: flex;
+    flex: 1;
+    min-width: 0;
+  }
+
+  .ant-tree-switcher {
+    color: var(--text-color-tertiary) !important;
+  }
+
+  .ant-tree-treenode {
+    width: 100%;
+    // border-radius: 4px;
+    border: 1px solid transparent;
+    padding: 0 !important;
+
+    &:hover {
+      background-color: var(--hover-bg-color);
+    }
+
+    // Disable hover when context menu is open
+    .kb-tree-wrapper.has-context-menu &:hover {
+      background-color: transparent;
+    }
+
+    // Node content wrapper styles
+    .ant-tree-node-content-wrapper {
+      width: 100%;
+      border-radius: 4px;
+      padding: 0;
+
+      &:hover {
+        color: var(--text-color) !important;
+        background-color: transparent;
+      }
+    }
+
+    // Selected or active context menu node style
+    &.ant-tree-treenode-selected,
+    &:has(.context-menu-active) {
+      background-color: rgba(24, 143, 255, 0.154) !important;
+      box-shadow: inset 0 0 0 1px rgba(24, 144, 255, 0.1);
+      border-color: rgba(24, 143, 255, 0.75);
+    }
+  }
+
+  .ant-tree-node-selected {
+    background-color: transparent;
+    .ant-tree-node-content-wrapper {
+      background-color: transparent !important;
+      color: var(--text-color) !important;
+    }
+  }
+
+  .ant-tree-indent {
+    display: flex !important;
+  }
+}
+
+.kb-tree-title {
+  display: flex;
+  align-items: center;
+  min-width: 0;
+  flex: 1;
+  width: 100%;
+  overflow: hidden;
+  cursor: pointer;
+}
+
+.kb-title-text {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  flex: 1;
+  min-width: 0;
+}
+
+.kb-rename-input {
+  flex: 1;
+  min-width: 100px;
+  .kb-transparent-input();
+}
+
+.kb-transfer {
+  border-top: 1px solid var(--border-color);
+  padding: 8px;
+  max-height: 160px;
+  overflow-y: auto;
+  overflow-x: hidden;
+
+  /* Hide scrollbar for this small area */
+  &::-webkit-scrollbar {
+    width: 0;
+    display: none;
+  }
+  scrollbar-width: none;
+}
+
+.kb-transfer-item {
+  margin-bottom: 8px;
+
+  &:last-child {
+    margin-bottom: 0;
+  }
+}
+
+.kb-transfer-title {
+  font-size: 12px;
+  color: var(--text-color-secondary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  margin-bottom: 4px;
+}
+</style>

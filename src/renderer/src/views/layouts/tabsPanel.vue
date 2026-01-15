@@ -32,7 +32,7 @@
         class="tabs-content"
         :class="{ 'transparent-bg': isTransparent }"
       >
-        <template v-if="localTab.organizationId !== ''">
+        <template v-if="localTab.organizationId && localTab.organizationId !== ''">
           <sshConnect
             :key="`main-terminal-${localTab.id}`"
             :ref="(el) => setSshConnectRef(el, localTab.id)"
@@ -49,6 +49,12 @@
           <UserInfo v-if="localTab.content === 'userInfo'" />
           <UserConfig v-if="localTab.content === 'userConfig'" />
           <Files v-if="localTab.content === 'files'" />
+          <KnowledgeCenterEditor
+            v-if="localTab.content === 'KnowledgeCenterEditor' && localTab.props"
+            :rel-path="localTab.props.relPath || ''"
+            :mode="localTab.mode"
+            :api="props.params.api"
+          />
           <Kubernetes v-if="localTab.content === 'kubernetes'" />
           <AliasConfig v-if="localTab.content === 'aliasConfig'" />
           <jumpserverSupport v-if="localTab.content === 'jumpserverSupport'" />
@@ -86,6 +92,7 @@ import jumpserverSupport from '@views/components/Extensions/jumpserverSupport.vu
 import KeyManagement from '@views/components/LeftTab/config/keyManagement.vue'
 import SshConnect from '@views/components/Ssh/sshConnect.vue'
 import Files from '@views/components/Files/index.vue'
+import KnowledgeCenterEditor from '@views/components/Ssh/editors/KnowledgeCenterEditor.vue'
 import Kubernetes from '@views/components/Kubernetes/index.vue'
 import McpConfigEditor from '@views/components/Ssh/editors/mcpConfigEditor.vue'
 import CommonConfigEditor from '@views/components/CommonConfigEditor/index.vue'
@@ -108,7 +115,9 @@ interface TabItem {
     fromLocal?: boolean
     filePath?: string
     initialContent?: string
+    relPath?: string
   }
+  mode?: 'editor' | 'preview'
   closeCurrentPanel?: (panelId?: string) => void
   createNewPanel?: (isClone: boolean, direction: string, panelId?: string) => void
 }
