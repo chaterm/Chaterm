@@ -365,7 +365,7 @@
       {{ contextMenuData.favorite ? t('personal.removeFromFavorites') : t('personal.addToFavorites') }}
     </div>
     <div
-      v-if="contextMenuData.asset_type === 'organization' && !contextMenuData.key.startsWith('common_')"
+      v-if="isOrganizationAsset(contextMenuData.asset_type) && !contextMenuData.key.startsWith('common_')"
       class="context-menu-item"
       @click="handleContextMenuAction('comment')"
     >
@@ -373,7 +373,9 @@
       {{ contextMenuData.comment ? t('personal.editComment') : t('personal.addComment') }}
     </div>
     <div
-      v-if="contextMenuData.asset_type === 'organization' && !contextMenuData.key.startsWith('common_') && !contextMenuData.key.startsWith('folder_')"
+      v-if="
+        isOrganizationAsset(contextMenuData.asset_type) && !contextMenuData.key.startsWith('common_') && !contextMenuData.key.startsWith('folder_')
+      "
       class="context-menu-item"
       @click="handleContextMenuAction('move')"
     >
@@ -381,7 +383,7 @@
       {{ t('personal.moveToFolder') }}
     </div>
     <div
-      v-if="contextMenuData.asset_type === 'organization' && contextMenuData.key.startsWith('folder_') && contextMenuData.folderUuid"
+      v-if="isOrganizationAsset(contextMenuData.asset_type) && contextMenuData.key.startsWith('folder_') && contextMenuData.folderUuid"
       class="context-menu-item"
       @click="handleContextMenuAction('remove')"
     >
@@ -426,11 +428,13 @@ import {
 import eventBus from '@/utils/eventBus'
 import i18n from '@/locales'
 import { refreshOrganizationAssetFromWorkspace } from '../LeftTab/components/refreshOrganizationAssets'
+import { isOrganizationAsset } from '../LeftTab/utils/types'
 import { userConfigStore } from '@/services/userConfigStoreService'
 import { message, Modal, Input, Button } from 'ant-design-vue'
 
 const { t } = i18n.global
 const emit = defineEmits(['currentClickServer', 'change-company', 'open-user-tab'])
+
 const company = ref('personal_user_id')
 const selectedKeys = ref<string[]>([])
 const expandedKeys = ref<string[]>([])
@@ -765,7 +769,7 @@ const toggleFavorite = (dataRef: any): void => {
       .catch((err) => console.error(t('common.personalAssetFavoriteError'), err))
   } else {
     console.log('Executing organization asset favorite logic')
-    if (dataRef.asset_type === 'organization' && !dataRef.organizationId) {
+    if (isOrganizationAsset(dataRef.asset_type) && !dataRef.organizationId) {
       console.log('Updating organization itself favorite status')
       window.api
         .updateLocalAsseFavorite({ uuid: dataRef.uuid, status: dataRef.favorite ? 2 : 1 })
@@ -1079,9 +1083,9 @@ const handleContextMenu = (event: MouseEvent, dataRef: any) => {
 
   // Check if the node has any available menu options
   const hasFavoriteOption = dataRef.favorite !== undefined
-  const hasCommentOption = dataRef.asset_type === 'organization' && !dataRef.key.startsWith('common_')
-  const hasMoveOption = dataRef.asset_type === 'organization' && !dataRef.key.startsWith('common_') && !dataRef.key.startsWith('folder_')
-  const hasRemoveOption = dataRef.asset_type === 'organization' && dataRef.key.startsWith('folder_') && dataRef.folderUuid
+  const hasCommentOption = isOrganizationAsset(dataRef.asset_type) && !dataRef.key.startsWith('common_')
+  const hasMoveOption = isOrganizationAsset(dataRef.asset_type) && !dataRef.key.startsWith('common_') && !dataRef.key.startsWith('folder_')
+  const hasRemoveOption = isOrganizationAsset(dataRef.asset_type) && dataRef.key.startsWith('folder_') && dataRef.folderUuid
   const hasEditFolderOption = dataRef.asset_type === 'custom_folder' && !dataRef.key.startsWith('common_')
   const hasDeleteFolderOption = dataRef.asset_type === 'custom_folder' && !dataRef.key.startsWith('common_')
 

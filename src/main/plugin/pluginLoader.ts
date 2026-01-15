@@ -2,9 +2,10 @@ import * as fs from 'fs'
 import path from 'path'
 import { clearInstallHints, clearVersionProviders, listPlugins, PluginManifest, registerInstallHint, registerVersionProvider } from './pluginManager'
 import { BrowserWindow } from 'electron'
-import type { PluginHost, VersionProviderFn } from './pluginHost'
+import type { PluginHost, PluginHostModules, VersionProviderFn } from './pluginHost'
 import { PluginStorageContext } from './pluginGlobalState'
 import { ExternalAssetCache } from './pluginIpc'
+import { capabilityRegistry, BastionCapability, BastionDefinition } from '../ssh/capabilityRegistry'
 
 export interface PluginModule {
   register(host: PluginHost): void | Promise<void>
@@ -31,7 +32,7 @@ async function handlePluginChange() {
     }
   })
 }
-export function loadAllPlugins() {
+export async function loadAllPlugins() {
   const plugins = listPlugins()
 
   clearVersionProviders()
@@ -41,7 +42,17 @@ export function loadAllPlugins() {
   pluginCommands.clear()
   globalContext.clear()
 
+  capabilityRegistry.clearBastions()
   const storage = new PluginStorageContext()
+
+  let hostModules: PluginHostModules = {}
+  try {
+    hostModules = {
+      ssh2: require('ssh2')
+    }
+  } catch (e) {
+    console.warn('[pluginLoader] ssh2 module not available for plugins:', e)
+  }
 
   for (const p of plugins) {
     if (!p.enabled) continue
@@ -69,6 +80,12 @@ export function loadAllPlugins() {
       },
       registerInstallHint(hint) {
         registerInstallHint(p.id, hint)
+      },
+      registerBastionCapability(capability: BastionCapability) {
+        capabilityRegistry.registerBastion(capability)
+      },
+      registerBastionDefinition(definition: BastionDefinition) {
+        capabilityRegistry.registerBastionDefinition(definition)
       },
       globalState: storage.globalState,
       workspaceState: storage.workspaceState,
@@ -143,14 +160,15 @@ export function loadAllPlugins() {
         } catch (e) {
           return false
         }
-      }
+      },
+      modules: hostModules
     }
 
     try {
       delete require.cache[require.resolve(entry)]
       const mod: PluginModule = require(entry)
       if (typeof mod.register === 'function') {
-        mod.register(host)
+        await mod.register(host)
         console.log('[pluginLoader] plugin registered:', p.id)
       } else {
         console.log('[pluginLoader] plugin has no register():', p.id)

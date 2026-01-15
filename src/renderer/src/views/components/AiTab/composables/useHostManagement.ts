@@ -3,6 +3,8 @@ import type { Ref } from 'vue'
 import debounce from 'lodash/debounce'
 import type { Host, AssetInfo, HostOption, HostItemType } from '../types'
 import { formatHosts, isSwitchAssetType } from '../utils'
+import { isBastionHostType } from '../types'
+import { getBastionHostType } from '../../LeftTab/utils/types'
 import { useSessionState } from './useSessionState'
 import { focusChatInput } from './useTabManagement'
 import i18n from '@/locales'
@@ -52,7 +54,10 @@ export const useHostManagement = () => {
         return null
       }
 
-      assetInfo.connection = assetInfo.organizationId !== 'personal' ? 'jumpserver' : 'personal'
+      // Determine connection type based on assetType
+      // getBastionHostType returns 'jumpserver' | 'qizhi' | null
+      const bastionType = getBastionHostType(assetInfo.assetType)
+      assetInfo.connection = bastionType || 'personal'
       return assetInfo
     } catch (error) {
       console.error('Error getting asset information:', error)
@@ -98,8 +103,8 @@ export const useHostManagement = () => {
         expanded: isExpanded
       })
 
-      // If it's a jumpserver and expanded, add its children
-      if (item.type === 'jumpserver' && isExpanded && item.children) {
+      // If it's a bastion host and expanded, add its children
+      if (isBastionHostType(item.type) && isExpanded && item.children) {
         for (const child of item.children) {
           result.push({
             key: child.key,
@@ -135,17 +140,17 @@ export const useHostManagement = () => {
     for (const item of hostOptions.value) {
       const labelMatches = item.label.toLowerCase().includes(searchTerm)
 
-      if (item.type === 'jumpserver') {
+      if (isBastionHostType(item.type)) {
         // Check if any children match
         const matchingChildren = item.children?.filter((child) => child.label.toLowerCase().includes(searchTerm)) || []
 
         if (labelMatches || matchingChildren.length > 0) {
-          // Add jumpserver node
+          // Add bastion host node
           result.push({
             ...item,
             expanded: true // Always expanded when searching
           })
-          // Add all matching children (or all children if jumpserver label matches)
+          // Add all matching children (or all children if bastion host label matches)
           const childrenToShow = labelMatches ? item.children || [] : matchingChildren
           for (const child of childrenToShow) {
             result.push({
@@ -181,8 +186,8 @@ export const useHostManagement = () => {
   }
 
   const onHostClick = (item: HostOption, inputValueRef?: Ref<string>) => {
-    // Handle jumpserver parent node click - toggle expand/collapse
-    if (item.type === 'jumpserver' && !item.selectable) {
+    // Handle bastion host parent node click - toggle expand/collapse
+    if (isBastionHostType(item.type) && !item.selectable) {
       toggleJumpserverExpand(item.key)
       return
     }
@@ -565,9 +570,9 @@ export const useHostManagement = () => {
         hostOptions.value = formatted
       }
 
-      // Initialize all jumpservers as expanded by default
-      const jumpserverKeys = formatted.filter((h) => h.type === 'jumpserver').map((h) => h.key)
-      expandedJumpservers.value = new Set(jumpserverKeys)
+      // Initialize all bastion hosts as expanded by default
+      const bastionKeys = formatted.filter((h) => isBastionHostType(h.type)).map((h) => h.key)
+      expandedJumpservers.value = new Set(bastionKeys)
     } catch (error) {
       console.error('Failed to fetch host options:', error)
       hostOptions.value = []

@@ -1,5 +1,7 @@
 import { InstallHint } from './pluginManager'
 import { StateLike, SecretsLike } from './pluginGlobalState'
+import type { BastionCapability, BastionDefinition } from '../ssh/capabilityRegistry'
+
 export type VersionProviderFn = () => string | null | Promise<string | null>
 
 export interface ITreeItem {
@@ -8,6 +10,9 @@ export interface ITreeItem {
   collapsibleState?: 'none' | 'collapsed'
   command?: string
   args?: any[]
+}
+export interface PluginHostModules {
+  ssh2?: typeof import('ssh2')
 }
 
 export interface PluginHost {
@@ -29,4 +34,19 @@ export interface PluginHost {
   asAbsolutePath: (relativePath: string) => string
   readFile: (filePath: string) => Promise<string>
   writeFile: (filePath: string, content: string) => Promise<boolean>
+  modules: PluginHostModules
+
+  /**
+   * Register a bastion capability for plugin-based bastion host integration.
+   * JumpServer is built-in and does not use this mechanism.
+   * @param capability The bastion capability to register
+   */
+  registerBastionCapability: (capability: BastionCapability) => void
+
+  /**
+   * Register a bastion definition (plugin metadata) for dynamic UI/DB/routing.
+   * Should be called alongside registerBastionCapability.
+   * @param definition The bastion definition to register
+   */
+  registerBastionDefinition: (definition: BastionDefinition) => void
 }

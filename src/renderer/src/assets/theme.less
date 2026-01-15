@@ -62,8 +62,8 @@
 
 // Light theme variables
 .theme-light {
-  --bg-color: #ffffff;
-  --bg-color-secondary: #f8fafc;
+  --bg-color: #f3f3f3;
+  --bg-color-secondary: #f5f5f5;
   --bg-color-tertiary: #f1f5f9;
   --bg-color-quaternary: #e2e8f0;
   --bg-color-quinary: #f8fafc;
@@ -98,7 +98,7 @@
   --globalInput-bg-color: #f1f5f9;
   --button-bg-color: #3b82f6;
   --box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1), 0 1px 2px rgba(0, 0, 0, 0.06);
-  --button-default-bg-color: #ffffff;
+  --button-default-bg-color: #f3f3f3;
   --bg-color-default: #e2e8f0;
 
   // Form components
@@ -109,7 +109,7 @@
   --select-border: #cbd5e1;
 
   // Enhanced component colors
-  --card-bg: #ffffff;
+  --card-bg: #f3f3f3;
   --card-border: #e2e8f0;
   --card-shadow: 0 1px 3px rgba(0, 0, 0, 0.1), 0 1px 2px rgba(0, 0, 0, 0.06);
   --command-output-bg: #f8fafc;
@@ -327,7 +327,7 @@ body {
     // Light theme overrides
     &.theme-light,
     .theme-light & {
-      --bg-color: rgba(255, 255, 255, var(--custom-opacity, 0.8));
+      --bg-color: rgba(243, 243, 243, var(--custom-opacity, 0.8));
       --bg-color-secondary: rgba(248, 250, 252, var(--custom-opacity, 0.8));
       --bg-color-tertiary: rgba(241, 245, 249, var(--custom-opacity, 0.8));
 
@@ -356,7 +356,7 @@ body {
       // Fix modals transparency
       .ant-modal-content,
       .ant-modal-header {
-        background-color: rgba(255, 255, 255, 0.95) !important;
+        background-color: rgba(243, 243, 243, 0.95) !important;
         backdrop-filter: blur(10px);
       }
 
@@ -376,13 +376,13 @@ body {
 
       // -----------------------------------------------------------------------------------
       // Glassmorphism style for dropdowns - Light Theme
-      // Background: rgba(255, 255, 255, 0.85) - 85% opacity white
+      // Background: rgba(243, 243, 243, 0.85) - 85% opacity light gray
       // Blur: 20px with 180% saturation for frosted glass effect
       // -----------------------------------------------------------------------------------
 
       // Select dropdown (e.g., font selection, proxy settings)
       .ant-select-dropdown {
-        background-color: rgba(255, 255, 255, 0.85) !important;
+        background-color: rgba(243, 243, 243, 0.85) !important;
         backdrop-filter: blur(20px) saturate(180%);
         -webkit-backdrop-filter: blur(20px) saturate(180%);
 
@@ -402,7 +402,7 @@ body {
 
       // Cascader dropdown (Device Type selection) - Light Theme
       .ant-cascader-dropdown {
-        background-color: rgba(255, 255, 255, 0.85) !important;
+        background-color: rgba(243, 243, 243, 0.85) !important;
         backdrop-filter: blur(20px) saturate(180%);
         -webkit-backdrop-filter: blur(20px) saturate(180%);
         border: 1px solid rgba(203, 213, 225, 0.5) !important;
@@ -433,7 +433,7 @@ body {
 
       // History dropdown menu (AI chat history in Agent mode)
       .history-dropdown-menu {
-        background-color: rgba(255, 255, 255, 0.85) !important;
+        background-color: rgba(243, 243, 243, 0.85) !important;
         backdrop-filter: blur(20px) saturate(180%);
         -webkit-backdrop-filter: blur(20px) saturate(180%);
 
@@ -453,7 +453,7 @@ body {
       // Ant Design Menu and Dropdown components
       .ant-menu,
       .ant-dropdown-menu {
-        background-color: rgba(255, 255, 255, 0.85) !important;
+        background-color: rgba(243, 243, 243, 0.85) !important;
         backdrop-filter: blur(20px) saturate(180%);
         -webkit-backdrop-filter: blur(20px) saturate(180%);
 
@@ -483,7 +483,7 @@ body {
 
       // User menu (personal info and logout options in left sidebar)
       .user-menu {
-        background-color: rgba(255, 255, 255, 0.85) !important;
+        background-color: rgba(243, 243, 243, 0.85) !important;
         backdrop-filter: blur(20px) saturate(180%);
         -webkit-backdrop-filter: blur(20px) saturate(180%);
 

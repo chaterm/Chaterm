@@ -6,6 +6,56 @@ interface Cookie {
   name: string
   value: string
 }
+
+// ============================================================================
+// Bastion Definition Types (mirrored from capabilityRegistry.ts)
+// ============================================================================
+
+/**
+ * Authentication policy types supported by bastion hosts.
+ */
+export type BastionAuthPolicy = 'password' | 'keyBased'
+
+/**
+ * Agent execution strategy for command execution.
+ * - 'stream': Use getShellStream for command execution (standard stream-based)
+ * - 'custom': Plugin provides custom runCommand implementation
+ */
+export type BastionAgentExecStrategy = 'stream' | 'custom'
+
+/**
+ * BastionDefinition describes the metadata and capabilities of a plugin-based bastion host.
+ * Used by frontend for dynamic UI rendering and routing decisions.
+ */
+export interface BastionDefinition {
+  /** Unique bastion type identifier (e.g., 'qizhi', 'tencent') */
+  type: string
+
+  /** Definition version for schema evolution and compatibility */
+  version: number
+
+  /** i18n key for display name (e.g., 'bastion.qizhi.name') */
+  displayNameKey: string
+
+  /** Asset type prefix, defaults to 'organization-${type}' */
+  assetTypePrefix: string
+
+  /** Supported authentication policies */
+  authPolicy: BastionAuthPolicy[]
+
+  /** Whether this bastion supports asset refresh */
+  supportsRefresh: boolean
+
+  /** Whether this bastion provides getShellStream for agent execution */
+  supportsShellStream: boolean
+
+  /** Agent execution strategy */
+  agentExec: BastionAgentExecStrategy
+
+  /** Optional UI hints for rendering customization */
+  uiHints?: Record<string, unknown>
+}
+
 interface ApiType {
   getCookie: (name: string) => Promise<{
     success: boolean
@@ -189,6 +239,16 @@ interface ApiType {
     data?: CommandGenerationContext
     error?: string
   }>
+
+  // Plugin bastion capability API
+  // Get registered bastion types (plugin-based, not including built-in JumpServer)
+  getRegisteredBastionTypes: () => Promise<string[]>
+  // Get all registered bastion definitions (plugin metadata for UI rendering)
+  getBastionDefinitions: () => Promise<BastionDefinition[]>
+  // Get a specific bastion definition by type
+  getBastionDefinition: (type: string) => Promise<BastionDefinition | undefined>
+  // Check if a specific bastion type is available
+  hasBastionCapability: (type: string) => Promise<boolean>
 
   // K8s related APIs
   k8sGetContexts: () => Promise<{
