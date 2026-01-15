@@ -898,6 +898,8 @@ export default {
     nameTooLong: '名前の長さは20文字を超えることはできません',
     usernameLengthError: 'ユーザー名の長さは6-20文字の間でなければなりません',
     usernameFormatError: 'ユーザー名は英数字とアンダースコアのみ使用できます',
+    mobileInvalid: '正しい携帯電話番号を入力してください',
+    passwordLengthError: 'パスワードの長さは6文字以上である必要があります',
     passwordStrengthError: 'パスワード強度は最低でも弱以上である必要があります',
     passwordStrength: 'パスワード強度',
     passwordStrengthWeak: '弱',
