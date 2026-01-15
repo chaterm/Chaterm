@@ -135,7 +135,7 @@ export default {
     enterprise: 'Unternehmen',
     personal: 'Personal',
     contact: 'Kontakt',
-    welcome: 'Willkommen bei Chaterm',
+    welcome: 'Willkommen bei',
     title: 'Chaterm',
     accountLogin: 'Konto Login',
     emailLogin: 'Email Login',
