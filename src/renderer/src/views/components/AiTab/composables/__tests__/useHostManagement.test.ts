@@ -72,7 +72,7 @@ describe('useHostManagement', () => {
     key: 'js-1',
     uuid: 'js-uuid-1',
     connect: 'jumpserver',
-    type: 'jumpserver',
+    type: 'bastion',
     selectable: false,
     level: 0,
     childrenCount: 2

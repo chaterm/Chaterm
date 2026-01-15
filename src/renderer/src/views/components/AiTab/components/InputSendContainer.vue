@@ -35,7 +35,7 @@
           >
             <!-- Jumpserver parent node (non-selectable, expandable) -->
             <div
-              v-if="item.type === 'jumpserver'"
+              v-if="isBastionHostType(item.type)"
               class="host-select-item host-select-group"
               :class="{
                 hovered: hovered === item.value,
@@ -268,6 +268,7 @@ import { useModelConfiguration } from '../composables/useModelConfiguration'
 import { useUserInteractions } from '../composables/useUserInteractions'
 import { AiTypeOptions } from '../composables/useEventBusListeners'
 import type { HostOption } from '../types'
+import { isBastionHostType } from '../types'
 import { CheckOutlined, CloseOutlined, DownOutlined, HourglassOutlined, LaptopOutlined, RightOutlined } from '@ant-design/icons-vue'
 import uploadIcon from '@/assets/icons/upload.svg'
 import sendIcon from '@/assets/icons/send.svg'

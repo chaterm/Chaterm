@@ -1,5 +1,65 @@
 import Database from 'better-sqlite3'
 import { getUserConfig } from '../../../agent/core/storage/state'
+import { capabilityRegistry } from '../../../ssh/capabilityRegistry'
+
+/**
+ * Get available organization asset types dynamically based on capability registry.
+ * JumpServer ('organization') is always available as a built-in type.
+ * Plugin-based bastion hosts are available if their capability is registered.
+ *
+ * Returns asset type prefixes like: ['organization', 'organization-qizhi', 'organization-tencent']
+ */
+export function getOrganizationAssetTypes(): string[] {
+  const types = ['organization'] // JumpServer is always built-in
+
+  // Add plugin-based bastion types from definitions
+  const definitions = capabilityRegistry.listBastionDefinitions()
+  for (const def of definitions) {
+    // Use assetTypePrefix from definition, or fallback to 'organization-${type}'
+    const assetType = def.assetTypePrefix || `organization-${def.type}`
+    if (!types.includes(assetType)) {
+      types.push(assetType)
+    }
+  }
+
+  return types
+}
+
+/**
+ * Get all organization asset types including both registered definitions AND
+ * existing types from the database. This prevents accidental data deletion when
+ * plugins are not yet loaded or definitions are missing.
+ *
+ * Use this for cleanup/query operations that should preserve existing data.
+ */
+export function getOrganizationAssetTypesWithExisting(db: Database.Database): string[] {
+  const types = getOrganizationAssetTypes()
+
+  // Also include any organization-* types that exist in the database
+  // This prevents orphaned assets when plugins are not loaded
+  try {
+    const existingTypesStmt = db.prepare(`
+      SELECT DISTINCT asset_type FROM t_assets
+      WHERE asset_type LIKE 'organization%'
+    `)
+    const existingTypes = existingTypesStmt.all() as { asset_type: string }[]
+    for (const row of existingTypes) {
+      if (row.asset_type && !types.includes(row.asset_type)) {
+        types.push(row.asset_type)
+      }
+    }
+  } catch (error) {
+    console.warn('[getOrganizationAssetTypesWithExisting] Failed to query existing types:', error)
+  }
+
+  return types
+}
+
+// Helper function to check if asset type is an organization type
+const isOrganizationType = (assetType: string): boolean => {
+  // Dynamic check: starts with 'organization' prefix
+  return assetType === 'organization' || assetType.startsWith('organization-')
+}
 
 // Import language translations
 const translations = {
@@ -173,7 +233,7 @@ export async function getLocalAssetRouteLogic(db: Database, searchType: string, 
               password: item.password || '',
               key_chain_id: item.key_chain_id || 0,
               asset_type: item.asset_type || 'person',
-              organizationId: item.asset_type === 'organization' ? item.uuid : 'personal',
+              organizationId: isOrganizationType(item.asset_type) ? item.uuid : 'personal',
               needProxy: item.need_proxy === 1,
               proxyName: item.proxy_name
             }))
@@ -265,19 +325,23 @@ export async function getLocalAssetRouteLogic(db: Database, searchType: string, 
           })
         }
       }
-    } else if (assetType === 'organization') {
-      // Organization asset logic - add favorites bar support
+    } else if (isOrganizationType(assetType)) {
+      // Get available organization types based on capability registry
+      const availableOrgTypes = getOrganizationAssetTypes()
+      const orgTypePlaceholders = availableOrgTypes.map(() => '?').join(', ')
+
+      // Organization asset logic (JumpServer and Qizhi) - add favorites bar support
       if (searchType !== 'assetConfig') {
         const favoriteAssets: any[] = []
 
-        // Favorite organizations
+        // Favorite organizations (based on available types)
         const favoriteOrgsStmt = db.prepare(`
-          SELECT uuid, label, asset_ip, port, username, password, key_chain_id, auth_type, favorite
+          SELECT uuid, label, asset_ip, port, username, password, key_chain_id, auth_type, favorite, asset_type
           FROM t_assets
-          WHERE asset_type = 'organization' AND favorite = 1
+          WHERE asset_type IN (${orgTypePlaceholders}) AND favorite = 1
           ORDER BY created_at
         `)
-        const favoriteOrgs = favoriteOrgsStmt.all() || []
+        const favoriteOrgs = favoriteOrgsStmt.all(...availableOrgTypes) || []
 
         for (const org of favoriteOrgs) {
           favoriteAssets.push({
@@ -291,21 +355,21 @@ export async function getLocalAssetRouteLogic(db: Database, searchType: string, 
             password: org.password,
             key_chain_id: org.key_chain_id || 0,
             auth_type: org.auth_type,
-            asset_type: 'organization',
+            asset_type: org.asset_type || 'organization',
             organizationId: org.uuid
           })
         }
 
-        // Favorite organization sub-assets
+        // Favorite organization sub-assets (based on available types)
         const favoriteSubAssetsStmt = db.prepare(`
           SELECT oa.hostname as asset_name, oa.host as asset_ip, oa.organization_uuid, oa.uuid, oa.favorite, oa.comment,
-                 a.label as org_label, a.asset_ip as org_ip
+                 a.label as org_label, a.asset_ip as org_ip, a.asset_type
           FROM t_organization_assets oa
           JOIN t_assets a ON oa.organization_uuid = a.uuid
-          WHERE oa.favorite = 1 AND a.asset_type = 'organization'
+          WHERE oa.favorite = 1 AND a.asset_type IN (${orgTypePlaceholders})
           ORDER BY oa.hostname
         `)
-        const favoriteSubAssets = favoriteSubAssetsStmt.all() || []
+        const favoriteSubAssets = favoriteSubAssetsStmt.all(...availableOrgTypes) || []
 
         for (const subAsset of favoriteSubAssets) {
           favoriteAssets.push({
@@ -315,7 +379,7 @@ export async function getLocalAssetRouteLogic(db: Database, searchType: string, 
             ip: subAsset.asset_ip,
             uuid: subAsset.uuid,
             comment: subAsset.comment,
-            asset_type: 'organization',
+            asset_type: subAsset.asset_type || 'organization',
             organizationId: subAsset.organization_uuid
           })
         }
@@ -347,7 +411,8 @@ export async function getLocalAssetRouteLogic(db: Database, searchType: string, 
               oa.favorite,
               oa.comment,
               oa.uuid as asset_uuid,
-              a.label as org_label
+              a.label as org_label,
+              a.asset_type as org_asset_type
             FROM t_asset_folder_mapping afm
             JOIN t_organization_assets oa ON afm.organization_uuid = oa.organization_uuid AND afm.asset_host = oa.host
             JOIN t_assets a ON afm.organization_uuid = a.uuid
@@ -363,7 +428,7 @@ export async function getLocalAssetRouteLogic(db: Database, searchType: string, 
             ip: asset.asset_host,
             uuid: asset.asset_uuid,
             comment: asset.comment,
-            asset_type: 'organization',
+            asset_type: asset.org_asset_type || 'organization',
             organizationId: asset.organization_uuid,
             folderUuid: folder.uuid
           }))
@@ -379,14 +444,14 @@ export async function getLocalAssetRouteLogic(db: Database, searchType: string, 
         }
       }
 
-      // Organization assets
+      // Organization assets (based on available types)
       const organizationAssetsStmt = db.prepare(`
-        SELECT uuid, label, asset_ip, port, username, password, key_chain_id, auth_type, favorite
+        SELECT uuid, label, asset_ip, port, username, password, key_chain_id, auth_type, favorite, asset_type
         FROM t_assets
-        WHERE asset_type = 'organization'
+        WHERE asset_type IN (${orgTypePlaceholders})
         ORDER BY created_at
       `)
-      const organizationAssets = organizationAssetsStmt.all() || []
+      const organizationAssets = organizationAssetsStmt.all(...availableOrgTypes) || []
 
       for (const orgAsset of organizationAssets) {
         const nodesStmt = db.prepare(`
@@ -404,7 +469,7 @@ export async function getLocalAssetRouteLogic(db: Database, searchType: string, 
           ip: node.asset_ip,
           uuid: node.uuid,
           comment: node.comment,
-          asset_type: 'organization',
+          asset_type: orgAsset.asset_type || 'organization',
           organizationId: orgAsset.uuid
         }))
 
