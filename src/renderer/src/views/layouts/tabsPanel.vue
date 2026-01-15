@@ -53,7 +53,6 @@
             v-if="localTab.content === 'KnowledgeCenterEditor' && localTab.props"
             :rel-path="localTab.props.relPath || ''"
             :mode="localTab.mode"
-            :api="props.params.api"
           />
           <Kubernetes v-if="localTab.content === 'kubernetes'" />
           <AliasConfig v-if="localTab.content === 'aliasConfig'" />

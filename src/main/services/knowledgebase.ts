@@ -357,6 +357,9 @@ export function registerKnowledgeBaseHandlers(): void {
 
     const jobId = randomUUID()
 
+    // Ensure folder exists even if empty
+    await fs.mkdir(destFolderAbs, { recursive: true })
+
     // Collect all import tasks in one traversal (creates dirs, collects file paths)
     const tasks = await collectImportTasks(srcAbsPath, destFolderAbs)
     const totalFiles = tasks.length

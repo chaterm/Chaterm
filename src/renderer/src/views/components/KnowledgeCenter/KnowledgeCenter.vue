@@ -744,16 +744,25 @@ const importJobList = computed(() => {
 const unsubscribeProgress = ref<(() => void) | null>(null)
 
 async function importOneFile(srcAbsPath: string, dstRelDir: string) {
-  const res = await api.kbImportFile(srcAbsPath, dstRelDir)
-  importJobs[res.jobId] = { jobId: res.jobId, destRelPath: res.relPath, transferred: 0, total: 1 }
-  await refreshDir(dstRelDir)
-  openFileInMainPane(res.relPath)
+  try {
+    const res = await api.kbImportFile(srcAbsPath, dstRelDir)
+    importJobs[res.jobId] = { jobId: res.jobId, destRelPath: res.relPath, transferred: 0, total: 1 }
+    await refreshDir(dstRelDir)
+    openFileInMainPane(res.relPath)
+  } catch (e: unknown) {
+    const error = e as Error
+    message.error(`Failed to import file: ${error?.message || String(e)}`)
+  }
 }
-
 async function importOneFolder(srcAbsPath: string, dstRelDir: string) {
-  const res = await api.kbImportFolder(srcAbsPath, dstRelDir)
-  importJobs[res.jobId] = { jobId: res.jobId, destRelPath: res.relPath, transferred: 0, total: 0 }
-  await refreshDir(dstRelDir)
+  try {
+    const res = await api.kbImportFolder(srcAbsPath, dstRelDir)
+    importJobs[res.jobId] = { jobId: res.jobId, destRelPath: res.relPath, transferred: 0, total: 0 }
+    await refreshDir(dstRelDir)
+  } catch (e: unknown) {
+    const error = e as Error
+    message.error(`Failed to import folder: ${error?.message || String(e)}`)
+  }
 }
 
 async function pickAndImport() {

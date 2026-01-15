@@ -42,12 +42,12 @@ import { message } from 'ant-design-vue'
 import MonacoEditor from '@renderer/views/components/Ssh/editors/monacoEditor.vue'
 import { getMonacoTheme } from '@/utils/themeUtils'
 import eventBus from '@/utils/eventBus'
+import DOMPurify from 'dompurify'
 
 const props = withDefaults(
   defineProps<{
     relPath: string
     mode?: 'editor' | 'preview'
-    api?: any
   }>(),
   {
     mode: 'editor'
@@ -116,7 +116,10 @@ const handleRemoteChange = (data: { relPath: string; content: string }) => {
 
 const mdHtml = computed(() => {
   if (!activeFile.isMarkdown) return ''
-  return marked.parse(activeFile.content || '')
+
+  // To avoid XSS attacks, we need to sanitize the HTML before rendering it.
+  const rawHtml = marked.parse(activeFile.content || '')
+  return DOMPurify.sanitize(rawHtml as string)
 })
 
 async function openFile(relPath: string) {

@@ -7,8 +7,6 @@ export default {
     language: 'English',
     workspace: 'WorkSpace',
     files: 'Files',
-    knowledgecenter: 'Knowledge Center',
-    knowledgebase: 'Knowledge Base',
     management: 'Management',
     keyManagement: 'Key Management',
     keyManagementDesc: 'Manage SSH keys and certificates',
