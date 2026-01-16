@@ -2466,10 +2466,6 @@ defineExpose({
   outline: none;
 }
 
-.rigth-sidebar:focus-within {
-  box-shadow: inset 2px 0 0 var(--primary-color, #1890ff);
-}
-
 .rigth-sidebar.collapsed {
   width: 0px;
 }
