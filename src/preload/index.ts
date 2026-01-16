@@ -674,6 +674,7 @@ const api = {
   createSkill: (metadata: any, content: string) => ipcRenderer.invoke('skills:create', metadata, content),
   deleteSkill: (skillId: string) => ipcRenderer.invoke('skills:delete', skillId),
   openSkillsFolder: () => ipcRenderer.invoke('skills:open-folder'),
+  importSkillZip: (zipPath: string, overwrite?: boolean) => ipcRenderer.invoke('skills:import-zip', zipPath, overwrite),
   onSkillsUpdate: (callback: (skills: any[]) => void) => {
     const listener = (_event, data) => callback(data.skills)
     ipcRenderer.on('skillsUpdate', listener)

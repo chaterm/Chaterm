@@ -4,6 +4,7 @@
 import * as fs from 'fs/promises'
 import * as path from 'path'
 import { app } from 'electron'
+import AdmZip from 'adm-zip'
 import {
   Skill,
   SkillMetadata,
@@ -12,6 +13,7 @@ import {
   SkillDirectory,
   SkillValidationResult,
   SkillResource,
+  SkillImportResult,
   SKILL_FILE_NAME,
   SKILLS_DIR_NAME,
   REQUIRED_SKILL_FIELDS,
@@ -842,6 +844,188 @@ export class SkillsManager {
 
     // Notify webview
     await this.notifySkillsUpdate()
+  }
+
+  /**
+   * Import a skill from a ZIP file
+   * Supports two ZIP structures:
+   * - Structure A: SKILL.md at root (extracts to folder named after skill ID)
+   * - Structure B: SKILL.md in subdirectory (extracts the subdirectory)
+   */
+  async importSkillFromZip(zipPath: string, overwrite?: boolean): Promise<SkillImportResult> {
+    console.log(`[SkillsManager] Importing skill from ZIP: ${zipPath}`)
+
+    let zip: AdmZip
+    try {
+      zip = new AdmZip(zipPath)
+    } catch (error) {
+      console.error('[SkillsManager] Failed to open ZIP file:', error)
+      return {
+        success: false,
+        error: 'Invalid or corrupted ZIP file',
+        errorCode: 'INVALID_ZIP'
+      }
+    }
+
+    const entries = zip.getEntries()
+    if (entries.length === 0) {
+      return {
+        success: false,
+        error: 'ZIP file is empty',
+        errorCode: 'INVALID_ZIP'
+      }
+    }
+
+    // Find SKILL.md file and determine structure
+    let skillMdEntry: AdmZip.IZipEntry | null = null
+    let skillMdBasePath = '' // The path prefix to use when extracting
+
+    for (const entry of entries) {
+      const entryName = entry.entryName
+
+      // Check for path traversal attacks
+      if (entryName.includes('..') || entryName.startsWith('/')) {
+        console.error('[SkillsManager] Potential path traversal detected:', entryName)
+        return {
+          success: false,
+          error: 'ZIP file contains invalid paths',
+          errorCode: 'INVALID_ZIP'
+        }
+      }
+
+      // Check if this is a SKILL.md file
+      if (entryName === SKILL_FILE_NAME) {
+        // Structure A: SKILL.md at root
+        skillMdEntry = entry
+        skillMdBasePath = ''
+        break
+      } else if (entryName.endsWith(`/${SKILL_FILE_NAME}`)) {
+        // Structure B: SKILL.md in subdirectory
+        // Only accept if it's exactly one level deep
+        const parts = entryName.split('/')
+        if (parts.length === 2) {
+          skillMdEntry = entry
+          skillMdBasePath = parts[0] + '/'
+          break
+        }
+      }
+    }
+
+    if (!skillMdEntry) {
+      return {
+        success: false,
+        error: `No ${SKILL_FILE_NAME} file found in ZIP`,
+        errorCode: 'NO_SKILL_MD'
+      }
+    }
+
+    // Parse SKILL.md content to validate and get metadata
+    const skillMdContent = skillMdEntry.getData().toString('utf-8')
+    const { metadata } = this.parseFrontmatter(skillMdContent)
+
+    // Validate metadata
+    const validation = this.validateMetadata(metadata)
+    if (!validation.valid) {
+      return {
+        success: false,
+        error: `Invalid SKILL.md: ${validation.errors.join(', ')}`,
+        errorCode: 'INVALID_METADATA'
+      }
+    }
+
+    const skillId = metadata.id as string
+    const skillName = metadata.name as string
+
+    // Check if skill already exists
+    const userSkillsPath = this.getUserSkillsPath()
+    const targetDir = path.join(userSkillsPath, skillId)
+
+    if (await this.directoryExists(targetDir)) {
+      if (!overwrite) {
+        return {
+          success: false,
+          skillId,
+          skillName,
+          error: `Skill "${skillId}" already exists`,
+          errorCode: 'DIR_EXISTS'
+        }
+      }
+      // Remove existing directory for overwrite
+      console.log(`[SkillsManager] Overwriting existing skill: ${skillId}`)
+      await fs.rm(targetDir, { recursive: true, force: true })
+    }
+
+    // Ensure user skills directory exists
+    await fs.mkdir(userSkillsPath, { recursive: true })
+
+    try {
+      // Create target directory
+      await fs.mkdir(targetDir, { recursive: true })
+
+      // Extract relevant files
+      for (const entry of entries) {
+        const entryName = entry.entryName
+
+        // Skip if entry doesn't match our base path
+        if (skillMdBasePath && !entryName.startsWith(skillMdBasePath)) {
+          continue
+        }
+
+        // Skip directories (they're created implicitly)
+        if (entry.isDirectory) {
+          continue
+        }
+
+        // Calculate relative path within skill directory
+        let relativePath = entryName
+        if (skillMdBasePath) {
+          relativePath = entryName.slice(skillMdBasePath.length)
+        }
+
+        // Skip empty relative paths
+        if (!relativePath) {
+          continue
+        }
+
+        const targetPath = path.join(targetDir, relativePath)
+        const targetParent = path.dirname(targetPath)
+
+        // Ensure parent directory exists
+        await fs.mkdir(targetParent, { recursive: true })
+
+        // Write file
+        const content = entry.getData()
+        await fs.writeFile(targetPath, content)
+        console.log(`[SkillsManager] Extracted: ${relativePath}`)
+      }
+
+      // Reload skills to pick up the new skill
+      await this.loadAllSkills()
+
+      console.log(`[SkillsManager] Successfully imported skill: ${skillId}`)
+      return {
+        success: true,
+        skillId,
+        skillName
+      }
+    } catch (error) {
+      console.error('[SkillsManager] Failed to extract skill:', error)
+
+      // Cleanup on failure
+      try {
+        await fs.rm(targetDir, { recursive: true, force: true })
+      } catch {
+        // Ignore cleanup errors
+      }
+
+      return {
+        success: false,
+        skillId,
+        skillName,
+        error: 'Failed to extract skill files',
+        errorCode: 'EXTRACT_FAILED'
+      }
+    }
   }
 
   /**

@@ -643,6 +643,18 @@ ipcMain.handle('skills:open-folder', async () => {
   }
 })
 
+ipcMain.handle('skills:import-zip', async (_event, zipPath: string, overwrite?: boolean) => {
+  try {
+    if (controller && controller.skillsManager) {
+      return await controller.skillsManager.importSkillFromZip(zipPath, overwrite)
+    }
+    throw new Error('Skills manager not initialized')
+  } catch (error) {
+    console.error('Failed to import skill from ZIP:', error)
+    throw error
+  }
+})
+
 // ==================== End Skills IPC Handlers ====================
 
 // Get all Cookies

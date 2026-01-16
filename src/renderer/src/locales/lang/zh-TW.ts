@@ -1254,6 +1254,17 @@ export default {
     deleteConfirmTitle: '確認刪除',
     deleteConfirmContent: '確定要刪除技能「{name}」嗎？此操作無法撤銷。',
     deleteSuccess: '技能已刪除',
-    deleteError: '刪除技能失敗'
+    deleteError: '刪除技能失敗',
+    import: '導入',
+    importTooltip: '從 ZIP 文件導入技能。ZIP 文件必須包含 SKILL.md 文件在根目錄或子目錄中。',
+    importSuccess: '技能「{name}」導入成功',
+    importError: '導入技能失敗',
+    importInvalidZip: '無效的 ZIP 文件或已損壞',
+    importNoSkillMd: 'ZIP 文件中沒有 SKILL.md 文件',
+    importInvalidMetadata: 'SKILL.md 文件缺少必需的字段',
+    importDirExists: '技能「{id}」已存在',
+    importOverwriteTitle: '技能已存在',
+    importOverwriteContent: '是否要覆蓋現有技能？',
+    importOverwrite: '覆蓋'
   }
 }

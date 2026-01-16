@@ -1271,6 +1271,17 @@ export default {
     deleteConfirmTitle: 'Confirmar eliminação',
     deleteConfirmContent: 'Tem certeza que deseja eliminar a competência "{name}"? Esta ação não pode ser desfeita.',
     deleteSuccess: 'Competência eliminada',
-    deleteError: 'Falha ao eliminar competência'
+    deleteError: 'Falha ao eliminar competência',
+    import: 'Importar',
+    importTooltip: 'Importar uma competência de um arquivo ZIP. O ZIP deve conter um arquivo SKILL.md na raiz ou em um subdiretório.',
+    importSuccess: 'Competência "{name}" importada com sucesso',
+    importError: 'Falha ao importar competência',
+    importInvalidZip: 'Arquivo ZIP inválido ou corrompido',
+    importNoSkillMd: 'Arquivo ZIP não contém arquivo SKILL.md',
+    importInvalidMetadata: 'Arquivo SKILL.md está faltando campos obrigatórios',
+    importDirExists: 'Competência "{id}" já existe',
+    importOverwriteTitle: 'Competência já existe',
+    importOverwriteContent: 'Deseja sobrescrever a competência existente?',
+    importOverwrite: 'Sobrescrever'
   }
 }

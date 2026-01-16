@@ -187,6 +187,16 @@ interface ApiType {
   createSkill: (metadata: any, content: string) => Promise<any>
   deleteSkill: (skillId: string) => Promise<void>
   openSkillsFolder: () => Promise<void>
+  importSkillZip: (
+    zipPath: string,
+    overwrite?: boolean
+  ) => Promise<{
+    success: boolean
+    skillId?: string
+    skillName?: string
+    error?: string
+    errorCode?: 'INVALID_ZIP' | 'NO_SKILL_MD' | 'INVALID_METADATA' | 'DIR_EXISTS' | 'EXTRACT_FAILED' | 'UNKNOWN'
+  }>
   onSkillsUpdate: (callback: (skills: any[]) => void) => () => void
 
   // IndexedDB migration related API

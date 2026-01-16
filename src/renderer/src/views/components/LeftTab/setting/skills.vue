@@ -21,6 +21,17 @@
           <ReloadOutlined />
           {{ $t('skills.reload') }}
         </a-button>
+        <a-tooltip :title="$t('skills.importTooltip')">
+          <a-button
+            type="text"
+            size="small"
+            :loading="isImporting"
+            @click="importSkillZip"
+          >
+            <ImportOutlined />
+            {{ $t('skills.import') }}
+          </a-button>
+        </a-tooltip>
         <a-button
           type="primary"
           size="small"
@@ -231,7 +242,7 @@
 import { ref, onMounted, onBeforeUnmount } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { message, Modal } from 'ant-design-vue'
-import { FolderOpenOutlined, ReloadOutlined, PlusOutlined, DeleteOutlined, ThunderboltOutlined } from '@ant-design/icons-vue'
+import { FolderOpenOutlined, ReloadOutlined, PlusOutlined, DeleteOutlined, ThunderboltOutlined, ImportOutlined } from '@ant-design/icons-vue'
 
 const { t } = useI18n()
 
@@ -253,6 +264,7 @@ interface Skill {
 const skills = ref<Skill[]>([])
 const isReloading = ref(false)
 const isCreating = ref(false)
+const isImporting = ref(false)
 const createModalVisible = ref(false)
 
 const newSkill = ref({
@@ -314,6 +326,79 @@ const openSkillsFolder = async () => {
   } catch (error) {
     console.error('Failed to open skills folder:', error)
     message.error(t('skills.openFolderError'))
+  }
+}
+
+const importSkillZip = async () => {
+  try {
+    // Open file dialog to select ZIP file
+    const result = await window.api.showOpenDialog({
+      properties: ['openFile'],
+      filters: [{ name: 'ZIP Files', extensions: ['zip'] }]
+    })
+
+    if (!result || result.canceled || result.filePaths.length === 0) {
+      return
+    }
+
+    const zipPath = result.filePaths[0]
+    isImporting.value = true
+
+    // Try to import the skill
+    const importResult = await window.api.importSkillZip(zipPath)
+
+    if (importResult.success) {
+      message.success(t('skills.importSuccess', { name: importResult.skillName || importResult.skillId }))
+      await loadSkills()
+    } else if (importResult.errorCode === 'DIR_EXISTS') {
+      // Skill already exists, ask for confirmation to overwrite
+      Modal.confirm({
+        title: t('skills.importOverwriteTitle'),
+        content: t('skills.importOverwriteContent'),
+        okText: t('skills.importOverwrite'),
+        cancelText: t('common.cancel'),
+        onOk: async () => {
+          isImporting.value = true
+          try {
+            const overwriteResult = await window.api.importSkillZip(zipPath, true)
+            if (overwriteResult.success) {
+              message.success(t('skills.importSuccess', { name: overwriteResult.skillName || overwriteResult.skillId }))
+              await loadSkills()
+            } else {
+              showImportError(overwriteResult.errorCode)
+            }
+          } catch (error) {
+            console.error('Failed to import skill (overwrite):', error)
+            message.error(t('skills.importError'))
+          } finally {
+            isImporting.value = false
+          }
+        }
+      })
+    } else {
+      showImportError(importResult.errorCode)
+    }
+  } catch (error) {
+    console.error('Failed to import skill:', error)
+    message.error(t('skills.importError'))
+  } finally {
+    isImporting.value = false
+  }
+}
+
+const showImportError = (errorCode?: string) => {
+  switch (errorCode) {
+    case 'INVALID_ZIP':
+      message.error(t('skills.importInvalidZip'))
+      break
+    case 'NO_SKILL_MD':
+      message.error(t('skills.importNoSkillMd'))
+      break
+    case 'INVALID_METADATA':
+      message.error(t('skills.importInvalidMetadata'))
+      break
+    default:
+      message.error(t('skills.importError'))
   }
 }
 

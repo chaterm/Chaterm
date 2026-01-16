@@ -1254,6 +1254,17 @@ export default {
     deleteConfirmTitle: '确认删除',
     deleteConfirmContent: '确定要删除技能 "{name}" 吗？此操作无法撤销。',
     deleteSuccess: '技能已删除',
-    deleteError: '删除技能失败'
+    deleteError: '删除技能失败',
+    import: '导入',
+    importTooltip: '以 ZIP 文件格式导入技能。ZIP 包中应包含 SKILL.md 文件（位于根目录或子目录中）。',
+    importSuccess: '技能 "{name}" 导入成功',
+    importError: '导入技能失败',
+    importInvalidZip: '无效或损坏的 ZIP 文件',
+    importNoSkillMd: 'ZIP 包中未找到 SKILL.md 文件',
+    importInvalidMetadata: 'SKILL.md 缺少必填字段',
+    importDirExists: '技能 "{id}" 已存在',
+    importOverwriteTitle: '技能已存在',
+    importOverwriteContent: '是否覆盖已存在的技能？',
+    importOverwrite: '覆盖'
   }
 }

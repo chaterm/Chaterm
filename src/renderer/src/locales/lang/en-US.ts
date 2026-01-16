@@ -1264,6 +1264,17 @@ export default {
     deleteConfirmTitle: 'Confirm Delete',
     deleteConfirmContent: 'Are you sure you want to delete skill "{name}"? This action cannot be undone.',
     deleteSuccess: 'Skill deleted',
-    deleteError: 'Failed to delete skill'
+    deleteError: 'Failed to delete skill',
+    import: 'Import',
+    importTooltip: 'Import skill from ZIP file. The ZIP should contain a SKILL.md file at the root or in a subdirectory.',
+    importSuccess: 'Skill "{name}" imported successfully',
+    importError: 'Failed to import skill',
+    importInvalidZip: 'Invalid or corrupted ZIP file',
+    importNoSkillMd: 'No SKILL.md file found in ZIP',
+    importInvalidMetadata: 'SKILL.md missing required fields',
+    importDirExists: 'Skill "{id}" already exists',
+    importOverwriteTitle: 'Skill Already Exists',
+    importOverwriteContent: 'Overwrite existing skill?',
+    importOverwrite: 'Overwrite'
   }
 }

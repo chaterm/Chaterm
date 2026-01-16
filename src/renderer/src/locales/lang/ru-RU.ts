@@ -1269,6 +1269,17 @@ export default {
     deleteConfirmTitle: 'Подтвердите удаление',
     deleteConfirmContent: 'Вы уверены, что хотите удалить навык "{name}"? Это действие нельзя отменить.',
     deleteSuccess: 'Навык удалён',
-    deleteError: 'Не удалось удалить навык'
+    deleteError: 'Не удалось удалить навык',
+    import: 'Импорт',
+    importTooltip: 'Импортируйте навык из ZIP-файла. ZIP-файл должен содержать файл SKILL.md в корне или в подпапке.',
+    importSuccess: 'Навык "{name}" импортирован успешно',
+    importError: 'Не удалось импортировать навык',
+    importInvalidZip: 'Неверный или поврежденный ZIP-файл',
+    importNoSkillMd: 'ZIP-файл не содержит файла SKILL.md',
+    importInvalidMetadata: 'Файл SKILL.md отсутствует обязательные поля',
+    importDirExists: 'Навык "{id}" уже существует',
+    importOverwriteTitle: 'Навык уже существует',
+    importOverwriteContent: 'Хотите заменить существующий навык?',
+    importOverwrite: 'Заменить'
   }
 }

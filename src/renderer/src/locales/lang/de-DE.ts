@@ -1273,6 +1273,18 @@ export default {
     deleteConfirmTitle: 'Löschen bestätigen',
     deleteConfirmContent: 'Sind Sie sicher, dass Sie den Skill "{name}" löschen möchten? Diese Aktion kann nicht rückgängig gemacht werden.',
     deleteSuccess: 'Skill gelöscht',
-    deleteError: 'Skill konnte nicht gelöscht werden'
+    deleteError: 'Skill konnte nicht gelöscht werden',
+    import: 'Import',
+    importTooltip:
+      'Importieren Sie einen Skill aus einer ZIP-Datei. Die ZIP-Datei sollte eine SKILL.md-Datei im Stammverzeichnis oder einem Unterverzeichnis enthalten.',
+    importSuccess: 'Skill "{name}" erfolgreich importiert',
+    importError: 'Skill importieren fehlgeschlagen',
+    importInvalidZip: 'Ungültige oder beschädigte ZIP-Datei',
+    importNoSkillMd: 'ZIP-Datei enthält keine SKILL.md-Datei',
+    importInvalidMetadata: 'SKILL.md fehlt erforderliche Felder',
+    importDirExists: 'Skill "{id}" bereits vorhanden',
+    importOverwriteTitle: 'Skill bereits vorhanden',
+    importOverwriteContent: 'Möchten Sie den bestehenden Skill überschreiben?',
+    importOverwrite: 'Überschreiben'
   }
 }

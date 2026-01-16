@@ -1258,6 +1258,17 @@ export default {
     deleteConfirmTitle: '삭제 확인',
     deleteConfirmContent: '스킬 "{name}"을(를) 삭제하시겠습니까? 이 작업은 취소할 수 없습니다.',
     deleteSuccess: '스킬 삭제됨',
-    deleteError: '스킬 삭제 실패'
+    deleteError: '스킬 삭제 실패',
+    import: '가져오기',
+    importTooltip: 'ZIP 파일에서 스킬을 가져옵니다. ZIP에는 루트 또는 하위 디렉토리에 SKILL.md 파일이 포함되어 있어야 합니다.',
+    importSuccess: '스킬 "{name}" 가져오기 완료',
+    importError: '스킬 가져오기 실패',
+    importInvalidZip: '유효하지 않거나 손상된 ZIP 파일입니다',
+    importNoSkillMd: 'ZIP에서 SKILL.md 파일을 찾을 수 없습니다',
+    importInvalidMetadata: 'SKILL.md에 필수 필드가 없습니다',
+    importDirExists: '스킬 "{id}"이(가) 이미 존재합니다',
+    importOverwriteTitle: '스킬이 이미 존재합니다',
+    importOverwriteContent: '기존 스킬을 덮어쓰시겠습니까?',
+    importOverwrite: '덮어쓰기'
   }
 }

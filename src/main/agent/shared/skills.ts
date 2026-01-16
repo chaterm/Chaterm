@@ -117,6 +117,22 @@ export interface SkillValidationResult {
 }
 
 /**
+ * Error codes for skill import operations
+ */
+export type SkillImportErrorCode = 'INVALID_ZIP' | 'NO_SKILL_MD' | 'INVALID_METADATA' | 'DIR_EXISTS' | 'EXTRACT_FAILED' | 'UNKNOWN'
+
+/**
+ * Result of importing a skill from ZIP
+ */
+export interface SkillImportResult {
+  success: boolean
+  skillId?: string
+  skillName?: string
+  error?: string
+  errorCode?: SkillImportErrorCode
+}
+
+/**
  * Default skill metadata values
  */
 export const DEFAULT_SKILL_METADATA: Partial<SkillMetadata> = {

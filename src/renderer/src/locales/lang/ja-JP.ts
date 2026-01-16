@@ -1261,6 +1261,17 @@ export default {
     deleteConfirmTitle: '削除の確認',
     deleteConfirmContent: 'スキル「{name}」を削除してもよろしいですか？この操作は取り消せません。',
     deleteSuccess: 'スキルを削除しました',
-    deleteError: 'スキルの削除に失敗しました'
+    deleteError: 'スキルの削除に失敗しました',
+    import: 'インポート',
+    importTooltip: 'ZIPファイルからスキルをインポートします。ZIPにはルートまたはサブディレクトリにSKILL.mdファイルが含まれている必要があります。',
+    importSuccess: 'スキル「{name}」をインポートしました',
+    importError: 'スキルのインポートに失敗しました',
+    importInvalidZip: '無効または破損したZIPファイルです',
+    importNoSkillMd: 'ZIPにSKILL.mdファイルが見つかりません',
+    importInvalidMetadata: 'SKILL.mdに必須フィールドがありません',
+    importDirExists: 'スキル「{id}」は既に存在します',
+    importOverwriteTitle: 'スキルが既に存在します',
+    importOverwriteContent: '既存のスキルを上書きしますか？',
+    importOverwrite: '上書き'
   }
 }
