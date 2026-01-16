@@ -178,7 +178,6 @@ const createEditor = (): void => {
 }
 
 onMounted(() => {
-  console.log('editorContainer', editorContainer.value)
   createEditor()
 })
 

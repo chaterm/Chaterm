@@ -165,6 +165,7 @@
                   @open-user-tab="openUserTab"
                 />
                 <Snippets v-else-if="currentMenu == 'snippets'" />
+                <KnowledgeCenter v-else-if="currentMenu == 'knowledgecenter'" />
 
                 <ExtensionViewHost
                   v-else
@@ -214,6 +215,11 @@
                               visibility: hasPanels ? 'visible' : 'hidden'
                             }"
                             @ready="onDockReady"
+                          />
+                          <EditorActions
+                            v-if="dockApiInstance"
+                            :dock-api="dockApiInstance"
+                            class="dockview-actions-overlay"
                           />
                         </div>
                       </pane>
@@ -296,10 +302,11 @@ import Workspace from '@views/components/Workspace/index.vue'
 import Extensions from '@views/components/Extensions/index.vue'
 import Assets from '@views/components/Assets/index.vue'
 import Snippets from '@views/components/LeftTab/config/snippets.vue'
+import KnowledgeCenter from '@views/components/KnowledgeCenter/KnowledgeCenter.vue'
 import AgentsSidebar from '@views/components/AgentsSidebar/index.vue'
 import TabsPanel from './tabsPanel.vue'
-import tabsPanel from './tabsPanel.vue'
 import ExtensionViewHost from './ExtensionViewHost.vue'
+import EditorActions from './components/EditorActions.vue'
 import { v4 as uuidv4 } from 'uuid'
 import { userInfoStore } from '@/store'
 import { aliasConfigStore } from '@/store/aliasConfigStore'
@@ -378,6 +385,8 @@ interface SplitPaneItem {
   verticalSplitPanes?: { size: number; tabs: TabItem[]; activeTabId: string }[]
   mainVerticalSize?: number
 }
+
+type KbRemovedEntry = { relPath: string; isDir: boolean }
 
 const splitPanes = ref<SplitPaneItem[]>([])
 const showAiSidebar = ref(false)
@@ -895,6 +904,7 @@ onMounted(async () => {
   eventBus.on('switchToSpecificTab', switchToSpecificTab)
   eventBus.on('createNewTerminal', handleCreateNewTerminal)
   eventBus.on('open-user-tab', openUserTab)
+  eventBus.on('kbEntriesRemoved', handleKbEntriesRemoved)
   eventBus.on('searchHost', handleSearchHost)
   eventBus.on('save-state-before-switch', () => {
     // Save AI state before layout switch (unified since same aiTabRef)
@@ -1527,6 +1537,37 @@ const switchTab = (panelId: string) => {
   checkActiveTab(panelType)
 }
 
+const normalizeKbRelPath = (relPath: string): string => {
+  return relPath.replace(/\\/g, '/').replace(/^\/+/, '').replace(/\/+$/, '')
+}
+
+const shouldCloseKbTab = (tabRelPath: string, entry: KbRemovedEntry): boolean => {
+  const tabPath = normalizeKbRelPath(tabRelPath)
+  const entryPath = normalizeKbRelPath(entry.relPath)
+  if (!entryPath) return false
+  if (entry.isDir) {
+    return tabPath === entryPath || tabPath.startsWith(entryPath + '/')
+  }
+  return tabPath === entryPath
+}
+
+const handleKbEntriesRemoved = (payload: { entries: KbRemovedEntry[] }) => {
+  if (!dockApi) return
+  const entries = payload?.entries ?? []
+  if (entries.length === 0) return
+
+  const panels = [...dockApi.panels]
+  for (const panel of panels) {
+    const params = panel.params
+    if (params?.content !== 'KnowledgeCenterEditor') continue
+    const relPath = String(params.props?.relPath || params.data?.props?.relPath || '')
+    if (!relPath) continue
+    if (entries.some((entry) => shouldCloseKbTab(relPath, entry))) {
+      panel.api.close()
+    }
+  }
+}
+
 onUnmounted(() => {
   eventBus.off('save-state-before-switch')
   shortcutService.destroy()
@@ -1550,6 +1591,7 @@ onUnmounted(() => {
   eventBus.off('switchToSpecificTab', switchToSpecificTab)
   eventBus.off('createNewTerminal', handleCreateNewTerminal)
   eventBus.off('open-user-tab', openUserTab)
+  eventBus.off('kbEntriesRemoved', handleKbEntriesRemoved)
   eventBus.off('searchHost', handleSearchHost)
 })
 
@@ -1596,6 +1638,40 @@ const openUserTab = async function (arg: OpenUserTabArg) {
     }
 
     currentClickServer(p)
+    return
+  }
+
+  if (value === 'KnowledgeCenterEditor') {
+    if (isStringArg) return
+    if (!dockApi) return
+
+    const target = arg as Exclude<OpenUserTabArg, string>
+    const relPath = String(target.props?.relPath || '')
+    const existing = dockApi.panels.find((panel) => panel.params?.content === 'KnowledgeCenterEditor' && panel.params?.props?.relPath === relPath)
+    if (existing) {
+      existing.api.setActive()
+      return
+    }
+
+    const stableId = `kc_${relPath.replaceAll('/', '__') || Date.now()}`
+    addDockPanel({
+      id: stableId,
+      title: target.title || relPath.split('/').pop() || 'KnowledgeCenter',
+      content: 'KnowledgeCenterEditor',
+      type: 'config',
+      organizationId: '',
+      ip: '',
+      data: {
+        title: target.title || relPath.split('/').pop() || 'KnowledgeCenter',
+        key: 'KnowledgeCenterEditor',
+        type: 'KnowledgeCenterEditor',
+        props: target.props
+      },
+      props: target.props,
+      isMarkdown: relPath.toLowerCase().endsWith('.md') || relPath.toLowerCase().endsWith('.markdown'),
+      mode: 'editor'
+    })
+    checkActiveTab('config')
     return
   }
 
@@ -1910,10 +1986,12 @@ const dockviewRef = ref<InstanceType<typeof DockviewVue> | null>(null)
 const panelCount = ref(0)
 const hasPanels = computed(() => panelCount.value > 0)
 let dockApi: DockviewApi | null = null
+const dockApiInstance = ref<DockviewApi | null>(null)
 
 defineOptions({
+  name: 'TerminalLayout',
   components: {
-    tabsPanel
+    TabsPanel
   }
 })
 
@@ -1953,6 +2031,17 @@ const handleActivePanelChange = async () => {
   }
 
   const panelType = params.type || params.data?.type
+  const panelContent = params.content || params.data?.type // Identify non-terminal content type
+
+  if (panelContent === 'KnowledgeCenterEditor') {
+    const relPath = String(params.props?.relPath || params.data?.props?.relPath || '') // Active knowledge file path
+    if (relPath) {
+      eventBus.emit('kbActiveFileChanged', { relPath })
+    }
+    return
+  }
+
+  // Handle terminal and SSH tab changes
   if (panelType !== 'term' && panelType !== 'ssh') {
     return
   }
@@ -1977,6 +2066,7 @@ const handleActivePanelChange = async () => {
 
 const onDockReady = (event: DockviewReadyEvent) => {
   dockApi = event.api
+  dockApiInstance.value = event.api
 
   dockApi.onDidAddPanel(() => {
     panelCount.value = dockApi?.panels.length ?? 0
@@ -2017,7 +2107,7 @@ const addDockPanel = (params) => {
   }
   dockApi.addPanel({
     id,
-    component: 'tabsPanel',
+    component: 'TabsPanel',
     title: displayTitle,
     params: {
       ...params,
@@ -2484,8 +2574,17 @@ defineExpose({
 }
 
 .main-terminal-area {
+  position: relative;
+
   width: 100%;
   height: 100%;
+
+  .dockview-actions-overlay {
+    position: absolute;
+    top: 0;
+    right: 0;
+    z-index: 10;
+  }
 }
 
 .ant-input-group-wrapper {

@@ -36,13 +36,6 @@ declare const __EDITION_CONFIG__: {
   }
 }
 
-declare module '*.vue' {
-  import type { DefineComponent } from 'vue'
-
-  const component: DefineComponent<Record<string, never>, Record<string, never>, any>
-  export default component
-}
-
 // Type declarations for vitest-browser-vue
 declare module 'vitest-browser-vue' {
   import type { Component } from 'vue'

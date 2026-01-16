@@ -89,7 +89,7 @@ vi.mock('@views/components/CommonConfigEditor/index.vue', () => ({
   }
 }))
 
-vi.mock('@views/components/McpConfigEditor/index.vue', () => ({
+vi.mock('@views/components/Ssh/editors/mcpConfigEditor.vue', () => ({
   default: {
     name: 'McpConfigEditor',
     template: '<div class="mcp-config-editor-mock">MCP Config Editor</div>'

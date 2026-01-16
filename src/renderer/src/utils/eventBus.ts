@@ -26,6 +26,8 @@ export interface AppEvents {
   keyChainUpdated: void // Keychain update event, used to sync key options in host configuration
   aliasStatusChanged: number // Alias status change event, 1 means enabled, 2 means disabled
   openUserTab: any // Open Tab
+  kbActiveFileChanged: { relPath: string } // KnowledgeCenter active file changed
+  kbEntriesRemoved: { entries: Array<{ relPath: string; isDir: boolean }> } // KnowledgeCenter delete/cut remove tabs
   // Can extend more events
   [key: string | symbol]: any
 }
