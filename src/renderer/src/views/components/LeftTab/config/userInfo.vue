@@ -440,16 +440,17 @@ const passwordMatch = computed(() => {
   return formState.newPassword === formState.confirmPassword
 })
 
-// Check if mobile editing is allowed
-// Users registered with mobile (registrationType === 7) cannot modify their mobile number
 const canEditMobile = computed(() => {
   return userInfo.value.registrationType !== 7
 })
 
-// Check if email editing is allowed
-// Users registered with email (registrationType === 2) cannot modify their email
 const canEditEmail = computed(() => {
-  return userInfo.value.registrationType !== 2
+  return (
+    userInfo.value.registrationType !== 2 &&
+    userInfo.value.registrationType !== 3 &&
+    userInfo.value.registrationType !== 4 &&
+    userInfo.value.registrationType !== 6
+  )
 })
 
 const startEditing = () => {
