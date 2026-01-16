@@ -263,7 +263,7 @@ import { useI18n } from 'vue-i18n'
 import { notification } from 'ant-design-vue'
 import VoiceInput from '../components/voice/voiceInput.vue'
 import { useSessionState } from '../composables/useSessionState'
-import { useHostManagement } from '../composables/useHostManagement'
+import { useContext } from '../composables/useContext'
 import { useModelConfiguration } from '../composables/useModelConfiguration'
 import { useUserInteractions } from '../composables/useUserInteractions'
 import { AiTypeOptions } from '../composables/useEventBusListeners'
@@ -374,7 +374,7 @@ const {
   popupPosition,
   popupReady,
   currentMode
-} = useHostManagement()
+} = useContext()
 
 // Ensure keyboard "Enter" selection also uses the current component's input ref
 // (edit mode uses local value, create mode uses global value via the computed proxy).

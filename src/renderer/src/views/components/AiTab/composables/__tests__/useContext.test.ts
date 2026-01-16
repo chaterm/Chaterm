@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { ref } from 'vue'
-import { useHostManagement } from '../useHostManagement'
+import { useContext } from '../useContext'
+import { useHostState } from '../useHostState'
 import type { Host, HostOption } from '../../types'
 import eventBus from '@/utils/eventBus'
 import { Notice } from '@/views/components/Notice/index'
@@ -30,7 +31,7 @@ vi.mock('../useTabManagement', () => ({
 vi.mock('@/locales', () => ({
   default: {
     global: {
-      t: (key: string, params?: any) => {
+      t: (key: string, params?: Record<string, unknown>) => {
         if (key === 'ai.maxHostsLimitReached') {
           return `Maximum of ${params?.max} hosts reached`
         }
@@ -65,7 +66,7 @@ vi.mock('../../LeftTab/utils/types', () => ({
   })
 }))
 
-describe('useHostManagement', () => {
+describe('useContext', () => {
   const mockHostOption: HostOption = {
     label: 'server1.example.com',
     value: 'host-1',
@@ -100,7 +101,7 @@ describe('useHostManagement', () => {
 
   describe('isHostSelected', () => {
     it('should return true when host is selected by uuid', () => {
-      const { isHostSelected } = useHostManagement()
+      const { isHostSelected } = useContext()
 
       hosts.value = [{ host: 'server1.example.com', uuid: 'uuid-1', connection: 'ssh' }]
 
@@ -108,7 +109,7 @@ describe('useHostManagement', () => {
     })
 
     it('should return false when host is not selected', () => {
-      const { isHostSelected } = useHostManagement()
+      const { isHostSelected } = useContext()
 
       hosts.value = []
 
@@ -116,7 +117,7 @@ describe('useHostManagement', () => {
     })
 
     it('should match by IP and connection type as fallback', () => {
-      const { isHostSelected } = useHostManagement()
+      const { isHostSelected } = useContext()
 
       hosts.value = [{ host: 'server1.example.com', uuid: 'different-uuid', connection: 'ssh' }]
 
@@ -126,7 +127,7 @@ describe('useHostManagement', () => {
 
   describe('onHostClick', () => {
     it('should add host when not selected in agent mode', () => {
-      const { onHostClick } = useHostManagement()
+      const { onHostClick } = useContext()
 
       hosts.value = []
       chatTypeValue.value = 'agent'
@@ -139,7 +140,7 @@ describe('useHostManagement', () => {
     })
 
     it('should remove host when already selected in agent mode', () => {
-      const { onHostClick } = useHostManagement()
+      const { onHostClick } = useContext()
 
       hosts.value = [{ host: 'server1.example.com', uuid: 'uuid-1', connection: 'ssh' }]
       chatTypeValue.value = 'agent'
@@ -150,7 +151,7 @@ describe('useHostManagement', () => {
     })
 
     it('should replace host in cmd mode', () => {
-      const { onHostClick } = useHostManagement()
+      const { onHostClick } = useContext()
 
       hosts.value = [{ host: 'old-server', uuid: 'old-uuid', connection: 'ssh' }]
       chatTypeValue.value = 'cmd'
@@ -162,7 +163,7 @@ describe('useHostManagement', () => {
     })
 
     it('should prevent adding more than max hosts', () => {
-      const { onHostClick } = useHostManagement()
+      const { onHostClick } = useContext()
 
       const newHostOption: HostOption = {
         label: 'newserver.example.com',
@@ -192,7 +193,7 @@ describe('useHostManagement', () => {
     })
 
     it('should remove localhost when adding non-localhost', () => {
-      const { onHostClick } = useHostManagement()
+      const { onHostClick } = useContext()
 
       hosts.value = [{ host: '127.0.0.1', uuid: 'localhost-uuid', connection: 'localhost' }]
       chatTypeValue.value = 'agent'
@@ -205,7 +206,7 @@ describe('useHostManagement', () => {
     })
 
     it('should toggle jumpserver expand/collapse', () => {
-      const { onHostClick } = useHostManagement()
+      const { onHostClick } = useContext()
 
       onHostClick(mockJumpserverOption)
 
@@ -214,7 +215,7 @@ describe('useHostManagement', () => {
     })
 
     it('should set autoUpdateHost to false after selection', () => {
-      const { onHostClick } = useHostManagement()
+      const { onHostClick } = useContext()
 
       autoUpdateHost.value = true
       onHostClick(mockHostOption)
@@ -224,7 +225,7 @@ describe('useHostManagement', () => {
 
     it('should switch to cmd mode when selecting switch host in agent mode', async () => {
       const { Notice } = await import('@/views/components/Notice')
-      const { onHostClick } = useHostManagement()
+      const { onHostClick } = useContext()
 
       const switchHostOption: HostOption = {
         label: 'switch-1',
@@ -255,7 +256,7 @@ describe('useHostManagement', () => {
 
   describe('removeHost', () => {
     it('should remove host by uuid', () => {
-      const { removeHost } = useHostManagement()
+      const { removeHost } = useContext()
 
       const hostToRemove: Host = {
         host: 'server1.example.com',
@@ -270,7 +271,7 @@ describe('useHostManagement', () => {
     })
 
     it('should not affect other hosts', () => {
-      const { removeHost } = useHostManagement()
+      const { removeHost } = useContext()
 
       const host1: Host = {
         host: 'server1.example.com',
@@ -291,7 +292,7 @@ describe('useHostManagement', () => {
     })
 
     it('should set autoUpdateHost to false', () => {
-      const { removeHost } = useHostManagement()
+      const { removeHost } = useContext()
 
       const host: Host = {
         host: 'server1.example.com',
@@ -310,7 +311,7 @@ describe('useHostManagement', () => {
 
   describe('toggleJumpserverExpand', () => {
     it('should add jumpserver to expanded set when collapsed', () => {
-      const { toggleJumpserverExpand } = useHostManagement()
+      const { toggleJumpserverExpand } = useContext()
 
       toggleJumpserverExpand('js-1')
 
@@ -322,7 +323,7 @@ describe('useHostManagement', () => {
 
   describe('getCurentTabAssetInfo', () => {
     it('should return asset info for current tab', async () => {
-      const { getCurentTabAssetInfo } = useHostManagement()
+      const { getCurentTabAssetInfo } = useHostState()
       const mockAssetInfo = {
         uuid: 'asset-1',
         title: 'Test Server',
@@ -350,7 +351,7 @@ describe('useHostManagement', () => {
       // Enable fake timers to speed up timeout test
       vi.useFakeTimers()
 
-      const { getCurentTabAssetInfo } = useHostManagement()
+      const { getCurentTabAssetInfo } = useHostState()
 
       // Don't trigger the callback to simulate timeout
       vi.mocked(eventBus.on).mockImplementation(() => {})
@@ -370,7 +371,7 @@ describe('useHostManagement', () => {
     })
 
     it('should set connection type based on organizationId', async () => {
-      const { getCurentTabAssetInfo } = useHostManagement()
+      const { getCurentTabAssetInfo } = useHostState()
       const mockAssetInfo = {
         uuid: 'asset-1',
         title: 'Test Server',
@@ -396,7 +397,7 @@ describe('useHostManagement', () => {
 
   describe('handleInputChange', () => {
     it('should show host select when only @ is typed', async () => {
-      const { handleInputChange, showHostSelect } = useHostManagement()
+      const { handleInputChange, showHostSelect } = useContext()
 
       const mockEvent = {
         target: {
@@ -419,7 +420,7 @@ describe('useHostManagement', () => {
     })
 
     it('should show host select when @ is typed at the end', async () => {
-      const { handleInputChange, showHostSelect } = useHostManagement()
+      const { handleInputChange, showHostSelect } = useContext()
 
       const mockEvent = {
         target: {
@@ -442,7 +443,7 @@ describe('useHostManagement', () => {
     })
 
     it('should not show host select when @ is in the middle', async () => {
-      const { handleInputChange, showHostSelect } = useHostManagement()
+      const { handleInputChange, showHostSelect } = useContext()
 
       const mockEvent = {
         target: {
@@ -465,7 +466,7 @@ describe('useHostManagement', () => {
     })
 
     it('should hide host select when trailing @ is removed', async () => {
-      const { handleInputChange, showHostSelect } = useHostManagement()
+      const { handleInputChange, showHostSelect } = useContext()
 
       showHostSelect.value = true
 
@@ -490,7 +491,7 @@ describe('useHostManagement', () => {
     })
 
     it('should hide host select when @ is removed', async () => {
-      const { handleInputChange, showHostSelect } = useHostManagement()
+      const { handleInputChange, showHostSelect } = useContext()
 
       const mockEvent = {
         target: {
@@ -516,7 +517,7 @@ describe('useHostManagement', () => {
 
   describe('onHostClick with @ handling', () => {
     it('should remove trailing @ when host is selected', () => {
-      const { onHostClick } = useHostManagement()
+      const { onHostClick } = useContext()
 
       chatInputValue.value = 'hello @'
       chatTypeValue.value = 'agent'
@@ -528,7 +529,7 @@ describe('useHostManagement', () => {
     })
 
     it('should not modify input if no trailing @ when host is selected', () => {
-      const { onHostClick } = useHostManagement()
+      const { onHostClick } = useContext()
 
       chatInputValue.value = 'hello world'
       chatTypeValue.value = 'agent'
@@ -540,7 +541,7 @@ describe('useHostManagement', () => {
     })
 
     it('should remove @ even with just @', () => {
-      const { onHostClick } = useHostManagement()
+      const { onHostClick } = useContext()
 
       chatInputValue.value = '@'
       chatTypeValue.value = 'agent'
@@ -554,7 +555,7 @@ describe('useHostManagement', () => {
 
   describe('handleAddHostClick', () => {
     it('should show host select popup', () => {
-      const { handleAddHostClick, showHostSelect } = useHostManagement()
+      const { handleAddHostClick, showHostSelect } = useContext()
 
       handleAddHostClick()
 
