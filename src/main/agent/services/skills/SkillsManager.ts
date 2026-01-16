@@ -1,0 +1,918 @@
+//  Copyright (c) 2025-present, chaterm.ai  All rights reserved.
+//  This source code is licensed under the GPL-3.0
+
+import * as fs from 'fs/promises'
+import * as path from 'path'
+import { app } from 'electron'
+import {
+  Skill,
+  SkillMetadata,
+  SkillParseResult,
+  SkillState,
+  SkillDirectory,
+  SkillValidationResult,
+  SkillResource,
+  SKILL_FILE_NAME,
+  SKILLS_DIR_NAME,
+  REQUIRED_SKILL_FIELDS,
+  DEFAULT_SKILL_METADATA,
+  RESOURCE_TYPE_MAP,
+  IGNORED_RESOURCE_FILES,
+  MAX_RESOURCE_AUTO_LOAD_SIZE
+} from '@shared/skills'
+import { ChatermDatabaseService } from '../../../storage/db/chaterm.service'
+import { getUserDataPath } from '../../../config/edition'
+
+// Dynamic import type for chokidar (ESM module)
+type ChokidarModule = typeof import('chokidar')
+type FSWatcher = Awaited<ReturnType<ChokidarModule['watch']>>
+
+/**
+ * SkillsManager handles loading, parsing, and managing agent skills.
+ * Skills are defined in SKILL.md files and provide reusable instruction sets.
+ */
+export class SkillsManager {
+  private skills: Map<string, Skill> = new Map()
+  private skillStates: Map<string, SkillState> = new Map()
+  private watchers: FSWatcher[] = []
+  private postMessageToWebview?: (message: any) => Promise<void>
+  private initialized = false
+
+  constructor(postMessageToWebview?: (message: any) => Promise<void>) {
+    this.postMessageToWebview = postMessageToWebview
+  }
+
+  /**
+   * Initialize the skills manager
+   */
+  async initialize(): Promise<void> {
+    if (this.initialized) return
+
+    try {
+      // Load skills from all directories first (doesn't require user login)
+      await this.loadAllSkills()
+
+      // Try to load skill states from database (may fail if user not logged in)
+      await this.loadSkillStates()
+
+      // Setup file watchers for skill directories
+      await this.setupFileWatchers()
+
+      this.initialized = true
+      console.log(`[SkillsManager] Initialized with ${this.skills.size} skills`)
+    } catch (error) {
+      console.error('[SkillsManager] Initialization failed:', error)
+      throw error
+    }
+  }
+
+  /**
+   * Reload skill states from database (call after user login)
+   */
+  async reloadSkillStates(): Promise<void> {
+    await this.loadSkillStates()
+    // Update enabled state for all loaded skills
+    for (const [skillId, skill] of this.skills) {
+      const state = this.skillStates.get(skillId)
+      if (state) {
+        skill.enabled = state.enabled
+      }
+    }
+    console.log(`[SkillsManager] Reloaded skill states for ${this.skillStates.size} skills`)
+  }
+
+  /**
+   * Get all skill directories
+   */
+  async getSkillDirectories(): Promise<SkillDirectory[]> {
+    const directories: SkillDirectory[] = []
+
+    // Built-in skills directory (in app resources)
+    const builtinPath = app.isPackaged
+      ? path.join(process.resourcesPath, SKILLS_DIR_NAME)
+      : path.join(__dirname, '../../../../resources', SKILLS_DIR_NAME)
+
+    directories.push({
+      path: builtinPath,
+      type: 'builtin',
+      exists: await this.directoryExists(builtinPath)
+    })
+
+    // User skills directory
+    const userPath = path.join(getUserDataPath(), SKILLS_DIR_NAME)
+    directories.push({
+      path: userPath,
+      type: 'user',
+      exists: await this.directoryExists(userPath)
+    })
+
+    // Marketplace skills directory
+    const marketplacePath = path.join(getUserDataPath(), 'marketplace-skills')
+    directories.push({
+      path: marketplacePath,
+      type: 'marketplace',
+      exists: await this.directoryExists(marketplacePath)
+    })
+
+    return directories
+  }
+
+  /**
+   * Get user skills directory path
+   */
+  getUserSkillsPath(): string {
+    return path.join(getUserDataPath(), SKILLS_DIR_NAME)
+  }
+
+  /**
+   * Load all skills from all directories
+   */
+  async loadAllSkills(): Promise<void> {
+    this.skills.clear()
+    const directories = await this.getSkillDirectories()
+
+    for (const dir of directories) {
+      if (dir.exists) {
+        await this.loadSkillsFromDirectory(dir.path, dir.type)
+      }
+    }
+
+    // Notify webview of updated skills
+    await this.notifySkillsUpdate()
+  }
+
+  /**
+   * Load skills from a specific directory
+   */
+  private async loadSkillsFromDirectory(dirPath: string, source: 'builtin' | 'user' | 'marketplace'): Promise<void> {
+    try {
+      const entries = await fs.readdir(dirPath, { withFileTypes: true })
+
+      for (const entry of entries) {
+        if (entry.isDirectory()) {
+          const skillPath = path.join(dirPath, entry.name, SKILL_FILE_NAME)
+          const result = await this.parseSkillFile(skillPath, source)
+
+          if (result.success && result.skill) {
+            // Apply saved state
+            const state = this.skillStates.get(result.skill.metadata.id)
+            if (state) {
+              result.skill.enabled = state.enabled
+            }
+            this.skills.set(result.skill.metadata.id, result.skill)
+          }
+        } else if (entry.name === SKILL_FILE_NAME) {
+          // Single SKILL.md file in directory root
+          const skillPath = path.join(dirPath, entry.name)
+          const result = await this.parseSkillFile(skillPath, source)
+
+          if (result.success && result.skill) {
+            const state = this.skillStates.get(result.skill.metadata.id)
+            if (state) {
+              result.skill.enabled = state.enabled
+            }
+            this.skills.set(result.skill.metadata.id, result.skill)
+          }
+        }
+      }
+    } catch (error) {
+      console.error(`[SkillsManager] Failed to load skills from ${dirPath}:`, error)
+    }
+  }
+
+  /**
+   * Parse a SKILL.md file
+   */
+  async parseSkillFile(filePath: string, source: 'builtin' | 'user' | 'marketplace'): Promise<SkillParseResult> {
+    console.log(`[SkillsManager] parseSkillFile - parsing: ${filePath}`)
+    try {
+      const exists = await this.fileExists(filePath)
+      if (!exists) {
+        return { success: false, error: `File not found: ${filePath}` }
+      }
+
+      const content = await fs.readFile(filePath, 'utf-8')
+      const stat = await fs.stat(filePath)
+      const directory = path.dirname(filePath)
+
+      // Parse frontmatter and content
+      const { metadata, body } = this.parseFrontmatter(content)
+      console.log(`[SkillsManager] parseSkillFile - parsed metadata:`, JSON.stringify(metadata))
+
+      // Validate metadata
+      const validation = this.validateMetadata(metadata)
+      if (!validation.valid) {
+        return { success: false, error: `Invalid skill metadata: ${validation.errors.join(', ')}` }
+      }
+
+      // Scan for resource files in the skill directory
+      const resources = await this.scanSkillResources(directory)
+
+      const skill: Skill = {
+        metadata: {
+          ...DEFAULT_SKILL_METADATA,
+          ...metadata
+        } as SkillMetadata,
+        content: body,
+        path: filePath,
+        directory,
+        enabled: true, // Default enabled, will be overridden by saved state
+        source,
+        lastModified: stat.mtimeMs,
+        resources: resources.length > 0 ? resources : undefined
+      }
+
+      return { success: true, skill }
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : String(error)
+      return { success: false, error: `Failed to parse skill file: ${errorMessage}` }
+    }
+  }
+
+  /**
+   * Scan skill directory for resource files
+   */
+  private async scanSkillResources(directory: string): Promise<SkillResource[]> {
+    const resources: SkillResource[] = []
+
+    try {
+      const entries = await fs.readdir(directory, { withFileTypes: true })
+
+      for (const entry of entries) {
+        // Skip ignored files and directories
+        if (IGNORED_RESOURCE_FILES.includes(entry.name)) {
+          continue
+        }
+
+        // Skip directories for now (could be extended to support nested resources)
+        if (entry.isDirectory()) {
+          continue
+        }
+
+        const filePath = path.join(directory, entry.name)
+        const stat = await fs.stat(filePath)
+        const ext = path.extname(entry.name).toLowerCase()
+
+        // Determine resource type
+        const type = RESOURCE_TYPE_MAP[ext] || 'other'
+
+        const resource: SkillResource = {
+          name: entry.name,
+          path: filePath,
+          type,
+          size: stat.size
+        }
+
+        // Auto-load content for small text files
+        if (stat.size <= MAX_RESOURCE_AUTO_LOAD_SIZE && this.isTextFile(ext)) {
+          try {
+            resource.content = await fs.readFile(filePath, 'utf-8')
+          } catch {
+            // Ignore read errors, content will be undefined
+          }
+        }
+
+        resources.push(resource)
+      }
+
+      if (resources.length > 0) {
+        console.log(`[SkillsManager] Found ${resources.length} resource files in ${directory}`)
+      }
+    } catch (error) {
+      console.error(`[SkillsManager] Failed to scan resources in ${directory}:`, error)
+    }
+
+    return resources
+  }
+
+  /**
+   * Check if a file extension indicates a text file
+   */
+  private isTextFile(ext: string): boolean {
+    const textExtensions = [
+      '.txt',
+      '.md',
+      '.markdown',
+      '.rst',
+      '.sh',
+      '.bash',
+      '.zsh',
+      '.py',
+      '.js',
+      '.ts',
+      '.rb',
+      '.pl',
+      '.ps1',
+      '.bat',
+      '.cmd',
+      '.json',
+      '.yaml',
+      '.yml',
+      '.toml',
+      '.ini',
+      '.conf',
+      '.env',
+      '.xml',
+      '.html',
+      '.htm',
+      '.css',
+      '.sql',
+      '.tmpl',
+      '.tpl',
+      '.hbs',
+      '.ejs',
+      '.jinja',
+      '.jinja2',
+      '.mustache',
+      '.csv',
+      '.tsv'
+    ]
+    return textExtensions.includes(ext.toLowerCase())
+  }
+
+  /**
+   * Get resource content by name for a skill
+   */
+  async getSkillResourceContent(skillId: string, resourceName: string): Promise<string | null> {
+    const skill = this.skills.get(skillId)
+    if (!skill || !skill.resources) {
+      return null
+    }
+
+    const resource = skill.resources.find((r) => r.name === resourceName)
+    if (!resource) {
+      return null
+    }
+
+    // Return cached content if available
+    if (resource.content !== undefined) {
+      return resource.content
+    }
+
+    // Load content on demand
+    try {
+      const content = await fs.readFile(resource.path, 'utf-8')
+      resource.content = content
+      return content
+    } catch {
+      return null
+    }
+  }
+
+  /**
+   * Parse YAML frontmatter from content
+   */
+  private parseFrontmatter(content: string): { metadata: Partial<SkillMetadata>; body: string } {
+    // Normalize line endings to \n
+    const normalizedContent = content.replace(/\r\n/g, '\n').replace(/\r/g, '\n')
+
+    // Match frontmatter with flexible whitespace handling
+    const frontmatterRegex = /^---[ \t]*\n([\s\S]*?)\n---[ \t]*\n([\s\S]*)$/
+    const match = normalizedContent.match(frontmatterRegex)
+
+    console.log(`[SkillsManager] parseFrontmatter - content starts with: "${normalizedContent.substring(0, 50).replace(/\n/g, '\\n')}"`)
+    console.log(`[SkillsManager] parseFrontmatter - frontmatter match found: ${!!match}`)
+
+    if (!match) {
+      console.log('[SkillsManager] parseFrontmatter - no frontmatter found, falling back to content parsing')
+      // No frontmatter, try to extract metadata from first heading
+      return this.parseMetadataFromContent(normalizedContent)
+    }
+
+    const [, frontmatter, body] = match
+    console.log(`[SkillsManager] parseFrontmatter - frontmatter content: "${frontmatter.substring(0, 100)}..."`)
+    const metadata = this.parseYaml(frontmatter)
+
+    return { metadata, body: body.trim() }
+  }
+
+  /**
+   * Simple YAML parser for frontmatter
+   */
+  private parseYaml(yaml: string): Partial<SkillMetadata> {
+    const metadata: Partial<SkillMetadata> = {}
+    const lines = yaml.split('\n')
+
+    console.log(`[SkillsManager] parseYaml - parsing ${lines.length} lines`)
+
+    for (const line of lines) {
+      const colonIndex = line.indexOf(':')
+      if (colonIndex === -1) continue
+
+      const key = line.slice(0, colonIndex).trim()
+      let value = line.slice(colonIndex + 1).trim()
+
+      console.log(`[SkillsManager] parseYaml - key: "${key}", raw value: "${value}"`)
+
+      // Handle quoted strings
+      if ((value.startsWith('"') && value.endsWith('"')) || (value.startsWith("'") && value.endsWith("'"))) {
+        value = value.slice(1, -1)
+      }
+
+      // Handle arrays (simple format: [item1, item2])
+      if (value.startsWith('[') && value.endsWith(']')) {
+        const arrayContent = value.slice(1, -1)
+        const items = arrayContent.split(',').map((item) => item.trim().replace(/^["']|["']$/g, ''))
+        ;(metadata as any)[key] = items
+        console.log(`[SkillsManager] parseYaml - parsed array for "${key}":`, items)
+      } else if (value === 'true') {
+        ;(metadata as any)[key] = true
+      } else if (value === 'false') {
+        ;(metadata as any)[key] = false
+      } else if (!isNaN(Number(value)) && value !== '') {
+        ;(metadata as any)[key] = Number(value)
+      } else {
+        ;(metadata as any)[key] = value
+      }
+    }
+
+    console.log(`[SkillsManager] parseYaml - final metadata:`, JSON.stringify(metadata))
+    return metadata
+  }
+
+  /**
+   * Parse metadata from content when no frontmatter exists
+   */
+  private parseMetadataFromContent(content: string): { metadata: Partial<SkillMetadata>; body: string } {
+    const metadata: Partial<SkillMetadata> = {}
+
+    // Try to extract name from first heading
+    const headingMatch = content.match(/^#\s+(.+)$/m)
+    if (headingMatch) {
+      metadata.name = headingMatch[1].trim()
+      // Generate ID from name
+      metadata.id = metadata.name
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, '-')
+        .replace(/^-|-$/g, '')
+    }
+
+    // Try to extract description from first paragraph
+    const paragraphMatch = content.match(/^#.+\n+([^#\n][^\n]+)/m)
+    if (paragraphMatch) {
+      metadata.description = paragraphMatch[1].trim()
+    }
+
+    return { metadata, body: content }
+  }
+
+  /**
+   * Validate skill metadata
+   */
+  validateMetadata(metadata: Partial<SkillMetadata>): SkillValidationResult {
+    const errors: string[] = []
+    const warnings: string[] = []
+
+    for (const field of REQUIRED_SKILL_FIELDS) {
+      if (!metadata[field]) {
+        errors.push(`Missing required field: ${field}`)
+      }
+    }
+
+    // Validate ID format
+    if (metadata.id && !/^[a-z0-9-]+$/i.test(metadata.id)) {
+      warnings.push('ID should only contain alphanumeric characters and hyphens')
+    }
+
+    // Validate version format
+    if (metadata.version && !/^\d+\.\d+\.\d+/.test(metadata.version)) {
+      warnings.push('Version should follow semver format (e.g., 1.0.0)')
+    }
+
+    // Validate activation type
+    if (metadata.activation && !['always', 'on-demand', 'context-match'].includes(metadata.activation)) {
+      warnings.push('Invalid activation type')
+    }
+
+    return {
+      valid: errors.length === 0,
+      errors,
+      warnings
+    }
+  }
+
+  /**
+   * Get all loaded skills
+   */
+  getAllSkills(): Skill[] {
+    return Array.from(this.skills.values())
+  }
+
+  /**
+   * Get enabled skills
+   */
+  getEnabledSkills(): Skill[] {
+    return this.getAllSkills().filter((skill) => skill.enabled)
+  }
+
+  /**
+   * Get skills by activation type
+   */
+  getSkillsByActivation(activation: 'always' | 'on-demand' | 'context-match'): Skill[] {
+    return this.getEnabledSkills().filter((skill) => skill.metadata.activation === activation)
+  }
+
+  /**
+   * Get a skill by ID
+   */
+  getSkill(id: string): Skill | undefined {
+    return this.skills.get(id)
+  }
+
+  /**
+   * Enable or disable a skill
+   */
+  async setSkillEnabled(id: string, enabled: boolean): Promise<void> {
+    const skill = this.skills.get(id)
+    if (!skill) {
+      throw new Error(`Skill not found: ${id}`)
+    }
+
+    skill.enabled = enabled
+
+    // Save state to database
+    await this.saveSkillState(id, { skillId: id, enabled })
+
+    // Notify webview
+    await this.notifySkillsUpdate()
+  }
+
+  /**
+   * Load skill states from database
+   */
+  private async loadSkillStates(): Promise<void> {
+    try {
+      // Check if ChatermDatabaseService can be instantiated (requires user login)
+      const dbService = await ChatermDatabaseService.getInstance()
+      if (!dbService) {
+        console.log('[SkillsManager] Database service not available, skipping skill states load')
+        return
+      }
+
+      const states = await dbService.getSkillStates()
+
+      this.skillStates.clear()
+      for (const state of states) {
+        this.skillStates.set(state.skillId, state)
+      }
+
+      // Update enabled state for all loaded skills
+      for (const [skillId, skill] of this.skills) {
+        const state = this.skillStates.get(skillId)
+        if (state) {
+          skill.enabled = state.enabled
+        }
+      }
+    } catch (error) {
+      // Gracefully handle the case when user is not logged in yet
+      if (error instanceof Error && error.message.includes('User ID is required')) {
+        console.log('[SkillsManager] User not logged in yet, skill states will be loaded later')
+      } else {
+        console.error('[SkillsManager] Failed to load skill states:', error)
+      }
+    }
+  }
+
+  /**
+   * Save skill state to database
+   */
+  private async saveSkillState(skillId: string, state: SkillState): Promise<void> {
+    try {
+      const dbService = await ChatermDatabaseService.getInstance()
+      await dbService.setSkillState(skillId, state.enabled)
+      this.skillStates.set(skillId, state)
+    } catch (error) {
+      console.error('[SkillsManager] Failed to save skill state:', error)
+    }
+  }
+
+  /**
+   * Setup file watchers for skill directories
+   */
+  private async setupFileWatchers(): Promise<void> {
+    try {
+      const chokidar = (await import('chokidar')) as ChokidarModule
+      const directories = await this.getSkillDirectories()
+
+      for (const dir of directories) {
+        if (dir.exists && dir.type !== 'builtin') {
+          // Only watch user and marketplace directories
+          const watcher = chokidar.watch(path.join(dir.path, '**', SKILL_FILE_NAME), {
+            persistent: true,
+            ignoreInitial: true
+          })
+
+          const dirType = dir.type as 'user' | 'marketplace'
+          watcher.on('add', () => this.handleSkillFileChange(dirType))
+          watcher.on('change', () => this.handleSkillFileChange(dirType))
+          watcher.on('unlink', () => this.handleSkillFileChange(dirType))
+
+          this.watchers.push(watcher)
+        }
+      }
+    } catch (error) {
+      console.error('[SkillsManager] Failed to setup file watchers:', error)
+    }
+  }
+
+  /**
+   * Handle skill file changes
+   */
+  private async handleSkillFileChange(source: 'user' | 'marketplace'): Promise<void> {
+    console.log(`[SkillsManager] Skill file changed in ${source} directory, reloading...`)
+    await this.loadAllSkills()
+  }
+
+  /**
+   * Notify webview of skills update
+   */
+  private async notifySkillsUpdate(): Promise<void> {
+    if (this.postMessageToWebview) {
+      await this.postMessageToWebview({
+        type: 'skillsUpdate',
+        skills: this.getAllSkills().map((skill) => ({
+          id: skill.metadata.id,
+          name: skill.metadata.name,
+          description: skill.metadata.description,
+          version: skill.metadata.version,
+          author: skill.metadata.author,
+          tags: skill.metadata.tags,
+          icon: skill.metadata.icon,
+          activation: skill.metadata.activation,
+          contextPatterns: skill.metadata.contextPatterns,
+          enabled: skill.enabled,
+          source: skill.source
+        }))
+      })
+    }
+  }
+
+  /**
+   * Build skills instructions for system prompt
+   * @param userMessage Optional user message for context-match skill activation
+   */
+  buildSkillsPrompt(userMessage?: string): string {
+    const allSkills = this.getAllSkills()
+    const enabledSkills = this.getEnabledSkills()
+
+    console.log(`[SkillsManager] buildSkillsPrompt called - total skills: ${allSkills.length}, enabled: ${enabledSkills.length}`)
+    console.log(
+      `[SkillsManager] All skills:`,
+      allSkills.map((s) => `${s.metadata.id}(enabled=${s.enabled}, activation=${s.metadata.activation})`).join(', ')
+    )
+
+    // Get always-active skills (full content loaded)
+    const alwaysActiveSkills = enabledSkills.filter((s) => s.metadata.activation === 'always')
+    console.log(`[SkillsManager] Always active skills: ${alwaysActiveSkills.length}`)
+
+    // Get context-matching skills if user message is provided (full content loaded)
+    let contextMatchedSkills: Skill[] = []
+    if (userMessage) {
+      const allContextMatchSkills = this.getSkillsByActivation('context-match')
+      console.log(`[SkillsManager] Context-match skills available: ${allContextMatchSkills.length}`)
+
+      contextMatchedSkills = this.getContextMatchingSkills(userMessage).filter((s) => s.enabled)
+      console.log(
+        `[SkillsManager] Context matched skills for message "${userMessage?.substring(0, 50)}...": ${contextMatchedSkills.map((s) => s.metadata.id).join(', ') || 'none'}`
+      )
+    }
+
+    // Get on-demand skills (only show name and description, not full content)
+    const onDemandSkills = enabledSkills.filter((s) => s.metadata.activation === 'on-demand')
+    console.log(`[SkillsManager] On-demand skills available: ${onDemandSkills.length}`)
+
+    // Combine active skills (deduplicate by id) - these get full content
+    const activeSkillIds = new Set<string>()
+    const activeSkills: Skill[] = []
+
+    for (const skill of alwaysActiveSkills) {
+      if (!activeSkillIds.has(skill.metadata.id)) {
+        activeSkillIds.add(skill.metadata.id)
+        activeSkills.push(skill)
+      }
+    }
+
+    for (const skill of contextMatchedSkills) {
+      if (!activeSkillIds.has(skill.metadata.id)) {
+        activeSkillIds.add(skill.metadata.id)
+        activeSkills.push(skill)
+      }
+    }
+
+    // Check if we have any skills to display
+    const hasActiveSkills = activeSkills.length > 0
+    const hasOnDemandSkills = onDemandSkills.length > 0
+
+    if (!hasActiveSkills && !hasOnDemandSkills) {
+      console.log(`[SkillsManager] No skills to include in prompt`)
+      return ''
+    }
+
+    let prompt = '\n====\n\n'
+
+    // Section 1: Active skills with full content
+    if (hasActiveSkills) {
+      prompt += 'ACTIVE SKILLS\n\n'
+      prompt += 'The following skills are active and their instructions should be followed:\n\n'
+
+      for (const skill of activeSkills) {
+        prompt += `## ${skill.metadata.name}\n\n`
+        prompt += skill.content
+        prompt += '\n\n'
+
+        // Include resource files content if available
+        if (skill.resources && skill.resources.length > 0) {
+          const resourcesWithContent = skill.resources.filter((r) => r.content)
+          if (resourcesWithContent.length > 0) {
+            prompt += `### Available Resources\n\n`
+            prompt += `The following resource files are available for this skill:\n\n`
+
+            for (const resource of resourcesWithContent) {
+              prompt += `#### ${resource.name} (${resource.type})\n\n`
+              prompt += '```\n'
+              prompt += resource.content
+              prompt += '\n```\n\n'
+            }
+          }
+        }
+      }
+    }
+
+    // Section 2: On-demand skills (only name and description)
+    if (hasOnDemandSkills) {
+      prompt += 'AVAILABLE SKILLS\n\n'
+      prompt += 'The following on-demand skills are available. Use the use_skill tool to activate a skill when needed. '
+      prompt += 'Each skill has a name and description - use the description to determine when to activate it.\n\n'
+
+      for (const skill of onDemandSkills) {
+        prompt += `- **${skill.metadata.name}** (id: \`${skill.metadata.id}\`): ${skill.metadata.description}\n`
+      }
+      prompt += '\n'
+    }
+
+    console.log(`[SkillsManager] Built prompt with ${activeSkills.length} active skills and ${onDemandSkills.length} on-demand skills`)
+
+    return prompt
+  }
+
+  /**
+   * Get skills for on-demand activation based on context
+   */
+  getContextMatchingSkills(context: string): Skill[] {
+    const contextMatchSkills = this.getSkillsByActivation('context-match')
+
+    console.log(`[SkillsManager] getContextMatchingSkills - checking ${contextMatchSkills.length} skills against context`)
+
+    return contextMatchSkills.filter((skill) => {
+      console.log(`[SkillsManager] Skill ${skill.metadata.id} contextPatterns:`, skill.metadata.contextPatterns)
+
+      if (!skill.metadata.contextPatterns || !Array.isArray(skill.metadata.contextPatterns)) {
+        console.log(`[SkillsManager] Skill ${skill.metadata.id} has no valid contextPatterns`)
+        return false
+      }
+
+      const matched = skill.metadata.contextPatterns.some((pattern) => {
+        try {
+          const regex = new RegExp(pattern, 'i')
+          const result = regex.test(context)
+          console.log(`[SkillsManager] Pattern "${pattern}" match result: ${result}`)
+          return result
+        } catch {
+          const result = context.toLowerCase().includes(pattern.toLowerCase())
+          console.log(`[SkillsManager] Pattern "${pattern}" (string match) result: ${result}`)
+          return result
+        }
+      })
+
+      return matched
+    })
+  }
+
+  /**
+   * Create a new user skill
+   */
+  async createUserSkill(metadata: SkillMetadata, content: string): Promise<Skill> {
+    const userSkillsPath = this.getUserSkillsPath()
+
+    // Ensure user skills directory exists
+    await fs.mkdir(userSkillsPath, { recursive: true })
+
+    // Create skill directory
+    const skillDir = path.join(userSkillsPath, metadata.id)
+    await fs.mkdir(skillDir, { recursive: true })
+
+    // Build SKILL.md content
+    const skillContent = this.buildSkillFile(metadata, content)
+
+    // Write SKILL.md file
+    const skillPath = path.join(skillDir, SKILL_FILE_NAME)
+    await fs.writeFile(skillPath, skillContent, 'utf-8')
+
+    // Reload skills
+    await this.loadAllSkills()
+
+    const skill = this.skills.get(metadata.id)
+    if (!skill) {
+      throw new Error('Failed to create skill')
+    }
+
+    return skill
+  }
+
+  /**
+   * Delete a user skill
+   */
+  async deleteUserSkill(id: string): Promise<void> {
+    const skill = this.skills.get(id)
+    if (!skill) {
+      throw new Error(`Skill not found: ${id}`)
+    }
+
+    if (skill.source !== 'user') {
+      throw new Error('Can only delete user-created skills')
+    }
+
+    // Delete skill directory
+    const skillDir = path.dirname(skill.path)
+    await fs.rm(skillDir, { recursive: true, force: true })
+
+    // Remove from memory
+    this.skills.delete(id)
+    this.skillStates.delete(id)
+
+    // Notify webview
+    await this.notifySkillsUpdate()
+  }
+
+  /**
+   * Build SKILL.md file content
+   */
+  private buildSkillFile(metadata: SkillMetadata, content: string): string {
+    let file = '---\n'
+    file += `id: ${metadata.id}\n`
+    file += `name: ${metadata.name}\n`
+    file += `description: ${metadata.description}\n`
+    file += `version: ${metadata.version || '1.0.0'}\n`
+
+    if (metadata.author) {
+      file += `author: ${metadata.author}\n`
+    }
+    if (metadata.tags && metadata.tags.length > 0) {
+      file += `tags: [${metadata.tags.join(', ')}]\n`
+    }
+    if (metadata.icon) {
+      file += `icon: ${metadata.icon}\n`
+    }
+    if (metadata.activation) {
+      file += `activation: ${metadata.activation}\n`
+    }
+    if (metadata.contextPatterns && metadata.contextPatterns.length > 0) {
+      file += `contextPatterns: [${metadata.contextPatterns.join(', ')}]\n`
+    }
+    if (metadata.requires && metadata.requires.length > 0) {
+      file += `requires: [${metadata.requires.join(', ')}]\n`
+    }
+
+    file += '---\n\n'
+    file += content
+
+    return file
+  }
+
+  /**
+   * Check if a directory exists
+   */
+  private async directoryExists(dirPath: string): Promise<boolean> {
+    try {
+      const stat = await fs.stat(dirPath)
+      return stat.isDirectory()
+    } catch {
+      return false
+    }
+  }
+
+  /**
+   * Check if a file exists
+   */
+  private async fileExists(filePath: string): Promise<boolean> {
+    try {
+      await fs.access(filePath)
+      return true
+    } catch {
+      return false
+    }
+  }
+
+  /**
+   * Cleanup watchers on dispose
+   */
+  async dispose(): Promise<void> {
+    for (const watcher of this.watchers) {
+      await watcher.close()
+    }
+    this.watchers = []
+    this.skills.clear()
+    this.skillStates.clear()
+    this.initialized = false
+  }
+}

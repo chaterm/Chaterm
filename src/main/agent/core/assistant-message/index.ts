@@ -27,7 +27,8 @@ export const toolUseNames = [
   'glob_search',
   'grep_search',
   'use_mcp_tool',
-  'access_mcp_resource'
+  'access_mcp_resource',
+  'use_skill'
 ] as const
 
 // Converts array of tool call names into a union type ("execute_command" | "read_file" | ...)
@@ -69,7 +70,8 @@ export const toolParamNames = [
   'steps_to_reproduce',
   'api_request_output',
   'additional_context',
-  'todos'
+  'todos',
+  'skill_id'
 ] as const
 
 export type ToolParamName = (typeof toolParamNames)[number]

@@ -5,6 +5,7 @@ import { v4 as uuidv4 } from 'uuid'
 import { upgradeAgentTaskMetadataSupport } from './migrations/add-todos-support'
 import { upgradeMcpToolStateSupport } from './migrations/add-mcp-tool-state-support'
 import { upgradeMcpToolCallSupport } from './migrations/add-mcp-tool-call-support'
+import { upgradeSkillsSupport } from './migrations/add-skills-support'
 import { IndexDBMigrator } from './indexdb-migrator'
 import { getUserDataPath } from '../../config/edition'
 
@@ -379,6 +380,7 @@ export async function initChatermDatabase(userId?: number): Promise<Database.Dat
         upgradeMcpToolStateSupport(mainDb)
         upgradeMcpToolCallSupport(mainDb)
         upgradeSnippetGroups(mainDb)
+        upgradeSkillsSupport(mainDb)
       } finally {
         if (mainDb) mainDb.close()
         if (initDb) initDb.close()

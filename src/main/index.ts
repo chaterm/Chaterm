@@ -520,6 +520,131 @@ ipcMain.handle('mcp:get-all-tool-states', async () => {
   }
 })
 
+// ==================== Skills IPC Handlers ====================
+
+ipcMain.handle('skills:get-all', async () => {
+  try {
+    if (controller && controller.skillsManager) {
+      return controller.skillsManager.getAllSkills().map((skill) => ({
+        id: skill.metadata.id,
+        name: skill.metadata.name,
+        description: skill.metadata.description,
+        version: skill.metadata.version,
+        author: skill.metadata.author,
+        tags: skill.metadata.tags,
+        icon: skill.metadata.icon,
+        activation: skill.metadata.activation,
+        contextPatterns: skill.metadata.contextPatterns,
+        enabled: skill.enabled,
+        source: skill.source,
+        path: skill.path
+      }))
+    }
+    return []
+  } catch (error) {
+    console.error('Failed to get skills:', error)
+    throw error
+  }
+})
+
+ipcMain.handle('skills:get-enabled', async () => {
+  try {
+    if (controller && controller.skillsManager) {
+      return controller.skillsManager.getEnabledSkills().map((skill) => ({
+        id: skill.metadata.id,
+        name: skill.metadata.name,
+        description: skill.metadata.description,
+        version: skill.metadata.version,
+        enabled: skill.enabled,
+        source: skill.source
+      }))
+    }
+    return []
+  } catch (error) {
+    console.error('Failed to get enabled skills:', error)
+    throw error
+  }
+})
+
+ipcMain.handle('skills:set-enabled', async (_event, skillId: string, enabled: boolean) => {
+  try {
+    if (controller && controller.skillsManager) {
+      await controller.skillsManager.setSkillEnabled(skillId, enabled)
+    }
+  } catch (error) {
+    console.error('Failed to set skill enabled state:', error)
+    throw error
+  }
+})
+
+ipcMain.handle('skills:get-user-path', async () => {
+  try {
+    if (controller && controller.skillsManager) {
+      return controller.skillsManager.getUserSkillsPath()
+    }
+    return path.join(getUserDataPath(), 'skills')
+  } catch (error) {
+    console.error('Failed to get user skills path:', error)
+    throw error
+  }
+})
+
+ipcMain.handle('skills:reload', async () => {
+  try {
+    if (controller && controller.skillsManager) {
+      await controller.skillsManager.loadAllSkills()
+    }
+  } catch (error) {
+    console.error('Failed to reload skills:', error)
+    throw error
+  }
+})
+
+ipcMain.handle('skills:create', async (_event, metadata: any, content: string) => {
+  try {
+    if (controller && controller.skillsManager) {
+      const skill = await controller.skillsManager.createUserSkill(metadata, content)
+      return {
+        id: skill.metadata.id,
+        name: skill.metadata.name,
+        description: skill.metadata.description,
+        version: skill.metadata.version,
+        enabled: skill.enabled,
+        source: skill.source,
+        path: skill.path
+      }
+    }
+    throw new Error('Skills manager not initialized')
+  } catch (error) {
+    console.error('Failed to create skill:', error)
+    throw error
+  }
+})
+
+ipcMain.handle('skills:delete', async (_event, skillId: string) => {
+  try {
+    if (controller && controller.skillsManager) {
+      await controller.skillsManager.deleteUserSkill(skillId)
+    }
+  } catch (error) {
+    console.error('Failed to delete skill:', error)
+    throw error
+  }
+})
+
+ipcMain.handle('skills:open-folder', async () => {
+  try {
+    const skillsPath = path.join(getUserDataPath(), 'skills')
+    await fs.mkdir(skillsPath, { recursive: true })
+    shell.openPath(skillsPath)
+  } catch (error) {
+    console.error('Failed to open skills folder:', error)
+    throw error
+  }
+})
+
+// ==================== End Skills IPC Handlers ====================
+
 // Get all Cookies
 const getAllCookies = async () => {
   try {
@@ -720,6 +845,15 @@ function setupIPC(): void {
         console.warn('Exception setting authentication info:', error)
         if (isUserSwitch) {
           console.log(`Authentication info setting failed, user switch: ${previousUserId} -> ${targetUserId}`)
+        }
+      }
+
+      // Reload skill states after user login (skills are loaded but states need user DB)
+      if (controller && controller.skillsManager) {
+        try {
+          await controller.skillsManager.reloadSkillStates()
+        } catch (error) {
+          console.warn('Failed to reload skill states after login:', error)
         }
       }
 

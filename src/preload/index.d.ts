@@ -178,6 +178,17 @@ interface ApiType {
   onMcpServerUpdate: (callback: (server: any) => void) => () => void
   onMcpConfigFileChanged: (callback: (content: string) => void) => () => void
 
+  // Skills management
+  getSkills: () => Promise<any[]>
+  getEnabledSkills: () => Promise<any[]>
+  setSkillEnabled: (skillId: string, enabled: boolean) => Promise<void>
+  getSkillsUserPath: () => Promise<string>
+  reloadSkills: () => Promise<void>
+  createSkill: (metadata: any, content: string) => Promise<any>
+  deleteSkill: (skillId: string) => Promise<void>
+  openSkillsFolder: () => Promise<void>
+  onSkillsUpdate: (callback: (skills: any[]) => void) => () => void
+
   // IndexedDB migration related API
   getMigrationStatus: (params: { dataSource?: string }) => Promise<any>
   aliasesQuery: (params: { action: string; searchText?: string; alias?: string }) => Promise<any[]>

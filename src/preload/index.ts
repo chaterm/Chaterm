@@ -665,6 +665,21 @@ const api = {
     return () => ipcRenderer.removeListener('mcp:config-file-changed', listener)
   },
 
+  // Skills management
+  getSkills: () => ipcRenderer.invoke('skills:get-all'),
+  getEnabledSkills: () => ipcRenderer.invoke('skills:get-enabled'),
+  setSkillEnabled: (skillId: string, enabled: boolean) => ipcRenderer.invoke('skills:set-enabled', skillId, enabled),
+  getSkillsUserPath: () => ipcRenderer.invoke('skills:get-user-path'),
+  reloadSkills: () => ipcRenderer.invoke('skills:reload'),
+  createSkill: (metadata: any, content: string) => ipcRenderer.invoke('skills:create', metadata, content),
+  deleteSkill: (skillId: string) => ipcRenderer.invoke('skills:delete', skillId),
+  openSkillsFolder: () => ipcRenderer.invoke('skills:open-folder'),
+  onSkillsUpdate: (callback: (skills: any[]) => void) => {
+    const listener = (_event, data) => callback(data.skills)
+    ipcRenderer.on('skillsUpdate', listener)
+    return () => ipcRenderer.removeListener('skillsUpdate', listener)
+  },
+
   // Local host API
   getLocalWorkingDirectory: () => ipcRenderer.invoke('local:get-working-directory'),
   executeLocalCommand: (command: string) => ipcRenderer.invoke('local:execute-command', command),

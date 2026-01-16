@@ -61,34 +61,41 @@
         </a-tab-pane>
         <a-tab-pane
           key="7"
+          :tab="$t('skills.title')"
+          type="card"
+        >
+          <Skills />
+        </a-tab-pane>
+        <a-tab-pane
+          key="8"
           :tab="$t('user.rules')"
           type="card"
         >
           <Rules />
         </a-tab-pane>
         <a-tab-pane
-          key="8"
+          key="9"
           :tab="$t('user.shortcuts')"
           type="card"
         >
           <Shortcuts />
         </a-tab-pane>
         <a-tab-pane
-          key="9"
+          key="10"
           :tab="$t('user.privacy')"
           type="card"
         >
           <Privacy />
         </a-tab-pane>
         <a-tab-pane
-          key="10"
+          key="11"
           :tab="$t('user.about')"
           type="card"
         >
           <About />
         </a-tab-pane>
         <a-tab-pane
-          key="11"
+          key="12"
           type="card"
         >
           <template #tab>
@@ -117,6 +124,7 @@ import Privacy from '@/views/components/LeftTab/setting/privacy.vue'
 import Rules from '@/views/components/LeftTab/setting/rules.vue'
 import About from '@/views/components/LeftTab/setting/about.vue'
 import Mcp from '@/views/components/LeftTab/setting/mcp.vue'
+import Skills from '@/views/components/LeftTab/setting/skills.vue'
 import { ExportOutlined } from '@ant-design/icons-vue'
 import eventBus from '@/utils/eventBus'
 import { getDocsBaseUrl } from '@/utils/edition'
@@ -133,7 +141,7 @@ const switchToModelSettingsTab = () => {
 
 // Watch for documentation tab click and redirect
 watch(activeKey, (newKey) => {
-  if (newKey === '11') {
+  if (newKey === '12') {
     const baseUrl = getDocsBaseUrl()
     window.open(`${baseUrl}/`, '_blank')
     // Reset to previous tab or default tab after opening documentation
