@@ -1,0 +1,190 @@
+import { describe, it, expect, beforeEach, beforeAll, vi } from 'vitest'
+import { createRequire, Module } from 'module'
+
+vi.mock('better-sqlite3', () => ({
+  default: class MockBetterSqlite3 {}
+}))
+
+const require = createRequire(import.meta.url)
+const electronPath = require.resolve('electron')
+const mockElectronModule = new Module(electronPath)
+mockElectronModule.filename = electronPath
+mockElectronModule.loaded = true
+mockElectronModule.exports = {
+  app: {
+    getAppPath: () => '/tmp'
+  },
+  ipcMain: {
+    handle: vi.fn(),
+    on: vi.fn(),
+    once: vi.fn(),
+    removeAllListeners: vi.fn()
+  }
+}
+require.cache[electronPath] = mockElectronModule
+
+vi.mock('electron', () => ({
+  app: {
+    getAppPath: () => '/tmp'
+  },
+  ipcMain: {
+    handle: vi.fn(),
+    on: vi.fn(),
+    once: vi.fn(),
+    removeAllListeners: vi.fn()
+  }
+}))
+
+const { getBastion } = vi.hoisted(() => ({
+  getBastion: vi.fn()
+}))
+
+vi.mock('uuid', () => ({
+  v4: vi.fn(() => 'test-uuid-1234')
+}))
+
+let refreshOrganizationAssetsLogic: typeof import('../assets.organization').refreshOrganizationAssetsLogic
+let capabilityRegistry: typeof import('../../../../ssh/capabilityRegistry').capabilityRegistry
+
+type Statement<T = unknown> = {
+  run: (...args: unknown[]) => { changes: number }
+  get: (...args: unknown[]) => T
+  all: (...args: unknown[]) => T[]
+}
+
+type MockDb = {
+  prepare: (sql: string) => Statement
+}
+
+type OrgAssetRow = {
+  host: string
+  hostname?: string
+  uuid?: string
+  favorite?: number
+}
+
+type Capture = {
+  insertArgs?: unknown[]
+  updateArgs?: unknown[]
+}
+
+const normalizeSql = (sql: string) => sql.replace(/\s+/g, ' ').trim().toLowerCase()
+
+const noopRun = () => ({ changes: 0 })
+const noopGet = <T>() => undefined as unknown as T
+const noopAll = <T>() => [] as T[]
+
+const createStatement = <T>(overrides: Partial<Statement<T>>): Statement<T> => ({
+  run: overrides.run ?? noopRun,
+  get: overrides.get ?? noopGet<T>,
+  all: overrides.all ?? noopAll<T>
+})
+
+function createMockDb(options: { assetType: string; existingAssets?: OrgAssetRow[]; capture: Capture }): MockDb {
+  const { assetType, existingAssets = [], capture } = options
+
+  return {
+    prepare(sql: string): Statement {
+      const normalized = normalizeSql(sql)
+
+      if (normalized.startsWith('select asset_type from t_assets where uuid')) {
+        return createStatement({
+          get: () => ({ asset_type: assetType })
+        })
+      }
+
+      if (normalized.startsWith('select host, hostname, uuid, favorite from t_organization_assets')) {
+        return createStatement({
+          all: () => existingAssets
+        })
+      }
+
+      if (normalized.startsWith('update t_organization_assets set hostname')) {
+        return createStatement({
+          run: (...args: unknown[]) => {
+            capture.updateArgs = args
+            return { changes: 1 }
+          }
+        })
+      }
+
+      if (normalized.startsWith('insert into t_organization_assets')) {
+        return createStatement({
+          run: (...args: unknown[]) => {
+            capture.insertArgs = args
+            return { changes: 1 }
+          }
+        })
+      }
+
+      if (normalized.startsWith('delete from t_organization_assets')) {
+        return createStatement({
+          run: () => ({ changes: 1 })
+        })
+      }
+
+      return createStatement({})
+    }
+  }
+}
+
+describe('refreshOrganizationAssetsLogic', () => {
+  beforeAll(async () => {
+    vi.resetModules()
+    const registryModule = await import('../../../../ssh/capabilityRegistry')
+    capabilityRegistry = registryModule.capabilityRegistry
+    capabilityRegistry.getBastion = getBastion as typeof capabilityRegistry.getBastion
+    ;({ refreshOrganizationAssetsLogic } = await import('../assets.organization'))
+  })
+
+  beforeEach(() => {
+    vi.clearAllMocks()
+    capabilityRegistry.getBastion = getBastion as typeof capabilityRegistry.getBastion
+  })
+
+  it('writes qizhi jump_server_type for new qizhi assets', async () => {
+    getBastion.mockReturnValue({
+      refreshAssets: vi.fn(async () => ({
+        success: true,
+        assets: [{ hostname: 'node-1', host: '47.83.117.241' }]
+      }))
+    })
+
+    const capture: Capture = {}
+    const db = createMockDb({ assetType: 'organization-qizhi', existingAssets: [], capture })
+
+    await refreshOrganizationAssetsLogic(db as any, 'org-1', {
+      host: '127.0.0.1',
+      port: 22,
+      username: 'admin',
+      password: 'secret'
+    })
+
+    expect(capture.insertArgs?.[4]).toBe('qizhi')
+  })
+
+  it('updates jump_server_type to qizhi for existing qizhi assets', async () => {
+    getBastion.mockReturnValue({
+      refreshAssets: vi.fn(async () => ({
+        success: true,
+        assets: [{ hostname: 'node-1', host: '47.83.117.241' }]
+      }))
+    })
+
+    const capture: Capture = {}
+    const db = createMockDb({
+      assetType: 'organization-qizhi',
+      existingAssets: [{ host: '47.83.117.241', hostname: 'old-name', uuid: 'asset-1', favorite: 0 }],
+      capture
+    })
+
+    await refreshOrganizationAssetsLogic(db as any, 'org-1', {
+      host: '127.0.0.1',
+      port: 22,
+      username: 'admin',
+      password: 'secret'
+    })
+
+    expect(capture.updateArgs?.[1]).toBe('qizhi')
+  })
+})

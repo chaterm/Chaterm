@@ -1,11 +1,12 @@
 import { message } from 'ant-design-vue'
 import eventBus from '@/utils/eventBus'
 import i18n from '@/locales'
+import { isOrganizationAsset } from '../utils/types'
 
 const { t } = i18n.global
 
 export const handleRefreshOrganizationAssets = async (host: any, onSuccess?: () => void) => {
-  if (!host || host.asset_type !== 'organization') {
+  if (!host || !isOrganizationAsset(host.asset_type)) {
     console.warn('Invalid organization asset node:', host)
     return
   }
@@ -57,7 +58,7 @@ export const findOrganizationAssetByKey = async (nodeKey: string): Promise<any |
         for (const group of groups) {
           if (group.children) {
             for (const asset of group.children) {
-              if (asset.asset_type === 'organization') {
+              if (isOrganizationAsset(asset.asset_type)) {
                 if (asset.uuid === nodeKey) {
                   console.log('Found matching organization asset config by uuid:', asset)
                   return asset
@@ -81,7 +82,7 @@ export const findOrganizationAssetByKey = async (nodeKey: string): Promise<any |
           for (const group of res.data.routers) {
             if (group.children) {
               for (const asset of group.children) {
-                if (asset.uuid === organizationUuid && asset.asset_type === 'organization') {
+                if (asset.uuid === organizationUuid && isOrganizationAsset(asset.asset_type)) {
                   return asset
                 }
               }
@@ -102,13 +103,7 @@ export const findOrganizationAssetByKey = async (nodeKey: string): Promise<any |
 export const refreshOrganizationAssetFromWorkspace = async (dataRef: any, onSuccess?: () => void) => {
   console.log('Refresh organization asset node from Workspace:', dataRef)
 
-  let organizationAsset = null
-
-  if (dataRef.asset_type === 'organization' && dataRef.children) {
-    organizationAsset = await findOrganizationAssetByKey(dataRef.key)
-  } else {
-    organizationAsset = await findOrganizationAssetByKey(dataRef.key)
-  }
+  const organizationAsset = await findOrganizationAssetByKey(dataRef.key)
 
   if (organizationAsset) {
     await handleRefreshOrganizationAssets(organizationAsset, onSuccess)

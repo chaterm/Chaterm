@@ -54,6 +54,17 @@ vi.mock('@/views/components/Notice/index', () => ({
   }
 }))
 
+vi.mock('../../LeftTab/utils/types', () => ({
+  getBastionHostType: vi.fn((assetType: string | undefined) => {
+    if (!assetType) return null
+    if (assetType === 'organization') return 'jumpserver'
+    if (assetType.startsWith('organization-')) {
+      return assetType.substring('organization-'.length)
+    }
+    return null
+  })
+}))
+
 describe('useHostManagement', () => {
   const mockHostOption: HostOption = {
     label: 'server1.example.com',
@@ -72,7 +83,7 @@ describe('useHostManagement', () => {
     key: 'js-1',
     uuid: 'js-uuid-1',
     connect: 'jumpserver',
-    type: 'jumpserver',
+    type: 'bastion',
     selectable: false,
     level: 0,
     childrenCount: 2
@@ -365,6 +376,7 @@ describe('useHostManagement', () => {
         title: 'Test Server',
         ip: '192.168.1.1',
         organizationId: 'org-123',
+        assetType: 'organization',
         connection: undefined
       }
 

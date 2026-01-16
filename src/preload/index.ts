@@ -848,6 +848,26 @@ const api = {
   writeLocalFile: async (filePath: string, content: string) => {
     await fs.promises.writeFile(filePath, content, 'utf-8')
   },
+
+  kbCheckPath: (absPath: string) => ipcRenderer.invoke('kb:check-path', { absPath }),
+  kbEnsureRoot: () => ipcRenderer.invoke('kb:ensure-root'),
+  kbListDir: (relDir: string) => ipcRenderer.invoke('kb:list-dir', { relDir }),
+  kbReadFile: (relPath: string) => ipcRenderer.invoke('kb:read-file', { relPath }),
+  kbWriteFile: (relPath: string, content: string) => ipcRenderer.invoke('kb:write-file', { relPath, content }),
+  kbMkdir: (relDir: string, name: string) => ipcRenderer.invoke('kb:mkdir', { relDir, name }),
+  kbCreateFile: (relDir: string, name: string, content?: string) => ipcRenderer.invoke('kb:create-file', { relDir, name, content }),
+  kbRename: (relPath: string, newName: string) => ipcRenderer.invoke('kb:rename', { relPath, newName }),
+  kbDelete: (relPath: string, recursive?: boolean) => ipcRenderer.invoke('kb:delete', { relPath, recursive }),
+  kbMove: (srcRelPath: string, dstRelDir: string) => ipcRenderer.invoke('kb:move', { srcRelPath, dstRelDir }),
+  kbCopy: (srcRelPath: string, dstRelDir: string) => ipcRenderer.invoke('kb:copy', { srcRelPath, dstRelDir }),
+  kbImportFile: (srcAbsPath: string, dstRelDir: string) => ipcRenderer.invoke('kb:import-file', { srcAbsPath, dstRelDir }),
+  kbImportFolder: (srcAbsPath: string, dstRelDir: string) => ipcRenderer.invoke('kb:import-folder', { srcAbsPath, dstRelDir }),
+  onKbTransferProgress: (callback: (data: { jobId: string; transferred: number; total: number; destRelPath: string }) => void) => {
+    const listener = (_event: unknown, data: { jobId: string; transferred: number; total: number; destRelPath: string }) => callback(data)
+    ipcRenderer.on('kb:transfer-progress', listener)
+    return () => ipcRenderer.removeListener('kb:transfer-progress', listener)
+  },
+
   agentEnableAndConfigure: (opts: { enabled: boolean }) => ipcRenderer.invoke('ssh:agent:enable-and-configure', opts),
   addKey: (opts: { keyData: string; passphrase?: string; comment?: string }) => ipcRenderer.invoke('ssh:agent:add-key', opts),
   removeKey: (opts: { keyId: string }) => ipcRenderer.invoke('ssh:agent:remove-key', opts),
@@ -989,6 +1009,29 @@ const api = {
     ipcRenderer.on('plugin:open-user-tab-request', subscription)
     return () => ipcRenderer.removeListener('plugin:open-user-tab-request', subscription)
   },
+
+  // Get registered bastion types (plugin-based, not including built-in JumpServer)
+  getRegisteredBastionTypes(): Promise<string[]> {
+    return ipcRenderer.invoke('plugin:getRegisteredBastionTypes')
+  },
+
+  // Get all registered bastion definitions (plugin metadata for UI rendering)
+  // Returns BastionDefinition[] as defined in index.d.ts
+  getBastionDefinitions(): Promise<import('./index.d').BastionDefinition[]> {
+    return ipcRenderer.invoke('plugin:getBastionDefinitions')
+  },
+
+  // Get a specific bastion definition by type
+  // Returns BastionDefinition | undefined as defined in index.d.ts
+  getBastionDefinition(type: string): Promise<import('./index.d').BastionDefinition | undefined> {
+    return ipcRenderer.invoke('plugin:getBastionDefinition', type)
+  },
+
+  // Check if a specific bastion type is available
+  hasBastionCapability(type: string): Promise<boolean> {
+    return ipcRenderer.invoke('plugin:hasBastionCapability', type)
+  },
+
   // XTS file parsing
   parseXtsFile: (data: { data: number[]; fileName: string }) => ipcRenderer.invoke('parseXtsFile', data),
 

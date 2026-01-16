@@ -6,6 +6,56 @@ interface Cookie {
   name: string
   value: string
 }
+
+// ============================================================================
+// Bastion Definition Types (mirrored from capabilityRegistry.ts)
+// ============================================================================
+
+/**
+ * Authentication policy types supported by bastion hosts.
+ */
+export type BastionAuthPolicy = 'password' | 'keyBased'
+
+/**
+ * Agent execution strategy for command execution.
+ * - 'stream': Use getShellStream for command execution (standard stream-based)
+ * - 'custom': Plugin provides custom runCommand implementation
+ */
+export type BastionAgentExecStrategy = 'stream' | 'custom'
+
+/**
+ * BastionDefinition describes the metadata and capabilities of a plugin-based bastion host.
+ * Used by frontend for dynamic UI rendering and routing decisions.
+ */
+export interface BastionDefinition {
+  /** Unique bastion type identifier (e.g., 'qizhi', 'tencent') */
+  type: string
+
+  /** Definition version for schema evolution and compatibility */
+  version: number
+
+  /** i18n key for display name (e.g., 'bastion.qizhi.name') */
+  displayNameKey: string
+
+  /** Asset type prefix, defaults to 'organization-${type}' */
+  assetTypePrefix: string
+
+  /** Supported authentication policies */
+  authPolicy: BastionAuthPolicy[]
+
+  /** Whether this bastion supports asset refresh */
+  supportsRefresh: boolean
+
+  /** Whether this bastion provides getShellStream for agent execution */
+  supportsShellStream: boolean
+
+  /** Agent execution strategy */
+  agentExec: BastionAgentExecStrategy
+
+  /** Optional UI hints for rendering customization */
+  uiHints?: Record<string, unknown>
+}
+
 interface ApiType {
   getCookie: (name: string) => Promise<{
     success: boolean
@@ -152,6 +202,25 @@ interface ApiType {
   }>
   openSaveDialog: (opts: { fileName: string }) => Promise<string | null>
   writeLocalFile: (filePath: string, content: string) => Promise<void>
+  showOpenDialog: (options: {
+    properties: string[]
+    filters?: Array<{ name: string; extensions: string[] }>
+  }) => Promise<{ canceled: boolean; filePaths: string[] } | undefined>
+
+  kbCheckPath: (absPath: string) => Promise<{ exists: boolean; isDirectory: boolean; isFile: boolean }>
+  kbEnsureRoot: () => Promise<{ success: boolean }>
+  kbListDir: (relDir: string) => Promise<Array<{ name: string; relPath: string; type: 'file' | 'dir'; size?: number; mtimeMs?: number }>>
+  kbReadFile: (relPath: string) => Promise<{ content: string; mtimeMs: number }>
+  kbWriteFile: (relPath: string, content: string) => Promise<{ mtimeMs: number }>
+  kbMkdir: (relDir: string, name: string) => Promise<{ success: boolean; relPath: string }>
+  kbCreateFile: (relDir: string, name: string, content?: string) => Promise<{ relPath: string }>
+  kbRename: (relPath: string, newName: string) => Promise<{ relPath: string }>
+  kbDelete: (relPath: string, recursive?: boolean) => Promise<{ success: boolean }>
+  kbMove: (srcRelPath: string, dstRelDir: string) => Promise<{ relPath: string }>
+  kbCopy: (srcRelPath: string, dstRelDir: string) => Promise<{ relPath: string }>
+  kbImportFile: (srcAbsPath: string, dstRelDir: string) => Promise<{ jobId: string; relPath: string }>
+  kbImportFolder: (srcAbsPath: string, dstRelDir: string) => Promise<{ jobId: string; relPath: string }>
+  onKbTransferProgress: (callback: (data: { jobId: string; transferred: number; total: number; destRelPath: string }) => void) => () => void
   getLocalWorkingDirectory: () => Promise<{ success: boolean; cwd: string }>
   getShellsLocal: () => Promise<any>
   agentEnableAndConfigure: (opts: { enabled: boolean }) => Promise<any>
@@ -170,6 +239,16 @@ interface ApiType {
     data?: CommandGenerationContext
     error?: string
   }>
+
+  // Plugin bastion capability API
+  // Get registered bastion types (plugin-based, not including built-in JumpServer)
+  getRegisteredBastionTypes: () => Promise<string[]>
+  // Get all registered bastion definitions (plugin metadata for UI rendering)
+  getBastionDefinitions: () => Promise<BastionDefinition[]>
+  // Get a specific bastion definition by type
+  getBastionDefinition: (type: string) => Promise<BastionDefinition | undefined>
+  // Check if a specific bastion type is available
+  hasBastionCapability: (type: string) => Promise<boolean>
 
   // K8s related APIs
   k8sGetContexts: () => Promise<{

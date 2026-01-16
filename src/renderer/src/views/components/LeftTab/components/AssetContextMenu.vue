@@ -8,7 +8,7 @@
       @click="handleClose"
     >
       <div
-        v-if="asset?.asset_type !== 'organization'"
+        v-if="!isOrganizationAsset(asset?.asset_type)"
         class="context-menu-item"
         @click.stop="handleConnect"
       >
@@ -25,7 +25,7 @@
       </div>
 
       <div
-        v-if="asset?.asset_type !== 'organization'"
+        v-if="!isOrganizationAsset(asset?.asset_type)"
         class="context-menu-item"
         @click.stop="handleClone"
       >
@@ -34,7 +34,7 @@
       </div>
 
       <div
-        v-if="asset?.asset_type === 'organization'"
+        v-if="isOrganizationAsset(asset?.asset_type)"
         class="context-menu-item"
         @click.stop="handleRefresh"
       >
@@ -54,10 +54,11 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, nextTick, watch } from 'vue'
+import { ref, computed, nextTick, watch, onMounted } from 'vue'
 import { ApiOutlined, EditOutlined, ReloadOutlined, DeleteOutlined, CopyOutlined } from '@ant-design/icons-vue'
 import i18n from '@/locales'
 import type { AssetNode, Position } from '../utils/types'
+import { isOrganizationAsset } from '../utils/types'
 
 const { t } = i18n.global
 
@@ -71,7 +72,8 @@ const props = defineProps<Props>()
 
 const contextMenuRef = ref<HTMLElement | null>(null)
 
-const actualMenuSize = ref({ width: 150, height: 200 })
+// Init with 0 to prevent false positive overflow detection
+const actualMenuSize = ref({ width: 0, height: 0 })
 
 const menuStyle = computed(() => {
   if (!props.visible) return {}
@@ -86,24 +88,32 @@ const menuStyle = computed(() => {
   let adjustedX = x
   let adjustedY = y
 
-  if (x + menuWidth + padding > windowWidth) {
-    adjustedX = windowWidth - menuWidth - padding
-  }
-  if (adjustedX < padding) {
-    adjustedX = padding
+  // Only apply overflow logic if we have measured the size
+  if (menuWidth > 0 && menuHeight > 0) {
+    if (x + menuWidth + padding > windowWidth) {
+      adjustedX = windowWidth - menuWidth - padding
+    }
+    if (adjustedX < padding) {
+      adjustedX = padding
+    }
+
+    if (y + menuHeight + padding > windowHeight) {
+      adjustedY = windowHeight - menuHeight - padding
+    }
+    if (adjustedY < padding) {
+      adjustedY = padding
+    }
   }
 
-  if (y + menuHeight + padding > windowHeight) {
-    adjustedY = windowHeight - menuHeight - padding
-  }
-  if (adjustedY < padding) {
-    adjustedY = padding
-  }
+  const isVisible = menuWidth > 0 && menuHeight > 0
 
   return {
     top: `${adjustedY}px`,
-    left: `${adjustedX}px`
-  }
+    left: `${adjustedX}px`,
+    // Hide until measured to prevent jump
+    visibility: isVisible ? 'visible' : 'hidden',
+    opacity: isVisible ? 1 : 0
+  } as any
 })
 
 const emit = defineEmits<{
@@ -149,15 +159,26 @@ const updateMenuSize = () => {
   }
 }
 
+onMounted(() => {
+  if (props.visible) {
+    nextTick(() => {
+      updateMenuSize()
+    })
+  }
+})
+
 watch(
   () => props.visible,
   (visible) => {
     if (visible) {
+      // Reset size to 0 to ensure clean calculation
+      actualMenuSize.value = { width: 0, height: 0 }
       nextTick(() => {
         updateMenuSize()
       })
     }
-  }
+  },
+  { immediate: true }
 )
 </script>
 

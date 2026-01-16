@@ -70,7 +70,7 @@ export const formatHosts = (data: { personal?: TreeHostOption[]; jumpservers?: T
     })
   }
 
-  // Format jumpserver nodes with children
+  // Format bastion host nodes with children
   if (data.jumpservers) {
     data.jumpservers.forEach((js) => {
       result.push({
@@ -79,7 +79,7 @@ export const formatHosts = (data: { personal?: TreeHostOption[]; jumpservers?: T
         value: js.key,
         uuid: js.uuid,
         connect: js.connection,
-        type: 'jumpserver' as HostItemType,
+        type: 'bastion' as HostItemType,
         selectable: false,
         level: 0,
         children: js.children,

@@ -37,10 +37,12 @@ import * as fsSync from 'fs'
 import { pathToFileURL } from 'url'
 import { loadAllPlugins } from './plugin/pluginLoader'
 import { getAllPluginVersions, installPlugin, listPlugins, PluginManifest, uninstallPlugin, getInstallHint } from './plugin/pluginManager'
-import { getPluginDetailsByName } from './plugin/pluginDetails'
+import { getPluginDetailsByName, getLocalizedStrings, getUserLanguage } from './plugin/pluginDetails'
+import { capabilityRegistry } from './ssh/capabilityRegistry'
 import { getActualTheme, loadUserTheme } from './themeManager'
 import { getLoginBaseUrl, getEdition, getProtocolPrefix, getProtocolName } from './config/edition'
 import { TelemetrySetting } from '@shared/TelemetrySetting'
+import { registerKnowledgeBaseHandlers } from './services/knowledgebase'
 import type { WebviewMessage } from '@shared/WebviewMessage'
 
 let mainWindow: BrowserWindow
@@ -225,8 +227,9 @@ app.whenReady().then(async () => {
 
   // Register K8s handlers
   registerK8sHandlers()
-  // Load all plugins
-  loadAllPlugins()
+  // Load all plugins (plugins will register their capabilities)
+  await loadAllPlugins()
+
   app.on('activate', function () {
     // On macOS it's common to re-create a window in the app when the
     // dock icon is clicked and there are no other windows open.
@@ -675,6 +678,9 @@ function updateNavigationState(): void {
 
 // Setup IPC handlers
 function setupIPC(): void {
+  // KnowledgeBase module (local file-based KB) IPC handlers
+  registerKnowledgeBaseHandlers()
+
   ipcMain.handle('init-user-database', async (event, { uid }) => {
     try {
       const isSkippedLogin = await event.sender.executeJavaScript("localStorage.getItem('login-skipped') === 'true'")
@@ -1982,7 +1988,7 @@ ipcMain.handle('refresh-organization-assets', async (event, data) => {
           finish([])
           event.sender.send('ssh:keyboard-interactive-timeout', { id: connectionId })
           reject(new Error('Two-factor authentication timeout'))
-        }, 30000) // 30 second timeout
+        }, 180000) // 180 second timeout
 
         // Listen for user response
         ipcMain.once(`ssh:keyboard-interactive-response:${connectionId}`, (_evt, responses) => {
@@ -2194,7 +2200,7 @@ ipcMain.handle('capture-telemetry-event', async (_, { eventType, data }) => {
 
 ipcMain.handle('plugins.install', async (_event, pluginFilePath: string) => {
   const record = installPlugin(pluginFilePath)
-  loadAllPlugins()
+  await loadAllPlugins()
   return record
 })
 
@@ -2230,14 +2236,14 @@ ipcMain.handle(
     await fsSync.promises.writeFile(tmpFilePath, buffer)
 
     const record = installPlugin(tmpFilePath)
-    loadAllPlugins()
+    await loadAllPlugins()
     return record
   }
 )
 
 ipcMain.handle('plugins.uninstall', async (_event, pluginId: string) => {
   uninstallPlugin(pluginId)
-  loadAllPlugins()
+  await loadAllPlugins()
   return { ok: true }
 })
 
@@ -2248,6 +2254,7 @@ ipcMain.handle('plugins:get-install-hint', (_event, pluginId: string) => {
 ipcMain.handle('plugins.listUi', async () => {
   const registry = listPlugins()
   const uiItems: any[] = []
+  const language = await getUserLanguage()
 
   for (const p of registry) {
     const manifestPath = path.join(p.path, 'plugin.json')
@@ -2263,12 +2270,15 @@ ipcMain.handle('plugins.listUi', async () => {
       }
     }
 
+    // Get localized name and description
+    const { name, description } = getLocalizedStrings(manifest, language)
+
     uiItems.push({
       id: p.id,
       version: p.version,
       enabled: p.enabled,
-      name: manifest.displayName ?? manifest.id,
-      description: manifest.description ?? '',
+      name,
+      description,
       iconUrl,
       tabName: p.id
     })
@@ -2280,7 +2290,40 @@ ipcMain.handle('plugins.getPluginsVersion', async () => {
   return await getAllPluginVersions()
 })
 ipcMain.handle('plugins.details', async (_event, pluginName: string) => {
-  return getPluginDetailsByName(pluginName)
+  return await getPluginDetailsByName(pluginName)
+})
+
+// Get registered bastion types from capability registry
+// Returns plugin-registered bastion types (not including built-in JumpServer)
+ipcMain.handle('plugin:getRegisteredBastionTypes', () => {
+  return capabilityRegistry.listBastions()
+})
+
+// Get all registered bastion definitions (plugin metadata)
+// Returns BastionDefinition[] for UI rendering and routing decisions
+ipcMain.handle('plugin:getBastionDefinitions', () => {
+  return capabilityRegistry.listBastionDefinitions()
+})
+
+// Get a specific bastion definition by type
+ipcMain.handle('plugin:getBastionDefinition', (_event, type: string) => {
+  return capabilityRegistry.getBastionDefinition(type)
+})
+
+// Check if a specific bastion type is available
+ipcMain.handle('plugin:hasBastionCapability', (_event, type: string) => {
+  return capabilityRegistry.hasBastion(type)
+})
+
+// Get Qizhi plugin enabled state (now based on capability registry)
+ipcMain.handle('plugin:isQizhiPluginEnabled', () => {
+  return capabilityRegistry.hasBastion('qizhi')
+})
+
+// Set Qizhi plugin enabled state - no longer supported (plugins auto-register)
+ipcMain.handle('plugin:setQizhiPluginEnabled', () => {
+  console.warn('[Plugin] setQizhiPluginEnabled is deprecated - plugins auto-register capabilities')
+  return { success: false, message: 'Deprecated - plugins auto-register capabilities' }
 })
 
 // Register the agreement before the app is ready
