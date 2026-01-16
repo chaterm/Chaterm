@@ -541,9 +541,10 @@ describe('SkillsManager', () => {
 
   describe('getUserSkillsPath', () => {
     it('should return correct user skills path', () => {
-      const path = skillsManager.getUserSkillsPath()
+      const result = skillsManager.getUserSkillsPath()
+      const expected = require('path').join('/tmp/test-user-data', 'skills')
 
-      expect(path).toBe('/tmp/test-user-data/skills')
+      expect(result).toBe(expected)
     })
   })
 
