@@ -202,6 +202,25 @@ interface ApiType {
   }>
   openSaveDialog: (opts: { fileName: string }) => Promise<string | null>
   writeLocalFile: (filePath: string, content: string) => Promise<void>
+  showOpenDialog: (options: {
+    properties: string[]
+    filters?: Array<{ name: string; extensions: string[] }>
+  }) => Promise<{ canceled: boolean; filePaths: string[] } | undefined>
+
+  kbCheckPath: (absPath: string) => Promise<{ exists: boolean; isDirectory: boolean; isFile: boolean }>
+  kbEnsureRoot: () => Promise<{ success: boolean }>
+  kbListDir: (relDir: string) => Promise<Array<{ name: string; relPath: string; type: 'file' | 'dir'; size?: number; mtimeMs?: number }>>
+  kbReadFile: (relPath: string) => Promise<{ content: string; mtimeMs: number }>
+  kbWriteFile: (relPath: string, content: string) => Promise<{ mtimeMs: number }>
+  kbMkdir: (relDir: string, name: string) => Promise<{ success: boolean; relPath: string }>
+  kbCreateFile: (relDir: string, name: string, content?: string) => Promise<{ relPath: string }>
+  kbRename: (relPath: string, newName: string) => Promise<{ relPath: string }>
+  kbDelete: (relPath: string, recursive?: boolean) => Promise<{ success: boolean }>
+  kbMove: (srcRelPath: string, dstRelDir: string) => Promise<{ relPath: string }>
+  kbCopy: (srcRelPath: string, dstRelDir: string) => Promise<{ relPath: string }>
+  kbImportFile: (srcAbsPath: string, dstRelDir: string) => Promise<{ jobId: string; relPath: string }>
+  kbImportFolder: (srcAbsPath: string, dstRelDir: string) => Promise<{ jobId: string; relPath: string }>
+  onKbTransferProgress: (callback: (data: { jobId: string; transferred: number; total: number; destRelPath: string }) => void) => () => void
   getLocalWorkingDirectory: () => Promise<{ success: boolean; cwd: string }>
   getShellsLocal: () => Promise<any>
   agentEnableAndConfigure: (opts: { enabled: boolean }) => Promise<any>

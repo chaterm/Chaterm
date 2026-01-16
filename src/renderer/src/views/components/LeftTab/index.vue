@@ -20,6 +20,17 @@
           />
         </p>
         <p
+          v-else-if="i.key === 'knowledgecenter'"
+          class="term_menu"
+          :class="{ active: activeKey === i.key }"
+          @click="menuClick(i.key)"
+        >
+          <img
+            :src="i.icon"
+            alt=""
+          />
+        </p>
+        <p
           v-else-if="i.key === 'assets'"
           class="term_menu"
           :class="{ active: activeKey === i.key }"

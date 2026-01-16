@@ -848,6 +848,26 @@ const api = {
   writeLocalFile: async (filePath: string, content: string) => {
     await fs.promises.writeFile(filePath, content, 'utf-8')
   },
+
+  kbCheckPath: (absPath: string) => ipcRenderer.invoke('kb:check-path', { absPath }),
+  kbEnsureRoot: () => ipcRenderer.invoke('kb:ensure-root'),
+  kbListDir: (relDir: string) => ipcRenderer.invoke('kb:list-dir', { relDir }),
+  kbReadFile: (relPath: string) => ipcRenderer.invoke('kb:read-file', { relPath }),
+  kbWriteFile: (relPath: string, content: string) => ipcRenderer.invoke('kb:write-file', { relPath, content }),
+  kbMkdir: (relDir: string, name: string) => ipcRenderer.invoke('kb:mkdir', { relDir, name }),
+  kbCreateFile: (relDir: string, name: string, content?: string) => ipcRenderer.invoke('kb:create-file', { relDir, name, content }),
+  kbRename: (relPath: string, newName: string) => ipcRenderer.invoke('kb:rename', { relPath, newName }),
+  kbDelete: (relPath: string, recursive?: boolean) => ipcRenderer.invoke('kb:delete', { relPath, recursive }),
+  kbMove: (srcRelPath: string, dstRelDir: string) => ipcRenderer.invoke('kb:move', { srcRelPath, dstRelDir }),
+  kbCopy: (srcRelPath: string, dstRelDir: string) => ipcRenderer.invoke('kb:copy', { srcRelPath, dstRelDir }),
+  kbImportFile: (srcAbsPath: string, dstRelDir: string) => ipcRenderer.invoke('kb:import-file', { srcAbsPath, dstRelDir }),
+  kbImportFolder: (srcAbsPath: string, dstRelDir: string) => ipcRenderer.invoke('kb:import-folder', { srcAbsPath, dstRelDir }),
+  onKbTransferProgress: (callback: (data: { jobId: string; transferred: number; total: number; destRelPath: string }) => void) => {
+    const listener = (_event: unknown, data: { jobId: string; transferred: number; total: number; destRelPath: string }) => callback(data)
+    ipcRenderer.on('kb:transfer-progress', listener)
+    return () => ipcRenderer.removeListener('kb:transfer-progress', listener)
+  },
+
   agentEnableAndConfigure: (opts: { enabled: boolean }) => ipcRenderer.invoke('ssh:agent:enable-and-configure', opts),
   addKey: (opts: { keyData: string; passphrase?: string; comment?: string }) => ipcRenderer.invoke('ssh:agent:add-key', opts),
   removeKey: (opts: { keyId: string }) => ipcRenderer.invoke('ssh:agent:remove-key', opts),
