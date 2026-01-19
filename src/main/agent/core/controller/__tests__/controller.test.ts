@@ -92,6 +92,7 @@ vi.mock('@core/task', () => {
         _autoApprovalSettings: unknown,
         hosts: unknown[],
         _mcpHub: unknown,
+        _skillsManager?: unknown,
         _customInstructions?: unknown,
         _task?: unknown,
         historyItem?: { id: string },

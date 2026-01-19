@@ -93,6 +93,7 @@
           </a-collapse>
         </a-form-item>
         <a-form-item
+          v-if="isUserLoggedIn"
           :label="$t('user.dataSync')"
           class="user_my-ant-form-item"
         >
@@ -107,6 +108,7 @@
         </a-form-item>
 
         <a-form-item
+          v-if="isUserLoggedIn"
           class="description-item"
           :label-col="{ span: 0 }"
           :wrapper-col="{ span: 24 }"
@@ -127,6 +129,7 @@ import { userConfigStore } from '@/services/userConfigStoreService'
 import { dataSyncService } from '@/services/dataSyncService'
 import { useI18n } from 'vue-i18n'
 import { getPrivacyPolicyUrl } from '@/utils/edition'
+import { getUserInfo } from '@/utils/permission'
 import type { TelemetrySetting } from '@shared/TelemetrySetting'
 
 const { t } = useI18n()
@@ -137,6 +140,18 @@ const userConfig = ref({
   secretRedaction: 'disabled',
   dataSync: 'enabled',
   telemetry: 'enabled'
+})
+
+const isUserLoggedIn = computed(() => {
+  const token = localStorage.getItem('ctm-token')
+  const isSkippedLogin = localStorage.getItem('login-skipped') === 'true'
+  try {
+    const userInfo = getUserInfo()
+    return !!(token && token !== 'guest_token' && !isSkippedLogin && userInfo?.uid)
+  } catch (error) {
+    console.error('Failed to read user info:', error)
+    return false
+  }
 })
 
 const secretPatterns = computed(() => [
@@ -220,13 +235,35 @@ const secretPatterns = computed(() => [
 
 const loadSavedConfig = async () => {
   try {
+    const rawConfigResult = await window.api.kvGet({ key: 'userConfig' })
+    let rawConfig: any = {}
+    if (rawConfigResult?.value) {
+      rawConfig = JSON.parse(rawConfigResult.value)
+    }
+
     const savedConfig = await userConfigStore.getConfig()
     if (savedConfig) {
+      let defaultDataSync: 'enabled' | 'disabled' = 'disabled'
+
+      const persistedDataSync = (rawConfig.dataSync ?? savedConfig.dataSync) as 'enabled' | 'disabled' | undefined
+
+      if (persistedDataSync) {
+        defaultDataSync = persistedDataSync
+      } else if (isUserLoggedIn.value) {
+        defaultDataSync = 'enabled'
+        await userConfigStore.saveConfig({
+          ...savedConfig,
+          dataSync: 'enabled'
+        } as any)
+      } else {
+        defaultDataSync = 'disabled'
+      }
+
       userConfig.value = {
         ...userConfig.value,
         ...savedConfig,
         secretRedaction: (savedConfig.secretRedaction || 'enabled') as 'enabled' | 'disabled',
-        dataSync: (savedConfig.dataSync || 'enabled') as 'enabled' | 'disabled',
+        dataSync: defaultDataSync,
         telemetry: ((savedConfig as any).telemetry || 'unset') as 'unset' | 'enabled' | 'disabled'
       } as any
     }

@@ -116,9 +116,9 @@ export function useEventBusListeners(params: UseEventBusListenersParams) {
       return
     }
     if (chatInputValue.value.trim()) {
-      chatInputValue.value = chatInputValue.value + '\n' + text + '\n'
+      chatInputValue.value = chatInputValue.value + '\n' + text
     } else {
-      chatInputValue.value = text + '\n'
+      chatInputValue.value = text
     }
     await initAssetInfo()
     focusChatInput()
