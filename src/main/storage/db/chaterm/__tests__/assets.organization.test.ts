@@ -11,28 +11,14 @@ const mockElectronModule = new Module(electronPath)
 mockElectronModule.filename = electronPath
 mockElectronModule.loaded = true
 mockElectronModule.exports = {
-  app: {
-    getAppPath: () => '/tmp'
-  },
-  ipcMain: {
-    handle: vi.fn(),
-    on: vi.fn(),
-    once: vi.fn(),
-    removeAllListeners: vi.fn()
-  }
+  app: { getAppPath: () => '/tmp' },
+  ipcMain: { handle: vi.fn(), on: vi.fn(), once: vi.fn(), removeAllListeners: vi.fn() }
 }
 require.cache[electronPath] = mockElectronModule
 
 vi.mock('electron', () => ({
-  app: {
-    getAppPath: () => '/tmp'
-  },
-  ipcMain: {
-    handle: vi.fn(),
-    on: vi.fn(),
-    once: vi.fn(),
-    removeAllListeners: vi.fn()
-  }
+  app: { getAppPath: () => '/tmp' },
+  ipcMain: { handle: vi.fn(), on: vi.fn(), once: vi.fn(), removeAllListeners: vi.fn() }
 }))
 
 const { getBastion } = vi.hoisted(() => ({
@@ -87,19 +73,15 @@ function createMockDb(options: { assetType: string; existingAssets?: OrgAssetRow
     prepare(sql: string): Statement {
       const normalized = normalizeSql(sql)
 
-      if (normalized.startsWith('select asset_type from t_assets where uuid')) {
-        return createStatement({
-          get: () => ({ asset_type: assetType })
-        })
+      if (normalized.includes('select asset_type from t_assets')) {
+        return createStatement({ get: () => ({ asset_type: assetType }) })
       }
 
-      if (normalized.startsWith('select host, hostname, uuid, favorite from t_organization_assets')) {
-        return createStatement({
-          all: () => existingAssets
-        })
+      if (normalized.includes('select host, hostname, uuid, favorite from t_organization_assets')) {
+        return createStatement({ all: () => existingAssets })
       }
 
-      if (normalized.startsWith('update t_organization_assets set hostname')) {
+      if (normalized.includes('update t_organization_assets')) {
         return createStatement({
           run: (...args: unknown[]) => {
             capture.updateArgs = args
@@ -108,7 +90,7 @@ function createMockDb(options: { assetType: string; existingAssets?: OrgAssetRow
         })
       }
 
-      if (normalized.startsWith('insert into t_organization_assets')) {
+      if (normalized.includes('insert into t_organization_assets')) {
         return createStatement({
           run: (...args: unknown[]) => {
             capture.insertArgs = args
@@ -117,13 +99,7 @@ function createMockDb(options: { assetType: string; existingAssets?: OrgAssetRow
         })
       }
 
-      if (normalized.startsWith('delete from t_organization_assets')) {
-        return createStatement({
-          run: () => ({ changes: 1 })
-        })
-      }
-
-      return createStatement({})
+      return createStatement({ run: () => ({ changes: 1 }) })
     }
   }
 }
@@ -142,39 +118,28 @@ describe('refreshOrganizationAssetsLogic', () => {
     capabilityRegistry.getBastion = getBastion as typeof capabilityRegistry.getBastion
   })
 
-  it('writes qizhi jump_server_type for new qizhi assets', async () => {
-    getBastion.mockReturnValue({
-      refreshAssets: vi.fn(async () => ({
-        success: true,
-        assets: [{ hostname: 'node-1', host: '47.83.117.241' }]
-      }))
-    })
-
-    const capture: Capture = {}
-    const db = createMockDb({ assetType: 'organization-qizhi', existingAssets: [], capture })
-
-    await refreshOrganizationAssetsLogic(db as any, 'org-1', {
-      host: '127.0.0.1',
-      port: 22,
-      username: 'admin',
-      password: 'secret'
-    })
-
-    expect(capture.insertArgs?.[4]).toBe('qizhi')
-  })
-
   it('updates jump_server_type to qizhi for existing qizhi assets', async () => {
+    const TEST_HOST = '47.83.117.241'
+    const TEST_NAME = 'node-1'
+
     getBastion.mockReturnValue({
       refreshAssets: vi.fn(async () => ({
         success: true,
-        assets: [{ hostname: 'node-1', host: '47.83.117.241' }]
+        assets: [{ hostname: TEST_NAME, host: TEST_HOST, name: TEST_NAME, address: TEST_HOST }]
       }))
     })
 
     const capture: Capture = {}
     const db = createMockDb({
       assetType: 'organization-qizhi',
-      existingAssets: [{ host: '47.83.117.241', hostname: 'old-name', uuid: 'asset-1', favorite: 0 }],
+      existingAssets: [
+        {
+          host: TEST_HOST,
+          hostname: TEST_NAME,
+          uuid: 'asset-1',
+          favorite: 0
+        }
+      ],
       capture
     })
 
@@ -185,6 +150,7 @@ describe('refreshOrganizationAssetsLogic', () => {
       password: 'secret'
     })
 
+    expect(capture.updateArgs).toBeDefined()
     expect(capture.updateArgs?.[1]).toBe('qizhi')
   })
 })

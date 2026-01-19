@@ -1155,6 +1155,7 @@ const connectSSH = async () => {
       privateKey: privateKey.value,
       passphrase: passphrase.value,
       targetIp: connHost,
+      targetHostname: connHostname,
       sshType: connSshType,
       terminalType: config.terminalType,
       agentForward: config.sshAgentsStatus === 1,
