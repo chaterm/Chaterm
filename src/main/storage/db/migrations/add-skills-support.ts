@@ -17,7 +17,7 @@ export function upgradeSkillsSupport(db: Database.Database): void {
 
       db.exec(`
         CREATE TABLE skills_state (
-          skill_id TEXT PRIMARY KEY,
+          skill_name TEXT PRIMARY KEY,
           enabled INTEGER NOT NULL DEFAULT 1,
           config TEXT,
           last_used INTEGER,
@@ -28,7 +28,7 @@ export function upgradeSkillsSupport(db: Database.Database): void {
 
       // Create index for faster lookups
       db.exec(`
-        CREATE INDEX IF NOT EXISTS idx_skills_state_enabled 
+        CREATE INDEX IF NOT EXISTS idx_skills_state_enabled
         ON skills_state(enabled)
       `)
 

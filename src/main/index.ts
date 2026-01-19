@@ -527,17 +527,9 @@ ipcMain.handle('skills:get-all', async () => {
   try {
     if (controller && controller.skillsManager) {
       return controller.skillsManager.getAllSkills().map((skill) => ({
-        id: skill.metadata.id,
         name: skill.metadata.name,
         description: skill.metadata.description,
-        version: skill.metadata.version,
-        author: skill.metadata.author,
-        tags: skill.metadata.tags,
-        icon: skill.metadata.icon,
-        activation: skill.metadata.activation,
-        contextPatterns: skill.metadata.contextPatterns,
         enabled: skill.enabled,
-        source: skill.source,
         path: skill.path
       }))
     }
@@ -552,12 +544,9 @@ ipcMain.handle('skills:get-enabled', async () => {
   try {
     if (controller && controller.skillsManager) {
       return controller.skillsManager.getEnabledSkills().map((skill) => ({
-        id: skill.metadata.id,
         name: skill.metadata.name,
         description: skill.metadata.description,
-        version: skill.metadata.version,
-        enabled: skill.enabled,
-        source: skill.source
+        enabled: skill.enabled
       }))
     }
     return []
@@ -567,10 +556,10 @@ ipcMain.handle('skills:get-enabled', async () => {
   }
 })
 
-ipcMain.handle('skills:set-enabled', async (_event, skillId: string, enabled: boolean) => {
+ipcMain.handle('skills:set-enabled', async (_event, skillName: string, enabled: boolean) => {
   try {
     if (controller && controller.skillsManager) {
-      await controller.skillsManager.setSkillEnabled(skillId, enabled)
+      await controller.skillsManager.setSkillEnabled(skillName, enabled)
     }
   } catch (error) {
     console.error('Failed to set skill enabled state:', error)
@@ -606,12 +595,9 @@ ipcMain.handle('skills:create', async (_event, metadata: SkillMetadata, content:
     if (controller && controller.skillsManager) {
       const skill = await controller.skillsManager.createUserSkill(metadata, content)
       return {
-        id: skill.metadata.id,
         name: skill.metadata.name,
         description: skill.metadata.description,
-        version: skill.metadata.version,
         enabled: skill.enabled,
-        source: skill.source,
         path: skill.path
       }
     }

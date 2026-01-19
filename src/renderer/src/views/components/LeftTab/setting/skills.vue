@@ -72,31 +72,17 @@
       >
         <div
           v-for="skill in skills"
-          :key="skill.id"
+          :key="skill.name"
           class="skill-item"
           :class="{ disabled: !skill.enabled }"
         >
           <div class="skill-header">
             <div class="skill-info">
               <div class="skill-icon">
-                <ThunderboltOutlined v-if="!skill.icon" />
-                <span
-                  v-else
-                  class="custom-icon"
-                  >{{ skill.icon }}</span
-                >
+                <ThunderboltOutlined />
               </div>
               <div class="skill-details">
-                <div class="skill-name-row">
-                  <span class="skill-name">{{ skill.name }}</span>
-                  <span class="skill-version">v{{ skill.version || '1.0.0' }}</span>
-                  <span class="skill-source">{{ getSourceLabel(skill.source) }}</span>
-                  <span
-                    v-if="skill.author"
-                    class="skill-author"
-                    >{{ skill.author }}</span
-                  >
-                </div>
+                <div class="skill-name">{{ skill.name }}</div>
                 <div class="skill-description">{{ skill.description }}</div>
               </div>
             </div>
@@ -107,7 +93,6 @@
                 @change="toggleSkill(skill)"
               />
               <a-button
-                v-if="skill.source === 'user'"
                 type="text"
                 size="small"
                 class="delete-btn"
@@ -116,26 +101,6 @@
               >
                 <DeleteOutlined />
               </a-button>
-            </div>
-          </div>
-          <div class="skill-footer">
-            <div
-              v-if="skill.tags && skill.tags.length > 0"
-              class="skill-tags"
-            >
-              <a-tag
-                v-for="tag in skill.tags"
-                :key="tag"
-                size="small"
-              >
-                {{ tag }}
-              </a-tag>
-            </div>
-            <div class="skill-activation">
-              <span class="activation-value">{{ getActivationLabel(skill.activation) }}</span>
-              <template v-if="skill.activation === 'context-match' && skill.contextPatterns && skill.contextPatterns.length > 0">
-                <span class="activation-patterns">({{ skill.contextPatterns.join(', ') }})</span>
-              </template>
             </div>
           </div>
         </div>
@@ -154,21 +119,15 @@
       @ok="createSkill"
     >
       <a-form
+        ref="skillFormRef"
         :model="newSkill"
         layout="vertical"
         class="skill-form"
       >
         <a-form-item
-          :label="$t('skills.skillId')"
-          required
-        >
-          <a-input
-            v-model:value="newSkill.id"
-            :placeholder="$t('skills.skillIdPlaceholder')"
-          />
-        </a-form-item>
-        <a-form-item
+          name="name"
           :label="$t('skills.skillName')"
+          :rules="skillNameRules"
           required
         >
           <a-input
@@ -186,42 +145,6 @@
             :rows="2"
           />
         </a-form-item>
-        <a-form-item :label="$t('skills.skillVersion')">
-          <a-input
-            v-model:value="newSkill.version"
-            placeholder="1.0.0"
-          />
-        </a-form-item>
-        <a-form-item :label="$t('skills.skillAuthor')">
-          <a-input
-            v-model:value="newSkill.author"
-            :placeholder="$t('skills.skillAuthorPlaceholder')"
-          />
-        </a-form-item>
-        <a-form-item :label="$t('skills.skillActivation')">
-          <a-select v-model:value="newSkill.activation">
-            <a-select-option value="always">{{ $t('skills.activationAlways') }}</a-select-option>
-            <a-select-option value="on-demand">{{ $t('skills.activationOnDemand') }}</a-select-option>
-            <a-select-option value="context-match">{{ $t('skills.activationContextMatch') }}</a-select-option>
-          </a-select>
-        </a-form-item>
-        <a-form-item
-          v-if="newSkill.activation === 'context-match'"
-          :label="$t('skills.contextPatterns')"
-          required
-        >
-          <a-input
-            v-model:value="newSkill.contextPatternsInput"
-            :placeholder="$t('skills.contextPatternsPlaceholder')"
-          />
-          <div class="form-hint">{{ $t('skills.contextPatternsHint') }}</div>
-        </a-form-item>
-        <a-form-item :label="$t('skills.skillTags')">
-          <a-input
-            v-model:value="newSkill.tagsInput"
-            :placeholder="$t('skills.skillTagsPlaceholder')"
-          />
-        </a-form-item>
         <a-form-item
           :label="$t('skills.skillContent')"
           required
@@ -229,7 +152,7 @@
           <a-textarea
             v-model:value="newSkill.content"
             :placeholder="$t('skills.skillContentPlaceholder')"
-            :rows="8"
+            :rows="10"
             class="skill-content-textarea"
           />
         </a-form-item>
@@ -247,17 +170,9 @@ import { FolderOpenOutlined, ReloadOutlined, PlusOutlined, DeleteOutlined, Thund
 const { t } = useI18n()
 
 interface Skill {
-  id: string
   name: string
   description: string
-  version?: string
-  author?: string
-  tags?: string[]
-  icon?: string
-  activation?: 'always' | 'on-demand' | 'context-match'
-  contextPatterns?: string[]
   enabled: boolean
-  source: 'builtin' | 'user' | 'marketplace'
   path?: string
 }
 
@@ -266,18 +181,25 @@ const isReloading = ref(false)
 const isCreating = ref(false)
 const isImporting = ref(false)
 const createModalVisible = ref(false)
+const skillFormRef = ref()
 
 const newSkill = ref({
-  id: '',
   name: '',
   description: '',
-  version: '1.0.0',
-  author: '',
-  activation: 'on-demand' as 'always' | 'on-demand' | 'context-match',
-  tagsInput: '',
-  contextPatternsInput: '',
   content: ''
 })
+
+// Validation rules for skill name: only lowercase letters and hyphens
+const skillNameRules = [
+  {
+    required: true,
+    message: t('skills.skillNameRequired')
+  },
+  {
+    pattern: /^[a-z-]+$/,
+    message: t('skills.skillNameInvalidFormat')
+  }
+]
 
 let unsubscribeSkillsUpdate: (() => void) | null = null
 
@@ -404,7 +326,7 @@ const showImportError = (errorCode?: string) => {
 
 const toggleSkill = async (skill: Skill) => {
   try {
-    await window.api.setSkillEnabled(skill.id, skill.enabled)
+    await window.api.setSkillEnabled(skill.name, skill.enabled)
   } catch (error) {
     console.error('Failed to toggle skill:', error)
     // Revert the change
@@ -416,69 +338,42 @@ const toggleSkill = async (skill: Skill) => {
 const showCreateModal = () => {
   // Reset form
   newSkill.value = {
-    id: '',
     name: '',
     description: '',
-    version: '1.0.0',
-    author: '',
-    activation: 'on-demand',
-    tagsInput: '',
-    contextPatternsInput: '',
     content: ''
   }
+  // Clear validation errors
+  skillFormRef.value?.resetFields()
   createModalVisible.value = true
 }
 
 const createSkill = async () => {
+  // Validate form
+  try {
+    await skillFormRef.value?.validate()
+  } catch (error) {
+    // Validation failed, error message will be shown by form
+    return
+  }
+
   // Validate required fields
-  if (!newSkill.value.id || !newSkill.value.name || !newSkill.value.description || !newSkill.value.content) {
+  if (!newSkill.value.description || !newSkill.value.content) {
     message.warning(t('skills.fillRequired'))
-    return
-  }
-
-  // Validate ID format
-  if (!/^[a-z0-9-]+$/.test(newSkill.value.id)) {
-    message.warning(t('skills.invalidId'))
-    return
-  }
-
-  // Validate contextPatterns if activation is context-match
-  if (newSkill.value.activation === 'context-match' && !newSkill.value.contextPatternsInput.trim()) {
-    message.warning(t('skills.contextPatternsRequired'))
     return
   }
 
   isCreating.value = true
   try {
     const metadata: Record<string, unknown> = {
-      id: newSkill.value.id.toLowerCase(),
       name: newSkill.value.name,
-      description: newSkill.value.description,
-      version: newSkill.value.version || '1.0.0',
-      author: newSkill.value.author || undefined,
-      activation: newSkill.value.activation,
-      tags: newSkill.value.tagsInput
-        ? (() => {
-            const filtered = newSkill.value.tagsInput
-              .split(',')
-              .map((tag) => tag.trim())
-              .filter(Boolean)
-            return filtered.length > 0 ? filtered : undefined
-          })()
-        : undefined
-    }
-
-    // Add contextPatterns if activation is context-match
-    if (newSkill.value.activation === 'context-match' && newSkill.value.contextPatternsInput.trim()) {
-      metadata.contextPatterns = newSkill.value.contextPatternsInput
-        .split(',')
-        .map((p) => p.trim())
-        .filter((p) => p)
+      description: newSkill.value.description
     }
 
     await window.api.createSkill(metadata, newSkill.value.content)
     await loadSkills()
     createModalVisible.value = false
+    // Reset form after successful creation
+    skillFormRef.value?.resetFields()
     message.success(t('skills.createSuccess'))
   } catch (error) {
     console.error('Failed to create skill:', error)
@@ -497,7 +392,7 @@ const confirmDeleteSkill = (skill: Skill) => {
     cancelText: t('common.cancel'),
     onOk: async () => {
       try {
-        await window.api.deleteSkill(skill.id)
+        await window.api.deleteSkill(skill.name)
         await loadSkills()
         message.success(t('skills.deleteSuccess'))
       } catch (error) {
@@ -506,32 +401,6 @@ const confirmDeleteSkill = (skill: Skill) => {
       }
     }
   })
-}
-
-const getSourceLabel = (source: string) => {
-  switch (source) {
-    case 'builtin':
-      return t('skills.sourceBuiltin')
-    case 'user':
-      return t('skills.sourceUser')
-    case 'marketplace':
-      return t('skills.sourceMarketplace')
-    default:
-      return source
-  }
-}
-
-const getActivationLabel = (activation?: string) => {
-  switch (activation) {
-    case 'always':
-      return t('skills.activationAlways')
-    case 'on-demand':
-      return t('skills.activationOnDemand')
-    case 'context-match':
-      return t('skills.activationContextMatch')
-    default:
-      return t('skills.activationOnDemand')
-  }
 }
 </script>
 
@@ -548,20 +417,22 @@ const getActivationLabel = (activation?: string) => {
 
   h3 {
     font-size: 18px;
-    font-weight: 500;
+    font-weight: 600;
     margin: 0;
+    color: var(--text-color);
   }
 }
 
 .skills-actions {
   display: flex;
-  gap: 4px;
+  gap: 8px;
   align-items: center;
 
   .ant-btn {
     display: flex;
     align-items: center;
     gap: 4px;
+    border-radius: 6px;
   }
 
   .ant-btn-text {
@@ -570,6 +441,17 @@ const getActivationLabel = (activation?: string) => {
     &:hover {
       color: var(--text-color);
       background-color: var(--bg-color-quaternary);
+    }
+  }
+
+  .ant-btn-primary {
+    background: linear-gradient(135deg, #1890ff, #096dd9);
+    border: none;
+    box-shadow: 0 2px 4px rgba(24, 144, 255, 0.2);
+
+    &:hover {
+      background: linear-gradient(135deg, #40a9ff, #1890ff);
+      box-shadow: 0 4px 8px rgba(24, 144, 255, 0.3);
     }
   }
 }
@@ -588,20 +470,23 @@ const getActivationLabel = (activation?: string) => {
 
 .empty-state {
   display: flex;
+  flex-direction: column;
   align-items: center;
+  justify-content: center;
   gap: 12px;
-  padding: 16px 20px;
+  padding: 40px 20px;
   border: 1px dashed var(--border-color);
-  border-radius: 6px;
+  border-radius: 8px;
   background-color: var(--bg-color-secondary);
 
   .empty-icon {
-    font-size: 24px;
+    font-size: 36px;
     color: var(--text-color-quaternary);
+    opacity: 0.6;
   }
 
   .empty-title {
-    font-size: 13px;
+    font-size: 14px;
     font-weight: 500;
     color: var(--text-color-secondary);
   }
@@ -609,56 +494,67 @@ const getActivationLabel = (activation?: string) => {
   .empty-description {
     font-size: 12px;
     color: var(--text-color-tertiary);
-    margin-left: -4px;
+    text-align: center;
+  }
+
+  .ant-btn {
+    margin-top: 8px;
+    color: var(--text-color);
   }
 }
 
 .skills-list {
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: 8px;
 }
 
 .skill-item {
   background-color: var(--bg-color-secondary);
   border: 1px solid var(--border-color);
-  border-radius: 6px;
-  padding: 10px 12px;
-  transition: all 0.2s;
+  border-radius: 8px;
+  padding: 12px 14px;
+  transition: all 0.2s ease;
 
   &:hover {
-    border-color: var(--text-color-quaternary);
+    border-color: var(--primary-color, #1890ff);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
   }
 
   &.disabled {
-    opacity: 0.6;
+    opacity: 0.5;
+
+    &:hover {
+      border-color: var(--border-color);
+      box-shadow: none;
+    }
   }
 
   .skill-header {
     display: flex;
     justify-content: space-between;
-    align-items: flex-start;
-    gap: 8px;
+    align-items: center;
+    gap: 12px;
   }
 
   .skill-info {
     display: flex;
-    gap: 10px;
-    align-items: flex-start;
+    gap: 12px;
+    align-items: center;
     flex: 1;
     min-width: 0;
   }
 
   .skill-icon {
-    width: 32px;
-    height: 32px;
-    background-color: var(--bg-color-octonary);
-    border-radius: 6px;
+    width: 36px;
+    height: 36px;
+    background: linear-gradient(135deg, var(--bg-color-quaternary), var(--bg-color-octonary));
+    border-radius: 8px;
     display: flex;
     align-items: center;
     justify-content: center;
     font-size: 16px;
-    color: var(--text-color-secondary);
+    color: var(--primary-color, #1890ff);
     flex-shrink: 0;
   }
 
@@ -667,34 +563,17 @@ const getActivationLabel = (activation?: string) => {
     min-width: 0;
   }
 
-  .skill-name-row {
-    display: flex;
-    align-items: center;
-    gap: 6px;
-    flex-wrap: wrap;
-    margin-bottom: 2px;
-  }
-
   .skill-name {
-    font-size: 13px;
+    font-size: 14px;
     font-weight: 500;
     color: var(--text-color);
-  }
-
-  .skill-version,
-  .skill-source,
-  .skill-author {
-    font-size: 11px;
-    color: var(--text-color-tertiary);
-    background-color: var(--bg-color-octonary);
-    padding: 0 5px;
-    border-radius: 3px;
+    margin-bottom: 4px;
   }
 
   .skill-description {
     color: var(--text-color-tertiary);
     font-size: 12px;
-    line-height: 1.4;
+    line-height: 1.5;
     overflow: hidden;
     text-overflow: ellipsis;
     display: -webkit-box;
@@ -710,54 +589,20 @@ const getActivationLabel = (activation?: string) => {
     flex-shrink: 0;
 
     .delete-btn {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      width: 28px;
+      height: 22px;
       color: var(--text-color-tertiary);
-      padding: 2px 4px;
+      padding: 0;
+      border-radius: 4px;
+      transition: all 0.2s ease;
 
       &:hover {
         color: #ff4d4f;
+        background-color: rgba(255, 77, 79, 0.1);
       }
-    }
-  }
-
-  .skill-footer {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    margin-top: 6px;
-    padding-top: 6px;
-    border-top: 1px solid var(--border-color);
-  }
-
-  .skill-tags {
-    display: flex;
-    gap: 4px;
-    flex-wrap: wrap;
-
-    :deep(.ant-tag) {
-      background-color: var(--bg-color-octonary);
-      border: none;
-      color: var(--text-color-tertiary);
-      font-size: 10px;
-      padding: 0 4px;
-      margin: 0;
-      line-height: 18px;
-    }
-  }
-
-  .skill-activation {
-    font-size: 11px;
-    color: var(--text-color-quaternary);
-    display: flex;
-    align-items: center;
-    gap: 4px;
-
-    .activation-value {
-      color: var(--text-color-tertiary);
-    }
-
-    .activation-patterns {
-      color: var(--text-color-quaternary);
-      font-style: italic;
     }
   }
 }
@@ -766,29 +611,43 @@ const getActivationLabel = (activation?: string) => {
 .skill-modal {
   :deep(.ant-modal-content) {
     background-color: var(--bg-color);
+    border-radius: 12px;
+    overflow: hidden;
   }
 
   :deep(.ant-modal-header) {
     background-color: var(--bg-color);
     border-bottom: 1px solid var(--border-color);
+    padding: 16px 20px;
   }
 
   :deep(.ant-modal-title) {
     color: var(--text-color);
+    font-weight: 600;
   }
 
   :deep(.ant-modal-close-x) {
     color: var(--text-color-tertiary);
   }
 
+  :deep(.ant-modal-body) {
+    padding: 20px;
+  }
+
   :deep(.ant-modal-footer) {
     border-top: 1px solid var(--border-color);
+    padding: 12px 20px;
   }
 }
 
 .skill-form {
+  :deep(.ant-form-item) {
+    margin-bottom: 16px;
+  }
+
   :deep(.ant-form-item-label > label) {
     color: var(--text-color-secondary);
+    font-weight: 500;
   }
 
   :deep(.ant-input),
@@ -796,36 +655,26 @@ const getActivationLabel = (activation?: string) => {
     background-color: var(--bg-color-secondary);
     border-color: var(--border-color);
     color: var(--text-color);
+    border-radius: 6px;
 
     &::placeholder {
       color: var(--text-color-quaternary);
     }
 
-    &:hover,
+    &:hover {
+      border-color: var(--primary-color, #1890ff);
+    }
+
     &:focus {
-      border-color: #1890ff;
+      border-color: var(--primary-color, #1890ff);
+      box-shadow: 0 0 0 2px rgba(24, 144, 255, 0.1);
     }
   }
 
-  :deep(.ant-select-selector) {
-    background-color: var(--bg-color-secondary) !important;
-    border-color: var(--border-color) !important;
-    color: var(--text-color);
-  }
-
-  :deep(.ant-select-arrow) {
-    color: var(--text-color-tertiary);
-  }
-
   .skill-content-textarea {
-    font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+    font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', 'Consolas', monospace;
     font-size: 13px;
-  }
-
-  .form-hint {
-    font-size: 12px;
-    color: var(--text-color-quaternary);
-    margin-top: 4px;
+    line-height: 1.6;
   }
 }
 
@@ -835,6 +684,6 @@ const getActivationLabel = (activation?: string) => {
 }
 
 :deep(.ant-switch.ant-switch-checked) {
-  background-color: #1890ff;
+  background: linear-gradient(135deg, #1890ff, #096dd9);
 }
 </style>
