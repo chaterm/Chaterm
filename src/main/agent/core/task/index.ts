@@ -3635,7 +3635,7 @@ SUDO_CHECK:${localSystemInfo.sudoCheck}`
         }
       }
 
-      console.log('[Skills] User message for context matching:', userMessage?.substring(0, 100))
+      console.log('[Skills] User message for context matching:', length, userMessage?.length ?? 0)
 
       const skillsPrompt = this.skillsManager.buildSkillsPrompt(userMessage)
       console.log('[Skills] Skills prompt length:', skillsPrompt?.length || 0)

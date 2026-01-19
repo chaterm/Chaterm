@@ -32,7 +32,14 @@ vi.mock('../../../../config/edition', () => ({
 }))
 
 // Mock fs/promises
-vi.mock('fs/promises')
+vi.mock('fs/promises', async () => {
+  const { fs } = await import('memfs')
+  return fs.promises
+})
+vi.mock('fs', async () => {
+  const { fs } = await import('memfs')
+  return fs
+})
 
 import * as fs from 'fs/promises'
 import { vol } from 'memfs'

@@ -1171,7 +1171,7 @@ describe('Skills Component', () => {
           description: 'Test',
           enabled: true,
           source: 'user',
-          icon: '🚀'
+          icon: 'rocket'
         }
       ]
       mockWindowApi.getSkills.mockResolvedValue(mockSkills)

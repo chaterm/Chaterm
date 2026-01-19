@@ -51,11 +51,11 @@ export class SkillsManager {
     if (this.initialized) return
 
     try {
-      // Load skills from all directories first (doesn't require user login)
-      await this.loadAllSkills()
-
-      // Try to load skill states from database (may fail if user not logged in)
+      // Try to load skill states first (may fail if user not logged in)
       await this.loadSkillStates()
+
+      // Load skills from all directories
+      await this.loadAllSkills()
 
       // Setup file watchers for skill directories
       await this.setupFileWatchers()
@@ -80,6 +80,7 @@ export class SkillsManager {
         skill.enabled = state.enabled
       }
     }
+    await this.notifySkillsUpdate()
     console.log(`[SkillsManager] Reloaded skill states for ${this.skillStates.size} skills`)
   }
 
