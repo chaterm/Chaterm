@@ -44,6 +44,7 @@ import { getLoginBaseUrl, getEdition, getProtocolPrefix, getProtocolName } from 
 import { TelemetrySetting } from '@shared/TelemetrySetting'
 import { registerKnowledgeBaseHandlers } from './services/knowledgebase'
 import type { WebviewMessage } from '@shared/WebviewMessage'
+import type { SkillMetadata } from '@shared/skills'
 
 let mainWindow: BrowserWindow
 let COOKIE_URL = 'http://localhost'
@@ -600,7 +601,7 @@ ipcMain.handle('skills:reload', async () => {
   }
 })
 
-ipcMain.handle('skills:create', async (_event, metadata: any, content: string) => {
+ipcMain.handle('skills:create', async (_event, metadata: SkillMetadata, content: string) => {
   try {
     if (controller && controller.skillsManager) {
       const skill = await controller.skillsManager.createUserSkill(metadata, content)
