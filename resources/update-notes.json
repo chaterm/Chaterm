@@ -2,6 +2,34 @@
   "releaseNotesUrl": "https://github.com/chaterm/Chaterm/releases/tag/v",
   "versions": [
     {
+      "version": "0.8.2",
+      "date": "2026-01-20",
+      "highlights": {
+        "zh-CN": [
+          "新增AWS EC2实例连接插件支持",
+          "新增堡垒机（Qizhi、UCloud）插件支持",
+          "新增个人知识库模块",
+          "支持Agent Skills",
+          "支持修改用户头像功能",
+          "国际版支持Apple ID登陆",
+          "新增多语言支持：德语、法语、意大利语、葡萄牙语、俄语、繁体中文",
+          "优化浅色主题颜色一致性",
+          "修复若干问题，提升应用稳定性"
+        ],
+        "en-US": [
+          "Add AWS EC2 instance connection plugin support",
+          "Add Bastion Host (Qizhi, UCloud) plugin support",
+          "Add personal knowledge base module",
+          "Support Agent Skills",
+          "Support modifying user avatars",
+          "International edition supports Apple ID login",
+          "Add multiple new languages: German, French, Italian, Portuguese, Russian, and Traditional Chinese",
+          "Optimize light theme color consistency",
+          "Fix several issues and improve application stability"
+        ]
+      }
+    },
+    {
       "version": "0.8.1",
       "date": "2026-01-12",
       "highlights": {
