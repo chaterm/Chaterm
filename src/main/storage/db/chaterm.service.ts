@@ -56,7 +56,7 @@ import {
   updateSkillConfigLogic,
   updateSkillLastUsedLogic,
   deleteSkillStateLogic,
-  getEnabledSkillIdsLogic
+  getEnabledSkillNamesLogic
 } from './chaterm/skills'
 import type { SkillState } from '../../agent/shared/skills'
 
@@ -427,13 +427,13 @@ export class ChatermDatabaseService {
   }
 
   /**
-   * Get enabled skill IDs
+   * Get enabled skill names
    */
-  getEnabledSkillIds(): string[] {
+  getEnabledSkillNames(): string[] {
     try {
-      return getEnabledSkillIdsLogic(this.db)
+      return getEnabledSkillNamesLogic(this.db)
     } catch (error) {
-      console.error('ChatermDatabaseService.getEnabledSkillIds error:', error)
+      console.error('ChatermDatabaseService.getEnabledSkillNames error:', error)
       return []
     }
   }

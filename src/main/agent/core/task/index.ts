@@ -3050,10 +3050,10 @@ export class Task {
   private async handleUseSkillToolUse(block: ToolUse): Promise<void> {
     const toolDescription = this.getToolDescription(block)
     try {
-      const skillId: string | undefined = block.params.skill_id
+      const skillName: string | undefined = block.params.name
 
-      if (!skillId) {
-        return this.handleMissingParam('skill_id', toolDescription)
+      if (!skillName) {
+        return this.handleMissingParam('name', toolDescription)
       }
 
       if (!this.skillsManager) {
@@ -3064,10 +3064,10 @@ export class Task {
         return
       }
 
-      const skill = this.skillsManager.getSkill(skillId)
+      const skill = this.skillsManager.getSkill(skillName)
 
       if (!skill) {
-        const errorMsg = `Skill "${skillId}" not found. Please check the available skills list.`
+        const errorMsg = `Skill "${skillName}" not found. Please check the available skills list.`
         await this.say('error', errorMsg)
         this.pushToolResult(toolDescription, formatResponse.toolError(errorMsg))
         await this.saveCheckpoint()
@@ -3075,7 +3075,7 @@ export class Task {
       }
 
       if (!skill.enabled) {
-        const errorMsg = `Skill "${skillId}" is disabled. Please enable it in settings first.`
+        const errorMsg = `Skill "${skillName}" is disabled. Please enable it in settings first.`
         await this.say('error', errorMsg)
         this.pushToolResult(toolDescription, formatResponse.toolError(errorMsg))
         await this.saveCheckpoint()
@@ -3108,7 +3108,7 @@ export class Task {
       this.pushToolResult(toolDescription, resultText)
 
       // Optionally show activation message in UI
-      await this.say('text', `Activated skill: ${skill.metadata.name}`, false)
+      await this.say('text', `Activated Skill: ${skill.metadata.name}`, false)
 
       await this.saveCheckpoint()
     } catch (error) {
@@ -3591,53 +3591,7 @@ SUDO_CHECK:${localSystemInfo.sudoCheck}`
     }
 
     try {
-      // Get the latest user message for context-match skill activation
-      // Priority: user_feedback > apiConversationHistory (latest user message) > text (initial task)
-      let userMessage: string | undefined
-
-      // First try user_feedback (follow-up messages)
-      for (let i = this.chatermMessages.length - 1; i >= 0; i--) {
-        const msg = this.chatermMessages[i]
-        if (msg.type === 'say' && msg.say === 'user_feedback' && msg.text) {
-          userMessage = msg.text
-          break
-        }
-      }
-
-      // Then try apiConversationHistory (most reliable source for user messages)
-      // This ensures we get the actual user input, not assistant responses
-      if (!userMessage && this.apiConversationHistory.length > 0) {
-        for (let i = this.apiConversationHistory.length - 1; i >= 0; i--) {
-          const msg = this.apiConversationHistory[i]
-          if (msg.role === 'user' && Array.isArray(msg.content)) {
-            for (const block of msg.content) {
-              if (block.type === 'text' && block.text) {
-                // Extract text from <task> tags if present
-                const taskMatch = block.text.match(/<task>\s*([\s\S]*?)\s*<\/task>/)
-                userMessage = taskMatch ? taskMatch[1] : block.text
-                break
-              }
-            }
-            if (userMessage) break
-          }
-        }
-      }
-
-      // Fallback: try 'text' type from chatermMessages (initial task message)
-      // Note: This may also match assistant responses, so it's only used as last resort
-      if (!userMessage) {
-        for (let i = this.chatermMessages.length - 1; i >= 0; i--) {
-          const msg = this.chatermMessages[i]
-          if (msg.type === 'say' && msg.say === 'text' && msg.text) {
-            userMessage = msg.text
-            break
-          }
-        }
-      }
-
-      console.log('[Skills] User message for context matching length:', userMessage?.length ?? 0)
-
-      const skillsPrompt = this.skillsManager.buildSkillsPrompt(userMessage)
+      const skillsPrompt = this.skillsManager.buildSkillsPrompt()
       console.log('[Skills] Skills prompt length:', skillsPrompt?.length || 0)
 
       if (skillsPrompt && skillsPrompt.trim()) {

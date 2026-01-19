@@ -186,13 +186,13 @@ Usage:
 </access_mcp_resource>
 
 ## use_skill
-Description: Request to activate an on-demand skill. Skills are reusable instruction sets that provide specialized knowledge and workflows for specific tasks. Unlike always-active skills, on-demand skills are loaded only when you explicitly call this tool. When activated, you will receive the full instructions for the skill which you should follow to complete the task.
-Available on-demand skills are listed in the "Available Skills" section. Each skill has a name and description - use the description to determine when to activate a skill. Once activated, the skill's detailed instructions will be returned and you should follow them.
+Description: Request to activate a skill. Skills are reusable instruction sets defined in SKILL.md files that provide specialized knowledge and workflows for specific tasks. When you call this tool with a skill name, you will receive the skill's detailed instructions and any associated resource files. You should then follow these instructions to complete the task.
+Available skills are listed in the "AVAILABLE SKILLS" section at the end of this prompt. Each skill has a name and description - use the description to determine when a skill is appropriate for the current task.
 Parameters:
-- skill_id: (required) The unique identifier of the skill to activate, as shown in the "Available Skills" section.
+- name: (required) The name of the skill to activate, exactly as shown in the "AVAILABLE SKILLS" section.
 Usage:
 <use_skill>
-<skill_id>skill-id-here</skill_id>
+<name>skill-name-here</name>
 </use_skill>
 
 # Tool Use Examples
@@ -521,13 +521,13 @@ export const SYSTEM_PROMPT_CN = `你是 Chaterm，一位拥有 20 年经验的�
 </access_mcp_resource>
 
 ## use_skill
-描述：请求激活一个按需技能。技能是为特定任务提供专业知识和工作流程的可重用指令集。与始终激活的技能不同，按需技能只有在您明确调用此工具时才会加载。激活后，您将收到该技能的完整说明，您应该遵循这些说明来完成任务。
-可用的按需技能列在"可用技能"部分中。每个技能都有名称和描述 - 使用描述来确定何时激活技能。激活后，将返回技能的详细说明，您应该遵循这些说明。
+描述：请求激活一个技能。技能是定义在 SKILL.md 文件中的可重用指令集，为特定任务提供专业知识和工作流程。当你使用技能名称调用此工具时，你将收到该技能的详细说明以及相关的资源文件。然后你应该按照这些说明来完成任务。
+可用的技能列在本提示末尾的"AVAILABLE SKILLS"部分。每个技能都有名称和描述 - 使用描述来判断某个技能是否适合当前任务。
 参数：
-- skill_id: (必需) 要激活的技能的唯一标识符，如"可用技能"部分所示。
+- name: (必需) 要激活的技能名称，必须与"AVAILABLE SKILLS"部分中显示的名称完全一致。
 用法：
 <use_skill>
-<skill_id>技能ID</skill_id>
+<name>技能名称</name>
 </use_skill>
 
 # 工具使用示例
