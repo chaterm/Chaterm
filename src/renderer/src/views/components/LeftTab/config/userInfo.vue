@@ -411,7 +411,7 @@
           <span class="zoom-label">-</span>
           <a-slider
             v-model:value="zoomValue"
-            :min="0.5"
+            :min="1"
             :max="2"
             :step="0.1"
             class="zoom-slider"
@@ -937,16 +937,15 @@ const handleAvatarChange = async (event: Event) => {
     img.onload = () => {
       // Calculate scale to fit preview area (400x400)
       // Make sure image fits within preview area, maintaining aspect ratio
-      const maxPreviewSize = previewSize * 2 // Allow 2x zoom, so max size should be 800px
+      const maxPreviewSize = previewSize // Max size should be 200px
       let width = img.width
       let height = img.height
 
-      // Scale down if image is too large
-      if (width > maxPreviewSize || height > maxPreviewSize) {
-        const scale = Math.min(maxPreviewSize / width, maxPreviewSize / height)
-        width = width * scale
-        height = height * scale
-      }
+      // Scale image to fit maxPreviewSize (upscale or downscale)
+      // Use Math.max to ensure the SHORTEST side fits the preview area (Cover mode)
+      const scale = Math.max(maxPreviewSize / width, maxPreviewSize / height)
+      width = width * scale
+      height = height * scale
 
       // Create canvas to resize image
       const canvas = document.createElement('canvas')
