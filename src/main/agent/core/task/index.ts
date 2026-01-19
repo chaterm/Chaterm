@@ -75,6 +75,7 @@ import { connectAssetInfo } from '../../../storage/database'
 import { getMessages, formatMessage, Messages } from './messages'
 import { decodeHtmlEntities } from '@utils/decodeHtmlEntities'
 import { McpHub } from '@services/mcp/McpHub'
+import { SkillsManager } from '@services/skills'
 import { ChatermDatabaseService } from '../../../storage/db/chaterm.service'
 import type { McpTool } from '@shared/mcp'
 
@@ -90,6 +91,7 @@ export class Task {
   private postMessageToWebview: (message: ExtensionMessage) => Promise<void>
   private reinitExistingTaskFromId: (taskId: string) => Promise<void>
   mcpHub: McpHub
+  skillsManager?: SkillsManager
 
   readonly taskId: string
   hosts: Host[]
@@ -171,6 +173,7 @@ export class Task {
     autoApprovalSettings: AutoApprovalSettings,
     hosts: Host[],
     mcpHub: McpHub,
+    skillsManager?: SkillsManager,
     customInstructions?: string,
     task?: string,
     historyItem?: HistoryItem,
@@ -182,6 +185,7 @@ export class Task {
     this.postMessageToWebview = postMessageToWebview
     this.reinitExistingTaskFromId = reinitExistingTaskFromId
     this.mcpHub = mcpHub
+    this.skillsManager = skillsManager
     this.remoteTerminalManager = new RemoteTerminalManager()
     this.localTerminalManager = LocalTerminalManager.getInstance()
     this.contextManager = new ContextManager()
@@ -2725,6 +2729,9 @@ export class Task {
       case 'access_mcp_resource':
         await this.handleAccessMcpResourceUse(block)
         break
+      case 'use_skill':
+        await this.handleUseSkillToolUse(block)
+        break
       default:
         console.error(`[Task] Unknown tool name: ${block.name}`)
     }
@@ -3033,6 +3040,79 @@ export class Task {
       await this.saveCheckpoint()
     } catch (error) {
       await this.handleToolError(toolDescription, 'accessing MCP resource', error as Error)
+      await this.saveCheckpoint()
+    }
+  }
+
+  /**
+   * Handle use_skill tool - activates an on-demand skill and returns its full instructions
+   */
+  private async handleUseSkillToolUse(block: ToolUse): Promise<void> {
+    const toolDescription = this.getToolDescription(block)
+    try {
+      const skillId: string | undefined = block.params.skill_id
+
+      if (!skillId) {
+        return this.handleMissingParam('skill_id', toolDescription)
+      }
+
+      if (!this.skillsManager) {
+        const errorMsg = 'Skills manager is not available'
+        await this.say('error', errorMsg)
+        this.pushToolResult(toolDescription, formatResponse.toolError(errorMsg))
+        await this.saveCheckpoint()
+        return
+      }
+
+      const skill = this.skillsManager.getSkill(skillId)
+
+      if (!skill) {
+        const errorMsg = `Skill "${skillId}" not found. Please check the available skills list.`
+        await this.say('error', errorMsg)
+        this.pushToolResult(toolDescription, formatResponse.toolError(errorMsg))
+        await this.saveCheckpoint()
+        return
+      }
+
+      if (!skill.enabled) {
+        const errorMsg = `Skill "${skillId}" is disabled. Please enable it in settings first.`
+        await this.say('error', errorMsg)
+        this.pushToolResult(toolDescription, formatResponse.toolError(errorMsg))
+        await this.saveCheckpoint()
+        return
+      }
+
+      // Build skill instructions response
+      let resultText = `# Skill Activated: ${skill.metadata.name}\n\n`
+      resultText += `**Description:** ${skill.metadata.description}\n\n`
+      resultText += `## Instructions\n\n`
+      resultText += skill.content
+      resultText += '\n\n'
+
+      // Include resource files content if available
+      if (skill.resources && skill.resources.length > 0) {
+        const resourcesWithContent = skill.resources.filter((r) => r.content)
+        if (resourcesWithContent.length > 0) {
+          resultText += `## Available Resources\n\n`
+          resultText += `The following resource files are available for this skill:\n\n`
+
+          for (const resource of resourcesWithContent) {
+            resultText += `### ${resource.name} (${resource.type})\n\n`
+            resultText += '```\n'
+            resultText += resource.content
+            resultText += '\n```\n\n'
+          }
+        }
+      }
+
+      this.pushToolResult(toolDescription, resultText)
+
+      // Optionally show activation message in UI
+      await this.say('text', `Activated skill: ${skill.metadata.name}`, false)
+
+      await this.saveCheckpoint()
+    } catch (error) {
+      await this.handleToolError(toolDescription, 'activating skill', error as Error)
       await this.saveCheckpoint()
     }
   }
@@ -3377,6 +3457,12 @@ SUDO_CHECK:${localSystemInfo.sudoCheck}`
       systemPrompt += '\n\n' + mcpSection
     }
 
+    // Build Skills section
+    const skillsSection = this.buildSkillsSection()
+    if (skillsSection) {
+      systemPrompt += '\n\n' + skillsSection
+    }
+
     const settingsCustomInstructions = this.customInstructions?.trim()
 
     const preferredLanguageInstructions = `# ${this.messages.languageSettingsTitle}:\n\n${formatMessage(this.messages.defaultLanguage, { language: userLanguage })}\n\n${this.messages.languageRules}`
@@ -3489,6 +3575,77 @@ SUDO_CHECK:${localSystemInfo.sudoCheck}`
       return `${sectionTitle}\n\n${sectionHeader}\n\n${serverDescriptions.join('\n')}`
     } catch (error) {
       console.error('Failed to build MCP tools section:', error)
+      return null
+    }
+  }
+
+  /**
+   * Build skills section for system prompt
+   */
+  private buildSkillsSection(): string | null {
+    console.log('[Skills] buildSkillsSection called, skillsManager exists:', !!this.skillsManager)
+
+    if (!this.skillsManager) {
+      console.log('[Skills] No skillsManager available')
+      return null
+    }
+
+    try {
+      // Get the latest user message for context-match skill activation
+      // Priority: user_feedback > apiConversationHistory (latest user message) > text (initial task)
+      let userMessage: string | undefined
+
+      // First try user_feedback (follow-up messages)
+      for (let i = this.chatermMessages.length - 1; i >= 0; i--) {
+        const msg = this.chatermMessages[i]
+        if (msg.type === 'say' && msg.say === 'user_feedback' && msg.text) {
+          userMessage = msg.text
+          break
+        }
+      }
+
+      // Then try apiConversationHistory (most reliable source for user messages)
+      // This ensures we get the actual user input, not assistant responses
+      if (!userMessage && this.apiConversationHistory.length > 0) {
+        for (let i = this.apiConversationHistory.length - 1; i >= 0; i--) {
+          const msg = this.apiConversationHistory[i]
+          if (msg.role === 'user' && Array.isArray(msg.content)) {
+            for (const block of msg.content) {
+              if (block.type === 'text' && block.text) {
+                // Extract text from <task> tags if present
+                const taskMatch = block.text.match(/<task>\s*([\s\S]*?)\s*<\/task>/)
+                userMessage = taskMatch ? taskMatch[1] : block.text
+                break
+              }
+            }
+            if (userMessage) break
+          }
+        }
+      }
+
+      // Fallback: try 'text' type from chatermMessages (initial task message)
+      // Note: This may also match assistant responses, so it's only used as last resort
+      if (!userMessage) {
+        for (let i = this.chatermMessages.length - 1; i >= 0; i--) {
+          const msg = this.chatermMessages[i]
+          if (msg.type === 'say' && msg.say === 'text' && msg.text) {
+            userMessage = msg.text
+            break
+          }
+        }
+      }
+
+      console.log('[Skills] User message for context matching length:', userMessage?.length ?? 0)
+
+      const skillsPrompt = this.skillsManager.buildSkillsPrompt(userMessage)
+      console.log('[Skills] Skills prompt length:', skillsPrompt?.length || 0)
+
+      if (skillsPrompt && skillsPrompt.trim()) {
+        return skillsPrompt
+      }
+      return null
+    } catch (error) {
+      console.error('Failed to build skills section:', error)
       return null
     }
   }
