@@ -5,6 +5,18 @@ import Database from 'better-sqlite3'
 import type { SkillState } from '../../../agent/shared/skills'
 
 /**
+ * Safely parse JSON config, returning undefined on parse errors
+ */
+const safeParseConfig = (config: string | null): Record<string, unknown> | undefined => {
+  if (!config) return undefined
+  try {
+    return JSON.parse(config) as Record<string, unknown>
+  } catch {
+    return undefined
+  }
+}
+
+/**
  * Get all skill states from database
  */
 export function getSkillStatesLogic(db: Database.Database): SkillState[] {
@@ -27,7 +39,7 @@ export function getSkillStatesLogic(db: Database.Database): SkillState[] {
     return rows.map((row) => ({
       skillId: row.skill_id,
       enabled: row.enabled === 1,
-      config: row.config ? JSON.parse(row.config) : undefined,
+      config: safeParseConfig(row.config),
       lastUsed: row.last_used ?? undefined
     }))
   } catch (error) {
@@ -63,7 +75,7 @@ export function getSkillStateLogic(db: Database.Database, skillId: string): Skil
     return {
       skillId: row.skill_id,
       enabled: row.enabled === 1,
-      config: row.config ? JSON.parse(row.config) : undefined,
+      config: safeParseConfig(row.config),
       lastUsed: row.last_used ?? undefined
     }
   } catch (error) {
