@@ -935,7 +935,7 @@ const handleAvatarChange = async (event: Event) => {
   reader.onload = (e) => {
     const img = new Image()
     img.onload = () => {
-      // Calculate scale to fit preview area (400x400)
+      // Calculate scale to fit preview area (200x200)
       // Make sure image fits within preview area, maintaining aspect ratio
       const maxPreviewSize = previewSize // Max size should be 200px
       let width = img.width
