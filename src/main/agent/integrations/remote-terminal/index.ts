@@ -44,6 +44,7 @@ export interface RemoteTerminalProcessEvents extends Record<string, any[]> {
 export interface ConnectionInfo {
   id?: string
   host?: string
+  hostname?: string
   port?: number
   username?: string
   assetUuid?: string
@@ -59,6 +60,10 @@ export interface ConnectionInfo {
   passphrase?: string
   asset_ip?: string
   targetIp?: string
+  /**
+   TargetHostname for complete target information is provided for use by the bastion host plugin
+  */
+  targetHostname?: string
   asset_type?: string
   sshType?: string
   needProxy: boolean
@@ -901,6 +906,7 @@ export class RemoteTerminalManager {
           privateKey: this.connectionInfo.privateKey,
           passphrase: this.connectionInfo.passphrase,
           targetIp: this.connectionInfo.host,
+          targetHostname: this.connectionInfo?.hostname || '', // Complete target information is provided for use by the bastion host plugin
           targetAsset: this.connectionInfo.host,
           needProxy: this.connectionInfo.needProxy || false,
           proxyName: this.connectionInfo.proxyName || '',

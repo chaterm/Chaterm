@@ -328,9 +328,11 @@ export async function refreshOrganizationAssetsLogic(
           console.log(`[${bastionType} Refresh] ${message}${current !== undefined ? ` (${current}/${total})` : ''}`)
         },
         onMfaRequired: keyboardInteractiveHandler
-          ? async () => {
+          ? async (promptFromPlugin?: string) => {
+              const prompt = (promptFromPlugin && promptFromPlugin.trim()) || 'MFA Token:'
+
               return new Promise((resolve) => {
-                keyboardInteractiveHandler([{ prompt: 'MFA Token:' }], (responses: string[]) => {
+                keyboardInteractiveHandler([{ prompt }], (responses: string[]) => {
                   resolve(responses?.[0] || null)
                 }).catch((error) => {
                   console.warn(`${bastionType} MFA handler error:`, error)
@@ -377,7 +379,9 @@ export async function refreshOrganizationAssetsLogic(
     `)
     const existingAssets = existingAssetsStmt.all(organizationUuid) || []
     console.log('Number of existing organization assets:', existingAssets.length)
-    const existingAssetsByHost = new Map(existingAssets.map((asset) => [asset.host, asset]))
+    const makeKey = (x: { address?: string; hostname?: string; name?: string; host?: string }) =>
+      `${x.host ?? x.address ?? ''}||${x.hostname ?? x.name ?? ''}`
+    const existingAssetsByHost = new Map(existingAssets.map((asset) => [makeKey(asset), asset]))
 
     // Use different update statement for plugin-based bastions (includes jump_server_type)
     const updateStmt = isPluginBased
@@ -404,7 +408,7 @@ export async function refreshOrganizationAssetsLogic(
     console.log(`Starting to process assets retrieved from ${bastionType}...`)
     for (const asset of assets) {
       currentAssetHosts.add(asset.address)
-      if (existingAssetsByHost.has(asset.address)) {
+      if (existingAssetsByHost.has(makeKey(asset))) {
         console.log(`Updating existing asset: ${asset.name} (${asset.address})`)
         if (isPluginBased) {
           updateStmt.run(asset.name, jumpServerType, organizationUuid, asset.address)

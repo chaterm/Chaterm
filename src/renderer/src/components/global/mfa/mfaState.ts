@@ -181,6 +181,9 @@ export const submitOtpCode = async () => {
     await api.submitKeyboardInteractiveResponse(currentOtpId.value, otpCode.value)
 
     console.log('OTP code submitted successfully')
+
+    // Reset status after successful input
+    resetOtpDialog()
   } catch (error) {
     console.error('Failed to submit OTP code:', error)
     showOtpDialogErr.value = true
