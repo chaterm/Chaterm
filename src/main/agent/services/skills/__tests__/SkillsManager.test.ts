@@ -368,6 +368,149 @@ describe('SkillsManager', () => {
 
       expect(matchedSkills.some((s) => s.metadata.id === 'git-skill')).toBe(false)
     })
+
+    it('should support regex patterns wrapped in slashes', async () => {
+      // Create a new manager instance to avoid conflicts with previous tests
+      const newManager = new SkillsManager()
+      const regexSkillContent = createSkillMdContent('regex-skill', 'Regex Skill', 'Regex helper', {
+        activation: 'context-match',
+        contextPatterns: ['/^error\\s+\\d+/']
+      })
+
+      setupMemfs({
+        '/tmp/test-user-data/skills/regex-skill/SKILL.md': regexSkillContent
+      })
+
+      await newManager.initialize()
+      await newManager.setSkillEnabled('regex-skill', true)
+
+      const matchedSkills = newManager.getContextMatchingSkills('error 404 not found')
+      expect(matchedSkills.some((s) => s.metadata.id === 'regex-skill')).toBe(true)
+
+      const notMatchedSkills = newManager.getContextMatchingSkills('no error here')
+      expect(notMatchedSkills.some((s) => s.metadata.id === 'regex-skill')).toBe(false)
+
+      await newManager.dispose()
+    })
+
+    it('should reject unsafe regex patterns during skill loading', async () => {
+      // Create a new manager instance to avoid conflicts with previous tests
+      const newManager = new SkillsManager()
+      // Create a skill with a ReDoS-vulnerable pattern
+      const unsafeSkillContent = createSkillMdContent('unsafe-skill', 'Unsafe Skill', 'Unsafe helper', {
+        activation: 'context-match',
+        contextPatterns: ['/(a+)+b/'] // Nested quantifiers - ReDoS pattern
+      })
+
+      setupMemfs({
+        '/tmp/test-user-data/skills/unsafe-skill/SKILL.md': unsafeSkillContent
+      })
+
+      await newManager.initialize()
+
+      // The skill should be rejected during validation and not loaded
+      const skill = newManager.getSkill('unsafe-skill')
+      expect(skill).toBeUndefined()
+
+      // Verify that no skills with unsafe patterns are loaded
+      const allSkills = newManager.getAllSkills()
+      expect(allSkills.some((s) => s.metadata.id === 'unsafe-skill')).toBe(false)
+
+      await newManager.dispose()
+    })
+  })
+
+  describe('validateMetadata - ReDoS protection', () => {
+    it('should reject nested quantifiers in regex patterns', () => {
+      const metadata = {
+        id: 'test-skill',
+        name: 'Test Skill',
+        description: 'Test',
+        version: '1.0.0',
+        activation: 'context-match' as const,
+        contextPatterns: ['/(a+)+b/'] // Nested quantifiers
+      }
+
+      const result = skillsManager.validateMetadata(metadata)
+      expect(result.valid).toBe(false)
+      expect(result.errors.some((e) => e.includes('Nested quantifiers'))).toBe(true)
+    })
+
+    it('should reject excessive nesting depth', () => {
+      const metadata = {
+        id: 'test-skill',
+        name: 'Test Skill',
+        description: 'Test',
+        version: '1.0.0',
+        activation: 'context-match' as const,
+        contextPatterns: ['/(((((a))))))/'] // Deep nesting (5 levels)
+      }
+
+      const result = skillsManager.validateMetadata(metadata)
+      expect(result.valid).toBe(false)
+      expect(result.errors.some((e) => e.includes('Excessive nesting depth'))).toBe(true)
+    })
+
+    it('should reject multiple consecutive quantifiers', () => {
+      const metadata = {
+        id: 'test-skill',
+        name: 'Test Skill',
+        description: 'Test',
+        version: '1.0.0',
+        activation: 'context-match' as const,
+        contextPatterns: ['/a+++/'] // Multiple consecutive quantifiers
+      }
+
+      const result = skillsManager.validateMetadata(metadata)
+      expect(result.valid).toBe(false)
+      expect(result.errors.some((e) => e.includes('Multiple consecutive quantifiers'))).toBe(true)
+    })
+
+    it('should reject patterns that are too long', () => {
+      const longPattern = '/a'.repeat(201) + '/'
+      const metadata = {
+        id: 'test-skill',
+        name: 'Test Skill',
+        description: 'Test',
+        version: '1.0.0',
+        activation: 'context-match' as const,
+        contextPatterns: [longPattern]
+      }
+
+      const result = skillsManager.validateMetadata(metadata)
+      expect(result.valid).toBe(false)
+      expect(result.errors.some((e) => e.includes('Pattern too long'))).toBe(true)
+    })
+
+    it('should accept safe regex patterns', () => {
+      const metadata = {
+        id: 'test-skill',
+        name: 'Test Skill',
+        description: 'Test',
+        version: '1.0.0',
+        activation: 'context-match' as const,
+        contextPatterns: ['/^error\\s+\\d+$/'] // Safe pattern
+      }
+
+      const result = skillsManager.validateMetadata(metadata)
+      expect(result.valid).toBe(true)
+      expect(result.errors.length).toBe(0)
+    })
+
+    it('should accept substring patterns (default, always safe)', () => {
+      const metadata = {
+        id: 'test-skill',
+        name: 'Test Skill',
+        description: 'Test',
+        version: '1.0.0',
+        activation: 'context-match' as const,
+        contextPatterns: ['docker', 'container'] // Substring patterns
+      }
+
+      const result = skillsManager.validateMetadata(metadata)
+      expect(result.valid).toBe(true)
+      expect(result.errors.length).toBe(0)
+    })
   })
 
   describe('buildSkillsPrompt', () => {

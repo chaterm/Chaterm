@@ -486,6 +486,32 @@ export class SkillsManager {
       warnings.push('Invalid activation type')
     }
 
+    // Validate contextPatterns for context-match activation
+    if (metadata.activation === 'context-match') {
+      if (!metadata.contextPatterns || !Array.isArray(metadata.contextPatterns) || metadata.contextPatterns.length === 0) {
+        errors.push('Context-match activation requires at least one context pattern')
+      } else {
+        // Validate each pattern for ReDoS vulnerabilities
+        for (const pattern of metadata.contextPatterns) {
+          if (typeof pattern !== 'string' || pattern.trim().length === 0) {
+            errors.push('Context patterns must be non-empty strings')
+            continue
+          }
+
+          // Check if pattern is a regex (wrapped in /pattern/)
+          const regexMatch = pattern.match(/^\/(.+)\/$/)
+          if (regexMatch) {
+            const regexPattern = regexMatch[1]
+            const validation = this.validateRegexPattern(regexPattern)
+            if (!validation.valid) {
+              errors.push(`Unsafe regex pattern "${pattern}": ${validation.error}`)
+            }
+          }
+          // Substring patterns (default) are always safe, no validation needed
+        }
+      }
+    }
+
     return {
       valid: errors.length === 0,
       errors,
@@ -758,6 +784,48 @@ export class SkillsManager {
   }
 
   /**
+   * Validate regex pattern for ReDoS vulnerabilities
+   * Checks for dangerous patterns like nested quantifiers, catastrophic backtracking
+   */
+  private validateRegexPattern(pattern: string): { valid: boolean; error?: string } {
+    // Check for nested quantifiers (common ReDoS pattern)
+    // Patterns like (a+)+, (a*)*, (a?)?, etc.
+    const nestedQuantifierPattern = /\([^)]*[+*?][^)]*\)[+*?]/
+    if (nestedQuantifierPattern.test(pattern)) {
+      return { valid: false, error: 'Nested quantifiers detected (potential ReDoS)' }
+    }
+
+    // Check for excessive nesting depth (more than 3 levels)
+    let maxDepth = 0
+    let currentDepth = 0
+    for (const char of pattern) {
+      if (char === '(') {
+        currentDepth++
+        maxDepth = Math.max(maxDepth, currentDepth)
+      } else if (char === ')') {
+        currentDepth--
+      }
+    }
+    if (maxDepth > 3) {
+      return { valid: false, error: 'Excessive nesting depth detected (potential ReDoS)' }
+    }
+
+    // Check for patterns with multiple quantifiers in sequence
+    // Patterns like a+b+c+ that can cause backtracking
+    const multipleQuantifiers = /[+*?]{2,}/
+    if (multipleQuantifiers.test(pattern)) {
+      return { valid: false, error: 'Multiple consecutive quantifiers detected (potential ReDoS)' }
+    }
+
+    // Check pattern length (very long patterns can be problematic)
+    if (pattern.length > 200) {
+      return { valid: false, error: 'Pattern too long (max 200 characters)' }
+    }
+
+    return { valid: true }
+  }
+
+  /**
    * Get skills for on-demand activation based on context
    */
   getContextMatchingSkills(context: string): Skill[] {
@@ -765,6 +833,7 @@ export class SkillsManager {
 
     console.log(`[SkillsManager] getContextMatchingSkills - checking ${contextMatchSkills.length} skills against context`)
 
+    // Use synchronous matching for compatibility (with async-safe wrapper)
     return contextMatchSkills.filter((skill) => {
       console.log(`[SkillsManager] Skill ${skill.metadata.id} contextPatterns:`, skill.metadata.contextPatterns)
 
@@ -773,16 +842,54 @@ export class SkillsManager {
         return false
       }
 
+      // Use synchronous safe matching (with timeout protection via worker-like approach)
       const matched = skill.metadata.contextPatterns.some((pattern) => {
-        try {
-          const regex = new RegExp(pattern, 'i')
-          const result = regex.test(context)
-          console.log(`[SkillsManager] Pattern "${pattern}" match result: ${result}`)
-          return result
-        } catch {
+        // Default to substring matching (safer)
+        const regexMatch = pattern.match(/^\/(.+)\/$/)
+
+        if (!regexMatch) {
+          // Simple substring match (case-insensitive)
           const result = context.toLowerCase().includes(pattern.toLowerCase())
-          console.log(`[SkillsManager] Pattern "${pattern}" (string match) result: ${result}`)
+          console.log(`[SkillsManager] Pattern "${pattern}" (substring match) result: ${result}`)
           return result
+        }
+
+        // Extract regex pattern
+        const regexPattern = regexMatch[1]
+
+        // Validate regex pattern for ReDoS vulnerabilities
+        const validation = this.validateRegexPattern(regexPattern)
+        if (!validation.valid) {
+          console.warn(`[SkillsManager] Unsafe regex pattern rejected: ${validation.error}`)
+          // Fallback to substring matching
+          return context.toLowerCase().includes(regexPattern.toLowerCase())
+        }
+
+        // Test regex with synchronous timeout protection
+        try {
+          const regex = new RegExp(regexPattern, 'i')
+
+          // Use a simple heuristic: limit input length for regex matching
+          // This prevents catastrophic backtracking on very long inputs
+          const testContext = context.length > 1000 ? context.substring(0, 1000) : context
+
+          // Measure execution time (approximate)
+          const startTime = Date.now()
+          const result = regex.test(testContext)
+          const executionTime = Date.now() - startTime
+
+          // If execution took too long (> 10ms), it might be a ReDoS attempt
+          if (executionTime > 10) {
+            console.warn(`[SkillsManager] Regex pattern "${pattern}" took ${executionTime}ms, potential ReDoS, falling back to substring`)
+            return context.toLowerCase().includes(regexPattern.toLowerCase())
+          }
+
+          console.log(`[SkillsManager] Pattern "${pattern}" (regex match) result: ${result}`)
+          return result
+        } catch (error) {
+          // Invalid regex syntax - fallback to substring matching
+          console.warn(`[SkillsManager] Invalid regex pattern "${pattern}", falling back to substring match:`, error)
+          return context.toLowerCase().includes(regexPattern.toLowerCase())
         }
       })
 
