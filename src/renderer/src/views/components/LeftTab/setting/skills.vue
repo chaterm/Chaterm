@@ -119,12 +119,15 @@
       @ok="createSkill"
     >
       <a-form
+        ref="skillFormRef"
         :model="newSkill"
         layout="vertical"
         class="skill-form"
       >
         <a-form-item
+          name="name"
           :label="$t('skills.skillName')"
+          :rules="skillNameRules"
           required
         >
           <a-input
@@ -178,12 +181,25 @@ const isReloading = ref(false)
 const isCreating = ref(false)
 const isImporting = ref(false)
 const createModalVisible = ref(false)
+const skillFormRef = ref()
 
 const newSkill = ref({
   name: '',
   description: '',
   content: ''
 })
+
+// Validation rules for skill name: only lowercase letters and hyphens
+const skillNameRules = [
+  {
+    required: true,
+    message: t('skills.skillNameRequired')
+  },
+  {
+    pattern: /^[a-z-]+$/,
+    message: t('skills.skillNameInvalidFormat')
+  }
+]
 
 let unsubscribeSkillsUpdate: (() => void) | null = null
 
@@ -326,12 +342,22 @@ const showCreateModal = () => {
     description: '',
     content: ''
   }
+  // Clear validation errors
+  skillFormRef.value?.resetFields()
   createModalVisible.value = true
 }
 
 const createSkill = async () => {
+  // Validate form
+  try {
+    await skillFormRef.value?.validate()
+  } catch (error) {
+    // Validation failed, error message will be shown by form
+    return
+  }
+
   // Validate required fields
-  if (!newSkill.value.name || !newSkill.value.description || !newSkill.value.content) {
+  if (!newSkill.value.description || !newSkill.value.content) {
     message.warning(t('skills.fillRequired'))
     return
   }
@@ -346,6 +372,8 @@ const createSkill = async () => {
     await window.api.createSkill(metadata, newSkill.value.content)
     await loadSkills()
     createModalVisible.value = false
+    // Reset form after successful creation
+    skillFormRef.value?.resetFields()
     message.success(t('skills.createSuccess'))
   } catch (error) {
     console.error('Failed to create skill:', error)
@@ -471,6 +499,7 @@ const confirmDeleteSkill = (skill: Skill) => {
 
   .ant-btn {
     margin-top: 8px;
+    color: var(--text-color);
   }
 }
 
