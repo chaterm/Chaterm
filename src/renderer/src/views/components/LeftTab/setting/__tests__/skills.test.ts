@@ -1182,7 +1182,7 @@ describe('Skills Component', () => {
 
       const skillItem = wrapper.find('.skill-item')
       expect(skillItem.find('.custom-icon').exists()).toBe(true)
-      expect(skillItem.find('.custom-icon').text()).toBe('🚀')
+      expect(skillItem.find('.custom-icon').text()).toBe('rocket')
     })
 
     it('should handle skill without tags', async () => {
