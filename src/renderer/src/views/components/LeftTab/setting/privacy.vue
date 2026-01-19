@@ -145,8 +145,13 @@ const userConfig = ref({
 const isUserLoggedIn = computed(() => {
   const token = localStorage.getItem('ctm-token')
   const isSkippedLogin = localStorage.getItem('login-skipped') === 'true'
-  const userInfo = getUserInfo()
-  return !!(token && token !== 'guest_token' && !isSkippedLogin && userInfo?.uid)
+  try {
+    const userInfo = getUserInfo()
+    return !!(token && token !== 'guest_token' && !isSkippedLogin && userInfo?.uid)
+  } catch (error) {
+    console.error('Failed to read user info:', error)
+    return false
+  }
 })
 
 const secretPatterns = computed(() => [
