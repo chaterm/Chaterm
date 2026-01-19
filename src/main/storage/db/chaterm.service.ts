@@ -49,6 +49,16 @@ import {
   getAllToolStatesLogic,
   deleteServerToolStatesLogic
 } from './chaterm/mcp-tool-state'
+import {
+  getSkillStatesLogic,
+  getSkillStateLogic,
+  setSkillStateLogic,
+  updateSkillConfigLogic,
+  updateSkillLastUsedLogic,
+  deleteSkillStateLogic,
+  getEnabledSkillIdsLogic
+} from './chaterm/skills'
+import type { SkillState } from '../../agent/shared/skills'
 
 export class ChatermDatabaseService {
   private static instances: Map<number, ChatermDatabaseService> = new Map()
@@ -340,6 +350,91 @@ export class ChatermDatabaseService {
     } catch (error) {
       console.error('ChatermDatabaseService.deleteServerMcpToolStates error:', error)
       throw error
+    }
+  }
+
+  // ==================== Skills State Management Methods ====================
+
+  /**
+   * Get all skill states
+   */
+  getSkillStates(): SkillState[] {
+    try {
+      return getSkillStatesLogic(this.db)
+    } catch (error) {
+      console.error('ChatermDatabaseService.getSkillStates error:', error)
+      return []
+    }
+  }
+
+  /**
+   * Get a specific skill state
+   */
+  getSkillState(skillId: string): SkillState | null {
+    try {
+      return getSkillStateLogic(this.db, skillId)
+    } catch (error) {
+      console.error('ChatermDatabaseService.getSkillState error:', error)
+      return null
+    }
+  }
+
+  /**
+   * Set skill enabled state
+   */
+  setSkillState(skillId: string, enabled: boolean): void {
+    try {
+      setSkillStateLogic(this.db, skillId, enabled)
+    } catch (error) {
+      console.error('ChatermDatabaseService.setSkillState error:', error)
+      throw error
+    }
+  }
+
+  /**
+   * Update skill config
+   */
+  updateSkillConfig(skillId: string, config: Record<string, unknown>): void {
+    try {
+      updateSkillConfigLogic(this.db, skillId, config)
+    } catch (error) {
+      console.error('ChatermDatabaseService.updateSkillConfig error:', error)
+      throw error
+    }
+  }
+
+  /**
+   * Update skill last used timestamp
+   */
+  updateSkillLastUsed(skillId: string): void {
+    try {
+      updateSkillLastUsedLogic(this.db, skillId)
+    } catch (error) {
+      console.error('ChatermDatabaseService.updateSkillLastUsed error:', error)
+    }
+  }
+
+  /**
+   * Delete skill state
+   */
+  deleteSkillState(skillId: string): void {
+    try {
+      deleteSkillStateLogic(this.db, skillId)
+    } catch (error) {
+      console.error('ChatermDatabaseService.deleteSkillState error:', error)
+      throw error
+    }
+  }
+
+  /**
+   * Get enabled skill IDs
+   */
+  getEnabledSkillIds(): string[] {
+    try {
+      return getEnabledSkillIdsLogic(this.db)
+    } catch (error) {
+      console.error('ChatermDatabaseService.getEnabledSkillIds error:', error)
+      return []
     }
   }
 

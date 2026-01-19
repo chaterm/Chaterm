@@ -20,6 +20,15 @@ import { userConfigStore } from '@/services/userConfigStoreService'
 import { dataSyncService } from '@/services/dataSyncService'
 import { getPrivacyPolicyUrl } from '@/utils/edition'
 
+// Test constants
+const DEFAULT_CONFIG = {
+  secretRedaction: 'enabled',
+  dataSync: 'enabled',
+  telemetry: 'enabled'
+}
+
+const PRIVACY_URL = 'https://example.com/privacy'
+
 // Mock ant-design-vue components
 vi.mock('ant-design-vue', () => ({
   notification: {
@@ -28,7 +37,7 @@ vi.mock('ant-design-vue', () => ({
   }
 }))
 
-// Mock i18n
+// Mock i18n translations
 const mockTranslations: Record<string, string> = {
   'user.privacy': '隐私',
   'user.telemetry': '遥测',
@@ -77,9 +86,7 @@ const mockTranslations: Record<string, string> = {
   'user.fireworksApiKey': 'Fireworks API Key'
 }
 
-const mockT = (key: string) => {
-  return mockTranslations[key] || key
-}
+const mockT = (key: string) => mockTranslations[key] || key
 
 vi.mock('vue-i18n', () => ({
   useI18n: () => ({
@@ -105,18 +112,32 @@ vi.mock('@/services/dataSyncService', () => ({
 
 // Mock edition utils
 vi.mock('@/utils/edition', () => ({
-  getPrivacyPolicyUrl: vi.fn(() => 'https://example.com/privacy')
+  getPrivacyPolicyUrl: vi.fn(() => PRIVACY_URL)
+}))
+
+// Mock permission utils
+vi.mock('@/utils/permission', () => ({
+  getUserInfo: vi.fn(() => ({ uid: 'test-uid' }))
 }))
 
 // Mock window.api
 const mockWindowApi = {
-  sendToMain: vi.fn()
+  sendToMain: vi.fn(),
+  kvGet: vi.fn()
 }
 
 describe('Privacy Component', () => {
   let wrapper: VueWrapper<any>
   let pinia: ReturnType<typeof createPinia>
 
+  // Helper function to wait for component updates
+  const waitForUpdates = async (count = 2) => {
+    for (let i = 0; i < count; i++) {
+      await nextTick()
+    }
+  }
+
+  // Helper function to create component wrapper
   const createWrapper = (options = {}) => {
     return mount(PrivacyComponent, {
       global: {
@@ -159,6 +180,15 @@ describe('Privacy Component', () => {
     })
   }
 
+  // Helper function to setup localStorage mock
+  const setupLocalStorage = (token: string | null = 'test-token', skipLogin = false) => {
+    Storage.prototype.getItem = vi.fn((key: string) => {
+      if (key === 'ctm-token') return token
+      if (key === 'login-skipped') return skipLogin ? 'true' : null
+      return null
+    })
+  }
+
   beforeEach(() => {
     // Setup Pinia
     pinia = createPinia()
@@ -168,21 +198,21 @@ describe('Privacy Component', () => {
     global.window = global.window || ({} as Window & typeof globalThis)
     ;(global.window as unknown as { api: typeof mockWindowApi }).api = mockWindowApi
 
+    // Setup localStorage mock (default: logged in)
+    setupLocalStorage('test-token', false)
+
     // Reset all mocks
     vi.clearAllMocks()
 
     // Setup default mock return values
-    ;(userConfigStore.getConfig as ReturnType<typeof vi.fn>).mockResolvedValue({
-      secretRedaction: 'enabled',
-      dataSync: 'enabled',
-      telemetry: 'enabled'
-    })
+    ;(userConfigStore.getConfig as ReturnType<typeof vi.fn>).mockResolvedValue(DEFAULT_CONFIG)
     ;(userConfigStore.saveConfig as ReturnType<typeof vi.fn>).mockResolvedValue(undefined)
     ;(dataSyncService.enableDataSync as ReturnType<typeof vi.fn>).mockResolvedValue(true)
     ;(dataSyncService.disableDataSync as ReturnType<typeof vi.fn>).mockResolvedValue(true)
     mockWindowApi.sendToMain.mockResolvedValue(undefined)
+    mockWindowApi.kvGet.mockResolvedValue({ value: JSON.stringify({}) })
 
-    // Clear console output for cleaner test results
+    // Suppress console output for cleaner test results
     vi.spyOn(console, 'log').mockImplementation(() => {})
     vi.spyOn(console, 'error').mockImplementation(() => {})
   })
@@ -196,7 +226,7 @@ describe('Privacy Component', () => {
   describe('Component Mounting', () => {
     it('should mount successfully', async () => {
       wrapper = createWrapper()
-      await nextTick()
+      await waitForUpdates(1)
 
       expect(wrapper.exists()).toBe(true)
       expect(wrapper.find('.userInfo').exists()).toBe(true)
@@ -204,8 +234,7 @@ describe('Privacy Component', () => {
 
     it('should load saved config on mount', async () => {
       wrapper = createWrapper()
-      await nextTick()
-      await nextTick()
+      await waitForUpdates()
 
       expect(userConfigStore.getConfig).toHaveBeenCalled()
     })
@@ -214,8 +243,7 @@ describe('Privacy Component', () => {
       ;(userConfigStore.getConfig as ReturnType<typeof vi.fn>).mockResolvedValue(null)
 
       wrapper = createWrapper()
-      await nextTick()
-      await nextTick()
+      await waitForUpdates()
 
       const vm = wrapper.vm as any
       expect(vm.userConfig.secretRedaction).toBe('disabled')
@@ -223,13 +251,12 @@ describe('Privacy Component', () => {
       expect(vm.userConfig.telemetry).toBe('enabled')
     })
 
-    it('should handle config load errors', async () => {
+    it('should handle config load errors gracefully', async () => {
       const error = new Error('Load failed')
       ;(userConfigStore.getConfig as ReturnType<typeof vi.fn>).mockRejectedValue(error)
 
       wrapper = createWrapper()
-      await nextTick()
-      await nextTick()
+      await waitForUpdates()
 
       expect(notification.error).toHaveBeenCalledWith({
         message: mockTranslations['user.loadConfigFailed'],
@@ -238,20 +265,22 @@ describe('Privacy Component', () => {
     })
 
     it('should merge saved config with defaults', async () => {
-      ;(userConfigStore.getConfig as ReturnType<typeof vi.fn>).mockResolvedValue({
+      const savedConfig = {
         secretRedaction: 'disabled',
         dataSync: 'disabled',
         telemetry: 'disabled'
+      }
+      ;(userConfigStore.getConfig as ReturnType<typeof vi.fn>).mockResolvedValue(savedConfig)
+      // Mock kvGet to return the same config
+      mockWindowApi.kvGet.mockResolvedValue({
+        value: JSON.stringify({ dataSync: 'disabled' })
       })
 
       wrapper = createWrapper()
-      await nextTick()
-      await nextTick()
+      await waitForUpdates()
 
       const vm = wrapper.vm as any
-      expect(vm.userConfig.secretRedaction).toBe('disabled')
-      expect(vm.userConfig.dataSync).toBe('disabled')
-      expect(vm.userConfig.telemetry).toBe('disabled')
+      expect(vm.userConfig).toMatchObject(savedConfig)
     })
 
     it('should use default values when saved config has missing fields', async () => {
@@ -261,8 +290,7 @@ describe('Privacy Component', () => {
       })
 
       wrapper = createWrapper()
-      await nextTick()
-      await nextTick()
+      await waitForUpdates()
 
       const vm = wrapper.vm as any
       expect(vm.userConfig.secretRedaction).toBe('enabled')
@@ -274,8 +302,7 @@ describe('Privacy Component', () => {
   describe('Telemetry Settings', () => {
     beforeEach(async () => {
       wrapper = createWrapper()
-      await nextTick()
-      await nextTick()
+      await waitForUpdates()
     })
 
     it('should render telemetry radio group', () => {
@@ -283,7 +310,7 @@ describe('Privacy Component', () => {
       expect(radioGroups.length).toBeGreaterThan(0)
     })
 
-    it('should change telemetry to enabled', async () => {
+    it('should update telemetry to enabled and notify main process', async () => {
       const vm = wrapper.vm as any
       vm.userConfig.telemetry = 'enabled'
       await nextTick()
@@ -297,7 +324,7 @@ describe('Privacy Component', () => {
       expect(userConfigStore.saveConfig).toHaveBeenCalled()
     })
 
-    it('should change telemetry to disabled', async () => {
+    it('should update telemetry to disabled and notify main process', async () => {
       const vm = wrapper.vm as any
       vm.userConfig.telemetry = 'disabled'
       await nextTick()
@@ -311,7 +338,7 @@ describe('Privacy Component', () => {
       expect(userConfigStore.saveConfig).toHaveBeenCalled()
     })
 
-    it('should handle telemetry update errors', async () => {
+    it('should handle telemetry update errors and show notification', async () => {
       const error = new Error('Update failed')
       mockWindowApi.sendToMain.mockRejectedValue(error)
 
@@ -341,8 +368,7 @@ describe('Privacy Component', () => {
   describe('Secret Redaction Settings', () => {
     beforeEach(async () => {
       wrapper = createWrapper()
-      await nextTick()
-      await nextTick()
+      await waitForUpdates()
     })
 
     it('should render secret redaction radio group', () => {
@@ -350,7 +376,7 @@ describe('Privacy Component', () => {
       expect(radioGroups.length).toBeGreaterThan(0)
     })
 
-    it('should change secret redaction to enabled', async () => {
+    it('should enable secret redaction and save config', async () => {
       const vm = wrapper.vm as any
       vm.userConfig.secretRedaction = 'enabled'
       await nextTick()
@@ -360,7 +386,7 @@ describe('Privacy Component', () => {
       expect(userConfigStore.saveConfig).toHaveBeenCalled()
     })
 
-    it('should change secret redaction to disabled', async () => {
+    it('should disable secret redaction and save config', async () => {
       const vm = wrapper.vm as any
       vm.userConfig.secretRedaction = 'disabled'
       await nextTick()
@@ -385,19 +411,18 @@ describe('Privacy Component', () => {
       await nextTick()
 
       // When disabled, the collapse should not be rendered (v-if condition)
-      const vmInternal = wrapper.vm as any
-      expect(vmInternal.userConfig.secretRedaction).toBe('disabled')
+      expect(vm.userConfig.secretRedaction).toBe('disabled')
     })
 
-    it('should display all secret patterns', async () => {
+    it('should display all secret patterns with correct structure', async () => {
       const vm = wrapper.vm as any
-      vm.userConfig.secretRedaction = 'enabled'
-      await nextTick()
-
       const patterns = vm.secretPatterns
+
       expect(patterns.length).toBeGreaterThan(0)
       expect(patterns[0]).toHaveProperty('name')
       expect(patterns[0]).toHaveProperty('regex')
+      expect(typeof patterns[0].name).toBe('string')
+      expect(typeof patterns[0].regex).toBe('string')
     })
 
     it('should include all expected pattern types', async () => {
@@ -416,8 +441,7 @@ describe('Privacy Component', () => {
   describe('Data Sync Settings', () => {
     beforeEach(async () => {
       wrapper = createWrapper()
-      await nextTick()
-      await nextTick()
+      await waitForUpdates()
     })
 
     it('should render data sync radio group', () => {
@@ -425,7 +449,7 @@ describe('Privacy Component', () => {
       expect(radioGroups.length).toBeGreaterThan(0)
     })
 
-    it('should enable data sync when enabled option is selected', async () => {
+    it('should enable data sync and show success notification', async () => {
       const vm = wrapper.vm as any
       vm.userConfig.dataSync = 'enabled'
       await nextTick()
@@ -434,9 +458,13 @@ describe('Privacy Component', () => {
 
       expect(dataSyncService.enableDataSync).toHaveBeenCalled()
       expect(userConfigStore.saveConfig).toHaveBeenCalled()
+      expect(notification.success).toHaveBeenCalledWith({
+        message: mockTranslations['user.dataSyncUpdateSuccess'],
+        description: mockTranslations['user.dataSyncEnabledSuccess']
+      })
     })
 
-    it('should disable data sync when disabled option is selected', async () => {
+    it('should disable data sync and show success notification', async () => {
       const vm = wrapper.vm as any
       vm.userConfig.dataSync = 'disabled'
       await nextTick()
@@ -445,28 +473,6 @@ describe('Privacy Component', () => {
 
       expect(dataSyncService.disableDataSync).toHaveBeenCalled()
       expect(userConfigStore.saveConfig).toHaveBeenCalled()
-    })
-
-    it('should show success notification when data sync is enabled successfully', async () => {
-      const vm = wrapper.vm as any
-      vm.userConfig.dataSync = 'enabled'
-      await nextTick()
-
-      await vm.changeDataSync()
-
-      expect(notification.success).toHaveBeenCalledWith({
-        message: mockTranslations['user.dataSyncUpdateSuccess'],
-        description: mockTranslations['user.dataSyncEnabledSuccess']
-      })
-    })
-
-    it('should show success notification when data sync is disabled successfully', async () => {
-      const vm = wrapper.vm as any
-      vm.userConfig.dataSync = 'disabled'
-      await nextTick()
-
-      await vm.changeDataSync()
-
       expect(notification.success).toHaveBeenCalledWith({
         message: mockTranslations['user.dataSyncUpdateSuccess'],
         description: mockTranslations['user.dataSyncDisabledSuccess']
@@ -503,7 +509,7 @@ describe('Privacy Component', () => {
       })
     })
 
-    it('should handle data sync errors', async () => {
+    it('should handle data sync service errors gracefully', async () => {
       const error = new Error('Sync failed')
       ;(dataSyncService.enableDataSync as ReturnType<typeof vi.fn>).mockRejectedValue(error)
 
@@ -523,15 +529,15 @@ describe('Privacy Component', () => {
   describe('Config Saving', () => {
     beforeEach(async () => {
       wrapper = createWrapper()
-      await nextTick()
-      await nextTick()
+      await waitForUpdates()
     })
 
     it('should save config when userConfig changes', async () => {
       const vm = wrapper.vm as any
+      vi.mocked(userConfigStore.saveConfig).mockClear()
+
       vm.userConfig.secretRedaction = 'disabled'
-      await nextTick()
-      await nextTick() // Wait for watcher
+      await waitForUpdates()
 
       expect(userConfigStore.saveConfig).toHaveBeenCalled()
     })
@@ -541,8 +547,7 @@ describe('Privacy Component', () => {
       vm.userConfig.secretRedaction = 'enabled'
       vm.userConfig.dataSync = 'enabled'
       vm.userConfig.telemetry = 'enabled'
-      await nextTick()
-      await nextTick()
+      await waitForUpdates()
 
       const saveCall = vi.mocked(userConfigStore.saveConfig).mock.calls[0]?.[0] as any
       expect(saveCall).toHaveProperty('secretRedaction')
@@ -550,14 +555,13 @@ describe('Privacy Component', () => {
       expect(saveCall).toHaveProperty('telemetry')
     })
 
-    it('should handle save config errors', async () => {
+    it('should handle save config errors and show notification', async () => {
       const error = new Error('Save failed')
       ;(userConfigStore.saveConfig as ReturnType<typeof vi.fn>).mockRejectedValue(error)
 
       const vm = wrapper.vm as any
       vm.userConfig.secretRedaction = 'disabled'
-      await nextTick()
-      await nextTick()
+      await waitForUpdates()
 
       expect(notification.error).toHaveBeenCalledWith({
         message: mockTranslations['user.error'],
@@ -567,44 +571,41 @@ describe('Privacy Component', () => {
   })
 
   describe('Privacy Policy Link', () => {
-    it('should display privacy policy URL', async () => {
+    it('should call getPrivacyPolicyUrl on mount', async () => {
       wrapper = createWrapper()
-      await nextTick()
+      await waitForUpdates(1)
 
       expect(getPrivacyPolicyUrl).toHaveBeenCalled()
     })
 
     it('should render privacy policy link with correct href', async () => {
       wrapper = createWrapper()
-      await nextTick()
+      await waitForUpdates(1)
 
       const vm = wrapper.vm as any
-      expect(vm.privacyUrl).toBe('https://example.com/privacy')
+      expect(vm.privacyUrl).toBe(PRIVACY_URL)
     })
   })
 
   describe('Secret Patterns', () => {
     beforeEach(async () => {
       wrapper = createWrapper()
-      await nextTick()
-      await nextTick()
+      await waitForUpdates()
     })
 
-    it('should compute secret patterns correctly', async () => {
+    it('should compute secret patterns with correct structure', async () => {
       const vm = wrapper.vm as any
       const patterns = vm.secretPatterns
 
       expect(Array.isArray(patterns)).toBe(true)
       expect(patterns.length).toBeGreaterThan(0)
-
-      // Check first pattern structure
       expect(patterns[0]).toHaveProperty('name')
       expect(patterns[0]).toHaveProperty('regex')
       expect(typeof patterns[0].name).toBe('string')
       expect(typeof patterns[0].regex).toBe('string')
     })
 
-    it('should include IPv4 pattern', async () => {
+    it('should include IPv4 address pattern', async () => {
       const vm = wrapper.vm as any
       const patterns = vm.secretPatterns
       const ipv4Pattern = patterns.find((p: any) => p.name === 'IPv4 地址')
@@ -613,7 +614,7 @@ describe('Privacy Component', () => {
       expect(ipv4Pattern.regex).toContain('25[0-5]')
     })
 
-    it('should include IPv6 pattern', async () => {
+    it('should include IPv6 address pattern', async () => {
       const vm = wrapper.vm as any
       const patterns = vm.secretPatterns
       const ipv6Pattern = patterns.find((p: any) => p.name === 'IPv6 地址')
@@ -622,7 +623,7 @@ describe('Privacy Component', () => {
       expect(ipv6Pattern.regex).toContain('0-9A-Fa-f')
     })
 
-    it('should include API key patterns', async () => {
+    it('should include API key patterns for OpenAI and Anthropic', async () => {
       const vm = wrapper.vm as any
       const patterns = vm.secretPatterns
       const openaiPattern = patterns.find((p: any) => p.name === 'OpenAI API Key')
@@ -650,17 +651,15 @@ describe('Privacy Component', () => {
   describe('Watch Functionality', () => {
     beforeEach(async () => {
       wrapper = createWrapper()
-      await nextTick()
-      await nextTick()
+      await waitForUpdates()
     })
 
-    it('should trigger saveConfig when userConfig changes', async () => {
+    it('should trigger saveConfig when secretRedaction changes', async () => {
       const vm = wrapper.vm as any
       vi.mocked(userConfigStore.saveConfig).mockClear()
 
       vm.userConfig.secretRedaction = 'disabled'
-      await nextTick()
-      await nextTick()
+      await waitForUpdates()
 
       expect(userConfigStore.saveConfig).toHaveBeenCalled()
     })
@@ -670,8 +669,7 @@ describe('Privacy Component', () => {
       vi.mocked(userConfigStore.saveConfig).mockClear()
 
       vm.userConfig.dataSync = 'disabled'
-      await nextTick()
-      await nextTick()
+      await waitForUpdates()
 
       expect(userConfigStore.saveConfig).toHaveBeenCalled()
     })
@@ -681,20 +679,18 @@ describe('Privacy Component', () => {
       vi.mocked(userConfigStore.saveConfig).mockClear()
 
       vm.userConfig.telemetry = 'disabled'
-      await nextTick()
-      await nextTick()
+      await waitForUpdates()
 
       expect(userConfigStore.saveConfig).toHaveBeenCalled()
     })
   })
 
   describe('Edge Cases', () => {
-    it('should handle empty config object', async () => {
+    it('should handle empty config object with defaults', async () => {
       ;(userConfigStore.getConfig as ReturnType<typeof vi.fn>).mockResolvedValue({})
 
       wrapper = createWrapper()
-      await nextTick()
-      await nextTick()
+      await waitForUpdates()
 
       const vm = wrapper.vm as any
       expect(vm.userConfig).toBeDefined()
@@ -703,18 +699,20 @@ describe('Privacy Component', () => {
       expect(vm.userConfig.telemetry).toBe('unset')
     })
 
-    it('should handle null config', async () => {
+    it('should handle null config gracefully', async () => {
       ;(userConfigStore.getConfig as ReturnType<typeof vi.fn>).mockResolvedValue(null)
 
       wrapper = createWrapper()
-      await nextTick()
-      await nextTick()
+      await waitForUpdates()
 
       const vm = wrapper.vm as any
       expect(vm.userConfig).toBeDefined()
+      expect(vm.userConfig.secretRedaction).toBe('disabled')
+      expect(vm.userConfig.dataSync).toBe('enabled')
+      expect(vm.userConfig.telemetry).toBe('enabled')
     })
 
-    it('should handle undefined config values gracefully', async () => {
+    it('should handle undefined config values with defaults', async () => {
       ;(userConfigStore.getConfig as ReturnType<typeof vi.fn>).mockResolvedValue({
         secretRedaction: undefined,
         dataSync: undefined,
@@ -722,8 +720,7 @@ describe('Privacy Component', () => {
       })
 
       wrapper = createWrapper()
-      await nextTick()
-      await nextTick()
+      await waitForUpdates()
 
       const vm = wrapper.vm as any
       expect(vm.userConfig.secretRedaction).toBe('enabled') // default
@@ -733,8 +730,7 @@ describe('Privacy Component', () => {
 
     it('should handle multiple rapid config changes', async () => {
       wrapper = createWrapper()
-      await nextTick()
-      await nextTick()
+      await waitForUpdates()
 
       const vm = wrapper.vm as any
       vi.mocked(userConfigStore.saveConfig).mockClear()
@@ -742,10 +738,9 @@ describe('Privacy Component', () => {
       vm.userConfig.secretRedaction = 'disabled'
       vm.userConfig.dataSync = 'disabled'
       vm.userConfig.telemetry = 'disabled'
-      await nextTick()
-      await nextTick()
+      await waitForUpdates()
 
-      // Should have been called (watcher may batch or call multiple times)
+      // Watcher should trigger saveConfig
       expect(userConfigStore.saveConfig).toHaveBeenCalled()
     })
   })
@@ -753,23 +748,61 @@ describe('Privacy Component', () => {
   describe('Component Cleanup', () => {
     it('should unmount without errors', async () => {
       wrapper = createWrapper()
-      await nextTick()
+      await waitForUpdates(1)
 
       expect(() => wrapper.unmount()).not.toThrow()
     })
   })
 
+  describe('User Login State', () => {
+    it('should show data sync options when user is logged in', async () => {
+      setupLocalStorage('test-token', false)
+      wrapper = createWrapper()
+      await waitForUpdates()
+
+      const vm = wrapper.vm as any
+      expect(vm.isUserLoggedIn).toBe(true)
+    })
+
+    it('should hide data sync options when user is not logged in', async () => {
+      setupLocalStorage(null, false)
+      wrapper = createWrapper()
+      await waitForUpdates()
+
+      const vm = wrapper.vm as any
+      expect(vm.isUserLoggedIn).toBe(false)
+    })
+
+    it('should hide data sync options when login is skipped', async () => {
+      setupLocalStorage('test-token', true)
+      wrapper = createWrapper()
+      await waitForUpdates()
+
+      const vm = wrapper.vm as any
+      expect(vm.isUserLoggedIn).toBe(false)
+    })
+
+    it('should hide data sync options when token is guest_token', async () => {
+      setupLocalStorage('guest_token', false)
+      wrapper = createWrapper()
+      await waitForUpdates()
+
+      const vm = wrapper.vm as any
+      expect(vm.isUserLoggedIn).toBe(false)
+    })
+  })
+
   describe('Integration Tests', () => {
     it('should complete full flow: load config -> change telemetry -> save', async () => {
-      ;(userConfigStore.getConfig as ReturnType<typeof vi.fn>).mockResolvedValue({
+      const initialConfig = {
         secretRedaction: 'enabled',
         dataSync: 'enabled',
         telemetry: 'enabled'
-      })
+      }
+      ;(userConfigStore.getConfig as ReturnType<typeof vi.fn>).mockResolvedValue(initialConfig)
 
       wrapper = createWrapper()
-      await nextTick()
-      await nextTick()
+      await waitForUpdates()
 
       const vm = wrapper.vm as any
       vm.userConfig.telemetry = 'disabled'
@@ -786,15 +819,15 @@ describe('Privacy Component', () => {
     })
 
     it('should complete full flow: load config -> enable data sync -> save', async () => {
-      ;(userConfigStore.getConfig as ReturnType<typeof vi.fn>).mockResolvedValue({
+      const initialConfig = {
         secretRedaction: 'enabled',
         dataSync: 'disabled',
         telemetry: 'enabled'
-      })
+      }
+      ;(userConfigStore.getConfig as ReturnType<typeof vi.fn>).mockResolvedValue(initialConfig)
 
       wrapper = createWrapper()
-      await nextTick()
-      await nextTick()
+      await waitForUpdates()
 
       const vm = wrapper.vm as any
       vm.userConfig.dataSync = 'enabled'

@@ -37,7 +37,8 @@ const urls = {
   sendEmailBindCode: '/user/bind-email/send-code',
   verifyAndBindEmail: '/user/bind-email/verify',
   sendMobileBindCode: '/user/bind-mobile/send-code',
-  verifyAndBindMobile: '/user/bind-mobile/verify'
+  verifyAndBindMobile: '/user/bind-mobile/verify',
+  updateAvatar: '/user/avatar/update'
 }
 export function sendEmailCode(params) {
   return request({
@@ -230,6 +231,14 @@ export function verifyAndBindMobile(params) {
   return request({
     method: 'post',
     url: urls.verifyAndBindMobile,
+    data: params
+  })
+}
+
+export function updateAvatar(params) {
+  return request({
+    method: 'post',
+    url: urls.updateAvatar,
     data: params
   })
 }

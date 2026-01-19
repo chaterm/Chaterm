@@ -9,6 +9,7 @@ import { Anthropic } from '@anthropic-ai/sdk'
 import pWaitFor from 'p-wait-for'
 import { buildApiHandler, ApiHandler } from '@api/index'
 import { McpHub } from '@services/mcp/McpHub'
+import { SkillsManager } from '@services/skills'
 import { version as extensionVersion } from '../../../../../package.json'
 import { TelemetrySetting } from '@shared/TelemetrySetting'
 import { telemetryService } from '@services/telemetry/TelemetryService'
@@ -37,6 +38,7 @@ export class Controller {
 
   private tasks: Map<string, Task> = new Map()
   mcpHub: McpHub
+  skillsManager: SkillsManager
 
   constructor(postMessage: (message: ExtensionMessage) => Promise<boolean> | undefined, getMcpSettingsFilePath: () => Promise<string>) {
     console.log('Controller instantiated')
@@ -48,6 +50,12 @@ export class Controller {
       extensionVersion,
       (msg) => this.postMessageToWebview(msg)
     )
+
+    // Initialize Skills Manager
+    this.skillsManager = new SkillsManager((msg) => this.postMessageToWebview(msg))
+    this.skillsManager.initialize().catch((error) => {
+      console.error('[Controller] Failed to initialize SkillsManager:', error)
+    })
   }
 
   private getTaskFromId(tabId?: string): Task | undefined {
@@ -89,6 +97,7 @@ export class Controller {
 
     await this.clearTask()
     this.mcpHub.dispose()
+    await this.skillsManager.dispose()
   }
 
   async setUserInfo(info?: { displayName: string | null; email: string | null; photoURL: string | null }) {
@@ -118,6 +127,7 @@ export class Controller {
       autoApprovalSettings,
       hosts,
       this.mcpHub,
+      this.skillsManager,
       customInstructions,
       task,
       historyItem,

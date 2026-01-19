@@ -185,6 +185,16 @@ Usage:
 <uri>resource URI here</uri>
 </access_mcp_resource>
 
+## use_skill
+Description: Request to activate an on-demand skill. Skills are reusable instruction sets that provide specialized knowledge and workflows for specific tasks. Unlike always-active skills, on-demand skills are loaded only when you explicitly call this tool. When activated, you will receive the full instructions for the skill which you should follow to complete the task.
+Available on-demand skills are listed in the "Available Skills" section. Each skill has a name and description - use the description to determine when to activate a skill. Once activated, the skill's detailed instructions will be returned and you should follow them.
+Parameters:
+- skill_id: (required) The unique identifier of the skill to activate, as shown in the "Available Skills" section.
+Usage:
+<use_skill>
+<skill_id>skill-id-here</skill_id>
+</use_skill>
+
 # Tool Use Examples
 
 ## Example 1: Requesting to execute a non-interactive command
@@ -509,6 +519,16 @@ export const SYSTEM_PROMPT_CN = `你是 Chaterm，一位拥有 20 年经验的�
 <server_name>服务器名称</server_name>
 <uri>资源 URI</uri>
 </access_mcp_resource>
+
+## use_skill
+描述：请求激活一个按需技能。技能是为特定任务提供专业知识和工作流程的可重用指令集。与始终激活的技能不同，按需技能只有在您明确调用此工具时才会加载。激活后，您将收到该技能的完整说明，您应该遵循这些说明来完成任务。
+可用的按需技能列在"可用技能"部分中。每个技能都有名称和描述 - 使用描述来确定何时激活技能。激活后，将返回技能的详细说明，您应该遵循这些说明。
+参数：
+- skill_id: (必需) 要激活的技能的唯一标识符，如"可用技能"部分所示。
+用法：
+<use_skill>
+<skill_id>技能ID</skill_id>
+</use_skill>
 
 # 工具使用示例
 
