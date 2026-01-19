@@ -940,7 +940,16 @@ export default {
     mobileCodeSent: 'Código de verificação de celular enviado',
     mobileBindSuccess: 'Celular vinculado com sucesso',
     mobileBindFailed: 'Falha ao vincular celular',
-    verificationCode: 'Código de verificação'
+    verificationCode: 'Código de verificação',
+    clickToUploadAvatar: 'Clique para fazer upload do avatar',
+    avatarUpdateSuccess: 'Avatar atualizado com sucesso',
+    avatarUpdateFailed: 'Falha ao atualizar avatar',
+    imageTooLarge: 'Imagem muito grande, por favor comprima abaixo de 10KB',
+    imageLoadFailed: 'Falha ao carregar imagem',
+    imageReadFailed: 'Falha ao ler imagem',
+    pleaseSelectImage: 'Por favor, selecione um arquivo de imagem',
+    avatarSettings: 'Configurações do Avatar',
+    localUpload: 'Upload Local'
   },
   update: {
     available: 'Uma nova versão está disponível',

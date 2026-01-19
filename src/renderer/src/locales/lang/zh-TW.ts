@@ -923,7 +923,16 @@ export default {
     mobileCodeSent: '驗證碼已發送',
     mobileBindSuccess: '手機號綁定成功',
     mobileBindFailed: '手機號綁定失敗',
-    verificationCode: '驗證碼'
+    verificationCode: '驗證碼',
+    clickToUploadAvatar: '點擊上傳頭像',
+    avatarUpdateSuccess: '頭像更新成功',
+    avatarUpdateFailed: '頭像更新失敗',
+    imageTooLarge: '圖片過大，請壓縮至10KB以下',
+    imageLoadFailed: '圖片加載失敗',
+    imageReadFailed: '圖片讀取失敗',
+    pleaseSelectImage: '請選擇圖片文件',
+    avatarSettings: '頭像設置',
+    localUpload: '本地上傳'
   },
   update: {
     available: '有最新版本可以更新',

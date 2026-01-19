@@ -938,7 +938,16 @@ export default {
     mobileCodeSent: 'Код верификации mobile отправлен',
     mobileBindSuccess: 'Mobile связан успешно',
     mobileBindFailed: 'Ошибка связи mobile',
-    verificationCode: 'Код верификации'
+    verificationCode: 'Код верификации',
+    clickToUploadAvatar: 'Нажмите, чтобы загрузить аватар',
+    avatarUpdateSuccess: 'Аватар успешно обновлен',
+    avatarUpdateFailed: 'Ошибка обновления аватара',
+    imageTooLarge: 'Изображение слишком большое, пожалуйста, сожмите до 10KB',
+    imageLoadFailed: 'Ошибка загрузки изображения',
+    imageReadFailed: 'Ошибка чтения изображения',
+    pleaseSelectImage: 'Пожалуйста, выберите файл изображения',
+    avatarSettings: 'Настройки аватара',
+    localUpload: 'Локальная загрузка'
   },
   update: {
     available: 'Доступна новая версия',

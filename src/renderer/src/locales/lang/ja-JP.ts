@@ -930,7 +930,16 @@ export default {
     mobileCodeSent: '確認コードが送信されました',
     mobileBindSuccess: '携帯電話番号のバインドに成功しました',
     mobileBindFailed: '携帯電話番号のバインドに失敗しました',
-    verificationCode: '確認コード'
+    verificationCode: '確認コード',
+    clickToUploadAvatar: 'アバターをアップロードするにはクリック',
+    avatarUpdateSuccess: 'アバターが正常に更新されました',
+    avatarUpdateFailed: 'アバターの更新に失敗しました',
+    imageTooLarge: '画像が大きすぎます。10KB以下に圧縮してください',
+    imageLoadFailed: '画像の読み込みに失敗しました',
+    imageReadFailed: '画像の読み取りに失敗しました',
+    pleaseSelectImage: '画像ファイルを選択してください',
+    avatarSettings: 'アバター設定',
+    localUpload: 'ローカルアップロード'
   },
   update: {
     available: '新しいバージョンが利用可能です',
