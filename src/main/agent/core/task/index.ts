@@ -3592,7 +3592,7 @@ SUDO_CHECK:${localSystemInfo.sudoCheck}`
 
     try {
       // Get the latest user message for context-match skill activation
-      // Priority: user_feedback > text (initial task) > apiConversationHistory
+      // Priority: user_feedback > apiConversationHistory (latest user message) > text (initial task)
       let userMessage: string | undefined
 
       // First try user_feedback (follow-up messages)
@@ -3604,18 +3604,8 @@ SUDO_CHECK:${localSystemInfo.sudoCheck}`
         }
       }
 
-      // Then try 'text' type (initial task message)
-      if (!userMessage) {
-        for (let i = this.chatermMessages.length - 1; i >= 0; i--) {
-          const msg = this.chatermMessages[i]
-          if (msg.type === 'say' && msg.say === 'text' && msg.text) {
-            userMessage = msg.text
-            break
-          }
-        }
-      }
-
-      // Fallback: get from apiConversationHistory
+      // Then try apiConversationHistory (most reliable source for user messages)
+      // This ensures we get the actual user input, not assistant responses
       if (!userMessage && this.apiConversationHistory.length > 0) {
         for (let i = this.apiConversationHistory.length - 1; i >= 0; i--) {
           const msg = this.apiConversationHistory[i]
@@ -3629,6 +3619,18 @@ SUDO_CHECK:${localSystemInfo.sudoCheck}`
               }
             }
             if (userMessage) break
+          }
+        }
+      }
+
+      // Fallback: try 'text' type from chatermMessages (initial task message)
+      // Note: This may also match assistant responses, so it's only used as last resort
+      if (!userMessage) {
+        for (let i = this.chatermMessages.length - 1; i >= 0; i--) {
+          const msg = this.chatermMessages[i]
+          if (msg.type === 'say' && msg.say === 'text' && msg.text) {
+            userMessage = msg.text
+            break
           }
         }
       }
