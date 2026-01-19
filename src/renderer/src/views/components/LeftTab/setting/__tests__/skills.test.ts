@@ -983,7 +983,7 @@ describe('Skills Component', () => {
       expect(vm.isCreating).toBe(false)
     })
 
-    it('should convert ID to lowercase', async () => {
+    it('should reject uppercase letters in ID', async () => {
       const vm = wrapper.vm as any
       await vm.showCreateModal()
       await nextTick()
@@ -996,12 +996,8 @@ describe('Skills Component', () => {
       await vm.createSkill()
       await nextTick()
 
-      expect(mockWindowApi.createSkill).toHaveBeenCalledWith(
-        expect.objectContaining({
-          id: 'test-skill'
-        }),
-        'Test Content'
-      )
+      expect(message.warning).toHaveBeenCalledWith('ID can only contain lowercase letters, numbers, and hyphens')
+      expect(mockWindowApi.createSkill).not.toHaveBeenCalled()
     })
   })
 

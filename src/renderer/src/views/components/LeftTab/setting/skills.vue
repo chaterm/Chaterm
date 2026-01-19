@@ -437,7 +437,7 @@ const createSkill = async () => {
   }
 
   // Validate ID format
-  if (!/^[a-z0-9-]+$/i.test(newSkill.value.id)) {
+  if (!/^[a-z0-9-]+$/.test(newSkill.value.id)) {
     message.warning(t('skills.invalidId'))
     return
   }
