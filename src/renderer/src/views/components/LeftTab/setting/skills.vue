@@ -457,7 +457,15 @@ const createSkill = async () => {
       version: newSkill.value.version || '1.0.0',
       author: newSkill.value.author || undefined,
       activation: newSkill.value.activation,
-      tags: newSkill.value.tagsInput ? newSkill.value.tagsInput.split(',').map((tag) => tag.trim()) : undefined
+      tags: newSkill.value.tagsInput
+        ? (() => {
+            const filtered = newSkill.value.tagsInput
+              .split(',')
+              .map((tag) => tag.trim())
+              .filter(Boolean)
+            return filtered.length > 0 ? filtered : undefined
+          })()
+        : undefined
     }
 
     // Add contextPatterns if activation is context-match

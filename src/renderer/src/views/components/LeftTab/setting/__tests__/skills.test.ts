@@ -1210,6 +1210,11 @@ describe('Skills Component', () => {
     })
 
     it('should handle create skill with empty tags', async () => {
+      mockWindowApi.getSkills.mockResolvedValue([])
+      wrapper = createWrapper()
+      await nextTick()
+      await nextTick()
+
       const vm = wrapper.vm as any
       await vm.showCreateModal()
       await nextTick()
@@ -1232,6 +1237,11 @@ describe('Skills Component', () => {
     })
 
     it('should handle create skill with whitespace-only tags', async () => {
+      mockWindowApi.getSkills.mockResolvedValue([])
+      wrapper = createWrapper()
+      await nextTick()
+      await nextTick()
+
       const vm = wrapper.vm as any
       await vm.showCreateModal()
       await nextTick()
@@ -1245,10 +1255,10 @@ describe('Skills Component', () => {
       await vm.createSkill()
       await nextTick()
 
-      // The code splits and trims but doesn't filter empty strings
+      // Empty strings should be filtered out, resulting in undefined
       expect(mockWindowApi.createSkill).toHaveBeenCalledWith(
         expect.objectContaining({
-          tags: ['', '', '']
+          tags: undefined
         }),
         'Test Content'
       )
