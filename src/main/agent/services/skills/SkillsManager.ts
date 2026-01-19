@@ -1142,27 +1142,27 @@ export class SkillsManager {
    */
   private buildSkillFile(metadata: SkillMetadata, content: string): string {
     let file = '---\n'
-    file += `id: ${JSON.stringify(metadata.id)}\n`
-    file += `name: ${JSON.stringify(metadata.name)}\n`
-    file += `description: ${JSON.stringify(metadata.description)}\n`
-    file += `version: ${JSON.stringify(metadata.version || '1.0.0')}\n`
+    file += `id: ${metadata.id}\n`
+    file += `name: ${metadata.name}\n`
+    file += `description: ${metadata.description}\n`
+    file += `version: ${metadata.version || '1.0.0'}\n`
     if (metadata.author) {
-      file += `author: ${JSON.stringify(metadata.author)}\n`
+      file += `author: ${metadata.author}\n`
     }
     if (metadata.tags && metadata.tags.length > 0) {
-      file += `tags: [${metadata.tags.map((tag) => JSON.stringify(tag)).join(', ')}]\n`
+      file += `tags: [${metadata.tags.join(', ')}]\n`
     }
     if (metadata.icon) {
-      file += `icon: ${JSON.stringify(metadata.icon)}\n`
+      file += `icon: ${metadata.icon}\n`
     }
     if (metadata.activation) {
-      file += `activation: ${JSON.stringify(metadata.activation)}\n`
+      file += `activation: ${metadata.activation}\n`
     }
     if (metadata.contextPatterns && metadata.contextPatterns.length > 0) {
-      file += `contextPatterns: [${metadata.contextPatterns.map((pattern) => JSON.stringify(pattern)).join(', ')}]\n`
+      file += `contextPatterns: [${metadata.contextPatterns.join(', ')}]\n`
     }
     if (metadata.requires && metadata.requires.length > 0) {
-      file += `requires: [${metadata.requires.map((req) => JSON.stringify(req)).join(', ')}]\n`
+      file += `requires: [${metadata.requires.join(', ')}]\n`
     }
 
     return `---\n${file}---\n\n${content}`
