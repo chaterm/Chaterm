@@ -927,7 +927,16 @@ export default {
     mobileCodeSent: '인증 코드가 전송되었습니다',
     mobileBindSuccess: '전화번호 바인딩 성공',
     mobileBindFailed: '전화번호 바인딩 실패',
-    verificationCode: '인증 코드'
+    verificationCode: '인증 코드',
+    clickToUploadAvatar: '아바타 업로드를 클릭하세요',
+    avatarUpdateSuccess: '아바타가 성공적으로 업데이트되었습니다',
+    avatarUpdateFailed: '아바타 업데이트 실패',
+    imageTooLarge: '이미지가 너무 큽니다. 10KB 이하로 압축해주세요',
+    imageLoadFailed: '이미지 로드 실패',
+    imageReadFailed: '이미지 읽기 실패',
+    pleaseSelectImage: '이미지 파일을 선택해주세요',
+    avatarSettings: '아바타 설정',
+    localUpload: '로컬 업로드'
   },
   update: {
     available: '새 버전이 있습니다',

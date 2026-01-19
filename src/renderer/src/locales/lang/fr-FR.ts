@@ -942,7 +942,16 @@ export default {
     mobileCodeSent: 'Code de vérification envoyé',
     mobileBindSuccess: 'Téléphone lié avec succès',
     mobileBindFailed: 'Échec de la liaison du téléphone',
-    verificationCode: 'Code de vérification'
+    verificationCode: 'Code de vérification',
+    clickToUploadAvatar: "Cliquez pour télécharger l'avatar",
+    avatarUpdateSuccess: 'Avatar mis à jour avec succès',
+    avatarUpdateFailed: "Échec de la mise à jour de l'avatar",
+    imageTooLarge: 'Image trop grande, veuillez compresser sous 10KB',
+    imageLoadFailed: "Échec du chargement de l'image",
+    imageReadFailed: "Échec de la lecture de l'image",
+    pleaseSelectImage: 'Veuillez sélectionner un fichier image',
+    avatarSettings: "Paramètres de l'avatar",
+    localUpload: 'Téléchargement local'
   },
   update: {
     available: 'Une nouvelle version est disponible',

@@ -3,7 +3,16 @@ import { mount, VueWrapper } from '@vue/test-utils'
 import { nextTick } from 'vue'
 import { createPinia, setActivePinia } from 'pinia'
 import UserInfoComponent from '../userInfo.vue'
-import { getUser, updateUser, changePassword, sendEmailBindCode, verifyAndBindEmail, sendMobileBindCode, verifyAndBindMobile } from '@api/user/user'
+import {
+  getUser,
+  updateUser,
+  changePassword,
+  sendEmailBindCode,
+  verifyAndBindEmail,
+  sendMobileBindCode,
+  verifyAndBindMobile,
+  updateAvatar
+} from '@api/user/user'
 import { useDeviceStore } from '@/store/useDeviceStore'
 import { message } from 'ant-design-vue'
 import zxcvbn from 'zxcvbn'
@@ -73,8 +82,17 @@ vi.mock('@/locales', () => {
       'userInfo.mobileCodeSent': 'Verification code sent',
       'userInfo.mobileBindSuccess': 'Mobile binding successful',
       'userInfo.mobileBindFailed': 'Mobile binding failed',
+      'userInfo.clickToUploadAvatar': 'Click to upload avatar',
+      'userInfo.avatarSettings': 'Avatar Settings',
+      'userInfo.localUpload': 'Local Upload',
+      'userInfo.pleaseSelectImage': 'Please select an image file',
+      'userInfo.imageLoadFailed': 'Image load failed',
+      'userInfo.imageReadFailed': 'Image read failed',
+      'userInfo.avatarUpdateSuccess': 'Avatar updated successfully',
+      'userInfo.avatarUpdateFailed': 'Avatar update failed',
       'common.confirm': 'Confirm',
       'common.cancel': 'Cancel',
+      'common.save': 'Save',
       'common.invalidEmail': 'Invalid email format'
     }
     return mockTranslations[key] || key
@@ -96,7 +114,8 @@ vi.mock('@api/user/user', () => ({
   sendEmailBindCode: vi.fn(),
   verifyAndBindEmail: vi.fn(),
   sendMobileBindCode: vi.fn(),
-  verifyAndBindMobile: vi.fn()
+  verifyAndBindMobile: vi.fn(),
+  updateAvatar: vi.fn()
 }))
 
 // Mock zxcvbn
@@ -151,13 +170,19 @@ describe('UserInfo Component', () => {
           },
           'a-modal': {
             template:
-              '<div v-if="open" class="a-modal"><div class="ant-modal-header"><slot name="title" /></div><div class="ant-modal-body"><slot /></div><div class="ant-modal-footer"><button @click="$emit(\'cancel\')">Cancel</button><button @click="$emit(\'ok\')">Confirm</button></div></div>',
-            props: ['open', 'title', 'width', 'centered', 'ok-text', 'cancel-text']
+              '<div v-if="open" class="a-modal"><div class="ant-modal-header"><slot name="title" /></div><div class="ant-modal-body"><slot /></div><div v-if="footer !== null" class="ant-modal-footer"><button @click="$emit(\'cancel\')">Cancel</button><button @click="$emit(\'ok\')">Confirm</button></div></div>',
+            props: ['open', 'title', 'width', 'centered', 'ok-text', 'cancel-text', 'footer']
+          },
+          'a-slider': {
+            template:
+              '<div class="a-slider"><input type="range" :value="value" :min="min" :max="max" :step="step" @input="$emit(\'update:value\', parseFloat($event.target.value))" @change="$emit(\'change\')" /></div>',
+            props: ['value', 'min', 'max', 'step']
           },
           FormOutlined: { template: '<span class="form-outlined-icon" />' },
           EditOutlined: { template: '<span class="edit-outlined-icon" />' },
           CheckOutlined: { template: '<span class="check-outlined-icon" />' },
-          CloseOutlined: { template: '<span class="close-outlined-icon" />' }
+          CloseOutlined: { template: '<span class="close-outlined-icon" />' },
+          CameraOutlined: { template: '<span class="camera-outlined-icon" />' }
         },
         mocks: {
           $t: (key: string) => key
@@ -201,6 +226,7 @@ describe('UserInfo Component', () => {
     vi.mocked(verifyAndBindEmail).mockResolvedValue({ code: 200 } as any)
     vi.mocked(sendMobileBindCode).mockResolvedValue({ code: 200 } as any)
     vi.mocked(verifyAndBindMobile).mockResolvedValue({ code: 200 } as any)
+    vi.mocked(updateAvatar).mockResolvedValue({ code: 200 } as any)
 
     vi.mocked(zxcvbn).mockReturnValue({ score: 2 } as any)
 
@@ -902,6 +928,662 @@ describe('UserInfo Component', () => {
       expect(vm.emailCodeCountdown).toBeGreaterThan(0)
 
       vi.useRealTimers()
+    })
+  })
+
+  describe('Avatar Management', () => {
+    beforeEach(async () => {
+      wrapper = createWrapper()
+      await nextTick()
+      await nextTick()
+    })
+
+    it('should open avatar modal when avatar is clicked', async () => {
+      const vm = wrapper.vm as any
+      expect(vm.showAvatarModal).toBe(false)
+
+      await vm.handleAvatarClick()
+      await nextTick()
+
+      expect(vm.showAvatarModal).toBe(true)
+    })
+
+    it('should not open avatar modal when unChange is true', async () => {
+      const vm = wrapper.vm as any
+      vm.unChange = true
+      await nextTick()
+
+      await vm.handleAvatarClick()
+      await nextTick()
+
+      expect(vm.showAvatarModal).toBe(false)
+    })
+
+    it('should close avatar modal and reset preview when cancelled', async () => {
+      const vm = wrapper.vm as any
+      vm.showAvatarModal = true
+      vm.previewImageSrc = 'data:image/jpeg;base64,test'
+      vm.zoomValue = 1.5
+      vm.imagePosition.x = 10
+      vm.imagePosition.y = 20
+      await nextTick()
+
+      await vm.cancelAvatarSettings()
+      await nextTick()
+
+      expect(vm.showAvatarModal).toBe(false)
+      expect(vm.previewImageSrc).toBe('')
+      expect(vm.zoomValue).toBe(1.0)
+      expect(vm.imagePosition.x).toBe(0)
+      expect(vm.imagePosition.y).toBe(0)
+    })
+
+    it('should trigger file input click when local upload is clicked', async () => {
+      const vm = wrapper.vm as any
+      vm.showAvatarModal = true
+      await nextTick()
+
+      // Create a mock file input element
+      const mockInput = {
+        click: vi.fn()
+      }
+      vm.avatarInput = mockInput
+
+      await vm.handleLocalUpload()
+
+      expect(mockInput.click).toHaveBeenCalled()
+    })
+
+    it('should reject non-image files', async () => {
+      const vm = wrapper.vm as any
+      vm.showAvatarModal = true
+      await nextTick()
+
+      const file = new File(['test'], 'test.txt', { type: 'text/plain' })
+      const event = {
+        target: {
+          files: [file]
+        }
+      } as any
+
+      await vm.handleAvatarChange(event)
+      await nextTick()
+
+      expect(vi.mocked(message.error)).toHaveBeenCalledWith('Please select an image file')
+      expect(vm.previewImageSrc).toBe('')
+    })
+
+    it('should handle image file selection and create preview', async () => {
+      let fileReaderInstance: any = null
+      let imageInstance: any = null
+
+      // Mock FileReader class
+      class MockFileReader {
+        readAsDataURL = vi.fn()
+        result = 'data:image/jpeg;base64,test123'
+        onload: ((this: FileReader, ev: ProgressEvent<FileReader>) => any) | null = null
+        onerror: ((this: FileReader, ev: ProgressEvent<FileReader>) => any) | null = null
+
+        constructor() {
+          // eslint-disable-next-line @typescript-eslint/no-this-alias
+          fileReaderInstance = this
+        }
+      }
+
+      global.FileReader = MockFileReader as any
+
+      // Mock Image class
+      class MockImage {
+        width = 400
+        height = 300
+        onload: ((this: GlobalEventHandlers, ev: Event) => any) | null = null
+        onerror: ((this: GlobalEventHandlers, ev: Event | string) => any) | null = null
+        src = ''
+
+        constructor() {
+          // eslint-disable-next-line @typescript-eslint/no-this-alias
+          imageInstance = this
+        }
+      }
+
+      global.Image = MockImage as any
+
+      // Mock canvas
+      const mockContext = {
+        drawImage: vi.fn(),
+        fillRect: vi.fn(),
+        fillStyle: ''
+      }
+
+      const mockCanvas = {
+        width: 0,
+        height: 0,
+        getContext: vi.fn(() => mockContext),
+        toDataURL: vi.fn(() => 'data:image/jpeg;base64,compressed')
+      }
+
+      const originalCreateElement = document.createElement.bind(document)
+      document.createElement = vi.fn((tag: string) => {
+        if (tag === 'canvas') return mockCanvas as any
+        return originalCreateElement(tag)
+      })
+
+      const vm = wrapper.vm as any
+      vm.showAvatarModal = true
+      await nextTick()
+
+      const file = new File(['test'], 'test.jpg', { type: 'image/jpeg' })
+      const event = {
+        target: {
+          files: [file],
+          value: ''
+        }
+      } as any
+
+      // Mock getBoundingClientRect for previewWrapper
+      const mockWrapper = {
+        getBoundingClientRect: vi.fn(() => ({
+          width: 200,
+          height: 200
+        }))
+      }
+      vm.previewWrapper = mockWrapper
+
+      // Start the file reading process
+      vm.handleAvatarChange(event)
+
+      // Wait for FileReader to be created and simulate onload
+      await new Promise((resolve) => setTimeout(resolve, 10))
+      if (fileReaderInstance && fileReaderInstance.onload) {
+        fileReaderInstance.onload({ target: { result: 'data:image/jpeg;base64,test123' } } as any)
+      }
+
+      // Wait for Image to be created and simulate onload
+      await new Promise((resolve) => setTimeout(resolve, 10))
+      if (imageInstance && imageInstance.onload) {
+        imageInstance.onload({} as any)
+      }
+
+      await nextTick()
+      await new Promise((resolve) => setTimeout(resolve, 150)) // Wait for centerImage timeout
+
+      expect(fileReaderInstance).not.toBeNull()
+      expect(fileReaderInstance.readAsDataURL).toHaveBeenCalledWith(file)
+    })
+
+    it('should handle image load error', async () => {
+      let fileReaderInstance: any = null
+      let imageInstance: any = null
+
+      // Mock FileReader class
+      class MockFileReader {
+        readAsDataURL = vi.fn()
+        result = 'data:image/jpeg;base64,test123'
+        onload: ((this: FileReader, ev: ProgressEvent<FileReader>) => any) | null = null
+        onerror: ((this: FileReader, ev: ProgressEvent<FileReader>) => any) | null = null
+
+        constructor() {
+          // eslint-disable-next-line @typescript-eslint/no-this-alias
+          fileReaderInstance = this
+        }
+      }
+
+      global.FileReader = MockFileReader as any
+
+      // Mock Image class
+      class MockImage {
+        width = 400
+        height = 300
+        onload: ((this: GlobalEventHandlers, ev: Event) => any) | null = null
+        onerror: ((this: GlobalEventHandlers, ev: Event | string) => any) | null = null
+        src = ''
+
+        constructor() {
+          // eslint-disable-next-line @typescript-eslint/no-this-alias
+          imageInstance = this
+        }
+      }
+
+      global.Image = MockImage as any
+
+      const vm = wrapper.vm as any
+      vm.showAvatarModal = true
+      await nextTick()
+
+      const file = new File(['test'], 'test.jpg', { type: 'image/jpeg' })
+      const event = {
+        target: {
+          files: [file],
+          value: ''
+        }
+      } as any
+
+      vm.handleAvatarChange(event)
+
+      await new Promise((resolve) => setTimeout(resolve, 10))
+      if (fileReaderInstance && fileReaderInstance.onload) {
+        fileReaderInstance.onload({ target: { result: 'data:image/jpeg;base64,test123' } } as any)
+      }
+
+      await new Promise((resolve) => setTimeout(resolve, 10))
+      if (imageInstance && imageInstance.onerror) {
+        imageInstance.onerror({} as any)
+      }
+
+      await nextTick()
+
+      expect(vi.mocked(message.error)).toHaveBeenCalledWith('Image load failed')
+    })
+
+    it('should handle file read error', async () => {
+      let fileReaderInstance: any = null
+
+      // Mock FileReader class
+      class MockFileReader {
+        readAsDataURL = vi.fn()
+        result = ''
+        onload: ((this: FileReader, ev: ProgressEvent<FileReader>) => any) | null = null
+        onerror: ((this: FileReader, ev: ProgressEvent<FileReader>) => any) | null = null
+
+        constructor() {
+          // eslint-disable-next-line @typescript-eslint/no-this-alias
+          fileReaderInstance = this
+        }
+      }
+
+      global.FileReader = MockFileReader as any
+
+      const vm = wrapper.vm as any
+      vm.showAvatarModal = true
+      await nextTick()
+
+      const file = new File(['test'], 'test.jpg', { type: 'image/jpeg' })
+      const event = {
+        target: {
+          files: [file],
+          value: ''
+        }
+      } as any
+
+      vm.handleAvatarChange(event)
+
+      await new Promise((resolve) => setTimeout(resolve, 10))
+      if (fileReaderInstance && fileReaderInstance.onerror) {
+        fileReaderInstance.onerror({} as any)
+      }
+
+      await nextTick()
+
+      expect(vi.mocked(message.error)).toHaveBeenCalledWith('Image read failed')
+    })
+
+    it('should center image on load', async () => {
+      const vm = wrapper.vm as any
+      vm.showAvatarModal = true
+      vm.previewImageSrc = 'data:image/jpeg;base64,test'
+      vm.originalImageSize.width = 200
+      vm.originalImageSize.height = 200
+      vm.zoomValue = 1.0
+
+      const mockImage = {
+        width: 200,
+        height: 200,
+        naturalWidth: 200,
+        naturalHeight: 200
+      }
+      vm.previewImage = mockImage
+
+      const mockWrapper = {
+        getBoundingClientRect: vi.fn(() => ({
+          width: 200,
+          height: 200
+        }))
+      }
+      vm.previewWrapper = mockWrapper
+
+      vm.handleImageLoad()
+      await nextTick()
+
+      // Image should be centered (position should be calculated)
+      expect(mockWrapper.getBoundingClientRect).toHaveBeenCalled()
+    })
+
+    it('should update zoom value and constrain position', async () => {
+      const vm = wrapper.vm as any
+      vm.showAvatarModal = true
+      vm.previewImageSrc = 'data:image/jpeg;base64,test'
+      vm.originalImageSize.width = 200
+      vm.originalImageSize.height = 200
+      vm.zoomValue = 1.0
+      vm.imagePosition.x = 0
+      vm.imagePosition.y = 0
+
+      const mockImage = {
+        width: 200,
+        height: 200
+      }
+      vm.previewImage = mockImage
+
+      const mockWrapper = {
+        getBoundingClientRect: vi.fn(() => ({
+          width: 200,
+          height: 200
+        }))
+      }
+      vm.previewWrapper = mockWrapper
+
+      vm.zoomValue = 1.5
+      vm.handleZoomChange()
+      await nextTick()
+
+      expect(mockWrapper.getBoundingClientRect).toHaveBeenCalled()
+    })
+
+    it('should save avatar successfully', async () => {
+      // Mock canvas and context
+      const mockContext = {
+        drawImage: vi.fn(),
+        fillRect: vi.fn(),
+        fillStyle: ''
+      }
+
+      const mockCanvas = {
+        width: 0,
+        height: 0,
+        getContext: vi.fn(() => mockContext),
+        toDataURL: vi.fn(() => 'data:image/jpeg;base64,test123')
+      }
+
+      const originalCreateElement = document.createElement.bind(document)
+      document.createElement = vi.fn((tag: string) => {
+        if (tag === 'canvas') return mockCanvas as any
+        return originalCreateElement(tag)
+      })
+
+      const vm = wrapper.vm as any
+      vm.showAvatarModal = true
+      vm.previewImageSrc = 'data:image/jpeg;base64,test'
+      vm.avatarUploading = false
+
+      const mockImage = {
+        width: 200,
+        height: 200,
+        naturalWidth: 200,
+        naturalHeight: 200
+      }
+      vm.previewImage = mockImage
+      vm.originalImageSize.width = 200
+      vm.originalImageSize.height = 200
+      vm.zoomValue = 1.0
+      vm.imagePosition.x = 0
+      vm.imagePosition.y = 0
+
+      vi.mocked(updateAvatar).mockResolvedValue({ code: 200 } as any)
+      vi.mocked(getUser).mockClear()
+
+      await vm.handleSaveAvatar()
+      await nextTick()
+
+      expect(vi.mocked(updateAvatar)).toHaveBeenCalled()
+      expect(vi.mocked(message.success)).toHaveBeenCalledWith('Avatar updated successfully')
+      expect(vm.showAvatarModal).toBe(false)
+      expect(vi.mocked(getUser)).toHaveBeenCalled()
+    })
+
+    it('should handle avatar save failure', async () => {
+      const mockContext = {
+        drawImage: vi.fn(),
+        fillRect: vi.fn(),
+        fillStyle: ''
+      }
+
+      const mockCanvas = {
+        width: 0,
+        height: 0,
+        getContext: vi.fn(() => mockContext),
+        toDataURL: vi.fn(() => 'data:image/jpeg;base64,test123')
+      }
+
+      const originalCreateElement = document.createElement.bind(document)
+      document.createElement = vi.fn((tag: string) => {
+        if (tag === 'canvas') return mockCanvas as any
+        return originalCreateElement(tag)
+      })
+
+      const vm = wrapper.vm as any
+      vm.showAvatarModal = true
+      vm.previewImageSrc = 'data:image/jpeg;base64,test'
+      vm.avatarUploading = false
+
+      const mockImage = {
+        width: 200,
+        height: 200,
+        naturalWidth: 200,
+        naturalHeight: 200
+      }
+      vm.previewImage = mockImage
+      vm.originalImageSize.width = 200
+      vm.originalImageSize.height = 200
+      vm.zoomValue = 1.0
+      vm.imagePosition.x = 0
+      vm.imagePosition.y = 0
+
+      vi.mocked(updateAvatar).mockResolvedValue({
+        code: 400,
+        message: 'Avatar update failed'
+      } as any)
+
+      await vm.handleSaveAvatar()
+      await nextTick()
+
+      expect(vi.mocked(message.error)).toHaveBeenCalledWith('Avatar update failed')
+      expect(vm.avatarUploading).toBe(false)
+    })
+
+    it('should handle avatar save API error', async () => {
+      const mockContext = {
+        drawImage: vi.fn(),
+        fillRect: vi.fn(),
+        fillStyle: ''
+      }
+
+      const mockCanvas = {
+        width: 0,
+        height: 0,
+        getContext: vi.fn(() => mockContext),
+        toDataURL: vi.fn(() => 'data:image/jpeg;base64,test123')
+      }
+
+      const originalCreateElement = document.createElement.bind(document)
+      document.createElement = vi.fn((tag: string) => {
+        if (tag === 'canvas') return mockCanvas as any
+        return originalCreateElement(tag)
+      })
+
+      const vm = wrapper.vm as any
+      vm.showAvatarModal = true
+      vm.previewImageSrc = 'data:image/jpeg;base64,test'
+      vm.avatarUploading = false
+
+      const mockImage = {
+        width: 200,
+        height: 200,
+        naturalWidth: 200,
+        naturalHeight: 200
+      }
+      vm.previewImage = mockImage
+      vm.originalImageSize.width = 200
+      vm.originalImageSize.height = 200
+      vm.zoomValue = 1.0
+      vm.imagePosition.x = 0
+      vm.imagePosition.y = 0
+
+      const error = {
+        response: {
+          data: {
+            message: 'Network error'
+          }
+        }
+      }
+
+      vi.mocked(updateAvatar).mockRejectedValue(error)
+
+      await vm.handleSaveAvatar()
+      await nextTick()
+
+      expect(vi.mocked(message.error)).toHaveBeenCalledWith('Network error')
+      expect(vm.avatarUploading).toBe(false)
+    })
+
+    it('should not save avatar when no preview image', async () => {
+      const vm = wrapper.vm as any
+      vm.showAvatarModal = true
+      vm.previewImageSrc = ''
+      vm.avatarUploading = false
+
+      await vm.handleSaveAvatar()
+      await nextTick()
+
+      expect(vi.mocked(updateAvatar)).not.toHaveBeenCalled()
+    })
+
+    it('should reset avatar preview state', async () => {
+      const vm = wrapper.vm as any
+      vm.previewImageSrc = 'data:image/jpeg;base64,test'
+      vm.zoomValue = 1.5
+      vm.imagePosition.x = 10
+      vm.imagePosition.y = 20
+      vm.isDragging = true
+      vm.originalImageSize.width = 200
+      vm.originalImageSize.height = 200
+
+      await vm.resetAvatarPreview()
+      await nextTick()
+
+      expect(vm.previewImageSrc).toBe('')
+      expect(vm.zoomValue).toBe(1.0)
+      expect(vm.imagePosition.x).toBe(0)
+      expect(vm.imagePosition.y).toBe(0)
+      expect(vm.isDragging).toBe(false)
+      expect(vm.originalImageSize.width).toBe(0)
+      expect(vm.originalImageSize.height).toBe(0)
+    })
+
+    it('should handle preview click when no image is loaded', async () => {
+      const vm = wrapper.vm as any
+      vm.showAvatarModal = true
+      vm.previewImageSrc = ''
+
+      const mockInput = {
+        click: vi.fn()
+      }
+      vm.avatarInput = mockInput
+
+      vm.handlePreviewClick()
+      await nextTick()
+
+      expect(mockInput.click).toHaveBeenCalled()
+    })
+
+    it('should handle mouse drag for image positioning', async () => {
+      const vm = wrapper.vm as any
+      vm.showAvatarModal = true
+      vm.previewImageSrc = 'data:image/jpeg;base64,test'
+      vm.isDragging = false
+      vm.dragStart.x = 0
+      vm.dragStart.y = 0
+      vm.imagePosition.x = 0
+      vm.imagePosition.y = 0
+
+      const mockImage = {
+        width: 300,
+        height: 300,
+        naturalWidth: 300,
+        naturalHeight: 300
+      }
+      vm.previewImage = mockImage
+
+      const mockWrapper = {
+        getBoundingClientRect: vi.fn(() => ({
+          width: 200,
+          height: 200
+        }))
+      }
+      vm.previewWrapper = mockWrapper
+      // Set image size larger than wrapper to allow movement
+      // With image 300x300 and wrapper 200x200, image can move from -100 to 0
+      vm.originalImageSize.width = 300
+      vm.originalImageSize.height = 300
+      vm.zoomValue = 1.0
+
+      const mouseEvent = {
+        clientX: 150,
+        clientY: 150,
+        preventDefault: vi.fn()
+      } as any
+
+      vm.handlePreviewMouseDown(mouseEvent)
+      await nextTick()
+
+      expect(vm.isDragging).toBe(true)
+      // dragStart.x = clientX - imagePosition.x = 150 - 0 = 150
+      expect(vm.dragStart.x).toBe(150)
+      expect(vm.dragStart.y).toBe(150)
+
+      // Move mouse to a position that results in negative image position (within bounds)
+      const moveEvent = {
+        clientX: 100,
+        clientY: 100
+      } as any
+
+      vm.handleMouseMove(moveEvent)
+      await nextTick()
+
+      // imagePosition.x = clientX - dragStart.x = 100 - 150 = -50
+      // With constraints: minX = -100, maxX = 0, so -50 is valid and should not be constrained
+      expect(vm.imagePosition.x).toBe(-50)
+      expect(vm.imagePosition.y).toBe(-50)
+
+      vm.handleMouseUp()
+      await nextTick()
+
+      expect(vm.isDragging).toBe(false)
+    })
+
+    it('should not handle drag when no preview image', async () => {
+      const vm = wrapper.vm as any
+      vm.showAvatarModal = true
+      vm.previewImageSrc = ''
+      vm.isDragging = false
+
+      const mouseEvent = {
+        clientX: 150,
+        clientY: 150,
+        preventDefault: vi.fn()
+      } as any
+
+      vm.handlePreviewMouseDown(mouseEvent)
+      await nextTick()
+
+      expect(vm.isDragging).toBe(false)
+    })
+
+    it('should not move image when not dragging', async () => {
+      const vm = wrapper.vm as any
+      vm.isDragging = false
+      vm.imagePosition.x = 0
+      vm.imagePosition.y = 0
+
+      const moveEvent = {
+        clientX: 200,
+        clientY: 200
+      } as any
+
+      vm.handleMouseMove(moveEvent)
+      await nextTick()
+
+      expect(vm.imagePosition.x).toBe(0)
+      expect(vm.imagePosition.y).toBe(0)
     })
   })
 })

@@ -940,7 +940,16 @@ export default {
     mobileCodeSent: 'Codice verifica mobile inviato',
     mobileBindSuccess: 'Mobile associata con successo',
     mobileBindFailed: 'Associazione mobile fallita',
-    verificationCode: 'Codice verifica'
+    verificationCode: 'Codice verifica',
+    clickToUploadAvatar: "Clicca per caricare l'avatar",
+    avatarUpdateSuccess: 'Avatar aggiornato con successo',
+    avatarUpdateFailed: 'Aggiornamento avatar fallito',
+    imageTooLarge: 'Immagine troppo grande, comprimere sotto 10KB',
+    imageLoadFailed: 'Caricamento immagine fallito',
+    imageReadFailed: 'Lettura immagine fallita',
+    pleaseSelectImage: 'Seleziona un file immagine',
+    avatarSettings: 'Impostazioni Avatar',
+    localUpload: 'Carica Locale'
   },
   update: {
     available: 'Una nuova versione è disponibile',

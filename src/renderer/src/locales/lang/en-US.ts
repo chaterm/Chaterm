@@ -933,7 +933,16 @@ export default {
     mobileCodeSent: 'Verification code sent',
     mobileBindSuccess: 'Mobile bound successfully',
     mobileBindFailed: 'Failed to bind mobile',
-    verificationCode: 'Verification Code'
+    verificationCode: 'Verification Code',
+    clickToUploadAvatar: 'Click to upload avatar',
+    avatarUpdateSuccess: 'Avatar updated successfully',
+    avatarUpdateFailed: 'Failed to update avatar',
+    imageTooLarge: 'Image too large, please compress under 10KB',
+    imageLoadFailed: 'Failed to load image',
+    imageReadFailed: 'Failed to read image',
+    pleaseSelectImage: 'Please select an image file',
+    avatarSettings: 'Avatar Settings',
+    localUpload: 'Local Upload'
   },
   update: {
     available: 'A new version is available',

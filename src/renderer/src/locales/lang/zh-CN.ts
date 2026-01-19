@@ -923,7 +923,16 @@ export default {
     mobileCodeSent: '验证码已发送',
     mobileBindSuccess: '手机号绑定成功',
     mobileBindFailed: '手机号绑定失败',
-    verificationCode: '验证码'
+    verificationCode: '验证码',
+    clickToUploadAvatar: '点击上传头像',
+    avatarUpdateSuccess: '头像更新成功',
+    avatarUpdateFailed: '头像更新失败',
+    imageTooLarge: '图片过大，请压缩至10KB以下',
+    imageLoadFailed: '图片加载失败',
+    imageReadFailed: '图片读取失败',
+    pleaseSelectImage: '请选择图片文件',
+    avatarSettings: '头像设置',
+    localUpload: '本地上传'
   },
   update: {
     available: '有最新版本可以更新',

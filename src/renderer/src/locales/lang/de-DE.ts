@@ -942,7 +942,16 @@ export default {
     mobileCodeSent: 'Mobile-Bestätigungscode erfolgreich gesendet',
     mobileBindSuccess: 'Mobile erfolgreich gebunden',
     mobileBindFailed: 'Mobile gebinden fehlgeschlagen',
-    verificationCode: 'Bestätigungscode'
+    verificationCode: 'Bestätigungscode',
+    clickToUploadAvatar: 'Klicken Sie, um Avatar hochzuladen',
+    avatarUpdateSuccess: 'Avatar erfolgreich aktualisiert',
+    avatarUpdateFailed: 'Avatar-Update fehlgeschlagen',
+    imageTooLarge: 'Bild zu groß, bitte auf unter 10KB komprimieren',
+    imageLoadFailed: 'Bild konnte nicht geladen werden',
+    imageReadFailed: 'Bild konnte nicht gelesen werden',
+    pleaseSelectImage: 'Bitte wählen Sie eine Bilddatei aus',
+    avatarSettings: 'Avatar-Einstellungen',
+    localUpload: 'Lokal hochladen'
   },
   update: {
     available: 'Eine neue Version ist verfügbar',

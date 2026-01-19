@@ -4,18 +4,35 @@
       :bordered="false"
       class="userInfo-container"
     >
-      <div class="user_avatar">
+      <div
+        class="user_avatar"
+        :title="!unChange ? t('userInfo.clickToUploadAvatar') : ''"
+        @click="handleAvatarClick"
+      >
         <img
           :src="userInfo.avatar"
           referrerpolicy="no-referrer"
           alt=""
         />
         <div
+          v-if="!unChange"
+          class="avatar-upload-overlay"
+        >
+          <CameraOutlined class="camera-icon" />
+        </div>
+        <div
           v-if="userInfo.subscription && (userInfo.subscription.toLowerCase() === 'pro' || userInfo.subscription.toLowerCase() === 'ultra')"
           class="vip-badge"
         >
           VIP/{{ userInfo.subscription }}
         </div>
+        <input
+          ref="avatarInput"
+          type="file"
+          accept="image/*"
+          style="display: none"
+          @change="handleAvatarChange"
+        />
       </div>
       <div class="registration_type">
         {{
@@ -347,6 +364,88 @@
         </a-form>
       </div>
     </a-modal>
+
+    <!-- Avatar Settings Modal -->
+    <a-modal
+      v-model:open="showAvatarModal"
+      :title="t('userInfo.avatarSettings')"
+      :width="300"
+      class="avatar-settings-modal"
+      centered
+      :footer="null"
+      @cancel="cancelAvatarSettings"
+    >
+      <div class="avatar-settings-content">
+        <!-- Image Preview Area -->
+        <div class="avatar-preview-container">
+          <div
+            ref="previewWrapper"
+            class="avatar-preview-wrapper"
+            @mousedown="handlePreviewMouseDown"
+            @click="handlePreviewClick"
+          >
+            <img
+              v-if="previewImageSrc"
+              ref="previewImage"
+              :src="previewImageSrc"
+              class="avatar-preview-image"
+              :style="previewImageStyle"
+              draggable="false"
+              @load="handleImageLoad"
+            />
+            <div
+              v-else
+              class="avatar-preview-placeholder"
+            >
+              <CameraOutlined class="placeholder-icon" />
+              <p>{{ t('userInfo.clickToUploadAvatar') }}</p>
+            </div>
+          </div>
+        </div>
+
+        <!-- Zoom Slider -->
+        <div
+          v-if="previewImageSrc"
+          class="avatar-zoom-control"
+        >
+          <span class="zoom-label">-</span>
+          <a-slider
+            v-model:value="zoomValue"
+            :min="1"
+            :max="2"
+            :step="0.1"
+            class="zoom-slider"
+            @change="handleZoomChange"
+          />
+          <span class="zoom-label">+</span>
+        </div>
+
+        <!-- Action Buttons -->
+        <div class="avatar-actions">
+          <a-button
+            type="default"
+            class="upload-btn"
+            @click="handleLocalUpload"
+          >
+            {{ t('userInfo.localUpload') }}
+          </a-button>
+          <a-button
+            type="default"
+            @click="cancelAvatarSettings"
+          >
+            {{ t('common.cancel') }}
+          </a-button>
+          <a-button
+            type="primary"
+            :loading="avatarUploading"
+            :disabled="!previewImageSrc"
+            @click="handleSaveAvatar"
+          >
+            {{ t('common.save') }}
+          </a-button>
+        </div>
+      </div>
+    </a-modal>
   </div>
 </template>
 
@@ -354,8 +453,17 @@
 import { ref, onMounted, onBeforeUnmount, reactive, computed } from 'vue'
 import 'xterm/css/xterm.css'
 import i18n from '@/locales'
-import { getUser, updateUser, changePassword, sendEmailBindCode, verifyAndBindEmail, sendMobileBindCode, verifyAndBindMobile } from '@api/user/user'
-import { EditOutlined, CheckOutlined, CloseOutlined, FormOutlined } from '@ant-design/icons-vue'
+import {
+  getUser,
+  updateUser,
+  changePassword,
+  sendEmailBindCode,
+  verifyAndBindEmail,
+  sendMobileBindCode,
+  verifyAndBindMobile,
+  updateAvatar
+} from '@api/user/user'
+import { EditOutlined, CheckOutlined, CloseOutlined, FormOutlined, CameraOutlined } from '@ant-design/icons-vue'
 import { useDeviceStore } from '@/store/useDeviceStore'
 import { message } from 'ant-design-vue'
 import zxcvbn from 'zxcvbn'
@@ -395,6 +503,7 @@ const unChange = ref(true)
 const showMobileModal = ref(false)
 const showPasswordModal = ref(false)
 const showEmailModal = ref(false)
+const showAvatarModal = ref(false)
 
 const formState = reactive({
   username: '',
@@ -418,6 +527,30 @@ const emailCodeCountdown = ref(0)
 const mobileCodeCountdown = ref(0)
 const emailCodeSending = ref(false)
 const mobileCodeSending = ref(false)
+const avatarInput = ref<HTMLInputElement | null>(null)
+const avatarUploading = ref(false)
+
+// Avatar preview and adjustment state
+const previewImageSrc = ref<string>('')
+const previewImage = ref<HTMLImageElement | null>(null)
+const previewWrapper = ref<HTMLDivElement | null>(null)
+const zoomValue = ref<number>(1.0)
+const imagePosition = reactive({ x: 0, y: 0 })
+const isDragging = ref(false)
+const dragStart = reactive({ x: 0, y: 0 })
+const originalImageSize = reactive({ width: 0, height: 0 })
+const previewSize = 200 // Preview container size in pixels
+
+// Preview image style computed property
+const previewImageStyle = computed(() => {
+  return {
+    transform: `scale(${zoomValue.value}) translate(${imagePosition.x / zoomValue.value}px, ${imagePosition.y / zoomValue.value}px)`,
+    transformOrigin: '0 0',
+    position: 'absolute' as const,
+    top: '0',
+    left: '0'
+  }
+})
 
 const getUserInfo = () => {
   getUser({}).then((res: any) => {
@@ -440,16 +573,17 @@ const passwordMatch = computed(() => {
   return formState.newPassword === formState.confirmPassword
 })
 
-// Check if mobile editing is allowed
-// Users registered with mobile (registrationType === 7) cannot modify their mobile number
 const canEditMobile = computed(() => {
   return userInfo.value.registrationType !== 7
 })
 
-// Check if email editing is allowed
-// Users registered with email (registrationType === 2) cannot modify their email
 const canEditEmail = computed(() => {
-  return userInfo.value.registrationType !== 2
+  return (
+    userInfo.value.registrationType !== 2 &&
+    userInfo.value.registrationType !== 3 &&
+    userInfo.value.registrationType !== 4 &&
+    userInfo.value.registrationType !== 6
+  )
 })
 
 const startEditing = () => {
@@ -683,11 +817,267 @@ const handleSave = async () => {
   }
 }
 
+const handleAvatarClick = () => {
+  if (unChange.value) return
+  showAvatarModal.value = true
+}
+
+// Avatar settings modal functions
+const cancelAvatarSettings = () => {
+  showAvatarModal.value = false
+  resetAvatarPreview()
+}
+
+const resetAvatarPreview = () => {
+  previewImageSrc.value = ''
+  zoomValue.value = 1.0
+  imagePosition.x = 0
+  imagePosition.y = 0
+  isDragging.value = false
+  originalImageSize.width = 0
+  originalImageSize.height = 0
+}
+
+const handleLocalUpload = () => {
+  avatarInput.value?.click()
+}
+
+const handleImageLoad = () => {
+  if (previewImage.value) {
+    // Image has already been resized in handleAvatarChange
+    // So naturalWidth/Height should match the resized dimensions
+    // But we need to get the actual displayed dimensions
+    originalImageSize.width = previewImage.value.width || previewImage.value.naturalWidth
+    originalImageSize.height = previewImage.value.height || previewImage.value.naturalHeight
+    // Center the image initially
+    centerImage()
+  }
+}
+
+const centerImage = () => {
+  if (!previewImage.value || !previewWrapper.value) return
+
+  const wrapperRect = previewWrapper.value.getBoundingClientRect()
+  const wrapperWidth = wrapperRect.width
+  const wrapperHeight = wrapperRect.height
+
+  const scaledWidth = originalImageSize.width * zoomValue.value
+  const scaledHeight = originalImageSize.height * zoomValue.value
+
+  // Center the image in the wrapper
+  imagePosition.x = (wrapperWidth - scaledWidth) / 2
+  imagePosition.y = (wrapperHeight - scaledHeight) / 2
+}
+
+const constrainImagePosition = () => {
+  if (!previewImage.value || !previewWrapper.value) return
+
+  const wrapperRect = previewWrapper.value.getBoundingClientRect()
+  const wrapperWidth = wrapperRect.width
+  const wrapperHeight = wrapperRect.height
+
+  const scaledWidth = originalImageSize.width * zoomValue.value
+  const scaledHeight = originalImageSize.height * zoomValue.value
+
+  // Calculate min/max positions to keep image covering the preview area
+  const minX = Math.min(0, wrapperWidth - scaledWidth)
+  const maxX = Math.max(0, wrapperWidth - scaledWidth)
+  const minY = Math.min(0, wrapperHeight - scaledHeight)
+  const maxY = Math.max(0, wrapperHeight - scaledHeight)
+
+  imagePosition.x = Math.max(minX, Math.min(maxX, imagePosition.x))
+  imagePosition.y = Math.max(minY, Math.min(maxY, imagePosition.y))
+}
+
+const handleZoomChange = () => {
+  constrainImagePosition()
+}
+
+const handlePreviewClick = () => {
+  // If no image is loaded, trigger file upload
+  if (!previewImageSrc.value) {
+    handleLocalUpload()
+  }
+}
+
+const handlePreviewMouseDown = (e: MouseEvent) => {
+  if (!previewImageSrc.value) return
+  isDragging.value = true
+  dragStart.x = e.clientX - imagePosition.x
+  dragStart.y = e.clientY - imagePosition.y
+  e.preventDefault()
+}
+
+const handleMouseMove = (e: MouseEvent) => {
+  if (!isDragging.value) return
+
+  imagePosition.x = e.clientX - dragStart.x
+  imagePosition.y = e.clientY - dragStart.y
+  constrainImagePosition()
+}
+
+const handleMouseUp = () => {
+  isDragging.value = false
+}
+
+const handleAvatarChange = async (event: Event) => {
+  const target = event.target as HTMLInputElement
+  const file = target.files?.[0]
+  if (!file) return
+
+  if (!file.type.startsWith('image/')) {
+    message.error(t('userInfo.pleaseSelectImage'))
+    return
+  }
+
+  // Load and compress image to fit preview area
+  const reader = new FileReader()
+  reader.onload = (e) => {
+    const img = new Image()
+    img.onload = () => {
+      // Calculate scale to fit preview area (200x200)
+      // Make sure image fits within preview area, maintaining aspect ratio
+      const maxPreviewSize = previewSize // Max size should be 200px
+      let width = img.width
+      let height = img.height
+
+      // Scale image to fit maxPreviewSize (upscale or downscale)
+      // Use Math.max to ensure the SHORTEST side fits the preview area (Cover mode)
+      const scale = Math.max(maxPreviewSize / width, maxPreviewSize / height)
+      width = width * scale
+      height = height * scale
+
+      // Create canvas to resize image
+      const canvas = document.createElement('canvas')
+      canvas.width = width
+      canvas.height = height
+      const ctx = canvas.getContext('2d')
+
+      if (!ctx) {
+        message.error(t('userInfo.imageLoadFailed'))
+        return
+      }
+
+      // Draw resized image
+      ctx.drawImage(img, 0, 0, width, height)
+
+      // Convert to base64
+      const resizedBase64 = canvas.toDataURL('image/jpeg', 0.9)
+
+      // Set preview image
+      previewImageSrc.value = resizedBase64
+
+      // Store original dimensions (after resizing)
+      originalImageSize.width = width
+      originalImageSize.height = height
+
+      // Reset zoom and position when new image is loaded
+      zoomValue.value = 1.0
+      imagePosition.x = 0
+      imagePosition.y = 0
+
+      // Center image after a short delay to ensure image is loaded
+      setTimeout(() => {
+        centerImage()
+      }, 100)
+    }
+    img.onerror = () => {
+      message.error(t('userInfo.imageLoadFailed'))
+    }
+    img.src = e.target?.result as string
+  }
+  reader.onerror = () => {
+    message.error(t('userInfo.imageReadFailed'))
+  }
+  reader.readAsDataURL(file)
+
+  // Clear input
+  if (avatarInput.value) {
+    avatarInput.value.value = ''
+  }
+}
+
+// Generate cropped and compressed image from preview
+const generateAvatarImage = (): Promise<string> => {
+  return new Promise((resolve, reject) => {
+    if (!previewImage.value) {
+      reject(new Error('No preview image'))
+      return
+    }
+
+    const canvas = document.createElement('canvas')
+    canvas.width = previewSize
+    canvas.height = previewSize
+    const ctx = canvas.getContext('2d')
+
+    if (!ctx) {
+      reject(new Error('Failed to get canvas context'))
+      return
+    }
+
+    // Draw white background
+    ctx.fillStyle = '#ffffff'
+    ctx.fillRect(0, 0, previewSize, previewSize)
+
+    // Calculate the scaled dimensions
+    const scaledWidth = originalImageSize.width * zoomValue.value
+    const scaledHeight = originalImageSize.height * zoomValue.value
+
+    // Draw the image onto the canvas exactly as it appears in the preview
+    // imagePosition already represents the offset of the scaled image relative to the preview area
+    ctx.drawImage(previewImage.value, imagePosition.x, imagePosition.y, scaledWidth, scaledHeight)
+
+    // Convert to base64 with compression
+    let quality = 0.8
+    let base64 = canvas.toDataURL('image/jpeg', quality)
+
+    // Standard Base64 size limit (approx 10KB)
+    const maxSizeKB = 10
+    while (base64.length > maxSizeKB * 1024 * 1.37 && quality > 0.1) {
+      quality -= 0.1
+      base64 = canvas.toDataURL('image/jpeg', quality)
+    }
+
+    resolve(base64)
+  })
+}
+
+const handleSaveAvatar = async () => {
+  if (!previewImageSrc.value) return
+
+  try {
+    avatarUploading.value = true
+    const base64 = await generateAvatarImage()
+
+    const response = (await updateAvatar({ avatarBase64: base64 })) as unknown as ApiResponse
+    if (response.code === 200) {
+      message.success(t('userInfo.avatarUpdateSuccess'))
+      showAvatarModal.value = false
+      resetAvatarPreview()
+      getUserInfo()
+    } else {
+      message.error(response.message || t('userInfo.avatarUpdateFailed'))
+    }
+  } catch (error: any) {
+    const errorMessage = error?.response?.data?.message || error?.message || t('userInfo.avatarUpdateFailed')
+    message.error(errorMessage)
+  } finally {
+    avatarUploading.value = false
+  }
+}
+
 onMounted(() => {
   getUserInfo()
+  // Add global mouse event listeners for dragging
+  document.addEventListener('mousemove', handleMouseMove)
+  document.addEventListener('mouseup', handleMouseUp)
 })
 
-onBeforeUnmount(() => {})
+onBeforeUnmount(() => {
+  // Remove global mouse event listeners
+  document.removeEventListener('mousemove', handleMouseMove)
+  document.removeEventListener('mouseup', handleMouseUp)
+})
 </script>
 
 <style lang="less" scoped>
@@ -821,6 +1211,12 @@ onBeforeUnmount(() => {})
   overflow: hidden;
   position: relative;
   flex-shrink: 0;
+  cursor: pointer;
+  transition: all 0.3s ease;
+
+  &:hover .avatar-upload-overlay {
+    opacity: 1;
+  }
 }
 
 .user_avatar img {
@@ -831,6 +1227,26 @@ onBeforeUnmount(() => {})
   left: 50%;
   top: 50%;
   transform: translate(-50%, -50%);
+}
+
+.avatar-upload-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background-color: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 0;
+  transition: opacity 0.3s ease;
+  z-index: 5;
+}
+
+.camera-icon {
+  font-size: 32px;
+  color: #fff;
 }
 
 .vip-badge {
@@ -964,6 +1380,153 @@ onBeforeUnmount(() => {})
   align-items: center;
   gap: 8px;
 }
+
+/* Avatar settings modal styles */
+.avatar-settings-content {
+  padding: 20px 0;
+}
+
+.avatar-preview-container {
+  width: 100%;
+  display: flex;
+  justify-content: center;
+  margin-bottom: 24px;
+}
+
+.avatar-preview-wrapper {
+  width: 200px;
+  height: 200px;
+  border: 2px solid var(--border-color, #d9d9d9);
+  border-radius: 8px;
+  overflow: hidden;
+  position: relative;
+  background-color: var(--bg-color-secondary, #f5f5f5);
+  cursor: move;
+  user-select: none;
+  box-shadow:
+    0 2px 8px rgba(0, 0, 0, 0.15),
+    inset 0 0 0 1px rgba(0, 0, 0, 0.05);
+
+  &:hover {
+    border-color: var(--border-color-light, #bfbfbf);
+    box-shadow:
+      0 4px 12px rgba(0, 0, 0, 0.2),
+      inset 0 0 0 1px rgba(0, 0, 0, 0.08);
+  }
+}
+
+.avatar-preview-image {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  max-width: none;
+  max-height: none;
+  pointer-events: none;
+  transition: transform 0.1s ease-out;
+}
+
+.avatar-preview-placeholder {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-color-secondary, #999);
+  cursor: pointer;
+  transition: all 0.2s;
+
+  &:hover {
+    color: var(--text-color, #333);
+    background-color: var(--bg-color-tertiary, rgba(0, 0, 0, 0.02));
+  }
+
+  .placeholder-icon {
+    font-size: 48px;
+    margin-bottom: 16px;
+    opacity: 0.5;
+    transition: opacity 0.2s;
+  }
+
+  &:hover .placeholder-icon {
+    opacity: 0.8;
+  }
+
+  p {
+    margin: 0;
+    font-size: 14px;
+  }
+}
+
+.avatar-zoom-control {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 24px;
+  padding: 0 20px;
+
+  .zoom-label {
+    font-size: 16px;
+    color: var(--text-color, #333);
+    min-width: 20px;
+    text-align: center;
+  }
+
+  .zoom-slider {
+    flex: 1;
+  }
+
+  // Slider styles for better visibility in both light and dark themes
+  :deep(.ant-slider) {
+    .ant-slider-rail {
+      background-color: rgba(255, 255, 255, 0.15) !important;
+
+      &:hover {
+        background-color: rgba(255, 255, 255, 0.2) !important;
+      }
+    }
+
+    .ant-slider-track {
+      background-color: #1890ff !important;
+    }
+
+    .ant-slider-handle {
+      border-color: #1890ff !important;
+      background-color: #fff !important;
+      box-shadow:
+        0 0 0 2px rgba(24, 144, 255, 0.2),
+        0 2px 4px rgba(0, 0, 0, 0.3) !important;
+
+      &:hover,
+      &:focus {
+        border-color: #40a9ff !important;
+        box-shadow:
+          0 0 0 4px rgba(24, 144, 255, 0.3),
+          0 2px 8px rgba(0, 0, 0, 0.4) !important;
+      }
+
+      &::after {
+        box-shadow: 0 0 0 2px rgba(24, 144, 255, 0.2) !important;
+      }
+    }
+
+    &:hover .ant-slider-rail {
+      background-color: rgba(255, 255, 255, 0.2) !important;
+    }
+  }
+}
+
+.avatar-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;
+  padding-top: 16px;
+  border-top: 1px solid var(--border-color-light, #e8e8e8);
+
+  .upload-btn {
+    margin-right: auto;
+  }
+}
 </style>
 
 <style lang="less">
@@ -1089,6 +1652,120 @@ onBeforeUnmount(() => {})
       &:hover {
         color: var(--text-color-secondary) !important;
       }
+    }
+  }
+}
+
+.ant-modal-wrap .ant-modal.avatar-settings-modal {
+  .ant-modal-content {
+    background-color: var(--bg-color-senary) !important;
+  }
+
+  .ant-modal-body {
+    background-color: var(--bg-color-senary) !important;
+  }
+
+  .ant-modal-header {
+    background-color: var(--bg-color-senary) !important;
+    border-bottom: 1px solid var(--border-color-light) !important;
+  }
+
+  .ant-modal-title {
+    color: var(--text-color) !important;
+  }
+
+  .ant-modal-close {
+    color: var(--text-color-secondary) !important;
+
+    &:hover {
+      color: var(--text-color) !important;
+    }
+  }
+
+  .ant-btn {
+    background-color: var(--bg-color-quinary) !important;
+    border-color: var(--border-color) !important;
+    color: var(--text-color) !important;
+
+    &:hover {
+      border-color: var(--text-color-secondary) !important;
+      color: var(--text-color) !important;
+    }
+
+    &:focus {
+      border-color: var(--text-color-secondary) !important;
+      color: var(--text-color) !important;
+    }
+  }
+
+  .ant-btn-primary {
+    background-color: #1890ff !important;
+    border-color: #1890ff !important;
+    color: #fff !important;
+
+    &:hover {
+      background-color: #40a9ff !important;
+      border-color: #40a9ff !important;
+      color: #fff !important;
+    }
+
+    &:focus {
+      background-color: #40a9ff !important;
+      border-color: #40a9ff !important;
+      color: #fff !important;
+    }
+
+    &[disabled] {
+      background-color: var(--bg-color-secondary) !important;
+      border-color: var(--border-color) !important;
+      color: var(--text-color-tertiary) !important;
+      opacity: 0.6 !important;
+      cursor: not-allowed !important;
+
+      &:hover {
+        background-color: var(--bg-color-secondary) !important;
+        border-color: var(--border-color) !important;
+        color: var(--text-color-tertiary) !important;
+      }
+    }
+  }
+
+  // Slider styles for better visibility in dark theme
+  .ant-slider {
+    .ant-slider-rail {
+      background-color: rgba(255, 255, 255, 0.15) !important;
+
+      &:hover {
+        background-color: rgba(255, 255, 255, 0.2) !important;
+      }
+    }
+
+    .ant-slider-track {
+      background-color: #1890ff !important;
+    }
+
+    .ant-slider-handle {
+      border-color: #1890ff !important;
+      background-color: #fff !important;
+      box-shadow:
+        0 0 0 2px rgba(24, 144, 255, 0.2),
+        0 2px 4px rgba(0, 0, 0, 0.3) !important;
+
+      &:hover,
+      &:focus {
+        border-color: #40a9ff !important;
+        box-shadow:
+          0 0 0 4px rgba(24, 144, 255, 0.3),
+          0 2px 8px rgba(0, 0, 0, 0.4) !important;
+      }
+
+      &::after {
+        box-shadow: 0 0 0 2px rgba(24, 144, 255, 0.2) !important;
+      }
+    }
+
+    &:hover .ant-slider-rail {
+      background-color: rgba(255, 255, 255, 0.2) !important;
     }
   }
 }
