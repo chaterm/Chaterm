@@ -282,6 +282,20 @@ function upgradeSnippetGroups(db: Database.Database): void {
   }
 }
 
+/**
+ * Apply all database migrations to ensure schema consistency.
+ * This must be called for both newly created and existing databases.
+ */
+async function applyAllMigrations(db: Database.Database): Promise<void> {
+  upgradeTAssetsTable(db)
+  upgradeUserSnippetTable(db)
+  await upgradeAgentTaskMetadataSupport(db)
+  await upgradeMcpToolStateSupport(db)
+  await upgradeMcpToolCallSupport(db)
+  upgradeSnippetGroups(db)
+  upgradeSkillsSupport(db)
+}
+
 export async function initDatabase(userId?: number): Promise<Database.Database> {
   const isSkippedLogin = !userId && localStorage.getItem('login-skipped') === 'true'
   const targetUserId = userId || (isSkippedLogin ? getGuestUserId() : currentUserId)
@@ -347,6 +361,27 @@ export async function initChatermDatabase(userId?: number): Promise<Database.Dat
         } finally {
           sourceDb.close()
         }
+
+        // Apply migrations to newly created database to ensure schema consistency
+        // This is critical: init_chaterm.db may not contain all latest tables (e.g., skills_state)
+        const newDb = new Database(Chaterm_DB_PATH)
+        try {
+          console.log('Applying migrations to newly created database...')
+          await applyAllMigrations(newDb)
+          console.log('Migrations applied successfully to new database.')
+        } finally {
+          newDb.close()
+        }
+      } else {
+        // Legacy database was migrated, apply migrations to ensure consistency
+        const migratedDb = new Database(Chaterm_DB_PATH)
+        try {
+          console.log('Applying migrations to migrated legacy database...')
+          await applyAllMigrations(migratedDb)
+          console.log('Migrations applied successfully to migrated database.')
+        } finally {
+          migratedDb.close()
+        }
       }
     } else {
       console.log('Target Chaterm database exists. Attempting schema synchronization.')
@@ -374,13 +409,7 @@ export async function initChatermDatabase(userId?: number): Promise<Database.Dat
         }
 
         // Perform necessary upgrades
-        upgradeTAssetsTable(mainDb)
-        upgradeUserSnippetTable(mainDb)
-        upgradeAgentTaskMetadataSupport(mainDb)
-        upgradeMcpToolStateSupport(mainDb)
-        upgradeMcpToolCallSupport(mainDb)
-        upgradeSnippetGroups(mainDb)
-        upgradeSkillsSupport(mainDb)
+        await applyAllMigrations(mainDb)
       } finally {
         if (mainDb) mainDb.close()
         if (initDb) initDb.close()
