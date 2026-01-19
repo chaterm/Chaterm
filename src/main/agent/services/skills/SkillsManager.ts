@@ -373,17 +373,12 @@ export class SkillsManager {
     const frontmatterRegex = /^---[ \t]*\n([\s\S]*?)\n---[ \t]*\n([\s\S]*)$/
     const match = normalizedContent.match(frontmatterRegex)
 
-    console.log(`[SkillsManager] parseFrontmatter - content starts with: "${normalizedContent.substring(0, 50).replace(/\n/g, '\\n')}"`)
-    console.log(`[SkillsManager] parseFrontmatter - frontmatter match found: ${!!match}`)
-
     if (!match) {
-      console.log('[SkillsManager] parseFrontmatter - no frontmatter found, falling back to content parsing')
       // No frontmatter, try to extract metadata from first heading
       return this.parseMetadataFromContent(normalizedContent)
     }
 
     const [, frontmatter, body] = match
-    console.log(`[SkillsManager] parseFrontmatter - frontmatter content: "${frontmatter.substring(0, 100)}..."`)
     const metadata = this.parseYaml(frontmatter)
 
     return { metadata, body: body.trim() }
@@ -393,7 +388,7 @@ export class SkillsManager {
    * Simple YAML parser for frontmatter
    */
   private parseYaml(yaml: string): Partial<SkillMetadata> {
-    const metadata: Partial<SkillMetadata> = {}
+    const metadata: Record<string, unknown> = {}
     const lines = yaml.split('\n')
 
     console.log(`[SkillsManager] parseYaml - parsing ${lines.length} lines`)
@@ -416,21 +411,21 @@ export class SkillsManager {
       if (value.startsWith('[') && value.endsWith(']')) {
         const arrayContent = value.slice(1, -1)
         const items = arrayContent.split(',').map((item) => item.trim().replace(/^["']|["']$/g, ''))
-        ;(metadata as any)[key] = items
+        metadata[key] = items
         console.log(`[SkillsManager] parseYaml - parsed array for "${key}":`, items)
       } else if (value === 'true') {
-        ;(metadata as any)[key] = true
+        metadata[key] = true
       } else if (value === 'false') {
-        ;(metadata as any)[key] = false
+        metadata[key] = false
       } else if (!isNaN(Number(value)) && value !== '') {
-        ;(metadata as any)[key] = Number(value)
+        metadata[key] = Number(value)
       } else {
-        ;(metadata as any)[key] = value
+        metadata[key] = value
       }
     }
 
     console.log(`[SkillsManager] parseYaml - final metadata:`, JSON.stringify(metadata))
-    return metadata
+    return metadata as Partial<SkillMetadata>
   }
 
   /**
@@ -989,10 +984,11 @@ export class SkillsManager {
     let skillMdBasePath = '' // The path prefix to use when extracting
 
     for (const entry of entries) {
-      const entryName = entry.entryName
+      const entryName = entry.entryName.replace(/\\/g, '/')
 
-      // Check for path traversal attacks
-      if (entryName.includes('..') || entryName.startsWith('/')) {
+      const isAbsolute = path.posix.isAbsolute(entryName) || /^[a-zA-Z]:/.test(entryName)
+      const hasTraversal = entryName.split('/').includes('..')
+      if (isAbsolute || hasTraversal) {
         console.error('[SkillsManager] Potential path traversal detected:', entryName)
         return {
           success: false,
@@ -1072,7 +1068,7 @@ export class SkillsManager {
 
       // Extract relevant files
       for (const entry of entries) {
-        const entryName = entry.entryName
+        const entryName = entry.entryName.replace(/\\/g, '/')
 
         // Skip if entry doesn't match our base path
         if (skillMdBasePath && !entryName.startsWith(skillMdBasePath)) {
@@ -1095,7 +1091,12 @@ export class SkillsManager {
           continue
         }
 
-        const targetPath = path.join(targetDir, relativePath)
+        // Resolve and validate target path to prevent path traversal
+        const targetPath = path.resolve(targetDir, relativePath)
+        const targetRoot = path.resolve(targetDir) + path.sep
+        if (!targetPath.startsWith(targetRoot)) {
+          throw new Error(`Invalid ZIP entry path: ${entryName}`)
+        }
         const targetParent = path.dirname(targetPath)
 
         // Ensure parent directory exists
@@ -1141,34 +1142,30 @@ export class SkillsManager {
    */
   private buildSkillFile(metadata: SkillMetadata, content: string): string {
     let file = '---\n'
-    file += `id: ${metadata.id}\n`
-    file += `name: ${metadata.name}\n`
-    file += `description: ${metadata.description}\n`
-    file += `version: ${metadata.version || '1.0.0'}\n`
-
+    file += `id: ${JSON.stringify(metadata.id)}\n`
+    file += `name: ${JSON.stringify(metadata.name)}\n`
+    file += `description: ${JSON.stringify(metadata.description)}\n`
+    file += `version: ${JSON.stringify(metadata.version || '1.0.0')}\n`
     if (metadata.author) {
-      file += `author: ${metadata.author}\n`
+      file += `author: ${JSON.stringify(metadata.author)}\n`
     }
     if (metadata.tags && metadata.tags.length > 0) {
-      file += `tags: [${metadata.tags.join(', ')}]\n`
+      file += `tags: [${metadata.tags.map((tag) => JSON.stringify(tag)).join(', ')}]\n`
     }
     if (metadata.icon) {
-      file += `icon: ${metadata.icon}\n`
+      file += `icon: ${JSON.stringify(metadata.icon)}\n`
     }
     if (metadata.activation) {
-      file += `activation: ${metadata.activation}\n`
+      file += `activation: ${JSON.stringify(metadata.activation)}\n`
     }
     if (metadata.contextPatterns && metadata.contextPatterns.length > 0) {
-      file += `contextPatterns: [${metadata.contextPatterns.join(', ')}]\n`
+      file += `contextPatterns: [${metadata.contextPatterns.map((pattern) => JSON.stringify(pattern)).join(', ')}]\n`
     }
     if (metadata.requires && metadata.requires.length > 0) {
-      file += `requires: [${metadata.requires.join(', ')}]\n`
+      file += `requires: [${metadata.requires.map((req) => JSON.stringify(req)).join(', ')}]\n`
     }
 
-    file += '---\n\n'
-    file += content
-
-    return file
+    return `---\n${file}---\n\n${content}`
   }
 
   /**

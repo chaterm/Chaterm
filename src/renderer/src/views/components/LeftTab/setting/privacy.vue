@@ -245,18 +245,18 @@ const loadSavedConfig = async () => {
     if (savedConfig) {
       let defaultDataSync: 'enabled' | 'disabled' = 'disabled'
 
-      if (isUserLoggedIn.value) {
-        if (rawConfig.dataSync === undefined || rawConfig.dataSync === null) {
-          defaultDataSync = 'enabled'
-          await userConfigStore.saveConfig({
-            ...savedConfig,
-            dataSync: 'enabled'
-          } as any)
-        } else {
-          defaultDataSync = savedConfig.dataSync as 'enabled' | 'disabled'
-        }
+      const persistedDataSync = (rawConfig.dataSync ?? savedConfig.dataSync) as 'enabled' | 'disabled' | undefined
+
+      if (persistedDataSync) {
+        defaultDataSync = persistedDataSync
+      } else if (isUserLoggedIn.value) {
+        defaultDataSync = 'enabled'
+        await userConfigStore.saveConfig({
+          ...savedConfig,
+          dataSync: 'enabled'
+        } as any)
       } else {
-        defaultDataSync = (savedConfig.dataSync || 'disabled') as 'enabled' | 'disabled'
+        defaultDataSync = 'disabled'
       }
 
       userConfig.value = {
