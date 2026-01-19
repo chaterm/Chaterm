@@ -13,8 +13,7 @@
           "支持修改用户头像功能",
           "国际版支持Apple ID登陆",
           "新增多语言支持：德语、法语、意大利语、葡萄牙语、俄语、繁体中文",
-          "优化浅色主题颜色一致性",
-          "修复若干问题，提升应用稳定性"
+          "修复若干问题，提升用户体验"
         ],
         "en-US": [
           "Add AWS EC2 instance connection plugin support",
@@ -24,8 +23,7 @@
           "Support modifying user avatars",
           "International edition supports Apple ID login",
           "Add multiple new languages: German, French, Italian, Portuguese, Russian, and Traditional Chinese",
-          "Optimize light theme color consistency",
-          "Fix several issues and improve application stability"
+          "Fix several issues and improve user experience"
         ]
       }
     },
