@@ -71,7 +71,7 @@ export const toolParamNames = [
   'api_request_output',
   'additional_context',
   'todos',
-  'skill_id'
+  'name'
 ] as const
 
 export type ToolParamName = (typeof toolParamNames)[number]

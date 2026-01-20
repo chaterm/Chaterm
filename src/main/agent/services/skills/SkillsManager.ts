@@ -97,7 +97,6 @@ export class SkillsManager {
 
     directories.push({
       path: builtinPath,
-      type: 'builtin',
       exists: await this.directoryExists(builtinPath)
     })
 
@@ -105,7 +104,6 @@ export class SkillsManager {
     const userPath = path.join(getUserDataPath(), SKILLS_DIR_NAME)
     directories.push({
       path: userPath,
-      type: 'user',
       exists: await this.directoryExists(userPath)
     })
 
@@ -113,7 +111,6 @@ export class SkillsManager {
     const marketplacePath = path.join(getUserDataPath(), 'marketplace-skills')
     directories.push({
       path: marketplacePath,
-      type: 'marketplace',
       exists: await this.directoryExists(marketplacePath)
     })
 
@@ -136,7 +133,7 @@ export class SkillsManager {
 
     for (const dir of directories) {
       if (dir.exists) {
-        await this.loadSkillsFromDirectory(dir.path, dir.type)
+        await this.loadSkillsFromDirectory(dir.path)
       }
     }
 
@@ -147,34 +144,34 @@ export class SkillsManager {
   /**
    * Load skills from a specific directory
    */
-  private async loadSkillsFromDirectory(dirPath: string, source: 'builtin' | 'user' | 'marketplace'): Promise<void> {
+  private async loadSkillsFromDirectory(dirPath: string): Promise<void> {
     try {
       const entries = await fs.readdir(dirPath, { withFileTypes: true })
 
       for (const entry of entries) {
         if (entry.isDirectory()) {
           const skillPath = path.join(dirPath, entry.name, SKILL_FILE_NAME)
-          const result = await this.parseSkillFile(skillPath, source)
+          const result = await this.parseSkillFile(skillPath)
 
           if (result.success && result.skill) {
             // Apply saved state
-            const state = this.skillStates.get(result.skill.metadata.id)
+            const state = this.skillStates.get(result.skill.metadata.name)
             if (state) {
               result.skill.enabled = state.enabled
             }
-            this.skills.set(result.skill.metadata.id, result.skill)
+            this.skills.set(result.skill.metadata.name, result.skill)
           }
         } else if (entry.name === SKILL_FILE_NAME) {
           // Single SKILL.md file in directory root
           const skillPath = path.join(dirPath, entry.name)
-          const result = await this.parseSkillFile(skillPath, source)
+          const result = await this.parseSkillFile(skillPath)
 
           if (result.success && result.skill) {
-            const state = this.skillStates.get(result.skill.metadata.id)
+            const state = this.skillStates.get(result.skill.metadata.name)
             if (state) {
               result.skill.enabled = state.enabled
             }
-            this.skills.set(result.skill.metadata.id, result.skill)
+            this.skills.set(result.skill.metadata.name, result.skill)
           }
         }
       }
@@ -186,7 +183,7 @@ export class SkillsManager {
   /**
    * Parse a SKILL.md file
    */
-  async parseSkillFile(filePath: string, source: 'builtin' | 'user' | 'marketplace'): Promise<SkillParseResult> {
+  async parseSkillFile(filePath: string): Promise<SkillParseResult> {
     console.log(`[SkillsManager] parseSkillFile - parsing: ${filePath}`)
     try {
       const exists = await this.fileExists(filePath)
@@ -220,7 +217,6 @@ export class SkillsManager {
         path: filePath,
         directory,
         enabled: true, // Default enabled, will be overridden by saved state
-        source,
         lastModified: stat.mtimeMs,
         resources: resources.length > 0 ? resources : undefined
       }
@@ -438,11 +434,6 @@ export class SkillsManager {
     const headingMatch = content.match(/^#\s+(.+)$/m)
     if (headingMatch) {
       metadata.name = headingMatch[1].trim()
-      // Generate ID from name
-      metadata.id = metadata.name
-        .toLowerCase()
-        .replace(/[^a-z0-9]+/g, '-')
-        .replace(/^-|-$/g, '')
     }
 
     // Try to extract description from first paragraph
@@ -464,47 +455,6 @@ export class SkillsManager {
     for (const field of REQUIRED_SKILL_FIELDS) {
       if (!metadata[field]) {
         errors.push(`Missing required field: ${field}`)
-      }
-    }
-
-    // Validate ID format
-    if (metadata.id && !/^[a-z0-9-]+$/i.test(metadata.id)) {
-      warnings.push('ID should only contain alphanumeric characters and hyphens')
-    }
-
-    // Validate version format
-    if (metadata.version && !/^\d+\.\d+\.\d+/.test(metadata.version)) {
-      warnings.push('Version should follow semver format (e.g., 1.0.0)')
-    }
-
-    // Validate activation type
-    if (metadata.activation && !['always', 'on-demand', 'context-match'].includes(metadata.activation)) {
-      warnings.push('Invalid activation type')
-    }
-
-    // Validate contextPatterns for context-match activation
-    if (metadata.activation === 'context-match') {
-      if (!metadata.contextPatterns || !Array.isArray(metadata.contextPatterns) || metadata.contextPatterns.length === 0) {
-        errors.push('Context-match activation requires at least one context pattern')
-      } else {
-        // Validate each pattern for ReDoS vulnerabilities
-        for (const pattern of metadata.contextPatterns) {
-          if (typeof pattern !== 'string' || pattern.trim().length === 0) {
-            errors.push('Context patterns must be non-empty strings')
-            continue
-          }
-
-          // Check if pattern is a regex (wrapped in /pattern/)
-          const regexMatch = pattern.match(/^\/(.+)\/$/)
-          if (regexMatch) {
-            const regexPattern = regexMatch[1]
-            const validation = this.validateRegexPattern(regexPattern)
-            if (!validation.valid) {
-              errors.push(`Unsafe regex pattern "${pattern}": ${validation.error}`)
-            }
-          }
-          // Substring patterns (default) are always safe, no validation needed
-        }
       }
     }
 
@@ -530,32 +480,25 @@ export class SkillsManager {
   }
 
   /**
-   * Get skills by activation type
+   * Get a skill by name
    */
-  getSkillsByActivation(activation: 'always' | 'on-demand' | 'context-match'): Skill[] {
-    return this.getEnabledSkills().filter((skill) => skill.metadata.activation === activation)
-  }
-
-  /**
-   * Get a skill by ID
-   */
-  getSkill(id: string): Skill | undefined {
-    return this.skills.get(id)
+  getSkill(name: string): Skill | undefined {
+    return this.skills.get(name)
   }
 
   /**
    * Enable or disable a skill
    */
-  async setSkillEnabled(id: string, enabled: boolean): Promise<void> {
-    const skill = this.skills.get(id)
+  async setSkillEnabled(name: string, enabled: boolean): Promise<void> {
+    const skill = this.skills.get(name)
     if (!skill) {
-      throw new Error(`Skill not found: ${id}`)
+      throw new Error(`Skill not found: ${name}`)
     }
 
     skill.enabled = enabled
 
     // Save state to database
-    await this.saveSkillState(id, { skillId: id, enabled })
+    await this.saveSkillState(name, { skillId: name, enabled })
 
     // Notify webview
     await this.notifySkillsUpdate()
@@ -581,8 +524,8 @@ export class SkillsManager {
       }
 
       // Update enabled state for all loaded skills
-      for (const [skillId, skill] of this.skills) {
-        const state = this.skillStates.get(skillId)
+      for (const [skillName, skill] of this.skills) {
+        const state = this.skillStates.get(skillName)
         if (state) {
           skill.enabled = state.enabled
         }
@@ -617,19 +560,20 @@ export class SkillsManager {
     try {
       const chokidar = (await import('chokidar')) as ChokidarModule
       const directories = await this.getSkillDirectories()
+      // const userSkillsPath = this.getUserSkillsPath()
 
       for (const dir of directories) {
-        if (dir.exists && dir.type !== 'builtin') {
-          // Only watch user and marketplace directories
+        // Only watch non-builtin directories (user and marketplace)
+        const isBuiltin = !dir.path.startsWith(getUserDataPath())
+        if (dir.exists && !isBuiltin) {
           const watcher = chokidar.watch(path.join(dir.path, '**', SKILL_FILE_NAME), {
             persistent: true,
             ignoreInitial: true
           })
 
-          const dirType = dir.type as 'user' | 'marketplace'
-          watcher.on('add', () => this.handleSkillFileChange(dirType))
-          watcher.on('change', () => this.handleSkillFileChange(dirType))
-          watcher.on('unlink', () => this.handleSkillFileChange(dirType))
+          watcher.on('add', () => this.handleSkillFileChange())
+          watcher.on('change', () => this.handleSkillFileChange())
+          watcher.on('unlink', () => this.handleSkillFileChange())
 
           this.watchers.push(watcher)
         }
@@ -642,8 +586,8 @@ export class SkillsManager {
   /**
    * Handle skill file changes
    */
-  private async handleSkillFileChange(source: 'user' | 'marketplace'): Promise<void> {
-    console.log(`[SkillsManager] Skill file changed in ${source} directory, reloading...`)
+  private async handleSkillFileChange(): Promise<void> {
+    console.log(`[SkillsManager] Skill file changed, reloading...`)
     await this.loadAllSkills()
   }
 
@@ -655,17 +599,9 @@ export class SkillsManager {
       await this.postMessageToWebview({
         type: 'skillsUpdate',
         skills: this.getAllSkills().map((skill) => ({
-          id: skill.metadata.id,
           name: skill.metadata.name,
           description: skill.metadata.description,
-          version: skill.metadata.version,
-          author: skill.metadata.author,
-          tags: skill.metadata.tags,
-          icon: skill.metadata.icon,
-          activation: skill.metadata.activation,
-          contextPatterns: skill.metadata.contextPatterns,
-          enabled: skill.enabled,
-          source: skill.source
+          enabled: skill.enabled
         }))
       })
     }
@@ -673,224 +609,29 @@ export class SkillsManager {
 
   /**
    * Build skills instructions for system prompt
-   * @param userMessage Optional user message for context-match skill activation
    */
-  buildSkillsPrompt(userMessage?: string): string {
-    const allSkills = this.getAllSkills()
+  buildSkillsPrompt(): string {
     const enabledSkills = this.getEnabledSkills()
 
-    console.log(`[SkillsManager] buildSkillsPrompt called - total skills: ${allSkills.length}, enabled: ${enabledSkills.length}`)
-    console.log(
-      `[SkillsManager] All skills:`,
-      allSkills.map((s) => `${s.metadata.id}(enabled=${s.enabled}, activation=${s.metadata.activation})`).join(', ')
-    )
+    console.log(`[SkillsManager] buildSkillsPrompt called - enabled skills: ${enabledSkills.length}`)
 
-    // Get always-active skills (full content loaded)
-    const alwaysActiveSkills = enabledSkills.filter((s) => s.metadata.activation === 'always')
-    console.log(`[SkillsManager] Always active skills: ${alwaysActiveSkills.length}`)
-
-    // Get context-matching skills if user message is provided (full content loaded)
-    let contextMatchedSkills: Skill[] = []
-    if (userMessage) {
-      const allContextMatchSkills = this.getSkillsByActivation('context-match')
-      console.log(`[SkillsManager] Context-match skills available: ${allContextMatchSkills.length}`)
-
-      contextMatchedSkills = this.getContextMatchingSkills(userMessage).filter((s) => s.enabled)
-      console.log(
-        `[SkillsManager] Context matched skills for message "${userMessage?.substring(0, 50)}...": ${contextMatchedSkills.map((s) => s.metadata.id).join(', ') || 'none'}`
-      )
-    }
-
-    // Get on-demand skills (only show name and description, not full content)
-    const onDemandSkills = enabledSkills.filter((s) => s.metadata.activation === 'on-demand')
-    console.log(`[SkillsManager] On-demand skills available: ${onDemandSkills.length}`)
-
-    // Combine active skills (deduplicate by id) - these get full content
-    const activeSkillIds = new Set<string>()
-    const activeSkills: Skill[] = []
-
-    for (const skill of alwaysActiveSkills) {
-      if (!activeSkillIds.has(skill.metadata.id)) {
-        activeSkillIds.add(skill.metadata.id)
-        activeSkills.push(skill)
-      }
-    }
-
-    for (const skill of contextMatchedSkills) {
-      if (!activeSkillIds.has(skill.metadata.id)) {
-        activeSkillIds.add(skill.metadata.id)
-        activeSkills.push(skill)
-      }
-    }
-
-    // Check if we have any skills to display
-    const hasActiveSkills = activeSkills.length > 0
-    const hasOnDemandSkills = onDemandSkills.length > 0
-
-    if (!hasActiveSkills && !hasOnDemandSkills) {
+    if (enabledSkills.length === 0) {
       console.log(`[SkillsManager] No skills to include in prompt`)
       return ''
     }
 
     let prompt = '\n====\n\n'
+    prompt += 'AVAILABLE SKILLS\n\n'
+    prompt += 'The following skills are available. Use the Skill tool to invoke a skill when needed:\n\n'
 
-    // Section 1: Active skills with full content
-    if (hasActiveSkills) {
-      prompt += 'ACTIVE SKILLS\n\n'
-      prompt += 'The following skills are active and their instructions should be followed:\n\n'
-
-      for (const skill of activeSkills) {
-        prompt += `## ${skill.metadata.name}\n\n`
-        prompt += skill.content
-        prompt += '\n\n'
-
-        // Include resource files content if available
-        if (skill.resources && skill.resources.length > 0) {
-          const resourcesWithContent = skill.resources.filter((r) => r.content)
-          if (resourcesWithContent.length > 0) {
-            prompt += `### Available Resources\n\n`
-            prompt += `The following resource files are available for this skill:\n\n`
-
-            for (const resource of resourcesWithContent) {
-              prompt += `#### ${resource.name} (${resource.type})\n\n`
-              prompt += '```\n'
-              prompt += resource.content
-              prompt += '\n```\n\n'
-            }
-          }
-        }
-      }
+    for (const skill of enabledSkills) {
+      prompt += `- **${skill.metadata.name}**: ${skill.metadata.description}\n`
     }
+    prompt += '\n'
 
-    // Section 2: On-demand skills (only name and description)
-    if (hasOnDemandSkills) {
-      prompt += 'AVAILABLE SKILLS\n\n'
-      prompt += 'The following on-demand skills are available. Use the use_skill tool to activate a skill when needed. '
-      prompt += 'Each skill has a name and description - use the description to determine when to activate it.\n\n'
-
-      for (const skill of onDemandSkills) {
-        prompt += `- **${skill.metadata.name}** (id: \`${skill.metadata.id}\`): ${skill.metadata.description}\n`
-      }
-      prompt += '\n'
-    }
-
-    console.log(`[SkillsManager] Built prompt with ${activeSkills.length} active skills and ${onDemandSkills.length} on-demand skills`)
+    console.log(`[SkillsManager] Built prompt with ${enabledSkills.length} skills`)
 
     return prompt
-  }
-
-  /**
-   * Validate regex pattern for ReDoS vulnerabilities
-   * Checks for dangerous patterns like nested quantifiers, catastrophic backtracking
-   */
-  private validateRegexPattern(pattern: string): { valid: boolean; error?: string } {
-    // Check for nested quantifiers (common ReDoS pattern)
-    // Patterns like (a+)+, (a*)*, (a?)?, etc.
-    const nestedQuantifierPattern = /\([^)]*[+*?][^)]*\)[+*?]/
-    if (nestedQuantifierPattern.test(pattern)) {
-      return { valid: false, error: 'Nested quantifiers detected (potential ReDoS)' }
-    }
-
-    // Check for excessive nesting depth (more than 3 levels)
-    let maxDepth = 0
-    let currentDepth = 0
-    for (const char of pattern) {
-      if (char === '(') {
-        currentDepth++
-        maxDepth = Math.max(maxDepth, currentDepth)
-      } else if (char === ')') {
-        currentDepth--
-      }
-    }
-    if (maxDepth > 3) {
-      return { valid: false, error: 'Excessive nesting depth detected (potential ReDoS)' }
-    }
-
-    // Check for patterns with multiple quantifiers in sequence
-    // Patterns like a+b+c+ that can cause backtracking
-    const multipleQuantifiers = /[+*?]{2,}/
-    if (multipleQuantifiers.test(pattern)) {
-      return { valid: false, error: 'Multiple consecutive quantifiers detected (potential ReDoS)' }
-    }
-
-    // Check pattern length (very long patterns can be problematic)
-    if (pattern.length > 200) {
-      return { valid: false, error: 'Pattern too long (max 200 characters)' }
-    }
-
-    return { valid: true }
-  }
-
-  /**
-   * Get skills for on-demand activation based on context
-   */
-  getContextMatchingSkills(context: string): Skill[] {
-    const contextMatchSkills = this.getSkillsByActivation('context-match')
-
-    console.log(`[SkillsManager] getContextMatchingSkills - checking ${contextMatchSkills.length} skills against context`)
-
-    // Use synchronous matching for compatibility (with async-safe wrapper)
-    return contextMatchSkills.filter((skill) => {
-      console.log(`[SkillsManager] Skill ${skill.metadata.id} contextPatterns:`, skill.metadata.contextPatterns)
-
-      if (!skill.metadata.contextPatterns || !Array.isArray(skill.metadata.contextPatterns)) {
-        console.log(`[SkillsManager] Skill ${skill.metadata.id} has no valid contextPatterns`)
-        return false
-      }
-
-      // Use synchronous safe matching (with timeout protection via worker-like approach)
-      const matched = skill.metadata.contextPatterns.some((pattern) => {
-        // Default to substring matching (safer)
-        const regexMatch = pattern.match(/^\/(.+)\/$/)
-
-        if (!regexMatch) {
-          // Simple substring match (case-insensitive)
-          const result = context.toLowerCase().includes(pattern.toLowerCase())
-          console.log(`[SkillsManager] Pattern "${pattern}" (substring match) result: ${result}`)
-          return result
-        }
-
-        // Extract regex pattern
-        const regexPattern = regexMatch[1]
-
-        // Validate regex pattern for ReDoS vulnerabilities
-        const validation = this.validateRegexPattern(regexPattern)
-        if (!validation.valid) {
-          console.warn(`[SkillsManager] Unsafe regex pattern rejected: ${validation.error}`)
-          // Fallback to substring matching
-          return context.toLowerCase().includes(regexPattern.toLowerCase())
-        }
-
-        // Test regex with synchronous timeout protection
-        try {
-          const regex = new RegExp(regexPattern, 'i')
-
-          // Use a simple heuristic: limit input length for regex matching
-          // This prevents catastrophic backtracking on very long inputs
-          const testContext = context.length > 1000 ? context.substring(0, 1000) : context
-
-          // Measure execution time (approximate)
-          const startTime = Date.now()
-          const result = regex.test(testContext)
-          const executionTime = Date.now() - startTime
-
-          // If execution took too long (> 10ms), it might be a ReDoS attempt
-          if (executionTime > 10) {
-            console.warn(`[SkillsManager] Regex pattern "${pattern}" took ${executionTime}ms, potential ReDoS, falling back to substring`)
-            return context.toLowerCase().includes(regexPattern.toLowerCase())
-          }
-
-          console.log(`[SkillsManager] Pattern "${pattern}" (regex match) result: ${result}`)
-          return result
-        } catch (error) {
-          // Invalid regex syntax - fallback to substring matching
-          console.warn(`[SkillsManager] Invalid regex pattern "${pattern}", falling back to substring match:`, error)
-          return context.toLowerCase().includes(regexPattern.toLowerCase())
-        }
-      })
-
-      return matched
-    })
   }
 
   /**
@@ -902,8 +643,12 @@ export class SkillsManager {
     // Ensure user skills directory exists
     await fs.mkdir(userSkillsPath, { recursive: true })
 
-    // Create skill directory
-    const skillDir = path.join(userSkillsPath, metadata.id)
+    // Generate directory name from skill name
+    const skillDirName = metadata.name
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, '-')
+      .replace(/^-|-$/g, '')
+    const skillDir = path.join(userSkillsPath, skillDirName)
     await fs.mkdir(skillDir, { recursive: true })
 
     // Build SKILL.md content
@@ -916,7 +661,7 @@ export class SkillsManager {
     // Reload skills
     await this.loadAllSkills()
 
-    const skill = this.skills.get(metadata.id)
+    const skill = this.skills.get(metadata.name)
     if (!skill) {
       throw new Error('Failed to create skill')
     }
@@ -927,13 +672,15 @@ export class SkillsManager {
   /**
    * Delete a user skill
    */
-  async deleteUserSkill(id: string): Promise<void> {
-    const skill = this.skills.get(id)
+  async deleteUserSkill(name: string): Promise<void> {
+    const skill = this.skills.get(name)
     if (!skill) {
-      throw new Error(`Skill not found: ${id}`)
+      throw new Error(`Skill not found: ${name}`)
     }
 
-    if (skill.source !== 'user') {
+    // Check if skill is in user skills directory
+    const userSkillsPath = this.getUserSkillsPath()
+    if (!skill.path.startsWith(userSkillsPath)) {
       throw new Error('Can only delete user-created skills')
     }
 
@@ -942,8 +689,8 @@ export class SkillsManager {
     await fs.rm(skillDir, { recursive: true, force: true })
 
     // Remove from memory
-    this.skills.delete(id)
-    this.skillStates.delete(id)
+    this.skills.delete(name)
+    this.skillStates.delete(name)
 
     // Notify webview
     await this.notifySkillsUpdate()
@@ -952,7 +699,7 @@ export class SkillsManager {
   /**
    * Import a skill from a ZIP file
    * Supports two ZIP structures:
-   * - Structure A: SKILL.md at root (extracts to folder named after skill ID)
+   * - Structure A: SKILL.md at root (extracts to folder named after skill name)
    * - Structure B: SKILL.md in subdirectory (extracts the subdirectory)
    */
   async importSkillFromZip(zipPath: string, overwrite?: boolean): Promise<SkillImportResult> {
@@ -1037,25 +784,29 @@ export class SkillsManager {
       }
     }
 
-    const skillId = metadata.id as string
     const skillName = metadata.name as string
+
+    // Generate directory name from skill name
+    const skillDirName = skillName
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, '-')
+      .replace(/^-|-$/g, '')
 
     // Check if skill already exists
     const userSkillsPath = this.getUserSkillsPath()
-    const targetDir = path.join(userSkillsPath, skillId)
+    const targetDir = path.join(userSkillsPath, skillDirName)
 
     if (await this.directoryExists(targetDir)) {
       if (!overwrite) {
         return {
           success: false,
-          skillId,
           skillName,
-          error: `Skill "${skillId}" already exists`,
+          error: `Skill "${skillName}" already exists`,
           errorCode: 'DIR_EXISTS'
         }
       }
       // Remove existing directory for overwrite
-      console.log(`[SkillsManager] Overwriting existing skill: ${skillId}`)
+      console.log(`[SkillsManager] Overwriting existing skill: ${skillName}`)
       await fs.rm(targetDir, { recursive: true, force: true })
     }
 
@@ -1111,10 +862,9 @@ export class SkillsManager {
       // Reload skills to pick up the new skill
       await this.loadAllSkills()
 
-      console.log(`[SkillsManager] Successfully imported skill: ${skillId}`)
+      console.log(`[SkillsManager] Successfully imported skill: ${skillName}`)
       return {
         success: true,
-        skillId,
         skillName
       }
     } catch (error) {
@@ -1129,7 +879,6 @@ export class SkillsManager {
 
       return {
         success: false,
-        skillId,
         skillName,
         error: 'Failed to extract skill files',
         errorCode: 'EXTRACT_FAILED'
@@ -1142,30 +891,11 @@ export class SkillsManager {
    */
   private buildSkillFile(metadata: SkillMetadata, content: string): string {
     let file = '---\n'
-    file += `id: ${metadata.id}\n`
     file += `name: ${metadata.name}\n`
     file += `description: ${metadata.description}\n`
-    file += `version: ${metadata.version || '1.0.0'}\n`
-    if (metadata.author) {
-      file += `author: ${metadata.author}\n`
-    }
-    if (metadata.tags && metadata.tags.length > 0) {
-      file += `tags: [${metadata.tags.join(', ')}]\n`
-    }
-    if (metadata.icon) {
-      file += `icon: ${metadata.icon}\n`
-    }
-    if (metadata.activation) {
-      file += `activation: ${metadata.activation}\n`
-    }
-    if (metadata.contextPatterns && metadata.contextPatterns.length > 0) {
-      file += `contextPatterns: [${metadata.contextPatterns.join(', ')}]\n`
-    }
-    if (metadata.requires && metadata.requires.length > 0) {
-      file += `requires: [${metadata.requires.join(', ')}]\n`
-    }
-
-    return `---\n${file}---\n\n${content}`
+    file += '---\n\n'
+    file += content
+    return file
   }
 
   /**
