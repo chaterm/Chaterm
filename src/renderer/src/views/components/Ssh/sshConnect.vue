@@ -197,6 +197,7 @@ export interface sshConnectData {
   proxyCommand?: string
   hostname?: string
   host?: string
+  comment?: string
 }
 
 const handleRightClick = (event) => {
@@ -1126,6 +1127,7 @@ const connectSSH = async () => {
     const connPort = assetInfo?.port || props.connectData.port
     const connHost = assetInfo?.host || props.connectData.host
     const connPassword = assetInfo?.password || props.connectData.password
+    const connComment = assetInfo?.comment || props.connectData.comment
     const connSshType = assetInfo?.sshType || 'ssh'
     const connAssetType = assetInfo?.asset_type || ''
 
@@ -1156,6 +1158,8 @@ const connectSSH = async () => {
       passphrase: passphrase.value,
       targetIp: connHost,
       targetHostname: connHostname,
+      targetAsset: connComment || connHost,
+      comment: connComment,
       sshType: connSshType,
       terminalType: config.terminalType,
       agentForward: config.sshAgentsStatus === 1,

@@ -21,6 +21,18 @@ vi.mock('electron', () => ({
   ipcMain: { handle: vi.fn(), on: vi.fn(), once: vi.fn(), removeAllListeners: vi.fn() }
 }))
 
+let jumpServerAssets: Array<{ name: string; address: string; description?: string }> = []
+vi.mock('../../../../ssh/jumpserver/asset', () => ({
+  default: class JumpServerClientMock {
+    async getAllAssets() {
+      return jumpServerAssets
+    }
+    close() {
+      return undefined
+    }
+  }
+}))
+
 const { getBastion } = vi.hoisted(() => ({
   getBastion: vi.fn()
 }))
@@ -116,6 +128,7 @@ describe('refreshOrganizationAssetsLogic', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     capabilityRegistry.getBastion = getBastion as typeof capabilityRegistry.getBastion
+    jumpServerAssets = []
   })
 
   it('updates jump_server_type to qizhi for existing qizhi assets', async () => {
@@ -151,6 +164,80 @@ describe('refreshOrganizationAssetsLogic', () => {
     })
 
     expect(capture.updateArgs).toBeDefined()
-    expect(capture.updateArgs?.[1]).toBe('qizhi')
+    expect(capture.updateArgs?.[2]).toBe('qizhi')
+  })
+
+  it('persists plugin asset comment for update and insert', async () => {
+    const comment1 = 'ext-asset-1(10.30.5.14:22|Linux_10.30.5.14)'
+    const comment2 = 'ext-asset-2(10.30.5.15:22|Linux_10.30.5.15)'
+
+    getBastion.mockReturnValue({
+      refreshAssets: vi.fn(async () => ({
+        success: true,
+        assets: [
+          { hostname: 'Linux_10.30.5.14', host: '10.30.5.14', comment: comment1 },
+          { hostname: 'Linux_10.30.5.15', host: '10.30.5.15', comment: comment2 }
+        ]
+      }))
+    })
+
+    const capture: Capture = {}
+    const db = createMockDb({
+      assetType: 'organization-tencent',
+      existingAssets: [
+        {
+          host: '10.30.5.14',
+          hostname: 'Linux_10.30.5.14',
+          uuid: 'asset-1',
+          favorite: 0
+        }
+      ],
+      capture
+    })
+
+    await refreshOrganizationAssetsLogic(db as any, 'org-1', {
+      host: '127.0.0.1',
+      port: 22,
+      username: 'admin',
+      password: 'secret'
+    })
+
+    expect(capture.updateArgs).toBeDefined()
+    expect(capture.insertArgs).toBeDefined()
+    expect(capture.updateArgs).toContain(comment1)
+    expect(capture.insertArgs).toContain(comment2)
+  })
+
+  it('persists jumpserver asset comment for update and insert', async () => {
+    jumpServerAssets = [
+      { name: 'Linux_10.30.5.14', address: '10.30.5.14', description: 'comment-1' },
+      { name: 'Linux_10.30.5.15', address: '10.30.5.15', description: 'comment-2' }
+    ]
+
+    const capture: Capture = {}
+    const db = createMockDb({
+      assetType: 'organization',
+      existingAssets: [
+        {
+          host: '10.30.5.14',
+          hostname: 'Linux_10.30.5.14',
+          uuid: 'asset-1',
+          favorite: 0
+        }
+      ],
+      capture
+    })
+
+    await refreshOrganizationAssetsLogic(db as any, 'org-1', {
+      host: '127.0.0.1',
+      port: 22,
+      username: 'admin',
+      password: 'secret'
+    })
+
+    expect(capture.updateArgs).toBeDefined()
+    expect(capture.insertArgs).toBeDefined()
+    expect(capture.updateArgs).toContain('comment-1')
+    expect(capture.insertArgs).toContain('comment-2')
   })
 })

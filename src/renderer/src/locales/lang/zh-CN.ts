@@ -620,6 +620,7 @@ export default {
     switchHuawei: '华为',
     switchTip: '交换机仅支持 Command 模式',
     bastionHost: '堡垒机',
+    bastionType: '堡垒机类型',
     qizhi: '齐治堡垒机',
     refreshAssets: '资产',
     refreshingAssets: '正在刷新资产...',
