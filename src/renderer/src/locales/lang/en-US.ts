@@ -628,6 +628,7 @@ export default {
     switchHuawei: 'Huawei',
     switchTip: 'Switches only support Command mode',
     bastionHost: 'Bastion Host',
+    bastionType: 'Bastion Type',
     qizhi: 'Qizhi Bastion',
     refreshAssets: 'Refresh Assets',
     refreshingAssets: 'Refreshing assets...',

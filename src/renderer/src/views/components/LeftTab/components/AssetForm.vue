@@ -34,21 +34,16 @@
         </a-form-item>
 
         <!-- Bastion host selection (dynamic based on available definitions) -->
-        <a-form-item v-if="!isEditMode && deviceTypePath[0] === 'server' && deviceTypePath[1] === 'bastion' && hasPluginBastions">
-          <a-radio-group
+        <a-form-item
+          v-if="!isEditMode && deviceTypePath[0] === 'server' && deviceTypePath[1] === 'bastion' && hasPluginBastions"
+          :label="t('personal.bastionType')"
+        >
+          <a-select
             v-model:value="bastionType"
-            button-style="solid"
             style="width: 100%"
+            :options="bastionTypeOptions"
             @change="handleBastionTypeChange"
-          >
-            <a-radio-button value="jumpserver">JumpServer</a-radio-button>
-            <a-radio-button
-              v-for="bastion in availableBastions"
-              :key="bastion.type"
-              :value="bastion.type"
-              >{{ getBastionDisplayName(bastion) }}</a-radio-button
-            >
-          </a-radio-group>
+          />
         </a-form-item>
 
         <!-- Switch brand selection (only when device is switch) -->
@@ -348,6 +343,21 @@ const bastionSupportsAuth = (bastionType: string, authMethod: 'password' | 'keyB
   if (!definition) return authMethod === 'password' // Default to password if not found
   return definition.authPolicy.includes(authMethod)
 }
+
+const bastionTypeOptions = computed(() => {
+  const options = [{ label: 'JumpServer', value: 'jumpserver' }]
+
+  if (availableBastions.value && availableBastions.value.length > 0) {
+    availableBastions.value.forEach((bastion) => {
+      options.push({
+        label: getBastionDisplayName(bastion),
+        value: bastion.type
+      })
+    })
+  }
+
+  return options
+})
 
 // Check on mount
 onMounted(() => {

@@ -78,4 +78,34 @@ describe('RemoteTerminalManager plugin bastion routing', () => {
     expect(disconnectMock).toHaveBeenCalledWith({ id: terminal.sessionId })
     expect(remoteSshDisconnect).not.toHaveBeenCalled()
   })
+
+  it('prefers comment as targetAsset when provided', async () => {
+    const connectMock = vi.fn(async () => ({ status: 'connected', sessionId: 'cap-session' }))
+
+    getBastionMock.mockReturnValue({
+      type: 'tencent',
+      connect: connectMock
+    })
+
+    const { RemoteTerminalManager } = await import('../index')
+    const manager = new RemoteTerminalManager()
+
+    manager.setConnectionInfo({
+      sshType: 'tencent',
+      asset_ip: '10.0.0.2',
+      host: '10.30.5.14',
+      port: 22,
+      username: 'root',
+      password: 'secret',
+      comment: 'ext-22b7275c90-1020-1(10.30.5.14:22|Linux_10.30.5.14)',
+      needProxy: false
+    })
+
+    await manager.createTerminal()
+
+    expect(connectMock).toHaveBeenCalled()
+    const calls = connectMock.mock.calls as unknown as Array<[{ targetAsset?: string }]>
+    const connectArgs = calls[0]?.[0]
+    expect(connectArgs?.targetAsset).toBe('ext-22b7275c90-1020-1(10.30.5.14:22|Linux_10.30.5.14)')
+  })
 })

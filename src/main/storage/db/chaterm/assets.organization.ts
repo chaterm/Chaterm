@@ -40,7 +40,7 @@ export function connectAssetInfoLogic(db: Database.Database, uuid: string): any 
 
     if (!result) {
       const orgAssetStmt = db.prepare(`
-        SELECT oa.hostname, oa.host, a.asset_ip, oa.organization_uuid, oa.uuid, oa.jump_server_type,
+        SELECT oa.hostname, oa.host, oa.comment, a.asset_ip, oa.organization_uuid, oa.uuid, oa.jump_server_type,
               a.asset_type, a.auth_type, a.port, a.username, a.password, a.key_chain_id, a.need_proxy, a.proxy_name
         FROM t_organization_assets oa
         JOIN t_assets a ON oa.organization_uuid = a.uuid
@@ -387,19 +387,25 @@ export async function refreshOrganizationAssetsLogic(
     const updateStmt = isPluginBased
       ? db.prepare(`
       UPDATE t_organization_assets
-      SET hostname = ?, jump_server_type = ?, updated_at = CURRENT_TIMESTAMP
+      SET hostname = ?, comment = ?, jump_server_type = ?, updated_at = CURRENT_TIMESTAMP
       WHERE organization_uuid = ? AND host = ?
     `)
       : db.prepare(`
       UPDATE t_organization_assets
-      SET hostname = ?, updated_at = CURRENT_TIMESTAMP
+      SET hostname = ?, comment = ?, updated_at = CURRENT_TIMESTAMP
       WHERE organization_uuid = ? AND host = ?
     `)
 
-    const insertStmt = db.prepare(`
+    const insertStmt = isPluginBased
+      ? db.prepare(`
       INSERT INTO t_organization_assets (
-        organization_uuid, hostname, host, uuid, jump_server_type, created_at, updated_at
-      ) VALUES (?, ?, ?, ?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+        organization_uuid, hostname, host, comment, uuid, jump_server_type, created_at, updated_at
+      ) VALUES (?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+    `)
+      : db.prepare(`
+      INSERT INTO t_organization_assets (
+        organization_uuid, hostname, host, comment, uuid, jump_server_type, created_at, updated_at
+      ) VALUES (?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
     `)
 
     const currentAssetHosts = new Set<string>()
@@ -411,14 +417,18 @@ export async function refreshOrganizationAssetsLogic(
       if (existingAssetsByHost.has(makeKey(asset))) {
         console.log(`Updating existing asset: ${asset.name} (${asset.address})`)
         if (isPluginBased) {
-          updateStmt.run(asset.name, jumpServerType, organizationUuid, asset.address)
+          updateStmt.run(asset.name, asset.description || '', jumpServerType, organizationUuid, asset.address)
         } else {
-          updateStmt.run(asset.name, organizationUuid, asset.address)
+          updateStmt.run(asset.name, asset.description || '', organizationUuid, asset.address)
         }
       } else {
         const assetUuid = uuidv4()
         console.log(`Inserting new asset: ${asset.name} (${asset.address})`)
-        insertStmt.run(organizationUuid, asset.name, asset.address, assetUuid, jumpServerType)
+        if (isPluginBased) {
+          insertStmt.run(organizationUuid, asset.name, asset.address, asset.description || '', assetUuid, jumpServerType)
+        } else {
+          insertStmt.run(organizationUuid, asset.name, asset.address, asset.description || '', assetUuid, jumpServerType)
+        }
       }
     }
     console.log('Asset processing completed')

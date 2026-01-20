@@ -47,6 +47,7 @@ export interface ConnectionInfo {
   hostname?: string
   port?: number
   username?: string
+  comment?: string
   assetUuid?: string
   /**
    * Password for authentication. If both password and privateKey are provided,
@@ -897,6 +898,7 @@ export class RemoteTerminalManager {
         if (!bastionHost) {
           throw new Error(`${sshType} bastion host is missing`)
         }
+        const targetAsset = this.connectionInfo.comment || this.connectionInfo.host
         const bastionConnectionInfo = {
           id: bastionSessionId,
           host: bastionHost,
@@ -907,7 +909,7 @@ export class RemoteTerminalManager {
           passphrase: this.connectionInfo.passphrase,
           targetIp: this.connectionInfo.host,
           targetHostname: this.connectionInfo?.hostname || '', // Complete target information is provided for use by the bastion host plugin
-          targetAsset: this.connectionInfo.host,
+          targetAsset,
           needProxy: this.connectionInfo.needProxy || false,
           proxyName: this.connectionInfo.proxyName || '',
           proxyConfig: this.connectionInfo.proxyName ? { name: this.connectionInfo.proxyName } : undefined,
