@@ -10,7 +10,7 @@
  * Individual composable logic is tested in their respective test files:
  * - useSessionState.test.ts
  * - useTabManagement.test.ts
- * - useHostManagement.test.ts
+ * - useContext.test.ts (host/resource selection UI)
  * - useMessageOptions.test.ts
  * - useAutoScroll.test.ts
  * - useModelConfiguration.test.ts
