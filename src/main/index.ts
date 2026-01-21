@@ -36,7 +36,15 @@ import { versionPromptService } from './version/versionPromptService'
 import * as fsSync from 'fs'
 import { pathToFileURL } from 'url'
 import { loadAllPlugins } from './plugin/pluginLoader'
-import { getAllPluginVersions, installPlugin, listPlugins, PluginManifest, uninstallPlugin, getInstallHint } from './plugin/pluginManager'
+import {
+  getAllPluginVersions,
+  installPlugin,
+  listPlugins,
+  PluginManifest,
+  uninstallPlugin,
+  getInstallHint,
+  getPluginCacheRoot
+} from './plugin/pluginManager'
 import { getPluginDetailsByName, getLocalizedStrings, getUserLanguage } from './plugin/pluginDetails'
 import { capabilityRegistry } from './ssh/capabilityRegistry'
 import { getActualTheme, loadUserTheme } from './themeManager'
@@ -854,6 +862,13 @@ function setupIPC(): void {
         } catch (error) {
           console.warn('Failed to reload skill states after login:', error)
         }
+      }
+
+      // Reload plugins after user login to switch to per-user plugin directory
+      try {
+        await loadAllPlugins()
+      } catch (error) {
+        console.warn('Failed to reload plugins after login:', error)
       }
 
       return { success: true, theme: dbTheme }
@@ -2358,7 +2373,7 @@ ipcMain.handle(
     }
 
     // cache dir
-    const baseDir = path.join(app.getPath('userData'), 'plugin-downloads', pluginId, version || 'latest')
+    const baseDir = path.join(getPluginCacheRoot(), pluginId, version || 'latest')
     await fsSync.promises.mkdir(baseDir, { recursive: true })
 
     const finalFileName = fileName || `${pluginId}-${version || 'latest'}.chaterm`

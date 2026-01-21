@@ -2,6 +2,7 @@ import * as fs from 'fs'
 import path from 'path'
 import AdmZip from 'adm-zip'
 import { getUserDataPath } from '../config/edition'
+import { getCurrentUserId, getGuestUserId } from '../storage/db/connection'
 
 export interface PluginI18nStrings {
   displayName?: string
@@ -36,11 +37,16 @@ export interface InstalledPlugin {
 
 // Lazy getters to ensure path is resolved after initUserDataPath() is called
 function getExtensionsRoot(): string {
-  return path.join(getUserDataPath(), 'extensions')
+  const userId = getCurrentUserId() ?? getGuestUserId()
+  return path.join(getUserDataPath(), 'databases', `${userId}`, 'plugins')
 }
 
 function getRegistryPath(): string {
   return path.join(getExtensionsRoot(), 'plugins.json')
+}
+
+export function getPluginCacheRoot(): string {
+  return path.join(getExtensionsRoot(), '.cache')
 }
 
 function readRegistry(): InstalledPlugin[] {
