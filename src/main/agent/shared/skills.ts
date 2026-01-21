@@ -12,26 +12,10 @@
  * Skill metadata parsed from SKILL.md frontmatter
  */
 export interface SkillMetadata {
-  /** Unique identifier for the skill */
-  id: string
   /** Display name of the skill */
   name: string
-  /** Brief description of what the skill does */
+  /** Brief description of what the skill does and when to use it */
   description: string
-  /** Skill version (semver format) */
-  version: string
-  /** Author of the skill */
-  author?: string
-  /** Tags for categorization */
-  tags?: string[]
-  /** Icon name or URL */
-  icon?: string
-  /** Required capabilities or dependencies */
-  requires?: string[]
-  /** When the skill should be activated (e.g., 'always', 'on-demand', 'context-match') */
-  activation?: 'always' | 'on-demand' | 'context-match'
-  /** Context patterns that trigger this skill (for context-match activation) */
-  contextPatterns?: string[]
 }
 
 /**
@@ -64,8 +48,6 @@ export interface Skill {
   directory: string
   /** Whether the skill is enabled */
   enabled: boolean
-  /** Source of the skill (built-in, user, marketplace) */
-  source: 'builtin' | 'user' | 'marketplace'
   /** Last modified timestamp */
   lastModified?: number
   /** Resource files in the skill directory */
@@ -73,10 +55,10 @@ export interface Skill {
 }
 
 /**
- * Skill state stored in database
+ * Skill state stored in database (uses skill name as identifier)
  */
 export interface SkillState {
-  /** Skill ID */
+  /** Skill name (used as identifier) */
   skillId: string
   /** Whether the skill is enabled */
   enabled: boolean
@@ -101,8 +83,6 @@ export interface SkillParseResult {
 export interface SkillDirectory {
   /** Directory path */
   path: string
-  /** Type of directory */
-  type: 'builtin' | 'user' | 'marketplace'
   /** Whether the directory exists */
   exists: boolean
 }
@@ -126,7 +106,6 @@ export type SkillImportErrorCode = 'INVALID_ZIP' | 'NO_SKILL_MD' | 'INVALID_META
  */
 export interface SkillImportResult {
   success: boolean
-  skillId?: string
   skillName?: string
   error?: string
   errorCode?: SkillImportErrorCode
@@ -135,11 +114,7 @@ export interface SkillImportResult {
 /**
  * Default skill metadata values
  */
-export const DEFAULT_SKILL_METADATA: Partial<SkillMetadata> = {
-  version: '1.0.0',
-  activation: 'on-demand',
-  tags: []
-}
+export const DEFAULT_SKILL_METADATA: Partial<SkillMetadata> = {}
 
 /**
  * Skill file constants
@@ -150,7 +125,7 @@ export const SKILLS_DIR_NAME = 'skills'
 /**
  * Required metadata fields for a valid skill
  */
-export const REQUIRED_SKILL_FIELDS: (keyof SkillMetadata)[] = ['id', 'name', 'description']
+export const REQUIRED_SKILL_FIELDS: (keyof SkillMetadata)[] = ['name', 'description']
 
 /**
  * File extension to resource type mapping
