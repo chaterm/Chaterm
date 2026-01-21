@@ -670,7 +670,7 @@ import { useChatHistory } from './composables/useChatHistory'
 import { useChatMessages } from './composables/useChatMessages'
 import { useCommandInteraction } from './composables/useCommandInteraction'
 import { useEventBusListeners } from './composables/useEventBusListeners'
-import { useHostManagement } from './composables/useHostManagement'
+import { useHostState } from './composables/useHostState'
 import { useMessageOptions } from './composables/useMessageOptions'
 import { useModelConfiguration } from './composables/useModelConfiguration'
 import { useSessionState } from './composables/useSessionState'
@@ -764,8 +764,8 @@ const { getCurrentState, restoreState, emitStateChange } = useStateSnapshot(emit
 // Todo functionality
 const { currentTodos, shouldShowTodoAfterMessage, getTodosForMessage, markLatestMessageWithTodoUpdate, clearTodoState } = useTodo()
 
-// Host management
-const { updateHosts, updateHostsForCommandMode, getCurentTabAssetInfo } = useHostManagement()
+// Host state management
+const { updateHosts, updateHostsForCommandMode, getCurentTabAssetInfo } = useHostState()
 // Auto scroll
 const { chatContainer, chatResponse, scrollToBottom, initializeAutoScroll, handleTabSwitch, getMessagePairStyle } = useAutoScroll()
 
