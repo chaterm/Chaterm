@@ -773,7 +773,6 @@ export default {
     copyToClipboard: 'Copia nel Clipboard',
     retry: 'Riprova',
     taskCompleted: 'Task Completato',
-    newTask: 'Avvia nuovo task',
     codePreview: 'Anteprima Codice ({lines} linee)',
     enterCustomOption: 'Inserisci la tua risposta...',
     submit: 'Invia',

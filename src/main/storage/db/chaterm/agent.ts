@@ -117,7 +117,7 @@ export async function saveApiConversationHistoryLogic(db: Database.Database, tas
 export async function getSavedChatermMessagesLogic(db: Database.Database, taskId: string): Promise<any[]> {
   try {
     const stmt = db.prepare(`
-        SELECT ts, type, ask_type, say_type, text, reasoning, images, partial,
+        SELECT ts, type, ask_type, say_type, text, content_parts, reasoning, images, partial,
                last_checkpoint_hash, is_checkpoint_checked_out, is_operation_outside_workspace,
                conversation_history_index, conversation_history_deleted_range, mcp_tool_call_data
         FROM agent_ui_messages_v1
@@ -132,6 +132,7 @@ export async function getSavedChatermMessagesLogic(db: Database.Database, taskId
       ask: row.ask_type,
       say: row.say_type,
       text: row.text,
+      contentParts: row.content_parts ? JSON.parse(row.content_parts) : undefined,
       reasoning: row.reasoning,
       images: row.images ? JSON.parse(row.images) : undefined,
       partial: row.partial === 1,
@@ -158,10 +159,10 @@ export async function saveChatermMessagesLogic(db: Database.Database, taskId: st
       // Insert new records
       const insertStmt = db.prepare(`
           INSERT INTO agent_ui_messages_v1
-          (task_id, ts, type, ask_type, say_type, text, reasoning, images, partial,
+          (task_id, ts, type, ask_type, say_type, text, content_parts, reasoning, images, partial,
            last_checkpoint_hash, is_checkpoint_checked_out, is_operation_outside_workspace,
            conversation_history_index, conversation_history_deleted_range, mcp_tool_call_data)
-          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         `)
 
       for (const message of uiMessages) {
@@ -171,7 +172,8 @@ export async function saveChatermMessagesLogic(db: Database.Database, taskId: st
           message.type,
           message.ask || null,
           message.say || null,
-          message.text || null,
+          message.text ?? null,
+          message.contentParts ? JSON.stringify(message.contentParts) : null,
           message.reasoning || null,
           message.images ? JSON.stringify(message.images) : null,
           message.partial ? 1 : 0,

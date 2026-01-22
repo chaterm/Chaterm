@@ -867,6 +867,7 @@ const api = {
 
   kbCheckPath: (absPath: string) => ipcRenderer.invoke('kb:check-path', { absPath }),
   kbEnsureRoot: () => ipcRenderer.invoke('kb:ensure-root'),
+  kbGetRoot: () => ipcRenderer.invoke('kb:get-root'),
   kbListDir: (relDir: string) => ipcRenderer.invoke('kb:list-dir', { relDir }),
   kbReadFile: (relPath: string) => ipcRenderer.invoke('kb:read-file', { relPath }),
   kbWriteFile: (relPath: string, content: string) => ipcRenderer.invoke('kb:write-file', { relPath, content }),

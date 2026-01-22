@@ -1,6 +1,7 @@
 import { ref, computed, watch, type ComputedRef } from 'vue'
 import { createGlobalState } from '@vueuse/core'
 import type { ChatMessage, Host } from '../types'
+import type { ContentPart } from '@shared/WebviewMessage'
 import type { ExtensionMessage } from '@shared/ExtensionMessage'
 
 /**
@@ -12,7 +13,6 @@ export interface SessionState {
   lastChatMessageId: string // ID of the last message
   responseLoading: boolean // Whether response is loading
   showRetryButton: boolean // Whether to show retry button
-  showNewTaskButton: boolean // Whether to show new task button
   showSendButton: boolean // Whether to show send button
   buttonsDisabled: boolean // Whether buttons are disabled
   resumeDisabled: boolean // Whether resume button is disabled
@@ -35,7 +35,7 @@ export interface ChatTab {
   chatType: string // Chat type (agent/cmd/chat)
   autoUpdateHost: boolean // Whether to auto-update host
   session: SessionState // Session state
-  inputValue: string // Input value
+  chatInputParts?: ContentPart[] // Draft content parts for mixed input
   modelValue: string // Selected AI model for this tab
   welcomeTip: string // Welcome tip for this tab
 }
@@ -72,7 +72,6 @@ export const useSessionState = createGlobalState(() => {
     lastChatMessageId: '',
     responseLoading: false,
     showRetryButton: false,
-    showNewTaskButton: false,
     showSendButton: true,
     buttonsDisabled: false,
     resumeDisabled: false,
@@ -117,20 +116,20 @@ export const useSessionState = createGlobalState(() => {
     }
   })
 
+  const chatInputParts = computed({
+    get: () => currentTab.value?.chatInputParts ?? [],
+    set: (value: ContentPart[]) => {
+      if (currentTab.value) {
+        currentTab.value.chatInputParts = value
+      }
+    }
+  })
+
   const autoUpdateHost = computed({
     get: () => currentTab.value?.autoUpdateHost ?? true,
     set: (value: boolean) => {
       if (currentTab.value) {
         currentTab.value.autoUpdateHost = value
-      }
-    }
-  })
-
-  const chatInputValue = computed({
-    get: () => currentTab.value?.inputValue ?? '',
-    set: (value: string) => {
-      if (currentTab.value) {
-        currentTab.value.inputValue = value
       }
     }
   })
@@ -152,7 +151,6 @@ export const useSessionState = createGlobalState(() => {
   const resumeDisabled = computed(() => currentSession.value?.resumeDisabled ?? false)
   const isExecutingCommand = computed(() => currentSession.value?.isExecutingCommand ?? false)
   const showRetryButton = computed(() => currentSession.value?.showRetryButton ?? false)
-  const showNewTaskButton = computed(() => currentSession.value?.showNewTaskButton ?? false)
 
   /**
    * Filtered chat history
@@ -179,8 +177,9 @@ export const useSessionState = createGlobalState(() => {
   })
 
   const shouldShowSendButton = computed(() => {
-    const trimmedValue = chatInputValue.value.trim()
-    return trimmedValue.length >= 1 && !/^\s*$/.test(trimmedValue)
+    const hasText = chatInputParts.value.some((part) => part.type === 'text' && part.text.trim().length > 0)
+    const hasChip = chatInputParts.value.some((part) => part.type === 'chip')
+    return hasText || hasChip
   })
 
   const chatAiModelValue = computed({
@@ -339,6 +338,24 @@ export const useSessionState = createGlobalState(() => {
     return tab?.session.responseLoading ?? false
   }
 
+  /**
+   * Append text to input parts
+   * @param text - Text to append
+   * @param prefix - Prefix when parts is not empty (default: ' ')
+   * @param suffix - Suffix to append after text (default: '')
+   */
+  const appendTextToInputParts = (text: string, prefix: string = ' ', suffix: string = '') => {
+    const parts = [...chatInputParts.value]
+    const last = parts[parts.length - 1]
+    const textToAppend = parts.length > 0 ? `${prefix}${text}${suffix}` : `${text}${suffix}`
+    if (last && last.type === 'text') {
+      parts[parts.length - 1] = { ...last, text: last.text + textToAppend }
+    } else {
+      parts.push({ type: 'text', text: textToAppend })
+    }
+    chatInputParts.value = parts
+  }
+
   return {
     currentChatId,
     chatTabs,
@@ -349,8 +366,8 @@ export const useSessionState = createGlobalState(() => {
     chatTypeValue,
     chatAiModelValue,
     hosts,
+    chatInputParts,
     autoUpdateHost,
-    chatInputValue,
     shouldStickToBottom,
     lastChatMessageId,
     responseLoading,
@@ -361,7 +378,6 @@ export const useSessionState = createGlobalState(() => {
     resumeDisabled,
     isExecutingCommand,
     showRetryButton,
-    showNewTaskButton,
     showResumeButton,
     shouldShowSendButton,
     attachTabContext,
@@ -373,6 +389,7 @@ export const useSessionState = createGlobalState(() => {
     getTabChatTypeValue,
     getTabLastChatMessageId,
     getTabResponseLoading,
-    cleanupTabPairsCache
+    cleanupTabPairsCache,
+    appendTextToInputParts
   }
 })

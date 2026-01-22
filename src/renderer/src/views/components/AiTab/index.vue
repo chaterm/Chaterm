@@ -442,23 +442,6 @@
               {{ $t('ai.retry') }}
             </a-button>
           </div>
-          <div
-            v-if="currentTab?.session.showNewTaskButton"
-            class="bottom-buttons"
-          >
-            <a-button
-              size="small"
-              type="primary"
-              class="retry-btn"
-              data-testid="new-task-button"
-              @click="createNewEmptyTab"
-            >
-              <template #icon>
-                <PlusOutlined />
-              </template>
-              {{ $t('ai.newTask') }}
-            </a-button>
-          </div>
           <InputSendContainer
             :is-active-tab="tab.id === currentChatId"
             :send-message="sendMessage"
@@ -696,7 +679,6 @@ import {
   ExportOutlined,
   LikeOutlined,
   PlayCircleOutlined,
-  PlusOutlined,
   RedoOutlined,
   ReloadOutlined,
   SearchOutlined,

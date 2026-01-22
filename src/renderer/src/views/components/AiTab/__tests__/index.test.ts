@@ -103,7 +103,7 @@ describe('AiTab Component - Composable Integration Tests', () => {
         chatType: 'agent' as const,
         autoUpdateHost: true,
         session: createEmptySessionState(),
-        inputValue: '',
+        chatInputParts: [],
         modelValue: 'claude-3-5-sonnet',
         welcomeTip: ''
       }
@@ -166,7 +166,7 @@ describe('AiTab Component - Composable Integration Tests', () => {
         chatType: 'agent' as const,
         autoUpdateHost: true,
         session: createEmptySessionState(),
-        inputValue: '',
+        chatInputParts: [],
         modelValue: 'claude-3-5-sonnet',
         welcomeTip: ''
       }
@@ -178,7 +178,7 @@ describe('AiTab Component - Composable Integration Tests', () => {
         chatType: 'chat' as const,
         autoUpdateHost: true,
         session: createEmptySessionState(),
-        inputValue: '',
+        chatInputParts: [],
         modelValue: 'gpt-4',
         welcomeTip: ''
       }
@@ -210,7 +210,6 @@ describe('AiTab Component - Composable Integration Tests', () => {
         lastChatMessageId: '',
         responseLoading: false,
         showRetryButton: false,
-        showNewTaskButton: false,
         showSendButton: true,
         buttonsDisabled: false,
         resumeDisabled: false,
@@ -446,7 +445,7 @@ describe('AiTab Component - Composable Integration Tests', () => {
           chatType: 'agent',
           autoUpdateHost: true,
           session,
-          inputValue: '',
+          chatInputParts: [],
           modelValue: 'claude-3-5-sonnet',
           welcomeTip: ''
         }
@@ -477,7 +476,7 @@ describe('AiTab Component - Composable Integration Tests', () => {
           chatType: 'agent',
           autoUpdateHost: true,
           session,
-          inputValue: '',
+          chatInputParts: [],
           modelValue: 'claude-3-5-sonnet',
           welcomeTip: ''
         }
@@ -510,7 +509,7 @@ describe('AiTab Component - Composable Integration Tests', () => {
             chatType: 'agent',
             autoUpdateHost: true,
             session,
-            inputValue: '',
+            chatInputParts: [],
             modelValue: 'claude-3-5-sonnet',
             welcomeTip: ''
           }
@@ -537,7 +536,7 @@ describe('AiTab Component - Composable Integration Tests', () => {
             chatType: 'agent',
             autoUpdateHost: true,
             session,
-            inputValue: '',
+            chatInputParts: [],
             modelValue: 'claude-3-5-sonnet',
             welcomeTip: ''
           }
@@ -565,7 +564,7 @@ describe('AiTab Component - Composable Integration Tests', () => {
             chatType: 'agent',
             autoUpdateHost: true,
             session,
-            inputValue: '',
+            chatInputParts: [],
             modelValue: 'claude-3-5-sonnet',
             welcomeTip: ''
           }
@@ -576,7 +575,7 @@ describe('AiTab Component - Composable Integration Tests', () => {
       })
     })
 
-    describe('Retry and New Task Buttons', () => {
+    describe('Retry Button', () => {
       it('should show retry button when session supports retry', () => {
         const { chatTabs, currentChatId, currentSession, createEmptySessionState } = useSessionState()
 
@@ -591,7 +590,7 @@ describe('AiTab Component - Composable Integration Tests', () => {
             chatType: 'agent',
             autoUpdateHost: true,
             session,
-            inputValue: '',
+            chatInputParts: [],
             modelValue: 'claude-3-5-sonnet',
             welcomeTip: ''
           }
@@ -599,30 +598,6 @@ describe('AiTab Component - Composable Integration Tests', () => {
         currentChatId.value = 'tab-1'
 
         expect(currentSession.value?.showRetryButton).toBe(true)
-      })
-
-      it('should show new task button when session is completed', () => {
-        const { chatTabs, currentChatId, currentSession, createEmptySessionState } = useSessionState()
-
-        const session = createEmptySessionState()
-        session.showNewTaskButton = true
-
-        chatTabs.value = [
-          {
-            id: 'tab-1',
-            title: 'Test',
-            hosts: [],
-            chatType: 'agent',
-            autoUpdateHost: true,
-            session,
-            inputValue: '',
-            modelValue: 'claude-3-5-sonnet',
-            welcomeTip: ''
-          }
-        ]
-        currentChatId.value = 'tab-1'
-
-        expect(currentSession.value?.showNewTaskButton).toBe(true)
       })
     })
 
@@ -646,7 +621,7 @@ describe('AiTab Component - Composable Integration Tests', () => {
             chatType: 'agent',
             autoUpdateHost: true,
             session,
-            inputValue: '',
+            chatInputParts: [],
             modelValue: 'claude-3-5-sonnet',
             welcomeTip: ''
           }
@@ -687,7 +662,7 @@ describe('AiTab Component - Composable Integration Tests', () => {
             chatType: 'agent',
             autoUpdateHost: true,
             session,
-            inputValue: '',
+            chatInputParts: [],
             modelValue: 'claude-3-5-sonnet',
             welcomeTip: ''
           }
@@ -715,7 +690,7 @@ describe('AiTab Component - Composable Integration Tests', () => {
             chatType: 'agent',
             autoUpdateHost: true,
             session,
-            inputValue: '',
+            chatInputParts: [],
             modelValue: 'claude-3-5-sonnet',
             welcomeTip: ''
           }
@@ -740,7 +715,7 @@ describe('AiTab Component - Composable Integration Tests', () => {
             chatType: 'agent',
             autoUpdateHost: true,
             session,
-            inputValue: '',
+            chatInputParts: [],
             modelValue: 'claude-3-5-sonnet',
             welcomeTip: ''
           }
@@ -798,7 +773,7 @@ describe('AiTab Component - Composable Integration Tests', () => {
             chatType: 'cmd',
             autoUpdateHost: true,
             session,
-            inputValue: '',
+            chatInputParts: [],
             modelValue: 'claude-3-5-sonnet',
             welcomeTip: ''
           }
@@ -882,7 +857,7 @@ describe('AiTab Component - Composable Integration Tests', () => {
             chatType: 'agent',
             autoUpdateHost: true,
             session,
-            inputValue: '',
+            chatInputParts: [],
             modelValue: 'claude-3-5-sonnet',
             welcomeTip: ''
           }
@@ -913,7 +888,7 @@ describe('AiTab Component - Composable Integration Tests', () => {
             chatType: 'agent',
             autoUpdateHost: true,
             session,
-            inputValue: '',
+            chatInputParts: [],
             modelValue: 'claude-3-5-sonnet',
             welcomeTip: ''
           }
@@ -1056,7 +1031,7 @@ describe('AiTab Component - Composable Integration Tests', () => {
             chatType: 'chat',
             autoUpdateHost: true,
             session,
-            inputValue: '',
+            chatInputParts: [],
             modelValue: 'claude-3-5-sonnet',
             welcomeTip: ''
           }
@@ -1080,7 +1055,7 @@ describe('AiTab Component - Composable Integration Tests', () => {
             chatType: 'chat',
             autoUpdateHost: true,
             session,
-            inputValue: '',
+            chatInputParts: [],
             modelValue: 'claude-3-5-sonnet',
             welcomeTip: ''
           }
@@ -1104,7 +1079,7 @@ describe('AiTab Component - Composable Integration Tests', () => {
             chatType: 'chat',
             autoUpdateHost: true,
             session,
-            inputValue: '',
+            chatInputParts: [],
             modelValue: 'claude-3-5-sonnet',
             welcomeTip: ''
           }
@@ -1138,7 +1113,7 @@ describe('AiTab Component - Composable Integration Tests', () => {
             chatType: 'chat',
             autoUpdateHost: true,
             session,
-            inputValue: '',
+            chatInputParts: [],
             modelValue: 'claude-3-5-sonnet',
             welcomeTip: ''
           }
@@ -1170,7 +1145,7 @@ describe('AiTab Component - Composable Integration Tests', () => {
             chatType: 'chat',
             autoUpdateHost: true,
             session,
-            inputValue: '',
+            chatInputParts: [],
             modelValue: 'claude-3-5-sonnet',
             welcomeTip: ''
           }
@@ -1195,7 +1170,7 @@ describe('AiTab Component - Composable Integration Tests', () => {
           chatType: 'agent',
           autoUpdateHost: true,
           session: createEmptySessionState(),
-          inputValue: '',
+          chatInputParts: [],
           modelValue: 'claude-3-5-sonnet',
           welcomeTip: ''
         }
@@ -1226,7 +1201,7 @@ describe('AiTab Component - Composable Integration Tests', () => {
           chatType: 'cmd',
           autoUpdateHost: true,
           session: createEmptySessionState(),
-          inputValue: '',
+          chatInputParts: [],
           modelValue: 'claude-3-5-sonnet',
           welcomeTip: ''
         }
@@ -1236,8 +1211,8 @@ describe('AiTab Component - Composable Integration Tests', () => {
       expect(chatTypeValue.value).toBe('cmd')
     })
 
-    it('should compute shouldShowSendButton based on input value', () => {
-      const { chatTabs, currentChatId, chatInputValue, shouldShowSendButton, createEmptySessionState } = useSessionState()
+    it('should compute shouldShowSendButton based on input parts', () => {
+      const { chatTabs, currentChatId, chatInputParts, shouldShowSendButton, createEmptySessionState } = useSessionState()
 
       chatTabs.value = [
         {
@@ -1247,7 +1222,7 @@ describe('AiTab Component - Composable Integration Tests', () => {
           chatType: 'chat',
           autoUpdateHost: true,
           session: createEmptySessionState(),
-          inputValue: '',
+          chatInputParts: [],
           modelValue: 'claude-3-5-sonnet',
           welcomeTip: ''
         }
@@ -1255,19 +1230,19 @@ describe('AiTab Component - Composable Integration Tests', () => {
       currentChatId.value = 'tab-1'
 
       // Empty input should not show send button
-      chatInputValue.value = ''
+      chatInputParts.value = []
       expect(shouldShowSendButton.value).toBe(false)
 
       // Whitespace only should not show send button
-      chatInputValue.value = '   '
+      chatInputParts.value = [{ type: 'text', text: '   ' }]
       expect(shouldShowSendButton.value).toBe(false)
 
       // Valid input should show send button
-      chatInputValue.value = 'Hello'
+      chatInputParts.value = [{ type: 'text', text: 'Hello' }]
       expect(shouldShowSendButton.value).toBe(true)
 
       // Single character should show send button
-      chatInputValue.value = 'a'
+      chatInputParts.value = [{ type: 'text', text: 'a' }]
       expect(shouldShowSendButton.value).toBe(true)
     })
 
@@ -1282,7 +1257,7 @@ describe('AiTab Component - Composable Integration Tests', () => {
           chatType: 'agent',
           autoUpdateHost: true,
           session: createEmptySessionState(),
-          inputValue: '',
+          chatInputParts: [],
           modelValue: 'claude-3-5-sonnet',
           welcomeTip: ''
         }
@@ -1315,7 +1290,7 @@ describe('AiTab Component - Composable Integration Tests', () => {
           chatType: 'agent',
           autoUpdateHost: false,
           session: createEmptySessionState(),
-          inputValue: '',
+          chatInputParts: [],
           modelValue: 'claude-3-5-sonnet',
           welcomeTip: ''
         }
@@ -1348,7 +1323,7 @@ describe('AiTab Component - Composable Integration Tests', () => {
           chatType: 'agent',
           autoUpdateHost: true,
           session,
-          inputValue: '',
+          chatInputParts: [],
           modelValue: 'claude-3-5-sonnet',
           welcomeTip: ''
         }
@@ -1384,7 +1359,7 @@ describe('AiTab Component - Composable Integration Tests', () => {
           chatType: 'agent',
           autoUpdateHost: true,
           session,
-          inputValue: '',
+          chatInputParts: [],
           modelValue: 'claude-3-5-sonnet',
           welcomeTip: ''
         }
@@ -1406,7 +1381,7 @@ describe('AiTab Component - Composable Integration Tests', () => {
     })
 
     it('should sync shouldShowSendButton to session.showSendButton', async () => {
-      const { chatTabs, currentChatId, chatInputValue, currentSession, createEmptySessionState } = useSessionState()
+      const { chatTabs, currentChatId, chatInputParts, currentSession, createEmptySessionState } = useSessionState()
 
       const session = createEmptySessionState()
       // Set showSendButton to false initially to match empty input
@@ -1419,7 +1394,7 @@ describe('AiTab Component - Composable Integration Tests', () => {
           chatType: 'chat',
           autoUpdateHost: true,
           session,
-          inputValue: '',
+          chatInputParts: [],
           modelValue: 'claude-3-5-sonnet',
           welcomeTip: ''
         }
@@ -1433,12 +1408,12 @@ describe('AiTab Component - Composable Integration Tests', () => {
       expect(currentSession.value?.showSendButton).toBe(false)
 
       // Set valid input
-      chatInputValue.value = 'Hello'
+      chatInputParts.value = [{ type: 'text', text: 'Hello' }]
       await new Promise((resolve) => setTimeout(resolve, 0))
       expect(currentSession.value?.showSendButton).toBe(true)
 
       // Clear input
-      chatInputValue.value = ''
+      chatInputParts.value = []
       await new Promise((resolve) => setTimeout(resolve, 0))
       expect(currentSession.value?.showSendButton).toBe(false)
     })
