@@ -45,14 +45,14 @@ describe('useStateSnapshot', () => {
     const chatTabs = ref([createMockTab('tab-1')])
     const currentChatId = ref('tab-1')
     const hosts = ref([{ host: '127.0.0.1', uuid: 'localhost', connection: 'localhost' }])
-    const chatInputValue = ref('')
+    const chatInputParts = ref([])
     const chatAiModelValue = ref('claude-sonnet-4-5')
 
     vi.mocked(useSessionState).mockReturnValue({
       chatTabs,
       currentChatId,
       hosts,
-      chatInputValue,
+      chatInputParts,
       chatAiModelValue
     } as any)
   })
@@ -286,11 +286,11 @@ describe('useStateSnapshot', () => {
       expect(mockEmit).toHaveBeenCalledWith('state-changed', expect.any(Object))
     })
 
-    it('should emit state change when chatInputValue changes', async () => {
+    it('should emit state change when chatInputParts changes', async () => {
       const mockState = vi.mocked(useSessionState)()
       useStateSnapshot(mockEmit)
 
-      mockState.chatInputValue.value = 'new input value'
+      mockState.chatInputParts.value = [{ type: 'text', text: 'new input value' }]
 
       await nextTick()
 
@@ -313,7 +313,7 @@ describe('useStateSnapshot', () => {
       const { setSuppressStateChange } = useStateSnapshot(mockEmit)
 
       setSuppressStateChange(true)
-      mockState.chatInputValue.value = 'test'
+      mockState.chatInputParts.value = [{ type: 'text', text: 'test' }]
 
       await nextTick()
 

@@ -1,8 +1,13 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
+
+// Mock markdownRenderer to prevent monaco-editor from loading in jsdom
+vi.mock('../../components/format/markdownRenderer.vue', () => ({ default: {} }))
+
 import { ref } from 'vue'
 import { useContext } from '../useContext'
 import { useHostState } from '../useHostState'
 import type { Host, HostOption } from '../../types'
+import type { ContentPart } from '@shared/WebviewMessage'
 import eventBus from '@/utils/eventBus'
 import { Notice } from '@/views/components/Notice/index'
 
@@ -10,7 +15,7 @@ import { Notice } from '@/views/components/Notice/index'
 const hosts = ref<Host[]>([])
 const chatTypeValue = ref('agent')
 const autoUpdateHost = ref(true)
-const chatInputValue = ref('')
+const chatInputParts = ref<ContentPart[]>([])
 const currentChatId = ref('test-tab-id')
 
 // Mock dependencies
@@ -19,7 +24,7 @@ vi.mock('../useSessionState', () => ({
     hosts,
     chatTypeValue,
     autoUpdateHost,
-    chatInputValue,
+    chatInputParts,
     currentChatId
   })
 }))
@@ -96,7 +101,13 @@ describe('useContext', () => {
     hosts.value = []
     chatTypeValue.value = 'agent'
     autoUpdateHost.value = true
-    chatInputValue.value = ''
+    chatInputParts.value = []
+    // Mock KB APIs used by docs navigation
+    window.api = {
+      ...(window.api || {}),
+      kbGetRoot: vi.fn().mockResolvedValue({ root: '/kb' }),
+      kbListDir: vi.fn().mockResolvedValue([])
+    }
   })
 
   describe('isHostSelected', () => {
@@ -395,171 +406,122 @@ describe('useContext', () => {
     })
   })
 
-  describe('handleInputChange', () => {
-    it('should show host select when only @ is typed', async () => {
-      const { handleInputChange, showHostSelect } = useContext()
-
-      const mockEvent = {
-        target: {
-          value: '@',
-          getBoundingClientRect: vi.fn().mockReturnValue({
-            top: 100,
-            left: 100,
-            bottom: 200,
-            right: 200,
-            width: 100,
-            height: 100
-          }),
-          selectionStart: 1
-        }
-      } as unknown as Event
-
-      await handleInputChange(mockEvent)
-
-      expect(showHostSelect.value).toBe(true)
-    })
-
-    it('should show host select when @ is typed at the end', async () => {
-      const { handleInputChange, showHostSelect } = useContext()
-
-      const mockEvent = {
-        target: {
-          value: 'hello @',
-          getBoundingClientRect: vi.fn().mockReturnValue({
-            top: 100,
-            left: 100,
-            bottom: 200,
-            right: 200,
-            width: 100,
-            height: 100
-          }),
-          selectionStart: 7
-        }
-      } as unknown as Event
-
-      await handleInputChange(mockEvent)
-
-      expect(showHostSelect.value).toBe(true)
-    })
-
-    it('should not show host select when @ is in the middle', async () => {
-      const { handleInputChange, showHostSelect } = useContext()
-
-      const mockEvent = {
-        target: {
-          value: '@ hello',
-          getBoundingClientRect: vi.fn().mockReturnValue({
-            top: 100,
-            left: 100,
-            bottom: 200,
-            right: 200,
-            width: 100,
-            height: 100
-          }),
-          selectionStart: 7
-        }
-      } as unknown as Event
-
-      await handleInputChange(mockEvent)
-
-      expect(showHostSelect.value).toBe(false)
-    })
-
-    it('should hide host select when trailing @ is removed', async () => {
-      const { handleInputChange, showHostSelect } = useContext()
-
-      showHostSelect.value = true
-
-      const mockEvent = {
-        target: {
-          value: 'hello',
-          getBoundingClientRect: vi.fn().mockReturnValue({
-            top: 100,
-            left: 100,
-            bottom: 200,
-            right: 200,
-            width: 100,
-            height: 100
-          }),
-          selectionStart: 5
-        }
-      } as unknown as Event
-
-      await handleInputChange(mockEvent)
-
-      expect(showHostSelect.value).toBe(false)
-    })
-
-    it('should hide host select when @ is removed', async () => {
-      const { handleInputChange, showHostSelect } = useContext()
-
-      const mockEvent = {
-        target: {
-          value: 'test',
-          getBoundingClientRect: vi.fn().mockReturnValue({
-            top: 100,
-            left: 100,
-            bottom: 200,
-            right: 200,
-            width: 100,
-            height: 100
-          }),
-          selectionStart: 4
-        }
-      } as unknown as Event
-
-      showHostSelect.value = true
-      await handleInputChange(mockEvent)
-
-      expect(showHostSelect.value).toBe(false)
-    })
-  })
-
   describe('onHostClick with @ handling', () => {
     it('should remove trailing @ when host is selected', () => {
       const { onHostClick } = useContext()
 
-      chatInputValue.value = 'hello @'
+      chatInputParts.value = [{ type: 'text', text: 'hello @' }]
       chatTypeValue.value = 'agent'
 
       onHostClick(mockHostOption)
 
-      expect(chatInputValue.value).toBe('hello ')
+      expect(chatInputParts.value).toEqual([{ type: 'text', text: 'hello ' }])
       expect(hosts.value).toHaveLength(1)
     })
 
     it('should not modify input if no trailing @ when host is selected', () => {
       const { onHostClick } = useContext()
 
-      chatInputValue.value = 'hello world'
+      chatInputParts.value = [{ type: 'text', text: 'hello world' }]
       chatTypeValue.value = 'agent'
 
       onHostClick(mockHostOption)
 
-      expect(chatInputValue.value).toBe('hello world')
+      expect(chatInputParts.value).toEqual([{ type: 'text', text: 'hello world' }])
       expect(hosts.value).toHaveLength(1)
     })
 
     it('should remove @ even with just @', () => {
       const { onHostClick } = useContext()
 
-      chatInputValue.value = '@'
+      chatInputParts.value = [{ type: 'text', text: '@' }]
       chatTypeValue.value = 'agent'
 
       onHostClick(mockHostOption)
 
-      expect(chatInputValue.value).toBe('')
+      expect(chatInputParts.value).toEqual([])
       expect(hosts.value).toHaveLength(1)
     })
   })
 
-  describe('handleAddHostClick', () => {
+  describe('handleAddContextClick', () => {
     it('should show host select popup', () => {
-      const { handleAddHostClick, showHostSelect } = useContext()
+      const { handleAddContextClick, showContextPopup } = useContext()
 
-      handleAddHostClick()
+      handleAddContextClick()
 
-      expect(showHostSelect.value).toBe(true)
+      expect(showContextPopup.value).toBe(true)
+    })
+  })
+
+  describe('docs navigation', () => {
+    it('should enter directory instead of selecting it', async () => {
+      const { fetchDocsOptions, onDocClick, docsOptions } = useContext()
+
+      vi.mocked(window.api.kbListDir).mockResolvedValueOnce([{ name: 'dirA', relPath: 'dirA', type: 'dir' }])
+      await fetchDocsOptions('')
+
+      vi.mocked(window.api.kbListDir).mockResolvedValueOnce([{ name: 'fileA.md', relPath: 'dirA/fileA.md', type: 'file' }])
+      await onDocClick(docsOptions.value[0])
+
+      expect(window.api.kbListDir).toHaveBeenLastCalledWith('dirA')
+      expect(docsOptions.value[0].name).toBe('fileA.md')
+      expect(docsOptions.value[0].type).toBe('file')
+    })
+
+    it('should go back to parent directory', async () => {
+      const { goToLevel2, onDocClick, goBack, docsOptions } = useContext()
+
+      vi.mocked(window.api.kbListDir).mockResolvedValueOnce([{ name: 'dirA', relPath: 'dirA', type: 'dir' }])
+      await goToLevel2('docs')
+
+      vi.mocked(window.api.kbListDir).mockResolvedValueOnce([{ name: 'fileA.md', relPath: 'dirA/fileA.md', type: 'file' }])
+      await onDocClick(docsOptions.value[0])
+
+      vi.mocked(window.api.kbListDir).mockResolvedValueOnce([
+        { name: 'dirA', relPath: 'dirA', type: 'dir' },
+        { name: 'dirB', relPath: 'dirB', type: 'dir' }
+      ])
+      await goBack()
+
+      expect(window.api.kbListDir).toHaveBeenLastCalledWith('')
+      expect(docsOptions.value).toHaveLength(2)
+    })
+  })
+
+  describe('duplicate selections', () => {
+    it('should not insert duplicate doc and should close popup', async () => {
+      const { handleAddContextClick, onDocClick, setChipInsertHandler, showContextPopup } = useContext()
+      const handler = vi.fn()
+      setChipInsertHandler(handler)
+
+      const doc = { name: 'Doc A', absPath: '/kb/doc-a.md', type: 'file' } as const
+      chatInputParts.value = [{ type: 'chip', chipType: 'doc', ref: { absPath: doc.absPath, name: doc.name, type: doc.type } }]
+
+      handleAddContextClick()
+      expect(showContextPopup.value).toBe(true)
+
+      await onDocClick(doc)
+
+      expect(handler).not.toHaveBeenCalled()
+      expect(showContextPopup.value).toBe(false)
+    })
+
+    it('should not insert duplicate chat and should close popup', async () => {
+      const { handleAddContextClick, onChatClick, setChipInsertHandler, showContextPopup } = useContext()
+      const handler = vi.fn()
+      setChipInsertHandler(handler)
+
+      const chat = { id: 'chat-1', title: 'Chat 1', ts: 0 } as const
+      chatInputParts.value = [{ type: 'chip', chipType: 'chat', ref: { taskId: chat.id, title: chat.title } }]
+
+      handleAddContextClick()
+      expect(showContextPopup.value).toBe(true)
+
+      await onChatClick(chat)
+
+      expect(handler).not.toHaveBeenCalled()
+      expect(showContextPopup.value).toBe(false)
     })
   })
 })

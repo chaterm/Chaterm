@@ -60,7 +60,6 @@ describe('useSessionState', () => {
         chatType: 'agent',
         autoUpdateHost: true,
         session: createEmptySessionState(),
-        inputValue: '',
         modelValue: 'claude-3-5-sonnet',
         welcomeTip: ''
       }
@@ -81,7 +80,6 @@ describe('useSessionState', () => {
           chatType: 'agent',
           autoUpdateHost: true,
           session: createEmptySessionState(),
-          inputValue: '',
           modelValue: '',
           welcomeTip: ''
         },
@@ -92,7 +90,6 @@ describe('useSessionState', () => {
           chatType: 'chat',
           autoUpdateHost: true,
           session: createEmptySessionState(),
-          inputValue: '',
           modelValue: '',
           welcomeTip: ''
         }
@@ -121,7 +118,6 @@ describe('useSessionState', () => {
         chatType: 'agent',
         autoUpdateHost: true,
         session: createEmptySessionState(),
-        inputValue: '',
         modelValue: '',
         welcomeTip: ''
       }
@@ -141,7 +137,6 @@ describe('useSessionState', () => {
           chatType: 'agent',
           autoUpdateHost: true,
           session: createEmptySessionState(),
-          inputValue: '',
           modelValue: '',
           welcomeTip: ''
         }
@@ -170,7 +165,6 @@ describe('useSessionState', () => {
           chatType: 'agent',
           autoUpdateHost: true,
           session,
-          inputValue: '',
           modelValue: '',
           welcomeTip: ''
         }
@@ -199,7 +193,6 @@ describe('useSessionState', () => {
             chatType: 'agent',
             autoUpdateHost: true,
             session: createEmptySessionState(),
-            inputValue: '',
             modelValue: '',
             welcomeTip: ''
           }
@@ -219,7 +212,6 @@ describe('useSessionState', () => {
             chatType: 'agent',
             autoUpdateHost: true,
             session: createEmptySessionState(),
-            inputValue: '',
             modelValue: '',
             welcomeTip: ''
           }
@@ -249,7 +241,6 @@ describe('useSessionState', () => {
             chatType: 'cmd',
             autoUpdateHost: true,
             session: createEmptySessionState(),
-            inputValue: '',
             modelValue: '',
             welcomeTip: ''
           }
@@ -269,7 +260,6 @@ describe('useSessionState', () => {
             chatType: 'agent',
             autoUpdateHost: true,
             session: createEmptySessionState(),
-            inputValue: '',
             modelValue: '',
             welcomeTip: ''
           }
@@ -300,7 +290,6 @@ describe('useSessionState', () => {
             chatType: 'agent',
             autoUpdateHost: true,
             session: createEmptySessionState(),
-            inputValue: '',
             modelValue: '',
             welcomeTip: ''
           }
@@ -320,7 +309,6 @@ describe('useSessionState', () => {
             chatType: 'agent',
             autoUpdateHost: true,
             session: createEmptySessionState(),
-            inputValue: '',
             modelValue: '',
             welcomeTip: ''
           }
@@ -334,15 +322,15 @@ describe('useSessionState', () => {
       })
     })
 
-    describe('chatInputValue', () => {
-      it('should return empty string when no tab is selected', () => {
-        const { chatInputValue } = useSessionState()
+    describe('chatInputParts', () => {
+      it('should return empty array when no tab is selected', () => {
+        const { chatInputParts } = useSessionState()
 
-        expect(chatInputValue.value).toBe('')
+        expect(chatInputParts.value).toEqual([])
       })
 
-      it('should return the input value of the current tab', () => {
-        const { chatTabs, currentChatId, chatInputValue, createEmptySessionState } = useSessionState()
+      it('should return the input parts of the current tab', () => {
+        const { chatTabs, currentChatId, chatInputParts, createEmptySessionState } = useSessionState()
         chatTabs.value = [
           {
             id: 'tab-1',
@@ -351,18 +339,18 @@ describe('useSessionState', () => {
             chatType: 'agent',
             autoUpdateHost: true,
             session: createEmptySessionState(),
-            inputValue: 'Hello AI',
+            chatInputParts: [{ type: 'text', text: 'Hello AI' }],
             modelValue: '',
             welcomeTip: ''
           }
         ]
         currentChatId.value = 'tab-1'
 
-        expect(chatInputValue.value).toBe('Hello AI')
+        expect(chatInputParts.value).toEqual([{ type: 'text', text: 'Hello AI' }])
       })
 
-      it('should allow updating input value', () => {
-        const { chatTabs, currentChatId, chatInputValue, createEmptySessionState } = useSessionState()
+      it('should allow updating input parts', () => {
+        const { chatTabs, currentChatId, chatInputParts, createEmptySessionState } = useSessionState()
         chatTabs.value = [
           {
             id: 'tab-1',
@@ -371,16 +359,16 @@ describe('useSessionState', () => {
             chatType: 'agent',
             autoUpdateHost: true,
             session: createEmptySessionState(),
-            inputValue: '',
+            chatInputParts: [],
             modelValue: '',
             welcomeTip: ''
           }
         ]
         currentChatId.value = 'tab-1'
 
-        chatInputValue.value = 'New input'
+        chatInputParts.value = [{ type: 'text', text: 'New input' }]
 
-        expect(chatTabs.value[0].inputValue).toBe('New input')
+        expect(chatTabs.value[0].chatInputParts).toEqual([{ type: 'text', text: 'New input' }])
       })
     })
   })
@@ -408,7 +396,6 @@ describe('useSessionState', () => {
           chatType: 'agent',
           autoUpdateHost: true,
           session,
-          inputValue: '',
           modelValue: '',
           welcomeTip: ''
         }
@@ -435,7 +422,6 @@ describe('useSessionState', () => {
           chatType: 'agent',
           autoUpdateHost: true,
           session,
-          inputValue: '',
           modelValue: '',
           welcomeTip: ''
         }
@@ -464,7 +450,6 @@ describe('useSessionState', () => {
           chatType: 'agent',
           autoUpdateHost: true,
           session: createEmptySessionState(),
-          inputValue: '',
           modelValue: '',
           welcomeTip: ''
         }
@@ -489,7 +474,6 @@ describe('useSessionState', () => {
           chatType: 'agent',
           autoUpdateHost: true,
           session,
-          inputValue: '',
           modelValue: '',
           welcomeTip: ''
         }
@@ -514,7 +498,6 @@ describe('useSessionState', () => {
           chatType: 'agent',
           autoUpdateHost: true,
           session,
-          inputValue: '',
           modelValue: '',
           welcomeTip: ''
         }

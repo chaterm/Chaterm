@@ -146,7 +146,7 @@ describe('useTabManagement', () => {
     chatType: 'agent' as const,
     autoUpdateHost: true,
     session: createMockSession(),
-    inputValue: '',
+    chatInputParts: [],
     modelValue: '',
     welcomeTip: ''
   })
@@ -166,7 +166,7 @@ describe('useTabManagement', () => {
     const mockTab = createMockTab('tab-1')
     const chatTabs = ref([mockTab])
     const currentChatId = ref('tab-1')
-    const chatInputValue = ref('')
+    const chatInputParts = ref([])
     const createEmptySessionState = vi.fn(() => createMockSession())
     const cleanupTabPairsCache = vi.fn()
 
@@ -175,7 +175,7 @@ describe('useTabManagement', () => {
       currentChatId,
       currentTab: ref(mockTab),
       createEmptySessionState,
-      chatInputValue,
+      chatInputParts,
       chatTextareaRef: ref(null),
       cleanupTabPairsCache
     } as any)
@@ -262,18 +262,18 @@ describe('useTabManagement', () => {
       expect(newTab.modelValue).toBe('claude-sonnet-4-5')
     })
 
-    it('should clear chat input value', async () => {
+    it('should keep chat input parts', async () => {
       const { createNewEmptyTab } = useTabManagement({
         getCurentTabAssetInfo: mockGetCurentTabAssetInfo,
         toggleSidebar: mockToggleSidebar
       })
 
       const mockState = vi.mocked(useSessionState)()
-      mockState.chatInputValue.value = 'test input'
+      mockState.chatInputParts.value = [{ type: 'text', text: 'test input' }]
 
       await createNewEmptyTab()
 
-      expect(mockState.chatInputValue.value).toBe('test input')
+      expect(mockState.chatInputParts.value).toEqual([{ type: 'text', text: 'test input' }])
     })
   })
 
