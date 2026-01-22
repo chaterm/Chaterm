@@ -3367,9 +3367,7 @@ const writeToTerminal = (content: string) => {
 const copyOutput = () => {
   if (!terminal) return
 
-  const selection = terminal.getSelection()
-  const content =
-    selection || Array.from({ length: terminal?.rows || 0 }, (_, i) => terminal?.buffer.active.getLine(i)?.translateToString() || '').join('\n')
+  const content = Array.from({ length: terminal?.rows || 0 }, (_, i) => terminal?.buffer.active.getLine(i)?.translateToString() || '').join('\n')
 
   navigator.clipboard.writeText(content).then(() => {
     message.success(t('ai.copyToClipboard'))
