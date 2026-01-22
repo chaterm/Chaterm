@@ -14,7 +14,6 @@ describe('useStateSnapshot', () => {
     lastChatMessageId: '',
     responseLoading: false,
     showRetryButton: false,
-    showNewTaskButton: false,
     showSendButton: true,
     buttonsDisabled: false,
     resumeDisabled: false,
@@ -161,7 +160,6 @@ describe('useStateSnapshot', () => {
               resumeDisabled: false,
               isExecutingCommand: false,
               showRetryButton: false,
-              showNewTaskButton: false,
               messageFeedbacks: { 'msg-1': 'like' },
               shouldStickToBottom: false
             }

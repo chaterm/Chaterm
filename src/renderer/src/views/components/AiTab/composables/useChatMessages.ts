@@ -302,7 +302,6 @@ export function useChatMessages(
     session.chatHistory.push(userMessage)
     session.responseLoading = true
     session.showRetryButton = false
-    session.showNewTaskButton = false
 
     if (!tabId || tabId === currentChatId.value) {
       scrollToBottom(true)
@@ -382,14 +381,11 @@ export function useChatMessages(
       }
 
       if (partial.type === 'ask' && partial.ask === 'completion_result') {
-        session.showNewTaskButton = true
         session.responseLoading = false
         if (isActiveTab) {
           scrollToBottom()
         }
         return
-      } else {
-        session.showNewTaskButton = false
       }
 
       if (partial.say === 'interactive_command_notification') {

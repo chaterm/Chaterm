@@ -33,7 +33,6 @@ export function useStateSnapshot(emit: (event: 'state-changed', ...args: any[]) 
           resumeDisabled: tab.session.resumeDisabled,
           isExecutingCommand: tab.session.isExecutingCommand,
           showRetryButton: tab.session.showRetryButton,
-          showNewTaskButton: tab.session.showNewTaskButton,
           messageFeedbacks: { ...tab.session.messageFeedbacks },
           shouldStickToBottom: tab.session.shouldStickToBottom
         }
@@ -73,7 +72,6 @@ export function useStateSnapshot(emit: (event: 'state-changed', ...args: any[]) 
             resumeDisabled: savedTab.session.resumeDisabled || false,
             isExecutingCommand: savedTab.session.isExecutingCommand || false,
             showRetryButton: savedTab.session.showRetryButton || false,
-            showNewTaskButton: savedTab.session.showNewTaskButton || false,
             messageFeedbacks: savedTab.session.messageFeedbacks || {},
             lastStreamMessage: null,
             lastPartialMessage: null,

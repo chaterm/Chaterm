@@ -424,7 +424,6 @@ interface AiSidebarState {
       resumeDisabled: boolean
       isExecutingCommand: boolean
       showRetryButton: boolean
-      showNewTaskButton: boolean
       messageFeedbacks: Record<string, 'like' | 'dislike'>
       shouldStickToBottom?: boolean
     }

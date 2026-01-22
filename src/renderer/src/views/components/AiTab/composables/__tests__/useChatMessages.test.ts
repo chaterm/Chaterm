@@ -71,7 +71,6 @@ describe('useChatMessages', () => {
     lastChatMessageId: '',
     responseLoading: false,
     showRetryButton: false,
-    showNewTaskButton: false,
     showSendButton: true,
     buttonsDisabled: false,
     resumeDisabled: false,
@@ -756,7 +755,6 @@ describe('useChatMessages', () => {
 
       await processMainMessage(message)
 
-      expect(session.showNewTaskButton).toBe(true)
       expect(session.responseLoading).toBe(false)
     })
 

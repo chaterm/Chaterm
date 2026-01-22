@@ -772,7 +772,6 @@ export default {
     copyToClipboard: 'クリップボードにコピー',
     retry: '再試行',
     taskCompleted: 'タスク完了',
-    newTask: '新しいタスクを開始',
     codePreview: 'コードプレビュー ({lines} 行)',
     enterCustomOption: '答えを入力してください...',
     submit: '送信',

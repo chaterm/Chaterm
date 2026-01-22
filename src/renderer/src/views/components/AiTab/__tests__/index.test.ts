@@ -210,7 +210,6 @@ describe('AiTab Component - Composable Integration Tests', () => {
         lastChatMessageId: '',
         responseLoading: false,
         showRetryButton: false,
-        showNewTaskButton: false,
         showSendButton: true,
         buttonsDisabled: false,
         resumeDisabled: false,
@@ -576,7 +575,7 @@ describe('AiTab Component - Composable Integration Tests', () => {
       })
     })
 
-    describe('Retry and New Task Buttons', () => {
+    describe('Retry Button', () => {
       it('should show retry button when session supports retry', () => {
         const { chatTabs, currentChatId, currentSession, createEmptySessionState } = useSessionState()
 
@@ -599,30 +598,6 @@ describe('AiTab Component - Composable Integration Tests', () => {
         currentChatId.value = 'tab-1'
 
         expect(currentSession.value?.showRetryButton).toBe(true)
-      })
-
-      it('should show new task button when session is completed', () => {
-        const { chatTabs, currentChatId, currentSession, createEmptySessionState } = useSessionState()
-
-        const session = createEmptySessionState()
-        session.showNewTaskButton = true
-
-        chatTabs.value = [
-          {
-            id: 'tab-1',
-            title: 'Test',
-            hosts: [],
-            chatType: 'agent',
-            autoUpdateHost: true,
-            session,
-            chatInputParts: [],
-            modelValue: 'claude-3-5-sonnet',
-            welcomeTip: ''
-          }
-        ]
-        currentChatId.value = 'tab-1'
-
-        expect(currentSession.value?.showNewTaskButton).toBe(true)
       })
     })
 

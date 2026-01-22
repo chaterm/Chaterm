@@ -261,7 +261,6 @@ export function useTabManagement(options: TabManagementOptions) {
         lastChatMessageId: '',
         responseLoading: false,
         showRetryButton: false,
-        showNewTaskButton: false,
         showSendButton: true,
         buttonsDisabled: false,
         resumeDisabled: false,

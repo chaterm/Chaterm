@@ -776,7 +776,6 @@ export default {
     copyToClipboard: 'Copy to clipboard',
     retry: 'Retry',
     taskCompleted: 'Task Completed',
-    newTask: 'Start New Task',
     codePreview: 'Code Preview ({lines} lines)',
     enterCustomOption: 'Enter your answer...',
     submit: 'Submit',
