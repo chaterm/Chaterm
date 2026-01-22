@@ -16,7 +16,7 @@ import { telemetryService } from '@services/telemetry/TelemetryService'
 import { ExtensionMessage, Platform } from '@shared/ExtensionMessage'
 import { HistoryItem } from '@shared/HistoryItem'
 import { WebviewMessage } from '@shared/WebviewMessage'
-import type { Host } from '@shared/WebviewMessage'
+import type { ContentPart, Host } from '@shared/WebviewMessage'
 import { validateWebviewMessageContract } from '@shared/WebviewMessage'
 import {
   ensureTaskExists,
@@ -104,7 +104,7 @@ export class Controller {
     await updateGlobalState('userInfo', info)
   }
 
-  async initTask(hosts: Host[], task?: string, historyItem?: HistoryItem, taskId?: string) {
+  async initTask(hosts: Host[], task?: string, historyItem?: HistoryItem, taskId?: string, contentParts?: ContentPart[]) {
     console.log('initTask', task, historyItem, 'taskId:', taskId)
     const resolvedTaskId = taskId ?? historyItem?.id
     if (resolvedTaskId) {
@@ -132,7 +132,8 @@ export class Controller {
       task,
       historyItem,
       undefined, // Don't pass generated title initially
-      taskId
+      taskId,
+      contentParts
     )
 
     this.tasks.set(newTask.taskId, newTask)
@@ -189,7 +190,7 @@ export class Controller {
 
     switch (message.type) {
       case 'newTask':
-        await this.initTask(message.hosts!, message.text, undefined, message.taskId)
+        await this.initTask(message.hosts!, message.text, undefined, message.taskId, message.contentParts)
         if (message.taskId && message.hosts) {
           await updateTaskHosts(message.taskId, message.hosts)
         }
@@ -220,7 +221,7 @@ export class Controller {
           if (message.askResponse === 'messageResponse') {
             await targetTask.clearTodos('new_user_input')
           }
-          await targetTask.handleWebviewAskResponse(message.askResponse!, message.text, message.truncateAtMessageTs)
+          await targetTask.handleWebviewAskResponse(message.askResponse!, message.text, message.truncateAtMessageTs, message.contentParts)
         }
         break
       case 'showTaskWithId':

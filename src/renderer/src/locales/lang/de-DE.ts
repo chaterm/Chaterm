@@ -775,7 +775,6 @@ export default {
     copyToClipboard: 'In die Zwischenablage kopieren',
     retry: 'Wiederholen',
     taskCompleted: 'Aufgabe erfolgreich abgeschlossen',
-    newTask: 'Neue Aufgabe starten',
     codePreview: 'Code Vorschau ({lines} Zeilen)',
     enterCustomOption: 'Bitte geben Sie Ihre Antwort ein...',
     submit: 'Absenden',

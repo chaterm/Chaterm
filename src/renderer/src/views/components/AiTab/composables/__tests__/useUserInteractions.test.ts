@@ -38,16 +38,37 @@ vi.mock('ant-design-vue', () => ({
 
 describe('useUserInteractions', () => {
   let mockSendMessage: (sendType: string) => Promise<any>
-  let chatInputValue: ReturnType<typeof ref<string>>
+  let chatInputParts: ReturnType<typeof ref<Array<{ type: string; text: string }>>>
+
+  const getText = (parts: Array<{ type: string; text: string }>) => {
+    return parts
+      .filter((part) => part.type === 'text')
+      .map((part) => part.text)
+      .join('')
+  }
 
   beforeEach(() => {
     vi.clearAllMocks()
 
     mockSendMessage = vi.fn().mockResolvedValue(undefined)
-    chatInputValue = ref('')
+    chatInputParts = ref([])
+
+    // Mock appendTextToInputParts to modify chatInputParts directly
+    const mockAppendTextToInputParts = (text: string, prefix: string = ' ', suffix: string = '') => {
+      const parts = [...(chatInputParts.value ?? [])]
+      const last = parts[parts.length - 1]
+      const textToAppend = parts.length > 0 ? `${prefix}${text}${suffix}` : `${text}${suffix}`
+      if (last && last.type === 'text') {
+        parts[parts.length - 1] = { ...last, text: last.text + textToAppend }
+      } else {
+        parts.push({ type: 'text', text: textToAppend })
+      }
+      chatInputParts.value = parts
+    }
 
     vi.mocked(useSessionState).mockReturnValue({
-      chatInputValue
+      chatInputParts,
+      appendTextToInputParts: mockAppendTextToInputParts
     } as any)
   })
 
@@ -55,10 +76,10 @@ describe('useUserInteractions', () => {
     it('should append transcribed text to existing content', () => {
       const { handleTranscriptionComplete } = useUserInteractions(mockSendMessage)
 
-      chatInputValue.value = 'Hello'
+      chatInputParts.value = [{ type: 'text', text: 'Hello' }]
       handleTranscriptionComplete('world')
 
-      expect(chatInputValue.value).toBe('Hello world')
+      expect(getText(chatInputParts.value)).toBe('Hello world')
     })
 
     it('should set transcribed text when input is empty', () => {
@@ -66,7 +87,7 @@ describe('useUserInteractions', () => {
 
       handleTranscriptionComplete('Hello world')
 
-      expect(chatInputValue.value).toBe('Hello world')
+      expect(getText(chatInputParts.value ?? [])).toBe('Hello world')
     })
 
     it('should auto-send when enabled', async () => {
@@ -149,7 +170,7 @@ describe('useUserInteractions', () => {
 
       await handleFileSelected(mockEvent)
 
-      expect(chatInputValue.value).toBe('')
+      expect(getText(chatInputParts.value ?? [])).toBe('')
     })
 
     it('should warn when file is too large', async () => {
@@ -167,7 +188,7 @@ describe('useUserInteractions', () => {
       await handleFileSelected(mockEvent)
 
       expect(notification.warning).toHaveBeenCalled()
-      expect(chatInputValue.value).toBe('')
+      expect(getText(chatInputParts.value ?? [])).toBe('')
     })
 
     it('should format JSON file content', async () => {
@@ -186,8 +207,8 @@ describe('useUserInteractions', () => {
 
       await handleFileSelected(mockEvent)
 
-      expect(chatInputValue.value).toContain('```json')
-      expect(chatInputValue.value).toContain('"key"')
+      expect(getText(chatInputParts.value ?? [])).toContain('```json')
+      expect(getText(chatInputParts.value ?? [])).toContain('"key"')
       expect(notification.success).toHaveBeenCalled()
       expect(mockEvent.target.value).toBe('')
     })
@@ -207,8 +228,8 @@ describe('useUserInteractions', () => {
 
       await handleFileSelected(mockEvent)
 
-      expect(chatInputValue.value).toContain('```markdown')
-      expect(chatInputValue.value).toContain('# Title')
+      expect(getText(chatInputParts.value ?? [])).toContain('```markdown')
+      expect(getText(chatInputParts.value ?? [])).toContain('# Title')
       expect(notification.success).toHaveBeenCalled()
     })
 
@@ -227,15 +248,15 @@ describe('useUserInteractions', () => {
 
       await handleFileSelected(mockEvent)
 
-      expect(chatInputValue.value).toContain('```py')
-      expect(chatInputValue.value).toContain('def hello')
+      expect(getText(chatInputParts.value ?? [])).toContain('```py')
+      expect(getText(chatInputParts.value ?? [])).toContain('def hello')
       expect(notification.success).toHaveBeenCalled()
     })
 
     it('should append to existing input', async () => {
       const { handleFileSelected } = useUserInteractions(mockSendMessage)
 
-      chatInputValue.value = 'Existing content'
+      chatInputParts.value = [{ type: 'text', text: 'Existing content' }]
 
       const txtFile = new File(['New content'], 'test.txt', { type: 'text/plain' })
       const mockEvent = {
@@ -247,8 +268,8 @@ describe('useUserInteractions', () => {
 
       await handleFileSelected(mockEvent)
 
-      expect(chatInputValue.value).toContain('Existing content')
-      expect(chatInputValue.value).toContain('New content')
+      expect(getText(chatInputParts.value)).toContain('Existing content')
+      expect(getText(chatInputParts.value)).toContain('New content')
     })
 
     it('should handle invalid JSON gracefully', async () => {
@@ -265,7 +286,7 @@ describe('useUserInteractions', () => {
 
       await handleFileSelected(mockEvent)
 
-      expect(chatInputValue.value).toContain('```')
+      expect(getText(chatInputParts.value ?? [])).toContain('```')
       expect(notification.success).toHaveBeenCalled()
     })
   })
@@ -274,7 +295,7 @@ describe('useUserInteractions', () => {
     it('should send message on Enter key', async () => {
       const { handleKeyDown } = useUserInteractions(mockSendMessage)
 
-      chatInputValue.value = 'Test message'
+      chatInputParts.value = [{ type: 'text', text: 'Test message' }]
 
       const mockEvent = {
         key: 'Enter',
@@ -292,7 +313,7 @@ describe('useUserInteractions', () => {
     it('should not send on Shift+Enter', () => {
       const { handleKeyDown } = useUserInteractions(mockSendMessage)
 
-      chatInputValue.value = 'Test message'
+      chatInputParts.value = [{ type: 'text', text: 'Test message' }]
 
       const mockEvent = {
         key: 'Enter',
@@ -309,7 +330,7 @@ describe('useUserInteractions', () => {
     it('should not send when composing', () => {
       const { handleKeyDown } = useUserInteractions(mockSendMessage)
 
-      chatInputValue.value = 'Test message'
+      chatInputParts.value = [{ type: 'text', text: 'Test message' }]
 
       const mockEvent = {
         key: 'Enter',
@@ -326,7 +347,7 @@ describe('useUserInteractions', () => {
     it('should not send when input is empty', () => {
       const { handleKeyDown } = useUserInteractions(mockSendMessage)
 
-      chatInputValue.value = '   '
+      chatInputParts.value = [{ type: 'text', text: '   ' }]
 
       const mockEvent = {
         key: 'Enter',
@@ -344,7 +365,7 @@ describe('useUserInteractions', () => {
     it('should do nothing for other keys', () => {
       const { handleKeyDown } = useUserInteractions(mockSendMessage)
 
-      chatInputValue.value = 'Test message'
+      chatInputParts.value = [{ type: 'text', text: 'Test message' }]
 
       const mockEvent = {
         key: 'a',

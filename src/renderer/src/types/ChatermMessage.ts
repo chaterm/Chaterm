@@ -1,9 +1,12 @@
+import type { ContentPart } from '@shared/WebviewMessage'
+
 export interface ChatermMessage {
   ts: number
   type: 'ask' | 'say'
   ask?: ChatermAsk
   say?: ChatermSay
   text?: string
+  contentParts?: ContentPart[]
   reasoning?: string
   images?: string[]
   partial?: boolean

@@ -8,121 +8,40 @@
       data-testid="ai-tab"
       style="display: none"
     ></div>
-    <!-- Use teleport to render popup in body. Key reason: UserMessage uses position: sticky and z-index: 3,
-         which would occlude the popup if it stays within the component. By teleporting to body, the popup can use
-         a higher z-index (1000) to ensure it appears above all message content, while also avoiding positioning
-         issues from parent container's overflow, transform, and other CSS properties -->
-    <teleport to="body">
-      <div
-        v-if="showHostSelect"
-        class="host-select-popup"
-        :class="hostSelectPopupClass"
-        :style="hostSelectPopupStyle"
-      >
-        <a-input
-          ref="hostSearchInputRef"
-          v-model:value="hostSearchValue"
-          :placeholder="$t('ai.searchHost')"
-          size="small"
-          class="mini-host-search-input"
-          allow-clear
-          @keydown="handleHostSearchKeyDownWithInput"
-        />
-        <div class="host-select-list">
-          <template
-            v-for="(item, index) in filteredHostOptions"
-            :key="item.value"
-          >
-            <!-- Jumpserver parent node (non-selectable, expandable) -->
-            <div
-              v-if="isBastionHostType(item.type)"
-              class="host-select-item host-select-group"
-              :class="{
-                hovered: hovered === item.value,
-                'keyboard-selected': keyboardSelectedIndex === index,
-                expanded: item.expanded
-              }"
-              @mouseover="handleMouseOver(item.value, index)"
-              @mouseleave="hovered = null"
-              @click="toggleJumpserverExpand(item.key)"
-            >
-              <span class="host-label host-group-label">{{ item.label }}</span>
-              <span class="host-group-badge">{{ item.childrenCount || 0 }}</span>
-              <span class="host-group-toggle">
-                <DownOutlined
-                  v-if="item.expanded"
-                  class="toggle-icon"
-                />
-                <RightOutlined
-                  v-else
-                  class="toggle-icon"
-                />
-              </span>
-            </div>
-            <!-- Normal selectable items (personal or jumpserver_child) -->
-            <div
-              v-else
-              class="host-select-item"
-              :class="{
-                hovered: hovered === item.value,
-                'keyboard-selected': keyboardSelectedIndex === index,
-                'host-select-child': item.level === 1
-              }"
-              :style="{ paddingLeft: item.level === 1 ? '24px' : '6px' }"
-              @mouseover="handleMouseOver(item.value, index)"
-              @mouseleave="hovered = null"
-              @click="handleHostClick(item)"
-            >
-              <span class="host-label">{{ item.label }}</span>
-              <CheckOutlined
-                v-if="isHostSelected(item)"
-                class="host-selected-icon"
-              />
-            </div>
-          </template>
-          <div
-            v-if="hostOptionsLoading && filteredHostOptions.length > 0"
-            class="host-select-loading"
-          >
-            {{ $t('ai.loading') }}...
-          </div>
-          <div
-            v-if="filteredHostOptions.length === 0 && !hostOptionsLoading"
-            class="host-select-empty"
-          >
-            {{ $t('ai.noMatchingHosts') }}
-          </div>
-        </div>
-      </div>
-    </teleport>
+    <!-- Context Select Popup Component -->
+    <ContextSelectPopup :mode="mode" />
     <div
       v-if="hasAvailableModels"
       class="input-container"
     >
-      <div class="hosts-display-container">
+      <div class="context-display-container">
+        <!-- Trigger button -->
         <span
-          v-if="chatTypeValue === 'agent' && chatHistory.length === 0"
-          class="hosts-display-container-host-tag"
-          @click.stop="(e) => handleAddHostClick(e.currentTarget as HTMLElement)"
+          v-if="chatHistory.length === 0"
+          class="context-trigger-tag"
+          @click.stop="(e) => handleAddContextClick(e.currentTarget as HTMLElement)"
         >
-          {{ hosts && hosts.length > 0 ? '@' : `@ ${$t('ai.addHost')}` }}
+          {{ hasAnyContext ? '@' : `@ ${$t('ai.addContext')}` }}
         </span>
+
+        <!-- Host Tags -->
         <a-tag
           v-for="item in hosts"
           :key="item.uuid"
           color="blue"
-          class="host-tag-with-delete"
+          class="context-tag"
         >
           <template #icon>
-            <laptop-outlined />
+            <LaptopOutlined />
           </template>
           {{ item.host }}
           <CloseOutlined
             v-if="chatTypeValue === 'agent' && chatHistory.length === 0"
-            class="host-delete-btn"
+            class="tag-delete-btn"
             @click.stop="removeHost(item)"
           />
         </a-tag>
+
         <span
           v-if="currentTab?.session.responseLoading"
           class="processing-text"
@@ -134,16 +53,23 @@
           {{ $t('ai.processing') }}
         </span>
       </div>
-      <a-textarea
-        ref="textareaRef"
-        v-model:value="chatInputValue"
-        :placeholder="inputPlaceholder"
-        class="chat-textarea"
-        data-testid="ai-message-input"
-        :auto-size="{ minRows: 2, maxRows: 12 }"
-        @keydown="handleKeyDown"
-        @input="onInputChange"
-      />
+      <div class="chat-editable-wrapper">
+        <div
+          ref="editableRef"
+          class="chat-editable"
+          :class="{ 'is-empty': isEditableEmpty }"
+          :data-placeholder="inputPlaceholder"
+          data-testid="ai-message-input"
+          contenteditable="true"
+          spellcheck="false"
+          role="textbox"
+          @input="handleEditableInput"
+          @keydown="(e: KeyboardEvent) => handleEditableKeyDown(e, mode)"
+          @keyup="saveSelection"
+          @mouseup="saveSelection"
+          @click="handleEditableClick"
+        ></div>
+      </div>
       <div class="input-controls">
         <a-tooltip
           :title="$t('ai.switchAiModeHint')"
@@ -257,19 +183,19 @@
 </template>
 
 <script setup lang="ts">
-import { computed, ref, watch, nextTick } from 'vue'
-import type { CSSProperties } from 'vue'
+import { computed, ref, watch, provide, nextTick, onMounted, onBeforeUnmount } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { notification } from 'ant-design-vue'
 import VoiceInput from '../components/voice/voiceInput.vue'
+import ContextSelectPopup from '../components/ContextSelectPopup.vue'
 import { useSessionState } from '../composables/useSessionState'
-import { useHostManagement } from '../composables/useHostManagement'
+import { useContext, contextInjectionKey } from '../composables/useContext'
 import { useModelConfiguration } from '../composables/useModelConfiguration'
 import { useUserInteractions } from '../composables/useUserInteractions'
+import { useEditableContent } from '../composables/useEditableContent'
 import { AiTypeOptions } from '../composables/useEventBusListeners'
-import type { HostOption } from '../types'
-import { isBastionHostType } from '../types'
-import { CheckOutlined, CloseOutlined, DownOutlined, HourglassOutlined, LaptopOutlined, RightOutlined } from '@ant-design/icons-vue'
+import type { ContentPart } from '@shared/WebviewMessage'
+import { CloseOutlined, HourglassOutlined, LaptopOutlined } from '@ant-design/icons-vue'
 import uploadIcon from '@/assets/icons/upload.svg'
 import sendIcon from '@/assets/icons/send.svg'
 import stopIcon from '@/assets/icons/stop.svg'
@@ -280,15 +206,15 @@ interface Props {
   handleInterrupt?: () => void
   // New properties for edit mode
   mode?: 'create' | 'edit'
-  initialValue?: string
-  onConfirmEdit?: (content: string) => void
+  initialContentParts?: ContentPart[]
+  onConfirmEdit?: (contentParts: ContentPart[]) => void
 }
 
 const props = withDefaults(defineProps<Props>(), {
   sendMessage: async () => {},
   handleInterrupt: () => {},
   mode: 'create',
-  initialValue: '',
+  initialContentParts: () => [],
   onConfirmEdit: () => {}
 })
 
@@ -296,48 +222,123 @@ const { t } = useI18n()
 
 const {
   chatTextareaRef,
-  chatInputValue: globalChatInputValue,
   currentTab,
   chatTypeValue,
   chatAiModelValue,
   chatContainerScrollSignal,
   hosts,
+  chatInputParts,
   responseLoading,
   chatHistory
 } = useSessionState()
 
-// Local state for edit mode
-const localInputValue = ref('')
+const editableRef = ref<HTMLDivElement | null>(null)
 
-// Watch initialValue changes
-watch(
-  () => props.initialValue,
-  (val) => {
+// Local draft parts for edit mode to avoid polluting the global draft (chatInputParts).
+const localDraftParts = ref<ContentPart[]>([])
+
+// A unified input parts ref for both modes:
+// - create mode: uses global chatInputParts (normal behavior)
+// - edit mode: uses localDraftParts (isolated to the editing message)
+const inputParts = computed<ContentPart[]>({
+  get: () => (props.mode === 'edit' ? localDraftParts.value : chatInputParts.value),
+  set: (parts) => {
     if (props.mode === 'edit') {
-      localInputValue.value = val || ''
+      localDraftParts.value = parts
+      return
     }
+    chatInputParts.value = parts
+  }
+})
+
+// Create context instance and provide to child components.
+// We pass inputParts so chip insertion works in edit mode without touching the global draft.
+const context = useContext({
+  chatInputParts: inputParts,
+  focusInput: () => {
+    editableRef.value?.focus()
+    restoreSelection()
+  }
+})
+provide(contextInjectionKey, context)
+
+const { showContextPopup, removeHost, handleAddContextClick, setChipInsertHandler } = context
+
+// Send click handler supporting both modes (defined before useEditableContent for dependency)
+const handleSendClick = (type: string) => {
+  if (responseLoading.value) {
+    props.handleInterrupt()
+    return
+  }
+
+  if (props.mode === 'edit') {
+    const hasParts = inputParts.value.length > 0 && inputParts.value.some((part) => part.type === 'chip' || part.text.trim().length > 0)
+    const content = extractPlainTextFromParts(inputParts.value).trim()
+    if (!content && !hasParts) {
+      notification.warning({
+        message: t('ai.sendContentEmpty'),
+        duration: 2
+      })
+      return
+    }
+    props.onConfirmEdit?.(inputParts.value)
+  } else {
+    // Create mode: original logic
+    props.sendMessage(type)
+  }
+}
+
+// Initialize editable content composable
+const {
+  isEditableEmpty,
+  isSyncingFromEditable,
+  saveSelection,
+  restoreSelection,
+  moveCaretToEnd,
+  extractPlainTextFromParts,
+  renderFromParts,
+  insertChipAtCursor,
+  handleEditableKeyDown,
+  handleEditableInput,
+  handleEditableClick
+} = useEditableContent({
+  editableRef,
+  chatInputParts: inputParts,
+  handleSendClick,
+  handleAddContextClick
+})
+
+watch(
+  () => props.initialContentParts,
+  (parts) => {
+    if (props.mode !== 'edit') return
+    const safeParts: ContentPart[] = parts && parts.length > 0 ? parts : [{ type: 'text', text: '' }]
+    localDraftParts.value = safeParts
+    renderFromParts(safeParts)
   },
   { immediate: true }
 )
 
-// Create unified computed proxy
-const chatInputValue = computed({
-  get: () => (props.mode === 'edit' ? localInputValue.value : globalChatInputValue.value),
-  set: (val) => {
-    if (props.mode === 'edit') {
-      localInputValue.value = val
-    } else {
-      globalChatInputValue.value = val
+watch(
+  () => inputParts.value,
+  (parts) => {
+    if (isSyncingFromEditable.value) return
+    if (!editableRef.value) return
+    if (!parts || parts.length === 0) {
+      editableRef.value.innerHTML = ''
+      return
     }
-  }
-})
-
-const textareaRef = ref<HTMLTextAreaElement | null>(null)
+    renderFromParts(parts)
+  },
+  { deep: true }
+)
 
 // Synchronize the current tab's textarea ref to the global state when active
 watch(
-  [() => props.isActiveTab, textareaRef],
+  [() => props.isActiveTab, editableRef],
   ([isActive, el], [, prevEl]) => {
+    // Edit mode should not override the global textarea ref used by the bottom input.
+    if (props.mode === 'edit') return
     if (isActive && el) {
       chatTextareaRef.value = el as unknown as HTMLTextAreaElement
       // Auto-focus when textarea first becomes available on active tab.
@@ -345,7 +346,7 @@ watch(
       // When models finish loading, hasAvailableModels becomes true and textarea renders,
       // but onMounted has already executed. This watch detects when textareaRef transitions
       // from null to a valid element and triggers focus automatically.
-      if (!prevEl && props.mode !== 'edit') {
+      if (!prevEl) {
         nextTick(() => {
           el?.focus?.()
         })
@@ -355,55 +356,10 @@ watch(
   { immediate: true }
 )
 
-const {
-  showHostSelect,
-  hostSearchInputRef,
-  hostSearchValue,
-  hostOptionsLoading,
-  filteredHostOptions,
-  hovered,
-  keyboardSelectedIndex,
-  handleHostSearchKeyDown,
-  handleMouseOver,
-  toggleJumpserverExpand,
-  onHostClick,
-  isHostSelected,
-  removeHost,
-  handleAddHostClick,
-  handleInputChange,
-  popupPosition,
-  popupReady,
-  currentMode
-} = useHostManagement()
-
-// Ensure keyboard "Enter" selection also uses the current component's input ref
-// (edit mode uses local value, create mode uses global value via the computed proxy).
-const handleHostSearchKeyDownWithInput = (e: KeyboardEvent) => {
-  handleHostSearchKeyDown(e, chatInputValue)
-}
-
-// Vue templates automatically unwrap refs/computed refs, so passing `chatInputValue` directly
-// would pass a string. Wrap it here to pass the reactive ref itself.
-const handleHostClick = (item: HostOption) => {
-  onHostClick(item, chatInputValue)
-}
-
-const hostSelectPopupStyle = computed<CSSProperties>(() => {
-  if (!popupPosition.value) {
-    return {}
-  }
-
-  return {
-    top: `${popupPosition.value.top}px`,
-    left: `${popupPosition.value.left}px`
-  }
+// Check if any context is selected
+const hasAnyContext = computed(() => {
+  return hosts.value.length > 0 || inputParts.value.some((part) => part.type === 'chip')
 })
-
-const hostSelectPopupClass = computed(() => ({
-  'is-edit-mode': currentMode.value === 'edit',
-  'is-positioning': !popupReady.value
-}))
-void hostSearchInputRef
 
 const { AgentAiModelsOptions, hasAvailableModels, handleChatAiModelChange } = useModelConfiguration()
 
@@ -412,45 +368,12 @@ const { fileInputRef, autoSendAfterVoice, handleTranscriptionComplete, handleTra
   useUserInteractions(props.sendMessage)
 void fileInputRef
 
-// New: Send click handler supporting both modes
-const handleSendClick = async (type: string) => {
-  if (responseLoading.value) {
-    props.handleInterrupt()
+const focus = () => {
+  if (props.mode === 'edit') {
+    moveCaretToEnd()
     return
   }
-
-  if (props.mode === 'edit') {
-    // Edit mode: call confirm edit callback
-    const content = localInputValue.value.trim()
-    if (!content) {
-      notification.warning({
-        message: t('ai.sendContentEmpty'),
-        duration: 2
-      })
-      return
-    }
-    props.onConfirmEdit?.(content)
-  } else {
-    // Create mode: original logic
-    props.sendMessage(type)
-  }
-}
-
-// New: Wrapper for handleInputChange to pass mode
-const onInputChange = (e: Event) => {
-  handleInputChange(e, props.mode)
-}
-
-// New: Override handleKeyDown to support edit mode
-const handleKeyDown = (e: KeyboardEvent) => {
-  if (e.key === 'Enter' && !e.shiftKey && !e.isComposing) {
-    e.preventDefault()
-    handleSendClick('send')
-  }
-}
-
-const focus = () => {
-  textareaRef.value?.focus()
+  editableRef.value?.focus()
 }
 
 defineExpose({
@@ -471,7 +394,7 @@ watch(
   () => {
     aiModeSelectOpen.value = false
     modelSelectOpen.value = false
-    showHostSelect.value = false
+    showContextPopup.value = false
     aiModeTooltipVisible.value = false
   }
 )
@@ -479,16 +402,31 @@ watch(
 const inputPlaceholder = computed(() => {
   return chatTypeValue.value === 'agent' ? t('ai.agentMessage') : chatTypeValue.value === 'chat' ? t('ai.chatMessage') : t('ai.cmdMessage')
 })
+
+// ============================================================================
+// Event Handlers
+// ============================================================================
+
+onMounted(() => {
+  setChipInsertHandler(insertChipAtCursor)
+  if (inputParts.value.length > 0) {
+    renderFromParts(inputParts.value)
+  }
+})
+
+onBeforeUnmount(() => {
+  setChipInsertHandler(() => {})
+})
 </script>
 
 <style lang="less" scoped>
-.hosts-display-container {
+.context-display-container {
   position: relative;
-  // Let the parent container background show through to create a "card" feel.
   background-color: transparent;
   display: flex;
   flex-wrap: wrap;
   gap: 4px;
+  align-items: center;
   justify-content: flex-start;
   user-select: text;
   padding: 4px 8px;
@@ -525,25 +463,37 @@ const inputPlaceholder = computed(() => {
     align-items: center;
     margin-left: 2px;
     margin-bottom: 2px;
+    vertical-align: middle;
     background-color: var(--bg-color-secondary) !important;
     border: 1px solid var(--border-color) !important;
     color: var(--text-color) !important;
 
     .anticon-laptop {
       color: #1890ff !important;
-      margin-right: 0cap;
+    }
+
+    .anticon-file-text {
+      color: #52c41a !important;
+    }
+
+    .anticon-message {
+      color: #722ed1 !important;
     }
   }
 
-  .host-tag-with-delete {
+  .context-tag {
     position: relative;
     padding-right: 20px !important;
     height: 20px !important;
     line-height: 20px !important;
     padding-top: 2px !important;
     padding-bottom: 2px !important;
+    max-width: 150px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
 
-    .host-delete-btn {
+    .tag-delete-btn {
       position: absolute;
       right: 4px;
       top: 50%;
@@ -563,22 +513,7 @@ const inputPlaceholder = computed(() => {
   }
 }
 
-.other-hosts-display-container {
-  background: var(--bg-color-secondary);
-  color: var(--text-color);
-  padding: 0 6px;
-  border-radius: 4px;
-  border: 1px solid var(--border-color);
-  font-weight: 400;
-  display: inline-flex;
-  align-items: center;
-  height: 16px;
-  line-height: 16px;
-  margin-left: 2px;
-  margin-top: 4px;
-}
-
-.hosts-display-container-host-tag {
+.context-trigger-tag {
   background-color: var(--bg-color-secondary) !important;
   border: 1px solid var(--border-color) !important;
   color: var(--text-color) !important;
@@ -629,31 +564,96 @@ const inputPlaceholder = computed(() => {
 
   .theme-light & {
     box-shadow: 0 6px 18px rgba(0, 0, 0, 0.08);
+
+    :deep(.mention-chip) {
+      background-image: none;
+      border-color: var(--border-color-light);
+    }
   }
 
   &:focus-within {
     border-color: rgba(24, 143, 255, 0.75);
   }
 
-  .chat-textarea {
-    background-color: transparent !important;
-    color: var(--text-color) !important;
-    border: none !important;
-    box-shadow: none !important;
-    font-size: 12px !important;
+  .chat-editable-wrapper {
+    position: relative;
+    padding: 8px 12px;
   }
 
-  :deep(.ant-input::placeholder) {
-    color: var(--text-color-tertiary) !important;
+  .chat-editable {
+    position: relative;
+    min-height: 36px;
+    max-height: 240px;
+    overflow-y: auto;
+    white-space: pre-wrap;
+    word-break: break-word;
+    outline: none;
+    background-color: transparent;
+    color: var(--text-color);
+    font-size: 12px;
+    line-height: 1.5;
   }
 
-  .ant-textarea {
-    background-color: transparent !important;
-    border: none !important;
-    border-radius: 8px !important;
-    color: var(--text-color) !important;
-    padding: 8px 12px !important;
-    font-size: 12px !important;
+  .chat-editable.is-empty::before {
+    content: attr(data-placeholder);
+    color: var(--text-color-tertiary);
+    pointer-events: none;
+    position: absolute;
+    top: 0;
+    left: 0;
+  }
+
+  :deep(.mention-chip) {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 0;
+    margin: 0;
+    height: 18px;
+    line-height: 18px;
+    border-radius: 4px;
+    background-color: var(--hover-bg-color);
+    background-image: linear-gradient(135deg, rgba(59, 130, 246, 0.32), rgba(59, 130, 246, 0.12));
+    border: 1px solid transparent;
+    color: var(--text-color);
+    font-size: 11px;
+    user-select: none;
+    vertical-align: middle;
+    transform: translateY(-1px);
+  }
+
+  :deep(.mention-icon) {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    color: var(--vscode-charts-blue);
+  }
+
+  :deep(.mention-chip-doc) .mention-icon {
+    color: #52c41a;
+  }
+
+  :deep(.mention-chip-chat) .mention-icon {
+    color: #52c41a;
+  }
+
+  :deep(.mention-label) {
+    max-width: 160px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  :deep(.mention-remove) {
+    cursor: pointer;
+    font-size: 10px;
+    color: var(--text-color-tertiary);
+    padding: 0 2px;
+  }
+
+  :deep(.mention-remove:hover) {
+    color: #ff4d4f;
   }
 }
 
@@ -794,174 +794,6 @@ const inputPlaceholder = computed(() => {
       }
     }
   }
-}
-
-.mini-host-search-input {
-  background-color: var(--bg-color-secondary) !important;
-  border: 1px solid var(--border-color) !important;
-  visibility: visible !important;
-
-  :deep(.ant-input) {
-    height: 22px !important;
-    font-size: 12px !important;
-    background-color: var(--bg-color-secondary) !important;
-    color: var(--text-color-secondary) !important;
-    visibility: visible !important;
-
-    &::placeholder {
-      color: var(--text-color-tertiary) !important;
-    }
-
-    padding: 0px 0px 2px 2px !important;
-    line-height: 22px !important;
-  }
-}
-
-.host-select-popup {
-  width: 229px;
-  background: var(--bg-color);
-  border-radius: 4px;
-  box-shadow: 0 -2px 8px rgba(0, 0, 0, 0.15);
-  border: 1px solid var(--border-color);
-  max-height: 240px;
-  z-index: 1000;
-  position: fixed;
-
-  // Edit mode: keep visual style consistent
-  &.is-edit-mode {
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
-    transition: opacity 0.05s ease-in;
-  }
-
-  // Hide until final position is ready (keep in DOM for measurement)
-  &.is-positioning {
-    opacity: 0;
-    pointer-events: none;
-    transition: none;
-  }
-}
-
-.host-select-list {
-  max-height: 200px;
-  overflow-y: auto;
-  padding: 2px 0px 2px 0px;
-  scrollbar-width: thin;
-  scrollbar-color: var(--bg-color-quinary) var(--bg-color-senary);
-
-  &::-webkit-scrollbar {
-    width: 6px;
-  }
-
-  &::-webkit-scrollbar-track {
-    background: var(--scrollbar-track);
-    border-radius: 3px;
-  }
-
-  &::-webkit-scrollbar-thumb {
-    background-color: var(--scrollbar-thumb);
-    border-radius: 3px;
-
-    &:hover {
-      background-color: var(--scrollbar-thumb-hover);
-    }
-  }
-}
-
-.host-select-item {
-  padding: 2px 6px;
-  cursor: pointer;
-  bottom: 100%;
-  border-radius: 3px;
-  margin-bottom: 2px;
-  background: var(--bg-color);
-  color: var(--text-color);
-  font-size: 12px;
-  line-height: 16px;
-  transition: all 0.2s;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-
-  .host-label {
-    flex: 1;
-  }
-
-  .host-selected-icon {
-    font-size: 10px;
-    color: #52c41a;
-    margin-left: 4px;
-  }
-
-  &.hovered {
-    background: var(--hover-bg-color);
-  }
-
-  &.keyboard-selected {
-    background: var(--hover-bg-color);
-    outline: 2px solid rgba(24, 144, 255, 0.5);
-    outline-offset: -2px;
-  }
-
-  &.host-select-group {
-    background-color: var(--bg-color-secondary, rgba(0, 0, 0, 0.02));
-    font-weight: 500;
-
-    .host-group-label {
-      flex: 1;
-      color: var(--text-color);
-      margin-right: 6px;
-    }
-
-    .host-group-badge {
-      font-size: 10px;
-      padding: 0 6px;
-      background-color: var(--bg-color-quaternary, rgba(0, 0, 0, 0.06));
-      border-radius: 10px;
-      color: var(--text-color-secondary);
-      margin-left: 6px;
-      line-height: 16px;
-      min-width: 24px;
-      text-align: center;
-    }
-
-    .host-group-toggle {
-      width: 16px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      margin-left: 8px;
-
-      .toggle-icon {
-        font-size: 10px;
-        color: var(--text-color-tertiary);
-        transition: transform 0.2s ease;
-      }
-    }
-  }
-
-  &.host-select-child {
-    border-left: 2px solid var(--border-color-light, rgba(0, 0, 0, 0.06));
-    margin-left: 8px;
-    border-radius: 0 3px 3px 0;
-
-    &:hover,
-    &.hovered {
-      border-left-color: #1890ff;
-    }
-  }
-}
-
-.host-select-empty {
-  color: var(--text-color-tertiary);
-  text-align: center;
-  padding: 8px 0;
-}
-
-.host-select-loading {
-  color: var(--text-color-tertiary);
-  text-align: center;
-  padding: 8px 0;
-  font-size: 12px;
 }
 
 .model-label {

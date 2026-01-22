@@ -412,7 +412,9 @@ interface AiSidebarState {
     chatType: string
     modelValue: string
     autoUpdateHost: boolean
-    inputValue: string
+    chatInputParts: any[]
+    welcomeTip?: string
+    agentHosts?: any[]
     session: {
       chatHistory: any[]
       lastChatMessageId: string
@@ -422,8 +424,8 @@ interface AiSidebarState {
       resumeDisabled: boolean
       isExecutingCommand: boolean
       showRetryButton: boolean
-      showNewTaskButton: boolean
       messageFeedbacks: Record<string, 'like' | 'dislike'>
+      shouldStickToBottom?: boolean
     }
   }>
 }

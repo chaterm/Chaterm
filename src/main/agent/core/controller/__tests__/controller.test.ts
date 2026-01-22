@@ -341,7 +341,7 @@ describe('Controller', () => {
     } as WebviewMessage)
 
     expect(clearTodosSpy).toHaveBeenCalledWith('new_user_input')
-    expect(handleResponseSpy).toHaveBeenCalledWith('messageResponse', 'response text', undefined)
+    expect(handleResponseSpy).toHaveBeenCalledWith('messageResponse', 'response text', undefined, undefined)
   })
 
   it('reloadSecurityConfigForAllTasks should reload config for all tasks', async () => {

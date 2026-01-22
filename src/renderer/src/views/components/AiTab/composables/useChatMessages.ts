@@ -6,7 +6,7 @@ import type { ChatMessage } from '../types'
 import type { Todo } from '@/types/todo'
 import type { ChatTab } from './useSessionState'
 import type { ExtensionMessage } from '@shared/ExtensionMessage'
-import type { WebviewMessage } from '@shared/WebviewMessage'
+import type { ContentPart, WebviewMessage } from '@shared/WebviewMessage'
 import { createNewMessage, parseMessageContent, pickHostInfo, isSwitchAssetType } from '../utils'
 import { Notice } from '@/views/components/Notice'
 import { useSessionState } from './useSessionState'
@@ -26,7 +26,7 @@ export function useChatMessages(
   currentTodos: any,
   checkModelConfig: () => Promise<{ success: boolean; message?: string; description?: string }>
 ) {
-  const { chatTabs, currentChatId, currentTab, currentSession, chatInputValue, hosts, chatTypeValue } = useSessionState()
+  const { chatTabs, currentChatId, currentTab, currentSession, hosts, chatTypeValue, chatInputParts } = useSessionState()
 
   const markdownRendererRefs = ref<Array<{ setThinkingLoading: (loading: boolean) => void }>>([])
 
@@ -77,7 +77,55 @@ export function useChatMessages(
     return ip === '127.0.0.1' || ip === 'localhost' || ip === '::1'
   }
 
-  const sendMessageToMain = async (userContent: string, sendType: string, tabId?: string, truncateAtMessageTs?: number) => {
+  const buildPlainTextFromParts = (parts: ContentPart[]): string => {
+    return parts
+      .map((part) => {
+        if (part.type === 'text') return part.text
+        if (part.chipType === 'doc') {
+          return `@${part.ref.absPath || ''}`
+        }
+
+        const taskName = part.ref.title || ''
+        return taskName ? `@${part.ref.taskId}_${taskName}` : `@${part.ref.taskId}`
+      })
+      .join('')
+  }
+
+  const normalizeContentParts = (parts?: ContentPart[]): ContentPart[] | undefined => {
+    if (!parts || parts.length === 0) return undefined
+
+    return parts.map((part): ContentPart => {
+      if (part.type === 'text') {
+        return { type: 'text', text: part.text }
+      }
+
+      if (part.chipType === 'doc') {
+        return {
+          type: 'chip',
+          chipType: 'doc',
+          ref: {
+            absPath: part.ref.absPath,
+            name: part.ref.name,
+            type: part.ref.type
+          }
+        }
+      }
+
+      return {
+        type: 'chip',
+        chipType: 'chat',
+        ref: { taskId: part.ref.taskId, title: part.ref.title }
+      }
+    })
+  }
+
+  const sendMessageToMain = async (
+    userContent: string,
+    sendType: string,
+    tabId?: string,
+    truncateAtMessageTs?: number,
+    contentPartsOverride?: ContentPart[]
+  ) => {
     try {
       const targetTab = tabId ? chatTabs.value.find((tab) => tab.id === tabId) : currentTab.value
 
@@ -95,6 +143,9 @@ export function useChatMessages(
         ...(h.assetType ? { assetType: h.assetType } : {})
       }))
 
+      // Only attach content parts when explicitly provided; never fallback to draft input parts.
+      const contentParts = normalizeContentParts(contentPartsOverride)
+
       let message: WebviewMessage
       if (session.isExecutingCommand && session.chatHistory.length > 0) {
         message = {
@@ -108,14 +159,16 @@ export function useChatMessages(
           askResponse: 'messageResponse',
           text: userContent,
           hosts: hostsArray,
-          taskId: tabId || currentChatId.value
+          taskId: tabId || currentChatId.value,
+          contentParts
         }
       } else if (sendType === 'commandSend') {
         message = {
           type: 'askResponse',
           askResponse: 'yesButtonClicked',
           text: userContent,
-          hosts: hostsArray
+          hosts: hostsArray,
+          contentParts
         }
       } else {
         message = {
@@ -123,6 +176,7 @@ export function useChatMessages(
           askResponse: 'messageResponse',
           text: userContent,
           hosts: hostsArray,
+          contentParts,
           truncateAtMessageTs
         }
       }
@@ -132,7 +186,7 @@ export function useChatMessages(
         tabId: tabId || currentChatId.value,
         taskId: tabId || currentChatId.value
       }
-      // console.log('Send message to main process:', messageWithTabId)
+      console.log('[DEBUG] Send message to main process:', messageWithTabId)
       await window.api.sendToMain(messageWithTabId)
       // console.log('Main process response:', response)
     } catch (error) {
@@ -163,7 +217,11 @@ export function useChatMessages(
       return 'SEND_ERROR'
     }
 
-    if (chatInputValue.value.trim() === '') {
+    const partsSnapshot = normalizeContentParts(chatInputParts.value) ?? []
+    const hasContentParts = partsSnapshot.length > 0 && partsSnapshot.some((part) => part.type === 'chip' || part.text.trim().length > 0)
+
+    const userContent = buildPlainTextFromParts(partsSnapshot).trim()
+    if (userContent === '' && !hasContentParts) {
       notification.error({
         message: t('ai.sendContentError'),
         description: t('ai.sendContentEmpty'),
@@ -172,8 +230,7 @@ export function useChatMessages(
       return 'SEND_ERROR'
     }
 
-    const userContent = chatInputValue.value.trim()
-    if (!userContent) return
+    if (!userContent && !hasContentParts) return
 
     if (chatTypeValue.value === 'agent' && hosts.value.some((host) => isSwitchAssetType(host.assetType))) {
       chatTypeValue.value = 'cmd'
@@ -184,8 +241,6 @@ export function useChatMessages(
       })
       return 'SEND_ERROR'
     }
-
-    chatInputValue.value = ''
 
     if (hosts.value.length === 0 && chatTypeValue.value !== 'chat') {
       notification.error({
@@ -202,10 +257,20 @@ export function useChatMessages(
       }
     }
 
-    return await sendMessageWithContent(userContent, sendType)
+    // Clear draft input only after validations pass to avoid losing content on failures.
+    chatInputParts.value = []
+
+    const contentPartsOverride = partsSnapshot.length > 0 ? partsSnapshot : undefined
+    return await sendMessageWithContent(userContent, sendType, undefined, undefined, contentPartsOverride)
   }
 
-  const sendMessageWithContent = async (userContent: string, sendType: string, tabId?: string, truncateAtMessageTs?: number) => {
+  const sendMessageWithContent = async (
+    userContent: string,
+    sendType: string,
+    tabId?: string,
+    truncateAtMessageTs?: number,
+    contentPartsOverride?: ContentPart[]
+  ) => {
     const targetTab = tabId ? chatTabs.value.find((tab: ChatTab) => tab.id === tabId) : currentTab.value
 
     if (!targetTab || !targetTab.session) {
@@ -215,12 +280,14 @@ export function useChatMessages(
     const session = targetTab.session
     session.isCancelled = false
 
-    await sendMessageToMain(userContent, sendType, tabId, truncateAtMessageTs)
+    await sendMessageToMain(userContent, sendType, tabId, truncateAtMessageTs, contentPartsOverride)
 
+    const contentParts = normalizeContentParts(contentPartsOverride)
     const userMessage: ChatMessage = {
       id: uuidv4(),
       role: 'user',
       content: userContent,
+      contentParts,
       type: 'message',
       ask: '',
       say: '',
@@ -235,7 +302,6 @@ export function useChatMessages(
     session.chatHistory.push(userMessage)
     session.responseLoading = true
     session.showRetryButton = false
-    session.showNewTaskButton = false
 
     if (!tabId || tabId === currentChatId.value) {
       scrollToBottom(true)
@@ -315,14 +381,11 @@ export function useChatMessages(
       }
 
       if (partial.type === 'ask' && partial.ask === 'completion_result') {
-        session.showNewTaskButton = true
         session.responseLoading = false
         if (isActiveTab) {
           scrollToBottom()
         }
         return
-      } else {
-        session.showNewTaskButton = false
       }
 
       if (partial.say === 'interactive_command_notification') {
@@ -419,7 +482,10 @@ export function useChatMessages(
       session.lastPartialMessage = message
       if (!partial.partial) {
         session.showSendButton = true
-        if ((partial.type === 'ask' && (partial.ask === 'command' || partial.ask === 'mcp_tool_call')) || partial.say === 'command_blocked') {
+        if (
+          (partial.type === 'ask' && (partial.ask === 'command' || partial.ask === 'mcp_tool_call' || partial.ask === 'followup')) ||
+          partial.say === 'command_blocked'
+        ) {
           session.responseLoading = false
         }
       }
@@ -509,7 +575,7 @@ export function useChatMessages(
   /**
    * Handle edit and resend from UserMessage
    */
-  const handleTruncateAndSend = async ({ message, newContent }: { message: ChatMessage; newContent: string }) => {
+  const handleTruncateAndSend = async ({ message, contentParts }: { message: ChatMessage; contentParts: ContentPart[] }) => {
     if (!currentSession.value) return
 
     const chatHistory = currentSession.value.chatHistory
@@ -521,7 +587,9 @@ export function useChatMessages(
 
     chatHistory.splice(index)
 
-    await sendMessageWithContent(newContent, 'send', undefined, truncateAtMessageTs)
+    // Build plain text content with @absPath for chips
+    const newContent = buildPlainTextFromParts(contentParts)
+    await sendMessageWithContent(newContent, 'send', undefined, truncateAtMessageTs, contentParts)
   }
 
   return {

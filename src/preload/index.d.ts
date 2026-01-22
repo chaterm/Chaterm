@@ -230,6 +230,7 @@ interface ApiType {
 
   kbCheckPath: (absPath: string) => Promise<{ exists: boolean; isDirectory: boolean; isFile: boolean }>
   kbEnsureRoot: () => Promise<{ success: boolean }>
+  kbGetRoot: () => Promise<{ root: string }>
   kbListDir: (relDir: string) => Promise<Array<{ name: string; relPath: string; type: 'file' | 'dir'; size?: number; mtimeMs?: number }>>
   kbReadFile: (relPath: string) => Promise<{ content: string; mtimeMs: number }>
   kbWriteFile: (relPath: string, content: string) => Promise<{ mtimeMs: number }>

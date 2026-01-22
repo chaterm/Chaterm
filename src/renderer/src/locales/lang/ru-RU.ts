@@ -771,7 +771,6 @@ export default {
     copyToClipboard: 'Копировать в буфер обмена',
     retry: 'Повторить',
     taskCompleted: 'Задача выполнена',
-    newTask: 'Начать новую задачу',
     codePreview: 'Предварительный просмотр кода ({lines} строк)',
     enterCustomOption: 'Пожалуйста, введите ваш ответ...',
     submit: 'Отправить',

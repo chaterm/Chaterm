@@ -9,18 +9,14 @@ import i18n from '@/locales'
  */
 export function useUserInteractions(sendMessage: (sendType: string) => Promise<any>) {
   const { t } = i18n.global
-  const { chatInputValue } = useSessionState()
+  const { chatInputParts, appendTextToInputParts } = useSessionState()
 
   const fileInputRef = ref<HTMLInputElement>()
   const autoSendAfterVoice = ref(false)
   const currentEditingId = ref<string | null>(null)
 
   const handleTranscriptionComplete = (transcribedText: string) => {
-    if (chatInputValue.value.trim()) {
-      chatInputValue.value = chatInputValue.value + ' ' + transcribedText
-    } else {
-      chatInputValue.value = transcribedText
-    }
+    appendTextToInputParts(transcribedText)
 
     console.log('handleTranscriptionComplete', autoSendAfterVoice.value)
 
@@ -93,11 +89,7 @@ export function useUserInteractions(sendMessage: (sendType: string) => Promise<a
         formattedContent = `${t('ai.fileContent', { fileName })}:\n\`\`\`\n${content}\n\`\`\``
       }
 
-      if (chatInputValue.value.trim()) {
-        chatInputValue.value = chatInputValue.value + '\n\n' + formattedContent
-      } else {
-        chatInputValue.value = formattedContent
-      }
+      appendTextToInputParts(formattedContent, '\n\n')
 
       notification.success({
         message: t('ai.fileUploadSuccess'),
@@ -122,12 +114,16 @@ export function useUserInteractions(sendMessage: (sendType: string) => Promise<a
     if (e.key === 'Enter' && !e.shiftKey && !e.isComposing) {
       e.preventDefault()
 
-      if (!chatInputValue.value.trim()) {
+      if (!hasAnyInputParts()) {
         return
       }
 
       sendMessage('send')
     }
+  }
+
+  const hasAnyInputParts = () => {
+    return chatInputParts.value.some((part) => part.type === 'chip' || (part.text?.trim().length ?? 0) > 0)
   }
 
   return {
