@@ -63,6 +63,7 @@
           contenteditable="true"
           spellcheck="false"
           role="textbox"
+          @drop="handleEditableDrop"
           @input="handleEditableInput"
           @keydown="(e: KeyboardEvent) => handleEditableKeyDown(e, mode)"
           @keyup="saveSelection"
@@ -192,7 +193,7 @@ import { useSessionState } from '../composables/useSessionState'
 import { useContext, contextInjectionKey } from '../composables/useContext'
 import { useModelConfiguration } from '../composables/useModelConfiguration'
 import { useUserInteractions } from '../composables/useUserInteractions'
-import { useEditableContent } from '../composables/useEditableContent'
+import { parseContextDragPayload, useEditableContent } from '../composables/useEditableContent'
 import { AiTypeOptions } from '../composables/useEventBusListeners'
 import type { ContentPart, ContextDocRef, ContextPastChatRef } from '@shared/WebviewMessage'
 import type { HistoryItem } from '../types'
@@ -264,7 +265,7 @@ const context = useContext({
 })
 provide(contextInjectionKey, context)
 
-const { showContextPopup, removeHost, handleAddContextClick, setChipInsertHandler } = context
+const { showContextPopup, removeHost, handleAddContextClick, onHostClick, setChipInsertHandler } = context
 
 // Send click handler supporting both modes (defined before useEditableContent for dependency)
 const handleSendClick = (type: string) => {
@@ -328,6 +329,58 @@ const {
   handleAddContextClick,
   handleChipClick
 })
+
+const resolveKbAbsPath = async (relPath: string): Promise<string> => {
+  // Normalize to POSIX-style paths to match KB root format.
+  const normalizedRel = relPath.replace(/\\/g, '/')
+  const { root } = await window.api.kbGetRoot()
+  if (!root) return ''
+  const normalizedRoot = root.replace(/\\/g, '/')
+  const separator = normalizedRoot.endsWith('/') ? '' : '/'
+  return `${normalizedRoot}${separator}${normalizedRel}`
+}
+
+// const handleEditableDragOver = (e: DragEvent) => {
+//   const dragPayload = parseContextDragPayload(e.dataTransfer)
+//   if (!dragPayload) return
+//   e.preventDefault()
+// }
+
+const handleEditableDrop = async (e: DragEvent) => {
+  const dragPayload = parseContextDragPayload(e.dataTransfer)
+  if (!dragPayload) return
+
+  e.preventDefault()
+  editableRef.value?.focus()
+  saveSelection()
+
+  if (dragPayload.contextType === 'doc') {
+    const absPath = await resolveKbAbsPath(dragPayload.relPath)
+    if (!absPath) return
+    insertChipAtCursor('doc', { absPath, name: dragPayload.name, type: 'file' }, dragPayload.name)
+    return
+  }
+
+  if (dragPayload.contextType === 'chat') {
+    insertChipAtCursor('chat', { id: dragPayload.id, title: dragPayload.title, ts: Date.now() }, dragPayload.title)
+    return
+  }
+
+  onHostClick({
+    label: dragPayload.label,
+    value: dragPayload.uuid,
+    key: dragPayload.uuid,
+    uuid: dragPayload.uuid,
+    connect: dragPayload.connect,
+    title: dragPayload.label,
+    isLocalHost: dragPayload.isLocalHost,
+    type: 'personal',
+    selectable: true,
+    organizationUuid: dragPayload.organizationUuid,
+    assetType: dragPayload.assetType,
+    level: 1
+  })
+}
 
 watch(
   () => props.initialContentParts,

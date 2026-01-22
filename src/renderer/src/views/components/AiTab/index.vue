@@ -9,7 +9,13 @@
       :key="tab.id"
     >
       <template #tab>
-        <span class="tab-title">{{ tab.title }}</span>
+        <span
+          class="tab-title"
+          draggable="true"
+          @dragstart="handleTabDragStart($event, tab)"
+        >
+          {{ tab.title }}
+        </span>
         <CloseOutlined
           class="tab-close-icon"
           @click.stop="handleTabRemove(tab.id)"
@@ -663,6 +669,7 @@ import { useTabManagement } from './composables/useTabManagement'
 import { useTodo } from './composables/useTodo'
 import { useWatchers } from './composables/useWatchers'
 import { useExportChat } from './composables/useExportChat'
+import { CONTEXT_DRAG_MIME, CONTEXT_DRAG_TEXT_PREFIX } from './composables/useEditableContent'
 import InputSendContainer from './components/InputSendContainer.vue'
 import MarkdownRenderer from './components/format/markdownRenderer.vue'
 import TodoInlineDisplay from './components/todo/TodoInlineDisplay.vue'
@@ -796,6 +803,19 @@ const { createNewEmptyTab, restoreHistoryTab, handleTabRemove } = useTabManageme
   isFocusInAiTab,
   toggleSidebar: props.toggleSidebar
 })
+
+// Tab drag handler for context drag-and-drop
+const handleTabDragStart = (e: DragEvent, tab: { id: string; title: string }) => {
+  if (!e.dataTransfer) return
+  const payload = {
+    contextType: 'chat',
+    id: tab.id,
+    title: tab.title
+  }
+  e.dataTransfer.setData(CONTEXT_DRAG_MIME, JSON.stringify(payload))
+  e.dataTransfer.setData('text/plain', CONTEXT_DRAG_TEXT_PREFIX + JSON.stringify(payload))
+  e.dataTransfer.effectAllowed = 'copy'
+}
 
 // Chat history
 const {

@@ -1,6 +1,6 @@
 import { describe, it, expect, vi } from 'vitest'
 import { ref } from 'vue'
-import { useEditableContent } from '../useEditableContent'
+import { parseContextDragPayload, useEditableContent } from '../useEditableContent'
 import type { ContentPart, ContextDocRef, ContextPastChatRef } from '@shared/WebviewMessage'
 
 describe('useEditableContent', () => {
@@ -49,5 +49,86 @@ describe('useEditableContent', () => {
     handleEditableClick({ target: removeBtn } as unknown as MouseEvent)
 
     expect(handleChipClick).not.toHaveBeenCalled()
+  })
+
+  it('should parse doc drag payload', () => {
+    const dataTransfer = {
+      getData: (type: string) => {
+        if (type !== 'application/x-chaterm-context') return ''
+        return JSON.stringify({ contextType: 'doc', relPath: 'guide/intro.md', name: 'intro.md' })
+      }
+    } as unknown as DataTransfer
+
+    expect(parseContextDragPayload(dataTransfer)).toEqual({
+      contextType: 'doc',
+      relPath: 'guide/intro.md',
+      name: 'intro.md'
+    })
+  })
+
+  it('should parse chat drag payload', () => {
+    const dataTransfer = {
+      getData: (type: string) => {
+        if (type !== 'application/x-chaterm-context') return ''
+        return JSON.stringify({ contextType: 'chat', id: 'chat-1', title: 'Chat 1' })
+      }
+    } as unknown as DataTransfer
+
+    expect(parseContextDragPayload(dataTransfer)).toEqual({
+      contextType: 'chat',
+      id: 'chat-1',
+      title: 'Chat 1'
+    })
+  })
+
+  it('should parse host drag payload', () => {
+    const dataTransfer = {
+      getData: (type: string) => {
+        if (type !== 'application/x-chaterm-context') return ''
+        return JSON.stringify({
+          contextType: 'host',
+          uuid: 'host-1',
+          label: 'server-1',
+          connect: '10.0.0.1',
+          assetType: 'linux',
+          isLocalHost: false,
+          organizationUuid: 'org-1'
+        })
+      }
+    } as unknown as DataTransfer
+
+    expect(parseContextDragPayload(dataTransfer)).toEqual({
+      contextType: 'host',
+      uuid: 'host-1',
+      label: 'server-1',
+      connect: '10.0.0.1',
+      assetType: 'linux',
+      isLocalHost: false,
+      organizationUuid: 'org-1'
+    })
+  })
+
+  it('should ignore non-context drag payload', () => {
+    const dataTransfer = {
+      getData: () => ''
+    } as unknown as DataTransfer
+
+    expect(parseContextDragPayload(dataTransfer)).toBeNull()
+  })
+
+  it('should parse payload from text fallback', () => {
+    const dataTransfer = {
+      getData: (type: string) => {
+        if (type === 'application/x-chaterm-context') return ''
+        if (type !== 'text/plain') return ''
+        return 'chaterm-context:{"contextType":"chat","id":"chat-2","title":"Chat 2"}'
+      }
+    } as unknown as DataTransfer
+
+    expect(parseContextDragPayload(dataTransfer)).toEqual({
+      contextType: 'chat',
+      id: 'chat-2',
+      title: 'Chat 2'
+    })
   })
 })
