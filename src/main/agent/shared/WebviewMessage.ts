@@ -20,6 +20,21 @@ export type CommandGenerationContext = {
   sudoPermission?: boolean
 }
 
+export type ContextDocRef = { absPath: string; name?: string; type?: 'file' | 'dir' }
+
+export type ContextPastChatRef = { taskId: string; title?: string }
+
+export type ContextRefs = {
+  docs?: ContextDocRef[]
+  pastChats?: ContextPastChatRef[]
+}
+
+export type TextContentPart = { type: 'text'; text: string }
+export type DocChipContentPart = { type: 'chip'; chipType: 'doc'; ref: ContextDocRef }
+export type ChatChipContentPart = { type: 'chip'; chipType: 'chat'; ref: ContextPastChatRef }
+export type ChipContentPart = DocChipContentPart | ChatChipContentPart
+export type ContentPart = TextContentPart | ChipContentPart
+
 export interface WebviewMessage {
   type:
     | 'apiConfiguration'
@@ -44,6 +59,8 @@ export interface WebviewMessage {
   modelName?: string
   tabId?: string
   context?: CommandGenerationContext
+
+  contentParts?: ContentPart[]
 
   todos?: unknown[] // For todo updates
   sessionId?: string

@@ -38,7 +38,7 @@ interface TabInfo {
 export function useEventBusListeners(params: UseEventBusListenersParams) {
   const { t } = i18n.global
   const { sendMessageWithContent, initModel, getCurentTabAssetInfo, updateHosts, isAgentMode = false } = params
-  const { chatTabs, chatInputValue, currentSession, autoUpdateHost, chatTypeValue } = useSessionState()
+  const { chatTabs, currentSession, autoUpdateHost, chatTypeValue, appendTextToInputParts } = useSessionState()
 
   // Check and handle network switch device mode restriction
   const checkAndHandleSwitchMode = async (): Promise<boolean> => {
@@ -115,11 +115,7 @@ export function useEventBusListeners(params: UseEventBusListenersParams) {
       console.log('Ignoring chatToAi event in agent mode')
       return
     }
-    if (chatInputValue.value.trim()) {
-      chatInputValue.value = chatInputValue.value + '\n' + text
-    } else {
-      chatInputValue.value = text
-    }
+    appendTextToInputParts(text, '\n', '\n')
     await initAssetInfo()
     focusChatInput()
   }

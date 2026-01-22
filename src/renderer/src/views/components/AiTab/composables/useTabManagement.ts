@@ -21,15 +21,22 @@ export const focusChatInput = () => {
   const { chatTextareaRef } = useSessionState()
 
   nextTick(() => {
-    const el = chatTextareaRef.value
-    // Get the actual textarea DOM element (Ant Design's a-textarea exposes it via $el)
-    const textareaEl = (el as any)?.$el as HTMLTextAreaElement | undefined
+    const el = (chatTextareaRef.value as unknown as HTMLElement | null) ?? null
+    if (!el) return
 
     if (chatTextareaRef.value) {
-      chatTextareaRef.value.focus({ preventScroll: true })
-      if (textareaEl) {
-        textareaEl.scrollTop = textareaEl.scrollHeight
-      }
+      el.focus({ preventScroll: true })
+
+      const selection = window.getSelection()
+      if (!selection) return
+      const range = document.createRange()
+      range.selectNodeContents(el)
+      range.collapse(false)
+      selection.removeAllRanges()
+      selection.addRange(range)
+
+      // Keep the visible viewport scrolled to the newest content.
+      el.scrollTop = el.scrollHeight
     }
   })
 }
@@ -48,7 +55,7 @@ const DEFAULT_LOCALHOST_HOST: Host = {
  * Handles Tab creation, deletion, switching, history restoration and other operations
  */
 export function useTabManagement(options: TabManagementOptions) {
-  const { chatTabs, currentChatId, currentTab, createEmptySessionState, chatInputValue, cleanupTabPairsCache } = useSessionState()
+  const { chatTabs, currentChatId, currentTab, createEmptySessionState, chatInputParts, cleanupTabPairsCache } = useSessionState()
 
   const { getCurentTabAssetInfo, emitStateChange, isFocusInAiTab, toggleSidebar } = options
 
@@ -76,14 +83,14 @@ export function useTabManagement(options: TabManagementOptions) {
     const defaultChatType = currentTab.value?.chatType || 'agent'
     const defaultHosts = currentTab.value?.hosts || [DEFAULT_LOCALHOST_HOST]
     const defaultModelValue = currentTab.value?.modelValue || ''
-    const currentInputValue = chatInputValue.value || ''
+    const currentInputParts = chatInputParts.value || []
 
     const placeholderTab: ChatTab = {
       id: newChatId,
       title: 'New chat',
       autoUpdateHost: true,
       session: createEmptySessionState(),
-      inputValue: currentInputValue,
+      chatInputParts: currentInputParts,
       welcomeTip: generateRandomWelcomeTip(),
       chatType: defaultChatType,
       hosts: defaultHosts,
@@ -215,6 +222,7 @@ export function useTabManagement(options: TabManagementOptions) {
             id: uuidv4(),
             role: role,
             content: item.text || '',
+            contentParts: item.contentParts,
             type: item.type,
             ask: item.ask,
             say: item.say,
@@ -274,7 +282,7 @@ export function useTabManagement(options: TabManagementOptions) {
         chatType: savedChatType,
         autoUpdateHost: false,
         session: historySession,
-        inputValue: '',
+        chatInputParts: [],
         modelValue: savedModelValue || currentTab.value?.modelValue || '',
         welcomeTip: ''
       }

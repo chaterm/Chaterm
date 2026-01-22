@@ -6,7 +6,7 @@ import { useSessionState } from './useSessionState'
  * Handles state snapshot creation, restoration and change notifications
  */
 export function useStateSnapshot(emit: (event: 'state-changed', ...args: any[]) => void) {
-  const { chatTabs, currentChatId, hosts, chatInputValue, chatAiModelValue } = useSessionState()
+  const { chatTabs, currentChatId, hosts, chatInputParts, chatAiModelValue } = useSessionState()
 
   let suppressStateChange = false
 
@@ -20,7 +20,7 @@ export function useStateSnapshot(emit: (event: 'state-changed', ...args: any[]) 
         hosts: tab.hosts ? [...tab.hosts] : [],
         chatType: tab.chatType,
         autoUpdateHost: tab.autoUpdateHost,
-        inputValue: tab.inputValue,
+        chatInputParts: tab.chatInputParts ? [...tab.chatInputParts] : [],
         modelValue: tab.modelValue,
         welcomeTip: tab.welcomeTip,
         agentHosts: tab.agentHosts ? [...tab.agentHosts] : undefined,
@@ -60,7 +60,7 @@ export function useStateSnapshot(emit: (event: 'state-changed', ...args: any[]) 
           hosts: savedTab.hosts ? [...savedTab.hosts] : [],
           chatType: savedTab.chatType,
           autoUpdateHost: savedTab.autoUpdateHost,
-          inputValue: savedTab.inputValue,
+          chatInputParts: savedTab.chatInputParts ? [...savedTab.chatInputParts] : [],
           modelValue: savedTab.modelValue || '',
           welcomeTip: savedTab.welcomeTip || '',
           agentHosts: savedTab.agentHosts ? [...savedTab.agentHosts] : undefined,
@@ -106,12 +106,13 @@ export function useStateSnapshot(emit: (event: 'state-changed', ...args: any[]) 
   )
 
   watch(
-    () => chatInputValue.value,
+    () => chatInputParts.value,
     () => {
       if (!suppressStateChange) {
         emitStateChange()
       }
-    }
+    },
+    { deep: true }
   )
 
   watch(

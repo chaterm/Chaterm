@@ -1,14 +1,28 @@
-import { ref, computed, watch, nextTick, onMounted, onUnmounted } from 'vue'
-import type { Ref } from 'vue'
+import { ref, computed, watch, nextTick, onMounted, onUnmounted, type Ref } from 'vue'
+import type { InjectionKey } from 'vue'
 import debounce from 'lodash/debounce'
-import type { Host, HostOption, HostItemType } from '../types'
+import type { Host, HostOption, HostItemType, ContextMenuLevel, DocOption, ChatOption } from '../types'
 import { formatHosts, isSwitchAssetType } from '../utils'
 import { isBastionHostType } from '../types'
 import { useSessionState } from './useSessionState'
 import { useHostState } from './useHostState'
 import { focusChatInput } from './useTabManagement'
+import { getGlobalState } from '@renderer/agent/storage/state'
+import type { TaskHistoryItem } from '../types'
 import i18n from '@/locales'
 import { Notice } from '@/views/components/Notice'
+import type { ContentPart } from '@shared/WebviewMessage'
+
+// Type for the context return value
+export type ContextInstance = ReturnType<typeof useContext>
+
+// Injection key for sharing context between parent and child components
+export const contextInjectionKey: InjectionKey<ContextInstance> = Symbol('context')
+
+export interface UseContextOptions {
+  chatInputParts?: Ref<ContentPart[]>
+  focusInput?: () => void
+}
 
 /**
  * Maximum number of target hosts allowed for batch execution
@@ -22,30 +36,62 @@ const MAX_TARGET_HOSTS = 5
  *
  * Note: This composable will be extended to support other resource types in the future
  */
-export const useContext = () => {
+export const useContext = (options: UseContextOptions = {}) => {
   const { t } = i18n.global
 
-  const { hosts, chatTypeValue, autoUpdateHost, chatInputValue } = useSessionState()
+  const { hosts, chatTypeValue, autoUpdateHost, chatInputParts: globalChatInputParts } = useSessionState()
+  const chatInputParts = options.chatInputParts ?? globalChatInputParts
+
   const { getCurentTabAssetInfo } = useHostState()
 
   // ========== Local UI State (per instance) ==========
   // Popup position in viewport coordinates (used with position: fixed)
-  const popupPosition = ref<{ top: number; left: number } | null>(null)
+  // createMode uses bottom positioning (expands upward), editMode uses top positioning
+  const popupPosition = ref<{ top?: number; bottom?: number; left: number } | null>(null)
   // Edit mode popup: keep it hidden until it has a final position
   const popupReady = ref(false)
   const currentMode = ref<'create' | 'edit'>('create')
 
-  const hostSearchInputRef = ref()
-  const showHostSelect = ref(false)
-  const hostOptions = ref<HostOption[]>([])
-  const hostSearchValue = ref('')
-  const hostOptionsLoading = ref(false)
-  const hostOptionsLimit = 50
+  // Menu level for context popup (main shows categories, others show lists)
+  const currentMenuLevel = ref<ContextMenuLevel>('main')
+
+  const searchInputRef = ref()
+  const showContextPopup = ref(false)
+  // Unified search value for all menu levels
+  const searchValue = ref('')
   const hovered = ref<string | null>(null)
   const keyboardSelectedIndex = ref(-1)
 
+  const mainMenuItems = computed<ContextMenuLevel[]>(() => {
+    const items: ContextMenuLevel[] = []
+    if (chatTypeValue.value !== 'chat' && chatTypeValue.value !== 'cmd') {
+      items.push('hosts')
+    }
+    items.push('docs', 'chats')
+    return items
+  })
+
+  // ========== Hosts State ==========
+  const hostOptions = ref<HostOption[]>([])
+  const hostOptionsLoading = ref(false)
+  const hostOptionsLimit = 50
   // Track expanded jumpserver nodes (all expanded by default)
   const expandedJumpservers = ref<Set<string>>(new Set())
+
+  // ========== Docs State ==========
+  const docsOptions = ref<DocOption[]>([])
+  const docsOptionsLoading = ref(false)
+  // Cached knowledge base root directory (absolute path)
+  const kbRoot = ref<string>('')
+  // Current docs directory (relative path from kb root, POSIX-style)
+  const docsCurrentRelDir = ref<string>('')
+  // Directory stack for docs navigation (used to go back to parent directory)
+  const docsDirStack = ref<string[]>([])
+
+  // ========== Chats State ==========
+  const chatsOptions = ref<ChatOption[]>([])
+  const chatsOptionsLoading = ref(false)
+  const chipInsertHandler = ref<((chipType: 'doc' | 'chat', ref: DocOption | ChatOption, label: string) => void) | null>(null)
 
   const toggleJumpserverExpand = (key: string) => {
     if (expandedJumpservers.value.has(key)) {
@@ -90,11 +136,14 @@ export const useContext = () => {
   })
 
   const filteredHostOptions = computed(() => {
+    if (chatTypeValue.value === 'chat') {
+      return []
+    }
     if (chatTypeValue.value === 'cmd') {
       return flattenedHostOptions.value
     }
 
-    const searchTerm = hostSearchValue.value.toLowerCase()
+    const searchTerm = searchValue.value.toLowerCase()
     if (!searchTerm) {
       return flattenedHostOptions.value
     }
@@ -137,6 +186,24 @@ export const useContext = () => {
     return result
   })
 
+  // Filtered docs options based on search value
+  const filteredDocsOptions = computed(() => {
+    const searchTerm = searchValue.value.toLowerCase()
+    if (!searchTerm) {
+      return docsOptions.value
+    }
+    return docsOptions.value.filter((doc) => doc.name.toLowerCase().includes(searchTerm))
+  })
+
+  // Filtered chats options based on search value
+  const filteredChatsOptions = computed(() => {
+    const searchTerm = searchValue.value.toLowerCase()
+    if (!searchTerm) {
+      return chatsOptions.value
+    }
+    return chatsOptions.value.filter((chat) => chat.title.toLowerCase().includes(searchTerm))
+  })
+
   const isHostSelected = (hostOption: HostOption): boolean => {
     return hosts.value.some((h) => {
       if (h.uuid === hostOption.uuid) return true
@@ -144,7 +211,7 @@ export const useContext = () => {
     })
   }
 
-  const onHostClick = (item: HostOption, inputValueRef?: Ref<string>) => {
+  const onHostClick = (item: HostOption) => {
     // Handle bastion host parent node click - toggle expand/collapse
     if (isBastionHostType(item.type) && !item.selectable) {
       toggleJumpserverExpand(item.key)
@@ -200,9 +267,23 @@ export const useContext = () => {
 
     autoUpdateHost.value = false
 
-    const targetInputValueRef = inputValueRef ?? chatInputValue
-    if (targetInputValueRef.value.endsWith('@')) {
-      targetInputValueRef.value = targetInputValueRef.value.slice(0, -1)
+    removeTrailingAtFromInputParts()
+  }
+
+  const removeTrailingAtFromInputParts = () => {
+    if (chatInputParts.value.length === 0) return
+    for (let i = chatInputParts.value.length - 1; i >= 0; i--) {
+      const part = chatInputParts.value[i]
+      if (part.type !== 'text') continue
+      if (part.text.endsWith('@')) {
+        const nextText = part.text.slice(0, -1)
+        if (nextText.length === 0) {
+          chatInputParts.value.splice(i, 1)
+        } else {
+          chatInputParts.value.splice(i, 1, { ...part, text: nextText })
+        }
+      }
+      break
     }
   }
 
@@ -216,68 +297,172 @@ export const useContext = () => {
 
   const scrollToSelectedItem = () => {
     nextTick(() => {
-      const selectedItem = document.querySelector('.host-select-item.keyboard-selected') as HTMLElement
+      const selectedItem = document.querySelector('.select-item.keyboard-selected') as HTMLElement
       if (!selectedItem) return
 
-      const hostSelectList = selectedItem.closest('.host-select-list') as HTMLElement
-      if (!hostSelectList) return
+      const selectList = selectedItem.closest('.select-list') as HTMLElement
+      if (!selectList) return
 
-      const listRect = hostSelectList.getBoundingClientRect()
+      const listRect = selectList.getBoundingClientRect()
       const itemRect = selectedItem.getBoundingClientRect()
 
       if (itemRect.top < listRect.top) {
-        hostSelectList.scrollTop -= listRect.top - itemRect.top
+        selectList.scrollTop -= listRect.top - itemRect.top
       } else if (itemRect.bottom > listRect.bottom) {
-        hostSelectList.scrollTop += itemRect.bottom - listRect.bottom
+        selectList.scrollTop += itemRect.bottom - listRect.bottom
       }
     })
   }
 
-  const handleHostSearchKeyDown = (e: KeyboardEvent, inputValueRef?: Ref<string>) => {
-    if (!showHostSelect.value || filteredHostOptions.value.length === 0) return
+  // Get current filtered list based on menu level
+  const getCurrentFilteredList = () => {
+    switch (currentMenuLevel.value) {
+      case 'hosts':
+        return filteredHostOptions.value
+      case 'docs':
+        return filteredDocsOptions.value
+      case 'chats':
+        return filteredChatsOptions.value
+      default:
+        return []
+    }
+  }
+
+  const handleSearchKeyDown = async (e: KeyboardEvent) => {
+    if (!showContextPopup.value) return
+
+    const currentList = getCurrentFilteredList()
 
     switch (e.key) {
       case 'ArrowDown':
         e.preventDefault()
-        if (keyboardSelectedIndex.value === -1) {
-          keyboardSelectedIndex.value = 0
-        } else {
-          keyboardSelectedIndex.value = Math.min(keyboardSelectedIndex.value + 1, filteredHostOptions.value.length - 1)
+        if (currentMenuLevel.value === 'main') {
+          const maxIndex = Math.max(0, mainMenuItems.value.length - 1)
+          keyboardSelectedIndex.value = Math.min(keyboardSelectedIndex.value + 1, maxIndex)
+        } else if (currentList.length > 0) {
+          if (keyboardSelectedIndex.value === -1) {
+            keyboardSelectedIndex.value = 0
+          } else {
+            keyboardSelectedIndex.value = Math.min(keyboardSelectedIndex.value + 1, currentList.length - 1)
+          }
         }
         scrollToSelectedItem()
         break
 
       case 'ArrowUp':
         e.preventDefault()
-        if (keyboardSelectedIndex.value === -1) {
-          keyboardSelectedIndex.value = filteredHostOptions.value.length - 1
-        } else {
+        if (currentMenuLevel.value === 'main') {
           keyboardSelectedIndex.value = Math.max(keyboardSelectedIndex.value - 1, 0)
+        } else if (currentList.length > 0) {
+          if (keyboardSelectedIndex.value === -1) {
+            keyboardSelectedIndex.value = currentList.length - 1
+          } else {
+            keyboardSelectedIndex.value = Math.max(keyboardSelectedIndex.value - 1, 0)
+          }
         }
         scrollToSelectedItem()
         break
 
       case 'Enter':
         e.preventDefault()
-        if (keyboardSelectedIndex.value >= 0 && keyboardSelectedIndex.value < filteredHostOptions.value.length) {
-          onHostClick(filteredHostOptions.value[keyboardSelectedIndex.value], inputValueRef)
+        if (currentMenuLevel.value === 'main') {
+          if (keyboardSelectedIndex.value >= 0 && keyboardSelectedIndex.value < mainMenuItems.value.length) {
+            await goToLevel2(mainMenuItems.value[keyboardSelectedIndex.value])
+          }
+        } else if (keyboardSelectedIndex.value >= 0 && keyboardSelectedIndex.value < currentList.length) {
+          const item = currentList[keyboardSelectedIndex.value]
+          if (currentMenuLevel.value === 'hosts') {
+            onHostClick(item as HostOption)
+          } else if (currentMenuLevel.value === 'docs') {
+            await onDocClick(item as DocOption)
+          } else if (currentMenuLevel.value === 'chats') {
+            onChatClick(item as ChatOption)
+          }
         }
         break
 
       case 'Escape':
         e.preventDefault()
         e.stopPropagation()
-        closeHostSelect()
+        if (currentMenuLevel.value !== 'main') {
+          await goBack()
+        } else {
+          closeContextPopup()
+        }
+        break
+
+      case 'Backspace':
+        // Go back to main menu when backspace is pressed with empty search
+        if (searchValue.value === '' && currentMenuLevel.value !== 'main') {
+          e.preventDefault()
+          await goBack()
+        }
         break
     }
   }
 
-  const closeHostSelect = () => {
-    showHostSelect.value = false
+  const closeContextPopup = () => {
+    showContextPopup.value = false
+    currentMenuLevel.value = 'main'
     keyboardSelectedIndex.value = -1
     popupPosition.value = null
     popupReady.value = false
+    searchValue.value = ''
+    if (options.focusInput) {
+      options.focusInput()
+      return
+    }
     focusChatInput()
+  }
+
+  // Navigate to level 2 menu
+  const goToLevel2 = async (level: ContextMenuLevel) => {
+    if (level === 'main') return
+
+    currentMenuLevel.value = level
+    searchValue.value = ''
+    keyboardSelectedIndex.value = -1
+
+    // Fetch data for the selected category
+    if (level === 'hosts') {
+      if (chatTypeValue.value === 'chat') {
+        hostOptions.value.splice(0, hostOptions.value.length)
+      } else if (chatTypeValue.value === 'cmd') {
+        await fetchHostOptionsForCommandMode('')
+      } else {
+        await fetchHostOptions('')
+      }
+    } else if (level === 'docs') {
+      docsCurrentRelDir.value = ''
+      docsDirStack.value = []
+      await fetchDocsOptions('')
+    } else if (level === 'chats') {
+      await fetchChatsOptions()
+    }
+
+    nextTick(() => {
+      getElement(searchInputRef.value)?.focus?.()
+    })
+  }
+
+  // Navigate back to main menu
+  const goBackToMain = () => {
+    currentMenuLevel.value = 'main'
+    searchValue.value = ''
+    keyboardSelectedIndex.value = -1
+    docsCurrentRelDir.value = ''
+    docsDirStack.value = []
+    nextTick(() => {
+      getElement(searchInputRef.value)?.focus?.()
+    })
+  }
+
+  async function goBack() {
+    if (currentMenuLevel.value === 'docs' && docsDirStack.value.length > 0) {
+      await goBackDocsDir()
+      return
+    }
+    goBackToMain()
   }
 
   const handleMouseOver = (value: string, index: number) => {
@@ -290,77 +475,33 @@ export const useContext = () => {
     return Math.min(max, Math.max(min, val))
   }
 
-  const calculatePopupPosition = (textarea: HTMLTextAreaElement) => {
+  /**
+   * Calculate popup position for contenteditable element using Selection API
+   */
+  const calculateEditModePopupPosition = (editableEl: HTMLElement) => {
     try {
-      const cursorPosition = textarea.selectionStart
+      const selection = window.getSelection()
+      if (!selection || selection.rangeCount === 0) {
+        popupPosition.value = null
+        return
+      }
 
-      const tempDiv = document.createElement('div')
-      const computed = window.getComputedStyle(textarea)
+      const range = selection.getRangeAt(0)
+      if (!editableEl.contains(range.startContainer)) {
+        popupPosition.value = null
+        return
+      }
 
-      const stylesToCopy = [
-        'font-family',
-        'font-size',
-        'font-weight',
-        'font-style',
-        'font-variant',
-        'line-height',
-        'padding-top',
-        'padding-right',
-        'padding-bottom',
-        'padding-left',
-        'border-top-width',
-        'border-right-width',
-        'border-bottom-width',
-        'border-left-width',
-        'border-style',
-        'box-sizing',
-        'width',
-        'text-transform',
-        'text-indent',
-        'letter-spacing',
-        'word-spacing',
-        'white-space',
-        'word-break',
-        'overflow-wrap'
-      ]
-
-      stylesToCopy.forEach((prop) => {
-        tempDiv.style.setProperty(prop, computed.getPropertyValue(prop))
-      })
-
-      tempDiv.style.position = 'absolute'
-      tempDiv.style.visibility = 'hidden'
-      tempDiv.style.pointerEvents = 'none'
-      tempDiv.style.whiteSpace = 'pre-wrap'
-      tempDiv.style.wordWrap = 'break-word'
-      tempDiv.style.height = 'auto'
-      tempDiv.style.overflow = 'hidden'
-
-      document.body.appendChild(tempDiv)
-
-      const textBeforeCursor = textarea.value.substring(0, cursorPosition)
-      tempDiv.textContent = textBeforeCursor
-
-      const span = document.createElement('span')
-      span.textContent = textarea.value.substring(cursorPosition, cursorPosition + 1) || '.'
-      tempDiv.appendChild(span)
-
-      const spanRect = span.getBoundingClientRect()
-      const tempDivRect = tempDiv.getBoundingClientRect()
-
-      const cursorX = spanRect.left - tempDivRect.left
-      const cursorY = spanRect.top - tempDivRect.top
-
+      // Get caret position using range.getBoundingClientRect()
+      const caretRect = range.getBoundingClientRect()
+      const computed = window.getComputedStyle(editableEl)
       const lineHeightValue = computed.lineHeight
       const lineHeight = lineHeightValue === 'normal' ? parseFloat(computed.fontSize) * 1.2 : parseFloat(lineHeightValue)
 
-      document.body.removeChild(tempDiv)
+      const caretAbsY = caretRect.top
+      const caretAbsX = caretRect.left
 
-      const textareaRect = textarea.getBoundingClientRect()
-      const caretAbsY = textareaRect.top + cursorY - textarea.scrollTop
-      const caretAbsX = textareaRect.left + cursorX - textarea.scrollLeft
-
-      const scrollContainer = textarea.closest('.chat-response-container') as HTMLElement | null
+      const scrollContainer = editableEl.closest('.chat-response-container') as HTMLElement | null
       const scrollRect = scrollContainer?.getBoundingClientRect() ?? {
         top: 0,
         left: 0,
@@ -368,7 +509,7 @@ export const useContext = () => {
         bottom: window.innerHeight
       }
 
-      const popupEl = document.querySelector('.host-select-popup.is-edit-mode') as HTMLElement | null
+      const popupEl = document.querySelector('.context-select-popup.is-edit-mode') as HTMLElement | null
       const popupRect = popupEl?.getBoundingClientRect()
       const popupHeight = popupRect?.height ?? 240
       const popupWidth = popupRect?.width ?? 229
@@ -396,16 +537,26 @@ export const useContext = () => {
         left: popupAbsLeft
       }
     } catch (error) {
-      console.error('Error calculating popup position:', error)
+      console.error('Error calculating popup position for contenteditable:', error)
       popupPosition.value = null
     }
   }
 
   const calculateCreateModePopupPosition = (triggerEl?: HTMLElement | null) => {
     try {
+      // Find input container - either the element itself or find it via closest
       let inputContainer: HTMLElement | null = null
       if (triggerEl) {
-        inputContainer = triggerEl.closest('.input-send-container') as HTMLElement | null
+        if (triggerEl.classList.contains('input-send-container')) {
+          inputContainer = triggerEl
+        } else {
+          inputContainer = triggerEl.closest('.input-send-container') as HTMLElement | null
+        }
+      }
+
+      if (!inputContainer) {
+        // Fallback: try to find any input-send-container in the DOM
+        inputContainer = document.querySelector('.input-send-container') as HTMLElement | null
       }
 
       if (!inputContainer) {
@@ -414,16 +565,11 @@ export const useContext = () => {
       }
 
       const inputRect = inputContainer.getBoundingClientRect()
-      const marginBottom = 4
-      const marginLeft = 8
 
-      const popupEl = document.querySelector('.host-select-popup') as HTMLElement | null
-      const popupHeight = popupEl?.getBoundingClientRect().height ?? 240
+      const bottom = window.innerHeight - inputRect.top
+      const left = inputRect.left
 
-      const top = inputRect.top - popupHeight - marginBottom
-      const left = inputRect.left + marginLeft
-
-      popupPosition.value = { top, left }
+      popupPosition.value = { bottom, left }
     } catch (error) {
       console.error('Error calculating create mode popup position:', error)
       popupPosition.value = null
@@ -431,6 +577,10 @@ export const useContext = () => {
   }
 
   const fetchHostOptions = async (search: string) => {
+    if (chatTypeValue.value === 'chat') {
+      hostOptions.value = []
+      return
+    }
     if (hostOptionsLoading.value) return
 
     hostOptionsLoading.value = true
@@ -506,95 +656,195 @@ export const useContext = () => {
     }
   }
 
-  const debouncedFetchHostOptions = debounce((search: string) => {
-    if (chatTypeValue.value === 'cmd') {
-      fetchHostOptionsForCommandMode(search)
-    } else {
-      fetchHostOptions(search)
+  const fetchDocsOptions = async (relDir: string = docsCurrentRelDir.value) => {
+    if (docsOptionsLoading.value) return
+
+    docsOptionsLoading.value = true
+    try {
+      // Ensure kbRoot is fetched
+      if (!kbRoot.value) {
+        const { root } = await window.api.kbGetRoot()
+        kbRoot.value = root
+      }
+
+      docsCurrentRelDir.value = relDir
+      const result = await window.api.kbListDir(relDir)
+      const separator = kbRoot.value.includes('\\') ? '\\' : '/'
+      docsOptions.value = result.map((item) => ({
+        name: item.name,
+        relPath: item.relPath,
+        absPath: kbRoot.value + separator + item.relPath.replace(/\//g, separator),
+        type: item.type
+      }))
+    } catch (error) {
+      console.error('Failed to fetch docs options:', error)
+      docsOptions.value = []
+    } finally {
+      docsOptionsLoading.value = false
     }
-  }, 300)
+  }
+
+  const enterDocsDir = async (doc: DocOption) => {
+    if (doc.type !== 'dir') return
+    const nextRelDir = doc.relPath
+    if (!nextRelDir) return
+
+    // Save current directory to enable back navigation.
+    docsDirStack.value = [...docsDirStack.value, docsCurrentRelDir.value]
+    searchValue.value = ''
+    keyboardSelectedIndex.value = -1
+    hovered.value = null
+    await fetchDocsOptions(nextRelDir)
+  }
+
+  const goBackDocsDir = async () => {
+    if (docsDirStack.value.length === 0) {
+      goBackToMain()
+      return
+    }
+    const prevRelDir = docsDirStack.value[docsDirStack.value.length - 1] ?? ''
+    docsDirStack.value = docsDirStack.value.slice(0, -1)
+    searchValue.value = ''
+    keyboardSelectedIndex.value = -1
+    hovered.value = null
+    await fetchDocsOptions(prevRelDir)
+  }
+
+  // Fetch past chat history
+  const fetchChatsOptions = async () => {
+    if (chatsOptionsLoading.value) return
+
+    chatsOptionsLoading.value = true
+    try {
+      const taskHistory = ((await getGlobalState('taskHistory')) as TaskHistoryItem[]) || []
+      chatsOptions.value = taskHistory
+        .sort((a, b) => (b.ts || 0) - (a.ts || 0))
+        .map((item) => ({
+          id: item.id,
+          title: item.chatTitle || item.task || 'Untitled Chat',
+          ts: item.ts || 0
+        }))
+    } catch (error) {
+      console.error('Failed to fetch chats options:', error)
+      chatsOptions.value = []
+    } finally {
+      chatsOptionsLoading.value = false
+    }
+  }
+
+  const isDocSelected = (doc: DocOption): boolean => {
+    return chatInputParts.value.some((part) => part.type === 'chip' && part.chipType === 'doc' && part.ref.absPath === doc.absPath)
+  }
+
+  // Check if chat is selected by looking at chatInputParts chips
+  const isChatSelected = (chat: ChatOption): boolean => {
+    return chatInputParts.value.some((part) => part.type === 'chip' && part.chipType === 'chat' && part.ref.taskId === chat.id)
+  }
+
+  const onDocClick = async (doc: DocOption) => {
+    if (doc.type === 'dir') {
+      await enterDocsDir(doc)
+      return
+    }
+    if (isDocSelected(doc)) {
+      closeContextPopup()
+      return
+    }
+    if (chipInsertHandler.value) {
+      chipInsertHandler.value('doc', doc, doc.name)
+    }
+    closeContextPopup()
+  }
+
+  // Handle chat click - insert chip via handler
+  const onChatClick = (chat: ChatOption) => {
+    if (isChatSelected(chat)) {
+      closeContextPopup()
+      return
+    }
+    if (chipInsertHandler.value) {
+      chipInsertHandler.value('chat', chat, chat.title)
+    }
+    closeContextPopup()
+  }
 
   const getElement = (ref: unknown): HTMLElement | null => {
     if (!ref) return null
     return Array.isArray(ref) ? ref[0] || null : (ref as HTMLElement)
   }
 
-  const handleInputChange = async (e: Event, mode: 'create' | 'edit' = 'create') => {
-    const value = (e.target as HTMLTextAreaElement).value
-    const textarea = e.target as HTMLTextAreaElement
-
-    currentMode.value = mode
-
-    if (value.endsWith('@')) {
-      if (chatTypeValue.value === 'cmd' || chatTypeValue.value === 'chat') {
-        showHostSelect.value = false
-        popupReady.value = false
-        return
-      }
-
-      showHostSelect.value = true
-      popupReady.value = false
-      hostSearchValue.value = ''
-      await fetchHostOptions('')
-
-      if (mode === 'edit') {
-        calculatePopupPosition(textarea)
-      } else {
-        calculateCreateModePopupPosition(textarea)
-      }
-
-      popupReady.value = true
-      getElement(hostSearchInputRef.value)?.focus?.()
-    } else {
-      showHostSelect.value = false
-      popupPosition.value = null
-    }
-  }
-
-  const handleAddHostClick = async (triggerEl?: HTMLElement | null) => {
-    if (showHostSelect.value) {
-      closeHostSelect()
+  const handleAddContextClick = async (triggerEl?: HTMLElement | null, mode: 'create' | 'edit' = 'create') => {
+    if (showContextPopup.value) {
+      closeContextPopup()
       return
     }
 
-    currentMode.value = 'create'
-    showHostSelect.value = true
+    currentMode.value = mode
+    showContextPopup.value = true
     popupReady.value = false
-    hostSearchValue.value = ''
-
-    if (chatTypeValue.value === 'cmd') {
-      await fetchHostOptionsForCommandMode('')
-    } else {
-      await fetchHostOptions('')
-    }
+    searchValue.value = ''
+    currentMenuLevel.value = 'main'
 
     nextTick(() => {
-      calculateCreateModePopupPosition(triggerEl)
+      if (mode === 'edit' && triggerEl) {
+        calculateEditModePopupPosition(triggerEl)
+      } else {
+        calculateCreateModePopupPosition(triggerEl)
+      }
       popupReady.value = true
-      getElement(hostSearchInputRef.value)?.focus?.()
+      getElement(searchInputRef.value)?.focus?.()
     })
   }
 
-  watch(hostSearchValue, (newVal) => {
+  // Debounced search handler based on current menu level
+  const debouncedSearch = debounce(() => {
+    // For hosts, refetch with search term
+    if (currentMenuLevel.value === 'hosts') {
+      if (chatTypeValue.value === 'cmd') {
+        fetchHostOptionsForCommandMode(searchValue.value)
+      } else {
+        fetchHostOptions(searchValue.value)
+      }
+    }
+    // For docs and chats, filtering is done via computed properties
+  }, 300)
+
+  watch(searchValue, () => {
     keyboardSelectedIndex.value = -1
-    debouncedFetchHostOptions(newVal)
+    debouncedSearch()
   })
 
   const handleGlobalEscKey = (e: KeyboardEvent) => {
-    if (e.key === 'Escape' && showHostSelect.value) {
-      closeHostSelect()
+    if (e.key === 'Escape' && showContextPopup.value) {
+      if (currentMenuLevel.value !== 'main') {
+        void goBack()
+      } else {
+        closeContextPopup()
+      }
     }
   }
 
+  /**
+   * Global click event handler.
+   * This function is used to detect clicks outside of the context select popup (.context-select-popup)
+   * and its trigger element (.context-display-container). If the popup is open and a click occurs
+   * outside these elements, the context popup will be closed.
+   *
+   * @param e MouseEvent object
+   */
   const handleGlobalClick = (e: MouseEvent) => {
-    if (!showHostSelect.value) return
+    if (!showContextPopup.value) return
 
     const target = e.target as HTMLElement
-    const hostSelectPopup = document.querySelector('.host-select-popup')
-    const hostTag = document.querySelector('.hosts-display-container-host-tag')
+    const contextPopup = document.querySelector('.context-select-popup')
+    const contextTag = document.querySelector('.context-display-container')
 
-    if (hostSelectPopup && !hostSelectPopup.contains(target) && hostTag && !hostTag.contains(target)) {
-      closeHostSelect()
+    // Check if click is inside popup or trigger tag
+    const isInsidePopup = contextPopup && contextPopup.contains(target)
+    const isInsideTrigger = contextTag && contextTag.contains(target)
+
+    if (!isInsidePopup && !isInsideTrigger) {
+      closeContextPopup()
     }
   }
 
@@ -610,29 +860,56 @@ export const useContext = () => {
 
   return {
     // UI state
-    showHostSelect,
-    hostOptions,
-    hostSearchValue,
-    hostOptionsLoading,
+    showContextPopup,
+    currentMenuLevel,
+    searchValue,
     hovered,
     keyboardSelectedIndex,
-    filteredHostOptions,
-    hostSearchInputRef,
     popupPosition,
     popupReady,
     currentMode,
-    // UI interaction handlers
+    searchInputRef,
+    chatTypeValue,
+
+    // Hosts state
+    hostOptions,
+    hostOptionsLoading,
+    filteredHostOptions,
     isHostSelected,
     onHostClick,
     removeHost,
-    handleHostSearchKeyDown,
-    scrollToSelectedItem,
-    closeHostSelect,
-    handleMouseOver,
-    handleInputChange,
+    toggleJumpserverExpand,
     fetchHostOptions,
     fetchHostOptionsForCommandMode,
-    handleAddHostClick,
-    toggleJumpserverExpand
+
+    // Docs state
+    docsOptions,
+    docsOptionsLoading,
+    filteredDocsOptions,
+    isDocSelected,
+    onDocClick,
+    fetchDocsOptions,
+
+    // Chats state
+    chatsOptions,
+    chatsOptionsLoading,
+    filteredChatsOptions,
+    isChatSelected,
+    onChatClick,
+    fetchChatsOptions,
+    // Chip insertion
+    setChipInsertHandler: (handler: (chipType: 'doc' | 'chat', ref: DocOption | ChatOption, label: string) => void) => {
+      chipInsertHandler.value = handler
+    },
+
+    // UI interaction handlers
+    handleSearchKeyDown,
+    scrollToSelectedItem,
+    closeContextPopup,
+    handleMouseOver,
+    handleAddContextClick,
+    goToLevel2,
+    goBackToMain,
+    goBack
   }
 }

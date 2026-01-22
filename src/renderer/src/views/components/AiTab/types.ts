@@ -1,3 +1,5 @@
+import type { ContentPart, ContextRefs } from '@shared/WebviewMessage'
+
 export interface MessageContent {
   question: string
   options?: string[]
@@ -17,6 +19,8 @@ export interface ChatMessage {
   id: string
   role: 'user' | 'assistant'
   content: string | MessageContent
+  contentParts?: ContentPart[]
+  contextRefs?: ContextRefs
   type?: string
   ask?: string
   say?: string
@@ -129,4 +133,22 @@ export interface HostOption {
   expanded?: boolean
   level: number
   childrenCount?: number
+}
+
+// Menu level for context popup
+export type ContextMenuLevel = 'main' | 'hosts' | 'docs' | 'chats'
+
+// Knowledge base document option
+export interface DocOption {
+  name: string
+  absPath: string
+  relPath?: string
+  type: 'file' | 'dir'
+}
+
+// Past chat option
+export interface ChatOption {
+  id: string
+  title: string
+  ts: number
 }
