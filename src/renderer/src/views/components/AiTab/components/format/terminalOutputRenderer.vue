@@ -3367,9 +3367,7 @@ const writeToTerminal = (content: string) => {
 const copyOutput = () => {
   if (!terminal) return
 
-  const selection = terminal.getSelection()
-  const content =
-    selection || Array.from({ length: terminal?.rows || 0 }, (_, i) => terminal?.buffer.active.getLine(i)?.translateToString() || '').join('\n')
+  const content = Array.from({ length: terminal?.rows || 0 }, (_, i) => terminal?.buffer.active.getLine(i)?.translateToString() || '').join('\n')
 
   navigator.clipboard.writeText(content).then(() => {
     message.success(t('ai.copyToClipboard'))
@@ -3593,7 +3591,7 @@ const highlightSimpleLsColumnsPreserveSpacing = (line: string): string => {
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
   border: 1px solid var(--border-color);
   border-top: none;
-  overflow-x: hidden;
+  overflow-x: auto !important;
   overflow-y: visible;
   position: relative;
   width: 100%;
@@ -3604,6 +3602,68 @@ const highlightSimpleLsColumnsPreserveSpacing = (line: string): string => {
   scrollbar-gutter: stable;
 }
 
+/* Scrollbar styling - horizontal scrollbar transparent by default, visible on hover */
+.terminal-output,
+:deep(.xterm),
+:deep(.xterm-viewport),
+:deep(.xterm-screen) {
+  scrollbar-width: thin !important;
+  scrollbar-color: transparent transparent !important;
+}
+
+.terminal-output::-webkit-scrollbar,
+:deep(.xterm)::-webkit-scrollbar,
+:deep(.xterm-viewport)::-webkit-scrollbar,
+:deep(.xterm-screen)::-webkit-scrollbar {
+  width: 0px !important; /* Hide vertical */
+  height: 8px !important; /* Show horizontal */
+}
+
+.terminal-output::-webkit-scrollbar-track,
+:deep(.xterm)::-webkit-scrollbar-track,
+:deep(.xterm-viewport)::-webkit-scrollbar-track,
+:deep(.xterm-screen)::-webkit-scrollbar-track {
+  background: transparent !important;
+  border-radius: 4px !important;
+}
+
+.terminal-output::-webkit-scrollbar-thumb,
+:deep(.xterm)::-webkit-scrollbar-thumb,
+:deep(.xterm-viewport)::-webkit-scrollbar-thumb,
+:deep(.xterm-screen)::-webkit-scrollbar-thumb {
+  background: transparent !important;
+  border-radius: 4px !important;
+}
+
+/* Show scrollbar on hover over the terminal container */
+.terminal-output-container:hover .terminal-output,
+.terminal-output-container:hover :deep(.xterm),
+.terminal-output-container:hover :deep(.xterm-viewport),
+.terminal-output-container:hover :deep(.xterm-screen) {
+  scrollbar-color: var(--scrollbar-thumb-color, #555555) var(--scrollbar-track-color, #2d2d30) !important;
+}
+
+.terminal-output-container:hover .terminal-output::-webkit-scrollbar-track,
+.terminal-output-container:hover :deep(.xterm)::-webkit-scrollbar-track,
+.terminal-output-container:hover :deep(.xterm-viewport)::-webkit-scrollbar-track,
+.terminal-output-container:hover :deep(.xterm-screen)::-webkit-scrollbar-track {
+  background: var(--scrollbar-track-color, #2d2d30) !important;
+}
+
+.terminal-output-container:hover .terminal-output::-webkit-scrollbar-thumb,
+.terminal-output-container:hover :deep(.xterm)::-webkit-scrollbar-thumb,
+.terminal-output-container:hover :deep(.xterm-viewport)::-webkit-scrollbar-thumb,
+.terminal-output-container:hover :deep(.xterm-screen)::-webkit-scrollbar-thumb {
+  background: var(--scrollbar-thumb-color, #555555) !important;
+}
+
+.terminal-output::-webkit-scrollbar-thumb:hover,
+:deep(.xterm)::-webkit-scrollbar-thumb:hover,
+:deep(.xterm-viewport)::-webkit-scrollbar-thumb:hover,
+:deep(.xterm-screen)::-webkit-scrollbar-thumb:hover {
+  background: var(--scrollbar-thumb-hover-color, #666666) !important;
+}
+
 :deep(.xterm) {
   height: 100%;
   overflow-x: auto !important;
@@ -3612,22 +3672,13 @@ const highlightSimpleLsColumnsPreserveSpacing = (line: string): string => {
 }
 
 :deep(.xterm-viewport) {
-  overflow: hidden !important;
+  overflow-x: auto !important;
   overflow-y: hidden !important;
-  scrollbar-gutter: stable !important;
-  scrollbar-width: none !important;
-  -ms-overflow-style: none !important;
   background-color: var(--bg-color-secondary) !important;
 }
 
-/* Hide vertical scrollbar */
-:deep(.xterm-viewport::-webkit-scrollbar) {
-  width: 0 !important;
-  height: 0 !important;
-}
-
 :deep(.xterm-screen) {
-  overflow-x: hidden !important;
+  overflow-x: auto !important;
   overflow-y: hidden !important;
   background-color: var(--bg-color-secondary) !important;
 }
