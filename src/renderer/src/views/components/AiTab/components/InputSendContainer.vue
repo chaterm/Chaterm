@@ -194,7 +194,8 @@ import { useModelConfiguration } from '../composables/useModelConfiguration'
 import { useUserInteractions } from '../composables/useUserInteractions'
 import { useEditableContent } from '../composables/useEditableContent'
 import { AiTypeOptions } from '../composables/useEventBusListeners'
-import type { ContentPart } from '@shared/WebviewMessage'
+import type { ContentPart, ContextDocRef, ContextPastChatRef } from '@shared/WebviewMessage'
+import type { HistoryItem } from '../types'
 import { CloseOutlined, HourglassOutlined, LaptopOutlined } from '@ant-design/icons-vue'
 import uploadIcon from '@/assets/icons/upload.svg'
 import sendIcon from '@/assets/icons/send.svg'
@@ -208,6 +209,7 @@ interface Props {
   mode?: 'create' | 'edit'
   initialContentParts?: ContentPart[]
   onConfirmEdit?: (contentParts: ContentPart[]) => void
+  openHistoryTab?: (history: HistoryItem, options?: { forceNewTab?: boolean }) => Promise<void>
 }
 
 const props = withDefaults(defineProps<Props>(), {
@@ -288,6 +290,24 @@ const handleSendClick = (type: string) => {
   }
 }
 
+const handleChipClick = async (chipType: 'doc' | 'chat', ref: ContextDocRef | ContextPastChatRef) => {
+  if (chipType === 'doc') {
+    await context.openDocFromChip(ref as ContextDocRef)
+    return
+  }
+  const chatRef = ref as ContextPastChatRef
+  if (!props.openHistoryTab) return
+  await props.openHistoryTab(
+    {
+      id: chatRef.taskId,
+      chatTitle: chatRef.title || 'Untitled Chat',
+      chatType: 'agent',
+      chatContent: []
+    },
+    { forceNewTab: true }
+  )
+}
+
 // Initialize editable content composable
 const {
   isEditableEmpty,
@@ -305,7 +325,8 @@ const {
   editableRef,
   chatInputParts: inputParts,
   handleSendClick,
-  handleAddContextClick
+  handleAddContextClick,
+  handleChipClick
 })
 
 watch(
@@ -620,6 +641,7 @@ onBeforeUnmount(() => {
     user-select: none;
     vertical-align: middle;
     transform: translateY(-1px);
+    cursor: pointer;
   }
 
   :deep(.mention-icon) {

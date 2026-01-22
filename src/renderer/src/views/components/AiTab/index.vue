@@ -446,6 +446,7 @@
             :is-active-tab="tab.id === currentChatId"
             :send-message="sendMessage"
             :handle-interrupt="handleCancel"
+            :open-history-tab="restoreHistoryTab"
           />
         </div>
       </div>

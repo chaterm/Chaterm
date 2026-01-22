@@ -21,10 +21,11 @@ export interface UseEditableContentOptions {
   chatInputParts: Ref<ContentPart[]>
   handleSendClick: (type: string) => void
   handleAddContextClick: (triggerEl?: HTMLElement | null, mode?: 'create' | 'edit') => void
+  handleChipClick?: (chipType: 'doc' | 'chat', ref: ContextDocRef | ContextPastChatRef) => void
 }
 
 export function useEditableContent(options: UseEditableContentOptions) {
-  const { editableRef, chatInputParts, handleSendClick, handleAddContextClick } = options
+  const { editableRef, chatInputParts, handleSendClick, handleAddContextClick, handleChipClick } = options
 
   const isEditableEmpty = ref(true)
   const savedSelection = ref<Range | null>(null)
@@ -124,6 +125,7 @@ export function useEditableContent(options: UseEditableContentOptions) {
     chip.className = `mention-chip mention-chip-${chipType}`
     chip.contentEditable = 'false'
     chip.setAttribute('data-chip-type', chipType)
+    chip.setAttribute('title', label)
 
     // Set chip-type-specific data attributes
     if (chipType === 'doc') {
@@ -369,6 +371,18 @@ export function useEditableContent(options: UseEditableContentOptions) {
         chip.remove()
         syncDraftPartsFromEditable()
       }
+      return
+    }
+
+    const chip = target?.closest('.mention-chip') as HTMLElement | null
+    if (!chip) return
+
+    if (chip.dataset.chipType === 'doc') {
+      handleChipClick?.('doc', parseKbChipElement(chip))
+      return
+    }
+    if (chip.dataset.chipType === 'chat') {
+      handleChipClick?.('chat', parseChatChipElement(chip))
     }
   }
 

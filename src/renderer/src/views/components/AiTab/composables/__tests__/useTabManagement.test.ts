@@ -378,6 +378,36 @@ describe('useTabManagement', () => {
       expect(mockState.chatTabs.value[0].id).toBe('history-2')
     })
 
+    it('should keep current new tab when forceNewTab is true', async () => {
+      mockChatermGetChatermMessages.mockResolvedValue([])
+      mockGetTaskMetadata.mockResolvedValue({ success: true, data: {} })
+
+      const { restoreHistoryTab } = useTabManagement({
+        getCurentTabAssetInfo: mockGetCurentTabAssetInfo,
+        toggleSidebar: mockToggleSidebar
+      })
+
+      const mockState = vi.mocked(useSessionState)()
+      mockState.chatTabs.value[0].title = 'New chat'
+      mockState.chatTabs.value[0].session.chatHistory = []
+
+      const history: HistoryItem = {
+        id: 'history-3',
+        chatTitle: 'Forced New Tab',
+        chatType: 'agent',
+        chatContent: [],
+        isFavorite: false,
+        isEditing: false,
+        editingTitle: ''
+      }
+
+      await restoreHistoryTab(history, { forceNewTab: true })
+
+      expect(mockState.chatTabs.value.length).toBe(2)
+      expect(mockState.chatTabs.value.some((tab) => tab.id === 'history-3')).toBe(true)
+      expect(mockState.chatTabs.value[0].id).not.toBe('history-3')
+    })
+
     it('should send showTaskWithId message to main', async () => {
       mockChatermGetChatermMessages.mockResolvedValue([])
       mockGetTaskMetadata.mockResolvedValue({
