@@ -87,6 +87,23 @@
     font-size: 12px;
   }
 
+  .tab-title-container {
+    display: flex;
+    align-items: center;
+    width: 100%;
+  }
+
+  .tab-title-input {
+    flex: 1;
+    min-width: 0;
+  }
+
+  :deep(.tab-title-input .ant-input) {
+    height: 20px;
+    padding: 0 4px;
+    font-size: 12px;
+  }
+
   .tab-close-icon {
     margin: 0;
     flex-shrink: 0; // Prevent close button from being compressed
