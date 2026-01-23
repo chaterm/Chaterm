@@ -1,15 +1,22 @@
 import { ref, nextTick } from 'vue'
 import { notification } from 'ant-design-vue'
 import { useSessionState } from './useSessionState'
+import type { ChatOption, DocOption } from '../types'
 import i18n from '@/locales'
 
 /**
  * Composable for user interaction events
  * Handles file upload, voice input, keyboard events and other user interactions
  */
-export function useUserInteractions(sendMessage: (sendType: string) => Promise<any>) {
+export interface UseUserInteractionsOptions {
+  sendMessage: (sendType: string) => Promise<any>
+  insertChipAtCursor?: (chipType: 'doc' | 'chat', ref: DocOption | ChatOption, label: string) => void
+}
+
+export function useUserInteractions(options: UseUserInteractionsOptions) {
   const { t } = i18n.global
   const { chatInputParts, appendTextToInputParts } = useSessionState()
+  const { sendMessage, insertChipAtCursor } = options
 
   const fileInputRef = ref<HTMLInputElement>()
   const autoSendAfterVoice = ref(false)
@@ -35,23 +42,6 @@ export function useUserInteractions(sendMessage: (sendType: string) => Promise<a
     fileInputRef.value?.click()
   }
 
-  const readFileContent = (file: File): Promise<string> => {
-    return new Promise((resolve, reject) => {
-      const reader = new FileReader()
-
-      reader.onload = (e) => {
-        const content = e.target?.result as string
-        resolve(content)
-      }
-
-      reader.onerror = () => {
-        reject(new Error(t('ai.fileReadFailed')))
-      }
-
-      reader.readAsText(file, 'utf-8')
-    })
-  }
-
   const handleFileSelected = async (event: Event) => {
     const target = event.target as HTMLInputElement
     const file = target.files?.[0]
@@ -68,34 +58,12 @@ export function useUserInteractions(sendMessage: (sendType: string) => Promise<a
         return
       }
 
-      const content = await readFileContent(file)
-
       const fileName = file.name
-      const fileExtension = fileName.split('.').pop()?.toLowerCase()
+      const filePath = (file as File & { path?: string }).path || fileName
 
-      let formattedContent = ''
-      if (fileExtension === 'json') {
-        try {
-          const jsonContent = JSON.parse(content)
-          formattedContent = `${t('ai.fileContent', { fileName })}:\n\`\`\`json\n${JSON.stringify(jsonContent, null, 2)}\n\`\`\``
-        } catch {
-          formattedContent = `${t('ai.fileContent', { fileName })}:\n\`\`\`\n${content}\n\`\`\``
-        }
-      } else if (['md', 'markdown'].includes(fileExtension || '')) {
-        formattedContent = `${t('ai.fileContent', { fileName })}:\n\`\`\`markdown\n${content}\n\`\`\``
-      } else if (['js', 'ts', 'py', 'java', 'cpp', 'c', 'html', 'css', 'sh', 'bat', 'ps1'].includes(fileExtension || '')) {
-        formattedContent = `${t('ai.fileContent', { fileName })}:\n\`\`\`${fileExtension}\n${content}\n\`\`\``
-      } else {
-        formattedContent = `${t('ai.fileContent', { fileName })}:\n\`\`\`\n${content}\n\`\`\``
+      if (insertChipAtCursor) {
+        insertChipAtCursor('doc', { absPath: filePath, name: fileName, type: 'file' }, fileName)
       }
-
-      appendTextToInputParts(formattedContent, '\n\n')
-
-      notification.success({
-        message: t('ai.fileUploadSuccess'),
-        description: t('ai.fileUploadSuccessDesc', { fileName }),
-        duration: 2
-      })
     } catch (error) {
       console.error('File read error:', error)
       notification.error({
@@ -134,7 +102,6 @@ export function useUserInteractions(sendMessage: (sendType: string) => Promise<a
     handleTranscriptionError,
     handleFileUpload,
     handleFileSelected,
-    readFileContent,
     handleKeyDown
   }
 }
