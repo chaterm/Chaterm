@@ -13,14 +13,19 @@ interface GroupedHistory {
 
 const PAGE_SIZE = 20
 
+interface ChatHistoryOptions {
+  createNewEmptyTab?: () => Promise<string>
+  renameTab?: (tabId: string, title: string) => Promise<void>
+}
+
 /**
  * Composable for chat history management
  * Handles history loading, search, pagination, favorites and other functionalities
  *
- * @param t Internationalization translation function
- * @param createNewEmptyTab Function to create new empty tab
+ * @param options Configuration options including createNewEmptyTab and renameTab functions
  */
-export function useChatHistory(createNewEmptyTab?: () => Promise<string>) {
+export function useChatHistory(options?: ChatHistoryOptions) {
+  const { createNewEmptyTab, renameTab } = options || {}
   // Get required state from global singleton state
   const { chatTabs, currentChatId, attachTabContext } = useSessionState()
 
@@ -146,27 +151,6 @@ export function useChatHistory(createNewEmptyTab?: () => Promise<string>) {
     }
   }
   /**
-   * Callback after history title save - update Tab title
-   */
-  const handleHistorySave = async (history: HistoryItem) => {
-    if (!chatTabs || !currentChatId) return
-
-    // Update current Tab title (if current Tab is the edited history)
-    if (currentChatId.value === history.id) {
-      const targetTab = chatTabs.value.find((tab) => tab.id === history.id)
-      if (targetTab) {
-        targetTab.title = history.chatTitle
-      }
-    }
-
-    // Also update corresponding Tab title
-    const tabIndex = chatTabs.value.findIndex((tab) => tab.id === history.id)
-    if (tabIndex !== -1) {
-      chatTabs.value[tabIndex].title = history.chatTitle
-    }
-  }
-
-  /**
    * Callback after history delete - delete corresponding Tab and send message to main process
    */
   const handleHistoryDelete = async (history: HistoryItem) => {
@@ -231,32 +215,23 @@ export function useChatHistory(createNewEmptyTab?: () => Promise<string>) {
     const newTitle = history.editingTitle?.trim()
 
     if (!newTitle) {
-      // If empty, cancel edit
       await cancelEdit(history)
       return
     }
 
     try {
-      // Update local display
+      // Update local history list display
       history.chatTitle = newTitle
       history.isEditing = false
       history.editingTitle = ''
       currentEditingId.value = null
 
-      // Update globalState
-      const taskHistory = ((await getGlobalState('taskHistory')) as TaskHistoryItem[]) || []
-      const targetHistory = taskHistory.find((item) => item.id === history.id)
-
-      if (targetHistory) {
-        targetHistory.chatTitle = newTitle
-        await updateGlobalState('taskHistory', taskHistory)
+      // Use renameTab to persist and update tab title (avoid duplicate logic)
+      if (renameTab) {
+        await renameTab(history.id, newTitle)
       }
-
-      // Directly call logic to update Tab title
-      await handleHistorySave(history)
     } catch (err) {
       console.error('Failed to save history title:', err)
-      // Restore original title
       await cancelEdit(history)
     }
   }
