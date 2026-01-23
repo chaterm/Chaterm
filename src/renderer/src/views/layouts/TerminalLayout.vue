@@ -447,7 +447,9 @@ const handleAiTabStateChanged = (state: AiSidebarState) => {
 }
 
 const handleKbAddDocToChatRequest = (payload: Array<{ relPath: string; name?: string }>) => {
-  toggleSideBar('right')
+  if (!showAiSidebar.value) {
+    toggleSideBar('right')
+  }
 
   setTimeout(() => {
     eventBus.emit('kbAddDocToChat', payload)
