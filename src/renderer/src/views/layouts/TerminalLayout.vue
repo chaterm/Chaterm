@@ -720,6 +720,21 @@ const configLoaded = ref(false)
 onMounted(async () => {
   const store = piniaUserConfigStore()
   await shortcutService.loadShortcuts()
+
+  const handleCtrlW = (event: KeyboardEvent) => {
+    const isMac = navigator.platform.toUpperCase().indexOf('MAC') >= 0
+    if (isMac) {
+      return
+    }
+
+    if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 'w') {
+      event.preventDefault()
+    }
+  }
+
+  document.addEventListener('keydown', handleCtrlW, true)
+  ;(globalThis as any).__ctrlWHandler = handleCtrlW
+
   eventBus.on('updateWatermark', (watermark) => {
     showWatermark.value = watermark !== 'close'
   })
@@ -1583,6 +1598,12 @@ onUnmounted(() => {
   // Unregister global mouse event listeners
   document.removeEventListener('mousedown', handleMouseDown)
   document.removeEventListener('mouseup', handleGlobalMouseUp)
+
+  // 移除 Ctrl+W 事件监听器
+  if ((globalThis as any).__ctrlWHandler) {
+    document.removeEventListener('keydown', (globalThis as any).__ctrlWHandler, true)
+    delete (globalThis as any).__ctrlWHandler
+  }
   document.removeEventListener('mousemove', handleGlobalMouseMove)
 
   eventBus.off('currentClickServer', currentClickServer)
