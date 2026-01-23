@@ -2894,7 +2894,7 @@ defineExpose({
   --dv-activegroup-hiddenpanel-tab-background-color: var(--bg-color);
   --dv-inactivegroup-visiblepanel-tab-background-color: white;
   --dv-inactivegroup-hiddenpanel-tab-background-color: var(--bg-color);
-  --dv-tab-divider-color: white;
+  --dv-tab-divider-color: #e2e8f0;
   --dv-activegroup-visiblepanel-tab-color: rgb(51, 51, 51);
   --dv-activegroup-hiddenpanel-tab-color: rgba(51, 51, 51, 0.7);
   --dv-inactivegroup-visiblepanel-tab-color: rgba(51, 51, 51, 0.7);
@@ -2902,6 +2902,16 @@ defineExpose({
   --dv-separator-border: rgba(128, 128, 128, 0.35);
   --dv-paneview-header-border-color: rgb(51, 51, 51);
   --dv-scrollbar-background-color: rgba(0, 0, 0, 0.25);
+}
+
+.dockview-theme-light .dv-tabs-and-actions-container {
+  border-bottom: 1px solid #e2e8f0;
+}
+
+.dockview-theme-light .dv-groupview.dv-active-group > .dv-tabs-and-actions-container .dv-tab.dv-active-tab {
+  border: 1px solid #d1d5db;
+  border-bottom: none;
+  border-radius: 4px 4px 0 0;
 }
 
 .dockview-theme-light .dv-drop-target-container .dv-drop-target-anchor.dv-drop-target-anchor-container-changed {
