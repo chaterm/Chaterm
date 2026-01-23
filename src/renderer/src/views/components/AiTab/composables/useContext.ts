@@ -853,6 +853,19 @@ export const useContext = (options: UseContextOptions = {}) => {
     return value.replace(/\\/g, '/')
   }
 
+  const resolveDocAbsPath = async (relPath: string): Promise<string> => {
+    if (!relPath) return ''
+    if (!kbRoot.value) {
+      const { root } = await window.api.kbGetRoot()
+      kbRoot.value = root || ''
+    }
+    if (!kbRoot.value) return ''
+    const normalizedRoot = normalizeDocPath(kbRoot.value)
+    const normalizedRel = normalizeDocPath(relPath)
+    const separator = normalizedRoot.endsWith('/') ? '' : '/'
+    return `${normalizedRoot}${separator}${normalizedRel}`
+  }
+
   const resolveDocRelPath = (absPath: string): string => {
     const root = normalizeDocPath(kbRoot.value)
     const normalizedAbs = normalizeDocPath(absPath)
@@ -880,12 +893,34 @@ export const useContext = (options: UseContextOptions = {}) => {
     })
   }
 
+  const handleKbAddDocToChat = async (payload: Array<{ relPath: string; name?: string }>) => {
+    let inserted = false
+    for (const item of payload) {
+      const relPath = item?.relPath?.trim()
+      if (!relPath) continue
+      const absPath = await resolveDocAbsPath(relPath)
+      if (!absPath) continue
+      const docName = item?.name || relPath.split('/').pop() || relPath
+      const doc: DocOption = { absPath, name: docName, type: 'file' }
+      if (isDocSelected(doc)) continue
+      if (chipInsertHandler.value) {
+        chipInsertHandler.value('doc', doc, docName)
+        inserted = true
+      }
+    }
+    if (inserted) {
+      options.focusInput?.()
+    }
+  }
+
   onMounted(() => {
+    eventBus.on('kbAddDocToChat', handleKbAddDocToChat)
     document.addEventListener('keydown', handleGlobalEscKey)
     document.addEventListener('click', handleGlobalClick)
   })
 
   onUnmounted(() => {
+    eventBus.off('kbAddDocToChat', handleKbAddDocToChat)
     document.removeEventListener('keydown', handleGlobalEscKey)
     document.removeEventListener('click', handleGlobalClick)
   })

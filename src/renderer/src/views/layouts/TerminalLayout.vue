@@ -446,6 +446,14 @@ const handleAiTabStateChanged = (state: AiSidebarState) => {
   savedAiSidebarState.value = state
 }
 
+const handleKbAddDocToChatRequest = (payload: Array<{ relPath: string; name?: string }>) => {
+  toggleSideBar('right')
+
+  setTimeout(() => {
+    eventBus.emit('kbAddDocToChat', payload)
+  }, 100)
+}
+
 const saveAiSidebarState = () => {
   if (aiTabRef.value) {
     try {
@@ -915,6 +923,7 @@ onMounted(async () => {
   eventBus.on('currentClickServer', currentClickServer)
   eventBus.on('getActiveTabAssetInfo', handleGetActiveTabAssetInfo)
   eventBus.on('toggleSideBar', toggleSideBar)
+  eventBus.on('kbAddDocToChatRequest', handleKbAddDocToChatRequest)
   eventBus.on('createSplitTab', handleCreateSplitTab)
   eventBus.on('createVerticalSplitTab', handleCreateVerticalSplitTab)
   eventBus.on('adjustSplitPaneToEqual', adjustSplitPaneToEqualWidth)
@@ -1608,6 +1617,7 @@ onUnmounted(() => {
   eventBus.off('currentClickServer', currentClickServer)
   eventBus.off('getActiveTabAssetInfo', handleGetActiveTabAssetInfo)
   eventBus.off('toggleSideBar', toggleSideBar)
+  eventBus.off('kbAddDocToChatRequest', handleKbAddDocToChatRequest)
   eventBus.off('createSplitTab', handleCreateSplitTab)
   eventBus.off('createVerticalSplitTab', handleCreateVerticalSplitTab)
   eventBus.off('adjustSplitPaneToEqual', adjustSplitPaneToEqualWidth)
