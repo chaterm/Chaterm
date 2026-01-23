@@ -153,7 +153,7 @@ export function useTabManagement(options: TabManagementOptions) {
     return typeof content === 'string'
   }
 
-  const restoreHistoryTab = async (history: HistoryItem) => {
+  const restoreHistoryTab = async (history: HistoryItem, options?: { forceNewTab?: boolean }) => {
     try {
       const existingTabIndex = chatTabs.value.findIndex((tab) => tab.id === history.id)
       if (existingTabIndex !== -1) {
@@ -287,7 +287,7 @@ export function useTabManagement(options: TabManagementOptions) {
       }
 
       const isCurrentNewTab = currentTab.value && currentTab.value.title === 'New chat' && currentTab.value.session.chatHistory.length === 0
-      if (isCurrentNewTab) {
+      if (isCurrentNewTab && !options?.forceNewTab) {
         const currentTabIndex = chatTabs.value.findIndex((tab) => tab.id === currentTab.value!.id)
         if (currentTabIndex !== -1) {
           chatTabs.value[currentTabIndex] = historyTab

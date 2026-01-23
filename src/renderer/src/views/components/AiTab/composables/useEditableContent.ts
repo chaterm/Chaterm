@@ -12,6 +12,65 @@ import MessageOutlinedSvg from '@ant-design/icons-svg/es/asn/MessageOutlined'
 type IconNode = { tag: string; attrs?: Record<string, string>; children?: IconNode[] }
 type IconDefinitionLike = { icon: IconNode | ((primaryColor: string, secondaryColor: string) => IconNode) }
 
+export const CONTEXT_DRAG_MIME = 'application/x-chaterm-context'
+export const CONTEXT_DRAG_TEXT_PREFIX = 'chaterm-context:'
+
+export type ContextDragPayload =
+  | { contextType: 'doc'; relPath: string; name: string }
+  | { contextType: 'chat'; id: string; title: string }
+  | {
+      contextType: 'host'
+      uuid: string
+      label: string
+      connect: string
+      assetType?: string
+      isLocalHost?: boolean
+      organizationUuid?: string
+    }
+
+export const parseContextDragPayload = (dataTransfer: DataTransfer | null): ContextDragPayload | null => {
+  if (!dataTransfer) return null
+
+  // Only accept our custom drag data.
+  const raw = dataTransfer.getData(CONTEXT_DRAG_MIME)
+  const textFallback = dataTransfer.getData('text/plain')
+  const payloadRaw = raw || (textFallback.startsWith(CONTEXT_DRAG_TEXT_PREFIX) ? textFallback.slice(CONTEXT_DRAG_TEXT_PREFIX.length) : '')
+  if (!payloadRaw) return null
+
+  let parsed: unknown = null
+  try {
+    parsed = JSON.parse(payloadRaw)
+  } catch {
+    return null
+  }
+
+  if (!parsed || typeof parsed !== 'object') return null
+  const payload = parsed as Record<string, unknown>
+  const contextType = payload.contextType
+
+  if (contextType === 'doc' && typeof payload.relPath === 'string' && typeof payload.name === 'string') {
+    return { contextType: 'doc', relPath: payload.relPath, name: payload.name }
+  }
+
+  if (contextType === 'chat' && typeof payload.id === 'string' && typeof payload.title === 'string') {
+    return { contextType: 'chat', id: payload.id, title: payload.title }
+  }
+
+  if (contextType === 'host' && typeof payload.uuid === 'string' && typeof payload.label === 'string' && typeof payload.connect === 'string') {
+    return {
+      contextType: 'host',
+      uuid: payload.uuid,
+      label: payload.label,
+      connect: payload.connect,
+      assetType: typeof payload.assetType === 'string' ? payload.assetType : undefined,
+      isLocalHost: typeof payload.isLocalHost === 'boolean' ? payload.isLocalHost : undefined,
+      organizationUuid: typeof payload.organizationUuid === 'string' ? payload.organizationUuid : undefined
+    }
+  }
+
+  return null
+}
+
 // ============================================================================
 // Composable
 // ============================================================================
@@ -21,10 +80,11 @@ export interface UseEditableContentOptions {
   chatInputParts: Ref<ContentPart[]>
   handleSendClick: (type: string) => void
   handleAddContextClick: (triggerEl?: HTMLElement | null, mode?: 'create' | 'edit') => void
+  handleChipClick?: (chipType: 'doc' | 'chat', ref: ContextDocRef | ContextPastChatRef) => void
 }
 
 export function useEditableContent(options: UseEditableContentOptions) {
-  const { editableRef, chatInputParts, handleSendClick, handleAddContextClick } = options
+  const { editableRef, chatInputParts, handleSendClick, handleAddContextClick, handleChipClick } = options
 
   const isEditableEmpty = ref(true)
   const savedSelection = ref<Range | null>(null)
@@ -124,6 +184,7 @@ export function useEditableContent(options: UseEditableContentOptions) {
     chip.className = `mention-chip mention-chip-${chipType}`
     chip.contentEditable = 'false'
     chip.setAttribute('data-chip-type', chipType)
+    chip.setAttribute('title', label)
 
     // Set chip-type-specific data attributes
     if (chipType === 'doc') {
@@ -369,6 +430,18 @@ export function useEditableContent(options: UseEditableContentOptions) {
         chip.remove()
         syncDraftPartsFromEditable()
       }
+      return
+    }
+
+    const chip = target?.closest('.mention-chip') as HTMLElement | null
+    if (!chip) return
+
+    if (chip.dataset.chipType === 'doc') {
+      handleChipClick?.('doc', parseKbChipElement(chip))
+      return
+    }
+    if (chip.dataset.chipType === 'chat') {
+      handleChipClick?.('chat', parseChatChipElement(chip))
     }
   }
 

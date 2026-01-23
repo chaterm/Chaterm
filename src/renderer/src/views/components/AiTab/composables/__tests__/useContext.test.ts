@@ -7,7 +7,7 @@ import { ref } from 'vue'
 import { useContext } from '../useContext'
 import { useHostState } from '../useHostState'
 import type { Host, HostOption } from '../../types'
-import type { ContentPart } from '@shared/WebviewMessage'
+import type { ContentPart, ContextDocRef } from '@shared/WebviewMessage'
 import eventBus from '@/utils/eventBus'
 import { Notice } from '@/views/components/Notice/index'
 
@@ -260,6 +260,27 @@ describe('useContext', () => {
       expect(vi.mocked(Notice.open)).toHaveBeenCalledWith(
         expect.objectContaining({
           description: 'ai.switchNotSupportAgent'
+        })
+      )
+    })
+  })
+
+  describe('openDocFromChip', () => {
+    it('should emit openUserTab with relPath resolved from absPath', async () => {
+      const { openDocFromChip } = useContext()
+      const docRef: ContextDocRef = {
+        absPath: '/kb/docs/readme.md',
+        name: 'readme.md',
+        type: 'file'
+      }
+
+      await openDocFromChip(docRef)
+
+      expect(vi.mocked(eventBus.emit)).toHaveBeenCalledWith(
+        'openUserTab',
+        expect.objectContaining({
+          key: 'KnowledgeCenterEditor',
+          props: { relPath: 'docs/readme.md' }
         })
       )
     })
