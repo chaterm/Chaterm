@@ -1597,7 +1597,6 @@ onUnmounted(() => {
   document.removeEventListener('mousedown', handleMouseDown)
   document.removeEventListener('mouseup', handleGlobalMouseUp)
 
-  // 移除 Ctrl+W 事件监听器
   if ((globalThis as any).__ctrlWHandler) {
     document.removeEventListener('keydown', (globalThis as any).__ctrlWHandler, true)
     delete (globalThis as any).__ctrlWHandler
