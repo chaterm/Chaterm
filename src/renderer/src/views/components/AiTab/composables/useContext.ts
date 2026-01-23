@@ -11,7 +11,8 @@ import { getGlobalState } from '@renderer/agent/storage/state'
 import type { TaskHistoryItem } from '../types'
 import i18n from '@/locales'
 import { Notice } from '@/views/components/Notice'
-import type { ContentPart } from '@shared/WebviewMessage'
+import type { ContentPart, ContextDocRef } from '@shared/WebviewMessage'
+import eventBus from '@/utils/eventBus'
 
 // Type for the context return value
 export type ContextInstance = ReturnType<typeof useContext>
@@ -848,6 +849,37 @@ export const useContext = (options: UseContextOptions = {}) => {
     }
   }
 
+  const normalizeDocPath = (value: string): string => {
+    return value.replace(/\\/g, '/')
+  }
+
+  const resolveDocRelPath = (absPath: string): string => {
+    const root = normalizeDocPath(kbRoot.value)
+    const normalizedAbs = normalizeDocPath(absPath)
+    if (!root || !normalizedAbs.startsWith(root)) return ''
+    const normalizedRoot = root.endsWith('/') ? root.slice(0, -1) : root
+    let relPath = normalizedAbs.slice(normalizedRoot.length)
+    if (relPath.startsWith('/')) relPath = relPath.slice(1)
+    return relPath
+  }
+
+  const openDocFromChip = async (docRef: ContextDocRef) => {
+    if (!docRef.absPath || docRef.type === 'dir') return
+    if (!kbRoot.value) {
+      const { root } = await window.api.kbGetRoot()
+      kbRoot.value = root
+    }
+    const relPath = resolveDocRelPath(docRef.absPath)
+    if (!relPath) return
+    const title = docRef.name || relPath.split('/').pop() || 'KnowledgeCenter'
+    eventBus.emit('openUserTab', {
+      key: 'KnowledgeCenterEditor',
+      title,
+      id: `kb:${relPath}`,
+      props: { relPath }
+    })
+  }
+
   onMounted(() => {
     document.addEventListener('keydown', handleGlobalEscKey)
     document.addEventListener('click', handleGlobalClick)
@@ -897,6 +929,7 @@ export const useContext = (options: UseContextOptions = {}) => {
     isChatSelected,
     onChatClick,
     fetchChatsOptions,
+    openDocFromChip,
     // Chip insertion
     setChipInsertHandler: (handler: (chipType: 'doc' | 'chat', ref: DocOption | ChatOption, label: string) => void) => {
       chipInsertHandler.value = handler

@@ -317,6 +317,7 @@ import { shortcutService } from '@/services/shortcutService'
 import { captureExtensionUsage, ExtensionNames, ExtensionStatus } from '@/utils/telemetry'
 import Dashboard from '@renderer/views/components/Ssh/components/dashboard.vue'
 import { getGlobalState } from '@/agent/storage/state'
+import { CONTEXT_DRAG_MIME, CONTEXT_DRAG_TEXT_PREFIX } from '@views/components/AiTab/composables/useEditableContent'
 import 'dockview-vue/dist/styles/dockview.css'
 import { type DockviewReadyEvent, DockviewVue } from 'dockview-vue'
 import type { DockviewApi } from 'dockview-core'
@@ -2086,6 +2087,7 @@ const onDockReady = (event: DockviewReadyEvent) => {
   nextTick(() => {
     applyTheme()
     setupTabContextMenu()
+    setupTabDragToAi()
     handleActivePanelChange()
   })
 }
@@ -2193,6 +2195,55 @@ const findPanelIdFromTab = (tabElement: HTMLElement): string | null => {
   } catch (error) {
     return null
   }
+}
+
+const setupTabDragToAi = () => {
+  const container = dockviewRef.value?.$el
+  if (!container) return
+
+  container.addEventListener('dragstart', (e: DragEvent) => {
+    const target = e.target as HTMLElement
+    const tabElement = target.closest('.dv-tab') as HTMLElement | null
+    if (!tabElement || !e.dataTransfer) return
+
+    const panelId = findPanelIdFromTab(tabElement)
+    if (!panelId || !dockApi) return
+
+    const panel = dockApi.getPanel(panelId)
+    if (!panel) return
+
+    const params = panel.params as Record<string, any> | undefined
+    if (!params) return
+
+    // Handle KnowledgeCenterEditor (doc)
+    if (params.content === 'KnowledgeCenterEditor' && params.props?.relPath) {
+      const name = params.title || params.props.relPath.split('/').pop() || 'KnowledgeCenter'
+      const dragPayload = { contextType: 'doc', relPath: params.props.relPath, name }
+      const payload = JSON.stringify(dragPayload)
+      e.dataTransfer.setData(CONTEXT_DRAG_MIME, payload)
+      e.dataTransfer.setData('text/plain', `${CONTEXT_DRAG_TEXT_PREFIX}${payload}`)
+      e.dataTransfer.effectAllowed = 'copy'
+      return
+    }
+
+    // Handle host/terminal tabs
+    if (params.ip || params.organizationId) {
+      const data = params.data || {}
+      const dragPayload = {
+        contextType: 'host',
+        uuid: data.uuid || params.id,
+        label: params.title || params.ip,
+        connect: data.connect || params.ip,
+        assetType: data.asset_type || data.assetType,
+        isLocalHost: data.isLocalHost,
+        organizationUuid: data.organizationUuid || data.organizationId || params.organizationId
+      }
+      const payload = JSON.stringify(dragPayload)
+      e.dataTransfer.setData(CONTEXT_DRAG_MIME, payload)
+      e.dataTransfer.setData('text/plain', `${CONTEXT_DRAG_TEXT_PREFIX}${payload}`)
+      e.dataTransfer.effectAllowed = 'copy'
+    }
+  })
 }
 
 const createNewPanel = (isClone: boolean, direction: 'left' | 'right' | 'above' | 'below' | 'within', panelId?: string) => {
