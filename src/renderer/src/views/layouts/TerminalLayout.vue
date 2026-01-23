@@ -161,6 +161,7 @@
                 />
                 <Assets
                   v-else-if="currentMenu == 'assets'"
+                  ref="assetsRef"
                   :toggle-sidebar="toggleSideBar"
                   @open-user-tab="openUserTab"
                 />
@@ -348,6 +349,7 @@ const configStore = piniaUserConfigStore()
 const isTransparent = computed(() => !!configStore.getUserConfig.background.image)
 const headerRef = ref<InstanceType<typeof Header> | null>(null)
 const allTabs = ref<InstanceType<typeof TabsPanel> | null>(null)
+const assetsRef = ref<InstanceType<typeof Assets> | null>(null)
 const isSkippedLogin = computed(() => {
   return localStorage.getItem('login-skipped') === 'true'
 })
@@ -2096,8 +2098,13 @@ const onDockReady = (event: DockviewReadyEvent) => {
     panelCount.value = dockApi?.panels.length ?? 0
   })
 
-  dockApi.onDidRemovePanel(() => {
+  dockApi.onDidRemovePanel((panel) => {
     panelCount.value = dockApi?.panels.length ?? 0
+    // Clear Assets menu selection when corresponding tab is closed
+    const content = panel.params?.content
+    if (content === 'assetConfig' || content === 'keyManagement' || content === 'files') {
+      assetsRef.value?.handleExplorerActive(content)
+    }
   })
 
   dockApi.onDidActivePanelChange(() => {
