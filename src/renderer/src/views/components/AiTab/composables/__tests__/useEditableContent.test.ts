@@ -2,6 +2,7 @@ import { describe, it, expect, vi } from 'vitest'
 import { ref } from 'vue'
 import { parseContextDragPayload, useEditableContent } from '../useEditableContent'
 import type { ContentPart, ContextDocRef, ContextPastChatRef } from '@shared/WebviewMessage'
+import type { DocOption } from '../../types'
 
 describe('useEditableContent', () => {
   const setup = () => {
@@ -16,7 +17,7 @@ describe('useEditableContent', () => {
       handleAddContextClick: vi.fn(),
       handleChipClick
     })
-    return { ...api, handleChipClick }
+    return { ...api, editableRef, handleChipClick }
   }
 
   it('should call handleChipClick for doc chip', () => {
@@ -49,6 +50,29 @@ describe('useEditableContent', () => {
     handleEditableClick({ target: removeBtn } as unknown as MouseEvent)
 
     expect(handleChipClick).not.toHaveBeenCalled()
+  })
+
+  it('should insert chip at end when selection is missing', () => {
+    const { editableRef, insertChipAtCursor } = setup()
+    const el = editableRef.value as HTMLDivElement
+    el.textContent = 'hello'
+    document.body.appendChild(el)
+
+    window.getSelection()?.removeAllRanges()
+
+    const doc: DocOption = { absPath: '/kb/docs/a.md', name: 'a.md', type: 'file' }
+    insertChipAtCursor('doc', doc, doc.name)
+
+    const chip = el.querySelector('.mention-chip') as HTMLElement | null
+    expect(chip).not.toBeNull()
+    expect(chip?.getAttribute('data-chip-type')).toBe('doc')
+
+    const lastNode = el.lastChild as Text | null
+    expect(lastNode?.nodeType).toBe(Node.TEXT_NODE)
+    expect(lastNode?.textContent).toBe(' ')
+    expect(chip?.nextSibling).toBe(lastNode)
+
+    el.remove()
   })
 
   it('should parse doc drag payload', () => {
