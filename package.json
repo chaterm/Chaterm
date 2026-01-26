@@ -66,7 +66,7 @@
     "@types/ssh2": "^1.15.5",
     "@vueuse/core": "^14.1.0",
     "adm-zip": "^0.5.16",
-    "axios": "^1.8.4",
+    "axios": "^1.13.3",
     "better-sqlite3": "^12.6.2",
     "chokidar": "^5.0.0",
     "clone-deep": "^4.0.1",
