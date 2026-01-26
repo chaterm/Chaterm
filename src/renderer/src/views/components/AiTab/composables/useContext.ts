@@ -94,6 +94,11 @@ export const useContext = (options: UseContextOptions = {}) => {
   const chatsOptionsLoading = ref(false)
   const chipInsertHandler = ref<((chipType: 'doc' | 'chat', ref: DocOption | ChatOption, label: string) => void) | null>(null)
 
+  // ========== Opened Hosts State ==========
+  // List of hosts from currently opened terminal tabs for quick selection
+  const openedHostsList = ref<HostOption[]>([])
+  const openedHostsLoading = ref(false)
+
   const toggleJumpserverExpand = (key: string) => {
     if (expandedJumpservers.value.has(key)) {
       expandedJumpservers.value.delete(key)
@@ -203,6 +208,32 @@ export const useContext = (options: UseContextOptions = {}) => {
       return chatsOptions.value
     }
     return chatsOptions.value.filter((chat) => chat.title.toLowerCase().includes(searchTerm))
+  })
+
+  // Filtered opened hosts for main menu quick selection
+  const filteredOpenedHosts = computed(() => {
+    // Only show opened hosts in agent mode
+    if (chatTypeValue.value !== 'agent') {
+      return []
+    }
+    const searchTerm = searchValue.value.toLowerCase()
+    if (!searchTerm) {
+      return openedHostsList.value
+    }
+    return openedHostsList.value.filter(
+      (host) => host.label.toLowerCase().includes(searchTerm) || (host.title && host.title.toLowerCase().includes(searchTerm))
+    )
+  })
+
+  // Limit displayed opened hosts to max 4 items
+  const MAX_DISPLAYED_OPENED_HOSTS = 4
+  const displayedOpenedHosts = computed(() => {
+    return filteredOpenedHosts.value.slice(0, MAX_DISPLAYED_OPENED_HOSTS)
+  })
+
+  // Total items in main menu (displayed opened hosts + category items)
+  const mainMenuTotalItems = computed(() => {
+    return displayedOpenedHosts.value.length + mainMenuItems.value.length
   })
 
   const isHostSelected = (hostOption: HostOption): boolean => {
@@ -338,7 +369,8 @@ export const useContext = (options: UseContextOptions = {}) => {
       case 'ArrowDown':
         e.preventDefault()
         if (currentMenuLevel.value === 'main') {
-          const maxIndex = Math.max(0, mainMenuItems.value.length - 1)
+          // Main menu: opened hosts + category items
+          const maxIndex = Math.max(0, mainMenuTotalItems.value - 1)
           keyboardSelectedIndex.value = Math.min(keyboardSelectedIndex.value + 1, maxIndex)
         } else if (currentList.length > 0) {
           if (keyboardSelectedIndex.value === -1) {
@@ -367,8 +399,16 @@ export const useContext = (options: UseContextOptions = {}) => {
       case 'Enter':
         e.preventDefault()
         if (currentMenuLevel.value === 'main') {
-          if (keyboardSelectedIndex.value >= 0 && keyboardSelectedIndex.value < mainMenuItems.value.length) {
-            await goToLevel2(mainMenuItems.value[keyboardSelectedIndex.value])
+          const openedHostsCount = displayedOpenedHosts.value.length
+          if (keyboardSelectedIndex.value >= 0 && keyboardSelectedIndex.value < openedHostsCount) {
+            // Selected an opened host - directly select it
+            onHostClick(displayedOpenedHosts.value[keyboardSelectedIndex.value])
+          } else {
+            // Selected a category menu item
+            const categoryIndex = keyboardSelectedIndex.value - openedHostsCount
+            if (categoryIndex >= 0 && categoryIndex < mainMenuItems.value.length) {
+              await goToLevel2(mainMenuItems.value[categoryIndex])
+            }
           }
         } else if (keyboardSelectedIndex.value >= 0 && keyboardSelectedIndex.value < currentList.length) {
           const item = currentList[keyboardSelectedIndex.value]
@@ -657,6 +697,59 @@ export const useContext = (options: UseContextOptions = {}) => {
     }
   }
 
+  /**
+   * Fetch list of hosts from currently opened terminal tabs
+   */
+  const fetchOpenedHosts = async () => {
+    if (chatTypeValue.value === 'chat') {
+      openedHostsList.value = []
+      return
+    }
+
+    openedHostsLoading.value = true
+    const TIMEOUT_MS = 3000
+
+    try {
+      const hosts = await new Promise<Array<{ uuid: string; ip: string; title: string; organizationId?: string; assetType?: string }>>(
+        (resolve, reject) => {
+          const timeout = setTimeout(() => {
+            eventBus.off('allOpenedHostsResult', handleResult)
+            reject(new Error('Timeout getting opened hosts'))
+          }, TIMEOUT_MS)
+
+          const handleResult = (result: Array<{ uuid: string; ip: string; title: string; organizationId?: string; assetType?: string }>) => {
+            clearTimeout(timeout)
+            eventBus.off('allOpenedHostsResult', handleResult)
+            resolve(result)
+          }
+          eventBus.on('allOpenedHostsResult', handleResult)
+          eventBus.emit('getAllOpenedHosts')
+        }
+      )
+
+      // Convert to HostOption format
+      openedHostsList.value = hosts.map((h) => ({
+        key: h.uuid,
+        value: h.uuid,
+        uuid: h.uuid,
+        label: h.ip,
+        connect: 'personal',
+        title: h.title || h.ip,
+        isLocalHost: h.ip === '127.0.0.1' || h.ip === 'localhost',
+        type: 'personal' as const,
+        selectable: true,
+        level: 0,
+        organizationUuid: h.organizationId,
+        assetType: h.assetType
+      }))
+    } catch (error) {
+      console.error('Failed to fetch opened hosts:', error)
+      openedHostsList.value = []
+    } finally {
+      openedHostsLoading.value = false
+    }
+  }
+
   const fetchDocsOptions = async (relDir: string = docsCurrentRelDir.value) => {
     if (docsOptionsLoading.value) return
 
@@ -785,6 +878,9 @@ export const useContext = (options: UseContextOptions = {}) => {
     popupReady.value = false
     searchValue.value = ''
     currentMenuLevel.value = 'main'
+
+    // Fetch opened hosts when popup opens (for quick selection in main menu)
+    fetchOpenedHosts()
 
     nextTick(() => {
       if (mode === 'edit' && triggerEl) {
@@ -948,6 +1044,12 @@ export const useContext = (options: UseContextOptions = {}) => {
     toggleJumpserverExpand,
     fetchHostOptions,
     fetchHostOptionsForCommandMode,
+
+    // Opened hosts state (for quick selection in main menu)
+    openedHostsList,
+    openedHostsLoading,
+    filteredOpenedHosts,
+    displayedOpenedHosts,
 
     // Docs state
     docsOptions,
