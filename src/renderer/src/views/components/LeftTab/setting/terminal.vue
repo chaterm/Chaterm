@@ -821,7 +821,7 @@ onBeforeUnmount(() => {
 
 .custom-form :deep(.ant-input-number) {
   background-color: var(--input-number-bg);
-  border: 1px solid var(--border-color);
+  border: 1px solid var(--border-color) !important;
   border-radius: 6px;
   transition: all 0.3s;
   width: 100px !important;
@@ -831,7 +831,7 @@ onBeforeUnmount(() => {
 .custom-form :deep(.ant-input-number:focus),
 .custom-form :deep(.ant-input-number-focused) {
   background-color: var(--input-number-hover-bg);
-  border-color: #1890ff;
+  border-color: #1890ff !important;
   box-shadow: 0 0 0 2px rgba(24, 144, 255, 0.2);
 }
 
@@ -1079,6 +1079,12 @@ onBeforeUnmount(() => {
   line-height: 32px;
 }
 
+.proxy-form-select :deep(.ant-select-selection-placeholder) {
+  color: var(--text-color-tertiary) !important;
+  font-size: 14px;
+  line-height: 32px;
+}
+
 .proxy-form-select :deep(.ant-select-arrow) {
   color: var(--text-color) !important;
   opacity: 0.7;
@@ -1282,16 +1288,34 @@ onBeforeUnmount(() => {
   background-color: var(--bg-color-octonary) !important;
   color: var(--text-color) !important;
   border-color: var(--border-color) !important;
+
+  &::placeholder {
+    color: var(--text-color-tertiary) !important;
+  }
 }
 
 .agent-config-modal .ant-input-number,
 .proxy-config-add-modal .ant-input-number {
   background-color: var(--bg-color-octonary) !important;
+  border: 1px solid var(--border-color) !important;
+  border-radius: 6px;
+}
+
+.agent-config-modal .ant-input-number:hover,
+.agent-config-modal .ant-input-number:focus,
+.proxy-config-add-modal .ant-input-number:hover,
+.proxy-config-add-modal .ant-input-number:focus {
+  border-color: #1890ff !important;
+  box-shadow: 0 0 0 2px rgba(24, 144, 255, 0.2) !important;
 }
 
 .agent-config-modal .ant-input-number-input,
 .proxy-config-add-modal .ant-input-number-input {
   background-color: var(--bg-color-octonary) !important;
   color: var(--text-color) !important;
+
+  &::placeholder {
+    color: var(--text-color-tertiary) !important;
+  }
 }
 </style>

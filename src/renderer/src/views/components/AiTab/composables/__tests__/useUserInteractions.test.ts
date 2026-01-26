@@ -38,39 +38,63 @@ vi.mock('ant-design-vue', () => ({
 
 describe('useUserInteractions', () => {
   let mockSendMessage: (sendType: string) => Promise<any>
-  let chatInputValue: ReturnType<typeof ref<string>>
+  let chatInputParts: ReturnType<typeof ref<Array<{ type: string; text: string }>>>
+
+  let mockInsertChipAtCursor: any
+
+  const getText = (parts: Array<{ type: string; text: string }>) => {
+    return parts
+      .filter((part) => part.type === 'text')
+      .map((part) => part.text)
+      .join('')
+  }
 
   beforeEach(() => {
     vi.clearAllMocks()
 
     mockSendMessage = vi.fn().mockResolvedValue(undefined)
-    chatInputValue = ref('')
+    chatInputParts = ref([])
+    mockInsertChipAtCursor = vi.fn()
+
+    // Mock appendTextToInputParts to modify chatInputParts directly
+    const mockAppendTextToInputParts = (text: string, prefix: string = ' ', suffix: string = '') => {
+      const parts = [...(chatInputParts.value ?? [])]
+      const last = parts[parts.length - 1]
+      const textToAppend = parts.length > 0 ? `${prefix}${text}${suffix}` : `${text}${suffix}`
+      if (last && last.type === 'text') {
+        parts[parts.length - 1] = { ...last, text: last.text + textToAppend }
+      } else {
+        parts.push({ type: 'text', text: textToAppend })
+      }
+      chatInputParts.value = parts
+    }
 
     vi.mocked(useSessionState).mockReturnValue({
-      chatInputValue
+      chatInputParts,
+      appendTextToInputParts: mockAppendTextToInputParts
     } as any)
   })
 
   describe('handleTranscriptionComplete', () => {
     it('should append transcribed text to existing content', () => {
-      const { handleTranscriptionComplete } = useUserInteractions(mockSendMessage)
+      const { handleTranscriptionComplete } = useUserInteractions({ sendMessage: mockSendMessage })
 
-      chatInputValue.value = 'Hello'
+      chatInputParts.value = [{ type: 'text', text: 'Hello' }]
       handleTranscriptionComplete('world')
 
-      expect(chatInputValue.value).toBe('Hello world')
+      expect(getText(chatInputParts.value)).toBe('Hello world')
     })
 
     it('should set transcribed text when input is empty', () => {
-      const { handleTranscriptionComplete } = useUserInteractions(mockSendMessage)
+      const { handleTranscriptionComplete } = useUserInteractions({ sendMessage: mockSendMessage })
 
       handleTranscriptionComplete('Hello world')
 
-      expect(chatInputValue.value).toBe('Hello world')
+      expect(getText(chatInputParts.value ?? [])).toBe('Hello world')
     })
 
     it('should auto-send when enabled', async () => {
-      const { handleTranscriptionComplete, autoSendAfterVoice } = useUserInteractions(mockSendMessage)
+      const { handleTranscriptionComplete, autoSendAfterVoice } = useUserInteractions({ sendMessage: mockSendMessage })
 
       autoSendAfterVoice.value = true
       handleTranscriptionComplete('Test message')
@@ -82,7 +106,7 @@ describe('useUserInteractions', () => {
     })
 
     it('should not auto-send when disabled', async () => {
-      const { handleTranscriptionComplete, autoSendAfterVoice } = useUserInteractions(mockSendMessage)
+      const { handleTranscriptionComplete, autoSendAfterVoice } = useUserInteractions({ sendMessage: mockSendMessage })
 
       autoSendAfterVoice.value = false
       handleTranscriptionComplete('Test message')
@@ -97,7 +121,7 @@ describe('useUserInteractions', () => {
     it('should log error', () => {
       const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
 
-      const { handleTranscriptionError } = useUserInteractions(mockSendMessage)
+      const { handleTranscriptionError } = useUserInteractions({ sendMessage: mockSendMessage })
 
       handleTranscriptionError('Transcription failed')
 
@@ -108,7 +132,7 @@ describe('useUserInteractions', () => {
 
   describe('handleFileUpload', () => {
     it('should trigger file input click', () => {
-      const { handleFileUpload, fileInputRef } = useUserInteractions(mockSendMessage)
+      const { handleFileUpload, fileInputRef } = useUserInteractions({ sendMessage: mockSendMessage })
 
       const mockClick = vi.fn()
       fileInputRef.value = { click: mockClick } as any
@@ -119,27 +143,18 @@ describe('useUserInteractions', () => {
     })
 
     it('should not throw when file input is not set', () => {
-      const { handleFileUpload } = useUserInteractions(mockSendMessage)
+      const { handleFileUpload } = useUserInteractions({ sendMessage: mockSendMessage })
 
       expect(() => handleFileUpload()).not.toThrow()
     })
   })
 
-  describe('readFileContent', () => {
-    it('should read file content as text', async () => {
-      const { readFileContent } = useUserInteractions(mockSendMessage)
-
-      const mockFile = new File(['test content'], 'test.txt', { type: 'text/plain' })
-
-      const content = await readFileContent(mockFile)
-
-      expect(content).toBe('test content')
-    })
-  })
-
   describe('handleFileSelected', () => {
     it('should handle no file selected', async () => {
-      const { handleFileSelected } = useUserInteractions(mockSendMessage)
+      const { handleFileSelected } = useUserInteractions({
+        sendMessage: mockSendMessage,
+        insertChipAtCursor: mockInsertChipAtCursor
+      })
 
       const mockEvent = {
         target: {
@@ -149,12 +164,16 @@ describe('useUserInteractions', () => {
 
       await handleFileSelected(mockEvent)
 
-      expect(chatInputValue.value).toBe('')
+      expect(getText(chatInputParts.value ?? [])).toBe('')
+      expect(mockInsertChipAtCursor).not.toHaveBeenCalled()
     })
 
     it('should warn when file is too large', async () => {
       const { notification } = await import('ant-design-vue')
-      const { handleFileSelected } = useUserInteractions(mockSendMessage)
+      const { handleFileSelected } = useUserInteractions({
+        sendMessage: mockSendMessage,
+        insertChipAtCursor: mockInsertChipAtCursor
+      })
 
       const largeFile = new File(['x'.repeat(2 * 1024 * 1024)], 'large.txt', { type: 'text/plain' })
       const mockEvent = {
@@ -167,114 +186,39 @@ describe('useUserInteractions', () => {
       await handleFileSelected(mockEvent)
 
       expect(notification.warning).toHaveBeenCalled()
-      expect(chatInputValue.value).toBe('')
+      expect(getText(chatInputParts.value ?? [])).toBe('')
+      expect(mockInsertChipAtCursor).not.toHaveBeenCalled()
     })
 
-    it('should format JSON file content', async () => {
-      const { notification } = await import('ant-design-vue')
-      const { handleFileSelected } = useUserInteractions(mockSendMessage)
+    it('should insert doc chip for selected file', async () => {
+      const { handleFileSelected } = useUserInteractions({
+        sendMessage: mockSendMessage,
+        insertChipAtCursor: mockInsertChipAtCursor
+      })
 
-      const jsonContent = { key: 'value', nested: { prop: 123 } }
-      const jsonFile = new File([JSON.stringify(jsonContent)], 'test.json', { type: 'application/json' })
+      const file = Object.assign(new File(['Hello'], 'test.txt', { type: 'text/plain' }), {
+        path: '/Users/demo/test.txt'
+      })
 
       const mockEvent = {
         target: {
-          files: [jsonFile],
-          value: 'test.json'
-        }
-      } as any
-
-      await handleFileSelected(mockEvent)
-
-      expect(chatInputValue.value).toContain('```json')
-      expect(chatInputValue.value).toContain('"key"')
-      expect(notification.success).toHaveBeenCalled()
-      expect(mockEvent.target.value).toBe('')
-    })
-
-    it('should format markdown file content', async () => {
-      const { notification } = await import('ant-design-vue')
-      const { handleFileSelected } = useUserInteractions(mockSendMessage)
-
-      const mdFile = new File(['# Title\n\nContent'], 'test.md', { type: 'text/markdown' })
-
-      const mockEvent = {
-        target: {
-          files: [mdFile],
-          value: 'test.md'
-        }
-      } as any
-
-      await handleFileSelected(mockEvent)
-
-      expect(chatInputValue.value).toContain('```markdown')
-      expect(chatInputValue.value).toContain('# Title')
-      expect(notification.success).toHaveBeenCalled()
-    })
-
-    it('should format code file content with language', async () => {
-      const { notification } = await import('ant-design-vue')
-      const { handleFileSelected } = useUserInteractions(mockSendMessage)
-
-      const pyFile = new File(['def hello():\n    print("world")'], 'test.py', { type: 'text/x-python' })
-
-      const mockEvent = {
-        target: {
-          files: [pyFile],
-          value: 'test.py'
-        }
-      } as any
-
-      await handleFileSelected(mockEvent)
-
-      expect(chatInputValue.value).toContain('```py')
-      expect(chatInputValue.value).toContain('def hello')
-      expect(notification.success).toHaveBeenCalled()
-    })
-
-    it('should append to existing input', async () => {
-      const { handleFileSelected } = useUserInteractions(mockSendMessage)
-
-      chatInputValue.value = 'Existing content'
-
-      const txtFile = new File(['New content'], 'test.txt', { type: 'text/plain' })
-      const mockEvent = {
-        target: {
-          files: [txtFile],
+          files: [file],
           value: 'test.txt'
         }
       } as any
 
       await handleFileSelected(mockEvent)
 
-      expect(chatInputValue.value).toContain('Existing content')
-      expect(chatInputValue.value).toContain('New content')
-    })
-
-    it('should handle invalid JSON gracefully', async () => {
-      const { notification } = await import('ant-design-vue')
-      const { handleFileSelected } = useUserInteractions(mockSendMessage)
-
-      const invalidJsonFile = new File(['{ invalid json }'], 'test.json', { type: 'application/json' })
-      const mockEvent = {
-        target: {
-          files: [invalidJsonFile],
-          value: 'test.json'
-        }
-      } as any
-
-      await handleFileSelected(mockEvent)
-
-      expect(chatInputValue.value).toContain('```')
-      expect(notification.success).toHaveBeenCalled()
+      expect(mockInsertChipAtCursor).toHaveBeenCalledWith('doc', { absPath: '/Users/demo/test.txt', name: 'test.txt', type: 'file' }, 'test.txt')
+      expect(mockEvent.target.value).toBe('')
     })
   })
 
   describe('handleKeyDown', () => {
     it('should send message on Enter key', async () => {
-      const { handleKeyDown } = useUserInteractions(mockSendMessage)
+      const { handleKeyDown } = useUserInteractions({ sendMessage: mockSendMessage })
 
-      chatInputValue.value = 'Test message'
+      chatInputParts.value = [{ type: 'text', text: 'Test message' }]
 
       const mockEvent = {
         key: 'Enter',
@@ -290,9 +234,9 @@ describe('useUserInteractions', () => {
     })
 
     it('should not send on Shift+Enter', () => {
-      const { handleKeyDown } = useUserInteractions(mockSendMessage)
+      const { handleKeyDown } = useUserInteractions({ sendMessage: mockSendMessage })
 
-      chatInputValue.value = 'Test message'
+      chatInputParts.value = [{ type: 'text', text: 'Test message' }]
 
       const mockEvent = {
         key: 'Enter',
@@ -307,9 +251,9 @@ describe('useUserInteractions', () => {
     })
 
     it('should not send when composing', () => {
-      const { handleKeyDown } = useUserInteractions(mockSendMessage)
+      const { handleKeyDown } = useUserInteractions({ sendMessage: mockSendMessage })
 
-      chatInputValue.value = 'Test message'
+      chatInputParts.value = [{ type: 'text', text: 'Test message' }]
 
       const mockEvent = {
         key: 'Enter',
@@ -324,9 +268,9 @@ describe('useUserInteractions', () => {
     })
 
     it('should not send when input is empty', () => {
-      const { handleKeyDown } = useUserInteractions(mockSendMessage)
+      const { handleKeyDown } = useUserInteractions({ sendMessage: mockSendMessage })
 
-      chatInputValue.value = '   '
+      chatInputParts.value = [{ type: 'text', text: '   ' }]
 
       const mockEvent = {
         key: 'Enter',
@@ -342,9 +286,9 @@ describe('useUserInteractions', () => {
     })
 
     it('should do nothing for other keys', () => {
-      const { handleKeyDown } = useUserInteractions(mockSendMessage)
+      const { handleKeyDown } = useUserInteractions({ sendMessage: mockSendMessage })
 
-      chatInputValue.value = 'Test message'
+      chatInputParts.value = [{ type: 'text', text: 'Test message' }]
 
       const mockEvent = {
         key: 'a',
@@ -362,14 +306,14 @@ describe('useUserInteractions', () => {
 
   describe('refs', () => {
     it('should provide fileInputRef', () => {
-      const { fileInputRef } = useUserInteractions(mockSendMessage)
+      const { fileInputRef } = useUserInteractions({ sendMessage: mockSendMessage })
 
       expect(fileInputRef).toBeDefined()
       expect(fileInputRef.value).toBeUndefined()
     })
 
     it('should provide autoSendAfterVoice', () => {
-      const { autoSendAfterVoice } = useUserInteractions(mockSendMessage)
+      const { autoSendAfterVoice } = useUserInteractions({ sendMessage: mockSendMessage })
 
       expect(autoSendAfterVoice.value).toBe(false)
 
@@ -378,7 +322,7 @@ describe('useUserInteractions', () => {
     })
 
     it('should provide currentEditingId', () => {
-      const { currentEditingId } = useUserInteractions(mockSendMessage)
+      const { currentEditingId } = useUserInteractions({ sendMessage: mockSendMessage })
 
       expect(currentEditingId.value).toBeNull()
 

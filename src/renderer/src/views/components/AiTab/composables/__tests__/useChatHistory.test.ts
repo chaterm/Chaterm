@@ -34,7 +34,6 @@ describe('useChatHistory', () => {
     lastChatMessageId: '',
     responseLoading: false,
     showRetryButton: false,
-    showNewTaskButton: false,
     showSendButton: true,
     buttonsDisabled: false,
     resumeDisabled: false,
@@ -419,8 +418,8 @@ describe('useChatHistory', () => {
   })
 
   describe('saveHistoryTitle', () => {
-    it('should save new title', async () => {
-      const { getGlobalState, updateGlobalState } = await import('@renderer/agent/storage/state')
+    it('should save new title via renameTab', async () => {
+      const { getGlobalState } = await import('@renderer/agent/storage/state')
       const mockTaskHistory: TaskHistoryItem[] = [{ id: 'task-1', chatTitle: 'Old Title', ts: 1000 }]
       vi.mocked(getGlobalState).mockImplementation((key: string) => {
         if (key === 'taskHistory') return Promise.resolve(mockTaskHistory)
@@ -428,7 +427,10 @@ describe('useChatHistory', () => {
         return Promise.resolve([])
       })
 
-      const { loadHistoryList, editHistory, saveHistoryTitle, historyList } = useChatHistory()
+      const mockRenameTab = vi.fn()
+      const { loadHistoryList, editHistory, saveHistoryTitle, historyList } = useChatHistory({
+        renameTab: mockRenameTab
+      })
 
       await loadHistoryList()
       const history = historyList.value[0]
@@ -439,15 +441,7 @@ describe('useChatHistory', () => {
 
       expect(history.chatTitle).toBe('New Title')
       expect(history.isEditing).toBe(false)
-      expect(updateGlobalState).toHaveBeenCalledWith(
-        'taskHistory',
-        expect.arrayContaining([
-          expect.objectContaining({
-            id: 'task-1',
-            chatTitle: 'New Title'
-          })
-        ])
-      )
+      expect(mockRenameTab).toHaveBeenCalledWith('task-1', 'New Title')
     })
 
     it('should cancel edit when title is empty', async () => {
@@ -472,7 +466,7 @@ describe('useChatHistory', () => {
       expect(history.isEditing).toBe(false)
     })
 
-    it('should update tab title when saving', async () => {
+    it('should work without renameTab provided', async () => {
       const { getGlobalState } = await import('@renderer/agent/storage/state')
       const mockTaskHistory: TaskHistoryItem[] = [{ id: 'tab-1', chatTitle: 'Old Title', ts: 1000 }]
       vi.mocked(getGlobalState).mockImplementation((key: string) => {
@@ -480,8 +474,6 @@ describe('useChatHistory', () => {
         if (key === 'favoriteTaskList') return Promise.resolve([])
         return Promise.resolve([])
       })
-
-      const mockState = vi.mocked(useSessionState)()
 
       const { loadHistoryList, editHistory, saveHistoryTitle, historyList } = useChatHistory()
 
@@ -492,7 +484,9 @@ describe('useChatHistory', () => {
       history.editingTitle = 'Updated Title'
       await saveHistoryTitle(history)
 
-      expect(mockState.chatTabs.value[0].title).toBe('Updated Title')
+      // Should still update local state even without renameTab
+      expect(history.chatTitle).toBe('Updated Title')
+      expect(history.isEditing).toBe(false)
     })
   })
 
@@ -577,7 +571,7 @@ describe('useChatHistory', () => {
         return Promise.resolve([])
       })
 
-      const { loadHistoryList, deleteHistory, historyList } = useChatHistory(mockCreateNewEmptyTab)
+      const { loadHistoryList, deleteHistory, historyList } = useChatHistory({ createNewEmptyTab: mockCreateNewEmptyTab })
 
       await loadHistoryList()
       const history = historyList.value[0]

@@ -143,7 +143,6 @@ function createTestI18n() {
           copy: 'Copy',
           resume: 'Resume',
           retry: 'Retry',
-          newTask: 'Start New Task',
           searchHost: 'Search by IP',
           loading: 'loading...',
           noMatchingHosts: 'No matching hosts',

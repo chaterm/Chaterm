@@ -71,7 +71,6 @@ describe('useChatMessages', () => {
     lastChatMessageId: '',
     responseLoading: false,
     showRetryButton: false,
-    showNewTaskButton: false,
     showSendButton: true,
     buttonsDisabled: false,
     resumeDisabled: false,
@@ -106,7 +105,7 @@ describe('useChatMessages', () => {
     const mockTab = createMockTab('test-tab-1')
     const chatTabs = ref([mockTab])
     const currentChatId = ref('test-tab-1')
-    const chatInputValue = ref('')
+    const chatInputParts = ref([])
     const hosts = ref<Host[]>([{ host: '127.0.0.1', uuid: 'localhost', connection: 'localhost' }])
     const chatTypeValue = ref('agent')
 
@@ -115,7 +114,7 @@ describe('useChatMessages', () => {
       currentChatId,
       currentTab: ref(mockTab),
       currentSession: ref(mockTab.session),
-      chatInputValue,
+      chatInputParts,
       hosts,
       chatTypeValue
     } as any)
@@ -305,7 +304,7 @@ describe('useChatMessages', () => {
       )
 
       const mockState = vi.mocked(useSessionState)()
-      mockState.chatInputValue.value = 'Test message'
+      mockState.chatInputParts.value = [{ type: 'text', text: 'Test message' }]
 
       const result = await sendMessage('send')
 
@@ -341,7 +340,7 @@ describe('useChatMessages', () => {
       )
 
       const mockState = vi.mocked(useSessionState)()
-      mockState.chatInputValue.value = 'Test message'
+      mockState.chatInputParts.value = [{ type: 'text', text: 'Test message' }]
 
       const result = await sendMessage('send')
 
@@ -365,7 +364,7 @@ describe('useChatMessages', () => {
       )
 
       const mockState = vi.mocked(useSessionState)()
-      mockState.chatInputValue.value = '   '
+      mockState.chatInputParts.value = [{ type: 'text', text: '   ' }]
 
       const result = await sendMessage('send')
 
@@ -385,7 +384,7 @@ describe('useChatMessages', () => {
       )
 
       const mockState = vi.mocked(useSessionState)()
-      mockState.chatInputValue.value = 'Test message'
+      mockState.chatInputParts.value = [{ type: 'text', text: 'Test message' }]
       mockState.hosts.value = []
       mockState.chatTypeValue.value = 'cmd'
 
@@ -407,7 +406,7 @@ describe('useChatMessages', () => {
       )
 
       const mockState = vi.mocked(useSessionState)()
-      mockState.chatInputValue.value = 'Test message'
+      mockState.chatInputParts.value = [{ type: 'text', text: 'Test message' }]
       mockState.chatTypeValue.value = 'agent'
       mockState.hosts.value = [{ host: '10.0.0.1', uuid: 'switch-uuid', connection: 'ssh', assetType: 'person-switch-huawei' }]
 
@@ -433,18 +432,18 @@ describe('useChatMessages', () => {
       )
 
       const mockState = vi.mocked(useSessionState)()
-      mockState.chatInputValue.value = 'Test message'
+      mockState.chatInputParts.value = [{ type: 'text', text: 'Test message' }]
 
       await sendMessage('send')
 
       expect(mockSendToMain).toHaveBeenCalled()
-      expect(mockState.chatInputValue.value).toBe('')
+      expect(mockState.chatInputParts.value).toEqual([])
     })
 
     it('should include assetType in hosts when creating a new task', async () => {
       // Set up hosts with assetType on currentTab before calling useChatMessages
       const mockState = vi.mocked(useSessionState)()
-      mockState.chatInputValue.value = 'Test message'
+      mockState.chatInputParts.value = [{ type: 'text', text: 'Test message' }]
       mockState.chatTypeValue.value = 'cmd'
       // The useChatMessages uses targetTab.hosts, not hosts from useSessionState
       mockState.currentTab.value!.hosts = [{ host: '10.0.0.1', uuid: 'switch-uuid', connection: 'ssh', assetType: 'person-switch-huawei' }]
@@ -479,7 +478,7 @@ describe('useChatMessages', () => {
       )
 
       const mockState = vi.mocked(useSessionState)()
-      mockState.chatInputValue.value = 'Test message'
+      mockState.chatInputParts.value = [{ type: 'text', text: 'Test message' }]
 
       await sendMessage('send')
 
@@ -756,7 +755,6 @@ describe('useChatMessages', () => {
 
       await processMainMessage(message)
 
-      expect(session.showNewTaskButton).toBe(true)
       expect(session.responseLoading).toBe(false)
     })
 

@@ -7,6 +7,8 @@
 import { Anthropic } from '@anthropic-ai/sdk'
 import cloneDeep from 'clone-deep'
 import os from 'os'
+import path from 'path'
+import * as fs from 'fs/promises'
 import { telemetryService } from '@services/telemetry/TelemetryService'
 import pWaitFor from 'p-wait-for'
 import { serializeError } from 'serialize-error'
@@ -79,7 +81,7 @@ import { SkillsManager } from '@services/skills'
 import { ChatermDatabaseService } from '../../../storage/db/chaterm.service'
 import type { McpTool } from '@shared/mcp'
 
-import type { Host } from '@shared/WebviewMessage'
+import type { ContentPart, ContextDocRef, ContextPastChatRef, ContextRefs, Host } from '@shared/WebviewMessage'
 import { ExternalAssetCache } from '../../../plugin/pluginIpc'
 
 type ToolResponse = string | Array<Anthropic.TextBlockParam | Anthropic.ImageBlockParam>
@@ -106,8 +108,8 @@ export class Task {
   apiConversationHistory: Anthropic.MessageParam[] = []
   chatermMessages: ChatermMessage[] = []
   private commandSecurityManager: CommandSecurityManager
-  private askResponse?: ChatermAskResponse
-  private askResponseText?: string
+  private askResponsePayload?: { response: ChatermAskResponse; text?: string; contentParts?: ContentPart[] }
+  private nextUserInputContentParts?: ContentPart[]
   private lastMessageTs?: number
   private consecutiveAutoApprovedRequestsCount: number = 0
   private consecutiveMistakeCount: number = 0
@@ -164,6 +166,152 @@ export class Task {
   private isInsideThinkingBlock = false
   private messages: Messages = getMessages(DEFAULT_LANGUAGE_SETTINGS)
 
+  private setNextUserInputContentParts(parts?: ContentPart[]): void {
+    this.nextUserInputContentParts = parts && parts.length > 0 ? parts : undefined
+  }
+
+  private consumeNextUserInputContentParts(): ContentPart[] | undefined {
+    const parts = this.nextUserInputContentParts
+    this.nextUserInputContentParts = undefined
+    return parts
+  }
+
+  private buildContextRefsFromContentParts(parts?: ContentPart[]): ContextRefs | undefined {
+    if (!parts || parts.length === 0) return undefined
+
+    const docs: ContextDocRef[] = []
+    const pastChats: ContextPastChatRef[] = []
+
+    for (const part of parts) {
+      if (part.type !== 'chip') continue
+      if (part.chipType === 'doc') {
+        docs.push(part.ref)
+      } else if (part.chipType === 'chat') {
+        pastChats.push(part.ref)
+      }
+    }
+
+    if (docs.length === 0 && pastChats.length === 0) return undefined
+    return {
+      ...(docs.length > 0 ? { docs } : {}),
+      ...(pastChats.length > 0 ? { pastChats } : {})
+    }
+  }
+
+  private async sayUserFeedback(text: string, contentParts?: ContentPart[]): Promise<void> {
+    await this.say('user_feedback', text, undefined, undefined, contentParts)
+  }
+
+  private async buildEphemeralContextBlocksFromContentParts(parts?: ContentPart[]): Promise<Anthropic.ContentBlockParam[]> {
+    const refs = this.buildContextRefsFromContentParts(parts)
+    const docs = refs?.docs ?? []
+    const pastChats = refs?.pastChats ?? []
+
+    if (docs.length === 0 && pastChats.length === 0) return []
+
+    const MAX_DOCS = 5
+    const MAX_DOC_BYTES = 256 * 1024
+    const MAX_PAST_CHATS = 2
+    const MAX_PAST_CHAT_CHARS = 24000
+
+    const docLines: string[] = []
+
+    const selectedDocs = docs.slice(0, MAX_DOCS).sort((a, b) => a.absPath.localeCompare(b.absPath))
+
+    for (const doc of selectedDocs) {
+      try {
+        if (doc.type === 'dir') {
+          docLines.push(`- DIR: ${doc.absPath}`)
+          continue
+        }
+        const { content, meta } = await this.readFile(doc.absPath, MAX_DOC_BYTES)
+        docLines.push(`- FILE: ${doc.absPath}${meta ? ` (mtimeMs=${meta.mtimeMs}, bytes=${meta.bytes}, truncated=${meta.truncated})` : ''}`)
+        docLines.push(content)
+      } catch (e) {
+        const msg = e instanceof Error ? e.message : String(e)
+        docLines.push(`- CONTEXT_READ_ERROR: ${doc.absPath}: ${msg}`)
+      }
+    }
+
+    const chatLines: string[] = []
+    const selectedChats = pastChats.slice(0, MAX_PAST_CHATS).sort((a, b) => a.taskId.localeCompare(b.taskId))
+    for (const c of selectedChats) {
+      try {
+        const history = await getSavedApiConversationHistory(c.taskId)
+        const text = this.formatPastChatHistory(history, MAX_PAST_CHAT_CHARS)
+        chatLines.push(`- PAST_CHAT: ${c.taskId}${c.title ? ` (${c.title})` : ''}`)
+        chatLines.push(text)
+      } catch (e) {
+        const msg = e instanceof Error ? e.message : String(e)
+        chatLines.push(`- PAST_CHAT_READ_ERROR: ${c.taskId}: ${msg}`)
+      }
+    }
+
+    const blocks: Anthropic.ContentBlockParam[] = [
+      {
+        type: 'text',
+        text: [
+          '<context-prefetch>',
+          docLines.length > 0 ? ['<docs>', ...docLines, '</docs>'].join('\n') : '<docs />',
+          chatLines.length > 0 ? ['<past-chats>', ...chatLines, '</past-chats>'].join('\n') : '<past-chats />',
+          '</context-prefetch>'
+        ].join('\n')
+      }
+    ]
+
+    return blocks
+  }
+
+  private async readFile(
+    absPath: string,
+    maxBytes: number
+  ): Promise<{ content: string; meta?: { mtimeMs: number; bytes: number; truncated: boolean } }> {
+    if (!path.isAbsolute(absPath)) {
+      throw new Error('Path must be absolute')
+    }
+    const stat = await fs.stat(absPath)
+    if (!stat.isFile()) {
+      throw new Error('Path is not a file')
+    }
+
+    if (stat.size > maxBytes) {
+      // Read only the first maxBytes to avoid loading huge files into memory.
+      const handle = await fs.open(absPath, 'r')
+      let slice: Buffer
+      try {
+        const buf = Buffer.allocUnsafe(maxBytes)
+        const { bytesRead } = await handle.read(buf, 0, maxBytes, 0)
+        slice = buf.subarray(0, bytesRead)
+      } finally {
+        await handle.close()
+      }
+      return {
+        content: slice.toString('utf-8'),
+        meta: { mtimeMs: stat.mtimeMs, bytes: stat.size, truncated: true }
+      }
+    }
+
+    const content = await fs.readFile(absPath, 'utf-8')
+    return { content, meta: { mtimeMs: stat.mtimeMs, bytes: stat.size, truncated: false } }
+  }
+
+  private formatPastChatHistory(history: Anthropic.MessageParam[], maxChars: number): string {
+    const tail = history.slice(-6)
+    const lines = tail.map((m) => {
+      const role = m.role
+      const content =
+        typeof m.content === 'string'
+          ? m.content
+          : Array.isArray(m.content)
+            ? m.content.map((b) => (b.type === 'text' ? b.text : `[${b.type}]`)).join('\n')
+            : ''
+      return `${role}:\n${content}`.trim()
+    })
+    const joined = lines.join('\n\n')
+    if (joined.length <= maxChars) return joined
+    return `${joined.slice(0, maxChars)}\n\n[TRUNCATED: past chat exceeded char limit]`
+  }
+
   constructor(
     updateTaskHistory: (historyItem: HistoryItem) => Promise<HistoryItem[]>,
     postStateToWebview: () => Promise<void>,
@@ -178,7 +326,8 @@ export class Task {
     task?: string,
     historyItem?: HistoryItem,
     chatTitle?: string,
-    taskId?: string
+    taskId?: string,
+    initialUserContentParts?: ContentPart[]
   ) {
     this.updateTaskHistory = updateTaskHistory
     this.postStateToWebview = postStateToWebview
@@ -210,6 +359,7 @@ export class Task {
     } else if (task && taskId) {
       this.taskId = taskId
       console.log(`[Task Init] New task created with ID: ${this.taskId}`)
+      this.setNextUserInputContentParts(initialUserContentParts)
     } else {
       throw new Error('Either historyItem or task/images must be provided')
     }
@@ -230,7 +380,7 @@ export class Task {
     if (historyItem) {
       this.resumeTaskFromHistory()
     } else if (task) {
-      this.startTask(task)
+      this.startTask(task, initialUserContentParts)
     }
 
     // initialize telemetry
@@ -613,6 +763,7 @@ export class Task {
   ): Promise<{
     response: ChatermAskResponse
     text?: string
+    contentParts?: ContentPart[]
   }> {
     if (this.abort) {
       throw new Error('Chaterm instance aborted')
@@ -638,7 +789,7 @@ export class Task {
       await this.postStateToWebview()
     }
 
-    await pWaitFor(() => this.askResponse !== undefined || this.lastMessageTs !== askTsRef.value, {
+    await pWaitFor(() => this.askResponsePayload !== undefined || this.lastMessageTs !== askTsRef.value, {
       interval: 100
     })
 
@@ -646,17 +797,16 @@ export class Task {
       throw new Error('Current ask promise was ignored')
     }
 
-    const result = {
-      response: this.askResponse!,
-      text: this.askResponseText
+    const payload = this.askResponsePayload
+    if (!payload) {
+      throw new Error('Unexpected: ask response payload is missing')
     }
     this.resetAskState()
-    return result
+    return payload
   }
 
   private resetAskState(): void {
-    this.askResponse = undefined
-    this.askResponseText = undefined
+    this.askResponsePayload = undefined
   }
 
   private async handleAskPartialMessage(
@@ -736,13 +886,18 @@ export class Task {
     }
   }
 
-  async handleWebviewAskResponse(askResponse: ChatermAskResponse, text?: string, truncateAtMessageTs?: number) {
+  async handleWebviewAskResponse(askResponse: ChatermAskResponse, text?: string, truncateAtMessageTs?: number, contentParts?: ContentPart[]) {
     if (truncateAtMessageTs !== undefined) {
       await this.truncateHistoryAtTimestamp(truncateAtMessageTs)
     }
 
-    this.askResponse = askResponse
-    this.askResponseText = text
+    // Consume by the next API request only (prevents repeated doc/chat reads within the same round).
+    this.setNextUserInputContentParts(contentParts)
+    this.askResponsePayload = {
+      response: askResponse,
+      text,
+      contentParts
+    }
   }
 
   // Handle interactive command input from frontend
@@ -763,11 +918,12 @@ export class Task {
     }
   }
 
-  async say(type: ChatermSay, text?: string, partial?: boolean, hostInfo?: HostInfo): Promise<undefined> {
+  async say(type: ChatermSay, text?: string, partial?: boolean, hostInfo?: HostInfo, contentParts?: ContentPart[]): Promise<undefined> {
     if (this.abort) {
       throw new Error('Chaterm instance aborted')
     }
-    if (text === undefined || text === '') {
+    const hasContentParts = (contentParts?.length ?? 0) > 0
+    if ((text === undefined || text === '') && !hasContentParts) {
       // console.warn('Chaterm say called with empty text, ignoring')
       return
     }
@@ -783,6 +939,7 @@ export class Task {
         type: 'say',
         say: type,
         text,
+        contentParts,
         ...(hostInfo ?? {})
       })
       await this.postStateToWebview()
@@ -878,14 +1035,14 @@ export class Task {
 
   // Task lifecycle
 
-  private async startTask(task?: string): Promise<void> {
+  private async startTask(task?: string, initialUserContentParts?: ContentPart[]): Promise<void> {
     this.chatermMessages = []
     this.apiConversationHistory = []
     this.connectedHosts.clear()
 
     await this.postStateToWebview()
 
-    await this.say('text', task)
+    await this.say('text', task, undefined, undefined, initialUserContentParts)
 
     this.isInitialized = true
 
@@ -967,10 +1124,10 @@ export class Task {
 
     this.isInitialized = true
 
-    const { response, text } = await this.ask(askType) // calls poststatetowebview
+    const { response, text, contentParts } = await this.ask(askType) // calls poststatetowebview
     let responseText: string | undefined
     if (response === 'messageResponse') {
-      await this.say('user_feedback', text)
+      await this.sayUserFeedback(text ?? '', contentParts)
       responseText = text
     }
 
@@ -1592,9 +1749,10 @@ export class Task {
       ? this.messages.consecutiveMistakesErrorClaude
       : this.messages.consecutiveMistakesErrorOther
 
-    const { response, text } = await this.ask('mistake_limit_reached', errorMessage)
+    const { response, text, contentParts } = await this.ask('mistake_limit_reached', errorMessage)
 
     if (response === 'messageResponse') {
+      await this.sayUserFeedback(text ?? '', contentParts)
       userContent.push({
         type: 'text',
         text: formatResponse.tooManyMistakes(text)
@@ -1625,6 +1783,12 @@ export class Task {
   }
 
   private async prepareApiRequest(userContent: UserContent, includeHostDetails: boolean): Promise<void> {
+    const userInputParts = this.consumeNextUserInputContentParts()
+    const ephemeralBlocks = await this.buildEphemeralContextBlocksFromContentParts(userInputParts)
+    if (ephemeralBlocks.length > 0) {
+      userContent.push(...ephemeralBlocks)
+    }
+
     await this.say(
       'api_req_started',
       JSON.stringify({
@@ -2311,19 +2475,19 @@ export class Task {
   }
 
   private async askApproval(toolDescription: string, type: ChatermAsk, partialMessage?: string): Promise<boolean> {
-    const { response, text } = await this.ask(type, partialMessage, false)
+    const { response, text, contentParts } = await this.ask(type, partialMessage, false)
     const approved = response === 'yesButtonClicked'
     if (!approved) {
       this.pushToolResult(toolDescription, formatResponse.toolDenied())
       if (text) {
         this.pushAdditionalToolFeedback(text)
-        await this.say('user_feedback', text)
+        await this.sayUserFeedback(text, contentParts)
         await this.saveCheckpoint()
       }
       this.didRejectTool = true
     } else if (text) {
       this.pushAdditionalToolFeedback(text)
-      await this.say('user_feedback', text)
+      await this.sayUserFeedback(text, contentParts)
       await this.saveCheckpoint()
     }
     return approved
@@ -2391,7 +2555,7 @@ export class Task {
       // Store the number of options for telemetry
       const options = parsePartialArrayString(optionsRaw || '[]')
 
-      const { text } = await this.ask('followup', JSON.stringify(sharedMessage), false)
+      const { text, contentParts } = await this.ask('followup', JSON.stringify(sharedMessage), false)
 
       if (optionsRaw && text && parsePartialArrayString(optionsRaw).includes(text)) {
         const lastFollowupMessage = findLast(this.chatermMessages, (m) => m.ask === 'followup')
@@ -2405,7 +2569,7 @@ export class Task {
         }
       } else {
         telemetryService.captureOptionsIgnored(this.taskId, options.length, 'act')
-        await this.say('user_feedback', text ?? '')
+        await this.sayUserFeedback(text ?? '', contentParts)
       }
 
       this.pushToolResult(toolDescription, formatResponse.toolResult(`<answer>\n${text}\n</answer>`))
@@ -2486,12 +2650,12 @@ export class Task {
         telemetryService.captureTaskCompleted(this.taskId)
       }
 
-      const { response, text } = await this.ask('completion_result', '', false)
+      const { response, text, contentParts } = await this.ask('completion_result', '', false)
       if (response === 'yesButtonClicked') {
         this.pushToolResult(toolDescription, '')
         return
       }
-      await this.say('user_feedback', text ?? '')
+      await this.sayUserFeedback(text ?? '', contentParts)
       await this.saveCheckpoint()
 
       const toolResults: (Anthropic.TextBlockParam | Anthropic.ImageBlockParam)[] = []
@@ -2537,10 +2701,10 @@ export class Task {
         })
       }
 
-      const { text } = await this.ask('condense', context, false)
+      const { text, contentParts } = await this.ask('condense', context, false)
 
       if (text) {
-        await this.say('user_feedback', text ?? '')
+        await this.sayUserFeedback(text ?? '', contentParts)
         this.pushToolResult(
           toolDescription,
           formatResponse.toolResult(`The user provided feedback on the condensed conversation summary:\n<feedback>\n${text}\n</feedback>`)
@@ -2628,9 +2792,9 @@ export class Task {
         operating_system: operatingSystem
       })
 
-      const { text } = await this.ask('report_bug', bugReportData, false)
+      const { text, contentParts } = await this.ask('report_bug', bugReportData, false)
       if (text) {
-        await this.say('user_feedback', text ?? '')
+        await this.sayUserFeedback(text ?? '', contentParts)
         this.pushToolResult(
           toolDescription,
           formatResponse.toolResult(
@@ -2958,7 +3122,7 @@ export class Task {
 
       if (!autoApprove) {
         // Requires user approval
-        const { response, text } = await this.ask('mcp_tool_call', '', false, {
+        const { response, text, contentParts } = await this.ask('mcp_tool_call', '', false, {
           serverName,
           toolName,
           arguments: argumentsObj
@@ -2968,7 +3132,7 @@ export class Task {
           this.pushToolResult(toolDescription, formatResponse.toolDenied())
           if (text) {
             this.pushAdditionalToolFeedback(text)
-            await this.say('user_feedback', text)
+            await this.sayUserFeedback(text, contentParts)
             await this.saveCheckpoint()
           }
           this.didRejectTool = true
@@ -2976,7 +3140,7 @@ export class Task {
           return
         } else if (text) {
           this.pushAdditionalToolFeedback(text)
-          await this.say('user_feedback', text)
+          await this.sayUserFeedback(text, contentParts)
           await this.saveCheckpoint()
         }
       } else {
@@ -3219,14 +3383,14 @@ export class Task {
       // const hasToolUse = this.assistantMessageContent.some((block) => block.type === 'tool_use')
 
       // if (!hasToolUse) {
-      const { response, text } = await this.ask('completion_result', '', false)
+      const { response, text, contentParts } = await this.ask('completion_result', '', false)
 
       if (response === 'yesButtonClicked') {
         return
       }
 
       if (text) {
-        await this.say('user_feedback', text)
+        await this.sayUserFeedback(text, contentParts)
         this.userMessageContent.push({
           type: 'text',
           text: `The user has provided feedback on the response. Consider their input to continue the conversation.\n<feedback>\n${text}\n</feedback>`

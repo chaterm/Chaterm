@@ -74,6 +74,7 @@ export interface ChatermMessage {
   ask?: ChatermAsk
   say?: ChatermSay
   text?: string
+  contentParts?: import('./WebviewMessage').ContentPart[]
   reasoning?: string
   images?: string[]
   partial?: boolean

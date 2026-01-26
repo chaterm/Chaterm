@@ -161,6 +161,7 @@
                 />
                 <Assets
                   v-else-if="currentMenu == 'assets'"
+                  ref="assetsRef"
                   :toggle-sidebar="toggleSideBar"
                   @open-user-tab="openUserTab"
                 />
@@ -317,6 +318,7 @@ import { shortcutService } from '@/services/shortcutService'
 import { captureExtensionUsage, ExtensionNames, ExtensionStatus } from '@/utils/telemetry'
 import Dashboard from '@renderer/views/components/Ssh/components/dashboard.vue'
 import { getGlobalState } from '@/agent/storage/state'
+import { CONTEXT_DRAG_MIME, CONTEXT_DRAG_TEXT_PREFIX } from '@views/components/AiTab/composables/useEditableContent'
 import 'dockview-vue/dist/styles/dockview.css'
 import { type DockviewReadyEvent, DockviewVue } from 'dockview-vue'
 import type { DockviewApi } from 'dockview-core'
@@ -347,6 +349,7 @@ const configStore = piniaUserConfigStore()
 const isTransparent = computed(() => !!configStore.getUserConfig.background.image)
 const headerRef = ref<InstanceType<typeof Header> | null>(null)
 const allTabs = ref<InstanceType<typeof TabsPanel> | null>(null)
+const assetsRef = ref<InstanceType<typeof Assets> | null>(null)
 const isSkippedLogin = computed(() => {
   return localStorage.getItem('login-skipped') === 'true'
 })
@@ -412,7 +415,9 @@ interface AiSidebarState {
     chatType: string
     modelValue: string
     autoUpdateHost: boolean
-    inputValue: string
+    chatInputParts: any[]
+    welcomeTip?: string
+    agentHosts?: any[]
     session: {
       chatHistory: any[]
       lastChatMessageId: string
@@ -422,8 +427,8 @@ interface AiSidebarState {
       resumeDisabled: boolean
       isExecutingCommand: boolean
       showRetryButton: boolean
-      showNewTaskButton: boolean
       messageFeedbacks: Record<string, 'like' | 'dislike'>
+      shouldStickToBottom?: boolean
     }
   }>
 }
@@ -439,6 +444,16 @@ const aiTabRef = ref<InstanceType<typeof AiTab> | null>(null)
 
 const handleAiTabStateChanged = (state: AiSidebarState) => {
   savedAiSidebarState.value = state
+}
+
+const handleKbAddDocToChatRequest = (payload: Array<{ relPath: string; name?: string }>) => {
+  if (!showAiSidebar.value) {
+    toggleSideBar('right')
+  }
+
+  setTimeout(() => {
+    eventBus.emit('kbAddDocToChat', payload)
+  }, 100)
 }
 
 const saveAiSidebarState = () => {
@@ -715,6 +730,21 @@ const configLoaded = ref(false)
 onMounted(async () => {
   const store = piniaUserConfigStore()
   await shortcutService.loadShortcuts()
+
+  const handleCtrlW = (event: KeyboardEvent) => {
+    const isMac = navigator.platform.toUpperCase().indexOf('MAC') >= 0
+    if (isMac) {
+      return
+    }
+
+    if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 'w') {
+      event.preventDefault()
+    }
+  }
+
+  document.addEventListener('keydown', handleCtrlW, true)
+  ;(globalThis as any).__ctrlWHandler = handleCtrlW
+
   eventBus.on('updateWatermark', (watermark) => {
     showWatermark.value = watermark !== 'close'
   })
@@ -894,7 +924,9 @@ onMounted(async () => {
 
   eventBus.on('currentClickServer', currentClickServer)
   eventBus.on('getActiveTabAssetInfo', handleGetActiveTabAssetInfo)
+  eventBus.on('getAllOpenedHosts', handleGetAllOpenedHosts)
   eventBus.on('toggleSideBar', toggleSideBar)
+  eventBus.on('kbAddDocToChatRequest', handleKbAddDocToChatRequest)
   eventBus.on('createSplitTab', handleCreateSplitTab)
   eventBus.on('createVerticalSplitTab', handleCreateVerticalSplitTab)
   eventBus.on('adjustSplitPaneToEqual', adjustSplitPaneToEqualWidth)
@@ -1578,11 +1610,18 @@ onUnmounted(() => {
   // Unregister global mouse event listeners
   document.removeEventListener('mousedown', handleMouseDown)
   document.removeEventListener('mouseup', handleGlobalMouseUp)
+
+  if ((globalThis as any).__ctrlWHandler) {
+    document.removeEventListener('keydown', (globalThis as any).__ctrlWHandler, true)
+    delete (globalThis as any).__ctrlWHandler
+  }
   document.removeEventListener('mousemove', handleGlobalMouseMove)
 
   eventBus.off('currentClickServer', currentClickServer)
   eventBus.off('getActiveTabAssetInfo', handleGetActiveTabAssetInfo)
+  eventBus.off('getAllOpenedHosts', handleGetAllOpenedHosts)
   eventBus.off('toggleSideBar', toggleSideBar)
+  eventBus.off('kbAddDocToChatRequest', handleKbAddDocToChatRequest)
   eventBus.off('createSplitTab', handleCreateSplitTab)
   eventBus.off('createVerticalSplitTab', handleCreateVerticalSplitTab)
   eventBus.off('adjustSplitPaneToEqual', adjustSplitPaneToEqualWidth)
@@ -1796,6 +1835,44 @@ const getActiveTabAssetInfo = async () => {
 const handleGetActiveTabAssetInfo = async () => {
   const assetInfo = await getActiveTabAssetInfo()
   eventBus.emit('assetInfoResult', assetInfo)
+}
+
+/**
+ * Get all opened hosts from terminal tabs (unique by uuid)
+ */
+const getAllOpenedHosts = () => {
+  if (!dockApi) {
+    return []
+  }
+
+  const hostsMap = new Map<string, { uuid: string; ip: string; title: string; organizationId?: string; assetType?: string }>()
+
+  for (const panel of dockApi.panels) {
+    const params = panel.params
+    if (!params) continue
+
+    const ip = params.data?.ip || params.ip
+    const uuid = params.data?.uuid || params.uuid
+    if (!ip || !uuid) continue
+
+    // Skip if already added (dedupe by uuid)
+    if (hostsMap.has(uuid)) continue
+
+    hostsMap.set(uuid, {
+      uuid,
+      ip,
+      title: panel.api.title || params.title || ip,
+      organizationId: params.organizationId || params.data?.organizationId,
+      assetType: params.data?.asset_type
+    })
+  }
+
+  return Array.from(hostsMap.values())
+}
+
+const handleGetAllOpenedHosts = () => {
+  const hosts = getAllOpenedHosts()
+  eventBus.emit('allOpenedHostsResult', hosts)
 }
 
 const toggleAiSidebar = () => {
@@ -2072,8 +2149,13 @@ const onDockReady = (event: DockviewReadyEvent) => {
     panelCount.value = dockApi?.panels.length ?? 0
   })
 
-  dockApi.onDidRemovePanel(() => {
+  dockApi.onDidRemovePanel((panel) => {
     panelCount.value = dockApi?.panels.length ?? 0
+    // Clear Assets menu selection when corresponding tab is closed
+    const content = panel.params?.content
+    if (content === 'assetConfig' || content === 'keyManagement' || content === 'files') {
+      assetsRef.value?.handleExplorerActive(content)
+    }
   })
 
   dockApi.onDidActivePanelChange(() => {
@@ -2084,6 +2166,7 @@ const onDockReady = (event: DockviewReadyEvent) => {
   nextTick(() => {
     applyTheme()
     setupTabContextMenu()
+    setupTabDragToAi()
     handleActivePanelChange()
   })
 }
@@ -2191,6 +2274,55 @@ const findPanelIdFromTab = (tabElement: HTMLElement): string | null => {
   } catch (error) {
     return null
   }
+}
+
+const setupTabDragToAi = () => {
+  const container = dockviewRef.value?.$el
+  if (!container) return
+
+  container.addEventListener('dragstart', (e: DragEvent) => {
+    const target = e.target as HTMLElement
+    const tabElement = target.closest('.dv-tab') as HTMLElement | null
+    if (!tabElement || !e.dataTransfer) return
+
+    const panelId = findPanelIdFromTab(tabElement)
+    if (!panelId || !dockApi) return
+
+    const panel = dockApi.getPanel(panelId)
+    if (!panel) return
+
+    const params = panel.params as Record<string, any> | undefined
+    if (!params) return
+
+    // Handle KnowledgeCenterEditor (doc)
+    if (params.content === 'KnowledgeCenterEditor' && params.props?.relPath) {
+      const name = params.title || params.props.relPath.split('/').pop() || 'KnowledgeCenter'
+      const dragPayload = { contextType: 'doc', relPath: params.props.relPath, name }
+      const payload = JSON.stringify(dragPayload)
+      e.dataTransfer.setData(CONTEXT_DRAG_MIME, payload)
+      e.dataTransfer.setData('text/plain', `${CONTEXT_DRAG_TEXT_PREFIX}${payload}`)
+      e.dataTransfer.effectAllowed = 'copy'
+      return
+    }
+
+    // Handle host/terminal tabs
+    if (params.ip || params.organizationId) {
+      const data = params.data || {}
+      const dragPayload = {
+        contextType: 'host',
+        uuid: data.uuid || params.id,
+        label: params.title || params.ip,
+        connect: data.connect || params.ip,
+        assetType: data.asset_type || data.assetType,
+        isLocalHost: data.isLocalHost,
+        organizationUuid: data.organizationUuid || data.organizationId || params.organizationId
+      }
+      const payload = JSON.stringify(dragPayload)
+      e.dataTransfer.setData(CONTEXT_DRAG_MIME, payload)
+      e.dataTransfer.setData('text/plain', `${CONTEXT_DRAG_TEXT_PREFIX}${payload}`)
+      e.dataTransfer.effectAllowed = 'copy'
+    }
+  })
 }
 
 const createNewPanel = (isClone: boolean, direction: 'left' | 'right' | 'above' | 'below' | 'within', panelId?: string) => {
@@ -2814,7 +2946,7 @@ defineExpose({
   --dv-activegroup-hiddenpanel-tab-background-color: var(--bg-color);
   --dv-inactivegroup-visiblepanel-tab-background-color: white;
   --dv-inactivegroup-hiddenpanel-tab-background-color: var(--bg-color);
-  --dv-tab-divider-color: white;
+  --dv-tab-divider-color: #e2e8f0;
   --dv-activegroup-visiblepanel-tab-color: rgb(51, 51, 51);
   --dv-activegroup-hiddenpanel-tab-color: rgba(51, 51, 51, 0.7);
   --dv-inactivegroup-visiblepanel-tab-color: rgba(51, 51, 51, 0.7);
@@ -2822,6 +2954,16 @@ defineExpose({
   --dv-separator-border: rgba(128, 128, 128, 0.35);
   --dv-paneview-header-border-color: rgb(51, 51, 51);
   --dv-scrollbar-background-color: rgba(0, 0, 0, 0.25);
+}
+
+.dockview-theme-light .dv-tabs-and-actions-container {
+  border-bottom: 1px solid #e2e8f0;
+}
+
+.dockview-theme-light .dv-groupview.dv-active-group > .dv-tabs-and-actions-container .dv-tab.dv-active-tab {
+  border: 1px solid #d1d5db;
+  border-bottom: none;
+  border-radius: 4px 4px 0 0;
 }
 
 .dockview-theme-light .dv-drop-target-container .dv-drop-target-anchor.dv-drop-target-anchor-container-changed {

@@ -15,7 +15,7 @@
         ref="inputSendContainerRef"
         :is-active-tab="true"
         mode="edit"
-        :initial-value="typeof message.content === 'string' ? message.content : ''"
+        :initial-content-parts="displayParts"
         :on-confirm-edit="handleConfirmEdit"
       />
     </div>
@@ -28,17 +28,36 @@
     >
       <!-- User message content -->
       <div class="user-message">
-        {{ message.content }}
+        <template
+          v-for="(part, idx) in displayParts"
+          :key="`${part.type}-${idx}`"
+        >
+          <span v-if="part.type === 'text'">{{ part.text }}</span>
+          <span
+            v-else
+            class="mention-chip"
+            :class="`mention-chip-${part.chipType}`"
+          >
+            <span class="mention-icon">
+              <FileTextOutlined v-if="part.chipType === 'doc'" />
+              <MessageOutlined v-else />
+            </span>
+            <span class="mention-label">{{ getChipLabel(part) }}</span>
+          </span>
+        </template>
       </div>
     </div>
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, onUnmounted, nextTick } from 'vue'
+import { computed, ref, onMounted, onUnmounted, nextTick } from 'vue'
 import { isElementInAiTab } from '@/utils/domUtils'
 import type { ChatMessage } from '../../types'
+import type { ContentPart } from '@shared/WebviewMessage'
 import InputSendContainer from '../InputSendContainer.vue'
+import { FileTextOutlined, MessageOutlined } from '@ant-design/icons-vue'
+import { getChipLabel } from '../../utils'
 
 interface Props {
   message: ChatMessage
@@ -46,9 +65,17 @@ interface Props {
 
 const props = withDefaults(defineProps<Props>(), {})
 
+const displayParts = computed<ContentPart[]>(() => {
+  const parts = props.message.contentParts
+  if (parts && parts.length > 0) return parts
+
+  const fallbackText = typeof props.message.content === 'string' ? props.message.content : ''
+  return [{ type: 'text', text: fallbackText }]
+})
+
 // Define events
 const emit = defineEmits<{
-  (e: 'truncate-and-send', payload: { message: ChatMessage; newContent: string }): void
+  (e: 'truncate-and-send', payload: { message: ChatMessage; contentParts: ContentPart[] }): void
 }>()
 
 // Template refs
@@ -130,10 +157,10 @@ const cancelEditing = () => {
   isEditing.value = false
 }
 
-const handleConfirmEdit = (newContent: string) => {
+const handleConfirmEdit = (contentParts: ContentPart[]) => {
   emit('truncate-and-send', {
     message: props.message,
-    newContent
+    contentParts
   })
 
   isEditing.value = false
@@ -259,9 +286,63 @@ onUnmounted(() => {
   line-height: 1.5;
 
   // Text handling
+  white-space: pre-wrap;
   overflow-wrap: break-word;
   word-break: break-word;
   user-select: text;
+}
+
+.mention-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  height: 18px;
+  line-height: 18px;
+  padding: 0 6px;
+  margin: 0 2px;
+  border-radius: 4px;
+  background-color: var(--hover-bg-color);
+  background-image: linear-gradient(135deg, rgba(59, 130, 246, 0.32), rgba(59, 130, 246, 0.12));
+  border: 1px solid transparent;
+  color: var(--text-color);
+  font-size: 11px;
+  user-select: none;
+  vertical-align: middle;
+  transform: translateY(-1px);
+}
+
+.theme-light {
+  // In light theme, the blue gradient can feel too "glowy" on a white background.
+  // Keep the theme-friendly base color and add a subtle border for separation.
+  .mention-chip {
+    background-image: none;
+    border-color: var(--border-color-light);
+  }
+}
+
+.mention-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  font-size: 12px;
+  line-height: 1;
+  color: var(--vscode-charts-blue);
+}
+
+.mention-chip-doc .mention-icon {
+  color: #52c41a;
+}
+
+.mention-chip-chat .mention-icon {
+  color: #52c41a;
+}
+
+.mention-label {
+  max-width: 160px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .user-message-edit-container {

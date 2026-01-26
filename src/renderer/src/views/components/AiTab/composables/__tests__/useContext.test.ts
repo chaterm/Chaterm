@@ -1,7 +1,22 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
+
+// Mock markdownRenderer to prevent monaco-editor from loading in jsdom
+vi.mock('../../components/format/markdownRenderer.vue', () => ({ default: {} }))
+
 import { ref } from 'vue'
-import { useHostManagement } from '../useHostManagement'
+
+vi.mock('vue', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('vue')>()
+  return {
+    ...actual,
+    onMounted: vi.fn((cb) => cb()),
+    onUnmounted: vi.fn()
+  }
+})
+import { useContext } from '../useContext'
+import { useHostState } from '../useHostState'
 import type { Host, HostOption } from '../../types'
+import type { ContentPart, ContextDocRef } from '@shared/WebviewMessage'
 import eventBus from '@/utils/eventBus'
 import { Notice } from '@/views/components/Notice/index'
 
@@ -9,7 +24,7 @@ import { Notice } from '@/views/components/Notice/index'
 const hosts = ref<Host[]>([])
 const chatTypeValue = ref('agent')
 const autoUpdateHost = ref(true)
-const chatInputValue = ref('')
+const chatInputParts = ref<ContentPart[]>([])
 const currentChatId = ref('test-tab-id')
 
 // Mock dependencies
@@ -18,7 +33,7 @@ vi.mock('../useSessionState', () => ({
     hosts,
     chatTypeValue,
     autoUpdateHost,
-    chatInputValue,
+    chatInputParts,
     currentChatId
   })
 }))
@@ -30,7 +45,7 @@ vi.mock('../useTabManagement', () => ({
 vi.mock('@/locales', () => ({
   default: {
     global: {
-      t: (key: string, params?: any) => {
+      t: (key: string, params?: Record<string, unknown>) => {
         if (key === 'ai.maxHostsLimitReached') {
           return `Maximum of ${params?.max} hosts reached`
         }
@@ -65,7 +80,7 @@ vi.mock('../../LeftTab/utils/types', () => ({
   })
 }))
 
-describe('useHostManagement', () => {
+describe('useContext', () => {
   const mockHostOption: HostOption = {
     label: 'server1.example.com',
     value: 'host-1',
@@ -95,12 +110,18 @@ describe('useHostManagement', () => {
     hosts.value = []
     chatTypeValue.value = 'agent'
     autoUpdateHost.value = true
-    chatInputValue.value = ''
+    chatInputParts.value = []
+    // Mock KB APIs used by docs navigation
+    window.api = {
+      ...(window.api || {}),
+      kbGetRoot: vi.fn().mockResolvedValue({ root: '/kb' }),
+      kbListDir: vi.fn().mockResolvedValue([])
+    }
   })
 
   describe('isHostSelected', () => {
     it('should return true when host is selected by uuid', () => {
-      const { isHostSelected } = useHostManagement()
+      const { isHostSelected } = useContext()
 
       hosts.value = [{ host: 'server1.example.com', uuid: 'uuid-1', connection: 'ssh' }]
 
@@ -108,7 +129,7 @@ describe('useHostManagement', () => {
     })
 
     it('should return false when host is not selected', () => {
-      const { isHostSelected } = useHostManagement()
+      const { isHostSelected } = useContext()
 
       hosts.value = []
 
@@ -116,7 +137,7 @@ describe('useHostManagement', () => {
     })
 
     it('should match by IP and connection type as fallback', () => {
-      const { isHostSelected } = useHostManagement()
+      const { isHostSelected } = useContext()
 
       hosts.value = [{ host: 'server1.example.com', uuid: 'different-uuid', connection: 'ssh' }]
 
@@ -126,7 +147,7 @@ describe('useHostManagement', () => {
 
   describe('onHostClick', () => {
     it('should add host when not selected in agent mode', () => {
-      const { onHostClick } = useHostManagement()
+      const { onHostClick } = useContext()
 
       hosts.value = []
       chatTypeValue.value = 'agent'
@@ -139,7 +160,7 @@ describe('useHostManagement', () => {
     })
 
     it('should remove host when already selected in agent mode', () => {
-      const { onHostClick } = useHostManagement()
+      const { onHostClick } = useContext()
 
       hosts.value = [{ host: 'server1.example.com', uuid: 'uuid-1', connection: 'ssh' }]
       chatTypeValue.value = 'agent'
@@ -150,7 +171,7 @@ describe('useHostManagement', () => {
     })
 
     it('should replace host in cmd mode', () => {
-      const { onHostClick } = useHostManagement()
+      const { onHostClick } = useContext()
 
       hosts.value = [{ host: 'old-server', uuid: 'old-uuid', connection: 'ssh' }]
       chatTypeValue.value = 'cmd'
@@ -162,7 +183,7 @@ describe('useHostManagement', () => {
     })
 
     it('should prevent adding more than max hosts', () => {
-      const { onHostClick } = useHostManagement()
+      const { onHostClick } = useContext()
 
       const newHostOption: HostOption = {
         label: 'newserver.example.com',
@@ -192,7 +213,7 @@ describe('useHostManagement', () => {
     })
 
     it('should remove localhost when adding non-localhost', () => {
-      const { onHostClick } = useHostManagement()
+      const { onHostClick } = useContext()
 
       hosts.value = [{ host: '127.0.0.1', uuid: 'localhost-uuid', connection: 'localhost' }]
       chatTypeValue.value = 'agent'
@@ -205,7 +226,7 @@ describe('useHostManagement', () => {
     })
 
     it('should toggle jumpserver expand/collapse', () => {
-      const { onHostClick } = useHostManagement()
+      const { onHostClick } = useContext()
 
       onHostClick(mockJumpserverOption)
 
@@ -214,7 +235,7 @@ describe('useHostManagement', () => {
     })
 
     it('should set autoUpdateHost to false after selection', () => {
-      const { onHostClick } = useHostManagement()
+      const { onHostClick } = useContext()
 
       autoUpdateHost.value = true
       onHostClick(mockHostOption)
@@ -224,7 +245,7 @@ describe('useHostManagement', () => {
 
     it('should switch to cmd mode when selecting switch host in agent mode', async () => {
       const { Notice } = await import('@/views/components/Notice')
-      const { onHostClick } = useHostManagement()
+      const { onHostClick } = useContext()
 
       const switchHostOption: HostOption = {
         label: 'switch-1',
@@ -253,9 +274,30 @@ describe('useHostManagement', () => {
     })
   })
 
+  describe('openDocFromChip', () => {
+    it('should emit openUserTab with relPath resolved from absPath', async () => {
+      const { openDocFromChip } = useContext()
+      const docRef: ContextDocRef = {
+        absPath: '/kb/docs/readme.md',
+        name: 'readme.md',
+        type: 'file'
+      }
+
+      await openDocFromChip(docRef)
+
+      expect(vi.mocked(eventBus.emit)).toHaveBeenCalledWith(
+        'openUserTab',
+        expect.objectContaining({
+          key: 'KnowledgeCenterEditor',
+          props: { relPath: 'docs/readme.md' }
+        })
+      )
+    })
+  })
+
   describe('removeHost', () => {
     it('should remove host by uuid', () => {
-      const { removeHost } = useHostManagement()
+      const { removeHost } = useContext()
 
       const hostToRemove: Host = {
         host: 'server1.example.com',
@@ -270,7 +312,7 @@ describe('useHostManagement', () => {
     })
 
     it('should not affect other hosts', () => {
-      const { removeHost } = useHostManagement()
+      const { removeHost } = useContext()
 
       const host1: Host = {
         host: 'server1.example.com',
@@ -291,7 +333,7 @@ describe('useHostManagement', () => {
     })
 
     it('should set autoUpdateHost to false', () => {
-      const { removeHost } = useHostManagement()
+      const { removeHost } = useContext()
 
       const host: Host = {
         host: 'server1.example.com',
@@ -310,7 +352,7 @@ describe('useHostManagement', () => {
 
   describe('toggleJumpserverExpand', () => {
     it('should add jumpserver to expanded set when collapsed', () => {
-      const { toggleJumpserverExpand } = useHostManagement()
+      const { toggleJumpserverExpand } = useContext()
 
       toggleJumpserverExpand('js-1')
 
@@ -322,7 +364,7 @@ describe('useHostManagement', () => {
 
   describe('getCurentTabAssetInfo', () => {
     it('should return asset info for current tab', async () => {
-      const { getCurentTabAssetInfo } = useHostManagement()
+      const { getCurentTabAssetInfo } = useHostState()
       const mockAssetInfo = {
         uuid: 'asset-1',
         title: 'Test Server',
@@ -350,7 +392,7 @@ describe('useHostManagement', () => {
       // Enable fake timers to speed up timeout test
       vi.useFakeTimers()
 
-      const { getCurentTabAssetInfo } = useHostManagement()
+      const { getCurentTabAssetInfo } = useHostState()
 
       // Don't trigger the callback to simulate timeout
       vi.mocked(eventBus.on).mockImplementation(() => {})
@@ -370,7 +412,7 @@ describe('useHostManagement', () => {
     })
 
     it('should set connection type based on organizationId', async () => {
-      const { getCurentTabAssetInfo } = useHostManagement()
+      const { getCurentTabAssetInfo } = useHostState()
       const mockAssetInfo = {
         uuid: 'asset-1',
         title: 'Test Server',
@@ -394,171 +436,166 @@ describe('useHostManagement', () => {
     })
   })
 
-  describe('handleInputChange', () => {
-    it('should show host select when only @ is typed', async () => {
-      const { handleInputChange, showHostSelect } = useHostManagement()
-
-      const mockEvent = {
-        target: {
-          value: '@',
-          getBoundingClientRect: vi.fn().mockReturnValue({
-            top: 100,
-            left: 100,
-            bottom: 200,
-            right: 200,
-            width: 100,
-            height: 100
-          }),
-          selectionStart: 1
-        }
-      } as unknown as Event
-
-      await handleInputChange(mockEvent)
-
-      expect(showHostSelect.value).toBe(true)
-    })
-
-    it('should show host select when @ is typed at the end', async () => {
-      const { handleInputChange, showHostSelect } = useHostManagement()
-
-      const mockEvent = {
-        target: {
-          value: 'hello @',
-          getBoundingClientRect: vi.fn().mockReturnValue({
-            top: 100,
-            left: 100,
-            bottom: 200,
-            right: 200,
-            width: 100,
-            height: 100
-          }),
-          selectionStart: 7
-        }
-      } as unknown as Event
-
-      await handleInputChange(mockEvent)
-
-      expect(showHostSelect.value).toBe(true)
-    })
-
-    it('should not show host select when @ is in the middle', async () => {
-      const { handleInputChange, showHostSelect } = useHostManagement()
-
-      const mockEvent = {
-        target: {
-          value: '@ hello',
-          getBoundingClientRect: vi.fn().mockReturnValue({
-            top: 100,
-            left: 100,
-            bottom: 200,
-            right: 200,
-            width: 100,
-            height: 100
-          }),
-          selectionStart: 7
-        }
-      } as unknown as Event
-
-      await handleInputChange(mockEvent)
-
-      expect(showHostSelect.value).toBe(false)
-    })
-
-    it('should hide host select when trailing @ is removed', async () => {
-      const { handleInputChange, showHostSelect } = useHostManagement()
-
-      showHostSelect.value = true
-
-      const mockEvent = {
-        target: {
-          value: 'hello',
-          getBoundingClientRect: vi.fn().mockReturnValue({
-            top: 100,
-            left: 100,
-            bottom: 200,
-            right: 200,
-            width: 100,
-            height: 100
-          }),
-          selectionStart: 5
-        }
-      } as unknown as Event
-
-      await handleInputChange(mockEvent)
-
-      expect(showHostSelect.value).toBe(false)
-    })
-
-    it('should hide host select when @ is removed', async () => {
-      const { handleInputChange, showHostSelect } = useHostManagement()
-
-      const mockEvent = {
-        target: {
-          value: 'test',
-          getBoundingClientRect: vi.fn().mockReturnValue({
-            top: 100,
-            left: 100,
-            bottom: 200,
-            right: 200,
-            width: 100,
-            height: 100
-          }),
-          selectionStart: 4
-        }
-      } as unknown as Event
-
-      showHostSelect.value = true
-      await handleInputChange(mockEvent)
-
-      expect(showHostSelect.value).toBe(false)
-    })
-  })
-
   describe('onHostClick with @ handling', () => {
     it('should remove trailing @ when host is selected', () => {
-      const { onHostClick } = useHostManagement()
+      const { onHostClick } = useContext()
 
-      chatInputValue.value = 'hello @'
+      chatInputParts.value = [{ type: 'text', text: 'hello @' }]
       chatTypeValue.value = 'agent'
 
       onHostClick(mockHostOption)
 
-      expect(chatInputValue.value).toBe('hello ')
+      expect(chatInputParts.value).toEqual([{ type: 'text', text: 'hello ' }])
       expect(hosts.value).toHaveLength(1)
     })
 
     it('should not modify input if no trailing @ when host is selected', () => {
-      const { onHostClick } = useHostManagement()
+      const { onHostClick } = useContext()
 
-      chatInputValue.value = 'hello world'
+      chatInputParts.value = [{ type: 'text', text: 'hello world' }]
       chatTypeValue.value = 'agent'
 
       onHostClick(mockHostOption)
 
-      expect(chatInputValue.value).toBe('hello world')
+      expect(chatInputParts.value).toEqual([{ type: 'text', text: 'hello world' }])
       expect(hosts.value).toHaveLength(1)
     })
 
     it('should remove @ even with just @', () => {
-      const { onHostClick } = useHostManagement()
+      const { onHostClick } = useContext()
 
-      chatInputValue.value = '@'
+      chatInputParts.value = [{ type: 'text', text: '@' }]
       chatTypeValue.value = 'agent'
 
       onHostClick(mockHostOption)
 
-      expect(chatInputValue.value).toBe('')
+      expect(chatInputParts.value).toEqual([])
       expect(hosts.value).toHaveLength(1)
     })
   })
 
-  describe('handleAddHostClick', () => {
+  describe('handleAddContextClick', () => {
     it('should show host select popup', () => {
-      const { handleAddHostClick, showHostSelect } = useHostManagement()
+      const { handleAddContextClick, showContextPopup } = useContext()
 
-      handleAddHostClick()
+      handleAddContextClick()
 
-      expect(showHostSelect.value).toBe(true)
+      expect(showContextPopup.value).toBe(true)
+    })
+  })
+
+  describe('docs navigation', () => {
+    it('should enter directory instead of selecting it', async () => {
+      const { fetchDocsOptions, onDocClick, docsOptions } = useContext()
+
+      vi.mocked(window.api.kbListDir).mockResolvedValueOnce([{ name: 'dirA', relPath: 'dirA', type: 'dir' }])
+      await fetchDocsOptions('')
+
+      vi.mocked(window.api.kbListDir).mockResolvedValueOnce([{ name: 'fileA.md', relPath: 'dirA/fileA.md', type: 'file' }])
+      await onDocClick(docsOptions.value[0])
+
+      expect(window.api.kbListDir).toHaveBeenLastCalledWith('dirA')
+      expect(docsOptions.value[0].name).toBe('fileA.md')
+      expect(docsOptions.value[0].type).toBe('file')
+    })
+
+    it('should go back to parent directory', async () => {
+      const { goToLevel2, onDocClick, goBack, docsOptions } = useContext()
+
+      vi.mocked(window.api.kbListDir).mockResolvedValueOnce([{ name: 'dirA', relPath: 'dirA', type: 'dir' }])
+      await goToLevel2('docs')
+
+      vi.mocked(window.api.kbListDir).mockResolvedValueOnce([{ name: 'fileA.md', relPath: 'dirA/fileA.md', type: 'file' }])
+      await onDocClick(docsOptions.value[0])
+
+      vi.mocked(window.api.kbListDir).mockResolvedValueOnce([
+        { name: 'dirA', relPath: 'dirA', type: 'dir' },
+        { name: 'dirB', relPath: 'dirB', type: 'dir' }
+      ])
+      await goBack()
+
+      expect(window.api.kbListDir).toHaveBeenLastCalledWith('')
+      expect(docsOptions.value).toHaveLength(2)
+    })
+  })
+
+  describe('kb add doc to chat', () => {
+    it('should insert doc chip when kbAddDocToChat emitted with single doc array', async () => {
+      const handlers = new Map<string, (payload: any) => Promise<void> | void>()
+      vi.mocked(eventBus.on).mockImplementation((event: string, handler: any) => {
+        handlers.set(event, handler)
+      })
+
+      const focusInput = vi.fn()
+      const { setChipInsertHandler } = useContext({ focusInput })
+      const handler = vi.fn()
+      setChipInsertHandler(handler)
+
+      const eventHandler = handlers.get('kbAddDocToChat')
+      await eventHandler?.([{ relPath: 'docs/guide.md', name: 'guide.md' }])
+
+      expect(window.api.kbGetRoot).toHaveBeenCalled()
+      expect(handler).toHaveBeenCalledWith('doc', { absPath: '/kb/docs/guide.md', name: 'guide.md', type: 'file' }, 'guide.md')
+      expect(focusInput).toHaveBeenCalled()
+    })
+
+    it('should insert multiple doc chips when kbAddDocToChat emitted with array', async () => {
+      const handlers = new Map<string, (payload: any) => Promise<void> | void>()
+      vi.mocked(eventBus.on).mockImplementation((event: string, handler: any) => {
+        handlers.set(event, handler)
+      })
+
+      const focusInput = vi.fn()
+      const { setChipInsertHandler } = useContext({ focusInput })
+      const handler = vi.fn()
+      setChipInsertHandler(handler)
+
+      const eventHandler = handlers.get('kbAddDocToChat')
+      await eventHandler?.([
+        { relPath: 'docs/guide.md', name: 'guide.md' },
+        { relPath: 'docs/api.md', name: 'api.md' }
+      ])
+
+      expect(handler).toHaveBeenCalledTimes(2)
+      expect(handler).toHaveBeenCalledWith('doc', { absPath: '/kb/docs/guide.md', name: 'guide.md', type: 'file' }, 'guide.md')
+      expect(handler).toHaveBeenCalledWith('doc', { absPath: '/kb/docs/api.md', name: 'api.md', type: 'file' }, 'api.md')
+      expect(focusInput).toHaveBeenCalledTimes(1)
+    })
+  })
+
+  describe('duplicate selections', () => {
+    it('should not insert duplicate doc and should close popup', async () => {
+      const { handleAddContextClick, onDocClick, setChipInsertHandler, showContextPopup } = useContext()
+      const handler = vi.fn()
+      setChipInsertHandler(handler)
+
+      const doc = { name: 'Doc A', absPath: '/kb/doc-a.md', type: 'file' } as const
+      chatInputParts.value = [{ type: 'chip', chipType: 'doc', ref: { absPath: doc.absPath, name: doc.name, type: doc.type } }]
+
+      handleAddContextClick()
+      expect(showContextPopup.value).toBe(true)
+
+      await onDocClick(doc)
+
+      expect(handler).not.toHaveBeenCalled()
+      expect(showContextPopup.value).toBe(false)
+    })
+
+    it('should not insert duplicate chat and should close popup', async () => {
+      const { handleAddContextClick, onChatClick, setChipInsertHandler, showContextPopup } = useContext()
+      const handler = vi.fn()
+      setChipInsertHandler(handler)
+
+      const chat = { id: 'chat-1', title: 'Chat 1', ts: 0 } as const
+      chatInputParts.value = [{ type: 'chip', chipType: 'chat', ref: { taskId: chat.id, title: chat.title } }]
+
+      handleAddContextClick()
+      expect(showContextPopup.value).toBe(true)
+
+      await onChatClick(chat)
+
+      expect(handler).not.toHaveBeenCalled()
+      expect(showContextPopup.value).toBe(false)
     })
   })
 })

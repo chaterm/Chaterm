@@ -9,11 +9,51 @@
       :key="tab.id"
     >
       <template #tab>
-        <span class="tab-title">{{ tab.title }}</span>
-        <CloseOutlined
-          class="tab-close-icon"
-          @click.stop="handleTabRemove(tab.id)"
-        />
+        <a-dropdown :trigger="['contextmenu']">
+          <div
+            class="tab-title-container"
+            @contextmenu.prevent
+          >
+            <a-input
+              v-if="editingTabId === tab.id"
+              :ref="(el) => (renameInputRef = el as any)"
+              v-model:value="editingTitle"
+              size="small"
+              class="tab-title-input"
+              @keydown="(event) => handleRenameKeydown(event, tab.id)"
+              @blur="cancelTabRename"
+              @click.stop
+            />
+            <span
+              v-else
+              class="tab-title"
+              draggable="true"
+              @dragstart="handleTabDragStart($event, tab)"
+            >
+              {{ tab.title }}
+            </span>
+            <CloseOutlined
+              class="tab-close-icon"
+              @click.stop="handleTabRemove(tab.id)"
+            />
+          </div>
+          <template #overlay>
+            <a-menu @click="({ key }) => handleTabMenuClick(key, tab)">
+              <a-menu-item key="rename">
+                {{ $t('ai.renameTab') }}
+              </a-menu-item>
+              <a-menu-item key="close">
+                {{ $t('ai.closeTab') }}
+              </a-menu-item>
+              <a-menu-item key="closeOthers">
+                {{ $t('ai.closeOtherTabs') }}
+              </a-menu-item>
+              <a-menu-item key="closeAll">
+                {{ $t('ai.closeAllTabs') }}
+              </a-menu-item>
+            </a-menu>
+          </template>
+        </a-dropdown>
       </template>
       <!-- Use v-show instead of v-if to keep tab content in DOM and avoid re-rendering on tab switch -->
       <div
@@ -442,27 +482,11 @@
               {{ $t('ai.retry') }}
             </a-button>
           </div>
-          <div
-            v-if="currentTab?.session.showNewTaskButton"
-            class="bottom-buttons"
-          >
-            <a-button
-              size="small"
-              type="primary"
-              class="retry-btn"
-              data-testid="new-task-button"
-              @click="createNewEmptyTab"
-            >
-              <template #icon>
-                <PlusOutlined />
-              </template>
-              {{ $t('ai.newTask') }}
-            </a-button>
-          </div>
           <InputSendContainer
             :is-active-tab="tab.id === currentChatId"
             :send-message="sendMessage"
             :handle-interrupt="handleCancel"
+            :open-history-tab="restoreHistoryTab"
           />
         </div>
       </div>
@@ -663,14 +687,14 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted, watch } from 'vue'
+import { ref, computed, onMounted, watch, nextTick } from 'vue'
 import { useRouter } from 'vue-router'
 import { useAutoScroll } from './composables/useAutoScroll'
 import { useChatHistory } from './composables/useChatHistory'
 import { useChatMessages } from './composables/useChatMessages'
 import { useCommandInteraction } from './composables/useCommandInteraction'
 import { useEventBusListeners } from './composables/useEventBusListeners'
-import { useHostManagement } from './composables/useHostManagement'
+import { useHostState } from './composables/useHostState'
 import { useMessageOptions } from './composables/useMessageOptions'
 import { useModelConfiguration } from './composables/useModelConfiguration'
 import { useSessionState } from './composables/useSessionState'
@@ -679,6 +703,7 @@ import { useTabManagement } from './composables/useTabManagement'
 import { useTodo } from './composables/useTodo'
 import { useWatchers } from './composables/useWatchers'
 import { useExportChat } from './composables/useExportChat'
+import { CONTEXT_DRAG_MIME, CONTEXT_DRAG_TEXT_PREFIX } from './composables/useEditableContent'
 import InputSendContainer from './components/InputSendContainer.vue'
 import MarkdownRenderer from './components/format/markdownRenderer.vue'
 import TodoInlineDisplay from './components/todo/TodoInlineDisplay.vue'
@@ -696,7 +721,6 @@ import {
   ExportOutlined,
   LikeOutlined,
   PlayCircleOutlined,
-  PlusOutlined,
   RedoOutlined,
   ReloadOutlined,
   SearchOutlined,
@@ -764,8 +788,8 @@ const { getCurrentState, restoreState, emitStateChange } = useStateSnapshot(emit
 // Todo functionality
 const { currentTodos, shouldShowTodoAfterMessage, getTodosForMessage, markLatestMessageWithTodoUpdate, clearTodoState } = useTodo()
 
-// Host management
-const { updateHosts, updateHostsForCommandMode, getCurentTabAssetInfo } = useHostManagement()
+// Host state management
+const { updateHosts, updateHostsForCommandMode, getCurentTabAssetInfo } = useHostState()
 // Auto scroll
 const { chatContainer, chatResponse, scrollToBottom, initializeAutoScroll, handleTabSwitch, getMessagePairStyle } = useAutoScroll()
 
@@ -807,12 +831,35 @@ const {
 const { exportChat } = useExportChat()
 
 // Tab management
-const { createNewEmptyTab, restoreHistoryTab, handleTabRemove } = useTabManagement({
+const {
+  createNewEmptyTab,
+  restoreHistoryTab,
+  handleTabRemove,
+  renameTab,
+  editingTabId,
+  editingTitle,
+  cancelTabRename,
+  handleRenameKeydown,
+  handleTabMenuClick
+} = useTabManagement({
   getCurentTabAssetInfo,
   emitStateChange,
   isFocusInAiTab,
   toggleSidebar: props.toggleSidebar
 })
+
+// Tab drag handler for context drag-and-drop
+const handleTabDragStart = (e: DragEvent, tab: { id: string; title: string }) => {
+  if (!e.dataTransfer) return
+  const payload = {
+    contextType: 'chat',
+    id: tab.id,
+    title: tab.title
+  }
+  e.dataTransfer.setData(CONTEXT_DRAG_MIME, JSON.stringify(payload))
+  e.dataTransfer.setData('text/plain', CONTEXT_DRAG_TEXT_PREFIX + JSON.stringify(payload))
+  e.dataTransfer.effectAllowed = 'copy'
+}
 
 // Chat history
 const {
@@ -829,7 +876,7 @@ const {
   deleteHistory,
   toggleFavorite,
   refreshHistoryList
-} = useChatHistory(createNewEmptyTab)
+} = useChatHistory({ createNewEmptyTab, renameTab })
 
 // i18n
 const { t } = i18n.global
@@ -854,6 +901,18 @@ const goToModelSettings = () => {
     eventBus.emit('switchToModelSettingsTab')
   }, 200)
 }
+
+// Ref for rename input focus
+const renameInputRef = ref<{ focus?: () => void } | null>(null)
+
+// Auto-focus rename input when editing starts
+watch(editingTabId, (newId) => {
+  if (newId) {
+    nextTick(() => {
+      renameInputRef.value?.focus?.()
+    })
+  }
+})
 
 watch(
   () => localStorage.getItem('login-skipped'),

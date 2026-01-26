@@ -1,6 +1,7 @@
 import { v4 as uuidv4 } from 'uuid'
 import type { ChatMessage, MessageContent, HostOption, TreeHostOption, HostItemType } from './types'
 import type { HostInfo } from '@shared/ExtensionMessage'
+import type { ContentPart } from '@shared/WebviewMessage'
 
 export const createNewMessage = (
   role: 'user' | 'assistant',
@@ -42,6 +43,13 @@ export const parseMessageContent = (text: string): string | MessageContent => {
 
 export const truncateText = (text: string, maxLength = 15): string => {
   return text.length > maxLength ? `${text.substring(0, maxLength)}...` : text
+}
+
+export const getChipLabel = (part: Extract<ContentPart, { type: 'chip' }>): string => {
+  if (part.chipType === 'doc') {
+    return part.ref.name || part.ref.absPath
+  }
+  return part.ref.title || part.ref.taskId
 }
 
 // Check if asset type is a network switch device

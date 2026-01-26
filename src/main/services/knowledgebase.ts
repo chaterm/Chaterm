@@ -182,6 +182,12 @@ export function registerKnowledgeBaseHandlers(): void {
     return { success: true }
   })
 
+  ipcMain.handle('kb:get-root', async () => {
+    const root = getKbRoot()
+    await fs.mkdir(root, { recursive: true })
+    return { root }
+  })
+
   ipcMain.handle('kb:list-dir', async (_evt, payload: { relDir: string }) => {
     const relDir = payload?.relDir ?? ''
     await fs.mkdir(getKbRoot(), { recursive: true })

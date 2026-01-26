@@ -5,6 +5,7 @@ import { v4 as uuidv4 } from 'uuid'
 import { upgradeAgentTaskMetadataSupport } from './migrations/add-todos-support'
 import { upgradeMcpToolStateSupport } from './migrations/add-mcp-tool-state-support'
 import { upgradeMcpToolCallSupport } from './migrations/add-mcp-tool-call-support'
+import { upgradeContentPartsSupport } from './migrations/add-content-parts-support'
 import { upgradeSkillsSupport } from './migrations/add-skills-support'
 import { IndexDBMigrator } from './indexdb-migrator'
 import { getUserDataPath } from '../../config/edition'
@@ -292,6 +293,7 @@ async function applyAllMigrations(db: Database.Database): Promise<void> {
   await upgradeAgentTaskMetadataSupport(db)
   await upgradeMcpToolStateSupport(db)
   await upgradeMcpToolCallSupport(db)
+  await upgradeContentPartsSupport(db)
   upgradeSnippetGroups(db)
   upgradeSkillsSupport(db)
 }
