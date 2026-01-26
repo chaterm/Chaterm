@@ -286,7 +286,9 @@ export function useTabManagement(options: TabManagementOptions) {
         welcomeTip: ''
       }
 
-      const isCurrentNewTab = currentTab.value && currentTab.value.title === 'New chat' && currentTab.value.session.chatHistory.length === 0
+      const hasUserInput = currentTab.value?.chatInputParts && currentTab.value.chatInputParts.length > 0
+      const isCurrentNewTab =
+        currentTab.value && currentTab.value.title === 'New chat' && currentTab.value.session.chatHistory.length === 0 && !hasUserInput
       if (isCurrentNewTab && !options?.forceNewTab) {
         const currentTabIndex = chatTabs.value.findIndex((tab) => tab.id === currentTab.value!.id)
         if (currentTabIndex !== -1) {
