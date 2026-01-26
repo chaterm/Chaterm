@@ -100,7 +100,7 @@
     "xterm-addon-fit": "^0.8.0",
     "xterm-addon-search": "^0.13.0",
     "zmodem.js": "^0.1.10",
-    "zod": "^3.24.2",
+    "zod": "^4.3.6",
     "zxcvbn": "^4.4.2"
   },
   "optionalDependencies": {
