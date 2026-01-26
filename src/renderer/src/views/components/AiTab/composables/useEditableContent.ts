@@ -370,14 +370,28 @@ export function useEditableContent(options: UseEditableContentOptions) {
     return { taskId: chat.id, title: chat.title }
   }
 
+  const getEditableRange = (): Range | null => {
+    const selection = window.getSelection()
+    if (!selection || selection.rangeCount === 0) return null
+    const range = selection.getRangeAt(0)
+    if (!editableRef.value || !editableRef.value.contains(range.startContainer)) return null
+    return range
+  }
+
   const insertChipAtCursor = (chipType: 'doc' | 'chat', ref: DocOption | ChatOption, label: string) => {
     if (!editableRef.value) return
     restoreSelection()
 
-    const selection = window.getSelection()
-    if (!selection || selection.rangeCount === 0) return
+    let range = getEditableRange()
+    if (!range) {
+      // Ensure a deterministic fallback when selection is missing (mouse path).
+      moveCaretToEnd()
+      range = getEditableRange()
+    }
+    if (!range) return
 
-    const range = selection.getRangeAt(0)
+    const selection = window.getSelection()
+    if (!selection) return
     removeAtSymbolBeforeCursor(range)
 
     const chipRef = buildChipRef(chipType, ref)
