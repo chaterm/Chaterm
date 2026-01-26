@@ -498,6 +498,7 @@ export default {
     uninstall: 'Uninstall',
     uninstallError: 'An error occurred during uninstallation',
     install: 'Install',
+    subscribe: 'Subscribe',
     update: 'Update',
     updateFailed: 'Update failed',
     updateSuccess: 'Update success',

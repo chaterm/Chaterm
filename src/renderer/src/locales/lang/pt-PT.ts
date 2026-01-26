@@ -500,6 +500,7 @@ export default {
     uninstall: 'Desinstalar',
     uninstallError: 'Ocorreu um erro durante a desinstalação',
     install: 'Instalar',
+    subscribe: 'Subscrever',
     update: 'Atualizar',
     updateFailed: 'Atualização falhou',
     updateSuccess: 'Atualização bem-sucedida',

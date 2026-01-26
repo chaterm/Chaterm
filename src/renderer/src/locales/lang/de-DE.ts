@@ -501,6 +501,7 @@ export default {
     uninstall: 'Deinstallieren',
     uninstallError: 'Ein Fehler ist während der Deinstallation aufgetreten',
     install: 'Installieren',
+    subscribe: 'Abonnieren',
     update: 'Update',
     updateFailed: 'Update fehlgeschlagen',
     updateSuccess: 'Update erfolgreich',

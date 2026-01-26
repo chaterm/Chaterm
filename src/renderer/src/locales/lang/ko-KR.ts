@@ -495,6 +495,7 @@ export default {
     uninstall: '삭제',
     uninstallError: '삭제 중 오류가 발생했습니다',
     install: '설치',
+    subscribe: '구독',
     update: '업데이트',
     updateFailed: '업데이트 실패',
     updateSuccess: '업데이트 성공',

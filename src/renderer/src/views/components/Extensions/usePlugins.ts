@@ -20,6 +20,7 @@ export interface StorePluginItem {
   latestVersion: string
   iconUrl: string
   isPrivate: boolean
+  installable: boolean
 }
 
 export interface DisplayPluginItem {
@@ -36,6 +37,7 @@ export interface DisplayPluginItem {
   installedVersion?: string
   latestVersion?: string
   isDraggedOnly?: boolean
+  installable?: boolean
 }
 
 const pluginItems = ref<PluginUiItem[]>([])
@@ -85,7 +87,8 @@ const pluginList = computed<DisplayPluginItem[]>(() => {
         installed: true,
         hasUpdate,
         installedVersion,
-        latestVersion: sp.latestVersion
+        latestVersion: sp.latestVersion,
+        installable: sp.installable
       })
       installedMap.delete(sp.pluginId)
     } else {
@@ -103,7 +106,8 @@ const pluginList = computed<DisplayPluginItem[]>(() => {
         hasUpdate: false,
         isDraggedOnly: false,
         installedVersion: '',
-        latestVersion: sp.latestVersion
+        latestVersion: sp.latestVersion,
+        installable: sp.installable
       })
     }
   }
@@ -174,7 +178,8 @@ const loadStorePlugins = async () => {
       description: p.description,
       latestVersion: p.latestVersion,
       isPrivate: p.isPrivate,
-      iconUrl: p.iconUrl
+      iconUrl: p.iconUrl,
+      installable: p.installable !== false
     }))
   } catch (e) {
     console.error('loadStorePlugins error', e)

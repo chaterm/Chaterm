@@ -76,19 +76,35 @@
 
               <div class="item_actions">
                 <template v-if="item.isPlugin && !item.installed">
-                  <a-tooltip :title="$t('extensions.install')">
-                    <a-button
-                      size="small"
-                      type="primary"
-                      class="op_btn icon_btn"
-                      :loading="item.pluginId ? !!installLoadingMap[item.pluginId] : false"
-                      @click.stop="onInstallClick(item)"
-                    >
-                      <template #icon>
-                        <CloudDownloadOutlined />
-                      </template>
-                    </a-button>
-                  </a-tooltip>
+                  <template v-if="item.installable !== false">
+                    <a-tooltip :title="$t('extensions.install')">
+                      <a-button
+                        size="small"
+                        type="primary"
+                        class="op_btn icon_btn"
+                        :loading="item.pluginId ? !!installLoadingMap[item.pluginId] : false"
+                        @click.stop="onInstallClick(item)"
+                      >
+                        <template #icon>
+                          <CloudDownloadOutlined />
+                        </template>
+                      </a-button>
+                    </a-tooltip>
+                  </template>
+                  <template v-else>
+                    <a-tooltip :title="$t('extensions.subscribe')">
+                      <a-button
+                        size="small"
+                        type="primary"
+                        class="op_btn icon_btn"
+                        @click.stop="onSubscribeClick(item)"
+                      >
+                        <template #icon>
+                          <CrownOutlined />
+                        </template>
+                      </a-button>
+                    </a-tooltip>
+                  </template>
                 </template>
                 <template v-else-if="item.isPlugin && item.installed && item.hasUpdate">
                   <a-tooltip :title="$t('extensions.update')">
@@ -117,7 +133,7 @@
 </template>
 
 <script setup lang="ts">
-import { CloudDownloadOutlined, LoadingOutlined, SearchOutlined, CloudSyncOutlined } from '@ant-design/icons-vue'
+import { CloudDownloadOutlined, LoadingOutlined, SearchOutlined, CloudSyncOutlined, CrownOutlined } from '@ant-design/icons-vue'
 import { computed, h, onBeforeUnmount, onMounted, reactive, ref, watch } from 'vue'
 import { notification } from 'ant-design-vue'
 import i18n from '@/locales'
@@ -125,6 +141,7 @@ import iconAlias from '@/assets/img/alias.svg'
 import iconJumpserver from '@/assets/img/jumpserver.svg'
 import { userConfigStore } from '@/services/userConfigStoreService'
 import eventBus from '@/utils/eventBus'
+import { isGlobalEdition } from '@/utils/edition'
 import { getPluginDownload, getPluginIconUrl } from '@/api/plugin/plugin'
 import { type DisplayPluginItem, usePluginStore } from './usePlugins'
 
@@ -532,6 +549,12 @@ const onUpdateClick = async (item: any) => {
     setUpdateLoading(id, false)
   }
 }
+
+const onSubscribeClick = (_item: any) => {
+  const pricingUrl = isGlobalEdition() ? 'https://chaterm.ai' : 'https://chaterm.cn'
+  window.open(pricingUrl, '_blank')
+}
+
 onBeforeUnmount(() => {
   eventBus.off('aliasStatusChanged')
   eventBus.off('reloadPlugins', refreshPlugins)
