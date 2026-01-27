@@ -2322,9 +2322,9 @@ export class Task {
           // 2. Session setting: user clicked "auto-approve read-only" button in this session
           const latestAutoApprovalSettings = await getGlobalState('autoApprovalSettings')
           const globalAutoExecuteReadOnly = latestAutoApprovalSettings?.actions?.autoExecuteReadOnlyCommands ?? false
-          console.log(
-            `[Command Execution] Read-only auto-approval check: command="${command}", requiresApprovalPerLLM=${requiresApprovalPerLLM}, globalAutoExecuteReadOnly=${globalAutoExecuteReadOnly}, sessionAutoApproved=${this.readOnlyCommandsAutoApproved}`
-          )
+          // console.log(
+          //   `[Command Execution] Read-only auto-approval check: command="${command}", requiresApprovalPerLLM=${requiresApprovalPerLLM}, globalAutoExecuteReadOnly=${globalAutoExecuteReadOnly}, sessionAutoApproved=${this.readOnlyCommandsAutoApproved}`
+          // )
           if (!requiresApprovalPerLLM && (globalAutoExecuteReadOnly || this.readOnlyCommandsAutoApproved)) {
             // Auto-approve read-only command
             const reason = globalAutoExecuteReadOnly ? 'global setting' : 'session auto-approval'
