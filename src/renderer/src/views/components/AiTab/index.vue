@@ -9,17 +9,51 @@
       :key="tab.id"
     >
       <template #tab>
-        <span
-          class="tab-title"
-          draggable="true"
-          @dragstart="handleTabDragStart($event, tab)"
-        >
-          {{ tab.title }}
-        </span>
-        <CloseOutlined
-          class="tab-close-icon"
-          @click.stop="handleTabRemove(tab.id)"
-        />
+        <a-dropdown :trigger="['contextmenu']">
+          <div
+            class="tab-title-container"
+            @contextmenu.prevent
+          >
+            <a-input
+              v-if="editingTabId === tab.id"
+              :ref="(el) => (renameInputRef = el as any)"
+              v-model:value="editingTitle"
+              size="small"
+              class="tab-title-input"
+              @keydown="(event) => handleRenameKeydown(event, tab.id)"
+              @blur="cancelTabRename"
+              @click.stop
+            />
+            <span
+              v-else
+              class="tab-title"
+              draggable="true"
+              @dragstart="handleTabDragStart($event, tab)"
+            >
+              {{ tab.title }}
+            </span>
+            <CloseOutlined
+              class="tab-close-icon"
+              @click.stop="handleTabRemove(tab.id)"
+            />
+          </div>
+          <template #overlay>
+            <a-menu @click="({ key }) => handleTabMenuClick(key, tab)">
+              <a-menu-item key="rename">
+                {{ $t('ai.renameTab') }}
+              </a-menu-item>
+              <a-menu-item key="close">
+                {{ $t('ai.closeTab') }}
+              </a-menu-item>
+              <a-menu-item key="closeOthers">
+                {{ $t('ai.closeOtherTabs') }}
+              </a-menu-item>
+              <a-menu-item key="closeAll">
+                {{ $t('ai.closeAllTabs') }}
+              </a-menu-item>
+            </a-menu>
+          </template>
+        </a-dropdown>
       </template>
       <!-- Use v-show instead of v-if to keep tab content in DOM and avoid re-rendering on tab switch -->
       <div
@@ -653,7 +687,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted, watch } from 'vue'
+import { ref, computed, onMounted, watch, nextTick } from 'vue'
 import { useRouter } from 'vue-router'
 import { useAutoScroll } from './composables/useAutoScroll'
 import { useChatHistory } from './composables/useChatHistory'
@@ -797,7 +831,17 @@ const {
 const { exportChat } = useExportChat()
 
 // Tab management
-const { createNewEmptyTab, restoreHistoryTab, handleTabRemove } = useTabManagement({
+const {
+  createNewEmptyTab,
+  restoreHistoryTab,
+  handleTabRemove,
+  renameTab,
+  editingTabId,
+  editingTitle,
+  cancelTabRename,
+  handleRenameKeydown,
+  handleTabMenuClick
+} = useTabManagement({
   getCurentTabAssetInfo,
   emitStateChange,
   isFocusInAiTab,
@@ -832,7 +876,7 @@ const {
   deleteHistory,
   toggleFavorite,
   refreshHistoryList
-} = useChatHistory(createNewEmptyTab)
+} = useChatHistory({ createNewEmptyTab, renameTab })
 
 // i18n
 const { t } = i18n.global
@@ -857,6 +901,18 @@ const goToModelSettings = () => {
     eventBus.emit('switchToModelSettingsTab')
   }, 200)
 }
+
+// Ref for rename input focus
+const renameInputRef = ref<{ focus?: () => void } | null>(null)
+
+// Auto-focus rename input when editing starts
+watch(editingTabId, (newId) => {
+  if (newId) {
+    nextTick(() => {
+      renameInputRef.value?.focus?.()
+    })
+  }
+})
 
 watch(
   () => localStorage.getItem('login-skipped'),

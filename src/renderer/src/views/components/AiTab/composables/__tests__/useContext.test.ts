@@ -4,6 +4,15 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 vi.mock('../../components/format/markdownRenderer.vue', () => ({ default: {} }))
 
 import { ref } from 'vue'
+
+vi.mock('vue', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('vue')>()
+  return {
+    ...actual,
+    onMounted: vi.fn((cb) => cb()),
+    onUnmounted: vi.fn()
+  }
+})
 import { useContext } from '../useContext'
 import { useHostState } from '../useHostState'
 import type { Host, HostOption } from '../../types'
@@ -507,6 +516,50 @@ describe('useContext', () => {
 
       expect(window.api.kbListDir).toHaveBeenLastCalledWith('')
       expect(docsOptions.value).toHaveLength(2)
+    })
+  })
+
+  describe('kb add doc to chat', () => {
+    it('should insert doc chip when kbAddDocToChat emitted with single doc array', async () => {
+      const handlers = new Map<string, (payload: any) => Promise<void> | void>()
+      vi.mocked(eventBus.on).mockImplementation((event: string, handler: any) => {
+        handlers.set(event, handler)
+      })
+
+      const focusInput = vi.fn()
+      const { setChipInsertHandler } = useContext({ focusInput })
+      const handler = vi.fn()
+      setChipInsertHandler(handler)
+
+      const eventHandler = handlers.get('kbAddDocToChat')
+      await eventHandler?.([{ relPath: 'docs/guide.md', name: 'guide.md' }])
+
+      expect(window.api.kbGetRoot).toHaveBeenCalled()
+      expect(handler).toHaveBeenCalledWith('doc', { absPath: '/kb/docs/guide.md', name: 'guide.md', type: 'file' }, 'guide.md')
+      expect(focusInput).toHaveBeenCalled()
+    })
+
+    it('should insert multiple doc chips when kbAddDocToChat emitted with array', async () => {
+      const handlers = new Map<string, (payload: any) => Promise<void> | void>()
+      vi.mocked(eventBus.on).mockImplementation((event: string, handler: any) => {
+        handlers.set(event, handler)
+      })
+
+      const focusInput = vi.fn()
+      const { setChipInsertHandler } = useContext({ focusInput })
+      const handler = vi.fn()
+      setChipInsertHandler(handler)
+
+      const eventHandler = handlers.get('kbAddDocToChat')
+      await eventHandler?.([
+        { relPath: 'docs/guide.md', name: 'guide.md' },
+        { relPath: 'docs/api.md', name: 'api.md' }
+      ])
+
+      expect(handler).toHaveBeenCalledTimes(2)
+      expect(handler).toHaveBeenCalledWith('doc', { absPath: '/kb/docs/guide.md', name: 'guide.md', type: 'file' }, 'guide.md')
+      expect(handler).toHaveBeenCalledWith('doc', { absPath: '/kb/docs/api.md', name: 'api.md', type: 'file' }, 'api.md')
+      expect(focusInput).toHaveBeenCalledTimes(1)
     })
   })
 

@@ -1,11 +1,11 @@
 import { v4 as uuidv4 } from 'uuid'
-import { nextTick, onMounted, onUnmounted } from 'vue'
+import { ref, nextTick, onMounted, onUnmounted } from 'vue'
 import { Modal } from 'ant-design-vue'
 import { useI18n } from 'vue-i18n'
-import type { HistoryItem, Host, AssetInfo, ChatMessage } from '../types'
+import type { HistoryItem, Host, AssetInfo, ChatMessage, TaskHistoryItem } from '../types'
 import type { ChatTab, SessionState } from './useSessionState'
 import { useSessionState } from './useSessionState'
-import { getGlobalState } from '@renderer/agent/storage/state'
+import { getGlobalState, updateGlobalState } from '@renderer/agent/storage/state'
 import { ChatermMessage } from '@/types/ChatermMessage'
 import { PROVIDER_MODEL_KEY_MAP } from './useModelConfiguration'
 import eventBus from '@/utils/eventBus'
@@ -286,7 +286,9 @@ export function useTabManagement(options: TabManagementOptions) {
         welcomeTip: ''
       }
 
-      const isCurrentNewTab = currentTab.value && currentTab.value.title === 'New chat' && currentTab.value.session.chatHistory.length === 0
+      const hasUserInput = currentTab.value?.chatInputParts && currentTab.value.chatInputParts.length > 0
+      const isCurrentNewTab =
+        currentTab.value && currentTab.value.title === 'New chat' && currentTab.value.session.chatHistory.length === 0 && !hasUserInput
       if (isCurrentNewTab && !options?.forceNewTab) {
         const currentTabIndex = chatTabs.value.findIndex((tab) => tab.id === currentTab.value!.id)
         if (currentTabIndex !== -1) {
@@ -359,6 +361,118 @@ export function useTabManagement(options: TabManagementOptions) {
     currentChatId.value = newActiveTab.id
   }
 
+  const renameTab = async (tabId: string, title: string) => {
+    // Update tab title if tab is currently open
+    const targetTab = chatTabs.value.find((tab) => tab.id === tabId)
+    if (targetTab) {
+      targetTab.title = title
+    }
+
+    try {
+      const taskHistory = ((await getGlobalState('taskHistory')) as TaskHistoryItem[]) || []
+      const targetHistory = taskHistory.find((item) => item.id === tabId)
+      if (targetHistory) {
+        targetHistory.chatTitle = title
+        await updateGlobalState('taskHistory', taskHistory)
+      }
+    } catch (err) {
+      console.error('Failed to persist tab title:', err)
+    }
+
+    emitStateChange?.()
+  }
+
+  const closeTabs = async (tabsToClose: ChatTab[]) => {
+    if (tabsToClose.length === 0) return
+    for (const tab of tabsToClose) {
+      await handleTabRemove(tab.id, true)
+    }
+  }
+
+  const confirmAndCloseTabs = async (tabsToClose: ChatTab[]) => {
+    if (tabsToClose.length === 0) return
+    const hasRunningTask = tabsToClose.some((tab) => tab.session.responseLoading)
+    if (!hasRunningTask) {
+      await closeTabs(tabsToClose)
+      return
+    }
+    Modal.confirm({
+      title: t('ai.closeTabsConfirm'),
+      content: t('ai.closeTabsWithTaskRunning'),
+      okText: t('common.forceClose'),
+      okType: 'danger',
+      cancelText: `${t('common.cancel')} (ESC)`,
+      maskClosable: true,
+      onOk: async () => {
+        await closeTabs(tabsToClose)
+      }
+    })
+  }
+
+  const closeOtherTabs = async (tabId: string) => {
+    const tabsToClose = chatTabs.value.filter((tab) => tab.id !== tabId)
+    await confirmAndCloseTabs(tabsToClose)
+  }
+
+  const closeAllTabs = async () => {
+    const tabsToClose = [...chatTabs.value]
+    await confirmAndCloseTabs(tabsToClose)
+  }
+
+  // Tab rename state and methods
+  const editingTabId = ref<string | null>(null)
+  const editingTitle = ref('')
+
+  const startTabRename = (tab: ChatTab) => {
+    editingTabId.value = tab.id
+    editingTitle.value = tab.title || ''
+  }
+
+  const cancelTabRename = () => {
+    editingTabId.value = null
+    editingTitle.value = ''
+  }
+
+  const saveTabRename = (tabId: string) => {
+    const nextTitle = editingTitle.value.trim()
+    if (!nextTitle) {
+      cancelTabRename()
+      return
+    }
+    renameTab(tabId, nextTitle)
+    cancelTabRename()
+  }
+
+  const handleRenameKeydown = (event: KeyboardEvent, tabId: string) => {
+    if (event.key === 'Enter') {
+      event.preventDefault()
+      saveTabRename(tabId)
+      return
+    }
+    if (event.key === 'Escape') {
+      event.preventDefault()
+      cancelTabRename()
+    }
+  }
+
+  const handleTabMenuClick = async (key: string, tab: ChatTab) => {
+    if (key === 'rename') {
+      startTabRename(tab)
+      return
+    }
+    if (key === 'close') {
+      await handleTabRemove(tab.id)
+      return
+    }
+    if (key === 'closeOthers') {
+      await closeOtherTabs(tab.id)
+      return
+    }
+    if (key === 'closeAll') {
+      await closeAllTabs()
+    }
+  }
+
   const handleCloseTabKeyDown = (event: KeyboardEvent) => {
     const isWindows = navigator.platform.toLowerCase().includes('win')
     if (!isWindows && (event.metaKey || event.ctrlKey) && event.key === 'w') {
@@ -389,6 +503,16 @@ export function useTabManagement(options: TabManagementOptions) {
     createNewEmptyTab,
     restoreHistoryTab,
     handleTabRemove,
+    renameTab,
+    closeOtherTabs,
+    closeAllTabs,
+    editingTabId,
+    editingTitle,
+    startTabRename,
+    cancelTabRename,
+    saveTabRename,
+    handleRenameKeydown,
+    handleTabMenuClick,
     handleCloseTabKeyDown
   }
 }

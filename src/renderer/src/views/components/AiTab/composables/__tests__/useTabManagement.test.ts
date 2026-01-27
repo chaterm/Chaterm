@@ -1,7 +1,9 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { ref, nextTick } from 'vue'
+import { Modal } from 'ant-design-vue'
 import { useTabManagement } from '../useTabManagement'
 import { useSessionState } from '../useSessionState'
+import { getGlobalState, updateGlobalState } from '@renderer/agent/storage/state'
 import type { AssetInfo, HistoryItem } from '../../types'
 import type { ChatermMessage } from '@/types/ChatermMessage'
 
@@ -16,8 +18,22 @@ vi.mock('../../components/format/markdownRenderer.vue', () => ({
     })
   }
 }))
+vi.mock('ant-design-vue', () => ({
+  Modal: {
+    confirm: vi.fn()
+  },
+  notification: {
+    config: vi.fn(),
+    open: vi.fn(),
+    success: vi.fn(),
+    error: vi.fn(),
+    info: vi.fn(),
+    warning: vi.fn()
+  }
+}))
 vi.mock('@renderer/agent/storage/state', () => ({
-  getGlobalState: vi.fn()
+  getGlobalState: vi.fn(),
+  updateGlobalState: vi.fn()
 }))
 vi.mock('vue-i18n', async (importOriginal) => {
   const actual = await importOriginal<typeof import('vue-i18n')>()
@@ -559,6 +575,148 @@ describe('useTabManagement', () => {
 
       expect(mockState.currentChatId.value).toBe('tab-3')
       expect(mockState.chatTabs.value.length).toBe(2)
+    })
+  })
+
+  describe('renameTab', () => {
+    it('should update tab title and persist to taskHistory', async () => {
+      const { renameTab } = useTabManagement({
+        getCurentTabAssetInfo: mockGetCurentTabAssetInfo,
+        emitStateChange: mockEmitStateChange,
+        toggleSidebar: mockToggleSidebar
+      })
+
+      const mockState = vi.mocked(useSessionState)()
+      mockState.chatTabs.value.push(createMockTab('tab-2'))
+      mockState.currentChatId.value = 'tab-1'
+
+      const mockTaskHistory = [
+        { id: 'tab-1', chatTitle: 'Old Title', ts: 1000 },
+        { id: 'tab-2', chatTitle: 'Tab 2', ts: 2000 }
+      ]
+      vi.mocked(getGlobalState).mockResolvedValue(mockTaskHistory)
+
+      await renameTab('tab-1', 'Renamed Tab')
+
+      expect(mockState.chatTabs.value[0].title).toBe('Renamed Tab')
+      expect(mockState.currentChatId.value).toBe('tab-1')
+      expect(updateGlobalState).toHaveBeenCalledWith('taskHistory', [
+        { id: 'tab-1', chatTitle: 'Renamed Tab', ts: 1000 },
+        { id: 'tab-2', chatTitle: 'Tab 2', ts: 2000 }
+      ])
+      expect(mockEmitStateChange).toHaveBeenCalled()
+    })
+
+    it('should update tab title even if not in taskHistory', async () => {
+      const { renameTab } = useTabManagement({
+        getCurentTabAssetInfo: mockGetCurentTabAssetInfo,
+        emitStateChange: mockEmitStateChange,
+        toggleSidebar: mockToggleSidebar
+      })
+
+      const mockState = vi.mocked(useSessionState)()
+      mockState.currentChatId.value = 'tab-1'
+
+      // Tab not in taskHistory (new tab not yet saved)
+      vi.mocked(getGlobalState).mockResolvedValue([])
+
+      await renameTab('tab-1', 'Renamed Tab')
+
+      expect(mockState.chatTabs.value[0].title).toBe('Renamed Tab')
+      expect(updateGlobalState).not.toHaveBeenCalled()
+      expect(mockEmitStateChange).toHaveBeenCalled()
+    })
+
+    it('should persist to taskHistory even if tab not currently open', async () => {
+      const { renameTab } = useTabManagement({
+        getCurentTabAssetInfo: mockGetCurentTabAssetInfo,
+        emitStateChange: mockEmitStateChange,
+        toggleSidebar: mockToggleSidebar
+      })
+
+      const mockState = vi.mocked(useSessionState)()
+      // Only tab-1 is open, but we're renaming a history item (tab-history) that's not open
+      mockState.currentChatId.value = 'tab-1'
+
+      const mockTaskHistory = [
+        { id: 'tab-1', chatTitle: 'Tab 1', ts: 1000 },
+        { id: 'tab-history', chatTitle: 'Old History Title', ts: 2000 }
+      ]
+      vi.mocked(getGlobalState).mockResolvedValue(mockTaskHistory)
+
+      await renameTab('tab-history', 'New History Title')
+
+      // Tab not in open tabs, so no tab title update
+      expect(mockState.chatTabs.value.find((t) => t.id === 'tab-history')).toBeUndefined()
+      // But taskHistory should be updated
+      expect(updateGlobalState).toHaveBeenCalledWith('taskHistory', [
+        { id: 'tab-1', chatTitle: 'Tab 1', ts: 1000 },
+        { id: 'tab-history', chatTitle: 'New History Title', ts: 2000 }
+      ])
+      expect(mockEmitStateChange).toHaveBeenCalled()
+    })
+  })
+
+  describe('bulk close', () => {
+    beforeEach(() => {
+      vi.mocked(Modal.confirm).mockReset()
+    })
+
+    it('should close other tabs with one confirm when any task running', async () => {
+      const { closeOtherTabs } = useTabManagement({
+        getCurentTabAssetInfo: mockGetCurentTabAssetInfo,
+        emitStateChange: mockEmitStateChange,
+        toggleSidebar: mockToggleSidebar
+      })
+
+      const mockState = vi.mocked(useSessionState)()
+      const runningTab = createMockTab('tab-2')
+      runningTab.session.responseLoading = true
+      mockState.chatTabs.value.push(runningTab, createMockTab('tab-3'))
+
+      let onOkPromise: Promise<void> | undefined
+      vi.mocked(Modal.confirm).mockImplementation(({ onOk }) => {
+        onOkPromise = onOk?.() as Promise<void> | undefined
+        return {} as any
+      })
+
+      await closeOtherTabs('tab-3')
+      if (onOkPromise) await onOkPromise
+
+      expect(Modal.confirm).toHaveBeenCalledTimes(1)
+      expect(mockState.chatTabs.value.length).toBe(1)
+      expect(mockState.chatTabs.value[0].id).toBe('tab-3')
+      expect(mockCancelTask).toHaveBeenCalledWith('tab-1')
+      expect(mockCancelTask).toHaveBeenCalledWith('tab-2')
+    })
+
+    it('should close all tabs with one confirm when any task running', async () => {
+      const { closeAllTabs } = useTabManagement({
+        getCurentTabAssetInfo: mockGetCurentTabAssetInfo,
+        emitStateChange: mockEmitStateChange,
+        toggleSidebar: mockToggleSidebar
+      })
+
+      const mockState = vi.mocked(useSessionState)()
+      const runningTab = createMockTab('tab-2')
+      runningTab.session.responseLoading = true
+      mockState.chatTabs.value.push(runningTab, createMockTab('tab-3'))
+
+      let onOkPromise: Promise<void> | undefined
+      vi.mocked(Modal.confirm).mockImplementation(({ onOk }) => {
+        onOkPromise = onOk?.() as Promise<void> | undefined
+        return {} as any
+      })
+
+      await closeAllTabs()
+      if (onOkPromise) await onOkPromise
+
+      expect(Modal.confirm).toHaveBeenCalledTimes(1)
+      expect(mockState.chatTabs.value.length).toBe(0)
+      expect(mockState.currentChatId.value).toBeUndefined()
+      expect(mockCancelTask).toHaveBeenCalledWith('tab-1')
+      expect(mockCancelTask).toHaveBeenCalledWith('tab-2')
+      expect(mockCancelTask).toHaveBeenCalledWith('tab-3')
     })
   })
 

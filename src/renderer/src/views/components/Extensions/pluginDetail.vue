@@ -23,16 +23,27 @@
               <h1 class="plugin_name">{{ plugin.name }}</h1>
               <p class="plugin_description">{{ plugin.description }}</p>
               <div class="action_buttons">
-                <a-button
-                  v-if="!isInstalled"
-                  class="op_btn"
-                  type="primary"
-                  size="small"
-                  :loading="installing"
-                  @click="handleInstall"
-                >
-                  {{ t('extensions.install') }}
-                </a-button>
+                <template v-if="!isInstalled">
+                  <a-button
+                    v-if="isInstallable"
+                    class="op_btn"
+                    type="primary"
+                    size="small"
+                    :loading="installing"
+                    @click="handleInstall"
+                  >
+                    {{ t('extensions.install') }}
+                  </a-button>
+                  <a-button
+                    v-else
+                    class="op_btn"
+                    type="primary"
+                    size="small"
+                    @click="handleSubscribe"
+                  >
+                    {{ t('extensions.subscribe') }}
+                  </a-button>
+                </template>
 
                 <template v-else>
                   <a-button
@@ -137,6 +148,7 @@ import { ref, onMounted, computed, watch } from 'vue'
 import { notification } from 'ant-design-vue'
 import { marked } from 'marked'
 import eventBus from '@/utils/eventBus'
+import { isGlobalEdition } from '@/utils/edition'
 
 import i18n from '@/locales'
 import { listPluginVersions, getPluginIconUrl } from '@/api/plugin/plugin'
@@ -176,6 +188,7 @@ const pluginMeta = computed(() => pluginList.value.find((p) => p.pluginId === pl
 const isInstalled = computed(() => !!pluginMeta.value?.installed)
 const needUpdate = computed(() => !!pluginMeta.value?.hasUpdate)
 const isStorePlugin = computed(() => storePlugins.value.some((sp) => sp.pluginId === pluginId.value))
+const isInstallable = computed(() => pluginMeta.value?.installable !== false)
 
 const loading = ref(true)
 const uninstalling = ref(false)
@@ -365,6 +378,11 @@ const handleUpdate = async () => {
   } finally {
     updating.value = false
   }
+}
+
+const handleSubscribe = () => {
+  const pricingUrl = isGlobalEdition() ? 'https://chaterm.ai' : 'https://chaterm.cn'
+  window.open(pricingUrl, '_blank')
 }
 
 const renderedReadme = computed(() => {

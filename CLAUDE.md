@@ -217,14 +217,20 @@ Code changes involve the project's core logic and functionality, and must underg
 
 **Supported Languages:**
 
-The project supports four languages: Chinese, Japanese, Korean, and English. All user-facing text must be translated into all four languages.
+The project supports ten languages. All user-facing text must be translated into all languages.
 
 **Text Location:**
 
-- Chinese: `src/renderer/src/locales/lang/zh-CN.ts`
+- Chinese (Simplified): `src/renderer/src/locales/lang/zh-CN.ts`
+- Chinese (Traditional): `src/renderer/src/locales/lang/zh-TW.ts`
+- English: `src/renderer/src/locales/lang/en-US.ts`
 - Japanese: `src/renderer/src/locales/lang/ja-JP.ts`
 - Korean: `src/renderer/src/locales/lang/ko-KR.ts`
-- English: `src/renderer/src/locales/lang/en-US.ts`
+- German: `src/renderer/src/locales/lang/de-DE.ts`
+- French: `src/renderer/src/locales/lang/fr-FR.ts`
+- Italian: `src/renderer/src/locales/lang/it-IT.ts`
+- Portuguese: `src/renderer/src/locales/lang/pt-PT.ts`
+- Russian: `src/renderer/src/locales/lang/ru-RU.ts`
 
 **Usage:**
 
@@ -236,7 +242,7 @@ const text = t('key.subkey')
 
 **Translation Requirements:**
 
-- When adding new user-facing text, translations must be added to all four locale files (zh-CN, ja-JP, ko-KR, en-US)
+- When adding new user-facing text, translations must be added to all ten locale files (zh-CN, zh-TW, en-US, ja-JP, ko-KR, de-DE, fr-FR, it-IT, pt-PT, ru-RU)
 - Translation keys must be identical across all language files
 - Maintain consistent structure and ordering across all locale files for easier maintenance
 
@@ -253,7 +259,7 @@ Before committing code, must confirm:
 1. [OK] Pass all checks: `npm run lint && npm run typecheck && npm test`
 2. [OK] No formatting changes to unrelated files (check git diff)
 3. [OK] Commit message follows Conventional Commits format
-4. [OK] If UI changes are involved, all four language files have been updated (zh-CN, ja-JP, ko-KR, en-US)
+4. [OK] If UI changes are involved, all ten language files have been updated (zh-CN, zh-TW, en-US, ja-JP, ko-KR, de-DE, fr-FR, it-IT, pt-PT, ru-RU)
 5. [OK] If database is modified, migration files have been created
 6. [OK] If new IPC channels are added, types have been defined in `src/preload/index.d.ts`
 7. [OK] No sensitive information committed (keys, tokens, private domains)

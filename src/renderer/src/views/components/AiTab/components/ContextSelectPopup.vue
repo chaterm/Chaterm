@@ -30,13 +30,34 @@
         v-if="currentMenuLevel === 'main'"
         class="main-menu-list"
       >
+        <!-- Opened hosts section (quick selection, max 4 items) -->
+        <template v-if="displayedOpenedHosts.length > 0">
+          <div
+            v-for="(host, index) in displayedOpenedHosts"
+            :key="'opened-' + host.uuid"
+            class="menu-item opened-host-item"
+            :class="{ 'keyboard-selected': keyboardSelectedIndex === index }"
+            @click.stop="onHostClick(host)"
+            @mouseover="handleMenuMouseOver(index)"
+          >
+            <LaptopOutlined class="menu-icon" />
+            <span class="menu-label">{{ host.label }}</span>
+            <CheckOutlined
+              v-if="isHostSelected(host)"
+              class="selected-icon"
+            />
+          </div>
+          <div class="menu-divider" />
+        </template>
+
+        <!-- Category menu items -->
         <div
           v-for="(item, index) in mainMenuItems"
           :key="item.key"
           class="menu-item"
-          :class="{ 'keyboard-selected': keyboardSelectedIndex === index }"
+          :class="{ 'keyboard-selected': keyboardSelectedIndex === displayedOpenedHosts.length + index }"
           @click.stop="goToLevel2(item.key)"
-          @mouseover="handleMenuMouseOver(index)"
+          @mouseover="handleMenuMouseOver(displayedOpenedHosts.length + index)"
         >
           <component
             :is="item.icon"
@@ -94,7 +115,7 @@
             :style="{ paddingLeft: item.level === 1 ? '24px' : '6px' }"
             @mouseover="handleMouseOver(item.value, index)"
             @mouseleave="hovered = null"
-            @click="handleHostClick(item)"
+            @click="onHostClick(item)"
           >
             <span class="item-label">{{ item.label }}</span>
             <CheckOutlined
@@ -218,7 +239,7 @@ import {
   CheckOutlined
 } from '@ant-design/icons-vue'
 import { contextInjectionKey } from '../composables/useContext'
-import type { ContextMenuLevel, HostOption } from '../types'
+import type { ContextMenuLevel } from '../types'
 import { isBastionHostType } from '../types'
 
 interface Props {
@@ -254,6 +275,8 @@ const {
   isHostSelected,
   onHostClick,
   toggleJumpserverExpand,
+  // Opened hosts
+  displayedOpenedHosts,
   // Docs
   filteredDocsOptions,
   docsOptionsLoading,
@@ -274,10 +297,6 @@ const {
 // Wrapper for keyboard handling
 const handleSearchKeyDownWithInput = (e: KeyboardEvent) => {
   void handleSearchKeyDown(e)
-}
-
-const handleHostClick = (item: HostOption) => {
-  onHostClick(item)
 }
 
 const handleMenuMouseOver = (index: number) => {
@@ -409,6 +428,12 @@ void searchInputRef
   padding: 4px 0;
 }
 
+.menu-divider {
+  height: 1px;
+  background: var(--border-color);
+  margin: 4px 8px;
+}
+
 .menu-item {
   display: flex;
   align-items: center;
@@ -436,11 +461,21 @@ void searchInputRef
 
   .menu-label {
     flex: 1;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
   }
 
   .arrow-icon {
     font-size: 10px;
     color: var(--text-color-tertiary);
+  }
+
+  .selected-icon {
+    font-size: 10px;
+    color: #52c41a;
+    margin-left: 6px;
+    flex-shrink: 0;
   }
 }
 

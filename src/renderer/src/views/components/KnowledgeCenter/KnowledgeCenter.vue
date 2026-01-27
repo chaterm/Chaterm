@@ -114,11 +114,23 @@
               <template #overlay>
                 <a-menu @click="({ key }) => onContextAction(String(key), dataRef)">
                   <template v-if="selectedKeys.length > 1 && selectedKeys.includes(dataRef.relPath)">
+                    <a-menu-item
+                      v-if="hasSelectedFile"
+                      key="addToChat"
+                    >
+                      Add to Chat
+                    </a-menu-item>
                     <a-menu-item key="copy">Copy</a-menu-item>
                     <a-menu-item key="cut">Cut</a-menu-item>
                     <a-menu-item key="delete">Delete</a-menu-item>
                   </template>
                   <template v-else>
+                    <a-menu-item
+                      v-if="dataRef.type === 'file'"
+                      key="addToChat"
+                    >
+                      Add to Chat
+                    </a-menu-item>
                     <a-menu-item
                       v-if="dataRef.type === 'dir'"
                       key="newFile"
@@ -228,6 +240,10 @@ const handleTreeScroll = () => {
 const menuKey = ref<string | null>(null) // right click selected item key
 const isContextMenuOpen = computed(() => !!menuKey.value)
 
+const hasSelectedFile = computed(() => {
+  return selectedKeys.value.some((relPath) => treeNodeType(relPath) === 'file')
+})
+
 function toTreeNodes(entries: Array<{ name: string; relPath: string; type: KbNodeType }>): TreeNode[] {
   return entries.map((e) => ({
     key: e.relPath,
@@ -331,7 +347,7 @@ const handleActiveKbTab = (payload: { relPath: string }) => {
   syncSelectionFromTab(payload.relPath)
 }
 
-function treeNodeType(relPath: string): KbNodeType | null {
+function findTreeNode(relPath: string): TreeNode | null {
   const find = (nodes: TreeNode[]): TreeNode | null => {
     for (const n of nodes) {
       if (n.relPath === relPath) return n
@@ -342,8 +358,11 @@ function treeNodeType(relPath: string): KbNodeType | null {
     }
     return null
   }
-  const node = relPath ? find(treeData.value) : null
-  return node?.type ?? null
+  return relPath ? find(treeData.value) : null
+}
+
+function treeNodeType(relPath: string): KbNodeType | null {
+  return findTreeNode(relPath)?.type ?? null
 }
 
 function openFileInMainPane(relPath: string) {
@@ -594,6 +613,17 @@ async function onContextAction(action: string, node: TreeNode) {
   const isBatch = selectedKeys.value.length > 1 && selectedKeys.value.includes(node.relPath)
   const targets = isBatch ? [...selectedKeys.value] : [node.relPath]
   switch (action) {
+    case 'addToChat': {
+      const fileTargets = targets.filter((target) => treeNodeType(target) === 'file')
+      if (fileTargets.length === 0) return
+      const docs = fileTargets.map((relPath) => {
+        const targetNode = findTreeNode(relPath)
+        const name = targetNode?.title || relPath.split('/').pop() || relPath
+        return { relPath, name }
+      })
+      eventBus.emit('kbAddDocToChatRequest', docs)
+      return
+    }
     case 'newFile':
       selectedKeys.value = [node.relPath]
       await openCreateInline('file')

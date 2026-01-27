@@ -446,6 +446,16 @@ const handleAiTabStateChanged = (state: AiSidebarState) => {
   savedAiSidebarState.value = state
 }
 
+const handleKbAddDocToChatRequest = (payload: Array<{ relPath: string; name?: string }>) => {
+  if (!showAiSidebar.value) {
+    toggleSideBar('right')
+  }
+
+  setTimeout(() => {
+    eventBus.emit('kbAddDocToChat', payload)
+  }, 100)
+}
+
 const saveAiSidebarState = () => {
   if (aiTabRef.value) {
     try {
@@ -914,7 +924,9 @@ onMounted(async () => {
 
   eventBus.on('currentClickServer', currentClickServer)
   eventBus.on('getActiveTabAssetInfo', handleGetActiveTabAssetInfo)
+  eventBus.on('getAllOpenedHosts', handleGetAllOpenedHosts)
   eventBus.on('toggleSideBar', toggleSideBar)
+  eventBus.on('kbAddDocToChatRequest', handleKbAddDocToChatRequest)
   eventBus.on('createSplitTab', handleCreateSplitTab)
   eventBus.on('createVerticalSplitTab', handleCreateVerticalSplitTab)
   eventBus.on('adjustSplitPaneToEqual', adjustSplitPaneToEqualWidth)
@@ -1607,7 +1619,9 @@ onUnmounted(() => {
 
   eventBus.off('currentClickServer', currentClickServer)
   eventBus.off('getActiveTabAssetInfo', handleGetActiveTabAssetInfo)
+  eventBus.off('getAllOpenedHosts', handleGetAllOpenedHosts)
   eventBus.off('toggleSideBar', toggleSideBar)
+  eventBus.off('kbAddDocToChatRequest', handleKbAddDocToChatRequest)
   eventBus.off('createSplitTab', handleCreateSplitTab)
   eventBus.off('createVerticalSplitTab', handleCreateVerticalSplitTab)
   eventBus.off('adjustSplitPaneToEqual', adjustSplitPaneToEqualWidth)
@@ -1821,6 +1835,44 @@ const getActiveTabAssetInfo = async () => {
 const handleGetActiveTabAssetInfo = async () => {
   const assetInfo = await getActiveTabAssetInfo()
   eventBus.emit('assetInfoResult', assetInfo)
+}
+
+/**
+ * Get all opened hosts from terminal tabs (unique by uuid)
+ */
+const getAllOpenedHosts = () => {
+  if (!dockApi) {
+    return []
+  }
+
+  const hostsMap = new Map<string, { uuid: string; ip: string; title: string; organizationId?: string; assetType?: string }>()
+
+  for (const panel of dockApi.panels) {
+    const params = panel.params
+    if (!params) continue
+
+    const ip = params.data?.ip || params.ip
+    const uuid = params.data?.uuid || params.uuid
+    if (!ip || !uuid) continue
+
+    // Skip if already added (dedupe by uuid)
+    if (hostsMap.has(uuid)) continue
+
+    hostsMap.set(uuid, {
+      uuid,
+      ip,
+      title: panel.api.title || params.title || ip,
+      organizationId: params.organizationId || params.data?.organizationId,
+      assetType: params.data?.asset_type
+    })
+  }
+
+  return Array.from(hostsMap.values())
+}
+
+const handleGetAllOpenedHosts = () => {
+  const hosts = getAllOpenedHosts()
+  eventBus.emit('allOpenedHostsResult', hosts)
 }
 
 const toggleAiSidebar = () => {

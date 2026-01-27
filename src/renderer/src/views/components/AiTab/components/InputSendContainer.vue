@@ -439,7 +439,7 @@ const { AgentAiModelsOptions, hasAvailableModels, handleChatAiModelChange } = us
 
 // Use user interactions composable
 const { fileInputRef, autoSendAfterVoice, handleTranscriptionComplete, handleTranscriptionError, handleFileUpload, handleFileSelected } =
-  useUserInteractions(props.sendMessage)
+  useUserInteractions({ sendMessage: props.sendMessage, insertChipAtCursor })
 void fileInputRef
 
 const focus = () => {
