@@ -777,6 +777,7 @@ export default {
     copyToClipboard: '已复制到剪贴板',
     retry: '重试',
     taskCompleted: '任务已完成',
+    taskProgress: '运维任务进度',
     codePreview: '代码预览 ({lines}行)',
     enterCustomOption: '请输入您的答案...',
     submit: '提交',

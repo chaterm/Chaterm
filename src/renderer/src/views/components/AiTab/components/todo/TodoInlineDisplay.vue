@@ -66,6 +66,9 @@ import { ref, computed, defineAsyncComponent, watch } from 'vue'
 import { UnorderedListOutlined, UpOutlined, DownOutlined } from '@ant-design/icons-vue'
 const TodoCompactList = defineAsyncComponent(() => import('./TodoCompactList.vue'))
 import type { Todo } from '../../../../../types/todo'
+import i18n from '@/locales'
+
+const { t } = i18n.global
 
 interface Props {
   todos: Todo[]
@@ -85,11 +88,6 @@ const props = withDefaults(defineProps<Props>(), {
 const visible = ref(true)
 const expanded = ref(props.showTrigger)
 const activeKey = ref(props.showTrigger ? ['todos'] : [])
-
-// Language and statistics
-const isChineseContent = computed(() =>
-  props.todos.some((todo) => /[\u4e00-\u9fff]/.test(todo.content) || (todo.description && /[\u4e00-\u9fff]/.test(todo.description)))
-)
 
 const progressCounts = computed(() => {
   const total = props.todos.length
@@ -114,8 +112,8 @@ const progressPercent = computed(() => {
   return Math.round((completed / total) * 100)
 })
 
-// Dynamic title - automatically select based on content language
-const todoTitle = computed(() => (isChineseContent.value ? '运维任务进度' : 'Task Progress'))
+// Dynamic title - use i18n
+const todoTitle = computed(() => t('ai.taskProgress'))
 
 // Add debug logs
 watch(

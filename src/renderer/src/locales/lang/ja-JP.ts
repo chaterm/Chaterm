@@ -783,6 +783,7 @@ export default {
     copyToClipboard: 'クリップボードにコピー',
     retry: '再試行',
     taskCompleted: 'タスク完了',
+    taskProgress: 'タスク進捗',
     codePreview: 'コードプレビュー ({lines} 行)',
     enterCustomOption: '答えを入力してください...',
     submit: '送信',
