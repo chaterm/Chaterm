@@ -83,7 +83,24 @@ export class LocalTerminalManager {
     const platform = os.platform()
     switch (platform) {
       case 'win32':
-        return process.env.SHELL || this.findExecutable(['pwsh.exe', 'powershell.exe', 'cmd.exe']) || 'cmd.exe'
+        if (process.env.SHELL) {
+          const shellPath = process.env.SHELL
+          // If it's just a filename (like 'bash.exe'), try to find the full path
+          if (shellPath.includes('\\') || shellPath.includes('/')) {
+            // Already a path, check if it exists
+            if (fs.existsSync(shellPath)) {
+              return shellPath
+            }
+          } else {
+            // Just a filename, try to find it
+            const found = this.findExecutable([shellPath])
+            if (found) {
+              return found
+            }
+          }
+        }
+        // Default: try PowerShell, then CMD
+        return this.findExecutable(['pwsh.exe', 'powershell.exe', 'cmd.exe']) || 'cmd.exe'
       case 'darwin':
         return process.env.SHELL || this.findExecutable(['/bin/zsh', '/bin/bash']) || '/bin/bash'
       case 'linux':
@@ -100,7 +117,29 @@ export class LocalTerminalManager {
       try {
         if (os.platform() === 'win32') {
           // Windows system search logic
-          if (cmd === 'pwsh.exe') {
+          if (cmd === 'bash.exe') {
+            // Git Bash search paths
+            const searchPaths = [
+              path.join(process.env.PROGRAMFILES || 'C:\\Program Files', 'Git', 'bin', cmd),
+              path.join(process.env['PROGRAMFILES(X86)'] || 'C:\\Program Files (x86)', 'Git', 'bin', cmd),
+              path.join(process.env.PROGRAMFILES || 'C:\\Program Files', 'Git', 'usr', 'bin', cmd),
+              path.join(process.env.LOCALAPPDATA || '', 'Programs', 'Git', 'bin', cmd)
+            ]
+            for (const fullPath of searchPaths) {
+              if (fs.existsSync(fullPath)) {
+                return fullPath
+              }
+            }
+            // Try using 'where' command as fallback
+            try {
+              const { execSync } = require('child_process')
+              const result = execSync(`where ${cmd}`, { encoding: 'utf8', stdio: 'pipe' })
+              const firstPath = result.trim().split('\n')[0]
+              if (firstPath && fs.existsSync(firstPath)) {
+                return firstPath
+              }
+            } catch {}
+          } else if (cmd === 'pwsh.exe') {
             const searchPaths = [
               path.join(process.env.PROGRAMFILES || 'C:\\Program Files', 'PowerShell', '7', cmd),
               path.join(process.env['PROGRAMFILES(X86)'] || 'C:\\Program Files (x86)', 'PowerShell', '7', cmd),
@@ -140,16 +179,18 @@ export class LocalTerminalManager {
 
   /**
    * Create local terminal connection
+   * @param shell Optional shell path. If not provided, uses default shell detection
    */
-  async createTerminal(): Promise<LocalTerminalInfo> {
-    const shell = this.getDefaultShell()
+  async createTerminal(shell?: string): Promise<LocalTerminalInfo> {
+    // Use provided shell, or detect default shell
+    const terminalShell = shell || this.getDefaultShell()
     const platform = os.platform()
     const sessionId = `localhost_${Date.now()}_${Math.random().toString(36).substring(2, 14)}`
 
     const terminal: LocalTerminalInfo = {
       id: this.nextTerminalId++,
       sessionId: sessionId,
-      shell: shell,
+      shell: terminalShell,
       platform: platform,
       isAlive: true
     }
@@ -159,37 +200,110 @@ export class LocalTerminalManager {
   }
 
   /**
+   * Translate Unix commands to Windows PowerShell equivalents
+   * This ensures Unix-style commands work on Windows PowerShell
+   */
+  private translateCommandForPowerShell(command: string): string {
+    const trimmed = command.trim()
+
+    // ls command translation
+    if (trimmed.match(/^ls\b/)) {
+      const args = trimmed.substring(2).trim()
+      let needsForce = false
+      let remainingArgs = args
+
+      // Check for -al or -la (show all files including hidden)
+      if (remainingArgs.includes('-al')) {
+        needsForce = true
+        remainingArgs = remainingArgs.replace(/-al\b/g, '').trim()
+      } else if (remainingArgs.includes('-la')) {
+        needsForce = true
+        remainingArgs = remainingArgs.replace(/-la\b/g, '').trim()
+      } else if (remainingArgs.includes('-a')) {
+        // Check for -a (but not -al or -la)
+        needsForce = true
+        remainingArgs = remainingArgs.replace(/-a\b/g, '').trim()
+      }
+
+      // Remove -l flag (PowerShell's Get-ChildItem already shows details)
+      remainingArgs = remainingArgs.replace(/-l\b/g, '').trim()
+
+      // Build the command
+      const forceFlag = needsForce ? ' -Force' : ''
+      if (remainingArgs) {
+        return `Get-ChildItem${forceFlag} ${remainingArgs}`
+      } else {
+        return needsForce ? 'Get-ChildItem -Force' : 'Get-ChildItem'
+      }
+    }
+
+    // cat command translation
+    if (trimmed.match(/^cat\s/)) {
+      // PowerShell has 'cat' alias for Get-Content, but use explicit cmdlet for reliability
+      const args = trimmed.substring(3).trim()
+      return args ? `Get-Content ${args}` : 'Get-Content'
+    }
+
+    // pwd command translation (already handled in getCurrentWorkingDirectory, but keep for consistency)
+    if (trimmed === 'pwd' || trimmed.match(/^pwd\s*$/)) {
+      return '$PWD'
+    }
+
+    // Return original command if no translation needed
+    // PowerShell may have aliases for some commands (like 'ls', 'cat'), so they might work as-is
+    return command
+  }
+
+  /**
    * Run command on local host
    */
   runCommand(terminal: LocalTerminalInfo, command: string, cwd?: string): LocalCommandProcess {
     const commandProcess = new EventEmitter() as LocalCommandProcess
     const workingDir = cwd || os.homedir()
 
-    console.log(`[LocalTerminal ${terminal.id}] Executing command: ${command}`)
-    console.log(`[LocalTerminal ${terminal.id}] Working directory: ${workingDir}`)
-
     // Adjust command execution method based on platform
     let shellCommand: string
     let shellArgs: string[]
+    let finalCommand = command
 
     if (os.platform() === 'win32') {
       // Windows platform
       shellCommand = terminal.shell
       if (terminal.shell.includes('cmd.exe')) {
-        shellArgs = ['/c', command]
+        shellArgs = ['/c', finalCommand]
+      } else if (terminal.shell.includes('bash.exe') || terminal.shell.includes('bash')) {
+        // Git Bash or other bash shells on Windows
+        shellArgs = ['-c', finalCommand]
       } else {
-        // PowerShell
-        shellArgs = ['-Command', command]
+        // PowerShell - translate Unix commands
+        finalCommand = this.translateCommandForPowerShell(command)
+        shellArgs = ['-Command', finalCommand]
       }
     } else {
       // Unix-like platforms
       shellCommand = terminal.shell
-      shellArgs = ['-c', command]
+      shellArgs = ['-c', finalCommand]
+    }
+
+    // Prepare environment variables
+    const env = { ...process.env }
+
+    // For Git Bash on Windows, ensure proper environment setup
+    if (os.platform() === 'win32' && (shellCommand.includes('bash.exe') || shellCommand.includes('bash'))) {
+      // Git Bash may need MSYSTEM environment variable
+      if (!env.MSYSTEM) {
+        env.MSYSTEM = 'MINGW64'
+      }
+      // Ensure PATH includes Git Bash binaries
+      const gitBashPath = shellCommand.replace(/\\bash\.exe$/i, '').replace(/\\bin\\bash\.exe$/i, '\\bin')
+      if (gitBashPath && !env.PATH?.includes(gitBashPath)) {
+        env.PATH = `${gitBashPath};${env.PATH || ''}`
+      }
     }
 
     const childProcess = spawn(shellCommand, shellArgs, {
       cwd: workingDir,
-      env: process.env,
+      env: env,
       stdio: ['pipe', 'pipe', 'pipe']
     })
 
@@ -211,7 +325,6 @@ export class LocalTerminalManager {
 
     // Handle process exit
     childProcess.on('close', (code: number | null) => {
-      console.log(`[LocalTerminal ${terminal.id}] Command completed with code: ${code}`)
       commandProcess.emit('completed', { code, output })
     })
 
@@ -320,9 +433,36 @@ export class LocalTerminalManager {
    * Get current working directory
    */
   async getCurrentWorkingDirectory(): Promise<string> {
-    const result = await this.executeCommand('pwd')
+    const platform = os.platform()
+    let command: string
+
+    if (platform === 'win32') {
+      // Windows platform
+      const shell = this.getDefaultShell()
+      if (shell.includes('cmd.exe')) {
+        // CMD: use 'cd' command (outputs current directory without newline)
+        command = 'cd'
+      } else if (shell.includes('bash.exe') || shell.includes('bash')) {
+        // Git Bash or other bash shells: use 'pwd' command
+        command = 'pwd'
+      } else {
+        // PowerShell: use $PWD to get current path as string
+        command = '$PWD'
+      }
+    } else {
+      // Unix-like platforms
+      command = 'pwd'
+    }
+
+    const result = await this.executeCommand(command)
     if (result.success && result.output) {
-      return result.output.trim()
+      // Trim whitespace and newlines
+      const path = result.output.trim()
+      // For PowerShell, $PWD might include quotes, remove them
+      if (platform === 'win32' && !this.getDefaultShell().includes('cmd.exe') && !this.getDefaultShell().includes('bash')) {
+        return path.replace(/^["']|["']$/g, '')
+      }
+      return path
     }
     return os.homedir()
   }
