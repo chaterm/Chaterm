@@ -783,6 +783,7 @@ export default {
     copyToClipboard: 'Копировать в буфер обмена',
     retry: 'Повторить',
     taskCompleted: 'Задача выполнена',
+    taskProgress: 'Прогресс задачи',
     codePreview: 'Предварительный просмотр кода ({lines} строк)',
     enterCustomOption: 'Пожалуйста, введите ваш ответ...',
     submit: 'Отправить',

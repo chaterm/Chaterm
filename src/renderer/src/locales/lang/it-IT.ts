@@ -785,6 +785,7 @@ export default {
     copyToClipboard: 'Copia nel Clipboard',
     retry: 'Riprova',
     taskCompleted: 'Task Completato',
+    taskProgress: 'Progresso Attività',
     codePreview: 'Anteprima Codice ({lines} linee)',
     enterCustomOption: 'Inserisci la tua risposta...',
     submit: 'Invia',

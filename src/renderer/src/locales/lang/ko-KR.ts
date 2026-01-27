@@ -780,6 +780,7 @@ export default {
     copyToClipboard: '클립보드에 복사',
     retry: '다시 시도',
     taskCompleted: '작업 완료',
+    taskProgress: '작업 진행률',
     codePreview: '코드 미리보기 ({lines} 줄)',
     enterCustomOption: '답변을 입력해주세요...',
     submit: '제출',

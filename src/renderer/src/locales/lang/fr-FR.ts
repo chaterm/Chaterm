@@ -787,6 +787,7 @@ export default {
     copyToClipboard: 'Copier dans le presse-papiers',
     retry: 'Réessayer',
     taskCompleted: 'Tâche terminée',
+    taskProgress: 'Progression des tâches',
     codePreview: 'Aperçu du code ({lines} lignes)',
     enterCustomOption: 'Entrez votre réponse...',
     submit: 'Soumettre',

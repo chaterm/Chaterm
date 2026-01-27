@@ -786,6 +786,7 @@ export default {
     copyToClipboard: 'In die Zwischenablage kopieren',
     retry: 'Wiederholen',
     taskCompleted: 'Aufgabe erfolgreich abgeschlossen',
+    taskProgress: 'Aufgabenfortschritt',
     codePreview: 'Code Vorschau ({lines} Zeilen)',
     enterCustomOption: 'Bitte geben Sie Ihre Antwort ein...',
     submit: 'Absenden',
