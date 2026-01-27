@@ -757,7 +757,7 @@ export default {
     reject: '拒否',
     approve: '承認',
     addAutoApprove: '自動承認を追加',
-    autoApproveReadOnly: '読取専用を自動実行',
+    autoApproveReadOnly: '読取専用コマンドを自動実行',
     autoApproveReadOnlyTip: '現在のセッション内の読取専用コマンドは確認なしで自動実行されます',
     cancel: 'キャンセル',
     resume: '再開',
