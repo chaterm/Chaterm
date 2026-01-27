@@ -36,6 +36,16 @@
         </template>
       </div>
 
+      <!-- Auto Execute Read-Only Commands -->
+      <div class="setting-item">
+        <a-checkbox v-model:checked="autoApprovalSettings.actions.autoExecuteReadOnlyCommands">
+          {{ $t('user.autoExecuteReadOnlyCommands') }}
+        </a-checkbox>
+        <p class="setting-description">
+          {{ $t('user.autoExecuteReadOnlyCommandsDescribe') }}
+        </p>
+      </div>
+
       <!-- Auto Approval -->
       <div class="setting-item">
         <a-checkbox v-model:checked="autoApprovalSettings.enabled">
@@ -277,6 +287,35 @@ watch(
       notification.error({
         message: 'Error',
         description: 'Failed to update auto approval settings'
+      })
+    }
+  }
+)
+
+// Add watch for autoExecuteReadOnlyCommands setting
+watch(
+  () => autoApprovalSettings.value.actions.autoExecuteReadOnlyCommands,
+  async (newValue) => {
+    try {
+      const settingsToStore = {
+        version: (autoApprovalSettings.value.version || 1) + 1,
+        enabled: autoApprovalSettings.value.enabled,
+        actions: {
+          ...autoApprovalSettings.value.actions,
+          autoExecuteReadOnlyCommands: newValue
+        },
+        maxRequests: autoApprovalSettings.value.maxRequests,
+        enableNotifications: autoApprovalSettings.value.enableNotifications,
+        favorites: [...(autoApprovalSettings.value.favorites || [])]
+      }
+
+      await updateGlobalState('autoApprovalSettings', settingsToStore)
+      console.log('[Settings] Auto-execute read-only commands setting saved:', newValue)
+    } catch (error) {
+      console.error('Failed to update auto-execute read-only commands setting:', error)
+      notification.error({
+        message: 'Error',
+        description: 'Failed to update settings'
       })
     }
   }

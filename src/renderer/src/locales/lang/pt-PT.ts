@@ -327,6 +327,9 @@ export default {
     enableExtendedThinkingDescribe: 'Orçamentos mais altos podem permitir que você alcance um pensamento mais completo e nuance',
     autoApproval: 'Auto Aprovação',
     autoApprovalDescribe: 'Permitir que o Agent execute ferramentas sem solicitar confirmação',
+    autoExecuteReadOnlyCommands: 'Executar automaticamente comandos somente leitura',
+    autoExecuteReadOnlyCommandsDescribe:
+      'Comandos somente leitura (ex: ls, cat, grep) em todas as sessões serão executados automaticamente sem confirmação',
     features: 'Funcionalidades',
     enableCheckpoints: 'Ativar Checkpoints',
     enableCheckpointsDescribe: 'Permite à extensão guardar checkpoints do espaço de trabalho durante a tarefa',
@@ -756,6 +759,8 @@ export default {
     reject: 'Rejeitar',
     approve: 'Aprovar',
     addAutoApprove: 'Adicionar Auto-Aprovar',
+    autoApproveReadOnly: 'Somente leitura auto',
+    autoApproveReadOnlyTip: 'Os comandos somente leitura nesta sessão serão executados automaticamente sem confirmação',
     cancel: 'Cancelar',
     resume: 'Resumir',
     agentMessage: 'Consulta de comando, resolução de erros, gerenciamento de tarefas, qualquer coisa',
