@@ -499,6 +499,7 @@ export default {
     uninstall: 'Удалить',
     uninstallError: 'Произошла ошибка при удалении',
     install: 'Установить',
+    subscribe: 'Подписаться',
     update: 'Обновить',
     updateFailed: 'Не удалось обновить',
     updateSuccess: 'Обновление успешно',

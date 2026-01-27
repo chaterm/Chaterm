@@ -498,6 +498,7 @@ export default {
     uninstall: 'アンインストール',
     uninstallError: 'アンインストール中にエラーが発生しました',
     install: 'インストール',
+    subscribe: '購読',
     update: '更新',
     updateFailed: '更新に失敗しました',
     updateSuccess: '更新成功',

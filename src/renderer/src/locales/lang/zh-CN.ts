@@ -495,6 +495,7 @@ export default {
     uninstall: '卸载',
     uninstallError: '卸载过程中发生错误',
     install: '安装',
+    subscribe: '订阅',
     update: '更新',
     updateFailed: '更新失败',
     updateSuccess: '更新成功',
