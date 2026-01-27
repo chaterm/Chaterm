@@ -143,6 +143,11 @@ export class Task {
   // SSH connection status tracking - tracks all connected hosts in this session
   private connectedHosts: Set<string> = new Set()
 
+  // Session-level flag for auto-approving read-only commands after first user confirmation
+  // Once user approves a read-only command (requires_approval=false), subsequent read-only commands
+  // in this session will be auto-approved to reduce user interaction
+  private readOnlyCommandsAutoApproved: boolean = false
+
   // Interactive command input handling
   private currentRunningProcess:
     | (LocalCommandProcess & { sendInput?: (input: string) => Promise<boolean> })
@@ -2312,12 +2317,24 @@ export class Task {
           this.consecutiveAutoApprovedRequestsCount++
           didAutoApprove = true
         } else if (!needsSecurityApproval) {
-          this.showNotificationIfNeeded(`Chaterm wants to execute a command: ${command}`)
-          const didApprove = await this.askApproval(toolDescription, 'command', command)
-          console.log(`[Command Execution] User approval result: ${didApprove}`)
-          if (!didApprove) {
-            await this.saveCheckpoint()
-            return
+          // Check if read-only commands can be auto-approved after first user confirmation
+          // This reduces user interaction for subsequent read-only commands in the same session
+          if (!requiresApprovalPerLLM && this.readOnlyCommandsAutoApproved) {
+            // Auto-approve read-only command since user already confirmed once in this session
+            console.log(`[Command Execution] Auto-approving read-only command (session auto-approval enabled)`)
+            this.removeLastPartialMessageIfExistsWithType('ask', 'command')
+            await this.say('command', command, false)
+            didAutoApprove = true
+          } else {
+            this.showNotificationIfNeeded(`Chaterm wants to execute a command: ${command}`)
+            const didApprove = await this.askApproval(toolDescription, 'command', command)
+            console.log(`[Command Execution] User approval result: ${didApprove}`)
+            if (!didApprove) {
+              await this.saveCheckpoint()
+              return
+            }
+            // Note: Session auto-approval is now triggered by the "autoApproveReadOnlyClicked" response
+            // which is handled in askApproval method
           }
         }
 
@@ -2476,7 +2493,14 @@ export class Task {
 
   private async askApproval(toolDescription: string, type: ChatermAsk, partialMessage?: string): Promise<boolean> {
     const { response, text, contentParts } = await this.ask(type, partialMessage, false)
-    const approved = response === 'yesButtonClicked'
+    const approved = response === 'yesButtonClicked' || response === 'autoApproveReadOnlyClicked'
+
+    // If user clicked "auto-approve read-only" button, enable session-level auto-approval for subsequent read-only commands
+    if (response === 'autoApproveReadOnlyClicked') {
+      this.readOnlyCommandsAutoApproved = true
+      console.log(`[Command Execution] User enabled session auto-approval for read-only commands`)
+    }
+
     if (!approved) {
       this.pushToolResult(toolDescription, formatResponse.toolDenied())
       if (text) {

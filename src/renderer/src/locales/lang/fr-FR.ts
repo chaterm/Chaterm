@@ -758,6 +758,8 @@ export default {
     reject: 'Refuser',
     approve: 'Approuver',
     addAutoApprove: 'Ajouter Auto-Approuver',
+    autoApproveReadOnly: 'Lecture seule auto',
+    autoApproveReadOnlyTip: 'Les commandes en lecture seule de cette session seront exécutées automatiquement sans confirmation',
     cancel: 'Annuler',
     resume: 'Reprendre',
     agentMessage: "Requête de commande, dépannage d'erreurs, gestion de tâches, tout",

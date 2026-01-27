@@ -756,6 +756,8 @@ export default {
     reject: 'Rifiuta',
     approve: 'Approva',
     addAutoApprove: 'Aggiungi Auto-Approvazione',
+    autoApproveReadOnly: 'Solo lettura auto',
+    autoApproveReadOnlyTip: 'I comandi di sola lettura in questa sessione verranno eseguiti automaticamente senza conferma',
     cancel: 'Annulla',
     resume: 'Riprendi',
     agentMessage: 'Query comando, risolvi errori, gestisci task, qualsiasi cosa',

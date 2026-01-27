@@ -759,6 +759,8 @@ export default {
     reject: 'Reject',
     approve: 'Approve',
     addAutoApprove: 'add Auto-Approve',
+    autoApproveReadOnly: 'Auto-run Read-only',
+    autoApproveReadOnlyTip: 'Read-only commands in this session will be auto-executed without confirmation',
     cancel: 'Cancel',
     resume: 'Resume',
     agentMessage: 'Command query,troubleshoot errors,handle tasks,anything',

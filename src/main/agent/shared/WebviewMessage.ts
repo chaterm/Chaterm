@@ -70,7 +70,7 @@ export interface WebviewMessage {
   truncateAtMessageTs?: number // For truncate and resend
 }
 
-export type ChatermAskResponse = 'yesButtonClicked' | 'noButtonClicked' | 'messageResponse'
+export type ChatermAskResponse = 'yesButtonClicked' | 'noButtonClicked' | 'messageResponse' | 'autoApproveReadOnlyClicked'
 
 export type ChatermCheckpointRestore = 'task' | 'workspace' | 'taskAndWorkspace'
 

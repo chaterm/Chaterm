@@ -749,6 +749,8 @@ export default {
     reject: '拒绝',
     approve: '批准',
     addAutoApprove: '添加为自动批准',
+    autoApproveReadOnly: '查询类自动执行',
+    autoApproveReadOnlyTip: '当前会话内的查询类命令将自动执行，无需再次确认',
     cancel: '取消',
     resume: '恢复',
     agentMessage: '到任意主机执行命令查询，排查错误和任务处理等任何事情',

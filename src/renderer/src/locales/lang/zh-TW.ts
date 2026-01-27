@@ -739,6 +739,8 @@ export default {
     reject: '拒絕',
     approve: '批准',
     addAutoApprove: '添加為自動批准',
+    autoApproveReadOnly: '查詢類自動執行',
+    autoApproveReadOnlyTip: '當前會話內的查詢類命令將自動執行，無需再次確認',
     cancel: '取消',
     resume: '恢復',
     agentMessage: '到任意主機執行命令查詢，排查錯誤和任務處理等任何事情',

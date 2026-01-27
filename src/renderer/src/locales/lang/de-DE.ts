@@ -758,6 +758,8 @@ export default {
     reject: 'Ablehnen',
     approve: 'Bestätigen',
     addAutoApprove: 'Auto-Bestätigung hinzufügen',
+    autoApproveReadOnly: 'Nur-Lesen automatisch',
+    autoApproveReadOnlyTip: 'Nur-Lese-Befehle in dieser Sitzung werden ohne Bestätigung automatisch ausgeführt',
     cancel: 'Abbrechen',
     resume: 'Fortsetzen',
     agentMessage: 'Befehl abfragen, Fehler beheben, Aufgaben bearbeiten, alles',

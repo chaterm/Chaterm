@@ -195,6 +195,44 @@ export function useCommandInteraction(params: CommandInteractionOptions) {
   }
 
   /**
+   * Approve command and enable session-level auto-approval for read-only commands
+   * After clicking this button, subsequent read-only commands (requires_approval=false) will be auto-executed
+   */
+  const handleApproveAndAutoApproveReadOnly = async (): Promise<void> => {
+    const session = currentSession.value
+    if (!session) return
+
+    const message = session.chatHistory.at(-1)
+    if (!message) {
+      return
+    }
+
+    if (message.ask !== 'command') {
+      return
+    }
+
+    try {
+      let messageRsp: WebviewMessage = {
+        type: 'askResponse',
+        askResponse: 'autoApproveReadOnlyClicked',
+        text: ''
+      }
+
+      message.action = 'approved'
+      session.isExecutingCommand = true
+
+      console.log('Send message to main process (auto-approve read-only):', messageRsp)
+      const response = await window.api.sendToMain(attachTabContext(messageRsp))
+      session.buttonsDisabled = true
+      console.log('Main process response:', response)
+      session.responseLoading = true
+      params.scrollToBottom(true)
+    } catch (error) {
+      console.error('Failed to approve and enable read-only auto-approval:', error)
+    }
+  }
+
+  /**
    * Approve and set auto-approval (for MCP tool calls)
    */
   const handleApproveAndAutoApprove = async (): Promise<void> => {
@@ -324,6 +362,7 @@ export function useCommandInteraction(params: CommandInteractionOptions) {
     handleCopyContent,
     handleRejectContent,
     handleApproveCommand,
+    handleApproveAndAutoApproveReadOnly,
     handleApproveAndAutoApprove,
     handleCancel,
     handleResume,

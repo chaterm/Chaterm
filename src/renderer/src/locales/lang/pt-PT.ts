@@ -756,6 +756,8 @@ export default {
     reject: 'Rejeitar',
     approve: 'Aprovar',
     addAutoApprove: 'Adicionar Auto-Aprovar',
+    autoApproveReadOnly: 'Somente leitura auto',
+    autoApproveReadOnlyTip: 'Os comandos somente leitura nesta sessão serão executados automaticamente sem confirmação',
     cancel: 'Cancelar',
     resume: 'Resumir',
     agentMessage: 'Consulta de comando, resolução de erros, gerenciamento de tarefas, qualquer coisa',
