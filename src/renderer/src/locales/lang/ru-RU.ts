@@ -262,6 +262,20 @@ export default {
     about: 'Обо мне',
     documentation: 'Документация',
     privacy: 'Конфиденциальность',
+    trustedDevices: 'Доверенные устройства',
+    trustedDevicesDescription:
+      'Эти устройства проверены и могут пропустить проверку при следующем входе. После удаления устройству потребуется повторная проверка.',
+    trustedDevicesCount: '{current} / {max} устройств',
+    trustedDevicesMaxReached:
+      'Достигнуто максимальное количество доверенных устройств. Сначала удалите одно из этого списка, прежде чем добавлять новое.',
+    trustedDevicesRemoveConfirm: 'После удаления этому устройству потребуется повторная проверка при следующем входе. Продолжить?',
+    trustedDevicesCurrentDevice: 'Текущее устройство',
+    trustedDevicesNoData: 'Пока нет доверенных устройств. Они появятся здесь после входа на новых устройствах и прохождения проверки.',
+    trustedDevicesRemove: 'Удалить',
+    trustedDevicesLoginRequired: 'Войдите, чтобы управлять доверенными устройствами.',
+    trustedDevicesUnknownDevice: 'Неизвестное устройство',
+    trustedDevicesLoadFailed: 'Не удалось загрузить список доверенных устройств',
+    trustedDevicesRevokeFailed: 'Не удалось удалить устройство',
     secretRedaction: 'Скрытие секретов',
     secretRedactionDescription:
       'Скрытие секретов пытается автоматически скрывать секреты и чувствительную информацию в вашем выводе диалога AI, включая пароли, IP-адреса, API-ключи и PII.',

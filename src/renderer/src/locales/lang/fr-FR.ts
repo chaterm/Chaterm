@@ -262,6 +262,21 @@ export default {
     about: 'À propos',
     documentation: 'Documentation',
     privacy: 'Confidentialité',
+    trustedDevices: 'Appareils de confiance',
+    trustedDevicesDescription:
+      "Ces appareils ont été vérifiés et peuvent ignorer la vérification à la prochaine connexion. Après suppression, l'appareil devra être vérifié à nouveau.",
+    trustedDevicesCount: '{current} / {max} appareils',
+    trustedDevicesMaxReached:
+      "Nombre maximum d'appareils de confiance atteint. Veuillez d'abord en supprimer un de cette liste avant d'en ajouter un nouveau.",
+    trustedDevicesRemoveConfirm: 'Après suppression, cet appareil devra être vérifié à nouveau à la prochaine connexion. Continuer ?',
+    trustedDevicesCurrentDevice: 'Appareil actuel',
+    trustedDevicesNoData:
+      'Aucun appareil de confiance pour le moment. Ils apparaîtront ici après connexion sur de nouveaux appareils et vérification.',
+    trustedDevicesRemove: 'Supprimer',
+    trustedDevicesLoginRequired: 'Veuillez vous connecter pour gérer les appareils de confiance.',
+    trustedDevicesUnknownDevice: 'Appareil inconnu',
+    trustedDevicesLoadFailed: 'Échec du chargement des appareils de confiance',
+    trustedDevicesRevokeFailed: "Échec de la suppression de l'appareil",
     secretRedaction: 'Redaction secrète',
     secretRedactionDescription:
       'La rédaction secrète essaie de rediger automatiquement les secrets et les informations sensibles dans la sortie de votre dialogue AI, y compris les mots de passe, les adresses IP, les clés API et les PII.',

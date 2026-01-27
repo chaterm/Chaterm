@@ -992,6 +992,7 @@ const handleSave = async (provider) => {
 <style lang="less" scoped>
 .settings-section {
   background-color: transparent;
+  margin-left: 20px;
 
   :deep(.ant-card-body) {
     padding: 16px;
@@ -999,13 +1000,14 @@ const handleSave = async (provider) => {
 }
 
 .section-header {
-  margin-top: 8px;
-  margin-left: 16px;
+  margin: 30px 16px 16px 28px;
 
   h3 {
     font-size: 20px;
-    font-weight: 500;
+    font-weight: bold;
+    line-height: 1.3;
     margin: 0;
+    color: var(--text-color);
   }
 }
 
@@ -1338,7 +1340,7 @@ const handleSave = async (provider) => {
 .add-model-switch {
   display: flex;
   align-items: center;
-  margin: 16px 0 16px 16px;
+  margin: 16px 0 16px 24px;
 
   .switch-label {
     margin-right: 16px;
