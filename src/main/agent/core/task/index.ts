@@ -2331,6 +2331,7 @@ export class Task {
             console.log(`[Command Execution] Auto-approving read-only command (${reason} enabled)`)
             this.removeLastPartialMessageIfExistsWithType('ask', 'command')
             await this.say('command', command, false)
+            this.consecutiveAutoApprovedRequestsCount = 0
             didAutoApprove = true
           } else {
             this.showNotificationIfNeeded(`Chaterm wants to execute a command: ${command}`)
