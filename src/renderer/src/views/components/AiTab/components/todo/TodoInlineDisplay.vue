@@ -7,22 +7,37 @@
       class="todo-inline-header"
       @click="toggleExpanded"
     >
-      <div class="todo-title">
-        <UnorderedListOutlined />
-        <span>{{ todoTitle }}</span>
-        <div class="todo-progress-chip">
-          <span class="todo-progress-ratio">{{ progressRatio }}</span>
+      <div class="todo-header-left">
+        <div class="todo-title">
+          <UnorderedListOutlined class="todo-icon" />
+          <span class="todo-title-text">{{ todoTitle }}</span>
+        </div>
+        <div class="todo-progress-ratio">
+          <span class="ratio-completed">{{ progressCounts.completed }}</span>
+          <span class="ratio-separator">/</span>
+          <span class="ratio-total">{{ progressCounts.total }}</span>
         </div>
       </div>
-      <div class="todo-controls">
-        <UpOutlined
-          v-if="expanded"
-          class="expand-icon"
-        />
-        <DownOutlined
-          v-else
-          class="expand-icon"
-        />
+      <div class="todo-header-right">
+        <div class="todo-progress-indicator">
+          <div class="progress-bar-container">
+            <div
+              class="progress-bar-fill"
+              :style="{ width: progressPercent + '%' }"
+            />
+          </div>
+          <span class="progress-text">{{ progressPercent }}%</span>
+        </div>
+        <div class="todo-controls">
+          <UpOutlined
+            v-if="expanded"
+            class="expand-icon"
+          />
+          <DownOutlined
+            v-else
+            class="expand-icon"
+          />
+        </div>
       </div>
     </div>
 
@@ -89,19 +104,18 @@ const progressCounts = computed(() => {
     }
   })
 
-  return { total, completed, inProgress }
+  const pending = total - completed - inProgress
+  return { total, completed, inProgress, pending }
+})
+
+const progressPercent = computed(() => {
+  const { total, completed } = progressCounts.value
+  if (total === 0) return 0
+  return Math.round((completed / total) * 100)
 })
 
 // Dynamic title - automatically select based on content language
 const todoTitle = computed(() => (isChineseContent.value ? '运维任务进度' : 'Task Progress'))
-
-const progressRatio = computed(() => {
-  const { total, completed } = progressCounts.value
-  if (total === 0) {
-    return '0/0'
-  }
-  return `${completed}/${total}`
-})
 
 // Add debug logs
 watch(
@@ -136,73 +150,150 @@ const toggleExpanded = () => {
   margin: 12px 0;
   background: var(--bg-color-secondary);
   border: 1px solid var(--border-color-light);
-  border-radius: 8px;
+  border-radius: 10px;
   overflow: hidden;
   transition:
     background-color 0.3s ease,
-    border-color 0.3s ease;
+    border-color 0.3s ease,
+    box-shadow 0.3s ease;
+
+  &:hover {
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+  }
 }
 
 .todo-inline-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 4px 12px;
-  background: var(--bg-color);
+  padding: 6px 12px;
+  background: linear-gradient(135deg, var(--bg-color) 0%, var(--bg-color-secondary) 100%);
   border-bottom: 1px solid var(--border-color-light);
   cursor: pointer;
-  transition: background-color 0.2s;
+  transition: background 0.2s;
   user-select: none;
+  gap: 10px;
 }
 
 .todo-inline-header:hover {
-  background: var(--hover-bg-color);
+  background: linear-gradient(135deg, var(--hover-bg-color) 0%, var(--bg-color-secondary) 100%);
+}
+
+.todo-header-left {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: 1;
+  min-width: 0;
+}
+
+.todo-header-right {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-shrink: 0;
 }
 
 .todo-title {
   display: flex;
   align-items: center;
   gap: 6px;
-  font-size: 13px;
+  flex-shrink: 0;
+}
+
+.todo-icon {
+  font-size: 12px;
+  color: var(--text-color-secondary);
+  opacity: 0.85;
+}
+
+.todo-title-text {
+  font-size: 12px;
   font-weight: 500;
   color: var(--text-color);
+}
+
+.todo-progress-ratio {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  padding: 1px 6px;
+  border-radius: 8px;
+  background: var(--bg-color-secondary);
+  border: 1px solid var(--border-color-light);
+  font-size: 11px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+
+  .ratio-completed {
+    color: var(--text-color);
+  }
+
+  .ratio-separator {
+    color: var(--text-color-tertiary);
+    margin: 0 1px;
+  }
+
+  .ratio-total {
+    color: var(--text-color-secondary);
+  }
+}
+
+.todo-progress-indicator {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.progress-bar-container {
+  width: 50px;
+  height: 4px;
+  background: var(--bg-color-secondary);
+  border-radius: 2px;
+  overflow: hidden;
+  border: 1px solid var(--border-color-light);
+}
+
+.progress-bar-fill {
+  height: 100%;
+  background: linear-gradient(90deg, #52c41a 0%, #73d13d 100%);
+  border-radius: 2px;
+  transition: width 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+  min-width: 2px;
+}
+
+.progress-text {
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--text-color-secondary);
+  font-variant-numeric: tabular-nums;
+  min-width: 28px;
+  text-align: right;
 }
 
 .todo-controls {
   display: flex;
   align-items: center;
+  padding: 2px;
+  border-radius: 4px;
+  transition: background 0.2s;
+}
+
+.todo-inline-header:hover .todo-controls {
+  background: var(--bg-color-secondary);
 }
 
 .expand-icon {
   color: var(--text-color-tertiary);
-  font-size: 12px;
-  transition: color 0.2s;
-  pointer-events: none; /* Prevent icon itself from blocking click events */
+  font-size: 10px;
+  transition:
+    color 0.2s,
+    transform 0.2s;
+  pointer-events: none;
 }
 
 .todo-inline-header:hover .expand-icon {
   color: var(--text-color-secondary);
-}
-
-.todo-progress-chip {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  padding: 0 8px;
-  min-height: 20px;
-  border-radius: 10px;
-  background: var(--bg-color-secondary);
-  border: 1px solid var(--border-color-light);
-  font-size: 12px;
-  color: var(--text-color-secondary);
-  transition:
-    background-color 0.2s ease,
-    border-color 0.2s ease;
-}
-
-.todo-progress-ratio {
-  color: var(--primary-color);
-  font-variant-numeric: tabular-nums;
 }
 
 :deep(.ant-collapse) {
@@ -240,18 +331,28 @@ const toggleExpanded = () => {
 
 // Special handling for dark theme
 .theme-dark & {
-  .todo-inline-header:hover {
-    background: var(--hover-bg-color);
+  .todo-inline-display {
+    &:hover {
+      box-shadow: 0 2px 12px rgba(0, 0, 0, 0.2);
+    }
   }
 
-  .todo-progress-chip {
-    background: rgba(255, 255, 255, 0.06);
-    border-color: rgba(255, 255, 255, 0.12);
-    color: var(--text-color-tertiary);
+  .todo-inline-header:hover {
+    background: linear-gradient(135deg, var(--hover-bg-color) 0%, var(--bg-color-secondary) 100%);
   }
 
   .todo-progress-ratio {
-    color: var(--primary-color);
+    background: rgba(255, 255, 255, 0.06);
+    border-color: rgba(255, 255, 255, 0.12);
+  }
+
+  .progress-bar-container {
+    background: rgba(255, 255, 255, 0.08);
+    border-color: rgba(255, 255, 255, 0.12);
+  }
+
+  .progress-bar-fill {
+    background: linear-gradient(90deg, #52c41a 0%, #95de64 100%);
   }
 }
 </style>

@@ -220,4 +220,27 @@ const statusClass = (status?: Todo['status']) => {
 
   // Priority badge related styles have been removed
 }
+
+// Special handling for light theme
+.theme-light & {
+  .todo-item {
+    &.in-progress {
+      .todo-text {
+        color: var(--success-color);
+      }
+    }
+
+    &.pending {
+      .todo-text {
+        color: var(--warning-color);
+      }
+    }
+
+    &.completed {
+      .todo-text {
+        color: var(--text-color-quaternary);
+      }
+    }
+  }
+}
 </style>
