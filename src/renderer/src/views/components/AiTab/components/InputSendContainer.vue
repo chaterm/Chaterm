@@ -69,6 +69,7 @@
           @keyup="saveSelection"
           @mouseup="saveSelection"
           @click="handleEditableClick"
+          @paste="handlePaste"
         ></div>
       </div>
       <div class="input-controls">
@@ -126,6 +127,20 @@
           </a-select-option>
         </a-select>
         <div class="action-buttons-container">
+          <a-tooltip :title="$t('ai.uploadImage')">
+            <a-button
+              :disabled="responseLoading"
+              size="small"
+              class="custom-round-button compact-button"
+              @click="handleImageUpload"
+            >
+              <img
+                :src="imageIcon"
+                alt="image"
+                style="width: 14px; height: 14px"
+              />
+            </a-button>
+          </a-tooltip>
           <a-tooltip :title="$t('ai.uploadFile')">
             <a-button
               :disabled="responseLoading"
@@ -181,6 +196,14 @@
     style="display: none"
     @change="handleFileSelected"
   />
+  <input
+    ref="imageInputRef"
+    type="file"
+    accept="image/jpeg,image/png,image/gif,image/webp"
+    multiple
+    style="display: none"
+    @change="handleImageSelected"
+  />
 </template>
 
 <script setup lang="ts">
@@ -199,6 +222,7 @@ import type { ContentPart, ContextDocRef, ContextPastChatRef } from '@shared/Web
 import type { HistoryItem } from '../types'
 import { CloseOutlined, HourglassOutlined, LaptopOutlined } from '@ant-design/icons-vue'
 import uploadIcon from '@/assets/icons/upload.svg'
+import imageIcon from '@/assets/icons/image.svg'
 import sendIcon from '@/assets/icons/send.svg'
 import stopIcon from '@/assets/icons/stop.svg'
 
@@ -275,7 +299,9 @@ const handleSendClick = (type: string) => {
   }
 
   if (props.mode === 'edit') {
-    const hasParts = inputParts.value.length > 0 && inputParts.value.some((part) => part.type === 'chip' || part.text.trim().length > 0)
+    const hasParts =
+      inputParts.value.length > 0 &&
+      inputParts.value.some((part) => part.type === 'chip' || part.type === 'image' || (part.type === 'text' && part.text.trim().length > 0))
     const content = extractPlainTextFromParts(inputParts.value).trim()
     if (!content && !hasParts) {
       notification.warning({
@@ -319,6 +345,7 @@ const {
   extractPlainTextFromParts,
   renderFromParts,
   insertChipAtCursor,
+  insertImageAtCursor,
   handleEditableKeyDown,
   handleEditableInput,
   handleEditableClick
@@ -382,6 +409,17 @@ const handleEditableDrop = async (e: DragEvent) => {
   })
 }
 
+// Handle paste events for images
+const handlePaste = (e: ClipboardEvent) => {
+  // Check for images synchronously first to prevent default browser paste behavior
+  if (hasClipboardImages(e)) {
+    // Prevent default paste behavior immediately before async processing
+    e.preventDefault()
+    // Process images asynchronously
+    handlePasteImage(e)
+  }
+}
+
 watch(
   () => props.initialContentParts,
   (parts) => {
@@ -438,9 +476,21 @@ const hasAnyContext = computed(() => {
 const { AgentAiModelsOptions, hasAvailableModels, handleChatAiModelChange } = useModelConfiguration()
 
 // Use user interactions composable
-const { fileInputRef, autoSendAfterVoice, handleTranscriptionComplete, handleTranscriptionError, handleFileUpload, handleFileSelected } =
-  useUserInteractions({ sendMessage: props.sendMessage, insertChipAtCursor })
+const {
+  fileInputRef,
+  imageInputRef,
+  autoSendAfterVoice,
+  handleTranscriptionComplete,
+  handleTranscriptionError,
+  handleFileUpload,
+  handleFileSelected,
+  handleImageUpload,
+  handleImageSelected,
+  hasClipboardImages,
+  handlePasteImage
+} = useUserInteractions({ sendMessage: props.sendMessage, insertChipAtCursor, insertImagePart: insertImageAtCursor })
 void fileInputRef
+void imageInputRef
 
 const focus = () => {
   if (props.mode === 'edit') {
@@ -729,6 +779,46 @@ onBeforeUnmount(() => {
 
   :deep(.mention-remove:hover) {
     color: #ff4d4f;
+  }
+
+  // Image preview styles
+  :deep(.image-preview-wrapper) {
+    display: inline-flex;
+    align-items: center;
+    position: relative;
+    margin: 2px 4px;
+    vertical-align: middle;
+  }
+
+  :deep(.image-preview-thumbnail) {
+    max-width: 120px;
+    max-height: 80px;
+    border-radius: 4px;
+    object-fit: cover;
+    border: 1px solid var(--border-color);
+  }
+
+  :deep(.image-remove) {
+    position: absolute;
+    top: -6px;
+    right: -6px;
+    width: 16px;
+    height: 16px;
+    border-radius: 50%;
+    background-color: var(--bg-color-secondary);
+    border: 1px solid var(--border-color);
+    color: var(--text-color-tertiary);
+    font-size: 12px;
+    line-height: 14px;
+    text-align: center;
+    cursor: pointer;
+    transition: all 0.2s ease;
+  }
+
+  :deep(.image-remove:hover) {
+    color: #ff4d4f;
+    border-color: #ff4d4f;
+    background-color: rgba(255, 77, 79, 0.1);
   }
 }
 

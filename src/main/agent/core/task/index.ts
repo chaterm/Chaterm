@@ -208,11 +208,32 @@ export class Task {
   }
 
   private async buildEphemeralContextBlocksFromContentParts(parts?: ContentPart[]): Promise<Anthropic.ContentBlockParam[]> {
+    if (!parts || parts.length === 0) return []
+
+    const blocks: Anthropic.ContentBlockParam[] = []
+
+    // Extract images from content parts
+    const imageParts = parts.filter((p) => p.type === 'image')
+    const MAX_IMAGES = 5 // Limit images per message
+    for (const imgPart of imageParts.slice(0, MAX_IMAGES)) {
+      if (imgPart.type === 'image') {
+        blocks.push({
+          type: 'image',
+          source: {
+            type: 'base64',
+            media_type: imgPart.mediaType,
+            data: imgPart.data
+          }
+        } as Anthropic.ImageBlockParam)
+      }
+    }
+
+    // Process doc and chat context refs
     const refs = this.buildContextRefsFromContentParts(parts)
     const docs = refs?.docs ?? []
     const pastChats = refs?.pastChats ?? []
 
-    if (docs.length === 0 && pastChats.length === 0) return []
+    if (docs.length === 0 && pastChats.length === 0) return blocks
 
     const MAX_DOCS = 5
     const MAX_DOC_BYTES = 256 * 1024
@@ -252,17 +273,15 @@ export class Task {
       }
     }
 
-    const blocks: Anthropic.ContentBlockParam[] = [
-      {
-        type: 'text',
-        text: [
-          '<context-prefetch>',
-          docLines.length > 0 ? ['<docs>', ...docLines, '</docs>'].join('\n') : '<docs />',
-          chatLines.length > 0 ? ['<past-chats>', ...chatLines, '</past-chats>'].join('\n') : '<past-chats />',
-          '</context-prefetch>'
-        ].join('\n')
-      }
-    ]
+    blocks.push({
+      type: 'text',
+      text: [
+        '<context-prefetch>',
+        docLines.length > 0 ? ['<docs>', ...docLines, '</docs>'].join('\n') : '<docs />',
+        chatLines.length > 0 ? ['<past-chats>', ...chatLines, '</past-chats>'].join('\n') : '<past-chats />',
+        '</context-prefetch>'
+      ].join('\n')
+    })
 
     return blocks
   }
