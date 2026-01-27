@@ -137,6 +137,7 @@
               <img
                 :src="imageIcon"
                 alt="image"
+                class="action-icon"
                 style="width: 14px; height: 14px"
               />
             </a-button>
@@ -151,6 +152,7 @@
               <img
                 :src="uploadIcon"
                 alt="upload"
+                class="action-icon"
                 style="width: 14px; height: 14px"
               />
             </a-button>
@@ -956,6 +958,16 @@ onBeforeUnmount(() => {
       }
       .theme-light & {
         filter: none;
+      }
+    }
+
+    .action-icon {
+      .theme-dark & {
+        filter: none;
+      }
+      .theme-light & {
+        filter: brightness(0) saturate(100%);
+        opacity: 0.6;
       }
     }
   }
