@@ -17,6 +17,7 @@ export interface AutoApprovalSettings {
     editFilesExternally?: boolean // Edit files outside of the working directory
     executeSafeCommands?: boolean // Execute safe commands
     executeAllCommands?: boolean // Execute all commands
+    autoExecuteReadOnlyCommands?: boolean // Auto-execute read-only commands (requires_approval=false) without user confirmation
   }
   // Global settings
   maxRequests: number // Maximum number of auto-approved requests
@@ -33,7 +34,8 @@ export const DEFAULT_AUTO_APPROVAL_SETTINGS: AutoApprovalSettings = {
     editFiles: false,
     editFilesExternally: false,
     executeSafeCommands: true,
-    executeAllCommands: true
+    executeAllCommands: true,
+    autoExecuteReadOnlyCommands: false
   },
   maxRequests: 3,
   enableNotifications: true,

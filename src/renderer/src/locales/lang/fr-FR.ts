@@ -327,6 +327,9 @@ export default {
     enableExtendedThinkingDescribe: "Des budgets plus élevés peuvent vous permettre d'atteindre un raisonnement plus complet et plus nuancé",
     autoApproval: 'Approbation automatique',
     autoApprovalDescribe: "Autoriser l'Agent à exécuter des outils sans demander de confirmation",
+    autoExecuteReadOnlyCommands: 'Exécuter auto les commandes en lecture seule',
+    autoExecuteReadOnlyCommandsDescribe:
+      'Les commandes en lecture seule (ex: ls, cat, grep) seront exécutées automatiquement sans confirmation dans toutes les sessions',
     features: 'Fonctionnalités',
     enableCheckpoints: 'Activer les points de contrôle',
     enableCheckpointsDescribe: "Permet à l'extension de sauvegarder les points de contrôle de l'espace de travail tout au long de la tâche",

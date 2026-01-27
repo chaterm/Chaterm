@@ -2317,11 +2317,18 @@ export class Task {
           this.consecutiveAutoApprovedRequestsCount++
           didAutoApprove = true
         } else if (!needsSecurityApproval) {
-          // Check if read-only commands can be auto-approved after first user confirmation
-          // This reduces user interaction for subsequent read-only commands in the same session
-          if (!requiresApprovalPerLLM && this.readOnlyCommandsAutoApproved) {
-            // Auto-approve read-only command since user already confirmed once in this session
-            console.log(`[Command Execution] Auto-approving read-only command (session auto-approval enabled)`)
+          // Check if read-only commands can be auto-approved:
+          // 1. Global setting: autoExecuteReadOnlyCommands enabled in preferences (read latest from global state)
+          // 2. Session setting: user clicked "auto-approve read-only" button in this session
+          const latestAutoApprovalSettings = await getGlobalState('autoApprovalSettings')
+          const globalAutoExecuteReadOnly = latestAutoApprovalSettings?.actions?.autoExecuteReadOnlyCommands ?? false
+          console.log(
+            `[Command Execution] Read-only auto-approval check: command="${command}", requiresApprovalPerLLM=${requiresApprovalPerLLM}, globalAutoExecuteReadOnly=${globalAutoExecuteReadOnly}, sessionAutoApproved=${this.readOnlyCommandsAutoApproved}`
+          )
+          if (!requiresApprovalPerLLM && (globalAutoExecuteReadOnly || this.readOnlyCommandsAutoApproved)) {
+            // Auto-approve read-only command
+            const reason = globalAutoExecuteReadOnly ? 'global setting' : 'session auto-approval'
+            console.log(`[Command Execution] Auto-approving read-only command (${reason} enabled)`)
             this.removeLastPartialMessageIfExistsWithType('ask', 'command')
             await this.say('command', command, false)
             didAutoApprove = true

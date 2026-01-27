@@ -325,6 +325,8 @@ export default {
     enableExtendedThinkingDescribe: '提高預算可實現更全面、更細緻的推理',
     autoApproval: '開啟自動執行',
     autoApprovalDescribe: '允許在不要求確認的情況下運行工具',
+    autoExecuteReadOnlyCommands: '查詢類命令自動執行',
+    autoExecuteReadOnlyCommandsDescribe: '所有會話中的查詢類命令（如 ls、cat、grep 等）將自動執行，無需人工確認',
     features: '特徵',
     enableCheckpoints: '開啟檢查點',
     enableCheckpointsDescribe: '允許在整個任務中保存工作區的檢查點',

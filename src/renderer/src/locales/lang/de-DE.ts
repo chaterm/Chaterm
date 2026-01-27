@@ -327,6 +327,8 @@ export default {
     enableExtendedThinkingDescribe: 'Höhere Budgets können Ihnen helfen, umfassendere und differenziertere Denkweisen zu erreichen',
     autoApproval: 'Auto-Zustimmung',
     autoApprovalDescribe: 'Erlauben Sie dem Agenten, Tools ohne Bestätigung auszuführen',
+    autoExecuteReadOnlyCommands: 'Nur-Lese-Befehle automatisch ausführen',
+    autoExecuteReadOnlyCommandsDescribe: 'Nur-Lese-Befehle (z.B. ls, cat, grep) in allen Sitzungen werden ohne Bestätigung automatisch ausgeführt',
     features: 'Funktionen',
     enableCheckpoints: 'Checkpoints aktivieren',
     enableCheckpointsDescribe: 'Ermöglicht der Erweiterung, Checkpoints des Arbeitsbereichs während der Aufgabe zu speichern',

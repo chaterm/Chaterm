@@ -30,6 +30,7 @@ export interface AutoApprovalSettings {
     executeAllCommands?: boolean // Execute all commands
     useBrowser: boolean // Use browser
     useMcp: boolean // Use MCP servers
+    autoExecuteReadOnlyCommands?: boolean // Auto-execute read-only commands (requires_approval=false) without user confirmation
   }
   // Global settings
   maxRequests: number // Maximum number of auto-approved requests
@@ -48,7 +49,8 @@ export const DEFAULT_AUTO_APPROVAL_SETTINGS: AutoApprovalSettings = {
     executeSafeCommands: true,
     executeAllCommands: false,
     useBrowser: false,
-    useMcp: false
+    useMcp: false,
+    autoExecuteReadOnlyCommands: false
   },
   maxRequests: 20,
   enableNotifications: false,

@@ -327,6 +327,9 @@ export default {
     enableExtendedThinkingDescribe: 'Budget più alti possono permetterti di ottenere ragionamenti più completi e sfumati',
     autoApproval: 'Approvazione automatica',
     autoApprovalDescribe: 'Consenti ad Agent di eseguire strumenti senza chiedere conferma',
+    autoExecuteReadOnlyCommands: 'Esegui automaticamente comandi di sola lettura',
+    autoExecuteReadOnlyCommandsDescribe:
+      'I comandi di sola lettura (es. ls, cat, grep) in tutte le sessioni verranno eseguiti automaticamente senza conferma',
     features: 'Funzionalità',
     enableCheckpoints: 'Abilita checkpoint',
     enableCheckpointsDescribe: "Abilita l'estensione a salvare checkpoint dello spazio di lavoro durante il task",

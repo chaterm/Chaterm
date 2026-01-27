@@ -326,6 +326,8 @@ export default {
     enableExtendedThinkingDescribe: 'より高い予算により、より包括的で細かい推論が可能になります',
     autoApproval: '自動承認',
     autoApprovalDescribe: '確認を求めずにツールを実行できるようにします',
+    autoExecuteReadOnlyCommands: '読取専用コマンドを自動実行',
+    autoExecuteReadOnlyCommandsDescribe: 'すべてのセッションで読取専用コマンド（ls、cat、grepなど）が確認なしで自動実行されます',
     features: '機能',
     enableCheckpoints: 'チェックポイントを有効にする',
     enableCheckpointsDescribe: 'タスク全体を通じてワークスペースのチェックポイントを保存できるようにします',
