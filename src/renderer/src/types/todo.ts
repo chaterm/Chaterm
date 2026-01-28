@@ -8,6 +8,11 @@ export interface Todo {
   toolCalls?: TodoToolCall[]
   createdAt: Date
   updatedAt: Date
+  // Focus Chain enhancements
+  isFocused?: boolean // Whether this is the currently focused task in the chain
+  focusedAt?: Date // When this task was focused
+  completedAt?: Date // When this task was completed
+  contextUsagePercent?: number // Context usage when task started (0-100)
 }
 
 export interface Subtask {
@@ -50,4 +55,31 @@ export interface TodoWebviewMessage {
   taskId?: string
   changeType?: 'created' | 'updated' | 'completed' | 'progress'
   triggerReason?: 'agent_update' | 'user_request' | 'auto_progress'
+  // Focus Chain enhancements
+  focusChainState?: FocusChainState
+}
+
+// Focus Chain types
+export interface FocusChainState {
+  taskId: string
+  focusedTodoId: string | null
+  chainProgress: number // Overall progress percentage (0-100)
+  totalTodos: number
+  completedTodos: number
+  currentContextUsage: number // Current context usage percentage (0-100)
+  lastFocusChangeAt: Date
+  autoTransitionEnabled: boolean // Whether to auto-transition to next task
+}
+
+export type ContextThresholdLevel = 'normal' | 'warning' | 'critical' | 'maximum'
+
+export interface FocusChainProgress {
+  total: number
+  completed: number
+  inProgress: number
+  pending: number
+  progressPercent: number
+  focusedTodoId: string | null
+  contextUsage: number
+  contextLevel: ContextThresholdLevel
 }
