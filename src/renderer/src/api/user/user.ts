@@ -38,7 +38,9 @@ const urls = {
   verifyAndBindEmail: '/user/bind-email/verify',
   sendMobileBindCode: '/user/bind-mobile/send-code',
   verifyAndBindMobile: '/user/bind-mobile/verify',
-  updateAvatar: '/user/avatar/update'
+  updateAvatar: '/user/avatar/update',
+  getTrustedDevices: '/user/trusted-devices',
+  revokeTrustedDevice: '/user/trusted-devices/revoke'
 }
 export function sendEmailCode(params) {
   return request({
@@ -240,5 +242,22 @@ export function updateAvatar(params) {
     method: 'post',
     url: urls.updateAvatar,
     data: params
+  })
+}
+
+// GET /user/trusted-devices - list trusted devices (requires auth)
+export function getTrustedDevices() {
+  return request({
+    method: 'get',
+    url: urls.getTrustedDevices
+  })
+}
+
+// POST /user/trusted-devices/revoke - revoke a trusted device (requires auth)
+export function revokeTrustedDevice(deviceId: number) {
+  return request({
+    method: 'post',
+    url: urls.revokeTrustedDevice,
+    data: { deviceId }
   })
 }

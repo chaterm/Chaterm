@@ -321,12 +321,13 @@ const resetAllShortcuts = async () => {
 }
 
 .section-header {
-  margin-bottom: 16px;
+  margin: 16px 0 16px 12px;
 
   h3 {
     margin: 0;
-    font-size: 16px;
-    font-weight: 600;
+    font-size: 20px;
+    font-weight: bold;
+    line-height: 1.3;
     color: var(--text-color);
   }
 
