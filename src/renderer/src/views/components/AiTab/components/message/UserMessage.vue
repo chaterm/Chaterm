@@ -34,6 +34,16 @@
         >
           <span v-if="part.type === 'text'">{{ part.text }}</span>
           <span
+            v-else-if="part.type === 'image'"
+            class="user-message-image"
+          >
+            <img
+              :src="`data:${part.mediaType};base64,${part.data}`"
+              :alt="$t('ai.uploadedImage')"
+              class="user-message-image-thumbnail"
+            />
+          </span>
+          <span
             v-else
             class="mention-chip"
             :class="`mention-chip-${part.chipType}`"
@@ -343,6 +353,26 @@ onUnmounted(() => {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.user-message-image {
+  display: inline-block;
+  margin: 4px 2px;
+  vertical-align: middle;
+}
+
+.user-message-image-thumbnail {
+  max-width: 200px;
+  max-height: 150px;
+  border-radius: 4px;
+  object-fit: cover;
+  border: 1px solid var(--border-color);
+  cursor: pointer;
+  transition: transform 0.2s ease;
+
+  &:hover {
+    transform: scale(1.02);
+  }
 }
 
 .user-message-edit-container {

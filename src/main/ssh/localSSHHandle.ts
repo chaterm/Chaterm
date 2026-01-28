@@ -69,6 +69,7 @@ interface LocalTerminal {
   id: string
   pty: pty.IPty
   isAlive: boolean
+  shell: string
 }
 
 interface ShellItem {
@@ -131,7 +132,8 @@ const createTerminal = async (config: LocalTerminalConfig): Promise<LocalTermina
   const terminal: LocalTerminal = {
     id: config.id,
     pty: ptyProcess,
-    isAlive: true
+    isAlive: true,
+    shell: shell
   }
 
   ptyProcess.onData((data) => {
@@ -326,7 +328,21 @@ export const registerLocalSSHHandlers = () => {
   ipcMain.handle('local:send:data', (_event, terminalId: string, data: string) => {
     const terminal = terminals.get(terminalId)
     if (terminal && terminal.isAlive) {
-      terminal.pty.write(data)
+      if (data.endsWith('\n')) {
+        const command = data.slice(0, -1)
+        const platform = os.platform()
+        terminal.pty.write(command)
+        const shellPath = terminal.shell || ''
+        const isGitBash = shellPath.toLowerCase().includes('git') && shellPath.toLowerCase().includes('bash')
+
+        if (platform === 'win32' && !isGitBash) {
+          terminal.pty.write('\r')
+        } else {
+          terminal.pty.write('\n')
+        }
+      } else {
+        terminal.pty.write(data)
+      }
       return { success: true }
     }
     return { success: false, message: 'Terminal not found or not alive' }

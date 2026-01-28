@@ -81,6 +81,7 @@ export function useChatMessages(
     return parts
       .map((part) => {
         if (part.type === 'text') return part.text
+        if (part.type === 'image') return '[image]'
         if (part.chipType === 'doc') {
           return `@${part.ref.absPath || ''}`
         }
@@ -97,6 +98,10 @@ export function useChatMessages(
     return parts.map((part): ContentPart => {
       if (part.type === 'text') {
         return { type: 'text', text: part.text }
+      }
+
+      if (part.type === 'image') {
+        return { type: 'image', mediaType: part.mediaType, data: part.data }
       }
 
       if (part.chipType === 'doc') {
@@ -218,7 +223,9 @@ export function useChatMessages(
     }
 
     const partsSnapshot = normalizeContentParts(chatInputParts.value) ?? []
-    const hasContentParts = partsSnapshot.length > 0 && partsSnapshot.some((part) => part.type === 'chip' || part.text.trim().length > 0)
+    const hasContentParts =
+      partsSnapshot.length > 0 &&
+      partsSnapshot.some((part) => part.type === 'chip' || part.type === 'image' || (part.type === 'text' && part.text.trim().length > 0))
 
     const userContent = buildPlainTextFromParts(partsSnapshot).trim()
     if (userContent === '' && !hasContentParts) {

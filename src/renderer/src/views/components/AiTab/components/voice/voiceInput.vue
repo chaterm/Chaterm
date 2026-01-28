@@ -19,6 +19,7 @@
         <img
           src="@/assets/icons/voice.svg"
           alt="voice"
+          class="action-icon"
           style="width: 14px; height: 14px"
         />
       </template>
@@ -435,6 +436,16 @@ defineExpose({
 .custom-round-button img {
   filter: brightness(1) contrast(1);
   opacity: 1;
+}
+
+.custom-round-button .action-icon {
+  .theme-dark & {
+    filter: none;
+  }
+  .theme-light & {
+    filter: brightness(0) saturate(100%);
+    opacity: 0.6;
+  }
 }
 
 /* Ensure button is properly aligned in container */

@@ -33,21 +33,28 @@ export type TextContentPart = { type: 'text'; text: string }
 export type DocChipContentPart = { type: 'chip'; chipType: 'doc'; ref: ContextDocRef }
 export type ChatChipContentPart = { type: 'chip'; chipType: 'chat'; ref: ContextPastChatRef }
 export type ChipContentPart = DocChipContentPart | ChatChipContentPart
-export type ContentPart = TextContentPart | ChipContentPart
+export type ImageContentPart = {
+  type: 'image'
+  mediaType: 'image/jpeg' | 'image/png' | 'image/gif' | 'image/webp'
+  data: string // base64 encoded image data
+}
+export type ContentPart = TextContentPart | ChipContentPart | ImageContentPart
+
+export type WebviewMessageType =
+  | 'apiConfiguration'
+  | 'newTask'
+  | 'condense'
+  | 'telemetrySetting'
+  | 'askResponse'
+  | 'deleteTaskWithId'
+  | 'showTaskWithId'
+  | 'taskFeedback'
+  | 'interactiveCommandInput'
+  | 'commandGeneration'
+  | 'todoUpdated'
 
 export interface WebviewMessage {
-  type:
-    | 'apiConfiguration'
-    | 'newTask'
-    | 'condense'
-    | 'telemetrySetting'
-    | 'askResponse'
-    | 'deleteTaskWithId'
-    | 'showTaskWithId'
-    | 'taskFeedback'
-    | 'interactiveCommandInput'
-    | 'commandGeneration'
-    | 'todoUpdated'
+  type: WebviewMessageType
   text?: string
   apiConfiguration?: ApiConfiguration
   telemetrySetting?: TelemetrySetting
@@ -70,7 +77,7 @@ export interface WebviewMessage {
   truncateAtMessageTs?: number // For truncate and resend
 }
 
-export type ChatermAskResponse = 'yesButtonClicked' | 'noButtonClicked' | 'messageResponse'
+export type ChatermAskResponse = 'yesButtonClicked' | 'noButtonClicked' | 'messageResponse' | 'autoApproveReadOnlyClicked'
 
 export type ChatermCheckpointRestore = 'task' | 'workspace' | 'taskAndWorkspace'
 

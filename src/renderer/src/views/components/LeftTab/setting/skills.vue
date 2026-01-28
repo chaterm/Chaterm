@@ -413,11 +413,12 @@ const confirmDeleteSkill = (skill: Skill) => {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  margin: 8px 16px 0;
+  margin: 28px 28px 0;
 
   h3 {
-    font-size: 18px;
-    font-weight: 600;
+    font-size: 20px;
+    font-weight: bold;
+    line-height: 1.3;
     margin: 0;
     color: var(--text-color);
   }

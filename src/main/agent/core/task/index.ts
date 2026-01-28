@@ -143,6 +143,11 @@ export class Task {
   // SSH connection status tracking - tracks all connected hosts in this session
   private connectedHosts: Set<string> = new Set()
 
+  // Session-level flag for auto-approving read-only commands after first user confirmation
+  // Once user approves a read-only command (requires_approval=false), subsequent read-only commands
+  // in this session will be auto-approved to reduce user interaction
+  private readOnlyCommandsAutoApproved: boolean = false
+
   // Interactive command input handling
   private currentRunningProcess:
     | (LocalCommandProcess & { sendInput?: (input: string) => Promise<boolean> })
@@ -203,11 +208,32 @@ export class Task {
   }
 
   private async buildEphemeralContextBlocksFromContentParts(parts?: ContentPart[]): Promise<Anthropic.ContentBlockParam[]> {
+    if (!parts || parts.length === 0) return []
+
+    const blocks: Anthropic.ContentBlockParam[] = []
+
+    // Extract images from content parts
+    const imageParts = parts.filter((p) => p.type === 'image')
+    const MAX_IMAGES = 5 // Limit images per message
+    for (const imgPart of imageParts.slice(0, MAX_IMAGES)) {
+      if (imgPart.type === 'image') {
+        blocks.push({
+          type: 'image',
+          source: {
+            type: 'base64',
+            media_type: imgPart.mediaType,
+            data: imgPart.data
+          }
+        } as Anthropic.ImageBlockParam)
+      }
+    }
+
+    // Process doc and chat context refs
     const refs = this.buildContextRefsFromContentParts(parts)
     const docs = refs?.docs ?? []
     const pastChats = refs?.pastChats ?? []
 
-    if (docs.length === 0 && pastChats.length === 0) return []
+    if (docs.length === 0 && pastChats.length === 0) return blocks
 
     const MAX_DOCS = 5
     const MAX_DOC_BYTES = 256 * 1024
@@ -247,17 +273,15 @@ export class Task {
       }
     }
 
-    const blocks: Anthropic.ContentBlockParam[] = [
-      {
-        type: 'text',
-        text: [
-          '<context-prefetch>',
-          docLines.length > 0 ? ['<docs>', ...docLines, '</docs>'].join('\n') : '<docs />',
-          chatLines.length > 0 ? ['<past-chats>', ...chatLines, '</past-chats>'].join('\n') : '<past-chats />',
-          '</context-prefetch>'
-        ].join('\n')
-      }
-    ]
+    blocks.push({
+      type: 'text',
+      text: [
+        '<context-prefetch>',
+        docLines.length > 0 ? ['<docs>', ...docLines, '</docs>'].join('\n') : '<docs />',
+        chatLines.length > 0 ? ['<past-chats>', ...chatLines, '</past-chats>'].join('\n') : '<past-chats />',
+        '</context-prefetch>'
+      ].join('\n')
+    })
 
     return blocks
   }
@@ -2312,12 +2336,32 @@ export class Task {
           this.consecutiveAutoApprovedRequestsCount++
           didAutoApprove = true
         } else if (!needsSecurityApproval) {
-          this.showNotificationIfNeeded(`Chaterm wants to execute a command: ${command}`)
-          const didApprove = await this.askApproval(toolDescription, 'command', command)
-          console.log(`[Command Execution] User approval result: ${didApprove}`)
-          if (!didApprove) {
-            await this.saveCheckpoint()
-            return
+          // Check if read-only commands can be auto-approved:
+          // 1. Global setting: autoExecuteReadOnlyCommands enabled in preferences (read latest from global state)
+          // 2. Session setting: user clicked "auto-approve read-only" button in this session
+          const latestAutoApprovalSettings = await getGlobalState('autoApprovalSettings')
+          const globalAutoExecuteReadOnly = latestAutoApprovalSettings?.actions?.autoExecuteReadOnlyCommands ?? false
+          // console.log(
+          //   `[Command Execution] Read-only auto-approval check: command="${command}", requiresApprovalPerLLM=${requiresApprovalPerLLM}, globalAutoExecuteReadOnly=${globalAutoExecuteReadOnly}, sessionAutoApproved=${this.readOnlyCommandsAutoApproved}`
+          // )
+          if (!requiresApprovalPerLLM && (globalAutoExecuteReadOnly || this.readOnlyCommandsAutoApproved)) {
+            // Auto-approve read-only command
+            const reason = globalAutoExecuteReadOnly ? 'global setting' : 'session auto-approval'
+            console.log(`[Command Execution] Auto-approving read-only command (${reason} enabled)`)
+            this.removeLastPartialMessageIfExistsWithType('ask', 'command')
+            await this.say('command', command, false)
+            this.consecutiveAutoApprovedRequestsCount++
+            didAutoApprove = true
+          } else {
+            this.showNotificationIfNeeded(`Chaterm wants to execute a command: ${command}`)
+            const didApprove = await this.askApproval(toolDescription, 'command', command)
+            console.log(`[Command Execution] User approval result: ${didApprove}`)
+            if (!didApprove) {
+              await this.saveCheckpoint()
+              return
+            }
+            // Note: Session auto-approval is now triggered by the "autoApproveReadOnlyClicked" response
+            // which is handled in askApproval method
           }
         }
 
@@ -2476,7 +2520,14 @@ export class Task {
 
   private async askApproval(toolDescription: string, type: ChatermAsk, partialMessage?: string): Promise<boolean> {
     const { response, text, contentParts } = await this.ask(type, partialMessage, false)
-    const approved = response === 'yesButtonClicked'
+    const approved = response === 'yesButtonClicked' || response === 'autoApproveReadOnlyClicked'
+
+    // If user clicked "auto-approve read-only" button, enable session-level auto-approval for subsequent read-only commands
+    if (response === 'autoApproveReadOnlyClicked') {
+      this.readOnlyCommandsAutoApproved = true
+      console.log(`[Command Execution] User enabled session auto-approval for read-only commands`)
+    }
+
     if (!approved) {
       this.pushToolResult(toolDescription, formatResponse.toolDenied())
       if (text) {

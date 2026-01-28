@@ -338,6 +338,23 @@
                             </template>
                             {{ $t('ai.addAutoApprove') }}
                           </a-button>
+                          <a-tooltip
+                            v-if="message.ask === 'command'"
+                            :title="$t('ai.autoApproveReadOnlyTip')"
+                            placement="top"
+                          >
+                            <a-button
+                              size="small"
+                              class="approve-auto-btn"
+                              :disabled="buttonsDisabled"
+                              @click="handleApproveAndAutoApproveReadOnly"
+                            >
+                              <template #icon>
+                                <ThunderboltOutlined />
+                              </template>
+                              {{ $t('ai.autoApproveReadOnly') }}
+                            </a-button>
+                          </a-tooltip>
                           <a-button
                             size="small"
                             class="approve-btn"
@@ -725,7 +742,8 @@ import {
   ReloadOutlined,
   SearchOutlined,
   StarFilled,
-  StarOutlined
+  StarOutlined,
+  ThunderboltOutlined
 } from '@ant-design/icons-vue'
 import { isFocusInAiTab } from '@/utils/domUtils'
 import { getGlobalState } from '@renderer/agent/storage/state'
@@ -815,6 +833,7 @@ const {
   handleCopyContent,
   handleRejectContent,
   handleApproveCommand,
+  handleApproveAndAutoApproveReadOnly,
   handleApproveAndAutoApprove,
   handleCancel,
   handleResume,

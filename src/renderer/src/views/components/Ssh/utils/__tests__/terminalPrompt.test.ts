@@ -81,6 +81,20 @@ describe('terminalPrompt utils', () => {
       expect(isTerminalPromptLine('[hw6800-chaterm-test-Vlanif10]')).toBe(true)
     })
 
+    it('matches Git Bash prompts', () => {
+      expect(isTerminalPromptLine('user@DESKTOP-ABC MINGW64 ~')).toBe(true)
+      expect(isTerminalPromptLine('admin@PC123 MINGW32 /c/Users')).toBe(true)
+      expect(isTerminalPromptLine('dev@hostname MSYS ~/projects')).toBe(true)
+    })
+
+    it('matches Windows PowerShell/CMD prompts', () => {
+      expect(isTerminalPromptLine('C:\\Users\\admin>')).toBe(true)
+      expect(isTerminalPromptLine('C:\\>')).toBe(true)
+      expect(isTerminalPromptLine('D:\\Projects\\myapp>')).toBe(true)
+      expect(isTerminalPromptLine('PS C:\\Users\\admin>')).toBe(true)
+      expect(isTerminalPromptLine('PS D:\\Projects>')).toBe(true)
+    })
+
     it('does not match non-prompt lines', () => {
       expect(isTerminalPromptLine('Huawei Versatile Routing Platform Software')).toBe(false)
       expect(isTerminalPromptLine('Info: The max number of VTY users is 5')).toBe(false)
