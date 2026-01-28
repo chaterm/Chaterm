@@ -806,11 +806,15 @@ const adjustTerminalHeight = () => {
   }
 }
 
-// Get theme related colors
+// Get theme related colors (light background matches --command-output-bg for unified output boxes)
 const getThemeColors = () => {
   const isDark = isDarkTheme()
+  const lightBg =
+    typeof document !== 'undefined'
+      ? getComputedStyle(document.documentElement).getPropertyValue('--command-output-bg').trim() || '#f5f5f5'
+      : '#f5f5f5'
   return {
-    background: isDark ? '#1e1e1e' : '#f8fafc',
+    background: isDark ? '#1e1e1e' : lightBg,
     foreground: isDark ? '#d4d4d4' : '#0f172a',
     cursor: 'transparent',
     cursorAccent: 'transparent',

@@ -134,6 +134,46 @@ describe('Controller', () => {
     vi.clearAllMocks()
   })
 
+  it('buildExplainCommandPrompt should return professional zh-CN prompt', async () => {
+    const controller = new Controller(
+      async () => true,
+      async () => '/tmp/mcp_settings.json'
+    )
+
+    // Access private method for unit testing prompt content
+    const prompt = (controller as any).buildExplainCommandPrompt('zh-CN') as string
+    expect(prompt).toContain('命令行技术文档专家')
+    expect(prompt).toContain('技术文档')
+    expect(prompt).toContain('不要重复命令本身')
+  })
+
+  it('buildExplainCommandPrompt should return professional zh-TW prompt', async () => {
+    const controller = new Controller(
+      async () => true,
+      async () => '/tmp/mcp_settings.json'
+    )
+
+    // Access private method for unit testing prompt content
+    const prompt = (controller as any).buildExplainCommandPrompt('zh-TW') as string
+    expect(prompt).toContain('命令行技術文檔專家')
+    expect(prompt).toContain('技術文檔')
+    expect(prompt).toContain('不要重複命令本身')
+  })
+
+  it('buildExplainCommandPrompt should return professional prompt for other languages', async () => {
+    const controller = new Controller(
+      async () => true,
+      async () => '/tmp/mcp_settings.json'
+    )
+
+    // Access private method for unit testing prompt content
+    const prompt = (controller as any).buildExplainCommandPrompt('en-US') as string
+    expect(prompt).toContain('CLI technical documentation expert')
+    expect(prompt).toContain('technical, accurate, and concise')
+    expect(prompt).toContain('Do not repeat the command')
+    expect(prompt).toContain('Answer in English')
+  })
+
   it('postMessageToWebview should mask sensitive fields', async () => {
     const posted: unknown[] = []
     const postMessage = async (msg: unknown) => {

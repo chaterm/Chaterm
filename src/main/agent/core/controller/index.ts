@@ -245,6 +245,11 @@ export class Controller {
           await this.handleCommandGeneration(message.instruction, message.context, message.tabId, message.modelName)
         }
         break
+      case 'explainCommand':
+        if (message.command != null) {
+          await this.handleExplainCommand(message.command, message.tabId, message.commandMessageId)
+        }
+        break
       case 'telemetrySetting': {
         if (message.telemetrySetting) {
           await this.updateTelemetrySetting(message.telemetrySetting)
@@ -544,6 +549,127 @@ export class Controller {
         tabId: tabId
       })
     }
+  }
+
+  /**
+   * Handle explain command request from webview
+   * One-off AI call to explain a command, does not touch task history
+   */
+  async handleExplainCommand(command: string, tabId?: string, commandMessageId?: string) {
+    try {
+      const trimmed = command?.trim() ?? ''
+      if (!trimmed) {
+        await this.postMessageToWebview({
+          type: 'explainCommandResponse',
+          error: 'Empty command',
+          tabId,
+          commandMessageId
+        })
+        return
+      }
+
+      const { apiConfiguration } = await getAllExtensionState()
+      if (!apiConfiguration) {
+        await this.postMessageToWebview({
+          type: 'explainCommandResponse',
+          error: 'API configuration not found',
+          tabId,
+          commandMessageId
+        })
+        return
+      }
+
+      const api = buildApiHandler(apiConfiguration)
+      // Use user language setting so the explanation matches UI language.
+      let userLanguage = DEFAULT_LANGUAGE_SETTINGS
+      try {
+        const userConfig = await getUserConfig()
+        if (userConfig?.language) {
+          userLanguage = userConfig.language
+        }
+      } catch {
+        // Ignore errors and fallback to default language.
+      }
+
+      const systemPrompt = this.buildExplainCommandPrompt(userLanguage)
+      const conversation: Anthropic.MessageParam[] = [{ role: 'user' as const, content: trimmed }]
+      const stream = api.createMessage(systemPrompt, conversation)
+      let explanation = ''
+
+      try {
+        for await (const chunk of stream) {
+          if (chunk.type === 'text') {
+            explanation += chunk.text
+          }
+        }
+        await this.postMessageToWebview({
+          type: 'explainCommandResponse',
+          explanation: explanation.trim(),
+          tabId,
+          commandMessageId
+        })
+      } catch (streamError) {
+        console.error('Explain command stream error:', streamError)
+        await this.postMessageToWebview({
+          type: 'explainCommandResponse',
+          error: streamError instanceof Error ? streamError.message : 'Explain failed',
+          tabId,
+          commandMessageId
+        })
+      }
+    } catch (error) {
+      console.error('Explain command failed:', error)
+      await this.postMessageToWebview({
+        type: 'explainCommandResponse',
+        error: error instanceof Error ? error.message : 'Explain failed',
+        tabId,
+        commandMessageId
+      })
+    }
+  }
+
+  /**
+   * Build system prompt for command explanation
+   * Supports all languages by instructing AI to respond in the user's language
+   */
+  private buildExplainCommandPrompt(language?: string): string {
+    const lang = language || 'en-US'
+
+    // Map language codes to language names for the prompt
+    const languageMap: Record<string, string> = {
+      en: 'English',
+      'en-US': 'English',
+      ar: 'Arabic',
+      'pt-BR': 'Portuguese (Brazil)',
+      cs: 'Czech',
+      fr: 'French',
+      de: 'German',
+      hi: 'Hindi',
+      hu: 'Hungarian',
+      it: 'Italian',
+      ja: 'Japanese',
+      ko: 'Korean',
+      pl: 'Polish',
+      'pt-PT': 'Portuguese (Portugal)',
+      ru: 'Russian',
+      'zh-CN': 'Simplified Chinese',
+      es: 'Spanish',
+      'zh-TW': 'Traditional Chinese',
+      tr: 'Turkish'
+    }
+
+    const languageName = languageMap[lang] || 'English'
+
+    // For Chinese, use native prompt for better accuracy
+    if (lang === 'zh-CN') {
+      return `你是一名命令行技术文档专家。请用简体中文、以技术文档的风格，用 1–2 句话准确、简洁地说明下面这条命令：主要参数或选项的含义、命令的作用以及典型使用场景。不要重复命令本身，用语需专业、准确。`
+    }
+    if (lang === 'zh-TW') {
+      return `你是一名命令行技術文檔專家。請用繁體中文、以技術文檔的風格，用 1–2 句話準確、簡潔地說明下面這條命令：主要參數或選項的含義、命令的作用以及典型使用場景。不要重複命令本身，用語需專業、準確。`
+    }
+
+    // For all other languages, use English prompt with language instruction
+    return `You are a CLI technical documentation expert. Explain the following command in 1-2 sentences in a technical, accurate, and concise style: the meaning of key parameters/options, what the command does, and typical use cases. Do not repeat the command. Answer in ${languageName}.`
   }
 
   /**
