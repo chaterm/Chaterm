@@ -24,6 +24,46 @@ describe('terminalPrompt utils', () => {
       expect(isTerminalPromptLine('#')).toBe(true)
     })
 
+    it('matches Linux prompts with environment prefix (conda/virtualenv)', () => {
+      expect(isTerminalPromptLine('(base) [root@centost-csjava-28112 ~]#')).toBe(true)
+      expect(isTerminalPromptLine('(base) [user@host]$')).toBe(true)
+      expect(isTerminalPromptLine('(myenv) user@host:~$')).toBe(true)
+      expect(isTerminalPromptLine('(venv) $')).toBe(true)
+      expect(isTerminalPromptLine('(conda-env) #')).toBe(true)
+      expect(isTerminalPromptLine('(py3.9) user@server:/home/user#')).toBe(true)
+    })
+
+    it('matches shell name with version prompts', () => {
+      expect(isTerminalPromptLine('bash-5.1$')).toBe(true)
+      expect(isTerminalPromptLine('bash-5.1#')).toBe(true)
+      expect(isTerminalPromptLine('sh-4.4$')).toBe(true)
+      expect(isTerminalPromptLine('zsh-5.8$')).toBe(true)
+      expect(isTerminalPromptLine('(base) bash-5.1$')).toBe(true)
+    })
+
+    it('matches hostname only prompts', () => {
+      expect(isTerminalPromptLine('hostname:~$')).toBe(true)
+      expect(isTerminalPromptLine('myserver:/var/log#')).toBe(true)
+      expect(isTerminalPromptLine('server01:~#')).toBe(true)
+      expect(isTerminalPromptLine('(base) hostname:~$')).toBe(true)
+    })
+
+    it('matches path only prompts', () => {
+      expect(isTerminalPromptLine('~/projects $')).toBe(true)
+      expect(isTerminalPromptLine('/var/log #')).toBe(true)
+      expect(isTerminalPromptLine('~ $')).toBe(true)
+      expect(isTerminalPromptLine('./src $')).toBe(true)
+      expect(isTerminalPromptLine('(venv) ~/code $')).toBe(true)
+    })
+
+    it('matches fish shell prompts', () => {
+      expect(isTerminalPromptLine('user@host ~>')).toBe(true)
+      expect(isTerminalPromptLine('hostname ~/projects>')).toBe(true)
+      expect(isTerminalPromptLine('server /var/log>')).toBe(true)
+      expect(isTerminalPromptLine('>')).toBe(true)
+      expect(isTerminalPromptLine('(base) user@host ~>')).toBe(true)
+    })
+
     it('matches Cisco prompts', () => {
       expect(isTerminalPromptLine('switch#')).toBe(true)
       expect(isTerminalPromptLine('switch>')).toBe(true)
@@ -39,6 +79,20 @@ describe('terminalPrompt utils', () => {
       expect(isTerminalPromptLine('[~*hw6800-chaterm-test]')).toBe(true)
       expect(isTerminalPromptLine('[hw6800-chaterm-test-GigabitEthernet0/0/1]')).toBe(true)
       expect(isTerminalPromptLine('[hw6800-chaterm-test-Vlanif10]')).toBe(true)
+    })
+
+    it('matches Git Bash prompts', () => {
+      expect(isTerminalPromptLine('user@DESKTOP-ABC MINGW64 ~')).toBe(true)
+      expect(isTerminalPromptLine('admin@PC123 MINGW32 /c/Users')).toBe(true)
+      expect(isTerminalPromptLine('dev@hostname MSYS ~/projects')).toBe(true)
+    })
+
+    it('matches Windows PowerShell/CMD prompts', () => {
+      expect(isTerminalPromptLine('C:\\Users\\admin>')).toBe(true)
+      expect(isTerminalPromptLine('C:\\>')).toBe(true)
+      expect(isTerminalPromptLine('D:\\Projects\\myapp>')).toBe(true)
+      expect(isTerminalPromptLine('PS C:\\Users\\admin>')).toBe(true)
+      expect(isTerminalPromptLine('PS D:\\Projects>')).toBe(true)
     })
 
     it('does not match non-prompt lines', () => {
