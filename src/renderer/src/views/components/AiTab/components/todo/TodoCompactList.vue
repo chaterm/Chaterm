@@ -72,7 +72,7 @@
 
 <script setup lang="ts">
 import { computed } from 'vue'
-import { LoadingOutlined, BorderOutlined, MinusOutlined, ThunderboltFilled, ThunderboltOutlined } from '@ant-design/icons-vue'
+import { LoadingOutlined, BorderOutlined, MinusOutlined, ThunderboltFilled, CheckOutlined } from '@ant-design/icons-vue'
 import type { Todo } from '../../../../../types/todo'
 
 interface Props {
@@ -107,9 +107,9 @@ const isFocused = (todo: Todo): boolean => {
 
 // Icon and style mapping
 const statusIcon = (status?: Todo['status'], focused?: boolean) => {
-  if (focused && status === 'in_progress') return ThunderboltOutlined
+  if (focused && status === 'in_progress') return LoadingOutlined
   if (status === 'in_progress') return LoadingOutlined
-  if (status === 'completed') return MinusOutlined
+  if (status === 'completed') return CheckOutlined
   return BorderOutlined // pending/default
 }
 
@@ -151,7 +151,6 @@ const statusClass = (status?: Todo['status']) => {
     border-left: 2px solid #faad14;
 
     .todo-text {
-      color: var(--text-color) !important;
       font-weight: 600;
     }
 

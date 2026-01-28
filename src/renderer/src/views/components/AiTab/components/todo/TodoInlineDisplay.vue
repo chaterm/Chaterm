@@ -69,11 +69,9 @@
       v-if="expanded && focusedTodo"
       class="focus-chain-highlight"
     >
-      <div class="focused-task-header">
+      <div class="focused-task-inline">
         <ThunderboltOutlined class="focused-icon" />
         <span class="focused-label">{{ t('ai.currentFocus') }}</span>
-      </div>
-      <div class="focused-task-content">
         <span class="focused-task-title">{{ focusedTodo.content }}</span>
         <span
           v-if="focusedTodo.description"
@@ -410,11 +408,12 @@ const toggleExpanded = () => {
   background: linear-gradient(135deg, rgba(250, 173, 20, 0.08) 0%, rgba(250, 140, 22, 0.04) 100%);
   border-bottom: 1px solid rgba(250, 173, 20, 0.15);
 
-  .focused-task-header {
+  .focused-task-inline {
     display: flex;
     align-items: center;
-    gap: 4px;
-    margin-bottom: 4px;
+    gap: 6px;
+    flex-wrap: nowrap;
+    min-width: 0;
 
     .focused-icon {
       font-size: 11px;
@@ -428,23 +427,27 @@ const toggleExpanded = () => {
       text-transform: uppercase;
       letter-spacing: 0.5px;
     }
-  }
-
-  .focused-task-content {
-    display: flex;
-    flex-direction: column;
-    gap: 2px;
 
     .focused-task-title {
       font-size: 12px;
       font-weight: 500;
       color: var(--text-color);
+      margin-left: 4px;
+      white-space: nowrap;
+      text-overflow: ellipsis;
+      overflow: hidden;
+      max-width: 40%;
     }
 
     .focused-task-desc {
       font-size: 11px;
       color: var(--text-color-secondary);
       line-height: 1.4;
+      margin-left: 4px;
+      white-space: nowrap;
+      text-overflow: ellipsis;
+      overflow: hidden;
+      max-width: 45%;
     }
   }
 }
