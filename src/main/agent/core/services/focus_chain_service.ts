@@ -156,6 +156,7 @@ export class FocusChainService {
 
     const storage = new TodoStorage(this.taskId)
     const todos = await storage.readTodos()
+    const contextTracker = TodoContextTracker.forSession(this.taskId)
 
     const completedTodo = todos.find((t) => t.id === this.state.focusedTodoId)
     if (!completedTodo) {
@@ -188,8 +189,10 @@ export class FocusChainService {
       })
 
       this.state.focusedTodoId = nextTodo.id
+      contextTracker.setActiveTodo(nextTodo.id)
     } else {
       this.state.focusedTodoId = null
+      contextTracker.setActiveTodo(null)
     }
 
     // Update progress

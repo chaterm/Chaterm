@@ -282,6 +282,7 @@ describe('FocusChainService', () => {
       expect(completedTodo?.completedAt).toBeInstanceOf(Date)
       expect(nextTodo?.status).toBe('in_progress')
       expect(nextTodo?.isFocused).toBe(true)
+      expect(mockContextTrackerInstance.setActiveTodo).toHaveBeenCalledWith('todo-2')
     })
 
     it('should record transition when auto-advancing', async () => {
@@ -328,6 +329,7 @@ describe('FocusChainService', () => {
       const nextTodo = writtenTodos.find((t) => t.id === 'todo-2')
       expect(nextTodo?.status).toBe('pending')
       expect(nextTodo?.isFocused).toBeFalsy()
+      expect(mockContextTrackerInstance.setActiveTodo).toHaveBeenCalledWith(null)
     })
 
     it('should update progress when completing todo', async () => {
@@ -364,6 +366,7 @@ describe('FocusChainService', () => {
       expect(result.nextFocused).toBeNull()
       expect(result.allCompleted).toBe(true)
       expect(service.getState().focusedTodoId).toBeNull()
+      expect(mockContextTrackerInstance.setActiveTodo).toHaveBeenCalledWith(null)
     })
   })
 
