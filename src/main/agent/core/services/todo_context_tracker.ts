@@ -41,12 +41,15 @@ export class TodoContextTracker {
 
   setActiveTodo(todoId: string | null): void {
     const previousTodoId = this.activeTodoId
-    this.activeTodoId = todoId
 
     // Record context snapshot when switching todos
     if (todoId !== previousTodoId) {
-      this.recordContextSnapshot()
+      // We want to attribute the snapshot to the previous todo,
+      // since it represents the context state *before* the switch.
+      this.recordContextSnapshot(previousTodoId)
     }
+
+    this.activeTodoId = todoId
   }
 
   getActiveTodoId(): string | null {
@@ -118,11 +121,11 @@ export class TodoContextTracker {
   }
 
   // Record a context snapshot
-  private recordContextSnapshot(): void {
+  private recordContextSnapshot(todoId: string | null = this.activeTodoId): void {
     const snapshot: ContextUsageSnapshot = {
       timestamp: new Date(),
       usagePercent: this.contextUsagePercent,
-      todoId: this.activeTodoId,
+      todoId,
       tokenCount: this.currentTokenCount,
       maxTokens: this.maxContextTokens
     }
