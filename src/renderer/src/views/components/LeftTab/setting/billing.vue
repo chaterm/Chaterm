@@ -1,9 +1,7 @@
 <template>
   <div>
     <div class="section-header">
-      <div class="title-container">
-        <h3>{{ $t('user.billing') }}</h3>
-      </div>
+      <h3>{{ $t('user.billing') }}</h3>
     </div>
     <a-card
       class="settings-section"
@@ -127,6 +125,7 @@ const getUserInfo = () => {
 .settings-section {
   background-color: var(--bg-color);
   box-shadow: none;
+  margin-left: 20px;
 
   :deep(.ant-card-body) {
     padding: 16px;
@@ -134,18 +133,12 @@ const getUserInfo = () => {
 }
 
 .section-header {
-  margin-top: 8px;
-  margin-left: 16px;
-
-  .title-container {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-  }
+  margin: 30px 16px 16px 28px;
 
   h3 {
     font-size: 20px;
-    font-weight: 500;
+    font-weight: bold;
+    line-height: 1.3;
     margin: 0;
     color: var(--text-color);
   }

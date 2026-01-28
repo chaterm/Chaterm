@@ -262,6 +262,21 @@ export default {
     about: 'Informazioni',
     documentation: 'Documentazione',
     privacy: 'Privacy',
+    trustedDevices: 'Dispositivi attendibili',
+    trustedDevicesDescription:
+      'Questi dispositivi sono stati verificati e possono saltare la verifica al prossimo accesso. Dopo la rimozione, il dispositivo dovrà essere verificato di nuovo.',
+    trustedDevicesCount: '{current} / {max} dispositivi',
+    trustedDevicesMaxReached:
+      'Raggiunto il numero massimo di dispositivi attendibili. Rimuovi prima uno da questo elenco prima di aggiungerne uno nuovo.',
+    trustedDevicesRemoveConfirm: 'Dopo la rimozione, questo dispositivo dovrà essere verificato di nuovo al prossimo accesso. Continuare?',
+    trustedDevicesCurrentDevice: 'Dispositivo attuale',
+    trustedDevicesNoData:
+      "Nessun dispositivo attendibile ancora. Appariranno qui dopo aver effettuato l'accesso su nuovi dispositivi e completato la verifica.",
+    trustedDevicesRemove: 'Rimuovi',
+    trustedDevicesLoginRequired: 'Accedi per gestire i dispositivi attendibili.',
+    trustedDevicesUnknownDevice: 'Dispositivo sconosciuto',
+    trustedDevicesLoadFailed: 'Impossibile caricare i dispositivi attendibili',
+    trustedDevicesRevokeFailed: 'Impossibile rimuovere il dispositivo',
     secretRedaction: 'Oscuramento segreti',
     secretRedactionDescription:
       "L'oscuramento segreti tenta di oscurare automaticamente segreti e informazioni sensibili nell'output del dialogo AI, inclusi password, indirizzi IP, chiavi API e dati personali.",

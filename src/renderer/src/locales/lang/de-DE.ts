@@ -262,6 +262,21 @@ export default {
     about: 'Über',
     documentation: 'Dokumentation',
     privacy: 'Datenschutz',
+    trustedDevices: 'Vertrauenswürdige Geräte',
+    trustedDevicesDescription:
+      'Diese Geräte wurden verifiziert und können bei der nächsten Anmeldung die Verifizierung überspringen. Nach dem Entfernen muss das Gerät erneut verifiziert werden.',
+    trustedDevicesCount: '{current} / {max} Geräte',
+    trustedDevicesMaxReached:
+      'Maximale Anzahl vertrauenswürdiger Geräte erreicht. Bitte entfernen Sie zuerst eines aus dieser Liste, bevor Sie ein neues hinzufügen.',
+    trustedDevicesRemoveConfirm: 'Nach dem Entfernen muss dieses Gerät bei der nächsten Anmeldung erneut verifiziert werden. Fortfahren?',
+    trustedDevicesCurrentDevice: 'Aktuelles Gerät',
+    trustedDevicesNoData:
+      'Noch keine vertrauenswürdigen Geräte. Sie werden hier angezeigt, nachdem Sie sich auf neuen Geräten angemeldet und verifiziert haben.',
+    trustedDevicesRemove: 'Entfernen',
+    trustedDevicesLoginRequired: 'Bitte melden Sie sich an, um vertrauenswürdige Geräte zu verwalten.',
+    trustedDevicesUnknownDevice: 'Unbekanntes Gerät',
+    trustedDevicesLoadFailed: 'Vertrauenswürdige Geräte konnten nicht geladen werden',
+    trustedDevicesRevokeFailed: 'Gerät konnte nicht entfernt werden',
     secretRedaction: 'Geheimtext-Redaktion',
     secretRedactionDescription:
       'Geheimtext-Redaktion versucht, Geheimnisse und sensible Informationen in Ihrer AI-Dialogausgabe automatisch zu redaktionieren, einschließlich Passwörter, IP-Adressen, API-Schlüssel und PII.',

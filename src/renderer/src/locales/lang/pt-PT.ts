@@ -262,6 +262,20 @@ export default {
     about: 'Sobre',
     documentation: 'Documentação',
     privacy: 'Privacidade',
+    trustedDevices: 'Dispositivos confiáveis',
+    trustedDevicesDescription:
+      'Estes dispositivos foram verificados e podem ignorar a verificação no próximo início de sessão. Após remover, o dispositivo precisará verificar novamente.',
+    trustedDevicesCount: '{current} / {max} dispositivos',
+    trustedDevicesMaxReached: 'Número máximo de dispositivos confiáveis atingido. Remova primeiro um desta lista antes de adicionar um novo.',
+    trustedDevicesRemoveConfirm: 'Após remover, este dispositivo precisará verificar novamente no próximo início de sessão. Continuar?',
+    trustedDevicesCurrentDevice: 'Dispositivo atual',
+    trustedDevicesNoData:
+      'Ainda sem dispositivos confiáveis. Eles aparecerão aqui após iniciar sessão em novos dispositivos e concluir a verificação.',
+    trustedDevicesRemove: 'Remover',
+    trustedDevicesLoginRequired: 'Inicie sessão para gerir dispositivos confiáveis.',
+    trustedDevicesUnknownDevice: 'Dispositivo desconhecido',
+    trustedDevicesLoadFailed: 'Falha ao carregar dispositivos confiáveis',
+    trustedDevicesRevokeFailed: 'Falha ao remover dispositivo',
     secretRedaction: 'Redação secreta',
     secretRedactionDescription:
       'A redação secreta tenta automaticamente redigir segredos e informações sensíveis na saída do seu diálogo AI, incluindo senhas, endereços IP, chaves API e PII.',
