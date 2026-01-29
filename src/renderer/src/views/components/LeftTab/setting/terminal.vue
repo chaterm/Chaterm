@@ -819,6 +819,14 @@ onBeforeUnmount(() => {
   color: var(--text-color);
 }
 
+.custom-form :deep(.ant-switch) {
+  background-color: var(--bg-color-switch);
+}
+
+.custom-form :deep(.ant-switch.ant-switch-checked) {
+  background: #1890ff !important;
+}
+
 .custom-form :deep(.ant-input-number) {
   background-color: var(--input-number-bg);
   border: 1px solid var(--border-color) !important;
