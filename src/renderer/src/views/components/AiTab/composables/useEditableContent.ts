@@ -1,5 +1,5 @@
 import { ref, nextTick, type Ref } from 'vue'
-import type { ContentPart, ContextDocRef, ContextPastChatRef } from '@shared/WebviewMessage'
+import type { ContentPart, ContextDocRef, ContextPastChatRef, ImageContentPart } from '@shared/WebviewMessage'
 import type { ChatOption, DocOption } from '../types'
 import { getChipLabel } from '../utils'
 import FileTextOutlinedSvg from '@ant-design/icons-svg/es/asn/FileTextOutlined'
@@ -217,6 +217,41 @@ export function useEditableContent(options: UseEditableContentOptions) {
   }
 
   // ============================================================================
+  // Image Element Creation
+  // ============================================================================
+
+  const createImageElement = (imagePart: ImageContentPart): HTMLElement => {
+    const wrapper = document.createElement('span')
+    wrapper.className = 'image-preview-wrapper'
+    wrapper.contentEditable = 'false'
+    wrapper.setAttribute('data-image-type', 'true')
+    wrapper.setAttribute('data-media-type', imagePart.mediaType)
+    wrapper.setAttribute('data-image-data', imagePart.data)
+
+    const img = document.createElement('img')
+    img.src = `data:${imagePart.mediaType};base64,${imagePart.data}`
+    img.className = 'image-preview-thumbnail'
+    img.alt = 'Uploaded image'
+
+    // Create remove button
+    const removeBtn = document.createElement('span')
+    removeBtn.className = 'image-remove'
+    removeBtn.setAttribute('data-image-remove', 'true')
+    removeBtn.textContent = '×'
+
+    wrapper.appendChild(img)
+    wrapper.appendChild(removeBtn)
+    return wrapper
+  }
+
+  const parseImageElement = (el: HTMLElement): ImageContentPart | null => {
+    const mediaType = el.dataset.mediaType as ImageContentPart['mediaType']
+    const data = el.dataset.imageData
+    if (!mediaType || !data) return null
+    return { type: 'image', mediaType, data }
+  }
+
+  // ============================================================================
   // Content Extraction
   // ============================================================================
 
@@ -261,6 +296,15 @@ export function useEditableContent(options: UseEditableContentOptions) {
 
     if (el.dataset?.chipType) {
       parseChipElement(el, parts)
+      return
+    }
+
+    // Handle image elements
+    if (el.dataset?.imageType) {
+      const imagePart = parseImageElement(el)
+      if (imagePart) {
+        parts.push(imagePart)
+      }
       return
     }
 
@@ -312,6 +356,10 @@ export function useEditableContent(options: UseEditableContentOptions) {
     for (const part of parts) {
       if (part.type === 'text') {
         container.appendChild(document.createTextNode(part.text))
+      } else if (part.type === 'image') {
+        const imageEl = createImageElement(part)
+        container.appendChild(imageEl)
+        container.appendChild(document.createTextNode(' '))
       } else {
         const label = getChipLabel(part)
         const chip = createChipElement(part.chipType, part.ref, label)
@@ -413,6 +461,38 @@ export function useEditableContent(options: UseEditableContentOptions) {
     syncDraftPartsFromEditable()
   }
 
+  const insertImageAtCursor = (imagePart: ImageContentPart) => {
+    if (!editableRef.value) return
+    restoreSelection()
+
+    let range = getEditableRange()
+    if (!range) {
+      moveCaretToEnd()
+      range = getEditableRange()
+    }
+    if (!range) return
+
+    const selection = window.getSelection()
+    if (!selection) return
+
+    const imageEl = createImageElement(imagePart)
+    range.deleteContents()
+    range.insertNode(imageEl)
+
+    // Add spacer after image and move cursor after it
+    const spacer = document.createTextNode(' ')
+    imageEl.after(spacer)
+
+    const newRange = document.createRange()
+    newRange.setStart(spacer, 1)
+    newRange.collapse(true)
+    selection.removeAllRanges()
+    selection.addRange(newRange)
+
+    saveSelection()
+    syncDraftPartsFromEditable()
+  }
+
   // New: Wrapper for handleInputChange to pass mode
   const handleEditableKeyDown = (e: KeyboardEvent, mode: 'create' | 'edit' = 'create') => {
     if (e.key === 'Enter' && !e.shiftKey && !e.isComposing) {
@@ -442,6 +522,16 @@ export function useEditableContent(options: UseEditableContentOptions) {
       const chip = target.closest('.mention-chip')
       if (chip) {
         chip.remove()
+        syncDraftPartsFromEditable()
+      }
+      return
+    }
+
+    // Handle image removal
+    if (target?.dataset?.imageRemove) {
+      const wrapper = target.closest('.image-preview-wrapper')
+      if (wrapper) {
+        wrapper.remove()
         syncDraftPartsFromEditable()
       }
       return
@@ -483,9 +573,11 @@ export function useEditableContent(options: UseEditableContentOptions) {
     // Sync & insertion
     syncDraftPartsFromEditable,
     insertChipAtCursor,
+    insertImageAtCursor,
 
     // DOM creation (exposed for potential external use)
     createChipElement,
+    createImageElement,
     handleEditableKeyDown,
     handleEditableInput,
     handleEditableClick

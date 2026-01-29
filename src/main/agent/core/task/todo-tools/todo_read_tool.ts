@@ -1,12 +1,13 @@
 import { TodoStorage } from '../../storage/todo/TodoStorage'
 import { TodoReminderService } from '../../services/todo_reminder_service'
 import { TodoWriteTool } from './todo_write_tool'
+import { FocusChainService } from '../../services/focus_chain_service'
 
 export type TodoReadParams = Record<string, never> // Empty params, read all todos for current task
 
 export class TodoReadTool {
   static readonly name = 'todo_read'
-  static readonly description = 'Read the todo list for the current session, return all task statuses and content'
+  static readonly description = 'Read the todo list for the current session, return all task statuses, Focus Chain state and content'
 
   static readonly parameterSchema = {
     type: 'object',
@@ -34,7 +35,25 @@ export class TodoReadTool {
           : 'Only 1–2 tasks present. This is not a complex checklist; execute directly and report the outcome.'
       }
 
-      return TodoWriteTool.generateOutput(todos)
+      // Generate base output
+      let output = TodoWriteTool.generateOutput(todos)
+
+      // Add Focus Chain status
+      const focusChainService = FocusChainService.forTask(taskId)
+      await focusChainService.syncWithTodos()
+      const focusChainProgress = focusChainService.getProgressSummary()
+
+      if (focusChainProgress.total > 0) {
+        output += TodoWriteTool.generateFocusChainInfo(focusChainProgress, todos)
+      }
+
+      // Check if should suggest new task
+      const suggestion = focusChainService.shouldSuggestNewTask()
+      if (suggestion.suggest && suggestion.reason) {
+        output += `\n💡 **Focus Chain Suggestion**: ${suggestion.reason}`
+      }
+
+      return output
     } catch (error) {
       throw new Error(`Todo read failed: ${error instanceof Error ? error.message : String(error)}`)
     }

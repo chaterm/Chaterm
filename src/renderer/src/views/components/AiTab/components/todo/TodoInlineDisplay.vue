@@ -2,6 +2,7 @@
   <div
     v-if="visible"
     class="todo-inline-display"
+    :class="{ 'has-focused': hasFocusedTodo }"
   >
     <div
       class="todo-inline-header"
@@ -11,6 +12,14 @@
         <div class="todo-title">
           <UnorderedListOutlined class="todo-icon" />
           <span class="todo-title-text">{{ todoTitle }}</span>
+          <!-- Focus Chain indicator -->
+          <span
+            v-if="hasFocusedTodo"
+            class="focus-chain-badge"
+          >
+            <ThunderboltOutlined class="focus-icon" />
+            <span class="focus-label">{{ t('ai.focusChain') }}</span>
+          </span>
         </div>
         <div class="todo-progress-ratio">
           <span class="ratio-completed">{{ progressCounts.completed }}</span>
@@ -19,6 +28,20 @@
         </div>
       </div>
       <div class="todo-header-right">
+        <!-- Context usage indicator (Focus Chain feature) -->
+        <div
+          v-if="contextUsagePercent > 0"
+          class="context-usage-indicator"
+          :class="contextUsageLevel"
+        >
+          <div class="context-bar-container">
+            <div
+              class="context-bar-fill"
+              :style="{ width: contextUsagePercent + '%' }"
+            />
+          </div>
+          <span class="context-text">{{ contextUsagePercent }}%</span>
+        </div>
         <div class="todo-progress-indicator">
           <div class="progress-bar-container">
             <div
@@ -41,6 +64,23 @@
       </div>
     </div>
 
+    <!-- Focused task highlight (Focus Chain feature) -->
+    <div
+      v-if="expanded && focusedTodo"
+      class="focus-chain-highlight"
+    >
+      <div class="focused-task-inline">
+        <ThunderboltOutlined class="focused-icon" />
+        <span class="focused-label">{{ t('ai.currentFocus') }}</span>
+        <span class="focused-task-title">{{ focusedTodo.content }}</span>
+        <span
+          v-if="focusedTodo.description"
+          class="focused-task-desc"
+          >{{ focusedTodo.description }}</span
+        >
+      </div>
+    </div>
+
     <a-collapse
       v-if="expanded"
       v-model:active-key="activeKey"
@@ -55,6 +95,7 @@
           :show-progress="showProgress"
           :show-subtasks="showSubtasks"
           :max-items="maxItems"
+          :focused-todo-id="focusedTodo?.id"
         />
       </a-collapse-panel>
     </a-collapse>
@@ -63,9 +104,9 @@
 
 <script setup lang="ts">
 import { ref, computed, defineAsyncComponent, watch } from 'vue'
-import { UnorderedListOutlined, UpOutlined, DownOutlined } from '@ant-design/icons-vue'
+import { UnorderedListOutlined, UpOutlined, DownOutlined, ThunderboltOutlined } from '@ant-design/icons-vue'
 const TodoCompactList = defineAsyncComponent(() => import('./TodoCompactList.vue'))
-import type { Todo } from '../../../../../types/todo'
+import type { Todo, FocusChainState, ContextThresholdLevel } from '../../../../../types/todo'
 import i18n from '@/locales'
 
 const { t } = i18n.global
@@ -76,13 +117,18 @@ interface Props {
   showProgress?: boolean
   showSubtasks?: boolean
   maxItems?: number
+  // Focus Chain props
+  focusChainState?: FocusChainState | null
+  contextUsagePercent?: number
 }
 
 const props = withDefaults(defineProps<Props>(), {
   showTrigger: false,
   showProgress: true,
   showSubtasks: true,
-  maxItems: 20
+  maxItems: 20,
+  focusChainState: null,
+  contextUsagePercent: 0
 })
 
 const visible = ref(true)
@@ -112,6 +158,28 @@ const progressPercent = computed(() => {
   return Math.round((completed / total) * 100)
 })
 
+// Focus Chain: Find the currently focused todo
+const focusedTodo = computed(() => {
+  // First check for explicitly focused todo
+  const focused = props.todos.find((todo) => todo.isFocused)
+  if (focused) return focused
+
+  // Fall back to in_progress todo
+  return props.todos.find((todo) => todo.status === 'in_progress') || null
+})
+
+// Focus Chain: Check if there's a focused todo
+const hasFocusedTodo = computed(() => focusedTodo.value !== null)
+
+// Focus Chain: Get context usage level for styling
+const contextUsageLevel = computed((): ContextThresholdLevel => {
+  const usage = props.contextUsagePercent || props.focusChainState?.currentContextUsage || 0
+  if (usage >= 90) return 'maximum'
+  if (usage >= 70) return 'critical'
+  if (usage >= 50) return 'warning'
+  return 'normal'
+})
+
 // Dynamic title - use i18n
 const todoTitle = computed(() => t('ai.taskProgress'))
 
@@ -123,6 +191,7 @@ watch(
     console.log('TodoInlineDisplay - todos length:', newTodos?.length || 0)
     console.log('TodoInlineDisplay - visible:', visible.value)
     console.log('TodoInlineDisplay - expanded:', expanded.value)
+    console.log('TodoInlineDisplay - focused todo:', focusedTodo.value?.content)
   },
   { immediate: true, deep: true }
 )
@@ -157,6 +226,12 @@ const toggleExpanded = () => {
 
   &:hover {
     box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+  }
+
+  // Focus Chain enhancement: highlight when task is focused
+  &.has-focused {
+    border-color: var(--primary-color);
+    box-shadow: 0 0 0 1px rgba(var(--primary-color-rgb, 24, 144, 255), 0.1);
   }
 }
 
@@ -234,6 +309,146 @@ const toggleExpanded = () => {
 
   .ratio-total {
     color: var(--text-color-secondary);
+  }
+}
+
+// Focus Chain badge
+.focus-chain-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  padding: 1px 6px;
+  border-radius: 6px;
+  background: linear-gradient(135deg, rgba(250, 173, 20, 0.15) 0%, rgba(250, 140, 22, 0.1) 100%);
+  border: 1px solid rgba(250, 173, 20, 0.3);
+  margin-left: 6px;
+  animation: focusPulse 2s ease-in-out infinite;
+
+  .focus-icon {
+    font-size: 10px;
+    color: #faad14;
+  }
+
+  .focus-label {
+    font-size: 10px;
+    font-weight: 500;
+    color: #d48806;
+  }
+}
+
+@keyframes focusPulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.7;
+  }
+}
+
+// Context usage indicator (Focus Chain feature)
+.context-usage-indicator {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin-right: 8px;
+
+  .context-bar-container {
+    width: 30px;
+    height: 3px;
+    background: var(--bg-color-secondary);
+    border-radius: 2px;
+    overflow: hidden;
+    border: 1px solid var(--border-color-light);
+  }
+
+  .context-bar-fill {
+    height: 100%;
+    border-radius: 2px;
+    transition: width 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+    min-width: 1px;
+  }
+
+  .context-text {
+    font-size: 9px;
+    font-weight: 500;
+    color: var(--text-color-tertiary);
+    font-variant-numeric: tabular-nums;
+    min-width: 24px;
+    text-align: right;
+  }
+
+  // Context level colors
+  &.normal .context-bar-fill {
+    background: linear-gradient(90deg, #52c41a 0%, #73d13d 100%);
+  }
+
+  &.warning .context-bar-fill {
+    background: linear-gradient(90deg, #faad14 0%, #ffc53d 100%);
+  }
+
+  &.critical .context-bar-fill {
+    background: linear-gradient(90deg, #fa8c16 0%, #ffa940 100%);
+  }
+
+  &.maximum .context-bar-fill {
+    background: linear-gradient(90deg, #f5222d 0%, #ff4d4f 100%);
+  }
+
+  &.warning .context-text,
+  &.critical .context-text,
+  &.maximum .context-text {
+    color: var(--text-color-secondary);
+  }
+}
+
+// Focus Chain highlight section
+.focus-chain-highlight {
+  padding: 8px 12px;
+  background: linear-gradient(135deg, rgba(250, 173, 20, 0.08) 0%, rgba(250, 140, 22, 0.04) 100%);
+  border-bottom: 1px solid rgba(250, 173, 20, 0.15);
+
+  .focused-task-inline {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    flex-wrap: nowrap;
+    min-width: 0;
+
+    .focused-icon {
+      font-size: 11px;
+      color: #faad14;
+    }
+
+    .focused-label {
+      font-size: 10px;
+      font-weight: 600;
+      color: #d48806;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    .focused-task-title {
+      font-size: 12px;
+      font-weight: 500;
+      color: var(--text-color);
+      margin-left: 4px;
+      white-space: nowrap;
+      text-overflow: ellipsis;
+      overflow: hidden;
+      max-width: 40%;
+    }
+
+    .focused-task-desc {
+      font-size: 11px;
+      color: var(--text-color-secondary);
+      line-height: 1.4;
+      margin-left: 4px;
+      white-space: nowrap;
+      text-overflow: ellipsis;
+      overflow: hidden;
+      max-width: 45%;
+    }
   }
 }
 

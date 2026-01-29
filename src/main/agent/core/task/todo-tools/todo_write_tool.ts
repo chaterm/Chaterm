@@ -1,9 +1,12 @@
 import { Todo, TodoArraySchema } from '../../../shared/todo/TodoSchemas'
 import { TodoStorage } from '../../storage/todo/TodoStorage'
 import { TodoContextTracker } from '../../services/todo_context_tracker'
+import { FocusChainService } from '../../services/focus_chain_service'
 
 export interface TodoWriteParams {
   todos: Todo[]
+  // Focus Chain options
+  autoFocus?: boolean // Automatically focus on first in_progress or pending todo
 }
 
 export class TodoWriteTool {
@@ -31,19 +34,52 @@ export class TodoWriteTool {
       // Use processed todos
       params.todos = result.data
 
-      // 3. Save to storage
+      // 3. Focus Chain: Determine focused todo and update focus state
+      const inProgressTodo = params.todos.find((t) => t.status === 'in_progress')
+      const focusedTodo = params.todos.find((t) => t.isFocused)
+      const autoFocusEnabled = params.autoFocus !== false // Default to true
+
+      // If no explicit focus but has in_progress, set it as focused
+      if (!focusedTodo && inProgressTodo && autoFocusEnabled) {
+        inProgressTodo.isFocused = true
+        inProgressTodo.focusedAt = now
+      }
+
+      // Mark completed todos with completedAt
+      params.todos.forEach((todo) => {
+        if (todo.status === 'completed' && !todo.completedAt) {
+          todo.completedAt = now
+        }
+        // Clear focus from completed todos
+        if (todo.status === 'completed' && todo.isFocused) {
+          todo.isFocused = false
+        }
+      })
+
+      // 4. Save to storage
       const storage = new TodoStorage(taskId)
       await storage.writeTodos(params.todos)
 
-      // 4. Update active todo
+      // 5. Update context tracker and focus chain service
       const contextTracker = TodoContextTracker.forSession(taskId)
-      const inProgressTodo = params.todos.find((t) => t.status === 'in_progress')
-      contextTracker.setActiveTodo(inProgressTodo?.id || null)
+      const focusChainService = FocusChainService.forTask(taskId)
 
-      // 5. Generate return message
+      const activeTodo = params.todos.find((t) => t.isFocused) || inProgressTodo
+      contextTracker.setActiveTodo(activeTodo?.id || null)
+
+      // Sync focus chain state
+      await focusChainService.syncWithTodos()
+
+      // 6. Generate return message
       let output = TodoWriteTool.generateOutput(params.todos)
 
-      // 6. Check if it's a newly created todo list, add start reminder
+      // 7. Add Focus Chain status info
+      const focusChainProgress = focusChainService.getProgressSummary()
+      if (focusChainProgress.total > 0) {
+        output += TodoWriteTool.generateFocusChainInfo(focusChainProgress, params.todos)
+      }
+
+      // 8. Check if it's a newly created todo list, add start reminder
       const allPending = params.todos.every((todo) => todo.status === 'pending')
       const hasMultipleTasks = params.todos.length > 1
 
@@ -52,10 +88,51 @@ export class TodoWriteTool {
         const firstTask = params.todos[0]
         output += `\n\n⚠️ **Important Reminder**: Todo list has been created. You must now immediately use the todo_write tool to update the first task "${firstTask.content}" status from "pending" to "in_progress", then start executing that task. This is a mandatory workflow requirement.`
       }
+
+      // 9. Check if should suggest new task (Focus Chain feature)
+      const suggestion = focusChainService.shouldSuggestNewTask()
+      if (suggestion.suggest && suggestion.reason) {
+        output += `\n\n💡 **Focus Chain Suggestion**: ${suggestion.reason}`
+      }
+
       return output
     } catch (error) {
       console.error(`[TodoWriteTool] todo_write tool execution failed:`, error)
       throw new Error(`Todo write failed: ${error instanceof Error ? error.message : String(error)}`)
+    }
+  }
+
+  /**
+   * Generate Focus Chain info section
+   */
+  static generateFocusChainInfo(progress: ReturnType<FocusChainService['getProgressSummary']>, todos: Todo[]): string {
+    const focusedTodo = todos.find((t) => t.isFocused || t.status === 'in_progress')
+
+    // Detect if contains Chinese content
+    const hasChineseContent = todos.some(
+      (todo) => /[\u4e00-\u9fff]/.test(todo.content) || (todo.description && /[\u4e00-\u9fff]/.test(todo.description))
+    )
+
+    if (hasChineseContent) {
+      let info = '\n### ⚡ 聚焦链状态\n'
+      if (focusedTodo) {
+        info += `- 当前聚焦: **${focusedTodo.content}**\n`
+      }
+      info += `- 整体进度: ${progress.progressPercent}% (${progress.completed}/${progress.total})\n`
+      if (progress.contextUsage > 0) {
+        info += `- 上下文使用: ${progress.contextUsage}%\n`
+      }
+      return info
+    } else {
+      let info = '\n### ⚡ Focus Chain Status\n'
+      if (focusedTodo) {
+        info += `- Current Focus: **${focusedTodo.content}**\n`
+      }
+      info += `- Overall Progress: ${progress.progressPercent}% (${progress.completed}/${progress.total})\n`
+      if (progress.contextUsage > 0) {
+        info += `- Context Usage: ${progress.contextUsage}%\n`
+      }
+      return info
     }
   }
 

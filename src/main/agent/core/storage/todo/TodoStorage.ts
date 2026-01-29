@@ -24,6 +24,8 @@ export class TodoStorage {
             ...todo,
             createdAt: typeof todo.createdAt === 'string' ? new Date(todo.createdAt) : todo.createdAt,
             updatedAt: typeof todo.updatedAt === 'string' ? new Date(todo.updatedAt) : todo.updatedAt,
+            focusedAt: typeof todo.focusedAt === 'string' ? new Date(todo.focusedAt) : todo.focusedAt,
+            completedAt: typeof todo.completedAt === 'string' ? new Date(todo.completedAt) : todo.completedAt,
             toolCalls: todo.toolCalls?.map((call: any) => ({
               ...call,
               timestamp: typeof call.timestamp === 'string' ? new Date(call.timestamp) : call.timestamp

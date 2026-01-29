@@ -1142,7 +1142,7 @@ const connectSSH = async () => {
 
     // Setup status listener for bastion host connections
     // All plugin bastions reuse the jumpserver:status-update channel
-    if (shouldUseBastionStatusChannel(assetInfo.sshType) && terminal.value) {
+    if (shouldUseBastionStatusChannel(connSshType) && terminal.value) {
       jumpServerStatusHandler = createJumpServerStatusHandler(terminal.value, connectionId.value, translateJumpServerStatus)
       jumpServerStatusHandler.setupStatusListener(api)
     }
