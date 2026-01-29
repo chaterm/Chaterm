@@ -2,6 +2,34 @@
   "releaseNotesUrl": "https://github.com/chaterm/Chaterm/releases/tag/v",
   "versions": [
     {
+      "version": "0.8.3",
+      "date": "2026-01-29",
+      "highlights": {
+        "zh-CN": [
+          "新增任务管理 Focus Chain Service 和增强 Todo 功能，支持上下文跟踪、自动转换、日期字段和进度指示器",
+          "新增图片上传和可信设备管理功能",
+          "支持会话级别的只读命令自动批准和执行",
+          "本地 Windows 终端支持 AI 对话功能",
+          "新增订阅功能插件",
+          "AI Tab 增强：支持快速选择已打开主机、标签页上下文菜单、拖放上下文项，知识中心新增文档添加到聊天功能",
+          "支持在上下文中使用 @docs/chats 引用，插件按用户隔离提升安全性",
+          "增强 Linux 终端提示匹配，支持环境前缀和 shell 版本提示",
+          "优化主题样式和 UI 一致性，修复 Windows 系统快捷键和 SSH 类型兼容性问题"
+        ],
+        "en-US": [
+          "Add Focus Chain Service for task management and enhance Todo functionality with context tracking, auto-transition, date fields, and progress indicators",
+          "Add image upload and trusted device management features",
+          "Support session-level auto-approval and execution for read-only commands",
+          "Local Windows terminals support AI conversation",
+          "Add Subscribe feature plugin",
+          "AI Tab enhancements: quick selection for opened hosts, tab context menu, drag-and-drop context items, and knowledge center 'Add to Chat' feature",
+          "Support @docs/chats references in context and isolate plugins per user for improved security",
+          "Enhance Linux terminal prompt matching with environment prefixes and shell version prompts",
+          "Optimize theme styles and UI consistency, fix Windows system shortcuts and SSH type compatibility issues"
+        ]
+      }
+    },
+    {
       "version": "0.8.2",
       "date": "2026-01-20",
       "highlights": {
