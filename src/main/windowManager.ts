@@ -115,5 +115,15 @@ export async function createMainWindow(onCookieUrlChange?: (url: string) => void
     mainWindow.webContents.send('window:unmaximized')
   })
 
+  // Disable Command+R (macOS) / Ctrl+R (Windows/Linux) reload shortcut
+  mainWindow.webContents.on('before-input-event', (event, input) => {
+    if (input.type === 'keyDown') {
+      const isReloadShortcut = (input.key === 'r' || input.key === 'R') && (input.meta || input.control) && !input.alt && !input.shift
+      if (isReloadShortcut) {
+        event.preventDefault()
+      }
+    }
+  })
+
   return mainWindow
 }
