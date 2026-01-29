@@ -58,7 +58,18 @@ export async function createMainWindow(onCookieUrlChange?: (url: string) => void
     mainWindow.on('close', (event) => {
       if (shouldPreventClose ? shouldPreventClose() : true) {
         event.preventDefault()
-        mainWindow.hide()
+        // Exit fullscreen before hiding to prevent black screen issue on macOS
+        if (mainWindow.isFullScreen()) {
+          mainWindow.once('leave-full-screen', () => {
+            mainWindow.hide()
+          })
+          mainWindow.setFullScreen(false)
+        } else {
+          if (mainWindow.isMaximized()) {
+            mainWindow.unmaximize()
+          }
+          mainWindow.hide()
+        }
       }
     })
   }
