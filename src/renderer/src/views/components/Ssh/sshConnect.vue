@@ -2759,8 +2759,16 @@ const handleCommandOutput = (data: string, isInitialCommand: boolean) => {
   // Apply appropriate cleaning based on the terminal type
   let cleanOutput = data
 
-  // First, do a quick check to see if this looks like Windows PowerShell/CMD output
-  const looksLikeWindows = data.includes('\\') || /[A-Za-z]:[\\\/]/.test(data) || /PS\s+[A-Za-z]:/.test(data)
+  // Strip OSC sequences (e.g. window title \x1b]0;C:\...\x07) before Windows check,
+  // so Linux SSH output with C:\ in terminal title does not trigger cleanWindowsOutput
+  const dataForWindowsCheck = data.replace(/\x1b\]0;[^\x07]*\x07/g, '').replace(/\x1b\]9;[^\x07]*\x07/g, '')
+
+  // Windows path must be at word boundary (e.g. C:\ or PS C:\) so that Linux
+  // patterns like "ubuntu:/home/..." (o:/) are not mistaken for Windows
+  const hasWinPath = /\b[A-Za-z]:[\\\/]/.test(dataForWindowsCheck)
+  const hasPSPrompt = /PS\s+[A-Za-z]:/.test(dataForWindowsCheck)
+  const hasBackslash = dataForWindowsCheck.includes('\\')
+  const looksLikeWindows = hasPSPrompt || hasWinPath || hasBackslash
 
   if (looksLikeWindows) {
     cleanOutput = cleanWindowsOutput(data)
