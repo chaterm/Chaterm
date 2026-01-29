@@ -388,12 +388,12 @@ export async function refreshOrganizationAssetsLogic(
       ? db.prepare(`
       UPDATE t_organization_assets
       SET hostname = ?, comment = ?, jump_server_type = ?, updated_at = CURRENT_TIMESTAMP
-      WHERE organization_uuid = ? AND host = ?
+      WHERE organization_uuid = ? AND host = ? AND hostname = ?
     `)
       : db.prepare(`
       UPDATE t_organization_assets
       SET hostname = ?, comment = ?, updated_at = CURRENT_TIMESTAMP
-      WHERE organization_uuid = ? AND host = ?
+      WHERE organization_uuid = ? AND host = ? AND hostname = ?
     `)
 
     const insertStmt = isPluginBased
@@ -417,9 +417,9 @@ export async function refreshOrganizationAssetsLogic(
       if (existingAssetsByHost.has(makeKey(asset))) {
         console.log(`Updating existing asset: ${asset.name} (${asset.address})`)
         if (isPluginBased) {
-          updateStmt.run(asset.name, asset.description || '', jumpServerType, organizationUuid, asset.address)
+          updateStmt.run(asset.name, asset.description || '', jumpServerType, organizationUuid, asset.address, asset.name)
         } else {
-          updateStmt.run(asset.name, asset.description || '', organizationUuid, asset.address)
+          updateStmt.run(asset.name, asset.description || '', organizationUuid, asset.address, asset.name)
         }
       } else {
         const assetUuid = uuidv4()
