@@ -3263,9 +3263,32 @@ const handleCommandOutput = (data: string, isInitialCommand: boolean) => {
       outputLines = processedLines.slice(outputStartIndex, outputEndIndex)
     }
 
-    // Remove command echo using exact command matching (only for Windows terminals)
-    if (sentCommand && terminalType === 'windows' && outputLines.length > 0) {
-      outputLines = removeCommandEcho(outputLines, sentCommand, true)
+    // Remove command echo using exact command matching
+    if (sentCommand && outputLines.length > 0) {
+      if (terminalType === 'windows') {
+        outputLines = removeCommandEcho(outputLines, sentCommand, true)
+      } else if (terminalType === 'linux' || terminalType === 'unknown') {
+        // Linux/Git Bash: remove leading line(s) that exactly match the sent command
+        const normalizedSent = sentCommand
+          .replace(/\r\n|\r/g, '\n')
+          .replace(/\s+/g, ' ')
+          .trim()
+        const cleanForCompare = (s: string) =>
+          s
+            .replace(/\x1b\[[0-9;]*m/g, '')
+            .replace(/\x1b\[[0-9;]*[ABCDEFGJKST]/g, '')
+            .replace(/\x1b\[[0-9]*[XK]/g, '')
+            .replace(/\x1b\[[0-9;]*[Hf]/g, '')
+            .replace(/\x1b\[[?][0-9;]*[hl]/g, '')
+            .replace(/\x1b\]0;[^\x07]*\x07/g, '')
+            .replace(/\x1b\]9;[^\x07]*\x07/g, '')
+            .replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/g, '')
+            .trim()
+            .replace(/\s+/g, ' ')
+        while (outputLines.length > 0 && cleanForCompare(outputLines[0]) === normalizedSent) {
+          outputLines = outputLines.slice(1)
+        }
+      }
     }
 
     try {
