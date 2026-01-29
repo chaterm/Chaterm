@@ -12,6 +12,7 @@ export interface ExtensionMessage {
     | 'state'
     | 'partialMessage'
     | 'commandGenerationResponse'
+    | 'explainCommandResponse'
     | 'todoUpdated'
     | 'chatTitleGenerated'
     | 'mcpServersUpdate'
@@ -25,6 +26,9 @@ export interface ExtensionMessage {
   // For command generation response
   command?: string
   tabId?: string
+  // For explain command response
+  explanation?: string
+  commandMessageId?: string
   // For todo updates
   todos?: unknown[]
   sessionId?: string

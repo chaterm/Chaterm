@@ -51,6 +51,7 @@ export type WebviewMessageType =
   | 'taskFeedback'
   | 'interactiveCommandInput'
   | 'commandGeneration'
+  | 'explainCommand'
   | 'todoUpdated'
 
 export interface WebviewMessage {
@@ -66,6 +67,8 @@ export interface WebviewMessage {
   modelName?: string
   tabId?: string
   context?: CommandGenerationContext
+  command?: string // For explain command
+  commandMessageId?: string // For explain command, to attach result to message
 
   contentParts?: ContentPart[]
 

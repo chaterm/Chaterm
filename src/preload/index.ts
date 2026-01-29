@@ -779,6 +779,14 @@ const api = {
       ipcRenderer.removeListener('command-generation-response', handler)
     }
   },
+  // Dedicated IPC channel for explain command responses
+  onCommandExplainResponse: (callback) => {
+    const handler = (_event, response) => callback(response)
+    ipcRenderer.on('command-explain-response', handler)
+    return () => {
+      ipcRenderer.removeListener('command-explain-response', handler)
+    }
+  },
   // New method to call executeRemoteCommand in the main process
   executeRemoteCommandViaPreload: async () => {
     try {

@@ -88,8 +88,24 @@ function setupLoggedOut() {
 const DEVICES_RESPONSE = {
   data: {
     devices: [
-      { id: 1, deviceName: 'Windows 10/11', macAddress: 'aa:bb:cc:dd:05:e1', lastLoginAt: '2026-01-27 23:45:31' },
-      { id: 2, deviceName: '', macAddress: 'aa:bb:cc:dd:95:27', lastLoginAt: '2026-01-27 23:45:31' }
+      {
+        id: 1,
+        deviceName: 'Windows 10/11',
+        macAddress: 'aa:bb:cc:dd:05:e1',
+        lastLoginAt: '2026-01-27 23:45:31',
+        location: 'shanghai',
+        lastLoginUserAgent: 'Chrome/124.0.6367.243',
+        lastLoginIp: '192.168.1.1'
+      },
+      {
+        id: 2,
+        deviceName: 'Android',
+        macAddress: 'aa:bb:cc:dd:95:27',
+        lastLoginAt: '2026-01-27 23:45:31',
+        location: '',
+        lastLoginUserAgent: 'Mobile (Android 16; vivo V2405A) 1.0.5',
+        lastLoginIp: '223.160.207.187'
+      }
     ],
     maxAllowed: 3,
     currentCount: 2
@@ -216,7 +232,7 @@ describe('TrustedDevices Component', () => {
       expect(noData.text()).toContain('No trusted devices yet')
     })
 
-    it('should render device list with device names and masked MAC', async () => {
+    it('should render device list with device names and masked MAC (first4 + last4)', async () => {
       wrapper = createWrapper()
       await nextTick()
       await nextTick()
@@ -224,9 +240,34 @@ describe('TrustedDevices Component', () => {
       expect(items.length).toBe(2)
       const names = wrapper.findAll('.device-name')
       expect(names[0].text()).toBe('Windows 10/11')
-      expect(names[1].text()).toBe('Unknown device')
+      expect(names[1].text()).toBe('Android')
       const macs = wrapper.findAll('.device-mac')
-      expect(macs[0].text()).toMatch(/\*\*:\*\*:.+:.+:05:e1/)
+      expect(macs.length).toBe(2)
+      // maskMac shows first 4 + last 4 hex: aa:bb:**:**:05:e1
+      expect(macs[0].text()).toMatch(/aa:bb:\*\*:\*\*:05:e1/)
+      expect(macs[1].text()).toMatch(/aa:bb:\*\*:\*\*:95:27/)
+    })
+
+    it('should render second line with IP, location, and masked MAC', async () => {
+      wrapper = createWrapper()
+      await nextTick()
+      await nextTick()
+      const subRows = wrapper.findAll('.device-info-row--sub')
+      expect(subRows.length).toBe(2)
+      const firstSub = subRows[0]
+      expect(firstSub.text()).toContain('IP: 192.168.1.1')
+      expect(firstSub.text()).toContain('shanghai')
+      expect(firstSub.text()).toMatch(/aa:bb:\*\*:\*\*:05:e1/)
+    })
+
+    it('should show shortened userAgent for desktop and mobile (mobile: after first semicolon in parens)', async () => {
+      wrapper = createWrapper()
+      await nextTick()
+      await nextTick()
+      const uaSpans = wrapper.findAll('.device-ua')
+      expect(uaSpans.length).toBe(2)
+      expect(uaSpans[0].text()).toContain('Chrome')
+      expect(uaSpans[1].text()).toBe('vivo V2405A')
     })
 
     it('should show max reached hint when current >= maxAllowed', async () => {

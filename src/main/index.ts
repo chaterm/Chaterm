@@ -263,6 +263,17 @@ app.whenReady().then(async () => {
           return Promise.resolve(true)
         }
 
+        // Route explainCommandResponse to its dedicated channel
+        if (message.type === 'explainCommandResponse') {
+          mainWindow.webContents.send('command-explain-response', {
+            explanation: message.explanation,
+            error: message.error,
+            tabId: message.tabId,
+            commandMessageId: message.commandMessageId
+          })
+          return Promise.resolve(true)
+        }
+
         // Route mcpServersUpdate to its dedicated channel for backward compatibility
         if (message.type === 'mcpServersUpdate') {
           mainWindow.webContents.send('mcp:status-update', message.mcpServers)
