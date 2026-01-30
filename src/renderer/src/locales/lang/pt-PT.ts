@@ -776,7 +776,6 @@ export default {
     autoApproveReadOnly: 'Somente leitura auto',
     autoApproveReadOnlyTip: 'Os comandos somente leitura nesta sessão serão executados automaticamente sem confirmação',
     cancel: 'Cancelar',
-    resume: 'Resumir',
     agentMessage: 'Consulta de comando, resolução de erros, gerenciamento de tarefas, qualquer coisa',
     cmdMessage: 'Trabalhar no terminal explicitamente aberto',
     chatMessage: 'Pergunte, aprenda, brainstorm ',

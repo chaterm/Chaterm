@@ -319,27 +319,6 @@ export function useCommandInteraction(params: CommandInteractionOptions) {
     }
   }
 
-  const handleResume = async (): Promise<void> => {
-    const session = currentSession.value
-    if (!session) return
-
-    let message = session.chatHistory.at(-1)
-    if (!message) {
-      return
-    }
-    console.log('handleResume: resume')
-    session.isCancelled = false
-    const messageRsp: WebviewMessage = {
-      type: 'askResponse',
-      askResponse: 'yesButtonClicked'
-    }
-    console.log('Send message to main process:', messageRsp)
-    const response = await window.api.sendToMain(attachTabContext(messageRsp))
-    console.log('Main process response:', response)
-    session.resumeDisabled = true
-    session.responseLoading = true
-  }
-
   const handleRetry = async () => {
     const session = currentSession.value
     if (!session) return
@@ -365,7 +344,6 @@ export function useCommandInteraction(params: CommandInteractionOptions) {
     handleApproveAndAutoApproveReadOnly,
     handleApproveAndAutoApprove,
     handleCancel,
-    handleResume,
     handleRetry
   }
 }

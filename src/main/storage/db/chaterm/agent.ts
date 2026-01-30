@@ -14,7 +14,7 @@ export async function deleteChatermHistoryByTaskIdLogic(db: Database.Database, t
 export async function getApiConversationHistoryLogic(db: Database.Database, taskId: string): Promise<any[]> {
   try {
     const stmt = db.prepare(`
-        SELECT content_data, role, content_type, tool_use_id, sequence_order
+        SELECT content_data, role, content_type, tool_use_id, sequence_order, message_index
         FROM agent_api_conversation_history_v1 
         WHERE task_id = ? 
         ORDER BY sequence_order ASC
@@ -29,7 +29,10 @@ export async function getApiConversationHistoryLogic(db: Database.Database, task
       const contentData = JSON.parse(row.content_data)
 
       if (row.role === 'user' || row.role === 'assistant') {
-        const messageKey = `${row.role}_${row.sequence_order}`
+        // Use message_index to group content blocks of the same message
+        // Fall back to sequence_order for backward compatibility with old data
+        const msgIdx = row.message_index ?? row.sequence_order
+        const messageKey = `${row.role}_${msgIdx}`
         let existingMessage = messageMap.get(messageKey)
 
         if (!existingMessage) {
@@ -75,11 +78,12 @@ export async function saveApiConversationHistoryLogic(db: Database.Database, tas
     db.transaction(() => {
       const insertStmt = db.prepare(`
           INSERT INTO agent_api_conversation_history_v1 
-          (task_id, ts, role, content_type, content_data, tool_use_id, sequence_order)
-          VALUES (?, ?, ?, ?, ?, ?, ?)
+          (task_id, ts, role, content_type, content_data, tool_use_id, sequence_order, message_index)
+          VALUES (?, ?, ?, ?, ?, ?, ?, ?)
         `)
 
       let sequenceOrder = 0
+      let messageIndex = 0
       const now = Date.now()
 
       for (const message of apiConversationHistory) {
@@ -99,12 +103,14 @@ export async function saveApiConversationHistoryLogic(db: Database.Database, tas
               toolUseId = content.tool_use_id
             }
 
-            insertStmt.run(taskId, now, message.role, contentType, JSON.stringify(contentData), toolUseId, sequenceOrder++)
+            // message_index groups content blocks of the same message
+            insertStmt.run(taskId, now, message.role, contentType, JSON.stringify(contentData), toolUseId, sequenceOrder++, messageIndex)
           }
         } else {
           // Handle simple text messages
-          insertStmt.run(taskId, now, message.role, 'text', JSON.stringify({ text: message.content }), null, sequenceOrder++)
+          insertStmt.run(taskId, now, message.role, 'text', JSON.stringify({ text: message.content }), null, sequenceOrder++, messageIndex)
         }
+        messageIndex++
       }
     })()
   } catch (error) {

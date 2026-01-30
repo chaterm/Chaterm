@@ -769,7 +769,6 @@ export default {
     autoApproveReadOnly: '읽기 전용 자동 실행',
     autoApproveReadOnlyTip: '현재 세션의 읽기 전용 명령이 확인 없이 자동 실행됩니다',
     cancel: '취소',
-    resume: '재생',
     agentMessage: '명령 쿼리, 오류 트러블슈팅, 작업 처리, 모든 것',
     cmdMessage: '명시적으로 열린 터미널에서 작업',
     chatMessage: '질문, 학습, 브레인스토밍',

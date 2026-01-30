@@ -22,7 +22,6 @@ describe('useSessionState', () => {
         showRetryButton: false,
         showSendButton: true,
         buttonsDisabled: false,
-        resumeDisabled: false,
         isExecutingCommand: false,
         messageFeedbacks: {},
         lastStreamMessage: null,
@@ -429,81 +428,6 @@ describe('useSessionState', () => {
 
       expect(filteredChatHistory.value).toHaveLength(2)
       expect(filteredChatHistory.value.find((msg) => msg.say === 'sshInfo')).toBeUndefined()
-    })
-  })
-
-  describe('showResumeButton', () => {
-    it('should return false when no session exists', () => {
-      const { showResumeButton } = useSessionState()
-
-      expect(showResumeButton.value).toBe(false)
-    })
-
-    it('should return false when chat history is empty', () => {
-      const { chatTabs, currentChatId, showResumeButton, createEmptySessionState } = useSessionState()
-      chatTabs.value = [
-        {
-          id: 'tab-1',
-          title: 'Test',
-          hosts: [],
-          chatType: 'agent',
-          autoUpdateHost: true,
-          session: createEmptySessionState(),
-          modelValue: '',
-          welcomeTip: ''
-        }
-      ]
-      currentChatId.value = 'tab-1'
-
-      expect(showResumeButton.value).toBe(false)
-    })
-
-    it('should return true when last message has ask === "resume_task"', () => {
-      const { chatTabs, currentChatId, showResumeButton, createEmptySessionState } = useSessionState()
-      const session = createEmptySessionState()
-      session.chatHistory = [
-        { id: '1', role: 'user', content: 'Hello' },
-        { id: '2', role: 'assistant', content: 'Resume?', ask: 'resume_task' }
-      ]
-      chatTabs.value = [
-        {
-          id: 'tab-1',
-          title: 'Test',
-          hosts: [],
-          chatType: 'agent',
-          autoUpdateHost: true,
-          session,
-          modelValue: '',
-          welcomeTip: ''
-        }
-      ]
-      currentChatId.value = 'tab-1'
-
-      expect(showResumeButton.value).toBe(true)
-    })
-
-    it('should return false when last message does not have resume_task', () => {
-      const { chatTabs, currentChatId, showResumeButton, createEmptySessionState } = useSessionState()
-      const session = createEmptySessionState()
-      session.chatHistory = [
-        { id: '1', role: 'user', content: 'Hello' },
-        { id: '2', role: 'assistant', content: 'Response' }
-      ]
-      chatTabs.value = [
-        {
-          id: 'tab-1',
-          title: 'Test',
-          hosts: [],
-          chatType: 'agent',
-          autoUpdateHost: true,
-          session,
-          modelValue: '',
-          welcomeTip: ''
-        }
-      ]
-      currentChatId.value = 'tab-1'
-
-      expect(showResumeButton.value).toBe(false)
     })
   })
 

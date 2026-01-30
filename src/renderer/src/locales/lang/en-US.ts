@@ -777,7 +777,6 @@ export default {
     autoApproveReadOnly: 'Auto-run read-only commands',
     autoApproveReadOnlyTip: 'Read-only commands in this session will be auto-executed without confirmation',
     cancel: 'Cancel',
-    resume: 'Resume',
     agentMessage: 'Command query,troubleshoot errors,handle tasks,anything',
     cmdMessage: 'Work on explicitly opened terminal',
     chatMessage: 'Ask, learn, brainstorm ',

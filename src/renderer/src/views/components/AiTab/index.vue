@@ -473,23 +473,6 @@
         </div>
         <div class="bottom-container">
           <div
-            v-if="showResumeButton"
-            class="bottom-buttons"
-          >
-            <a-button
-              size="small"
-              type="primary"
-              class="resume-btn"
-              :disabled="currentTab?.session.resumeDisabled"
-              @click="handleResume"
-            >
-              <template #icon>
-                <RedoOutlined />
-              </template>
-              {{ $t('ai.resume') }}
-            </a-button>
-          </div>
-          <div
             v-if="currentTab?.session.showRetryButton"
             class="bottom-buttons"
           >
@@ -744,7 +727,6 @@ import {
   ExportOutlined,
   LikeOutlined,
   PlayCircleOutlined,
-  RedoOutlined,
   ReloadOutlined,
   SearchOutlined,
   StarFilled,
@@ -796,7 +778,6 @@ const {
   isLastMessage,
   currentSession,
   buttonsDisabled,
-  showResumeButton,
   getTabUserAssistantPairs,
   getTabChatTypeValue,
   getTabLastChatMessageId,
@@ -842,7 +823,6 @@ const {
   handleApproveAndAutoApproveReadOnly,
   handleApproveAndAutoApprove,
   handleCancel,
-  handleResume,
   handleRetry
 } = useCommandInteraction({
   getCurentTabAssetInfo,
