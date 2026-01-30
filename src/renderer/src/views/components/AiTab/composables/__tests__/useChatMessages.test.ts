@@ -6,7 +6,6 @@ import type { ChatMessage, Host } from '../../types'
 import type { ExtensionMessage } from '@shared/ExtensionMessage'
 import type { Todo } from '@/types/todo'
 import eventBus from '@/utils/eventBus'
-import { notification } from 'ant-design-vue'
 
 // Mock dependencies
 vi.mock('../useSessionState')
@@ -80,7 +79,6 @@ describe('useChatMessages', () => {
     showSendButton: true,
     buttonsDisabled: false,
     isExecutingCommand: false,
-    messageFeedbacks: {} as Record<string, 'like' | 'dislike'>,
     lastStreamMessage: null,
     lastPartialMessage: null,
     shouldStickToBottom: true,
@@ -113,6 +111,7 @@ describe('useChatMessages', () => {
     const chatInputParts = ref([])
     const hosts = ref<Host[]>([{ host: '127.0.0.1', uuid: 'localhost', connection: 'localhost' }])
     const chatTypeValue = ref('agent')
+    const messageFeedbacks = ref<Record<string, 'like' | 'dislike'>>({})
 
     vi.mocked(useSessionState).mockReturnValue({
       chatTabs,
@@ -121,7 +120,8 @@ describe('useChatMessages', () => {
       currentSession: ref(mockTab.session),
       chatInputParts,
       hosts,
-      chatTypeValue
+      chatTypeValue,
+      messageFeedbacks
     } as any)
 
     mockSendToMain.mockResolvedValue({ success: true })
@@ -572,11 +572,11 @@ describe('useChatMessages', () => {
 
       await handleFeedback(message, 'like')
 
-      expect(getMessageFeedback('msg-1')).toBe('like')
+      expect(getMessageFeedback(100)).toBe('like')
       expect(updateGlobalState).toHaveBeenCalledWith(
         'messageFeedbacks',
         expect.objectContaining({
-          'msg-1': 'like'
+          '100': 'like'
         })
       )
       expect(mockSendToMain).toHaveBeenCalledWith(
@@ -611,11 +611,11 @@ describe('useChatMessages', () => {
 
       await handleFeedback(message, 'dislike')
 
-      expect(getMessageFeedback('msg-2')).toBe('dislike')
+      expect(getMessageFeedback(100)).toBe('dislike')
       expect(updateGlobalState).toHaveBeenCalledWith(
         'messageFeedbacks',
         expect.objectContaining({
-          'msg-2': 'dislike'
+          '100': 'dislike'
         })
       )
       expect(mockSendToMain).toHaveBeenCalledWith(
@@ -626,9 +626,9 @@ describe('useChatMessages', () => {
       )
     })
 
-    it('should not submit feedback twice for same message', async () => {
-      const { getGlobalState } = await import('@renderer/agent/storage/state')
-      vi.mocked(getGlobalState).mockResolvedValue({})
+    it('should clear feedback when clicking same type', async () => {
+      const { getGlobalState, updateGlobalState } = await import('@renderer/agent/storage/state')
+      vi.mocked(getGlobalState).mockResolvedValueOnce({}).mockResolvedValueOnce({ '100': 'like' })
 
       const { handleFeedback, isMessageFeedbackSubmitted } = useChatMessages(
         mockScrollToBottom,
@@ -639,7 +639,6 @@ describe('useChatMessages', () => {
       )
 
       const mockState = vi.mocked(useSessionState)()
-      const session = mockState.currentSession.value!
 
       const message: ChatMessage = {
         id: 'msg-3',
@@ -652,14 +651,61 @@ describe('useChatMessages', () => {
       }
 
       await handleFeedback(message, 'like')
-      expect(isMessageFeedbackSubmitted('msg-3')).toBe(true)
+      expect(isMessageFeedbackSubmitted(100)).toBe(true)
 
       mockSendToMain.mockClear()
+      await handleFeedback(message, 'like')
+
+      expect(isMessageFeedbackSubmitted(100)).toBe(false)
+      expect(updateGlobalState).toHaveBeenLastCalledWith('messageFeedbacks', {})
+      expect(mockSendToMain).not.toHaveBeenCalled()
+      expect(mockState.messageFeedbacks.value['100']).toBeUndefined()
+    })
+
+    it('should switch feedback and send new event', async () => {
+      const { getGlobalState } = await import('@renderer/agent/storage/state')
+      vi.mocked(getGlobalState).mockResolvedValueOnce({}).mockResolvedValueOnce({ '100': 'like' })
+
+      const { handleFeedback } = useChatMessages(
+        mockScrollToBottom,
+        mockClearTodoState,
+        mockMarkLatestMessageWithTodoUpdate,
+        mockCurrentTodos,
+        mockCheckModelConfig
+      )
+
+      const mockState = vi.mocked(useSessionState)()
+      const messageFeedbacks = mockState.messageFeedbacks.value
+
+      const message: ChatMessage = {
+        id: 'msg-4',
+        role: 'assistant',
+        content: 'Test',
+        type: 'message',
+        ask: '',
+        say: '',
+        ts: 100
+      }
+
+      await handleFeedback(message, 'like')
       await handleFeedback(message, 'dislike')
 
-      // Second feedback should not be sent
-      expect(mockSendToMain).not.toHaveBeenCalled()
-      expect(session.messageFeedbacks['msg-3']).toBe('like') // Should still be 'like'
+      expect(mockSendToMain).toHaveBeenCalledTimes(2)
+      expect(mockSendToMain).toHaveBeenNthCalledWith(
+        1,
+        expect.objectContaining({
+          type: 'taskFeedback',
+          feedbackType: 'thumbs_up'
+        })
+      )
+      expect(mockSendToMain).toHaveBeenNthCalledWith(
+        2,
+        expect.objectContaining({
+          type: 'taskFeedback',
+          feedbackType: 'thumbs_down'
+        })
+      )
+      expect(messageFeedbacks['100']).toBe('dislike')
     })
   })
 
@@ -885,6 +931,9 @@ describe('useChatMessages', () => {
         mockCurrentTodos,
         mockCheckModelConfig
       )
+      const datePrefix = new Date().toISOString().slice(0, 10)
+      const expectedRelPath = `${datePrefix}_test.md`
+      mockKbCreateFile.mockResolvedValue({ relPath: expectedRelPath })
 
       const partialMessage: ExtensionMessage = {
         type: 'partialMessage',
@@ -900,7 +949,7 @@ describe('useChatMessages', () => {
 
       await processMainMessage(partialMessage)
 
-      expect(mockKbCreateFile).toHaveBeenCalledWith('', '2026-01-28_test.md', '# Title')
+      expect(mockKbCreateFile).toHaveBeenCalledWith('', expectedRelPath, '# Title')
       expect(vi.mocked(eventBus.emit)).toHaveBeenCalledWith(
         'openUserTab',
         expect.objectContaining({
@@ -924,11 +973,11 @@ describe('useChatMessages', () => {
 
       await processMainMessage(updateMessage)
 
-      expect(mockKbWriteFile).toHaveBeenCalledWith('2026-01-28_test.md', '# Title\n\nMore')
+      expect(mockKbWriteFile).toHaveBeenCalledWith(expectedRelPath, '# Title\n\nMore')
       expect(vi.mocked(eventBus.emit)).toHaveBeenCalledWith(
         'kb:content-changed',
         expect.objectContaining({
-          relPath: '2026-01-28_test.md',
+          relPath: expectedRelPath,
           content: '# Title\n\nMore'
         })
       )
@@ -947,18 +996,12 @@ describe('useChatMessages', () => {
 
       await processMainMessage(finalMessage)
 
-      expect(mockKbWriteFile).toHaveBeenCalledWith('2026-01-28_test.md', '# Title\n\nMore\n\nDone')
+      expect(mockKbWriteFile).toHaveBeenCalledWith(expectedRelPath, '# Title\n\nMore\n\nDone')
       expect(vi.mocked(eventBus.emit)).toHaveBeenCalledWith(
         'kb:content-changed',
         expect.objectContaining({
-          relPath: '2026-01-28_test.md',
+          relPath: expectedRelPath,
           content: '# Title\n\nMore\n\nDone'
-        })
-      )
-      expect(vi.mocked(notification.success)).toHaveBeenCalledWith(
-        expect.objectContaining({
-          message: 'ai.knowledgeSaved',
-          description: '2026-01-28_test.md'
         })
       )
     })

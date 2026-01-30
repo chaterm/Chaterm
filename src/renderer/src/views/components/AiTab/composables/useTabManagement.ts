@@ -263,7 +263,6 @@ export function useTabManagement(options: TabManagementOptions) {
         showSendButton: true,
         buttonsDisabled: false,
         isExecutingCommand: false,
-        messageFeedbacks: {},
         lastStreamMessage: null,
         lastPartialMessage: null,
         shouldStickToBottom: true,

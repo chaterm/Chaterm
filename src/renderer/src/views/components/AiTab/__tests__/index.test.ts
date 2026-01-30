@@ -213,7 +213,6 @@ describe('AiTab Component - Composable Integration Tests', () => {
         showSendButton: true,
         buttonsDisabled: false,
         isExecutingCommand: false,
-        messageFeedbacks: {},
         lastStreamMessage: null,
         lastPartialMessage: null,
         shouldStickToBottom: true,
@@ -221,20 +220,14 @@ describe('AiTab Component - Composable Integration Tests', () => {
       })
     })
 
-    it('should track message feedback correctly', () => {
-      const { createEmptySessionState } = useSessionState()
-      const session = createEmptySessionState()
+    it('should track message feedback globally', () => {
+      const { messageFeedbacks } = useSessionState()
 
-      // Initially no feedback
-      expect(session.messageFeedbacks).toEqual({})
+      messageFeedbacks.value = { 'msg-1': 'like' }
 
-      // Add feedback
-      session.messageFeedbacks['msg-1'] = 'like'
-      expect(session.messageFeedbacks['msg-1']).toBe('like')
-
-      // Check feedback state
-      expect('msg-1' in session.messageFeedbacks).toBe(true)
-      expect('msg-2' in session.messageFeedbacks).toBe(false)
+      expect(messageFeedbacks.value['msg-1']).toBe('like')
+      expect('msg-1' in messageFeedbacks.value).toBe(true)
+      expect('msg-2' in messageFeedbacks.value).toBe(false)
     })
   })
 
@@ -787,10 +780,10 @@ describe('AiTab Component - Composable Integration Tests', () => {
       })
 
       it('should track feedback submission state', () => {
-        const { chatTabs, currentChatId, currentSession, createEmptySessionState } = useSessionState()
-
+        const { chatTabs, currentChatId, messageFeedbacks, createEmptySessionState } = useSessionState()
         const session = createEmptySessionState()
-        session.messageFeedbacks = {
+
+        messageFeedbacks.value = {
           'msg-1': 'like',
           'msg-2': 'dislike'
         }
@@ -810,9 +803,9 @@ describe('AiTab Component - Composable Integration Tests', () => {
         ]
         currentChatId.value = 'tab-1'
 
-        expect(currentSession.value?.messageFeedbacks['msg-1']).toBe('like')
-        expect(currentSession.value?.messageFeedbacks['msg-2']).toBe('dislike')
-        expect('msg-1' in (currentSession.value?.messageFeedbacks || {})).toBe(true)
+        expect(messageFeedbacks.value['msg-1']).toBe('like')
+        expect(messageFeedbacks.value['msg-2']).toBe('dislike')
+        expect('msg-1' in messageFeedbacks.value).toBe(true)
       })
 
       it('should prevent duplicate feedback submission', () => {
