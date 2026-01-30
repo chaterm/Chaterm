@@ -117,6 +117,9 @@ interface ApiType {
   sendToMain: (message: WebviewMessage) => Promise<void | null>
   onMainMessage: (callback: (message: any) => void) => () => void
   onCommandGenerationResponse: (callback: (response: { command?: string; error?: string; tabId: string }) => void) => () => void
+  onCommandExplainResponse: (
+    callback: (response: { explanation?: string; error?: string; tabId?: string; commandMessageId?: string }) => void
+  ) => () => void
   cancelTask: (tabContext?: { tabId?: string } | string) => Promise<any>
   gracefulCancelTask: (tabContext?: { tabId?: string } | string) => Promise<any>
   userSnippetOperation: (data: { operation: 'list' | 'create' | 'delete' | 'update' | 'swap'; params?: any }) => Promise<{

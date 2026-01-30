@@ -668,13 +668,8 @@ export class Task {
     await saveApiConversationHistory(this.taskId, this.apiConversationHistory)
   }
 
-  private async overwriteApiConversationHistory(newHistory: Anthropic.MessageParam[]) {
-    this.apiConversationHistory = newHistory
-    await saveApiConversationHistory(this.taskId, this.apiConversationHistory)
-  }
-
   private async addToChatermMessages(message: ChatermMessage) {
-    message.conversationHistoryIndex = this.apiConversationHistory.length - 1 // NOTE: this is the index of the last added message which is the user message, and once the chatermmessages have been presented we update the apiconversationhistory with the completed assistant message. This means when resetting to a message, we need to +1 this index to get the correct assistant message that this tool use corresponds to
+    message.conversationHistoryIndex = this.apiConversationHistory.length
     message.conversationHistoryDeletedRange = this.conversationHistoryDeletedRange
     this.chatermMessages.push(message)
     await this.saveChatermMessagesAndUpdateHistory()
@@ -715,8 +710,8 @@ export class Task {
       // combined as they are in ChatView
       const apiMetrics = getApiMetrics(combineApiRequests(combineCommandSequences(this.chatermMessages.slice(1))))
       const taskMessage = this.chatermMessages[0] // first message is always the task say
-      const lastRelevantMessage =
-        this.chatermMessages[findLastIndex(this.chatermMessages, (m) => !(m.ask === 'resume_task' || m.ask === 'resume_completed_task'))]
+      const lastRelevantMessage = this.chatermMessages.at(-1)
+      if (!lastRelevantMessage) return
 
       await this.updateTaskHistory({
         id: this.taskId,
@@ -1113,13 +1108,7 @@ export class Task {
   private async resumeTaskFromHistory() {
     const modifiedChatermMessages = await getChatermMessages(this.taskId)
 
-    // Remove any resume messages that may have been added before
-    const lastRelevantMessageIndex = findLastIndex(modifiedChatermMessages, (m) => !(m.ask === 'resume_task' || m.ask === 'resume_completed_task'))
-    if (lastRelevantMessageIndex !== -1) {
-      modifiedChatermMessages.splice(lastRelevantMessageIndex + 1)
-    }
-
-    // since we don't use api_req_finished anymore, we need to check if the last api_req_started has a cost value, if it doesn't and no cancellation reason to present, then we remove it since it indicates an api request without any partial content streamed
+    // Remove incomplete api_req_started (no cost and no cancel reason indicates interrupted request)
     const lastApiReqStartedIndex = findLastIndex(modifiedChatermMessages, (m) => m.type === 'say' && m.say === 'api_req_started')
     if (lastApiReqStartedIndex !== -1) {
       const lastApiReqStarted = modifiedChatermMessages[lastApiReqStartedIndex]
@@ -1131,96 +1120,23 @@ export class Task {
 
     await this.overwriteChatermMessages(modifiedChatermMessages)
     this.chatermMessages = await getChatermMessages(this.taskId)
-
     this.apiConversationHistory = await getSavedApiConversationHistory(this.taskId)
-
-    // load the context history state
-    await this.contextManager.initializeContextHistory(this.taskId) // TODO:fixme
-
-    const lastChatermMessage = this.chatermMessages.at(-1)
-
-    let askType: ChatermAsk
-    if (lastChatermMessage?.ask === 'completion_result') {
-      askType = 'resume_completed_task'
-    } else {
-      askType = 'resume_task'
-    }
+    await this.contextManager.initializeContextHistory(this.taskId)
 
     this.isInitialized = true
 
-    const { response, text, contentParts } = await this.ask(askType) // calls poststatetowebview
-    let responseText: string | undefined
-    if (response === 'messageResponse') {
-      await this.sayUserFeedback(text ?? '', contentParts)
-      responseText = text
+    // Wait for user to send a message to continue
+    const { text, contentParts } = await this.ask('resume_task', '', false)
+
+    // TODO:support only chip or image input
+    if (text) {
+      await this.sayUserFeedback(text, contentParts)
+
+      // If last API message is user, remove it (API requires user/assistant alternation)
+      let userContent: UserContent = [{ type: 'text', text }]
+
+      await this.initiateTaskLoop(userContent)
     }
-
-    const existingApiConversationHistory: Anthropic.Messages.MessageParam[] = await getSavedApiConversationHistory(this.taskId)
-
-    // Remove the last user message so we can update it with the resume message
-    let modifiedOldUserContent: UserContent // either the last message if its user message, or the user message before the last (assistant) message
-    let modifiedApiConversationHistory: Anthropic.Messages.MessageParam[] // need to remove the last user message to replace with new modified user message
-    if (existingApiConversationHistory.length > 0) {
-      const lastMessage = existingApiConversationHistory[existingApiConversationHistory.length - 1]
-      if (lastMessage.role === 'assistant') {
-        modifiedApiConversationHistory = [...existingApiConversationHistory]
-        modifiedOldUserContent = []
-      } else if (lastMessage.role === 'user') {
-        const existingUserContent: UserContent = Array.isArray(lastMessage.content)
-          ? lastMessage.content
-          : [{ type: 'text', text: lastMessage.content }]
-        modifiedApiConversationHistory = existingApiConversationHistory.slice(0, -1)
-        modifiedOldUserContent = [...existingUserContent]
-      } else {
-        throw new Error('Unexpected: Last message is not a user or assistant message')
-      }
-    } else {
-      throw new Error('Unexpected: No existing API conversation history')
-    }
-
-    let newUserContent: UserContent = [...modifiedOldUserContent]
-
-    const agoText = (() => {
-      const timestamp = lastChatermMessage?.ts ?? Date.now()
-      const now = Date.now()
-      const diff = now - timestamp
-      const minutes = Math.floor(diff / 60000)
-      const hours = Math.floor(minutes / 60)
-      const days = Math.floor(hours / 24)
-
-      if (days > 0) {
-        return `${days} day${days > 1 ? 's' : ''} ago`
-      }
-      if (hours > 0) {
-        return `${hours} hour${hours > 1 ? 's' : ''} ago`
-      }
-      if (minutes > 0) {
-        return `${minutes} minute${minutes > 1 ? 's' : ''} ago`
-      }
-      return 'just now'
-    })()
-
-    const wasRecent = lastChatermMessage?.ts && Date.now() - lastChatermMessage.ts < 30_000
-    const chatSettings = await getGlobalState('chatSettings')
-
-    const [taskResumptionMessage, userResponseMessage] = formatResponse.taskResumption(chatSettings?.mode, agoText, wasRecent, responseText)
-
-    if (taskResumptionMessage !== '') {
-      newUserContent.push({
-        type: 'text',
-        text: taskResumptionMessage
-      })
-    }
-
-    if (userResponseMessage !== '') {
-      newUserContent.push({
-        type: 'text',
-        text: userResponseMessage
-      })
-    }
-
-    await this.overwriteApiConversationHistory(modifiedApiConversationHistory)
-    await this.initiateTaskLoop(newUserContent)
   }
 
   private async initiateTaskLoop(userContent: UserContent): Promise<void> {

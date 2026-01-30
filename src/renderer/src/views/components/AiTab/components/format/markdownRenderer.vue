@@ -25,6 +25,28 @@
               >
                 {{ t('ai.codePreview', { lines: totalLines }) }}
               </a-typography-text>
+              <a-tooltip
+                v-if="totalLines >= 10"
+                :title="t('ai.explainCommand')"
+                placement="top"
+              >
+                <a-button
+                  class="copy-button explain-button"
+                  type="text"
+                  size="small"
+                  :disabled="!!props.explanationLoading"
+                  @click.stop="handleExplainClick()"
+                >
+                  <LoadingOutlined
+                    v-if="props.explanationLoading"
+                    class="explain-icon explain-icon-loading"
+                  />
+                  <QuestionCircleOutlined
+                    v-else
+                    class="explain-icon"
+                  />
+                </a-button>
+              </a-tooltip>
               <a-button
                 v-if="totalLines >= 10"
                 class="copy-button"
@@ -40,27 +62,78 @@
               </a-button>
             </a-space>
           </template>
-          <div
-            ref="monacoContainer"
-            class="monaco-container"
-            :class="{ collapsed: !codeActiveKey.includes('1') }"
-          >
-            <a-button
+          <!-- Keep monacoContainer stable; only toggle overlay visibility by totalLines -->
+          <div class="monaco-wrapper">
+            <div
+              ref="monacoContainer"
+              class="monaco-container"
+              :class="{ collapsed: !codeActiveKey.includes('1') }"
+            />
+            <!-- Overlay buttons only for <10 lines to avoid conflicts with Monaco-managed DOM -->
+            <div
               v-if="totalLines < 10"
-              class="copy-button"
-              type="text"
-              size="small"
-              @click="copyEditorContent"
+              class="monaco-overlay"
             >
-              <img
-                :src="copySvg"
-                alt="copy"
-                class="copy-icon"
-              />
-            </a-button>
+              <a-tooltip
+                :title="t('ai.explainCommand')"
+                placement="top"
+              >
+                <a-button
+                  class="copy-button explain-button"
+                  type="text"
+                  size="small"
+                  :disabled="!!props.explanationLoading"
+                  @click.stop="handleExplainClick()"
+                >
+                  <LoadingOutlined
+                    v-if="props.explanationLoading"
+                    class="explain-icon explain-icon-loading"
+                  />
+                  <QuestionCircleOutlined
+                    v-else
+                    class="explain-icon"
+                  />
+                </a-button>
+              </a-tooltip>
+              <a-button
+                class="copy-button"
+                type="text"
+                size="small"
+                @click="copyEditorContent"
+              >
+                <img
+                  :src="copySvg"
+                  alt="copy"
+                  class="copy-icon"
+                />
+              </a-button>
+            </div>
           </div>
         </a-collapse-panel>
       </a-collapse>
+      <!-- AI explain block below command (inline, not in history); only when result exists -->
+      <div
+        v-if="props.explanation"
+        class="command-explain-block"
+      >
+        <a-collapse
+          :default-active-key="['1']"
+          class="command-explain-collapse"
+        >
+          <a-collapse-panel
+            key="1"
+            class="command-explain-panel"
+          >
+            <template #header>
+              <span class="command-explain-title">{{ t('ai.explainCommandTitle') }}</span>
+            </template>
+            <div
+              class="command-explain-content markdown-content"
+              v-html="marked(props.explanation, null)"
+            />
+          </a-collapse-panel>
+        </a-collapse>
+      </div>
     </div>
     <div v-else>
       <!-- Code content of command_output uses markdown rendering -->
@@ -327,7 +400,7 @@ import 'monaco-editor/esm/vs/basic-languages/ruby/ruby.contribution'
 import 'monaco-editor/esm/vs/basic-languages/php/php.contribution'
 import 'monaco-editor/esm/vs/basic-languages/rust/rust.contribution'
 import 'monaco-editor/esm/vs/basic-languages/sql/sql.contribution'
-import { LoadingOutlined, CaretDownOutlined, CaretRightOutlined, CodeOutlined } from '@ant-design/icons-vue'
+import { LoadingOutlined, CaretDownOutlined, CaretRightOutlined, CodeOutlined, QuestionCircleOutlined } from '@ant-design/icons-vue'
 import thinkingSvg from '@/assets/icons/thinking.svg'
 import copySvg from '@/assets/icons/copy.svg'
 import { message } from 'ant-design-vue'
@@ -427,7 +500,7 @@ if (monaco.editor) {
       { token: 'operator', foreground: '000000' }
     ],
     colors: {
-      'editor.background': '#f8fafc',
+      'editor.background': '#f5f5f5',
       'editor.foreground': '#000000',
       'editorLineNumber.foreground': '#666666',
       'editorLineNumber.activeForeground': '#000000',
@@ -464,6 +537,13 @@ const props = defineProps<{
   hostId?: string
   hostName?: string
   colorTag?: string
+  // AI explanation for command (inline, not in history)
+  explanation?: string
+  explanationLoading?: boolean
+}>()
+
+const emit = defineEmits<{
+  (e: 'explain-command', command: string): void
 }>()
 
 // Detect if content is code - reuse existing detectLanguage method
@@ -1338,6 +1418,14 @@ const copyEditorContent = () => {
   }
 }
 
+// Get current command text for explain-command emit (editor value or props.content)
+const getCommandText = (): string => (editor ? editor.getValue() : props.content) ?? ''
+
+// Emit explain-command; loading state is shown via icon (no inline "正在解读" block)
+const handleExplainClick = () => {
+  emit('explain-command', getCommandText())
+}
+
 const copyCodeContent = () => {
   if (props.content) {
     navigator.clipboard.writeText(props.content).then(() => {
@@ -1422,6 +1510,7 @@ code {
   border-radius: 6px;
   overflow: hidden;
   background-color: var(--command-output-bg);
+  border: 1px solid var(--border-color);
   min-height: 30px;
   height: auto;
 }
@@ -1657,7 +1746,7 @@ code {
 
 .code-collapse .ant-collapse-content-box {
   padding: 2px 5px 2px 5px !important;
-  background-color: var(--bg-color-secondary) !important;
+  background-color: var(--command-output-bg) !important;
 }
 
 .code-collapse .ant-typography {
@@ -1699,6 +1788,37 @@ code {
   line-height: 24px !important;
 }
 
+.code-collapse .ant-collapse-header .explain-button {
+  right: 52px;
+}
+
+/* Wrapper for <10 lines: provides positioning context for overlay buttons */
+.monaco-wrapper {
+  position: relative;
+  margin: 4px 0;
+}
+
+.monaco-wrapper .monaco-container {
+  margin: 0;
+}
+
+/* For <10 lines, reserve space on the right for overlay icons to avoid covering text */
+.code-collapse.hide-expand-icon .monaco-wrapper .monaco-container {
+  width: calc(100% - 56px);
+  box-sizing: border-box;
+}
+
+/* Overlay container for buttons (outside monacoContainer to avoid DOM conflicts with Monaco) */
+.monaco-overlay {
+  position: absolute;
+  top: -1px;
+  right: -4px;
+  z-index: 10;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
 .monaco-container {
   margin: 4px 0;
   border-radius: 6px;
@@ -1724,6 +1844,128 @@ code {
   top: -1px;
   right: -4px;
   z-index: 2;
+}
+
+.monaco-container .explain-button {
+  right: 20px;
+}
+
+/* Buttons in overlay (for <10 lines case) */
+.monaco-overlay .copy-button {
+  position: static;
+}
+
+.monaco-overlay .explain-button {
+  position: static;
+}
+
+.explain-icon {
+  width: 14px;
+  height: 14px;
+  vertical-align: middle;
+  opacity: 0.6;
+  color: var(--text-color);
+}
+
+/* Spinning icon when explain is loading (replaces question mark) */
+.explain-icon-loading {
+  animation: explain-spin 1s linear infinite;
+  opacity: 0.8;
+  color: var(--text-color);
+}
+
+@keyframes explain-spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.command-explain-block {
+  padding: 0 10px 6px 10px;
+  border-radius: 6px;
+  background-color: var(--command-output-bg);
+}
+
+/* When code preview is <10 lines, reduce the gap to visually connect blocks */
+.command-editor-container .code-collapse.hide-expand-icon ~ .command-explain-block {
+  margin-top: 0px;
+}
+
+/* Also reduce monaco-wrapper bottom margin when <10 lines to eliminate gap */
+.command-editor-container .code-collapse.hide-expand-icon .monaco-wrapper {
+  margin-bottom: -1px;
+}
+
+/* When <10 lines: align AI explain block with code area (content-box has 5px padding) */
+.command-editor-container .code-collapse.hide-expand-icon ~ .command-explain-block {
+  margin-left: 5px;
+  margin-right: 5px;
+}
+
+/* Top padding for command area when <10 lines for visual breathing room */
+.command-editor-container .code-collapse.hide-expand-icon .monaco-container {
+  padding-top: 3px;
+}
+
+/* Theme-aware styles for AI explain collapse (light/dark) */
+.command-explain-collapse.ant-collapse {
+  background: var(--command-output-bg) !important;
+  border: none !important;
+}
+
+.command-explain-collapse .ant-collapse-item {
+  border: none !important;
+  background: var(--command-output-bg) !important;
+}
+
+.command-explain-collapse .ant-collapse-header {
+  padding: 2px 0 !important;
+  background: var(--command-output-bg) !important;
+  color: var(--text-color) !important;
+  border: none !important;
+}
+
+.command-explain-collapse .ant-collapse-content {
+  background: var(--command-output-bg) !important;
+  border: none !important;
+}
+
+.command-explain-collapse .ant-collapse-content-box {
+  background: var(--command-output-bg) !important;
+  color: var(--text-color) !important;
+  padding: 3px 0 2px 0 !important;
+}
+
+.command-explain-collapse .ant-collapse-arrow {
+  color: var(--text-color) !important;
+}
+
+.command-explain-title {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text-color);
+}
+
+.command-explain-content {
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--text-color) !important;
+}
+
+/* Override paragraph margin in AI explain block to avoid wide vertical spacing */
+.command-explain-content.markdown-content p {
+  margin: 0;
+}
+
+.command-explain-content.markdown-content p,
+.command-explain-content.markdown-content span,
+.command-explain-content.markdown-content div,
+.command-explain-content.markdown-content strong,
+.command-explain-content.markdown-content em {
+  color: var(--text-color) !important;
 }
 
 .copy-button:hover {
@@ -1809,6 +2051,7 @@ code {
   border-radius: 6px;
   overflow: hidden;
   background-color: var(--command-output-bg);
+  border: 1px solid var(--border-color);
   min-height: 30px;
   height: auto;
 }
@@ -1832,6 +2075,7 @@ code {
   overflow-x: auto;
   overflow-y: visible;
   background-color: var(--command-output-bg);
+  border: 1px solid var(--border-color);
   min-height: 40px;
   height: auto;
   width: 100%;
@@ -1920,7 +2164,7 @@ code {
 
 .command-output {
   font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, monospace;
-  background-color: var(--bg-color-secondary);
+  background-color: var(--command-output-bg);
   color: var(--text-color);
   padding: 12px;
   border-radius: 0 0 8px 8px;

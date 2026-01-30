@@ -72,6 +72,7 @@ if (typeof window !== 'undefined') {
     onMcpServerUpdate: vi.fn().mockReturnValue(() => {}),
     getAllMcpToolStates: vi.fn().mockResolvedValue({}),
     onMainMessage: vi.fn().mockReturnValue(() => {}),
+    onCommandExplainResponse: vi.fn().mockReturnValue(() => {}),
     getLocalWorkingDirectory: vi.fn().mockResolvedValue('/test'),
     cancelTask: vi.fn().mockResolvedValue({ success: true }),
     kvMutate: vi.fn(async (params: { action: string; key: string; value?: string }) => {
@@ -141,7 +142,6 @@ function createTestI18n() {
           approve: 'Approve',
           run: 'Run',
           copy: 'Copy',
-          resume: 'Resume',
           retry: 'Retry',
           searchHost: 'Search by IP',
           loading: 'loading...',
@@ -151,7 +151,11 @@ function createTestI18n() {
           searchHistoryPH: 'Please Input',
           favorite: 'Favorites',
           loadMore: 'load more',
-          exportChat: 'Export Chat'
+          exportChat: 'Export Chat',
+          codePreview: 'Code Preview ({lines} lines)',
+          explainCommand: 'Explain this command',
+          explainCommandTitle: 'AI Explanation',
+          explainCommandLoading: 'Explaining…'
         },
         common: {
           login: 'Login'

@@ -40,6 +40,8 @@ export interface ChatMessage {
   hostId?: string
   hostName?: string
   colorTag?: string
+  // AI explanation for command (inline, not in history)
+  explanation?: string
 }
 
 export interface AssetInfo {

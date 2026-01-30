@@ -5,20 +5,37 @@
       <div
         v-for="(todo, idx) in visibleTodos"
         :key="todo.id ?? idx"
-        :class="['todo-item', statusClass(todo.status), { 'has-description': !!todo.description }]"
+        :class="[
+          'todo-item',
+          statusClass(todo.status),
+          {
+            'has-description': !!todo.description,
+            'is-focused': isFocused(todo)
+          }
+        ]"
       >
         <div class="todo-content">
           <!-- Left side: index number + status icon (icon below index, aligned with description line) -->
           <div class="todo-left">
             <span class="todo-index">{{ idx + 1 }}.</span>
             <component
-              :is="statusIcon(todo.status)"
+              :is="statusIcon(todo.status, isFocused(todo))"
               :spin="todo.status === 'in_progress'"
               class="status-icon under-index"
+              :class="{ 'focused-icon': isFocused(todo) }"
             />
           </div>
           <div class="todo-text-container">
-            <span class="todo-text">{{ todo.content }}</span>
+            <span class="todo-text">
+              {{ todo.content }}
+              <!-- Focus indicator badge -->
+              <span
+                v-if="isFocused(todo)"
+                class="focus-badge"
+              >
+                <ThunderboltFilled class="focus-badge-icon" />
+              </span>
+            </span>
             <div
               v-if="todo.description"
               class="todo-description"
@@ -55,7 +72,7 @@
 
 <script setup lang="ts">
 import { computed } from 'vue'
-import { LoadingOutlined, BorderOutlined, MinusOutlined } from '@ant-design/icons-vue'
+import { LoadingOutlined, BorderOutlined, MinusOutlined, ThunderboltFilled, CheckOutlined } from '@ant-design/icons-vue'
 import type { Todo } from '../../../../../types/todo'
 
 interface Props {
@@ -63,21 +80,36 @@ interface Props {
   showProgress?: boolean
   showSubtasks?: boolean
   maxItems?: number
+  // Focus Chain props
+  focusedTodoId?: string | null
 }
 
 const props = withDefaults(defineProps<Props>(), {
   showProgress: false,
   showSubtasks: true,
-  maxItems: 50
+  maxItems: 50,
+  focusedTodoId: null
 })
 
 // Visible items in single list (maintain original order)
 const visibleTodos = computed(() => props.todos.slice(0, props.maxItems))
 
+// Check if a todo is the focused one
+const isFocused = (todo: Todo): boolean => {
+  // Check explicit focus prop
+  if (props.focusedTodoId && todo.id === props.focusedTodoId) return true
+  // Check todo's own isFocused flag
+  if (todo.isFocused) return true
+  // Fall back to in_progress status (only if no explicit focusedTodoId is set)
+  if (!props.focusedTodoId && todo.status === 'in_progress') return true
+  return false
+}
+
 // Icon and style mapping
-const statusIcon = (status?: Todo['status']) => {
+const statusIcon = (status?: Todo['status'], focused?: boolean) => {
+  if (focused && status === 'in_progress') return LoadingOutlined
   if (status === 'in_progress') return LoadingOutlined
-  if (status === 'completed') return MinusOutlined
+  if (status === 'completed') return CheckOutlined
   return BorderOutlined // pending/default
 }
 
@@ -108,6 +140,24 @@ const statusClass = (status?: Todo['status']) => {
     text-decoration: line-through;
     color: var(--text-color-quaternary);
   }
+
+  // Focus Chain: highlight focused todo
+  &.is-focused {
+    background: linear-gradient(135deg, rgba(250, 173, 20, 0.1) 0%, rgba(250, 140, 22, 0.05) 100%);
+    border-radius: 6px;
+    padding: 4px 6px;
+    margin-left: -6px;
+    margin-right: -6px;
+    border-left: 2px solid #faad14;
+
+    .todo-text {
+      font-weight: 600;
+    }
+
+    .status-icon.focused-icon {
+      color: #faad14 !important;
+    }
+  }
 }
 
 .todo-content {
@@ -131,6 +181,38 @@ const statusClass = (status?: Todo['status']) => {
 .todo-text {
   font-weight: 500;
   color: var(--text-color);
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+// Focus badge for focused todo
+.focus-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #faad14 0%, #fa8c16 100%);
+  animation: focusBadgePulse 1.5s ease-in-out infinite;
+
+  .focus-badge-icon {
+    font-size: 8px;
+    color: #fff;
+  }
+}
+
+@keyframes focusBadgePulse {
+  0%,
+  100% {
+    transform: scale(1);
+    box-shadow: 0 0 0 0 rgba(250, 173, 20, 0.4);
+  }
+  50% {
+    transform: scale(1.1);
+    box-shadow: 0 0 0 4px rgba(250, 173, 20, 0);
+  }
 }
 
 .todo-description {

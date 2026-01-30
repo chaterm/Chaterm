@@ -204,6 +204,9 @@
                       :host-id="message.hostId"
                       :host-name="message.hostName"
                       :color-tag="message.colorTag"
+                      :explanation="message.explanation"
+                      :explanation-loading="explainLoadingMessageId === message.id"
+                      @explain-command="(cmd: string) => handleExplainCommand(message.id, cmd, tab.id)"
                     />
                     <MarkdownRenderer
                       v-else
@@ -217,6 +220,9 @@
                       :host-id="message.hostId"
                       :host-name="message.hostName"
                       :color-tag="message.colorTag"
+                      :explanation="message.explanation"
+                      :explanation-loading="explainLoadingMessageId === message.id"
+                      @explain-command="(cmd: string) => handleExplainCommand(message.id, cmd, tab.id)"
                     />
 
                     <div
@@ -467,23 +473,6 @@
         </div>
         <div class="bottom-container">
           <div
-            v-if="showResumeButton"
-            class="bottom-buttons"
-          >
-            <a-button
-              size="small"
-              type="primary"
-              class="resume-btn"
-              :disabled="currentTab?.session.resumeDisabled"
-              @click="handleResume"
-            >
-              <template #icon>
-                <RedoOutlined />
-              </template>
-              {{ $t('ai.resume') }}
-            </a-button>
-          </div>
-          <div
             v-if="currentTab?.session.showRetryButton"
             class="bottom-buttons"
           >
@@ -704,7 +693,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted, watch, nextTick } from 'vue'
+import { ref, computed, onMounted, onBeforeUnmount, watch, nextTick } from 'vue'
 import { useRouter } from 'vue-router'
 import { useAutoScroll } from './composables/useAutoScroll'
 import { useChatHistory } from './composables/useChatHistory'
@@ -738,7 +727,6 @@ import {
   ExportOutlined,
   LikeOutlined,
   PlayCircleOutlined,
-  RedoOutlined,
   ReloadOutlined,
   SearchOutlined,
   StarFilled,
@@ -790,7 +778,6 @@ const {
   isLastMessage,
   currentSession,
   buttonsDisabled,
-  showResumeButton,
   getTabUserAssistantPairs,
   getTabChatTypeValue,
   getTabLastChatMessageId,
@@ -836,7 +823,6 @@ const {
   handleApproveAndAutoApproveReadOnly,
   handleApproveAndAutoApprove,
   handleCancel,
-  handleResume,
   handleRetry
 } = useCommandInteraction({
   getCurentTabAssetInfo,
@@ -845,6 +831,34 @@ const {
   clearTodoState,
   scrollToBottom
 })
+
+// Explain command (inline, not in history)
+const explainLoadingMessageId = ref<string | null>(null)
+const handleExplainCommand = (messageId: string, commandText: string, tabId: string) => {
+  if (!commandText?.trim()) return
+  explainLoadingMessageId.value = messageId
+  window.api.sendToMain({
+    type: 'explainCommand',
+    command: commandText.trim(),
+    tabId,
+    commandMessageId: messageId
+  })
+}
+const handleExplainCommandResponse = async (payload: { explanation?: string; error?: string; tabId?: string; commandMessageId?: string }) => {
+  explainLoadingMessageId.value = null
+  const tabId = payload.tabId ?? currentChatId.value
+  if (!tabId || !payload.commandMessageId) return
+  const tab = chatTabs.value.find((t) => t.id === tabId)
+  const msg = tab?.session?.chatHistory?.find((m) => m.id === payload.commandMessageId)
+  if (msg) {
+    msg.explanation = payload.explanation ?? ''
+  }
+  if (payload.error) {
+    const { message } = await import('ant-design-vue')
+    message.error(payload.error)
+  }
+}
+let unsubscribeExplainResponse: (() => void) | null = null
 
 // Export chat functionality
 const { exportChat } = useExportChat()
@@ -963,6 +977,14 @@ onMounted(async () => {
   }
 
   initializeAutoScroll()
+
+  if (window.api?.onCommandExplainResponse) {
+    unsubscribeExplainResponse = window.api.onCommandExplainResponse(handleExplainCommandResponse)
+  }
+})
+
+onBeforeUnmount(() => {
+  unsubscribeExplainResponse?.()
 })
 
 // Expose to parent component

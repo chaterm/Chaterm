@@ -1,4 +1,4 @@
-import { ref, onMounted, watch } from 'vue'
+import { ref, onMounted, watch, isProxy, toRaw } from 'vue'
 import { v4 as uuidv4 } from 'uuid'
 import { notification } from 'ant-design-vue'
 import eventBus from '@/utils/eventBus'
@@ -92,44 +92,12 @@ export function useChatMessages(
       .join('')
   }
 
-  const normalizeContentParts = (parts?: ContentPart[]): ContentPart[] | undefined => {
-    if (!parts || parts.length === 0) return undefined
-
-    return parts.map((part): ContentPart => {
-      if (part.type === 'text') {
-        return { type: 'text', text: part.text }
-      }
-
-      if (part.type === 'image') {
-        return { type: 'image', mediaType: part.mediaType, data: part.data }
-      }
-
-      if (part.chipType === 'doc') {
-        return {
-          type: 'chip',
-          chipType: 'doc',
-          ref: {
-            absPath: part.ref.absPath,
-            name: part.ref.name,
-            type: part.ref.type
-          }
-        }
-      }
-
-      return {
-        type: 'chip',
-        chipType: 'chat',
-        ref: { taskId: part.ref.taskId, title: part.ref.title }
-      }
-    })
-  }
-
   const sendMessageToMain = async (
     userContent: string,
     sendType: string,
     tabId?: string,
     truncateAtMessageTs?: number,
-    contentPartsOverride?: ContentPart[]
+    contentParts?: ContentPart[]
   ) => {
     try {
       const targetTab = tabId ? chatTabs.value.find((tab) => tab.id === tabId) : currentTab.value
@@ -147,9 +115,6 @@ export function useChatMessages(
         connection: h.connection,
         ...(h.assetType ? { assetType: h.assetType } : {})
       }))
-
-      // Only attach content parts when explicitly provided; never fallback to draft input parts.
-      const contentParts = normalizeContentParts(contentPartsOverride)
 
       let message: WebviewMessage
       if (session.isExecutingCommand && session.chatHistory.length > 0) {
@@ -222,13 +187,11 @@ export function useChatMessages(
       return 'SEND_ERROR'
     }
 
-    const partsSnapshot = normalizeContentParts(chatInputParts.value) ?? []
-    const hasContentParts =
-      partsSnapshot.length > 0 &&
-      partsSnapshot.some((part) => part.type === 'chip' || part.type === 'image' || (part.type === 'text' && part.text.trim().length > 0))
+    const contentParts = chatInputParts.value.length > 0 ? [...chatInputParts.value] : []
+    const hasChips = contentParts.length > 0 && contentParts.some((part) => part.type === 'chip' || part.type === 'image')
 
-    const userContent = buildPlainTextFromParts(partsSnapshot).trim()
-    if (userContent === '' && !hasContentParts) {
+    const userContent = buildPlainTextFromParts(contentParts).trim()
+    if (userContent === '' && !hasChips) {
       notification.error({
         message: t('ai.sendContentError'),
         description: t('ai.sendContentEmpty'),
@@ -237,7 +200,7 @@ export function useChatMessages(
       return 'SEND_ERROR'
     }
 
-    if (!userContent && !hasContentParts) return
+    if (!userContent && !hasChips) return
 
     if (chatTypeValue.value === 'agent' && hosts.value.some((host) => isSwitchAssetType(host.assetType))) {
       chatTypeValue.value = 'cmd'
@@ -267,8 +230,7 @@ export function useChatMessages(
     // Clear draft input only after validations pass to avoid losing content on failures.
     chatInputParts.value = []
 
-    const contentPartsOverride = partsSnapshot.length > 0 ? partsSnapshot : undefined
-    return await sendMessageWithContent(userContent, sendType, undefined, undefined, contentPartsOverride)
+    return await sendMessageWithContent(userContent, sendType, undefined, undefined, contentParts)
   }
 
   const sendMessageWithContent = async (
@@ -276,7 +238,7 @@ export function useChatMessages(
     sendType: string,
     tabId?: string,
     truncateAtMessageTs?: number,
-    contentPartsOverride?: ContentPart[]
+    contentParts?: ContentPart[]
   ) => {
     const targetTab = tabId ? chatTabs.value.find((tab: ChatTab) => tab.id === tabId) : currentTab.value
 
@@ -286,10 +248,10 @@ export function useChatMessages(
 
     const session = targetTab.session
     session.isCancelled = false
+    // Strip Vue proxies before IPC to avoid structured clone failures.
+    contentParts = contentParts ? contentParts.map((part) => (isProxy(part) ? (toRaw(part) as ContentPart) : part)) : undefined
+    await sendMessageToMain(userContent, sendType, tabId, truncateAtMessageTs, contentParts)
 
-    await sendMessageToMain(userContent, sendType, tabId, truncateAtMessageTs, contentPartsOverride)
-
-    const contentParts = normalizeContentParts(contentPartsOverride)
     const userMessage: ChatMessage = {
       id: uuidv4(),
       role: 'user',

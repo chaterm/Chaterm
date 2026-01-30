@@ -58,7 +58,18 @@ export async function createMainWindow(onCookieUrlChange?: (url: string) => void
     mainWindow.on('close', (event) => {
       if (shouldPreventClose ? shouldPreventClose() : true) {
         event.preventDefault()
-        mainWindow.hide()
+        // Exit fullscreen before hiding to prevent black screen issue on macOS
+        if (mainWindow.isFullScreen()) {
+          mainWindow.once('leave-full-screen', () => {
+            mainWindow.hide()
+          })
+          mainWindow.setFullScreen(false)
+        } else {
+          if (mainWindow.isMaximized()) {
+            mainWindow.unmaximize()
+          }
+          mainWindow.hide()
+        }
       }
     })
   }
@@ -102,6 +113,16 @@ export async function createMainWindow(onCookieUrlChange?: (url: string) => void
 
   mainWindow.on('unmaximize', () => {
     mainWindow.webContents.send('window:unmaximized')
+  })
+
+  // Disable Command+R (macOS) / Ctrl+R (Windows/Linux) reload shortcut
+  mainWindow.webContents.on('before-input-event', (event, input) => {
+    if (input.type === 'keyDown') {
+      const isReloadShortcut = (input.key === 'r' || input.key === 'R') && (input.meta || input.control) && !input.alt && !input.shift
+      if (isReloadShortcut) {
+        event.preventDefault()
+      }
+    }
   })
 
   return mainWindow

@@ -70,16 +70,59 @@
                 class="device-item"
               >
                 <div class="device-info">
-                  <span class="device-name">{{ item.deviceName || $t('user.trustedDevicesUnknownDevice') }}</span>
-                  <span class="device-mac">{{ maskMac(item.macAddress) }}</span>
-                  <span class="device-time">{{ item.lastLoginAt }}</span>
-                  <a-tag
-                    v-if="isCurrentDevice(item)"
-                    color="blue"
-                    class="current-tag"
-                  >
-                    {{ $t('user.trustedDevicesCurrentDevice') }}
-                  </a-tag>
+                  <div class="device-info-row device-info-row--main">
+                    <span class="device-name">{{ item.deviceName || $t('user.trustedDevicesUnknownDevice') }}</span>
+                    <span
+                      v-if="item.lastLoginUserAgent"
+                      class="device-sep"
+                    >
+                      ·
+                    </span>
+                    <span
+                      v-if="item.lastLoginUserAgent"
+                      class="device-ua"
+                      :title="item.lastLoginUserAgent"
+                      >{{ shortenUserAgent(item.lastLoginUserAgent) }}</span
+                    >
+                    <a-tag
+                      v-if="isCurrentDevice(item)"
+                      color="blue"
+                      class="current-tag"
+                    >
+                      {{ $t('user.trustedDevicesCurrentDevice') }}
+                    </a-tag>
+                  </div>
+                  <div class="device-info-row device-info-row--sub">
+                    <template v-if="item.lastLoginIp || item.location || item.macAddress || item.lastLoginAt">
+                      <span
+                        v-if="item.lastLoginIp"
+                        class="device-ip"
+                        >IP: {{ item.lastLoginIp }}</span
+                      >
+                      <span
+                        v-if="item.lastLoginIp && (item.location || item.macAddress || item.lastLoginAt)"
+                        class="device-sep"
+                        >,
+                      </span>
+                      <span
+                        v-if="item.location"
+                        class="device-location"
+                        >{{ item.location }}</span
+                      >
+                      <span
+                        v-if="item.location && (item.macAddress || item.lastLoginAt)"
+                        class="device-sep"
+                        >,
+                      </span>
+                      <span
+                        v-if="item.macAddress"
+                        class="device-mac"
+                        >{{ maskMac(item.macAddress) }}</span
+                      >
+                      <!--                      <span v-if="item.macAddress && item.lastLoginAt" class="device-sep">, </span>-->
+                      <!--                      <span v-if="item.lastLoginAt" class="device-time">{{ item.lastLoginAt }}</span>-->
+                    </template>
+                  </div>
                 </div>
                 <a-button
                   type="link"
@@ -155,7 +198,9 @@ interface TrustedDeviceItem {
   deviceName: string
   macAddress: string
   lastLoginAt: string
-  isCurrentDevice?: boolean
+  location?: string
+  lastLoginUserAgent?: string
+  lastLoginIp?: string
 }
 
 const devices = ref<TrustedDeviceItem[]>([])
@@ -165,20 +210,14 @@ const loading = ref(false)
 const revokeModalVisible = ref(false)
 const revokeTarget = ref<TrustedDeviceItem | null>(null)
 
+// Show first 4 and last 4 hex digits of MAC (e.g. aa:bb:**:**:ee:ff)
 function maskMac(mac: string): string {
-  if (!mac || mac.length < 8) return mac ?? ''
-  const parts = mac.replace(/[-:]/g, ':').split(':')
-  if (parts.length >= 4) {
-    return (
-      parts
-        .slice(0, -2)
-        .map(() => '**')
-        .join(':') +
-      ':' +
-      parts.slice(-2).join(':')
-    )
-  }
-  return '****:' + (mac.slice(-4) || '')
+  if (!mac || mac.length < 4) return mac ?? ''
+  const hex = mac.replace(/[-:]/g, '').toLowerCase()
+  if (hex.length < 8) return hex.slice(0, 4) + '****'
+  const first4 = hex.slice(0, 4)
+  const last4 = hex.slice(-4)
+  return first4.slice(0, 2) + ':' + first4.slice(2) + ':**:**:' + last4.slice(0, 2) + ':' + last4.slice(2)
 }
 
 function isCurrentDevice(item: TrustedDeviceItem): boolean {
@@ -187,20 +226,44 @@ function isCurrentDevice(item: TrustedDeviceItem): boolean {
   return item.macAddress.toUpperCase().replace(/[-:]/g, '') === current.toUpperCase().replace(/[-:]/g, '')
 }
 
+// Shorten user-agent for display. For mobile: show only text after first semicolon inside parentheses (e.g. "vivo V2405A").
+function shortenUserAgent(ua: string): string {
+  if (!ua || !ua.trim()) return ''
+  const s = ua.trim()
+  const maxLen = 56
+  // Mobile: e.g. "Mobile (Android 16; vivo V2405A) 1.0.5" -> "vivo V2405A"
+  const mobileMatch = s.match(/Mobile\s*\(([^)]+)\)/)
+  if (mobileMatch) {
+    const inside = mobileMatch[1]
+    const afterSemicolon = inside.indexOf(';') >= 0 ? inside.split(';').slice(1).join(';').trim() : inside.trim()
+    if (afterSemicolon) return afterSemicolon
+  }
+  if (s.length <= maxLen) return s
+  const chrome = s.match(/Chrome\/[\d.]+/)?.[0]
+  const firefox = s.match(/Firefox\/[\d.]+/)?.[0]
+  const safari = s.match(/Version\/[\d.]+.*Safari/)?.[0]
+  const part = chrome || firefox || safari
+  if (part) return part
+  return s.slice(0, maxLen) + '…'
+}
+
 async function loadDevices() {
   if (!isUserLoggedIn.value) return
   loading.value = true
   try {
     const res = (await getTrustedDevices()) as any
     const data = res?.data ?? res
-    devices.value = (data?.devices ?? data?.Devices ?? []).map((d: any) => ({
-      id: d.id ?? d.Id,
-      deviceName: d.deviceName ?? d.device_name ?? d.DeviceName ?? '',
-      macAddress: d.macAddress ?? d.mac_address ?? d.MacAddress ?? '',
-      lastLoginAt: d.lastLoginAt ?? d.last_login_at ?? d.LastLoginAt ?? ''
+    devices.value = (data?.devices ?? []).map((d: any) => ({
+      id: d.id,
+      deviceName: d.deviceName ?? '',
+      macAddress: d.macAddress ?? '',
+      lastLoginAt: d.lastLoginAt ?? '',
+      location: d.location ?? '',
+      lastLoginUserAgent: d.lastLoginUserAgent ?? '',
+      lastLoginIp: d.lastLoginIp ?? ''
     }))
-    maxAllowed.value = data?.maxAllowed ?? data?.max_allowed ?? data?.MaxAllowed ?? 3
-    currentCount.value = data?.currentCount ?? data?.current_count ?? data?.CurrentCount ?? devices.value.length
+    maxAllowed.value = data?.maxAllowed ?? 3
+    currentCount.value = data?.currentCount ?? devices.value.length
   } catch (e: any) {
     message.error(e?.response?.data?.message ?? e?.message ?? t('user.trustedDevicesLoadFailed'))
   } finally {
@@ -293,20 +356,53 @@ onMounted(() => {
   }
   .device-info {
     display: flex;
-    flex-wrap: wrap;
-    align-items: center;
-    gap: 8px;
-    .device-name {
-      font-weight: 500;
-      color: var(--text-color);
-    }
-    .device-mac,
-    .device-time {
-      font-size: 14px;
-      color: var(--text-color-secondary);
-    }
-    .current-tag {
-      margin-left: 4px;
+    flex-direction: column;
+    gap: 4px;
+    min-width: 0;
+    .device-info-row {
+      display: flex;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 4px;
+      &.device-info-row--main {
+        .device-name {
+          font-weight: 500;
+          color: var(--text-color);
+        }
+        .current-tag {
+          margin-left: 4px;
+        }
+      }
+      &.device-info-row--sub,
+      &.device-info-row--ua {
+        font-size: 13px;
+        color: var(--text-color-secondary);
+      }
+      .device-location {
+        color: var(--text-color-secondary);
+      }
+      .device-sep {
+        color: var(--text-color-secondary);
+      }
+      .device-time {
+        color: var(--text-color-secondary);
+      }
+      .device-mac {
+        font-size: 13px;
+        color: var(--text-color-secondary);
+      }
+      .device-ip {
+        font-size: 13px;
+        color: var(--text-color-secondary);
+      }
+      .device-ua {
+        font-size: 12px;
+        color: var(--text-color-tertiary, var(--text-color-secondary));
+        max-width: 100%;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
     }
   }
 }

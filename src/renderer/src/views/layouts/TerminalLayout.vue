@@ -424,7 +424,6 @@ interface AiSidebarState {
       responseLoading: boolean
       showSendButton: boolean
       buttonsDisabled: boolean
-      resumeDisabled: boolean
       isExecutingCommand: boolean
       showRetryButton: boolean
       messageFeedbacks: Record<string, 'like' | 'dislike'>

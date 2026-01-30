@@ -295,7 +295,7 @@ const openKeywordHighlightConfig = async () => {
 }
 
 .custom-form :deep(.ant-switch) {
-  background-color: var(--bg-color-secondary);
+  background-color: var(--bg-color-switch);
 }
 
 .custom-form :deep(.ant-switch.ant-switch-checked) {

@@ -12,6 +12,7 @@ export interface ExtensionMessage {
     | 'state'
     | 'partialMessage'
     | 'commandGenerationResponse'
+    | 'explainCommandResponse'
     | 'todoUpdated'
     | 'chatTitleGenerated'
     | 'mcpServersUpdate'
@@ -25,6 +26,9 @@ export interface ExtensionMessage {
   // For command generation response
   command?: string
   tabId?: string
+  // For explain command response
+  explanation?: string
+  commandMessageId?: string
   // For todo updates
   todos?: unknown[]
   sessionId?: string
@@ -106,7 +110,6 @@ export type ChatermAsk =
   | 'api_req_failed'
   | 'ssh_con_failed'
   | 'resume_task'
-  | 'resume_completed_task'
   | 'mistake_limit_reached'
   | 'auto_approval_max_req_reached'
   | 'condense'

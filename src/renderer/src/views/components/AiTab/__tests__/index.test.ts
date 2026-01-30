@@ -212,7 +212,6 @@ describe('AiTab Component - Composable Integration Tests', () => {
         showRetryButton: false,
         showSendButton: true,
         buttonsDisabled: false,
-        resumeDisabled: false,
         isExecutingCommand: false,
         messageFeedbacks: {},
         lastStreamMessage: null,
@@ -491,90 +490,6 @@ describe('AiTab Component - Composable Integration Tests', () => {
   })
 
   describe('Button Visibility and UI States', () => {
-    describe('Resume Button', () => {
-      it('should show resume button when last message has resume_task', () => {
-        const { chatTabs, currentChatId, showResumeButton, createEmptySessionState } = useSessionState()
-
-        const session = createEmptySessionState()
-        session.chatHistory = [
-          { id: 'msg-1', role: 'user', content: 'Continue the task' },
-          { id: 'msg-2', role: 'assistant', content: 'Resume task?', ask: 'resume_task' }
-        ]
-
-        chatTabs.value = [
-          {
-            id: 'tab-1',
-            title: 'Test',
-            hosts: [],
-            chatType: 'agent',
-            autoUpdateHost: true,
-            session,
-            chatInputParts: [],
-            modelValue: 'claude-3-5-sonnet',
-            welcomeTip: ''
-          }
-        ]
-        currentChatId.value = 'tab-1'
-
-        expect(showResumeButton.value).toBe(true)
-      })
-
-      it('should not show resume button for normal messages', () => {
-        const { chatTabs, currentChatId, showResumeButton, createEmptySessionState } = useSessionState()
-
-        const session = createEmptySessionState()
-        session.chatHistory = [
-          { id: 'msg-1', role: 'user', content: 'Hello' },
-          { id: 'msg-2', role: 'assistant', content: 'Hi there' }
-        ]
-
-        chatTabs.value = [
-          {
-            id: 'tab-1',
-            title: 'Test',
-            hosts: [],
-            chatType: 'agent',
-            autoUpdateHost: true,
-            session,
-            chatInputParts: [],
-            modelValue: 'claude-3-5-sonnet',
-            welcomeTip: ''
-          }
-        ]
-        currentChatId.value = 'tab-1'
-
-        expect(showResumeButton.value).toBe(false)
-      })
-
-      it('should respect resumeDisabled flag', () => {
-        const { chatTabs, currentChatId, currentSession, createEmptySessionState } = useSessionState()
-
-        const session = createEmptySessionState()
-        session.chatHistory = [
-          { id: 'msg-1', role: 'user', content: 'Continue' },
-          { id: 'msg-2', role: 'assistant', content: 'Resume?', ask: 'resume_task' }
-        ]
-        session.resumeDisabled = true
-
-        chatTabs.value = [
-          {
-            id: 'tab-1',
-            title: 'Test',
-            hosts: [],
-            chatType: 'agent',
-            autoUpdateHost: true,
-            session,
-            chatInputParts: [],
-            modelValue: 'claude-3-5-sonnet',
-            welcomeTip: ''
-          }
-        ]
-        currentChatId.value = 'tab-1'
-
-        expect(currentSession.value?.resumeDisabled).toBe(true)
-      })
-    })
-
     describe('Retry Button', () => {
       it('should show retry button when session supports retry', () => {
         const { chatTabs, currentChatId, currentSession, createEmptySessionState } = useSessionState()
@@ -1344,12 +1259,11 @@ describe('AiTab Component - Composable Integration Tests', () => {
   })
 
   describe('Watch Effects', () => {
-    it('should reset buttonsDisabled and resumeDisabled when chat history changes', async () => {
+    it('should reset buttonsDisabled when chat history changes', async () => {
       const { chatTabs, currentChatId, currentSession, createEmptySessionState } = useSessionState()
 
       const session = createEmptySessionState()
       session.buttonsDisabled = true
-      session.resumeDisabled = true
 
       chatTabs.value = [
         {
@@ -1377,7 +1291,6 @@ describe('AiTab Component - Composable Integration Tests', () => {
       await new Promise((resolve) => setTimeout(resolve, 0))
 
       expect(currentSession.value?.buttonsDisabled).toBe(false)
-      expect(currentSession.value?.resumeDisabled).toBe(false)
     })
 
     it('should sync shouldShowSendButton to session.showSendButton', async () => {
