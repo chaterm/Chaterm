@@ -148,7 +148,6 @@ import { ref, onMounted, computed, watch } from 'vue'
 import { notification } from 'ant-design-vue'
 import { marked } from 'marked'
 import eventBus from '@/utils/eventBus'
-import { isGlobalEdition } from '@/utils/edition'
 
 import i18n from '@/locales'
 import { listPluginVersions, getPluginIconUrl } from '@/api/plugin/plugin'
@@ -381,7 +380,7 @@ const handleUpdate = async () => {
 }
 
 const handleSubscribe = () => {
-  const pricingUrl = isGlobalEdition() ? 'https://chaterm.ai' : 'https://chaterm.cn'
+  const pricingUrl = 'https://github.com/chaterm/Chaterm/discussions/1521'
   window.open(pricingUrl, '_blank')
 }
 
