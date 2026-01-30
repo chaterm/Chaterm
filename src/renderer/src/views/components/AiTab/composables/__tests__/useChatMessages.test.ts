@@ -5,6 +5,8 @@ import { useSessionState } from '../useSessionState'
 import type { ChatMessage, Host } from '../../types'
 import type { ExtensionMessage } from '@shared/ExtensionMessage'
 import type { Todo } from '@/types/todo'
+import eventBus from '@/utils/eventBus'
+import { notification } from 'ant-design-vue'
 
 // Mock dependencies
 vi.mock('../useSessionState')
@@ -36,11 +38,15 @@ vi.mock('@/locales', () => ({
 const mockSendToMain = vi.fn()
 const mockOnMainMessage = vi.fn()
 const mockGetLocalWorkingDirectory = vi.fn()
+const mockKbCreateFile = vi.fn()
+const mockKbWriteFile = vi.fn()
 global.window = {
   api: {
     sendToMain: mockSendToMain,
     onMainMessage: mockOnMainMessage,
-    getLocalWorkingDirectory: mockGetLocalWorkingDirectory
+    getLocalWorkingDirectory: mockGetLocalWorkingDirectory,
+    kbCreateFile: mockKbCreateFile,
+    kbWriteFile: mockKbWriteFile
   }
 } as any
 
@@ -119,6 +125,8 @@ describe('useChatMessages', () => {
     } as any)
 
     mockSendToMain.mockResolvedValue({ success: true })
+    mockKbCreateFile.mockResolvedValue({ relPath: '2026-01-28_test.md' })
+    mockKbWriteFile.mockResolvedValue({ mtimeMs: Date.now() })
   })
 
   afterEach(() => {
@@ -868,6 +876,92 @@ describe('useChatMessages', () => {
       expect(consoleSpy).toHaveBeenCalledWith(expect.stringContaining('cancelled'))
       consoleSpy.mockRestore()
     })
+
+    it('should stream knowledge_summary into knowledge base file', async () => {
+      const { processMainMessage } = useChatMessages(
+        mockScrollToBottom,
+        mockClearTodoState,
+        mockMarkLatestMessageWithTodoUpdate,
+        mockCurrentTodos,
+        mockCheckModelConfig
+      )
+
+      const partialMessage: ExtensionMessage = {
+        type: 'partialMessage',
+        tabId: 'test-tab-1',
+        partialMessage: {
+          text: JSON.stringify({ fileName: 'test', summary: '# Title' }),
+          type: 'say',
+          say: 'knowledge_summary',
+          partial: true,
+          ts: 100
+        }
+      }
+
+      await processMainMessage(partialMessage)
+
+      expect(mockKbCreateFile).toHaveBeenCalledWith('', '2026-01-28_test.md', '# Title')
+      expect(vi.mocked(eventBus.emit)).toHaveBeenCalledWith(
+        'openUserTab',
+        expect.objectContaining({
+          content: 'KnowledgeCenterEditor'
+        })
+      )
+      const mockState = vi.mocked(useSessionState)()
+      expect(mockState.currentSession.value!.chatHistory).toHaveLength(0)
+
+      const updateMessage: ExtensionMessage = {
+        type: 'partialMessage',
+        tabId: 'test-tab-1',
+        partialMessage: {
+          text: JSON.stringify({ fileName: 'test', summary: '# Title\n\nMore' }),
+          type: 'say',
+          say: 'knowledge_summary',
+          partial: true,
+          ts: 100
+        }
+      }
+
+      await processMainMessage(updateMessage)
+
+      expect(mockKbWriteFile).toHaveBeenCalledWith('2026-01-28_test.md', '# Title\n\nMore')
+      expect(vi.mocked(eventBus.emit)).toHaveBeenCalledWith(
+        'kb:content-changed',
+        expect.objectContaining({
+          relPath: '2026-01-28_test.md',
+          content: '# Title\n\nMore'
+        })
+      )
+
+      const finalMessage: ExtensionMessage = {
+        type: 'partialMessage',
+        tabId: 'test-tab-1',
+        partialMessage: {
+          text: JSON.stringify({ fileName: 'test', summary: '# Title\n\nMore\n\nDone' }),
+          type: 'say',
+          say: 'knowledge_summary',
+          partial: false,
+          ts: 100
+        }
+      }
+
+      await processMainMessage(finalMessage)
+
+      expect(mockKbWriteFile).toHaveBeenCalledWith('2026-01-28_test.md', '# Title\n\nMore\n\nDone')
+      expect(vi.mocked(eventBus.emit)).toHaveBeenCalledWith(
+        'kb:content-changed',
+        expect.objectContaining({
+          relPath: '2026-01-28_test.md',
+          content: '# Title\n\nMore\n\nDone'
+        })
+      )
+      expect(vi.mocked(notification.success)).toHaveBeenCalledWith(
+        expect.objectContaining({
+          message: 'ai.knowledgeSaved',
+          description: '2026-01-28_test.md'
+        })
+      )
+    })
   })
 
   describe('setMarkdownRendererRef', () => {
@@ -898,6 +992,132 @@ describe('useChatMessages', () => {
       setMarkdownRendererRef(null, 0)
 
       expect(markdownRendererRefs.value[0]).toBeUndefined()
+    })
+  })
+
+  describe('handleSummarizeToKnowledge', () => {
+    it('should send summary command with message timestamp when message is provided', async () => {
+      const { handleSummarizeToKnowledge } = useChatMessages(
+        mockScrollToBottom,
+        mockClearTodoState,
+        mockMarkLatestMessageWithTodoUpdate,
+        mockCurrentTodos,
+        mockCheckModelConfig
+      )
+
+      const mockState = vi.mocked(useSessionState)()
+      const session = mockState.currentSession.value!
+
+      const message: ChatMessage = {
+        id: 'msg-1',
+        role: 'assistant',
+        content: 'Task completed',
+        type: 'ask',
+        ask: 'completion_result',
+        say: 'completion_result',
+        ts: 1706443200000
+      }
+
+      await handleSummarizeToKnowledge(message)
+
+      // Check that sendToMain was called with correct parameters
+      expect(mockSendToMain).toHaveBeenCalledWith(
+        expect.objectContaining({
+          type: 'newTask',
+          askResponse: 'messageResponse',
+          text: '/summary-to-doc',
+          contentParts: expect.arrayContaining([
+            expect.objectContaining({
+              type: 'chip',
+              chipType: 'command',
+              ref: expect.objectContaining({
+                command: '/summary-to-doc',
+                label: '/Summary to Doc',
+                summarizeUpToTs: 1706443200000
+              })
+            })
+          ])
+        })
+      )
+
+      // Check that user message was added
+      expect(session.chatHistory).toHaveLength(1)
+      expect(session.chatHistory[0].role).toBe('user')
+      expect(session.chatHistory[0].content).toBe('/summary-to-doc')
+    })
+
+    it('should send summary command without timestamp when message is not provided', async () => {
+      const { handleSummarizeToKnowledge } = useChatMessages(
+        mockScrollToBottom,
+        mockClearTodoState,
+        mockMarkLatestMessageWithTodoUpdate,
+        mockCurrentTodos,
+        mockCheckModelConfig
+      )
+
+      const mockState = vi.mocked(useSessionState)()
+      const session = mockState.currentSession.value!
+
+      await handleSummarizeToKnowledge()
+
+      // Check that sendToMain was called with correct parameters
+      expect(mockSendToMain).toHaveBeenCalledWith(
+        expect.objectContaining({
+          type: 'newTask',
+          askResponse: 'messageResponse',
+          text: '/summary-to-doc',
+          contentParts: expect.arrayContaining([
+            expect.objectContaining({
+              type: 'chip',
+              chipType: 'command',
+              ref: expect.objectContaining({
+                command: '/summary-to-doc',
+                label: '/Summary to Doc',
+                summarizeUpToTs: undefined
+              })
+            })
+          ])
+        })
+      )
+
+      // Check that user message was added
+      expect(session.chatHistory).toHaveLength(1)
+      expect(session.chatHistory[0].role).toBe('user')
+      expect(session.chatHistory[0].content).toBe('/summary-to-doc')
+    })
+
+    it('should work with message that has no timestamp', async () => {
+      const { handleSummarizeToKnowledge } = useChatMessages(
+        mockScrollToBottom,
+        mockClearTodoState,
+        mockMarkLatestMessageWithTodoUpdate,
+        mockCurrentTodos,
+        mockCheckModelConfig
+      )
+
+      const message: ChatMessage = {
+        id: 'msg-1',
+        role: 'assistant',
+        content: 'Task completed',
+        type: 'ask',
+        ask: 'completion_result',
+        say: 'completion_result'
+        // No ts field
+      }
+
+      await handleSummarizeToKnowledge(message)
+
+      expect(mockSendToMain).toHaveBeenCalledWith(
+        expect.objectContaining({
+          contentParts: expect.arrayContaining([
+            expect.objectContaining({
+              ref: expect.objectContaining({
+                summarizeUpToTs: undefined
+              })
+            })
+          ])
+        })
+      )
     })
   })
 })

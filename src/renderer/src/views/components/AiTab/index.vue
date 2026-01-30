@@ -154,10 +154,7 @@
                         <CheckCircleFilled style="color: #52c41a; margin-right: 4px" />
                         {{ $t('ai.taskCompleted') }}
                       </div>
-                      <div
-                        v-if="isLastMessage(tab.id, message.id)"
-                        class="message-feedback"
-                      >
+                      <div class="message-feedback">
                         <a-button
                           type="text"
                           class="feedback-btn like-btn"
@@ -188,6 +185,17 @@
                                 opacity: getMessageFeedback(message.id) === 'dislike' ? 1 : ''
                               }"
                             />
+                          </template>
+                        </a-button>
+                        <a-button
+                          type="text"
+                          class="feedback-btn summarize-btn"
+                          size="small"
+                          :title="$t('ai.summarizeToKnowledge')"
+                          @click="handleSummarizeToKnowledge(message)"
+                        >
+                          <template #icon>
+                            <BookOutlined />
                           </template>
                         </a-button>
                       </div>
@@ -725,6 +733,7 @@ import {
   EditOutlined,
   EllipsisOutlined,
   ExportOutlined,
+  BookOutlined,
   LikeOutlined,
   PlayCircleOutlined,
   ReloadOutlined,
@@ -811,7 +820,8 @@ const {
   handleFeedback,
   getMessageFeedback,
   isMessageFeedbackSubmitted,
-  handleTruncateAndSend
+  handleTruncateAndSend,
+  handleSummarizeToKnowledge
 } = useChatMessages(scrollToBottom, clearTodoState, markLatestMessageWithTodoUpdate, currentTodos, checkModelConfig)
 
 // Command interactions

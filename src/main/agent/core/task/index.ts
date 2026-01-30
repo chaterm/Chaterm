@@ -66,6 +66,7 @@ import { LocalTerminalManager, LocalCommandProcess } from '../../integrations/lo
 import { formatResponse } from '@core/prompts/responses'
 import { addUserInstructions, SYSTEM_PROMPT, SYSTEM_PROMPT_CHAT, SYSTEM_PROMPT_CN, SYSTEM_PROMPT_CHAT_CN } from '@core/prompts/system'
 import { getSwitchPromptByAssetType } from '@core/prompts/switch-prompts'
+import { SLASH_COMMANDS, getSummaryToDocPrompt } from '@core/prompts/slash-commands'
 import { CommandSecurityManager } from '../security/CommandSecurityManager'
 import { getContextWindowInfo } from '@core/context/context-management/context-window-utils'
 import { ModelContextTracker } from '@core/context/context-tracking/ModelContextTracker'
@@ -86,6 +87,13 @@ import { ExternalAssetCache } from '../../../plugin/pluginIpc'
 
 type ToolResponse = string | Array<Anthropic.TextBlockParam | Anthropic.ImageBlockParam>
 type UserContent = Array<Anthropic.ContentBlockParam>
+
+/**
+ * Check if a tool allows partial block execution
+ */
+function isAllowPartialTool(toolName: string): boolean {
+  return toolName === 'summarize_to_knowledge' || toolName === 'attempt_completion'
+}
 
 export class Task {
   private updateTaskHistory: (historyItem: HistoryItem) => Promise<HistoryItem[]>
@@ -120,6 +128,7 @@ export class Task {
   checkpointTrackerErrorMessage?: string
   conversationHistoryDeletedRange?: [number, number]
   isInitialized = false
+  summarizeUpToTs?: number // Limit conversation history for current API request only
 
   // Metadata tracking
   private modelContextTracker: ModelContextTracker
@@ -1558,7 +1567,14 @@ export class Task {
       await this.saveChatermMessagesAndUpdateHistory() // saves task history item which we use to keep track of conversation history deleted range
     }
 
-    let stream = this.api.createMessage(systemPrompt, contextManagementMetadata.truncatedConversationHistory)
+    // Apply summarizeUpToTs filter if specified
+    let conversationHistory = contextManagementMetadata.truncatedConversationHistory
+    if (this.summarizeUpToTs !== undefined) {
+      conversationHistory = this.contextManager.filterConversationHistoryByTimestamp(conversationHistory, this.chatermMessages, this.summarizeUpToTs)
+      this.summarizeUpToTs = undefined
+    }
+
+    let stream = this.api.createMessage(systemPrompt, conversationHistory)
 
     const iterator = stream[Symbol.asyncIterator]()
 
@@ -1724,6 +1740,10 @@ export class Task {
 
   private async prepareApiRequest(userContent: UserContent, includeHostDetails: boolean): Promise<void> {
     const userInputParts = this.consumeNextUserInputContentParts()
+
+    // Process slash commands from both text content and command chips
+    await this.processSlashCommands(userContent, userInputParts)
+
     const ephemeralBlocks = await this.buildEphemeralContextBlocksFromContentParts(userInputParts)
     if (ephemeralBlocks.length > 0) {
       userContent.push(...ephemeralBlocks)
@@ -1751,6 +1771,50 @@ export class Task {
     telemetryService.captureApiRequestEvent(this.taskId, await getGlobalState('apiProvider'), this.api.getModel().id, 'user', chatSettings?.mode)
     // Update API request message
     await this.updateApiRequestMessage(userContent)
+  }
+
+  /**
+   * Process slash commands in user content and content parts.
+   * This allows users to see simple commands like "/summary-to-doc" in the chat,
+   * while the LLM receives the complete prompt.
+   * Supports both text-based commands and command chips.
+   */
+  private async processSlashCommands(userContent: UserContent, contentParts?: ContentPart[]): Promise<void> {
+    try {
+      const userConfig = await getUserConfig()
+      const isChinese = userConfig?.language === 'zh-CN'
+
+      // Reset summarizeUpToTs for each request
+      this.summarizeUpToTs = undefined
+
+      // Process text-based slash commands
+
+      // Process command chips from content parts
+      if (contentParts) {
+        for (const part of contentParts) {
+          if (part.type === 'chip' && part.chipType === 'command') {
+            const command = part.ref.command
+            if (command === SLASH_COMMANDS.SUMMARY_TO_DOC) {
+              // Extract summarizeUpToTs if provided
+              if (part.ref.summarizeUpToTs) {
+                this.summarizeUpToTs = part.ref.summarizeUpToTs
+                console.log(`[Task] Summarize limited to messages up to timestamp: ${this.summarizeUpToTs}`)
+              }
+
+              // Replace text content with full prompt if text matches the command
+              for (const block of userContent) {
+                if (block.type === 'text' && block.text.trim() === command) {
+                  block.text = getSummaryToDocPrompt(isChinese)
+                  console.log(`[Task] Command chip "${command}" replaced with full prompt`)
+                }
+              }
+            }
+          }
+        }
+      }
+    } catch (error) {
+      console.error('[Task] Failed to process slash commands:', error)
+    }
   }
 
   private async handleFirstRequestCheckpoint(): Promise<void> {
@@ -2194,9 +2258,9 @@ export class Task {
         }
         return
       } else {
-        if (!command) return this.handleMissingParam('command', toolDescription)
-        if (!ip) return this.handleMissingParam('ip', toolDescription)
-        if (!requiresApprovalRaw) return this.handleMissingParam('requires_approval', toolDescription)
+        if (!command) return this.handleMissingParam('command', toolDescription, 'execute_command')
+        if (!ip) return this.handleMissingParam('ip', toolDescription, 'execute_command')
+        if (!requiresApprovalRaw) return this.handleMissingParam('requires_approval', toolDescription, 'execute_command')
         command = decodeHtmlEntities(command)
         // Perform security check
         const securityCheck = await this.performCommandSecurityCheck(command, toolDescription)
@@ -2325,9 +2389,9 @@ export class Task {
     }
   }
 
-  private async handleMissingParam(paramName: string, toolDescription: string): Promise<void> {
+  private async handleMissingParam(paramName: string, toolDescription: string, toolName: ToolUseName): Promise<void> {
     this.consecutiveMistakeCount++
-    this.pushToolResult(toolDescription, await this.sayAndCreateMissingParamError('execute_command', paramName))
+    this.pushToolResult(toolDescription, await this.sayAndCreateMissingParamError(toolName, paramName))
     return this.saveCheckpoint()
   }
   /**
@@ -2821,7 +2885,7 @@ export class Task {
     }
 
     // Handle incomplete tool calls
-    if (block.partial) {
+    if (block.partial && !isAllowPartialTool(block.name)) {
       // For incomplete tool calls, we don't execute, wait for complete call
       return
     }
@@ -2863,6 +2927,9 @@ export class Task {
       case 'use_skill':
         await this.handleUseSkillToolUse(block)
         break
+      case 'summarize_to_knowledge':
+        await this.handleSummarizeToKnowledgeToolUse(block)
+        break
       default:
         console.error(`[Task] Unknown tool name: ${block.name}`)
     }
@@ -2880,7 +2947,7 @@ export class Task {
       const limitStr = block.params.limit
       const sort = (block.params.sort as 'path' | 'none') || 'path'
       if (!pattern) {
-        await this.handleMissingParam('pattern', toolDescription)
+        await this.handleMissingParam('pattern', toolDescription, 'glob_search')
         return
       }
 
@@ -2934,7 +3001,7 @@ export class Task {
       const ctx = block.params.context_lines ? Number.parseInt(block.params.context_lines, 10) : 0
       const max = block.params.max_matches ? Number.parseInt(block.params.max_matches, 10) : 500
       if (!pattern) {
-        await this.handleMissingParam('pattern', toolDescription)
+        await this.handleMissingParam('pattern', toolDescription, 'grep_search')
         return
       }
 
@@ -3021,9 +3088,9 @@ export class Task {
         return
       }
 
-      if (!serverName) return this.handleMissingParam('server_name', toolDescription)
-      if (!toolName) return this.handleMissingParam('tool_name', toolDescription)
-      if (!argumentsStr) return this.handleMissingParam('arguments', toolDescription)
+      if (!serverName) return this.handleMissingParam('server_name', toolDescription, 'use_mcp_tool')
+      if (!toolName) return this.handleMissingParam('tool_name', toolDescription, 'use_mcp_tool')
+      if (!argumentsStr) return this.handleMissingParam('arguments', toolDescription, 'use_mcp_tool')
 
       let argumentsObj: Record<string, unknown>
       try {
@@ -3138,8 +3205,8 @@ export class Task {
       const serverName: string | undefined = block.params.server_name
       const uri: string | undefined = block.params.uri
 
-      if (!serverName) return this.handleMissingParam('server_name', toolDescription)
-      if (!uri) return this.handleMissingParam('uri', toolDescription)
+      if (!serverName) return this.handleMissingParam('server_name', toolDescription, 'access_mcp_resource')
+      if (!uri) return this.handleMissingParam('uri', toolDescription, 'access_mcp_resource')
 
       const mcpServers = this.mcpHub.getAllServers()
       const server = mcpServers.find((s) => s.name === serverName)
@@ -3184,7 +3251,7 @@ export class Task {
       const skillName: string | undefined = block.params.name
 
       if (!skillName) {
-        return this.handleMissingParam('name', toolDescription)
+        return this.handleMissingParam('name', toolDescription, 'use_skill')
       }
 
       if (!this.skillsManager) {
@@ -3804,6 +3871,59 @@ SUDO_CHECK:${localSystemInfo.sudoCheck}`
       this.pushToolResult(this.getToolDescription(block), `Todo 读取失败: ${error instanceof Error ? error.message : String(error)}`, {
         dontLock: true
       })
+    }
+  }
+
+  /**
+   * Handle summarize_to_knowledge tool: sends knowledge summary to frontend for file creation.
+   * The frontend is responsible for creating the file and opening the editor tab.
+   */
+  private async handleSummarizeToKnowledgeToolUse(block: ToolUse): Promise<void> {
+    const toolDescription = this.getToolDescription(block)
+    const fileName = block.params.file_name
+    const summary = block.params.summary
+
+    try {
+      // Handle partial streaming (parameters may be incomplete)
+      if (block.partial) {
+        await this.say(
+          'knowledge_summary',
+          JSON.stringify({
+            fileName: fileName || '',
+            summary: summary || ''
+          }),
+          true
+        )
+        return
+      }
+
+      // Only validate required parameters when streaming is complete
+      if (!fileName) {
+        await this.handleMissingParam('file_name', toolDescription, 'summarize_to_knowledge')
+        return
+      }
+
+      if (!summary) {
+        await this.handleMissingParam('summary', toolDescription, 'summarize_to_knowledge')
+        return
+      }
+
+      // Send final message with complete parameters
+      await this.say(
+        'knowledge_summary',
+        JSON.stringify({
+          fileName,
+          summary
+        }),
+        false
+      )
+
+      this.pushToolResult(toolDescription, `Knowledge summary has been sent to knowledge base. File: ${fileName}.md`)
+
+      await this.saveCheckpoint()
+    } catch (error) {
+      console.error('[Task] summarize_to_knowledge failed:', error)
+      this.pushToolResult(toolDescription, `Failed to save knowledge: ${error instanceof Error ? error.message : String(error)}`)
     }
   }
 

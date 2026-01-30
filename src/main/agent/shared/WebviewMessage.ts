@@ -24,6 +24,9 @@ export type ContextDocRef = { absPath: string; name?: string; type?: 'file' | 'd
 
 export type ContextPastChatRef = { taskId: string; title?: string }
 
+// Slash command reference (e.g., /summary-to-doc)
+export type ContextCommandRef = { command: string; label?: string; summarizeUpToTs?: number }
+
 export type ContextRefs = {
   docs?: ContextDocRef[]
   pastChats?: ContextPastChatRef[]
@@ -32,7 +35,8 @@ export type ContextRefs = {
 export type TextContentPart = { type: 'text'; text: string }
 export type DocChipContentPart = { type: 'chip'; chipType: 'doc'; ref: ContextDocRef }
 export type ChatChipContentPart = { type: 'chip'; chipType: 'chat'; ref: ContextPastChatRef }
-export type ChipContentPart = DocChipContentPart | ChatChipContentPart
+export type CommandChipContentPart = { type: 'chip'; chipType: 'command'; ref: ContextCommandRef }
+export type ChipContentPart = DocChipContentPart | ChatChipContentPart | CommandChipContentPart
 export type ImageContentPart = {
   type: 'image'
   mediaType: 'image/jpeg' | 'image/png' | 'image/gif' | 'image/webp'

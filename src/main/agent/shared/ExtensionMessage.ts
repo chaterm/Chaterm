@@ -139,6 +139,7 @@ export type ChatermSay =
   | 'sshInfo'
   | 'interactive_command_notification'
   | 'search_result'
+  | 'knowledge_summary'
 
 export interface ChatermSayTool {
   tool: 'readFile' | 'listFilesTopLevel' | 'listFilesRecursive' | 'searchFiles'
