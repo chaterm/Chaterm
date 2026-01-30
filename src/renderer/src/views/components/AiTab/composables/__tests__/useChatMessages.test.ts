@@ -73,7 +73,6 @@ describe('useChatMessages', () => {
     showRetryButton: false,
     showSendButton: true,
     buttonsDisabled: false,
-    resumeDisabled: false,
     isExecutingCommand: false,
     messageFeedbacks: {} as Record<string, 'like' | 'dislike'>,
     lastStreamMessage: null,

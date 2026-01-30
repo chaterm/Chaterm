@@ -774,7 +774,6 @@ export default {
     autoApproveReadOnly: 'Авто только для чтения',
     autoApproveReadOnlyTip: 'Команды только для чтения в этой сессии будут выполняться автоматически без подтверждения',
     cancel: 'Отмена',
-    resume: 'Продолжить',
     agentMessage: 'Запрос команды, устранение ошибок, обработка задач, все',
     cmdMessage: 'Работа на явно открытом терминале',
     chatMessage: 'Запрос, обучение, brainstorm ',

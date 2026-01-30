@@ -766,7 +766,6 @@ export default {
     autoApproveReadOnly: '查询类自动执行',
     autoApproveReadOnlyTip: '当前会话内的查询类命令将自动执行，无需再次确认',
     cancel: '取消',
-    resume: '恢复',
     agentMessage: '到任意主机执行命令查询，排查错误和任务处理等任何事情',
     cmdMessage: '需要到当前活跃终端执行命令，请先在终端窗口中连接目标主机',
     chatMessage: '与AI对话，学习，头脑风暴（无法操作服务器）',

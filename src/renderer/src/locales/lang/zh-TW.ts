@@ -756,7 +756,6 @@ export default {
     autoApproveReadOnly: '查詢類自動執行',
     autoApproveReadOnlyTip: '當前會話內的查詢類命令將自動執行，無需再次確認',
     cancel: '取消',
-    resume: '恢復',
     agentMessage: '到任意主機執行命令查詢，排查錯誤和任務處理等任何事情',
     cmdMessage: '需要到當前活躍終端執行命令，請先在終端窗口中連接目標主機',
     chatMessage: '與AI對話，學習，頭腦風暴（無法操作伺服器）',

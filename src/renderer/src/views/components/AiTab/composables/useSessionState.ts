@@ -15,7 +15,6 @@ export interface SessionState {
   showRetryButton: boolean // Whether to show retry button
   showSendButton: boolean // Whether to show send button
   buttonsDisabled: boolean // Whether buttons are disabled
-  resumeDisabled: boolean // Whether resume button is disabled
   isExecutingCommand: boolean // Whether command is executing
   messageFeedbacks: Record<string, 'like' | 'dislike'> // Message feedback records
   lastStreamMessage: ExtensionMessage | null // Last stream message
@@ -74,7 +73,6 @@ export const useSessionState = createGlobalState(() => {
     showRetryButton: false,
     showSendButton: true,
     buttonsDisabled: false,
-    resumeDisabled: false,
     isExecutingCommand: false,
     messageFeedbacks: {},
     lastStreamMessage: null,
@@ -148,7 +146,6 @@ export const useSessionState = createGlobalState(() => {
   const chatHistory = computed(() => currentSession.value?.chatHistory ?? [])
   const showSendButton = computed(() => currentSession.value?.showSendButton ?? true)
   const buttonsDisabled = computed(() => currentSession.value?.buttonsDisabled ?? false)
-  const resumeDisabled = computed(() => currentSession.value?.resumeDisabled ?? false)
   const isExecutingCommand = computed(() => currentSession.value?.isExecutingCommand ?? false)
   const showRetryButton = computed(() => currentSession.value?.showRetryButton ?? false)
 
@@ -162,18 +159,6 @@ export const useSessionState = createGlobalState(() => {
       (msg) => msg.role === 'assistant' && msg.say !== 'sshInfo' && (msg.say === 'text' || msg.say === 'completion_result' || msg.ask === 'command')
     )
     return hasAgentReply ? history.filter((msg) => msg.say !== 'sshInfo') : history
-  })
-
-  const showResumeButton = computed(() => {
-    if (!currentSession.value) return false
-
-    const session = currentSession.value
-    const lastMessage = session.chatHistory.at(-1)
-
-    if (!lastMessage) {
-      return false
-    }
-    return lastMessage.ask === 'resume_task'
   })
 
   const shouldShowSendButton = computed(() => {
@@ -197,7 +182,6 @@ export const useSessionState = createGlobalState(() => {
       const session = currentSession.value
       if (session) {
         session.buttonsDisabled = false
-        session.resumeDisabled = false
       }
     }
   )
@@ -375,10 +359,8 @@ export const useSessionState = createGlobalState(() => {
     filteredChatHistory,
     showSendButton,
     buttonsDisabled,
-    resumeDisabled,
     isExecutingCommand,
     showRetryButton,
-    showResumeButton,
     shouldShowSendButton,
     attachTabContext,
     isEmptyTab,

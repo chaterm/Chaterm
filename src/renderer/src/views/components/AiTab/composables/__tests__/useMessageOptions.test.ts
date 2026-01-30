@@ -24,7 +24,6 @@ describe('useMessageOptions', () => {
     showRetryButton: false,
     showSendButton: true,
     buttonsDisabled: false,
-    resumeDisabled: false,
     isExecutingCommand: false,
     messageFeedbacks: {},
     lastStreamMessage: null,
