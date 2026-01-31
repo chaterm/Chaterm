@@ -67,7 +67,6 @@ describe('useCommandInteraction', () => {
     showSendButton: true,
     buttonsDisabled: false,
     isExecutingCommand: false,
-    messageFeedbacks: {} as Record<string, 'like' | 'dislike'>,
     lastStreamMessage: null,
     lastPartialMessage: null,
     shouldStickToBottom: true,

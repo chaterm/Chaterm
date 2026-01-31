@@ -426,7 +426,6 @@ interface AiSidebarState {
       buttonsDisabled: boolean
       isExecutingCommand: boolean
       showRetryButton: boolean
-      messageFeedbacks: Record<string, 'like' | 'dislike'>
       shouldStickToBottom?: boolean
     }
   }>

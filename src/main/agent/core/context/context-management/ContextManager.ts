@@ -822,4 +822,87 @@ export class ContextManager {
 
     return percentCharactersSaved
   }
+
+  /**
+   * Filter conversation history by timestamp, returning messages up to the specified timestamp.
+   * Used for summarization to include only messages up to a certain point.
+   * @param conversationHistory - The full conversation history
+   * @param chatermMessages - The chaterm messages array for timestamp lookup
+   * @param upToTs - The timestamp to filter up to
+   */
+  filterConversationHistoryByTimestamp(
+    conversationHistory: Anthropic.Messages.MessageParam[],
+    chatermMessages: ChatermMessage[],
+    upToTs: number
+  ): Anthropic.Messages.MessageParam[] {
+    const msgIndex = chatermMessages.findIndex((m) => m.ts >= upToTs)
+    if (msgIndex <= 0) return conversationHistory
+
+    const targetMsg = chatermMessages[msgIndex]
+    const apiIndex = targetMsg.conversationHistoryIndex
+
+    if (apiIndex === undefined || apiIndex < 0 || apiIndex >= conversationHistory.length) {
+      return conversationHistory
+    }
+
+    // Verify apiIndex accuracy by comparing message content (only if text is available)
+    if (targetMsg.text) {
+      const apiMsg = conversationHistory[apiIndex]
+      if (!this.verifyMessageMatch(apiMsg, targetMsg)) {
+        return conversationHistory
+      }
+    }
+
+    // Preserve the last user message (current request) after truncation
+    const lastUserMsg = conversationHistory[conversationHistory.length - 1]
+    const truncated = conversationHistory.slice(0, apiIndex)
+
+    if (lastUserMsg && lastUserMsg.role === 'user') {
+      truncated.push(lastUserMsg)
+    }
+
+    return truncated
+  }
+
+  /**
+   * Verify if API message matches ChatermMessage by comparing content
+   * @param apiMsg - API conversation history message
+   * @param chatermMsg - Chaterm message
+   * @returns true if content matches
+   */
+  private verifyMessageMatch(apiMsg: Anthropic.Messages.MessageParam, chatermMsg: ChatermMessage): boolean {
+    // Extract text content from API message
+    const apiText = this.extractTextFromApiMessage(apiMsg)
+
+    // Compare with ChatermMessage text
+    const chatermText = chatermMsg.text || ''
+
+    // Simple text comparison - consider it a match if the API message contains
+    // a significant portion of the chaterm message text
+    if (!chatermText) return false
+
+    return apiText.includes(chatermText.slice(0, Math.min(100, chatermText.length)))
+  }
+
+  /**
+   * Extract text content from API message
+   * @param apiMsg - API conversation history message
+   * @returns extracted text
+   */
+  private extractTextFromApiMessage(apiMsg: Anthropic.Messages.MessageParam): string {
+    const content = apiMsg.content
+
+    if (typeof content === 'string') {
+      return content
+    }
+
+    if (Array.isArray(content)) {
+      return content
+        .filter((block): block is Anthropic.Messages.TextBlock => block.type === 'text')
+        .map((block) => block.text)
+        .join(' ')
+    }
+
+    return ''
+  }
 }

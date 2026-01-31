@@ -16,7 +16,6 @@ export interface SessionState {
   showSendButton: boolean // Whether to show send button
   buttonsDisabled: boolean // Whether buttons are disabled
   isExecutingCommand: boolean // Whether command is executing
-  messageFeedbacks: Record<string, 'like' | 'dislike'> // Message feedback records
   lastStreamMessage: ExtensionMessage | null // Last stream message
   lastPartialMessage: ExtensionMessage | null // Last partial message
   shouldStickToBottom: boolean // Whether should stick to bottom
@@ -63,6 +62,8 @@ export const useSessionState = createGlobalState(() => {
 
   const chatContainerScrollSignal = ref(0)
 
+  const messageFeedbacks = ref<Record<string, 'like' | 'dislike'>>({})
+
   // Per-tab computed cache for user-assistant pairs
   const tabPairsCache = new Map<string, ComputedRef<UserAssistantPair[]>>()
 
@@ -74,7 +75,6 @@ export const useSessionState = createGlobalState(() => {
     showSendButton: true,
     buttonsDisabled: false,
     isExecutingCommand: false,
-    messageFeedbacks: {},
     lastStreamMessage: null,
     lastPartialMessage: null,
     shouldStickToBottom: true,
@@ -366,6 +366,7 @@ export const useSessionState = createGlobalState(() => {
     isEmptyTab,
     chatTextareaRef,
     chatContainerScrollSignal,
+    messageFeedbacks,
     isLastMessage,
     getTabUserAssistantPairs,
     getTabChatTypeValue,

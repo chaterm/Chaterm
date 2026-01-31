@@ -154,22 +154,18 @@
                         <CheckCircleFilled style="color: #52c41a; margin-right: 4px" />
                         {{ $t('ai.taskCompleted') }}
                       </div>
-                      <div
-                        v-if="isLastMessage(tab.id, message.id)"
-                        class="message-feedback"
-                      >
+                      <div class="message-feedback">
                         <a-button
                           type="text"
                           class="feedback-btn like-btn"
                           size="small"
-                          :disabled="isMessageFeedbackSubmitted(message.id)"
                           @click="handleFeedback(message, 'like')"
                         >
                           <template #icon>
                             <LikeOutlined
                               :style="{
-                                color: getMessageFeedback(message.id) === 'like' ? '#52c41a' : '',
-                                opacity: getMessageFeedback(message.id) === 'like' ? 1 : ''
+                                color: message.ts && getMessageFeedback(message.ts) === 'like' ? '#52c41a' : '',
+                                opacity: message.ts && getMessageFeedback(message.ts) === 'like' ? 1 : ''
                               }"
                             />
                           </template>
@@ -178,16 +174,26 @@
                           type="text"
                           class="feedback-btn dislike-btn"
                           size="small"
-                          :disabled="isMessageFeedbackSubmitted(message.id)"
                           @click="handleFeedback(message, 'dislike')"
                         >
                           <template #icon>
                             <DislikeOutlined
                               :style="{
-                                color: getMessageFeedback(message.id) === 'dislike' ? '#ff4d4f' : '',
-                                opacity: getMessageFeedback(message.id) === 'dislike' ? 1 : ''
+                                color: message.ts && getMessageFeedback(message.ts) === 'dislike' ? '#ff4d4f' : '',
+                                opacity: message.ts && getMessageFeedback(message.ts) === 'dislike' ? 1 : ''
                               }"
                             />
+                          </template>
+                        </a-button>
+                        <a-button
+                          type="text"
+                          class="feedback-btn summarize-btn"
+                          size="small"
+                          :title="$t('ai.summarizeToKnowledge')"
+                          @click="handleSummarizeToKnowledge(message)"
+                        >
+                          <template #icon>
+                            <BookOutlined />
                           </template>
                         </a-button>
                       </div>
@@ -725,6 +731,7 @@ import {
   EditOutlined,
   EllipsisOutlined,
   ExportOutlined,
+  BookOutlined,
   LikeOutlined,
   PlayCircleOutlined,
   ReloadOutlined,
@@ -776,7 +783,7 @@ const {
   currentTab,
   isEmptyTab,
   isLastMessage,
-  currentSession,
+  messageFeedbacks,
   buttonsDisabled,
   getTabUserAssistantPairs,
   getTabChatTypeValue,
@@ -810,8 +817,8 @@ const {
   formatParamValue,
   handleFeedback,
   getMessageFeedback,
-  isMessageFeedbackSubmitted,
-  handleTruncateAndSend
+  handleTruncateAndSend,
+  handleSummarizeToKnowledge
 } = useChatMessages(scrollToBottom, clearTodoState, markLatestMessageWithTodoUpdate, currentTodos, checkModelConfig)
 
 // Command interactions
@@ -971,10 +978,7 @@ onMounted(async () => {
 
   await initModel()
 
-  const messageFeedbacks = ((await getGlobalState('messageFeedbacks')) || {}) as Record<string, 'like' | 'dislike'>
-  if (currentSession.value) {
-    currentSession.value.messageFeedbacks = messageFeedbacks
-  }
+  messageFeedbacks.value = ((await getGlobalState('messageFeedbacks')) || {}) as Record<string, 'like' | 'dislike'>
 
   initializeAutoScroll()
 

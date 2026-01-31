@@ -5,9 +5,10 @@ import type { ChatMessage, Host } from '../../types'
 describe('useSessionState', () => {
   beforeEach(() => {
     // Reset state between tests by creating new instance
-    const { chatTabs, currentChatId } = useSessionState()
+    const { chatTabs, currentChatId, messageFeedbacks } = useSessionState()
     chatTabs.value = []
     currentChatId.value = undefined
+    messageFeedbacks.value = {}
   })
 
   describe('createEmptySessionState', () => {
@@ -23,7 +24,6 @@ describe('useSessionState', () => {
         showSendButton: true,
         buttonsDisabled: false,
         isExecutingCommand: false,
-        messageFeedbacks: {},
         lastStreamMessage: null,
         lastPartialMessage: null,
         shouldStickToBottom: true,
@@ -142,6 +142,17 @@ describe('useSessionState', () => {
       currentChatId.value = 'non-existent'
 
       expect(currentTab.value).toBeUndefined()
+    })
+  })
+
+  describe('messageFeedbacks', () => {
+    it('should keep global feedbacks across tabs', () => {
+      const { messageFeedbacks } = useSessionState()
+
+      messageFeedbacks.value = { 'msg-1': 'like' }
+
+      const { messageFeedbacks: secondRef } = useSessionState()
+      expect(secondRef.value).toEqual({ 'msg-1': 'like' })
     })
   })
 

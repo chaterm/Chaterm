@@ -195,6 +195,40 @@ Usage:
 <name>skill-name-here</name>
 </use_skill>
 
+## summarize_to_knowledge
+Description: Summarize the current conversation context into structured knowledge and save it to the knowledge base. Use this tool when the user explicitly requests to save conversation insights, solutions, or learnings to the knowledge base for future reference.
+The summary should be well-structured in Markdown format, extracting key information such as:
+- Problem description and background
+- Solutions and key steps
+- Important commands or code snippets (if any)
+- Lessons learned and best practices
+- Related references (if any)
+Parameters:
+- file_name: (required) The name of the knowledge file with .md extension but without path (e.g., "ssh-troubleshooting.md", "docker-setup-guide.md"). Should be concise and reflect the topic.
+- summary: (required) The summarized knowledge content in Markdown format. Should be well-structured with headings and sections.
+Usage:
+<summarize_to_knowledge>
+<file_name>topic-name-here</file_name>
+<summary>
+# Topic Title
+
+## Background
+Brief description of the problem or context...
+
+## Solution
+Step-by-step solution...
+
+## Key Commands
+\`\`\`bash
+# Important commands used
+\`\`\`
+
+## Lessons Learned
+- Key takeaway 1
+- Key takeaway 2
+</summary>
+</summarize_to_knowledge>
+
 # Tool Use Examples
 
 ## Example 1: Requesting to execute a non-interactive command
@@ -529,6 +563,40 @@ export const SYSTEM_PROMPT_CN = `你是 Chaterm，一位拥有 20 年经验的�
 <use_skill>
 <name>技能名称</name>
 </use_skill>
+
+## summarize_to_knowledge
+描述：将当前对话上下文总结为结构化知识并保存到知识库。当用户明确要求将对话中的见解、解决方案或经验保存到知识库以供将来参考时，使用此工具。
+总结内容应以 Markdown 格式编写，提取以下关键信息：
+- 问题描述和背景
+- 解决方案和关键步骤
+- 重要的命令或代码片段（如有）
+- 经验教训和最佳实践
+- 相关参考资料（如有）
+参数：
+- file_name: (必需) 知识文件名称，需包含 .md 扩展名但不含路径（例如 "SSH连接故障排查.md"、"Docker环境配置指南.md"）。应简洁并能反映主题。
+- summary: (必需) Markdown 格式的总结内容。应结构清晰，包含标题和章节。
+用法：
+<summarize_to_knowledge>
+<file_name>主题名称</file_name>
+<summary>
+# 主题标题
+
+## 背景
+问题或上下文的简要描述...
+
+## 解决方案
+逐步解决方案...
+
+## 关键命令
+\`\`\`bash
+# 使用的重要命令
+\`\`\`
+
+## 经验总结
+- 关键要点 1
+- 关键要点 2
+</summary>
+</summarize_to_knowledge>
 
 # 工具使用示例
 
