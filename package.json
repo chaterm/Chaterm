@@ -64,7 +64,7 @@
     "@kubernetes/client-node": "^1.4.0",
     "@modelcontextprotocol/sdk": "^1.25.3",
     "@types/ssh2": "^1.15.5",
-    "@vueuse/core": "^14.1.0",
+    "@vueuse/core": "^14.2.0",
     "adm-zip": "^0.5.16",
     "axios": "^1.13.4",
     "better-sqlite3": "^12.6.2",
