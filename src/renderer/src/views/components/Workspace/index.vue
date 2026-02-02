@@ -131,6 +131,13 @@
                         @click="cancelComment"
                       />
                     </div>
+                    <span
+                      v-if="dataRef.comment && editingNode !== dataRef.key && commentNode !== dataRef.key"
+                      class="comment-text"
+                      :title="dataRef.comment"
+                    >
+                      ({{ dataRef.comment }})
+                    </span>
                   </span>
                 </div>
               </template>
@@ -174,6 +181,13 @@
                   >
                     <laptop-outlined class="computer-icon" />
                     <span class="hostname-text">{{ title }}</span>
+                    <span
+                      v-if="dataRef.comment"
+                      class="comment-text"
+                      :title="dataRef.comment"
+                    >
+                      ({{ dataRef.comment }})
+                    </span>
                   </span>
                   <!-- Comment edit input -->
                   <span
