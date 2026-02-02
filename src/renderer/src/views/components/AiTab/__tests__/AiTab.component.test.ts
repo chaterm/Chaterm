@@ -142,7 +142,6 @@ function createTestI18n() {
           approve: 'Approve',
           run: 'Run',
           copy: 'Copy',
-          resume: 'Resume',
           retry: 'Retry',
           searchHost: 'Search by IP',
           loading: 'loading...',

@@ -7,6 +7,7 @@ import { upgradeMcpToolStateSupport } from './migrations/add-mcp-tool-state-supp
 import { upgradeMcpToolCallSupport } from './migrations/add-mcp-tool-call-support'
 import { upgradeContentPartsSupport } from './migrations/add-content-parts-support'
 import { upgradeSkillsSupport } from './migrations/add-skills-support'
+import { upgradeMessageIndexSupport } from './migrations/add-message-index-support'
 import { IndexDBMigrator } from './indexdb-migrator'
 import { getUserDataPath } from '../../config/edition'
 
@@ -296,6 +297,7 @@ async function applyAllMigrations(db: Database.Database): Promise<void> {
   await upgradeContentPartsSupport(db)
   upgradeSnippetGroups(db)
   upgradeSkillsSupport(db)
+  await upgradeMessageIndexSupport(db)
 }
 
 export async function initDatabase(userId?: number): Promise<Database.Database> {

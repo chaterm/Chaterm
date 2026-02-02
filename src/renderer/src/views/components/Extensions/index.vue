@@ -141,7 +141,6 @@ import iconAlias from '@/assets/img/alias.svg'
 import iconJumpserver from '@/assets/img/jumpserver.svg'
 import { userConfigStore } from '@/services/userConfigStoreService'
 import eventBus from '@/utils/eventBus'
-import { isGlobalEdition } from '@/utils/edition'
 import { getPluginDownload, getPluginIconUrl } from '@/api/plugin/plugin'
 import { type DisplayPluginItem, usePluginStore } from './usePlugins'
 
@@ -551,7 +550,7 @@ const onUpdateClick = async (item: any) => {
 }
 
 const onSubscribeClick = (_item: any) => {
-  const pricingUrl = isGlobalEdition() ? 'https://chaterm.ai' : 'https://chaterm.cn'
+  const pricingUrl = 'https://github.com/chaterm/Chaterm/discussions/1521'
   window.open(pricingUrl, '_blank')
 }
 

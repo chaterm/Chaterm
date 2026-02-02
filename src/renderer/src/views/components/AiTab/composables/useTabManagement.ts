@@ -209,7 +209,6 @@ export function useTabManagement(options: TabManagementOptions) {
             item.say === 'search_result' ||
             item.say === 'text' ||
             item.say === 'reasoning' ||
-            item.ask === 'resume_task' ||
             item.say === 'user_feedback' ||
             item.say === 'sshInfo' ||
             item.say === 'interactive_command_notification')
@@ -263,9 +262,7 @@ export function useTabManagement(options: TabManagementOptions) {
         showRetryButton: false,
         showSendButton: true,
         buttonsDisabled: false,
-        resumeDisabled: false,
         isExecutingCommand: false,
-        messageFeedbacks: {},
         lastStreamMessage: null,
         lastPartialMessage: null,
         shouldStickToBottom: true,

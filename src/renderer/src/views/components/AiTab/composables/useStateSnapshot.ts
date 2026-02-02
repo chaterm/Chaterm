@@ -30,10 +30,8 @@ export function useStateSnapshot(emit: (event: 'state-changed', ...args: any[]) 
           responseLoading: tab.session.responseLoading,
           showSendButton: tab.session.showSendButton,
           buttonsDisabled: tab.session.buttonsDisabled,
-          resumeDisabled: tab.session.resumeDisabled,
           isExecutingCommand: tab.session.isExecutingCommand,
           showRetryButton: tab.session.showRetryButton,
-          messageFeedbacks: { ...tab.session.messageFeedbacks },
           shouldStickToBottom: tab.session.shouldStickToBottom
         }
       }))
@@ -69,10 +67,8 @@ export function useStateSnapshot(emit: (event: 'state-changed', ...args: any[]) 
             responseLoading: savedTab.session.responseLoading || false,
             showSendButton: savedTab.session.showSendButton ?? true,
             buttonsDisabled: savedTab.session.buttonsDisabled || false,
-            resumeDisabled: savedTab.session.resumeDisabled || false,
             isExecutingCommand: savedTab.session.isExecutingCommand || false,
             showRetryButton: savedTab.session.showRetryButton || false,
-            messageFeedbacks: savedTab.session.messageFeedbacks || {},
             lastStreamMessage: null,
             lastPartialMessage: null,
             shouldStickToBottom: savedTab.session.shouldStickToBottom ?? true

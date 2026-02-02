@@ -66,6 +66,7 @@ import { LocalTerminalManager, LocalCommandProcess } from '../../integrations/lo
 import { formatResponse } from '@core/prompts/responses'
 import { addUserInstructions, SYSTEM_PROMPT, SYSTEM_PROMPT_CHAT, SYSTEM_PROMPT_CN, SYSTEM_PROMPT_CHAT_CN } from '@core/prompts/system'
 import { getSwitchPromptByAssetType } from '@core/prompts/switch-prompts'
+import { SLASH_COMMANDS, getSummaryToDocPrompt } from '@core/prompts/slash-commands'
 import { CommandSecurityManager } from '../security/CommandSecurityManager'
 import { getContextWindowInfo } from '@core/context/context-management/context-window-utils'
 import { ModelContextTracker } from '@core/context/context-tracking/ModelContextTracker'
@@ -86,6 +87,13 @@ import { ExternalAssetCache } from '../../../plugin/pluginIpc'
 
 type ToolResponse = string | Array<Anthropic.TextBlockParam | Anthropic.ImageBlockParam>
 type UserContent = Array<Anthropic.ContentBlockParam>
+
+/**
+ * Check if a tool allows partial block execution
+ */
+function isAllowPartialTool(toolName: string): boolean {
+  return toolName === 'summarize_to_knowledge' || toolName === 'attempt_completion'
+}
 
 export class Task {
   private updateTaskHistory: (historyItem: HistoryItem) => Promise<HistoryItem[]>
@@ -120,6 +128,7 @@ export class Task {
   checkpointTrackerErrorMessage?: string
   conversationHistoryDeletedRange?: [number, number]
   isInitialized = false
+  summarizeUpToTs?: number // Limit conversation history for current API request only
 
   // Metadata tracking
   private modelContextTracker: ModelContextTracker
@@ -668,13 +677,8 @@ export class Task {
     await saveApiConversationHistory(this.taskId, this.apiConversationHistory)
   }
 
-  private async overwriteApiConversationHistory(newHistory: Anthropic.MessageParam[]) {
-    this.apiConversationHistory = newHistory
-    await saveApiConversationHistory(this.taskId, this.apiConversationHistory)
-  }
-
   private async addToChatermMessages(message: ChatermMessage) {
-    message.conversationHistoryIndex = this.apiConversationHistory.length - 1 // NOTE: this is the index of the last added message which is the user message, and once the chatermmessages have been presented we update the apiconversationhistory with the completed assistant message. This means when resetting to a message, we need to +1 this index to get the correct assistant message that this tool use corresponds to
+    message.conversationHistoryIndex = this.apiConversationHistory.length
     message.conversationHistoryDeletedRange = this.conversationHistoryDeletedRange
     this.chatermMessages.push(message)
     await this.saveChatermMessagesAndUpdateHistory()
@@ -715,8 +719,8 @@ export class Task {
       // combined as they are in ChatView
       const apiMetrics = getApiMetrics(combineApiRequests(combineCommandSequences(this.chatermMessages.slice(1))))
       const taskMessage = this.chatermMessages[0] // first message is always the task say
-      const lastRelevantMessage =
-        this.chatermMessages[findLastIndex(this.chatermMessages, (m) => !(m.ask === 'resume_task' || m.ask === 'resume_completed_task'))]
+      const lastRelevantMessage = this.chatermMessages.at(-1)
+      if (!lastRelevantMessage) return
 
       await this.updateTaskHistory({
         id: this.taskId,
@@ -1113,13 +1117,7 @@ export class Task {
   private async resumeTaskFromHistory() {
     const modifiedChatermMessages = await getChatermMessages(this.taskId)
 
-    // Remove any resume messages that may have been added before
-    const lastRelevantMessageIndex = findLastIndex(modifiedChatermMessages, (m) => !(m.ask === 'resume_task' || m.ask === 'resume_completed_task'))
-    if (lastRelevantMessageIndex !== -1) {
-      modifiedChatermMessages.splice(lastRelevantMessageIndex + 1)
-    }
-
-    // since we don't use api_req_finished anymore, we need to check if the last api_req_started has a cost value, if it doesn't and no cancellation reason to present, then we remove it since it indicates an api request without any partial content streamed
+    // Remove incomplete api_req_started (no cost and no cancel reason indicates interrupted request)
     const lastApiReqStartedIndex = findLastIndex(modifiedChatermMessages, (m) => m.type === 'say' && m.say === 'api_req_started')
     if (lastApiReqStartedIndex !== -1) {
       const lastApiReqStarted = modifiedChatermMessages[lastApiReqStartedIndex]
@@ -1131,96 +1129,23 @@ export class Task {
 
     await this.overwriteChatermMessages(modifiedChatermMessages)
     this.chatermMessages = await getChatermMessages(this.taskId)
-
     this.apiConversationHistory = await getSavedApiConversationHistory(this.taskId)
-
-    // load the context history state
-    await this.contextManager.initializeContextHistory(this.taskId) // TODO:fixme
-
-    const lastChatermMessage = this.chatermMessages.at(-1)
-
-    let askType: ChatermAsk
-    if (lastChatermMessage?.ask === 'completion_result') {
-      askType = 'resume_completed_task'
-    } else {
-      askType = 'resume_task'
-    }
+    await this.contextManager.initializeContextHistory(this.taskId)
 
     this.isInitialized = true
 
-    const { response, text, contentParts } = await this.ask(askType) // calls poststatetowebview
-    let responseText: string | undefined
-    if (response === 'messageResponse') {
-      await this.sayUserFeedback(text ?? '', contentParts)
-      responseText = text
+    // Wait for user to send a message to continue
+    const { text, contentParts } = await this.ask('resume_task', '', false)
+
+    // TODO:support only chip or image input
+    if (text) {
+      await this.sayUserFeedback(text, contentParts)
+
+      // If last API message is user, remove it (API requires user/assistant alternation)
+      let userContent: UserContent = [{ type: 'text', text }]
+
+      await this.initiateTaskLoop(userContent)
     }
-
-    const existingApiConversationHistory: Anthropic.Messages.MessageParam[] = await getSavedApiConversationHistory(this.taskId)
-
-    // Remove the last user message so we can update it with the resume message
-    let modifiedOldUserContent: UserContent // either the last message if its user message, or the user message before the last (assistant) message
-    let modifiedApiConversationHistory: Anthropic.Messages.MessageParam[] // need to remove the last user message to replace with new modified user message
-    if (existingApiConversationHistory.length > 0) {
-      const lastMessage = existingApiConversationHistory[existingApiConversationHistory.length - 1]
-      if (lastMessage.role === 'assistant') {
-        modifiedApiConversationHistory = [...existingApiConversationHistory]
-        modifiedOldUserContent = []
-      } else if (lastMessage.role === 'user') {
-        const existingUserContent: UserContent = Array.isArray(lastMessage.content)
-          ? lastMessage.content
-          : [{ type: 'text', text: lastMessage.content }]
-        modifiedApiConversationHistory = existingApiConversationHistory.slice(0, -1)
-        modifiedOldUserContent = [...existingUserContent]
-      } else {
-        throw new Error('Unexpected: Last message is not a user or assistant message')
-      }
-    } else {
-      throw new Error('Unexpected: No existing API conversation history')
-    }
-
-    let newUserContent: UserContent = [...modifiedOldUserContent]
-
-    const agoText = (() => {
-      const timestamp = lastChatermMessage?.ts ?? Date.now()
-      const now = Date.now()
-      const diff = now - timestamp
-      const minutes = Math.floor(diff / 60000)
-      const hours = Math.floor(minutes / 60)
-      const days = Math.floor(hours / 24)
-
-      if (days > 0) {
-        return `${days} day${days > 1 ? 's' : ''} ago`
-      }
-      if (hours > 0) {
-        return `${hours} hour${hours > 1 ? 's' : ''} ago`
-      }
-      if (minutes > 0) {
-        return `${minutes} minute${minutes > 1 ? 's' : ''} ago`
-      }
-      return 'just now'
-    })()
-
-    const wasRecent = lastChatermMessage?.ts && Date.now() - lastChatermMessage.ts < 30_000
-    const chatSettings = await getGlobalState('chatSettings')
-
-    const [taskResumptionMessage, userResponseMessage] = formatResponse.taskResumption(chatSettings?.mode, agoText, wasRecent, responseText)
-
-    if (taskResumptionMessage !== '') {
-      newUserContent.push({
-        type: 'text',
-        text: taskResumptionMessage
-      })
-    }
-
-    if (userResponseMessage !== '') {
-      newUserContent.push({
-        type: 'text',
-        text: userResponseMessage
-      })
-    }
-
-    await this.overwriteApiConversationHistory(modifiedApiConversationHistory)
-    await this.initiateTaskLoop(newUserContent)
   }
 
   private async initiateTaskLoop(userContent: UserContent): Promise<void> {
@@ -1642,7 +1567,14 @@ export class Task {
       await this.saveChatermMessagesAndUpdateHistory() // saves task history item which we use to keep track of conversation history deleted range
     }
 
-    let stream = this.api.createMessage(systemPrompt, contextManagementMetadata.truncatedConversationHistory)
+    // Apply summarizeUpToTs filter if specified
+    let conversationHistory = contextManagementMetadata.truncatedConversationHistory
+    if (this.summarizeUpToTs !== undefined) {
+      conversationHistory = this.contextManager.filterConversationHistoryByTimestamp(conversationHistory, this.chatermMessages, this.summarizeUpToTs)
+      this.summarizeUpToTs = undefined
+    }
+
+    let stream = this.api.createMessage(systemPrompt, conversationHistory)
 
     const iterator = stream[Symbol.asyncIterator]()
 
@@ -1808,6 +1740,10 @@ export class Task {
 
   private async prepareApiRequest(userContent: UserContent, includeHostDetails: boolean): Promise<void> {
     const userInputParts = this.consumeNextUserInputContentParts()
+
+    // Process slash commands from both text content and command chips
+    await this.processSlashCommands(userContent, userInputParts)
+
     const ephemeralBlocks = await this.buildEphemeralContextBlocksFromContentParts(userInputParts)
     if (ephemeralBlocks.length > 0) {
       userContent.push(...ephemeralBlocks)
@@ -1835,6 +1771,50 @@ export class Task {
     telemetryService.captureApiRequestEvent(this.taskId, await getGlobalState('apiProvider'), this.api.getModel().id, 'user', chatSettings?.mode)
     // Update API request message
     await this.updateApiRequestMessage(userContent)
+  }
+
+  /**
+   * Process slash commands in user content and content parts.
+   * This allows users to see simple commands like "/summary-to-doc" in the chat,
+   * while the LLM receives the complete prompt.
+   * Supports both text-based commands and command chips.
+   */
+  private async processSlashCommands(userContent: UserContent, contentParts?: ContentPart[]): Promise<void> {
+    try {
+      const userConfig = await getUserConfig()
+      const isChinese = userConfig?.language === 'zh-CN'
+
+      // Reset summarizeUpToTs for each request
+      this.summarizeUpToTs = undefined
+
+      // Process text-based slash commands
+
+      // Process command chips from content parts
+      if (contentParts) {
+        for (const part of contentParts) {
+          if (part.type === 'chip' && part.chipType === 'command') {
+            const command = part.ref.command
+            if (command === SLASH_COMMANDS.SUMMARY_TO_DOC) {
+              // Extract summarizeUpToTs if provided
+              if (part.ref.summarizeUpToTs) {
+                this.summarizeUpToTs = part.ref.summarizeUpToTs
+                console.log(`[Task] Summarize limited to messages up to timestamp: ${this.summarizeUpToTs}`)
+              }
+
+              // Replace text content with full prompt if text matches the command
+              for (const block of userContent) {
+                if (block.type === 'text' && block.text.trim() === command) {
+                  block.text = getSummaryToDocPrompt(isChinese)
+                  console.log(`[Task] Command chip "${command}" replaced with full prompt`)
+                }
+              }
+            }
+          }
+        }
+      }
+    } catch (error) {
+      console.error('[Task] Failed to process slash commands:', error)
+    }
   }
 
   private async handleFirstRequestCheckpoint(): Promise<void> {
@@ -2278,9 +2258,9 @@ export class Task {
         }
         return
       } else {
-        if (!command) return this.handleMissingParam('command', toolDescription)
-        if (!ip) return this.handleMissingParam('ip', toolDescription)
-        if (!requiresApprovalRaw) return this.handleMissingParam('requires_approval', toolDescription)
+        if (!command) return this.handleMissingParam('command', toolDescription, 'execute_command')
+        if (!ip) return this.handleMissingParam('ip', toolDescription, 'execute_command')
+        if (!requiresApprovalRaw) return this.handleMissingParam('requires_approval', toolDescription, 'execute_command')
         command = decodeHtmlEntities(command)
         // Perform security check
         const securityCheck = await this.performCommandSecurityCheck(command, toolDescription)
@@ -2409,9 +2389,9 @@ export class Task {
     }
   }
 
-  private async handleMissingParam(paramName: string, toolDescription: string): Promise<void> {
+  private async handleMissingParam(paramName: string, toolDescription: string, toolName: ToolUseName): Promise<void> {
     this.consecutiveMistakeCount++
-    this.pushToolResult(toolDescription, await this.sayAndCreateMissingParamError('execute_command', paramName))
+    this.pushToolResult(toolDescription, await this.sayAndCreateMissingParamError(toolName, paramName))
     return this.saveCheckpoint()
   }
   /**
@@ -2905,7 +2885,7 @@ export class Task {
     }
 
     // Handle incomplete tool calls
-    if (block.partial) {
+    if (block.partial && !isAllowPartialTool(block.name)) {
       // For incomplete tool calls, we don't execute, wait for complete call
       return
     }
@@ -2947,6 +2927,9 @@ export class Task {
       case 'use_skill':
         await this.handleUseSkillToolUse(block)
         break
+      case 'summarize_to_knowledge':
+        await this.handleSummarizeToKnowledgeToolUse(block)
+        break
       default:
         console.error(`[Task] Unknown tool name: ${block.name}`)
     }
@@ -2964,7 +2947,7 @@ export class Task {
       const limitStr = block.params.limit
       const sort = (block.params.sort as 'path' | 'none') || 'path'
       if (!pattern) {
-        await this.handleMissingParam('pattern', toolDescription)
+        await this.handleMissingParam('pattern', toolDescription, 'glob_search')
         return
       }
 
@@ -3018,7 +3001,7 @@ export class Task {
       const ctx = block.params.context_lines ? Number.parseInt(block.params.context_lines, 10) : 0
       const max = block.params.max_matches ? Number.parseInt(block.params.max_matches, 10) : 500
       if (!pattern) {
-        await this.handleMissingParam('pattern', toolDescription)
+        await this.handleMissingParam('pattern', toolDescription, 'grep_search')
         return
       }
 
@@ -3105,9 +3088,9 @@ export class Task {
         return
       }
 
-      if (!serverName) return this.handleMissingParam('server_name', toolDescription)
-      if (!toolName) return this.handleMissingParam('tool_name', toolDescription)
-      if (!argumentsStr) return this.handleMissingParam('arguments', toolDescription)
+      if (!serverName) return this.handleMissingParam('server_name', toolDescription, 'use_mcp_tool')
+      if (!toolName) return this.handleMissingParam('tool_name', toolDescription, 'use_mcp_tool')
+      if (!argumentsStr) return this.handleMissingParam('arguments', toolDescription, 'use_mcp_tool')
 
       let argumentsObj: Record<string, unknown>
       try {
@@ -3222,8 +3205,8 @@ export class Task {
       const serverName: string | undefined = block.params.server_name
       const uri: string | undefined = block.params.uri
 
-      if (!serverName) return this.handleMissingParam('server_name', toolDescription)
-      if (!uri) return this.handleMissingParam('uri', toolDescription)
+      if (!serverName) return this.handleMissingParam('server_name', toolDescription, 'access_mcp_resource')
+      if (!uri) return this.handleMissingParam('uri', toolDescription, 'access_mcp_resource')
 
       const mcpServers = this.mcpHub.getAllServers()
       const server = mcpServers.find((s) => s.name === serverName)
@@ -3268,7 +3251,7 @@ export class Task {
       const skillName: string | undefined = block.params.name
 
       if (!skillName) {
-        return this.handleMissingParam('name', toolDescription)
+        return this.handleMissingParam('name', toolDescription, 'use_skill')
       }
 
       if (!this.skillsManager) {
@@ -3888,6 +3871,59 @@ SUDO_CHECK:${localSystemInfo.sudoCheck}`
       this.pushToolResult(this.getToolDescription(block), `Todo 读取失败: ${error instanceof Error ? error.message : String(error)}`, {
         dontLock: true
       })
+    }
+  }
+
+  /**
+   * Handle summarize_to_knowledge tool: sends knowledge summary to frontend for file creation.
+   * The frontend is responsible for creating the file and opening the editor tab.
+   */
+  private async handleSummarizeToKnowledgeToolUse(block: ToolUse): Promise<void> {
+    const toolDescription = this.getToolDescription(block)
+    const fileName = block.params.file_name
+    const summary = block.params.summary
+
+    try {
+      // Handle partial streaming (parameters may be incomplete)
+      if (block.partial) {
+        await this.say(
+          'knowledge_summary',
+          JSON.stringify({
+            fileName: fileName || '',
+            summary: summary || ''
+          }),
+          true
+        )
+        return
+      }
+
+      // Only validate required parameters when streaming is complete
+      if (!fileName) {
+        await this.handleMissingParam('file_name', toolDescription, 'summarize_to_knowledge')
+        return
+      }
+
+      if (!summary) {
+        await this.handleMissingParam('summary', toolDescription, 'summarize_to_knowledge')
+        return
+      }
+
+      // Send final message with complete parameters
+      await this.say(
+        'knowledge_summary',
+        JSON.stringify({
+          fileName,
+          summary
+        }),
+        false
+      )
+
+      this.pushToolResult(toolDescription, `Knowledge summary has been sent to knowledge base. File: ${fileName}.md`)
+
+      await this.saveCheckpoint()
+    } catch (error) {
+      console.error('[Task] summarize_to_knowledge failed:', error)
+      this.pushToolResult(toolDescription, `Failed to save knowledge: ${error instanceof Error ? error.message : String(error)}`)
     }
   }
 

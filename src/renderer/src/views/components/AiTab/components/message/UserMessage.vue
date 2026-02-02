@@ -48,7 +48,10 @@
             class="mention-chip"
             :class="`mention-chip-${part.chipType}`"
           >
-            <span class="mention-icon">
+            <span
+              v-if="part.chipType === 'doc' || part.chipType === 'chat'"
+              class="mention-icon"
+            >
               <FileTextOutlined v-if="part.chipType === 'doc'" />
               <MessageOutlined v-else />
             </span>

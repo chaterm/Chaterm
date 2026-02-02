@@ -16,9 +16,7 @@ describe('useStateSnapshot', () => {
     showRetryButton: false,
     showSendButton: true,
     buttonsDisabled: false,
-    resumeDisabled: false,
     isExecutingCommand: false,
-    messageFeedbacks: {},
     lastStreamMessage: null,
     lastPartialMessage: null,
     shouldStickToBottom: true,
@@ -96,14 +94,22 @@ describe('useStateSnapshot', () => {
 
     it('should clone arrays and objects', () => {
       const mockState = vi.mocked(useSessionState)()
-      mockState.chatTabs.value[0].session.messageFeedbacks = { 'msg-1': 'like' }
+      mockState.chatTabs.value[0].session.chatHistory = [{ id: 'msg-1', role: 'user', content: 'test', type: 'message', ask: '', say: '', ts: 100 }]
 
       const { getCurrentState } = useStateSnapshot(mockEmit)
       const state = getCurrentState()
 
       // Should be independent copy
-      state.chatTabs[0].session.messageFeedbacks['msg-2'] = 'dislike'
-      expect(mockState.chatTabs.value[0].session.messageFeedbacks['msg-2']).toBeUndefined()
+      state.chatTabs[0].session.chatHistory.push({
+        id: 'msg-2',
+        role: 'assistant',
+        content: 'reply',
+        type: 'message',
+        ask: '',
+        say: '',
+        ts: 101
+      })
+      expect(mockState.chatTabs.value[0].session.chatHistory).toHaveLength(1)
     })
   })
 
@@ -157,10 +163,8 @@ describe('useStateSnapshot', () => {
               responseLoading: true,
               showSendButton: false,
               buttonsDisabled: true,
-              resumeDisabled: false,
               isExecutingCommand: false,
               showRetryButton: false,
-              messageFeedbacks: { 'msg-1': 'like' },
               shouldStickToBottom: false
             }
           }

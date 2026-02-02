@@ -66,9 +66,7 @@ describe('useCommandInteraction', () => {
     showRetryButton: false,
     showSendButton: true,
     buttonsDisabled: false,
-    resumeDisabled: false,
     isExecutingCommand: false,
-    messageFeedbacks: {} as Record<string, 'like' | 'dislike'>,
     lastStreamMessage: null,
     lastPartialMessage: null,
     shouldStickToBottom: true,
@@ -635,58 +633,6 @@ describe('useCommandInteraction', () => {
       await handleCancel()
 
       expect(mockRenderer.setThinkingLoading).toHaveBeenCalledWith(false)
-    })
-  })
-
-  describe('handleResume', () => {
-    it('should resume task', async () => {
-      const { handleResume } = useCommandInteraction({
-        getCurentTabAssetInfo: mockGetCurentTabAssetInfo,
-        markdownRendererRefs: mockMarkdownRendererRefs,
-        currentTodos: mockCurrentTodos,
-        clearTodoState: mockClearTodoState,
-        scrollToBottom: mockScrollToBottom
-      })
-
-      const mockState = vi.mocked(useSessionState)()
-      const session = mockState.currentSession.value!
-      session.isCancelled = true
-      const message: ChatMessage = {
-        id: 'msg-1',
-        role: 'assistant',
-        content: 'Resume?',
-        type: 'ask',
-        ask: 'resume_task',
-        say: '',
-        ts: 100
-      }
-      session.chatHistory.push(message)
-
-      await handleResume()
-
-      expect(session.isCancelled).toBe(false)
-      expect(mockSendToMain).toHaveBeenCalledWith(
-        expect.objectContaining({
-          type: 'askResponse',
-          askResponse: 'yesButtonClicked'
-        })
-      )
-      expect(session.resumeDisabled).toBe(true)
-      expect(session.responseLoading).toBe(true)
-    })
-
-    it('should not resume when no message', async () => {
-      const { handleResume } = useCommandInteraction({
-        getCurentTabAssetInfo: mockGetCurentTabAssetInfo,
-        markdownRendererRefs: mockMarkdownRendererRefs,
-        currentTodos: mockCurrentTodos,
-        clearTodoState: mockClearTodoState,
-        scrollToBottom: mockScrollToBottom
-      })
-
-      await handleResume()
-
-      expect(mockSendToMain).not.toHaveBeenCalled()
     })
   })
 

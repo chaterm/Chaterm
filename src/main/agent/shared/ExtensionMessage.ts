@@ -110,7 +110,6 @@ export type ChatermAsk =
   | 'api_req_failed'
   | 'ssh_con_failed'
   | 'resume_task'
-  | 'resume_completed_task'
   | 'mistake_limit_reached'
   | 'auto_approval_max_req_reached'
   | 'condense'
@@ -140,6 +139,7 @@ export type ChatermSay =
   | 'sshInfo'
   | 'interactive_command_notification'
   | 'search_result'
+  | 'knowledge_summary'
 
 export interface ChatermSayTool {
   tool: 'readFile' | 'listFilesTopLevel' | 'listFilesRecursive' | 'searchFiles'

@@ -145,9 +145,7 @@ describe('useTabManagement', () => {
     showRetryButton: false,
     showSendButton: true,
     buttonsDisabled: false,
-    resumeDisabled: false,
     isExecutingCommand: false,
-    messageFeedbacks: {},
     lastStreamMessage: null,
     lastPartialMessage: null,
     shouldStickToBottom: true,
@@ -184,6 +182,7 @@ describe('useTabManagement', () => {
     const chatInputParts = ref([])
     const createEmptySessionState = vi.fn(() => createMockSession())
     const cleanupTabPairsCache = vi.fn()
+    const messageFeedbacks = ref<Record<string, 'like' | 'dislike'>>({})
 
     vi.mocked(useSessionState).mockReturnValue({
       chatTabs,
@@ -192,7 +191,8 @@ describe('useTabManagement', () => {
       createEmptySessionState,
       chatInputParts,
       chatTextareaRef: ref(null),
-      cleanupTabPairsCache
+      cleanupTabPairsCache,
+      messageFeedbacks
     } as any)
 
     const { getGlobalState } = await import('@renderer/agent/storage/state')
