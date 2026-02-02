@@ -40,7 +40,7 @@ export function connectAssetInfoLogic(db: Database.Database, uuid: string): any 
 
     if (!result) {
       const orgAssetStmt = db.prepare(`
-        SELECT oa.hostname, oa.host, oa.comment, a.asset_ip, oa.organization_uuid, oa.uuid, oa.jump_server_type,
+        SELECT oa.hostname, oa.host, oa.bastion_comment as comment, a.asset_ip, oa.organization_uuid, oa.uuid, oa.jump_server_type,
               a.asset_type, a.auth_type, a.port, a.username, a.password, a.key_chain_id, a.need_proxy, a.proxy_name
         FROM t_organization_assets oa
         JOIN t_assets a ON oa.organization_uuid = a.uuid
@@ -387,24 +387,24 @@ export async function refreshOrganizationAssetsLogic(
     const updateStmt = isPluginBased
       ? db.prepare(`
       UPDATE t_organization_assets
-      SET hostname = ?, comment = ?, jump_server_type = ?, updated_at = CURRENT_TIMESTAMP
+      SET hostname = ?, bastion_comment = ?, jump_server_type = ?, updated_at = CURRENT_TIMESTAMP
       WHERE organization_uuid = ? AND host = ? AND hostname = ?
     `)
       : db.prepare(`
       UPDATE t_organization_assets
-      SET hostname = ?, comment = ?, updated_at = CURRENT_TIMESTAMP
+      SET hostname = ?, bastion_comment = ?, updated_at = CURRENT_TIMESTAMP
       WHERE organization_uuid = ? AND host = ? AND hostname = ?
     `)
 
     const insertStmt = isPluginBased
       ? db.prepare(`
       INSERT INTO t_organization_assets (
-        organization_uuid, hostname, host, comment, uuid, jump_server_type, created_at, updated_at
+        organization_uuid, hostname, host, bastion_comment, uuid, jump_server_type, created_at, updated_at
       ) VALUES (?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
     `)
       : db.prepare(`
       INSERT INTO t_organization_assets (
-        organization_uuid, hostname, host, comment, uuid, jump_server_type, created_at, updated_at
+        organization_uuid, hostname, host, bastion_comment, uuid, jump_server_type, created_at, updated_at
       ) VALUES (?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
     `)
 

@@ -133,6 +133,7 @@ CREATE TABLE IF NOT EXISTS t_organization_assets (
   jump_server_type TEXT,                            -- 跳板机类型
   favorite INTEGER DEFAULT 2,                       -- 是否收藏
   comment TEXT,                                     -- 自定义备注
+  bastion_comment TEXT,                             -- 堡垒机备注
   created_at DATETIME DEFAULT CURRENT_TIMESTAMP,    -- 创建时间
   updated_at DATETIME DEFAULT CURRENT_TIMESTAMP     -- 更新时间
 );
