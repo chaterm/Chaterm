@@ -818,7 +818,6 @@ export default {
     knowledgeSaved: 'Saved to Knowledge Base',
     knowledgeSaveFailed: 'Failed to save to Knowledge Base',
     codePreview: 'Code Preview ({lines} lines)',
-    commandBlockTitle: 'Command ({lines} lines)',
     explainCommand: 'Explain this command',
     explainCommandTitle: 'AI Explanation',
     explainCommandLoading: 'Explaining…',
