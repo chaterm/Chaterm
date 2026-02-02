@@ -44,13 +44,10 @@
 
         <span
           v-if="currentTab?.session.responseLoading"
-          class="processing-text"
+          class="processing-indicator"
         >
-          <HourglassOutlined
-            spin
-            style="color: #1890ff; margin-right: 2px"
-          />
-          {{ $t('ai.processing') }}
+          <span class="processing-spinner"></span>
+          <span class="processing-text">{{ $t('ai.processing') }}</span>
         </span>
       </div>
       <div class="chat-editable-wrapper">
@@ -222,7 +219,7 @@ import { parseContextDragPayload, useEditableContent } from '../composables/useE
 import { AiTypeOptions } from '../composables/useEventBusListeners'
 import type { ContentPart, ContextDocRef, ContextPastChatRef } from '@shared/WebviewMessage'
 import type { HistoryItem } from '../types'
-import { CloseOutlined, HourglassOutlined, LaptopOutlined } from '@ant-design/icons-vue'
+import { CloseOutlined, LaptopOutlined } from '@ant-design/icons-vue'
 import uploadIcon from '@/assets/icons/upload.svg'
 import imageIcon from '@/assets/icons/image.svg'
 import sendIcon from '@/assets/icons/send.svg'
@@ -986,9 +983,49 @@ onBeforeUnmount(() => {
   transition: filter 0.2s ease;
 }
 
+.processing-indicator {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.processing-spinner {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  border: 2px solid transparent;
+  border-top-color: #1890ff;
+  border-right-color: #40a9ff;
+  border-bottom-color: #69c0ff;
+  animation: processing-spin 0.8s linear infinite;
+}
+
+@keyframes processing-spin {
+  0% {
+    transform: rotate(0deg);
+  }
+  100% {
+    transform: rotate(360deg);
+  }
+}
+
 .processing-text {
   font-size: 10px;
-  color: var(--text-color);
+  background: linear-gradient(90deg, #1890ff, #40a9ff, #69c0ff, #1890ff);
+  background-size: 300% auto;
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  animation: processing-text-gradient 2s linear infinite;
+}
+
+@keyframes processing-text-gradient {
+  0% {
+    background-position: 0% center;
+  }
+  100% {
+    background-position: 300% center;
+  }
 }
 </style>
 
