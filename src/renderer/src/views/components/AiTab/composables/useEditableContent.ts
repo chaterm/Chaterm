@@ -1,5 +1,5 @@
 import { ref, nextTick, type Ref } from 'vue'
-import type { ContentPart, ContextDocRef, ContextPastChatRef, ImageContentPart } from '@shared/WebviewMessage'
+import type { ContentPart, ContextDocRef, ContextPastChatRef, ImageContentPart, ContextCommandRef } from '@shared/WebviewMessage'
 import type { ChatOption, DocOption } from '../types'
 import { getChipLabel } from '../utils'
 import FileTextOutlinedSvg from '@ant-design/icons-svg/es/asn/FileTextOutlined'
@@ -179,7 +179,18 @@ export function useEditableContent(options: UseEditableContentOptions) {
     }
   }
 
-  const createChipElement = (chipType: 'doc' | 'chat', chipRef: ContextDocRef | ContextPastChatRef, label: string): HTMLElement => {
+  const setCommandChipAttributes = (chip: HTMLElement, cmd: ContextCommandRef) => {
+    chip.setAttribute('data-command', cmd.command)
+    if (cmd.label) {
+      chip.setAttribute('data-label', cmd.label)
+    }
+  }
+
+  const createChipElement = (
+    chipType: 'doc' | 'chat' | 'command',
+    chipRef: ContextDocRef | ContextPastChatRef | ContextCommandRef,
+    label: string
+  ): HTMLElement => {
     const chip = document.createElement('span')
     chip.className = `mention-chip mention-chip-${chipType}`
     chip.contentEditable = 'false'
@@ -189,15 +200,20 @@ export function useEditableContent(options: UseEditableContentOptions) {
     // Set chip-type-specific data attributes
     if (chipType === 'doc') {
       setKbChipAttributes(chip, chipRef as ContextDocRef)
-    } else {
+    } else if (chipType === 'chat') {
       setChatChipAttributes(chip, chipRef as ContextPastChatRef)
+    } else if (chipType === 'command') {
+      setCommandChipAttributes(chip, chipRef as ContextCommandRef)
     }
 
-    // Create icon element
-    const iconSpan = document.createElement('span')
-    iconSpan.className = 'mention-icon'
-    const iconSvg = chipType === 'doc' ? createIconSvg(FileTextOutlinedSvg) : createIconSvg(MessageOutlinedSvg)
-    iconSpan.appendChild(iconSvg)
+    // Create icon element (only for doc and chat chips, command chips display text only)
+    if (chipType === 'doc' || chipType === 'chat') {
+      const iconSpan = document.createElement('span')
+      iconSpan.className = 'mention-icon'
+      const iconSvg = createIconSvg(chipType === 'doc' ? FileTextOutlinedSvg : MessageOutlinedSvg)
+      iconSpan.appendChild(iconSvg)
+      chip.appendChild(iconSpan)
+    }
 
     // Create label element
     const labelSpan = document.createElement('span')
@@ -210,7 +226,6 @@ export function useEditableContent(options: UseEditableContentOptions) {
     removeBtn.setAttribute('data-mention-remove', 'true')
     removeBtn.textContent = '×'
 
-    chip.appendChild(iconSpan)
     chip.appendChild(labelSpan)
     chip.appendChild(removeBtn)
     return chip
@@ -277,11 +292,20 @@ export function useEditableContent(options: UseEditableContentOptions) {
     }
   }
 
+  const parseCommandChipElement = (el: HTMLElement): ContextCommandRef => {
+    return {
+      command: el.dataset.command || '',
+      label: el.dataset.label || undefined
+    }
+  }
+
   const parseChipElement = (el: HTMLElement, parts: ContentPart[]) => {
     if (el.dataset.chipType === 'doc') {
       parts.push({ type: 'chip', chipType: 'doc', ref: parseKbChipElement(el) })
     } else if (el.dataset.chipType === 'chat') {
       parts.push({ type: 'chip', chipType: 'chat', ref: parseChatChipElement(el) })
+    } else if (el.dataset.chipType === 'command') {
+      parts.push({ type: 'chip', chipType: 'command', ref: parseCommandChipElement(el) })
     }
   }
 
@@ -493,6 +517,44 @@ export function useEditableContent(options: UseEditableContentOptions) {
     syncDraftPartsFromEditable()
   }
 
+  /**
+   * Insert a command chip (slash command) at the current cursor position.
+   * @param command - The slash command string (e.g., '/summary-to-doc')
+   * @param label - Display label for the chip
+   */
+  const insertCommandChip = (command: string, label: string) => {
+    if (!editableRef.value) return
+    restoreSelection()
+
+    let range = getEditableRange()
+    if (!range) {
+      moveCaretToEnd()
+      range = getEditableRange()
+    }
+    if (!range) return
+
+    const selection = window.getSelection()
+    if (!selection) return
+
+    const chipRef: ContextCommandRef = { command, label }
+    const chip = createChipElement('command', chipRef, label)
+    range.deleteContents()
+    range.insertNode(chip)
+
+    // Add spacer after chip and move cursor after it
+    const spacer = document.createTextNode(' ')
+    chip.after(spacer)
+
+    const newRange = document.createRange()
+    newRange.setStart(spacer, 1)
+    newRange.collapse(true)
+    selection.removeAllRanges()
+    selection.addRange(newRange)
+
+    saveSelection()
+    syncDraftPartsFromEditable()
+  }
+
   // New: Wrapper for handleInputChange to pass mode
   const handleEditableKeyDown = (e: KeyboardEvent, mode: 'create' | 'edit' = 'create') => {
     if (e.key === 'Enter' && !e.shiftKey && !e.isComposing) {
@@ -506,7 +568,6 @@ export function useEditableContent(options: UseEditableContentOptions) {
       // so '@' is inserted into editable first, then focus switches to search input
       setTimeout(() => {
         saveSelection()
-        syncDraftPartsFromEditable()
         handleAddContextClick(editableRef.value, mode)
       }, 0)
     }
@@ -574,6 +635,7 @@ export function useEditableContent(options: UseEditableContentOptions) {
     syncDraftPartsFromEditable,
     insertChipAtCursor,
     insertImageAtCursor,
+    insertCommandChip,
 
     // DOM creation (exposed for potential external use)
     createChipElement,

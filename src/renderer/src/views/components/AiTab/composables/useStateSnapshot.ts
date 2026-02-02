@@ -32,7 +32,6 @@ export function useStateSnapshot(emit: (event: 'state-changed', ...args: any[]) 
           buttonsDisabled: tab.session.buttonsDisabled,
           isExecutingCommand: tab.session.isExecutingCommand,
           showRetryButton: tab.session.showRetryButton,
-          messageFeedbacks: { ...tab.session.messageFeedbacks },
           shouldStickToBottom: tab.session.shouldStickToBottom
         }
       }))
@@ -70,7 +69,6 @@ export function useStateSnapshot(emit: (event: 'state-changed', ...args: any[]) 
             buttonsDisabled: savedTab.session.buttonsDisabled || false,
             isExecutingCommand: savedTab.session.isExecutingCommand || false,
             showRetryButton: savedTab.session.showRetryButton || false,
-            messageFeedbacks: savedTab.session.messageFeedbacks || {},
             lastStreamMessage: null,
             lastPartialMessage: null,
             shouldStickToBottom: savedTab.session.shouldStickToBottom ?? true

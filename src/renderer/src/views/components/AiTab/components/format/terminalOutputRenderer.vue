@@ -30,7 +30,7 @@
         </span>
       </div>
       <div class="output-controls">
-        <span class="output-lines">{{ outputLines }} lines</span>
+        <span class="output-lines">{{ outputLines }} {{ outputLines === 1 ? 'line' : 'lines' }}</span>
         <a-button
           class="copy-button-header"
           type="text"
@@ -61,6 +61,7 @@ import copySvg from '@/assets/icons/copy.svg'
 import { message } from 'ant-design-vue'
 import i18n from '@/locales'
 import { isDarkTheme } from '@/utils/themeUtils'
+import { extractFinalOutput } from '@/utils/terminalOutputExtractor'
 import 'xterm/css/xterm.css'
 
 const { t } = i18n.global
@@ -818,6 +819,9 @@ const getThemeColors = () => {
     foreground: isDark ? '#d4d4d4' : '#0f172a',
     cursor: 'transparent',
     cursorAccent: 'transparent',
+    // Selection: visible in both themes (light theme was barely visible with default)
+    selectionBackground: isDark ? 'rgba(255, 255, 255, 0.3)' : 'rgba(0, 90, 156, 0.45)',
+    selectionForeground: isDark ? undefined : '#0f172a',
     black: '#000000',
     red: '#e06c75',
     green: '#98c379',
@@ -3367,15 +3371,28 @@ const writeToTerminal = (content: string) => {
   })
 }
 
-// Copy output content
+// Copy output content: extract inner content (no "Terminal output:" wrapper), strip ANSI, full content when collapsed
 const copyOutput = () => {
-  if (!terminal) return
-
-  const content = Array.from({ length: terminal?.rows || 0 }, (_, i) => terminal?.buffer.active.getLine(i)?.translateToString() || '').join('\n')
+  const content = extractFinalOutput(props.content ?? '')
+  if (!content) return
 
   navigator.clipboard.writeText(content).then(() => {
     message.success(t('ai.copyToClipboard'))
   })
+}
+
+// Copy selected text on Ctrl+C (Windows/Linux) or Cmd+C (Mac) when focus is inside this terminal output
+const handleCopyKeydown = (e: KeyboardEvent) => {
+  const isCopyShortcut = (e.ctrlKey || e.metaKey) && e.key === 'c'
+  if (!isCopyShortcut || !terminal || !terminalContainer.value?.contains(e.target as Node)) return
+  if (!terminal.hasSelection()) return
+
+  const selection = terminal.getSelection()
+  if (!selection?.trim()) return
+
+  e.preventDefault()
+  e.stopPropagation()
+  navigator.clipboard.writeText(selection)
 }
 
 // Toggle expand/collapse
@@ -3422,6 +3439,7 @@ onMounted(async () => {
     })
   }
   window.addEventListener('resize', handleResize)
+  document.addEventListener('keydown', handleCopyKeydown, true)
 
   // Watch theme changes
   const themeObserver = new MutationObserver((mutations) => {
@@ -3445,6 +3463,7 @@ onMounted(async () => {
 })
 
 onBeforeUnmount(() => {
+  document.removeEventListener('keydown', handleCopyKeydown, true)
   if (terminal) {
     terminal.dispose()
   }
@@ -3685,6 +3704,11 @@ const highlightSimpleLsColumnsPreserveSpacing = (line: string): string => {
   overflow-x: auto !important;
   overflow-y: hidden !important;
   background-color: var(--bg-color-secondary) !important;
+}
+
+/* Light theme: force visible selection background (xterm theme may not apply in time) */
+.theme-light .terminal-output-container :deep(.xterm-selection) div {
+  background-color: rgba(0, 90, 156, 0.45) !important;
 }
 
 :deep(.xterm .xterm-cursor) {

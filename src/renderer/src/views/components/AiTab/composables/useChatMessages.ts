@@ -26,7 +26,7 @@ export function useChatMessages(
   currentTodos: any,
   checkModelConfig: () => Promise<{ success: boolean; message?: string; description?: string }>
 ) {
-  const { chatTabs, currentChatId, currentTab, currentSession, hosts, chatTypeValue, chatInputParts } = useSessionState()
+  const { chatTabs, currentChatId, currentTab, currentSession, hosts, chatTypeValue, chatInputParts, messageFeedbacks } = useSessionState()
 
   const markdownRendererRefs = ref<Array<{ setThinkingLoading: (loading: boolean) => void }>>([])
 
@@ -84,6 +84,9 @@ export function useChatMessages(
         if (part.type === 'image') return '[image]'
         if (part.chipType === 'doc') {
           return `@${part.ref.absPath || ''}`
+        }
+        if (part.chipType === 'command') {
+          return part.ref.command
         }
 
         const taskName = part.ref.title || ''
@@ -318,6 +321,57 @@ export function useChatMessages(
     console.log('Interactive command notification processed and added to chat history')
   }
 
+  const knowledgeSummaryRelPaths = new Map<number, string>()
+
+  /**
+   * Handle knowledge_summary streaming: create file, open editor, and write content incrementally
+   */
+  const handleKnowledgeSummary = async (partial: any) => {
+    try {
+      const data = JSON.parse(partial.text || '{}')
+      const { fileName, summary } = data
+      if (!fileName || !summary) {
+        console.log(' Missing fileName or summary')
+        return
+      }
+
+      const key = partial.ts ?? 0
+      let relPath = knowledgeSummaryRelPaths.get(key)
+
+      if (!relPath) {
+        const datePrefix = new Date().toISOString().slice(0, 10)
+        const normalizedFileName = fileName.endsWith('.md') ? fileName : `${fileName}.md`
+        const desiredPath = `${datePrefix}_${normalizedFileName}`
+        const result = await window.api.kbCreateFile('', desiredPath, summary)
+        relPath = result?.relPath ?? desiredPath
+        knowledgeSummaryRelPaths.set(key, relPath)
+
+        eventBus.emit('openUserTab', {
+          content: 'KnowledgeCenterEditor',
+          title: relPath.split('/').pop() || 'Knowledge',
+          props: { relPath }
+        })
+      } else {
+        await window.api.kbWriteFile(relPath, summary)
+        eventBus.emit('kb:content-changed', {
+          relPath,
+          content: summary
+        })
+      }
+
+      if (!partial.partial) {
+        knowledgeSummaryRelPaths.delete(key)
+      }
+    } catch (error) {
+      console.error(' Failed to save knowledge:', error)
+      notification.error({
+        message: t('ai.knowledgeSaveFailed'),
+        description: error instanceof Error ? error.message : String(error),
+        duration: 5
+      })
+    }
+  }
+
   const processMainMessage = async (message: ExtensionMessage) => {
     const targetTabId = message?.tabId ?? message?.taskId
     if (!targetTabId) {
@@ -359,6 +413,15 @@ export function useChatMessages(
 
       if (partial.say === 'interactive_command_notification') {
         handleInteractiveCommandNotification(message, targetTab)
+        if (isActiveTab) {
+          scrollToBottom()
+        }
+        return
+      }
+
+      if (partial.say === 'knowledge_summary') {
+        await handleKnowledgeSummary(partial)
+        session.lastPartialMessage = message
         if (isActiveTab) {
           scrollToBottom()
         }
@@ -464,11 +527,16 @@ export function useChatMessages(
     } else if (message?.type === 'state') {
       const chatermMessages = message.state?.chatermMessages ?? []
       const lastStateChatermMessages = chatermMessages.at(-1)
+      const isWaitingForUserResponse =
+        lastStateChatermMessages?.type === 'ask' ||
+        lastStateChatermMessages?.say === 'command_blocked' ||
+        lastStateChatermMessages?.say === 'completion_result'
       if (
         chatermMessages.length > 0 &&
         lastStateChatermMessages?.partial != undefined &&
         !lastStateChatermMessages.partial &&
-        session.responseLoading
+        session.responseLoading &&
+        isWaitingForUserResponse
       ) {
         session.responseLoading = false
       }
@@ -514,16 +582,23 @@ export function useChatMessages(
   })
 
   const handleFeedback = async (message: ChatMessage, type: 'like' | 'dislike') => {
-    const session = currentSession.value
-    if (!session) return
+    if (!currentSession.value) return
+    // Use message timestamp as the feedback key because messageId is frontend-only and not persisted
+    // by the backend. History restore regenerates ids with uuidv4(), so id-based feedback cannot work.
+    const messageTs = String(message.ts)
+    const currentFeedback = messageFeedbacks.value[messageTs]
 
-    if (isMessageFeedbackSubmitted(message.id)) {
+    if (currentFeedback === type) {
+      delete messageFeedbacks.value[messageTs]
+      const feedbacks = ((await getGlobalState('messageFeedbacks')) || {}) as Record<string, 'like' | 'dislike'>
+      delete feedbacks[messageTs]
+      await updateGlobalState('messageFeedbacks', feedbacks)
       return
     }
 
-    session.messageFeedbacks[message.id] = type
+    messageFeedbacks.value[messageTs] = type
     const feedbacks = ((await getGlobalState('messageFeedbacks')) || {}) as Record<string, 'like' | 'dislike'>
-    feedbacks[message.id] = type
+    feedbacks[messageTs] = type
     await updateGlobalState('messageFeedbacks', feedbacks)
     const messageRsp: WebviewMessage = {
       type: 'taskFeedback',
@@ -533,12 +608,12 @@ export function useChatMessages(
     await window.api.sendToMain(messageRsp)
   }
 
-  const getMessageFeedback = (messageId: string): 'like' | 'dislike' | undefined => {
-    return currentTab.value?.session.messageFeedbacks[messageId]
+  const getMessageFeedback = (messageTs: number): 'like' | 'dislike' | undefined => {
+    return messageFeedbacks.value[String(messageTs)]
   }
 
-  const isMessageFeedbackSubmitted = (messageId: string): boolean => {
-    return !!currentTab.value?.session.messageFeedbacks[messageId]
+  const isMessageFeedbackSubmitted = (messageTs: number): boolean => {
+    return !!messageFeedbacks.value[String(messageTs)]
   }
 
   /**
@@ -561,6 +636,27 @@ export function useChatMessages(
     await sendMessageWithContent(newContent, 'send', undefined, truncateAtMessageTs, contentParts)
   }
 
+  /**
+   * Handle summarize to knowledge base button click.
+   * Sends a command chip that will be replaced with full prompt in the backend.
+   * @param message - Optional message to summarize up to (when clicking button on specific message)
+   *                  When not provided, summarizes the entire conversation (when typing command in input)
+   */
+  const handleSummarizeToKnowledge = async (message?: ChatMessage) => {
+    // Build ContentPart with command chip - backend will replace it with the full prompt
+    const commandChipPart: ContentPart = {
+      type: 'chip',
+      chipType: 'command',
+      ref: {
+        command: '/summary-to-doc',
+        label: '/Summary to Doc',
+        summarizeUpToTs: message?.ts // Include timestamp to limit summarization scope
+      }
+    }
+
+    await sendMessageWithContent('/summary-to-doc', 'send', undefined, undefined, [commandChipPart])
+  }
+
   return {
     markdownRendererRefs,
     isCurrentChatMessage,
@@ -577,6 +673,7 @@ export function useChatMessages(
     formatParamValue,
     cleanupPartialCommandMessages,
     isLocalHost,
-    handleTruncateAndSend
+    handleTruncateAndSend,
+    handleSummarizeToKnowledge
   }
 }

@@ -49,6 +49,9 @@ export const getChipLabel = (part: Extract<ContentPart, { type: 'chip' }>): stri
   if (part.chipType === 'doc') {
     return part.ref.name || part.ref.absPath
   }
+  if (part.chipType === 'command') {
+    return part.ref.label || part.ref.command
+  }
   return part.ref.title || part.ref.taskId
 }
 
