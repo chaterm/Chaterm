@@ -810,6 +810,7 @@ export default {
     knowledgeSaved: '지식 베이스에 저장됨',
     knowledgeSaveFailed: '지식 베이스 저장 실패',
     codePreview: '코드 미리보기 ({lines} 줄)',
+    linesCount: '{count} 줄',
     explainCommand: '이 명령어 설명',
     explainCommandTitle: 'AI 해설',
     explainCommandLoading: '해설 중…',

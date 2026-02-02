@@ -807,6 +807,8 @@ export default {
     knowledgeSaved: '已保存到知识库',
     knowledgeSaveFailed: '保存知识库失败',
     codePreview: '代码预览 ({lines}行)',
+    commandBlockTitle: 'Command ({lines}行)',
+    linesCount: '{count} 行',
     explainCommand: '解释该命令',
     explainCommandTitle: 'AI 解读',
     explainCommandLoading: '正在解读…',

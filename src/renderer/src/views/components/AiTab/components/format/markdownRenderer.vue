@@ -8,106 +8,73 @@
       <a-collapse
         v-model:active-key="codeActiveKey"
         :default-active-key="['1']"
-        :class="{ 'hide-expand-icon': totalLines < 10 }"
+        :class="{ 'collapse-expand-icon-hidden': totalLines < 10 }"
         class="code-collapse"
-        expand-icon-position="end"
+        expand-icon-position="start"
+        :expand-icon="
+          (props) => h('span', { class: 'code-collapse-expand-icon-wrap' }, [props.isActive ? h(CaretDownOutlined) : h(CaretRightOutlined)])
+        "
       >
         <a-collapse-panel
           key="1"
           class="code-panel"
         >
           <template #header>
-            <a-space>
-              <a-typography-text
-                type="secondary"
-                italic
-                :class="{ 'hidden-header': totalLines < 10 }"
-              >
-                {{ t('ai.codePreview', { lines: totalLines }) }}
-              </a-typography-text>
-              <a-tooltip
-                v-if="totalLines >= 10"
-                :title="t('ai.explainCommand')"
-                placement="top"
-              >
+            <div
+              class="command-header-inner"
+              @click="
+                (e) => {
+                  if (totalLines < 10) e.stopPropagation()
+                }
+              "
+            >
+              <div class="output-title-section">
+                <span class="output-title">Command</span>
+                <a-tooltip
+                  :title="t('ai.explainCommand')"
+                  placement="top"
+                >
+                  <a-button
+                    class="copy-button-header explain-button"
+                    type="text"
+                    size="small"
+                    :disabled="!!props.explanationLoading"
+                    @click.stop="handleExplainClick()"
+                  >
+                    <LoadingOutlined
+                      v-if="props.explanationLoading"
+                      class="explain-icon explain-icon-loading"
+                    />
+                    <QuestionCircleOutlined
+                      v-else
+                      class="explain-icon"
+                    />
+                  </a-button>
+                </a-tooltip>
+              </div>
+              <div class="output-controls">
+                <span class="output-lines">{{ t('ai.linesCount', { count: totalLines }) }}</span>
                 <a-button
-                  class="copy-button explain-button"
+                  class="copy-button-header"
                   type="text"
                   size="small"
-                  :disabled="!!props.explanationLoading"
-                  @click.stop="handleExplainClick()"
+                  @click.stop="copyEditorContent"
                 >
-                  <LoadingOutlined
-                    v-if="props.explanationLoading"
-                    class="explain-icon explain-icon-loading"
-                  />
-                  <QuestionCircleOutlined
-                    v-else
-                    class="explain-icon"
+                  <img
+                    :src="copySvg"
+                    alt="copy"
+                    class="copy-icon"
                   />
                 </a-button>
-              </a-tooltip>
-              <a-button
-                v-if="totalLines >= 10"
-                class="copy-button"
-                type="text"
-                size="small"
-                @click.stop="copyEditorContent"
-              >
-                <img
-                  :src="copySvg"
-                  alt="copy"
-                  class="copy-icon"
-                />
-              </a-button>
-            </a-space>
+              </div>
+            </div>
           </template>
-          <!-- Keep monacoContainer stable; only toggle overlay visibility by totalLines -->
           <div class="monaco-wrapper">
             <div
               ref="monacoContainer"
               class="monaco-container"
               :class="{ collapsed: !codeActiveKey.includes('1') }"
             />
-            <!-- Overlay buttons only for <10 lines to avoid conflicts with Monaco-managed DOM -->
-            <div
-              v-if="totalLines < 10"
-              class="monaco-overlay"
-            >
-              <a-tooltip
-                :title="t('ai.explainCommand')"
-                placement="top"
-              >
-                <a-button
-                  class="copy-button explain-button"
-                  type="text"
-                  size="small"
-                  :disabled="!!props.explanationLoading"
-                  @click.stop="handleExplainClick()"
-                >
-                  <LoadingOutlined
-                    v-if="props.explanationLoading"
-                    class="explain-icon explain-icon-loading"
-                  />
-                  <QuestionCircleOutlined
-                    v-else
-                    class="explain-icon"
-                  />
-                </a-button>
-              </a-tooltip>
-              <a-button
-                class="copy-button"
-                type="text"
-                size="small"
-                @click="copyEditorContent"
-              >
-                <img
-                  :src="copySvg"
-                  alt="copy"
-                  class="copy-icon"
-                />
-              </a-button>
-            </div>
           </div>
         </a-collapse-panel>
       </a-collapse>
@@ -315,27 +282,30 @@
             class="command-editor-container"
           >
             <a-collapse
-              v-model:active-key="part.block.activeKey"
+              :active-key="part.block.lines < 10 ? ['1'] : part.block.activeKey"
               :default-active-key="['1']"
-              :class="{ 'hide-expand-icon': part.block.lines < 10 }"
+              :class="{ 'collapse-expand-icon-hidden': part.block.lines < 10 }"
               class="code-collapse"
-              expand-icon-position="end"
+              expand-icon-position="start"
+              @update:active-key="
+                (keys) => {
+                  if (part.block.lines >= 10) part.block.activeKey = keys
+                }
+              "
             >
               <a-collapse-panel
                 key="1"
                 class="code-panel"
               >
                 <template #header>
-                  <a-space>
+                  <a-space @click.stop>
                     <a-typography-text
                       type="secondary"
                       italic
-                      :class="{ 'hidden-header': part.block.lines < 10 }"
                     >
                       {{ t('ai.codePreview', { lines: part.block.lines }) }}
                     </a-typography-text>
                     <a-button
-                      v-if="part.block.lines >= 10"
                       class="copy-button"
                       type="text"
                       size="small"
@@ -358,21 +328,7 @@
                     }
                   "
                   class="monaco-container"
-                >
-                  <a-button
-                    v-if="part.block.lines < 10"
-                    class="copy-button"
-                    type="text"
-                    size="small"
-                    @click="part.blockIndex !== undefined && copyBlockContent(part.blockIndex)"
-                  >
-                    <img
-                      :src="copySvg"
-                      alt="copy"
-                      class="copy-icon"
-                    />
-                  </a-button>
-                </div>
+                />
               </a-collapse-panel>
             </a-collapse>
           </div>
@@ -383,7 +339,7 @@
 </template>
 
 <script setup lang="ts">
-import { onMounted, ref, watch, onBeforeUnmount, nextTick, computed } from 'vue'
+import { onMounted, ref, watch, onBeforeUnmount, nextTick, computed, h } from 'vue'
 import { marked } from 'marked'
 import 'highlight.js/styles/atom-one-dark.css'
 import * as monaco from 'monaco-editor'
@@ -478,7 +434,7 @@ if (monaco.editor) {
       { token: 'operator', foreground: 'd4d4d4' }
     ],
     colors: {
-      'editor.background': '#1a1a1a',
+      'editor.background': '#1e1e1e',
       'editor.foreground': '#d4d4d4',
       'editorLineNumber.foreground': '#636d83',
       'editorLineNumber.activeForeground': '#9da5b4',
@@ -525,6 +481,17 @@ const editorContainer = ref<HTMLElement | null>(null)
 const codeActiveKey = ref<string[]>(['1'])
 const monacoContainer = ref<HTMLElement | null>(null)
 const totalLines = ref(0)
+
+// When lines < 10, prevent collapse from toggling (keep expanded)
+watch(
+  codeActiveKey,
+  (newVal) => {
+    if (totalLines.value < 10 && (!newVal || newVal.length === 0)) {
+      codeActiveKey.value = ['1']
+    }
+  },
+  { flush: 'sync' }
+)
 let editor: monaco.editor.IStandaloneCodeEditor | null = null
 
 const props = defineProps<{
@@ -675,9 +642,9 @@ const initEditor = (content: string) => {
       lineHeight: 20,
       wordWrap: 'on',
       scrollbar: {
-        vertical: lines >= 10 ? 'auto' : 'hidden',
+        vertical: 'auto',
         horizontal: 'hidden',
-        verticalScrollbarSize: lines >= 10 ? 10 : 0,
+        verticalScrollbarSize: 10,
         horizontalScrollbarSize: 0,
         alwaysConsumeMouseWheel: false
       },
@@ -913,9 +880,9 @@ const initCodeBlockEditors = () => {
         lineHeight: 20,
         wordWrap: 'on',
         scrollbar: {
-          vertical: block.lines >= 10 ? 'auto' : 'hidden',
+          vertical: 'auto',
           horizontal: 'hidden',
-          verticalScrollbarSize: block.lines >= 10 ? 10 : 0,
+          verticalScrollbarSize: 10,
           horizontalScrollbarSize: 0,
           alwaysConsumeMouseWheel: false
         },
@@ -1506,12 +1473,12 @@ code {
 }
 
 .command-editor-container {
-  margin: 4px 0;
+  margin: 10px 0;
   border-radius: 6px;
   overflow: hidden;
   background-color: var(--command-output-bg);
   border: 1px solid var(--border-color);
-  min-height: 30px;
+  min-height: 40px;
   height: auto;
 }
 
@@ -1725,17 +1692,31 @@ code {
 }
 
 .code-collapse .ant-collapse-header {
-  color: var(--text-color) !important;
-  padding: 4px 12px !important;
-  background: transparent !important;
+  color: #7e8ba3 !important;
+  padding: 0 8px !important;
+  background: var(--bg-color-secondary) !important;
+  border-bottom: none !important;
   transition: all 0.3s;
-  min-height: 32px !important;
-  height: 32px !important;
-  line-height: 32px !important;
+  min-height: 18px !important;
+  height: 18px !important;
+  line-height: 18px !important;
   display: flex !important;
   align-items: center !important;
-  padding-top: 0 !important;
-  padding-bottom: 0 !important;
+  position: relative;
+}
+/* Match OUTPUT: no header bar hover background */
+.code-collapse .ant-collapse-header:hover {
+  background: var(--bg-color-secondary) !important;
+}
+.code-collapse .ant-collapse-header::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 1px;
+  background: var(--bg-color-quaternary);
+  border-radius: 0;
 }
 
 .code-collapse .ant-collapse-content {
@@ -1750,9 +1731,16 @@ code {
 }
 
 .code-collapse .ant-typography {
-  color: var(--text-color) !important;
+  color: #7e8ba3 !important;
   margin-bottom: 0;
-  font-size: 12px !important;
+  font-size: 10px !important;
+  line-height: 15px !important;
+}
+.code-collapse .ant-collapse-header .ant-typography,
+.code-collapse .ant-collapse-header .ant-typography.ant-typography-secondary {
+  line-height: 15px !important;
+  height: 15px !important;
+  display: inline-block !important;
 }
 
 .code-collapse .ant-space {
@@ -1762,34 +1750,110 @@ code {
 }
 
 .code-collapse .ant-collapse-header-text {
-  margin-right: 80px;
+  margin-right: 0;
+  margin-left: 20px;
   display: flex;
   align-items: center;
   height: 100%;
+  flex: 1;
+  min-width: 0;
+}
+.code-collapse.collapse-expand-icon-hidden .ant-collapse-header-text {
+  margin-left: 0;
+}
+
+/* Command header layout and typography: same as OUTPUT header (size and spacing) */
+.code-collapse .command-header-inner {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  width: 100%;
+  min-height: 18px;
+  font-size: 10px;
+  line-height: 18px;
+  color: #7e8ba3;
+}
+.code-collapse .command-header-inner .output-title-section {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex: 1;
+  min-width: 0;
+}
+.code-collapse .command-header-inner .output-controls {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+}
+.code-collapse .command-header-inner .output-title {
+  font-size: 10px !important;
+  font-weight: 500;
+  color: #7e8ba3 !important;
+  line-height: 18px;
+  margin: 0;
+}
+.code-collapse .command-header-inner .output-lines {
+  font-size: 10px !important;
+  color: #7e8ba3 !important;
+  line-height: 18px;
+  margin: 0;
+}
+.code-collapse .command-header-inner .copy-button-header,
+.code-collapse .command-header-inner .explain-button {
+  height: 16px !important;
+  width: 16px !important;
+  min-width: 16px !important;
+  padding: 0 !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
 }
 
 .code-collapse .ant-collapse-expand-icon {
   position: absolute !important;
-  right: 16px !important;
+  left: 8px !important;
+  right: auto !important;
+  top: 50% !important;
+  transform: translateY(-50%) !important;
   margin-left: 0 !important;
-  height: 32px !important;
-  line-height: 32px !important;
+  height: 18px !important;
+  line-height: 18px !important;
   display: flex !important;
   align-items: center !important;
 }
 
-.code-collapse .ant-collapse-header .copy-button {
-  position: absolute;
-  right: 30px;
-  top: 40%;
-  transform: translateY(-50%);
-  z-index: 1;
-  height: 24px !important;
-  line-height: 24px !important;
+/* Command collapse icon: match OUTPUT (opacity transition only, no hover bg) */
+.code-collapse .code-collapse-expand-icon-wrap {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: #7e8ba3;
+  opacity: 0.6;
+  padding: 0;
+  height: 14px;
+  width: 14px;
+  font-size: 14px;
+  transition: opacity 0.3s;
+  border-radius: 2px;
+  cursor: pointer;
+}
+.code-collapse .code-collapse-expand-icon-wrap:hover {
+  opacity: 1;
+}
+.code-collapse .code-collapse-expand-icon-wrap .anticon {
+  font-size: 14px;
 }
 
-.code-collapse .ant-collapse-header .explain-button {
-  right: 52px;
+/* When lines < 10, hide only the expand/collapse icon and prevent header click from toggling */
+.code-collapse.collapse-expand-icon-hidden .ant-collapse-expand-icon {
+  display: none !important;
+}
+.code-collapse.collapse-expand-icon-hidden .ant-collapse-header {
+  pointer-events: none;
+}
+.code-collapse.collapse-expand-icon-hidden .ant-collapse-header .ant-collapse-header-text {
+  pointer-events: auto;
 }
 
 /* Wrapper for <10 lines: provides positioning context for overlay buttons */
@@ -1859,12 +1923,19 @@ code {
   position: static;
 }
 
-.explain-icon {
-  width: 14px;
-  height: 14px;
+.explain-icon,
+.explain-icon-loading {
+  width: 11px !important;
+  height: 11px !important;
+  font-size: 11px !important;
   vertical-align: middle;
   opacity: 0.6;
   color: var(--text-color);
+}
+.explain-icon svg,
+.explain-icon-loading svg {
+  width: 11px !important;
+  height: 11px !important;
 }
 
 /* Spinning icon when explain is loading (replaces question mark) */
@@ -2144,7 +2215,7 @@ code {
 }
 
 .toggle-button {
-  color: var(--text-color);
+  color: #7e8ba3 !important;
   opacity: 0.6;
   transition: opacity 0.3s;
   padding: 0;
@@ -2156,10 +2227,15 @@ code {
   font-size: 10px;
   font-weight: bold;
 }
-
+.toggle-button .anticon {
+  color: #7e8ba3 !important;
+}
 .toggle-button:hover {
+  color: #7e8ba3 !important;
   opacity: 1;
-  background: rgba(255, 255, 255, 0.1);
+}
+.toggle-button:hover .anticon {
+  color: #7e8ba3 !important;
 }
 
 .command-output {

@@ -815,6 +815,7 @@ export default {
     knowledgeSaved: 'База знаний сохранена успешно',
     knowledgeSaveFailed: 'Не удалось сохранить базу знаний',
     codePreview: 'Предварительный просмотр кода ({lines} строк)',
+    linesCount: '{count} строк',
     explainCommand: 'Объяснить эту команду',
     explainCommandTitle: 'Объяснение ИИ',
     explainCommandLoading: 'Объясняю…',
