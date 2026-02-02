@@ -527,11 +527,16 @@ export function useChatMessages(
     } else if (message?.type === 'state') {
       const chatermMessages = message.state?.chatermMessages ?? []
       const lastStateChatermMessages = chatermMessages.at(-1)
+      const isWaitingForUserResponse =
+        lastStateChatermMessages?.type === 'ask' ||
+        lastStateChatermMessages?.say === 'command_blocked' ||
+        lastStateChatermMessages?.say === 'completion_result'
       if (
         chatermMessages.length > 0 &&
         lastStateChatermMessages?.partial != undefined &&
         !lastStateChatermMessages.partial &&
-        session.responseLoading
+        session.responseLoading &&
+        isWaitingForUserResponse
       ) {
         session.responseLoading = false
       }
