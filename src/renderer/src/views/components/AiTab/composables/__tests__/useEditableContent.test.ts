@@ -1,23 +1,24 @@
 import { describe, it, expect, vi } from 'vitest'
 import { ref } from 'vue'
 import { parseContextDragPayload, useEditableContent } from '../useEditableContent'
-import type { ContentPart, ContextDocRef, ContextPastChatRef } from '@shared/WebviewMessage'
+import type { ContentPart, ContextDocRef, ContextPastChatRef, ContextCommandRef } from '@shared/WebviewMessage'
 import type { DocOption } from '../../types'
 
 describe('useEditableContent', () => {
-  const setup = () => {
+  const setup = (opts?: { handleShowCommandPopup?: (triggerEl?: HTMLElement | null) => void }) => {
     const editableRef = ref<HTMLDivElement | null>(document.createElement('div'))
     const chatInputParts = ref<ContentPart[]>([])
-    const handleChipClick = vi.fn<(chipType: 'doc' | 'chat', ref: ContextDocRef | ContextPastChatRef) => void>()
+    const handleChipClick = vi.fn<(chipType: 'doc' | 'chat' | 'command', ref: ContextDocRef | ContextPastChatRef | ContextCommandRef) => void>()
 
     const api = useEditableContent({
       editableRef,
       chatInputParts,
       handleSendClick: vi.fn(),
       handleAddContextClick: vi.fn(),
+      handleShowCommandPopup: opts?.handleShowCommandPopup,
       handleChipClick
     })
-    return { ...api, editableRef, handleChipClick }
+    return { ...api, editableRef, chatInputParts, handleChipClick }
   }
 
   it('should call handleChipClick for doc chip', () => {
@@ -140,6 +141,98 @@ describe('useEditableContent', () => {
     expect(parseContextDragPayload(dataTransfer)).toBeNull()
   })
 
+  describe('command chip with path', () => {
+    it('should create command chip with path attribute', () => {
+      const { createChipElement } = setup()
+      const cmdRef: ContextCommandRef = {
+        command: '/my-command',
+        label: 'My Command',
+        path: '/path/to/commands/my-command.md'
+      }
+      const chip = createChipElement('command', cmdRef, 'My Command')
+
+      expect(chip.getAttribute('data-chip-type')).toBe('command')
+      expect(chip.getAttribute('data-command')).toBe('/my-command')
+      expect(chip.getAttribute('data-label')).toBe('My Command')
+      expect(chip.getAttribute('data-path')).toBe('/path/to/commands/my-command.md')
+    })
+
+    it('should create command chip without path when not provided', () => {
+      const { createChipElement } = setup()
+      const cmdRef: ContextCommandRef = {
+        command: '/summary-to-doc',
+        label: 'Summary to Doc'
+      }
+      const chip = createChipElement('command', cmdRef, 'Summary to Doc')
+
+      expect(chip.getAttribute('data-chip-type')).toBe('command')
+      expect(chip.getAttribute('data-command')).toBe('/summary-to-doc')
+      expect(chip.getAttribute('data-label')).toBe('Summary to Doc')
+      expect(chip.getAttribute('data-path')).toBeNull()
+    })
+
+    it('should parse command chip element with path', () => {
+      const { createChipElement, editableRef, chatInputParts, syncDraftPartsFromEditable } = setup()
+      const el = editableRef.value as HTMLDivElement
+      document.body.appendChild(el)
+
+      const cmdRef: ContextCommandRef = {
+        command: '/custom-cmd',
+        label: 'Custom Command',
+        path: '/kb/commands/custom.md'
+      }
+      const chip = createChipElement('command', cmdRef, 'Custom Command')
+      el.appendChild(chip)
+
+      syncDraftPartsFromEditable()
+
+      expect(chatInputParts.value).toHaveLength(1)
+      expect(chatInputParts.value[0]).toEqual({
+        type: 'chip',
+        chipType: 'command',
+        ref: {
+          command: '/custom-cmd',
+          label: 'Custom Command',
+          path: '/kb/commands/custom.md'
+        }
+      })
+
+      el.remove()
+    })
+
+    it('should insert command chip with path using insertCommandChipWithPath', () => {
+      const { editableRef, chatInputParts, insertCommandChipWithPath } = setup()
+      const el = editableRef.value as HTMLDivElement
+      el.textContent = ''
+      document.body.appendChild(el)
+
+      window.getSelection()?.removeAllRanges()
+
+      insertCommandChipWithPath('/test-cmd', 'Test Command', '/kb/commands/test.md')
+
+      const chip = el.querySelector('.mention-chip') as HTMLElement | null
+      expect(chip).not.toBeNull()
+      expect(chip?.getAttribute('data-chip-type')).toBe('command')
+      expect(chip?.getAttribute('data-command')).toBe('/test-cmd')
+      expect(chip?.getAttribute('data-path')).toBe('/kb/commands/test.md')
+
+      // chatInputParts includes chip + trailing spacer text
+      expect(chatInputParts.value.length).toBeGreaterThanOrEqual(1)
+      const chipPart = chatInputParts.value.find((p) => p.type === 'chip')
+      expect(chipPart).toMatchObject({
+        type: 'chip',
+        chipType: 'command',
+        ref: {
+          command: '/test-cmd',
+          label: 'Test Command',
+          path: '/kb/commands/test.md'
+        }
+      })
+
+      el.remove()
+    })
+  })
+
   it('should parse payload from text fallback', () => {
     const dataTransfer = {
       getData: (type: string) => {
@@ -153,6 +246,72 @@ describe('useEditableContent', () => {
       contextType: 'chat',
       id: 'chat-2',
       title: 'Chat 2'
+    })
+  })
+
+  describe('command popup trigger with IME', () => {
+    it('should open command popup only when actual "/" is inserted', () => {
+      vi.useFakeTimers()
+
+      const handleShowCommandPopup = vi.fn()
+      const { editableRef, handleEditableKeyDown } = setup({ handleShowCommandPopup })
+      const el = editableRef.value as HTMLDivElement
+      document.body.appendChild(el)
+      el.textContent = 'hello'
+
+      const textNode = el.firstChild as Text
+      const range = document.createRange()
+      range.setStart(textNode, textNode.data.length)
+      range.collapse(true)
+      const selection = window.getSelection()
+      selection?.removeAllRanges()
+      selection?.addRange(range)
+
+      // Keydown reports '/', then browser inserts '/' before the scheduled handler runs.
+      handleEditableKeyDown({ key: '/', shiftKey: false, isComposing: false } as unknown as KeyboardEvent, 'create')
+      textNode.data = 'hello/'
+      range.setStart(textNode, textNode.data.length)
+      range.collapse(true)
+      selection?.removeAllRanges()
+      selection?.addRange(range)
+
+      vi.runAllTimers()
+      expect(handleShowCommandPopup).toHaveBeenCalledTimes(1)
+
+      el.remove()
+      vi.useRealTimers()
+    })
+
+    it('should not open command popup when IME inserts "、" for "/" key', () => {
+      vi.useFakeTimers()
+
+      const handleShowCommandPopup = vi.fn()
+      const { editableRef, handleEditableKeyDown } = setup({ handleShowCommandPopup })
+      const el = editableRef.value as HTMLDivElement
+      document.body.appendChild(el)
+      el.textContent = '中文'
+
+      const textNode = el.firstChild as Text
+      const range = document.createRange()
+      range.setStart(textNode, textNode.data.length)
+      range.collapse(true)
+      const selection = window.getSelection()
+      selection?.removeAllRanges()
+      selection?.addRange(range)
+
+      // Keydown reports '/', but the IME inserts '、' before the scheduled handler runs.
+      handleEditableKeyDown({ key: '/', shiftKey: false, isComposing: false } as unknown as KeyboardEvent, 'create')
+      textNode.data = '中文、'
+      range.setStart(textNode, textNode.data.length)
+      range.collapse(true)
+      selection?.removeAllRanges()
+      selection?.addRange(range)
+
+      vi.runAllTimers()
+      expect(handleShowCommandPopup).not.toHaveBeenCalled()
+
+      el.remove()
+      vi.useRealTimers()
     })
   })
 })

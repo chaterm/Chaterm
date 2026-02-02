@@ -762,14 +762,12 @@ export default {
     yesterday: 'Gestern',
     favorite: 'Favoriten',
     welcome: 'Was kann ich für Sie im Terminal tun?',
-    welcomeTips: [
-      'Was kann ich für Sie im Terminal tun?',
-      'Typ @ um mehr Hosts in Agent-Modus auszuwählen',
-      'Drücken Sie Shift + Tab um den Modus zu wechseln'
-    ],
+    welcomeTips: ['Was kann ich für Sie im Terminal tun?', '@ für Kontext, / für Befehle', 'Drücken Sie Shift + Tab um den Modus zu wechseln'],
     loginPrompt: 'Login um AI-Features zu verwenden, neue Benutzer können für 2 Wochen kostenlos verwenden',
     searchHost: 'Nach IP suchen',
     noMatchingHosts: 'Keine übereinstimmenden Hosts',
+    searchCommand: 'Befehle suchen',
+    noMatchingCommands: 'Keine passenden Befehle',
     copy: 'Kopieren',
     run: 'Ausführen',
     reject: 'Ablehnen',

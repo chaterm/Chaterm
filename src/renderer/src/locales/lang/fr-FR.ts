@@ -765,12 +765,14 @@ export default {
     welcome: 'Que puis-je faire pour vous dans le terminal?',
     welcomeTips: [
       'Que puis-je faire pour vous dans le terminal?',
-      "Tapez @ pour sélectionner plus d'hôtes en mode Agent",
+      '@ pour le contexte, / pour les commandes',
       'Appuyez sur Shift + Tab pour changer de mode'
     ],
     loginPrompt: 'Connectez-vous pour utiliser les fonctionnalités AI, les nouveaux utilisateurs peuvent utiliser gratuitement pendant deux semaines',
     searchHost: 'Rechercher par IP',
     noMatchingHosts: 'Aucun hôte correspondant',
+    searchCommand: 'Rechercher des commandes',
+    noMatchingCommands: 'Aucune commande correspondante',
     copy: 'Copier',
     run: 'Exécuter',
     reject: 'Refuser',

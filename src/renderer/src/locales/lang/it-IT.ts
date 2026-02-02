@@ -761,14 +761,12 @@ export default {
     yesterday: 'Ieri',
     favorite: 'Preferiti',
     welcome: 'Cosa posso fare per te nel terminale?',
-    welcomeTips: [
-      'Cosa posso fare per te nel terminale?',
-      'Digita @ per selezionare più host in modalità Agent',
-      'Premi Shift + Tab per cambiare modalità'
-    ],
+    welcomeTips: ['Cosa posso fare per te nel terminale?', '@ per il contesto, / per i comandi', 'Premi Shift + Tab per cambiare modalità'],
     loginPrompt: 'Login per utilizzare funzionalità AI, nuovi utenti possono usarle gratuitamente per due settimane',
     searchHost: 'Cerca per IP',
     noMatchingHosts: 'Nessun host corrispondente',
+    searchCommand: 'Cerca comandi',
+    noMatchingCommands: 'Nessun comando corrispondente',
     copy: 'Copia',
     run: 'Esegui',
     reject: 'Rifiuta',

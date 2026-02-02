@@ -760,14 +760,12 @@ export default {
     yesterday: 'Ontem',
     favorite: 'Favoritos',
     welcome: 'O que posso fazer para você no terminal?',
-    welcomeTips: [
-      'O que posso fazer para você no terminal?',
-      'Digite @ para selecionar mais hosts em modo Agent',
-      'Pressione Shift + Tab para alternar modo'
-    ],
+    welcomeTips: ['O que posso fazer para você no terminal?', '@ para contexto, / para comandos', 'Pressione Shift + Tab para alternar modo'],
     loginPrompt: 'Login para usar recursos de IA, novos usuários podem usar gratuitamente por duas semanas',
     searchHost: 'Pesquisar por IP',
     noMatchingHosts: 'Nenhum host correspondente',
+    searchCommand: 'Pesquisar comandos',
+    noMatchingCommands: 'Nenhum comando correspondente',
     copy: 'Copiar',
     run: 'Executar',
     reject: 'Rejeitar',

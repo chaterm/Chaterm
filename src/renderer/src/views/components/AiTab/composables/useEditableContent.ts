@@ -80,15 +80,52 @@ export interface UseEditableContentOptions {
   chatInputParts: Ref<ContentPart[]>
   handleSendClick: (type: string) => void
   handleAddContextClick: (triggerEl?: HTMLElement | null, mode?: 'create' | 'edit') => void
-  handleChipClick?: (chipType: 'doc' | 'chat', ref: ContextDocRef | ContextPastChatRef) => void
+  handleShowCommandPopup?: (triggerEl?: HTMLElement | null) => void
+  handleChipClick?: (chipType: 'doc' | 'chat' | 'command', ref: ContextDocRef | ContextPastChatRef | ContextCommandRef) => void
 }
 
 export function useEditableContent(options: UseEditableContentOptions) {
-  const { editableRef, chatInputParts, handleSendClick, handleAddContextClick, handleChipClick } = options
+  const { editableRef, chatInputParts, handleSendClick, handleAddContextClick, handleShowCommandPopup, handleChipClick } = options
 
   const isEditableEmpty = ref(true)
   const savedSelection = ref<Range | null>(null)
   const isSyncingFromEditable = ref(false)
+
+  /**
+   * Get the character immediately before the caret.
+   * Some IMEs report a different key (e.g. '/') than the actual inserted character (e.g. '、'),
+   * so we must validate the real inserted character before triggering popups.
+   */
+  const getCharBeforeCaret = (): string | null => {
+    const selection = window.getSelection()
+    if (!selection || selection.rangeCount === 0) return null
+    const range = selection.getRangeAt(0)
+    const editableEl = editableRef.value
+    if (!editableEl || !editableEl.contains(range.startContainer)) return null
+
+    const container = range.startContainer
+    const offset = range.startOffset
+
+    if (container.nodeType === Node.TEXT_NODE) {
+      const text = (container as Text).data
+      if (offset <= 0 || offset > text.length) return null
+      return text[offset - 1] ?? null
+    }
+
+    if (container.nodeType === Node.ELEMENT_NODE) {
+      const el = container as Element
+      const prevNode = el.childNodes[offset - 1]
+      if (!prevNode) return null
+      if (prevNode.nodeType === Node.TEXT_NODE) {
+        const text = (prevNode as Text).data
+        return text.length > 0 ? text[text.length - 1] : null
+      }
+      const text = (prevNode as HTMLElement).textContent ?? ''
+      return text.length > 0 ? text[text.length - 1] : null
+    }
+
+    return null
+  }
 
   // ============================================================================
   // Selection Management
@@ -183,6 +220,9 @@ export function useEditableContent(options: UseEditableContentOptions) {
     chip.setAttribute('data-command', cmd.command)
     if (cmd.label) {
       chip.setAttribute('data-label', cmd.label)
+    }
+    if (cmd.path) {
+      chip.setAttribute('data-path', cmd.path)
     }
   }
 
@@ -295,7 +335,8 @@ export function useEditableContent(options: UseEditableContentOptions) {
   const parseCommandChipElement = (el: HTMLElement): ContextCommandRef => {
     return {
       command: el.dataset.command || '',
-      label: el.dataset.label || undefined
+      label: el.dataset.label || undefined,
+      path: el.dataset.path || undefined
     }
   }
 
@@ -555,6 +596,63 @@ export function useEditableContent(options: UseEditableContentOptions) {
     syncDraftPartsFromEditable()
   }
 
+  /**
+   * Insert a command chip with path (from knowledge base) at the current cursor position.
+   * @param command - The slash command string (e.g., '/my-command')
+   * @param label - Display label for the chip
+   * @param path - Absolute path to the command file in knowledge base
+   */
+  const insertCommandChipWithPath = (command: string, label: string, path: string) => {
+    if (!editableRef.value) return
+    restoreSelection()
+
+    let range = getEditableRange()
+    if (!range) {
+      moveCaretToEnd()
+      range = getEditableRange()
+    }
+    if (!range) return
+
+    const selection = window.getSelection()
+    if (!selection) return
+
+    // Remove trailing slash before cursor if present
+    removeSlashBeforeCursor(range)
+
+    const chipRef: ContextCommandRef = { command, label, path }
+    const chip = createChipElement('command', chipRef, label)
+    range.deleteContents()
+    range.insertNode(chip)
+
+    // Add spacer after chip and move cursor after it
+    const spacer = document.createTextNode(' ')
+    chip.after(spacer)
+
+    const newRange = document.createRange()
+    newRange.setStart(spacer, 1)
+    newRange.collapse(true)
+    selection.removeAllRanges()
+    selection.addRange(newRange)
+
+    saveSelection()
+    syncDraftPartsFromEditable()
+  }
+
+  /**
+   * Remove slash character before cursor position.
+   */
+  const removeSlashBeforeCursor = (range: Range) => {
+    if (range.startContainer.nodeType !== Node.TEXT_NODE) return
+
+    const textNode = range.startContainer as Text
+    const offset = range.startOffset
+    if (offset > 0 && textNode.data[offset - 1] === '/') {
+      textNode.data = textNode.data.slice(0, offset - 1) + textNode.data.slice(offset)
+      range.setStart(textNode, offset - 1)
+      range.collapse(true)
+    }
+  }
+
   // New: Wrapper for handleInputChange to pass mode
   const handleEditableKeyDown = (e: KeyboardEvent, mode: 'create' | 'edit' = 'create') => {
     if (e.key === 'Enter' && !e.shiftKey && !e.isComposing) {
@@ -569,6 +667,16 @@ export function useEditableContent(options: UseEditableContentOptions) {
       setTimeout(() => {
         saveSelection()
         handleAddContextClick(editableRef.value, mode)
+      }, 0)
+    }
+
+    // Trigger command popup when '/' is pressed
+    if (e.key === '/' && !e.isComposing && handleShowCommandPopup) {
+      setTimeout(() => {
+        // Only open when actual '/' was inserted (IME may insert '、' etc. for the same key).
+        if (getCharBeforeCaret() !== '/') return
+        saveSelection()
+        handleShowCommandPopup(editableRef.value)
       }, 0)
     }
   }
@@ -607,6 +715,10 @@ export function useEditableContent(options: UseEditableContentOptions) {
     }
     if (chip.dataset.chipType === 'chat') {
       handleChipClick?.('chat', parseChatChipElement(chip))
+      return
+    }
+    if (chip.dataset.chipType === 'command') {
+      handleChipClick?.('command', parseCommandChipElement(chip))
     }
   }
 
@@ -636,6 +748,7 @@ export function useEditableContent(options: UseEditableContentOptions) {
     insertChipAtCursor,
     insertImageAtCursor,
     insertCommandChip,
+    insertCommandChipWithPath,
 
     // DOM creation (exposed for potential external use)
     createChipElement,
