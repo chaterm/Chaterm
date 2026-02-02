@@ -2720,36 +2720,35 @@ const handleCommandOutput = (data: string, isInitialCommand: boolean) => {
   const cleanWindowsOutput = (rawData: string): string => {
     let cleaned = rawData
 
-    // First, remove PowerShell specific error/command tracking sequences
-    // These appear as [command]number;status;command; format
+    // Remove OSC window title sequences FIRST (before any control-char stripping),
+    // so ESC is not removed and break the sequence. Handle both full and split sequences.
     cleaned = cleaned
-      // Remove [pwd]9501;CmdNotFound;pwd; type patterns - more comprehensive
+      // Full OSC 0 (window title): \x1b]0;...\x07
+      .replace(/\x1b\]0;[^\x07]*\x07/g, '')
+      // Full OSC 9 (PowerShell)
+      .replace(/\x1b\]9;[^\x07]*\x07/g, '')
+      // When ]0; or ]9; is followed by single-quote (CMD error format "'cmd' 不是内部或外部命令"), strip only the ]0; prefix so we keep the error message
+      .replace(/\]0;(?=')/g, '')
+      .replace(/\]9;(?=')/g, '')
+      // Orphaned OSC (ESC already stripped or sequence split across chunks): ]0;... or ]9;... up to BEL or newline
+      .replace(/\]0;[^\x07\n\r]*\x07?/g, '')
+      .replace(/\]9;[^\x07\n\r]*\x07?/g, '')
+
+    // Remove PowerShell specific error/command tracking sequences
+    cleaned = cleaned
       .replace(/\[[^\]]*\]\d+;[^;]*;[^;]*;?/g, '')
-      // Remove any remaining bracket-number-semicolon patterns
       .replace(/\[[^\]]*\]\d+[;:][^;\n\r]*;?/g, '')
-      // Remove standalone error indicators
       .replace(/\b\d+;[^;]*;[^;]*;?\b/g, '')
 
-    // Then apply standard ANSI cleaning
+    // Standard ANSI cleaning (Hf cursor position -> remove only, to avoid double newlines with \r\n)
     cleaned = cleaned
-      // Remove ANSI color codes
       .replace(/\x1b\[[0-9;]*m/g, '')
-      // Remove cursor control sequences
       .replace(/\x1b\[[0-9;]*[ABCDEFGJKST]/g, '')
-      // Remove erase sequences (like \x1b[13X)
       .replace(/\x1b\[[0-9]*[XK]/g, '')
-      // Remove cursor position sequences (like \x1b[13;1H)
-      .replace(/\x1b\[[0-9;]*[Hf]/g, '\n')
-      // Remove other ANSI sequences
+      .replace(/\x1b\[[0-9;]*[Hf]/g, '')
       .replace(/\x1b\[[?][0-9;]*[hl]/g, '')
-      // Remove PowerShell specific control sequences
-      .replace(/\x1b\]0;[^\x07]*\x07/g, '') // Window title sequences
-      .replace(/\x1b\]9;[^\x07]*\x07/g, '') // PowerShell specific sequences
-      // Remove remaining control characters except newlines and tabs
       .replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/g, '')
-      // Clean up multiple consecutive newlines
       .replace(/\n{3,}/g, '\n\n')
-      // Normalize line endings
       .replace(/\r\n/g, '\n')
       .replace(/\r/g, '\n')
 
@@ -2779,155 +2778,235 @@ const handleCommandOutput = (data: string, isInitialCommand: boolean) => {
 
   commandOutput.value += cleanOutput
 
+  const accumulatedLen = commandOutput.value.length
+
   // Detect SSH command prompt to determine if command output has ended
   const accumulatedOutput = commandOutput.value
   const lastNonEmptyLine = getLastNonEmptyLine(accumulatedOutput)
 
-  if (lastNonEmptyLine && isTerminalPromptLine(lastNonEmptyLine)) {
-    isCollectingOutput.value = false
+  // On Windows local shell: PowerShell/CMD use "PS C:\path>" or "C:\path>", never "$"; Git Bash uses "$".
+  // Lone "$" with very little output is likely PowerShell variable (e.g. $totalMemory) at start of command - ignore.
+  // Lone "$" with substantial output could be Git Bash prompt - allow it.
+  // Git Bash output contains MINGW64/MSYS - if seen, lone "$" is a real prompt, do not ignore.
+  const isWindowsLocalShell = props.connectData?.asset_type === 'shell' && navigator.platform.toLowerCase().includes('win')
+  const isLoneDollarPrompt = /^\s*\$\s*$/.test(lastNonEmptyLine || '')
+  const tooLittleOutput = accumulatedLen < 150
+  const isGitBash = /MINGW(64|32)|MSYS/.test(accumulatedOutput)
+  const shouldIgnorePrompt = isWindowsLocalShell && isLoneDollarPrompt && tooLittleOutput && !isGitBash
 
+  if (lastNonEmptyLine && isTerminalPromptLine(lastNonEmptyLine) && !shouldIgnorePrompt) {
     const tabId = currentCommandTabId.value
     const marker = currentCommandMarker.value
-
-    // Get the sent command before clearing the marker
     const sentCommand = marker ? commandMarkerToCommand.value.get(marker) : null
+    const isWindowsLocal =
+      props.connectData?.asset_type === 'shell' && (/^[A-Za-z]:[\\\/].*?>\s*$/.test(lastNonEmptyLine) || /^PS\s+[A-Za-z]:/.test(lastNonEmptyLine))
 
-    if (marker) {
-      commandMarkerToTabId.value.delete(marker)
-      commandMarkerToCommand.value.delete(marker)
-      currentCommandMarker.value = null
-    }
-    currentCommandTabId.value = undefined
+    const doProcessOutput = () => {
+      const outputText = commandOutput.value
+      const lines = outputText.replace(/\r\n|\r/g, '\n').split('\n')
 
-    const lines = commandOutput.value.replace(/\r\n|\r/g, '\n').split('\n')
+      // Detect terminal type: Windows (PowerShell/CMD) vs Linux/Git Bash Windows (PowerShell/CMD) vs Linux/Git Bash
+      type TerminalType = 'windows' | 'linux' | 'unknown'
 
-    // Detect terminal type: Windows (PowerShell/CMD) vs Linux/Git Bash
-    type TerminalType = 'windows' | 'linux' | 'unknown'
-
-    function detectTerminalType(lines: string[], lastNonEmptyLine: string, sentCommand: string | null): TerminalType {
-      // 1. Check prompt patterns (most reliable)
-      if (lastNonEmptyLine) {
-        const trimmed = lastNonEmptyLine.trim()
-        // Windows PowerShell/CMD prompt
-        if (/^PS\s+[A-Za-z]:[\\\/]/.test(trimmed) || /^[A-Za-z]:[\\\/].*?>\s*$/.test(trimmed)) {
-          return 'windows'
-        }
-        // Linux/Git Bash prompt (including MINGW64/MINGW32/MSYS)
-        if (
-          /^[$#]\s*$/.test(trimmed) ||
-          /^[^@]+@[^:]+:/.test(trimmed) ||
-          /MINGW(64|32)|MSYS/.test(trimmed) ||
-          /^[^@]+@[^@]+\s+(MINGW64|MINGW32|MSYS)/.test(trimmed)
-        ) {
-          return 'linux'
-        }
-      }
-
-      // 2. Check prompt patterns in output lines
-      for (const line of lines) {
-        const trimmed = line.trim()
-        // Windows prompt
-        if (/^PS\s+[A-Za-z]:[\\\/]/.test(trimmed) || /^[A-Za-z]:[\\\/].*?>\s*$/.test(trimmed)) {
-          return 'windows'
-        }
-        // Linux/Git Bash prompt
-        if (/MINGW(64|32)|MSYS/.test(trimmed) || /^[^@]+@[^@]+\s+(MINGW64|MINGW32|MSYS)/.test(trimmed)) {
-          return 'linux'
-        }
-      }
-
-      // 3. Check command content (auxiliary)
-      if (sentCommand) {
-        // PowerShell cmdlets
-        if (/Get-|Select-Object|Format-Table|ForEach-Object|Where-Object/i.test(sentCommand)) {
-          return 'windows'
-        }
-      }
-
-      // 4. Default: if local connection without clear identification, could be Windows PowerShell or Git Bash
-      // For safety, return 'unknown' and use conservative strategy
-      return 'unknown'
-    }
-
-    const terminalType = detectTerminalType(lines, lastNonEmptyLine, sentCommand ?? null)
-
-    let outputStartIndex = 0
-    let outputEndIndex = lines.length
-    let processedLines = lines
-
-    switch (terminalType) {
-      case 'windows': {
-        // PowerShell/CMD specific processing
-        // Strategy 1: Try to use empty line as separator, but validate the result
-        // For Format-Table output, empty lines may appear in the middle of output, so we need to be more careful
-        let foundEmptyLineSeparator = false
-        let emptyLineIndex = -1
-
-        // Find the first empty line after command, which typically separates command echo from output
-        // But skip if there are many lines before the empty line (likely table output)
-        for (let i = 0; i < Math.min(lines.length, 5); i++) {
-          const line = lines[i]
-          if (!line.trim()) {
-            emptyLineIndex = i
-            foundEmptyLineSeparator = true
-            break
+      function detectTerminalType(lines: string[], lastNonEmptyLine: string, sentCommand: string | null): TerminalType {
+        // 1. Check prompt patterns (most reliable)
+        if (lastNonEmptyLine) {
+          const trimmed = lastNonEmptyLine.trim()
+          // Windows PowerShell/CMD prompt
+          if (/^PS\s+[A-Za-z]:[\\\/]/.test(trimmed) || /^[A-Za-z]:[\\\/].*?>\s*$/.test(trimmed)) {
+            return 'windows'
+          }
+          // Linux/Git Bash prompt (including MINGW64/MINGW32/MSYS)
+          if (
+            /^[$#]\s*$/.test(trimmed) ||
+            /^[^@]+@[^:]+:/.test(trimmed) ||
+            /MINGW(64|32)|MSYS/.test(trimmed) ||
+            /^[^@]+@[^@]+\s+(MINGW64|MINGW32|MSYS)/.test(trimmed)
+          ) {
+            return 'linux'
           }
         }
 
-        // If we found an empty line, check if there's meaningful content after it (excluding prompts)
-        // Also check that the empty line is near the beginning (not in the middle of table output)
-        if (foundEmptyLineSeparator && emptyLineIndex < 5) {
-          let hasContentAfterEmpty = false
-          let contentLineCount = 0
-          for (let i = emptyLineIndex + 1; i < lines.length; i++) {
-            const line = lines[i].trim()
-            if (line && !isTerminalPromptLine(line)) {
-              hasContentAfterEmpty = true
-              contentLineCount++
-              // Check if we have enough content after empty line to be confident it's a separator
-              if (contentLineCount >= 3) {
+        // 2. Check prompt patterns in output lines
+        for (const line of lines) {
+          const trimmed = line.trim()
+          // Windows prompt
+          if (/^PS\s+[A-Za-z]:[\\\/]/.test(trimmed) || /^[A-Za-z]:[\\\/].*?>\s*$/.test(trimmed)) {
+            return 'windows'
+          }
+          // Linux/Git Bash prompt
+          if (/MINGW(64|32)|MSYS/.test(trimmed) || /^[^@]+@[^@]+\s+(MINGW64|MINGW32|MSYS)/.test(trimmed)) {
+            return 'linux'
+          }
+        }
+
+        // 3. Check command content (auxiliary)
+        if (sentCommand) {
+          // PowerShell cmdlets
+          if (/Get-|Select-Object|Format-Table|ForEach-Object|Where-Object/i.test(sentCommand)) {
+            return 'windows'
+          }
+        }
+
+        // 4. Default: if local connection without clear identification, could be Windows PowerShell or Git Bash
+        // For safety, return 'unknown' and use conservative strategy
+        return 'unknown'
+      }
+
+      const terminalType = detectTerminalType(lines, lastNonEmptyLine, sentCommand ?? null)
+
+      let outputStartIndex = 0
+      let outputEndIndex = lines.length
+      let processedLines = lines
+
+      switch (terminalType) {
+        case 'windows': {
+          // Strategy 0: If we have sentCommand, start output right after the command echo line (keeps dir header like "驱动器 C 中的卷是 Windows")
+          let foundCommandLine = false
+          if (sentCommand) {
+            const cmdLines = sentCommand.split(/\r?\n/).filter((l) => l.trim())
+            const normCmd =
+              cmdLines
+                .map((l) =>
+                  l
+                    .replace(/\x1b\[[0-9;]*m/g, '')
+                    .replace(/\x1b\[[0-9;]*[ABCDEFGJKST]/g, '')
+                    .replace(/\x1b\[[0-9]*[XK]/g, '')
+                    .replace(/\x1b\[[0-9;]*[Hf]/g, '')
+                    .replace(/\x1b\[[?][0-9;]*[hl]/g, '')
+                    .replace(/\x1b\]0;[^\x07]*\x07/g, '')
+                    .replace(/\x1b\]9;[^\x07]*\x07/g, '')
+                    .replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/g, '')
+                    .trim()
+                )
+                .join(' ')
+                .replace(/\s+/g, ' ')
+                .trim() || ''
+            const cleanLine = (s: string) =>
+              s
+                .replace(/\x1b\[[0-9;]*m/g, '')
+                .replace(/\x1b\[[0-9;]*[ABCDEFGJKST]/g, '')
+                .replace(/\x1b\[[0-9]*[XK]/g, '')
+                .replace(/\x1b\[[0-9;]*[Hf]/g, '')
+                .replace(/\x1b\[[?][0-9;]*[hl]/g, '')
+                .replace(/\x1b\]0;[^\x07]*\x07/g, '')
+                .replace(/\x1b\]9;[^\x07]*\x07/g, '')
+                .replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/g, '')
+                .trim()
+                .replace(/\s+/g, ' ')
+            for (let i = 0; i < Math.min(lines.length, 8); i++) {
+              if (cleanLine(lines[i]) === normCmd) {
+                outputStartIndex = i + 1
+                foundCommandLine = true
                 break
               }
             }
           }
 
-          if (hasContentAfterEmpty && contentLineCount >= 3) {
-            outputStartIndex = emptyLineIndex + 1
-          } else {
-            // No meaningful content after empty line, or not enough content, fall back to command filtering
-            foundEmptyLineSeparator = false
-          }
-        } else {
-          foundEmptyLineSeparator = false
-        }
-
-        // If no empty line separator found or no content after empty line,
-        // fall back to removing lines that look like commands
-        if (!foundEmptyLineSeparator) {
-          const isCommandEchoLine = (line: string): boolean => {
-            const trimmed = line.trim()
-            if (!trimmed) return false
-
-            // First, check if this is an error message - these should NOT be treated as commands
-            if (
-              trimmed.includes('不是内部或外部命令') ||
-              trimmed.includes('is not recognized as') ||
-              trimmed.includes('command not found') ||
-              trimmed.includes('批处理文件')
-            ) {
-              return false
+          // Strategy 1: If no command line found, try first empty line as separator (Format-Table etc.)
+          // Long commands (e.g. powershell "Get-PSDrive...") echo across many lines with ANSI cursor codes, so search more lines
+          let foundEmptyLineSeparator = false
+          let emptyLineIndex = -1
+          if (!foundCommandLine) {
+            for (let i = 0; i < Math.min(lines.length, 20); i++) {
+              const line = lines[i]
+              if (!line.trim()) {
+                emptyLineIndex = i
+                foundEmptyLineSeparator = true
+                break
+              }
             }
 
-            // Check if this looks like PowerShell output header (e.g., "CookedValue", "Property", "Name", etc.)
-            // Log header detection for debugging
-            const isHeader = (() => {
-              if (/^[A-Z][a-zA-Z0-9]*$/.test(trimmed) && trimmed.length >= 4 && trimmed.length <= 20) {
-                return 'singlePascalCase'
+            // If we found an empty line, check if there's meaningful content after it (excluding prompts)
+            if (foundEmptyLineSeparator && emptyLineIndex < 20) {
+              let hasContentAfterEmpty = false
+              let contentLineCount = 0
+              for (let i = emptyLineIndex + 1; i < lines.length; i++) {
+                const line = lines[i].trim()
+                if (line && !isTerminalPromptLine(line)) {
+                  hasContentAfterEmpty = true
+                  contentLineCount++
+                  if (contentLineCount >= 3) break
+                }
               }
+              if (hasContentAfterEmpty && contentLineCount >= 3) {
+                outputStartIndex = emptyLineIndex + 1
+              } else {
+                foundEmptyLineSeparator = false
+              }
+            } else {
+              foundEmptyLineSeparator = false
+            }
+          }
+
+          // If neither command line nor empty line separator found, fall back to removing lines that look like commands
+          if (!foundCommandLine && !foundEmptyLineSeparator) {
+            const isCommandEchoLine = (line: string): boolean => {
+              const trimmed = line.trim()
+              if (!trimmed) return false
+
+              // First, check if this is an error message - these should NOT be treated as commands
+              if (
+                trimmed.includes('不是内部或外部命令') ||
+                trimmed.includes('is not recognized as') ||
+                trimmed.includes('command not found') ||
+                trimmed.includes('批处理文件')
+              ) {
+                return false
+              }
+
+              // Check if this looks like PowerShell output header (e.g., "CookedValue", "Property", "Name", etc.)
+              // Log header detection for debugging
+              const isHeader = (() => {
+                if (/^[A-Z][a-zA-Z0-9]*$/.test(trimmed) && trimmed.length >= 4 && trimmed.length <= 20) {
+                  return 'singlePascalCase'
+                }
+                const words = trimmed.split(/\s+/)
+                if (words.length >= 2 && words.length <= 8) {
+                  const wordsStartingWithUpper = words.filter((word) => /^[A-Z]/.test(word.replace(/[()]/g, '')))
+                  if (wordsStartingWithUpper.length >= 2 && wordsStartingWithUpper.length >= words.length * 0.5) {
+                    const hasTableHeaderPattern =
+                      trimmed.includes('Name') ||
+                      trimmed.includes('Path') ||
+                      trimmed.includes('Used') ||
+                      trimmed.includes('Free') ||
+                      trimmed.includes('Provider') ||
+                      trimmed.includes('Root') ||
+                      trimmed.includes('Value') ||
+                      trimmed.includes('Property') ||
+                      /\(GB\)|\(MB\)|\(KB\)/.test(trimmed)
+                    if (hasTableHeaderPattern) {
+                      return 'multiColumnHeader'
+                    }
+                  }
+                  const allPascalCase = words.every((word) => /^[A-Z][a-zA-Z0-9]*$/.test(word) && word.length >= 3)
+                  if (allPascalCase) {
+                    return 'allPascalCase'
+                  }
+                }
+                return null
+              })()
+
+              if (isHeader) {
+                return false
+              }
+              // PowerShell output headers are typically PascalCase words that appear before separator lines
+              // They should NOT be treated as command echoes
+              // Support both single column headers and multi-column headers (e.g., "Path CookedValue")
+              if (/^[A-Z][a-zA-Z0-9]*$/.test(trimmed) && trimmed.length >= 4 && trimmed.length <= 20) {
+                // Single PascalCase word header (e.g., "CookedValue", "Path")
+                return false
+              }
+
+              // Check for multi-column table headers (e.g., "Path CookedValue", "Name Used (GB) Free (GB)")
+              // Format: multiple words separated by spaces, may contain parentheses and other characters
               const words = trimmed.split(/\s+/)
               if (words.length >= 2 && words.length <= 8) {
+                // Check if most words start with uppercase letter (table headers typically do)
                 const wordsStartingWithUpper = words.filter((word) => /^[A-Z]/.test(word.replace(/[()]/g, '')))
+                // At least 50% of words should start with uppercase, and at least 2 words
                 if (wordsStartingWithUpper.length >= 2 && wordsStartingWithUpper.length >= words.length * 0.5) {
+                  // Additional check: if line contains common table header patterns
                   const hasTableHeaderPattern =
                     trimmed.includes('Name') ||
                     trimmed.includes('Path') ||
@@ -2937,98 +3016,213 @@ const handleCommandOutput = (data: string, isInitialCommand: boolean) => {
                     trimmed.includes('Root') ||
                     trimmed.includes('Value') ||
                     trimmed.includes('Property') ||
-                    /\(GB\)|\(MB\)|\(KB\)/.test(trimmed)
+                    /\(GB\)|\(MB\)|\(KB\)/.test(trimmed) // Contains size units in parentheses
+
                   if (hasTableHeaderPattern) {
-                    return 'multiColumnHeader'
+                    // This looks like a table header row (e.g., "Name Used (GB) Free (GB) Provider Root")
+                    return false
                   }
                 }
+
+                // Also check for simple PascalCase multi-word headers (original logic)
                 const allPascalCase = words.every((word) => /^[A-Z][a-zA-Z0-9]*$/.test(word) && word.length >= 3)
                 if (allPascalCase) {
-                  return 'allPascalCase'
-                }
-              }
-              return null
-            })()
-
-            if (isHeader) {
-              return false
-            }
-            // PowerShell output headers are typically PascalCase words that appear before separator lines
-            // They should NOT be treated as command echoes
-            // Support both single column headers and multi-column headers (e.g., "Path CookedValue")
-            if (/^[A-Z][a-zA-Z0-9]*$/.test(trimmed) && trimmed.length >= 4 && trimmed.length <= 20) {
-              // Single PascalCase word header (e.g., "CookedValue", "Path")
-              return false
-            }
-
-            // Check for multi-column table headers (e.g., "Path CookedValue", "Name Used (GB) Free (GB)")
-            // Format: multiple words separated by spaces, may contain parentheses and other characters
-            const words = trimmed.split(/\s+/)
-            if (words.length >= 2 && words.length <= 8) {
-              // Check if most words start with uppercase letter (table headers typically do)
-              const wordsStartingWithUpper = words.filter((word) => /^[A-Z]/.test(word.replace(/[()]/g, '')))
-              // At least 50% of words should start with uppercase, and at least 2 words
-              if (wordsStartingWithUpper.length >= 2 && wordsStartingWithUpper.length >= words.length * 0.5) {
-                // Additional check: if line contains common table header patterns
-                const hasTableHeaderPattern =
-                  trimmed.includes('Name') ||
-                  trimmed.includes('Path') ||
-                  trimmed.includes('Used') ||
-                  trimmed.includes('Free') ||
-                  trimmed.includes('Provider') ||
-                  trimmed.includes('Root') ||
-                  trimmed.includes('Value') ||
-                  trimmed.includes('Property') ||
-                  /\(GB\)|\(MB\)|\(KB\)/.test(trimmed) // Contains size units in parentheses
-
-                if (hasTableHeaderPattern) {
-                  // This looks like a table header row (e.g., "Name Used (GB) Free (GB) Provider Root")
+                  // This looks like a table header row (e.g., "Path CookedValue")
                   return false
                 }
               }
 
-              // Also check for simple PascalCase multi-word headers (original logic)
-              const allPascalCase = words.every((word) => /^[A-Z][a-zA-Z0-9]*$/.test(word) && word.length >= 3)
-              if (allPascalCase) {
-                // This looks like a table header row (e.g., "Path CookedValue")
+              // PowerShell/CMD command detection using patterns instead of hardcoded lists
+
+              // Note: Removed length-based heuristics (trimmed.length <= 20, <= 15) as they are too aggressive
+              // and can incorrectly identify output (like paths, numbers, short text) as command echoes.
+              // We rely on exact command matching (removeCommandEcho) and specific command patterns instead.
+
+              // 3. Common command patterns with parameters
+              if (/^[a-zA-Z][a-zA-Z0-9_-]+\s+[-\/][a-zA-Z0-9]/.test(trimmed)) {
+                return true
+              }
+
+              // 4. PowerShell cmdlet pattern (Verb-Noun)
+              if (/^[A-Z][a-z]+-[A-Z][a-z]+/.test(trimmed)) {
+                return true
+              }
+
+              // 5. Handle commands with trailing special characters (like pwd]\\\\)
+              // Note: Removed length check (<= 15) to avoid false positives
+              const firstWord = trimmed.split(/\s+/)[0]
+              const cleanFirstWord = firstWord.replace(/[^\w-]/g, '')
+              // Only match if it looks like a command word (not just any short word)
+              if (cleanFirstWord.length > 0 && /^[a-zA-Z][a-zA-Z0-9_-]*$/.test(cleanFirstWord)) {
+                // Check if it's a known command pattern or matches common command words
+                const commonCommandWords = ['pwd', 'ls', 'cd', 'cat', 'echo', 'grep', 'find', 'ps', 'top', 'df', 'du', 'whoami', 'date']
+                if (commonCommandWords.includes(cleanFirstWord.toLowerCase())) {
+                  return true
+                }
+                // For PowerShell, check if it's a cmdlet pattern
+                if (/^[A-Z][a-z]+-[A-Z][a-z]+/.test(cleanFirstWord)) {
+                  return true
+                }
+              }
+
+              // Original patterns for complex commands
+              if (/^[,}]\s*/.test(trimmed)) {
+                return true
+              }
+
+              const commandPatterns = [
+                /\|\s*(head|tail|grep|awk|sed|sort|uniq|wc|cut|xargs)/i,
+                /\b(awk|sed|grep|head|tail|cut|sort|uniq|wc|find|xargs|ifconfig|ls|cat|echo)\b.*\|/,
+                /['"].*['"]\s*\|/,
+                /\$\{/,
+                /\/[^\/]*\/[gimsx]*\s*\{/,
+                /^[^:]*:\s*$/,
+                /^[^a-zA-Z0-9]*['"}]/
+              ]
+
+              for (const pattern of commandPatterns) {
+                if (pattern.test(trimmed)) {
+                  return true
+                }
+              }
+
+              // Check for table separator lines (e.g., "----", "====")
+              // These should NOT be treated as command echoes
+              if (/^[-=]+$/.test(trimmed) && trimmed.length >= 2) {
                 return false
               }
+
+              if (trimmed.length < 5 && /^[^a-zA-Z0-9:]*$/.test(trimmed.replace(/['"]/g, ''))) {
+                // Exclude separator lines (dashes or equals)
+                if (/^[-=]+$/.test(trimmed)) {
+                  return false
+                }
+                return true
+              }
+
+              return false
             }
 
-            // PowerShell/CMD command detection using patterns instead of hardcoded lists
+            while (outputStartIndex < lines.length && isCommandEchoLine(lines[outputStartIndex])) {
+              outputStartIndex++
+            }
+          }
 
-            // Note: Removed length-based heuristics (trimmed.length <= 20, <= 15) as they are too aggressive
-            // and can incorrectly identify output (like paths, numbers, short text) as command echoes.
-            // We rely on exact command matching (removeCommandEcho) and specific command patterns instead.
+          // Remove prompt from the end
+          // First, try to find a line that is entirely a prompt (or "path>" which may be cd output + prompt on same line)
+          for (let i = lines.length - 1; i >= 0; i--) {
+            const rawLine = lines[i]
+            const line = rawLine.trim()
+            if (!line) continue
+            if (!isTerminalPromptLine(line)) continue
+            // Line ends with "path>" (e.g. C:\Users\yin_ding> or output+prompt C:\Users\yin_dingC:\Users\yin_ding>). Keep only content before the last prompt.
+            const outputPart = line.replace(/(.*)(PS\s+[A-Za-z]:[\\\/][^>]*>|[A-Za-z]:[\\\/][^>]*>)\s*$/, '$1').trim()
+            if (outputPart.length > 0) {
+              const prevTrimmed =
+                i > 0
+                  ? lines[i - 1]
+                      .replace(/\x1b\[[0-9;]*m/g, '')
+                      .replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/g, '')
+                      .trim()
+                  : ''
+              if (prevTrimmed === outputPart) {
+                outputEndIndex = i
+              } else {
+                lines[i] = outputPart
+                outputEndIndex = i + 1
+              }
+            } else {
+              outputEndIndex = i
+            }
+            break
+          }
 
-            // 3. Common command patterns with parameters
-            if (/^[a-zA-Z][a-zA-Z0-9_-]+\s+[-\/][a-zA-Z0-9]/.test(trimmed)) {
+          // If we didn't find a standalone prompt line, check if the last line ends with a prompt
+          if (outputEndIndex === lines.length && lines.length > 0) {
+            const lastLineIndex = lines.length - 1
+            const lastLine = lines[lastLineIndex]
+            const cleanLastLine = lastLine
+              .replace(/\x1b\[[0-9;]*m/g, '')
+              .replace(/\x1b\[[0-9;]*[ABCDEFGJKST]/g, '')
+              .replace(/\x1b\[[0-9]*[XK]/g, '')
+              .replace(/\x1b\[[0-9;]*[Hf]/g, '')
+              .replace(/\x1b\[[?][0-9;]*[hl]/g, '')
+              .replace(/\x1b\]0;[^\x07]*\x07/g, '')
+              .replace(/\x1b\]9;[^\x07]*\x07/g, '')
+              .replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/g, '')
+
+            // Check if line ends with PowerShell/CMD prompt pattern
+            // Match patterns like "5066PS C:\Users\test>" or "outputC:\path>"
+            const promptMatch = cleanLastLine.match(/(.*?)(PS\s+[A-Za-z]:[\\\/][^>]*>|[A-Za-z]:[\\\/][^>]*>)\s*$/)
+            if (promptMatch && promptMatch[1]) {
+              // Remove the prompt part, keep only the output part
+              const outputPart = promptMatch[1]
+              if (outputPart.length > 0) {
+                // Find the prompt in the original line (may contain ANSI codes)
+                // Use a regex that matches the prompt pattern, accounting for possible ANSI codes
+                const promptPattern = /(PS\s+[A-Za-z]:[\\\/][^>]*>|[A-Za-z]:[\\\/][^>]*>)\s*$/
+                const originalPromptMatch = lastLine.match(promptPattern)
+
+                if (originalPromptMatch) {
+                  // Extract output part from original line by removing the prompt
+                  const promptStart = lastLine.lastIndexOf(originalPromptMatch[1])
+                  if (promptStart >= 0) {
+                    lines[lastLineIndex] = lastLine.substring(0, promptStart).trimEnd()
+                  } else {
+                    // Fallback: use cleaned output part
+                    lines[lastLineIndex] = outputPart.trimEnd()
+                  }
+                } else {
+                  // If we can't find prompt in original line, use cleaned output part
+                  lines[lastLineIndex] = outputPart.trimEnd()
+                }
+                outputEndIndex = lines.length
+              } else {
+                // If there's no output part, exclude this line entirely
+                outputEndIndex = lines.length - 1
+              }
+            }
+          }
+          break
+        }
+
+        case 'linux':
+        case 'unknown': {
+          // Linux/Git Bash terminal processing (Git Bash uses same logic as Linux)
+          const filteredLines = lines.filter((line) => line.trim())
+
+          const isCommandEchoLine = (line: string): boolean => {
+            // First, clean ANSI sequences to ensure command detection works correctly
+            // Git Bash command echo may contain color codes (e.g., colored $ symbol)
+            let cleanedLine = line
+              .replace(/\x1b\[[0-9;]*m/g, '') // Color codes
+              .replace(/\x1b\[[0-9;]*[ABCDEFGJKST]/g, '') // Cursor movement
+              .replace(/\x1b\[[0-9]*[XK]/g, '') // Erase sequences
+              .replace(/\x1b\[[0-9;]*[Hf]/g, '') // Position sequences
+              .replace(/\x1b\[[?][0-9;]*[hl]/g, '') // Mode sequences
+              .replace(/\x1b\]0;[^\x07]*\x07/g, '') // Window title
+              .replace(/\x1b\]9;[^\x07]*\x07/g, '') // PowerShell sequences
+              .replace(/\x1b\[[?]25[hl]/g, '') // Cursor visibility
+              .replace(/\x1b\[[0-9;]*[JK]/g, '') // Erase in display/line
+              .replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/g, '') // Control chars
+
+            const trimmed = cleanedLine.trim()
+            if (!trimmed) return false
+
+            // Fix: Exclude path output (e.g., /c/Users/test) - only change needed for Git Bash
+            // Paths usually start with / or \ or contain path separators
+            if (/^[\/\\]/.test(trimmed) || /[\/\\]/.test(trimmed)) {
+              // This is path output, not command echo
+              return false
+            }
+
+            // Keep original logic unchanged
+            // For Git Bash, the first line is usually the command echo
+            const commonCommands = ['pwd', 'ls', 'cd', 'cat', 'echo', 'grep', 'find', 'ps', 'top', 'df', 'du', 'whoami', 'date']
+            if (commonCommands.includes(trimmed)) {
               return true
             }
 
-            // 4. PowerShell cmdlet pattern (Verb-Noun)
-            if (/^[A-Z][a-z]+-[A-Z][a-z]+/.test(trimmed)) {
-              return true
-            }
-
-            // 5. Handle commands with trailing special characters (like pwd]\\\\)
-            // Note: Removed length check (<= 15) to avoid false positives
-            const firstWord = trimmed.split(/\s+/)[0]
-            const cleanFirstWord = firstWord.replace(/[^\w-]/g, '')
-            // Only match if it looks like a command word (not just any short word)
-            if (cleanFirstWord.length > 0 && /^[a-zA-Z][a-zA-Z0-9_-]*$/.test(cleanFirstWord)) {
-              // Check if it's a known command pattern or matches common command words
-              const commonCommandWords = ['pwd', 'ls', 'cd', 'cat', 'echo', 'grep', 'find', 'ps', 'top', 'df', 'du', 'whoami', 'date']
-              if (commonCommandWords.includes(cleanFirstWord.toLowerCase())) {
-                return true
-              }
-              // For PowerShell, check if it's a cmdlet pattern
-              if (/^[A-Z][a-z]+-[A-Z][a-z]+/.test(cleanFirstWord)) {
-                return true
-              }
-            }
-
-            // Original patterns for complex commands
             if (/^[,}]\s*/.test(trimmed)) {
               return true
             }
@@ -3043,269 +3237,202 @@ const handleCommandOutput = (data: string, isInitialCommand: boolean) => {
               /^[^a-zA-Z0-9]*['"}]/
             ]
 
-            for (const pattern of commandPatterns) {
-              if (pattern.test(trimmed)) {
-                return true
-              }
-            }
-
-            // Check for table separator lines (e.g., "----", "====")
-            // These should NOT be treated as command echoes
-            if (/^[-=]+$/.test(trimmed) && trimmed.length >= 2) {
-              return false
+            if (commandPatterns.some((pattern) => pattern.test(trimmed))) {
+              return true
             }
 
             if (trimmed.length < 5 && /^[^a-zA-Z0-9:]*$/.test(trimmed.replace(/['"]/g, ''))) {
-              // Exclude separator lines (dashes or equals)
-              if (/^[-=]+$/.test(trimmed)) {
-                return false
-              }
               return true
             }
 
             return false
           }
 
-          while (outputStartIndex < lines.length && isCommandEchoLine(lines[outputStartIndex])) {
+          // Remove command echo lines from the beginning
+          while (outputStartIndex < filteredLines.length && isCommandEchoLine(filteredLines[outputStartIndex])) {
             outputStartIndex++
           }
-        }
 
-        // Remove prompt from the end
-        // First, try to find a line that is entirely a prompt
-        for (let i = lines.length - 1; i >= 0; i--) {
-          const line = lines[i].trim()
-          if (line && isTerminalPromptLine(line)) {
-            outputEndIndex = i
+          // Remove prompt from the end
+          outputEndIndex = filteredLines.length
+
+          // Helper function to clean ANSI sequences for prompt detection
+          // This ensures prompts with ANSI color codes can be correctly identified
+          const cleanLineForPromptCheck = (line: string): string => {
+            return line
+              .replace(/\x1b\[[0-9;]*m/g, '') // Color codes
+              .replace(/\x1b\[[0-9;]*[ABCDEFGJKST]/g, '') // Cursor movement
+              .replace(/\x1b\[[0-9]*[XK]/g, '') // Erase sequences
+              .replace(/\x1b\[[0-9;]*[Hf]/g, '') // Position sequences
+              .replace(/\x1b\[[?][0-9;]*[hl]/g, '') // Mode sequences
+              .replace(/\x1b\]0;[^\x07]*\x07/g, '') // Window title
+              .replace(/\x1b\]9;[^\x07]*\x07/g, '') // PowerShell sequences
+              .replace(/\x1b\[[?]25[hl]/g, '') // Cursor visibility
+              .replace(/\x1b\[[0-9;]*[JK]/g, '') // Erase in display/line
+              .replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/g, '') // Control chars
+              .trim()
+          }
+
+          // Remove all consecutive prompt lines from the end
+          // Git Bash may have multiple prompt lines (full prompt + $ symbol)
+          // We need to remove all of them, not just the last one
+          while (outputEndIndex > 0) {
+            const lastLine = filteredLines[outputEndIndex - 1]
+            const cleanedLine = cleanLineForPromptCheck(lastLine)
+
+            // Check for simple prompt symbols first ($, #, %)
+            if (/^[$#%]\s*$/.test(cleanedLine)) {
+              outputEndIndex--
+              continue
+            }
+
+            // Check for full prompt lines (including Git Bash prompts with ANSI sequences)
+            if (isTerminalPromptLine(cleanedLine)) {
+              outputEndIndex--
+              continue
+            }
+
+            // If this line is not a prompt, stop removing
             break
           }
-        }
 
-        // If we didn't find a standalone prompt line, check if the last line ends with a prompt
-        if (outputEndIndex === lines.length && lines.length > 0) {
-          const lastLineIndex = lines.length - 1
-          const lastLine = lines[lastLineIndex]
-          const cleanLastLine = lastLine
-            .replace(/\x1b\[[0-9;]*m/g, '')
-            .replace(/\x1b\[[0-9;]*[ABCDEFGJKST]/g, '')
-            .replace(/\x1b\[[0-9]*[XK]/g, '')
-            .replace(/\x1b\[[0-9;]*[Hf]/g, '')
-            .replace(/\x1b\[[?][0-9;]*[hl]/g, '')
-            .replace(/\x1b\]0;[^\x07]*\x07/g, '')
-            .replace(/\x1b\]9;[^\x07]*\x07/g, '')
-            .replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/g, '')
-
-          // Check if line ends with PowerShell/CMD prompt pattern
-          // Match patterns like "5066PS C:\Users\test>" or "outputC:\path>"
-          const promptMatch = cleanLastLine.match(/(.*?)(PS\s+[A-Za-z]:[\\\/][^>]*>|[A-Za-z]:[\\\/][^>]*>)\s*$/)
-          if (promptMatch && promptMatch[1]) {
-            // Remove the prompt part, keep only the output part
-            const outputPart = promptMatch[1]
-            if (outputPart.length > 0) {
-              // Find the prompt in the original line (may contain ANSI codes)
-              // Use a regex that matches the prompt pattern, accounting for possible ANSI codes
-              const promptPattern = /(PS\s+[A-Za-z]:[\\\/][^>]*>|[A-Za-z]:[\\\/][^>]*>)\s*$/
-              const originalPromptMatch = lastLine.match(promptPattern)
-
-              if (originalPromptMatch) {
-                // Extract output part from original line by removing the prompt
-                const promptStart = lastLine.lastIndexOf(originalPromptMatch[1])
-                if (promptStart >= 0) {
-                  lines[lastLineIndex] = lastLine.substring(0, promptStart).trimEnd()
-                } else {
-                  // Fallback: use cleaned output part
-                  lines[lastLineIndex] = outputPart.trimEnd()
-                }
-              } else {
-                // If we can't find prompt in original line, use cleaned output part
-                lines[lastLineIndex] = outputPart.trimEnd()
-              }
-              outputEndIndex = lines.length
-            } else {
-              // If there's no output part, exclude this line entirely
-              outputEndIndex = lines.length - 1
-            }
-          }
-        }
-        break
-      }
-
-      case 'linux':
-      case 'unknown': {
-        // Linux/Git Bash terminal processing (Git Bash uses same logic as Linux)
-        const filteredLines = lines.filter((line) => line.trim())
-
-        const isCommandEchoLine = (line: string): boolean => {
-          // First, clean ANSI sequences to ensure command detection works correctly
-          // Git Bash command echo may contain color codes (e.g., colored $ symbol)
-          let cleanedLine = line
-            .replace(/\x1b\[[0-9;]*m/g, '') // Color codes
-            .replace(/\x1b\[[0-9;]*[ABCDEFGJKST]/g, '') // Cursor movement
-            .replace(/\x1b\[[0-9]*[XK]/g, '') // Erase sequences
-            .replace(/\x1b\[[0-9;]*[Hf]/g, '') // Position sequences
-            .replace(/\x1b\[[?][0-9;]*[hl]/g, '') // Mode sequences
-            .replace(/\x1b\]0;[^\x07]*\x07/g, '') // Window title
-            .replace(/\x1b\]9;[^\x07]*\x07/g, '') // PowerShell sequences
-            .replace(/\x1b\[[?]25[hl]/g, '') // Cursor visibility
-            .replace(/\x1b\[[0-9;]*[JK]/g, '') // Erase in display/line
-            .replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/g, '') // Control chars
-
-          const trimmed = cleanedLine.trim()
-          if (!trimmed) return false
-
-          // Fix: Exclude path output (e.g., /c/Users/test) - only change needed for Git Bash
-          // Paths usually start with / or \ or contain path separators
-          if (/^[\/\\]/.test(trimmed) || /[\/\\]/.test(trimmed)) {
-            // This is path output, not command echo
-            return false
-          }
-
-          // Keep original logic unchanged
-          // For Git Bash, the first line is usually the command echo
-          const commonCommands = ['pwd', 'ls', 'cd', 'cat', 'echo', 'grep', 'find', 'ps', 'top', 'df', 'du', 'whoami', 'date']
-          if (commonCommands.includes(trimmed)) {
-            return true
-          }
-
-          if (/^[,}]\s*/.test(trimmed)) {
-            return true
-          }
-
-          const commandPatterns = [
-            /\|\s*(head|tail|grep|awk|sed|sort|uniq|wc|cut|xargs)/i,
-            /\b(awk|sed|grep|head|tail|cut|sort|uniq|wc|find|xargs|ifconfig|ls|cat|echo)\b.*\|/,
-            /['"].*['"]\s*\|/,
-            /\$\{/,
-            /\/[^\/]*\/[gimsx]*\s*\{/,
-            /^[^:]*:\s*$/,
-            /^[^a-zA-Z0-9]*['"}]/
-          ]
-
-          if (commandPatterns.some((pattern) => pattern.test(trimmed))) {
-            return true
-          }
-
-          if (trimmed.length < 5 && /^[^a-zA-Z0-9:]*$/.test(trimmed.replace(/['"]/g, ''))) {
-            return true
-          }
-
-          return false
-        }
-
-        // Remove command echo lines from the beginning
-        while (outputStartIndex < filteredLines.length && isCommandEchoLine(filteredLines[outputStartIndex])) {
-          outputStartIndex++
-        }
-
-        // Remove prompt from the end
-        outputEndIndex = filteredLines.length
-
-        // Helper function to clean ANSI sequences for prompt detection
-        // This ensures prompts with ANSI color codes can be correctly identified
-        const cleanLineForPromptCheck = (line: string): string => {
-          return line
-            .replace(/\x1b\[[0-9;]*m/g, '') // Color codes
-            .replace(/\x1b\[[0-9;]*[ABCDEFGJKST]/g, '') // Cursor movement
-            .replace(/\x1b\[[0-9]*[XK]/g, '') // Erase sequences
-            .replace(/\x1b\[[0-9;]*[Hf]/g, '') // Position sequences
-            .replace(/\x1b\[[?][0-9;]*[hl]/g, '') // Mode sequences
-            .replace(/\x1b\]0;[^\x07]*\x07/g, '') // Window title
-            .replace(/\x1b\]9;[^\x07]*\x07/g, '') // PowerShell sequences
-            .replace(/\x1b\[[?]25[hl]/g, '') // Cursor visibility
-            .replace(/\x1b\[[0-9;]*[JK]/g, '') // Erase in display/line
-            .replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/g, '') // Control chars
-            .trim()
-        }
-
-        // Remove all consecutive prompt lines from the end
-        // Git Bash may have multiple prompt lines (full prompt + $ symbol)
-        // We need to remove all of them, not just the last one
-        while (outputEndIndex > 0) {
-          const lastLine = filteredLines[outputEndIndex - 1]
-          const cleanedLine = cleanLineForPromptCheck(lastLine)
-
-          // Check for simple prompt symbols first ($, #, %)
-          if (/^[$#%]\s*$/.test(cleanedLine)) {
-            outputEndIndex--
-            continue
-          }
-
-          // Check for full prompt lines (including Git Bash prompts with ANSI sequences)
-          if (isTerminalPromptLine(cleanedLine)) {
-            outputEndIndex--
-            continue
-          }
-
-          // If this line is not a prompt, stop removing
+          processedLines = filteredLines
           break
         }
-
-        processedLines = filteredLines
-        break
       }
-    }
 
-    // Validate indices
-    if (outputStartIndex < 0) outputStartIndex = 0
-    if (outputEndIndex > processedLines.length) outputEndIndex = processedLines.length
-    if (outputStartIndex > outputEndIndex) {
-      const temp = outputStartIndex
-      outputStartIndex = outputEndIndex
-      outputEndIndex = temp
-    }
+      // Validate indices
+      if (outputStartIndex < 0) outputStartIndex = 0
+      if (outputEndIndex > processedLines.length) outputEndIndex = processedLines.length
+      if (outputStartIndex > outputEndIndex) {
+        const temp = outputStartIndex
+        outputStartIndex = outputEndIndex
+        outputEndIndex = temp
+      }
 
-    // Extract the actual output lines
-    let outputLines
-    if (terminalType === 'windows') {
-      const beforeFilter = processedLines.slice(outputStartIndex, outputEndIndex)
-      outputLines = beforeFilter.filter((line) => line.trim())
-    } else {
-      outputLines = processedLines.slice(outputStartIndex, outputEndIndex)
-    }
+      // Extract the actual output lines (preserve empty lines for multiple newlines)
+      let outputLines = processedLines.slice(outputStartIndex, outputEndIndex)
 
-    // Remove command echo using exact command matching
-    if (sentCommand && outputLines.length > 0) {
-      if (terminalType === 'windows') {
-        outputLines = removeCommandEcho(outputLines, sentCommand, true)
-      } else if (terminalType === 'linux' || terminalType === 'unknown') {
-        // Linux/Git Bash: remove leading line(s) that exactly match the sent command
-        const normalizedSent = sentCommand
-          .replace(/\r\n|\r/g, '\n')
-          .replace(/\s+/g, ' ')
-          .trim()
-        const cleanForCompare = (s: string) =>
-          s
-            .replace(/\x1b\[[0-9;]*m/g, '')
-            .replace(/\x1b\[[0-9;]*[ABCDEFGJKST]/g, '')
-            .replace(/\x1b\[[0-9]*[XK]/g, '')
-            .replace(/\x1b\[[0-9;]*[Hf]/g, '')
-            .replace(/\x1b\[[?][0-9;]*[hl]/g, '')
-            .replace(/\x1b\]0;[^\x07]*\x07/g, '')
-            .replace(/\x1b\]9;[^\x07]*\x07/g, '')
-            .replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/g, '')
-            .trim()
+      // Remove command echo using exact command matching
+      if (sentCommand && outputLines.length > 0) {
+        if (terminalType === 'windows') {
+          outputLines = removeCommandEcho(outputLines, sentCommand, true)
+        } else if (terminalType === 'linux' || terminalType === 'unknown') {
+          // Linux/Git Bash: remove leading line(s) that exactly match the sent command
+          const normalizedSent = sentCommand
+            .replace(/\r\n|\r/g, '\n')
             .replace(/\s+/g, ' ')
-        while (outputLines.length > 0 && cleanForCompare(outputLines[0]) === normalizedSent) {
-          outputLines = outputLines.slice(1)
+            .trim()
+          const cleanForCompare = (s: string) =>
+            s
+              .replace(/\x1b\[[0-9;]*m/g, '')
+              .replace(/\x1b\[[0-9;]*[ABCDEFGJKST]/g, '')
+              .replace(/\x1b\[[0-9]*[XK]/g, '')
+              .replace(/\x1b\[[0-9;]*[Hf]/g, '')
+              .replace(/\x1b\[[?][0-9;]*[hl]/g, '')
+              .replace(/\x1b\]0;[^\x07]*\x07/g, '')
+              .replace(/\x1b\]9;[^\x07]*\x07/g, '')
+              .replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/g, '')
+              .trim()
+              .replace(/\s+/g, ' ')
+          while (outputLines.length > 0 && cleanForCompare(outputLines[0]) === normalizedSent) {
+            outputLines = outputLines.slice(1)
+          }
         }
       }
-    }
 
-    try {
-      const finalOutput = outputLines.join('\n').trim()
-
-      if (finalOutput) {
-        const formattedOutput = `Terminal output:\n\`\`\`\n${finalOutput}\n\`\`\``
-        eventBus.emit('sendMessageToAi', { content: formattedOutput, tabId })
-      } else {
-        const output = 'Command executed successfully, no output returned'
-        const messageToSend = isInitialCommand ? `Terminal output:\n\`\`\`\n${output}\n\`\`\`` : output
-        eventBus.emit('sendMessageToAi', { content: messageToSend, tabId })
+      // Remove OSC window title residue (e.g. C:\windows\System32\cmd.exe or ]0;... when split across chunks)
+      if (terminalType === 'windows') {
+        // Strip OSC from each line first so mixed lines (e.g. "C:\Users\...\u001b]0;C:\...\cmd.exe\u0007") keep the path and are not dropped.
+        // When ]0; or ]9; is followed by single-quote (CMD error "'cmd' 不是内部或外部命令"), strip only the prefix so we keep the message.
+        const stripOscFromLine = (line: string) =>
+          line
+            .replace(/\x1b\]0;[^\x07]*\x07/g, '')
+            .replace(/\x1b\]9;[^\x07]*\x07/g, '')
+            .replace(/\]0;(?=')/g, '')
+            .replace(/\]9;(?=')/g, '')
+            .replace(/\]0;[^\x07\n\r]*\x07?/g, '')
+            .replace(/\]9;[^\x07\n\r]*\x07?/g, '')
+            .replace(/^\]'/g, "'") // leftover "]'" when "0;" was lost across chunks (CMD error line)
+            .replace(/^\]\x07?'/g, "'") // "]\\x07'..." or "]'..." when OSC split: ] + BEL + CMD error on same line
+            .replace(/^\]\.?\x07?$/g, '') // line is only "]\\x07" or "].\\x07" or "]" (OSC residue on its own line)
+            // Strip CSI sequences (ESC [ params letter) - use [0-9;]* not [^\]]* to avoid eating content like "m总内存: 31518 MB"
+            .replace(/\x1b\[[?]?[0-9;]*[a-zA-Z]/g, '')
+            .replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/g, '')
+            // Strip trailing prompt when output and next prompt are on same line: keep content before "PS C:\path>" or "C:\path>"
+            .replace(/^(.+?)PS\s+[A-Za-z]:[\\\/][^>]*>\s*$/, '$1')
+            .replace(/^(.+?)[A-Za-z]:[\\\/][^>]*>\s*$/, '$1')
+            // When prompt is split across lines: line is "pathPS " or "pathPS" (no " C:\path>" on same line)
+            .replace(/^(.+?)PS\s*$/, '$1')
+            .trimEnd()
+        outputLines = outputLines.map(stripOscFromLine)
+        outputLines = outputLines.filter((line) => {
+          const t = line
+            .replace(/\x1b\[[0-9;]*m/g, '')
+            .replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/g, '')
+            .trim()
+          if (!t) return true // keep blank lines
+          if (/^\]0;.*/.test(t) || /^\]9;.*/.test(t)) return false
+          // Single line that is only a path ending in cmd.exe (OSC window title residue)
+          if (/^[A-Za-z]:\\(?:[^\\]+\\)*cmd\.exe\s*$/i.test(t)) return false
+          if (/^\\(?:[^\\]+\\)*cmd\.exe\s*$/i.test(t)) return false // path without drive
+          // Line that is "path - command" (OSC window title with command, e.g. first line of output)
+          if (/^[A-Za-z]:\\.*cmd\.exe\s+-\s+/i.test(t)) return false
+          if (/^\\[^\\]*\\cmd\.exe\s+-\s+/i.test(t)) return false // path without drive (e.g. \windows\System32\cmd.exe - ...)
+          // Line that is only "PS" (PowerShell prompt prefix residue when prompt is split or stripped)
+          if (/^PS\s*$/.test(t)) return false
+          // Line that is entirely a prompt (e.g. "PS C:\Users\yin_ding> " or "C:\path>")
+          if (isTerminalPromptLine(t)) return false
+          return true
+        })
       }
-    } catch (error) {
-      console.error('[CommandEcho] Error processing output:', error)
+
+      try {
+        let finalOutput = outputLines.join('\n').trim()
+        // Collapse extra newlines on Windows (cursor moves etc. can leave double newlines between lines)
+        if (terminalType === 'windows') {
+          finalOutput = finalOutput.replace(/\n{2,}/g, '\n')
+        }
+
+        if (finalOutput) {
+          const formattedOutput = `Terminal output:\n\`\`\`\n${finalOutput}\n\`\`\``
+          eventBus.emit('sendMessageToAi', { content: formattedOutput, tabId })
+        } else {
+          const output = 'Command executed successfully, no output returned'
+          const messageToSend = isInitialCommand ? `Terminal output:\n\`\`\`\n${output}\n\`\`\`` : output
+          eventBus.emit('sendMessageToAi', { content: messageToSend, tabId })
+        }
+      } catch (error) {
+        console.error('[CommandEcho] Error processing output:', error)
+      }
     }
 
+    if (isWindowsLocal) {
+      if (commandOutputProcessTimer.value) clearTimeout(commandOutputProcessTimer.value)
+      commandOutputProcessTimer.value = setTimeout(() => {
+        commandOutputProcessTimer.value = null
+        if (marker) {
+          commandMarkerToTabId.value.delete(marker)
+          commandMarkerToCommand.value.delete(marker)
+          currentCommandMarker.value = null
+        }
+        currentCommandTabId.value = undefined
+        isCollectingOutput.value = false
+        doProcessOutput()
+        commandOutput.value = ''
+      }, 150)
+      cusWrite?.(data)
+      return
+    }
+
+    isCollectingOutput.value = false
+    if (marker) {
+      commandMarkerToTabId.value.delete(marker)
+      commandMarkerToCommand.value.delete(marker)
+      currentCommandMarker.value = null
+    }
+    currentCommandTabId.value = undefined
+    doProcessOutput()
     commandOutput.value = ''
   }
 
@@ -4297,6 +4424,7 @@ defineExpose({
 })
 
 const commandOutput = ref('')
+const commandOutputProcessTimer = ref<ReturnType<typeof setTimeout> | null>(null)
 const isCollectingOutput = ref(false)
 // Mapping from command marker to tabId, used to send command execution results back to the corresponding Tab
 const commandMarkerToTabId = ref(new Map<string, string | undefined>())
