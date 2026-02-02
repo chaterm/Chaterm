@@ -4,6 +4,9 @@ import * as fs from 'fs/promises'
 import fsSync from 'fs'
 import { pipeline } from 'stream/promises'
 import { randomUUID } from 'crypto'
+import { createHash } from 'crypto'
+import { getDefaultLanguage } from '../../config/edition'
+import { KB_DEFAULT_SEEDS, KB_DEFAULT_SEEDS_VERSION } from './default-seeds'
 
 export interface KnowledgeBaseEntry {
   name: string
@@ -18,6 +21,172 @@ const MAX_IMPORT_BYTES = 10 * 1024 * 1024
 
 function getKbRoot(): string {
   return path.join(app.getPath('userData'), 'knowledgebase')
+}
+
+const KB_DEFAULT_SEEDS_META_FILE = '.kb-default-seeds-meta.json'
+
+interface DefaultSeedMetaEntry {
+  relPath: string
+  lastSeedHash: string
+  deletedAt?: string
+}
+
+interface DefaultKbSeedsMeta {
+  version: number
+  seeds: Record<string, DefaultSeedMetaEntry>
+}
+
+function normalizeRelPath(relPath: string): string {
+  const p = relPath.replace(/\\/g, '/')
+  return p.startsWith('/') ? p.slice(1) : p
+}
+
+function sha256Hex(content: string): string {
+  return createHash('sha256').update(content, 'utf-8').digest('hex')
+}
+
+function getIsChinese(): boolean {
+  const lang = getDefaultLanguage() || ''
+  return lang.toLowerCase().startsWith('zh')
+}
+
+async function readKbDefaultSeedsMeta(rootAbs: string): Promise<{ metaAbsPath: string; meta: DefaultKbSeedsMeta }> {
+  const newAbsPath = path.join(rootAbs, KB_DEFAULT_SEEDS_META_FILE)
+
+  const tryRead = async (absPath: string): Promise<DefaultKbSeedsMeta | null> => {
+    try {
+      const raw = await fs.readFile(absPath, 'utf-8')
+      const parsed = JSON.parse(raw) as any
+      if (!parsed || typeof parsed !== 'object') return null
+      const version = typeof parsed.version === 'number' ? parsed.version : 0
+      const seeds = parsed.seeds && typeof parsed.seeds === 'object' ? (parsed.seeds as DefaultKbSeedsMeta['seeds']) : {}
+      return { version, seeds }
+    } catch {
+      return null
+    }
+  }
+
+  const newMeta = await tryRead(newAbsPath)
+  if (newMeta) return { metaAbsPath: newAbsPath, meta: newMeta }
+
+  return { metaAbsPath: newAbsPath, meta: { version: 0, seeds: {} } }
+}
+
+async function writeKbDefaultSeedsMeta(metaAbsPath: string, meta: DefaultKbSeedsMeta): Promise<void> {
+  const safeMeta: DefaultKbSeedsMeta = {
+    version: meta.version ?? 0,
+    seeds: meta.seeds ?? {}
+  }
+  await fs.writeFile(metaAbsPath, JSON.stringify(safeMeta, null, 2), 'utf-8')
+}
+
+function findMetaIdByRelPath(meta: DefaultKbSeedsMeta, relPath: string): string | null {
+  for (const [id, entry] of Object.entries(meta.seeds)) {
+    if (normalizeRelPath(entry.relPath) === relPath) return id
+  }
+  return null
+}
+
+function findSeedIdByDefaultRelPath(relPath: string): string | null {
+  for (const seed of KB_DEFAULT_SEEDS) {
+    if (normalizeRelPath(seed.defaultRelPath) === relPath) return seed.id
+  }
+  return null
+}
+
+function resolveDefaultSeedId(meta: DefaultKbSeedsMeta, relPath: string): string | null {
+  return findMetaIdByRelPath(meta, relPath) ?? findSeedIdByDefaultRelPath(relPath)
+}
+
+async function trackSeedFileChange(oldRelPath: string, newRelPath?: string): Promise<void> {
+  const rootAbs = path.resolve(getKbRoot())
+  const { metaAbsPath, meta } = await readKbDefaultSeedsMeta(rootAbs)
+
+  const normalized = normalizeRelPath(oldRelPath)
+  const id = resolveDefaultSeedId(meta, normalized)
+  if (!id) return
+
+  // When newRelPath is provided, treat it as a relPath change (rename/move).
+  if (newRelPath && newRelPath.length > 0) {
+    const normalizedNew = normalizeRelPath(newRelPath)
+
+    const entry = meta.seeds[id] ?? { relPath: normalizedNew, lastSeedHash: '' }
+    meta.seeds[id] = { ...entry, relPath: normalizedNew }
+    await writeKbDefaultSeedsMeta(metaAbsPath, meta)
+    return
+  }
+
+  const entry = meta.seeds[id] ?? { relPath: normalized, lastSeedHash: '' }
+  meta.seeds[id] = { ...entry, deletedAt: new Date().toISOString() }
+  await writeKbDefaultSeedsMeta(metaAbsPath, meta)
+}
+
+/**
+ * Initialize knowledge base default seed files.
+ */
+async function initKbDefaultSeedFiles(): Promise<void> {
+  const root = getKbRoot()
+  const rootAbs = path.resolve(root)
+  const { metaAbsPath, meta } = await readKbDefaultSeedsMeta(rootAbs)
+  if (meta.version >= KB_DEFAULT_SEEDS_VERSION) {
+    return
+  }
+
+  const isChinese = getIsChinese()
+
+  for (const seed of KB_DEFAULT_SEEDS) {
+    const currentEntry = meta.seeds[seed.id]
+    if (currentEntry?.deletedAt) {
+      continue
+    }
+
+    const seedContent = seed.getContent(isChinese).trim()
+    const seedHash = sha256Hex(seedContent)
+
+    const targetRelPath = currentEntry?.relPath ? normalizeRelPath(currentEntry.relPath) : normalizeRelPath(seed.defaultRelPath)
+    const targetAbsPath = path.join(root, targetRelPath)
+
+    const exists = await pathExists(targetAbsPath)
+    if (!exists) {
+      // Only create when there is no existing binding for this seed.
+      if (currentEntry?.relPath) {
+        continue
+      }
+
+      await fs.mkdir(path.dirname(targetAbsPath), { recursive: true })
+      await fs.writeFile(targetAbsPath, seedContent, 'utf-8')
+      meta.seeds[seed.id] = {
+        relPath: targetRelPath,
+        lastSeedHash: seedHash
+      }
+      continue
+    }
+
+    // Existing file: only overwrite when file still matches last seed hash (i.e., user hasn't edited).
+    try {
+      const fileContent = await fs.readFile(targetAbsPath, 'utf-8')
+      const fileHash = sha256Hex(fileContent)
+      const lastSeedHash = currentEntry?.lastSeedHash ?? ''
+
+      if (lastSeedHash && fileHash !== lastSeedHash) {
+        // User modified; do not overwrite.
+        continue
+      }
+
+      // Safe to overwrite (either unmodified seed, or first-time meta missing hash but content matches).
+      await fs.writeFile(targetAbsPath, seedContent, 'utf-8')
+      meta.seeds[seed.id] = {
+        relPath: targetRelPath,
+        lastSeedHash: seedHash
+      }
+    } catch {
+      // Ignore read errors; do not overwrite.
+      continue
+    }
+  }
+
+  meta.version = KB_DEFAULT_SEEDS_VERSION
+  await writeKbDefaultSeedsMeta(metaAbsPath, meta)
 }
 
 function isSafeBasename(name: string): boolean {
@@ -179,12 +348,14 @@ export function registerKnowledgeBaseHandlers(): void {
   ipcMain.handle('kb:ensure-root', async () => {
     const root = getKbRoot()
     await fs.mkdir(root, { recursive: true })
+    await initKbDefaultSeedFiles()
     return { success: true }
   })
 
   ipcMain.handle('kb:get-root', async () => {
     const root = getKbRoot()
     await fs.mkdir(root, { recursive: true })
+    await initKbDefaultSeedFiles()
     return { root }
   })
 
@@ -259,6 +430,14 @@ export function registerKnowledgeBaseHandlers(): void {
     await fs.rename(srcAbs, destAbs)
     const parentRel = path.posix.dirname(relPath.replace(/\\/g, '/'))
     const nextRel = parentRel === '.' ? newName : path.posix.join(parentRel, newName)
+
+    // Track rename for default seeds (rename implies user intent; never recreate at default path).
+    try {
+      await trackSeedFileChange(relPath, nextRel)
+    } catch {
+      // Ignore meta tracking errors.
+    }
+
     return { relPath: nextRel }
   })
 
@@ -272,6 +451,14 @@ export function registerKnowledgeBaseHandlers(): void {
     } else {
       await fs.unlink(absPath)
     }
+
+    // Track deletions for default seeds (user deletes => never recreate).
+    try {
+      await trackSeedFileChange(relPath)
+    } catch {
+      // Ignore meta tracking errors.
+    }
+
     return { success: true }
   })
 
@@ -298,6 +485,14 @@ export function registerKnowledgeBaseHandlers(): void {
     }
 
     const nextRel = path.posix.join(dstRelDir.replace(/\\/g, '/'), finalName)
+
+    // Track moves for default seeds to keep upgrade path stable.
+    try {
+      await trackSeedFileChange(srcRelPath, nextRel)
+    } catch {
+      // Ignore meta tracking errors.
+    }
+
     return { relPath: nextRel }
   })
 

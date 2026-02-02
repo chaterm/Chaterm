@@ -24,8 +24,13 @@ export type ContextDocRef = { absPath: string; name?: string; type?: 'file' | 'd
 
 export type ContextPastChatRef = { taskId: string; title?: string }
 
-// Slash command reference (e.g., /summary-to-doc)
-export type ContextCommandRef = { command: string; label?: string; summarizeUpToTs?: number }
+// Slash command reference (e.g., /summary-to-doc or custom commands from knowledge base)
+export type ContextCommandRef = {
+  command: string
+  label?: string
+  summarizeUpToTs?: number
+  path?: string // absolute path to command file in knowledge base
+}
 
 export type ContextRefs = {
   docs?: ContextDocRef[]

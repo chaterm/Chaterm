@@ -216,14 +216,18 @@ export class Task {
     await this.say('user_feedback', text, undefined, undefined, contentParts)
   }
 
-  private async buildEphemeralContextBlocksFromContentParts(parts?: ContentPart[]): Promise<Anthropic.ContentBlockParam[]> {
+  /**
+   * Process all content parts and build context blocks.
+   * Handles: images, doc chips, chat chips, command chips .
+   */
+  private async processContentParts(userContent: UserContent, parts?: ContentPart[]): Promise<Anthropic.ContentBlockParam[]> {
     if (!parts || parts.length === 0) return []
 
     const blocks: Anthropic.ContentBlockParam[] = []
 
-    // Extract images from content parts
+    // 1. Extract images from content parts
     const imageParts = parts.filter((p) => p.type === 'image')
-    const MAX_IMAGES = 5 // Limit images per message
+    const MAX_IMAGES = 5
     for (const imgPart of imageParts.slice(0, MAX_IMAGES)) {
       if (imgPart.type === 'image') {
         blocks.push({
@@ -237,12 +241,16 @@ export class Task {
       }
     }
 
-    // Process doc and chat context refs
+    // 2. Process command chips (built-in commands and knowledge base commands)
+    const cmdLines = await this.processSlashCommands(userContent, parts)
+
+    // 3. Process doc and chat context refs
     const refs = this.buildContextRefsFromContentParts(parts)
     const docs = refs?.docs ?? []
     const pastChats = refs?.pastChats ?? []
 
-    if (docs.length === 0 && pastChats.length === 0) return blocks
+    const hasContextData = docs.length > 0 || pastChats.length > 0 || cmdLines.length > 0
+    if (!hasContextData) return blocks
 
     const MAX_DOCS = 5
     const MAX_DOC_BYTES = 256 * 1024
@@ -282,12 +290,14 @@ export class Task {
       }
     }
 
+    // 4. Build final context block
     blocks.push({
       type: 'text',
       text: [
         '<context-prefetch>',
         docLines.length > 0 ? ['<docs>', ...docLines, '</docs>'].join('\n') : '<docs />',
         chatLines.length > 0 ? ['<past-chats>', ...chatLines, '</past-chats>'].join('\n') : '<past-chats />',
+        cmdLines.length > 0 ? ['<commands>', ...cmdLines, '</commands>'].join('\n') : '<commands />',
         '</context-prefetch>'
       ].join('\n')
     })
@@ -1741,10 +1751,8 @@ export class Task {
   private async prepareApiRequest(userContent: UserContent, includeHostDetails: boolean): Promise<void> {
     const userInputParts = this.consumeNextUserInputContentParts()
 
-    // Process slash commands from both text content and command chips
-    await this.processSlashCommands(userContent, userInputParts)
-
-    const ephemeralBlocks = await this.buildEphemeralContextBlocksFromContentParts(userInputParts)
+    // Process all content parts: images, docs, chats, and command chips
+    const ephemeralBlocks = await this.processContentParts(userContent, userInputParts)
     if (ephemeralBlocks.length > 0) {
       userContent.push(...ephemeralBlocks)
     }
@@ -1775,38 +1783,48 @@ export class Task {
 
   /**
    * Process slash commands in user content and content parts.
-   * This allows users to see simple commands like "/summary-to-doc" in the chat,
-   * while the LLM receives the complete prompt.
-   * Supports both text-based commands and command chips.
+   * Handles both built-in commands (e.g., /summary-to-doc) and knowledge base commands.
+   * Returns cmdLines for knowledge base command content.
    */
-  private async processSlashCommands(userContent: UserContent, contentParts?: ContentPart[]): Promise<void> {
+  private async processSlashCommands(userContent: UserContent, contentParts?: ContentPart[]): Promise<string[]> {
+    const MAX_COMMANDS = 5
+    const cmdLines: string[] = []
+    if (!contentParts) return cmdLines
+
+    this.summarizeUpToTs = undefined
+
+    const commandChips = contentParts.filter((p) => p.type === 'chip' && p.chipType === 'command').slice(0, MAX_COMMANDS)
+    if (commandChips.length === 0) return cmdLines
+
     try {
       const userConfig = await getUserConfig()
       const isChinese = userConfig?.language === 'zh-CN'
 
-      // Reset summarizeUpToTs for each request
-      this.summarizeUpToTs = undefined
+      const MAX_DOC_BYTES = 256 * 1024
 
-      // Process text-based slash commands
+      for (const chip of commandChips) {
+        const { command, path, summarizeUpToTs } = chip.ref
 
-      // Process command chips from content parts
-      if (contentParts) {
-        for (const part of contentParts) {
-          if (part.type === 'chip' && part.chipType === 'command') {
-            const command = part.ref.command
-            if (command === SLASH_COMMANDS.SUMMARY_TO_DOC) {
-              // Extract summarizeUpToTs if provided
-              if (part.ref.summarizeUpToTs) {
-                this.summarizeUpToTs = part.ref.summarizeUpToTs
-                console.log(`[Task] Summarize limited to messages up to timestamp: ${this.summarizeUpToTs}`)
-              }
+        if (path) {
+          try {
+            const { content } = await this.readFile(path, MAX_DOC_BYTES)
+            cmdLines.push(content)
+          } catch (e) {
+            const msg = e instanceof Error ? e.message : String(e)
+            cmdLines.push(`- COMMAND_READ_ERROR: ${command}: ${msg}`)
+            console.error(`[Task] Failed to read command file for "${command}":`, msg)
+          }
+        } else {
+          // Built-in command: handle by command type
+          if (command === SLASH_COMMANDS.SUMMARY_TO_DOC) {
+            if (summarizeUpToTs) {
+              this.summarizeUpToTs = summarizeUpToTs
+            }
 
-              // Replace text content with full prompt if text matches the command
-              for (const block of userContent) {
-                if (block.type === 'text' && block.text.trim() === command) {
-                  block.text = getSummaryToDocPrompt(isChinese)
-                  console.log(`[Task] Command chip "${command}" replaced with full prompt`)
-                }
+            // Replace text content with full prompt
+            for (const block of userContent) {
+              if (block.type === 'text' && block.text.trim() === command) {
+                block.text = getSummaryToDocPrompt(isChinese)
               }
             }
           }
@@ -1815,6 +1833,7 @@ export class Task {
     } catch (error) {
       console.error('[Task] Failed to process slash commands:', error)
     }
+    return cmdLines
   }
 
   private async handleFirstRequestCheckpoint(): Promise<void> {

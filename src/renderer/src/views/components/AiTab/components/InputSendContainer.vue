@@ -10,6 +10,8 @@
     ></div>
     <!-- Context Select Popup Component -->
     <ContextSelectPopup :mode="mode" />
+    <!-- Command Select Popup Component -->
+    <CommandSelectPopup />
     <div
       v-if="hasAvailableModels"
       class="input-container"
@@ -211,13 +213,15 @@ import { useI18n } from 'vue-i18n'
 import { notification } from 'ant-design-vue'
 import VoiceInput from '../components/voice/voiceInput.vue'
 import ContextSelectPopup from '../components/ContextSelectPopup.vue'
+import CommandSelectPopup from '../components/CommandSelectPopup.vue'
 import { useSessionState } from '../composables/useSessionState'
 import { useContext, contextInjectionKey } from '../composables/useContext'
+import { useCommandSelect, commandSelectInjectionKey } from '../composables/useCommandSelect'
 import { useModelConfiguration } from '../composables/useModelConfiguration'
 import { useUserInteractions } from '../composables/useUserInteractions'
 import { parseContextDragPayload, useEditableContent } from '../composables/useEditableContent'
 import { AiTypeOptions } from '../composables/useEventBusListeners'
-import type { ContentPart, ContextDocRef, ContextPastChatRef } from '@shared/WebviewMessage'
+import type { ContentPart, ContextDocRef, ContextPastChatRef, ContextCommandRef } from '@shared/WebviewMessage'
 import type { HistoryItem } from '../types'
 import { CloseOutlined, LaptopOutlined } from '@ant-design/icons-vue'
 import uploadIcon from '@/assets/icons/upload.svg'
@@ -290,6 +294,17 @@ provide(contextInjectionKey, context)
 
 const { showContextPopup, removeHost, handleAddContextClick, onHostClick, setChipInsertHandler } = context
 
+// Create command select instance and provide to child components.
+const commandSelectContext = useCommandSelect({
+  focusInput: () => {
+    editableRef.value?.focus()
+    restoreSelection()
+  }
+})
+provide(commandSelectInjectionKey, commandSelectContext)
+
+const { showCommandPopup, handleShowCommandPopup, setCommandChipInsertHandler, removeTrailingSlashFromInputParts } = commandSelectContext
+
 // Send click handler supporting both modes (defined before useEditableContent for dependency)
 const handleSendClick = (type: string) => {
   if (responseLoading.value) {
@@ -316,9 +331,17 @@ const handleSendClick = (type: string) => {
   }
 }
 
-const handleChipClick = async (chipType: 'doc' | 'chat', ref: ContextDocRef | ContextPastChatRef) => {
+const handleChipClick = async (chipType: 'doc' | 'chat' | 'command', ref: ContextDocRef | ContextPastChatRef | ContextCommandRef) => {
   if (chipType === 'doc') {
-    await context.openDocFromChip(ref as ContextDocRef)
+    const docRef = ref as ContextDocRef
+    if (docRef.type !== 'dir') {
+      await context.openKbFile(docRef.absPath, docRef.name)
+    }
+    return
+  }
+  if (chipType === 'command') {
+    const cmdRef = ref as ContextCommandRef
+    await context.openKbFile(cmdRef.path, cmdRef.label)
     return
   }
   const chatRef = ref as ContextPastChatRef
@@ -345,6 +368,7 @@ const {
   renderFromParts,
   insertChipAtCursor,
   insertImageAtCursor,
+  insertCommandChipWithPath,
   handleEditableKeyDown,
   handleEditableInput,
   handleEditableClick
@@ -353,6 +377,7 @@ const {
   chatInputParts: inputParts,
   handleSendClick,
   handleAddContextClick,
+  handleShowCommandPopup,
   handleChipClick
 })
 
@@ -518,6 +543,7 @@ watch(
     aiModeSelectOpen.value = false
     modelSelectOpen.value = false
     showContextPopup.value = false
+    showCommandPopup.value = false
     aiModeTooltipVisible.value = false
   }
 )
@@ -532,6 +558,11 @@ const inputPlaceholder = computed(() => {
 
 onMounted(() => {
   setChipInsertHandler(insertChipAtCursor)
+  // Set command chip insert handler with path support
+  setCommandChipInsertHandler((command: string, label: string, path: string) => {
+    removeTrailingSlashFromInputParts(inputParts)
+    insertCommandChipWithPath(command, label, path)
+  })
   if (inputParts.value.length > 0) {
     renderFromParts(inputParts.value)
   }
@@ -539,6 +570,7 @@ onMounted(() => {
 
 onBeforeUnmount(() => {
   setChipInsertHandler(() => {})
+  setCommandChipInsertHandler(() => {})
 })
 </script>
 
