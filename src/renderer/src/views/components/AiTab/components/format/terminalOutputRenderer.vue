@@ -30,7 +30,7 @@
         </span>
       </div>
       <div class="output-controls">
-        <span class="output-lines">{{ outputLines }} lines</span>
+        <span class="output-lines">{{ outputLines }} {{ outputLines === 1 ? 'line' : 'lines' }}</span>
         <a-button
           class="copy-button-header"
           type="text"

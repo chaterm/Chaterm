@@ -53,7 +53,7 @@
                 </a-tooltip>
               </div>
               <div class="output-controls">
-                <span class="output-lines">{{ t('ai.linesCount', { count: totalLines }) }}</span>
+                <span class="output-lines">{{ totalLines }} {{ totalLines === 1 ? 'line' : 'lines' }}</span>
                 <a-button
                   class="copy-button-header"
                   type="text"
@@ -127,7 +127,7 @@
             <span class="output-title">OUTPUT</span>
           </div>
           <div class="output-controls">
-            <span class="output-lines">{{ props.content.split('\n').length }} lines</span>
+            <span class="output-lines">{{ props.content.split('\n').length }} {{ props.content.split('\n').length === 1 ? 'line' : 'lines' }}</span>
             <a-button
               class="copy-button-header"
               type="text"
@@ -168,7 +168,7 @@
             Search Result
           </span>
           <div class="output-controls">
-            <span class="output-lines">{{ contentLines.length }} lines</span>
+            <span class="output-lines">{{ contentLines.length }} {{ contentLines.length === 1 ? 'line' : 'lines' }}</span>
             <a-button
               class="copy-button-header"
               type="text"

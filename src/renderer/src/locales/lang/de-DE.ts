@@ -819,7 +819,6 @@ export default {
     knowledgeSaved: 'In Wissensdatenbank gespeichert',
     knowledgeSaveFailed: 'Wissensdatenbank speichern fehlgeschlagen',
     codePreview: 'Code Vorschau ({lines} Zeilen)',
-    linesCount: '{count} Zeilen',
     explainCommand: 'Diesen Befehl erklären',
     explainCommandTitle: 'AI Erklärung',
     explainCommandLoading: 'Wird erklärt…',

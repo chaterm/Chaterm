@@ -797,7 +797,6 @@ export default {
     knowledgeSaved: '知識庫已保存',
     knowledgeSaveFailed: '保存知識庫失敗',
     codePreview: '代碼預覽 ({lines}行)',
-    linesCount: '{count} 行',
     explainCommand: '解釋該命令',
     explainCommandTitle: 'AI 解讀',
     explainCommandLoading: '正在解讀…',

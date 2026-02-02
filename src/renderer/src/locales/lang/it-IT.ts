@@ -818,7 +818,6 @@ export default {
     knowledgeSaved: 'Riepilogo alla base di conoscenza salvato',
     knowledgeSaveFailed: 'Riepilogo alla base di conoscenza non salvato',
     codePreview: 'Anteprima Codice ({lines} linee)',
-    linesCount: '{count} linee',
     explainCommand: 'Spiega questo comando',
     explainCommandTitle: 'Spiegazione AI',
     explainCommandLoading: 'Spiegazione in corso…',

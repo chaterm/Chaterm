@@ -817,7 +817,6 @@ export default {
     knowledgeSaved: 'Salvo na base de conhecimento',
     knowledgeSaveFailed: 'Falha ao salvar base de conhecimento',
     codePreview: 'Visualização de código ({lines} linhas)',
-    linesCount: '{count} linhas',
     explainCommand: 'Explicar este comando',
     explainCommandTitle: 'Explicação IA',
     explainCommandLoading: 'A explicar…',

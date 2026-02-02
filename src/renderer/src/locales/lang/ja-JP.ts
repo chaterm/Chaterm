@@ -814,7 +814,6 @@ export default {
     knowledgeSaved: 'ナレッジベースに保存しました',
     knowledgeSaveFailed: 'ナレッジベースへの保存に失敗しました',
     codePreview: 'コードプレビュー ({lines} 行)',
-    linesCount: '{count} 行',
     explainCommand: 'このコマンドを説明',
     explainCommandTitle: 'AI 解説',
     explainCommandLoading: '解説中…',

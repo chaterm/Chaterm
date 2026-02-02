@@ -820,7 +820,6 @@ export default {
     knowledgeSaved: 'Base de connaissances enregistrée',
     knowledgeSaveFailed: "Échec de l'enregistrement de la base de connaissances",
     codePreview: 'Aperçu du code ({lines} lignes)',
-    linesCount: '{count} lignes',
     explainCommand: 'Expliquer cette commande',
     explainCommandTitle: 'Explication IA',
     explainCommandLoading: 'Explication en cours…',
