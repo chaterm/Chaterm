@@ -1,24 +1,21 @@
 version: 2
 updates:
-  # Check for npm dependency updates
+  # npm dependency updates
   - package-ecosystem: 'npm'
     directory: '/'
     schedule:
-      interval: 'weekly'
-      day: 'monday'
+      interval: 'daily'
       time: '02:00'
     open-pull-requests-limit: 10
     reviewers:
       - 'chaterm/maintainers'
-    # Rebase strategy to keep PRs clean
     rebase-strategy: 'auto'
     commit-message:
       prefix: 'chore'
       prefix-development: 'chore'
       include: 'scope'
-    # Grouping configuration to reduce PR count
+    # Group dependencies to reduce PR count
     groups:
-      # Development dependencies group
       dev-dependencies:
         patterns:
           - '@types/*'
@@ -34,7 +31,6 @@ updates:
         update-types:
           - 'minor'
           - 'patch'
-      # Build tools group
       build-tools:
         patterns:
           - 'electron*'
@@ -46,17 +42,15 @@ updates:
           - 'patch'
     # Ignore uuid >= 10.0.0 to prevent ESM compatibility issues
     # uuid 9.x is the last version supporting CommonJS, which is required by @aws-crypto/branch-keystore-node
-    # This allows safe patch/minor updates within 9.x while blocking breaking major updates
     ignore:
       - dependency-name: 'uuid'
         versions: ['>=10.0.0']
 
-  # Check for GitHub Actions dependency updates
+  # GitHub Actions dependency updates
   - package-ecosystem: 'github-actions'
     directory: '/'
     schedule:
-      interval: 'weekly'
-      day: 'monday'
+      interval: 'daily'
       time: '02:00'
     open-pull-requests-limit: 5
     reviewers:
