@@ -318,7 +318,7 @@ import { shortcutService } from '@/services/shortcutService'
 import { captureExtensionUsage, ExtensionNames, ExtensionStatus } from '@/utils/telemetry'
 import Dashboard from '@renderer/views/components/Ssh/components/dashboard.vue'
 import { getGlobalState } from '@/agent/storage/state'
-import { CONTEXT_DRAG_MIME, CONTEXT_DRAG_TEXT_PREFIX } from '@views/components/AiTab/composables/useEditableContent'
+import { CONTEXT_DRAG_MIME } from '@views/components/AiTab/composables/useEditableContent'
 import 'dockview-vue/dist/styles/dockview.css'
 import { type DockviewReadyEvent, DockviewVue } from 'dockview-vue'
 import type { DockviewApi } from 'dockview-core'
@@ -2298,7 +2298,6 @@ const setupTabDragToAi = () => {
       const dragPayload = { contextType: 'doc', relPath: params.props.relPath, name }
       const payload = JSON.stringify(dragPayload)
       e.dataTransfer.setData(CONTEXT_DRAG_MIME, payload)
-      e.dataTransfer.setData('text/plain', `${CONTEXT_DRAG_TEXT_PREFIX}${payload}`)
       e.dataTransfer.effectAllowed = 'copy'
       return
     }
@@ -2317,7 +2316,6 @@ const setupTabDragToAi = () => {
       }
       const payload = JSON.stringify(dragPayload)
       e.dataTransfer.setData(CONTEXT_DRAG_MIME, payload)
-      e.dataTransfer.setData('text/plain', `${CONTEXT_DRAG_TEXT_PREFIX}${payload}`)
       e.dataTransfer.effectAllowed = 'copy'
     }
   })
