@@ -119,7 +119,7 @@
     "@types/clone-deep": "^4.0.4",
     "@types/node": "^25.2.0",
     "@types/ws": "^8.5.11",
-    "@vitejs/plugin-vue": "^6.0.3",
+    "@vitejs/plugin-vue": "^6.0.4",
     "@vitest/browser": "^4.0.18",
     "@vitest/browser-playwright": "^4.0.18",
     "@vitest/coverage-v8": "^4.0.18",
