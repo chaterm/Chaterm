@@ -14,27 +14,6 @@ Resolves #(issue_number)
 
 ## Description
 
-<!-- Please describe your changes in detail. -->
-
-## Type of Change
-
-<!-- Please check the type of change this PR introduces. -->
-
-- [ ] Bug fix (non-breaking change which fixes an issue)
-- [ ] New feature (non-breaking change which adds functionality)
-- [ ] Breaking change (fix or feature that would cause existing functionality to not work as expected)
-- [ ] Documentation update
-- [ ] Refactoring (no functional changes)
-- [ ] Test improvements
-- [ ] Build/CI improvements
-
-## Change Scope
-
-<!-- Please check the change scope mode. See AGENTS.md for details. -->
-
-- [ ] Related-Only (Default) - Only modified files directly related to this change
-- [ ] [refactor-approved] - Broadened refactor with maintainer approval (PR title must include `[refactor-approved]` prefix)
-
 ## Checklist
 
 - [ ] I have read the [CONTRIBUTING](https://github.com/chaterm/Chaterm/blob/main/CONTRIBUTING.md)
@@ -48,15 +27,3 @@ Resolves #(issue_number)
 - [ ] If this is a user-visible change, I have updated `README.md` or `README_zh.md` accordingly.
 - [ ] My changes follow the project's code style and conventions.
 - [ ] I have verified my changes work correctly with `npm run dev`.
-
-## Known Issues / Follow-ups
-
-<!-- If you found unrelated issues during development but didn't fix them (following Related-Only mode), please list them here or reference the related Issue. -->
-
-## Testing
-
-<!-- Please describe the tests you ran to verify your changes. -->
-
-- [ ] Unit tests added/updated
-- [ ] E2E tests added/updated (if applicable)
-- [ ] Manual testing performed
