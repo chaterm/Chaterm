@@ -889,6 +889,75 @@ describe('useChatMessages', () => {
       expect(mockState.chatTabs.value[0].title).toBe('New Chat Title')
     })
 
+    it('should write knowledge_summary into summary folder without date prefix', async () => {
+      const { processMainMessage } = useChatMessages(
+        mockScrollToBottom,
+        mockClearTodoState,
+        mockMarkLatestMessageWithTodoUpdate,
+        mockCurrentTodos,
+        mockCheckModelConfig
+      )
+
+      // First chunk should create the file under summary/
+      mockKbCreateFile.mockResolvedValueOnce({ relPath: 'summary/My Note.md' })
+
+      const first: ExtensionMessage = {
+        type: 'partialMessage',
+        tabId: 'test-tab-1',
+        partialMessage: {
+          type: 'say',
+          say: 'knowledge_summary',
+          partial: true,
+          ts: 100,
+          text: JSON.stringify({ fileName: 'My Note', summary: 'S1' })
+        } as any
+      }
+
+      await processMainMessage(first)
+
+      expect(mockKbCreateFile).toHaveBeenCalledWith('', 'summary/My Note.md', 'S1')
+      expect(vi.mocked(eventBus.emit)).toHaveBeenCalledWith(
+        'openUserTab',
+        expect.objectContaining({
+          content: 'KnowledgeCenterEditor',
+          title: 'My Note.md',
+          props: { relPath: 'summary/My Note.md' }
+        })
+      )
+
+      // Next chunk should write to the same relPath
+      const second: ExtensionMessage = {
+        type: 'partialMessage',
+        tabId: 'test-tab-1',
+        partialMessage: {
+          type: 'say',
+          say: 'knowledge_summary',
+          partial: true,
+          ts: 100,
+          text: JSON.stringify({ fileName: 'My Note', summary: 'S2' })
+        } as any
+      }
+
+      await processMainMessage(second)
+      expect(mockKbWriteFile).toHaveBeenCalledWith('summary/My Note.md', 'S2')
+
+      // Final chunk should still write, and then cleanup internal map
+      const third: ExtensionMessage = {
+        type: 'partialMessage',
+        tabId: 'test-tab-1',
+        partialMessage: {
+          type: 'say',
+          say: 'knowledge_summary',
+          partial: false,
+          ts: 100,
+          text: JSON.stringify({ fileName: 'My Note', summary: 'S3' })
+        } as any
+      }
+
+      await processMainMessage(third)
+      expect(mockKbWriteFile).toHaveBeenCalledWith('summary/My Note.md', 'S3')
+    })
+
     it('should ignore partial messages when task is cancelled', async () => {
       const { processMainMessage } = useChatMessages(
         mockScrollToBottom,

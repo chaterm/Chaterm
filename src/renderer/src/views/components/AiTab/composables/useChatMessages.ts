@@ -339,11 +339,9 @@ export function useChatMessages(
       let relPath = knowledgeSummaryRelPaths.get(key)
 
       if (!relPath) {
-        const datePrefix = new Date().toISOString().slice(0, 10)
         const normalizedFileName = fileName.endsWith('.md') ? fileName : `${fileName}.md`
-        const desiredPath = `${datePrefix}_${normalizedFileName}`
-        const result = await window.api.kbCreateFile('', desiredPath, summary)
-        relPath = result?.relPath ?? desiredPath
+        const result = await window.api.kbCreateFile('summary', normalizedFileName, summary)
+        relPath = result?.relPath ?? `summary/${normalizedFileName}`
         knowledgeSummaryRelPaths.set(key, relPath)
 
         eventBus.emit('openUserTab', {
