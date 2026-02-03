@@ -153,7 +153,7 @@ app.whenReady().then(async () => {
   await migrateCnUserDataOnFirstLaunch()
 
   if (process.platform === 'darwin') {
-    app.dock.setIcon(join(__dirname, '../../resources/icon.png'))
+    app.dock?.setIcon(join(__dirname, '../../resources/icon.png'))
   }
 
   protocol.handle('local-resource', (request) => {
