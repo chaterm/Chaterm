@@ -1076,7 +1076,14 @@ export default {
     doubleClickToOpen: '双击打开',
     sftpConnectFailed: 'SFTP连接失败',
     noDataAvailable: '暂无数据，请先连接到服务器',
-    pleaseInputNewFileName: '请输入新文件名'
+    pleaseInputNewFileName: '请输入新文件名',
+    dragTransfer: '拖拽传输',
+    defaultMode: '默认模式',
+    dragTransferMode: '拖拽模式',
+    treeExpand: '展开',
+    treeFoldUp: '收起',
+    transferSuccess: '传输完成',
+    transferFailed: '传输失败'
   },
   about: {
     version: '版本',

@@ -873,6 +873,18 @@ const api = {
     await fs.promises.writeFile(filePath, content, 'utf-8')
   },
 
+  transferFileRemoteToRemote: (args: { fromId: string; toId: string; fromPath: string; toPath: string; autoRename?: boolean }) =>
+    ipcRenderer.invoke('sftp:r2r:file', args),
+
+  transferDirectoryRemoteToRemote: (args: {
+    fromId: string
+    toId: string
+    fromDir: string
+    toDir: string
+    autoRename?: boolean
+    concurrency?: number
+  }) => ipcRenderer.invoke('sftp:r2r:dir', args),
+
   kbCheckPath: (absPath: string) => ipcRenderer.invoke('kb:check-path', { absPath }),
   kbEnsureRoot: () => ipcRenderer.invoke('kb:ensure-root'),
   kbGetRoot: () => ipcRenderer.invoke('kb:get-root'),

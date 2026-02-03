@@ -1082,7 +1082,14 @@ export default {
     doubleClickToOpen: 'Doppio clic per aprire',
     sftpConnectFailed: 'Connessione SFTP fallita',
     noDataAvailable: 'Nessun dato disponibile, per favore connetti a un server prima',
-    pleaseInputNewFileName: 'Inserisci nuovo nome file'
+    pleaseInputNewFileName: 'Inserisci nuovo nome file',
+    dragTransfer: 'trasferimento tramite trascinamento',
+    defaultMode: 'Modalità predefinita',
+    dragTransferMode: 'Modalità di trascinamento',
+    treeExpand: 'Espandi',
+    treeFoldUp: 'Riduci',
+    transferSuccess: 'Trasferimento completato',
+    transferFailed: 'Trasferimento fallito'
   },
   about: {
     version: 'Versione',

@@ -1079,7 +1079,14 @@ export default {
     doubleClickToOpen: 'Двойной клик для открытия',
     sftpConnectFailed: 'Ошибка соединения SFTP',
     noDataAvailable: 'Нет данных, пожалуйста, подключитесь к серверу сначала',
-    pleaseInputNewFileName: 'Пожалуйста, введите новое имя файла'
+    pleaseInputNewFileName: 'Пожалуйста, введите новое имя файла',
+    dragTransfer: 'Перетаскивание для передачи',
+    defaultMode: 'Режим по умолчанию',
+    dragTransferMode: 'Режим перетаскивания',
+    treeExpand: 'Развернуть',
+    treeFoldUp: 'Свернуть',
+    transferSuccess: 'Передача завершена',
+    transferFailed: 'Передача не удалась'
   },
   about: {
     version: 'Версия',

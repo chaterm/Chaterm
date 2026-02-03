@@ -1087,7 +1087,14 @@ export default {
     doubleClickToOpen: 'Double Click to Open',
     sftpConnectFailed: 'SFTP connection failed',
     noDataAvailable: 'No data available, please connect to a server first',
-    pleaseInputNewFileName: 'Please input new file name'
+    pleaseInputNewFileName: 'Please enter a new file name',
+    dragTransfer: 'Drag and drop transfer',
+    defaultMode: 'Default',
+    dragTransferMode: 'Drag',
+    treeExpand: 'Expand',
+    treeFoldUp: 'Collapse',
+    transferSuccess: 'Transfer completed',
+    transferFailed: 'Transfer failed'
   },
   about: {
     version: 'Version',
