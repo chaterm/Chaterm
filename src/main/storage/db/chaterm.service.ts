@@ -62,6 +62,8 @@ import type { SkillState } from '../../agent/shared/skills'
 
 export class ChatermDatabaseService {
   private static instances: Map<number, ChatermDatabaseService> = new Map()
+  // Lock map to prevent race conditions during async initialization
+  private static initializingPromises: Map<number, Promise<ChatermDatabaseService>> = new Map()
   private db: Database.Database
   private userId: number
 
@@ -76,13 +78,35 @@ export class ChatermDatabaseService {
       throw new Error('User ID is required for ChatermDatabaseService')
     }
 
-    if (!ChatermDatabaseService.instances.has(targetUserId)) {
-      console.log(`Creating new ChatermDatabaseService instance for user ${targetUserId}`)
-      const db = await initChatermDatabase(targetUserId)
-      const instance = new ChatermDatabaseService(db, targetUserId)
-      ChatermDatabaseService.instances.set(targetUserId, instance)
+    // Return existing instance immediately if available
+    const existingInstance = ChatermDatabaseService.instances.get(targetUserId)
+    if (existingInstance) {
+      return existingInstance
     }
-    return ChatermDatabaseService.instances.get(targetUserId)!
+
+    // Check if initialization is already in progress for this user
+    const existingPromise = ChatermDatabaseService.initializingPromises.get(targetUserId)
+    if (existingPromise) {
+      console.log(`Waiting for existing initialization for user ${targetUserId}`)
+      return existingPromise
+    }
+
+    // Start new initialization and store the promise
+    console.log(`Creating new ChatermDatabaseService instance for user ${targetUserId}`)
+    const initPromise = (async () => {
+      try {
+        const db = await initChatermDatabase(targetUserId)
+        const instance = new ChatermDatabaseService(db, targetUserId)
+        ChatermDatabaseService.instances.set(targetUserId, instance)
+        return instance
+      } finally {
+        // Clean up the initializing promise after completion (success or failure)
+        ChatermDatabaseService.initializingPromises.delete(targetUserId)
+      }
+    })()
+
+    ChatermDatabaseService.initializingPromises.set(targetUserId, initPromise)
+    return initPromise
   }
 
   public getUserId(): number {
