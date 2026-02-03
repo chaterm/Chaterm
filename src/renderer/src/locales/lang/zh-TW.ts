@@ -1245,6 +1245,7 @@ export default {
     autoApproveHelp: '自動批准的工具將不需要用戶確認即可執行'
   },
   macro: {
+    title: '快捷命令',
     startRecording: '宏錄制',
     stopRecording: '停止錄制',
     saveRecording: '保存錄制',

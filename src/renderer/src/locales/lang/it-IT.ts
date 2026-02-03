@@ -1262,6 +1262,7 @@ export default {
     autoApproveHelp: 'Strumenti auto-approvati eseguiranno senza conferma utente'
   },
   macro: {
+    title: 'Comando rapido',
     startRecording: 'Registrazione macro',
     stopRecording: 'Ferma registrazione',
     saveRecording: 'Salva registrazione',

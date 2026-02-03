@@ -7,7 +7,7 @@ const menuTabsData = [
   {
     name: 'Assets',
     key: 'assets',
-    icon: new URL('@/assets/menu/search.svg', import.meta.url).href
+    icon: new URL('@/assets/menu/asset.svg', import.meta.url).href
   },
   {
     name: 'Snippets',
@@ -15,7 +15,7 @@ const menuTabsData = [
     icon: new URL('@/assets/menu/snippets.svg', import.meta.url).href
   },
   {
-    name: 'Docs',
+    name: 'Knowledge',
     key: 'knowledgecenter',
     icon: new URL('@/assets/menu/doc.svg', import.meta.url).href
   },

@@ -1259,6 +1259,7 @@ export default {
     autoApproveHelp: 'Автоматически одобренные инструменты будут выполняться без подтверждения пользователя'
   },
   macro: {
+    title: 'Быстрые команды',
     startRecording: 'Записать макрос',
     stopRecording: 'Остановить запись',
     saveRecording: 'Сохранить запись',

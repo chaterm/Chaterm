@@ -926,7 +926,7 @@ onBeforeUnmount(() => {
   display: flex;
   align-items: center;
   gap: 8px;
-  padding: 8px;
+  padding: 0 12px 10px 12px;
 }
 
 .transparent-Input {
