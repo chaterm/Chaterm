@@ -1082,7 +1082,14 @@ export default {
     doubleClickToOpen: 'ダブルクリックで開く',
     sftpConnectFailed: 'SFTP接続に失敗しました',
     noDataAvailable: 'データがありません。まずサーバーに接続してください',
-    pleaseInputNewFileName: '新しいファイル名を入力してください'
+    pleaseInputNewFileName: '新しいファイル名を入力してください',
+    dragTransfer: 'ドラッグ＆ドロップ転送',
+    defaultMode: 'デフォルトモード',
+    dragTransferMode: 'ドラッグモード',
+    treeExpand: '展開',
+    treeFoldUp: '閉じる',
+    transferSuccess: '転送完了',
+    transferFailed: '転送失敗'
   },
   about: {
     version: 'バージョン',
