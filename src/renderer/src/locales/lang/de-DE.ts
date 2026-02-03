@@ -1263,6 +1263,7 @@ export default {
     autoApproveHelp: 'Auto-genehmigte Tools werden ohne Benutzerbestätigung ausgeführt'
   },
   macro: {
+    title: 'Makro',
     startRecording: 'Makro Aufzeichnen',
     stopRecording: 'Makro Aufzeichnen stoppen',
     saveRecording: 'Makro Aufzeichnen speichern',

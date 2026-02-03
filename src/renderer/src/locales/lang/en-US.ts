@@ -1267,6 +1267,7 @@ export default {
     autoApproveHelp: 'Auto-approved tools will execute without user confirmation'
   },
   macro: {
+    title: 'Quick Command',
     startRecording: 'Macro Record',
     stopRecording: 'Stop Recording',
     saveRecording: 'Save Recording',

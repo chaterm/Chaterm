@@ -1,5 +1,8 @@
 <template>
   <div class="snippets-panel">
+    <div class="panel_header">
+      <span class="panel_title">{{ $t('macro.title') }}</span>
+    </div>
     <!-- Recording Status Bar -->
     <div
       v-if="macroRecorder.isRecording"
@@ -122,12 +125,12 @@
           ref="searchInputRef"
           v-model:value="searchQuery"
           :placeholder="$t('common.search')"
-          size="small"
+          class="search-input"
           allow-clear
           @blur="handleSearchBlur"
           @press-enter="handleSearchBlur"
         >
-          <template #prefix>
+          <template #suffix>
             <SearchOutlined />
           </template>
         </a-input>
@@ -264,18 +267,18 @@
                   </button>
                 </div>
                 <pre class="example-code">
-# System monitoring
-ls -la
-sleep==2000
-# Navigate to log directory
-cd /var/log
-pwd
-sleep==1000
-# Check service status
-sudo systemctl status nginx
-# Interrupt after 3 seconds
-sleep==3000
-ctrl+c</pre
+              # System monitoring
+              ls -la
+              sleep==2000
+              # Navigate to log directory
+              cd /var/log
+              pwd
+              sleep==1000
+              # Check service status
+              sudo systemctl status nginx
+              # Interrupt after 3 seconds
+              sleep==3000
+              ctrl+c</pre
                 >
               </div>
             </div>
@@ -1017,6 +1020,7 @@ const toggleMacroRecording = () => {
       100% {
         opacity: 1;
       }
+
       50% {
         opacity: 0.3;
       }
@@ -1024,11 +1028,10 @@ const toggleMacroRecording = () => {
   }
 
   .panel-header {
-    padding: 12px 16px;
     display: flex;
     justify-content: space-between;
     align-items: center;
-    height: 57px; // Ensure consistent height
+    padding: 8px;
 
     .header-left {
       display: flex;
@@ -1076,6 +1079,7 @@ const toggleMacroRecording = () => {
       display: flex;
       align-items: center;
       justify-content: center;
+
       &:hover {
         color: var(--text-color);
         background-color: var(--hover-bg-color);
@@ -1093,9 +1097,11 @@ const toggleMacroRecording = () => {
       0% {
         opacity: 1;
       }
+
       50% {
         opacity: 0.5;
       }
+
       100% {
         opacity: 1;
       }
@@ -1113,25 +1119,26 @@ const toggleMacroRecording = () => {
     }
 
     .search-container {
+      display: flex;
       width: 100%;
+      padding: 8px;
+    }
 
-      :deep(.ant-input-affix-wrapper) {
-        background-color: var(--bg-color-secondary);
-        border-color: var(--border-color);
-        color: var(--text-color);
+    .search-input {
+      background-color: var(--bg-color-secondary) !important;
+      border: 1px solid var(--border-color) !important;
 
-        input.ant-input {
-          background-color: transparent;
-          color: var(--text-color);
+      :deep(.ant-input) {
+        background-color: var(--bg-color-secondary) !important;
+        color: var(--text-color) !important;
 
-          &::placeholder {
-            color: var(--text-secondary-color);
-          }
+        &::placeholder {
+          color: var(--text-color-tertiary) !important;
         }
+      }
 
-        .anticon {
-          color: var(--text-secondary-color);
-        }
+      :deep(.ant-input-suffix) {
+        color: var(--text-color-tertiary) !important;
       }
     }
   }
@@ -1492,6 +1499,17 @@ const toggleMacroRecording = () => {
   }
 }
 
+.panel_header {
+  padding: 16px 16px 8px 16px;
+  flex-shrink: 0;
+}
+
+.panel_title {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-color);
+}
+
 // Theme adaptation for modal components
 .commandDialog {
   :deep(.ant-modal-content) {
@@ -1746,6 +1764,7 @@ const toggleMacroRecording = () => {
       opacity: 0;
       transform: translateY(-10px);
     }
+
     to {
       opacity: 1;
       transform: translateY(0);

@@ -1258,6 +1258,7 @@ export default {
     autoApproveHelp: '자동 승인된 도구는 사용자 확인 없이 실행됩니다'
   },
   macro: {
+    title: '빠른 명령',
     startRecording: '매크로 기록',
     stopRecording: '기록 중지',
     saveRecording: '기록 저장',

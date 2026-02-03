@@ -1262,6 +1262,7 @@ export default {
     autoApproveHelp: '自動承認されたツールはユーザーの確認なしに実行されます'
   },
   macro: {
+    title: 'クイックコマンド',
     startRecording: 'マクロ記録',
     stopRecording: '記録を停止',
     saveRecording: '記録を保存',
@@ -1329,7 +1330,7 @@ export default {
     importOverwrite: '上書き'
   },
   knowledgeCenter: {
-    title: 'ナレッジベース',
+    title: '知識ベース',
     newFile: '新規ファイル',
     newFolder: '新規フォルダ',
     uploadFile: 'ファイルをアップロード',

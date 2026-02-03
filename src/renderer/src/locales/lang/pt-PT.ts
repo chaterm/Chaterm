@@ -1261,6 +1261,7 @@ export default {
     autoApproveHelp: 'Ferramentas auto-aprovadas serão executadas sem confirmação do usuário'
   },
   macro: {
+    title: 'Comando rápido',
     startRecording: 'Macro Gravar',
     stopRecording: 'Parar Gravação',
     saveRecording: 'Guardar Gravação',
