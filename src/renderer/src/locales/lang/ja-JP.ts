@@ -1327,5 +1327,12 @@ export default {
     importOverwriteTitle: 'スキルが既に存在します',
     importOverwriteContent: '既存のスキルを上書きしますか？',
     importOverwrite: '上書き'
+  },
+  knowledgeCenter: {
+    title: 'ナレッジベース',
+    newFile: '新規ファイル',
+    newFolder: '新規フォルダ',
+    uploadFile: 'ファイルをアップロード',
+    refresh: '更新'
   }
 }

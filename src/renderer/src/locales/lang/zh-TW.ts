@@ -1310,5 +1310,12 @@ export default {
     importOverwriteTitle: '技能已存在',
     importOverwriteContent: '是否要覆蓋現有技能？',
     importOverwrite: '覆蓋'
+  },
+  knowledgeCenter: {
+    title: '知識庫',
+    newFile: '新建檔案',
+    newFolder: '新建資料夾',
+    uploadFile: '上傳檔案',
+    refresh: '重新整理'
   }
 }
