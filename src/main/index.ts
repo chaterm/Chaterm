@@ -53,6 +53,7 @@ import { TelemetrySetting } from '@shared/TelemetrySetting'
 import { registerKnowledgeBaseHandlers } from './services/knowledgebase'
 import type { WebviewMessage } from '@shared/WebviewMessage'
 import type { SkillMetadata } from '@shared/skills'
+import { registerFileSystemHandlers } from './ssh/sftpTransfer'
 
 let mainWindow: BrowserWindow
 let COOKIE_URL = 'http://localhost'
@@ -231,6 +232,7 @@ app.whenReady().then(async () => {
   registerSSHHandlers()
   registerLocalSSHHandlers()
   registerRemoteTerminalHandlers()
+  registerFileSystemHandlers()
   registerUpdater(mainWindow, (value) => (forceQuit = value))
   setupPluginIpc()
 

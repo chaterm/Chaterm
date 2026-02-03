@@ -1078,7 +1078,14 @@ export default {
     doubleClickToOpen: '더블 클릭으로 열기',
     sftpConnectFailed: 'SFTP 연결 실패',
     noDataAvailable: '데이터가 없습니다. 먼저 서버에 연결해주세요',
-    pleaseInputNewFileName: '새 파일 이름을 입력해주세요'
+    pleaseInputNewFileName: '새 파일 이름을 입력해주세요',
+    dragTransfer: '드래그 전송',
+    defaultMode: '기본 모드',
+    dragTransferMode: '드래그 모드',
+    treeExpand: '전개',
+    treeFoldUp: '접어 닫기',
+    transferSuccess: '전송 완료',
+    transferFailed: '전송 실패'
   },
   about: {
     version: '버전',

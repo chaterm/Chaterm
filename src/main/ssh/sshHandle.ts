@@ -696,8 +696,7 @@ const handleAttemptConnection = async (event, connectionInfo, resolve, reject, r
     reject(new Error(`Connection configuration error: ${err}`))
   }
 }
-
-const getUniqueRemoteName = async (sftp: SFTPWrapper, remoteDir: string, originalName: string, isDir: boolean): Promise<string> => {
+export const getUniqueRemoteName = async (sftp: SFTPWrapper, remoteDir: string, originalName: string, isDir: boolean): Promise<string> => {
   const list = await new Promise<{ filename: string; longname: string; attrs: any }[]>((resolve, reject) => {
     sftp.readdir(remoteDir, (err, list) => (err ? reject(err) : resolve(list as any)))
   })
@@ -780,7 +779,7 @@ const handleDeleteFile = (_event, id, remotePath, resolve, reject) => {
 }
 
 // download file
-const activeTasks = new Map<string, { read: any; write: any; localPath?: string; cancel?: () => void }>()
+export const activeTasks = new Map<string, { read: any; write: any; localPath?: string; cancel?: () => void }>()
 async function handleStreamTransfer(event: any, id: string, srcPath: string, destPath: string, type: 'download' | 'upload', isInternalCall = false) {
   const sftp = getSftpConnection(id)
   let finalDestPath = destPath.replace(/\\/g, '/')
