@@ -76,11 +76,13 @@ describe('useEditableContent', () => {
     el.remove()
   })
 
-  it('should parse doc drag payload', () => {
+  it('should parse doc drag payload from text/html carrier', () => {
+    const encoded = encodeURIComponent(JSON.stringify({ contextType: 'doc', relPath: 'guide/intro.md', name: 'intro.md' }))
     const dataTransfer = {
       getData: (type: string) => {
-        if (type !== 'application/x-chaterm-context') return ''
-        return JSON.stringify({ contextType: 'doc', relPath: 'guide/intro.md', name: 'intro.md' })
+        if (type === 'text/plain') return ''
+        if (type === 'text/html') return `<span data-chaterm-context="${encoded}"></span>`
+        return ''
       }
     } as unknown as DataTransfer
 
@@ -91,11 +93,13 @@ describe('useEditableContent', () => {
     })
   })
 
-  it('should parse chat drag payload', () => {
+  it('should parse chat drag payload from text/html carrier', () => {
+    const encoded = encodeURIComponent(JSON.stringify({ contextType: 'chat', id: 'chat-1', title: 'Chat 1' }))
     const dataTransfer = {
       getData: (type: string) => {
-        if (type !== 'application/x-chaterm-context') return ''
-        return JSON.stringify({ contextType: 'chat', id: 'chat-1', title: 'Chat 1' })
+        if (type === 'text/plain') return ''
+        if (type === 'text/html') return `<span data-chaterm-context="${encoded}"></span>`
+        return ''
       }
     } as unknown as DataTransfer
 
@@ -106,19 +110,23 @@ describe('useEditableContent', () => {
     })
   })
 
-  it('should parse host drag payload', () => {
+  it('should parse host drag payload from text/html carrier', () => {
+    const encoded = encodeURIComponent(
+      JSON.stringify({
+        contextType: 'host',
+        uuid: 'host-1',
+        label: 'server-1',
+        connect: '10.0.0.1',
+        assetType: 'linux',
+        isLocalHost: false,
+        organizationUuid: 'org-1'
+      })
+    )
     const dataTransfer = {
       getData: (type: string) => {
-        if (type !== 'application/x-chaterm-context') return ''
-        return JSON.stringify({
-          contextType: 'host',
-          uuid: 'host-1',
-          label: 'server-1',
-          connect: '10.0.0.1',
-          assetType: 'linux',
-          isLocalHost: false,
-          organizationUuid: 'org-1'
-        })
+        if (type === 'text/plain') return ''
+        if (type === 'text/html') return `<span data-chaterm-context="${encoded}"></span>`
+        return ''
       }
     } as unknown as DataTransfer
 
@@ -139,6 +147,23 @@ describe('useEditableContent', () => {
     } as unknown as DataTransfer
 
     expect(parseContextDragPayload(dataTransfer)).toBeNull()
+  })
+
+  it('should parse context drag payload from text/html carrier', () => {
+    const encoded = encodeURIComponent(JSON.stringify({ contextType: 'doc', relPath: 'mysql.md', name: 'mysql.md' }))
+    const dataTransfer = {
+      getData: (type: string) => {
+        if (type === 'text/plain') return ''
+        if (type === 'text/html') return `<span data-chaterm-context="${encoded}"></span>`
+        return ''
+      }
+    } as unknown as DataTransfer
+
+    expect(parseContextDragPayload(dataTransfer)).toEqual({
+      contextType: 'doc',
+      relPath: 'mysql.md',
+      name: 'mysql.md'
+    })
   })
 
   describe('command chip with path', () => {
@@ -230,22 +255,6 @@ describe('useEditableContent', () => {
       })
 
       el.remove()
-    })
-  })
-
-  it('should parse payload from text fallback', () => {
-    const dataTransfer = {
-      getData: (type: string) => {
-        if (type === 'application/x-chaterm-context') return ''
-        if (type !== 'text/plain') return ''
-        return 'chaterm-context:{"contextType":"chat","id":"chat-2","title":"Chat 2"}'
-      }
-    } as unknown as DataTransfer
-
-    expect(parseContextDragPayload(dataTransfer)).toEqual({
-      contextType: 'chat',
-      id: 'chat-2',
-      title: 'Chat 2'
     })
   })
 

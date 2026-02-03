@@ -715,7 +715,6 @@ import { useTabManagement } from './composables/useTabManagement'
 import { useTodo } from './composables/useTodo'
 import { useWatchers } from './composables/useWatchers'
 import { useExportChat } from './composables/useExportChat'
-import { CONTEXT_DRAG_MIME, CONTEXT_DRAG_TEXT_PREFIX } from './composables/useEditableContent'
 import InputSendContainer from './components/InputSendContainer.vue'
 import MarkdownRenderer from './components/format/markdownRenderer.vue'
 import TodoInlineDisplay from './components/todo/TodoInlineDisplay.vue'
@@ -896,8 +895,8 @@ const handleTabDragStart = (e: DragEvent, tab: { id: string; title: string }) =>
     id: tab.id,
     title: tab.title
   }
-  e.dataTransfer.setData(CONTEXT_DRAG_MIME, JSON.stringify(payload))
-  e.dataTransfer.setData('text/plain', CONTEXT_DRAG_TEXT_PREFIX + JSON.stringify(payload))
+  const raw = JSON.stringify(payload)
+  e.dataTransfer.setData('text/html', `<span data-chaterm-context="${encodeURIComponent(raw)}"></span>`)
   e.dataTransfer.effectAllowed = 'copy'
 }
 

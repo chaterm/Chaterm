@@ -20,6 +20,7 @@
           v-model="activeFile.content"
           :language="activeFile.language"
           :theme="currentTheme"
+          :options="{ minimap: { enabled: false } }"
           @update:model-value="handleEditorChange"
         />
       </div>

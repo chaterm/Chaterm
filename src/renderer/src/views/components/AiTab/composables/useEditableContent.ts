@@ -12,8 +12,7 @@ import MessageOutlinedSvg from '@ant-design/icons-svg/es/asn/MessageOutlined'
 type IconNode = { tag: string; attrs?: Record<string, string>; children?: IconNode[] }
 type IconDefinitionLike = { icon: IconNode | ((primaryColor: string, secondaryColor: string) => IconNode) }
 
-export const CONTEXT_DRAG_MIME = 'application/x-chaterm-context'
-export const CONTEXT_DRAG_TEXT_PREFIX = 'chaterm-context:'
+const CONTEXT_DRAG_HTML_ATTR = 'data-chaterm-context'
 
 export type ContextDragPayload =
   | { contextType: 'doc'; relPath: string; name: string }
@@ -31,10 +30,22 @@ export type ContextDragPayload =
 export const parseContextDragPayload = (dataTransfer: DataTransfer | null): ContextDragPayload | null => {
   if (!dataTransfer) return null
 
-  // Only accept our custom drag data.
-  const raw = dataTransfer.getData(CONTEXT_DRAG_MIME)
-  const textFallback = dataTransfer.getData('text/plain')
-  const payloadRaw = raw || (textFallback.startsWith(CONTEXT_DRAG_TEXT_PREFIX) ? textFallback.slice(CONTEXT_DRAG_TEXT_PREFIX.length) : '')
+  // Only accept our drag data carried in text/html. This avoids relying on custom MIME types
+  // which may not be preserved by some drag-and-drop sources in Chromium/Electron.
+  const html = dataTransfer.getData('text/html')
+  let payloadRaw = ''
+  if (html) {
+    const re = new RegExp(`${CONTEXT_DRAG_HTML_ATTR}="([^"]+)"`)
+    const m = html.match(re)
+    if (m?.[1]) {
+      try {
+        payloadRaw = decodeURIComponent(m[1])
+      } catch {
+        payloadRaw = ''
+      }
+    }
+  }
+
   if (!payloadRaw) return null
 
   let parsed: unknown = null
