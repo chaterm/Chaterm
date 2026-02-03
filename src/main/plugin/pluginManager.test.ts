@@ -61,7 +61,7 @@ describe('pluginManager per-user storage', () => {
     const zipPath = createPluginZip()
     const record = installPlugin(zipPath)
 
-    expect(record.path).toBe(path.join(userData, 'databases', '42', 'plugins', 'p1-1.0.0'))
+    expect(record.path).toBe(path.join(userData, 'chaterm_db', '42', 'plugins', 'p1-1.0.0'))
     expect(fs.existsSync(record.path)).toBe(true)
 
     const registry = listPlugins()
@@ -75,7 +75,7 @@ describe('pluginManager per-user storage', () => {
 
     const { getPluginCacheRoot } = await import('./pluginManager')
 
-    expect(getPluginCacheRoot()).toBe(path.join(userData, 'databases', '42', 'plugins', '.cache'))
+    expect(getPluginCacheRoot()).toBe(path.join(userData, 'chaterm_db', '42', 'plugins', '.cache'))
   })
 
   it('falls back to guest user directory when no current user', async () => {
@@ -84,7 +84,7 @@ describe('pluginManager per-user storage', () => {
     mockGetCurrentUserId.mockReturnValue(null)
     mockGetGuestUserId.mockReturnValue(123)
 
-    const registryPath = path.join(userData, 'databases', '123', 'plugins', 'plugins.json')
+    const registryPath = path.join(userData, 'chaterm_db', '123', 'plugins', 'plugins.json')
     fs.mkdirSync(path.dirname(registryPath), { recursive: true })
     fs.writeFileSync(registryPath, JSON.stringify([{ id: 'p2', displayName: 'P2', version: '1.0.0', path: '/tmp/p2', enabled: true }]))
 

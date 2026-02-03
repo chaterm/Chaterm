@@ -20,6 +20,10 @@ const MIGRATION_MARKER_FILE = '.cn-to-global-migration.json'
 const SKIP_ENTRY_NAMES = new Set(['SingletonLock', 'SingletonSocket', 'SingletonCookie'])
 const execFileAsync = promisify(execFile)
 
+// Database directory names - must match connection.ts
+const DB_DIR_NAME = 'chaterm_db'
+const LEGACY_DB_DIR_NAME = 'databases'
+
 export async function migrateCnUserDataOnFirstLaunch(): Promise<void> {
   // Migration note: CN/Global split caused Global edition to miss legacy local data.
   // This one-time migration copies CN databases into the Global userData directory.
@@ -72,12 +76,17 @@ export async function migrateCnUserDataOnFirstLaunch(): Promise<void> {
     return
   }
 
-  const targetHasDatabases = await hasDatabaseFiles(path.join(targetUserDataPath, 'databases'))
-  if (targetHasDatabases) {
+  // Check both old and new directory names
+  const targetHasOldDatabases = await hasDatabaseFiles(path.join(targetUserDataPath, LEGACY_DB_DIR_NAME))
+  const targetHasNewDatabases = await hasDatabaseFiles(path.join(targetUserDataPath, DB_DIR_NAME))
+  if (targetHasOldDatabases || targetHasNewDatabases) {
     console.warn('[Migration] Target userData already has databases, overwriting with CN data.')
   }
 
-  const walOrShmDetected = await hasWalOrShmFiles(path.join(sourceUserDataPath, 'databases'))
+  // Check for WAL/SHM files in both directories
+  const oldWalOrShm = await hasWalOrShmFiles(path.join(sourceUserDataPath, LEGACY_DB_DIR_NAME))
+  const newWalOrShm = await hasWalOrShmFiles(path.join(sourceUserDataPath, DB_DIR_NAME))
+  const walOrShmDetected = oldWalOrShm || newWalOrShm
   if (walOrShmDetected) {
     console.warn('[Migration] WAL/SHM files detected in source databases. Ensure the other edition is closed before continuing.')
   }
@@ -118,7 +127,8 @@ async function findLegacyCnUserDataPath(targetUserDataPath: string): Promise<str
     seen.add(resolved)
 
     if (!(await pathExists(resolved))) continue
-    if (await hasDatabaseFiles(path.join(resolved, 'databases'))) {
+    // Check both old and new directory names
+    if ((await hasDatabaseFiles(path.join(resolved, LEGACY_DB_DIR_NAME))) || (await hasDatabaseFiles(path.join(resolved, DB_DIR_NAME)))) {
       return resolved
     }
   }
@@ -175,8 +185,15 @@ async function hasWalOrShmFiles(databasesPath: string): Promise<boolean> {
 }
 
 async function copyDatabasesOnly(sourceUserDataPath: string, targetUserDataPath: string): Promise<void> {
-  const sourceDatabasesPath = path.join(sourceUserDataPath, 'databases')
-  const targetDatabasesPath = path.join(targetUserDataPath, 'databases')
+  // Try new directory name first, then fall back to old name
+  let sourceDatabasesPath = path.join(sourceUserDataPath, DB_DIR_NAME)
+  if (!(await pathExists(sourceDatabasesPath))) {
+    sourceDatabasesPath = path.join(sourceUserDataPath, LEGACY_DB_DIR_NAME)
+  }
+
+  // Always use new directory name for target
+  const targetDatabasesPath = path.join(targetUserDataPath, DB_DIR_NAME)
+
   if (!(await pathExists(sourceDatabasesPath))) {
     throw new Error('Source databases directory not found')
   }

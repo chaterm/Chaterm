@@ -35,10 +35,13 @@ export interface InstalledPlugin {
   enabled: boolean
 }
 
+// Database directory name - must match connection.ts DB_DIR_NAME
+const DB_DIR_NAME = 'chaterm_db'
+
 // Lazy getters to ensure path is resolved after initUserDataPath() is called
 function getExtensionsRoot(): string {
   const userId = getCurrentUserId() ?? getGuestUserId()
-  return path.join(getUserDataPath(), 'databases', `${userId}`, 'plugins')
+  return path.join(getUserDataPath(), DB_DIR_NAME, `${userId}`, 'plugins')
 }
 
 function getRegistryPath(): string {
