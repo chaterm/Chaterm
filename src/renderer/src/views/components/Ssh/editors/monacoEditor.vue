@@ -1,5 +1,8 @@
 <template>
-  <div class="monaco-editor-container">
+  <div
+    class="monaco-editor-container"
+    :class="{ 'with-custom-bg': hasCustomBg }"
+  >
     <div
       ref="editorContainer"
       class="monaco-editor-inner"
@@ -74,6 +77,16 @@ const emit = defineEmits<{
 const editorContainer = ref<HTMLElement | null>(null)
 let editor: monaco.editor.IStandaloneCodeEditor | null = null
 const monacoVimInstance: any = null
+const hasCustomBg = ref(typeof document !== 'undefined' && !!document.body?.classList.contains('has-custom-bg'))
+let bgClassObserver: MutationObserver | null = null
+
+const syncHasCustomBg = () => {
+  if (typeof document === 'undefined' || !document.body) {
+    hasCustomBg.value = false
+    return
+  }
+  hasCustomBg.value = document.body.classList.contains('has-custom-bg')
+}
 
 // Set different color config based on theme
 const getThemeColors = (): monaco.editor.IColors => {
@@ -178,6 +191,22 @@ const createEditor = (): void => {
 }
 
 onMounted(() => {
+  // Keep editor background in sync with global custom background state.
+  // When `body.has-custom-bg` is toggled in settings, we update a wrapper class
+  // to switch Monaco background to a semi-transparent `--bg-color`.
+  syncHasCustomBg()
+  bgClassObserver = new MutationObserver((mutations) => {
+    for (const m of mutations) {
+      if (m.type === 'attributes' && m.attributeName === 'class') {
+        syncHasCustomBg()
+        break
+      }
+    }
+  })
+  bgClassObserver.observe(document.body, {
+    attributes: true,
+    attributeFilter: ['class']
+  })
   createEditor()
 })
 
@@ -238,6 +267,10 @@ defineExpose({
 })
 
 onBeforeUnmount(() => {
+  if (bgClassObserver) {
+    bgClassObserver.disconnect()
+    bgClassObserver = null
+  }
   if (monacoVimInstance) {
     monacoVimInstance.dispose()
   }
@@ -257,5 +290,16 @@ onBeforeUnmount(() => {
 .monaco-editor-inner {
   width: 100%;
   height: 100%;
+}
+
+/* When a custom background image is enabled, use a semi-transparent background
+ * so the global background image can show through.
+ */
+.monaco-editor-container.with-custom-bg :deep(.monaco-editor),
+.monaco-editor-container.with-custom-bg :deep(.monaco-editor-background),
+.monaco-editor-container.with-custom-bg :deep(.monaco-editor .margin),
+.monaco-editor-container.with-custom-bg :deep(.monaco-editor .minimap),
+.monaco-editor-container.with-custom-bg :deep(.monaco-editor .minimap-slider) {
+  background-color: var(--bg-color) !important;
 }
 </style>
