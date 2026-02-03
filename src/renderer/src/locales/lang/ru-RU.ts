@@ -1324,5 +1324,12 @@ export default {
     importOverwriteTitle: 'Навык уже существует',
     importOverwriteContent: 'Хотите заменить существующий навык?',
     importOverwrite: 'Заменить'
+  },
+  knowledgeCenter: {
+    title: 'База знаний',
+    newFile: 'Новый файл',
+    newFolder: 'Новая папка',
+    uploadFile: 'Загрузить файл',
+    refresh: 'Обновить'
   }
 }

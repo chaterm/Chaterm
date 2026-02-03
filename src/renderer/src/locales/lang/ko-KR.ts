@@ -1323,5 +1323,12 @@ export default {
     importOverwriteTitle: '스킬이 이미 존재합니다',
     importOverwriteContent: '기존 스킬을 덮어쓰시겠습니까?',
     importOverwrite: '덮어쓰기'
+  },
+  knowledgeCenter: {
+    title: '지식 베이스',
+    newFile: '새 파일',
+    newFolder: '새 폴더',
+    uploadFile: '파일 업로드',
+    refresh: '새로고침'
   }
 }

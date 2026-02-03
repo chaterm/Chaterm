@@ -1326,5 +1326,12 @@ export default {
     importOverwriteTitle: 'Competência já existe',
     importOverwriteContent: 'Deseja sobrescrever a competência existente?',
     importOverwrite: 'Sobrescrever'
+  },
+  knowledgeCenter: {
+    title: 'Base de Conhecimento',
+    newFile: 'Novo arquivo',
+    newFolder: 'Nova pasta',
+    uploadFile: 'Upload arquivo',
+    refresh: 'Atualizar'
   }
 }

@@ -1332,5 +1332,12 @@ export default {
     importOverwriteTitle: 'Skill Already Exists',
     importOverwriteContent: 'Overwrite existing skill?',
     importOverwrite: 'Overwrite'
+  },
+  knowledgeCenter: {
+    title: 'Knowledge Base',
+    newFile: 'New File',
+    newFolder: 'New Folder',
+    uploadFile: 'Upload File',
+    refresh: 'Refresh'
   }
 }

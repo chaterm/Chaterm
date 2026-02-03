@@ -1329,5 +1329,12 @@ export default {
     importOverwriteTitle: 'Skill bereits vorhanden',
     importOverwriteContent: 'Möchten Sie den bestehenden Skill überschreiben?',
     importOverwrite: 'Überschreiben'
+  },
+  knowledgeCenter: {
+    title: 'Wissensdatenbank',
+    newFile: 'Neue Datei',
+    newFolder: 'Neuer Ordner',
+    uploadFile: 'Datei hochladen',
+    refresh: 'Aktualisieren'
   }
 }

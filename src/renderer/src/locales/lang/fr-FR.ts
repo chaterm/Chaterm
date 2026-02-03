@@ -1333,5 +1333,12 @@ export default {
     importOverwriteTitle: 'Compétence déjà existante',
     importOverwriteContent: 'Voulez-vous remplacer la compétence existante ?',
     importOverwrite: 'Remplacer'
+  },
+  knowledgeCenter: {
+    title: 'Base de connaissances',
+    newFile: 'Nouveau fichier',
+    newFolder: 'Nouveau dossier',
+    uploadFile: 'Télécharger un fichier',
+    refresh: 'Actualiser'
   }
 }
