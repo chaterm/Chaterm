@@ -741,6 +741,8 @@ export default {
     folderDeleteConfirmContent: 'Sind Sie sicher, dass Sie den Ordner "{name}" löschen möchten?',
     folderDeleteConfirmWithAssets:
       'Sind Sie sicher, dass Sie den Ordner "{name}" löschen möchten? Dieser Ordner enthält {count} Assets, und nach dem Löschen werden die Assets wieder in ihren ursprünglichen Zustand zurückkehren.',
+    showIp: 'IP anzeigen',
+    showHostname: 'Hostname anzeigen',
     missingAssetId: 'Asset ID fehlt',
     supportedFormats: 'Unterstützte Formate',
     standardFormat: 'Standard Format',

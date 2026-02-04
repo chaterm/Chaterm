@@ -740,6 +740,8 @@ export default {
     folderDeleteConfirmContent: 'Sei sicuro di voler eliminare la cartella "{name}"?',
     folderDeleteConfirmWithAssets:
       'Sei sicuro di voler eliminare la cartella "{name}"? Questa cartella contiene {count} asset, e dopo l\'eliminazione, gli asset torneranno alla loro posizione originale.',
+    showIp: 'Mostra IP',
+    showHostname: 'Mostra nome host',
     missingAssetId: 'ID asset mancante',
     supportedFormats: 'Formati supportati',
     standardFormat: 'Formato standard',

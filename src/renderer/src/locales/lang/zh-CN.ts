@@ -724,6 +724,8 @@ export default {
     folderDeleteConfirm: '删除分组确认',
     folderDeleteConfirmContent: '确定要删除分组 "{name}" 吗？删除后分组中的资产将回到原位置。',
     folderDeleteConfirmWithAssets: '确定要删除分组 "{name}" 吗？该分组包含 {count} 个资产，删除后资产将回到原位置。',
+    showIp: '显示IP',
+    showHostname: '显示主机名',
     missingAssetId: '缺少资产 ID',
     supportedFormats: '支持的格式',
     standardFormat: '标准格式',

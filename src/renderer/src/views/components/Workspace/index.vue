@@ -31,6 +31,19 @@
               <search-outlined />
             </template>
           </a-input>
+          <a-tooltip
+            :title="showIpMode ? t('personal.showHostname') : t('personal.showIp')"
+            placement="top"
+          >
+            <a-button
+              type="primary"
+              size="small"
+              class="workspace-button"
+              @click="toggleDisplayMode"
+            >
+              <swap-outlined />
+            </a-button>
+          </a-tooltip>
           <a-dropdown
             v-if="!isPersonalWorkspace"
             :trigger="['click']"
@@ -109,7 +122,7 @@
                     @contextmenu="handleContextMenu($event, dataRef)"
                   >
                     <laptop-outlined class="computer-icon" />
-                    <span class="hostname-text">{{ title }}</span>
+                    <span class="hostname-text">{{ getDisplayText(dataRef, title) }}</span>
 
                     <div
                       v-if="commentNode === dataRef.key"
@@ -180,7 +193,7 @@
                     @contextmenu="handleContextMenu($event, dataRef)"
                   >
                     <laptop-outlined class="computer-icon" />
-                    <span class="hostname-text">{{ title }}</span>
+                    <span class="hostname-text">{{ getDisplayText(dataRef, title) }}</span>
                     <span
                       v-if="dataRef.comment"
                       class="comment-text"
@@ -195,7 +208,7 @@
                     class="title-with-icon"
                   >
                     <laptop-outlined class="computer-icon" />
-                    <span class="hostname-text">{{ title }}</span>
+                    <span class="hostname-text">{{ getDisplayText(dataRef, title) }}</span>
                     <div class="comment-edit-container">
                       <a-input
                         v-model:value="editingComment"
@@ -422,7 +435,8 @@ import {
   CloseOutlined,
   FolderOutlined,
   DeleteOutlined,
-  AppstoreAddOutlined
+  AppstoreAddOutlined,
+  SwapOutlined
 } from '@ant-design/icons-vue'
 import eventBus from '@/utils/eventBus'
 import i18n from '@/locales'
@@ -461,6 +475,7 @@ const selectedAssetForMove = ref<any>(null)
 const contextMenuVisible = ref(false)
 const contextMenuData = ref<any>(null)
 const contextMenuStyle = ref({})
+const showIpMode = ref(false)
 
 interface WorkspaceItem {
   key: string
@@ -540,6 +555,10 @@ const loadSavedExpandState = async () => {
     const config = await userConfigStore.getConfig()
     if (config.workspaceExpandedKeys && config.workspaceExpandedKeys.length > 0) {
       expandedKeys.value = config.workspaceExpandedKeys
+    }
+    // Load display mode preference
+    if (config.workspaceShowIpMode !== undefined) {
+      showIpMode.value = config.workspaceShowIpMode
     }
   } catch (error) {
     console.error('Failed to load saved expand state:', error)
@@ -822,6 +841,27 @@ const clickServer = (item) => {
 
 const assetManagement = () => {
   emit('open-user-tab', 'assetConfig')
+}
+
+const toggleDisplayMode = async () => {
+  showIpMode.value = !showIpMode.value
+  // Save preference to user config
+  try {
+    const currentConfig = await userConfigStore.getConfig()
+    await userConfigStore.saveConfig({
+      ...currentConfig,
+      workspaceShowIpMode: showIpMode.value
+    })
+  } catch (error) {
+    console.error('Failed to save display mode preference:', error)
+  }
+}
+
+const getDisplayText = (dataRef: any, title: string): string => {
+  if (showIpMode.value && dataRef.ip) {
+    return dataRef.ip
+  }
+  return title
 }
 
 const handleMenuClick = ({ key }) => {

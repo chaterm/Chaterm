@@ -735,6 +735,8 @@ export default {
     folderDeleteConfirmContent: 'Are you sure you want to delete folder "{name}"?',
     folderDeleteConfirmWithAssets:
       'Are you sure you want to delete folder "{name}"? This folder contains {count} assets, and after deletion, the assets will return to their original position.',
+    showIp: 'Show IP',
+    showHostname: 'Show Hostname',
     missingAssetId: 'Missing asset ID',
     supportedFormats: 'Supported Formats',
     standardFormat: 'Standard Format',

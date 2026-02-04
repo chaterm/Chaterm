@@ -731,6 +731,8 @@ export default {
     folderDeleteConfirmContent: 'フォルダ "{name}" を削除してもよろしいですか？',
     folderDeleteConfirmWithAssets:
       'フォルダ "{name}" を削除してもよろしいですか？このフォルダには {count} 個の資産が含まれており、削除後、資産は元の位置に戻ります。',
+    showIp: 'IPを表示',
+    showHostname: 'ホスト名を表示',
     missingAssetId: '資産IDが不足しています',
     supportedFormats: 'サポートされているフォーマット',
     standardFormat: '標準フォーマット',
