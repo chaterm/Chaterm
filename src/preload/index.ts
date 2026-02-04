@@ -381,7 +381,7 @@ const initUserDatabase = async (data: { uid: number }) => {
 }
 
 // User snippet operations
-const userSnippetOperation = async (data: { operation: 'list' | 'create' | 'delete' | 'update' | 'swap'; params?: unknown }) => {
+const userSnippetOperation = async (data: { operation: 'list' | 'create' | 'delete' | 'update' | 'swap' | 'reorder'; params?: unknown }) => {
   try {
     const result = await ipcRenderer.invoke('user-snippet-operation', data)
     return result

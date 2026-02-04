@@ -4,7 +4,7 @@ import { v4 as uuidv4 } from 'uuid'
 // Shortcut command related methods
 export function userSnippetOperationLogic(
   db: Database.Database,
-  operation: 'list' | 'create' | 'delete' | 'update' | 'swap' | 'listGroups' | 'createGroup' | 'updateGroup' | 'deleteGroup',
+  operation: 'list' | 'create' | 'delete' | 'update' | 'swap' | 'reorder' | 'listGroups' | 'createGroup' | 'updateGroup' | 'deleteGroup',
   params?: any
 ): any {
   try {
@@ -173,6 +173,56 @@ export function userSnippetOperationLogic(
           }
         }
 
+      case 'reorder':
+        // Reorder snippets within a group by updating sort_order
+        if (!params || !Array.isArray(params.ordered_ids) || params.ordered_ids.length === 0) {
+          return {
+            code: 400,
+            message: 'ordered_ids (non-empty array) is required for reorder operation'
+          }
+        }
+
+        const reorderResult = db.transaction(() => {
+          const updateSortStmt = db.prepare(`
+            UPDATE user_snippet_v1
+            SET sort_order = ?, updated_at = strftime('%s', 'now')
+            WHERE id = ? AND (group_uuid IS ? OR group_uuid = ?)
+          `)
+
+          const groupUuid = params.group_uuid ?? null
+          let updatedCount = 0
+
+          for (let i = 0; i < params.ordered_ids.length; i++) {
+            const id = params.ordered_ids[i]
+            const newSortOrder = (i + 1) * 10
+            // Match NULL group_uuid (root level) or specific group_uuid
+            const result = updateSortStmt.run(newSortOrder, id, groupUuid, groupUuid)
+            updatedCount += result.changes
+          }
+
+          return { changes: updatedCount, expected: params.ordered_ids.length }
+        })()
+
+        // Fail if not all items were updated (stale list, missing IDs, or group mismatch)
+        if (reorderResult.changes !== reorderResult.expected) {
+          return {
+            code: 409,
+            message: `Reorder incomplete: expected ${reorderResult.expected} updates, got ${reorderResult.changes}. List may be stale.`,
+            data: {
+              updatedCount: reorderResult.changes,
+              expectedCount: reorderResult.expected
+            }
+          }
+        }
+
+        return {
+          code: 200,
+          data: {
+            message: 'success',
+            updatedCount: reorderResult.changes
+          }
+        }
+
       case 'listGroups':
         const listGroupsStmt = db.prepare('SELECT * FROM user_snippet_groups_v1 ORDER BY created_at ASC')
         const groups = listGroupsStmt.all() || []
@@ -244,7 +294,8 @@ export function userSnippetOperationLogic(
       default:
         return {
           code: 400,
-          message: 'Invalid operation. Supported operations: list, create, delete, update, swap, listGroups, createGroup, updateGroup, deleteGroup'
+          message:
+            'Invalid operation. Supported operations: list, create, delete, update, swap, reorder, listGroups, createGroup, updateGroup, deleteGroup'
         }
     }
   } catch (error) {

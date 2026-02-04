@@ -198,7 +198,7 @@ interface ApiType {
   ) => () => void
   cancelTask: (tabContext?: { tabId?: string } | string) => Promise<any>
   gracefulCancelTask: (tabContext?: { tabId?: string } | string) => Promise<any>
-  userSnippetOperation: (data: { operation: 'list' | 'create' | 'delete' | 'update' | 'swap'; params?: any }) => Promise<{
+  userSnippetOperation: (data: { operation: 'list' | 'create' | 'delete' | 'update' | 'swap' | 'reorder'; params?: any }) => Promise<{
     code: number
     message?: string
     data?: any
