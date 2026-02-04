@@ -3,6 +3,12 @@ import { initUserDataPath, getUserDataPath } from './config/edition'
 initUserDataPath()
 // ============ userData path initialization complete ============
 
+// ============ Migrate database directory BEFORE Chromium initializes ============
+// IMPORTANT: This must be done before importing Electron modules
+import { migrateDbDirBeforeChromium } from './storage/db/early-migration'
+migrateDbDirBeforeChromium()
+// ============ Early migration complete ============
+
 import { app, shell, BrowserWindow, ipcMain, session, net, protocol } from 'electron'
 import path, { join } from 'path'
 import { electronApp } from '@electron-toolkit/utils'

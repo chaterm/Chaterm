@@ -37,43 +37,14 @@ export function getChatermDbPathForUser(userId: number): string {
 
 /**
  * Get the database storage directory name.
- * IMPORTANT: We use 'chaterm_db' instead of 'databases' because Chromium 144+
- * (used in Electron 40+) may delete/recreate a directory named 'databases'
- * during startup as it's a reserved name for Chromium's Web SQL storage.
+ * We use 'chaterm_db' instead of 'databases' because Chromium may manage
+ * a directory named 'databases' for its Web SQL storage.
+ * The early migration (in early-migration.ts) handles moving data from
+ * 'databases' to 'chaterm_db' before Chromium initializes.
  */
 const DB_DIR_NAME = 'chaterm_db'
 
-/**
- * Migrate databases from old 'databases' directory to new 'chaterm_db' directory.
- * This is a one-time migration for users upgrading from older versions.
- */
-function migrateOldDatabasesDir(): void {
-  const oldDir = join(getUserDataPath(), 'databases')
-  const newDir = join(getUserDataPath(), DB_DIR_NAME)
-
-  // If old directory exists and new directory doesn't, migrate
-  if (fs.existsSync(oldDir) && !fs.existsSync(newDir)) {
-    try {
-      console.log(`[DB] Migrating databases from ${oldDir} to ${newDir}`)
-      fs.renameSync(oldDir, newDir)
-      console.log(`[DB] Migration completed successfully`)
-    } catch (error) {
-      console.error(`[DB] Failed to migrate databases directory:`, error)
-      // If rename fails (e.g., cross-device), try copy
-      try {
-        fs.cpSync(oldDir, newDir, { recursive: true })
-        console.log(`[DB] Migration completed via copy`)
-      } catch (copyError) {
-        console.error(`[DB] Failed to copy databases directory:`, copyError)
-      }
-    }
-  }
-}
-
 function ensureUserDatabaseDir(userId: number): string {
-  // First, migrate from old directory if needed
-  migrateOldDatabasesDir()
-
   const userDir = join(getUserDataPath(), DB_DIR_NAME, `${userId}`)
   if (!fs.existsSync(userDir)) {
     fs.mkdirSync(userDir, { recursive: true })
@@ -83,14 +54,7 @@ function ensureUserDatabaseDir(userId: number): string {
 
 function getLegacyDatabasePath(dbType: 'complete' | 'chaterm'): string {
   const dbName = dbType === 'complete' ? 'complete_data.db' : 'chaterm_data.db'
-  // Legacy path could be either 'databases' (old) or 'chaterm_db' (new)
-  const oldPath = join(getUserDataPath(), 'databases', dbName)
-  const newPath = join(getUserDataPath(), DB_DIR_NAME, dbName)
-  // Check old path first for backward compatibility
-  if (fs.existsSync(oldPath)) {
-    return oldPath
-  }
-  return newPath
+  return join(getUserDataPath(), DB_DIR_NAME, dbName)
 }
 
 function migrateLegacyDatabase(userId: number, dbType: 'complete' | 'chaterm'): boolean {
