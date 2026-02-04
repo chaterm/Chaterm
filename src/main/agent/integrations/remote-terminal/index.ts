@@ -464,6 +464,9 @@ export class RemoteTerminalProcess extends BrownEventEmitter<RemoteTerminalProce
         await this.runBastionCommand(resolvedType, sessionId, command, cwd)
       }
     } catch (error) {
+      // Clean up interaction detector to prevent UI from hanging
+      // This handles early failures before runMarkerBasedCommand is called
+      this.cleanupInteractionDetector()
       this.emit('error', error instanceof Error ? error : new Error(String(error)))
       throw error
     }
