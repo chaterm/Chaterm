@@ -318,6 +318,7 @@ import { shortcutService } from '@/services/shortcutService'
 import { captureExtensionUsage, ExtensionNames, ExtensionStatus } from '@/utils/telemetry'
 import Dashboard from '@renderer/views/components/Ssh/components/dashboard.vue'
 import { getGlobalState } from '@/agent/storage/state'
+import { useAiSidebarModelRefresh } from './composables/useAiSidebarModelRefresh'
 import 'dockview-vue/dist/styles/dockview.css'
 import { type DockviewReadyEvent, DockviewVue } from 'dockview-vue'
 import type { DockviewApi } from 'dockview-core'
@@ -438,6 +439,7 @@ interface LeftSidebarState {
 
 const savedAiSidebarState = ref<AiSidebarState | null>(null)
 const aiTabRef = ref<InstanceType<typeof AiTab> | null>(null)
+useAiSidebarModelRefresh(showAiSidebar, aiTabRef)
 
 const handleAiTabStateChanged = (state: AiSidebarState) => {
   savedAiSidebarState.value = state
