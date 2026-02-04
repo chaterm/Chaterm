@@ -2254,17 +2254,25 @@ const setupTabContextMenu = () => {
 
 const findPanelIdFromTab = (tabElement: HTMLElement): string | null => {
   try {
-    if (dockApi) {
-      for (const panel of dockApi.panels) {
-        const panelGroup = panel.api.group
-        if (panelGroup?.element?.contains(tabElement)) {
-          panelGroup.element.querySelectorAll('.dv-tab')
-          const tabTitle = tabElement.textContent?.trim()
-          const panelTitle = panel.api.title
-          if (tabTitle === panelTitle) {
-            return panel.id
-          }
-        }
+    if (!dockApi) return null
+
+    for (const panel of dockApi.panels) {
+      const panelGroup = panel.api.group
+      if (!panelGroup?.element?.contains(tabElement)) continue
+
+      // Get all tab elements in the group
+      const tabs = Array.from(panelGroup.element.querySelectorAll('.dv-tab'))
+      // Find the index of the clicked tab
+      const tabIndex = tabs.indexOf(tabElement)
+
+      if (tabIndex === -1) continue
+
+      // Get panels in the group (in tab order)
+      const groupPanels = panelGroup.panels
+
+      // Return the panel ID based on index
+      if (groupPanels && tabIndex < groupPanels.length) {
+        return groupPanels[tabIndex].id
       }
     }
     return null
