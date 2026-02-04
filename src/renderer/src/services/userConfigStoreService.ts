@@ -23,6 +23,7 @@ export interface UserConfig {
   highlightStatus: number
   pinchZoomStatus: number
   fontSize: number
+  fontFamily?: string
   scrollBack: number
   language: string
   cursorStyle: 'bar' | 'block' | 'underline' | undefined

@@ -934,6 +934,7 @@ onMounted(async () => {
   eventBus.on('createNewTerminal', handleCreateNewTerminal)
   eventBus.on('open-user-tab', openUserTab)
   eventBus.on('kbEntriesRemoved', handleKbEntriesRemoved)
+  eventBus.on('openKbPreview', handleOpenKbPreview)
   eventBus.on('searchHost', handleSearchHost)
   eventBus.on('save-state-before-switch', () => {
     // Save AI state before layout switch (unified since same aiTabRef)
@@ -1580,6 +1581,49 @@ const shouldCloseKbTab = (tabRelPath: string, entry: KbRemovedEntry): boolean =>
   return tabPath === entryPath
 }
 
+// Handle opening knowledge base preview panel via eventBus
+const handleOpenKbPreview = (payload: { relPath: string; referencePanel: string }) => {
+  if (!dockApi) return
+
+  const { relPath, referencePanel } = payload
+  const stableId = `kc_preview_${relPath.replaceAll('/', '__')}`
+  const newId = 'panel_' + stableId
+
+  // Check if preview already exists
+  const existing = dockApi.panels.find((p) => p.id === newId)
+  if (existing) {
+    existing.api.setActive()
+    return
+  }
+
+  // Verify reference panel exists
+  const refPanelExists = dockApi.panels.some((p) => p.id === referencePanel)
+
+  // Create preview panel with closeCurrentPanel callback
+  dockApi.addPanel({
+    id: newId,
+    component: 'TabsPanel',
+    title: `Preview ${relPath.split('/').pop()}`,
+    params: {
+      id: stableId,
+      content: 'KnowledgeCenterEditor',
+      mode: 'preview',
+      props: { relPath },
+      isMarkdown: true,
+      organizationId: '',
+      ip: '',
+      closeCurrentPanel: (panelId?: string) => closeCurrentPanel(panelId || newId)
+    },
+    // Only specify position if reference panel exists
+    ...(refPanelExists && {
+      position: {
+        direction: 'right',
+        referencePanel
+      }
+    })
+  })
+}
+
 const handleKbEntriesRemoved = (payload: { entries: KbRemovedEntry[] }) => {
   if (!dockApi) return
   const entries = payload?.entries ?? []
@@ -1628,6 +1672,7 @@ onUnmounted(() => {
   eventBus.off('createNewTerminal', handleCreateNewTerminal)
   eventBus.off('open-user-tab', openUserTab)
   eventBus.off('kbEntriesRemoved', handleKbEntriesRemoved)
+  eventBus.off('openKbPreview', handleOpenKbPreview)
   eventBus.off('searchHost', handleSearchHost)
 })
 
@@ -1683,7 +1728,10 @@ const openUserTab = async function (arg: OpenUserTabArg) {
 
     const target = arg as Exclude<OpenUserTabArg, string>
     const relPath = String(target.props?.relPath || '')
-    const existing = dockApi.panels.find((panel) => panel.params?.content === 'KnowledgeCenterEditor' && panel.params?.props?.relPath === relPath)
+    // Only check for editor mode panels, not preview panels
+    const existing = dockApi.panels.find(
+      (panel) => panel.params?.content === 'KnowledgeCenterEditor' && panel.params?.props?.relPath === relPath && panel.params?.mode !== 'preview'
+    )
     if (existing) {
       existing.api.setActive()
       return
