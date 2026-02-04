@@ -495,8 +495,8 @@ export class SafeBatchSyncManager {
 
     const placeholders = uuids.map(() => '?').join(',')
     const query = `
-            SELECT DISTINCT record_uuid 
-            FROM change_log 
+            SELECT DISTINCT record_uuid
+            FROM change_log
             WHERE table_name = ? AND record_uuid IN (${placeholders}) AND sync_status = 'pending'
         `
 
@@ -793,7 +793,7 @@ export class SafeBatchSyncManager {
 
     const tableSchema = await db.get(
       `
-            SELECT sql FROM sqlite_master 
+            SELECT sql FROM sqlite_master
             WHERE type='table' AND name=?
         `,
       [localTableName]
@@ -842,7 +842,7 @@ export class SafeBatchSyncManager {
           const placeholders = fields.map(() => '?').join(', ')
           const values = fields.map((field) => record[field])
           const sql = `
-                        INSERT OR REPLACE INTO ${tempTableName} (${fields.join(', ')}) 
+                        INSERT OR REPLACE INTO ${tempTableName} (${fields.join(', ')})
                         VALUES (${placeholders})
                     `
           await tx.run(sql, values)
@@ -922,7 +922,7 @@ export class SafeBatchSyncManager {
     const updateClauses = fields.map((field) => `${field} = excluded.${field}`).join(', ')
     const values = fields.map((field) => record[field])
     const sql = `
-            INSERT INTO ${tableName} (${fields.join(', ')}) 
+            INSERT INTO ${tableName} (${fields.join(', ')})
             VALUES (${placeholders})
             ON CONFLICT(uuid) DO UPDATE SET ${updateClauses}
         `
@@ -998,7 +998,7 @@ export class SafeBatchSyncManager {
     const db = await this.dbManager.getDatabase()
     await db.run(
       `
-            INSERT OR REPLACE INTO sync_metadata 
+            INSERT OR REPLACE INTO sync_metadata
             (table_name, last_sync_time, last_sync_version, server_last_modified, local_last_modified, sync_status)
             VALUES (?, ?, ?, ?, ?, ?)
         `,
@@ -1109,6 +1109,7 @@ export class SafeBatchSyncManager {
         const sensitive: any = {}
         if (record.chain_private_key !== undefined && record.chain_private_key !== null) sensitive.chain_private_key = record.chain_private_key
         if (record.passphrase !== undefined && record.passphrase !== null) sensitive.passphrase = record.passphrase
+        if (record.chain_public_key !== undefined && record.chain_public_key !== null) sensitive.chain_public_key = record.chain_public_key
         if (Object.keys(sensitive).length > 0) {
           try {
             const combined = await encryptPayload(sensitive, service)
