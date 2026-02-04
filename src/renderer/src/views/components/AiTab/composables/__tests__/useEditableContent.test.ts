@@ -31,6 +31,28 @@ describe('useEditableContent', () => {
     expect(handleChipClick).toHaveBeenCalledWith('doc', docRef)
   })
 
+  it('should not send on Enter when blocked', () => {
+    const editableRef = ref<HTMLDivElement | null>(document.createElement('div'))
+    const chatInputParts = ref<ContentPart[]>([])
+    const handleSendClick = vi.fn()
+
+    const api = useEditableContent({
+      editableRef,
+      chatInputParts,
+      handleSendClick,
+      handleAddContextClick: vi.fn(),
+      shouldBlockEnterSend: () => true
+    })
+
+    const preventDefault = vi.fn()
+    const event = { key: 'Enter', shiftKey: false, isComposing: false, preventDefault } as unknown as KeyboardEvent
+
+    api.handleEditableKeyDown(event)
+
+    expect(preventDefault).toHaveBeenCalled()
+    expect(handleSendClick).not.toHaveBeenCalled()
+  })
+
   it('should call handleChipClick for chat chip', () => {
     const { createChipElement, handleEditableClick, handleChipClick } = setup()
     const chatRef: ContextPastChatRef = { taskId: 'task-1', title: 'Chat 1' }

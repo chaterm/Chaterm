@@ -232,6 +232,8 @@ interface Props {
   isActiveTab: boolean
   sendMessage?: (sendType: string) => Promise<unknown>
   handleInterrupt?: () => void
+  interruptAndSendIfBusy?: (sendType: string) => Promise<void> | void
+  interactionActive?: boolean
   // New properties for edit mode
   mode?: 'create' | 'edit'
   initialContentParts?: ContentPart[]
@@ -242,6 +244,8 @@ interface Props {
 const props = withDefaults(defineProps<Props>(), {
   sendMessage: async () => {},
   handleInterrupt: () => {},
+  interruptAndSendIfBusy: undefined,
+  interactionActive: false,
   mode: 'create',
   initialContentParts: () => [],
   onConfirmEdit: () => {}
@@ -293,17 +297,37 @@ provide(contextInjectionKey, context)
 
 const { showContextPopup, removeHost, handleAddContextClick, onHostClick, setChipInsertHandler } = context
 
+const hasSendableContent = () => {
+  return (
+    inputParts.value.length > 0 &&
+    inputParts.value.some((part) => part.type === 'chip' || part.type === 'image' || (part.type === 'text' && part.text.trim().length > 0))
+  )
+}
+
 // Send click handler supporting both modes (defined before useEditableContent for dependency)
-const handleSendClick = (type: string) => {
+const handleSendClick = async (type: string) => {
+  const isBusy = responseLoading.value || props.interactionActive
+
+  if (props.mode !== 'edit' && isBusy && props.interruptAndSendIfBusy) {
+    const content = extractPlainTextFromParts(inputParts.value).trim()
+    if (!content && !hasSendableContent()) {
+      notification.warning({
+        message: t('ai.sendContentEmpty'),
+        duration: 2
+      })
+      return
+    }
+    await props.interruptAndSendIfBusy(type)
+    return
+  }
+
   if (responseLoading.value) {
     props.handleInterrupt()
     return
   }
 
   if (props.mode === 'edit') {
-    const hasParts =
-      inputParts.value.length > 0 &&
-      inputParts.value.some((part) => part.type === 'chip' || part.type === 'image' || (part.type === 'text' && part.text.trim().length > 0))
+    const hasParts = hasSendableContent()
     const content = extractPlainTextFromParts(inputParts.value).trim()
     if (!content && !hasParts) {
       notification.warning({
@@ -356,7 +380,8 @@ const {
   chatInputParts: inputParts,
   handleSendClick,
   handleAddContextClick,
-  handleChipClick
+  handleChipClick,
+  shouldBlockEnterSend: () => props.interactionActive
 })
 
 const resolveKbAbsPath = async (relPath: string): Promise<string> => {

@@ -6,8 +6,28 @@
 
 import { BrownEventEmitter } from './event'
 import { remoteSshConnect, remoteSshExecStream, remoteSshDisconnect } from '../../../ssh/agentHandle'
-import { handleJumpServerConnection, jumpserverShellStreams, jumpserverMarkedCommands } from './jumpserverHandle'
+import { handleJumpServerConnection, jumpserverShellStreams } from './jumpserverHandle'
 import { capabilityRegistry, BastionErrorCode } from '../../../ssh/capabilityRegistry'
+import { runMarkerBasedCommand, type MarkerStream } from './marker-based-runner'
+
+// Static imports for interaction detection (required for Vite bundling)
+import {
+  InteractionDetector,
+  type InteractionDetectorConfig,
+  type InteractionResult,
+  type InteractionRequest
+} from '../../services/interaction-detector'
+import type { SendInputResult } from '../../services/interaction-detector/types'
+import {
+  registerCommandContext,
+  unregisterCommandContext,
+  broadcastInteractionNeeded,
+  broadcastInteractionSuppressed,
+  broadcastInteractionClosed,
+  broadcastTuiDetected,
+  broadcastAlternateScreenEntered,
+  generateCommandId
+} from '../../services/interaction-detector/ipc-handlers'
 
 const { app } = require('electron')
 import { webContents } from 'electron'
@@ -39,6 +59,10 @@ export interface RemoteTerminalProcessEvents extends Record<string, any[]> {
   completed: []
   error: [error: Error]
   no_shell_integration: []
+  // Interaction detection events
+  'interaction-needed': [request: InteractionRequest]
+  'interaction-suppressed': [data: { commandId: string }]
+  'tui-detected': [data: { commandId: string; taskId?: string; message: string }]
 }
 
 export interface ConnectionInfo {
@@ -84,6 +108,124 @@ export interface RemoteTerminalInfo {
   }
 }
 
+// ============================================================================
+// Shared utilities for marker-based command execution (JumpServer & Bastion)
+// ============================================================================
+
+/**
+ * Clean working directory path by removing ANSI sequences and terminal prompts
+ */
+function cleanWorkingDirectory(cwd: string | undefined, logPrefix: string): string | undefined {
+  if (!cwd) return undefined
+
+  const cleanCwd = cwd
+    // Remove ANSI escape sequences
+    .replace(/\x1B\[[0-9;]*[JKmsu]/g, '')
+    .replace(/\x1B\[[?][0-9]*[hl]/g, '')
+    .replace(/\x1B\[K/g, '')
+    .replace(/\x1B\[[0-9]+[ABCD]/g, '')
+    // Remove terminal prompt patterns (like: [user@host dir]$ or user@host:dir$)
+    .replace(/\[[^\]]*\]\$.*$/g, '')
+    .replace(/[^@]*@[^:]*:[^$]*\$.*$/g, '')
+    .replace(/.*\$.*$/g, '')
+    // Remove carriage returns, line feeds and other control characters
+    .replace(/[\r\n\x00-\x1F\x7F]/g, '')
+    .trim()
+
+  // Validate if path is valid (should be absolute path or relative path)
+  if (cleanCwd && !cleanCwd.match(/^[\/~]|^[a-zA-Z0-9_\-\.\/]+$/)) {
+    console.log(`[${logPrefix}] Invalid working directory path, ignoring: "${cleanCwd}"`)
+    return undefined
+  }
+
+  if (cwd && cleanCwd) {
+    console.log(`[${logPrefix}] Original path: "${cwd}" -> Cleaned: "${cleanCwd}"`)
+  } else if (cwd && !cleanCwd) {
+    console.log(`[${logPrefix}] Path cleaning failed, original: "${cwd}"`)
+  }
+
+  return cleanCwd || undefined
+}
+
+/**
+ * Strip ANSI codes from text (simplified version for marker detection)
+ */
+function stripAnsiSimple(text: string): string {
+  return text
+    .replace(/\x1B\[[0-9;]*[JKmsu]/g, '')
+    .replace(/\x1B\[[?][0-9]*[hl]/g, '')
+    .replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/g, '')
+    .replace(/\r/g, '')
+}
+
+// ANSI color name lookup
+const ANSI_COLOR_NAMES = ['black', 'red', 'green', 'yellow', 'blue', 'magenta', 'cyan', 'white']
+
+/**
+ * Convert ANSI escape sequences to HTML with color styles
+ */
+function processAnsiCodes(text: string): string {
+  if (!text.includes('\u001b[') && !text.includes('\x1B[')) return text
+
+  let result = text
+    // Normalize escape sequences
+    .replace(/\x1B/g, '\u001b')
+    // Remove cursor/screen control sequences
+    .replace(/\u001b\[[\d;]*[HfABCDEFGJKSTijklmnpqrsu]/g, '')
+    .replace(/\u001b\[\?[0-9;]*[hl]/g, '')
+    .replace(/\u001b\([AB01]/g, '')
+    .replace(/\u001b[=>NO]/g, '')
+    .replace(/\u001b\]0;[^\x07]*\x07/g, '')
+    .replace(/\u001b\[[KJ2J]/g, '')
+    .replace(/\u001b\[H/g, '')
+    .replace(/[\x00\r\x07\x08\x0B\x0C]/g, '')
+    // Style codes
+    .replace(/\u001b\[0m/g, '</span>')
+    .replace(/\u001b\[1m/g, '<span class="ansi-bold">')
+    .replace(/\u001b\[3m/g, '<span class="ansi-italic">')
+    .replace(/\u001b\[4m/g, '<span class="ansi-underline">')
+
+  // Foreground colors (30-37, 90-97)
+  for (let i = 0; i < 8; i++) {
+    const color = ANSI_COLOR_NAMES[i]
+    result = result
+      .replace(new RegExp(`\u001b\\[${30 + i}m`, 'g'), `<span class="ansi-${color}">`)
+      .replace(new RegExp(`\u001b\\[${90 + i}m`, 'g'), `<span class="ansi-bright-${color}">`)
+      .replace(new RegExp(`\u001b\\[${40 + i}m`, 'g'), `<span class="ansi-bg-${color}">`)
+      .replace(new RegExp(`\u001b\\[${100 + i}m`, 'g'), `<span class="ansi-bg-bright-${color}">`)
+  }
+
+  // Handle complex sequences (e.g., \u001b[1;31m)
+  result = result.replace(/\u001b\[(\d+);(\d+)m/g, (_, p1, p2) => {
+    let replacement = ''
+    for (const p of [p1, p2]) {
+      const num = parseInt(p, 10)
+      if (p === '0') replacement += '</span><span>'
+      else if (p === '1') replacement += '<span class="ansi-bold">'
+      else if (p === '3') replacement += '<span class="ansi-italic">'
+      else if (p === '4') replacement += '<span class="ansi-underline">'
+      else if (num >= 30 && num <= 37) replacement += `<span class="ansi-${ANSI_COLOR_NAMES[num - 30]}">`
+      else if (num >= 40 && num <= 47) replacement += `<span class="ansi-bg-${ANSI_COLOR_NAMES[num - 40]}">`
+      else if (num >= 90 && num <= 97) replacement += `<span class="ansi-bright-${ANSI_COLOR_NAMES[num - 90]}">`
+      else if (num >= 100 && num <= 107) replacement += `<span class="ansi-bg-bright-${ANSI_COLOR_NAMES[num - 100]}">`
+    }
+    return replacement
+  })
+
+  // Clean up remaining sequences
+  result = result.replace(/\u001b\[[0-9;]*[a-zA-Z]/g, '')
+  result = result.replace(/\u001b\[\??\d+[hl]/g, '')
+
+  // Balance HTML tags
+  const openTags = (result.match(/<span/g) || []).length
+  const closeTags = (result.match(/<\/span>/g) || []).length
+  if (openTags > closeTags) {
+    result += '</span>'.repeat(openTags - closeTags)
+  }
+
+  return result
+}
+
 // Remote terminal process class, using custom event emitter
 export class RemoteTerminalProcess extends BrownEventEmitter<RemoteTerminalProcessEvents> {
   private isListening: boolean = true
@@ -95,8 +237,143 @@ export class RemoteTerminalProcess extends BrownEventEmitter<RemoteTerminalProce
   private sessionId: string = ''
   private sshType: string = ''
 
+  // Interaction detection
+  private interactionDetector: InteractionDetector | null = null
+  private commandId: string = ''
+  private taskId: string = ''
+
   constructor() {
     super()
+  }
+
+  /**
+   * Enable interaction detection for this process
+   */
+  enableInteractionDetection(
+    taskId: string,
+    command: string,
+    config?: InteractionDetectorConfig,
+    llmCaller?: (command: string, output: string, locale: string) => Promise<InteractionResult>
+  ): void {
+    this.taskId = taskId
+    this.commandId = generateCommandId(taskId)
+
+    const detector = new InteractionDetector(command, this.commandId, config, this.taskId)
+    this.interactionDetector = detector
+
+    // Set LLM caller if provided
+    if (llmCaller) {
+      detector.setLlmCaller(llmCaller)
+    }
+
+    // Register command context for IPC handling
+    registerCommandContext({
+      commandId: this.commandId,
+      taskId: this.taskId,
+      sendInput: (input: string) => this.sendInput(input),
+      cancel: async () => {
+        await this.sendInput('\x03')
+      },
+      forceTerminate: () => this.forceTerminate(),
+      onDismiss: () => detector.onDismiss(),
+      onSuppress: () => detector.suppress(),
+      onUnsuppress: () => detector.unsuppress(),
+      onResume: () => detector.resume(),
+      onInteractionSubmitted: () => detector.onInteractionSubmitted()
+    })
+
+    // Set up detector event handlers
+    detector.on('interaction-needed', (request: InteractionRequest) => {
+      console.log(`[RemoteTerminalProcess] Interaction needed: ${request.interactionType}`)
+      broadcastInteractionNeeded(request)
+      this.emit('interaction-needed', request)
+    })
+
+    detector.on('interaction-suppressed', (data: { commandId: string }) => {
+      console.log(`[RemoteTerminalProcess] Interaction suppressed: ${data.commandId}`)
+      broadcastInteractionSuppressed(data.commandId)
+      this.emit('interaction-suppressed', data)
+    })
+
+    detector.on('tui-detected', async (data: { commandId: string; taskId?: string; message: string }) => {
+      console.log(`[RemoteTerminalProcess] TUI detected: ${data.commandId}`)
+      broadcastTuiDetected(data.commandId, data.message, data.taskId)
+      this.emit('tui-detected', data)
+      // Send Ctrl+C immediately to cancel TUI program
+      try {
+        const result = await this.sendInput('\x03')
+        if (result.success) {
+          console.log(`[RemoteTerminalProcess] Auto-sent Ctrl+C for TUI command: ${data.commandId}`)
+        } else {
+          console.warn(`[RemoteTerminalProcess] Failed to auto-cancel TUI command: ${data.commandId}, error: ${result.error || 'unknown'}`)
+        }
+      } catch (error) {
+        console.warn(
+          `[RemoteTerminalProcess] Failed to auto-cancel TUI command: ${data.commandId}, error: ${error instanceof Error ? error.message : String(error)}`
+        )
+      }
+    })
+
+    // Listen for alternate screen (TUI programs like vim, man, git log)
+    detector.on('alternate-screen-entered', (data: { commandId: string; taskId?: string; autoCancel: boolean }) => {
+      console.log(`[RemoteTerminalProcess] Alternate screen entered: ${data.commandId}, autoCancel: ${data.autoCancel}`)
+      const message = data.autoCancel ? this.getLocalizedTuiMessage() : this.getLocalizedTuiNoAutoCancelMessage()
+      broadcastAlternateScreenEntered(data.commandId, message, data.taskId)
+    })
+  }
+
+  /**
+   * Get localized TUI message
+   */
+  private getLocalizedTuiMessage(): string {
+    // Basic message - can be enhanced with locale support
+    return 'TUI program detected. Please interact directly in the terminal.'
+  }
+
+  /**
+   * Get localized TUI message for non-auto-cancel cases
+   */
+  private getLocalizedTuiNoAutoCancelMessage(): string {
+    return 'Full-screen program detected. Please interact directly in the terminal.'
+  }
+
+  /**
+   * Get the command ID for interaction tracking
+   */
+  getCommandId(): string {
+    return this.commandId
+  }
+
+  /**
+   * Resume interaction detection after user input
+   */
+  resumeInteractionDetection(): void {
+    if (this.interactionDetector) {
+      this.interactionDetector.resume()
+    }
+  }
+
+  /**
+   * Clean up interaction detector
+   */
+  private cleanupInteractionDetector(): void {
+    if (this.interactionDetector) {
+      unregisterCommandContext(this.commandId)
+      broadcastInteractionClosed(this.commandId)
+      this.interactionDetector.dispose()
+      this.interactionDetector = null
+    }
+  }
+
+  /**
+   * Force terminate the process by emitting continue event
+   * This unblocks any code waiting on the process Promise
+   */
+  forceTerminate(): void {
+    console.log(`[RemoteTerminalProcess] forceTerminate called for command: ${this.commandId}`)
+    this.cleanupInteractionDetector()
+    this.emit('completed')
+    this.emit('continue')
   }
 
   /**
@@ -192,35 +469,101 @@ export class RemoteTerminalProcess extends BrownEventEmitter<RemoteTerminalProce
     }
   }
 
-  // Send input to running command
-  async sendInput(input: string): Promise<boolean> {
+  // Send input to running command with detailed error reporting
+  async sendInput(input: string): Promise<SendInputResult> {
     try {
       if (this.sshType === 'jumpserver') {
         const { jumpserverShellStreams } = await import('./jumpserverHandle')
         const stream = jumpserverShellStreams.get(this.sessionId)
-        if (stream) {
-          stream.write(input)
-          return true
+        if (!stream) {
+          return { success: false, error: 'JumpServer stream not found', code: 'closed' }
         }
-        return false
+        if (!stream.writable) {
+          return { success: false, error: 'JumpServer stream is not writable', code: 'not-writable' }
+        }
+
+        // Handle backpressure with drain event
+        const canWrite = stream.write(input)
+        if (!canWrite) {
+          // Wait for drain with timeout
+          const drainResult = await this.waitForDrain(stream, 3000)
+          if (!drainResult.success) {
+            return drainResult
+          }
+        }
+        return { success: true }
       } else if (this.sshType === 'ssh') {
         // For SSH, call handler function directly
         const { handleRemoteExecInput } = await import('../../../ssh/agentHandle')
         const result = handleRemoteExecInput(this.sessionId, input)
-        return result.success
+        if (!result.success) {
+          return { success: false, error: result.error || 'SSH write failed', code: 'write-failed' }
+        }
+        return { success: true }
       } else {
         // Plugin-based bastion: use capability's write method
         const bastionCapability = capabilityRegistry.getBastion(this.sshType || '')
-        if (bastionCapability) {
-          bastionCapability.write({ id: this.sessionId, data: input })
-          return true
+        if (!bastionCapability) {
+          return { success: false, error: 'Bastion capability not found', code: 'not-writable' }
         }
-        return false
+        try {
+          bastionCapability.write({ id: this.sessionId, data: input })
+          return { success: true }
+        } catch (writeError) {
+          return { success: false, error: String(writeError), code: 'write-failed' }
+        }
       }
     } catch (error) {
       console.error('Failed to send input to command:', error)
-      return false
+      return { success: false, error: String(error), code: 'write-failed' }
     }
+  }
+
+  // Wait for stream drain event with timeout
+  private waitForDrain(stream: NodeJS.WritableStream, timeoutMs: number): Promise<SendInputResult> {
+    return new Promise((resolve) => {
+      let resolved = false
+
+      const onDrain = () => {
+        if (resolved) return
+        resolved = true
+        clearTimeout(timer)
+        stream.removeListener('error', onError)
+        stream.removeListener('close', onClose)
+        resolve({ success: true })
+      }
+
+      const onError = (err: Error) => {
+        if (resolved) return
+        resolved = true
+        clearTimeout(timer)
+        stream.removeListener('drain', onDrain)
+        stream.removeListener('close', onClose)
+        resolve({ success: false, error: err.message, code: 'write-failed' })
+      }
+
+      const onClose = () => {
+        if (resolved) return
+        resolved = true
+        clearTimeout(timer)
+        stream.removeListener('drain', onDrain)
+        stream.removeListener('error', onError)
+        resolve({ success: false, error: 'Stream closed while waiting for drain', code: 'closed' })
+      }
+
+      const timer = setTimeout(() => {
+        if (resolved) return
+        resolved = true
+        stream.removeListener('drain', onDrain)
+        stream.removeListener('error', onError)
+        stream.removeListener('close', onClose)
+        resolve({ success: false, error: 'Timeout waiting for stream drain', code: 'timeout' })
+      }, timeoutMs)
+
+      stream.once('drain', onDrain)
+      stream.once('error', onError)
+      stream.once('close', onClose)
+    })
   }
 
   private async runSshCommand(sessionId: string, command: string, cwd?: string): Promise<void> {
@@ -229,6 +572,7 @@ export class RemoteTerminalProcess extends BrownEventEmitter<RemoteTerminalProce
     const commandToExecute = this.buildCommandWithWorkingDirectory(command, cleanCwd)
 
     let lineBuffer = ''
+    let lastDelayedLine: string | null = null
 
     // Delayed output function - unified handling of all data without newlines
     const scheduleDelayedOutput = (data: string) => {
@@ -241,6 +585,7 @@ export class RemoteTerminalProcess extends BrownEventEmitter<RemoteTerminalProce
       this.pendingOutputTimer = setTimeout(() => {
         if (data.trim() && this.isListening) {
           this.emit('line', data)
+          lastDelayedLine = data
         }
         this.pendingOutputTimer = null
       }, this.PENDING_OUTPUT_DELAY)
@@ -248,6 +593,11 @@ export class RemoteTerminalProcess extends BrownEventEmitter<RemoteTerminalProce
 
     const execResult = await remoteSshExecStream(sessionId, commandToExecute, (chunk: string) => {
       this.fullOutput += chunk
+
+      // Feed data to interaction detector
+      if (this.interactionDetector) {
+        this.interactionDetector.onOutput(chunk)
+      }
 
       if (!this.isListening) return
 
@@ -267,7 +617,15 @@ export class RemoteTerminalProcess extends BrownEventEmitter<RemoteTerminalProce
 
         lineBuffer = lines.pop() || ''
 
-        for (const line of lines) {
+        for (let i = 0; i < lines.length; i += 1) {
+          const line = lines[i]
+          if (i === 0 && lastDelayedLine !== null) {
+            if (line === lastDelayedLine) {
+              lastDelayedLine = null
+              continue
+            }
+            lastDelayedLine = null
+          }
           // Emit all lines including empty ones to preserve file format
           this.emit('line', line)
         }
@@ -286,12 +644,18 @@ export class RemoteTerminalProcess extends BrownEventEmitter<RemoteTerminalProce
     }
 
     if (lineBuffer && this.isListening) {
-      this.emit('line', lineBuffer)
+      if (lastDelayedLine !== null && lineBuffer === lastDelayedLine) {
+        lastDelayedLine = null
+      } else {
+        this.emit('line', lineBuffer)
+      }
     }
 
     if (execResult && execResult.success) {
+      this.cleanupInteractionDetector()
       this.emit('completed')
     } else {
+      this.cleanupInteractionDetector()
       const error = new Error(execResult?.error || 'Remote command execution failed')
       this.emit('error', error)
       throw error
@@ -306,323 +670,48 @@ export class RemoteTerminalProcess extends BrownEventEmitter<RemoteTerminalProce
       throw new Error('JumpServer connection not found')
     }
 
-    // Improved path cleaning: remove all ANSI sequences, terminal prompts and special characters
-    let cleanCwd: string | undefined = undefined
-    if (cwd) {
-      cleanCwd = cwd
-        // Remove ANSI escape sequences
-        .replace(/\x1B\[[0-9;]*[JKmsu]/g, '')
-        .replace(/\x1B\[[?][0-9]*[hl]/g, '')
-        .replace(/\x1B\[K/g, '')
-        .replace(/\x1B\[[0-9]+[ABCD]/g, '')
-        // Remove terminal prompt patterns (like: [user@host dir]$ or user@host:dir$)
-        .replace(/\[[^\]]*\]\$.*$/g, '')
-        .replace(/[^@]*@[^:]*:[^$]*\$.*$/g, '')
-        .replace(/.*\$.*$/g, '')
-        // Remove carriage returns, line feeds and other control characters
-        .replace(/[\r\n\x00-\x1F\x7F]/g, '')
-        .trim()
-
-      // Validate if path is valid (should be absolute path or relative path)
-      if (cleanCwd && !cleanCwd.match(/^[\/~]|^[a-zA-Z0-9_\-\.\/]+$/)) {
-        console.log(`[JumpServer ${sessionId}] Invalid working directory path, ignoring: "${cleanCwd}"`)
-        cleanCwd = undefined
-      }
-
-      if (cwd && cleanCwd) {
-        console.log(`[JumpServer ${sessionId}] Original path: "${cwd}" -> Cleaned: "${cleanCwd}"`)
-      } else if (cwd && !cleanCwd) {
-        console.log(`[JumpServer ${sessionId}] Path cleaning failed, original: "${cwd}"`)
-      }
-    }
+    const logPrefix = `JumpServer ${sessionId}`
+    const cleanCwd = cleanWorkingDirectory(cwd, logPrefix)
 
     // Build complete JumpServer command with Base64 encoding and markers
     const { wrappedCommand, startMarker, endMarker } = this.buildJumpServerWrappedCommand(command, cleanCwd)
 
-    jumpserverMarkedCommands.set(sessionId, {
-      marker: startMarker,
-      output: '',
-      completed: false,
-      lastActivity: Date.now(),
-      idleTimer: null
-    })
+    // Note: Agent mode uses marker-based-runner with direct stream monitoring.
+    // The jumpserverMarkedCommands Map (in jumpserverHandle.ts) is only used
+    // by sshHandle.ts for non-Agent mode shell data handling.
 
-    let lineBuffer = ''
-    let commandStarted = false
-    let commandCompleted = false
-    let exitCode = 0
-    let commandEchoFiltered = false
-    let commandTimeout: NodeJS.Timeout | null = null
-
-    const clearCommandTimeout = () => {
-      if (commandTimeout) {
-        clearTimeout(commandTimeout)
-        commandTimeout = null
-      }
-    }
-
-    // Helper function to get color name by index
-    const getColorName = (index: number): string => {
-      const colors = ['black', 'red', 'green', 'yellow', 'blue', 'magenta', 'cyan', 'white']
-      return colors[index] || 'white'
-    }
-
-    // Convert ANSI escape sequences to HTML with color styles
-    const processAnsiCodes = (text: string): string => {
-      if (!text.includes('\u001b[') && !text.includes('\x1B[')) return text
-
-      let result = text
-        // First, normalize escape sequences to use \u001b format
-        .replace(/\x1B/g, '\u001b')
-        // Remove cursor movement and screen control sequences
-        .replace(/\u001b\[[\d;]*[HfABCDEFGJKSTijklmnpqrsu]/g, '')
-        .replace(/\u001b\[\?[0-9;]*[hl]/g, '')
-        .replace(/\u001b\([AB01]/g, '')
-        .replace(/\u001b[=>]/g, '')
-        .replace(/\u001b[NO]/g, '')
-        .replace(/\u001b\]0;[^\x07]*\x07/g, '')
-        .replace(/\u001b\[K/g, '')
-        .replace(/\u001b\[J/g, '')
-        .replace(/\u001b\[2J/g, '')
-        .replace(/\u001b\[H/g, '')
-        .replace(/\x00/g, '')
-        .replace(/\r/g, '')
-        .replace(/\x07/g, '')
-        .replace(/\x08/g, '')
-        .replace(/\x0B/g, '')
-        .replace(/\x0C/g, '')
-        // Convert color and style codes to HTML spans
-        .replace(/\u001b\[0m/g, '</span>') // Reset
-        .replace(/\u001b\[1m/g, '<span class="ansi-bold">') // Bold
-        .replace(/\u001b\[3m/g, '<span class="ansi-italic">') // Italic
-        .replace(/\u001b\[4m/g, '<span class="ansi-underline">') // Underline
-        // Foreground colors
-        .replace(/\u001b\[30m/g, '<span class="ansi-black">') // Black
-        .replace(/\u001b\[31m/g, '<span class="ansi-red">') // Red
-        .replace(/\u001b\[32m/g, '<span class="ansi-green">') // Green
-        .replace(/\u001b\[33m/g, '<span class="ansi-yellow">') // Yellow
-        .replace(/\u001b\[34m/g, '<span class="ansi-blue">') // Blue
-        .replace(/\u001b\[35m/g, '<span class="ansi-magenta">') // Magenta
-        .replace(/\u001b\[36m/g, '<span class="ansi-cyan">') // Cyan
-        .replace(/\u001b\[37m/g, '<span class="ansi-white">') // White
-        // Bright foreground colors
-        .replace(/\u001b\[90m/g, '<span class="ansi-bright-black">') // Bright Black
-        .replace(/\u001b\[91m/g, '<span class="ansi-bright-red">') // Bright Red
-        .replace(/\u001b\[92m/g, '<span class="ansi-bright-green">') // Bright Green
-        .replace(/\u001b\[93m/g, '<span class="ansi-bright-yellow">') // Bright Yellow
-        .replace(/\u001b\[94m/g, '<span class="ansi-bright-blue">') // Bright Blue
-        .replace(/\u001b\[95m/g, '<span class="ansi-bright-magenta">') // Bright Magenta
-        .replace(/\u001b\[96m/g, '<span class="ansi-bright-cyan">') // Bright Cyan
-        .replace(/\u001b\[97m/g, '<span class="ansi-bright-white">') // Bright White
-        // Background colors
-        .replace(/\u001b\[40m/g, '<span class="ansi-bg-black">') // Black background
-        .replace(/\u001b\[41m/g, '<span class="ansi-bg-red">') // Red background
-        .replace(/\u001b\[42m/g, '<span class="ansi-bg-green">') // Green background
-        .replace(/\u001b\[43m/g, '<span class="ansi-bg-yellow">') // Yellow background
-        .replace(/\u001b\[44m/g, '<span class="ansi-bg-blue">') // Blue background
-        .replace(/\u001b\[45m/g, '<span class="ansi-bg-magenta">') // Magenta background
-        .replace(/\u001b\[46m/g, '<span class="ansi-bg-cyan">') // Cyan background
-        .replace(/\u001b\[47m/g, '<span class="ansi-bg-white">') // White background
-        // Bright background colors
-        .replace(/\u001b\[100m/g, '<span class="ansi-bg-bright-black">') // Bright Black background
-        .replace(/\u001b\[101m/g, '<span class="ansi-bg-bright-red">') // Bright Red background
-        .replace(/\u001b\[102m/g, '<span class="ansi-bg-bright-green">') // Bright Green background
-        .replace(/\u001b\[103m/g, '<span class="ansi-bg-bright-yellow">') // Bright Yellow background
-        .replace(/\u001b\[104m/g, '<span class="ansi-bg-bright-blue">') // Bright Blue background
-        .replace(/\u001b\[105m/g, '<span class="ansi-bg-bright-magenta">') // Bright Magenta background
-        .replace(/\u001b\[106m/g, '<span class="ansi-bg-bright-cyan">') // Bright Cyan background
-        .replace(/\u001b\[107m/g, '<span class="ansi-bg-bright-white">') // Bright White background
-
-      // Handle complex sequences with multiple parameters (e.g., \u001b[1;31m for bold red)
-      result = result.replace(/\u001b\[(\d+);(\d+)m/g, (_, p1, p2) => {
-        let replacement = ''
-
-        // Process first parameter
-        if (p1 === '0') replacement += '</span><span>'
-        else if (p1 === '1') replacement += '<span class="ansi-bold">'
-        else if (p1 === '3') replacement += '<span class="ansi-italic">'
-        else if (p1 === '4') replacement += '<span class="ansi-underline">'
-        else if (p1 >= '30' && p1 <= '37') replacement += `<span class="ansi-${getColorName(parseInt(p1, 10) - 30)}">`
-        else if (p1 >= '40' && p1 <= '47') replacement += `<span class="ansi-bg-${getColorName(parseInt(p1, 10) - 40)}">`
-        else if (p1 >= '90' && p1 <= '97') replacement += `<span class="ansi-bright-${getColorName(parseInt(p1, 10) - 90)}">`
-        else if (p1 >= '100' && p1 <= '107') replacement += `<span class="ansi-bg-bright-${getColorName(parseInt(p1, 10) - 100)}">`
-
-        // Process second parameter
-        if (p2 === '0') replacement += '</span><span>'
-        else if (p2 === '1') replacement += '<span class="ansi-bold">'
-        else if (p2 === '3') replacement += '<span class="ansi-italic">'
-        else if (p2 === '4') replacement += '<span class="ansi-underline">'
-        else if (p2 >= '30' && p2 <= '37') replacement += `<span class="ansi-${getColorName(parseInt(p2, 10) - 30)}">`
-        else if (p2 >= '40' && p2 <= '47') replacement += `<span class="ansi-bg-${getColorName(parseInt(p2, 10) - 40)}">`
-        else if (p2 >= '90' && p2 <= '97') replacement += `<span class="ansi-bright-${getColorName(parseInt(p2, 10) - 90)}">`
-        else if (p2 >= '100' && p2 <= '107') replacement += `<span class="ansi-bg-bright-${getColorName(parseInt(p2, 10) - 100)}">`
-
-        return replacement
-      })
-
-      // Clean up remaining unhandled escape sequences
-      result = result.replace(/\u001b\[[0-9;]*[a-zA-Z]/g, '')
-      result = result.replace(/\u001b\[\??\d+[hl]/g, '')
-      result = result.replace(/\u001b\[K/g, '')
-
-      // Balance HTML tags
-      const openTags = (result.match(/<span/g) || []).length
-      const closeTags = (result.match(/<\/span>/g) || []).length
-
-      if (openTags > closeTags) {
-        result += '</span>'.repeat(openTags - closeTags)
-      }
-
-      return result
-    }
-
-    // Detect if it's command echo
+    // JumpServer-specific command echo detection
     const isCommandEcho = (line: string): boolean => {
-      // Strip HTML tags and ANSI codes for echo detection
       const cleanLine = processAnsiCodes(line)
         .replace(/<[^>]*>/g, '')
         .trim()
 
-      // More precise command echo detection to avoid filtering legitimate output
-      const isEcho =
+      return (
         cleanLine.startsWith('bash -l -c') ||
         (cleanLine.includes(`echo "${startMarker}"`) && cleanLine.length > startMarker.length + 10) ||
         (cleanLine.includes(`echo "${endMarker}:$EXIT_CODE"`) && cleanLine.length > endMarker.length + 20) ||
         cleanLine === wrappedCommand.trim()
-
-      // Log filtered echo for debugging
-      if (isEcho) {
-        console.log(`[JumpServer ${sessionId}] Filtering command echo: ${cleanLine.substring(0, 100)}...`)
-      }
-
-      return isEcho
-    }
-
-    const processLine = (line: string) => {
-      const processedLine = processAnsiCodes(line)
-      const cleanLine = processedLine.replace(/<[^>]*>/g, '').trim()
-
-      // Enhanced debugging
-      console.log(
-        `[JumpServer ${sessionId}] Processing line: "${cleanLine.substring(0, 80)}..." (started: ${commandStarted}, completed: ${commandCompleted})`
       )
-
-      // Detect and filter command echo
-      if (!commandStarted && !commandEchoFiltered && isCommandEcho(line)) {
-        return
-      }
-
-      // Detect command start marker
-      if (cleanLine.includes(startMarker)) {
-        commandStarted = true
-        commandEchoFiltered = true
-        console.log(`[JumpServer ${sessionId}] Detected command start marker`)
-        return
-      }
-
-      // Detect command end marker
-      if (cleanLine.includes(endMarker)) {
-        if (!commandStarted) {
-          console.log(`[JumpServer ${sessionId}] Detected end marker before start marker (likely command echo), skipping`)
-          return
-        }
-        console.log(`[JumpServer ${sessionId}] Detected command end marker: ${cleanLine}`)
-        const match = cleanLine.match(new RegExp(`${endMarker.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}:(\\d+)`))
-        if (match && match[1]) {
-          exitCode = parseInt(match[1], 10)
-          console.log(`[JumpServer ${sessionId}] Command exit code: ${exitCode}`)
-        }
-
-        // Complete command immediately
-        if (!commandCompleted) {
-          clearCommandTimeout()
-          commandCompleted = true
-          console.log(`[JumpServer ${sessionId}] Command execution completed, sending completed event`)
-
-          // Send remaining buffer content
-          if (lineBuffer && this.isListening) {
-            const cleanBufferLine = processAnsiCodes(lineBuffer)
-              .replace(/<[^>]*>/g, '')
-              .trim()
-            if (cleanBufferLine && !cleanBufferLine.includes(endMarker)) {
-              this.emit('line', processAnsiCodes(lineBuffer))
-            }
-          }
-
-          this.emit('completed')
-          stream.removeListener('data', dataHandler)
-          jumpserverMarkedCommands.delete(sessionId)
-        }
-        this.emit('continue')
-        return
-      }
-
-      // Only send output lines after command start marker and before completion
-      if (commandStarted && !commandCompleted) {
-        // Allow empty lines (preserving file format) but exclude marker lines
-        if (!cleanLine.includes(startMarker) && !cleanLine.includes(endMarker)) {
-          this.emit('line', processedLine || '\n')
-        }
-      }
     }
 
-    const dataHandler = (data: Buffer) => {
-      if (commandCompleted) return
-
-      const chunk = data.toString('utf8')
-      this.fullOutput += chunk
-
-      if (!this.isListening) return
-
-      // Process data including buffer content
-      let dataStr = lineBuffer + chunk
-      const lines = dataStr.split(/\r?\n/)
-      lineBuffer = lines.pop() || ''
-
-      // Process complete lines
-      for (const line of lines) {
-        processLine(line)
-      }
-
-      // Check if buffer contains end marker (handle same-line case)
-      if (lineBuffer.includes(endMarker)) {
-        console.log(`[JumpServer ${sessionId}] Detected end marker in buffer: ${lineBuffer}`)
-        processLine(lineBuffer)
-        lineBuffer = ''
-      }
-
-      // Check if buffer contains start marker (handle same-line case)
-      if (!commandStarted && lineBuffer.includes(startMarker)) {
-        console.log(`[JumpServer ${sessionId}] Detected start marker in buffer: ${lineBuffer}`)
-        processLine(lineBuffer)
-        lineBuffer = ''
-      }
-    }
-
-    stream.on('data', dataHandler)
-
-    // Clear possible residual output before sending command
-    console.log(`[JumpServer ${sessionId}] Sending wrapped command: ${wrappedCommand}`)
-    stream.write(`${wrappedCommand}\r`)
-
-    // Keep timeout mechanism as backup
-    commandTimeout = setTimeout(() => {
-      if (!commandCompleted) {
-        clearCommandTimeout()
-        commandCompleted = true
-        console.log(`[JumpServer ${sessionId}] Command execution timeout, forcing completion`)
-        stream.removeListener('data', dataHandler)
-        jumpserverMarkedCommands.delete(sessionId)
-
-        const timeoutMinutes = Math.max(1, Math.round(this.JUMPSERVER_COMMAND_TIMEOUT / 60000))
-        const timeoutMessage = `Command execution timed out after ${timeoutMinutes} minute${timeoutMinutes > 1 ? 's' : ''}.`
-        const timeoutResolution = 'Chaterm stopped waiting for a response from the server.'
-        this.emit('line', timeoutMessage)
-        this.emit('line', timeoutResolution)
-        this.emit('completed')
-        this.emit('continue')
-      }
-    }, this.JUMPSERVER_COMMAND_TIMEOUT)
+    await runMarkerBasedCommand({
+      stream: stream as unknown as MarkerStream,
+      wrappedCommand,
+      startMarker,
+      endMarker,
+      logPrefix,
+      timeoutMs: this.JUMPSERVER_COMMAND_TIMEOUT,
+      isListening: () => this.isListening,
+      stripForDetect: (v) => processAnsiCodes(v).replace(/<[^>]*>/g, ''),
+      renderForDisplay: processAnsiCodes,
+      shouldFilterEcho: isCommandEcho,
+      onLine: (line) => this.emit('line', line),
+      onDetectorOutput: (chunk) => this.interactionDetector?.onOutput(chunk),
+      onCompleted: () => this.emit('completed'),
+      onContinue: () => this.emit('continue'),
+      onExitCode: (code) => this.emit('exitCode', code),
+      cleanupInteractionDetector: () => this.cleanupInteractionDetector()
+    })
   }
 
   /**
@@ -639,155 +728,41 @@ export class RemoteTerminalProcess extends BrownEventEmitter<RemoteTerminalProce
       throw new Error(`${bastionType} capability shell stream not available`)
     }
 
-    const stream = bastionCapability.getShellStream(sessionId) as any
+    const stream = bastionCapability.getShellStream(sessionId) as unknown as MarkerStream
     if (!stream) {
       throw new Error(`${bastionType} connection not found`)
     }
 
-    // Path cleaning (same as JumpServer)
-    let cleanCwd: string | undefined = undefined
-    if (cwd) {
-      cleanCwd = cwd
-        .replace(/\x1B\[[0-9;]*[JKmsu]/g, '')
-        .replace(/\x1B\[[?][0-9]*[hl]/g, '')
-        .replace(/\x1B\[K/g, '')
-        .replace(/\x1B\[[0-9]+[ABCD]/g, '')
-        .replace(/\[[^\]]*\]\$.*$/g, '')
-        .replace(/[^@]*@[^:]*:[^$]*\$.*$/g, '')
-        .replace(/.*\$.*$/g, '')
-        .replace(/[\r\n\x00-\x1F\x7F]/g, '')
-        .trim()
-
-      if (cleanCwd && !cleanCwd.match(/^[\/~]|^[a-zA-Z0-9_\-\.\/]+$/)) {
-        console.log(`[${bastionType} ${sessionId}] Invalid working directory path, ignoring: "${cleanCwd}"`)
-        cleanCwd = undefined
-      }
-    }
+    const logPrefix = `${bastionType} ${sessionId}`
+    const cleanCwd = cleanWorkingDirectory(cwd, logPrefix)
 
     // Build wrapped command with markers
     const { wrappedCommand, startMarker, endMarker } = this.buildJumpServerWrappedCommand(command, cleanCwd)
 
-    let lineBuffer = ''
-    let commandStarted = false
-    let commandCompleted = false
-    let exitCode = 0
-    let commandEchoFiltered = false
-    let commandTimeout: NodeJS.Timeout | null = null
-
-    const clearCommandTimeout = () => {
-      if (commandTimeout) {
-        clearTimeout(commandTimeout)
-        commandTimeout = null
-      }
+    // Bastion-specific command echo detection
+    const isBastionCommandEcho = (line: string): boolean => {
+      const cleanLine = stripAnsiSimple(line).trim()
+      return cleanLine.includes('echo') && cleanLine.includes(startMarker)
     }
 
-    const dataHandler = (data: Buffer) => {
-      if (commandCompleted) return
-
-      const chunk = data.toString()
-      lineBuffer += chunk
-
-      // Process line by line
-      const lines = lineBuffer.split(/\r?\n/)
-      lineBuffer = lines.pop() || ''
-
-      for (const line of lines) {
-        const cleanLine = line
-          .replace(/\x1B\[[0-9;]*[JKmsu]/g, '')
-          .replace(/\x1B\[[?][0-9]*[hl]/g, '')
-          .replace(/\x1B\[K/g, '')
-          .replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/g, '')
-          .replace(/\r/g, '')
-          .trim()
-
-        if (!cleanLine) continue
-
-        // Filter command echo
-        if (!commandEchoFiltered && cleanLine.includes('echo') && cleanLine.includes(startMarker)) {
-          console.log(`[${bastionType} ${sessionId}] Filtering command echo`)
-          commandEchoFiltered = true
-          continue
-        }
-
-        // Check for start marker
-        if (!commandStarted && cleanLine.includes(startMarker)) {
-          console.log(`[${bastionType} ${sessionId}] Detected command start marker`)
-          commandStarted = true
-          continue
-        }
-
-        // Check for end marker
-        if (commandStarted && cleanLine.includes(endMarker)) {
-          console.log(`[${bastionType} ${sessionId}] Detected command end marker`)
-          const exitCodeMatch = cleanLine.match(new RegExp(`${endMarker.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}:(\\d+)`))
-          if (exitCodeMatch) {
-            exitCode = parseInt(exitCodeMatch[1], 10)
-            console.log(`[${bastionType} ${sessionId}] Command exit code: ${exitCode}`)
-          }
-
-          commandCompleted = true
-          clearCommandTimeout()
-          stream.removeListener('data', dataHandler)
-
-          this.emit('completed')
-          this.emit('exitCode', exitCode)
-          this.emit('continue')
-          return
-        }
-
-        // Emit output line if command has started
-        if (commandStarted && this.isListening) {
-          this.emit('line', cleanLine)
-        }
-      }
-
-      // Handle remaining buffer
-      if (lineBuffer && commandStarted) {
-        const cleanBuffer = lineBuffer
-          .replace(/\x1B\[[0-9;]*[JKmsu]/g, '')
-          .replace(/\x1B\[[?][0-9]*[hl]/g, '')
-          .replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/g, '')
-          .replace(/\r/g, '')
-
-        if (cleanBuffer.includes(endMarker)) {
-          console.log(`[${bastionType} ${sessionId}] Detected end marker in buffer`)
-          const exitCodeMatch = cleanBuffer.match(new RegExp(`${endMarker.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}:(\\d+)`))
-          if (exitCodeMatch) {
-            exitCode = parseInt(exitCodeMatch[1], 10)
-            console.log(`[${bastionType} ${sessionId}] Command exit code from buffer: ${exitCode}`)
-          }
-          commandCompleted = true
-          clearCommandTimeout()
-          stream.removeListener('data', dataHandler)
-          this.emit('completed')
-          this.emit('exitCode', exitCode)
-          this.emit('continue')
-          return
-        }
-      }
-    }
-
-    stream.on('data', dataHandler)
-
-    // Send command
-    console.log(`[${bastionType} ${sessionId}] Sending wrapped command`)
-    stream.write(`${wrappedCommand}\r`)
-
-    // Timeout mechanism
-    commandTimeout = setTimeout(() => {
-      if (!commandCompleted) {
-        clearCommandTimeout()
-        commandCompleted = true
-        console.log(`[${bastionType} ${sessionId}] Command execution timeout, forcing completion`)
-        stream.removeListener('data', dataHandler)
-
-        const timeoutMinutes = Math.max(1, Math.round(this.JUMPSERVER_COMMAND_TIMEOUT / 60000))
-        const timeoutMessage = `Command execution timed out after ${timeoutMinutes} minute${timeoutMinutes > 1 ? 's' : ''}.`
-        this.emit('line', timeoutMessage)
-        this.emit('completed')
-        this.emit('continue')
-      }
-    }, this.JUMPSERVER_COMMAND_TIMEOUT)
+    await runMarkerBasedCommand({
+      stream,
+      wrappedCommand,
+      startMarker,
+      endMarker,
+      logPrefix,
+      timeoutMs: this.JUMPSERVER_COMMAND_TIMEOUT,
+      isListening: () => this.isListening,
+      stripForDetect: stripAnsiSimple,
+      renderForDisplay: stripAnsiSimple, // Bastion uses simple strip instead of HTML conversion
+      shouldFilterEcho: isBastionCommandEcho,
+      onLine: (line) => this.emit('line', line),
+      onDetectorOutput: (chunk) => this.interactionDetector?.onOutput(chunk),
+      onCompleted: () => this.emit('completed'),
+      onContinue: () => this.emit('continue'),
+      onExitCode: (code) => this.emit('exitCode', code),
+      cleanupInteractionDetector: () => this.cleanupInteractionDetector()
+    })
   }
 }
 
@@ -954,11 +929,28 @@ export class RemoteTerminalManager {
   }
 
   // Run remote command
-  runCommand(terminalInfo: RemoteTerminalInfo, command: string, cwd?: string): RemoteTerminalProcessResultPromise {
+  runCommand(
+    terminalInfo: RemoteTerminalInfo,
+    command: string,
+    cwd?: string,
+    options?: {
+      taskId?: string
+      enableInteraction?: boolean
+      llmCaller?: (command: string, output: string, locale: string) => Promise<InteractionResult>
+      userLocale?: string
+    }
+  ): RemoteTerminalProcessResultPromise {
     terminalInfo.busy = true
     terminalInfo.lastCommand = command
     const process = new RemoteTerminalProcess()
     this.processes.set(terminalInfo.id, process)
+
+    // Enable interaction detection if taskId is provided
+    if (options?.taskId && options?.enableInteraction !== false) {
+      const config = options?.userLocale ? { userLocale: options.userLocale } : undefined
+      process.enableInteractionDetection(options.taskId, command, config, options.llmCaller)
+    }
+
     process.once('error', (error) => {
       terminalInfo.busy = false
       console.error(`Remote terminal ${terminalInfo.id} error:`, error)

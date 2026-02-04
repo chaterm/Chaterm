@@ -81,10 +81,11 @@ export interface UseEditableContentOptions {
   handleSendClick: (type: string) => void
   handleAddContextClick: (triggerEl?: HTMLElement | null, mode?: 'create' | 'edit') => void
   handleChipClick?: (chipType: 'doc' | 'chat', ref: ContextDocRef | ContextPastChatRef) => void
+  shouldBlockEnterSend?: () => boolean
 }
 
 export function useEditableContent(options: UseEditableContentOptions) {
-  const { editableRef, chatInputParts, handleSendClick, handleAddContextClick, handleChipClick } = options
+  const { editableRef, chatInputParts, handleSendClick, handleAddContextClick, handleChipClick, shouldBlockEnterSend } = options
 
   const isEditableEmpty = ref(true)
   const savedSelection = ref<Range | null>(null)
@@ -497,6 +498,9 @@ export function useEditableContent(options: UseEditableContentOptions) {
   const handleEditableKeyDown = (e: KeyboardEvent, mode: 'create' | 'edit' = 'create') => {
     if (e.key === 'Enter' && !e.shiftKey && !e.isComposing) {
       e.preventDefault()
+      if (shouldBlockEnterSend?.()) {
+        return
+      }
       handleSendClick('send')
       return
     }

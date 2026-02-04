@@ -430,27 +430,6 @@ describe('LocalTerminalManager', () => {
     })
   })
 
-  describe('checkSudoPermission', () => {
-    it('should return false on Windows', async () => {
-      ;(os.platform as any).mockReturnValue('win32')
-      const result = await manager.checkSudoPermission()
-      expect(result).toBe(false)
-    })
-
-    it('should check sudo permission on Unix', async () => {
-      ;(os.platform as any).mockReturnValue('linux')
-      const mockExecuteCommand = vi.spyOn(manager as any, 'executeCommand')
-      mockExecuteCommand.mockResolvedValue({
-        success: true
-      })
-
-      const result = await manager.checkSudoPermission()
-
-      expect(mockExecuteCommand).toHaveBeenCalledWith('sudo -n true', undefined, 5000)
-      expect(result).toBe(true)
-    })
-  })
-
   describe('getSystemInfo', () => {
     it('should return system information', async () => {
       const mockExecuteCommand = vi.spyOn(manager as any, 'executeCommand')
@@ -466,7 +445,7 @@ describe('LocalTerminalManager', () => {
       expect(info.homeDir).toBe('/home/test')
       expect(info.hostName).toBe('test-host')
       expect(info.userName).toBe('testuser')
-      expect(info.sudoCheck).toBeDefined()
+      expect('sudoCheck' in info).toBe(false)
     })
 
     it('should get detailed OS version on Unix', async () => {

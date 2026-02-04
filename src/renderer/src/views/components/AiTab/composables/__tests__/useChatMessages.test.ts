@@ -901,4 +901,53 @@ describe('useChatMessages', () => {
       expect(markdownRendererRefs.value[0]).toBeUndefined()
     })
   })
+
+  describe('sendMessageToMain', () => {
+    it('sends askResponse even when a command is executing', async () => {
+      const session = createMockSession()
+      session.isExecutingCommand = true
+      session.chatHistory.push({
+        id: 'm1',
+        role: 'assistant',
+        content: 'running',
+        type: 'say',
+        ask: '',
+        say: 'command',
+        ts: Date.now()
+      })
+
+      const mockTab = createMockTab('test-tab-1', session)
+      const chatTabs = ref([mockTab])
+      const currentChatId = ref('test-tab-1')
+      const chatInputParts = ref([])
+      const hosts = ref<Host[]>([{ host: '127.0.0.1', uuid: 'localhost', connection: 'localhost' }])
+      const chatTypeValue = ref('agent')
+
+      vi.mocked(useSessionState).mockReturnValue({
+        chatTabs,
+        currentChatId,
+        currentTab: ref(mockTab),
+        currentSession: ref(mockTab.session),
+        chatInputParts,
+        hosts,
+        chatTypeValue
+      } as any)
+
+      const { sendMessageToMain } = useChatMessages(
+        mockScrollToBottom,
+        mockClearTodoState,
+        mockMarkLatestMessageWithTodoUpdate,
+        mockCurrentTodos,
+        mockCheckModelConfig
+      )
+
+      await sendMessageToMain('hello', 'send')
+
+      expect(mockSendToMain).toHaveBeenCalledTimes(1)
+      const sent = mockSendToMain.mock.calls[0][0]
+      expect(sent.type).toBe('askResponse')
+      expect(sent.askResponse).toBe('messageResponse')
+      expect(sent.text).toBe('hello')
+    })
+  })
 })

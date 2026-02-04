@@ -152,13 +152,7 @@ export function useChatMessages(
       const contentParts = normalizeContentParts(contentPartsOverride)
 
       let message: WebviewMessage
-      if (session.isExecutingCommand && session.chatHistory.length > 0) {
-        message = {
-          type: 'interactiveCommandInput',
-          input: userContent
-        }
-        console.log('Sending interactive command input:', userContent)
-      } else if (session.chatHistory.length === 0) {
+      if (session.chatHistory.length === 0) {
         message = {
           type: 'newTask',
           askResponse: 'messageResponse',
@@ -336,26 +330,6 @@ export function useChatMessages(
     session.responseLoading = false
   }
 
-  const handleInteractiveCommandNotification = (message: any, targetTab: ChatTab) => {
-    console.log('Processing interactive_command_notification:', message)
-
-    const session = targetTab.session
-    const notificationMessage = createNewMessage(
-      'assistant',
-      message.partialMessage.text,
-      message.partialMessage.type,
-      message.partialMessage.type === 'ask' ? message.partialMessage.ask : '',
-      message.partialMessage.type === 'say' ? message.partialMessage.say : '',
-      message.partialMessage.ts,
-      false
-    )
-
-    cleanupPartialCommandMessages(session.chatHistory)
-    session.chatHistory.push(notificationMessage)
-
-    console.log('Interactive command notification processed and added to chat history')
-  }
-
   const processMainMessage = async (message: ExtensionMessage) => {
     const targetTabId = message?.tabId ?? message?.taskId
     if (!targetTabId) {
@@ -389,14 +363,6 @@ export function useChatMessages(
 
       if (partial.type === 'ask' && partial.ask === 'completion_result') {
         session.responseLoading = false
-        if (isActiveTab) {
-          scrollToBottom()
-        }
-        return
-      }
-
-      if (partial.say === 'interactive_command_notification') {
-        handleInteractiveCommandNotification(message, targetTab)
         if (isActiveTab) {
           scrollToBottom()
         }
@@ -607,7 +573,6 @@ export function useChatMessages(
     sendMessageWithContent,
     processMainMessage,
     handleModelApiReqFailed,
-    handleInteractiveCommandNotification,
     handleFeedback,
     getMessageFeedback,
     isMessageFeedbackSubmitted,

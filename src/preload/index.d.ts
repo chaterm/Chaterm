@@ -8,6 +8,82 @@ interface Cookie {
 }
 
 // ============================================================================
+// Interactive Command Execution Types
+// ============================================================================
+
+/**
+ * Interaction types that can be detected
+ */
+export type InteractionType = 'confirm' | 'select' | 'password' | 'pager' | 'enter' | 'freeform'
+
+/**
+ * Values for confirm-type interactions
+ */
+export interface ConfirmValues {
+  /** Positive response value (e.g., "y", "Y", "yes") */
+  yes: string
+  /** Negative response value (e.g., "n", "N", "no") */
+  no: string
+  /** Default value if user presses Enter (optional) */
+  default?: string
+}
+
+/**
+ * Request sent to renderer process when interaction is needed
+ */
+export interface InteractionRequest {
+  /** Unique command identifier */
+  commandId: string
+  /** Task identifier this command belongs to */
+  taskId?: string
+  /** Type of interaction needed */
+  interactionType: InteractionType
+  /** Human-readable prompt hint */
+  promptHint: string
+  /** Options for select-type interactions */
+  options?: string[]
+  /** Actual values to send for each option */
+  optionValues?: string[]
+  /** Values for confirm-type interactions */
+  confirmValues?: ConfirmValues
+  /** Exit key/command for the interactive program (e.g., 'q', 'quit', 'exit') */
+  exitKey?: string
+  /** Whether to append newline when sending exit key (default: true) */
+  exitAppendNewline?: boolean
+}
+
+/**
+ * Response from user interaction
+ */
+export interface InteractionResponse {
+  /** Command identifier this response is for */
+  commandId: string
+  /** User input value */
+  input: string
+  /** Whether to append newline to input */
+  appendNewline: boolean
+  /** Type of interaction (for special handling like pager) */
+  interactionType?: InteractionType
+}
+
+/**
+ * Error codes for interaction submission failures
+ */
+export type InteractionErrorCode = 'timeout' | 'closed' | 'not-writable' | 'write-failed'
+
+/**
+ * Result of submitting an interaction
+ */
+export interface InteractionSubmitResult {
+  /** Whether the submission was successful */
+  success: boolean
+  /** Error message if submission failed */
+  error?: string
+  /** Error code for UI to differentiate error types */
+  code?: InteractionErrorCode
+}
+
+// ============================================================================
 // Bastion Definition Types (mirrored from capabilityRegistry.ts)
 // ============================================================================
 
@@ -330,6 +406,65 @@ interface ApiType {
     error?: string
   }>
   k8sOnDeltaBatch: (callback: (batch: any) => void) => () => void
+
+  // ============================================================================
+  // Interactive Command Execution API
+  // ============================================================================
+
+  /**
+   * Listen for interaction requests from main process
+   * Returns cleanup function to remove listener
+   */
+  onInteractionNeeded: (callback: (request: InteractionRequest) => void) => () => void
+
+  /**
+   * Listen for interaction close events from main process
+   * Returns cleanup function to remove listener
+   */
+  onInteractionClosed: (callback: (data: { commandId: string }) => void) => () => void
+
+  /**
+   * Listen for interaction suppressed events from main process
+   * Returns cleanup function to remove listener
+   */
+  onInteractionSuppressed: (callback: (data: { commandId: string }) => void) => () => void
+
+  /**
+   * Listen for TUI detected events from main process
+   * Returns cleanup function to remove listener
+   */
+  onTuiDetected: (callback: (data: { commandId: string; taskId?: string; message: string }) => void) => () => void
+
+  /**
+   * Listen for alternate screen entered events (TUI programs like vim, man, git log)
+   * Returns cleanup function to remove listener
+   */
+  onAlternateScreenEntered: (callback: (data: { commandId: string; taskId?: string; message: string }) => void) => () => void
+
+  /**
+   * Submit user interaction response
+   */
+  submitInteraction: (response: InteractionResponse) => Promise<InteractionSubmitResult>
+
+  /**
+   * Cancel interaction (sends Ctrl+C)
+   */
+  cancelInteraction: (commandId: string) => Promise<InteractionSubmitResult>
+
+  /**
+   * Dismiss interaction (close UI but continue detection)
+   */
+  dismissInteraction: (commandId: string) => Promise<InteractionSubmitResult>
+
+  /**
+   * Suppress interaction detection for a command
+   */
+  suppressInteraction: (commandId: string) => Promise<InteractionSubmitResult>
+
+  /**
+   * Resume interaction detection for a suppressed command
+   */
+  unsuppressInteraction: (commandId: string) => Promise<InteractionSubmitResult>
 }
 
 declare global {

@@ -51,6 +51,7 @@ import { getActualTheme, loadUserTheme } from './themeManager'
 import { getLoginBaseUrl, getEdition, getProtocolPrefix, getProtocolName } from './config/edition'
 import { TelemetrySetting } from '@shared/TelemetrySetting'
 import { registerKnowledgeBaseHandlers } from './services/knowledgebase'
+import { setupInteractionIpcHandlers } from './agent/services/interaction-detector/ipc-handlers'
 import type { WebviewMessage } from '@shared/WebviewMessage'
 import type { SkillMetadata } from '@shared/skills'
 
@@ -236,6 +237,10 @@ app.whenReady().then(async () => {
 
   // Register K8s handlers
   registerK8sHandlers()
+
+  // Register interactive command IPC handlers
+  setupInteractionIpcHandlers()
+
   // Load all plugins (plugins will register their capabilities)
   await loadAllPlugins()
 
