@@ -362,8 +362,10 @@ void searchInputRef
 
 <style lang="less" scoped>
 .context-select-popup {
+  // Use extracted dominant color when available, fallback to default bg-color
+  --popup-bg-color: var(--user-message-sticky-bg-color, var(--bg-color));
+
   width: 260px;
-  background: var(--bg-color);
   border-radius: 6px;
   box-shadow: 0 -2px 12px rgba(0, 0, 0, 0.15);
   border: 1px solid var(--border-color);
@@ -371,6 +373,19 @@ void searchInputRef
   z-index: 1000;
   position: fixed;
   overflow: hidden;
+  background: var(--popup-bg-color);
+
+  // When custom background is enabled, use glassmorphism effect
+  body.has-custom-bg & {
+    background: rgba(37, 37, 37, 0.75);
+    backdrop-filter: blur(12px) saturate(180%);
+    -webkit-backdrop-filter: blur(12px) saturate(180%);
+  }
+
+  // Light theme glassmorphism
+  body.has-custom-bg.theme-light & {
+    background: rgba(241, 245, 249, 0.75);
+  }
 
   &.is-edit-mode {
     box-shadow: 0 2px 12px rgba(0, 0, 0, 0.15);
@@ -510,7 +525,7 @@ void searchInputRef
   cursor: pointer;
   border-radius: 4px;
   margin: 2px 4px;
-  background: var(--bg-color);
+  background: transparent;
   color: var(--text-color);
   font-size: 12px;
   line-height: 18px;
