@@ -30,7 +30,7 @@
       </div>
       <div class="term_login_welcome">
         <span>{{ $t('login.welcome') }}</span>
-        <span style="color: #2a82e4; margin-left: 12px">{{ $t('login.title') }}</span>
+        <span style="color: #2a82e4; margin-left: 12px">{{ isChineseEdition() ? 'Chaterm CN' : $t('login.title') }}</span>
       </div>
       <div class="term_login_input">
         <template v-if="isDev">
@@ -269,7 +269,7 @@ import config from '@renderer/config'
 import { sendEmailCode, emailLogin, userLogin, sendMobileCode as sendMobileCodeApi, mobileLogin } from '@/api/user/user'
 import { useI18n } from 'vue-i18n'
 import { useDeviceStore } from '@/store/useDeviceStore'
-import { isChineseEdition } from '@/utils/edition'
+import { isChineseEdition, getDefaultLanguage } from '@/utils/edition'
 import TitleBar from '@views/components/Header/titleBar.vue'
 
 const { t, locale } = useI18n()
@@ -742,6 +742,7 @@ onBeforeUnmount(() => {
     font-size: 32px;
     font-weight: bolder;
     letter-spacing: 1px;
+    white-space: nowrap;
     background: linear-gradient(135deg, #00eaff 0%, #1677ff 50%, #2a82e4 100%);
     -webkit-background-clip: text;
     background-clip: text;

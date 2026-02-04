@@ -38,7 +38,6 @@
                     class="copy-button-header explain-button"
                     type="text"
                     size="small"
-                    :disabled="!!props.explanationLoading"
                     @click.stop="handleExplainClick()"
                   >
                     <LoadingOutlined
@@ -1388,8 +1387,9 @@ const copyEditorContent = () => {
 // Get current command text for explain-command emit (editor value or props.content)
 const getCommandText = (): string => (editor ? editor.getValue() : props.content) ?? ''
 
-// Emit explain-command; loading state is shown via icon (no inline "正在解读" block)
+// Emit explain-command; loading state is shown via icon (no inline "正在解读" block). Skip if already loading to avoid double trigger (button is not disabled so hover does not show disabled cursor).
 const handleExplainClick = () => {
+  if (props.explanationLoading) return
   emit('explain-command', getCommandText())
 }
 
