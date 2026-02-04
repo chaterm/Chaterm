@@ -18,6 +18,7 @@
 import { computed, onUnmounted, ref, watch } from 'vue'
 import { FileSearchOutlined } from '@ant-design/icons-vue'
 import type { DockviewApi, IDockviewPanel } from 'dockview-core'
+import eventBus from '@/utils/eventBus'
 
 const props = defineProps<{
   dockApi?: any
@@ -76,24 +77,10 @@ const openPreview = () => {
     return
   }
 
-  // Add preview panel to the right
-  props.dockApi.addPanel({
-    id: 'panel_' + stableId,
-    component: 'TabsPanel',
-    title: `Preview ${relPath.split('/').pop()}`,
-    params: {
-      content: 'KnowledgeCenterEditor',
-      mode: 'preview',
-      props: { relPath },
-      isMarkdown: true,
-      dirty: panel.params?.dirty || false,
-      organizationId: '',
-      ip: ''
-    },
-    position: {
-      direction: 'right',
-      referencePanel: panel.id // Use panel ID as reference
-    }
+  // Use eventBus to request preview panel creation (to get closeCurrentPanel callback)
+  eventBus.emit('openKbPreview', {
+    relPath,
+    referencePanel: panel.id
   })
 }
 </script>
