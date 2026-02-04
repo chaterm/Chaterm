@@ -202,7 +202,7 @@
                       v-if="typeof message.content === 'object' && 'question' in message.content"
                       :ref="(el) => tab.id === currentChatId && setMarkdownRendererRef(el, historyIndex)"
                       :content="(message.content as MessageContent).question"
-                      :class="`message ${message.role} ${message.say === 'completion_result' ? 'completion-result' : ''} ${message.say === 'interactive_command_notification' ? 'interactive-notification' : ''}`"
+                      :class="`message ${message.role} ${message.say === 'completion_result' ? 'completion-result' : ''}`"
                       :ask="message.ask"
                       :say="message.say"
                       :partial="message.partial"
@@ -218,7 +218,7 @@
                       v-else
                       :ref="(el) => tab.id === currentChatId && setMarkdownRendererRef(el, historyIndex)"
                       :content="typeof message.content === 'string' ? message.content : ''"
-                      :class="`message ${message.role} ${message.say === 'completion_result' ? 'completion-result' : ''} ${message.say === 'interactive_command_notification' ? 'interactive-notification' : ''}`"
+                      :class="`message ${message.role} ${message.say === 'completion_result' ? 'completion-result' : ''}`"
                       :ask="message.ask"
                       :say="message.say"
                       :partial="message.partial"
@@ -494,10 +494,37 @@
               {{ $t('ai.retry') }}
             </a-button>
           </div>
+          <!-- Interactive command input component -->
+          <CommandInteractionInput
+            v-if="getInteractionStateForTab(tab.id)"
+            :visible="getInteractionStateForTab(tab.id)?.visible ?? false"
+            :command-id="getInteractionStateForTab(tab.id)?.commandId || ''"
+            :interaction-type="getInteractionStateForTab(tab.id)?.interactionType || 'freeform'"
+            :prompt-hint="getInteractionStateForTab(tab.id)?.promptHint || ''"
+            :options="getInteractionStateForTab(tab.id)?.options || []"
+            :option-values="getInteractionStateForTab(tab.id)?.optionValues || []"
+            :confirm-values="getInteractionStateForTab(tab.id)?.confirmValues"
+            :exit-key="getInteractionStateForTab(tab.id)?.exitKey"
+            :exit-append-newline="getInteractionStateForTab(tab.id)?.exitAppendNewline"
+            :is-suppressed="getInteractionStateForTab(tab.id)?.isSuppressed ?? false"
+            :tui-detected="getInteractionStateForTab(tab.id)?.tuiDetected ?? false"
+            :tui-message="getInteractionStateForTab(tab.id)?.tuiMessage || ''"
+            :error-message="getInteractionStateForTab(tab.id)?.errorMessage || ''"
+            :is-submitting="getInteractionStateForTab(tab.id)?.isSubmitting ?? false"
+            @submit="submitInteraction"
+            @cancel="cancelInteraction"
+            @dismiss="dismissInteraction"
+            @suppress="suppressInteraction"
+            @unsuppress="unsuppressInteraction"
+            @focus-terminal="handleFocusTerminal"
+            @clear-error="clearError"
+          />
           <InputSendContainer
             :is-active-tab="tab.id === currentChatId"
             :send-message="sendMessage"
             :handle-interrupt="handleCancel"
+            :interrupt-and-send-if-busy="interruptAndSendIfBusy"
+            :interaction-active="!!(getInteractionStateForTab(tab.id)?.visible || getInteractionStateForTab(tab.id)?.tuiDetected)"
             :open-history-tab="restoreHistoryTab"
           />
         </div>
@@ -719,6 +746,8 @@ import InputSendContainer from './components/InputSendContainer.vue'
 import MarkdownRenderer from './components/format/markdownRenderer.vue'
 import TodoInlineDisplay from './components/todo/TodoInlineDisplay.vue'
 import UserMessage from './components/message/UserMessage.vue'
+import CommandInteractionInput from '@/components/agent/CommandInteractionInput.vue'
+import { useInteractiveInput } from '@/composables/useInteractiveInput'
 import {
   CheckCircleFilled,
   CheckCircleOutlined,
@@ -780,6 +809,7 @@ const {
   currentChatId,
   chatTabs,
   currentTab,
+  currentSession,
   isEmptyTab,
   isLastMessage,
   messageFeedbacks,
@@ -869,6 +899,27 @@ let unsubscribeExplainResponse: (() => void) | null = null
 // Export chat functionality
 const { exportChat } = useExportChat()
 
+// Interactive command input
+const {
+  getInteractionStateForTab,
+  submitInteraction,
+  cancelInteraction,
+  dismissInteraction,
+  suppressInteraction,
+  unsuppressInteraction,
+  clearError
+} = useInteractiveInput()
+
+const interruptAndSendIfBusy = async (sendType: string) => {
+  if (!currentSession.value) {
+    await sendMessage(sendType)
+    return
+  }
+
+  await handleCancel('force')
+  await sendMessage(sendType)
+}
+
 // Tab management
 const {
   createNewEmptyTab,
@@ -939,6 +990,14 @@ const goToModelSettings = () => {
   setTimeout(() => {
     eventBus.emit('switchToModelSettingsTab')
   }, 200)
+}
+
+/**
+ * Handle focus terminal event from CommandInteractionInput
+ * Emits event to switch focus back to the active terminal
+ */
+const handleFocusTerminal = () => {
+  eventBus.emit('focusActiveTerminal', undefined)
 }
 
 // Ref for rename input focus

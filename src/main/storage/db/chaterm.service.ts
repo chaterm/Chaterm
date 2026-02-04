@@ -220,7 +220,10 @@ export class ChatermDatabaseService {
     return saveContextHistoryLogic(this.db, taskId, contextHistory)
   }
   // Shortcut command related methods
-  userSnippetOperation(operation: 'list' | 'create' | 'delete' | 'update' | 'swap', params?: any): any {
+  userSnippetOperation(
+    operation: 'list' | 'create' | 'delete' | 'update' | 'swap' | 'reorder' | 'listGroups' | 'createGroup' | 'updateGroup' | 'deleteGroup',
+    params?: any
+  ): any {
     return userSnippetOperationLogic(this.db, operation, params)
   }
 

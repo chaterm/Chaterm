@@ -381,7 +381,7 @@ const initUserDatabase = async (data: { uid: number }) => {
 }
 
 // User snippet operations
-const userSnippetOperation = async (data: { operation: 'list' | 'create' | 'delete' | 'update' | 'swap'; params?: unknown }) => {
+const userSnippetOperation = async (data: { operation: 'list' | 'create' | 'delete' | 'update' | 'swap' | 'reorder'; params?: unknown }) => {
   try {
     const result = await ipcRenderer.invoke('user-snippet-operation', data)
     return result
@@ -1094,7 +1094,81 @@ const api = {
     const listener = (_event: any, batch: any) => callback(batch)
     ipcRenderer.on('k8s:delta-batch', listener)
     return () => ipcRenderer.removeListener('k8s:delta-batch', listener)
-  }
+  },
+
+  // ============================================================================
+  // Interactive Command Execution API
+  // ============================================================================
+
+  /**
+   * Listen for interaction requests from main process
+   */
+  onInteractionNeeded: (callback: (request: import('./index.d').InteractionRequest) => void) => {
+    const listener = (_event: any, request: import('./index.d').InteractionRequest) => callback(request)
+    ipcRenderer.on('interaction-needed', listener)
+    return () => ipcRenderer.removeListener('interaction-needed', listener)
+  },
+
+  /**
+   * Listen for interaction close events from main process
+   */
+  onInteractionClosed: (callback: (data: { commandId: string }) => void) => {
+    const listener = (_event: any, data: { commandId: string }) => callback(data)
+    ipcRenderer.on('interaction-closed', listener)
+    return () => ipcRenderer.removeListener('interaction-closed', listener)
+  },
+
+  /**
+   * Listen for interaction suppressed events from main process
+   */
+  onInteractionSuppressed: (callback: (data: { commandId: string }) => void) => {
+    const listener = (_event: any, data: { commandId: string }) => callback(data)
+    ipcRenderer.on('interaction-suppressed', listener)
+    return () => ipcRenderer.removeListener('interaction-suppressed', listener)
+  },
+
+  /**
+   * Listen for TUI detected events from main process
+   */
+  onTuiDetected: (callback: (data: { commandId: string; taskId?: string; message: string }) => void) => {
+    const listener = (_event: any, data: { commandId: string; taskId?: string; message: string }) => callback(data)
+    ipcRenderer.on('tui-detected', listener)
+    return () => ipcRenderer.removeListener('tui-detected', listener)
+  },
+
+  /**
+   * Listen for alternate screen entered events (TUI programs like vim, man, git log)
+   */
+  onAlternateScreenEntered: (callback: (data: { commandId: string; taskId?: string; message: string }) => void) => {
+    const listener = (_event: any, data: { commandId: string; taskId?: string; message: string }) => callback(data)
+    ipcRenderer.on('alternate-screen-entered', listener)
+    return () => ipcRenderer.removeListener('alternate-screen-entered', listener)
+  },
+
+  /**
+   * Submit user interaction response
+   */
+  submitInteraction: (response: import('./index.d').InteractionResponse) => ipcRenderer.invoke('submit-interaction', response),
+
+  /**
+   * Cancel interaction (sends Ctrl+C)
+   */
+  cancelInteraction: (commandId: string) => ipcRenderer.invoke('cancel-interaction', commandId),
+
+  /**
+   * Dismiss interaction (close UI but continue detection)
+   */
+  dismissInteraction: (commandId: string) => ipcRenderer.invoke('dismiss-interaction', commandId),
+
+  /**
+   * Suppress interaction detection for a command
+   */
+  suppressInteraction: (commandId: string) => ipcRenderer.invoke('suppress-interaction', commandId),
+
+  /**
+   * Resume interaction detection for a suppressed command
+   */
+  unsuppressInteraction: (commandId: string) => ipcRenderer.invoke('unsuppress-interaction', commandId)
 }
 // Custom API for browser control
 

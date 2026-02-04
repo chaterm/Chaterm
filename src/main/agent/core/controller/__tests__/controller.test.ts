@@ -73,6 +73,8 @@ vi.mock('@api/index', async () => {
 vi.mock('@core/task', () => {
   return {
     Task: class {
+      static clearCommandContextsForTask = vi.fn()
+
       taskId: string
       api: unknown = null
       hosts: unknown[] = []

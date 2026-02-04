@@ -58,7 +58,6 @@ export type WebviewMessageType =
   | 'deleteTaskWithId'
   | 'showTaskWithId'
   | 'taskFeedback'
-  | 'interactiveCommandInput'
   | 'commandGeneration'
   | 'explainCommand'
   | 'todoUpdated'
@@ -71,7 +70,6 @@ export interface WebviewMessage {
   askResponse?: ChatermAskResponse
   hosts?: Host[]
   feedbackType?: TaskFeedbackType
-  input?: string // For interactive command input
   instruction?: string // For command generation
   modelName?: string
   tabId?: string

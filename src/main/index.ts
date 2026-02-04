@@ -3,6 +3,12 @@ import { initUserDataPath, getUserDataPath } from './config/edition'
 initUserDataPath()
 // ============ userData path initialization complete ============
 
+// ============ Migrate database directory BEFORE Chromium initializes ============
+// IMPORTANT: This must be done before importing Electron modules
+import { migrateDbDirBeforeChromium } from './storage/db/early-migration'
+migrateDbDirBeforeChromium()
+// ============ Early migration complete ============
+
 import { app, shell, BrowserWindow, ipcMain, session, net, protocol } from 'electron'
 import path, { join } from 'path'
 import { electronApp } from '@electron-toolkit/utils'
@@ -51,6 +57,7 @@ import { getActualTheme, loadUserTheme } from './themeManager'
 import { getLoginBaseUrl, getEdition, getProtocolPrefix, getProtocolName } from './config/edition'
 import { TelemetrySetting } from '@shared/TelemetrySetting'
 import { registerKnowledgeBaseHandlers } from './services/knowledgebase'
+import { setupInteractionIpcHandlers } from './agent/services/interaction-detector/ipc-handlers'
 import type { WebviewMessage } from '@shared/WebviewMessage'
 import type { SkillMetadata } from '@shared/skills'
 import { registerFileSystemHandlers } from './ssh/sftpTransfer'
@@ -238,6 +245,10 @@ app.whenReady().then(async () => {
 
   // Register K8s handlers
   registerK8sHandlers()
+
+  // Register interactive command IPC handlers
+  setupInteractionIpcHandlers()
+
   // Load all plugins (plugins will register their capabilities)
   await loadAllPlugins()
 

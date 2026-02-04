@@ -368,13 +368,23 @@
         </template>
 
         <div
-          v-for="cmd in filteredCommands"
+          v-for="(cmd, index) in filteredCommands"
           :key="cmd.id"
         >
           <div
             class="snippet-item"
+            :class="{
+              'drag-over-up': dragOverIndex === index && dragDirection === 'up' && !searchQuery,
+              'drag-over-down': dragOverIndex === index && dragDirection === 'down' && !searchQuery
+            }"
+            :draggable="!searchQuery"
             @click="handleClick(cmd)"
             @contextmenu.prevent="handleContextMenu($event, cmd)"
+            @dragstart="handleDragStart($event, cmd, index)"
+            @dragend="handleDragEnd"
+            @dragover="handleDragOver($event, index)"
+            @dragleave="handleDragLeave"
+            @drop="handleDrop($event, index)"
           >
             <div class="snippet-info">
               <span class="snippet-name">
@@ -514,6 +524,12 @@ const isSearchActive = ref(false)
 const searchInputRef = ref()
 const lineNumbersRef = ref<HTMLElement>()
 const scriptTextareaRef = ref<HTMLTextAreaElement>()
+
+// Drag and drop state
+const draggingId = ref<number | null>(null)
+const draggingIndex = ref<number | null>(null)
+const dragOverIndex = ref<number | null>(null)
+const dragDirection = ref<'up' | 'down' | null>(null)
 
 // Computed property for line count in script editor
 const scriptLineCount = computed(() => {
@@ -828,6 +844,8 @@ const runScriptInAllTabs = (cmd: QuickCommand, autoExecute: boolean) => {
 }
 
 const handleClick = (cmd: QuickCommand) => {
+  // Ignore click if drag operation just ended (prevents accidental execution)
+  if (draggingId.value !== null) return
   runScript(cmd, true)
 }
 
@@ -885,6 +903,98 @@ const removeCommand = async (id: number) => {
     params: { id }
   })
   await refresh()
+}
+
+// Drag and drop handlers
+const handleDragStart = (_e: DragEvent, cmd: QuickCommand, index: number) => {
+  if (searchQuery.value) return
+  draggingId.value = cmd.id
+  draggingIndex.value = index
+}
+
+const handleDragEnd = () => {
+  draggingId.value = null
+  draggingIndex.value = null
+  dragOverIndex.value = null
+  dragDirection.value = null
+}
+
+const handleDragOver = (e: DragEvent, index: number) => {
+  if (searchQuery.value || draggingId.value === null || draggingIndex.value === null) return
+  e.preventDefault()
+  dragOverIndex.value = index
+  // Determine drag direction based on source and target index
+  if (index < draggingIndex.value) {
+    dragDirection.value = 'up'
+  } else if (index > draggingIndex.value) {
+    dragDirection.value = 'down'
+  } else {
+    dragDirection.value = null
+  }
+}
+
+const handleDragLeave = () => {
+  dragOverIndex.value = null
+  dragDirection.value = null
+}
+
+const handleDrop = async (e: DragEvent, targetIndex: number) => {
+  e.preventDefault()
+  if (searchQuery.value || draggingId.value === null || draggingIndex.value === null) {
+    handleDragEnd()
+    return
+  }
+
+  const sourceIndex = draggingIndex.value
+  if (sourceIndex === targetIndex) {
+    handleDragEnd()
+    return
+  }
+
+  // Build new ordered list
+  const currentList = [...filteredCommands.value]
+  const [movedItem] = currentList.splice(sourceIndex, 1)
+  currentList.splice(targetIndex, 0, movedItem)
+
+  // Extract ordered ids
+  const orderedIds = currentList.map((cmd) => cmd.id)
+
+  // Optimistic UI update
+  const groupUuid = selectedGroupUuid.value
+  const allCommands = [...quickCommands.value]
+
+  // Update the sort order in local state
+  const otherCommands = allCommands.filter((cmd) => {
+    if (groupUuid === null) {
+      return cmd.group_uuid !== null && cmd.group_uuid !== undefined
+    }
+    return cmd.group_uuid !== groupUuid
+  })
+
+  // Rebuild with new order
+  quickCommands.value = [...otherCommands, ...currentList]
+
+  handleDragEnd()
+
+  // Persist to DB
+  try {
+    const result = await api.userSnippetOperation({
+      operation: 'reorder',
+      params: {
+        group_uuid: groupUuid,
+        ordered_ids: orderedIds
+      }
+    })
+
+    if (result.code !== 200) {
+      message.error(result.message || t('common.operationFailed'))
+      await refresh()
+    }
+  } catch (error) {
+    console.error('Reorder failed:', error)
+    message.error(t('common.operationFailed'))
+    await refresh()
+  }
 }
 
 // Macro recording functions
@@ -1329,6 +1439,66 @@ const toggleMacroRecording = () => {
     align-items: flex-start;
     transition: all 0.2s ease;
     border: 1px solid transparent;
+
+    &[draggable='true'] {
+      cursor: grab;
+
+      &:active {
+        cursor: grabbing;
+      }
+    }
+
+    &.drag-over-up {
+      position: relative;
+
+      &::before {
+        content: '';
+        position: absolute;
+        top: -5px;
+        left: 0;
+        right: 0;
+        height: 2px;
+        background-color: #1890ff;
+        border-radius: 1px;
+      }
+
+      &::after {
+        content: '';
+        position: absolute;
+        top: -9px;
+        left: 50%;
+        transform: translateX(-50%);
+        border-left: 6px solid transparent;
+        border-right: 6px solid transparent;
+        border-bottom: 6px solid #1890ff;
+      }
+    }
+
+    &.drag-over-down {
+      position: relative;
+
+      &::before {
+        content: '';
+        position: absolute;
+        bottom: -5px;
+        left: 0;
+        right: 0;
+        height: 2px;
+        background-color: #1890ff;
+        border-radius: 1px;
+      }
+
+      &::after {
+        content: '';
+        position: absolute;
+        bottom: -9px;
+        left: 50%;
+        transform: translateX(-50%);
+        border-left: 6px solid transparent;
+        border-right: 6px solid transparent;
+        border-top: 6px solid #1890ff;
+      }
+    }
 
     &:hover {
       background-color: var(--hover-bg-color);

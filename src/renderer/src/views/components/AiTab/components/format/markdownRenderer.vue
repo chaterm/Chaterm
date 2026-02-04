@@ -1460,7 +1460,7 @@ defineExpose({
 
 <style>
 pre {
-  background-color: #2a2a2a;
+  background-color: var(--bg-color-secondary);
   border-radius: 8px;
   padding: 8px;
   overflow-x: auto;
@@ -1890,6 +1890,17 @@ code {
   min-height: 30px;
   position: relative;
   padding: 2px 0 4px 0;
+}
+
+/* Override Monaco editor background when custom background is set */
+body.has-custom-bg .monaco-editor,
+body.has-custom-bg .monaco-editor .overflow-guard,
+body.has-custom-bg .monaco-editor .monaco-scrollable-element,
+body.has-custom-bg .monaco-editor .lines-content,
+body.has-custom-bg .monaco-editor-background,
+body.has-custom-bg .monaco-editor .margin {
+  background-color: transparent !important;
+  background: transparent !important;
 }
 
 .monaco-container.collapsed .copy-button {
