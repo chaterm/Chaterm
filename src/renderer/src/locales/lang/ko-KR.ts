@@ -748,7 +748,7 @@ export default {
     yesterday: '어제',
     favorite: '즐겨찾기',
     welcome: '터미널에서 무엇을 할 수 있을까요?',
-    welcomeTips: ['터미널에서 무엇을 할 수 있을까요?', 'Agent 모드에서 @를 입력하여 더 많은 호스트를 선택', 'Shift + Tab를 눌러 모드를 전환'],
+    welcomeTips: ['터미널에서 무엇을 할 수 있을까요?', '@로 컨텍스트 선택, /로 사용자 지정 명령 선택', 'Shift + Tab를 눌러 모드를 전환'],
     loginPrompt: 'AI 기능을 사용하려면 로그인해주세요, 새 사용자는 무료로 2주 동안 사용할 수 있습니다',
     searchHost: 'IP로 검색',
     noMatchingHosts: '일치하는 호스트 없음',
@@ -761,6 +761,8 @@ export default {
     searchChats: '채팅 기록 검색',
     noMatchingDocs: '일치하는 문서 없음',
     noMatchingChats: '일치하는 채팅 기록 없음',
+    searchCommand: '명령 검색',
+    noMatchingCommands: '일치하는 명령 없음',
     copy: '복사',
     run: '실행',
     reject: '거절',
@@ -1076,7 +1078,14 @@ export default {
     doubleClickToOpen: '더블 클릭으로 열기',
     sftpConnectFailed: 'SFTP 연결 실패',
     noDataAvailable: '데이터가 없습니다. 먼저 서버에 연결해주세요',
-    pleaseInputNewFileName: '새 파일 이름을 입력해주세요'
+    pleaseInputNewFileName: '새 파일 이름을 입력해주세요',
+    dragTransfer: '드래그 전송',
+    defaultMode: '기본 모드',
+    dragTransferMode: '드래그 모드',
+    treeExpand: '전개',
+    treeFoldUp: '접어 닫기',
+    transferSuccess: '전송 완료',
+    transferFailed: '전송 실패'
   },
   about: {
     version: '버전',
@@ -1249,6 +1258,7 @@ export default {
     autoApproveHelp: '자동 승인된 도구는 사용자 확인 없이 실행됩니다'
   },
   macro: {
+    title: '빠른 명령',
     startRecording: '매크로 기록',
     stopRecording: '기록 중지',
     saveRecording: '기록 저장',
@@ -1314,5 +1324,12 @@ export default {
     importOverwriteTitle: '스킬이 이미 존재합니다',
     importOverwriteContent: '기존 스킬을 덮어쓰시겠습니까?',
     importOverwrite: '덮어쓰기'
+  },
+  knowledgeCenter: {
+    title: '지식 베이스',
+    newFile: '새 파일',
+    newFolder: '새 폴더',
+    uploadFile: '파일 업로드',
+    refresh: '새로고침'
   }
 }

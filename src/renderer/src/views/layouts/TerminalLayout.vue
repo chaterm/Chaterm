@@ -318,7 +318,6 @@ import { shortcutService } from '@/services/shortcutService'
 import { captureExtensionUsage, ExtensionNames, ExtensionStatus } from '@/utils/telemetry'
 import Dashboard from '@renderer/views/components/Ssh/components/dashboard.vue'
 import { getGlobalState } from '@/agent/storage/state'
-import { CONTEXT_DRAG_MIME, CONTEXT_DRAG_TEXT_PREFIX } from '@views/components/AiTab/composables/useEditableContent'
 import 'dockview-vue/dist/styles/dockview.css'
 import { type DockviewReadyEvent, DockviewVue } from 'dockview-vue'
 import type { DockviewApi } from 'dockview-core'
@@ -2255,17 +2254,25 @@ const setupTabContextMenu = () => {
 
 const findPanelIdFromTab = (tabElement: HTMLElement): string | null => {
   try {
-    if (dockApi) {
-      for (const panel of dockApi.panels) {
-        const panelGroup = panel.api.group
-        if (panelGroup?.element?.contains(tabElement)) {
-          panelGroup.element.querySelectorAll('.dv-tab')
-          const tabTitle = tabElement.textContent?.trim()
-          const panelTitle = panel.api.title
-          if (tabTitle === panelTitle) {
-            return panel.id
-          }
-        }
+    if (!dockApi) return null
+
+    for (const panel of dockApi.panels) {
+      const panelGroup = panel.api.group
+      if (!panelGroup?.element?.contains(tabElement)) continue
+
+      // Get all tab elements in the group
+      const tabs = Array.from(panelGroup.element.querySelectorAll('.dv-tab'))
+      // Find the index of the clicked tab
+      const tabIndex = tabs.indexOf(tabElement)
+
+      if (tabIndex === -1) continue
+
+      // Get panels in the group (in tab order)
+      const groupPanels = panelGroup.panels
+
+      // Return the panel ID based on index
+      if (groupPanels && tabIndex < groupPanels.length) {
+        return groupPanels[tabIndex].id
       }
     }
     return null
@@ -2297,8 +2304,7 @@ const setupTabDragToAi = () => {
       const name = params.title || params.props.relPath.split('/').pop() || 'KnowledgeCenter'
       const dragPayload = { contextType: 'doc', relPath: params.props.relPath, name }
       const payload = JSON.stringify(dragPayload)
-      e.dataTransfer.setData(CONTEXT_DRAG_MIME, payload)
-      e.dataTransfer.setData('text/plain', `${CONTEXT_DRAG_TEXT_PREFIX}${payload}`)
+      e.dataTransfer.setData('text/html', `<span data-chaterm-context="${encodeURIComponent(payload)}"></span>`)
       e.dataTransfer.effectAllowed = 'copy'
       return
     }
@@ -2316,8 +2322,7 @@ const setupTabDragToAi = () => {
         organizationUuid: data.organizationUuid || data.organizationId || params.organizationId
       }
       const payload = JSON.stringify(dragPayload)
-      e.dataTransfer.setData(CONTEXT_DRAG_MIME, payload)
-      e.dataTransfer.setData('text/plain', `${CONTEXT_DRAG_TEXT_PREFIX}${payload}`)
+      e.dataTransfer.setData('text/html', `<span data-chaterm-context="${encodeURIComponent(payload)}"></span>`)
       e.dataTransfer.effectAllowed = 'copy'
     }
   })

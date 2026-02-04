@@ -744,7 +744,7 @@ export default {
     yesterday: '昨天',
     favorite: '收藏',
     welcome: '您好,请问需要在终端做什么操作?',
-    welcomeTips: ['您好,请问需要在终端做什么操作?', '在 Agent 模式下输入 @ 选择更多主机', '按下 Shift + Tab 切换模式'],
+    welcomeTips: ['您好,请问需要在终端做什么操作?', '输入 @ 选择上下文，输入 / 选择自定义命令', '按下 Shift + Tab 切换模式'],
     loginPrompt: '登录后即可使用 AI 功能，新用户注册免费使用两周',
     searchHost: '输入IP搜索',
     noMatchingHosts: '无匹配主机',
@@ -757,6 +757,8 @@ export default {
     searchChats: '搜索历史对话',
     noMatchingDocs: '无匹配文档',
     noMatchingChats: '无匹配历史对话',
+    searchCommand: '搜索命令',
+    noMatchingCommands: '无匹配命令',
     copy: '复制',
     run: '执行',
     paste: '粘贴',
@@ -1073,7 +1075,14 @@ export default {
     doubleClickToOpen: '双击打开',
     sftpConnectFailed: 'SFTP连接失败',
     noDataAvailable: '暂无数据，请先连接到服务器',
-    pleaseInputNewFileName: '请输入新文件名'
+    pleaseInputNewFileName: '请输入新文件名',
+    dragTransfer: '拖拽传输',
+    defaultMode: '默认模式',
+    dragTransferMode: '拖拽模式',
+    treeExpand: '展开',
+    treeFoldUp: '收起',
+    transferSuccess: '传输完成',
+    transferFailed: '传输失败'
   },
   about: {
     version: '版本',
@@ -1246,6 +1255,7 @@ export default {
     autoApproveHelp: '自动批准的工具将不需要用户确认即可执行'
   },
   macro: {
+    title: '快捷命令',
     startRecording: '宏录制',
     stopRecording: '停止录制',
     saveRecording: '保存录制',
@@ -1311,5 +1321,12 @@ export default {
     importOverwriteTitle: '技能已存在',
     importOverwriteContent: '是否覆盖已存在的技能？',
     importOverwrite: '覆盖'
+  },
+  knowledgeCenter: {
+    title: '知识库',
+    newFile: '新建文件',
+    newFolder: '新建文件夹',
+    uploadFile: '上传文件',
+    refresh: '刷新'
   }
 }

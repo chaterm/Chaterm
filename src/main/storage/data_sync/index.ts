@@ -69,15 +69,15 @@ export async function startDataSync(dbPath?: string): Promise<SyncController> {
   }
 
   try {
-    await controller.fullSyncAll()
-  } catch (e: any) {
-    logger.warn('Full sync failed', e?.message)
-  }
-
-  try {
     await controller.incrementalSyncAll()
   } catch (e: any) {
     logger.warn('Incremental sync failed', e?.message)
+  }
+
+  try {
+    await controller.fullSyncAll()
+  } catch (e: any) {
+    logger.warn('Full sync failed', e?.message)
   }
 
   await controller.startAutoSync()

@@ -752,7 +752,7 @@ export default {
     yesterday: '昨日',
     favorite: 'お気に入り',
     welcome: 'ターミナルで何をお手伝いできますか？',
-    welcomeTips: ['ターミナルで何をお手伝いできますか？', 'Agentモードで @ を入力してホストを選択', 'Shift + Tab を押してモードを切り替え'],
+    welcomeTips: ['ターミナルで何をお手伝いできますか？', '@ でコンテキスト、/ でコマンドを選択', 'Shift + Tab を押してモードを切り替え'],
     loginPrompt: 'AI機能を使用するにはログインしてください。新規ユーザーは2週間無料でご利用いただけます',
     searchHost: 'IPで検索',
     noMatchingHosts: '一致するホストがありません',
@@ -765,6 +765,8 @@ export default {
     searchChats: 'チャット履歴を検索',
     noMatchingDocs: '一致するドキュメントがありません',
     noMatchingChats: '一致するチャット履歴がありません',
+    searchCommand: 'コマンドを検索',
+    noMatchingCommands: '一致するコマンドがありません',
     copy: 'コピー',
     run: '実行',
     reject: '拒否',
@@ -1080,7 +1082,14 @@ export default {
     doubleClickToOpen: 'ダブルクリックで開く',
     sftpConnectFailed: 'SFTP接続に失敗しました',
     noDataAvailable: 'データがありません。まずサーバーに接続してください',
-    pleaseInputNewFileName: '新しいファイル名を入力してください'
+    pleaseInputNewFileName: '新しいファイル名を入力してください',
+    dragTransfer: 'ドラッグ＆ドロップ転送',
+    defaultMode: 'デフォルトモード',
+    dragTransferMode: 'ドラッグモード',
+    treeExpand: '展開',
+    treeFoldUp: '閉じる',
+    transferSuccess: '転送完了',
+    transferFailed: '転送失敗'
   },
   about: {
     version: 'バージョン',
@@ -1253,6 +1262,7 @@ export default {
     autoApproveHelp: '自動承認されたツールはユーザーの確認なしに実行されます'
   },
   macro: {
+    title: 'クイックコマンド',
     startRecording: 'マクロ記録',
     stopRecording: '記録を停止',
     saveRecording: '記録を保存',
@@ -1318,5 +1328,12 @@ export default {
     importOverwriteTitle: 'スキルが既に存在します',
     importOverwriteContent: '既存のスキルを上書きしますか？',
     importOverwrite: '上書き'
+  },
+  knowledgeCenter: {
+    title: '知識ベース',
+    newFile: '新規ファイル',
+    newFolder: '新規フォルダ',
+    uploadFile: 'ファイルをアップロード',
+    refresh: '更新'
   }
 }

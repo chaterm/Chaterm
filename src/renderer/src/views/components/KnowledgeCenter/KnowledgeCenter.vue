@@ -4,52 +4,48 @@
     @dragover.prevent
     @drop.prevent="handleDropImport"
   >
+    <div class="panel_header">
+      <span class="panel_title">{{ $t('knowledgeCenter.title') }}</span>
+    </div>
     <div class="kb-toolbar">
       <a-input
         v-model:value="nameSearch"
         class="transparent-Input"
-        size="small"
         :placeholder="$t('common.search')"
-        allow-clear
-      />
-      <a-space size="small">
-        <a-tooltip title="New File">
-          <a-button
-            size="small"
-            class="kb-button"
-            @click="openCreateInline('file')"
-          >
-            <template #icon><FileAddOutlined /></template>
-          </a-button>
-        </a-tooltip>
-        <a-tooltip title="New Folder">
-          <a-button
-            size="small"
-            class="kb-button"
-            @click="openCreateInline('folder')"
-          >
-            <template #icon><FolderAddOutlined /></template>
-          </a-button>
-        </a-tooltip>
-        <a-tooltip title="Import">
-          <a-button
-            size="small"
-            class="kb-button"
-            @click="pickAndImport"
-          >
-            <template #icon><CloudUploadOutlined /></template>
-          </a-button>
-        </a-tooltip>
-        <a-tooltip title="Refresh">
-          <a-button
-            size="small"
-            class="kb-button"
-            @click="refreshCurrentDir"
-          >
-            <template #icon><RedoOutlined /></template>
-          </a-button>
-        </a-tooltip>
-      </a-space>
+      >
+        <template #suffix>
+          <SearchOutlined />
+        </template>
+      </a-input>
+      <a-dropdown :trigger="['hover']">
+        <a-button
+          size="small"
+          class="kb-add-button"
+        >
+          <template #icon><PlusOutlined /></template>
+        </a-button>
+        <template #overlay>
+          <a-menu @click="handleMenuClick">
+            <a-menu-item key="upload">
+              <CloudUploadOutlined />
+              <span class="menu-text">{{ $t('knowledgeCenter.uploadFile') }}</span>
+            </a-menu-item>
+            <a-menu-item key="newFile">
+              <FileAddOutlined />
+              <span class="menu-text">{{ $t('knowledgeCenter.newFile') }}</span>
+            </a-menu-item>
+            <a-menu-item key="newFolder">
+              <FolderAddOutlined />
+              <span class="menu-text">{{ $t('knowledgeCenter.newFolder') }}</span>
+            </a-menu-item>
+            <a-menu-divider />
+            <a-menu-item key="refresh">
+              <RedoOutlined />
+              <span class="menu-text">{{ $t('knowledgeCenter.refresh') }}</span>
+            </a-menu-item>
+          </a-menu>
+        </template>
+      </a-dropdown>
     </div>
 
     <a-dropdown :trigger="['contextmenu']">
@@ -200,7 +196,7 @@
 import { computed, nextTick, onBeforeUnmount, onMounted, reactive, ref } from 'vue'
 import { message, Modal } from 'ant-design-vue'
 import eventBus from '@/utils/eventBus'
-import { CloudUploadOutlined, FileAddOutlined, FolderAddOutlined, RedoOutlined } from '@ant-design/icons-vue'
+import { CloudUploadOutlined, FileAddOutlined, FolderAddOutlined, PlusOutlined, RedoOutlined, SearchOutlined } from '@ant-design/icons-vue'
 
 type KbNodeType = 'file' | 'dir'
 type TreeNode = {
@@ -817,6 +813,23 @@ async function pickAndImport() {
   }
 }
 
+function handleMenuClick({ key }: { key: string }) {
+  switch (key) {
+    case 'newFile':
+      openCreateInline('file')
+      break
+    case 'newFolder':
+      openCreateInline('folder')
+      break
+    case 'upload':
+      pickAndImport()
+      break
+    case 'refresh':
+      refreshCurrentDir()
+      break
+  }
+}
+
 async function handleDropImport(e: DragEvent) {
   const files = e.dataTransfer?.files
   if (!files || files.length === 0) return
@@ -898,14 +911,27 @@ onBeforeUnmount(() => {
   overflow: hidden;
 }
 
+.panel_header {
+  padding: 16px 16px 8px 16px;
+  flex-shrink: 0;
+}
+
+.panel_title {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-color);
+}
+
 .kb-toolbar {
   display: flex;
-  flex-direction: column;
-  gap: 4px;
-  padding: 4px 4px 0 4px;
+  align-items: center;
+  gap: 8px;
+  padding: 0 12px 10px 12px;
 }
 
 .transparent-Input {
+  flex: 1;
+  min-width: 0;
   .kb-transparent-input();
 
   :deep(.ant-input-suffix) {
@@ -913,16 +939,34 @@ onBeforeUnmount(() => {
   }
 }
 
-.kb-button {
-  background-color: var(--bg-color-secondary) !important;
+.kb-add-button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px !important;
+  height: 30px;
+  padding: 0;
+  border-radius: 4px;
+  background: var(--bg-color-secondary) !important;
   border: 1px solid var(--border-color) !important;
   color: var(--text-color) !important;
+  transition: all 0.2s ease;
+  flex-shrink: 0;
 
   &:hover,
   &:focus {
-    color: @kb-primary-color !important;
+    background: var(--hover-bg-color) !important;
     border-color: @kb-primary-color !important;
+    color: @kb-primary-color !important;
   }
+
+  &:active {
+    background: var(--active-bg-color) !important;
+  }
+}
+
+.menu-text {
+  margin-left: 8px;
 }
 
 .kb-tree-wrapper {

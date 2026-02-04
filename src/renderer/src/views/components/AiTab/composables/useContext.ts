@@ -11,7 +11,7 @@ import { getGlobalState } from '@renderer/agent/storage/state'
 import type { TaskHistoryItem } from '../types'
 import i18n from '@/locales'
 import { Notice } from '@/views/components/Notice'
-import type { ContentPart, ContextDocRef } from '@shared/WebviewMessage'
+import type { ContentPart } from '@shared/WebviewMessage'
 import eventBus from '@/utils/eventBus'
 
 // Type for the context return value
@@ -972,15 +972,16 @@ export const useContext = (options: UseContextOptions = {}) => {
     return relPath
   }
 
-  const openDocFromChip = async (docRef: ContextDocRef) => {
-    if (!docRef.absPath || docRef.type === 'dir') return
-    if (!kbRoot.value) {
-      const { root } = await window.api.kbGetRoot()
-      kbRoot.value = root
-    }
-    const relPath = resolveDocRelPath(docRef.absPath)
+  /**
+   * Open a knowledge base file in the editor.
+   * @param absPath - Absolute path to the file * @param name - Optional display name for the tab title */
+  const openKbFile = async (absPath: string | undefined, name?: string) => {
+    if (!absPath) return
+    const { root } = await window.api.kbGetRoot()
+    kbRoot.value = root
+    const relPath = resolveDocRelPath(absPath)
     if (!relPath) return
-    const title = docRef.name || relPath.split('/').pop() || 'KnowledgeCenter'
+    const title = name || relPath.split('/').pop() || 'KnowledgeCenter'
     eventBus.emit('openUserTab', {
       key: 'KnowledgeCenterEditor',
       title,
@@ -1066,7 +1067,7 @@ export const useContext = (options: UseContextOptions = {}) => {
     isChatSelected,
     onChatClick,
     fetchChatsOptions,
-    openDocFromChip,
+    openKbFile,
     // Chip insertion
     setChipInsertHandler: (handler: (chipType: 'doc' | 'chat', ref: DocOption | ChatOption, label: string) => void) => {
       chipInsertHandler.value = handler

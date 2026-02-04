@@ -53,6 +53,7 @@ import { TelemetrySetting } from '@shared/TelemetrySetting'
 import { registerKnowledgeBaseHandlers } from './services/knowledgebase'
 import type { WebviewMessage } from '@shared/WebviewMessage'
 import type { SkillMetadata } from '@shared/skills'
+import { registerFileSystemHandlers } from './ssh/sftpTransfer'
 
 let mainWindow: BrowserWindow
 let COOKIE_URL = 'http://localhost'
@@ -153,7 +154,7 @@ app.whenReady().then(async () => {
   await migrateCnUserDataOnFirstLaunch()
 
   if (process.platform === 'darwin') {
-    app.dock.setIcon(join(__dirname, '../../resources/icon.png'))
+    app.dock?.setIcon(join(__dirname, '../../resources/icon.png'))
   }
 
   protocol.handle('local-resource', (request) => {
@@ -231,6 +232,7 @@ app.whenReady().then(async () => {
   registerSSHHandlers()
   registerLocalSSHHandlers()
   registerRemoteTerminalHandlers()
+  registerFileSystemHandlers()
   registerUpdater(mainWindow, (value) => (forceQuit = value))
   setupPluginIpc()
 

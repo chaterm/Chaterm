@@ -274,8 +274,10 @@ export class SyncEngine {
         }
 
         for (const ch of changes) {
-          await this.applySingleChange(ch)
-          applied += 1
+          const appliedOne = await this.applySingleChange(ch)
+          if (appliedOne) {
+            applied += 1
+          }
           lastSeq = Math.max(lastSeq, ch.sequence_id)
         }
 
@@ -300,8 +302,13 @@ export class SyncEngine {
       const res = await this.api.fullSync(tableName)
       const list = res.data || []
       let applied = 0
+      let skipped = 0
       for (const raw of list) {
         const data = await this.maybeDecryptChange(tableName, raw)
+        if (!data) {
+          skipped += 1
+          continue
+        }
         if (tableName === 't_assets_sync') {
           this.applyToAssets('INSERT', data)
         } else if (tableName === 't_asset_chains_sync') {
@@ -309,14 +316,18 @@ export class SyncEngine {
         }
         applied += 1
       }
-      logger.info(`Full sync application completed: ${tableName}, total ${applied} records`)
+      if (skipped > 0) {
+        logger.warn(`Full sync application completed with skipped records: ${tableName}, applied ${applied}, skipped ${skipped}`)
+      } else {
+        logger.info(`Full sync application completed: ${tableName}, total ${applied} records`)
+      }
       return applied
     } finally {
       this.db.setRemoteApplyGuard(false)
     }
   }
 
-  private async applySingleChange(ch: ServerChangeLog) {
+  private async applySingleChange(ch: ServerChangeLog): Promise<boolean> {
     const raw = ch.change_data ? JSON.parse(ch.change_data) : {}
 
     // Support multiple table name formats (client and server naming conventions)
@@ -333,24 +344,29 @@ export class SyncEngine {
     } else {
       baseTable = ch.target_table
       logger.warn(`Unrecognized table name: ${ch.target_table}, skip application`)
-      return
+      return false
     }
 
     const data = await this.maybeDecryptChange(baseTable, raw)
+    if (!data) {
+      logger.warn(`Skip applying change due to decryption failure: table=${baseTable}, uuid=${raw?.uuid || 'unknown'}`)
+      return false
+    }
 
     if (shouldApplyToAssets) {
       this.applyToAssets(ch.operation_type, data)
     } else if (shouldApplyToChains) {
       this.applyToAssetChains(ch.operation_type, data)
     }
+    return true
   }
 
-  private async maybeDecryptChange(tableName: string, data: any): Promise<any> {
+  private async maybeDecryptChange(tableName: string, data: any): Promise<any | null> {
     if (!data) return data
-    try {
-      const service = getEncryptionService()
-      logger.info('Encryption service status:', service ? 'Obtained' : 'Not obtained')
+    const service = getEncryptionService()
+    logger.info('Encryption service status:', service ? 'Obtained' : 'Not obtained')
 
+    try {
       if (tableName === 't_assets_sync') {
         const cipher: string | undefined = typeof data.data_cipher_text === 'string' ? data.data_cipher_text : undefined
         if (cipher) {
@@ -385,20 +401,22 @@ export class SyncEngine {
           }
         }
       }
-      if ('data_cipher_text' in data) {
-        delete data.data_cipher_text
-      }
-
-      // Fix: Filter fields by table name, only keep fields for the corresponding table
-      data = this.filterFieldsByTable(tableName, data)
     } catch (e) {
-      logger.warn('New format ciphertext decryption failed, apply as-is', e)
+      logger.warn('New format ciphertext decryption failed, skip record', e)
       logger.error('Decryption exception details:', {
         error: e,
         message: e instanceof Error ? e.message : String(e),
         stack: e instanceof Error ? e.stack : undefined
       })
+      return null
     }
+
+    if ('data_cipher_text' in data) {
+      delete data.data_cipher_text
+    }
+
+    // Fix: Filter fields by table name, only keep fields for the corresponding table
+    data = this.filterFieldsByTable(tableName, data)
 
     return data
   }

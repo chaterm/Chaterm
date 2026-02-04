@@ -756,7 +756,7 @@ export default {
     yesterday: 'Yesterday',
     favorite: 'Favorites',
     welcome: 'What can I do for you in the terminal?',
-    welcomeTips: ['What can I do for you in the terminal?', 'Type @ to select more hosts in Agent mode', 'Press Shift + Tab to switch mode'],
+    welcomeTips: ['What can I do for you in the terminal?', '@ for context , / for commands', 'Press Shift + Tab to switch mode'],
     loginPrompt: 'Login to use AI features, new users can use for free for two weeks',
     searchHost: 'Search by IP',
     noMatchingHosts: 'No matching hosts',
@@ -769,6 +769,8 @@ export default {
     searchChats: 'Search chats',
     noMatchingDocs: 'No matching docs',
     noMatchingChats: 'No matching chats',
+    searchCommand: 'Search commands',
+    noMatchingCommands: 'No matching commands',
     copy: 'Copy',
     run: 'Run',
     reject: 'Reject',
@@ -1084,7 +1086,14 @@ export default {
     doubleClickToOpen: 'Double Click to Open',
     sftpConnectFailed: 'SFTP connection failed',
     noDataAvailable: 'No data available, please connect to a server first',
-    pleaseInputNewFileName: 'Please input new file name'
+    pleaseInputNewFileName: 'Please enter a new file name',
+    dragTransfer: 'Drag and drop transfer',
+    defaultMode: 'Default',
+    dragTransferMode: 'Drag',
+    treeExpand: 'Expand',
+    treeFoldUp: 'Collapse',
+    transferSuccess: 'Transfer completed',
+    transferFailed: 'Transfer failed'
   },
   about: {
     version: 'Version',
@@ -1257,6 +1266,7 @@ export default {
     autoApproveHelp: 'Auto-approved tools will execute without user confirmation'
   },
   macro: {
+    title: 'Quick Command',
     startRecording: 'Macro Record',
     stopRecording: 'Stop Recording',
     saveRecording: 'Save Recording',
@@ -1322,5 +1332,12 @@ export default {
     importOverwriteTitle: 'Skill Already Exists',
     importOverwriteContent: 'Overwrite existing skill?',
     importOverwrite: 'Overwrite'
+  },
+  knowledgeCenter: {
+    title: 'Knowledge Base',
+    newFile: 'New File',
+    newFolder: 'New Folder',
+    uploadFile: 'Upload File',
+    refresh: 'Refresh'
   }
 }

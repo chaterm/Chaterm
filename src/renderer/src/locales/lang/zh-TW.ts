@@ -743,10 +743,12 @@ export default {
     yesterday: '昨天',
     favorite: '收藏',
     welcome: '您好,需要在終端做什麼操作?',
-    welcomeTips: ['您好,請問需要在終端做什麼操作?', '在 Agent 模式下輸入 @ 選擇更多主機', '按下 Shift + Tab 切換模式'],
+    welcomeTips: ['您好,請問需要在終端做什麼操作?', '輸入 @ 選擇上下文，輸入 / 選擇自訂命令', '按下 Shift + Tab 切換模式'],
     loginPrompt: '登錄後即可使用 AI 功能，新用戶註冊免費使用兩週',
     searchHost: '輸入IP搜尋',
     noMatchingHosts: '無匹配主機',
+    searchCommand: '搜尋命令',
+    noMatchingCommands: '無匹配命令',
     copy: '複製',
     run: '執行',
     paste: '貼上',
@@ -1063,7 +1065,14 @@ export default {
     doubleClickToOpen: '雙擊打開',
     sftpConnectFailed: 'SFTP連接失敗',
     noDataAvailable: '暫無數據，請先連接到服務器',
-    pleaseInputNewFileName: '請輸入新檔案名'
+    pleaseInputNewFileName: '請輸入新檔名',
+    dragTransfer: '拖拽傳輸',
+    defaultMode: '預設模式',
+    dragTransferMode: '拖拽模式',
+    treeExpand: '展開',
+    treeFoldUp: '收起',
+    transferSuccess: '傳輸完成',
+    transferFailed: '傳輸失敗'
   },
   about: {
     version: '版本',
@@ -1236,6 +1245,7 @@ export default {
     autoApproveHelp: '自動批准的工具將不需要用戶確認即可執行'
   },
   macro: {
+    title: '快捷命令',
     startRecording: '宏錄制',
     stopRecording: '停止錄制',
     saveRecording: '保存錄制',
@@ -1301,5 +1311,12 @@ export default {
     importOverwriteTitle: '技能已存在',
     importOverwriteContent: '是否要覆蓋現有技能？',
     importOverwrite: '覆蓋'
+  },
+  knowledgeCenter: {
+    title: '知識庫',
+    newFile: '新建檔案',
+    newFolder: '新建資料夾',
+    uploadFile: '上傳檔案',
+    refresh: '重新整理'
   }
 }

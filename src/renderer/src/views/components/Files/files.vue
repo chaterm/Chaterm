@@ -1,6 +1,10 @@
 <template>
   <div>
-    <a-card class="base-file">
+    <a-card
+      :bordered="false"
+      class="base-file"
+      :class="{ 'transfer-mode': uiMode === 'transfer' }"
+    >
       <div class="fs-header">
         <div>
           <a-space>
@@ -86,201 +90,263 @@
         style="font-weight: bold; color: red"
         >{{ errTips }}</p
       >
-      <a-table
-        ref="tableRef"
-        :row-key="(record: FileRecord) => record.name"
-        :columns="columns"
-        :data-source="files"
-        size="small"
-        :pagination="false"
-        :loading="loading"
-        class="files-table"
-        :scroll="tableScroll"
-        :custom-row="customRow"
+      <div
+        class="transfer-drop-zone"
+        :class="{
+          'drop-active': dropActive && uiMode === 'transfer',
+          'drop-not-allowed': dropNotAllowed && uiMode === 'transfer'
+        }"
+        @dragenter.capture="onDropZoneEnter"
+        @dragleave.capture="onDropZoneLeave"
+        @dragover.capture="onDropZoneOver"
+        @drop.capture="onDropZoneDrop"
       >
-        <template #bodyCell="{ column, record }">
-          <template v-if="column.dataIndex === 'name'">
-            <div
-              class="file-name-cell"
-              style="position: relative"
-            >
-              <template v-if="editableData[record.key]">
-                <span style="position: absolute; top: 0; left: 0; display: flex; align-items: center; padding-right: 8px">
-                  <template v-if="record.isDir">
-                    <FolderFilled style="color: #1890ff; margin-right: 4px" />
-                  </template>
-                  <template v-else-if="record.isLink">
-                    <LinkOutlined style="color: #ff8300; margin-right: 4px" />
-                  </template>
-                  <template v-else>
-                    <FileFilled style="color: var(--text-color-quaternary); margin-right: 4px" />
-                  </template>
+        <a-table
+          ref="tableRef"
+          :row-key="(record: FileRecord) => record.name"
+          :columns="tableColumns"
+          :data-source="files"
+          size="small"
+          :pagination="false"
+          :loading="loading"
+          class="files-table"
+          :scroll="tableScroll"
+          :custom-row="customRow"
+        >
+          <template #bodyCell="{ column, record, text }">
+            <template v-if="column.dataIndex === 'name'">
+              <div
+                class="file-name-cell"
+                style="position: relative"
+              >
+                <template v-if="editableData[record.key]">
+                  <span style="position: absolute; top: 0; left: 0; display: flex; align-items: center; padding-right: 8px">
+                    <template v-if="record.isDir">
+                      <FolderFilled style="color: #1890ff; margin-right: 4px" />
+                    </template>
+                    <template v-else-if="record.isLink">
+                      <LinkOutlined style="color: #ff8300; margin-right: 4px" />
+                    </template>
+                    <template v-else>
+                      <FileFilled style="color: var(--text-color-quaternary); margin-right: 4px" />
+                    </template>
 
-                  <div style="flex: 1 1 auto; min-width: 0">
-                    <a-input
-                      v-model:value="editableData[record.key][column.dataIndex]"
+                    <div style="flex: 1 1 auto; min-width: 0">
+                      <a-input
+                        v-model:value="editableData[record.key][column.dataIndex]"
+                        size="small"
+                        style="width: 100%"
+                      />
+                    </div>
+
+                    <a-button
+                      type="link"
                       size="small"
-                      style="width: 100%"
+                      style="flex-shrink: 0"
+                      @click.stop="renameOk(record)"
+                    >
+                      <template #icon><CheckOutlined /></template>
+                    </a-button>
+                    <a-button
+                      type="link"
+                      size="small"
+                      style="flex-shrink: 0"
+                      @click.stop="renameCancel(record)"
+                    >
+                      <template #icon><CloseOutlined /></template>
+                    </a-button>
+                  </span>
+                </template>
+                <template v-else>
+                  <span
+                    v-if="record.isDir"
+                    class="file-name-main"
+                    style="cursor: pointer"
+                    @click="rowClick(record as FileRecord)"
+                  >
+                    <FolderFilled
+                      class="file-name-icon"
+                      style="color: #1890ff"
                     />
-                  </div>
+                    <a-tooltip
+                      :title="record.name"
+                      placement="top"
+                    >
+                      <span class="file-name-text">{{ record.name }}</span>
+                    </a-tooltip>
+                  </span>
 
-                  <a-button
-                    type="link"
-                    size="small"
-                    style="flex-shrink: 0"
-                    @click.stop="renameOk(record)"
+                  <span
+                    v-else-if="record.isLink"
+                    class="file-name-main"
+                    style="cursor: default"
                   >
-                    <template #icon><CheckOutlined /></template>
-                  </a-button>
-                  <a-button
-                    type="link"
-                    size="small"
-                    style="flex-shrink: 0"
-                    @click.stop="renameCancel(record)"
+                    <LinkOutlined
+                      class="file-name-icon"
+                      style="color: #ff8300"
+                    />
+                    <a-tooltip
+                      :title="record.name"
+                      placement="top"
+                    >
+                      <span class="file-name-text">{{ record.name }}</span>
+                    </a-tooltip>
+                  </span>
+
+                  <span
+                    v-else-if="uuid.includes('local-team')"
+                    class="file-name-main no-select"
+                    style="cursor: pointer"
                   >
-                    <template #icon><CloseOutlined /></template>
-                  </a-button>
-                </span>
-              </template>
-              <template v-else>
-                <span
-                  v-if="record.isDir"
-                  style="cursor: pointer"
-                  @click="rowClick(record as FileRecord)"
-                >
-                  <FolderFilled style="color: #1890ff; margin-right: -1px" />
-                  {{ record.name }}
-                </span>
-                <span
-                  v-else-if="record.isLink"
-                  style="cursor: default"
-                >
-                  <LinkOutlined style="color: #ff8300; margin-right: -1px" />
-                  {{ record.name }}
-                </span>
-                <span
-                  v-else-if="uuid.includes('local-team')"
-                  class="no-select"
-                  style="cursor: pointer"
-                >
-                  <FileFilled style="color: var(--text-color-quaternary); margin-right: -1px" />
-                  {{ record.name }}
-                </span>
-                <span
-                  v-else
-                  class="no-select"
-                  style="cursor: pointer"
-                  @dblclick="openFile(record as FileRecord)"
+                    <FileFilled
+                      class="file-name-icon"
+                      style="color: var(--text-color-quaternary)"
+                    />
+                    <a-tooltip
+                      :title="record.name"
+                      placement="top"
+                    >
+                      <span class="file-name-text">{{ record.name }}</span>
+                    </a-tooltip>
+                  </span>
+
+                  <span
+                    v-else
+                    class="file-name-main no-select"
+                    style="cursor: pointer"
+                    @dblclick="openFile(record as FileRecord)"
+                  >
+                    <FileFilled
+                      class="file-name-icon"
+                      style="color: var(--text-color-quaternary)"
+                    />
+                    <a-tooltip placement="top">
+                      <template #title>
+                        <div style="max-width: 420px; word-break: break-all">{{ record.name }}</div>
+                        <div style="opacity: 0.75">{{ t('files.doubleClickToOpen') }}</div>
+                      </template>
+                      <span class="file-name-text">{{ record.name }}</span>
+                    </a-tooltip>
+                  </span>
+                </template>
+
+                <div
+                  v-if="!editableData[record.key] && !record.isDir && !record.isLink"
+                  class="hover-actions"
+                  :data-record="record.name"
                 >
                   <a-tooltip
-                    placement="top"
-                    :title="t('files.doubleClickToOpen')"
-                  >
-                    <FileFilled style="color: var(--text-color-quaternary); margin-right: -1px" />
-                    {{ record.name }}
-                  </a-tooltip>
-                </span>
-              </template>
-
-              <div
-                class="hover-actions"
-                :data-record="record.name"
-              >
-                <a-tooltip
-                  v-if="!record.isDir && !record.isLink"
-                  :title="t('files.download')"
-                >
-                  <a-button
-                    type="text"
-                    size="small"
+                    v-if="!record.isDir && !record.isLink"
                     :title="t('files.download')"
-                    @click.stop="downloadFile(record as FileRecord)"
                   >
-                    <template #icon>
-                      <DownloadOutlined />
-                    </template>
-                  </a-button>
-                </a-tooltip>
-                <a-tooltip :title="t('files.rename')">
-                  <a-button
-                    type="text"
-                    size="small"
-                    :title="t('files.rename')"
-                    @click.stop="renameFile(record as FileRecord)"
-                  >
-                    <template #icon>
-                      <EditOutlined />
-                    </template>
-                  </a-button>
-                </a-tooltip>
-                <a-tooltip :title="t('files.permissions')">
-                  <a-button
-                    type="text"
-                    size="small"
-                    :title="t('files.permissions')"
-                    @click.stop="chmodFile(record as FileRecord)"
-                  >
-                    <template #icon>
-                      <LockOutlined />
-                    </template>
-                  </a-button>
-                </a-tooltip>
-                <a-dropdown
-                  placement="bottom"
-                  trigger="click"
-                  :visible="dropdownVisible[record.name]"
-                  @visible-change="(visible) => handleDropdownVisibleChange(visible, record.name)"
-                >
-                  <a-tooltip :title="t('files.more')">
                     <a-button
                       type="text"
                       size="small"
-                      :title="t('files.more')"
-                      @click.stop="handleMoreButtonClick(record.name)"
-                      @mouseenter="handleMoreButtonEnter(record.name)"
-                      @mouseleave="handleMoreButtonLeave(record.name)"
+                      :title="t('files.download')"
+                      @click.stop="downloadFile(record as FileRecord)"
                     >
                       <template #icon>
-                        <EllipsisOutlined />
+                        <DownloadOutlined />
                       </template>
                     </a-button>
                   </a-tooltip>
-                  <template #overlay>
-                    <a-menu
-                      style="padding: 2px; background-color: var(--border-color)"
-                      @mouseenter="handleDropdownMenuEnter(record.name)"
-                      @mouseleave="handleDropdownMenuLeave(record.name)"
-                      @click="handleMenuClick"
+                  <a-tooltip :title="t('files.rename')">
+                    <a-button
+                      type="text"
+                      size="small"
+                      :title="t('files.rename')"
+                      @click.stop="renameFile(record as FileRecord)"
                     >
-                      <a-menu-item
-                        v-if="!isTeam"
-                        @click="copyFile(record as FileRecord)"
+                      <template #icon>
+                        <EditOutlined />
+                      </template>
+                    </a-button>
+                  </a-tooltip>
+                  <a-tooltip :title="t('files.permissions')">
+                    <a-button
+                      type="text"
+                      size="small"
+                      :title="t('files.permissions')"
+                      @click.stop="chmodFile(record as FileRecord)"
+                    >
+                      <template #icon>
+                        <LockOutlined />
+                      </template>
+                    </a-button>
+                  </a-tooltip>
+                  <a-dropdown
+                    placement="bottom"
+                    trigger="click"
+                    :visible="dropdownVisible[record.name]"
+                    @visible-change="(visible) => handleDropdownVisibleChange(visible, record.name)"
+                  >
+                    <a-tooltip :title="t('files.more')">
+                      <a-button
+                        type="text"
+                        size="small"
+                        :title="t('files.more')"
+                        @click.stop="handleMoreButtonClick(record.name)"
+                        @mouseenter="handleMoreButtonEnter(record.name)"
+                        @mouseleave="handleMoreButtonLeave(record.name)"
                       >
-                        <CopyOutlined />
-                        {{ $t('files.copy') }}
-                      </a-menu-item>
-                      <a-menu-item
-                        v-if="!isTeam"
-                        @click="moveFile(record as FileRecord)"
+                        <template #icon>
+                          <EllipsisOutlined />
+                        </template>
+                      </a-button>
+                    </a-tooltip>
+                    <template #overlay>
+                      <a-menu
+                        style="padding: 2px; background-color: var(--border-color)"
+                        @mouseenter="handleDropdownMenuEnter(record.name)"
+                        @mouseleave="handleDropdownMenuLeave(record.name)"
+                        @click="handleMenuClick"
                       >
-                        <ScissorOutlined />
-                        {{ $t('files.move') }}
-                      </a-menu-item>
-                      <a-menu-item
-                        v-if="!record.isDir && !record.isLink"
-                        @click="deleteFile(record as FileRecord)"
-                      >
-                        <DeleteOutlined />
-                        {{ $t('files.delete') }}
-                      </a-menu-item>
-                    </a-menu>
-                  </template>
-                </a-dropdown>
+                        <a-menu-item
+                          v-if="!isTeam"
+                          @click="copyFile(record as FileRecord)"
+                        >
+                          <CopyOutlined />
+                          {{ $t('files.copy') }}
+                        </a-menu-item>
+                        <a-menu-item
+                          v-if="!isTeam"
+                          @click="moveFile(record as FileRecord)"
+                        >
+                          <ScissorOutlined />
+                          {{ $t('files.move') }}
+                        </a-menu-item>
+                        <a-menu-item
+                          v-if="!record.isDir && !record.isLink"
+                          @click="deleteFile(record as FileRecord)"
+                        >
+                          <DeleteOutlined />
+                          {{ $t('files.delete') }}
+                        </a-menu-item>
+                      </a-menu>
+                    </template>
+                  </a-dropdown>
+                </div>
               </div>
-            </div>
+            </template>
+            <template v-else>
+              <a-tooltip placement="top">
+                <template #title>
+                  {{ column.dataIndex === 'size' ? renderSize(record.size) : text }}
+                </template>
+
+                <span class="column-ellipsis-text">
+                  <template v-if="column.dataIndex === 'size'">
+                    {{ !record.isDir && !record.isLink ? renderSize(record.size) : '' }}
+                  </template>
+                  <template v-else>
+                    {{ text }}
+                  </template>
+                </span>
+              </a-tooltip>
+            </template>
           </template>
-        </template>
-      </a-table>
+        </a-table>
+      </div>
     </a-card>
 
     <a-modal
@@ -366,7 +432,7 @@
 </template>
 
 <script setup lang="ts">
-import { h, onMounted, reactive, ref, watch } from 'vue'
+import { h, onBeforeUnmount, onMounted, reactive, ref, watch, computed, shallowRef } from 'vue'
 import copyOrMoveModal from './moveModal.vue'
 import {
   CheckOutlined,
@@ -393,7 +459,18 @@ import { useI18n } from 'vue-i18n'
 import { CheckboxValueType } from 'ant-design-vue/es/checkbox/interface'
 import cloneDeep from 'clone-deep'
 
-const emit = defineEmits(['openFile'])
+type CachedFsState = {
+  files: FileRecord[]
+  localCurrentDirectoryInput: string
+  showErr: boolean
+  errTips: string
+  isFirstLoad: boolean
+}
+
+const FS_STATE_CACHE = new Map<string, CachedFsState>()
+const makeCacheKey = (uuid: string, basePath: string) => `${uuid}::${basePath || ''}`
+
+const emit = defineEmits(['openFile', 'crossTransfer'])
 const api = (window as any).api
 const { t } = useI18n()
 const { t: $t } = useI18n()
@@ -422,6 +499,20 @@ const props = defineProps({
     default: () => {
       return 'local'
     }
+  },
+  // UI mode (default or WinSCP-like transfer layout)
+  uiMode: {
+    type: String,
+    default: () => {
+      return 'default'
+    }
+  },
+  // Which panel this file table belongs to in transfer mode
+  panelSide: {
+    type: String,
+    default: () => {
+      return ''
+    }
   }
 })
 
@@ -448,19 +539,22 @@ export interface FileRecord {
   disabled?: boolean
 }
 
+type PanelSide = 'left' | 'right' | ''
+
+const uiMode = computed(() => props.uiMode as 'default' | 'transfer')
+const panelSide = computed(() => props.panelSide as PanelSide)
+
 const localCurrentDirectoryInput = ref(props.currentDirectoryInput)
 const basePath = ref(props.basePath)
 const files = ref<FileRecord[]>([])
 const loading = ref(false)
 const showErr = ref(false)
 const errTips = ref('')
-// Template ref used in template
-// @ts-expect-error - Template ref, used in template via ref="tableRef"
 const tableRef = ref<HTMLElement | null>(null)
 
 type FlexibleColumn = Partial<ColumnsType<FileRecord>[number]>
 
-const columns: FlexibleColumn[] = [
+const baseColumns: FlexibleColumn[] = [
   {
     title: t('files.name'),
     dataIndex: 'name',
@@ -529,10 +623,26 @@ const columns: FlexibleColumn[] = [
   }
 ]
 
-const tableScroll = reactive({
-  x: 'max-content'
-})
+const tableColumns = computed(() => {
+  if (uiMode.value !== 'transfer') return baseColumns
 
+  return baseColumns
+    .filter((c: any) => c.dataIndex !== 'mode')
+    .map((c: any) => {
+      if (c.dataIndex === 'name') {
+        return { ...c, width: 120, minWidth: 80, ellipsis: true }
+      }
+      if (c.dataIndex === 'size') {
+        return { ...c, width: 40, minWidth: 40, ellipsis: true }
+      }
+      if (c.dataIndex === 'modTime') {
+        return { ...c, width: 70, minWidth: 60, ellipsis: true }
+      }
+      return { ...c, width: 70, minWidth: 70, ellipsis: true }
+    })
+})
+// const tableScroll = computed(() => (uiMode.value === 'transfer' ? {} : { x: 'max-content' }))
+const tableScroll = computed(() => (uiMode.value === 'transfer' ? { x: 350 } : { x: 'max-content' }))
 const renderSize = (value: number): string => {
   if (value == null || value === 0) {
     return '0 B'
@@ -688,8 +798,371 @@ const getDirname = (filepath: string) => {
 }
 
 const joinPath = (...parts: string[]) => {
-  return parts.join('/').replace(/\/+/g, '/')
+  return parts
+    .map((p) => p.trim())
+    .filter(Boolean)
+    .join('/')
+    .replace(/\/+/g, '/')
 }
+
+// Transfer mode drag & drop (cross-panel)
+const DND_MIME = 'application/x-synchro-fs-item'
+
+// Fallback channel for cross-component drag context (dragover may not expose custom MIME on some browsers)
+const GLOBAL_DND_FROM_SIDE_KEY = '__synchro_fs_dnd_from_side__'
+const setGlobalDragFromSide = (side: string | null) => {
+  ;(globalThis as any)[GLOBAL_DND_FROM_SIDE_KEY] = side
+}
+const getGlobalDragFromSide = (): string | null => {
+  return ((globalThis as any)[GLOBAL_DND_FROM_SIDE_KEY] as string | null) || null
+}
+
+// Visual feedback for drop zone
+const dropActive = ref(false)
+const dropNotAllowed = ref(false)
+
+// Folder-row hover feedback while dragging (target side only)
+const dragHoverRow = ref<string | null>(null)
+const dragHoverTargetDir = ref<string | null>(null)
+
+// Some WebKit/Electron builds won't expose custom MIME on dragover; keep a text/plain fallback.
+const DND_TEXT_PREFIX = 'synchro-fs-item:'
+
+// Cache parsing to avoid JSON.parse on every dragover tick
+let lastDndKey = ''
+let lastDndPayload: any = null
+
+const readDndPayload = (e: DragEvent) => {
+  const dt = e.dataTransfer
+  if (!dt) return null
+
+  // Prefer custom MIME
+  let raw = dt.getData(DND_MIME) || ''
+
+  // Fallback to text/plain (more widely readable during dragover)
+  if (!raw) {
+    const txt = dt.getData('text/plain') || ''
+    if (txt.startsWith(DND_TEXT_PREFIX)) {
+      raw = txt.slice(DND_TEXT_PREFIX.length)
+    } else {
+      const t = txt.trim()
+      if (t.startsWith('{') && t.includes('"kind"')) raw = t
+    }
+  }
+
+  if (!raw) return null
+  if (raw === lastDndKey) return lastDndPayload
+  lastDndKey = raw
+  try {
+    lastDndPayload = JSON.parse(raw)
+    return lastDndPayload
+  } catch {
+    lastDndPayload = null
+    return null
+  }
+}
+
+const clearDragHover = () => {
+  if (dragHoverRow.value !== null) dragHoverRow.value = null
+  if (dragHoverTargetDir.value !== null) dragHoverTargetDir.value = null
+}
+
+// Build a lookup map for fast rowKey -> record resolution
+// const recordByName = computed(() => {
+//   const m = new Map<string, FileRecord>()
+//   for (const r of files.value) m.set(r.name, r)
+//   return m
+// })
+const recordByName = shallowRef(new Map<string, FileRecord>())
+watch(
+  files,
+  (list) => {
+    const m = new Map<string, FileRecord>()
+    for (const r of list) m.set(r.name, r)
+    recordByName.value = m
+  },
+  { immediate: true }
+)
+
+// rAF throttle to avoid flooding reactivity during dragover
+let dndRaf = 0
+let lastDragOverEvent: DragEvent | null = null
+
+// Drop-zone lifecycle (avoid TTL clearing: dragover can be sparse when crossing panels)
+let dragDepth = 0
+let leaveTimer: number | null = null
+
+const cancelLeaveTimer = () => {
+  if (leaveTimer) window.clearTimeout(leaveTimer)
+  leaveTimer = null
+}
+
+const clearDropState = () => {
+  dropActive.value = false
+  dropNotAllowed.value = false
+  clearDragHover()
+  clearHoverRowDom()
+}
+
+const scheduleLeaveClear = () => {
+  cancelLeaveTimer()
+  // buffer a bit to avoid enter/leave chatter when moving across children
+  leaveTimer = window.setTimeout(() => {
+    clearDropState()
+  }, 300)
+}
+
+const onRowDragStart = (e: DragEvent, record: FileRecord) => {
+  if (uiMode.value !== 'transfer' || !panelSide.value) return
+  if (!e.dataTransfer) return
+  // Filter non-dragable items
+  if (record.key === '..' || record.disabled || record.isLink) return
+
+  e.dataTransfer.effectAllowed = 'copy'
+  const data = {
+    kind: 'fs-item',
+    fromUuid: props.uuid,
+    fromSide: panelSide.value,
+    srcPath: record.path,
+    name: record.name,
+    isDir: !!record.isDir
+  }
+
+  e.dataTransfer.setData(DND_MIME, JSON.stringify(data))
+  // Fallback for dragover (some builds can't read custom MIME during dragover)
+  e.dataTransfer.setData('text/plain', `${DND_TEXT_PREFIX}${JSON.stringify(data)}`)
+  setGlobalDragFromSide(panelSide.value)
+
+  // reset per-drag state
+  dropNotAllowed.value = false
+  clearDragHover()
+  lastDndKey = ''
+  lastDndPayload = null
+}
+
+const onRowDragEnd = () => {
+  setGlobalDragFromSide(null)
+  dragDepth = 0
+  cancelLeaveTimer()
+  clearDropState()
+
+  // reset per-drag caches
+  lastDndKey = ''
+  lastDndPayload = null
+  lastRowElCache = null
+  lastHitTestAt = 0
+}
+const onDropZoneEnter = (e: DragEvent) => {
+  if (uiMode.value !== 'transfer' || !panelSide.value) return
+  dragDepth++
+  cancelLeaveTimer()
+  onDropZoneOver(e)
+}
+
+const onDropZoneLeave = (_e: DragEvent) => {
+  if (uiMode.value !== 'transfer' || !panelSide.value) return
+  // `dragenter`/`dragleave` events are frequently triggered between child nodes. Use depth counting to avoid jitter
+  dragDepth = Math.max(0, dragDepth - 1)
+  if (dragDepth === 0) scheduleLeaveClear()
+}
+
+let lastHitTestAt = 0
+let lastRowElCache: HTMLElement | null = null
+
+const findRowElFast = (ev: DragEvent) => {
+  const t = ev.target as HTMLElement | null
+  if (t?.closest) {
+    const tr = t.closest('tr.ant-table-row, .ant-table-row') as HTMLElement | null
+    if (tr) return tr
+  }
+
+  const path = (ev.composedPath?.() || []) as any[]
+  for (let i = 0; i < Math.min(path.length, 12); i++) {
+    const p = path[i]
+    if (p && p.closest) {
+      const tr = (p as HTMLElement).closest('tr.ant-table-row, .ant-table-row') as HTMLElement | null
+      if (tr) return tr
+    }
+  }
+
+  return null
+}
+
+let lastHoverTr: HTMLElement | null = null
+let lastHoverDir: string | null = null
+
+const setHoverRowDom = (rowKey: string) => {
+  const tableEl = (tableRef.value as any)?.$el as HTMLElement | undefined
+  if (!tableEl) return
+
+  // The Ant Table row has a data-row-key
+  const tr = rowKey ? (tableEl.querySelector(`tbody tr[data-row-key="${CSS.escape(rowKey)}"]`) as HTMLElement | null) : null
+
+  if (tr === lastHoverTr) return
+
+  if (lastHoverTr) lastHoverTr.classList.remove('file-table-row-drag-hover')
+  if (tr) tr.classList.add('file-table-row-drag-hover')
+
+  lastHoverTr = tr
+}
+
+const clearHoverRowDom = () => {
+  if (lastHoverTr) lastHoverTr.classList.remove('file-table-row-drag-hover')
+  lastHoverTr = null
+  lastHoverDir = null
+}
+const onAnyDndFinish = () => {
+  // only handle our internal transfer drags
+  if (uiMode.value !== 'transfer') return
+  if (!getGlobalDragFromSide()) return
+
+  setGlobalDragFromSide(null)
+  dragDepth = 0
+  cancelLeaveTimer()
+  clearDropState()
+  if (dndRaf) {
+    window.cancelAnimationFrame(dndRaf)
+    dndRaf = 0
+  }
+
+  lastDndKey = ''
+  lastDndPayload = null
+  lastRowElCache = null
+  lastHitTestAt = 0
+}
+
+const onDropZoneOver = (e: DragEvent) => {
+  if (uiMode.value !== 'transfer' || !panelSide.value) return
+
+  if (dragDepth === 0) dragDepth = 1
+  cancelLeaveTimer()
+
+  // Update the lastDragOverEvent every time
+  lastDragOverEvent = e
+
+  const dt = e.dataTransfer
+
+  const fromSide = getGlobalDragFromSide() || ''
+  const isFsItem = !!fromSide
+
+  // Non-file transfer drag and drop: not participating in drop
+  if (!isFsItem || !fromSide) {
+    clearDropState()
+    return
+  }
+
+  const sameSide = fromSide === panelSide.value
+  const crossSide = fromSide !== panelSide.value
+
+  if (sameSide) {
+    // Same side: Display prohibition symbol
+    dropNotAllowed.value = true
+    dropActive.value = false
+    clearDragHover()
+    clearHoverRowDom()
+
+    e.preventDefault()
+    e.stopPropagation()
+    if (dt) dt.dropEffect = 'none'
+    return
+  }
+
+  if (!crossSide) {
+    clearDropState()
+    return
+  }
+
+  dropNotAllowed.value = false
+  dropActive.value = true
+  e.preventDefault()
+  e.stopPropagation()
+  if (dt) dt.dropEffect = 'copy'
+
+  if (dndRaf) return
+
+  dndRaf = window.requestAnimationFrame(() => {
+    dndRaf = 0
+    const ev = lastDragOverEvent
+    if (!ev) return
+
+    // Highlight the directory line when you move to it
+    const findRowEl = (ev: DragEvent) => {
+      const fast = findRowElFast(ev)
+      if (fast) {
+        lastRowElCache = fast
+        return fast
+      }
+
+      const now = performance.now()
+      if (now - lastHitTestAt < 100) {
+        return lastRowElCache
+      }
+      lastHitTestAt = now
+
+      const el = document.elementFromPoint(ev.clientX, ev.clientY) as HTMLElement | null
+      const tr = el?.closest?.('tr.ant-table-row, .ant-table-row') as HTMLElement | null
+      if (tr) lastRowElCache = tr
+      return tr
+    }
+
+    const rowEl = findRowEl(ev)
+    const rowKey = rowEl?.getAttribute?.('data-row-key') || (rowEl as any)?.dataset?.rowKey || ''
+
+    if (rowKey) {
+      const rec = recordByName.value.get(rowKey)
+      if (rec && rec.isDir && rec.key !== '..' && !rec.disabled) {
+        setHoverRowDom(rowKey)
+        lastHoverDir = rec.path
+      } else {
+        clearHoverRowDom()
+      }
+    } else {
+      clearHoverRowDom()
+    }
+
+    dropActive.value = true
+    cancelLeaveTimer()
+  })
+}
+
+const onDropZoneDrop = (e: DragEvent) => {
+  // Always prevent default on drop to avoid browser side-effects
+  e.preventDefault()
+
+  const hoveredDir = lastHoverDir
+
+  // Drag end: Unified cleanup
+  setGlobalDragFromSide(null)
+  dragDepth = 0
+  cancelLeaveTimer()
+  clearDropState()
+  if (dndRaf) {
+    window.cancelAnimationFrame(dndRaf)
+    dndRaf = 0
+  }
+
+  // reset per-drag caches
+  lastDndKey = ''
+  lastDndPayload = null
+  lastRowElCache = null
+  lastHitTestAt = 0
+
+  if (uiMode.value !== 'transfer' || !panelSide.value) return
+
+  const payload = readDndPayload(e)
+  if (!payload || payload?.kind !== 'fs-item') return
+
+  if (payload.fromSide === panelSide.value) return
+
+  emit('crossTransfer', {
+    ...payload,
+    toUuid: props.uuid,
+    toSide: panelSide.value,
+    // Drop to the directory where the hover is located first; otherwise, drop to the current directory
+    targetDir: hoveredDir || joinPath(basePath.value, localCurrentDirectoryInput.value)
+  })
+}
+
 const rollback = (): void => {
   loadFiles(props.uuid, getDirname(basePath.value + localCurrentDirectoryInput.value))
 }
@@ -699,55 +1172,59 @@ const handleRefresh = (): void => {
 }
 
 onMounted(async () => {
+  document.addEventListener('dragend', onAnyDndFinish, true)
+  document.addEventListener('drop', onAnyDndFinish, true)
+
   isTeamCheck(props.uuid)
+  // Try restore from cache first
+  const cacheKey = makeCacheKey(props.uuid, basePath.value)
+  const cached = FS_STATE_CACHE.get(cacheKey)
+  if (cached && Array.isArray(cached.files) && cached.files.length) {
+    files.value = cached.files
+    localCurrentDirectoryInput.value = cached.localCurrentDirectoryInput || localCurrentDirectoryInput.value
+    showErr.value = !!cached.showErr
+    errTips.value = cached.errTips || ''
+    isFirstLoad.value = cached.isFirstLoad ? cached.isFirstLoad : false
+    return
+  }
+
   await loadFiles(props.uuid, basePath.value + localCurrentDirectoryInput.value)
 })
 
-// TODO Delete
-//
-// const uploadFile = async (): Promise<void> => {
-//   const selected = await api.openFileDialog()
-//   if (!selected) return
-//   const key = props.uuid
-//   try {
-//     message.loading({ content: t('files.uploading'), key, duration: 0 })
-//     const res = await api.uploadFile({
-//       id: key,
-//       remotePath: basePath.value + currentDirectoryInput.value,
-//       localPath: selected
-//     })
-//     refresh()
-//     message.success({
-//       content: res.status === 'success' ? t('files.uploadSuccess') : `${t('files.uploadFailed')}：${res.message}`,
-//       key,
-//       duration: 3
-//     })
-//   } catch (err) {
-//     message.error({ content: `${t('files.uploadError')}：${(err as Error).message}`, key, duration: 3 })
-//   }
-// }
-//
-// const uploadDirectory = async (): Promise<void> => {
-//   const selected = await api.openDirectoryDialog()
-//   if (!selected) return
-//   const key = props.uuid
-//   try {
-//     message.loading({ content: t('files.uploading'), key, duration: 0 })
-//     const res = await api.uploadDirectory({
-//       id: key,
-//       localDir: selected,
-//       remoteDir: basePath.value + currentDirectoryInput.value
-//     })
-//     refresh()
-//     message.success({
-//       content: res.status === 'success' ? t('files.uploadSuccess') : `${t('files.uploadFailed')}：${res.message}`,
-//       key,
-//       duration: 3
-//     })
-//   } catch (err) {
-//     message.error({ content: `${t('files.uploadError')}：${(err as Error).message}`, key, duration: 3 })
-//   }
-// }
+// Keep cache up-to-date (avoid deep watch: it can be expensive for large directories)
+watch(
+  () => [props.uuid, basePath.value, files.value, localCurrentDirectoryInput.value, showErr.value, errTips.value],
+  () => {
+    const cacheKey = makeCacheKey(props.uuid, basePath.value)
+    FS_STATE_CACHE.set(cacheKey, {
+      files: files.value,
+      localCurrentDirectoryInput: localCurrentDirectoryInput.value,
+      showErr: showErr.value,
+      errTips: errTips.value,
+      isFirstLoad: isFirstLoad.value
+    })
+  },
+  { deep: false }
+)
+
+onBeforeUnmount(() => {
+  document.removeEventListener('dragend', onAnyDndFinish, true)
+  document.removeEventListener('drop', onAnyDndFinish, true)
+  cancelLeaveTimer()
+  if (dndRaf) {
+    window.cancelAnimationFrame(dndRaf)
+    dndRaf = 0
+  }
+
+  const cacheKey = makeCacheKey(props.uuid, basePath.value)
+  FS_STATE_CACHE.set(cacheKey, {
+    files: files.value,
+    localCurrentDirectoryInput: localCurrentDirectoryInput.value,
+    showErr: showErr.value,
+    errTips: errTips.value,
+    isFirstLoad: isFirstLoad.value
+  })
+})
 
 const uploadFile = async () => {
   const localPath = await api.openFileDialog()
@@ -814,21 +1291,37 @@ const hoverTimers = new Map<string, number | NodeJS.Timeout>()
 // The status of the mouse in the dropdown menu area
 const mouseInDropdown = reactive({})
 
-const customRow = (record) => {
-  return {
+const customRow = (record: FileRecord) => {
+  const row: any = {
     class: getRowClass(record.name),
     onMouseenter: () => handleRowMouseEnter(record.name),
     onMouseleave: () => handleRowMouseLeave(record.name)
   }
+
+  if (uiMode.value === 'transfer' && panelSide.value) {
+    // Disallow dragging ".." and links; allow files and folders.
+    if (record.key !== '..' && !record.disabled && !record.isLink) {
+      row.draggable = true
+      row.onDragstart = (e: DragEvent) => onRowDragStart(e, record)
+      row.onDragend = () => onRowDragEnd()
+    }
+  }
+
+  return row
 }
 
 const getRowClass = (recordName) => {
   const classes = ['file-table-row']
-
-  // Conditions for displaying hover effect：
+  // Hover (mouse) actions
   if (currentHoverRow.value === recordName || dropdownVisible[recordName] || mouseInDropdown[recordName]) {
     classes.push('file-table-row-hover')
-    // classes.push()
+  }
+
+  // Hover (drag) folder target
+  if (dragHoverRow.value === recordName) {
+    // Reuse the same background style as normal hover (like .ssh in your screenshot)
+    classes.push('file-table-row-drag-hover')
+    classes.push('file-table-row-hover')
   }
 
   return classes.join(' ')
@@ -1335,7 +1828,6 @@ defineExpose({
 
 <style scoped>
 .base-file {
-  border-color: var(--border-color);
   background-color: var(--bg-color);
 }
 
@@ -1373,7 +1865,6 @@ defineExpose({
   .action-buttons {
     opacity: 0;
     transition: opacity 0.2s ease-in-out;
-    border-color: red;
   }
 
   &:hover .action-buttons {
@@ -1448,6 +1939,10 @@ defineExpose({
   align-items: center;
 }
 
+.files-table :deep(.ant-table-cell::before) {
+  display: none !important;
+}
+
 .hover-actions {
   position: absolute;
   right: 10px;
@@ -1463,6 +1958,15 @@ defineExpose({
   padding: 2px;
   /* box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1); */
   z-index: 10;
+}
+
+.files-table :deep(.ant-table-tbody > tr.file-table-row-drag-hover) > td {
+  background-color: var(--hover-bg-color) !important;
+  outline-offset: -1px;
+}
+
+.transfer-drop-zone.drop-not-allowed {
+  cursor: not-allowed !important;
 }
 
 .files-table :deep(.ant-table-tbody > tr.file-table-row-hover) .hover-actions {
@@ -1495,13 +1999,27 @@ defineExpose({
   background-color: rgba(255, 77, 79, 0.1);
 }
 
-.file-name-cell > span {
+.file-name-main {
   position: relative;
   z-index: 1;
+  display: flex;
+  align-items: center;
+  min-width: 0;
   max-width: calc(100% - 120px);
-  white-space: nowrap;
+}
+
+.file-name-icon {
+  flex: 0 0 auto;
+  margin-right: 4px;
+}
+
+.file-name-text {
+  flex: 1 1 auto;
+  min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
+  white-space: nowrap;
+  vertical-align: bottom;
 }
 
 @media (max-width: 768px) {
@@ -1513,7 +2031,7 @@ defineExpose({
     margin-left: auto;
   }
 
-  .file-name-cell > span {
+  .file-name-main {
     max-width: calc(100% - 140px);
   }
 }
@@ -1529,7 +2047,6 @@ defineExpose({
 .permission-settings {
   margin-top: 15px;
   padding-top: 15px;
-  border-top: 1px solid #f0f0f0;
 }
 
 .setting-item {
@@ -1544,7 +2061,7 @@ defineExpose({
 }
 
 .files-table :deep(.ant-table-tbody > tr.file-table-row-hover > td) {
-  background-color: var(--bg-color-secondary) !important;
+  background-color: var(--hover-bg-color) !important;
 }
 
 :deep(.ant-dropdown-menu-item) {
@@ -1554,5 +2071,57 @@ defineExpose({
 
 :deep(.ant-dropdown-menu-item:hover) {
   background-color: var(--hover-bg-color) !important;
+}
+
+.transfer-drop-zone {
+  border-radius: 6px;
+}
+
+.transfer-drop-zone.drop-active {
+  background: transparent !important;
+  box-shadow: inset 0 0 0 1px var(--button-bg-color);
+}
+
+.transfer-mode .file-name-main {
+  max-width: calc(100% - 90px);
+}
+
+.files-table {
+  --sb-size: 6px;
+  --sb-thumb: var(--border-color-light);
+  --sb-thumb-hover: var(--text-color-tertiary);
+  --sb-track: transparent;
+}
+
+.files-table :deep(.ant-table-body),
+.files-table :deep(.ant-table-content) {
+  background: var(--bg-color);
+}
+
+/* Chromium/Electron */
+.files-table :deep(.ant-table-body)::-webkit-scrollbar,
+.files-table :deep(.ant-table-content)::-webkit-scrollbar {
+  width: var(--sb-size);
+  height: var(--sb-size);
+}
+
+.files-table :deep(.ant-table-body)::-webkit-scrollbar-track,
+.files-table :deep(.ant-table-content)::-webkit-scrollbar-track {
+  background: var(--sb-track);
+}
+
+.files-table :deep(.ant-table-body)::-webkit-scrollbar-thumb,
+.files-table :deep(.ant-table-content)::-webkit-scrollbar-thumb {
+  background-color: var(--sb-thumb);
+  border-radius: 6px;
+}
+
+.files-table :deep(.ant-table-body)::-webkit-scrollbar-thumb:hover,
+.files-table :deep(.ant-table-content)::-webkit-scrollbar-thumb:hover {
+  background-color: var(--sb-thumb-hover);
+}
+
+.files-table :deep(.ant-table-cell) {
+  white-space: nowrap;
 }
 </style>

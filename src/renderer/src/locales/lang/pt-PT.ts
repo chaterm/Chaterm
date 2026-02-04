@@ -760,14 +760,12 @@ export default {
     yesterday: 'Ontem',
     favorite: 'Favoritos',
     welcome: 'O que posso fazer para você no terminal?',
-    welcomeTips: [
-      'O que posso fazer para você no terminal?',
-      'Digite @ para selecionar mais hosts em modo Agent',
-      'Pressione Shift + Tab para alternar modo'
-    ],
+    welcomeTips: ['O que posso fazer para você no terminal?', '@ para contexto, / para comandos', 'Pressione Shift + Tab para alternar modo'],
     loginPrompt: 'Login para usar recursos de IA, novos usuários podem usar gratuitamente por duas semanas',
     searchHost: 'Pesquisar por IP',
     noMatchingHosts: 'Nenhum host correspondente',
+    searchCommand: 'Pesquisar comandos',
+    noMatchingCommands: 'Nenhum comando correspondente',
     copy: 'Copiar',
     run: 'Executar',
     reject: 'Rejeitar',
@@ -1083,7 +1081,14 @@ export default {
     doubleClickToOpen: 'Clique duplo para abrir',
     sftpConnectFailed: 'Conexão SFTP falhou',
     noDataAvailable: 'Nenhum dado disponível, por favor, conecte-se a um servidor primeiro',
-    pleaseInputNewFileName: 'Por favor, insira o novo nome de arquivo'
+    pleaseInputNewFileName: 'Por favor, insira o novo nome de arquivo',
+    dragTransfer: 'Transferência arrastar e soltar',
+    defaultMode: 'Modo padrão',
+    dragTransferMode: 'Modo de arrastar e soltar',
+    treeExpand: 'Expandir',
+    treeFoldUp: 'Colapsar',
+    transferSuccess: 'Transferência concluída',
+    transferFailed: 'A transferência falhou'
   },
   about: {
     version: 'Versão',
@@ -1256,6 +1261,7 @@ export default {
     autoApproveHelp: 'Ferramentas auto-aprovadas serão executadas sem confirmação do usuário'
   },
   macro: {
+    title: 'Comando rápido',
     startRecording: 'Macro Gravar',
     stopRecording: 'Parar Gravação',
     saveRecording: 'Guardar Gravação',
@@ -1321,5 +1327,12 @@ export default {
     importOverwriteTitle: 'Competência já existe',
     importOverwriteContent: 'Deseja sobrescrever a competência existente?',
     importOverwrite: 'Sobrescrever'
+  },
+  knowledgeCenter: {
+    title: 'Base de Conhecimento',
+    newFile: 'Novo arquivo',
+    newFolder: 'Nova pasta',
+    uploadFile: 'Upload arquivo',
+    refresh: 'Atualizar'
   }
 }

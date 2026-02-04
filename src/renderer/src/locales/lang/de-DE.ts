@@ -762,14 +762,12 @@ export default {
     yesterday: 'Gestern',
     favorite: 'Favoriten',
     welcome: 'Was kann ich für Sie im Terminal tun?',
-    welcomeTips: [
-      'Was kann ich für Sie im Terminal tun?',
-      'Typ @ um mehr Hosts in Agent-Modus auszuwählen',
-      'Drücken Sie Shift + Tab um den Modus zu wechseln'
-    ],
+    welcomeTips: ['Was kann ich für Sie im Terminal tun?', '@ für Kontext, / für Befehle', 'Drücken Sie Shift + Tab um den Modus zu wechseln'],
     loginPrompt: 'Login um AI-Features zu verwenden, neue Benutzer können für 2 Wochen kostenlos verwenden',
     searchHost: 'Nach IP suchen',
     noMatchingHosts: 'Keine übereinstimmenden Hosts',
+    searchCommand: 'Befehle suchen',
+    noMatchingCommands: 'Keine passenden Befehle',
     copy: 'Kopieren',
     run: 'Ausführen',
     reject: 'Ablehnen',
@@ -1085,7 +1083,14 @@ export default {
     doubleClickToOpen: 'Doppelklick zum Öffnen',
     sftpConnectFailed: 'SFTP Verbindung fehlgeschlagen',
     noDataAvailable: 'Keine Daten verfügbar, bitte verbinden Sie sich zuerst mit einem Server',
-    pleaseInputNewFileName: 'Bitte geben Sie einen neuen Dateinamen ein'
+    pleaseInputNewFileName: 'Bitte geben Sie einen neuen Dateinamen ein',
+    dragTransfer: 'Ziehen und Übertragen',
+    defaultMode: 'Standardmodus',
+    dragTransferMode: 'Ziehmodus',
+    treeExpand: 'Ausklappen',
+    treeFoldUp: 'Einklappen',
+    transferSuccess: 'Übertragung abgeschlossen',
+    transferFailed: 'Übertragung fehlgeschlagen'
   },
   about: {
     version: 'Version',
@@ -1258,6 +1263,7 @@ export default {
     autoApproveHelp: 'Auto-genehmigte Tools werden ohne Benutzerbestätigung ausgeführt'
   },
   macro: {
+    title: 'Makro',
     startRecording: 'Makro Aufzeichnen',
     stopRecording: 'Makro Aufzeichnen stoppen',
     saveRecording: 'Makro Aufzeichnen speichern',
@@ -1324,5 +1330,12 @@ export default {
     importOverwriteTitle: 'Skill bereits vorhanden',
     importOverwriteContent: 'Möchten Sie den bestehenden Skill überschreiben?',
     importOverwrite: 'Überschreiben'
+  },
+  knowledgeCenter: {
+    title: 'Wissensdatenbank',
+    newFile: 'Neue Datei',
+    newFolder: 'Neuer Ordner',
+    uploadFile: 'Datei hochladen',
+    refresh: 'Aktualisieren'
   }
 }

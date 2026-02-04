@@ -21,6 +21,13 @@ const handleToggleLayout = async () => {
   })
   await nextTick()
   currentMode.value = targetMode
+
+  try {
+    await userConfigStore.saveConfig({ defaultLayout: targetMode })
+    eventBus.emit('defaultLayoutChanged', targetMode)
+  } catch (error) {
+    console.error('Failed to update default layout:', error)
+  }
 }
 
 onMounted(async () => {

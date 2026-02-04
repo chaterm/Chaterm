@@ -4,6 +4,8 @@ import { CommandResult, EvictConfig } from './types'
 
 export class autoCompleteDatabaseService {
   private static instances: Map<number, autoCompleteDatabaseService> = new Map()
+  // Lock map to prevent race conditions during async initialization
+  private static initializingPromises: Map<number, Promise<autoCompleteDatabaseService>> = new Map()
   private db: Database.Database
   private commandCount: number = 0
   private lastEvictTime: number = 0
@@ -96,13 +98,35 @@ export class autoCompleteDatabaseService {
       throw new Error('User ID is required for autoCompleteDatabaseService')
     }
 
-    if (!autoCompleteDatabaseService.instances.has(targetUserId)) {
-      console.log(`Creating new autoCompleteDatabaseService instance for user ${targetUserId}`)
-      const db = await initDatabase(targetUserId)
-      const instance = new autoCompleteDatabaseService(db, targetUserId)
-      autoCompleteDatabaseService.instances.set(targetUserId, instance)
+    // Return existing instance immediately if available
+    const existingInstance = autoCompleteDatabaseService.instances.get(targetUserId)
+    if (existingInstance) {
+      return existingInstance
     }
-    return autoCompleteDatabaseService.instances.get(targetUserId)!
+
+    // Check if initialization is already in progress for this user
+    const existingPromise = autoCompleteDatabaseService.initializingPromises.get(targetUserId)
+    if (existingPromise) {
+      console.log(`Waiting for existing autoComplete initialization for user ${targetUserId}`)
+      return existingPromise
+    }
+
+    // Start new initialization and store the promise
+    console.log(`Creating new autoCompleteDatabaseService instance for user ${targetUserId}`)
+    const initPromise = (async () => {
+      try {
+        const db = await initDatabase(targetUserId)
+        const instance = new autoCompleteDatabaseService(db, targetUserId)
+        autoCompleteDatabaseService.instances.set(targetUserId, instance)
+        return instance
+      } finally {
+        // Clean up the initializing promise after completion (success or failure)
+        autoCompleteDatabaseService.initializingPromises.delete(targetUserId)
+      }
+    })()
+
+    autoCompleteDatabaseService.initializingPromises.set(targetUserId, initPromise)
+    return initPromise
   }
 
   public getUserId(): number {

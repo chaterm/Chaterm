@@ -6,31 +6,41 @@ export interface Task {
   name: string
   progress: number
   remotePath: string
+  destPath?: string
   speed: string
-  type: 'upload' | 'download'
+  type: 'upload' | 'download' | 'r2r'
   lastBytes: number
   lastTime: number
+  fromId?: string
+  toId?: string
 }
 
 export const transferTasks = ref<Record<string, Task>>({})
 const api = (window as any).api
 
 export const initTransferListener = () => {
-  api.onTransferProgress(({ id, taskKey, remotePath, bytes, total, type }) => {
-    const cleanPath = remotePath.replace(/\/+/g, '/')
+  api.onTransferProgress((payload: any) => {
+    const { taskKey, type, bytes = 0, total = 0, remotePath = '', destPath, id, fromId, toId } = payload || {}
 
-    // Upon receiving progress for the first time, automatically create one
+    if (!taskKey) return
+
+    const cleanPath = String(remotePath).replace(/\/+/g, '/')
+
     if (!transferTasks.value[taskKey]) {
+      const baseName = cleanPath.split('/').pop() || ''
       transferTasks.value[taskKey] = {
-        id: String(id),
-        taskKey: taskKey,
-        name: cleanPath.split('/').pop() || '',
+        id: String(id ?? fromId ?? toId ?? ''),
+        taskKey,
+        name: baseName,
         remotePath: cleanPath,
+        destPath: destPath ? String(destPath).replace(/\/+/g, '/') : undefined,
         progress: 0,
         speed: '0 KB/s',
-        type,
+        type: (type as Task['type']) || 'download',
         lastBytes: bytes,
-        lastTime: Date.now()
+        lastTime: Date.now(),
+        fromId,
+        toId
       }
     }
 
@@ -44,7 +54,8 @@ export const initTransferListener = () => {
       task.lastBytes = bytes
       task.lastTime = now
     }
-    task.progress = Math.round((bytes / total) * 100)
+
+    task.progress = total > 0 ? Math.min(100, Math.round((bytes / total) * 100)) : 0
 
     if (task.progress === 100) {
       setTimeout(() => delete transferTasks.value[taskKey], 3000)
@@ -54,3 +65,14 @@ export const initTransferListener = () => {
 
 export const downloadList = computed(() => Object.values(transferTasks.value).filter((t) => t.type === 'download'))
 export const uploadList = computed(() => Object.values(transferTasks.value).filter((t) => t.type === 'upload'))
+export const r2rList = computed(() => Object.values(transferTasks.value).filter((t) => t.type === 'r2r'))
+
+export const r2rGroups = computed(() => {
+  const groups: Record<string, Task[]> = {}
+  for (const t of Object.values(transferTasks.value)) {
+    if (t.type !== 'r2r') continue
+    const key = `${t.fromId ?? 'unknown'} → ${t.toId ?? 'unknown'}`
+    ;(groups[key] ||= []).push(t)
+  }
+  return groups
+})

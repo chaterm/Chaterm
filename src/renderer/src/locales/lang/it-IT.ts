@@ -761,14 +761,12 @@ export default {
     yesterday: 'Ieri',
     favorite: 'Preferiti',
     welcome: 'Cosa posso fare per te nel terminale?',
-    welcomeTips: [
-      'Cosa posso fare per te nel terminale?',
-      'Digita @ per selezionare più host in modalità Agent',
-      'Premi Shift + Tab per cambiare modalità'
-    ],
+    welcomeTips: ['Cosa posso fare per te nel terminale?', '@ per il contesto, / per i comandi', 'Premi Shift + Tab per cambiare modalità'],
     loginPrompt: 'Login per utilizzare funzionalità AI, nuovi utenti possono usarle gratuitamente per due settimane',
     searchHost: 'Cerca per IP',
     noMatchingHosts: 'Nessun host corrispondente',
+    searchCommand: 'Cerca comandi',
+    noMatchingCommands: 'Nessun comando corrispondente',
     copy: 'Copia',
     run: 'Esegui',
     reject: 'Rifiuta',
@@ -1084,7 +1082,14 @@ export default {
     doubleClickToOpen: 'Doppio clic per aprire',
     sftpConnectFailed: 'Connessione SFTP fallita',
     noDataAvailable: 'Nessun dato disponibile, per favore connetti a un server prima',
-    pleaseInputNewFileName: 'Inserisci nuovo nome file'
+    pleaseInputNewFileName: 'Inserisci nuovo nome file',
+    dragTransfer: 'trasferimento tramite trascinamento',
+    defaultMode: 'Modalità predefinita',
+    dragTransferMode: 'Modalità di trascinamento',
+    treeExpand: 'Espandi',
+    treeFoldUp: 'Riduci',
+    transferSuccess: 'Trasferimento completato',
+    transferFailed: 'Trasferimento fallito'
   },
   about: {
     version: 'Versione',
@@ -1257,6 +1262,7 @@ export default {
     autoApproveHelp: 'Strumenti auto-approvati eseguiranno senza conferma utente'
   },
   macro: {
+    title: 'Comando rapido',
     startRecording: 'Registrazione macro',
     stopRecording: 'Ferma registrazione',
     saveRecording: 'Salva registrazione',
@@ -1322,5 +1328,12 @@ export default {
     importOverwriteTitle: 'Competenza già esistente',
     importOverwriteContent: 'Vuoi sovrascrivere la competenza esistente?',
     importOverwrite: 'Sovrascrivi'
+  },
+  knowledgeCenter: {
+    title: 'Base di conoscenza',
+    newFile: 'Nuovo file',
+    newFolder: 'Nuova cartella',
+    uploadFile: 'Carica file',
+    refresh: 'Aggiorna'
   }
 }

@@ -758,14 +758,12 @@ export default {
     yesterday: 'Вчера',
     favorite: 'Избранные',
     welcome: 'Что я могу сделать для вас в терминале?',
-    welcomeTips: [
-      'Что я могу сделать для вас в терминале?',
-      'Введите @ для выбора большего количества хостов в режиме Agent',
-      'Нажмите Shift + Tab для переключения режима'
-    ],
+    welcomeTips: ['Что я могу сделать для вас в терминале?', '@ для контекста, / для команд', 'Нажмите Shift + Tab для переключения режима'],
     loginPrompt: 'Войдите, чтобы использовать функции ИИ, новые пользователи могут использовать бесплатно в течение двух недель',
     searchHost: 'Поиск по IP',
     noMatchingHosts: 'Нет совпадающих хостов',
+    searchCommand: 'Поиск команд',
+    noMatchingCommands: 'Нет совпадающих команд',
     copy: 'Копировать',
     run: 'Выполнить',
     reject: 'Отклонить',
@@ -1081,7 +1079,14 @@ export default {
     doubleClickToOpen: 'Двойной клик для открытия',
     sftpConnectFailed: 'Ошибка соединения SFTP',
     noDataAvailable: 'Нет данных, пожалуйста, подключитесь к серверу сначала',
-    pleaseInputNewFileName: 'Пожалуйста, введите новое имя файла'
+    pleaseInputNewFileName: 'Пожалуйста, введите новое имя файла',
+    dragTransfer: 'Перетаскивание для передачи',
+    defaultMode: 'Режим по умолчанию',
+    dragTransferMode: 'Режим перетаскивания',
+    treeExpand: 'Развернуть',
+    treeFoldUp: 'Свернуть',
+    transferSuccess: 'Передача завершена',
+    transferFailed: 'Передача не удалась'
   },
   about: {
     version: 'Версия',
@@ -1254,6 +1259,7 @@ export default {
     autoApproveHelp: 'Автоматически одобренные инструменты будут выполняться без подтверждения пользователя'
   },
   macro: {
+    title: 'Быстрые команды',
     startRecording: 'Записать макрос',
     stopRecording: 'Остановить запись',
     saveRecording: 'Сохранить запись',
@@ -1319,5 +1325,12 @@ export default {
     importOverwriteTitle: 'Навык уже существует',
     importOverwriteContent: 'Хотите заменить существующий навык?',
     importOverwrite: 'Заменить'
+  },
+  knowledgeCenter: {
+    title: 'База знаний',
+    newFile: 'Новый файл',
+    newFolder: 'Новая папка',
+    uploadFile: 'Загрузить файл',
+    refresh: 'Обновить'
   }
 }
