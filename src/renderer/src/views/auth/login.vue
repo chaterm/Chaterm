@@ -30,7 +30,7 @@
       </div>
       <div class="term_login_welcome">
         <span>{{ $t('login.welcome') }}</span>
-        <span style="color: #2a82e4; margin-left: 12px">{{ $t('login.title') }}</span>
+        <span style="color: #2a82e4; margin-left: 12px">{{ isChineseEdition() ? 'Chaterm CN' : $t('login.title') }}</span>
       </div>
       <div class="term_login_input">
         <template v-if="isDev">
@@ -742,6 +742,7 @@ onBeforeUnmount(() => {
     font-size: 32px;
     font-weight: bolder;
     letter-spacing: 1px;
+    white-space: nowrap;
     background: linear-gradient(135deg, #00eaff 0%, #1677ff 50%, #2a82e4 100%);
     -webkit-background-clip: text;
     background-clip: text;

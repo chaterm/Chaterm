@@ -146,6 +146,7 @@
                 :class="{ collapsed: leftPaneSize <= 0 }"
                 :size="leftPaneSize"
                 :min-size="leftMinSize"
+                :max-size="50"
               >
                 <Workspace
                   v-if="currentMenu == 'workspace'"
@@ -1030,8 +1031,8 @@ const closeGlobalInput = () => {
 }
 const DEFAULT_WIDTH_PX = 250
 const DEFAULT_WIDTH_RIGHT_PX = 350
-const MIN_AI_SIDEBAR_WIDTH_PX = 280 // AI sidebar minimum usable width
-const SNAP_THRESHOLD_PX = 200 // Sticky resistance threshold
+const MIN_AI_SIDEBAR_WIDTH_PX = 320 // AI sidebar minimum usable width
+const SNAP_THRESHOLD_PX = 240 // Sticky resistance threshold
 // Left sidebar constants
 const MIN_LEFT_SIDEBAR_WIDTH_PX = 200 // Left sidebar minimum usable width
 const LEFT_QUICK_CLOSE_THRESHOLD_PX = 50 // Left sidebar quick close threshold
@@ -1055,6 +1056,17 @@ const updatePaneSize = () => {
   }
 }
 
+// Watch left pane size to timely update AI sidebar min-size
+watch(
+  () => leftPaneSize.value,
+  () => {
+    if (props.currentMode === 'terminal') {
+      updateAiSidebarMinSize()
+      updateLeftSidebarMinSize()
+    }
+  }
+)
+
 // Calculate AI sidebar min-size percentage
 const updateAiSidebarMinSize = () => {
   // In Agents mode, AI sidebar uses different container and stricter minimum width
@@ -1068,20 +1080,19 @@ const updateAiSidebarMinSize = () => {
     return
   }
 
-  // Terminal mode logic remains unchanged
-  const mainContainer = document.querySelector('.main-split-container') as HTMLElement
-  if (mainContainer) {
-    const mainWidth = mainContainer.offsetWidth
-    // Convert sticky resistance threshold to percentage relative to main container
-    aiMinSize.value = (SNAP_THRESHOLD_PX / mainWidth) * 100
-  } else {
-    // Fallback to using entire splitpanes container
-    const container = document.querySelector('.splitpanes') as HTMLElement
-    if (container) {
-      const containerWidth = container.offsetWidth
-      // Consider left sidebar width
-      const availableWidth = (containerWidth * (100 - leftPaneSize.value)) / 100
-      aiMinSize.value = (SNAP_THRESHOLD_PX / availableWidth) * 100
+  // Terminal mode logic
+  // Use .left-sidebar-container width and leftPaneSize to calculate available width
+  // This avoids issues where reading .main-split-container.offsetWidth returns stale values during resize events
+  const container = document.querySelector('.left-sidebar-container') as HTMLElement
+  if (container) {
+    const containerWidth = container.offsetWidth
+    // Consider left sidebar width to calculate the actual width available for the main split container
+    const availableWidth = (containerWidth * (100 - leftPaneSize.value)) / 100
+
+    // Safety check to avoid division by zero or negative values
+    if (availableWidth > 10) {
+      const minPercent = (SNAP_THRESHOLD_PX / availableWidth) * 100
+      aiMinSize.value = minPercent
     }
   }
 }
@@ -1134,6 +1145,9 @@ const handleLeftPaneResize = (params: ResizeParams) => {
   const containerWidth = container ? container.offsetWidth : 1000
   const sizePx = (params.prevPane.size / 100) * containerWidth
 
+  const oldLeftSize = props.currentMode === 'agents' ? agentsLeftPaneSize.value : leftPaneSize.value
+  const newLeftSize = params.prevPane.size
+
   // Normal size update
   if (props.currentMode === 'agents') {
     agentsLeftPaneSize.value = params.prevPane.size
@@ -1156,6 +1170,31 @@ const handleLeftPaneResize = (params: ResizeParams) => {
       headerRef.value?.switchIcon('left', true)
     } else {
       headerRef.value?.switchIcon('left', false)
+    }
+  }
+
+  // Adjust AI sidebar to maintain pixel width when left sidebar resizes
+  if (showAiSidebar.value && aiSidebarSize.value > 0 && Math.abs(100 - newLeftSize) > 0.1 && props.currentMode === 'terminal') {
+    // Calculate effective left sizes (clamped to minimum width constraint)
+    // This prevents the AI sidebar from shrinking when the left sidebar is conceptually shrinking but physically stuck at min-width
+    const minLeftPct = (MIN_LEFT_SIDEBAR_WIDTH_PX / containerWidth) * 100
+    const effectiveOldLeft = Math.max(oldLeftSize, minLeftPct)
+    const effectiveNewLeft = Math.max(newLeftSize, minLeftPct)
+
+    let newAiSize = (aiSidebarSize.value * (100 - effectiveOldLeft)) / (100 - effectiveNewLeft)
+
+    // Ensure the calculated size respects the minimum constraint
+    // This is critical: even if pixel maintenance suggests a smaller size, we must honor the 240px minimum
+    newAiSize = Math.max(newAiSize, aiMinSize.value)
+
+    // Clamp to reasonable bounds (e.g. max 90% of remaining space)
+    if (newAiSize > 0 && newAiSize < 90) {
+      aiSidebarSize.value = newAiSize
+      if (showSplitPane.value) {
+        adjustSplitPaneToEqualWidth()
+      } else {
+        mainTerminalSize.value = 100 - aiSidebarSize.value
+      }
     }
   }
 }
