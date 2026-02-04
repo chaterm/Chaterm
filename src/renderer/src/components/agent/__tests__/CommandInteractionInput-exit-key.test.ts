@@ -64,13 +64,23 @@ const mockComponents = {
     template:
       '<input class="mock-input" :value="modelValue" @input="$emit(\'update:modelValue\', $event.target.value)" @keyup.enter="$emit(\'press-enter\')" />',
     props: ['modelValue', 'placeholder', 'size'],
-    emits: ['update:modelValue', 'press-enter']
+    emits: ['update:modelValue', 'press-enter'],
+    methods: {
+      focus() {
+        // noop for test mock
+      }
+    }
   },
   'a-input-password': {
     template:
       '<input type="password" class="mock-input-password" :value="modelValue" @input="$emit(\'update:modelValue\', $event.target.value)" @keyup.enter="$emit(\'press-enter\')" />',
     props: ['modelValue', 'placeholder', 'size'],
-    emits: ['update:modelValue', 'press-enter']
+    emits: ['update:modelValue', 'press-enter'],
+    methods: {
+      focus() {
+        // noop for test mock
+      }
+    }
   }
 }
 

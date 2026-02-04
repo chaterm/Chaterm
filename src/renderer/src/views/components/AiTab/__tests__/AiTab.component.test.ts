@@ -73,6 +73,12 @@ if (typeof window !== 'undefined') {
     getAllMcpToolStates: vi.fn().mockResolvedValue({}),
     onMainMessage: vi.fn().mockReturnValue(() => {}),
     onCommandExplainResponse: vi.fn().mockReturnValue(() => {}),
+    onInteractionNeeded: vi.fn().mockReturnValue(() => {}),
+    onInteractionDismissed: vi.fn().mockReturnValue(() => {}),
+    onInteractionClosed: vi.fn().mockReturnValue(() => {}),
+    onInteractionSuppressed: vi.fn().mockReturnValue(() => {}),
+    onTuiDetected: vi.fn().mockReturnValue(() => {}),
+    onAlternateScreenEntered: vi.fn().mockReturnValue(() => {}),
     getLocalWorkingDirectory: vi.fn().mockResolvedValue('/test'),
     cancelTask: vi.fn().mockResolvedValue({ success: true }),
     kvMutate: vi.fn(async (params: { action: string; key: string; value?: string }) => {
@@ -410,6 +416,13 @@ describe('AiTab Component - Browser Mode Integration', () => {
     beforeEach(async () => {
       // Wait for async tab initialization
       await new Promise((resolve) => setTimeout(resolve, 500))
+
+      // chatToAi event is ignored in agent mode, so switch to cmd mode first
+      // Use Shift+Tab to cycle through modes: Agent -> Chat -> Command
+      await userEvent.keyboard('{Shift>}{Tab}{/Shift}')
+      await new Promise((resolve) => setTimeout(resolve, 200))
+      await userEvent.keyboard('{Shift>}{Tab}{/Shift}')
+      await new Promise((resolve) => setTimeout(resolve, 200))
 
       // Wait for input element to be available
       let chatInputEl: HTMLTextAreaElement | null = null
