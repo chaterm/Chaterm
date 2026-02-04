@@ -8,7 +8,7 @@
 
 import type { InteractionResult } from './types'
 
-const DEBUG_INTERACTION = true
+const DEBUG_INTERACTION = false
 
 /**
  * System prompts for interaction detection

@@ -65,11 +65,49 @@ function createInitialState(): InteractionState {
  * useInteractiveInput composable
  */
 export function useInteractiveInput() {
-  // Reactive state - single interaction state for backward compatibility
+  // Multi-tab state: Map keyed by taskId or cmd:${commandId}
+  const interactionStates = ref<Map<string, InteractionState>>(new Map())
+
+  // Reverse index: commandId -> key in interactionStates
+  const commandIdToKey = ref<Map<string, string>>(new Map())
+
+  // Backward-compatible single state ref (returns first visible state or initial)
   const interactionState = ref<InteractionState>(createInitialState())
 
   // Cleanup functions for IPC listeners
   let cleanupFunctions: Array<() => void> = []
+
+  /**
+   * Resolve the state key from a request or commandId
+   * Priority: taskId > existing commandIdToKey mapping > cmd:${commandId}
+   */
+  function resolveKey(taskId?: string, commandId?: string): string {
+    if (taskId) {
+      return taskId
+    }
+    if (commandId) {
+      const existing = commandIdToKey.value.get(commandId)
+      if (existing) {
+        return existing
+      }
+      return `cmd:${commandId}`
+    }
+    return ''
+  }
+
+  /**
+   * Update the backward-compatible interactionState ref
+   * Sets it to the first visible state or initial state
+   */
+  function syncLegacyState(): void {
+    for (const state of interactionStates.value.values()) {
+      if (state.visible || state.tuiDetected) {
+        interactionState.value = state
+        return
+      }
+    }
+    interactionState.value = createInitialState()
+  }
 
   /**
    * Handle interaction needed event from main process
@@ -77,7 +115,13 @@ export function useInteractiveInput() {
   function handleInteractionNeeded(request: InteractionRequest): void {
     console.log('[useInteractiveInput] Interaction needed:', request)
 
-    interactionState.value = {
+    const key = resolveKey(request.taskId, request.commandId)
+    if (!key) {
+      console.warn('[useInteractiveInput] Cannot resolve key for request:', request)
+      return
+    }
+
+    const newState: InteractionState = {
       visible: true,
       commandId: request.commandId,
       taskId: request.taskId,
@@ -94,6 +138,10 @@ export function useInteractiveInput() {
       errorMessage: '',
       isSubmitting: false
     }
+
+    interactionStates.value.set(key, newState)
+    commandIdToKey.value.set(request.commandId, key)
+    syncLegacyState()
   }
 
   /**
@@ -102,9 +150,11 @@ export function useInteractiveInput() {
   function handleInteractionClosed(data: { commandId: string }): void {
     console.log('[useCommandInteraction] Interaction closed:', data.commandId)
 
-    // Clear if current interaction
-    if (interactionState.value.commandId === data.commandId) {
-      interactionState.value = createInitialState()
+    const key = commandIdToKey.value.get(data.commandId)
+    if (key) {
+      interactionStates.value.delete(key)
+      commandIdToKey.value.delete(data.commandId)
+      syncLegacyState()
     }
   }
 
@@ -114,9 +164,13 @@ export function useInteractiveInput() {
   function handleInteractionSuppressed(data: { commandId: string }): void {
     console.log('[useInteractiveInput] Interaction suppressed:', data.commandId)
 
-    // Update suppressed state - keep visible to show unsuppress button
-    if (interactionState.value.commandId === data.commandId) {
-      interactionState.value.isSuppressed = true
+    const key = commandIdToKey.value.get(data.commandId)
+    if (key) {
+      const state = interactionStates.value.get(key)
+      if (state) {
+        state.isSuppressed = true
+        syncLegacyState()
+      }
     }
   }
 
@@ -126,15 +180,28 @@ export function useInteractiveInput() {
    * @param showVisible Whether to set visible to true (for alternate screen)
    */
   function handleTuiStateChange(data: { commandId: string; taskId?: string; message: string }, showVisible: boolean): void {
-    if (interactionState.value.commandId === data.commandId || !interactionState.value.commandId) {
-      interactionState.value.tuiDetected = true
-      interactionState.value.tuiMessage = data.message
-      interactionState.value.commandId = data.commandId
-      interactionState.value.taskId = data.taskId
-      if (showVisible) {
-        interactionState.value.visible = true
-      }
+    const key = resolveKey(data.taskId, data.commandId)
+    if (!key) {
+      console.warn('[useInteractiveInput] Cannot resolve key for TUI state change:', data)
+      return
     }
+
+    let state = interactionStates.value.get(key)
+    if (!state) {
+      // Create a minimal state for TUI detection
+      state = createInitialState()
+      state.commandId = data.commandId
+      state.taskId = data.taskId
+      interactionStates.value.set(key, state)
+      commandIdToKey.value.set(data.commandId, key)
+    }
+
+    state.tuiDetected = true
+    state.tuiMessage = data.message
+    if (showVisible) {
+      state.visible = true
+    }
+    syncLegacyState()
   }
 
   /**
@@ -165,14 +232,18 @@ export function useInteractiveInput() {
   ): Promise<InteractionSubmitResult> {
     const shouldCloseImmediately = interactionType !== 'pager'
 
+    const key = commandIdToKey.value.get(commandId)
+    const state = key ? interactionStates.value.get(key) : undefined
+
     // Clear previous error and set submitting state
-    if (interactionState.value.commandId === commandId) {
-      interactionState.value.errorMessage = ''
-      interactionState.value.isSubmitting = true
+    if (state) {
+      state.errorMessage = ''
+      state.isSubmitting = true
 
       if (shouldCloseImmediately) {
-        interactionState.value.visible = false
+        state.visible = false
       }
+      syncLegacyState()
     }
 
     try {
@@ -187,22 +258,23 @@ export function useInteractiveInput() {
       console.log('[useInteractiveInput] Submit result:', result)
 
       // Update state based on result
-      if (interactionState.value.commandId === commandId) {
-        interactionState.value.isSubmitting = false
+      if (state) {
+        state.isSubmitting = false
 
         if (!shouldCloseImmediately) {
           if (result.success) {
             // Hide interaction on success
             // For pager, keep visible for continuous mode unless quit
             if (input === 'q') {
-              interactionState.value.visible = false
+              state.visible = false
             }
-            interactionState.value.errorMessage = ''
+            state.errorMessage = ''
           } else {
             // Set error message for UI display
-            interactionState.value.errorMessage = getErrorMessage(result.code, result.error)
+            state.errorMessage = getErrorMessage(result.code, result.error)
           }
         }
+        syncLegacyState()
       }
 
       return result
@@ -210,11 +282,12 @@ export function useInteractiveInput() {
       console.error('[useCommandInteraction] Submit error:', error)
 
       // Set error state
-      if (interactionState.value.commandId === commandId) {
-        interactionState.value.isSubmitting = false
+      if (state) {
+        state.isSubmitting = false
         if (!shouldCloseImmediately) {
-          interactionState.value.errorMessage = String(error)
+          state.errorMessage = String(error)
         }
+        syncLegacyState()
       }
 
       return { success: false, error: String(error) }
@@ -243,8 +316,13 @@ export function useInteractiveInput() {
    * Clear error message
    */
   function clearError(commandId: string): void {
-    if (interactionState.value.commandId === commandId) {
-      interactionState.value.errorMessage = ''
+    const key = commandIdToKey.value.get(commandId)
+    if (key) {
+      const state = interactionStates.value.get(key)
+      if (state) {
+        state.errorMessage = ''
+        syncLegacyState()
+      }
     }
   }
 
@@ -277,8 +355,13 @@ export function useInteractiveInput() {
       console.log('[useCommandInteraction] Dismiss result:', result)
 
       // Hide interaction but don't clear state completely
-      if (result.success && interactionState.value.commandId === commandId) {
-        interactionState.value.visible = false
+      const key = commandIdToKey.value.get(commandId)
+      if (result.success && key) {
+        const state = interactionStates.value.get(key)
+        if (state) {
+          state.visible = false
+          syncLegacyState()
+        }
       }
 
       return result
@@ -316,8 +399,13 @@ export function useInteractiveInput() {
       console.log('[useCommandInteraction] Unsuppress result:', result)
 
       // Update suppressed state
-      if (result.success && interactionState.value.commandId === commandId) {
-        interactionState.value.isSuppressed = false
+      const key = commandIdToKey.value.get(commandId)
+      if (result.success && key) {
+        const state = interactionStates.value.get(key)
+        if (state) {
+          state.isSuppressed = false
+          syncLegacyState()
+        }
       }
 
       return result
@@ -331,9 +419,14 @@ export function useInteractiveInput() {
    * Clear TUI detected state
    */
   function clearTuiDetected(commandId: string): void {
-    if (interactionState.value.commandId === commandId) {
-      interactionState.value.tuiDetected = false
-      interactionState.value.tuiMessage = ''
+    const key = commandIdToKey.value.get(commandId)
+    if (key) {
+      const state = interactionStates.value.get(key)
+      if (state) {
+        state.tuiDetected = false
+        state.tuiMessage = ''
+        syncLegacyState()
+      }
     }
   }
 
@@ -344,19 +437,19 @@ export function useInteractiveInput() {
     if (!tabId) {
       return undefined
     }
-
-    if (interactionState.value.taskId === tabId) {
-      return interactionState.value
-    }
-
-    return undefined
+    return interactionStates.value.get(tabId)
   }
 
   /**
    * Check if any interaction is active
    */
   function hasActiveInteraction(): boolean {
-    return interactionState.value.visible || interactionState.value.tuiDetected
+    for (const state of interactionStates.value.values()) {
+      if (state.visible || state.tuiDetected) {
+        return true
+      }
+    }
+    return false
   }
 
   // Setup IPC listeners
@@ -394,8 +487,10 @@ export function useInteractiveInput() {
   })
 
   return {
-    // State
+    // State (legacy single-state for backward compatibility)
     interactionState,
+    // Multi-tab state map
+    interactionStates,
 
     // Actions
     submitInteraction,
