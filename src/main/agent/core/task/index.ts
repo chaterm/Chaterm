@@ -46,6 +46,7 @@ import { TodoToolCallTracker } from '../services/todo_tool_call_tracker'
 import { globSearch } from '../../services/glob/list-files'
 import { regexSearchMatches as localGrepSearch } from '../../services/grep/index'
 import { buildRemoteGlobCommand, parseRemoteGlobOutput, buildRemoteGrepCommand, parseRemoteGrepOutput } from '../../services/search/remote'
+import { broadcastInteractionClosed } from '../../services/interaction-detector/ipc-handlers'
 
 interface StreamMetrics {
   didReceiveUsageChunk?: boolean
@@ -63,6 +64,8 @@ interface MessageUpdater {
 import { AssistantMessageContent, parseAssistantMessageV2, ToolParamName, ToolUseName, TextContent, ToolUse } from '@core/assistant-message'
 import { RemoteTerminalManager, ConnectionInfo, RemoteTerminalInfo, RemoteTerminalProcessResultPromise } from '../../integrations/remote-terminal'
 import { LocalTerminalManager, LocalCommandProcess } from '../../integrations/local-terminal'
+import { createLlmCaller } from '../../services/interaction-detector/llm-caller'
+import type { InteractionResult } from '../../services/interaction-detector/types'
 import { formatResponse } from '@core/prompts/responses'
 import { addUserInstructions, SYSTEM_PROMPT, SYSTEM_PROMPT_CHAT, SYSTEM_PROMPT_CN, SYSTEM_PROMPT_CHAT_CN } from '@core/prompts/system'
 import { getSwitchPromptByAssetType } from '@core/prompts/switch-prompts'
@@ -84,6 +87,7 @@ import type { McpTool } from '@shared/mcp'
 
 import type { ContentPart, ContextDocRef, ContextPastChatRef, ContextRefs, Host } from '@shared/WebviewMessage'
 import { ExternalAssetCache } from '../../../plugin/pluginIpc'
+import type { InteractionType } from '../../services/interaction-detector/types'
 
 type ToolResponse = string | Array<Anthropic.TextBlockParam | Anthropic.ImageBlockParam>
 type UserContent = Array<Anthropic.ContentBlockParam>
@@ -94,8 +98,99 @@ type UserContent = Array<Anthropic.ContentBlockParam>
 function isAllowPartialTool(toolName: string): boolean {
   return toolName === 'summarize_to_knowledge' || toolName === 'attempt_completion'
 }
+export interface CommandContext {
+  /** Command identifier */
+  commandId: string
+  /** Task ID this command belongs to */
+  taskId: string
+  /** Function to send input to the command */
+  sendInput: (input: string) => Promise<import('../../services/interaction-detector/types').SendInputResult>
+  /** Function to cancel the command (async, may throw) */
+  cancel?: () => Promise<void> | void
+  /** Function to force terminate the process and resolve/reject its Promise */
+  forceTerminate?: () => void
+  /** Function called when interaction is dismissed */
+  onDismiss?: () => void
+  /** Function called when interaction is suppressed */
+  onSuppress?: () => void
+  /** Function called when interaction detection is resumed */
+  onUnsuppress?: () => void
+  /** Function called to resume detection after user input */
+  onResume?: () => void
+  /** Function called after successful input to clear prompt buffers */
+  onInteractionSubmitted?: (interactionType: InteractionType) => void
+}
 
 export class Task {
+  // ============================================================================
+  // Static members for active command context management
+  // ============================================================================
+
+  /**
+   * Global registry of active command contexts, keyed by commandId
+   * Used by IPC handlers to route interaction responses to the correct command
+   */
+  private static activeTasks = new Map<string, CommandContext>()
+
+  /**
+   * Register a command context for interaction handling
+   */
+  static registerCommandContext(context: CommandContext): void {
+    Task.activeTasks.set(context.commandId, context)
+    console.log(`[Task] Registered command context: ${context.commandId} for task: ${context.taskId}`)
+  }
+
+  /**
+   * Unregister a command context
+   */
+  static unregisterCommandContext(commandId: string): void {
+    Task.activeTasks.delete(commandId)
+    console.log(`[Task] Unregistered command context: ${commandId}`)
+  }
+
+  /**
+   * Get a command context by ID
+   */
+  static getCommandContext(commandId: string): CommandContext | undefined {
+    return Task.activeTasks.get(commandId)
+  }
+
+  /**
+   * Clear all command contexts for a specific task
+   */
+  static clearCommandContextsForTask(taskId: string): void {
+    console.log(`[Task] clearCommandContextsForTask called for task: ${taskId}, activeTasks count: ${Task.activeTasks.size}`)
+    for (const [commandId, context] of Task.activeTasks.entries()) {
+      console.log(`[Task] Checking command context: ${commandId}, taskId: ${context.taskId}`)
+      if (context.taskId === taskId) {
+        // Send Ctrl+C to cancel the command
+        if (context.cancel) {
+          console.log(`[Task] Calling cancel for command: ${commandId}`)
+          const result = context.cancel()
+          if (result instanceof Promise) {
+            result.catch((e) => console.warn('[Task] Cancel failed:', e))
+          }
+        }
+        // Force terminate the process to unblock awaiting code
+        if (context.forceTerminate) {
+          console.log(`[Task] Calling forceTerminate for command: ${commandId}`)
+          context.forceTerminate()
+        }
+        // Broadcast interaction closed event to notify renderer process to close UI
+        console.log(`[Task] Broadcasting interaction-closed for command: ${commandId}`)
+        broadcastInteractionClosed(commandId)
+        // Remove from registry
+        Task.activeTasks.delete(commandId)
+        console.log(`[Task] Cleared command context: ${commandId} for task: ${taskId}`)
+      }
+    }
+    console.log(`[Task] clearCommandContextsForTask completed, remaining activeTasks count: ${Task.activeTasks.size}`)
+  }
+
+  // ============================================================================
+  // Instance members
+  // ============================================================================
+
   private updateTaskHistory: (historyItem: HistoryItem) => Promise<HistoryItem[]>
   private postStateToWebview: () => Promise<void>
   private postMessageToWebview: (message: ExtensionMessage) => Promise<void>
@@ -142,7 +237,6 @@ export class Task {
       homeDir: string
       hostName: string
       userName: string
-      sudoCheck: string
     }
   > = new Map()
 
@@ -159,7 +253,7 @@ export class Task {
 
   // Interactive command input handling
   private currentRunningProcess:
-    | (LocalCommandProcess & { sendInput?: (input: string) => Promise<boolean> })
+    | (LocalCommandProcess & { sendInput?: (input: string) => Promise<import('../../services/interaction-detector/types').SendInputResult> })
     | RemoteTerminalProcessResultPromise
     | null = null
 
@@ -448,6 +542,46 @@ export class Task {
   }
 
   /**
+   * Create an LLM caller for interaction detection
+   * Uses the current API handler to send messages to the LLM
+   */
+  private createInteractionLlmCaller(): (command: string, output: string, locale: string) => Promise<InteractionResult> {
+    return createLlmCaller(async (systemPrompt: string, userPrompt: string): Promise<string> => {
+      if (process.env.CHATERM_INTERACTION_DEBUG === '1') {
+        const provider = (await getGlobalState('apiProvider')) as string
+        const modelId = this.api.getModel().id
+        console.log('[InteractionDetector] LLM request meta', {
+          provider,
+          modelId,
+          systemLength: systemPrompt.length,
+          userLength: userPrompt.length
+        })
+      }
+      const messages: Anthropic.MessageParam[] = [{ role: 'user', content: userPrompt }]
+      const stream = this.api.createMessage(systemPrompt, messages)
+      let responseText = ''
+      for await (const chunk of stream) {
+        if (chunk.type === 'text') {
+          responseText += chunk.text
+        }
+      }
+      return responseText
+    })
+  }
+
+  /**
+   * Get user locale for interaction detection
+   */
+  private async getUserLocale(): Promise<string> {
+    try {
+      const userConfig = await getUserConfig()
+      return userConfig?.language || 'en-US'
+    } catch {
+      return 'en-US'
+    }
+  }
+
+  /**
    * Check if the given IP is a local host
    */
   private isLocalHost(ip?: string): boolean {
@@ -494,10 +628,16 @@ export class Task {
         await this.abortTask()
         throw new Error('Failed to connect to terminal')
       }
+      const userLocale = await this.getUserLocale()
       return new Promise<string>((resolve, reject) => {
         const outputLines: string[] = []
         let isCompleted = false
-        const process = this.remoteTerminalManager.runCommand(terminalInfo, command, cwd)
+        const process = this.remoteTerminalManager.runCommand(terminalInfo, command, cwd, {
+          taskId: this.taskId,
+          enableInteraction: true,
+          llmCaller: this.createInteractionLlmCaller(),
+          userLocale
+        })
         const timeout = setTimeout(() => {
           if (!isCompleted) {
             isCompleted = true
@@ -807,6 +947,12 @@ export class Task {
       throw new Error('Chaterm instance aborted')
     }
 
+    if (this.askResponsePayload) {
+      const payload = this.askResponsePayload
+      this.resetAskState()
+      return payload
+    }
+
     let askTsRef = { value: Date.now() }
     this.lastMessageTs = askTsRef.value
 
@@ -925,6 +1071,7 @@ export class Task {
   }
 
   async handleWebviewAskResponse(askResponse: ChatermAskResponse, text?: string, truncateAtMessageTs?: number, contentParts?: ContentPart[]) {
+    console.log(`[Task] handleWebviewAskResponse called with askResponse: ${askResponse}, taskId: ${this.taskId}`)
     if (truncateAtMessageTs !== undefined) {
       await this.truncateHistoryAtTimestamp(truncateAtMessageTs)
     }
@@ -935,24 +1082,6 @@ export class Task {
       response: askResponse,
       text,
       contentParts
-    }
-  }
-
-  // Handle interactive command input from frontend
-  async handleInteractiveCommandInput(input: string): Promise<void> {
-    try {
-      console.log('Handling interactive command input:', input)
-
-      if (!this.currentRunningProcess || !this.currentRunningProcess.sendInput) {
-        return
-      }
-
-      const success = await this.currentRunningProcess.sendInput(input + '\n')
-      if (!success) {
-        console.error('Failed to send input to running command')
-      }
-    } catch (error) {
-      console.error('Error handling interactive command input:', error)
     }
   }
 
@@ -1185,6 +1314,8 @@ export class Task {
   async abortTask() {
     this.abort = true // will stop any autonomously running promises
     this.remoteTerminalManager.disposeAll()
+    // Clean up command contexts to prevent stale IPC references
+    Task.clearCommandContextsForTask(this.taskId)
   }
 
   async gracefulAbortTask() {
@@ -1194,6 +1325,8 @@ export class Task {
     if (this.currentRunningProcess) {
       // Stop the current process but don't terminate the entire task
       this.remoteTerminalManager.disposeAll()
+      // Clean up command contexts for this task
+      Task.clearCommandContextsForTask(this.taskId)
     }
   }
 
@@ -1409,7 +1542,13 @@ export class Task {
         return 'Failed to connect to terminal'
       }
       terminalInfo.terminal.show()
-      const process = this.remoteTerminalManager.runCommand(terminalInfo, command)
+      const userLocale = await this.getUserLocale()
+      const process = this.remoteTerminalManager.runCommand(terminalInfo, command, undefined, {
+        taskId: this.taskId,
+        enableInteraction: true,
+        llmCaller: this.createInteractionLlmCaller(),
+        userLocale
+      })
 
       // Store the current running process so it can receive interactive input
       this.currentRunningProcess = process
@@ -1487,7 +1626,9 @@ export class Task {
         await this.say('shell_integration_warning')
       })
 
+      console.log(`[Task] executeCommandTool: waiting for process to complete, taskId: ${this.taskId}`)
       await process
+      console.log(`[Task] executeCommandTool: process completed, taskId: ${this.taskId}`)
 
       // Wait for a short delay to ensure all messages are sent to the webview
       // This delay allows time for non-awaited promises to be created and
@@ -2262,8 +2403,8 @@ export class Task {
     const toolDescription = this.getToolDescription(block)
     const requiresApprovalRaw: string | undefined = block.params.requires_approval
     const requiresApprovalPerLLM = requiresApprovalRaw?.toLowerCase() === 'true'
-    const interactiveRaw: string | undefined = block.params.interactive
-    const isInteractive = interactiveRaw?.toLowerCase() === 'true'
+    // Note: interactive parameter parsed but reserved for future use
+    void block.params.interactive
 
     try {
       if (block.partial) {
@@ -2320,10 +2461,6 @@ export class Task {
         const autoApproveResult = this.shouldAutoApproveTool(block.name)
         let [autoApproveSafe, autoApproveAll] = Array.isArray(autoApproveResult) ? autoApproveResult : [autoApproveResult, false]
 
-        // If it's interactive command in agent mode, send notification to frontend after command message
-        if (isInteractive && chatSettings?.mode === 'agent') {
-          await this.say('interactive_command_notification', `${this.messages.interactiveCommandNotification}`, false)
-        }
         // If security confirmation already passed, skip auto-approval logic
         if (
           !needsSecurityApproval &&
@@ -3556,12 +3693,11 @@ export class Task {
 DEFAULT_SHELL:${localSystemInfo.defaultShell}
 HOME_DIR:${localSystemInfo.homeDir}
 HOSTNAME:${localSystemInfo.hostName}
-USERNAME:${localSystemInfo.userName}
-SUDO_CHECK:${localSystemInfo.sudoCheck}`
+USERNAME:${localSystemInfo.userName}`
             } else {
               // Optimization: Get all system information at once to avoid multiple network requests
               // Simplified script to avoid complex quoting issues in JumpServer environment
-              const systemInfoScript = `uname -a | sed 's/^/OS_VERSION:/' && echo "DEFAULT_SHELL:$SHELL" && echo "HOME_DIR:$HOME" && hostname | sed 's/^/HOSTNAME:/' && whoami | sed 's/^/USERNAME:/' && (sudo -n true 2>/dev/null && echo "SUDO_CHECK:has sudo permission" || echo "SUDO_CHECK:no sudo permission")`
+              const systemInfoScript = `uname -a | sed 's/^/OS_VERSION:/' && echo "DEFAULT_SHELL:$SHELL" && echo "HOME_DIR:$HOME" && hostname | sed 's/^/HOSTNAME:/' && whoami | sed 's/^/USERNAME:/'`
               systemInfoOutput = await this.executeCommandInRemoteServer(systemInfoScript, host.host)
             }
 
@@ -3580,7 +3716,6 @@ SUDO_CHECK:${localSystemInfo.sudoCheck}`
               homeDir: string
               hostName: string
               userName: string
-              sudoCheck: string
             } => {
               const lines = output.split('\n').filter((line) => line.trim())
               const info = {
@@ -3588,8 +3723,7 @@ SUDO_CHECK:${localSystemInfo.sudoCheck}`
                 defaultShell: '',
                 homeDir: '',
                 hostName: '',
-                userName: '',
-                sudoCheck: ''
+                userName: ''
               }
 
               lines.forEach((line) => {
@@ -3611,9 +3745,6 @@ SUDO_CHECK:${localSystemInfo.sudoCheck}`
                     break
                   case 'USERNAME':
                     info.userName = value
-                    break
-                  case 'SUDO_CHECK':
-                    info.sudoCheck = value
                     break
                 }
               })
@@ -3637,7 +3768,6 @@ SUDO_CHECK:${localSystemInfo.sudoCheck}`
             ${this.messages.homeDirectory}: ${hostInfo.homeDir.toPosix()}
             ${this.messages.hostname}: ${hostInfo.hostName}
             ${this.messages.user}: ${hostInfo.userName}
-            ${this.messages.sudoAccess}: ${hostInfo.sudoCheck}
             ====
           `
         } catch (error) {
@@ -3658,7 +3788,6 @@ SUDO_CHECK:${localSystemInfo.sudoCheck}`
             ${this.messages.homeDirectory}: ${this.messages.unableToRetrieve}
             ${this.messages.hostname}: ${this.messages.unableToRetrieve}
             ${this.messages.user}: ${this.messages.unableToRetrieve}
-            ${this.messages.sudoAccess}: ${this.messages.unableToRetrieve}
             ====
           `
         }

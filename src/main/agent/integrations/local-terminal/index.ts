@@ -468,18 +468,6 @@ export class LocalTerminalManager {
   }
 
   /**
-   * Check sudo permission
-   */
-  async checkSudoPermission(): Promise<boolean> {
-    if (os.platform() === 'win32') {
-      return false // Windows does not have sudo concept
-    }
-
-    const result = await this.executeCommand('sudo -n true', undefined, 5000)
-    return result.success
-  }
-
-  /**
    * Get system information
    */
   async getSystemInfo(): Promise<{
@@ -488,7 +476,6 @@ export class LocalTerminalManager {
     homeDir: string
     hostName: string
     userName: string
-    sudoCheck: string
   }> {
     const platform = os.platform()
     const homeDir = os.homedir()
@@ -506,16 +493,12 @@ export class LocalTerminalManager {
       }
     }
 
-    const hasSudo = await this.checkSudoPermission()
-    const sudoCheck = hasSudo ? 'has sudo permission' : 'no sudo permission'
-
     return {
       osVersion,
       defaultShell,
       homeDir,
       hostName,
-      userName,
-      sudoCheck
+      userName
     }
   }
 }
