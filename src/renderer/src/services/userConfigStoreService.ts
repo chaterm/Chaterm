@@ -49,6 +49,7 @@ export interface UserConfig {
     password?: string
   }>
   workspaceExpandedKeys?: string[]
+  workspaceShowIpMode?: boolean
   background: BackgroundConfig
 }
 

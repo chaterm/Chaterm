@@ -727,6 +727,8 @@ export default {
     folderDeleteConfirmContent: '폴더 "{name}"을 삭제하시겠습니까?',
     folderDeleteConfirmWithAssets:
       '폴더 "{name}"을 삭제하시겠습니까? 이 폴더에는 {count}개의 자산이 포함되어 있으며, 삭제 후 자산은 원래 위치로 돌아갑니다.',
+    showIp: 'IP 표시',
+    showHostname: '호스트 이름 표시',
     missingAssetId: '자산 ID 누락',
     supportedFormats: '지원되는 파일 형식',
     standardFormat: '표준 형식',

@@ -723,6 +723,8 @@ export default {
     folderDeleteConfirm: '刪除分組確認',
     folderDeleteConfirmContent: '確定要刪除分組 "{name}" 嗎？刪除後分組中的資產將回到原位置。',
     folderDeleteConfirmWithAssets: '確定要刪除分組 "{name}" 嗎？該分組包含 {count} 個資產，刪除後資產將回到原位置。',
+    showIp: '顯示IP',
+    showHostname: '顯示主機名',
     missingAssetId: '缺少資產 ID',
     supportedFormats: '支持的格式',
     standardFormat: '標準格式',

@@ -739,6 +739,8 @@ export default {
     folderDeleteConfirmContent: 'Tem certeza que deseja deletar a pasta "{name}"?',
     folderDeleteConfirmWithAssets:
       'Tem certeza que deseja deletar a pasta "{name}"? Esta pasta contém {count} ativos, e após a exclusão, os ativos retornarão à sua posição original.',
+    showIp: 'Mostrar IP',
+    showHostname: 'Mostrar nome do host',
     missingAssetId: 'ID do ativo faltando',
     supportedFormats: 'Formatos suportados',
     standardFormat: 'Formato padrão',

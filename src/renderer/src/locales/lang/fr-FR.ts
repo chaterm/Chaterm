@@ -742,6 +742,8 @@ export default {
     folderDeleteConfirmContent: 'Êtes-vous sûr de vouloir supprimer le groupe "{name}"?',
     folderDeleteConfirmWithAssets:
       'Êtes-vous sûr de vouloir supprimer le groupe "{name}"? Ce groupe contient {count} actifs, et après suppression, les actifs retourneront à leur position originale.',
+    showIp: 'Afficher IP',
+    showHostname: "Afficher le nom d'hôte",
     missingAssetId: "ID de l'actif manquant",
     supportedFormats: 'Formats supportés',
     standardFormat: 'Format standard',

@@ -737,6 +737,8 @@ export default {
     folderDeleteConfirmContent: 'Вы уверены, что хотите удалить папку "{name}"?',
     folderDeleteConfirmWithAssets:
       'Вы уверены, что хотите удалить папку "{name}"? Эта папка содержит {count} активов, и после удаления активы вернутся на свои исходные позиции.',
+    showIp: 'Показать IP',
+    showHostname: 'Показать имя хоста',
     missingAssetId: 'Отсутствует ID актива',
     supportedFormats: 'Поддерживаемые форматы',
     standardFormat: 'Стандартный формат',
