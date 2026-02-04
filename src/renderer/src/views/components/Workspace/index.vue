@@ -1103,11 +1103,45 @@ const handleContextMenu = (event: MouseEvent, dataRef: any) => {
     }
   }
 
+  // Calculate the number of menu items that will be shown
+  const menuItemCount = [hasFavoriteOption, hasCommentOption, hasMoveOption, hasRemoveOption, hasEditFolderOption, hasDeleteFolderOption].filter(
+    Boolean
+  ).length
+
+  // Estimate menu dimensions based on CSS styles
+  const menuItemHeight = 25 // approximate height per menu item (12px font * 1.4 line-height + 8px padding)
+  const menuPadding = 4 // top + bottom padding (2px each)
+  const menuBorder = 2 // border width
+  const menuWidth = 160 // approximate menu width
+  const estimatedMenuHeight = menuPadding + menuBorder + menuItemCount * menuItemHeight
+
+  // Get viewport dimensions
+  const viewportWidth = window.innerWidth
+  const viewportHeight = window.innerHeight
+
+  // Calculate position with overflow handling
+  let left = event.clientX
+  let top = event.clientY
+
+  // Check horizontal overflow
+  if (left + menuWidth > viewportWidth) {
+    left = viewportWidth - menuWidth - 5
+  }
+
+  // Check vertical overflow - if menu would extend below viewport, show above cursor
+  if (top + estimatedMenuHeight > viewportHeight) {
+    top = event.clientY - estimatedMenuHeight
+    // Ensure menu doesn't go above viewport
+    if (top < 0) {
+      top = 5
+    }
+  }
+
   contextMenuData.value = dataRef
   contextMenuStyle.value = {
     position: 'fixed',
-    left: event.clientX + 'px',
-    top: event.clientY + 'px',
+    left: left + 'px',
+    top: top + 'px',
     zIndex: 9999
   }
   contextMenuVisible.value = true
