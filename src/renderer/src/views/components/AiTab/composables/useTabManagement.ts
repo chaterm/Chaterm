@@ -210,8 +210,7 @@ export function useTabManagement(options: TabManagementOptions) {
             item.say === 'text' ||
             item.say === 'reasoning' ||
             item.say === 'user_feedback' ||
-            item.say === 'sshInfo' ||
-            item.say === 'interactive_command_notification')
+            item.say === 'sshInfo')
         ) {
           let role: 'assistant' | 'user' = 'assistant'
           if (index === 0 || item.say === 'user_feedback') {

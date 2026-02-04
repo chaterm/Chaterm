@@ -272,7 +272,7 @@ export function useCommandInteraction(params: CommandInteractionOptions) {
     }
   }
 
-  const handleCancel = async () => {
+  const handleCancel = async (mode: 'auto' | 'force' = 'auto') => {
     console.log('handleCancel: cancel')
 
     const session = currentSession.value
@@ -295,25 +295,14 @@ export function useCommandInteraction(params: CommandInteractionOptions) {
     }
 
     try {
-      if (wasExecutingCommand) {
-        window.api
-          .gracefulCancelTask(currentChatId.value ?? undefined)
-          .then((response) => {
-            console.log('Main process graceful cancel response:', response)
-          })
-          .catch((error) => {
-            console.error('Graceful cancel failed:', error)
-          })
-      } else {
-        window.api
-          .cancelTask(currentChatId.value ?? undefined)
-          .then((response) => {
-            console.log('Main process cancel response:', response)
-          })
-          .catch((error) => {
-            console.error('Cancel task failed:', error)
-          })
+      if (wasExecutingCommand && mode !== 'force') {
+        const response = await window.api.gracefulCancelTask(currentChatId.value ?? undefined)
+        console.log('Main process graceful cancel response:', response)
+        return
       }
+
+      const response = await window.api.cancelTask(currentChatId.value ?? undefined)
+      console.log('Main process cancel response:', response)
     } catch (error) {
       console.error('Failed to send cancel request:', error)
     }

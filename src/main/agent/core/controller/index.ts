@@ -219,7 +219,12 @@ export class Controller {
             }
           }
           if (message.askResponse === 'messageResponse') {
+            // Clean up all command contexts for this task and broadcast close events
+            console.log(`[Controller] messageResponse received, cleaning up command contexts for task: ${targetTask.taskId}`)
+            Task.clearCommandContextsForTask(targetTask.taskId)
+            console.log(`[Controller] Command contexts cleaned, clearing todos...`)
             await targetTask.clearTodos('new_user_input')
+            console.log(`[Controller] Todos cleared, calling handleWebviewAskResponse...`)
           }
           await targetTask.handleWebviewAskResponse(message.askResponse!, message.text, message.truncateAtMessageTs, message.contentParts)
         }
@@ -233,11 +238,6 @@ export class Controller {
       case 'taskFeedback':
         if (message.feedbackType && targetTaskId) {
           telemetryService.captureTaskFeedback(targetTaskId, message.feedbackType)
-        }
-        break
-      case 'interactiveCommandInput':
-        if (message.input !== undefined && targetTask) {
-          targetTask.handleInteractiveCommandInput(message.input)
         }
         break
       case 'commandGeneration':

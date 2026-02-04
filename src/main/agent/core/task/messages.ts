@@ -31,7 +31,6 @@ export interface Messages {
   currentWorkingDirectory: string
   hostname: string
   user: string
-  sudoAccess: string
 
   // Notification messages
   errorNotification: string
@@ -41,7 +40,6 @@ export interface Messages {
   condenseNotification: string
   githubIssueNotification: string
   followupQuestionNotification: string
-  interactiveCommandNotification: string
 
   // Tool related messages
   toolExecutionFailed: string
@@ -170,7 +168,6 @@ export const messagesEN: Messages = {
   currentWorkingDirectory: 'Current Working Directory',
   hostname: 'Hostname',
   user: 'User',
-  sudoAccess: 'Sudo Access',
 
   // Notification messages
   errorNotification: 'Error',
@@ -180,7 +177,6 @@ export const messagesEN: Messages = {
   condenseNotification: 'Chaterm wants to condense the conversation...',
   githubIssueNotification: 'Chaterm wants to create a github issue...',
   followupQuestionNotification: 'Chaterm has a question...',
-  interactiveCommandNotification: 'The command may be executed interactively. Please type instructions as prompted.',
 
   // Tool related messages
   toolExecutionFailed: 'Error {{action}}',
@@ -312,7 +308,6 @@ export const messagesCN: Messages = {
   currentWorkingDirectory: '当前工作目录',
   hostname: '主机名',
   user: '用户',
-  sudoAccess: 'Sudo权限',
 
   // 通知消息
   errorNotification: '错误',
@@ -322,7 +317,6 @@ export const messagesCN: Messages = {
   condenseNotification: 'Chaterm想要压缩对话...',
   githubIssueNotification: 'Chaterm想要创建github问题...',
   followupQuestionNotification: 'Chaterm有一个问题...',
-  interactiveCommandNotification: '命令可能为交互式，请按提示键入指令或取消(等价Ctrl+C)',
 
   // 工具相关消息
   toolExecutionFailed: '执行{{action}}时出错',

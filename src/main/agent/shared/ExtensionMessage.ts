@@ -137,7 +137,6 @@ export type ChatermSay =
   | 'deleted_api_reqs'
   | 'checkpoint_created'
   | 'sshInfo'
-  | 'interactive_command_notification'
   | 'search_result'
   | 'knowledge_summary'
 
