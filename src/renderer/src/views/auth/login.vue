@@ -269,7 +269,7 @@ import config from '@renderer/config'
 import { sendEmailCode, emailLogin, userLogin, sendMobileCode as sendMobileCodeApi, mobileLogin } from '@/api/user/user'
 import { useI18n } from 'vue-i18n'
 import { useDeviceStore } from '@/store/useDeviceStore'
-import { isChineseEdition, getDefaultLanguage } from '@/utils/edition'
+import { isChineseEdition } from '@/utils/edition'
 import TitleBar from '@views/components/Header/titleBar.vue'
 
 const { t, locale } = useI18n()
