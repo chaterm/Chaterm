@@ -311,8 +311,9 @@ interface ApiType {
   kbEnsureRoot: () => Promise<{ success: boolean }>
   kbGetRoot: () => Promise<{ root: string }>
   kbListDir: (relDir: string) => Promise<Array<{ name: string; relPath: string; type: 'file' | 'dir'; size?: number; mtimeMs?: number }>>
-  kbReadFile: (relPath: string) => Promise<{ content: string; mtimeMs: number }>
-  kbWriteFile: (relPath: string, content: string) => Promise<{ mtimeMs: number }>
+  kbReadFile: (relPath: string, encoding?: 'utf-8' | 'base64') => Promise<{ content: string; mtimeMs: number; mimeType?: string; isImage?: boolean }>
+  kbWriteFile: (relPath: string, content: string, encoding?: 'utf-8' | 'base64') => Promise<{ mtimeMs: number }>
+  kbCreateImage: (relDir: string, name: string, base64: string) => Promise<{ relPath: string }>
   kbMkdir: (relDir: string, name: string) => Promise<{ success: boolean; relPath: string }>
   kbCreateFile: (relDir: string, name: string, content?: string) => Promise<{ relPath: string }>
   kbRename: (relPath: string, newName: string) => Promise<{ relPath: string }>

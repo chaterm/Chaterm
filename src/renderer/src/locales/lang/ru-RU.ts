@@ -1333,7 +1333,8 @@ export default {
     newFile: 'Новый файл',
     newFolder: 'Новая папка',
     uploadFile: 'Загрузить файл',
-    refresh: 'Обновить'
+    refresh: 'Обновить',
+    loadingImage: 'Загрузка изображения...'
   },
   interaction: {
     title: 'Требуется взаимодействие с командой',

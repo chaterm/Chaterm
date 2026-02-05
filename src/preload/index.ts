@@ -889,8 +889,10 @@ const api = {
   kbEnsureRoot: () => ipcRenderer.invoke('kb:ensure-root'),
   kbGetRoot: () => ipcRenderer.invoke('kb:get-root'),
   kbListDir: (relDir: string) => ipcRenderer.invoke('kb:list-dir', { relDir }),
-  kbReadFile: (relPath: string) => ipcRenderer.invoke('kb:read-file', { relPath }),
-  kbWriteFile: (relPath: string, content: string) => ipcRenderer.invoke('kb:write-file', { relPath, content }),
+  kbReadFile: (relPath: string, encoding?: 'utf-8' | 'base64') => ipcRenderer.invoke('kb:read-file', { relPath, encoding }),
+  kbWriteFile: (relPath: string, content: string, encoding?: 'utf-8' | 'base64') =>
+    ipcRenderer.invoke('kb:write-file', { relPath, content, encoding }),
+  kbCreateImage: (relDir: string, name: string, base64: string) => ipcRenderer.invoke('kb:create-image', { relDir, name, base64 }),
   kbMkdir: (relDir: string, name: string) => ipcRenderer.invoke('kb:mkdir', { relDir, name }),
   kbCreateFile: (relDir: string, name: string, content?: string) => ipcRenderer.invoke('kb:create-file', { relDir, name, content }),
   kbRename: (relPath: string, newName: string) => ipcRenderer.invoke('kb:rename', { relPath, newName }),

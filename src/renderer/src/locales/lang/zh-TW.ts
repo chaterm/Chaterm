@@ -1319,7 +1319,8 @@ export default {
     newFile: '新建檔案',
     newFolder: '新建資料夾',
     uploadFile: '上傳檔案',
-    refresh: '重新整理'
+    refresh: '重新整理',
+    loadingImage: '正在載入圖片...'
   },
   interaction: {
     waiting: '等待輸入...',

@@ -375,6 +375,19 @@ const handleActiveKbTab = (payload: { relPath: string }) => {
   syncSelectionFromTab(payload.relPath)
 }
 
+// Handle refresh event (triggered when pasting images in Markdown)
+const handleRefresh = async (payload: { relDir: string }) => {
+  await refreshDir(payload.relDir)
+}
+
+// Handle refresh and open event (triggered when pasting images)
+const handleRefreshAndOpen = async (payload: { relPath: string }) => {
+  const dir = getDirOf(payload.relPath)
+  await refreshDir(dir)
+  openFileInMainPane(payload.relPath)
+  syncSelectionFromTab(payload.relPath)
+}
+
 function findTreeNode(relPath: string): TreeNode | null {
   const find = (nodes: TreeNode[]): TreeNode | null => {
     for (const n of nodes) {
@@ -910,7 +923,14 @@ async function pickAndImport() {
 
   const result = await api.showOpenDialog({
     properties: ['openFile', 'openDirectory', 'multiSelections'],
-    filters: [{ name: 'Text', extensions: ['txt', 'md', 'markdown', 'json', 'yaml', 'yml', 'log', 'csv'] }]
+    filters: [
+      {
+        name: 'All Supported',
+        extensions: ['txt', 'md', 'markdown', 'json', 'yaml', 'yml', 'log', 'csv', 'png', 'jpg', 'jpeg', 'gif', 'webp', 'bmp', 'svg']
+      },
+      { name: 'Text', extensions: ['txt', 'md', 'markdown', 'json', 'yaml', 'yml', 'log', 'csv'] },
+      { name: 'Images', extensions: ['png', 'jpg', 'jpeg', 'gif', 'webp', 'bmp', 'svg'] }
+    ]
   })
   if (result?.canceled) return
   const filePaths: string[] = result?.filePaths || []
@@ -965,6 +985,8 @@ onMounted(async () => {
   await api.kbEnsureRoot()
   await refreshDir('')
   eventBus.on('kbActiveFileChanged', handleActiveKbTab)
+  eventBus.on('kbRefresh', handleRefresh)
+  eventBus.on('kbRefreshAndOpen', handleRefreshAndOpen)
   document.addEventListener('keydown', handleKeyDown)
   unsubscribeProgress.value = api.onKbTransferProgress((data) => {
     const job = importJobs[data.jobId]
@@ -989,6 +1011,8 @@ onMounted(async () => {
 
 onBeforeUnmount(() => {
   eventBus.off('kbActiveFileChanged', handleActiveKbTab)
+  eventBus.off('kbRefresh', handleRefresh)
+  eventBus.off('kbRefreshAndOpen', handleRefreshAndOpen)
   document.removeEventListener('keydown', handleKeyDown)
   if (unsubscribeProgress.value) unsubscribeProgress.value()
   if (treeScrollTimer) clearTimeout(treeScrollTimer)

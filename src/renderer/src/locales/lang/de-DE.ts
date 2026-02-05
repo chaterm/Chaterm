@@ -1338,7 +1338,8 @@ export default {
     newFile: 'Neue Datei',
     newFolder: 'Neuer Ordner',
     uploadFile: 'Datei hochladen',
-    refresh: 'Aktualisieren'
+    refresh: 'Aktualisieren',
+    loadingImage: 'Bild wird geladen...'
   },
   interaction: {
     waiting: 'Warten auf Eingabe...',

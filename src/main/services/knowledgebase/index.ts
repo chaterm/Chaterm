@@ -16,7 +16,26 @@ export interface KnowledgeBaseEntry {
   mtimeMs?: number
 }
 
-const ALLOWED_IMPORT_EXTS = new Set(['.txt', '.md', '.markdown', '.json', '.yaml', '.yml', '.log', '.csv'])
+const ALLOWED_IMPORT_EXTS = new Set([
+  '.txt',
+  '.md',
+  '.markdown',
+  '.json',
+  '.yaml',
+  '.yml',
+  '.log',
+  '.csv',
+  '.png',
+  '.jpg',
+  '.jpeg',
+  '.gif',
+  '.webp',
+  '.bmp',
+  '.svg'
+])
+
+// Image file extensions for binary handling
+const IMAGE_EXTS = new Set(['.png', '.jpg', '.jpeg', '.gif', '.webp', '.bmp', '.svg'])
 const MAX_IMPORT_BYTES = 10 * 1024 * 1024
 
 function getKbRoot(): string {
@@ -224,6 +243,11 @@ function splitNameExt(fileName: string): { base: string; ext: string } {
   return { base, ext }
 }
 
+function isImageFile(filePath: string): boolean {
+  const ext = path.extname(filePath).toLowerCase()
+  return IMAGE_EXTS.has(ext)
+}
+
 async function ensureUniqueName(dirAbs: string, desiredName: string): Promise<string> {
   const { base, ext } = splitNameExt(desiredName)
   let candidate = desiredName
@@ -365,23 +389,67 @@ export function registerKnowledgeBaseHandlers(): void {
     return await listDir(relDir)
   })
 
-  ipcMain.handle('kb:read-file', async (_evt, payload: { relPath: string }) => {
+  // Read file with optional encoding: 'utf-8' (default) for text, 'base64' for binary
+  ipcMain.handle('kb:read-file', async (_evt, payload: { relPath: string; encoding?: 'utf-8' | 'base64' }) => {
     const relPath = payload?.relPath ?? ''
+    const encoding = payload?.encoding ?? 'utf-8'
     const { absPath } = resolveKbPath(relPath)
     const stat = await fs.stat(absPath)
     if (!stat.isFile()) throw new Error('Not a file')
-    const content = await fs.readFile(absPath, 'utf-8')
-    return { content, mtimeMs: stat.mtimeMs }
+
+    if (encoding === 'base64') {
+      const buffer = await fs.readFile(absPath)
+      const content = buffer.toString('base64')
+      const ext = path.extname(relPath).toLowerCase()
+      const mimeTypes: Record<string, string> = {
+        '.png': 'image/png',
+        '.jpg': 'image/jpeg',
+        '.jpeg': 'image/jpeg',
+        '.gif': 'image/gif',
+        '.webp': 'image/webp',
+        '.bmp': 'image/bmp',
+        '.svg': 'image/svg+xml'
+      }
+      const mimeType = mimeTypes[ext] || 'application/octet-stream'
+      return { content, mimeType, mtimeMs: stat.mtimeMs, isImage: isImageFile(relPath) }
+    } else {
+      const content = await fs.readFile(absPath, 'utf-8')
+      return { content, mtimeMs: stat.mtimeMs }
+    }
   })
 
-  ipcMain.handle('kb:write-file', async (_evt, payload: { relPath: string; content: string }) => {
+  // Write file with optional encoding: 'utf-8' (default) for text, 'base64' for binary
+  ipcMain.handle('kb:write-file', async (_evt, payload: { relPath: string; content: string; encoding?: 'utf-8' | 'base64' }) => {
     const relPath = payload?.relPath ?? ''
     const content = payload?.content ?? ''
+    const encoding = payload?.encoding ?? 'utf-8'
     const { absPath } = resolveKbPath(relPath)
     await fs.mkdir(path.dirname(absPath), { recursive: true })
-    await fs.writeFile(absPath, content, 'utf-8')
+
+    if (encoding === 'base64') {
+      const buffer = Buffer.from(content, 'base64')
+      await fs.writeFile(absPath, buffer)
+    } else {
+      await fs.writeFile(absPath, content, 'utf-8')
+    }
+
     const stat = await fs.stat(absPath)
     return { mtimeMs: stat.mtimeMs }
+  })
+
+  // Create a new image file from base64 data
+  ipcMain.handle('kb:create-image', async (_evt, payload: { relDir: string; name: string; base64: string }) => {
+    const relDir = payload?.relDir ?? ''
+    const name = payload?.name ?? ''
+    const base64 = payload?.base64 ?? ''
+    if (!isSafeBasename(name)) throw new Error('Invalid file name')
+    const { absPath: dirAbs } = resolveKbPath(relDir)
+    await fs.mkdir(dirAbs, { recursive: true })
+    const finalName = await ensureUniqueName(dirAbs, name)
+    const absPath = path.join(dirAbs, finalName)
+    const buffer = Buffer.from(base64, 'base64')
+    await fs.writeFile(absPath, buffer)
+    return { relPath: path.posix.join(relDir.replace(/\\/g, '/'), finalName) }
   })
 
   ipcMain.handle('kb:mkdir', async (_evt, payload: { relDir: string; name: string }) => {
