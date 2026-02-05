@@ -222,13 +222,8 @@ function normalizeWindowsDrive(p: string) {
 function ensureAbsLocalPath(reqPath: string) {
   let p = String(reqPath || '').trim()
 
-  if (!p || p === '/' || p === '\\') {
-    return app.getPath('home')
-  }
-
   if (process.platform === 'win32') {
     p = normalizeWindowsDrive(p)
-
     p = p.replace(/\//g, '\\')
   }
 
