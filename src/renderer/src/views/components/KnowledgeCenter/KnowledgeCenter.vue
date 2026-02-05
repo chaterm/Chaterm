@@ -226,6 +226,7 @@ import { message, Modal } from 'ant-design-vue'
 import eventBus from '@/utils/eventBus'
 import { CloudUploadOutlined, FileAddOutlined, FolderAddOutlined, PlusOutlined, RedoOutlined, SearchOutlined } from '@ant-design/icons-vue'
 import { getModifierSymbol, isShortcutEvent } from './utils/kbShortcuts'
+import { getImageMediaType, isImageFile } from '../AiTab/utils'
 
 type KbNodeType = 'file' | 'dir'
 type TreeNode = {
@@ -821,12 +822,35 @@ async function onContextAction(action: string, node: TreeNode) {
     case 'addToChat': {
       const fileTargets = targets.filter((target) => treeNodeType(target) === 'file')
       if (fileTargets.length === 0) return
-      const docs = fileTargets.map((relPath) => {
-        const targetNode = findTreeNode(relPath)
-        const name = targetNode?.title || relPath.split('/').pop() || relPath
-        return { relPath, name }
-      })
-      eventBus.emit('kbAddDocToChatRequest', docs)
+
+      // Separate image files from document files
+      const imageTargets = fileTargets.filter((relPath) => isImageFile(relPath))
+      const docTargets = fileTargets.filter((relPath) => !isImageFile(relPath))
+
+      // Handle document files
+      if (docTargets.length > 0) {
+        const docs = docTargets.map((relPath) => {
+          const targetNode = findTreeNode(relPath)
+          const name = targetNode?.title || relPath.split('/').pop() || relPath
+          return { relPath, name }
+        })
+        eventBus.emit('kbAddDocToChatRequest', docs)
+      }
+
+      // Handle image files - read content and emit with image data
+      for (const relPath of imageTargets) {
+        try {
+          const res = await api.kbReadFile(relPath, 'base64')
+          const mediaType = getImageMediaType(relPath)
+          eventBus.emit('kbAddImageToChatRequest', {
+            mediaType,
+            data: res.content
+          })
+        } catch (e: unknown) {
+          const error = e as Error
+          message.error(error?.message || String(e))
+        }
+      }
       return
     }
     case 'newFile':

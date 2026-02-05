@@ -26,6 +26,7 @@ const chatTypeValue = ref('agent')
 const autoUpdateHost = ref(true)
 const chatInputParts = ref<ContentPart[]>([])
 const currentChatId = ref('test-tab-id')
+const isMessageEditing = ref(false)
 
 // Mock dependencies
 vi.mock('../useSessionState', () => ({
@@ -34,7 +35,8 @@ vi.mock('../useSessionState', () => ({
     chatTypeValue,
     autoUpdateHost,
     chatInputParts,
-    currentChatId
+    currentChatId,
+    isMessageEditing
   })
 }))
 
@@ -575,6 +577,164 @@ describe('useContext', () => {
 
       expect(handler).not.toHaveBeenCalled()
       expect(showContextPopup.value).toBe(false)
+    })
+  })
+
+  describe('kb add image to chat', () => {
+    it('should insert image when kbAddImageToChat emitted in create mode', async () => {
+      const handlers = new Map<string, (payload: any) => void>()
+      vi.mocked(eventBus.on).mockImplementation((event: string, handler: any) => {
+        handlers.set(event, handler)
+      })
+
+      const focusInput = vi.fn()
+      const { setImageInsertHandler } = useContext({ focusInput, mode: 'create' })
+      const imageHandler = vi.fn()
+      setImageInsertHandler(imageHandler)
+
+      isMessageEditing.value = false
+      const eventHandler = handlers.get('kbAddImageToChat')
+      eventHandler?.({ mediaType: 'image/png', data: 'base64data' })
+
+      expect(imageHandler).toHaveBeenCalledWith({
+        type: 'image',
+        mediaType: 'image/png',
+        data: 'base64data'
+      })
+      expect(focusInput).toHaveBeenCalled()
+    })
+
+    it('should not handle image event in create mode when message is being edited', async () => {
+      const handlers = new Map<string, (payload: any) => void>()
+      vi.mocked(eventBus.on).mockImplementation((event: string, handler: any) => {
+        handlers.set(event, handler)
+      })
+
+      const focusInput = vi.fn()
+      const { setImageInsertHandler } = useContext({ focusInput, mode: 'create' })
+      const imageHandler = vi.fn()
+      setImageInsertHandler(imageHandler)
+
+      isMessageEditing.value = true
+      const eventHandler = handlers.get('kbAddImageToChat')
+      eventHandler?.({ mediaType: 'image/png', data: 'base64data' })
+
+      expect(imageHandler).not.toHaveBeenCalled()
+      expect(focusInput).not.toHaveBeenCalled()
+    })
+
+    it('should handle image event in edit mode when message is being edited', async () => {
+      const handlers = new Map<string, (payload: any) => void>()
+      vi.mocked(eventBus.on).mockImplementation((event: string, handler: any) => {
+        handlers.set(event, handler)
+      })
+
+      const focusInput = vi.fn()
+      const { setImageInsertHandler } = useContext({ focusInput, mode: 'edit' })
+      const imageHandler = vi.fn()
+      setImageInsertHandler(imageHandler)
+
+      isMessageEditing.value = true
+      const eventHandler = handlers.get('kbAddImageToChat')
+      eventHandler?.({ mediaType: 'image/jpeg', data: 'jpegdata' })
+
+      expect(imageHandler).toHaveBeenCalledWith({
+        type: 'image',
+        mediaType: 'image/jpeg',
+        data: 'jpegdata'
+      })
+      expect(focusInput).toHaveBeenCalled()
+    })
+
+    it('should not handle image event in edit mode when no message is being edited', async () => {
+      const handlers = new Map<string, (payload: any) => void>()
+      vi.mocked(eventBus.on).mockImplementation((event: string, handler: any) => {
+        handlers.set(event, handler)
+      })
+
+      const focusInput = vi.fn()
+      const { setImageInsertHandler } = useContext({ focusInput, mode: 'edit' })
+      const imageHandler = vi.fn()
+      setImageInsertHandler(imageHandler)
+
+      isMessageEditing.value = false
+      const eventHandler = handlers.get('kbAddImageToChat')
+      eventHandler?.({ mediaType: 'image/png', data: 'base64data' })
+
+      expect(imageHandler).not.toHaveBeenCalled()
+      expect(focusInput).not.toHaveBeenCalled()
+    })
+
+    it('should not insert image when handler is not set', async () => {
+      const handlers = new Map<string, (payload: any) => void>()
+      vi.mocked(eventBus.on).mockImplementation((event: string, handler: any) => {
+        handlers.set(event, handler)
+      })
+
+      const focusInput = vi.fn()
+      useContext({ focusInput, mode: 'create' })
+
+      isMessageEditing.value = false
+      const eventHandler = handlers.get('kbAddImageToChat')
+      eventHandler?.({ mediaType: 'image/png', data: 'base64data' })
+
+      expect(focusInput).not.toHaveBeenCalled()
+    })
+  })
+
+  describe('shouldHandleKbEvent routing', () => {
+    it('should handle doc event in create mode when not editing', async () => {
+      const handlers = new Map<string, (payload: any) => Promise<void> | void>()
+      vi.mocked(eventBus.on).mockImplementation((event: string, handler: any) => {
+        handlers.set(event, handler)
+      })
+
+      const focusInput = vi.fn()
+      const { setChipInsertHandler } = useContext({ focusInput, mode: 'create' })
+      const handler = vi.fn()
+      setChipInsertHandler(handler)
+
+      isMessageEditing.value = false
+      const eventHandler = handlers.get('kbAddDocToChat')
+      await eventHandler?.([{ relPath: 'docs/test.md', name: 'test.md' }])
+
+      expect(handler).toHaveBeenCalled()
+    })
+
+    it('should not handle doc event in create mode when editing', async () => {
+      const handlers = new Map<string, (payload: any) => Promise<void> | void>()
+      vi.mocked(eventBus.on).mockImplementation((event: string, handler: any) => {
+        handlers.set(event, handler)
+      })
+
+      const focusInput = vi.fn()
+      const { setChipInsertHandler } = useContext({ focusInput, mode: 'create' })
+      const handler = vi.fn()
+      setChipInsertHandler(handler)
+
+      isMessageEditing.value = true
+      const eventHandler = handlers.get('kbAddDocToChat')
+      await eventHandler?.([{ relPath: 'docs/test.md', name: 'test.md' }])
+
+      expect(handler).not.toHaveBeenCalled()
+    })
+
+    it('should handle doc event in edit mode when editing', async () => {
+      const handlers = new Map<string, (payload: any) => Promise<void> | void>()
+      vi.mocked(eventBus.on).mockImplementation((event: string, handler: any) => {
+        handlers.set(event, handler)
+      })
+
+      const focusInput = vi.fn()
+      const { setChipInsertHandler } = useContext({ focusInput, mode: 'edit' })
+      const handler = vi.fn()
+      setChipInsertHandler(handler)
+
+      isMessageEditing.value = true
+      const eventHandler = handlers.get('kbAddDocToChat')
+      await eventHandler?.([{ relPath: 'docs/test.md', name: 'test.md' }])
+
+      expect(handler).toHaveBeenCalled()
     })
   })
 })

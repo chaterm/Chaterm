@@ -16,6 +16,7 @@ const CONTEXT_DRAG_HTML_ATTR = 'data-chaterm-context'
 
 export type ContextDragPayload =
   | { contextType: 'doc'; relPath: string; name: string }
+  | { contextType: 'image'; relPath: string; name: string }
   | { contextType: 'chat'; id: string; title: string }
   | {
       contextType: 'host'
@@ -61,6 +62,10 @@ export const parseContextDragPayload = (dataTransfer: DataTransfer | null): Cont
 
   if (contextType === 'doc' && typeof payload.relPath === 'string' && typeof payload.name === 'string') {
     return { contextType: 'doc', relPath: payload.relPath, name: payload.name }
+  }
+
+  if (contextType === 'image' && typeof payload.relPath === 'string' && typeof payload.name === 'string') {
+    return { contextType: 'image', relPath: payload.relPath, name: payload.name }
   }
 
   if (contextType === 'chat' && typeof payload.id === 'string' && typeof payload.title === 'string') {

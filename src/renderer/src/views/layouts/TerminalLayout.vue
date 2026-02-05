@@ -298,6 +298,7 @@ import { computed, nextTick, onBeforeUnmount, onMounted, onUnmounted, reactive, 
 import { Pane, Splitpanes } from 'splitpanes'
 import 'splitpanes/dist/splitpanes.css'
 import AiTab from '@views/components/AiTab/index.vue'
+import { isImageFile } from '@views/components/AiTab/utils'
 import Header from '@views/components/Header/index.vue'
 import LeftTab from '@views/components/LeftTab/index.vue'
 import Workspace from '@views/components/Workspace/index.vue'
@@ -453,6 +454,17 @@ const handleKbAddDocToChatRequest = (payload: Array<{ relPath: string; name?: st
 
   setTimeout(() => {
     eventBus.emit('kbAddDocToChat', payload)
+  }, 100)
+}
+
+// Handle image add to chat request from knowledge base
+const handleKbAddImageToChatRequest = (payload: { mediaType: string; data: string }) => {
+  if (!showAiSidebar.value) {
+    toggleSideBar('right')
+  }
+
+  setTimeout(() => {
+    eventBus.emit('kbAddImageToChat', payload)
   }, 100)
 }
 
@@ -927,6 +939,7 @@ onMounted(async () => {
   eventBus.on('getAllOpenedHosts', handleGetAllOpenedHosts)
   eventBus.on('toggleSideBar', toggleSideBar)
   eventBus.on('kbAddDocToChatRequest', handleKbAddDocToChatRequest)
+  eventBus.on('kbAddImageToChatRequest', handleKbAddImageToChatRequest)
   eventBus.on('createSplitTab', handleCreateSplitTab)
   eventBus.on('createVerticalSplitTab', handleCreateVerticalSplitTab)
   eventBus.on('adjustSplitPaneToEqual', adjustSplitPaneToEqualWidth)
@@ -1704,6 +1717,7 @@ onUnmounted(() => {
   eventBus.off('getAllOpenedHosts', handleGetAllOpenedHosts)
   eventBus.off('toggleSideBar', toggleSideBar)
   eventBus.off('kbAddDocToChatRequest', handleKbAddDocToChatRequest)
+  eventBus.off('kbAddImageToChatRequest', handleKbAddImageToChatRequest)
   eventBus.off('createSplitTab', handleCreateSplitTab)
   eventBus.off('createVerticalSplitTab', handleCreateVerticalSplitTab)
   eventBus.off('adjustSplitPaneToEqual', adjustSplitPaneToEqualWidth)
@@ -2388,10 +2402,12 @@ const setupTabDragToAi = () => {
     const params = panel.params as Record<string, any> | undefined
     if (!params) return
 
-    // Handle KnowledgeCenterEditor (doc)
+    // Handle KnowledgeCenterEditor (doc or image)
     if (params.content === 'KnowledgeCenterEditor' && params.props?.relPath) {
-      const name = params.title || params.props.relPath.split('/').pop() || 'KnowledgeCenter'
-      const dragPayload = { contextType: 'doc', relPath: params.props.relPath, name }
+      const relPath = params.props.relPath as string
+      const name = params.title || relPath.split('/').pop() || 'KnowledgeCenter'
+      const contextType = isImageFile(relPath) ? 'image' : 'doc'
+      const dragPayload = { contextType, relPath, name }
       const payload = JSON.stringify(dragPayload)
       e.dataTransfer.setData('text/html', `<span data-chaterm-context="${encodeURIComponent(payload)}"></span>`)
       e.dataTransfer.effectAllowed = 'copy'
