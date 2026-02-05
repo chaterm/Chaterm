@@ -133,9 +133,6 @@ export const registerFileSystemHandlers = () => {
 
     try {
       const parsedMode = parseInt(String(mode), 8)
-      console.log('remotePath:', remotePath)
-      console.log('parsedMode:', parsedMode)
-      console.log('recursive:', recursive)
 
       if (recursive) {
         const chmodRecursive = async (path: string): Promise<void> => {

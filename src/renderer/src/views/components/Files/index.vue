@@ -77,11 +77,12 @@
             >
               <TermFileSystem
                 v-if="isOpened(String(node.value))"
+                :ref="(el) => bindFsInst(String(node.value), el)"
                 :uuid="String(node.value)"
                 :current-directory-input="resolvePaths(String(node.value))"
                 :base-path="getBasePath(String(node.value))"
                 panel-side="left"
-                :cached-state="FS_CACHE.get(String(node.value))"
+                :cached-state="FS_CACHE.get(String(node.value))?.cache"
                 ui-mode="transfer"
                 @state-change="stateChange"
                 @open-file="openFile"
@@ -139,10 +140,11 @@
             >
               <TermFileSystem
                 v-if="isOpened(String(node.value))"
+                :ref="(el) => bindFsInst(String(node.value), el)"
                 :uuid="String(node.value)"
                 :current-directory-input="resolvePaths(String(node.value))"
                 :base-path="getBasePath(String(node.value))"
-                :cached-state="FS_CACHE.get(String(node.value))"
+                :cached-state="FS_CACHE.get(String(node.value))?.cache"
                 ui-mode="transfer"
                 panel-side="right"
                 @state-change="stateChange"
@@ -179,7 +181,7 @@
                 :uuid="dataRef.value"
                 :current-directory-input="resolvePaths(dataRef.value)"
                 :base-path="getBasePath(dataRef.value)"
-                :cached-state="FS_CACHE.get(dataRef.value)"
+                :cached-state="FS_CACHE.get(dataRef.value)?.cache"
                 @open-file="openFile"
                 @state-change="stateChange"
                 @cross-transfer="handleCrossTransfer"
@@ -224,7 +226,7 @@
 </template>
 
 <script lang="ts" setup>
-import { nextTick, ref, onMounted, reactive, UnwrapRef, onBeforeUnmount, computed, watch } from 'vue'
+import { nextTick, ref, onMounted, reactive, UnwrapRef, onBeforeUnmount, computed, watch, markRaw } from 'vue'
 import type { TreeProps } from 'ant-design-vue/es/tree'
 import TermFileSystem from './files.vue'
 import { useI18n } from 'vue-i18n'
@@ -246,7 +248,14 @@ type PanelCache = {
   ts: number
 }
 
-const FS_CACHE = reactive(new Map<string, PanelCache>())
+type TermFsExpose = { refresh?: () => void | Promise<void> }
+
+type FsEntry = {
+  cache?: PanelCache
+  inst?: TermFsExpose
+}
+
+const FS_CACHE = reactive(new Map<string, FsEntry>())
 
 const getCurrentActiveTerminalInfo = async () => {
   try {
@@ -407,7 +416,6 @@ const isLocalTeam = (id: string) => String(id || '').includes('local-team')
 const isLocal = (id: string) => String(id || '').includes('localhost@127.0.0.1:local')
 
 const listUserSessions = async () => {
-  console.log('listUserSessions:start:', FS_CACHE)
   const sessionData: SftpConnectionInfo[] = await api.sftpConnList()
 
   if (!sessionData.some((s) => isLocal(String(s.id)))) {
@@ -445,7 +453,6 @@ const listUserSessions = async () => {
     if (!(ip in acc)) acc[ip] = item
     return acc
   }, {})
-  console.log('listUserSessions:end:', FS_CACHE)
 
   updateTreeData({ ...sessionResult })
 }
@@ -801,25 +808,53 @@ interface CrossTransferPayload {
 // simple POSIX-like join (backend side usually normalizes)
 const joinPath = (...parts: string[]) => parts.join('/').replace(/\/+/g, '/')
 
-const notifyByStatus = (res: any, kind: 'upload' | 'download') => {
+const refreshByUuid = (uuid: string) => {
+  FS_CACHE.get(String(uuid))?.inst?.refresh?.()
+}
+
+const notifyByStatus = (res: any, kind: 'upload' | 'download', toUuid: string) => {
   const status = res?.status
   if (kind === 'upload') {
-    if (status === 'success') return message.success(t('files.uploadSuccess'))
+    if (status === 'success') {
+      refreshByUuid(toUuid)
+      return message.success(t('files.uploadSuccess'))
+    }
     if (status === 'cancelled') return message.info(t('files.uploadCancel'))
     if (status === 'skipped') return message.info(t('files.downloadSkipped'))
     return message.error(`${t('files.uploadFailed')}：${res?.message || ''}`)
   } else {
-    if (status === 'success') return message.success(t('files.downloadSuccess'))
+    if (status === 'success') {
+      refreshByUuid(toUuid)
+      return message.success(t('files.downloadSuccess'))
+    }
     if (status === 'cancelled') return message.info(t('files.downloadCancel'))
     if (status === 'skipped') return message.info(t('files.downloadSkipped'))
     return message.error(`${t('files.downloadFailed')}：${res?.message || ''}`)
   }
 }
 
-const stateChange = async (s) => {
-  console.log(222222, s)
-  FS_CACHE.set(String(s.uuid), { ...s, ts: Date.now() })
+const stateChange = (s: any) => {
+  const key = String(s.uuid)
+  const entry = FS_CACHE.get(key) || {}
+
+  entry.cache = {
+    path: String(s.path || ''),
+    ts: Date.now()
+  }
+
+  FS_CACHE.set(key, entry)
 }
+
+const bindFsInst = (uuid: string, el: any) => {
+  const key = String(uuid)
+  const entry = FS_CACHE.get(key) || {}
+
+  if (el) entry.inst = markRaw(el as TermFsExpose)
+  else delete entry.inst
+
+  FS_CACHE.set(key, entry)
+}
+
 const handleCrossTransfer = async (p: CrossTransferPayload) => {
   if (!p || p.kind !== 'fs-item') return
   if (p.fromSide === p.toSide) return
@@ -831,7 +866,7 @@ const handleCrossTransfer = async (p: CrossTransferPayload) => {
       const res = p.isDir
         ? await api.uploadDirectory({ id: p.toUuid, localPath: p.srcPath, remotePath: p.targetDir })
         : await api.uploadFile({ id: p.toUuid, localPath: p.srcPath, remotePath: p.targetDir })
-      notifyByStatus(res, 'upload')
+      notifyByStatus(res, 'upload', p.toUuid)
       return
     }
 
@@ -843,11 +878,11 @@ const handleCrossTransfer = async (p: CrossTransferPayload) => {
           remoteDir: p.srcPath,
           localDir: p.targetDir
         })
-        notifyByStatus(res, 'download')
+        notifyByStatus(res, 'download', p.toUuid)
       } else {
         const localPath = joinPath(p.targetDir, p.name)
         const res = await api.downloadFile({ id: p.fromUuid, remotePath: p.srcPath, localPath })
-        notifyByStatus(res, 'download')
+        notifyByStatus(res, 'download', p.toUuid)
       }
       return
     }
@@ -898,7 +933,6 @@ const localHome = ref('')
 onMounted(async () => {
   try {
     localHome.value = await api.getAppPath('home')
-    console.log('000:', localHome.value)
   } catch {
     localHome.value = ''
   }

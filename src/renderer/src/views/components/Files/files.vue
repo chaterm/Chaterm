@@ -86,7 +86,7 @@
               </a-tooltip>
             </div>
           </a-space>
-          <a-space v-if="!isLocal">
+          <a-space>
             <div class="fs-header-right-item">
               <a-tooltip :title="$t('common.refresh')">
                 <a-button
@@ -478,17 +478,6 @@ import { ColumnsType } from 'ant-design-vue/es/table'
 import { useI18n } from 'vue-i18n'
 import { CheckboxValueType } from 'ant-design-vue/es/checkbox/interface'
 import cloneDeep from 'clone-deep'
-
-type CachedFsState = {
-  files: FileRecord[]
-  localCurrentDirectoryInput: string
-  showErr: boolean
-  errTips: string
-  isFirstLoad: boolean
-}
-
-const FS_STATE_CACHE = new Map<string, CachedFsState>()
-const makeCacheKey = (uuid: string, basePath: string) => `${uuid}::${basePath || ''}`
 
 const emit = defineEmits(['openFile', 'crossTransfer', 'stateChange'])
 const api = (window as any).api
@@ -1213,8 +1202,6 @@ const onDropZoneDrop = (e: DragEvent) => {
 }
 
 const rollback = (): void => {
-  console.log(11111111111, basePath.value + localCurrentDirectoryInput.value)
-  console.log(22222222222, getDirname(basePath.value + localCurrentDirectoryInput.value))
   loadFiles(props.uuid, getDirname(basePath.value + localCurrentDirectoryInput.value))
 }
 
@@ -1243,22 +1230,6 @@ onMounted(async () => {
   await loadFiles(props.uuid, basePath.value + localCurrentDirectoryInput.value)
 })
 
-// Keep cache up-to-date (avoid deep watch: it can be expensive for large directories)
-watch(
-  () => [props.uuid, basePath.value, files.value, localCurrentDirectoryInput.value, showErr.value, errTips.value],
-  () => {
-    const cacheKey = makeCacheKey(props.uuid, basePath.value)
-    FS_STATE_CACHE.set(cacheKey, {
-      files: files.value,
-      localCurrentDirectoryInput: localCurrentDirectoryInput.value,
-      showErr: showErr.value,
-      errTips: errTips.value,
-      isFirstLoad: isFirstLoad.value
-    })
-  },
-  { deep: false }
-)
-
 onBeforeUnmount(() => {
   document.removeEventListener('dragend', onAnyDndFinish, true)
   document.removeEventListener('drop', onAnyDndFinish, true)
@@ -1267,15 +1238,6 @@ onBeforeUnmount(() => {
     window.cancelAnimationFrame(dndRaf)
     dndRaf = 0
   }
-
-  const cacheKey = makeCacheKey(props.uuid, basePath.value)
-  FS_STATE_CACHE.set(cacheKey, {
-    files: files.value,
-    localCurrentDirectoryInput: localCurrentDirectoryInput.value,
-    showErr: showErr.value,
-    errTips: errTips.value,
-    isFirstLoad: isFirstLoad.value
-  })
 })
 
 const uploadFile = async () => {
@@ -1673,7 +1635,6 @@ const downloadFile = async (record: any) => {
       cancelled: { type: 'info', text: t('files.downloadCancel') },
       skipped: { type: 'info', text: t('files.downloadSkipped') }
     }[res.status] || { type: 'error', text: `${t('files.downloadFailed')}：${res.message}` }
-
     message[config.type]({
       content: config.text,
       key,
