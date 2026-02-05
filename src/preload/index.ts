@@ -722,7 +722,7 @@ const api = {
   writeToShell: (params) => ipcRenderer.send('ssh:shell:write', params),
   disconnect: (params) => ipcRenderer.invoke('ssh:disconnect', params),
   selectPrivateKey: () => ipcRenderer.invoke('ssh:select-private-key'),
-
+  getAppPath: (name) => ipcRenderer.invoke('app:get-path', { name }),
   onShellData: (id, callback) => {
     const listener = (_event, data) => callback(data)
     ipcRenderer.on(`ssh:shell:data:${id}`, listener)
@@ -872,6 +872,7 @@ const api = {
   writeLocalFile: async (filePath: string, content: string) => {
     await fs.promises.writeFile(filePath, content, 'utf-8')
   },
+  downloadDirectory: (args: { id: string; remoteDir: string; localDir: string }) => ipcRenderer.invoke('ssh:sftp:download-directory', args),
 
   transferFileRemoteToRemote: (args: { fromId: string; toId: string; fromPath: string; toPath: string; autoRename?: boolean }) =>
     ipcRenderer.invoke('sftp:r2r:file', args),

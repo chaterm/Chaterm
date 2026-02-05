@@ -1091,7 +1091,8 @@ export default {
     treeExpand: '展開',
     treeFoldUp: '閉じる',
     transferSuccess: '転送完了',
-    transferFailed: '転送失敗'
+    transferFailed: '転送失敗',
+    openFolder: 'フォルダを開く'
   },
   about: {
     version: 'バージョン',

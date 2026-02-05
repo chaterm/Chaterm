@@ -1088,7 +1088,8 @@ export default {
     treeExpand: 'Развернуть',
     treeFoldUp: 'Свернуть',
     transferSuccess: 'Передача завершена',
-    transferFailed: 'Передача не удалась'
+    transferFailed: 'Передача не удалась',
+    openFolder: 'Открыть папку'
   },
   about: {
     version: 'Версия',

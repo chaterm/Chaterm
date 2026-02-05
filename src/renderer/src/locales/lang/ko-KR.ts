@@ -1087,7 +1087,8 @@ export default {
     treeExpand: '전개',
     treeFoldUp: '접어 닫기',
     transferSuccess: '전송 완료',
-    transferFailed: '전송 실패'
+    transferFailed: '전송 실패',
+    openFolder: '폴더 열기'
   },
   about: {
     version: '버전',

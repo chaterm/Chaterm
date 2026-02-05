@@ -1084,7 +1084,8 @@ export default {
     treeExpand: '展开',
     treeFoldUp: '收起',
     transferSuccess: '传输完成',
-    transferFailed: '传输失败'
+    transferFailed: '传输失败',
+    openFolder: '打开文件夹'
   },
   about: {
     version: '版本',

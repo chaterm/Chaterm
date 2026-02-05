@@ -1090,7 +1090,8 @@ export default {
     treeExpand: 'Expandir',
     treeFoldUp: 'Colapsar',
     transferSuccess: 'Transferência concluída',
-    transferFailed: 'A transferência falhou'
+    transferFailed: 'A transferência falhou',
+    openFolder: 'Abrir pasta'
   },
   about: {
     version: 'Versão',

@@ -1092,7 +1092,8 @@ export default {
     treeExpand: 'Ausklappen',
     treeFoldUp: 'Einklappen',
     transferSuccess: 'Übertragung abgeschlossen',
-    transferFailed: 'Übertragung fehlgeschlagen'
+    transferFailed: 'Übertragung fehlgeschlagen',
+    openFolder: 'Ordner öffnen'
   },
   about: {
     version: 'Version',
