@@ -1091,7 +1091,8 @@ export default {
     treeExpand: 'Espandi',
     treeFoldUp: 'Riduci',
     transferSuccess: 'Trasferimento completato',
-    transferFailed: 'Trasferimento fallito'
+    transferFailed: 'Trasferimento fallito',
+    openFolder: 'Apri cartella'
   },
   about: {
     version: 'Versione',

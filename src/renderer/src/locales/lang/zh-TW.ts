@@ -1074,7 +1074,8 @@ export default {
     treeExpand: '展開',
     treeFoldUp: '收起',
     transferSuccess: '傳輸完成',
-    transferFailed: '傳輸失敗'
+    transferFailed: '傳輸失敗',
+    openFolder: '開啟資料夾'
   },
   about: {
     version: '版本',

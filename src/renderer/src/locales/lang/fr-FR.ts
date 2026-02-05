@@ -1097,7 +1097,8 @@ export default {
     treeExpand: 'Développer',
     treeFoldUp: 'Replier',
     transferSuccess: 'Transmission terminée',
-    transferFailed: 'Échec de la transmission'
+    transferFailed: 'Échec de la transmission',
+    openFolder: 'Ouvrir le dossier'
   },
   about: {
     version: 'Version',
