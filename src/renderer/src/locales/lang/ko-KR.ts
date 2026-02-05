@@ -1332,7 +1332,8 @@ export default {
     newFile: '새 파일',
     newFolder: '새 폴더',
     uploadFile: '파일 업로드',
-    refresh: '새로고침'
+    refresh: '새로고침',
+    loadingImage: '이미지 로딩 중...'
   },
   interaction: {
     waiting: '입력 대기 중...',

@@ -1336,7 +1336,8 @@ export default {
     newFile: 'Nuovo file',
     newFolder: 'Nuova cartella',
     uploadFile: 'Carica file',
-    refresh: 'Aggiorna'
+    refresh: 'Aggiorna',
+    loadingImage: 'Caricamento immagine...'
   },
   interaction: {
     title: 'Interazione comando richiesta',

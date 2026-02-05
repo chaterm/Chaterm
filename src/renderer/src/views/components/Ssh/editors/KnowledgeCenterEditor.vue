@@ -1,12 +1,34 @@
 <template>
-  <div class="kb-editor-root">
+  <div
+    class="kb-editor-root"
+    @paste.capture="handlePaste"
+  >
     <div
       v-if="activeFile.relPath"
       class="kb-body"
     >
-      <!-- Preview Mode -->
+      <!-- Image Preview Mode -->
       <div
-        v-if="mode === 'preview'"
+        v-if="activeFile.isImage"
+        class="kb-image-preview"
+      >
+        <img
+          v-if="activeFile.imageDataUrl"
+          :src="activeFile.imageDataUrl"
+          :alt="activeFile.relPath"
+          class="kb-image"
+        />
+        <div
+          v-else
+          class="kb-image-loading"
+        >
+          {{ t('knowledgeCenter.loadingImage') }}
+        </div>
+      </div>
+
+      <!-- Preview Mode (Markdown) -->
+      <div
+        v-else-if="mode === 'preview'"
         class="kb-preview"
         :style="previewStyle"
         v-html="mdHtml"
@@ -18,6 +40,7 @@
         class="kb-editor-pane"
       >
         <MonacoEditor
+          ref="monacoEditorRef"
           v-model="activeFile.content"
           :language="activeFile.language"
           :theme="currentTheme"
@@ -39,6 +62,7 @@
 
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, reactive, ref, watch } from 'vue'
+import { useI18n } from 'vue-i18n'
 import { marked } from 'marked'
 import { message } from 'ant-design-vue'
 import MonacoEditor from '@renderer/views/components/Ssh/editors/monacoEditor.vue'
@@ -46,6 +70,8 @@ import { getMonacoTheme } from '@/utils/themeUtils'
 import eventBus from '@/utils/eventBus'
 import DOMPurify from 'dompurify'
 import { userConfigStore } from '@/services/userConfigStoreService'
+
+const { t } = useI18n()
 
 const props = withDefaults(
   defineProps<{
@@ -59,16 +85,24 @@ const props = withDefaults(
 
 const mainApi = (window as any).api
 
+// Image file extensions for detection
+const IMAGE_EXTS = new Set(['.png', '.jpg', '.jpeg', '.gif', '.webp', '.bmp', '.svg'])
+
 // Initialize with props.relPath to avoid showing empty state during async load
 const activeFile = reactive({
   relPath: props.relPath || '',
   content: '',
   mtimeMs: 0,
   isMarkdown: false,
+  isImage: false,
+  imageDataUrl: '',
   language: 'plaintext'
 })
 
 const currentTheme = computed(() => getMonacoTheme())
+
+// Ref to access Monaco Editor instance
+const monacoEditorRef = ref<InstanceType<typeof MonacoEditor> | null>(null)
 
 // Font settings from user config
 const fontFamily = ref('Menlo, Monaco, "Courier New", Consolas, Courier, monospace')
@@ -82,6 +116,11 @@ const previewStyle = computed(() => ({
 
 function isMarkdownFile(relPath: string): boolean {
   return relPath.toLowerCase().endsWith('.md') || relPath.toLowerCase().endsWith('.markdown')
+}
+
+function isImageFile(relPath: string): boolean {
+  const ext = relPath.toLowerCase().split('.').pop()
+  return ext ? IMAGE_EXTS.has(`.${ext}`) : false
 }
 
 function languageFromPath(relPath: string): string {
@@ -127,24 +166,184 @@ const handleRemoteChange = (data: { relPath: string; content: string }) => {
   }
 }
 
-const mdHtml = computed(() => {
-  if (!activeFile.isMarkdown) return ''
+// Rendered Markdown HTML with resolved image paths
+const mdHtml = ref('')
 
-  // To avoid XSS attacks, we need to sanitize the HTML before rendering it.
-  const rawHtml = marked.parse(activeFile.content || '')
-  return DOMPurify.sanitize(rawHtml as string)
-})
+// Cache for loaded images: relPath -> dataUrl
+const imageCache = new Map<string, string>()
+
+// Check if a path is a relative local path (not http/https/data URL)
+function isLocalImagePath(src: string): boolean {
+  if (!src) return false
+  if (src.startsWith('http://') || src.startsWith('https://') || src.startsWith('data:')) return false
+  return true
+}
+
+// Load image from knowledge base and return data URL
+async function loadImageAsDataUrl(relPath: string): Promise<string | null> {
+  if (imageCache.has(relPath)) {
+    return imageCache.get(relPath)!
+  }
+
+  try {
+    const res = await mainApi.kbReadFile(relPath, 'base64')
+    const dataUrl = `data:${res.mimeType || 'image/png'};base64,${res.content}`
+    imageCache.set(relPath, dataUrl)
+    return dataUrl
+  } catch {
+    return null
+  }
+}
+
+// Resolve image path relative to current file's directory
+function resolveImagePath(src: string): string {
+  if (src.startsWith('/')) {
+    return src.slice(1)
+  }
+  const dir = getDirOf(activeFile.relPath)
+  return dir ? `${dir}/${src}` : src
+}
+
+// Process Markdown content and resolve images
+async function renderMarkdownWithImages() {
+  if (!activeFile.isMarkdown) {
+    mdHtml.value = ''
+    return
+  }
+
+  const rawHtml = marked.parse(activeFile.content || '') as string
+
+  const sanitizedHtml = DOMPurify.sanitize(rawHtml)
+
+  // Parse HTML to find and replace local image sources
+  const parser = new DOMParser()
+  const doc = parser.parseFromString(sanitizedHtml, 'text/html')
+  const images = doc.querySelectorAll('img')
+
+  const loadPromises: Promise<void>[] = []
+
+  images.forEach((img) => {
+    const src = img.getAttribute('src')
+
+    if (src && isLocalImagePath(src)) {
+      const resolvedPath = resolveImagePath(src)
+
+      loadPromises.push(
+        loadImageAsDataUrl(resolvedPath).then((dataUrl) => {
+          if (dataUrl) {
+            img.setAttribute('src', dataUrl)
+          }
+        })
+      )
+    }
+  })
+
+  await Promise.all(loadPromises)
+  mdHtml.value = doc.body.innerHTML
+}
+
+// Watch for content changes to re-render Markdown
+watch(
+  () => [activeFile.content, activeFile.isMarkdown, props.mode],
+  () => {
+    if (props.mode === 'preview' && activeFile.isMarkdown) {
+      renderMarkdownWithImages()
+    }
+  },
+  { immediate: true }
+)
+
+// Get directory path from file path
+function getDirOf(relPath: string): string {
+  const parts = relPath.split('/').filter(Boolean)
+  if (parts.length <= 1) return ''
+  return parts.slice(0, -1).join('/')
+}
+
+// Handle paste event for image pasting in Markdown files
+async function handlePaste(event: ClipboardEvent) {
+  // Only handle image paste in Markdown files in editor mode
+  if (!activeFile.isMarkdown || props.mode !== 'editor') return
+
+  const items = event.clipboardData?.items
+  if (!items) return
+
+  for (const item of Array.from(items)) {
+    if (item.type.startsWith('image/')) {
+      event.preventDefault()
+      const file = item.getAsFile()
+      if (!file) continue
+
+      try {
+        const base64 = await new Promise<string>((resolve, reject) => {
+          const reader = new FileReader()
+          reader.onload = () => {
+            const result = reader.result as string
+            const base64Data = result.split(',')[1]
+            resolve(base64Data)
+          }
+          reader.onerror = () => reject(new Error('Failed to read image'))
+          reader.readAsDataURL(file)
+        })
+
+        const ext = file.type.split('/')[1] || 'png'
+        const timestamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19)
+        const fileName = `pasted-image-${timestamp}.${ext}`
+
+        // Save image to the same directory as the current Markdown file
+        const targetDir = getDirOf(activeFile.relPath)
+        await mainApi.kbCreateImage(targetDir, fileName, base64)
+
+        // Insert Markdown image reference at cursor position
+        const editor = monacoEditorRef.value?.getEditor?.()
+        if (editor) {
+          const selection = editor.getSelection()
+          if (selection) {
+            const markdownRef = `![](${fileName})`
+            editor.executeEdits('paste-image', [
+              {
+                range: selection,
+                text: markdownRef,
+                forceMoveMarkers: true
+              }
+            ])
+          }
+        }
+
+        eventBus.emit('kbRefresh', { relDir: targetDir })
+      } catch (e: any) {
+        message.error(`Failed to save image: ${e?.message || String(e)}`)
+      }
+      break
+    }
+  }
+}
 
 async function openFile(relPath: string) {
   if (!relPath) return
   try {
     await mainApi.kbEnsureRoot()
-    const res = await mainApi.kbReadFile(relPath)
-    activeFile.relPath = relPath
-    activeFile.content = res.content
-    activeFile.mtimeMs = res.mtimeMs
-    activeFile.isMarkdown = isMarkdownFile(relPath)
-    activeFile.language = languageFromPath(relPath)
+
+    // Check if file is an image
+    if (isImageFile(relPath)) {
+      const res = await mainApi.kbReadFile(relPath, 'base64')
+      activeFile.relPath = relPath
+      activeFile.content = ''
+      activeFile.mtimeMs = res.mtimeMs
+      activeFile.isMarkdown = false
+      activeFile.isImage = true
+      activeFile.imageDataUrl = `data:${res.mimeType};base64,${res.content}`
+      activeFile.language = 'plaintext'
+    } else {
+      const res = await mainApi.kbReadFile(relPath)
+      activeFile.relPath = relPath
+      activeFile.content = res.content
+      activeFile.mtimeMs = res.mtimeMs
+      activeFile.isMarkdown = isMarkdownFile(relPath)
+      activeFile.isImage = false
+      activeFile.imageDataUrl = ''
+      activeFile.language = languageFromPath(relPath)
+    }
   } catch (e: any) {
     message.error(e?.message || String(e))
   }
@@ -181,6 +380,8 @@ watch(
 onBeforeUnmount(() => {
   eventBus.off('kb:content-changed', handleRemoteChange)
   if (saveTimer) window.clearTimeout(saveTimer)
+  // Clear image cache to prevent memory leaks
+  imageCache.clear()
 })
 </script>
 
@@ -327,6 +528,29 @@ onBeforeUnmount(() => {
     border-top: 1px solid var(--border-color);
     margin: 1.5em 0;
   }
+}
+
+.kb-image-preview {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: auto;
+  padding: 24px;
+  background: var(--bg-color);
+}
+
+.kb-image {
+  max-width: 100%;
+  max-height: 100%;
+  object-fit: contain;
+  border-radius: 4px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+}
+
+.kb-image-loading {
+  color: var(--text-color-secondary);
+  font-size: 14px;
 }
 
 .kb-empty {

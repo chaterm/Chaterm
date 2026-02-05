@@ -1342,7 +1342,8 @@ export default {
     newFile: 'Nouveau fichier',
     newFolder: 'Nouveau dossier',
     uploadFile: 'Télécharger un fichier',
-    refresh: 'Actualiser'
+    refresh: 'Actualiser',
+    loadingImage: "Chargement de l'image..."
   },
   interaction: {
     title: 'Interaction de commande requise',

@@ -1336,7 +1336,8 @@ export default {
     newFile: '新規ファイル',
     newFolder: '新規フォルダ',
     uploadFile: 'ファイルをアップロード',
-    refresh: '更新'
+    refresh: '更新',
+    loadingImage: '画像を読み込み中...'
   },
   interaction: {
     waiting: '入力待機中...',

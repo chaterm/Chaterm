@@ -1335,7 +1335,8 @@ export default {
     newFile: 'Novo arquivo',
     newFolder: 'Nova pasta',
     uploadFile: 'Upload arquivo',
-    refresh: 'Atualizar'
+    refresh: 'Atualizar',
+    loadingImage: 'Carregando imagem...'
   },
   interaction: {
     title: 'Interacao de comando necessaria',

@@ -82,6 +82,185 @@ async function readMeta() {
   return JSON.parse(raw) as any
 }
 
+async function loadAllHandlers() {
+  handlers.clear()
+  const mod = await import('../knowledgebase')
+  mod.registerKnowledgeBaseHandlers()
+  return {
+    ensureRoot: handlers.get('kb:ensure-root')!,
+    readFile: handlers.get('kb:read-file')!,
+    writeFile: handlers.get('kb:write-file')!,
+    createImage: handlers.get('kb:create-image')!,
+    rename: handlers.get('kb:rename')!,
+    del: handlers.get('kb:delete')!,
+    move: handlers.get('kb:move')!
+  }
+}
+
+describe('KnowledgeBase file operations', () => {
+  const tempDirs: string[] = []
+
+  beforeEach(async () => {
+    handlers.clear()
+    vi.clearAllMocks()
+    vi.resetModules()
+
+    mockDefaultCommandsVersion = 1
+    mockSummarySeedContent = 'seed-v1'
+
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'kb-file-ops-'))
+    tempDirs.push(dir)
+    mockUserDataPath = dir
+  })
+
+  afterEach(async () => {
+    for (const dir of tempDirs) {
+      try {
+        await fsp.rm(dir, { recursive: true, force: true })
+      } catch {
+        // ignore
+      }
+    }
+  })
+
+  it('reads file with utf-8 encoding by default', async () => {
+    const { ensureRoot, readFile, writeFile } = await loadAllHandlers()
+    await ensureRoot({} as any)
+
+    // Create a text file
+    await writeFile({} as any, { relPath: 'test.txt', content: 'hello world' })
+
+    // Read with default encoding
+    const result = await readFile({} as any, { relPath: 'test.txt' })
+    expect(result.content).toBe('hello world')
+    expect(result.mtimeMs).toBeDefined()
+  })
+
+  it('reads file with base64 encoding', async () => {
+    const { ensureRoot, readFile } = await loadAllHandlers()
+    await ensureRoot({} as any)
+
+    // Create a binary file directly
+    const kbRoot = path.join(mockUserDataPath, 'knowledgebase')
+    const testImagePath = path.join(kbRoot, 'test.png')
+    const testData = Buffer.from([0x89, 0x50, 0x4e, 0x47]) // PNG header bytes
+    await fsp.writeFile(testImagePath, testData)
+
+    // Read with base64 encoding
+    const result = await readFile({} as any, { relPath: 'test.png', encoding: 'base64' })
+    expect(result.content).toBe(testData.toString('base64'))
+    expect(result.mimeType).toBe('image/png')
+    expect(result.isImage).toBe(true)
+    expect(result.mtimeMs).toBeDefined()
+  })
+
+  it('writes file with utf-8 encoding by default', async () => {
+    const { ensureRoot, writeFile } = await loadAllHandlers()
+    await ensureRoot({} as any)
+
+    await writeFile({} as any, { relPath: 'test.txt', content: 'hello world' })
+
+    const kbRoot = path.join(mockUserDataPath, 'knowledgebase')
+    const content = await fsp.readFile(path.join(kbRoot, 'test.txt'), 'utf-8')
+    expect(content).toBe('hello world')
+  })
+
+  it('writes file with base64 encoding', async () => {
+    const { ensureRoot, writeFile } = await loadAllHandlers()
+    await ensureRoot({} as any)
+
+    const testData = Buffer.from([0x89, 0x50, 0x4e, 0x47])
+    const base64Content = testData.toString('base64')
+
+    await writeFile({} as any, { relPath: 'test.png', content: base64Content, encoding: 'base64' })
+
+    const kbRoot = path.join(mockUserDataPath, 'knowledgebase')
+    const savedContent = await fsp.readFile(path.join(kbRoot, 'test.png'))
+    expect(savedContent.equals(testData)).toBe(true)
+  })
+
+  it('creates image file from base64 data', async () => {
+    const { ensureRoot, createImage } = await loadAllHandlers()
+    await ensureRoot({} as any)
+
+    const testData = Buffer.from([0x89, 0x50, 0x4e, 0x47])
+    const base64Content = testData.toString('base64')
+
+    const result = await createImage({} as any, { relDir: '', name: 'image.png', base64: base64Content })
+    expect(result.relPath).toBe('image.png')
+
+    const kbRoot = path.join(mockUserDataPath, 'knowledgebase')
+    const savedContent = await fsp.readFile(path.join(kbRoot, 'image.png'))
+    expect(savedContent.equals(testData)).toBe(true)
+  })
+
+  it('creates image in subdirectory', async () => {
+    const { ensureRoot, createImage } = await loadAllHandlers()
+    await ensureRoot({} as any)
+
+    const testData = Buffer.from([0xff, 0xd8, 0xff, 0xe0]) // JPEG header
+    const base64Content = testData.toString('base64')
+
+    const result = await createImage({} as any, { relDir: 'images', name: 'photo.jpg', base64: base64Content })
+    expect(result.relPath).toBe('images/photo.jpg')
+
+    const kbRoot = path.join(mockUserDataPath, 'knowledgebase')
+    const savedContent = await fsp.readFile(path.join(kbRoot, 'images', 'photo.jpg'))
+    expect(savedContent.equals(testData)).toBe(true)
+  })
+
+  it('generates unique name when image already exists', async () => {
+    const { ensureRoot, createImage } = await loadAllHandlers()
+    await ensureRoot({} as any)
+
+    const testData = Buffer.from([0x89, 0x50, 0x4e, 0x47])
+    const base64Content = testData.toString('base64')
+
+    // Create first image
+    await createImage({} as any, { relDir: '', name: 'image.png', base64: base64Content })
+
+    // Create second image with same name
+    const result = await createImage({} as any, { relDir: '', name: 'image.png', base64: base64Content })
+    expect(result.relPath).toBe('image (1).png')
+  })
+
+  it('rejects invalid file names for image creation', async () => {
+    const { ensureRoot, createImage } = await loadAllHandlers()
+    await ensureRoot({} as any)
+
+    const base64Content = Buffer.from([0x89, 0x50]).toString('base64')
+
+    await expect(createImage({} as any, { relDir: '', name: '../invalid.png', base64: base64Content })).rejects.toThrow('Invalid file name')
+  })
+
+  it('returns correct mime types for different image formats', async () => {
+    const { ensureRoot, readFile } = await loadAllHandlers()
+    await ensureRoot({} as any)
+
+    const kbRoot = path.join(mockUserDataPath, 'knowledgebase')
+    const testData = Buffer.from([0x00, 0x00, 0x00, 0x00])
+
+    // Test different image extensions
+    const imageTypes = [
+      { ext: '.png', mime: 'image/png' },
+      { ext: '.jpg', mime: 'image/jpeg' },
+      { ext: '.jpeg', mime: 'image/jpeg' },
+      { ext: '.gif', mime: 'image/gif' },
+      { ext: '.webp', mime: 'image/webp' },
+      { ext: '.bmp', mime: 'image/bmp' },
+      { ext: '.svg', mime: 'image/svg+xml' }
+    ]
+
+    for (const { ext, mime } of imageTypes) {
+      const fileName = `test${ext}`
+      await fsp.writeFile(path.join(kbRoot, fileName), testData)
+      const result = await readFile({} as any, { relPath: fileName, encoding: 'base64' })
+      expect(result.mimeType).toBe(mime)
+      expect(result.isImage).toBe(true)
+    }
+  })
+})
+
 describe('KnowledgeBase default commands initialization (scheme A)', () => {
   const tempDirs: string[] = []
 

@@ -1340,7 +1340,8 @@ export default {
     newFile: 'New File',
     newFolder: 'New Folder',
     uploadFile: 'Upload File',
-    refresh: 'Refresh'
+    refresh: 'Refresh',
+    loadingImage: 'Loading image...'
   },
   interaction: {
     waiting: 'Waiting for input...',
