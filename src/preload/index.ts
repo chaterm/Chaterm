@@ -1,4 +1,4 @@
-import { contextBridge, ipcRenderer } from 'electron'
+import { contextBridge, ipcRenderer, webUtils } from 'electron'
 import { electronAPI } from '@electron-toolkit/preload'
 import type { WebviewMessage } from '../main/agent/shared/WebviewMessage'
 
@@ -535,6 +535,7 @@ const api = {
   moveAssetToFolder,
   removeAssetFromFolder,
   getAssetsInFolder,
+  getPathForFile: (file: File) => webUtils.getPathForFile(file), // Get the real path from File instead of using file.path
   setDataSyncEnabled: (enabled: boolean) => ipcRenderer.invoke('data-sync:set-enabled', enabled),
   maximizeWindow: () => ipcRenderer.invoke('window:maximize'),
   unmaximizeWindow: () => ipcRenderer.invoke('window:unmaximize'),
