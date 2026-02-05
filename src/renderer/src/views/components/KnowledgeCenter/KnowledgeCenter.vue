@@ -116,8 +116,20 @@
                     >
                       Add to Chat
                     </a-menu-item>
-                    <a-menu-item key="copy">Copy</a-menu-item>
-                    <a-menu-item key="cut">Cut</a-menu-item>
+                    <a-menu-item
+                      key="copy"
+                      class="kb-menu-item-with-shortcut"
+                    >
+                      <span>Copy</span>
+                      <span class="shortcut-hint">{{ modifierKey }}C</span>
+                    </a-menu-item>
+                    <a-menu-item
+                      key="cut"
+                      class="kb-menu-item-with-shortcut"
+                    >
+                      <span>Cut</span>
+                      <span class="shortcut-hint">{{ modifierKey }}X</span>
+                    </a-menu-item>
                     <a-menu-item key="delete">Delete</a-menu-item>
                   </template>
                   <template v-else>
@@ -143,13 +155,27 @@
                     <a-menu-item key="rename">Rename</a-menu-item>
                     <a-menu-item key="delete">Delete</a-menu-item>
                     <a-menu-divider />
-                    <a-menu-item key="copy">Copy</a-menu-item>
-                    <a-menu-item key="cut">Cut</a-menu-item>
+                    <a-menu-item
+                      key="copy"
+                      class="kb-menu-item-with-shortcut"
+                    >
+                      <span>Copy</span>
+                      <span class="shortcut-hint">{{ modifierKey }}C</span>
+                    </a-menu-item>
+                    <a-menu-item
+                      key="cut"
+                      class="kb-menu-item-with-shortcut"
+                    >
+                      <span>Cut</span>
+                      <span class="shortcut-hint">{{ modifierKey }}X</span>
+                    </a-menu-item>
                     <a-menu-item
                       v-if="clipboard"
                       key="paste"
+                      class="kb-menu-item-with-shortcut"
                     >
-                      Paste
+                      <span>Paste</span>
+                      <span class="shortcut-hint">{{ modifierKey }}V</span>
                     </a-menu-item>
                   </template>
                 </a-menu>
@@ -165,8 +191,10 @@
           <a-menu-item
             key="paste"
             :disabled="!clipboard"
+            class="kb-menu-item-with-shortcut"
           >
-            Paste
+            <span>Paste</span>
+            <span class="shortcut-hint">{{ modifierKey }}V</span>
           </a-menu-item>
           <a-menu-item key="refresh">Refresh</a-menu-item>
         </a-menu>
@@ -197,6 +225,7 @@ import { computed, nextTick, onBeforeUnmount, onMounted, reactive, ref } from 'v
 import { message, Modal } from 'ant-design-vue'
 import eventBus from '@/utils/eventBus'
 import { CloudUploadOutlined, FileAddOutlined, FolderAddOutlined, PlusOutlined, RedoOutlined, SearchOutlined } from '@ant-design/icons-vue'
+import { getModifierSymbol, isShortcutEvent } from './utils/kbShortcuts'
 
 type KbNodeType = 'file' | 'dir'
 type TreeNode = {
@@ -239,6 +268,9 @@ const isContextMenuOpen = computed(() => !!menuKey.value)
 const hasSelectedFile = computed(() => {
   return selectedKeys.value.some((relPath) => treeNodeType(relPath) === 'file')
 })
+
+// Modifier key symbol for shortcut hints in context menu
+const modifierKey = computed(() => getModifierSymbol())
 
 function toTreeNodes(entries: Array<{ name: string; relPath: string; type: KbNodeType }>): TreeNode[] {
   return entries.map((e) => ({
@@ -605,6 +637,120 @@ async function openCreateInline(kind: 'file' | 'folder') {
   inputRef.value?.focus()
 }
 
+// Copy/cut/paste handlers - used by both keyboard shortcuts and context menu
+function handleCopy(sources?: string[]) {
+  const targets = sources || [...selectedKeys.value]
+  if (targets.length === 0) return
+  clipboard.value = { mode: 'copy', sources: targets }
+}
+
+function handleCut(sources?: string[]) {
+  const targets = sources || [...selectedKeys.value]
+  if (targets.length === 0) return
+  clipboard.value = { mode: 'cut', sources: targets }
+}
+
+async function handlePaste(targetNode?: TreeNode) {
+  if (!clipboard.value) return
+  const mode = clipboard.value.mode
+  const sources = clipboard.value.sources.slice()
+
+  // Determine destination directory from targetNode or selectedKeys
+  let dstRelDir: string
+  if (targetNode) {
+    dstRelDir = targetNode.type === 'dir' ? targetNode.relPath : getDirOf(targetNode.relPath)
+  } else {
+    const target = selectedKeys.value[0] || ''
+    const targetType = target ? treeNodeType(target) : null
+    dstRelDir = targetType === 'dir' ? target : getDirOf(target)
+  }
+
+  const dirsToRefresh = new Set<string>([dstRelDir])
+  const removedEntries: Array<{ relPath: string; isDir: boolean }> = []
+  let lastOpenedFileRelPath = ''
+
+  try {
+    for (const src of sources) {
+      const srcType = treeNodeType(src)
+      let res: { relPath: string }
+      if (mode === 'copy') {
+        res = await api.kbCopy(src, dstRelDir)
+      } else {
+        res = await api.kbMove(src, dstRelDir)
+        dirsToRefresh.add(getDirOf(src))
+        removedEntries.push({ relPath: src, isDir: srcType === 'dir' })
+      }
+      if (srcType === 'file') lastOpenedFileRelPath = res.relPath
+    }
+    if (mode === 'cut') {
+      clipboard.value = null
+    }
+    for (const d of dirsToRefresh) {
+      await refreshDir(d)
+    }
+    if (lastOpenedFileRelPath) {
+      openFileInMainPane(lastOpenedFileRelPath)
+    }
+    if (mode === 'cut') {
+      emitKbEntriesRemoved(removedEntries)
+    }
+  } catch (e: unknown) {
+    const error = e as Error
+    message.error(error?.message || String(e))
+  }
+}
+
+function isInEditableElement(): boolean {
+  const activeEl = document.activeElement
+  if (!activeEl) return false
+
+  // Check for standard input elements
+  if (activeEl.tagName === 'INPUT' || activeEl.tagName === 'TEXTAREA') {
+    return true
+  }
+
+  // Check for contenteditable elements (e.g., Monaco Editor)
+  if (activeEl.getAttribute('contenteditable') === 'true') {
+    return true
+  }
+
+  // Check if any parent has contenteditable (Monaco Editor structure)
+  let parent = activeEl.parentElement
+  while (parent) {
+    if (parent.getAttribute('contenteditable') === 'true') {
+      return true
+    }
+    // Check for Monaco Editor specific class
+    if (parent.classList.contains('monaco-editor')) {
+      return true
+    }
+    parent = parent.parentElement
+  }
+
+  return false
+}
+
+function handleKeyDown(e: KeyboardEvent) {
+  // Skip if editing (rename input is focused)
+  if (editingKey.value) return
+
+  // Skip if focus is in editable elements (input, textarea, contenteditable, Monaco Editor)
+  if (isInEditableElement()) {
+    return
+  }
+
+  if (isShortcutEvent(e, 'copy')) {
+    handleCopy()
+    e.preventDefault()
+  } else if (isShortcutEvent(e, 'cut')) {
+    handleCut()
+    e.preventDefault()
+  } else if (isShortcutEvent(e, 'paste')) {
+    handlePaste()
+    e.preventDefault()
+  }
+}
+
 async function onContextAction(action: string, node: TreeNode) {
   const isBatch = selectedKeys.value.length > 1 && selectedKeys.value.includes(node.relPath)
   const targets = isBatch ? [...selectedKeys.value] : [node.relPath]
@@ -666,48 +812,14 @@ async function onContextAction(action: string, node: TreeNode) {
       })
       return
     case 'copy':
-      clipboard.value = { mode: 'copy', sources: targets }
+      handleCopy(targets)
       return
     case 'cut':
-      clipboard.value = { mode: 'cut', sources: targets }
+      handleCut(targets)
       return
-    case 'paste': {
-      if (!clipboard.value) return
-      const mode = clipboard.value.mode
-      const sources = clipboard.value.sources.slice()
-      const dstRelDir = node.type === 'dir' ? node.relPath : getDirOf(node.relPath)
-      // Dirs need to be refreshed to keep tree UI consistent after copy/move
-      const dirsToRefresh = new Set<string>([dstRelDir])
-      const removedEntries: Array<{ relPath: string; isDir: boolean }> = []
-
-      let lastOpenedFileRelPath = ''
-
-      for (const src of sources) {
-        const srcType = treeNodeType(src)
-        let res: { relPath: string }
-        if (mode === 'copy') {
-          res = await api.kbCopy(src, dstRelDir)
-        } else {
-          res = await api.kbMove(src, dstRelDir)
-          dirsToRefresh.add(getDirOf(src))
-          removedEntries.push({ relPath: src, isDir: srcType === 'dir' })
-        }
-        if (srcType === 'file') lastOpenedFileRelPath = res.relPath
-      }
-      if (mode === 'cut') {
-        clipboard.value = null
-      }
-      for (const d of dirsToRefresh) {
-        await refreshDir(d)
-      }
-      if (lastOpenedFileRelPath) {
-        openFileInMainPane(lastOpenedFileRelPath)
-      }
-      if (mode === 'cut') {
-        emitKbEntriesRemoved(removedEntries)
-      }
+    case 'paste':
+      await handlePaste(node)
       return
-    }
   }
 }
 
@@ -853,6 +965,7 @@ onMounted(async () => {
   await api.kbEnsureRoot()
   await refreshDir('')
   eventBus.on('kbActiveFileChanged', handleActiveKbTab)
+  document.addEventListener('keydown', handleKeyDown)
   unsubscribeProgress.value = api.onKbTransferProgress((data) => {
     const job = importJobs[data.jobId]
     if (!job) {
@@ -876,6 +989,7 @@ onMounted(async () => {
 
 onBeforeUnmount(() => {
   eventBus.off('kbActiveFileChanged', handleActiveKbTab)
+  document.removeEventListener('keydown', handleKeyDown)
   if (unsubscribeProgress.value) unsubscribeProgress.value()
   if (treeScrollTimer) clearTimeout(treeScrollTimer)
 })
@@ -1140,5 +1254,23 @@ onBeforeUnmount(() => {
   text-overflow: ellipsis;
   white-space: nowrap;
   margin-bottom: 4px;
+}
+
+// Context menu shortcut hint styles
+:deep(.kb-menu-item-with-shortcut) {
+  // Override Ant Design's menu item content wrapper
+  .ant-dropdown-menu-title-content {
+    display: flex !important;
+    justify-content: space-between;
+    align-items: center;
+    width: 100%;
+  }
+
+  .shortcut-hint {
+    margin-left: 16px;
+    color: var(--text-color-tertiary);
+    font-size: 12px;
+    flex-shrink: 0;
+  }
 }
 </style>
