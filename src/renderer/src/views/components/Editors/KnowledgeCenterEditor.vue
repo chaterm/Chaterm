@@ -69,6 +69,7 @@
       <!-- Preview Mode (Markdown) -->
       <div
         v-else-if="mode === 'preview'"
+        ref="previewRef"
         class="kb-preview"
         :style="previewStyle"
         v-html="mdHtml"
@@ -101,9 +102,10 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onBeforeUnmount, onMounted, reactive, ref, watch } from 'vue'
+import { computed, nextTick, onBeforeUnmount, onMounted, reactive, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { marked } from 'marked'
+import mermaid from 'mermaid'
 import hljs from 'highlight.js'
 import 'highlight.js/styles/atom-one-dark.css'
 import { message } from 'ant-design-vue'
@@ -150,6 +152,7 @@ const currentTheme = computed(() => getMonacoTheme())
 
 // Ref to access Monaco Editor instance
 const monacoEditorRef = ref<InstanceType<typeof MonacoEditor> | null>(null)
+const previewRef = ref<HTMLDivElement | null>(null)
 
 // Image zoom and pan state
 const imageScale = ref(1)
@@ -279,6 +282,9 @@ const handleRemoteChange = (data: { relPath: string; content: string }) => {
 
 // Rendered Markdown HTML with resolved image paths
 const mdHtml = ref('')
+const mermaidTheme = computed(() => (currentTheme.value === 'vs-dark' ? 'dark' : 'default'))
+let mermaidInitialized = false
+let lastMermaidTheme: 'dark' | 'default' | null = null
 
 // Cache for loaded images: relPath -> dataUrl
 const imageCache = new Map<string, string>()
@@ -362,18 +368,61 @@ async function renderMarkdownWithImages() {
   })
 
   // Apply syntax highlighting for fenced code blocks
+  let hasMermaid = false
   const codeBlocks = doc.querySelectorAll('pre code')
   codeBlocks.forEach((code) => {
     const className = code.className || ''
     const languageMatch = className.match(/language-([\w-]+)/)
     const language = languageMatch?.[1]
     const codeText = code.textContent || ''
+    if (language === 'mermaid') {
+      const mermaidContainer = doc.createElement('div')
+      mermaidContainer.classList.add('mermaid')
+      mermaidContainer.textContent = codeText
+      const pre = code.parentElement
+      if (pre) {
+        pre.replaceWith(mermaidContainer)
+      } else {
+        code.replaceWith(mermaidContainer)
+      }
+      hasMermaid = true
+      return
+    }
     const result = language && hljs.getLanguage(language) ? hljs.highlight(codeText, { language }) : hljs.highlightAuto(codeText)
     code.innerHTML = result.value
     code.classList.add('hljs')
   })
 
   mdHtml.value = doc.body.innerHTML
+
+  await nextTick()
+  if (hasMermaid) {
+    await renderMermaidInPreview()
+  }
+}
+
+function ensureMermaidInitialized(theme: 'dark' | 'default') {
+  if (mermaidInitialized && lastMermaidTheme === theme) return
+  mermaid.initialize({
+    startOnLoad: false,
+    securityLevel: 'strict',
+    theme
+  })
+  mermaidInitialized = true
+  lastMermaidTheme = theme
+}
+
+async function renderMermaidInPreview() {
+  const container = previewRef.value
+  if (!container) return
+  const mermaidNodes = Array.from(container.querySelectorAll<HTMLElement>('.mermaid'))
+  if (mermaidNodes.length === 0) return
+  ensureMermaidInitialized(mermaidTheme.value)
+  try {
+    await mermaid.run({ nodes: mermaidNodes })
+  } catch (error) {
+    console.error('Failed to render mermaid diagram:', error)
+  }
 }
 
 // Watch for content changes to re-render Markdown
@@ -652,6 +701,13 @@ onBeforeUnmount(() => {
     }
   }
   :deep(img) {
+    max-width: 100%;
+    height: auto;
+  }
+  :deep(.mermaid) {
+    text-align: center;
+  }
+  :deep(.mermaid svg) {
     max-width: 100%;
     height: auto;
   }
