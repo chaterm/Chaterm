@@ -1051,6 +1051,10 @@ const api = {
     return () => ipcRenderer.removeListener('plugin:open-user-tab-request', subscription)
   },
 
+  // Editor configuration
+  getEditorConfig: () => ipcRenderer.invoke('get-editor-config'),
+  saveEditorConfig: (config: any) => ipcRenderer.invoke('save-editor-config', config),
+
   // Get registered bastion types (plugin-based, not including built-in JumpServer)
   getRegisteredBastionTypes(): Promise<string[]> {
     return ipcRenderer.invoke('plugin:getRegisteredBastionTypes')

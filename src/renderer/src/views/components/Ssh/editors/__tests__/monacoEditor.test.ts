@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
-import { mount } from '@vue/test-utils'
+import { mount, flushPromises } from '@vue/test-utils'
 import { nextTick } from 'vue'
 
 // Ensure `self` exists for MonacoEnvironment assignment in component
@@ -13,7 +13,7 @@ vi.mock('monaco-editor', () => {
     onDidChangeModelContent: vi.fn(),
     getValue: vi.fn(() => ''),
     setValue: vi.fn(),
-    getModel: vi.fn(() => ({})),
+    getModel: vi.fn(() => ({ updateOptions: vi.fn() })),
     updateOptions: vi.fn(),
     layout: vi.fn(),
     dispose: vi.fn()
@@ -36,6 +36,27 @@ vi.mock('monaco-editor/esm/vs/language/json/json.worker?worker', () => ({ defaul
 vi.mock('monaco-editor/esm/vs/language/css/css.worker?worker', () => ({ default: class CssWorker {} }))
 vi.mock('monaco-editor/esm/vs/language/html/html.worker?worker', () => ({ default: class HtmlWorker {} }))
 vi.mock('monaco-editor/esm/vs/language/typescript/ts.worker?worker', () => ({ default: class TsWorker {} }))
+
+vi.mock('@/stores/editorConfig', async () => {
+  const { ref } = await import('vue')
+  return {
+    useEditorConfigStore: () => ({
+      config: ref({
+        fontSize: 14,
+        fontFamily: 'cascadia-mono',
+        tabSize: 4,
+        wordWrap: 'off',
+        minimap: true,
+        mouseWheelZoom: true,
+        cursorBlinking: 'blink',
+        lineHeight: 0
+      }),
+      monacoOptions: {},
+      loadConfig: vi.fn(() => Promise.resolve())
+    }),
+    getFontFamily: (fontKey: string) => (fontKey ? `"${fontKey}", monospace` : 'monospace')
+  }
+})
 
 vi.mock('vue-i18n', () => ({
   useI18n: () => ({
@@ -62,8 +83,8 @@ vi.mock('@/utils/themeUtils', () => ({
 }))
 
 // Import after mocks
-import MonacoEditor from '../monacoEditor.vue'
-import KnowledgeCenterEditor from '../KnowledgeCenterEditor.vue'
+import MonacoEditor from '@views/components/Editors/base/monacoEditor.vue'
+import KnowledgeCenterEditor from '@views/components/Editors/KnowledgeCenterEditor.vue'
 
 describe('monacoEditor background mode', () => {
   const originalMutationObserver = globalThis.MutationObserver
@@ -121,6 +142,9 @@ describe('monacoEditor background mode', () => {
     const wrapper = mount(MonacoEditor, {
       props: { modelValue: '' }
     })
+
+    // Wait for onMounted async (loadConfig) to resolve and observer to be registered
+    await flushPromises()
 
     expect(wrapper.classes()).not.toContain('with-custom-bg')
 

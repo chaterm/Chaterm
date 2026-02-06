@@ -352,6 +352,10 @@ interface ApiType {
   // Check if a specific bastion type is available
   hasBastionCapability: (type: string) => Promise<boolean>
 
+  // Editor configuration
+  getEditorConfig: () => Promise<any>
+  saveEditorConfig: (config: any) => Promise<{ success: boolean }>
+
   // K8s related APIs
   k8sGetContexts: () => Promise<{
     success: boolean
