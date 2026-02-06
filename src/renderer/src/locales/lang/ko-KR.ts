@@ -1334,6 +1334,9 @@ export default {
     newFolder: '새 폴더',
     uploadFile: '파일 업로드',
     refresh: '새로고침',
+    addToChat: '채팅에 추가',
+    copyPath: '경로 복사',
+    cut: '잘라내기',
     loadingImage: '이미지 로딩 중...'
   },
   interaction: {

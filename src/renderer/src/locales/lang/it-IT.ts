@@ -1338,6 +1338,9 @@ export default {
     newFolder: 'Nuova cartella',
     uploadFile: 'Carica file',
     refresh: 'Aggiorna',
+    addToChat: 'Aggiungi alla chat',
+    copyPath: 'Copia percorso',
+    cut: 'Taglia',
     loadingImage: 'Caricamento immagine...'
   },
   interaction: {

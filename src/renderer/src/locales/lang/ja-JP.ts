@@ -1338,6 +1338,9 @@ export default {
     newFolder: '新規フォルダ',
     uploadFile: 'ファイルをアップロード',
     refresh: '更新',
+    addToChat: 'チャットに追加',
+    copyPath: 'パスをコピー',
+    cut: '切り取り',
     loadingImage: '画像を読み込み中...'
   },
   interaction: {

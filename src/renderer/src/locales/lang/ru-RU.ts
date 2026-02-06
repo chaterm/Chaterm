@@ -1335,6 +1335,9 @@ export default {
     newFolder: 'Новая папка',
     uploadFile: 'Загрузить файл',
     refresh: 'Обновить',
+    addToChat: 'Добавить в чат',
+    copyPath: 'Копировать путь',
+    cut: 'Вырезать',
     loadingImage: 'Загрузка изображения...'
   },
   interaction: {
