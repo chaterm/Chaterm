@@ -28,6 +28,7 @@ export interface AppEvents {
   openUserTab: any // Open Tab
   kbActiveFileChanged: { relPath: string } // KnowledgeCenter active file changed
   kbEntriesRemoved: { entries: Array<{ relPath: string; isDir: boolean }> } // KnowledgeCenter delete/cut remove tabs
+  kbFileRenamed: { oldRelPath: string; newRelPath: string; newName: string } // KnowledgeCenter file/folder renamed
   // Can extend more events
   [key: string | symbol]: any
 }

@@ -37,8 +37,33 @@ vi.mock('monaco-editor/esm/vs/language/css/css.worker?worker', () => ({ default:
 vi.mock('monaco-editor/esm/vs/language/html/html.worker?worker', () => ({ default: class HtmlWorker {} }))
 vi.mock('monaco-editor/esm/vs/language/typescript/ts.worker?worker', () => ({ default: class TsWorker {} }))
 
+vi.mock('vue-i18n', () => ({
+  useI18n: () => ({
+    t: (key: string) => key
+  })
+}))
+
+vi.mock('@/utils/eventBus', () => ({
+  default: {
+    on: vi.fn(),
+    off: vi.fn(),
+    emit: vi.fn()
+  }
+}))
+
+vi.mock('@/services/userConfigStoreService', () => ({
+  userConfigStore: {
+    getConfig: vi.fn().mockResolvedValue({})
+  }
+}))
+
+vi.mock('@/utils/themeUtils', () => ({
+  getMonacoTheme: () => 'vs-dark'
+}))
+
 // Import after mocks
 import MonacoEditor from '../monacoEditor.vue'
+import KnowledgeCenterEditor from '../KnowledgeCenterEditor.vue'
 
 describe('monacoEditor background mode', () => {
   const originalMutationObserver = globalThis.MutationObserver
@@ -108,5 +133,105 @@ describe('monacoEditor background mode', () => {
     MockMutationObserver.lastInstance?.trigger()
     await nextTick()
     expect(wrapper.classes()).not.toContain('with-custom-bg')
+  })
+})
+
+describe('KnowledgeCenterEditor markdown highlight', () => {
+  const markdownContent = ['```python', 'def hello():', '    print("Hello, World!")', '```'].join('\n')
+
+  const flushPromises = async () => {
+    await new Promise((resolve) => setTimeout(resolve, 0))
+  }
+
+  beforeEach(() => {
+    ;(window as any).api = {
+      kbEnsureRoot: vi.fn().mockResolvedValue(undefined),
+      kbReadFile: vi.fn().mockResolvedValue({
+        content: markdownContent,
+        mtimeMs: 1
+      }),
+      kbWriteFile: vi.fn(),
+      kbCreateImage: vi.fn()
+    }
+  })
+
+  afterEach(() => {
+    vi.clearAllMocks()
+  })
+
+  it('should render highlighted code blocks in preview', async () => {
+    const wrapper = mount(KnowledgeCenterEditor, {
+      props: {
+        relPath: 'docs/test.md',
+        mode: 'preview'
+      },
+      global: {
+        stubs: {
+          MonacoEditor: { template: '<div />' }
+        }
+      }
+    })
+
+    await nextTick()
+    await flushPromises()
+
+    const preview = wrapper.find('.kb-preview')
+    expect(preview.exists()).toBe(true)
+    expect(preview.html()).toContain('hljs-')
+  })
+
+  it('should apply table alignment styles in preview', async () => {
+    ;(window as any).api.kbReadFile.mockResolvedValueOnce({
+      content: ['| a | b | c |', '| :-- | :-: | --: |', '| 1 | 2 | 3 |'].join('\n'),
+      mtimeMs: 1
+    })
+
+    const wrapper = mount(KnowledgeCenterEditor, {
+      props: {
+        relPath: 'docs/table.md',
+        mode: 'preview'
+      },
+      global: {
+        stubs: {
+          MonacoEditor: { template: '<div />' }
+        }
+      }
+    })
+
+    await nextTick()
+    await flushPromises()
+
+    const preview = wrapper.find('.kb-preview')
+    expect(preview.exists()).toBe(true)
+    expect(preview.html()).toContain('text-align: center')
+    expect(preview.html()).toContain('text-align: right')
+  })
+
+  it('should preserve safe html tags in preview', async () => {
+    ;(window as any).api.kbReadFile.mockResolvedValueOnce({
+      content: ['<details>', '<summary>Click to expand</summary>', 'Content', '</details>', '', '<kbd>Ctrl</kbd> + <kbd>C</kbd>'].join('\n'),
+      mtimeMs: 1
+    })
+
+    const wrapper = mount(KnowledgeCenterEditor, {
+      props: {
+        relPath: 'docs/html.md',
+        mode: 'preview'
+      },
+      global: {
+        stubs: {
+          MonacoEditor: { template: '<div />' }
+        }
+      }
+    })
+
+    await nextTick()
+    await flushPromises()
+
+    const preview = wrapper.find('.kb-preview')
+    expect(preview.exists()).toBe(true)
+    expect(preview.html()).toContain('<details')
+    expect(preview.html()).toContain('<summary>')
+    expect(preview.html()).toContain('<kbd>')
   })
 })
