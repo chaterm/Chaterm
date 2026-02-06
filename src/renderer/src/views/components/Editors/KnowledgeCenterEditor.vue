@@ -213,13 +213,14 @@ function handleImageMouseUp() {
   isDragging.value = false
 }
 
-// Markdown preview style: use editor config (font/size) only; line-height must be unitless to avoid overlap
+// Markdown preview style: use editor config (font/size/lineHeight) for consistency with Monaco
 const previewStyle = computed(() => {
   const c = editorConfig.value
+  const lineHeight = c.lineHeight && c.lineHeight > 0 ? c.lineHeight : undefined
   return {
     fontFamily: getFontFamily(c.fontFamily),
     fontSize: `${c.fontSize}px`,
-    lineHeight: 1.6
+    lineHeight: lineHeight ? `${lineHeight}px` : 1.6
   }
 })
 
