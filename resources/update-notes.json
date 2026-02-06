@@ -2,6 +2,26 @@
   "releaseNotesUrl": "https://github.com/chaterm/Chaterm/releases/tag/v",
   "versions": [
     {
+      "version": "0.9.0",
+      "date": "2026-02-06",
+      "highlights": {
+        "zh-CN": [
+          "新增知识库：支持图片与剪贴板粘贴、缩放与可配置字体、本地文件管理与拖拽、对话总结到知识库",
+          "工作区与快捷命令：工作区 IP/主机名显示切换、默认布局记忆、支持快捷命令拖拽排序与移动",
+          "终端与 AiTab：支持交互式命令执行，AiTab 动态背景与 Monaco 自定义背景，修复分屏误插入等问题",
+          "文件管理：文件管理与 SFTP 增强，修复插件拖拽与根目录等问题",
+          "体验优化：登录欢迎语与模型选项刷新、禁用误触刷新快捷键、macOS 全屏黑屏修复、依赖与 Electron 升级"
+        ],
+        "en-US": [
+          "Knowledge base: image and clipboard paste, zoom and configurable fonts, local file management and drag-and-drop, summarize conversations to knowledge base",
+          "Workspace and shortcut commands: Show IP/Hostname toggle in workspace, default layout memory, shortcut commands drag reorder and move",
+          "Terminal and AiTab: interactive command execution, AiTab dynamic background and Monaco custom background, fix split-tab accidental insertion and related issues",
+          "File management: file management and SFTP enhancements, fix plugin drag-and-drop and root directory issues",
+          "UX improvements: login welcome message and model options refresh, disable accidental reload shortcut, macOS fullscreen black screen fix, dependency and Electron upgrades"
+        ]
+      }
+    },
+    {
       "version": "0.8.3",
       "date": "2026-01-29",
       "highlights": {
