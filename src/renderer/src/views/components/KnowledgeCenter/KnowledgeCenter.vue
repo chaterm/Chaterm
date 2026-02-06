@@ -87,7 +87,7 @@
               <div
                 class="kb-tree-title"
                 :class="{ 'context-menu-active': menuKey === dataRef.key }"
-                @contextmenu.stop
+                @contextmenu.stop="(event) => handleNodeContextMenu(event, dataRef)"
               >
                 <span
                   v-if="editingKey !== dataRef.key"
@@ -444,6 +444,23 @@ const onSelect = async (keys: string[], info: TreeSelectInfo) => {
     if (keys.length !== 1) return
     openFileInMainPane(node.relPath)
   }
+}
+
+const handleNodeContextMenu = (event: MouseEvent, node: TreeNode) => {
+  event.preventDefault()
+  const next = computeContextSelection(selectedKeys.value, node.relPath)
+  if (next !== selectedKeys.value) {
+    selectedKeys.value = next
+  }
+}
+
+function computeContextSelection(current: string[], target: string): string[] {
+  if (!target) return current
+  const isSelected = current.includes(target)
+  if (current.length <= 1) {
+    return isSelected ? current : [target]
+  }
+  return isSelected ? current : [target]
 }
 
 const handleTreeBlankClick = (event: MouseEvent) => {
