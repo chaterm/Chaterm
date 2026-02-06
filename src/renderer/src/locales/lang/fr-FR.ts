@@ -768,6 +768,8 @@ export default {
     folderDeleteConfirmContent: 'Êtes-vous sûr de vouloir supprimer le groupe "{name}"?',
     folderDeleteConfirmWithAssets:
       'Êtes-vous sûr de vouloir supprimer le groupe "{name}"? Ce groupe contient {count} actifs, et après suppression, les actifs retourneront à leur position originale.',
+    showIp: 'Afficher IP',
+    showHostname: "Afficher le nom d'hôte",
     missingAssetId: "ID de l'actif manquant",
     supportedFormats: 'Formats supportés',
     standardFormat: 'Format standard',
@@ -1121,7 +1123,8 @@ export default {
     treeExpand: 'Développer',
     treeFoldUp: 'Replier',
     transferSuccess: 'Transmission terminée',
-    transferFailed: 'Échec de la transmission'
+    transferFailed: 'Échec de la transmission',
+    openFolder: 'Ouvrir le dossier'
   },
   about: {
     version: 'Version',
@@ -1366,7 +1369,11 @@ export default {
     newFile: 'Nouveau fichier',
     newFolder: 'Nouveau dossier',
     uploadFile: 'Télécharger un fichier',
-    refresh: 'Actualiser'
+    refresh: 'Actualiser',
+    addToChat: 'Ajouter au chat',
+    copyPath: 'Copier le chemin',
+    cut: 'Couper',
+    loadingImage: "Chargement de l'image..."
   },
   interaction: {
     title: 'Interaction de commande requise',

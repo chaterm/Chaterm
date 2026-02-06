@@ -1,4 +1,4 @@
-import { contextBridge, ipcRenderer } from 'electron'
+import { contextBridge, ipcRenderer, webUtils } from 'electron'
 import { electronAPI } from '@electron-toolkit/preload'
 import type { WebviewMessage } from '../main/agent/shared/WebviewMessage'
 
@@ -535,6 +535,7 @@ const api = {
   moveAssetToFolder,
   removeAssetFromFolder,
   getAssetsInFolder,
+  getPathForFile: (file: File) => webUtils.getPathForFile(file), // Get the real path from File instead of using file.path
   setDataSyncEnabled: (enabled: boolean) => ipcRenderer.invoke('data-sync:set-enabled', enabled),
   maximizeWindow: () => ipcRenderer.invoke('window:maximize'),
   unmaximizeWindow: () => ipcRenderer.invoke('window:unmaximize'),
@@ -722,7 +723,7 @@ const api = {
   writeToShell: (params) => ipcRenderer.send('ssh:shell:write', params),
   disconnect: (params) => ipcRenderer.invoke('ssh:disconnect', params),
   selectPrivateKey: () => ipcRenderer.invoke('ssh:select-private-key'),
-
+  getAppPath: (name) => ipcRenderer.invoke('app:get-path', { name }),
   onShellData: (id, callback) => {
     const listener = (_event, data) => callback(data)
     ipcRenderer.on(`ssh:shell:data:${id}`, listener)
@@ -872,6 +873,7 @@ const api = {
   writeLocalFile: async (filePath: string, content: string) => {
     await fs.promises.writeFile(filePath, content, 'utf-8')
   },
+  downloadDirectory: (args: { id: string; remoteDir: string; localDir: string }) => ipcRenderer.invoke('ssh:sftp:download-directory', args),
 
   transferFileRemoteToRemote: (args: { fromId: string; toId: string; fromPath: string; toPath: string; autoRename?: boolean }) =>
     ipcRenderer.invoke('sftp:r2r:file', args),
@@ -889,8 +891,10 @@ const api = {
   kbEnsureRoot: () => ipcRenderer.invoke('kb:ensure-root'),
   kbGetRoot: () => ipcRenderer.invoke('kb:get-root'),
   kbListDir: (relDir: string) => ipcRenderer.invoke('kb:list-dir', { relDir }),
-  kbReadFile: (relPath: string) => ipcRenderer.invoke('kb:read-file', { relPath }),
-  kbWriteFile: (relPath: string, content: string) => ipcRenderer.invoke('kb:write-file', { relPath, content }),
+  kbReadFile: (relPath: string, encoding?: 'utf-8' | 'base64') => ipcRenderer.invoke('kb:read-file', { relPath, encoding }),
+  kbWriteFile: (relPath: string, content: string, encoding?: 'utf-8' | 'base64') =>
+    ipcRenderer.invoke('kb:write-file', { relPath, content, encoding }),
+  kbCreateImage: (relDir: string, name: string, base64: string) => ipcRenderer.invoke('kb:create-image', { relDir, name, base64 }),
   kbMkdir: (relDir: string, name: string) => ipcRenderer.invoke('kb:mkdir', { relDir, name }),
   kbCreateFile: (relDir: string, name: string, content?: string) => ipcRenderer.invoke('kb:create-file', { relDir, name, content }),
   kbRename: (relPath: string, newName: string) => ipcRenderer.invoke('kb:rename', { relPath, newName }),

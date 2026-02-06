@@ -763,6 +763,8 @@ export default {
     folderDeleteConfirmContent: 'Вы уверены, что хотите удалить папку "{name}"?',
     folderDeleteConfirmWithAssets:
       'Вы уверены, что хотите удалить папку "{name}"? Эта папка содержит {count} активов, и после удаления активы вернутся на свои исходные позиции.',
+    showIp: 'Показать IP',
+    showHostname: 'Показать имя хоста',
     missingAssetId: 'Отсутствует ID актива',
     supportedFormats: 'Поддерживаемые форматы',
     standardFormat: 'Стандартный формат',
@@ -1112,7 +1114,8 @@ export default {
     treeExpand: 'Развернуть',
     treeFoldUp: 'Свернуть',
     transferSuccess: 'Передача завершена',
-    transferFailed: 'Передача не удалась'
+    transferFailed: 'Передача не удалась',
+    openFolder: 'Открыть папку'
   },
   about: {
     version: 'Версия',
@@ -1357,7 +1360,11 @@ export default {
     newFile: 'Новый файл',
     newFolder: 'Новая папка',
     uploadFile: 'Загрузить файл',
-    refresh: 'Обновить'
+    refresh: 'Обновить',
+    addToChat: 'Добавить в чат',
+    copyPath: 'Копировать путь',
+    cut: 'Вырезать',
+    loadingImage: 'Загрузка изображения...'
   },
   interaction: {
     title: 'Требуется взаимодействие с командой',

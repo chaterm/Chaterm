@@ -761,6 +761,8 @@ export default {
     folderDeleteConfirmContent: 'Are you sure you want to delete folder "{name}"?',
     folderDeleteConfirmWithAssets:
       'Are you sure you want to delete folder "{name}"? This folder contains {count} assets, and after deletion, the assets will return to their original position.',
+    showIp: 'Show IP',
+    showHostname: 'Show Hostname',
     missingAssetId: 'Missing asset ID',
     supportedFormats: 'Supported Formats',
     standardFormat: 'Standard Format',
@@ -1119,7 +1121,8 @@ export default {
     treeExpand: 'Expand',
     treeFoldUp: 'Collapse',
     transferSuccess: 'Transfer completed',
-    transferFailed: 'Transfer failed'
+    transferFailed: 'Transfer failed',
+    openFolder: 'Open Folder'
   },
   about: {
     version: 'Version',
@@ -1364,7 +1367,11 @@ export default {
     newFile: 'New File',
     newFolder: 'New Folder',
     uploadFile: 'Upload File',
-    refresh: 'Refresh'
+    refresh: 'Refresh',
+    addToChat: 'Add to Chat',
+    copyPath: 'Copy Path',
+    cut: 'Cut',
+    loadingImage: 'Loading image...'
   },
   interaction: {
     waiting: 'Waiting for input...',

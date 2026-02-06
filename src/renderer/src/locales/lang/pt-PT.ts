@@ -765,6 +765,8 @@ export default {
     folderDeleteConfirmContent: 'Tem certeza que deseja deletar a pasta "{name}"?',
     folderDeleteConfirmWithAssets:
       'Tem certeza que deseja deletar a pasta "{name}"? Esta pasta contém {count} ativos, e após a exclusão, os ativos retornarão à sua posição original.',
+    showIp: 'Mostrar IP',
+    showHostname: 'Mostrar nome do host',
     missingAssetId: 'ID do ativo faltando',
     supportedFormats: 'Formatos suportados',
     standardFormat: 'Formato padrão',
@@ -1114,7 +1116,8 @@ export default {
     treeExpand: 'Expandir',
     treeFoldUp: 'Colapsar',
     transferSuccess: 'Transferência concluída',
-    transferFailed: 'A transferência falhou'
+    transferFailed: 'A transferência falhou',
+    openFolder: 'Abrir pasta'
   },
   about: {
     version: 'Versão',
@@ -1359,7 +1362,11 @@ export default {
     newFile: 'Novo arquivo',
     newFolder: 'Nova pasta',
     uploadFile: 'Upload arquivo',
-    refresh: 'Atualizar'
+    refresh: 'Atualizar',
+    addToChat: 'Adicionar ao chat',
+    copyPath: 'Copiar caminho',
+    cut: 'Cortar',
+    loadingImage: 'Carregando imagem...'
   },
   interaction: {
     title: 'Interacao de comando necessaria',

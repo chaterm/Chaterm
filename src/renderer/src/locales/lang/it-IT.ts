@@ -766,6 +766,8 @@ export default {
     folderDeleteConfirmContent: 'Sei sicuro di voler eliminare la cartella "{name}"?',
     folderDeleteConfirmWithAssets:
       'Sei sicuro di voler eliminare la cartella "{name}"? Questa cartella contiene {count} asset, e dopo l\'eliminazione, gli asset torneranno alla loro posizione originale.',
+    showIp: 'Mostra IP',
+    showHostname: 'Mostra nome host',
     missingAssetId: 'ID asset mancante',
     supportedFormats: 'Formati supportati',
     standardFormat: 'Formato standard',
@@ -1115,7 +1117,8 @@ export default {
     treeExpand: 'Espandi',
     treeFoldUp: 'Riduci',
     transferSuccess: 'Trasferimento completato',
-    transferFailed: 'Trasferimento fallito'
+    transferFailed: 'Trasferimento fallito',
+    openFolder: 'Apri cartella'
   },
   about: {
     version: 'Versione',
@@ -1360,7 +1363,11 @@ export default {
     newFile: 'Nuovo file',
     newFolder: 'Nuova cartella',
     uploadFile: 'Carica file',
-    refresh: 'Aggiorna'
+    refresh: 'Aggiorna',
+    addToChat: 'Aggiungi alla chat',
+    copyPath: 'Copia percorso',
+    cut: 'Taglia',
+    loadingImage: 'Caricamento immagine...'
   },
   interaction: {
     title: 'Interazione comando richiesta',

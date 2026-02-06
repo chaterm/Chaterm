@@ -229,6 +229,58 @@ export const useModelConfiguration = createGlobalState(() => {
     }
   }
 
+  const refreshModelOptions = async (): Promise<void> => {
+    const isSkippedLogin = localStorage.getItem('login-skipped') === 'true'
+    if (isSkippedLogin) return
+
+    let serverModels: string[] = []
+    try {
+      const res = await getUser({})
+      serverModels = (res?.data?.models || []).map((model) => String(model))
+      await updateGlobalState('defaultBaseUrl', res?.data?.llmGatewayAddr)
+      await storeSecret('defaultApiKey', res?.data?.key)
+    } catch (error) {
+      console.error('Failed to refresh model options:', error)
+      return
+    }
+
+    // Skip update if server returns empty list to avoid accidental clearing
+    if (serverModels.length === 0) {
+      return
+    }
+
+    const savedModelOptions = ((await getGlobalState('modelOptions')) || []) as ModelOption[]
+    const serverSet = new Set(serverModels)
+
+    const existingStandard = savedModelOptions.filter((opt) => opt.type === 'standard')
+    const existingCustom = savedModelOptions.filter((opt) => opt.type !== 'standard')
+
+    const retainedStandard = existingStandard
+      .filter((opt) => serverSet.has(opt.name))
+      .map((opt) => ({
+        id: opt.id || opt.name,
+        name: opt.name,
+        checked: Boolean(opt.checked),
+        type: 'standard',
+        apiProvider: opt.apiProvider || 'default'
+      }))
+
+    const retainedNames = new Set(retainedStandard.map((opt) => opt.name))
+    const newStandard = serverModels
+      .filter((name) => !retainedNames.has(name))
+      .map((name) => ({
+        id: name,
+        name,
+        checked: true,
+        type: 'standard',
+        apiProvider: 'default'
+      }))
+
+    // Order: retained standard models, new standard models, then custom models
+    await updateGlobalState('modelOptions', [...retainedStandard, ...newStandard, ...existingCustom])
+    await initModel()
+  }
+
   // Check if there are available models
   const hasAvailableModels = computed(() => {
     if (modelsLoading.value) {
@@ -257,6 +309,7 @@ export const useModelConfiguration = createGlobalState(() => {
     initModel,
     handleChatAiModelChange,
     checkModelConfig,
-    initModelOptions
+    initModelOptions,
+    refreshModelOptions
   }
 })

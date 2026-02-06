@@ -9,9 +9,10 @@
       class="mode-switch"
     >
       <a-radio-group
-        v-model:value="uiMode"
+        :value="uiModeView"
         size="small"
         button-style="solid"
+        @update:value="onModeChange"
       >
         <a-radio-button
           class="mode-radio"
@@ -76,11 +77,14 @@
             >
               <TermFileSystem
                 v-if="isOpened(String(node.value))"
+                :ref="(el) => bindFsInst(String(node.value), el)"
                 :uuid="String(node.value)"
                 :current-directory-input="resolvePaths(String(node.value))"
                 :base-path="getBasePath(String(node.value))"
-                ui-mode="transfer"
                 panel-side="left"
+                :cached-state="FS_CACHE.get(String(node.value))?.cache"
+                ui-mode="transfer"
+                @state-change="stateChange"
                 @open-file="openFile"
                 @cross-transfer="handleCrossTransfer"
               />
@@ -136,11 +140,14 @@
             >
               <TermFileSystem
                 v-if="isOpened(String(node.value))"
+                :ref="(el) => bindFsInst(String(node.value), el)"
                 :uuid="String(node.value)"
                 :current-directory-input="resolvePaths(String(node.value))"
                 :base-path="getBasePath(String(node.value))"
+                :cached-state="FS_CACHE.get(String(node.value))?.cache"
                 ui-mode="transfer"
                 panel-side="right"
+                @state-change="stateChange"
                 @open-file="openFile"
                 @cross-transfer="handleCrossTransfer"
               />
@@ -174,7 +181,10 @@
                 :uuid="dataRef.value"
                 :current-directory-input="resolvePaths(dataRef.value)"
                 :base-path="getBasePath(dataRef.value)"
+                :cached-state="FS_CACHE.get(dataRef.value)?.cache"
                 @open-file="openFile"
+                @state-change="stateChange"
+                @cross-transfer="handleCrossTransfer"
               />
             </div>
           </div>
@@ -216,7 +226,7 @@
 </template>
 
 <script lang="ts" setup>
-import { ref, onMounted, reactive, UnwrapRef, onBeforeUnmount, computed, watch } from 'vue'
+import { nextTick, ref, onMounted, reactive, UnwrapRef, onBeforeUnmount, computed, watch, markRaw } from 'vue'
 import type { TreeProps } from 'ant-design-vue/es/tree'
 import TermFileSystem from './files.vue'
 import { useI18n } from 'vue-i18n'
@@ -232,6 +242,20 @@ import fileIcon from '@/assets/menu/files.svg'
 import { DownOutlined, RightOutlined } from '@ant-design/icons-vue'
 
 const { t } = useI18n()
+
+type PanelCache = {
+  path: string
+  ts: number
+}
+
+type TermFsExpose = { refresh?: () => void | Promise<void> }
+
+type FsEntry = {
+  cache?: PanelCache
+  inst?: TermFsExpose
+}
+
+const FS_CACHE = reactive(new Map<string, FsEntry>())
 
 const getCurrentActiveTerminalInfo = async () => {
   try {
@@ -387,20 +411,46 @@ interface SftpConnectionInfo {
   error?: string
 }
 
+const LOCAL_ID = 'localhost@127.0.0.1:local:TG9jYWw='
+const isLocalTeam = (id: string) => String(id || '').includes('local-team')
+const isLocal = (id: string) => String(id || '').includes('localhost@127.0.0.1:local')
+
 const listUserSessions = async () => {
   const sessionData: SftpConnectionInfo[] = await api.sftpConnList()
+
+  if (!sessionData.some((s) => isLocal(String(s.id)))) {
+    sessionData.unshift({
+      id: LOCAL_ID,
+      isSuccess: true
+    } as SftpConnectionInfo)
+  }
+
+  const alive = new Set(sessionData.map((s) => String(s.id)))
+  for (const k of Array.from(FS_CACHE.keys())) {
+    if (!alive.has(k)) FS_CACHE.delete(k)
+  }
+
   const sessionResult = sessionData.reduce<Record<string, SftpConnectionInfo>>((acc, item) => {
-    const [, rest] = item.id.split('@')
+    const id = String(item.id || '')
+    const [, rest = ''] = id.split('@')
     const parts = rest.split(':')
+
     let ip = parts[0] || 'Unknown'
-    if (item.id.includes('local-team')) {
+
+    if (isLocalTeam(id)) {
       const hostnameBase64 = parts[2] || 'Unknown'
-      ip = Base64Util.decode(hostnameBase64)
+      try {
+        ip = Base64Util.decode(hostnameBase64)
+      } catch {
+        ip = 'Unknown'
+      }
     }
 
-    if (!(ip in acc)) {
-      acc[ip] = item
+    if (isLocal(id)) {
+      ip = 'Local'
     }
+
+    if (!(ip in acc)) acc[ip] = item
     return acc
   }, {})
 
@@ -435,6 +485,17 @@ type UiMode = 'default' | 'transfer'
 type PanelSide = 'left' | 'right'
 
 const uiMode = ref<UiMode>('default')
+
+const uiModeView = ref(uiMode.value)
+
+const onModeChange = async (val: 'default' | 'transfer') => {
+  uiModeView.value = val
+  await nextTick()
+
+  await new Promise<void>((r) => requestAnimationFrame(() => r()))
+
+  uiMode.value = val
+}
 
 // --- Transfer mode: per-session collapse + lazy mount (avoid fetching for collapsed trees) ---
 const transferInitCollapsedOnce = ref(false)
@@ -744,24 +805,54 @@ interface CrossTransferPayload {
   targetDir: string
 }
 
-const isLocalTeamUuid = (id: string) => id.includes('local-team')
-
 // simple POSIX-like join (backend side usually normalizes)
 const joinPath = (...parts: string[]) => parts.join('/').replace(/\/+/g, '/')
 
-const notifyByStatus = (res: any, kind: 'upload' | 'download') => {
+const refreshByUuid = (uuid: string) => {
+  FS_CACHE.get(String(uuid))?.inst?.refresh?.()
+}
+
+const notifyByStatus = (res: any, kind: 'upload' | 'download', toUuid: string) => {
   const status = res?.status
   if (kind === 'upload') {
-    if (status === 'success') return message.success(t('files.uploadSuccess'))
+    if (status === 'success') {
+      refreshByUuid(toUuid)
+      return message.success(t('files.uploadSuccess'))
+    }
     if (status === 'cancelled') return message.info(t('files.uploadCancel'))
     if (status === 'skipped') return message.info(t('files.downloadSkipped'))
     return message.error(`${t('files.uploadFailed')}：${res?.message || ''}`)
   } else {
-    if (status === 'success') return message.success(t('files.downloadSuccess'))
+    if (status === 'success') {
+      refreshByUuid(toUuid)
+      return message.success(t('files.downloadSuccess'))
+    }
     if (status === 'cancelled') return message.info(t('files.downloadCancel'))
     if (status === 'skipped') return message.info(t('files.downloadSkipped'))
     return message.error(`${t('files.downloadFailed')}：${res?.message || ''}`)
   }
+}
+
+const stateChange = (s: any) => {
+  const key = String(s.uuid)
+  const entry = FS_CACHE.get(key) || {}
+
+  entry.cache = {
+    path: String(s.path || ''),
+    ts: Date.now()
+  }
+
+  FS_CACHE.set(key, entry)
+}
+
+const bindFsInst = (uuid: string, el: any) => {
+  const key = String(uuid)
+  const entry = FS_CACHE.get(key) || {}
+
+  if (el) entry.inst = markRaw(el as TermFsExpose)
+  else delete entry.inst
+
+  FS_CACHE.set(key, entry)
 }
 
 const handleCrossTransfer = async (p: CrossTransferPayload) => {
@@ -770,23 +861,34 @@ const handleCrossTransfer = async (p: CrossTransferPayload) => {
   if (p.fromUuid === p.toUuid) return
 
   try {
-    if (isLocalTeamUuid(p.fromUuid) && !isLocalTeamUuid(p.toUuid)) {
-      // local-team -> remote (upload)
+    // local -> remote
+    if (isLocalId(p.fromUuid) && !isLocalId(p.toUuid)) {
       const res = p.isDir
         ? await api.uploadDirectory({ id: p.toUuid, localPath: p.srcPath, remotePath: p.targetDir })
         : await api.uploadFile({ id: p.toUuid, localPath: p.srcPath, remotePath: p.targetDir })
-      notifyByStatus(res, 'upload')
+      notifyByStatus(res, 'upload', p.toUuid)
       return
     }
 
-    if (!isLocalTeamUuid(p.fromUuid) && isLocalTeamUuid(p.toUuid)) {
-      const localPath = joinPath(p.targetDir, p.name)
-      const res = await api.downloadFile({ id: p.fromUuid, remotePath: p.srcPath, localPath })
-      notifyByStatus(res, 'download')
+    // remote -> local
+    if (!isLocalId(p.fromUuid) && isLocalId(p.toUuid)) {
+      if (p.isDir) {
+        const res = await api.downloadDirectory({
+          id: p.fromUuid,
+          remoteDir: p.srcPath,
+          localDir: p.targetDir
+        })
+        notifyByStatus(res, 'download', p.toUuid)
+      } else {
+        const localPath = joinPath(p.targetDir, p.name)
+        const res = await api.downloadFile({ id: p.fromUuid, remotePath: p.srcPath, localPath })
+        notifyByStatus(res, 'download', p.toUuid)
+      }
       return
     }
 
-    if (!isLocalTeamUuid(p.fromUuid) && !isLocalTeamUuid(p.toUuid)) {
+    // remote -> remote
+    if (!isLocalId(p.fromUuid) && !isLocalId(p.toUuid)) {
       const res = p.isDir
         ? await api.transferDirectoryRemoteToRemote({
             fromId: p.fromUuid,
@@ -817,21 +919,42 @@ const updateTreeData = (newData: object) => {
   treeData.value = objectToTreeData(newData)
 }
 
-const resolvePaths = (value: string) => {
-  const [username] = value.split('@')
-  return username === 'root' ? '/root' : `/home/${username}`
-}
-const getBasePath = (value: string) => {
-  const [, rest] = value.split('@')
-  const parts = rest.split(':')
+const isLocalId = (value: string) => value.includes('localhost@127.0.0.1:local')
 
+const safeDecodeB64 = (s: string) => {
+  try {
+    return Base64Util.decode(s)
+  } catch {
+    return ''
+  }
+}
+
+const localHome = ref('')
+onMounted(async () => {
+  try {
+    localHome.value = await api.getAppPath('home')
+  } catch {
+    localHome.value = ''
+  }
+})
+
+const getBasePath = (value: string) => {
   if (value.includes('local-team')) {
-    const hostnameBase64 = parts[2] || ''
-    let hostname = ''
-    hostname = Base64Util.decode(hostnameBase64)
+    const [, rest = ''] = String(value || '').split('@')
+    const parts = rest.split(':')
+    const hostname = safeDecodeB64(parts[2] || '') || 'Local'
     return `/Default/${hostname}`
   }
+
   return ''
+}
+const resolvePaths = (value: string) => {
+  if (isLocalId(value)) {
+    return localHome.value || ''
+  }
+
+  const [username] = String(value || '').split('@')
+  return username === 'root' ? '/root' : `/home/${username}`
 }
 
 // Define editor interface

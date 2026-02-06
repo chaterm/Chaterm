@@ -64,6 +64,8 @@ export const useSessionState = createGlobalState(() => {
 
   const messageFeedbacks = ref<Record<string, 'like' | 'dislike'>>({})
 
+  const isMessageEditing = ref(false) // Global flag to track if any user message is being edited
+
   // Per-tab computed cache for user-assistant pairs
   const tabPairsCache = new Map<string, ComputedRef<UserAssistantPair[]>>()
 
@@ -367,6 +369,7 @@ export const useSessionState = createGlobalState(() => {
     chatTextareaRef,
     chatContainerScrollSignal,
     messageFeedbacks,
+    isMessageEditing,
     isLastMessage,
     getTabUserAssistantPairs,
     getTabChatTypeValue,

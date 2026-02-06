@@ -753,6 +753,8 @@ export default {
     folderDeleteConfirmContent: '폴더 "{name}"을 삭제하시겠습니까?',
     folderDeleteConfirmWithAssets:
       '폴더 "{name}"을 삭제하시겠습니까? 이 폴더에는 {count}개의 자산이 포함되어 있으며, 삭제 후 자산은 원래 위치로 돌아갑니다.',
+    showIp: 'IP 표시',
+    showHostname: '호스트 이름 표시',
     missingAssetId: '자산 ID 누락',
     supportedFormats: '지원되는 파일 형식',
     standardFormat: '표준 형식',
@@ -1111,7 +1113,8 @@ export default {
     treeExpand: '전개',
     treeFoldUp: '접어 닫기',
     transferSuccess: '전송 완료',
-    transferFailed: '전송 실패'
+    transferFailed: '전송 실패',
+    openFolder: '폴더 열기'
   },
   about: {
     version: '버전',
@@ -1356,7 +1359,11 @@ export default {
     newFile: '새 파일',
     newFolder: '새 폴더',
     uploadFile: '파일 업로드',
-    refresh: '새로고침'
+    refresh: '새로고침',
+    addToChat: '채팅에 추가',
+    copyPath: '경로 복사',
+    cut: '잘라내기',
+    loadingImage: '이미지 로딩 중...'
   },
   interaction: {
     waiting: '입력 대기 중...',

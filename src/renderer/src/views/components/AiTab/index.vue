@@ -821,7 +821,7 @@ const {
 } = useSessionState()
 
 // Model configuration management
-const { hasAvailableModels, initModel, checkModelConfig, initModelOptions } = useModelConfiguration()
+const { hasAvailableModels, initModel, checkModelConfig, initModelOptions, refreshModelOptions } = useModelConfiguration()
 
 // State snapshot
 const { getCurrentState, restoreState, emitStateChange } = useStateSnapshot(emit)
@@ -1056,7 +1056,8 @@ defineExpose({
   restoreHistoryTab,
   createNewEmptyTab,
   handleTabRemove,
-  updateHostsForCommandMode
+  updateHostsForCommandMode,
+  refreshModelOptions
 })
 </script>
 

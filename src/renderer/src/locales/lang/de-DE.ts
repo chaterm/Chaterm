@@ -767,6 +767,8 @@ export default {
     folderDeleteConfirmContent: 'Sind Sie sicher, dass Sie den Ordner "{name}" löschen möchten?',
     folderDeleteConfirmWithAssets:
       'Sind Sie sicher, dass Sie den Ordner "{name}" löschen möchten? Dieser Ordner enthält {count} Assets, und nach dem Löschen werden die Assets wieder in ihren ursprünglichen Zustand zurückkehren.',
+    showIp: 'IP anzeigen',
+    showHostname: 'Hostname anzeigen',
     missingAssetId: 'Asset ID fehlt',
     supportedFormats: 'Unterstützte Formate',
     standardFormat: 'Standard Format',
@@ -1116,7 +1118,8 @@ export default {
     treeExpand: 'Ausklappen',
     treeFoldUp: 'Einklappen',
     transferSuccess: 'Übertragung abgeschlossen',
-    transferFailed: 'Übertragung fehlgeschlagen'
+    transferFailed: 'Übertragung fehlgeschlagen',
+    openFolder: 'Ordner öffnen'
   },
   about: {
     version: 'Version',
@@ -1362,7 +1365,11 @@ export default {
     newFile: 'Neue Datei',
     newFolder: 'Neuer Ordner',
     uploadFile: 'Datei hochladen',
-    refresh: 'Aktualisieren'
+    refresh: 'Aktualisieren',
+    addToChat: 'Zum Chat hinzufügen',
+    copyPath: 'Pfad kopieren',
+    cut: 'Ausschneiden',
+    loadingImage: 'Bild wird geladen...'
   },
   interaction: {
     waiting: 'Warten auf Eingabe...',

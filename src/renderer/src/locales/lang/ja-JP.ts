@@ -757,6 +757,8 @@ export default {
     folderDeleteConfirmContent: 'フォルダ "{name}" を削除してもよろしいですか？',
     folderDeleteConfirmWithAssets:
       'フォルダ "{name}" を削除してもよろしいですか？このフォルダには {count} 個の資産が含まれており、削除後、資産は元の位置に戻ります。',
+    showIp: 'IPを表示',
+    showHostname: 'ホスト名を表示',
     missingAssetId: '資産IDが不足しています',
     supportedFormats: 'サポートされているフォーマット',
     standardFormat: '標準フォーマット',
@@ -1115,7 +1117,8 @@ export default {
     treeExpand: '展開',
     treeFoldUp: '閉じる',
     transferSuccess: '転送完了',
-    transferFailed: '転送失敗'
+    transferFailed: '転送失敗',
+    openFolder: 'フォルダを開く'
   },
   about: {
     version: 'バージョン',
@@ -1360,7 +1363,11 @@ export default {
     newFile: '新規ファイル',
     newFolder: '新規フォルダ',
     uploadFile: 'ファイルをアップロード',
-    refresh: '更新'
+    refresh: '更新',
+    addToChat: 'チャットに追加',
+    copyPath: 'パスをコピー',
+    cut: '切り取り',
+    loadingImage: '画像を読み込み中...'
   },
   interaction: {
     waiting: '入力待機中...',

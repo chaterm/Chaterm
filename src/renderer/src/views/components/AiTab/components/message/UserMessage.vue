@@ -71,6 +71,7 @@ import type { ContentPart } from '@shared/WebviewMessage'
 import InputSendContainer from '../InputSendContainer.vue'
 import { FileTextOutlined, MessageOutlined } from '@ant-design/icons-vue'
 import { getChipLabel } from '../../utils'
+import { useSessionState } from '../../composables/useSessionState'
 
 interface Props {
   message: ChatMessage
@@ -101,12 +102,16 @@ const shouldShowMask = ref(false)
 // ResizeObserver instance
 let resizeObserver: ResizeObserver | null = null
 
+// Global state for tracking message editing
+const { isMessageEditing } = useSessionState()
+
 // Editing state
 const isEditing = ref(false)
 const inputSendContainerRef = ref<InstanceType<typeof InputSendContainer> | null>(null)
 
 const startEditing = async () => {
   isEditing.value = true
+  isMessageEditing.value = true
   await nextTick()
   inputSendContainerRef.value?.focus()
 }
@@ -168,6 +173,7 @@ const handleGlobalClick = (e: MouseEvent) => {
 
 const cancelEditing = () => {
   isEditing.value = false
+  isMessageEditing.value = false
 }
 
 const handleConfirmEdit = (contentParts: ContentPart[]) => {
@@ -177,6 +183,7 @@ const handleConfirmEdit = (contentParts: ContentPart[]) => {
   })
 
   isEditing.value = false
+  isMessageEditing.value = false
 }
 
 // Check if content overflows the container
@@ -211,6 +218,10 @@ onUnmounted(() => {
   if (resizeObserver) {
     resizeObserver.disconnect()
     resizeObserver = null
+  }
+
+  if (isEditing.value) {
+    isMessageEditing.value = false
   }
 
   document.removeEventListener('click', handleGlobalClick, true)

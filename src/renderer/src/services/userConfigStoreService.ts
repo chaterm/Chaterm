@@ -23,6 +23,7 @@ export interface UserConfig {
   highlightStatus: number
   pinchZoomStatus: number
   fontSize: number
+  fontFamily?: string
   scrollBack: number
   language: string
   cursorStyle: 'bar' | 'block' | 'underline' | undefined
@@ -48,6 +49,7 @@ export interface UserConfig {
     password?: string
   }>
   workspaceExpandedKeys?: string[]
+  workspaceShowIpMode?: boolean
   background: BackgroundConfig
 }
 

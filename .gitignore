@@ -34,3 +34,4 @@ tests/data/
 test_data/
 coverage/
 .Trae/
+.worktrees/

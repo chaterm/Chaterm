@@ -749,6 +749,8 @@ export default {
     folderDeleteConfirm: '刪除分組確認',
     folderDeleteConfirmContent: '確定要刪除分組 "{name}" 嗎？刪除後分組中的資產將回到原位置。',
     folderDeleteConfirmWithAssets: '確定要刪除分組 "{name}" 嗎？該分組包含 {count} 個資產，刪除後資產將回到原位置。',
+    showIp: '顯示IP',
+    showHostname: '顯示主機名',
     missingAssetId: '缺少資產 ID',
     supportedFormats: '支持的格式',
     standardFormat: '標準格式',
@@ -1098,7 +1100,8 @@ export default {
     treeExpand: '展開',
     treeFoldUp: '收起',
     transferSuccess: '傳輸完成',
-    transferFailed: '傳輸失敗'
+    transferFailed: '傳輸失敗',
+    openFolder: '開啟資料夾'
   },
   about: {
     version: '版本',
@@ -1343,7 +1346,11 @@ export default {
     newFile: '新建檔案',
     newFolder: '新建資料夾',
     uploadFile: '上傳檔案',
-    refresh: '重新整理'
+    refresh: '重新整理',
+    addToChat: '加入聊天',
+    copyPath: '複製路徑',
+    cut: '剪下',
+    loadingImage: '正在載入圖片...'
   },
   interaction: {
     waiting: '等待輸入...',

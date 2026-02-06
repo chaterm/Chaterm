@@ -750,6 +750,8 @@ export default {
     folderDeleteConfirm: '删除分组确认',
     folderDeleteConfirmContent: '确定要删除分组 "{name}" 吗？删除后分组中的资产将回到原位置。',
     folderDeleteConfirmWithAssets: '确定要删除分组 "{name}" 吗？该分组包含 {count} 个资产，删除后资产将回到原位置。',
+    showIp: '显示IP',
+    showHostname: '显示主机名',
     missingAssetId: '缺少资产 ID',
     supportedFormats: '支持的格式',
     standardFormat: '标准格式',
@@ -1108,7 +1110,8 @@ export default {
     treeExpand: '展开',
     treeFoldUp: '收起',
     transferSuccess: '传输完成',
-    transferFailed: '传输失败'
+    transferFailed: '传输失败',
+    openFolder: '打开文件夹'
   },
   about: {
     version: '版本',
@@ -1353,7 +1356,11 @@ export default {
     newFile: '新建文件',
     newFolder: '新建文件夹',
     uploadFile: '上传文件',
-    refresh: '刷新'
+    refresh: '刷新',
+    addToChat: '添加到聊天',
+    copyPath: '复制路径',
+    cut: '剪切',
+    loadingImage: '正在加载图片...'
   },
   interaction: {
     waiting: '等待输入...',
