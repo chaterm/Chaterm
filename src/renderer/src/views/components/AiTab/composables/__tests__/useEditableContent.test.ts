@@ -1,6 +1,7 @@
 import { describe, it, expect, vi } from 'vitest'
 import { ref } from 'vue'
 import { parseContextDragPayload, useEditableContent } from '../useEditableContent'
+import { getImageMediaType, isImageFile } from '../../utils'
 import type { ContentPart, ContextDocRef, ContextPastChatRef, ContextCommandRef } from '@shared/WebviewMessage'
 import type { DocOption } from '../../types'
 
@@ -98,6 +99,29 @@ describe('useEditableContent', () => {
     el.remove()
   })
 
+  it('should insert image at cursor with data attributes', () => {
+    const { editableRef, insertImageAtCursor } = setup()
+    const el = editableRef.value as HTMLDivElement
+    el.textContent = 'hello'
+    document.body.appendChild(el)
+
+    window.getSelection()?.removeAllRanges()
+
+    insertImageAtCursor({
+      type: 'image',
+      mediaType: 'image/png',
+      data: 'base64data'
+    })
+
+    const imageWrapper = el.querySelector('.image-preview-wrapper') as HTMLElement | null
+    expect(imageWrapper).not.toBeNull()
+    expect(imageWrapper?.getAttribute('data-image-type')).toBe('true')
+    expect(imageWrapper?.getAttribute('data-media-type')).toBe('image/png')
+    expect(imageWrapper?.getAttribute('data-image-data')).toBe('base64data')
+
+    el.remove()
+  })
+
   it('should parse doc drag payload from text/html carrier', () => {
     const encoded = encodeURIComponent(JSON.stringify({ contextType: 'doc', relPath: 'guide/intro.md', name: 'intro.md' }))
     const dataTransfer = {
@@ -129,6 +153,23 @@ describe('useEditableContent', () => {
       contextType: 'chat',
       id: 'chat-1',
       title: 'Chat 1'
+    })
+  })
+
+  it('should parse image drag payload from text/html carrier', () => {
+    const encoded = encodeURIComponent(JSON.stringify({ contextType: 'image', relPath: 'images/logo.svg', name: 'logo.svg' }))
+    const dataTransfer = {
+      getData: (type: string) => {
+        if (type === 'text/plain') return ''
+        if (type === 'text/html') return `<span data-chaterm-context="${encoded}"></span>`
+        return ''
+      }
+    } as unknown as DataTransfer
+
+    expect(parseContextDragPayload(dataTransfer)).toEqual({
+      contextType: 'image',
+      relPath: 'images/logo.svg',
+      name: 'logo.svg'
     })
   })
 
@@ -186,6 +227,13 @@ describe('useEditableContent', () => {
       relPath: 'mysql.md',
       name: 'mysql.md'
     })
+  })
+
+  it('should recognize bmp and svg images for knowledge base actions', () => {
+    expect(isImageFile('images/photo.bmp')).toBe(true)
+    expect(isImageFile('icons/logo.svg')).toBe(true)
+    expect(getImageMediaType('images/photo.bmp')).toBe('image/bmp')
+    expect(getImageMediaType('icons/logo.svg')).toBe('image/svg+xml')
   })
 
   describe('command chip with path', () => {

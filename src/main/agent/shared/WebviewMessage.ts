@@ -44,7 +44,7 @@ export type CommandChipContentPart = { type: 'chip'; chipType: 'command'; ref: C
 export type ChipContentPart = DocChipContentPart | ChatChipContentPart | CommandChipContentPart
 export type ImageContentPart = {
   type: 'image'
-  mediaType: 'image/jpeg' | 'image/png' | 'image/gif' | 'image/webp'
+  mediaType: 'image/jpeg' | 'image/png' | 'image/gif' | 'image/webp' | 'image/bmp' | 'image/svg+xml'
   data: string // base64 encoded image data
 }
 export type ContentPart = TextContentPart | ChipContentPart | ImageContentPart

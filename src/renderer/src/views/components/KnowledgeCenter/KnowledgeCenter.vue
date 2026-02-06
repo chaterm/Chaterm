@@ -226,6 +226,7 @@ import { message, Modal } from 'ant-design-vue'
 import eventBus from '@/utils/eventBus'
 import { CloudUploadOutlined, FileAddOutlined, FolderAddOutlined, PlusOutlined, RedoOutlined, SearchOutlined } from '@ant-design/icons-vue'
 import { getModifierSymbol, isShortcutEvent } from './utils/kbShortcuts'
+import { getImageMediaType, isImageFile } from '../AiTab/utils'
 
 type KbNodeType = 'file' | 'dir'
 type TreeNode = {
@@ -664,10 +665,6 @@ function handleCut(sources?: string[]) {
 }
 
 async function handlePaste(targetNode?: TreeNode) {
-  if (!clipboard.value) return
-  const mode = clipboard.value.mode
-  const sources = clipboard.value.sources.slice()
-
   // Determine destination directory from targetNode or selectedKeys
   let dstRelDir: string
   if (targetNode) {
@@ -678,39 +675,93 @@ async function handlePaste(targetNode?: TreeNode) {
     dstRelDir = targetType === 'dir' ? target : getDirOf(target)
   }
 
-  const dirsToRefresh = new Set<string>([dstRelDir])
-  const removedEntries: Array<{ relPath: string; isDir: boolean }> = []
-  let lastOpenedFileRelPath = ''
+  // Handle internal clipboard (copy/cut within knowledge base)
+  if (clipboard.value) {
+    const mode = clipboard.value.mode
+    const sources = clipboard.value.sources.slice()
 
-  try {
-    for (const src of sources) {
-      const srcType = treeNodeType(src)
-      let res: { relPath: string }
-      if (mode === 'copy') {
-        res = await api.kbCopy(src, dstRelDir)
-      } else {
-        res = await api.kbMove(src, dstRelDir)
-        dirsToRefresh.add(getDirOf(src))
-        removedEntries.push({ relPath: src, isDir: srcType === 'dir' })
+    const dirsToRefresh = new Set<string>([dstRelDir])
+    const removedEntries: Array<{ relPath: string; isDir: boolean }> = []
+    let lastOpenedFileRelPath = ''
+
+    try {
+      for (const src of sources) {
+        const srcType = treeNodeType(src)
+        let res: { relPath: string }
+        if (mode === 'copy') {
+          res = await api.kbCopy(src, dstRelDir)
+        } else {
+          res = await api.kbMove(src, dstRelDir)
+          dirsToRefresh.add(getDirOf(src))
+          removedEntries.push({ relPath: src, isDir: srcType === 'dir' })
+        }
+        if (srcType === 'file') lastOpenedFileRelPath = res.relPath
       }
-      if (srcType === 'file') lastOpenedFileRelPath = res.relPath
+      if (mode === 'cut') {
+        clipboard.value = null
+      }
+      for (const d of dirsToRefresh) {
+        await refreshDir(d)
+      }
+      if (lastOpenedFileRelPath) {
+        openFileInMainPane(lastOpenedFileRelPath)
+      }
+      if (mode === 'cut') {
+        emitKbEntriesRemoved(removedEntries)
+      }
+    } catch (e: unknown) {
+      const error = e as Error
+      message.error(error?.message || String(e))
     }
-    if (mode === 'cut') {
-      clipboard.value = null
-    }
-    for (const d of dirsToRefresh) {
-      await refreshDir(d)
-    }
-    if (lastOpenedFileRelPath) {
-      openFileInMainPane(lastOpenedFileRelPath)
-    }
-    if (mode === 'cut') {
-      emitKbEntriesRemoved(removedEntries)
+    return
+  }
+
+  // Handle system clipboard (paste images from external sources)
+  await handleSystemClipboardPaste(dstRelDir)
+}
+
+// Paste image from system clipboard to target directory
+async function handleSystemClipboardPaste(dstRelDir: string) {
+  try {
+    const clipboardItems = await navigator.clipboard.read()
+    for (const item of clipboardItems) {
+      // Check if item contains image
+      const imageType = item.types.find((type) => type.startsWith('image/'))
+      if (imageType) {
+        const blob = await item.getType(imageType)
+        const base64 = await blobToBase64(blob)
+
+        const ext = imageType.split('/')[1] || 'png'
+        const timestamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19)
+        const fileName = `pasted-image-${timestamp}.${ext}`
+
+        const res = await api.kbCreateImage(dstRelDir, fileName, base64)
+        await refreshDir(dstRelDir)
+        openFileInMainPane(res.relPath)
+        return
+      }
     }
   } catch (e: unknown) {
+    // Clipboard API may fail due to permissions or empty clipboard
     const error = e as Error
-    message.error(error?.message || String(e))
+    if (error?.name !== 'NotAllowedError' && error?.message !== 'No valid data on clipboard.') {
+      message.error(`Failed to paste image: ${error?.message || String(e)}`)
+    }
   }
+}
+
+// Convert Blob to base64 string (without data URL prefix)
+function blobToBase64(blob: Blob): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader()
+    reader.onload = () => {
+      const result = reader.result as string
+      const base64Data = result.split(',')[1]
+      resolve(base64Data)
+    }
+    reader.onerror = () => reject(new Error('Failed to read image'))
+    reader.readAsDataURL(blob)
+  })
 }
 
 function isInEditableElement(): boolean {
@@ -771,12 +822,35 @@ async function onContextAction(action: string, node: TreeNode) {
     case 'addToChat': {
       const fileTargets = targets.filter((target) => treeNodeType(target) === 'file')
       if (fileTargets.length === 0) return
-      const docs = fileTargets.map((relPath) => {
-        const targetNode = findTreeNode(relPath)
-        const name = targetNode?.title || relPath.split('/').pop() || relPath
-        return { relPath, name }
-      })
-      eventBus.emit('kbAddDocToChatRequest', docs)
+
+      // Separate image files from document files
+      const imageTargets = fileTargets.filter((relPath) => isImageFile(relPath))
+      const docTargets = fileTargets.filter((relPath) => !isImageFile(relPath))
+
+      // Handle document files
+      if (docTargets.length > 0) {
+        const docs = docTargets.map((relPath) => {
+          const targetNode = findTreeNode(relPath)
+          const name = targetNode?.title || relPath.split('/').pop() || relPath
+          return { relPath, name }
+        })
+        eventBus.emit('kbAddDocToChatRequest', docs)
+      }
+
+      // Handle image files - read content and emit with image data
+      for (const relPath of imageTargets) {
+        try {
+          const res = await api.kbReadFile(relPath, 'base64')
+          const mediaType = getImageMediaType(relPath)
+          eventBus.emit('kbAddImageToChatRequest', {
+            mediaType,
+            data: res.content
+          })
+        } catch (e: unknown) {
+          const error = e as Error
+          message.error(error?.message || String(e))
+        }
+      }
       return
     }
     case 'newFile':

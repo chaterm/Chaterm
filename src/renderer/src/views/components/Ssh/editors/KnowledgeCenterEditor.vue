@@ -11,18 +11,58 @@
       <div
         v-if="activeFile.isImage"
         class="kb-image-preview"
+        @wheel.prevent="handleImageWheel"
       >
-        <img
+        <div
           v-if="activeFile.imageDataUrl"
-          :src="activeFile.imageDataUrl"
-          :alt="activeFile.relPath"
-          class="kb-image"
-        />
+          class="kb-image-container"
+          :class="{ 'is-dragging': isDragging, 'is-draggable': imageScale > 1 }"
+          :style="imageContainerStyle"
+          @mousedown="handleImageMouseDown"
+          @mousemove="handleImageMouseMove"
+          @mouseup="handleImageMouseUp"
+          @mouseleave="handleImageMouseUp"
+        >
+          <img
+            :src="activeFile.imageDataUrl"
+            :alt="activeFile.relPath"
+            class="kb-image"
+            draggable="false"
+          />
+        </div>
         <div
           v-else
           class="kb-image-loading"
         >
           {{ t('knowledgeCenter.loadingImage') }}
+        </div>
+        <!-- Zoom Controls -->
+        <div
+          v-if="activeFile.imageDataUrl"
+          class="kb-image-controls"
+        >
+          <button
+            class="kb-zoom-btn"
+            title="Zoom Out"
+            @click="zoomOut"
+          >
+            <MinusOutlined />
+          </button>
+          <span class="kb-zoom-level">{{ Math.round(imageScale * 100) }}%</span>
+          <button
+            class="kb-zoom-btn"
+            title="Zoom In"
+            @click="zoomIn"
+          >
+            <PlusOutlined />
+          </button>
+          <button
+            class="kb-zoom-btn kb-zoom-reset"
+            title="Reset Zoom"
+            @click="resetZoom"
+          >
+            <ExpandOutlined />
+          </button>
         </div>
       </div>
 
@@ -65,6 +105,7 @@ import { computed, onBeforeUnmount, onMounted, reactive, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { marked } from 'marked'
 import { message } from 'ant-design-vue'
+import { MinusOutlined, PlusOutlined, ExpandOutlined } from '@ant-design/icons-vue'
 import MonacoEditor from '@renderer/views/components/Ssh/editors/monacoEditor.vue'
 import { getMonacoTheme } from '@/utils/themeUtils'
 import eventBus from '@/utils/eventBus'
@@ -103,6 +144,69 @@ const currentTheme = computed(() => getMonacoTheme())
 
 // Ref to access Monaco Editor instance
 const monacoEditorRef = ref<InstanceType<typeof MonacoEditor> | null>(null)
+
+// Image zoom and pan state
+const imageScale = ref(1)
+const imageTranslateX = ref(0)
+const imageTranslateY = ref(0)
+const isDragging = ref(false)
+const dragStartX = ref(0)
+const dragStartY = ref(0)
+
+const MIN_SCALE = 0.1
+const MAX_SCALE = 10
+const ZOOM_STEP = 0.25
+
+const imageContainerStyle = computed(() => ({
+  transform: `translate(${imageTranslateX.value}px, ${imageTranslateY.value}px) scale(${imageScale.value})`,
+  cursor: imageScale.value > 1 ? (isDragging.value ? 'grabbing' : 'grab') : 'default'
+}))
+
+function zoomIn() {
+  imageScale.value = Math.min(MAX_SCALE, imageScale.value + ZOOM_STEP)
+}
+
+function zoomOut() {
+  const newScale = Math.max(MIN_SCALE, imageScale.value - ZOOM_STEP)
+  imageScale.value = newScale
+  if (newScale <= 1) {
+    imageTranslateX.value = 0
+    imageTranslateY.value = 0
+  }
+}
+
+function resetZoom() {
+  imageScale.value = 1
+  imageTranslateX.value = 0
+  imageTranslateY.value = 0
+}
+
+function handleImageWheel(event: WheelEvent) {
+  const delta = event.deltaY > 0 ? -ZOOM_STEP : ZOOM_STEP
+  const newScale = Math.max(MIN_SCALE, Math.min(MAX_SCALE, imageScale.value + delta))
+  imageScale.value = newScale
+  if (newScale <= 1) {
+    imageTranslateX.value = 0
+    imageTranslateY.value = 0
+  }
+}
+
+function handleImageMouseDown(event: MouseEvent) {
+  if (imageScale.value <= 1) return
+  isDragging.value = true
+  dragStartX.value = event.clientX - imageTranslateX.value
+  dragStartY.value = event.clientY - imageTranslateY.value
+}
+
+function handleImageMouseMove(event: MouseEvent) {
+  if (!isDragging.value) return
+  imageTranslateX.value = event.clientX - dragStartX.value
+  imageTranslateY.value = event.clientY - dragStartY.value
+}
+
+function handleImageMouseUp() {
+  isDragging.value = false
+}
 
 // Font settings from user config
 const fontFamily = ref('Menlo, Monaco, "Courier New", Consolas, Courier, monospace')
@@ -321,6 +425,10 @@ async function handlePaste(event: ClipboardEvent) {
 
 async function openFile(relPath: string) {
   if (!relPath) return
+
+  // Reset zoom state when opening a new file
+  resetZoom()
+
   try {
     await mainApi.kbEnsureRoot()
 
@@ -535,17 +643,83 @@ onBeforeUnmount(() => {
   display: flex;
   align-items: center;
   justify-content: center;
-  overflow: auto;
+  overflow: hidden;
   padding: 24px;
   background: var(--bg-color);
+  position: relative;
+}
+
+.kb-image-container {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: transform 0.1s ease-out;
+  user-select: none;
+
+  &.is-draggable {
+    cursor: grab;
+  }
+
+  &.is-dragging {
+    cursor: grabbing;
+    transition: none;
+  }
 }
 
 .kb-image {
   max-width: 100%;
-  max-height: 100%;
+  max-height: calc(100vh - 150px);
   object-fit: contain;
   border-radius: 4px;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+  pointer-events: none;
+}
+
+.kb-image-controls {
+  position: absolute;
+  bottom: 16px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 12px;
+  background: rgba(0, 0, 0, 0.6);
+  border-radius: 20px;
+  backdrop-filter: blur(4px);
+}
+
+.kb-zoom-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border: none;
+  background: transparent;
+  color: #fff;
+  cursor: pointer;
+  border-radius: 4px;
+  transition: background 0.2s;
+
+  &:hover {
+    background: rgba(255, 255, 255, 0.15);
+  }
+
+  &:active {
+    background: rgba(255, 255, 255, 0.25);
+  }
+}
+
+.kb-zoom-reset {
+  margin-left: 4px;
+}
+
+.kb-zoom-level {
+  color: #fff;
+  font-size: 12px;
+  min-width: 45px;
+  text-align: center;
 }
 
 .kb-image-loading {
