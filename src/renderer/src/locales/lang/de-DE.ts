@@ -1340,6 +1340,9 @@ export default {
     newFolder: 'Neuer Ordner',
     uploadFile: 'Datei hochladen',
     refresh: 'Aktualisieren',
+    addToChat: 'Zum Chat hinzufügen',
+    copyPath: 'Pfad kopieren',
+    cut: 'Ausschneiden',
     loadingImage: 'Bild wird geladen...'
   },
   interaction: {

@@ -114,59 +114,71 @@
                       v-if="hasSelectedFile"
                       key="addToChat"
                     >
-                      Add to Chat
+                      {{ $t('knowledgeCenter.addToChat') }}
+                    </a-menu-item>
+                    <a-menu-item
+                      v-if="hasSelectedFile"
+                      key="copyPath"
+                    >
+                      {{ $t('knowledgeCenter.copyPath') }}
                     </a-menu-item>
                     <a-menu-item
                       key="copy"
                       class="kb-menu-item-with-shortcut"
                     >
-                      <span>Copy</span>
+                      <span>{{ $t('common.copy') }}</span>
                       <span class="shortcut-hint">{{ modifierKey }}C</span>
                     </a-menu-item>
                     <a-menu-item
                       key="cut"
                       class="kb-menu-item-with-shortcut"
                     >
-                      <span>Cut</span>
+                      <span>{{ $t('knowledgeCenter.cut') }}</span>
                       <span class="shortcut-hint">{{ modifierKey }}X</span>
                     </a-menu-item>
-                    <a-menu-item key="delete">Delete</a-menu-item>
+                    <a-menu-item key="delete">{{ $t('common.delete') }}</a-menu-item>
                   </template>
                   <template v-else>
                     <a-menu-item
                       v-if="dataRef.type === 'file'"
                       key="addToChat"
                     >
-                      Add to Chat
+                      {{ $t('knowledgeCenter.addToChat') }}
                     </a-menu-item>
                     <a-menu-item
                       v-if="dataRef.type === 'dir'"
                       key="newFile"
                     >
-                      New File
+                      {{ $t('knowledgeCenter.newFile') }}
                     </a-menu-item>
                     <a-menu-item
                       v-if="dataRef.type === 'dir'"
                       key="newFolder"
                     >
-                      New Folder
+                      {{ $t('knowledgeCenter.newFolder') }}
                     </a-menu-item>
                     <a-menu-divider v-if="dataRef.type === 'dir'" />
-                    <a-menu-item key="rename">Rename</a-menu-item>
-                    <a-menu-item key="delete">Delete</a-menu-item>
+                    <a-menu-item key="rename">{{ $t('common.rename') }}</a-menu-item>
+                    <a-menu-item key="delete">{{ $t('common.delete') }}</a-menu-item>
                     <a-menu-divider />
+                    <a-menu-item
+                      v-if="dataRef.type === 'file'"
+                      key="copyPath"
+                    >
+                      {{ $t('knowledgeCenter.copyPath') }}
+                    </a-menu-item>
                     <a-menu-item
                       key="copy"
                       class="kb-menu-item-with-shortcut"
                     >
-                      <span>Copy</span>
+                      <span>{{ $t('common.copy') }}</span>
                       <span class="shortcut-hint">{{ modifierKey }}C</span>
                     </a-menu-item>
                     <a-menu-item
                       key="cut"
                       class="kb-menu-item-with-shortcut"
                     >
-                      <span>Cut</span>
+                      <span>{{ $t('knowledgeCenter.cut') }}</span>
                       <span class="shortcut-hint">{{ modifierKey }}X</span>
                     </a-menu-item>
                     <a-menu-item
@@ -174,7 +186,7 @@
                       key="paste"
                       class="kb-menu-item-with-shortcut"
                     >
-                      <span>Paste</span>
+                      <span>{{ $t('common.paste') }}</span>
                       <span class="shortcut-hint">{{ modifierKey }}V</span>
                     </a-menu-item>
                   </template>
@@ -864,6 +876,18 @@ async function onContextAction(action: string, node: TreeNode) {
     case 'rename':
       await startRename(node)
       return
+    case 'copyPath': {
+      const fileTargets = targets.filter((target) => treeNodeType(target) === 'file')
+      if (fileTargets.length === 0) return
+      const content = fileTargets.join('\n')
+      try {
+        await navigator.clipboard.writeText(content)
+      } catch (e: unknown) {
+        const error = e as Error
+        message.error(error?.message || String(e))
+      }
+      return
+    }
     case 'delete':
       if (!isBatch) {
         await removeNode(node)

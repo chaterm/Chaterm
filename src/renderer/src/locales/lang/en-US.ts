@@ -1342,6 +1342,9 @@ export default {
     newFolder: 'New Folder',
     uploadFile: 'Upload File',
     refresh: 'Refresh',
+    addToChat: 'Add to Chat',
+    copyPath: 'Copy Path',
+    cut: 'Cut',
     loadingImage: 'Loading image...'
   },
   interaction: {

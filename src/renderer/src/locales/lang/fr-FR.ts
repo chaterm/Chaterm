@@ -1344,6 +1344,9 @@ export default {
     newFolder: 'Nouveau dossier',
     uploadFile: 'Télécharger un fichier',
     refresh: 'Actualiser',
+    addToChat: 'Ajouter au chat',
+    copyPath: 'Copier le chemin',
+    cut: 'Couper',
     loadingImage: "Chargement de l'image..."
   },
   interaction: {

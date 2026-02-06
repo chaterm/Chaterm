@@ -1337,6 +1337,9 @@ export default {
     newFolder: 'Nova pasta',
     uploadFile: 'Upload arquivo',
     refresh: 'Atualizar',
+    addToChat: 'Adicionar ao chat',
+    copyPath: 'Copiar caminho',
+    cut: 'Cortar',
     loadingImage: 'Carregando imagem...'
   },
   interaction: {

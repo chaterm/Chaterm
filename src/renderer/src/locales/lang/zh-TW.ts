@@ -1321,6 +1321,9 @@ export default {
     newFolder: '新建資料夾',
     uploadFile: '上傳檔案',
     refresh: '重新整理',
+    addToChat: '加入聊天',
+    copyPath: '複製路徑',
+    cut: '剪下',
     loadingImage: '正在載入圖片...'
   },
   interaction: {

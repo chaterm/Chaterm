@@ -1331,6 +1331,9 @@ export default {
     newFolder: '新建文件夹',
     uploadFile: '上传文件',
     refresh: '刷新',
+    addToChat: '添加到聊天',
+    copyPath: '复制路径',
+    cut: '剪切',
     loadingImage: '正在加载图片...'
   },
   interaction: {
