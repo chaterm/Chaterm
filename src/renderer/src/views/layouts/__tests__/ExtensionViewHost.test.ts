@@ -25,6 +25,11 @@ vi.mock('@/utils/eventBus', () => ({
   }
 }))
 
+// Stub Ant Design Vue components not auto-resolved in test env
+const defaultMountOptions = {
+  global: { stubs: { 'a-empty': true } }
+}
+
 describe('ExtensionViewHost.vue', () => {
   let wrapper: VueWrapper<any>
 
@@ -46,6 +51,7 @@ describe('ExtensionViewHost.vue', () => {
 
   it('When mounting a component, metadata should be obtained and tree nodes should be loaded', async () => {
     wrapper = mount(ExtensionViewHost, {
+      ...defaultMountOptions,
       props: { viewId: 'testView' }
     })
 
@@ -60,6 +66,7 @@ describe('ExtensionViewHost.vue', () => {
 
   it('When entering information into the search box, tree nodes should be filtered correctly', async () => {
     wrapper = mount(ExtensionViewHost, {
+      ...defaultMountOptions,
       props: { viewId: 'testView' }
     })
 
@@ -84,6 +91,7 @@ describe('ExtensionViewHost.vue', () => {
     mockApi.getTreeNodes.mockResolvedValue([nodeData])
 
     wrapper = mount(ExtensionViewHost, {
+      ...defaultMountOptions,
       props: { viewId: 'testView' }
     })
     await nextTick()
@@ -97,6 +105,7 @@ describe('ExtensionViewHost.vue', () => {
   it('Clicking on a non-leaf node should toggle its expanded/collapsed state', async () => {
     const folderData = { title: 'Folder', key: 'f1', isLeaf: false }
     wrapper = mount(ExtensionViewHost, {
+      ...defaultMountOptions,
       props: { viewId: 'testView' }
     })
 
@@ -117,7 +126,7 @@ describe('ExtensionViewHost.vue', () => {
       }
     })
 
-    wrapper = mount(ExtensionViewHost, { props: { viewId: 'test' } })
+    wrapper = mount(ExtensionViewHost, { ...defaultMountOptions, props: { viewId: 'test' } })
 
     await nextTick()
     await new Promise((resolve) => setTimeout(resolve, 50))
@@ -147,6 +156,7 @@ describe('ExtensionViewHost.vue', () => {
   it('The listener should be removed during uninstallation', () => {
     const removeSpy = vi.spyOn(window, 'removeEventListener')
     wrapper = mount(ExtensionViewHost, {
+      ...defaultMountOptions,
       props: { viewId: 'testView' }
     })
 

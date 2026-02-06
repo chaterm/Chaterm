@@ -13,7 +13,7 @@ vi.mock('monaco-editor', () => {
     onDidChangeModelContent: vi.fn(),
     getValue: vi.fn(() => ''),
     setValue: vi.fn(),
-    getModel: vi.fn(() => ({})),
+    getModel: vi.fn(() => ({ updateOptions: vi.fn() })),
     updateOptions: vi.fn(),
     layout: vi.fn(),
     dispose: vi.fn()
@@ -37,12 +37,26 @@ vi.mock('monaco-editor/esm/vs/language/css/css.worker?worker', () => ({ default:
 vi.mock('monaco-editor/esm/vs/language/html/html.worker?worker', () => ({ default: class HtmlWorker {} }))
 vi.mock('monaco-editor/esm/vs/language/typescript/ts.worker?worker', () => ({ default: class TsWorker {} }))
 
-vi.mock('@/stores/editorConfig', () => ({
-  useEditorConfigStore: () => ({
-    monacoOptions: {},
-    loadConfig: vi.fn(() => Promise.resolve())
-  })
-}))
+vi.mock('@/stores/editorConfig', async () => {
+  const { ref } = await import('vue')
+  return {
+    useEditorConfigStore: () => ({
+      config: ref({
+        fontSize: 14,
+        fontFamily: 'cascadia-mono',
+        tabSize: 4,
+        wordWrap: 'off',
+        minimap: true,
+        mouseWheelZoom: true,
+        cursorBlinking: 'blink',
+        lineHeight: 0
+      }),
+      monacoOptions: {},
+      loadConfig: vi.fn(() => Promise.resolve())
+    }),
+    getFontFamily: (fontKey: string) => (fontKey ? `"${fontKey}", monospace` : 'monospace')
+  }
+})
 
 // Import after mocks
 import MonacoEditor from '@views/components/Editors/base/monacoEditor.vue'
