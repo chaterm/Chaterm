@@ -110,8 +110,8 @@ import MonacoEditor from '@views/components/Editors/base/monacoEditor.vue'
 import { getMonacoTheme } from '@/utils/themeUtils'
 import eventBus from '@/utils/eventBus'
 import DOMPurify from 'dompurify'
-import { useEditorConfigStore } from '@/stores/editorConfig'
-import { userConfigStore } from '@/services/userConfigStoreService'
+import { useEditorConfigStore, getFontFamily } from '@/stores/editorConfig'
+import { storeToRefs } from 'pinia'
 
 const { t } = useI18n()
 
@@ -130,8 +130,9 @@ const mainApi = (window as any).api
 // Image file extensions for detection
 const IMAGE_EXTS = new Set(['.png', '.jpg', '.jpeg', '.gif', '.webp', '.bmp', '.svg'])
 
-// Initialize editor config store
+// Editor config store for both Monaco and Markdown preview style
 const editorConfigStore = useEditorConfigStore()
+const { config: editorConfig } = storeToRefs(editorConfigStore)
 
 // Initialize with props.relPath to avoid showing empty state during async load
 const activeFile = reactive({
@@ -212,15 +213,16 @@ function handleImageMouseUp() {
   isDragging.value = false
 }
 
-// Font settings from user config
-const fontFamily = ref('Menlo, Monaco, "Courier New", Consolas, Courier, monospace')
-const fontSize = ref(14)
-
-const previewStyle = computed(() => ({
-  fontFamily: fontFamily.value,
-  fontSize: `${fontSize.value}px`,
-  lineHeight: 1.6
-}))
+// Markdown preview style: use editor config (font/size/lineHeight) for consistency with Monaco
+const previewStyle = computed(() => {
+  const c = editorConfig.value
+  const lineHeight = c.lineHeight && c.lineHeight > 0 ? c.lineHeight : undefined
+  return {
+    fontFamily: getFontFamily(c.fontFamily),
+    fontSize: `${c.fontSize}px`,
+    lineHeight: lineHeight ? `${lineHeight}px` : 1.6
+  }
+})
 
 function isMarkdownFile(relPath: string): boolean {
   return relPath.toLowerCase().endsWith('.md') || relPath.toLowerCase().endsWith('.markdown')
@@ -462,23 +464,10 @@ async function openFile(relPath: string) {
 }
 
 onMounted(async () => {
-  // Load global editor configuration
+  // Load global editor configuration (feeds both Monaco and preview style)
   await editorConfigStore.loadConfig()
 
   eventBus.on('kb:content-changed', handleRemoteChange)
-
-  // Load user font settings
-  try {
-    const config = await userConfigStore.getConfig()
-    if (config.fontFamily) {
-      fontFamily.value = config.fontFamily
-    }
-    if (config.fontSize) {
-      fontSize.value = config.fontSize
-    }
-  } catch (e) {
-    console.error('Failed to load user config:', e)
-  }
 
   await openFile(props.relPath)
 })
