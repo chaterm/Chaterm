@@ -90,6 +90,7 @@ async function loadAllHandlers() {
     ensureRoot: handlers.get('kb:ensure-root')!,
     readFile: handlers.get('kb:read-file')!,
     writeFile: handlers.get('kb:write-file')!,
+    createFile: handlers.get('kb:create-file')!,
     createImage: handlers.get('kb:create-image')!,
     rename: handlers.get('kb:rename')!,
     del: handlers.get('kb:delete')!,
@@ -222,6 +223,19 @@ describe('KnowledgeBase file operations', () => {
     // Create second image with same name
     const result = await createImage({} as any, { relDir: '', name: 'image.png', base64: base64Content })
     expect(result.relPath).toBe('image (1).png')
+  })
+
+  it('allows renaming when only case changes', async () => {
+    const { ensureRoot, writeFile, rename } = await loadAllHandlers()
+    await ensureRoot({} as any)
+
+    await writeFile({} as any, { relPath: 'README.md', content: 'original' })
+
+    const res = await rename({} as any, { relPath: 'README.md', newName: 'readme.md' })
+    expect(res.relPath).toBe('readme.md')
+
+    const kbRoot = path.join(mockUserDataPath, 'knowledgebase')
+    expect(fs.existsSync(path.join(kbRoot, 'readme.md'))).toBe(true)
   })
 
   it('rejects invalid file names for image creation', async () => {

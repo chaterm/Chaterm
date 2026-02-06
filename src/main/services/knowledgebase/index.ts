@@ -237,6 +237,16 @@ async function pathExists(absPath: string): Promise<boolean> {
   }
 }
 
+async function caseSensitiveExists(dirAbs: string, name: string): Promise<boolean> {
+  try {
+    const entries = await fs.readdir(dirAbs, { withFileTypes: true })
+    return entries.some((entry) => entry.name === name)
+  } catch (e: any) {
+    if (e?.code === 'ENOENT') return false
+    throw e
+  }
+}
+
 function splitNameExt(fileName: string): { base: string; ext: string } {
   const ext = path.extname(fileName)
   const base = ext ? fileName.slice(0, -ext.length) : fileName
@@ -492,7 +502,7 @@ export function registerKnowledgeBaseHandlers(): void {
     }
 
     // Check if target already exists (different from source)
-    if (await pathExists(destAbs)) {
+    if (await caseSensitiveExists(parentAbs, newName)) {
       throw new Error('Target already exists')
     }
     await fs.rename(srcAbs, destAbs)
