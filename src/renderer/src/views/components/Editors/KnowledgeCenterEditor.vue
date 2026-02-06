@@ -104,12 +104,13 @@
 import { computed, onBeforeUnmount, onMounted, reactive, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { marked } from 'marked'
+import hljs from 'highlight.js'
+import 'highlight.js/styles/atom-one-dark.css'
 import { message } from 'ant-design-vue'
 import { MinusOutlined, PlusOutlined, ExpandOutlined } from '@ant-design/icons-vue'
 import MonacoEditor from '@views/components/Editors/base/monacoEditor.vue'
 import { getMonacoTheme } from '@/utils/themeUtils'
 import eventBus from '@/utils/eventBus'
-import DOMPurify from 'dompurify'
 import { useEditorConfigStore, getFontFamily } from '@/stores/editorConfig'
 import { storeToRefs } from 'pinia'
 
@@ -323,11 +324,9 @@ async function renderMarkdownWithImages() {
 
   const rawHtml = marked.parse(activeFile.content || '') as string
 
-  const sanitizedHtml = DOMPurify.sanitize(rawHtml)
-
   // Parse HTML to find and replace local image sources
   const parser = new DOMParser()
-  const doc = parser.parseFromString(sanitizedHtml, 'text/html')
+  const doc = parser.parseFromString(rawHtml, 'text/html')
   const images = doc.querySelectorAll('img')
 
   const loadPromises: Promise<void>[] = []
@@ -349,6 +348,31 @@ async function renderMarkdownWithImages() {
   })
 
   await Promise.all(loadPromises)
+
+  // Supported alignment keywords for markdown tables
+  const allowedAlignments = new Set(['left', 'center', 'right', 'justify'])
+  const alignedCells = doc.querySelectorAll('th[align], td[align]')
+  alignedCells.forEach((cell) => {
+    const align = cell.getAttribute('align')
+    if (!align) return
+    const normalized = align.toLowerCase()
+    if (allowedAlignments.has(normalized)) {
+      cell.setAttribute('style', `text-align: ${normalized};`)
+    }
+  })
+
+  // Apply syntax highlighting for fenced code blocks
+  const codeBlocks = doc.querySelectorAll('pre code')
+  codeBlocks.forEach((code) => {
+    const className = code.className || ''
+    const languageMatch = className.match(/language-([\w-]+)/)
+    const language = languageMatch?.[1]
+    const codeText = code.textContent || ''
+    const result = language && hljs.getLanguage(language) ? hljs.highlight(codeText, { language }) : hljs.highlightAuto(codeText)
+    code.innerHTML = result.value
+    code.classList.add('hljs')
+  })
+
   mdHtml.value = doc.body.innerHTML
 }
 

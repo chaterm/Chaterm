@@ -87,7 +87,7 @@
               <div
                 class="kb-tree-title"
                 :class="{ 'context-menu-active': menuKey === dataRef.key }"
-                @contextmenu.stop
+                @contextmenu.stop="(event) => handleNodeContextMenu(event, dataRef)"
               >
                 <span
                   v-if="editingKey !== dataRef.key"
@@ -446,6 +446,23 @@ const onSelect = async (keys: string[], info: TreeSelectInfo) => {
   }
 }
 
+const handleNodeContextMenu = (event: MouseEvent, node: TreeNode) => {
+  event.preventDefault()
+  const next = computeContextSelection(selectedKeys.value, node.relPath)
+  if (next !== selectedKeys.value) {
+    selectedKeys.value = next
+  }
+}
+
+function computeContextSelection(current: string[], target: string): string[] {
+  if (!target) return current
+  const isSelected = current.includes(target)
+  if (current.length <= 1) {
+    return isSelected ? current : [target]
+  }
+  return isSelected ? current : [target]
+}
+
 const handleTreeBlankClick = (event: MouseEvent) => {
   const target = event.target as HTMLElement | null
   if (!target) return
@@ -562,11 +579,13 @@ async function confirmRename() {
   }
 
   try {
-    await api.kbRename(key, newName)
+    const res = await api.kbRename(key, newName)
     editingKey.value = null
     editingName.value = ''
     editingOriginalName.value = ''
     await refreshDir(getDirOf(key))
+    // Notify tab system to update title and relPath
+    eventBus.emit('kbFileRenamed', { oldRelPath: key, newRelPath: res.relPath, newName })
   } catch (e: unknown) {
     const error = e as Error
     message.error(error?.message || String(e))

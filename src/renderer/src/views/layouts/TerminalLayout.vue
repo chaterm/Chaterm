@@ -950,6 +950,7 @@ onMounted(async () => {
   eventBus.on('createNewTerminal', handleCreateNewTerminal)
   eventBus.on('open-user-tab', openUserTab)
   eventBus.on('kbEntriesRemoved', handleKbEntriesRemoved)
+  eventBus.on('kbFileRenamed', handleKbFileRenamed)
   eventBus.on('openKbPreview', handleOpenKbPreview)
   eventBus.on('searchHost', handleSearchHost)
   eventBus.on('save-state-before-switch', () => {
@@ -1695,6 +1696,42 @@ const handleKbEntriesRemoved = (payload: { entries: KbRemovedEntry[] }) => {
   }
 }
 
+// Update KnowledgeCenterEditor tabs when a file or folder is renamed
+const handleKbFileRenamed = (payload: { oldRelPath: string; newRelPath: string; newName: string }) => {
+  if (!dockApi) return
+  const { oldRelPath, newRelPath, newName } = payload
+  if (!oldRelPath || !newRelPath) return
+
+  const panels = [...dockApi.panels]
+  for (const panel of panels) {
+    const params = panel.params as Record<string, any> | undefined
+    if (!params || params.content !== 'KnowledgeCenterEditor') continue
+    const tabRelPath = String(params.props?.relPath || params.data?.props?.relPath || '')
+    if (!tabRelPath) continue
+
+    let updatedRelPath = ''
+    let updatedTitle = ''
+
+    if (tabRelPath === oldRelPath) {
+      // Exact match: the renamed file/folder itself
+      updatedRelPath = newRelPath
+      updatedTitle = newName
+    } else if (tabRelPath.startsWith(oldRelPath + '/')) {
+      // Child of renamed directory
+      updatedRelPath = newRelPath + tabRelPath.slice(oldRelPath.length)
+      updatedTitle = updatedRelPath.split('/').pop() || updatedRelPath
+    }
+
+    if (!updatedRelPath) continue
+
+    panel.api.setTitle(updatedTitle)
+    if (params.props) params.props.relPath = updatedRelPath
+    if (params.data?.props) params.data.props.relPath = updatedRelPath
+    params.title = updatedTitle
+    panel.api.updateParameters?.({ ...params })
+  }
+}
+
 onUnmounted(() => {
   eventBus.off('save-state-before-switch')
   shortcutService.destroy()
@@ -1727,6 +1764,7 @@ onUnmounted(() => {
   eventBus.off('createNewTerminal', handleCreateNewTerminal)
   eventBus.off('open-user-tab', openUserTab)
   eventBus.off('kbEntriesRemoved', handleKbEntriesRemoved)
+  eventBus.off('kbFileRenamed', handleKbFileRenamed)
   eventBus.off('openKbPreview', handleOpenKbPreview)
   eventBus.off('searchHost', handleSearchHost)
 })

@@ -507,4 +507,124 @@ describe('TerminalLayout - AI Sidebar Sticky Logic (Core)', () => {
       expect(getLeftSidebarSize()).toBe(25) // Left sidebar should remain unchanged
     })
   })
+
+  describe('KnowledgeCenter Rename Sync', () => {
+    const handleKbFileRenamed = (dockApi: any, payload: { oldRelPath: string; newRelPath: string; newName: string }) => {
+      if (!dockApi) return
+      const { oldRelPath, newRelPath, newName } = payload
+      if (!oldRelPath || !newRelPath) return
+
+      const panels = [...dockApi.panels]
+      for (const panel of panels) {
+        const params = panel.params as Record<string, any> | undefined
+        if (!params || params.content !== 'KnowledgeCenterEditor') continue
+        const tabRelPath = String(params.props?.relPath || params.data?.props?.relPath || '')
+        if (!tabRelPath) continue
+
+        let updatedRelPath = ''
+        let updatedTitle = ''
+
+        if (tabRelPath === oldRelPath) {
+          updatedRelPath = newRelPath
+          updatedTitle = newName
+        } else if (tabRelPath.startsWith(oldRelPath + '/')) {
+          updatedRelPath = newRelPath + tabRelPath.slice(oldRelPath.length)
+          updatedTitle = updatedRelPath.split('/').pop() || updatedRelPath
+        }
+
+        if (!updatedRelPath) continue
+
+        panel.api.setTitle(updatedTitle)
+        if (params.props) params.props.relPath = updatedRelPath
+        if (params.data?.props) params.data.props.relPath = updatedRelPath
+        params.title = updatedTitle
+        panel.api.updateParameters?.({ ...params })
+      }
+    }
+
+    it('should update title and relPath for renamed file', () => {
+      const panel = {
+        params: {
+          content: 'KnowledgeCenterEditor',
+          title: 'old.md',
+          props: { relPath: 'docs/old.md' }
+        },
+        api: {
+          setTitle: vi.fn(),
+          updateParameters: vi.fn()
+        }
+      }
+      const dockApi = { panels: [panel] }
+
+      handleKbFileRenamed(dockApi, {
+        oldRelPath: 'docs/old.md',
+        newRelPath: 'docs/new.md',
+        newName: 'new.md'
+      })
+
+      expect(panel.api.setTitle).toHaveBeenCalledWith('new.md')
+      expect(panel.params.props.relPath).toBe('docs/new.md')
+      expect(panel.params.title).toBe('new.md')
+      expect(panel.api.updateParameters).toHaveBeenCalledWith(expect.objectContaining({ title: 'new.md' }))
+    })
+
+    it('should update child tabs when a directory is renamed', () => {
+      const panel = {
+        params: {
+          content: 'KnowledgeCenterEditor',
+          title: 'notes.md',
+          data: { props: { relPath: 'docs/child/notes.md' } }
+        },
+        api: {
+          setTitle: vi.fn(),
+          updateParameters: vi.fn()
+        }
+      }
+      const dockApi = { panels: [panel] }
+
+      handleKbFileRenamed(dockApi, {
+        oldRelPath: 'docs',
+        newRelPath: 'docs-new',
+        newName: 'docs-new'
+      })
+
+      expect(panel.api.setTitle).toHaveBeenCalledWith('notes.md')
+      expect(panel.params.data.props.relPath).toBe('docs-new/child/notes.md')
+      expect(panel.params.title).toBe('notes.md')
+      expect(panel.api.updateParameters).toHaveBeenCalledWith(expect.objectContaining({ title: 'notes.md' }))
+    })
+
+    it('should ignore non-KnowledgeCenter panels or empty paths', () => {
+      const panel1 = {
+        params: {
+          content: 'TerminalEditor',
+          props: { relPath: 'docs/a.md' }
+        },
+        api: {
+          setTitle: vi.fn(),
+          updateParameters: vi.fn()
+        }
+      }
+      const panel2 = {
+        params: {
+          content: 'KnowledgeCenterEditor',
+          props: { relPath: '' }
+        },
+        api: {
+          setTitle: vi.fn(),
+          updateParameters: vi.fn()
+        }
+      }
+      const dockApi = { panels: [panel1, panel2] }
+
+      handleKbFileRenamed(dockApi, {
+        oldRelPath: 'docs/a.md',
+        newRelPath: 'docs/b.md',
+        newName: 'b.md'
+      })
+
+      expect(panel1.api.setTitle).not.toHaveBeenCalled()
+      expect(panel2.api.setTitle).not.toHaveBeenCalled()
+    })
+  })
 })
