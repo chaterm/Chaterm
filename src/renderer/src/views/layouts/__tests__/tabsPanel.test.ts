@@ -81,7 +81,7 @@ vi.mock('@views/components/Kubernetes/index.vue', () => ({
   }
 }))
 
-vi.mock('@views/components/CommonConfigEditor/index.vue', () => ({
+vi.mock('@views/components/Editors/CommonConfigEditor.vue', () => ({
   default: {
     name: 'CommonConfigEditor',
     template: '<div class="common-config-editor-mock">Common Config Editor</div>',
@@ -89,21 +89,21 @@ vi.mock('@views/components/CommonConfigEditor/index.vue', () => ({
   }
 }))
 
-vi.mock('@views/components/Ssh/editors/mcpConfigEditor.vue', () => ({
+vi.mock('@views/components/Editors/McpConfigEditor.vue', () => ({
   default: {
     name: 'McpConfigEditor',
     template: '<div class="mcp-config-editor-mock">MCP Config Editor</div>'
   }
 }))
 
-vi.mock('@views/components/SecurityConfigEditor/index.vue', () => ({
+vi.mock('@views/components/Editors/SecurityConfigEditor.vue', () => ({
   default: {
     name: 'SecurityConfigEditor',
     template: '<div class="security-config-editor-mock">Security Config Editor</div>'
   }
 }))
 
-vi.mock('@views/components/KeywordHighlightEditor/index.vue', () => ({
+vi.mock('@views/components/Editors/KeywordHighlightEditor.vue', () => ({
   default: {
     name: 'KeywordHighlightEditor',
     template: '<div class="keyword-highlight-editor-mock">Keyword Highlight Editor</div>'

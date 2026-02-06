@@ -168,6 +168,119 @@
             <a-radio value="close">{{ $t('user.watermarkClose') }}</a-radio>
           </a-radio-group>
         </a-form-item>
+
+        <!-- Editor Settings -->
+        <a-form-item>
+          <template #label>
+            <span class="label-text">{{ $t('user.editorSettings') }}</span>
+          </template>
+        </a-form-item>
+
+        <a-form-item
+          :label="$t('user.editorFontSize')"
+          class="user_my-ant-form-item"
+        >
+          <a-input-number
+            v-model:value="editorConfig.fontSize"
+            :min="8"
+            :max="32"
+            :step="1"
+            style="width: 120px"
+            @change="saveEditorConfig"
+          />
+          <span style="margin-left: 8px; color: var(--text-color-secondary)">px</span>
+        </a-form-item>
+
+        <a-form-item
+          :label="$t('user.editorLineHeight')"
+          class="user_my-ant-form-item"
+        >
+          <a-input-number
+            v-model:value="editorConfig.lineHeight"
+            :min="0"
+            :max="48"
+            :step="1"
+            style="width: 120px"
+            @change="saveEditorConfig"
+          />
+          <span style="margin-left: 8px; color: var(--text-color-secondary)">px</span>
+        </a-form-item>
+
+        <a-form-item
+          :label="$t('user.editorFont')"
+          class="user_my-ant-form-item"
+        >
+          <a-select
+            v-model:value="editorConfig.fontFamily"
+            class="language-select"
+            @change="saveEditorConfig"
+          >
+            <a-select-option
+              v-for="opt in FONT_FAMILY_OPTIONS"
+              :key="opt.value"
+              :value="opt.value"
+            >
+              {{ $t(opt.labelKey) }}
+            </a-select-option>
+          </a-select>
+        </a-form-item>
+
+        <a-form-item
+          :label="$t('user.editorTabSize')"
+          class="user_my-ant-form-item"
+        >
+          <a-input-number
+            v-model:value="editorConfig.tabSize"
+            :min="1"
+            :max="8"
+            :step="1"
+            style="width: 120px"
+            @change="saveEditorConfig"
+          />
+          <span style="margin-left: 8px; color: var(--text-color-secondary)">{{ $t('common.space') }}</span>
+        </a-form-item>
+
+        <a-form-item
+          :label="$t('user.editorWordWrap')"
+          class="user_my-ant-form-item"
+        >
+          <a-radio-group
+            v-model:value="editorConfig.wordWrap"
+            class="custom-radio-group"
+            @change="saveEditorConfig"
+          >
+            <a-radio value="on">{{ $t('common.open') }}</a-radio>
+            <a-radio value="off">{{ $t('common.close') }}</a-radio>
+          </a-radio-group>
+        </a-form-item>
+
+        <a-form-item
+          :label="$t('user.editorMinimap')"
+          class="user_my-ant-form-item"
+        >
+          <a-radio-group
+            v-model:value="editorConfig.minimap"
+            class="custom-radio-group"
+            @change="saveEditorConfig"
+          >
+            <a-radio :value="true">{{ $t('common.open') }}</a-radio>
+            <a-radio :value="false">{{ $t('common.close') }}</a-radio>
+          </a-radio-group>
+        </a-form-item>
+
+        <a-form-item
+          :label="$t('user.editorMouseWheelZoom')"
+          class="user_my-ant-form-item"
+        >
+          <a-radio-group
+            v-model:value="editorConfig.mouseWheelZoom"
+            class="custom-radio-group"
+            @change="saveEditorConfig"
+          >
+            <a-radio :value="true">{{ $t('common.open') }}</a-radio>
+            <a-radio :value="false">{{ $t('common.close') }}</a-radio>
+          </a-radio-group>
+        </a-form-item>
       </a-form>
     </a-card>
   </div>
@@ -179,12 +292,14 @@ import { notification } from 'ant-design-vue'
 import { DeleteOutlined, PlusOutlined } from '@ant-design/icons-vue'
 import { userConfigStore } from '@/services/userConfigStoreService'
 import { userConfigStore as configStore } from '@/store/userConfigStore'
+import { useEditorConfigStore, type EditorConfig, FONT_FAMILY_OPTIONS } from '@/stores/editorConfig'
 import eventBus from '@/utils/eventBus'
 import { getActualTheme, addSystemThemeListener } from '@/utils/themeUtils'
 import { useI18n } from 'vue-i18n'
 
 const api = window.api
 const { locale, t } = useI18n()
+const editorConfigStore = useEditorConfigStore()
 
 const userConfig = ref({
   language: 'zh-CN',
@@ -200,6 +315,18 @@ const userConfig = ref({
 })
 
 const customBackgroundImage = ref('')
+
+// Editor config form state (synced from store on load)
+const editorConfig = ref<EditorConfig>({
+  fontSize: 14,
+  fontFamily: 'cascadia-mono',
+  tabSize: 4,
+  wordWrap: 'off',
+  minimap: true,
+  mouseWheelZoom: true,
+  cursorBlinking: 'blink',
+  lineHeight: 0
+})
 
 const loadSavedConfig = async () => {
   try {
@@ -227,6 +354,10 @@ const loadSavedConfig = async () => {
       eventBus.emit('updateTheme', actualTheme)
       api.updateTheme(userConfig.value.theme)
     }
+
+    // Load editor config from store
+    await editorConfigStore.loadConfig()
+    editorConfig.value = editorConfigStore.getConfigSnapshot()
   } catch (error) {
     console.error('Failed to load config:', error)
     notification.error({
@@ -305,7 +436,7 @@ const changeLanguage = async () => {
 
 // Setup system theme change listener
 const setupSystemThemeListener = () => {
-  const listener = addSystemThemeListener(async (newSystemTheme: string) => {
+  const listener = addSystemThemeListener(async (_newSystemTheme: string) => {
     // Only update theme if user has selected 'auto' mode
     if (userConfig.value.theme === 'auto') {
       const actualTheme = getActualTheme(userConfig.value.theme)
@@ -317,7 +448,6 @@ const setupSystemThemeListener = () => {
         eventBus.emit('updateTheme', actualTheme)
         // Update main process window controls
         await api.updateTheme(userConfig.value.theme)
-        console.log(`System theme changed to ${newSystemTheme}, updating application theme to ${actualTheme}`)
       }
     }
   })
@@ -331,7 +461,6 @@ const setupSystemThemeListener = () => {
         if (currentTheme !== newSystemTheme) {
           document.documentElement.className = `theme-${newSystemTheme}`
           eventBus.emit('updateTheme', newSystemTheme)
-          console.log(`System theme changed to ${newSystemTheme} (from main process)`)
         }
       }
     })
@@ -374,12 +503,11 @@ const changeBackgroundMode = async () => {
 // Helper to get system background URL
 // Using a relative path that works in development and production (if assets are handled correctly)
 // In Electron renderer, we can often use relative paths or require/import
-const getSystemBgUrl = (index) => {
-  // In Vite/Electron, we can use the `new URL(..., import.meta.url).href` pattern for assets
+const getSystemBgUrl = (index: number): string => {
   return new URL(`../../../../assets/backgroup/wall-${index}.jpg`, import.meta.url).href
 }
 
-const selectSystemBackground = async (index) => {
+const selectSystemBackground = async (index: number) => {
   userConfig.value.background.image = getSystemBgUrl(index)
   configStore().updateBackgroundImage(userConfig.value.background.image)
   await saveConfig()
@@ -450,34 +578,41 @@ const changeBackgroundBrightness = async () => {
   configStore().updateBackgroundBrightness(userConfig.value.background.brightness)
   await saveConfig()
 }
+
+// Save editor config to store and persist via IPC
+const saveEditorConfig = async () => {
+  try {
+    await editorConfigStore.updateConfig(editorConfig.value)
+  } catch (error) {
+    console.error('Failed to save editor config:', error)
+    notification.error({
+      message: t('user.saveFailed'),
+      description: t('user.saveConfigFailedDescription')
+    })
+  }
+}
 </script>
 
 <style scoped>
 .userInfo {
   width: 100%;
-  height: 100%;
 }
 
 .userInfo-container {
   width: 100%;
-  height: 100%;
   background-color: var(--bg-color) !important;
   border-radius: 6px;
-  overflow: hidden;
   padding: 4px;
   box-shadow: 0 4px 10px rgba(0, 0, 0, 0.15);
   color: var(--text-color);
 }
 
 :deep(.ant-card) {
-  height: 100%;
   background-color: var(--bg-color) !important;
 }
 
 :deep(.ant-card-body) {
-  height: 100%;
-  display: flex;
-  flex-direction: column;
+  padding: 16px;
   background-color: var(--bg-color);
 }
 

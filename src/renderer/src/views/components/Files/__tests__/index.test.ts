@@ -50,7 +50,7 @@ vi.mock('ant-design-vue', async (importOriginal) => {
 vi.mock('../../../../utils/eventBus', () => ({ default: eventBus }))
 vi.mock('../fileTransfer', () => ({ initTransferListener: vi.fn() }))
 vi.mock('../../../../utils/base64', () => ({ Base64Util: { decode: vi.fn(() => 'decoded-host') } }))
-vi.mock('../../Ssh/editors/languageMap', () => ({ LanguageMap: { '.python': 'python', '.txt': 'text' } }))
+vi.mock('../../Editors/base/languageMap', () => ({ LanguageMap: { '.python': 'python', '.txt': 'text' } }))
 vi.mock('../../Ssh/editors/dragEditor.vue', () => ({
   default: { name: 'EditorCode', template: '<div />' },
   editorData: {}

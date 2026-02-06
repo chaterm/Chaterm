@@ -1101,7 +1101,45 @@ function setupIPC(): void {
           throw new Error(`Unknown version operation: ${operation}`)
       }
     } catch (error) {
-      console.error(`version:operation [${operation}] error:`, error)
+      console.error('version:operation error:', error)
+      throw error
+    }
+  })
+
+  // Editor configuration handlers
+  ipcMain.handle('get-editor-config', async () => {
+    try {
+      const configPath = join(app.getPath('userData'), 'setting', 'editor-config.json')
+      try {
+        const configData = await fs.readFile(configPath, 'utf-8')
+        return JSON.parse(configData)
+      } catch (error: any) {
+        // If file doesn't exist, return null to use default config
+        if (error.code === 'ENOENT') {
+          return null
+        }
+        throw error
+      }
+    } catch (error) {
+      console.error('Failed to get editor config:', error)
+      throw error
+    }
+  })
+
+  ipcMain.handle('save-editor-config', async (_event, config) => {
+    try {
+      const configPath = join(app.getPath('userData'), 'setting', 'editor-config.json')
+      const configDir = join(app.getPath('userData'), 'setting')
+
+      // Ensure directory exists
+      await fs.mkdir(configDir, { recursive: true })
+
+      // Save config
+      await fs.writeFile(configPath, JSON.stringify(config, null, 2), 'utf-8')
+
+      return { success: true }
+    } catch (error) {
+      console.error('Failed to save editor config:', error)
       throw error
     }
   })

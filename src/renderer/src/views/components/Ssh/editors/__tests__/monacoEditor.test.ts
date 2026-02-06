@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
-import { mount } from '@vue/test-utils'
+import { mount, flushPromises } from '@vue/test-utils'
 import { nextTick } from 'vue'
 
 // Ensure `self` exists for MonacoEnvironment assignment in component
@@ -37,8 +37,15 @@ vi.mock('monaco-editor/esm/vs/language/css/css.worker?worker', () => ({ default:
 vi.mock('monaco-editor/esm/vs/language/html/html.worker?worker', () => ({ default: class HtmlWorker {} }))
 vi.mock('monaco-editor/esm/vs/language/typescript/ts.worker?worker', () => ({ default: class TsWorker {} }))
 
+vi.mock('@/stores/editorConfig', () => ({
+  useEditorConfigStore: () => ({
+    monacoOptions: {},
+    loadConfig: vi.fn(() => Promise.resolve())
+  })
+}))
+
 // Import after mocks
-import MonacoEditor from '../monacoEditor.vue'
+import MonacoEditor from '@views/components/Editors/base/monacoEditor.vue'
 
 describe('monacoEditor background mode', () => {
   const originalMutationObserver = globalThis.MutationObserver
@@ -96,6 +103,9 @@ describe('monacoEditor background mode', () => {
     const wrapper = mount(MonacoEditor, {
       props: { modelValue: '' }
     })
+
+    // Wait for onMounted async (loadConfig) to resolve and observer to be registered
+    await flushPromises()
 
     expect(wrapper.classes()).not.toContain('with-custom-bg')
 

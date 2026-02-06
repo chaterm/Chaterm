@@ -40,10 +40,11 @@
 import { computed, onBeforeUnmount, onMounted, reactive, watch } from 'vue'
 import { marked } from 'marked'
 import { message } from 'ant-design-vue'
-import MonacoEditor from '@renderer/views/components/Ssh/editors/monacoEditor.vue'
+import MonacoEditor from '@views/components/Editors/base/monacoEditor.vue'
 import { getMonacoTheme } from '@/utils/themeUtils'
 import eventBus from '@/utils/eventBus'
 import DOMPurify from 'dompurify'
+import { useEditorConfigStore } from '@/stores/editorConfig'
 
 const props = withDefaults(
   defineProps<{
@@ -56,6 +57,9 @@ const props = withDefaults(
 )
 
 const mainApi = (window as any).api
+
+// Initialize editor config store
+const editorConfigStore = useEditorConfigStore()
 
 // Initialize with props.relPath to avoid showing empty state during async load
 const activeFile = reactive({
@@ -139,6 +143,9 @@ async function openFile(relPath: string) {
 }
 
 onMounted(async () => {
+  // Load global editor configuration
+  await editorConfigStore.loadConfig()
+
   eventBus.on('kb:content-changed', handleRemoteChange)
   await openFile(props.relPath)
 })

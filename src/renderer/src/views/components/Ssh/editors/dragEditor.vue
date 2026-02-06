@@ -78,7 +78,7 @@
 </template>
 
 <script setup lang="ts">
-import EditorCode from './monacoEditor.vue'
+import EditorCode from '@views/components/Editors/base/monacoEditor.vue'
 import DraggableResizable from './dragResize.vue'
 import { FullscreenOutlined, FullscreenExitOutlined, CloseOutlined, SaveOutlined } from '@ant-design/icons-vue'
 import { useI18n } from 'vue-i18n'

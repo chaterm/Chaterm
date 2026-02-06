@@ -4,11 +4,10 @@
       <div class="toolbar-left">
         <span
           class="editor-title"
-          :title="configPath"
+          :title="filePath"
           >{{ displayPath }}</span
         >
       </div>
-      <div class="toolbar-center"> </div>
     </div>
     <div class="editor-content">
       <MonacoEditor
@@ -22,7 +21,6 @@
       v-if="error"
       class="error-bar"
     >
-      <span class="error-icon">⚠️</span>
       <span class="error-text">{{ error }}</span>
     </div>
   </div>
@@ -31,91 +29,66 @@
 <script setup lang="ts">
 import { ref, onMounted, onBeforeUnmount, computed } from 'vue'
 import { notification } from 'ant-design-vue'
-import { mcpConfigService } from '@/services/mcpService'
-import { useI18n } from 'vue-i18n'
-import MonacoEditor from '@renderer/views/components/Ssh/editors/monacoEditor.vue'
+import MonacoEditor from '@views/components/Editors/base/monacoEditor.vue'
 import { getMonacoTheme, addSystemThemeListener } from '@/utils/themeUtils'
+import { useEditorConfigStore } from '@/stores/editorConfig'
 
-const { t } = useI18n()
+interface Props {
+  filePath: string
+  pluginId?: string
+  initialContent?: string
+}
+const props = defineProps<Props>()
+
+// Initialize editor config store
+const editorConfigStore = useEditorConfigStore()
+
 const configContent = ref('')
 const error = ref('')
 const isSaving = ref(false)
 const lastSaved = ref(false)
-const configPath = ref('')
+const isFormatting = ref(false)
+
 let saveTimer: NodeJS.Timeout | null = null
 let statusTimer: NodeJS.Timeout | null = null
-let removeFileChangeListener: (() => void) | undefined
-let isFormatting = ref(false) // Flag indicating if formatting is in progress
 let removeSystemThemeListener: (() => void) | undefined
 
-// Reactive theme state that will trigger re-renders
 const themeState = ref(getMonacoTheme())
+const currentTheme = computed(() => themeState.value)
+const displayPath = computed(() => props.filePath || '')
 
-// Set editor theme based on current theme
-const currentTheme = computed(() => {
-  return themeState.value
-})
-
-// Display full absolute path
-const displayPath = computed(() => {
-  return configPath.value || ''
-})
-
-// Keyboard event handling: Ctrl+S / Cmd+S shortcut to save
 const handleKeydown = (e: KeyboardEvent) => {
   if ((e.ctrlKey || e.metaKey) && e.key === 's') {
-    e.preventDefault() // Prevent browser default save behavior
-
+    e.preventDefault()
     if (saveTimer) {
       clearTimeout(saveTimer)
       saveTimer = null
     }
-
     saveConfig(true)
   }
 }
 
-// Load config on mount
 onMounted(async () => {
-  console.log('Loading MCP config...')
-  try {
-    // Get config file path
-    configPath.value = await mcpConfigService.getConfigPath()
-    // Read config content
-    configContent.value = await mcpConfigService.readConfigFile()
+  // Load global editor configuration
+  await editorConfigStore.loadConfig()
 
-    if (window.api && window.api.onMcpConfigFileChanged) {
-      removeFileChangeListener = window.api.onMcpConfigFileChanged((newContent: string) => {
-        if (newContent !== configContent.value) {
-          configContent.value = newContent
-          error.value = ''
-        }
-      })
+  try {
+    if (props.initialContent) {
+      configContent.value = props.initialContent
+    } else if (props.filePath) {
+      configContent.value = await (window as any).api.readFile(props.filePath)
     }
-  } catch (err: unknown) {
-    console.error('Failed to load MCP config:', err)
-    const errorMessage = err instanceof Error ? err.message : String(err)
-    notification.error({
-      message: t('mcp.error'),
-      description: errorMessage
-    })
+  } catch (err: any) {
+    notification.error({ message: 'Load Failed', description: err.message })
   }
 
-  // Add theme change listener
   const systemThemeRemover = addSystemThemeListener(() => {
     themeState.value = getMonacoTheme()
   })
-
-  // Listen for document class changes (manual theme switching)
   const observer = new MutationObserver(() => {
     themeState.value = getMonacoTheme()
   })
-  observer.observe(document.documentElement, {
-    attributes: true,
-    attributeFilter: ['class']
-  })
-
-  // Store cleanup functions
+  observer.observe(document.documentElement, { attributes: true, attributeFilter: ['class'] })
   removeSystemThemeListener = () => {
     systemThemeRemover()
     observer.disconnect()
@@ -124,99 +97,61 @@ onMounted(async () => {
   window.addEventListener('keydown', handleKeydown)
 })
 
-// Clean up timers and listeners on unmount
 onBeforeUnmount(() => {
-  if (saveTimer) {
-    clearTimeout(saveTimer)
-  }
-  if (statusTimer) {
-    clearTimeout(statusTimer)
-  }
-  if (removeFileChangeListener) {
-    removeFileChangeListener()
-  }
-  if (removeSystemThemeListener) {
-    removeSystemThemeListener()
-  }
+  if (saveTimer) clearTimeout(saveTimer)
+  if (statusTimer) clearTimeout(statusTimer)
+  if (removeSystemThemeListener) removeSystemThemeListener()
   window.removeEventListener('keydown', handleKeydown)
 })
 
-// Handle content change with auto-save
 const handleContentChange = (newValue: string) => {
-  if (isFormatting.value) {
-    return
-  }
-
+  if (isFormatting.value) return
   error.value = ''
   lastSaved.value = false
-
-  // Validate JSON
   try {
     JSON.parse(newValue)
-    error.value = ''
-
-    // Auto-save after 2 seconds of no typing
-    if (saveTimer) {
-      clearTimeout(saveTimer)
-    }
-    saveTimer = setTimeout(() => {
-      saveConfig()
-    }, 2000)
-  } catch (err: unknown) {
-    const errorMessage = err instanceof Error ? err.message : String(err)
-    error.value = errorMessage
+    if (saveTimer) clearTimeout(saveTimer)
+    saveTimer = setTimeout(() => saveConfig(), 2000)
+  } catch (err: any) {
+    error.value = err.message
   }
 }
 
-// @param isManualSave - Whether it's manual save (Ctrl+S), manual save will format JSON
 const saveConfig = async (isManualSave = false) => {
-  // Validate JSON before saving
-  let parsedJson: Record<string, unknown>
+  let parsedJson: any
   try {
     parsedJson = JSON.parse(configContent.value)
-  } catch (err) {
-    const errorMessage = err instanceof Error ? err.message : String(err)
-    error.value = errorMessage
-    return // Don't save invalid JSON
+  } catch (err: any) {
+    error.value = err.message
+    return
   }
 
   isSaving.value = true
   try {
-    await mcpConfigService.writeConfigFile(configContent.value)
+    await (window as any).api.writeFile(props.filePath, configContent.value)
+
     isSaving.value = false
     lastSaved.value = true
 
-    // Only format JSON when manually saving (Ctrl+S), so users can visually see it's saved
-    // Auto-save doesn't format, to avoid interrupting user editing flow
     if (isManualSave) {
       isFormatting.value = true
-      try {
-        const formatted = JSON.stringify(parsedJson, null, 2)
-        if (formatted !== configContent.value) {
-          configContent.value = formatted
-        }
-      } finally {
-        // Ensure formatting flag is reset
-        setTimeout(() => {
-          isFormatting.value = false
-        }, 100)
-      }
+      configContent.value = JSON.stringify(parsedJson, null, 2)
+      setTimeout(() => {
+        isFormatting.value = false
+      }, 100)
     }
 
-    if (statusTimer) {
-      clearTimeout(statusTimer)
+    if (props.pluginId) {
+      ;(window as any).api.executeCommand(`${props.pluginId}.refreshExplorer`)
     }
+
+    if (statusTimer) clearTimeout(statusTimer)
     statusTimer = setTimeout(() => {
       lastSaved.value = false
     }, 3000)
-  } catch (err: unknown) {
-    console.error('Failed to save MCP config:', err)
+  } catch (err: any) {
     isSaving.value = false
-    const errorMessage = err instanceof Error ? err.message : String(err)
-    notification.error({
-      message: t('mcp.saveFailed'),
-      description: errorMessage
-    })
+    notification.error({ message: 'Save Failed', description: err.message })
   }
 }
 </script>
