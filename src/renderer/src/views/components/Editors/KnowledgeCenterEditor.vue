@@ -213,14 +213,13 @@ function handleImageMouseUp() {
   isDragging.value = false
 }
 
-// Markdown preview style: use editor config (font/size/lineHeight) for consistency with Monaco
+// Markdown preview style: use editor config (font/size) only; line-height must be unitless to avoid overlap
 const previewStyle = computed(() => {
   const c = editorConfig.value
-  const lineHeight = c.lineHeight && c.lineHeight > 0 ? c.lineHeight : undefined
   return {
     fontFamily: getFontFamily(c.fontFamily),
     fontSize: `${c.fontSize}px`,
-    lineHeight: lineHeight ? `${lineHeight}px` : 1.6
+    lineHeight: 1.6
   }
 })
 
@@ -440,14 +439,18 @@ async function openFile(relPath: string) {
 
     // Check if file is an image
     if (isImageFile(relPath)) {
-      const res = await mainApi.kbReadFile(relPath, 'base64')
+      // First set the state to show loading
       activeFile.relPath = relPath
       activeFile.content = ''
-      activeFile.mtimeMs = res.mtimeMs
       activeFile.isMarkdown = false
       activeFile.isImage = true
-      activeFile.imageDataUrl = `data:${res.mimeType};base64,${res.content}`
+      activeFile.imageDataUrl = ''
       activeFile.language = 'plaintext'
+
+      // Then load the image
+      const res = await mainApi.kbReadFile(relPath, 'base64')
+      activeFile.mtimeMs = res.mtimeMs
+      activeFile.imageDataUrl = `data:${res.mimeType || 'image/png'};base64,${res.content}`
     } else {
       const res = await mainApi.kbReadFile(relPath)
       activeFile.relPath = relPath
