@@ -579,11 +579,13 @@ async function confirmRename() {
   }
 
   try {
-    await api.kbRename(key, newName)
+    const res = await api.kbRename(key, newName)
     editingKey.value = null
     editingName.value = ''
     editingOriginalName.value = ''
     await refreshDir(getDirOf(key))
+    // Notify tab system to update title and relPath
+    eventBus.emit('kbFileRenamed', { oldRelPath: key, newRelPath: res.relPath, newName })
   } catch (e: unknown) {
     const error = e as Error
     message.error(error?.message || String(e))
