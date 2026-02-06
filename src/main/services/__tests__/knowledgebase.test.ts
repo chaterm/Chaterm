@@ -12,6 +12,12 @@ const handlers = new Map<string, IpcHandler>()
 // Mutable seed mock so we can simulate version upgrades in a single test file.
 let mockDefaultCommandsVersion = 1
 let mockSummarySeedContent = 'seed-v1'
+let mockKbReadmeSeedContent = 'kb-readme-v1'
+let mockMarkdownGuideSeedContent = 'markdown-guide-v1'
+let mockMarkdownGuideImageSeedContent = Buffer.from([0x89, 0x50, 0x4e, 0x47])
+let mockMarkdownGuideRelPathEn = 'Markdown Guide.md'
+let mockMarkdownGuideRelPathZh = 'Markdown语法指南.md'
+const mockUserConfig = vi.hoisted(() => ({ language: 'en-US' }))
 
 vi.mock('electron', () => {
   return {
@@ -40,9 +46,31 @@ vi.mock('../knowledgebase/default-seeds', () => {
           id: 'summary_to_doc',
           defaultRelPath: 'commands/Summary to Doc.md',
           getContent: () => mockSummarySeedContent
+        },
+        {
+          id: 'knowledge_base_readme',
+          defaultRelPath: 'README.md',
+          getContent: () => mockKbReadmeSeedContent
+        },
+        {
+          id: 'markdown_guide',
+          defaultRelPath: 'Markdown Guide.md',
+          getDefaultRelPath: (isChinese: boolean) => (isChinese ? mockMarkdownGuideRelPathZh : mockMarkdownGuideRelPathEn),
+          getContent: () => mockMarkdownGuideSeedContent
+        },
+        {
+          id: 'markdown_guide_image',
+          defaultRelPath: 'images/interface.png',
+          getBinaryContent: () => mockMarkdownGuideImageSeedContent
         }
       ]
     }
+  }
+})
+
+vi.mock('../../agent/core/storage/state', () => {
+  return {
+    getUserConfig: vi.fn(async () => mockUserConfig)
   }
 })
 
@@ -56,6 +84,18 @@ function getCommandsDir() {
 
 function getMetaPath() {
   return path.join(getKbRoot(), '.kb-default-seeds-meta.json')
+}
+
+function getKbReadmePath() {
+  return path.join(getKbRoot(), 'README.md')
+}
+
+function getMarkdownGuidePath() {
+  return path.join(getKbRoot(), 'Markdown Guide.md')
+}
+
+function getMarkdownGuideImagePath() {
+  return path.join(getKbRoot(), 'images', 'interface.png')
 }
 
 async function loadHandlers() {
@@ -90,6 +130,7 @@ async function loadAllHandlers() {
     ensureRoot: handlers.get('kb:ensure-root')!,
     readFile: handlers.get('kb:read-file')!,
     writeFile: handlers.get('kb:write-file')!,
+    createFile: handlers.get('kb:create-file')!,
     createImage: handlers.get('kb:create-image')!,
     rename: handlers.get('kb:rename')!,
     del: handlers.get('kb:delete')!,
@@ -107,6 +148,10 @@ describe('KnowledgeBase file operations', () => {
 
     mockDefaultCommandsVersion = 1
     mockSummarySeedContent = 'seed-v1'
+    mockMarkdownGuideImageSeedContent = Buffer.from([0x89, 0x50, 0x4e, 0x47])
+    mockMarkdownGuideRelPathEn = 'Markdown Guide.md'
+    mockMarkdownGuideRelPathZh = 'Markdown语法指南.md'
+    mockUserConfig.language = 'en-US'
 
     const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'kb-file-ops-'))
     tempDirs.push(dir)
@@ -224,6 +269,19 @@ describe('KnowledgeBase file operations', () => {
     expect(result.relPath).toBe('image (1).png')
   })
 
+  it('allows renaming when only case changes', async () => {
+    const { ensureRoot, writeFile, rename } = await loadAllHandlers()
+    await ensureRoot({} as any)
+
+    await writeFile({} as any, { relPath: 'README.md', content: 'original' })
+
+    const res = await rename({} as any, { relPath: 'README.md', newName: 'readme.md' })
+    expect(res.relPath).toBe('readme.md')
+
+    const kbRoot = path.join(mockUserDataPath, 'knowledgebase')
+    expect(fs.existsSync(path.join(kbRoot, 'readme.md'))).toBe(true)
+  })
+
   it('rejects invalid file names for image creation', async () => {
     const { ensureRoot, createImage } = await loadAllHandlers()
     await ensureRoot({} as any)
@@ -271,6 +329,11 @@ describe('KnowledgeBase default commands initialization (scheme A)', () => {
 
     mockDefaultCommandsVersion = 1
     mockSummarySeedContent = 'seed-v1'
+    mockKbReadmeSeedContent = 'kb-readme-v1'
+    mockMarkdownGuideSeedContent = 'markdown-guide-v1'
+    mockMarkdownGuideRelPathEn = 'Markdown Guide.md'
+    mockMarkdownGuideRelPathZh = 'Markdown语法指南.md'
+    mockUserConfig.language = 'en-US'
 
     const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'kb-default-commands-'))
     tempDirs.push(dir)
@@ -295,6 +358,19 @@ describe('KnowledgeBase default commands initialization (scheme A)', () => {
     expect(fs.existsSync(cmdPath)).toBe(true)
     expect(await readText(cmdPath)).toBe('seed-v1')
 
+    const kbReadmePath = getKbReadmePath()
+    expect(fs.existsSync(kbReadmePath)).toBe(true)
+    expect(await readText(kbReadmePath)).toBe('kb-readme-v1')
+
+    const mdGuidePath = getMarkdownGuidePath()
+    expect(fs.existsSync(mdGuidePath)).toBe(true)
+    expect(await readText(mdGuidePath)).toBe('markdown-guide-v1')
+
+    const mdGuideImagePath = getMarkdownGuideImagePath()
+    expect(fs.existsSync(mdGuideImagePath)).toBe(true)
+    const imageContent = await fsp.readFile(mdGuideImagePath)
+    expect(imageContent.equals(mockMarkdownGuideImageSeedContent)).toBe(true)
+
     const metaPath = getMetaPath()
     expect(fs.existsSync(metaPath)).toBe(true)
     const meta = await readMeta()
@@ -302,6 +378,29 @@ describe('KnowledgeBase default commands initialization (scheme A)', () => {
     expect(meta.seeds?.summary_to_doc?.relPath).toBe('commands/Summary to Doc.md')
     expect(typeof meta.seeds?.summary_to_doc?.lastSeedHash).toBe('string')
     expect(meta.seeds?.summary_to_doc?.lastSeedHash.length).toBeGreaterThan(0)
+
+    expect(meta.seeds?.knowledge_base_readme?.relPath).toBe('README.md')
+    expect(typeof meta.seeds?.knowledge_base_readme?.lastSeedHash).toBe('string')
+    expect(meta.seeds?.knowledge_base_readme?.lastSeedHash.length).toBeGreaterThan(0)
+
+    expect(meta.seeds?.markdown_guide?.relPath).toBe('Markdown Guide.md')
+    expect(typeof meta.seeds?.markdown_guide?.lastSeedHash).toBe('string')
+    expect(meta.seeds?.markdown_guide?.lastSeedHash.length).toBeGreaterThan(0)
+
+    expect(meta.seeds?.markdown_guide_image?.relPath).toBe('images/interface.png')
+    expect(typeof meta.seeds?.markdown_guide_image?.lastSeedHash).toBe('string')
+    expect(meta.seeds?.markdown_guide_image?.lastSeedHash.length).toBeGreaterThan(0)
+  })
+
+  it('uses user language to select default seed path', async () => {
+    mockUserConfig.language = 'zh-CN'
+    const { ensureRoot } = await loadHandlers()
+    await ensureRoot({} as any)
+
+    const zhGuidePath = path.join(getKbRoot(), mockMarkdownGuideRelPathZh)
+    expect(fs.existsSync(zhGuidePath)).toBe(true)
+    const meta = await readMeta()
+    expect(meta.seeds?.markdown_guide?.relPath).toBe(mockMarkdownGuideRelPathZh)
   })
 
   it('does not overwrite user-modified content when version upgrades', async () => {
