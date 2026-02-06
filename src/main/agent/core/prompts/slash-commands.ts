@@ -26,9 +26,7 @@ Generate the summary in well-structured Markdown format.
 Choose a concise file name with .md extension that reflects the main topic.`
 
 // Chinese prompt for summarize to knowledge base
-export const SUMMARY_TO_DOC_PROMPT_CN = `你必须使用 summarize_to_knowledge 工具来总结这段对话。
-
-不要使用 attempt_completion 或任何其他工具。只能使用 summarize_to_knowledge。
+export const SUMMARY_TO_DOC_PROMPT_CN = `使用 summarize_to_knowledge 工具来总结这段对话（不要使用 attempt_completion 或其他工具）。
 
 分析对话并提取以下内容：
 1. 问题描述和背景

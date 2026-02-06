@@ -6,7 +6,9 @@ import { pipeline } from 'stream/promises'
 import { randomUUID } from 'crypto'
 import { createHash } from 'crypto'
 import { getDefaultLanguage } from '../../config/edition'
+import { getUserConfig } from '../../agent/core/storage/state'
 import { KB_DEFAULT_SEEDS, KB_DEFAULT_SEEDS_VERSION } from './default-seeds'
+import type { KnowledgeBaseDefaultSeed } from './default-seeds'
 
 export interface KnowledgeBaseEntry {
   name: string
@@ -60,12 +62,37 @@ function normalizeRelPath(relPath: string): string {
   return p.startsWith('/') ? p.slice(1) : p
 }
 
-function sha256Hex(content: string): string {
+function getSeedDefaultRelPath(seed: KnowledgeBaseDefaultSeed, isChinese: boolean): string {
+  return typeof seed.getDefaultRelPath === 'function' ? seed.getDefaultRelPath(isChinese) : seed.defaultRelPath
+}
+
+function getSeedDefaultRelPathVariants(seed: KnowledgeBaseDefaultSeed): string[] {
+  if (typeof seed.getDefaultRelPath === 'function') {
+    return [seed.getDefaultRelPath(true), seed.getDefaultRelPath(false)]
+  }
+  return [seed.defaultRelPath]
+}
+
+function sha256Hex(content: string | Buffer): string {
+  if (Buffer.isBuffer(content)) {
+    return createHash('sha256').update(content).digest('hex')
+  }
   return createHash('sha256').update(content, 'utf-8').digest('hex')
 }
 
-function getIsChinese(): boolean {
-  const lang = getDefaultLanguage() || ''
+async function getIsChinese(): Promise<boolean> {
+  let lang = ''
+  try {
+    const userConfig = await getUserConfig()
+    if (userConfig && typeof userConfig.language === 'string') {
+      lang = userConfig.language
+    }
+  } catch {
+    // ignore and fallback to default language
+  }
+  if (!lang) {
+    lang = getDefaultLanguage() || ''
+  }
   return lang.toLowerCase().startsWith('zh')
 }
 
@@ -108,7 +135,9 @@ function findMetaIdByRelPath(meta: DefaultKbSeedsMeta, relPath: string): string 
 
 function findSeedIdByDefaultRelPath(relPath: string): string | null {
   for (const seed of KB_DEFAULT_SEEDS) {
-    if (normalizeRelPath(seed.defaultRelPath) === relPath) return seed.id
+    for (const candidate of getSeedDefaultRelPathVariants(seed)) {
+      if (normalizeRelPath(candidate) === relPath) return seed.id
+    }
   }
   return null
 }
@@ -151,7 +180,7 @@ async function initKbDefaultSeedFiles(): Promise<void> {
     return
   }
 
-  const isChinese = getIsChinese()
+  const isChinese = await getIsChinese()
 
   for (const seed of KB_DEFAULT_SEEDS) {
     const currentEntry = meta.seeds[seed.id]
@@ -159,10 +188,15 @@ async function initKbDefaultSeedFiles(): Promise<void> {
       continue
     }
 
-    const seedContent = seed.getContent(isChinese).trim()
-    const seedHash = sha256Hex(seedContent)
+    const isBinarySeed = typeof seed.getBinaryContent === 'function'
+    const seedContent = isBinarySeed ? '' : seed.getContent(isChinese).trim()
+    const seedBinary = isBinarySeed ? seed.getBinaryContent() : null
+    if (isBinarySeed && !seedBinary) {
+      continue
+    }
+    const seedHash = isBinarySeed && seedBinary ? sha256Hex(seedBinary) : sha256Hex(seedContent)
 
-    const targetRelPath = currentEntry?.relPath ? normalizeRelPath(currentEntry.relPath) : normalizeRelPath(seed.defaultRelPath)
+    const targetRelPath = currentEntry?.relPath ? normalizeRelPath(currentEntry.relPath) : normalizeRelPath(getSeedDefaultRelPath(seed, isChinese))
     const targetAbsPath = path.join(root, targetRelPath)
 
     const exists = await pathExists(targetAbsPath)
@@ -173,7 +207,11 @@ async function initKbDefaultSeedFiles(): Promise<void> {
       }
 
       await fs.mkdir(path.dirname(targetAbsPath), { recursive: true })
-      await fs.writeFile(targetAbsPath, seedContent, 'utf-8')
+      if (isBinarySeed && seedBinary) {
+        await fs.writeFile(targetAbsPath, seedBinary)
+      } else {
+        await fs.writeFile(targetAbsPath, seedContent, 'utf-8')
+      }
       meta.seeds[seed.id] = {
         relPath: targetRelPath,
         lastSeedHash: seedHash
@@ -183,7 +221,7 @@ async function initKbDefaultSeedFiles(): Promise<void> {
 
     // Existing file: only overwrite when file still matches last seed hash (i.e., user hasn't edited).
     try {
-      const fileContent = await fs.readFile(targetAbsPath, 'utf-8')
+      const fileContent = isBinarySeed ? await fs.readFile(targetAbsPath) : await fs.readFile(targetAbsPath, 'utf-8')
       const fileHash = sha256Hex(fileContent)
       const lastSeedHash = currentEntry?.lastSeedHash ?? ''
 
@@ -193,7 +231,11 @@ async function initKbDefaultSeedFiles(): Promise<void> {
       }
 
       // Safe to overwrite (either unmodified seed, or first-time meta missing hash but content matches).
-      await fs.writeFile(targetAbsPath, seedContent, 'utf-8')
+      if (isBinarySeed && seedBinary) {
+        await fs.writeFile(targetAbsPath, seedBinary)
+      } else {
+        await fs.writeFile(targetAbsPath, seedContent, 'utf-8')
+      }
       meta.seeds[seed.id] = {
         relPath: targetRelPath,
         lastSeedHash: seedHash
@@ -234,6 +276,16 @@ async function pathExists(absPath: string): Promise<boolean> {
     return true
   } catch {
     return false
+  }
+}
+
+async function caseSensitiveExists(dirAbs: string, name: string): Promise<boolean> {
+  try {
+    const entries = await fs.readdir(dirAbs, { withFileTypes: true })
+    return entries.some((entry) => entry.name === name)
+  } catch (e: any) {
+    if (e?.code === 'ENOENT') return false
+    throw e
   }
 }
 
@@ -492,7 +544,7 @@ export function registerKnowledgeBaseHandlers(): void {
     }
 
     // Check if target already exists (different from source)
-    if (await pathExists(destAbs)) {
+    if (await caseSensitiveExists(parentAbs, newName)) {
       throw new Error('Target already exists')
     }
     await fs.rename(srcAbs, destAbs)
