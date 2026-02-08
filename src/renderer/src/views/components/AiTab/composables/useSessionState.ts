@@ -240,13 +240,18 @@ export const useSessionState = createGlobalState(() => {
    * Create or get computed pairs for a specific tab
    * Ensures fine-grained reactivity - only recompute when specific tab's data changes
    */
-  const getOrCreateTabPairsComputed = (tab: ChatTab): ComputedRef<UserAssistantPair[]> => {
-    if (tabPairsCache.has(tab.id)) {
-      return tabPairsCache.get(tab.id)!
+  const getOrCreateTabPairsComputed = (tabId: string): ComputedRef<UserAssistantPair[]> => {
+    if (tabPairsCache.has(tabId)) {
+      return tabPairsCache.get(tabId)!
     }
 
     // Create new computed for this tab
     const pairsComputed = computed(() => {
+      const tab = chatTabs.value.find((item) => item.id === tabId)
+      if (!tab) {
+        return []
+      }
+
       let history = tab.session.chatHistory ?? []
 
       const hasAgentReply = history.some(
@@ -275,7 +280,7 @@ export const useSessionState = createGlobalState(() => {
       return pairs
     })
 
-    tabPairsCache.set(tab.id, pairsComputed)
+    tabPairsCache.set(tabId, pairsComputed)
 
     return pairsComputed
   }
@@ -293,10 +298,9 @@ export const useSessionState = createGlobalState(() => {
    * Group messages into user + assistant(s) pairs for rendering
    */
   const getTabUserAssistantPairs = (tabId: string): UserAssistantPair[] => {
-    const tab = chatTabs.value.find((t) => t.id === tabId)
-    if (!tab) return []
+    if (!chatTabs.value.find((t) => t.id === tabId)) return []
 
-    const pairsComputed = getOrCreateTabPairsComputed(tab)
+    const pairsComputed = getOrCreateTabPairsComputed(tabId)
     return pairsComputed.value
   }
 
