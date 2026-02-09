@@ -1,4 +1,4 @@
-import { BrowserWindow, shell, session } from 'electron'
+import { BrowserWindow, shell, session, ipcMain } from 'electron'
 import { join } from 'path'
 import { is } from '@electron-toolkit/utils'
 import icon from '../../resources/icon.png?asset'
@@ -116,11 +116,23 @@ export async function createMainWindow(onCookieUrlChange?: (url: string) => void
   })
 
   // Disable Command+R (macOS) / Ctrl+R (Windows/Linux) reload shortcut
+  // while preserving Ctrl+R for terminal reverse history search (reverse-i-search)
+  let isTerminalFocused = false
+  ipcMain.on('terminal:focus-changed', (_event, focused: boolean) => {
+    isTerminalFocused = focused
+  })
   mainWindow.webContents.on('before-input-event', (event, input) => {
-    if (input.type === 'keyDown') {
-      const isReloadShortcut = (input.key === 'r' || input.key === 'R') && (input.meta || input.control) && !input.alt && !input.shift
-      if (isReloadShortcut) {
-        event.preventDefault()
+    if (input.type === 'keyDown' && (input.key === 'r' || input.key === 'R') && !input.alt && !input.shift) {
+      if (process.platform === 'darwin') {
+        // On macOS: block Cmd+R (reload), allow Ctrl+R (terminal reverse-i-search)
+        if (input.meta) {
+          event.preventDefault()
+        }
+      } else {
+        // On Windows/Linux: block Ctrl+R only when terminal is not focused
+        if (input.control && !isTerminalFocused) {
+          event.preventDefault()
+        }
       }
     }
   })
