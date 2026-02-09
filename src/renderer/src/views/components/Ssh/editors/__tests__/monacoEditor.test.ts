@@ -82,9 +82,17 @@ vi.mock('@/utils/themeUtils', () => ({
   getMonacoTheme: () => 'vs-dark'
 }))
 
+vi.mock('mermaid', () => ({
+  default: {
+    initialize: vi.fn(),
+    run: vi.fn().mockResolvedValue(undefined)
+  }
+}))
+
 // Import after mocks
 import MonacoEditor from '@views/components/Editors/base/monacoEditor.vue'
 import KnowledgeCenterEditor from '@views/components/Editors/KnowledgeCenterEditor.vue'
+import mermaid from 'mermaid'
 
 describe('monacoEditor background mode', () => {
   const originalMutationObserver = globalThis.MutationObserver
@@ -257,5 +265,35 @@ describe('KnowledgeCenterEditor markdown highlight', () => {
     expect(preview.html()).toContain('<details')
     expect(preview.html()).toContain('<summary>')
     expect(preview.html()).toContain('<kbd>')
+  })
+
+  it('should render mermaid diagrams in preview', async () => {
+    ;(window as any).api.kbReadFile.mockResolvedValueOnce({
+      content: ['```mermaid', 'sequenceDiagram', '  A->>B: Hello', '```'].join('\n'),
+      mtimeMs: 1
+    })
+
+    const wrapper = mount(KnowledgeCenterEditor, {
+      props: {
+        relPath: 'docs/diagram.md',
+        mode: 'preview'
+      },
+      global: {
+        stubs: {
+          MonacoEditor: { template: '<div />' }
+        }
+      }
+    })
+
+    await nextTick()
+    await flushPromises()
+    await nextTick()
+    await flushPromises()
+
+    const preview = wrapper.find('.kb-preview')
+    expect(preview.exists()).toBe(true)
+    expect(preview.html()).toContain('class="mermaid"')
+    expect(mermaid.initialize).toHaveBeenCalled()
+    expect(mermaid.run).toHaveBeenCalled()
   })
 })
