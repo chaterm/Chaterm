@@ -723,14 +723,22 @@ onMounted(async () => {
   if (terminal.value?.textarea) {
     terminal.value.textarea.addEventListener('focus', () => {
       inputManager.setActiveTerm(connectionId.value)
+      window.electron?.ipcRenderer?.send('terminal:focus-changed', true)
     })
-    terminal.value.textarea.addEventListener('blur', hideSelectionButton)
+    terminal.value.textarea.addEventListener('blur', () => {
+      hideSelectionButton()
+      window.electron?.ipcRenderer?.send('terminal:focus-changed', false)
+    })
     cleanupListeners.value.push(() => {
       if (terminal.value?.textarea) {
         terminal.value.textarea.removeEventListener('focus', () => {
           inputManager.setActiveTerm(connectionId.value)
+          window.electron?.ipcRenderer?.send('terminal:focus-changed', true)
         })
-        terminal.value.textarea.removeEventListener('blur', hideSelectionButton)
+        terminal.value.textarea.removeEventListener('blur', () => {
+          hideSelectionButton()
+          window.electron?.ipcRenderer?.send('terminal:focus-changed', false)
+        })
       }
     })
   }
