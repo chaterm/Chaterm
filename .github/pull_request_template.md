@@ -16,14 +16,6 @@ Resolves #(issue_number)
 
 ## Checklist
 
-- [ ] I have read the [CONTRIBUTING](https://github.com/chaterm/Chaterm/blob/main/CONTRIBUTING.md)
-- [ ] I have linked the related issue, if any.
-- [ ] I have added tests that prove my fix is effective or that my feature works.
-- [ ] I have run `npm run lint` and fixed any issues.
-- [ ] I have run `npm run format` to ensure code formatting is consistent.
-- [ ] I have run `npm run typecheck` and there are no type errors.
-- [ ] I have run `npm test` and all tests pass.
-- [ ] If UI changes are involved, I have updated i18n files (`src/renderer/src/locales/lang/*.ts`).
-- [ ] If this is a user-visible change, I have updated `README.md` or `README_zh.md` accordingly.
-- [ ] My changes follow the project's code style and conventions.
-- [ ] I have verified my changes work correctly with `npm run dev`.
+- [ ] I have read [CONTRIBUTING](https://github.com/chaterm/Chaterm/blob/main/CONTRIBUTING.md) and linked the related issue above if any.
+- [ ] `npm run lint && npm run format && npm run typecheck && npm test` all pass; tests added/updated as needed.
+- [ ] If UI or user-visible change: i18n and README updated.
