@@ -198,17 +198,17 @@
       </div>
       <template #overlay>
         <a-menu @click="({ key }) => onBlankContextAction(String(key))">
-          <a-menu-item key="newFile">New File</a-menu-item>
-          <a-menu-item key="newFolder">New Folder</a-menu-item>
+          <a-menu-item key="newFile">{{ $t('knowledgeCenter.newFile') }}</a-menu-item>
+          <a-menu-item key="newFolder">{{ $t('knowledgeCenter.newFolder') }}</a-menu-item>
           <a-menu-item
             key="paste"
             :disabled="!clipboard"
             class="kb-menu-item-with-shortcut"
           >
-            <span>Paste</span>
+            <span>{{ $t('common.paste') }}</span>
             <span class="shortcut-hint">{{ modifierKey }}V</span>
           </a-menu-item>
-          <a-menu-item key="refresh">Refresh</a-menu-item>
+          <a-menu-item key="refresh">{{ $t('knowledgeCenter.refresh') }}</a-menu-item>
         </a-menu>
       </template>
     </a-dropdown>
