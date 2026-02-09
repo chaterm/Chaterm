@@ -357,10 +357,13 @@ const isSkippedLogin = computed(() => {
 })
 const watermarkContent = reactive({
   content: computed(() => {
+    if (!showWatermark.value) {
+      return ['']
+    }
     if (isSkippedLogin.value) {
       return ['Guest User']
     }
-    return showWatermark.value ? [userInfoStore().userInfo.name, userInfoStore().userInfo.email] : ['']
+    return [userInfoStore().userInfo.name, userInfoStore().userInfo.email]
   }),
   font: {
     fontSize: 12,
