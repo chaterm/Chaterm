@@ -320,8 +320,12 @@ const hasSendableContent = () => {
 
 // Send click handler supporting both modes (defined before useEditableContent for dependency)
 const handleSendClick = async (type: string) => {
-  const isBusy = responseLoading.value || props.interactionActive
+  if (responseLoading.value) {
+    props.handleInterrupt()
+    return
+  }
 
+  const isBusy = props.interactionActive
   if (props.mode !== 'edit' && isBusy && props.interruptAndSendIfBusy) {
     const content = extractPlainTextFromParts(inputParts.value).trim()
     if (!content && !hasSendableContent()) {
@@ -332,11 +336,6 @@ const handleSendClick = async (type: string) => {
       return
     }
     await props.interruptAndSendIfBusy(type)
-    return
-  }
-
-  if (responseLoading.value) {
-    props.handleInterrupt()
     return
   }
 

@@ -7,21 +7,26 @@ The Chaterm Knowledge Base built-in editor is based on Monaco (same core as VSCo
 Use `#` to indicate headings, from levels 1 to 6 in descending order:
 
 # Heading 1
+
 ## Heading 2
+
 ### Heading 3
+
 #### Heading 4
+
 ##### Heading 5
+
 ###### Heading 6
 
 ## Text Styles
 
-| Syntax | Result | Example |
-|------|------|------|
-| `**bold**` | **bold** | `**important content**` |
-| `*italic*` | *italic* | `*emphasis content*` |
-| `***bold italic***` | ***bold italic*** | `***very important***` |
-| `~~strikethrough~~` | ~~strikethrough~~ | `~~deprecated~~` |
-| `` `inline code` `` | `inline code` | `` `npm install` `` |
+| Syntax              | Result            | Example                 |
+| ------------------- | ----------------- | ----------------------- |
+| `**bold**`          | **bold**          | `**important content**` |
+| `*italic*`          | _italic_          | `*emphasis content*`    |
+| `***bold italic***` | **_bold italic_** | `***very important***`  |
+| `~~strikethrough~~` | ~~strikethrough~~ | `~~deprecated~~`        |
+| `` `inline code` `` | `inline code`     | `` `npm install` ``     |
 
 ## Lists
 
@@ -95,21 +100,22 @@ Use `>` for blockquotes:
 Nested blockquotes:
 
 > Outer quote
->> Inner quote
+>
+> > Inner quote
 
 ## Tables
 
 Build tables with `|` and `-`:
 
 | Column 1 | Column 2 | Column 3 |
-|------|------|------|
-| Data 1 | Data 2 | Data 3 |
-| Data 4 | Data 5 | Data 6 |
+| -------- | -------- | -------- |
+| Data 1   | Data 2   | Data 3   |
+| Data 4   | Data 5   | Data 6   |
 
 Alignment:
 
 | Left | Center | Right |
-|:-------|:-------:|-------:|
+| :--- | :----: | ----: |
 | left | center | right |
 
 ## Horizontal Rules
@@ -117,8 +123,10 @@ Alignment:
 Use three or more `-`, `*`, or `_`:
 
 ---
-***
-___
+
+---
+
+---
 
 ## HTML
 
