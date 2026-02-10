@@ -38,7 +38,7 @@ describe('fileTransfer.ts Frontend Logic Tests', () => {
     progressCallback({
       id: 1,
       taskKey: 'task-1',
-      remotePath: '///home/user//file.txt',
+      remotePath: '///home/user//file.txt'.replace(/\/+/g, '/'),
       bytes: 100,
       total: 1000,
       type: 'download'
