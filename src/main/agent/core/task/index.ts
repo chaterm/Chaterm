@@ -335,15 +335,15 @@ export class Task {
       }
     }
 
-    // 2. Process command chips (built-in commands and knowledge base commands)
-    const cmdLines = await this.processSlashCommands(userContent, parts)
+    // 2. Process command chips
+    await this.processSlashCommands(userContent, parts)
 
     // 3. Process doc and chat context refs
     const refs = this.buildContextRefsFromContentParts(parts)
     const docs = refs?.docs ?? []
     const pastChats = refs?.pastChats ?? []
 
-    const hasContextData = docs.length > 0 || pastChats.length > 0 || cmdLines.length > 0
+    const hasContextData = docs.length > 0 || pastChats.length > 0
     if (!hasContextData) return blocks
 
     const MAX_DOCS = 5
@@ -384,17 +384,23 @@ export class Task {
       }
     }
 
-    // 4. Build final context block
-    blocks.push({
-      type: 'text',
-      text: [
-        '<context-prefetch>',
-        docLines.length > 0 ? ['<docs>', ...docLines, '</docs>'].join('\n') : '<docs />',
-        chatLines.length > 0 ? ['<past-chats>', ...chatLines, '</past-chats>'].join('\n') : '<past-chats />',
-        cmdLines.length > 0 ? ['<commands>', ...cmdLines, '</commands>'].join('\n') : '<commands />',
-        '</context-prefetch>'
-      ].join('\n')
-    })
+    // 4. Build final context block (no <commands> tag - commands are expanded inline)
+    const innerTags: string[] = []
+
+    if (docLines.length > 0) {
+      innerTags.push(['<docs>', ...docLines, '</docs>'].join('\n'))
+    }
+
+    if (chatLines.length > 0) {
+      innerTags.push(['<past-chats>', ...chatLines, '</past-chats>'].join('\n'))
+    }
+
+    if (innerTags.length > 0) {
+      blocks.push({
+        type: 'text',
+        text: ['<context-prefetch>', ...innerTags, '</context-prefetch>'].join('\n')
+      })
+    }
 
     return blocks
   }
@@ -1927,15 +1933,14 @@ export class Task {
    * Handles both built-in commands (e.g., /summary-to-doc) and knowledge base commands.
    * Returns cmdLines for knowledge base command content.
    */
-  private async processSlashCommands(userContent: UserContent, contentParts?: ContentPart[]): Promise<string[]> {
+  private async processSlashCommands(userContent: UserContent, contentParts?: ContentPart[]): Promise<void> {
     const MAX_COMMANDS = 5
-    const cmdLines: string[] = []
-    if (!contentParts) return cmdLines
+    if (!contentParts) return
 
     this.summarizeUpToTs = undefined
 
     const commandChips = contentParts.filter((p) => p.type === 'chip' && p.chipType === 'command').slice(0, MAX_COMMANDS)
-    if (commandChips.length === 0) return cmdLines
+    if (commandChips.length === 0) return
 
     try {
       const userConfig = await getUserConfig()
@@ -1945,36 +1950,38 @@ export class Task {
 
       for (const chip of commandChips) {
         const { command, path, summarizeUpToTs } = chip.ref
+        let expandedContent = ''
 
         if (path) {
           try {
             const { content } = await this.readFile(path, MAX_DOC_BYTES)
-            cmdLines.push(content)
+            expandedContent = content
           } catch (e) {
             const msg = e instanceof Error ? e.message : String(e)
-            cmdLines.push(`- COMMAND_READ_ERROR: ${command}: ${msg}`)
+            expandedContent = `[Error: Failed to load command file ${path}]`
             console.error(`[Task] Failed to read command file for "${command}":`, msg)
           }
         } else {
-          // Built-in command: handle by command type
+          // Built-in command: get prompt content
           if (command === SLASH_COMMANDS.SUMMARY_TO_DOC) {
             if (summarizeUpToTs) {
               this.summarizeUpToTs = summarizeUpToTs
             }
+            expandedContent = getSummaryToDocPrompt(isChinese)
+          }
+        }
 
-            // Replace text content with full prompt
-            for (const block of userContent) {
-              if (block.type === 'text' && block.text.trim() === command) {
-                block.text = getSummaryToDocPrompt(isChinese)
-              }
-            }
+        // Replace command text in all text blocks
+        for (const block of userContent) {
+          if (block.type === 'text' && block.text.includes(command)) {
+            block.text = block.text.replaceAll(command, expandedContent)
+            console.log('[DEBUG] after replacing command in block.text', block.text)
           }
         }
       }
     } catch (error) {
       console.error('[Task] Failed to process slash commands:', error)
     }
-    return cmdLines
   }
 
   private async handleFirstRequestCheckpoint(): Promise<void> {

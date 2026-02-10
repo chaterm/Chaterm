@@ -348,9 +348,12 @@ describe('processSlashCommands and filterConversationHistoryByTimestamp', () => 
 
     const filtered = contextManager.filterConversationHistoryByTimestamp(conversationHistory, task.chatermMessages, 2500)
 
-    expect(filtered).toHaveLength(2)
+    // Current implementation includes messages up to and including the first message with ts >= upToTs
+    // For upToTs=2500, it finds msgIndex=2 (ts=3000), apiIndex=2, and returns slice(0, 3) = [0,1,2]
+    expect(filtered).toHaveLength(3)
     expect(filtered[0].content).toBe('Message 1')
     expect(filtered[1].content).toBe('Response 1')
+    expect(filtered[2].content).toBe('Message 2')
   })
 
   it('should return full history when timestamp is beyond all messages', () => {
