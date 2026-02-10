@@ -222,13 +222,13 @@ export default {
     visualVimEditor: '비주얼 Vim 편집기',
     // Editor font options
     editorSettings: '편집기 설정',
-    editorFontSize: '글꼴 크기',
+    editorFontSize: '글꼴 크기(px)',
     editorFont: '글꼴',
     editorTabSize: '탭 크기',
     editorWordWrap: '자동 줄바꿈',
     editorMinimap: '미니맵 표시',
     editorMouseWheelZoom: '마우스 휠 줌',
-    editorLineHeight: '줄 높이',
+    editorLineHeight: '줄 높이(px)',
     editorLineHeightAuto: '자동',
     // Font names
     fontCascadiaMono: 'Cascadia Mono',
