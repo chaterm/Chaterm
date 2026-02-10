@@ -222,13 +222,13 @@ export default {
     visualVimEditor: 'ビジュアルVimエディタ',
     // Editor font options
     editorSettings: 'エディタ設定',
-    editorFontSize: 'フォントサイズ',
+    editorFontSize: 'フォントサイズ(px)',
     editorFont: 'フォント',
     editorTabSize: 'タブサイズ',
     editorWordWrap: '自動折り返し',
     editorMinimap: 'ミニマップ表示',
     editorMouseWheelZoom: 'マウスホイールズーム',
-    editorLineHeight: '行の高さ',
+    editorLineHeight: '行の高さ(px)',
     editorLineHeightAuto: '自動',
     // Font names
     fontCascadiaMono: 'Cascadia Mono',
