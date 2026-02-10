@@ -380,8 +380,27 @@ export function useTabManagement(options: TabManagementOptions) {
 
   const closeTabs = async (tabsToClose: ChatTab[]) => {
     if (tabsToClose.length === 0) return
-    for (const tab of tabsToClose) {
-      await handleTabRemove(tab.id, true)
+
+    await Promise.all(tabsToClose.map((tab) => window.api.cancelTask(tab.id)))
+
+    tabsToClose.forEach((tab) => cleanupTabPairsCache(tab.id))
+
+    const tabIdsToClose = new Set(tabsToClose.map((tab) => tab.id))
+
+    const isCurrentTabClosed = currentChatId.value && tabIdsToClose.has(currentChatId.value)
+
+    chatTabs.value = chatTabs.value.filter((tab) => !tabIdsToClose.has(tab.id))
+
+    if (chatTabs.value.length === 0) {
+      currentChatId.value = undefined
+      emitStateChange?.()
+      toggleSidebar()
+      eventBus.emit('updateRightIcon', false)
+      return
+    }
+
+    if (isCurrentTabClosed) {
+      currentChatId.value = chatTabs.value[0].id
     }
   }
 
