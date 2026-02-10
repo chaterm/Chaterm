@@ -12,8 +12,6 @@ export default {
     keyManagementDesc: 'Gestisci chiavi SSH e certificati',
     hostManagement: 'Gestione Host',
     hostManagementDesc: 'Gestisci host SSH e configurazioni di connessione',
-    fileManagement: 'Gestione File',
-    fileManagementDesc: 'Gestisci file e cartelle',
     keychain: 'Portachiavi',
     extensions: 'Estensioni',
     ai: 'IA',

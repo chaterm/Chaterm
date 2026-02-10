@@ -12,8 +12,6 @@ export default {
     keyManagementDesc: 'Manage SSH keys and certificates',
     hostManagement: 'Host Management',
     hostManagementDesc: 'Manage SSH hosts and connection configurations',
-    fileManagement: 'File Management',
-    fileManagementDesc: 'Manage files and folders',
     keychain: 'Keychain',
     extensions: 'Extensions',
     ai: 'AI',

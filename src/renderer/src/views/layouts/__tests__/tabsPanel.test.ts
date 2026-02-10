@@ -67,13 +67,6 @@ vi.mock('@views/components/Extensions/jumpserverSupport.vue', () => ({
   }
 }))
 
-vi.mock('@views/components/Files/index.vue', () => ({
-  default: {
-    name: 'Files',
-    template: '<div class="files-mock">Files</div>'
-  }
-}))
-
 vi.mock('@views/components/Kubernetes/index.vue', () => ({
   default: {
     name: 'Kubernetes',
@@ -134,13 +127,11 @@ const mockT = (key: string) => {
     'common.userConfig': 'User Config',
     'common.assetConfig': 'Asset Config',
     'common.aliasConfig': 'Alias Config',
-    'common.management': 'Management',
+    'common.management': 'Asset Management',
     'common.keyManagement': 'Key Management',
     'common.keyManagementDesc': 'Manage SSH keys and certificates',
     'common.hostManagement': 'Host Management',
-    'common.hostManagementDesc': 'Manage SSH hosts and connection configurations',
-    'common.fileManagement': 'File Management',
-    'common.fileManagementDesc': 'Manage files and folders'
+    'common.hostManagementDesc': 'Manage SSH hosts and connection configurations'
   }
   return translations[key] || key
 }
@@ -317,11 +308,6 @@ describe('TabsPanel Component', () => {
     it('should render JumpserverSupport when content is jumpserverSupport', () => {
       wrapper = createWrapper({ content: 'jumpserverSupport', organizationId: '' })
       expect(wrapper.html()).toContain('Jumpserver Support')
-    })
-
-    it('should render Files when content is files', () => {
-      wrapper = createWrapper({ content: 'files', organizationId: '' })
-      expect(wrapper.html()).toContain('Files')
     })
 
     it('should render McpConfigEditor when content is mcpConfigEditor', () => {

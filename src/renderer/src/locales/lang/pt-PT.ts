@@ -12,8 +12,6 @@ export default {
     keyManagementDesc: 'Gerir chaves SSH e certificados',
     hostManagement: 'Gestão de Anfitriões',
     hostManagementDesc: 'Gerir anfitriões SSH e configurações de ligação',
-    fileManagement: 'Gestão de Ficheiros',
-    fileManagementDesc: 'Gerir ficheiros e pastas',
     keychain: 'Cadeia de Chaves',
     extensions: 'Extensões',
     ai: 'IA',

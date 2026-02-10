@@ -22,14 +22,12 @@ import { getActualTheme, addSystemThemeListener } from '@/utils/themeUtils'
 vi.mock('@/locales', () => {
   const mockT = vi.fn((key: string) => {
     const translations: Record<string, string> = {
-      'common.management': 'Management',
+      'common.management': 'Asset Management',
       'common.search': 'Search',
       'common.hostManagement': 'Host Management',
       'common.hostManagementDesc': 'Manage your hosts',
       'common.keyManagement': 'Key Management',
-      'common.keyManagementDesc': 'Manage your keys',
-      'common.fileManagement': 'File Management',
-      'common.fileManagementDesc': 'Manage your files'
+      'common.keyManagementDesc': 'Manage your keys'
     }
     return translations[key] || key
   })
@@ -46,14 +44,12 @@ vi.mock('@/locales', () => {
 // Mock t function for use in tests
 const mockT = vi.fn((key: string) => {
   const translations: Record<string, string> = {
-    'common.management': 'Management',
+    'common.management': 'Asset Management',
     'common.search': 'Search',
     'common.hostManagement': 'Host Management',
     'common.hostManagementDesc': 'Manage your hosts',
     'common.keyManagement': 'Key Management',
-    'common.keyManagementDesc': 'Manage your keys',
-    'common.fileManagement': 'File Management',
-    'common.fileManagementDesc': 'Manage your files'
+    'common.keyManagementDesc': 'Manage your keys'
   }
   return translations[key] || key
 })
@@ -106,10 +102,6 @@ vi.mock('@/assets/menu/key.svg', () => ({
 
 vi.mock('@/assets/menu/laptop.svg', () => ({
   default: '/mock/laptop.svg'
-}))
-
-vi.mock('@/assets/menu/files.svg', () => ({
-  default: '/mock/files.svg'
 }))
 
 describe('Assets Component', () => {
@@ -205,7 +197,7 @@ describe('Assets Component', () => {
       wrapper = createWrapper()
       const header = wrapper.find('.panel_header')
       expect(header.exists()).toBe(true)
-      expect(header.find('.panel_title').text()).toBe('Management')
+      expect(header.find('.panel_title').text()).toBe('Asset Management')
     })
 
     it('should render search box', () => {
@@ -227,12 +219,12 @@ describe('Assets Component', () => {
       expect(menu.exists()).toBe(true)
     })
 
-    it('should render all three menu items by default', async () => {
+    it('should render all two menu items by default', async () => {
       wrapper = createWrapper()
       await nextTick()
 
       const menuItems = wrapper.findAll('.assets_item')
-      expect(menuItems.length).toBe(3)
+      expect(menuItems.length).toBe(2)
     })
 
     it('should render menu items with correct icons and names', async () => {
@@ -240,7 +232,7 @@ describe('Assets Component', () => {
       await nextTick()
 
       const menuItems = wrapper.findAll('.assets_item')
-      expect(menuItems.length).toBe(3)
+      expect(menuItems.length).toBe(2)
 
       // Check first item (host management)
       const firstItem = menuItems[0]
@@ -262,7 +254,7 @@ describe('Assets Component', () => {
       await nextTick()
 
       const menuItems = wrapper.findAll('.assets_item')
-      expect(menuItems.length).toBe(3)
+      expect(menuItems.length).toBe(2)
     })
 
     it('should filter items by name', async () => {
@@ -338,18 +330,6 @@ describe('Assets Component', () => {
       // Check if any emission contains keyManagement
       const hasKeyManagement = emissions?.some((emission) => emission[0] === 'keyManagement')
       expect(hasKeyManagement).toBe(true)
-    })
-
-    it('should emit correct tab name for file management', async () => {
-      wrapper.vm.handleSelect({ key: 'files' })
-      await nextTick()
-
-      const emissions = wrapper.emitted('open-user-tab')
-      expect(emissions).toBeTruthy()
-      expect(emissions?.length).toBeGreaterThan(0)
-      // Check if any emission contains files
-      const hasFiles = emissions?.some((emission) => emission[0] === 'files')
-      expect(hasFiles).toBe(true)
     })
 
     it('should not emit event if menu item is not found', async () => {
@@ -508,7 +488,7 @@ describe('Assets Component', () => {
     })
 
     it('should remove correct item when multiple items exist', async () => {
-      wrapper.vm.selectedKeys = ['assetConfig', 'keyManagement', 'files']
+      wrapper.vm.selectedKeys = ['assetConfig', 'keyManagement']
       await nextTick()
 
       wrapper.vm.handleExplorerActive('keyManagement')
@@ -516,7 +496,6 @@ describe('Assets Component', () => {
 
       expect(wrapper.vm.selectedKeys).not.toContain('keyManagement')
       expect(wrapper.vm.selectedKeys).toContain('assetConfig')
-      expect(wrapper.vm.selectedKeys).toContain('files')
     })
   })
 
@@ -597,7 +576,7 @@ describe('Assets Component', () => {
       await nextTick()
 
       const menuItems = wrapper.findAll('.assets_item')
-      expect(menuItems.length).toBe(3)
+      expect(menuItems.length).toBe(2)
     })
 
     it('should handle special characters in search', async () => {
@@ -619,12 +598,11 @@ describe('Assets Component', () => {
       const input = wrapper.find('[data-testid="search-input"]')
       await input.setValue('Host')
       await input.setValue('Key')
-      await input.setValue('File')
       await nextTick()
 
       const menuItems = wrapper.findAll('.assets_item')
       expect(menuItems.length).toBe(1)
-      expect(menuItems[0].find('.item_name').text()).toContain('File')
+      expect(menuItems[0].find('.item_name').text()).toContain('Key Management')
     })
 
     it('should handle theme changes during component lifecycle', async () => {

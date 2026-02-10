@@ -12,8 +12,6 @@ export default {
     keyManagementDesc: 'Управление SSH ключами и сертификатами',
     hostManagement: 'Управление хостами',
     hostManagementDesc: 'Управление SSH хостами и конфигурациями подключений',
-    fileManagement: 'Управление файлами',
-    fileManagementDesc: 'Управление файлами и папками',
     keychain: 'Связка ключей',
     extensions: 'Расширения',
     ai: 'ИИ',

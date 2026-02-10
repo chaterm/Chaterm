@@ -12,8 +12,6 @@ export default {
     keyManagementDesc: '管理 SSH 密钥和证书',
     hostManagement: '主机管理',
     hostManagementDesc: '管理 SSH 主机和连接配置',
-    fileManagement: '文件管理',
-    fileManagementDesc: '管理文件和文件夹',
     keychain: '秘钥',
     extensions: '扩展',
     ai: 'AI',

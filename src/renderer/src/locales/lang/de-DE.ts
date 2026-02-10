@@ -12,8 +12,6 @@ export default {
     keyManagementDesc: 'SSH-Schlüssel und Zertifikate verwalten',
     hostManagement: 'Host-Verwaltung',
     hostManagementDesc: 'SSH-Hosts und Verbindungskonfigurationen verwalten',
-    fileManagement: 'Dateiverwaltung',
-    fileManagementDesc: 'Dateien und Ordner verwalten',
     keychain: 'Schlüsselbund',
     extensions: 'Erweiterungen',
     ai: 'AI',
