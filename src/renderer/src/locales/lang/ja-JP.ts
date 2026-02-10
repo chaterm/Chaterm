@@ -7,7 +7,7 @@ export default {
     language: '日本語',
     workspace: 'ワークスペース',
     files: 'ファイル',
-    management: '管理',
+    management: '資産管理',
     keyManagement: 'キー管理',
     keyManagementDesc: 'SSH キーと証明書を管理',
     hostManagement: 'ホスト管理',

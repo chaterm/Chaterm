@@ -7,7 +7,7 @@ export default {
     language: '繁體中文',
     workspace: '工作空間',
     files: '檔案管理',
-    management: '管理',
+    management: '資產管理',
     keyManagement: '密鑰管理',
     keyManagementDesc: '管理 SSH 密鑰和證書',
     hostManagement: '主機管理',

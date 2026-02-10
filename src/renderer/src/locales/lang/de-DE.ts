@@ -7,7 +7,7 @@ export default {
     language: 'Deutsch',
     workspace: 'Arbeitsbereich',
     files: 'Dateien',
-    management: 'Verwaltung',
+    management: 'Vermögensverwaltung',
     keyManagement: 'Schlüsselverwaltung',
     keyManagementDesc: 'SSH-Schlüssel und Zertifikate verwalten',
     hostManagement: 'Host-Verwaltung',

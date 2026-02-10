@@ -7,7 +7,7 @@ export default {
     language: 'Русский',
     workspace: 'Рабочее пространство',
     files: 'Файлы',
-    management: 'Управление',
+    management: 'Управление активами',
     keyManagement: 'Управление ключами',
     keyManagementDesc: 'Управление SSH ключами и сертификатами',
     hostManagement: 'Управление хостами',

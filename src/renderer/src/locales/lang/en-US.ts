@@ -7,7 +7,7 @@ export default {
     language: 'English',
     workspace: 'WorkSpace',
     files: 'Files',
-    management: 'Management',
+    management: 'Asset Management',
     keyManagement: 'Key Management',
     keyManagementDesc: 'Manage SSH keys and certificates',
     hostManagement: 'Host Management',
