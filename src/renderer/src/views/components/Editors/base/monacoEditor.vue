@@ -180,7 +180,9 @@ const createEditor = (): void => {
       localityBonus: true
     },
     lineNumbers: 'on',
-    glyphMargin: true,
+    glyphMargin: false,
+    lineNumbersMinChars: 3,
+    lineDecorationsWidth: 0,
     folding: true,
     matchBrackets: 'always',
     renderLineHighlight: 'line',
