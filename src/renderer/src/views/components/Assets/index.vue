@@ -69,7 +69,6 @@ import { computed, onMounted, onBeforeUnmount, ref, watch } from 'vue'
 import i18n from '@/locales'
 import keyIcon from '@/assets/menu/key.svg'
 import hostIcon from '@/assets/menu/laptop.svg'
-import filesIcon from '@/assets/menu/files.svg'
 import { userConfigStore } from '@/store/userConfigStore'
 import { getActualTheme, addSystemThemeListener } from '@/utils/themeUtils'
 
@@ -130,13 +129,6 @@ const list = computed<AssetsMenuItem[]>(() => {
       description: t('common.keyManagementDesc'),
       icon: keyIcon,
       tabName: 'keyManagement'
-    },
-    {
-      key: 'files',
-      name: t('common.fileManagement'),
-      description: t('common.fileManagementDesc'),
-      icon: filesIcon,
-      tabName: 'files'
     }
   ]
 })
