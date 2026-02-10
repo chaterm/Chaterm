@@ -46,7 +46,7 @@
       </div>
     </div>
     <div
-      v-show="true"
+      v-show="outputLines > 0"
       ref="terminalContainer"
       class="terminal-output"
     ></div>
@@ -786,13 +786,21 @@ const adjustTerminalHeight = () => {
   }
 
   const minRows = 1
-  // Use total number of lines instead of non-empty lines, ensure all content can be displayed
-  // If total number of lines is 0, use actual content lines
-  const actualRows = Math.max(minRows, totalLines || actualContentLines)
+  // Use actualContentLines as the baseline; only count totalLines when there is actual content
+  // This prevents empty terminal buffer rows from inflating the height
+  const actualRows = actualContentLines > 0 ? Math.max(minRows, totalLines || actualContentLines) : 0
   const rowsToShow = !isExpanded.value && isCollapsible.value ? 10 : actualRows
 
+  // Skip resize and height adjustment when there is no content
+  if (rowsToShow === 0) {
+    if (terminalContainer.value) {
+      terminalContainer.value.style.height = '0px'
+    }
+    return
+  }
+
   // Adjust terminal size based on content width
-  const cols = maxLineLength
+  const cols = maxLineLength || 1
   terminal.resize(cols, rowsToShow)
 
   if (terminalContainer.value) {
