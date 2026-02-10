@@ -1113,7 +1113,11 @@ export default {
     treeFoldUp: 'Свернуть',
     transferSuccess: 'Передача завершена',
     transferFailed: 'Передача не удалась',
-    openFolder: 'Открыть папку'
+    openFolder: 'Открыть папку',
+    uploadSkipped: 'Загрузка пропущена',
+    transferSkipped: 'Передача пропущена',
+    transferCancel: 'Передача отменена',
+    scanning: 'Сканирование'
   },
   about: {
     version: 'Версия',

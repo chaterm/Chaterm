@@ -1116,7 +1116,11 @@ export default {
     treeFoldUp: '閉じる',
     transferSuccess: '転送完了',
     transferFailed: '転送失敗',
-    openFolder: 'フォルダを開く'
+    openFolder: 'フォルダを開く',
+    uploadSkipped: 'アップロードをスキップしました',
+    transferSkipped: '転送をスキップしました',
+    transferCancel: '転送がキャンセルされました',
+    scanning: 'スキャン中'
   },
   about: {
     version: 'バージョン',

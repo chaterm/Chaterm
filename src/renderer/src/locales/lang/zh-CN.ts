@@ -1109,7 +1109,11 @@ export default {
     treeFoldUp: '收起',
     transferSuccess: '传输完成',
     transferFailed: '传输失败',
-    openFolder: '打开文件夹'
+    openFolder: '打开文件夹',
+    uploadSkipped: '已跳过上传',
+    transferSkipped: '已跳过传输',
+    transferCancel: '已取消传输',
+    scanning: '扫描中'
   },
   about: {
     version: '版本',

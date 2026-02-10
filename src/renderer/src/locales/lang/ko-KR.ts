@@ -1112,7 +1112,11 @@ export default {
     treeFoldUp: '접어 닫기',
     transferSuccess: '전송 완료',
     transferFailed: '전송 실패',
-    openFolder: '폴더 열기'
+    openFolder: '폴더 열기',
+    uploadSkipped: '업로드를 건너뛰었습니다',
+    transferSkipped: '전송을 건너뛰었습니다',
+    transferCancel: '전송이 취소되었습니다',
+    scanning: '스캔 중'
   },
   about: {
     version: '버전',

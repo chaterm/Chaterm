@@ -1122,7 +1122,11 @@ export default {
     treeFoldUp: 'Replier',
     transferSuccess: 'Transmission terminée',
     transferFailed: 'Échec de la transmission',
-    openFolder: 'Ouvrir le dossier'
+    openFolder: 'Ouvrir le dossier',
+    uploadSkipped: 'Téléchargement ignoré',
+    transferSkipped: 'Transfert ignoré',
+    transferCancel: 'Transfert annulé',
+    scanning: 'Numérisation en cours'
   },
   about: {
     version: 'Version',

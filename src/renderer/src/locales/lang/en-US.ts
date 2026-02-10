@@ -1120,7 +1120,11 @@ export default {
     treeFoldUp: 'Collapse',
     transferSuccess: 'Transfer completed',
     transferFailed: 'Transfer failed',
-    openFolder: 'Open Folder'
+    openFolder: 'Open Folder',
+    uploadSkipped: 'Upload skipped',
+    transferSkipped: 'Transfer skipped',
+    transferCancel: 'Transfer canceled',
+    scanning: 'Scanning'
   },
   about: {
     version: 'Version',
