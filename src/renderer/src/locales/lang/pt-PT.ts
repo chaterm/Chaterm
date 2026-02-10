@@ -1115,7 +1115,11 @@ export default {
     treeFoldUp: 'Colapsar',
     transferSuccess: 'Transferência concluída',
     transferFailed: 'A transferência falhou',
-    openFolder: 'Abrir pasta'
+    openFolder: 'Abrir pasta',
+    uploadSkipped: 'O upload foi pulado',
+    transferSkipped: 'Transmissão ignorada',
+    transferCancel: 'Transmissão cancelada',
+    scanning: 'Digitalização em curso'
   },
   about: {
     version: 'Versão',

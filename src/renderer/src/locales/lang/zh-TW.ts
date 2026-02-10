@@ -1099,7 +1099,11 @@ export default {
     treeFoldUp: '收起',
     transferSuccess: '傳輸完成',
     transferFailed: '傳輸失敗',
-    openFolder: '開啟資料夾'
+    openFolder: '打開文件夾',
+    uploadSkipped: '已跳過上傳',
+    transferSkipped: '已跳過傳輸',
+    transferCancel: '已取消傳輸',
+    scanning: '掃描中'
   },
   about: {
     version: '版本',

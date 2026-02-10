@@ -812,27 +812,6 @@ const refreshByUuid = (uuid: string) => {
   FS_CACHE.get(String(uuid))?.inst?.refresh?.()
 }
 
-const notifyByStatus = (res: any, kind: 'upload' | 'download', toUuid: string) => {
-  const status = res?.status
-  if (kind === 'upload') {
-    if (status === 'success') {
-      refreshByUuid(toUuid)
-      return message.success(t('files.uploadSuccess'))
-    }
-    if (status === 'cancelled') return message.info(t('files.uploadCancel'))
-    if (status === 'skipped') return message.info(t('files.downloadSkipped'))
-    return message.error(`${t('files.uploadFailed')}：${res?.message || ''}`)
-  } else {
-    if (status === 'success') {
-      refreshByUuid(toUuid)
-      return message.success(t('files.downloadSuccess'))
-    }
-    if (status === 'cancelled') return message.info(t('files.downloadCancel'))
-    if (status === 'skipped') return message.info(t('files.downloadSkipped'))
-    return message.error(`${t('files.downloadFailed')}：${res?.message || ''}`)
-  }
-}
-
 const stateChange = (s: any) => {
   const key = String(s.uuid)
   const entry = FS_CACHE.get(key) || {}
@@ -855,11 +834,64 @@ const bindFsInst = (uuid: string, el: any) => {
   FS_CACHE.set(key, entry)
 }
 
+type OpKind = 'upload' | 'download' | 'transfer'
+
+const pickFailLabel = (res: any, extra?: { fromUuid?: string; toUuid?: string }) => {
+  const side = res?.errorSide as string | undefined
+  const pickLocalTeam = (uuid: string) => {
+    if (uuid.includes('local-team')) {
+      const [, rest = ''] = String(uuid || '').split('@')
+      const parts = rest.split(':')
+      return safeDecodeB64(parts[2] || '')
+    }
+    return uuid
+  }
+  if (side === 'from') return pickLocalTeam(<string>extra?.fromUuid)
+  if (side === 'to') return pickLocalTeam(<string>extra?.toUuid)
+  if (side === 'local') return 'local'
+  return res?.host || res?.id || ''
+}
+const notifyByStatus = (res: any, kind: OpKind, refreshUuid: string, extra?: { fromUuid?: string; toUuid?: string }) => {
+  const status = res?.status
+  const msg = res?.message || ''
+  if (kind === 'upload') {
+    if (status === 'success') {
+      refreshByUuid(refreshUuid)
+      return message.success(t('files.uploadSuccess'))
+    }
+    if (status === 'cancelled') return message.info(t('files.uploadCancel'))
+    if (status === 'skipped') return message.info(t('files.uploadSkipped'))
+    const label = pickFailLabel(res, extra)
+    return message.error(`${t('files.uploadFailed')}：[${label || ''}] ${msg}`)
+  }
+
+  if (kind === 'download') {
+    if (status === 'success') {
+      refreshByUuid(refreshUuid)
+      return message.success(t('files.downloadSuccess'))
+    }
+    if (status === 'cancelled') return message.info(t('files.downloadCancel'))
+    if (status === 'skipped') return message.info(t('files.downloadSkipped'))
+    const label = pickFailLabel(res, extra)
+    return message.error(`${t('files.downloadFailed')}：[${label || ''}] ${msg}`)
+  }
+
+  // transfer
+  if (status === 'success') {
+    refreshByUuid(refreshUuid)
+    return message.success(t('files.transferSuccess'))
+  }
+  if (status === 'cancelled') return message.info(t('files.transferCancel'))
+  if (status === 'skipped') return message.info(t('files.transferSkipped'))
+  const label = pickFailLabel(res, extra)
+
+  return message.error(`${t('files.transferFailed')}：[${label || ''}] ${msg}`)
+}
+
 const handleCrossTransfer = async (p: CrossTransferPayload) => {
   if (!p || p.kind !== 'fs-item') return
   if (p.fromSide === p.toSide) return
   if (p.fromUuid === p.toUuid) return
-
   try {
     // local -> remote
     if (isLocalId(p.fromUuid) && !isLocalId(p.toUuid)) {
@@ -873,11 +905,7 @@ const handleCrossTransfer = async (p: CrossTransferPayload) => {
     // remote -> local
     if (!isLocalId(p.fromUuid) && isLocalId(p.toUuid)) {
       if (p.isDir) {
-        const res = await api.downloadDirectory({
-          id: p.fromUuid,
-          remoteDir: p.srcPath,
-          localDir: p.targetDir
-        })
+        const res = await api.downloadDirectory({ id: p.fromUuid, remoteDir: p.srcPath, localDir: p.targetDir })
         notifyByStatus(res, 'download', p.toUuid)
       } else {
         const localPath = joinPath(p.targetDir, p.name)
@@ -906,8 +934,7 @@ const handleCrossTransfer = async (p: CrossTransferPayload) => {
             autoRename: true
           })
 
-      if (res?.status === 'success') message.success(t('files.transferSuccess'))
-      else message.info(res?.message)
+      notifyByStatus(res, 'transfer', p.toUuid, { fromUuid: p.fromUuid, toUuid: p.toUuid })
       return
     }
   } catch (err: any) {

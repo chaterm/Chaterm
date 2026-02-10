@@ -1126,7 +1126,11 @@ export default {
     downloading: 'Download in corso',
     checkUpdateError: 'Verifica aggiornamento fallita',
     checking: 'Verifica',
-    install: 'Installa'
+    install: 'Installa',
+    uploadSkipped: 'Caricamento saltato',
+    transferSkipped: 'Trasferimento saltato',
+    transferCancel: 'Trasferimento annullato',
+    scanning: 'Scansione in corso'
   },
   mfa: {
     title: 'Autenticazione a due fattori',

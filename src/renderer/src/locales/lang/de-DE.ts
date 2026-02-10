@@ -1117,7 +1117,11 @@ export default {
     treeFoldUp: 'Einklappen',
     transferSuccess: 'Übertragung abgeschlossen',
     transferFailed: 'Übertragung fehlgeschlagen',
-    openFolder: 'Ordner öffnen'
+    openFolder: 'Ordner öffnen',
+    uploadSkipped: 'Upload wurde übersprungen',
+    transferSkipped: 'Übertragung übersprungen',
+    transferCancel: 'Übertragung abgebrochen',
+    scanning: 'Scanning'
   },
   about: {
     version: 'Version',

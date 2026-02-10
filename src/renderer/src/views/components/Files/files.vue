@@ -1163,11 +1163,24 @@ const onDropZoneOver = (e: DragEvent) => {
   })
 }
 
+const getHoveredDirByPoint = (ev: DragEvent) => {
+  const el = document.elementFromPoint(ev.clientX, ev.clientY) as HTMLElement | null
+  const tr = el?.closest?.('tr.ant-table-row, .ant-table-row') as HTMLElement | null
+  const rowKey = tr?.getAttribute?.('data-row-key') || (tr as any)?.dataset?.rowKey || ''
+  if (!rowKey) return null
+
+  const rec = recordByName.value.get(rowKey)
+  if (rec && rec.isDir && rec.key !== '..' && !rec.disabled) {
+    return rec.path
+  }
+  return null
+}
+
 const onDropZoneDrop = (e: DragEvent) => {
   // Always prevent default on drop to avoid browser side-effects
   e.preventDefault()
-
-  const hoveredDir = lastHoverDir
+  const dropHitDir = getHoveredDirByPoint(e)
+  const hoveredDir = dropHitDir || lastHoverDir
 
   // Drag end: Unified cleanup
   setGlobalDragFromSide(null)
@@ -1254,8 +1267,8 @@ const uploadFile = async () => {
     const config = {
       success: { type: 'success', text: t('files.uploadSuccess') },
       cancelled: { type: 'info', text: t('files.uploadCancel') },
-      skipped: { type: 'info', text: t('files.downloadSkipped') }
-    }[res.status] || { type: 'error', text: `${t('files.downloadFailed')}：${res.message}` }
+      skipped: { type: 'info', text: t('files.uploadSkipped') }
+    }[res.status] || { type: 'error', text: `${t('files.uploadFailed')}：${res.message}` }
 
     message[config.type]({
       content: config.text,
