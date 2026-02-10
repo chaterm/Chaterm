@@ -222,13 +222,13 @@ export default {
     visualVimEditor: 'Visual Vim Editor',
     // Editor font options
     editorSettings: 'Editor Settings',
-    editorFontSize: 'Font Size',
+    editorFontSize: 'Font Size(px)',
     editorFont: 'Font',
     editorTabSize: 'Tab Size',
     editorWordWrap: 'Word Wrap',
     editorMinimap: 'Show Minimap',
     editorMouseWheelZoom: 'Mouse Wheel Zoom',
-    editorLineHeight: 'Line Height',
+    editorLineHeight: 'Line Height(px)',
     editorLineHeightAuto: 'Auto',
     // Font names
     fontCascadiaMono: 'Cascadia Mono',

@@ -222,13 +222,13 @@ export default {
     visualVimEditor: 'Éditeur Vim visuel',
     // Editor font options
     editorSettings: "Paramètres de l'éditeur",
-    editorFontSize: 'Taille de police',
+    editorFontSize: 'Taille de police(px)',
     editorFont: 'Police',
     editorTabSize: 'Taille de tabulation',
     editorWordWrap: 'Retour à la ligne',
     editorMinimap: 'Afficher la minimap',
     editorMouseWheelZoom: 'Zoom molette souris',
-    editorLineHeight: 'Hauteur de ligne',
+    editorLineHeight: 'Hauteur de ligne(px)',
     editorLineHeightAuto: 'Auto',
     // Font names
     fontCascadiaMono: 'Cascadia Mono',

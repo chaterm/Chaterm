@@ -188,7 +188,6 @@
             style="width: 120px"
             @change="saveEditorConfig"
           />
-          <span style="margin-left: 8px; color: var(--text-color-secondary)">px</span>
         </a-form-item>
 
         <a-form-item
@@ -203,7 +202,6 @@
             style="width: 120px"
             @change="saveEditorConfig"
           />
-          <span style="margin-left: 8px; color: var(--text-color-secondary)">px</span>
         </a-form-item>
 
         <a-form-item
@@ -226,7 +224,7 @@
         </a-form-item>
 
         <a-form-item
-          :label="$t('user.editorTabSize')"
+          :label="$t('user.editorTabSize') + '(' + $t('common.space') + ')'"
           class="user_my-ant-form-item"
         >
           <a-input-number
@@ -237,7 +235,6 @@
             style="width: 120px"
             @change="saveEditorConfig"
           />
-          <span style="margin-left: 8px; color: var(--text-color-secondary)">{{ $t('common.space') }}</span>
         </a-form-item>
 
         <a-form-item
