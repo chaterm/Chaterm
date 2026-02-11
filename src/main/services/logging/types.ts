@@ -53,7 +53,8 @@ export const DEFAULT_CONFIG: LoggingConfig = {
 }
 
 export function getDefaultLogLevelForEnvironment(nodeEnv: string | undefined): LogLevel {
-  return nodeEnv === 'development' ? 'error' : 'info'
+  // return nodeEnv === 'development' ? 'error' : 'info'
+  return nodeEnv === 'development' ? 'info' : 'info'
 }
 
 export function resolveChannel(module: string): LogChannel {

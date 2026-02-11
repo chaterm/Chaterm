@@ -74,8 +74,10 @@ import { Notice } from '../../Notice'
 import { FolderOpenOutlined, CommentOutlined, ExportOutlined } from '@ant-design/icons-vue'
 import i18n from '@/locales'
 import { getEditionConfig } from '@/utils/edition'
+import { createRendererLogger } from '@/utils/logger'
 const { t } = i18n.global
 const editionConfig = getEditionConfig()
+const logger = createRendererLogger('settings.about')
 
 const appInfo = {
   ...__APP_INFO__
@@ -86,11 +88,14 @@ const onOpenLogDir = async () => {
   try {
     await api.openLogDir()
   } catch (error) {
-    console.error('Failed to open log directory:', error)
+    logger.error('Failed to open log directory', {
+      error: error instanceof Error ? error.message : String(error)
+    })
   }
 }
 
 const onSubmitFeedback = () => {
+  logger.info('Opening feedback page', { event: 'settings.about.feedback.open' })
   window.open('https://github.com/chaterm/Chaterm/issues', '_blank')
 }
 
@@ -113,7 +118,10 @@ const onCheckUpdate = async () => {
       updateStatus.value = info.version == appInfo.version ? 2 : 1
     }
   } catch (err) {
-    console.error(t('about.checkUpdateError'), err)
+    logger.error('Failed to check for updates', {
+      event: 'settings.about.update.check.failed',
+      error: err instanceof Error ? err.message : String(err)
+    })
     btnText.value = t('about.checkUpdateError')
   } finally {
     btnDisabled.value = false
@@ -125,7 +133,11 @@ const handleCheckUpdate = async () => {
     btnText.value = t('about.checking')
     try {
       const info = await api.checkUpdate()
-      console.log('Update check result:', info)
+      logger.debug('Received update check result', {
+        event: 'settings.about.update.check.result',
+        hasVersionInfo: Boolean(info?.versionInfo),
+        hasUpdateInfo: Boolean(info?.updateInfo)
+      })
 
       // Handle different response structures
       if (info && info.versionInfo) {
@@ -133,18 +145,27 @@ const handleCheckUpdate = async () => {
       } else if (info && info.updateInfo) {
         return info.updateInfo
       } else {
-        console.log('No update info found in response')
+        logger.warn('No update info found in response', {
+          event: 'settings.about.update.check.empty'
+        })
         return null
       }
     } catch (error) {
-      console.error('Update check failed:', error)
+      logger.error('Update check request failed', {
+        event: 'settings.about.update.check.error',
+        error: error instanceof Error ? error.message : String(error)
+      })
       throw error
     }
   } else {
     try {
       api.download()
       api.autoUpdate((params) => {
-        console.log('Update progress:', params)
+        logger.debug('Received update download progress', {
+          event: 'settings.about.update.download.progress',
+          status: params?.status,
+          progress: params?.progress
+        })
         if (params?.progress > 0) {
           isUpdate.value = true
           progress.value = params.progress
@@ -172,7 +193,10 @@ const handleCheckUpdate = async () => {
         }
       })
     } catch (error) {
-      console.error('Download failed:', error)
+      logger.error('Update download failed', {
+        event: 'settings.about.update.download.failed',
+        error: error instanceof Error ? error.message : String(error)
+      })
       btnText.value = t('about.downloadError')
     }
   }
