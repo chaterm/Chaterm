@@ -2,6 +2,28 @@
   "releaseNotesUrl": "https://github.com/chaterm/Chaterm/releases/tag/v",
   "versions": [
     {
+      "version": "0.9.1",
+      "date": "2026-02-11",
+      "highlights": {
+        "zh-CN": [
+          "知识中心：Mermaid 渲染、Markdown 引导、重命名与标签同步修复",
+          "编辑器：统一配置管理、Monaco 行号与边距优化",
+          "文件管理：传输进度展示重构与测试修复",
+          "终端：Ctrl+R 防误触保留反向搜索、发送优先中断、输出渲染改进",
+          "标签与上下文：标签关闭逻辑优化、缓存对话数据修复",
+          "界面：背景图显示优化、水印展示逻辑调整"
+        ],
+        "en-US": [
+          "Knowledge center: Mermaid rendering, markdown guide, rename and tab sync fixes",
+          "Editor: unified config, Monaco line numbers and margin tweaks",
+          "File management: transfer progress refactor and test fixes",
+          "Terminal: Ctrl+R no accidental reload, send prioritizes interrupt, output rendering",
+          "Tabs and context: tab closure logic, cached chat data fix",
+          "UI: background image display optimization, watermark display logic adjustment"
+        ]
+      }
+    },
+    {
       "version": "0.9.0",
       "date": "2026-02-06",
       "highlights": {
