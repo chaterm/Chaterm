@@ -1,7 +1,6 @@
 import { ref } from 'vue'
 import type { Todo, TodoDisplayPreference, TodoWebviewMessage } from '../types/todo'
 
-
 const logger = createRendererLogger('service.todo')
 
 class TodoService {

@@ -65,10 +65,7 @@ export class K8sManager {
         this.state.currentContext = result.currentContext
         this.state.initialized = true
 
-        logger.info(
-          `Initialized successfully with ${result.contexts.length} contexts`,
-          { contexts: result.contexts.map((c) => c.name) }
-        )
+        logger.info(`Initialized successfully with ${result.contexts.length} contexts`, { contexts: result.contexts.map((c) => c.name) })
       } else {
         logger.warn('[K8s] Initialization failed', { value: result.error })
       }

@@ -246,7 +246,9 @@ export class SyncStateManager {
       message: `${syncType === SyncType.FULL ? 'Full' : 'Incremental'} sync failed: ${error.message}`
     })
 
-    logger.error(`${syncType === SyncType.FULL ? 'Full' : 'Incremental'} sync failed`, { error: error instanceof Error ? error.message : String(error) })
+    logger.error(`${syncType === SyncType.FULL ? 'Full' : 'Incremental'} sync failed`, {
+      error: error instanceof Error ? error.message : String(error)
+    })
 
     // Restore idle state after brief wait (only when sync is enabled)
     setTimeout(async () => {

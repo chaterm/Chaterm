@@ -116,13 +116,13 @@ export function useTabManagement(options: TabManagementOptions) {
         ? []
         : assetInfo && assetInfo.ip
           ? [
-            {
-              host: assetInfo.ip,
-              uuid: assetInfo.uuid,
-              connection: assetInfo.connection || 'personal',
-              ...(assetInfo.assetType ? { assetType: assetInfo.assetType } : {})
-            }
-          ]
+              {
+                host: assetInfo.ip,
+                uuid: assetInfo.uuid,
+                connection: assetInfo.connection || 'personal',
+                ...(assetInfo.assetType ? { assetType: assetInfo.assetType } : {})
+              }
+            ]
           : [DEFAULT_LOCALHOST_HOST]
 
     // Get currently selected model as default value for new Tab

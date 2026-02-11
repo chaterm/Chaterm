@@ -282,7 +282,9 @@ async function readMigrationMarker(markerPath: string): Promise<MigrationMarker 
     const content = await fs.promises.readFile(markerPath, 'utf8')
     return JSON.parse(content) as MigrationMarker
   } catch (error) {
-    logger.warn('[Migration] Failed to read migration marker, proceeding with migration', { error: error instanceof Error ? error.message : String(error) })
+    logger.warn('[Migration] Failed to read migration marker, proceeding with migration', {
+      error: error instanceof Error ? error.message : String(error)
+    })
     return null
   }
 }

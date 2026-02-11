@@ -1,6 +1,5 @@
 import { ref, watch } from 'vue'
 
-
 const logger = createRendererLogger('ssh.termInputManager')
 interface Target {
   termOndata?: any

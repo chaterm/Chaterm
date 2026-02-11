@@ -29,13 +29,7 @@ export interface LoggingConfig {
 }
 
 // Minimal audit events that are always written even when enabled=false
-export const AUDIT_EVENTS: ReadonlySet<string> = new Set([
-  'app.startup',
-  'app.shutdown',
-  'renderer.crash',
-  'auth.fail',
-  'db.migration.fail'
-])
+export const AUDIT_EVENTS: ReadonlySet<string> = new Set(['app.startup', 'app.shutdown', 'renderer.crash', 'auth.fail', 'db.migration.fail'])
 
 // Module prefixes that map to the 'terminal' channel
 export const TERMINAL_MODULE_PREFIXES = ['ssh', 'jumpserver', 'remote-terminal', 'terminal'] as const
@@ -58,7 +52,5 @@ export function getDefaultLogLevelForEnvironment(nodeEnv: string | undefined): L
 }
 
 export function resolveChannel(module: string): LogChannel {
-  return TERMINAL_MODULE_PREFIXES.some((prefix) => module.startsWith(prefix))
-    ? 'terminal'
-    : 'app'
+  return TERMINAL_MODULE_PREFIXES.some((prefix) => module.startsWith(prefix)) ? 'terminal' : 'app'
 }

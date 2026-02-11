@@ -50,7 +50,10 @@ export async function navigateToJumpServerAsset(
       if (connectionPhase === 'inputIp') {
         if (hasUserSelectionPrompt(outputBuffer)) {
           if (navigationPath.selectedUserId !== undefined) {
-            logger.debug('JumpServer exec stream: User selection prompt detected, auto-selecting', { event: 'jumpserver.exec.user.autoselect', selectedUserId: navigationPath.selectedUserId })
+            logger.debug('JumpServer exec stream: User selection prompt detected, auto-selecting', {
+              event: 'jumpserver.exec.user.autoselect',
+              selectedUserId: navigationPath.selectedUserId
+            })
             connectionPhase = 'selectUser'
             outputBuffer = ''
             stream.write(navigationPath.selectedUserId.toString() + '\r')
@@ -100,10 +103,15 @@ export async function navigateToJumpServerAsset(
           } else {
             const reason = detectDirectConnectionReason(outputBuffer)
             if (reason) {
-              logger.debug('JumpServer exec stream: No password after user selection, direct connection', { event: 'jumpserver.exec.connect.direct', reason })
+              logger.debug('JumpServer exec stream: No password after user selection, direct connection', {
+                event: 'jumpserver.exec.connect.direct',
+                reason
+              })
               handleNavigationSuccess(`Direct connection without password after user selection - ${reason}`)
             } else {
-              logger.warn('JumpServer exec stream: Password required after user selection but not recorded', { event: 'jumpserver.exec.auth.missing' })
+              logger.warn('JumpServer exec stream: Password required after user selection but not recorded', {
+                event: 'jumpserver.exec.auth.missing'
+              })
             }
           }
           return
@@ -285,7 +293,10 @@ export async function executeCommandOnJumpServerExec(
               exitCode
             })
           } catch (parseError) {
-            logger.error('Command output parsing error', { event: 'jumpserver.exec.parse.error', error: parseError instanceof Error ? parseError.message : String(parseError) })
+            logger.error('Command output parsing error', {
+              event: 'jumpserver.exec.parse.error',
+              error: parseError instanceof Error ? parseError.message : String(parseError)
+            })
             resolve({
               success: false,
               error: `Failed to parse command output: ${parseError}`,

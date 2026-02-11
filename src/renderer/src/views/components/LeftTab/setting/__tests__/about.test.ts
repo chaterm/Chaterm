@@ -149,9 +149,9 @@ describe('About Component', () => {
     mockWindowApi.quitAndInstall.mockReturnValue(undefined)
 
     // Clear console output for cleaner test results
-    // eslint-disable-next-line no-console
+
     vi.spyOn(console, 'log').mockImplementation(() => {})
-    // eslint-disable-next-line no-console
+
     vi.spyOn(console, 'error').mockImplementation(() => {})
   })
 

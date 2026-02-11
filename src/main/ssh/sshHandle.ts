@@ -903,7 +903,13 @@ async function handleDirectoryTransfer(event: any, id: string, localDir: string,
   }
 
   const promises = allFileTasks.map((task) =>
-    handleStreamTransfer(event, id, task.local, task.remote, 'upload', true).catch((err) => logger.error('Directory upload file error', { event: 'ssh.sftp.upload.error', remotePath: task.remote, error: err instanceof Error ? err.message : String(err) }))
+    handleStreamTransfer(event, id, task.local, task.remote, 'upload', true).catch((err) =>
+      logger.error('Directory upload file error', {
+        event: 'ssh.sftp.upload.error',
+        remotePath: task.remote,
+        error: err instanceof Error ? err.message : String(err)
+      })
+    )
   )
 
   await Promise.all(promises)
@@ -1007,7 +1013,8 @@ export const registerSSHHandlers = () => {
         if (dataStr.includes('[Host]>') && lastCommand && exitCommands.includes(lastCommand)) {
           jumpserverLastCommand.delete(id)
           stream.write('q\r', (err) => {
-            if (err) logger.error('Failed to send quit command to JumpServer', { event: 'jumpserver.quit.error', connectionId: id, error: err.message })
+            if (err)
+              logger.error('Failed to send quit command to JumpServer', { event: 'jumpserver.quit.error', connectionId: id, error: err.message })
             else logger.debug('Sent quit command to JumpServer session', { event: 'jumpserver.quit', connectionId: id })
             stream.end()
             const connData = jumpserverConnections.get(id)
@@ -1609,7 +1616,10 @@ export const registerSSHHandlers = () => {
           logger.info('All JumpServer sessions closed, releasing underlying connection', { event: 'jumpserver.disconnect', connectionId: id })
           connToClose.end()
         } else {
-          logger.debug('JumpServer session disconnected, underlying connection still in use', { event: 'jumpserver.disconnect.partial', connectionId: id })
+          logger.debug('JumpServer session disconnected, underlying connection still in use', {
+            event: 'jumpserver.disconnect.partial',
+            connectionId: id
+          })
         }
         cleanSftpConnection(id)
         jumpserverConnections.delete(id)

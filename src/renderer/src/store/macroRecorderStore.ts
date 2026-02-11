@@ -1,7 +1,6 @@
 import { defineStore } from 'pinia'
 import eventBus from '@/utils/eventBus'
 
-
 const logger = createRendererLogger('store.macroRecorder')
 
 // Recording time limit: 5 minutes

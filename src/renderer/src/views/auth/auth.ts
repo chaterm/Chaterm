@@ -1,5 +1,3 @@
-
-
 const logger = createRendererLogger('auth')
 
 export const CtmTokenKey: string = 'Ctm-Token'

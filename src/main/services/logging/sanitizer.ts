@@ -25,11 +25,7 @@ const SENSITIVE_KEYS = new Set([
 ])
 
 // 3 value patterns for detecting credentials in string values
-const VALUE_PATTERNS = [
-  /-----BEGIN.*PRIVATE KEY-----/,
-  /eyJ[A-Za-z0-9_-]+\.eyJ/,
-  /AKIA[0-9A-Z]{16}/
-]
+const VALUE_PATTERNS = [/-----BEGIN.*PRIVATE KEY-----/, /eyJ[A-Za-z0-9_-]+\.eyJ/, /AKIA[0-9A-Z]{16}/]
 
 const MAX_DEPTH = 4
 const MAX_WIDTH = 32
@@ -111,11 +107,7 @@ export function sanitize(obj: unknown): unknown {
  * Conforms to the Logger.Hook signature:
  *   (message: LogMessage, transport?, transportName?) => LogMessage | false
  */
-export function sanitizeHook(
-  message: Logger.LogMessage,
-  _transport?: Logger.Transport,
-  _transportName?: string
-): Logger.LogMessage | false {
+export function sanitizeHook(message: Logger.LogMessage, _transport?: Logger.Transport, _transportName?: string): Logger.LogMessage | false {
   message.data = message.data.map((item) => sanitize(item))
   return message
 }

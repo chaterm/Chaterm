@@ -3,7 +3,6 @@ import { useSessionState } from './useSessionState'
 import { focusChatInput } from './useTabManagement'
 import { updateGlobalState } from '@renderer/agent/storage/state'
 
-
 const logger = createRendererLogger('aitab.watchers')
 
 interface WatcherDeps {

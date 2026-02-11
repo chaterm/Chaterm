@@ -2,7 +2,6 @@ import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
 import * as k8sApi from '@/api/k8s'
 
-
 const logger = createRendererLogger('store.k8s')
 
 export interface K8sContextInfo {

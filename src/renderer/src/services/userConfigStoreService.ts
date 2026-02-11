@@ -1,7 +1,6 @@
 import { shortcutActions } from '@/config/shortcutActions'
 import { toRaw } from 'vue'
 
-
 const logger = createRendererLogger('service.userConfig')
 
 export interface ShortcutConfig {

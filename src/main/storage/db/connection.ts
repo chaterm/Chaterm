@@ -186,7 +186,9 @@ function upgradeTAssetsTable(db: Database.Database): void {
           db.exec('ALTER TABLE t_asset_chains ADD COLUMN uuid TEXT')
           logger.info('Added uuid column to t_asset_chains')
         } catch (transactionError) {
-          logger.error('Error adding uuid column to t_asset_chains', { error: transactionError instanceof Error ? transactionError.message : String(transactionError) })
+          logger.error('Error adding uuid column to t_asset_chains', {
+            error: transactionError instanceof Error ? transactionError.message : String(transactionError)
+          })
           throw transactionError
         }
       })()

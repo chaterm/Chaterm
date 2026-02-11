@@ -101,7 +101,10 @@ export const setupJumpServerInteraction = (
             readyResult.hasSudo = (sudoCheckResult.value.stdout || '').trim() === 'true'
           }
         } catch (error) {
-          logger.error('Error getting command list', { event: 'jumpserver.commandlist.error', error: error instanceof Error ? error.message : String(error) })
+          logger.error('Error getting command list', {
+            event: 'jumpserver.commandlist.error',
+            error: error instanceof Error ? error.message : String(error)
+          })
         }
 
         const mainWindow = BrowserWindow.getAllWindows()[0]
@@ -110,7 +113,11 @@ export const setupJumpServerInteraction = (
         }
       })
       .catch((error) => {
-        logger.error('JumpServer exec stream creation failed', { event: 'jumpserver.exec.create.error', connectionId, error: error instanceof Error ? error.message : String(error) })
+        logger.error('JumpServer exec stream creation failed', {
+          event: 'jumpserver.exec.create.error',
+          connectionId,
+          error: error instanceof Error ? error.message : String(error)
+        })
 
         const mainWindow = BrowserWindow.getAllWindows()[0]
         if (mainWindow && !mainWindow.isDestroyed()) {
@@ -118,7 +125,10 @@ export const setupJumpServerInteraction = (
             hasSudo: false,
             commandList: []
           })
-          logger.debug('Sent empty command list to frontend (exec stream creation failed)', { event: 'jumpserver.commandlist.fallback', connectionId })
+          logger.debug('Sent empty command list to frontend (exec stream creation failed)', {
+            event: 'jumpserver.commandlist.fallback',
+            connectionId
+          })
         } else {
           logger.error('Cannot send empty command list: window does not exist or is destroyed', { event: 'jumpserver.window.notfound', connectionId })
         }
@@ -143,7 +153,11 @@ export const setupJumpServerInteraction = (
 
     if (connectionPhase === 'inputIp') {
       if (hasNoAssetsPrompt(outputBuffer)) {
-        logger.warn('JumpServer asset not found for target IP', { event: 'jumpserver.asset.notfound', connectionId, targetIp: connectionInfo.targetIp })
+        logger.warn('JumpServer asset not found for target IP', {
+          event: 'jumpserver.asset.notfound',
+          connectionId,
+          targetIp: connectionInfo.targetIp
+        })
         connectionFailed = true
         outputBuffer = ''
         stream.end()
@@ -191,7 +205,11 @@ export const setupJumpServerInteraction = (
             stream.write(selectedUserId.toString() + '\r')
           })
           .catch((err) => {
-            logger.error('User selection failed', { event: 'jumpserver.user.selection.error', connectionId, error: err instanceof Error ? err.message : String(err) })
+            logger.error('User selection failed', {
+              event: 'jumpserver.user.selection.error',
+              connectionId,
+              error: err instanceof Error ? err.message : String(err)
+            })
             sendStatusUpdate('User selection cancelled', 'error', 'ssh.jumpserver.userSelectionCanceled')
             conn.end()
             reject(err)

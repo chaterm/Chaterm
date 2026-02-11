@@ -23,9 +23,7 @@ function getLogBaseDir(): string {
  * Collect all chaterm log files from the log directory.
  * Matches files named chaterm_*.log
  */
-async function collectLogFiles(
-  baseDir: string
-): Promise<{ path: string; mtimeMs: number; size: number }[]> {
+async function collectLogFiles(baseDir: string): Promise<{ path: string; mtimeMs: number; size: number }[]> {
   const files: { path: string; mtimeMs: number; size: number }[] = []
 
   try {

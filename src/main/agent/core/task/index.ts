@@ -4101,7 +4101,9 @@ USERNAME:${localSystemInfo.userName}`
 
       logger.info(`[Task] Cleared todos due to ${trigger} for task ${this.taskId}`)
     } catch (error) {
-      logger.error(`[Task] Failed to clear todos (${trigger}) for task ${this.taskId}`, { error: error instanceof Error ? error.message : String(error) })
+      logger.error(`[Task] Failed to clear todos (${trigger}) for task ${this.taskId}`, {
+        error: error instanceof Error ? error.message : String(error)
+      })
     }
   }
 

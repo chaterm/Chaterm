@@ -51,7 +51,10 @@ try {
     packageInfo = JSON.parse(fs.readFileSync(fallbackPath, 'utf8'))
   }
 } catch (error) {
-  logger.error('Failed to read package.json', { event: 'remote-terminal.init.package.error', error: error instanceof Error ? error.message : String(error) })
+  logger.error('Failed to read package.json', {
+    event: 'remote-terminal.init.package.error',
+    error: error instanceof Error ? error.message : String(error)
+  })
   // Provide a default packageInfo object if both paths fail
   packageInfo = { name: 'chaterm', version: 'unknown' }
 }
@@ -308,10 +311,18 @@ export class RemoteTerminalProcess extends BrownEventEmitter<RemoteTerminalProce
         if (result.success) {
           logger.debug('Auto-sent Ctrl+C for TUI command', { event: 'remote-terminal.tui.cancel.sent', commandId: data.commandId })
         } else {
-          logger.warn('Failed to auto-cancel TUI command', { event: 'remote-terminal.tui.cancel.failed', commandId: data.commandId, error: result.error || 'unknown' })
+          logger.warn('Failed to auto-cancel TUI command', {
+            event: 'remote-terminal.tui.cancel.failed',
+            commandId: data.commandId,
+            error: result.error || 'unknown'
+          })
         }
       } catch (error) {
-        logger.warn('Failed to auto-cancel TUI command', { event: 'remote-terminal.tui.cancel.error', commandId: data.commandId, error: error instanceof Error ? error.message : String(error) })
+        logger.warn('Failed to auto-cancel TUI command', {
+          event: 'remote-terminal.tui.cancel.error',
+          commandId: data.commandId,
+          error: error instanceof Error ? error.message : String(error)
+        })
       }
     })
 
@@ -518,7 +529,10 @@ export class RemoteTerminalProcess extends BrownEventEmitter<RemoteTerminalProce
         }
       }
     } catch (error) {
-      logger.error('Failed to send input to command', { event: 'remote-terminal.input.error', error: error instanceof Error ? error.message : String(error) })
+      logger.error('Failed to send input to command', {
+        event: 'remote-terminal.input.error',
+        error: error instanceof Error ? error.message : String(error)
+      })
       return { success: false, error: String(error), code: 'write-failed' }
     }
   }
@@ -957,7 +971,11 @@ export class RemoteTerminalManager {
 
     process.once('error', (error) => {
       terminalInfo.busy = false
-      logger.error('Remote terminal error', { event: 'remote-terminal.process.error', terminalId: terminalInfo.id, error: error instanceof Error ? error.message : String(error) })
+      logger.error('Remote terminal error', {
+        event: 'remote-terminal.process.error',
+        terminalId: terminalInfo.id,
+        error: error instanceof Error ? error.message : String(error)
+      })
     })
     const promise = new Promise<void>((resolve, reject) => {
       process.once('continue', () => {
@@ -1023,7 +1041,11 @@ export class RemoteTerminalManager {
         if (sshType === 'jumpserver') {
           const { jumpServerDisconnect } = await import('./jumpserverHandle')
           await jumpServerDisconnect(terminalInfo.sessionId)
-          logger.debug('JumpServer terminal disconnected', { event: 'remote-terminal.disconnect.jumpserver', terminalId, sessionId: terminalInfo.sessionId })
+          logger.debug('JumpServer terminal disconnected', {
+            event: 'remote-terminal.disconnect.jumpserver',
+            terminalId,
+            sessionId: terminalInfo.sessionId
+          })
         } else if (sshType !== 'ssh') {
           const bastionCapability = capabilityRegistry.getBastion(sshType)
           if (bastionCapability) {
@@ -1031,13 +1053,22 @@ export class RemoteTerminalManager {
           } else {
             logger.warn('Bastion capability not registered, skipping disconnect', { event: 'remote-terminal.disconnect.bastion.notfound', sshType })
           }
-          logger.debug('Bastion terminal disconnected', { event: 'remote-terminal.disconnect.bastion', sshType, terminalId, sessionId: terminalInfo.sessionId })
+          logger.debug('Bastion terminal disconnected', {
+            event: 'remote-terminal.disconnect.bastion',
+            sshType,
+            terminalId,
+            sessionId: terminalInfo.sessionId
+          })
         } else {
           await remoteSshDisconnect(terminalInfo.sessionId)
           logger.debug('SSH terminal disconnected', { event: 'remote-terminal.disconnect.ssh', terminalId, sessionId: terminalInfo.sessionId })
         }
       } catch (error) {
-        logger.error('Error disconnecting terminal', { event: 'remote-terminal.disconnect.error', terminalId, error: error instanceof Error ? error.message : String(error) })
+        logger.error('Error disconnecting terminal', {
+          event: 'remote-terminal.disconnect.error',
+          terminalId,
+          error: error instanceof Error ? error.message : String(error)
+        })
       }
     }
   }

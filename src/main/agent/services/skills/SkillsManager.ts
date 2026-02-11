@@ -740,7 +740,9 @@ export class SkillsManager {
       const isAbsolute = path.posix.isAbsolute(entryName) || /^[a-zA-Z]:/.test(entryName)
       const hasTraversal = entryName.split('/').includes('..')
       if (isAbsolute || hasTraversal) {
-        logger.error('[SkillsManager] Potential path traversal detected', { error: entryName instanceof Error ? entryName.message : String(entryName) })
+        logger.error('[SkillsManager] Potential path traversal detected', {
+          error: entryName instanceof Error ? entryName.message : String(entryName)
+        })
         return {
           success: false,
           error: 'ZIP file contains invalid paths',

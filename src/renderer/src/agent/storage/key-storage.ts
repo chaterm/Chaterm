@@ -1,6 +1,5 @@
 import { getUserInfo } from '@/utils/permission'
 
-
 const logger = createRendererLogger('agent.storage')
 
 // Get current user ID

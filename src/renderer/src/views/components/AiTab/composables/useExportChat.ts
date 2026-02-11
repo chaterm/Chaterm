@@ -3,7 +3,6 @@ import { useSessionState } from './useSessionState'
 import type { ChatMessage, MessageContent } from '../types'
 import i18n from '@/locales'
 
-
 const logger = createRendererLogger('aitab.exportChat')
 
 export function useExportChat() {

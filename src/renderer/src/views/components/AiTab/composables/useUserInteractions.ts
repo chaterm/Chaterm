@@ -5,7 +5,6 @@ import type { ChatOption, DocOption } from '../types'
 import type { ImageContentPart } from '@shared/WebviewMessage'
 import i18n from '@/locales'
 
-
 const logger = createRendererLogger('aitab.userInteractions')
 
 // Supported image types for upload

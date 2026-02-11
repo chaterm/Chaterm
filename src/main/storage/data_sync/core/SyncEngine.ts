@@ -404,7 +404,7 @@ export class SyncEngine {
         }
       }
     } catch (e) {
-    logger.warn('New format ciphertext decryption failed, skip record', { error: e instanceof Error ? e.message : String(e) })
+      logger.warn('New format ciphertext decryption failed, skip record', { error: e instanceof Error ? e.message : String(e) })
       logger.error('Decryption exception details:', {
         error: e,
         message: e instanceof Error ? e.message : String(e),

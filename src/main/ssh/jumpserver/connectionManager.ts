@@ -121,7 +121,11 @@ const attemptJumpServerConnection = async (
           const conn = existingData.conn
           conn.shell({ term: connectionInfo.terminalType || 'vt100' }, (err, newStream) => {
             if (err) {
-              logger.error('Failed to create shell with reused connection', { event: 'jumpserver.shell.reuse.error', connectionId, error: err.message })
+              logger.error('Failed to create shell with reused connection', {
+                event: 'jumpserver.shell.reuse.error',
+                connectionId,
+                error: err.message
+              })
               reject(new Error(`Failed to create shell with reused connection: ${err.message}`))
               return
             }
@@ -243,7 +247,11 @@ const attemptJumpServerConnection = async (
       logger.error('JumpServer connection error', { event: 'jumpserver.error', error: err.message })
 
       if ((err as any).level === 'client-authentication') {
-        logger.info('JumpServer MFA authentication failed', { event: 'jumpserver.mfa.failed', attemptCount: attemptCount + 1, maxAttempts: MAX_JUMPSERVER_MFA_ATTEMPTS })
+        logger.info('JumpServer MFA authentication failed', {
+          event: 'jumpserver.mfa.failed',
+          attemptCount: attemptCount + 1,
+          maxAttempts: MAX_JUMPSERVER_MFA_ATTEMPTS
+        })
 
         if (event) {
           event.sender.send('ssh:keyboard-interactive-result', {
@@ -285,7 +293,11 @@ export const handleJumpServerConnection = async (
 
   for (let attempt = 0; attempt < MAX_JUMPSERVER_MFA_ATTEMPTS; attempt++) {
     try {
-      logger.info('JumpServer connection attempt', { event: 'jumpserver.connect.attempt', attempt: attempt + 1, maxAttempts: MAX_JUMPSERVER_MFA_ATTEMPTS })
+      logger.info('JumpServer connection attempt', {
+        event: 'jumpserver.connect.attempt',
+        attempt: attempt + 1,
+        maxAttempts: MAX_JUMPSERVER_MFA_ATTEMPTS
+      })
       const result = await attemptJumpServerConnection(connectionInfo, event, attempt)
       return result
     } catch (error) {

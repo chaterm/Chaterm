@@ -2,8 +2,6 @@
  * Telemetry event capture utility functions
  */
 
-
-
 const logger = createRendererLogger('utils.telemetry')
 
 /**

@@ -3,8 +3,6 @@
  * Wraps IPC calls to main process
  */
 
-
-
 const logger = createRendererLogger('api.k8s')
 
 // Use a getter to ensure we always access the current window.api value

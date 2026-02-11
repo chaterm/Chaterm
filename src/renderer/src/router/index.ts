@@ -3,7 +3,6 @@ import { createRouter, createWebHashHistory } from 'vue-router'
 import { AppRoutes } from '@/router/routes'
 import { beforeEach, afterEach } from '@/router/guards'
 
-
 const logger = createRendererLogger('router')
 
 // Create router instance

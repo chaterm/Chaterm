@@ -38,10 +38,7 @@ export function createRendererLogger(module: string): LoggerLike {
       // Fallback to console if IPC bridge is not available
       // (e.g., during early renderer initialization)
       // eslint-disable-next-line no-console
-      console[level === 'debug' ? 'log' : level](
-        `[${module}] ${message}`,
-        meta || ''
-      )
+      console[level === 'debug' ? 'log' : level](`[${module}] ${message}`, meta || '')
     }
   }
 

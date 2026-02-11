@@ -17,8 +17,6 @@ export {
   resetOtpDialog
 } from './mfaState'
 
-
-
 const logger = createRendererLogger('mfa')
 
 export const setupGlobalMfaListeners = () => {

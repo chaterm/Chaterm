@@ -251,15 +251,11 @@ class CapabilityRegistry {
     if (capability) {
       // Validate supportsRefresh matches capability.refreshAssets existence
       if (definition.supportsRefresh && !capability.refreshAssets) {
-        logger.warn(
-          `Definition.supportsRefresh=true but capability.refreshAssets is not implemented for type: ${definition.type}`
-        )
+        logger.warn(`Definition.supportsRefresh=true but capability.refreshAssets is not implemented for type: ${definition.type}`)
       }
       // Validate supportsShellStream matches capability.getShellStream existence
       if (definition.supportsShellStream && !capability.getShellStream) {
-        logger.warn(
-          `Definition.supportsShellStream=true but capability.getShellStream is not implemented for type: ${definition.type}`
-        )
+        logger.warn(`Definition.supportsShellStream=true but capability.getShellStream is not implemented for type: ${definition.type}`)
       }
     }
 

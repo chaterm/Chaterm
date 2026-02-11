@@ -322,7 +322,10 @@ export const registerLocalSSHHandlers = () => {
       await createTerminal(config)
       return { success: true, message: 'Local terminal connected successfully' }
     } catch (error: unknown) {
-      localLogger.error('Local terminal connection failed', { event: 'terminal.error', error: error instanceof Error ? error.message : String(error) })
+      localLogger.error('Local terminal connection failed', {
+        event: 'terminal.error',
+        error: error instanceof Error ? error.message : String(error)
+      })
       const e = error as Error
       return { success: false, message: e.message }
     }

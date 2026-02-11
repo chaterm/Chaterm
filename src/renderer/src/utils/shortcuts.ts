@@ -1,6 +1,5 @@
 import { ref } from 'vue'
 
-
 const logger = createRendererLogger('utils.shortcuts')
 
 // Get current platform

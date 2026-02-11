@@ -8,7 +8,6 @@
 import { ref, onMounted, onUnmounted } from 'vue'
 import type { InteractionRequest, InteractionResponse, InteractionType, InteractionSubmitResult } from '../../../preload/index.d'
 
-
 const logger = createRendererLogger('composable.interactiveInput')
 
 /**

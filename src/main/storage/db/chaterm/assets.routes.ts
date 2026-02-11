@@ -53,7 +53,9 @@ export function getOrganizationAssetTypesWithExisting(db: Database.Database): st
       }
     }
   } catch (error) {
-    logger.warn('[getOrganizationAssetTypesWithExisting] Failed to query existing types', { error: error instanceof Error ? error.message : String(error) })
+    logger.warn('[getOrganizationAssetTypesWithExisting] Failed to query existing types', {
+      error: error instanceof Error ? error.message : String(error)
+    })
   }
 
   return types

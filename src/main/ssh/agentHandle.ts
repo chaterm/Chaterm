@@ -254,7 +254,10 @@ export async function remoteSshExecStream(
         try {
           onData(data.toString())
         } catch (cbErr) {
-          logger.error('remoteSshExecStream onData callback error', { event: 'ssh.exec.stream.callback.error', error: cbErr instanceof Error ? cbErr.message : String(cbErr) })
+          logger.error('remoteSshExecStream onData callback error', {
+            event: 'ssh.exec.stream.callback.error',
+            error: cbErr instanceof Error ? cbErr.message : String(cbErr)
+          })
         }
       })
 
@@ -262,7 +265,10 @@ export async function remoteSshExecStream(
         try {
           onData(data.toString())
         } catch (cbErr) {
-          logger.error('remoteSshExecStream stderr callback error', { event: 'ssh.exec.stream.callback.error', error: cbErr instanceof Error ? cbErr.message : String(cbErr) })
+          logger.error('remoteSshExecStream stderr callback error', {
+            event: 'ssh.exec.stream.callback.error',
+            error: cbErr instanceof Error ? cbErr.message : String(cbErr)
+          })
         }
       })
 
@@ -275,7 +281,10 @@ export async function remoteSshExecStream(
           try {
             onData(`\n[Exit Code: ${code}]`)
           } catch (cbErr) {
-            logger.error('remoteSshExecStream onData callback error', { event: 'ssh.exec.stream.callback.error', error: cbErr instanceof Error ? cbErr.message : String(cbErr) })
+            logger.error('remoteSshExecStream onData callback error', {
+              event: 'ssh.exec.stream.callback.error',
+              error: cbErr instanceof Error ? cbErr.message : String(cbErr)
+            })
           }
         }
 
@@ -283,7 +292,10 @@ export async function remoteSshExecStream(
           try {
             onData("\nCommand not found. Please check if the command exists in the remote server's PATH.")
           } catch (cbErr) {
-            logger.error('remoteSshExecStream onData callback error', { event: 'ssh.exec.stream.callback.error', error: cbErr instanceof Error ? cbErr.message : String(cbErr) })
+            logger.error('remoteSshExecStream onData callback error', {
+              event: 'ssh.exec.stream.callback.error',
+              error: cbErr instanceof Error ? cbErr.message : String(cbErr)
+            })
           }
         }
 

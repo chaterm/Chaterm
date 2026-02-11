@@ -2,7 +2,6 @@ import { onMounted, watch, computed, ref } from 'vue'
 import { useRoute } from 'vue-router'
 import { useVersionPromptStore } from '@/store/versionPromptStore'
 
-
 const logger = createRendererLogger('composable.versionPrompt')
 
 const FETCH_DELAY_MS = 1200

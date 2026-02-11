@@ -280,8 +280,12 @@ export async function saveContextHistoryLogic(db: Database.Database, taskId: str
     jsonDataString = JSON.stringify(contextHistory)
     logger.info('[saveContextHistory] JSON.stringify successful', { dataLength: jsonDataString?.length, type: typeof jsonDataString })
   } catch (stringifyError) {
-    logger.error('[saveContextHistory] Error during JSON.stringify', { error: stringifyError instanceof Error ? stringifyError.message : String(stringifyError) })
-    logger.error('[saveContextHistory] Original contextHistory object that caused error', { error: contextHistory instanceof Error ? contextHistory.message : String(contextHistory) })
+    logger.error('[saveContextHistory] Error during JSON.stringify', {
+      error: stringifyError instanceof Error ? stringifyError.message : String(stringifyError)
+    })
+    logger.error('[saveContextHistory] Original contextHistory object that caused error', {
+      error: contextHistory instanceof Error ? contextHistory.message : String(contextHistory)
+    })
     if (stringifyError instanceof Error) {
       throw new Error(`Failed to stringify contextHistory: ${stringifyError.message}`)
     } else {
@@ -307,7 +311,10 @@ export async function saveContextHistoryLogic(db: Database.Database, taskId: str
     upsertStmt.run(taskId, jsonDataString)
     logger.info('[saveContextHistory] Upsert successful for Task ID', { value: taskId })
   } catch (error) {
-    logger.error('[saveContextHistory] Failed to save context history to DB', { taskId, error: error instanceof Error ? error.message : String(error) })
+    logger.error('[saveContextHistory] Failed to save context history to DB', {
+      taskId,
+      error: error instanceof Error ? error.message : String(error)
+    })
     logger.error('[saveContextHistory] Data that caused error', { dataLength: jsonDataString?.length })
     throw error
   }

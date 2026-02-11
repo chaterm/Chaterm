@@ -84,7 +84,9 @@ export class Controller {
       try {
         await task.reloadSecurityConfig()
       } catch (error) {
-        logger.warn(`[SecurityConfig] Failed to hot reload configuration in Task ${task.taskId}`, { error: error instanceof Error ? error.message : String(error) })
+        logger.warn(`[SecurityConfig] Failed to hot reload configuration in Task ${task.taskId}`, {
+          error: error instanceof Error ? error.message : String(error)
+        })
       }
     })
     await Promise.allSettled(promises)

@@ -6,7 +6,6 @@ import eventBus from '@/utils/eventBus'
 import { Notice } from '@/views/components/Notice'
 import { getBastionHostType } from '../../LeftTab/utils/types'
 
-
 const logger = createRendererLogger('aitab.hostState')
 
 /**

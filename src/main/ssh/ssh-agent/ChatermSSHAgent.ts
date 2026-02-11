@@ -203,7 +203,10 @@ export class SSHAgent extends BaseAgent {
       try {
         this.handleAgentMessage(socket, messageData)
       } catch (error) {
-        logger.error('SSH Agent error handling message', { event: 'ssh.agent.message.error', error: error instanceof Error ? error.message : String(error) })
+        logger.error('SSH Agent error handling message', {
+          event: 'ssh.agent.message.error',
+          error: error instanceof Error ? error.message : String(error)
+        })
         this.sendFailureResponse(socket)
       }
 
@@ -263,7 +266,11 @@ export class SSHAgent extends BaseAgent {
     offset += 4
 
     keys.forEach((key) => {
-      logger.debug('Adding key to identity response', { event: 'ssh.agent.identity.add', comment: key.comment, publicKeyLength: key.publicKey.length })
+      logger.debug('Adding key to identity response', {
+        event: 'ssh.agent.identity.add',
+        comment: key.comment,
+        publicKeyLength: key.publicKey.length
+      })
 
       // Public key length
       response.writeUInt32BE(key.publicKey.length, offset)
@@ -671,7 +678,10 @@ export class SSHAgentManager {
         agent: this.agent
       }
     } catch (error) {
-      logger.error('Failed to start Chaterm SSH Agent', { event: 'ssh.agent.ipc.start.error', error: error instanceof Error ? error.message : String(error) })
+      logger.error('Failed to start Chaterm SSH Agent', {
+        event: 'ssh.agent.ipc.start.error',
+        error: error instanceof Error ? error.message : String(error)
+      })
       throw error
     }
   }

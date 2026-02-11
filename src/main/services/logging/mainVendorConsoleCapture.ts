@@ -81,9 +81,7 @@ function extractErrorMeta(args: unknown[]): Record<string, unknown> {
 
 function buildMessage(args: unknown[]): string {
   const firstError = args.find((arg): arg is Error => arg instanceof Error)
-  const nonErrorParts = args
-    .filter((arg) => !(arg instanceof Error))
-    .map((arg) => serializeConsoleArg(arg))
+  const nonErrorParts = args.filter((arg) => !(arg instanceof Error)).map((arg) => serializeConsoleArg(arg))
 
   if (!firstError) {
     return nonErrorParts.join(' ')

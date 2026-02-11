@@ -1,7 +1,6 @@
 import { ref, computed, nextTick, type Ref, type InjectionKey } from 'vue'
 import type { ContextCommandRef, ContentPart } from '@shared/WebviewMessage'
 
-
 const logger = createRendererLogger('aitab.commandSelect')
 
 // Command option from knowledge base commands directory

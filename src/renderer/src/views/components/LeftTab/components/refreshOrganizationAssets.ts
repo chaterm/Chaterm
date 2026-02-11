@@ -3,7 +3,6 @@ import eventBus from '@/utils/eventBus'
 import i18n from '@/locales'
 import { isOrganizationAsset } from '../utils/types'
 
-
 const { t } = i18n.global
 const logger = createRendererLogger('config.refreshAssets')
 

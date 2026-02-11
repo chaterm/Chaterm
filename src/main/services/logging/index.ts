@@ -7,11 +7,7 @@ import type Logger from 'electron-log'
 import { app, ipcMain, shell } from 'electron'
 import * as path from 'path'
 import type { LogLevel, LoggerLike, LogWritePayload } from './types'
-import {
-  AUDIT_EVENTS,
-  MAX_MESSAGE_LENGTH,
-  resolveChannel
-} from './types'
+import { AUDIT_EVENTS, MAX_MESSAGE_LENGTH, resolveChannel } from './types'
 import { sanitizeHook } from './sanitizer'
 import { formatNdjsonLine } from './ndjson'
 import { loadConfig, getConfig } from './logConfigStore'
@@ -33,10 +29,7 @@ let unifiedLogger: Logger.MainLogger | null = null
  * Check if a log entry qualifies as an audit event (always written even when disabled)
  */
 function isAuditEntry(level: LogLevel, meta?: Record<string, unknown>): boolean {
-  return (
-    level === 'error' ||
-    (typeof meta?.event === 'string' && AUDIT_EVENTS.has(meta.event))
-  )
+  return level === 'error' || (typeof meta?.event === 'string' && AUDIT_EVENTS.has(meta.event))
 }
 
 /**
@@ -63,8 +56,7 @@ function getOrCreateLogger(): Logger.MainLogger {
   // Configure file transport
   const config = getConfig()
   const fileTransport = logger.transports.file
-  fileTransport.resolvePathFn = () =>
-    path.join(app.getPath('userData'), 'logs', buildLogFileName())
+  fileTransport.resolvePathFn = () => path.join(app.getPath('userData'), 'logs', buildLogFileName())
   fileTransport.maxSize = config.maxFileSizeMB * 1024 * 1024
   fileTransport.format = formatNdjsonLine as any
 
@@ -192,7 +184,7 @@ export function initLogging(): void {
   const config = getConfig()
   RAW_CONSOLE.info(
     `[logging] Initialized: level=${config.level}, enabled=${config.enabled}, ` +
-    `retention=${config.retentionDays}d, maxFile=${config.maxFileSizeMB}MB, maxTotal=${config.maxTotalSizeMB}MB`
+      `retention=${config.retentionDays}d, maxFile=${config.maxFileSizeMB}MB, maxTotal=${config.maxTotalSizeMB}MB`
   )
 
   // Pre-create unified logger
@@ -239,11 +231,7 @@ function scheduleRetention(): void {
 /**
  * Log a renderer crash event (audit event, always written)
  */
-export function logRendererCrash(details: {
-  webContentsId: number
-  reason: string
-  exitCode: number
-}): void {
+export function logRendererCrash(details: { webContentsId: number; reason: string; exitCode: number }): void {
   const processLogger = createLogger('process')
   processLogger.error('Renderer process crashed', {
     event: 'renderer.crash',

@@ -18,8 +18,6 @@ export {
   cancelUserSelection
 } from './userSelectionState'
 
-
-
 const logger = createRendererLogger('userSelection')
 
 // Setup global listeners

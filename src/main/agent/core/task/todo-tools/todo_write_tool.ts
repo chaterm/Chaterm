@@ -31,7 +31,9 @@ export class TodoWriteTool {
       // 2. Validate params
       const result = TodoArraySchema.safeParse(processedTodos)
       if (!result.success) {
-        logger.error('[TodoWriteTool] Parameter validation failed', { error: result.error instanceof Error ? result.error.message : String(result.error) })
+        logger.error('[TodoWriteTool] Parameter validation failed', {
+          error: result.error instanceof Error ? result.error.message : String(result.error)
+        })
         throw new Error(`Parameter validation failed: ${result.error.message}`)
       }
 

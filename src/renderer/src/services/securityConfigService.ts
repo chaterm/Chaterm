@@ -1,5 +1,3 @@
-
-
 const logger = createRendererLogger('service.securityConfig')
 
 export class SecurityConfigService {

@@ -1,6 +1,5 @@
 import { useDeviceStore } from '@/store/useDeviceStore'
 
-
 const logger = createRendererLogger('utils.login')
 
 export interface LoginLogData {

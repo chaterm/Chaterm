@@ -1,5 +1,3 @@
-
-
 const logger = createRendererLogger('service.keywordHighlightConfig')
 
 export class KeywordHighlightConfigService {

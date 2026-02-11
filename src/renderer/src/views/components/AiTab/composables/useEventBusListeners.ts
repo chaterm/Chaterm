@@ -8,7 +8,6 @@ import { isSwitchAssetType } from '../utils'
 import i18n from '@/locales'
 import { Notice } from '@/views/components/Notice'
 
-
 const logger = createRendererLogger('aitab.eventBus')
 
 interface UseEventBusListenersParams {

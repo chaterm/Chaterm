@@ -88,7 +88,10 @@ class JumpServerClient {
           logger.debug('Two-factor authentication required, calling handler', { event: 'jumpserver.asset.2fa' })
           // Call handler but don't wait for its result, as authentication result will be determined by ready or error event
           this.keyboardInteractiveHandler(prompts, finish).catch((err) => {
-            logger.error('Two-factor authentication handler error', { event: 'jumpserver.asset.2fa.error', error: err instanceof Error ? err.message : String(err) })
+            logger.error('Two-factor authentication handler error', {
+              event: 'jumpserver.asset.2fa.error',
+              error: err instanceof Error ? err.message : String(err)
+            })
             this.conn?.end()
             reject(err)
           })
@@ -232,7 +235,12 @@ class JumpServerClient {
     let output = await this.executeCommand('p')
     logger.debug('Received first page output', { event: 'jumpserver.asset.fetch.page.done', page: 1, outputLength: output.length })
     let { assets: pageAssets, pagination } = parseJumpserverOutput(output)
-    logger.debug('Parsed first page', { event: 'jumpserver.asset.fetch.page.parsed', page: 1, assetCount: pageAssets.length, totalPages: pagination.totalPages })
+    logger.debug('Parsed first page', {
+      event: 'jumpserver.asset.fetch.page.parsed',
+      page: 1,
+      assetCount: pageAssets.length,
+      totalPages: pagination.totalPages
+    })
 
     pageAssets.forEach((asset) => {
       if (!seenAssetAddresses.has(asset.address)) {
@@ -299,7 +307,12 @@ class JumpServerClient {
         }
       } catch (error) {
         consecutiveFailures++
-        logger.error('Failed to fetch page', { event: 'jumpserver.asset.fetch.error', page: nextPage, consecutiveFailures, error: error instanceof Error ? error.message : String(error) })
+        logger.error('Failed to fetch page', {
+          event: 'jumpserver.asset.fetch.error',
+          page: nextPage,
+          consecutiveFailures,
+          error: error instanceof Error ? error.message : String(error)
+        })
 
         if (consecutiveFailures >= MAX_CONSECUTIVE_FAILURES) {
           logger.warn('Too many consecutive failures, stopping', { event: 'jumpserver.asset.fetch.abort', consecutiveFailures })

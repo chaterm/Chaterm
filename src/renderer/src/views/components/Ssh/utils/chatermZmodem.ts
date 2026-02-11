@@ -1,7 +1,6 @@
 import { nextTick, ref } from 'vue'
 import Zmodem from 'zmodem.js'
 
-
 const logger = createRendererLogger('ssh.zmodem')
 
 const api = window.api as any
@@ -227,7 +226,7 @@ export function useZmodem() {
         try {
           isSzCanceling.value = false
           activeZSession.abort()
-        } catch (e) { }
+        } catch (e) {}
       }
     }, 1000)
   }
@@ -240,7 +239,7 @@ export function useZmodem() {
         logger.warn('Session not received, forcibly terminated', { reason })
         try {
           await zsession.close?.()
-        } catch { }
+        } catch {}
         cleanup('watchdog_force_close')
       }, SZ_SESSION_END_WATCHDOG_MS)
     }
@@ -312,7 +311,7 @@ export function useZmodem() {
         writeOctetsToTerminal(octets, '')
       },
       sender: (octets: U8) => externalHandlers.sendBinaryData?.(octets),
-      on_retract: () => { },
+      on_retract: () => {},
       on_detect: async (detection: any) => {
         isZmodemActive = true
         const zsession = detection.confirm()
@@ -399,7 +398,7 @@ export function useZmodem() {
               abortRemoteZmodem()
               try {
                 await zsession.close?.()
-              } catch { }
+              } catch {}
               cleanup('send_cancel')
               await new Promise((resolve) => setTimeout(resolve, 100))
               return
@@ -411,14 +410,14 @@ export function useZmodem() {
             await sendPickedWithProgress(zsession, picked)
             try {
               await zsession.close?.()
-            } catch { }
+            } catch {}
             cleanup('send_done')
             return
           }
         } catch (e) {
           try {
             await zsession.close?.()
-          } catch { }
+          } catch {}
           cleanup('error')
         }
       }
@@ -479,7 +478,7 @@ export function useZmodem() {
         try {
           // Process the remaining data
           writeOctetsToTerminal(u8)
-        } catch (e2) { }
+        } catch (e2) {}
         return
       }
       throw e

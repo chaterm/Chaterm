@@ -79,10 +79,8 @@ describe('sanitizer', () => {
       // depth 0=root, 1=l1, 2=l2, 3=l3, 4=l4, 5=l5 exceeds MAX_DEPTH
       const deep = { l1: { l2: { l3: { l4: { l5: 'deep' } } } } }
       const result = sanitize(deep) as Record<string, unknown>
-      const l4 = (
-        (((result as Record<string, unknown>).l1 as Record<string, unknown>).l2 as Record<string, unknown>)
-          .l3 as Record<string, unknown>
-      ).l4 as Record<string, unknown>
+      const l4 = ((((result as Record<string, unknown>).l1 as Record<string, unknown>).l2 as Record<string, unknown>).l3 as Record<string, unknown>)
+        .l4 as Record<string, unknown>
       expect(l4.l5).toBe('[MAX_DEPTH]')
     })
   })

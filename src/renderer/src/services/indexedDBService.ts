@@ -1,5 +1,3 @@
-
-
 const logger = createRendererLogger('service.indexedDB')
 
 interface StoreConfig {

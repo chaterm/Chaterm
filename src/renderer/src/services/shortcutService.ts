@@ -3,7 +3,6 @@ import type { ShortcutConfig } from './userConfigStoreService'
 import eventBus from '@/utils/eventBus'
 import { shortcutActions } from '@/config/shortcutActions'
 
-
 const logger = createRendererLogger('service.shortcut')
 
 export interface ShortcutAction {

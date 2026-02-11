@@ -1,7 +1,6 @@
 import { getUserInfo } from '@/utils/permission'
 import { dataSyncService } from '@/services/dataSyncService'
 
-
 const logger = createRendererLogger('router')
 
 export const beforeEach = async (to, _from, next) => {
@@ -87,4 +86,4 @@ export const beforeEach = async (to, _from, next) => {
   }
 }
 
-export const afterEach = () => { }
+export const afterEach = () => {}

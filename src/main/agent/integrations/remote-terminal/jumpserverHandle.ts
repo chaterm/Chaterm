@@ -155,7 +155,12 @@ const initializeJumpServerShell = (
     const chunk = data.toString('utf8').replace(ansiRegex, '')
     outputBuffer += chunk
 
-    logger.debug('Received data from JumpServer', { event: 'remote-terminal.jumpserver.data', connectionId, phase: connectionPhase, size: chunk.length })
+    logger.debug('Received data from JumpServer', {
+      event: 'remote-terminal.jumpserver.data',
+      connectionId,
+      phase: connectionPhase,
+      size: chunk.length
+    })
 
     // Handle different responses based on connection phase
     if (connectionPhase === 'connecting' && outputBuffer.includes('Opt>')) {
@@ -208,7 +213,11 @@ const initializeJumpServerShell = (
             stream.write(selectedUserId.toString() + '\r')
           })
           .catch((err) => {
-            logger.error('User selection failed', { event: 'remote-terminal.jumpserver.user.error', connectionId, error: err instanceof Error ? err.message : String(err) })
+            logger.error('User selection failed', {
+              event: 'remote-terminal.jumpserver.user.error',
+              connectionId,
+              error: err instanceof Error ? err.message : String(err)
+            })
             if (connectionTimeout) {
               clearTimeout(connectionTimeout)
             }
@@ -231,7 +240,12 @@ const initializeJumpServerShell = (
           logger.debug('Direct connection without password', { event: 'remote-terminal.jumpserver.connect.direct', connectionId, reason })
           handleConnectionSuccess(`No password - ${reason}`)
         } else {
-          logger.debug('Waiting for connection response', { event: 'remote-terminal.jumpserver.waiting', connectionId, phase: 'inputIp', bufferSize: outputBuffer.length })
+          logger.debug('Waiting for connection response', {
+            event: 'remote-terminal.jumpserver.waiting',
+            connectionId,
+            phase: 'inputIp',
+            bufferSize: outputBuffer.length
+          })
         }
       }
     } else if (connectionPhase === 'selectUser') {
@@ -247,7 +261,11 @@ const initializeJumpServerShell = (
       } else {
         const reason = detectDirectConnectionReason(outputBuffer)
         if (reason) {
-          logger.debug('Direct connection after user selection', { event: 'remote-terminal.jumpserver.connect.direct.afteruser', connectionId, reason })
+          logger.debug('Direct connection after user selection', {
+            event: 'remote-terminal.jumpserver.connect.direct.afteruser',
+            connectionId,
+            reason
+          })
           handleConnectionSuccess(`User selection - ${reason}`)
         }
       }
@@ -290,7 +308,12 @@ const initializeJumpServerShell = (
 
   stream.on('close', () => {
     const elapsed = Date.now() - startTime
-    logger.debug('JumpServer stream closed', { event: 'remote-terminal.jumpserver.stream.close', connectionId, phase: connectionPhase, elapsedMs: elapsed })
+    logger.debug('JumpServer stream closed', {
+      event: 'remote-terminal.jumpserver.stream.close',
+      connectionId,
+      phase: connectionPhase,
+      elapsedMs: elapsed
+    })
     if (connectionTimeout) {
       clearTimeout(connectionTimeout)
     }
@@ -368,14 +391,22 @@ export const handleJumpServerConnection = async (connectionInfo: {
         const startTime = Date.now()
         const connectionTimeout = setTimeout(() => {
           const elapsed = Date.now() - startTime
-          logger.error('Reused connection shell creation timeout', { event: 'remote-terminal.jumpserver.reuse.timeout', connectionId, elapsedMs: elapsed })
+          logger.error('Reused connection shell creation timeout', {
+            event: 'remote-terminal.jumpserver.reuse.timeout',
+            connectionId,
+            elapsedMs: elapsed
+          })
           reject(new Error('JumpServer reused connection failed: Shell creation timeout'))
         }, 35000)
 
         reusable.conn.shell((err, stream) => {
           if (err) {
             clearTimeout(connectionTimeout)
-            logger.error('Reused connection shell creation failed', { event: 'remote-terminal.jumpserver.reuse.error', connectionId, error: err.message })
+            logger.error('Reused connection shell creation failed', {
+              event: 'remote-terminal.jumpserver.reuse.error',
+              connectionId,
+              error: err.message
+            })
             reject(new Error(`Reused connection shell creation failed: ${err.message}`))
             return
           }
@@ -442,7 +473,11 @@ export const handleJumpServerConnection = async (connectionInfo: {
         logger.debug('Private key authentication configured', { event: 'remote-terminal.jumpserver.auth.privatekey', connectionId })
       } catch (err: unknown) {
         clearTimeout(connectionTimeout)
-        logger.error('Private key format error', { event: 'remote-terminal.jumpserver.auth.key.error', connectionId, error: err instanceof Error ? err.message : String(err) })
+        logger.error('Private key format error', {
+          event: 'remote-terminal.jumpserver.auth.key.error',
+          connectionId,
+          error: err instanceof Error ? err.message : String(err)
+        })
         return reject(new Error(`Private key format error: ${err instanceof Error ? err.message : String(err)}`))
       }
     } else if (connectionInfo.password) {
@@ -496,7 +531,11 @@ export const handleJumpServerConnection = async (connectionInfo: {
           reject(new Error('User cancelled two-factor authentication'))
         })
       } catch (err) {
-        logger.error('Two-factor authentication failed', { event: 'remote-terminal.jumpserver.2fa.error', connectionId, error: err instanceof Error ? err.message : String(err) })
+        logger.error('Two-factor authentication failed', {
+          event: 'remote-terminal.jumpserver.2fa.error',
+          connectionId,
+          error: err instanceof Error ? err.message : String(err)
+        })
         conn.end() // Close connection
         reject(err)
       }
@@ -504,7 +543,11 @@ export const handleJumpServerConnection = async (connectionInfo: {
 
     conn.on('ready', () => {
       const elapsed = Date.now() - startTime
-      logger.info('SSH connection established, starting shell creation', { event: 'remote-terminal.jumpserver.ssh.ready', connectionId, elapsedMs: elapsed })
+      logger.info('SSH connection established, starting shell creation', {
+        event: 'remote-terminal.jumpserver.ssh.ready',
+        connectionId,
+        elapsedMs: elapsed
+      })
 
       // Send MFA verification success event to frontend
       const { BrowserWindow } = require('electron')
@@ -539,7 +582,14 @@ export const handleJumpServerConnection = async (connectionInfo: {
 
     conn.on('error', (err: any) => {
       const elapsed = Date.now() - startTime
-      logger.error('JumpServer connection error', { event: 'remote-terminal.jumpserver.connect.error', connectionId, elapsedMs: elapsed, error: err.message, code: err.code, level: err.level })
+      logger.error('JumpServer connection error', {
+        event: 'remote-terminal.jumpserver.connect.error',
+        connectionId,
+        elapsedMs: elapsed,
+        error: err.message,
+        code: err.code,
+        level: err.level
+      })
 
       // Send MFA verification failure event to frontend
       const { BrowserWindow } = require('electron')

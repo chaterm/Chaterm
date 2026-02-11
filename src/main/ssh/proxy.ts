@@ -77,7 +77,14 @@ const createSocksConnection = async (config: ProxyConfig, targetHost: string, ta
       }
     }
 
-    proxyLogger.debug('Creating SOCKS proxy connection', { event: 'ssh.proxy.connect', type, targetHost, targetPort, proxyHost: host, proxyPort: port })
+    proxyLogger.debug('Creating SOCKS proxy connection', {
+      event: 'ssh.proxy.connect',
+      type,
+      targetHost,
+      targetPort,
+      proxyHost: host,
+      proxyPort: port
+    })
 
     const connectionOptions = {
       proxy: proxyConfig,
@@ -93,7 +100,11 @@ const createSocksConnection = async (config: ProxyConfig, targetHost: string, ta
     proxyLogger.debug('SOCKS proxy connection established', { event: 'ssh.proxy.connected', type })
     return socket
   } catch (error) {
-    proxyLogger.error('SOCKS proxy connection failed', { event: 'ssh.proxy.error', type, error: error instanceof Error ? error.message : String(error) })
+    proxyLogger.error('SOCKS proxy connection failed', {
+      event: 'ssh.proxy.error',
+      type,
+      error: error instanceof Error ? error.message : String(error)
+    })
 
     // Provide more detailed error information
     if (error instanceof Error) {
@@ -131,7 +142,14 @@ const createHttpConnection = (config: ProxyConfig, targetHost: string, targetPor
       reject(new ProxyConnectionError(`HTTP proxy connection failed: ${error.message}`, type))
     }
 
-    proxyLogger.debug('Creating HTTP proxy connection', { event: 'ssh.proxy.connect', type, targetHost, targetPort, proxyHost: host, proxyPort: port })
+    proxyLogger.debug('Creating HTTP proxy connection', {
+      event: 'ssh.proxy.connect',
+      type,
+      targetHost,
+      targetPort,
+      proxyHost: host,
+      proxyPort: port
+    })
 
     const proxySocket = net.connect(port!, host!, () => {
       try {

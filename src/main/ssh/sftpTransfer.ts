@@ -229,7 +229,12 @@ export async function transferDirR2R(event: any, args: R2RDirArgs) {
       toPath: f.to,
       autoRename: false
     }).catch((err) => {
-      sftpLogger.error('R2R file transfer error', { event: 'ssh.sftp.r2r.error', from: f.from, to: f.to, error: err instanceof Error ? err.message : String(err) })
+      sftpLogger.error('R2R file transfer error', {
+        event: 'ssh.sftp.r2r.error',
+        from: f.from,
+        to: f.to,
+        error: err instanceof Error ? err.message : String(err)
+      })
       throw err
     })
   })

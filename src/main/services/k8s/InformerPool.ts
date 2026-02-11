@@ -374,7 +374,9 @@ export class InformerPool extends EventEmitter {
 
       logger.info(`[K8s InformerPool] Started ${resourceType} informer for ${options.contextName}`)
     } catch (error) {
-      logger.error(`[K8s InformerPool] Failed to start ${resourceType} informer for ${options.contextName}`, { error: error instanceof Error ? error.message : String(error) })
+      logger.error(`[K8s InformerPool] Failed to start ${resourceType} informer for ${options.contextName}`, {
+        error: error instanceof Error ? error.message : String(error)
+      })
       throw error
     }
   }
