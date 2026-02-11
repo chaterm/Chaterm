@@ -9,6 +9,9 @@ import { remoteSshConnect, remoteSshExecStream, remoteSshDisconnect } from '../.
 import { handleJumpServerConnection, jumpserverShellStreams } from './jumpserverHandle'
 import { capabilityRegistry, BastionErrorCode } from '../../../ssh/capabilityRegistry'
 import { runMarkerBasedCommand, type MarkerStream } from './marker-based-runner'
+import { createLogger } from '@logging'
+
+const logger = createLogger('remote-terminal')
 
 // Static imports for interaction detection (required for Vite bundling)
 import {
@@ -48,7 +51,7 @@ try {
     packageInfo = JSON.parse(fs.readFileSync(fallbackPath, 'utf8'))
   }
 } catch (error) {
-  console.error('Failed to read package.json:', error)
+  logger.error('Failed to read package.json', { event: 'remote-terminal.init.package.error', error: error instanceof Error ? error.message : String(error) })
   // Provide a default packageInfo object if both paths fail
   packageInfo = { name: 'chaterm', version: 'unknown' }
 }
@@ -115,7 +118,7 @@ export interface RemoteTerminalInfo {
 /**
  * Clean working directory path by removing ANSI sequences and terminal prompts
  */
-function cleanWorkingDirectory(cwd: string | undefined, logPrefix: string): string | undefined {
+function cleanWorkingDirectory(cwd: string | undefined, _logPrefix: string): string | undefined {
   if (!cwd) return undefined
 
   const cleanCwd = cwd
@@ -134,14 +137,14 @@ function cleanWorkingDirectory(cwd: string | undefined, logPrefix: string): stri
 
   // Validate if path is valid (should be absolute path or relative path)
   if (cleanCwd && !cleanCwd.match(/^[\/~]|^[a-zA-Z0-9_\-\.\/]+$/)) {
-    console.log(`[${logPrefix}] Invalid working directory path, ignoring: "${cleanCwd}"`)
+    logger.debug('Invalid working directory path, ignoring', { event: 'remote-terminal.cwd.invalid' })
     return undefined
   }
 
   if (cwd && cleanCwd) {
-    console.log(`[${logPrefix}] Original path: "${cwd}" -> Cleaned: "${cleanCwd}"`)
+    logger.debug('Working directory path cleaned', { event: 'remote-terminal.cwd.cleaned' })
   } else if (cwd && !cleanCwd) {
-    console.log(`[${logPrefix}] Path cleaning failed, original: "${cwd}"`)
+    logger.debug('Working directory path cleaning failed', { event: 'remote-terminal.cwd.clean.failed' })
   }
 
   return cleanCwd || undefined
@@ -284,39 +287,37 @@ export class RemoteTerminalProcess extends BrownEventEmitter<RemoteTerminalProce
 
     // Set up detector event handlers
     detector.on('interaction-needed', (request: InteractionRequest) => {
-      console.log(`[RemoteTerminalProcess] Interaction needed: ${request.interactionType}`)
+      logger.debug('Interaction needed', { event: 'remote-terminal.interaction.needed', interactionType: request.interactionType })
       broadcastInteractionNeeded(request)
       this.emit('interaction-needed', request)
     })
 
     detector.on('interaction-suppressed', (data: { commandId: string }) => {
-      console.log(`[RemoteTerminalProcess] Interaction suppressed: ${data.commandId}`)
+      logger.debug('Interaction suppressed', { event: 'remote-terminal.interaction.suppressed', commandId: data.commandId })
       broadcastInteractionSuppressed(data.commandId)
       this.emit('interaction-suppressed', data)
     })
 
     detector.on('tui-detected', async (data: { commandId: string; taskId?: string; message: string }) => {
-      console.log(`[RemoteTerminalProcess] TUI detected: ${data.commandId}`)
+      logger.debug('TUI detected', { event: 'remote-terminal.tui.detected', commandId: data.commandId })
       broadcastTuiDetected(data.commandId, data.message, data.taskId)
       this.emit('tui-detected', data)
       // Send Ctrl+C immediately to cancel TUI program
       try {
         const result = await this.sendInput('\x03')
         if (result.success) {
-          console.log(`[RemoteTerminalProcess] Auto-sent Ctrl+C for TUI command: ${data.commandId}`)
+          logger.debug('Auto-sent Ctrl+C for TUI command', { event: 'remote-terminal.tui.cancel.sent', commandId: data.commandId })
         } else {
-          console.warn(`[RemoteTerminalProcess] Failed to auto-cancel TUI command: ${data.commandId}, error: ${result.error || 'unknown'}`)
+          logger.warn('Failed to auto-cancel TUI command', { event: 'remote-terminal.tui.cancel.failed', commandId: data.commandId, error: result.error || 'unknown' })
         }
       } catch (error) {
-        console.warn(
-          `[RemoteTerminalProcess] Failed to auto-cancel TUI command: ${data.commandId}, error: ${error instanceof Error ? error.message : String(error)}`
-        )
+        logger.warn('Failed to auto-cancel TUI command', { event: 'remote-terminal.tui.cancel.error', commandId: data.commandId, error: error instanceof Error ? error.message : String(error) })
       }
     })
 
     // Listen for alternate screen (TUI programs like vim, man, git log)
     detector.on('alternate-screen-entered', (data: { commandId: string; taskId?: string; autoCancel: boolean }) => {
-      console.log(`[RemoteTerminalProcess] Alternate screen entered: ${data.commandId}, autoCancel: ${data.autoCancel}`)
+      logger.debug('Alternate screen entered', { event: 'remote-terminal.alternate.screen', commandId: data.commandId, autoCancel: data.autoCancel })
       const message = data.autoCancel ? this.getLocalizedTuiMessage() : this.getLocalizedTuiNoAutoCancelMessage()
       broadcastAlternateScreenEntered(data.commandId, message, data.taskId)
     })
@@ -370,7 +371,7 @@ export class RemoteTerminalProcess extends BrownEventEmitter<RemoteTerminalProce
    * This unblocks any code waiting on the process Promise
    */
   forceTerminate(): void {
-    console.log(`[RemoteTerminalProcess] forceTerminate called for command: ${this.commandId}`)
+    logger.debug('Force terminate called', { event: 'remote-terminal.process.force.terminate', commandId: this.commandId })
     this.cleanupInteractionDetector()
     this.emit('completed')
     this.emit('continue')
@@ -517,7 +518,7 @@ export class RemoteTerminalProcess extends BrownEventEmitter<RemoteTerminalProce
         }
       }
     } catch (error) {
-      console.error('Failed to send input to command:', error)
+      logger.error('Failed to send input to command', { event: 'remote-terminal.input.error', error: error instanceof Error ? error.message : String(error) })
       return { success: false, error: String(error), code: 'write-failed' }
     }
   }
@@ -924,7 +925,7 @@ export class RemoteTerminalManager {
       }
 
       this.terminals.set(terminalInfo.id, terminalInfo)
-      console.log('SSH connection established successfully, terminal created')
+      logger.info('SSH connection established, terminal created', { event: 'remote-terminal.connect.success' })
       return terminalInfo
     } catch (error) {
       throw new Error('Failed to create remote terminal: ' + (error instanceof Error ? error.message : String(error)))
@@ -956,7 +957,7 @@ export class RemoteTerminalManager {
 
     process.once('error', (error) => {
       terminalInfo.busy = false
-      console.error(`Remote terminal ${terminalInfo.id} error:`, error)
+      logger.error('Remote terminal error', { event: 'remote-terminal.process.error', terminalId: terminalInfo.id, error: error instanceof Error ? error.message : String(error) })
     })
     const promise = new Promise<void>((resolve, reject) => {
       process.once('continue', () => {
@@ -1008,7 +1009,7 @@ export class RemoteTerminalManager {
     await Promise.all(disconnectPromises)
     this.terminals.clear()
     this.processes.clear()
-    console.log('All remote terminals have been closed.')
+    logger.info('All remote terminals have been closed', { event: 'remote-terminal.dispose.all' })
   }
 
   // Disconnect specified terminal connection
@@ -1022,21 +1023,21 @@ export class RemoteTerminalManager {
         if (sshType === 'jumpserver') {
           const { jumpServerDisconnect } = await import('./jumpserverHandle')
           await jumpServerDisconnect(terminalInfo.sessionId)
-          console.log(`JumpServer terminal ${terminalId} (Session: ${terminalInfo.sessionId}) disconnected.`)
+          logger.debug('JumpServer terminal disconnected', { event: 'remote-terminal.disconnect.jumpserver', terminalId, sessionId: terminalInfo.sessionId })
         } else if (sshType !== 'ssh') {
           const bastionCapability = capabilityRegistry.getBastion(sshType)
           if (bastionCapability) {
             await bastionCapability.disconnect({ id: terminalInfo.sessionId })
           } else {
-            console.warn(`${sshType} capability not registered, skipping disconnect.`)
+            logger.warn('Bastion capability not registered, skipping disconnect', { event: 'remote-terminal.disconnect.bastion.notfound', sshType })
           }
-          console.log(`${sshType} terminal ${terminalId} (Session: ${terminalInfo.sessionId}) disconnected.`)
+          logger.debug('Bastion terminal disconnected', { event: 'remote-terminal.disconnect.bastion', sshType, terminalId, sessionId: terminalInfo.sessionId })
         } else {
           await remoteSshDisconnect(terminalInfo.sessionId)
-          console.log(`SSH terminal ${terminalId} (Session: ${terminalInfo.sessionId}) disconnected.`)
+          logger.debug('SSH terminal disconnected', { event: 'remote-terminal.disconnect.ssh', terminalId, sessionId: terminalInfo.sessionId })
         }
       } catch (error) {
-        console.error(`Error disconnecting terminal ${terminalId}:`, error)
+        logger.error('Error disconnecting terminal', { event: 'remote-terminal.disconnect.error', terminalId, error: error instanceof Error ? error.message : String(error) })
       }
     }
   }

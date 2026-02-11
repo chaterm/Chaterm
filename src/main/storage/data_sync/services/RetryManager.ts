@@ -1,4 +1,6 @@
-import { logger } from '../utils/logger'
+import { createLogger } from '@logging'
+
+const logger = createLogger('sync')
 
 export interface RetryConfig {
   maxAttempts: number // Maximum retry attempts

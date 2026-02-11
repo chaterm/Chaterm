@@ -3,6 +3,10 @@
 
 import Database from 'better-sqlite3'
 
+import { createLogger } from '@logging'
+
+const logger = createLogger('db')
+
 /**
  * Database migration to add skills state support.
  * Creates the skills_state table for storing skill enabled/disabled states.
@@ -13,7 +17,7 @@ export function upgradeSkillsSupport(db: Database.Database): void {
     const tableExists = db.prepare("SELECT name FROM sqlite_master WHERE type='table' AND name='skills_state'").get()
 
     if (!tableExists) {
-      console.log('[Migration] Creating skills_state table...')
+      logger.info('[Migration] Creating skills_state table...')
 
       db.exec(`
         CREATE TABLE skills_state (
@@ -32,12 +36,12 @@ export function upgradeSkillsSupport(db: Database.Database): void {
         ON skills_state(enabled)
       `)
 
-      console.log('[Migration] skills_state table created successfully')
+      logger.info('[Migration] skills_state table created successfully')
     } else {
-      console.log('[Migration] skills_state table already exists')
+      logger.info('[Migration] skills_state table already exists')
     }
   } catch (error) {
-    console.error('[Migration] Failed to upgrade skills support:', error)
+    logger.error('[Migration] Failed to upgrade skills support', { error: error instanceof Error ? error.message : String(error) })
     throw error
   }
 }

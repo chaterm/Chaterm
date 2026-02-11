@@ -71,7 +71,8 @@ export default defineConfig({
             '@integrations': resolve('src/main/agent/integrations'),
             '@utils': resolve('src/main/agent/utils'),
             '@api': resolve('src/main/agent/api'),
-            '@storage': resolve('src/main/storage')
+            '@storage': resolve('src/main/storage'),
+            '@logging': resolve('src/main/services/logging')
           }
         }
       },

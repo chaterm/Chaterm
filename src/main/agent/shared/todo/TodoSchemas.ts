@@ -150,7 +150,8 @@ export class TodoSerializer {
         })
       )
     } catch (error) {
-      console.error('Failed to deserialize todos:', error)
+      // eslint-disable-next-line no-console
+      console.error('Failed to deserialize todos', { error: error instanceof Error ? error.message : String(error) })
       return []
     }
   }
@@ -172,7 +173,8 @@ export class TodoSerializer {
         lastFocusChangeAt: new Date(parsed.lastFocusChangeAt)
       }
     } catch (error) {
-      console.error('Failed to deserialize focus chain state:', error)
+      // eslint-disable-next-line no-console
+      console.error('Failed to deserialize focus chain state', { error: error instanceof Error ? error.message : String(error) })
       return null
     }
   }

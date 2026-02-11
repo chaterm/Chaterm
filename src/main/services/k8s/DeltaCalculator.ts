@@ -11,6 +11,10 @@ import { Operation } from 'fast-json-patch'
 import { compare as jsonDiff } from 'fast-json-patch'
 import { K8sResource, K8sResourceEvent, K8sEventType } from './types'
 
+import { createLogger } from '../logging'
+
+const logger = createLogger('k8s')
+
 /**
  * Delta patch operation types
  */
@@ -77,7 +81,7 @@ export class DeltaCalculator {
     const { type, resource, contextName } = event
 
     if (!resource.metadata || !resource.metadata.uid) {
-      console.warn('[DeltaCalculator] Resource without metadata or UID, skipping delta calculation')
+      logger.warn('[DeltaCalculator] Resource without metadata or UID, skipping delta calculation')
       return
     }
 
@@ -102,7 +106,7 @@ export class DeltaCalculator {
         break
 
       default:
-        console.warn(`[DeltaCalculator] Unknown event type: ${type}`)
+        logger.warn(`[DeltaCalculator] Unknown event type: ${type}`)
         return
     }
 
@@ -139,14 +143,14 @@ export class DeltaCalculator {
     cachedResource?: K8sResource
   ): ResourceDelta | null {
     if (!cachedResource) {
-      console.warn('[DeltaCalculator] Modified event without cached resource, treating as ADD')
+      logger.warn('[DeltaCalculator] Modified event without cached resource, treating as ADD')
       return this.handleAdd(cacheKey, resource, contextName, resourceType)
     }
 
     const patches = this.computeDiff(cachedResource, resource)
 
     if (patches.length === 0) {
-      console.log('[DeltaCalculator] No changes detected, skipping update')
+      logger.info('[DeltaCalculator] No changes detected, skipping update')
       return null
     }
 
@@ -262,7 +266,7 @@ export class DeltaCalculator {
       this.onBatchReady(batch)
     }
 
-    console.log(`[DeltaCalculator] Flushed batch with ${batch.totalChanges} changes`)
+    logger.info(`[DeltaCalculator] Flushed batch with ${batch.totalChanges} changes`)
   }
 
   /**

@@ -5,6 +5,10 @@ import { execFile } from 'child_process'
 import { promisify } from 'util'
 import { getEdition, getUserDataPath } from '../config/edition'
 
+import { createLogger } from '@logging'
+
+const logger = createLogger('db')
+
 type MigrationStatus = 'completed' | 'skipped' | 'failed' | 'blocked'
 
 interface MigrationMarker {
@@ -33,19 +37,19 @@ export async function migrateCnUserDataOnFirstLaunch(): Promise<void> {
 
   const targetUserDataPath = getUserDataPath()
   if (!isGlobalUserDataPath(targetUserDataPath)) {
-    console.warn(`[Migration] Target userData is not chaterm-global (${targetUserDataPath}), skipping migration.`)
+    logger.warn(`[Migration] Target userData is not chaterm-global (${targetUserDataPath}), skipping migration.`)
     return
   }
   const markerPath = path.join(targetUserDataPath, MIGRATION_MARKER_FILE)
 
   const existingMarker = await readMigrationMarker(markerPath)
   if (existingMarker && existingMarker.status !== 'failed' && existingMarker.status !== 'blocked') {
-    console.log('[Migration] CN -> Global migration marker found, skipping.')
+    logger.info('[Migration] CN -> Global migration marker found, skipping.')
     return
   }
 
   if (existingMarker?.status === 'failed' || existingMarker?.status === 'blocked') {
-    console.warn('[Migration] Previous migration was not completed, retrying on this launch.')
+    logger.warn('[Migration] Previous migration was not completed, retrying on this launch.')
   }
 
   await ensureDir(targetUserDataPath)
@@ -58,7 +62,7 @@ export async function migrateCnUserDataOnFirstLaunch(): Promise<void> {
       reason: 'source-not-found',
       targetPath: targetUserDataPath
     })
-    console.log('[Migration] No CN userData found, skipping migration.')
+    logger.info('[Migration] No CN userData found, skipping migration.')
     return
   }
 
@@ -71,7 +75,7 @@ export async function migrateCnUserDataOnFirstLaunch(): Promise<void> {
       sourcePath: sourceUserDataPath,
       targetPath: targetUserDataPath
     })
-    console.warn('[Migration] Detected other edition running, please close it and retry.')
+    logger.warn('[Migration] Detected other edition running, please close it and retry.')
     app.quit()
     return
   }
@@ -80,7 +84,7 @@ export async function migrateCnUserDataOnFirstLaunch(): Promise<void> {
   const targetHasOldDatabases = await hasDatabaseFiles(path.join(targetUserDataPath, LEGACY_DB_DIR_NAME))
   const targetHasNewDatabases = await hasDatabaseFiles(path.join(targetUserDataPath, DB_DIR_NAME))
   if (targetHasOldDatabases || targetHasNewDatabases) {
-    console.warn('[Migration] Target userData already has databases, overwriting with CN data.')
+    logger.warn('[Migration] Target userData already has databases, overwriting with CN data.')
   }
 
   // Check for WAL/SHM files in both directories
@@ -88,10 +92,10 @@ export async function migrateCnUserDataOnFirstLaunch(): Promise<void> {
   const newWalOrShm = await hasWalOrShmFiles(path.join(sourceUserDataPath, DB_DIR_NAME))
   const walOrShmDetected = oldWalOrShm || newWalOrShm
   if (walOrShmDetected) {
-    console.warn('[Migration] WAL/SHM files detected in source databases. Ensure the other edition is closed before continuing.')
+    logger.warn('[Migration] WAL/SHM files detected in source databases. Ensure the other edition is closed before continuing.')
   }
 
-  console.log('[Migration] Starting CN -> Global userData migration...')
+  logger.info('[Migration] Starting CN -> Global userData migration...')
   try {
     await copyDatabasesOnly(sourceUserDataPath, targetUserDataPath)
     await writeMigrationMarker(markerPath, {
@@ -100,7 +104,7 @@ export async function migrateCnUserDataOnFirstLaunch(): Promise<void> {
       sourcePath: sourceUserDataPath,
       targetPath: targetUserDataPath
     })
-    console.log('[Migration] CN -> Global userData migration completed.')
+    logger.info('[Migration] CN -> Global userData migration completed.')
   } catch (error) {
     await writeMigrationMarker(markerPath, {
       status: 'failed',
@@ -109,7 +113,7 @@ export async function migrateCnUserDataOnFirstLaunch(): Promise<void> {
       targetPath: targetUserDataPath,
       error: error instanceof Error ? error.message : String(error)
     })
-    console.error('[Migration] CN -> Global userData migration failed:', error)
+    logger.error('[Migration] CN -> Global userData migration failed', { error: error instanceof Error ? error.message : String(error) })
   }
 }
 
@@ -156,7 +160,7 @@ async function hasDatabaseFiles(databasesPath: string): Promise<boolean> {
       }
     }
   } catch (error) {
-    console.warn('[Migration] Failed to scan databases directory:', error)
+    logger.warn('[Migration] Failed to scan databases directory', { error: error instanceof Error ? error.message : String(error) })
   }
 
   return false
@@ -278,7 +282,7 @@ async function readMigrationMarker(markerPath: string): Promise<MigrationMarker 
     const content = await fs.promises.readFile(markerPath, 'utf8')
     return JSON.parse(content) as MigrationMarker
   } catch (error) {
-    console.warn('[Migration] Failed to read migration marker, proceeding with migration:', error)
+    logger.warn('[Migration] Failed to read migration marker, proceeding with migration', { error: error instanceof Error ? error.message : String(error) })
     return null
   }
 }
@@ -316,7 +320,7 @@ async function isProcessRunning(processNames: string[]): Promise<boolean | null>
     const lowerOutput = stdout.toLowerCase()
     return processNames.some((name) => lowerOutput.includes(name.toLowerCase()))
   } catch (error) {
-    console.warn('[Migration] Failed to check process list:', error)
+    logger.warn('[Migration] Failed to check process list', { error: error instanceof Error ? error.message : String(error) })
     return null
   }
 }
@@ -331,7 +335,7 @@ async function showOtherEditionRunningDialog(): Promise<void> {
       message: 'Another version of Chaterm is currently running. Please close it and try again.'
     })
   } catch (error) {
-    console.warn('[Migration] Failed to show running edition dialog:', error)
+    logger.warn('[Migration] Failed to show running edition dialog', { error: error instanceof Error ? error.message : String(error) })
   }
 }
 

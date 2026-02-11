@@ -12,6 +12,7 @@ import piniaPluginPersistedstate from 'pinia-plugin-persistedstate'
 import { notification } from 'ant-design-vue'
 import { shortcutService } from './services/shortcutService'
 import { APP_EDITION } from './utils/edition'
+import { createRendererLogger } from './utils/logger'
 
 // Set document title based on edition
 document.title = APP_EDITION === 'cn' ? 'Chaterm CN' : 'Chaterm'
@@ -39,6 +40,12 @@ app.use(i18n)
 app.use(pinia)
 // Context menu
 app.use(contextmenu)
+
+// Vue warning handler - route Vue warnings to unified logger
+const vueLogger = createRendererLogger('vue')
+app.config.warnHandler = (msg, _instance, trace) => {
+  vueLogger.warn(msg, { trace })
+}
 
 // Expose storage API to global window object for main process calls
 declare global {

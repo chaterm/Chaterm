@@ -1168,7 +1168,23 @@ const api = {
   /**
    * Resume interaction detection for a suppressed command
    */
-  unsuppressInteraction: (commandId: string) => ipcRenderer.invoke('unsuppress-interaction', commandId)
+  unsuppressInteraction: (commandId: string) => ipcRenderer.invoke('unsuppress-interaction', commandId),
+
+  /**
+   * Send a log entry from renderer to main process
+   */
+  log: (payload: {
+    level: 'debug' | 'info' | 'warn' | 'error'
+    process: 'renderer' | 'preload'
+    module: string
+    message: string
+    meta?: Record<string, unknown>
+  }) => ipcRenderer.invoke('log:write', payload),
+
+  /**
+   * Open the log directory in the system file manager
+   */
+  openLogDir: () => ipcRenderer.invoke('logging:openDir')
 }
 // Custom API for browser control
 

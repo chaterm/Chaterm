@@ -2,6 +2,10 @@ import { promises as fs } from 'fs'
 import * as path from 'path'
 import { getUserDataPath } from '../../../../config/edition'
 
+import { createLogger } from '@logging'
+
+const logger = createLogger('sync')
+
 interface StorageStats {
   keys: string[]
   fileCount: number
@@ -31,7 +35,7 @@ class TempFileStorageProvider {
     } catch (error) {
       // Directory doesn't exist, create it
       await fs.mkdir(this.storageDir, { recursive: true, mode: 0o700 }) // Owner access only
-      console.log(`Created secure storage directory: ${this.storageDir}`)
+      logger.info(`Created secure storage directory: ${this.storageDir}`)
     }
 
     // Ensure directory permissions are correct
@@ -82,7 +86,7 @@ class TempFileStorageProvider {
       // Set strict file permissions: owner read/write only
       await fs.chmod(filePath, 0o600)
     } catch (error) {
-      console.error(`Failed to store data - Key: ${key}`, error)
+      logger.error(`Failed to store data - Key: ${key}`, { error: error instanceof Error ? error.message : String(error) })
       throw error
     }
   }
@@ -95,14 +99,14 @@ class TempFileStorageProvider {
       const filePath = this.getFilePath(key)
       const obfuscatedData = await fs.readFile(filePath, 'utf8')
       const data = this.deobfuscateContent(obfuscatedData)
-      console.log(`Read data from file: ${key}`)
+      logger.info(`Read data from file: ${key}`)
       return data
     } catch (error) {
       if ((error as NodeJS.ErrnoException).code === 'ENOENT') {
         // File doesn't exist
         return null
       }
-      console.error(`Failed to read data (${key}):`, error)
+      logger.error(`Failed to read data (${key})`, { error: error instanceof Error ? error.message : String(error) })
       throw error
     }
   }
@@ -119,7 +123,7 @@ class TempFileStorageProvider {
         // File doesn't exist, ignore error
         return
       }
-      console.error(`Failed to delete file (${key}):`, error)
+      logger.error(`Failed to delete file (${key})`, { error: error instanceof Error ? error.message : String(error) })
       throw error
     }
   }
@@ -135,9 +139,9 @@ class TempFileStorageProvider {
         .map((file) => fs.unlink(path.join(this.storageDir, file)))
 
       await Promise.all(deletePromises)
-      console.log(`Cleared all storage files (${files.length} files)`)
+      logger.info(`Cleared all storage files (${files.length} files)`)
     } catch (error) {
-      console.error('Failed to clear storage files:', error)
+      logger.error('Failed to clear storage files', { error: error instanceof Error ? error.message : String(error) })
       throw error
     }
   }
@@ -155,7 +159,7 @@ class TempFileStorageProvider {
 
       return keys
     } catch (error) {
-      console.error('Failed to get key list:', error)
+      logger.error('Failed to get key list', { error: error instanceof Error ? error.message : String(error) })
       return []
     }
   }
@@ -208,7 +212,7 @@ class TempFileStorageProvider {
         storageDir: this.storageDir
       }
     } catch (error) {
-      console.error('Failed to get storage statistics:', error)
+      logger.error('Failed to get storage statistics', { error: error instanceof Error ? error.message : String(error) })
       return {
         keys: [],
         fileCount: 0,
@@ -261,9 +265,9 @@ class TempFileStorageProvider {
         }
       }
 
-      console.log(`Storage directory backed up to: ${backupDir}`)
+      logger.info(`Storage directory backed up to: ${backupDir}`)
     } catch (error) {
-      console.error('Failed to backup storage directory:', error)
+      logger.error('Failed to backup storage directory', { error: error instanceof Error ? error.message : String(error) })
       throw error
     }
   }
@@ -284,9 +288,9 @@ class TempFileStorageProvider {
         }
       }
 
-      console.log(`Storage directory restored from backup: ${backupDir}`)
+      logger.info(`Storage directory restored from backup: ${backupDir}`)
     } catch (error) {
-      console.error('Failed to restore from backup:', error)
+      logger.error('Failed to restore from backup', { error: error instanceof Error ? error.message : String(error) })
       throw error
     }
   }
@@ -315,10 +319,10 @@ class TempFileStorageProvider {
       }
 
       if (cleanedCount > 0) {
-        console.log(`Cleaned up ${cleanedCount} expired files`)
+        logger.info(`Cleaned up ${cleanedCount} expired files`)
       }
     } catch (error) {
-      console.error('Failed to clean up expired files:', error)
+      logger.error('Failed to clean up expired files', { error: error instanceof Error ? error.message : String(error) })
     }
   }
 

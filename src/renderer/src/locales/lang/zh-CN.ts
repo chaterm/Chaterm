@@ -1093,7 +1093,13 @@ export default {
     downloading: '正在下载',
     checkUpdateError: '检查更新失败',
     checking: '检查中',
-    install: '安装'
+    install: '安装',
+    logDiagnostics: '日志与诊断',
+    logDiagnosticsDesc: '如果遇到问题，您可以导出日志文件发送给开发者以帮助排查问题。',
+    openLogDir: '打开日志目录',
+    feedbackTitle: '反馈与建议',
+    feedbackDesc: '如果您有任何问题、建议或反馈，欢迎通过以下渠道联系我们。',
+    submitFeedback: '提交反馈'
   },
   mfa: {
     title: '二次验证',

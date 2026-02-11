@@ -102,7 +102,8 @@ export default defineConfig(({ mode }) => {
           '@services': resolve('src/main/agent/services'),
           '@integrations': resolve('src/main/agent/integrations'),
           '@utils': resolve('src/main/agent/utils'),
-          '@api': resolve('src/main/agent/api')
+          '@api': resolve('src/main/agent/api'),
+          '@logging': resolve('src/main/services/logging')
         }
       },
       define: {

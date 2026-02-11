@@ -6,6 +6,9 @@ import type { PluginHost, PluginHostModules, VersionProviderFn } from './pluginH
 import { PluginStorageContext } from './pluginGlobalState'
 import { ExternalAssetCache } from './pluginIpc'
 import { capabilityRegistry, BastionCapability, BastionDefinition } from '../ssh/capabilityRegistry'
+import { createLogger } from '@logging'
+
+const logger = createLogger('plugin')
 
 export interface PluginModule {
   register(host: PluginHost): void | Promise<void>
@@ -51,7 +54,7 @@ export async function loadAllPlugins() {
       ssh2: require('ssh2')
     }
   } catch (e) {
-    console.warn('[pluginLoader] ssh2 module not available for plugins:', e)
+    logger.warn('ssh2 module not available for plugins', { error: e instanceof Error ? e.message : String(e) })
   }
 
   for (const p of plugins) {
@@ -64,13 +67,13 @@ export async function loadAllPlugins() {
     try {
       manifest = JSON.parse(fs.readFileSync(manifestPath, 'utf8')) as PluginManifest
     } catch (e) {
-      console.error('[pluginLoader] invalid manifest for', p.id, e)
+      logger.error('Invalid manifest for plugin', { pluginId: p.id, error: e instanceof Error ? e.message : String(e) })
       continue
     }
 
     const entry = path.join(p.path, manifest.main)
     if (!fs.existsSync(entry)) {
-      console.error('[pluginLoader] main entry not found for', p.id)
+      logger.error('Main entry not found for plugin', { pluginId: p.id })
       continue
     }
 
@@ -169,12 +172,12 @@ export async function loadAllPlugins() {
       const mod: PluginModule = require(entry)
       if (typeof mod.register === 'function') {
         await mod.register(host)
-        console.log('[pluginLoader] plugin registered:', p.id)
+        logger.info('Plugin registered', { pluginId: p.id })
       } else {
-        console.log('[pluginLoader] plugin has no register():', p.id)
+        logger.info('Plugin has no register()', { pluginId: p.id })
       }
     } catch (e) {
-      console.error('[pluginLoader] load error for', p.id, e)
+      logger.error('Plugin load error', { pluginId: p.id, error: e instanceof Error ? e.message : String(e) })
     }
   }
 }

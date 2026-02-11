@@ -1095,7 +1095,13 @@ export default {
     downloading: '다운로드 중...',
     checkUpdateError: '업데이트 확인 실패',
     checking: '확인 중...',
-    install: '설치'
+    install: '설치',
+    logDiagnostics: '로그 및 진단',
+    logDiagnosticsDesc: '문제가 발생하면 로그 파일을 내보내 개발자에게 전송하여 문제 해결에 도움을 받을 수 있습니다.',
+    openLogDir: '로그 디렉터리 열기',
+    feedbackTitle: '피드백 및 제안',
+    feedbackDesc: '질문, 제안 또는 피드백이 있으시면 아래 채널을 통해 연락해 주세요.',
+    submitFeedback: '피드백 제출'
   },
   mfa: {
     title: '이중 인증',

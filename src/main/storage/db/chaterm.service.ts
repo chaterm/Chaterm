@@ -60,6 +60,10 @@ import {
 } from './chaterm/skills'
 import type { SkillState } from '../../agent/shared/skills'
 
+import { createLogger } from '@logging'
+
+const logger = createLogger('db')
+
 export class ChatermDatabaseService {
   private static instances: Map<number, ChatermDatabaseService> = new Map()
   // Lock map to prevent race conditions during async initialization
@@ -87,12 +91,12 @@ export class ChatermDatabaseService {
     // Check if initialization is already in progress for this user
     const existingPromise = ChatermDatabaseService.initializingPromises.get(targetUserId)
     if (existingPromise) {
-      console.log(`Waiting for existing initialization for user ${targetUserId}`)
+      logger.info(`Waiting for existing initialization for user ${targetUserId}`)
       return existingPromise
     }
 
     // Start new initialization and store the promise
-    console.log(`Creating new ChatermDatabaseService instance for user ${targetUserId}`)
+    logger.info(`Creating new ChatermDatabaseService instance for user ${targetUserId}`)
     const initPromise = (async () => {
       try {
         const db = await initChatermDatabase(targetUserId)
@@ -245,7 +249,7 @@ export class ChatermDatabaseService {
       const result = updateOrganizationAssetFavoriteLogic(this.db, organizationUuid, host, status)
       return result
     } catch (error) {
-      console.error('ChatermDatabaseService.updateOrganizationAssetFavorite error:', error)
+      logger.error('ChatermDatabaseService.updateOrganizationAssetFavorite error', { error: error instanceof Error ? error.message : String(error) })
       throw error
     }
   }
@@ -255,7 +259,7 @@ export class ChatermDatabaseService {
       const result = updateOrganizationAssetCommentLogic(this.db, organizationUuid, host, comment)
       return result
     } catch (error) {
-      console.error('ChatermDatabaseService.updateOrganizationAssetComment error:', error)
+      logger.error('ChatermDatabaseService.updateOrganizationAssetComment error', { error: error instanceof Error ? error.message : String(error) })
       throw error
     }
   }
@@ -266,7 +270,7 @@ export class ChatermDatabaseService {
       const result = createCustomFolderLogic(this.db, name, description)
       return result
     } catch (error) {
-      console.error('ChatermDatabaseService.createCustomFolder error:', error)
+      logger.error('ChatermDatabaseService.createCustomFolder error', { error: error instanceof Error ? error.message : String(error) })
       throw error
     }
   }
@@ -276,7 +280,7 @@ export class ChatermDatabaseService {
       const result = getCustomFoldersLogic(this.db)
       return result
     } catch (error) {
-      console.error('ChatermDatabaseService.getCustomFolders error:', error)
+      logger.error('ChatermDatabaseService.getCustomFolders error', { error: error instanceof Error ? error.message : String(error) })
       throw error
     }
   }
@@ -286,7 +290,7 @@ export class ChatermDatabaseService {
       const result = updateCustomFolderLogic(this.db, folderUuid, name, description)
       return result
     } catch (error) {
-      console.error('ChatermDatabaseService.updateCustomFolder error:', error)
+      logger.error('ChatermDatabaseService.updateCustomFolder error', { error: error instanceof Error ? error.message : String(error) })
       throw error
     }
   }
@@ -296,7 +300,7 @@ export class ChatermDatabaseService {
       const result = deleteCustomFolderLogic(this.db, folderUuid)
       return result
     } catch (error) {
-      console.error('ChatermDatabaseService.deleteCustomFolder error:', error)
+      logger.error('ChatermDatabaseService.deleteCustomFolder error', { error: error instanceof Error ? error.message : String(error) })
       throw error
     }
   }
@@ -306,7 +310,7 @@ export class ChatermDatabaseService {
       const result = moveAssetToFolderLogic(this.db, folderUuid, organizationUuid, assetHost)
       return result
     } catch (error) {
-      console.error('ChatermDatabaseService.moveAssetToFolder error:', error)
+      logger.error('ChatermDatabaseService.moveAssetToFolder error', { error: error instanceof Error ? error.message : String(error) })
       throw error
     }
   }
@@ -316,7 +320,7 @@ export class ChatermDatabaseService {
       const result = removeAssetFromFolderLogic(this.db, folderUuid, organizationUuid, assetHost)
       return result
     } catch (error) {
-      console.error('ChatermDatabaseService.removeAssetFromFolder error:', error)
+      logger.error('ChatermDatabaseService.removeAssetFromFolder error', { error: error instanceof Error ? error.message : String(error) })
       throw error
     }
   }
@@ -326,7 +330,7 @@ export class ChatermDatabaseService {
       const result = getAssetsInFolderLogic(this.db, folderUuid)
       return result
     } catch (error) {
-      console.error('ChatermDatabaseService.getAssetsInFolder error:', error)
+      logger.error('ChatermDatabaseService.getAssetsInFolder error', { error: error instanceof Error ? error.message : String(error) })
       throw error
     }
   }
@@ -337,7 +341,7 @@ export class ChatermDatabaseService {
       const result = getToolStateLogic(this.db, serverName, toolName)
       return result
     } catch (error) {
-      console.error('ChatermDatabaseService.getMcpToolState error:', error)
+      logger.error('ChatermDatabaseService.getMcpToolState error', { error: error instanceof Error ? error.message : String(error) })
       throw error
     }
   }
@@ -346,7 +350,7 @@ export class ChatermDatabaseService {
     try {
       setToolStateLogic(this.db, serverName, toolName, enabled)
     } catch (error) {
-      console.error('ChatermDatabaseService.setMcpToolState error:', error)
+      logger.error('ChatermDatabaseService.setMcpToolState error', { error: error instanceof Error ? error.message : String(error) })
       throw error
     }
   }
@@ -356,7 +360,7 @@ export class ChatermDatabaseService {
       const result = getServerToolStatesLogic(this.db, serverName)
       return result
     } catch (error) {
-      console.error('ChatermDatabaseService.getServerMcpToolStates error:', error)
+      logger.error('ChatermDatabaseService.getServerMcpToolStates error', { error: error instanceof Error ? error.message : String(error) })
       throw error
     }
   }
@@ -366,7 +370,7 @@ export class ChatermDatabaseService {
       const result = getAllToolStatesLogic(this.db)
       return result
     } catch (error) {
-      console.error('ChatermDatabaseService.getAllMcpToolStates error:', error)
+      logger.error('ChatermDatabaseService.getAllMcpToolStates error', { error: error instanceof Error ? error.message : String(error) })
       throw error
     }
   }
@@ -375,7 +379,7 @@ export class ChatermDatabaseService {
     try {
       deleteServerToolStatesLogic(this.db, serverName)
     } catch (error) {
-      console.error('ChatermDatabaseService.deleteServerMcpToolStates error:', error)
+      logger.error('ChatermDatabaseService.deleteServerMcpToolStates error', { error: error instanceof Error ? error.message : String(error) })
       throw error
     }
   }
@@ -389,7 +393,7 @@ export class ChatermDatabaseService {
     try {
       return getSkillStatesLogic(this.db)
     } catch (error) {
-      console.error('ChatermDatabaseService.getSkillStates error:', error)
+      logger.error('ChatermDatabaseService.getSkillStates error', { error: error instanceof Error ? error.message : String(error) })
       return []
     }
   }
@@ -401,7 +405,7 @@ export class ChatermDatabaseService {
     try {
       return getSkillStateLogic(this.db, skillId)
     } catch (error) {
-      console.error('ChatermDatabaseService.getSkillState error:', error)
+      logger.error('ChatermDatabaseService.getSkillState error', { error: error instanceof Error ? error.message : String(error) })
       return null
     }
   }
@@ -413,7 +417,7 @@ export class ChatermDatabaseService {
     try {
       setSkillStateLogic(this.db, skillId, enabled)
     } catch (error) {
-      console.error('ChatermDatabaseService.setSkillState error:', error)
+      logger.error('ChatermDatabaseService.setSkillState error', { error: error instanceof Error ? error.message : String(error) })
       throw error
     }
   }
@@ -425,7 +429,7 @@ export class ChatermDatabaseService {
     try {
       updateSkillConfigLogic(this.db, skillId, config)
     } catch (error) {
-      console.error('ChatermDatabaseService.updateSkillConfig error:', error)
+      logger.error('ChatermDatabaseService.updateSkillConfig error', { error: error instanceof Error ? error.message : String(error) })
       throw error
     }
   }
@@ -437,7 +441,7 @@ export class ChatermDatabaseService {
     try {
       updateSkillLastUsedLogic(this.db, skillId)
     } catch (error) {
-      console.error('ChatermDatabaseService.updateSkillLastUsed error:', error)
+      logger.error('ChatermDatabaseService.updateSkillLastUsed error', { error: error instanceof Error ? error.message : String(error) })
     }
   }
 
@@ -448,7 +452,7 @@ export class ChatermDatabaseService {
     try {
       deleteSkillStateLogic(this.db, skillId)
     } catch (error) {
-      console.error('ChatermDatabaseService.deleteSkillState error:', error)
+      logger.error('ChatermDatabaseService.deleteSkillState error', { error: error instanceof Error ? error.message : String(error) })
       throw error
     }
   }
@@ -460,7 +464,7 @@ export class ChatermDatabaseService {
     try {
       return getEnabledSkillNamesLogic(this.db)
     } catch (error) {
-      console.error('ChatermDatabaseService.getEnabledSkillNames error:', error)
+      logger.error('ChatermDatabaseService.getEnabledSkillNames error', { error: error instanceof Error ? error.message : String(error) })
       return []
     }
   }
@@ -475,7 +479,7 @@ export class ChatermDatabaseService {
       const row = this.db.prepare('SELECT * FROM indexdb_migration_status WHERE data_source = ?').get(dataSource)
       return row || null
     } catch (error) {
-      console.error('ChatermDatabaseService.getMigrationStatus error:', error)
+      logger.error('ChatermDatabaseService.getMigrationStatus error', { error: error instanceof Error ? error.message : String(error) })
       throw error
     }
   }
@@ -488,7 +492,7 @@ export class ChatermDatabaseService {
       const rows = this.db.prepare('SELECT * FROM indexdb_migration_status').all()
       return rows
     } catch (error) {
-      console.error('ChatermDatabaseService.getAllMigrationStatus error:', error)
+      logger.error('ChatermDatabaseService.getAllMigrationStatus error', { error: error instanceof Error ? error.message : String(error) })
       throw error
     }
   }
@@ -507,7 +511,7 @@ export class ChatermDatabaseService {
       const rows = this.db.prepare('SELECT * FROM t_aliases ORDER BY created_at DESC').all()
       return rows
     } catch (error) {
-      console.error('ChatermDatabaseService.getAliases error:', error)
+      logger.error('ChatermDatabaseService.getAliases error', { error: error instanceof Error ? error.message : String(error) })
       throw error
     }
   }
@@ -521,7 +525,7 @@ export class ChatermDatabaseService {
       const row = this.db.prepare('SELECT * FROM t_aliases WHERE alias = ?').get(alias)
       return row || null
     } catch (error) {
-      console.error('ChatermDatabaseService.getAliasByName error:', error)
+      logger.error('ChatermDatabaseService.getAliasByName error', { error: error instanceof Error ? error.message : String(error) })
       throw error
     }
   }
@@ -537,7 +541,7 @@ export class ChatermDatabaseService {
         .all(`%${searchText}%`, `%${searchText}%`)
       return rows
     } catch (error) {
-      console.error('ChatermDatabaseService.searchAliases error:', error)
+      logger.error('ChatermDatabaseService.searchAliases error', { error: error instanceof Error ? error.message : String(error) })
       throw error
     }
   }
@@ -557,7 +561,7 @@ export class ChatermDatabaseService {
         )
         .run(data.id, data.alias, data.command, data.created_at || Date.now())
     } catch (error) {
-      console.error('ChatermDatabaseService.saveAlias error:', error)
+      logger.error('ChatermDatabaseService.saveAlias error', { error: error instanceof Error ? error.message : String(error) })
       throw error
     }
   }
@@ -570,7 +574,7 @@ export class ChatermDatabaseService {
     try {
       this.db.prepare('DELETE FROM t_aliases WHERE alias = ?').run(alias)
     } catch (error) {
-      console.error('ChatermDatabaseService.deleteAlias error:', error)
+      logger.error('ChatermDatabaseService.deleteAlias error', { error: error instanceof Error ? error.message : String(error) })
       throw error
     }
   }
@@ -589,7 +593,7 @@ export class ChatermDatabaseService {
       const row = this.db.prepare('SELECT * FROM key_value_store WHERE key = ?').get(key)
       return row || null
     } catch (error) {
-      console.error('ChatermDatabaseService.getKeyValue error:', error)
+      logger.error('ChatermDatabaseService.getKeyValue error', { error: error instanceof Error ? error.message : String(error) })
       throw error
     }
   }
@@ -603,7 +607,7 @@ export class ChatermDatabaseService {
       const rows = this.db.prepare('SELECT key FROM key_value_store').all() as Array<{ key: string }>
       return rows.map((row) => row.key)
     } catch (error) {
-      console.error('ChatermDatabaseService.getAllKeys error:', error)
+      logger.error('ChatermDatabaseService.getAllKeys error', { error: error instanceof Error ? error.message : String(error) })
       throw error
     }
   }
@@ -623,7 +627,7 @@ export class ChatermDatabaseService {
         )
         .run(data.key, data.value, data.updated_at || Date.now())
     } catch (error) {
-      console.error('ChatermDatabaseService.setKeyValue error:', error)
+      logger.error('ChatermDatabaseService.setKeyValue error', { error: error instanceof Error ? error.message : String(error) })
       throw error
     }
   }
@@ -636,7 +640,7 @@ export class ChatermDatabaseService {
     try {
       this.db.prepare('DELETE FROM key_value_store WHERE key = ?').run(key)
     } catch (error) {
-      console.error('ChatermDatabaseService.deleteKeyValue error:', error)
+      logger.error('ChatermDatabaseService.deleteKeyValue error', { error: error instanceof Error ? error.message : String(error) })
       throw error
     }
   }

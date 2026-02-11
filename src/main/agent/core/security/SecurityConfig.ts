@@ -7,6 +7,10 @@ import * as fs from 'fs/promises'
 import * as path from 'path'
 import { getUserDataPath } from '../../../config/edition'
 
+import { createLogger } from '@logging'
+
+const logger = createLogger('agent')
+
 export class SecurityConfigManager {
   private config: SecurityConfig
   private configPath: string
@@ -186,7 +190,7 @@ export class SecurityConfigManager {
 
       // Check if file is empty
       if (!configData.trim()) {
-        console.log('Config file is empty, generating default config...')
+        logger.info('Config file is empty, generating default config...')
         await this.generateDefaultConfigFile()
         return
       }
@@ -200,16 +204,16 @@ export class SecurityConfigManager {
         this.config = this.mergeConfigSafely(this.config, externalConfig.security)
       } else {
         // If no security config section, generate default config
-        console.log('No security config section in config file, generating default config...')
+        logger.info('No security config section in config file, generating default config...')
         await this.generateDefaultConfigFile()
       }
     } catch (error) {
       // File doesn't exist or other error, generate default config file
       if ((error as NodeJS.ErrnoException).code === 'ENOENT') {
-        console.log("Config file doesn't exist, generating default config...")
+        logger.info("Config file doesn't exist, generating default config...")
         await this.generateDefaultConfigFile()
       } else {
-        console.warn('Failed to load security config file, using default config:', error)
+        logger.warn('Failed to load security config file, using default config', { error: error instanceof Error ? error.message : String(error) })
       }
     }
   }
@@ -271,7 +275,7 @@ export class SecurityConfigManager {
       }
     }
 
-    console.log('Config safely merged, maintaining integrity of default security settings')
+    logger.info('Config safely merged, maintaining integrity of default security settings')
     return mergedConfig
   }
 
@@ -284,9 +288,9 @@ export class SecurityConfigManager {
       this.config = this.getDefaultConfig()
       // Generate configuration file with comments
       await this.saveConfigWithComments()
-      console.log('Default security config file generated')
+      logger.info('Default security config file generated')
     } catch (error) {
-      console.error('Failed to generate default config file:', error)
+      logger.error('Failed to generate default config file', { error: error instanceof Error ? error.message : String(error) })
     }
   }
 
@@ -313,7 +317,7 @@ export class SecurityConfigManager {
       const configDir = path.dirname(this.configPath)
       await shell.openPath(configDir)
     } catch (error) {
-      console.error('Failed to open config directory:', error)
+      logger.error('Failed to open config directory', { error: error instanceof Error ? error.message : String(error) })
     }
   }
 
@@ -328,7 +332,7 @@ export class SecurityConfigManager {
       // Open configuration file directly
       await shell.openPath(this.configPath)
     } catch (error) {
-      console.error('Failed to open config file:', error)
+      logger.error('Failed to open config file', { error: error instanceof Error ? error.message : String(error) })
       throw error
     }
   }
@@ -406,9 +410,9 @@ ${config.dangerousCommands.map((cmd) => `      "${cmd.replace(/\\/g, '\\\\')}"`)
       const configContent = this.generateConfigWithComments()
 
       await fs.writeFile(this.configPath, configContent, 'utf-8')
-      console.log('Security config with comments saved to:', this.configPath)
+      logger.info('Security config with comments saved to', { value: this.configPath })
     } catch (error) {
-      console.error('Failed to save security config with comments:', error)
+      logger.error('Failed to save security config with comments', { error: error instanceof Error ? error.message : String(error) })
       throw error
     }
   }

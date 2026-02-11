@@ -16,6 +16,10 @@ import type { ChatCompletionReasoningEffort } from 'openai/resources/chat/comple
 import { checkProxyConnectivity, createProxyAgent } from './proxy/index'
 import type { Agent } from 'http'
 
+import { createLogger } from '@logging'
+
+const logger = createLogger('agent')
+
 export class OpenAiHandler implements ApiHandler {
   private options: ApiHandlerOptions
   private client: OpenAI
@@ -139,7 +143,7 @@ export class OpenAiHandler implements ApiHandler {
       })
       return { isValid: true }
     } catch (error) {
-      console.error('OpenAI compatible configuration validation failed:', error)
+      logger.error('OpenAI compatible configuration validation failed', { error: error instanceof Error ? error.message : String(error) })
       return {
         isValid: false,
         error: `Validation failed:  ${error instanceof Error ? error.message : String(error)}`

@@ -3,8 +3,10 @@ import { Agent as HttpAgent } from 'http'
 import { Agent as HttpsAgent } from 'https'
 import { syncConfig } from '../config/sync.config'
 import { BackupInitResponse, GetChangesResponse, SyncResponse, FullSyncSessionResponse, FullSyncBatchResponse } from '../models/SyncTypes'
-import { logger } from '../utils/logger'
+import { createLogger } from '@logging'
 import { gzipSync } from 'zlib'
+
+const logger = createLogger('sync')
 import { chatermAuthAdapter } from '../envelope_encryption/services/auth'
 
 export class ApiClient {
@@ -65,7 +67,7 @@ export class ApiClient {
         return config
       },
       (error) => {
-        logger.error('Request interceptor error:', error)
+        logger.error('Request interceptor error', { error: error instanceof Error ? error.message : String(error) })
         return Promise.reject(error)
       }
     )

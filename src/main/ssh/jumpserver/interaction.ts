@@ -7,6 +7,9 @@ import { parseJumpServerUsers, hasUserSelectionPrompt } from './parser'
 import { handleJumpServerUserSelectionWithEvent } from './userSelection'
 import { hasPasswordPrompt, hasPasswordError, detectDirectConnectionReason, hasNoAssetsPrompt, createNoAssetsError } from './navigator'
 import { JUMPSERVER_CONSTANTS } from './constants'
+import { createLogger } from '@logging'
+
+const logger = createLogger('jumpserver')
 
 const sendPasswordToStream = (stream: any, password: string, navigationPath: JumpServerNavigationPath, context: string = '') => {
   const actualPassword = password || ''
@@ -14,7 +17,7 @@ const sendPasswordToStream = (stream: any, password: string, navigationPath: Jum
   navigationPath.password = actualPassword
 
   setTimeout(() => {
-    console.log(`[JumpServer] Sending password${context ? ` (${context})` : ''}`)
+    logger.debug('Sending password to JumpServer', { event: 'jumpserver.auth.password', context })
     stream.write(actualPassword + '\r')
   }, JUMPSERVER_CONSTANTS.PASSWORD_INPUT_DELAY)
 }
@@ -51,7 +54,7 @@ export const setupJumpServerInteraction = (
     connectionPhase = 'connected'
     outputBuffer = ''
 
-    console.log(`[JumpServer] Connection successful: ${connectionId} -> ${connectionInfo.targetIp} (${reason})`)
+    logger.info('JumpServer connection successful', { event: 'jumpserver.connect.success', connectionId, targetIp: connectionInfo.targetIp, reason })
     jumpserverConnections.set(connectionId, {
       conn,
       stream,
@@ -88,17 +91,17 @@ export const setupJumpServerInteraction = (
             readyResult.commandList = stdout.split('\n').filter(Boolean)
 
             if (readyResult.commandList.length === 0) {
-              console.warn(`[JumpServer] Warning: Command list is empty`)
+              logger.warn('Command list is empty', { event: 'jumpserver.commandlist.empty' })
             }
           } else if (commandListResult.status === 'fulfilled') {
-            console.error('[JumpServer] Failed to get command list:', commandListResult.value.error)
+            logger.error('Failed to get command list', { event: 'jumpserver.commandlist.error', error: commandListResult.value.error })
           }
 
           if (sudoCheckResult.status === 'fulfilled' && sudoCheckResult.value.success) {
             readyResult.hasSudo = (sudoCheckResult.value.stdout || '').trim() === 'true'
           }
         } catch (error) {
-          console.error('[JumpServer] Error getting command list:', error)
+          logger.error('Error getting command list', { event: 'jumpserver.commandlist.error', error: error instanceof Error ? error.message : String(error) })
         }
 
         const mainWindow = BrowserWindow.getAllWindows()[0]
@@ -107,7 +110,7 @@ export const setupJumpServerInteraction = (
         }
       })
       .catch((error) => {
-        console.error(`[JumpServer:ExecStream] Creation failed: ${connectionId}`, error)
+        logger.error('JumpServer exec stream creation failed', { event: 'jumpserver.exec.create.error', connectionId, error: error instanceof Error ? error.message : String(error) })
 
         const mainWindow = BrowserWindow.getAllWindows()[0]
         if (mainWindow && !mainWindow.isDestroyed()) {
@@ -115,9 +118,9 @@ export const setupJumpServerInteraction = (
             hasSudo: false,
             commandList: []
           })
-          console.log(`[JumpServer:Connect] Sent empty command list to frontend (exec stream creation failed)`)
+          logger.debug('Sent empty command list to frontend (exec stream creation failed)', { event: 'jumpserver.commandlist.fallback', connectionId })
         } else {
-          console.error('[JumpServer:Connect] Cannot send empty command list: window does not exist or is destroyed')
+          logger.error('Cannot send empty command list: window does not exist or is destroyed', { event: 'jumpserver.window.notfound', connectionId })
         }
       })
 
@@ -130,7 +133,7 @@ export const setupJumpServerInteraction = (
     outputBuffer += chunk
 
     if (connectionPhase === 'connecting' && outputBuffer.includes('Opt>')) {
-      console.log('JumpServer menu detected, entering target IP')
+      logger.debug('JumpServer menu detected, entering target IP', { event: 'jumpserver.menu.detected', connectionId })
       sendStatusUpdate('Connecting to target server...', 'info', 'ssh.jumpserver.connectingToTarget')
       connectionPhase = 'inputIp'
       outputBuffer = ''
@@ -140,7 +143,7 @@ export const setupJumpServerInteraction = (
 
     if (connectionPhase === 'inputIp') {
       if (hasNoAssetsPrompt(outputBuffer)) {
-        console.log(`JumpServer asset not found for target IP: ${connectionInfo.targetIp}`)
+        logger.warn('JumpServer asset not found for target IP', { event: 'jumpserver.asset.notfound', connectionId, targetIp: connectionInfo.targetIp })
         connectionFailed = true
         outputBuffer = ''
         stream.end()
@@ -155,14 +158,14 @@ export const setupJumpServerInteraction = (
       }
 
       if (hasUserSelectionPrompt(outputBuffer)) {
-        console.log('Multiple user prompt detected, user selection required')
+        logger.debug('Multiple user prompt detected, user selection required', { event: 'jumpserver.user.selection', connectionId })
         sendStatusUpdate('Multiple user accounts detected, please select...', 'info', 'ssh.jumpserver.multipleUsersDetected')
         connectionPhase = 'selectUser'
         const users = parseJumpServerUsers(outputBuffer)
-        console.log('Parsed user list:', users)
+        logger.debug('Parsed user list', { event: 'jumpserver.user.parsed', connectionId, userCount: users.length })
 
         if (users.length === 0) {
-          console.error('Failed to parse user list, buffer content:', outputBuffer)
+          logger.error('Failed to parse user list', { event: 'jumpserver.user.parse.error', connectionId })
           conn.end()
           reject(new Error('Failed to parse user list'))
           return
@@ -171,7 +174,7 @@ export const setupJumpServerInteraction = (
         outputBuffer = ''
 
         if (!event) {
-          console.error('JumpServer user selection requires event object')
+          logger.error('JumpServer user selection requires event object', { event: 'jumpserver.user.event.missing', connectionId })
           conn.end()
           reject(new Error('User selection requires event object'))
           return
@@ -179,7 +182,7 @@ export const setupJumpServerInteraction = (
 
         handleJumpServerUserSelectionWithEvent(event, connectionId, users)
           .then((selectedUserId) => {
-            console.log('User selected account ID:', selectedUserId)
+            logger.debug('User selected account', { event: 'jumpserver.user.selected', connectionId, selectedUserId })
             sendStatusUpdate('Connecting with selected account...', 'info', 'ssh.jumpserver.connectingWithSelectedAccount')
             connectionPhase = 'inputPassword'
 
@@ -188,7 +191,7 @@ export const setupJumpServerInteraction = (
             stream.write(selectedUserId.toString() + '\r')
           })
           .catch((err) => {
-            console.error('User selection failed:', err)
+            logger.error('User selection failed', { event: 'jumpserver.user.selection.error', connectionId, error: err instanceof Error ? err.message : String(err) })
             sendStatusUpdate('User selection cancelled', 'error', 'ssh.jumpserver.userSelectionCanceled')
             conn.end()
             reject(err)
@@ -206,11 +209,10 @@ export const setupJumpServerInteraction = (
 
       const reason = detectDirectConnectionReason(outputBuffer)
       if (reason) {
-        console.log(`JumpServer target asset requires no password, establishing direct connection (${reason})`)
+        logger.debug('JumpServer target asset requires no password, direct connection', { event: 'jumpserver.connect.direct', connectionId, reason })
         handleConnectionSuccess(`No password required - ${reason}`)
       } else {
-        const preview = outputBuffer.slice(-200).replace(/\r?\n/g, '\\n')
-        console.log(`JumpServer inputIp phase output preview: "${preview}"`)
+        logger.debug('JumpServer inputIp phase waiting for more output', { event: 'jumpserver.inputIp.waiting', connectionId })
       }
       return
     }
@@ -226,7 +228,7 @@ export const setupJumpServerInteraction = (
 
       const reason = detectDirectConnectionReason(outputBuffer)
       if (reason) {
-        console.log(`JumpServer established direct connection after user selection (${reason})`)
+        logger.debug('JumpServer direct connection after user selection', { event: 'jumpserver.connect.direct', connectionId, reason })
         handleConnectionSuccess(`User selection - ${reason}`)
       }
       return
@@ -234,7 +236,7 @@ export const setupJumpServerInteraction = (
 
     if (connectionPhase === 'inputPassword') {
       if (hasPasswordError(outputBuffer)) {
-        console.log('JumpServer password authentication failed')
+        logger.warn('JumpServer password authentication failed', { event: 'jumpserver.auth.failed', connectionId })
 
         if (event) {
           event.sender.send('ssh:keyboard-interactive-result', {
@@ -250,18 +252,18 @@ export const setupJumpServerInteraction = (
 
       const reason = detectDirectConnectionReason(outputBuffer)
       if (reason) {
-        console.log(`JumpServer successfully entered target server after password verification (${reason})`)
+        logger.debug('JumpServer entered target server after password verification', { event: 'jumpserver.auth.success', connectionId, reason })
         handleConnectionSuccess(`After password verification - ${reason}`)
       }
     }
   })
 
   stream.stderr.on('data', (data: Buffer) => {
-    console.error('JumpServer stderr:', data.toString())
+    logger.debug('JumpServer stderr received', { event: 'jumpserver.stderr', connectionId, size: data.length })
   })
 
   stream.on('close', () => {
-    console.log(`JumpServer stream closed for connection ${connectionId}`)
+    logger.debug('JumpServer stream closed', { event: 'jumpserver.stream.close', connectionId })
 
     // Check if underlying SSH connection needs to be closed
     const connData = jumpserverConnections.get(connectionId)
@@ -279,10 +281,10 @@ export const setupJumpServerInteraction = (
 
       // Only close underlying connection when no other sessions are using it
       if (!isConnStillInUse) {
-        console.log(`[Bastion Host] All sessions closed, releasing underlying connection: ${connectionId}`)
+        logger.info('All sessions closed, releasing underlying connection', { event: 'jumpserver.disconnect', connectionId })
         connToClose.end()
       } else {
-        console.log(`[Bastion Host] Session closed, but underlying connection still in use by other sessions: ${connectionId}`)
+        logger.debug('Session closed, underlying connection still in use', { event: 'jumpserver.disconnect.partial', connectionId })
       }
     }
 
@@ -299,7 +301,7 @@ export const setupJumpServerInteraction = (
   })
 
   stream.on('error', (error: Error) => {
-    console.error('JumpServer stream error:', error)
+    logger.error('JumpServer stream error', { event: 'jumpserver.stream.error', connectionId, error: error.message })
     reject(error)
   })
 }

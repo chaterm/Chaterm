@@ -12,6 +12,10 @@ import { ChatermApiReqInfo, ChatermMessage } from '../../../shared/ExtensionMess
 import { ApiHandler } from '../../../api'
 import { Anthropic } from '@anthropic-ai/sdk'
 
+import { createLogger } from '@logging'
+
+const logger = createLogger('agent')
+
 enum EditType {
   UNDEFINED = 0,
   NO_FILE_READ = 1,
@@ -80,7 +84,7 @@ export class ContextManager {
         return new Map(serializedUpdates.map(([messageIndex, [numberValue, innerMapArray]]) => [messageIndex, [numberValue, new Map(innerMapArray)]]))
       }
     } catch (error) {
-      console.error('Failed to load context history:', error)
+      logger.error('Failed to load context history', { error: error instanceof Error ? error.message : String(error) })
     }
     return new Map()
   }
@@ -96,7 +100,7 @@ export class ContextManager {
 
       saveContextHistoryStorage(taskId, JSON.stringify(serializedUpdates))
     } catch (error) {
-      console.error('Failed to save context history:', error)
+      logger.error('Failed to save context history', { error: error instanceof Error ? error.message : String(error) })
     }
   }
 

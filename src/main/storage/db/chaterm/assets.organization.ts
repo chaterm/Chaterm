@@ -4,6 +4,10 @@ import { v4 as uuidv4 } from 'uuid'
 import { capabilityRegistry } from '../../../ssh/capabilityRegistry'
 import { getOrganizationAssetTypesWithExisting } from './assets.routes'
 
+import { createLogger } from '@logging'
+
+const logger = createLogger('db')
+
 /**
  * Extract bastion type from asset_type.
  * Examples:
@@ -84,7 +88,7 @@ export function connectAssetInfoLogic(db: Database.Database, uuid: string): any 
     ;(result as any).assetUuid = organizationUuid || (result as any).uuid
     return result
   } catch (error) {
-    console.error('Chaterm database get asset error:', error)
+    logger.error('Chaterm database get asset error', { error: error instanceof Error ? error.message : String(error) })
     throw error
   }
 }
@@ -243,7 +247,7 @@ export function getUserHostsLogic(db: Database.Database, search: string, limit: 
       hasMore: false // No pagination; rely on search to narrow results
     }
   } catch (error) {
-    console.error('Chaterm database get user hosts error:', error)
+    logger.error('Chaterm database get user hosts error', { error: error instanceof Error ? error.message : String(error) })
     throw error
   }
 }
@@ -256,7 +260,7 @@ export async function refreshOrganizationAssetsLogic(
   authResultCallback?: any
 ): Promise<any> {
   try {
-    console.log('Starting to refresh organization assets, organization UUID:', organizationUuid)
+    logger.info('Starting to refresh organization assets, organization UUID', { value: organizationUuid })
 
     // Query asset_type to determine which client to use
     const assetTypeStmt = db.prepare(`
@@ -269,7 +273,7 @@ export async function refreshOrganizationAssetsLogic(
     const bastionType = extractBastionType(assetType)
     const isPluginBased = isPluginBastion(assetType)
 
-    console.log(`Organization type: ${assetType}, bastionType: ${bastionType}, isPluginBased: ${isPluginBased}`)
+    logger.info(`Organization type: ${assetType}, bastionType: ${bastionType}, isPluginBased: ${isPluginBased}`)
 
     let finalConfig = {
       host: jumpServerConfig.host,
@@ -303,7 +307,7 @@ export async function refreshOrganizationAssetsLogic(
       throw new Error('Missing authentication information: private key or password required')
     }
 
-    console.log('Final configuration:', { ...finalConfig, privateKey: finalConfig.privateKey ? '[HIDDEN]' : undefined })
+    logger.info('Final configuration', { value: { ...finalConfig, privateKey: finalConfig.privateKey ? '[HIDDEN]' : undefined } })
 
     // Route to different client based on asset type
     let assets: Array<{ name: string; address: string; description?: string }>
@@ -315,7 +319,7 @@ export async function refreshOrganizationAssetsLogic(
         throw new Error(`Bastion plugin '${bastionType}' not installed or does not support asset refresh`)
       }
 
-      console.log(`Using ${bastionType} asset refresh via capability registry...`)
+      logger.info(`Using ${bastionType} asset refresh via capability registry...`)
       const capabilityResult = await bastionCapability.refreshAssets({
         organizationUuid,
         host: finalConfig.host,
@@ -325,7 +329,7 @@ export async function refreshOrganizationAssetsLogic(
         privateKey: finalConfig.privateKey || undefined,
         passphrase: finalConfig.passphrase || undefined,
         onProgress: (message, current, total) => {
-          console.log(`[${bastionType} Refresh] ${message}${current !== undefined ? ` (${current}/${total})` : ''}`)
+          logger.info(`[${bastionType} Refresh] ${message}${current !== undefined ? ` (${current}/${total})` : ''}`)
         },
         onMfaRequired: keyboardInteractiveHandler
           ? async (promptFromPlugin?: string) => {
@@ -335,7 +339,7 @@ export async function refreshOrganizationAssetsLogic(
                 keyboardInteractiveHandler([{ prompt }], (responses: string[]) => {
                   resolve(responses?.[0] || null)
                 }).catch((error) => {
-                  console.warn(`${bastionType} MFA handler error:`, error)
+                  logger.warn(`${bastionType} MFA handler error`, { error: error instanceof Error ? error.message : String(error) })
                   resolve(null)
                 })
               })
@@ -357,28 +361,28 @@ export async function refreshOrganizationAssetsLogic(
         address: a.host || a.address,
         description: a.comment || a.description
       }))
-      console.log(`${bastionType} assets retrieved via capability: ${assets.length}`)
+      logger.info(`${bastionType} assets retrieved via capability: ${assets.length}`)
     } else {
       // Use JumpServer client
-      console.log('Using JumpServer client...')
+      logger.info('Using JumpServer client...')
       const client = new JumpServerClient(finalConfig, keyboardInteractiveHandler, authResultCallback)
       assets = await client.getAllAssets()
       client.close()
     }
 
-    console.log('Assets retrieved, count:', assets.length)
+    logger.info('Assets retrieved, count', { value: assets.length })
     if (assets.length > 0) {
-      console.log('First few asset examples:', assets.slice(0, 3))
+      logger.info('First few asset examples', { value: assets.slice(0, 3) })
     }
 
-    console.log('Querying existing organization assets...')
+    logger.info('Querying existing organization assets...')
     const existingAssetsStmt = db.prepare(`
       SELECT host, hostname, uuid, favorite
       FROM t_organization_assets
       WHERE organization_uuid = ?
     `)
     const existingAssets = existingAssetsStmt.all(organizationUuid) || []
-    console.log('Number of existing organization assets:', existingAssets.length)
+    logger.info('Number of existing organization assets', { value: existingAssets.length })
     const makeKey = (x: { address?: string; hostname?: string; name?: string; host?: string }) =>
       `${x.host ?? x.address ?? ''}||${x.hostname ?? x.name ?? ''}`
     const existingAssetsByHost = new Map(existingAssets.map((asset) => [makeKey(asset), asset]))
@@ -411,11 +415,11 @@ export async function refreshOrganizationAssetsLogic(
     const currentAssetHosts = new Set<string>()
     // Note: jump_server_type field stores the bastion type (historical field name, see design doc)
     const jumpServerType = bastionType
-    console.log(`Starting to process assets retrieved from ${bastionType}...`)
+    logger.info(`Starting to process assets retrieved from ${bastionType}...`)
     for (const asset of assets) {
       currentAssetHosts.add(asset.address)
       if (existingAssetsByHost.has(makeKey(asset))) {
-        console.log(`Updating existing asset: ${asset.name} (${asset.address})`)
+        logger.info(`Updating existing asset: ${asset.name} (${asset.address})`)
         if (isPluginBased) {
           updateStmt.run(asset.name, asset.description || '', jumpServerType, organizationUuid, asset.address, asset.name)
         } else {
@@ -423,7 +427,7 @@ export async function refreshOrganizationAssetsLogic(
         }
       } else {
         const assetUuid = uuidv4()
-        console.log(`Inserting new asset: ${asset.name} (${asset.address})`)
+        logger.info(`Inserting new asset: ${asset.name} (${asset.address})`)
         if (isPluginBased) {
           insertStmt.run(organizationUuid, asset.name, asset.address, asset.description || '', assetUuid, jumpServerType)
         } else {
@@ -431,7 +435,7 @@ export async function refreshOrganizationAssetsLogic(
         }
       }
     }
-    console.log('Asset processing completed')
+    logger.info('Asset processing completed')
 
     const deleteStmt = db.prepare(`
       DELETE FROM t_organization_assets
@@ -444,7 +448,7 @@ export async function refreshOrganizationAssetsLogic(
       }
     }
 
-    console.log('Organization asset refresh completed, returning success result')
+    logger.info('Organization asset refresh completed, returning success result')
     return {
       data: {
         message: 'success',
@@ -452,8 +456,8 @@ export async function refreshOrganizationAssetsLogic(
       }
     }
   } catch (error) {
-    console.error('Failed to refresh organization assets, error details:', error)
-    console.error('Error stack:', error instanceof Error ? error.stack : 'No stack trace')
+    logger.error('Failed to refresh organization assets, error details', { error: error instanceof Error ? error.message : String(error) })
+    logger.error('Error stack', { error: error instanceof Error ? error.stack : 'No stack trace' })
     return {
       data: {
         message: 'failed',
@@ -494,7 +498,7 @@ export function updateOrganizationAssetFavoriteLogic(db: Database.Database, orga
       }
     }
   } catch (error) {
-    console.error('updateOrganizationAssetFavoriteLogic error:', error)
+    logger.error('updateOrganizationAssetFavoriteLogic error', { error: error instanceof Error ? error.message : String(error) })
     throw error
   }
 }
@@ -530,7 +534,7 @@ export function updateOrganizationAssetCommentLogic(db: Database.Database, organ
       }
     }
   } catch (error) {
-    console.error('updateOrganizationAssetCommentLogic error:', error)
+    logger.error('updateOrganizationAssetCommentLogic error', { error: error instanceof Error ? error.message : String(error) })
     throw error
   }
 }
@@ -553,7 +557,7 @@ export function createCustomFolderLogic(db: Database.Database, name: string, des
       }
     }
   } catch (error) {
-    console.error('createCustomFolderLogic error:', error)
+    logger.error('createCustomFolderLogic error', { error: error instanceof Error ? error.message : String(error) })
     throw error
   }
 }
@@ -574,7 +578,7 @@ export function getCustomFoldersLogic(db: Database.Database): any {
       }
     }
   } catch (error) {
-    console.error('getCustomFoldersLogic error:', error)
+    logger.error('getCustomFoldersLogic error', { error: error instanceof Error ? error.message : String(error) })
     throw error
   }
 }
@@ -595,7 +599,7 @@ export function updateCustomFolderLogic(db: Database.Database, folderUuid: strin
       }
     }
   } catch (error) {
-    console.error('updateCustomFolderLogic error:', error)
+    logger.error('updateCustomFolderLogic error', { error: error instanceof Error ? error.message : String(error) })
     throw error
   }
 }
@@ -621,7 +625,7 @@ export function deleteCustomFolderLogic(db: Database.Database, folderUuid: strin
       }
     }
   } catch (error) {
-    console.error('deleteCustomFolderLogic error:', error)
+    logger.error('deleteCustomFolderLogic error', { error: error instanceof Error ? error.message : String(error) })
     throw error
   }
 }
@@ -671,7 +675,7 @@ export function moveAssetToFolderLogic(db: Database.Database, folderUuid: string
       }
     }
   } catch (error) {
-    console.error('moveAssetToFolderLogic error:', error)
+    logger.error('moveAssetToFolderLogic error', { error: error instanceof Error ? error.message : String(error) })
     throw error
   }
 }
@@ -691,7 +695,7 @@ export function removeAssetFromFolderLogic(db: Database.Database, folderUuid: st
       }
     }
   } catch (error) {
-    console.error('removeAssetFromFolderLogic error:', error)
+    logger.error('removeAssetFromFolderLogic error', { error: error instanceof Error ? error.message : String(error) })
     throw error
   }
 }
@@ -722,7 +726,7 @@ export function getAssetsInFolderLogic(db: Database.Database, folderUuid: string
       }
     }
   } catch (error) {
-    console.error('getAssetsInFolderLogic error:', error)
+    logger.error('getAssetsInFolderLogic error', { error: error instanceof Error ? error.message : String(error) })
     throw error
   }
 }

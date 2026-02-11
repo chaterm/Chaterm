@@ -5,6 +5,9 @@ import * as fs from 'fs'
 import * as path from 'path'
 import { pathToFileURL } from 'url'
 import { ConnectionInfo } from '../agent/integrations/remote-terminal'
+import { createLogger } from '@logging'
+
+const logger = createLogger('plugin')
 
 const globalContext = new Map<string, any>()
 
@@ -64,7 +67,7 @@ export function setupPluginIpc() {
           }
         }
       } catch (e) {
-        console.error('Parsing failed\n:', e)
+        logger.error('Manifest parsing failed', { error: e instanceof Error ? e.message : String(e) })
       }
     }
     return null
@@ -97,7 +100,7 @@ export function setupPluginIpc() {
       }
       return ''
     } catch (e) {
-      console.error(`[IPC] Failed to read the file: ${filePath}`, e)
+      logger.error('Failed to read the file', { filePath, error: e instanceof Error ? e.message : String(e) })
       throw e
     }
   })
@@ -111,7 +114,7 @@ export function setupPluginIpc() {
       fs.writeFileSync(filePath, content, 'utf8')
       return true
     } catch (e) {
-      console.error(`[IPC] Failed to write to the file: ${filePath}`, e)
+      logger.error('Failed to write to the file', { filePath, error: e instanceof Error ? e.message : String(e) })
       throw e
     }
   })
@@ -135,12 +138,12 @@ export function setupPluginIpc() {
         // Support array parameter expansion
         return Array.isArray(args) ? await commandHandler(...args) : await commandHandler(args)
       } catch (e) {
-        console.error(`[IPC] Command execution error: ${commandId}`, e)
+        logger.error('Command execution error', { commandId, error: e instanceof Error ? e.message : String(e) })
         throw e
       }
     }
 
-    console.warn(`[IPC] Command handler not found: ${commandId}`)
+    logger.warn('Command handler not found', { commandId })
     return null
   })
 }

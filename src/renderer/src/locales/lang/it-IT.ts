@@ -1099,7 +1099,13 @@ export default {
     downloading: 'Download in corso',
     checkUpdateError: 'Verifica aggiornamento fallita',
     checking: 'Verifica',
-    install: 'Installa'
+    install: 'Installa',
+    logDiagnostics: 'Log e diagnostica',
+    logDiagnosticsDesc: 'In caso di problemi, puoi esportare i file di log e inviarli agli sviluppatori per aiutare nella risoluzione dei problemi.',
+    openLogDir: 'Apri cartella dei log',
+    feedbackTitle: 'Feedback e suggerimenti',
+    feedbackDesc: 'Se hai domande, suggerimenti o feedback, non esitare a contattarci attraverso il seguente canale.',
+    submitFeedback: 'Invia feedback'
   },
   mfa: {
     title: 'Autenticazione a due fattori',

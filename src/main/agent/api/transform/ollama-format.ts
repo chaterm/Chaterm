@@ -1,6 +1,10 @@
 import { Anthropic } from '@anthropic-ai/sdk'
 import { Message } from 'ollama'
 
+import { createLogger } from '@logging'
+
+const logger = createLogger('agent')
+
 export function convertToOllamaMessages(anthropicMessages: Anthropic.Messages.MessageParam[]): Message[] {
   const ollamaMessages: Message[] = []
 
@@ -44,7 +48,7 @@ export function convertToOllamaMessages(anthropicMessages: Anthropic.Messages.Me
                       toolResultImages.push(`data:${part.source.media_type};base64,${part.source.data}`)
                       return '(see following user message for image)'
                     } else {
-                      console.warn('Unsupported image source type in tool result, only base64 is supported')
+                      logger.warn('Unsupported image source type in tool result, only base64 is supported')
                       return '(image not supported)'
                     }
                   }
@@ -72,7 +76,7 @@ export function convertToOllamaMessages(anthropicMessages: Anthropic.Messages.Me
                   if (part.source.type === 'base64') {
                     return `data:${part.source.media_type};base64,${part.source.data}`
                   } else {
-                    console.warn('Unsupported image source type, only base64 is supported')
+                    logger.warn('Unsupported image source type, only base64 is supported')
                     return ''
                   }
                 }

@@ -2,6 +2,9 @@ import { ipcMain } from 'electron'
 import path from 'node:path'
 import { pipeline } from 'node:stream/promises'
 import { activeTasks, getSftpConnection, getUniqueRemoteName } from './sshHandle'
+import { createLogger } from '@logging'
+
+const sftpLogger = createLogger('ssh')
 
 type R2RFileArgs = {
   fromId: string
@@ -226,7 +229,7 @@ export async function transferDirR2R(event: any, args: R2RDirArgs) {
       toPath: f.to,
       autoRename: false
     }).catch((err) => {
-      console.error(`R2R file error: ${f.from} -> ${f.to}`, err)
+      sftpLogger.error('R2R file transfer error', { event: 'ssh.sftp.r2r.error', from: f.from, to: f.to, error: err instanceof Error ? err.message : String(err) })
       throw err
     })
   })

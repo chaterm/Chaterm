@@ -1,5 +1,8 @@
 import { BrowserWindow } from 'electron'
 import type { ChatermDatabaseService } from './storage/database'
+import { createLogger } from '@logging'
+
+const logger = createLogger('theme')
 
 // Title bar theme configuration
 const TITLE_BAR_THEME = {
@@ -53,7 +56,7 @@ export async function loadUserTheme(dbService: ChatermDatabaseService): Promise<
     const userConfig = await safeParse(configRow.value)
     return userConfig?.theme ?? null
   } catch (error) {
-    console.error('Failed to read user theme:', error)
+    logger.error('Failed to read user theme', { error: error instanceof Error ? error.message : String(error) })
     return null
   }
 }

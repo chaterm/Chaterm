@@ -5,6 +5,10 @@
 
 import type { EncryptionResult } from './clientSideCrypto'
 
+import { createLogger } from '@logging'
+
+const logger = createLogger('sync')
+
 // Dynamically load modules at runtime
 let ClientSideCrypto: any
 let chatermAuthAdapter: any
@@ -22,7 +26,7 @@ async function loadModules() {
     const cryptoModule = await import('./clientSideCrypto')
     ClientSideCrypto = cryptoModule.default || cryptoModule.ClientSideCrypto
   } catch (error) {
-    console.error('Failed to load modules:', error)
+    logger.error('Failed to load modules', { error: error instanceof Error ? error.message : String(error) })
     throw new Error('Unable to load encryption modules')
   }
 }
@@ -61,7 +65,7 @@ export class EnvelopeEncryptionService {
       // Use default KMS server URL or get from config
       const kmsServerUrl = this.serverUrl || config?.serverUrl
       if (!kmsServerUrl) {
-        console.warn('KMS server URL not configured, encryption will be unavailable')
+        logger.warn('KMS server URL not configured, encryption will be unavailable')
         this.modulesLoaded = true
         this.initializationFailed = true
         this.lastInitError = 'KMS server URL not configured'
@@ -71,7 +75,7 @@ export class EnvelopeEncryptionService {
       this._clientCrypto = new ClientSideCrypto(kmsServerUrl)
       this.modulesLoaded = true
     } catch (error) {
-      console.error('Failed to initialize encryption service modules:', error)
+      logger.error('Failed to initialize encryption service modules', { error: error instanceof Error ? error.message : String(error) })
       this.initializationFailed = true
       this.lastInitError = (error as Error).message
     }
@@ -82,7 +86,7 @@ export class EnvelopeEncryptionService {
    */
   private async waitForModules(): Promise<void> {
     if (!this.modulesLoaded) {
-      console.log('Waiting for encryption modules to finish loading...')
+      logger.info('Waiting for encryption modules to finish loading...')
       let attempts = 0
       const maxAttempts = 50 // Wait up to 5 seconds
 
@@ -151,7 +155,7 @@ export class EnvelopeEncryptionService {
 
       if (silent) {
         // Silent mode: only log brief information
-        console.warn('Encryption service initialization failed:', errorMessage)
+        logger.warn('Encryption service initialization failed', { error: errorMessage })
         return { success: false, message: errorMessage }
       } else {
         // Non-silent mode: throw error, but don't duplicate detailed logs
@@ -178,16 +182,16 @@ export class EnvelopeEncryptionService {
     if (!this.isInitialized) {
       // If background initialization is in progress, wait a bit
       if (this.isInitializing) {
-        console.log('Waiting for background initialization to complete...')
+        logger.info('Waiting for background initialization to complete...')
         const waitResult = await this.waitForBackgroundInit(3000) // Wait up to 3 seconds
         if (!waitResult) {
-          console.warn('Background initialization timeout, attempting quick re-initialization')
+          logger.warn('Background initialization timeout, attempting quick re-initialization')
         }
       }
 
       // If still not initialized, attempt quick re-initialization
       if (!this.isInitialized && this.currentUserId) {
-        console.log('Attempting quick re-initialization of encryption service...')
+        logger.info('Attempting quick re-initialization of encryption service...')
         try {
           const result = await this.initialize(this.currentUserId, true)
           if (!result.success) {
@@ -213,25 +217,25 @@ export class EnvelopeEncryptionService {
   async decrypt(encryptedData: any): Promise<string> {
     // Check data validity
     if (!encryptedData || typeof encryptedData !== 'object') {
-      console.error('Invalid encrypted data')
+      logger.error('Invalid encrypted data')
       throw new Error('Invalid encrypted data')
     }
 
     // Check if service is initialized
     if (!this.isInitialized) {
-      console.log('Service not initialized, attempting initialization...')
+      logger.info('Service not initialized, attempting initialization...')
       // If background initialization is in progress, wait a bit
       if (this.isInitializing) {
-        console.log('Waiting for background initialization to complete...')
+        logger.info('Waiting for background initialization to complete...')
         const waitResult = await this.waitForBackgroundInit(3000) // Wait up to 3 seconds
         if (!waitResult) {
-          console.warn('Background initialization timeout, attempting quick re-initialization')
+          logger.warn('Background initialization timeout, attempting quick re-initialization')
         }
       }
 
       // If still not initialized, attempt quick re-initialization
       if (!this.isInitialized && this.currentUserId) {
-        console.log('Attempting quick re-initialization of encryption service...')
+        logger.info('Attempting quick re-initialization of encryption service...')
         try {
           const result = await this.initialize(this.currentUserId, true)
           if (!result.success) {
@@ -261,7 +265,7 @@ export class EnvelopeEncryptionService {
       await this._clientCrypto.rotateDataKey()
       return { success: true, message: 'Key rotation successful' }
     } catch (error) {
-      console.error('Key rotation failed:', error)
+      logger.error('Key rotation failed', { error: error instanceof Error ? error.message : String(error) })
       return { success: false, message: `Key rotation failed: ${(error as Error).message}` }
     }
   }
@@ -283,7 +287,7 @@ export class EnvelopeEncryptionService {
         }
       }
     } catch (error) {
-      console.error('Health check failed:', error)
+      logger.error('Health check failed', { error: error instanceof Error ? error.message : String(error) })
       return {
         service: {
           status: 'error',
@@ -357,10 +361,10 @@ export class EnvelopeEncryptionService {
         chatermAuthAdapter.clearAuthInfo()
       }
 
-      console.log('Encryption service cleanup completed')
+      logger.info('Encryption service cleanup completed')
       return { success: true, message: 'Service cleanup completed' }
     } catch (error) {
-      console.error('Service cleanup failed:', error)
+      logger.error('Service cleanup failed', { error: error instanceof Error ? error.message : String(error) })
       return { success: false, message: `Cleanup failed: ${(error as Error).message}` }
     }
   }
@@ -378,7 +382,7 @@ export class EnvelopeEncryptionService {
       // Clear all stored data (including encrypted data keys and session information)
       await storage.cleanup(userId)
     } catch (error) {
-      console.warn('Error clearing stored keys:', error)
+      logger.warn('Error clearing stored keys', { error: error instanceof Error ? error.message : String(error) })
       // Don't throw error, allow initialization to continue
     }
   }
@@ -398,12 +402,12 @@ export class EnvelopeEncryptionService {
   async initializeInBackground(userId?: string, timeout: number = 10000): Promise<void> {
     // Prevent duplicate initialization
     if (this.isInitializing) {
-      console.log('Encryption service is initializing in background, skipping duplicate request')
+      logger.info('Encryption service is initializing in background, skipping duplicate request')
       return
     }
 
     if (this.isInitialized) {
-      console.log('Encryption service already initialized, skipping background initialization')
+      logger.info('Encryption service already initialized, skipping background initialization')
       return
     }
 
@@ -423,10 +427,10 @@ export class EnvelopeEncryptionService {
     try {
       const result = await this.initializationPromise
       if (!result.success) {
-        console.warn('Background encryption service initialization failed:', result.message)
+        logger.warn('Background encryption service initialization failed', { value: result.message })
       }
     } catch (error) {
-      console.warn('Background encryption service initialization timeout:', (error as Error).message)
+      logger.warn('Background encryption service initialization timeout', { value: (error as Error).message })
     }
   }
 
@@ -450,7 +454,7 @@ export class EnvelopeEncryptionService {
       ])
       return result.success
     } catch (error) {
-      console.warn('Waiting for background initialization timeout:', (error as Error).message)
+      logger.warn('Waiting for background initialization timeout', { value: (error as Error).message })
       return false
     }
   }

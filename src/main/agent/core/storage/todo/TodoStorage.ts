@@ -2,6 +2,10 @@ import { Todo, TodoArraySchema } from '../../../shared/todo/TodoSchemas'
 import { ChatermDatabaseService } from '../../../../storage/database'
 import { TaskMetadataHelper } from '../../context/context-tracking/ContextTrackerTypes'
 
+import { createLogger } from '@logging'
+
+const logger = createLogger('agent')
+
 export class TodoStorage {
   private readonly taskId: string
 
@@ -43,13 +47,13 @@ export class TodoStorage {
       // Validate data format
       const result = TodoArraySchema.safeParse(processedTodos)
       if (!result.success) {
-        console.warn(`Invalid todo data format for task ${this.taskId}:`, result.error)
+        logger.warn(`Invalid todo data format for task ${this.taskId}`, { value: result.error })
         return []
       }
 
       return result.data
     } catch (error: unknown) {
-      console.error(`Failed to read todos for task ${this.taskId}:`, error)
+      logger.error(`Failed to read todos for task ${this.taskId}`, { error: error instanceof Error ? error.message : String(error) })
       return []
     }
   }
@@ -59,7 +63,7 @@ export class TodoStorage {
       // Validate data format
       const result = TodoArraySchema.safeParse(todos)
       if (!result.success) {
-        console.error(`[TodoStorage] Data validation failed:`, result.error)
+        logger.error('[TodoStorage] Data validation failed', { error: result.error instanceof Error ? result.error.message : String(result.error) })
         throw new Error(`Invalid todo data: ${result.error.message}`)
       }
 
@@ -75,7 +79,7 @@ export class TodoStorage {
       await dbService.saveTaskMetadata(this.taskId, updatedMetadata)
     } catch (error: unknown) {
       const errorMessage = error instanceof Error ? error.message : String(error)
-      console.error(`[TodoStorage] Failed to write todos, taskId: ${this.taskId}:`, error)
+      logger.error(`[TodoStorage] Failed to write todos, taskId: ${this.taskId}`, { error: error instanceof Error ? error.message : String(error) })
       throw new Error(`Failed to write todos for task ${this.taskId}: ${errorMessage}`)
     }
   }
@@ -90,7 +94,7 @@ export class TodoStorage {
         await dbService.saveTaskMetadata(this.taskId, updatedMetadata)
       }
 
-      console.log(`Deleted todos for task ${this.taskId}`)
+      logger.info(`Deleted todos for task ${this.taskId}`)
     } catch (error: unknown) {
       const errorMessage = error instanceof Error ? error.message : String(error)
       throw new Error(`Failed to delete todos for task ${this.taskId}: ${errorMessage}`)

@@ -2,6 +2,10 @@ import { Todo, FocusChainState, FocusChainTransition, FocusChainHandoff } from '
 import { TodoStorage } from '../storage/todo/TodoStorage'
 import { TodoContextTracker } from './todo_context_tracker'
 
+import { createLogger } from '@logging'
+
+const logger = createLogger('agent')
+
 // Context usage thresholds that trigger notifications
 const CONTEXT_THRESHOLDS = {
   WARNING: 50, // 50% - show warning
@@ -104,7 +108,7 @@ export class FocusChainService {
     const todo = todos.find((t) => t.id === todoId)
 
     if (!todo) {
-      console.warn(`[FocusChainService] Todo ${todoId} not found`)
+      logger.warn(`[FocusChainService] Todo ${todoId} not found`)
       return
     }
 
@@ -139,7 +143,7 @@ export class FocusChainService {
     const contextTracker = TodoContextTracker.forSession(this.taskId)
     contextTracker.setActiveTodo(todoId)
 
-    console.log(`[FocusChainService] Focused on todo: ${todo.content}`)
+    logger.info(`[FocusChainService] Focused on todo: ${todo.content}`)
   }
 
   /**

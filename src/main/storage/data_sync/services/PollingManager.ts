@@ -1,7 +1,9 @@
 import { ApiClient } from '../core/ApiClient'
 import { DatabaseManager } from '../core/DatabaseManager'
 import { SyncEngine } from '../core/SyncEngine'
-import { logger } from '../utils/logger'
+import { createLogger } from '@logging'
+
+const logger = createLogger('sync')
 
 export interface PollingConfig {
   initialInterval: number // Initial polling interval (ms)
@@ -113,7 +115,7 @@ export class PollingManager {
         logger.info('Current polling operation completed')
       }
     } catch (error) {
-      logger.error('Error waiting for polling operation to complete:', error)
+      logger.error('Error waiting for polling operation to complete', { error: error instanceof Error ? error.message : String(error) })
     }
   }
 
@@ -251,7 +253,7 @@ export class PollingManager {
         logger.warn('Server unavailable, skipping local changes upload')
         return { hasChanges: false, count: 0 }
       }
-      logger.error('Failed to upload local changes', error)
+      logger.error('Failed to upload local changes', { error: error instanceof Error ? error.message : String(error) })
       throw error
     }
   }
@@ -269,7 +271,7 @@ export class PollingManager {
         logger.warn('Server unavailable, skipping cloud changes download')
         return { hasChanges: false, count: 0 }
       }
-      logger.error('Failed to download cloud changes', error)
+      logger.error('Failed to download cloud changes', { error: error instanceof Error ? error.message : String(error) })
       throw error
     }
   }
@@ -298,7 +300,7 @@ export class PollingManager {
     }
 
     this.status.consecutiveErrors++
-    logger.error(`Polling failed (consecutive ${this.status.consecutiveErrors} times)`, error?.message)
+    logger.error(`Polling failed (consecutive ${this.status.consecutiveErrors} times)`, { error: error?.message })
 
     // Exponential backoff
     if (this.status.consecutiveErrors > 1) {

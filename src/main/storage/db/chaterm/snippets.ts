@@ -1,6 +1,10 @@
 import Database from 'better-sqlite3'
 import { v4 as uuidv4 } from 'uuid'
 
+import { createLogger } from '@logging'
+
+const logger = createLogger('db')
+
 // Shortcut command related methods
 export function userSnippetOperationLogic(
   db: Database.Database,
@@ -299,7 +303,7 @@ export function userSnippetOperationLogic(
         }
     }
   } catch (error) {
-    console.error('Chaterm database user snippet operation error:', error)
+    logger.error('Chaterm database user snippet operation error', { error: error instanceof Error ? error.message : String(error) })
     return {
       code: 500,
       message: error instanceof Error ? error.message : 'Unknown error occurred'

@@ -7,6 +7,9 @@ import { LEGACY_ALGORITHMS } from './algorithms'
 import net from 'net'
 import tls from 'tls'
 import { getUserConfigFromRenderer } from '../index'
+import { createLogger } from '@logging'
+
+const logger = createLogger('ssh')
 
 // Store SSH connections
 const remoteConnections = new Map<string, Client>()
@@ -36,7 +39,7 @@ export async function remoteSshConnect(connectionInfo: ConnectionInfo): Promise<
       remoteConnections.set(connectionId, reusable.conn)
       reusedRemoteSessions.set(connectionId, { poolKey: reusable.poolKey })
       registerReusableSshSession(reusable.poolKey, connectionId)
-      console.log(`SSH connection re-used via MFA pool: ${normalizedUsername}@${normalizedHost} (session: ${connectionId})`)
+      logger.info('SSH connection reused via MFA pool', { event: 'ssh.reuse', connectionId, host: normalizedHost, username: normalizedUsername })
       return Promise.resolve({ id: connectionId })
     }
   }
@@ -74,13 +77,13 @@ export async function remoteSshConnect(connectionInfo: ConnectionInfo): Promise<
     conn.on('ready', () => {
       if (secondAuthTriggered) return
       remoteConnections.set(connectionId, conn)
-      console.log(`SSH connection successful: ${connectionId}`)
+      logger.info('SSH connection successful', { event: 'ssh.connect', connectionId })
       safeResolve({ id: connectionId })
     })
 
     conn.on('error', (err) => {
       if (secondAuthTriggered) return
-      console.error('SSH connection error:', err.message)
+      logger.error('SSH connection error', { event: 'ssh.error', error: err.message })
       conn.end()
       safeResolve({ error: err.message })
     })
@@ -122,7 +125,7 @@ export async function remoteSshConnect(connectionInfo: ConnectionInfo): Promise<
       conn.connect(connectConfig)
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : String(err)
-      console.error('SSH connection configuration error:', errorMessage)
+      logger.error('SSH connection configuration error', { event: 'ssh.config.error', error: errorMessage })
       safeResolve({ error: `Connection configuration error: ${errorMessage}` })
     }
   })
@@ -136,10 +139,10 @@ export async function remoteSshExec(
   const conn = remoteConnections.get(sessionId)
 
   if (!conn) {
-    console.error(`SSH connection does not exist: ${sessionId}`)
+    logger.error('SSH connection does not exist', { event: 'ssh.exec.notfound', sessionId })
     return { success: false, error: 'Not connected to remote server' }
   }
-  console.log(`Starting SSH command: ${command} (Session: ${sessionId})`)
+  logger.debug('Starting SSH command', { event: 'ssh.exec', sessionId })
 
   const base64Command = Buffer.from(command, 'utf-8').toString('base64')
   const shellCommand = `CHATERM_COMMAND_B64='${base64Command}' exec bash -l -c 'eval "$(echo $CHATERM_COMMAND_B64 | base64 -d)"'`
@@ -218,11 +221,11 @@ export async function remoteSshExecStream(
 ): Promise<{ success?: boolean; error?: string; stream?: any }> {
   const conn = remoteConnections.get(sessionId)
   if (!conn) {
-    console.error(`SSH connection does not exist: ${sessionId}`)
+    logger.error('SSH stream connection does not exist', { event: 'ssh.exec.stream.notfound', sessionId })
     return { success: false, error: 'Not connected to remote server' }
   }
 
-  console.log(`Starting SSH command (stream): ${command} (Session: ${sessionId})`)
+  logger.debug('Starting SSH command (stream)', { event: 'ssh.exec.stream', sessionId })
 
   const shellCommand = `exec bash -l -c '${command.replace(/'/g, "'\\''")}'`
 
@@ -251,7 +254,7 @@ export async function remoteSshExecStream(
         try {
           onData(data.toString())
         } catch (cbErr) {
-          console.error('remoteSshExecStream onData callback error:', cbErr)
+          logger.error('remoteSshExecStream onData callback error', { event: 'ssh.exec.stream.callback.error', error: cbErr instanceof Error ? cbErr.message : String(cbErr) })
         }
       })
 
@@ -259,7 +262,7 @@ export async function remoteSshExecStream(
         try {
           onData(data.toString())
         } catch (cbErr) {
-          console.error('remoteSshExecStream stderr onData callback error:', cbErr)
+          logger.error('remoteSshExecStream stderr callback error', { event: 'ssh.exec.stream.callback.error', error: cbErr instanceof Error ? cbErr.message : String(cbErr) })
         }
       })
 
@@ -272,7 +275,7 @@ export async function remoteSshExecStream(
           try {
             onData(`\n[Exit Code: ${code}]`)
           } catch (cbErr) {
-            console.error('remoteSshExecStream onData callback error:', cbErr)
+            logger.error('remoteSshExecStream onData callback error', { event: 'ssh.exec.stream.callback.error', error: cbErr instanceof Error ? cbErr.message : String(cbErr) })
           }
         }
 
@@ -280,7 +283,7 @@ export async function remoteSshExecStream(
           try {
             onData("\nCommand not found. Please check if the command exists in the remote server's PATH.")
           } catch (cbErr) {
-            console.error('remoteSshExecStream onData callback error:', cbErr)
+            logger.error('remoteSshExecStream onData callback error', { event: 'ssh.exec.stream.callback.error', error: cbErr instanceof Error ? cbErr.message : String(cbErr) })
           }
         }
 
@@ -319,7 +322,7 @@ export async function remoteSshDisconnect(sessionId: string): Promise<{ success?
     remoteConnections.delete(sessionId)
     reusedRemoteSessions.delete(sessionId)
     releaseReusableSshSession(reuseInfo.poolKey, sessionId)
-    console.log(`SSH reused connection session released: ${sessionId}`)
+    logger.info('SSH reused connection session released', { event: 'ssh.disconnect', sessionId })
     return { success: true }
   }
 
@@ -327,11 +330,11 @@ export async function remoteSshDisconnect(sessionId: string): Promise<{ success?
   if (conn) {
     conn.end()
     remoteConnections.delete(sessionId)
-    console.log(`SSH connection disconnected: ${sessionId}`)
+    logger.info('SSH connection disconnected', { event: 'ssh.disconnect', sessionId })
     return { success: true }
   }
 
-  console.warn(`Attempting to disconnect non-existent SSH connection: ${sessionId}`)
+  logger.warn('Attempting to disconnect non-existent SSH connection', { event: 'ssh.disconnect.notfound', sessionId })
   return { success: false, error: 'No active remote connection' }
 }
 

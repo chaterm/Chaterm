@@ -1,6 +1,10 @@
 import * as os from 'os'
 import { execSync } from 'child_process'
 
+import { createLogger } from '@logging'
+
+const logger = createLogger('sync')
+
 const formatMachineIdAsUuid = (value: string): string => {
   const trimmed = value.trim()
   if (/^[0-9a-f]{32}$/i.test(trimmed)) {
@@ -76,11 +80,11 @@ const getSystemUUID = (): string => {
       }
 
       default:
-        console.warn(`[System UUID] Unsupported platform: ${platform}`)
+        logger.warn(`[System UUID] Unsupported platform: ${platform}`)
         break
     }
   } catch (error) {
-    console.error('[System UUID] Error obtaining UUID:', error)
+    logger.error('[System UUID] Error obtaining UUID', { error: error instanceof Error ? error.message : String(error) })
   }
 
   // UUID format validation
@@ -88,7 +92,7 @@ const getSystemUUID = (): string => {
     return uuid.toLowerCase()
   }
 
-  console.warn(`[System UUID] Invalid or empty UUID: ${uuid}`)
+  logger.warn(`[System UUID] Invalid or empty UUID: ${uuid}`)
   return ''
 }
 

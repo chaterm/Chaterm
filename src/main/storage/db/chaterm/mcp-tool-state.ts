@@ -1,5 +1,9 @@
 import Database from 'better-sqlite3'
 
+import { createLogger } from '@logging'
+
+const logger = createLogger('db')
+
 export interface McpToolState {
   id: number
   server_name: string
@@ -25,7 +29,7 @@ export function getToolStateLogic(db: Database.Database, serverName: string, too
     const result = stmt.get(serverName, toolName) as McpToolState | undefined
     return result || null
   } catch (error) {
-    console.error('Failed to get tool state:', error)
+    logger.error('Failed to get tool state', { error: error instanceof Error ? error.message : String(error) })
     throw error
   }
 }
@@ -47,9 +51,9 @@ export function setToolStateLogic(db: Database.Database, serverName: string, too
       DO UPDATE SET enabled = ?, updated_at = datetime('now')
     `)
     stmt.run(serverName, toolName, enabledValue, enabledValue)
-    console.log(`Tool state updated: ${serverName}:${toolName} = ${enabled}`)
+    logger.info(`Tool state updated: ${serverName}:${toolName} = ${enabled}`)
   } catch (error) {
-    console.error('Failed to set tool state:', error)
+    logger.error('Failed to set tool state', { error: error instanceof Error ? error.message : String(error) })
     throw error
   }
 }
@@ -69,7 +73,7 @@ export function getServerToolStatesLogic(db: Database.Database, serverName: stri
     `)
     return stmt.all(serverName) as McpToolState[]
   } catch (error) {
-    console.error('Failed to get server tool states:', error)
+    logger.error('Failed to get server tool states', { error: error instanceof Error ? error.message : String(error) })
     throw error
   }
 }
@@ -95,7 +99,7 @@ export function getAllToolStatesLogic(db: Database.Database): Record<string, boo
 
     return statesMap
   } catch (error) {
-    console.error('Failed to get all tool states:', error)
+    logger.error('Failed to get all tool states', { error: error instanceof Error ? error.message : String(error) })
     throw error
   }
 }
@@ -111,9 +115,9 @@ export function deleteServerToolStatesLogic(db: Database.Database, serverName: s
       DELETE FROM mcp_tool_state WHERE server_name = ?
     `)
     stmt.run(serverName)
-    console.log(`All tool states for server ${serverName} deleted`)
+    logger.info(`All tool states for server ${serverName} deleted`)
   } catch (error) {
-    console.error('Failed to delete server tool states:', error)
+    logger.error('Failed to delete server tool states', { error: error instanceof Error ? error.message : String(error) })
     throw error
   }
 }

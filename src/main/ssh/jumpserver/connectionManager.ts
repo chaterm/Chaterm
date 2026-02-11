@@ -14,6 +14,9 @@ import { handleJumpServerKeyboardInteractive } from './mfa'
 import { buildErrorResponse } from './errorUtils'
 import path from 'path'
 import fs from 'fs'
+import { createLogger } from '@logging'
+
+const logger = createLogger('jumpserver')
 
 export type PackageInfo = { name: string; version: string } & Record<string, unknown>
 
@@ -36,7 +39,7 @@ export function getPackageInfo(
 
     return JSON.parse(fs.readFileSync(sourcePath, 'utf8')) as PackageInfo
   } catch (e) {
-    console.error('Failed to read package.json:', e)
+    logger.warn('Failed to read package.json', { event: 'jumpserver.config', error: e instanceof Error ? e.message : String(e) })
     return { ...defaultInfo }
   }
 }
@@ -46,7 +49,7 @@ const sftpAsync = (conn, connectionId) => {
   return new Promise<void>((resolve) => {
     conn.sftp((err, sftp) => {
       if (err || !sftp) {
-        console.log(`SFTPCheckError [${connectionId}]`, err)
+        logger.debug('SFTP check error', { event: 'jumpserver.sftp.error', connectionId, error: err?.message || 'SFTP object is empty' })
         connectionStatus.set(connectionId, {
           sftpAvailable: false,
           sftpError: err?.message || 'SFTP object is empty'
@@ -54,17 +57,17 @@ const sftpAsync = (conn, connectionId) => {
         sftpConnections.set(connectionId, { isSuccess: false, error: `sftp init error: "${err?.message || 'SFTP object is empty'}"` })
         resolve()
       } else {
-        console.log(`startSftp [${connectionId}]`)
+        logger.debug('Starting SFTP check', { event: 'jumpserver.sftp.start', connectionId })
         sftp.readdir('.', (readDirErr) => {
           if (readDirErr) {
-            console.log(`SFTPCheckFailed [${connectionId}]`)
+            logger.debug('SFTP check failed', { event: 'jumpserver.sftp.failed', connectionId, error: readDirErr.message })
             connectionStatus.set(connectionId, {
               sftpAvailable: false,
               sftpError: readDirErr.message
             })
             sftp.end()
           } else {
-            console.log(`SFTPCheckSuccess [${connectionId}]`)
+            logger.debug('SFTP check success', { event: 'jumpserver.sftp.success', connectionId })
             sftpConnections.set(connectionId, { isSuccess: true, sftp: sftp })
             connectionStatus.set(connectionId, { sftpAvailable: true })
           }
@@ -118,7 +121,7 @@ const attemptJumpServerConnection = async (
           const conn = existingData.conn
           conn.shell({ term: connectionInfo.terminalType || 'vt100' }, (err, newStream) => {
             if (err) {
-              console.error('Failed to create shell with reused connection:', err)
+              logger.error('Failed to create shell with reused connection', { event: 'jumpserver.shell.reuse.error', connectionId, error: err.message })
               reject(new Error(`Failed to create shell with reused connection: ${err.message}`))
               return
             }
@@ -214,12 +217,12 @@ const attemptJumpServerConnection = async (
     })
 
     conn.on('ready', () => {
-      console.log('JumpServer connection established, starting to create shell')
+      logger.info('JumpServer connection established, creating shell', { event: 'jumpserver.connect', connectionId })
       sendStatusUpdate('Successfully connected to bastion host, please wait...', 'success', 'ssh.jumpserver.connectedToBastionHost')
       attemptSecondaryConnection(event, connectionInfo, ident)
 
       if (event && keyboardInteractiveOpts.has(connectionId)) {
-        console.log('Sending MFA verification success event:', { connectionId, status: 'success' })
+        logger.info('MFA verification success', { event: 'jumpserver.mfa.success', connectionId })
         event.sender.send('ssh:keyboard-interactive-result', {
           id: connectionId,
           status: 'success'
@@ -237,10 +240,10 @@ const attemptJumpServerConnection = async (
     })
 
     conn.on('error', (err) => {
-      console.error('JumpServer connection error:', err)
+      logger.error('JumpServer connection error', { event: 'jumpserver.error', error: err.message })
 
       if ((err as any).level === 'client-authentication') {
-        console.log(`JumpServer MFA authentication failed, attempt count: ${attemptCount + 1}/${MAX_JUMPSERVER_MFA_ATTEMPTS}`)
+        logger.info('JumpServer MFA authentication failed', { event: 'jumpserver.mfa.failed', attemptCount: attemptCount + 1, maxAttempts: MAX_JUMPSERVER_MFA_ATTEMPTS })
 
         if (event) {
           event.sender.send('ssh:keyboard-interactive-result', {
@@ -282,15 +285,15 @@ export const handleJumpServerConnection = async (
 
   for (let attempt = 0; attempt < MAX_JUMPSERVER_MFA_ATTEMPTS; attempt++) {
     try {
-      console.log(`JumpServer connection attempt ${attempt + 1}/${MAX_JUMPSERVER_MFA_ATTEMPTS}`)
+      logger.info('JumpServer connection attempt', { event: 'jumpserver.connect.attempt', attempt: attempt + 1, maxAttempts: MAX_JUMPSERVER_MFA_ATTEMPTS })
       const result = await attemptJumpServerConnection(connectionInfo, event, attempt)
       return result
     } catch (error) {
       lastError = error as Error
-      console.log(`JumpServer connection attempt ${attempt + 1} failed:`, lastError.message)
+      logger.warn('JumpServer connection attempt failed', { event: 'jumpserver.connect.failed', attempt: attempt + 1, error: lastError.message })
 
       if ((lastError as any).shouldRetry && attempt < MAX_JUMPSERVER_MFA_ATTEMPTS - 1) {
-        console.log(`Will retry attempt ${attempt + 2}...`)
+        logger.debug('Will retry JumpServer connection', { event: 'jumpserver.connect.retry', nextAttempt: attempt + 2 })
         await new Promise((resolve) => setTimeout(resolve, 1000))
         continue
       }
@@ -351,7 +354,7 @@ export const registerJumpServerHandlers = () => {
       }
       stream.write(data)
     } else {
-      console.warn('Attempting to write to non-existent JumpServer stream:', id)
+      logger.warn('Attempting to write to non-existent JumpServer stream', { event: 'jumpserver.write.notfound', connectionId: id })
     }
   })
 

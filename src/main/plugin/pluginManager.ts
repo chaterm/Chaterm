@@ -3,6 +3,9 @@ import path from 'path'
 import AdmZip from 'adm-zip'
 import { getUserDataPath } from '../config/edition'
 import { getCurrentUserId, getGuestUserId } from '../storage/db/connection'
+import { createLogger } from '@logging'
+
+const logger = createLogger('plugin')
 
 export interface PluginI18nStrings {
   displayName?: string
@@ -164,7 +167,7 @@ export async function getAllPluginVersions(): Promise<Record<string, string>> {
 
         version = v instanceof Promise ? await v : v
       } catch (e) {
-        console.error('[auth] version provider error for', pluginId, e)
+        logger.error('Version provider error', { pluginId, error: e instanceof Error ? e.message : String(e) })
       }
     }
 

@@ -1,4 +1,7 @@
 // ssh2jumpserver/parser.ts
+import { createLogger } from '@logging'
+
+const logger = createLogger('jumpserver')
 
 export interface Asset {
   id: number
@@ -70,7 +73,7 @@ function parseAssets(output: string): Asset[] {
           }
           assets.push(asset)
         } catch (e) {
-          console.error('Failed to parse asset line:', line, e)
+          logger.debug('Failed to parse asset line', { event: 'jumpserver.parser.asset.error', error: e instanceof Error ? e.message : String(e) })
         }
       }
     }
@@ -155,7 +158,7 @@ export function parseJumpServerUsers(output: string): JumpServerUser[] {
           }
           users.push(user)
         } catch (e) {
-          console.error('Failed to parse user line:', line, e)
+          logger.debug('Failed to parse user line', { event: 'jumpserver.parser.user.error', error: e instanceof Error ? e.message : String(e) })
         }
       }
     }

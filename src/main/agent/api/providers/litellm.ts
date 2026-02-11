@@ -13,6 +13,10 @@ import { convertToOpenAiMessages } from '../transform/openai-format'
 import { createProxyAgent, checkProxyConnectivity, resolveSystemProxy, createProxyAgentFromString } from './proxy/index'
 import type { Agent } from 'http'
 
+import { createLogger } from '@logging'
+
+const logger = createLogger('agent')
+
 /**
  * LiteLLM Handler for OpenAI-compatible API with enhanced reasoning support
  *
@@ -101,7 +105,7 @@ export class LiteLlmHandler implements ApiHandler {
 
       // CRITICAL OPTIMIZATION: Only recreate client when proxy configuration changes
       if (proxyString !== this.currentProxyString) {
-        console.log(`[LiteLLM] System proxy changed: ${this.currentProxyString} -> ${proxyString || 'DIRECT'}`)
+        logger.info(`[LiteLLM] System proxy changed: ${this.currentProxyString} -> ${proxyString || 'DIRECT'}`)
         this.currentProxyString = proxyString ?? null
 
         // Unified proxy agent creation logic
@@ -109,7 +113,7 @@ export class LiteLlmHandler implements ApiHandler {
         if (proxyString) {
           httpAgent = createProxyAgentFromString(proxyString)
           if (!httpAgent) {
-            console.warn(`[LiteLLM] Failed to create proxy agent, falling back to direct connection`)
+            logger.warn(`[LiteLLM] Failed to create proxy agent, falling back to direct connection`)
           }
         }
 
@@ -122,11 +126,11 @@ export class LiteLlmHandler implements ApiHandler {
           timeout: timeoutMs
         })
 
-        console.log(`[LiteLLM] Client recreated with ${httpAgent ? 'system proxy' : 'direct connection'}`)
+        logger.info(`[LiteLLM] Client recreated with ${httpAgent ? 'system proxy' : 'direct connection'}`)
       }
       // If proxy hasn't changed, do nothing (performance optimization)
     } catch (error) {
-      console.error('[LiteLLM] Failed to refresh proxy agent:', error)
+      logger.error('[LiteLLM] Failed to refresh proxy agent', { error: error instanceof Error ? error.message : String(error) })
       // Fallback: continue using existing client
     }
   }

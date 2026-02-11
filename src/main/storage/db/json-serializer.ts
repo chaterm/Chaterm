@@ -3,6 +3,10 @@
  * Uses superjson to handle special types: Date, undefined, NaN, Infinity, circular references, RegExp, Set, Map, BigInt, etc.
  */
 
+import { createLogger } from '@logging'
+
+const logger = createLogger('storage')
+
 interface SerializationOptions {
   /** Whether strict mode (throws error when encountering non-serializable values) */
   strict?: boolean
@@ -82,7 +86,7 @@ export async function safeParse<T = any>(jsonString: string): Promise<T | null> 
     const superjson = await getSuperjson()
     return superjson.parse(jsonString) as T
   } catch (error) {
-    console.error('JSON parse failed:', error)
+    logger.error('JSON parse failed', { error: error instanceof Error ? error.message : String(error) })
     return null
   }
 }

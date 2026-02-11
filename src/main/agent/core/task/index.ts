@@ -89,6 +89,10 @@ import type { ContentPart, ContextDocRef, ContextPastChatRef, ContextRefs, Host 
 import { ExternalAssetCache } from '../../../plugin/pluginIpc'
 import type { InteractionType } from '../../services/interaction-detector/types'
 
+import { createLogger } from '@logging'
+
+const logger = createLogger('agent')
+
 type ToolResponse = string | Array<Anthropic.TextBlockParam | Anthropic.ImageBlockParam>
 type UserContent = Array<Anthropic.ContentBlockParam>
 
@@ -137,7 +141,7 @@ export class Task {
    */
   static registerCommandContext(context: CommandContext): void {
     Task.activeTasks.set(context.commandId, context)
-    console.log(`[Task] Registered command context: ${context.commandId} for task: ${context.taskId}`)
+    logger.info(`[Task] Registered command context: ${context.commandId} for task: ${context.taskId}`)
   }
 
   /**
@@ -145,7 +149,7 @@ export class Task {
    */
   static unregisterCommandContext(commandId: string): void {
     Task.activeTasks.delete(commandId)
-    console.log(`[Task] Unregistered command context: ${commandId}`)
+    logger.info(`[Task] Unregistered command context: ${commandId}`)
   }
 
   /**
@@ -159,32 +163,32 @@ export class Task {
    * Clear all command contexts for a specific task
    */
   static clearCommandContextsForTask(taskId: string): void {
-    console.log(`[Task] clearCommandContextsForTask called for task: ${taskId}, activeTasks count: ${Task.activeTasks.size}`)
+    logger.info(`[Task] clearCommandContextsForTask called for task: ${taskId}, activeTasks count: ${Task.activeTasks.size}`)
     for (const [commandId, context] of Task.activeTasks.entries()) {
-      console.log(`[Task] Checking command context: ${commandId}, taskId: ${context.taskId}`)
+      logger.info(`[Task] Checking command context: ${commandId}, taskId: ${context.taskId}`)
       if (context.taskId === taskId) {
         // Send Ctrl+C to cancel the command
         if (context.cancel) {
-          console.log(`[Task] Calling cancel for command: ${commandId}`)
+          logger.info(`[Task] Calling cancel for command: ${commandId}`)
           const result = context.cancel()
           if (result instanceof Promise) {
-            result.catch((e) => console.warn('[Task] Cancel failed:', e))
+            result.catch((e) => logger.warn('[Task] Cancel failed', { error: e instanceof Error ? e.message : String(e) }))
           }
         }
         // Force terminate the process to unblock awaiting code
         if (context.forceTerminate) {
-          console.log(`[Task] Calling forceTerminate for command: ${commandId}`)
+          logger.info(`[Task] Calling forceTerminate for command: ${commandId}`)
           context.forceTerminate()
         }
         // Broadcast interaction closed event to notify renderer process to close UI
-        console.log(`[Task] Broadcasting interaction-closed for command: ${commandId}`)
+        logger.info(`[Task] Broadcasting interaction-closed for command: ${commandId}`)
         broadcastInteractionClosed(commandId)
         // Remove from registry
         Task.activeTasks.delete(commandId)
-        console.log(`[Task] Cleared command context: ${commandId} for task: ${taskId}`)
+        logger.info(`[Task] Cleared command context: ${commandId} for task: ${taskId}`)
       }
     }
-    console.log(`[Task] clearCommandContextsForTask completed, remaining activeTasks count: ${Task.activeTasks.size}`)
+    logger.info(`[Task] clearCommandContextsForTask completed, remaining activeTasks count: ${Task.activeTasks.size}`)
   }
 
   // ============================================================================
@@ -477,7 +481,7 @@ export class Task {
     this.contextManager = new ContextManager()
     this.customInstructions = customInstructions
     this.autoApprovalSettings = autoApprovalSettings
-    console.log(`[Task Init] AutoApprovalSettings initialized:`, JSON.stringify(autoApprovalSettings, null, 2))
+    logger.info('[Task Init] AutoApprovalSettings initialized', { value: JSON.stringify(autoApprovalSettings, null, 2) })
     this.hosts = hosts
     this.chatTitle = chatTitle
     this.updateMessagesLanguage()
@@ -495,7 +499,7 @@ export class Task {
       this.conversationHistoryDeletedRange = historyItem.conversationHistoryDeletedRange
     } else if (task && taskId) {
       this.taskId = taskId
-      console.log(`[Task Init] New task created with ID: ${this.taskId}`)
+      logger.info(`[Task Init] New task created with ID: ${this.taskId}`)
       this.setNextUserInputContentParts(initialUserContentParts)
     } else {
       throw new Error('Either historyItem or task/images must be provided')
@@ -550,7 +554,7 @@ export class Task {
       if (process.env.CHATERM_INTERACTION_DEBUG === '1') {
         const provider = (await getGlobalState('apiProvider')) as string
         const modelId = this.api.getModel().id
-        console.log('[InteractionDetector] LLM request meta', {
+        logger.info('LLM request meta', {
           provider,
           modelId,
           systemLength: systemPrompt.length,
@@ -715,13 +719,13 @@ export class Task {
 
   private async connectTerminal(ip?: string) {
     if (!this.hosts) {
-      console.log('Terminal UUID is not set')
+      logger.info('Terminal UUID is not set')
       return
     }
     let terminalInfo: RemoteTerminalInfo | null = null
     const targetHost = ip ? this.hosts.find((host) => host.host === ip) : this.hosts[0]
     if (!targetHost || !targetHost.uuid) {
-      console.log('Terminal UUID is not set')
+      logger.info('Terminal UUID is not set')
       return
     }
     const terminalUuid = targetHost.uuid
@@ -844,7 +848,7 @@ export class Task {
    * Messages with ts >= the given timestamp will be removed.
    */
   private async truncateHistoryAtTimestamp(ts: number): Promise<void> {
-    // console.log('Truncating history at timestamp', ts)
+    // logger.info('Truncating history at timestamp', { value: ts })
     const msgIndex = this.chatermMessages.findIndex((m) => m.ts >= ts)
     if (msgIndex <= 0) return
 
@@ -887,7 +891,7 @@ export class Task {
         isFavorited: this.taskIsFavorited
       })
     } catch (error) {
-      console.error('Failed to save chaterm messages:', error)
+      logger.error('Failed to save chaterm messages', { error: error instanceof Error ? error.message : String(error) })
     }
   }
 
@@ -895,12 +899,12 @@ export class Task {
     const messageIndex = findLastIndex(this.chatermMessages, (m) => m.say === 'completion_result')
     const message = this.chatermMessages[messageIndex]
     if (!message) {
-      console.error('Completion message not found')
+      logger.error('Completion message not found')
       return false
     }
     const hash = message.lastCheckpointHash
     if (!hash) {
-      console.error('No checkpoint hash found')
+      logger.error('No checkpoint hash found')
       return false
     }
 
@@ -912,7 +916,7 @@ export class Task {
       const lastTaskCompletedMessageCheckpointHash = lastTaskCompletedMessage?.lastCheckpointHash // ask is only used to relinquish control, its the last say we care about
       // if undefined, then we get diff from beginning of git
       // if (!lastTaskCompletedMessage) {
-      // 	console.error("No previous task completion message found")
+      // 	logger.error("No previous task completion message found")
       // 	return
       // }
       // This value *should* always exist
@@ -924,7 +928,7 @@ export class Task {
         return false
       }
     } catch (error) {
-      console.error('Failed to get diff set:', error)
+      logger.error('Failed to get diff set', { error: error instanceof Error ? error.message : String(error) })
       return false
     }
 
@@ -1071,7 +1075,7 @@ export class Task {
   }
 
   async handleWebviewAskResponse(askResponse: ChatermAskResponse, text?: string, truncateAtMessageTs?: number, contentParts?: ContentPart[]) {
-    console.log(`[Task] handleWebviewAskResponse called with askResponse: ${askResponse}, taskId: ${this.taskId}`)
+    logger.info(`[Task] handleWebviewAskResponse called with askResponse: ${askResponse}, taskId: ${this.taskId}`)
     if (truncateAtMessageTs !== undefined) {
       await this.truncateHistoryAtTimestamp(truncateAtMessageTs)
     }
@@ -1091,7 +1095,7 @@ export class Task {
     }
     const hasContentParts = (contentParts?.length ?? 0) > 0
     if ((text === undefined || text === '') && !hasContentParts) {
-      // console.warn('Chaterm say called with empty text, ignoring')
+      // logger.warn('Chaterm say called with empty text, ignoring')
       return
     }
 
@@ -1423,7 +1427,7 @@ export class Task {
           // Include host info for multi-host identification
           await this.say('command_output', result, true, hostInfo)
         } catch (error) {
-          console.error('Error while saying for command output:', error) // Log error
+          logger.error('Error while saying for command output', { error: error instanceof Error ? error.message : String(error) }) // Log error
         } finally {
           chunkEnroute = false
           // If more output accumulated while chunkEnroute, flush again
@@ -1512,7 +1516,7 @@ export class Task {
         }${this.messages.commandUpdateFuture}`
       }
     } catch (error) {
-      console.error('Error executing local command:', error)
+      logger.error('Error executing local command', { error: error instanceof Error ? error.message : String(error) })
       this.currentRunningProcess = null
       return `Local command execution failed: ${error instanceof Error ? error.message : String(error)}`
     }
@@ -1575,7 +1579,7 @@ export class Task {
           // Include host info for multi-host identification
           await this.say('command_output', result, true, hostInfo)
         } catch (error) {
-          console.error('Error while saying for command output:', error) // Log error
+          logger.error('Error while saying for command output', { error: error instanceof Error ? error.message : String(error) }) // Log error
         } finally {
           chunkEnroute = false
           // If more output accumulated while chunkEnroute, flush again
@@ -1626,9 +1630,9 @@ export class Task {
         await this.say('shell_integration_warning')
       })
 
-      console.log(`[Task] executeCommandTool: waiting for process to complete, taskId: ${this.taskId}`)
+      logger.info(`[Task] executeCommandTool: waiting for process to complete, taskId: ${this.taskId}`)
       await process
-      console.log(`[Task] executeCommandTool: process completed, taskId: ${this.taskId}`)
+      logger.info(`[Task] executeCommandTool: process completed, taskId: ${this.taskId}`)
 
       // Wait for a short delay to ensure all messages are sent to the webview
       // This delay allows time for non-awaited promises to be created and
@@ -1682,11 +1686,11 @@ export class Task {
         case 'execute_command':
           return [this.autoApprovalSettings.actions.executeSafeCommands ?? false, this.autoApprovalSettings.actions.executeAllCommands ?? false]
         default:
-          console.log(`[AutoApproval] Tool ${toolName} not in auto-approval list, returning false`)
+          logger.info(`[AutoApproval] Tool ${toolName} not in auto-approval list, returning false`)
           break
       }
     } else {
-      console.log(`[AutoApproval] Auto-approval disabled, returning false`)
+      logger.info(`[AutoApproval] Auto-approval disabled, returning false`)
     }
     return false
   }
@@ -1953,7 +1957,7 @@ export class Task {
           } catch (e) {
             const msg = e instanceof Error ? e.message : String(e)
             cmdLines.push(`- COMMAND_READ_ERROR: ${command}: ${msg}`)
-            console.error(`[Task] Failed to read command file for "${command}":`, msg)
+            logger.error(`[Task] Failed to read command file for "${command}"`, { error: msg })
           }
         } else {
           // Built-in command: handle by command type
@@ -1972,7 +1976,7 @@ export class Task {
         }
       }
     } catch (error) {
-      console.error('[Task] Failed to process slash commands:', error)
+      logger.error('[Task] Failed to process slash commands', { error: error instanceof Error ? error.message : String(error) })
     }
     return cmdLines
   }
@@ -2147,7 +2151,7 @@ export class Task {
     abortStream: (cancelReason: ChatermApiReqCancelReason, streamingFailedMessage?: string) => Promise<void>
   ): Promise<boolean> {
     if (this.abort) {
-      console.log('aborting stream...')
+      logger.info('aborting stream...')
       if (!this.abandoned) {
         await abortStream('user_cancelled')
       }
@@ -2176,7 +2180,7 @@ export class Task {
     const lastMessage = this.chatermMessages.at(-1)
     if (lastMessage && lastMessage.partial) {
       lastMessage.partial = false
-      console.log('updating partial message', lastMessage)
+      logger.info('updating partial message', { value: lastMessage })
     }
 
     await this.addToApiConversationHistory({
@@ -2409,12 +2413,12 @@ export class Task {
     try {
       if (block.partial) {
         const shouldAutoApprove = this.shouldAutoApproveTool(block.name)
-        console.log(`[Command Execution] Partial command, shouldAutoApprove: ${shouldAutoApprove}`)
+        logger.info(`[Command Execution] Partial command, shouldAutoApprove: ${shouldAutoApprove}`)
         if (!shouldAutoApprove) {
-          console.log(`[Command Execution] Asking for partial command approval`)
+          logger.info(`[Command Execution] Asking for partial command approval`)
           await this.ask('command', this.removeClosingTag(block.partial, 'command', command), block.partial).catch(() => {})
         } else {
-          console.log(`[Command Execution] Auto-approving partial command`)
+          logger.info(`[Command Execution] Auto-approving partial command`)
         }
         return
       } else {
@@ -2483,7 +2487,7 @@ export class Task {
           if (!requiresApprovalPerLLM && (globalAutoExecuteReadOnly || this.readOnlyCommandsAutoApproved)) {
             // Auto-approve read-only command
             const reason = globalAutoExecuteReadOnly ? 'global setting' : 'session auto-approval'
-            console.log(`[Command Execution] Auto-approving read-only command (${reason} enabled)`)
+            logger.info(`[Command Execution] Auto-approving read-only command (${reason} enabled)`)
             this.removeLastPartialMessageIfExistsWithType('ask', 'command')
             await this.say('command', command, false)
             this.consecutiveAutoApprovedRequestsCount++
@@ -2491,7 +2495,7 @@ export class Task {
           } else {
             this.showNotificationIfNeeded(`Chaterm wants to execute a command: ${command}`)
             const didApprove = await this.askApproval(toolDescription, 'command', command)
-            console.log(`[Command Execution] User approval result: ${didApprove}`)
+            logger.info(`[Command Execution] User approval result: ${didApprove}`)
             if (!didApprove) {
               await this.saveCheckpoint()
               return
@@ -2530,7 +2534,7 @@ export class Task {
             ip: ip!
           })
         } catch (error) {
-          console.error('Failed to track tool call:', error)
+          logger.error('Failed to track tool call', { error: error instanceof Error ? error.message : String(error) })
           // Don't affect main functionality, only log error
         }
 
@@ -2564,11 +2568,11 @@ export class Task {
     securityMessage: string
     shouldReturn: boolean
   }> {
-    console.log('this.commandSecurityManager.getSecurityConfig()', this.commandSecurityManager.getSecurityConfig())
+    logger.info('commandSecurityManager.getSecurityConfig()', { value: this.commandSecurityManager.getSecurityConfig() })
 
     // Security check: verify if command is in blacklist
     const securityResult = this.commandSecurityManager.validateCommandSecurity(command)
-    console.log('securityResult', securityResult)
+    logger.info('securityResult', { value: securityResult })
 
     // Identify if security confirmation is needed
     let needsSecurityApproval = false
@@ -2661,7 +2665,7 @@ export class Task {
     // If user clicked "auto-approve read-only" button, enable session-level auto-approval for subsequent read-only commands
     if (response === 'autoApproveReadOnlyClicked') {
       this.readOnlyCommandsAutoApproved = true
-      console.log(`[Command Execution] User enabled session auto-approval for read-only commands`)
+      logger.info(`[Command Execution] User enabled session auto-approval for read-only commands`)
     }
 
     if (!approved) {
@@ -2701,7 +2705,7 @@ export class Task {
 
   private async handleToolError(toolDescription: string, action: string, error: Error): Promise<void> {
     if (this.abandoned) {
-      console.log('Ignoring error since task was abandoned')
+      logger.info('Ignoring error since task was abandoned')
       return
     }
     const errorString = `Error ${action}: ${JSON.stringify(serializeError(error))}`
@@ -3087,7 +3091,7 @@ export class Task {
         await this.handleSummarizeToKnowledgeToolUse(block)
         break
       default:
-        console.error(`[Task] Unknown tool name: ${block.name}`)
+        logger.error(`[Task] Unknown tool name: ${block.name}`)
     }
     if (!block.name.startsWith('todo_') && block.name !== 'ask_followup_question' && block.name !== 'attempt_completion') {
       await this.addTodoStatusUpdateReminder('')
@@ -3669,10 +3673,10 @@ export class Task {
       systemInformation +=
         'Chat mode: No server connection or system information available. This mode is for conversation, learning, and brainstorming only.\n'
     } else if (!this.hosts || this.hosts.length === 0) {
-      console.warn('No hosts configured, skipping system information collection')
+      logger.warn('No hosts configured, skipping system information collection')
       systemInformation += this.messages.noHostsConfigured + '\n'
     } else {
-      console.log(`Collecting system information for ${this.hosts.length} host(s)`)
+      logger.info(`Collecting system information for ${this.hosts.length} host(s)`)
 
       for (const host of this.hosts) {
         try {
@@ -3682,7 +3686,7 @@ export class Task {
           // Check cache, if no cache, get system info and cache it
           let hostInfo = this.hostSystemInfoCache.get(host.host)
           if (!hostInfo) {
-            console.log(`Fetching system information for host: ${host.host}`)
+            logger.info(`Fetching system information for host: ${host.host}`)
 
             let systemInfoOutput: string
 
@@ -3701,7 +3705,7 @@ USERNAME:${localSystemInfo.userName}`
               systemInfoOutput = await this.executeCommandInRemoteServer(systemInfoScript, host.host)
             }
 
-            console.log(`System info output for ${host.host}:`, systemInfoOutput)
+            logger.info(`System info output for ${host.host}`, { value: systemInfoOutput })
 
             if (!systemInfoOutput || systemInfoOutput.trim() === '') {
               throw new Error('Failed to get system information: connection failed or no output received')
@@ -3753,12 +3757,12 @@ USERNAME:${localSystemInfo.userName}`
             }
 
             hostInfo = parseSystemInfo(systemInfoOutput)
-            console.log(`Parsed system info for ${host.host}:`, hostInfo)
+            logger.info(`Parsed system info for ${host.host}`, { value: hostInfo })
 
             // Cache system information
             this.hostSystemInfoCache.set(host.host, hostInfo)
           } else {
-            console.log(`Using cached system information for host: ${host.host}`)
+            logger.info(`Using cached system information for host: ${host.host}`)
           }
 
           systemInformation += `
@@ -3771,7 +3775,7 @@ USERNAME:${localSystemInfo.userName}`
             ====
           `
         } catch (error) {
-          console.error(`Failed to get system information for host ${host.host}:`, error)
+          logger.error(`Failed to get system information for host ${host.host}`, { error: error instanceof Error ? error.message : String(error) })
           const chatSettings = await getGlobalState('chatSettings')
           const isLocalConnection = host.connection?.toLowerCase?.() === 'localhost' || this.isLocalHost(host.host) || host.uuid === 'localhost'
 
@@ -3794,7 +3798,7 @@ USERNAME:${localSystemInfo.userName}`
       }
     }
 
-    console.log('Final system information section:', systemInformation)
+    logger.info('Final system information section', { value: systemInformation })
     systemPrompt += systemInformation
 
     // Build MCP Tools and Resources section
@@ -3920,7 +3924,7 @@ USERNAME:${localSystemInfo.userName}`
 
       return `${sectionTitle}\n\n${sectionHeader}\n\n${serverDescriptions.join('\n')}`
     } catch (error) {
-      console.error('Failed to build MCP tools section:', error)
+      logger.error('Failed to build MCP tools section', { error: error instanceof Error ? error.message : String(error) })
       return null
     }
   }
@@ -3929,23 +3933,23 @@ USERNAME:${localSystemInfo.userName}`
    * Build skills section for system prompt
    */
   private buildSkillsSection(): string | null {
-    console.log('[Skills] buildSkillsSection called, skillsManager exists:', !!this.skillsManager)
+    logger.info('[Skills] buildSkillsSection called, skillsManager exists', { value: !!this.skillsManager })
 
     if (!this.skillsManager) {
-      console.log('[Skills] No skillsManager available')
+      logger.info('[Skills] No skillsManager available')
       return null
     }
 
     try {
       const skillsPrompt = this.skillsManager.buildSkillsPrompt()
-      console.log('[Skills] Skills prompt length:', skillsPrompt?.length || 0)
+      logger.info('[Skills] Skills prompt length', { value: skillsPrompt?.length || 0 })
 
       if (skillsPrompt && skillsPrompt.trim()) {
         return skillsPrompt
       }
       return null
     } catch (error) {
-      console.error('Failed to build skills section:', error)
+      logger.error('Failed to build skills section', { error: error instanceof Error ? error.message : String(error) })
       return null
     }
   }
@@ -3981,7 +3985,7 @@ USERNAME:${localSystemInfo.userName}`
           todos = [todosParam as Todo]
         }
       } else {
-        console.error(`[Task] Unsupported todos parameter type: ${typeof todosParam}`)
+        logger.error(`[Task] Unsupported todos parameter type: ${typeof todosParam}`)
         this.pushToolResult(this.getToolDescription(block), 'Todo write failed: todos parameter type not supported', { dontLock: true })
         return
       }
@@ -4002,7 +4006,7 @@ USERNAME:${localSystemInfo.userName}`
         triggerReason: 'agent_update'
       })
     } catch (error) {
-      console.error(`[Task] todo_write tool call handling failed:`, error)
+      logger.error(`[Task] todo_write tool call handling failed`, { error: error instanceof Error ? error.message : String(error) })
       this.pushToolResult(this.getToolDescription(block), `Todo write failed: ${error instanceof Error ? error.message : String(error)}`, {
         dontLock: true
       })
@@ -4070,7 +4074,7 @@ USERNAME:${localSystemInfo.userName}`
 
       await this.saveCheckpoint()
     } catch (error) {
-      console.error('[Task] summarize_to_knowledge failed:', error)
+      logger.error('[Task] summarize_to_knowledge failed', { error: error instanceof Error ? error.message : String(error) })
       this.pushToolResult(toolDescription, `Failed to save knowledge: ${error instanceof Error ? error.message : String(error)}`)
     }
   }
@@ -4098,9 +4102,9 @@ USERNAME:${localSystemInfo.userName}`
         triggerReason: 'user_request'
       })
 
-      console.log(`[Task] Cleared todos due to ${trigger} for task ${this.taskId}`)
+      logger.info(`[Task] Cleared todos due to ${trigger} for task ${this.taskId}`)
     } catch (error) {
-      console.error(`[Task] Failed to clear todos (${trigger}) for task ${this.taskId}:`, error)
+      logger.error(`[Task] Failed to clear todos (${trigger}) for task ${this.taskId}`, { error: error instanceof Error ? error.message : String(error) })
     }
   }
 
@@ -4115,21 +4119,21 @@ USERNAME:${localSystemInfo.userName}`
         .trim()
 
       if (userMessage && !userMessage.includes('<system-reminder>') && !userMessage.includes('<feedback>')) {
-        console.log(`[Smart Todo] Checking user content for todo creation: "${userMessage}"`)
+        logger.info(`[Smart Todo] Checking user content for todo creation: "${userMessage}"`)
         await this.checkAndCreateTodoIfNeeded(userMessage)
       }
     } catch (error) {
-      console.error('[Smart Todo] Failed to check user content for todo:', error)
+      logger.error('[Smart Todo] Failed to check user content for todo', { error: error instanceof Error ? error.message : String(error) })
     }
   }
 
   // 智能检测相关方法 - 使用优化后的检测逻辑
   private async checkAndCreateTodoIfNeeded(userMessage: string): Promise<void> {
     try {
-      console.log(`[Smart Todo] Analyzing message: "${userMessage}"`)
+      logger.info(`[Smart Todo] Analyzing message: "${userMessage}"`)
 
       const shouldCreate = SmartTaskDetector.shouldCreateTodo(userMessage)
-      console.log(`[Smart Todo] Should create todo: ${shouldCreate}`)
+      logger.info(`[Smart Todo] Should create todo: ${shouldCreate}`)
 
       if (shouldCreate) {
         // 获取用户语言设置
@@ -4138,7 +4142,7 @@ USERNAME:${localSystemInfo.userName}`
           const userConfig = await getUserConfig()
           isChineseMode = userConfig?.language === 'zh-CN'
         } catch (error) {
-          console.log(`[Smart Todo] 获取用户语言设置失败，使用默认语言`)
+          logger.info(`[Smart Todo] 获取用户语言设置失败，使用默认语言`)
         }
 
         // 发送简化的核心系统消息给 Agent
@@ -4150,10 +4154,10 @@ USERNAME:${localSystemInfo.userName}`
           text: coreMessage
         })
       } else {
-        console.log(`[Smart Todo] Task not complex enough for todo creation`)
+        logger.info(`[Smart Todo] Task not complex enough for todo creation`)
       }
     } catch (error) {
-      console.error('[Smart Todo] Failed to check and create todo if needed:', error)
+      logger.error('[Smart Todo] Failed to check and create todo if needed', { error: error instanceof Error ? error.message : String(error) })
       // 不影响主要功能，只记录错误
     }
   }
@@ -4193,7 +4197,7 @@ USERNAME:${localSystemInfo.userName}`
         })
       }
     } catch (error) {
-      console.error('[Task] 添加 todo 状态更新提醒失败:', error)
+      logger.error('[Task] 添加 todo 状态更新提醒失败', { error: error instanceof Error ? error.message : String(error) })
     }
   }
 }

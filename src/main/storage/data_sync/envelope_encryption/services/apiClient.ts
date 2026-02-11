@@ -3,6 +3,10 @@ import config from '../config'
 import { chatermAuthAdapter } from './auth'
 import { RetryManager } from '../../services/RetryManager'
 
+import { createLogger } from '@logging'
+
+const logger = createLogger('sync')
+
 interface GenerateDataKeyRequest {
   encryptionContext: any
   authToken?: string | null
@@ -89,7 +93,7 @@ class ApiClient {
         return config
       },
       (error) => {
-        console.error('KMS request interceptor error:', error)
+        logger.error('KMS request interceptor error', { error: error instanceof Error ? error.message : String(error) })
         return Promise.reject(error)
       }
     )
@@ -101,7 +105,7 @@ class ApiClient {
       },
       async (error) => {
         if (error.response && error.response.status === 401) {
-          console.warn('KMS authentication failed (401), clearing auth info')
+          logger.warn('KMS authentication failed (401), clearing auth info')
           // Use unified auth adapter to clear auth info
           chatermAuthAdapter.clearAuthInfo()
         }
@@ -146,7 +150,7 @@ class ApiClient {
     } catch (error) {
       // Only output basic error information, avoid detailed stack trace
       const errorMessage = (error as Error).message
-      console.warn('Data key generation failed:', errorMessage)
+      logger.warn('Data key generation failed', { error: errorMessage })
       return {
         success: false,
         error: errorMessage
@@ -191,7 +195,7 @@ class ApiClient {
     } catch (error) {
       // Simplify error log output
       const errorMessage = (error as Error).message
-      console.warn('Data key decryption failed:', errorMessage)
+      logger.warn('Data key decryption failed', { error: errorMessage })
       return {
         success: false,
         error: errorMessage
@@ -205,19 +209,19 @@ class ApiClient {
    */
   async healthCheck(): Promise<any> {
     try {
-      console.log('Executing health check...')
+      logger.info('Executing health check...')
       const result = await this.retryManager.executeWithRetry(async () => {
         return await this.client.get('/kms/health')
       }, 'healthCheck')
 
       if (result.success) {
-        console.log('Health check passed')
+        logger.info('Health check passed')
         return result.result
       } else {
         throw result.error
       }
     } catch (error) {
-      console.error('Health check failed:', error)
+      logger.error('Health check failed', { error: error instanceof Error ? error.message : String(error) })
       throw error
     }
   }
@@ -228,12 +232,12 @@ class ApiClient {
    */
   async rotateMasterKey(): Promise<any> {
     try {
-      console.log('Requesting master key rotation...')
+      logger.info('Requesting master key rotation...')
       const response = await this.client.post('/kms/rotate-master-key')
-      console.log('Master key rotation successful')
+      logger.info('Master key rotation successful')
       return response
     } catch (error) {
-      console.error('Master key rotation failed:', error)
+      logger.error('Master key rotation failed', { error: error instanceof Error ? error.message : String(error) })
       throw error
     }
   }
@@ -244,12 +248,12 @@ class ApiClient {
    */
   async getStats(): Promise<any> {
     try {
-      console.log('Fetching KMS statistics...')
+      logger.info('Fetching KMS statistics...')
       const response = await this.client.get('/kms/stats')
-      console.log('Statistics fetched successfully')
+      logger.info('Statistics fetched successfully')
       return response
     } catch (error) {
-      console.error('Failed to fetch statistics:', error)
+      logger.error('Failed to fetch statistics', { error: error instanceof Error ? error.message : String(error) })
       throw error
     }
   }
@@ -262,15 +266,15 @@ class ApiClient {
    */
   async validateDataKey(encryptedDataKey: string, encryptionContext: any): Promise<any> {
     try {
-      console.log('Validating data key...')
+      logger.info('Validating data key...')
       const response = await this.client.post('/kms/validate-data-key', {
         encryptedDataKey,
         encryptionContext
       })
-      console.log('Data key validation successful')
+      logger.info('Data key validation successful')
       return response
     } catch (error) {
-      console.error('Data key validation failed:', error)
+      logger.error('Data key validation failed', { error: error instanceof Error ? error.message : String(error) })
       throw error
     }
   }
@@ -282,14 +286,14 @@ class ApiClient {
    */
   async revokeDataKey(keyFingerprint: string): Promise<any> {
     try {
-      console.log('Revoking data key...')
+      logger.info('Revoking data key...')
       const response = await this.client.post('/kms/revoke-data-key', {
         keyFingerprint
       })
-      console.log('Data key revoked successfully')
+      logger.info('Data key revoked successfully')
       return response
     } catch (error) {
-      console.error('Data key revocation failed:', error)
+      logger.error('Data key revocation failed', { error: error instanceof Error ? error.message : String(error) })
       throw error
     }
   }
@@ -309,7 +313,7 @@ class ApiClient {
       })
       return response
     } catch (error) {
-      console.error('Failed to log audit event:', error)
+      logger.error('Failed to log audit event', { error: error instanceof Error ? error.message : String(error) })
       // Audit log failure should not affect main functionality
       return { success: false, error: (error as Error).message }
     }
@@ -322,7 +326,7 @@ class ApiClient {
   updateServerUrl(newUrl: string): void {
     this.serverUrl = newUrl
     this.client.defaults.baseURL = newUrl
-    console.log(`API server URL updated to: ${newUrl}`)
+    logger.info(`API server URL updated to: ${newUrl}`)
   }
 
   /**

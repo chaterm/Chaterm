@@ -1,5 +1,9 @@
 import Database from 'better-sqlite3'
 
+import { createLogger } from '@logging'
+
+const logger = createLogger('db')
+
 /**
  * Add content_parts column to agent_ui_messages_v1 table.
  * Stores structured user content (chips + text) so UI can restore mentions.
@@ -10,14 +14,14 @@ export async function upgradeContentPartsSupport(db: Database.Database): Promise
     const contentPartsColumnExists = tableInfo.some((col) => col.name === 'content_parts')
 
     if (!contentPartsColumnExists) {
-      console.log('Adding content_parts column to agent_ui_messages_v1 table...')
+      logger.info('Adding content_parts column to agent_ui_messages_v1 table...')
       db.exec('ALTER TABLE agent_ui_messages_v1 ADD COLUMN content_parts TEXT')
-      console.log('content_parts column added successfully')
+      logger.info('content_parts column added successfully')
     } else {
-      console.log('content_parts column already exists, skipping migration')
+      logger.info('content_parts column already exists, skipping migration')
     }
   } catch (error) {
-    console.error('Failed to upgrade content parts support:', error)
+    logger.error('Failed to upgrade content parts support', { error: error instanceof Error ? error.message : String(error) })
     throw error
   }
 }

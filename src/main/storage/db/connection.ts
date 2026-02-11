@@ -11,6 +11,9 @@ import { upgradeMessageIndexSupport } from './migrations/add-message-index-suppo
 import { upgradeBastionCommentSupport } from './migrations/add-bastion-comment-support'
 import { IndexDBMigrator } from './indexdb-migrator'
 import { getUserDataPath } from '../../config/edition'
+import { createLogger } from '@logging'
+
+const logger = createLogger('db')
 
 const INIT_DB_PATH = getInitDbPath()
 const INIT_CDB_PATH = getInitChatermDbPath()
@@ -63,14 +66,14 @@ function migrateLegacyDatabase(userId: number, dbType: 'complete' | 'chaterm'): 
 
   if (fs.existsSync(legacyPath)) {
     try {
-      console.log(`Found legacy ${dbType} database at: ${legacyPath}`)
-      console.log(`[PACKAGE] Migrating to user directory: ${userPath}`)
+      logger.info(`Found legacy ${dbType} database at: ${legacyPath}`)
+      logger.info(`Migrating to user directory: ${userPath}`)
       ensureUserDatabaseDir(userId)
       fs.renameSync(legacyPath, userPath)
-      console.log(`Successfully migrated legacy ${dbType} database for user ${userId}`)
+      logger.info(`Successfully migrated legacy ${dbType} database for user ${userId}`)
       return true
     } catch (error) {
-      console.error(`Failed to migrate legacy ${dbType} database:`, error)
+      logger.error(`Failed to migrate legacy ${dbType} database`, { error: error instanceof Error ? error.message : String(error) })
       return false
     }
   }
@@ -129,7 +132,7 @@ function upgradeUserSnippetTable(db: Database.Database): void {
       db.transaction(() => {
         // Add sort_order column
         db.exec('ALTER TABLE user_snippet_v1 ADD COLUMN sort_order INTEGER DEFAULT 0')
-        console.log('Added sort_order column to user_snippet_v1')
+        logger.info('Added sort_order column to user_snippet_v1')
 
         // Initialize sort_order for existing records
         const allRecords = db.prepare('SELECT id FROM user_snippet_v1 ORDER BY created_at ASC').all()
@@ -138,14 +141,14 @@ function upgradeUserSnippetTable(db: Database.Database): void {
           allRecords.forEach((record: any, index: number) => {
             updateSortStmt.run((index + 1) * 10, record.id) // Use multiples of 10 to leave space for insertion
           })
-          console.log(`Initialized sort_order for ${allRecords.length} existing records`)
+          logger.info(`Initialized sort_order for ${allRecords.length} existing records`)
         }
       })()
 
-      console.log('user_snippet_v1 table upgrade completed')
+      logger.info('user_snippet_v1 table upgrade completed')
     }
   } catch (error) {
-    console.error('Failed to upgrade user_snippet_v1 table:', error)
+    logger.error('Failed to upgrade user_snippet_v1 table', { error: error instanceof Error ? error.message : String(error) })
   }
 }
 
@@ -159,10 +162,10 @@ function upgradeTAssetsTable(db: Database.Database): void {
       db.transaction(() => {
         // Add asset_type column
         db.exec("ALTER TABLE t_assets ADD COLUMN asset_type TEXT DEFAULT 'person'")
-        console.log('Added asset_type column to t_assets')
+        logger.info('Added asset_type column to t_assets')
       })()
 
-      console.log('t_assets table upgrade completed')
+      logger.info('t_assets table upgrade completed')
     }
 
     // Additional column upgrade: t_assets.version
@@ -170,7 +173,7 @@ function upgradeTAssetsTable(db: Database.Database): void {
       db.prepare('SELECT version FROM t_assets LIMIT 1').get()
     } catch (e) {
       db.exec('ALTER TABLE t_assets ADD COLUMN version INTEGER NOT NULL DEFAULT 1')
-      console.log('Added version column to t_assets')
+      logger.info('Added version column to t_assets')
     }
 
     // Additional column upgrade: t_asset_chains.uuid
@@ -181,9 +184,9 @@ function upgradeTAssetsTable(db: Database.Database): void {
       db.transaction(() => {
         try {
           db.exec('ALTER TABLE t_asset_chains ADD COLUMN uuid TEXT')
-          console.log('Added uuid column to t_asset_chains')
+          logger.info('Added uuid column to t_asset_chains')
         } catch (transactionError) {
-          console.error('Error adding uuid column to t_asset_chains:', transactionError)
+          logger.error('Error adding uuid column to t_asset_chains', { error: transactionError instanceof Error ? transactionError.message : String(transactionError) })
           throw transactionError
         }
       })()
@@ -200,10 +203,10 @@ function upgradeTAssetsTable(db: Database.Database): void {
             updateUuidStmt.run(uuidv4(), record.key_chain_id)
           })
         })()
-        console.log(`Auto-filled uuid for ${existingRecords.length} existing t_asset_chains records`)
+        logger.info(`Auto-filled uuid for ${existingRecords.length} existing t_asset_chains records`)
       }
     } catch (fillError) {
-      console.error('Error filling uuid for t_asset_chains:', fillError)
+      logger.error('Error filling uuid for t_asset_chains', { error: fillError instanceof Error ? fillError.message : String(fillError) })
     }
 
     // Additional column: t_assets.need_proxy
@@ -211,7 +214,7 @@ function upgradeTAssetsTable(db: Database.Database): void {
       db.prepare('SELECT need_proxy FROM t_assets LIMIT 1').get()
     } catch (e) {
       db.exec('ALTER TABLE t_assets ADD COLUMN need_proxy INTEGER DEFAULT 0')
-      console.log('Added need_proxy column to t_assets')
+      logger.info('Added need_proxy column to t_assets')
     }
 
     // Additional column upgrade: t_assets.proxy_name
@@ -219,7 +222,7 @@ function upgradeTAssetsTable(db: Database.Database): void {
       db.prepare('SELECT proxy_name FROM t_assets LIMIT 1').get()
     } catch (e) {
       db.exec('ALTER TABLE t_assets ADD COLUMN proxy_name TEXT DEFAULT ""')
-      console.log('Added proxy_name column to t_assets')
+      logger.info('Added proxy_name column to t_assets')
     }
 
     // Add composite unique constraint: asset_ip + username + port + label + asset_type
@@ -250,13 +253,13 @@ function upgradeTAssetsTable(db: Database.Database): void {
  CREATE UNIQUE INDEX idx_assets_unique_ip_user_port_label_type 
  ON t_assets(asset_ip, username, port, label, asset_type)
  `)
-        console.log('Added unique constraint for asset_ip + username + port + label + asset_type')
+        logger.info('Added unique constraint for asset_ip + username + port + label + asset_type')
       }
     } catch (constraintError) {
-      console.error('Failed to add unique constraint:', constraintError)
+      logger.error('Failed to add unique constraint', { error: constraintError instanceof Error ? constraintError.message : String(constraintError) })
     }
   } catch (error) {
-    console.error('Failed to upgrade t_assets table:', error)
+    logger.error('Failed to upgrade t_assets table', { error: error instanceof Error ? error.message : String(error) })
   }
 }
 
@@ -267,7 +270,7 @@ function upgradeSnippetGroups(db: Database.Database): void {
       db.prepare('SELECT group_uuid FROM user_snippet_v1 LIMIT 1').get()
     } catch (error) {
       db.exec('ALTER TABLE user_snippet_v1 ADD COLUMN group_uuid TEXT')
-      console.log('Added group_uuid column to user_snippet_v1')
+      logger.info('Added group_uuid column to user_snippet_v1')
     }
 
     // Check if uuid column exists in user_snippet_v1
@@ -275,7 +278,7 @@ function upgradeSnippetGroups(db: Database.Database): void {
       db.prepare('SELECT uuid FROM user_snippet_v1 LIMIT 1').get()
     } catch (error) {
       db.exec('ALTER TABLE user_snippet_v1 ADD COLUMN uuid TEXT')
-      console.log('Added uuid column to user_snippet_v1')
+      logger.info('Added uuid column to user_snippet_v1')
 
       // Backfill uuid for existing records
       const existingRecords = db.prepare("SELECT id FROM user_snippet_v1 WHERE uuid IS NULL OR uuid = ''").all()
@@ -286,11 +289,11 @@ function upgradeSnippetGroups(db: Database.Database): void {
             updateUuidStmt.run(uuidv4(), record.id)
           })
         })()
-        console.log(`Backfilled uuid for ${existingRecords.length} existing user_snippet_v1 records`)
+        logger.info(`Backfilled uuid for ${existingRecords.length} existing user_snippet_v1 records`)
       }
     }
   } catch (error) {
-    console.error('Failed to upgrade snippet groups:', error)
+    logger.error('Failed to upgrade snippet groups', { error: error instanceof Error ? error.message : String(error) })
   }
 }
 
@@ -327,7 +330,7 @@ export async function initDatabase(userId?: number): Promise<Database.Database> 
       const migrated = migrateLegacyDatabase(targetUserId, 'complete')
 
       if (!migrated) {
-        console.log('Target database does not exist, initializing from:', INIT_DB_PATH)
+        logger.info('Target database does not exist, initializing from init_data.db')
         if (!fs.existsSync(INIT_DB_PATH)) {
           throw new Error('Initial database (init_data.db) not found')
         }
@@ -336,14 +339,14 @@ export async function initDatabase(userId?: number): Promise<Database.Database> 
         sourceDb.close()
       }
     } else {
-      console.log('Target database already exists, skipping initialization')
+      logger.info('Target database already exists, skipping initialization')
     }
 
     const db = new Database(COMPLETE_DB_PATH)
-    console.log('Complete database connection established at:', COMPLETE_DB_PATH)
+    logger.info('Complete database connection established', { path: COMPLETE_DB_PATH })
     return db
   } catch (error) {
-    console.error('Complete database initialization failed:', error)
+    logger.error('Complete database initialization failed', { error: error instanceof Error ? error.message : String(error) })
     throw error
   }
 }
@@ -357,7 +360,7 @@ export async function initChatermDatabase(userId?: number): Promise<Database.Dat
   ensureUserDatabaseDir(targetUserId)
   const Chaterm_DB_PATH = getUserDatabasePath(targetUserId, 'chaterm')
 
-  console.log(`[DB] initChatermDatabase for user: ${targetUserId}, path: ${Chaterm_DB_PATH}`)
+  logger.info(`initChatermDatabase for user: ${targetUserId}`)
 
   try {
     if (!fs.existsSync(INIT_CDB_PATH)) {
@@ -370,11 +373,11 @@ export async function initChatermDatabase(userId?: number): Promise<Database.Dat
       const migrated = migrateLegacyDatabase(targetUserId, 'chaterm')
 
       if (!migrated) {
-        console.log('Target Chaterm database does not exist. Copying from initial database.')
+        logger.info('Target Chaterm database does not exist. Copying from initial database.')
         const sourceDb = new Database(INIT_CDB_PATH, { readonly: true, fileMustExist: true })
         try {
           await sourceDb.backup(Chaterm_DB_PATH)
-          console.log('Chaterm database successfully copied.')
+          logger.info('Chaterm database successfully copied.')
         } finally {
           sourceDb.close()
         }
@@ -383,9 +386,9 @@ export async function initChatermDatabase(userId?: number): Promise<Database.Dat
         // This is critical: init_chaterm.db may not contain all latest tables (e.g., skills_state)
         const newDb = new Database(Chaterm_DB_PATH)
         try {
-          console.log('Applying migrations to newly created database...')
+          logger.info('Applying migrations to newly created database...')
           await applyAllMigrations(newDb)
-          console.log('Migrations applied successfully to new database.')
+          logger.info('Migrations applied successfully to new database.')
         } finally {
           newDb.close()
         }
@@ -393,15 +396,15 @@ export async function initChatermDatabase(userId?: number): Promise<Database.Dat
         // Legacy database was migrated, apply migrations to ensure consistency
         const migratedDb = new Database(Chaterm_DB_PATH)
         try {
-          console.log('Applying migrations to migrated legacy database...')
+          logger.info('Applying migrations to migrated legacy database...')
           await applyAllMigrations(migratedDb)
-          console.log('Migrations applied successfully to migrated database.')
+          logger.info('Migrations applied successfully to migrated database.')
         } finally {
           migratedDb.close()
         }
       }
     } else {
-      console.log('Target Chaterm database exists. Attempting schema synchronization.')
+      logger.info('Target Chaterm database exists. Attempting schema synchronization.')
       let mainDb: Database.Database | null = null
       let initDb: Database.Database | null = null
       try {
@@ -420,7 +423,7 @@ export async function initChatermDatabase(userId?: number): Promise<Database.Dat
           const tableExists = mainDb.prepare("SELECT name FROM sqlite_master WHERE type='table' AND name = ?").get(tableName)
 
           if (!tableExists) {
-            console.log(`Creating missing table: ${tableName}`)
+            logger.info(`Creating missing table: ${tableName}`)
             mainDb.exec(createTableSql)
           }
         }
@@ -434,31 +437,31 @@ export async function initChatermDatabase(userId?: number): Promise<Database.Dat
     }
 
     const db = new Database(Chaterm_DB_PATH)
-    console.log('Chaterm database connection established at:', Chaterm_DB_PATH)
+    logger.info('Chaterm database connection established')
 
     // ==================== IndexedDB to SQLite Data Migration ====================
     if (mainWindowWebContents && !mainWindowWebContents.isDestroyed()) {
       try {
-        console.log('[Init] Starting IndexedDB migration check for user:', targetUserId)
+        logger.info('Starting IndexedDB migration check', { userId: targetUserId })
         const migrator = new IndexDBMigrator(db, targetUserId, mainWindowWebContents)
         const migrationSuccess = await migrator.migrateAllDataWithRetry(3)
 
         if (migrationSuccess) {
-          console.log('[Init] [OK] Migration completed successfully')
-          console.log('[Init] [TIP] Please restart the application manually to complete the migration')
+          logger.info('Migration completed successfully')
+          logger.info('Please restart the application manually to complete the migration')
         } else {
-          console.warn('[Init] [WARNING] Migration failed, will fallback to IndexedDB')
+          logger.warn('Migration failed, will fallback to IndexedDB')
         }
       } catch (error) {
-        console.error('[Init] Migration error:', error)
+        logger.error('Migration error', { error: error instanceof Error ? error.message : String(error) })
       }
     } else {
-      console.log('[Init] Skip migration: mainWindow not available')
+      logger.info('Skip migration: mainWindow not available')
     }
 
     return db
   } catch (error) {
-    console.error('Chaterm database initialization failed:', error)
+    logger.error('Chaterm database initialization failed', { error: error instanceof Error ? error.message : String(error) })
     throw error
   }
 }

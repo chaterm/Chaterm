@@ -4,6 +4,9 @@ import * as os from 'os'
 import * as path from 'path'
 import * as fs from 'fs'
 import { getUserConfig } from '../agent/core/storage/state'
+import { createLogger } from '@logging'
+
+const localLogger = createLogger('terminal')
 
 // Import language translations
 const translations = {
@@ -144,7 +147,7 @@ const createTerminal = async (config: LocalTerminalConfig): Promise<LocalTermina
   })
 
   ptyProcess.onExit((exitCode) => {
-    console.log(`Local terminal ${config.id} exited with code: ${exitCode?.exitCode}`)
+    localLogger.debug('Local terminal exited', { event: 'terminal.exit', terminalId: config.id, exitCode: exitCode?.exitCode })
     terminal.isAlive = false
     sendToRenderer(`local:exit:${config.id}`, exitCode)
     terminals.delete(config.id)
@@ -176,7 +179,7 @@ const getAvailableShells = async (): Promise<LocalShellsResult> => {
 
   // Get system default shell
   const defaultShell = getDefaultShell()
-  console.log('System default shell:', defaultShell)
+  localLogger.debug('System default shell detected', { event: 'terminal.shell', shell: defaultShell })
 
   // Define shell candidates based on platform
   let candidates: { name: string; path: string }[] = []
@@ -319,7 +322,7 @@ export const registerLocalSSHHandlers = () => {
       await createTerminal(config)
       return { success: true, message: 'Local terminal connected successfully' }
     } catch (error: unknown) {
-      console.error('Local terminal connection failed:', error)
+      localLogger.error('Local terminal connection failed', { event: 'terminal.error', error: error instanceof Error ? error.message : String(error) })
       const e = error as Error
       return { success: false, message: e.message }
     }

@@ -1,5 +1,9 @@
 import Database from 'better-sqlite3'
 
+import { createLogger } from '@logging'
+
+const logger = createLogger('db')
+
 /**
  * Add database support for bastion_comment field
  * Add bastion_comment field to t_organization_assets table
@@ -12,14 +16,14 @@ export async function upgradeBastionCommentSupport(db: Database.Database): Promi
     const bastionCommentColumnExists = tableInfo.some((col: any) => col.name === 'bastion_comment')
 
     if (!bastionCommentColumnExists) {
-      console.log('Adding bastion_comment column to t_organization_assets table...')
+      logger.info('Adding bastion_comment column to t_organization_assets table...')
       db.exec('ALTER TABLE t_organization_assets ADD COLUMN bastion_comment TEXT')
-      console.log('bastion_comment column added successfully')
+      logger.info('bastion_comment column added successfully')
     } else {
-      console.log('bastion_comment column already exists, skipping migration')
+      logger.info('bastion_comment column already exists, skipping migration')
     }
   } catch (error) {
-    console.error('Failed to upgrade bastion comment support:', error)
+    logger.error('Failed to upgrade bastion comment support', { error: error instanceof Error ? error.message : String(error) })
     throw error
   }
 }

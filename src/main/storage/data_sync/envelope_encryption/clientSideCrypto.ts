@@ -3,6 +3,10 @@ import { StorageManager } from './utils/storage'
 import ApiClient from './services/apiClient'
 import config from './config'
 
+import { createLogger } from '@logging'
+
+const logger = createLogger('sync')
+
 interface EncryptionResult {
   encrypted: string
   algorithm: string
@@ -83,7 +87,7 @@ class ClientSideCrypto {
       // Store session information
       await this.storage.storeSession(userId, this.sessionId)
 
-      console.log('Client-side encryption initialized successfully')
+      logger.info('Client-side encryption initialized successfully')
     } catch (error) {
       // Simplify error logging to avoid duplicate output
       const errorMessage = (error as Error).message
@@ -118,13 +122,13 @@ class ClientSideCrypto {
 
         return plaintextDataKey
       } else {
-        console.error('KMS decryption failed:')
-        console.error('  - Error:', response.error)
+        logger.error('KMS decryption failed:')
+        logger.error('- Error', { error: response.error instanceof Error ? response.error.message : String(response.error) })
         throw new Error(`Failed to decrypt data key: ${response.error}`)
       }
     } catch (error) {
-      console.error('Data key decryption failed:', (error as Error).message)
-      console.error('Error stack:', (error as Error).stack)
+      logger.error('Data key decryption failed', { error: error instanceof Error ? error.message : String(error) })
+      logger.error('Error stack', { error: error instanceof Error ? error.stack : String(error) })
       const errorMessage = (error as Error).message
       throw new Error(errorMessage.includes('Failed to decrypt data key') ? errorMessage : `Failed to decrypt data key: ${errorMessage}`)
     }
@@ -158,14 +162,14 @@ class ClientSideCrypto {
           await this.addDataKeyToCache(this.encryptedDataKey, encryptionContext, this.dataKey)
         }
 
-        console.log('New data key generated successfully and cached')
+        logger.info('New data key generated successfully and cached')
       } else {
         throw new Error(`Failed to generate data key: ${response.error}`)
       }
     } catch (error) {
       // Simplify error log output
       const errorMessage = (error as Error).message
-      console.warn('Data key generation failed:', errorMessage)
+      logger.warn('Data key generation failed', { error: errorMessage })
       throw new Error(errorMessage.includes('Failed to generate data key') ? errorMessage : `Failed to generate data key: ${errorMessage}`)
     }
   }
@@ -194,7 +198,7 @@ class ClientSideCrypto {
    */
   async decryptData(encryptedData: any): Promise<string> {
     if (!this.userId) {
-      console.error('Client-side encryption not initialized')
+      logger.error('Client-side encryption not initialized')
       throw new Error('Client-side encryption not initialized')
     }
 
@@ -220,7 +224,7 @@ class ClientSideCrypto {
           }
         }
       } catch (e) {
-        console.log('Ciphertext format check failed, continuing with current session key')
+        logger.info('Ciphertext format check failed, continuing with current session key')
       }
     }
 
@@ -229,13 +233,13 @@ class ClientSideCrypto {
         const result = await this.decryptWithKmsResolution(encryptedData)
         return result
       } catch (error) {
-        console.warn('KMS decryption failed, trying current session key:', (error as Error).message)
+        logger.warn('KMS decryption failed, trying current session key', { value: (error as Error).message })
       }
     }
 
     // Fallback to using current session key for decryption
     if (!this.dataKey) {
-      console.error('Current session key not initialized and KMS decryption failed')
+      logger.error('Current session key not initialized and KMS decryption failed')
       throw new Error('Current session key not initialized and KMS decryption failed')
     }
 
@@ -259,7 +263,7 @@ class ClientSideCrypto {
       const result = await CryptoUtils.decryptDataWithAwsSdk(encryptedData, dataKeyBase64, this.userId || undefined)
       return result
     } catch (error) {
-      console.error('Envelope decryption failed:', (error as Error).message)
+      logger.error('Envelope decryption failed', { error: error instanceof Error ? error.message : String(error) })
       throw new Error(`Envelope decryption failed: ${(error as Error).message}`)
     }
   }
@@ -303,18 +307,18 @@ class ClientSideCrypto {
           )
           return result
         } catch (decryptError) {
-          console.log('Decryption failed:', (decryptError as Error).message)
+          logger.info('Decryption failed', { value: (decryptError as Error).message })
           throw new Error(`Decryption failed: ${(decryptError as Error).message}`)
         }
       } else {
-        console.error('No complete ENC1 format data, cannot perform KMS resolution')
-        console.log('  - originalCombinedString:', !!encryptedData.originalCombinedString)
-        console.log('  - parsedMeta:', !!encryptedData.parsedMeta)
+        logger.error('No complete ENC1 format data, cannot perform KMS resolution')
+        logger.info('- originalCombinedString', { value: !!encryptedData.originalCombinedString })
+        logger.info('- parsedMeta', { value: !!encryptedData.parsedMeta })
         throw new Error('Missing complete ENC1 format data')
       }
     } catch (error) {
-      console.error('KMS resolution decryption failed:', (error as Error).message)
-      console.error('Error stack:', (error as Error).stack)
+      logger.error('KMS resolution decryption failed', { error: error instanceof Error ? error.message : String(error) })
+      logger.error('Error stack', { error: error instanceof Error ? error.stack : String(error) })
       throw new Error(`KMS resolution decryption failed: ${(error as Error).message}`)
     }
   }
@@ -328,7 +332,7 @@ class ClientSideCrypto {
     }
 
     try {
-      console.log('Starting data key rotation...')
+      logger.info('Starting data key rotation...')
 
       // Clear current key
       this.clearDataKey()
@@ -339,9 +343,9 @@ class ClientSideCrypto {
       // Generate new data key
       await this.generateNewDataKey()
 
-      console.log('Data key rotation successful')
+      logger.info('Data key rotation successful')
     } catch (error) {
-      console.error('Data key rotation failed:', error)
+      logger.error('Data key rotation failed', { error: error instanceof Error ? error.message : String(error) })
       throw error
     }
   }
@@ -351,7 +355,7 @@ class ClientSideCrypto {
    * @param clearSession - Whether to also clear session information
    */
   cleanup(clearSession: boolean = false): void {
-    console.log('Cleaning up client-side encryption resources...')
+    logger.info('Cleaning up client-side encryption resources...')
 
     // Clear sensitive data in memory
     this.clearDataKey()
@@ -364,10 +368,10 @@ class ClientSideCrypto {
     if (clearSession && this.userId) {
       // Only clear session information, no longer managing local data key storage
       this.storage.clearSession(this.userId)
-      console.log('Session information cleared')
+      logger.info('Session information cleared')
     }
 
-    console.log('Resource cleanup completed')
+    logger.info('Resource cleanup completed')
   }
 
   /**
@@ -467,7 +471,7 @@ class ClientSideCrypto {
 
     // Check if cache is expired
     if (Date.now() - cached.timestamp > this.CACHE_EXPIRY_MS) {
-      console.log('Cache expired, removing cache entry')
+      logger.info('Cache expired, removing cache entry')
       this.dataKeyCache.delete(cacheKey)
       this.cacheStats.cacheMisses++
       return null
@@ -475,7 +479,7 @@ class ClientSideCrypto {
 
     // Verify encryption context matches
     if (!this.compareEncryptionContext(cached.encryptionContext, encryptionContext)) {
-      console.warn('⚠️Encryption context mismatch, skipping cache')
+      logger.warn('⚠️Encryption context mismatch, skipping cache')
       this.cacheStats.cacheMisses++
       return null
     }
@@ -512,7 +516,7 @@ class ClientSideCrypto {
 
       this.dataKeyCache.set(cacheKey, cacheEntry)
     } catch (error) {
-      console.warn('Failed to add to cache:', (error as Error).message)
+      logger.warn('Failed to add to cache', { value: (error as Error).message })
       // Cache failure should not affect main functionality
     }
   }
@@ -543,7 +547,7 @@ class ClientSideCrypto {
       const str2 = JSON.stringify(context2, Object.keys(context2 || {}).sort())
       return str1 === str2
     } catch (error) {
-      console.warn('Failed to compare encryption contexts:', (error as Error).message)
+      logger.warn('Failed to compare encryption contexts', { value: (error as Error).message })
       return false
     }
   }
@@ -571,7 +575,7 @@ class ClientSideCrypto {
         entry.plaintextDataKey.fill(0)
       }
       this.dataKeyCache.delete(oldestKey)
-      console.log('Evicted oldest cache entry')
+      logger.info('Evicted oldest cache entry')
     }
   }
 
@@ -612,7 +616,7 @@ class ClientSideCrypto {
       }
     }
 
-    console.log('Data key cache cleared')
+    logger.info('Data key cache cleared')
   }
 }
 

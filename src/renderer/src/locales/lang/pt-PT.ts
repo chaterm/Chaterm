@@ -1098,7 +1098,13 @@ export default {
     downloading: 'Downloadando',
     checkUpdateError: 'Verificação de atualização falhou',
     checking: 'Verificando',
-    install: 'Instalar'
+    install: 'Instalar',
+    logDiagnostics: 'Registos e diagnostico',
+    logDiagnosticsDesc: 'Se encontrar problemas, pode exportar os ficheiros de registo e envia-los aos programadores para ajudar na resolucao de problemas.',
+    openLogDir: 'Abrir diretorio de registos',
+    feedbackTitle: 'Feedback e sugestoes',
+    feedbackDesc: 'Se tiver alguma pergunta, sugestao ou feedback, entre em contacto connosco atraves do seguinte canal.',
+    submitFeedback: 'Enviar feedback'
   },
   mfa: {
     title: 'Autenticação de dois fatores',

@@ -62,7 +62,8 @@ export function getApiMetrics(messages: ChatermMessage[]): ApiMetrics {
           result.totalCost += cost
         }
       } catch (error) {
-        console.error('Error parsing JSON:', error)
+        // eslint-disable-next-line no-console
+        console.error('Error parsing JSON', { error: error instanceof Error ? error.message : String(error) })
       }
     }
   })

@@ -1100,7 +1100,13 @@ export default {
     downloading: 'Herunterladen',
     checkUpdateError: 'Update prüfen fehlgeschlagen',
     checking: 'Prüfen',
-    install: 'Installieren'
+    install: 'Installieren',
+    logDiagnostics: 'Protokolle & Diagnose',
+    logDiagnosticsDesc: 'Bei Problemen koennen Sie Protokolldateien exportieren und an die Entwickler senden, um bei der Fehlerbehebung zu helfen.',
+    openLogDir: 'Protokollverzeichnis oeffnen',
+    feedbackTitle: 'Feedback & Vorschlaege',
+    feedbackDesc: 'Wenn Sie Fragen, Vorschlaege oder Feedback haben, kontaktieren Sie uns gerne ueber den folgenden Kanal.',
+    submitFeedback: 'Feedback senden'
   },
   mfa: {
     title: 'Zwei-Faktor-Authentifizierung',
