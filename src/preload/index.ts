@@ -1,13 +1,10 @@
 import { contextBridge, ipcRenderer } from 'electron'
 import { electronAPI } from '@electron-toolkit/preload'
 import type { WebviewMessage } from '../main/agent/shared/WebviewMessage'
-import { createPreloadLogger } from './logger'
 
 import * as dotenv from 'dotenv'
 import * as path from 'path'
 import * as fs from 'fs'
-
-const logger = createPreloadLogger('preload')
 
 interface FileRecord {
   name: string
@@ -33,7 +30,6 @@ const envPath = path.resolve(__dirname, '../../../build/.env')
 
 // Ensure path exists
 if (!fs.existsSync(envPath)) {
-  logger.warn(`Environment file does not exist: ${envPath}`)
   // Can try other paths or set default values
 }
 
@@ -98,11 +94,11 @@ if (fs.existsSync(envSpecificPath)) {
         process.env[key] = value
       }
     })
-  } catch (error) {
-    logger.warn('Failed to read environment file', { error: error instanceof Error ? error.message : String(error) })
+  } catch {
+    // Ignore env parse errors in preload bootstrap path
   }
 } else {
-  logger.info(`Environment file not found: ${envSpecificPath}, using default values`)
+  // Environment file not found, proceed with defaults
 }
 
 // Custom APIs for renderer
@@ -710,7 +706,6 @@ const api = {
         if (!resolved) {
           resolved = true
           ipcRenderer.removeListener(channel, handler)
-          logger.warn(`Command list reception timeout`, { data: id })
           resolve({ hasSudo: false, commandList: [] })
         }
       }, COMMAND_LIST_TIMEOUT)
@@ -793,12 +788,9 @@ const api = {
   // New method to call executeRemoteCommand in the main process
   executeRemoteCommandViaPreload: async () => {
     try {
-      logger.debug('Calling execute-remote-command via preload')
       const result = await ipcRenderer.invoke('execute-remote-command')
-      logger.debug('Result from main process', { data: result })
       return result
     } catch (error) {
-      logger.error('Error invoking execute-remote-command from preload', { error: error instanceof Error ? error.message : String(error) })
       // Ensure error is a serializable object
       if (error instanceof Error) {
         return {
