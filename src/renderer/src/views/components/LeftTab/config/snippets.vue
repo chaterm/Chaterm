@@ -479,6 +479,7 @@ import eventBus from '@/utils/eventBus'
 import { message } from 'ant-design-vue'
 
 const { t } = useI18n()
+const logger = createRendererLogger('config.snippets')
 
 // Macro recording state
 const macroRecorder = useMacroRecorderStore()
@@ -705,7 +706,7 @@ const addQuickCommand = async () => {
     if (isEditMode.value && selectedCommandId.value !== null) {
       const existingCommand = quickCommands.value.find((item) => item.id === selectedCommandId.value)
       if (!existingCommand) {
-        console.error('Command not found for editing')
+        logger.error('Command not found for editing')
         return
       }
       await editCommand({ id: selectedCommandId.value, uuid: existingCommand.uuid, ...cmd })
@@ -874,7 +875,7 @@ ctrl+c`
       copySuccess.value = false
     }, 2000)
   } catch (err) {
-    console.error(t('quickCommand.copyFailed'), err)
+    logger.error(t('quickCommand.copyFailed'), { error: err instanceof Error ? err.message : String(err) })
   }
 }
 
@@ -991,7 +992,7 @@ const handleDrop = async (e: DragEvent, targetIndex: number) => {
       await refresh()
     }
   } catch (error) {
-    console.error('Reorder failed:', error)
+    logger.error('Reorder failed', { error: error instanceof Error ? error.message : String(error) })
     message.error(t('common.operationFailed'))
     await refresh()
   }

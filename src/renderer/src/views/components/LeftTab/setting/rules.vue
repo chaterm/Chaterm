@@ -131,6 +131,8 @@ import { onBeforeUnmount, onMounted, ref } from 'vue'
 import { updateGlobalState, getGlobalState } from '@renderer/agent/storage/state'
 import { PlusOutlined, EditOutlined, DeleteOutlined } from '@ant-design/icons-vue'
 
+const logger = createRendererLogger('settings.rules')
+
 interface Rule {
   id: string
   content: string
@@ -189,10 +191,10 @@ const loadUserRules = async () => {
       // Save updated userRules
       await saveUserRules()
 
-      console.log('Successfully migrated customInstructions to userRules')
+      logger.info('Successfully migrated customInstructions to userRules')
     }
   } catch (error) {
-    console.error('Failed to load user rules:', error)
+    logger.error('Failed to load user rules', { error: error instanceof Error ? error.message : String(error) })
     userRules.value = []
   }
 }
@@ -209,7 +211,7 @@ const saveUserRules = async () => {
       })) // Save ID, content and enabled state, do not save editing state
     await updateGlobalState('userRules', rulesToSave)
   } catch (error) {
-    console.error('Failed to save user rules:', error)
+    logger.error('Failed to save user rules', { error: error instanceof Error ? error.message : String(error) })
   }
 }
 

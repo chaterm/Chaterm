@@ -3,11 +3,13 @@ import eventBus from '@/utils/eventBus'
 import i18n from '@/locales'
 import { isOrganizationAsset } from '../utils/types'
 
+
 const { t } = i18n.global
+const logger = createRendererLogger('config.refreshAssets')
 
 export const handleRefreshOrganizationAssets = async (host: any, onSuccess?: () => void) => {
   if (!host || !isOrganizationAsset(host.asset_type)) {
-    console.warn('Invalid organization asset node:', host)
+    logger.warn('Invalid organization asset node', { data: host })
     return
   }
 
@@ -27,7 +29,7 @@ export const handleRefreshOrganizationAssets = async (host: any, onSuccess?: () 
       }
     })
 
-    console.log('Refresh organization assets result:', result)
+    logger.info('Refresh organization assets result', { data: result })
 
     if (result?.data?.message === 'success') {
       hide()
@@ -42,7 +44,7 @@ export const handleRefreshOrganizationAssets = async (host: any, onSuccess?: () 
       throw new Error('Refresh failed')
     }
   } catch (error) {
-    console.error('Failed to refresh organization assets:', error)
+    logger.error('Failed to refresh organization assets', { error: error instanceof Error ? error.message : String(error) })
     hide()
     message.error(t('personal.refreshError'))
   }
@@ -60,11 +62,11 @@ export const findOrganizationAssetByKey = async (nodeKey: string): Promise<any |
             for (const asset of group.children) {
               if (isOrganizationAsset(asset.asset_type)) {
                 if (asset.uuid === nodeKey) {
-                  console.log('Found matching organization asset config by uuid:', asset)
+                  logger.info('Found matching organization asset config by uuid', { data: asset })
                   return asset
                 }
                 if (asset.key === nodeKey) {
-                  console.log('Found matching organization asset config by key:', asset)
+                  logger.info('Found matching organization asset config by key', { data: asset })
                   return asset
                 }
               }
@@ -94,21 +96,21 @@ export const findOrganizationAssetByKey = async (nodeKey: string): Promise<any |
       return result
     }
   } catch (error) {
-    console.error('Failed to find organization asset:', error)
+    logger.error('Failed to find organization asset', { error: error instanceof Error ? error.message : String(error) })
   }
 
   return null
 }
 
 export const refreshOrganizationAssetFromWorkspace = async (dataRef: any, onSuccess?: () => void) => {
-  console.log('Refresh organization asset node from Workspace:', dataRef)
+  logger.info('Refresh organization asset node from Workspace', { data: dataRef })
 
   const organizationAsset = await findOrganizationAssetByKey(dataRef.key)
 
   if (organizationAsset) {
     await handleRefreshOrganizationAssets(organizationAsset, onSuccess)
   } else {
-    console.warn('No matching organization asset config found:', dataRef)
+    logger.warn('No matching organization asset config found', { data: dataRef })
     message.warning('No matching organization asset config found')
   }
 }

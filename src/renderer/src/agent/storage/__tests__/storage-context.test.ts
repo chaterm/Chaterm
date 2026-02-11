@@ -2,6 +2,8 @@ import { StorageContext } from '../storage-context'
 import * as keyStorage from '../key-storage'
 import { vi, describe, test, beforeEach, expect } from 'vitest'
 
+/* eslint-disable no-console */
+
 vi.mock('../key-storage', () => ({
   setItem: vi.fn(),
   getItem: vi.fn(),

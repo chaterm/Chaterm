@@ -2,6 +2,7 @@ import { ref, onMounted, watch, isProxy, toRaw } from 'vue'
 import { v4 as uuidv4 } from 'uuid'
 import { notification } from 'ant-design-vue'
 import eventBus from '@/utils/eventBus'
+
 import type { ChatMessage } from '../types'
 import type { Todo } from '@/types/todo'
 import type { ChatTab } from './useSessionState'
@@ -12,6 +13,7 @@ import { Notice } from '@/views/components/Notice'
 import { useSessionState } from './useSessionState'
 import { getGlobalState, updateGlobalState } from '@renderer/agent/storage/state'
 import i18n from '@/locales'
+const logger = createRendererLogger('ai.chatMessages')
 const { t } = i18n.global
 let globalIpcListenerInitialized = false
 
@@ -66,7 +68,7 @@ export function useChatMessages(
     for (let i = chatHistory.length - 1; i >= 0; i--) {
       const message = chatHistory[i]
       if (message.role === 'assistant' && message.partial === true && message.type === 'ask' && message.ask === 'command') {
-        console.log('🗑️ Removing partial command message:', message.id, 'with timestamp:', message.ts)
+        logger.info('Removing partial command message', { data: { id: message.id, ts: message.ts } })
         chatHistory.splice(i, 1)
         break
       }
@@ -153,11 +155,11 @@ export function useChatMessages(
         tabId: tabId || currentChatId.value,
         taskId: tabId || currentChatId.value
       }
-      console.log('[DEBUG] Send message to main process:', messageWithTabId)
+      logger.debug('Send message to main process', { data: messageWithTabId })
       await window.api.sendToMain(messageWithTabId)
       // console.log('Main process response:', response)
     } catch (error) {
-      console.error('Failed to send message to main process:', error)
+      logger.error('Failed to send message to main process', { error: error instanceof Error ? error.message : String(error) })
     }
   }
 
@@ -290,7 +292,7 @@ export function useChatMessages(
 
     cleanupPartialCommandMessages(session.chatHistory)
     session.chatHistory.push(newAssistantMessage)
-    console.log('showRetryButton for tab', targetTab.id)
+    logger.info('showRetryButton for tab', { data: targetTab.id })
     session.showRetryButton = true
     session.responseLoading = false
   }
@@ -305,7 +307,7 @@ export function useChatMessages(
       const data = JSON.parse(partial.text || '{}')
       const { fileName, summary } = data
       if (!fileName || !summary) {
-        console.log(' Missing fileName or summary')
+        logger.info('Missing fileName or summary')
         return
       }
 
@@ -335,7 +337,7 @@ export function useChatMessages(
         knowledgeSummaryRelPaths.delete(key)
       }
     } catch (error) {
-      console.error(' Failed to save knowledge:', error)
+      logger.error('Failed to save knowledge', { error: error instanceof Error ? error.message : String(error) })
       notification.error({
         message: t('ai.knowledgeSaveFailed'),
         description: error instanceof Error ? error.message : String(error),
@@ -347,17 +349,17 @@ export function useChatMessages(
   const processMainMessage = async (message: ExtensionMessage) => {
     const targetTabId = message?.tabId ?? message?.taskId
     if (!targetTabId) {
-      console.error('AiTab: Ignoring message for no target tab:', message.type)
+      logger.error('Ignoring message for no target tab', { data: message.type })
       return
     }
 
     const targetTab = chatTabs.value.find((tab) => tab.id === targetTabId)
     if (!targetTab) {
-      console.warn('AiTab: Ignoring message for deleted tab:', targetTabId)
+      logger.warn('Ignoring message for deleted tab', { detail: targetTabId })
       return
     }
 
-    console.log('Received main process message:', message.type, message)
+    logger.info('Received main process message', { data: { type: message.type, message } })
 
     const session = targetTab.session
     const isActiveTab = targetTabId === currentChatId.value
@@ -365,7 +367,7 @@ export function useChatMessages(
     const previousPartialMessage = session.lastPartialMessage
 
     if (message?.type === 'partialMessage' && session.isCancelled) {
-      console.log('AiTab: Ignoring partial message because task is cancelled')
+      logger.info('Ignoring partial message because task is cancelled')
       return
     }
 
@@ -505,7 +507,7 @@ export function useChatMessages(
         session.responseLoading = false
       }
     } else if (message?.type === 'todoUpdated') {
-      console.log('AiTab: Received todoUpdated message', message)
+      logger.info('Received todoUpdated message', { data: message })
 
       if (Array.isArray(message.todos) && message.todos.length > 0) {
         markLatestMessageWithTodoUpdate(session.chatHistory, message.todos as Todo[])
@@ -516,11 +518,11 @@ export function useChatMessages(
         scrollToBottom()
       }
     } else if (message?.type === 'chatTitleGenerated') {
-      console.log('AiTab: Received chatTitleGenerated message', message)
+      logger.info('Received chatTitleGenerated message', { data: message })
 
       if (message.chatTitle && message.taskId) {
         targetTab.title = message.chatTitle
-        console.log('Updated chat title to:', message.chatTitle)
+        logger.info('Updated chat title', { data: message.chatTitle })
       }
     }
 
@@ -536,7 +538,7 @@ export function useChatMessages(
 
     window.api.onMainMessage((message: any) => {
       processMainMessage(message).catch((error) => {
-        console.error('Failed to process main process message:', error)
+        logger.error('Failed to process main process message', { error: error instanceof Error ? error.message : String(error) })
       })
     })
   }

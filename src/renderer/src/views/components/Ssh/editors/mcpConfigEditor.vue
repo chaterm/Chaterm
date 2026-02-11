@@ -36,6 +36,8 @@ import { useI18n } from 'vue-i18n'
 import MonacoEditor from '@renderer/views/components/Ssh/editors/monacoEditor.vue'
 import { getMonacoTheme, addSystemThemeListener } from '@/utils/themeUtils'
 
+const logger = createRendererLogger('ssh.mcpConfigEditor')
+
 const { t } = useI18n()
 const configContent = ref('')
 const error = ref('')
@@ -77,7 +79,7 @@ const handleKeydown = (e: KeyboardEvent) => {
 
 // Load config on mount
 onMounted(async () => {
-  console.log('Loading MCP config...')
+  logger.debug('Loading MCP config')
   try {
     // Get config file path
     configPath.value = await mcpConfigService.getConfigPath()
@@ -93,7 +95,7 @@ onMounted(async () => {
       })
     }
   } catch (err: unknown) {
-    console.error('Failed to load MCP config:', err)
+    logger.error('Failed to load MCP config', { error: err instanceof Error ? err.message : String(err) })
     const errorMessage = err instanceof Error ? err.message : String(err)
     notification.error({
       message: t('mcp.error'),
@@ -210,7 +212,7 @@ const saveConfig = async (isManualSave = false) => {
       lastSaved.value = false
     }, 3000)
   } catch (err: unknown) {
-    console.error('Failed to save MCP config:', err)
+    logger.error('Failed to save MCP config', { error: err instanceof Error ? err.message : String(err) })
     isSaving.value = false
     const errorMessage = err instanceof Error ? err.message : String(err)
     notification.error({

@@ -149,7 +149,9 @@ describe('About Component', () => {
     mockWindowApi.quitAndInstall.mockReturnValue(undefined)
 
     // Clear console output for cleaner test results
+    // eslint-disable-next-line no-console
     vi.spyOn(console, 'log').mockImplementation(() => {})
+    // eslint-disable-next-line no-console
     vi.spyOn(console, 'error').mockImplementation(() => {})
   })
 
@@ -328,6 +330,7 @@ describe('About Component', () => {
       await nextTick()
 
       expect(button.text()).toBe('Check update failed')
+      // eslint-disable-next-line no-console
       expect(console.error).toHaveBeenCalled()
     })
 
@@ -623,6 +626,7 @@ describe('About Component', () => {
       await nextTick()
 
       expect(button.text()).toBe('Download failed')
+      // eslint-disable-next-line no-console
       expect(console.error).toHaveBeenCalled()
     })
 
@@ -801,6 +805,7 @@ describe('About Component', () => {
       await nextTick()
 
       expect(button.text()).toBe('Check update failed')
+      // eslint-disable-next-line no-console
       expect(console.error).toHaveBeenCalledWith('Check update failed', networkError)
     })
 

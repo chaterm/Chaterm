@@ -1,5 +1,8 @@
 import { ref } from 'vue'
 
+
+const logger = createRendererLogger('userSelection')
+
 // User selection dialog state
 export const showUserSelectionDialog = ref(false)
 export const userSelectionError = ref(false)
@@ -43,7 +46,7 @@ const resetErrors = () => {
 
 // Reset user selection dialog state
 export const resetUserSelectionDialog = () => {
-  console.log('Reset user selection dialog state')
+  logger.info('Reset user selection dialog state')
   showUserSelectionDialog.value = false
   userSelectionError.value = false
   userList.value = []
@@ -59,7 +62,7 @@ export const resetUserSelectionDialog = () => {
 
 // Handle user selection request from main process
 export const handleUserSelectionRequest = (data: any) => {
-  console.log('Received user selection request:', data.id, 'Users:', data.users)
+  logger.info('Received user selection request', { id: data.id, userCount: data.users?.length })
 
   currentConnectionId.value = data.id
   userList.value = data.users || []
@@ -73,55 +76,55 @@ export const handleUserSelectionRequest = (data: any) => {
 // Handle user selection timeout
 export const handleUserSelectionTimeout = (data: any) => {
   if (data.id === currentConnectionId.value && showUserSelectionDialog.value) {
-    console.log('User selection timeout')
+    logger.info('User selection timeout')
     resetUserSelectionDialog()
   }
 }
 
 // Handle user selection (row click)
 export const handleUserSelect = (userId: number) => {
-  console.log('User selected:', userId)
+  logger.info('User selected', { userId })
   selectedUserId.value = userId
   resetErrors()
 }
 
 // Submit user selection
 export const submitUserSelection = async () => {
-  console.log('Attempting to submit user selection:', selectedUserId.value)
+  logger.info('Attempting to submit user selection', { selectedUserId: selectedUserId.value })
 
   // Reset error state
   resetErrors()
 
   // Validate input
   if (selectedUserId.value === null) {
-    console.log('No user selected')
+    logger.debug('No user selected')
     userSelectionError.value = true
     return
   }
 
   if (!currentConnectionId.value) {
-    console.log('No current connection ID')
+    logger.debug('No current connection ID')
     userSelectionError.value = true
     return
   }
 
   if (isSubmitting.value) {
-    console.log('Already submitting, ignoring duplicate request')
+    logger.debug('Already submitting, ignoring duplicate request')
     return
   }
 
   try {
     isSubmitting.value = true
-    console.log('Submitting user selection:', currentConnectionId.value, selectedUserId.value)
+    logger.info('Submitting user selection', { connectionId: currentConnectionId.value, userId: selectedUserId.value })
 
     const api = (window as any).api
     await api.sendUserSelectionResponse(currentConnectionId.value, selectedUserId.value)
 
-    console.log('User selection submitted successfully')
+    logger.info('User selection submitted successfully')
     // Close dialog after successful submission
     resetUserSelectionDialog()
   } catch (error) {
-    console.error('Failed to submit user selection:', error)
+    logger.error('Failed to submit user selection', { error: String(error) })
     userSelectionError.value = true
     isSubmitting.value = false
   }
@@ -130,7 +133,7 @@ export const submitUserSelection = async () => {
 // Cancel user selection
 export const cancelUserSelection = () => {
   if (currentConnectionId.value) {
-    console.log('Cancelling user selection:', currentConnectionId.value)
+    logger.info('Cancelling user selection', { connectionId: currentConnectionId.value })
     const api = (window as any).api
     api.sendUserSelectionCancel(currentConnectionId.value)
     resetUserSelectionDialog()

@@ -226,6 +226,7 @@ import eventBus from '@/utils/eventBus'
 import { EditOutlined, PlusOutlined, DeleteOutlined, ExclamationCircleOutlined } from '@ant-design/icons-vue'
 import type { McpServer } from '@shared/mcp'
 
+const logger = createRendererLogger('settings.mcp')
 const { t } = useI18n()
 
 const servers = ref<McpServer[]>([])
@@ -296,7 +297,7 @@ const toggleToolState = async (serverName: string, toolName: string) => {
   } catch (error) {
     // Rollback on error
     toolStates.value[key] = currentState
-    console.error('Failed to toggle tool state:', error)
+    logger.error('Failed to toggle tool state', { error: error instanceof Error ? error.message : String(error) })
   }
 }
 
@@ -310,7 +311,7 @@ const toggleServerDisabled = async (name: string, disabled: boolean) => {
 
     optimisticUpdates.value.delete(name)
   } catch (error) {
-    console.error('Failed to toggle server:', error)
+    logger.error('Failed to toggle server', { error: error instanceof Error ? error.message : String(error) })
 
     optimisticUpdates.value.delete(name)
 
@@ -341,7 +342,7 @@ const deleteServer = async (name: string) => {
       message: t('mcp.deleteSuccess')
     })
   } catch (error) {
-    console.error('Failed to delete server:', error)
+    logger.error('Failed to delete server', { error: error instanceof Error ? error.message : String(error) })
     const errorMessage = error instanceof Error ? error.message : String(error)
     notification.error({
       message: t('mcp.error'),
@@ -355,7 +356,7 @@ let removeStatusListener: (() => void) | undefined
 let removeServerListener: (() => void) | undefined
 
 onMounted(async () => {
-  console.log('Mounting MCP component')
+  logger.info('Mounting MCP component')
   // Set up listener for full status updates (all servers)
   if (window.api && window.api.onMcpStatusUpdate) {
     removeStatusListener = window.api.onMcpStatusUpdate((updatedServers: McpServer[]) => {
@@ -383,7 +384,7 @@ onMounted(async () => {
       const initialServers = await window.api.getMcpServers()
       servers.value = initialServers
     } catch (error) {
-      console.error('Failed to get initial MCP servers:', error)
+      logger.error('Failed to get initial MCP servers', { error: error instanceof Error ? error.message : String(error) })
     }
   }
 
@@ -393,7 +394,7 @@ onMounted(async () => {
       const states = await window.api.getAllMcpToolStates()
       toolStates.value = states
     } catch (error) {
-      console.error('Failed to load MCP tool states:', error)
+      logger.error('Failed to load MCP tool states', { error: error instanceof Error ? error.message : String(error) })
     }
   }
 })

@@ -49,6 +49,7 @@ import type { AssetNode } from '../utils/types'
 import laptopIcon from '@/assets/menu/laptop.svg'
 
 const { t } = i18n.global
+const logger = createRendererLogger('config.assetList')
 
 interface Props {
   assetGroups: AssetNode[]
@@ -103,7 +104,7 @@ const filteredAssetGroups = computed(() => {
 
     return filterNodes(deepClone(props.assetGroups || []) as AssetNode[])
   } catch (error) {
-    console.error('Error filtering asset groups:', error)
+    logger.error('Error filtering asset groups', { error: error instanceof Error ? error.message : String(error) })
     return []
   }
 })

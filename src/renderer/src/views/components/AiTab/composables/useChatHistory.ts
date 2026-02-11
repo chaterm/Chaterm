@@ -1,5 +1,7 @@
 import { ref, computed, watch, nextTick } from 'vue'
 import { getGlobalState, updateGlobalState } from '@renderer/agent/storage/state'
+
+const logger = createRendererLogger('ai.chatHistory')
 import type { HistoryItem, TaskHistoryItem } from '../types'
 import { useSessionState } from './useSessionState'
 import type { WebviewMessage } from '@shared/WebviewMessage'
@@ -180,10 +182,10 @@ export function useChatHistory(options?: ChatHistoryOptions) {
       text: history.id,
       taskId: history.id
     }
-    console.log('Send message to main process:', message)
+    logger.info('Send message to main process', { data: message })
     const finalMessage = attachTabContext(message)
     const response = await window.api.sendToMain(finalMessage)
-    console.log('Main process response:', response)
+    logger.info('Main process response', { data: response })
   }
 
   /**
@@ -231,7 +233,7 @@ export function useChatHistory(options?: ChatHistoryOptions) {
         await renameTab(history.id, newTitle)
       }
     } catch (err) {
-      console.error('Failed to save history title:', err)
+      logger.error('Failed to save history title', { error: err instanceof Error ? err.message : String(err) })
       await cancelEdit(history)
     }
   }
@@ -253,7 +255,7 @@ export function useChatHistory(options?: ChatHistoryOptions) {
       history.editingTitle = ''
       currentEditingId.value = null
     } catch (err) {
-      console.error('Failed to cancel edit:', err)
+      logger.error('Failed to cancel edit', { error: err instanceof Error ? err.message : String(err) })
       history.isEditing = false
       history.editingTitle = ''
       currentEditingId.value = null
@@ -286,7 +288,7 @@ export function useChatHistory(options?: ChatHistoryOptions) {
       // Directly call logic to delete Tab and notify main process
       await handleHistoryDelete({ ...history })
     } catch (err) {
-      console.error('Failed to delete history:', err)
+      logger.error('Failed to delete history', { error: err instanceof Error ? err.message : String(err) })
     }
   }
 
@@ -319,7 +321,7 @@ export function useChatHistory(options?: ChatHistoryOptions) {
       // Save to globalState
       await updateGlobalState('favoriteTaskList', currentFavorites)
     } catch (err) {
-      console.error('Failed to update favorite status:', err)
+      logger.error('Failed to update favorite status', { error: err instanceof Error ? err.message : String(err) })
       // Rollback local state
       history.isFavorite = !history.isFavorite
     }
@@ -347,7 +349,7 @@ export function useChatHistory(options?: ChatHistoryOptions) {
         ts: item.ts
       }))
     } catch (err) {
-      console.error('Failed to load history list:', err)
+      logger.error('Failed to load history list', { error: err instanceof Error ? err.message : String(err) })
     }
   }
 
@@ -361,7 +363,7 @@ export function useChatHistory(options?: ChatHistoryOptions) {
       isLoadingMore.value = false
       await loadHistoryList()
     } catch (err) {
-      console.error('Failed to refresh history list:', err)
+      logger.error('Failed to refresh history list', { error: err instanceof Error ? err.message : String(err) })
     }
   }
 

@@ -1,5 +1,8 @@
 import { ref } from 'vue'
 
+
+const logger = createRendererLogger('mfa')
+
 // MFA dialog state
 export const showOtpDialog = ref(false)
 export const showOtpDialogErr = ref(false)
@@ -52,7 +55,7 @@ const resetErrors = () => {
 
 // Reset MFA dialog state
 export const resetOtpDialog = () => {
-  console.log('Resetting MFA dialog state')
+  logger.info('Resetting MFA dialog state')
   showOtpDialog.value = false
   showOtpDialogErr.value = false
   showOtpDialogCheckErr.value = false
@@ -70,7 +73,7 @@ export const resetOtpDialog = () => {
 
 // Handle two-factor authentication request
 export const handleOtpRequest = (data: any) => {
-  console.log('Received two-factor authentication request:', data.id)
+  logger.info('Received two-factor authentication request', { id: data.id })
 
   currentOtpId.value = data.id
   otpPrompt.value = data.prompts.join('\n')
@@ -90,30 +93,30 @@ export const handleOtpTimeout = (data: any) => {
 
 // Handle two-factor authentication result
 export const handleOtpError = (data: any) => {
-  console.log('Received MFA verification result:', data, 'Current OTP ID:', currentOtpId.value)
+  logger.info('Received MFA verification result', { dataId: data.id, currentOtpId: currentOtpId.value })
 
   if (data.id === currentOtpId.value) {
     // Reset submission state
     isSubmitting.value = false
 
     if (data.status === 'success') {
-      console.log('MFA verification successful, closing dialog')
+      logger.info('MFA verification successful, closing dialog')
       resetOtpDialog()
     } else {
-      console.log('MFA verification failed, showing error')
+      logger.warn('MFA verification failed, showing error')
       showOtpDialogErr.value = true
       otpAttempts.value += 1
       // Don't clear input immediately, allow user to modify based on existing input
       // otpCode.value = ''
 
       if (otpAttempts.value >= MAX_OTP_ATTEMPTS) {
-        console.log('Exceeded maximum attempts, closing dialog')
+        logger.warn('Exceeded maximum attempts, closing dialog')
         showOtpDialog.value = false
         cancelOtp()
       }
     }
   } else {
-    console.log('ID mismatch, ignoring result')
+    logger.debug('ID mismatch, ignoring result')
   }
 }
 
@@ -137,55 +140,55 @@ export const handleOtpComplete = (value: string) => {
 
   // If verification code is valid, can auto-submit (optional)
   if (validateOtpCode(value) && currentOtpId.value && !isSubmitting.value) {
-    console.log('Auto-submitting complete OTP code')
+    logger.info('Auto-submitting complete OTP code')
     submitOtpCode()
   }
 }
 
 // Submit two-factor authentication code
 export const submitOtpCode = async () => {
-  console.log('Attempting to submit OTP code:', otpCode.value)
+  logger.info('Attempting to submit OTP code')
 
   // Reset error state
   resetErrors()
 
   // Validate input
   if (!otpCode.value) {
-    console.log('OTP code is empty')
+    logger.debug('OTP code is empty')
     showOtpDialogCheckErr.value = true
     return
   }
 
   if (!validateOtpCode(otpCode.value)) {
-    console.log('OTP code format invalid:', otpCode.value)
+    logger.debug('OTP code format invalid')
     showOtpDialogCheckErr.value = true
     return
   }
 
   if (!currentOtpId.value) {
-    console.log('No current OTP ID')
+    logger.debug('No current OTP ID')
     showOtpDialogCheckErr.value = true
     return
   }
 
   if (isSubmitting.value) {
-    console.log('Already submitting, ignoring duplicate request')
+    logger.debug('Already submitting, ignoring duplicate request')
     return
   }
 
   try {
     isSubmitting.value = true
-    console.log('Submitting OTP code:', currentOtpId.value, otpCode.value)
+    logger.info('Submitting OTP code', { otpId: currentOtpId.value })
 
     const api = (window as any).api
     await api.submitKeyboardInteractiveResponse(currentOtpId.value, otpCode.value)
 
-    console.log('OTP code submitted successfully')
+    logger.info('OTP code submitted successfully')
 
     // Reset status after successful input
     resetOtpDialog()
   } catch (error) {
-    console.error('Failed to submit OTP code:', error)
+    logger.error('Failed to submit OTP code', { error: String(error) })
     showOtpDialogErr.value = true
     isSubmitting.value = false
   }

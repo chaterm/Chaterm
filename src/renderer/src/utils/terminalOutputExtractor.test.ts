@@ -1,5 +1,7 @@
 import { extractFinalOutput } from './terminalOutputExtractor'
 
+/* eslint-disable no-console */
+
 // Test cases
 const testCases = [
   {

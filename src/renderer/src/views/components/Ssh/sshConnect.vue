@@ -88,7 +88,10 @@
 
 <script lang="ts" setup>
 const copyText = ref('')
+
 import SearchComp from './components/searchComp.vue'
+
+const logger = createRendererLogger('ssh.connect')
 import ZmodemProgress from './utils/zmodemProgress.vue'
 import Context from './components/contextComp.vue'
 import SuggComp from './components/suggestion.vue'
@@ -216,7 +219,7 @@ const handleRightClick = (event) => {
           terminal.value?.focus()
         })
         .catch(() => {
-          console.warn(t('common.clipboardReadFailed'))
+          logger.warn('Clipboard read failed')
         })
       break
     case 'contextMenu':
@@ -245,7 +248,7 @@ const handleMouseDown = (event) => {
             terminal.value?.focus()
           })
           .catch(() => {
-            console.warn(t('common.clipboardReadFailed'))
+            logger.warn('Clipboard read failed')
           })
         break
       case 'contextMenu':
@@ -361,7 +364,7 @@ const getUserInfo = async () => {
       isOfficeDevice.value = res.data.isOfficeDevice
     }
   } catch (error) {
-    console.error(t('common.getUserInfoFailed'), error)
+    logger.error('Failed to get user info', { error: String(error) })
   }
 }
 
@@ -375,7 +378,7 @@ onMounted(async () => {
   try {
     await keywordHighlightService.loadConfig()
   } catch (error) {
-    console.error('[SSH] Failed to load keyword highlight config:', error)
+    logger.error('Failed to load keyword highlight config', { error: String(error) })
   }
 
   const actualTheme = getActualTheme(config.theme)
@@ -412,7 +415,7 @@ onMounted(async () => {
       copyText.value = termInstance.getSelection()
       if (copyText.value.trim()) {
         navigator.clipboard.writeText(copyText.value.trim()).catch(() => {
-          console.warn('Failed to copy to clipboard')
+          logger.warn('Failed to copy to clipboard')
         })
       }
     }
@@ -567,7 +570,7 @@ onMounted(async () => {
 
   const handleSendOrToggleAi = () => {
     if (props.activeTabId !== props.currentConnectionId) {
-      console.log('Not active tab, ignoring event')
+      logger.debug('Not active tab, ignoring event')
       return
     }
 
@@ -613,7 +616,7 @@ onMounted(async () => {
     if (props.activeTabId !== props.currentConnectionId || !props.isActive) return
 
     if (!payload?.command) {
-      console.warn('handleExecuteCommand: command is empty')
+      logger.warn('handleExecuteCommand: command is empty')
       return
     }
 
@@ -751,11 +754,11 @@ const getCmdList = async (systemCommands) => {
   commands.value = [...new Set(allCommands)].sort()
 
   if (config.highlightStatus !== 1) {
-    console.warn('[Vue] Highlight feature is disabled')
+    logger.warn('Highlight feature is disabled')
   }
 
   if (!queryCommandFlag.value) {
-    console.warn('[Vue] Auto-completion feature is disabled')
+    logger.warn('Auto-completion feature is disabled')
   }
 }
 
@@ -1073,7 +1076,7 @@ const handleResize = debounce(() => {
         openEditors.forEach((ed) => resizeEditor(ed, rect))
       }
     } catch (error) {
-      console.error('Failed to resize terminal:', error)
+      logger.error('Failed to resize terminal', { error: String(error) })
     }
   }
 }, 100)
@@ -1194,7 +1197,7 @@ const connectSSH = async () => {
           getCmdList(connectReadyData?.commandList)
         })
         .catch((error) => {
-          console.error('[Vue] Failed to receive command list:', error)
+          logger.error('Failed to receive command list', { error: String(error) })
           connectionHasSudo.value = false
           getCmdList([])
         })
@@ -1285,7 +1288,7 @@ const startShell = async () => {
       )
     }
   } catch (error: any) {
-    console.log(error)
+    logger.error('Shell start error', { error: String(error) })
     terminal.value?.writeln(
       JSON.stringify({
         cmd: t('ssh.shellError', { message: error.message || t('ssh.unknownError') }),
@@ -1300,12 +1303,12 @@ const resizeSSH = async (cols, rows) => {
   try {
     const result = await api.resizeShell(connectionId.value, cols, rows)
     if (result.status === 'error') {
-      console.error('Resize failed:', result.message)
+      logger.error('Resize failed', { message: result.message })
     } else {
       // console.log('terminal resized:', result.message)
     }
   } catch (error) {
-    console.error('Failed to resize terminal:', error)
+    logger.error('Failed to resize terminal', { error: String(error) })
   }
 }
 
@@ -1422,11 +1425,11 @@ const resizeLocalSSH = async (cols, rows) => {
   try {
     const result = await api.resizeLocal(connectionId.value, cols, rows)
     if (result.status === 'error') {
-      console.error('Resize failed:', result.message)
+      logger.error('Resize failed', { message: result.message })
     } else {
     }
   } catch (error) {
-    console.error('Failed to resize terminal:', error)
+    logger.error('Failed to resize terminal', { error: String(error) })
   }
 }
 const terminalState = ref({
@@ -1588,7 +1591,7 @@ const updateTerminalState = (quickInit: boolean, enterPress, tagPress: boolean) 
       })
     }
   } catch (error) {
-    console.error(t('common.updateTerminalStatusError'), error)
+    logger.error('Update terminal state error', { error: String(error) })
   }
 }
 
@@ -1723,7 +1726,7 @@ const sendTerminalStateToServer = async (): Promise<void> => {
       }
     })
   } catch (err) {
-    console.error(t('common.sendTerminalStatusError'), err)
+    logger.error('Send terminal state error', { error: String(err) })
   }
 }
 
@@ -3403,7 +3406,7 @@ const handleCommandOutput = (data: string, isInitialCommand: boolean) => {
           eventBus.emit('sendMessageToAi', { content: messageToSend, tabId })
         }
       } catch (error) {
-        console.error('[CommandEcho] Error processing output:', error)
+        logger.error('Error processing command echo output', { error: String(error) })
       }
     }
 
@@ -3998,7 +4001,7 @@ const queryCommand = async (cmd = '') => {
       }, 1)
     }
   } catch (error) {
-    console.log('Query failed: ' + error)
+    logger.error('Query failed', { error: String(error) })
   }
 }
 const insertCommand = async (cmd) => {
@@ -4350,7 +4353,7 @@ const onChatToAiClick = () => {
 
 const getCursorLinePosition = () => {
   if (!terminal.value) {
-    console.warn('Terminal not available')
+    logger.warn('Terminal not available')
     return null
   }
 
@@ -4408,7 +4411,7 @@ const getCursorLinePosition = () => {
       isCrossRow: cursorEndY.value !== cursorY
     }
   } catch (error) {
-    console.error(t('common.getCursorPositionFailed'), error)
+    logger.error('Get cursor position failed', { error: String(error) })
     return null
   }
 }

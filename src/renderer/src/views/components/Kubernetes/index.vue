@@ -102,6 +102,7 @@ import { useK8sStore } from '@/store/k8sStore'
 
 const { t } = useI18n()
 const k8sStore = useK8sStore()
+const logger = createRendererLogger('kubernetes')
 
 // Computed properties from store
 const contexts = computed(() => k8sStore.contexts)
@@ -132,9 +133,9 @@ const clearError = () => {
 
 // Initialize on mount
 onMounted(async () => {
-  console.log('[K8s Component] Mounting...')
+  logger.debug('K8s component mounting')
   await k8sStore.initialize()
-  console.log('[K8s Component] Contexts loaded:', k8sStore.contexts)
+  logger.debug('K8s contexts loaded', { count: k8sStore.contexts.length })
 })
 </script>
 

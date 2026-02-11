@@ -18,11 +18,15 @@ export {
   cancelUserSelection
 } from './userSelectionState'
 
+
+
+const logger = createRendererLogger('userSelection')
+
 // Setup global listeners
 export const setupGlobalUserSelectionListeners = () => {
   const api = (window as any).api
   if (api) {
-    console.log('Setting up global user selection listeners')
+    logger.info('Setting up global user selection listeners')
     api.onUserSelectionRequest(handleUserSelectionRequest)
     api.onUserSelectionTimeout(handleUserSelectionTimeout)
   }

@@ -176,6 +176,12 @@ export default defineConfig(({ mode }) => {
           ]
         }),
         AutoImport({
+          imports: [
+            {
+              '@/utils/logger': ['createRendererLogger']
+            }
+          ],
+          dts: resolve('src/renderer/auto-imports.d.ts'),
           resolvers: [AntDesignVueResolver()]
         })
       ],

@@ -1,5 +1,8 @@
 import { getUserInfo } from '@/utils/permission'
 
+
+const logger = createRendererLogger('agent.storage')
+
 // Get current user ID
 export function getCurrentUserId(): number {
   const userInfo = getUserInfo()
@@ -12,7 +15,7 @@ export function getCurrentUserId(): number {
 // Set current user ID (for compatibility, not used in SQLite mode)
 export function setCurrentUser(userId: number): void {
   // No-op in SQLite mode
-  console.log('setCurrentUser called with userId:', userId)
+  logger.debug('setCurrentUser called', { userId })
 }
 
 export async function setItem<T>(key: string, value: T): Promise<void> {
@@ -23,7 +26,7 @@ export async function setItem<T>(key: string, value: T): Promise<void> {
       value: JSON.stringify(value)
     })
   } catch (error) {
-    console.error('Error setting item in SQLite:', error)
+    logger.error('Error setting item in SQLite', { key, error: String(error) })
     throw error
   }
 }
@@ -36,7 +39,7 @@ export async function getItem<T>(key: string): Promise<T | undefined> {
     }
     return undefined
   } catch (error) {
-    console.error('Error getting item from SQLite:', error)
+    logger.error('Error getting item from SQLite', { key, error: String(error) })
     throw error
   }
 }
@@ -48,7 +51,7 @@ export async function deleteItem(key: string): Promise<void> {
       key: key
     })
   } catch (error) {
-    console.error('Error deleting item from SQLite:', error)
+    logger.error('Error deleting item from SQLite', { key, error: String(error) })
     throw error
   }
 }
@@ -58,7 +61,7 @@ export async function getAllKeys(): Promise<string[]> {
     const result = await window.api.kvGet({})
     return result || []
   } catch (error) {
-    console.error('Error getting all keys from SQLite:', error)
+    logger.error('Error getting all keys from SQLite', { error: String(error) })
     throw error
   }
 }

@@ -272,6 +272,7 @@ import { useDeviceStore } from '@/store/useDeviceStore'
 import { isChineseEdition } from '@/utils/edition'
 import TitleBar from '@views/components/Header/titleBar.vue'
 
+const logger = createRendererLogger('auth.login')
 const { t, locale } = useI18n()
 const platform = ref<string>('')
 const isDev = ref(false)
@@ -300,7 +301,7 @@ const checkUrlForAuthCallback = async () => {
   const url = window.location.href
   const urlObj = new URL(url)
   if (urlObj.pathname.includes('auth/callback')) {
-    console.log(t('login.authCallbackDetected'), url)
+    logger.debug('Auth callback detected', { url })
     const userInfo = urlObj.searchParams.get('userInfo')
     const method = urlObj.searchParams.get('method')
 
@@ -310,9 +311,9 @@ const checkUrlForAuthCallback = async () => {
       const protocolPrefix = await api.getProtocolPrefix()
       const chatermUrl = `${protocolPrefix}auth/callback?userInfo=${userInfo}&method=${method || ''}&state=${urlObj.searchParams.get('state') || ''}`
       if (platform.value === 'linux') {
-        console.log(t('login.linuxPlatformHandleAuth'))
+        logger.debug('Linux platform handling auth')
         api.handleProtocolUrl(chatermUrl).catch((error: any) => {
-          console.error(t('login.handleProtocolUrlFailed'), error)
+          logger.error('Handle protocol URL failed', { error: String(error) })
         })
       }
     }
@@ -537,7 +538,7 @@ const skipLogin = async () => {
     const api = window.api as any
     const dbResult = await api.initUserDatabase({ uid: 999999999 })
     if (!dbResult.success) {
-      console.error(t('login.guestDatabaseInitFailed'), dbResult.error)
+      logger.error('Guest database init failed', { error: dbResult.error })
       message.error(t('login.initializationFailed'))
       localStorage.removeItem('login-skipped')
       localStorage.removeItem('ctm-token')
@@ -550,11 +551,11 @@ const skipLogin = async () => {
     try {
       await router.replace({ path: '/', replace: true })
     } catch (error) {
-      console.error(t('login.routeJumpFailed'), error)
+      logger.error('Route jump failed', { error: String(error) })
       message.error(t('login.routeNavigationFailed'))
     }
   } catch (error) {
-    console.error(t('login.skipLoginHandleFailed'), error)
+    logger.error('Skip login handle failed', { error: String(error) })
     message.error(t('login.operationFailed'))
     localStorage.removeItem('login-skipped')
     localStorage.removeItem('ctm-token')
@@ -569,7 +570,7 @@ const handleExternalLogin = async () => {
     const api = window.api as any
     await api.openExternalLogin()
   } catch (err) {
-    console.error(t('login.startExternalLoginFailed'), err)
+    logger.error('Start external login failed', { error: String(err) })
     message.error(t('login.externalLoginFailed'))
   } finally {
     externalLoginLoading.value = false
@@ -597,7 +598,7 @@ onMounted(async () => {
           const api = window.api as any
           const dbResult = await api.initUserDatabase({ uid: userInfo.uid })
           if (!dbResult.success) {
-            console.error(t('login.databaseInitializationFailed'), dbResult.error)
+            logger.error('Database initialization failed', { error: dbResult.error })
             await captureButtonClick(LoginFunnelEvents.LOGIN_FAILED, {
               method: method,
               failure_reason: LoginFailureReasons.DATABASE_ERROR,
@@ -613,7 +614,7 @@ onMounted(async () => {
         }
         return false
       } catch (error) {
-        console.error(t('login.loginHandleFailed'), error)
+        logger.error('Login handle failed', { error: String(error) })
         message.error(t('login.loginProcessFailed'))
         await captureButtonClick(LoginFunnelEvents.LOGIN_FAILED, {
           method: method,

@@ -1,3 +1,7 @@
+
+
+const logger = createRendererLogger('service.keywordHighlightConfig')
+
 export class KeywordHighlightConfigService {
   private configPath: string | null = null
 
@@ -19,7 +23,7 @@ export class KeywordHighlightConfigService {
       const content = await window.api.readKeywordHighlightConfig()
 
       if (!content || content.trim() === '') {
-        console.warn('Keyword highlight config file is empty or does not exist')
+        logger.warn('Keyword highlight config file is empty or does not exist')
         // Return default JSON structure from keyword-highlight.json
         return JSON.stringify(
           {
@@ -43,11 +47,11 @@ export class KeywordHighlightConfigService {
         return content
       } catch {
         // JSON is invalid, return original content (user may need to manually fix)
-        console.warn('Content is not valid JSON, returning original')
+        logger.warn('Content is not valid JSON, returning original')
         return content
       }
     } catch (error) {
-      console.error('Failed to read keyword highlight config:', error)
+      logger.error('Failed to read keyword highlight config', { error: error instanceof Error ? error.message : String(error) })
       throw error
     }
   }

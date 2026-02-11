@@ -17,10 +17,14 @@ export {
   resetOtpDialog
 } from './mfaState'
 
+
+
+const logger = createRendererLogger('mfa')
+
 export const setupGlobalMfaListeners = () => {
   const api = (window as any).api
   if (api) {
-    console.log('Setting up global MFA listeners')
+    logger.info('Setting up global MFA listeners')
     api.onKeyboardInteractiveRequest(handleOtpRequest)
     api.onKeyboardInteractiveTimeout(handleOtpTimeout)
     api.onKeyboardInteractiveResult(handleOtpError)

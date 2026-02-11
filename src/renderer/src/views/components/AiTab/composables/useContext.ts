@@ -1,6 +1,8 @@
 import { ref, computed, watch, nextTick, onMounted, onUnmounted, type Ref } from 'vue'
 import type { InjectionKey } from 'vue'
 import debounce from 'lodash/debounce'
+
+const logger = createRendererLogger('ai.context')
 import type { Host, HostOption, HostItemType, ContextMenuLevel, DocOption, ChatOption } from '../types'
 import { formatHosts, isSwitchAssetType } from '../utils'
 import { isBastionHostType } from '../types'
@@ -578,7 +580,7 @@ export const useContext = (options: UseContextOptions = {}) => {
         left: popupAbsLeft
       }
     } catch (error) {
-      console.error('Error calculating popup position for contenteditable:', error)
+      logger.error('Error calculating popup position for contenteditable', { error: error instanceof Error ? error.message : String(error) })
       popupPosition.value = null
     }
   }
@@ -612,7 +614,7 @@ export const useContext = (options: UseContextOptions = {}) => {
 
       popupPosition.value = { bottom, left }
     } catch (error) {
-      console.error('Error calculating create mode popup position:', error)
+      logger.error('Error calculating create mode popup position', { error: error instanceof Error ? error.message : String(error) })
       popupPosition.value = null
     }
   }
@@ -657,7 +659,7 @@ export const useContext = (options: UseContextOptions = {}) => {
       const bastionKeys = formatted.filter((h) => isBastionHostType(h.type)).map((h) => h.key)
       expandedJumpservers.value = new Set(bastionKeys)
     } catch (error) {
-      console.error('Failed to fetch host options:', error)
+      logger.error('Failed to fetch host options', { error: error instanceof Error ? error.message : String(error) })
       hostOptions.value = []
     } finally {
       hostOptionsLoading.value = false
@@ -692,7 +694,7 @@ export const useContext = (options: UseContextOptions = {}) => {
         hostOptions.value.splice(0, hostOptions.value.length)
       }
     } catch (error) {
-      console.error('Failed to fetch host options for command mode:', error)
+      logger.error('Failed to fetch host options for command mode', { error: error instanceof Error ? error.message : String(error) })
       hostOptions.value.splice(0, hostOptions.value.length)
     }
   }
@@ -743,7 +745,7 @@ export const useContext = (options: UseContextOptions = {}) => {
         assetType: h.assetType
       }))
     } catch (error) {
-      console.error('Failed to fetch opened hosts:', error)
+      logger.error('Failed to fetch opened hosts', { error: error instanceof Error ? error.message : String(error) })
       openedHostsList.value = []
     } finally {
       openedHostsLoading.value = false
@@ -771,7 +773,7 @@ export const useContext = (options: UseContextOptions = {}) => {
         type: item.type
       }))
     } catch (error) {
-      console.error('Failed to fetch docs options:', error)
+      logger.error('Failed to fetch docs options', { error: error instanceof Error ? error.message : String(error) })
       docsOptions.value = []
     } finally {
       docsOptionsLoading.value = false
@@ -819,7 +821,7 @@ export const useContext = (options: UseContextOptions = {}) => {
           ts: item.ts || 0
         }))
     } catch (error) {
-      console.error('Failed to fetch chats options:', error)
+      logger.error('Failed to fetch chats options', { error: error instanceof Error ? error.message : String(error) })
       chatsOptions.value = []
     } finally {
       chatsOptionsLoading.value = false

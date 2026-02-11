@@ -2,6 +2,9 @@ import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
 import * as k8sApi from '@/api/k8s'
 
+
+const logger = createRendererLogger('store.k8s')
+
 export interface K8sContextInfo {
   name: string
   cluster: string
@@ -37,7 +40,7 @@ export const useK8sStore = defineStore('k8s', () => {
    */
   async function initialize() {
     if (initialized.value) {
-      console.log('[K8s Store] Already initialized')
+      logger.info('Already initialized')
       return
     }
 
@@ -45,21 +48,21 @@ export const useK8sStore = defineStore('k8s', () => {
     error.value = null
 
     try {
-      console.log('[K8s Store] Initializing...')
+      logger.info('Initializing...')
       const result = await k8sApi.initialize()
 
       if (result.success && result.data) {
         contexts.value = result.data
         currentContext.value = result.currentContext || ''
         initialized.value = true
-        console.log('[K8s Store] Initialized with', result.data.length, 'contexts')
+        logger.info('Initialized with contexts', { count: result.data.length })
       } else {
         error.value = result.error || 'Failed to initialize'
-        console.warn('[K8s Store] Initialization failed:', error.value)
+        logger.warn('Initialization failed', { error: error.value })
       }
     } catch (err) {
       error.value = err instanceof Error ? err.message : 'Unknown error'
-      console.error('[K8s Store] Initialization error:', err)
+      logger.error('Initialization error', { error: err instanceof Error ? err.message : String(err) })
     } finally {
       loading.value = false
     }
@@ -73,20 +76,20 @@ export const useK8sStore = defineStore('k8s', () => {
     error.value = null
 
     try {
-      console.log('[K8s Store] Loading contexts...')
+      logger.info('Loading contexts...')
       const result = await k8sApi.getContexts()
 
       if (result.success && result.data) {
         contexts.value = result.data
         currentContext.value = result.currentContext || ''
-        console.log('[K8s Store] Loaded', result.data.length, 'contexts')
+        logger.info('Loaded contexts', { count: result.data.length })
       } else {
         error.value = result.error || 'Failed to load contexts'
-        console.warn('[K8s Store] Load failed:', error.value)
+        logger.warn('Load failed', { error: error.value })
       }
     } catch (err) {
       error.value = err instanceof Error ? err.message : 'Unknown error'
-      console.error('[K8s Store] Load error:', err)
+      logger.error('Load error', { error: err instanceof Error ? err.message : String(err) })
     } finally {
       loading.value = false
     }
@@ -100,7 +103,7 @@ export const useK8sStore = defineStore('k8s', () => {
     error.value = null
 
     try {
-      console.log('[K8s Store] Switching to context:', contextName)
+      logger.info('Switching to context', { context: contextName })
       const result = await k8sApi.switchContext(contextName)
 
       if (result.success) {
@@ -109,14 +112,14 @@ export const useK8sStore = defineStore('k8s', () => {
         contexts.value.forEach((ctx) => {
           ctx.isActive = ctx.name === contextName
         })
-        console.log('[K8s Store] Switched to context:', contextName)
+        logger.info('Switched to context', { context: contextName })
       } else {
         error.value = result.error || 'Failed to switch context'
-        console.warn('[K8s Store] Switch failed:', error.value)
+        logger.warn('Switch failed', { error: error.value })
       }
     } catch (err) {
       error.value = err instanceof Error ? err.message : 'Unknown error'
-      console.error('[K8s Store] Switch error:', err)
+      logger.error('Switch error', { error: err instanceof Error ? err.message : String(err) })
     } finally {
       loading.value = false
     }
@@ -130,20 +133,20 @@ export const useK8sStore = defineStore('k8s', () => {
     error.value = null
 
     try {
-      console.log('[K8s Store] Reloading configuration...')
+      logger.info('Reloading configuration...')
       const result = await k8sApi.reloadConfig()
 
       if (result.success && result.data) {
         contexts.value = result.data
         currentContext.value = result.currentContext || ''
-        console.log('[K8s Store] Reloaded', result.data.length, 'contexts')
+        logger.info('Reloaded contexts', { count: result.data.length })
       } else {
         error.value = result.error || 'Failed to reload config'
-        console.warn('[K8s Store] Reload failed:', error.value)
+        logger.warn('Reload failed', { error: error.value })
       }
     } catch (err) {
       error.value = err instanceof Error ? err.message : 'Unknown error'
-      console.error('[K8s Store] Reload error:', err)
+      logger.error('Reload error', { error: err instanceof Error ? err.message : String(err) })
     } finally {
       loading.value = false
     }
@@ -154,18 +157,18 @@ export const useK8sStore = defineStore('k8s', () => {
    */
   async function validateContext(contextName: string): Promise<boolean> {
     try {
-      console.log('[K8s Store] Validating context:', contextName)
+      logger.info('Validating context', { context: contextName })
       const result = await k8sApi.validateContext(contextName)
 
       if (result.success) {
-        console.log('[K8s Store] Context validation result:', result.data)
+        logger.info('Context validation result', { valid: result.data })
         return result.data || false
       } else {
-        console.warn('[K8s Store] Validation failed:', result.error)
+        logger.warn('Validation failed', { error: result.error })
         return false
       }
     } catch (err) {
-      console.error('[K8s Store] Validation error:', err)
+      logger.error('Validation error', { error: err instanceof Error ? err.message : String(err) })
       return false
     }
   }

@@ -1,6 +1,9 @@
 import { shortcutActions } from '@/config/shortcutActions'
 import { toRaw } from 'vue'
 
+
+const logger = createRendererLogger('service.userConfig')
+
 export interface ShortcutConfig {
   [key: string]: string
 }
@@ -69,7 +72,7 @@ export class UserConfigStoreService {
         })
       }
     } catch (error) {
-      console.error('Error initializing userConfig in SQLite:', error)
+      logger.error('Error initializing userConfig in SQLite', { error: error instanceof Error ? error.message : String(error) })
     }
   }
 
@@ -158,7 +161,7 @@ export class UserConfigStoreService {
         }
       }
     } catch (error) {
-      console.error('Error getting config from SQLite:', error)
+      logger.error('Error getting config from SQLite', { error: error instanceof Error ? error.message : String(error) })
       return this.getDefaultConfig()
     }
   }
@@ -181,9 +184,9 @@ export class UserConfigStoreService {
         value: JSON.stringify(sanitizedConfig)
       })
 
-      console.log('Config saved successfully to SQLite')
+      logger.info('Config saved successfully to SQLite')
     } catch (error) {
-      console.error('Error saving config to SQLite:', error)
+      logger.error('Error saving config to SQLite', { error: error instanceof Error ? error.message : String(error) })
       throw error
     }
   }
@@ -193,7 +196,7 @@ export class UserConfigStoreService {
   }
 
   async deleteDatabase(): Promise<void> {
-    console.log('deleteDatabase is deprecated when using SQLite')
+    logger.info('deleteDatabase is deprecated when using SQLite')
   }
 }
 

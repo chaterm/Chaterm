@@ -74,7 +74,7 @@ import { Notice } from '../../Notice'
 import { FolderOpenOutlined, CommentOutlined, ExportOutlined } from '@ant-design/icons-vue'
 import i18n from '@/locales'
 import { getEditionConfig } from '@/utils/edition'
-import { createRendererLogger } from '@/utils/logger'
+
 const { t } = i18n.global
 const editionConfig = getEditionConfig()
 const logger = createRendererLogger('settings.about')

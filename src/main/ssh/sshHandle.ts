@@ -1286,7 +1286,6 @@ export const registerSSHHandlers = () => {
     // Default SSH handling
     const stream = shellStreams.get(id)
     if (stream) {
-      // console.log(`ssh:shell:write (default) raw data: "${data}"`)
       // For default SSH connections, don't detect exit commands, let terminal handle exit naturally
       if (markedCommands.has(id)) {
         markedCommands.delete(id)

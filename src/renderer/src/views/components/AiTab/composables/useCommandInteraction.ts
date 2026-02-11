@@ -6,6 +6,8 @@ import type { WebviewMessage } from '@shared/WebviewMessage'
 import { useSessionState } from './useSessionState'
 import i18n from '@/locales'
 
+const logger = createRendererLogger('ai.commandInteraction')
+
 interface CommandInteractionOptions {
   getCurentTabAssetInfo: () => Promise<AssetInfo | null>
   markdownRendererRefs: Ref<any[]>
@@ -128,14 +130,14 @@ export function useCommandInteraction(params: CommandInteractionOptions) {
       }
 
       message.action = 'rejected'
-      console.log('Send message to main process:', messageRsp)
+      logger.info('Send message to main process', { data: messageRsp })
       const response = await window.api.sendToMain(attachTabContext(messageRsp))
       session.buttonsDisabled = true
-      console.log('Main process response:', response)
+      logger.info('Main process response', { data: response })
       session.responseLoading = true
       params.scrollToBottom(true)
     } catch (error) {
-      console.error('Failed to send message to main process:', error)
+      logger.error('Failed to send message to main process', { error: error instanceof Error ? error.message : String(error) })
     }
   }
 
@@ -183,14 +185,14 @@ export function useCommandInteraction(params: CommandInteractionOptions) {
         session.isExecutingCommand = true
       }
 
-      console.log('Send message to main process:', messageRsp)
+      logger.info('Send message to main process', { data: messageRsp })
       const response = await window.api.sendToMain(attachTabContext(messageRsp))
       session.buttonsDisabled = true
-      console.log('Main process response:', response)
+      logger.info('Main process response', { data: response })
       session.responseLoading = true
       params.scrollToBottom(true)
     } catch (error) {
-      console.error('Failed to send message to main process:', error)
+      logger.error('Failed to send message to main process', { error: error instanceof Error ? error.message : String(error) })
     }
   }
 
@@ -221,14 +223,14 @@ export function useCommandInteraction(params: CommandInteractionOptions) {
       message.action = 'approved'
       session.isExecutingCommand = true
 
-      console.log('Send message to main process (auto-approve read-only):', messageRsp)
+      logger.info('Send message to main process (auto-approve read-only)', { data: messageRsp })
       const response = await window.api.sendToMain(attachTabContext(messageRsp))
       session.buttonsDisabled = true
-      console.log('Main process response:', response)
+      logger.info('Main process response', { data: response })
       session.responseLoading = true
       params.scrollToBottom(true)
     } catch (error) {
-      console.error('Failed to approve and enable read-only auto-approval:', error)
+      logger.error('Failed to approve and enable read-only auto-approval', { error: error instanceof Error ? error.message : String(error) })
     }
   }
 
@@ -252,7 +254,7 @@ export function useCommandInteraction(params: CommandInteractionOptions) {
       const { serverName, toolName } = message.mcpToolCall
 
       await window.api.setMcpToolAutoApprove(serverName, toolName, true)
-      console.log(`Set auto-approve for ${serverName}/${toolName}`)
+      logger.info(`Set auto-approve for ${serverName}/${toolName}`)
 
       let messageRsp: WebviewMessage = {
         type: 'askResponse',
@@ -261,19 +263,19 @@ export function useCommandInteraction(params: CommandInteractionOptions) {
       }
       message.action = 'approved'
 
-      console.log('Send message to main process:', messageRsp)
+      logger.info('Send message to main process', { data: messageRsp })
       const response = await window.api.sendToMain(attachTabContext(messageRsp))
       session.buttonsDisabled = true
-      console.log('Main process response:', response)
+      logger.info('Main process response', { data: response })
       session.responseLoading = true
       params.scrollToBottom(true)
     } catch (error) {
-      console.error('Failed to approve and set auto-approve:', error)
+      logger.error('Failed to approve and set auto-approve', { error: error instanceof Error ? error.message : String(error) })
     }
   }
 
   const handleCancel = async (mode: 'auto' | 'force' = 'auto') => {
-    console.log('handleCancel: cancel')
+    logger.info('handleCancel: cancel')
 
     const session = currentSession.value
     if (!session) return
@@ -297,14 +299,14 @@ export function useCommandInteraction(params: CommandInteractionOptions) {
     try {
       if (wasExecutingCommand && mode !== 'force') {
         const response = await window.api.gracefulCancelTask(currentChatId.value ?? undefined)
-        console.log('Main process graceful cancel response:', response)
+        logger.info('Main process graceful cancel response', { data: response })
         return
       }
 
       const response = await window.api.cancelTask(currentChatId.value ?? undefined)
-      console.log('Main process cancel response:', response)
+      logger.info('Main process cancel response', { data: response })
     } catch (error) {
-      console.error('Failed to send cancel request:', error)
+      logger.error('Failed to send cancel request', { error: error instanceof Error ? error.message : String(error) })
     }
   }
 
@@ -312,15 +314,15 @@ export function useCommandInteraction(params: CommandInteractionOptions) {
     const session = currentSession.value
     if (!session) return
 
-    console.log('handleRetry: retry')
+    logger.info('handleRetry: retry')
     session.isCancelled = false
     const messageRsp: WebviewMessage = {
       type: 'askResponse',
       askResponse: 'yesButtonClicked'
     }
-    console.log('Send message to main process:', messageRsp)
+    logger.info('Send message to main process', { data: messageRsp })
     const response = await window.api.sendToMain(attachTabContext(messageRsp))
-    console.log('Main process response:', response)
+    logger.info('Main process response', { data: response })
     session.showRetryButton = false
   }
 

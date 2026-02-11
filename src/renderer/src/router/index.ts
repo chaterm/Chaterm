@@ -3,6 +3,9 @@ import { createRouter, createWebHashHistory } from 'vue-router'
 import { AppRoutes } from '@/router/routes'
 import { beforeEach, afterEach } from '@/router/guards'
 
+
+const logger = createRendererLogger('router')
+
 // Create router instance
 const AppRouter = createRouter({
   history: createWebHashHistory(), // Hash mode
@@ -12,7 +15,7 @@ const AppRouter = createRouter({
 
 // Add error handling
 AppRouter.onError((error) => {
-  console.error('Router error:', error)
+  logger.error('Router error', { error: String(error) })
 })
 
 AppRouter.beforeEach(beforeEach)

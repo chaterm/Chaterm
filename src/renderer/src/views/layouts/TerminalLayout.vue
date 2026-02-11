@@ -319,6 +319,7 @@ import { captureExtensionUsage, ExtensionNames, ExtensionStatus } from '@/utils/
 import Dashboard from '@renderer/views/components/Ssh/components/dashboard.vue'
 import { getGlobalState } from '@/agent/storage/state'
 import { useAiSidebarModelRefresh } from './composables/useAiSidebarModelRefresh'
+
 import 'dockview-vue/dist/styles/dockview.css'
 import { type DockviewReadyEvent, DockviewVue } from 'dockview-vue'
 import type { DockviewApi } from 'dockview-core'
@@ -328,6 +329,7 @@ const props = defineProps<{
 }>()
 
 const { t } = useI18n()
+const logger = createRendererLogger('layout.terminal')
 
 // Computed styles for layout visibility
 const getLayoutStyle = (
@@ -468,7 +470,7 @@ const saveAiSidebarState = () => {
         savedAiSidebarState.value.size = aiSidebarSize.value
       }
     } catch (error) {
-      console.warn('Failed to get AI Tab state:', error)
+      logger.warn('Failed to get AI Tab state', { error: String(error) })
       if (savedAiSidebarState.value) {
         savedAiSidebarState.value.size = aiSidebarSize.value
       }
@@ -493,7 +495,7 @@ const restorePreviousFocus = () => {
       try {
         lastFocusedElement.value?.focus()
       } catch (error) {
-        console.warn('Failed to restore focus:', error)
+        logger.warn('Failed to restore focus', { error: String(error) })
       }
     })
   }
@@ -825,7 +827,7 @@ onMounted(async () => {
         return true
       }
     } catch (error) {
-      console.warn('Failed to restore AI Tab state:', error)
+      logger.warn('Failed to restore AI Tab state', { error: String(error) })
       // Clear invalid state
       localStorage.removeItem('sharedAiTabState')
     }
@@ -948,7 +950,7 @@ onMounted(async () => {
           savedAiSidebarState.value = currentState
         }
       } catch (error) {
-        console.warn('Failed to save AI state before layout switch:', error)
+        logger.warn('Failed to save AI state before layout switch', { error: String(error) })
       }
     }
   })
@@ -1757,7 +1759,7 @@ const openUserTab = async function (arg: OpenUserTabArg) {
         const fileName = configPath.split(/[/\\]/).pop() || 'chaterm-security.json'
         p.title = fileName
       } catch (error) {
-        console.error('Failed to get security config path:', error)
+        logger.error('Failed to get security config path', { error: String(error) })
         p.title = 'chaterm-security.json' // Default file name
       }
       break
@@ -1771,7 +1773,7 @@ const openUserTab = async function (arg: OpenUserTabArg) {
         const fileName = configPath.split(/[/\\]/).pop() || 'keyword-highlight.json'
         p.title = fileName
       } catch (error) {
-        console.error('Failed to get keyword highlight config path:', error)
+        logger.error('Failed to get keyword highlight config path', { error: String(error) })
         p.title = 'keyword-highlight.json' // Default file name
       }
       break
@@ -1991,7 +1993,7 @@ const handleModeChange = (mode: 'terminal' | 'agents') => {
         savedAiSidebarState.value = currentState
       }
     } catch (error) {
-      console.warn('Failed to save AI state before mode switch:', error)
+      logger.warn('Failed to save AI state before mode switch', { error: String(error) })
     }
   }
   eventBus.emit('switch-mode', mode)
@@ -2023,7 +2025,7 @@ const handleConversationSelect = async (conversationId: string) => {
         }
       }
     } catch (error) {
-      console.error('Failed to select conversation:', error)
+      logger.error('Failed to select conversation', { error: String(error) })
     }
   }
 }
@@ -2038,7 +2040,7 @@ const handleNewChat = async () => {
         eventBus.emit('create-new-empty-tab')
       }
     } catch (error) {
-      console.error('Failed to create new chat:', error)
+      logger.error('Failed to create new chat', { error: String(error) })
     }
   }
 }
@@ -2053,7 +2055,7 @@ const handleConversationDelete = async (conversationId: string) => {
         eventBus.emit('remove-tab', conversationId)
       }
     } catch (error) {
-      console.error('Failed to delete conversation tab:', error)
+      logger.error('Failed to delete conversation tab', { error: String(error) })
     }
   }
 }

@@ -113,6 +113,7 @@ describe('ExtensionViewHost.vue', () => {
     mockApi.onOpenEditorRequest.mockImplementation((cb) => {
       capturedCallback = cb
       return () => {
+        // eslint-disable-next-line no-console
         console.log('unbound')
       }
     })

@@ -5,6 +5,9 @@
 // Licensed under the Apache License, Version 2.0
 
 import { ChatermMessage } from './ExtensionMessage'
+import { createLogger } from '@logging'
+
+const logger = createLogger('agent.metrics')
 
 interface ApiMetrics {
   totalTokensIn: number
@@ -62,8 +65,7 @@ export function getApiMetrics(messages: ChatermMessage[]): ApiMetrics {
           result.totalCost += cost
         }
       } catch (error) {
-        // eslint-disable-next-line no-console
-        console.error('Error parsing JSON', { error: error instanceof Error ? error.message : String(error) })
+        logger.error('Error parsing JSON', { error: error instanceof Error ? error.message : String(error) })
       }
     }
   })

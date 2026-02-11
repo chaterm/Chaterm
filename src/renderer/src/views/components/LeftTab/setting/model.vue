@@ -447,6 +447,8 @@ import eventBus from '@/utils/eventBus'
 import i18n from '@/locales'
 import { getUser } from '@api/user/user'
 
+const logger = createRendererLogger('settings.model')
+
 // Define interface for model options
 interface ModelOption {
   id: string
@@ -539,7 +541,7 @@ const loadSavedConfig = async () => {
     ollamaBaseUrl.value = ((await getGlobalState('ollamaBaseUrl')) as string) || 'http://localhost:11434'
     ollamaModelId.value = ((await getGlobalState('ollamaModelId')) as string) || ''
   } catch (error) {
-    console.error('Failed to load config:', error)
+    logger.error('Failed to load config', { error: error instanceof Error ? error.message : String(error) })
     notification.error({
       message: 'Error',
       description: 'Failed to load saved configuration'
@@ -558,7 +560,7 @@ const saveBedrockConfig = async () => {
     await storeSecret('awsSecretKey', awsSecretKey.value)
     await storeSecret('awsSessionToken', awsSessionToken.value)
   } catch (error) {
-    console.error('Failed to save Bedrock config:', error)
+    logger.error('Failed to save Bedrock config', { error: error instanceof Error ? error.message : String(error) })
     notification.error({
       message: t('user.error'),
       description: t('user.saveBedrockConfigFailed')
@@ -571,7 +573,7 @@ const saveLiteLlmConfig = async () => {
     await updateGlobalState('liteLlmBaseUrl', liteLlmBaseUrl.value)
     await storeSecret('liteLlmApiKey', liteLlmApiKey.value)
   } catch (error) {
-    console.error('Failed to save LiteLLM config:', error)
+    logger.error('Failed to save LiteLLM config', { error: error instanceof Error ? error.message : String(error) })
     notification.error({
       message: t('user.error'),
       description: t('user.saveLiteLlmConfigFailed')
@@ -583,7 +585,7 @@ const saveDeepSeekConfig = async () => {
   try {
     await storeSecret('deepSeekApiKey', deepSeekApiKey.value)
   } catch (error) {
-    console.error('Failed to save DeepSeek config:', error)
+    logger.error('Failed to save DeepSeek config', { error: error instanceof Error ? error.message : String(error) })
     notification.error({
       message: t('user.error'),
       description: t('user.saveDeepSeekConfigFailed')
@@ -596,7 +598,7 @@ const saveOpenAiConfig = async () => {
     await updateGlobalState('openAiBaseUrl', openAiBaseUrl.value)
     await storeSecret('openAiApiKey', openAiApiKey.value)
   } catch (error) {
-    console.error('Failed to save OpenAI config:', error)
+    logger.error('Failed to save OpenAI config', { error: error instanceof Error ? error.message : String(error) })
     notification.error({
       message: t('user.error'),
       description: t('user.saveOpenAiConfigFailed')
@@ -609,7 +611,7 @@ const saveOllamaConfig = async () => {
     await updateGlobalState('ollamaBaseUrl', ollamaBaseUrl.value)
     await updateGlobalState('ollamaModelId', ollamaModelId.value)
   } catch (error) {
-    console.error('Failed to save Ollama config:', error)
+    logger.error('Failed to save Ollama config', { error: error instanceof Error ? error.message : String(error) })
     notification.error({
       message: t('user.error'),
       description: t('user.saveOllamaConfigFailed')
@@ -672,7 +674,7 @@ const handleCheck = async (provider: string): Promise<void> => {
 
   // Set corresponding loading state, check parameters
   let checkParam = await getAllExtensionState()
-  console.log('[handleCheck] getAllExtensionState.apiConfiguration', checkParam?.apiConfiguration)
+  logger.info('handleCheck getAllExtensionState.apiConfiguration', { data: checkParam?.apiConfiguration })
   let checkApiConfiguration = checkParam?.apiConfiguration
   let checkOptions = {}
 
@@ -729,7 +731,7 @@ const handleCheck = async (provider: string): Promise<void> => {
   // Override checkApiConfiguration content
   checkApiConfiguration = { ...checkApiConfiguration, ...checkOptions }
   try {
-    console.log('[validateApiKey] checkApiConfiguration', checkApiConfiguration)
+    logger.info('validateApiKey checkApiConfiguration', { data: checkApiConfiguration })
     // Ensure correct parameter format is passed
     const result = await (
       window.api as unknown as {
@@ -802,7 +804,7 @@ const saveModelOptions = async () => {
     await updateGlobalState('modelOptions', serializableModelOptions)
     eventBus.emit('SettingModelOptionsChanged')
   } catch (error) {
-    console.error('Failed to save model options:', error)
+    logger.error('Failed to save model options', { error: error instanceof Error ? error.message : String(error) })
     notification.error({
       message: 'Error',
       description: 'Failed to save model options'
@@ -894,7 +896,7 @@ const loadModelOptions = async () => {
     }
     await saveModelOptions()
   } catch (error) {
-    console.error('Failed to load model options:', error)
+    logger.error('Failed to load model options', { error: error instanceof Error ? error.message : String(error) })
   }
 }
 

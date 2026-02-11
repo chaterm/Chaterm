@@ -3,6 +3,10 @@
  * Wraps IPC calls to main process
  */
 
+
+
+const logger = createRendererLogger('api.k8s')
+
 // Use a getter to ensure we always access the current window.api value
 // This is important for testing where window.api may be mocked
 const getApi = () => (window as any).api
@@ -29,7 +33,7 @@ export async function getContexts(): Promise<K8sApiResponse<K8sContextInfo[]>> {
   try {
     return await getApi().k8sGetContexts()
   } catch (error) {
-    console.error('[K8s API] Failed to get contexts:', error)
+    logger.error('Failed to get contexts', { error: String(error) })
     return {
       success: false,
       error: error instanceof Error ? error.message : 'Unknown error'
@@ -44,7 +48,7 @@ export async function getContextDetail(contextName: string): Promise<K8sApiRespo
   try {
     return await getApi().k8sGetContextDetail(contextName)
   } catch (error) {
-    console.error('[K8s API] Failed to get context detail:', error)
+    logger.error('Failed to get context detail', { error: String(error) })
     return {
       success: false,
       error: error instanceof Error ? error.message : 'Unknown error'
@@ -59,7 +63,7 @@ export async function switchContext(contextName: string): Promise<K8sApiResponse
   try {
     return await getApi().k8sSwitchContext(contextName)
   } catch (error) {
-    console.error('[K8s API] Failed to switch context:', error)
+    logger.error('Failed to switch context', { error: String(error) })
     return {
       success: false,
       error: error instanceof Error ? error.message : 'Unknown error'
@@ -74,7 +78,7 @@ export async function reloadConfig(): Promise<K8sApiResponse<K8sContextInfo[]>> 
   try {
     return await getApi().k8sReloadConfig()
   } catch (error) {
-    console.error('[K8s API] Failed to reload config:', error)
+    logger.error('Failed to reload config', { error: String(error) })
     return {
       success: false,
       error: error instanceof Error ? error.message : 'Unknown error'
@@ -94,7 +98,7 @@ export async function validateContext(contextName: string): Promise<K8sApiRespon
       error: result.error
     }
   } catch (error) {
-    console.error('[K8s API] Failed to validate context:', error)
+    logger.error('Failed to validate context', { error: String(error) })
     return {
       success: false,
       error: error instanceof Error ? error.message : 'Unknown error'
@@ -109,7 +113,7 @@ export async function initialize(): Promise<K8sApiResponse<K8sContextInfo[]>> {
   try {
     return await getApi().k8sInitialize()
   } catch (error) {
-    console.error('[K8s API] Failed to initialize:', error)
+    logger.error('Failed to initialize', { error: String(error) })
     return {
       success: false,
       error: error instanceof Error ? error.message : 'Unknown error'

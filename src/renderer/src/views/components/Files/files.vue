@@ -475,6 +475,8 @@ const api = (window as any).api
 const { t } = useI18n()
 const { t: $t } = useI18n()
 
+const logger = createRendererLogger('files')
+
 const props = defineProps({
   currentDirectoryInput: {
     type: String,
@@ -1628,7 +1630,7 @@ const downloadFile = async (record: any) => {
       duration: 3
     })
   } catch (err: any) {
-    console.error('Download Error:', err)
+    logger.error('Download error', { error: String(err) })
     message.error({ content: `${t('files.downloadError')}：${(err as Error).message}`, key, duration: 3 })
   }
 }
@@ -1656,7 +1658,7 @@ const downloadFile = async (record: any) => {
 const editableData = reactive({})
 const renameFile = (record: FileRecord): void => {
   if (!record?.key) {
-    console.warn('Invalid record: missing key')
+    logger.warn('Invalid record: missing key')
     return
   }
 
@@ -1669,7 +1671,7 @@ const renameFile = (record: FileRecord): void => {
     if (targetFile) {
       editableData[key] = cloneDeep(targetFile)
     } else {
-      console.warn(`File with key ${key} not found`)
+      logger.warn('File not found', { key })
     }
   }
 }

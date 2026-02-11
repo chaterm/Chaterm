@@ -15,6 +15,8 @@ import { ApiProvider } from '@shared/api'
 import { GlobalStateKey } from '../state-keys'
 import { vi, describe, test, beforeEach, expect } from 'vitest'
 
+/* eslint-disable no-console */
+
 // Mock storageContext
 vi.mock('../storage-context', () => ({
   storageContext: {

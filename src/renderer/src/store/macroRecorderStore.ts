@@ -1,6 +1,9 @@
 import { defineStore } from 'pinia'
 import eventBus from '@/utils/eventBus'
 
+
+const logger = createRendererLogger('store.macroRecorder')
+
 // Recording time limit: 5 minutes
 const MAX_RECORDING_DURATION_MS = 5 * 60 * 1000
 // Maximum number of commands
@@ -130,7 +133,7 @@ export const useMacroRecorderStore = defineStore('macroRecorder', {
         return
       }
 
-      console.warn(`[MacroRecorder] Auto-stopping: ${reason === 'time' ? 'time limit reached' : 'command limit reached'}`)
+      logger.warn(`Auto-stopping: ${reason === 'time' ? 'time limit reached' : 'command limit reached'}`)
 
       // Clear auto-stop timer
       this.clearAutoStopTimer()
@@ -176,12 +179,12 @@ export const useMacroRecorderStore = defineStore('macroRecorder', {
     // Start recording for a specific terminal
     startRecording(terminalId: string, groupUuid: string | null = null): boolean {
       if (this.isRecording) {
-        console.warn('[MacroRecorder] Already recording')
+        logger.warn('Already recording')
         return false
       }
 
       if (!terminalId) {
-        console.warn('[MacroRecorder] No terminal ID provided')
+        logger.warn('No terminal ID provided')
         return false
       }
 
@@ -201,14 +204,14 @@ export const useMacroRecorderStore = defineStore('macroRecorder', {
         }
       }, MAX_RECORDING_DURATION_MS)
 
-      console.log(`[MacroRecorder] Started recording for terminal: ${terminalId}`)
+      logger.info('Started recording', { terminalId })
       return true
     },
 
     // Stop recording and return recorded content
     stopRecording(): { content: string; name: string; groupUuid: string | null } | null {
       if (!this.isRecording) {
-        console.warn('[MacroRecorder] Not currently recording')
+        logger.warn('Not currently recording')
         return null
       }
 
@@ -238,7 +241,7 @@ export const useMacroRecorderStore = defineStore('macroRecorder', {
       this.recordingStartTime = null
       this.targetGroupUuid = null
 
-      console.log(`[MacroRecorder] Stopped recording`)
+      logger.info('Stopped recording')
       return result
     },
 
@@ -376,7 +379,7 @@ export const useMacroRecorderStore = defineStore('macroRecorder', {
       this.currentLineBuffer = ''
       this.recordingStartTime = null
       this.targetGroupUuid = null
-      console.log('[MacroRecorder] Recording cancelled')
+      logger.info('Recording cancelled')
     }
   }
 })

@@ -3,6 +3,9 @@ import { useSessionState } from './useSessionState'
 import type { ChatMessage, MessageContent } from '../types'
 import i18n from '@/locales'
 
+
+const logger = createRendererLogger('aitab.exportChat')
+
 export function useExportChat() {
   const { chatHistory, currentChatTitle } = useSessionState()
   const { t } = i18n.global
@@ -92,7 +95,7 @@ export function useExportChat() {
       await window.api.writeLocalFile(filePath, markdown)
       notification.success({ message: t('ai.exportChatSuccess'), duration: 3 })
     } catch (error) {
-      console.error('Export chat failed:', error)
+      logger.error('Export chat failed', { error: error instanceof Error ? error.message : String(error) })
       notification.error({
         message: t('ai.exportChatFailed'),
         description: error instanceof Error ? error.message : String(error),

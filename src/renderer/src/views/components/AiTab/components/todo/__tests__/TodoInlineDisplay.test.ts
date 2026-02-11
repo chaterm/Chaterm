@@ -113,6 +113,7 @@ describe('TodoInlineDisplay', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     // Suppress console.log from component
+    // eslint-disable-next-line no-console
     vi.spyOn(console, 'log').mockImplementation(() => {})
     // Ensure English locale
     if (typeof localStorage !== 'undefined') {

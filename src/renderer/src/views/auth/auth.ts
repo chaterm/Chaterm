@@ -1,3 +1,7 @@
+
+
+const logger = createRendererLogger('auth')
+
 export const CtmTokenKey: string = 'Ctm-Token'
 // Authentication status
 export const isAuthenticated = async () => {
@@ -6,7 +10,7 @@ export const isAuthenticated = async () => {
   return api
     .getCookie(CtmTokenKey)
     .then((res) => {
-      console.log(res, 'Get token')
+      logger.debug('Get token', { success: res?.success })
       if (res && res.success) {
         return true
       }

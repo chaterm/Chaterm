@@ -366,6 +366,8 @@ import { userConfigStore as userConfigStoreService } from '@/services/userConfig
 import { getCustomTheme, isDarkTheme } from '@/utils/themeUtils'
 import TerminalOutputRenderer from '../format/terminalOutputRenderer.vue'
 
+const logger = createRendererLogger('ai.markdown')
+
 const { t } = i18n.global
 
 // Add functions related to sensitive data de-identification
@@ -414,7 +416,7 @@ const isMarkdownSecretRedactionEnabled = async (): Promise<boolean> => {
     const config = await userConfigStoreService.getConfig()
     return config?.secretRedaction === 'enabled'
   } catch (error) {
-    console.error('Failed to get secret redaction config for markdown:', error)
+    logger.error('Failed to get secret redaction config for markdown', { error: error instanceof Error ? error.message : String(error) })
     return false
   }
 }
@@ -732,7 +734,7 @@ const initEditor = (content: string) => {
       }
     }, 2000)
   } catch (error) {
-    console.error('Error in initEditor:', error)
+    logger.error('Error in initEditor', { error: error instanceof Error ? error.message : String(error) })
   }
 }
 

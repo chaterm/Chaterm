@@ -47,6 +47,8 @@ import { getMonacoTheme } from '@/utils/themeUtils'
 
 const { t } = useI18n()
 
+const logger = createRendererLogger('securityConfigEditor')
+
 const configContent = ref('')
 const error = ref('')
 const isSaving = ref(false)
@@ -121,7 +123,7 @@ onMounted(async () => {
       })
     }
   } catch (err: unknown) {
-    console.error('Failed to load security config:', err)
+    logger.error('Failed to load security config', { error: String(err) })
     const errorMessage = err instanceof Error ? err.message : String(err)
     notification.error({
       message: t('user.error') || 'Error',
@@ -213,7 +215,7 @@ const saveConfig = async () => {
       lastSaved.value = false
     }, 3000)
   } catch (err: unknown) {
-    console.error('Failed to save security config:', err)
+    logger.error('Failed to save security config', { error: String(err) })
     isSaving.value = false
     const errorMessage = err instanceof Error ? err.message : String(err)
     notification.error({

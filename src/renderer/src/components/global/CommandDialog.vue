@@ -82,7 +82,10 @@ import { ref, nextTick, onMounted, onUnmounted, watch, computed } from 'vue'
 import { useI18n } from 'vue-i18n'
 import eventBus from '@/utils/eventBus'
 import { useModelConfiguration } from '@/views/components/AiTab/composables/useModelConfiguration'
+
 import type { CommandGenerationContext } from '@shared/WebviewMessage'
+
+const logger = createRendererLogger('commandDialog')
 
 interface Props {
   visible: boolean
@@ -277,7 +280,7 @@ const handleSubmit = async () => {
       modelName: selectedCommandModel.value
     })
   } catch (err) {
-    console.error('Command generation failed:', err)
+    logger.error('Command generation failed', { error: String(err) })
     error.value = err instanceof Error ? err.message : t('commandDialog.generationFailed')
     isLoading.value = false
     inputValue.value = instruction
@@ -293,7 +296,7 @@ const getCurrentContext = async (): Promise<CommandGenerationContext> => {
     }
 
     if (!sshConnectId) {
-      console.warn('No SSH connection ID found, using fallback context')
+      logger.warn('No SSH connection ID found, using fallback context')
       const platform = await window.api.getPlatform().catch(() => 'unknown')
       return {
         platform,
@@ -318,7 +321,7 @@ const getCurrentContext = async (): Promise<CommandGenerationContext> => {
 
     return systemInfoResult.data
   } catch (error) {
-    console.warn('Failed to get remote context:', error)
+    logger.warn('Failed to get remote context', { error: String(error) })
     const platform = await window.api.getPlatform().catch(() => 'unknown')
     return {
       platform,
@@ -352,7 +355,7 @@ const getCursorPosition = (): Promise<CursorPositionInfo | null> => {
         }
       }, 100)
     } catch (error) {
-      console.warn('Failed to get cursor position from terminal:', error)
+      logger.warn('Failed to get cursor position from terminal', { error: String(error) })
       if (!resolved) {
         resolved = true
         resolve(null)

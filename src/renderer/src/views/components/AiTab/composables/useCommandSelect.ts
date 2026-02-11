@@ -1,6 +1,9 @@
 import { ref, computed, nextTick, type Ref, type InjectionKey } from 'vue'
 import type { ContextCommandRef, ContentPart } from '@shared/WebviewMessage'
 
+
+const logger = createRendererLogger('aitab.commandSelect')
+
 // Command option from knowledge base commands directory
 export interface CommandOption {
   name: string // file name without extension
@@ -88,7 +91,7 @@ export function useCommandSelect(options: UseCommandSelectOptions = {}) {
           type: 'file' as const
         }))
     } catch (error) {
-      console.error('Failed to fetch command options:', error)
+      logger.error('Failed to fetch command options', { error: error instanceof Error ? error.message : String(error) })
       commandOptions.value = []
     } finally {
       commandOptionsLoading.value = false
@@ -197,7 +200,7 @@ export function useCommandSelect(options: UseCommandSelectOptions = {}) {
 
       popupPosition.value = { bottom, left }
     } catch (error) {
-      console.error('Error calculating command popup position:', error)
+      logger.error('Error calculating command popup position', { error: error instanceof Error ? error.message : String(error) })
       popupPosition.value = null
     }
   }

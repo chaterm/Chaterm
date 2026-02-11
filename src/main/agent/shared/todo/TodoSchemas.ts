@@ -1,4 +1,7 @@
 import { z } from 'zod'
+import { createLogger } from '@logging'
+
+const logger = createLogger('agent.todo')
 
 // Basic data structures
 export interface Todo {
@@ -150,8 +153,7 @@ export class TodoSerializer {
         })
       )
     } catch (error) {
-      // eslint-disable-next-line no-console
-      console.error('Failed to deserialize todos', { error: error instanceof Error ? error.message : String(error) })
+      logger.error('Failed to deserialize todos', { error: error instanceof Error ? error.message : String(error) })
       return []
     }
   }
@@ -173,8 +175,7 @@ export class TodoSerializer {
         lastFocusChangeAt: new Date(parsed.lastFocusChangeAt)
       }
     } catch (error) {
-      // eslint-disable-next-line no-console
-      console.error('Failed to deserialize focus chain state', { error: error instanceof Error ? error.message : String(error) })
+      logger.error('Failed to deserialize focus chain state', { error: error instanceof Error ? error.message : String(error) })
       return null
     }
   }
