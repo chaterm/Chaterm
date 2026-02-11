@@ -83,7 +83,7 @@ describe('processSlashCommands', () => {
       const userContent: Anthropic.ContentBlockParam[] = [
         {
           type: 'text',
-          text: `The user has provided feedback on the results. Consider their input to continue the task, and then attempt completion again.
+          text: `The user provided the following feedback:
 <feedback>
 /summary-to-doc
 </feedback>`

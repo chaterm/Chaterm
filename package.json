@@ -84,7 +84,6 @@
     "mermaid": "^11.12.2",
     "monaco-editor": "^0.55.1",
     "node-pty": "^1.0.0",
-    "node-vibrant": "^4.0.4",
     "ollama": "^0.6.3",
     "openai": "^6.21.0",
     "p-wait-for": "^6.0.0",

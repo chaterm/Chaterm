@@ -2862,7 +2862,7 @@ export class Task {
       }
       toolResults.push({
         type: 'text',
-        text: `The user has provided feedback on the results. Consider their input to continue the task, and then attempt completion again.\n<feedback>\n${text}\n</feedback>`
+        text: formatMessage(this.messages.userProvidedFeedback, { feedback: text })
       })
       this.userMessageContent.push({ type: 'text', text: `${toolDescription} Result:` })
       this.userMessageContent.push(...toolResults)
