@@ -3089,13 +3089,13 @@ defineExpose({
   --dv-active-sash-color: transparent;
   --dv-active-sash-transition-duration: 0.1s;
   --dv-active-sash-transition-delay: 0.5s;
-  --dv-group-view-background-color: white;
+  --dv-group-view-background-color: var(--bg-color);
   --dv-tabs-and-actions-container-background-color: var(--bg-color);
   --dv-activegroup-visiblepanel-tab-background-color: var(--bg-color-tertiary);
   --dv-activegroup-hiddenpanel-tab-background-color: var(--bg-color);
-  --dv-inactivegroup-visiblepanel-tab-background-color: white;
+  --dv-inactivegroup-visiblepanel-tab-background-color: var(--bg-color-secondary);
   --dv-inactivegroup-hiddenpanel-tab-background-color: var(--bg-color);
-  --dv-tab-divider-color: #e2e8f0;
+  --dv-tab-divider-color: var(--border-color);
   --dv-activegroup-visiblepanel-tab-color: rgb(51, 51, 51);
   --dv-activegroup-hiddenpanel-tab-color: rgba(51, 51, 51, 0.7);
   --dv-inactivegroup-visiblepanel-tab-color: rgba(51, 51, 51, 0.7);
@@ -3106,11 +3106,11 @@ defineExpose({
 }
 
 .dockview-theme-light .dv-tabs-and-actions-container {
-  border-bottom: 1px solid #e2e8f0;
+  border-bottom: 1px solid var(--border-color);
 }
 
 .dockview-theme-light .dv-groupview.dv-active-group > .dv-tabs-and-actions-container .dv-tab.dv-active-tab {
-  border: 1px solid #d1d5db;
+  border: 1px solid var(--border-color);
   border-bottom: none;
   border-radius: 4px 4px 0 0;
 }

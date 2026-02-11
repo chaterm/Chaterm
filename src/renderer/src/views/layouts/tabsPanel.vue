@@ -347,16 +347,16 @@ defineExpose({
 
   &.transparent-bg {
     background-color: transparent !important;
-    border-bottom-color: rgba(255, 255, 255, 0.1);
+    border-bottom-color: var(--border-color);
 
     .tab-item {
-      background-color: rgba(0, 0, 0, 0.2);
-      color: rgba(255, 255, 255, 0.8);
-      border-right-color: rgba(255, 255, 255, 0.1);
+      background-color: var(--bg-color-secondary);
+      color: var(--text-color);
+      border-right-color: var(--border-color);
 
       &.active {
-        background-color: rgba(255, 255, 255, 0.15);
-        color: #fff;
+        background-color: var(--bg-color-tertiary);
+        color: var(--text-color);
         border-top-color: #007acc;
       }
 
@@ -365,10 +365,10 @@ defineExpose({
       }
 
       .close-btn {
-        color: rgba(255, 255, 255, 0.6);
+        color: var(--text-color-tertiary);
         &:hover {
-          color: #fff;
-          background-color: rgba(255, 255, 255, 0.2);
+          color: var(--text-color);
+          background-color: var(--hover-bg-color);
         }
       }
     }

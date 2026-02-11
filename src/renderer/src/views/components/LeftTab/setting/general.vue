@@ -305,8 +305,8 @@ const userConfig = ref({
   defaultLayout: 'terminal',
   background: {
     image: '',
-    opacity: 0.15,
-    brightness: 0.45,
+    opacity: 0.05,
+    brightness: 0.9,
     mode: 'none'
   }
 })
