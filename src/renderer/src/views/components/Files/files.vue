@@ -1859,6 +1859,44 @@ defineExpose({
 
 .base-file :deep(.ant-card-body) {
   padding: 0px 7px;
+  background-color: var(--bg-color);
+}
+
+.files-table :deep(.ant-table) {
+  background-color: var(--bg-color);
+  color: var(--text-color);
+}
+
+.files-table :deep(.ant-table-container) {
+  background-color: var(--bg-color);
+}
+
+.files-table :deep(.ant-table-placeholder) {
+  background-color: var(--bg-color);
+}
+
+.files-table :deep(.ant-table-placeholder td) {
+  background-color: var(--bg-color) !important;
+}
+
+.files-table :deep(.ant-table-header) {
+  background-color: var(--bg-color);
+}
+
+.files-table :deep(.ant-table-header table) {
+  background-color: var(--bg-color);
+}
+
+.files-table :deep(.ant-spin-container) {
+  background-color: var(--bg-color);
+}
+
+.files-table :deep(.ant-table-wrapper) {
+  background-color: var(--bg-color);
+}
+
+.files-table :deep(.ant-empty-description) {
+  color: var(--text-color-secondary);
 }
 
 .fs-header {
@@ -2083,7 +2121,7 @@ defineExpose({
 .setting-item label {
   margin-bottom: 8px;
   font-weight: 500;
-  color: #262626;
+  color: var(--text-color);
 }
 
 .files-table :deep(.ant-table-tbody > tr.file-table-row-hover > td) {
