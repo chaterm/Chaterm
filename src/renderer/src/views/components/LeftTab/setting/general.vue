@@ -170,7 +170,7 @@
         </a-form-item>
 
         <!-- Editor Settings -->
-        <a-form-item>
+        <a-form-item class="editor-settings-section">
           <template #label>
             <span class="label-text">{{ $t('user.editorSettings') }}</span>
           </template>
@@ -840,5 +840,9 @@ const saveEditorConfig = async () => {
 
 .mt-2 {
   margin-top: 8px;
+}
+
+.editor-settings-section {
+  margin-top: 35px;
 }
 </style>
