@@ -120,7 +120,7 @@
     "@playwright/test": "^1.58.2",
     "@rushstack/eslint-patch": "^1.7.1",
     "@types/clone-deep": "^4.0.4",
-    "@types/node": "^25.2.2",
+    "@types/node": "^25.2.3",
     "@types/ws": "^8.5.11",
     "@vitejs/plugin-vue": "^6.0.4",
     "@vitest/browser": "^4.0.18",
