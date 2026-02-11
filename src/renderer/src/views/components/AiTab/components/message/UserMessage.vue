@@ -2,6 +2,7 @@
   <div
     ref="wrapperRef"
     class="user-message-wrapper"
+    :class="{ 'is-editing': isEditing }"
   >
     <!-- Opaque backdrop (always rendered for sticky positioning) -->
     <div class="user-message-backdrop"></div>
@@ -234,8 +235,7 @@ onUnmounted(() => {
   // padding: 0px 4px 8px 4px;
   margin: 0px 0px 8px 0px;
 
-  // Sticky backdrop color. Prefer extracted dominant color when available.
-  --user-message-sticky-bg: var(--user-message-sticky-bg-color, var(--bg-color));
+  --user-message-sticky-bg: var(--bg-color);
 
   width: 100%;
   position: relative;
@@ -257,15 +257,6 @@ onUnmounted(() => {
     pointer-events: none;
     z-index: 4;
   }
-
-  // Adjust gradient for glassmorphism effect
-  body.has-custom-bg &::after {
-    background: linear-gradient(to bottom, rgba(37, 37, 37, 0.75) 0%, transparent 100%);
-  }
-
-  body.has-custom-bg.theme-light &::after {
-    background: linear-gradient(to bottom, rgba(241, 245, 249, 0.75) 0%, transparent 100%);
-  }
 }
 
 .user-message-backdrop {
@@ -275,20 +266,13 @@ onUnmounted(() => {
   right: 0;
   bottom: 0;
   background-color: var(--user-message-sticky-bg);
+  border-radius: 6px;
   z-index: 1;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
-
-  // Glassmorphism effect when custom background is enabled
-  body.has-custom-bg & {
-    background: rgba(37, 37, 37, 0.75);
-    backdrop-filter: blur(12px) saturate(180%);
-    -webkit-backdrop-filter: blur(12px) saturate(180%);
-  }
-
-  // Light theme glassmorphism
-  body.has-custom-bg.theme-light & {
-    background: rgba(241, 245, 249, 0.75);
-  }
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.06),
+    0 2px 8px rgba(0, 0, 0, 0.08);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
 }
 
 .user-message-content {
@@ -296,6 +280,8 @@ onUnmounted(() => {
   width: 100%;
   max-height: 84px;
   overflow: hidden;
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
 
   // Position relative to allow backdrop to be behind
   position: relative;
