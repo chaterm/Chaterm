@@ -1021,7 +1021,9 @@ describe('General Component', () => {
 
       await vm.selectBackgroundImage()
 
-      expect(consoleErrorSpy).toHaveBeenCalledWith('Failed to select background image:', expect.any(Error))
+      expect(consoleErrorSpy).toHaveBeenCalledWith('[settings.general] Failed to select background image', {
+        error: expect.any(Error)
+      })
       consoleErrorSpy.mockRestore()
     })
   })

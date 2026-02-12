@@ -806,7 +806,10 @@ describe('About Component', () => {
 
       expect(button.text()).toBe('Check update failed')
 
-      expect(console.error).toHaveBeenCalledWith('Check update failed', networkError)
+      expect(console.error).toHaveBeenCalledWith('[settings.about] Failed to check for updates', {
+        event: 'settings.about.update.check.failed',
+        error: networkError
+      })
     })
 
     it('should handle timeout errors during update check', async () => {

@@ -65,25 +65,24 @@ describe('ExtensionViewHost.vue', () => {
   })
 
   it('When entering information into the search box, tree nodes should be filtered correctly', async () => {
+    mockApi.getTreeNodes.mockResolvedValue([
+      { title: 'Apple', key: '1', isLeaf: true },
+      { title: 'Banana', key: '2', isLeaf: true }
+    ])
+
     wrapper = mount(ExtensionViewHost, {
       ...defaultMountOptions,
       props: { viewId: 'testView' }
     })
 
-    wrapper.vm.treeData = [
-      { title: 'Apple', key: '1', isLeaf: true },
-      { title: 'Banana', key: '2', isLeaf: true }
-    ]
+    await nextTick()
+    await new Promise((resolve) => setTimeout(resolve, 0))
+
+    wrapper.vm.searchValue = 'App'
     await nextTick()
 
-    const input = wrapper.find('.ant-input')
-    if (input.exists()) {
-      await input.setValue('App')
-    } else {
-      wrapper.vm.searchValue = 'App'
-    }
-
     expect(wrapper.vm.filteredTreeData).toHaveLength(1)
+    expect(wrapper.vm.filteredTreeData[0].title).toBe('Apple')
   })
 
   it('Clicking a leaf node should trigger handleNodeClick and execute the command', async () => {
