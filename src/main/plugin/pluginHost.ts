@@ -15,12 +15,24 @@ export interface PluginHostModules {
   ssh2?: typeof import('ssh2')
 }
 
+export interface PluginHostLogger {
+  debug(message: string, meta?: Record<string, unknown>): void
+  info(message: string, meta?: Record<string, unknown>): void
+  warn(message: string, meta?: Record<string, unknown>): void
+  error(message: string, meta?: Record<string, unknown>): void
+}
+
+export interface PluginHostLoggerFactory {
+  createLogger(module: string): PluginHostLogger
+}
+
 export interface PluginHost {
   registerVersionProvider: (fn: () => string | null | Promise<string | null>) => void
   registerInstallHint: (hint: InstallHint) => void
   globalState: StateLike
   workspaceState: StateLike
   secrets: SecretsLike
+  logger?: PluginHostLoggerFactory
   registerTreeDataProvider: (
     viewId: string,
     provider: {

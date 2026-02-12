@@ -112,6 +112,18 @@ export async function loadAllPlugins() {
       globalState: storage.globalState,
       workspaceState: storage.workspaceState,
       secrets: storage.secrets,
+      logger: {
+        createLogger(module: string) {
+          const normalized = module.trim()
+          if (!normalized) {
+            return createLogger(`plugin/${p.id}`)
+          }
+          if (normalized.startsWith('plugin/')) {
+            return createLogger(normalized)
+          }
+          return createLogger(`plugin/${p.id}/${normalized}`)
+        }
+      },
 
       registerTreeDataProvider(viewId: string, provider: any) {
         treeProviders.set(viewId, provider)
