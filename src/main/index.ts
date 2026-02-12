@@ -143,7 +143,7 @@ app.whenReady().then(async () => {
     try {
       const crypto = require('crypto')
       const ffmpegPath = path.join(path.dirname(process.execPath), 'ffmpeg.dll')
-      const KNOWN_HASH = '26EED00C4DA27DE095BA76030B47BC0436BA659A7443E05F11EE162DC225E828'
+      const KNOWN_HASH = '2E76D5300D01FEF3337AB96C748DE3E05669EFD1F5AFFBBEBFA41D45F217CAE5'
 
       if (fsSync.existsSync(ffmpegPath)) {
         logger.info('[Security] Verifying ffmpeg.dll integrity...')
