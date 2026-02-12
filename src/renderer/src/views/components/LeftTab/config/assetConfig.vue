@@ -404,7 +404,7 @@ const handleImportAssets = async (assets: any[]) => {
           errorCount++
         }
       } catch (error) {
-        logger.error('Import asset error', { error: error instanceof Error ? error.message : String(error) })
+        logger.error('Import asset error', { error: error })
         errorCount++
       }
     }
@@ -439,7 +439,7 @@ const handleImportAssets = async (assets: any[]) => {
               errorCount++
             }
           } catch (error) {
-            logger.error('Update duplicate asset error', { error: error instanceof Error ? error.message : String(error) })
+            logger.error('Update duplicate asset error', { error: error })
             errorCount++
           }
         }
@@ -460,7 +460,7 @@ const handleImportAssets = async (assets: any[]) => {
       message.warning(t('personal.importErrorCount', { count: errorCount }))
     }
   } catch (error) {
-    logger.error('Batch import error', { error: error instanceof Error ? error.message : String(error) })
+    logger.error('Batch import error', { error: error })
     message.error(t('personal.importError'))
   }
 }
@@ -514,7 +514,7 @@ const handleExportAssets = () => {
 
     message.success(t('personal.exportSuccess', { count: allAssets.length }))
   } catch (error) {
-    logger.error('Export assets error', { error: error instanceof Error ? error.message : String(error) })
+    logger.error('Export assets error', { error: error })
     message.error(t('personal.exportError'))
   }
 }
@@ -568,7 +568,7 @@ const handleImportFile = async (data: { file: File; type: string }) => {
       message.info(t('personal.importSuccessNeedPassword', { count: convertedAssets.length }))
     }
   } catch (error) {
-    logger.error('File parsing error', { error: error instanceof Error ? error.message : String(error) })
+    logger.error('File parsing error', { error: error })
     message.error(t('personal.importParseError'))
   }
 }
@@ -736,7 +736,7 @@ const parseXShellXTS = async (file: File): Promise<ParsedSession[]> => {
       }
     }
   } catch (error) {
-    logger.error('Error parsing XTS file', { error: error instanceof Error ? error.message : String(error) })
+    logger.error('Error parsing XTS file', { error: error })
     message.error(t('personal.xtsParseError'))
   }
 
@@ -945,7 +945,7 @@ const parseSecureCRTXML = (content: string): ParsedSession[] => {
       }
     }
   } catch (error) {
-    logger.error('Error parsing SecureCRT XML', { error: error instanceof Error ? error.message : String(error) })
+    logger.error('Error parsing SecureCRT XML', { error: error })
 
     // Fallback to simple parsing (compatible with other formats)
     const simpleMatches = content.match(/<session[^>]*>[\s\S]*?<\/session>/gi)
@@ -1010,7 +1010,7 @@ const parseMobaXtermINI = (content: string): ParsedSession[] => {
           sessions.push(session)
         }
       } catch (error) {
-        logger.warn('Failed to parse MobaXterm line', { line: trimmedLine, error: error instanceof Error ? error.message : String(error) })
+        logger.warn('Failed to parse MobaXterm line', { line: trimmedLine, error: error })
         continue
       }
     }
@@ -1105,7 +1105,7 @@ const parseMobaXtermEncodedLine = (line: string): ParsedSession | null => {
 
     return null
   } catch (error) {
-    logger.error('Error parsing MobaXterm encoded line', { error: error instanceof Error ? error.message : String(error) })
+    logger.error('Error parsing MobaXterm encoded line', { error: error })
     return null
   }
 }
@@ -1188,7 +1188,7 @@ const getProxyConfigData = async () => {
       }))
     }
   } catch (error) {
-    logger.error('Failed to load config', { error: error instanceof Error ? error.message : String(error) })
+    logger.error('Failed to load config', { error: error })
     notification.error({
       message: t('user.loadConfigFailed'),
       description: t('user.loadConfigFailedDescription')
@@ -1215,7 +1215,7 @@ const handleFormSubmit = async (data: AssetFormData) => {
       await handleCreateAsset(data)
     }
   } catch (error) {
-    logger.error('Form submission error', { error: error instanceof Error ? error.message : String(error) })
+    logger.error('Form submission error', { error: error })
   }
 }
 
@@ -1253,7 +1253,7 @@ const handleCreateAsset = async (data: AssetFormData) => {
       throw new Error('Failed to create asset')
     }
   } catch (error) {
-    logger.error('Create asset error', { error: error instanceof Error ? error.message : String(error) })
+    logger.error('Create asset error', { error: error })
     message.error(t('personal.createError'))
   }
 }
@@ -1313,7 +1313,7 @@ const getAssetList = () => {
         assetGroups.value = []
       }
     })
-    .catch((err) => logger.error('Failed to get asset list', { error: err instanceof Error ? err.message : String(err) }))
+    .catch((err) => logger.error('Failed to get asset list', { error: err }))
 }
 
 onMounted(() => {

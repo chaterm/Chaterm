@@ -14,7 +14,7 @@ export const captureButtonClick = async (eventName: string, properties?: Record<
     const api = window.api as any
     await api.captureButtonClick(eventName, properties)
   } catch (telemetryError) {
-    logger.warn('Failed to capture telemetry event', { error: String(telemetryError) })
+    logger.warn('Failed to capture telemetry event', { error: telemetryError })
   }
 }
 
@@ -89,6 +89,6 @@ export const captureExtensionUsage = async (extensionName: string, status: strin
     }
     await api.captureButtonClick(eventName, eventProperties)
   } catch (telemetryError) {
-    logger.warn('Failed to capture extension usage telemetry', { error: String(telemetryError) })
+    logger.warn('Failed to capture extension usage telemetry', { error: telemetryError })
   }
 }

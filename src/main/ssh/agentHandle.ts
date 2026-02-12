@@ -270,7 +270,7 @@ export async function remoteSshExecStream(
         } catch (cbErr) {
           logger.error('remoteSshExecStream onData callback error', {
             event: 'ssh.exec.stream.callback.error',
-            error: cbErr instanceof Error ? cbErr.message : String(cbErr)
+            error: cbErr
           })
         }
       })
@@ -281,7 +281,7 @@ export async function remoteSshExecStream(
         } catch (cbErr) {
           logger.error('remoteSshExecStream stderr callback error', {
             event: 'ssh.exec.stream.callback.error',
-            error: cbErr instanceof Error ? cbErr.message : String(cbErr)
+            error: cbErr
           })
         }
       })
@@ -297,7 +297,7 @@ export async function remoteSshExecStream(
           } catch (cbErr) {
             logger.error('remoteSshExecStream onData callback error', {
               event: 'ssh.exec.stream.callback.error',
-              error: cbErr instanceof Error ? cbErr.message : String(cbErr)
+              error: cbErr
             })
           }
         }
@@ -308,7 +308,7 @@ export async function remoteSshExecStream(
           } catch (cbErr) {
             logger.error('remoteSshExecStream onData callback error', {
               event: 'ssh.exec.stream.callback.error',
-              error: cbErr instanceof Error ? cbErr.message : String(cbErr)
+              error: cbErr
             })
           }
         }

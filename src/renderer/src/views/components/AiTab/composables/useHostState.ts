@@ -59,7 +59,7 @@ export const useHostState = () => {
       assetInfo.connection = bastionType || 'personal'
       return assetInfo
     } catch (error) {
-      logger.error('Error getting asset information', { error: error instanceof Error ? error.message : String(error) })
+      logger.error('Error getting asset information', { error: error })
       return null
     }
   }

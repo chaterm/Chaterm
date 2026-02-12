@@ -38,7 +38,7 @@ export function upgradeSkillsSupport(db: Database.Database): void {
       logger.info('[Migration] skills_state table already exists')
     }
   } catch (error) {
-    logger.error('[Migration] Failed to upgrade skills support', { error: error instanceof Error ? error.message : String(error) })
+    logger.error('[Migration] Failed to upgrade skills support', { error: error })
     throw error
   }
 }

@@ -94,7 +94,7 @@ export function useExportChat() {
       await window.api.writeLocalFile(filePath, markdown)
       notification.success({ message: t('ai.exportChatSuccess'), duration: 3 })
     } catch (error) {
-      logger.error('Export chat failed', { error: error instanceof Error ? error.message : String(error) })
+      logger.error('Export chat failed', { error: error })
       notification.error({
         message: t('ai.exportChatFailed'),
         description: error instanceof Error ? error.message : String(error),

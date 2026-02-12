@@ -32,7 +32,7 @@ export async function ensureTaskExists(taskId: string): Promise<string> {
     }
     return ''
   } catch (error) {
-    logger.error('Failed to check task existence in DB', { error: error instanceof Error ? error.message : String(error) })
+    logger.error('Failed to check task existence in DB', { error: error })
     return ''
   }
 }
@@ -43,7 +43,7 @@ export async function deleteChatermHistoryByTaskId(taskId: string): Promise<void
     const dbService = await ChatermDatabaseService.getInstance()
     await dbService.deleteChatermHistoryByTaskId(taskId)
   } catch (error) {
-    logger.error('Failed to delete Chaterm history by task ID', { error: error instanceof Error ? error.message : String(error) })
+    logger.error('Failed to delete Chaterm history by task ID', { error: error })
   }
 }
 export async function getSavedApiConversationHistory(taskId: string): Promise<Anthropic.MessageParam[]> {
@@ -52,7 +52,7 @@ export async function getSavedApiConversationHistory(taskId: string): Promise<An
     const history = await dbService.getApiConversationHistory(taskId)
     return history as Anthropic.MessageParam[]
   } catch (error) {
-    logger.error('Failed to get API conversation history from DB', { error: error instanceof Error ? error.message : String(error) })
+    logger.error('Failed to get API conversation history from DB', { error: error })
     return []
   }
 }
@@ -63,7 +63,7 @@ export async function saveApiConversationHistory(taskId: string, apiConversation
     const dbService = await ChatermDatabaseService.getInstance()
     await dbService.saveApiConversationHistory(taskId, apiConversationHistory)
   } catch (error) {
-    logger.error('Failed to save API conversation history to DB', { error: error instanceof Error ? error.message : String(error) })
+    logger.error('Failed to save API conversation history to DB', { error: error })
   }
 }
 
@@ -73,7 +73,7 @@ export async function getChatermMessages(taskId: string): Promise<ChatermMessage
     const messages = await dbService.getSavedChatermMessages(taskId)
     return messages as ChatermMessage[]
   } catch (error) {
-    logger.error('Failed to get Chaterm messages from DB', { error: error instanceof Error ? error.message : String(error) })
+    logger.error('Failed to get Chaterm messages from DB', { error: error })
     return []
   }
 }
@@ -83,7 +83,7 @@ export async function saveChatermMessages(taskId: string, uiMessages: ChatermMes
     const dbService = await ChatermDatabaseService.getInstance()
     await dbService.saveChatermMessages(taskId, uiMessages)
   } catch (error) {
-    logger.error('Failed to save Chaterm messages to DB', { error: error instanceof Error ? error.message : String(error) })
+    logger.error('Failed to save Chaterm messages to DB', { error: error })
   }
 }
 
@@ -96,7 +96,7 @@ export async function getTaskMetadata(taskId: string): Promise<TaskMetadata> {
     // Assume metadata structure is compatible with TaskMetadata, or needs conversion
     return (metadata as TaskMetadata) || defaultMetadata
   } catch (error) {
-    logger.error('Failed to get task metadata from DB', { error: error instanceof Error ? error.message : String(error) })
+    logger.error('Failed to get task metadata from DB', { error: error })
     return defaultMetadata
   }
 }
@@ -107,7 +107,7 @@ export async function saveTaskMetadata(taskId: string, metadata: TaskMetadata) {
     const dbService = await ChatermDatabaseService.getInstance()
     await dbService.saveTaskMetadata(taskId, metadata)
   } catch (error) {
-    logger.error('Failed to save task metadata to DB', { error: error instanceof Error ? error.message : String(error) })
+    logger.error('Failed to save task metadata to DB', { error: error })
   }
 }
 
@@ -119,7 +119,7 @@ export async function getContextHistoryStorage(taskId: string): Promise<any> {
     const history = await dbService.getContextHistory(taskId)
     return history
   } catch (error) {
-    logger.error('Failed to get context history from DB', { error: error instanceof Error ? error.message : String(error) })
+    logger.error('Failed to get context history from DB', { error: error })
     return null
   }
 }
@@ -130,7 +130,7 @@ export async function saveContextHistoryStorage(taskId: string, contextHistory: 
     const dbService = await ChatermDatabaseService.getInstance()
     await dbService.saveContextHistory(taskId, contextHistory)
   } catch (error) {
-    logger.error('Failed to save context history to DB', { error: error instanceof Error ? error.message : String(error) })
+    logger.error('Failed to save context history to DB', { error: error })
   }
 }
 

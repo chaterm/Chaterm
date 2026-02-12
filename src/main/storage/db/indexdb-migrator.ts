@@ -54,7 +54,7 @@ export class IndexDBMigrator {
 
         logger.info(`[Migration] [WARNING] Migration incomplete, will retry...`)
       } catch (error: any) {
-        logger.error(`[Migration] [ERROR] Attempt ${attempt} failed`, { error: error instanceof Error ? error.message : String(error) })
+        logger.error(`[Migration] [ERROR] Attempt ${attempt} failed`, { error: error })
 
         // Clear all status markers on failure
         this.db.prepare('DELETE FROM indexdb_migration_status').run()
@@ -347,7 +347,7 @@ export class IndexDBMigrator {
       logger.info(`[Migration] [OK] Validation passed for ${dataSource}`)
       return true
     } catch (error) {
-      logger.error(`[Migration] Validation failed for ${dataSource}`, { error: error instanceof Error ? error.message : String(error) })
+      logger.error(`[Migration] Validation failed for ${dataSource}`, { error: error })
       return false
     }
   }

@@ -117,12 +117,12 @@ const connectWebSocket = async (): Promise<boolean> => {
             stopRecording()
           }
         } catch (error) {
-          logger.error('Failed to parse WebSocket message', { error: error instanceof Error ? error.message : String(error) })
+          logger.error('Failed to parse WebSocket message', { error: error })
         }
       }
 
       websocket.value.onerror = (error) => {
-        logger.error('WebSocket error', { error: error instanceof Error ? (error as Error).message : String(error) })
+        logger.error('WebSocket error', { error: error })
         isConnected.value = false
         reject(new Error('WebSocket connection error'))
       }
@@ -155,7 +155,7 @@ const sendPCMAudioData = async (pcmData: Int16Array) => {
     // Send binary PCM data directly
     websocket.value.send(pcmData.buffer)
   } catch (error) {
-    logger.error('Failed to send PCM data', { error: error instanceof Error ? error.message : String(error) })
+    logger.error('Failed to send PCM data', { error: error })
   }
 }
 
@@ -231,7 +231,7 @@ const startRecording = async () => {
         // Send PCM data
         sendPCMAudioData(pcmData)
       } catch (error) {
-        logger.error('Audio processing error', { error: error instanceof Error ? error.message : String(error) })
+        logger.error('Audio processing error', { error: error })
       }
     }
 
@@ -252,7 +252,7 @@ const startRecording = async () => {
 
     logger.info('Started recording')
   } catch (error) {
-    logger.error('Failed to start recording', { error: error instanceof Error ? error.message : String(error) })
+    logger.error('Failed to start recording', { error: error })
 
     let errorMessage = t('ai.voiceInputFailed')
     if (error instanceof Error) {
@@ -281,7 +281,7 @@ const stopRecording = () => {
         websocket.value.send(JSON.stringify({ type: 'end' }))
         logger.info('Recording end signal sent')
       } catch (error) {
-        logger.error('Failed to send end signal', { error: error instanceof Error ? error.message : String(error) })
+        logger.error('Failed to send end signal', { error: error })
       }
     }
 

@@ -293,7 +293,7 @@ export async function executeCommandOnJumpServerExec(
           } catch (parseError) {
             logger.error('Command output parsing error', {
               event: 'jumpserver.exec.parse.error',
-              error: parseError instanceof Error ? parseError.message : String(parseError)
+              error: parseError
             })
             resolve({
               success: false,

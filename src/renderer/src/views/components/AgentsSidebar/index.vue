@@ -216,12 +216,12 @@ const loadConversations = async () => {
           }
         } catch (error) {
           // Silently fail for individual IP loading
-          logger.debug('Failed to load IP for conversation', { conversationId: item.id, error: String(error) })
+          logger.debug('Failed to load IP for conversation', { conversationId: item.id, error: error })
         }
       })
     )
   } catch (error) {
-    logger.error('Failed to load conversations', { error: String(error) })
+    logger.error('Failed to load conversations', { error: error })
   } finally {
     isLoading = false
   }
@@ -273,7 +273,7 @@ const handleDeleteConversation = async (conversationId: string) => {
 
     emit('conversation-delete', conversationId)
   } catch (error) {
-    logger.error('Failed to delete conversation', { error: String(error) })
+    logger.error('Failed to delete conversation', { error: error })
   }
 }
 
@@ -311,7 +311,7 @@ const loadMoreConversations = async () => {
             }
           }
         } catch (error) {
-          logger.debug('Failed to load IP for conversation', { conversationId: item.id, error: String(error) })
+          logger.debug('Failed to load IP for conversation', { conversationId: item.id, error: error })
         }
       })
     )

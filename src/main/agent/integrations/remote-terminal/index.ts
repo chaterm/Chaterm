@@ -51,7 +51,7 @@ try {
 } catch (error) {
   logger.error('Failed to read package.json', {
     event: 'remote-terminal.init.package.error',
-    error: error instanceof Error ? error.message : String(error)
+    error: error
   })
   // Provide a default packageInfo object if both paths fail
   packageInfo = { name: 'chaterm', version: 'unknown' }
@@ -319,7 +319,7 @@ export class RemoteTerminalProcess extends BrownEventEmitter<RemoteTerminalProce
         logger.warn('Failed to auto-cancel TUI command', {
           event: 'remote-terminal.tui.cancel.error',
           commandId: data.commandId,
-          error: error instanceof Error ? error.message : String(error)
+          error: error
         })
       }
     })
@@ -529,7 +529,7 @@ export class RemoteTerminalProcess extends BrownEventEmitter<RemoteTerminalProce
     } catch (error) {
       logger.error('Failed to send input to command', {
         event: 'remote-terminal.input.error',
-        error: error instanceof Error ? error.message : String(error)
+        error: error
       })
       return { success: false, error: String(error), code: 'write-failed' }
     }
@@ -961,7 +961,7 @@ export class RemoteTerminalManager {
         event: 'remote-terminal.connect.error',
         sshType,
         host: this.connectionInfo.host || this.connectionInfo.asset_ip,
-        error: error instanceof Error ? error.message : String(error)
+        error: error
       })
       throw new Error('Failed to create remote terminal: ' + (error instanceof Error ? error.message : String(error)))
     }
@@ -995,7 +995,7 @@ export class RemoteTerminalManager {
       logger.error('Remote terminal error', {
         event: 'remote-terminal.process.error',
         terminalId: terminalInfo.id,
-        error: error instanceof Error ? error.message : String(error)
+        error: error
       })
     })
     const promise = new Promise<void>((resolve, reject) => {
@@ -1102,7 +1102,7 @@ export class RemoteTerminalManager {
         terminalId,
         sessionId: terminalInfo.sessionId,
         sshType: terminalInfo.connectionInfo.sshType || 'ssh',
-        error: error instanceof Error ? error.message : String(error)
+        error: error
       })
     }
   }

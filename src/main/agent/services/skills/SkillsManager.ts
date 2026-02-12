@@ -64,7 +64,7 @@ export class SkillsManager {
       this.initialized = true
       logger.info(`[SkillsManager] Initialized with ${this.skills.size} skills`)
     } catch (error) {
-      logger.error('[SkillsManager] Initialization failed', { error: error instanceof Error ? error.message : String(error) })
+      logger.error('[SkillsManager] Initialization failed', { error: error })
       throw error
     }
   }
@@ -177,7 +177,7 @@ export class SkillsManager {
         }
       }
     } catch (error) {
-      logger.error(`[SkillsManager] Failed to load skills from ${dirPath}`, { error: error instanceof Error ? error.message : String(error) })
+      logger.error(`[SkillsManager] Failed to load skills from ${dirPath}`, { error: error })
     }
   }
 
@@ -279,7 +279,7 @@ export class SkillsManager {
         logger.debug(`[SkillsManager] Found ${resources.length} resource files in ${directory}`)
       }
     } catch (error) {
-      logger.error(`[SkillsManager] Failed to scan resources in ${directory}`, { error: error instanceof Error ? error.message : String(error) })
+      logger.error(`[SkillsManager] Failed to scan resources in ${directory}`, { error: error })
     }
 
     return resources
@@ -536,7 +536,7 @@ export class SkillsManager {
       if (error instanceof Error && error.message.includes('User ID is required')) {
         logger.debug('[SkillsManager] User not logged in yet, skill states will be loaded later')
       } else {
-        logger.error('[SkillsManager] Failed to load skill states', { error: error instanceof Error ? error.message : String(error) })
+        logger.error('[SkillsManager] Failed to load skill states', { error: error })
       }
     }
   }
@@ -550,7 +550,7 @@ export class SkillsManager {
       await dbService.setSkillState(skillId, state.enabled)
       this.skillStates.set(skillId, state)
     } catch (error) {
-      logger.error('[SkillsManager] Failed to save skill state', { error: error instanceof Error ? error.message : String(error) })
+      logger.error('[SkillsManager] Failed to save skill state', { error: error })
     }
   }
 
@@ -580,7 +580,7 @@ export class SkillsManager {
         }
       }
     } catch (error) {
-      logger.error('[SkillsManager] Failed to setup file watchers', { error: error instanceof Error ? error.message : String(error) })
+      logger.error('[SkillsManager] Failed to setup file watchers', { error: error })
     }
   }
 
@@ -710,7 +710,7 @@ export class SkillsManager {
     try {
       zip = new AdmZip(zipPath)
     } catch (error) {
-      logger.error('[SkillsManager] Failed to open ZIP file', { error: error instanceof Error ? error.message : String(error) })
+      logger.error('[SkillsManager] Failed to open ZIP file', { error: error })
       return {
         success: false,
         error: 'Invalid or corrupted ZIP file',
@@ -871,7 +871,7 @@ export class SkillsManager {
         skillName
       }
     } catch (error) {
-      logger.error('[SkillsManager] Failed to extract skill', { error: error instanceof Error ? error.message : String(error) })
+      logger.error('[SkillsManager] Failed to extract skill', { error: error })
 
       // Cleanup on failure
       try {

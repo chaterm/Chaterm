@@ -233,7 +233,7 @@ export function createLlmCaller(
 
       return json as InteractionResult
     } catch (error) {
-      logger.error('[InteractionDetector] LLM call error', { error: error instanceof Error ? error.message : String(error) })
+      logger.error('[InteractionDetector] LLM call error', { error: error })
       throw error
     }
   }

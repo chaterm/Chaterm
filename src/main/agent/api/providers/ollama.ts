@@ -60,7 +60,7 @@ export class OllamaHandler implements ApiHandler {
           }
         }
       } catch (streamError: unknown) {
-        logger.error('Error processing Ollama stream', { error: streamError instanceof Error ? streamError.message : String(streamError) })
+        logger.error('Error processing Ollama stream', { error: streamError })
         const errorMessage = streamError instanceof Error ? streamError.message : 'Unknown error'
         throw new Error(`Ollama stream processing error: ${errorMessage}`)
       }
@@ -116,7 +116,7 @@ export class OllamaHandler implements ApiHandler {
 
       return { isValid: true }
     } catch (error) {
-      logger.error('Ollama configuration validation failed', { error: error instanceof Error ? error.message : String(error) })
+      logger.error('Ollama configuration validation failed', { error: error })
       return {
         isValid: false,
         error: `Validation failed: ${error instanceof Error ? error.message : String(error)}`

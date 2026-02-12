@@ -110,7 +110,7 @@ export async function migrateCnUserDataOnFirstLaunch(): Promise<void> {
       targetPath: targetUserDataPath,
       error: error instanceof Error ? error.message : String(error)
     })
-    logger.error('[Migration] CN -> Global userData migration failed', { error: error instanceof Error ? error.message : String(error) })
+    logger.error('[Migration] CN -> Global userData migration failed', { error: error })
   }
 }
 
@@ -157,7 +157,7 @@ async function hasDatabaseFiles(databasesPath: string): Promise<boolean> {
       }
     }
   } catch (error) {
-    logger.warn('[Migration] Failed to scan databases directory', { error: error instanceof Error ? error.message : String(error) })
+    logger.warn('[Migration] Failed to scan databases directory', { error: error })
   }
 
   return false
@@ -280,7 +280,7 @@ async function readMigrationMarker(markerPath: string): Promise<MigrationMarker 
     return JSON.parse(content) as MigrationMarker
   } catch (error) {
     logger.warn('[Migration] Failed to read migration marker, proceeding with migration', {
-      error: error instanceof Error ? error.message : String(error)
+      error: error
     })
     return null
   }
@@ -319,7 +319,7 @@ async function isProcessRunning(processNames: string[]): Promise<boolean | null>
     const lowerOutput = stdout.toLowerCase()
     return processNames.some((name) => lowerOutput.includes(name.toLowerCase()))
   } catch (error) {
-    logger.warn('[Migration] Failed to check process list', { error: error instanceof Error ? error.message : String(error) })
+    logger.warn('[Migration] Failed to check process list', { error: error })
     return null
   }
 }
@@ -334,7 +334,7 @@ async function showOtherEditionRunningDialog(): Promise<void> {
       message: 'Another version of Chaterm is currently running. Please close it and try again.'
     })
   } catch (error) {
-    logger.warn('[Migration] Failed to show running edition dialog', { error: error instanceof Error ? error.message : String(error) })
+    logger.warn('[Migration] Failed to show running edition dialog', { error: error })
   }
 }
 

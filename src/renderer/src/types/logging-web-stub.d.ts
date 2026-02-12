@@ -8,4 +8,3 @@ declare module '@logging' {
 
   export function createLogger(module: string): LoggerLike
 }
-

@@ -120,12 +120,12 @@ class ClientSideCrypto {
         return plaintextDataKey
       } else {
         logger.error('KMS decryption failed:')
-        logger.error('- Error', { error: response.error instanceof Error ? response.error.message : String(response.error) })
+        logger.error('- Error', { error: response.error })
         throw new Error(`Failed to decrypt data key: ${response.error}`)
       }
     } catch (error) {
-      logger.error('Data key decryption failed', { error: error instanceof Error ? error.message : String(error) })
-      logger.error('Error stack', { error: error instanceof Error ? error.stack : String(error) })
+      logger.error('Data key decryption failed', { error: error })
+      logger.error('Error stack', { error })
       const errorMessage = (error as Error).message
       throw new Error(errorMessage.includes('Failed to decrypt data key') ? errorMessage : `Failed to decrypt data key: ${errorMessage}`)
     }
@@ -260,7 +260,7 @@ class ClientSideCrypto {
       const result = await CryptoUtils.decryptDataWithAwsSdk(encryptedData, dataKeyBase64, this.userId || undefined)
       return result
     } catch (error) {
-      logger.error('Envelope decryption failed', { error: error instanceof Error ? error.message : String(error) })
+      logger.error('Envelope decryption failed', { error: error })
       throw new Error(`Envelope decryption failed: ${(error as Error).message}`)
     }
   }
@@ -314,8 +314,8 @@ class ClientSideCrypto {
         throw new Error('Missing complete ENC1 format data')
       }
     } catch (error) {
-      logger.error('KMS resolution decryption failed', { error: error instanceof Error ? error.message : String(error) })
-      logger.error('Error stack', { error: error instanceof Error ? error.stack : String(error) })
+      logger.error('KMS resolution decryption failed', { error: error })
+      logger.error('Error stack', { error })
       throw new Error(`KMS resolution decryption failed: ${(error as Error).message}`)
     }
   }
@@ -342,7 +342,7 @@ class ClientSideCrypto {
 
       logger.info('Data key rotation successful')
     } catch (error) {
-      logger.error('Data key rotation failed', { error: error instanceof Error ? error.message : String(error) })
+      logger.error('Data key rotation failed', { error: error })
       throw error
     }
   }

@@ -37,7 +37,7 @@ export function getPackageInfo(
 
     return JSON.parse(fs.readFileSync(sourcePath, 'utf8')) as PackageInfo
   } catch (e) {
-    logger.warn('Failed to read package.json', { event: 'jumpserver.config', error: e instanceof Error ? e.message : String(e) })
+    logger.warn('Failed to read package.json', { event: 'jumpserver.config', error: e })
     return { ...defaultInfo }
   }
 }

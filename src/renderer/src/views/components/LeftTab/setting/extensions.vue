@@ -111,7 +111,7 @@ const loadSavedConfig = async () => {
       }
     }
   } catch (error) {
-    logger.error('Failed to load config', { error: error instanceof Error ? error.message : String(error) })
+    logger.error('Failed to load config', { error: error })
     notification.error({
       message: t('user.loadConfigFailed'),
       description: t('user.loadConfigFailedDescription')
@@ -132,7 +132,7 @@ const saveConfig = async () => {
 
     await userConfigStore.saveConfig(configToStore)
   } catch (error) {
-    logger.error('Failed to save config', { error: error instanceof Error ? error.message : String(error) })
+    logger.error('Failed to save config', { error: error })
     notification.error({
       message: t('user.error'),
       description: t('user.saveConfigFailedDescription')
@@ -182,7 +182,7 @@ const handleAliasStatusChange = async (checked) => {
     const status = checked ? ExtensionStatus.ENABLED : ExtensionStatus.DISABLED
     await captureExtensionUsage(ExtensionNames.ALIAS, status)
   } catch (error) {
-    logger.error('Failed to save alias status', { error: error instanceof Error ? error.message : String(error) })
+    logger.error('Failed to save alias status', { error: error })
     notification.error({
       message: t('user.error'),
       description: t('user.saveAliasStatusFailed')
@@ -205,7 +205,7 @@ const openKeywordHighlightConfig = async () => {
     // Open tab via eventBus
     eventBus.emit('open-user-tab', 'keywordHighlightEditor')
   } catch (error) {
-    logger.error('Failed to open keyword highlight config editor', { error: error instanceof Error ? error.message : String(error) })
+    logger.error('Failed to open keyword highlight config editor', { error: error })
     notification.error({
       message: t('user.error'),
       description: t('user.openConfigFailed')

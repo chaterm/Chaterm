@@ -273,7 +273,7 @@ async function globbyLevelByLevel(limit: number, options?: Options) {
       const results = [...directories, ...files].slice(0, limit)
       return results
     } catch (error) {
-      logger.warn('Optimized globbing failed, falling back to simple pattern', { error: error instanceof Error ? error.message : String(error) })
+      logger.warn('Optimized globbing failed, falling back to simple pattern', { error: error })
       // Fallback to simple non-recursive pattern
       const files = await globby('*', extendedOptions)
       return files.slice(0, limit)

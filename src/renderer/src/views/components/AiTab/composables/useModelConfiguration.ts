@@ -222,7 +222,7 @@ export const useModelConfiguration = createGlobalState(() => {
 
       await updateGlobalState('modelOptions', serializableModelOptions)
     } catch (error) {
-      logger.error('Failed to get/save model options', { error: error instanceof Error ? error.message : String(error) })
+      logger.error('Failed to get/save model options', { error: error })
       notification.error({
         message: 'Error',
         description: 'Failed to get/save model options'
@@ -242,7 +242,7 @@ export const useModelConfiguration = createGlobalState(() => {
       await updateGlobalState('defaultBaseUrl', res?.data?.llmGatewayAddr)
       await storeSecret('defaultApiKey', res?.data?.key)
     } catch (error) {
-      logger.error('Failed to refresh model options', { error: error instanceof Error ? error.message : String(error) })
+      logger.error('Failed to refresh model options', { error: error })
       return
     }
 

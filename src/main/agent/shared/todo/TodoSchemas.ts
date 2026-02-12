@@ -152,7 +152,7 @@ export class TodoSerializer {
         })
       )
     } catch (error) {
-      logger.error('Failed to deserialize todos', { error: error instanceof Error ? error.message : String(error) })
+      logger.error('Failed to deserialize todos', { error: error })
       return []
     }
   }
@@ -174,7 +174,7 @@ export class TodoSerializer {
         lastFocusChangeAt: new Date(parsed.lastFocusChangeAt)
       }
     } catch (error) {
-      logger.error('Failed to deserialize focus chain state', { error: error instanceof Error ? error.message : String(error) })
+      logger.error('Failed to deserialize focus chain state', { error: error })
       return null
     }
   }

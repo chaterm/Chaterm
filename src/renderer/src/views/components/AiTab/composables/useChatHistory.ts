@@ -233,7 +233,7 @@ export function useChatHistory(options?: ChatHistoryOptions) {
         await renameTab(history.id, newTitle)
       }
     } catch (err) {
-      logger.error('Failed to save history title', { error: err instanceof Error ? err.message : String(err) })
+      logger.error('Failed to save history title', { error: err })
       await cancelEdit(history)
     }
   }
@@ -255,7 +255,7 @@ export function useChatHistory(options?: ChatHistoryOptions) {
       history.editingTitle = ''
       currentEditingId.value = null
     } catch (err) {
-      logger.error('Failed to cancel edit', { error: err instanceof Error ? err.message : String(err) })
+      logger.error('Failed to cancel edit', { error: err })
       history.isEditing = false
       history.editingTitle = ''
       currentEditingId.value = null
@@ -288,7 +288,7 @@ export function useChatHistory(options?: ChatHistoryOptions) {
       // Directly call logic to delete Tab and notify main process
       await handleHistoryDelete({ ...history })
     } catch (err) {
-      logger.error('Failed to delete history', { error: err instanceof Error ? err.message : String(err) })
+      logger.error('Failed to delete history', { error: err })
     }
   }
 
@@ -321,7 +321,7 @@ export function useChatHistory(options?: ChatHistoryOptions) {
       // Save to globalState
       await updateGlobalState('favoriteTaskList', currentFavorites)
     } catch (err) {
-      logger.error('Failed to update favorite status', { error: err instanceof Error ? err.message : String(err) })
+      logger.error('Failed to update favorite status', { error: err })
       // Rollback local state
       history.isFavorite = !history.isFavorite
     }
@@ -349,7 +349,7 @@ export function useChatHistory(options?: ChatHistoryOptions) {
         ts: item.ts
       }))
     } catch (err) {
-      logger.error('Failed to load history list', { error: err instanceof Error ? err.message : String(err) })
+      logger.error('Failed to load history list', { error: err })
     }
   }
 
@@ -363,7 +363,7 @@ export function useChatHistory(options?: ChatHistoryOptions) {
       isLoadingMore.value = false
       await loadHistoryList()
     } catch (err) {
-      logger.error('Failed to refresh history list', { error: err instanceof Error ? err.message : String(err) })
+      logger.error('Failed to refresh history list', { error: err })
     }
   }
 

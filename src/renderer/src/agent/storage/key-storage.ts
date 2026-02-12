@@ -25,7 +25,7 @@ export async function setItem<T>(key: string, value: T): Promise<void> {
       value: JSON.stringify(value)
     })
   } catch (error) {
-    logger.error('Error setting item in SQLite', { key, error: String(error) })
+    logger.error('Error setting item in SQLite', { key, error: error })
     throw error
   }
 }
@@ -38,7 +38,7 @@ export async function getItem<T>(key: string): Promise<T | undefined> {
     }
     return undefined
   } catch (error) {
-    logger.error('Error getting item from SQLite', { key, error: String(error) })
+    logger.error('Error getting item from SQLite', { key, error: error })
     throw error
   }
 }
@@ -50,7 +50,7 @@ export async function deleteItem(key: string): Promise<void> {
       key: key
     })
   } catch (error) {
-    logger.error('Error deleting item from SQLite', { key, error: String(error) })
+    logger.error('Error deleting item from SQLite', { key, error: error })
     throw error
   }
 }
@@ -60,7 +60,7 @@ export async function getAllKeys(): Promise<string[]> {
     const result = await window.api.kvGet({})
     return result || []
   } catch (error) {
-    logger.error('Error getting all keys from SQLite', { error: String(error) })
+    logger.error('Error getting all keys from SQLite', { error: error })
     throw error
   }
 }

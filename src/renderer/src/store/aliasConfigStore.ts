@@ -34,7 +34,7 @@ export const aliasConfigStore = defineStore('aliasConfig', {
         await this.refreshAliasesFromDB()
         this.initialized = true
       } catch (error) {
-        logger.error('Failed to initialize alias store', { error: error instanceof Error ? error.message : String(error) })
+        logger.error('Failed to initialize alias store', { error: error })
       } finally {
         this.loading = false
       }
@@ -53,7 +53,7 @@ export const aliasConfigStore = defineStore('aliasConfig', {
           this.aliasMap.set(alias.alias, alias.command)
         })
       } catch (error) {
-        logger.error('Failed to refresh aliases from DB', { error: error instanceof Error ? error.message : String(error) })
+        logger.error('Failed to refresh aliases from DB', { error: error })
         throw error
       }
     },

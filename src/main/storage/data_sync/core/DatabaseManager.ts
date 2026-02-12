@@ -340,7 +340,7 @@ export class DatabaseManager {
 
       return Math.max(0, historicalCount)
     } catch (error) {
-      logger.warn(`Failed to check historical data (${tableName})`, { error: error instanceof Error ? error.message : String(error) })
+      logger.warn(`Failed to check historical data (${tableName})`, { error: error })
       return 0
     }
   }
@@ -591,7 +591,7 @@ export class DatabaseManager {
       })
       upsertTransaction()
     } catch (error) {
-      logger.error('SQLite execution failed', { error: error instanceof Error ? error.message : String(error) })
+      logger.error('SQLite execution failed', { error: error })
       logger.error('SQL: upsertAsset', { values: JSON.stringify(values) })
       throw error
     }
@@ -638,7 +638,7 @@ export class DatabaseManager {
     try {
       this.db.prepare(sql).run(...values)
     } catch (error) {
-      logger.error('SQLite execution failed', { error: error instanceof Error ? error.message : String(error), sql })
+      logger.error('SQLite execution failed', { error: error, sql })
       throw error
     }
 
@@ -679,7 +679,7 @@ export class DatabaseManager {
         const { SyncController } = await import('./SyncController')
         await SyncController.triggerIncrementalSync()
       } catch (error) {
-        logger.warn('Failed to trigger incremental sync', { error: error instanceof Error ? error.message : String(error) })
+        logger.warn('Failed to trigger incremental sync', { error: error })
         // Don't throw exception to avoid affecting database operations
       }
     })

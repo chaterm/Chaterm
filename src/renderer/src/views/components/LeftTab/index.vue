@@ -290,7 +290,7 @@ const logout = async () => {
       logger.info('Data sync has been stopped')
     }
   } catch (error) {
-    logger.error('Failed to stop data sync during logout', { error: error instanceof Error ? error.message : String(error) })
+    logger.error('Failed to stop data sync during logout', { error: error })
   }
 
   if (isSkippedLogin) {
@@ -310,7 +310,7 @@ const logout = async () => {
       router.push('/login')
     })
     .catch((err) => {
-      logger.error('Logout failed', { error: err instanceof Error ? err.message : String(err) })
+      logger.error('Logout failed', { error: err })
       removeToken()
       shortcutService.init()
       router.push('/login')
@@ -334,7 +334,7 @@ onMounted(async () => {
     const views = await api.getPluginViews()
     pluginViews.value = views
   } catch (e) {
-    logger.error('Get View Error', { error: e instanceof Error ? e.message : String(e) })
+    logger.error('Get View Error', { error: e })
   }
   api.onPluginMetadataChanged(async () => {
     await refreshPluginViews()

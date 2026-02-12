@@ -242,7 +242,7 @@ const updateIconSrc = async () => {
     try {
       iconUrl.value = await getPluginIconUrl(item.id, item.version)
     } catch (e) {
-      logger.error('Load icon failed', { error: String(e) })
+      logger.error('Load icon failed', { error: e })
       iconUrl.value = ''
     }
     return

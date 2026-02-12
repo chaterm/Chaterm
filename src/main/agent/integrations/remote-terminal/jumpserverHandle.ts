@@ -214,7 +214,7 @@ const initializeJumpServerShell = (
             logger.error('User selection failed', {
               event: 'remote-terminal.jumpserver.user.error',
               connectionId,
-              error: err instanceof Error ? err.message : String(err)
+              error: err
             })
             if (connectionTimeout) {
               clearTimeout(connectionTimeout)
@@ -474,7 +474,7 @@ export const handleJumpServerConnection = async (connectionInfo: {
         logger.error('Private key format error', {
           event: 'remote-terminal.jumpserver.auth.key.error',
           connectionId,
-          error: err instanceof Error ? err.message : String(err)
+          error: err
         })
         return reject(new Error(`Private key format error: ${err instanceof Error ? err.message : String(err)}`))
       }
@@ -532,7 +532,7 @@ export const handleJumpServerConnection = async (connectionInfo: {
         logger.error('Two-factor authentication failed', {
           event: 'remote-terminal.jumpserver.2fa.error',
           connectionId,
-          error: err instanceof Error ? err.message : String(err)
+          error: err
         })
         conn.end() // Close connection
         reject(err)

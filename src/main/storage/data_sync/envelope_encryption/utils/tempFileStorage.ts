@@ -83,7 +83,7 @@ class TempFileStorageProvider {
       // Set strict file permissions: owner read/write only
       await fs.chmod(filePath, 0o600)
     } catch (error) {
-      logger.error(`Failed to store data - Key: ${key}`, { error: error instanceof Error ? error.message : String(error) })
+      logger.error(`Failed to store data - Key: ${key}`, { error: error })
       throw error
     }
   }
@@ -103,7 +103,7 @@ class TempFileStorageProvider {
         // File doesn't exist
         return null
       }
-      logger.error(`Failed to read data (${key})`, { error: error instanceof Error ? error.message : String(error) })
+      logger.error(`Failed to read data (${key})`, { error: error })
       throw error
     }
   }
@@ -120,7 +120,7 @@ class TempFileStorageProvider {
         // File doesn't exist, ignore error
         return
       }
-      logger.error(`Failed to delete file (${key})`, { error: error instanceof Error ? error.message : String(error) })
+      logger.error(`Failed to delete file (${key})`, { error: error })
       throw error
     }
   }
@@ -138,7 +138,7 @@ class TempFileStorageProvider {
       await Promise.all(deletePromises)
       logger.info(`Cleared all storage files (${files.length} files)`)
     } catch (error) {
-      logger.error('Failed to clear storage files', { error: error instanceof Error ? error.message : String(error) })
+      logger.error('Failed to clear storage files', { error: error })
       throw error
     }
   }
@@ -156,7 +156,7 @@ class TempFileStorageProvider {
 
       return keys
     } catch (error) {
-      logger.error('Failed to get key list', { error: error instanceof Error ? error.message : String(error) })
+      logger.error('Failed to get key list', { error: error })
       return []
     }
   }
@@ -209,7 +209,7 @@ class TempFileStorageProvider {
         storageDir: this.storageDir
       }
     } catch (error) {
-      logger.error('Failed to get storage statistics', { error: error instanceof Error ? error.message : String(error) })
+      logger.error('Failed to get storage statistics', { error: error })
       return {
         keys: [],
         fileCount: 0,
@@ -264,7 +264,7 @@ class TempFileStorageProvider {
 
       logger.info(`Storage directory backed up to: ${backupDir}`)
     } catch (error) {
-      logger.error('Failed to backup storage directory', { error: error instanceof Error ? error.message : String(error) })
+      logger.error('Failed to backup storage directory', { error: error })
       throw error
     }
   }
@@ -287,7 +287,7 @@ class TempFileStorageProvider {
 
       logger.info(`Storage directory restored from backup: ${backupDir}`)
     } catch (error) {
-      logger.error('Failed to restore from backup', { error: error instanceof Error ? error.message : String(error) })
+      logger.error('Failed to restore from backup', { error: error })
       throw error
     }
   }
@@ -319,7 +319,7 @@ class TempFileStorageProvider {
         logger.info(`Cleaned up ${cleanedCount} expired files`)
       }
     } catch (error) {
-      logger.error('Failed to clean up expired files', { error: error instanceof Error ? error.message : String(error) })
+      logger.error('Failed to clean up expired files', { error: error })
     }
   }
 

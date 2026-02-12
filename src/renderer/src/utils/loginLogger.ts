@@ -40,7 +40,7 @@ export async function recordLoginLog(userInfo: any, method: string, status: 'suc
         ipAddress = await api.getLocalIP()
         deviceStore.setDeviceIp(ipAddress)
       } catch (error) {
-        logger.warn('Unable to get IP address', { error: String(error) })
+        logger.warn('Unable to get IP address', { error: error })
         ipAddress = 'Unknown'
       }
     }
@@ -50,7 +50,7 @@ export async function recordLoginLog(userInfo: any, method: string, status: 'suc
         macAddress = await api.getMacAddress()
         deviceStore.setMacAddress(macAddress)
       } catch (error) {
-        logger.warn('Unable to get MAC address', { error: String(error) })
+        logger.warn('Unable to get MAC address', { error: error })
         macAddress = 'Unknown'
       }
     }
@@ -75,7 +75,7 @@ export async function recordLoginLog(userInfo: any, method: string, status: 'suc
       logger.error('Failed to record login log', { error: result.error })
     }
   } catch (error) {
-    logger.error('Error occurred while recording login log', { error: String(error) })
+    logger.error('Error occurred while recording login log', { error: error })
   }
 }
 
@@ -98,7 +98,7 @@ export async function getLoginLogs(
     const result = await api.getLoginLogs(params)
     return result
   } catch (error) {
-    logger.error('Error occurred while getting login logs', { error: String(error) })
+    logger.error('Error occurred while getting login logs', { error: error })
     return { success: false, error: (error as Error).message }
   }
 }

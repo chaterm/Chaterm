@@ -593,7 +593,7 @@ function generatePersistentMachineId(): string {
       }
     }
   } catch (error) {
-    logger.warn('Failed to read existing machine ID', { error: error instanceof Error ? error.message : String(error) })
+    logger.warn('Failed to read existing machine ID', { error: error })
   }
 
   // Generate new machine ID
@@ -619,7 +619,7 @@ function generatePersistentMachineId(): string {
     fs.mkdirSync(path.dirname(machineIdPath), { recursive: true })
     fs.writeFileSync(machineIdPath, machineId, 'utf8')
   } catch (error) {
-    logger.warn('Failed to save machine ID', { error: error instanceof Error ? error.message : String(error) })
+    logger.warn('Failed to save machine ID', { error: error })
   }
 
   return machineId
@@ -643,7 +643,7 @@ export function checkIsFirstLaunch(): boolean {
     }
     return false
   } catch (error) {
-    logger.warn('Failed to check first launch status', { error: error instanceof Error ? error.message : String(error) })
+    logger.warn('Failed to check first launch status', { error: error })
     return false
   }
 }

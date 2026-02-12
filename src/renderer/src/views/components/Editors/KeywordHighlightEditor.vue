@@ -123,7 +123,7 @@ onMounted(async () => {
       })
     }
   } catch (err: unknown) {
-    logger.error('Failed to load keyword highlight config', { error: String(err) })
+    logger.error('Failed to load keyword highlight config', { error: err })
     const errorMessage = err instanceof Error ? err.message : String(err)
     notification.error({
       message: t('user.error') || 'Error',
@@ -209,7 +209,7 @@ const saveConfig = async () => {
       lastSaved.value = false
     }, 3000)
   } catch (err: unknown) {
-    logger.error('Failed to save keyword highlight config', { error: String(err) })
+    logger.error('Failed to save keyword highlight config', { error: err })
     isSaving.value = false
     const errorMessage = err instanceof Error ? err.message : String(err)
     notification.error({

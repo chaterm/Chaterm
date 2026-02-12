@@ -8,7 +8,7 @@ export async function deleteChatermHistoryByTaskIdLogic(db: Database.Database, t
     db.prepare(`DELETE FROM agent_task_metadata_v1 WHERE task_id = ?`).run(taskId)
     db.prepare(`DELETE FROM agent_context_history_v1 WHERE task_id = ?`).run(taskId)
   } catch (error) {
-    logger.error('Failed to delete API conversation history', { error: error instanceof Error ? error.message : String(error) })
+    logger.error('Failed to delete API conversation history', { error: error })
   }
 }
 
@@ -64,7 +64,7 @@ export async function getApiConversationHistoryLogic(db: Database.Database, task
 
     return messages
   } catch (error) {
-    logger.error('Failed to get API conversation history', { error: error instanceof Error ? error.message : String(error) })
+    logger.error('Failed to get API conversation history', { error: error })
     return []
   }
 }
@@ -115,7 +115,7 @@ export async function saveApiConversationHistoryLogic(db: Database.Database, tas
       }
     })()
   } catch (error) {
-    logger.error('Failed to save API conversation history', { error: error instanceof Error ? error.message : String(error) })
+    logger.error('Failed to save API conversation history', { error: error })
     throw error // Re-throw the error to be caught by the IPC handler
   }
 }
@@ -151,7 +151,7 @@ export async function getSavedChatermMessagesLogic(db: Database.Database, taskId
       mcpToolCall: row.mcp_tool_call_data ? JSON.parse(row.mcp_tool_call_data) : undefined
     }))
   } catch (error) {
-    logger.error('Failed to get Cline messages', { error: error instanceof Error ? error.message : String(error) })
+    logger.error('Failed to get Cline messages', { error: error })
     return []
   }
 }
@@ -194,7 +194,7 @@ export async function saveChatermMessagesLogic(db: Database.Database, taskId: st
       }
     })()
   } catch (error) {
-    logger.error('Failed to save Cline messages', { error: error instanceof Error ? error.message : String(error) })
+    logger.error('Failed to save Cline messages', { error: error })
   }
 }
 
@@ -219,7 +219,7 @@ export async function getTaskMetadataLogic(db: Database.Database, taskId: string
 
     return { files_in_context: [], model_usage: [], hosts: [], todos: [] }
   } catch (error) {
-    logger.error('Failed to get task metadata', { error: error instanceof Error ? error.message : String(error) })
+    logger.error('Failed to get task metadata', { error: error })
     return { files_in_context: [], model_usage: [], hosts: [], todos: [] }
   }
 }
@@ -245,7 +245,7 @@ export async function saveTaskMetadataLogic(db: Database.Database, taskId: strin
       JSON.stringify(metadata.todos || [])
     )
   } catch (error) {
-    logger.error('Failed to save task metadata', { error: error instanceof Error ? error.message : String(error) })
+    logger.error('Failed to save task metadata', { error: error })
   }
 }
 
@@ -265,7 +265,7 @@ export async function getContextHistoryLogic(db: Database.Database, taskId: stri
 
     return null
   } catch (error) {
-    logger.error('Failed to get context history', { error: error instanceof Error ? error.message : String(error) })
+    logger.error('Failed to get context history', { error: error })
     return null
   }
 }
@@ -278,10 +278,10 @@ export async function saveContextHistoryLogic(db: Database.Database, taskId: str
     logger.info('[saveContextHistory] JSON.stringify successful', { dataLength: jsonDataString?.length, type: typeof jsonDataString })
   } catch (stringifyError) {
     logger.error('[saveContextHistory] Error during JSON.stringify', {
-      error: stringifyError instanceof Error ? stringifyError.message : String(stringifyError)
+      error: stringifyError
     })
     logger.error('[saveContextHistory] Original contextHistory object that caused error', {
-      error: contextHistory instanceof Error ? contextHistory.message : String(contextHistory)
+      error: contextHistory
     })
     if (stringifyError instanceof Error) {
       throw new Error(`Failed to stringify contextHistory: ${stringifyError.message}`)
@@ -310,7 +310,7 @@ export async function saveContextHistoryLogic(db: Database.Database, taskId: str
   } catch (error) {
     logger.error('[saveContextHistory] Failed to save context history to DB', {
       taskId,
-      error: error instanceof Error ? error.message : String(error)
+      error: error
     })
     logger.error('[saveContextHistory] Data that caused error', { dataLength: jsonDataString?.length })
     throw error

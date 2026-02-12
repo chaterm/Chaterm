@@ -502,7 +502,7 @@ const getDefaultFontFamily = async (): Promise<string> => {
       return '"SF Mono", Monaco, "Courier New", Courier, monospace'
     }
   } catch (error) {
-    logger.warn('Failed to get platform, using default font', { error: error instanceof Error ? error.message : String(error) })
+    logger.warn('Failed to get platform, using default font', { error: error })
   }
   return 'Menlo, Monaco, "Courier New", Consolas, Courier, monospace'
 }
@@ -522,7 +522,7 @@ const loadSavedConfig = async () => {
       userConfig.value.fontFamily = await getDefaultFontFamily()
     }
   } catch (error) {
-    logger.error('Failed to load config', { error: error instanceof Error ? error.message : String(error) })
+    logger.error('Failed to load config', { error: error })
     notification.error({
       message: t('user.loadConfigFailed'),
       description: t('user.loadConfigFailedDescription')
@@ -732,7 +732,7 @@ const saveConfig = async () => {
 
     await userConfigStore.saveConfig(configToStore as any)
   } catch (error) {
-    logger.error('Failed to save config', { error: error instanceof Error ? error.message : String(error) })
+    logger.error('Failed to save config', { error: error })
     notification.error({
       message: t('user.error'),
       description: t('user.saveConfigFailedDescription')

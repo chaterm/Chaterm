@@ -161,7 +161,7 @@ export class TodoContextTracker {
       try {
         callback(level, this.contextUsagePercent)
       } catch (error) {
-        logger.error('[TodoContextTracker] Context warning callback error', { error: error instanceof Error ? error.message : String(error) })
+        logger.error('[TodoContextTracker] Context warning callback error', { error: error })
       }
     })
   }

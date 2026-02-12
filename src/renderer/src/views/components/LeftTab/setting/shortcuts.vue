@@ -150,7 +150,7 @@ const loadShortcuts = async () => {
     actions.value = shortcutService.getActions()
     currentShortcuts.value = shortcutService.getShortcuts()
   } catch (error) {
-    logger.error('Failed to load shortcuts', { error: error instanceof Error ? error.message : String(error) })
+    logger.error('Failed to load shortcuts', { error: error })
     message.error(t('user.shortcutSaveFailed'))
   }
 }
@@ -283,7 +283,7 @@ const saveRecording = async () => {
       shortcutService.setRecording(false)
     }
   } catch (error) {
-    logger.error('Failed to save shortcut', { error: error instanceof Error ? error.message : String(error) })
+    logger.error('Failed to save shortcut', { error: error })
     message.error(t('user.shortcutSaveFailed'))
     shortcutService.setRecording(false)
   }
@@ -306,7 +306,7 @@ const resetAllShortcuts = async () => {
     message.success(t('user.shortcutResetSuccess'))
     await loadShortcuts()
   } catch (error) {
-    logger.error('Failed to reset all shortcuts', { error: error instanceof Error ? error.message : String(error) })
+    logger.error('Failed to reset all shortcuts', { error: error })
     message.error(t('user.shortcutSaveFailed'))
   }
 }

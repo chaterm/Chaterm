@@ -27,7 +27,7 @@ try {
     packageInfo = JSON.parse(fs.readFileSync(fallbackPath, 'utf8'))
   }
 } catch (error) {
-  logger.warn('Failed to read package.json', { event: 'ssh.config', error: error instanceof Error ? error.message : String(error) })
+  logger.warn('Failed to read package.json', { event: 'ssh.config', error: error })
   // Provide a default packageInfo object if both paths fail
   packageInfo = { name: 'chaterm', version: 'unknown' }
 }
@@ -709,7 +709,7 @@ const handleAttemptConnection = async (event, connectionInfo, resolve, reject, r
     }
     conn.connect(connectConfig) // Attempt to connect
   } catch (err) {
-    logger.error('Connection configuration error', { event: 'ssh.config.error', error: String(err) })
+    logger.error('Connection configuration error', { event: 'ssh.config.error', error: err })
     reject(new Error(`Connection configuration error: ${err}`))
   }
 }
@@ -921,7 +921,7 @@ async function handleDirectoryTransfer(event: any, id: string, localDir: string,
       logger.error('Directory upload file error', {
         event: 'ssh.sftp.upload.error',
         remotePath: task.remote,
-        error: err instanceof Error ? err.message : String(err)
+        error: err
       })
     )
   )
@@ -952,7 +952,7 @@ export const registerSSHHandlers = () => {
         logger.error('JumpServer connection request failed', {
           event: 'ssh.connect.jumpserver.error',
           connectionId: connectionInfo?.id,
-          error: error instanceof Error ? error.message : String(error)
+          error: error
         })
         return buildErrorResponse(error)
       }
@@ -1903,7 +1903,7 @@ export const registerSSHHandlers = () => {
       activeStreams.set(streamId, stream)
       return streamId
     } catch (err) {
-      logger.error('Failed to open zmodem stream', { event: 'ssh.zmodem.error', error: err instanceof Error ? err.message : String(err) })
+      logger.error('Failed to open zmodem stream', { event: 'ssh.zmodem.error', error: err })
       return null
     }
   })

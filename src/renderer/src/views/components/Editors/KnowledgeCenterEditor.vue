@@ -116,6 +116,7 @@ import eventBus from '@/utils/eventBus'
 import { useEditorConfigStore, getFontFamily } from '@/stores/editorConfig'
 import { storeToRefs } from 'pinia'
 
+const logger = createRendererLogger('knowledgeCenter.editor')
 const { t } = useI18n()
 
 const props = withDefaults(
@@ -421,7 +422,7 @@ async function renderMermaidInPreview() {
   try {
     await mermaid.run({ nodes: mermaidNodes })
   } catch (error) {
-    console.error('Failed to render mermaid diagram:', error)
+    logger.error('Failed to render mermaid diagram', { error: error })
   }
 }
 

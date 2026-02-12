@@ -25,7 +25,7 @@ export const registerUpdater = (targetWindow, setForceQuit: (value: boolean) => 
       logger.info('Update check result', { version: result?.updateInfo?.version })
       return result
     } catch (error) {
-      logger.error('Update check failed', { error: error instanceof Error ? error.message : String(error) })
+      logger.error('Update check failed', { error: error })
       throw error
     }
   })
@@ -39,7 +39,7 @@ export const registerUpdater = (targetWindow, setForceQuit: (value: boolean) => 
       logger.info('Download started')
       return result
     } catch (error) {
-      logger.error('Download failed', { error: error instanceof Error ? error.message : String(error) })
+      logger.error('Download failed', { error: error })
       throw error
     }
   })

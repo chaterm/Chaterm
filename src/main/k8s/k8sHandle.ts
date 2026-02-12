@@ -23,7 +23,7 @@ export function registerK8sHandlers(): void {
         currentContext: k8sManager.getCurrentContext()
       }
     } catch (error) {
-      logger.error('[K8s IPC] Failed to get contexts', { error: error instanceof Error ? error.message : String(error) })
+      logger.error('[K8s IPC] Failed to get contexts', { error: error })
       return {
         success: false,
         error: error instanceof Error ? error.message : 'Unknown error'
@@ -44,7 +44,7 @@ export function registerK8sHandlers(): void {
         data: detail
       }
     } catch (error) {
-      logger.error('[K8s IPC] Failed to get context detail', { error: error instanceof Error ? error.message : String(error) })
+      logger.error('[K8s IPC] Failed to get context detail', { error: error })
       return {
         success: false,
         error: error instanceof Error ? error.message : 'Unknown error'
@@ -65,7 +65,7 @@ export function registerK8sHandlers(): void {
         currentContext: k8sManager.getCurrentContext()
       }
     } catch (error) {
-      logger.error('[K8s IPC] Failed to switch context', { error: error instanceof Error ? error.message : String(error) })
+      logger.error('[K8s IPC] Failed to switch context', { error: error })
       return {
         success: false,
         error: error instanceof Error ? error.message : 'Unknown error'
@@ -88,7 +88,7 @@ export function registerK8sHandlers(): void {
         error: result.error
       }
     } catch (error) {
-      logger.error('[K8s IPC] Failed to reload config', { error: error instanceof Error ? error.message : String(error) })
+      logger.error('[K8s IPC] Failed to reload config', { error: error })
       return {
         success: false,
         error: error instanceof Error ? error.message : 'Unknown error'
@@ -109,7 +109,7 @@ export function registerK8sHandlers(): void {
         isValid
       }
     } catch (error) {
-      logger.error('[K8s IPC] Failed to validate context', { error: error instanceof Error ? error.message : String(error) })
+      logger.error('[K8s IPC] Failed to validate context', { error: error })
       return {
         success: false,
         error: error instanceof Error ? error.message : 'Unknown error'
@@ -132,7 +132,7 @@ export function registerK8sHandlers(): void {
         error: result.error
       }
     } catch (error) {
-      logger.error('[K8s IPC] Failed to initialize', { error: error instanceof Error ? error.message : String(error) })
+      logger.error('[K8s IPC] Failed to initialize', { error: error })
       return {
         success: false,
         error: error instanceof Error ? error.message : 'Unknown error'
@@ -161,7 +161,7 @@ export function registerK8sHandlers(): void {
         success: true
       }
     } catch (error) {
-      logger.error('[K8s IPC] Failed to start watch', { error: error instanceof Error ? error.message : String(error) })
+      logger.error('[K8s IPC] Failed to start watch', { error: error })
       return {
         success: false,
         error: error instanceof Error ? error.message : 'Unknown error'
@@ -186,7 +186,7 @@ export function registerK8sHandlers(): void {
         success: true
       }
     } catch (error) {
-      logger.error('[K8s IPC] Failed to stop watch', { error: error instanceof Error ? error.message : String(error) })
+      logger.error('[K8s IPC] Failed to stop watch', { error: error })
       return {
         success: false,
         error: error instanceof Error ? error.message : 'Unknown error'

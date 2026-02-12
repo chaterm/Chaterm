@@ -123,7 +123,7 @@ export const submitUserSelection = async () => {
     // Close dialog after successful submission
     resetUserSelectionDialog()
   } catch (error) {
-    logger.error('Failed to submit user selection', { error: String(error) })
+    logger.error('Failed to submit user selection', { error: error })
     userSelectionError.value = true
     isSubmitting.value = false
   }

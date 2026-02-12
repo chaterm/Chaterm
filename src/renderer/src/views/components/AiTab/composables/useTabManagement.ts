@@ -186,7 +186,7 @@ export function useTabManagement(options: TabManagementOptions) {
           }
         }
       } catch (e) {
-        logger.error('Failed to get metadata', { error: e instanceof Error ? e.message : String(e) })
+        logger.error('Failed to get metadata', { error: e })
       }
 
       const result = await window.api.chatermGetChatermMessages({
@@ -310,7 +310,7 @@ export function useTabManagement(options: TabManagementOptions) {
 
       focusChatInput()
     } catch (err) {
-      logger.error('Failed to restore history tab', { error: err instanceof Error ? err.message : String(err) })
+      logger.error('Failed to restore history tab', { error: err })
     }
   }
 
@@ -374,7 +374,7 @@ export function useTabManagement(options: TabManagementOptions) {
         await updateGlobalState('taskHistory', taskHistory)
       }
     } catch (err) {
-      logger.error('Failed to persist tab title', { error: err instanceof Error ? err.message : String(err) })
+      logger.error('Failed to persist tab title', { error: err })
     }
 
     emitStateChange?.()

@@ -236,7 +236,7 @@ export async function getModelOptions(excludeThinking = false): Promise<ModelOpt
 
     return modelOptions
   } catch (error) {
-    logger.error('Failed to get model options', { error: error instanceof Error ? error.message : String(error) })
+    logger.error('Failed to get model options', { error: error })
     return []
   }
 }
@@ -303,6 +303,6 @@ export async function testStorageFromMain(): Promise<void> {
   //   }
   //   logger.info('[Main Storage Test] All tests completed!');
   // } catch (error) {
-  //   logger.error('[Main Storage Test] Error during storage tests', { error: error instanceof Error ? error.message : String(error) });
+  //   logger.error('[Main Storage Test] Error during storage tests', { error: error });
   // }
 }

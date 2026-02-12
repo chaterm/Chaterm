@@ -269,7 +269,7 @@ const calculateMatches = () => {
     searchResultsCount.value = totalMatches
     currentResultIndex.value = totalMatches > 0 ? 1 : 0
   } catch (error) {
-    logger.error('Error calculating match count', { error: error instanceof Error ? error.message : String(error) })
+    logger.error('Error calculating match count', { error: error })
     // If calculation fails, try to estimate from terminal content
     try {
       const terminalText = props.terminal.buffer.active.translateToString()
@@ -279,7 +279,7 @@ const calculateMatches = () => {
       currentResultIndex.value = matches > 0 ? 1 : 0
     } catch (fallbackError) {
       logger.error('Fallback calculation method also failed', {
-        error: fallbackError instanceof Error ? fallbackError.message : String(fallbackError)
+        error: fallbackError
       })
       searchResultsCount.value = 0
       currentResultIndex.value = 0

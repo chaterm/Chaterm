@@ -330,7 +330,7 @@ describe('About Component', () => {
       await nextTick()
 
       expect(button.text()).toBe('Check update failed')
-      // eslint-disable-next-line no-console
+
       expect(console.error).toHaveBeenCalled()
     })
 
@@ -626,7 +626,7 @@ describe('About Component', () => {
       await nextTick()
 
       expect(button.text()).toBe('Download failed')
-      // eslint-disable-next-line no-console
+
       expect(console.error).toHaveBeenCalled()
     })
 
@@ -805,7 +805,7 @@ describe('About Component', () => {
       await nextTick()
 
       expect(button.text()).toBe('Check update failed')
-      // eslint-disable-next-line no-console
+
       expect(console.error).toHaveBeenCalledWith('Check update failed', networkError)
     })
 

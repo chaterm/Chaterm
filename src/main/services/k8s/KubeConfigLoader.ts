@@ -86,7 +86,7 @@ export class KubeConfigLoader {
         error: undefined
       }
     } catch (error) {
-      logger.error('[K8s] Failed to load config', { error: error instanceof Error ? error.message : String(error) })
+      logger.error('[K8s] Failed to load config', { error: error })
       return {
         success: false,
         contexts: [],
@@ -112,7 +112,7 @@ export class KubeConfigLoader {
         currentContext
       }
     } catch (error) {
-      logger.error('[K8s] Failed to load from default', { error: error instanceof Error ? error.message : String(error) })
+      logger.error('[K8s] Failed to load from default', { error: error })
       return {
         success: false,
         contexts: [],
@@ -223,7 +223,7 @@ export class KubeConfigLoader {
       this.kc.setCurrentContext(contextName)
       return true
     } catch (error) {
-      logger.error('[K8s] Failed to set current context', { error: error instanceof Error ? error.message : String(error) })
+      logger.error('[K8s] Failed to set current context', { error: error })
       return false
     }
   }
@@ -260,10 +260,10 @@ export class KubeConfigLoader {
         try {
           this.kc.setCurrentContext(originalContext)
         } catch (restoreError) {
-          logger.error(`[K8s] Failed to restore context`, { error: restoreError instanceof Error ? restoreError.message : String(restoreError) })
+          logger.error(`[K8s] Failed to restore context`, { error: restoreError })
         }
       }
-      logger.error(`[K8s] Context validation failed for ${contextName}`, { error: error instanceof Error ? error.message : String(error) })
+      logger.error(`[K8s] Context validation failed for ${contextName}`, { error: error })
       return false
     }
   }

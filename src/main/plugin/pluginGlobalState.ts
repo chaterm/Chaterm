@@ -48,7 +48,7 @@ async function getValue<T>(rawKey: string): Promise<T | undefined> {
     logger.error('Plugin storage get failed', {
       event: 'plugin.storage.get.error',
       key: rawKey,
-      error: error instanceof Error ? error.message : String(error)
+      error: error
     })
     throw error
   }
@@ -76,7 +76,7 @@ async function setValue<T>(rawKey: string, value: T): Promise<void> {
     logger.error('Plugin storage set failed', {
       event: 'plugin.storage.set.error',
       key: rawKey,
-      error: error instanceof Error ? error.message : String(error)
+      error: error
     })
     throw error
   }
@@ -93,7 +93,7 @@ async function deleteValue(rawKey: string): Promise<void> {
     logger.error('Plugin storage delete failed', {
       event: 'plugin.storage.delete.error',
       key: rawKey,
-      error: error instanceof Error ? error.message : String(error)
+      error: error
     })
     throw error
   }
@@ -109,7 +109,7 @@ async function getAllKeys(): Promise<string[]> {
   } catch (error) {
     logger.error('Plugin storage keys query failed', {
       event: 'plugin.storage.keys.error',
-      error: error instanceof Error ? error.message : String(error)
+      error: error
     })
     throw error
   }

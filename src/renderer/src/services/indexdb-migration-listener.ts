@@ -67,7 +67,7 @@ export function setupIndexDBMigrationListener(): void {
               names: allDatabases.map((db) => db.name)
             })
           } catch (error) {
-            logger.error('Unable to list databases, will use fallback', { error: error instanceof Error ? error.message : String(error) })
+            logger.error('Unable to list databases, will use fallback', { error: error })
           }
 
           // Step 2: Find database containing KeyValueStore
@@ -88,7 +88,7 @@ export function setupIndexDBMigrationListener(): void {
             currentUserId = userInfo?.uid
             logger.info('Current logged-in user ID', { userId: currentUserId || 'Unable to get' })
           } catch (error) {
-            logger.warn('Unable to get current user ID', { error: error instanceof Error ? error.message : String(error) })
+            logger.warn('Unable to get current user ID', { error: error })
           }
 
           // Sorting strategy: prioritize current user, then by numeric ID descending
@@ -155,7 +155,7 @@ export function setupIndexDBMigrationListener(): void {
                 db.close()
               }
             } catch (error) {
-              logger.error('Failed to open database', { error: error instanceof Error ? error.message : String(error) })
+              logger.error('Failed to open database', { error: error })
             }
           }
 
@@ -180,7 +180,7 @@ export function setupIndexDBMigrationListener(): void {
               foundDb.close()
               logger.info('Successfully read KeyValueStore records', { count: data.length, dbName: foundDbName })
             } catch (error) {
-              logger.error('Failed to read KeyValueStore data', { error: error instanceof Error ? error.message : String(error) })
+              logger.error('Failed to read KeyValueStore data', { error: error })
               if (foundDb) foundDb.close()
               throw error
             }

@@ -284,7 +284,7 @@ watch(
 
       await updateGlobalState('autoApprovalSettings', settingsToStore)
     } catch (error) {
-      logger.error('Failed to update auto approval settings', { error: error instanceof Error ? error.message : String(error) })
+      logger.error('Failed to update auto approval settings', { error: error })
       notification.error({
         message: 'Error',
         description: 'Failed to update auto approval settings'
@@ -313,7 +313,7 @@ watch(
       await updateGlobalState('autoApprovalSettings', settingsToStore)
       logger.info('Auto-execute read-only commands setting saved', { data: newValue })
     } catch (error) {
-      logger.error('Failed to update auto-execute read-only commands setting', { error: error instanceof Error ? error.message : String(error) })
+      logger.error('Failed to update auto-execute read-only commands setting', { error: error })
       notification.error({
         message: 'Error',
         description: 'Failed to update settings'
@@ -334,7 +334,7 @@ watch(
 
       await updateGlobalState('chatSettings', settingsToStore)
     } catch (error) {
-      logger.error('Failed to update chat settings', { error: error instanceof Error ? error.message : String(error) })
+      logger.error('Failed to update chat settings', { error: error })
       notification.error({
         message: t('user.error'),
         description: t('user.saveConfigFailedDescription')
@@ -376,7 +376,7 @@ const loadSavedConfig = async () => {
     reasoningEffort.value = ((await getGlobalState('reasoningEffort')) as string) || 'low'
     shellIntegrationTimeout.value = ((await getGlobalState('shellIntegrationTimeout')) as number) || 4
   } catch (error) {
-    logger.error('Failed to load config', { error: error instanceof Error ? error.message : String(error) })
+    logger.error('Failed to load config', { error: error })
     notification.error({
       message: t('user.loadConfigFailed'),
       description: t('user.loadConfigFailedDescription')
@@ -411,7 +411,7 @@ const saveConfig = async () => {
     }
     await updateGlobalState('proxyConfig', proxyConfigToSave)
   } catch (error) {
-    logger.error('Failed to save config', { error: error instanceof Error ? error.message : String(error) })
+    logger.error('Failed to save config', { error: error })
     notification.error({
       message: t('user.error'),
       description: t('user.saveConfigFailedDescription')
@@ -425,7 +425,7 @@ watch(
     try {
       await updateGlobalState('reasoningEffort', newValue)
     } catch (error) {
-      logger.error('Failed to update reasoningEffort', { error: error instanceof Error ? error.message : String(error) })
+      logger.error('Failed to update reasoningEffort', { error: error })
     }
   }
 )
@@ -436,7 +436,7 @@ watch(
     try {
       await updateGlobalState('customInstructions', newValue)
     } catch (error) {
-      logger.error('Failed to update customInstructions', { error: error instanceof Error ? error.message : String(error) })
+      logger.error('Failed to update customInstructions', { error: error })
     }
   }
 )
@@ -471,7 +471,7 @@ watch(
       }
       await updateGlobalState('proxyConfig', proxyConfigToSave)
     } catch (error) {
-      logger.error('Failed to update proxyConfig', { error: error instanceof Error ? error.message : String(error) })
+      logger.error('Failed to update proxyConfig', { error: error })
     }
   },
   { deep: true }
@@ -483,7 +483,7 @@ watch(
     try {
       await updateGlobalState('needProxy', newValue)
     } catch (error) {
-      logger.error('Failed to update needProxy', { error: error instanceof Error ? error.message : String(error) })
+      logger.error('Failed to update needProxy', { error: error })
     }
   }
 )
@@ -527,7 +527,7 @@ watch(
         await updateGlobalState('shellIntegrationTimeout', newValue)
       }
     } catch (error) {
-      logger.error('Failed to update shellIntegrationTimeout', { error: error instanceof Error ? error.message : String(error) })
+      logger.error('Failed to update shellIntegrationTimeout', { error: error })
     }
   }
 )
@@ -548,7 +548,7 @@ const openSecurityConfig = async () => {
     // Open tab via eventBus
     eventBus.emit('open-user-tab', 'securityConfigEditor')
   } catch (error) {
-    logger.error('Failed to open security config editor', { error: error instanceof Error ? error.message : String(error) })
+    logger.error('Failed to open security config editor', { error: error })
     notification.error({
       message: t('user.error'),
       description: t('user.openSecurityConfigFailed')

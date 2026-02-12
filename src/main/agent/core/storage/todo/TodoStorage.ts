@@ -50,7 +50,7 @@ export class TodoStorage {
 
       return result.data
     } catch (error: unknown) {
-      logger.error(`Failed to read todos for task ${this.taskId}`, { error: error instanceof Error ? error.message : String(error) })
+      logger.error(`Failed to read todos for task ${this.taskId}`, { error: error })
       return []
     }
   }
@@ -60,7 +60,7 @@ export class TodoStorage {
       // Validate data format
       const result = TodoArraySchema.safeParse(todos)
       if (!result.success) {
-        logger.error('[TodoStorage] Data validation failed', { error: result.error instanceof Error ? result.error.message : String(result.error) })
+        logger.error('[TodoStorage] Data validation failed', { error: result.error })
         throw new Error(`Invalid todo data: ${result.error.message}`)
       }
 
@@ -76,7 +76,7 @@ export class TodoStorage {
       await dbService.saveTaskMetadata(this.taskId, updatedMetadata)
     } catch (error: unknown) {
       const errorMessage = error instanceof Error ? error.message : String(error)
-      logger.error(`[TodoStorage] Failed to write todos, taskId: ${this.taskId}`, { error: error instanceof Error ? error.message : String(error) })
+      logger.error(`[TodoStorage] Failed to write todos, taskId: ${this.taskId}`, { error: error })
       throw new Error(`Failed to write todos for task ${this.taskId}: ${errorMessage}`)
     }
   }

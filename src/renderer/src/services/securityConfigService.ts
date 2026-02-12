@@ -65,7 +65,7 @@ export class SecurityConfigService {
         return content
       }
     } catch (error) {
-      logger.error('Failed to read security config', { error: error instanceof Error ? error.message : String(error) })
+      logger.error('Failed to read security config', { error: error })
       throw error
     }
   }

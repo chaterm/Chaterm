@@ -58,6 +58,13 @@ export default [
       'no-console': 'off'
     }
   },
+  // Allow console usage in test code and test helpers.
+  {
+    files: ['**/__tests__/**', '**/*.test.ts', '**/*.spec.ts', 'tests/**'],
+    rules: {
+      'no-console': 'off'
+    }
+  },
   {
     ignores: [
       'node_modules/**',

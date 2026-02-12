@@ -1656,7 +1656,7 @@ const downloadFile = async (record: any) => {
       duration: 3
     })
   } catch (err: any) {
-    logger.error('Download error', { error: String(err) })
+    logger.error('Download error', { error: err })
     message.error({ content: `${t('files.downloadError')}：${(err as Error).message}`, key, duration: 3 })
   }
 }

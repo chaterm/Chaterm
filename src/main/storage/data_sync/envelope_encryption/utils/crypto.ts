@@ -214,7 +214,7 @@ class CryptoUtils {
       logger.info('⚠️ Automatic key resolution feature not fully implemented, falling back to error handling')
       throw new Error('Unable to automatically resolve data key, please ensure client encryption is properly initialized')
     } catch (error) {
-      logger.error('Automatic key resolution failed', { error: error instanceof Error ? error.message : String(error) })
+      logger.error('Automatic key resolution failed', { error: error })
       throw error
     }
   }

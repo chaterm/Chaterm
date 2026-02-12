@@ -81,7 +81,7 @@ export class ContextManager {
         return new Map(serializedUpdates.map(([messageIndex, [numberValue, innerMapArray]]) => [messageIndex, [numberValue, new Map(innerMapArray)]]))
       }
     } catch (error) {
-      logger.error('Failed to load context history', { error: error instanceof Error ? error.message : String(error) })
+      logger.error('Failed to load context history', { error: error })
     }
     return new Map()
   }
@@ -97,7 +97,7 @@ export class ContextManager {
 
       saveContextHistoryStorage(taskId, JSON.stringify(serializedUpdates))
     } catch (error) {
-      logger.error('Failed to save context history', { error: error instanceof Error ? error.message : String(error) })
+      logger.error('Failed to save context history', { error: error })
     }
   }
 

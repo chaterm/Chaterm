@@ -281,7 +281,7 @@ export function useInteractiveInput() {
 
       return result
     } catch (error) {
-      logger.error('Submit error', { error: String(error) })
+      logger.error('Submit error', { error: error })
 
       // Set error state
       if (state) {
@@ -343,7 +343,7 @@ export function useInteractiveInput() {
 
       return result
     } catch (error) {
-      logger.error('Cancel error', { error: String(error) })
+      logger.error('Cancel error', { error: error })
       return { success: false, error: String(error) }
     }
   }
@@ -368,7 +368,7 @@ export function useInteractiveInput() {
 
       return result
     } catch (error) {
-      logger.error('Dismiss error', { error: String(error) })
+      logger.error('Dismiss error', { error: error })
       return { success: false, error: String(error) }
     }
   }
@@ -387,7 +387,7 @@ export function useInteractiveInput() {
 
       return result
     } catch (error) {
-      logger.error('Suppress error', { error: String(error) })
+      logger.error('Suppress error', { error: error })
       return { success: false, error: String(error) }
     }
   }
@@ -412,7 +412,7 @@ export function useInteractiveInput() {
 
       return result
     } catch (error) {
-      logger.error('Unsuppress error', { error: String(error) })
+      logger.error('Unsuppress error', { error: error })
       return { success: false, error: String(error) }
     }
   }

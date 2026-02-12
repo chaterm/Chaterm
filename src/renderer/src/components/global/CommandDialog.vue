@@ -280,7 +280,7 @@ const handleSubmit = async () => {
       modelName: selectedCommandModel.value
     })
   } catch (err) {
-    logger.error('Command generation failed', { error: String(err) })
+    logger.error('Command generation failed', { error: err })
     error.value = err instanceof Error ? err.message : t('commandDialog.generationFailed')
     isLoading.value = false
     inputValue.value = instruction
@@ -321,7 +321,7 @@ const getCurrentContext = async (): Promise<CommandGenerationContext> => {
 
     return systemInfoResult.data
   } catch (error) {
-    logger.warn('Failed to get remote context', { error: String(error) })
+    logger.warn('Failed to get remote context', { error: error })
     const platform = await window.api.getPlatform().catch(() => 'unknown')
     return {
       platform,
@@ -355,7 +355,7 @@ const getCursorPosition = (): Promise<CursorPositionInfo | null> => {
         }
       }, 100)
     } catch (error) {
-      logger.warn('Failed to get cursor position from terminal', { error: String(error) })
+      logger.warn('Failed to get cursor position from terminal', { error: error })
       if (!resolved) {
         resolved = true
         resolve(null)

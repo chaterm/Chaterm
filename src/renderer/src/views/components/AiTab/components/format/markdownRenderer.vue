@@ -415,7 +415,7 @@ const isMarkdownSecretRedactionEnabled = async (): Promise<boolean> => {
     const config = await userConfigStoreService.getConfig()
     return config?.secretRedaction === 'enabled'
   } catch (error) {
-    logger.error('Failed to get secret redaction config for markdown', { error: error instanceof Error ? error.message : String(error) })
+    logger.error('Failed to get secret redaction config for markdown', { error: error })
     return false
   }
 }
@@ -733,7 +733,7 @@ const initEditor = (content: string) => {
       }
     }, 2000)
   } catch (error) {
-    logger.error('Error in initEditor', { error: error instanceof Error ? error.message : String(error) })
+    logger.error('Error in initEditor', { error: error })
   }
 }
 

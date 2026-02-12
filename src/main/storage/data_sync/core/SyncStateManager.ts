@@ -244,7 +244,7 @@ export class SyncStateManager {
     })
 
     logger.error(`${syncType === SyncType.FULL ? 'Full' : 'Incremental'} sync failed`, {
-      error: error instanceof Error ? error.message : String(error)
+      error: error
     })
 
     // Restore idle state after brief wait (only when sync is enabled)
@@ -320,7 +320,7 @@ export class SyncStateManager {
       try {
         listener(this.getCurrentStatus())
       } catch (error) {
-        logger.error('Status listener execution failed', { error: error instanceof Error ? error.message : String(error) })
+        logger.error('Status listener execution failed', { error: error })
       }
     })
   }

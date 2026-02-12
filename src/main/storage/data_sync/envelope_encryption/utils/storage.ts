@@ -84,7 +84,7 @@ class StorageManager {
 
       return users
     } catch (error) {
-      logger.error('Failed to list users', { error: error instanceof Error ? error.message : String(error) })
+      logger.error('Failed to list users', { error: error })
       return []
     }
   }
@@ -95,7 +95,7 @@ class StorageManager {
       // Data keys now only exist in memory, managed by ClientSideCrypto
       await this.clearSession(userId)
     } catch (error) {
-      logger.error(`Failed to cleanup storage data for user ${userId}`, { error: error instanceof Error ? error.message : String(error) })
+      logger.error(`Failed to cleanup storage data for user ${userId}`, { error: error })
       throw error
     }
   }

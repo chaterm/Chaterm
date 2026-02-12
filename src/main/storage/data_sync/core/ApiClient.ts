@@ -66,7 +66,7 @@ export class ApiClient {
         return config
       },
       (error) => {
-        logger.error('Request interceptor error', { error: error instanceof Error ? error.message : String(error) })
+        logger.error('Request interceptor error', { error: error })
         return Promise.reject(error)
       }
     )

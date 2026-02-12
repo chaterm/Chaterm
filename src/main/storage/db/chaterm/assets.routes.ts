@@ -51,7 +51,7 @@ export function getOrganizationAssetTypesWithExisting(db: Database.Database): st
     }
   } catch (error) {
     logger.warn('[getOrganizationAssetTypesWithExisting] Failed to query existing types', {
-      error: error instanceof Error ? error.message : String(error)
+      error: error
     })
   }
 
@@ -182,7 +182,7 @@ function migrateDatabaseIfNeeded(db: Database.Database) {
       logger.info('Asset folder mapping table created successfully')
     }
   } catch (error) {
-    logger.error('Database migration failed', { error: error instanceof Error ? error.message : String(error) })
+    logger.error('Database migration failed', { error: error })
   }
 }
 
@@ -486,7 +486,7 @@ export async function getLocalAssetRouteLogic(db: Database, searchType: string, 
 
     return result
   } catch (error) {
-    logger.error('Chaterm database query error', { error: error instanceof Error ? error.message : String(error) })
+    logger.error('Chaterm database query error', { error: error })
     throw error
   }
 }

@@ -78,7 +78,7 @@ export function useMessageOptions() {
 
       session.responseLoading = true
     } catch (error) {
-      logger.error('Failed to send message to main process', { error: error instanceof Error ? error.message : String(error) })
+      logger.error('Failed to send message to main process', { error: error })
     }
   }
 

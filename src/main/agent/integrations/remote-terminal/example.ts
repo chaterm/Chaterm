@@ -18,7 +18,7 @@ export async function executeRemoteCommand() {
     await testStorageFromMain()
     logger.info('testStorageFromMain call successful')
   } catch (error) {
-    logger.error('testStorageFromMain call failed', { error: error instanceof Error ? error.message : String(error) })
+    logger.error('testStorageFromMain call failed', { error: error })
     logger.info('This may be because the main window has not been initialized, which is normal')
   }
 
@@ -71,7 +71,7 @@ export async function executeRemoteCommand() {
       logger.info('User-defined completed event listener triggered')
     })
     process.on('error', (error) => {
-      logger.error('Command execution error', { error: error instanceof Error ? error.message : String(error) })
+      logger.error('Command execution error', { error: error })
     })
 
     // Now wait for the command to complete
@@ -84,7 +84,7 @@ export async function executeRemoteCommand() {
 
     return output
   } catch (error) {
-    logger.error('Remote terminal operation failed', { error: error instanceof Error ? error.message : String(error) })
+    logger.error('Remote terminal operation failed', { error: error })
 
     // Output more detailed error information
     if (error instanceof Error) {

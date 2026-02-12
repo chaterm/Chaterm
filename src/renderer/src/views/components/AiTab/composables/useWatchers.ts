@@ -59,7 +59,7 @@ export function useWatchers(deps: WatcherDeps) {
 
         deps.emitStateChange()
       } catch (error) {
-        logger.error('Failed to update chatSettings', { error: error instanceof Error ? error.message : String(error) })
+        logger.error('Failed to update chatSettings', { error: error })
       }
       focusChatInput()
     }

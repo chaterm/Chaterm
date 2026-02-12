@@ -90,7 +90,7 @@ export function useCommandSelect(options: UseCommandSelectOptions = {}) {
           type: 'file' as const
         }))
     } catch (error) {
-      logger.error('Failed to fetch command options', { error: error instanceof Error ? error.message : String(error) })
+      logger.error('Failed to fetch command options', { error: error })
       commandOptions.value = []
     } finally {
       commandOptionsLoading.value = false
@@ -199,7 +199,7 @@ export function useCommandSelect(options: UseCommandSelectOptions = {}) {
 
       popupPosition.value = { bottom, left }
     } catch (error) {
-      logger.error('Error calculating command popup position', { error: error instanceof Error ? error.message : String(error) })
+      logger.error('Error calculating command popup position', { error: error })
       popupPosition.value = null
     }
   }

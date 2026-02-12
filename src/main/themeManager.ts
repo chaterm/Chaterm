@@ -54,7 +54,7 @@ export async function loadUserTheme(dbService: ChatermDatabaseService): Promise<
     const userConfig = await safeParse(configRow.value)
     return userConfig?.theme ?? null
   } catch (error) {
-    logger.error('Failed to read user theme', { error: error instanceof Error ? error.message : String(error) })
+    logger.error('Failed to read user theme', { error: error })
     return null
   }
 }

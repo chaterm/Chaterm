@@ -69,7 +69,7 @@ class IndexedDBService {
           })
         }
       } catch (error) {
-        logger.error('Error initializing IndexedDB', { error: error instanceof Error ? error.message : String(error) })
+        logger.error('Error initializing IndexedDB', { error: error })
         reject(error)
       }
     })

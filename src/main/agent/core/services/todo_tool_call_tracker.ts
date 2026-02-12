@@ -38,7 +38,7 @@ export class TodoToolCallTracker {
       await storage.writeTodos(todos)
       logger.info(`Recorded tool call "${toolName}" for todo "${activeTodo.content}"`)
     } catch (error) {
-      logger.error('Failed to record tool call', { error: error instanceof Error ? error.message : String(error) })
+      logger.error('Failed to record tool call', { error: error })
       // Don't throw error, avoid affecting main functionality
     }
   }
@@ -53,7 +53,7 @@ export class TodoToolCallTracker {
       const todo = todos.find((t) => t.id === todoId)
       return todo?.toolCalls || []
     } catch (error) {
-      logger.error('Failed to get tool calls for todo', { error: error instanceof Error ? error.message : String(error) })
+      logger.error('Failed to get tool calls for todo', { error: error })
       return []
     }
   }
@@ -86,7 +86,7 @@ export class TodoToolCallTracker {
         callsByTodo
       }
     } catch (error) {
-      logger.error('Failed to get tool call statistics', { error: error instanceof Error ? error.message : String(error) })
+      logger.error('Failed to get tool call statistics', { error: error })
       return {
         totalCalls: 0,
         callsByTool: {},
@@ -110,7 +110,7 @@ export class TodoToolCallTracker {
         logger.info(`Cleared tool calls for todo "${todo.content}"`)
       }
     } catch (error) {
-      logger.error('Failed to clear tool calls for todo', { error: error instanceof Error ? error.message : String(error) })
+      logger.error('Failed to clear tool calls for todo', { error: error })
     }
   }
 
@@ -136,7 +136,7 @@ export class TodoToolCallTracker {
       // 按时间戳降序排序，返回最近的记录
       return allCalls.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()).slice(0, limit)
     } catch (error) {
-      logger.error('Failed to get recent tool calls', { error: error instanceof Error ? error.message : String(error) })
+      logger.error('Failed to get recent tool calls', { error: error })
       return []
     }
   }
@@ -149,7 +149,7 @@ export class TodoToolCallTracker {
       const toolCalls = await this.getToolCallsForTodo(taskId, todoId)
       return toolCalls.length > 0
     } catch (error) {
-      logger.error('Failed to check tool calls for todo', { error: error instanceof Error ? error.message : String(error) })
+      logger.error('Failed to check tool calls for todo', { error: error })
       return false
     }
   }
