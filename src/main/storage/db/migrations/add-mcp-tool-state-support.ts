@@ -36,7 +36,7 @@ export async function upgradeMcpToolStateSupport(db: Database.Database): Promise
       logger.info('mcp_tool_state table already exists, skipping migration')
     }
   } catch (error) {
-    logger.error('Failed to upgrade MCP tool state support', { error: error instanceof Error ? error.message : String(error) })
+    logger.error('Failed to upgrade MCP tool state support', { error: error })
     throw error
   }
 }

@@ -190,7 +190,7 @@ const isUserLoggedIn = computed(() => {
     const userInfo = getUserInfo()
     return !!(token && token !== 'guest_token' && !isSkippedLogin && userInfo?.uid)
   } catch (error) {
-    logger.error('Failed to read user info', { error: error instanceof Error ? error.message : String(error) })
+    logger.error('Failed to read user info', { error: error })
     return false
   }
 })

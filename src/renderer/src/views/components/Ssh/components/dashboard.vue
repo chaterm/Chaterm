@@ -62,7 +62,7 @@ const loadShortcuts = async () => {
   try {
     currentShortcuts.value = shortcutService.getShortcuts()
   } catch (error) {
-    logger.error('Failed to load shortcuts', { error: error instanceof Error ? error.message : String(error) })
+    logger.error('Failed to load shortcuts', { error: error })
   }
 }
 

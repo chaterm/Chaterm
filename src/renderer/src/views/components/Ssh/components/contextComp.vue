@@ -264,7 +264,7 @@ onMounted(async () => {
       }
     }
   } catch (error) {
-    logger.error('Failed to load shortcuts', { error: error instanceof Error ? error.message : String(error) })
+    logger.error('Failed to load shortcuts', { error: error })
     // Fallback display
     copyShortcut.value = 'Ctrl+C'
     pasteShortcut.value = 'Ctrl+V'

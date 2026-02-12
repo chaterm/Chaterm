@@ -145,7 +145,7 @@ export class SSHAgent extends BaseAgent {
           try {
             await fs.unlink(this.socketPath)
           } catch (err) {
-            logger.warn('Could not remove socket file', { event: 'ssh.agent.cleanup.error', error: err instanceof Error ? err.message : String(err) })
+            logger.warn('Could not remove socket file', { event: 'ssh.agent.cleanup.error', error: err })
           }
         }
 
@@ -203,7 +203,7 @@ export class SSHAgent extends BaseAgent {
       } catch (error) {
         logger.error('SSH Agent error handling message', {
           event: 'ssh.agent.message.error',
-          error: error instanceof Error ? error.message : String(error)
+          error: error
         })
         this.sendFailureResponse(socket)
       }
@@ -335,7 +335,7 @@ export class SSHAgent extends BaseAgent {
 
       this.sendSignResponse(socket, signature)
     } catch (error) {
-      logger.error('Error in sign request', { event: 'ssh.agent.sign.error', error: error instanceof Error ? error.message : String(error) })
+      logger.error('Error in sign request', { event: 'ssh.agent.sign.error', error: error })
       this.sendFailureResponse(socket)
     }
   }
@@ -378,7 +378,7 @@ export class SSHAgent extends BaseAgent {
       // format
       return this.formatSignature(key.keyType, signature, flags)
     } catch (error) {
-      logger.error('Signing error', { event: 'ssh.agent.sign.error', error: error instanceof Error ? error.message : String(error) })
+      logger.error('Signing error', { event: 'ssh.agent.sign.error', error: error })
       return null
     }
   }
@@ -552,7 +552,7 @@ export class SSHAgent extends BaseAgent {
 
       return keyId
     } catch (error) {
-      logger.error('Failed to add key from data', { event: 'ssh.agent.key.add.error', error: error instanceof Error ? error.message : String(error) })
+      logger.error('Failed to add key from data', { event: 'ssh.agent.key.add.error', error: error })
       throw error
     }
   }
@@ -678,7 +678,7 @@ export class SSHAgentManager {
     } catch (error) {
       logger.error('Failed to start Chaterm SSH Agent', {
         event: 'ssh.agent.ipc.start.error',
-        error: error instanceof Error ? error.message : String(error)
+        error: error
       })
       throw error
     }

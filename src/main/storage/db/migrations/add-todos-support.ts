@@ -24,7 +24,7 @@ export async function upgradeAgentTaskMetadataSupport(db: Database.Database): Pr
     const result = updateStmt.run()
     logger.info(`Initialized todos for ${result.changes} existing tasks`)
   } catch (error) {
-    logger.error('Failed to upgrade todos support', { error: error instanceof Error ? error.message : String(error) })
+    logger.error('Failed to upgrade todos support', { error: error })
     throw error
   }
 }

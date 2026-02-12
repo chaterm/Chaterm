@@ -631,7 +631,7 @@ describe('Login Component', () => {
         await nextTick()
       } catch (error) {
         // Log error for debugging
-        // eslint-disable-next-line no-console
+
         console.log('skipLogin error:', error)
       }
 

@@ -103,7 +103,7 @@ onMounted(async () => {
       })
     }
   } catch (err: unknown) {
-    logger.error('Failed to load MCP config', { error: err instanceof Error ? err.message : String(err) })
+    logger.error('Failed to load MCP config', { error: err })
     const errorMessage = err instanceof Error ? err.message : String(err)
     notification.error({
       message: t('mcp.error'),
@@ -220,7 +220,7 @@ const saveConfig = async (isManualSave = false) => {
       lastSaved.value = false
     }, 3000)
   } catch (err: unknown) {
-    logger.error('Failed to save MCP config', { error: err instanceof Error ? err.message : String(err) })
+    logger.error('Failed to save MCP config', { error: err })
     isSaving.value = false
     const errorMessage = err instanceof Error ? err.message : String(err)
     notification.error({

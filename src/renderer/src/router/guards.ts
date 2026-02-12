@@ -39,7 +39,7 @@ export const beforeEach = async (to, _from, next) => {
         next('/login')
       }
     } catch (error) {
-      logger.error('Database initialization failed', { error: String(error) })
+      logger.error('Database initialization failed', { error: error })
       localStorage.removeItem('login-skipped')
       localStorage.removeItem('ctm-token')
       localStorage.removeItem('jms-token')
@@ -59,7 +59,7 @@ export const beforeEach = async (to, _from, next) => {
         if (dbResult.success) {
           // After database initialization succeeds, asynchronously initialize data sync service (non-blocking UI display)
           dataSyncService.initialize().catch((error) => {
-            logger.error('Data sync service initialization failed', { error: String(error) })
+            logger.error('Data sync service initialization failed', { error: error })
           })
           next()
         } else {
@@ -70,7 +70,7 @@ export const beforeEach = async (to, _from, next) => {
         next('/login')
       }
     } catch (error) {
-      logger.error('Processing failed', { error: String(error) })
+      logger.error('Processing failed', { error: error })
 
       const message = error instanceof Error ? error.message : String(error)
 

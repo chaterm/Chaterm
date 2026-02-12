@@ -159,7 +159,7 @@ export function useChatMessages(
       await window.api.sendToMain(messageWithTabId)
       // console.log('Main process response:', response)
     } catch (error) {
-      logger.error('Failed to send message to main process', { error: error instanceof Error ? error.message : String(error) })
+      logger.error('Failed to send message to main process', { error: error })
     }
   }
 
@@ -337,7 +337,7 @@ export function useChatMessages(
         knowledgeSummaryRelPaths.delete(key)
       }
     } catch (error) {
-      logger.error('Failed to save knowledge', { error: error instanceof Error ? error.message : String(error) })
+      logger.error('Failed to save knowledge', { error: error })
       notification.error({
         message: t('ai.knowledgeSaveFailed'),
         description: error instanceof Error ? error.message : String(error),
@@ -538,7 +538,7 @@ export function useChatMessages(
 
     window.api.onMainMessage((message: any) => {
       processMainMessage(message).catch((error) => {
-        logger.error('Failed to process main process message', { error: error instanceof Error ? error.message : String(error) })
+        logger.error('Failed to process main process message', { error: error })
       })
     })
   }

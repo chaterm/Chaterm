@@ -13,7 +13,7 @@ const initPlatform = async () => {
     const api = window.api as any
     platform.value = await api.getPlatform()
   } catch (error) {
-    logger.error('Failed to get platform', { error: String(error) })
+    logger.error('Failed to get platform', { error: error })
     // Fallback detection
     platform.value = navigator.platform.toLowerCase().includes('mac') ? 'darwin' : 'win32'
   }

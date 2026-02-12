@@ -36,7 +36,7 @@ export class CommandStoreService {
         createdAt: item.created_at
       }))
     } catch (error) {
-      logger.error('Error getting aliases from SQLite', { error: error instanceof Error ? error.message : String(error) })
+      logger.error('Error getting aliases from SQLite', { error: error })
       return []
     }
   }
@@ -46,7 +46,7 @@ export class CommandStoreService {
       const allItems = await this.getAll()
       return allItems.find((item) => item.id === id) || null
     } catch (error) {
-      logger.error('Error getting alias by id', { error: error instanceof Error ? error.message : String(error) })
+      logger.error('Error getting alias by id', { error: error })
       return null
     }
   }
@@ -68,7 +68,7 @@ export class CommandStoreService {
       }
       return null
     } catch (error) {
-      logger.error('Error getting alias by name', { error: error instanceof Error ? error.message : String(error) })
+      logger.error('Error getting alias by name', { error: error })
       return null
     }
   }
@@ -88,7 +88,7 @@ export class CommandStoreService {
       })
       return sanitizedItem.alias
     } catch (error) {
-      logger.error('Error adding alias to SQLite', { error: error instanceof Error ? error.message : String(error) })
+      logger.error('Error adding alias to SQLite', { error: error })
       throw new Error('Failed to add item. Alias may already exist.')
     }
   }
@@ -98,7 +98,7 @@ export class CommandStoreService {
     try {
       existingItem = await this.getByAlias(item.alias as string)
     } catch (error) {
-      logger.error('Error getting existing item', { error: error instanceof Error ? error.message : String(error) })
+      logger.error('Error getting existing item', { error: error })
     }
 
     const updatedItem = {
@@ -117,7 +117,7 @@ export class CommandStoreService {
         }
       })
     } catch (error) {
-      logger.error('Error updating alias in SQLite', { error: error instanceof Error ? error.message : String(error) })
+      logger.error('Error updating alias in SQLite', { error: error })
       throw new Error('Failed to update item')
     }
   }
@@ -138,7 +138,7 @@ export class CommandStoreService {
         alias: alias
       })
     } catch (error) {
-      logger.error('Error deleting alias from SQLite', { error: error instanceof Error ? error.message : String(error) })
+      logger.error('Error deleting alias from SQLite', { error: error })
       throw new Error('Failed to delete item')
     }
   }
@@ -151,7 +151,7 @@ export class CommandStoreService {
         await this.delete(item.alias)
       }
     } catch (error) {
-      logger.error('Error clearing aliases from SQLite', { error: error instanceof Error ? error.message : String(error) })
+      logger.error('Error clearing aliases from SQLite', { error: error })
       throw new Error('Failed to clear store')
     }
   }
@@ -174,7 +174,7 @@ export class CommandStoreService {
         createdAt: item.created_at
       }))
     } catch (error) {
-      logger.error('Error searching aliases in SQLite', { error: error instanceof Error ? error.message : String(error) })
+      logger.error('Error searching aliases in SQLite', { error: error })
       return []
     }
   }
@@ -193,7 +193,7 @@ export class CommandStoreService {
 
       return true
     } catch (error) {
-      logger.error('Error in rename alias', { error: error instanceof Error ? error.message : String(error) })
+      logger.error('Error in rename alias', { error: error })
       return false
     }
   }

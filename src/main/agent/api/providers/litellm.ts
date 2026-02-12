@@ -127,7 +127,7 @@ export class LiteLlmHandler implements ApiHandler {
       }
       // If proxy hasn't changed, do nothing (performance optimization)
     } catch (error) {
-      logger.error('[LiteLLM] Failed to refresh proxy agent', { error: error instanceof Error ? error.message : String(error) })
+      logger.error('[LiteLLM] Failed to refresh proxy agent', { error: error })
       // Fallback: continue using existing client
     }
   }

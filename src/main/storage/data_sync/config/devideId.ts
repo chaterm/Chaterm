@@ -81,7 +81,7 @@ const getSystemUUID = (): string => {
         break
     }
   } catch (error) {
-    logger.error('[System UUID] Error obtaining UUID', { error: error instanceof Error ? error.message : String(error) })
+    logger.error('[System UUID] Error obtaining UUID', { error: error })
   }
 
   // UUID format validation

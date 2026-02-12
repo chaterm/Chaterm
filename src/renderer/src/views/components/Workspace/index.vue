@@ -542,7 +542,7 @@ const handleExpandChange = async (expandedKeys: any[]) => {
       workspaceExpandedKeys: expandedKeys.map((key) => String(key))
     })
   } catch (error) {
-    logger.error('Failed to save workspace expanded keys', { error: String(error) })
+    logger.error('Failed to save workspace expanded keys', { error: error })
   }
 }
 
@@ -563,7 +563,7 @@ const loadSavedExpandState = async () => {
       showIpMode.value = config.workspaceShowIpMode
     }
   } catch (error) {
-    logger.error('Failed to load saved expand state', { error: String(error) })
+    logger.error('Failed to load saved expand state', { error: error })
   }
 }
 
@@ -614,7 +614,7 @@ const getLocalAssetMenu = () => {
         }, 200)
       }
     })
-    .catch((err) => logger.error('Failed to get local asset menu', { error: String(err) }))
+    .catch((err) => logger.error('Failed to get local asset menu', { error: err }))
 }
 
 const getUserAssetMenu = () => {
@@ -630,7 +630,7 @@ const getUserAssetMenu = () => {
         }, 200)
       }
     })
-    .catch((err) => logger.error('Failed to get user asset menu', { error: String(err) }))
+    .catch((err) => logger.error('Failed to get user asset menu', { error: err }))
 }
 
 const expandDefaultNodes = async () => {
@@ -786,7 +786,7 @@ const toggleFavorite = (dataRef: any): void => {
           getLocalAssetMenu()
         }
       })
-      .catch((err) => logger.error('Personal asset favorite error', { error: String(err) }))
+      .catch((err) => logger.error('Personal asset favorite error', { error: err }))
   } else {
     logger.debug('Executing organization asset favorite logic')
     if (isOrganizationAsset(dataRef.asset_type) && !dataRef.organizationId) {
@@ -800,7 +800,7 @@ const toggleFavorite = (dataRef: any): void => {
             getUserAssetMenu()
           }
         })
-        .catch((err) => logger.error('Organization asset favorite error', { error: String(err) }))
+        .catch((err) => logger.error('Organization asset favorite error', { error: err }))
     } else {
       logger.debug('Updating organization sub-asset favorite status', {
         organizationUuid: dataRef.organizationId,
@@ -830,7 +830,7 @@ const toggleFavorite = (dataRef: any): void => {
           }
         })
         .catch((err) => {
-          logger.error('Update organization asset favorite error', { error: String(err) })
+          logger.error('Update organization asset favorite error', { error: err })
         })
     }
   }
@@ -855,7 +855,7 @@ const toggleDisplayMode = async () => {
       workspaceShowIpMode: showIpMode.value
     })
   } catch (error) {
-    console.error('Failed to save display mode preference:', error)
+    logger.error('Failed to save display mode preference', { error: error })
   }
 }
 
@@ -902,7 +902,7 @@ const handleRefresh = async (dataRef: any) => {
       getUserAssetMenu()
     })
   } catch (error) {
-    logger.error('Refresh failed', { error: String(error) })
+    logger.error('Refresh failed', { error: error })
     getUserAssetMenu()
   } finally {
     setTimeout(() => {
@@ -939,7 +939,7 @@ const saveComment = async (dataRef: any) => {
       logger.error('Comment save failed', { result: String(result) })
     }
   } catch (error) {
-    logger.error('Save comment error', { error: String(error) })
+    logger.error('Save comment error', { error: error })
   }
 }
 
@@ -955,7 +955,7 @@ const loadCustomFolders = async () => {
       customFolders.value = result.data.folders || []
     }
   } catch (error) {
-    logger.error('Failed to load custom folders', { error: String(error) })
+    logger.error('Failed to load custom folders', { error: error })
   }
 }
 
@@ -981,7 +981,7 @@ const handleCreateFolder = async () => {
       message.error(t('personal.folderCreateFailed'))
     }
   } catch (error) {
-    logger.error('Failed to create folder', { error: String(error) })
+    logger.error('Failed to create folder', { error: error })
     message.error(t('personal.folderCreateFailed'))
   }
 }
@@ -1018,7 +1018,7 @@ const handleUpdateFolder = async () => {
       message.error(t('personal.folderUpdateFailed'))
     }
   } catch (error) {
-    logger.error('Failed to update folder', { error: String(error) })
+    logger.error('Failed to update folder', { error: error })
     message.error(t('personal.folderUpdateFailed'))
   }
 }
@@ -1047,7 +1047,7 @@ const handleDeleteFolder = (dataRef: any) => {
           message.error(t('personal.folderDeleteFailed'))
         }
       } catch (error) {
-        logger.error('Failed to delete folder', { error: String(error) })
+        logger.error('Failed to delete folder', { error: error })
         message.error(t('personal.folderDeleteFailed'))
       }
     }
@@ -1078,7 +1078,7 @@ const handleMoveAssetToFolder = async (folderUuid: string) => {
       message.error(t('personal.assetMoveFailed'))
     }
   } catch (error) {
-    logger.error('Failed to move asset', { error: String(error) })
+    logger.error('Failed to move asset', { error: error })
     message.error(t('personal.assetMoveFailed'))
   }
 }
@@ -1098,7 +1098,7 @@ const handleRemoveFromFolder = async (dataRef: any) => {
       message.error(t('personal.assetRemoveFailed'))
     }
   } catch (error) {
-    logger.error('Failed to remove asset from folder', { error: String(error) })
+    logger.error('Failed to remove asset from folder', { error: error })
     message.error(t('personal.assetRemoveFailed'))
   }
 }

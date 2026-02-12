@@ -104,7 +104,7 @@ const filteredAssetGroups = computed(() => {
 
     return filterNodes(deepClone(props.assetGroups || []) as AssetNode[])
   } catch (error) {
-    logger.error('Error filtering asset groups', { error: error instanceof Error ? error.message : String(error) })
+    logger.error('Error filtering asset groups', { error: error })
     return []
   }
 })

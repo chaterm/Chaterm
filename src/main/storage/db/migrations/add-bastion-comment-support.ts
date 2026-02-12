@@ -20,7 +20,7 @@ export async function upgradeBastionCommentSupport(db: Database.Database): Promi
       logger.info('bastion_comment column already exists, skipping migration')
     }
   } catch (error) {
-    logger.error('Failed to upgrade bastion comment support', { error: error instanceof Error ? error.message : String(error) })
+    logger.error('Failed to upgrade bastion comment support', { error: error })
     throw error
   }
 }

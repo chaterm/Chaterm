@@ -20,7 +20,7 @@ export async function upgradeMcpToolCallSupport(db: Database.Database): Promise<
       logger.info('mcp_tool_call_data column already exists, skipping migration')
     }
   } catch (error) {
-    logger.error('Failed to upgrade MCP tool call support', { error: error instanceof Error ? error.message : String(error) })
+    logger.error('Failed to upgrade MCP tool call support', { error: error })
     throw error
   }
 }

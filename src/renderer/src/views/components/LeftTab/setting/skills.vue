@@ -224,7 +224,7 @@ const loadSkills = async () => {
     const result = await window.api.getSkills()
     skills.value = result || []
   } catch (error) {
-    logger.error('Failed to load skills', { error: error instanceof Error ? error.message : String(error) })
+    logger.error('Failed to load skills', { error: error })
     message.error(t('skills.loadError'))
   }
 }
@@ -236,7 +236,7 @@ const reloadSkills = async () => {
     await loadSkills()
     message.success(t('skills.reloadSuccess'))
   } catch (error) {
-    logger.error('Failed to reload skills', { error: error instanceof Error ? error.message : String(error) })
+    logger.error('Failed to reload skills', { error: error })
     message.error(t('skills.reloadError'))
   } finally {
     isReloading.value = false
@@ -247,7 +247,7 @@ const openSkillsFolder = async () => {
   try {
     await window.api.openSkillsFolder()
   } catch (error) {
-    logger.error('Failed to open skills folder', { error: error instanceof Error ? error.message : String(error) })
+    logger.error('Failed to open skills folder', { error: error })
     message.error(t('skills.openFolderError'))
   }
 }
@@ -291,7 +291,7 @@ const importSkillZip = async () => {
               showImportError(overwriteResult.errorCode)
             }
           } catch (error) {
-            logger.error('Failed to import skill (overwrite)', { error: error instanceof Error ? error.message : String(error) })
+            logger.error('Failed to import skill (overwrite)', { error: error })
             message.error(t('skills.importError'))
           } finally {
             isImporting.value = false
@@ -302,7 +302,7 @@ const importSkillZip = async () => {
       showImportError(importResult.errorCode)
     }
   } catch (error) {
-    logger.error('Failed to import skill', { error: error instanceof Error ? error.message : String(error) })
+    logger.error('Failed to import skill', { error: error })
     message.error(t('skills.importError'))
   } finally {
     isImporting.value = false
@@ -329,7 +329,7 @@ const toggleSkill = async (skill: Skill) => {
   try {
     await window.api.setSkillEnabled(skill.name, skill.enabled)
   } catch (error) {
-    logger.error('Failed to toggle skill', { error: error instanceof Error ? error.message : String(error) })
+    logger.error('Failed to toggle skill', { error: error })
     // Revert the change
     skill.enabled = !skill.enabled
     message.error(t('skills.toggleError'))
@@ -377,7 +377,7 @@ const createSkill = async () => {
     skillFormRef.value?.resetFields()
     message.success(t('skills.createSuccess'))
   } catch (error) {
-    logger.error('Failed to create skill', { error: error instanceof Error ? error.message : String(error) })
+    logger.error('Failed to create skill', { error: error })
     message.error(t('skills.createError'))
   } finally {
     isCreating.value = false
@@ -397,7 +397,7 @@ const confirmDeleteSkill = (skill: Skill) => {
         await loadSkills()
         message.success(t('skills.deleteSuccess'))
       } catch (error) {
-        logger.error('Failed to delete skill', { error: error instanceof Error ? error.message : String(error) })
+        logger.error('Failed to delete skill', { error: error })
         message.error(t('skills.deleteError'))
       }
     }

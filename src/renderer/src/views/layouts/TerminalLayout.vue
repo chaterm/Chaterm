@@ -486,7 +486,7 @@ const saveAiSidebarState = () => {
         savedAiSidebarState.value.size = aiSidebarSize.value
       }
     } catch (error) {
-      logger.warn('Failed to get AI Tab state', { error: String(error) })
+      logger.warn('Failed to get AI Tab state', { error: error })
       if (savedAiSidebarState.value) {
         savedAiSidebarState.value.size = aiSidebarSize.value
       }
@@ -511,7 +511,7 @@ const restorePreviousFocus = () => {
       try {
         lastFocusedElement.value?.focus()
       } catch (error) {
-        logger.warn('Failed to restore focus', { error: String(error) })
+        logger.warn('Failed to restore focus', { error: error })
       }
     })
   }
@@ -843,7 +843,7 @@ onMounted(async () => {
         return true
       }
     } catch (error) {
-      logger.warn('Failed to restore AI Tab state', { error: String(error) })
+      logger.warn('Failed to restore AI Tab state', { error: error })
       // Clear invalid state
       localStorage.removeItem('sharedAiTabState')
     }
@@ -969,7 +969,7 @@ onMounted(async () => {
           savedAiSidebarState.value = currentState
         }
       } catch (error) {
-        logger.warn('Failed to save AI state before layout switch', { error: String(error) })
+        logger.warn('Failed to save AI state before layout switch', { error: error })
       }
     }
   })
@@ -1901,7 +1901,7 @@ const openUserTab = async function (arg: OpenUserTabArg) {
         const fileName = configPath.split(/[/\\]/).pop() || 'chaterm-security.json'
         p.title = fileName
       } catch (error) {
-        logger.error('Failed to get security config path', { error: String(error) })
+        logger.error('Failed to get security config path', { error: error })
         p.title = 'chaterm-security.json' // Default file name
       }
       break
@@ -1915,7 +1915,7 @@ const openUserTab = async function (arg: OpenUserTabArg) {
         const fileName = configPath.split(/[/\\]/).pop() || 'keyword-highlight.json'
         p.title = fileName
       } catch (error) {
-        logger.error('Failed to get keyword highlight config path', { error: String(error) })
+        logger.error('Failed to get keyword highlight config path', { error: error })
         p.title = 'keyword-highlight.json' // Default file name
       }
       break
@@ -2135,7 +2135,7 @@ const handleModeChange = (mode: 'terminal' | 'agents') => {
         savedAiSidebarState.value = currentState
       }
     } catch (error) {
-      logger.warn('Failed to save AI state before mode switch', { error: String(error) })
+      logger.warn('Failed to save AI state before mode switch', { error: error })
     }
   }
   eventBus.emit('switch-mode', mode)
@@ -2167,7 +2167,7 @@ const handleConversationSelect = async (conversationId: string) => {
         }
       }
     } catch (error) {
-      logger.error('Failed to select conversation', { error: String(error) })
+      logger.error('Failed to select conversation', { error: error })
     }
   }
 }
@@ -2182,7 +2182,7 @@ const handleNewChat = async () => {
         eventBus.emit('create-new-empty-tab')
       }
     } catch (error) {
-      logger.error('Failed to create new chat', { error: String(error) })
+      logger.error('Failed to create new chat', { error: error })
     }
   }
 }
@@ -2197,7 +2197,7 @@ const handleConversationDelete = async (conversationId: string) => {
         eventBus.emit('remove-tab', conversationId)
       }
     } catch (error) {
-      logger.error('Failed to delete conversation tab', { error: String(error) })
+      logger.error('Failed to delete conversation tab', { error: error })
     }
   }
 }

@@ -163,7 +163,7 @@ const checkVersion = async () => {
       logger.info('No update available')
     }
   } catch (error) {
-    logger.error('Failed to check for updates', { error: String(error) })
+    logger.error('Failed to check for updates', { error: error })
   }
 }
 
@@ -181,7 +181,7 @@ const handleModeChange = async (mode: 'terminal' | 'agents') => {
     // Notify settings page to update display
     eventBus.emit('defaultLayoutChanged', mode)
   } catch (error) {
-    logger.error('Failed to update default layout', { error: String(error) })
+    logger.error('Failed to update default layout', { error: error })
   }
 }
 
@@ -198,13 +198,13 @@ onMounted(async () => {
     const localIP = await api.getLocalIP()
     deviceStore.setDeviceIp(localIP)
   } catch (error) {
-    logger.error('Failed to obtain IP address', { error: String(error) })
+    logger.error('Failed to obtain IP address', { error: error })
   }
   try {
     const macAddress = await api.getMacAddress()
     deviceStore.setMacAddress(macAddress)
   } catch (error) {
-    logger.error('Failed to obtain MAC address', { error: String(error) })
+    logger.error('Failed to obtain MAC address', { error: error })
   }
   const userConfig = await userConfigStore.getConfig()
   logger.debug('User config loaded on mount')

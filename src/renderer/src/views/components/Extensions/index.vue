@@ -207,7 +207,7 @@ const getIcons = async (item: DisplayPluginItem): Promise<string> => {
     iconUrls[item.pluginId] = url
     return url
   } catch (e) {
-    logger.error('Preload icon failed', { pluginId: item.pluginId, error: String(e) })
+    logger.error('Preload icon failed', { pluginId: item.pluginId, error: e })
     iconUrls[item.pluginId] = ''
     return ''
   }
@@ -357,7 +357,7 @@ const loadConfig = async () => {
       currentTheme.value = config.theme || 'dark'
     }
   } catch (error) {
-    logger.error('Failed to load config', { error: String(error) })
+    logger.error('Failed to load config', { error: error })
   }
 }
 

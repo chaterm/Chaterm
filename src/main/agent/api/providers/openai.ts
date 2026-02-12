@@ -140,7 +140,7 @@ export class OpenAiHandler implements ApiHandler {
       })
       return { isValid: true }
     } catch (error) {
-      logger.error('OpenAI compatible configuration validation failed', { error: error instanceof Error ? error.message : String(error) })
+      logger.error('OpenAI compatible configuration validation failed', { error: error })
       return {
         isValid: false,
         error: `Validation failed:  ${error instanceof Error ? error.message : String(error)}`

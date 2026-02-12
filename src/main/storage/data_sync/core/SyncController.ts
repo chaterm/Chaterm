@@ -184,7 +184,7 @@ export class SyncController {
       return { success: true, message, synced_count: syncedCount, failed_count: failedCount }
     } catch (error: any) {
       const errorMessage = hasHistoricalData ? 'Historical data sync failed' : 'Forced full sync failed'
-      logger.error(`${errorMessage}`, { error: error instanceof Error ? error.message : String(error) })
+      logger.error(`${errorMessage}`, { error: error })
       return { success: false, message: `${errorMessage}: ${error?.message || error}`, synced_count: 0, failed_count: 1 }
     }
   }
@@ -208,7 +208,7 @@ export class SyncController {
 
       return hasHistoricalData
     } catch (error) {
-      logger.warn('Failed to check historical data, defaulting to full sync', { error: error instanceof Error ? error.message : String(error) })
+      logger.warn('Failed to check historical data, defaulting to full sync', { error: error })
       return true // Conservative handling on error, execute full sync
     }
   }
@@ -251,7 +251,7 @@ export class SyncController {
         logger.warn(`Server unavailable, ${tableName} smart full sync skipped`)
         return
       }
-      logger.error(`${tableName} smart full sync failed`, { error: error instanceof Error ? error.message : String(error) })
+      logger.error(`${tableName} smart full sync failed`, { error: error })
       throw error
     }
   }
@@ -326,7 +326,7 @@ export class SyncController {
         logger.warn(message)
         return { success: true, message, synced_count: 0, failed_count: 0 }
       }
-      logger.error('Incremental sync failed', { error: error instanceof Error ? error.message : String(error) })
+      logger.error('Incremental sync failed', { error: error })
       return { success: false, message: `Incremental sync failed: ${error?.message || error}`, synced_count: 0, failed_count: 1 }
     }
   }
@@ -525,7 +525,7 @@ export class SyncController {
 
       logger.info('Sync controller resources cleanup completed')
     } catch (error) {
-      logger.error('Error cleaning up sync controller resources', { error: error instanceof Error ? error.message : String(error) })
+      logger.error('Error cleaning up sync controller resources', { error: error })
     }
   }
 
@@ -547,7 +547,7 @@ export class SyncController {
         logger.info('Current sync operation completed')
       }
     } catch (error) {
-      logger.error('Error waiting for sync operation to complete', { error: error instanceof Error ? error.message : String(error) })
+      logger.error('Error waiting for sync operation to complete', { error: error })
     }
   }
 
@@ -600,7 +600,7 @@ export class SyncController {
       logger.info('Sync operations stopped, please re-login through main application to restore sync functionality')
       return false
     } catch (error) {
-      logger.error('Error stopping sync operations', { error: error instanceof Error ? error.message : String(error) })
+      logger.error('Error stopping sync operations', { error: error })
       return false
     }
   }
@@ -689,7 +689,7 @@ export class SyncController {
 
       return true
     } catch (error) {
-      logger.error('Failed to cancel sync operation', { error: error instanceof Error ? error.message : String(error) })
+      logger.error('Failed to cancel sync operation', { error: error })
       return false
     }
   }
@@ -744,7 +744,7 @@ export class SyncController {
         logger.warn(`Triggered incremental sync failed: ${result.message}`)
       }
     } catch (error) {
-      logger.error('Exception triggering incremental sync', { error: error instanceof Error ? error.message : String(error) })
+      logger.error('Exception triggering incremental sync', { error: error })
       // Don't throw exception to avoid affecting database operations
     }
   }

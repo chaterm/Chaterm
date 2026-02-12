@@ -36,7 +36,7 @@ export const useVersionPromptStore = defineStore('versionPrompt', {
           this.clearPrompt()
         }
       } catch (error) {
-        logger.error('Failed to load prompt', { error: error instanceof Error ? error.message : String(error) })
+        logger.error('Failed to load prompt', { error: error })
         this.clearPrompt()
       } finally {
         this.loading = false
@@ -47,7 +47,7 @@ export const useVersionPromptStore = defineStore('versionPrompt', {
       try {
         await window.api.dismissVersionPrompt()
       } catch (error) {
-        logger.error('Failed to acknowledge prompt', { error: error instanceof Error ? error.message : String(error) })
+        logger.error('Failed to acknowledge prompt', { error: error })
       } finally {
         this.clearPrompt()
       }

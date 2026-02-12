@@ -71,7 +71,7 @@ function parseAssets(output: string): Asset[] {
           }
           assets.push(asset)
         } catch (e) {
-          logger.debug('Failed to parse asset line', { event: 'jumpserver.parser.asset.error', error: e instanceof Error ? e.message : String(e) })
+          logger.debug('Failed to parse asset line', { event: 'jumpserver.parser.asset.error', error: e })
         }
       }
     }
@@ -156,7 +156,7 @@ export function parseJumpServerUsers(output: string): JumpServerUser[] {
           }
           users.push(user)
         } catch (e) {
-          logger.debug('Failed to parse user line', { event: 'jumpserver.parser.user.error', error: e instanceof Error ? e.message : String(e) })
+          logger.debug('Failed to parse user line', { event: 'jumpserver.parser.user.error', error: e })
         }
       }
     }

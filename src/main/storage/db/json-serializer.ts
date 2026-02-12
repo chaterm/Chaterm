@@ -83,7 +83,7 @@ export async function safeParse<T = any>(jsonString: string): Promise<T | null> 
     const superjson = await getSuperjson()
     return superjson.parse(jsonString) as T
   } catch (error) {
-    logger.error('JSON parse failed', { error: error instanceof Error ? error.message : String(error) })
+    logger.error('JSON parse failed', { error: error })
     return null
   }
 }

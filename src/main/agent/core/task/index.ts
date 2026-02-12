@@ -179,7 +179,7 @@ export class Task {
         if (context.cancel) {
           const result = context.cancel()
           if (result instanceof Promise) {
-            result.catch((e) => logger.warn('[Task] Cancel failed', { error: e instanceof Error ? e.message : String(e) }))
+            result.catch((e) => logger.warn('[Task] Cancel failed', { error: e }))
           }
         }
         // Force terminate the process to unblock awaiting code
@@ -910,7 +910,7 @@ export class Task {
         isFavorited: this.taskIsFavorited
       })
     } catch (error) {
-      logger.error('Failed to save chaterm messages', { error: error instanceof Error ? error.message : String(error) })
+      logger.error('Failed to save chaterm messages', { error: error })
     }
   }
 
@@ -947,7 +947,7 @@ export class Task {
         return false
       }
     } catch (error) {
-      logger.error('Failed to get diff set', { error: error instanceof Error ? error.message : String(error) })
+      logger.error('Failed to get diff set', { error: error })
       return false
     }
 
@@ -1450,7 +1450,7 @@ export class Task {
           // Include host info for multi-host identification
           await this.say('command_output', result, true, hostInfo)
         } catch (error) {
-          logger.error('Error while saying for command output', { error: error instanceof Error ? error.message : String(error) }) // Log error
+          logger.error('Error while saying for command output', { error: error }) // Log error
         } finally {
           chunkEnroute = false
           // If more output accumulated while chunkEnroute, flush again
@@ -1539,7 +1539,7 @@ export class Task {
         }${this.messages.commandUpdateFuture}`
       }
     } catch (error) {
-      logger.error('Error executing local command', { error: error instanceof Error ? error.message : String(error) })
+      logger.error('Error executing local command', { error: error })
       this.currentRunningProcess = null
       return `Local command execution failed: ${error instanceof Error ? error.message : String(error)}`
     }
@@ -1602,7 +1602,7 @@ export class Task {
           // Include host info for multi-host identification
           await this.say('command_output', result, true, hostInfo)
         } catch (error) {
-          logger.error('Error while saying for command output', { error: error instanceof Error ? error.message : String(error) }) // Log error
+          logger.error('Error while saying for command output', { error: error }) // Log error
         } finally {
           chunkEnroute = false
           // If more output accumulated while chunkEnroute, flush again
@@ -2007,7 +2007,7 @@ export class Task {
         }
       }
     } catch (error) {
-      logger.error('[Task] Failed to process slash commands', { error: error instanceof Error ? error.message : String(error) })
+      logger.error('[Task] Failed to process slash commands', { error: error })
     }
   }
 
@@ -2564,7 +2564,7 @@ export class Task {
             ip: ip!
           })
         } catch (error) {
-          logger.error('Failed to track tool call', { error: error instanceof Error ? error.message : String(error) })
+          logger.error('Failed to track tool call', { error: error })
           // Don't affect main functionality, only log error
         }
 
@@ -3815,7 +3815,7 @@ USERNAME:${localSystemInfo.userName}`
             ====
           `
         } catch (error) {
-          logger.error(`Failed to get system information for host ${host.host}`, { error: error instanceof Error ? error.message : String(error) })
+          logger.error(`Failed to get system information for host ${host.host}`, { error: error })
           const chatSettings = await getGlobalState('chatSettings')
           const isLocalConnection = host.connection?.toLowerCase?.() === 'localhost' || this.isLocalHost(host.host) || host.uuid === 'localhost'
 
@@ -3967,7 +3967,7 @@ USERNAME:${localSystemInfo.userName}`
 
       return `${sectionTitle}\n\n${sectionHeader}\n\n${serverDescriptions.join('\n')}`
     } catch (error) {
-      logger.error('Failed to build MCP tools section', { error: error instanceof Error ? error.message : String(error) })
+      logger.error('Failed to build MCP tools section', { error: error })
       return null
     }
   }
@@ -3992,7 +3992,7 @@ USERNAME:${localSystemInfo.userName}`
       }
       return null
     } catch (error) {
-      logger.error('Failed to build skills section', { error: error instanceof Error ? error.message : String(error) })
+      logger.error('Failed to build skills section', { error: error })
       return null
     }
   }
@@ -4049,7 +4049,7 @@ USERNAME:${localSystemInfo.userName}`
         triggerReason: 'agent_update'
       })
     } catch (error) {
-      logger.error(`[Task] todo_write tool call handling failed`, { error: error instanceof Error ? error.message : String(error) })
+      logger.error(`[Task] todo_write tool call handling failed`, { error: error })
       this.pushToolResult(this.getToolDescription(block), `Todo write failed: ${error instanceof Error ? error.message : String(error)}`, {
         dontLock: true
       })
@@ -4117,7 +4117,7 @@ USERNAME:${localSystemInfo.userName}`
 
       await this.saveCheckpoint()
     } catch (error) {
-      logger.error('[Task] summarize_to_knowledge failed', { error: error instanceof Error ? error.message : String(error) })
+      logger.error('[Task] summarize_to_knowledge failed', { error: error })
       this.pushToolResult(toolDescription, `Failed to save knowledge: ${error instanceof Error ? error.message : String(error)}`)
     }
   }
@@ -4148,7 +4148,7 @@ USERNAME:${localSystemInfo.userName}`
       logger.info(`[Task] Cleared todos due to ${trigger} for task ${this.taskId}`)
     } catch (error) {
       logger.error(`[Task] Failed to clear todos (${trigger}) for task ${this.taskId}`, {
-        error: error instanceof Error ? error.message : String(error)
+        error: error
       })
     }
   }
@@ -4171,7 +4171,7 @@ USERNAME:${localSystemInfo.userName}`
         await this.checkAndCreateTodoIfNeeded(userMessage)
       }
     } catch (error) {
-      logger.error('[Smart Todo] Failed to check user content for todo', { error: error instanceof Error ? error.message : String(error) })
+      logger.error('[Smart Todo] Failed to check user content for todo', { error: error })
     }
   }
 
@@ -4208,7 +4208,7 @@ USERNAME:${localSystemInfo.userName}`
         logger.debug(`[Smart Todo] Task not complex enough for todo creation`)
       }
     } catch (error) {
-      logger.error('[Smart Todo] Failed to check and create todo if needed', { error: error instanceof Error ? error.message : String(error) })
+      logger.error('[Smart Todo] Failed to check and create todo if needed', { error: error })
       // 不影响主要功能，只记录错误
     }
   }
@@ -4248,7 +4248,7 @@ USERNAME:${localSystemInfo.userName}`
         })
       }
     } catch (error) {
-      logger.error('[Task] 添加 todo 状态更新提醒失败', { error: error instanceof Error ? error.message : String(error) })
+      logger.error('[Task] 添加 todo 状态更新提醒失败', { error: error })
     }
   }
 }

@@ -17,7 +17,7 @@ export async function upgradeMessageIndexSupport(db: Database.Database): Promise
       logger.info('message_index column added successfully')
     }
   } catch (error) {
-    logger.error('Failed to upgrade message index support', { error: error instanceof Error ? error.message : String(error) })
+    logger.error('Failed to upgrade message index support', { error: error })
     throw error
   }
 }

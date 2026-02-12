@@ -44,7 +44,7 @@ export function setupPluginIpc() {
           logger.warn('Manifest parsing failed while loading plugin views', {
             event: 'plugin.views.manifest.error',
             pluginId: p.id,
-            error: e instanceof Error ? e.message : String(e)
+            error: e
           })
         }
       }
@@ -77,7 +77,7 @@ export function setupPluginIpc() {
           event: 'plugin.view.metadata.error',
           viewId,
           pluginId: p.id,
-          error: e instanceof Error ? e.message : String(e)
+          error: e
         })
       }
     }
@@ -111,7 +111,7 @@ export function setupPluginIpc() {
       }
       return ''
     } catch (e) {
-      logger.error('Failed to read the file', { filePath, error: e instanceof Error ? e.message : String(e) })
+      logger.error('Failed to read the file', { filePath, error: e })
       throw e
     }
   })
@@ -125,7 +125,7 @@ export function setupPluginIpc() {
       fs.writeFileSync(filePath, content, 'utf8')
       return true
     } catch (e) {
-      logger.error('Failed to write to the file', { filePath, error: e instanceof Error ? e.message : String(e) })
+      logger.error('Failed to write to the file', { filePath, error: e })
       throw e
     }
   })
@@ -149,7 +149,7 @@ export function setupPluginIpc() {
         // Support array parameter expansion
         return Array.isArray(args) ? await commandHandler(...args) : await commandHandler(args)
       } catch (e) {
-        logger.error('Command execution error', { commandId, error: e instanceof Error ? e.message : String(e) })
+        logger.error('Command execution error', { commandId, error: e })
         throw e
       }
     }

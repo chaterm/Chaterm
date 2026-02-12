@@ -99,6 +99,6 @@ export async function showSystemNotification(options: NotificationOptions): Prom
         throw new Error('Unsupported platform')
     }
   } catch (error) {
-    logger.error('Could not show system notification', { error: error instanceof Error ? error.message : String(error) })
+    logger.error('Could not show system notification', { error: error })
   }
 }

@@ -89,7 +89,7 @@ const onOpenLogDir = async () => {
     await api.openLogDir()
   } catch (error) {
     logger.error('Failed to open log directory', {
-      error: error instanceof Error ? error.message : String(error)
+      error: error
     })
   }
 }
@@ -120,7 +120,7 @@ const onCheckUpdate = async () => {
   } catch (err) {
     logger.error('Failed to check for updates', {
       event: 'settings.about.update.check.failed',
-      error: err instanceof Error ? err.message : String(err)
+      error: err
     })
     btnText.value = t('about.checkUpdateError')
   } finally {
@@ -153,7 +153,7 @@ const handleCheckUpdate = async () => {
     } catch (error) {
       logger.error('Update check request failed', {
         event: 'settings.about.update.check.error',
-        error: error instanceof Error ? error.message : String(error)
+        error: error
       })
       throw error
     }
@@ -195,7 +195,7 @@ const handleCheckUpdate = async () => {
     } catch (error) {
       logger.error('Update download failed', {
         event: 'settings.about.update.download.failed',
-        error: error instanceof Error ? error.message : String(error)
+        error: error
       })
       btnText.value = t('about.downloadError')
     }

@@ -29,7 +29,7 @@ export class TodoWriteTool {
       const result = TodoArraySchema.safeParse(processedTodos)
       if (!result.success) {
         logger.error('[TodoWriteTool] Parameter validation failed', {
-          error: result.error instanceof Error ? result.error.message : String(result.error)
+          error: result.error
         })
         throw new Error(`Parameter validation failed: ${result.error.message}`)
       }
@@ -100,7 +100,7 @@ export class TodoWriteTool {
 
       return output
     } catch (error) {
-      logger.error(`[TodoWriteTool] todo_write tool execution failed`, { error: error instanceof Error ? error.message : String(error) })
+      logger.error(`[TodoWriteTool] todo_write tool execution failed`, { error: error })
       throw new Error(`Todo write failed: ${error instanceof Error ? error.message : String(error)}`)
     }
   }

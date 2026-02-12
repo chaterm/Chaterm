@@ -242,6 +242,7 @@ interface Props {
   onConfirmEdit?: (contentParts: ContentPart[]) => void
   openHistoryTab?: (history: HistoryItem, options?: { forceNewTab?: boolean }) => Promise<void>
 }
+const logger = createRendererLogger('ai.inputSend')
 
 const props = withDefaults(defineProps<Props>(), {
   sendMessage: async () => {},
@@ -442,7 +443,7 @@ const handleEditableDrop = async (e: DragEvent) => {
         data: res.content
       })
     } catch (err) {
-      console.error('Failed to read image file:', err)
+      logger.error('Failed to read image file:', { error: err })
     }
     return
   }

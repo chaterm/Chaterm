@@ -73,7 +73,7 @@ export class UserConfigStoreService {
         })
       }
     } catch (error) {
-      logger.error('Error initializing userConfig in SQLite', { error: error instanceof Error ? error.message : String(error) })
+      logger.error('Error initializing userConfig in SQLite', { error: error })
     }
   }
 
@@ -162,7 +162,7 @@ export class UserConfigStoreService {
         }
       }
     } catch (error) {
-      logger.error('Error getting config from SQLite', { error: error instanceof Error ? error.message : String(error) })
+      logger.error('Error getting config from SQLite', { error: error })
       return this.getDefaultConfig()
     }
   }
@@ -187,7 +187,7 @@ export class UserConfigStoreService {
 
       logger.info('Config saved successfully to SQLite')
     } catch (error) {
-      logger.error('Error saving config to SQLite', { error: error instanceof Error ? error.message : String(error) })
+      logger.error('Error saving config to SQLite', { error: error })
       throw error
     }
   }

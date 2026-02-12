@@ -44,7 +44,7 @@ export class BrownEventEmitter<T extends Record<string, any[]>> {
         } catch (error) {
           logger.error('Event listener error', {
             event: 'remote-terminal.event.listener.error',
-            error: error instanceof Error ? error.message : String(error)
+            error: error
           })
         }
       })

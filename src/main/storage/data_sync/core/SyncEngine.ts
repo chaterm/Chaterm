@@ -145,7 +145,7 @@ export class SyncEngine {
           totalSynced += pageResult.synced
           totalFailed += pageResult.failed
         } catch (error) {
-          logger.error(`Page ${pageNumber} processing failed`, { error: error instanceof Error ? error.message : String(error) })
+          logger.error(`Page ${pageNumber} processing failed`, { error: error })
           totalFailed += adaptivePageSize // Estimate failed count
         } finally {
           release()
@@ -403,7 +403,7 @@ export class SyncEngine {
         }
       }
     } catch (e) {
-      logger.warn('New format ciphertext decryption failed, skip record', { error: e instanceof Error ? e.message : String(e) })
+      logger.warn('New format ciphertext decryption failed, skip record', { error: e })
       logger.error('Decryption exception details:', {
         error: e,
         message: e instanceof Error ? e.message : String(e),
@@ -730,7 +730,7 @@ export class SyncEngine {
         failed: result.failed_count || 0
       }
     } catch (error) {
-      logger.error(`Page ${pageNumber} processing exception`, { error: error instanceof Error ? error.message : String(error) })
+      logger.error(`Page ${pageNumber} processing exception`, { error: error })
       return { synced: 0, failed: pageSize }
     }
   }

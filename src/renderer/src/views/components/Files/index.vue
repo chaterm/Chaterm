@@ -276,7 +276,7 @@ const getCurrentActiveTerminalInfo = async () => {
     })
     return assetInfo
   } catch (error) {
-    logger.error('Error getting asset info', { error: String(error) })
+    logger.error('Error getting asset info', { error: error })
     return null
   }
 }
@@ -366,7 +366,7 @@ const handleResize = () => {
       openEditors.forEach((ed) => resizeEditor(ed, rect))
     }
   } catch (error) {
-    logger.error('Failed to resize terminal', { error: String(error) })
+    logger.error('Failed to resize terminal', { error: error })
   }
 }
 

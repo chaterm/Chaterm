@@ -165,7 +165,7 @@ app.whenReady().then(async () => {
         logger.warn('[Security] ffmpeg.dll not found for verification.')
       }
     } catch (error) {
-      logger.error('[Security] Failed to verify ffmpeg.dll', { error: error instanceof Error ? error.message : String(error) })
+      logger.error('[Security] Failed to verify ffmpeg.dll', { error: error })
     }
   }
   // Set edition-specific AppUserModelId for Windows taskbar grouping and process identification
@@ -195,7 +195,7 @@ app.whenReady().then(async () => {
       const fileUrl = pathToFileURL(filePath).toString()
       return net.fetch(fileUrl)
     } catch (error) {
-      logger.error('Error in local-resource handler', { error: error instanceof Error ? error.message : String(error) })
+      logger.error('Error in local-resource handler', { error: error })
       return new Response('File Not Found', { status: 404 })
     }
   })
@@ -240,7 +240,7 @@ app.whenReady().then(async () => {
     })
   })
 
-  app.on('browser-window-created', (_, _window) => { })
+  app.on('browser-window-created', (_, _window) => {})
 
   // IPC test
   ipcMain.on('ping', () => logger.info('pong'))
@@ -329,7 +329,7 @@ app.whenReady().then(async () => {
 
     controller = new Controller(messageSender, ensureMcpConfigFileExists)
   } catch (error) {
-    logger.error('Failed to initialize Controller', { error: error instanceof Error ? error.message : String(error) })
+    logger.error('Failed to initialize Controller', { error: error })
   }
 
   // Initialize security configuration on startup
@@ -342,7 +342,7 @@ app.whenReady().then(async () => {
     await securityManager.loadConfig()
     logger.info('Security configuration initialized successfully')
   } catch (error) {
-    logger.error('Failed to initialize security configuration', { error: error instanceof Error ? error.message : String(error) })
+    logger.error('Failed to initialize security configuration', { error: error })
   }
 
   // Function to initialize telemetry setting
@@ -413,7 +413,7 @@ app.on('before-quit', async () => {
       await controller.dispose()
       logger.info('Controller disposed successfully.')
     } catch (error) {
-      logger.error('Error during controller disposal', { error: error instanceof Error ? error.message : String(error) })
+      logger.error('Error during controller disposal', { error: error })
     }
   }
   if (dataSyncController) {
@@ -422,7 +422,7 @@ app.on('before-quit', async () => {
       dataSyncController = null
       logger.info('Data sync controller disposed successfully.')
     } catch (error) {
-      logger.error('Error during data sync controller disposal', { error: error instanceof Error ? error.message : String(error) })
+      logger.error('Error during data sync controller disposal', { error: error })
     }
   }
 })
@@ -473,7 +473,7 @@ export async function ensureMcpConfigFileExists(): Promise<string> {
 
     return configPath
   } catch (error) {
-    logger.error('[MCP] Failed to ensure config file exists', { error: error instanceof Error ? error.message : String(error) })
+    logger.error('[MCP] Failed to ensure config file exists', { error: error })
     throw error
   }
 }
@@ -491,7 +491,7 @@ ipcMain.handle('mcp:get-servers', async () => {
     }
     return []
   } catch (error) {
-    logger.error('Failed to get MCP servers', { error: error instanceof Error ? error.message : String(error) })
+    logger.error('Failed to get MCP servers', { error: error })
     return []
   }
 })
@@ -505,7 +505,7 @@ ipcMain.handle('toggle-mcp-server', async (_event, serverName: string, disabled:
       throw new Error('Controller or McpHub not initialized')
     }
   } catch (error) {
-    logger.error('Failed to toggle MCP server', { error: error instanceof Error ? error.message : String(error) })
+    logger.error('Failed to toggle MCP server', { error: error })
     throw error
   }
 })
@@ -519,7 +519,7 @@ ipcMain.handle('delete-mcp-server', async (_event, serverName: string) => {
       throw new Error('Controller or McpHub not initialized')
     }
   } catch (error) {
-    logger.error('Failed to delete MCP server', { error: error instanceof Error ? error.message : String(error) })
+    logger.error('Failed to delete MCP server', { error: error })
     throw error
   }
 })
@@ -530,7 +530,7 @@ ipcMain.handle('mcp:get-tool-state', async (_event, serverName: string, toolName
     const dbService = await ChatermDatabaseService.getInstance()
     return dbService.getMcpToolState(serverName, toolName)
   } catch (error) {
-    logger.error('Failed to get MCP tool state', { error: error instanceof Error ? error.message : String(error) })
+    logger.error('Failed to get MCP tool state', { error: error })
     throw error
   }
 })
@@ -540,7 +540,7 @@ ipcMain.handle('mcp:set-tool-state', async (_event, serverName: string, toolName
     const dbService = await ChatermDatabaseService.getInstance()
     dbService.setMcpToolState(serverName, toolName, enabled)
   } catch (error) {
-    logger.error('Failed to set MCP tool state', { error: error instanceof Error ? error.message : String(error) })
+    logger.error('Failed to set MCP tool state', { error: error })
     throw error
   }
 })
@@ -553,7 +553,7 @@ ipcMain.handle('mcp:set-tool-auto-approve', async (_event, serverName: string, t
       throw new Error('Controller or McpHub not initialized')
     }
   } catch (error) {
-    logger.error('Failed to set MCP tool auto-approve', { error: error instanceof Error ? error.message : String(error) })
+    logger.error('Failed to set MCP tool auto-approve', { error: error })
     throw error
   }
 })
@@ -563,7 +563,7 @@ ipcMain.handle('mcp:get-all-tool-states', async () => {
     const dbService = await ChatermDatabaseService.getInstance()
     return dbService.getAllMcpToolStates()
   } catch (error) {
-    logger.error('Failed to get all MCP tool states', { error: error instanceof Error ? error.message : String(error) })
+    logger.error('Failed to get all MCP tool states', { error: error })
     throw error
   }
 })
@@ -582,7 +582,7 @@ ipcMain.handle('skills:get-all', async () => {
     }
     return []
   } catch (error) {
-    logger.error('Failed to get skills', { error: error instanceof Error ? error.message : String(error) })
+    logger.error('Failed to get skills', { error: error })
     throw error
   }
 })
@@ -598,7 +598,7 @@ ipcMain.handle('skills:get-enabled', async () => {
     }
     return []
   } catch (error) {
-    logger.error('Failed to get enabled skills', { error: error instanceof Error ? error.message : String(error) })
+    logger.error('Failed to get enabled skills', { error: error })
     throw error
   }
 })
@@ -609,7 +609,7 @@ ipcMain.handle('skills:set-enabled', async (_event, skillName: string, enabled: 
       await controller.skillsManager.setSkillEnabled(skillName, enabled)
     }
   } catch (error) {
-    logger.error('Failed to set skill enabled state', { error: error instanceof Error ? error.message : String(error) })
+    logger.error('Failed to set skill enabled state', { error: error })
     throw error
   }
 })
@@ -621,7 +621,7 @@ ipcMain.handle('skills:get-user-path', async () => {
     }
     return path.join(getUserDataPath(), 'skills')
   } catch (error) {
-    logger.error('Failed to get user skills path', { error: error instanceof Error ? error.message : String(error) })
+    logger.error('Failed to get user skills path', { error: error })
     throw error
   }
 })
@@ -632,7 +632,7 @@ ipcMain.handle('skills:reload', async () => {
       await controller.skillsManager.loadAllSkills()
     }
   } catch (error) {
-    logger.error('Failed to reload skills', { error: error instanceof Error ? error.message : String(error) })
+    logger.error('Failed to reload skills', { error: error })
     throw error
   }
 })
@@ -650,7 +650,7 @@ ipcMain.handle('skills:create', async (_event, metadata: SkillMetadata, content:
     }
     throw new Error('Skills manager not initialized')
   } catch (error) {
-    logger.error('Failed to create skill', { error: error instanceof Error ? error.message : String(error) })
+    logger.error('Failed to create skill', { error: error })
     throw error
   }
 })
@@ -661,7 +661,7 @@ ipcMain.handle('skills:delete', async (_event, skillId: string) => {
       await controller.skillsManager.deleteUserSkill(skillId)
     }
   } catch (error) {
-    logger.error('Failed to delete skill', { error: error instanceof Error ? error.message : String(error) })
+    logger.error('Failed to delete skill', { error: error })
     throw error
   }
 })
@@ -672,7 +672,7 @@ ipcMain.handle('skills:open-folder', async () => {
     await fs.mkdir(skillsPath, { recursive: true })
     shell.openPath(skillsPath)
   } catch (error) {
-    logger.error('Failed to open skills folder', { error: error instanceof Error ? error.message : String(error) })
+    logger.error('Failed to open skills folder', { error: error })
     throw error
   }
 })
@@ -684,7 +684,7 @@ ipcMain.handle('skills:import-zip', async (_event, zipPath: string, overwrite?: 
     }
     throw new Error('Skills manager not initialized')
   } catch (error) {
-    logger.error('Failed to import skill from ZIP', { error: error instanceof Error ? error.message : String(error) })
+    logger.error('Failed to import skill from ZIP', { error: error })
     throw error
   }
 })
@@ -697,7 +697,7 @@ const getAllCookies = async () => {
     const cookies = await session.defaultSession.cookies.get({ url: COOKIE_URL })
     return { success: true, cookies }
   } catch (error) {
-    // logger.error('readAll Cookie failed', { error: error instanceof Error ? error.message : String(error) })
+    // logger.error('readAll Cookie failed', { error: error })
     return { success: false, error }
   }
 }
@@ -708,7 +708,7 @@ const removeCookie = async (name) => {
     // logger.info(`removeSuccess Cookie: ${name} (${COOKIE_URL})`)
     return { success: true }
   } catch (error) {
-    // logger.error(`removeFailed Cookie  (${COOKIE_URL}, ${name})`, { error: error instanceof Error ? error.message : String(error) })
+    // logger.error(`removeFailed Cookie  (${COOKIE_URL}, ${name})`, { error: error })
     return { success: false, error }
   }
 }
@@ -729,7 +729,7 @@ ipcMain.handle('set-cookie', async (_, name, value, expirationDays) => {
     await session.defaultSession.cookies.set(cookie)
     return { success: true }
   } catch (error) {
-    // logger.error('Cookie set failed', { error: error instanceof Error ? error.message : String(error) })
+    // logger.error('Cookie set failed', { error: error })
     return { success: false, error }
   }
 })
@@ -780,7 +780,7 @@ ipcMain.handle('saveCustomBackground', async (_, sourcePath: string) => {
 
     return { success: true, path: targetPath, fileName, url: fileUrl }
   } catch (error) {
-    logger.error('Failed to save custom background', { error: error instanceof Error ? error.message : String(error) })
+    logger.error('Failed to save custom background', { error: error })
     return { success: false, error: error instanceof Error ? error.message : String(error) }
   }
 })
@@ -912,7 +912,7 @@ function setupIPC(): void {
 
       return { success: true, theme: dbTheme }
     } catch (error) {
-      logger.error('Database initialization failed', { error: error instanceof Error ? error.message : String(error) })
+      logger.error('Database initialization failed', { error: error })
       return { success: false, error: error instanceof Error ? error.message : 'Unknown error occurred' }
     }
   })
@@ -935,7 +935,7 @@ function setupIPC(): void {
         return db.getAllMigrationStatus()
       }
     } catch (error) {
-      logger.error('db:migration:status error', { error: error instanceof Error ? error.message : String(error) })
+      logger.error('db:migration:status error', { error: error })
       throw error
     }
   })
@@ -976,7 +976,7 @@ function setupIPC(): void {
           throw new Error('Invalid action')
       }
     } catch (error) {
-      logger.error('db:aliases:query error', { error: error instanceof Error ? error.message : String(error) })
+      logger.error('db:aliases:query error', { error: error })
       throw error
     }
   })
@@ -1013,7 +1013,7 @@ function setupIPC(): void {
           throw new Error('Invalid action')
       }
     } catch (error) {
-      logger.error('db:aliases:mutate error', { error: error instanceof Error ? error.message : String(error) })
+      logger.error('db:aliases:mutate error', { error: error })
       throw error
     }
   })
@@ -1042,7 +1042,7 @@ function setupIPC(): void {
         return db.getAllKeys()
       }
     } catch (error) {
-      logger.error('db:kv:get error', { error: error instanceof Error ? error.message : String(error) })
+      logger.error('db:kv:get error', { error: error })
       throw error
     }
   })
@@ -1093,7 +1093,7 @@ function setupIPC(): void {
           throw new Error('Invalid action')
       }
     } catch (error) {
-      logger.error('db:kv:mutate error', { error: error instanceof Error ? error.message : String(error) })
+      logger.error('db:kv:mutate error', { error: error })
       throw error
     }
   })
@@ -1116,7 +1116,7 @@ function setupIPC(): void {
           throw new Error(`Unknown version operation: ${operation}`)
       }
     } catch (error) {
-      logger.error(`version:operation [${operation}] error`, { error: error instanceof Error ? error.message : String(error) })
+      logger.error(`version:operation [${operation}] error`, { error: error })
 
       throw error
     }
@@ -1137,7 +1137,7 @@ function setupIPC(): void {
         throw error
       }
     } catch (error) {
-      logger.error('Failed to get editor config:', { error: error instanceof Error ? error.message : String(error) })
+      logger.error('Failed to get editor config:', { error: error })
       throw error
     }
   })
@@ -1155,7 +1155,7 @@ function setupIPC(): void {
 
       return { success: true }
     } catch (error) {
-      logger.error('Failed to save editor config:', { error: error instanceof Error ? error.message : String(error) })
+      logger.error('Failed to save editor config:', { error: error })
       throw error
     }
   })
@@ -1439,7 +1439,7 @@ function setupIPC(): void {
 
       return { success: true }
     } catch (error) {
-      logger.error('Failed to open security config', { error: error instanceof Error ? error.message : String(error) })
+      logger.error('Failed to open security config', { error: error })
       return { success: false, error: error instanceof Error ? error.message : String(error) }
     }
   })
@@ -1452,7 +1452,7 @@ function setupIPC(): void {
       const securityManager = new SecurityConfigManager()
       return securityManager.getConfigPath()
     } catch (error) {
-      logger.error('Failed to get security config path', { error: error instanceof Error ? error.message : String(error) })
+      logger.error('Failed to get security config path', { error: error })
       throw new Error(`Failed to get security config path: ${error instanceof Error ? error.message : String(error)}`)
     }
   })
@@ -1478,7 +1478,7 @@ function setupIPC(): void {
       logger.info(`Security config file read from: ${configPath}, length: ${content.length}`)
       return content
     } catch (error) {
-      logger.error('Failed to read security config', { error: error instanceof Error ? error.message : String(error) })
+      logger.error('Failed to read security config', { error: error })
       throw new Error(`Failed to read security config: ${error instanceof Error ? error.message : String(error)}`)
     }
   })
@@ -1510,7 +1510,7 @@ function setupIPC(): void {
 
       return { success: true }
     } catch (error) {
-      logger.error('Failed to write security config', { error: error instanceof Error ? error.message : String(error) })
+      logger.error('Failed to write security config', { error: error })
       throw new Error(`Failed to write security config: ${error instanceof Error ? error.message : String(error)}`)
     }
   })
@@ -1522,7 +1522,7 @@ function setupIPC(): void {
       const configPath = path.join(getUserDataPath(), 'keyword-highlight.json')
       return configPath
     } catch (error) {
-      logger.error('Failed to get keyword highlight config path', { error: error instanceof Error ? error.message : String(error) })
+      logger.error('Failed to get keyword highlight config path', { error: error })
       throw new Error(`Failed to get keyword highlight config path: ${error instanceof Error ? error.message : String(error)}`)
     }
   })
@@ -1573,7 +1573,7 @@ function setupIPC(): void {
       const content = await fs.readFile(configPath, 'utf-8')
       return content
     } catch (error) {
-      logger.error('Failed to read keyword highlight config', { error: error instanceof Error ? error.message : String(error) })
+      logger.error('Failed to read keyword highlight config', { error: error })
       throw new Error(`Failed to read keyword highlight config: ${error instanceof Error ? error.message : String(error)}`)
     }
   })
@@ -1591,7 +1591,7 @@ function setupIPC(): void {
 
       return { success: true }
     } catch (error) {
-      logger.error('Failed to write keyword highlight config', { error: error instanceof Error ? error.message : String(error) })
+      logger.error('Failed to write keyword highlight config', { error: error })
       throw new Error(`Failed to write keyword highlight config: ${error instanceof Error ? error.message : String(error)}`)
     }
   })
@@ -1604,7 +1604,7 @@ ipcMain.handle('query-command', async (_, data) => {
     const result = autoCompleteService.queryCommand(command, ip)
     return result
   } catch (error) {
-    logger.error('Query command failed', { error: error instanceof Error ? error.message : String(error) })
+    logger.error('Query command failed', { error: error })
     return null
   }
 })
@@ -1615,7 +1615,7 @@ ipcMain.handle('insert-command', async (_, data) => {
     const result = autoCompleteService.insertCommand(command, ip)
     return result
   } catch (error) {
-    logger.error('Insert command failed', { error: error instanceof Error ? error.message : String(error) })
+    logger.error('Insert command failed', { error: error })
     return null
   }
 })
@@ -1627,7 +1627,7 @@ ipcMain.handle('asset-route-local-get', async (_, data) => {
     const result = await chatermDbService.getLocalAssetRoute(searchType, params || [])
     return result
   } catch (error) {
-    logger.error('Chaterm query failed', { error: error instanceof Error ? error.message : String(error) })
+    logger.error('Chaterm query failed', { error: error })
     return null
   }
 })
@@ -1638,7 +1638,7 @@ ipcMain.handle('asset-route-local-update', async (_, data) => {
     const result = chatermDbService.updateLocalAssetLabel(uuid, label)
     return result
   } catch (error) {
-    logger.error('Chaterm data modification failed', { error: error instanceof Error ? error.message : String(error) })
+    logger.error('Chaterm data modification failed', { error: error })
     return null
   }
 })
@@ -1649,7 +1649,7 @@ ipcMain.handle('asset-route-local-favorite', async (_, data) => {
     const result = chatermDbService.updateLocalAsseFavorite(uuid, status)
     return result
   } catch (error) {
-    logger.error('Chaterm data modification failed', { error: error instanceof Error ? error.message : String(error) })
+    logger.error('Chaterm data modification failed', { error: error })
     return null
   }
 })
@@ -1659,7 +1659,7 @@ ipcMain.handle('key-chain-local-get', async () => {
     const result = chatermDbService.getKeyChainSelect()
     return result
   } catch (error) {
-    logger.error('Chaterm get data failed', { error: error instanceof Error ? error.message : String(error) })
+    logger.error('Chaterm get data failed', { error: error })
     return null
   }
 })
@@ -1669,7 +1669,7 @@ ipcMain.handle('asset-group-local-get', async () => {
     const result = chatermDbService.getAssetGroup()
     return result
   } catch (error) {
-    logger.error('Chaterm get data failed', { error: error instanceof Error ? error.message : String(error) })
+    logger.error('Chaterm get data failed', { error: error })
     return null
   }
 })
@@ -1680,7 +1680,7 @@ ipcMain.handle('asset-delete', async (_, data) => {
     const result = chatermDbService.deleteAsset(uuid)
     return result
   } catch (error) {
-    logger.error('Chaterm delete data failed', { error: error instanceof Error ? error.message : String(error) })
+    logger.error('Chaterm delete data failed', { error: error })
     return null
   }
 })
@@ -1691,7 +1691,7 @@ ipcMain.handle('asset-create', async (_, data) => {
     const result = chatermDbService.createAsset(form)
     return result
   } catch (error) {
-    logger.error('Chaterm create asset failed', { error: error instanceof Error ? error.message : String(error) })
+    logger.error('Chaterm create asset failed', { error: error })
     return null
   }
 })
@@ -1702,7 +1702,7 @@ ipcMain.handle('asset-create-or-update', async (_, data) => {
     const result = chatermDbService.createOrUpdateAsset(form)
     return result
   } catch (error) {
-    logger.error('Chaterm create or update asset failed', { error: error instanceof Error ? error.message : String(error) })
+    logger.error('Chaterm create or update asset failed', { error: error })
     return null
   }
 })
@@ -1713,7 +1713,7 @@ ipcMain.handle('asset-update', async (_, data) => {
     const result = chatermDbService.updateAsset(form)
     return result
   } catch (error) {
-    logger.error('Chaterm update asset failed', { error: error instanceof Error ? error.message : String(error) })
+    logger.error('Chaterm update asset failed', { error: error })
     return null
   }
 })
@@ -1737,7 +1737,7 @@ ipcMain.handle('parseXtsFile', async (_, data) => {
       zip = new AdmZip(buffer)
       zipEntries = zip.getEntries()
     } catch (error) {
-      logger.error('Failed to create ZIP object', { error: error instanceof Error ? error.message : String(error) })
+      logger.error('Failed to create ZIP object', { error: error })
       throw error
     }
 
@@ -1849,7 +1849,7 @@ ipcMain.handle('parseXtsFile', async (_, data) => {
             sessions.push(session)
           }
         } catch (error) {
-          logger.error(`Failed to parse session file ${entryName}`, { error: error instanceof Error ? error.message : String(error) })
+          logger.error(`Failed to parse session file ${entryName}`, { error: error })
         }
       }
     }
@@ -1862,7 +1862,7 @@ ipcMain.handle('parseXtsFile', async (_, data) => {
       count: sessions.length
     }
   } catch (error) {
-    logger.error('XTS file parsing failed', { error: error instanceof Error ? error.message : String(error) })
+    logger.error('XTS file parsing failed', { error: error })
     return {
       success: false,
       error: error instanceof Error ? error.message : String(error),
@@ -2053,7 +2053,7 @@ ipcMain.handle('key-chain-local-get-list', async () => {
     const result = chatermDbService.getKeyChainList()
     return result
   } catch (error) {
-    logger.error('Chaterm get asset failed', { error: error instanceof Error ? error.message : String(error) })
+    logger.error('Chaterm get asset failed', { error: error })
     return null
   }
 })
@@ -2064,7 +2064,7 @@ ipcMain.handle('key-chain-local-create', async (_, data) => {
     const result = chatermDbService.createKeyChain(form)
     return result
   } catch (error) {
-    logger.error('Chaterm create keychain failed', { error: error instanceof Error ? error.message : String(error) })
+    logger.error('Chaterm create keychain failed', { error: error })
     return null
   }
 })
@@ -2075,7 +2075,7 @@ ipcMain.handle('key-chain-local-delete', async (_, data) => {
     const result = chatermDbService.deleteKeyChain(id)
     return result
   } catch (error) {
-    logger.error('Chaterm delete keychain failed', { error: error instanceof Error ? error.message : String(error) })
+    logger.error('Chaterm delete keychain failed', { error: error })
     return null
   }
 })
@@ -2086,7 +2086,7 @@ ipcMain.handle('key-chain-local-get-info', async (_, data) => {
     const result = chatermDbService.getKeyChainInfo(id)
     return result
   } catch (error) {
-    logger.error('Chaterm get keychain failed', { error: error instanceof Error ? error.message : String(error) })
+    logger.error('Chaterm get keychain failed', { error: error })
     return null
   }
 })
@@ -2097,7 +2097,7 @@ ipcMain.handle('key-chain-local-update', async (_, data) => {
     const result = chatermDbService.updateKeyChain(form)
     return result
   } catch (error) {
-    logger.error('Chaterm update keychain failed', { error: error instanceof Error ? error.message : String(error) })
+    logger.error('Chaterm update keychain failed', { error: error })
     return null
   }
 })
@@ -2108,7 +2108,7 @@ ipcMain.handle('chaterm-connect-asset-info', async (_, data) => {
     const result = chatermDbService.connectAssetInfo(uuid)
     return result
   } catch (error) {
-    logger.error('Chaterm get asset info failed', { error: error instanceof Error ? error.message : String(error) })
+    logger.error('Chaterm get asset info failed', { error: error })
     return null
   }
 })
@@ -2119,7 +2119,7 @@ ipcMain.handle('agent-chaterm-messages', async (_, data) => {
     const result = chatermDbService.getSavedChatermMessages(taskId)
     return result
   } catch (error) {
-    logger.error('Chaterm get UI messages failed', { error: error instanceof Error ? error.message : String(error) })
+    logger.error('Chaterm get UI messages failed', { error: error })
     return null
   }
 })
@@ -2132,7 +2132,7 @@ ipcMain.handle('execute-remote-command', async () => {
     logger.debug('executeRemoteCommand output', { value: output }) // Add log
     return { success: true, output }
   } catch (error) {
-    logger.error('Failed to execute remote command in main process', { error: error instanceof Error ? error.message : String(error) }) // Modified log
+    logger.error('Failed to execute remote command in main process', { error: error }) // Modified log
     if (error instanceof Error) {
       return {
         success: false,
@@ -2161,7 +2161,7 @@ ipcMain.handle('get-user-hosts', async (_, data) => {
     const result = chatermDbService.getUserHosts(search, limit)
     return result
   } catch (error) {
-    logger.error('Chaterm get user hosts list failed', { error: error instanceof Error ? error.message : String(error) })
+    logger.error('Chaterm get user hosts list failed', { error: error })
     return null
   }
 })
@@ -2172,7 +2172,7 @@ ipcMain.handle('user-snippet-operation', async (_, data) => {
     const result = chatermDbService.userSnippetOperation(operation, params)
     return result
   } catch (error) {
-    logger.error('Chaterm user snippet operation failed', { error: error instanceof Error ? error.message : String(error) })
+    logger.error('Chaterm user snippet operation failed', { error: error })
     return {
       code: 500,
       message: error instanceof Error ? error.message : 'Unknown error occurred'
@@ -2252,7 +2252,7 @@ ipcMain.handle('refresh-organization-assets', async (event, data) => {
     )
     return result
   } catch (error) {
-    logger.error('Failed to refresh organization assets', { error: error instanceof Error ? error.message : String(error) })
+    logger.error('Failed to refresh organization assets', { error: error })
     return { data: { message: 'failed', error: error instanceof Error ? error.message : String(error) } }
   }
 })
@@ -2269,7 +2269,7 @@ ipcMain.handle('organization-asset-favorite', async (_, data) => {
     const result = chatermDbService.updateOrganizationAssetFavorite(organizationUuid, host, status)
     return result
   } catch (error) {
-    logger.error('Main process organization-asset-favorite error', { error: error instanceof Error ? error.message : String(error) })
+    logger.error('Main process organization-asset-favorite error', { error: error })
     return { data: { message: 'failed', error: error instanceof Error ? error.message : String(error) } }
   }
 })
@@ -2286,7 +2286,7 @@ ipcMain.handle('organization-asset-comment', async (_, data) => {
     const result = chatermDbService.updateOrganizationAssetComment(organizationUuid, host, comment || '')
     return result
   } catch (error) {
-    logger.error('Main process organization-asset-comment error', { error: error instanceof Error ? error.message : String(error) })
+    logger.error('Main process organization-asset-comment error', { error: error })
     return { data: { message: 'failed', error: error instanceof Error ? error.message : String(error) } }
   }
 })
@@ -2304,7 +2304,7 @@ ipcMain.handle('create-custom-folder', async (_, data) => {
     const result = chatermDbService.createCustomFolder(name, description)
     return result
   } catch (error) {
-    logger.error('Main process create-custom-folder error', { error: error instanceof Error ? error.message : String(error) })
+    logger.error('Main process create-custom-folder error', { error: error })
     return { data: { message: 'failed', error: error instanceof Error ? error.message : String(error) } }
   }
 })
@@ -2314,7 +2314,7 @@ ipcMain.handle('get-custom-folders', async () => {
     const result = chatermDbService.getCustomFolders()
     return result
   } catch (error) {
-    logger.error('Main process get-custom-folders error', { error: error instanceof Error ? error.message : String(error) })
+    logger.error('Main process get-custom-folders error', { error: error })
     return { data: { message: 'failed', error: error instanceof Error ? error.message : String(error) } }
   }
 })
@@ -2331,7 +2331,7 @@ ipcMain.handle('update-custom-folder', async (_, data) => {
     const result = chatermDbService.updateCustomFolder(folderUuid, name, description)
     return result
   } catch (error) {
-    logger.error('Main process update-custom-folder error', { error: error instanceof Error ? error.message : String(error) })
+    logger.error('Main process update-custom-folder error', { error: error })
     return { data: { message: 'failed', error: error instanceof Error ? error.message : String(error) } }
   }
 })
@@ -2348,7 +2348,7 @@ ipcMain.handle('delete-custom-folder', async (_, data) => {
     const result = chatermDbService.deleteCustomFolder(folderUuid)
     return result
   } catch (error) {
-    logger.error('Main process delete-custom-folder error', { error: error instanceof Error ? error.message : String(error) })
+    logger.error('Main process delete-custom-folder error', { error: error })
     return { data: { message: 'failed', error: error instanceof Error ? error.message : String(error) } }
   }
 })
@@ -2365,7 +2365,7 @@ ipcMain.handle('move-asset-to-folder', async (_, data) => {
     const result = chatermDbService.moveAssetToFolder(folderUuid, organizationUuid, assetHost)
     return result
   } catch (error) {
-    logger.error('Main process move-asset-to-folder error', { error: error instanceof Error ? error.message : String(error) })
+    logger.error('Main process move-asset-to-folder error', { error: error })
     return { data: { message: 'failed', error: error instanceof Error ? error.message : String(error) } }
   }
 })
@@ -2382,7 +2382,7 @@ ipcMain.handle('remove-asset-from-folder', async (_, data) => {
     const result = chatermDbService.removeAssetFromFolder(folderUuid, organizationUuid, assetHost)
     return result
   } catch (error) {
-    logger.error('Main process remove-asset-from-folder error', { error: error instanceof Error ? error.message : String(error) })
+    logger.error('Main process remove-asset-from-folder error', { error: error })
     return { data: { message: 'failed', error: error instanceof Error ? error.message : String(error) } }
   }
 })
@@ -2399,7 +2399,7 @@ ipcMain.handle('get-assets-in-folder', async (_, data) => {
     const result = chatermDbService.getAssetsInFolder(folderUuid)
     return result
   } catch (error) {
-    logger.error('Main process get-assets-in-folder error', { error: error instanceof Error ? error.message : String(error) })
+    logger.error('Main process get-assets-in-folder error', { error: error })
     return { data: { message: 'failed', error: error instanceof Error ? error.message : String(error) } }
   }
 })
@@ -2417,7 +2417,7 @@ ipcMain.handle('capture-telemetry-event', async (_, { eventType, data }) => {
     }
     return { success: true }
   } catch (error) {
-    logger.error('Failed to capture telemetry event', { error: error instanceof Error ? error.message : String(error) })
+    logger.error('Failed to capture telemetry event', { error: error })
     return { success: false, error: error instanceof Error ? error.message : 'Unknown error' }
   }
 })
@@ -2632,7 +2632,7 @@ const handleProtocolRedirect = async (url: string) => {
         }
       }
     } catch (error) {
-      logger.error('Failed to get original window', { error: error instanceof Error ? error.message : String(error) })
+      logger.error('Failed to get original window', { error: error })
     }
   }
 
@@ -2665,7 +2665,7 @@ const handleProtocolRedirect = async (url: string) => {
       // So we handle data sync restart through init-user-database after renderer process finishes login
       logger.info('External login succeeded, waiting for renderer process to handle user initialization...')
     } catch (error) {
-      logger.error('Failed to process external login data', { error: error instanceof Error ? error.message : String(error) })
+      logger.error('Failed to process external login data', { error: error })
     }
   }
 }
@@ -2726,7 +2726,7 @@ ipcMain.handle('open-external-login', async () => {
       const localPluginsJson = JSON.stringify(localPlugins)
       localPluginsEncoded = encodeURIComponent(localPluginsJson)
     } catch (error) {
-      logger.error('Failed to get plugin versions', { error: error instanceof Error ? error.message : String(error) })
+      logger.error('Failed to get plugin versions', { error: error })
       localPluginsEncoded = encodeURIComponent(JSON.stringify({}))
     }
 
@@ -2750,7 +2750,7 @@ ipcMain.handle('open-external-login', async () => {
           expirationDate: Date.now() / 1000 + 600 // 10 minutes expiry
         })
       } catch (error) {
-        logger.error('Failed to save auth state', { error: error instanceof Error ? error.message : String(error) })
+        logger.error('Failed to save auth state', { error: error })
       }
     }
 
@@ -2758,7 +2758,7 @@ ipcMain.handle('open-external-login', async () => {
     await shell.openExternal(externalLoginUrl)
     return { success: true }
   } catch (error) {
-    logger.error('Failed to open external login page', { error: error instanceof Error ? error.message : String(error) })
+    logger.error('Failed to open external login page', { error: error })
     return { success: false, error: error instanceof Error ? error.message : String(error) }
   }
 })

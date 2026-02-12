@@ -19,7 +19,7 @@ export function useVersionPrompt() {
       await promptStore.loadPrompt()
       hasLoaded.value = true
     } catch (error) {
-      logger.error('[VersionPrompt] Failed to load, will retry on next navigation', { error: String(error) })
+      logger.error('[VersionPrompt] Failed to load, will retry on next navigation', { error: error })
     }
   }
 

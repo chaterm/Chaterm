@@ -313,7 +313,7 @@ const checkUrlForAuthCallback = async () => {
       if (platform.value === 'linux') {
         logger.debug('Linux platform handling auth')
         api.handleProtocolUrl(chatermUrl).catch((error: any) => {
-          logger.error('Handle protocol URL failed', { error: String(error) })
+          logger.error('Handle protocol URL failed', { error: error })
         })
       }
     }
@@ -551,11 +551,11 @@ const skipLogin = async () => {
     try {
       await router.replace({ path: '/', replace: true })
     } catch (error) {
-      logger.error('Route jump failed', { error: String(error) })
+      logger.error('Route jump failed', { error: error })
       message.error(t('login.routeNavigationFailed'))
     }
   } catch (error) {
-    logger.error('Skip login handle failed', { error: String(error) })
+    logger.error('Skip login handle failed', { error: error })
     message.error(t('login.operationFailed'))
     localStorage.removeItem('login-skipped')
     localStorage.removeItem('ctm-token')
@@ -570,7 +570,7 @@ const handleExternalLogin = async () => {
     const api = window.api as any
     await api.openExternalLogin()
   } catch (err) {
-    logger.error('Start external login failed', { error: String(err) })
+    logger.error('Start external login failed', { error: err })
     message.error(t('login.externalLoginFailed'))
   } finally {
     externalLoginLoading.value = false
@@ -614,7 +614,7 @@ onMounted(async () => {
         }
         return false
       } catch (error) {
-        logger.error('Login handle failed', { error: String(error) })
+        logger.error('Login handle failed', { error: error })
         message.error(t('login.loginProcessFailed'))
         await captureButtonClick(LoginFunnelEvents.LOGIN_FAILED, {
           method: method,

@@ -318,7 +318,7 @@ const loadBastionDefinitions = async () => {
       types: availableBastions.value.map((d) => d.type)
     })
   } catch (error) {
-    logger.warn('Failed to load bastion definitions', { error: error instanceof Error ? error.message : String(error) })
+    logger.warn('Failed to load bastion definitions', { error: error })
     availableBastions.value = []
   }
 }

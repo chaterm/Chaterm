@@ -210,7 +210,7 @@ export class SecurityConfigManager {
         logger.info("Config file doesn't exist, generating default config...")
         await this.generateDefaultConfigFile()
       } else {
-        logger.warn('Failed to load security config file, using default config', { error: error instanceof Error ? error.message : String(error) })
+        logger.warn('Failed to load security config file, using default config', { error: error })
       }
     }
   }
@@ -287,7 +287,7 @@ export class SecurityConfigManager {
       await this.saveConfigWithComments()
       logger.info('Default security config file generated')
     } catch (error) {
-      logger.error('Failed to generate default config file', { error: error instanceof Error ? error.message : String(error) })
+      logger.error('Failed to generate default config file', { error: error })
     }
   }
 
@@ -314,7 +314,7 @@ export class SecurityConfigManager {
       const configDir = path.dirname(this.configPath)
       await shell.openPath(configDir)
     } catch (error) {
-      logger.error('Failed to open config directory', { error: error instanceof Error ? error.message : String(error) })
+      logger.error('Failed to open config directory', { error: error })
     }
   }
 
@@ -329,7 +329,7 @@ export class SecurityConfigManager {
       // Open configuration file directly
       await shell.openPath(this.configPath)
     } catch (error) {
-      logger.error('Failed to open config file', { error: error instanceof Error ? error.message : String(error) })
+      logger.error('Failed to open config file', { error: error })
       throw error
     }
   }
@@ -409,7 +409,7 @@ ${config.dangerousCommands.map((cmd) => `      "${cmd.replace(/\\/g, '\\\\')}"`)
       await fs.writeFile(this.configPath, configContent, 'utf-8')
       logger.info('Security config with comments saved to', { value: this.configPath })
     } catch (error) {
-      logger.error('Failed to save security config with comments', { error: error instanceof Error ? error.message : String(error) })
+      logger.error('Failed to save security config with comments', { error: error })
       throw error
     }
   }

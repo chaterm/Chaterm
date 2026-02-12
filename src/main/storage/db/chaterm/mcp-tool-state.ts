@@ -26,7 +26,7 @@ export function getToolStateLogic(db: Database.Database, serverName: string, too
     const result = stmt.get(serverName, toolName) as McpToolState | undefined
     return result || null
   } catch (error) {
-    logger.error('Failed to get tool state', { error: error instanceof Error ? error.message : String(error) })
+    logger.error('Failed to get tool state', { error: error })
     throw error
   }
 }
@@ -50,7 +50,7 @@ export function setToolStateLogic(db: Database.Database, serverName: string, too
     stmt.run(serverName, toolName, enabledValue, enabledValue)
     logger.info(`Tool state updated: ${serverName}:${toolName} = ${enabled}`)
   } catch (error) {
-    logger.error('Failed to set tool state', { error: error instanceof Error ? error.message : String(error) })
+    logger.error('Failed to set tool state', { error: error })
     throw error
   }
 }
@@ -70,7 +70,7 @@ export function getServerToolStatesLogic(db: Database.Database, serverName: stri
     `)
     return stmt.all(serverName) as McpToolState[]
   } catch (error) {
-    logger.error('Failed to get server tool states', { error: error instanceof Error ? error.message : String(error) })
+    logger.error('Failed to get server tool states', { error: error })
     throw error
   }
 }
@@ -96,7 +96,7 @@ export function getAllToolStatesLogic(db: Database.Database): Record<string, boo
 
     return statesMap
   } catch (error) {
-    logger.error('Failed to get all tool states', { error: error instanceof Error ? error.message : String(error) })
+    logger.error('Failed to get all tool states', { error: error })
     throw error
   }
 }
@@ -114,7 +114,7 @@ export function deleteServerToolStatesLogic(db: Database.Database, serverName: s
     stmt.run(serverName)
     logger.info(`All tool states for server ${serverName} deleted`)
   } catch (error) {
-    logger.error('Failed to delete server tool states', { error: error instanceof Error ? error.message : String(error) })
+    logger.error('Failed to delete server tool states', { error: error })
     throw error
   }
 }

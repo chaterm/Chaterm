@@ -137,7 +137,7 @@ export function useCommandInteraction(params: CommandInteractionOptions) {
       session.responseLoading = true
       params.scrollToBottom(true)
     } catch (error) {
-      logger.error('Failed to send message to main process', { error: error instanceof Error ? error.message : String(error) })
+      logger.error('Failed to send message to main process', { error: error })
     }
   }
 
@@ -192,7 +192,7 @@ export function useCommandInteraction(params: CommandInteractionOptions) {
       session.responseLoading = true
       params.scrollToBottom(true)
     } catch (error) {
-      logger.error('Failed to send message to main process', { error: error instanceof Error ? error.message : String(error) })
+      logger.error('Failed to send message to main process', { error: error })
     }
   }
 
@@ -230,7 +230,7 @@ export function useCommandInteraction(params: CommandInteractionOptions) {
       session.responseLoading = true
       params.scrollToBottom(true)
     } catch (error) {
-      logger.error('Failed to approve and enable read-only auto-approval', { error: error instanceof Error ? error.message : String(error) })
+      logger.error('Failed to approve and enable read-only auto-approval', { error: error })
     }
   }
 
@@ -270,7 +270,7 @@ export function useCommandInteraction(params: CommandInteractionOptions) {
       session.responseLoading = true
       params.scrollToBottom(true)
     } catch (error) {
-      logger.error('Failed to approve and set auto-approve', { error: error instanceof Error ? error.message : String(error) })
+      logger.error('Failed to approve and set auto-approve', { error: error })
     }
   }
 
@@ -306,7 +306,7 @@ export function useCommandInteraction(params: CommandInteractionOptions) {
       const response = await window.api.cancelTask(currentChatId.value ?? undefined)
       logger.info('Main process cancel response', { data: response })
     } catch (error) {
-      logger.error('Failed to send cancel request', { error: error instanceof Error ? error.message : String(error) })
+      logger.error('Failed to send cancel request', { error: error })
     }
   }
 

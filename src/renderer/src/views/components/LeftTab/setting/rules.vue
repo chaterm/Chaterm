@@ -194,7 +194,7 @@ const loadUserRules = async () => {
       logger.info('Successfully migrated customInstructions to userRules')
     }
   } catch (error) {
-    logger.error('Failed to load user rules', { error: error instanceof Error ? error.message : String(error) })
+    logger.error('Failed to load user rules', { error: error })
     userRules.value = []
   }
 }
@@ -211,7 +211,7 @@ const saveUserRules = async () => {
       })) // Save ID, content and enabled state, do not save editing state
     await updateGlobalState('userRules', rulesToSave)
   } catch (error) {
-    logger.error('Failed to save user rules', { error: error instanceof Error ? error.message : String(error) })
+    logger.error('Failed to save user rules', { error: error })
   }
 }
 

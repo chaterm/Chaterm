@@ -23,7 +23,7 @@ async function loadModules() {
     const cryptoModule = await import('./clientSideCrypto')
     ClientSideCrypto = cryptoModule.default || cryptoModule.ClientSideCrypto
   } catch (error) {
-    logger.error('Failed to load modules', { error: error instanceof Error ? error.message : String(error) })
+    logger.error('Failed to load modules', { error: error })
     throw new Error('Unable to load encryption modules')
   }
 }
@@ -72,7 +72,7 @@ export class EnvelopeEncryptionService {
       this._clientCrypto = new ClientSideCrypto(kmsServerUrl)
       this.modulesLoaded = true
     } catch (error) {
-      logger.error('Failed to initialize encryption service modules', { error: error instanceof Error ? error.message : String(error) })
+      logger.error('Failed to initialize encryption service modules', { error: error })
       this.initializationFailed = true
       this.lastInitError = (error as Error).message
     }
@@ -262,7 +262,7 @@ export class EnvelopeEncryptionService {
       await this._clientCrypto.rotateDataKey()
       return { success: true, message: 'Key rotation successful' }
     } catch (error) {
-      logger.error('Key rotation failed', { error: error instanceof Error ? error.message : String(error) })
+      logger.error('Key rotation failed', { error: error })
       return { success: false, message: `Key rotation failed: ${(error as Error).message}` }
     }
   }
@@ -284,7 +284,7 @@ export class EnvelopeEncryptionService {
         }
       }
     } catch (error) {
-      logger.error('Health check failed', { error: error instanceof Error ? error.message : String(error) })
+      logger.error('Health check failed', { error: error })
       return {
         service: {
           status: 'error',
@@ -361,7 +361,7 @@ export class EnvelopeEncryptionService {
       logger.info('Encryption service cleanup completed')
       return { success: true, message: 'Service cleanup completed' }
     } catch (error) {
-      logger.error('Service cleanup failed', { error: error instanceof Error ? error.message : String(error) })
+      logger.error('Service cleanup failed', { error: error })
       return { success: false, message: `Cleanup failed: ${(error as Error).message}` }
     }
   }
@@ -379,7 +379,7 @@ export class EnvelopeEncryptionService {
       // Clear all stored data (including encrypted data keys and session information)
       await storage.cleanup(userId)
     } catch (error) {
-      logger.warn('Error clearing stored keys', { error: error instanceof Error ? error.message : String(error) })
+      logger.warn('Error clearing stored keys', { error: error })
       // Don't throw error, allow initialization to continue
     }
   }

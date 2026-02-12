@@ -148,7 +148,7 @@ const startRecording = async () => {
     }
 
     mediaRecorder.value.onerror = (event) => {
-      logger.error('Recording error', { error: event.error instanceof Error ? event.error.message : String(event.error) })
+      logger.error('Recording error', { error: event.error })
       notification.error({
         message: t('ai.recordingFailed'),
         description: t('ai.recordingErrorDesc'),
@@ -181,7 +181,7 @@ const startRecording = async () => {
       }
     }, 60000)
   } catch (error) {
-    logger.error('Voice input failed', { error: error instanceof Error ? error.message : String(error) })
+    logger.error('Voice input failed', { error: error })
 
     let errorMessage = t('ai.voiceInputFailed')
     if (error instanceof Error) {
@@ -209,7 +209,7 @@ const stopRecording = () => {
     try {
       mediaRecorder.value.stop()
     } catch (error) {
-      logger.error('Recording stop error', { error: error instanceof Error ? error.message : String(error) })
+      logger.error('Recording stop error', { error: error })
     }
 
     isRecording.value = false
@@ -322,7 +322,7 @@ const transcribeAudio = async (audioBlob: Blob) => {
       emit('transcription-error', t('ai.voiceRecognitionEmpty'))
     }
   } catch (error) {
-    logger.error('Voice recognition failed', { error: error instanceof Error ? error.message : String(error) })
+    logger.error('Voice recognition failed', { error: error })
     const errorMessage = (error instanceof Error ? error.message : String(error)) || t('ai.voiceRecognitionServiceUnavailable')
 
     notification.error({

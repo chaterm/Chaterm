@@ -222,7 +222,7 @@ export class McpHub {
 
       return result.data
     } catch (error) {
-      logger.error('Failed to read MCP settings', { error: error instanceof Error ? error.message : String(error) })
+      logger.error('Failed to read MCP settings', { error: error })
       return undefined
     }
   }
@@ -258,7 +258,7 @@ export class McpHub {
             })
           }
         } catch (error) {
-          logger.error('Failed to read MCP config file for change notification', { error: error instanceof Error ? error.message : String(error) })
+          logger.error('Failed to read MCP config file for change notification', { error: error })
         }
         return
       }
@@ -270,13 +270,13 @@ export class McpHub {
         try {
           await this.updateServerConnections(settings.mcpServers)
         } catch (error) {
-          logger.error('Failed to process MCP settings change', { error: error instanceof Error ? error.message : String(error) })
+          logger.error('Failed to process MCP settings change', { error: error })
         }
       }
     })
 
     this.settingsWatcher.on('error', (error) => {
-      logger.error('Error watching MCP settings file', { error: error instanceof Error ? error.message : String(error) })
+      logger.error('Error watching MCP settings file', { error: error })
     })
   }
 
@@ -375,7 +375,7 @@ export class McpHub {
           })
 
           transport.onerror = async (error) => {
-            logger.error(`Transport error for "${name}"`, { error: error instanceof Error ? error.message : String(error) })
+            logger.error(`Transport error for "${name}"`, { error: error })
             const connection = this.findConnection(name)
             if (connection) {
               connection.server.status = 'disconnected'
@@ -442,7 +442,7 @@ export class McpHub {
             }
 
             const errorMessage = error instanceof Error ? error.message : `${error}`
-            logger.error(`Transport error for "${name}"`, { error: error instanceof Error ? error.message : String(error) })
+            logger.error(`Transport error for "${name}"`, { error: error })
             connection.server.status = 'disconnected'
             this.appendErrorMessage(connection, errorMessage)
 
@@ -571,7 +571,7 @@ export class McpHub {
         }
         //logger.info(`[MCP Debug] Successfully set fallback notification handler for ${name}`)
       } catch (error) {
-        logger.error(`[MCP Debug] Error setting notification handlers for ${name}`, { error: error instanceof Error ? error.message : String(error) })
+        logger.error(`[MCP Debug] Error setting notification handlers for ${name}`, { error: error })
       }
 
       // Initial fetch of tools and resources
@@ -631,7 +631,7 @@ export class McpHub {
 
       return tools
     } catch (error) {
-      logger.error(`Failed to fetch tools for ${serverName}`, { error: error instanceof Error ? error.message : String(error) })
+      logger.error(`Failed to fetch tools for ${serverName}`, { error: error })
       return []
     }
   }
@@ -654,7 +654,7 @@ export class McpHub {
       })
       return response?.resources || []
     } catch (_error) {
-      // logger.error(`Failed to fetch resources for ${serverName}`, { error: error instanceof Error ? error.message : String(error) })
+      // logger.error(`Failed to fetch resources for ${serverName}`, { error: error })
       return []
     }
   }
@@ -678,7 +678,7 @@ export class McpHub {
 
       return response?.resourceTemplates || []
     } catch (_error) {
-      // logger.error(`Failed to fetch resource templates for ${serverName}`, { error: error instanceof Error ? error.message : String(error) })
+      // logger.error(`Failed to fetch resource templates for ${serverName}`, { error: error })
       return []
     }
   }
@@ -790,7 +790,7 @@ export class McpHub {
       // Notify frontend of successful reconnection
       await this.notifyWebviewOfServerChanges()
     } catch (error) {
-      logger.warn(`Reconnection attempt failed for MCP server "${name}"`, { error: error instanceof Error ? error.message : String(error) })
+      logger.warn(`Reconnection attempt failed for MCP server "${name}"`, { error: error })
 
       const reconnConnection = this.connections.find((conn) => conn.server.name === name)
       if (reconnConnection) {
@@ -814,7 +814,7 @@ export class McpHub {
           await connection.client.close()
         }
       } catch (error) {
-        logger.error(`Failed to close transport for ${name}`, { error: error instanceof Error ? error.message : String(error) })
+        logger.error(`Failed to close transport for ${name}`, { error: error })
       }
       this.connections = this.connections.filter((conn) => conn.server.name !== name)
     }
@@ -849,7 +849,7 @@ export class McpHub {
               }
               await this.connectToServer(name, config, 'internal')
             } catch (error) {
-              logger.error(`Failed to connect to new MCP server ${name}`, { error: error instanceof Error ? error.message : String(error) })
+              logger.error(`Failed to connect to new MCP server ${name}`, { error: error })
             }
           })()
         )
@@ -865,7 +865,7 @@ export class McpHub {
               await this.connectToServer(name, config, 'internal')
               logger.info(`Reconnected MCP server with updated config: ${name}`)
             } catch (error) {
-              logger.error(`Failed to reconnect MCP server ${name}`, { error: error instanceof Error ? error.message : String(error) })
+              logger.error(`Failed to reconnect MCP server ${name}`, { error: error })
             }
           })()
         )
@@ -960,7 +960,7 @@ export class McpHub {
           })
         }
       } catch (error) {
-        logger.error(`Failed to restart connection for ${serverName}`, { error: error instanceof Error ? error.message : String(error) })
+        logger.error(`Failed to restart connection for ${serverName}`, { error: error })
         if (this.postMessageToWebview) {
           await this.postMessageToWebview({
             type: 'notification',
@@ -1049,7 +1049,7 @@ export class McpHub {
       // Rollback in-memory state on error
       connection.server.disabled = originalDisabled
       await this.notifyWebviewOfSingleServerChange(serverName)
-      logger.error(`Failed to toggle server ${serverName}`, { error: error instanceof Error ? error.message : String(error) })
+      logger.error(`Failed to toggle server ${serverName}`, { error: error })
       throw error
     }
   }
@@ -1082,7 +1082,7 @@ export class McpHub {
       // Notify webview with updated server list
       await this.notifyWebviewOfServerChanges()
     } catch (error) {
-      logger.error(`Failed to delete server ${serverName}`, { error: error instanceof Error ? error.message : String(error) })
+      logger.error(`Failed to delete server ${serverName}`, { error: error })
       throw error
     }
   }
@@ -1138,7 +1138,7 @@ export class McpHub {
         connection.server.resources = []
         connection.server.resourceTemplates = []
       } catch (error) {
-        logger.error(`Failed to disconnect ${serverName}`, { error: error instanceof Error ? error.message : String(error) })
+        logger.error(`Failed to disconnect ${serverName}`, { error: error })
         throw error
       }
     }
@@ -1298,7 +1298,7 @@ export class McpHub {
         await this.notifyWebviewOfServerChanges()
       }
     } catch (error) {
-      logger.error('Failed to update autoApprove settings', { error: error instanceof Error ? error.message : String(error) })
+      logger.error('Failed to update autoApprove settings', { error: error })
       if (this.postMessageToWebview) {
         await this.postMessageToWebview({
           type: 'notification',
@@ -1350,7 +1350,7 @@ export class McpHub {
       try {
         await this.deleteConnection(connection.server.name)
       } catch (error) {
-        logger.error(`Failed to close connection for ${connection.server.name}`, { error: error instanceof Error ? error.message : String(error) })
+        logger.error(`Failed to close connection for ${connection.server.name}`, { error: error })
       }
     }
     this.connections = []

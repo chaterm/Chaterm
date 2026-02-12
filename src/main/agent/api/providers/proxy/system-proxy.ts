@@ -40,7 +40,7 @@ export async function resolveSystemProxy(targetUrl: string): Promise<string | un
     logger.info(`[Proxy] System proxy detected: ${proxyString}`)
     return proxyString
   } catch (error) {
-    logger.error('[Proxy] Failed to resolve system proxy', { error: error instanceof Error ? error.message : String(error) })
+    logger.error('[Proxy] Failed to resolve system proxy', { error: error })
     return undefined
   }
 }
@@ -75,7 +75,7 @@ export function createProxyAgentFromString(proxyString: string): Agent | undefin
         return undefined
     }
   } catch (error) {
-    logger.error('[Proxy] Failed to create proxy agent', { error: error instanceof Error ? error.message : String(error) })
+    logger.error('[Proxy] Failed to create proxy agent', { error: error })
     return undefined
   }
 }

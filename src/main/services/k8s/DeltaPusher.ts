@@ -70,7 +70,7 @@ export class DeltaPusher {
   private handleInformerEvent(event: K8sResourceEvent): void {
     const resourceType = this.detectResourceType(event)
     if (!resourceType) {
-      logger.warn('[DeltaPusher] Cannot detect resource type', { error: event instanceof Error ? event.message : String(event) })
+      logger.warn('[DeltaPusher] Cannot detect resource type', { error: event })
       return
     }
 
@@ -120,7 +120,7 @@ export class DeltaPusher {
       this.mainWindow.webContents.send('k8s:delta-batch', enrichedBatch)
       logger.info(`[DeltaPusher] Pushed batch to renderer: ${batch.totalChanges} changes for ${contextName}/${resourceType}`)
     } catch (error) {
-      logger.error('[DeltaPusher] Failed to push batch to renderer', { error: error instanceof Error ? error.message : String(error) })
+      logger.error('[DeltaPusher] Failed to push batch to renderer', { error: error })
     }
   }
 

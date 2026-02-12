@@ -187,7 +187,7 @@ export const submitOtpCode = async () => {
     // Reset status after successful input
     resetOtpDialog()
   } catch (error) {
-    logger.error('Failed to submit OTP code', { error: String(error) })
+    logger.error('Failed to submit OTP code', { error: error })
     showOtpDialogErr.value = true
     isSubmitting.value = false
   }

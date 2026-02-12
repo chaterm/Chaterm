@@ -875,7 +875,7 @@ ctrl+c`
       copySuccess.value = false
     }, 2000)
   } catch (err) {
-    logger.error(t('quickCommand.copyFailed'), { error: err instanceof Error ? err.message : String(err) })
+    logger.error(t('quickCommand.copyFailed'), { error: err })
   }
 }
 
@@ -992,7 +992,7 @@ const handleDrop = async (e: DragEvent, targetIndex: number) => {
       await refresh()
     }
   } catch (error) {
-    logger.error('Reorder failed', { error: error instanceof Error ? error.message : String(error) })
+    logger.error('Reorder failed', { error: error })
     message.error(t('common.operationFailed'))
     await refresh()
   }

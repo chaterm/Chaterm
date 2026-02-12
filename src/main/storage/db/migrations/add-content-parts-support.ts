@@ -18,7 +18,7 @@ export async function upgradeContentPartsSupport(db: Database.Database): Promise
       logger.info('content_parts column already exists, skipping migration')
     }
   } catch (error) {
-    logger.error('Failed to upgrade content parts support', { error: error instanceof Error ? error.message : String(error) })
+    logger.error('Failed to upgrade content parts support', { error: error })
     throw error
   }
 }

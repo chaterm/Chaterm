@@ -47,7 +47,7 @@ export function useUserInteractions(options: UseUserInteractionsOptions) {
   }
 
   const handleTranscriptionError = (error: unknown) => {
-    logger.error('Voice transcription error', { error: error instanceof Error ? error.message : String(error) })
+    logger.error('Voice transcription error', { error: error })
   }
 
   const handleFileUpload = () => {
@@ -77,7 +77,7 @@ export function useUserInteractions(options: UseUserInteractionsOptions) {
         insertChipAtCursor('doc', { absPath: filePath, name: fileName, type: 'file' }, fileName)
       }
     } catch (error) {
-      logger.error('File read error', { error: error instanceof Error ? error.message : String(error) })
+      logger.error('File read error', { error: error })
       notification.error({
         message: t('ai.fileReadFailed'),
         description: t('ai.fileReadErrorDesc'),
@@ -138,7 +138,7 @@ export function useUserInteractions(options: UseUserInteractionsOptions) {
         data: base64Data
       }
     } catch (error) {
-      logger.error('Image processing error', { error: error instanceof Error ? error.message : String(error) })
+      logger.error('Image processing error', { error: error })
       notification.error({
         message: t('ai.imageUploadFailed'),
         description: t('ai.imageProcessError'),

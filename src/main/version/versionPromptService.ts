@@ -121,7 +121,7 @@ export class VersionPromptService {
       const version = targetVersion || app.getVersion()
       return notes.find((item) => item.version === version) || null
     } catch (error) {
-      logger.warn('Failed to read release notes', { error: error instanceof Error ? error.message : String(error) })
+      logger.warn('Failed to read release notes', { error: error })
       return null
     }
   }
@@ -137,7 +137,7 @@ export class VersionPromptService {
         }
       }
     } catch (error) {
-      logger.warn('Failed to load state', { error: error instanceof Error ? error.message : String(error) })
+      logger.warn('Failed to load state', { error: error })
     }
     return {}
   }
@@ -156,7 +156,7 @@ export class VersionPromptService {
         updated_at: Date.now()
       })
     } catch (error) {
-      logger.warn('Failed to save state', { error: error instanceof Error ? error.message : String(error) })
+      logger.warn('Failed to save state', { error: error })
     }
   }
 
@@ -185,7 +185,7 @@ export class VersionPromptService {
         return parsed.versions
       }
     } catch (error) {
-      logger.warn('Failed to read release notes', { error: error instanceof Error ? error.message : String(error) })
+      logger.warn('Failed to read release notes', { error: error })
     }
     return null
   }

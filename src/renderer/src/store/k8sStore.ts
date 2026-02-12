@@ -61,7 +61,7 @@ export const useK8sStore = defineStore('k8s', () => {
       }
     } catch (err) {
       error.value = err instanceof Error ? err.message : 'Unknown error'
-      logger.error('Initialization error', { error: err instanceof Error ? err.message : String(err) })
+      logger.error('Initialization error', { error: err })
     } finally {
       loading.value = false
     }
@@ -88,7 +88,7 @@ export const useK8sStore = defineStore('k8s', () => {
       }
     } catch (err) {
       error.value = err instanceof Error ? err.message : 'Unknown error'
-      logger.error('Load error', { error: err instanceof Error ? err.message : String(err) })
+      logger.error('Load error', { error: err })
     } finally {
       loading.value = false
     }
@@ -118,7 +118,7 @@ export const useK8sStore = defineStore('k8s', () => {
       }
     } catch (err) {
       error.value = err instanceof Error ? err.message : 'Unknown error'
-      logger.error('Switch error', { error: err instanceof Error ? err.message : String(err) })
+      logger.error('Switch error', { error: err })
     } finally {
       loading.value = false
     }
@@ -145,7 +145,7 @@ export const useK8sStore = defineStore('k8s', () => {
       }
     } catch (err) {
       error.value = err instanceof Error ? err.message : 'Unknown error'
-      logger.error('Reload error', { error: err instanceof Error ? err.message : String(err) })
+      logger.error('Reload error', { error: err })
     } finally {
       loading.value = false
     }
@@ -167,7 +167,7 @@ export const useK8sStore = defineStore('k8s', () => {
         return false
       }
     } catch (err) {
-      logger.error('Validation error', { error: err instanceof Error ? err.message : String(err) })
+      logger.error('Validation error', { error: err })
       return false
     }
   }

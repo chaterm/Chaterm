@@ -1214,7 +1214,7 @@ export class InteractionDetector extends EventEmitter {
         this.debug('llm-result', { result: rawResult })
         return this.validateResult(rawResult)
       } catch (error) {
-        logger.warn('[InteractionDetector] LLM call failed', { error: error instanceof Error ? error.message : String(error) })
+        logger.warn('[InteractionDetector] LLM call failed', { error: error })
         throw error
       }
     }

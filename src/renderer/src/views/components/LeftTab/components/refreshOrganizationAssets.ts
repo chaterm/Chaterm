@@ -43,7 +43,7 @@ export const handleRefreshOrganizationAssets = async (host: any, onSuccess?: () 
       throw new Error('Refresh failed')
     }
   } catch (error) {
-    logger.error('Failed to refresh organization assets', { error: error instanceof Error ? error.message : String(error) })
+    logger.error('Failed to refresh organization assets', { error: error })
     hide()
     message.error(t('personal.refreshError'))
   }
@@ -95,7 +95,7 @@ export const findOrganizationAssetByKey = async (nodeKey: string): Promise<any |
       return result
     }
   } catch (error) {
-    logger.error('Failed to find organization asset', { error: error instanceof Error ? error.message : String(error) })
+    logger.error('Failed to find organization asset', { error: error })
   }
 
   return null

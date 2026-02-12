@@ -88,7 +88,7 @@ class JumpServerClient {
           this.keyboardInteractiveHandler(prompts, finish).catch((err) => {
             logger.error('Two-factor authentication handler error', {
               event: 'jumpserver.asset.2fa.error',
-              error: err instanceof Error ? err.message : String(err)
+              error: err
             })
             this.conn?.end()
             reject(err)
@@ -309,7 +309,7 @@ class JumpServerClient {
           event: 'jumpserver.asset.fetch.error',
           page: nextPage,
           consecutiveFailures,
-          error: error instanceof Error ? error.message : String(error)
+          error: error
         })
 
         if (consecutiveFailures >= MAX_CONSECUTIVE_FAILURES) {

@@ -58,7 +58,7 @@ function readReadme(rootDir: string, language: string): string {
           event: 'plugin.details.readme.error',
           readmeFile: name,
           rootDir,
-          error: error instanceof Error ? error.message : String(error)
+          error: error
         })
         return ''
       }
@@ -127,7 +127,7 @@ export async function getPluginDetailsByName(pluginName: string): Promise<Plugin
         event: 'plugin.details.manifest.parse.error',
         pluginId: p.id,
         pluginName,
-        error: error instanceof Error ? error.message : String(error)
+        error: error
       })
       continue
     }

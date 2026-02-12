@@ -357,7 +357,7 @@ const loadSavedConfig = async () => {
     await editorConfigStore.loadConfig()
     editorConfig.value = editorConfigStore.getConfigSnapshot()
   } catch (error) {
-    logger.error('Failed to load config', { error: error instanceof Error ? error.message : String(error) })
+    logger.error('Failed to load config', { error: error })
     notification.error({
       message: t('user.loadConfigFailed'),
       description: t('user.loadConfigFailedDescription')
@@ -381,7 +381,7 @@ const saveConfig = async () => {
     eventBus.emit('updateWatermark', configToStore.watermark)
     eventBus.emit('updateTheme', configToStore.theme)
   } catch (error) {
-    logger.error('Failed to save config', { error: error instanceof Error ? error.message : String(error) })
+    logger.error('Failed to save config', { error: error })
     notification.error({
       message: t('user.error'),
       description: t('user.saveConfigFailedDescription')
@@ -476,7 +476,7 @@ const changeTheme = async () => {
     await api.updateTheme(userConfig.value.theme)
     await saveConfig()
   } catch (error) {
-    logger.error('Failed to change theme', { error: error instanceof Error ? error.message : String(error) })
+    logger.error('Failed to change theme', { error: error })
     notification.error({
       message: t('user.themeSwitchFailed'),
       description: t('user.themeSwitchFailedDescription')
@@ -555,7 +555,7 @@ const selectBackgroundImage = async () => {
       }
     }
   } catch (error) {
-    logger.error('Failed to select background image', { error: error instanceof Error ? error.message : String(error) })
+    logger.error('Failed to select background image', { error: error })
   }
 }
 
@@ -584,7 +584,7 @@ const saveEditorConfig = async () => {
   try {
     await editorConfigStore.updateConfig(editorConfig.value)
   } catch (error) {
-    console.error('Failed to save editor config:', error)
+    logger.error('Failed to save editor config', { error: error })
     notification.error({
       message: t('user.saveFailed'),
       description: t('user.saveConfigFailedDescription')

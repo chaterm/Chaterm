@@ -267,7 +267,7 @@ export class AwsBedrockHandler implements ApiHandler {
           })
         }
       } catch (error) {
-        logger.error('Proxy configuration error', { error: error instanceof Error ? error.message : String(error) })
+        logger.error('Proxy configuration error', { error: error })
       }
     }
 
@@ -434,7 +434,7 @@ export class AwsBedrockHandler implements ApiHandler {
               }
             }
           } catch (error) {
-            logger.error('Error parsing Deepseek response chunk', { error: error instanceof Error ? error.message : String(error) })
+            logger.error('Error parsing Deepseek response chunk', { error: error })
             // Propagate the error by yielding a text response with error information
             yield {
               type: 'text',
@@ -707,7 +707,7 @@ ${combinedContent}
                   return null // Skip this item if format is not supported
                 }
               } catch (error) {
-                logger.error('Could not convert image data to Uint8Array', { error: error instanceof Error ? error.message : String(error) })
+                logger.error('Could not convert image data to Uint8Array', { error: error })
                 return null // Skip this item if conversion fails
               }
 
@@ -766,7 +766,7 @@ ${combinedContent}
 
       return { isValid: true }
     } catch (error) {
-      logger.error('AWS Bedrock configuration validation failed', { error: error instanceof Error ? error.message : String(error) })
+      logger.error('AWS Bedrock configuration validation failed', { error: error })
       return {
         isValid: false,
         error: `Validation failed: ${error instanceof Error ? error.message : String(error)}`

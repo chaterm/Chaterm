@@ -72,7 +72,7 @@ export class K8sManager {
 
       return result
     } catch (error) {
-      logger.error('[K8s] Failed to initialize', { error: error instanceof Error ? error.message : String(error) })
+      logger.error('[K8s] Failed to initialize', { error: error })
       return {
         success: false,
         contexts: [],
@@ -120,7 +120,7 @@ export class K8sManager {
       }
       return success
     } catch (error) {
-      logger.error(`[K8s] Failed to switch context to ${contextName}`, { error: error instanceof Error ? error.message : String(error) })
+      logger.error(`[K8s] Failed to switch context to ${contextName}`, { error: error })
       return false
     }
   }
@@ -224,7 +224,7 @@ export class K8sManager {
       try {
         await this.informerPool.startInformer(resourceType, informerOptions)
       } catch (error) {
-        logger.error(`[K8s] Failed to start ${resourceType} watcher`, { error: error instanceof Error ? error.message : String(error) })
+        logger.error(`[K8s] Failed to start ${resourceType} watcher`, { error: error })
       }
     }
   }

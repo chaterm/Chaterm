@@ -163,7 +163,7 @@ const loadPlugins = async () => {
         enabled: p.enabled
       }))
   } catch (e) {
-    logger.error('loadPlugins error', { error: String(e) })
+    logger.error('loadPlugins error', { error: e })
   }
 }
 
@@ -183,7 +183,7 @@ const loadStorePlugins = async () => {
       installable: p.installable !== false
     }))
   } catch (e) {
-    logger.error('loadStorePlugins error', { error: String(e) })
+    logger.error('loadStorePlugins error', { error: e })
   }
 }
 

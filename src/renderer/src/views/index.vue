@@ -28,7 +28,7 @@ const handleToggleLayout = async () => {
     await userConfigStore.saveConfig({ defaultLayout: targetMode })
     eventBus.emit('defaultLayoutChanged', targetMode)
   } catch (error) {
-    logger.error('Failed to update default layout', { error: String(error) })
+    logger.error('Failed to update default layout', { error: error })
   }
 }
 
@@ -42,7 +42,7 @@ onMounted(async () => {
     const defaultLayout = config.defaultLayout || 'terminal'
     currentMode.value = defaultLayout
   } catch (error) {
-    logger.error('Failed to load default layout', { error: String(error) })
+    logger.error('Failed to load default layout', { error: error })
     // Use default value 'terminal' if loading fails
     currentMode.value = 'terminal'
   }

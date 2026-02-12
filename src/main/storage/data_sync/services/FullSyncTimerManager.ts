@@ -281,7 +281,7 @@ export class FullSyncTimerManager {
         logger.info('Current full sync operation completed')
       }
     } catch (error) {
-      logger.error('Error while waiting for full sync operation to complete', { error: error instanceof Error ? error.message : String(error) })
+      logger.error('Error while waiting for full sync operation to complete', { error: error })
     }
   }
 
@@ -298,7 +298,7 @@ export class FullSyncTimerManager {
 
       logger.info('Full sync timer resources cleanup completed')
     } catch (error) {
-      logger.error('Error while cleaning up full sync timer resources', { error: error instanceof Error ? error.message : String(error) })
+      logger.error('Error while cleaning up full sync timer resources', { error: error })
     }
   }
 }

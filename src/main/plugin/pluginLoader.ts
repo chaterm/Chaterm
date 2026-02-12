@@ -61,7 +61,7 @@ export async function loadAllPlugins() {
       ssh2: require('ssh2')
     }
   } catch (e) {
-    logger.warn('ssh2 module not available for plugins', { error: e instanceof Error ? e.message : String(e) })
+    logger.warn('ssh2 module not available for plugins', { error: e })
   }
 
   for (const p of plugins) {
@@ -85,7 +85,7 @@ export async function loadAllPlugins() {
       manifest = JSON.parse(fs.readFileSync(manifestPath, 'utf8')) as PluginManifest
     } catch (e) {
       failedCount++
-      logger.error('Invalid manifest for plugin', { pluginId: p.id, error: e instanceof Error ? e.message : String(e) })
+      logger.error('Invalid manifest for plugin', { pluginId: p.id, error: e })
       continue
     }
 
@@ -185,7 +185,7 @@ export async function loadAllPlugins() {
             event: 'plugin.host.read_file.error',
             pluginId: p.id,
             filePath,
-            error: e instanceof Error ? e.message : String(e)
+            error: e
           })
           return ''
         }
@@ -202,7 +202,7 @@ export async function loadAllPlugins() {
             event: 'plugin.host.write_file.error',
             pluginId: p.id,
             filePath,
-            error: e instanceof Error ? e.message : String(e)
+            error: e
           })
           return false
         }
@@ -226,7 +226,7 @@ export async function loadAllPlugins() {
       }
     } catch (e) {
       failedCount++
-      logger.error('Plugin load error', { pluginId: p.id, error: e instanceof Error ? e.message : String(e) })
+      logger.error('Plugin load error', { pluginId: p.id, error: e })
     }
   }
 

@@ -364,7 +364,7 @@ const getUserInfo = async () => {
       isOfficeDevice.value = res.data.isOfficeDevice
     }
   } catch (error) {
-    logger.error('Failed to get user info', { error: String(error) })
+    logger.error('Failed to get user info', { error: error })
   }
 }
 
@@ -378,7 +378,7 @@ onMounted(async () => {
   try {
     await keywordHighlightService.loadConfig()
   } catch (error) {
-    logger.error('Failed to load keyword highlight config', { error: String(error) })
+    logger.error('Failed to load keyword highlight config', { error: error })
   }
 
   const actualTheme = getActualTheme(config.theme)
@@ -1088,7 +1088,7 @@ const handleResize = debounce(() => {
         openEditors.forEach((ed) => resizeEditor(ed, rect))
       }
     } catch (error) {
-      logger.error('Failed to resize terminal', { error: String(error) })
+      logger.error('Failed to resize terminal', { error: error })
     }
   }
 }, 100)
@@ -1209,7 +1209,7 @@ const connectSSH = async () => {
           getCmdList(connectReadyData?.commandList)
         })
         .catch((error) => {
-          logger.error('Failed to receive command list', { error: String(error) })
+          logger.error('Failed to receive command list', { error: error })
           connectionHasSudo.value = false
           getCmdList([])
         })
@@ -1300,7 +1300,7 @@ const startShell = async () => {
       )
     }
   } catch (error: any) {
-    logger.error('Shell start error', { error: String(error) })
+    logger.error('Shell start error', { error: error })
     terminal.value?.writeln(
       JSON.stringify({
         cmd: t('ssh.shellError', { message: error.message || t('ssh.unknownError') }),
@@ -1320,7 +1320,7 @@ const resizeSSH = async (cols, rows) => {
       // console.log('terminal resized:', result.message)
     }
   } catch (error) {
-    logger.error('Failed to resize terminal', { error: String(error) })
+    logger.error('Failed to resize terminal', { error: error })
   }
 }
 
@@ -1441,7 +1441,7 @@ const resizeLocalSSH = async (cols, rows) => {
     } else {
     }
   } catch (error) {
-    logger.error('Failed to resize terminal', { error: String(error) })
+    logger.error('Failed to resize terminal', { error: error })
   }
 }
 const terminalState = ref({
@@ -1603,7 +1603,7 @@ const updateTerminalState = (quickInit: boolean, enterPress, tagPress: boolean) 
       })
     }
   } catch (error) {
-    logger.error('Update terminal state error', { error: String(error) })
+    logger.error('Update terminal state error', { error: error })
   }
 }
 
@@ -1738,7 +1738,7 @@ const sendTerminalStateToServer = async (): Promise<void> => {
       }
     })
   } catch (err) {
-    logger.error('Send terminal state error', { error: String(err) })
+    logger.error('Send terminal state error', { error: err })
   }
 }
 
@@ -3418,7 +3418,7 @@ const handleCommandOutput = (data: string, isInitialCommand: boolean) => {
           eventBus.emit('sendMessageToAi', { content: messageToSend, tabId })
         }
       } catch (error) {
-        logger.error('Error processing command echo output', { error: String(error) })
+        logger.error('Error processing command echo output', { error: error })
       }
     }
 
@@ -4013,7 +4013,7 @@ const queryCommand = async (cmd = '') => {
       }, 1)
     }
   } catch (error) {
-    logger.error('Query failed', { error: String(error) })
+    logger.error('Query failed', { error: error })
   }
 }
 const insertCommand = async (cmd) => {
@@ -4423,7 +4423,7 @@ const getCursorLinePosition = () => {
       isCrossRow: cursorEndY.value !== cursorY
     }
   } catch (error) {
-    logger.error('Get cursor position failed', { error: String(error) })
+    logger.error('Get cursor position failed', { error: error })
     return null
   }
 }

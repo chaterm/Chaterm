@@ -90,7 +90,7 @@ class ApiClient {
         return config
       },
       (error) => {
-        logger.error('KMS request interceptor error', { error: error instanceof Error ? error.message : String(error) })
+        logger.error('KMS request interceptor error', { error: error })
         return Promise.reject(error)
       }
     )
@@ -218,7 +218,7 @@ class ApiClient {
         throw result.error
       }
     } catch (error) {
-      logger.error('Health check failed', { error: error instanceof Error ? error.message : String(error) })
+      logger.error('Health check failed', { error: error })
       throw error
     }
   }
@@ -234,7 +234,7 @@ class ApiClient {
       logger.info('Master key rotation successful')
       return response
     } catch (error) {
-      logger.error('Master key rotation failed', { error: error instanceof Error ? error.message : String(error) })
+      logger.error('Master key rotation failed', { error: error })
       throw error
     }
   }
@@ -250,7 +250,7 @@ class ApiClient {
       logger.info('Statistics fetched successfully')
       return response
     } catch (error) {
-      logger.error('Failed to fetch statistics', { error: error instanceof Error ? error.message : String(error) })
+      logger.error('Failed to fetch statistics', { error: error })
       throw error
     }
   }
@@ -271,7 +271,7 @@ class ApiClient {
       logger.info('Data key validation successful')
       return response
     } catch (error) {
-      logger.error('Data key validation failed', { error: error instanceof Error ? error.message : String(error) })
+      logger.error('Data key validation failed', { error: error })
       throw error
     }
   }
@@ -290,7 +290,7 @@ class ApiClient {
       logger.info('Data key revoked successfully')
       return response
     } catch (error) {
-      logger.error('Data key revocation failed', { error: error instanceof Error ? error.message : String(error) })
+      logger.error('Data key revocation failed', { error: error })
       throw error
     }
   }
@@ -310,7 +310,7 @@ class ApiClient {
       })
       return response
     } catch (error) {
-      logger.error('Failed to log audit event', { error: error instanceof Error ? error.message : String(error) })
+      logger.error('Failed to log audit event', { error: error })
       // Audit log failure should not affect main functionality
       return { success: false, error: (error as Error).message }
     }

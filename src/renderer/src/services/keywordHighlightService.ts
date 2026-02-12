@@ -52,7 +52,7 @@ class KeywordHighlightService {
       this.config = JSON.parse(content)
       this.compileRules()
     } catch (error) {
-      logger.error('Failed to load config', { error: error instanceof Error ? error.message : String(error) })
+      logger.error('Failed to load config', { error: error })
       this.config = null
       this.compiledRules = []
     }
@@ -107,7 +107,7 @@ class KeywordHighlightService {
           scope: rule.scope
         })
       } catch (error) {
-        logger.warn('Failed to compile rule', { ruleName: rule.name, error: error instanceof Error ? error.message : String(error) })
+        logger.warn('Failed to compile rule', { ruleName: rule.name, error: error })
       }
     }
   }

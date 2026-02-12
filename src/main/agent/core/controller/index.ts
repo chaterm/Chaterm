@@ -55,7 +55,7 @@ export class Controller {
     // Initialize Skills Manager
     this.skillsManager = new SkillsManager((msg) => this.postMessageToWebview(msg))
     this.skillsManager.initialize().catch((error) => {
-      logger.error('[Controller] Failed to initialize SkillsManager', { error: error instanceof Error ? error.message : String(error) })
+      logger.error('[Controller] Failed to initialize SkillsManager', { error: error })
     })
   }
 
@@ -82,7 +82,7 @@ export class Controller {
         await task.reloadSecurityConfig()
       } catch (error) {
         logger.warn(`[SecurityConfig] Failed to hot reload configuration in Task ${task.taskId}`, {
-          error: error instanceof Error ? error.message : String(error)
+          error: error
         })
       }
     })
@@ -150,7 +150,7 @@ export class Controller {
     if (task && taskId && !historyItem) {
       // Start title generation in background without awaiting
       this.generateChatTitle(task, taskId).catch((error) => {
-        logger.error('Failed to generate chat title', { error: error instanceof Error ? error.message : String(error) })
+        logger.error('Failed to generate chat title', { error: error })
         // Title generation failure doesn't affect task execution
       })
     }
@@ -294,7 +294,7 @@ export class Controller {
     try {
       await currentTask.abortTask()
     } catch (error) {
-      logger.error('Failed to abort task', { error: error instanceof Error ? error.message : String(error) })
+      logger.error('Failed to abort task', { error: error })
     }
     await pWaitFor(() => currentTask.isStreaming === false || currentTask.didFinishAbortingStream || currentTask.isWaitingForFirstChunk, {
       timeout: 3_000
@@ -305,7 +305,7 @@ export class Controller {
     try {
       await currentTask.clearTodos('user_cancelled')
     } catch (error) {
-      logger.error('Failed to clear todos during cancelTask', { error: error instanceof Error ? error.message : String(error) })
+      logger.error('Failed to clear todos during cancelTask', { error: error })
     }
 
     currentTask.abandoned = true
@@ -321,12 +321,12 @@ export class Controller {
     try {
       await currentTask.gracefulAbortTask()
     } catch (error) {
-      logger.error('Failed to gracefully abort task', { error: error instanceof Error ? error.message : String(error) })
+      logger.error('Failed to gracefully abort task', { error: error })
     }
     try {
       await currentTask.clearTodos('user_cancelled')
     } catch (error) {
-      logger.error('Failed to clear todos during gracefulCancelTask', { error: error instanceof Error ? error.message : String(error) })
+      logger.error('Failed to clear todos during gracefulCancelTask', { error: error })
     }
   }
 
@@ -413,7 +413,7 @@ export class Controller {
       try {
         await task.abortTask()
       } catch (error) {
-        logger.error('Failed to abort task during clearTask', { error: error instanceof Error ? error.message : String(error) })
+        logger.error('Failed to abort task during clearTask', { error: error })
       }
 
       const terminalManager = task.getTerminalManager()
@@ -553,11 +553,11 @@ export class Controller {
           tabId: tabId
         })
       } catch (streamError) {
-        logger.error('Error processing AI stream', { error: streamError instanceof Error ? streamError.message : String(streamError) })
+        logger.error('Error processing AI stream', { error: streamError })
         throw streamError
       }
     } catch (error) {
-      logger.error('Command generation failed', { error: error instanceof Error ? error.message : String(error) })
+      logger.error('Command generation failed', { error: error })
 
       // Send error response back to webview with tabId for proper routing
       await this.postMessageToWebview({
@@ -626,7 +626,7 @@ export class Controller {
           commandMessageId
         })
       } catch (streamError) {
-        logger.error('Explain command stream error', { error: streamError instanceof Error ? streamError.message : String(streamError) })
+        logger.error('Explain command stream error', { error: streamError })
         await this.postMessageToWebview({
           type: 'explainCommandResponse',
           error: streamError instanceof Error ? streamError.message : 'Explain failed',
@@ -635,7 +635,7 @@ export class Controller {
         })
       }
     } catch (error) {
-      logger.error('Explain command failed', { error: error instanceof Error ? error.message : String(error) })
+      logger.error('Explain command failed', { error: error })
       await this.postMessageToWebview({
         type: 'explainCommandResponse',
         error: error instanceof Error ? error.message : 'Explain failed',
@@ -705,7 +705,7 @@ export class Controller {
 
       return await Promise.race([titleGenerationPromise, timeoutPromise])
     } catch (error) {
-      logger.error('Chat title generation failed', { error: error instanceof Error ? error.message : String(error) })
+      logger.error('Chat title generation failed', { error: error })
       // Always return empty string to avoid disrupting task execution
       return ''
     }
@@ -795,7 +795,7 @@ export class Controller {
 
       return ''
     } catch (streamError) {
-      logger.error('Error processing title generation stream', { error: streamError instanceof Error ? streamError.message : String(streamError) })
+      logger.error('Error processing title generation stream', { error: streamError })
       return ''
     }
   }

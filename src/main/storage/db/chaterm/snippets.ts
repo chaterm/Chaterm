@@ -300,7 +300,7 @@ export function userSnippetOperationLogic(
         }
     }
   } catch (error) {
-    logger.error('Chaterm database user snippet operation error', { error: error instanceof Error ? error.message : String(error) })
+    logger.error('Chaterm database user snippet operation error', { error: error })
     return {
       code: 500,
       message: error instanceof Error ? error.message : 'Unknown error occurred'

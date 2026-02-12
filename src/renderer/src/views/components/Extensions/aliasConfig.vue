@@ -158,7 +158,7 @@ const handleTableChange = async () => {
     // Use search function to get filtered aliases
     list.value = await commandStore.search(searchValue.value || searchText.value)
   } catch (err) {
-    logger.error('Error loading aliases', { error: String(err) })
+    logger.error('Error loading aliases', { error: err })
     notification.error({
       message: t('extensions.error'),
       placement: 'topRight',
@@ -200,7 +200,7 @@ const columnOpt = async (type, record) => {
           duration: 2
         })
       } catch (err) {
-        logger.error('Error deleting alias', { error: String(err) })
+        logger.error('Error deleting alias', { error: err })
         notification.error({
           message: t('extensions.error'),
           placement: 'topRight',
@@ -296,7 +296,7 @@ const columnOpt = async (type, record) => {
         await aliasConfigRefresh()
         cloneRecordReset()
       } catch (err) {
-        logger.error('Error saving alias', { error: String(err) })
+        logger.error('Error saving alias', { error: err })
         notification.error({
           message: t('extensions.error'),
           description: String(err),
@@ -331,7 +331,7 @@ onMounted(() => {
     handleTableChange()
       .then(() => {})
       .catch((err) => {
-        logger.error('Reload alias data failed', { error: String(err) })
+        logger.error('Reload alias data failed', { error: err })
       })
   })
 })

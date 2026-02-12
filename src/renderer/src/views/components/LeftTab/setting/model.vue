@@ -541,7 +541,7 @@ const loadSavedConfig = async () => {
     ollamaBaseUrl.value = ((await getGlobalState('ollamaBaseUrl')) as string) || 'http://localhost:11434'
     ollamaModelId.value = ((await getGlobalState('ollamaModelId')) as string) || ''
   } catch (error) {
-    logger.error('Failed to load config', { error: error instanceof Error ? error.message : String(error) })
+    logger.error('Failed to load config', { error: error })
     notification.error({
       message: 'Error',
       description: 'Failed to load saved configuration'
@@ -560,7 +560,7 @@ const saveBedrockConfig = async () => {
     await storeSecret('awsSecretKey', awsSecretKey.value)
     await storeSecret('awsSessionToken', awsSessionToken.value)
   } catch (error) {
-    logger.error('Failed to save Bedrock config', { error: error instanceof Error ? error.message : String(error) })
+    logger.error('Failed to save Bedrock config', { error: error })
     notification.error({
       message: t('user.error'),
       description: t('user.saveBedrockConfigFailed')
@@ -573,7 +573,7 @@ const saveLiteLlmConfig = async () => {
     await updateGlobalState('liteLlmBaseUrl', liteLlmBaseUrl.value)
     await storeSecret('liteLlmApiKey', liteLlmApiKey.value)
   } catch (error) {
-    logger.error('Failed to save LiteLLM config', { error: error instanceof Error ? error.message : String(error) })
+    logger.error('Failed to save LiteLLM config', { error: error })
     notification.error({
       message: t('user.error'),
       description: t('user.saveLiteLlmConfigFailed')
@@ -585,7 +585,7 @@ const saveDeepSeekConfig = async () => {
   try {
     await storeSecret('deepSeekApiKey', deepSeekApiKey.value)
   } catch (error) {
-    logger.error('Failed to save DeepSeek config', { error: error instanceof Error ? error.message : String(error) })
+    logger.error('Failed to save DeepSeek config', { error: error })
     notification.error({
       message: t('user.error'),
       description: t('user.saveDeepSeekConfigFailed')
@@ -598,7 +598,7 @@ const saveOpenAiConfig = async () => {
     await updateGlobalState('openAiBaseUrl', openAiBaseUrl.value)
     await storeSecret('openAiApiKey', openAiApiKey.value)
   } catch (error) {
-    logger.error('Failed to save OpenAI config', { error: error instanceof Error ? error.message : String(error) })
+    logger.error('Failed to save OpenAI config', { error: error })
     notification.error({
       message: t('user.error'),
       description: t('user.saveOpenAiConfigFailed')
@@ -611,7 +611,7 @@ const saveOllamaConfig = async () => {
     await updateGlobalState('ollamaBaseUrl', ollamaBaseUrl.value)
     await updateGlobalState('ollamaModelId', ollamaModelId.value)
   } catch (error) {
-    logger.error('Failed to save Ollama config', { error: error instanceof Error ? error.message : String(error) })
+    logger.error('Failed to save Ollama config', { error: error })
     notification.error({
       message: t('user.error'),
       description: t('user.saveOllamaConfigFailed')
@@ -804,7 +804,7 @@ const saveModelOptions = async () => {
     await updateGlobalState('modelOptions', serializableModelOptions)
     eventBus.emit('SettingModelOptionsChanged')
   } catch (error) {
-    logger.error('Failed to save model options', { error: error instanceof Error ? error.message : String(error) })
+    logger.error('Failed to save model options', { error: error })
     notification.error({
       message: 'Error',
       description: 'Failed to save model options'
@@ -896,7 +896,7 @@ const loadModelOptions = async () => {
     }
     await saveModelOptions()
   } catch (error) {
-    logger.error('Failed to load model options', { error: error instanceof Error ? error.message : String(error) })
+    logger.error('Failed to load model options', { error: error })
   }
 }
 

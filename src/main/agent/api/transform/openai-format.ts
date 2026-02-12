@@ -224,7 +224,7 @@ export function convertToAnthropicMessage(completion: OpenAI.Chat.Completions.Ch
           try {
             parsedInput = JSON.parse(toolCall.function.arguments || '{}')
           } catch (error) {
-            logger.error('Failed to parse tool arguments', { error: error instanceof Error ? error.message : String(error) })
+            logger.error('Failed to parse tool arguments', { error: error })
           }
           return {
             type: 'tool_use',

@@ -186,7 +186,7 @@ const handleFileSelect = (event: Event) => {
           message.error(t('personal.importFormatError'))
         }
       } catch (error) {
-        logger.error('Import file parsing error', { error: error instanceof Error ? error.message : String(error) })
+        logger.error('Import file parsing error', { error: error })
         message.error(t('personal.importError'))
       }
     }

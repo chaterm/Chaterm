@@ -14,7 +14,7 @@ const AppRouter = createRouter({
 
 // Add error handling
 AppRouter.onError((error) => {
-  logger.error('Router error', { error: String(error) })
+  logger.error('Router error', { error: error })
 })
 
 AppRouter.beforeEach(beforeEach)

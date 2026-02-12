@@ -49,7 +49,7 @@ export class KeywordHighlightConfigService {
         return content
       }
     } catch (error) {
-      logger.error('Failed to read keyword highlight config', { error: error instanceof Error ? error.message : String(error) })
+      logger.error('Failed to read keyword highlight config', { error: error })
       throw error
     }
   }

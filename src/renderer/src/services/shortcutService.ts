@@ -94,7 +94,7 @@ export class ShortcutService {
         this.bindShortcuts()
       }
     } catch (error) {
-      logger.error('Failed to load shortcuts', { error: error instanceof Error ? error.message : String(error) })
+      logger.error('Failed to load shortcuts', { error: error })
     }
   }
 
@@ -401,7 +401,7 @@ export class ShortcutService {
 
       return true
     } catch (error) {
-      logger.error('Failed to update shortcut', { error: error instanceof Error ? error.message : String(error) })
+      logger.error('Failed to update shortcut', { error: error })
       return false
     }
   }
@@ -426,7 +426,7 @@ export class ShortcutService {
       await userConfigStore.saveConfig({ shortcuts: defaultShortcuts })
       await this.loadShortcuts()
     } catch (error) {
-      logger.error('Failed to reset shortcuts', { error: error instanceof Error ? error.message : String(error) })
+      logger.error('Failed to reset shortcuts', { error: error })
     }
   }
 

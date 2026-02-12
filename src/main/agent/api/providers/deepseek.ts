@@ -62,7 +62,7 @@ export class DeepSeekHandler implements ApiHandler {
       }
       return { isValid: true }
     } catch (error) {
-      logger.error('DeepSeek configuration validation failed', { error: error instanceof Error ? error.message : String(error) })
+      logger.error('DeepSeek configuration validation failed', { error: error })
 
       return {
         isValid: false,

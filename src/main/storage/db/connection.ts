@@ -71,7 +71,7 @@ function migrateLegacyDatabase(userId: number, dbType: 'complete' | 'chaterm'): 
       logger.info(`Successfully migrated legacy ${dbType} database for user ${userId}`)
       return true
     } catch (error) {
-      logger.error(`Failed to migrate legacy ${dbType} database`, { error: error instanceof Error ? error.message : String(error) })
+      logger.error(`Failed to migrate legacy ${dbType} database`, { error: error })
       return false
     }
   }
@@ -146,7 +146,7 @@ function upgradeUserSnippetTable(db: Database.Database): void {
       logger.info('user_snippet_v1 table upgrade completed')
     }
   } catch (error) {
-    logger.error('Failed to upgrade user_snippet_v1 table', { error: error instanceof Error ? error.message : String(error) })
+    logger.error('Failed to upgrade user_snippet_v1 table', { error: error })
   }
 }
 
@@ -185,7 +185,7 @@ function upgradeTAssetsTable(db: Database.Database): void {
           logger.info('Added uuid column to t_asset_chains')
         } catch (transactionError) {
           logger.error('Error adding uuid column to t_asset_chains', {
-            error: transactionError instanceof Error ? transactionError.message : String(transactionError)
+            error: transactionError
           })
           throw transactionError
         }
@@ -196,7 +196,7 @@ function upgradeTAssetsTable(db: Database.Database): void {
       db.prepare('SELECT version FROM t_asset_chains LIMIT 1').get()
     } catch (e) {
       db.exec('ALTER TABLE t_asset_chains ADD COLUMN version INTEGER NOT NULL DEFAULT 1')
-      console.log('Added version column to t_asset_chains')
+      logger.info('Added version column to t_asset_chains')
     }
 
     try {
@@ -212,7 +212,7 @@ function upgradeTAssetsTable(db: Database.Database): void {
         logger.info(`Auto-filled uuid for ${existingRecords.length} existing t_asset_chains records`)
       }
     } catch (fillError) {
-      logger.error('Error filling uuid for t_asset_chains', { error: fillError instanceof Error ? fillError.message : String(fillError) })
+      logger.error('Error filling uuid for t_asset_chains', { error: fillError })
     }
 
     // Additional column: t_assets.need_proxy
@@ -262,10 +262,10 @@ function upgradeTAssetsTable(db: Database.Database): void {
         logger.info('Added unique constraint for asset_ip + username + port + label + asset_type')
       }
     } catch (constraintError) {
-      logger.error('Failed to add unique constraint', { error: constraintError instanceof Error ? constraintError.message : String(constraintError) })
+      logger.error('Failed to add unique constraint', { error: constraintError })
     }
   } catch (error) {
-    logger.error('Failed to upgrade t_assets table', { error: error instanceof Error ? error.message : String(error) })
+    logger.error('Failed to upgrade t_assets table', { error: error })
   }
 }
 
@@ -299,7 +299,7 @@ function upgradeSnippetGroups(db: Database.Database): void {
       }
     }
   } catch (error) {
-    logger.error('Failed to upgrade snippet groups', { error: error instanceof Error ? error.message : String(error) })
+    logger.error('Failed to upgrade snippet groups', { error: error })
   }
 }
 
@@ -352,7 +352,7 @@ export async function initDatabase(userId?: number): Promise<Database.Database> 
     logger.info('Complete database connection established', { path: COMPLETE_DB_PATH })
     return db
   } catch (error) {
-    logger.error('Complete database initialization failed', { error: error instanceof Error ? error.message : String(error) })
+    logger.error('Complete database initialization failed', { error: error })
     throw error
   }
 }
@@ -459,7 +459,7 @@ export async function initChatermDatabase(userId?: number): Promise<Database.Dat
           logger.warn('Migration failed, will fallback to IndexedDB')
         }
       } catch (error) {
-        logger.error('Migration error', { error: error instanceof Error ? error.message : String(error) })
+        logger.error('Migration error', { error: error })
       }
     } else {
       logger.info('Skip migration: mainWindow not available')
@@ -467,7 +467,7 @@ export async function initChatermDatabase(userId?: number): Promise<Database.Dat
 
     return db
   } catch (error) {
-    logger.error('Chaterm database initialization failed', { error: error instanceof Error ? error.message : String(error) })
+    logger.error('Chaterm database initialization failed', { error: error })
     throw error
   }
 }

@@ -150,7 +150,7 @@ const isUserLoggedIn = computed(() => {
     const userInfo = getUserInfo()
     return !!(token && token !== 'guest_token' && !isSkippedLogin && userInfo?.uid)
   } catch (error) {
-    logger.error('Failed to read user info', { error: error instanceof Error ? error.message : String(error) })
+    logger.error('Failed to read user info', { error: error })
     return false
   }
 })
@@ -269,7 +269,7 @@ const loadSavedConfig = async () => {
       } as any
     }
   } catch (error) {
-    logger.error('Failed to load config', { error: error instanceof Error ? error.message : String(error) })
+    logger.error('Failed to load config', { error: error })
     notification.error({
       message: t('user.loadConfigFailed'),
       description: t('user.loadConfigFailedDescription')
@@ -286,7 +286,7 @@ const saveConfig = async () => {
     }
     await userConfigStore.saveConfig(configToStore as any)
   } catch (error) {
-    logger.error('Failed to save config', { error: error instanceof Error ? error.message : String(error) })
+    logger.error('Failed to save config', { error: error })
     notification.error({
       message: t('user.error'),
       description: t('user.saveConfigFailedDescription')
@@ -315,7 +315,7 @@ const updateTelemetry = async () => {
 
     await saveConfig()
   } catch (error) {
-    logger.error('Failed to change telemetry setting', { error: error instanceof Error ? error.message : String(error) })
+    logger.error('Failed to change telemetry setting', { error: error })
     notification.error({
       message: t('user.telemetryUpdateFailed'),
       description: t('user.telemetryUpdateFailedDescription')
@@ -353,7 +353,7 @@ const changeDataSync = async () => {
       })
     }
   } catch (error) {
-    logger.error('Failed to change data sync setting', { error: error instanceof Error ? error.message : String(error) })
+    logger.error('Failed to change data sync setting', { error: error })
     notification.error({
       message: t('user.dataSyncUpdateFailed'),
       description: t('user.retryLater')

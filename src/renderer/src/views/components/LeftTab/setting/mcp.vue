@@ -297,7 +297,7 @@ const toggleToolState = async (serverName: string, toolName: string) => {
   } catch (error) {
     // Rollback on error
     toolStates.value[key] = currentState
-    logger.error('Failed to toggle tool state', { error: error instanceof Error ? error.message : String(error) })
+    logger.error('Failed to toggle tool state', { error: error })
   }
 }
 
@@ -311,7 +311,7 @@ const toggleServerDisabled = async (name: string, disabled: boolean) => {
 
     optimisticUpdates.value.delete(name)
   } catch (error) {
-    logger.error('Failed to toggle server', { error: error instanceof Error ? error.message : String(error) })
+    logger.error('Failed to toggle server', { error: error })
 
     optimisticUpdates.value.delete(name)
 
@@ -342,7 +342,7 @@ const deleteServer = async (name: string) => {
       message: t('mcp.deleteSuccess')
     })
   } catch (error) {
-    logger.error('Failed to delete server', { error: error instanceof Error ? error.message : String(error) })
+    logger.error('Failed to delete server', { error: error })
     const errorMessage = error instanceof Error ? error.message : String(error)
     notification.error({
       message: t('mcp.error'),
@@ -384,7 +384,7 @@ onMounted(async () => {
       const initialServers = await window.api.getMcpServers()
       servers.value = initialServers
     } catch (error) {
-      logger.error('Failed to get initial MCP servers', { error: error instanceof Error ? error.message : String(error) })
+      logger.error('Failed to get initial MCP servers', { error: error })
     }
   }
 
@@ -394,7 +394,7 @@ onMounted(async () => {
       const states = await window.api.getAllMcpToolStates()
       toolStates.value = states
     } catch (error) {
-      logger.error('Failed to load MCP tool states', { error: error instanceof Error ? error.message : String(error) })
+      logger.error('Failed to load MCP tool states', { error: error })
     }
   }
 })

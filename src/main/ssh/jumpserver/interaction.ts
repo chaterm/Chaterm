@@ -101,7 +101,7 @@ export const setupJumpServerInteraction = (
         } catch (error) {
           logger.error('Error getting command list', {
             event: 'jumpserver.commandlist.error',
-            error: error instanceof Error ? error.message : String(error)
+            error: error
           })
         }
 
@@ -114,7 +114,7 @@ export const setupJumpServerInteraction = (
         logger.error('JumpServer exec stream creation failed', {
           event: 'jumpserver.exec.create.error',
           connectionId,
-          error: error instanceof Error ? error.message : String(error)
+          error: error
         })
 
         const mainWindow = BrowserWindow.getAllWindows()[0]
@@ -206,7 +206,7 @@ export const setupJumpServerInteraction = (
             logger.error('User selection failed', {
               event: 'jumpserver.user.selection.error',
               connectionId,
-              error: err instanceof Error ? err.message : String(err)
+              error: err
             })
             sendStatusUpdate('User selection cancelled', 'error', 'ssh.jumpserver.userSelectionCanceled')
             conn.end()

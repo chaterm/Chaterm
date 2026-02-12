@@ -108,7 +108,7 @@ class ResourceInformer extends EventEmitter {
       try {
         await this.informer.stop()
       } catch (error) {
-        logger.error(`[K8s Informer] Error stopping informer`, { error: error instanceof Error ? error.message : String(error) })
+        logger.error(`[K8s Informer] Error stopping informer`, { error: error })
       }
     }
 
@@ -234,7 +234,7 @@ class ResourceInformer extends EventEmitter {
       this.emit('event', event)
       logger.info(`[K8s Informer] Event Received: ${type} ${this.resourceType}/${resource.metadata.name} in ${this.contextName}`)
     } catch (error) {
-      logger.error(`[K8s Informer] Error handling event`, { error: error instanceof Error ? error.message : String(error) })
+      logger.error(`[K8s Informer] Error handling event`, { error: error })
       this.state.errorCount++
     }
   }
@@ -310,7 +310,7 @@ class ResourceInformer extends EventEmitter {
       this.reconnectAttempts = 0
       logger.info(`[K8s Informer] ${this.resourceType} reconnected successfully`)
     } catch (error) {
-      logger.error(`[K8s Informer] Reconnection failed`, { error: error instanceof Error ? error.message : String(error) })
+      logger.error(`[K8s Informer] Reconnection failed`, { error: error })
       this.scheduleReconnect()
     }
   }
@@ -375,7 +375,7 @@ export class InformerPool extends EventEmitter {
       logger.info(`[K8s InformerPool] Started ${resourceType} informer for ${options.contextName}`)
     } catch (error) {
       logger.error(`[K8s InformerPool] Failed to start ${resourceType} informer for ${options.contextName}`, {
-        error: error instanceof Error ? error.message : String(error)
+        error: error
       })
       throw error
     }

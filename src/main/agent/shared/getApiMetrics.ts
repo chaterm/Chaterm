@@ -64,7 +64,7 @@ export function getApiMetrics(messages: ChatermMessage[]): ApiMetrics {
           result.totalCost += cost
         }
       } catch (error) {
-        logger.error('Error parsing JSON', { error: error instanceof Error ? error.message : String(error) })
+        logger.error('Error parsing JSON', { error: error })
       }
     }
   })

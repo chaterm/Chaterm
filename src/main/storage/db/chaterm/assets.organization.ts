@@ -85,7 +85,7 @@ export function connectAssetInfoLogic(db: Database.Database, uuid: string): any 
     ;(result as any).assetUuid = organizationUuid || (result as any).uuid
     return result
   } catch (error) {
-    logger.error('Chaterm database get asset error', { error: error instanceof Error ? error.message : String(error) })
+    logger.error('Chaterm database get asset error', { error: error })
     throw error
   }
 }
@@ -244,7 +244,7 @@ export function getUserHostsLogic(db: Database.Database, search: string, limit: 
       hasMore: false // No pagination; rely on search to narrow results
     }
   } catch (error) {
-    logger.error('Chaterm database get user hosts error', { error: error instanceof Error ? error.message : String(error) })
+    logger.error('Chaterm database get user hosts error', { error: error })
     throw error
   }
 }
@@ -336,7 +336,7 @@ export async function refreshOrganizationAssetsLogic(
                 keyboardInteractiveHandler([{ prompt }], (responses: string[]) => {
                   resolve(responses?.[0] || null)
                 }).catch((error) => {
-                  logger.warn(`${bastionType} MFA handler error`, { error: error instanceof Error ? error.message : String(error) })
+                  logger.warn(`${bastionType} MFA handler error`, { error: error })
                   resolve(null)
                 })
               })
@@ -453,12 +453,12 @@ export async function refreshOrganizationAssetsLogic(
       }
     }
   } catch (error) {
-    logger.error('Failed to refresh organization assets, error details', { error: error instanceof Error ? error.message : String(error) })
-    logger.error('Error stack', { error: error instanceof Error ? error.stack : 'No stack trace' })
+    logger.error('Failed to refresh organization assets, error details', { error: error })
+    logger.error('Error stack', { error })
     return {
       data: {
         message: 'failed',
-        error: error instanceof Error ? error.message : String(error)
+        error: error
       }
     }
   }
@@ -495,7 +495,7 @@ export function updateOrganizationAssetFavoriteLogic(db: Database.Database, orga
       }
     }
   } catch (error) {
-    logger.error('updateOrganizationAssetFavoriteLogic error', { error: error instanceof Error ? error.message : String(error) })
+    logger.error('updateOrganizationAssetFavoriteLogic error', { error: error })
     throw error
   }
 }
@@ -531,7 +531,7 @@ export function updateOrganizationAssetCommentLogic(db: Database.Database, organ
       }
     }
   } catch (error) {
-    logger.error('updateOrganizationAssetCommentLogic error', { error: error instanceof Error ? error.message : String(error) })
+    logger.error('updateOrganizationAssetCommentLogic error', { error: error })
     throw error
   }
 }
@@ -554,7 +554,7 @@ export function createCustomFolderLogic(db: Database.Database, name: string, des
       }
     }
   } catch (error) {
-    logger.error('createCustomFolderLogic error', { error: error instanceof Error ? error.message : String(error) })
+    logger.error('createCustomFolderLogic error', { error: error })
     throw error
   }
 }
@@ -575,7 +575,7 @@ export function getCustomFoldersLogic(db: Database.Database): any {
       }
     }
   } catch (error) {
-    logger.error('getCustomFoldersLogic error', { error: error instanceof Error ? error.message : String(error) })
+    logger.error('getCustomFoldersLogic error', { error: error })
     throw error
   }
 }
@@ -596,7 +596,7 @@ export function updateCustomFolderLogic(db: Database.Database, folderUuid: strin
       }
     }
   } catch (error) {
-    logger.error('updateCustomFolderLogic error', { error: error instanceof Error ? error.message : String(error) })
+    logger.error('updateCustomFolderLogic error', { error: error })
     throw error
   }
 }
@@ -622,7 +622,7 @@ export function deleteCustomFolderLogic(db: Database.Database, folderUuid: strin
       }
     }
   } catch (error) {
-    logger.error('deleteCustomFolderLogic error', { error: error instanceof Error ? error.message : String(error) })
+    logger.error('deleteCustomFolderLogic error', { error: error })
     throw error
   }
 }
@@ -672,7 +672,7 @@ export function moveAssetToFolderLogic(db: Database.Database, folderUuid: string
       }
     }
   } catch (error) {
-    logger.error('moveAssetToFolderLogic error', { error: error instanceof Error ? error.message : String(error) })
+    logger.error('moveAssetToFolderLogic error', { error: error })
     throw error
   }
 }
@@ -692,7 +692,7 @@ export function removeAssetFromFolderLogic(db: Database.Database, folderUuid: st
       }
     }
   } catch (error) {
-    logger.error('removeAssetFromFolderLogic error', { error: error instanceof Error ? error.message : String(error) })
+    logger.error('removeAssetFromFolderLogic error', { error: error })
     throw error
   }
 }
@@ -723,7 +723,7 @@ export function getAssetsInFolderLogic(db: Database.Database, folderUuid: string
       }
     }
   } catch (error) {
-    logger.error('getAssetsInFolderLogic error', { error: error instanceof Error ? error.message : String(error) })
+    logger.error('getAssetsInFolderLogic error', { error: error })
     throw error
   }
 }

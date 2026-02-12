@@ -313,7 +313,7 @@ const onLoadData = async (treeNode: any) => {
 
     treeData.value = [...treeData.value]
   } catch (err) {
-    logger.error('Failed to load tree data', { error: String(err) })
+    logger.error('Failed to load tree data', { error: err })
   }
 }
 

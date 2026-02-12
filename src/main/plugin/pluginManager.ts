@@ -132,7 +132,7 @@ export function installPlugin(pluginFilePath: string): InstalledPlugin {
     logger.error('Plugin install failed', {
       event: 'plugin.install.error',
       packageName: path.basename(pluginFilePath),
-      error: error instanceof Error ? error.message : String(error)
+      error: error
     })
     throw error
   }
@@ -197,7 +197,7 @@ export async function getAllPluginVersions(): Promise<Record<string, string>> {
 
         version = v instanceof Promise ? await v : v
       } catch (e) {
-        logger.error('Version provider error', { pluginId, error: e instanceof Error ? e.message : String(e) })
+        logger.error('Version provider error', { pluginId, error: e })
       }
     }
 

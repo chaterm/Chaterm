@@ -65,7 +65,7 @@ export class DataSyncService {
       this.isInitialized = true
       logger.info('Data sync service initialization completed')
     } catch (error) {
-      logger.error('Data sync service initialization failed', { error: error instanceof Error ? error.message : String(error) })
+      logger.error('Data sync service initialization failed', { error: error })
     }
   }
 
@@ -91,7 +91,7 @@ export class DataSyncService {
         return false
       }
     } catch (error) {
-      logger.error('Error occurred while enabling data sync', { error: error instanceof Error ? error.message : String(error) })
+      logger.error('Error occurred while enabling data sync', { error: error })
       return false
     }
   }
@@ -118,7 +118,7 @@ export class DataSyncService {
         return false
       }
     } catch (error) {
-      logger.error('Error occurred while disabling data sync', { error: error instanceof Error ? error.message : String(error) })
+      logger.error('Error occurred while disabling data sync', { error: error })
       return false
     }
   }

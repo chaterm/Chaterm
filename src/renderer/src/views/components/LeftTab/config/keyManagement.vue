@@ -376,7 +376,7 @@ const fetchKeyChainList = async () => {
       keyChainList.value = result.data.keyChain
     }
   } catch (error) {
-    logger.error('Failed to get key list', { error: error instanceof Error ? error.message : String(error) })
+    logger.error('Failed to get key list', { error: error })
     message.error(t('keyChain.getKeyListFailed'))
   }
 }
