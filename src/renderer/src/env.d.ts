@@ -75,3 +75,22 @@ declare module '@vitest/browser/context' {
     keyboard: (keys: string) => Promise<void>
   }
 }
+
+declare module 'mermaid' {
+  // Mermaid configuration interface
+  interface MermaidConfig {
+    startOnLoad?: boolean
+    securityLevel?: 'strict' | 'loose' | 'antiscript'
+    theme?: 'default' | 'forest' | 'dark' | 'neutral' | 'base'
+    logLevel?: 'debug' | 'info' | 'warn' | 'error' | 'fatal'
+    fontFamily?: string
+    // Allow additional properties with type safety
+    [key: string]: unknown
+  }
+
+  const mermaid: {
+    initialize: (config: MermaidConfig) => void
+    run: (options?: { nodes?: HTMLElement[] }) => Promise<void>
+  }
+  export default mermaid
+}

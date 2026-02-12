@@ -192,7 +192,13 @@ function upgradeTAssetsTable(db: Database.Database): void {
       })()
     }
 
-    // Check and fill missing UUIDs
+    try {
+      db.prepare('SELECT version FROM t_asset_chains LIMIT 1').get()
+    } catch (e) {
+      db.exec('ALTER TABLE t_asset_chains ADD COLUMN version INTEGER NOT NULL DEFAULT 1')
+      console.log('Added version column to t_asset_chains')
+    }
+
     try {
       const existingRecords = db.prepare("SELECT key_chain_id FROM t_asset_chains WHERE uuid IS NULL OR uuid = ''").all()
 
@@ -240,7 +246,7 @@ function upgradeTAssetsTable(db: Database.Database): void {
 
         // First clean up possible duplicate data (on quintuple dimension), keep the latest record
         db.exec(`
- DELETE FROM t_assets 
+ DELETE FROM t_assets
  WHERE id NOT IN (
  SELECT MAX(id)
  FROM t_assets
@@ -250,7 +256,7 @@ function upgradeTAssetsTable(db: Database.Database): void {
 
         // Create new composite unique index (including asset_type)
         db.exec(`
- CREATE UNIQUE INDEX idx_assets_unique_ip_user_port_label_type 
+ CREATE UNIQUE INDEX idx_assets_unique_ip_user_port_label_type
  ON t_assets(asset_ip, username, port, label, asset_type)
  `)
         logger.info('Added unique constraint for asset_ip + username + port + label + asset_type')

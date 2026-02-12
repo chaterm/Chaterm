@@ -978,14 +978,6 @@ export const registerSSHHandlers = () => {
     return false
   })
 
-  ipcMain.handle('ssh:sftp:conn:list', async () => {
-    return Array.from(sftpConnections.entries()).map(([key, sftpConn]) => ({
-      id: key,
-      isSuccess: sftpConn.isSuccess,
-      error: sftpConn.error
-    }))
-  })
-
   ipcMain.handle('ssh:shell', async (event, { id, terminalType }) => {
     // Check if it's a JumpServer connection
     if (jumpserverConnections.has(id)) {
@@ -1556,54 +1548,6 @@ export const registerSSHHandlers = () => {
             exitSignal: undefined
           })
         })
-      })
-    })
-  })
-
-  ipcMain.handle('ssh:sftp:list', async (_e, { path, id }) => {
-    return new Promise<unknown[]>((resolve) => {
-      const sftp = getSftpConnection(id)
-      if (!sftp) return resolve([''])
-
-      sftp!.readdir(path, (err, list) => {
-        if (err) {
-          const errorCode = (err as { code?: number }).code
-          switch (errorCode) {
-            case 2: // SSH_FX_NO_SUCH_FILE
-              return resolve([`cannot open directory '${path}': No such file or directory`])
-            case 3: // SSH_FX_PERMISSION_DENIED
-              return resolve([`cannot open directory '${path}': Permission denied`])
-            case 4: // SSH_FX_FAILURE
-              return resolve([`cannot open directory '${path}': Operation failed`])
-            case 5: // SSH_FX_BAD_MESSAGE
-              return resolve([`cannot open directory '${path}': Bad message format`])
-            case 6: // SSH_FX_NO_CONNECTION
-              return resolve([`cannot open directory '${path}': No connection`])
-            case 7: // SSH_FX_CONNECTION_LOST
-              return resolve([`cannot open directory '${path}': Connection lost`])
-            case 8: // SSH_FX_OP_UNSUPPORTED
-              return resolve([`cannot open directory '${path}': Operation not supported`])
-            default:
-              // Unknown error code
-              const message = (err as Error).message || `Unknown error (code: ${errorCode})`
-              return resolve([`cannot open directory '${path}': ${message}`])
-          }
-        }
-        const files = list.map((item) => {
-          const name = item.filename
-          const attrs = item.attrs
-          const prefix = path === '/' ? '/' : path + '/'
-          return {
-            name: name,
-            path: prefix + name,
-            isDir: attrs.isDirectory(),
-            isLink: attrs.isSymbolicLink(),
-            mode: '0' + (attrs.mode & 0o777).toString(8),
-            modTime: new Date(attrs.mtime * 1000).toISOString().replace('T', ' ').slice(0, 19),
-            size: attrs.size
-          }
-        })
-        resolve(files)
       })
     })
   })

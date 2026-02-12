@@ -11,10 +11,12 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, watch, onBeforeUnmount, PropType } from 'vue'
+import { ref, onMounted, watch, onBeforeUnmount, PropType, computed } from 'vue'
+import { storeToRefs } from 'pinia'
 import * as monaco from 'monaco-editor'
 import 'monaco-editor/esm/vs/editor/contrib/folding/browser/folding'
 import 'monaco-editor/esm/vs/editor/contrib/find/browser/findController'
+import { useEditorConfigStore, getFontFamily } from '@/stores/editorConfig'
 
 // Configure Monaco Environment for Web Workers
 import editorWorker from 'monaco-editor/esm/vs/editor/editor.worker?worker'
@@ -80,6 +82,29 @@ const monacoVimInstance: any = null
 const hasCustomBg = ref(typeof document !== 'undefined' && !!document.body?.classList.contains('has-custom-bg'))
 let bgClassObserver: MutationObserver | null = null
 
+// Global editor config store; use storeToRefs so config changes from settings trigger watch
+const editorConfigStore = useEditorConfigStore()
+const { config: storeConfig } = storeToRefs(editorConfigStore)
+
+// Merge options: props.options > global config > defaults. Build from storeConfig ref for reactivity.
+const mergedOptions = computed(() => {
+  const c = storeConfig.value
+  const globalOptions = {
+    fontSize: c.fontSize,
+    fontFamily: getFontFamily(c.fontFamily),
+    tabSize: c.tabSize,
+    wordWrap: c.wordWrap,
+    minimap: { enabled: c.minimap },
+    mouseWheelZoom: c.mouseWheelZoom,
+    cursorBlinking: c.cursorBlinking,
+    lineHeight: c.lineHeight || 0
+  }
+  return {
+    ...globalOptions,
+    ...props.options
+  }
+})
+
 const syncHasCustomBg = () => {
   if (typeof document === 'undefined' || !document.body) {
     hasCustomBg.value = false
@@ -125,8 +150,6 @@ const createEditor = (): void => {
     language: props.language,
     theme: props.theme === 'vs' ? 'custom-light' : props.theme,
     scrollBeyondLastLine: false,
-    fontSize: 12,
-    fontFamily: 'Hack',
     smoothScrolling: true,
     scrollbar: {
       useShadows: false,
@@ -137,10 +160,7 @@ const createEditor = (): void => {
       top: 0,
       bottom: 400 // Leave about 200px blank space at bottom, similar to VSCode effect
     },
-    lineHeight: 0,
-    tabSize: 4,
     insertSpaces: true,
-    wordWrap: 'off',
     automaticLayout: true,
     guides: {
       indentation: true,
@@ -149,12 +169,10 @@ const createEditor = (): void => {
     stickyScroll: {
       enabled: false
     },
-    mouseWheelZoom: true,
     find: {
       seedSearchStringFromSelection: 'selection',
       autoFindInSelection: 'multiline'
     },
-    cursorBlinking: 'blink',
     snippetSuggestions: 'inline',
     suggest: {
       showIcons: true,
@@ -162,25 +180,37 @@ const createEditor = (): void => {
       localityBonus: true
     },
     lineNumbers: 'on',
-    glyphMargin: true,
+    glyphMargin: false,
+    lineNumbersMinChars: 3,
+    lineDecorationsWidth: 0,
     folding: true,
-    minimap: {
-      enabled: true,
-      side: 'right',
-      showSlider: 'mouseover',
-      renderCharacters: true
-    },
     matchBrackets: 'always',
     renderLineHighlight: 'line',
     quickSuggestions: true,
     autoClosingBrackets: 'languageDefined',
-    autoClosingQuotes: 'languageDefined'
+    autoClosingQuotes: 'languageDefined',
+    // Ensure these don't override user config
+    detectIndentation: false, // Don't auto-detect indentation
+    useTabStops: true
   }
 
-  editor = monaco.editor.create(editorContainer.value, {
+  // Option priority: props.options > global config > default options
+  const finalOptions = {
     ...defaultOptions,
-    ...props.options
-  })
+    ...mergedOptions.value
+  }
+
+  editor = monaco.editor.create(editorContainer.value, finalOptions)
+
+  // tabSize is model option: apply to model right after creation so indentation takes effect
+  const model = editor.getModel()
+  if (model && finalOptions.tabSize != null) {
+    model.updateOptions({
+      tabSize: finalOptions.tabSize,
+      insertSpaces: true,
+      indentSize: finalOptions.tabSize
+    })
+  }
 
   editor.onDidChangeModelContent(() => {
     const value = editor?.getValue() || ''
@@ -190,7 +220,10 @@ const createEditor = (): void => {
   })
 }
 
-onMounted(() => {
+onMounted(async () => {
+  // Load global editor config from store
+  await editorConfigStore.loadConfig()
+
   // Keep editor background in sync with global custom background state.
   // When `body.has-custom-bg` is toggled in settings, we update a wrapper class
   // to switch Monaco background to a semi-transparent `--bg-color`.
@@ -260,6 +293,31 @@ watch(
       editor.layout()
     }
   }
+)
+
+// Listen for global config changes. tabSize on model; font/size/minimap etc. on editor; then layout to apply font.
+watch(
+  () => mergedOptions.value,
+  (newOptions) => {
+    if (!editor) return
+
+    // Update editor options
+    editor.updateOptions(newOptions)
+
+    // Update model options for tabSize
+    const model = editor.getModel()
+    if (model && newOptions.tabSize != null) {
+      model.updateOptions({
+        tabSize: newOptions.tabSize,
+        insertSpaces: true,
+        indentSize: newOptions.tabSize
+      })
+    }
+
+    // Force layout to apply font changes
+    editor.layout()
+  },
+  { deep: true }
 )
 
 defineExpose({

@@ -221,6 +221,7 @@ import { useModelConfiguration } from '../composables/useModelConfiguration'
 import { useUserInteractions } from '../composables/useUserInteractions'
 import { parseContextDragPayload, useEditableContent } from '../composables/useEditableContent'
 import { AiTypeOptions } from '../composables/useEventBusListeners'
+import { getImageMediaType } from '../utils'
 import type { ContentPart, ContextDocRef, ContextPastChatRef, ContextCommandRef } from '@shared/WebviewMessage'
 import type { HistoryItem } from '../types'
 import { CloseOutlined, LaptopOutlined } from '@ant-design/icons-vue'
@@ -287,16 +288,18 @@ const inputParts = computed<ContentPart[]>({
 
 // Create context instance and provide to child components.
 // We pass inputParts so chip insertion works in edit mode without touching the global draft.
+// Pass mode to avoid duplicate event listeners in edit mode.
 const context = useContext({
   chatInputParts: inputParts,
   focusInput: () => {
     editableRef.value?.focus()
     restoreSelection()
-  }
+  },
+  mode: props.mode
 })
 provide(contextInjectionKey, context)
 
-const { showContextPopup, removeHost, handleAddContextClick, onHostClick, setChipInsertHandler } = context
+const { showContextPopup, removeHost, handleAddContextClick, onHostClick, setChipInsertHandler, setImageInsertHandler } = context
 
 // Create command select instance and provide to child components.
 const commandSelectContext = useCommandSelect({
@@ -317,8 +320,12 @@ const hasSendableContent = () => {
 
 // Send click handler supporting both modes (defined before useEditableContent for dependency)
 const handleSendClick = async (type: string) => {
-  const isBusy = responseLoading.value || props.interactionActive
+  if (responseLoading.value) {
+    props.handleInterrupt()
+    return
+  }
 
+  const isBusy = props.interactionActive
   if (props.mode !== 'edit' && isBusy && props.interruptAndSendIfBusy) {
     const content = extractPlainTextFromParts(inputParts.value).trim()
     if (!content && !hasSendableContent()) {
@@ -329,11 +336,6 @@ const handleSendClick = async (type: string) => {
       return
     }
     await props.interruptAndSendIfBusy(type)
-    return
-  }
-
-  if (responseLoading.value) {
-    props.handleInterrupt()
     return
   }
 
@@ -415,12 +417,6 @@ const resolveKbAbsPath = async (relPath: string): Promise<string> => {
   return `${normalizedRoot}${separator}${normalizedRel}`
 }
 
-// const handleEditableDragOver = (e: DragEvent) => {
-//   const dragPayload = parseContextDragPayload(e.dataTransfer)
-//   if (!dragPayload) return
-//   e.preventDefault()
-// }
-
 const handleEditableDrop = async (e: DragEvent) => {
   const dragPayload = parseContextDragPayload(e.dataTransfer)
   if (!dragPayload) return
@@ -433,6 +429,21 @@ const handleEditableDrop = async (e: DragEvent) => {
     const absPath = await resolveKbAbsPath(dragPayload.relPath)
     if (!absPath) return
     insertChipAtCursor('doc', { absPath, name: dragPayload.name, type: 'file' }, dragPayload.name)
+    return
+  }
+
+  if (dragPayload.contextType === 'image') {
+    try {
+      const res = await window.api.kbReadFile(dragPayload.relPath, 'base64')
+      const mediaType = getImageMediaType(dragPayload.relPath)
+      insertImageAtCursor({
+        type: 'image',
+        mediaType,
+        data: res.content
+      })
+    } catch (err) {
+      console.error('Failed to read image file:', err)
+    }
     return
   }
 
@@ -582,6 +593,7 @@ const inputPlaceholder = computed(() => {
 
 onMounted(() => {
   setChipInsertHandler(insertChipAtCursor)
+  setImageInsertHandler(insertImageAtCursor)
   // Set command chip insert handler with path support
   setCommandChipInsertHandler((command: string, label: string, path: string) => {
     removeTrailingSlashFromInputParts(inputParts)
@@ -594,6 +606,7 @@ onMounted(() => {
 
 onBeforeUnmount(() => {
   setChipInsertHandler(() => {})
+  setImageInsertHandler(() => {})
   setCommandChipInsertHandler(() => {})
 })
 </script>

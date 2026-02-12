@@ -10,6 +10,7 @@
         class="group"
       >
         <div class="label">{{ $t('files.download') }}：</div>
+
         <div
           v-for="task in downloadList"
           :key="task.taskKey"
@@ -21,24 +22,37 @@
               :title="task.name"
               >{{ task.name }}</span
             >
-            <span class="speed">{{ task.speed }}</span>
+            <span
+              v-if="task.speed === 'scanning'"
+              class="speed"
+              >{{ $t('files.scanning') }}...</span
+            >
+            <span
+              v-else
+              class="speed"
+              >{{ task.speed }}</span
+            >
           </div>
+
           <div class="progress-row">
             <div class="progress-container">
               <a-progress
                 :percent="task.progress"
                 size="small"
                 class="file-progress"
-                :status="task.progress === 100 ? 'success' : 'active'"
+                :status="mapAntdStatus(task.status, task.progress)"
               />
             </div>
+
             <a-button
               type="link"
               danger
               class="cancel-btn"
               @click="cancel(task.taskKey)"
             >
-              <template #icon><CloseOutlined /></template>
+              <template #icon>
+                <CloseOutlined />
+              </template>
             </a-button>
           </div>
         </div>
@@ -49,6 +63,7 @@
         class="group"
       >
         <div class="label">{{ $t('files.upload') }}：</div>
+
         <div
           v-for="task in uploadList"
           :key="task.taskKey"
@@ -60,24 +75,37 @@
               :title="task.name"
               >{{ task.name }}</span
             >
-            <span class="speed">{{ task.speed }}</span>
+            <span
+              v-if="task.speed === 'scanning'"
+              class="speed"
+              >{{ $t('files.scanning') }}...</span
+            >
+            <span
+              v-else
+              class="speed"
+              >{{ task.speed }}</span
+            >
           </div>
+
           <div class="progress-row">
             <div class="progress-container">
               <a-progress
                 :percent="task.progress"
                 size="small"
                 class="file-progress"
-                :status="task.progress === 100 ? 'success' : 'active'"
+                :status="mapAntdStatus(task.status, task.progress)"
               />
             </div>
+
             <a-button
               type="link"
               danger
               class="cancel-btn"
               @click="cancel(task.taskKey)"
             >
-              <template #icon><CloseOutlined /></template>
+              <template #icon>
+                <CloseOutlined />
+              </template>
             </a-button>
           </div>
         </div>
@@ -107,24 +135,37 @@
                 :title="task.name"
                 >{{ task.name }}</span
               >
-              <span class="speed">{{ task.speed }}</span>
+              <span
+                v-if="task.speed === 'scanning'"
+                class="speed"
+                >{{ $t('files.scanning') }}...</span
+              >
+              <span
+                v-else
+                class="speed"
+                >{{ task.speed }}</span
+              >
             </div>
+
             <div class="progress-row">
               <div class="progress-container">
                 <a-progress
                   :percent="task.progress"
                   size="small"
                   class="file-progress"
-                  :status="task.progress === 100 ? 'success' : 'active'"
+                  :status="mapAntdStatus(task.status, task.progress)"
                 />
               </div>
+
               <a-button
                 type="link"
                 danger
                 class="cancel-btn"
                 @click="cancel(task.taskKey)"
               >
-                <template #icon><CloseOutlined /></template>
+                <template #icon>
+                  <CloseOutlined />
+                </template>
               </a-button>
             </div>
           </div>
@@ -135,7 +176,7 @@
 </template>
 
 <script setup lang="ts">
-import { downloadList, uploadList, r2rList, transferTasks, r2rGroups } from './fileTransfer'
+import { downloadList, uploadList, r2rList, transferTasks, r2rGroups, type TaskStatus } from './fileTransfer'
 import { CloseOutlined } from '@ant-design/icons-vue'
 import { useI18n } from 'vue-i18n'
 
@@ -144,7 +185,17 @@ const { t: $t } = useI18n()
 const api = (window as any).api
 const cancel = (taskKey: string) => {
   api.cancelFileTask({ taskKey })
-  delete transferTasks.value[taskKey]
+  if (transferTasks.value[taskKey]) {
+    transferTasks.value[taskKey].status = 'failed'
+    setTimeout(() => delete transferTasks.value[taskKey], 800)
+  }
+}
+
+const mapAntdStatus = (s: TaskStatus, progress: number) => {
+  if (s === 'error') return 'exception'
+  if (s === 'failed') return 'normal'
+  if (s === 'success' || progress === 100) return 'success'
+  return 'active'
 }
 
 const parseTaskTitle = (g: string) => {
@@ -267,7 +318,7 @@ const extractIp = (s: string) => {
   margin-bottom: 10px;
 }
 .subgroup-title {
-  font-size: 12px;
+  font-size: 11px;
   color: var(--text-color);
   opacity: 0.85;
   margin: 6px 0;

@@ -146,6 +146,7 @@
                 :class="{ collapsed: leftPaneSize <= 0 }"
                 :size="leftPaneSize"
                 :min-size="leftMinSize"
+                :max-size="50"
               >
                 <Workspace
                   v-if="currentMenu == 'workspace'"
@@ -297,6 +298,7 @@ import { computed, nextTick, onBeforeUnmount, onMounted, onUnmounted, reactive, 
 import { Pane, Splitpanes } from 'splitpanes'
 import 'splitpanes/dist/splitpanes.css'
 import AiTab from '@views/components/AiTab/index.vue'
+import { isImageFile } from '@views/components/AiTab/utils'
 import Header from '@views/components/Header/index.vue'
 import LeftTab from '@views/components/LeftTab/index.vue'
 import Workspace from '@views/components/Workspace/index.vue'
@@ -357,10 +359,13 @@ const isSkippedLogin = computed(() => {
 })
 const watermarkContent = reactive({
   content: computed(() => {
+    if (!showWatermark.value) {
+      return ['']
+    }
     if (isSkippedLogin.value) {
       return ['Guest User']
     }
-    return showWatermark.value ? [userInfoStore().userInfo.name, userInfoStore().userInfo.email] : ['']
+    return [userInfoStore().userInfo.name, userInfoStore().userInfo.email]
   }),
   font: {
     fontSize: 12,
@@ -454,6 +459,17 @@ const handleKbAddDocToChatRequest = (payload: Array<{ relPath: string; name?: st
 
   setTimeout(() => {
     eventBus.emit('kbAddDocToChat', payload)
+  }, 100)
+}
+
+// Handle image add to chat request from knowledge base
+const handleKbAddImageToChatRequest = (payload: { mediaType: string; data: string }) => {
+  if (!showAiSidebar.value) {
+    toggleSideBar('right')
+  }
+
+  setTimeout(() => {
+    eventBus.emit('kbAddImageToChat', payload)
   }, 100)
 }
 
@@ -928,6 +944,7 @@ onMounted(async () => {
   eventBus.on('getAllOpenedHosts', handleGetAllOpenedHosts)
   eventBus.on('toggleSideBar', toggleSideBar)
   eventBus.on('kbAddDocToChatRequest', handleKbAddDocToChatRequest)
+  eventBus.on('kbAddImageToChatRequest', handleKbAddImageToChatRequest)
   eventBus.on('createSplitTab', handleCreateSplitTab)
   eventBus.on('createVerticalSplitTab', handleCreateVerticalSplitTab)
   eventBus.on('adjustSplitPaneToEqual', adjustSplitPaneToEqualWidth)
@@ -938,6 +955,8 @@ onMounted(async () => {
   eventBus.on('createNewTerminal', handleCreateNewTerminal)
   eventBus.on('open-user-tab', openUserTab)
   eventBus.on('kbEntriesRemoved', handleKbEntriesRemoved)
+  eventBus.on('kbFileRenamed', handleKbFileRenamed)
+  eventBus.on('openKbPreview', handleOpenKbPreview)
   eventBus.on('searchHost', handleSearchHost)
   eventBus.on('save-state-before-switch', () => {
     // Save AI state before layout switch (unified since same aiTabRef)
@@ -1031,8 +1050,8 @@ const closeGlobalInput = () => {
 }
 const DEFAULT_WIDTH_PX = 250
 const DEFAULT_WIDTH_RIGHT_PX = 350
-const MIN_AI_SIDEBAR_WIDTH_PX = 280 // AI sidebar minimum usable width
-const SNAP_THRESHOLD_PX = 200 // Sticky resistance threshold
+const MIN_AI_SIDEBAR_WIDTH_PX = 320 // AI sidebar minimum usable width
+const SNAP_THRESHOLD_PX = 240 // Sticky resistance threshold
 // Left sidebar constants
 const MIN_LEFT_SIDEBAR_WIDTH_PX = 200 // Left sidebar minimum usable width
 const LEFT_QUICK_CLOSE_THRESHOLD_PX = 50 // Left sidebar quick close threshold
@@ -1056,6 +1075,17 @@ const updatePaneSize = () => {
   }
 }
 
+// Watch left pane size to timely update AI sidebar min-size
+watch(
+  () => leftPaneSize.value,
+  () => {
+    if (props.currentMode === 'terminal') {
+      updateAiSidebarMinSize()
+      updateLeftSidebarMinSize()
+    }
+  }
+)
+
 // Calculate AI sidebar min-size percentage
 const updateAiSidebarMinSize = () => {
   // In Agents mode, AI sidebar uses different container and stricter minimum width
@@ -1069,20 +1099,19 @@ const updateAiSidebarMinSize = () => {
     return
   }
 
-  // Terminal mode logic remains unchanged
-  const mainContainer = document.querySelector('.main-split-container') as HTMLElement
-  if (mainContainer) {
-    const mainWidth = mainContainer.offsetWidth
-    // Convert sticky resistance threshold to percentage relative to main container
-    aiMinSize.value = (SNAP_THRESHOLD_PX / mainWidth) * 100
-  } else {
-    // Fallback to using entire splitpanes container
-    const container = document.querySelector('.splitpanes') as HTMLElement
-    if (container) {
-      const containerWidth = container.offsetWidth
-      // Consider left sidebar width
-      const availableWidth = (containerWidth * (100 - leftPaneSize.value)) / 100
-      aiMinSize.value = (SNAP_THRESHOLD_PX / availableWidth) * 100
+  // Terminal mode logic
+  // Use .left-sidebar-container width and leftPaneSize to calculate available width
+  // This avoids issues where reading .main-split-container.offsetWidth returns stale values during resize events
+  const container = document.querySelector('.left-sidebar-container') as HTMLElement
+  if (container) {
+    const containerWidth = container.offsetWidth
+    // Consider left sidebar width to calculate the actual width available for the main split container
+    const availableWidth = (containerWidth * (100 - leftPaneSize.value)) / 100
+
+    // Safety check to avoid division by zero or negative values
+    if (availableWidth > 10) {
+      const minPercent = (SNAP_THRESHOLD_PX / availableWidth) * 100
+      aiMinSize.value = minPercent
     }
   }
 }
@@ -1135,6 +1164,9 @@ const handleLeftPaneResize = (params: ResizeParams) => {
   const containerWidth = container ? container.offsetWidth : 1000
   const sizePx = (params.prevPane.size / 100) * containerWidth
 
+  const oldLeftSize = props.currentMode === 'agents' ? agentsLeftPaneSize.value : leftPaneSize.value
+  const newLeftSize = params.prevPane.size
+
   // Normal size update
   if (props.currentMode === 'agents') {
     agentsLeftPaneSize.value = params.prevPane.size
@@ -1157,6 +1189,31 @@ const handleLeftPaneResize = (params: ResizeParams) => {
       headerRef.value?.switchIcon('left', true)
     } else {
       headerRef.value?.switchIcon('left', false)
+    }
+  }
+
+  // Adjust AI sidebar to maintain pixel width when left sidebar resizes
+  if (showAiSidebar.value && aiSidebarSize.value > 0 && Math.abs(100 - newLeftSize) > 0.1 && props.currentMode === 'terminal') {
+    // Calculate effective left sizes (clamped to minimum width constraint)
+    // This prevents the AI sidebar from shrinking when the left sidebar is conceptually shrinking but physically stuck at min-width
+    const minLeftPct = (MIN_LEFT_SIDEBAR_WIDTH_PX / containerWidth) * 100
+    const effectiveOldLeft = Math.max(oldLeftSize, minLeftPct)
+    const effectiveNewLeft = Math.max(newLeftSize, minLeftPct)
+
+    let newAiSize = (aiSidebarSize.value * (100 - effectiveOldLeft)) / (100 - effectiveNewLeft)
+
+    // Ensure the calculated size respects the minimum constraint
+    // This is critical: even if pixel maintenance suggests a smaller size, we must honor the 240px minimum
+    newAiSize = Math.max(newAiSize, aiMinSize.value)
+
+    // Clamp to reasonable bounds (e.g. max 90% of remaining space)
+    if (newAiSize > 0 && newAiSize < 90) {
+      aiSidebarSize.value = newAiSize
+      if (showSplitPane.value) {
+        adjustSplitPaneToEqualWidth()
+      } else {
+        mainTerminalSize.value = 100 - aiSidebarSize.value
+      }
     }
   }
 }
@@ -1584,6 +1641,49 @@ const shouldCloseKbTab = (tabRelPath: string, entry: KbRemovedEntry): boolean =>
   return tabPath === entryPath
 }
 
+// Handle opening knowledge base preview panel via eventBus
+const handleOpenKbPreview = (payload: { relPath: string; referencePanel: string }) => {
+  if (!dockApi) return
+
+  const { relPath, referencePanel } = payload
+  const stableId = `kc_preview_${relPath.replaceAll('/', '__')}`
+  const newId = 'panel_' + stableId
+
+  // Check if preview already exists
+  const existing = dockApi.panels.find((p) => p.id === newId)
+  if (existing) {
+    existing.api.setActive()
+    return
+  }
+
+  // Verify reference panel exists
+  const refPanelExists = dockApi.panels.some((p) => p.id === referencePanel)
+
+  // Create preview panel with closeCurrentPanel callback
+  dockApi.addPanel({
+    id: newId,
+    component: 'TabsPanel',
+    title: `Preview ${relPath.split('/').pop()}`,
+    params: {
+      id: stableId,
+      content: 'KnowledgeCenterEditor',
+      mode: 'preview',
+      props: { relPath },
+      isMarkdown: true,
+      organizationId: '',
+      ip: '',
+      closeCurrentPanel: (panelId?: string) => closeCurrentPanel(panelId || newId)
+    },
+    // Only specify position if reference panel exists
+    ...(refPanelExists && {
+      position: {
+        direction: 'right',
+        referencePanel
+      }
+    })
+  })
+}
+
 const handleKbEntriesRemoved = (payload: { entries: KbRemovedEntry[] }) => {
   if (!dockApi) return
   const entries = payload?.entries ?? []
@@ -1598,6 +1698,42 @@ const handleKbEntriesRemoved = (payload: { entries: KbRemovedEntry[] }) => {
     if (entries.some((entry) => shouldCloseKbTab(relPath, entry))) {
       panel.api.close()
     }
+  }
+}
+
+// Update KnowledgeCenterEditor tabs when a file or folder is renamed
+const handleKbFileRenamed = (payload: { oldRelPath: string; newRelPath: string; newName: string }) => {
+  if (!dockApi) return
+  const { oldRelPath, newRelPath, newName } = payload
+  if (!oldRelPath || !newRelPath) return
+
+  const panels = [...dockApi.panels]
+  for (const panel of panels) {
+    const params = panel.params as Record<string, any> | undefined
+    if (!params || params.content !== 'KnowledgeCenterEditor') continue
+    const tabRelPath = String(params.props?.relPath || params.data?.props?.relPath || '')
+    if (!tabRelPath) continue
+
+    let updatedRelPath = ''
+    let updatedTitle = ''
+
+    if (tabRelPath === oldRelPath) {
+      // Exact match: the renamed file/folder itself
+      updatedRelPath = newRelPath
+      updatedTitle = newName
+    } else if (tabRelPath.startsWith(oldRelPath + '/')) {
+      // Child of renamed directory
+      updatedRelPath = newRelPath + tabRelPath.slice(oldRelPath.length)
+      updatedTitle = updatedRelPath.split('/').pop() || updatedRelPath
+    }
+
+    if (!updatedRelPath) continue
+
+    panel.api.setTitle(updatedTitle)
+    if (params.props) params.props.relPath = updatedRelPath
+    if (params.data?.props) params.data.props.relPath = updatedRelPath
+    params.title = updatedTitle
+    panel.api.updateParameters?.({ ...params })
   }
 }
 
@@ -1623,6 +1759,7 @@ onUnmounted(() => {
   eventBus.off('getAllOpenedHosts', handleGetAllOpenedHosts)
   eventBus.off('toggleSideBar', toggleSideBar)
   eventBus.off('kbAddDocToChatRequest', handleKbAddDocToChatRequest)
+  eventBus.off('kbAddImageToChatRequest', handleKbAddImageToChatRequest)
   eventBus.off('createSplitTab', handleCreateSplitTab)
   eventBus.off('createVerticalSplitTab', handleCreateVerticalSplitTab)
   eventBus.off('adjustSplitPaneToEqual', adjustSplitPaneToEqualWidth)
@@ -1632,6 +1769,8 @@ onUnmounted(() => {
   eventBus.off('createNewTerminal', handleCreateNewTerminal)
   eventBus.off('open-user-tab', openUserTab)
   eventBus.off('kbEntriesRemoved', handleKbEntriesRemoved)
+  eventBus.off('kbFileRenamed', handleKbFileRenamed)
+  eventBus.off('openKbPreview', handleOpenKbPreview)
   eventBus.off('searchHost', handleSearchHost)
 })
 
@@ -1687,7 +1826,10 @@ const openUserTab = async function (arg: OpenUserTabArg) {
 
     const target = arg as Exclude<OpenUserTabArg, string>
     const relPath = String(target.props?.relPath || '')
-    const existing = dockApi.panels.find((panel) => panel.params?.content === 'KnowledgeCenterEditor' && panel.params?.props?.relPath === relPath)
+    // Only check for editor mode panels, not preview panels
+    const existing = dockApi.panels.find(
+      (panel) => panel.params?.content === 'KnowledgeCenterEditor' && panel.params?.props?.relPath === relPath && panel.params?.mode !== 'preview'
+    )
     if (existing) {
       existing.api.setActive()
       return
@@ -2303,10 +2445,12 @@ const setupTabDragToAi = () => {
     const params = panel.params as Record<string, any> | undefined
     if (!params) return
 
-    // Handle KnowledgeCenterEditor (doc)
+    // Handle KnowledgeCenterEditor (doc or image)
     if (params.content === 'KnowledgeCenterEditor' && params.props?.relPath) {
-      const name = params.title || params.props.relPath.split('/').pop() || 'KnowledgeCenter'
-      const dragPayload = { contextType: 'doc', relPath: params.props.relPath, name }
+      const relPath = params.props.relPath as string
+      const name = params.title || relPath.split('/').pop() || 'KnowledgeCenter'
+      const contextType = isImageFile(relPath) ? 'image' : 'doc'
+      const dragPayload = { contextType, relPath, name }
       const payload = JSON.stringify(dragPayload)
       e.dataTransfer.setData('text/html', `<span data-chaterm-context="${encodeURIComponent(payload)}"></span>`)
       e.dataTransfer.effectAllowed = 'copy'
@@ -2947,13 +3091,13 @@ defineExpose({
   --dv-active-sash-color: transparent;
   --dv-active-sash-transition-duration: 0.1s;
   --dv-active-sash-transition-delay: 0.5s;
-  --dv-group-view-background-color: white;
+  --dv-group-view-background-color: var(--bg-color);
   --dv-tabs-and-actions-container-background-color: var(--bg-color);
   --dv-activegroup-visiblepanel-tab-background-color: var(--bg-color-tertiary);
   --dv-activegroup-hiddenpanel-tab-background-color: var(--bg-color);
-  --dv-inactivegroup-visiblepanel-tab-background-color: white;
+  --dv-inactivegroup-visiblepanel-tab-background-color: var(--bg-color-secondary);
   --dv-inactivegroup-hiddenpanel-tab-background-color: var(--bg-color);
-  --dv-tab-divider-color: #e2e8f0;
+  --dv-tab-divider-color: var(--border-color);
   --dv-activegroup-visiblepanel-tab-color: rgb(51, 51, 51);
   --dv-activegroup-hiddenpanel-tab-color: rgba(51, 51, 51, 0.7);
   --dv-inactivegroup-visiblepanel-tab-color: rgba(51, 51, 51, 0.7);
@@ -2964,11 +3108,11 @@ defineExpose({
 }
 
 .dockview-theme-light .dv-tabs-and-actions-container {
-  border-bottom: 1px solid #e2e8f0;
+  border-bottom: 1px solid var(--border-color);
 }
 
 .dockview-theme-light .dv-groupview.dv-active-group > .dv-tabs-and-actions-container .dv-tab.dv-active-tab {
-  border: 1px solid #d1d5db;
+  border: 1px solid var(--border-color);
   border-bottom: none;
   border-radius: 4px 4px 0 0;
 }

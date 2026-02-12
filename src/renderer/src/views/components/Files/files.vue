@@ -36,6 +36,25 @@
         </div>
         <div class="fs-header-right">
           <a-space>
+            <div
+              v-if="isLocal"
+              class="fs-header-right-item"
+            >
+              <a-tooltip :title="$t('files.openFolder')">
+                <a-button
+                  type="primary"
+                  size="small"
+                  ghost
+                  @click="openLocalFolder"
+                >
+                  <template #icon>
+                    <FolderOpenOutlined />
+                  </template>
+                </a-button>
+              </a-tooltip>
+            </div>
+          </a-space>
+          <a-space v-if="!isLocal">
             <div class="fs-header-right-item">
               <a-tooltip :title="$t('files.uploadFile')">
                 <a-button
@@ -51,7 +70,7 @@
               </a-tooltip>
             </div>
           </a-space>
-          <a-space>
+          <a-space v-if="!isLocal">
             <div class="fs-header-right-item">
               <a-tooltip :title="$t('files.uploadDirectory')">
                 <a-button
@@ -194,7 +213,7 @@
                   </span>
 
                   <span
-                    v-else-if="uuid.includes('local-team')"
+                    v-else-if="uuid.includes('local-team') || isLocal"
                     class="file-name-main no-select"
                     style="cursor: pointer"
                   >
@@ -451,7 +470,8 @@ import {
   RedoOutlined,
   RollbackOutlined,
   ScissorOutlined,
-  UploadOutlined
+  UploadOutlined,
+  FolderOpenOutlined
 } from '@ant-design/icons-vue'
 import { message, Modal } from 'ant-design-vue'
 import { ColumnsType } from 'ant-design-vue/es/table'
@@ -459,18 +479,7 @@ import { useI18n } from 'vue-i18n'
 import { CheckboxValueType } from 'ant-design-vue/es/checkbox/interface'
 import cloneDeep from 'clone-deep'
 
-type CachedFsState = {
-  files: FileRecord[]
-  localCurrentDirectoryInput: string
-  showErr: boolean
-  errTips: string
-  isFirstLoad: boolean
-}
-
-const FS_STATE_CACHE = new Map<string, CachedFsState>()
-const makeCacheKey = (uuid: string, basePath: string) => `${uuid}::${basePath || ''}`
-
-const emit = defineEmits(['openFile', 'crossTransfer'])
+const emit = defineEmits(['openFile', 'crossTransfer', 'stateChange'])
 const api = (window as any).api
 const { t } = useI18n()
 const { t: $t } = useI18n()
@@ -515,6 +524,11 @@ const props = defineProps({
     default: () => {
       return ''
     }
+  },
+  // cache
+  cachedState: {
+    type: Object,
+    default: () => null
   }
 })
 
@@ -691,45 +705,42 @@ function fixPath(path: string): string {
   return path.replace(/\/+/g, '/')
 }
 
+import { nextTick } from 'vue'
+
+const raf = () => new Promise<void>((r) => requestAnimationFrame(() => r()))
+
 const loadFiles = async (uuid: string, filePath: string): Promise<void> => {
   filePath = fixPath(filePath)
   loading.value = true
   showErr.value = false
   errTips.value = ''
+
+  await nextTick()
+  await raf()
+
   const fetchList = async (path: string) => {
     return await api.sshSftpList({ path, id: uuid })
   }
+
   let data = await fetchList(filePath || '/')
+
   if (data.length > 0 && typeof data[0] === 'string') {
-    // if (isFirstLoad.value) {
-    //   filePath = '/'
-    //   data = await fetchList(filePath)
-    //   isFirstLoad.value = false
-    // }
-    if (data.length > 0 && typeof data[0] === 'string') {
-      errTips.value = removeBasePathInContent(data[0])
-      showErr.value = true
-    }
-  }
-  if (isFirstLoad.value) {
-    isFirstLoad.value = false
+    errTips.value = removeBasePathInContent(data[0])
+    showErr.value = true
   }
 
-  loading.value = false
-  const items = data.map((item: ApiFileRecord) => {
-    return {
-      ...item,
-      key: item.path
-    } as FileRecord
-  })
-  const dirs = items.filter((item: FileRecord) => item.isDir === true)
+  if (isFirstLoad.value) isFirstLoad.value = false
+
+  const items = data.map((item: ApiFileRecord) => ({ ...item, key: item.path }) as FileRecord)
+
+  const dirs = items.filter((item) => item.isDir === true)
   dirs.sort(sortByName)
 
-  const fileItems = items.filter((item: FileRecord) => item.isDir === false)
+  const fileItems = items.filter((item) => item.isDir === false)
   fileItems.sort(sortByName)
   dirs.push(...fileItems)
 
-  if (filePath !== '/') {
+  if (filePath !== '/' && !isWindowsDriveRoot(filePath)) {
     dirs.splice(0, 0, {
       filePath: '..',
       name: '..',
@@ -746,6 +757,25 @@ const loadFiles = async (uuid: string, filePath: string): Promise<void> => {
 
   files.value = dirs
   localCurrentDirectoryInput.value = getLoadFilePath(filePath)
+
+  loading.value = false
+
+  emit('stateChange', {
+    uuid: props.uuid,
+    path: filePath
+  })
+}
+
+const isLocalId = (value: string) => String(value || '').includes('localhost@127.0.0.1:local')
+const isLocal = computed(() => isLocalId(props.uuid))
+const normalizeSlashes = (p: string) => String(p || '').replace(/\\/g, '/')
+const isWindowsDriveRoot = (p: string) => /^[A-Za-z]:\/?$/.test(normalizeSlashes(p))
+
+const openLocalFolder = async () => {
+  const localPath = await api.openDirectoryDialog()
+  if (!localPath) return
+
+  await loadFiles(props.uuid, localPath)
 }
 
 function getLoadFilePath(filePath: string): string {
@@ -765,11 +795,16 @@ const rowClick = (record: FileRecord): void => {
     if (record.path === '..') {
       // Get parent directory of current directory
       const currentDirectory = basePath.value + localCurrentDirectoryInput.value
-      let parentDirectory = currentDirectory.substring(0, currentDirectory.lastIndexOf('/'))
+      if (isWindowsDriveRoot(currentDirectory)) return
+      const cur = normalizeSlashes(currentDirectory)
+      const idx = cur.lastIndexOf('/')
+      let parentDirectory = idx <= 0 ? '/' : cur.slice(0, idx)
+
       if (parentDirectory === '') {
         localCurrentDirectoryInput.value = '/'
         parentDirectory = '/'
       }
+
       loadFiles(props.uuid, parentDirectory)
     } else {
       loadFiles(props.uuid, record.path)
@@ -791,12 +826,15 @@ const refresh = (): void => {
 
 // instead of path.dirname()
 const getDirname = (filepath: string) => {
-  const lastSlashIndex = filepath.lastIndexOf('/')
+  const p = normalizeSlashes(filepath)
 
-  if (lastSlashIndex === -1) return '.'
+  if (isWindowsDriveRoot(p)) return p
+
+  const lastSlashIndex = p.lastIndexOf('/')
+  if (lastSlashIndex === -1) return p
   if (lastSlashIndex === 0) return '/'
 
-  return filepath.substring(0, lastSlashIndex)
+  return p.substring(0, lastSlashIndex)
 }
 
 const joinPath = (...parts: string[]) => {
@@ -1127,11 +1165,24 @@ const onDropZoneOver = (e: DragEvent) => {
   })
 }
 
+const getHoveredDirByPoint = (ev: DragEvent) => {
+  const el = document.elementFromPoint(ev.clientX, ev.clientY) as HTMLElement | null
+  const tr = el?.closest?.('tr.ant-table-row, .ant-table-row') as HTMLElement | null
+  const rowKey = tr?.getAttribute?.('data-row-key') || (tr as any)?.dataset?.rowKey || ''
+  if (!rowKey) return null
+
+  const rec = recordByName.value.get(rowKey)
+  if (rec && rec.isDir && rec.key !== '..' && !rec.disabled) {
+    return rec.path
+  }
+  return null
+}
+
 const onDropZoneDrop = (e: DragEvent) => {
   // Always prevent default on drop to avoid browser side-effects
   e.preventDefault()
-
-  const hoveredDir = lastHoverDir
+  const dropHitDir = getHoveredDirByPoint(e)
+  const hoveredDir = dropHitDir || lastHoverDir
 
   // Drag end: Unified cleanup
   setGlobalDragFromSide(null)
@@ -1178,36 +1229,21 @@ onMounted(async () => {
   document.addEventListener('drop', onAnyDndFinish, true)
 
   isTeamCheck(props.uuid)
-  // Try restore from cache first
-  const cacheKey = makeCacheKey(props.uuid, basePath.value)
-  const cached = FS_STATE_CACHE.get(cacheKey)
-  if (cached && Array.isArray(cached.files) && cached.files.length) {
-    files.value = cached.files
-    localCurrentDirectoryInput.value = cached.localCurrentDirectoryInput || localCurrentDirectoryInput.value
-    showErr.value = !!cached.showErr
-    errTips.value = cached.errTips || ''
-    isFirstLoad.value = cached.isFirstLoad ? cached.isFirstLoad : false
-    return
+
+  const c: any = props.cachedState
+  if (c && typeof c.path === 'string') {
+    try {
+      localCurrentDirectoryInput.value = getLoadFilePath(c.path)
+
+      await loadFiles(props.uuid, basePath.value + localCurrentDirectoryInput.value)
+
+      loading.value = false
+      return
+    } catch {}
   }
 
   await loadFiles(props.uuid, basePath.value + localCurrentDirectoryInput.value)
 })
-
-// Keep cache up-to-date (avoid deep watch: it can be expensive for large directories)
-watch(
-  () => [props.uuid, basePath.value, files.value, localCurrentDirectoryInput.value, showErr.value, errTips.value],
-  () => {
-    const cacheKey = makeCacheKey(props.uuid, basePath.value)
-    FS_STATE_CACHE.set(cacheKey, {
-      files: files.value,
-      localCurrentDirectoryInput: localCurrentDirectoryInput.value,
-      showErr: showErr.value,
-      errTips: errTips.value,
-      isFirstLoad: isFirstLoad.value
-    })
-  },
-  { deep: false }
-)
 
 onBeforeUnmount(() => {
   document.removeEventListener('dragend', onAnyDndFinish, true)
@@ -1217,15 +1253,6 @@ onBeforeUnmount(() => {
     window.cancelAnimationFrame(dndRaf)
     dndRaf = 0
   }
-
-  const cacheKey = makeCacheKey(props.uuid, basePath.value)
-  FS_STATE_CACHE.set(cacheKey, {
-    files: files.value,
-    localCurrentDirectoryInput: localCurrentDirectoryInput.value,
-    showErr: showErr.value,
-    errTips: errTips.value,
-    isFirstLoad: isFirstLoad.value
-  })
 })
 
 const uploadFile = async () => {
@@ -1242,8 +1269,8 @@ const uploadFile = async () => {
     const config = {
       success: { type: 'success', text: t('files.uploadSuccess') },
       cancelled: { type: 'info', text: t('files.uploadCancel') },
-      skipped: { type: 'info', text: t('files.downloadSkipped') }
-    }[res.status] || { type: 'error', text: `${t('files.downloadFailed')}：${res.message}` }
+      skipped: { type: 'info', text: t('files.uploadSkipped') }
+    }[res.status] || { type: 'error', text: `${t('files.uploadFailed')}：${res.message}` }
 
     message[config.type]({
       content: config.text,
@@ -1623,7 +1650,6 @@ const downloadFile = async (record: any) => {
       cancelled: { type: 'info', text: t('files.downloadCancel') },
       skipped: { type: 'info', text: t('files.downloadSkipped') }
     }[res.status] || { type: 'error', text: `${t('files.downloadFailed')}：${res.message}` }
-
     message[config.type]({
       content: config.text,
       key,
@@ -1835,6 +1861,44 @@ defineExpose({
 
 .base-file :deep(.ant-card-body) {
   padding: 0px 7px;
+  background-color: var(--bg-color);
+}
+
+.files-table :deep(.ant-table) {
+  background-color: var(--bg-color);
+  color: var(--text-color);
+}
+
+.files-table :deep(.ant-table-container) {
+  background-color: var(--bg-color);
+}
+
+.files-table :deep(.ant-table-placeholder) {
+  background-color: var(--bg-color);
+}
+
+.files-table :deep(.ant-table-placeholder td) {
+  background-color: var(--bg-color) !important;
+}
+
+.files-table :deep(.ant-table-header) {
+  background-color: var(--bg-color);
+}
+
+.files-table :deep(.ant-table-header table) {
+  background-color: var(--bg-color);
+}
+
+.files-table :deep(.ant-spin-container) {
+  background-color: var(--bg-color);
+}
+
+.files-table :deep(.ant-table-wrapper) {
+  background-color: var(--bg-color);
+}
+
+.files-table :deep(.ant-empty-description) {
+  color: var(--text-color-secondary);
 }
 
 .fs-header {
@@ -2059,7 +2123,7 @@ defineExpose({
 .setting-item label {
   margin-bottom: 8px;
   font-weight: 500;
-  color: #262626;
+  color: var(--text-color);
 }
 
 .files-table :deep(.ant-table-tbody > tr.file-table-row-hover > td) {

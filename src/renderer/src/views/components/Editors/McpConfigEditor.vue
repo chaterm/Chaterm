@@ -33,12 +33,17 @@ import { ref, onMounted, onBeforeUnmount, computed } from 'vue'
 import { notification } from 'ant-design-vue'
 import { mcpConfigService } from '@/services/mcpService'
 import { useI18n } from 'vue-i18n'
-import MonacoEditor from '@renderer/views/components/Ssh/editors/monacoEditor.vue'
+import MonacoEditor from '@views/components/Editors/base/monacoEditor.vue'
 import { getMonacoTheme, addSystemThemeListener } from '@/utils/themeUtils'
+import { useEditorConfigStore } from '@/stores/editorConfig'
 
 const logger = createRendererLogger('ssh.mcpConfigEditor')
 
 const { t } = useI18n()
+
+// Initialize editor config store
+const editorConfigStore = useEditorConfigStore()
+
 const configContent = ref('')
 const error = ref('')
 const isSaving = ref(false)
@@ -80,6 +85,9 @@ const handleKeydown = (e: KeyboardEvent) => {
 // Load config on mount
 onMounted(async () => {
   logger.debug('Loading MCP config')
+  // Load global editor configuration
+  await editorConfigStore.loadConfig()
+
   try {
     // Get config file path
     configPath.value = await mcpConfigService.getConfigPath()

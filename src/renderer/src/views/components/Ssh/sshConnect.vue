@@ -107,7 +107,7 @@ import { SearchAddon } from 'xterm-addon-search'
 import { IDisposable } from 'xterm'
 import 'xterm/css/xterm.css'
 import { editorData } from './editors/dragEditor.vue'
-import { LanguageMap } from './editors/languageMap'
+import { LanguageMap } from '../Editors/base/languageMap'
 import EditorCode from './editors/dragEditor.vue'
 import { message, Modal } from 'ant-design-vue'
 import { aliasConfigStore } from '@/store/aliasConfigStore'
@@ -726,14 +726,22 @@ onMounted(async () => {
   if (terminal.value?.textarea) {
     terminal.value.textarea.addEventListener('focus', () => {
       inputManager.setActiveTerm(connectionId.value)
+      window.electron?.ipcRenderer?.send('terminal:focus-changed', true)
     })
-    terminal.value.textarea.addEventListener('blur', hideSelectionButton)
+    terminal.value.textarea.addEventListener('blur', () => {
+      hideSelectionButton()
+      window.electron?.ipcRenderer?.send('terminal:focus-changed', false)
+    })
     cleanupListeners.value.push(() => {
       if (terminal.value?.textarea) {
         terminal.value.textarea.removeEventListener('focus', () => {
           inputManager.setActiveTerm(connectionId.value)
+          window.electron?.ipcRenderer?.send('terminal:focus-changed', true)
         })
-        terminal.value.textarea.removeEventListener('blur', hideSelectionButton)
+        terminal.value.textarea.removeEventListener('blur', () => {
+          hideSelectionButton()
+          window.electron?.ipcRenderer?.send('terminal:focus-changed', false)
+        })
       }
     })
   }

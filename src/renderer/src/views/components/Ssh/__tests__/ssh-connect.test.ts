@@ -632,3 +632,195 @@ describe('Terminal Command Echo Processing', () => {
     })
   })
 })
+
+// ============================================================================
+// Ctrl+R Reload Prevention & Terminal Reverse-i-search Tests
+// ============================================================================
+
+/**
+ * Mirrors the before-input-event logic in windowManager.ts.
+ * Determines whether a key event should be prevented (reload blocked).
+ */
+function shouldPreventReload(
+  input: { type: string; key: string; meta: boolean; control: boolean; alt: boolean; shift: boolean },
+  platform: string,
+  isTerminalFocused: boolean
+): boolean {
+  if (input.type === 'keyDown' && (input.key === 'r' || input.key === 'R') && !input.alt && !input.shift) {
+    if (platform === 'darwin') {
+      // On macOS: block Cmd+R (reload), allow Ctrl+R (terminal reverse-i-search)
+      if (input.meta) {
+        return true
+      }
+    } else {
+      // On Windows/Linux: block Ctrl+R only when terminal is not focused
+      if (input.control && !isTerminalFocused) {
+        return true
+      }
+    }
+  }
+  return false
+}
+
+describe('Ctrl+R Reload Prevention with Terminal Reverse-i-search Support', () => {
+  const baseInput = { type: 'keyDown', key: 'r', meta: false, control: false, alt: false, shift: false }
+
+  describe('macOS platform', () => {
+    const platform = 'darwin'
+
+    it('should block Cmd+R (reload shortcut) on macOS', () => {
+      const input = { ...baseInput, meta: true }
+      expect(shouldPreventReload(input, platform, false)).toBe(true)
+      expect(shouldPreventReload(input, platform, true)).toBe(true)
+    })
+
+    it('should allow Ctrl+R (reverse-i-search) on macOS regardless of terminal focus', () => {
+      const input = { ...baseInput, control: true }
+      expect(shouldPreventReload(input, platform, false)).toBe(false)
+      expect(shouldPreventReload(input, platform, true)).toBe(false)
+    })
+
+    it('should not block plain R key without modifiers on macOS', () => {
+      expect(shouldPreventReload(baseInput, platform, false)).toBe(false)
+    })
+
+    it('should not block R key with Alt modifier on macOS', () => {
+      const input = { ...baseInput, meta: true, alt: true }
+      expect(shouldPreventReload(input, platform, false)).toBe(false)
+    })
+
+    it('should not block R key with Shift modifier on macOS', () => {
+      const input = { ...baseInput, meta: true, shift: true }
+      expect(shouldPreventReload(input, platform, false)).toBe(false)
+    })
+  })
+
+  describe('Windows platform', () => {
+    const platform = 'win32'
+
+    it('should block Ctrl+R when terminal is NOT focused on Windows', () => {
+      const input = { ...baseInput, control: true }
+      expect(shouldPreventReload(input, platform, false)).toBe(true)
+    })
+
+    it('should allow Ctrl+R when terminal IS focused on Windows (reverse-i-search)', () => {
+      const input = { ...baseInput, control: true }
+      expect(shouldPreventReload(input, platform, true)).toBe(false)
+    })
+
+    it('should not block plain R key without modifiers on Windows', () => {
+      expect(shouldPreventReload(baseInput, platform, false)).toBe(false)
+    })
+
+    it('should not block R key with Alt modifier on Windows', () => {
+      const input = { ...baseInput, control: true, alt: true }
+      expect(shouldPreventReload(input, platform, false)).toBe(false)
+    })
+
+    it('should not block R key with Shift modifier on Windows', () => {
+      const input = { ...baseInput, control: true, shift: true }
+      expect(shouldPreventReload(input, platform, false)).toBe(false)
+    })
+  })
+
+  describe('Linux platform', () => {
+    const platform = 'linux'
+
+    it('should block Ctrl+R when terminal is NOT focused on Linux', () => {
+      const input = { ...baseInput, control: true }
+      expect(shouldPreventReload(input, platform, false)).toBe(true)
+    })
+
+    it('should allow Ctrl+R when terminal IS focused on Linux (reverse-i-search)', () => {
+      const input = { ...baseInput, control: true }
+      expect(shouldPreventReload(input, platform, true)).toBe(false)
+    })
+  })
+
+  describe('key variants', () => {
+    it('should handle uppercase R key the same as lowercase', () => {
+      const input = { ...baseInput, key: 'R', meta: true }
+      expect(shouldPreventReload(input, 'darwin', false)).toBe(true)
+    })
+
+    it('should ignore keyUp events', () => {
+      const input = { ...baseInput, type: 'keyUp', meta: true }
+      expect(shouldPreventReload(input, 'darwin', false)).toBe(false)
+    })
+
+    it('should ignore non-R keys', () => {
+      const input = { ...baseInput, key: 'a', meta: true }
+      expect(shouldPreventReload(input, 'darwin', false)).toBe(false)
+    })
+  })
+})
+
+describe('Terminal Focus IPC Notification', () => {
+  let mockSend: ReturnType<typeof vi.fn>
+
+  beforeEach(() => {
+    mockSend = vi.fn()
+    // Simulate window.electron.ipcRenderer.send
+    ;(window as any).electron = {
+      ipcRenderer: {
+        send: mockSend
+      }
+    }
+  })
+
+  afterEach(() => {
+    delete (window as any).electron
+  })
+
+  it('should send terminal:focus-changed true when terminal textarea receives focus', () => {
+    const textarea = document.createElement('textarea')
+    textarea.classList.add('xterm-helper-textarea')
+
+    textarea.addEventListener('focus', () => {
+      ;(window as any).electron?.ipcRenderer?.send('terminal:focus-changed', true)
+    })
+
+    textarea.dispatchEvent(new Event('focus'))
+
+    expect(mockSend).toHaveBeenCalledWith('terminal:focus-changed', true)
+  })
+
+  it('should send terminal:focus-changed false when terminal textarea loses focus', () => {
+    const textarea = document.createElement('textarea')
+    textarea.classList.add('xterm-helper-textarea')
+
+    textarea.addEventListener('blur', () => {
+      ;(window as any).electron?.ipcRenderer?.send('terminal:focus-changed', false)
+    })
+
+    textarea.dispatchEvent(new Event('blur'))
+
+    expect(mockSend).toHaveBeenCalledWith('terminal:focus-changed', false)
+  })
+
+  it('should not throw when window.electron is undefined', () => {
+    delete (window as any).electron
+
+    const textarea = document.createElement('textarea')
+    textarea.addEventListener('focus', () => {
+      ;(window as any).electron?.ipcRenderer?.send('terminal:focus-changed', true)
+    })
+
+    expect(() => {
+      textarea.dispatchEvent(new Event('focus'))
+    }).not.toThrow()
+  })
+
+  it('should not throw when ipcRenderer is undefined', () => {
+    ;(window as any).electron = {}
+
+    const textarea = document.createElement('textarea')
+    textarea.addEventListener('focus', () => {
+      ;(window as any).electron?.ipcRenderer?.send('terminal:focus-changed', true)
+    })
+
+    expect(() => {
+      textarea.dispatchEvent(new Event('focus'))
+    }).not.toThrow()
+  })
+})

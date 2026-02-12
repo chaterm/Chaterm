@@ -13,7 +13,7 @@ import { getGlobalState } from '@renderer/agent/storage/state'
 import type { TaskHistoryItem } from '../types'
 import i18n from '@/locales'
 import { Notice } from '@/views/components/Notice'
-import type { ContentPart } from '@shared/WebviewMessage'
+import type { ContentPart, ImageContentPart } from '@shared/WebviewMessage'
 import eventBus from '@/utils/eventBus'
 
 // Type for the context return value
@@ -25,6 +25,7 @@ export const contextInjectionKey: InjectionKey<ContextInstance> = Symbol('contex
 export interface UseContextOptions {
   chatInputParts?: Ref<ContentPart[]>
   focusInput?: () => void
+  mode?: 'create' | 'edit'
 }
 
 /**
@@ -42,7 +43,7 @@ const MAX_TARGET_HOSTS = 5
 export const useContext = (options: UseContextOptions = {}) => {
   const { t } = i18n.global
 
-  const { hosts, chatTypeValue, autoUpdateHost, chatInputParts: globalChatInputParts } = useSessionState()
+  const { hosts, chatTypeValue, autoUpdateHost, chatInputParts: globalChatInputParts, isMessageEditing } = useSessionState()
   const chatInputParts = options.chatInputParts ?? globalChatInputParts
 
   const { getCurentTabAssetInfo } = useHostState()
@@ -95,6 +96,7 @@ export const useContext = (options: UseContextOptions = {}) => {
   const chatsOptions = ref<ChatOption[]>([])
   const chatsOptionsLoading = ref(false)
   const chipInsertHandler = ref<((chipType: 'doc' | 'chat', ref: DocOption | ChatOption, label: string) => void) | null>(null)
+  const imageInsertHandler = ref<((imagePart: ImageContentPart) => void) | null>(null)
 
   // ========== Opened Hosts State ==========
   // List of hosts from currently opened terminal tabs for quick selection
@@ -992,7 +994,19 @@ export const useContext = (options: UseContextOptions = {}) => {
     })
   }
 
+  // Check if this context instance should handle kb events based on current editing state
+  const shouldHandleKbEvent = (): boolean => {
+    // When a message is being edited, only edit mode instance should handle events
+    // When no message is being edited, only create mode instance should handle events
+    if (isMessageEditing.value) {
+      return options.mode === 'edit'
+    }
+    return options.mode === 'create' || options.mode === undefined
+  }
+
   const handleKbAddDocToChat = async (payload: Array<{ relPath: string; name?: string }>) => {
+    if (!shouldHandleKbEvent()) return
+
     let inserted = false
     for (const item of payload) {
       const relPath = item?.relPath?.trim()
@@ -1012,14 +1026,29 @@ export const useContext = (options: UseContextOptions = {}) => {
     }
   }
 
+  // Handle image add to chat from knowledge base
+  const handleKbAddImageToChat = (payload: { mediaType: ImageContentPart['mediaType']; data: string }) => {
+    if (!shouldHandleKbEvent()) return
+
+    if (!imageInsertHandler.value) return
+    imageInsertHandler.value({
+      type: 'image',
+      mediaType: payload.mediaType,
+      data: payload.data
+    })
+    options.focusInput?.()
+  }
+
   onMounted(() => {
     eventBus.on('kbAddDocToChat', handleKbAddDocToChat)
+    eventBus.on('kbAddImageToChat', handleKbAddImageToChat)
     document.addEventListener('keydown', handleGlobalEscKey)
     document.addEventListener('click', handleGlobalClick)
   })
 
   onUnmounted(() => {
     eventBus.off('kbAddDocToChat', handleKbAddDocToChat)
+    eventBus.off('kbAddImageToChat', handleKbAddImageToChat)
     document.removeEventListener('keydown', handleGlobalEscKey)
     document.removeEventListener('click', handleGlobalClick)
   })
@@ -1073,6 +1102,10 @@ export const useContext = (options: UseContextOptions = {}) => {
     // Chip insertion
     setChipInsertHandler: (handler: (chipType: 'doc' | 'chat', ref: DocOption | ChatOption, label: string) => void) => {
       chipInsertHandler.value = handler
+    },
+    // Image insertion
+    setImageInsertHandler: (handler: (imagePart: ImageContentPart) => void) => {
+      imageInsertHandler.value = handler
     },
 
     // UI interaction handlers

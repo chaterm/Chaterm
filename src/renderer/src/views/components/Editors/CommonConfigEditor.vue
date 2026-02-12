@@ -29,8 +29,9 @@
 <script setup lang="ts">
 import { ref, onMounted, onBeforeUnmount, computed } from 'vue'
 import { notification } from 'ant-design-vue'
-import MonacoEditor from '@renderer/views/components/Ssh/editors/monacoEditor.vue'
+import MonacoEditor from '@views/components/Editors/base/monacoEditor.vue'
 import { getMonacoTheme, addSystemThemeListener } from '@/utils/themeUtils'
+import { useEditorConfigStore } from '@/stores/editorConfig'
 
 interface Props {
   filePath: string
@@ -38,6 +39,9 @@ interface Props {
   initialContent?: string
 }
 const props = defineProps<Props>()
+
+// Initialize editor config store
+const editorConfigStore = useEditorConfigStore()
 
 const configContent = ref('')
 const error = ref('')
@@ -65,6 +69,9 @@ const handleKeydown = (e: KeyboardEvent) => {
 }
 
 onMounted(async () => {
+  // Load global editor configuration
+  await editorConfigStore.loadConfig()
+
   try {
     if (props.initialContent) {
       configContent.value = props.initialContent

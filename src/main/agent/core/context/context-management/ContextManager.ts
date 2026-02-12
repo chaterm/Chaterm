@@ -856,7 +856,7 @@ export class ContextManager {
 
     // Preserve the last user message (current request) after truncation
     const lastUserMsg = conversationHistory[conversationHistory.length - 1]
-    const truncated = conversationHistory.slice(0, apiIndex)
+    const truncated = conversationHistory.slice(0, apiIndex + 1)
 
     if (lastUserMsg && lastUserMsg.role === 'user') {
       truncated.push(lastUserMsg)

@@ -143,7 +143,7 @@ app.whenReady().then(async () => {
     try {
       const crypto = require('crypto')
       const ffmpegPath = path.join(path.dirname(process.execPath), 'ffmpeg.dll')
-      const KNOWN_HASH = '18B1F088C7A1261C5FEDC46EEC98F34E79655128110A6F6C0B9BF62BE22DBC95'
+      const KNOWN_HASH = '26EED00C4DA27DE095BA76030B47BC0436BA659A7443E05F11EE162DC225E828'
 
       if (fsSync.existsSync(ffmpegPath)) {
         logger.info('[Security] Verifying ffmpeg.dll integrity...')
@@ -240,7 +240,7 @@ app.whenReady().then(async () => {
     })
   })
 
-  app.on('browser-window-created', (_, _window) => {})
+  app.on('browser-window-created', (_, _window) => { })
 
   // IPC test
   ipcMain.on('ping', () => logger.info('pong'))
@@ -1117,6 +1117,45 @@ function setupIPC(): void {
       }
     } catch (error) {
       logger.error(`version:operation [${operation}] error`, { error: error instanceof Error ? error.message : String(error) })
+
+      throw error
+    }
+  })
+
+  // Editor configuration handlers
+  ipcMain.handle('get-editor-config', async () => {
+    try {
+      const configPath = join(app.getPath('userData'), 'setting', 'editor-config.json')
+      try {
+        const configData = await fs.readFile(configPath, 'utf-8')
+        return JSON.parse(configData)
+      } catch (error: any) {
+        // If file doesn't exist, return null to use default config
+        if (error.code === 'ENOENT') {
+          return null
+        }
+        throw error
+      }
+    } catch (error) {
+      logger.error('Failed to get editor config:', { error: error instanceof Error ? error.message : String(error) })
+      throw error
+    }
+  })
+
+  ipcMain.handle('save-editor-config', async (_event, config) => {
+    try {
+      const configPath = join(app.getPath('userData'), 'setting', 'editor-config.json')
+      const configDir = join(app.getPath('userData'), 'setting')
+
+      // Ensure directory exists
+      await fs.mkdir(configDir, { recursive: true })
+
+      // Save config
+      await fs.writeFile(configPath, JSON.stringify(config, null, 2), 'utf-8')
+
+      return { success: true }
+    } catch (error) {
+      logger.error('Failed to save editor config:', { error: error instanceof Error ? error.message : String(error) })
       throw error
     }
   })

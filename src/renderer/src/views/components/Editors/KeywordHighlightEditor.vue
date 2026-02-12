@@ -1,5 +1,5 @@
 <template>
-  <div class="security-config-editor">
+  <div class="keyword-highlight-editor">
     <div class="editor-toolbar">
       <div class="toolbar-left">
         <span
@@ -39,15 +39,18 @@
 <script setup lang="ts">
 import { ref, onMounted, onBeforeUnmount, computed, nextTick } from 'vue'
 import { notification } from 'ant-design-vue'
-import { securityConfigService } from '@/services/securityConfigService'
+import { keywordHighlightConfigService } from '@/services/keywordHighlightConfigService'
 import { useI18n } from 'vue-i18n'
 import { ExclamationCircleOutlined } from '@ant-design/icons-vue'
-import MonacoEditor from '@renderer/views/components/Ssh/editors/monacoEditor.vue'
+import MonacoEditor from '@views/components/Editors/base/monacoEditor.vue'
 import { getMonacoTheme } from '@/utils/themeUtils'
+import { useEditorConfigStore } from '@/stores/editorConfig'
 
 const { t } = useI18n()
 
-const logger = createRendererLogger('securityConfigEditor')
+const logger = createRendererLogger('keywordHighlightEditor')
+// Initialize editor config store
+const editorConfigStore = useEditorConfigStore()
 
 const configContent = ref('')
 const error = ref('')
@@ -74,32 +77,29 @@ onMounted(async () => {
   try {
     isLoading.value = true
 
+    // Load global editor configuration
+    await editorConfigStore.loadConfig()
+
     // Get config file path
-    configPath.value = await securityConfigService.getConfigPath()
+    configPath.value = await keywordHighlightConfigService.getConfigPath()
 
     // Read config content
-    const rawContent = await securityConfigService.readConfigFile()
+    const rawContent = await keywordHighlightConfigService.readConfigFile()
 
     // Ensure content is not empty
     if (rawContent && rawContent.trim()) {
       configContent.value = rawContent
     } else {
-      // Use default config
+      // Use default config from keyword-highlight.json
       configContent.value = JSON.stringify(
         {
-          security: {
-            enableCommandSecurity: true,
-            enableStrictMode: false,
-            blacklistPatterns: [],
-            whitelistPatterns: ['ls', 'pwd', 'whoami', 'date'],
-            dangerousCommands: ['rm', 'format', 'shutdown'],
-            maxCommandLength: 10000,
-            securityPolicy: {
-              blockCritical: true,
-              askForMedium: true,
-              askForHigh: true,
-              askForBlacklist: false
-            }
+          'keyword-highlight': {
+            enabled: true,
+            applyTo: {
+              output: true,
+              input: false
+            },
+            rules: []
           }
         },
         null,
@@ -114,8 +114,8 @@ onMounted(async () => {
     await nextTick()
 
     // Set file change listener
-    if (securityConfigService.onFileChanged) {
-      removeFileChangeListener = securityConfigService.onFileChanged((newContent: string) => {
+    if (keywordHighlightConfigService.onFileChanged) {
+      removeFileChangeListener = keywordHighlightConfigService.onFileChanged((newContent: string) => {
         if (newContent !== configContent.value) {
           configContent.value = newContent
           error.value = ''
@@ -123,7 +123,7 @@ onMounted(async () => {
       })
     }
   } catch (err: unknown) {
-    logger.error('Failed to load security config', { error: String(err) })
+    logger.error('Failed to load keyword highlight config', { error: String(err) })
     const errorMessage = err instanceof Error ? err.message : String(err)
     notification.error({
       message: t('user.error') || 'Error',
@@ -132,19 +132,13 @@ onMounted(async () => {
     // Even if error occurs, set default content so editor can at least display
     configContent.value = JSON.stringify(
       {
-        security: {
-          enableCommandSecurity: true,
-          enableStrictMode: false,
-          blacklistPatterns: [],
-          whitelistPatterns: [],
-          dangerousCommands: [],
-          maxCommandLength: 10000,
-          securityPolicy: {
-            blockCritical: true,
-            askForMedium: true,
-            askForHigh: true,
-            askForBlacklist: false
-          }
+        'keyword-highlight': {
+          enabled: true,
+          applyTo: {
+            output: true,
+            input: false
+          },
+          rules: []
         }
       },
       null,
@@ -203,7 +197,7 @@ const saveConfig = async () => {
 
   isSaving.value = true
   try {
-    await securityConfigService.writeConfigFile(configContent.value)
+    await keywordHighlightConfigService.writeConfigFile(configContent.value)
     isSaving.value = false
     lastSaved.value = true
 
@@ -215,7 +209,7 @@ const saveConfig = async () => {
       lastSaved.value = false
     }, 3000)
   } catch (err: unknown) {
-    logger.error('Failed to save security config', { error: String(err) })
+    logger.error('Failed to save keyword highlight config', { error: String(err) })
     isSaving.value = false
     const errorMessage = err instanceof Error ? err.message : String(err)
     notification.error({
@@ -227,7 +221,7 @@ const saveConfig = async () => {
 </script>
 
 <style scoped lang="less">
-.security-config-editor {
+.keyword-highlight-editor {
   display: flex;
   flex-direction: column;
   height: 100%;

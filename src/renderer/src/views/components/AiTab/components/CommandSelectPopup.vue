@@ -111,8 +111,7 @@ const popupClass = computed(() => ({
 
 <style lang="less" scoped>
 .command-select-popup {
-  // Use extracted dominant color when available, fallback to default bg-color
-  --popup-bg-color: var(--user-message-sticky-bg-color, var(--bg-color));
+  --popup-bg-color: var(--bg-color);
 
   width: 260px;
   border-radius: 6px;
@@ -123,18 +122,8 @@ const popupClass = computed(() => ({
   position: fixed;
   overflow: hidden;
   background: var(--popup-bg-color);
-
-  // When custom background is enabled, use glassmorphism effect
-  body.has-custom-bg & {
-    background: rgba(37, 37, 37, 0.75);
-    backdrop-filter: blur(12px) saturate(180%);
-    -webkit-backdrop-filter: blur(12px) saturate(180%);
-  }
-
-  // Light theme glassmorphism
-  body.has-custom-bg.theme-light & {
-    background: rgba(241, 245, 249, 0.75);
-  }
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
 
   &.is-positioning {
     opacity: 0;

@@ -487,4 +487,52 @@ describe('useSessionState', () => {
       expect(result.taskId).toBe('existing-task')
     })
   })
+
+  describe('getTabUserAssistantPairs', () => {
+    it('should read latest tab data after tab replacement', () => {
+      const { chatTabs, createEmptySessionState, getTabUserAssistantPairs } = useSessionState()
+      const initialSession = createEmptySessionState()
+      initialSession.chatHistory = [{ id: 'msg-1', role: 'user', content: 'hi' }]
+
+      chatTabs.value = [
+        {
+          id: 'tab-1',
+          title: 'Test',
+          hosts: [],
+          chatType: 'agent',
+          autoUpdateHost: true,
+          session: initialSession,
+          modelValue: '',
+          welcomeTip: ''
+        }
+      ]
+
+      const initialPairs = getTabUserAssistantPairs('tab-1')
+      expect(initialPairs).toHaveLength(1)
+      expect(initialPairs[0].assistants).toHaveLength(0)
+
+      const nextSession = createEmptySessionState()
+      nextSession.chatHistory = [
+        { id: 'msg-1', role: 'user', content: 'hi' },
+        { id: 'msg-2', role: 'assistant', content: 'hello' }
+      ]
+
+      chatTabs.value = [
+        {
+          id: 'tab-1',
+          title: 'Test',
+          hosts: [],
+          chatType: 'agent',
+          autoUpdateHost: true,
+          session: nextSession,
+          modelValue: '',
+          welcomeTip: ''
+        }
+      ]
+
+      const nextPairs = getTabUserAssistantPairs('tab-1')
+      expect(nextPairs).toHaveLength(1)
+      expect(nextPairs[0].assistants).toHaveLength(1)
+    })
+  })
 })

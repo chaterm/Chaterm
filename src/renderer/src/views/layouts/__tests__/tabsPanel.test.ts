@@ -67,13 +67,6 @@ vi.mock('@views/components/Extensions/jumpserverSupport.vue', () => ({
   }
 }))
 
-vi.mock('@views/components/Files/index.vue', () => ({
-  default: {
-    name: 'Files',
-    template: '<div class="files-mock">Files</div>'
-  }
-}))
-
 vi.mock('@views/components/Kubernetes/index.vue', () => ({
   default: {
     name: 'Kubernetes',
@@ -81,7 +74,7 @@ vi.mock('@views/components/Kubernetes/index.vue', () => ({
   }
 }))
 
-vi.mock('@views/components/CommonConfigEditor/index.vue', () => ({
+vi.mock('@views/components/Editors/CommonConfigEditor.vue', () => ({
   default: {
     name: 'CommonConfigEditor',
     template: '<div class="common-config-editor-mock">Common Config Editor</div>',
@@ -89,21 +82,21 @@ vi.mock('@views/components/CommonConfigEditor/index.vue', () => ({
   }
 }))
 
-vi.mock('@views/components/Ssh/editors/mcpConfigEditor.vue', () => ({
+vi.mock('@views/components/Editors/McpConfigEditor.vue', () => ({
   default: {
     name: 'McpConfigEditor',
     template: '<div class="mcp-config-editor-mock">MCP Config Editor</div>'
   }
 }))
 
-vi.mock('@views/components/SecurityConfigEditor/index.vue', () => ({
+vi.mock('@views/components/Editors/SecurityConfigEditor.vue', () => ({
   default: {
     name: 'SecurityConfigEditor',
     template: '<div class="security-config-editor-mock">Security Config Editor</div>'
   }
 }))
 
-vi.mock('@views/components/KeywordHighlightEditor/index.vue', () => ({
+vi.mock('@views/components/Editors/KeywordHighlightEditor.vue', () => ({
   default: {
     name: 'KeywordHighlightEditor',
     template: '<div class="keyword-highlight-editor-mock">Keyword Highlight Editor</div>'
@@ -134,13 +127,11 @@ const mockT = (key: string) => {
     'common.userConfig': 'User Config',
     'common.assetConfig': 'Asset Config',
     'common.aliasConfig': 'Alias Config',
-    'common.management': 'Management',
+    'common.management': 'Asset Management',
     'common.keyManagement': 'Key Management',
     'common.keyManagementDesc': 'Manage SSH keys and certificates',
     'common.hostManagement': 'Host Management',
-    'common.hostManagementDesc': 'Manage SSH hosts and connection configurations',
-    'common.fileManagement': 'File Management',
-    'common.fileManagementDesc': 'Manage files and folders'
+    'common.hostManagementDesc': 'Manage SSH hosts and connection configurations'
   }
   return translations[key] || key
 }
@@ -317,11 +308,6 @@ describe('TabsPanel Component', () => {
     it('should render JumpserverSupport when content is jumpserverSupport', () => {
       wrapper = createWrapper({ content: 'jumpserverSupport', organizationId: '' })
       expect(wrapper.html()).toContain('Jumpserver Support')
-    })
-
-    it('should render Files when content is files', () => {
-      wrapper = createWrapper({ content: 'files', organizationId: '' })
-      expect(wrapper.html()).toContain('Files')
     })
 
     it('should render McpConfigEditor when content is mcpConfigEditor', () => {

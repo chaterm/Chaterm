@@ -87,7 +87,7 @@
               <div
                 class="kb-tree-title"
                 :class="{ 'context-menu-active': menuKey === dataRef.key }"
-                @contextmenu.stop
+                @contextmenu.stop="(event) => handleNodeContextMenu(event, dataRef)"
               >
                 <span
                   v-if="editingKey !== dataRef.key"
@@ -114,42 +114,80 @@
                       v-if="hasSelectedFile"
                       key="addToChat"
                     >
-                      Add to Chat
+                      {{ $t('knowledgeCenter.addToChat') }}
                     </a-menu-item>
-                    <a-menu-item key="copy">Copy</a-menu-item>
-                    <a-menu-item key="cut">Cut</a-menu-item>
-                    <a-menu-item key="delete">Delete</a-menu-item>
+                    <a-menu-item
+                      v-if="hasSelectedFile"
+                      key="copyPath"
+                    >
+                      {{ $t('knowledgeCenter.copyPath') }}
+                    </a-menu-item>
+                    <a-menu-item
+                      key="copy"
+                      class="kb-menu-item-with-shortcut"
+                    >
+                      <span>{{ $t('common.copy') }}</span>
+                      <span class="shortcut-hint">{{ modifierKey }}C</span>
+                    </a-menu-item>
+                    <a-menu-item
+                      key="cut"
+                      class="kb-menu-item-with-shortcut"
+                    >
+                      <span>{{ $t('knowledgeCenter.cut') }}</span>
+                      <span class="shortcut-hint">{{ modifierKey }}X</span>
+                    </a-menu-item>
+                    <a-menu-item key="delete">{{ $t('common.delete') }}</a-menu-item>
                   </template>
                   <template v-else>
                     <a-menu-item
                       v-if="dataRef.type === 'file'"
                       key="addToChat"
                     >
-                      Add to Chat
+                      {{ $t('knowledgeCenter.addToChat') }}
                     </a-menu-item>
                     <a-menu-item
                       v-if="dataRef.type === 'dir'"
                       key="newFile"
                     >
-                      New File
+                      {{ $t('knowledgeCenter.newFile') }}
                     </a-menu-item>
                     <a-menu-item
                       v-if="dataRef.type === 'dir'"
                       key="newFolder"
                     >
-                      New Folder
+                      {{ $t('knowledgeCenter.newFolder') }}
                     </a-menu-item>
                     <a-menu-divider v-if="dataRef.type === 'dir'" />
-                    <a-menu-item key="rename">Rename</a-menu-item>
-                    <a-menu-item key="delete">Delete</a-menu-item>
+                    <a-menu-item key="rename">{{ $t('common.rename') }}</a-menu-item>
+                    <a-menu-item key="delete">{{ $t('common.delete') }}</a-menu-item>
                     <a-menu-divider />
-                    <a-menu-item key="copy">Copy</a-menu-item>
-                    <a-menu-item key="cut">Cut</a-menu-item>
+                    <a-menu-item
+                      v-if="dataRef.type === 'file'"
+                      key="copyPath"
+                    >
+                      {{ $t('knowledgeCenter.copyPath') }}
+                    </a-menu-item>
+                    <a-menu-item
+                      key="copy"
+                      class="kb-menu-item-with-shortcut"
+                    >
+                      <span>{{ $t('common.copy') }}</span>
+                      <span class="shortcut-hint">{{ modifierKey }}C</span>
+                    </a-menu-item>
+                    <a-menu-item
+                      key="cut"
+                      class="kb-menu-item-with-shortcut"
+                    >
+                      <span>{{ $t('knowledgeCenter.cut') }}</span>
+                      <span class="shortcut-hint">{{ modifierKey }}X</span>
+                    </a-menu-item>
                     <a-menu-item
                       v-if="clipboard"
                       key="paste"
+                      class="kb-menu-item-with-shortcut"
                     >
-                      Paste
+                      <span>{{ $t('common.paste') }}</span>
+                      <span class="shortcut-hint">{{ modifierKey }}V</span>
                     </a-menu-item>
                   </template>
                 </a-menu>
@@ -160,15 +198,17 @@
       </div>
       <template #overlay>
         <a-menu @click="({ key }) => onBlankContextAction(String(key))">
-          <a-menu-item key="newFile">New File</a-menu-item>
-          <a-menu-item key="newFolder">New Folder</a-menu-item>
+          <a-menu-item key="newFile">{{ $t('knowledgeCenter.newFile') }}</a-menu-item>
+          <a-menu-item key="newFolder">{{ $t('knowledgeCenter.newFolder') }}</a-menu-item>
           <a-menu-item
             key="paste"
             :disabled="!clipboard"
+            class="kb-menu-item-with-shortcut"
           >
-            Paste
+            <span>{{ $t('common.paste') }}</span>
+            <span class="shortcut-hint">{{ modifierKey }}V</span>
           </a-menu-item>
-          <a-menu-item key="refresh">Refresh</a-menu-item>
+          <a-menu-item key="refresh">{{ $t('knowledgeCenter.refresh') }}</a-menu-item>
         </a-menu>
       </template>
     </a-dropdown>
@@ -197,6 +237,8 @@ import { computed, nextTick, onBeforeUnmount, onMounted, reactive, ref } from 'v
 import { message, Modal } from 'ant-design-vue'
 import eventBus from '@/utils/eventBus'
 import { CloudUploadOutlined, FileAddOutlined, FolderAddOutlined, PlusOutlined, RedoOutlined, SearchOutlined } from '@ant-design/icons-vue'
+import { getModifierSymbol, isShortcutEvent } from './utils/kbShortcuts'
+import { getImageMediaType, isImageFile } from '../AiTab/utils'
 
 type KbNodeType = 'file' | 'dir'
 type TreeNode = {
@@ -239,6 +281,9 @@ const isContextMenuOpen = computed(() => !!menuKey.value)
 const hasSelectedFile = computed(() => {
   return selectedKeys.value.some((relPath) => treeNodeType(relPath) === 'file')
 })
+
+// Modifier key symbol for shortcut hints in context menu
+const modifierKey = computed(() => getModifierSymbol())
 
 function toTreeNodes(entries: Array<{ name: string; relPath: string; type: KbNodeType }>): TreeNode[] {
   return entries.map((e) => ({
@@ -343,6 +388,19 @@ const handleActiveKbTab = (payload: { relPath: string }) => {
   syncSelectionFromTab(payload.relPath)
 }
 
+// Handle refresh event (triggered when pasting images in Markdown)
+const handleRefresh = async (payload: { relDir: string }) => {
+  await refreshDir(payload.relDir)
+}
+
+// Handle refresh and open event (triggered when pasting images)
+const handleRefreshAndOpen = async (payload: { relPath: string }) => {
+  const dir = getDirOf(payload.relPath)
+  await refreshDir(dir)
+  openFileInMainPane(payload.relPath)
+  syncSelectionFromTab(payload.relPath)
+}
+
 function findTreeNode(relPath: string): TreeNode | null {
   const find = (nodes: TreeNode[]): TreeNode | null => {
     for (const n of nodes) {
@@ -386,6 +444,23 @@ const onSelect = async (keys: string[], info: TreeSelectInfo) => {
     if (keys.length !== 1) return
     openFileInMainPane(node.relPath)
   }
+}
+
+const handleNodeContextMenu = (event: MouseEvent, node: TreeNode) => {
+  event.preventDefault()
+  const next = computeContextSelection(selectedKeys.value, node.relPath)
+  if (next !== selectedKeys.value) {
+    selectedKeys.value = next
+  }
+}
+
+function computeContextSelection(current: string[], target: string): string[] {
+  if (!target) return current
+  const isSelected = current.includes(target)
+  if (current.length <= 1) {
+    return isSelected ? current : [target]
+  }
+  return isSelected ? current : [target]
 }
 
 const handleTreeBlankClick = (event: MouseEvent) => {
@@ -504,11 +579,13 @@ async function confirmRename() {
   }
 
   try {
-    await api.kbRename(key, newName)
+    const res = await api.kbRename(key, newName)
     editingKey.value = null
     editingName.value = ''
     editingOriginalName.value = ''
     await refreshDir(getDirOf(key))
+    // Notify tab system to update title and relPath
+    eventBus.emit('kbFileRenamed', { oldRelPath: key, newRelPath: res.relPath, newName })
   } catch (e: unknown) {
     const error = e as Error
     message.error(error?.message || String(e))
@@ -605,6 +682,170 @@ async function openCreateInline(kind: 'file' | 'folder') {
   inputRef.value?.focus()
 }
 
+// Copy/cut/paste handlers - used by both keyboard shortcuts and context menu
+function handleCopy(sources?: string[]) {
+  const targets = sources || [...selectedKeys.value]
+  if (targets.length === 0) return
+  clipboard.value = { mode: 'copy', sources: targets }
+}
+
+function handleCut(sources?: string[]) {
+  const targets = sources || [...selectedKeys.value]
+  if (targets.length === 0) return
+  clipboard.value = { mode: 'cut', sources: targets }
+}
+
+async function handlePaste(targetNode?: TreeNode) {
+  // Determine destination directory from targetNode or selectedKeys
+  let dstRelDir: string
+  if (targetNode) {
+    dstRelDir = targetNode.type === 'dir' ? targetNode.relPath : getDirOf(targetNode.relPath)
+  } else {
+    const target = selectedKeys.value[0] || ''
+    const targetType = target ? treeNodeType(target) : null
+    dstRelDir = targetType === 'dir' ? target : getDirOf(target)
+  }
+
+  // Handle internal clipboard (copy/cut within knowledge base)
+  if (clipboard.value) {
+    const mode = clipboard.value.mode
+    const sources = clipboard.value.sources.slice()
+
+    const dirsToRefresh = new Set<string>([dstRelDir])
+    const removedEntries: Array<{ relPath: string; isDir: boolean }> = []
+    let lastOpenedFileRelPath = ''
+
+    try {
+      for (const src of sources) {
+        const srcType = treeNodeType(src)
+        let res: { relPath: string }
+        if (mode === 'copy') {
+          res = await api.kbCopy(src, dstRelDir)
+        } else {
+          res = await api.kbMove(src, dstRelDir)
+          dirsToRefresh.add(getDirOf(src))
+          removedEntries.push({ relPath: src, isDir: srcType === 'dir' })
+        }
+        if (srcType === 'file') lastOpenedFileRelPath = res.relPath
+      }
+      if (mode === 'cut') {
+        clipboard.value = null
+      }
+      for (const d of dirsToRefresh) {
+        await refreshDir(d)
+      }
+      if (lastOpenedFileRelPath) {
+        openFileInMainPane(lastOpenedFileRelPath)
+      }
+      if (mode === 'cut') {
+        emitKbEntriesRemoved(removedEntries)
+      }
+    } catch (e: unknown) {
+      const error = e as Error
+      message.error(error?.message || String(e))
+    }
+    return
+  }
+
+  // Handle system clipboard (paste images from external sources)
+  await handleSystemClipboardPaste(dstRelDir)
+}
+
+// Paste image from system clipboard to target directory
+async function handleSystemClipboardPaste(dstRelDir: string) {
+  try {
+    const clipboardItems = await navigator.clipboard.read()
+    for (const item of clipboardItems) {
+      // Check if item contains image
+      const imageType = item.types.find((type) => type.startsWith('image/'))
+      if (imageType) {
+        const blob = await item.getType(imageType)
+        const base64 = await blobToBase64(blob)
+
+        const ext = imageType.split('/')[1] || 'png'
+        const timestamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19)
+        const fileName = `pasted-image-${timestamp}.${ext}`
+
+        const res = await api.kbCreateImage(dstRelDir, fileName, base64)
+        await refreshDir(dstRelDir)
+        openFileInMainPane(res.relPath)
+        return
+      }
+    }
+  } catch (e: unknown) {
+    // Clipboard API may fail due to permissions or empty clipboard
+    const error = e as Error
+    if (error?.name !== 'NotAllowedError' && error?.message !== 'No valid data on clipboard.') {
+      message.error(`Failed to paste image: ${error?.message || String(e)}`)
+    }
+  }
+}
+
+// Convert Blob to base64 string (without data URL prefix)
+function blobToBase64(blob: Blob): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader()
+    reader.onload = () => {
+      const result = reader.result as string
+      const base64Data = result.split(',')[1]
+      resolve(base64Data)
+    }
+    reader.onerror = () => reject(new Error('Failed to read image'))
+    reader.readAsDataURL(blob)
+  })
+}
+
+function isInEditableElement(): boolean {
+  const activeEl = document.activeElement
+  if (!activeEl) return false
+
+  // Check for standard input elements
+  if (activeEl.tagName === 'INPUT' || activeEl.tagName === 'TEXTAREA') {
+    return true
+  }
+
+  // Check for contenteditable elements (e.g., Monaco Editor)
+  if (activeEl.getAttribute('contenteditable') === 'true') {
+    return true
+  }
+
+  // Check if any parent has contenteditable (Monaco Editor structure)
+  let parent = activeEl.parentElement
+  while (parent) {
+    if (parent.getAttribute('contenteditable') === 'true') {
+      return true
+    }
+    // Check for Monaco Editor specific class
+    if (parent.classList.contains('monaco-editor')) {
+      return true
+    }
+    parent = parent.parentElement
+  }
+
+  return false
+}
+
+function handleKeyDown(e: KeyboardEvent) {
+  // Skip if editing (rename input is focused)
+  if (editingKey.value) return
+
+  // Skip if focus is in editable elements (input, textarea, contenteditable, Monaco Editor)
+  if (isInEditableElement()) {
+    return
+  }
+
+  if (isShortcutEvent(e, 'copy')) {
+    handleCopy()
+    e.preventDefault()
+  } else if (isShortcutEvent(e, 'cut')) {
+    handleCut()
+    e.preventDefault()
+  } else if (isShortcutEvent(e, 'paste')) {
+    handlePaste()
+    e.preventDefault()
+  }
+}
+
 async function onContextAction(action: string, node: TreeNode) {
   const isBatch = selectedKeys.value.length > 1 && selectedKeys.value.includes(node.relPath)
   const targets = isBatch ? [...selectedKeys.value] : [node.relPath]
@@ -612,12 +853,35 @@ async function onContextAction(action: string, node: TreeNode) {
     case 'addToChat': {
       const fileTargets = targets.filter((target) => treeNodeType(target) === 'file')
       if (fileTargets.length === 0) return
-      const docs = fileTargets.map((relPath) => {
-        const targetNode = findTreeNode(relPath)
-        const name = targetNode?.title || relPath.split('/').pop() || relPath
-        return { relPath, name }
-      })
-      eventBus.emit('kbAddDocToChatRequest', docs)
+
+      // Separate image files from document files
+      const imageTargets = fileTargets.filter((relPath) => isImageFile(relPath))
+      const docTargets = fileTargets.filter((relPath) => !isImageFile(relPath))
+
+      // Handle document files
+      if (docTargets.length > 0) {
+        const docs = docTargets.map((relPath) => {
+          const targetNode = findTreeNode(relPath)
+          const name = targetNode?.title || relPath.split('/').pop() || relPath
+          return { relPath, name }
+        })
+        eventBus.emit('kbAddDocToChatRequest', docs)
+      }
+
+      // Handle image files - read content and emit with image data
+      for (const relPath of imageTargets) {
+        try {
+          const res = await api.kbReadFile(relPath, 'base64')
+          const mediaType = getImageMediaType(relPath)
+          eventBus.emit('kbAddImageToChatRequest', {
+            mediaType,
+            data: res.content
+          })
+        } catch (e: unknown) {
+          const error = e as Error
+          message.error(error?.message || String(e))
+        }
+      }
       return
     }
     case 'newFile':
@@ -631,6 +895,18 @@ async function onContextAction(action: string, node: TreeNode) {
     case 'rename':
       await startRename(node)
       return
+    case 'copyPath': {
+      const fileTargets = targets.filter((target) => treeNodeType(target) === 'file')
+      if (fileTargets.length === 0) return
+      const content = fileTargets.join('\n')
+      try {
+        await navigator.clipboard.writeText(content)
+      } catch (e: unknown) {
+        const error = e as Error
+        message.error(error?.message || String(e))
+      }
+      return
+    }
     case 'delete':
       if (!isBatch) {
         await removeNode(node)
@@ -666,48 +942,14 @@ async function onContextAction(action: string, node: TreeNode) {
       })
       return
     case 'copy':
-      clipboard.value = { mode: 'copy', sources: targets }
+      handleCopy(targets)
       return
     case 'cut':
-      clipboard.value = { mode: 'cut', sources: targets }
+      handleCut(targets)
       return
-    case 'paste': {
-      if (!clipboard.value) return
-      const mode = clipboard.value.mode
-      const sources = clipboard.value.sources.slice()
-      const dstRelDir = node.type === 'dir' ? node.relPath : getDirOf(node.relPath)
-      // Dirs need to be refreshed to keep tree UI consistent after copy/move
-      const dirsToRefresh = new Set<string>([dstRelDir])
-      const removedEntries: Array<{ relPath: string; isDir: boolean }> = []
-
-      let lastOpenedFileRelPath = ''
-
-      for (const src of sources) {
-        const srcType = treeNodeType(src)
-        let res: { relPath: string }
-        if (mode === 'copy') {
-          res = await api.kbCopy(src, dstRelDir)
-        } else {
-          res = await api.kbMove(src, dstRelDir)
-          dirsToRefresh.add(getDirOf(src))
-          removedEntries.push({ relPath: src, isDir: srcType === 'dir' })
-        }
-        if (srcType === 'file') lastOpenedFileRelPath = res.relPath
-      }
-      if (mode === 'cut') {
-        clipboard.value = null
-      }
-      for (const d of dirsToRefresh) {
-        await refreshDir(d)
-      }
-      if (lastOpenedFileRelPath) {
-        openFileInMainPane(lastOpenedFileRelPath)
-      }
-      if (mode === 'cut') {
-        emitKbEntriesRemoved(removedEntries)
-      }
+    case 'paste':
+      await handlePaste(node)
       return
-    }
   }
 }
 
@@ -798,7 +1040,14 @@ async function pickAndImport() {
 
   const result = await api.showOpenDialog({
     properties: ['openFile', 'openDirectory', 'multiSelections'],
-    filters: [{ name: 'Text', extensions: ['txt', 'md', 'markdown', 'json', 'yaml', 'yml', 'log', 'csv'] }]
+    filters: [
+      {
+        name: 'All Supported',
+        extensions: ['txt', 'md', 'markdown', 'json', 'yaml', 'yml', 'log', 'csv', 'png', 'jpg', 'jpeg', 'gif', 'webp', 'bmp', 'svg']
+      },
+      { name: 'Text', extensions: ['txt', 'md', 'markdown', 'json', 'yaml', 'yml', 'log', 'csv'] },
+      { name: 'Images', extensions: ['png', 'jpg', 'jpeg', 'gif', 'webp', 'bmp', 'svg'] }
+    ]
   })
   if (result?.canceled) return
   const filePaths: string[] = result?.filePaths || []
@@ -853,6 +1102,9 @@ onMounted(async () => {
   await api.kbEnsureRoot()
   await refreshDir('')
   eventBus.on('kbActiveFileChanged', handleActiveKbTab)
+  eventBus.on('kbRefresh', handleRefresh)
+  eventBus.on('kbRefreshAndOpen', handleRefreshAndOpen)
+  document.addEventListener('keydown', handleKeyDown)
   unsubscribeProgress.value = api.onKbTransferProgress((data) => {
     const job = importJobs[data.jobId]
     if (!job) {
@@ -876,6 +1128,9 @@ onMounted(async () => {
 
 onBeforeUnmount(() => {
   eventBus.off('kbActiveFileChanged', handleActiveKbTab)
+  eventBus.off('kbRefresh', handleRefresh)
+  eventBus.off('kbRefreshAndOpen', handleRefreshAndOpen)
+  document.removeEventListener('keydown', handleKeyDown)
   if (unsubscribeProgress.value) unsubscribeProgress.value()
   if (treeScrollTimer) clearTimeout(treeScrollTimer)
 })
@@ -1140,5 +1395,23 @@ onBeforeUnmount(() => {
   text-overflow: ellipsis;
   white-space: nowrap;
   margin-bottom: 4px;
+}
+
+// Context menu shortcut hint styles
+:deep(.kb-menu-item-with-shortcut) {
+  // Override Ant Design's menu item content wrapper
+  .ant-dropdown-menu-title-content {
+    display: flex !important;
+    justify-content: space-between;
+    align-items: center;
+    width: 100%;
+  }
+
+  .shortcut-hint {
+    margin-left: 16px;
+    color: var(--text-color-tertiary);
+    font-size: 12px;
+    flex-shrink: 0;
+  }
 }
 </style>

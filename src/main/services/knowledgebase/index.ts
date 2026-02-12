@@ -6,7 +6,9 @@ import { pipeline } from 'stream/promises'
 import { randomUUID } from 'crypto'
 import { createHash } from 'crypto'
 import { getDefaultLanguage } from '../../config/edition'
+import { getUserConfig } from '../../agent/core/storage/state'
 import { KB_DEFAULT_SEEDS, KB_DEFAULT_SEEDS_VERSION } from './default-seeds'
+import type { KnowledgeBaseDefaultSeed } from './default-seeds'
 
 export interface KnowledgeBaseEntry {
   name: string
@@ -16,7 +18,26 @@ export interface KnowledgeBaseEntry {
   mtimeMs?: number
 }
 
-const ALLOWED_IMPORT_EXTS = new Set(['.txt', '.md', '.markdown', '.json', '.yaml', '.yml', '.log', '.csv'])
+const ALLOWED_IMPORT_EXTS = new Set([
+  '.txt',
+  '.md',
+  '.markdown',
+  '.json',
+  '.yaml',
+  '.yml',
+  '.log',
+  '.csv',
+  '.png',
+  '.jpg',
+  '.jpeg',
+  '.gif',
+  '.webp',
+  '.bmp',
+  '.svg'
+])
+
+// Image file extensions for binary handling
+const IMAGE_EXTS = new Set(['.png', '.jpg', '.jpeg', '.gif', '.webp', '.bmp', '.svg'])
 const MAX_IMPORT_BYTES = 10 * 1024 * 1024
 
 function getKbRoot(): string {
@@ -41,12 +62,37 @@ function normalizeRelPath(relPath: string): string {
   return p.startsWith('/') ? p.slice(1) : p
 }
 
-function sha256Hex(content: string): string {
+function getSeedDefaultRelPath(seed: KnowledgeBaseDefaultSeed, isChinese: boolean): string {
+  return typeof seed.getDefaultRelPath === 'function' ? seed.getDefaultRelPath(isChinese) : seed.defaultRelPath
+}
+
+function getSeedDefaultRelPathVariants(seed: KnowledgeBaseDefaultSeed): string[] {
+  if (typeof seed.getDefaultRelPath === 'function') {
+    return [seed.getDefaultRelPath(true), seed.getDefaultRelPath(false)]
+  }
+  return [seed.defaultRelPath]
+}
+
+function sha256Hex(content: string | Buffer): string {
+  if (Buffer.isBuffer(content)) {
+    return createHash('sha256').update(content).digest('hex')
+  }
   return createHash('sha256').update(content, 'utf-8').digest('hex')
 }
 
-function getIsChinese(): boolean {
-  const lang = getDefaultLanguage() || ''
+async function getIsChinese(): Promise<boolean> {
+  let lang = ''
+  try {
+    const userConfig = await getUserConfig()
+    if (userConfig && typeof userConfig.language === 'string') {
+      lang = userConfig.language
+    }
+  } catch {
+    // ignore and fallback to default language
+  }
+  if (!lang) {
+    lang = getDefaultLanguage() || ''
+  }
   return lang.toLowerCase().startsWith('zh')
 }
 
@@ -89,7 +135,9 @@ function findMetaIdByRelPath(meta: DefaultKbSeedsMeta, relPath: string): string 
 
 function findSeedIdByDefaultRelPath(relPath: string): string | null {
   for (const seed of KB_DEFAULT_SEEDS) {
-    if (normalizeRelPath(seed.defaultRelPath) === relPath) return seed.id
+    for (const candidate of getSeedDefaultRelPathVariants(seed)) {
+      if (normalizeRelPath(candidate) === relPath) return seed.id
+    }
   }
   return null
 }
@@ -132,7 +180,7 @@ async function initKbDefaultSeedFiles(): Promise<void> {
     return
   }
 
-  const isChinese = getIsChinese()
+  const isChinese = await getIsChinese()
 
   for (const seed of KB_DEFAULT_SEEDS) {
     const currentEntry = meta.seeds[seed.id]
@@ -140,10 +188,15 @@ async function initKbDefaultSeedFiles(): Promise<void> {
       continue
     }
 
-    const seedContent = seed.getContent(isChinese).trim()
-    const seedHash = sha256Hex(seedContent)
+    const isBinarySeed = typeof seed.getBinaryContent === 'function'
+    const seedContent = isBinarySeed ? '' : seed.getContent(isChinese).trim()
+    const seedBinary = isBinarySeed ? seed.getBinaryContent() : null
+    if (isBinarySeed && !seedBinary) {
+      continue
+    }
+    const seedHash = isBinarySeed && seedBinary ? sha256Hex(seedBinary) : sha256Hex(seedContent)
 
-    const targetRelPath = currentEntry?.relPath ? normalizeRelPath(currentEntry.relPath) : normalizeRelPath(seed.defaultRelPath)
+    const targetRelPath = currentEntry?.relPath ? normalizeRelPath(currentEntry.relPath) : normalizeRelPath(getSeedDefaultRelPath(seed, isChinese))
     const targetAbsPath = path.join(root, targetRelPath)
 
     const exists = await pathExists(targetAbsPath)
@@ -154,7 +207,11 @@ async function initKbDefaultSeedFiles(): Promise<void> {
       }
 
       await fs.mkdir(path.dirname(targetAbsPath), { recursive: true })
-      await fs.writeFile(targetAbsPath, seedContent, 'utf-8')
+      if (isBinarySeed && seedBinary) {
+        await fs.writeFile(targetAbsPath, seedBinary)
+      } else {
+        await fs.writeFile(targetAbsPath, seedContent, 'utf-8')
+      }
       meta.seeds[seed.id] = {
         relPath: targetRelPath,
         lastSeedHash: seedHash
@@ -164,7 +221,7 @@ async function initKbDefaultSeedFiles(): Promise<void> {
 
     // Existing file: only overwrite when file still matches last seed hash (i.e., user hasn't edited).
     try {
-      const fileContent = await fs.readFile(targetAbsPath, 'utf-8')
+      const fileContent = isBinarySeed ? await fs.readFile(targetAbsPath) : await fs.readFile(targetAbsPath, 'utf-8')
       const fileHash = sha256Hex(fileContent)
       const lastSeedHash = currentEntry?.lastSeedHash ?? ''
 
@@ -174,7 +231,11 @@ async function initKbDefaultSeedFiles(): Promise<void> {
       }
 
       // Safe to overwrite (either unmodified seed, or first-time meta missing hash but content matches).
-      await fs.writeFile(targetAbsPath, seedContent, 'utf-8')
+      if (isBinarySeed && seedBinary) {
+        await fs.writeFile(targetAbsPath, seedBinary)
+      } else {
+        await fs.writeFile(targetAbsPath, seedContent, 'utf-8')
+      }
       meta.seeds[seed.id] = {
         relPath: targetRelPath,
         lastSeedHash: seedHash
@@ -218,10 +279,25 @@ async function pathExists(absPath: string): Promise<boolean> {
   }
 }
 
+async function caseSensitiveExists(dirAbs: string, name: string): Promise<boolean> {
+  try {
+    const entries = await fs.readdir(dirAbs, { withFileTypes: true })
+    return entries.some((entry) => entry.name === name)
+  } catch (e: any) {
+    if (e?.code === 'ENOENT') return false
+    throw e
+  }
+}
+
 function splitNameExt(fileName: string): { base: string; ext: string } {
   const ext = path.extname(fileName)
   const base = ext ? fileName.slice(0, -ext.length) : fileName
   return { base, ext }
+}
+
+function isImageFile(filePath: string): boolean {
+  const ext = path.extname(filePath).toLowerCase()
+  return IMAGE_EXTS.has(ext)
 }
 
 async function ensureUniqueName(dirAbs: string, desiredName: string): Promise<string> {
@@ -365,23 +441,67 @@ export function registerKnowledgeBaseHandlers(): void {
     return await listDir(relDir)
   })
 
-  ipcMain.handle('kb:read-file', async (_evt, payload: { relPath: string }) => {
+  // Read file with optional encoding: 'utf-8' (default) for text, 'base64' for binary
+  ipcMain.handle('kb:read-file', async (_evt, payload: { relPath: string; encoding?: 'utf-8' | 'base64' }) => {
     const relPath = payload?.relPath ?? ''
+    const encoding = payload?.encoding ?? 'utf-8'
     const { absPath } = resolveKbPath(relPath)
     const stat = await fs.stat(absPath)
     if (!stat.isFile()) throw new Error('Not a file')
-    const content = await fs.readFile(absPath, 'utf-8')
-    return { content, mtimeMs: stat.mtimeMs }
+
+    if (encoding === 'base64') {
+      const buffer = await fs.readFile(absPath)
+      const content = buffer.toString('base64')
+      const ext = path.extname(relPath).toLowerCase()
+      const mimeTypes: Record<string, string> = {
+        '.png': 'image/png',
+        '.jpg': 'image/jpeg',
+        '.jpeg': 'image/jpeg',
+        '.gif': 'image/gif',
+        '.webp': 'image/webp',
+        '.bmp': 'image/bmp',
+        '.svg': 'image/svg+xml'
+      }
+      const mimeType = mimeTypes[ext] || 'application/octet-stream'
+      return { content, mimeType, mtimeMs: stat.mtimeMs, isImage: isImageFile(relPath) }
+    } else {
+      const content = await fs.readFile(absPath, 'utf-8')
+      return { content, mtimeMs: stat.mtimeMs }
+    }
   })
 
-  ipcMain.handle('kb:write-file', async (_evt, payload: { relPath: string; content: string }) => {
+  // Write file with optional encoding: 'utf-8' (default) for text, 'base64' for binary
+  ipcMain.handle('kb:write-file', async (_evt, payload: { relPath: string; content: string; encoding?: 'utf-8' | 'base64' }) => {
     const relPath = payload?.relPath ?? ''
     const content = payload?.content ?? ''
+    const encoding = payload?.encoding ?? 'utf-8'
     const { absPath } = resolveKbPath(relPath)
     await fs.mkdir(path.dirname(absPath), { recursive: true })
-    await fs.writeFile(absPath, content, 'utf-8')
+
+    if (encoding === 'base64') {
+      const buffer = Buffer.from(content, 'base64')
+      await fs.writeFile(absPath, buffer)
+    } else {
+      await fs.writeFile(absPath, content, 'utf-8')
+    }
+
     const stat = await fs.stat(absPath)
     return { mtimeMs: stat.mtimeMs }
+  })
+
+  // Create a new image file from base64 data
+  ipcMain.handle('kb:create-image', async (_evt, payload: { relDir: string; name: string; base64: string }) => {
+    const relDir = payload?.relDir ?? ''
+    const name = payload?.name ?? ''
+    const base64 = payload?.base64 ?? ''
+    if (!isSafeBasename(name)) throw new Error('Invalid file name')
+    const { absPath: dirAbs } = resolveKbPath(relDir)
+    await fs.mkdir(dirAbs, { recursive: true })
+    const finalName = await ensureUniqueName(dirAbs, name)
+    const absPath = path.join(dirAbs, finalName)
+    const buffer = Buffer.from(base64, 'base64')
+    await fs.writeFile(absPath, buffer)
+    return { relPath: path.posix.join(relDir.replace(/\\/g, '/'), finalName) }
   })
 
   ipcMain.handle('kb:mkdir', async (_evt, payload: { relDir: string; name: string }) => {
@@ -424,7 +544,7 @@ export function registerKnowledgeBaseHandlers(): void {
     }
 
     // Check if target already exists (different from source)
-    if (await pathExists(destAbs)) {
+    if (await caseSensitiveExists(parentAbs, newName)) {
       throw new Error('Target already exists')
     }
     await fs.rename(srcAbs, destAbs)

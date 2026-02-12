@@ -91,12 +91,12 @@ import jumpserverSupport from '@views/components/Extensions/jumpserverSupport.vu
 import KeyManagement from '@views/components/LeftTab/config/keyManagement.vue'
 import SshConnect from '@views/components/Ssh/sshConnect.vue'
 import Files from '@views/components/Files/index.vue'
-import KnowledgeCenterEditor from '@views/components/Ssh/editors/KnowledgeCenterEditor.vue'
+import KnowledgeCenterEditor from '@views/components/Editors/KnowledgeCenterEditor.vue'
 import Kubernetes from '@views/components/Kubernetes/index.vue'
-import McpConfigEditor from '@views/components/Ssh/editors/mcpConfigEditor.vue'
-import CommonConfigEditor from '@views/components/CommonConfigEditor/index.vue'
-import SecurityConfigEditor from '@views/components/SecurityConfigEditor/index.vue'
-import KeywordHighlightEditor from '@views/components/KeywordHighlightEditor/index.vue'
+import McpConfigEditor from '@views/components/Editors/McpConfigEditor.vue'
+import CommonConfigEditor from '@views/components/Editors/CommonConfigEditor.vue'
+import SecurityConfigEditor from '@views/components/Editors/SecurityConfigEditor.vue'
+import KeywordHighlightEditor from '@views/components/Editors/KeywordHighlightEditor.vue'
 import PluginDetail from '@views/components/Extensions/pluginDetail.vue'
 import type { IDockviewPanelProps } from 'dockview-vue'
 import { isFocusInAiTab } from '@/utils/domUtils'
@@ -347,16 +347,16 @@ defineExpose({
 
   &.transparent-bg {
     background-color: transparent !important;
-    border-bottom-color: rgba(255, 255, 255, 0.1);
+    border-bottom-color: var(--border-color);
 
     .tab-item {
-      background-color: rgba(0, 0, 0, 0.2);
-      color: rgba(255, 255, 255, 0.8);
-      border-right-color: rgba(255, 255, 255, 0.1);
+      background-color: var(--bg-color-secondary);
+      color: var(--text-color);
+      border-right-color: var(--border-color);
 
       &.active {
-        background-color: rgba(255, 255, 255, 0.15);
-        color: #fff;
+        background-color: var(--bg-color-tertiary);
+        color: var(--text-color);
         border-top-color: #007acc;
       }
 
@@ -365,10 +365,10 @@ defineExpose({
       }
 
       .close-btn {
-        color: rgba(255, 255, 255, 0.6);
+        color: var(--text-color-tertiary);
         &:hover {
-          color: #fff;
-          background-color: rgba(255, 255, 255, 0.2);
+          color: var(--text-color);
+          background-color: var(--hover-bg-color);
         }
       }
     }

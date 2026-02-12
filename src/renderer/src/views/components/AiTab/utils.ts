@@ -136,3 +136,34 @@ export const getDateLabel = (ts: number, t: (key: string) => string): string => 
     return formatDateFromTimestamp(ts)
   }
 }
+
+// Image file extensions for detection
+const IMAGE_EXTS = new Set(['.png', '.jpg', '.jpeg', '.gif', '.webp', '.bmp', '.svg'])
+
+// Check if a file is an image based on extension
+export const isImageFile = (relPath: string): boolean => {
+  const ext = relPath.toLowerCase().split('.').pop()
+  return ext ? IMAGE_EXTS.has(`.${ext}`) : false
+}
+
+// Get image media type from file extension
+export const getImageMediaType = (relPath: string): 'image/jpeg' | 'image/png' | 'image/gif' | 'image/webp' | 'image/bmp' | 'image/svg+xml' => {
+  const ext = relPath.toLowerCase().split('.').pop()
+  switch (ext) {
+    case 'jpg':
+    case 'jpeg':
+      return 'image/jpeg'
+    case 'gif':
+      return 'image/gif'
+    case 'bmp':
+      return 'image/bmp'
+    case 'svg':
+      return 'image/svg+xml'
+    case 'webp':
+      return 'image/webp'
+    case 'png':
+      return 'image/png'
+    default:
+      return 'image/png'
+  }
+}

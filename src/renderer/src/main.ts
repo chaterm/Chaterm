@@ -13,6 +13,7 @@ import { notification } from 'ant-design-vue'
 import { shortcutService } from './services/shortcutService'
 import { APP_EDITION } from './utils/edition'
 import { createRendererLogger } from './utils/logger'
+import { useEditorConfigStore } from './stores/editorConfig'
 
 // Set document title based on edition
 document.title = APP_EDITION === 'cn' ? 'Chaterm CN' : 'Chaterm'
@@ -56,7 +57,20 @@ declare global {
 
 window.storageAPI = storageState
 
+// Initialize editor config store early
+const initializeEditorConfig = async () => {
+  try {
+    const editorConfigStore = useEditorConfigStore()
+    await editorConfigStore.loadConfig()
+  } catch (error) {
+    console.error('Failed to initialize editor config:', error)
+  }
+}
+
 app.mount('#app')
+
+// Initialize editor config after app is mounted
+initializeEditorConfig()
 
 if (import.meta.hot) {
   import.meta.hot.on('vite:afterUpdate', () => {

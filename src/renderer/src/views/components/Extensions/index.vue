@@ -276,7 +276,8 @@ const onDrop = async (e: DragEvent) => {
   }
 
   const file = fileList[0] as any
-  const filePath = file.path as string | undefined
+
+  const filePath = api.getPathForFile(file) as string | undefined
 
   if (!filePath) {
     showNotification('error', t('extensions.installFailed'), t('extensions.unableToGetFilePath'))
