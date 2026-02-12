@@ -10,6 +10,8 @@ const logger = createLogger('plugin')
 const globalContext = new Map<string, any>()
 
 export function setupPluginIpc() {
+  logger.info('Registering plugin IPC handlers', { event: 'plugin.ipc.setup.start' })
+
   // Retrieve all views defined by plugins
   ipcMain.handle('plugin:get-views', async () => {
     const plugins = listPlugins()
@@ -38,7 +40,13 @@ export function setupPluginIpc() {
               })
             })
           }
-        } catch (e) {}
+        } catch (e) {
+          logger.warn('Manifest parsing failed while loading plugin views', {
+            event: 'plugin.views.manifest.error',
+            pluginId: p.id,
+            error: e instanceof Error ? e.message : String(e)
+          })
+        }
       }
     }
     return result
@@ -65,7 +73,12 @@ export function setupPluginIpc() {
           }
         }
       } catch (e) {
-        logger.error('Manifest parsing failed', { error: e instanceof Error ? e.message : String(e) })
+        logger.error('Manifest parsing failed', {
+          event: 'plugin.view.metadata.error',
+          viewId,
+          pluginId: p.id,
+          error: e instanceof Error ? e.message : String(e)
+        })
       }
     }
     return null
@@ -144,5 +157,7 @@ export function setupPluginIpc() {
     logger.warn('Command handler not found', { commandId })
     return null
   })
+
+  logger.info('Plugin IPC handlers registered', { event: 'plugin.ipc.setup.complete' })
 }
 export const ExternalAssetCache = new Map<string, ConnectionInfo>()

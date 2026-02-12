@@ -94,6 +94,15 @@ export async function transferFileR2R(event: any, args: R2RFileArgs) {
   const fromPath = toPosix(args.fromPath)
   let toPath = toPosix(args.toPath)
 
+  sftpLogger.info('Starting remote-to-remote file transfer', {
+    event: 'ssh.sftp.r2r.file.start',
+    fromId: args.fromId,
+    toId: args.toId,
+    fromPath,
+    toPath,
+    autoRename: args.autoRename !== false
+  })
+
   const autoRename = args.autoRename !== false
   if (autoRename) {
     const dir = path.posix.dirname(toPath)
@@ -105,7 +114,13 @@ export async function transferFileR2R(event: any, args: R2RFileArgs) {
   await ensureRemoteDir(dstSftp, path.posix.dirname(toPath))
 
   const taskKey = `${args.fromId}->${args.toId}:r2r:${fromPath}:${toPath}`
-  if (activeTasks.has(taskKey)) return { status: 'skipped', message: 'Task already in progress', taskKey }
+  if (activeTasks.has(taskKey)) {
+    sftpLogger.debug('Skipped duplicated remote-to-remote file transfer', {
+      event: 'ssh.sftp.r2r.file.skipped',
+      taskKey
+    })
+    return { status: 'skipped', message: 'Task already in progress', taskKey }
+  }
 
   const st = await sftpStat(srcSftp, fromPath)
   const total = st?.size ?? 0
@@ -150,6 +165,12 @@ export async function transferFileR2R(event: any, args: R2RFileArgs) {
   try {
     await pipeline(rs, ws)
     activeTasks.delete(taskKey)
+    sftpLogger.info('Remote-to-remote file transfer completed', {
+      event: 'ssh.sftp.r2r.file.success',
+      taskKey,
+      bytes: transferred,
+      total
+    })
     return { status: 'success', remotePath: toPath, taskKey }
   } catch (e: any) {
     activeTasks.delete(taskKey)
@@ -163,9 +184,18 @@ export async function transferFileR2R(event: any, args: R2RFileArgs) {
           await new Promise<void>((res) => dstSftp.unlink(toPath, () => res()))
         } catch {}
       }
+      sftpLogger.warn('Remote-to-remote file transfer cancelled', {
+        event: 'ssh.sftp.r2r.file.cancelled',
+        taskKey
+      })
       return { status: 'cancelled', message: 'Transfer cancelled', taskKey }
     }
 
+    sftpLogger.error('Remote-to-remote file transfer failed', {
+      event: 'ssh.sftp.r2r.file.error',
+      taskKey,
+      error: e instanceof Error ? e.message : String(e)
+    })
     throw e
   }
 }
@@ -176,6 +206,16 @@ export async function transferDirR2R(event: any, args: R2RDirArgs) {
 
   const fromDir = toPosix(args.fromDir)
   const toParent = toPosix(args.toDir)
+
+  sftpLogger.info('Starting remote-to-remote directory transfer', {
+    event: 'ssh.sftp.r2r.dir.start',
+    fromId: args.fromId,
+    toId: args.toId,
+    fromDir,
+    toParent,
+    autoRename: args.autoRename !== false,
+    concurrency: args.concurrency ?? 3
+  })
 
   const autoRename = args.autoRename !== false
   const concurrency = args.concurrency ?? 3
@@ -235,6 +275,14 @@ export async function transferDirR2R(event: any, args: R2RDirArgs) {
       })
       throw err
     })
+  })
+
+  sftpLogger.info('Remote-to-remote directory transfer completed', {
+    event: 'ssh.sftp.r2r.dir.success',
+    fromId: args.fromId,
+    toId: args.toId,
+    remotePath: finalToBaseDir,
+    totalFiles: allFiles.length
   })
 
   return { status: 'success', remotePath: finalToBaseDir, totalFiles: allFiles.length }

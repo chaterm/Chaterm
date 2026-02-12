@@ -42,7 +42,7 @@ export class Controller {
   skillsManager: SkillsManager
 
   constructor(postMessage: (message: ExtensionMessage) => Promise<boolean> | undefined, getMcpSettingsFilePath: () => Promise<string>) {
-    logger.info('Controller instantiated')
+    logger.debug('Controller instantiated', { event: 'agent.controller.init' })
     this.postMessage = postMessage
 
     this.mcpHub = new McpHub(
@@ -108,8 +108,13 @@ export class Controller {
   }
 
   async initTask(hosts: Host[], task?: string, historyItem?: HistoryItem, taskId?: string, contentParts?: ContentPart[]) {
-    logger.info('initTask', { value: task, historyItem, taskId })
     const resolvedTaskId = taskId ?? historyItem?.id
+    logger.info('Initializing task', {
+      event: 'agent.task.init',
+      taskId: resolvedTaskId || 'new',
+      hasHistory: !!historyItem,
+      hasInitialPrompt: !!task
+    })
     if (resolvedTaskId) {
       await this.clearTask(resolvedTaskId)
     }
@@ -213,8 +218,12 @@ export class Controller {
         break
 
       case 'askResponse':
-        logger.info('askResponse', { value: message })
         if (targetTask) {
+          logger.debug('Received askResponse message', {
+            event: 'agent.controller.ask.response',
+            taskId: targetTask.taskId,
+            askResponse: message.askResponse
+          })
           if (message.hosts) {
             targetTask.hosts = message.hosts
             if (targetTaskId) {
@@ -223,11 +232,16 @@ export class Controller {
           }
           if (message.askResponse === 'messageResponse') {
             // Clean up all command contexts for this task and broadcast close events
-            logger.info(`[Controller] messageResponse received, cleaning up command contexts for task: ${targetTask.taskId}`)
+            logger.debug('Cleaning command contexts before handling messageResponse', {
+              event: 'agent.controller.message_response.cleanup.start',
+              taskId: targetTask.taskId
+            })
             Task.clearCommandContextsForTask(targetTask.taskId)
-            logger.info(`[Controller] Command contexts cleaned, clearing todos...`)
             await targetTask.clearTodos('new_user_input')
-            logger.info(`[Controller] Todos cleared, calling handleWebviewAskResponse...`)
+            logger.debug('Command contexts and todos cleared for messageResponse', {
+              event: 'agent.controller.message_response.cleanup.complete',
+              taskId: targetTask.taskId
+            })
           }
           await targetTask.handleWebviewAskResponse(message.askResponse!, message.text, message.truncateAtMessageTs, message.contentParts)
         }
@@ -752,7 +766,11 @@ export class Controller {
         .substring(0, 100) // Limit to 100 characters
 
       if (cleanedTitle) {
-        logger.info('Generated chat title', { value: cleanedTitle })
+        logger.debug('Generated chat title', {
+          event: 'agent.chat.title.generated',
+          taskId,
+          titleLength: cleanedTitle.length
+        })
 
         // Update Task instance's chatTitle property
         const task = this.getTaskFromId(taskId)

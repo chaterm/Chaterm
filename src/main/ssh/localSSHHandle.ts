@@ -123,6 +123,13 @@ const createTerminal = async (config: LocalTerminalConfig): Promise<LocalTermina
   const env = { ...process.env, ...config.env }
   let args: string[] = []
 
+  localLogger.info('Creating local terminal', {
+    event: 'terminal.local.connect.start',
+    terminalId: config.id,
+    shell,
+    cwd
+  })
+
   const ptyProcess = pty.spawn(shell, args, {
     name: config.termType || 'xterm',
     cols: config.cols || 80,
@@ -152,6 +159,11 @@ const createTerminal = async (config: LocalTerminalConfig): Promise<LocalTermina
   })
 
   terminals.set(config.id, terminal)
+  localLogger.info('Local terminal created', {
+    event: 'terminal.local.connect.success',
+    terminalId: config.id,
+    shell
+  })
   return terminal
 }
 
@@ -162,12 +174,22 @@ const closeTerminal = (terminalId: string) => {
       terminal.pty.kill()
       terminal.isAlive = false
       terminals.delete(terminalId)
+      localLogger.info('Local terminal closed', { event: 'terminal.local.disconnect.success', terminalId })
       return { success: true }
     } catch (error: unknown) {
       const e = error as Error
+      localLogger.error('Failed to close local terminal', {
+        event: 'terminal.local.disconnect.error',
+        terminalId,
+        error: e.message
+      })
       return { success: false, message: e.message }
     }
   }
+  localLogger.warn('Attempted to close non-existent local terminal', {
+    event: 'terminal.local.disconnect.notfound',
+    terminalId
+  })
   return { success: false, message: 'Terminal not found' }
 }
 

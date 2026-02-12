@@ -6,5 +6,5 @@
 // biome-ignore lint: disable
 export {}
 declare global {
-  const createLogger: typeof import('@logging').createLogger
+  const createLogger: typeof import('@logging/index').createLogger
 }

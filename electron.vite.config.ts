@@ -96,7 +96,7 @@ export default defineConfig(({ mode }) => {
         AutoImport({
           imports: [
             {
-              '@logging': ['createLogger']
+              '@logging/index': ['createLogger']
             }
           ],
           dts: resolve('src/main/auto-imports.d.ts')

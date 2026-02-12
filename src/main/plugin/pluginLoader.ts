@@ -35,6 +35,12 @@ async function handlePluginChange() {
 }
 export async function loadAllPlugins() {
   const plugins = listPlugins()
+  const enabledPlugins = plugins.filter((plugin) => plugin.enabled)
+  logger.info('Starting plugin load', {
+    event: 'plugin.load.start',
+    totalPlugins: plugins.length,
+    enabledPlugins: enabledPlugins.length
+  })
 
   clearVersionProviders()
   clearInstallHints()
@@ -45,6 +51,9 @@ export async function loadAllPlugins() {
 
   capabilityRegistry.clearBastions()
   const storage = new PluginStorageContext()
+  let loadedCount = 0
+  let failedCount = 0
+  let skippedCount = 0
 
   let hostModules: PluginHostModules = {}
   try {
@@ -56,21 +65,33 @@ export async function loadAllPlugins() {
   }
 
   for (const p of plugins) {
-    if (!p.enabled) continue
+    if (!p.enabled) {
+      skippedCount++
+      continue
+    }
 
     const manifestPath = path.join(p.path, 'plugin.json')
-    if (!fs.existsSync(manifestPath)) continue
+    if (!fs.existsSync(manifestPath)) {
+      skippedCount++
+      logger.warn('Plugin manifest not found, skipping plugin', {
+        event: 'plugin.load.manifest.missing',
+        pluginId: p.id
+      })
+      continue
+    }
 
     let manifest: PluginManifest
     try {
       manifest = JSON.parse(fs.readFileSync(manifestPath, 'utf8')) as PluginManifest
     } catch (e) {
+      failedCount++
       logger.error('Invalid manifest for plugin', { pluginId: p.id, error: e instanceof Error ? e.message : String(e) })
       continue
     }
 
     const entry = path.join(p.path, manifest.main)
     if (!fs.existsSync(entry)) {
+      failedCount++
       logger.error('Main entry not found for plugin', { pluginId: p.id })
       continue
     }
@@ -148,6 +169,12 @@ export async function loadAllPlugins() {
           if (!fs.existsSync(filePath)) return ''
           return fs.readFileSync(filePath, 'utf8')
         } catch (e) {
+          logger.warn('Plugin readFile failed', {
+            event: 'plugin.host.read_file.error',
+            pluginId: p.id,
+            filePath,
+            error: e instanceof Error ? e.message : String(e)
+          })
           return ''
         }
       },
@@ -159,6 +186,12 @@ export async function loadAllPlugins() {
           fs.writeFileSync(filePath, content, 'utf8')
           return true
         } catch (e) {
+          logger.warn('Plugin writeFile failed', {
+            event: 'plugin.host.write_file.error',
+            pluginId: p.id,
+            filePath,
+            error: e instanceof Error ? e.message : String(e)
+          })
           return false
         }
       },
@@ -170,12 +203,27 @@ export async function loadAllPlugins() {
       const mod: PluginModule = require(entry)
       if (typeof mod.register === 'function') {
         await mod.register(host)
-        logger.info('Plugin registered', { pluginId: p.id })
+        loadedCount++
+        logger.debug('Plugin registered', { event: 'plugin.load.registered', pluginId: p.id })
       } else {
-        logger.info('Plugin has no register()', { pluginId: p.id })
+        loadedCount++
+        logger.warn('Plugin has no register(), loaded without setup', {
+          event: 'plugin.load.register.missing',
+          pluginId: p.id
+        })
       }
     } catch (e) {
+      failedCount++
       logger.error('Plugin load error', { pluginId: p.id, error: e instanceof Error ? e.message : String(e) })
     }
   }
+
+  logger.info('Plugin load completed', {
+    event: 'plugin.load.complete',
+    totalPlugins: plugins.length,
+    enabledPlugins: enabledPlugins.length,
+    loadedCount,
+    failedCount,
+    skippedCount
+  })
 }

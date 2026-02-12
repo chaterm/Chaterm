@@ -31,6 +31,14 @@ export async function remoteSshConnect(connectionInfo: ConnectionInfo): Promise<
   const normalizedUsername = username ?? ''
   const normalizedPort = port || 22
 
+  logger.info('Starting SSH connection', {
+    event: 'ssh.connect.start',
+    connectionId,
+    host: normalizedHost,
+    port: normalizedPort,
+    username: normalizedUsername
+  })
+
   if (normalizedHost && normalizedUsername) {
     const reusable = getReusableSshConnection(normalizedHost, normalizedPort, normalizedUsername)
     if (reusable) {
@@ -69,6 +77,10 @@ export async function remoteSshConnect(connectionInfo: ConnectionInfo): Promise<
     conn.on('keyboard-interactive', () => {
       secondAuthTriggered = true
       conn.end()
+      logger.warn('SSH connection requires additional authentication', {
+        event: 'ssh.auth.second_factor_required',
+        connectionId
+      })
       safeResolve({ error: 'Server requires second authentication (e.g., OTP/2FA), cannot connect.' })
     })
 
@@ -90,6 +102,10 @@ export async function remoteSshConnect(connectionInfo: ConnectionInfo): Promise<
       if (secondAuthTriggered) return
       // If the connection closes before the 'ready' event, and no 'error' event is triggered,
       // this usually means all authentication methods failed.
+      logger.warn('SSH connection closed before ready', {
+        event: 'ssh.connect.closed_before_ready',
+        connectionId
+      })
       safeResolve({ error: 'SSH connection closed, possibly authentication failed.' })
     })
 

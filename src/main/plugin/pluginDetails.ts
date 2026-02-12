@@ -3,6 +3,7 @@ import path from 'path'
 import { pathToFileURL } from 'url'
 import { listPlugins, PluginManifest } from './pluginManager'
 import { getUserConfig } from '../agent/core/storage/state'
+const logger = createLogger('plugin')
 
 export interface PluginDetails {
   id: string
@@ -52,7 +53,13 @@ function readReadme(rootDir: string, language: string): string {
     if (fs.existsSync(p)) {
       try {
         return fs.readFileSync(p, 'utf8')
-      } catch {
+      } catch (error) {
+        logger.warn('Failed to read plugin README', {
+          event: 'plugin.details.readme.error',
+          readmeFile: name,
+          rootDir,
+          error: error instanceof Error ? error.message : String(error)
+        })
         return ''
       }
     }
@@ -92,6 +99,11 @@ export async function getUserLanguage(): Promise<string> {
 export async function getPluginDetailsByName(pluginName: string): Promise<PluginDetails | null> {
   const registry = listPlugins()
   const language = await getUserLanguage()
+  logger.debug('Loading plugin details', {
+    event: 'plugin.details.load.start',
+    pluginName,
+    pluginCount: registry.length
+  })
 
   // Find by localized name or original displayName
   let record: { path: string } | null = null
@@ -110,12 +122,24 @@ export async function getPluginDetailsByName(pluginName: string): Promise<Plugin
         manifest = m
         break
       }
-    } catch {
+    } catch (error) {
+      logger.warn('Failed to parse plugin manifest while loading details', {
+        event: 'plugin.details.manifest.parse.error',
+        pluginId: p.id,
+        pluginName,
+        error: error instanceof Error ? error.message : String(error)
+      })
       continue
     }
   }
 
-  if (!record || !manifest) return null
+  if (!record || !manifest) {
+    logger.warn('Plugin details not found', {
+      event: 'plugin.details.notfound',
+      pluginName
+    })
+    return null
+  }
 
   const basePath = record.path
 
@@ -132,7 +156,7 @@ export async function getPluginDetailsByName(pluginName: string): Promise<Plugin
   const { name, description } = getLocalizedStrings(manifest, language)
   const readme = readReadme(basePath, language)
 
-  return {
+  const result: PluginDetails = {
     id: manifest.id,
     name,
     description,
@@ -143,4 +167,13 @@ export async function getPluginDetailsByName(pluginName: string): Promise<Plugin
     lastUpdated: lastUpdatedStr,
     size: info.size
   }
+
+  logger.debug('Plugin details loaded', {
+    event: 'plugin.details.load.success',
+    pluginId: result.id,
+    pluginName: result.name,
+    version: result.version
+  })
+
+  return result
 }

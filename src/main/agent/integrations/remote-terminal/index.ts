@@ -826,6 +826,13 @@ export class RemoteTerminalManager {
     if (!this.connectionInfo) {
       throw new Error('Connection information not set, please call setConnectionInfo() first')
     }
+    const sshType = this.connectionInfo.sshType || 'ssh'
+    logger.info('Creating remote terminal connection', {
+      event: 'remote-terminal.connect.start',
+      sshType,
+      host: this.connectionInfo.host || this.connectionInfo.asset_ip
+    })
+
     // SSH connection logic
     const existingTerminal = Array.from(this.terminals.values()).find(
       (terminal) =>
@@ -835,6 +842,12 @@ export class RemoteTerminalManager {
     )
 
     if (existingTerminal) {
+      logger.debug('Reusing existing remote terminal connection', {
+        event: 'remote-terminal.connect.reuse',
+        terminalId: existingTerminal.id,
+        sessionId: existingTerminal.sessionId,
+        sshType
+      })
       return existingTerminal
     }
 
@@ -850,7 +863,6 @@ export class RemoteTerminalManager {
       }
       this.connectionInfo.ident = `${packageInfo.name}_${packageInfo.version}` + identToken
 
-      const sshType = this.connectionInfo.sshType || 'ssh'
       // Choose connection method based on sshType
       if (sshType === 'jumpserver') {
         // Use JumpServer connection
@@ -937,9 +949,20 @@ export class RemoteTerminalManager {
       }
 
       this.terminals.set(terminalInfo.id, terminalInfo)
-      logger.info('SSH connection established, terminal created', { event: 'remote-terminal.connect.success' })
+      logger.info('SSH connection established, terminal created', {
+        event: 'remote-terminal.connect.success',
+        terminalId: terminalInfo.id,
+        sessionId: terminalInfo.sessionId,
+        sshType
+      })
       return terminalInfo
     } catch (error) {
+      logger.error('Failed to create remote terminal', {
+        event: 'remote-terminal.connect.error',
+        sshType,
+        host: this.connectionInfo.host || this.connectionInfo.asset_ip,
+        error: error instanceof Error ? error.message : String(error)
+      })
       throw new Error('Failed to create remote terminal: ' + (error instanceof Error ? error.message : String(error)))
     }
   }
@@ -1018,6 +1041,11 @@ export class RemoteTerminalManager {
 
   // Clean up all connections
   async disposeAll(): Promise<void> {
+    logger.info('Disposing all remote terminals', {
+      event: 'remote-terminal.dispose.start',
+      terminalCount: this.terminals.size
+    })
+
     const disconnectPromises: Promise<void>[] = []
     for (const terminalInfo of this.terminals.values()) {
       disconnectPromises.push(this.disconnectTerminal(terminalInfo.id))
@@ -1025,49 +1053,57 @@ export class RemoteTerminalManager {
     await Promise.all(disconnectPromises)
     this.terminals.clear()
     this.processes.clear()
-    logger.info('All remote terminals have been closed', { event: 'remote-terminal.dispose.all' })
+    logger.info('All remote terminals have been closed', { event: 'remote-terminal.dispose.all', terminalCount: disconnectPromises.length })
   }
 
   // Disconnect specified terminal connection
   async disconnectTerminal(terminalId: number): Promise<void> {
     const terminalInfo = this.terminals.get(terminalId)
-    if (terminalInfo) {
-      this.processes.delete(terminalId)
-      this.terminals.delete(terminalId)
-      try {
-        const sshType = terminalInfo.connectionInfo.sshType || 'ssh'
-        if (sshType === 'jumpserver') {
-          const { jumpServerDisconnect } = await import('./jumpserverHandle')
-          await jumpServerDisconnect(terminalInfo.sessionId)
-          logger.debug('JumpServer terminal disconnected', {
-            event: 'remote-terminal.disconnect.jumpserver',
-            terminalId,
-            sessionId: terminalInfo.sessionId
-          })
-        } else if (sshType !== 'ssh') {
-          const bastionCapability = capabilityRegistry.getBastion(sshType)
-          if (bastionCapability) {
-            await bastionCapability.disconnect({ id: terminalInfo.sessionId })
-          } else {
-            logger.warn('Bastion capability not registered, skipping disconnect', { event: 'remote-terminal.disconnect.bastion.notfound', sshType })
-          }
-          logger.debug('Bastion terminal disconnected', {
-            event: 'remote-terminal.disconnect.bastion',
-            sshType,
-            terminalId,
-            sessionId: terminalInfo.sessionId
-          })
-        } else {
-          await remoteSshDisconnect(terminalInfo.sessionId)
-          logger.debug('SSH terminal disconnected', { event: 'remote-terminal.disconnect.ssh', terminalId, sessionId: terminalInfo.sessionId })
-        }
-      } catch (error) {
-        logger.error('Error disconnecting terminal', {
-          event: 'remote-terminal.disconnect.error',
+    if (!terminalInfo) {
+      logger.debug('Disconnect requested for non-existent terminal', {
+        event: 'remote-terminal.disconnect.notfound',
+        terminalId
+      })
+      return
+    }
+
+    this.processes.delete(terminalId)
+    this.terminals.delete(terminalId)
+    try {
+      const sshType = terminalInfo.connectionInfo.sshType || 'ssh'
+      if (sshType === 'jumpserver') {
+        const { jumpServerDisconnect } = await import('./jumpserverHandle')
+        await jumpServerDisconnect(terminalInfo.sessionId)
+        logger.debug('JumpServer terminal disconnected', {
+          event: 'remote-terminal.disconnect.jumpserver',
           terminalId,
-          error: error instanceof Error ? error.message : String(error)
+          sessionId: terminalInfo.sessionId
         })
+      } else if (sshType !== 'ssh') {
+        const bastionCapability = capabilityRegistry.getBastion(sshType)
+        if (bastionCapability) {
+          await bastionCapability.disconnect({ id: terminalInfo.sessionId })
+        } else {
+          logger.warn('Bastion capability not registered, skipping disconnect', { event: 'remote-terminal.disconnect.bastion.notfound', sshType })
+        }
+        logger.debug('Bastion terminal disconnected', {
+          event: 'remote-terminal.disconnect.bastion',
+          sshType,
+          terminalId,
+          sessionId: terminalInfo.sessionId
+        })
+      } else {
+        await remoteSshDisconnect(terminalInfo.sessionId)
+        logger.debug('SSH terminal disconnected', { event: 'remote-terminal.disconnect.ssh', terminalId, sessionId: terminalInfo.sessionId })
       }
+    } catch (error) {
+      logger.error('Error disconnecting terminal', {
+        event: 'remote-terminal.disconnect.error',
+        terminalId,
+        sessionId: terminalInfo.sessionId,
+        sshType: terminalInfo.connectionInfo.sshType || 'ssh',
+        error: error instanceof Error ? error.message : String(error)
+      })
     }
   }
 }

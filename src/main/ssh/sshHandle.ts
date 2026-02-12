@@ -535,6 +535,15 @@ const handleAttemptConnection = async (event, connectionInfo, resolve, reject, r
   } = connectionInfo
   retryCount++
 
+  logger.info('Starting SSH connection attempt', {
+    event: 'ssh.connect.start',
+    connectionId: id,
+    host,
+    port: port || 22,
+    username,
+    attempt: retryCount
+  })
+
   connectionStatus.set(id, { isVerified: false }) // Update connection status
   const identToken = connIdentToken ? `_t=${connIdentToken}` : ''
   const ident = `${packageInfo.name}_${packageInfo.version}` + identToken
@@ -605,6 +614,13 @@ const handleAttemptConnection = async (event, connectionInfo, resolve, reject, r
     // Execute secondary connection (this will clear keyboardInteractiveOpts, so must be placed after the check)
     attemptSecondaryConnection(event, connectionInfo, ident)
 
+    logger.info('SSH connection established', {
+      event: 'ssh.connect.success',
+      connectionId: id,
+      host,
+      port: port || 22,
+      username
+    })
     resolve({ status: 'connected', message: 'Connection successful' })
   })
 
@@ -918,6 +934,14 @@ export const registerSSHHandlers = () => {
   // Handle connection
   ipcMain.handle('ssh:connect', async (_event, connectionInfo) => {
     const { sshType } = connectionInfo
+    logger.info('Received SSH connect request', {
+      event: 'ssh.connect.request',
+      connectionId: connectionInfo?.id,
+      sshType: sshType || 'ssh',
+      host: connectionInfo?.host || connectionInfo?.asset_ip,
+      port: connectionInfo?.port || 22,
+      username: connectionInfo?.username
+    })
 
     if (sshType === 'jumpserver') {
       // Route to JumpServer connection
@@ -925,6 +949,11 @@ export const registerSSHHandlers = () => {
         const result = await handleJumpServerConnection(connectionInfo, _event)
         return result
       } catch (error: unknown) {
+        logger.error('JumpServer connection request failed', {
+          event: 'ssh.connect.jumpserver.error',
+          connectionId: connectionInfo?.id,
+          error: error instanceof Error ? error.message : String(error)
+        })
         return buildErrorResponse(error)
       }
     }
@@ -1580,6 +1609,10 @@ export const registerSSHHandlers = () => {
   })
 
   ipcMain.handle('ssh:disconnect', async (_event, { id }) => {
+    logger.info('Received SSH disconnect request', {
+      event: 'ssh.disconnect.start',
+      connectionId: id
+    })
     // Check if it's a JumpServer connection
     if (jumpserverConnections.has(id)) {
       const stream = jumpserverShellStreams.get(id)
@@ -1622,9 +1655,17 @@ export const registerSSHHandlers = () => {
         cleanSftpConnection(id)
         jumpserverConnections.delete(id)
         jumpserverConnectionStatus.delete(id)
+        logger.info('JumpServer session disconnected', {
+          event: 'ssh.disconnect.jumpserver.success',
+          connectionId: id
+        })
         return { status: 'success', message: 'JumpServer connection disconnected' }
       }
 
+      logger.warn('JumpServer disconnect requested for non-existent connection', {
+        event: 'ssh.disconnect.jumpserver.notfound',
+        connectionId: id
+      })
       return { status: 'warning', message: 'No active JumpServer connection' }
     }
 
@@ -1671,8 +1712,16 @@ export const registerSSHHandlers = () => {
       cleanSftpConnection(id)
       sshConnections.delete(id)
       sftpConnections.delete(id)
+      logger.info('SSH connection disconnected', {
+        event: 'ssh.disconnect.success',
+        connectionId: id
+      })
       return { status: 'success', message: 'Disconnected' }
     }
+    logger.warn('SSH disconnect requested for non-existent connection', {
+      event: 'ssh.disconnect.notfound',
+      connectionId: id
+    })
     return { status: 'warning', message: 'No active connection' }
   })
 

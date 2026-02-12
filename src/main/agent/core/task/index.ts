@@ -138,7 +138,11 @@ export class Task {
    */
   static registerCommandContext(context: CommandContext): void {
     Task.activeTasks.set(context.commandId, context)
-    logger.info(`[Task] Registered command context: ${context.commandId} for task: ${context.taskId}`)
+    logger.debug('Registered command context', {
+      event: 'agent.task.command_context.register',
+      commandId: context.commandId,
+      taskId: context.taskId
+    })
   }
 
   /**
@@ -146,7 +150,10 @@ export class Task {
    */
   static unregisterCommandContext(commandId: string): void {
     Task.activeTasks.delete(commandId)
-    logger.info(`[Task] Unregistered command context: ${commandId}`)
+    logger.debug('Unregistered command context', {
+      event: 'agent.task.command_context.unregister',
+      commandId
+    })
   }
 
   /**
@@ -160,13 +167,16 @@ export class Task {
    * Clear all command contexts for a specific task
    */
   static clearCommandContextsForTask(taskId: string): void {
-    logger.info(`[Task] clearCommandContextsForTask called for task: ${taskId}, activeTasks count: ${Task.activeTasks.size}`)
+    logger.debug('Clearing command contexts for task', {
+      event: 'agent.task.command_context.clear.start',
+      taskId,
+      activeCount: Task.activeTasks.size
+    })
+    let clearedCount = 0
     for (const [commandId, context] of Task.activeTasks.entries()) {
-      logger.info(`[Task] Checking command context: ${commandId}, taskId: ${context.taskId}`)
       if (context.taskId === taskId) {
         // Send Ctrl+C to cancel the command
         if (context.cancel) {
-          logger.info(`[Task] Calling cancel for command: ${commandId}`)
           const result = context.cancel()
           if (result instanceof Promise) {
             result.catch((e) => logger.warn('[Task] Cancel failed', { error: e instanceof Error ? e.message : String(e) }))
@@ -174,18 +184,21 @@ export class Task {
         }
         // Force terminate the process to unblock awaiting code
         if (context.forceTerminate) {
-          logger.info(`[Task] Calling forceTerminate for command: ${commandId}`)
           context.forceTerminate()
         }
         // Broadcast interaction closed event to notify renderer process to close UI
-        logger.info(`[Task] Broadcasting interaction-closed for command: ${commandId}`)
         broadcastInteractionClosed(commandId)
         // Remove from registry
         Task.activeTasks.delete(commandId)
-        logger.info(`[Task] Cleared command context: ${commandId} for task: ${taskId}`)
+        clearedCount++
       }
     }
-    logger.info(`[Task] clearCommandContextsForTask completed, remaining activeTasks count: ${Task.activeTasks.size}`)
+    logger.debug('Cleared command contexts for task', {
+      event: 'agent.task.command_context.clear.complete',
+      taskId,
+      clearedCount,
+      remainingCount: Task.activeTasks.size
+    })
   }
 
   // ============================================================================
@@ -478,7 +491,10 @@ export class Task {
     this.contextManager = new ContextManager()
     this.customInstructions = customInstructions
     this.autoApprovalSettings = autoApprovalSettings
-    logger.info('[Task Init] AutoApprovalSettings initialized', { value: JSON.stringify(autoApprovalSettings, null, 2) })
+    logger.debug('AutoApprovalSettings initialized', {
+      event: 'agent.task.auto_approval.init',
+      enabled: autoApprovalSettings.enabled
+    })
     this.hosts = hosts
     this.chatTitle = chatTitle
     this.updateMessagesLanguage()
@@ -496,7 +512,7 @@ export class Task {
       this.conversationHistoryDeletedRange = historyItem.conversationHistoryDeletedRange
     } else if (task && taskId) {
       this.taskId = taskId
-      logger.info(`[Task Init] New task created with ID: ${this.taskId}`)
+      logger.info('New task created', { event: 'agent.task.created', taskId: this.taskId })
       this.setNextUserInputContentParts(initialUserContentParts)
     } else {
       throw new Error('Either historyItem or task/images must be provided')
@@ -551,7 +567,7 @@ export class Task {
       if (process.env.CHATERM_INTERACTION_DEBUG === '1') {
         const provider = (await getGlobalState('apiProvider')) as string
         const modelId = this.api.getModel().id
-        logger.info('LLM request meta', {
+        logger.debug('LLM request meta', {
           provider,
           modelId,
           systemLength: systemPrompt.length,
@@ -716,13 +732,13 @@ export class Task {
 
   private async connectTerminal(ip?: string) {
     if (!this.hosts) {
-      logger.info('Terminal UUID is not set')
+      logger.debug('Terminal UUID is not set', { event: 'agent.task.terminal.uuid.missing' })
       return
     }
     let terminalInfo: RemoteTerminalInfo | null = null
     const targetHost = ip ? this.hosts.find((host) => host.host === ip) : this.hosts[0]
     if (!targetHost || !targetHost.uuid) {
-      logger.info('Terminal UUID is not set')
+      logger.debug('Terminal UUID is not set', { event: 'agent.task.terminal.uuid.missing' })
       return
     }
     const terminalUuid = targetHost.uuid
@@ -1072,7 +1088,11 @@ export class Task {
   }
 
   async handleWebviewAskResponse(askResponse: ChatermAskResponse, text?: string, truncateAtMessageTs?: number, contentParts?: ContentPart[]) {
-    logger.info(`[Task] handleWebviewAskResponse called with askResponse: ${askResponse}, taskId: ${this.taskId}`)
+    logger.debug('Handling webview ask response', {
+      event: 'agent.task.ask_response.received',
+      askResponse,
+      taskId: this.taskId
+    })
     if (truncateAtMessageTs !== undefined) {
       await this.truncateHistoryAtTimestamp(truncateAtMessageTs)
     }
@@ -1627,9 +1647,15 @@ export class Task {
         await this.say('shell_integration_warning')
       })
 
-      logger.info(`[Task] executeCommandTool: waiting for process to complete, taskId: ${this.taskId}`)
+      logger.debug('Waiting for command process completion', {
+        event: 'agent.task.execute_command.wait',
+        taskId: this.taskId
+      })
       await process
-      logger.info(`[Task] executeCommandTool: process completed, taskId: ${this.taskId}`)
+      logger.debug('Command process completed', {
+        event: 'agent.task.execute_command.complete',
+        taskId: this.taskId
+      })
 
       // Wait for a short delay to ensure all messages are sent to the webview
       // This delay allows time for non-awaited promises to be created and
@@ -1683,11 +1709,11 @@ export class Task {
         case 'execute_command':
           return [this.autoApprovalSettings.actions.executeSafeCommands ?? false, this.autoApprovalSettings.actions.executeAllCommands ?? false]
         default:
-          logger.info(`[AutoApproval] Tool ${toolName} not in auto-approval list, returning false`)
+          logger.debug(`[AutoApproval] Tool ${toolName} not in auto-approval list, returning false`)
           break
       }
     } else {
-      logger.info(`[AutoApproval] Auto-approval disabled, returning false`)
+      logger.debug(`[AutoApproval] Auto-approval disabled, returning false`)
     }
     return false
   }
@@ -2148,7 +2174,7 @@ export class Task {
     abortStream: (cancelReason: ChatermApiReqCancelReason, streamingFailedMessage?: string) => Promise<void>
   ): Promise<boolean> {
     if (this.abort) {
-      logger.info('aborting stream...')
+      logger.debug('Aborting stream...', { event: 'agent.task.stream.abort' })
       if (!this.abandoned) {
         await abortStream('user_cancelled')
       }
@@ -2177,7 +2203,10 @@ export class Task {
     const lastMessage = this.chatermMessages.at(-1)
     if (lastMessage && lastMessage.partial) {
       lastMessage.partial = false
-      logger.info('updating partial message', { value: lastMessage })
+      logger.debug('Updating partial message state', {
+        event: 'agent.task.partial_message.finalize',
+        messageType: lastMessage.type
+      })
     }
 
     await this.addToApiConversationHistory({
@@ -2410,12 +2439,12 @@ export class Task {
     try {
       if (block.partial) {
         const shouldAutoApprove = this.shouldAutoApproveTool(block.name)
-        logger.info(`[Command Execution] Partial command, shouldAutoApprove: ${shouldAutoApprove}`)
+        logger.debug(`[Command Execution] Partial command, shouldAutoApprove: ${shouldAutoApprove}`)
         if (!shouldAutoApprove) {
-          logger.info(`[Command Execution] Asking for partial command approval`)
+          logger.debug(`[Command Execution] Asking for partial command approval`)
           await this.ask('command', this.removeClosingTag(block.partial, 'command', command), block.partial).catch(() => {})
         } else {
-          logger.info(`[Command Execution] Auto-approving partial command`)
+          logger.debug(`[Command Execution] Auto-approving partial command`)
         }
         return
       } else {
@@ -2489,7 +2518,7 @@ export class Task {
           } else {
             this.showNotificationIfNeeded(`Chaterm wants to execute a command: ${command}`)
             const didApprove = await this.askApproval(toolDescription, 'command', command)
-            logger.info(`[Command Execution] User approval result: ${didApprove}`)
+            logger.debug(`[Command Execution] User approval result: ${didApprove}`)
             if (!didApprove) {
               await this.saveCheckpoint()
               return
@@ -2562,11 +2591,14 @@ export class Task {
     securityMessage: string
     shouldReturn: boolean
   }> {
-    logger.info('commandSecurityManager.getSecurityConfig()', { value: this.commandSecurityManager.getSecurityConfig() })
-
     // Security check: verify if command is in blacklist
     const securityResult = this.commandSecurityManager.validateCommandSecurity(command)
-    logger.info('securityResult', { value: securityResult })
+    logger.debug('Command security validation completed', {
+      event: 'agent.task.command_security.result',
+      isAllowed: securityResult.isAllowed,
+      requiresApproval: securityResult.requiresApproval,
+      severity: securityResult.severity
+    })
 
     // Identify if security confirmation is needed
     let needsSecurityApproval = false
@@ -2699,7 +2731,7 @@ export class Task {
 
   private async handleToolError(toolDescription: string, action: string, error: Error): Promise<void> {
     if (this.abandoned) {
-      logger.info('Ignoring error since task was abandoned')
+      logger.debug('Ignoring error since task was abandoned')
       return
     }
     const errorString = `Error ${action}: ${JSON.stringify(serializeError(error))}`
@@ -3680,7 +3712,7 @@ export class Task {
           // Check cache, if no cache, get system info and cache it
           let hostInfo = this.hostSystemInfoCache.get(host.host)
           if (!hostInfo) {
-            logger.info(`Fetching system information for host: ${host.host}`)
+            logger.debug(`Fetching system information for host: ${host.host}`)
 
             let systemInfoOutput: string
 
@@ -3699,7 +3731,11 @@ USERNAME:${localSystemInfo.userName}`
               systemInfoOutput = await this.executeCommandInRemoteServer(systemInfoScript, host.host)
             }
 
-            logger.info(`System info output for ${host.host}`, { value: systemInfoOutput })
+            logger.debug(`System info command completed for host: ${host.host}`, {
+              event: 'agent.task.system_info.command.complete',
+              host: host.host,
+              outputLength: systemInfoOutput?.length || 0
+            })
 
             if (!systemInfoOutput || systemInfoOutput.trim() === '') {
               throw new Error('Failed to get system information: connection failed or no output received')
@@ -3751,12 +3787,15 @@ USERNAME:${localSystemInfo.userName}`
             }
 
             hostInfo = parseSystemInfo(systemInfoOutput)
-            logger.info(`Parsed system info for ${host.host}`, { value: hostInfo })
+            logger.debug(`Parsed system info for ${host.host}`, {
+              event: 'agent.task.system_info.parsed',
+              host: host.host
+            })
 
             // Cache system information
             this.hostSystemInfoCache.set(host.host, hostInfo)
           } else {
-            logger.info(`Using cached system information for host: ${host.host}`)
+            logger.debug(`Using cached system information for host: ${host.host}`)
           }
 
           systemInformation += `
@@ -3792,7 +3831,10 @@ USERNAME:${localSystemInfo.userName}`
       }
     }
 
-    logger.info('Final system information section', { value: systemInformation })
+    logger.debug('Final system information section built', {
+      event: 'agent.task.system_info.section.built',
+      length: systemInformation.length
+    })
     systemPrompt += systemInformation
 
     // Build MCP Tools and Resources section
@@ -3927,16 +3969,16 @@ USERNAME:${localSystemInfo.userName}`
    * Build skills section for system prompt
    */
   private buildSkillsSection(): string | null {
-    logger.info('[Skills] buildSkillsSection called, skillsManager exists', { value: !!this.skillsManager })
+    logger.debug('[Skills] buildSkillsSection called', { hasSkillsManager: !!this.skillsManager })
 
     if (!this.skillsManager) {
-      logger.info('[Skills] No skillsManager available')
+      logger.debug('[Skills] No skillsManager available')
       return null
     }
 
     try {
       const skillsPrompt = this.skillsManager.buildSkillsPrompt()
-      logger.info('[Skills] Skills prompt length', { value: skillsPrompt?.length || 0 })
+      logger.debug('[Skills] Skills prompt length', { value: skillsPrompt?.length || 0 })
 
       if (skillsPrompt && skillsPrompt.trim()) {
         return skillsPrompt
@@ -4115,7 +4157,10 @@ USERNAME:${localSystemInfo.userName}`
         .trim()
 
       if (userMessage && !userMessage.includes('<system-reminder>') && !userMessage.includes('<feedback>')) {
-        logger.info(`[Smart Todo] Checking user content for todo creation: "${userMessage}"`)
+        logger.debug('[Smart Todo] Checking user content for todo creation', {
+          event: 'agent.task.smart_todo.check.start',
+          messageLength: userMessage.length
+        })
         await this.checkAndCreateTodoIfNeeded(userMessage)
       }
     } catch (error) {
@@ -4126,10 +4171,13 @@ USERNAME:${localSystemInfo.userName}`
   // 智能检测相关方法 - 使用优化后的检测逻辑
   private async checkAndCreateTodoIfNeeded(userMessage: string): Promise<void> {
     try {
-      logger.info(`[Smart Todo] Analyzing message: "${userMessage}"`)
+      logger.debug('[Smart Todo] Analyzing user message', {
+        event: 'agent.task.smart_todo.analyze',
+        messageLength: userMessage.length
+      })
 
       const shouldCreate = SmartTaskDetector.shouldCreateTodo(userMessage)
-      logger.info(`[Smart Todo] Should create todo: ${shouldCreate}`)
+      logger.debug(`[Smart Todo] Should create todo: ${shouldCreate}`)
 
       if (shouldCreate) {
         // 获取用户语言设置
@@ -4138,7 +4186,7 @@ USERNAME:${localSystemInfo.userName}`
           const userConfig = await getUserConfig()
           isChineseMode = userConfig?.language === 'zh-CN'
         } catch (error) {
-          logger.info(`[Smart Todo] 获取用户语言设置失败，使用默认语言`)
+          logger.debug(`[Smart Todo] 获取用户语言设置失败，使用默认语言`)
         }
 
         // 发送简化的核心系统消息给 Agent
@@ -4150,7 +4198,7 @@ USERNAME:${localSystemInfo.userName}`
           text: coreMessage
         })
       } else {
-        logger.info(`[Smart Todo] Task not complex enough for todo creation`)
+        logger.debug(`[Smart Todo] Task not complex enough for todo creation`)
       }
     } catch (error) {
       logger.error('[Smart Todo] Failed to check and create todo if needed', { error: error instanceof Error ? error.message : String(error) })
