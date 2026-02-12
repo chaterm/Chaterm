@@ -3,8 +3,6 @@ import path from 'path'
 import AdmZip from 'adm-zip'
 import { getUserDataPath } from '../config/edition'
 import { getCurrentUserId, getGuestUserId } from '../storage/db/connection'
-import { createLogger } from '@logging'
-
 const logger = createLogger('plugin')
 
 export interface PluginI18nStrings {

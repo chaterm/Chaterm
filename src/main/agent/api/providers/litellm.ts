@@ -12,9 +12,6 @@ import { ApiStream } from '../transform/stream'
 import { convertToOpenAiMessages } from '../transform/openai-format'
 import { createProxyAgent, checkProxyConnectivity, resolveSystemProxy, createProxyAgentFromString } from './proxy/index'
 import type { Agent } from 'http'
-
-import { createLogger } from '@logging'
-
 const logger = createLogger('agent')
 
 /**

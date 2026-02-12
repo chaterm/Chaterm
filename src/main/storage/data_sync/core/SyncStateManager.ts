@@ -3,9 +3,6 @@
  * Manages mutual exclusion control between full sync and incremental sync to ensure data consistency
  * Supports sync toggle management and user switching handling
  */
-
-import { createLogger } from '@logging'
-
 const logger = createLogger('sync')
 
 export enum SyncType {

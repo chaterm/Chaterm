@@ -7,9 +7,6 @@
  */
 
 import type { InteractionResult } from './types'
-
-import { createLogger } from '@logging'
-
 const logger = createLogger('agent')
 
 const DEBUG_INTERACTION = false

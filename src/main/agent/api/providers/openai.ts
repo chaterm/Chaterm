@@ -15,9 +15,6 @@ import { convertToR1Format } from '../transform/r1-format'
 import type { ChatCompletionReasoningEffort } from 'openai/resources/chat/completions'
 import { checkProxyConnectivity, createProxyAgent } from './proxy/index'
 import type { Agent } from 'http'
-
-import { createLogger } from '@logging'
-
 const logger = createLogger('agent')
 
 export class OpenAiHandler implements ApiHandler {

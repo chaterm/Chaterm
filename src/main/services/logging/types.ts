@@ -19,13 +19,12 @@ export interface LoggerLike {
   error(message: string, meta?: Record<string, unknown>): void
 }
 
-export interface LoggingConfig {
+export interface LoggingDefaults {
   level: LogLevel
   retentionDays: number
   maxFileSizeMB: number
   maxTotalSizeMB: number
   enabled: boolean
-  updatedAt: number
 }
 
 // Minimal audit events that are always written even when enabled=false
@@ -37,18 +36,24 @@ export const TERMINAL_MODULE_PREFIXES = ['ssh', 'jumpserver', 'remote-terminal',
 // Maximum message length before truncation
 export const MAX_MESSAGE_LENGTH = 10240
 
-export const DEFAULT_CONFIG: LoggingConfig = {
-  level: 'info',
+// Log level: development reads from build config (process.env.LOG_LEVEL),
+// production always defaults to 'info'
+const VALID_LEVELS: ReadonlySet<string> = new Set(['debug', 'info', 'warn', 'error'])
+
+function resolveLogLevel(): LogLevel {
+  const envLevel = process.env.LOG_LEVEL
+  if (typeof envLevel === 'string' && VALID_LEVELS.has(envLevel)) {
+    return envLevel as LogLevel
+  }
+  return 'info'
+}
+
+export const DEFAULT_CONFIG: LoggingDefaults = {
+  level: resolveLogLevel(),
   retentionDays: 30,
   maxFileSizeMB: 20,
   maxTotalSizeMB: 500,
-  enabled: true,
-  updatedAt: Date.now()
-}
-
-export function getDefaultLogLevelForEnvironment(nodeEnv: string | undefined): LogLevel {
-  // return nodeEnv === 'development' ? 'error' : 'info'
-  return nodeEnv === 'development' ? 'info' : 'info'
+  enabled: true
 }
 
 export function resolveChannel(module: string): LogChannel {

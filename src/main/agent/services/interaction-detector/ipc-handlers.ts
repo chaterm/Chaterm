@@ -12,9 +12,6 @@
 import { ipcMain, webContents } from 'electron'
 import type { InteractionRequest, InteractionResponse, InteractionSubmitResult } from './types'
 import { Task, type CommandContext } from '../../core/task'
-
-import { createLogger } from '@logging'
-
 const logger = createLogger('agent')
 
 // Re-export CommandContext type for other modules

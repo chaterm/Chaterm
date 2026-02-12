@@ -2,9 +2,6 @@
  * Safe JSON serialization utility
  * Uses superjson to handle special types: Date, undefined, NaN, Infinity, circular references, RegExp, Set, Map, BigInt, etc.
  */
-
-import { createLogger } from '@logging'
-
 const logger = createLogger('storage')
 
 interface SerializationOptions {

@@ -1,7 +1,5 @@
 import { ipcMain, BrowserWindow } from 'electron'
 import { JumpServerUser } from './parser'
-import { createLogger } from '@logging'
-
 const logger = createLogger('jumpserver')
 
 /**

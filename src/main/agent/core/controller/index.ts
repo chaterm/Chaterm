@@ -32,9 +32,6 @@ import { ApiConfiguration, ApiProvider, PROVIDER_MODEL_KEY_MAP } from '@shared/a
 import { TITLE_GENERATION_PROMPT, TITLE_GENERATION_PROMPT_CN } from '../prompts/system'
 import { DEFAULT_LANGUAGE_SETTINGS } from '@shared/Languages'
 import type { CommandGenerationContext } from '@shared/WebviewMessage'
-
-import { createLogger } from '@logging'
-
 const logger = createLogger('agent')
 
 export class Controller {

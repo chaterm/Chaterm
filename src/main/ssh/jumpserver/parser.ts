@@ -1,6 +1,4 @@
 // ssh2jumpserver/parser.ts
-import { createLogger } from '@logging'
-
 const logger = createLogger('jumpserver')
 
 export interface Asset {

@@ -14,8 +14,6 @@ import { handleJumpServerKeyboardInteractive } from './mfa'
 import { buildErrorResponse } from './errorUtils'
 import path from 'path'
 import fs from 'fs'
-import { createLogger } from '@logging'
-
 const logger = createLogger('jumpserver')
 
 export type PackageInfo = { name: string; version: string } & Record<string, unknown>

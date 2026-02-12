@@ -5,8 +5,6 @@ import { Asset, parseJumpserverOutput } from './parser'
 
 import { getPackageInfo } from './connectionManager'
 import { LEGACY_ALGORITHMS } from '../algorithms'
-import { createLogger } from '@logging'
-
 const logger = createLogger('jumpserver')
 
 // interface ServerInfo {

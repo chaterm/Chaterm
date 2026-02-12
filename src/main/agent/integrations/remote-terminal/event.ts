@@ -3,9 +3,6 @@
 //
 // Copyright (c) 2025 cline Authors, All rights reserved.
 // Licensed under the Apache License, Version 2.0
-
-import { createLogger } from '@logging'
-
 const logger = createLogger('remote-terminal')
 
 export class BrownEventEmitter<T extends Record<string, any[]>> {

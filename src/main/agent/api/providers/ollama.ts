@@ -6,9 +6,6 @@ import { openAiModelInfoSaneDefaults } from '../../shared/api'
 import { convertToOllamaMessages } from '../transform/ollama-format'
 import type { ApiStream } from '../transform/stream'
 import { withRetry } from '../retry'
-
-import { createLogger } from '@logging'
-
 const logger = createLogger('agent')
 
 export class OllamaHandler implements ApiHandler {

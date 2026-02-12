@@ -3,8 +3,6 @@ import { hasUserSelectionPrompt } from './parser'
 import { OutputParser } from './executor'
 import { jumpserverConnections, jumpserverExecStreams, deleteExecStreamPromise, getExecStreamPromise, setExecStreamPromise } from './state'
 import { JUMPSERVER_CONSTANTS, type JumpServerNavigationPath } from './constants'
-import { createLogger } from '@logging'
-
 const logger = createLogger('jumpserver')
 
 export async function navigateToJumpServerAsset(

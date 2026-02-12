@@ -4,9 +4,6 @@ import * as fs from 'fs'
 import { execFile } from 'child_process'
 import { promisify } from 'util'
 import { getEdition, getUserDataPath } from '../config/edition'
-
-import { createLogger } from '@logging'
-
 const logger = createLogger('db')
 
 type MigrationStatus = 'completed' | 'skipped' | 'failed' | 'blocked'

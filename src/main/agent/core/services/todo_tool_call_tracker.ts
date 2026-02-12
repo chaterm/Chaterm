@@ -1,9 +1,6 @@
 import { TodoContextTracker } from './todo_context_tracker'
 import { TodoStorage } from '../storage/todo/TodoStorage'
 import { TodoToolCall } from '../../shared/todo/TodoSchemas'
-
-import { createLogger } from '@logging'
-
 const logger = createLogger('agent')
 
 export class TodoToolCallTracker {

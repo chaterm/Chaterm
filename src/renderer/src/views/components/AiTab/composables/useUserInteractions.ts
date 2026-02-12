@@ -46,7 +46,7 @@ export function useUserInteractions(options: UseUserInteractionsOptions) {
     }
   }
 
-  const handleTranscriptionError = (error: string) => {
+  const handleTranscriptionError = (error: unknown) => {
     logger.error('Voice transcription error', { error: error instanceof Error ? error.message : String(error) })
   }
 

@@ -8,8 +8,6 @@
 import { app } from 'electron'
 import * as path from 'path'
 import * as fs from 'fs'
-import { createLogger } from '@logging'
-
 const logger = createLogger('config')
 
 export type Edition = 'cn' | 'global'

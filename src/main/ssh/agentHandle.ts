@@ -7,8 +7,6 @@ import { LEGACY_ALGORITHMS } from './algorithms'
 import net from 'net'
 import tls from 'tls'
 import { getUserConfigFromRenderer } from '../index'
-import { createLogger } from '@logging'
-
 const logger = createLogger('ssh')
 
 // Store SSH connections

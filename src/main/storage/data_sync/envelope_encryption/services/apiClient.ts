@@ -2,9 +2,6 @@ import axios, { AxiosInstance, InternalAxiosRequestConfig, AxiosResponse } from 
 import config from '../config'
 import { chatermAuthAdapter } from './auth'
 import { RetryManager } from '../../services/RetryManager'
-
-import { createLogger } from '@logging'
-
 const logger = createLogger('sync')
 
 interface GenerateDataKeyRequest {

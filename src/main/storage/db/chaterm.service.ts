@@ -59,9 +59,6 @@ import {
   getEnabledSkillNamesLogic
 } from './chaterm/skills'
 import type { SkillState } from '../../agent/shared/skills'
-
-import { createLogger } from '@logging'
-
 const logger = createLogger('db')
 
 export class ChatermDatabaseService {

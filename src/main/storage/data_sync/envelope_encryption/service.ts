@@ -4,9 +4,6 @@
  */
 
 import type { EncryptionResult } from './clientSideCrypto'
-
-import { createLogger } from '@logging'
-
 const logger = createLogger('sync')
 
 // Dynamically load modules at runtime

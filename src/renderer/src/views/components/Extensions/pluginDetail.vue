@@ -314,7 +314,7 @@ const loadPluginDetails = async () => {
 }
 watch(
   [pluginId, () => pluginMeta.value?.installedVersion],
-  ([id, installedVersion], [oldId, oldInstalledVersion]) => {
+  ([id, installedVersion]) => {
     logger.debug('Plugin details watch triggered', { id: String(id), installedVersion: String(installedVersion) })
     if (!id) return
     loadPluginDetails()

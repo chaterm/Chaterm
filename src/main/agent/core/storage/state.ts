@@ -6,9 +6,6 @@
 
 import type { BrowserWindow } from 'electron'
 import type { GlobalStateKey, SecretKey, ApiConfiguration } from './types'
-
-import { createLogger } from '@logging'
-
 const logger = createLogger('agent')
 
 export interface ModelOption {

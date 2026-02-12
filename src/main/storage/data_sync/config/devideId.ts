@@ -1,8 +1,5 @@
 import * as os from 'os'
 import { execSync } from 'child_process'
-
-import { createLogger } from '@logging'
-
 const logger = createLogger('sync')
 
 const formatMachineIdAsUuid = (value: string): string => {

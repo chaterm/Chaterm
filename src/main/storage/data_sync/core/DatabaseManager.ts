@@ -1,7 +1,5 @@
 import Database from 'better-sqlite3'
 import { Asset, AssetChain, ChangeRecord } from '../models/SyncTypes'
-import { createLogger } from '@logging'
-
 const logger = createLogger('sync')
 
 export class DatabaseManager {

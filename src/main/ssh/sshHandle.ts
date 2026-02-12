@@ -4,8 +4,6 @@ import type { SFTPWrapper } from 'ssh2'
 import { spawn } from 'child_process'
 import { Duplex } from 'stream'
 import type { CommandGenerationContext } from '@shared/WebviewMessage'
-import { createLogger } from '@logging'
-
 const logger = createLogger('ssh')
 
 function safeAppPath(): string {

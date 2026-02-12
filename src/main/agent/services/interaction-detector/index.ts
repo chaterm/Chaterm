@@ -21,9 +21,6 @@ import { EventEmitter } from 'events'
 import stripAnsi from 'strip-ansi-cjs'
 import { z } from 'zod'
 import type { InteractionResult, InteractionRequest, QuickPattern, InteractionDetectorConfig, TuiCategory, InteractionDetectorEvents } from './types'
-
-import { createLogger } from '@logging'
-
 const logger = createLogger('agent')
 
 // Re-export types

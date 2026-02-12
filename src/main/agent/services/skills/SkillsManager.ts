@@ -24,9 +24,6 @@ import {
 } from '@shared/skills'
 import { ChatermDatabaseService } from '../../../storage/db/chaterm.service'
 import { getUserDataPath } from '../../../config/edition'
-
-import { createLogger } from '@logging'
-
 const logger = createLogger('agent')
 
 // Dynamic import type for chokidar (ESM module)

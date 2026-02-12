@@ -1,8 +1,5 @@
 import { Anthropic } from '@anthropic-ai/sdk'
 import { Message } from 'ollama'
-
-import { createLogger } from '@logging'
-
 const logger = createLogger('agent')
 
 export function convertToOllamaMessages(anthropicMessages: Anthropic.Messages.MessageParam[]): Message[] {

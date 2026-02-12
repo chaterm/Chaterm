@@ -6,9 +6,6 @@
 import Database from 'better-sqlite3'
 import { ipcMain } from 'electron'
 import { safeStringify } from './json-serializer'
-
-import { createLogger } from '@logging'
-
 const logger = createLogger('db')
 
 interface MigrationStatus {

@@ -1,8 +1,6 @@
 import { ApiClient } from '../core/ApiClient'
 import { DatabaseManager } from '../core/DatabaseManager'
 import { SyncEngine } from '../core/SyncEngine'
-import { createLogger } from '@logging'
-
 const logger = createLogger('sync')
 
 export interface PollingConfig {

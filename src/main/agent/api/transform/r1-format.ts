@@ -6,9 +6,6 @@
 
 import { Anthropic } from '@anthropic-ai/sdk'
 import OpenAI from 'openai'
-
-import { createLogger } from '@logging'
-
 const logger = createLogger('agent')
 
 /**

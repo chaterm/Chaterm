@@ -9,9 +9,6 @@ import os from 'os'
 import * as path from 'path'
 import { arePathsEqual } from '@utils/path'
 import { promises as fs } from 'fs'
-
-import { createLogger } from '@logging'
-
 const logger = createLogger('agent')
 
 // Simple LRU cache for search results

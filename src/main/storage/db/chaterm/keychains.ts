@@ -1,8 +1,5 @@
 import Database from 'better-sqlite3'
 import { randomUUID } from 'crypto'
-
-import { createLogger } from '@logging'
-
 const logger = createLogger('db')
 
 /**

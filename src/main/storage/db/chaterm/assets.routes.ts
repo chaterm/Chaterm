@@ -1,9 +1,6 @@
 import Database from 'better-sqlite3'
 import { getUserConfig } from '../../../agent/core/storage/state'
 import { capabilityRegistry } from '../../../ssh/capabilityRegistry'
-
-import { createLogger } from '@logging'
-
 const logger = createLogger('db')
 
 /**

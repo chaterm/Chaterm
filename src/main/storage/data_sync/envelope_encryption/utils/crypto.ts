@@ -1,9 +1,6 @@
 import * as crypto from 'crypto'
 import { buildClient, CommitmentPolicy, RawAesKeyringNode, RawAesWrappingSuiteIdentifier } from '@aws-crypto/client-node'
 import config from '../config'
-
-import { createLogger } from '@logging'
-
 const logger = createLogger('sync')
 
 interface EncryptionResult {

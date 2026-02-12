@@ -6,8 +6,6 @@ import type { PluginHost, PluginHostModules, VersionProviderFn } from './pluginH
 import { PluginStorageContext } from './pluginGlobalState'
 import { ExternalAssetCache } from './pluginIpc'
 import { capabilityRegistry, BastionCapability, BastionDefinition } from '../ssh/capabilityRegistry'
-import { createLogger } from '@logging'
-
 const logger = createLogger('plugin')
 
 export interface PluginModule {

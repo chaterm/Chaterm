@@ -2,9 +2,6 @@ import { Todo, TodoArraySchema } from '../../../shared/todo/TodoSchemas'
 import { TodoStorage } from '../../storage/todo/TodoStorage'
 import { TodoContextTracker } from '../../services/todo_context_tracker'
 import { FocusChainService } from '../../services/focus_chain_service'
-
-import { createLogger } from '@logging'
-
 const logger = createLogger('agent')
 
 export interface TodoWriteParams {

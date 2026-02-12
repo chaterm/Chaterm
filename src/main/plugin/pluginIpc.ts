@@ -5,8 +5,6 @@ import * as fs from 'fs'
 import * as path from 'path'
 import { pathToFileURL } from 'url'
 import { ConnectionInfo } from '../agent/integrations/remote-terminal'
-import { createLogger } from '@logging'
-
 const logger = createLogger('plugin')
 
 const globalContext = new Map<string, any>()

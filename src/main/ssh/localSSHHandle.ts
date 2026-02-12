@@ -4,8 +4,6 @@ import * as os from 'os'
 import * as path from 'path'
 import * as fs from 'fs'
 import { getUserConfig } from '../agent/core/storage/state'
-import { createLogger } from '@logging'
-
 const localLogger = createLogger('terminal')
 
 // Import language translations

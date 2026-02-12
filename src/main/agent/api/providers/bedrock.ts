@@ -22,8 +22,6 @@ import {
   ConverseStreamCommand,
   InvokeModelWithResponseStreamCommand
 } from '@aws-sdk/client-bedrock-runtime'
-import { createLogger } from '@logging'
-
 const logger = createLogger('agent')
 
 // https://docs.anthropic.com/en/api/claude-on-amazon-bedrock

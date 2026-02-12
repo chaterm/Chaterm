@@ -1,8 +1,5 @@
 import config from '../config'
 import TempFileStorageProvider from './tempFileStorage'
-
-import { createLogger } from '@logging'
-
 const logger = createLogger('sync')
 
 /**

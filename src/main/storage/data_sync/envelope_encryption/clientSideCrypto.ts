@@ -2,9 +2,6 @@ import CryptoUtils from './utils/crypto'
 import { StorageManager } from './utils/storage'
 import ApiClient from './services/apiClient'
 import config from './config'
-
-import { createLogger } from '@logging'
-
 const logger = createLogger('sync')
 
 interface EncryptionResult {

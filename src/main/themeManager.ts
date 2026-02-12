@@ -1,7 +1,5 @@
 import { BrowserWindow } from 'electron'
 import type { ChatermDatabaseService } from './storage/database'
-import { createLogger } from '@logging'
-
 const logger = createLogger('theme')
 
 // Title bar theme configuration

@@ -11,9 +11,6 @@ import cloneDeep from 'clone-deep'
 import { ChatermApiReqInfo, ChatermMessage } from '../../../shared/ExtensionMessage'
 import { ApiHandler } from '../../../api'
 import { Anthropic } from '@anthropic-ai/sdk'
-
-import { createLogger } from '@logging'
-
 const logger = createLogger('agent')
 
 enum EditType {

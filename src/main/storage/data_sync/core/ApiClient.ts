@@ -3,7 +3,6 @@ import { Agent as HttpAgent } from 'http'
 import { Agent as HttpsAgent } from 'https'
 import { syncConfig } from '../config/sync.config'
 import { BackupInitResponse, GetChangesResponse, SyncResponse, FullSyncSessionResponse, FullSyncBatchResponse } from '../models/SyncTypes'
-import { createLogger } from '@logging'
 import { gzipSync } from 'zlib'
 
 const logger = createLogger('sync')

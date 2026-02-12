@@ -2,8 +2,6 @@ import { ipcMain } from 'electron'
 import path from 'node:path'
 import { pipeline } from 'node:stream/promises'
 import { activeTasks, getSftpConnection, getUniqueRemoteName } from './sshHandle'
-import { createLogger } from '@logging'
-
 const sftpLogger = createLogger('ssh')
 
 type R2RFileArgs = {

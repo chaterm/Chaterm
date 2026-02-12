@@ -1,8 +1,6 @@
 import { ipcMain } from 'electron'
 // import { ipcMain, autoUpdater as nativeUpdater } from 'electron'
 import { autoUpdater } from 'electron-updater'
-import { createLogger } from '@logging'
-
 const logger = createLogger('updater')
 
 export const registerUpdater = (targetWindow, setForceQuit: (value: boolean) => void) => {

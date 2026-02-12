@@ -1,8 +1,6 @@
 import { SocksClient } from 'socks'
 import * as net from 'net'
 import * as tls from 'tls'
-import { createLogger } from '@logging'
-
 const proxyLogger = createLogger('ssh')
 
 export interface ProxyConfig {

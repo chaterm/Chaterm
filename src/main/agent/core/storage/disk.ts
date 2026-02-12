@@ -12,9 +12,6 @@ import { execa } from 'execa'
 import * as path from 'path'
 import fs from 'fs/promises'
 import os from 'os'
-
-import { createLogger } from '@logging'
-
 const logger = createLogger('agent')
 
 export const GlobalFileNames = {

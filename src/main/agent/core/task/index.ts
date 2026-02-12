@@ -88,9 +88,6 @@ import type { McpTool } from '@shared/mcp'
 import type { ContentPart, ContextDocRef, ContextPastChatRef, ContextRefs, Host } from '@shared/WebviewMessage'
 import { ExternalAssetCache } from '../../../plugin/pluginIpc'
 import type { InteractionType } from '../../services/interaction-detector/types'
-
-import { createLogger } from '@logging'
-
 const logger = createLogger('agent')
 
 type ToolResponse = string | Array<Anthropic.TextBlockParam | Anthropic.ImageBlockParam>

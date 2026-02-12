@@ -14,9 +14,6 @@ import { ApiStream } from '../transform/stream'
 import { convertToR1Format } from '../transform/r1-format'
 import { Agent } from 'http'
 import { checkProxyConnectivity, createProxyAgent } from './proxy/index'
-
-import { createLogger } from '@logging'
-
 const logger = createLogger('agent')
 
 export class DeepSeekHandler implements ApiHandler {

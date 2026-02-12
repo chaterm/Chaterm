@@ -51,7 +51,6 @@ export default [
     files: [
       'src/main/services/logging/index.ts',
       'src/main/services/logging/mainVendorConsoleCapture.ts',
-      'src/main/services/logging/logConfigStore.ts',
       'src/main/services/logging/retention.ts',
       'src/main/storage/db/early-migration.ts'
     ],

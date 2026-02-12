@@ -1,9 +1,6 @@
 import Database from 'better-sqlite3'
 import { initDatabase, getCurrentUserId } from './connection'
 import { CommandResult, EvictConfig } from './types'
-
-import { createLogger } from '@logging'
-
 const logger = createLogger('db')
 
 export class autoCompleteDatabaseService {

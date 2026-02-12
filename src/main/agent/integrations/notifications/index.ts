@@ -6,9 +6,6 @@
 
 import { execa } from 'execa'
 import { platform } from 'os'
-
-import { createLogger } from '@logging'
-
 const logger = createLogger('agent')
 
 interface NotificationOptions {

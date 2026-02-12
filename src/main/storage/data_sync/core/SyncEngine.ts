@@ -1,6 +1,5 @@
 import { DatabaseManager } from './DatabaseManager'
 import { ApiClient } from './ApiClient'
-import { createLogger } from '@logging'
 import { ChangeRecord, ServerChangeLog, SyncResponse } from '../models/SyncTypes'
 
 const logger = createLogger('sync')

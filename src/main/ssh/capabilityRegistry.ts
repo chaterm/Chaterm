@@ -1,6 +1,4 @@
 import type { IpcMainInvokeEvent } from 'electron'
-import { createLogger } from '@logging'
-
 const logger = createLogger('ssh')
 
 // ============================================================================

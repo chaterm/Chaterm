@@ -3,9 +3,6 @@ import JumpServerClient from '../../../ssh/jumpserver/asset'
 import { v4 as uuidv4 } from 'uuid'
 import { capabilityRegistry } from '../../../ssh/capabilityRegistry'
 import { getOrganizationAssetTypesWithExisting } from './assets.routes'
-
-import { createLogger } from '@logging'
-
 const logger = createLogger('db')
 
 /**

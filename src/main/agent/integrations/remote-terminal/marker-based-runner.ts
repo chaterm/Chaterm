@@ -6,8 +6,6 @@
  */
 
 import type { EventEmitter } from 'events'
-import { createLogger } from '@logging'
-
 const logger = createLogger('remote-terminal')
 
 /**

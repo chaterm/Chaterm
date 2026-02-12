@@ -6,8 +6,6 @@ import * as fs from 'fs/promises'
 import * as path from 'path'
 import * as os from 'os'
 import { Duplex } from 'stream'
-import { createLogger } from '@logging'
-
 const logger = createLogger('ssh')
 
 // SSH Agent Protocol

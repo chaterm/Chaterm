@@ -43,9 +43,6 @@ import {
 import { McpSettingsSchema, ServerConfigSchema } from './schemas'
 import { McpConnection, McpServerConfig, Transport } from './types'
 import { ChatermDatabaseService } from '../../../storage/db/chaterm.service'
-
-import { createLogger } from '@logging'
-
 const logger = createLogger('agent')
 
 // Dynamic import type for chokidar (ESM module)

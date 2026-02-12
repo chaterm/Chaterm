@@ -1,8 +1,5 @@
 import { ipcMain } from 'electron'
 import { K8sManager } from '../services/k8s'
-
-import { createLogger } from '@logging'
-
 const logger = createLogger('k8s')
 
 /**

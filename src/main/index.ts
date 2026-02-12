@@ -61,7 +61,7 @@ import { setupInteractionIpcHandlers } from './agent/services/interaction-detect
 import type { WebviewMessage } from '@shared/WebviewMessage'
 import type { SkillMetadata } from '@shared/skills'
 import { registerFileSystemHandlers } from './ssh/sftpTransfer'
-import { initLogging, logRendererCrash, createLogger } from '@logging'
+import { initLogging, logRendererCrash } from '@logging'
 
 const logger = createLogger('main')
 
@@ -2090,7 +2090,7 @@ ipcMain.handle('execute-remote-command', async () => {
   logger.info('Received execute-remote-command IPC call') // Add log
   try {
     const output = await executeRemoteCommand()
-    logger.info('executeRemoteCommand output', { value: output }) // Add log
+    logger.debug('executeRemoteCommand output', { value: output }) // Add log
     return { success: true, output }
   } catch (error) {
     logger.error('Failed to execute remote command in main process', { error: error instanceof Error ? error.message : String(error) }) // Modified log

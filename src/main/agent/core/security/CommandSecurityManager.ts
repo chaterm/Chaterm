@@ -7,9 +7,6 @@ import { CommandSecurityResult, SecurityConfig } from './types/SecurityTypes'
 import { SecurityConfigManager } from './SecurityConfig'
 import { CommandParser, ParsedCommand } from './CommandParser'
 import { Messages, getMessages, formatMessage } from '../task/messages'
-
-import { createLogger } from '@logging'
-
 const logger = createLogger('agent')
 
 export class CommandSecurityManager {

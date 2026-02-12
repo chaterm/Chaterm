@@ -11,8 +11,6 @@ import { upgradeMessageIndexSupport } from './migrations/add-message-index-suppo
 import { upgradeBastionCommentSupport } from './migrations/add-bastion-comment-support'
 import { IndexDBMigrator } from './indexdb-migrator'
 import { getUserDataPath } from '../../config/edition'
-import { createLogger } from '@logging'
-
 const logger = createLogger('db')
 
 const INIT_DB_PATH = getInitDbPath()

@@ -6,7 +6,6 @@
 
 import { ApiClient } from './ApiClient'
 import { DatabaseManager } from './DatabaseManager'
-import { createLogger } from '@logging'
 import { getEncryptionService } from '../services/EncryptionRegistry'
 
 const logger = createLogger('sync')

@@ -1,10 +1,7 @@
 /**
  * Chaterm Authentication Adapter
  */
-
-import { createLogger } from '@logging'
-
-const logger = createLogger('data-sync')
+const logger = createLogger('sync')
 
 interface TokenData {
   token: string

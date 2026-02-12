@@ -1,9 +1,6 @@
 import { Todo, TodoArraySchema } from '../../../shared/todo/TodoSchemas'
 import { ChatermDatabaseService } from '../../../../storage/database'
 import { TaskMetadataHelper } from '../../context/context-tracking/ContextTrackerTypes'
-
-import { createLogger } from '@logging'
-
 const logger = createLogger('agent')
 
 export class TodoStorage {

@@ -13,9 +13,6 @@ import crypto from 'crypto'
 import path from 'path'
 import fs from 'fs'
 import { getUserDataPath, getEdition } from '../../../config/edition'
-
-import { createLogger } from '@logging'
-
 const logger = createLogger('agent')
 
 /**

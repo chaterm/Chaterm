@@ -2,9 +2,6 @@
 //  This source code is licensed under the GPL-3.0
 
 import Database from 'better-sqlite3'
-
-import { createLogger } from '@logging'
-
 const logger = createLogger('db')
 
 /**

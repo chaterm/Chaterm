@@ -1,7 +1,5 @@
 import type { IpcMainInvokeEvent } from 'electron'
 import { capabilityRegistry, BastionErrorCode, buildBastionError } from './capabilityRegistry'
-import { createLogger } from '@logging'
-
 const bastionLogger = createLogger('ssh')
 
 const bastionSessionTypes = new Map<string, string>()

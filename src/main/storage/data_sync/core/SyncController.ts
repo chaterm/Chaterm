@@ -6,7 +6,6 @@ import { SafeBatchSyncManager } from './SafeBatchSyncManager'
 import { FullSyncTimerManager } from '../services/FullSyncTimerManager'
 import { SyncStateManager, SyncType, SyncState, type SyncStatus } from './SyncStateManager'
 import { syncConfig } from '../config/sync.config'
-import { createLogger } from '@logging'
 import { EnvelopeEncryptionService } from '../envelope_encryption/service'
 
 const logger = createLogger('sync')

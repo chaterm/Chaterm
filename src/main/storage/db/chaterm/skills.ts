@@ -3,9 +3,6 @@
 
 import Database from 'better-sqlite3'
 import type { SkillState } from '../../../agent/shared/skills'
-
-import { createLogger } from '@logging'
-
 const logger = createLogger('db')
 
 /**

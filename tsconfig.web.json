@@ -40,7 +40,8 @@
       "@api/*": ["src/renderer/src/api/*"],
       "@config/*": ["src/renderer/src/config/*"],
       "@/*": ["src/renderer/src/*"],
-      "@shared/*": ["src/main/agent/shared/*"]
+      "@shared/*": ["src/main/agent/shared/*"],
+      "@logging": ["src/renderer/src/types/logging-web-stub.d.ts"]
     }
   }
 }

@@ -5,8 +5,6 @@ import { ChatermDatabaseService } from '../storage/database'
 import { getCurrentUserId, getGuestUserId } from '../storage/db/connection'
 import { safeParse, safeStringify } from '../storage/db/json-serializer'
 import { getUserConfig } from '../agent/core/storage/state'
-import { createLogger } from '@logging'
-
 const logger = createLogger('version')
 
 const VERSION_PROMPT_KEY = 'versionPrompt'

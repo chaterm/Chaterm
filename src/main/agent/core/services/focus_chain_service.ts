@@ -1,9 +1,6 @@
 import { Todo, FocusChainState, FocusChainTransition, FocusChainHandoff } from '../../shared/todo/TodoSchemas'
 import { TodoStorage } from '../storage/todo/TodoStorage'
 import { TodoContextTracker } from './todo_context_tracker'
-
-import { createLogger } from '@logging'
-
 const logger = createLogger('agent')
 
 // Context usage thresholds that trigger notifications

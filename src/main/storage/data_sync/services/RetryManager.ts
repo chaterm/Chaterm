@@ -1,5 +1,3 @@
-import { createLogger } from '@logging'
-
 const logger = createLogger('sync')
 
 export interface RetryConfig {

@@ -8,8 +8,6 @@ import { parseJumpServerUsers, hasUserSelectionPrompt } from '../../../ssh/jumps
 import { hasNoAssetsPrompt, createNoAssetsError } from '../../../ssh/jumpserver/navigator'
 import { handleJumpServerUserSelectionWithWindow } from '../../../ssh/jumpserver/userSelection'
 import { jumpserverConnections as globalJumpserverConnections } from '../../../ssh/jumpserverHandle'
-import { createLogger } from '@logging'
-
 const logger = createLogger('remote-terminal')
 
 // Store JumpServer connections

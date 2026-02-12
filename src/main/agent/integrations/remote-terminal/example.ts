@@ -7,8 +7,6 @@
 // Remote terminal usage example
 import { ConnectionInfo, RemoteTerminalManager } from './index'
 import { testStorageFromMain } from '../../core/storage/state'
-import { createLogger } from '@logging'
-
 const logger = createLogger('remote-terminal.example')
 
 // Example: Connect to a remote server and execute commands

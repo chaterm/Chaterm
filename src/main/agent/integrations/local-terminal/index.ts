@@ -3,9 +3,6 @@ import * as os from 'os'
 import * as path from 'path'
 import * as fs from 'fs'
 import EventEmitter from 'events'
-
-import { createLogger } from '@logging'
-
 const logger = createLogger('agent')
 
 export interface LocalTerminalInfo {

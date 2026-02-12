@@ -1,6 +1,4 @@
 import { SyncController } from './core/SyncController'
-import { createLogger } from '@logging'
-
 const logger = createLogger('sync')
 
 export async function startDataSync(dbPath?: string): Promise<SyncController> {

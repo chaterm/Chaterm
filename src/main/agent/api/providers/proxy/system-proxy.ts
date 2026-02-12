@@ -8,9 +8,6 @@ import { SocksProxyAgent } from 'socks-proxy-agent'
 import type { Agent } from 'http'
 import type { ProxyCache } from './types'
 import { CACHE_TTL } from './types'
-
-import { createLogger } from '@logging'
-
 const logger = createLogger('agent')
 
 // Proxy cache to reduce resolveProxy calls

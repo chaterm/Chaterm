@@ -9,8 +9,6 @@ import { remoteSshConnect, remoteSshExecStream, remoteSshDisconnect } from '../.
 import { handleJumpServerConnection, jumpserverShellStreams } from './jumpserverHandle'
 import { capabilityRegistry, BastionErrorCode } from '../../../ssh/capabilityRegistry'
 import { runMarkerBasedCommand, type MarkerStream } from './marker-based-runner'
-import { createLogger } from '@logging'
-
 const logger = createLogger('remote-terminal')
 
 // Static imports for interaction detection (required for Vite bundling)

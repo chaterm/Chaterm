@@ -7,8 +7,6 @@ import { parseJumpServerUsers, hasUserSelectionPrompt } from './parser'
 import { handleJumpServerUserSelectionWithEvent } from './userSelection'
 import { hasPasswordPrompt, hasPasswordError, detectDirectConnectionReason, hasNoAssetsPrompt, createNoAssetsError } from './navigator'
 import { JUMPSERVER_CONSTANTS } from './constants'
-import { createLogger } from '@logging'
-
 const logger = createLogger('jumpserver')
 
 const sendPasswordToStream = (stream: any, password: string, navigationPath: JumpServerNavigationPath, context: string = '') => {

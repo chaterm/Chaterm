@@ -1,7 +1,4 @@
 import Database from 'better-sqlite3'
-
-import { createLogger } from '@logging'
-
 const logger = createLogger('db')
 
 export async function deleteChatermHistoryByTaskIdLogic(db: Database.Database, taskId: string): Promise<void> {

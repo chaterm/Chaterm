@@ -7,10 +7,9 @@ import type Logger from 'electron-log'
 import { app, ipcMain, shell } from 'electron'
 import * as path from 'path'
 import type { LogLevel, LoggerLike, LogWritePayload } from './types'
-import { AUDIT_EVENTS, MAX_MESSAGE_LENGTH, resolveChannel } from './types'
+import { AUDIT_EVENTS, DEFAULT_CONFIG, MAX_MESSAGE_LENGTH, resolveChannel } from './types'
 import { sanitizeHook } from './sanitizer'
 import { formatNdjsonLine } from './ndjson'
-import { loadConfig, getConfig } from './logConfigStore'
 import { runRetention } from './retention'
 import { enableCapture, RAW_CONSOLE } from './mainVendorConsoleCapture'
 import { buildLogFileName } from './logFileName'
@@ -36,8 +35,7 @@ function isAuditEntry(level: LogLevel, meta?: Record<string, unknown>): boolean 
  * Check if the given level passes the configured threshold
  */
 function shouldLog(level: LogLevel): boolean {
-  const config = getConfig()
-  return LEVEL_PRIORITY[level] <= LEVEL_PRIORITY[config.level]
+  return LEVEL_PRIORITY[level] <= LEVEL_PRIORITY[DEFAULT_CONFIG.level]
 }
 
 /**
@@ -54,10 +52,9 @@ function getOrCreateLogger(): Logger.MainLogger {
   const logger = log.create({ logId: 'chaterm' }) as unknown as Logger.MainLogger
 
   // Configure file transport
-  const config = getConfig()
   const fileTransport = logger.transports.file
   fileTransport.resolvePathFn = () => path.join(app.getPath('userData'), 'logs', buildLogFileName())
-  fileTransport.maxSize = config.maxFileSizeMB * 1024 * 1024
+  fileTransport.maxSize = DEFAULT_CONFIG.maxFileSizeMB * 1024 * 1024
   fileTransport.format = formatNdjsonLine as any
 
   // Disable console transport in production (we handle console separately)
@@ -85,22 +82,20 @@ export function createLogger(module: string): LoggerLike {
   const elLogger = getOrCreateLogger()
 
   const write = (level: LogLevel, message: string, meta?: Record<string, unknown>) => {
-    const config = getConfig()
-
     // When disabled, only write audit events and errors
-    if (!config.enabled && !isAuditEntry(level, meta)) return
+    if (!DEFAULT_CONFIG.enabled && !isAuditEntry(level, meta)) return
 
     // Level filtering
     if (!shouldLog(level)) return
 
     const entry = {
+      ...(meta ?? {}),
       timestamp: new Date().toISOString(),
       level,
       process: 'main' as const,
       channel,
       module,
-      message: truncateMessage(message),
-      ...meta
+      message: truncateMessage(message)
     }
 
     elLogger[level](entry)
@@ -140,10 +135,9 @@ export function registerLogIpcHandler(): void {
 
     const channel = resolveChannel(payload.module)
     const elLogger = getOrCreateLogger()
-    const config = getConfig()
 
     // When disabled, only write audit events and errors
-    if (!config.enabled && !isAuditEntry(payload.level, payload.meta)) {
+    if (!DEFAULT_CONFIG.enabled && !isAuditEntry(payload.level, payload.meta)) {
       return { success: true }
     }
 
@@ -153,13 +147,13 @@ export function registerLogIpcHandler(): void {
     }
 
     const entry = {
+      ...(payload.meta ?? {}),
       timestamp: new Date().toISOString(),
       level: payload.level,
       process: payload.process,
       channel,
       module: payload.module,
-      message: truncateMessage(payload.message),
-      ...payload.meta
+      message: truncateMessage(payload.message)
     }
 
     elLogger[payload.level](entry)
@@ -178,13 +172,9 @@ export function registerLogIpcHandler(): void {
  * Must be called early in the main process startup.
  */
 export function initLogging(): void {
-  // Load config from disk
-  loadConfig()
-
-  const config = getConfig()
   RAW_CONSOLE.info(
-    `[logging] Initialized: level=${config.level}, enabled=${config.enabled}, ` +
-      `retention=${config.retentionDays}d, maxFile=${config.maxFileSizeMB}MB, maxTotal=${config.maxTotalSizeMB}MB`
+    `[logging] Initialized: level=${DEFAULT_CONFIG.level}, enabled=${DEFAULT_CONFIG.enabled}, ` +
+      `retention=${DEFAULT_CONFIG.retentionDays}d, maxFile=${DEFAULT_CONFIG.maxFileSizeMB}MB, maxTotal=${DEFAULT_CONFIG.maxTotalSizeMB}MB`
   )
 
   // Pre-create unified logger
@@ -211,10 +201,9 @@ export function initLogging(): void {
 function scheduleRetention(): void {
   const runCleanup = async () => {
     try {
-      const config = getConfig()
       await runRetention({
-        retentionDays: config.retentionDays,
-        maxTotalSizeMB: config.maxTotalSizeMB
+        retentionDays: DEFAULT_CONFIG.retentionDays,
+        maxTotalSizeMB: DEFAULT_CONFIG.maxTotalSizeMB
       })
     } catch (err) {
       RAW_CONSOLE.error('[logging] Retention cleanup failed:', err)
@@ -243,4 +232,3 @@ export function logRendererCrash(details: { webContentsId: number; reason: strin
 
 // Re-export types and utilities for convenience
 export type { LoggerLike, LogLevel, LogChannel, LogWritePayload } from './types'
-export { getConfig, updateConfig } from './logConfigStore'
