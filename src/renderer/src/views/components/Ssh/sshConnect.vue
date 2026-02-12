@@ -394,14 +394,16 @@ onMounted(async () => {
               foreground: '#000000',
               cursor: '#000000',
               cursorAccent: '#000000',
-              selectionBackground: 'rgba(0, 0, 0, 0.3)'
+              selectionBackground: '#add6ff80',
+              selectionInactiveBackground: '#add6ff5a'
             }
           : {
               background: config.background?.image ? 'transparent' : '#141414',
               foreground: '#e0e0e0',
               cursor: '#e0e0e0',
               cursorAccent: '#e0e0e0',
-              selectionBackground: 'rgba(255, 255, 255, 0.3)'
+              selectionBackground: 'rgba(255, 255, 255, 0.3)',
+              selectionInactiveBackground: 'rgba(255, 255, 255, 0.2)'
             }
     })
   )
@@ -638,14 +640,16 @@ onMounted(async () => {
               foreground: '#000000',
               cursor: '#000000',
               cursorAccent: '#000000',
-              selectionBackground: 'rgba(0, 0, 0, 0.3)'
+              selectionBackground: '#add6ff80',
+              selectionInactiveBackground: '#add6ff5a'
             }
           : {
               background: configStore.getUserConfig.background.image ? 'transparent' : '#141414',
               foreground: '#e0e0e0',
               cursor: '#e0e0e0',
               cursorAccent: '#e0e0e0',
-              selectionBackground: 'rgba(255, 255, 255, 0.3)'
+              selectionBackground: 'rgba(255, 255, 255, 0.3)',
+              selectionInactiveBackground: 'rgba(255, 255, 255, 0.2)'
             }
     }
   }
