@@ -63,7 +63,7 @@ const initializeEditorConfig = async () => {
     const editorConfigStore = useEditorConfigStore()
     await editorConfigStore.loadConfig()
   } catch (error) {
-    console.error('Failed to initialize editor config:', error)
+    vueLogger.error('Failed to initialize editor config:', { error })
   }
 }
 

@@ -348,38 +348,6 @@ export class SyncController {
   }
 
   /**
-   * Execute scheduled full sync (called by FullSyncTimerManager) - original version, for compatibility
-   * Currently not used, kept for future reference
-   */
-  /*
-  private async _performScheduledFullSync(): Promise<void> {
-    const wasRunning = this.pollingManager.getStatus().isRunning
-    try {
-      logger.info('Starting scheduled full sync...')
-
-      // Pause incremental sync polling to avoid conflicts
-      if (wasRunning) {
-        await this.pollingManager.stopPolling()
-      }
-
-      // Execute full sync
-      await this.smartFullSync('t_assets_sync')
-      await this.smartFullSync('t_asset_chains_sync')
-
-      logger.info('Scheduled full sync completed')
-    } catch (error) {
-      logger.error('Scheduled full sync failed:', error)
-      throw error // Let FullSyncTimerManager record failure
-    } finally {
-      // Restore incremental sync polling
-      if (wasRunning) {
-        await this.pollingManager.startPolling()
-      }
-    }
-  }
-  */
-
-  /**
    * Scheduled full sync with state management (new version)
    */
   private async performScheduledFullSyncWithStateManagement(): Promise<void> {

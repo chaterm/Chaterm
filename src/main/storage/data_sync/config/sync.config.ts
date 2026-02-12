@@ -15,10 +15,7 @@ export interface SyncConfig {
   batchSize: number
   maxConcurrentBatches: number
   compressionEnabled: boolean
-  logLevel: 'debug' | 'info' | 'warn' | 'error'
   encryptionKey?: string // passphrase to derive AES key
-  fileLoggingEnabled?: boolean // Whether to enable file logging
-  logRetentionDays?: number // Log retention days
 
   // Large data volume processing configuration
   largeDataThreshold: number // Large data volume threshold
@@ -49,10 +46,7 @@ export const syncConfig: SyncConfig = {
   batchSize: 100,
   maxConcurrentBatches: 3,
   compressionEnabled: true, // Enable intelligent data compression
-  logLevel: 'info',
   encryptionKey: process.env.ENCRYPTION_KEY,
-  fileLoggingEnabled: process.env.ENABLE_FILE_LOGGING !== 'false', // Enable file logging by default
-  logRetentionDays: 7, // Retain logs for 7 days by default
 
   // Large data volume processing configuration
   largeDataThreshold: 5000, // More than 5000 records is considered large data volume

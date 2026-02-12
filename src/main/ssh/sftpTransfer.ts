@@ -39,7 +39,7 @@ export const registerFileSystemHandlers = () => {
   ipcMain.handle('ssh:sftp:list', async (_e, { path: reqPath, id }) => {
     return new Promise<unknown[]>((resolve) => {
       if (isLocalId(id)) {
-        ; (async () => {
+        ;(async () => {
           try {
             const data = await listLocalDir(reqPath)
             resolve(data)
@@ -421,7 +421,7 @@ async function sftpMkdirSafe(sftp: any, dir: string) {
     try {
       const st = await sftpStat(sftp, dir)
       if (isRemoteDir(st)) return
-    } catch { }
+    } catch {}
     throw e
   }
 }
@@ -449,7 +449,7 @@ const sftpMkdirpForTransfer = async (sftp: any, dir: string) => {
         try {
           const st = await sftpStat(sftp, cur)
           if (isRemoteDir(st)) continue
-        } catch { }
+        } catch {}
         throw e2
       }
     }
@@ -459,13 +459,20 @@ const sftpMkdirpForTransfer = async (sftp: any, dir: string) => {
 const sendProgress = (event: any, payload: any) => {
   const wc = event?.sender
   if (!wc || wc.isDestroyed?.()) {
-    console.warn('[sendProgress] webContents missing/destroyed', payload?.taskKey)
+    sftpLogger.warn('Progress event skipped: webContents missing or destroyed', {
+      event: 'ssh.sftp.progress.skipped',
+      taskKey: payload?.taskKey
+    })
     return
   }
   try {
     wc.send('ssh:sftp:transfer-progress', payload)
   } catch (err) {
-    console.error('[sendProgress] send failed', payload?.taskKey, err)
+    sftpLogger.error('Failed to send SFTP transfer progress event', {
+      event: 'ssh.sftp.progress.send_failed',
+      taskKey: payload?.taskKey,
+      error: err instanceof Error ? err.message : String(err)
+    })
   }
 }
 
