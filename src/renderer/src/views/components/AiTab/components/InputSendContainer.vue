@@ -585,7 +585,8 @@ watch(
 )
 
 const inputPlaceholder = computed(() => {
-  return chatTypeValue.value === 'agent' ? t('ai.agentMessage') : chatTypeValue.value === 'chat' ? t('ai.chatMessage') : t('ai.cmdMessage')
+  // return chatTypeValue.value === 'agent' ? t('ai.agentMessage') : chatTypeValue.value === 'chat' ? t('ai.chatMessage') : t('ai.cmdMessage')
+  return chatTypeValue.value === 'agent' ? t('ai.agentMessage') : t('ai.cmdMessage')
 })
 
 // ============================================================================

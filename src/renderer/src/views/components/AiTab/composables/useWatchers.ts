@@ -35,13 +35,13 @@ export function useWatchers(deps: WatcherDeps) {
       if (!currentTab) {
         return
       }
-
-      if (newValue === 'chat') {
-        if (oldValue === 'agent' && hosts.value.length > 0) {
-          currentTab.agentHosts = [...hosts.value]
-        }
-        hosts.value = []
-      } else if (newValue === 'cmd') {
+      // if (newValue === 'chat') {
+      //   if (oldValue === 'agent' && hosts.value.length > 0) {
+      //     currentTab.agentHosts = [...hosts.value]
+      //   }
+      //   hosts.value = []
+      // } else if
+      if (newValue === 'cmd') {
         if (oldValue === 'agent' && hosts.value.length > 0) {
           currentTab.agentHosts = [...hosts.value]
         }

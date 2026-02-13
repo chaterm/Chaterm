@@ -211,14 +211,14 @@ export function useChatMessages(
       return 'SEND_ERROR'
     }
 
-    if (hosts.value.length === 0 && chatTypeValue.value !== 'chat') {
-      notification.error({
-        message: t('ai.getAssetInfoFailed'),
-        description: t('ai.pleaseConnectAsset'),
-        duration: 3
-      })
-      return 'ASSET_ERROR'
-    }
+    // if (hosts.value.length === 0 && chatTypeValue.value !== 'chat') {
+    //   notification.error({
+    //     message: t('ai.getAssetInfoFailed'),
+    //     description: t('ai.pleaseConnectAsset'),
+    //     duration: 3
+    //   })
+    //   return 'ASSET_ERROR'
+    // }
 
     if (sendType === 'send' && currentTodos.value.length > 0) {
       if (currentSession.value) {

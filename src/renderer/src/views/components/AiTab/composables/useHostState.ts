@@ -68,10 +68,10 @@ export const useHostState = () => {
    * Update hosts based on host info
    */
   const updateHosts = (hostInfo: HostInfo | null) => {
-    if (chatTypeValue.value === 'chat') {
-      hosts.value = []
-      return
-    }
+    // if (chatTypeValue.value === 'chat') {
+    //   hosts.value = []
+    //   return
+    // }
 
     if (hostInfo) {
       if (chatTypeValue.value === 'agent' && isSwitchAssetType(hostInfo.assetType)) {

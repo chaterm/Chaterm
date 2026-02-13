@@ -46,10 +46,15 @@ export const focusChatInput = () => {
 /**
  * Default localhost host configuration
  */
-const DEFAULT_LOCALHOST_HOST: Host = {
-  host: '127.0.0.1',
-  uuid: 'localhost',
-  connection: 'localhost'
+// const DEFAULT_LOCALHOST_HOST: Host = {
+//   host: '127.0.0.1',
+//   uuid: 'localhost',
+//   connection: 'localhost'
+// }
+
+const normalizeChatType = (mode?: string): 'agent' | 'cmd' => {
+  // return mode === 'chat' ? 'chat' : mode === 'cmd' ? 'cmd' : 'agent'
+  return mode === 'cmd' ? 'cmd' : 'agent'
 }
 
 /**
@@ -83,7 +88,7 @@ export function useTabManagement(options: TabManagementOptions) {
     const newChatId = uuidv4()
 
     const defaultChatType = currentTab.value?.chatType || 'agent'
-    const defaultHosts = currentTab.value?.hosts || [DEFAULT_LOCALHOST_HOST]
+    const defaultHosts = currentTab.value?.hosts || []
     const defaultModelValue = currentTab.value?.modelValue || ''
     const currentInputParts = chatInputParts.value || []
 
@@ -110,20 +115,25 @@ export function useTabManagement(options: TabManagementOptions) {
       getGlobalState('apiProvider').catch(() => 'default')
     ])
 
-    const chatType = (chatSetting as { mode?: string })?.mode || 'agent'
+    const chatType = normalizeChatType((chatSetting as { mode?: string })?.mode)
+    // Keep previous chat host branch commented for quick rollback.
+    // const hosts: Host[] =
+    //   chatType === 'chat'
+    //     ? []
+    //     : assetInfo && assetInfo.ip
+    //       ? [{ host: assetInfo.ip, uuid: assetInfo.uuid, connection: assetInfo.connection || 'personal', ...(assetInfo.assetType ? { assetType: assetInfo.assetType } : {}) }]
+    //       : [DEFAULT_LOCALHOST_HOST]
     const hosts: Host[] =
-      chatType === 'chat'
-        ? []
-        : assetInfo && assetInfo.ip
-          ? [
-              {
-                host: assetInfo.ip,
-                uuid: assetInfo.uuid,
-                connection: assetInfo.connection || 'personal',
-                ...(assetInfo.assetType ? { assetType: assetInfo.assetType } : {})
-              }
-            ]
-          : [DEFAULT_LOCALHOST_HOST]
+      assetInfo && assetInfo.ip
+        ? [
+            {
+              host: assetInfo.ip,
+              uuid: assetInfo.uuid,
+              connection: assetInfo.connection || 'personal',
+              ...(assetInfo.assetType ? { assetType: assetInfo.assetType } : {})
+            }
+          ]
+        : []
 
     // Get currently selected model as default value for new Tab
     const key = PROVIDER_MODEL_KEY_MAP[(apiProvider as string) || 'default'] || 'defaultModelId'
@@ -164,7 +174,7 @@ export function useTabManagement(options: TabManagementOptions) {
       }
 
       let loadedHosts: Host[] = []
-      let savedChatType = history.chatType
+      let savedChatType = normalizeChatType(history.chatType)
       let savedModelValue = ''
       try {
         const metadataResult = await window.api.getTaskMetadata(history.id)
@@ -181,7 +191,7 @@ export function useTabManagement(options: TabManagementOptions) {
 
           if (metadataResult.data.model_usage?.length > 0) {
             const lastModelUsage = metadataResult.data.model_usage[metadataResult.data.model_usage.length - 1]
-            savedChatType = lastModelUsage.mode || savedChatType
+            savedChatType = normalizeChatType(lastModelUsage.mode) || savedChatType
             savedModelValue = lastModelUsage.model_id || ''
           }
         }
