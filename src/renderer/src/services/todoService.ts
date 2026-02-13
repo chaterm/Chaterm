@@ -1,6 +1,8 @@
 import { ref } from 'vue'
 import type { Todo, TodoDisplayPreference, TodoWebviewMessage } from '../types/todo'
 
+const logger = createRendererLogger('service.todo')
+
 class TodoService {
   // Reactive state
   public currentTodos = ref<Todo[]>([])
@@ -137,7 +139,7 @@ class TodoService {
       latestAssistantMessage.relatedTodos = todos
     } else {
       // If no assistant message is found, wait for the next assistant message
-      console.warn('[Todo Debug] No assistant message found to attach todos')
+      logger.warn('No assistant message found to attach todos')
     }
   }
 

@@ -303,6 +303,7 @@ import type { AssetFormData, KeyChainItem, SshProxyConfigItem, AssetType, Bastio
 import { getSwitchBrand, isOrganizationAsset, getBastionHostType, getAssetTypeFromBastionType, resolveBastionAuthType } from '../utils/types'
 
 const { t } = i18n.global
+const logger = createRendererLogger('config.assetForm')
 
 // Available bastion definitions from plugins
 const availableBastions = ref<BastionDefinitionSummary[]>([])
@@ -313,12 +314,11 @@ const loadBastionDefinitions = async () => {
   try {
     const definitions = await window.api.getBastionDefinitions()
     availableBastions.value = definitions || []
-    console.log(
-      '[AssetForm] Loaded bastion definitions:',
-      availableBastions.value.map((d) => d.type)
-    )
+    logger.info('Loaded bastion definitions', {
+      types: availableBastions.value.map((d) => d.type)
+    })
   } catch (error) {
-    console.warn('[AssetForm] Failed to load bastion definitions:', error)
+    logger.warn('Failed to load bastion definitions', { error: error })
     availableBastions.value = []
   }
 }

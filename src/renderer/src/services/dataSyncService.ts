@@ -1,5 +1,7 @@
 import { userConfigStore } from './userConfigStoreService'
 
+const logger = createRendererLogger('service.dataSync')
+
 /**
  * Data sync service - manages data sync start and stop in renderer process
  */
@@ -25,19 +27,19 @@ export class DataSyncService {
    */
   async initialize(): Promise<void> {
     if (this.isInitialized) {
-      console.log('Data sync service already initialized, skipping duplicate initialization')
+      logger.info('Data sync service already initialized, skipping duplicate initialization')
       return
     }
 
     try {
-      console.log('Initializing data sync service...')
+      logger.info('Initializing data sync service...')
 
       // Check if it's a guest user
       const isSkippedLogin = localStorage.getItem('login-skipped') === 'true'
       const token = localStorage.getItem('ctm-token')
 
       if (isSkippedLogin || token === 'guest_token') {
-        console.log('Guest user detected, skipping data sync initialization')
+        logger.info('Guest user detected, skipping data sync initialization')
         this.isInitialized = true
         return
       }
@@ -46,24 +48,24 @@ export class DataSyncService {
       const userConfig = await userConfigStore.getConfig()
 
       if (!userConfig) {
-        console.log('Unable to get user config, skipping data sync initialization')
+        logger.info('Unable to get user config, skipping data sync initialization')
         return
       }
 
       // Check if data sync is enabled
       const isDataSyncEnabled = userConfig.dataSync === 'enabled'
-      console.log(`User data sync config: ${isDataSyncEnabled ? 'enabled' : 'disabled'}`)
+      logger.info('User data sync config', { enabled: isDataSyncEnabled })
 
       if (isDataSyncEnabled) {
         await this.enableDataSync()
       } else {
-        console.log('Data sync is disabled, not starting sync service')
+        logger.info('Data sync is disabled, not starting sync service')
       }
 
       this.isInitialized = true
-      console.log('Data sync service initialization completed')
+      logger.info('Data sync service initialization completed')
     } catch (error) {
-      console.error('Data sync service initialization failed:', error)
+      logger.error('Data sync service initialization failed', { error: error })
     }
   }
 
@@ -72,24 +74,24 @@ export class DataSyncService {
    */
   async enableDataSync(): Promise<boolean> {
     try {
-      console.log('Enabling data sync...')
+      logger.info('Enabling data sync...')
 
       if (!window.api?.setDataSyncEnabled) {
-        console.error('Data sync API not available')
+        logger.error('Data sync API not available')
         return false
       }
 
       const result = await window.api.setDataSyncEnabled(true)
 
       if (result?.success) {
-        console.log('Data sync successfully enabled, background sync task is in progress...')
+        logger.info('Data sync successfully enabled, background sync task is in progress...')
         return true
       } else {
-        console.error('Failed to enable data sync:', result?.error)
+        logger.error('Failed to enable data sync', { error: result?.error })
         return false
       }
     } catch (error) {
-      console.error('Error occurred while enabling data sync:', error)
+      logger.error('Error occurred while enabling data sync', { error: error })
       return false
     }
   }
@@ -99,24 +101,24 @@ export class DataSyncService {
    */
   async disableDataSync(): Promise<boolean> {
     try {
-      console.log('Disabling data sync...')
+      logger.info('Disabling data sync...')
 
       if (!window.api?.setDataSyncEnabled) {
-        console.error('Data sync API not available')
+        logger.error('Data sync API not available')
         return false
       }
 
       const result = await window.api.setDataSyncEnabled(false)
 
       if (result?.success) {
-        console.log('Data sync successfully disabled')
+        logger.info('Data sync successfully disabled')
         return true
       } else {
-        console.error('Failed to disable data sync:', result?.error)
+        logger.error('Failed to disable data sync', { error: result?.error })
         return false
       }
     } catch (error) {
-      console.error('Error occurred while disabling data sync:', error)
+      logger.error('Error occurred while disabling data sync', { error: error })
       return false
     }
   }
@@ -126,7 +128,7 @@ export class DataSyncService {
    */
   reset(): void {
     this.isInitialized = false
-    console.log('Data sync service status has been reset')
+    logger.info('Data sync service status has been reset')
   }
 
   /**

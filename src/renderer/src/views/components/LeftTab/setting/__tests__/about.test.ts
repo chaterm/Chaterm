@@ -149,7 +149,9 @@ describe('About Component', () => {
     mockWindowApi.quitAndInstall.mockReturnValue(undefined)
 
     // Clear console output for cleaner test results
+
     vi.spyOn(console, 'log').mockImplementation(() => {})
+
     vi.spyOn(console, 'error').mockImplementation(() => {})
   })
 
@@ -328,6 +330,7 @@ describe('About Component', () => {
       await nextTick()
 
       expect(button.text()).toBe('Check update failed')
+
       expect(console.error).toHaveBeenCalled()
     })
 
@@ -623,6 +626,7 @@ describe('About Component', () => {
       await nextTick()
 
       expect(button.text()).toBe('Download failed')
+
       expect(console.error).toHaveBeenCalled()
     })
 
@@ -801,7 +805,11 @@ describe('About Component', () => {
       await nextTick()
 
       expect(button.text()).toBe('Check update failed')
-      expect(console.error).toHaveBeenCalledWith('Check update failed', networkError)
+
+      expect(console.error).toHaveBeenCalledWith('[settings.about] Failed to check for updates', {
+        event: 'settings.about.update.check.failed',
+        error: networkError
+      })
     })
 
     it('should handle timeout errors during update check', async () => {

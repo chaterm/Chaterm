@@ -1,7 +1,8 @@
 import { DatabaseManager } from './DatabaseManager'
 import { ApiClient } from './ApiClient'
-import { logger } from '../utils/logger'
 import { ChangeRecord, ServerChangeLog, SyncResponse } from '../models/SyncTypes'
+
+const logger = createLogger('sync')
 import { syncConfig } from '../config/sync.config'
 import { Semaphore } from '../utils/semaphore'
 import { getEncryptionService } from '../services/EncryptionRegistry'
@@ -64,7 +65,7 @@ export class SyncEngine {
                 // Version number increments after server update succeeds, so local should sync to server version number
                 this.db.setVersion(tableName, b.record_uuid, newVersion)
               } else {
-                console.log(`Skip version update: UUID=${b.record_uuid}, version=${current} (type=${typeof current})`)
+                logger.info('Skip version update', { uuid: b.record_uuid, version: current, type: typeof current })
               }
             }
           }
@@ -77,7 +78,7 @@ export class SyncEngine {
             logger.warn('Server unavailable, skip batch upload')
             // Network errors are not counted as failures
           } else {
-            logger.error('Batch upload failed', e?.message)
+            logger.error('Batch upload failed', { error: e?.message })
             totalFailed += batch.length
           }
         } finally {
@@ -144,7 +145,7 @@ export class SyncEngine {
           totalSynced += pageResult.synced
           totalFailed += pageResult.failed
         } catch (error) {
-          logger.error(`Page ${pageNumber} processing failed:`, error)
+          logger.error(`Page ${pageNumber} processing failed`, { error: error })
           totalFailed += adaptivePageSize // Estimate failed count
         } finally {
           release()
@@ -226,7 +227,7 @@ export class SyncEngine {
             logger.warn('Server unavailable, skip batch upload')
             // Network errors are not counted as failures
           } else {
-            logger.error('Batch upload failed', e?.message)
+            logger.error('Batch upload failed', { error: e?.message })
             batchFailed += batch.length
           }
         } finally {
@@ -364,7 +365,7 @@ export class SyncEngine {
   private async maybeDecryptChange(tableName: string, data: any): Promise<any | null> {
     if (!data) return data
     const service = getEncryptionService()
-    logger.info('Encryption service status:', service ? 'Obtained' : 'Not obtained')
+    logger.info('Encryption service status', { status: service ? 'Obtained' : 'Not obtained' })
 
     try {
       if (tableName === 't_assets_sync') {
@@ -402,7 +403,7 @@ export class SyncEngine {
         }
       }
     } catch (e) {
-      logger.warn('New format ciphertext decryption failed, skip record', e)
+      logger.warn('New format ciphertext decryption failed, skip record', { error: e })
       logger.error('Decryption exception details:', {
         error: e,
         message: e instanceof Error ? e.message : String(e),
@@ -729,7 +730,7 @@ export class SyncEngine {
         failed: result.failed_count || 0
       }
     } catch (error) {
-      logger.error(`Page ${pageNumber} processing exception:`, error)
+      logger.error(`Page ${pageNumber} processing exception`, { error: error })
       return { synced: 0, failed: pageSize }
     }
   }

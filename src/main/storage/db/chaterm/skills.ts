@@ -3,6 +3,7 @@
 
 import Database from 'better-sqlite3'
 import type { SkillState } from '../../../agent/shared/skills'
+const logger = createLogger('db')
 
 /**
  * Safely parse JSON config, returning undefined on parse errors
@@ -43,7 +44,7 @@ export function getSkillStatesLogic(db: Database.Database): SkillState[] {
       lastUsed: row.last_used ?? undefined
     }))
   } catch (error) {
-    console.error('[Skills] Failed to get skill states:', error)
+    logger.error('[Skills] Failed to get skill states', { error: error })
     return []
   }
 }
@@ -79,7 +80,7 @@ export function getSkillStateLogic(db: Database.Database, skillName: string): Sk
       lastUsed: row.last_used ?? undefined
     }
   } catch (error) {
-    console.error('[Skills] Failed to get skill state:', error)
+    logger.error('[Skills] Failed to get skill state', { error: error })
     return null
   }
 }
@@ -101,7 +102,7 @@ export function setSkillStateLogic(db: Database.Database, skillName: string, ena
     `
     ).run(skillName, enabled ? 1 : 0, now, now)
   } catch (error) {
-    console.error('[Skills] Failed to set skill state:', error)
+    logger.error('[Skills] Failed to set skill state', { error: error })
     throw error
   }
 }
@@ -124,7 +125,7 @@ export function updateSkillConfigLogic(db: Database.Database, skillName: string,
     `
     ).run(skillName, configJson, now, now)
   } catch (error) {
-    console.error('[Skills] Failed to update skill config:', error)
+    logger.error('[Skills] Failed to update skill config', { error: error })
     throw error
   }
 }
@@ -144,7 +145,7 @@ export function updateSkillLastUsedLogic(db: Database.Database, skillName: strin
     `
     ).run(now, now, skillName)
   } catch (error) {
-    console.error('[Skills] Failed to update skill last used:', error)
+    logger.error('[Skills] Failed to update skill last used', { error: error })
   }
 }
 
@@ -155,7 +156,7 @@ export function deleteSkillStateLogic(db: Database.Database, skillName: string):
   try {
     db.prepare('DELETE FROM skills_state WHERE skill_name = ?').run(skillName)
   } catch (error) {
-    console.error('[Skills] Failed to delete skill state:', error)
+    logger.error('[Skills] Failed to delete skill state', { error: error })
     throw error
   }
 }
@@ -177,7 +178,7 @@ export function getEnabledSkillNamesLogic(db: Database.Database): string[] {
 
     return rows.map((row) => row.skill_name)
   } catch (error) {
-    console.error('[Skills] Failed to get enabled skill names:', error)
+    logger.error('[Skills] Failed to get enabled skill names', { error: error })
     return []
   }
 }

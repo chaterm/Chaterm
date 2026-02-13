@@ -11,6 +11,7 @@ import cloneDeep from 'clone-deep'
 import { ChatermApiReqInfo, ChatermMessage } from '../../../shared/ExtensionMessage'
 import { ApiHandler } from '../../../api'
 import { Anthropic } from '@anthropic-ai/sdk'
+const logger = createLogger('agent')
 
 enum EditType {
   UNDEFINED = 0,
@@ -80,7 +81,7 @@ export class ContextManager {
         return new Map(serializedUpdates.map(([messageIndex, [numberValue, innerMapArray]]) => [messageIndex, [numberValue, new Map(innerMapArray)]]))
       }
     } catch (error) {
-      console.error('Failed to load context history:', error)
+      logger.error('Failed to load context history', { error: error })
     }
     return new Map()
   }
@@ -96,7 +97,7 @@ export class ContextManager {
 
       saveContextHistoryStorage(taskId, JSON.stringify(serializedUpdates))
     } catch (error) {
-      console.error('Failed to save context history:', error)
+      logger.error('Failed to save context history', { error: error })
     }
   }
 

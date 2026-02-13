@@ -2,6 +2,8 @@
  * Telemetry event capture utility functions
  */
 
+const logger = createRendererLogger('utils.telemetry')
+
 /**
  * Capture button click event telemetry data
  * @param eventName Event name
@@ -12,7 +14,7 @@ export const captureButtonClick = async (eventName: string, properties?: Record<
     const api = window.api as any
     await api.captureButtonClick(eventName, properties)
   } catch (telemetryError) {
-    console.warn('Failed to capture telemetry event:', telemetryError)
+    logger.warn('Failed to capture telemetry event', { error: telemetryError })
   }
 }
 
@@ -87,6 +89,6 @@ export const captureExtensionUsage = async (extensionName: string, status: strin
     }
     await api.captureButtonClick(eventName, eventProperties)
   } catch (telemetryError) {
-    console.warn('Failed to capture extension usage telemetry:', telemetryError)
+    logger.warn('Failed to capture extension usage telemetry', { error: telemetryError })
   }
 }

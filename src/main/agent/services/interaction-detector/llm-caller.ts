@@ -7,6 +7,7 @@
  */
 
 import type { InteractionResult } from './types'
+const logger = createLogger('agent')
 
 const DEBUG_INTERACTION = false
 
@@ -208,7 +209,7 @@ export function createLlmCaller(
 
     try {
       if (DEBUG_INTERACTION) {
-        console.log('[InteractionDetector] LLM prompt meta', {
+        logger.info('LLM prompt meta', {
           systemLength: systemPrompt.length,
           userLength: userPrompt.length,
           userTail: userPrompt.slice(-400)
@@ -216,7 +217,7 @@ export function createLlmCaller(
       }
       const response = await createApiRequest(systemPrompt, userPrompt)
       if (DEBUG_INTERACTION) {
-        console.log('[InteractionDetector] LLM raw response', {
+        logger.info('LLM raw response', {
           length: response.length,
           preview: response.slice(0, 300)
         })
@@ -225,14 +226,14 @@ export function createLlmCaller(
       const json = extractJSON(response)
       if (!json) {
         if (DEBUG_INTERACTION) {
-          console.log('[InteractionDetector] LLM json extract failed', { preview: response.slice(0, 300) })
+          logger.info('[InteractionDetector] LLM json extract failed', { value: { preview: response.slice(0, 300) } })
         }
         throw new Error('No JSON found in response')
       }
 
       return json as InteractionResult
     } catch (error) {
-      console.error('[InteractionDetector] LLM call error:', error)
+      logger.error('[InteractionDetector] LLM call error', { error: error })
       throw error
     }
   }

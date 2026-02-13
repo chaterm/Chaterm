@@ -473,6 +473,22 @@ interface ApiType {
    * Resume interaction detection for a suppressed command
    */
   unsuppressInteraction: (commandId: string) => Promise<InteractionSubmitResult>
+
+  /**
+   * Send a log entry from renderer to main process
+   */
+  log: (payload: {
+    level: 'debug' | 'info' | 'warn' | 'error'
+    process: 'renderer' | 'preload'
+    module: string
+    message: string
+    meta?: Record<string, unknown>
+  }) => Promise<{ success: boolean; error?: string }>
+
+  /**
+   * Open the log directory in the system file manager
+   */
+  openLogDir: () => Promise<void>
 }
 
 declare global {

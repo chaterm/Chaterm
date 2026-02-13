@@ -7,6 +7,10 @@ import * as path from 'path'
 import * as os from 'os'
 import { K8sContext, K8sContextInfo, LoadConfigOptions, LoadConfigResult } from './types'
 
+import { createLogger } from '../logging'
+
+const logger = createLogger('k8s')
+
 // Lazy load kubernetes client to avoid ESM issues
 let k8sModule: any = null
 let KubeConfigClass: any = null
@@ -82,7 +86,7 @@ export class KubeConfigLoader {
         error: undefined
       }
     } catch (error) {
-      console.error('[K8s] Failed to load config:', error)
+      logger.error('[K8s] Failed to load config', { error: error })
       return {
         success: false,
         contexts: [],
@@ -108,7 +112,7 @@ export class KubeConfigLoader {
         currentContext
       }
     } catch (error) {
-      console.error('[K8s] Failed to load from default:', error)
+      logger.error('[K8s] Failed to load from default', { error: error })
       return {
         success: false,
         contexts: [],
@@ -194,7 +198,7 @@ export class KubeConfigLoader {
    */
   public getKubeConfig(): any {
     if (!this.initialized) {
-      console.warn('[K8s] Attempting to get KubeConfig before initialization')
+      logger.warn('[K8s] Attempting to get KubeConfig before initialization')
       return undefined
     }
     return this.kc
@@ -219,7 +223,7 @@ export class KubeConfigLoader {
       this.kc.setCurrentContext(contextName)
       return true
     } catch (error) {
-      console.error('[K8s] Failed to set current context:', error)
+      logger.error('[K8s] Failed to set current context', { error: error })
       return false
     }
   }
@@ -256,10 +260,10 @@ export class KubeConfigLoader {
         try {
           this.kc.setCurrentContext(originalContext)
         } catch (restoreError) {
-          console.error(`[K8s] Failed to restore context:`, restoreError)
+          logger.error(`[K8s] Failed to restore context`, { error: restoreError })
         }
       }
-      console.error(`[K8s] Context validation failed for ${contextName}:`, error)
+      logger.error(`[K8s] Context validation failed for ${contextName}`, { error: error })
       return false
     }
   }

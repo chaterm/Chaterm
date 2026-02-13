@@ -3,6 +3,8 @@ import type { ChatMessage } from '../types'
 import type { WebviewMessage } from '@shared/WebviewMessage'
 import { useSessionState } from './useSessionState'
 
+const logger = createRendererLogger('ai.messageOptions')
+
 /**
  * Composable for message option interaction functionality
  * Handles AI-provided option selection and custom input
@@ -69,14 +71,14 @@ export function useMessageOptions() {
           messageRsp.text = option || ''
           break
       }
-      console.log('Send message to main process:', messageRsp)
+      logger.info('Send message to main process', { data: messageRsp })
 
       const response = await window.api.sendToMain(attachTabContext(messageRsp))
-      console.log('Main process response:', response)
+      logger.info('Main process response', { data: response })
 
       session.responseLoading = true
     } catch (error) {
-      console.error('Failed to send message to main process:', error)
+      logger.error('Failed to send message to main process', { error: error })
     }
   }
 

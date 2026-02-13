@@ -2,6 +2,7 @@ import { Todo, TodoArraySchema } from '../../../shared/todo/TodoSchemas'
 import { TodoStorage } from '../../storage/todo/TodoStorage'
 import { TodoContextTracker } from '../../services/todo_context_tracker'
 import { FocusChainService } from '../../services/focus_chain_service'
+const logger = createLogger('agent')
 
 export interface TodoWriteParams {
   todos: Todo[]
@@ -27,7 +28,9 @@ export class TodoWriteTool {
       // 2. Validate params
       const result = TodoArraySchema.safeParse(processedTodos)
       if (!result.success) {
-        console.error(`[TodoWriteTool] Parameter validation failed:`, result.error)
+        logger.error('[TodoWriteTool] Parameter validation failed', {
+          error: result.error
+        })
         throw new Error(`Parameter validation failed: ${result.error.message}`)
       }
 
@@ -97,7 +100,7 @@ export class TodoWriteTool {
 
       return output
     } catch (error) {
-      console.error(`[TodoWriteTool] todo_write tool execution failed:`, error)
+      logger.error(`[TodoWriteTool] todo_write tool execution failed`, { error: error })
       throw new Error(`Todo write failed: ${error instanceof Error ? error.message : String(error)}`)
     }
   }

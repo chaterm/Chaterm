@@ -1,4 +1,5 @@
 import type { IpcMainInvokeEvent } from 'electron'
+const logger = createLogger('ssh')
 
 // ============================================================================
 // Bastion Error Codes
@@ -248,26 +249,20 @@ class CapabilityRegistry {
     if (capability) {
       // Validate supportsRefresh matches capability.refreshAssets existence
       if (definition.supportsRefresh && !capability.refreshAssets) {
-        console.warn(
-          `[CapabilityRegistry] Warning: definition.supportsRefresh=true but capability.refreshAssets is not implemented for type: ${definition.type}`
-        )
+        logger.warn(`Definition.supportsRefresh=true but capability.refreshAssets is not implemented for type: ${definition.type}`)
       }
       // Validate supportsShellStream matches capability.getShellStream existence
       if (definition.supportsShellStream && !capability.getShellStream) {
-        console.warn(
-          `[CapabilityRegistry] Warning: definition.supportsShellStream=true but capability.getShellStream is not implemented for type: ${definition.type}`
-        )
+        logger.warn(`Definition.supportsShellStream=true but capability.getShellStream is not implemented for type: ${definition.type}`)
       }
     }
 
     if (this.bastionDefinitions.has(definition.type)) {
-      console.warn(`[CapabilityRegistry] Overwriting existing bastion definition: ${definition.type}`)
+      logger.warn('Overwriting existing bastion definition', { bastionType: definition.type })
     }
 
     this.bastionDefinitions.set(definition.type, definition)
-    console.log(
-      `[CapabilityRegistry] Bastion definition registered: ${definition.type} (v${definition.version}, authPolicy: [${definition.authPolicy.join(', ')}], agentExec: ${definition.agentExec})`
-    )
+    logger.info('Bastion definition registered', { bastionType: definition.type, version: definition.version })
   }
 
   /**
@@ -293,7 +288,7 @@ class CapabilityRegistry {
   unregisterBastionDefinition(type: string): boolean {
     const deleted = this.bastionDefinitions.delete(type)
     if (deleted) {
-      console.log(`[CapabilityRegistry] Bastion definition unregistered: ${type}`)
+      logger.debug('Bastion definition unregistered', { bastionType: type })
     }
     return deleted
   }
@@ -303,7 +298,7 @@ class CapabilityRegistry {
    */
   clearBastionDefinitions(): void {
     this.bastionDefinitions.clear()
-    console.log('[CapabilityRegistry] All bastion definitions cleared')
+    logger.debug('All bastion definitions cleared')
   }
 
   // ============================================================================
@@ -316,10 +311,10 @@ class CapabilityRegistry {
    */
   registerBastion(capability: BastionCapability): void {
     if (this.bastionCapabilities.has(capability.type)) {
-      console.warn(`[CapabilityRegistry] Overwriting existing bastion capability: ${capability.type}`)
+      logger.warn('Overwriting existing bastion capability', { bastionType: capability.type })
     }
     this.bastionCapabilities.set(capability.type, capability)
-    console.log(`[CapabilityRegistry] Bastion capability registered: ${capability.type}`)
+    logger.info('Bastion capability registered', { bastionType: capability.type })
   }
 
   /**
@@ -329,7 +324,7 @@ class CapabilityRegistry {
   unregisterBastion(type: string): boolean {
     const deleted = this.bastionCapabilities.delete(type)
     if (deleted) {
-      console.log(`[CapabilityRegistry] Bastion capability unregistered: ${type}`)
+      logger.debug('Bastion capability unregistered', { bastionType: type })
     }
     return deleted
   }
@@ -365,7 +360,7 @@ class CapabilityRegistry {
   clearBastions(): void {
     this.bastionCapabilities.clear()
     this.bastionDefinitions.clear()
-    console.log('[CapabilityRegistry] All bastion capabilities and definitions cleared')
+    logger.debug('All bastion capabilities and definitions cleared')
   }
 }
 

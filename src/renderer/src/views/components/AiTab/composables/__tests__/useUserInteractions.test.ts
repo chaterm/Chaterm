@@ -125,7 +125,7 @@ describe('useUserInteractions', () => {
 
       handleTranscriptionError('Transcription failed')
 
-      expect(consoleSpy).toHaveBeenCalledWith('Voice transcription error:', 'Transcription failed')
+      expect(consoleSpy).toHaveBeenCalledWith('[aitab.userInteractions] Voice transcription error', { error: 'Transcription failed' })
       consoleSpy.mockRestore()
     })
   })

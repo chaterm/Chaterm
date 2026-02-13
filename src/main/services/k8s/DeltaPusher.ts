@@ -12,6 +12,10 @@ import { InformerPool } from './InformerPool'
 import { DeltaCalculator } from './DeltaCalculator'
 import { K8sResourceEvent, DeltaBatch } from './types'
 
+import { createLogger } from '../logging'
+
+const logger = createLogger('k8s')
+
 /**
  * DeltaPusher configuration
  */
@@ -56,7 +60,7 @@ export class DeltaPusher {
     })
 
     this.informerPool.on('error', (error: Error) => {
-      console.error('[DeltaPusher] Informer error:', error.message)
+      logger.error('[DeltaPusher] Informer error', { error: error.message })
     })
   }
 
@@ -66,7 +70,7 @@ export class DeltaPusher {
   private handleInformerEvent(event: K8sResourceEvent): void {
     const resourceType = this.detectResourceType(event)
     if (!resourceType) {
-      console.warn('[DeltaPusher] Cannot detect resource type:', event)
+      logger.warn('[DeltaPusher] Cannot detect resource type', { error: event })
       return
     }
 
@@ -93,7 +97,7 @@ export class DeltaPusher {
       }
     })
 
-    console.log(`[DeltaPusher] Created DeltaCalculator for ${key}`)
+    logger.info(`[DeltaPusher] Created DeltaCalculator for ${key}`)
     return calculator
   }
 
@@ -102,7 +106,7 @@ export class DeltaPusher {
    */
   private pushBatchToRenderer(batch: DeltaBatch, contextName: string, resourceType: string): void {
     if (!this.mainWindow || this.mainWindow.isDestroyed()) {
-      console.warn('[DeltaPusher] Main window not available, skipping IPC push')
+      logger.warn('[DeltaPusher] Main window not available, skipping IPC push')
       return
     }
 
@@ -114,9 +118,9 @@ export class DeltaPusher {
 
     try {
       this.mainWindow.webContents.send('k8s:delta-batch', enrichedBatch)
-      console.log(`[DeltaPusher] Pushed batch to renderer: ${batch.totalChanges} changes for ${contextName}/${resourceType}`)
+      logger.info(`[DeltaPusher] Pushed batch to renderer: ${batch.totalChanges} changes for ${contextName}/${resourceType}`)
     } catch (error) {
-      console.error('[DeltaPusher] Failed to push batch to renderer:', error)
+      logger.error('[DeltaPusher] Failed to push batch to renderer', { error: error })
     }
   }
 
@@ -147,7 +151,7 @@ export class DeltaPusher {
    */
   public flushAll(): void {
     this.deltaCalculators.forEach((calculator, key) => {
-      console.log(`[DeltaPusher] Flushing calculator: ${key}`)
+      logger.info(`[DeltaPusher] Flushing calculator: ${key}`)
       calculator.flush()
     })
   }
@@ -178,7 +182,7 @@ export class DeltaPusher {
     if (calculator) {
       calculator.destroy()
       this.deltaCalculators.delete(key)
-      console.log(`[DeltaPusher] Removed calculator: ${key}`)
+      logger.info(`[DeltaPusher] Removed calculator: ${key}`)
     }
   }
 
@@ -186,7 +190,7 @@ export class DeltaPusher {
    * Clean up all calculators
    */
   public destroy(): void {
-    console.log('[DeltaPusher] Destroying all calculators...')
+    logger.info('[DeltaPusher] Destroying all calculators...')
 
     this.deltaCalculators.forEach((calculator) => {
       calculator.destroy()
@@ -196,6 +200,6 @@ export class DeltaPusher {
     this.informerPool.removeAllListeners('event')
     this.informerPool.removeAllListeners('error')
 
-    console.log('[DeltaPusher] All calculators destroyed')
+    logger.info('[DeltaPusher] All calculators destroyed')
   }
 }

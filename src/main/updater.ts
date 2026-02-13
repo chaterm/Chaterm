@@ -1,6 +1,7 @@
 import { ipcMain } from 'electron'
 // import { ipcMain, autoUpdater as nativeUpdater } from 'electron'
 import { autoUpdater } from 'electron-updater'
+const logger = createLogger('updater')
 
 export const registerUpdater = (targetWindow, setForceQuit: (value: boolean) => void) => {
   // Status
@@ -21,10 +22,10 @@ export const registerUpdater = (targetWindow, setForceQuit: (value: boolean) => 
   ipcMain.handle('update:checkUpdate', async () => {
     try {
       const result = await autoUpdater.checkForUpdates()
-      console.log('Update check result:', result)
+      logger.info('Update check result', { version: result?.updateInfo?.version })
       return result
     } catch (error) {
-      console.error('Update check failed:', error)
+      logger.error('Update check failed', { error: error })
       throw error
     }
   })
@@ -35,10 +36,10 @@ export const registerUpdater = (targetWindow, setForceQuit: (value: boolean) => 
   ipcMain.handle('update:download', async () => {
     try {
       const result = await autoUpdater.downloadUpdate()
-      console.log('Download started:', result)
+      logger.info('Download started')
       return result
     } catch (error) {
-      console.error('Download failed:', error)
+      logger.error('Download failed', { error: error })
       throw error
     }
   })
@@ -74,7 +75,7 @@ export const registerUpdater = (targetWindow, setForceQuit: (value: boolean) => 
   })
 
   autoUpdater.on('error', (err) => {
-    console.error('AutoUpdater error:', err)
+    logger.error('AutoUpdater error', { error: err.message || err.toString() })
     sendStatusToWindow({
       type: 'error',
       status: status.error,
@@ -87,7 +88,7 @@ export const registerUpdater = (targetWindow, setForceQuit: (value: boolean) => 
     const totalSize = bytesChange(progressObj.total)
     const transferredSize = bytesChange(progressObj.transferred)
     let text = `${percentNumber}% (${transferredSize}/${totalSize})`
-    console.log(text)
+    logger.info('Download progress', { percent: percentNumber, transferred: transferredSize, total: totalSize })
     sendStatusToWindow({
       type: 'download-progress',
       status: status.downloading,

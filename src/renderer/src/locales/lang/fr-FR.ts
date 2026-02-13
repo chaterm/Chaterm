@@ -1136,7 +1136,13 @@ export default {
     downloading: 'Téléchargement',
     checkUpdateError: 'Échec de la vérification de la mise à jour',
     checking: 'Vérification',
-    install: 'Installer'
+    install: 'Installer',
+    logDiagnostics: 'Journaux et diagnostics',
+    logDiagnosticsDesc: 'En cas de probleme, vous pouvez exporter les fichiers journaux et les envoyer aux developpeurs pour aider au diagnostic.',
+    openLogDir: 'Ouvrir le repertoire des journaux',
+    feedbackTitle: 'Commentaires et suggestions',
+    feedbackDesc: "Si vous avez des questions, des suggestions ou des commentaires, n'hesitez pas a nous contacter via le canal suivant.",
+    submitFeedback: 'Soumettre un commentaire'
   },
   mfa: {
     title: 'Authentification à deux facteurs',

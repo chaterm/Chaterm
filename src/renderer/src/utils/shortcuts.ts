@@ -1,5 +1,7 @@
 import { ref } from 'vue'
 
+const logger = createRendererLogger('utils.shortcuts')
+
 // Get current platform
 const platform = ref<string>('')
 
@@ -11,7 +13,7 @@ const initPlatform = async () => {
     const api = window.api as any
     platform.value = await api.getPlatform()
   } catch (error) {
-    console.error('Failed to get platform:', error)
+    logger.error('Failed to get platform', { error: error })
     // Fallback detection
     platform.value = navigator.platform.toLowerCase().includes('mac') ? 'darwin' : 'win32'
   }

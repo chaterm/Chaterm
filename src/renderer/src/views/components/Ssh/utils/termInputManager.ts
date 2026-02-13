@@ -1,4 +1,6 @@
 import { ref, watch } from 'vue'
+
+const logger = createRendererLogger('ssh.termInputManager')
 interface Target {
   termOndata?: any
 }
@@ -52,7 +54,7 @@ export const inputManager = {
       componentInstances.value.push({ target, key })
       this.setActiveTerm(key)
     } else {
-      console.warn(`key "${key}" already exists, skipping registration`)
+      logger.warn('Key already exists, skipping registration', { key })
     }
   },
 
@@ -64,7 +66,7 @@ export const inputManager = {
         this.updateActiveTerm()
       }
     } else {
-      console.warn(`Cannot unregister, key "${key}" not found`)
+      logger.warn('Cannot unregister, key not found', { key })
     }
   },
 
@@ -74,7 +76,7 @@ export const inputManager = {
       activeTermId.value = key
       activeTermOndata.value = instance.target.termOndata
     } else {
-      console.warn(`Failed to set, key "${key}" not found`)
+      logger.warn('Failed to set, key not found', { key })
     }
   },
 
@@ -99,7 +101,7 @@ export const inputManager = {
     if (activeTermOndata.value && typeof activeTermOndata.value === 'function') {
       activeTermOndata.value(data)
     } else {
-      console.warn('No active term or termOndata is not available')
+      logger.warn('No active term or termOndata is not available')
     }
   },
 

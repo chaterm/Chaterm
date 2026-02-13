@@ -1,4 +1,4 @@
-import { logger } from '../utils/logger'
+const logger = createLogger('sync')
 
 export interface FullSyncTimerConfig {
   intervalHours: number // Timer interval in hours
@@ -243,7 +243,7 @@ export class FullSyncTimerManager {
     } catch (error: unknown) {
       const duration = Date.now() - startTime
       const errorMessage = error instanceof Error ? error.message : String(error)
-      logger.error(`Scheduled full sync failed, duration: ${Math.round(duration / 1000)} seconds`, errorMessage)
+      logger.error(`Scheduled full sync failed, duration: ${Math.round(duration / 1000)} seconds`, { error: errorMessage })
       return false
     } finally {
       this.status.isRunning = false
@@ -281,7 +281,7 @@ export class FullSyncTimerManager {
         logger.info('Current full sync operation completed')
       }
     } catch (error) {
-      logger.error('Error while waiting for full sync operation to complete:', error)
+      logger.error('Error while waiting for full sync operation to complete', { error: error })
     }
   }
 
@@ -298,7 +298,7 @@ export class FullSyncTimerManager {
 
       logger.info('Full sync timer resources cleanup completed')
     } catch (error) {
-      logger.error('Error while cleaning up full sync timer resources:', error)
+      logger.error('Error while cleaning up full sync timer resources', { error: error })
     }
   }
 }

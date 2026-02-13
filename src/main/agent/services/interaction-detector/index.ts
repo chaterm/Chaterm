@@ -21,6 +21,7 @@ import { EventEmitter } from 'events'
 import stripAnsi from 'strip-ansi-cjs'
 import { z } from 'zod'
 import type { InteractionResult, InteractionRequest, QuickPattern, InteractionDetectorConfig, TuiCategory, InteractionDetectorEvents } from './types'
+const logger = createLogger('agent')
 
 // Re-export types
 export * from './types'
@@ -1177,7 +1178,7 @@ export class InteractionDetector extends EventEmitter {
 
     // Check if LLM call limit reached - stop calling LLM
     if (this.llmCallCount >= this.config.maxLlmCalls) {
-      console.log(`[InteractionDetector] LLM call limit reached (${this.llmCallCount}/${this.config.maxLlmCalls}), degrading to freeform`)
+      logger.info(`[InteractionDetector] LLM call limit reached (${this.llmCallCount}/${this.config.maxLlmCalls}), degrading to freeform`)
       return {
         needsInteraction: true,
         interactionType: 'freeform',
@@ -1213,14 +1214,14 @@ export class InteractionDetector extends EventEmitter {
         this.debug('llm-result', { result: rawResult })
         return this.validateResult(rawResult)
       } catch (error) {
-        console.warn('[InteractionDetector] LLM call failed:', error)
+        logger.warn('[InteractionDetector] LLM call failed', { error: error })
         throw error
       }
     }
 
     // No LLM caller - return no interaction needed
     if (!this.warnedMissingLlm) {
-      console.warn('[InteractionDetector] llmCaller not configured; LLM detection disabled')
+      logger.warn('[InteractionDetector] llmCaller not configured; LLM detection disabled')
       this.warnedMissingLlm = true
     }
     this.debug('llm-missing', { message: 'no llmCaller configured' })
@@ -1362,10 +1363,10 @@ export class InteractionDetector extends EventEmitter {
   private debug(message: string, data?: Record<string, unknown>): void {
     if (!this.debugEnabled) return
     if (!data) {
-      console.log(`[InteractionDetector] ${message}`)
+      logger.info(`[InteractionDetector] ${message}`)
       return
     }
-    console.log(`[InteractionDetector] ${message} ${this.safeStringify(data)}`)
+    logger.info(`[InteractionDetector] ${message} ${this.safeStringify(data)}`)
   }
 
   private safeStringify(data: Record<string, unknown>): string {

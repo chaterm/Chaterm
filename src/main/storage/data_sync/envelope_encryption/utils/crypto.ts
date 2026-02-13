@@ -1,6 +1,7 @@
 import * as crypto from 'crypto'
 import { buildClient, CommitmentPolicy, RawAesKeyringNode, RawAesWrappingSuiteIdentifier } from '@aws-crypto/client-node'
 import config from '../config'
+const logger = createLogger('sync')
 
 interface EncryptionResult {
   encrypted: string
@@ -102,7 +103,7 @@ class CryptoUtils {
     } catch (error) {
       // Simplify error log output
       const errorMessage = (error as Error).message
-      console.warn('AWS Encryption SDK encryption failed:', errorMessage)
+      logger.warn('AWS Encryption SDK encryption failed', { error: errorMessage })
       throw new Error(`AWS Encryption SDK encryption failed: ${errorMessage}`)
     }
   }
@@ -143,7 +144,7 @@ class CryptoUtils {
         if (encryptedBuffer.length > 10) {
         }
       } catch (e) {
-        console.log('  Ciphertext structure analysis failed:', (e as Error).message)
+        logger.info('Ciphertext structure analysis failed', { value: (e as Error).message })
       }
 
       // Decrypt using AWS Encryption SDK
@@ -155,9 +156,8 @@ class CryptoUtils {
     } catch (error) {
       // Simplify error log output
       const errorMessage = (error as Error).message
-      console.warn('AWS Encryption SDK decryption failed:', errorMessage)
-      console.error('Decryption exception details:', {
-        error,
+      logger.warn('AWS Encryption SDK decryption failed', { error: errorMessage })
+      logger.error('Decryption exception details', {
         message: errorMessage,
         stack: (error as Error).stack
       })
@@ -203,7 +203,7 @@ class CryptoUtils {
     _authToken: string | null
   ): Promise<string> {
     try {
-      console.log('Starting automatic data key resolution decryption...')
+      logger.info('Starting automatic data key resolution decryption...')
 
       // AWS Encryption SDK ciphertext contains encrypted data key
       // We need to let SDK automatically decrypt data key, but this requires correct Keyring configuration
@@ -211,10 +211,10 @@ class CryptoUtils {
       // Temporary solution: try using a generic data key
       // In actual scenarios, should extract encrypted data key from ciphertext, then call KMS to decrypt
 
-      console.log('⚠️ Automatic key resolution feature not fully implemented, falling back to error handling')
+      logger.info('⚠️ Automatic key resolution feature not fully implemented, falling back to error handling')
       throw new Error('Unable to automatically resolve data key, please ensure client encryption is properly initialized')
     } catch (error) {
-      console.error('Automatic key resolution failed:', (error as Error).message)
+      logger.error('Automatic key resolution failed', { error: error })
       throw error
     }
   }

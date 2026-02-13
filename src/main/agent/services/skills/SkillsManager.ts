@@ -24,6 +24,7 @@ import {
 } from '@shared/skills'
 import { ChatermDatabaseService } from '../../../storage/db/chaterm.service'
 import { getUserDataPath } from '../../../config/edition'
+const logger = createLogger('agent')
 
 // Dynamic import type for chokidar (ESM module)
 type ChokidarModule = typeof import('chokidar')
@@ -61,9 +62,9 @@ export class SkillsManager {
       await this.setupFileWatchers()
 
       this.initialized = true
-      console.log(`[SkillsManager] Initialized with ${this.skills.size} skills`)
+      logger.info(`[SkillsManager] Initialized with ${this.skills.size} skills`)
     } catch (error) {
-      console.error('[SkillsManager] Initialization failed:', error)
+      logger.error('[SkillsManager] Initialization failed', { error: error })
       throw error
     }
   }
@@ -81,7 +82,7 @@ export class SkillsManager {
       }
     }
     await this.notifySkillsUpdate()
-    console.log(`[SkillsManager] Reloaded skill states for ${this.skillStates.size} skills`)
+    logger.debug(`[SkillsManager] Reloaded skill states for ${this.skillStates.size} skills`)
   }
 
   /**
@@ -176,7 +177,7 @@ export class SkillsManager {
         }
       }
     } catch (error) {
-      console.error(`[SkillsManager] Failed to load skills from ${dirPath}:`, error)
+      logger.error(`[SkillsManager] Failed to load skills from ${dirPath}`, { error: error })
     }
   }
 
@@ -184,7 +185,7 @@ export class SkillsManager {
    * Parse a SKILL.md file
    */
   async parseSkillFile(filePath: string): Promise<SkillParseResult> {
-    console.log(`[SkillsManager] parseSkillFile - parsing: ${filePath}`)
+    logger.debug(`[SkillsManager] parseSkillFile - parsing: ${filePath}`)
     try {
       const exists = await this.fileExists(filePath)
       if (!exists) {
@@ -197,7 +198,7 @@ export class SkillsManager {
 
       // Parse frontmatter and content
       const { metadata, body } = this.parseFrontmatter(content)
-      console.log(`[SkillsManager] parseSkillFile - parsed metadata:`, JSON.stringify(metadata))
+      logger.debug('[SkillsManager] parseSkillFile - parsed metadata', { keys: Object.keys(metadata) })
 
       // Validate metadata
       const validation = this.validateMetadata(metadata)
@@ -275,10 +276,10 @@ export class SkillsManager {
       }
 
       if (resources.length > 0) {
-        console.log(`[SkillsManager] Found ${resources.length} resource files in ${directory}`)
+        logger.debug(`[SkillsManager] Found ${resources.length} resource files in ${directory}`)
       }
     } catch (error) {
-      console.error(`[SkillsManager] Failed to scan resources in ${directory}:`, error)
+      logger.error(`[SkillsManager] Failed to scan resources in ${directory}`, { error: error })
     }
 
     return resources
@@ -387,7 +388,7 @@ export class SkillsManager {
     const metadata: Record<string, unknown> = {}
     const lines = yaml.split('\n')
 
-    console.log(`[SkillsManager] parseYaml - parsing ${lines.length} lines`)
+    logger.debug(`[SkillsManager] parseYaml - parsing ${lines.length} lines`)
 
     for (const line of lines) {
       const colonIndex = line.indexOf(':')
@@ -396,7 +397,7 @@ export class SkillsManager {
       const key = line.slice(0, colonIndex).trim()
       let value = line.slice(colonIndex + 1).trim()
 
-      console.log(`[SkillsManager] parseYaml - key: "${key}", raw value: "${value}"`)
+      logger.debug(`[SkillsManager] parseYaml - key: "${key}", raw value: "${value}"`)
 
       // Handle quoted strings
       if ((value.startsWith('"') && value.endsWith('"')) || (value.startsWith("'") && value.endsWith("'"))) {
@@ -408,7 +409,7 @@ export class SkillsManager {
         const arrayContent = value.slice(1, -1)
         const items = arrayContent.split(',').map((item) => item.trim().replace(/^["']|["']$/g, ''))
         metadata[key] = items
-        console.log(`[SkillsManager] parseYaml - parsed array for "${key}":`, items)
+        logger.debug(`[SkillsManager] parseYaml - parsed array for "${key}"`, { value: items })
       } else if (value === 'true') {
         metadata[key] = true
       } else if (value === 'false') {
@@ -420,7 +421,7 @@ export class SkillsManager {
       }
     }
 
-    console.log(`[SkillsManager] parseYaml - final metadata:`, JSON.stringify(metadata))
+    logger.debug('[SkillsManager] parseYaml - final metadata', { keys: Object.keys(metadata) })
     return metadata as Partial<SkillMetadata>
   }
 
@@ -512,7 +513,7 @@ export class SkillsManager {
       // Check if ChatermDatabaseService can be instantiated (requires user login)
       const dbService = await ChatermDatabaseService.getInstance()
       if (!dbService) {
-        console.log('[SkillsManager] Database service not available, skipping skill states load')
+        logger.debug('[SkillsManager] Database service not available, skipping skill states load')
         return
       }
 
@@ -533,9 +534,9 @@ export class SkillsManager {
     } catch (error) {
       // Gracefully handle the case when user is not logged in yet
       if (error instanceof Error && error.message.includes('User ID is required')) {
-        console.log('[SkillsManager] User not logged in yet, skill states will be loaded later')
+        logger.debug('[SkillsManager] User not logged in yet, skill states will be loaded later')
       } else {
-        console.error('[SkillsManager] Failed to load skill states:', error)
+        logger.error('[SkillsManager] Failed to load skill states', { error: error })
       }
     }
   }
@@ -549,7 +550,7 @@ export class SkillsManager {
       await dbService.setSkillState(skillId, state.enabled)
       this.skillStates.set(skillId, state)
     } catch (error) {
-      console.error('[SkillsManager] Failed to save skill state:', error)
+      logger.error('[SkillsManager] Failed to save skill state', { error: error })
     }
   }
 
@@ -579,7 +580,7 @@ export class SkillsManager {
         }
       }
     } catch (error) {
-      console.error('[SkillsManager] Failed to setup file watchers:', error)
+      logger.error('[SkillsManager] Failed to setup file watchers', { error: error })
     }
   }
 
@@ -587,7 +588,7 @@ export class SkillsManager {
    * Handle skill file changes
    */
   private async handleSkillFileChange(): Promise<void> {
-    console.log(`[SkillsManager] Skill file changed, reloading...`)
+    logger.debug(`[SkillsManager] Skill file changed, reloading...`)
     await this.loadAllSkills()
   }
 
@@ -613,10 +614,10 @@ export class SkillsManager {
   buildSkillsPrompt(): string {
     const enabledSkills = this.getEnabledSkills()
 
-    console.log(`[SkillsManager] buildSkillsPrompt called - enabled skills: ${enabledSkills.length}`)
+    logger.debug(`[SkillsManager] buildSkillsPrompt called - enabled skills: ${enabledSkills.length}`)
 
     if (enabledSkills.length === 0) {
-      console.log(`[SkillsManager] No skills to include in prompt`)
+      logger.debug(`[SkillsManager] No skills to include in prompt`)
       return ''
     }
 
@@ -629,7 +630,7 @@ export class SkillsManager {
     }
     prompt += '\n'
 
-    console.log(`[SkillsManager] Built prompt with ${enabledSkills.length} skills`)
+    logger.debug(`[SkillsManager] Built prompt with ${enabledSkills.length} skills`)
 
     return prompt
   }
@@ -703,13 +704,13 @@ export class SkillsManager {
    * - Structure B: SKILL.md in subdirectory (extracts the subdirectory)
    */
   async importSkillFromZip(zipPath: string, overwrite?: boolean): Promise<SkillImportResult> {
-    console.log(`[SkillsManager] Importing skill from ZIP: ${zipPath}`)
+    logger.info(`[SkillsManager] Importing skill from ZIP: ${zipPath}`)
 
     let zip: AdmZip
     try {
       zip = new AdmZip(zipPath)
     } catch (error) {
-      console.error('[SkillsManager] Failed to open ZIP file:', error)
+      logger.error('[SkillsManager] Failed to open ZIP file', { error: error })
       return {
         success: false,
         error: 'Invalid or corrupted ZIP file',
@@ -736,7 +737,9 @@ export class SkillsManager {
       const isAbsolute = path.posix.isAbsolute(entryName) || /^[a-zA-Z]:/.test(entryName)
       const hasTraversal = entryName.split('/').includes('..')
       if (isAbsolute || hasTraversal) {
-        console.error('[SkillsManager] Potential path traversal detected:', entryName)
+        logger.error('[SkillsManager] Potential path traversal detected', {
+          entryName
+        })
         return {
           success: false,
           error: 'ZIP file contains invalid paths',
@@ -806,7 +809,7 @@ export class SkillsManager {
         }
       }
       // Remove existing directory for overwrite
-      console.log(`[SkillsManager] Overwriting existing skill: ${skillName}`)
+      logger.info(`[SkillsManager] Overwriting existing skill: ${skillName}`)
       await fs.rm(targetDir, { recursive: true, force: true })
     }
 
@@ -856,19 +859,19 @@ export class SkillsManager {
         // Write file
         const content = entry.getData()
         await fs.writeFile(targetPath, content)
-        console.log(`[SkillsManager] Extracted: ${relativePath}`)
+        logger.debug(`[SkillsManager] Extracted: ${relativePath}`)
       }
 
       // Reload skills to pick up the new skill
       await this.loadAllSkills()
 
-      console.log(`[SkillsManager] Successfully imported skill: ${skillName}`)
+      logger.info(`[SkillsManager] Successfully imported skill: ${skillName}`)
       return {
         success: true,
         skillName
       }
     } catch (error) {
-      console.error('[SkillsManager] Failed to extract skill:', error)
+      logger.error('[SkillsManager] Failed to extract skill', { error: error })
 
       // Cleanup on failure
       try {

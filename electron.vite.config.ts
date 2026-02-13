@@ -53,7 +53,6 @@ const loadEditionConfig = (edition: Edition): EditionConfig => {
     const content = readFileSync(configPath, 'utf-8')
     return JSON.parse(content) as EditionConfig
   } catch (error) {
-    console.error(`Failed to load edition config from ${configPath}:`, error)
     throw new Error(`Edition config not found for: ${edition}`)
   }
 }
@@ -93,6 +92,14 @@ export default defineConfig(({ mode }) => {
       plugins: [
         externalizeDepsPlugin({
           exclude: ['p-wait-for', 'chrome-launcher', 'globby', 'execa', 'p-timeout', 'get-folder-size', 'serialize-error', 'os-name']
+        }),
+        AutoImport({
+          imports: [
+            {
+              '@logging/index': ['createLogger']
+            }
+          ],
+          dts: resolve('src/main/auto-imports.d.ts')
         })
       ],
       resolve: {
@@ -102,11 +109,13 @@ export default defineConfig(({ mode }) => {
           '@services': resolve('src/main/agent/services'),
           '@integrations': resolve('src/main/agent/integrations'),
           '@utils': resolve('src/main/agent/utils'),
-          '@api': resolve('src/main/agent/api')
+          '@api': resolve('src/main/agent/api'),
+          '@logging': resolve('src/main/services/logging')
         }
       },
       define: {
-        'process.env.APP_EDITION': JSON.stringify(edition)
+        'process.env.APP_EDITION': JSON.stringify(edition),
+        'process.env.LOG_LEVEL': JSON.stringify(resolvedMode.startsWith('development') ? 'debug' : 'info')
       },
       build: {
         sourcemap: true,
@@ -175,6 +184,12 @@ export default defineConfig(({ mode }) => {
           ]
         }),
         AutoImport({
+          imports: [
+            {
+              '@/utils/logger': ['createRendererLogger']
+            }
+          ],
+          dts: resolve('src/renderer/auto-imports.d.ts'),
           resolvers: [AntDesignVueResolver()]
         })
       ],

@@ -33,6 +33,8 @@ import { notification } from 'ant-design-vue'
 import { useI18n } from 'vue-i18n'
 import { voiceToText } from '@renderer/api/speech/speech'
 
+const logger = createRendererLogger('ai.voice')
+
 // i18n
 const { t } = useI18n()
 
@@ -146,7 +148,7 @@ const startRecording = async () => {
     }
 
     mediaRecorder.value.onerror = (event) => {
-      console.error(t('ai.recordingErrorDesc'), event.error)
+      logger.error('Recording error', { error: event.error })
       notification.error({
         message: t('ai.recordingFailed'),
         description: t('ai.recordingErrorDesc'),
@@ -158,7 +160,7 @@ const startRecording = async () => {
     mediaRecorder.value.start(100)
     isRecording.value = true
 
-    console.log('Started voice recording, format used:', mimeType)
+    logger.info('Started voice recording', { data: { format: mimeType } })
 
     // // Show recording start notification
     // notification.info({
@@ -179,7 +181,7 @@ const startRecording = async () => {
       }
     }, 60000)
   } catch (error) {
-    console.error(t('ai.voiceInputFailed'), error)
+    logger.error('Voice input failed', { error: error })
 
     let errorMessage = t('ai.voiceInputFailed')
     if (error instanceof Error) {
@@ -202,12 +204,12 @@ const startRecording = async () => {
 
 const stopRecording = () => {
   if (mediaRecorder.value && isRecording.value) {
-    console.log(t('ai.recordingStopped'))
+    logger.info('Recording stopped')
 
     try {
       mediaRecorder.value.stop()
     } catch (error) {
-      console.error(t('ai.recordingErrorDesc'), error)
+      logger.error('Recording stop error', { error: error })
     }
 
     isRecording.value = false
@@ -266,11 +268,11 @@ const transcribeAudio = async (audioBlob: Blob) => {
       }
     }
 
-    console.log(t('ai.processingVoice'), { format: audioFormat, size: audioBlob.size })
+    logger.info('Processing voice', { data: { format: audioFormat, size: audioBlob.size } })
 
     // Verify if audio format is supported by backend
     if (!SPEECH_CONFIG.SUPPORTED_FORMATS.includes(audioFormat)) {
-      console.warn(t('ai.formatConversionDesc', { format: audioFormat }))
+      logger.warn('Unsupported audio format, falling back to wav', { detail: audioFormat })
       audioFormat = 'wav' // Fallback to default format
 
       // Notify user about format conversion
@@ -299,7 +301,7 @@ const transcribeAudio = async (audioBlob: Blob) => {
     }
 
     if (transcribedText) {
-      console.log(t('ai.voiceRecognitionSuccess'), transcribedText)
+      logger.info('Voice recognition success', { data: transcribedText })
 
       // // Show success notification
       // notification.success({
@@ -320,7 +322,7 @@ const transcribeAudio = async (audioBlob: Blob) => {
       emit('transcription-error', t('ai.voiceRecognitionEmpty'))
     }
   } catch (error) {
-    console.error(t('ai.voiceRecognitionFailed'), error)
+    logger.error('Voice recognition failed', { error: error })
     const errorMessage = (error instanceof Error ? error.message : String(error)) || t('ai.voiceRecognitionServiceUnavailable')
 
     notification.error({

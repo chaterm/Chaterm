@@ -1,5 +1,7 @@
 import { defineStore } from 'pinia'
 
+const logger = createRendererLogger('store.versionPrompt')
+
 export interface VersionPromptInfo {
   shouldShow: boolean
   version: string
@@ -34,7 +36,7 @@ export const useVersionPromptStore = defineStore('versionPrompt', {
           this.clearPrompt()
         }
       } catch (error) {
-        console.error('[VersionPrompt] Failed to load prompt:', error)
+        logger.error('Failed to load prompt', { error: error })
         this.clearPrompt()
       } finally {
         this.loading = false
@@ -45,7 +47,7 @@ export const useVersionPromptStore = defineStore('versionPrompt', {
       try {
         await window.api.dismissVersionPrompt()
       } catch (error) {
-        console.error('[VersionPrompt] Failed to acknowledge prompt:', error)
+        logger.error('Failed to acknowledge prompt', { error: error })
       } finally {
         this.clearPrompt()
       }

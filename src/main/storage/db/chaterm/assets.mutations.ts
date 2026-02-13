@@ -1,5 +1,6 @@
 import Database from 'better-sqlite3'
 import { v4 as uuidv4 } from 'uuid'
+const logger = createLogger('db')
 
 // Helper function to check if asset type is an organization type
 const isOrganizationType = (assetType: string): boolean => {
@@ -13,7 +14,7 @@ function triggerIncrementalSync(): void {
       const { SyncController } = await import('../../data_sync/core/SyncController')
       await SyncController.triggerIncrementalSync()
     } catch (error) {
-      console.warn('Failed to trigger incremental sync:', error)
+      logger.warn('Failed to trigger incremental sync', { error: error })
     }
   })
 }
@@ -38,7 +39,7 @@ export function updateLocalAssetLabelLogic(db: Database.Database, uuid: string, 
       }
     }
   } catch (error) {
-    console.error('Chaterm database get error:', error)
+    logger.error('Chaterm database get error', { error: error })
     throw error
   }
 }
@@ -63,7 +64,7 @@ export function updateLocalAsseFavoriteLogic(db: Database.Database, uuid: string
       }
     }
   } catch (error) {
-    console.error('Chaterm database get error:', error)
+    logger.error('Chaterm database get error', { error: error })
     throw error
   }
 }
@@ -84,7 +85,7 @@ export function getAssetGroupLogic(db: Database.Database): any {
       }
     }
   } catch (error) {
-    console.error('Chaterm database get error:', error)
+    logger.error('Chaterm database get error', { error: error })
     throw error
   }
 }
@@ -202,7 +203,7 @@ export function createOrUpdateAssetLogic(db: Database.Database, params: any): an
       }
     }
   } catch (error) {
-    console.error('Chaterm database create or update asset error:', error)
+    logger.error('Chaterm database create or update asset error', { error: error })
     throw error
   }
 }
@@ -288,7 +289,7 @@ export function createAssetLogic(db: Database.Database, params: any): any {
       }
     }
   } catch (error) {
-    console.error('Chaterm database create asset error:', error)
+    logger.error('Chaterm database create asset error', { error: error })
     throw error
   }
 }
@@ -324,7 +325,7 @@ export function deleteAssetLogic(db: Database.Database, uuid: string): any {
       }
     }
   } catch (error) {
-    console.error('Chaterm database delete asset error:', error)
+    logger.error('Chaterm database delete asset error', { error: error })
     throw error
   }
 }
@@ -379,7 +380,7 @@ export function updateAssetLogic(db: Database.Database, params: any): any {
       }
     }
   } catch (error) {
-    console.error('Chaterm database update asset error:', error)
+    logger.error('Chaterm database update asset error', { error: error })
     throw error
   }
 }

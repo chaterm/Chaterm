@@ -1,6 +1,7 @@
 /**
  * Chaterm Authentication Adapter
  */
+const logger = createLogger('sync')
 
 interface TokenData {
   token: string
@@ -37,7 +38,7 @@ class ChatermAuthAdapter {
 
     // Return null if token is invalid or doesn't exist
     if (this.cachedToken) {
-      console.warn('Cached token has expired')
+      logger.warn('Cached token has expired')
     }
 
     return null

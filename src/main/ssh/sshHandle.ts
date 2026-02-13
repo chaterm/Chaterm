@@ -4,6 +4,7 @@ import type { SFTPWrapper } from 'ssh2'
 import { spawn } from 'child_process'
 import { Duplex } from 'stream'
 import type { CommandGenerationContext } from '@shared/WebviewMessage'
+const logger = createLogger('ssh')
 
 function safeAppPath(): string {
   try {
@@ -26,7 +27,7 @@ try {
     packageInfo = JSON.parse(fs.readFileSync(fallbackPath, 'utf8'))
   }
 } catch (error) {
-  console.error('Failed to read package.json:', error)
+  logger.warn('Failed to read package.json', { event: 'ssh.config', error: error })
   // Provide a default packageInfo object if both paths fail
   packageInfo = { name: 'chaterm', version: 'unknown' }
 }
@@ -281,7 +282,7 @@ export const attemptSecondaryConnection = async (event, connectionInfo, ident) =
   }
 
   if (needProxy) {
-    console.log('proxyConfig:', proxyConfig)
+    logger.debug('Using proxy for secondary connection', { event: 'ssh.proxy', connectionId: id })
     connectConfig.sock = await createProxySocket(proxyConfig, host, port)
   }
 
@@ -316,7 +317,7 @@ export const attemptSecondaryConnection = async (event, connectionInfo, ident) =
     return new Promise<void>((resolve) => {
       conn.sftp((err, sftp) => {
         if (err || !sftp) {
-          console.log(`SFTPCheckError [${id}]`, err)
+          logger.debug('SFTP check error', { event: 'ssh.sftp.error', connectionId: id, error: err?.message || 'SFTP object is empty' })
           connectionStatus.set(id, {
             sftpAvailable: false,
             sftpError: err?.message || 'SFTP object is empty'
@@ -324,17 +325,17 @@ export const attemptSecondaryConnection = async (event, connectionInfo, ident) =
           sftpConnections.set(id, { isSuccess: false, error: `sftp init error: "${err?.message || 'SFTP object is empty'}"` })
           resolve()
         } else {
-          console.log(`startSftp [${id}]`)
+          logger.debug('Starting SFTP check', { event: 'ssh.sftp.start', connectionId: id })
           sftp.readdir('.', (readDirErr) => {
             if (readDirErr) {
-              console.log(`SFTPCheckFailed [${id}]`)
+              logger.debug('SFTP check failed', { event: 'ssh.sftp.failed', connectionId: id, error: readDirErr.message })
               connectionStatus.set(id, {
                 sftpAvailable: false,
                 sftpError: readDirErr.message
               })
               sftp.end()
             } else {
-              console.log(`SFTPCheckSuccess [${id}]`)
+              logger.debug('SFTP check success', { event: 'ssh.sftp.success', connectionId: id })
               sftpConnections.set(id, { isSuccess: true, sftp: sftp })
               connectionStatus.set(id, { sftpAvailable: true })
             }
@@ -534,6 +535,15 @@ const handleAttemptConnection = async (event, connectionInfo, resolve, reject, r
   } = connectionInfo
   retryCount++
 
+  logger.info('Starting SSH connection attempt', {
+    event: 'ssh.connect.start',
+    connectionId: id,
+    host,
+    port: port || 22,
+    username,
+    attempt: retryCount
+  })
+
   connectionStatus.set(id, { isVerified: false }) // Update connection status
   const identToken = connIdentToken ? `_t=${connIdentToken}` : ''
   const ident = `${packageInfo.name}_${packageInfo.version}` + identToken
@@ -543,7 +553,7 @@ const handleAttemptConnection = async (event, connectionInfo, resolve, reject, r
   const reusableConn = sshConnectionPool.get(poolKey)
 
   if (reusableConn && reusableConn.hasMfaAuth) {
-    console.log(`[SSH Reuse] Detected reusable MFA connection: ${poolKey}`)
+    logger.info('Detected reusable MFA connection', { event: 'ssh.reuse', connectionId: id, poolKey })
 
     // Use existing connection
     const conn = reusableConn.conn
@@ -559,7 +569,7 @@ const handleAttemptConnection = async (event, connectionInfo, resolve, reject, r
     // Execute secondary connection (sudo check, SFTP, etc.)
     attemptSecondaryConnection(event, connectionInfo, ident)
 
-    console.log(`[SSH Reuse] Successfully reused connection, skipping MFA authentication`)
+    logger.info('Successfully reused MFA connection', { event: 'ssh.reuse.success', connectionId: id })
     resolve({ status: 'connected', message: 'Connection successful (reused)' })
     return
   }
@@ -578,7 +588,7 @@ const handleAttemptConnection = async (event, connectionInfo, resolve, reject, r
     // If keyboard-interactive authentication was used, immediately save to connection pool for future reuse
     if (hasKeyboardInteractive) {
       const poolKey = getConnectionPoolKey(host, port || 22, username)
-      console.log(`[SSH Connection Pool] Saving MFA authenticated connection: ${poolKey}`)
+      logger.info('Saving MFA authenticated connection to pool', { event: 'ssh.pool.save', poolKey })
 
       sshConnectionPool.set(poolKey, {
         conn: conn,
@@ -591,12 +601,12 @@ const handleAttemptConnection = async (event, connectionInfo, resolve, reject, r
 
       // Listen for connection close event to clean up connection pool
       conn.on('close', () => {
-        console.log(`[SSH Connection Pool] Connection closed, cleaning up reuse pool: ${poolKey}`)
+        logger.info('Pooled connection closed, cleaning up', { event: 'ssh.pool.cleanup', poolKey })
         sshConnectionPool.delete(poolKey)
       })
 
       conn.on('error', (err) => {
-        console.error(`[SSH Connection Pool] Connection error, cleaning up reuse pool: ${poolKey}`, err.message)
+        logger.error('Pooled connection error, cleaning up', { event: 'ssh.pool.error', poolKey, error: err.message })
         sshConnectionPool.delete(poolKey)
       })
     }
@@ -604,6 +614,13 @@ const handleAttemptConnection = async (event, connectionInfo, resolve, reject, r
     // Execute secondary connection (this will clear keyboardInteractiveOpts, so must be placed after the check)
     attemptSecondaryConnection(event, connectionInfo, ident)
 
+    logger.info('SSH connection established', {
+      event: 'ssh.connect.success',
+      connectionId: id,
+      host,
+      port: port || 22,
+      username
+    })
     resolve({ status: 'connected', message: 'Connection successful' })
   })
 
@@ -612,7 +629,7 @@ const handleAttemptConnection = async (event, connectionInfo, resolve, reject, r
 
     connectionEvents.emit(`connection-status-changed:${id}`, { isVerified: false })
     if (err.level === 'client-authentication' && KeyboardInteractiveAttempts.has(id)) {
-      console.log('Authentication failed. Retrying...')
+      logger.info('Authentication failed, retrying', { event: 'ssh.auth.retry', connectionId: id, retryCount })
 
       if (retryCount < MaxKeyboardInteractiveAttempts) {
         handleAttemptConnection(event, connectionInfo, resolve, reject, retryCount)
@@ -620,7 +637,7 @@ const handleAttemptConnection = async (event, connectionInfo, resolve, reject, r
         reject(new Error('Maximum retries reached, authentication failed'))
       }
     } else {
-      console.log('Connection error:', err)
+      logger.error('SSH connection error', { event: 'ssh.error', connectionId: id, error: err.message })
       reject(new Error(err.message))
     }
   })
@@ -652,7 +669,7 @@ const handleAttemptConnection = async (event, connectionInfo, resolve, reject, r
       await handleRequestKeyboardInteractive(event, id, prompts, finish)
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : String(err)
-      console.log('SSH keyboard-interactive error:', errorMessage)
+      logger.warn('SSH keyboard-interactive error', { event: 'ssh.keyboard-interactive.error', connectionId: id, error: errorMessage })
 
       // Only close connection when max retries exceeded, user cancelled, or timeout
       if (errorMessage.includes('Maximum authentication attempts') || errorMessage.includes('cancelled') || errorMessage.includes('timed out')) {
@@ -692,7 +709,7 @@ const handleAttemptConnection = async (event, connectionInfo, resolve, reject, r
     }
     conn.connect(connectConfig) // Attempt to connect
   } catch (err) {
-    console.error('Connection configuration error:', err)
+    logger.error('Connection configuration error', { event: 'ssh.config.error', error: err })
     reject(new Error(`Connection configuration error: ${err}`))
   }
 }
@@ -722,12 +739,12 @@ export const getSftpConnection = (id: string): any => {
   const sftpConnectionInfo = sftpConnections.get(id)
 
   if (!sftpConnectionInfo) {
-    console.log('Sftp connection not found')
+    logger.debug('SFTP connection not found', { event: 'ssh.sftp.notfound', connectionId: id })
     return null
   }
 
   if (!sftpConnectionInfo.isSuccess || !sftpConnectionInfo.sftp) {
-    console.log(`SFTP not available: ${sftpConnectionInfo.error || 'Unknown error'}`)
+    logger.debug('SFTP not available', { event: 'ssh.sftp.unavailable', connectionId: id, error: sftpConnectionInfo.error || 'Unknown error' })
     return null
   }
 
@@ -748,10 +765,21 @@ export const cleanSftpConnection = (id) => {
   }
 }
 
+// download file
+export const activeTasks = new Map<string, { read: any; write: any; localPath?: string; cancel?: () => void }>()
+
 export const registerSSHHandlers = () => {
   // Handle connection
   ipcMain.handle('ssh:connect', async (_event, connectionInfo) => {
     const { sshType } = connectionInfo
+    logger.info('Received SSH connect request', {
+      event: 'ssh.connect.request',
+      connectionId: connectionInfo?.id,
+      sshType: sshType || 'ssh',
+      host: connectionInfo?.host || connectionInfo?.asset_ip,
+      port: connectionInfo?.port || 22,
+      username: connectionInfo?.username
+    })
 
     if (sshType === 'jumpserver') {
       // Route to JumpServer connection
@@ -759,6 +787,11 @@ export const registerSSHHandlers = () => {
         const result = await handleJumpServerConnection(connectionInfo, _event)
         return result
       } catch (error: unknown) {
+        logger.error('JumpServer connection request failed', {
+          event: 'ssh.connect.jumpserver.error',
+          connectionId: connectionInfo?.id,
+          error: error
+        })
         return buildErrorResponse(error)
       }
     }
@@ -837,8 +870,9 @@ export const registerSSHHandlers = () => {
         if (dataStr.includes('[Host]>') && lastCommand && exitCommands.includes(lastCommand)) {
           jumpserverLastCommand.delete(id)
           stream.write('q\r', (err) => {
-            if (err) console.error(`[JumpServer ${id}] Failed to send "q":`, err)
-            else console.log(`[JumpServer ${id}] Sent "q" to terminate session.`)
+            if (err)
+              logger.error('Failed to send quit command to JumpServer', { event: 'jumpserver.quit.error', connectionId: id, error: err.message })
+            else logger.debug('Sent quit command to JumpServer session', { event: 'jumpserver.quit', connectionId: id })
             stream.end()
             const connData = jumpserverConnections.get(id)
             connData?.conn?.end()
@@ -888,7 +922,7 @@ export const registerSSHHandlers = () => {
 
       stream.on('close', () => {
         flushBuffer()
-        console.log(`JumpServer shell stream closed for id=${id}`)
+        logger.debug('JumpServer shell stream closed', { event: 'jumpserver.stream.close', connectionId: id })
         event.sender.send(`ssh:shell:close:${id}`)
         jumpserverShellStreams.delete(id)
       })
@@ -988,7 +1022,7 @@ export const registerSSHHandlers = () => {
 
       stream.on('close', () => {
         flushBuffer()
-        console.log(`Shell stream closed for id=${id} (${method})`)
+        logger.debug('Shell stream closed', { event: 'ssh.stream.close', connectionId: id, method })
         event.sender.send(`ssh:shell:close:${id}`)
         shellStreams.delete(id)
       })
@@ -1002,11 +1036,11 @@ export const registerSSHHandlers = () => {
 
       conn.exec(cmd, { pty: true }, (execErr, execStream) => {
         if (execErr) {
-          console.warn(`[${id}] exec(${cmd}) Failed: ${execErr.message}`)
+          logger.warn('Shell exec fallback failed', { event: 'ssh.exec.failed', connectionId: id, cmd, error: execErr.message })
           return tryExecFallback(rest, resolve, reject)
         }
 
-        console.info(`[${id}] use exec(${cmd}) Successfully started the terminal`)
+        logger.info('Terminal started via exec fallback', { event: 'ssh.exec.success', connectionId: id, cmd })
         handleStream(execStream, 'exec')
         resolve({ status: 'success', message: `The terminal has been started（exec:${cmd}）` })
       })
@@ -1020,11 +1054,11 @@ export const registerSSHHandlers = () => {
 
         conn.shell({ term: termType }, (err, stream) => {
           if (err) {
-            console.warn(`[${id}] shell() start error: ${err.message}`)
+            logger.warn('Shell start error, falling back to exec', { event: 'ssh.shell.error', connectionId: id, error: err.message })
             return tryExecFallback(fallbackExecs, resolve, reject)
           }
 
-          console.info(`[${id}] shell() Successfully started`)
+          logger.info('Shell started successfully', { event: 'ssh.shell.success', connectionId: id })
           handleStream(stream, 'shell')
           resolve({ status: 'success', message: 'Shell has started' })
         })
@@ -1104,7 +1138,7 @@ export const registerSSHHandlers = () => {
           stream.write(data)
         }
       } else {
-        console.warn('Attempting to write to non-existent JumpServer stream:', id)
+        logger.warn('Attempting to write to non-existent JumpServer stream', { event: 'jumpserver.write.notfound', connectionId: id })
       }
       return
     }
@@ -1116,7 +1150,6 @@ export const registerSSHHandlers = () => {
     // Default SSH handling
     const stream = shellStreams.get(id)
     if (stream) {
-      // console.log(`ssh:shell:write (default) raw data: "${data}"`)
       // For default SSH connections, don't detect exit commands, let terminal handle exit naturally
       if (markedCommands.has(id)) {
         markedCommands.delete(id)
@@ -1141,7 +1174,7 @@ export const registerSSHHandlers = () => {
         stream.write(data)
       }
     } else {
-      console.warn('Attempting to write to non-existent stream:', id)
+      logger.warn('Attempting to write to non-existent stream', { event: 'ssh.write.notfound', connectionId: id })
     }
   })
 
@@ -1358,6 +1391,10 @@ export const registerSSHHandlers = () => {
   })
 
   ipcMain.handle('ssh:disconnect', async (_event, { id }) => {
+    logger.info('Received SSH disconnect request', {
+      event: 'ssh.disconnect.start',
+      connectionId: id
+    })
     // Check if it's a JumpServer connection
     if (jumpserverConnections.has(id)) {
       const stream = jumpserverShellStreams.get(id)
@@ -1369,7 +1406,7 @@ export const registerSSHHandlers = () => {
       // Clean up exec stream
       const execStream = jumpserverExecStreams.get(id)
       if (execStream) {
-        console.log(`Cleaning up JumpServer exec stream: ${id}`)
+        logger.debug('Cleaning up JumpServer exec stream', { event: 'jumpserver.exec.cleanup', connectionId: id })
         execStream.end()
         jumpserverExecStreams.delete(id)
       }
@@ -1389,17 +1426,28 @@ export const registerSSHHandlers = () => {
 
         // Only close underlying connection when no other sessions are using it
         if (!isConnStillInUse) {
-          console.log(`[JumpServer] All sessions closed, releasing underlying connection: ${id}`)
+          logger.info('All JumpServer sessions closed, releasing underlying connection', { event: 'jumpserver.disconnect', connectionId: id })
           connToClose.end()
         } else {
-          console.log(`[JumpServer] Session disconnected, but underlying connection still in use by other sessions: ${id}`)
+          logger.debug('JumpServer session disconnected, underlying connection still in use', {
+            event: 'jumpserver.disconnect.partial',
+            connectionId: id
+          })
         }
         cleanSftpConnection(id)
         jumpserverConnections.delete(id)
         jumpserverConnectionStatus.delete(id)
+        logger.info('JumpServer session disconnected', {
+          event: 'ssh.disconnect.jumpserver.success',
+          connectionId: id
+        })
         return { status: 'success', message: 'JumpServer connection disconnected' }
       }
 
+      logger.warn('JumpServer disconnect requested for non-existent connection', {
+        event: 'ssh.disconnect.jumpserver.notfound',
+        connectionId: id
+      })
       return { status: 'warning', message: 'No active JumpServer connection' }
     }
 
@@ -1435,7 +1483,7 @@ export const registerSSHHandlers = () => {
 
         // If no other sessions are using this connection, close connection and clean up pool
         if ((reusableConn as ReusableConnection).sessions.size === 0) {
-          console.log(`[SSH Connection Pool] All sessions closed, releasing connection: ${poolKey}`)
+          logger.info('All SSH pool sessions closed, releasing connection', { event: 'ssh.pool.release', poolKey })
           conn.end()
           sshConnectionPool.delete(poolKey)
         }
@@ -1446,8 +1494,16 @@ export const registerSSHHandlers = () => {
       cleanSftpConnection(id)
       sshConnections.delete(id)
       sftpConnections.delete(id)
+      logger.info('SSH connection disconnected', {
+        event: 'ssh.disconnect.success',
+        connectionId: id
+      })
       return { status: 'success', message: 'Disconnected' }
     }
+    logger.warn('SSH disconnect requested for non-existent connection', {
+      event: 'ssh.disconnect.notfound',
+      connectionId: id
+    })
     return { status: 'warning', message: 'No active connection' }
   })
 
@@ -1507,11 +1563,11 @@ export const registerSSHHandlers = () => {
     const manager = SSHAgentManager.getInstance()
 
     try {
-      const result = await manager.enableAgent(enabled)
-      console.log('SSH Agent enabled:', result.SSH_AUTH_SOCK)
+      await manager.enableAgent(enabled)
+      logger.info('SSH Agent enabled', { event: 'ssh.agent.enabled' })
       return { success: true }
     } catch (error: any) {
-      console.error('Error in agent:enable-and-configure:', error)
+      logger.error('SSH Agent enable failed', { event: 'ssh.agent.error', error: error?.message })
       return { success: false }
     }
   })
@@ -1522,7 +1578,7 @@ export const registerSSHHandlers = () => {
       const keyId = await manager.addKey(keyData, passphrase, comment)
       return { success: true, keyId }
     } catch (error: any) {
-      console.error('Error in agent:add-key:', error)
+      logger.error('SSH Agent add-key failed', { event: 'ssh.agent.addkey.error', error: error?.message })
       return { success: false, error: error.message }
     }
   })
@@ -1532,7 +1588,7 @@ export const registerSSHHandlers = () => {
       const removeStatus = manager.removeKey(keyId)
       return { success: removeStatus }
     } catch (error: any) {
-      console.error('Error in agent:add-key:', error)
+      logger.error('SSH Agent add-key failed', { event: 'ssh.agent.addkey.error', error: error?.message })
       return { success: false, error: error.message }
     }
   })
@@ -1542,7 +1598,7 @@ export const registerSSHHandlers = () => {
       const keyIdMapList = manager.listKeys()
       return { success: true, keys: keyIdMapList }
     } catch (error: any) {
-      console.error('Error in agent:add-key:', error)
+      logger.error('SSH Agent add-key failed', { event: 'ssh.agent.addkey.error', error: error?.message })
       return { success: false, error: error.message }
     }
   })
@@ -1590,7 +1646,7 @@ export const registerSSHHandlers = () => {
       activeStreams.set(streamId, stream)
       return streamId
     } catch (err) {
-      console.error('Failed to open stream:', err)
+      logger.error('Failed to open zmodem stream', { event: 'ssh.zmodem.error', error: err })
       return null
     }
   })

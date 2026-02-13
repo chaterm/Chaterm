@@ -21,6 +21,8 @@
       "@shared/*": ["src/main/agent/shared/*"],
       "@storage/*": ["src/main/storage/*"],
       "@core/*": ["src/main/agent/core/*"],
+      "@logging": ["src/main/services/logging/index.ts"],
+      "@logging/*": ["src/main/services/logging/*"]
     }
   }
 }

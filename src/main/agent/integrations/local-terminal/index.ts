@@ -3,6 +3,7 @@ import * as os from 'os'
 import * as path from 'path'
 import * as fs from 'fs'
 import EventEmitter from 'events'
+const logger = createLogger('agent')
 
 export interface LocalTerminalInfo {
   id: number
@@ -330,7 +331,7 @@ export class LocalTerminalManager {
 
     // Handle process error
     childProcess.on('error', (error: Error) => {
-      console.error(`[LocalTerminal ${terminal.id}] Command error:`, error)
+      logger.error(`[LocalTerminal ${terminal.id}] Command error`, { error: error })
       commandProcess.emit('error', error)
     })
 

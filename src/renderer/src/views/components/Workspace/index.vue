@@ -423,6 +423,8 @@
 
 <script setup lang="ts">
 import { deepClone } from '@/utils/util'
+
+const logger = createRendererLogger('workspace')
 import { ref, computed, onMounted, onUnmounted, nextTick } from 'vue'
 import {
   StarFilled,
@@ -540,7 +542,7 @@ const handleExpandChange = async (expandedKeys: any[]) => {
       workspaceExpandedKeys: expandedKeys.map((key) => String(key))
     })
   } catch (error) {
-    console.error('Failed to save workspace expanded keys:', error)
+    logger.error('Failed to save workspace expanded keys', { error: error })
   }
 }
 
@@ -561,7 +563,7 @@ const loadSavedExpandState = async () => {
       showIpMode.value = config.workspaceShowIpMode
     }
   } catch (error) {
-    console.error('Failed to load saved expand state:', error)
+    logger.error('Failed to load saved expand state', { error: error })
   }
 }
 
@@ -583,12 +585,12 @@ const isPersonalWorkspace = computed(() => {
 const handleFavoriteClick = (dataRef: any) => {
   // Check if necessary fields exist
   if (!dataRef) {
-    console.error('dataRef is empty')
+    logger.error('dataRef is empty')
     return
   }
 
   if (dataRef.favorite === undefined) {
-    console.error('dataRef.favorite is undefined')
+    logger.error('dataRef.favorite is undefined')
     return
   }
 
@@ -612,7 +614,7 @@ const getLocalAssetMenu = () => {
         }, 200)
       }
     })
-    .catch((err) => console.error(err))
+    .catch((err) => logger.error('Failed to get local asset menu', { error: err }))
 }
 
 const getUserAssetMenu = () => {
@@ -628,7 +630,7 @@ const getUserAssetMenu = () => {
         }, 200)
       }
     })
-    .catch((err) => console.error(err))
+    .catch((err) => logger.error('Failed to get user asset menu', { error: err }))
 }
 
 const expandDefaultNodes = async () => {
@@ -774,40 +776,40 @@ const getOriginalChildrenCount = (dataRef: any): number => {
 
 const toggleFavorite = (dataRef: any): void => {
   if (isPersonalWorkspace.value) {
-    console.log('Executing personal asset favorite logic')
+    logger.debug('Executing personal asset favorite logic')
     window.api
       .updateLocalAsseFavorite({ uuid: dataRef.uuid, status: dataRef.favorite ? 2 : 1 })
       .then((res) => {
-        console.log('Personal asset favorite response:', res)
+        logger.debug('Personal asset favorite response', { result: String(res) })
         if (res.data.message === 'success') {
           dataRef.favorite = !dataRef.favorite
           getLocalAssetMenu()
         }
       })
-      .catch((err) => console.error(t('common.personalAssetFavoriteError'), err))
+      .catch((err) => logger.error('Personal asset favorite error', { error: err }))
   } else {
-    console.log('Executing organization asset favorite logic')
+    logger.debug('Executing organization asset favorite logic')
     if (isOrganizationAsset(dataRef.asset_type) && !dataRef.organizationId) {
-      console.log('Updating organization itself favorite status')
+      logger.debug('Updating organization itself favorite status')
       window.api
         .updateLocalAsseFavorite({ uuid: dataRef.uuid, status: dataRef.favorite ? 2 : 1 })
         .then((res) => {
-          console.log('Organization itself favorite response:', res)
+          logger.debug('Organization itself favorite response', { result: String(res) })
           if (res.data.message === 'success') {
             dataRef.favorite = !dataRef.favorite
             getUserAssetMenu()
           }
         })
-        .catch((err) => console.error(t('common.organizationAssetFavoriteError'), err))
+        .catch((err) => logger.error('Organization asset favorite error', { error: err }))
     } else {
-      console.log('Updating organization sub-asset favorite status:', {
+      logger.debug('Updating organization sub-asset favorite status', {
         organizationUuid: dataRef.organizationId,
         host: dataRef.ip,
         status: dataRef.favorite ? 2 : 1
       })
 
       if (!window.api.updateOrganizationAssetFavorite) {
-        console.error(t('common.updateOrganizationAssetFavoriteMethodNotFound'))
+        logger.error('updateOrganizationAssetFavorite method not found')
         return
       }
 
@@ -818,21 +820,21 @@ const toggleFavorite = (dataRef: any): void => {
           status: dataRef.favorite ? 2 : 1
         })
         .then((res) => {
-          console.log('updateOrganizationAssetFavorite response:', res)
+          logger.debug('updateOrganizationAssetFavorite response', { result: String(res) })
           if (res && res.data && res.data.message === 'success') {
-            console.log('Favorite status updated successfully, refreshing menu')
+            logger.debug('Favorite status updated successfully, refreshing menu')
             dataRef.favorite = !dataRef.favorite
             getUserAssetMenu()
           } else {
-            console.error(t('common.favoriteStatusUpdateFailed'), res)
+            logger.error('Favorite status update failed', { result: String(res) })
           }
         })
         .catch((err) => {
-          console.error(t('common.updateOrganizationAssetFavoriteError'), err)
+          logger.error('Update organization asset favorite error', { error: err })
         })
     }
   }
-  console.log('=== toggleFavorite end ===')
+  logger.debug('toggleFavorite end')
 }
 
 const clickServer = (item) => {
@@ -853,7 +855,7 @@ const toggleDisplayMode = async () => {
       workspaceShowIpMode: showIpMode.value
     })
   } catch (error) {
-    console.error('Failed to save display mode preference:', error)
+    logger.error('Failed to save display mode preference', { error: error })
   }
 }
 
@@ -892,7 +894,7 @@ const handleDblClick = (dataRef: any) => {
 }
 
 const handleRefresh = async (dataRef: any) => {
-  console.log('Refreshing organization asset node:', dataRef)
+  logger.debug('Refreshing organization asset node', { key: dataRef.key })
   refreshingNode.value = dataRef.key
 
   try {
@@ -900,7 +902,7 @@ const handleRefresh = async (dataRef: any) => {
       getUserAssetMenu()
     })
   } catch (error) {
-    console.error(t('common.refreshFailed'), error)
+    logger.error('Refresh failed', { error: error })
     getUserAssetMenu()
   } finally {
     setTimeout(() => {
@@ -917,7 +919,7 @@ const handleCommentClick = (dataRef: any) => {
 const saveComment = async (dataRef: any) => {
   try {
     if (!window.api.updateOrganizationAssetComment) {
-      console.error('window.api.updateOrganizationAssetComment method does not exist!')
+      logger.error('updateOrganizationAssetComment method does not exist')
       return
     }
 
@@ -934,10 +936,10 @@ const saveComment = async (dataRef: any) => {
       // Refresh menu to show updates
       getUserAssetMenu()
     } else {
-      console.error('Comment save failed:', result)
+      logger.error('Comment save failed', { result: String(result) })
     }
   } catch (error) {
-    console.error('Save comment error:', error)
+    logger.error('Save comment error', { error: error })
   }
 }
 
@@ -953,7 +955,7 @@ const loadCustomFolders = async () => {
       customFolders.value = result.data.folders || []
     }
   } catch (error) {
-    console.error('Failed to load custom folders:', error)
+    logger.error('Failed to load custom folders', { error: error })
   }
 }
 
@@ -979,7 +981,7 @@ const handleCreateFolder = async () => {
       message.error(t('personal.folderCreateFailed'))
     }
   } catch (error) {
-    console.error('Failed to create folder:', error)
+    logger.error('Failed to create folder', { error: error })
     message.error(t('personal.folderCreateFailed'))
   }
 }
@@ -1016,7 +1018,7 @@ const handleUpdateFolder = async () => {
       message.error(t('personal.folderUpdateFailed'))
     }
   } catch (error) {
-    console.error('Failed to update folder:', error)
+    logger.error('Failed to update folder', { error: error })
     message.error(t('personal.folderUpdateFailed'))
   }
 }
@@ -1045,7 +1047,7 @@ const handleDeleteFolder = (dataRef: any) => {
           message.error(t('personal.folderDeleteFailed'))
         }
       } catch (error) {
-        console.error('Failed to delete folder:', error)
+        logger.error('Failed to delete folder', { error: error })
         message.error(t('personal.folderDeleteFailed'))
       }
     }
@@ -1076,7 +1078,7 @@ const handleMoveAssetToFolder = async (folderUuid: string) => {
       message.error(t('personal.assetMoveFailed'))
     }
   } catch (error) {
-    console.error('Failed to move asset:', error)
+    logger.error('Failed to move asset', { error: error })
     message.error(t('personal.assetMoveFailed'))
   }
 }
@@ -1096,7 +1098,7 @@ const handleRemoveFromFolder = async (dataRef: any) => {
       message.error(t('personal.assetRemoveFailed'))
     }
   } catch (error) {
-    console.error('Failed to remove asset from folder:', error)
+    logger.error('Failed to remove asset from folder', { error: error })
     message.error(t('personal.assetRemoveFailed'))
   }
 }
@@ -1277,7 +1279,7 @@ onMounted(() => {
   eventBus.on('LocalAssetMenu', refreshAssetMenu)
   // Listen for language change event, reload asset data
   eventBus.on('languageChanged', () => {
-    console.log('Language changed, refreshing asset menu...')
+    logger.info('Language changed, refreshing asset menu')
     refreshAssetMenu()
   })
   // Listen for host search focus event

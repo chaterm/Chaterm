@@ -91,6 +91,7 @@ import { message, Modal } from 'ant-design-vue'
 import i18n from '@/locales'
 
 const { t } = i18n.global
+const logger = createRendererLogger('config.assetSearch')
 
 interface Props {
   modelValue?: string
@@ -185,7 +186,7 @@ const handleFileSelect = (event: Event) => {
           message.error(t('personal.importFormatError'))
         }
       } catch (error) {
-        console.error('Import file parsing error:', error)
+        logger.error('Import file parsing error', { error: error })
         message.error(t('personal.importError'))
       }
     }

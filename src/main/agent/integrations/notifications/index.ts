@@ -6,6 +6,7 @@
 
 import { execa } from 'execa'
 import { platform } from 'os'
+const logger = createLogger('agent')
 
 interface NotificationOptions {
   title?: string
@@ -98,6 +99,6 @@ export async function showSystemNotification(options: NotificationOptions): Prom
         throw new Error('Unsupported platform')
     }
   } catch (error) {
-    console.error('Could not show system notification', error)
+    logger.error('Could not show system notification', { error: error })
   }
 }

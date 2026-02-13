@@ -6,6 +6,7 @@
  */
 
 import type { EventEmitter } from 'events'
+const logger = createLogger('remote-terminal')
 
 /**
  * Stream interface for marker-based command execution
@@ -167,7 +168,7 @@ export function runMarkerBasedCommand(config: MarkerRunnerConfig): Promise<Marke
 
       // Filter command echo
       if (!commandStarted && !commandEchoFiltered && shouldFilterEcho(line)) {
-        console.log(`[${logPrefix}] Filtering command echo: ${cleanLine.substring(0, 100)}...`)
+        logger.debug('Filtering command echo', { event: 'remote-terminal.marker.echo.filter', logPrefix })
         return
       }
 
@@ -175,24 +176,24 @@ export function runMarkerBasedCommand(config: MarkerRunnerConfig): Promise<Marke
       if (cleanLine.includes(startMarker)) {
         commandStarted = true
         commandEchoFiltered = true
-        console.log(`[${logPrefix}] Detected command start marker`)
+        logger.debug('Detected command start marker', { event: 'remote-terminal.marker.start', logPrefix })
         return
       }
 
       // Detect command end marker
       if (cleanLine.includes(endMarker)) {
         if (!commandStarted) {
-          console.log(`[${logPrefix}] Detected end marker before start marker (likely command echo), skipping`)
+          logger.debug('Detected end marker before start marker, skipping', { event: 'remote-terminal.marker.end.early', logPrefix })
           return
         }
-        console.log(`[${logPrefix}] Detected command end marker: ${cleanLine}`)
+        logger.debug('Detected command end marker', { event: 'remote-terminal.marker.end', logPrefix })
 
         // Extract exit code
         const escapedEndMarker = endMarker.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
         const match = cleanLine.match(new RegExp(`${escapedEndMarker}:(\\d+)`))
         if (match?.[1]) {
           exitCode = parseInt(match[1], 10)
-          console.log(`[${logPrefix}] Command exit code: ${exitCode}`)
+          logger.debug('Command exit code extracted', { event: 'remote-terminal.marker.exitcode', logPrefix, exitCode })
         }
 
         // Send remaining buffer content before completing
@@ -242,11 +243,11 @@ export function runMarkerBasedCommand(config: MarkerRunnerConfig): Promise<Marke
       // Check if line buffer contains markers (handles cases where marker
       // arrives without trailing newline or is split across chunks)
       if (lineBuffer.includes(endMarker)) {
-        console.log(`[${logPrefix}] Detected end marker in buffer`)
+        logger.debug('Detected end marker in buffer', { event: 'remote-terminal.marker.end.buffer', logPrefix })
         processLine(lineBuffer)
         lineBuffer = ''
       } else if (!commandStarted && lineBuffer.includes(startMarker)) {
-        console.log(`[${logPrefix}] Detected start marker in buffer`)
+        logger.debug('Detected start marker in buffer', { event: 'remote-terminal.marker.start.buffer', logPrefix })
         processLine(lineBuffer)
         lineBuffer = ''
       }
@@ -261,13 +262,13 @@ export function runMarkerBasedCommand(config: MarkerRunnerConfig): Promise<Marke
     stream.on('data', dataHandler)
 
     // Send command
-    console.log(`[${logPrefix}] Sending wrapped command`)
+    logger.debug('Sending wrapped command', { event: 'remote-terminal.marker.command.send', logPrefix })
     stream.write(`${wrappedCommand}\r`)
 
     // Set up timeout
     commandTimeout = setTimeout(() => {
       if (!commandCompleted) {
-        console.log(`[${logPrefix}] Command execution timeout, forcing completion`)
+        logger.warn('Command execution timeout, forcing completion', { event: 'remote-terminal.marker.timeout', logPrefix, timeoutMs })
 
         if (onTimeout) {
           onTimeout()

@@ -12,6 +12,7 @@ import piniaPluginPersistedstate from 'pinia-plugin-persistedstate'
 import { notification } from 'ant-design-vue'
 import { shortcutService } from './services/shortcutService'
 import { APP_EDITION } from './utils/edition'
+import { createRendererLogger } from './utils/logger'
 import { useEditorConfigStore } from './stores/editorConfig'
 
 // Set document title based on edition
@@ -41,6 +42,12 @@ app.use(pinia)
 // Context menu
 app.use(contextmenu)
 
+// Vue warning handler - route Vue warnings to unified logger
+const vueLogger = createRendererLogger('vue')
+app.config.warnHandler = (msg, _instance, trace) => {
+  vueLogger.warn(msg, { trace })
+}
+
 // Expose storage API to global window object for main process calls
 declare global {
   interface Window {
@@ -56,7 +63,7 @@ const initializeEditorConfig = async () => {
     const editorConfigStore = useEditorConfigStore()
     await editorConfigStore.loadConfig()
   } catch (error) {
-    console.error('Failed to initialize editor config:', error)
+    vueLogger.error('Failed to initialize editor config:', { error })
   }
 }
 

@@ -1,3 +1,5 @@
+const logger = createRendererLogger('service.securityConfig')
+
 export class SecurityConfigService {
   private configPath: string | null = null
 
@@ -20,7 +22,7 @@ export class SecurityConfigService {
       const content = await window.api.readSecurityConfig()
 
       if (!content || content.trim() === '') {
-        console.warn('Security config file is empty or does not exist')
+        logger.warn('Security config file is empty or does not exist')
         // Return default JSON structure
         return JSON.stringify(
           {
@@ -49,7 +51,7 @@ export class SecurityConfigService {
 
       // If content is empty or invalid after removing comments, try returning original content
       if (!cleaned || cleaned.trim() === '') {
-        console.warn('After removing comments, content is empty, returning original')
+        logger.warn('After removing comments, content is empty, returning original')
         return content
       }
 
@@ -59,11 +61,11 @@ export class SecurityConfigService {
         return cleaned
       } catch {
         // JSON is invalid, return original content (user may need to manually fix)
-        console.warn('Cleaned content is not valid JSON, returning original')
+        logger.warn('Cleaned content is not valid JSON, returning original')
         return content
       }
     } catch (error) {
-      console.error('Failed to read security config:', error)
+      logger.error('Failed to read security config', { error: error })
       throw error
     }
   }

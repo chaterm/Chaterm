@@ -61,6 +61,9 @@ import { setupInteractionIpcHandlers } from './agent/services/interaction-detect
 import type { WebviewMessage } from '@shared/WebviewMessage'
 import type { SkillMetadata } from '@shared/skills'
 import { registerFileSystemHandlers } from './ssh/sftpTransfer'
+import { initLogging, logRendererCrash } from '@logging'
+
+const logger = createLogger('main')
 
 let mainWindow: BrowserWindow
 let COOKIE_URL = 'http://localhost'
@@ -77,6 +80,9 @@ let dataSyncController: DataSyncController | null = null
 let winReadyResolve
 let winReady = new Promise((resolve) => (winReadyResolve = resolve))
 
+// Initialize unified logging system before app is ready
+initLogging()
+
 async function createWindow(): Promise<void> {
   mainWindow = await createMainWindow(
     (url: string) => {
@@ -85,6 +91,15 @@ async function createWindow(): Promise<void> {
     () => !forceQuit
   )
   setMainWindowWebContents(mainWindow.webContents)
+
+  // Monitor renderer process crashes for audit logging
+  mainWindow.webContents.on('render-process-gone', (_event, details) => {
+    logRendererCrash({
+      webContentsId: mainWindow.webContents.id,
+      reason: details.reason,
+      exitCode: details.exitCode
+    })
+  })
 }
 
 // Send request to renderer process and wait for response
@@ -117,7 +132,7 @@ export async function getUserConfigFromRenderer(): Promise<any> {
     ipcMain.on('userConfig:get-response', responseHandler)
     ipcMain.on('userConfig:get-error', errorHandler)
 
-    console.log('Main process sending userConfig:get to renderer process')
+    logger.info('Main process sending userConfig:get to renderer process')
     wc.send('userConfig:get')
   })
 }
@@ -131,12 +146,12 @@ app.whenReady().then(async () => {
       const KNOWN_HASH = '2E76D5300D01FEF3337AB96C748DE3E05669EFD1F5AFFBBEBFA41D45F217CAE5'
 
       if (fsSync.existsSync(ffmpegPath)) {
-        console.log('[Security] Verifying ffmpeg.dll integrity...')
+        logger.info('[Security] Verifying ffmpeg.dll integrity...')
         const buffer = fsSync.readFileSync(ffmpegPath)
         const hash = crypto.createHash('sha256').update(buffer).digest('hex').toUpperCase()
 
         if (hash !== KNOWN_HASH) {
-          console.error(`[Security] CRITICAL: ffmpeg.dll hash mismatch! Expected: ${KNOWN_HASH}, Actual: ${hash}`)
+          logger.error(`[Security] CRITICAL: ffmpeg.dll hash mismatch! Expected: ${KNOWN_HASH}, Actual: ${hash}`)
           const { dialog } = require('electron')
           dialog.showErrorBox(
             'Security Error',
@@ -145,12 +160,12 @@ app.whenReady().then(async () => {
           app.quit()
           process.exit(1) // Force exit
         }
-        console.log('[Security] ffmpeg.dll integrity verified.')
+        logger.info('[Security] ffmpeg.dll integrity verified.')
       } else {
-        console.warn('[Security] ffmpeg.dll not found for verification.')
+        logger.warn('[Security] ffmpeg.dll not found for verification.')
       }
     } catch (error) {
-      console.error('[Security] Failed to verify ffmpeg.dll:', error)
+      logger.error('[Security] Failed to verify ffmpeg.dll', { error: error })
     }
   }
   // Set edition-specific AppUserModelId for Windows taskbar grouping and process identification
@@ -180,7 +195,7 @@ app.whenReady().then(async () => {
       const fileUrl = pathToFileURL(filePath).toString()
       return net.fetch(fileUrl)
     } catch (error) {
-      console.error('Error in local-resource handler:', error)
+      logger.error('Error in local-resource handler', { error: error })
       return new Response('File Not Found', { status: 404 })
     }
   })
@@ -228,7 +243,7 @@ app.whenReady().then(async () => {
   app.on('browser-window-created', (_, _window) => {})
 
   // IPC test
-  ipcMain.on('ping', () => console.log('pong'))
+  ipcMain.on('ping', () => logger.info('pong'))
   setupIPC()
   await createWindow()
   winReadyResolve()
@@ -314,7 +329,7 @@ app.whenReady().then(async () => {
 
     controller = new Controller(messageSender, ensureMcpConfigFileExists)
   } catch (error) {
-    console.error('Failed to initialize Controller:', error)
+    logger.error('Failed to initialize Controller', { error: error })
   }
 
   // Initialize security configuration on startup
@@ -325,9 +340,9 @@ app.whenReady().then(async () => {
 
     // Ensure security config file exists on startup
     await securityManager.loadConfig()
-    console.log('Security configuration initialized successfully')
+    logger.info('Security configuration initialized successfully')
   } catch (error) {
-    console.error('Failed to initialize security configuration:', error)
+    logger.error('Failed to initialize security configuration', { error: error })
   }
 
   // Function to initialize telemetry setting
@@ -356,15 +371,15 @@ app.whenReady().then(async () => {
   if (mainWindow && mainWindow.webContents) {
     if (mainWindow.webContents.isLoading()) {
       mainWindow.webContents.once('did-finish-load', () => {
-        console.log('[Main Index] Main window finished loading. Calling testRendererStorageFromMain.')
+        logger.info('[Main Index] Main window finished loading. Calling testRendererStorageFromMain.')
         testRendererStorageFromMain()
       })
     } else {
-      console.log('[Main Index] Main window already loaded. Calling testRendererStorageFromMain directly.')
+      logger.info('[Main Index] Main window already loaded. Calling testRendererStorageFromMain directly.')
       testRendererStorageFromMain()
     }
   } else {
-    console.warn('[Main Index] mainWindow or webContents not available when trying to schedule testRendererStorageFromMain.')
+    logger.warn('[Main Index] mainWindow or webContents not available when trying to schedule testRendererStorageFromMain.')
   }
 
   mainWindow.webContents.on('will-navigate', (event, url) => {
@@ -392,22 +407,22 @@ app.on('window-all-closed', () => {
 // Add the before-quit event listener here or towards the end of the file
 app.on('before-quit', async () => {
   forceQuit = true
-  console.log('Application is about to quit. Disposing resources...')
+  logger.info('Application is about to quit. Disposing resources...')
   if (controller) {
     try {
       await controller.dispose()
-      console.log('Controller disposed successfully.')
+      logger.info('Controller disposed successfully.')
     } catch (error) {
-      console.error('Error during controller disposal:', error)
+      logger.error('Error during controller disposal', { error: error })
     }
   }
   if (dataSyncController) {
     try {
       await dataSyncController.destroy()
       dataSyncController = null
-      console.log('Data sync controller disposed successfully.')
+      logger.info('Data sync controller disposed successfully.')
     } catch (error) {
-      console.error('Error during data sync controller disposal:', error)
+      logger.error('Error during data sync controller disposal', { error: error })
     }
   }
 })
@@ -450,7 +465,7 @@ export async function ensureMcpConfigFileExists(): Promise<string> {
           mcpServers: {}
         }
         await fs.writeFile(configPath, JSON.stringify(defaultConfig, null, 2), 'utf-8')
-        console.log('[MCP] Created default configuration file at:', configPath)
+        logger.info('[MCP] Created default configuration file at', { value: configPath })
       } else {
         throw error
       }
@@ -458,7 +473,7 @@ export async function ensureMcpConfigFileExists(): Promise<string> {
 
     return configPath
   } catch (error) {
-    console.error('[MCP] Failed to ensure config file exists:', error)
+    logger.error('[MCP] Failed to ensure config file exists', { error: error })
     throw error
   }
 }
@@ -476,7 +491,7 @@ ipcMain.handle('mcp:get-servers', async () => {
     }
     return []
   } catch (error) {
-    console.error('Failed to get MCP servers:', error)
+    logger.error('Failed to get MCP servers', { error: error })
     return []
   }
 })
@@ -490,7 +505,7 @@ ipcMain.handle('toggle-mcp-server', async (_event, serverName: string, disabled:
       throw new Error('Controller or McpHub not initialized')
     }
   } catch (error) {
-    console.error('Failed to toggle MCP server:', error)
+    logger.error('Failed to toggle MCP server', { error: error })
     throw error
   }
 })
@@ -504,7 +519,7 @@ ipcMain.handle('delete-mcp-server', async (_event, serverName: string) => {
       throw new Error('Controller or McpHub not initialized')
     }
   } catch (error) {
-    console.error('Failed to delete MCP server:', error)
+    logger.error('Failed to delete MCP server', { error: error })
     throw error
   }
 })
@@ -515,7 +530,7 @@ ipcMain.handle('mcp:get-tool-state', async (_event, serverName: string, toolName
     const dbService = await ChatermDatabaseService.getInstance()
     return dbService.getMcpToolState(serverName, toolName)
   } catch (error) {
-    console.error('Failed to get MCP tool state:', error)
+    logger.error('Failed to get MCP tool state', { error: error })
     throw error
   }
 })
@@ -525,7 +540,7 @@ ipcMain.handle('mcp:set-tool-state', async (_event, serverName: string, toolName
     const dbService = await ChatermDatabaseService.getInstance()
     dbService.setMcpToolState(serverName, toolName, enabled)
   } catch (error) {
-    console.error('Failed to set MCP tool state:', error)
+    logger.error('Failed to set MCP tool state', { error: error })
     throw error
   }
 })
@@ -538,7 +553,7 @@ ipcMain.handle('mcp:set-tool-auto-approve', async (_event, serverName: string, t
       throw new Error('Controller or McpHub not initialized')
     }
   } catch (error) {
-    console.error('Failed to set MCP tool auto-approve:', error)
+    logger.error('Failed to set MCP tool auto-approve', { error: error })
     throw error
   }
 })
@@ -548,7 +563,7 @@ ipcMain.handle('mcp:get-all-tool-states', async () => {
     const dbService = await ChatermDatabaseService.getInstance()
     return dbService.getAllMcpToolStates()
   } catch (error) {
-    console.error('Failed to get all MCP tool states:', error)
+    logger.error('Failed to get all MCP tool states', { error: error })
     throw error
   }
 })
@@ -567,7 +582,7 @@ ipcMain.handle('skills:get-all', async () => {
     }
     return []
   } catch (error) {
-    console.error('Failed to get skills:', error)
+    logger.error('Failed to get skills', { error: error })
     throw error
   }
 })
@@ -583,7 +598,7 @@ ipcMain.handle('skills:get-enabled', async () => {
     }
     return []
   } catch (error) {
-    console.error('Failed to get enabled skills:', error)
+    logger.error('Failed to get enabled skills', { error: error })
     throw error
   }
 })
@@ -594,7 +609,7 @@ ipcMain.handle('skills:set-enabled', async (_event, skillName: string, enabled: 
       await controller.skillsManager.setSkillEnabled(skillName, enabled)
     }
   } catch (error) {
-    console.error('Failed to set skill enabled state:', error)
+    logger.error('Failed to set skill enabled state', { error: error })
     throw error
   }
 })
@@ -606,7 +621,7 @@ ipcMain.handle('skills:get-user-path', async () => {
     }
     return path.join(getUserDataPath(), 'skills')
   } catch (error) {
-    console.error('Failed to get user skills path:', error)
+    logger.error('Failed to get user skills path', { error: error })
     throw error
   }
 })
@@ -617,7 +632,7 @@ ipcMain.handle('skills:reload', async () => {
       await controller.skillsManager.loadAllSkills()
     }
   } catch (error) {
-    console.error('Failed to reload skills:', error)
+    logger.error('Failed to reload skills', { error: error })
     throw error
   }
 })
@@ -635,7 +650,7 @@ ipcMain.handle('skills:create', async (_event, metadata: SkillMetadata, content:
     }
     throw new Error('Skills manager not initialized')
   } catch (error) {
-    console.error('Failed to create skill:', error)
+    logger.error('Failed to create skill', { error: error })
     throw error
   }
 })
@@ -646,7 +661,7 @@ ipcMain.handle('skills:delete', async (_event, skillId: string) => {
       await controller.skillsManager.deleteUserSkill(skillId)
     }
   } catch (error) {
-    console.error('Failed to delete skill:', error)
+    logger.error('Failed to delete skill', { error: error })
     throw error
   }
 })
@@ -657,7 +672,7 @@ ipcMain.handle('skills:open-folder', async () => {
     await fs.mkdir(skillsPath, { recursive: true })
     shell.openPath(skillsPath)
   } catch (error) {
-    console.error('Failed to open skills folder:', error)
+    logger.error('Failed to open skills folder', { error: error })
     throw error
   }
 })
@@ -669,7 +684,7 @@ ipcMain.handle('skills:import-zip', async (_event, zipPath: string, overwrite?: 
     }
     throw new Error('Skills manager not initialized')
   } catch (error) {
-    console.error('Failed to import skill from ZIP:', error)
+    logger.error('Failed to import skill from ZIP', { error: error })
     throw error
   }
 })
@@ -682,7 +697,7 @@ const getAllCookies = async () => {
     const cookies = await session.defaultSession.cookies.get({ url: COOKIE_URL })
     return { success: true, cookies }
   } catch (error) {
-    // console.error('readAll Cookie failed:', error)
+    // logger.error('readAll Cookie failed', { error: error })
     return { success: false, error }
   }
 }
@@ -690,10 +705,10 @@ const getAllCookies = async () => {
 const removeCookie = async (name) => {
   try {
     await session.defaultSession.cookies.remove(COOKIE_URL, name)
-    // console.log(`removeSuccess Cookie: ${name} (${COOKIE_URL})`)
+    // logger.info(`removeSuccess Cookie: ${name} (${COOKIE_URL})`)
     return { success: true }
   } catch (error) {
-    // console.error(`removeFailed Cookie  (${COOKIE_URL}, ${name}):`, error)
+    // logger.error(`removeFailed Cookie  (${COOKIE_URL}, ${name})`, { error: error })
     return { success: false, error }
   }
 }
@@ -714,7 +729,7 @@ ipcMain.handle('set-cookie', async (_, name, value, expirationDays) => {
     await session.defaultSession.cookies.set(cookie)
     return { success: true }
   } catch (error) {
-    // console.error('Cookie set failed:', error)
+    // logger.error('Cookie set failed', { error: error })
     return { success: false, error }
   }
 })
@@ -765,7 +780,7 @@ ipcMain.handle('saveCustomBackground', async (_, sourcePath: string) => {
 
     return { success: true, path: targetPath, fileName, url: fileUrl }
   } catch (error) {
-    console.error('Failed to save custom background:', error)
+    logger.error('Failed to save custom background', { error: error })
     return { success: false, error: error instanceof Error ? error.message : String(error) }
   }
 })
@@ -796,7 +811,7 @@ function createBrowserWindow(url: string): void {
 
   // Listen for URL changes
   browserWindow.webContents.on('did-navigate', (_, url) => {
-    console.log('New window navigated to:', url)
+    logger.info('New window navigated to', { value: url })
     if (mainWindow && !mainWindow.isDestroyed()) {
       mainWindow.webContents.send('url-changed', url)
     }
@@ -861,21 +876,21 @@ function setupIPC(): void {
         // Get user authentication info and set it to encryption service
         const ctmToken = await event.sender.executeJavaScript("localStorage.getItem('ctm-token')")
         if (ctmToken && ctmToken !== 'guest_token') {
-          console.log(`Setting authentication info for user ${targetUserId}...`)
+          logger.info(`Setting authentication info for user ${targetUserId}...`)
           envelopeEncryptionService.setAuthInfo(ctmToken, targetUserId.toString())
-          console.log(`Authentication info set completed for user ${targetUserId}`)
+          logger.info(`Authentication info set completed for user ${targetUserId}`)
         } else {
-          console.warn(`No valid authentication token found for user ${targetUserId}`)
+          logger.warn(`No valid authentication token found for user ${targetUserId}`)
         }
 
         // User switch completed, data sync will be re-initialized by renderer process
         if (isUserSwitch) {
-          console.log(`User switch detected: ${previousUserId} -> ${targetUserId}, data sync will be handled by renderer process`)
+          logger.info(`User switch detected: ${previousUserId} -> ${targetUserId}, data sync will be handled by renderer process`)
         }
       } catch (error) {
-        console.warn('Exception setting authentication info:', error)
+        logger.warn('Exception setting authentication info', { value: error })
         if (isUserSwitch) {
-          console.log(`Authentication info setting failed, user switch: ${previousUserId} -> ${targetUserId}`)
+          logger.info(`Authentication info setting failed, user switch: ${previousUserId} -> ${targetUserId}`)
         }
       }
 
@@ -884,7 +899,7 @@ function setupIPC(): void {
         try {
           await controller.skillsManager.reloadSkillStates()
         } catch (error) {
-          console.warn('Failed to reload skill states after login:', error)
+          logger.warn('Failed to reload skill states after login', { value: error })
         }
       }
 
@@ -892,12 +907,12 @@ function setupIPC(): void {
       try {
         await loadAllPlugins()
       } catch (error) {
-        console.warn('Failed to reload plugins after login:', error)
+        logger.warn('Failed to reload plugins after login', { value: error })
       }
 
       return { success: true, theme: dbTheme }
     } catch (error) {
-      console.error('Database initialization failed:', error)
+      logger.error('Database initialization failed', { error: error })
       return { success: false, error: error instanceof Error ? error.message : 'Unknown error occurred' }
     }
   })
@@ -920,7 +935,7 @@ function setupIPC(): void {
         return db.getAllMigrationStatus()
       }
     } catch (error) {
-      console.error('db:migration:status error:', error)
+      logger.error('db:migration:status error', { error: error })
       throw error
     }
   })
@@ -961,7 +976,7 @@ function setupIPC(): void {
           throw new Error('Invalid action')
       }
     } catch (error) {
-      console.error('db:aliases:query error:', error)
+      logger.error('db:aliases:query error', { error: error })
       throw error
     }
   })
@@ -998,7 +1013,7 @@ function setupIPC(): void {
           throw new Error('Invalid action')
       }
     } catch (error) {
-      console.error('db:aliases:mutate error:', error)
+      logger.error('db:aliases:mutate error', { error: error })
       throw error
     }
   })
@@ -1027,7 +1042,7 @@ function setupIPC(): void {
         return db.getAllKeys()
       }
     } catch (error) {
-      console.error('db:kv:get error:', error)
+      logger.error('db:kv:get error', { error: error })
       throw error
     }
   })
@@ -1078,7 +1093,7 @@ function setupIPC(): void {
           throw new Error('Invalid action')
       }
     } catch (error) {
-      console.error('db:kv:mutate error:', error)
+      logger.error('db:kv:mutate error', { error: error })
       throw error
     }
   })
@@ -1101,7 +1116,8 @@ function setupIPC(): void {
           throw new Error(`Unknown version operation: ${operation}`)
       }
     } catch (error) {
-      console.error('version:operation error:', error)
+      logger.error(`version:operation [${operation}] error`, { error: error })
+
       throw error
     }
   })
@@ -1121,7 +1137,7 @@ function setupIPC(): void {
         throw error
       }
     } catch (error) {
-      console.error('Failed to get editor config:', error)
+      logger.error('Failed to get editor config:', { error: error })
       throw error
     }
   })
@@ -1139,7 +1155,7 @@ function setupIPC(): void {
 
       return { success: true }
     } catch (error) {
-      console.error('Failed to save editor config:', error)
+      logger.error('Failed to save editor config:', { error: error })
       throw error
     }
   })
@@ -1200,7 +1216,7 @@ function setupIPC(): void {
   })
 
   ipcMain.handle('cancel-task', async (_event, payload?: { tabId?: string }) => {
-    console.log('cancel-task', payload)
+    logger.info('cancel-task', { value: payload })
     if (controller) {
       return await controller.cancelTask(payload?.tabId)
     }
@@ -1208,7 +1224,7 @@ function setupIPC(): void {
   })
 
   ipcMain.handle('graceful-cancel-task', async (_event, payload?: { tabId?: string }) => {
-    console.log('graceful-cancel-task', payload)
+    logger.info('graceful-cancel-task', { value: payload })
     if (controller) {
       return await controller.gracefulCancelTask(payload?.tabId)
     }
@@ -1216,7 +1232,7 @@ function setupIPC(): void {
   })
   // Add message handler from renderer process to main process
   ipcMain.handle('webview-to-main', async (_event, message: WebviewMessage): Promise<void | null> => {
-    // console.log('webview-to-main', message)
+    // logger.info('webview-to-main', { value: message })
     if (controller) {
       await controller.handleWebviewMessage(message)
       return
@@ -1235,7 +1251,7 @@ function setupIPC(): void {
       if (enabled) {
         if (!dataSyncController) {
           const dbPath = getChatermDbPathForUser(uid)
-          console.log(`Starting data sync service for user ${uid}...`)
+          logger.info(`Starting data sync service for user ${uid}...`)
           const instance = await startDataSync(dbPath)
           dataSyncController = instance
         }
@@ -1253,15 +1269,15 @@ function setupIPC(): void {
             syncStateManager.disableSync()
           }
 
-          console.log('Stopping data sync service...')
+          logger.info('Stopping data sync service...')
           await dataSyncController.destroy()
           dataSyncController = null
-          console.log('Data sync service stopped')
+          logger.info('Data sync service stopped')
         }
       }
       return { success: true }
     } catch (e: any) {
-      console.warn('Failed to handle data-sync:set-enabled:', e?.message || e)
+      logger.warn('Failed to handle data-sync:set-enabled', { error: e?.message || String(e) })
       return { success: false, error: e?.message || String(e) }
     }
   })
@@ -1295,7 +1311,7 @@ function setupIPC(): void {
       try {
         fullSyncTimerStatus = dataSyncController.getFullSyncTimerStatus()
       } catch (error) {
-        console.warn('Failed to get full sync timer status:', error)
+        logger.warn('Failed to get full sync timer status', { value: error })
       }
 
       return {
@@ -1309,7 +1325,7 @@ function setupIPC(): void {
         }
       }
     } catch (e: any) {
-      console.warn('Failed to get user sync status:', e?.message || e)
+      logger.warn('Failed to get user sync status', { error: e?.message || String(e) })
       return { success: false, error: e?.message || String(e) }
     }
   })
@@ -1324,7 +1340,7 @@ function setupIPC(): void {
       const result = await dataSyncController.fullSyncNow()
       return { success: result }
     } catch (e: any) {
-      console.warn('Failed to execute manual full sync:', e?.message || e)
+      logger.warn('Failed to execute manual full sync', { error: e?.message || String(e) })
       return { success: false, error: e?.message || String(e) }
     }
   })
@@ -1343,7 +1359,7 @@ function setupIPC(): void {
       dataSyncController.updateFullSyncInterval(intervalHours)
       return { success: true }
     } catch (e: any) {
-      console.warn('Failed to update full sync interval:', e?.message || e)
+      logger.warn('Failed to update full sync interval', { error: e?.message || String(e) })
       return { success: false, error: e?.message || String(e) }
     }
   })
@@ -1423,7 +1439,7 @@ function setupIPC(): void {
 
       return { success: true }
     } catch (error) {
-      console.error('Failed to open security config:', error)
+      logger.error('Failed to open security config', { error: error })
       return { success: false, error: error instanceof Error ? error.message : String(error) }
     }
   })
@@ -1436,7 +1452,7 @@ function setupIPC(): void {
       const securityManager = new SecurityConfigManager()
       return securityManager.getConfigPath()
     } catch (error) {
-      console.error('Failed to get security config path:', error)
+      logger.error('Failed to get security config path', { error: error })
       throw new Error(`Failed to get security config path: ${error instanceof Error ? error.message : String(error)}`)
     }
   })
@@ -1459,10 +1475,10 @@ function setupIPC(): void {
       }
 
       const content = await fs.readFile(configPath, 'utf-8')
-      console.log(`Security config file read from: ${configPath}, length: ${content.length}`)
+      logger.info(`Security config file read from: ${configPath}, length: ${content.length}`)
       return content
     } catch (error) {
-      console.error('Failed to read security config:', error)
+      logger.error('Failed to read security config', { error: error })
       throw new Error(`Failed to read security config: ${error instanceof Error ? error.message : String(error)}`)
     }
   })
@@ -1485,16 +1501,16 @@ function setupIPC(): void {
       if (controller) {
         try {
           await controller.reloadSecurityConfigForAllTasks()
-          console.log('[SecurityConfig] Hot reloaded configuration in all active Tasks')
+          logger.info('[SecurityConfig] Hot reloaded configuration in all active Tasks')
         } catch (error) {
-          console.warn('[SecurityConfig] Failed to hot reload configuration in Tasks:', error)
+          logger.warn('[SecurityConfig] Failed to hot reload configuration in Tasks', { value: error })
           // This is not critical - config will be loaded on next task creation
         }
       }
 
       return { success: true }
     } catch (error) {
-      console.error('Failed to write security config:', error)
+      logger.error('Failed to write security config', { error: error })
       throw new Error(`Failed to write security config: ${error instanceof Error ? error.message : String(error)}`)
     }
   })
@@ -1506,7 +1522,7 @@ function setupIPC(): void {
       const configPath = path.join(getUserDataPath(), 'keyword-highlight.json')
       return configPath
     } catch (error) {
-      console.error('Failed to get keyword highlight config path:', error)
+      logger.error('Failed to get keyword highlight config path', { error: error })
       throw new Error(`Failed to get keyword highlight config path: ${error instanceof Error ? error.message : String(error)}`)
     }
   })
@@ -1532,9 +1548,9 @@ function setupIPC(): void {
         try {
           const defaultContent = await fs.readFile(defaultConfigPath, 'utf-8')
           await fs.writeFile(configPath, defaultContent, 'utf-8')
-          console.log('[KeywordHighlight] Created default configuration file from template')
+          logger.info('[KeywordHighlight] Created default configuration file from template')
         } catch (copyError) {
-          console.warn('[KeywordHighlight] Failed to copy default config, will use empty config:', copyError)
+          logger.warn('[KeywordHighlight] Failed to copy default config, will use empty config', { value: copyError })
           // If copy fails, create empty config
           const emptyConfig = JSON.stringify(
             {
@@ -1557,7 +1573,7 @@ function setupIPC(): void {
       const content = await fs.readFile(configPath, 'utf-8')
       return content
     } catch (error) {
-      console.error('Failed to read keyword highlight config:', error)
+      logger.error('Failed to read keyword highlight config', { error: error })
       throw new Error(`Failed to read keyword highlight config: ${error instanceof Error ? error.message : String(error)}`)
     }
   })
@@ -1571,11 +1587,11 @@ function setupIPC(): void {
 
       await fs.writeFile(configPath, content, 'utf-8')
 
-      console.log('[KeywordHighlight] Configuration file saved')
+      logger.info('[KeywordHighlight] Configuration file saved')
 
       return { success: true }
     } catch (error) {
-      console.error('Failed to write keyword highlight config:', error)
+      logger.error('Failed to write keyword highlight config', { error: error })
       throw new Error(`Failed to write keyword highlight config: ${error instanceof Error ? error.message : String(error)}`)
     }
   })
@@ -1588,7 +1604,7 @@ ipcMain.handle('query-command', async (_, data) => {
     const result = autoCompleteService.queryCommand(command, ip)
     return result
   } catch (error) {
-    console.error('Query command failed:', error)
+    logger.error('Query command failed', { error: error })
     return null
   }
 })
@@ -1599,7 +1615,7 @@ ipcMain.handle('insert-command', async (_, data) => {
     const result = autoCompleteService.insertCommand(command, ip)
     return result
   } catch (error) {
-    console.error('Insert command failed:', error)
+    logger.error('Insert command failed', { error: error })
     return null
   }
 })
@@ -1611,7 +1627,7 @@ ipcMain.handle('asset-route-local-get', async (_, data) => {
     const result = await chatermDbService.getLocalAssetRoute(searchType, params || [])
     return result
   } catch (error) {
-    console.error('Chaterm query failed:', error)
+    logger.error('Chaterm query failed', { error: error })
     return null
   }
 })
@@ -1622,7 +1638,7 @@ ipcMain.handle('asset-route-local-update', async (_, data) => {
     const result = chatermDbService.updateLocalAssetLabel(uuid, label)
     return result
   } catch (error) {
-    console.error('Chaterm data modification failed:', error)
+    logger.error('Chaterm data modification failed', { error: error })
     return null
   }
 })
@@ -1633,7 +1649,7 @@ ipcMain.handle('asset-route-local-favorite', async (_, data) => {
     const result = chatermDbService.updateLocalAsseFavorite(uuid, status)
     return result
   } catch (error) {
-    console.error('Chaterm data modification failed:', error)
+    logger.error('Chaterm data modification failed', { error: error })
     return null
   }
 })
@@ -1643,7 +1659,7 @@ ipcMain.handle('key-chain-local-get', async () => {
     const result = chatermDbService.getKeyChainSelect()
     return result
   } catch (error) {
-    console.error('Chaterm get data failed:', error)
+    logger.error('Chaterm get data failed', { error: error })
     return null
   }
 })
@@ -1653,7 +1669,7 @@ ipcMain.handle('asset-group-local-get', async () => {
     const result = chatermDbService.getAssetGroup()
     return result
   } catch (error) {
-    console.error('Chaterm get data failed:', error)
+    logger.error('Chaterm get data failed', { error: error })
     return null
   }
 })
@@ -1664,7 +1680,7 @@ ipcMain.handle('asset-delete', async (_, data) => {
     const result = chatermDbService.deleteAsset(uuid)
     return result
   } catch (error) {
-    console.error('Chaterm delete data failed:', error)
+    logger.error('Chaterm delete data failed', { error: error })
     return null
   }
 })
@@ -1675,7 +1691,7 @@ ipcMain.handle('asset-create', async (_, data) => {
     const result = chatermDbService.createAsset(form)
     return result
   } catch (error) {
-    console.error('Chaterm create asset failed:', error)
+    logger.error('Chaterm create asset failed', { error: error })
     return null
   }
 })
@@ -1686,7 +1702,7 @@ ipcMain.handle('asset-create-or-update', async (_, data) => {
     const result = chatermDbService.createOrUpdateAsset(form)
     return result
   } catch (error) {
-    console.error('Chaterm create or update asset failed:', error)
+    logger.error('Chaterm create or update asset failed', { error: error })
     return null
   }
 })
@@ -1697,7 +1713,7 @@ ipcMain.handle('asset-update', async (_, data) => {
     const result = chatermDbService.updateAsset(form)
     return result
   } catch (error) {
-    console.error('Chaterm update asset failed:', error)
+    logger.error('Chaterm update asset failed', { error: error })
     return null
   }
 })
@@ -1706,7 +1722,7 @@ ipcMain.handle('asset-update', async (_, data) => {
 ipcMain.handle('parseXtsFile', async (_, data) => {
   try {
     const { data: zipData, fileName } = data
-    console.log(`Starting XTS file parsing: ${fileName}`)
+    logger.info(`Starting XTS file parsing: ${fileName}`)
 
     const AdmZip = require('adm-zip')
     const iconv = require('iconv-lite')
@@ -1721,11 +1737,11 @@ ipcMain.handle('parseXtsFile', async (_, data) => {
       zip = new AdmZip(buffer)
       zipEntries = zip.getEntries()
     } catch (error) {
-      console.error('Failed to create ZIP object:', error)
+      logger.error('Failed to create ZIP object', { error: error })
       throw error
     }
 
-    console.log(`Found ${zipEntries.length} entries in ZIP file`)
+    logger.info(`Found ${zipEntries.length} entries in ZIP file`)
 
     const sessions: any[] = []
 
@@ -1769,11 +1785,11 @@ ipcMain.handle('parseXtsFile', async (_, data) => {
         if (rawContent.length >= 2 && rawContent[0] === 0xff && rawContent[1] === 0xfe) {
           // UTF-16 LE
           content = iconv.decode(rawContent, 'utf-16le')
-          console.log(`Detected UTF-16 LE BOM for ${entryName}`)
+          logger.info(`Detected UTF-16 LE BOM for ${entryName}`)
         } else if (rawContent.length >= 2 && rawContent[0] === 0xfe && rawContent[1] === 0xff) {
           // UTF-16 BE
           content = iconv.decode(rawContent, 'utf-16be')
-          console.log(`Detected UTF-16 BE BOM for ${entryName}`)
+          logger.info(`Detected UTF-16 BE BOM for ${entryName}`)
         } else {
           // No BOM, try UTF-8
           const utf8Content = rawContent.toString('utf8')
@@ -1786,7 +1802,7 @@ ipcMain.handle('parseXtsFile', async (_, data) => {
           }
         }
       } catch (e) {
-        console.warn(`Failed to read content for ${entryName}`)
+        logger.warn(`Failed to read content for ${entryName}`)
         continue
       }
 
@@ -1801,14 +1817,14 @@ ipcMain.handle('parseXtsFile', async (_, data) => {
       // Case B: Other files with extensions (e.g., .zcf) -> strictly ignore
       else if (fileNamePart.includes('.')) {
         isSessionFile = false
-        // console.log(`Ignored non-xsh file: ${entryName}`)
+        // logger.info(`Ignored non-xsh file: ${entryName}`)
       }
       // Case C: Files without extension (e.g., "D:\session_xsh") -> check content characteristics
       else {
         // Strictly check content characteristics to avoid misidentifying random files
         if (content.includes('[SessionInfo]') || content.includes('[CONNECTION]') || (content.includes('Host=') && content.includes('Protocol='))) {
           isSessionFile = true
-          console.log(`Detected session file by content (no extension): ${entryName}`)
+          logger.info(`Detected session file by content (no extension): ${entryName}`)
         }
       }
 
@@ -1833,12 +1849,12 @@ ipcMain.handle('parseXtsFile', async (_, data) => {
             sessions.push(session)
           }
         } catch (error) {
-          console.error(`Failed to parse session file ${entryName}:`, error)
+          logger.error(`Failed to parse session file ${entryName}`, { error: error })
         }
       }
     }
 
-    console.log(`Total sessions parsed: ${sessions.length}`)
+    logger.info(`Total sessions parsed: ${sessions.length}`)
 
     return {
       success: true,
@@ -1846,7 +1862,7 @@ ipcMain.handle('parseXtsFile', async (_, data) => {
       count: sessions.length
     }
   } catch (error) {
-    console.error('XTS file parsing failed:', error)
+    logger.error('XTS file parsing failed', { error: error })
     return {
       success: false,
       error: error instanceof Error ? error.message : String(error),
@@ -1857,8 +1873,8 @@ ipcMain.handle('parseXtsFile', async (_, data) => {
 
 // XSH file content parsing function
 function parseXSHContent(content: string, fileName: string, fullPath?: string): any {
-  console.log(`Parsing XSH content for file: ${fileName}`)
-  console.log(`Full path: ${fullPath || 'N/A'}`)
+  logger.info(`Parsing XSH content for file: ${fileName}`)
+  logger.info(`Full path: ${fullPath || 'N/A'}`)
 
   const session: any = {}
   const lines = content.split('\n')
@@ -1870,7 +1886,7 @@ function parseXSHContent(content: string, fileName: string, fullPath?: string): 
   let foundUsername = false
   let currentSection = ''
 
-  console.log(`Total lines in file: ${lines.length}`)
+  logger.info(`Total lines in file: ${lines.length}`)
 
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i]
@@ -1879,12 +1895,12 @@ function parseXSHContent(content: string, fileName: string, fullPath?: string): 
     // Skip empty lines
     if (!trimmedLine) continue
 
-    // console.log(`Line ${i}: "${trimmedLine}"`)
+    // logger.info(`Line ${i}: "${trimmedLine}"`)
 
     // Check if it's a section header [SECTION]
     if (trimmedLine.startsWith('[') && trimmedLine.endsWith(']')) {
       currentSection = trimmedLine
-      console.log(`  -> Section: ${currentSection}`)
+      logger.info(`  -> Section: ${currentSection}`)
       continue
     }
 
@@ -1893,7 +1909,7 @@ function parseXSHContent(content: string, fileName: string, fullPath?: string): 
       const key = trimmedLine.substring(0, equalIndex).trim()
       const value = trimmedLine.substring(equalIndex + 1).trim()
 
-      // console.log(`  -> Parsed: "${key}" = "${value}" (in section: ${currentSection})`)
+      // logger.info(`  -> Parsed: "${key}" = "${value}" (in section: ${currentSection})`)
 
       // Match by field name, case-insensitive
       const lowerKey = key.toLowerCase()
@@ -1901,34 +1917,34 @@ function parseXSHContent(content: string, fileName: string, fullPath?: string): 
       if (lowerKey === 'host' || lowerKey === 'hostname') {
         session.host = value
         foundHost = true
-        console.log(`*** Found host: ${value}`)
+        logger.info(`*** Found host: ${value}`)
       } else if (lowerKey === 'port') {
         session.port = parseInt(value) || 22
-        console.log(`*** Found port: ${session.port}`)
+        logger.info(`*** Found port: ${session.port}`)
       } else if (lowerKey === 'username' || lowerKey === 'user') {
         session.username = value
         foundUsername = true
-        console.log(`*** Found username: ${value}`)
+        logger.info(`*** Found username: ${value}`)
       } else if (lowerKey === 'password') {
         // XShell passwords are usually encrypted, only check if it exists
         if (value && value !== '') {
           session.password = '' // Don't save encrypted password, user needs to re-enter
-          console.log(`*** Found password (encrypted)`)
+          logger.info(`*** Found password (encrypted)`)
         }
       } else if (lowerKey === 'userkey') {
         // Non-empty UserKey field indicates key-based authentication
         if (value && value !== '') {
           session.authType = 'keyBased'
           session.keyFile = value
-          console.log(`*** Found UserKey: ${value} - setting authType to keyBased`)
+          logger.info(`*** Found UserKey: ${value} - setting authType to keyBased`)
         }
       } else if (lowerKey === 'protocol' || lowerKey === 'protocolname' || lowerKey === 'protocol name') {
         session.protocol = value
-        console.log(`*** Found protocol: ${value}`)
+        logger.info(`*** Found protocol: ${value}`)
       } else if (lowerKey === 'description') {
         // Description information is only logged, does not update session name
         if (value && value !== 'Xshell session file') {
-          console.log(`*** Found description: ${value}`)
+          logger.info(`*** Found description: ${value}`)
         }
       }
     }
@@ -1936,7 +1952,7 @@ function parseXSHContent(content: string, fileName: string, fullPath?: string): 
 
   // Improved host information extraction logic
   if (!foundHost || !foundUsername) {
-    console.log(`Missing required fields (host: ${foundHost}, username: ${foundUsername}), trying to extract from filename and path`)
+    logger.info(`Missing required fields (host: ${foundHost}, username: ${foundUsername}), trying to extract from filename and path`)
 
     // Try to extract host information from filename and path
     const extractHostFromText = (text: string): string | null => {
@@ -1978,14 +1994,14 @@ function parseXSHContent(content: string, fileName: string, fullPath?: string): 
       if (extractedHost) {
         session.host = extractedHost
         foundHost = true
-        console.log(`*** Extracted host from filename/path: ${session.host}`)
+        logger.info(`*** Extracted host from filename/path: ${session.host}`)
       } else {
         // If still not found, use filename as hostname
         const cleanFileName = fileName.replace('.xsh', '').replace(/[^a-zA-Z0-9\-_.]/g, '')
         if (cleanFileName.length > 0) {
           session.host = cleanFileName
           foundHost = true
-          console.log(`*** Using cleaned filename as host: ${session.host}`)
+          logger.info(`*** Using cleaned filename as host: ${session.host}`)
         }
       }
     }
@@ -1999,7 +2015,7 @@ function parseXSHContent(content: string, fileName: string, fullPath?: string): 
         if (searchText.includes(user)) {
           session.username = user
           foundUsername = true
-          console.log(`*** Extracted username from filename/path: ${session.username}`)
+          logger.info(`*** Extracted username from filename/path: ${session.username}`)
           break
         }
       }
@@ -2007,7 +2023,7 @@ function parseXSHContent(content: string, fileName: string, fullPath?: string): 
       // If still not found, set default username
       if (!foundUsername) {
         session.username = 'root' // Changed to default to root instead of 'undefined'
-        console.log(`*** Setting default username: ${session.username}`)
+        logger.info(`*** Setting default username: ${session.username}`)
       }
     }
   }
@@ -2017,7 +2033,7 @@ function parseXSHContent(content: string, fileName: string, fullPath?: string): 
   if (!session.protocol) session.protocol = 'SSH'
   if (!session.authType) session.authType = 'password'
 
-  console.log(`Final session data:`, {
+  logger.info('Final session data', {
     name: session.name,
     host: session.host,
     port: session.port,
@@ -2037,7 +2053,7 @@ ipcMain.handle('key-chain-local-get-list', async () => {
     const result = chatermDbService.getKeyChainList()
     return result
   } catch (error) {
-    console.error('Chaterm get asset failed:', error)
+    logger.error('Chaterm get asset failed', { error: error })
     return null
   }
 })
@@ -2048,7 +2064,7 @@ ipcMain.handle('key-chain-local-create', async (_, data) => {
     const result = chatermDbService.createKeyChain(form)
     return result
   } catch (error) {
-    console.error('Chaterm create keychain failed:', error)
+    logger.error('Chaterm create keychain failed', { error: error })
     return null
   }
 })
@@ -2059,7 +2075,7 @@ ipcMain.handle('key-chain-local-delete', async (_, data) => {
     const result = chatermDbService.deleteKeyChain(id)
     return result
   } catch (error) {
-    console.error('Chaterm delete keychain failed:', error)
+    logger.error('Chaterm delete keychain failed', { error: error })
     return null
   }
 })
@@ -2070,7 +2086,7 @@ ipcMain.handle('key-chain-local-get-info', async (_, data) => {
     const result = chatermDbService.getKeyChainInfo(id)
     return result
   } catch (error) {
-    console.error('Chaterm get keychain failed:', error)
+    logger.error('Chaterm get keychain failed', { error: error })
     return null
   }
 })
@@ -2081,7 +2097,7 @@ ipcMain.handle('key-chain-local-update', async (_, data) => {
     const result = chatermDbService.updateKeyChain(form)
     return result
   } catch (error) {
-    console.error('Chaterm update keychain failed:', error)
+    logger.error('Chaterm update keychain failed', { error: error })
     return null
   }
 })
@@ -2092,7 +2108,7 @@ ipcMain.handle('chaterm-connect-asset-info', async (_, data) => {
     const result = chatermDbService.connectAssetInfo(uuid)
     return result
   } catch (error) {
-    console.error('Chaterm get asset info failed:', error)
+    logger.error('Chaterm get asset info failed', { error: error })
     return null
   }
 })
@@ -2103,20 +2119,20 @@ ipcMain.handle('agent-chaterm-messages', async (_, data) => {
     const result = chatermDbService.getSavedChatermMessages(taskId)
     return result
   } catch (error) {
-    console.error('Chaterm get UI messages failed:', error)
+    logger.error('Chaterm get UI messages failed', { error: error })
     return null
   }
 })
 
 // This code is newly added to handle calls from the renderer process
 ipcMain.handle('execute-remote-command', async () => {
-  console.log('Received execute-remote-command IPC call') // Add log
+  logger.info('Received execute-remote-command IPC call') // Add log
   try {
     const output = await executeRemoteCommand()
-    console.log('executeRemoteCommand output:', output) // Add log
+    logger.debug('executeRemoteCommand output', { value: output }) // Add log
     return { success: true, output }
   } catch (error) {
-    console.error('Failed to execute remote command in main process:', error) // Modified log
+    logger.error('Failed to execute remote command in main process', { error: error }) // Modified log
     if (error instanceof Error) {
       return {
         success: false,
@@ -2145,7 +2161,7 @@ ipcMain.handle('get-user-hosts', async (_, data) => {
     const result = chatermDbService.getUserHosts(search, limit)
     return result
   } catch (error) {
-    console.error('Chaterm get user hosts list failed:', error)
+    logger.error('Chaterm get user hosts list failed', { error: error })
     return null
   }
 })
@@ -2156,7 +2172,7 @@ ipcMain.handle('user-snippet-operation', async (_, data) => {
     const result = chatermDbService.userSnippetOperation(operation, params)
     return result
   } catch (error) {
-    console.error('Chaterm user snippet operation failed:', error)
+    logger.error('Chaterm user snippet operation failed', { error: error })
     return {
       code: 500,
       message: error instanceof Error ? error.message : 'Unknown error occurred'
@@ -2218,12 +2234,12 @@ ipcMain.handle('refresh-organization-assets', async (event, data) => {
 
     // Create authentication result callback
     const authResultCallback = (success: boolean, error?: string) => {
-      console.log('Main process: authResultCallback called, success:', success, 'error:', error)
+      logger.info('Main process: authResultCallback called', { success, error })
       if (success) {
-        console.log('Main process: Two-factor authentication succeeded, sending success event to frontend')
+        logger.info('Main process: Two-factor authentication succeeded, sending success event to frontend')
         event.sender.send('ssh:keyboard-interactive-result', { id: connectionId, status: 'success' })
       } else {
-        console.log('Main process: Two-factor authentication failed, sending failure event to frontend', error)
+        logger.info('Main process: Two-factor authentication failed, sending failure event to frontend', { value: error })
         event.sender.send('ssh:keyboard-interactive-result', { id: connectionId, status: 'failed' })
       }
     }
@@ -2236,7 +2252,7 @@ ipcMain.handle('refresh-organization-assets', async (event, data) => {
     )
     return result
   } catch (error) {
-    console.error('Failed to refresh organization assets:', error)
+    logger.error('Failed to refresh organization assets', { error: error })
     return { data: { message: 'failed', error: error instanceof Error ? error.message : String(error) } }
   }
 })
@@ -2246,14 +2262,14 @@ ipcMain.handle('organization-asset-favorite', async (_, data) => {
     const { organizationUuid, host, status } = data
 
     if (!organizationUuid || !host || status === undefined) {
-      console.error('Incomplete parameters:', { organizationUuid, host, status })
+      logger.error('Incomplete parameters', { organizationUuid, host, status })
       return { data: { message: 'failed', error: 'Incomplete parameters' } }
     }
 
     const result = chatermDbService.updateOrganizationAssetFavorite(organizationUuid, host, status)
     return result
   } catch (error) {
-    console.error('Main process organization-asset-favorite error:', error)
+    logger.error('Main process organization-asset-favorite error', { error: error })
     return { data: { message: 'failed', error: error instanceof Error ? error.message : String(error) } }
   }
 })
@@ -2263,14 +2279,14 @@ ipcMain.handle('organization-asset-comment', async (_, data) => {
     const { organizationUuid, host, comment } = data
 
     if (!organizationUuid || !host) {
-      console.error('Incomplete parameters:', { organizationUuid, host, comment })
+      logger.error('Incomplete parameters', { organizationUuid, host, comment })
       return { data: { message: 'failed', error: 'Incomplete parameters' } }
     }
 
     const result = chatermDbService.updateOrganizationAssetComment(organizationUuid, host, comment || '')
     return result
   } catch (error) {
-    console.error('Main process organization-asset-comment error:', error)
+    logger.error('Main process organization-asset-comment error', { error: error })
     return { data: { message: 'failed', error: error instanceof Error ? error.message : String(error) } }
   }
 })
@@ -2281,14 +2297,14 @@ ipcMain.handle('create-custom-folder', async (_, data) => {
     const { name, description } = data
 
     if (!name) {
-      console.error('Incomplete parameters:', { name, description })
+      logger.error('Incomplete parameters', { name, description })
       return { data: { message: 'failed', error: 'Folder name cannot be empty' } }
     }
 
     const result = chatermDbService.createCustomFolder(name, description)
     return result
   } catch (error) {
-    console.error('Main process create-custom-folder error:', error)
+    logger.error('Main process create-custom-folder error', { error: error })
     return { data: { message: 'failed', error: error instanceof Error ? error.message : String(error) } }
   }
 })
@@ -2298,7 +2314,7 @@ ipcMain.handle('get-custom-folders', async () => {
     const result = chatermDbService.getCustomFolders()
     return result
   } catch (error) {
-    console.error('Main process get-custom-folders error:', error)
+    logger.error('Main process get-custom-folders error', { error: error })
     return { data: { message: 'failed', error: error instanceof Error ? error.message : String(error) } }
   }
 })
@@ -2308,14 +2324,14 @@ ipcMain.handle('update-custom-folder', async (_, data) => {
     const { folderUuid, name, description } = data
 
     if (!folderUuid || !name) {
-      console.error('Incomplete parameters:', { folderUuid, name, description })
+      logger.error('Incomplete parameters', { folderUuid, name, description })
       return { data: { message: 'failed', error: 'Folder UUID and name cannot be empty' } }
     }
 
     const result = chatermDbService.updateCustomFolder(folderUuid, name, description)
     return result
   } catch (error) {
-    console.error('Main process update-custom-folder error:', error)
+    logger.error('Main process update-custom-folder error', { error: error })
     return { data: { message: 'failed', error: error instanceof Error ? error.message : String(error) } }
   }
 })
@@ -2325,14 +2341,14 @@ ipcMain.handle('delete-custom-folder', async (_, data) => {
     const { folderUuid } = data
 
     if (!folderUuid) {
-      console.error('Incomplete parameters:', { folderUuid })
+      logger.error('Incomplete parameters', { folderUuid })
       return { data: { message: 'failed', error: 'Folder UUID cannot be empty' } }
     }
 
     const result = chatermDbService.deleteCustomFolder(folderUuid)
     return result
   } catch (error) {
-    console.error('Main process delete-custom-folder error:', error)
+    logger.error('Main process delete-custom-folder error', { error: error })
     return { data: { message: 'failed', error: error instanceof Error ? error.message : String(error) } }
   }
 })
@@ -2342,14 +2358,14 @@ ipcMain.handle('move-asset-to-folder', async (_, data) => {
     const { folderUuid, organizationUuid, assetHost } = data
 
     if (!folderUuid || !organizationUuid || !assetHost) {
-      console.error('Incomplete parameters:', { folderUuid, organizationUuid, assetHost })
+      logger.error('Incomplete parameters', { folderUuid, organizationUuid, assetHost })
       return { data: { message: 'failed', error: 'Incomplete parameters' } }
     }
 
     const result = chatermDbService.moveAssetToFolder(folderUuid, organizationUuid, assetHost)
     return result
   } catch (error) {
-    console.error('Main process move-asset-to-folder error:', error)
+    logger.error('Main process move-asset-to-folder error', { error: error })
     return { data: { message: 'failed', error: error instanceof Error ? error.message : String(error) } }
   }
 })
@@ -2359,14 +2375,14 @@ ipcMain.handle('remove-asset-from-folder', async (_, data) => {
     const { folderUuid, organizationUuid, assetHost } = data
 
     if (!folderUuid || !organizationUuid || !assetHost) {
-      console.error('Incomplete parameters:', { folderUuid, organizationUuid, assetHost })
+      logger.error('Incomplete parameters', { folderUuid, organizationUuid, assetHost })
       return { data: { message: 'failed', error: 'Incomplete parameters' } }
     }
 
     const result = chatermDbService.removeAssetFromFolder(folderUuid, organizationUuid, assetHost)
     return result
   } catch (error) {
-    console.error('Main process remove-asset-from-folder error:', error)
+    logger.error('Main process remove-asset-from-folder error', { error: error })
     return { data: { message: 'failed', error: error instanceof Error ? error.message : String(error) } }
   }
 })
@@ -2376,14 +2392,14 @@ ipcMain.handle('get-assets-in-folder', async (_, data) => {
     const { folderUuid } = data
 
     if (!folderUuid) {
-      console.error('Incomplete parameters:', { folderUuid })
+      logger.error('Incomplete parameters', { folderUuid })
       return { data: { message: 'failed', error: 'Folder UUID cannot be empty' } }
     }
 
     const result = chatermDbService.getAssetsInFolder(folderUuid)
     return result
   } catch (error) {
-    console.error('Main process get-assets-in-folder error:', error)
+    logger.error('Main process get-assets-in-folder error', { error: error })
     return { data: { message: 'failed', error: error instanceof Error ? error.message : String(error) } }
   }
 })
@@ -2397,11 +2413,11 @@ ipcMain.handle('capture-telemetry-event', async (_, { eventType, data }) => {
         telemetryService.captureButtonClick(data.button, taskId, data.properties)
         break
       default:
-        console.warn('Unknown telemetry event type:', eventType)
+        logger.warn('Unknown telemetry event type', { value: eventType })
     }
     return { success: true }
   } catch (error) {
-    console.error('Failed to capture telemetry event:', error)
+    logger.error('Failed to capture telemetry event', { error: error })
     return { success: false, error: error instanceof Error ? error.message : 'Unknown error' }
   }
 })
@@ -2431,7 +2447,7 @@ ipcMain.handle(
     try {
       await uninstallPlugin(pluginId)
     } catch (e) {
-      console.warn('uninstall before update failed, continue install', e)
+      logger.warn('uninstall before update failed, continue install', { value: e })
     }
 
     // cache dir
@@ -2532,7 +2548,7 @@ ipcMain.handle('plugin:isQizhiPluginEnabled', () => {
 
 // Set Qizhi plugin enabled state - no longer supported (plugins auto-register)
 ipcMain.handle('plugin:setQizhiPluginEnabled', () => {
-  console.warn('[Plugin] setQizhiPluginEnabled is deprecated - plugins auto-register capabilities')
+  logger.warn('[Plugin] setQizhiPluginEnabled is deprecated - plugins auto-register capabilities')
   return { success: false, message: 'Deprecated - plugins auto-register capabilities' }
 })
 
@@ -2609,19 +2625,19 @@ const handleProtocolRedirect = async (url: string) => {
         const originalWindow = BrowserWindow.fromId(originalWindowId)
         if (originalWindow && !originalWindow.isDestroyed()) {
           targetWindow = originalWindow
-          console.log('Found original window, ID:', originalWindowId)
+          logger.info('Found original window, ID', { value: originalWindowId })
 
           // Clear authentication state cookie
           await session.defaultSession.cookies.remove(COOKIE_URL, 'chaterm_auth_state')
         }
       }
     } catch (error) {
-      console.error('Failed to get original window:', error)
+      logger.error('Failed to get original window', { error: error })
     }
   }
 
   if (!targetWindow) {
-    console.error('No available window found to handle protocol redirection')
+    logger.error('No available window found to handle protocol redirection')
     return
   }
 
@@ -2647,9 +2663,9 @@ const handleProtocolRedirect = async (url: string) => {
       // After external login succeeds, check if data sync service needs to be restarted
       // Note: We cannot directly get user ID here because renderer process hasn't finished login logic
       // So we handle data sync restart through init-user-database after renderer process finishes login
-      console.log('External login succeeded, waiting for renderer process to handle user initialization...')
+      logger.info('External login succeeded, waiting for renderer process to handle user initialization...')
     } catch (error) {
-      console.error('Failed to process external login data:', error)
+      logger.error('Failed to process external login data', { error: error })
     }
   }
 }
@@ -2710,7 +2726,7 @@ ipcMain.handle('open-external-login', async () => {
       const localPluginsJson = JSON.stringify(localPlugins)
       localPluginsEncoded = encodeURIComponent(localPluginsJson)
     } catch (error) {
-      console.error('Failed to get plugin versions:', error)
+      logger.error('Failed to get plugin versions', { error: error })
       localPluginsEncoded = encodeURIComponent(JSON.stringify({}))
     }
 
@@ -2720,7 +2736,7 @@ ipcMain.handle('open-external-login', async () => {
     const protocolName = getProtocolName()
     const externalLoginUrl = `${loginBaseUrl}/login?client_id=${protocolName}&state=${state}&redirect_uri=${protocolPrefix}auth/callback&mac_address=${encodeURIComponent(macAddress)}&local_plugins=${localPluginsEncoded}`
 
-    console.log(`[Login] Using edition: ${getEdition()}, login URL base: ${loginBaseUrl}`)
+    logger.info(`[Login] Using edition: ${getEdition()}, login URL base: ${loginBaseUrl}`)
 
     // On Linux platform, save state to local storage for new instances to access
     if (process.platform === 'linux') {
@@ -2734,7 +2750,7 @@ ipcMain.handle('open-external-login', async () => {
           expirationDate: Date.now() / 1000 + 600 // 10 minutes expiry
         })
       } catch (error) {
-        console.error('Failed to save auth state:', error)
+        logger.error('Failed to save auth state', { error: error })
       }
     }
 
@@ -2742,7 +2758,7 @@ ipcMain.handle('open-external-login', async () => {
     await shell.openExternal(externalLoginUrl)
     return { success: true }
   } catch (error) {
-    console.error('Failed to open external login page:', error)
+    logger.error('Failed to open external login page', { error: error })
     return { success: false, error: error instanceof Error ? error.message : String(error) }
   }
 })

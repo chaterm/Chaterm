@@ -267,7 +267,9 @@ describe('Login Component', () => {
     })
 
     // Clear console output for cleaner test results
+
     vi.spyOn(console, 'log').mockImplementation(() => {})
+
     vi.spyOn(console, 'error').mockImplementation(() => {})
   })
 
@@ -629,6 +631,7 @@ describe('Login Component', () => {
         await nextTick()
       } catch (error) {
         // Log error for debugging
+
         console.log('skipLogin error:', error)
       }
 

@@ -1,5 +1,7 @@
 import { useDeviceStore } from '@/store/useDeviceStore'
 
+const logger = createRendererLogger('utils.login')
+
 export interface LoginLogData {
   username?: string
   email?: string
@@ -38,7 +40,7 @@ export async function recordLoginLog(userInfo: any, method: string, status: 'suc
         ipAddress = await api.getLocalIP()
         deviceStore.setDeviceIp(ipAddress)
       } catch (error) {
-        console.warn('Unable to get IP address:', error)
+        logger.warn('Unable to get IP address', { error: error })
         ipAddress = 'Unknown'
       }
     }
@@ -48,7 +50,7 @@ export async function recordLoginLog(userInfo: any, method: string, status: 'suc
         macAddress = await api.getMacAddress()
         deviceStore.setMacAddress(macAddress)
       } catch (error) {
-        console.warn('Unable to get MAC address:', error)
+        logger.warn('Unable to get MAC address', { error: error })
         macAddress = 'Unknown'
       }
     }
@@ -64,16 +66,16 @@ export async function recordLoginLog(userInfo: any, method: string, status: 'suc
       platform: platform
     }
 
-    console.log('Recording login log:', loginData)
+    logger.info('Recording login log', { loginData })
 
     const result = await api.insertLoginLog(loginData)
     if (result.success) {
-      console.log('Login log recorded successfully')
+      logger.info('Login log recorded successfully')
     } else {
-      console.error('Failed to record login log:', result.error)
+      logger.error('Failed to record login log', { error: result.error })
     }
   } catch (error) {
-    console.error('Error occurred while recording login log:', error)
+    logger.error('Error occurred while recording login log', { error: error })
   }
 }
 
@@ -96,7 +98,7 @@ export async function getLoginLogs(
     const result = await api.getLoginLogs(params)
     return result
   } catch (error) {
-    console.error('Error occurred while getting login logs:', error)
+    logger.error('Error occurred while getting login logs', { error: error })
     return { success: false, error: (error as Error).message }
   }
 }

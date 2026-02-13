@@ -1,6 +1,6 @@
 import Database from 'better-sqlite3'
 import { Asset, AssetChain, ChangeRecord } from '../models/SyncTypes'
-import { logger } from '../utils/logger'
+const logger = createLogger('sync')
 
 export class DatabaseManager {
   private db: Database.Database
@@ -307,7 +307,7 @@ export class DatabaseManager {
         .get(tableName)
 
       if (!tableExists) {
-        console.log(`Table ${tableName} does not exist`)
+        logger.info(`Table ${tableName} does not exist`)
         return 0
       }
 
@@ -317,7 +317,7 @@ export class DatabaseManager {
       const totalCount = totalResult.count
 
       if (totalCount === 0) {
-        console.log(`Table ${tableName} is empty`)
+        logger.info(`Table ${tableName} is empty`)
         return 0
       }
 
@@ -336,11 +336,11 @@ export class DatabaseManager {
 
       const historicalCount = totalCount - loggedCount
 
-      console.log(`Table ${tableName} historical data check: total=${totalCount}, logged=${loggedCount}, historical=${historicalCount}`)
+      logger.info(`Table ${tableName} historical data check`, { total: totalCount, logged: loggedCount, historical: historicalCount })
 
       return Math.max(0, historicalCount)
     } catch (error) {
-      console.warn(`Failed to check historical data (${tableName}):`, error)
+      logger.warn(`Failed to check historical data (${tableName})`, { error: error })
       return 0
     }
   }
@@ -389,7 +389,7 @@ export class DatabaseManager {
       } else if (tableName === 't_asset_chains_sync') {
         this.updateChainVersionStmt.run(newVersion, uuid)
       } else {
-        console.log(`⚠️ Unknown table name: ${tableName}`)
+        logger.warn(`Unknown table name: ${tableName}`)
       }
     } finally {
       // Ensure remote apply guard is disabled in all cases
@@ -591,9 +591,8 @@ export class DatabaseManager {
       })
       upsertTransaction()
     } catch (error) {
-      console.error('SQLite execution failed:', error)
-      console.error('SQL:', 'upsertAsset')
-      console.error('Values:', values)
+      logger.error('SQLite execution failed', { error: error })
+      logger.error('SQL: upsertAsset', { values: JSON.stringify(values) })
       throw error
     }
 
@@ -639,9 +638,7 @@ export class DatabaseManager {
     try {
       this.db.prepare(sql).run(...values)
     } catch (error) {
-      console.error('SQLite execution failed:', error)
-      console.error('SQL:', sql)
-      console.error('Values:', values)
+      logger.error('SQLite execution failed', { error: error, sql })
       throw error
     }
 
@@ -682,7 +679,7 @@ export class DatabaseManager {
         const { SyncController } = await import('./SyncController')
         await SyncController.triggerIncrementalSync()
       } catch (error) {
-        logger.warn('Failed to trigger incremental sync:', error)
+        logger.warn('Failed to trigger incremental sync', { error: error })
         // Don't throw exception to avoid affecting database operations
       }
     })

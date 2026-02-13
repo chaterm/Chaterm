@@ -30,7 +30,6 @@ const envPath = path.resolve(__dirname, '../../../build/.env')
 
 // Ensure path exists
 if (!fs.existsSync(envPath)) {
-  console.warn(`Environment file does not exist: ${envPath}`)
   // Can try other paths or set default values
 }
 
@@ -95,11 +94,11 @@ if (fs.existsSync(envSpecificPath)) {
         process.env[key] = value
       }
     })
-  } catch (error) {
-    console.warn('Failed to read environment file:', error)
+  } catch {
+    // Ignore env parse errors in preload bootstrap path
   }
 } else {
-  console.log(`Environment file not found: ${envSpecificPath}, using default values`)
+  // Environment file not found, proceed with defaults
 }
 
 // Custom APIs for renderer
@@ -708,7 +707,6 @@ const api = {
         if (!resolved) {
           resolved = true
           ipcRenderer.removeListener(channel, handler)
-          console.warn(`[Preload] Command list reception timeout (${id})`)
           resolve({ hasSudo: false, commandList: [] })
         }
       }, COMMAND_LIST_TIMEOUT)
@@ -791,12 +789,9 @@ const api = {
   // New method to call executeRemoteCommand in the main process
   executeRemoteCommandViaPreload: async () => {
     try {
-      console.log('Calling execute-remote-command via preload') // Add log
       const result = await ipcRenderer.invoke('execute-remote-command')
-      console.log('Result from main process:', result) // Add log
       return result
     } catch (error) {
-      console.error('Error invoking execute-remote-command from preload:', error) // Add log
       // Ensure error is a serializable object
       if (error instanceof Error) {
         return {
@@ -1176,7 +1171,23 @@ const api = {
   /**
    * Resume interaction detection for a suppressed command
    */
-  unsuppressInteraction: (commandId: string) => ipcRenderer.invoke('unsuppress-interaction', commandId)
+  unsuppressInteraction: (commandId: string) => ipcRenderer.invoke('unsuppress-interaction', commandId),
+
+  /**
+   * Send a log entry from renderer to main process
+   */
+  log: (payload: {
+    level: 'debug' | 'info' | 'warn' | 'error'
+    process: 'renderer' | 'preload'
+    module: string
+    message: string
+    meta?: Record<string, unknown>
+  }) => ipcRenderer.invoke('log:write', payload),
+
+  /**
+   * Open the log directory in the system file manager
+   */
+  openLogDir: () => ipcRenderer.invoke('logging:openDir')
 }
 // Custom API for browser control
 
@@ -1195,8 +1206,8 @@ if (process.contextIsolated) {
       getCurrentURL: () => window.location.href // Get current URL via window.location
     })
     contextBridge.exposeInMainWorld('api', api)
-  } catch (error) {
-    // console.error(error)
+  } catch {
+    // Silently ignore contextBridge errors
   }
 } else {
   // @ts-ignore (define in dts)

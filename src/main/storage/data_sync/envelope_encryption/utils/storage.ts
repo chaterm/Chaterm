@@ -1,5 +1,6 @@
 import config from '../config'
 import TempFileStorageProvider from './tempFileStorage'
+const logger = createLogger('sync')
 
 /**
  * Client-side storage manager
@@ -28,7 +29,7 @@ class StorageManager {
   async storeAuthToken(token: string): Promise<void> {
     const key = `${config.storage.keyPrefix}auth_token`
     await this.provider.setItem(key, token)
-    console.log('Auth token stored')
+    logger.info('Auth token stored')
   }
 
   async getAuthToken(): Promise<string | null> {
@@ -39,7 +40,7 @@ class StorageManager {
   async clearAuthToken(): Promise<void> {
     const key = `${config.storage.keyPrefix}auth_token`
     await this.provider.removeItem(key)
-    console.log('Auth token cleared')
+    logger.info('Auth token cleared')
   }
 
   async storeSession(userId: string, sessionId: string): Promise<void> {
@@ -83,7 +84,7 @@ class StorageManager {
 
       return users
     } catch (error) {
-      console.error('Failed to list users:', error)
+      logger.error('Failed to list users', { error: error })
       return []
     }
   }
@@ -94,7 +95,7 @@ class StorageManager {
       // Data keys now only exist in memory, managed by ClientSideCrypto
       await this.clearSession(userId)
     } catch (error) {
-      console.error(`Failed to cleanup storage data for user ${userId}:`, error)
+      logger.error(`Failed to cleanup storage data for user ${userId}`, { error: error })
       throw error
     }
   }

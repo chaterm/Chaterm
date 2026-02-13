@@ -1,6 +1,7 @@
 import Database from 'better-sqlite3'
 import { getUserConfig } from '../../../agent/core/storage/state'
 import { capabilityRegistry } from '../../../ssh/capabilityRegistry'
+const logger = createLogger('db')
 
 /**
  * Get available organization asset types dynamically based on capability registry.
@@ -49,7 +50,9 @@ export function getOrganizationAssetTypesWithExisting(db: Database.Database): st
       }
     }
   } catch (error) {
-    console.warn('[getOrganizationAssetTypesWithExisting] Failed to query existing types:', error)
+    logger.warn('[getOrganizationAssetTypesWithExisting] Failed to query existing types', {
+      error: error
+    })
   }
 
   return types
@@ -127,10 +130,10 @@ function migrateDatabaseIfNeeded(db: Database.Database) {
     const hasCommentColumn = columns.some((col: any) => col.name === 'comment')
 
     if (!hasCommentColumn) {
-      console.log('Adding comment field to t_organization_assets table...')
+      logger.info('Adding comment field to t_organization_assets table...')
       const alterStmt = db.prepare('ALTER TABLE t_organization_assets ADD COLUMN comment TEXT')
       alterStmt.run()
-      console.log('Comment field added successfully')
+      logger.info('Comment field added successfully')
     }
 
     // Check and create custom folders table
@@ -141,7 +144,7 @@ function migrateDatabaseIfNeeded(db: Database.Database) {
     const customFoldersTable = checkCustomFoldersTable.get()
 
     if (!customFoldersTable) {
-      console.log('Creating custom folders table...')
+      logger.info('Creating custom folders table...')
       const createCustomFoldersTable = db.prepare(`
         CREATE TABLE IF NOT EXISTS t_custom_folders (
           id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -153,7 +156,7 @@ function migrateDatabaseIfNeeded(db: Database.Database) {
         )
       `)
       createCustomFoldersTable.run()
-      console.log('Custom folders table created successfully')
+      logger.info('Custom folders table created successfully')
     }
 
     // Check and create asset folder mapping table
@@ -164,7 +167,7 @@ function migrateDatabaseIfNeeded(db: Database.Database) {
     const assetFolderMappingTable = checkAssetFolderMappingTable.get()
 
     if (!assetFolderMappingTable) {
-      console.log('Creating asset folder mapping table...')
+      logger.info('Creating asset folder mapping table...')
       const createAssetFolderMappingTable = db.prepare(`
         CREATE TABLE IF NOT EXISTS t_asset_folder_mapping (
           id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -176,10 +179,10 @@ function migrateDatabaseIfNeeded(db: Database.Database) {
         )
       `)
       createAssetFolderMappingTable.run()
-      console.log('Asset folder mapping table created successfully')
+      logger.info('Asset folder mapping table created successfully')
     }
   } catch (error) {
-    console.error('Database migration failed:', error)
+    logger.error('Database migration failed', { error: error })
   }
 }
 
@@ -483,7 +486,7 @@ export async function getLocalAssetRouteLogic(db: Database, searchType: string, 
 
     return result
   } catch (error) {
-    console.error('Chaterm database query error:', error)
+    logger.error('Chaterm database query error', { error: error })
     throw error
   }
 }

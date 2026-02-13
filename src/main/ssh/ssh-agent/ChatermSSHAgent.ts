@@ -6,6 +6,7 @@ import * as fs from 'fs/promises'
 import * as path from 'path'
 import * as os from 'os'
 import { Duplex } from 'stream'
+const logger = createLogger('ssh')
 
 // SSH Agent Protocol
 const SSH_AGENT_FAILURE = 5
@@ -99,13 +100,13 @@ export class SSHAgent extends BaseAgent {
       })
 
       this.server.on('error', (err) => {
-        console.error('Chaterm SSH Agent: Server error:', err)
+        logger.error('SSH Agent server error', { event: 'ssh.agent.server.error', error: err.message })
         reject(err)
       })
 
       this.server.listen(this.socketPath, () => {
         this.isRunning = true
-        console.log(`Chaterm SSH Agent: Started on ${this.socketPath}`)
+        logger.info('SSH Agent started', { event: 'ssh.agent.started' })
 
         // Set SSH_AUTH_SOCK
         process.env.SSH_AUTH_SOCK = this.socketPath
@@ -113,7 +114,7 @@ export class SSHAgent extends BaseAgent {
         // Set Permissions
         if (process.platform !== 'win32') {
           fs.chmod(this.socketPath, 0o600).catch((err) => {
-            console.warn('Could not set socket permissions:', err)
+            logger.warn('Could not set socket permissions', { event: 'ssh.agent.chmod.error', error: err.message })
           })
         }
 
@@ -144,7 +145,7 @@ export class SSHAgent extends BaseAgent {
           try {
             await fs.unlink(this.socketPath)
           } catch (err) {
-            console.warn('Could not remove socket file:', err)
+            logger.warn('Could not remove socket file', { event: 'ssh.agent.cleanup.error', error: err })
           }
         }
 
@@ -153,7 +154,7 @@ export class SSHAgent extends BaseAgent {
           delete process.env.SSH_AUTH_SOCK
         }
 
-        console.log('Chaterm SSH Agent: Stopped')
+        logger.info('SSH Agent stopped', { event: 'ssh.agent.stopped' })
         this.emit('stopped')
         resolve()
       })
@@ -162,7 +163,7 @@ export class SSHAgent extends BaseAgent {
 
   private handleConnection(socket: Socket): void {
     this.clientConnections.add(socket)
-    console.log('SSH Agent: Client connected')
+    logger.debug('SSH Agent client connected', { event: 'ssh.agent.client.connect' })
 
     let buffer: Buffer = Buffer.alloc(0) as Buffer
 
@@ -173,12 +174,12 @@ export class SSHAgent extends BaseAgent {
     })
 
     socket.on('error', (err) => {
-      console.error('SSH Agent: Socket error:', err)
+      logger.error('SSH Agent socket error', { event: 'ssh.agent.socket.error', error: err.message })
     })
 
     socket.on('close', () => {
       this.clientConnections.delete(socket)
-      console.log('SSH Agent: Client disconnected')
+      logger.debug('SSH Agent client disconnected', { event: 'ssh.agent.client.disconnect' })
     })
   }
 
@@ -200,7 +201,10 @@ export class SSHAgent extends BaseAgent {
       try {
         this.handleAgentMessage(socket, messageData)
       } catch (error) {
-        console.error('SSH Agent: Error handling message:', error)
+        logger.error('SSH Agent error handling message', {
+          event: 'ssh.agent.message.error',
+          error: error
+        })
         this.sendFailureResponse(socket)
       }
 
@@ -214,7 +218,7 @@ export class SSHAgent extends BaseAgent {
     if (message.length === 0) return
 
     const messageType = message.readUInt8(0)
-    console.log(`SSH Agent: Received message type: ${messageType}`)
+    logger.debug('SSH Agent received message', { event: 'ssh.agent.message', messageType })
 
     switch (messageType) {
       case SSH_AGENTC_REQUEST_IDENTITIES:
@@ -225,17 +229,17 @@ export class SSHAgent extends BaseAgent {
         this.handleSignRequest(socket, message)
         break
       case SSH_AGENTC_ADD_SMARTCARD_KEY:
-        console.log('SSH Agent: Smart card operations not supported')
+        logger.debug('Smart card operations not supported', { event: 'ssh.agent.smartcard.unsupported' })
         this.sendFailureResponse(socket)
         break
       default:
-        console.warn(`SSH Agent: Unknown message type: ${messageType}`)
+        logger.warn('SSH Agent unknown message type', { event: 'ssh.agent.message.unknown', messageType })
         this.sendFailureResponse(socket)
     }
   }
 
   private handleRequestIdentities(socket: Socket): void {
-    console.log('SSH Agent: Handling request identities')
+    logger.debug('Handling request identities', { event: 'ssh.agent.identities' })
 
     const keys = Array.from(this.keys.values())
 
@@ -260,8 +264,11 @@ export class SSHAgent extends BaseAgent {
     offset += 4
 
     keys.forEach((key) => {
-      console.log(`SSH Agent: Adding key to response: ${key.comment}`)
-      console.log(`SSH Agent: Public key length: ${key.publicKey.length}`)
+      logger.debug('Adding key to identity response', {
+        event: 'ssh.agent.identity.add',
+        comment: key.comment,
+        publicKeyLength: key.publicKey.length
+      })
 
       // Public key length
       response.writeUInt32BE(key.publicKey.length, offset)
@@ -277,16 +284,16 @@ export class SSHAgent extends BaseAgent {
       commentBuffer.copy(response, offset)
       offset += commentBuffer.length
 
-      console.log(`SSH Agent: Key ${key.comment} added, current offset: ${offset}`)
+      logger.debug('Key added to identity response', { event: 'ssh.agent.identity.added', comment: key.comment })
     })
 
-    console.log(`SSH Agent: Response total length: ${totalLength}, actual offset: ${offset}`)
+    logger.debug('Identity response built', { event: 'ssh.agent.identities.done', totalLength, offset })
 
     this.sendResponse(socket, response)
   }
 
   private handleSignRequest(socket: Socket, message: Buffer): void {
-    console.log('SSH Agent: Handling sign request')
+    logger.debug('Handling sign request', { event: 'ssh.agent.sign' })
 
     let offset = 1 // Skip message
 
@@ -306,29 +313,29 @@ export class SSHAgent extends BaseAgent {
       // Read flag bit
       const flags = message.readUInt32BE(offset)
 
-      console.log(`SSH Agent: Sign request - pubkey length: ${pubKeyLength}, data length: ${dataLength}, flags: ${flags}`)
+      logger.debug('Sign request details', { event: 'ssh.agent.sign.details', pubKeyLength, dataLength, flags })
 
       // Find matching keys
       const key = this.findKeyByPublicKeyData(pubKeyData)
       if (!key) {
-        console.log('SSH Agent: Key not found for signing')
+        logger.debug('Key not found for signing', { event: 'ssh.agent.sign.keynotfound' })
         this.sendFailureResponse(socket)
         return
       }
 
-      console.log(`SSH Agent: Found key for signing: ${key.comment}`)
+      logger.debug('Found key for signing', { event: 'ssh.agent.sign.keyfound', comment: key.comment })
 
       // sign
       const signature = this.performSigning(key, signData, flags)
       if (!signature) {
-        console.log('SSH Agent: Signing failed')
+        logger.warn('Signing failed', { event: 'ssh.agent.sign.failed' })
         this.sendFailureResponse(socket)
         return
       }
 
       this.sendSignResponse(socket, signature)
     } catch (error) {
-      console.error('SSH Agent: Error in sign request:', error)
+      logger.error('Error in sign request', { event: 'ssh.agent.sign.error', error: error })
       this.sendFailureResponse(socket)
     }
   }
@@ -353,7 +360,7 @@ export class SSHAgent extends BaseAgent {
 
   private performSigning(key: SSHAgentKey, data: Buffer, flags: number): Buffer | null {
     try {
-      console.log(`SSH Agent: Performing signature with ${key.keyType}`)
+      logger.debug('Performing signature', { event: 'ssh.agent.sign.perform', keyType: key.keyType })
 
       let hashAlg = 'sha1'
       if (key.keyType === SSHKeyType.RSA && flags & 0x04) {
@@ -364,14 +371,14 @@ export class SSHAgent extends BaseAgent {
 
       const signature = key.privateKey.sign(data, hashAlg)
       if (signature instanceof Error) {
-        console.error('SSH Agent: Signature generation failed:', signature)
+        logger.error('Signature generation failed', { event: 'ssh.agent.sign.generate.error' })
         return null
       }
 
       // format
       return this.formatSignature(key.keyType, signature, flags)
     } catch (error) {
-      console.error('SSH Agent: Signing error:', error)
+      logger.error('Signing error', { event: 'ssh.agent.sign.error', error: error })
       return null
     }
   }
@@ -415,8 +422,7 @@ export class SSHAgent extends BaseAgent {
     response.writeUInt32BE(data.length, 0)
     data.copy(response, 4)
 
-    console.log(`SSH Agent: Sending response, total length: ${response.length}, data length: ${data.length}`)
-    console.log(`SSH Agent: Response header: ${response.slice(0, Math.min(16, response.length)).toString('hex')}`)
+    logger.debug('Sending agent response', { event: 'ssh.agent.response', responseLength: response.length, dataLength: data.length })
 
     socket.write(response)
   }
@@ -523,7 +529,7 @@ export class SSHAgent extends BaseAgent {
       // Check if a key with the same fingerprint already exists
       for (const key of this.keys.values()) {
         if (key.comment === comment) {
-          console.log(`SSH Agent: Key already exists, skipping (${key.comment})`)
+          logger.debug('Key already exists, skipping', { event: 'ssh.agent.key.exists', comment: key.comment })
           return key.id
         }
       }
@@ -541,12 +547,12 @@ export class SSHAgent extends BaseAgent {
       }
 
       this.keys.set(keyId, agentKey)
-      console.log(`SSH Agent: Added key ${agentKey.comment} (${agentKey.keyType})`)
+      logger.info('Key added to SSH Agent', { event: 'ssh.agent.key.added', comment: agentKey.comment, keyType: agentKey.keyType })
       this.emit('keyAdded', agentKey)
 
       return keyId
     } catch (error) {
-      console.error('SSH Agent: Failed to add key from data:', error)
+      logger.error('Failed to add key from data', { event: 'ssh.agent.key.add.error', error: error })
       throw error
     }
   }
@@ -554,7 +560,7 @@ export class SSHAgent extends BaseAgent {
   removeKey(keyId: string): boolean {
     const key = this.keys.get(keyId)
     if (key && this.keys.delete(keyId)) {
-      console.log(`SSH Agent: Removed key ${key.comment}`)
+      logger.info('Key removed from SSH Agent', { event: 'ssh.agent.key.removed', comment: key.comment })
       this.emit('keyRemoved', key)
       return true
     }
@@ -564,7 +570,7 @@ export class SSHAgent extends BaseAgent {
   removeAllKeys(): number {
     const count = this.keys.size
     this.keys.clear()
-    console.log(`SSH Agent: Removed all ${count} keys`)
+    logger.info('All keys removed from SSH Agent', { event: 'ssh.agent.keys.cleared', count })
     this.emit('allKeysRemoved')
     return count
   }
@@ -664,13 +670,16 @@ export class SSHAgentManager {
 
       const socketPath = await this.agent.start()
 
-      console.log('Chaterm SSH Agent started:', socketPath)
+      logger.info('Chaterm SSH Agent started', { event: 'ssh.agent.ipc.started' })
       return {
         SSH_AUTH_SOCK: socketPath,
         agent: this.agent
       }
     } catch (error) {
-      console.error('Failed to start Chaterm SSH Agent:', error)
+      logger.error('Failed to start Chaterm SSH Agent', {
+        event: 'ssh.agent.ipc.start.error',
+        error: error
+      })
       throw error
     }
   }
@@ -678,20 +687,20 @@ export class SSHAgentManager {
   private setupEventListeners(): void {
     if (!this.agent) return
 
-    this.agent.on('started', (socketPath) => {
-      console.log(`SSH Agent started on: ${socketPath}`)
+    this.agent.on('started', (_socketPath) => {
+      logger.debug('SSH Agent started event', { event: 'ssh.agent.event.started' })
     })
 
     this.agent.on('stopped', () => {
-      console.log('SSH Agent stopped')
+      logger.debug('SSH Agent stopped event', { event: 'ssh.agent.event.stopped' })
     })
 
     this.agent.on('keyAdded', (key) => {
-      console.log(`Key added: ${key.comment} (${key.keyType})`)
+      logger.debug('Key added event', { event: 'ssh.agent.event.keyadded', comment: key.comment, keyType: key.keyType })
     })
 
     this.agent.on('keyRemoved', (key) => {
-      console.log(`Key removed: ${key.comment}`)
+      logger.debug('Key removed event', { event: 'ssh.agent.event.keyremoved', comment: key.comment })
     })
   }
 

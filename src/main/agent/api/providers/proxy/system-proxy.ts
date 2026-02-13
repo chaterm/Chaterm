@@ -8,6 +8,7 @@ import { SocksProxyAgent } from 'socks-proxy-agent'
 import type { Agent } from 'http'
 import type { ProxyCache } from './types'
 import { CACHE_TTL } from './types'
+const logger = createLogger('agent')
 
 // Proxy cache to reduce resolveProxy calls
 let proxyCache: ProxyCache | null = null
@@ -32,14 +33,14 @@ export async function resolveSystemProxy(targetUrl: string): Promise<string | un
 
     // Handle various "no proxy" cases
     if (!proxyString || proxyString.trim() === '' || proxyString === 'DIRECT') {
-      console.log('[Proxy] No system proxy detected, using direct connection')
+      logger.info('[Proxy] No system proxy detected, using direct connection')
       return undefined
     }
 
-    console.log(`[Proxy] System proxy detected: ${proxyString}`)
+    logger.info(`[Proxy] System proxy detected: ${proxyString}`)
     return proxyString
   } catch (error) {
-    console.error('[Proxy] Failed to resolve system proxy:', error)
+    logger.error('[Proxy] Failed to resolve system proxy', { error: error })
     return undefined
   }
 }
@@ -54,12 +55,12 @@ export function createProxyAgentFromString(proxyString: string): Agent | undefin
     // Parse proxy string format: "PROXY host:port" or "SOCKS5 host:port"
     const match = proxyString.match(/^(PROXY|SOCKS4|SOCKS5|HTTPS)\s+(.+):(\d+)/)
     if (!match) {
-      console.error(`[Proxy] Invalid proxy string format: ${proxyString}`)
+      logger.error(`[Proxy] Invalid proxy string format: ${proxyString}`)
       return undefined
     }
 
     const [, type, host, port] = match
-    console.log(`[Proxy] Creating ${type} agent: ${host}:${port}`)
+    logger.info(`[Proxy] Creating ${type} agent: ${host}:${port}`)
 
     switch (type) {
       case 'PROXY':
@@ -70,11 +71,11 @@ export function createProxyAgentFromString(proxyString: string): Agent | undefin
       case 'SOCKS5':
         return new SocksProxyAgent(`socks5://${host}:${port}`) as unknown as Agent
       default:
-        console.error(`[Proxy] Unsupported proxy type: ${type}`)
+        logger.error(`[Proxy] Unsupported proxy type: ${type}`)
         return undefined
     }
   } catch (error) {
-    console.error('[Proxy] Failed to create proxy agent:', error)
+    logger.error('[Proxy] Failed to create proxy agent', { error: error })
     return undefined
   }
 }

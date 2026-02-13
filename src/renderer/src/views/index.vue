@@ -7,6 +7,8 @@ import TerminalLayout from './layouts/TerminalLayout.vue'
 import eventBus from '@/utils/eventBus'
 import { userConfigStore } from '@/services/userConfigStoreService'
 
+const logger = createRendererLogger('views.index')
+
 const currentMode = ref<'terminal' | 'agents'>('terminal')
 
 const handleModeChange = (mode: 'terminal' | 'agents') => {
@@ -26,7 +28,7 @@ const handleToggleLayout = async () => {
     await userConfigStore.saveConfig({ defaultLayout: targetMode })
     eventBus.emit('defaultLayoutChanged', targetMode)
   } catch (error) {
-    console.error('Failed to update default layout:', error)
+    logger.error('Failed to update default layout', { error: error })
   }
 }
 
@@ -40,7 +42,7 @@ onMounted(async () => {
     const defaultLayout = config.defaultLayout || 'terminal'
     currentMode.value = defaultLayout
   } catch (error) {
-    console.error('Failed to load default layout:', error)
+    logger.error('Failed to load default layout', { error: error })
     // Use default value 'terminal' if loading fails
     currentMode.value = 'terminal'
   }

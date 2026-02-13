@@ -7,18 +7,19 @@
 // Remote terminal usage example
 import { ConnectionInfo, RemoteTerminalManager } from './index'
 import { testStorageFromMain } from '../../core/storage/state'
+const logger = createLogger('remote-terminal.example')
 
 // Example: Connect to a remote server and execute commands
 export async function executeRemoteCommand() {
   // Note: testStorageFromMain requires the main window to be initialized to work
   // It may fail if called early in the main process startup
   try {
-    console.log('Attempting to call testStorageFromMain...')
+    logger.info('Attempting to call testStorageFromMain...')
     await testStorageFromMain()
-    console.log('testStorageFromMain call successful')
+    logger.info('testStorageFromMain call successful')
   } catch (error) {
-    console.error('testStorageFromMain call failed:', error)
-    console.log('This may be because the main window has not been initialized, which is normal')
+    logger.error('testStorageFromMain call failed', { error: error })
+    logger.info('This may be because the main window has not been initialized, which is normal')
   }
 
   const connectionInfo: ConnectionInfo = {
@@ -30,7 +31,7 @@ export async function executeRemoteCommand() {
     passphrase: '',
     needProxy: false
   }
-  console.log('Connection info:', connectionInfo)
+  logger.debug('Connection info', { data: connectionInfo })
 
   const cwd = '/home'
   const remoteManager = new RemoteTerminalManager()
@@ -39,57 +40,55 @@ export async function executeRemoteCommand() {
     // Set connection information
     remoteManager.setConnectionInfo(connectionInfo)
 
-    console.log('Connecting to remote server...')
-    console.log(`Host: ${connectionInfo.host}:${connectionInfo.port}`)
-    console.log(`Username: ${connectionInfo.username}`)
+    logger.info('Connecting to remote server...')
+    logger.info(`Host: ${connectionInfo.host}:${connectionInfo.port}`)
+    logger.info(`Username: ${connectionInfo.username}`)
 
     // Create new remote terminal
     const terminalInfo = await remoteManager.createTerminal()
 
     // Execute a simple test command
     const command = 'ls /home'
-    console.log(`Executing command: ${command}`)
+    logger.info(`Executing command: ${command}`)
 
-    console.log('Calling runCommand...')
+    logger.debug('Calling runCommand...')
 
     const process = remoteManager.runCommand(terminalInfo, command, cwd)
-    console.log('runCommand returned, starting to register event listeners...')
+    logger.debug('runCommand returned, starting to register event listeners...')
 
     let output = ''
 
     // Register all event listeners immediately (before await)
-    console.log('Registering line event listener')
+    logger.debug('Registering line event listener')
 
     process.on('line', (line) => {
       output += line + '\n'
-      console.log('Received output line:', line)
+      logger.debug('Received output line', { data: line })
     })
 
     process.on('completed', () => {
       terminalInfo.busy = false
-      console.log('🎉🎉🎉 User-defined completed event listener triggered! 🎉🎉🎉')
+      logger.info('User-defined completed event listener triggered')
     })
     process.on('error', (error) => {
-      console.error('Command execution error:', error)
+      logger.error('Command execution error', { error: error })
     })
 
     // Now wait for the command to complete
-    console.log('All event listeners registered, waiting for command execution to complete...')
+    logger.info('All event listeners registered, waiting for command execution to complete...')
     await process
 
     // Clean up connection
     await remoteManager.disposeAll()
-    console.log('Remote connection closed')
+    logger.info('Remote connection closed')
 
     return output
   } catch (error) {
-    console.error('Remote terminal operation failed:', error)
+    logger.error('Remote terminal operation failed', { error: error })
 
     // Output more detailed error information
     if (error instanceof Error) {
-      console.error('Error details:')
-      console.error('- Message:', error.message)
-      console.error('- Stack:', error.stack)
+      logger.error('Error details', { data: { message: error.message, stack: error.stack } })
     }
 
     throw error

@@ -13,6 +13,7 @@ import crypto from 'crypto'
 import path from 'path'
 import fs from 'fs'
 import { getUserDataPath, getEdition } from '../../../config/edition'
+const logger = createLogger('agent')
 
 /**
  * PostHogClient handles telemetry event tracking for the Cline extension
@@ -156,7 +157,7 @@ class PostHogClient {
         is_dev: process.env.IS_DEV,
         edition: getEdition()
       }
-      console.log('[PostHog] Capturing event properties:', propertiesWithVersion)
+      logger.info('[PostHog] Capturing event properties', { value: propertiesWithVersion })
       this.client.capture({
         distinctId: this.distinctId,
         event: event.event,
@@ -245,7 +246,7 @@ class PostHogClient {
   ) {
     // Ensure required parameters are provided
     if (!taskId || !provider || !model || !source || !mode) {
-      console.warn('TelemetryService: Missing required parameters for message capture')
+      logger.warn('TelemetryService: Missing required parameters for message capture')
       return
     }
 
@@ -305,7 +306,7 @@ class PostHogClient {
    * @param feedbackType The type of feedback ("thumbs_up" or "thumbs_down")
    */
   public captureTaskFeedback(taskId: string, feedbackType: TaskFeedbackType) {
-    console.info('TelemetryService: Capturing task feedback', { taskId, feedbackType })
+    logger.info('TelemetryService: Capturing task feedback', { taskId, feedbackType })
     this.capture({
       event: PostHogClient.EVENTS.TASK.FEEDBACK,
       properties: {
@@ -592,7 +593,7 @@ function generatePersistentMachineId(): string {
       }
     }
   } catch (error) {
-    console.warn('Failed to read existing machine ID:', error)
+    logger.warn('Failed to read existing machine ID', { error: error })
   }
 
   // Generate new machine ID
@@ -618,7 +619,7 @@ function generatePersistentMachineId(): string {
     fs.mkdirSync(path.dirname(machineIdPath), { recursive: true })
     fs.writeFileSync(machineIdPath, machineId, 'utf8')
   } catch (error) {
-    console.warn('Failed to save machine ID:', error)
+    logger.warn('Failed to save machine ID', { error: error })
   }
 
   return machineId
@@ -642,7 +643,7 @@ export function checkIsFirstLaunch(): boolean {
     }
     return false
   } catch (error) {
-    console.warn('Failed to check first launch status:', error)
+    logger.warn('Failed to check first launch status', { error: error })
     return false
   }
 }

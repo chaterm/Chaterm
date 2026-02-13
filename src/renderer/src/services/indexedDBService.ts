@@ -1,3 +1,5 @@
+const logger = createRendererLogger('service.indexedDB')
+
 interface StoreConfig {
   name: string
   keyPath: string
@@ -39,14 +41,14 @@ class IndexedDBService {
         const request = indexedDB.open(config.name, config.version)
 
         request.onerror = (event) => {
-          console.error('IndexedDB error:', event)
+          logger.error('IndexedDB error', { error: event })
           reject('Failed to open IndexedDB')
         }
 
         request.onsuccess = (event) => {
           const db = (event.target as IDBOpenDBRequest).result
           this.dbConnections.set(config.name, db)
-          console.log(`Database ${config.name} opened successfully`)
+          logger.info('Database opened successfully', { name: config.name })
           resolve(db)
         }
 
@@ -56,7 +58,7 @@ class IndexedDBService {
           // Handle creation of all stores
           config.stores.forEach((store) => {
             if (!db.objectStoreNames.contains(store.name)) {
-              console.log(`Creating store: ${store.name}`)
+              logger.info('Creating store', { name: store.name })
               const objectStore = db.createObjectStore(store.name, { keyPath: store.keyPath })
 
               // Create indexes
@@ -67,7 +69,7 @@ class IndexedDBService {
           })
         }
       } catch (error) {
-        console.error('Error initializing IndexedDB:', error)
+        logger.error('Error initializing IndexedDB', { error: error })
         reject(error)
       }
     })

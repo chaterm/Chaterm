@@ -5,6 +5,7 @@ import { ChatermDatabaseService } from '../storage/database'
 import { getCurrentUserId, getGuestUserId } from '../storage/db/connection'
 import { safeParse, safeStringify } from '../storage/db/json-serializer'
 import { getUserConfig } from '../agent/core/storage/state'
+const logger = createLogger('version')
 
 const VERSION_PROMPT_KEY = 'versionPrompt'
 
@@ -120,7 +121,7 @@ export class VersionPromptService {
       const version = targetVersion || app.getVersion()
       return notes.find((item) => item.version === version) || null
     } catch (error) {
-      console.warn('[VersionPrompt] Failed to read release notes:', error)
+      logger.warn('Failed to read release notes', { error: error })
       return null
     }
   }
@@ -136,7 +137,7 @@ export class VersionPromptService {
         }
       }
     } catch (error) {
-      console.warn('[VersionPrompt] Failed to load state:', error)
+      logger.warn('Failed to load state', { error: error })
     }
     return {}
   }
@@ -155,7 +156,7 @@ export class VersionPromptService {
         updated_at: Date.now()
       })
     } catch (error) {
-      console.warn('[VersionPrompt] Failed to save state:', error)
+      logger.warn('Failed to save state', { error: error })
     }
   }
 
@@ -184,7 +185,7 @@ export class VersionPromptService {
         return parsed.versions
       }
     } catch (error) {
-      console.warn('[VersionPrompt] Failed to read release notes:', error)
+      logger.warn('Failed to read release notes', { error: error })
     }
     return null
   }

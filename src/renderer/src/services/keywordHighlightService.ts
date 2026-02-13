@@ -4,6 +4,8 @@
  * Priority: Keyword Highlight > Global Highlight > OS Native Highlight
  */
 
+const logger = createRendererLogger('service.keywordHighlight')
+
 interface HighlightRule {
   name: string
   enabled: boolean
@@ -50,7 +52,7 @@ class KeywordHighlightService {
       this.config = JSON.parse(content)
       this.compileRules()
     } catch (error) {
-      console.error('[KeywordHighlight] Failed to load config:', error)
+      logger.error('Failed to load config', { error: error })
       this.config = null
       this.compiledRules = []
     }
@@ -105,7 +107,7 @@ class KeywordHighlightService {
           scope: rule.scope
         })
       } catch (error) {
-        console.warn(`[KeywordHighlight] Failed to compile rule "${rule.name}":`, error)
+        logger.warn('Failed to compile rule', { ruleName: rule.name, error: error })
       }
     }
   }

@@ -198,6 +198,8 @@ const DEFAULT_CONFIG: EditorConfig = {
   lineHeight: 0
 }
 
+const logger = createRendererLogger('store.editorConfig')
+
 /**
  * Editor configuration store
  */
@@ -240,7 +242,7 @@ export const useEditorConfigStore = defineStore('editorConfig', () => {
         }
       }
     } catch (error) {
-      console.error('Failed to load editor config:', error)
+      logger.error('Failed to load editor config', { error: error })
     }
   }
 
@@ -262,7 +264,7 @@ export const useEditorConfigStore = defineStore('editorConfig', () => {
       }
       await (window as any).api.saveEditorConfig(plain)
     } catch (error) {
-      console.error('Failed to save editor config:', error)
+      logger.error('Failed to save editor config', { error: error })
       throw error
     }
   }

@@ -7,6 +7,7 @@ import { CommandSecurityResult, SecurityConfig } from './types/SecurityTypes'
 import { SecurityConfigManager } from './SecurityConfig'
 import { CommandParser, ParsedCommand } from './CommandParser'
 import { Messages, getMessages, formatMessage } from '../task/messages'
+const logger = createLogger('agent')
 
 export class CommandSecurityManager {
   private configManager: SecurityConfigManager
@@ -35,7 +36,7 @@ export class CommandSecurityManager {
   async reloadConfig(): Promise<void> {
     await this.configManager.loadConfig()
     this.config = this.configManager.getConfig()
-    console.log('[SecurityConfig] Configuration reloaded successfully')
+    logger.info('[SecurityConfig] Configuration reloaded successfully')
   }
 
   /**

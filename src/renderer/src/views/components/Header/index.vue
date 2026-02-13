@@ -106,8 +106,10 @@ import { userConfigStore } from '@/services/userConfigStoreService'
 import TitleBar from './titleBar.vue'
 
 import eventBus from '@/utils/eventBus'
+
 const api = window.api as any
 const { t } = useI18n()
+const logger = createRendererLogger('header')
 
 const platform = ref<string>('')
 const deviceStore = useDeviceStore()
@@ -145,23 +147,23 @@ const switchIcon = (dir, value) => {
 const checkVersion = async () => {
   try {
     const info = await api.checkUpdate()
-    console.log('Update check result:', info)
+    logger.info('Update check result', { info: String(info) })
 
     // Check if update is available based on the actual response structure
     if (info && (info.isUpdateAvailable || info.updateInfo)) {
-      console.log('Update available, starting download...')
+      logger.info('Update available, starting download')
       api.download()
       api.autoUpdate((params) => {
-        console.log('Update status:', params)
+        logger.info('Update status', { status: params.status })
         if (params.status == 4) {
           isAvailable.value = true
         }
       })
     } else {
-      console.log('No update available')
+      logger.info('No update available')
     }
   } catch (error) {
-    console.error('Failed to check for updates:', error)
+    logger.error('Failed to check for updates', { error: error })
   }
 }
 
@@ -179,7 +181,7 @@ const handleModeChange = async (mode: 'terminal' | 'agents') => {
     // Notify settings page to update display
     eventBus.emit('defaultLayoutChanged', mode)
   } catch (error) {
-    console.error('Failed to update default layout:', error)
+    logger.error('Failed to update default layout', { error: error })
   }
 }
 
@@ -196,16 +198,16 @@ onMounted(async () => {
     const localIP = await api.getLocalIP()
     deviceStore.setDeviceIp(localIP)
   } catch (error) {
-    console.error('Failed to obtain IP address:', error)
+    logger.error('Failed to obtain IP address', { error: error })
   }
   try {
     const macAddress = await api.getMacAddress()
     deviceStore.setMacAddress(macAddress)
   } catch (error) {
-    console.error('Failed to obtain the MAC Address:', error)
+    logger.error('Failed to obtain MAC address', { error: error })
   }
   const userConfig = await userConfigStore.getConfig()
-  console.log('[onMounted]', userConfig)
+  logger.debug('User config loaded on mount')
   appContext.config.globalProperties.$i18n.locale = userConfig.language
   eventBus.on('updateRightIcon', (value: boolean) => {
     isRightSidebarCollapsed.value = value

@@ -109,6 +109,8 @@ const TodoCompactList = defineAsyncComponent(() => import('./TodoCompactList.vue
 import type { Todo, FocusChainState, ContextThresholdLevel } from '../../../../../types/todo'
 import i18n from '@/locales'
 
+const logger = createRendererLogger('ai.todo')
+
 const { t } = i18n.global
 
 interface Props {
@@ -187,28 +189,26 @@ const todoTitle = computed(() => t('ai.taskProgress'))
 watch(
   () => props.todos,
   (newTodos) => {
-    console.log('TodoInlineDisplay - todos prop changed:', newTodos)
-    console.log('TodoInlineDisplay - todos length:', newTodos?.length || 0)
-    console.log('TodoInlineDisplay - visible:', visible.value)
-    console.log('TodoInlineDisplay - expanded:', expanded.value)
-    console.log('TodoInlineDisplay - focused todo:', focusedTodo.value?.content)
+    logger.debug('todos prop changed', {
+      data: { length: newTodos?.length || 0, visible: visible.value, expanded: expanded.value, focusedTodo: focusedTodo.value?.content }
+    })
   },
   { immediate: true, deep: true }
 )
 
 watch(visible, (newVisible) => {
-  console.log('TodoInlineDisplay - visible changed:', newVisible)
+  logger.debug('visible changed', { data: newVisible })
 })
 
 watch(expanded, (newExpanded) => {
-  console.log('TodoInlineDisplay - expanded changed:', newExpanded)
+  logger.debug('expanded changed', { data: newExpanded })
 })
 
 const toggleExpanded = () => {
-  console.log('TodoInlineDisplay - toggleExpanded called, current expanded:', expanded.value)
+  logger.debug('toggleExpanded called', { data: { current: expanded.value } })
   expanded.value = !expanded.value
   activeKey.value = expanded.value ? ['todos'] : []
-  console.log('TodoInlineDisplay - toggleExpanded new expanded:', expanded.value)
+  logger.debug('toggleExpanded result', { data: { new: expanded.value } })
 }
 </script>
 

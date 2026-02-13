@@ -6,5 +6,5 @@
 // biome-ignore lint: disable
 export {}
 declare global {
-
+  const createRendererLogger: typeof import('@/utils/logger').createRendererLogger
 }

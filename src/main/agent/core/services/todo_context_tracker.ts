@@ -1,3 +1,5 @@
+const logger = createLogger('agent')
+
 // Context tracking thresholds
 const CONTEXT_THRESHOLDS = {
   WARNING: 50,
@@ -159,7 +161,7 @@ export class TodoContextTracker {
       try {
         callback(level, this.contextUsagePercent)
       } catch (error) {
-        console.error('[TodoContextTracker] Context warning callback error:', error)
+        logger.error('[TodoContextTracker] Context warning callback error', { error: error })
       }
     })
   }

@@ -1,4 +1,5 @@
 import Database from 'better-sqlite3'
+const logger = createLogger('db')
 
 /**
  * Add message_index column to agent_api_conversation_history_v1 table.
@@ -11,12 +12,12 @@ export async function upgradeMessageIndexSupport(db: Database.Database): Promise
     const messageIndexColumnExists = tableInfo.some((col: any) => col.name === 'message_index')
 
     if (!messageIndexColumnExists) {
-      console.log('Adding message_index column to agent_api_conversation_history_v1 table...')
+      logger.info('Adding message_index column to agent_api_conversation_history_v1 table...')
       db.exec('ALTER TABLE agent_api_conversation_history_v1 ADD COLUMN message_index INTEGER')
-      console.log('message_index column added successfully')
+      logger.info('message_index column added successfully')
     }
   } catch (error) {
-    console.error('Failed to upgrade message index support:', error)
+    logger.error('Failed to upgrade message index support', { error: error })
     throw error
   }
 }

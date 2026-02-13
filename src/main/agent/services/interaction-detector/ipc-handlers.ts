@@ -12,6 +12,7 @@
 import { ipcMain, webContents } from 'electron'
 import type { InteractionRequest, InteractionResponse, InteractionSubmitResult } from './types'
 import { Task, type CommandContext } from '../../core/task'
+const logger = createLogger('agent')
 
 // Re-export CommandContext type for other modules
 export type { CommandContext }
@@ -47,7 +48,7 @@ function broadcast<T>(channel: string, data: T): void {
   for (const wc of webContents.getAllWebContents()) {
     wc.send(channel, data)
   }
-  console.log(`[InteractionIpc] Broadcasted ${channel}:`, typeof data === 'object' ? JSON.stringify(data).slice(0, 100) : data)
+  logger.info(`[InteractionIpc] Broadcasted ${channel}`, { value: typeof data === 'object' ? JSON.stringify(data).slice(0, 100) : data })
 }
 
 /**
@@ -100,11 +101,11 @@ async function withCommandContext(
 
   try {
     await operation(context)
-    console.log(`[InteractionIpc] ${actionName} for command: ${commandId}`)
+    logger.info(`[InteractionIpc] ${actionName} for command: ${commandId}`)
     return { success: true }
   } catch (error) {
     const errorMsg = error instanceof Error ? error.message : String(error)
-    console.error(`[InteractionIpc] Failed to ${actionName.toLowerCase()}: ${errorMsg}`)
+    logger.error(`[InteractionIpc] Failed to ${actionName.toLowerCase()}: ${errorMsg}`)
     return { success: false, error: errorMsg }
   }
 }
@@ -117,7 +118,7 @@ export function setupInteractionIpcHandlers(): void {
   ipcMain.handle('submit-interaction', async (_event, response: InteractionResponse): Promise<InteractionSubmitResult> => {
     const context = Task.getCommandContext(response.commandId)
     if (!context) {
-      console.warn(`[InteractionIpc] No context found for command: ${response.commandId}`)
+      logger.warn('[InteractionIpc] No context found for command', { value: response.commandId })
       return { success: false, error: 'Command context not found' }
     }
 
@@ -145,9 +146,9 @@ export function setupInteractionIpcHandlers(): void {
       // Password type should not be logged
       if (result.success) {
         if (interactionType !== 'password') {
-          console.log(`[InteractionIpc] Sent input for command: ${response.commandId}`)
+          logger.info('[InteractionIpc] Sent input for command', { value: response.commandId })
         } else {
-          console.log(`[InteractionIpc] Sent password input for command: ${response.commandId}`)
+          logger.info('[InteractionIpc] Sent password input for command', { value: response.commandId })
         }
 
         // Handle pager quit command specially
@@ -180,7 +181,7 @@ export function setupInteractionIpcHandlers(): void {
       }
 
       const errorMsg = error instanceof Error ? error.message : String(error)
-      console.error(`[InteractionIpc] Failed to submit interaction: ${errorMsg}`)
+      logger.error(`[InteractionIpc] Failed to submit interaction: ${errorMsg}`)
       return { success: false, error: errorMsg, code: 'write-failed' }
     }
   })
@@ -217,7 +218,7 @@ export function setupInteractionIpcHandlers(): void {
     })
   })
 
-  console.log('[InteractionIpc] IPC handlers registered')
+  logger.info('[InteractionIpc] IPC handlers registered')
 }
 
 /**

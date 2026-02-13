@@ -42,7 +42,27 @@ export default [
       'no-fallthrough': 'off', // Allow switch case statements to fall through
       '@typescript-eslint/no-unused-expressions': 'off', // Disable unused expressions warnings
       'vue/valid-v-for': 'off', // Disable v-for key warnings
-      'vue/no-v-html': 'off' // Disable v-html warnings
+      'vue/no-v-html': 'off', // Disable v-html warnings
+      'no-console': 'error' // Error on console.* usage - use createLogger() instead
+    }
+  },
+  // Whitelist files that legitimately need console access
+  {
+    files: [
+      'src/main/services/logging/index.ts',
+      'src/main/services/logging/mainVendorConsoleCapture.ts',
+      'src/main/services/logging/retention.ts',
+      'src/main/storage/db/early-migration.ts'
+    ],
+    rules: {
+      'no-console': 'off'
+    }
+  },
+  // Allow console usage in test code and test helpers.
+  {
+    files: ['**/__tests__/**', '**/*.test.ts', '**/*.spec.ts', 'tests/**'],
+    rules: {
+      'no-console': 'off'
     }
   },
   {

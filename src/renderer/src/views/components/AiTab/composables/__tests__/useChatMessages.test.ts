@@ -724,7 +724,7 @@ describe('useChatMessages', () => {
       const message: any = { type: 'partialMessage' }
       await processMainMessage(message)
 
-      expect(consoleSpy).toHaveBeenCalledWith('AiTab: Ignoring message for no target tab:', 'partialMessage')
+      expect(consoleSpy).toHaveBeenCalledWith('[ai.chatMessages] Ignoring message for no target tab', { data: 'partialMessage' })
       consoleSpy.mockRestore()
     })
 
@@ -746,7 +746,7 @@ describe('useChatMessages', () => {
       }
       await processMainMessage(message)
 
-      expect(consoleSpy).toHaveBeenCalledWith('AiTab: Ignoring message for deleted tab:', 'non-existent-tab')
+      expect(consoleSpy).toHaveBeenCalledWith('[ai.chatMessages] Ignoring message for deleted tab', { detail: 'non-existent-tab' })
       consoleSpy.mockRestore()
     })
 
@@ -971,7 +971,7 @@ describe('useChatMessages', () => {
       const session = mockState.currentSession.value!
       session.isCancelled = true
 
-      const consoleSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
+      const consoleSpy = vi.spyOn(console, 'info').mockImplementation(() => {})
 
       const message: ExtensionMessage = {
         type: 'partialMessage',
@@ -988,7 +988,7 @@ describe('useChatMessages', () => {
       await processMainMessage(message)
 
       expect(session.chatHistory).toHaveLength(0)
-      expect(consoleSpy).toHaveBeenCalledWith(expect.stringContaining('cancelled'))
+      expect(consoleSpy).toHaveBeenCalledWith('[ai.chatMessages] Ignoring partial message because task is cancelled', '')
       consoleSpy.mockRestore()
     })
 

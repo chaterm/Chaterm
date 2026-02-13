@@ -1,6 +1,8 @@
 import { ref, watch, computed } from 'vue'
 import { createGlobalState } from '@vueuse/core'
 import { getGlobalState, updateGlobalState, storeSecret, getSecret } from '@renderer/agent/storage/state'
+
+const logger = createRendererLogger('ai.modelConfig')
 import { GlobalStateKey } from '@renderer/agent/storage/state-keys'
 import { notification } from 'ant-design-vue'
 import { getUser } from '@api/user/user'
@@ -180,7 +182,7 @@ export const useModelConfiguration = createGlobalState(() => {
       modelsLoading.value = true
       const isSkippedLogin = localStorage.getItem('login-skipped') === 'true'
       const savedModelOptions = ((await getGlobalState('modelOptions')) || []) as ModelOption[]
-      console.log('savedModelOptions', savedModelOptions)
+      logger.info('savedModelOptions', { data: savedModelOptions })
 
       if (savedModelOptions.length !== 0) {
         return
@@ -196,7 +198,7 @@ export const useModelConfiguration = createGlobalState(() => {
       let defaultModels: DefaultModel[] = []
 
       await getUser({}).then((res) => {
-        console.log('res', res)
+        logger.info('getUser response', { data: res })
         defaultModels = res?.data?.models || []
         updateGlobalState('defaultBaseUrl', res?.data?.llmGatewayAddr)
         storeSecret('defaultApiKey', res?.data?.key)
@@ -220,7 +222,7 @@ export const useModelConfiguration = createGlobalState(() => {
 
       await updateGlobalState('modelOptions', serializableModelOptions)
     } catch (error) {
-      console.error('Failed to get/save model options:', error)
+      logger.error('Failed to get/save model options', { error: error })
       notification.error({
         message: 'Error',
         description: 'Failed to get/save model options'
@@ -240,7 +242,7 @@ export const useModelConfiguration = createGlobalState(() => {
       await updateGlobalState('defaultBaseUrl', res?.data?.llmGatewayAddr)
       await storeSecret('defaultApiKey', res?.data?.key)
     } catch (error) {
-      console.error('Failed to refresh model options:', error)
+      logger.error('Failed to refresh model options', { error: error })
       return
     }
 

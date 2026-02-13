@@ -109,6 +109,9 @@ interface TaskHistoryItem {
 }
 
 const { t } = useI18n()
+
+const logger = createRendererLogger('agents')
+
 const searchValue = ref('')
 const allConversations = ref<ConversationItem[]>([]) // Store all conversations
 const activeConversationId = ref<string | null>(null)
@@ -213,12 +216,12 @@ const loadConversations = async () => {
           }
         } catch (error) {
           // Silently fail for individual IP loading
-          console.debug('Failed to load IP for conversation:', item.id, error)
+          logger.debug('Failed to load IP for conversation', { conversationId: item.id, error: error })
         }
       })
     )
   } catch (error) {
-    console.error('Failed to load conversations:', error)
+    logger.error('Failed to load conversations', { error: error })
   } finally {
     isLoading = false
   }
@@ -270,7 +273,7 @@ const handleDeleteConversation = async (conversationId: string) => {
 
     emit('conversation-delete', conversationId)
   } catch (error) {
-    console.error('Failed to delete conversation:', error)
+    logger.error('Failed to delete conversation', { error: error })
   }
 }
 
@@ -308,7 +311,7 @@ const loadMoreConversations = async () => {
             }
           }
         } catch (error) {
-          console.debug('Failed to load IP for conversation:', item.id, error)
+          logger.debug('Failed to load IP for conversation', { conversationId: item.id, error: error })
         }
       })
     )

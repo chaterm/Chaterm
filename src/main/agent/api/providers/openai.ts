@@ -15,6 +15,7 @@ import { convertToR1Format } from '../transform/r1-format'
 import type { ChatCompletionReasoningEffort } from 'openai/resources/chat/completions'
 import { checkProxyConnectivity, createProxyAgent } from './proxy/index'
 import type { Agent } from 'http'
+const logger = createLogger('agent')
 
 export class OpenAiHandler implements ApiHandler {
   private options: ApiHandlerOptions
@@ -139,7 +140,7 @@ export class OpenAiHandler implements ApiHandler {
       })
       return { isValid: true }
     } catch (error) {
-      console.error('OpenAI compatible configuration validation failed:', error)
+      logger.error('OpenAI compatible configuration validation failed', { error: error })
       return {
         isValid: false,
         error: `Validation failed:  ${error instanceof Error ? error.message : String(error)}`

@@ -6,6 +6,7 @@
 
 import { Anthropic } from '@anthropic-ai/sdk'
 import OpenAI from 'openai'
+const logger = createLogger('agent')
 
 export function convertToOpenAiMessages(anthropicMessages: Anthropic.Messages.MessageParam[]): OpenAI.Chat.ChatCompletionMessageParam[] {
   const openAiMessages: OpenAI.Chat.ChatCompletionMessageParam[] = []
@@ -59,7 +60,7 @@ export function convertToOpenAiMessages(anthropicMessages: Anthropic.Messages.Me
                       toolResultImages.push(part)
                       return '(see following user message for image)'
                     } else {
-                      console.warn('Unsupported image source type in tool result, only base64 is supported')
+                      logger.warn('Unsupported image source type in tool result, only base64 is supported')
                       return '(image not supported)'
                     }
                   }
@@ -107,7 +108,7 @@ export function convertToOpenAiMessages(anthropicMessages: Anthropic.Messages.Me
                     }
                   }
                 } else {
-                  console.warn('Unsupported image source type, only base64 is supported')
+                  logger.warn('Unsupported image source type, only base64 is supported')
                   return { type: 'text', text: '' }
                 }
               }
@@ -223,7 +224,7 @@ export function convertToAnthropicMessage(completion: OpenAI.Chat.Completions.Ch
           try {
             parsedInput = JSON.parse(toolCall.function.arguments || '{}')
           } catch (error) {
-            console.error('Failed to parse tool arguments:', error)
+            logger.error('Failed to parse tool arguments', { error: error })
           }
           return {
             type: 'tool_use',

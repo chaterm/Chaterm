@@ -1,5 +1,6 @@
 import { spawn } from 'child_process'
 import * as path from 'path'
+const logger = createLogger('agent')
 
 // Simple LRU cache for grep results
 interface CacheEntry<T> {
@@ -224,7 +225,7 @@ export async function regexSearchMatches(
     return result
   } catch (error) {
     if (error instanceof Error && error.message.includes('timeout')) {
-      console.warn('Grep search timed out, returning empty results')
+      logger.warn('Grep search timed out, returning empty results')
       return { matches: [], total: 0, truncated: false }
     }
     throw error

@@ -6,8 +6,9 @@ import { SafeBatchSyncManager } from './SafeBatchSyncManager'
 import { FullSyncTimerManager } from '../services/FullSyncTimerManager'
 import { SyncStateManager, SyncType, SyncState, type SyncStatus } from './SyncStateManager'
 import { syncConfig } from '../config/sync.config'
-import { logger } from '../utils/logger'
 import { EnvelopeEncryptionService } from '../envelope_encryption/service'
+
+const logger = createLogger('sync')
 import { setEncryptionService } from '../services/EncryptionRegistry'
 import type { EncryptionServiceStatus } from '../envelope_encryption/service'
 
@@ -82,7 +83,7 @@ export class SyncController {
         logger.info('Encryption service initialization successful')
       }
     } catch (e: any) {
-      logger.warn('Encryption service initialization exception', e?.message)
+      logger.warn('Encryption service initialization exception', { error: e?.message })
     }
   }
 
@@ -114,7 +115,7 @@ export class SyncController {
 
   async backupInit(): Promise<void> {
     const res = await this.api.backupInit()
-    logger.info(`Backup initialization: ${res.message}`, res.table_mappings)
+    logger.info(`Backup initialization: ${res.message}`, { table_mappings: res.table_mappings })
   }
 
   async fullSyncAll(): Promise<{ success: boolean; message: string; synced_count?: number; failed_count?: number }> {
@@ -183,7 +184,7 @@ export class SyncController {
       return { success: true, message, synced_count: syncedCount, failed_count: failedCount }
     } catch (error: any) {
       const errorMessage = hasHistoricalData ? 'Historical data sync failed' : 'Forced full sync failed'
-      logger.error(`${errorMessage}:`, error)
+      logger.error(`${errorMessage}`, { error: error })
       return { success: false, message: `${errorMessage}: ${error?.message || error}`, synced_count: 0, failed_count: 1 }
     }
   }
@@ -202,12 +203,12 @@ export class SyncController {
       const hasHistoricalData = assetsCount > 0 || chainsCount > 0
 
       logger.info(
-        `📊 Historical data detection result: t_assets=${assetsCount} items, t_asset_chains=${chainsCount} items, needs sync=${hasHistoricalData}`
+        `Historical data detection result: t_assets=${assetsCount} items, t_asset_chains=${chainsCount} items, needs sync=${hasHistoricalData}`
       )
 
       return hasHistoricalData
     } catch (error) {
-      logger.warn('⚠️ Failed to check historical data, defaulting to full sync:', error)
+      logger.warn('Failed to check historical data, defaulting to full sync', { error: error })
       return true // Conservative handling on error, execute full sync
     }
   }
@@ -250,7 +251,7 @@ export class SyncController {
         logger.warn(`Server unavailable, ${tableName} smart full sync skipped`)
         return
       }
-      logger.error(`${tableName} smart full sync failed:`, error)
+      logger.error(`${tableName} smart full sync failed`, { error: error })
       throw error
     }
   }
@@ -325,7 +326,7 @@ export class SyncController {
         logger.warn(message)
         return { success: true, message, synced_count: 0, failed_count: 0 }
       }
-      logger.error('Incremental sync failed:', error)
+      logger.error('Incremental sync failed', { error: error })
       return { success: false, message: `Incremental sync failed: ${error?.message || error}`, synced_count: 0, failed_count: 1 }
     }
   }
@@ -345,38 +346,6 @@ export class SyncController {
       chains: chainsResult
     }
   }
-
-  /**
-   * Execute scheduled full sync (called by FullSyncTimerManager) - original version, for compatibility
-   * Currently not used, kept for future reference
-   */
-  /*
-  private async _performScheduledFullSync(): Promise<void> {
-    const wasRunning = this.pollingManager.getStatus().isRunning
-    try {
-      logger.info('Starting scheduled full sync...')
-
-      // Pause incremental sync polling to avoid conflicts
-      if (wasRunning) {
-        await this.pollingManager.stopPolling()
-      }
-
-      // Execute full sync
-      await this.smartFullSync('t_assets_sync')
-      await this.smartFullSync('t_asset_chains_sync')
-
-      logger.info('Scheduled full sync completed')
-    } catch (error) {
-      logger.error('Scheduled full sync failed:', error)
-      throw error // Let FullSyncTimerManager record failure
-    } finally {
-      // Restore incremental sync polling
-      if (wasRunning) {
-        await this.pollingManager.startPolling()
-      }
-    }
-  }
-  */
 
   /**
    * Scheduled full sync with state management (new version)
@@ -556,7 +525,7 @@ export class SyncController {
 
       logger.info('Sync controller resources cleanup completed')
     } catch (error) {
-      logger.error('Error cleaning up sync controller resources:', error)
+      logger.error('Error cleaning up sync controller resources', { error: error })
     }
   }
 
@@ -578,7 +547,7 @@ export class SyncController {
         logger.info('Current sync operation completed')
       }
     } catch (error) {
-      logger.error('Error waiting for sync operation to complete:', error)
+      logger.error('Error waiting for sync operation to complete', { error: error })
     }
   }
 
@@ -631,7 +600,7 @@ export class SyncController {
       logger.info('Sync operations stopped, please re-login through main application to restore sync functionality')
       return false
     } catch (error) {
-      logger.error('Error stopping sync operations:', error)
+      logger.error('Error stopping sync operations', { error: error })
       return false
     }
   }
@@ -720,7 +689,7 @@ export class SyncController {
 
       return true
     } catch (error) {
-      logger.error('Failed to cancel sync operation:', error)
+      logger.error('Failed to cancel sync operation', { error: error })
       return false
     }
   }
@@ -745,7 +714,7 @@ export class SyncController {
   static async triggerIncrementalSync(): Promise<void> {
     try {
       if (!SyncController.instance) {
-        logger.warn('⚠️ SyncController instance not initialized, skipping incremental sync trigger')
+        logger.warn('SyncController instance not initialized, skipping incremental sync trigger')
         return
       }
 
@@ -754,17 +723,17 @@ export class SyncController {
       // Check if there is a sync operation in progress
       const pollingStatus = instance.pollingManager.getStatus()
       if (pollingStatus.isPerforming) {
-        logger.debug('⏸️ Incremental sync in progress, skipping trigger')
+        logger.debug('Incremental sync in progress, skipping trigger')
         return
       }
 
       // Check authentication status
       if (!(await instance.isAuthenticated())) {
-        logger.debug('⚠️ Authentication invalid, skipping incremental sync trigger')
+        logger.debug('Authentication invalid, skipping incremental sync trigger')
         return
       }
 
-      logger.info('📊 Data change triggered incremental sync')
+      logger.info('Data change triggered incremental sync')
 
       // Execute incremental sync
       const result = await instance.incrementalSyncAll()
@@ -775,7 +744,7 @@ export class SyncController {
         logger.warn(`Triggered incremental sync failed: ${result.message}`)
       }
     } catch (error) {
-      logger.error('Exception triggering incremental sync:', error)
+      logger.error('Exception triggering incremental sync', { error: error })
       // Don't throw exception to avoid affecting database operations
     }
   }

@@ -1,4 +1,5 @@
 import Database from 'better-sqlite3'
+const logger = createLogger('db')
 
 export async function upgradeAgentTaskMetadataSupport(db: Database.Database): Promise<void> {
   try {
@@ -7,11 +8,11 @@ export async function upgradeAgentTaskMetadataSupport(db: Database.Database): Pr
     const todosColumnExists = tableInfo.some((col: any) => col.name === 'todos')
 
     if (!todosColumnExists) {
-      console.log('Adding todos column to agent_task_metadata_v1 table...')
+      logger.info('Adding todos column to agent_task_metadata_v1 table...')
       db.exec('ALTER TABLE agent_task_metadata_v1 ADD COLUMN todos TEXT')
-      console.log('Todos column added successfully')
+      logger.info('Todos column added successfully')
     } else {
-      console.log('Todos column already exists, skipping migration')
+      logger.info('Todos column already exists, skipping migration')
     }
 
     // Initialize empty todos array for existing tasks
@@ -21,9 +22,9 @@ export async function upgradeAgentTaskMetadataSupport(db: Database.Database): Pr
       WHERE todos IS NULL
     `)
     const result = updateStmt.run()
-    console.log(`Initialized todos for ${result.changes} existing tasks`)
+    logger.info(`Initialized todos for ${result.changes} existing tasks`)
   } catch (error) {
-    console.error('Failed to upgrade todos support:', error)
+    logger.error('Failed to upgrade todos support', { error: error })
     throw error
   }
 }

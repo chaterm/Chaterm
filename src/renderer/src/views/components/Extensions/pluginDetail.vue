@@ -156,6 +156,8 @@ import { usePluginStore } from './usePlugins' //
 const api = (window as any).api
 const { t } = i18n.global
 
+const logger = createRendererLogger('extensions')
+
 const props = defineProps({
   pluginInfo: {
     type: Object as () => {
@@ -240,7 +242,7 @@ const updateIconSrc = async () => {
     try {
       iconUrl.value = await getPluginIconUrl(item.id, item.version)
     } catch (e) {
-      console.error('load icon failed', e)
+      logger.error('Load icon failed', { error: e })
       iconUrl.value = ''
     }
     return
@@ -312,8 +314,8 @@ const loadPluginDetails = async () => {
 }
 watch(
   [pluginId, () => pluginMeta.value?.installedVersion],
-  ([id, installedVersion], [oldId, oldInstalledVersion]) => {
-    console.log('watch details', { id, installedVersion, oldId, oldInstalledVersion })
+  ([id, installedVersion]) => {
+    logger.debug('Plugin details watch triggered', { id: String(id), installedVersion: String(installedVersion) })
     if (!id) return
     loadPluginDetails()
   },

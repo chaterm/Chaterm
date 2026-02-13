@@ -1,5 +1,6 @@
 import { ipcMain, BrowserWindow } from 'electron'
 import { JumpServerUser } from './parser'
+const logger = createLogger('jumpserver')
 
 /**
  * Handle JumpServer user selection with event sender
@@ -32,7 +33,7 @@ export const handleJumpServerUserSelectionWithEvent = (
     // Listen for user response
     ipcMain.once(`jumpserver:user-selection-response:${connectionId}`, (_evt: any, selectedUserId: number) => {
       clearTimeout(timeoutId)
-      console.log(`User selected account ID: ${selectedUserId}`)
+      logger.debug('User selected account', { event: 'jumpserver.user.selected', selectedUserId })
       resolve(selectedUserId)
     })
 
@@ -75,7 +76,7 @@ export const handleJumpServerUserSelectionWithWindow = (connectionId: string, us
     // Listen for user response
     ipcMain.once(`jumpserver:user-selection-response:${connectionId}`, (_evt: any, selectedUserId: number) => {
       clearTimeout(timeoutId)
-      console.log(`[JumpServer ${connectionId}] User selected account ID: ${selectedUserId}`)
+      logger.debug('User selected account via event', { event: 'jumpserver.user.selected', connectionId, selectedUserId })
       resolve(selectedUserId)
     })
 

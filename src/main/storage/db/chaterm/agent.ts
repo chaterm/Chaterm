@@ -1,4 +1,5 @@
 import Database from 'better-sqlite3'
+const logger = createLogger('db')
 
 export async function deleteChatermHistoryByTaskIdLogic(db: Database.Database, taskId: string): Promise<void> {
   try {
@@ -7,7 +8,7 @@ export async function deleteChatermHistoryByTaskIdLogic(db: Database.Database, t
     db.prepare(`DELETE FROM agent_task_metadata_v1 WHERE task_id = ?`).run(taskId)
     db.prepare(`DELETE FROM agent_context_history_v1 WHERE task_id = ?`).run(taskId)
   } catch (error) {
-    console.error('Failed to delete API conversation history:', error)
+    logger.error('Failed to delete API conversation history', { error: error })
   }
 }
 
@@ -63,7 +64,7 @@ export async function getApiConversationHistoryLogic(db: Database.Database, task
 
     return messages
   } catch (error) {
-    console.error('Failed to get API conversation history:', error)
+    logger.error('Failed to get API conversation history', { error: error })
     return []
   }
 }
@@ -114,7 +115,7 @@ export async function saveApiConversationHistoryLogic(db: Database.Database, tas
       }
     })()
   } catch (error) {
-    console.error('Failed to save API conversation history:', error)
+    logger.error('Failed to save API conversation history', { error: error })
     throw error // Re-throw the error to be caught by the IPC handler
   }
 }
@@ -150,7 +151,7 @@ export async function getSavedChatermMessagesLogic(db: Database.Database, taskId
       mcpToolCall: row.mcp_tool_call_data ? JSON.parse(row.mcp_tool_call_data) : undefined
     }))
   } catch (error) {
-    console.error('Failed to get Cline messages:', error)
+    logger.error('Failed to get Cline messages', { error: error })
     return []
   }
 }
@@ -193,7 +194,7 @@ export async function saveChatermMessagesLogic(db: Database.Database, taskId: st
       }
     })()
   } catch (error) {
-    console.error('Failed to save Cline messages:', error)
+    logger.error('Failed to save Cline messages', { error: error })
   }
 }
 
@@ -218,7 +219,7 @@ export async function getTaskMetadataLogic(db: Database.Database, taskId: string
 
     return { files_in_context: [], model_usage: [], hosts: [], todos: [] }
   } catch (error) {
-    console.error('Failed to get task metadata:', error)
+    logger.error('Failed to get task metadata', { error: error })
     return { files_in_context: [], model_usage: [], hosts: [], todos: [] }
   }
 }
@@ -244,7 +245,7 @@ export async function saveTaskMetadataLogic(db: Database.Database, taskId: strin
       JSON.stringify(metadata.todos || [])
     )
   } catch (error) {
-    console.error('Failed to save task metadata:', error)
+    logger.error('Failed to save task metadata', { error: error })
   }
 }
 
@@ -264,20 +265,24 @@ export async function getContextHistoryLogic(db: Database.Database, taskId: stri
 
     return null
   } catch (error) {
-    console.error('Failed to get context history:', error)
+    logger.error('Failed to get context history', { error: error })
     return null
   }
 }
 
 export async function saveContextHistoryLogic(db: Database.Database, taskId: string, contextHistory: any): Promise<void> {
-  console.log('[saveContextHistory] Attempting to save. Task ID:', taskId, 'Type:', typeof taskId)
+  logger.info('[saveContextHistory] Attempting to save', { taskId, type: typeof taskId })
   let jsonDataString: string | undefined
   try {
     jsonDataString = JSON.stringify(contextHistory)
-    console.log('[saveContextHistory] JSON.stringify successful. Data:', jsonDataString, 'Type:', typeof jsonDataString)
+    logger.info('[saveContextHistory] JSON.stringify successful', { dataLength: jsonDataString?.length, type: typeof jsonDataString })
   } catch (stringifyError) {
-    console.error('[saveContextHistory] Error during JSON.stringify:', stringifyError)
-    console.error('[saveContextHistory] Original contextHistory object that caused error:', contextHistory)
+    logger.error('[saveContextHistory] Error during JSON.stringify', {
+      error: stringifyError
+    })
+    logger.error('[saveContextHistory] Original contextHistory object that caused error', {
+      error: contextHistory
+    })
     if (stringifyError instanceof Error) {
       throw new Error(`Failed to stringify contextHistory: ${stringifyError.message}`)
     } else {
@@ -286,7 +291,7 @@ export async function saveContextHistoryLogic(db: Database.Database, taskId: str
   }
 
   if (typeof jsonDataString !== 'string') {
-    console.error('[saveContextHistory] jsonDataString is not a string after stringify. Value:', jsonDataString)
+    logger.error('[saveContextHistory] jsonDataString is not a string after stringify', { value: String(jsonDataString) })
     throw new Error('jsonDataString is not a string after JSON.stringify')
   }
 
@@ -299,12 +304,15 @@ export async function saveContextHistoryLogic(db: Database.Database, taskId: str
           updated_at = strftime('%s', 'now')
       `)
 
-    console.log('[saveContextHistory] Executing upsert. Task ID:', taskId, 'Data:', jsonDataString)
+    logger.info('[saveContextHistory] Executing upsert', { taskId })
     upsertStmt.run(taskId, jsonDataString)
-    console.log('[saveContextHistory] Upsert successful for Task ID:', taskId)
+    logger.info('[saveContextHistory] Upsert successful for Task ID', { value: taskId })
   } catch (error) {
-    console.error('[saveContextHistory] Failed to save context history to DB. Task ID:', taskId, 'Error:', error)
-    console.error('[saveContextHistory] Data that caused error:', jsonDataString)
+    logger.error('[saveContextHistory] Failed to save context history to DB', {
+      taskId,
+      error: error
+    })
+    logger.error('[saveContextHistory] Data that caused error', { dataLength: jsonDataString?.length })
     throw error
   }
 }

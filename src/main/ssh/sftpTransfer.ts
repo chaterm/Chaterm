@@ -2,6 +2,7 @@ import { ipcMain, app } from 'electron'
 import path from 'node:path'
 import { pipeline } from 'node:stream/promises'
 import { getSftpConnection, getUniqueRemoteName, sftpConnections } from './sshHandle'
+const sftpLogger = createLogger('ssh')
 import nodeFs from 'node:fs/promises'
 import fs from 'fs'
 const activeTasks = new Map<string, { read?: any; write?: any; localPath?: string; cancel?: () => void }>()
@@ -458,13 +459,20 @@ const sftpMkdirpForTransfer = async (sftp: any, dir: string) => {
 const sendProgress = (event: any, payload: any) => {
   const wc = event?.sender
   if (!wc || wc.isDestroyed?.()) {
-    console.warn('[sendProgress] webContents missing/destroyed', payload?.taskKey)
+    sftpLogger.warn('Progress event skipped: webContents missing or destroyed', {
+      event: 'ssh.sftp.progress.skipped',
+      taskKey: payload?.taskKey
+    })
     return
   }
   try {
     wc.send('ssh:sftp:transfer-progress', payload)
   } catch (err) {
-    console.error('[sendProgress] send failed', payload?.taskKey, err)
+    sftpLogger.error('Failed to send SFTP transfer progress event', {
+      event: 'ssh.sftp.progress.send_failed',
+      taskKey: payload?.taskKey,
+      error: err instanceof Error ? err.message : String(err)
+    })
   }
 }
 
@@ -571,8 +579,13 @@ export async function transferFileR2R(event: any, args: R2RFileArgs): Promise<Tr
   }
 
   const taskKey = `${args.fromId}->${args.toId}:r2r:${fromPath}:${toPath}`
-  if (activeTasks.has(taskKey)) return { status: 'skipped', message: 'Task already in progress', taskKey, fromHost, toHost }
-
+  if (activeTasks.has(taskKey)) {
+    sftpLogger.debug('Skipped duplicated remote-to-remote file transfer', {
+      event: 'ssh.sftp.r2r.file.skipped',
+      taskKey
+    })
+    return { status: 'skipped', message: 'Task already in progress', taskKey, fromHost, toHost }
+  }
   const totalUi = getTotalUi(total)
 
   // Send immediately "running(init)" to create a line

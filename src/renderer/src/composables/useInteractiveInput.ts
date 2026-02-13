@@ -8,6 +8,8 @@
 import { ref, onMounted, onUnmounted } from 'vue'
 import type { InteractionRequest, InteractionResponse, InteractionType, InteractionSubmitResult } from '../../../preload/index.d'
 
+const logger = createRendererLogger('composable.interactiveInput')
+
 /**
  * State for a single interaction
  */
@@ -113,11 +115,11 @@ export function useInteractiveInput() {
    * Handle interaction needed event from main process
    */
   function handleInteractionNeeded(request: InteractionRequest): void {
-    console.log('[useInteractiveInput] Interaction needed:', request)
+    logger.info('Interaction needed', { commandId: request.commandId, type: request.interactionType })
 
     const key = resolveKey(request.taskId, request.commandId)
     if (!key) {
-      console.warn('[useInteractiveInput] Cannot resolve key for request:', request)
+      logger.warn('Cannot resolve key for request', { commandId: request.commandId })
       return
     }
 
@@ -148,7 +150,7 @@ export function useInteractiveInput() {
    * Handle interaction closed event from main process
    */
   function handleInteractionClosed(data: { commandId: string }): void {
-    console.log('[useCommandInteraction] Interaction closed:', data.commandId)
+    logger.info('Interaction closed', { commandId: data.commandId })
 
     const key = commandIdToKey.value.get(data.commandId)
     if (key) {
@@ -162,7 +164,7 @@ export function useInteractiveInput() {
    * Handle interaction suppressed event from main process
    */
   function handleInteractionSuppressed(data: { commandId: string }): void {
-    console.log('[useInteractiveInput] Interaction suppressed:', data.commandId)
+    logger.info('Interaction suppressed', { commandId: data.commandId })
 
     const key = commandIdToKey.value.get(data.commandId)
     if (key) {
@@ -182,7 +184,7 @@ export function useInteractiveInput() {
   function handleTuiStateChange(data: { commandId: string; taskId?: string; message: string }, showVisible: boolean): void {
     const key = resolveKey(data.taskId, data.commandId)
     if (!key) {
-      console.warn('[useInteractiveInput] Cannot resolve key for TUI state change:', data)
+      logger.warn('Cannot resolve key for TUI state change', { commandId: data.commandId })
       return
     }
 
@@ -208,7 +210,7 @@ export function useInteractiveInput() {
    * Handle TUI detected event from main process
    */
   function handleTuiDetected(data: { commandId: string; taskId?: string; message: string }): void {
-    console.log('[useInteractiveInput] TUI detected:', data.commandId)
+    logger.info('TUI detected', { commandId: data.commandId })
     handleTuiStateChange(data, false)
   }
 
@@ -217,7 +219,7 @@ export function useInteractiveInput() {
    * (For TUI programs like vim, man, git log that use alternate screen buffer)
    */
   function handleAlternateScreenEntered(data: { commandId: string; taskId?: string; message: string }): void {
-    console.log('[useInteractiveInput] Alternate screen entered:', data.commandId)
+    logger.info('Alternate screen entered', { commandId: data.commandId })
     handleTuiStateChange(data, true)
   }
 
@@ -255,7 +257,7 @@ export function useInteractiveInput() {
       }
 
       const result = await window.api.submitInteraction(response)
-      console.log('[useInteractiveInput] Submit result:', result)
+      logger.info('Submit result', { success: result.success, code: result.code })
 
       // Update state based on result
       if (state) {
@@ -279,7 +281,7 @@ export function useInteractiveInput() {
 
       return result
     } catch (error) {
-      console.error('[useCommandInteraction] Submit error:', error)
+      logger.error('Submit error', { error: error })
 
       // Set error state
       if (state) {
@@ -332,7 +334,7 @@ export function useInteractiveInput() {
   async function cancelInteraction(commandId: string): Promise<InteractionSubmitResult> {
     try {
       const result = await window.api.cancelInteraction(commandId)
-      console.log('[useCommandInteraction] Cancel result:', result)
+      logger.info('Cancel result', { success: result.success })
 
       // Clear interaction on success
       if (result.success) {
@@ -341,7 +343,7 @@ export function useInteractiveInput() {
 
       return result
     } catch (error) {
-      console.error('[useCommandInteraction] Cancel error:', error)
+      logger.error('Cancel error', { error: error })
       return { success: false, error: String(error) }
     }
   }
@@ -352,7 +354,7 @@ export function useInteractiveInput() {
   async function dismissInteraction(commandId: string): Promise<InteractionSubmitResult> {
     try {
       const result = await window.api.dismissInteraction(commandId)
-      console.log('[useCommandInteraction] Dismiss result:', result)
+      logger.info('Dismiss result', { success: result.success })
 
       // Hide interaction but don't clear state completely
       const key = commandIdToKey.value.get(commandId)
@@ -366,7 +368,7 @@ export function useInteractiveInput() {
 
       return result
     } catch (error) {
-      console.error('[useCommandInteraction] Dismiss error:', error)
+      logger.error('Dismiss error', { error: error })
       return { success: false, error: String(error) }
     }
   }
@@ -377,7 +379,7 @@ export function useInteractiveInput() {
   async function suppressInteraction(commandId: string): Promise<InteractionSubmitResult> {
     try {
       const result = await window.api.suppressInteraction(commandId)
-      console.log('[useCommandInteraction] Suppress result:', result)
+      logger.info('Suppress result', { success: result.success })
 
       if (result.success) {
         handleInteractionSuppressed({ commandId })
@@ -385,7 +387,7 @@ export function useInteractiveInput() {
 
       return result
     } catch (error) {
-      console.error('[useCommandInteraction] Suppress error:', error)
+      logger.error('Suppress error', { error: error })
       return { success: false, error: String(error) }
     }
   }
@@ -396,7 +398,7 @@ export function useInteractiveInput() {
   async function unsuppressInteraction(commandId: string): Promise<InteractionSubmitResult> {
     try {
       const result = await window.api.unsuppressInteraction(commandId)
-      console.log('[useCommandInteraction] Unsuppress result:', result)
+      logger.info('Unsuppress result', { success: result.success })
 
       // Update suppressed state
       const key = commandIdToKey.value.get(commandId)
@@ -410,7 +412,7 @@ export function useInteractiveInput() {
 
       return result
     } catch (error) {
-      console.error('[useCommandInteraction] Unsuppress error:', error)
+      logger.error('Unsuppress error', { error: error })
       return { success: false, error: String(error) }
     }
   }
@@ -475,7 +477,7 @@ export function useInteractiveInput() {
       const cleanupAlternateScreen = window.api.onAlternateScreenEntered(handleAlternateScreenEntered)
       cleanupFunctions.push(cleanupAlternateScreen)
 
-      console.log('[useCommandInteraction] IPC listeners registered')
+      logger.info('IPC listeners registered')
     }
   })
 
@@ -483,7 +485,7 @@ export function useInteractiveInput() {
   onUnmounted(() => {
     cleanupFunctions.forEach((fn) => fn())
     cleanupFunctions = []
-    console.log('[useCommandInteraction] IPC listeners cleaned up')
+    logger.info('IPC listeners cleaned up')
   })
 
   return {

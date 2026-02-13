@@ -272,7 +272,9 @@ import keyIcon from '@/assets/menu/key.svg'
 import i18n from '@/locales'
 import eventBus from '@/utils/eventBus'
 import KeyContextMenu from '../components/KeyContextMenu.vue'
+
 const { t } = i18n.global
+const logger = createRendererLogger('config.keyManagement')
 
 interface KeyChainItem {
   key_chain_id: number
@@ -374,7 +376,7 @@ const fetchKeyChainList = async () => {
       keyChainList.value = result.data.keyChain
     }
   } catch (error) {
-    console.error('Failed to get key list:', error)
+    logger.error('Failed to get key list', { error: error })
     message.error(t('keyChain.getKeyListFailed'))
   }
 }
@@ -404,7 +406,7 @@ const showContextMenu = (event: MouseEvent, keyChain: KeyChainItem) => {
 }
 
 const handleCardClick = (keyChain: KeyChainItem) => {
-  console.log('Card clicked:', keyChain)
+  logger.info('Card clicked', { data: keyChain })
 }
 
 const closeContextMenu = () => {
@@ -431,11 +433,11 @@ const handleEdit = async (keyChain: KeyChainItem | null) => {
   const api = window.api as any
   await api.getKeyChainInfo({ id: keyChain.key_chain_id }).then((res) => {
     keyChain = res
-    console.log(keyChain)
+    logger.info('Loaded keyChain info', { data: keyChain })
   })
   isEditMode.value = true
-  console.log('sss')
-  console.log(keyChain)
+  logger.info('Entering edit mode')
+  logger.info('KeyChain data for editing', { data: keyChain })
 
   Object.assign(createForm, {
     label: keyChain.chain_name || '',
@@ -470,7 +472,7 @@ const handleRemove = (keyChain: KeyChainItem | null) => {
             message.error(t('keyChain.deleteFailure'))
           }
         } else {
-          console.error('deleteKeyChain API not implemented')
+          logger.error('deleteKeyChain API not implemented')
           message.error(t('keyChain.deleteError'))
         }
       } catch (err: any) {
@@ -556,7 +558,7 @@ const handleUpdateKeyChain = async () => {
         throw new Error(t('common.saveFailed'))
       }
     } else {
-      console.error('updateKeyChain API not implemented')
+      logger.error('updateKeyChain API not implemented')
     }
   } catch (e: any) {
     message.error(e.message || t('common.saveError'))

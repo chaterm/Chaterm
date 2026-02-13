@@ -1,5 +1,6 @@
 import type { IpcMainInvokeEvent } from 'electron'
 import { capabilityRegistry, BastionErrorCode, buildBastionError } from './capabilityRegistry'
+const bastionLogger = createLogger('ssh')
 
 const bastionSessionTypes = new Map<string, string>()
 
@@ -23,7 +24,7 @@ export async function connectBastionByType(sshType: string | undefined, connecti
   const bastionCapability = capabilityRegistry.getBastion(sshType || '')
 
   if (!bastionDefinition) {
-    console.error(`[SSH] Bastion definition missing for '${sshType}'. Plugin may not be installed.`)
+    bastionLogger.error('Bastion definition missing for type', { event: 'ssh.bastion.missing', sshType })
     return buildBastionError(
       BastionErrorCode.DEFINITION_MISSING,
       `Bastion plugin '${sshType}' is not properly installed. Please check plugin installation.`
@@ -32,14 +33,14 @@ export async function connectBastionByType(sshType: string | undefined, connecti
 
   if (bastionCapability) {
     // Route to plugin-based bastion connection via capability registry
-    console.log(`[SSH] Routing to plugin-based bastion: ${sshType}`)
+    bastionLogger.info('Routing to plugin-based bastion', { event: 'ssh.bastion.connect', sshType })
     try {
       const result = await bastionCapability.connect(connectionInfo, event)
       if (result?.status === 'connected') {
         const sessionId = connectionInfo.id || result.sessionId
         if (sessionId) {
           registerBastionSessionType(sessionId, sshType!)
-          console.log(`[SSH] Registered bastion session type: ${sshType} for session: ${sessionId}`)
+          bastionLogger.debug('Registered bastion session type', { event: 'ssh.bastion.session', sshType, sessionId })
         }
       }
       return result
@@ -50,7 +51,7 @@ export async function connectBastionByType(sshType: string | undefined, connecti
   }
 
   // Definition exists but capability missing - plugin not properly installed
-  console.error(`[SSH] Bastion definition found for '${sshType}' but capability is missing. Plugin may not be installed.`)
+  bastionLogger.error('Bastion capability missing for type', { event: 'ssh.bastion.capability.missing', sshType })
   return buildBastionError(
     BastionErrorCode.CAPABILITY_NOT_FOUND,
     `Bastion plugin '${sshType}' is not properly installed. Please check plugin installation.`
@@ -96,7 +97,7 @@ export function writeBastionSession(id: string, data: string, marker?: string, l
 
   const capability = capabilityRegistry.getBastion(bastionType)
   if (!capability) {
-    console.warn('Attempting to write to non-existent bastion capability:', bastionType)
+    bastionLogger.warn('Attempting to write to non-existent bastion capability', { event: 'ssh.bastion.write.notfound', bastionType })
     return true
   }
 

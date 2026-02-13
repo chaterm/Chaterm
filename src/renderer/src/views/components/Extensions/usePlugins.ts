@@ -2,6 +2,7 @@ import { computed, ref } from 'vue'
 import { listStorePlugins } from '@/api/plugin/plugin'
 
 const api = (window as any).api
+const logger = createRendererLogger('extensions')
 
 export interface PluginUiItem {
   id: string
@@ -162,7 +163,7 @@ const loadPlugins = async () => {
         enabled: p.enabled
       }))
   } catch (e) {
-    console.error('loadPlugins error', e)
+    logger.error('loadPlugins error', { error: e })
   }
 }
 
@@ -182,7 +183,7 @@ const loadStorePlugins = async () => {
       installable: p.installable !== false
     }))
   } catch (e) {
-    console.error('loadStorePlugins error', e)
+    logger.error('loadStorePlugins error', { error: e })
   }
 }
 

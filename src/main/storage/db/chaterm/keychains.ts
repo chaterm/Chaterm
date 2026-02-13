@@ -1,5 +1,6 @@
 import Database from 'better-sqlite3'
 import { randomUUID } from 'crypto'
+const logger = createLogger('db')
 
 /**
  * Trigger incremental sync
@@ -12,7 +13,7 @@ function triggerIncrementalSync(): void {
       const { SyncController } = await import('../../data_sync/core/SyncController')
       await SyncController.triggerIncrementalSync()
     } catch (error) {
-      console.warn('Failed to trigger incremental sync:', error)
+      logger.warn('Failed to trigger incremental sync', { error: error })
       // Don't throw exception to avoid affecting database operations
     }
   })
@@ -37,7 +38,7 @@ export function getKeyChainSelectLogic(db: Database.Database): any {
       }
     }
   } catch (error) {
-    console.error('Chaterm database get keychain error:', error)
+    logger.error('Chaterm database get keychain error', { error: error })
     throw error
   }
 }
@@ -67,7 +68,7 @@ export function createKeyChainLogic(db: Database.Database, params: any): any {
       }
     }
   } catch (error) {
-    console.error('Chaterm database create keychain error:', error)
+    logger.error('Chaterm database create keychain error', { error: error })
     throw error
   }
 }
@@ -91,7 +92,7 @@ export function deleteKeyChainLogic(db: Database.Database, id: number): any {
       }
     }
   } catch (error) {
-    console.error('Chaterm database delete keychain error:', error)
+    logger.error('Chaterm database delete keychain error', { error: error })
     throw error
   }
 }
@@ -106,7 +107,7 @@ export function getKeyChainInfoLogic(db: Database.Database, id: number): any {
     const result = stmt.get(id)
     return result
   } catch (error) {
-    console.error('Chaterm database get keychain error:', error)
+    logger.error('Chaterm database get keychain error', { error: error })
     throw error
   }
 }
@@ -140,7 +141,7 @@ export function updateKeyChainLogic(db: Database.Database, params: any): any {
       }
     }
   } catch (error) {
-    console.error('Chaterm database update keychain error:', error)
+    logger.error('Chaterm database update keychain error', { error: error })
     throw error
   }
 }
@@ -164,7 +165,7 @@ export function getKeyChainListLogic(db: Database.Database): any {
       }
     }
   } catch (error) {
-    console.error('Chaterm database get keychain error:', error)
+    logger.error('Chaterm database get keychain error', { error: error })
     throw error
   }
 }

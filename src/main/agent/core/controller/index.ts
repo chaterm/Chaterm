@@ -32,6 +32,7 @@ import { ApiConfiguration, ApiProvider, PROVIDER_MODEL_KEY_MAP } from '@shared/a
 import { TITLE_GENERATION_PROMPT, TITLE_GENERATION_PROMPT_CN } from '../prompts/system'
 import { DEFAULT_LANGUAGE_SETTINGS } from '@shared/Languages'
 import type { CommandGenerationContext } from '@shared/WebviewMessage'
+const logger = createLogger('agent')
 
 export class Controller {
   private postMessage: (message: ExtensionMessage) => Promise<boolean> | undefined
@@ -41,7 +42,7 @@ export class Controller {
   skillsManager: SkillsManager
 
   constructor(postMessage: (message: ExtensionMessage) => Promise<boolean> | undefined, getMcpSettingsFilePath: () => Promise<string>) {
-    console.log('Controller instantiated')
+    logger.debug('Controller instantiated', { event: 'agent.controller.init' })
     this.postMessage = postMessage
 
     this.mcpHub = new McpHub(
@@ -54,7 +55,7 @@ export class Controller {
     // Initialize Skills Manager
     this.skillsManager = new SkillsManager((msg) => this.postMessageToWebview(msg))
     this.skillsManager.initialize().catch((error) => {
-      console.error('[Controller] Failed to initialize SkillsManager:', error)
+      logger.error('[Controller] Failed to initialize SkillsManager', { error: error })
     })
   }
 
@@ -80,7 +81,9 @@ export class Controller {
       try {
         await task.reloadSecurityConfig()
       } catch (error) {
-        console.warn(`[SecurityConfig] Failed to hot reload configuration in Task ${task.taskId}:`, error)
+        logger.warn(`[SecurityConfig] Failed to hot reload configuration in Task ${task.taskId}`, {
+          error: error
+        })
       }
     })
     await Promise.allSettled(promises)
@@ -105,8 +108,13 @@ export class Controller {
   }
 
   async initTask(hosts: Host[], task?: string, historyItem?: HistoryItem, taskId?: string, contentParts?: ContentPart[]) {
-    console.log('initTask', task, historyItem, 'taskId:', taskId)
     const resolvedTaskId = taskId ?? historyItem?.id
+    logger.info('Initializing task', {
+      event: 'agent.task.init',
+      taskId: resolvedTaskId || 'new',
+      hasHistory: !!historyItem,
+      hasInitialPrompt: !!task
+    })
     if (resolvedTaskId) {
       await this.clearTask(resolvedTaskId)
     }
@@ -142,7 +150,7 @@ export class Controller {
     if (task && taskId && !historyItem) {
       // Start title generation in background without awaiting
       this.generateChatTitle(task, taskId).catch((error) => {
-        console.error('Failed to generate chat title:', error)
+        logger.error('Failed to generate chat title', { error: error })
         // Title generation failure doesn't affect task execution
       })
     }
@@ -181,7 +189,7 @@ export class Controller {
     if (process.env.NODE_ENV === 'test' || process.env.CHATERM_E2E === '1') {
       const check = validateWebviewMessageContract(message)
       if (!check.ok) {
-        console.warn('[IPC Contract] Invalid WebviewMessage:', check.error)
+        logger.warn('[IPC Contract] Invalid WebviewMessage', { value: check.error })
       }
     }
 
@@ -210,8 +218,12 @@ export class Controller {
         break
 
       case 'askResponse':
-        console.log('askResponse', message)
         if (targetTask) {
+          logger.debug('Received askResponse message', {
+            event: 'agent.controller.ask.response',
+            taskId: targetTask.taskId,
+            askResponse: message.askResponse
+          })
           if (message.hosts) {
             targetTask.hosts = message.hosts
             if (targetTaskId) {
@@ -220,11 +232,16 @@ export class Controller {
           }
           if (message.askResponse === 'messageResponse') {
             // Clean up all command contexts for this task and broadcast close events
-            console.log(`[Controller] messageResponse received, cleaning up command contexts for task: ${targetTask.taskId}`)
+            logger.debug('Cleaning command contexts before handling messageResponse', {
+              event: 'agent.controller.message_response.cleanup.start',
+              taskId: targetTask.taskId
+            })
             Task.clearCommandContextsForTask(targetTask.taskId)
-            console.log(`[Controller] Command contexts cleaned, clearing todos...`)
             await targetTask.clearTodos('new_user_input')
-            console.log(`[Controller] Todos cleared, calling handleWebviewAskResponse...`)
+            logger.debug('Command contexts and todos cleared for messageResponse', {
+              event: 'agent.controller.message_response.cleanup.complete',
+              taskId: targetTask.taskId
+            })
           }
           await targetTask.handleWebviewAskResponse(message.askResponse!, message.text, message.truncateAtMessageTs, message.contentParts)
         }
@@ -277,18 +294,18 @@ export class Controller {
     try {
       await currentTask.abortTask()
     } catch (error) {
-      console.error('Failed to abort task', error)
+      logger.error('Failed to abort task', { error: error })
     }
     await pWaitFor(() => currentTask.isStreaming === false || currentTask.didFinishAbortingStream || currentTask.isWaitingForFirstChunk, {
       timeout: 3_000
     }).catch(() => {
-      console.error('Failed to abort task')
+      logger.error('Failed to abort task')
     })
 
     try {
       await currentTask.clearTodos('user_cancelled')
     } catch (error) {
-      console.error('Failed to clear todos during cancelTask', error)
+      logger.error('Failed to clear todos during cancelTask', { error: error })
     }
 
     currentTask.abandoned = true
@@ -304,12 +321,12 @@ export class Controller {
     try {
       await currentTask.gracefulAbortTask()
     } catch (error) {
-      console.error('Failed to gracefully abort task', error)
+      logger.error('Failed to gracefully abort task', { error: error })
     }
     try {
       await currentTask.clearTodos('user_cancelled')
     } catch (error) {
-      console.error('Failed to clear todos during gracefulCancelTask', error)
+      logger.error('Failed to clear todos during gracefulCancelTask', { error: error })
     }
   }
 
@@ -350,7 +367,7 @@ export class Controller {
   }
 
   async deleteTaskWithId(id: string) {
-    console.info('deleteTaskWithId: ', id)
+    logger.info('deleteTaskWithId', { taskId: id })
     await deleteChatermHistoryByTaskId(id)
     await this.clearTask(id)
   }
@@ -396,7 +413,7 @@ export class Controller {
       try {
         await task.abortTask()
       } catch (error) {
-        console.error('Failed to abort task during clearTask', error)
+        logger.error('Failed to abort task during clearTask', { error: error })
       }
 
       const terminalManager = task.getTerminalManager()
@@ -536,11 +553,11 @@ export class Controller {
           tabId: tabId
         })
       } catch (streamError) {
-        console.error('Error processing AI stream:', streamError)
+        logger.error('Error processing AI stream', { error: streamError })
         throw streamError
       }
     } catch (error) {
-      console.error('Command generation failed:', error)
+      logger.error('Command generation failed', { error: error })
 
       // Send error response back to webview with tabId for proper routing
       await this.postMessageToWebview({
@@ -609,7 +626,7 @@ export class Controller {
           commandMessageId
         })
       } catch (streamError) {
-        console.error('Explain command stream error:', streamError)
+        logger.error('Explain command stream error', { error: streamError })
         await this.postMessageToWebview({
           type: 'explainCommandResponse',
           error: streamError instanceof Error ? streamError.message : 'Explain failed',
@@ -618,7 +635,7 @@ export class Controller {
         })
       }
     } catch (error) {
-      console.error('Explain command failed:', error)
+      logger.error('Explain command failed', { error: error })
       await this.postMessageToWebview({
         type: 'explainCommandResponse',
         error: error instanceof Error ? error.message : 'Explain failed',
@@ -688,7 +705,7 @@ export class Controller {
 
       return await Promise.race([titleGenerationPromise, timeoutPromise])
     } catch (error) {
-      console.error('Chat title generation failed:', error)
+      logger.error('Chat title generation failed', { error: error })
       // Always return empty string to avoid disrupting task execution
       return ''
     }
@@ -700,7 +717,7 @@ export class Controller {
   private async _performTitleGeneration(userTask: string, taskId: string): Promise<string> {
     const { apiConfiguration } = await getAllExtensionState()
     if (!apiConfiguration) {
-      console.warn('API configuration not found, skipping title generation')
+      logger.warn('API configuration not found, skipping title generation')
       return ''
     }
 
@@ -749,7 +766,11 @@ export class Controller {
         .substring(0, 100) // Limit to 100 characters
 
       if (cleanedTitle) {
-        console.log('Generated chat title:', cleanedTitle)
+        logger.debug('Generated chat title', {
+          event: 'agent.chat.title.generated',
+          taskId,
+          titleLength: cleanedTitle.length
+        })
 
         // Update Task instance's chatTitle property
         const task = this.getTaskFromId(taskId)
@@ -774,7 +795,7 @@ export class Controller {
 
       return ''
     } catch (streamError) {
-      console.error('Error processing title generation stream:', streamError)
+      logger.error('Error processing title generation stream', { error: streamError })
       return ''
     }
   }

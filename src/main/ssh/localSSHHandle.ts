@@ -4,6 +4,7 @@ import * as os from 'os'
 import * as path from 'path'
 import * as fs from 'fs'
 import { getUserConfig } from '../agent/core/storage/state'
+const localLogger = createLogger('terminal')
 
 // Import language translations
 const translations = {
@@ -122,6 +123,13 @@ const createTerminal = async (config: LocalTerminalConfig): Promise<LocalTermina
   const env = { ...process.env, ...config.env }
   let args: string[] = []
 
+  localLogger.info('Creating local terminal', {
+    event: 'terminal.local.connect.start',
+    terminalId: config.id,
+    shell,
+    cwd
+  })
+
   const ptyProcess = pty.spawn(shell, args, {
     name: config.termType || 'xterm',
     cols: config.cols || 80,
@@ -144,13 +152,18 @@ const createTerminal = async (config: LocalTerminalConfig): Promise<LocalTermina
   })
 
   ptyProcess.onExit((exitCode) => {
-    console.log(`Local terminal ${config.id} exited with code: ${exitCode?.exitCode}`)
+    localLogger.debug('Local terminal exited', { event: 'terminal.exit', terminalId: config.id, exitCode: exitCode?.exitCode })
     terminal.isAlive = false
     sendToRenderer(`local:exit:${config.id}`, exitCode)
     terminals.delete(config.id)
   })
 
   terminals.set(config.id, terminal)
+  localLogger.info('Local terminal created', {
+    event: 'terminal.local.connect.success',
+    terminalId: config.id,
+    shell
+  })
   return terminal
 }
 
@@ -161,12 +174,22 @@ const closeTerminal = (terminalId: string) => {
       terminal.pty.kill()
       terminal.isAlive = false
       terminals.delete(terminalId)
+      localLogger.info('Local terminal closed', { event: 'terminal.local.disconnect.success', terminalId })
       return { success: true }
     } catch (error: unknown) {
       const e = error as Error
+      localLogger.error('Failed to close local terminal', {
+        event: 'terminal.local.disconnect.error',
+        terminalId,
+        error: e.message
+      })
       return { success: false, message: e.message }
     }
   }
+  localLogger.warn('Attempted to close non-existent local terminal', {
+    event: 'terminal.local.disconnect.notfound',
+    terminalId
+  })
   return { success: false, message: 'Terminal not found' }
 }
 
@@ -176,7 +199,7 @@ const getAvailableShells = async (): Promise<LocalShellsResult> => {
 
   // Get system default shell
   const defaultShell = getDefaultShell()
-  console.log('System default shell:', defaultShell)
+  localLogger.debug('System default shell detected', { event: 'terminal.shell', shell: defaultShell })
 
   // Define shell candidates based on platform
   let candidates: { name: string; path: string }[] = []
@@ -319,7 +342,10 @@ export const registerLocalSSHHandlers = () => {
       await createTerminal(config)
       return { success: true, message: 'Local terminal connected successfully' }
     } catch (error: unknown) {
-      console.error('Local terminal connection failed:', error)
+      localLogger.error('Local terminal connection failed', {
+        event: 'terminal.error',
+        error: error instanceof Error ? error.message : String(error)
+      })
       const e = error as Error
       return { success: false, message: e.message }
     }

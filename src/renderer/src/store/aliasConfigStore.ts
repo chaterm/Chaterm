@@ -1,6 +1,8 @@
 import { defineStore } from 'pinia'
 import { commandStore } from '@/services/commandStoreService'
 
+const logger = createRendererLogger('store.aliasConfig')
+
 export const aliasConfigStore = defineStore('aliasConfig', {
   state: () => ({
     // Store aliases in Map format, key is alias name, value is command
@@ -32,7 +34,7 @@ export const aliasConfigStore = defineStore('aliasConfig', {
         await this.refreshAliasesFromDB()
         this.initialized = true
       } catch (error) {
-        console.error('Failed to initialize alias store:', error)
+        logger.error('Failed to initialize alias store', { error: error })
       } finally {
         this.loading = false
       }
@@ -51,7 +53,7 @@ export const aliasConfigStore = defineStore('aliasConfig', {
           this.aliasMap.set(alias.alias, alias.command)
         })
       } catch (error) {
-        console.error('Failed to refresh aliases from DB:', error)
+        logger.error('Failed to refresh aliases from DB', { error: error })
         throw error
       }
     },

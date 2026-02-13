@@ -4,6 +4,10 @@ import { DeltaPusher } from './DeltaPusher'
 import { K8sContext, K8sContextInfo, K8sManagerState, LoadConfigResult, K8sResourceEvent, InformerOptions } from './types'
 import { BrowserWindow } from 'electron'
 
+import { createLogger } from '../logging'
+
+const logger = createLogger('k8s')
+
 /**
  * K8sManager handles the lifecycle of Kubernetes connections and contexts
  * Singleton pattern to ensure only one instance manages K8s state
@@ -45,7 +49,7 @@ export class K8sManager {
    */
   public async initialize(): Promise<LoadConfigResult> {
     try {
-      console.log('[K8s] Initializing K8s Manager...')
+      logger.info('[K8s] Initializing K8s Manager...')
 
       const result = await this.configLoader.loadFromDefault()
 
@@ -61,17 +65,14 @@ export class K8sManager {
         this.state.currentContext = result.currentContext
         this.state.initialized = true
 
-        console.log(
-          `[K8s] Initialized successfully with ${result.contexts.length} contexts`,
-          result.contexts.map((c) => c.name)
-        )
+        logger.info(`Initialized successfully with ${result.contexts.length} contexts`, { contexts: result.contexts.map((c) => c.name) })
       } else {
-        console.warn('[K8s] Initialization failed:', result.error)
+        logger.warn('[K8s] Initialization failed', { value: result.error })
       }
 
       return result
     } catch (error) {
-      console.error('[K8s] Failed to initialize:', error)
+      logger.error('[K8s] Failed to initialize', { error: error })
       return {
         success: false,
         contexts: [],
@@ -115,11 +116,11 @@ export class K8sManager {
       const success = this.configLoader.setCurrentContext(contextName)
       if (success) {
         this.state.currentContext = contextName
-        console.log(`[K8s] Switched to context: ${contextName}`)
+        logger.info(`[K8s] Switched to context: ${contextName}`)
       }
       return success
     } catch (error) {
-      console.error(`[K8s] Failed to switch context to ${contextName}:`, error)
+      logger.error(`[K8s] Failed to switch context to ${contextName}`, { error: error })
       return false
     }
   }
@@ -128,7 +129,7 @@ export class K8sManager {
    * Reload configurations from file
    */
   public async reload(): Promise<LoadConfigResult> {
-    console.log('[K8s] Reloading configurations...')
+    logger.info('[K8s] Reloading configurations...')
     this.state.contexts.clear()
     this.state.initialized = false
     return this.initialize()
@@ -169,7 +170,7 @@ export class K8sManager {
    * Cleanup resources
    */
   public async cleanup(): Promise<void> {
-    console.log('[K8s] Cleaning up K8s Manager...')
+    logger.info('[K8s] Cleaning up K8s Manager...')
     await this.informerPool.stopAll()
     this.deltaPusher.destroy()
     this.state.contexts.clear()
@@ -196,11 +197,11 @@ export class K8sManager {
    */
   private setupInformerEventHandlers(): void {
     this.informerPool.on('event', (event: K8sResourceEvent) => {
-      console.log(`[K8s] Resource event: ${event.type} ${event.resource.kind}/${event.resource.metadata.name} in ${event.contextName}`)
+      logger.info(`[K8s] Resource event: ${event.type} ${event.resource.kind}/${event.resource.metadata.name} in ${event.contextName}`)
     })
 
-    this.informerPool.on('error', (error: Error, event: K8sResourceEvent) => {
-      console.error(`[K8s] Informer error in ${event.contextName}:`, error.message)
+    this.informerPool.on('error', (error: Error, _event: K8sResourceEvent) => {
+      logger.error(`[K8s] Informer error`, { error: error.message })
     })
   }
 
@@ -212,7 +213,7 @@ export class K8sManager {
     resourceTypes: Array<'Pod' | 'Node'> = ['Pod', 'Node'],
     options: Partial<InformerOptions> = {}
   ): Promise<void> {
-    console.log(`[K8s] Starting watchers for ${contextName}...`)
+    logger.info(`[K8s] Starting watchers for ${contextName}...`)
 
     const informerOptions: InformerOptions = {
       contextName,
@@ -223,7 +224,7 @@ export class K8sManager {
       try {
         await this.informerPool.startInformer(resourceType, informerOptions)
       } catch (error) {
-        console.error(`[K8s] Failed to start ${resourceType} watcher:`, error)
+        logger.error(`[K8s] Failed to start ${resourceType} watcher`, { error: error })
       }
     }
   }
@@ -232,7 +233,7 @@ export class K8sManager {
    * Stop watching resources for a context
    */
   public async stopWatching(contextName: string): Promise<void> {
-    console.log(`[K8s] Stopping watchers for ${contextName}...`)
+    logger.info(`[K8s] Stopping watchers for ${contextName}...`)
     await this.informerPool.stopContextInformers(contextName)
   }
 

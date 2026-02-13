@@ -469,6 +469,8 @@ import { message } from 'ant-design-vue'
 import zxcvbn from 'zxcvbn'
 import { isChineseEdition } from '@/utils/edition'
 
+const logger = createRendererLogger('config.userInfo')
+
 interface ApiResponse {
   code: number
   message?: string
@@ -803,7 +805,7 @@ const handleSave = async () => {
       username: formState.username,
       name: formState.name
     })) as unknown as ApiResponse
-    console.log(response)
+    logger.info('User update response', { data: response })
     if (response.code == 200) {
       message.success(t('userInfo.updateSuccess'))
       cancelEditing()

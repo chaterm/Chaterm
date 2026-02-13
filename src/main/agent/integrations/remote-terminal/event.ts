@@ -3,6 +3,7 @@
 //
 // Copyright (c) 2025 cline Authors, All rights reserved.
 // Licensed under the Apache License, Version 2.0
+const logger = createLogger('remote-terminal')
 
 export class BrownEventEmitter<T extends Record<string, any[]>> {
   private listeners: { [K in keyof T]?: Array<(...args: T[K]) => void> } = {}
@@ -41,7 +42,10 @@ export class BrownEventEmitter<T extends Record<string, any[]>> {
         try {
           listener(...args)
         } catch (error) {
-          console.error('Event listener error:', error)
+          logger.error('Event listener error', {
+            event: 'remote-terminal.event.listener.error',
+            error: error
+          })
         }
       })
       return true

@@ -40,6 +40,8 @@ import { useI18n } from 'vue-i18n'
 import logoDark from '@/assets/img/logo-dark.svg'
 import logoLight from '@/assets/img/logo-light.svg'
 
+const logger = createRendererLogger('ssh.dashboard')
+
 // Reactive theme tracking
 const isDark = ref(document.documentElement.className.includes('theme-dark'))
 
@@ -60,7 +62,7 @@ const loadShortcuts = async () => {
   try {
     currentShortcuts.value = shortcutService.getShortcuts()
   } catch (error) {
-    console.error('Failed to load shortcuts:', error)
+    logger.error('Failed to load shortcuts', { error: error })
   }
 }
 

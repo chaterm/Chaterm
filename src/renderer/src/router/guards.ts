@@ -1,6 +1,8 @@
 import { getUserInfo } from '@/utils/permission'
 import { dataSyncService } from '@/services/dataSyncService'
 
+const logger = createRendererLogger('router')
+
 export const beforeEach = async (to, _from, next) => {
   const token = localStorage.getItem('ctm-token')
   const isSkippedLogin = localStorage.getItem('login-skipped') === 'true'
@@ -20,7 +22,7 @@ export const beforeEach = async (to, _from, next) => {
     try {
       const api = window.api as any
       const dbResult = await api.initUserDatabase({ uid: 999999999 })
-      console.log('Database initialization result:', dbResult)
+      logger.info('Database initialization result', { success: dbResult.success })
 
       if (dbResult.success) {
         if (to.path === '/') {
@@ -29,7 +31,7 @@ export const beforeEach = async (to, _from, next) => {
           next('/')
         }
       } else {
-        console.error('Database initialization failed, redirecting to login page')
+        logger.error('Database initialization failed, redirecting to login page')
         localStorage.removeItem('login-skipped')
         localStorage.removeItem('ctm-token')
         localStorage.removeItem('jms-token')
@@ -37,7 +39,7 @@ export const beforeEach = async (to, _from, next) => {
         next('/login')
       }
     } catch (error) {
-      console.error('Database initialization failed:', error)
+      logger.error('Database initialization failed', { error: error })
       localStorage.removeItem('login-skipped')
       localStorage.removeItem('ctm-token')
       localStorage.removeItem('jms-token')
@@ -57,18 +59,18 @@ export const beforeEach = async (to, _from, next) => {
         if (dbResult.success) {
           // After database initialization succeeds, asynchronously initialize data sync service (non-blocking UI display)
           dataSyncService.initialize().catch((error) => {
-            console.error('Data sync service initialization failed:', error)
+            logger.error('Data sync service initialization failed', { error: error })
           })
           next()
         } else {
-          console.error('Database initialization failed, redirecting to login page')
+          logger.error('Database initialization failed, redirecting to login page')
           next('/login')
         }
       } else {
         next('/login')
       }
     } catch (error) {
-      console.error('Processing failed:', error)
+      logger.error('Processing failed', { error: error })
 
       const message = error instanceof Error ? error.message : String(error)
 

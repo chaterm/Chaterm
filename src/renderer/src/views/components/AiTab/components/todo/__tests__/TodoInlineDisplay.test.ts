@@ -113,6 +113,7 @@ describe('TodoInlineDisplay', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     // Suppress console.log from component
+
     vi.spyOn(console, 'log').mockImplementation(() => {})
     // Ensure English locale
     if (typeof localStorage !== 'undefined') {

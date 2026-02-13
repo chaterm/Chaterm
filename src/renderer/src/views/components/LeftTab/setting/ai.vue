@@ -241,6 +241,7 @@ import { ChatSettings, DEFAULT_CHAT_SETTINGS, ProxyConfig } from '@/agent/storag
 import i18n from '@/locales'
 import eventBus from '@/utils/eventBus'
 
+const logger = createRendererLogger('settings.ai')
 const { t } = i18n.global
 
 const thinkingBudgetTokens = ref(2048)
@@ -283,7 +284,7 @@ watch(
 
       await updateGlobalState('autoApprovalSettings', settingsToStore)
     } catch (error) {
-      console.error('Failed to update auto approval settings:', error)
+      logger.error('Failed to update auto approval settings', { error: error })
       notification.error({
         message: 'Error',
         description: 'Failed to update auto approval settings'
@@ -310,9 +311,9 @@ watch(
       }
 
       await updateGlobalState('autoApprovalSettings', settingsToStore)
-      console.log('[Settings] Auto-execute read-only commands setting saved:', newValue)
+      logger.info('Auto-execute read-only commands setting saved', { data: newValue })
     } catch (error) {
-      console.error('Failed to update auto-execute read-only commands setting:', error)
+      logger.error('Failed to update auto-execute read-only commands setting', { error: error })
       notification.error({
         message: 'Error',
         description: 'Failed to update settings'
@@ -333,7 +334,7 @@ watch(
 
       await updateGlobalState('chatSettings', settingsToStore)
     } catch (error) {
-      console.error('Failed to update chat settings:', error)
+      logger.error('Failed to update chat settings', { error: error })
       notification.error({
         message: t('user.error'),
         description: t('user.saveConfigFailedDescription')
@@ -375,7 +376,7 @@ const loadSavedConfig = async () => {
     reasoningEffort.value = ((await getGlobalState('reasoningEffort')) as string) || 'low'
     shellIntegrationTimeout.value = ((await getGlobalState('shellIntegrationTimeout')) as number) || 4
   } catch (error) {
-    console.error('Failed to load config:', error)
+    logger.error('Failed to load config', { error: error })
     notification.error({
       message: t('user.loadConfigFailed'),
       description: t('user.loadConfigFailedDescription')
@@ -410,7 +411,7 @@ const saveConfig = async () => {
     }
     await updateGlobalState('proxyConfig', proxyConfigToSave)
   } catch (error) {
-    console.error('Failed to save config:', error)
+    logger.error('Failed to save config', { error: error })
     notification.error({
       message: t('user.error'),
       description: t('user.saveConfigFailedDescription')
@@ -424,7 +425,7 @@ watch(
     try {
       await updateGlobalState('reasoningEffort', newValue)
     } catch (error) {
-      console.error('Failed to update reasoningEffort:', error)
+      logger.error('Failed to update reasoningEffort', { error: error })
     }
   }
 )
@@ -435,7 +436,7 @@ watch(
     try {
       await updateGlobalState('customInstructions', newValue)
     } catch (error) {
-      console.error('Failed to update customInstructions:', error)
+      logger.error('Failed to update customInstructions', { error: error })
     }
   }
 )
@@ -470,7 +471,7 @@ watch(
       }
       await updateGlobalState('proxyConfig', proxyConfigToSave)
     } catch (error) {
-      console.error('Failed to update proxyConfig:', error)
+      logger.error('Failed to update proxyConfig', { error: error })
     }
   },
   { deep: true }
@@ -482,7 +483,7 @@ watch(
     try {
       await updateGlobalState('needProxy', newValue)
     } catch (error) {
-      console.error('Failed to update needProxy:', error)
+      logger.error('Failed to update needProxy', { error: error })
     }
   }
 )
@@ -526,7 +527,7 @@ watch(
         await updateGlobalState('shellIntegrationTimeout', newValue)
       }
     } catch (error) {
-      console.error('Failed to update shellIntegrationTimeout:', error)
+      logger.error('Failed to update shellIntegrationTimeout', { error: error })
     }
   }
 )
@@ -547,7 +548,7 @@ const openSecurityConfig = async () => {
     // Open tab via eventBus
     eventBus.emit('open-user-tab', 'securityConfigEditor')
   } catch (error) {
-    console.error('Failed to open security config editor:', error)
+    logger.error('Failed to open security config editor', { error: error })
     notification.error({
       message: t('user.error'),
       description: t('user.openSecurityConfigFailed')

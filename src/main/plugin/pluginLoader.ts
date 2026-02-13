@@ -6,6 +6,7 @@ import type { PluginHost, PluginHostModules, VersionProviderFn } from './pluginH
 import { PluginStorageContext } from './pluginGlobalState'
 import { ExternalAssetCache } from './pluginIpc'
 import { capabilityRegistry, BastionCapability, BastionDefinition } from '../ssh/capabilityRegistry'
+const logger = createLogger('plugin')
 
 export interface PluginModule {
   register(host: PluginHost): void | Promise<void>
@@ -34,6 +35,12 @@ async function handlePluginChange() {
 }
 export async function loadAllPlugins() {
   const plugins = listPlugins()
+  const enabledPlugins = plugins.filter((plugin) => plugin.enabled)
+  logger.info('Starting plugin load', {
+    event: 'plugin.load.start',
+    totalPlugins: plugins.length,
+    enabledPlugins: enabledPlugins.length
+  })
 
   clearVersionProviders()
   clearInstallHints()
@@ -44,6 +51,9 @@ export async function loadAllPlugins() {
 
   capabilityRegistry.clearBastions()
   const storage = new PluginStorageContext()
+  let loadedCount = 0
+  let failedCount = 0
+  let skippedCount = 0
 
   let hostModules: PluginHostModules = {}
   try {
@@ -51,26 +61,38 @@ export async function loadAllPlugins() {
       ssh2: require('ssh2')
     }
   } catch (e) {
-    console.warn('[pluginLoader] ssh2 module not available for plugins:', e)
+    logger.warn('ssh2 module not available for plugins', { error: e })
   }
 
   for (const p of plugins) {
-    if (!p.enabled) continue
+    if (!p.enabled) {
+      skippedCount++
+      continue
+    }
 
     const manifestPath = path.join(p.path, 'plugin.json')
-    if (!fs.existsSync(manifestPath)) continue
+    if (!fs.existsSync(manifestPath)) {
+      skippedCount++
+      logger.warn('Plugin manifest not found, skipping plugin', {
+        event: 'plugin.load.manifest.missing',
+        pluginId: p.id
+      })
+      continue
+    }
 
     let manifest: PluginManifest
     try {
       manifest = JSON.parse(fs.readFileSync(manifestPath, 'utf8')) as PluginManifest
     } catch (e) {
-      console.error('[pluginLoader] invalid manifest for', p.id, e)
+      failedCount++
+      logger.error('Invalid manifest for plugin', { pluginId: p.id, error: e })
       continue
     }
 
     const entry = path.join(p.path, manifest.main)
     if (!fs.existsSync(entry)) {
-      console.error('[pluginLoader] main entry not found for', p.id)
+      failedCount++
+      logger.error('Main entry not found for plugin', { pluginId: p.id })
       continue
     }
 
@@ -90,6 +112,18 @@ export async function loadAllPlugins() {
       globalState: storage.globalState,
       workspaceState: storage.workspaceState,
       secrets: storage.secrets,
+      logger: {
+        createLogger(module: string) {
+          const normalized = module.trim()
+          if (!normalized) {
+            return createLogger(`plugin/${p.id}`)
+          }
+          if (normalized.startsWith('plugin/')) {
+            return createLogger(normalized)
+          }
+          return createLogger(`plugin/${p.id}/${normalized}`)
+        }
+      },
 
       registerTreeDataProvider(viewId: string, provider: any) {
         treeProviders.set(viewId, provider)
@@ -147,6 +181,12 @@ export async function loadAllPlugins() {
           if (!fs.existsSync(filePath)) return ''
           return fs.readFileSync(filePath, 'utf8')
         } catch (e) {
+          logger.warn('Plugin readFile failed', {
+            event: 'plugin.host.read_file.error',
+            pluginId: p.id,
+            filePath,
+            error: e
+          })
           return ''
         }
       },
@@ -158,6 +198,12 @@ export async function loadAllPlugins() {
           fs.writeFileSync(filePath, content, 'utf8')
           return true
         } catch (e) {
+          logger.warn('Plugin writeFile failed', {
+            event: 'plugin.host.write_file.error',
+            pluginId: p.id,
+            filePath,
+            error: e
+          })
           return false
         }
       },
@@ -169,12 +215,27 @@ export async function loadAllPlugins() {
       const mod: PluginModule = require(entry)
       if (typeof mod.register === 'function') {
         await mod.register(host)
-        console.log('[pluginLoader] plugin registered:', p.id)
+        loadedCount++
+        logger.debug('Plugin registered', { event: 'plugin.load.registered', pluginId: p.id })
       } else {
-        console.log('[pluginLoader] plugin has no register():', p.id)
+        loadedCount++
+        logger.warn('Plugin has no register(), loaded without setup', {
+          event: 'plugin.load.register.missing',
+          pluginId: p.id
+        })
       }
     } catch (e) {
-      console.error('[pluginLoader] load error for', p.id, e)
+      failedCount++
+      logger.error('Plugin load error', { pluginId: p.id, error: e })
     }
   }
+
+  logger.info('Plugin load completed', {
+    event: 'plugin.load.complete',
+    totalPlugins: plugins.length,
+    enabledPlugins: enabledPlugins.length,
+    loadedCount,
+    failedCount,
+    skippedCount
+  })
 }

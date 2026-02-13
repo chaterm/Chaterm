@@ -9,6 +9,7 @@ import os from 'os'
 import * as path from 'path'
 import { arePathsEqual } from '@utils/path'
 import { promises as fs } from 'fs'
+const logger = createLogger('agent')
 
 // Simple LRU cache for search results
 interface CacheEntry<T> {
@@ -272,7 +273,7 @@ async function globbyLevelByLevel(limit: number, options?: Options) {
       const results = [...directories, ...files].slice(0, limit)
       return results
     } catch (error) {
-      console.warn('Optimized globbing failed, falling back to simple pattern:', error)
+      logger.warn('Optimized globbing failed, falling back to simple pattern', { error: error })
       // Fallback to simple non-recursive pattern
       const files = await globby('*', extendedOptions)
       return files.slice(0, limit)
@@ -287,7 +288,7 @@ async function globbyLevelByLevel(limit: number, options?: Options) {
   try {
     return await Promise.race([globbingProcess(), timeoutPromise])
   } catch (error) {
-    console.warn('Globbing timed out, returning empty results')
+    logger.warn('Globbing timed out, returning empty results')
     return []
   }
 }

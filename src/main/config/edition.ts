@@ -8,6 +8,7 @@
 import { app } from 'electron'
 import * as path from 'path'
 import * as fs from 'fs'
+const logger = createLogger('config')
 
 export type Edition = 'cn' | 'global'
 
@@ -160,7 +161,7 @@ export function loadEditionConfig(): EditionConfig {
   try {
     const configContent = fs.readFileSync(configPath, 'utf-8')
     cachedConfig = JSON.parse(configContent) as EditionConfig
-    console.log(`[Edition] Loaded configuration for edition: ${edition} from ${configPath}`)
+    logger.info('Loaded edition configuration', { edition, configPath })
     return cachedConfig
   } catch (error) {
     throw new Error(`[Edition] Failed to parse config file: ${configPath}, error: ${error}`)

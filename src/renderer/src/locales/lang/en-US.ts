@@ -1134,7 +1134,13 @@ export default {
     downloading: 'Downloading',
     checkUpdateError: 'Check update failed',
     checking: 'Checking',
-    install: 'Install'
+    install: 'Install',
+    logDiagnostics: 'Logs & Diagnostics',
+    logDiagnosticsDesc: 'If you encounter issues, you can export log files and send them to developers to help troubleshoot problems.',
+    openLogDir: 'Open Log Directory',
+    feedbackTitle: 'Feedback & Suggestions',
+    feedbackDesc: 'If you have any questions, suggestions, or feedback, feel free to contact us through the following channel.',
+    submitFeedback: 'Submit Feedback'
   },
   mfa: {
     title: 'Two-Factor Authentication',

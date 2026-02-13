@@ -1,7 +1,9 @@
 import { v4 as uuidv4 } from 'uuid'
 import { ref, nextTick, onMounted, onUnmounted } from 'vue'
 import { Modal } from 'ant-design-vue'
+
 import { useI18n } from 'vue-i18n'
+const logger = createRendererLogger('ai.tabManagement')
 import type { HistoryItem, Host, AssetInfo, ChatMessage, TaskHistoryItem } from '../types'
 import type { ChatTab, SessionState } from './useSessionState'
 import { useSessionState } from './useSessionState'
@@ -166,7 +168,7 @@ export function useTabManagement(options: TabManagementOptions) {
       let savedModelValue = ''
       try {
         const metadataResult = await window.api.getTaskMetadata(history.id)
-        console.log('Metadata:', metadataResult)
+        logger.info('Metadata', { data: metadataResult })
         if (metadataResult.success && metadataResult.data) {
           if (metadataResult.data.hosts?.length > 0) {
             loadedHosts = metadataResult.data.hosts.map((item: Host) => ({
@@ -184,7 +186,7 @@ export function useTabManagement(options: TabManagementOptions) {
           }
         }
       } catch (e) {
-        console.error('Failed to get metadata:', e)
+        logger.error('Failed to get metadata', { error: e })
       }
 
       const result = await window.api.chatermGetChatermMessages({
@@ -308,7 +310,7 @@ export function useTabManagement(options: TabManagementOptions) {
 
       focusChatInput()
     } catch (err) {
-      console.error('Failed to restore history tab:', err)
+      logger.error('Failed to restore history tab', { error: err })
     }
   }
 
@@ -372,7 +374,7 @@ export function useTabManagement(options: TabManagementOptions) {
         await updateGlobalState('taskHistory', taskHistory)
       }
     } catch (err) {
-      console.error('Failed to persist tab title:', err)
+      logger.error('Failed to persist tab title', { error: err })
     }
 
     emitStateChange?.()

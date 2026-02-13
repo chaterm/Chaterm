@@ -8,6 +8,7 @@ import { parseJumpServerUsers, hasUserSelectionPrompt } from '../../../ssh/jumps
 import { hasNoAssetsPrompt, createNoAssetsError } from '../../../ssh/jumpserver/navigator'
 import { handleJumpServerUserSelectionWithWindow } from '../../../ssh/jumpserver/userSelection'
 import { jumpserverConnections as globalJumpserverConnections } from '../../../ssh/jumpserverHandle'
+const logger = createLogger('remote-terminal')
 
 // Store JumpServer connections
 export const jumpserverConnections = new Map()
@@ -79,7 +80,7 @@ const initializeJumpServerShell = (
     jumpserverUuid: string
   }
 ) => {
-  console.log(`[JumpServer ${connectionId}] Shell created successfully, waiting for JumpServer menu`)
+  logger.debug('Shell created, waiting for JumpServer menu', { event: 'remote-terminal.jumpserver.shell.created', connectionId })
 
   let connectionEstablished = false
   let connectionFailed = false
@@ -92,7 +93,7 @@ const initializeJumpServerShell = (
     }
     connectionEstablished = true
     const totalElapsed = Date.now() - startTime
-    console.log(`[JumpServer ${connectionId}] Connection successful (${reason}), reached target server, total time: ${totalElapsed}ms`)
+    logger.info('JumpServer connection successful', { event: 'remote-terminal.jumpserver.connected', connectionId, reason, elapsedMs: totalElapsed })
     if (connectionTimeout) {
       clearTimeout(connectionTimeout)
     }
@@ -124,7 +125,7 @@ const initializeJumpServerShell = (
     const indicators = ['Connecting to', 'Last login:', 'Last failed login:']
     for (const indicator of indicators) {
       if (text.includes(indicator)) {
-        console.log(`[JumpServer ${connectionId}] Detected success indicator keyword: "${indicator.trim()}"`)
+        logger.debug('Detected success indicator', { event: 'remote-terminal.jumpserver.indicator', connectionId, indicator: indicator.trim() })
         return `Indicator ${indicator.trim()}`
       }
     }
@@ -138,8 +139,8 @@ const initializeJumpServerShell = (
         (trimmed.endsWith('$') || trimmed.endsWith('#') || trimmed.endsWith(']$') || trimmed.endsWith(']#') || trimmed.endsWith('>$')) &&
         (trimmed.includes('@') || trimmed.includes(':~') || trimmed.startsWith('['))
       if (isPrompt) {
-        console.log(`[JumpServer ${connectionId}] Detected suspected shell prompt: "${trimmed}"`)
-        return `Prompt ${trimmed}`
+        logger.debug('Detected shell prompt', { event: 'remote-terminal.jumpserver.prompt', connectionId })
+        return `Prompt detected`
       }
     }
 
@@ -152,17 +153,22 @@ const initializeJumpServerShell = (
     const chunk = data.toString('utf8').replace(ansiRegex, '')
     outputBuffer += chunk
 
-    console.log(`[JumpServer ${connectionId}] Received data (phase: ${connectionPhase}): "${chunk.replace(/\r?\n/g, '\\n')}"`)
+    logger.debug('Received data from JumpServer', {
+      event: 'remote-terminal.jumpserver.data',
+      connectionId,
+      phase: connectionPhase,
+      size: chunk.length
+    })
 
     // Handle different responses based on connection phase
     if (connectionPhase === 'connecting' && outputBuffer.includes('Opt>')) {
-      console.log(`[JumpServer ${connectionId}] Detected JumpServer menu, entering target IP: ${connectionInfo.targetIp}`)
+      logger.debug('Detected JumpServer menu, entering target IP', { event: 'remote-terminal.jumpserver.menu', connectionId })
       connectionPhase = 'inputIp'
       outputBuffer = ''
       stream.write(connectionInfo.targetIp + '\r')
     } else if (connectionPhase === 'inputIp') {
       if (hasNoAssetsPrompt(outputBuffer)) {
-        console.error(`[JumpServer ${connectionId}] Target asset not found for IP: ${connectionInfo.targetIp}`)
+        logger.error('Target asset not found', { event: 'remote-terminal.jumpserver.asset.notfound', connectionId })
         connectionFailed = true
         outputBuffer = ''
         if (connectionTimeout) {
@@ -178,13 +184,13 @@ const initializeJumpServerShell = (
 
       // Check if user selection is required
       if (hasUserSelectionPrompt(outputBuffer)) {
-        console.log(`[JumpServer ${connectionId}] Detected multi-user prompt, user needs to select account`)
+        logger.debug('Multi-user prompt detected', { event: 'remote-terminal.jumpserver.user.prompt', connectionId })
         connectionPhase = 'selectUser'
         const users = parseJumpServerUsers(outputBuffer)
-        console.log(`[JumpServer ${connectionId}] Parsed user list:`, users)
+        logger.debug('Parsed user list', { event: 'remote-terminal.jumpserver.user.parsed', connectionId, userCount: users.length })
 
         if (users.length === 0) {
-          console.error(`[JumpServer ${connectionId}] Failed to parse user list, buffer content:`, outputBuffer)
+          logger.error('Failed to parse user list', { event: 'remote-terminal.jumpserver.user.parse.error', connectionId })
           if (connectionTimeout) {
             clearTimeout(connectionTimeout)
           }
@@ -200,12 +206,16 @@ const initializeJumpServerShell = (
         // Request user selection from frontend
         handleJumpServerUserSelectionWithWindow(connectionId, users)
           .then((selectedUserId) => {
-            console.log(`[JumpServer ${connectionId}] User selected account ID:`, selectedUserId)
+            logger.debug('User selected account', { event: 'remote-terminal.jumpserver.user.selected', connectionId, selectedUserId })
             connectionPhase = 'inputPassword'
             stream.write(selectedUserId.toString() + '\r')
           })
           .catch((err) => {
-            console.error(`[JumpServer ${connectionId}] User selection failed:`, err)
+            logger.error('User selection failed', {
+              event: 'remote-terminal.jumpserver.user.error',
+              connectionId,
+              error: err
+            })
             if (connectionTimeout) {
               clearTimeout(connectionTimeout)
             }
@@ -215,44 +225,52 @@ const initializeJumpServerShell = (
             reject(err)
           })
       } else if (hasPasswordPrompt(outputBuffer)) {
-        console.log(`[JumpServer ${connectionId}] Detected password prompt, preparing to enter password`)
+        logger.debug('Password prompt detected', { event: 'remote-terminal.jumpserver.auth.password', connectionId })
         connectionPhase = 'inputPassword'
         outputBuffer = ''
         setTimeout(() => {
-          console.log(`[JumpServer ${connectionId}] Sending target server password`)
+          logger.debug('Sending password to target server', { event: 'remote-terminal.jumpserver.auth.send', connectionId })
           stream.write(connectionInfo.password + '\r')
         }, 100)
       } else {
         const reason = detectDirectConnectionReason(outputBuffer)
         if (reason) {
-          console.log(`[JumpServer ${connectionId}] Target asset directly enters target host without password, reason: ${reason}`)
+          logger.debug('Direct connection without password', { event: 'remote-terminal.jumpserver.connect.direct', connectionId, reason })
           handleConnectionSuccess(`No password - ${reason}`)
         } else {
-          const preview = outputBuffer.slice(-200).replace(/\r?\n/g, '\\n')
-          console.log(`[JumpServer ${connectionId}] inputIp phase buffer preview: "${preview}"`)
+          logger.debug('Waiting for connection response', {
+            event: 'remote-terminal.jumpserver.waiting',
+            connectionId,
+            phase: 'inputIp',
+            bufferSize: outputBuffer.length
+          })
         }
       }
     } else if (connectionPhase === 'selectUser') {
       // After user selection, check for password prompt or direct connection
       if (hasPasswordPrompt(outputBuffer)) {
-        console.log(`[JumpServer ${connectionId}] Detected password prompt after user selection, preparing to enter password`)
+        logger.debug('Password prompt after user selection', { event: 'remote-terminal.jumpserver.auth.password.afteruser', connectionId })
         connectionPhase = 'inputPassword'
         outputBuffer = ''
         setTimeout(() => {
-          console.log(`[JumpServer ${connectionId}] Sending target server password`)
+          logger.debug('Sending password to target server', { event: 'remote-terminal.jumpserver.auth.send', connectionId })
           stream.write(connectionInfo.password + '\r')
         }, 100)
       } else {
         const reason = detectDirectConnectionReason(outputBuffer)
         if (reason) {
-          console.log(`[JumpServer ${connectionId}] Direct connection established after user selection, reason: ${reason}`)
+          logger.debug('Direct connection after user selection', {
+            event: 'remote-terminal.jumpserver.connect.direct.afteruser',
+            connectionId,
+            reason
+          })
           handleConnectionSuccess(`User selection - ${reason}`)
         }
       }
     } else if (connectionPhase === 'inputPassword') {
       // Detect password authentication error
       if (hasPasswordError(outputBuffer)) {
-        console.error(`[JumpServer ${connectionId}] Target server password authentication failed`)
+        logger.error('Password authentication failed', { event: 'remote-terminal.jumpserver.auth.failed', connectionId })
 
         // Send MFA verification failure event to frontend
         const { BrowserWindow } = require('electron')
@@ -276,19 +294,24 @@ const initializeJumpServerShell = (
       // Detect connection success
       const reason = detectDirectConnectionReason(outputBuffer)
       if (reason) {
-        console.log(`[JumpServer ${connectionId}] Entered target host after password verification, reason: ${reason}`)
+        logger.debug('Connected after password verification', { event: 'remote-terminal.jumpserver.connect.afterpassword', connectionId, reason })
         handleConnectionSuccess(`After password verification - ${reason}`)
       }
     }
   })
 
   stream.stderr.on('data', (data: Buffer) => {
-    console.error(`[JumpServer ${connectionId}] stderr:`, data.toString('utf8'))
+    logger.warn('JumpServer stderr received', { event: 'remote-terminal.jumpserver.stderr', connectionId, size: data.length })
   })
 
   stream.on('close', () => {
     const elapsed = Date.now() - startTime
-    console.log(`[JumpServer ${connectionId}] Stream closed, connection phase: ${connectionPhase}, elapsed: ${elapsed}ms`)
+    logger.debug('JumpServer stream closed', {
+      event: 'remote-terminal.jumpserver.stream.close',
+      connectionId,
+      phase: connectionPhase,
+      elapsedMs: elapsed
+    })
     if (connectionTimeout) {
       clearTimeout(connectionTimeout)
     }
@@ -303,7 +326,7 @@ const initializeJumpServerShell = (
   })
 
   stream.on('error', (error: Error) => {
-    console.error(`[JumpServer ${connectionId}] Stream error:`, error)
+    logger.error('JumpServer stream error', { event: 'remote-terminal.jumpserver.stream.error', connectionId, error: error.message })
     if (connectionTimeout) {
       clearTimeout(connectionTimeout)
     }
@@ -330,10 +353,14 @@ export const handleJumpServerConnection = async (connectionInfo: {
   const connectionId = connectionInfo.id
   const jumpserverUuid = connectionInfo.assetUuid || connectionId
 
-  console.log(`[JumpServer ${connectionId}] Starting connection to ${connectionInfo.host}:${connectionInfo.port || 22}`)
-  console.log(`[JumpServer ${connectionId}] Username: ${connectionInfo.username}`)
-  console.log(`[JumpServer ${connectionId}] Target IP: ${connectionInfo.targetIp}`)
-  console.log(`[JumpServer ${connectionId}] Authentication method: ${connectionInfo.privateKey ? 'Private key' : 'Password'}`)
+  logger.info('Starting JumpServer connection', {
+    event: 'remote-terminal.jumpserver.connect.start',
+    connectionId,
+    host: connectionInfo.host,
+    port: connectionInfo.port || 22,
+    username: connectionInfo.username,
+    authMethod: connectionInfo.privateKey ? 'privateKey' : 'password'
+  })
 
   let sock: net.Socket | tls.TLSSocket
   if (connectionInfo.needProxy) {
@@ -346,7 +373,7 @@ export const handleJumpServerConnection = async (connectionInfo: {
 
   return new Promise((resolve, reject) => {
     if (jumpserverConnections.has(connectionId)) {
-      console.log(`[JumpServer ${connectionId}] Reusing existing connection`)
+      logger.debug('Reusing existing JumpServer connection', { event: 'remote-terminal.jumpserver.reuse', connectionId })
       jumpserverConnectionStatus.set(connectionId, {
         isVerified: true,
         source: 'agent',
@@ -358,18 +385,26 @@ export const handleJumpServerConnection = async (connectionInfo: {
     if (connectionInfo.assetUuid) {
       const reusable = findReusableConnection(jumpserverUuid)
       if (reusable) {
-        console.log(`[JumpServer ${connectionId}] Found globally authenticated connection, attempting to reuse`)
+        logger.debug('Found globally authenticated connection, attempting reuse', { event: 'remote-terminal.jumpserver.reuse.global', connectionId })
         const startTime = Date.now()
         const connectionTimeout = setTimeout(() => {
           const elapsed = Date.now() - startTime
-          console.error(`[JumpServer ${connectionId}] Reused connection shell creation timeout, waited ${elapsed}ms`)
+          logger.error('Reused connection shell creation timeout', {
+            event: 'remote-terminal.jumpserver.reuse.timeout',
+            connectionId,
+            elapsedMs: elapsed
+          })
           reject(new Error('JumpServer reused connection failed: Shell creation timeout'))
         }, 35000)
 
         reusable.conn.shell((err, stream) => {
           if (err) {
             clearTimeout(connectionTimeout)
-            console.error(`[JumpServer ${connectionId}] Reused connection shell creation failed:`, err)
+            logger.error('Reused connection shell creation failed', {
+              event: 'remote-terminal.jumpserver.reuse.error',
+              connectionId,
+              error: err.message
+            })
             reject(new Error(`Reused connection shell creation failed: ${err.message}`))
             return
           }
@@ -395,7 +430,7 @@ export const handleJumpServerConnection = async (connectionInfo: {
     // Add connection timeout monitoring
     const connectionTimeout = setTimeout(() => {
       const elapsed = Date.now() - startTime
-      console.error(`[JumpServer ${connectionId}] Connection timeout, waited ${elapsed}ms`)
+      logger.error('JumpServer connection timeout', { event: 'remote-terminal.jumpserver.timeout', connectionId, elapsedMs: elapsed })
       conn.end()
       reject(new Error(`JumpServer connection timeout: Handshake not completed after ${elapsed}ms`))
     }, 35000) // 35 second timeout
@@ -433,25 +468,29 @@ export const handleJumpServerConnection = async (connectionInfo: {
         if (connectionInfo.passphrase) {
           connectConfig.passphrase = connectionInfo.passphrase
         }
-        console.log(`[JumpServer ${connectionId}] Private key authentication configured`)
+        logger.debug('Private key authentication configured', { event: 'remote-terminal.jumpserver.auth.privatekey', connectionId })
       } catch (err: unknown) {
         clearTimeout(connectionTimeout)
-        console.error(`[JumpServer ${connectionId}] Private key format error:`, err)
+        logger.error('Private key format error', {
+          event: 'remote-terminal.jumpserver.auth.key.error',
+          connectionId,
+          error: err
+        })
         return reject(new Error(`Private key format error: ${err instanceof Error ? err.message : String(err)}`))
       }
     } else if (connectionInfo.password) {
       connectConfig.password = connectionInfo.password
-      console.log(`[JumpServer ${connectionId}] Password authentication configured`)
+      logger.debug('Password authentication configured', { event: 'remote-terminal.jumpserver.auth.password.configured', connectionId })
     } else {
       clearTimeout(connectionTimeout)
-      console.error(`[JumpServer ${connectionId}] Missing authentication information`)
+      logger.error('Missing authentication information', { event: 'remote-terminal.jumpserver.auth.missing', connectionId })
       return reject(new Error('Missing authentication information: Private key or password required'))
     }
 
     // Handle keyboard-interactive authentication for 2FA
     conn.on('keyboard-interactive', async (_name, _instructions, _instructionsLang, prompts, finish) => {
       try {
-        console.log(`[JumpServer ${connectionId}] Two-factor authentication required, please enter verification code...`)
+        logger.debug('Two-factor authentication required', { event: 'remote-terminal.jumpserver.2fa', connectionId })
 
         // Use simplified MFA handling directly
         const promptTexts = prompts.map((p: any) => p.prompt)
@@ -490,7 +529,11 @@ export const handleJumpServerConnection = async (connectionInfo: {
           reject(new Error('User cancelled two-factor authentication'))
         })
       } catch (err) {
-        console.error(`[JumpServer ${connectionId}] Two-factor authentication failed:`, err)
+        logger.error('Two-factor authentication failed', {
+          event: 'remote-terminal.jumpserver.2fa.error',
+          connectionId,
+          error: err
+        })
         conn.end() // Close connection
         reject(err)
       }
@@ -498,13 +541,17 @@ export const handleJumpServerConnection = async (connectionInfo: {
 
     conn.on('ready', () => {
       const elapsed = Date.now() - startTime
-      console.log(`[JumpServer ${connectionId}] SSH connection established successfully, elapsed ${elapsed}ms, starting shell creation`)
+      logger.info('SSH connection established, starting shell creation', {
+        event: 'remote-terminal.jumpserver.ssh.ready',
+        connectionId,
+        elapsedMs: elapsed
+      })
 
       // Send MFA verification success event to frontend
       const { BrowserWindow } = require('electron')
       const mainWindow = BrowserWindow.getAllWindows()[0]
       if (mainWindow) {
-        console.log(`[JumpServer ${connectionId}] Sending MFA verification success event:`, { connectionId, status: 'success' })
+        logger.debug('Sending MFA verification success event', { event: 'remote-terminal.jumpserver.mfa.success', connectionId })
         mainWindow.webContents.send('ssh:keyboard-interactive-result', {
           id: connectionId,
           status: 'success'
@@ -514,7 +561,7 @@ export const handleJumpServerConnection = async (connectionInfo: {
       conn.shell((err, stream) => {
         if (err) {
           clearTimeout(connectionTimeout)
-          console.error(`[JumpServer ${connectionId}] Shell creation failed:`, err)
+          logger.error('Shell creation failed', { event: 'remote-terminal.jumpserver.shell.error', connectionId, error: err.message })
           return reject(new Error(`Shell creation failed: ${err.message}`))
         }
 
@@ -533,8 +580,14 @@ export const handleJumpServerConnection = async (connectionInfo: {
 
     conn.on('error', (err: any) => {
       const elapsed = Date.now() - startTime
-      console.error(`[JumpServer ${connectionId}] Connection error, elapsed ${elapsed}ms:`, err)
-      console.error(`[JumpServer ${connectionId}] Error details - code: ${err.code}, level: ${err.level}`)
+      logger.error('JumpServer connection error', {
+        event: 'remote-terminal.jumpserver.connect.error',
+        connectionId,
+        elapsedMs: elapsed,
+        error: err.message,
+        code: err.code,
+        level: err.level
+      })
 
       // Send MFA verification failure event to frontend
       const { BrowserWindow } = require('electron')
@@ -552,7 +605,7 @@ export const handleJumpServerConnection = async (connectionInfo: {
       reject(new Error(`JumpServer connection failed: ${err.message}`))
     })
 
-    console.log(`[JumpServer ${connectionId}] Starting SSH connection...`)
+    logger.debug('Starting SSH connection', { event: 'remote-terminal.jumpserver.connect.init', connectionId })
     conn.connect(connectConfig)
   })
 }
@@ -614,7 +667,7 @@ export const jumpServerDisconnect = async (sessionId: string): Promise<{ status:
   jumpserverConnectionStatus.delete(sessionId)
 
   if (stream || conn) {
-    console.log(`JumpServer disconnect initiated for id: ${sessionId}`)
+    logger.debug('JumpServer disconnect initiated', { event: 'remote-terminal.jumpserver.disconnect', sessionId })
     return { status: 'success', message: 'JumpServer connection disconnected' }
   }
 
@@ -643,7 +696,7 @@ export const jumpServerShellWrite = (sessionId: string, data: string, marker?: s
     }
     stream.write(data)
   } else {
-    console.warn('Attempting to write to non-existent JumpServer stream:', sessionId)
+    logger.warn('Attempting to write to non-existent JumpServer stream', { event: 'remote-terminal.jumpserver.write.nostream', sessionId })
   }
 }
 

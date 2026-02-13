@@ -22,6 +22,7 @@ import {
   ConverseStreamCommand,
   InvokeModelWithResponseStreamCommand
 } from '@aws-sdk/client-bedrock-runtime'
+const logger = createLogger('agent')
 
 // https://docs.anthropic.com/en/api/claude-on-amazon-bedrock
 export class AwsBedrockHandler implements ApiHandler {
@@ -106,7 +107,7 @@ export class AwsBedrockHandler implements ApiHandler {
     })
 
     for await (const chunk of stream) {
-      console.log('returning chunks', chunk)
+      logger.info('returning chunks', { value: chunk })
       switch (chunk.type) {
         case 'message_start': {
           const usage = chunk.message.usage
@@ -257,7 +258,7 @@ export class AwsBedrockHandler implements ApiHandler {
       try {
         const httpAgent = createProxyAgent(proxyConfig)
         if (httpAgent) {
-          console.log('Using proxy agent')
+          logger.info('Using proxy agent')
           clientConfig.requestHandler = new NodeHttpHandler({
             httpsAgent: httpAgent as any,
             httpAgent: httpAgent as any,
@@ -266,7 +267,7 @@ export class AwsBedrockHandler implements ApiHandler {
           })
         }
       } catch (error) {
-        console.error('Proxy configuration error:', error)
+        logger.error('Proxy configuration error', { error: error })
       }
     }
 
@@ -433,7 +434,7 @@ export class AwsBedrockHandler implements ApiHandler {
               }
             }
           } catch (error) {
-            console.error('Error parsing Deepseek response chunk:', error)
+            logger.error('Error parsing Deepseek response chunk', { error: error })
             // Propagate the error by yielding a text response with error information
             yield {
               type: 'text',
@@ -556,7 +557,7 @@ ${combinedContent}
         // let hasReportedInputTokens = false
 
         for await (const chunk of response.stream) {
-          console.log('nova chunk', chunk)
+          logger.info('nova chunk', { value: chunk })
           // Handle metadata events with token usage information
           if (chunk.metadata?.usage) {
             // Report complete token usage from the model itself
@@ -634,7 +635,7 @@ ${combinedContent}
       } else {
         // If error is not an Error instance, convert it to a string and print it directly
         errorMessage += ` ${String(error)}`
-        console.error('Error processing Nova model response: Unknown error type.')
+        logger.error('Error processing Nova model response: Unknown error type.')
       }
 
       yield {
@@ -672,7 +673,7 @@ ${combinedContent}
               // Handle different image source formats
               // Check if source is base64 type
               if (item.source.type !== 'base64') {
-                console.error('Unsupported image source type, only base64 is supported')
+                logger.error('Unsupported image source type, only base64 is supported')
                 return null // Skip this item if format is not supported
               }
 
@@ -702,11 +703,11 @@ ${combinedContent}
                   // Try to convert to Uint8Array
                   imageData = new Uint8Array(Buffer.from(item.source.data as any))
                 } else {
-                  console.error('Unsupported image data format')
+                  logger.error('Unsupported image data format')
                   return null // Skip this item if format is not supported
                 }
               } catch (error) {
-                console.error('Could not convert image data to Uint8Array:', error)
+                logger.error('Could not convert image data to Uint8Array', { error: error })
                 return null // Skip this item if conversion fails
               }
 
@@ -765,7 +766,7 @@ ${combinedContent}
 
       return { isValid: true }
     } catch (error) {
-      console.error('AWS Bedrock configuration validation failed:', error)
+      logger.error('AWS Bedrock configuration validation failed', { error: error })
       return {
         isValid: false,
         error: `Validation failed: ${error instanceof Error ? error.message : String(error)}`

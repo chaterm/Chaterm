@@ -290,7 +290,7 @@ describe('useExportChat', () => {
       const { exportChat } = useExportChat()
       await exportChat()
 
-      expect(consoleSpy).toHaveBeenCalledWith('Export chat failed:', expect.any(Error))
+      expect(consoleSpy).toHaveBeenCalledWith('[aitab.exportChat] Export chat failed', { error: expect.any(Error) })
       expect(notification.error).toHaveBeenCalledWith({
         message: 'ai.exportChatFailed',
         description: 'Write failed',

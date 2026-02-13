@@ -1,6 +1,8 @@
 import { nextTick, ref } from 'vue'
 import Zmodem from 'zmodem.js'
 
+const logger = createRendererLogger('ssh.zmodem')
+
 const api = window.api as any
 
 interface MarkedResponse {
@@ -234,7 +236,7 @@ export function useZmodem() {
     const arm = (reason: string) => {
       clearTimeout(t)
       t = setTimeout(async () => {
-        console.warn(` We have not received the session (possibly lost OO), and the session has been forcibly terminated：${reason}`)
+        logger.warn('Session not received, forcibly terminated', { reason })
         try {
           await zsession.close?.()
         } catch {}

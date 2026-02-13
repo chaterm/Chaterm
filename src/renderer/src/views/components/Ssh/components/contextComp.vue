@@ -97,6 +97,8 @@
 <script setup lang="ts">
 import { ref, onMounted } from 'vue'
 import { isGlobalInput } from '../utils/termInputManager'
+
+const logger = createRendererLogger('ssh.context')
 import {
   getCopyShortcut,
   getPasteShortcut,
@@ -262,7 +264,7 @@ onMounted(async () => {
       }
     }
   } catch (error) {
-    console.error('Failed to load shortcuts:', error)
+    logger.error('Failed to load shortcuts', { error: error })
     // Fallback display
     copyShortcut.value = 'Ctrl+C'
     pasteShortcut.value = 'Ctrl+V'

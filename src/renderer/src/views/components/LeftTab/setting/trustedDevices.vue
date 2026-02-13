@@ -169,6 +169,8 @@ import { getUserInfo } from '@/utils/permission'
 import { useDeviceStore } from '@/store/useDeviceStore'
 import { getTrustedDevices, revokeTrustedDevice } from '@api/user/user'
 
+const logger = createRendererLogger('settings.trustedDevices')
+
 const props = defineProps<{ isActive?: boolean }>()
 const { t } = useI18n()
 const deviceStore = useDeviceStore()
@@ -188,7 +190,7 @@ const isUserLoggedIn = computed(() => {
     const userInfo = getUserInfo()
     return !!(token && token !== 'guest_token' && !isSkippedLogin && userInfo?.uid)
   } catch (error) {
-    console.error('Failed to read user info:', error)
+    logger.error('Failed to read user info', { error: error })
     return false
   }
 })

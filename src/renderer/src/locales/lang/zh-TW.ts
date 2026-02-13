@@ -1113,7 +1113,13 @@ export default {
     downloading: '正在下載',
     checkUpdateError: '檢查更新失敗',
     checking: '檢查中',
-    install: '安裝'
+    install: '安裝',
+    logDiagnostics: '日誌與診斷',
+    logDiagnosticsDesc: '如果遇到問題，您可以匯出日誌檔案發送給開發者以協助排查問題。',
+    openLogDir: '開啟日誌目錄',
+    feedbackTitle: '回饋與建議',
+    feedbackDesc: '如果您有任何問題、建議或回饋，歡迎透過以下管道聯繫我們。',
+    submitFeedback: '提交回饋'
   },
   mfa: {
     title: '二次驗證',

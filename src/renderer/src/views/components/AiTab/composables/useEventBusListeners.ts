@@ -8,6 +8,8 @@ import { isSwitchAssetType } from '../utils'
 import i18n from '@/locales'
 import { Notice } from '@/views/components/Notice'
 
+const logger = createRendererLogger('aitab.eventBus')
+
 interface UseEventBusListenersParams {
   sendMessageWithContent: (content: string, sendType: string, tabId?: string) => Promise<void>
   initModel: () => Promise<void>
@@ -88,7 +90,7 @@ export function useEventBusListeners(params: UseEventBusListenersParams) {
 
   const handleSendMessageToAi = async (payload: { content: string; tabId?: string }) => {
     if (isAgentMode) {
-      console.log('Ignoring sendMessageToAi event in agent mode')
+      logger.debug('Ignoring sendMessageToAi event in agent mode')
       return
     }
 
@@ -101,7 +103,7 @@ export function useEventBusListeners(params: UseEventBusListenersParams) {
     if (tabId) {
       const targetTab = chatTabs.value.find((tab) => tab.id === tabId)
       if (!targetTab) {
-        console.warn('sendMessageToAi: Tab not found:', tabId)
+        logger.warn('sendMessageToAi: Tab not found', { tabId })
         return
       }
     }
@@ -112,7 +114,7 @@ export function useEventBusListeners(params: UseEventBusListenersParams) {
 
   const handleChatToAi = async (text: string) => {
     if (isAgentMode) {
-      console.log('Ignoring chatToAi event in agent mode')
+      logger.debug('Ignoring chatToAi event in agent mode')
       return
     }
     appendTextToInputParts(text, '\n', '\n')

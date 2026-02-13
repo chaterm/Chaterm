@@ -3,8 +3,7 @@
  * Manages mutual exclusion control between full sync and incremental sync to ensure data consistency
  * Supports sync toggle management and user switching handling
  */
-
-import { logger } from '../utils/logger'
+const logger = createLogger('sync')
 
 export enum SyncType {
   NONE = 'none',
@@ -244,7 +243,9 @@ export class SyncStateManager {
       message: `${syncType === SyncType.FULL ? 'Full' : 'Incremental'} sync failed: ${error.message}`
     })
 
-    logger.error(`${syncType === SyncType.FULL ? 'Full' : 'Incremental'} sync failed:`, error)
+    logger.error(`${syncType === SyncType.FULL ? 'Full' : 'Incremental'} sync failed`, {
+      error: error
+    })
 
     // Restore idle state after brief wait (only when sync is enabled)
     setTimeout(async () => {
@@ -319,7 +320,7 @@ export class SyncStateManager {
       try {
         listener(this.getCurrentStatus())
       } catch (error) {
-        logger.error('Status listener execution failed:', error)
+        logger.error('Status listener execution failed', { error: error })
       }
     })
   }

@@ -3,6 +3,7 @@ import { hasUserSelectionPrompt } from './parser'
 import { OutputParser } from './executor'
 import { jumpserverConnections, jumpserverExecStreams, deleteExecStreamPromise, getExecStreamPromise, setExecStreamPromise } from './state'
 import { JUMPSERVER_CONSTANTS, type JumpServerNavigationPath } from './constants'
+const logger = createLogger('jumpserver')
 
 export async function navigateToJumpServerAsset(
   stream: any,
@@ -24,7 +25,7 @@ export async function navigateToJumpServerAsset(
     const handleNavigationSuccess = (reason: string) => {
       if (connectionEstablished) return
       connectionEstablished = true
-      console.log(`JumpServer exec stream navigation successful (${jumpserverUuid}): ${reason}`)
+      logger.debug('JumpServer exec stream navigation successful', { event: 'jumpserver.exec.navigation.success', jumpserverUuid, reason })
       connectionPhase = 'connected'
       outputBuffer = ''
       cleanup()
@@ -37,7 +38,7 @@ export async function navigateToJumpServerAsset(
       outputBuffer += chunk
 
       if (connectionPhase === 'connecting' && outputBuffer.includes('Opt>')) {
-        console.log(`JumpServer exec stream: Menu detected, entering IP ${targetIp}`)
+        logger.debug('JumpServer exec stream: Menu detected, entering IP', { event: 'jumpserver.exec.menu.detected', targetIp })
         connectionPhase = 'inputIp'
         outputBuffer = ''
         stream.write(targetIp + '\r')
@@ -47,7 +48,10 @@ export async function navigateToJumpServerAsset(
       if (connectionPhase === 'inputIp') {
         if (hasUserSelectionPrompt(outputBuffer)) {
           if (navigationPath.selectedUserId !== undefined) {
-            console.log(`JumpServer exec stream: User selection prompt detected, auto-selecting userId=${navigationPath.selectedUserId}`)
+            logger.debug('JumpServer exec stream: User selection prompt detected, auto-selecting', {
+              event: 'jumpserver.exec.user.autoselect',
+              selectedUserId: navigationPath.selectedUserId
+            })
             connectionPhase = 'selectUser'
             outputBuffer = ''
             stream.write(navigationPath.selectedUserId.toString() + '\r')
@@ -60,7 +64,7 @@ export async function navigateToJumpServerAsset(
 
         if (hasPasswordPrompt(outputBuffer)) {
           if (navigationPath.password) {
-            console.log('JumpServer exec stream: Password prompt detected, using saved password')
+            logger.debug('JumpServer exec stream: Password prompt detected, using saved password', { event: 'jumpserver.exec.auth.password' })
             connectionPhase = 'inputPassword'
             outputBuffer = ''
             setTimeout(() => {
@@ -69,10 +73,10 @@ export async function navigateToJumpServerAsset(
           } else {
             const reason = detectDirectConnectionReason(outputBuffer)
             if (reason) {
-              console.log(`JumpServer exec stream: Password prompt detected but no password, attempting direct connection (${reason})`)
+              logger.debug('JumpServer exec stream: No password, attempting direct connection', { event: 'jumpserver.exec.connect.direct', reason })
               handleNavigationSuccess(`Direct connection without password - ${reason}`)
             } else {
-              console.warn('JumpServer exec stream: Password required but main connection did not record password, waiting for further output...')
+              logger.warn('JumpServer exec stream: Password required but not recorded', { event: 'jumpserver.exec.auth.missing' })
             }
           }
           return
@@ -88,7 +92,7 @@ export async function navigateToJumpServerAsset(
       if (connectionPhase === 'selectUser') {
         if (hasPasswordPrompt(outputBuffer)) {
           if (navigationPath.password) {
-            console.log('JumpServer exec stream: Password prompt detected after user selection, using saved password')
+            logger.debug('JumpServer exec stream: Password prompt after user selection', { event: 'jumpserver.exec.auth.password' })
             connectionPhase = 'inputPassword'
             outputBuffer = ''
             setTimeout(() => {
@@ -97,14 +101,15 @@ export async function navigateToJumpServerAsset(
           } else {
             const reason = detectDirectConnectionReason(outputBuffer)
             if (reason) {
-              console.log(
-                `JumpServer exec stream: Password prompt detected after user selection but no password, attempting direct connection (${reason})`
-              )
+              logger.debug('JumpServer exec stream: No password after user selection, direct connection', {
+                event: 'jumpserver.exec.connect.direct',
+                reason
+              })
               handleNavigationSuccess(`Direct connection without password after user selection - ${reason}`)
             } else {
-              console.warn(
-                'JumpServer exec stream: Password required after user selection but main connection did not record password, waiting for further output...'
-              )
+              logger.warn('JumpServer exec stream: Password required after user selection but not recorded', {
+                event: 'jumpserver.exec.auth.missing'
+              })
             }
           }
           return
@@ -132,14 +137,14 @@ export async function navigateToJumpServerAsset(
     }
 
     const errorHandler = (error: Error) => {
-      console.error('JumpServer exec stream navigation error:', error)
+      logger.error('JumpServer exec stream navigation error', { event: 'jumpserver.exec.navigation.error', error: error.message })
       cleanup()
       clearTimeout(timeout)
       reject(error)
     }
 
     const closeHandler = () => {
-      console.log('JumpServer exec stream closed during navigation')
+      logger.debug('JumpServer exec stream closed during navigation', { event: 'jumpserver.exec.stream.close' })
       cleanup()
       if (connectionPhase !== 'connected') {
         clearTimeout(timeout)
@@ -173,43 +178,42 @@ export async function navigateToJumpServerAsset(
 
 export async function createJumpServerExecStream(connectionId: string): Promise<any> {
   if (jumpserverExecStreams.has(connectionId)) {
-    console.log(`[JumpServer:ExecStream] Reusing existing stream: ${connectionId}`)
+    logger.debug('Reusing existing exec stream', { event: 'jumpserver.exec.reuse', connectionId })
     return jumpserverExecStreams.get(connectionId)
   }
 
   const existingPromise = getExecStreamPromise(connectionId)
   if (existingPromise) {
-    console.log(`[JumpServer:ExecStream] Waiting for stream being created: ${connectionId}`)
+    logger.debug('Waiting for exec stream being created', { event: 'jumpserver.exec.wait', connectionId })
     return existingPromise
   }
 
-  console.log(`[JumpServer:ExecStream] Starting to create new stream: ${connectionId}`)
+  logger.debug('Starting to create new exec stream', { event: 'jumpserver.exec.create', connectionId })
 
   const creationPromise = (async () => {
     try {
       const connData = jumpserverConnections.get(connectionId)
       if (!connData) {
-        console.error(`[JumpServer:ExecStream] Connection data not found!`)
-        console.error(`[JumpServer:ExecStream] Available connection ID list:`, Array.from(jumpserverConnections.keys()))
+        logger.error('Connection data not found for exec stream', { event: 'jumpserver.exec.notfound', connectionId })
         throw new Error(`JumpServer connection not found: ${connectionId}`)
       }
 
       const { conn, jumpserverUuid, targetIp, navigationPath } = connData
 
       if (!targetIp) {
-        console.error(`[JumpServer:ExecStream] Target asset information missing: targetIp=${targetIp}`)
+        logger.error('Target asset information missing', { event: 'jumpserver.exec.target.missing', connectionId })
         throw new Error(`JumpServer unable to get target asset information: ${connectionId}`)
       }
 
       if (!navigationPath) {
-        console.error(`[JumpServer] Navigation path not recorded`)
+        logger.error('Navigation path not recorded', { event: 'jumpserver.exec.navpath.missing', connectionId })
         throw new Error(`JumpServer connection missing navigation path: ${connectionId}`)
       }
 
       const execStream: any = await new Promise((resolve, reject) => {
         conn.shell({ term: 'xterm-256color' }, (err: Error | undefined, stream: any) => {
           if (err) {
-            console.error(`[JumpServer] Exec stream creation failed:`, err)
+            logger.error('Exec stream creation failed', { event: 'jumpserver.exec.create.error', connectionId, error: err.message })
             reject(err)
           } else {
             resolve(stream)
@@ -287,7 +291,10 @@ export async function executeCommandOnJumpServerExec(
               exitCode
             })
           } catch (parseError) {
-            console.error('[JumpServer] Command output parsing error:', parseError)
+            logger.error('Command output parsing error', {
+              event: 'jumpserver.exec.parse.error',
+              error: parseError
+            })
             resolve({
               success: false,
               error: `Failed to parse command output: ${parseError}`,
@@ -306,7 +313,7 @@ export async function executeCommandOnJumpServerExec(
     }
 
     timeoutHandle = setTimeout(() => {
-      console.warn(`[JumpServer] Command execution timeout (${JUMPSERVER_CONSTANTS.COMMAND_EXEC_TIMEOUT}ms)`)
+      logger.warn('Command execution timeout', { event: 'jumpserver.exec.timeout', timeoutMs: JUMPSERVER_CONSTANTS.COMMAND_EXEC_TIMEOUT })
       cleanup()
       resolve({
         success: false,

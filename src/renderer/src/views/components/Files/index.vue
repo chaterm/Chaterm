@@ -243,6 +243,7 @@ import { DownOutlined, RightOutlined } from '@ant-design/icons-vue'
 
 const { t } = useI18n()
 
+const logger = createRendererLogger('files')
 type PanelCache = {
   path: string
   ts: number
@@ -275,7 +276,7 @@ const getCurrentActiveTerminalInfo = async () => {
     })
     return assetInfo
   } catch (error) {
-    console.error(t('common.errorGettingAssetInfo'), error)
+    logger.error('Error getting asset info', { error: error })
     return null
   }
 }
@@ -365,7 +366,7 @@ const handleResize = () => {
       openEditors.forEach((ed) => resizeEditor(ed, rect))
     }
   } catch (error) {
-    console.error('Failed to resize terminal:', error)
+    logger.error('Failed to resize terminal', { error: error })
   }
 }
 

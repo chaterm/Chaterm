@@ -1,6 +1,7 @@
 import Database from 'better-sqlite3'
 import { initDatabase, getCurrentUserId } from './connection'
 import { CommandResult, EvictConfig } from './types'
+const logger = createLogger('db')
 
 export class autoCompleteDatabaseService {
   private static instances: Map<number, autoCompleteDatabaseService> = new Map()
@@ -57,7 +58,7 @@ export class autoCompleteDatabaseService {
     OR has not been used for more than one year
    */
   private async evictCommands(evictType: 'count' | 'time') {
-    console.log(`Starting command eviction by ${evictType}`)
+    logger.info(`Starting command eviction by ${evictType}`)
     this.db.transaction(() => {
       const secondMonthsAgo = Math.floor(Date.now() / 1000) - 60 * 24 * 60 * 60
       const oneYearAgo = Math.floor(Date.now() / 1000) - 365 * 24 * 60 * 60
@@ -88,7 +89,7 @@ export class autoCompleteDatabaseService {
 
       this.db.prepare('UPDATE linux_commands_evict SET evict_current_value = ? WHERE evict_type = ?').run(this.lastEvictTime, 'time')
 
-      console.log(`Evicted ${result.changes} commands. Current count: ${this.commandCount}`)
+      logger.info(`Evicted ${result.changes} commands. Current count: ${this.commandCount}`)
     })()
   }
 
@@ -107,12 +108,12 @@ export class autoCompleteDatabaseService {
     // Check if initialization is already in progress for this user
     const existingPromise = autoCompleteDatabaseService.initializingPromises.get(targetUserId)
     if (existingPromise) {
-      console.log(`Waiting for existing autoComplete initialization for user ${targetUserId}`)
+      logger.info(`Waiting for existing autoComplete initialization for user ${targetUserId}`)
       return existingPromise
     }
 
     // Start new initialization and store the promise
-    console.log(`Creating new autoCompleteDatabaseService instance for user ${targetUserId}`)
+    logger.info(`Creating new autoCompleteDatabaseService instance for user ${targetUserId}`)
     const initPromise = (async () => {
       try {
         const db = await initDatabase(targetUserId)

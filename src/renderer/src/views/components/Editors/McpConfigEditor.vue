@@ -37,6 +37,8 @@ import MonacoEditor from '@views/components/Editors/base/monacoEditor.vue'
 import { getMonacoTheme, addSystemThemeListener } from '@/utils/themeUtils'
 import { useEditorConfigStore } from '@/stores/editorConfig'
 
+const logger = createRendererLogger('ssh.mcpConfigEditor')
+
 const { t } = useI18n()
 
 // Initialize editor config store
@@ -82,6 +84,7 @@ const handleKeydown = (e: KeyboardEvent) => {
 
 // Load config on mount
 onMounted(async () => {
+  logger.debug('Loading MCP config')
   // Load global editor configuration
   await editorConfigStore.loadConfig()
 
@@ -100,7 +103,7 @@ onMounted(async () => {
       })
     }
   } catch (err: unknown) {
-    console.error('Failed to load MCP config:', err)
+    logger.error('Failed to load MCP config', { error: err })
     const errorMessage = err instanceof Error ? err.message : String(err)
     notification.error({
       message: t('mcp.error'),
@@ -217,7 +220,7 @@ const saveConfig = async (isManualSave = false) => {
       lastSaved.value = false
     }, 3000)
   } catch (err: unknown) {
-    console.error('Failed to save MCP config:', err)
+    logger.error('Failed to save MCP config', { error: err })
     isSaving.value = false
     const errorMessage = err instanceof Error ? err.message : String(err)
     notification.error({

@@ -1,5 +1,7 @@
 import { getUserInfo } from '@/utils/permission'
 
+const logger = createRendererLogger('service.indexdbMigration')
+
 /**
  * Initialize IndexedDB migration listener
  * Listen to migration data requests from main process, read data directly from IndexedDB and respond
@@ -9,7 +11,7 @@ export function setupIndexDBMigrationListener(): void {
   // Register migration data request listener (directly operate IndexedDB, not dependent on simplified services)
   if (window.electron?.ipcRenderer) {
     window.electron.ipcRenderer.on('indexdb-migration:request-data', async (_event, dataSource) => {
-      console.log(`[Renderer] Received migration request for: ${dataSource}`)
+      logger.info('Received migration request', { dataSource })
 
       try {
         let data
@@ -32,7 +34,7 @@ export function setupIndexDBMigrationListener(): void {
           })
 
           db.close()
-          console.log(`[Renderer] Read ${data.length} aliases from IndexedDB`)
+          logger.info('Read aliases from IndexedDB', { count: data.length })
         } else if (dataSource === 'userConfig') {
           // Read user config directly from IndexedDB (no version specified, use current version)
           const db = await new Promise<IDBDatabase>((resolve, reject) => {
@@ -51,21 +53,21 @@ export function setupIndexDBMigrationListener(): void {
           })
 
           db.close()
-          console.log(`[Renderer] Read userConfig from IndexedDB`)
+          logger.info('Read userConfig from IndexedDB')
         } else if (dataSource === 'keyValueStore') {
           // Read KeyValueStore directly from IndexedDB (intelligent database lookup)
-          console.log('[Renderer] Starting intelligent KeyValueStore database lookup...')
+          logger.info('Starting intelligent KeyValueStore database lookup...')
 
           // Step 1: List all IndexedDB databases
           let allDatabases: IDBDatabaseInfo[] = []
           try {
             allDatabases = await indexedDB.databases()
-            console.log(
-              `[Renderer] Found ${allDatabases.length} databases:`,
-              allDatabases.map((db) => db.name)
-            )
+            logger.info('Found databases', {
+              count: allDatabases.length,
+              names: allDatabases.map((db) => db.name)
+            })
           } catch (error) {
-            console.error('[Renderer] Unable to list databases, will use fallback:', error)
+            logger.error('Unable to list databases, will use fallback', { error: error })
           }
 
           // Step 2: Find database containing KeyValueStore
@@ -77,16 +79,16 @@ export function setupIndexDBMigrationListener(): void {
             .filter((db) => db.name && db.name.startsWith('ChatermStorage_user_'))
             .filter((db) => !db.name!.includes('_unknown')) // Filter out unknown databases created during previous failures
 
-          console.log(`[Renderer] Found ${chatermDbs.length} valid ChatermStorage databases (unknown excluded)`)
+          logger.info('Found valid ChatermStorage databases (unknown excluded)', { count: chatermDbs.length })
 
           // Get current user ID (using getUserInfo)
           let currentUserId: number | undefined
           try {
             const userInfo = getUserInfo()
             currentUserId = userInfo?.uid
-            console.log(`[Renderer] Current logged-in user ID: ${currentUserId || 'Unable to get'}`)
+            logger.info('Current logged-in user ID', { userId: currentUserId || 'Unable to get' })
           } catch (error) {
-            console.warn('[Renderer] Unable to get current user ID:', error)
+            logger.warn('Unable to get current user ID', { error: error })
           }
 
           // Sorting strategy: prioritize current user, then by numeric ID descending
@@ -104,11 +106,11 @@ export function setupIndexDBMigrationListener(): void {
           })
 
           if (sortedDbs.length > 0) {
-            console.log('[Renderer] Database priority order:')
+            logger.info('Database priority order:')
             sortedDbs.forEach((db) => {
               const userId = db.name!.split('_').pop()
               const isCurrent = currentUserId && parseInt(userId || '0') === currentUserId
-              console.log(`[Renderer]   ${isCurrent ? '[Current User]' : '  '} ${db.name} (User ID: ${userId})`)
+              logger.info(`  ${isCurrent ? '[Current User]' : '  '} ${db.name}`, { userId })
             })
           }
 
@@ -116,7 +118,7 @@ export function setupIndexDBMigrationListener(): void {
           for (const dbInfo of chatermDbs) {
             try {
               const dbName = dbInfo.name!
-              console.log(`[Renderer] Attempting to open database: ${dbName}`)
+              logger.info('Attempting to open database', { dbName })
 
               const db = await new Promise<IDBDatabase>((resolve, reject) => {
                 const request = indexedDB.open(dbName)
@@ -124,8 +126,8 @@ export function setupIndexDBMigrationListener(): void {
                 request.onsuccess = () => resolve(request.result)
               })
 
-              console.log(`[Renderer] Database ${dbName} opened successfully`)
-              console.log(`[Renderer] Object stores:`, Array.from(db.objectStoreNames))
+              logger.info('Database opened successfully', { dbName })
+              logger.info('Object stores', { stores: Array.from(db.objectStoreNames) })
 
               // Check if KeyValueStore is included
               if (db.objectStoreNames.contains('KeyValueStore')) {
@@ -138,22 +140,22 @@ export function setupIndexDBMigrationListener(): void {
                   req.onerror = () => reject(req.error)
                 })
 
-                console.log(`[Renderer] Found KeyValueStore in ${dbName}, containing ${count} records`)
+                logger.info('Found KeyValueStore', { dbName, count })
 
                 if (count > 0) {
                   foundDb = db
                   foundDbName = dbName
                   break
                 } else {
-                  console.log(`[Renderer] Warning: KeyValueStore in ${dbName} is empty, continuing search...`)
+                  logger.info('KeyValueStore is empty, continuing search...', { dbName })
                   db.close()
                 }
               } else {
-                console.log(`[Renderer] ${dbName} does not contain KeyValueStore`)
+                logger.info('Database does not contain KeyValueStore', { dbName })
                 db.close()
               }
             } catch (error) {
-              console.error(`[Renderer] Failed to open database:`, error)
+              logger.error('Failed to open database', { error: error })
             }
           }
 
@@ -176,14 +178,14 @@ export function setupIndexDBMigrationListener(): void {
               }))
 
               foundDb.close()
-              console.log(`[Renderer] Successfully read ${data.length} KeyValueStore records from ${foundDbName}`)
+              logger.info('Successfully read KeyValueStore records', { count: data.length, dbName: foundDbName })
             } catch (error) {
-              console.error(`[Renderer] Failed to read KeyValueStore data:`, error)
+              logger.error('Failed to read KeyValueStore data', { error: error })
               if (foundDb) foundDb.close()
               throw error
             }
           } else {
-            console.warn(`[Renderer] Warning: No database with valid KeyValueStore data found, returning empty array`)
+            logger.warn('No database with valid KeyValueStore data found, returning empty array')
             data = []
           }
         } else {
@@ -191,19 +193,19 @@ export function setupIndexDBMigrationListener(): void {
         }
 
         // Send response
-        console.log(`[Renderer] Sending response for ${dataSource}...`)
+        logger.info('Sending response', { dataSource })
         window.electron?.ipcRenderer.send(`indexdb-migration:data-response:${dataSource}`, data)
-        console.log(`[Renderer] Response sent for ${dataSource}`)
+        logger.info('Response sent', { dataSource })
       } catch (error: any) {
-        console.error(`[Renderer] Error reading ${dataSource} from IndexedDB:`, error)
-        console.error(`[Renderer] Error stack:`, error.stack)
+        logger.error(`Error reading ${dataSource} from IndexedDB`, { error: error.message || 'Unknown error' })
+        logger.error('Error stack', { stack: error.stack })
         // Send error response
         window.electron?.ipcRenderer.send(`indexdb-migration:data-response:${dataSource}`, {
           error: error.message || 'Unknown error'
         })
       }
     })
-    console.log('[Renderer] IndexedDB migration listener registered')
+    logger.info('IndexedDB migration listener registered')
   }
   // ===== Migration Listener End =====
 }

@@ -6,8 +6,9 @@
 
 import { ApiClient } from './ApiClient'
 import { DatabaseManager } from './DatabaseManager'
-import { logger } from '../utils/logger'
 import { getEncryptionService } from '../services/EncryptionRegistry'
+
+const logger = createLogger('sync')
 import { encryptPayload } from '../utils/combinedEncryption'
 
 interface SyncMetadata {
@@ -165,7 +166,7 @@ export class SafeBatchSyncManager {
 
       logger.info(`Safe batch sync completed: ${tableName}, processed ${recordCount} records`)
     } catch (error) {
-      logger.error('Safe batch sync failed:', error)
+      logger.error('Safe batch sync failed', { error: error })
       if (session) {
         await this.updateSyncMetadata(tableName, { syncStatus: 'failed' })
       }
@@ -258,7 +259,7 @@ export class SafeBatchSyncManager {
         // Small delay to avoid server pressure
         await this.delay(50)
       } catch (error) {
-        logger.error(`Failed to process batch ${currentPage}:`, error)
+        logger.error(`Failed to process batch ${currentPage}`, { error: error })
 
         // Retry logic
         if (currentPage <= 3) {
@@ -304,7 +305,7 @@ export class SafeBatchSyncManager {
         const batchIndex = Math.floor(i / batchSize) + 1
         const totalBatches = Math.ceil(historicalData.length / batchSize)
 
-        logger.info(`📦 Processing batch ${batchIndex}/${totalBatches}: ${batch.length} records`)
+        logger.info(`Processing batch ${batchIndex}/${totalBatches}: ${batch.length} records`)
 
         // Add operation type to each record and perform encryption
         const uploadData = await Promise.all(
@@ -333,7 +334,7 @@ export class SafeBatchSyncManager {
           }
         } catch (error) {
           failedCount += batch.length
-          logger.error(`Batch ${batchIndex} upload exception:`, error)
+          logger.error(`Batch ${batchIndex} upload exception`, { error: error })
         }
 
         // Small delay to avoid server pressure
@@ -342,7 +343,7 @@ export class SafeBatchSyncManager {
 
       logger.info(`${localTableName} historical data upload completed: success=${uploadedCount} records, failed=${failedCount} records`)
     } catch (error) {
-      logger.error(`Failed to upload historical data:`, error)
+      logger.error('Failed to upload historical data', { error: error })
     }
   }
 
@@ -403,7 +404,7 @@ export class SafeBatchSyncManager {
         const db = await this.dbManager.getDatabase()
         await db.exec(`DROP TABLE IF EXISTS ${tempTableName}`)
       } catch (cleanupError) {
-        logger.error('Failed to clean up temporary table:', cleanupError)
+        logger.error('Failed to clean up temporary table', { error: cleanupError })
       }
       throw error
     }
@@ -451,7 +452,7 @@ export class SafeBatchSyncManager {
 
         results.push(mergeResult)
       } catch (error) {
-        logger.error(`Error processing record ${serverRecord.uuid}:`, error)
+        logger.error(`Error processing record ${serverRecord.uuid}`, { error: error })
         // Conservative handling on error: keep local data
         results.push({
           action: 'keep_local',
@@ -576,7 +577,7 @@ export class SafeBatchSyncManager {
         logger.warn('Server unavailable, skipping sync check')
         throw new Error('SERVER_UNAVAILABLE')
       }
-      logger.warn('Failed to check sync necessity, defaulting to sync:', error)
+      logger.warn('Failed to check sync necessity, defaulting to sync', { error: error })
       return true
     }
   }
@@ -650,7 +651,7 @@ export class SafeBatchSyncManager {
       logger.info(`Retrieved ${rows.length} historical records from ${tableName}`)
       return rows
     } catch (error) {
-      logger.error(`Failed to get historical data (${tableName}):`, error)
+      logger.error(`Failed to get historical data (${tableName})`, { error: error })
       return []
     }
   }
@@ -676,7 +677,7 @@ export class SafeBatchSyncManager {
 
       logger.info(`Created change_log records for ${validRecords.length} historical records`)
     } catch (error) {
-      logger.error(`Failed to create change_log records for historical data:`, error)
+      logger.error('Failed to create change_log records for historical data', { error: error })
     }
   }
 
@@ -733,7 +734,7 @@ export class SafeBatchSyncManager {
       await this.apiClient.delete(`/sync/full-sync/finish/${sessionId}`)
       this.syncSessions.delete(sessionId)
     } catch (error) {
-      logger.error('Failed to finish sync session:', error)
+      logger.error('Failed to finish sync session', { error: error })
     }
   }
 
@@ -884,7 +885,7 @@ export class SafeBatchSyncManager {
           logger.info(`Data replacement successful: ${originalTableName} (original table does not exist, created directly)`)
         }
       } catch (error) {
-        logger.error('Atomic replacement failed, attempting rollback:', error)
+        logger.error('Atomic replacement failed, attempting rollback', { error: error })
         try {
           if (tableExists) {
             // If original table exists, try to restore
@@ -893,7 +894,7 @@ export class SafeBatchSyncManager {
           await tx.exec(`DROP TABLE IF EXISTS ${tempTableName}`)
           logger.info('Rollback successful')
         } catch (rollbackError) {
-          logger.error('Rollback also failed:', rollbackError)
+          logger.error('Rollback also failed', { error: rollbackError })
         }
         throw error
       }
@@ -1077,7 +1078,7 @@ export class SafeBatchSyncManager {
       }
       return hasChanges ? merged : null
     } catch (e) {
-      logger.error('Field-level merge failed:', e)
+      logger.error('Field-level merge failed', { error: e })
       return null
     }
   }

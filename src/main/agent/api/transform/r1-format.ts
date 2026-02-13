@@ -6,6 +6,7 @@
 
 import { Anthropic } from '@anthropic-ai/sdk'
 import OpenAI from 'openai'
+const logger = createLogger('agent')
 
 /**
  * Converts Anthropic messages to OpenAI format and merges consecutive messages with the same role.
@@ -37,7 +38,7 @@ export function convertToR1Format(messages: Anthropic.Messages.MessageParam[]): 
               image_url: { url: `data:${part.source.media_type};base64,${part.source.data}` }
             })
           } else {
-            console.warn('Unsupported image source type in R1 format, only base64 is supported')
+            logger.warn('Unsupported image source type in R1 format, only base64 is supported')
           }
         }
       })

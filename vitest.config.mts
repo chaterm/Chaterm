@@ -3,6 +3,9 @@ import { resolve } from 'path'
 import { readFileSync } from 'fs'
 import vue from '@vitejs/plugin-vue'
 import { playwright } from '@vitest/browser-playwright'
+import Components from 'unplugin-vue-components/vite'
+import { AntDesignVueResolver } from 'unplugin-vue-components/resolvers'
+import AutoImport from 'unplugin-auto-import/vite'
 import pkg from './package.json'
 
 // Load edition config for tests (default to 'cn' edition)
@@ -50,6 +53,37 @@ const rendererAliases = {
   '@shared': resolve('src/main/agent/shared')
 }
 
+const createMainProcessPlugins = () => [
+  AutoImport({
+    imports: [
+      {
+        '@logging/index': ['createLogger']
+      }
+    ],
+    dts: resolve('src/main/auto-imports.d.ts')
+  })
+]
+
+const createRendererPlugins = () => [
+  vue(),
+  Components({
+    resolvers: [
+      AntDesignVueResolver({
+        importStyle: false
+      })
+    ]
+  }),
+  AutoImport({
+    imports: [
+      {
+        '@/utils/logger': ['createRendererLogger']
+      }
+    ],
+    dts: resolve('src/renderer/auto-imports.d.ts'),
+    resolvers: [AntDesignVueResolver()]
+  })
+]
+
 export default defineConfig({
   // Root-level define for all projects to inherit
   define: rendererDefines,
@@ -63,6 +97,7 @@ export default defineConfig({
           include: ['src/main/**/*.test.ts', 'src/main/**/*.spec.ts'],
           environment: 'node'
         },
+        plugins: createMainProcessPlugins(),
         resolve: {
           alias: {
             '@shared': resolve('src/main/agent/shared'),
@@ -71,7 +106,8 @@ export default defineConfig({
             '@integrations': resolve('src/main/agent/integrations'),
             '@utils': resolve('src/main/agent/utils'),
             '@api': resolve('src/main/agent/api'),
-            '@storage': resolve('src/main/storage')
+            '@storage': resolve('src/main/storage'),
+            '@logging': resolve('src/main/services/logging')
           }
         }
       },
@@ -86,7 +122,7 @@ export default defineConfig({
           ],
           environment: 'jsdom'
         },
-        plugins: [vue()],
+        plugins: createRendererPlugins(),
         resolve: {
           alias: [
             {
@@ -114,7 +150,7 @@ export default defineConfig({
           },
           globals: true
         },
-        plugins: [vue()],
+        plugins: createRendererPlugins(),
         resolve: {
           alias: [
             {

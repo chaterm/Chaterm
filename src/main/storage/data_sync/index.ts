@@ -1,10 +1,8 @@
 import { SyncController } from './core/SyncController'
-import { logger } from './utils/logger'
-import { syncConfig } from './config/sync.config'
+const logger = createLogger('sync')
 
 export async function startDataSync(dbPath?: string): Promise<SyncController> {
-  // Clean up old log files on startup
-  logger.cleanupOldLogs(syncConfig.logRetentionDays)
+  // Log retention is now handled by the unified logging system
 
   const controller = new SyncController(dbPath)
 
@@ -17,7 +15,7 @@ export async function startDataSync(dbPath?: string): Promise<SyncController> {
     isAuthInitialized = true
     logger.info('Auth check successful, synced to encryption service')
   } catch (e: any) {
-    logger.warn('Auth check failed, sync functionality may be limited:', e?.message)
+    logger.warn('Auth check failed, sync functionality may be limited', { error: e?.message })
     logger.info('Note: Please ensure the main application has completed login authentication')
   }
 
@@ -28,7 +26,7 @@ export async function startDataSync(dbPath?: string): Promise<SyncController> {
       isEncryptionInitialized = true
       logger.info('Encryption service initialization completed')
     } catch (e: any) {
-      logger.warn('Encryption initialization failed', e?.message)
+      logger.warn('Encryption initialization failed', { error: e?.message })
     }
   } else {
     logger.warn('Skipping encryption service initialization due to failed authentication')
@@ -46,7 +44,7 @@ export async function startDataSync(dbPath?: string): Promise<SyncController> {
         logger.info('Auth status is normal')
       }
     } catch (e: any) {
-      logger.warn('Auth status check exception', e?.message)
+      logger.warn('Auth status check exception', { error: e?.message })
     }
   } else {
     logger.info('Auth status is normal (reusing initialization result)')
@@ -55,7 +53,7 @@ export async function startDataSync(dbPath?: string): Promise<SyncController> {
   try {
     await controller.backupInit()
   } catch (e: any) {
-    logger.warn('Backup initialization failed', e?.message)
+    logger.warn('Backup initialization failed', { error: e?.message })
     // If authentication failed, try automatic recovery
     if (e?.message?.includes('401') || e?.message?.includes('auth')) {
       logger.info('Detected authentication issue, attempting automatic recovery...')
@@ -63,7 +61,7 @@ export async function startDataSync(dbPath?: string): Promise<SyncController> {
         await controller.handleAuthFailure()
         await controller.backupInit() // Retry
       } catch (retryError: any) {
-        logger.error('Automatic auth recovery failed', retryError?.message)
+        logger.error('Automatic auth recovery failed', { error: retryError?.message })
       }
     }
   }
@@ -71,13 +69,13 @@ export async function startDataSync(dbPath?: string): Promise<SyncController> {
   try {
     await controller.incrementalSyncAll()
   } catch (e: any) {
-    logger.warn('Incremental sync failed', e?.message)
+    logger.warn('Incremental sync failed', { error: e?.message })
   }
 
   try {
     await controller.fullSyncAll()
   } catch (e: any) {
-    logger.warn('Full sync failed', e?.message)
+    logger.warn('Full sync failed', { error: e?.message })
   }
 
   await controller.startAutoSync()

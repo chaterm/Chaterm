@@ -5,6 +5,8 @@ import type { ChatOption, DocOption } from '../types'
 import type { ImageContentPart } from '@shared/WebviewMessage'
 import i18n from '@/locales'
 
+const logger = createRendererLogger('aitab.userInteractions')
+
 // Supported image types for upload
 const SUPPORTED_IMAGE_TYPES = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'] as const
 type SupportedImageType = (typeof SUPPORTED_IMAGE_TYPES)[number]
@@ -35,7 +37,7 @@ export function useUserInteractions(options: UseUserInteractionsOptions) {
   const handleTranscriptionComplete = (transcribedText: string) => {
     appendTextToInputParts(transcribedText)
 
-    console.log('handleTranscriptionComplete', autoSendAfterVoice.value)
+    logger.debug('handleTranscriptionComplete', { autoSendAfterVoice: autoSendAfterVoice.value })
 
     if (autoSendAfterVoice.value) {
       nextTick(() => {
@@ -44,8 +46,8 @@ export function useUserInteractions(options: UseUserInteractionsOptions) {
     }
   }
 
-  const handleTranscriptionError = (error: string) => {
-    console.error('Voice transcription error:', error)
+  const handleTranscriptionError = (error: unknown) => {
+    logger.error('Voice transcription error', { error: error })
   }
 
   const handleFileUpload = () => {
@@ -75,7 +77,7 @@ export function useUserInteractions(options: UseUserInteractionsOptions) {
         insertChipAtCursor('doc', { absPath: filePath, name: fileName, type: 'file' }, fileName)
       }
     } catch (error) {
-      console.error('File read error:', error)
+      logger.error('File read error', { error: error })
       notification.error({
         message: t('ai.fileReadFailed'),
         description: t('ai.fileReadErrorDesc'),
@@ -136,7 +138,7 @@ export function useUserInteractions(options: UseUserInteractionsOptions) {
         data: base64Data
       }
     } catch (error) {
-      console.error('Image processing error:', error)
+      logger.error('Image processing error', { error: error })
       notification.error({
         message: t('ai.imageUploadFailed'),
         description: t('ai.imageProcessError'),

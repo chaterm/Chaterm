@@ -7,6 +7,10 @@ import { K8sEventType, K8sResource, K8sResourceEvent, InformerOptions, InformerS
 import { KubeConfigLoader } from './KubeConfigLoader'
 import { EventEmitter } from 'events'
 
+import { createLogger } from '../logging'
+
+const logger = createLogger('k8s')
+
 // Lazy load kubernetes client
 let k8sModule: any = null
 
@@ -55,12 +59,12 @@ class ResourceInformer extends EventEmitter {
    */
   public async start(): Promise<void> {
     if (this.state.running) {
-      console.log(`[K8s Informer] ${this.resourceType} already running for ${this.contextName}`)
+      logger.info(`[K8s Informer] ${this.resourceType} already running for ${this.contextName}`)
       return
     }
 
     try {
-      console.log(`[K8s Informer] Starting ${this.resourceType} informer for context: ${this.contextName}`)
+      logger.info(`[K8s Informer] Starting ${this.resourceType} informer for context: ${this.contextName}`)
 
       const path = this.buildApiPath()
       this.informer = this.makeInformer(this.kc, path, this.listFn, this.options.labelSelector)
@@ -74,11 +78,11 @@ class ResourceInformer extends EventEmitter {
       this.state.lastSyncTime = new Date()
       this.reconnectAttempts = 0
 
-      console.log(`[K8s Informer] ${this.resourceType} informer started successfully for ${this.contextName}`)
+      logger.info(`[K8s Informer] ${this.resourceType} informer started successfully for ${this.contextName}`)
     } catch (error) {
       this.state.errorCount++
       this.state.lastError = error instanceof Error ? error.message : 'Unknown error'
-      console.error(`[K8s Informer] Failed to start ${this.resourceType} informer:`, this.state.lastError)
+      logger.error(`[K8s Informer] Failed to start ${this.resourceType} informer`, { error: this.state.lastError })
       this.scheduleReconnect()
       throw error
     }
@@ -88,7 +92,7 @@ class ResourceInformer extends EventEmitter {
    * Stop the informer
    */
   public async stop(): Promise<void> {
-    console.log(`[K8s Informer] Stopping ${this.resourceType} informer for ${this.contextName}`)
+    logger.info(`[K8s Informer] Stopping ${this.resourceType} informer for ${this.contextName}`)
 
     if (this.reconnectTimer) {
       clearTimeout(this.reconnectTimer)
@@ -104,7 +108,7 @@ class ResourceInformer extends EventEmitter {
       try {
         await this.informer.stop()
       } catch (error) {
-        console.error(`[K8s Informer] Error stopping informer:`, error)
+        logger.error(`[K8s Informer] Error stopping informer`, { error: error })
       }
     }
 
@@ -179,13 +183,13 @@ class ResourceInformer extends EventEmitter {
     })
 
     this.informer.on('connect', () => {
-      console.log(`[K8s Informer] ${this.resourceType} connected`)
+      logger.info(`[K8s Informer] ${this.resourceType} connected`)
       this.state.connected = true
       this.reconnectAttempts = 0
     })
 
     this.informer.on('disconnect', () => {
-      console.log(`[K8s Informer] ${this.resourceType} disconnected`)
+      logger.info(`[K8s Informer] ${this.resourceType} disconnected`)
       this.state.connected = false
       this.scheduleReconnect()
     })
@@ -199,7 +203,7 @@ class ResourceInformer extends EventEmitter {
       const uid = resource.metadata.uid
 
       if (!uid) {
-        console.warn(`[K8s Informer] Resource without UID received:`, resource.metadata.name)
+        logger.warn('[K8s Informer] Resource without UID received', { value: resource.metadata.name })
         return
       }
 
@@ -228,9 +232,9 @@ class ResourceInformer extends EventEmitter {
       }
 
       this.emit('event', event)
-      console.log(`[K8s Informer] Event Received: ${type} ${this.resourceType}/${resource.metadata.name} in ${this.contextName}`)
+      logger.info(`[K8s Informer] Event Received: ${type} ${this.resourceType}/${resource.metadata.name} in ${this.contextName}`)
     } catch (error) {
-      console.error(`[K8s Informer] Error handling event:`, error)
+      logger.error(`[K8s Informer] Error handling event`, { error: error })
       this.state.errorCount++
     }
   }
@@ -241,7 +245,7 @@ class ResourceInformer extends EventEmitter {
   private handleError(error: Error): void {
     this.state.errorCount++
     this.state.lastError = error.message
-    console.error(`[K8s Informer] ${this.resourceType} error:`, error.message)
+    logger.error(`[K8s Informer] ${this.resourceType} error`, { error: error.message })
 
     const event: K8sResourceEvent = {
       type: K8sEventType.ERROR,
@@ -266,15 +270,15 @@ class ResourceInformer extends EventEmitter {
     if (!this.state.running) return
     if (this.reconnectTimer) return
     if (this.reconnectAttempts >= this.maxReconnectAttempts) {
-      console.error(`[K8s Informer] Max reconnect attempts (${this.maxReconnectAttempts}) reached for ${this.resourceType}`)
+      logger.error(`[K8s Informer] Max reconnect attempts (${this.maxReconnectAttempts}) reached for ${this.resourceType}`)
       this.emit('maxRetriesReached')
       return
     }
 
     const backoffMs = Math.min(this.baseBackoffMs * Math.pow(2, this.reconnectAttempts), this.maxBackoffMs)
 
-    console.log(
-      `[K8s Informer] Scheduling reconnect for ${this.resourceType} in ${backoffMs}ms (attempt ${this.reconnectAttempts + 1}/${this.maxReconnectAttempts})`
+    logger.info(
+      `Scheduling reconnect for ${this.resourceType} in ${backoffMs}ms (attempt ${this.reconnectAttempts + 1}/${this.maxReconnectAttempts})`
     )
 
     this.reconnectTimer = setTimeout(() => {
@@ -290,7 +294,7 @@ class ResourceInformer extends EventEmitter {
   private async reconnect(): Promise<void> {
     if (!this.state.running) return
 
-    console.log(`[K8s Informer] Attempting to reconnect ${this.resourceType} (attempt ${this.reconnectAttempts}/${this.maxReconnectAttempts})`)
+    logger.info(`[K8s Informer] Attempting to reconnect ${this.resourceType} (attempt ${this.reconnectAttempts}/${this.maxReconnectAttempts})`)
 
     try {
       if (this.informer) {
@@ -304,9 +308,9 @@ class ResourceInformer extends EventEmitter {
 
       this.state.connected = true
       this.reconnectAttempts = 0
-      console.log(`[K8s Informer] ${this.resourceType} reconnected successfully`)
+      logger.info(`[K8s Informer] ${this.resourceType} reconnected successfully`)
     } catch (error) {
-      console.error(`[K8s Informer] Reconnection failed:`, error)
+      logger.error(`[K8s Informer] Reconnection failed`, { error: error })
       this.scheduleReconnect()
     }
   }
@@ -331,7 +335,7 @@ export class InformerPool extends EventEmitter {
     const key = this.getInformerKey(options.contextName, resourceType)
 
     if (this.informers.has(key)) {
-      console.log(`[K8s InformerPool] Informer already exists for ${resourceType} in ${options.contextName}`)
+      logger.info(`[K8s InformerPool] Informer already exists for ${resourceType} in ${options.contextName}`)
       return
     }
 
@@ -340,7 +344,7 @@ export class InformerPool extends EventEmitter {
       const kc = this.configLoader.getKubeConfig()
 
       if (!kc) {
-        console.error('[K8s InformerPool] KubeConfig not initialized for context:', options.contextName)
+        logger.error('[K8s InformerPool] KubeConfig not initialized for context', { value: options.contextName })
         return
       }
 
@@ -361,16 +365,18 @@ export class InformerPool extends EventEmitter {
       })
 
       informer.on('maxRetriesReached', () => {
-        console.error(`[K8s InformerPool] Max retries reached for ${resourceType} in ${options.contextName}, stopping informer`)
+        logger.error(`[K8s InformerPool] Max retries reached for ${resourceType} in ${options.contextName}, stopping informer`)
         this.stopInformer(options.contextName, resourceType)
       })
 
       await informer.start()
       this.informers.set(key, informer)
 
-      console.log(`[K8s InformerPool] Started ${resourceType} informer for ${options.contextName}`)
+      logger.info(`[K8s InformerPool] Started ${resourceType} informer for ${options.contextName}`)
     } catch (error) {
-      console.error(`[K8s InformerPool] Failed to start ${resourceType} informer for ${options.contextName}:`, error)
+      logger.error(`[K8s InformerPool] Failed to start ${resourceType} informer for ${options.contextName}`, {
+        error: error
+      })
       throw error
     }
   }
@@ -383,13 +389,13 @@ export class InformerPool extends EventEmitter {
     const informer = this.informers.get(key)
 
     if (!informer) {
-      console.warn(`[K8s InformerPool] No informer found for ${resourceType} in ${contextName}`)
+      logger.warn(`[K8s InformerPool] No informer found for ${resourceType} in ${contextName}`)
       return
     }
 
     await informer.stop()
     this.informers.delete(key)
-    console.log(`[K8s InformerPool] Stopped ${resourceType} informer for ${contextName}`)
+    logger.info(`[K8s InformerPool] Stopped ${resourceType} informer for ${contextName}`)
   }
 
   /**
@@ -408,19 +414,19 @@ export class InformerPool extends EventEmitter {
       })
     )
 
-    console.log(`[K8s InformerPool] Stopped all informers for ${contextName}`)
+    logger.info(`[K8s InformerPool] Stopped all informers for ${contextName}`)
   }
 
   /**
    * Stop all informers
    */
   public async stopAll(): Promise<void> {
-    console.log('[K8s InformerPool] Stopping all informers...')
+    logger.info('[K8s InformerPool] Stopping all informers...')
 
     await Promise.all(Array.from(this.informers.values()).map((informer) => informer.stop()))
 
     this.informers.clear()
-    console.log('[K8s InformerPool] All informers stopped')
+    logger.info('[K8s InformerPool] All informers stopped')
   }
 
   /**

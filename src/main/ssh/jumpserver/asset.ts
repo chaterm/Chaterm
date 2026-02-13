@@ -5,6 +5,7 @@ import { Asset, parseJumpserverOutput } from './parser'
 
 import { getPackageInfo } from './connectionManager'
 import { LEGACY_ALGORITHMS } from '../algorithms'
+const logger = createLogger('jumpserver')
 
 // interface ServerInfo {
 //   name: string
@@ -49,7 +50,7 @@ class JumpServerClient {
    * Connect to JumpServer and establish a persistent shell
    */
   async connect(): Promise<void> {
-    console.log('JumpServerClient.connect: Starting connection to JumpServer')
+    logger.info('Starting connection to JumpServer', { event: 'jumpserver.asset.connect', host: this.config.host })
     return new Promise((resolve, reject) => {
       const connectConfig: ConnectConfig = {
         host: this.config.host,
@@ -82,15 +83,18 @@ class JumpServerClient {
       // Handle keyboard-interactive authentication for 2FA
       this.conn.on('keyboard-interactive', (_name, _instructions, _instructionsLang, prompts, finish) => {
         if (this.keyboardInteractiveHandler) {
-          console.log('JumpServerClient: Two-factor authentication required, calling handler...')
+          logger.debug('Two-factor authentication required, calling handler', { event: 'jumpserver.asset.2fa' })
           // Call handler but don't wait for its result, as authentication result will be determined by ready or error event
           this.keyboardInteractiveHandler(prompts, finish).catch((err) => {
-            console.error('JumpServerClient: Two-factor authentication handler error', err)
+            logger.error('Two-factor authentication handler error', {
+              event: 'jumpserver.asset.2fa.error',
+              error: err
+            })
             this.conn?.end()
             reject(err)
           })
         } else {
-          console.log('JumpServerClient: Two-factor authentication required but no handler provided, rejecting connection')
+          logger.warn('Two-factor authentication required but no handler provided', { event: 'jumpserver.asset.2fa.nohandler' })
           finish([])
           reject(new Error('Two-factor authentication required but no handler provided'))
         }
@@ -98,7 +102,7 @@ class JumpServerClient {
 
       this.conn.on('ready', () => {
         this.isConnected = true
-        console.log('JumpServerClient: SSH connection established')
+        logger.info('SSH connection established for asset fetch', { event: 'jumpserver.asset.connected' })
 
         // If authentication result callback exists, notify success
         if (this.authResultCallback) {
@@ -119,7 +123,7 @@ class JumpServerClient {
 
             // If there's a waiting command, check if it's finished
             if (this.dataResolve && (this.outputBuffer.includes('[Host]>') || this.outputBuffer.includes('Opt>'))) {
-              console.log('JumpServerClient: Command end marker detected, returning output, length:', this.outputBuffer.length)
+              logger.debug('Command end marker detected', { event: 'jumpserver.asset.command.done', bufferLength: this.outputBuffer.length })
               this.dataResolve(this.outputBuffer)
               this.outputBuffer = '' // Clear buffer
               this.dataResolve = null // Reset resolver
@@ -127,12 +131,12 @@ class JumpServerClient {
           })
 
           this.stream.on('close', () => {
-            console.log('Stream closed')
+            logger.debug('Asset fetch stream closed', { event: 'jumpserver.asset.stream.close' })
             this.isConnected = false
           })
 
           this.stream.on('error', (error: Error) => {
-            console.error('Stream error:', error)
+            logger.error('Asset fetch stream error', { event: 'jumpserver.asset.stream.error', error: error.message })
             if (this.dataResolve) {
               this.dataResolve = null
               this.outputBuffer = ''
@@ -142,15 +146,13 @@ class JumpServerClient {
 
           // Wait for initial menu to appear
           const waitForMenu = (retries = 10) => {
-            console.log(
-              `JumpServerClient: Waiting for initial menu, remaining retries: ${retries}, current buffer length: ${this.outputBuffer.length}`
-            )
+            logger.debug('Waiting for initial menu', { event: 'jumpserver.asset.menu.wait', retries, bufferLength: this.outputBuffer.length })
             if (retries === 0) {
-              console.log('JumpServerClient: Timeout waiting for initial menu, buffer content:', this.outputBuffer)
+              logger.warn('Timeout waiting for initial menu', { event: 'jumpserver.asset.menu.timeout' })
               return reject(new Error('Failed to get initial menu prompt.'))
             }
             if (this.outputBuffer.includes('Opt>')) {
-              console.log('JumpServerClient: Initial menu loaded, buffer content:', this.outputBuffer)
+              logger.debug('Initial menu loaded', { event: 'jumpserver.asset.menu.ready' })
               this.outputBuffer = '' // Clear initial menu buffer
               resolve()
             } else {
@@ -162,7 +164,7 @@ class JumpServerClient {
       })
 
       this.conn.on('error', (err) => {
-        console.log('JumpServerClient: SSH connection error', err)
+        logger.error('SSH connection error during asset fetch', { event: 'jumpserver.asset.error', error: err.message })
 
         // If authentication result callback exists, notify failure
         if (this.authResultCallback) {
@@ -180,23 +182,23 @@ class JumpServerClient {
    * Execute command in persistent shell and get output
    */
   private async executeCommand(command: string): Promise<string> {
-    console.log(`JumpServerClient.executeCommand: Executing command "${command}"`)
+    logger.debug('Executing command on JumpServer', { event: 'jumpserver.asset.command', command })
 
     if (!this.stream) {
-      console.log('JumpServerClient.executeCommand: Shell stream not available')
+      logger.warn('Shell stream not available', { event: 'jumpserver.asset.stream.unavailable' })
       throw new Error('Shell stream is not available.')
     }
 
     return new Promise((resolve, reject) => {
       this.dataResolve = resolve
 
-      console.log(`JumpServerClient.executeCommand: Sending command to stream: "${command}"`)
+      logger.debug('Sending command to stream', { event: 'jumpserver.asset.command.send', command })
       this.stream!.write(command + '\r')
 
       // Set timeout
       const timeoutId = setTimeout(() => {
         if (this.dataResolve) {
-          console.log(`JumpServerClient.executeCommand: Command "${command}" timed out`)
+          logger.warn('Command timed out', { event: 'jumpserver.asset.command.timeout', command })
           this.dataResolve = null
           reject(new Error(`Command '${command}' timed out.`))
         }
@@ -215,25 +217,28 @@ class JumpServerClient {
    * Get all assets
    */
   async getAllAssets(): Promise<Asset[]> {
-    console.log('JumpServerClient.getAllAssets: Starting to fetch assets')
+    logger.info('Starting to fetch assets', { event: 'jumpserver.asset.fetch.start' })
 
     if (!this.isConnected) {
-      console.log('JumpServerClient.getAllAssets: Connection not established, starting connection...')
+      logger.debug('Connection not established, starting connection', { event: 'jumpserver.asset.fetch.connecting' })
       await this.connect()
-      console.log('JumpServerClient.getAllAssets: Connection established')
-    } else {
-      console.log('JumpServerClient.getAllAssets: Connection already exists')
+      logger.debug('Connection established', { event: 'jumpserver.asset.fetch.connected' })
     }
 
     const allAssets: Asset[] = []
     const seenAssetAddresses = new Set<string>()
 
-    console.log('JumpServerClient.getAllAssets: Executing command "p" to get first page of assets...')
+    logger.debug('Fetching first page of assets', { event: 'jumpserver.asset.fetch.page', page: 1 })
     // Get first page
     let output = await this.executeCommand('p')
-    console.log('JumpServerClient.getAllAssets: Received first page output, length:', output.length)
+    logger.debug('Received first page output', { event: 'jumpserver.asset.fetch.page.done', page: 1, outputLength: output.length })
     let { assets: pageAssets, pagination } = parseJumpserverOutput(output)
-    console.log('JumpServerClient.getAllAssets: Parsed first page result, asset count:', pageAssets.length, 'pagination info:', pagination)
+    logger.debug('Parsed first page', {
+      event: 'jumpserver.asset.fetch.page.parsed',
+      page: 1,
+      assetCount: pageAssets.length,
+      totalPages: pagination.totalPages
+    })
 
     pageAssets.forEach((asset) => {
       if (!seenAssetAddresses.has(asset.address)) {
@@ -246,7 +251,7 @@ class JumpServerClient {
     const MAX_PAGES = 100 // Further reduced to 100 pages, more conservative
     const maxPagesToFetch = Math.min(pagination.totalPages, MAX_PAGES)
 
-    console.log(`JumpServerClient.getAllAssets: Total pages ${pagination.totalPages}, limiting fetch to ${maxPagesToFetch} pages`)
+    logger.debug('Asset fetch plan', { event: 'jumpserver.asset.fetch.plan', totalPages: pagination.totalPages, maxPagesToFetch })
 
     // If there are multiple pages, continue fetching subsequent pages
     let consecutiveFailures = 0
@@ -257,11 +262,11 @@ class JumpServerClient {
     while (pagination.currentPage < maxPagesToFetch && consecutiveFailures < MAX_CONSECUTIVE_FAILURES) {
       // Check total time limit
       if (Date.now() - startTime > MAX_TOTAL_TIME) {
-        console.log(`JumpServerClient.getAllAssets: Running for more than 5 minutes, stopping fetch of more pages`)
+        logger.warn('Asset fetch running for more than 5 minutes, stopping', { event: 'jumpserver.asset.fetch.timeout' })
         break
       }
       const nextPage = pagination.currentPage + 1
-      console.log(`JumpServerClient.getAllAssets: Fetching page ${nextPage}...`)
+      logger.debug('Fetching next page', { event: 'jumpserver.asset.fetch.page', page: nextPage })
 
       try {
         const pageStartTime = Date.now()
@@ -278,7 +283,7 @@ class JumpServerClient {
           } catch (cmdError) {
             retryCount++
             if (retryCount <= maxRetries) {
-              console.log(`JumpServerClient.getAllAssets: Page ${nextPage} command failed, retrying ${retryCount}/${maxRetries}`)
+              logger.debug('Page command failed, retrying', { event: 'jumpserver.asset.fetch.retry', page: nextPage, retryCount, maxRetries })
               await new Promise((resolve) => setTimeout(resolve, 2000)) // Wait 2 seconds before retry
             } else {
               throw cmdError
@@ -289,21 +294,26 @@ class JumpServerClient {
         const pageEndTime = Date.now()
         const pageTime = pageEndTime - pageStartTime
 
-        console.log(`JumpServerClient.getAllAssets: Page ${nextPage} output length: ${output.length}, time taken: ${pageTime}ms`)
+        logger.debug('Page fetched', { event: 'jumpserver.asset.fetch.page.done', page: nextPage, outputLength: output.length, timeMs: pageTime })
         consecutiveFailures = 0 // Reset failure count
 
         // If single page takes too long, consider stopping
         if (pageTime > 15000) {
           // Exceeds 15 seconds
-          console.log(`JumpServerClient.getAllAssets: Page ${nextPage} took too long (${pageTime}ms), subsequent pages may be slower, stopping fetch`)
+          logger.warn('Page fetch too slow, stopping pagination', { event: 'jumpserver.asset.fetch.slow', page: nextPage, timeMs: pageTime })
           break
         }
       } catch (error) {
         consecutiveFailures++
-        console.error(`JumpServerClient.getAllAssets: Failed to fetch page ${nextPage} (consecutive failures ${consecutiveFailures}):`, error)
+        logger.error('Failed to fetch page', {
+          event: 'jumpserver.asset.fetch.error',
+          page: nextPage,
+          consecutiveFailures,
+          error: error
+        })
 
         if (consecutiveFailures >= MAX_CONSECUTIVE_FAILURES) {
-          console.log(`JumpServerClient.getAllAssets: ${MAX_CONSECUTIVE_FAILURES} consecutive failures, stopping fetch of more pages`)
+          logger.warn('Too many consecutive failures, stopping', { event: 'jumpserver.asset.fetch.abort', consecutiveFailures })
           break
         }
 
@@ -322,10 +332,10 @@ class JumpServerClient {
         pagination.currentPage++
       }
 
-      console.log(`JumpServerClient.getAllAssets: Page ${nextPage} parsed result, asset count: ${newPageAssets.length}`)
+      logger.debug('Page parsed', { event: 'jumpserver.asset.fetch.page.parsed', page: nextPage, assetCount: newPageAssets.length })
 
       if (newPageAssets.length === 0) {
-        console.log(`JumpServerClient.getAllAssets: Page ${nextPage} has no assets, stopping pagination`)
+        logger.debug('Empty page, stopping pagination', { event: 'jumpserver.asset.fetch.empty', page: nextPage })
         break
       }
 
@@ -339,14 +349,14 @@ class JumpServerClient {
       })
 
       if (!newAssetsAdded) {
-        console.log(`JumpServerClient.getAllAssets: Page ${nextPage} found no new assets, may be duplicate data, stopping pagination`)
+        logger.debug('No new assets on page, stopping pagination', { event: 'jumpserver.asset.fetch.duplicate', page: nextPage })
         break
       }
 
-      console.log(`JumpServerClient.getAllAssets: Page ${nextPage} processing complete, current total asset count: ${allAssets.length}`)
+      logger.debug('Page processed', { event: 'jumpserver.asset.fetch.progress', page: nextPage, totalAssets: allAssets.length })
     }
 
-    console.log(`JumpServerClient.getAllAssets: Complete, total assets fetched: ${allAssets.length}`)
+    logger.info('Asset fetch complete', { event: 'jumpserver.asset.fetch.done', totalAssets: allAssets.length })
     return allAssets
   }
 
@@ -363,7 +373,7 @@ class JumpServerClient {
         this.conn.end()
       }
       this.isConnected = false
-      console.log('Connection closed')
+      logger.debug('Asset client connection closed', { event: 'jumpserver.asset.close' })
     }
   }
 }

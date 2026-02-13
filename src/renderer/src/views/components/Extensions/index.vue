@@ -147,6 +147,8 @@ import { type DisplayPluginItem, usePluginStore } from './usePlugins'
 const api = (window as any).api
 const { t } = i18n.global
 
+const logger = createRendererLogger('extensions')
+
 const emit = defineEmits(['open-user-tab'])
 const searchValue = ref('')
 const userConfig = ref({
@@ -205,7 +207,7 @@ const getIcons = async (item: DisplayPluginItem): Promise<string> => {
     iconUrls[item.pluginId] = url
     return url
   } catch (e) {
-    console.error('getIcons: preload icon failed', item.pluginId, e)
+    logger.error('Preload icon failed', { pluginId: item.pluginId, error: e })
     iconUrls[item.pluginId] = ''
     return ''
   }
@@ -355,7 +357,7 @@ const loadConfig = async () => {
       currentTheme.value = config.theme || 'dark'
     }
   } catch (error) {
-    console.error('Failed to load config:', error)
+    logger.error('Failed to load config', { error: error })
   }
 }
 

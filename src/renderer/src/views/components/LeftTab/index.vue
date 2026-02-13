@@ -186,6 +186,8 @@ import { pinia } from '@/main'
 import eventBus from '@/utils/eventBus'
 import { shortcutService } from '@/services/shortcutService'
 import { dataSyncService } from '@/services/dataSyncService'
+
+const logger = createRendererLogger('leftTab')
 let storageEventHandler: ((e: StorageEvent) => void) | null = null
 const pluginViews = ref<any[]>([])
 const userStore = userInfoStore(pinia)
@@ -282,13 +284,13 @@ const logout = async () => {
   const isSkippedLogin = localStorage.getItem('login-skipped') === 'true'
   try {
     if (dataSyncService.getInitializationStatus()) {
-      console.log('Data sync is enabled during logout, stopping...')
+      logger.info('Data sync is enabled during logout, stopping')
       await dataSyncService.disableDataSync()
       dataSyncService.reset()
-      console.log('Data sync has been stopped')
+      logger.info('Data sync has been stopped')
     }
   } catch (error) {
-    console.error('Failed to stop data sync during logout:', error)
+    logger.error('Failed to stop data sync during logout', { error: error })
   }
 
   if (isSkippedLogin) {
@@ -302,13 +304,13 @@ const logout = async () => {
 
   userLogOut()
     .then((res) => {
-      console.log(res, 'logout')
+      logger.info('Logout response', { data: res })
       removeToken()
       shortcutService.init()
       router.push('/login')
     })
     .catch((err) => {
-      console.log(err, 'err')
+      logger.error('Logout failed', { error: err })
       removeToken()
       shortcutService.init()
       router.push('/login')
@@ -332,7 +334,7 @@ onMounted(async () => {
     const views = await api.getPluginViews()
     pluginViews.value = views
   } catch (e) {
-    console.error('Get View Error', e)
+    logger.error('Get View Error', { error: e })
   }
   api.onPluginMetadataChanged(async () => {
     await refreshPluginViews()

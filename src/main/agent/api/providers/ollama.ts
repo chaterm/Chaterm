@@ -6,6 +6,7 @@ import { openAiModelInfoSaneDefaults } from '../../shared/api'
 import { convertToOllamaMessages } from '../transform/ollama-format'
 import type { ApiStream } from '../transform/stream'
 import { withRetry } from '../retry'
+const logger = createLogger('agent')
 
 export class OllamaHandler implements ApiHandler {
   private options: ApiHandlerOptions
@@ -59,7 +60,7 @@ export class OllamaHandler implements ApiHandler {
           }
         }
       } catch (streamError: unknown) {
-        console.error('Error processing Ollama stream:', streamError)
+        logger.error('Error processing Ollama stream', { error: streamError })
         const errorMessage = streamError instanceof Error ? streamError.message : 'Unknown error'
         throw new Error(`Ollama stream processing error: ${errorMessage}`)
       }
@@ -75,7 +76,7 @@ export class OllamaHandler implements ApiHandler {
       const statusCode = errorWithStatus?.status || errorWithStatus?.statusCode
       const errorMessage = error instanceof Error ? error.message : 'Unknown error'
 
-      console.error(`Ollama API error (${statusCode || 'unknown'}): ${errorMessage}`)
+      logger.error(`Ollama API error (${statusCode || 'unknown'}): ${errorMessage}`)
       throw error
     }
   }
@@ -115,7 +116,7 @@ export class OllamaHandler implements ApiHandler {
 
       return { isValid: true }
     } catch (error) {
-      console.error('Ollama configuration validation failed:', error)
+      logger.error('Ollama configuration validation failed', { error: error })
       return {
         isValid: false,
         error: `Validation failed: ${error instanceof Error ? error.message : String(error)}`

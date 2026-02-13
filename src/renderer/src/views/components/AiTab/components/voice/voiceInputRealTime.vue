@@ -32,6 +32,8 @@ import { notification } from 'ant-design-vue'
 import { useI18n } from 'vue-i18n'
 import { getSpeechWsUrl } from '@/utils/edition'
 
+const logger = createRendererLogger('ai.voice.realtime')
+
 // i18n
 const { t } = useI18n()
 
@@ -75,12 +77,12 @@ const connectWebSocket = async (): Promise<boolean> => {
   return new Promise((resolve, reject) => {
     try {
       const wsUrl = CONFIG.WS_URL
-      console.log('Connecting to WebSocket:', wsUrl)
+      logger.info('Connecting to WebSocket', { data: wsUrl })
 
       websocket.value = new WebSocket(wsUrl)
 
       websocket.value.onopen = () => {
-        console.log('WebSocket connected')
+        logger.info('WebSocket connected')
         isConnected.value = true
         resolve(true)
       }
@@ -88,7 +90,7 @@ const connectWebSocket = async (): Promise<boolean> => {
       websocket.value.onmessage = (event) => {
         try {
           const response = JSON.parse(event.data)
-          console.log('ASR response:', response)
+          logger.info('ASR response', { data: response })
 
           if (response.code === 0 && response.result?.voice_text_str) {
             const text = response.result.voice_text_str
@@ -106,7 +108,7 @@ const connectWebSocket = async (): Promise<boolean> => {
               }
             }
           } else if (response.code !== 0) {
-            console.error('ASR error:', response.message || 'Unknown error')
+            logger.error('ASR error', { error: response.message || 'Unknown error' })
             notification.error({
               message: t('ai.voiceRecognitionFailed'),
               description: response.message || 'Unknown error',
@@ -115,18 +117,18 @@ const connectWebSocket = async (): Promise<boolean> => {
             stopRecording()
           }
         } catch (error) {
-          console.error('Failed to parse WebSocket message:', error)
+          logger.error('Failed to parse WebSocket message', { error: error })
         }
       }
 
       websocket.value.onerror = (error) => {
-        console.error('WebSocket error:', error)
+        logger.error('WebSocket error', { error: error })
         isConnected.value = false
         reject(new Error('WebSocket connection error'))
       }
 
       websocket.value.onclose = () => {
-        console.log('WebSocket closed')
+        logger.info('WebSocket closed')
         isConnected.value = false
       }
 
@@ -153,7 +155,7 @@ const sendPCMAudioData = async (pcmData: Int16Array) => {
     // Send binary PCM data directly
     websocket.value.send(pcmData.buffer)
   } catch (error) {
-    console.error('Failed to send PCM data:', error)
+    logger.error('Failed to send PCM data', { error: error })
   }
 }
 
@@ -229,7 +231,7 @@ const startRecording = async () => {
         // Send PCM data
         sendPCMAudioData(pcmData)
       } catch (error) {
-        console.error('Audio ls processing error:', error)
+        logger.error('Audio processing error', { error: error })
       }
     }
 
@@ -248,9 +250,9 @@ const startRecording = async () => {
       }
     }, 60000)
 
-    console.log('Started recording')
+    logger.info('Started recording')
   } catch (error) {
-    console.error('Failed to start recording:', error)
+    logger.error('Failed to start recording', { error: error })
 
     let errorMessage = t('ai.voiceInputFailed')
     if (error instanceof Error) {
@@ -271,15 +273,15 @@ const startRecording = async () => {
 
 const stopRecording = () => {
   if (isRecording.value) {
-    console.log('Stopping recording')
+    logger.info('Stopping recording')
 
     // Send recording end signal
     if (websocket.value && isConnected.value) {
       try {
         websocket.value.send(JSON.stringify({ type: 'end' }))
-        console.log('Recording end signal sent')
+        logger.info('Recording end signal sent')
       } catch (error) {
-        console.error('Failed to send end signal:', error)
+        logger.error('Failed to send end signal', { error: error })
       }
     }
 
@@ -314,7 +316,7 @@ const stopRecording = () => {
     }
 
     emit('recording-stop')
-    console.log('Recording stopped')
+    logger.info('Recording stopped')
   }
 }
 
