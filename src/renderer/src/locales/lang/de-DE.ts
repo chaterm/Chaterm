@@ -487,9 +487,8 @@ export default {
       'Klicken Sie auf die Schaltfläche, um die Schlüsselwort-Hervorhebungskonfigurationsdatei direkt zu öffnen und Hervorhebungsregeln für die Terminalausgabe zu personalisieren.',
     success: 'Erfolgreich',
     background: 'Hintergrund',
-    backgroundNone: 'Kein',
-    backgroundEnable: 'Aktivieren',
-    backgroundUpload: 'Hochladen',
+    backgroundDefault: 'Standard-Hintergrund',
+    backgroundCustomUpload: 'Benutzerdefinierter Upload (JPG, PNG, WebP, GIF)',
     backgroundOpacity: 'Transparenz',
     backgroundBrightness: 'Helligkeit',
     saveBackgroundFailed: 'Hintergrundbild speichern fehlgeschlagen'

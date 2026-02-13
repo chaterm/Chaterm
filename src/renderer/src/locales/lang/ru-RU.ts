@@ -485,9 +485,8 @@ export default {
       'Нажмите кнопку, чтобы непосредственно открыть файл конфигурации подсветки ключевых слов и настроить правила подсветки для вывода терминала.',
     success: 'Успешно',
     background: 'Фон',
-    backgroundNone: 'Нет',
-    backgroundEnable: 'Включить',
-    backgroundUpload: 'Загрузить',
+    backgroundDefault: 'Фон по умолчанию',
+    backgroundCustomUpload: 'Пользовательская загрузка (JPG, PNG, WebP, GIF)',
     backgroundOpacity: 'Непрозрачность',
     backgroundBrightness: 'Яркость',
     saveBackgroundFailed: 'Не удалось сохранить фоновое изображение'

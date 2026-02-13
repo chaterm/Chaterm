@@ -478,9 +478,8 @@ export default {
     keywordHighlightDescribe: '點擊按鈕直接打開關鍵詞高亮設置文件，自定義終端輸出的高亮規則。',
     success: '成功',
     background: '背景',
-    backgroundNone: '無',
-    backgroundEnable: '開啟',
-    backgroundUpload: '上傳',
+    backgroundDefault: '預設背景',
+    backgroundCustomUpload: '自訂上傳（支援JPG、PNG、WebP、GIF）',
     backgroundOpacity: '透明度',
     backgroundBrightness: '亮度',
     saveBackgroundFailed: '保存背景圖片失敗'

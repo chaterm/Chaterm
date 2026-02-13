@@ -1,5 +1,6 @@
 import { computed, watch, onUnmounted } from 'vue'
 import { userConfigStore } from '@/store/userConfigStore'
+import { userConfigStore as userConfigService } from '@/services/userConfigStoreService'
 
 /**
  * Manage application background image and related styles
@@ -7,6 +8,25 @@ import { userConfigStore } from '@/store/userConfigStore'
  */
 export function useBackgroundManager() {
   const configStore = userConfigStore()
+
+  // Load background config from SQLite into Pinia Store on initialization,
+  // so background displays correctly even if the settings page is never opened.
+  userConfigService
+    .getConfig()
+    .then((savedConfig) => {
+      if (savedConfig?.background) {
+        const bg = savedConfig.background
+        if (bg.mode === 'image' && bg.image) {
+          configStore.updateBackgroundMode(bg.mode)
+          configStore.updateBackgroundImage(bg.image)
+          configStore.updateBackgroundOpacity(bg.opacity)
+          configStore.updateBackgroundBrightness(bg.brightness)
+        }
+      }
+    })
+    .catch(() => {
+      // Silently ignore - will use default empty background
+    })
 
   // Calculate background style
   const backgroundStyle = computed(() => {
