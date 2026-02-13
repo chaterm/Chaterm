@@ -57,7 +57,7 @@
     "@anthropic-ai/bedrock-sdk": "^0.26.3",
     "@anthropic-ai/sdk": "^0.72.1",
     "@aws-crypto/client-node": "^4.2.1",
-    "@aws-sdk/client-bedrock-runtime": "^3.988.0",
+    "@aws-sdk/client-bedrock-runtime": "^3.989.0",
     "@aws-sdk/node-http-handler": "^3.374.0",
     "@electron-toolkit/preload": "^3.0.0",
     "@electron-toolkit/utils": "^4.0.0",
