@@ -65,17 +65,19 @@ describe('useHostState', () => {
   })
 
   describe('updateHosts', () => {
-    it('should clear hosts when chatTypeValue is chat', async () => {
+    it('should still set hosts when chatTypeValue is chat', async () => {
       const { updateHosts } = useHostState()
       const { isSwitchAssetType } = await import('../../utils')
 
       chatTypeValue.value = 'chat'
       hosts.value = [{ host: '192.168.1.1', uuid: 'test-uuid', connection: 'personal' }]
 
+      vi.mocked(isSwitchAssetType).mockReturnValue(false)
+
       updateHosts({ ip: '10.0.0.1', uuid: 'new-uuid', connection: 'personal' })
 
-      expect(hosts.value).toEqual([])
-      expect(isSwitchAssetType).not.toHaveBeenCalled()
+      expect(hosts.value).toHaveLength(1)
+      expect(hosts.value[0].host).toBe('10.0.0.1')
     })
 
     it('should switch to cmd mode and show notice when agent mode and isSwitchAssetType returns true', async () => {

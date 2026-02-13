@@ -212,7 +212,8 @@ export const messagesEN: Messages = {
 
   // System information titles
   systemInformationTitle: 'SYSTEM INFORMATION',
-  noHostsConfigured: 'No hosts configured.',
+  noHostsConfigured:
+    'No host has been added to the current conversation context. You can still answer questions, but cannot execute commands on any server. The user can use @host to add a host to the conversation.',
   unableToRetrieve: 'Unable to retrieve',
   unknown: 'Unknown',
 
@@ -352,7 +353,7 @@ export const messagesCN: Messages = {
 
   // 系统信息标题
   systemInformationTitle: '系统信息',
-  noHostsConfigured: '未配置主机。',
+  noHostsConfigured: '当前对话上下文中未添加任何主机。你仍然可以回答问题，但无法在任何服务器上执行命令。用户可通过 @host 将主机添加到对话中。',
   unableToRetrieve: '无法获取',
   unknown: '未知',
 

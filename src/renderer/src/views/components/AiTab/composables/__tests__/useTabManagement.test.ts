@@ -245,7 +245,7 @@ describe('useTabManagement', () => {
       ])
     })
 
-    it('should use localhost when no asset info available', async () => {
+    it('should have empty hosts when no asset info available', async () => {
       mockGetCurentTabAssetInfo.mockResolvedValue(null)
 
       const { createNewEmptyTab } = useTabManagement({
@@ -259,7 +259,7 @@ describe('useTabManagement', () => {
       await nextTick()
 
       const newTab = mockState.chatTabs.value[1]
-      expect(newTab.hosts?.[0]?.host).toBe('127.0.0.1')
+      expect(newTab.hosts).toEqual([])
     })
 
     it('should set model value from global state', async () => {
