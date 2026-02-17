@@ -72,7 +72,7 @@
     "clone-deep": "^4.0.1",
     "crypto-js": "^4.2.0",
     "diff": "^8.0.3",
-    "dockview-core": "^4.13.1",
+    "dockview-core": "^5.0.0",
     "dockview-vue": "^4.11.0",
     "dotenv": "^17.3.1",
     "electron-log": "^5.4.3",
