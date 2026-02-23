@@ -120,7 +120,7 @@
     "@playwright/test": "^1.58.2",
     "@rushstack/eslint-patch": "^1.7.1",
     "@types/clone-deep": "^4.0.4",
-    "@types/node": "^25.2.3",
+    "@types/node": "^25.3.0",
     "@types/ws": "^8.5.11",
     "@vitejs/plugin-vue": "^6.0.4",
     "@vitest/browser": "^4.0.18",
@@ -128,7 +128,7 @@
     "@vitest/coverage-v8": "^4.0.18",
     "@vitest/ui": "^4.0.15",
     "@vue/eslint-config-prettier": "^10.2.0",
-    "@vue/eslint-config-typescript": "^14.6.0",
+    "@vue/eslint-config-typescript": "^14.7.0",
     "@vue/test-utils": "^2.4.6",
     "ant-design-vue": "^4.2.6",
     "cross-env": "^10.1.0",
@@ -154,6 +154,6 @@
     "vue": "^3.5.28",
     "vue-eslint-parser": "^10.4.0",
     "vue-router": "^5.0.2",
-    "vue-tsc": "^3.2.4"
+    "vue-tsc": "^3.2.5"
   }
 }
