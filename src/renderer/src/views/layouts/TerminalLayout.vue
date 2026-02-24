@@ -166,6 +166,12 @@
                   :toggle-sidebar="toggleSideBar"
                   @open-user-tab="openUserTab"
                 />
+                <Files
+                  v-else-if="currentMenu == 'files'"
+                  ref="assetsRef"
+                  :toggle-sidebar="toggleSideBar"
+                  @open-user-tab="openUserTab"
+                />
                 <Snippets v-else-if="currentMenu == 'snippets'" />
                 <KnowledgeCenter v-else-if="currentMenu == 'knowledgecenter'" />
 
@@ -302,6 +308,7 @@ import { isImageFile } from '@views/components/AiTab/utils'
 import Header from '@views/components/Header/index.vue'
 import LeftTab from '@views/components/LeftTab/index.vue'
 import Workspace from '@views/components/Workspace/index.vue'
+import Files from '@views/components/Files/tabIndex.vue'
 import Extensions from '@views/components/Extensions/index.vue'
 import Assets from '@views/components/Assets/index.vue'
 import Snippets from '@views/components/LeftTab/config/snippets.vue'
@@ -1867,6 +1874,7 @@ const openUserTab = async function (arg: OpenUserTabArg) {
     value === 'keywordHighlightEditor' ||
     value === 'jumpserverSupport' ||
     value === 'aliasConfig' ||
+    value === 'files' ||
     value.startsWith('plugins:')
   ) {
     if (!dockApi) return

@@ -12,7 +12,7 @@
           v-if="i.key === 'files'"
           class="term_menu"
           :class="{ active: activeKey === i.key }"
-          @click="files"
+          @click="files(i.key)"
         >
           <img
             :src="i.icon"
@@ -272,9 +272,10 @@ const userConfig = () => {
   showUserMenu.value = false
 }
 
-const files = () => {
+const files = (key) => {
   emit('open-user-tab', 'files')
   showUserMenu.value = false
+  menuClick(key)
 }
 
 const kubernetes = () => {

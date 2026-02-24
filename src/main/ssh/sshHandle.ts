@@ -86,10 +86,10 @@ interface ReusableConnection {
   username: string
   hasMfaAuth: boolean // Flag indicating whether MFA authentication has been completed
 }
-const sshConnectionPool = new Map<string, ReusableConnection>()
+export const sshConnectionPool = new Map<string, ReusableConnection>()
 
 // Generate unique key for connection pool
-const getConnectionPoolKey = (host: string, port: number, username: string): string => {
+export const getConnectionPoolKey = (host: string, port: number, username: string): string => {
   return `${host}:${port}:${username}`
 }
 
@@ -116,7 +116,7 @@ const KeyboardInteractiveAttempts = new Map()
 export const connectionStatus = new Map()
 
 // Set KeyboardInteractive authentication timeout (milliseconds)
-const KeyboardInteractiveTimeout = 300000 // 5 minutes timeout
+export const KeyboardInteractiveTimeout = 300000 // 5 minutes timeout
 const MaxKeyboardInteractiveAttempts = 5 // Max KeyboardInteractive attempts
 
 const EventEmitter = require('events')
@@ -240,8 +240,8 @@ export const handleRequestKeyboardInteractive = (event, id, prompts, finish) => 
   })
 }
 
-export const attemptSecondaryConnection = async (event, connectionInfo, ident) => {
-  const { id, host, port, username, password, privateKey, passphrase, needProxy, proxyConfig, asset_type } = connectionInfo
+export const attemptSecondaryConnection = async (event, connectionInfo, existingConn?: Client) => {
+  const { id, asset_type } = connectionInfo
 
   // Check if this is a network switch connection
   const isSwitch = asset_type?.startsWith('person-switch-')
@@ -262,173 +262,62 @@ export const attemptSecondaryConnection = async (event, connectionInfo, ident) =
     return
   }
 
-  const conn = new Client()
-  const algorithms = getAlgorithmsByAssetType(asset_type)
-  const connectConfig: any = {
-    host,
-    port: port || 22,
-    username,
-    keepaliveInterval: 10000,
-    readyTimeout: KeyboardInteractiveTimeout,
-    ident: ident,
-    algorithms
-  }
+  const readyResult: { hasSudo?: boolean; commandList?: string[] } = {}
 
-  if (privateKey) {
-    connectConfig.privateKey = privateKey
-    if (passphrase) connectConfig.passphrase = passphrase
-  } else if (password) {
-    connectConfig.password = password
-  }
-
-  if (needProxy) {
-    logger.debug('Using proxy for secondary connection', { event: 'ssh.proxy', connectionId: id })
-    connectConfig.sock = await createProxySocket(proxyConfig, host, port)
-  }
-
-  // Send initialization command result
-  const readyResult: {
-    hasSudo?: boolean
-    commandList?: string[]
-  } = {}
-
-  let execCount = 0
-  const totalCounts = 2
-  const hasOpt = keyboardInteractiveOpts.has(id)
-  const sendReadyData = (stopCount) => {
-    execCount++
-    if (execCount === totalCounts || stopCount) {
-      event.sender.send(`ssh:connect:data:${id}`, readyResult)
-      if (hasOpt) {
-        keyboardInteractiveOpts.delete(id)
-      }
+  if (existingConn) {
+    try {
+      await initSftpOnConnection(existingConn, id)
+    } catch {
+      connectionStatus.set(id, { sftpAvailable: false, sftpError: 'SFTP connection failed' })
     }
-  }
 
-  if (hasOpt) {
-    connectConfig.tryKeyboard = true
-    conn.on('keyboard-interactive', (_name, _instructions, _instructionsLang, _prompts, finish) => {
-      const cached = keyboardInteractiveOpts.get(id)
-      finish(cached || [])
-    })
-  }
-
-  const sftpAsync = (conn) => {
-    return new Promise<void>((resolve) => {
-      conn.sftp((err, sftp) => {
-        if (err || !sftp) {
-          logger.debug('SFTP check error', { event: 'ssh.sftp.error', connectionId: id, error: err?.message || 'SFTP object is empty' })
-          connectionStatus.set(id, {
-            sftpAvailable: false,
-            sftpError: err?.message || 'SFTP object is empty'
-          })
-          sftpConnections.set(id, { isSuccess: false, error: `sftp init error: "${err?.message || 'SFTP object is empty'}"` })
-          resolve()
-        } else {
-          logger.debug('Starting SFTP check', { event: 'ssh.sftp.start', connectionId: id })
-          sftp.readdir('.', (readDirErr) => {
-            if (readDirErr) {
-              logger.debug('SFTP check failed', { event: 'ssh.sftp.failed', connectionId: id, error: readDirErr.message })
-              connectionStatus.set(id, {
-                sftpAvailable: false,
-                sftpError: readDirErr.message
-              })
-              sftp.end()
-            } else {
-              logger.debug('SFTP check success', { event: 'ssh.sftp.success', connectionId: id })
-              sftpConnections.set(id, { isSuccess: true, sftp: sftp })
-              connectionStatus.set(id, { sftpAvailable: true })
-            }
-            resolve()
-          })
-        }
-      })
-    })
-  }
-
-  conn
-    .on('ready', async () => {
-      // Perform sftp check
-      try {
-        await sftpAsync(conn)
-      } catch (e) {
-        connectionStatus.set(id, {
-          sftpAvailable: false,
-          sftpError: 'SFTP connection failed'
-        })
-      }
-
-      // Perform cmd check
-      try {
+    // cmd list
+    const cmdCheck = () =>
+      new Promise<void>((resolve) => {
         let stdout = ''
         let stderr = ''
-        conn.exec(
+        existingConn.exec(
           'sh -c \'if command -v bash >/dev/null 2>&1; then bash -lc "compgen -A builtin; compgen -A command"; bash -ic "compgen -A alias" 2>/dev/null; else IFS=:; for d in $PATH; do [ -d "$d" ] || continue; for f in "$d"/*; do [ -x "$f" ] && printf "%s\\n" "${f##*/}"; done; done; fi\' | sort -u',
           (err, stream) => {
             if (err) {
               readyResult.commandList = []
-              sendReadyData(false)
-            } else {
-              stream
-                .on('data', (data: Buffer) => {
-                  stdout += data.toString('utf8')
-                })
-                .stderr.on('data', (data: Buffer) => {
-                  stderr += data.toString('utf8')
-                })
-                .on('close', () => {
-                  if (stderr) {
-                    readyResult.commandList = []
-                  } else {
-                    readyResult.commandList = stdout.split('\n').filter(Boolean)
-                  }
-                  sendReadyData(false)
-                })
+              resolve()
+              return
             }
+            stream
+              .on('data', (data: Buffer) => (stdout += data.toString('utf8')))
+              .stderr.on('data', (data: Buffer) => (stderr += data.toString('utf8')))
+            stream.on('close', () => {
+              readyResult.commandList = stderr ? [] : stdout.split('\n').filter(Boolean)
+              resolve()
+            })
           }
         )
-      } catch (e) {
-        readyResult.commandList = []
-        sendReadyData(false)
-      }
+      })
 
-      // Perform sudo check
-      try {
-        conn.exec('sudo -n true 2>/dev/null && echo true || echo false', (err, stream) => {
+    // sudo check
+    const sudoCheck = () =>
+      new Promise<void>((resolve) => {
+        existingConn.exec('sudo -n true 2>/dev/null && echo true || echo false', (err, stream) => {
           if (err) {
             readyResult.hasSudo = false
-            sendReadyData(false)
-          } else {
-            stream
-              .on('data', (data: Buffer) => {
-                const result = data.toString('utf8').trim()
-                readyResult.hasSudo = result === 'true'
-              })
-              .stderr.on('data', () => {
-                readyResult.hasSudo = false
-              })
-              .on('close', () => {
-                sendReadyData(false)
-              })
+            resolve()
+            return
           }
+          stream
+            .on('data', (data: Buffer) => {
+              readyResult.hasSudo = data.toString('utf8').trim() === 'true'
+            })
+            .stderr.on('data', () => {
+              readyResult.hasSudo = false
+            })
+          stream.on('close', () => resolve())
         })
-      } catch (e) {
-        readyResult.hasSudo = false
-        sendReadyData(false)
-      }
-    })
-    .on('error', (err) => {
-      sftpConnections.set(id, { isSuccess: false, error: `sftp connection error: "${err.message}"` })
-      readyResult.hasSudo = false
-      readyResult.commandList = []
-      sendReadyData(true)
-      connectionStatus.set(id, {
-        sftpAvailable: false,
-        sftpError: err.message
       })
-    })
-  sshConnections.set(id + '-second', conn) // Save connection object
-  conn.connect(connectConfig)
+
+    await Promise.allSettled([cmdCheck(), sudoCheck()])
+    return
+  }
 }
 
 function splitCommand(cmd: string): string[] {
@@ -567,7 +456,7 @@ const handleAttemptConnection = async (event, connectionInfo, resolve, reject, r
     connectionEvents.emit(`connection-status-changed:${id}`, { isVerified: true })
 
     // Execute secondary connection (sudo check, SFTP, etc.)
-    attemptSecondaryConnection(event, connectionInfo, ident)
+    attemptSecondaryConnection(event, connectionInfo, conn)
 
     logger.info('Successfully reused MFA connection', { event: 'ssh.reuse.success', connectionId: id })
     resolve({ status: 'connected', message: 'Connection successful (reused)' })
@@ -612,7 +501,7 @@ const handleAttemptConnection = async (event, connectionInfo, resolve, reject, r
     }
 
     // Execute secondary connection (this will clear keyboardInteractiveOpts, so must be placed after the check)
-    attemptSecondaryConnection(event, connectionInfo, ident)
+    attemptSecondaryConnection(event, connectionInfo, conn)
 
     logger.info('SSH connection established', {
       event: 'ssh.connect.success',
@@ -757,16 +646,13 @@ export const cleanSftpConnection = (id) => {
     const sftp = getSftpConnection(id)
     sftp.end()
     sftpConnections.delete(id)
-    if (sshConnections.get(id + '-second')) {
-      const connSec = sshConnections.get(id + '-second')
-      connSec.end()
-      sshConnections.delete(id + '-second')
-    }
+    // if (sshConnections.get(id + '-second')) {
+    //   const connSec = sshConnections.get(id + '-second')
+    //   connSec.end()
+    //   sshConnections.delete(id + '-second')
+    // }
   }
 }
-
-// download file
-export const activeTasks = new Map<string, { read: any; write: any; localPath?: string; cancel?: () => void }>()
 
 export const registerSSHHandlers = () => {
   // Handle connection
@@ -1744,5 +1630,59 @@ const getSystemInfo = async (id: string): Promise<CommandGenerationContext> => {
         resolve(result)
       })
     })
+  })
+}
+
+export const initSftpOnConnection = (conn: Client, connectionId: string): Promise<void> => {
+  return new Promise<void>((resolve) => {
+    try {
+      conn.sftp((err, sftp) => {
+        if (err || !sftp) {
+          logger.error(`SFTP check error `, { event: 'ssh.shell.sftp', connectionId: connectionId, error: err })
+
+          connectionStatus.set(connectionId, {
+            sftpAvailable: false,
+            sftpError: err?.message || 'SFTP object is empty'
+          })
+
+          sftpConnections.set(connectionId, {
+            isSuccess: false,
+            error: `sftp init error: "${err?.message || 'SFTP object is empty'}"`
+          })
+
+          resolve()
+          return
+        }
+
+        logger.info(`start SFTP `, { event: 'ssh.sftp.start', connectionId: connectionId })
+        sftp.readdir('.', (readDirErr) => {
+          if (readDirErr) {
+            logger.error(`SFTP check failed `, { event: 'ssh.shell.sftp', connectionId: connectionId, error: readDirErr.message })
+
+            connectionStatus.set(connectionId, {
+              sftpAvailable: false,
+              sftpError: readDirErr.message
+            })
+
+            try {
+              sftp.end()
+            } catch {}
+          } else {
+            logger.info(`SFTP check success`, { event: 'ssh.sftp.check', connectionId: connectionId })
+            sftpConnections.set(connectionId, { isSuccess: true, sftp })
+            connectionStatus.set(connectionId, { sftpAvailable: true })
+          }
+          resolve()
+        })
+      })
+    } catch (e: any) {
+      const msg = e?.message || String(e)
+      connectionStatus.set(connectionId, {
+        sftpAvailable: false,
+        sftpError: msg
+      })
+      sftpConnections.set(connectionId, { isSuccess: false, error: `sftp exception: "${msg}"` })
+      resolve()
+    }
   })
 }

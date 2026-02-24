@@ -221,7 +221,7 @@ const attemptJumpServerConnection = async (
     conn.on('ready', () => {
       logger.info('JumpServer connection established, creating shell', { event: 'jumpserver.connect', connectionId })
       sendStatusUpdate('Successfully connected to bastion host, please wait...', 'success', 'ssh.jumpserver.connectedToBastionHost')
-      attemptSecondaryConnection(event, connectionInfo, ident)
+      attemptSecondaryConnection(event, connectionInfo, conn)
 
       if (event && keyboardInteractiveOpts.has(connectionId)) {
         logger.info('MFA verification success', { event: 'jumpserver.mfa.success', connectionId })

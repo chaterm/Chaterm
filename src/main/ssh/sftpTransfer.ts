@@ -1,10 +1,28 @@
 import { ipcMain, app } from 'electron'
 import path from 'node:path'
 import { pipeline } from 'node:stream/promises'
-import { getSftpConnection, getUniqueRemoteName, sftpConnections } from './sshHandle'
-const sftpLogger = createLogger('ssh')
+import { getSftpConnection, getUniqueRemoteName } from './sshHandle'
 import nodeFs from 'node:fs/promises'
 import fs from 'fs'
+import type { Client } from 'ssh2'
+import { Client as SSHClient } from 'ssh2'
+import {
+  connectionStatus,
+  sftpConnections,
+  sshConnections,
+  sshConnectionPool,
+  KeyboardInteractiveTimeout,
+  handleRequestKeyboardInteractive
+} from './sshHandle'
+import { jumpserverConnections } from './jumpserverHandle'
+import { getConnectionPoolKey, createProxyCommandSocket } from './sshHandle'
+import { createProxySocket } from './proxy'
+import { getAlgorithmsByAssetType } from './algorithms'
+import { getPackageInfo } from './jumpserver/connectionManager'
+const sftpLogger = createLogger('ssh')
+
+export type SftpConnectResult = { status: string; message: string }
+
 const activeTasks = new Map<string, { read?: any; write?: any; localPath?: string; cancel?: () => void }>()
 
 type R2RFileArgs = {
@@ -25,6 +43,26 @@ type R2RDirArgs = {
 }
 
 export const registerFileSystemHandlers = () => {
+  ipcMain.handle('ssh:sftp:connect', async (_event, connectionInfo) => {
+    return connectSftpReuseFirst(_event, connectionInfo)
+  })
+  ipcMain.handle('ssh:sftp:close', async (_event, payload: { id: string }) => {
+    const id = String(payload?.id || '')
+    return closeSftpOnly(id)
+  })
+  ipcMain.handle('ssh:sftp:cancel', async (_event, payload: { id: string; requestId?: string }) => {
+    const id = String(payload?.id || '')
+    const reqId = String(payload?.requestId || '')
+    const p = pendingSftpConnects.get(id)
+    if (!p) return { status: 'noop', message: 'no pending connect' }
+    if (reqId && p.requestId !== reqId) return { status: 'noop', message: 'requestId mismatch' }
+
+    p.cancelled = true
+    try {
+      p.conn?.end()
+    } catch {}
+    return { status: 'cancelled', message: 'cancelled' }
+  })
   ipcMain.handle('ssh:sftp:conn:list', async () => {
     return Array.from(sftpConnections.entries()).map(([key, sftpConn]) => ({
       id: key,
@@ -579,13 +617,8 @@ export async function transferFileR2R(event: any, args: R2RFileArgs): Promise<Tr
   }
 
   const taskKey = `${args.fromId}->${args.toId}:r2r:${fromPath}:${toPath}`
-  if (activeTasks.has(taskKey)) {
-    sftpLogger.debug('Skipped duplicated remote-to-remote file transfer', {
-      event: 'ssh.sftp.r2r.file.skipped',
-      taskKey
-    })
-    return { status: 'skipped', message: 'Task already in progress', taskKey, fromHost, toHost }
-  }
+  if (activeTasks.has(taskKey)) return { status: 'skipped', message: 'Task already in progress', taskKey, fromHost, toHost }
+
   const totalUi = getTotalUi(total)
 
   // Send immediately "running(init)" to create a line
@@ -1664,4 +1697,408 @@ export async function handleDirectoryTransfer(event: any, id: string, localDir: 
   })
   activeTasks.delete(dirTaskKey)
   return { status: 'success', host }
+}
+
+export const initSftpOnConnection = (conn: Client, connectionId: string): Promise<void> => {
+  return new Promise<void>((resolve) => {
+    conn.sftp((err, sftp) => {
+      if (err || !sftp) {
+        connectionStatus.set(connectionId, {
+          sftpAvailable: false,
+          sftpError: err?.message || 'SFTP object is empty'
+        })
+        sftpConnections.set(connectionId, {
+          isSuccess: false,
+          error: `sftp init error: "${err?.message || 'SFTP object is empty'}"`
+        })
+        return resolve()
+      }
+
+      sftp.readdir('.', (readDirErr) => {
+        if (readDirErr) {
+          connectionStatus.set(connectionId, {
+            sftpAvailable: false,
+            sftpError: readDirErr.message
+          })
+          try {
+            sftp.end()
+          } catch {}
+          sftpConnections.set(connectionId, {
+            isSuccess: false,
+            error: `sftp readdir error: "${readDirErr.message}"`
+          })
+        } else {
+          sftpConnections.set(connectionId, { isSuccess: true, sftp })
+          connectionStatus.set(connectionId, { sftpAvailable: true })
+        }
+        resolve()
+      })
+    })
+  })
+}
+
+const findReusableConn = (connectionInfo: any): Client | undefined => {
+  const { id, sshType, host, port, username, assetUuid } = connectionInfo
+
+  const direct = sshConnections.get(id)
+  if (direct) return direct
+
+  if (sshType === 'jumpserver') {
+    const jumpserverUuid = assetUuid || id
+    for (const [, existingData] of jumpserverConnections.entries()) {
+      if (existingData.jumpserverUuid === jumpserverUuid) return existingData.conn
+    }
+  }
+
+  if (host && username) {
+    const poolKey = getConnectionPoolKey(host, port || 22, username)
+    const pooled = sshConnectionPool.get(poolKey)
+    if (pooled?.conn) return pooled.conn
+  }
+
+  return undefined
+}
+
+export const connectSftpReuseFirst = async (event: any, connectionInfo: any): Promise<SftpConnectResult> => {
+  const { id } = connectionInfo
+  const requestId = String(connectionInfo?.sftpRequestId || `${Date.now()}_${Math.random().toString(16).slice(2)}`)
+
+  // record pending
+  markPending(id, requestId)
+
+  const reused = findReusableConn(connectionInfo)
+  if (reused) {
+    await initSftpOnConnection(reused, id)
+
+    const p = getPending(id)
+    if (p?.cancelled) {
+      await closeSftpOnly(id)
+      clearPending(id)
+      return { status: 'cancelled', message: 'cancelled' }
+    }
+
+    clearPending(id)
+    const st = connectionStatus.get(id) as any
+    return st?.sftpAvailable
+      ? { status: 'connected', message: 'SFTP ready (reused existing SSH connection)' }
+      : { status: 'error', message: st?.sftpError || 'SFTP init failed' }
+  }
+
+  clearPending(id)
+  return await connectSftpNew(event, connectionInfo)
+}
+
+export const connectSftpNew = async (event: any, connectionInfo: any): Promise<SftpConnectResult> => {
+  const { id, sshType } = connectionInfo
+
+  if (sshType === 'jumpserver') {
+    return await connectJumpServerSftpNew(event, connectionInfo)
+  }
+
+  const conn = new SSHClient()
+  const { host, port, username, password, privateKey, passphrase, needProxy, proxyConfig, proxyCommand, connIdentToken, asset_type } = connectionInfo
+
+  const packageInfo = getPackageInfo()
+  const identToken = connIdentToken ? `_t=${connIdentToken}` : ''
+  const ident = `${packageInfo.name}_${packageInfo.version}${identToken}`
+  const algorithms = getAlgorithmsByAssetType(asset_type)
+
+  const requestId = String(connectionInfo?.sftpRequestId || `${Date.now()}_${Math.random().toString(16).slice(2)}`)
+  markPending(id, requestId, conn as any)
+
+  const connectConfig: any = {
+    host,
+    port: port || 22,
+    username,
+    keepaliveInterval: 10000,
+    readyTimeout: KeyboardInteractiveTimeout,
+    tryKeyboard: true,
+    ident,
+    algorithms
+  }
+
+  if (privateKey) {
+    connectConfig.privateKey = privateKey
+    if (passphrase) connectConfig.passphrase = passphrase
+  } else if (password) {
+    connectConfig.password = password
+  } else {
+    clearPending(id)
+    return { status: 'error', message: 'No valid authentication method provided' }
+  }
+
+  try {
+    if (proxyCommand) {
+      connectConfig.sock = await createProxyCommandSocket(proxyCommand, host, port || 22)
+      delete connectConfig.host
+      delete connectConfig.port
+    } else if (needProxy) {
+      connectConfig.sock = await createProxySocket(proxyConfig, host, port || 22)
+    }
+  } catch (err: any) {
+    clearPending(id)
+    return { status: 'error', message: `Failed to establish a transport layer tunnel: ${err?.message || String(err)}` }
+  }
+
+  return new Promise((resolve) => {
+    conn.on('keyboard-interactive', (_name, _instructions, _lang, prompts, finish) => {
+      ;(async () => {
+        try {
+          const p = getPending(id)
+          if (p?.cancelled) {
+            conn.end()
+            return resolve({ status: 'cancelled', message: 'cancelled' })
+          }
+          await handleRequestKeyboardInteractive(event, id, prompts, finish)
+        } catch (e: any) {
+          conn.end()
+          clearPending(id)
+          resolve({ status: 'error', message: e?.message || String(e) })
+        }
+      })()
+    })
+
+    conn.on('ready', () => {
+      ;(async () => {
+        try {
+          const p = getPending(id)
+          if (p?.cancelled) {
+            conn.end()
+            clearPending(id)
+            return resolve({ status: 'cancelled', message: 'cancelled' })
+          }
+
+          await initSftpOnConnection(conn as any, id)
+
+          const p2 = getPending(id)
+          if (p2?.cancelled) {
+            await closeSftpOnly(id)
+            conn.end()
+            clearPending(id)
+            return resolve({ status: 'cancelled', message: 'cancelled' })
+          }
+
+          clearPending(id)
+          const st = connectionStatus.get(id) as any
+          resolve(
+            st?.sftpAvailable
+              ? { status: 'connected', message: 'SFTP ready (new SFTP-only SSH connection)' }
+              : { status: 'error', message: st?.sftpError || 'SFTP init failed' }
+          )
+        } catch (e: any) {
+          clearPending(id)
+          resolve({ status: 'error', message: e?.message || String(e) })
+        }
+      })()
+    })
+
+    conn.on('error', (err: any) => {
+      const p = getPending(id)
+      if (p?.cancelled) {
+        clearPending(id)
+        return resolve({ status: 'cancelled', message: 'cancelled' })
+      }
+      clearPending(id)
+      resolve({ status: 'error', message: `SFTP connection failed: ${err.message}` })
+    })
+
+    conn.connect(connectConfig)
+  })
+}
+
+const connectJumpServerSftpNew = async (event: any, connectionInfo: any): Promise<SftpConnectResult> => {
+  const { id, host, port, username, password, privateKey, passphrase, needProxy, proxyConfig, proxyCommand, connIdentToken, asset_type, assetUuid } =
+    connectionInfo
+  const jumpserverUuid = assetUuid || id
+
+  // Reuse first jumpserverConnections
+  for (const [, existingData] of jumpserverConnections.entries()) {
+    if (existingData.jumpserverUuid === jumpserverUuid && existingData.conn) {
+      const requestId = String(connectionInfo?.sftpRequestId || `${Date.now()}_${Math.random().toString(16).slice(2)}`)
+      markPending(id, requestId)
+      await initSftpOnConnection(existingData.conn, id)
+
+      const p = getPending(id)
+      if (p?.cancelled) {
+        await closeSftpOnly(id)
+        clearPending(id)
+        return { status: 'cancelled', message: 'cancelled' }
+      }
+
+      clearPending(id)
+      const st = connectionStatus.get(id) as any
+      return st?.sftpAvailable
+        ? { status: 'connected', message: 'SFTP ready (reused JumpServer connection)' }
+        : { status: 'error', message: st?.sftpError || 'SFTP init failed' }
+    }
+  }
+
+  const conn = new SSHClient()
+
+  const packageInfo = getPackageInfo()
+  const identToken = connIdentToken ? `_t=${connIdentToken}` : ''
+  const ident = `${packageInfo.name}_${packageInfo.version}${identToken}`
+  const algorithms = getAlgorithmsByAssetType(asset_type)
+
+  const requestId = String(connectionInfo?.sftpRequestId || `${Date.now()}_${Math.random().toString(16).slice(2)}`)
+  markPending(id, requestId, conn as any)
+
+  const connectConfig: any = {
+    host,
+    port: port || 22,
+    username,
+    keepaliveInterval: 10000,
+    readyTimeout: 180000,
+    tryKeyboard: true,
+    ident,
+    algorithms
+  }
+
+  if (privateKey) {
+    try {
+      connectConfig.privateKey = Buffer.isBuffer(privateKey) ? privateKey : Buffer.from(privateKey)
+      if (passphrase) connectConfig.passphrase = passphrase
+    } catch (err: any) {
+      clearPending(id)
+      return { status: 'error', message: `Private key format error: ${err?.message || String(err)}` }
+    }
+  } else if (password) {
+    connectConfig.password = password
+  } else {
+    clearPending(id)
+    return { status: 'error', message: 'Missing authentication info: private key or password required' }
+  }
+
+  try {
+    if (proxyCommand) {
+      connectConfig.sock = await createProxyCommandSocket(proxyCommand, host, port || 22)
+      delete connectConfig.host
+      delete connectConfig.port
+    } else if (needProxy) {
+      connectConfig.sock = await createProxySocket(proxyConfig, host, port || 22)
+    }
+  } catch (err: any) {
+    clearPending(id)
+    return { status: 'error', message: `Failed to establish a transport layer tunnel: ${err?.message || String(err)}` }
+  }
+
+  return new Promise((resolve) => {
+    conn.on('keyboard-interactive', async (_name, _instructions, _lang, prompts, finish) => {
+      try {
+        const p = getPending(id)
+        if (p?.cancelled) {
+          conn.end()
+          return resolve({ status: 'cancelled', message: 'cancelled' })
+        }
+        await handleRequestKeyboardInteractive(event, id, prompts, finish)
+      } catch (e: any) {
+        conn.end()
+        clearPending(id)
+        resolve({ status: 'error', message: e?.message || String(e) })
+      }
+    })
+
+    conn.on('ready', () => {
+      ;(async () => {
+        try {
+          const p = getPending(id)
+          if (p?.cancelled) {
+            conn.end()
+            clearPending(id)
+            return resolve({ status: 'cancelled', message: 'cancelled' })
+          }
+
+          conn.shell({ term: connectionInfo.terminalType || 'vt100' }, (err, stream) => {
+            if (err) {
+              resolve({ status: 'error', message: err?.message || String(err) })
+            }
+            jumpserverConnections.set(id, {
+              conn,
+              stream,
+              jumpserverUuid,
+              targetIp: connectionInfo.targetIp,
+              navigationPath: {
+                needsPassword: false
+              }
+            })
+          })
+
+          await initSftpOnConnection(conn as any, id)
+
+          const p2 = getPending(id)
+          if (p2?.cancelled) {
+            await closeSftpOnly(id)
+            conn.end()
+            clearPending(id)
+            return resolve({ status: 'cancelled', message: 'cancelled' })
+          }
+
+          clearPending(id)
+          const st = connectionStatus.get(id) as any
+          resolve(
+            st?.sftpAvailable
+              ? { status: 'connected', message: 'SFTP ready (new JumpServer connection)' }
+              : { status: 'error', message: st?.sftpError || 'SFTP init failed' }
+          )
+        } catch (e: any) {
+          clearPending(id)
+          resolve({ status: 'error', message: e?.message || String(e) })
+        }
+      })()
+    })
+
+    conn.on('error', (err: any) => {
+      const p = getPending(id)
+      if (p?.cancelled) {
+        clearPending(id)
+        return resolve({ status: 'cancelled', message: 'cancelled' })
+      }
+      clearPending(id)
+      resolve({ status: 'error', message: `JumpServer SFTP connection failed: ${err.message}` })
+    })
+
+    conn.connect(connectConfig)
+  })
+}
+type PendingSftp = {
+  requestId: string
+  cancelled: boolean
+  conn?: Client
+}
+const pendingSftpConnects = new Map<string, PendingSftp>()
+
+const markPending = (id: string, requestId: string, conn?: Client) => {
+  pendingSftpConnects.set(id, { requestId, cancelled: false, conn })
+}
+const getPending = (id: string) => pendingSftpConnects.get(id)
+const clearPending = (id: string) => pendingSftpConnects.delete(id)
+
+export const closeSftpOnly = async (connectionId: string): Promise<{ status: string; message: string }> => {
+  const id = String(connectionId || '')
+  if (!id) return { status: 'error', message: 'missing id' }
+
+  try {
+    const p = pendingSftpConnects.get(id)
+    if (p) {
+      p.cancelled = true
+      try {
+        p.conn?.end()
+      } catch {}
+      clearPending(id)
+    }
+
+    const rec = sftpConnections.get(id) as any
+    if (rec?.sftp) {
+      try {
+        rec.sftp.end()
+      } catch {}
+    }
+
+    sftpConnections.delete(id)
+    connectionStatus.set(id, { sftpAvailable: false, sftpError: 'SFTP closed by user' })
+
+    return { status: 'closed', message: 'SFTP closed' }
+  } catch (e: any) {
+    return { status: 'error', message: e?.message || String(e) }
+  }
 }
