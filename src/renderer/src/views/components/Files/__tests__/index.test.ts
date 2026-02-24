@@ -39,7 +39,7 @@ vi.mock('ant-design-vue', () => ({
   Modal: { confirm: vi.fn(), info: vi.fn(), warning: vi.fn(), error: vi.fn() }
 }))
 
-// ✅ critical: prevent SQLite init in tests
+// critical: prevent SQLite init in tests
 vi.mock('@/services/userConfigStoreService', () => ({
   userConfigStore: {
     getConfig: vi.fn().mockResolvedValue({}),

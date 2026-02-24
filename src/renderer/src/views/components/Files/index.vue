@@ -1338,7 +1338,9 @@ const onTransferResizeMouseDown = (e: MouseEvent) => {
 // Keep: per-session collapse/expand + file DnD transfer between panels via TermFileSystem @cross-transfer.
 const sessionMap = computed(() => {
   const map = new Map<string, any>()
-  ;((treeData.value as any[]) || []).forEach((n: any) => map.set(String(n.value), n))
+  ;((treeData.value as any[]) || []).forEach((n: any) => {
+    map.set(String(n.value), n)
+  })
   return map
 })
 

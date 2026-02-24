@@ -1906,7 +1906,16 @@ export const connectSftpNew = async (event: any, connectionInfo: any): Promise<S
   })
 }
 
-const connectJumpServerSftpNew = async (event: any, connectionInfo: any): Promise<SftpConnectResult> => {
+function openShell(conn: any, connectionInfo: any) {
+  return new Promise((resolve, reject) => {
+    conn.shell({ term: connectionInfo.terminalType || 'vt100' }, (err, stream) => {
+      if (err) return reject(err)
+      resolve(stream)
+    })
+  })
+}
+
+const connectJumpServerSftpNew = async (_event: any, connectionInfo: any): Promise<SftpConnectResult> => {
   const { id, host, port, username, password, privateKey, passphrase, needProxy, proxyConfig, proxyCommand, connIdentToken, asset_type, assetUuid } =
     connectionInfo
   const jumpserverUuid = assetUuid || id
@@ -1983,83 +1992,56 @@ const connectJumpServerSftpNew = async (event: any, connectionInfo: any): Promis
   }
 
   return new Promise((resolve) => {
-    conn.on('keyboard-interactive', async (_name, _instructions, _lang, prompts, finish) => {
+    let settled = false
+
+    const safeResolve = (data) => {
+      if (settled) return
+      settled = true
+      resolve(data)
+    }
+
+    conn.on('ready', async () => {
       try {
-        const p = getPending(id)
-        if (p?.cancelled) {
-          conn.end()
-          return resolve({ status: 'cancelled', message: 'cancelled' })
-        }
-        await handleRequestKeyboardInteractive(event, id, prompts, finish)
+        const stream = await openShell(conn, connectionInfo)
+
+        jumpserverConnections.set(id, {
+          conn,
+          stream,
+          jumpserverUuid,
+          targetIp: connectionInfo.targetIp,
+          navigationPath: { needsPassword: false }
+        })
+
+        await initSftpOnConnection(conn, id)
+
+        clearPending(id)
+
+        const st = connectionStatus.get(id)
+        safeResolve(
+          st?.sftpAvailable
+            ? { status: 'connected', message: 'SFTP ready (new JumpServer connection)' }
+            : { status: 'error', message: st?.sftpError || 'SFTP init failed' }
+        )
       } catch (e: any) {
+        clearPending(id)
         conn.end()
-        clearPending(id)
-        resolve({ status: 'error', message: e?.message || String(e) })
+        safeResolve({ status: 'error', message: e?.message || String(e) })
       }
     })
 
-    conn.on('ready', () => {
-      ;(async () => {
-        try {
-          const p = getPending(id)
-          if (p?.cancelled) {
-            conn.end()
-            clearPending(id)
-            return resolve({ status: 'cancelled', message: 'cancelled' })
-          }
-
-          conn.shell({ term: connectionInfo.terminalType || 'vt100' }, (err, stream) => {
-            if (err) {
-              resolve({ status: 'error', message: err?.message || String(err) })
-            }
-            jumpserverConnections.set(id, {
-              conn,
-              stream,
-              jumpserverUuid,
-              targetIp: connectionInfo.targetIp,
-              navigationPath: {
-                needsPassword: false
-              }
-            })
-          })
-
-          await initSftpOnConnection(conn as any, id)
-
-          const p2 = getPending(id)
-          if (p2?.cancelled) {
-            await closeSftpOnly(id)
-            conn.end()
-            clearPending(id)
-            return resolve({ status: 'cancelled', message: 'cancelled' })
-          }
-
-          clearPending(id)
-          const st = connectionStatus.get(id) as any
-          resolve(
-            st?.sftpAvailable
-              ? { status: 'connected', message: 'SFTP ready (new JumpServer connection)' }
-              : { status: 'error', message: st?.sftpError || 'SFTP init failed' }
-          )
-        } catch (e: any) {
-          clearPending(id)
-          resolve({ status: 'error', message: e?.message || String(e) })
-        }
-      })()
-    })
-
-    conn.on('error', (err: any) => {
-      const p = getPending(id)
-      if (p?.cancelled) {
-        clearPending(id)
-        return resolve({ status: 'cancelled', message: 'cancelled' })
-      }
+    conn.on('error', (err) => {
       clearPending(id)
-      resolve({ status: 'error', message: `JumpServer SFTP connection failed: ${err.message}` })
+      conn.end()
+      safeResolve({
+        status: 'error',
+        message: `JumpServer SFTP connection failed: ${err.message}`
+      })
     })
 
     conn.connect(connectConfig)
   })
 }
+
 type PendingSftp = {
   requestId: string
   cancelled: boolean

@@ -1254,26 +1254,31 @@ const refreshAssetMenu = () => {
   }
 }
 
+const handleLanguageChanged = () => {
+  refreshAssetMenu()
+}
+
+const handleDocumentClick = () => {
+  contextMenuVisible.value = false
+  contextMenuData.value = null
+}
+
 onMounted(() => {
   eventBus.on('LocalAssetMenu', refreshAssetMenu)
-  // Listen for language change event, reload asset data
-  eventBus.on('languageChanged', () => {
-    refreshAssetMenu()
-  })
-  // Listen for host search focus event
+  eventBus.on('languageChanged', handleLanguageChanged)
   eventBus.on('focusHostSearch', focusSearchInput)
+
   loadCustomFolders()
 
-  // Add click outside listener to close context menu
-  document.addEventListener('click', () => {
-    contextMenuVisible.value = false
-    contextMenuData.value = null
-  })
+  document.addEventListener('click', handleDocumentClick)
 })
+
 onUnmounted(() => {
   eventBus.off('LocalAssetMenu', refreshAssetMenu)
-  eventBus.off('languageChanged')
+  eventBus.off('languageChanged', handleLanguageChanged)
   eventBus.off('focusHostSearch', focusSearchInput)
+
+  document.removeEventListener('click', handleDocumentClick)
 })
 </script>
 
