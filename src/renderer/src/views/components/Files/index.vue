@@ -67,7 +67,7 @@
               >
                 <template #option="{ value, label }">
                   <div class="session-select-option">
-                    <span class="opt-label">11{{ label }}</span>
+                    <span class="opt-label">{{ label }}</span>
                     <a-button
                       v-if="String(value) !== CREATE_FILE_CONN_VALUE && !isLocal(String(value))"
                       type="text"

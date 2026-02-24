@@ -1648,20 +1648,20 @@ onUnmounted(() => {
   border: 1px solid var(--border-color);
 }
 
-:global(.ant-select-dropdown) {
-  background-color: var(--bg-color-secondary) !important;
-  border-color: var(--border-color) !important;
-}
-:global(.ant-select-dropdown .ant-select-item) {
-  color: var(--text-color-secondary) !important;
-}
-:global(.ant-select-item-option-selected:not(.ant-select-item-option-disabled)) {
-  background-color: var(--hover-bg-color) !important;
-  color: var(--text-color) !important;
-}
-:global(.ant-select-item-option-active:not(.ant-select-item-option-disabled)) {
-  background-color: var(--hover-bg-color) !important;
-}
+//:global(.ant-select-dropdown) {
+//  background-color: var(--bg-color-secondary) !important;
+//  border-color: var(--border-color) !important;
+//}
+//:global(.ant-select-dropdown .ant-select-item) {
+//  color: var(--text-color-secondary) !important;
+//}
+//:global(.ant-select-item-option-selected:not(.ant-select-item-option-disabled)) {
+//  background-color: var(--hover-bg-color) !important;
+//  color: var(--text-color) !important;
+//}
+//:global(.ant-select-item-option-active:not(.ant-select-item-option-disabled)) {
+//  background-color: var(--hover-bg-color) !important;
+//}
 .manage {
   display: flex;
   gap: 10px;
