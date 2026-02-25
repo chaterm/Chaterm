@@ -7,13 +7,39 @@ import { userConfigStore } from '@/store/userConfigStore'
  */
 export function useBackgroundManager() {
   const configStore = userConfigStore()
+  const SYSTEM_BG_KEY_PREFIX = 'system-bg:'
+
+  const resolveBackgroundImage = (imagePath: string): string => {
+    if (!imagePath) {
+      return imagePath
+    }
+
+    let index: number | null = null
+    if (imagePath.startsWith(SYSTEM_BG_KEY_PREFIX)) {
+      const parsed = Number(imagePath.slice(SYSTEM_BG_KEY_PREFIX.length))
+      index = Number.isNaN(parsed) ? null : parsed
+    } else {
+      const match = imagePath.match(/wall-(\d+)\.jpg/)
+      if (match) {
+        const parsed = Number(match[1])
+        index = Number.isNaN(parsed) ? null : parsed
+      }
+    }
+
+    if (index !== null) {
+      return new URL(`../assets/backgroup/wall-${index}.jpg`, import.meta.url).href
+    }
+
+    return imagePath
+  }
 
   // Calculate background style
   const backgroundStyle = computed(() => {
-    if (configStore.getUserConfig.background.image) {
+    const bgImage = resolveBackgroundImage(configStore.getUserConfig.background.image)
+    if (bgImage) {
       const brightness = configStore.getUserConfig.background.brightness ?? 1.0
       return {
-        backgroundImage: `url('${configStore.getUserConfig.background.image}')`,
+        backgroundImage: `url('${bgImage}')`,
         opacity: 1, // Background layer itself is fully opaque, opacity is applied to content layer via CSS variable
         filter: `brightness(${brightness})`
       }
