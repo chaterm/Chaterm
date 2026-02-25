@@ -42,3 +42,24 @@ export function isShortcutEvent(event: KeyboardEvent, action: ShortcutAction): b
 
   return event.key.toLowerCase() === expectedKey
 }
+
+function getSelectionContainer(node: Node | null): HTMLElement | null {
+  if (!node) return null
+  if (node instanceof HTMLElement) return node
+  return node.parentElement
+}
+
+/**
+ * Check whether current selected text belongs to markdown preview area.
+ * When true, global file shortcuts should not intercept native copy behavior.
+ */
+export function hasPreviewTextSelection(previewSelector = '.kb-preview'): boolean {
+  const selection = window.getSelection?.()
+  if (!selection || selection.rangeCount === 0 || selection.isCollapsed) return false
+  if (!selection.toString().trim()) return false
+
+  const anchorContainer = getSelectionContainer(selection.anchorNode)
+  const focusContainer = getSelectionContainer(selection.focusNode)
+
+  return !!anchorContainer?.closest(previewSelector) || !!focusContainer?.closest(previewSelector)
+}
