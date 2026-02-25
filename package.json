@@ -153,7 +153,7 @@
     "vitest-browser-vue": "^2.0.2",
     "vue": "^3.5.28",
     "vue-eslint-parser": "^10.4.0",
-    "vue-router": "^5.0.2",
+    "vue-router": "^5.0.3",
     "vue-tsc": "^3.2.5"
   }
 }
