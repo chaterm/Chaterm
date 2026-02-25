@@ -86,7 +86,7 @@
     "monaco-editor": "^0.55.1",
     "node-pty": "^1.0.0",
     "ollama": "^0.6.3",
-    "openai": "^6.22.0",
+    "openai": "^6.25.0",
     "p-wait-for": "^6.0.0",
     "pinia": "^3.0.1",
     "pinia-plugin-persistedstate": "^4.2.0",
