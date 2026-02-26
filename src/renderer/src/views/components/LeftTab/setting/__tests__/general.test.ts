@@ -399,8 +399,16 @@ describe('General Component', () => {
 
       await vm.selectSystemBackground(1)
 
-      expect(vm.userConfig.background.image).toContain('wall-1.jpg')
-      expect(updateBackgroundImageSpy).toHaveBeenCalled()
+      expect(vm.userConfig.background.image).toBe('system-bg:1')
+      expect(updateBackgroundImageSpy).toHaveBeenCalledWith('system-bg:1')
+    })
+
+    it('should normalize persisted system background URL to stable key', async () => {
+      const vm = wrapper.vm as any
+      vm.userConfig.background.image = 'http://127.0.0.1:5173/src/assets/backgroup/wall-2.jpg'
+      await nextTick()
+
+      expect(vm.normalizeSystemBackgroundImage(vm.userConfig.background.image)).toBe('system-bg:2')
     })
 
     it('should show sliders when background image is set', async () => {

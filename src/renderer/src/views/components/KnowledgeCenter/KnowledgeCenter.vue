@@ -237,7 +237,7 @@ import { computed, nextTick, onBeforeUnmount, onMounted, reactive, ref } from 'v
 import { message, Modal } from 'ant-design-vue'
 import eventBus from '@/utils/eventBus'
 import { CloudUploadOutlined, FileAddOutlined, FolderAddOutlined, PlusOutlined, RedoOutlined, SearchOutlined } from '@ant-design/icons-vue'
-import { getModifierSymbol, isShortcutEvent } from './utils/kbShortcuts'
+import { getModifierSymbol, hasPreviewTextSelection, isShortcutEvent } from './utils/kbShortcuts'
 import { getImageMediaType, isImageFile } from '../AiTab/utils'
 
 type KbNodeType = 'file' | 'dir'
@@ -835,6 +835,8 @@ function handleKeyDown(e: KeyboardEvent) {
   }
 
   if (isShortcutEvent(e, 'copy')) {
+    // Keep browser-native copy when user selects text in markdown preview.
+    if (hasPreviewTextSelection()) return
     handleCopy()
     e.preventDefault()
   } else if (isShortcutEvent(e, 'cut')) {

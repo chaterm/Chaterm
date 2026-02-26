@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
-import { getModifierSymbol, isMacPlatform, isShortcutEvent } from '../utils/kbShortcuts'
+import { getModifierSymbol, hasPreviewTextSelection, isMacPlatform, isShortcutEvent } from '../utils/kbShortcuts'
 
 describe('kbShortcuts', () => {
   const originalNavigator = global.navigator
@@ -161,6 +161,57 @@ describe('kbShortcuts', () => {
       })
       const event = createKeyboardEvent('c', false, false)
       expect(isShortcutEvent(event, 'copy')).toBe(false)
+    })
+  })
+
+  describe('hasPreviewTextSelection', () => {
+    afterEach(() => {
+      vi.restoreAllMocks()
+      document.body.innerHTML = ''
+    })
+
+    it('should return true when selected text is inside markdown preview', () => {
+      document.body.innerHTML = '<div class="kb-preview"><p id="preview-text">preview selected text</p></div>'
+      const node = document.getElementById('preview-text')?.firstChild
+      expect(node).toBeTruthy()
+
+      vi.spyOn(window, 'getSelection').mockReturnValue({
+        rangeCount: 1,
+        isCollapsed: false,
+        toString: () => 'preview selected text',
+        anchorNode: node,
+        focusNode: node
+      } as Selection)
+
+      expect(hasPreviewTextSelection()).toBe(true)
+    })
+
+    it('should return false when selected text is outside markdown preview', () => {
+      document.body.innerHTML = '<div class="other-container"><p id="outside-text">outside selected text</p></div>'
+      const node = document.getElementById('outside-text')?.firstChild
+      expect(node).toBeTruthy()
+
+      vi.spyOn(window, 'getSelection').mockReturnValue({
+        rangeCount: 1,
+        isCollapsed: false,
+        toString: () => 'outside selected text',
+        anchorNode: node,
+        focusNode: node
+      } as Selection)
+
+      expect(hasPreviewTextSelection()).toBe(false)
+    })
+
+    it('should return false when there is no selected text', () => {
+      vi.spyOn(window, 'getSelection').mockReturnValue({
+        rangeCount: 0,
+        isCollapsed: true,
+        toString: () => '',
+        anchorNode: null,
+        focusNode: null
+      } as Selection)
+
+      expect(hasPreviewTextSelection()).toBe(false)
     })
   })
 })
