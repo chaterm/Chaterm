@@ -19,7 +19,6 @@
       <div class="context-display-container">
         <!-- Trigger button -->
         <span
-          v-if="chatHistory.length === 0"
           class="context-trigger-tag"
           @click.stop="(e) => handleAddContextClick(e.currentTarget as HTMLElement)"
         >
@@ -38,7 +37,7 @@
           </template>
           {{ item.host }}
           <CloseOutlined
-            v-if="chatTypeValue === 'agent' && chatHistory.length === 0"
+            v-if="chatTypeValue === 'agent'"
             class="tag-delete-btn"
             @click.stop="removeHost(item)"
           />
@@ -256,17 +255,8 @@ const props = withDefaults(defineProps<Props>(), {
 
 const { t } = useI18n()
 
-const {
-  chatTextareaRef,
-  currentTab,
-  chatTypeValue,
-  chatAiModelValue,
-  chatContainerScrollSignal,
-  hosts,
-  chatInputParts,
-  responseLoading,
-  chatHistory
-} = useSessionState()
+const { chatTextareaRef, currentTab, chatTypeValue, chatAiModelValue, chatContainerScrollSignal, hosts, chatInputParts, responseLoading } =
+  useSessionState()
 
 const editableRef = ref<HTMLDivElement | null>(null)
 
