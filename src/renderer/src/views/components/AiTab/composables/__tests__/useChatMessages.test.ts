@@ -1277,4 +1277,192 @@ describe('useChatMessages', () => {
       expect(sent.text).toBe('hello')
     })
   })
+
+  describe('hosts parameter handling', () => {
+    it('should use default tab hosts when overrideHosts is not provided', async () => {
+      const { sendMessageWithContent } = useChatMessages(
+        mockScrollToBottom,
+        mockClearTodoState,
+        mockMarkLatestMessageWithTodoUpdate,
+        mockCurrentTodos,
+        mockCheckModelConfig
+      )
+
+      const mockState = vi.mocked(useSessionState)()
+      const currentTabHosts = mockState.currentTab.value!.hosts
+
+      await sendMessageWithContent('Test message', 'send', undefined, undefined, undefined, undefined)
+
+      expect(mockSendToMain).toHaveBeenCalledWith(
+        expect.objectContaining({
+          hosts: currentTabHosts
+        })
+      )
+    })
+
+    it('should use overrideHosts when provided', async () => {
+      const { sendMessageWithContent } = useChatMessages(
+        mockScrollToBottom,
+        mockClearTodoState,
+        mockMarkLatestMessageWithTodoUpdate,
+        mockCurrentTodos,
+        mockCheckModelConfig
+      )
+
+      const customHosts: Host[] = [
+        { host: '172.16.0.1', uuid: 'custom-host-1', connection: 'personal' },
+        { host: '172.16.0.2', uuid: 'custom-host-2', connection: 'organization' }
+      ]
+
+      await sendMessageWithContent('Test message', 'send', undefined, undefined, undefined, customHosts)
+
+      expect(mockSendToMain).toHaveBeenCalledWith(
+        expect.objectContaining({
+          hosts: customHosts
+        })
+      )
+    })
+
+    it('should attach hosts to user message in chat history', async () => {
+      const { sendMessageWithContent } = useChatMessages(
+        mockScrollToBottom,
+        mockClearTodoState,
+        mockMarkLatestMessageWithTodoUpdate,
+        mockCurrentTodos,
+        mockCheckModelConfig
+      )
+
+      const mockState = vi.mocked(useSessionState)()
+      const session = mockState.currentSession.value!
+
+      const customHosts: Host[] = [{ host: '192.168.2.10', uuid: 'edited-host', connection: 'personal' }]
+
+      await sendMessageWithContent('Edited message', 'send', undefined, undefined, undefined, customHosts)
+
+      const lastMessage = session.chatHistory[session.chatHistory.length - 1]
+      expect(lastMessage.hosts).toEqual(customHosts)
+    })
+
+    it('should set hosts to empty array when overrideHosts is empty', async () => {
+      const { sendMessageWithContent } = useChatMessages(
+        mockScrollToBottom,
+        mockClearTodoState,
+        mockMarkLatestMessageWithTodoUpdate,
+        mockCurrentTodos,
+        mockCheckModelConfig
+      )
+
+      const mockState = vi.mocked(useSessionState)()
+      const session = mockState.currentSession.value!
+
+      await sendMessageWithContent('Message', 'send', undefined, undefined, undefined, [])
+
+      const lastMessage = session.chatHistory[session.chatHistory.length - 1]
+      expect(lastMessage.hosts).toEqual([])
+    })
+
+    it('should handle truncate-and-send with edited hosts', async () => {
+      const { sendMessageWithContent } = useChatMessages(
+        mockScrollToBottom,
+        mockClearTodoState,
+        mockMarkLatestMessageWithTodoUpdate,
+        mockCurrentTodos,
+        mockCheckModelConfig
+      )
+
+      const mockState = vi.mocked(useSessionState)()
+      const originalHosts = mockState.currentTab.value!.hosts
+      const editedHosts: Host[] = [{ host: '10.10.10.10', uuid: 'new-host', connection: 'organization' }]
+
+      const truncateTs = Date.now() - 1000
+
+      await sendMessageWithContent('Edited content', 'send', undefined, truncateTs, undefined, editedHosts)
+
+      expect(mockSendToMain).toHaveBeenCalledWith(
+        expect.objectContaining({
+          type: expect.any(String),
+          hosts: editedHosts
+        })
+      )
+
+      // Verify original tab hosts are not modified
+      expect(mockState.currentTab.value!.hosts).toEqual(originalHosts)
+    })
+
+    it('should preserve Host object fields that are supported by sendMessageToMain', async () => {
+      const { sendMessageWithContent } = useChatMessages(
+        mockScrollToBottom,
+        mockClearTodoState,
+        mockMarkLatestMessageWithTodoUpdate,
+        mockCurrentTodos,
+        mockCheckModelConfig
+      )
+
+      const detailedHosts: Host[] = [
+        {
+          host: '192.168.1.100',
+          uuid: 'detailed-host-uuid',
+          connection: 'organization',
+          organizationUuid: 'org-uuid-456',
+          assetType: 'linux-production'
+        }
+      ]
+
+      await sendMessageWithContent('Test', 'send', undefined, undefined, undefined, detailedHosts)
+
+      const callArgs = mockSendToMain.mock.calls[0][0]
+      expect(callArgs.hosts).toBeDefined()
+      expect(callArgs.hosts).toHaveLength(1)
+
+      // Verify that the currently supported fields are preserved
+      // Note: organizationUuid is not currently preserved by sendMessageToMain (line 119-124 in useChatMessages.ts)
+      expect(callArgs.hosts[0].host).toBe('192.168.1.100')
+      expect(callArgs.hosts[0].uuid).toBe('detailed-host-uuid')
+      expect(callArgs.hosts[0].connection).toBe('organization')
+      expect(callArgs.hosts[0].assetType).toBe('linux-production')
+    })
+
+    it('should support edit-and-resend with different hosts through truncateAtMessageTs', async () => {
+      const { sendMessageWithContent } = useChatMessages(
+        mockScrollToBottom,
+        mockClearTodoState,
+        mockMarkLatestMessageWithTodoUpdate,
+        mockCurrentTodos,
+        mockCheckModelConfig
+      )
+
+      const editedHosts: Host[] = [
+        { host: '192.168.1.10', uuid: 'host-1', connection: 'personal' },
+        { host: '192.168.1.20', uuid: 'host-3', connection: 'personal' }
+      ]
+
+      const truncateTs = Date.now() - 2000
+      const contentParts = [{ type: 'text' as const, text: 'Edited message' }]
+
+      await sendMessageWithContent('Edited message', 'send', undefined, truncateTs, contentParts, editedHosts)
+
+      const callArgs = mockSendToMain.mock.calls[0][0]
+      expect(callArgs.hosts).toEqual(editedHosts)
+    })
+
+    it('should allow removing all hosts during edit', async () => {
+      const { sendMessageWithContent } = useChatMessages(
+        mockScrollToBottom,
+        mockClearTodoState,
+        mockMarkLatestMessageWithTodoUpdate,
+        mockCurrentTodos,
+        mockCheckModelConfig
+      )
+
+      const originalTs = Date.now() - 3000
+
+      await sendMessageWithContent('Message with no hosts', 'send', undefined, originalTs, undefined, [])
+
+      expect(mockSendToMain).toHaveBeenCalledWith(
+        expect.objectContaining({
+          hosts: []
+        })
+      )
+    })
+  })
 })

@@ -222,7 +222,7 @@ import { parseContextDragPayload, useEditableContent } from '../composables/useE
 import { AiTypeOptions } from '../composables/useEventBusListeners'
 import { getImageMediaType } from '../utils'
 import type { ContentPart, ContextDocRef, ContextPastChatRef, ContextCommandRef } from '@shared/WebviewMessage'
-import type { HistoryItem } from '../types'
+import type { HistoryItem, Host } from '../types'
 import { CloseOutlined, LaptopOutlined } from '@ant-design/icons-vue'
 import uploadIcon from '@/assets/icons/upload.svg'
 import imageIcon from '@/assets/icons/image.svg'
@@ -238,8 +238,9 @@ interface Props {
   // New properties for edit mode
   mode?: 'create' | 'edit'
   initialContentParts?: ContentPart[]
-  onConfirmEdit?: (contentParts: ContentPart[]) => void
+  onConfirmEdit?: (contentParts: ContentPart[], hosts: Host[]) => void
   openHistoryTab?: (history: HistoryItem, options?: { forceNewTab?: boolean }) => Promise<void>
+  messageHosts?: Host[]
 }
 const logger = createRendererLogger('ai.inputSend')
 
@@ -250,13 +251,51 @@ const props = withDefaults(defineProps<Props>(), {
   interactionActive: false,
   mode: 'create',
   initialContentParts: () => [],
-  onConfirmEdit: () => {}
+  onConfirmEdit: () => {},
+  messageHosts: () => []
 })
 
 const { t } = useI18n()
 
-const { chatTextareaRef, currentTab, chatTypeValue, chatAiModelValue, chatContainerScrollSignal, hosts, chatInputParts, responseLoading } =
-  useSessionState()
+const {
+  chatTextareaRef,
+  currentTab,
+  chatTypeValue,
+  chatAiModelValue,
+  chatContainerScrollSignal,
+  hosts: sessionHosts,
+  chatInputParts,
+  responseLoading
+} = useSessionState()
+
+// Local hosts state for edit mode
+const localEditHosts = ref<Host[]>([])
+
+// Initialize localEditHosts when entering edit mode
+watch(
+  () => [props.mode, props.messageHosts],
+  () => {
+    if (props.mode === 'edit') {
+      localEditHosts.value = props.messageHosts || []
+    }
+  },
+  { immediate: true }
+)
+
+// Compute the hosts to display based on mode
+// - In edit mode: display the local editable hosts (localEditHosts)
+// - In create mode: display the current session hosts (sessionHosts from useSessionState)
+// This computed is both readable and writable (like inputParts)
+const hosts = computed<Host[]>({
+  get: () => (props.mode === 'edit' ? localEditHosts.value : sessionHosts.value),
+  set: (newHosts) => {
+    if (props.mode === 'edit') {
+      localEditHosts.value = newHosts
+      return
+    }
+    sessionHosts.value = newHosts
+  }
+})
 
 const editableRef = ref<HTMLDivElement | null>(null)
 
@@ -280,13 +319,15 @@ const inputParts = computed<ContentPart[]>({
 // Create context instance and provide to child components.
 // We pass inputParts so chip insertion works in edit mode without touching the global draft.
 // Pass mode to avoid duplicate event listeners in edit mode.
+// Pass hosts (writable computed) so host operations work correctly in both modes.
 const context = useContext({
   chatInputParts: inputParts,
   focusInput: () => {
     editableRef.value?.focus()
     restoreSelection()
   },
-  mode: props.mode
+  mode: props.mode,
+  hosts: hosts
 })
 provide(contextInjectionKey, context)
 
@@ -340,7 +381,8 @@ const handleSendClick = async (type: string) => {
       })
       return
     }
-    props.onConfirmEdit?.(inputParts.value)
+    // Pass the complete Host objects (not just host strings) along with contentParts
+    props.onConfirmEdit?.(inputParts.value, hosts.value)
   } else {
     // Create mode: original logic
     props.sendMessage(type)

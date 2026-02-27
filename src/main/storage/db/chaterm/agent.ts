@@ -126,30 +126,55 @@ export async function getSavedChatermMessagesLogic(db: Database.Database, taskId
     const stmt = db.prepare(`
         SELECT ts, type, ask_type, say_type, text, content_parts, reasoning, images, partial,
                last_checkpoint_hash, is_checkpoint_checked_out, is_operation_outside_workspace,
-               conversation_history_index, conversation_history_deleted_range, mcp_tool_call_data
+               conversation_history_index, conversation_history_deleted_range, mcp_tool_call_data,
+               hosts
         FROM agent_ui_messages_v1
         WHERE task_id = ?
         ORDER BY ts ASC
       `)
     const rows = stmt.all(taskId)
 
-    return rows.map((row) => ({
-      ts: row.ts,
-      type: row.type,
-      ask: row.ask_type,
-      say: row.say_type,
-      text: row.text,
-      contentParts: row.content_parts ? JSON.parse(row.content_parts) : undefined,
-      reasoning: row.reasoning,
-      images: row.images ? JSON.parse(row.images) : undefined,
-      partial: row.partial === 1,
-      lastCheckpointHash: row.last_checkpoint_hash,
-      isCheckpointCheckedOut: row.is_checkpoint_checked_out === 1,
-      isOperationOutsideWorkspace: row.is_operation_outside_workspace === 1,
-      conversationHistoryIndex: row.conversation_history_index,
-      conversationHistoryDeletedRange: row.conversation_history_deleted_range ? JSON.parse(row.conversation_history_deleted_range) : undefined,
-      mcpToolCall: row.mcp_tool_call_data ? JSON.parse(row.mcp_tool_call_data) : undefined
-    }))
+    return rows.map((row) => {
+      // Parse hosts with backward compatibility
+      let hosts: any[] | undefined = undefined
+      if (row.hosts) {
+        try {
+          // Try parsing as JSON (new format: Host[])
+          const parsed = JSON.parse(row.hosts)
+          if (Array.isArray(parsed)) {
+            hosts = parsed
+          }
+        } catch (e) {
+          // Fallback for old format: comma-separated string
+          const hostStrings = row.hosts.split(',').filter(Boolean)
+          // Convert string[] to Host[] format with minimal info
+          hosts = hostStrings.map((ip: string) => ({
+            host: ip.trim(),
+            uuid: ip.trim(),
+            connection: 'personal'
+          }))
+        }
+      }
+
+      return {
+        ts: row.ts,
+        type: row.type,
+        ask: row.ask_type,
+        say: row.say_type,
+        text: row.text,
+        contentParts: row.content_parts ? JSON.parse(row.content_parts) : undefined,
+        reasoning: row.reasoning,
+        images: row.images ? JSON.parse(row.images) : undefined,
+        partial: row.partial === 1,
+        lastCheckpointHash: row.last_checkpoint_hash,
+        isCheckpointCheckedOut: row.is_checkpoint_checked_out === 1,
+        isOperationOutsideWorkspace: row.is_operation_outside_workspace === 1,
+        conversationHistoryIndex: row.conversation_history_index,
+        conversationHistoryDeletedRange: row.conversation_history_deleted_range ? JSON.parse(row.conversation_history_deleted_range) : undefined,
+        mcpToolCall: row.mcp_tool_call_data ? JSON.parse(row.mcp_tool_call_data) : undefined,
+        hosts
+      }
+    })
   } catch (error) {
     logger.error('Failed to get Cline messages', { error: error })
     return []
@@ -168,11 +193,15 @@ export async function saveChatermMessagesLogic(db: Database.Database, taskId: st
           INSERT INTO agent_ui_messages_v1
           (task_id, ts, type, ask_type, say_type, text, content_parts, reasoning, images, partial,
            last_checkpoint_hash, is_checkpoint_checked_out, is_operation_outside_workspace,
-           conversation_history_index, conversation_history_deleted_range, mcp_tool_call_data)
-          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+           conversation_history_index, conversation_history_deleted_range, mcp_tool_call_data,
+           hosts)
+          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         `)
 
       for (const message of uiMessages) {
+        // Serialize hosts array to JSON string to store complete Host objects
+        const hostsStr = message.hosts && message.hosts.length > 0 ? JSON.stringify(message.hosts) : null
+
         insertStmt.run(
           taskId,
           message.ts,
@@ -189,7 +218,8 @@ export async function saveChatermMessagesLogic(db: Database.Database, taskId: st
           message.isOperationOutsideWorkspace ? 1 : 0,
           message.conversationHistoryIndex || null,
           message.conversationHistoryDeletedRange ? JSON.stringify(message.conversationHistoryDeletedRange) : null,
-          message.mcpToolCall ? JSON.stringify(message.mcpToolCall) : null
+          message.mcpToolCall ? JSON.stringify(message.mcpToolCall) : null,
+          hostsStr
         )
       }
     })()
