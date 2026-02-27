@@ -390,42 +390,6 @@ defineExpose({
   }
 }
 
-.context-menu {
-  position: fixed;
-  background-color: var(--bg-color);
-  border: 1px solid var(--border-color);
-  border-radius: 8px;
-  padding: 4px;
-  z-index: 1000;
-  box-shadow:
-    0 4px 20px rgba(0, 0, 0, 0.15),
-    0 2px 8px rgba(0, 0, 0, 0.1);
-  min-width: 180px;
-  font-size: 13px;
-  backdrop-filter: blur(10px);
-}
-
-.context-menu-item {
-  padding: 6px 12px;
-  margin: 1px 0;
-  cursor: pointer;
-  color: var(--text-color);
-  border-radius: 6px;
-  font-weight: 500;
-  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
-  user-select: none;
-}
-
-.context-menu-item:hover {
-  background-color: var(--hover-bg-color);
-  transform: translateX(2px);
-}
-
-.context-menu-item:active {
-  background-color: var(--active-bg-color);
-  transform: translateX(2px) scale(0.98);
-}
-
 .tab-title-input {
   flex: 1;
   font-size: 12px;
