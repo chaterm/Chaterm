@@ -94,7 +94,7 @@
     "serialize-error": "^13.0.1",
     "splitpanes": "^4.0.3",
     "ssh2": "^1.16.0",
-    "strip-ansi": "^7.1.0",
+    "strip-ansi": "^7.2.0",
     "strip-ansi-cjs": "npm:strip-ansi@^6.0.1",
     "superjson": "^2.2.5",
     "v-contextmenu": "^3.2.0",
