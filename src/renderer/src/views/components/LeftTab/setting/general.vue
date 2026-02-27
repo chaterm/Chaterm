@@ -322,6 +322,7 @@ const userConfig = ref({
 })
 
 const customBackgroundImage = ref('')
+const SYSTEM_BG_KEY_PREFIX = 'system-bg:'
 
 // Editor config form state (synced from store on load)
 const editorConfig = ref<EditorConfig>({
@@ -353,8 +354,13 @@ const loadSavedConfig = async () => {
         watermark: (savedConfig.watermark || 'open') as 'open' | 'close'
       } as any
 
+      const normalizedSystemBg = normalizeSystemBackgroundImage(userConfig.value.background.image)
+      if (normalizedSystemBg !== userConfig.value.background.image) {
+        userConfig.value.background.image = normalizedSystemBg
+      }
+
       // Initialize custom background image if current bg is not a system one
-      if (userConfig.value.background.image && !userConfig.value.background.image.includes('assets/backgroup/wall-')) {
+      if (userConfig.value.background.image && !isSystemBackgroundImage(userConfig.value.background.image)) {
         customBackgroundImage.value = userConfig.value.background.image
         userConfig.value.lastCustomImage = userConfig.value.background.image
       } else if (userConfig.value.lastCustomImage) {
@@ -516,8 +522,43 @@ const selectDefaultBackground = async () => {
 // Helper to get system background URL
 // Using a relative path that works in development and production (if assets are handled correctly)
 // In Electron renderer, we can often use relative paths or require/import
+const getSystemBgStorageKey = (index: number): string => `${SYSTEM_BG_KEY_PREFIX}${index}`
+
+const getSystemBgIndex = (imagePath: string): number | null => {
+  if (!imagePath) {
+    return null
+  }
+
+  if (imagePath.startsWith(SYSTEM_BG_KEY_PREFIX)) {
+    const index = Number(imagePath.slice(SYSTEM_BG_KEY_PREFIX.length))
+    return Number.isNaN(index) ? null : index
+  }
+
+  const match = imagePath.match(/wall-(\d+)\.jpg/)
+  if (!match) {
+    return null
+  }
+
+  const index = Number(match[1])
+  return Number.isNaN(index) ? null : index
+}
+
+const normalizeSystemBackgroundImage = (imagePath: string): string => {
+  const index = getSystemBgIndex(imagePath)
+  if (index === null) {
+    return imagePath
+  }
+  return getSystemBgStorageKey(index)
+}
+
+const isSystemBackgroundImage = (imagePath: string): boolean => getSystemBgIndex(imagePath) !== null
+
 const getSystemBgUrl = (index: number): string => {
   return new URL(`../../../../assets/backgroup/wall-${index}.jpg`, import.meta.url).href
+}
+
+const isSystemBgSelected = (index: number): boolean => {
+  return getSystemBgIndex(userConfig.value.background.image) === index
 }
 
 const selectSystemBackground = async (index: number) => {

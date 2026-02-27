@@ -552,6 +552,37 @@ describe('AiTab Component - Browser Mode Integration', () => {
     })
   })
 
+  describe('Paste Behavior in Input', () => {
+    it('should paste rich text as plain text in ai input', async () => {
+      await new Promise((resolve) => setTimeout(resolve, 500))
+
+      const chatInputEl = document.querySelector('[data-testid="ai-message-input"]') as HTMLElement | null
+      expect(chatInputEl).toBeTruthy()
+      if (!chatInputEl) return
+
+      chatInputEl.focus()
+      chatInputEl.click()
+      chatInputEl.textContent = ''
+      chatInputEl.dispatchEvent(new Event('input', { bubbles: true }))
+      await new Promise((resolve) => setTimeout(resolve, 50))
+
+      const clipboardData = new DataTransfer()
+      clipboardData.setData('text/plain', 'Bold text')
+      clipboardData.setData('text/html', '<b>Bold</b> text')
+
+      const pasteEvent = new ClipboardEvent('paste', {
+        bubbles: true,
+        cancelable: true,
+        clipboardData
+      })
+      chatInputEl.dispatchEvent(pasteEvent)
+      await new Promise((resolve) => setTimeout(resolve, 80))
+
+      expect(chatInputEl.innerText).toContain('Bold text')
+      expect(chatInputEl.innerHTML.includes('<b>')).toBe(false)
+    })
+  })
+
   describe('Close AI Tab with Command+W (Cmd+W)', () => {
     beforeEach(() => {
       // Mock macOS platform

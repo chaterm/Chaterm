@@ -469,15 +469,63 @@ const handleEditableDrop = async (e: DragEvent) => {
   })
 }
 
-// Handle paste events for images
-const handlePaste = (e: ClipboardEvent) => {
-  // Check for images synchronously first to prevent default browser paste behavior
-  if (hasClipboardImages(e)) {
-    // Prevent default paste behavior immediately before async processing
-    e.preventDefault()
-    // Process images asynchronously
-    handlePasteImage(e)
+const insertPlainTextAtCursor = (text: string) => {
+  if (!editableRef.value) return
+
+  editableRef.value.focus()
+  restoreSelection()
+
+  const selection = window.getSelection()
+  if (!selection) return
+
+  let range: Range | null = selection.rangeCount > 0 ? selection.getRangeAt(0) : null
+  if (!range || !editableRef.value.contains(range.startContainer)) {
+    moveCaretToEnd()
+    range = selection.rangeCount > 0 ? selection.getRangeAt(0) : null
   }
+  if (!range) return
+
+  const fragment = document.createDocumentFragment()
+  const normalizedText = text.replace(/\r\n/g, '\n')
+  const lines = normalizedText.split('\n')
+  lines.forEach((line, index) => {
+    fragment.appendChild(document.createTextNode(line))
+    if (index < lines.length - 1) {
+      fragment.appendChild(document.createElement('br'))
+    }
+  })
+
+  const caretMarker = document.createTextNode('')
+  fragment.appendChild(caretMarker)
+
+  range.deleteContents()
+  range.insertNode(fragment)
+
+  const newRange = document.createRange()
+  newRange.setStart(caretMarker, 0)
+  newRange.collapse(true)
+  selection.removeAllRanges()
+  selection.addRange(newRange)
+  caretMarker.remove()
+
+  saveSelection()
+  handleEditableInput()
+}
+
+// Handle paste events:
+// - Keep image paste in the dedicated image pipeline.
+// - Force non-image paste to plain text to strip formatting.
+const handlePaste = (e: ClipboardEvent) => {
+  if (hasClipboardImages(e)) {
+    e.preventDefault()
+    handlePasteImage(e)
+    return
+  }
+
+  // Always prevent default before inserting to block browser rich-text paste.
+  e.preventDefault()
+  const plainText = e.clipboardData?.getData('text/plain') ?? ''
+  insertPlainTextAtCursor(plainText)
 }
 
 watch(
@@ -585,7 +633,8 @@ watch(
 )
 
 const inputPlaceholder = computed(() => {
-  return chatTypeValue.value === 'agent' ? t('ai.agentMessage') : chatTypeValue.value === 'chat' ? t('ai.chatMessage') : t('ai.cmdMessage')
+  // return chatTypeValue.value === 'agent' ? t('ai.agentMessage') : chatTypeValue.value === 'chat' ? t('ai.chatMessage') : t('ai.cmdMessage')
+  return chatTypeValue.value === 'agent' ? t('ai.agentMessage') : t('ai.cmdMessage')
 })
 
 // ============================================================================

@@ -379,9 +379,7 @@ describe('useChatMessages', () => {
       expect(notification.error).toHaveBeenCalled()
     })
 
-    it('should return error when hosts are empty for non-chat type', async () => {
-      const { notification } = await import('ant-design-vue')
-
+    it('should send message even when hosts are empty for non-chat type', async () => {
       const { sendMessage } = useChatMessages(
         mockScrollToBottom,
         mockClearTodoState,
@@ -395,10 +393,9 @@ describe('useChatMessages', () => {
       mockState.hosts.value = []
       mockState.chatTypeValue.value = 'cmd'
 
-      const result = await sendMessage('send')
+      await sendMessage('send')
 
-      expect(result).toBe('ASSET_ERROR')
-      expect(notification.error).toHaveBeenCalled()
+      expect(mockSendToMain).toHaveBeenCalled()
     })
 
     it('should switch to cmd when switch host is selected in agent mode', async () => {
