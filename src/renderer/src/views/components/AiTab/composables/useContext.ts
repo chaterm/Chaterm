@@ -146,9 +146,9 @@ export const useContext = (options: UseContextOptions = {}) => {
   })
 
   const filteredHostOptions = computed(() => {
-    if (chatTypeValue.value === 'chat') {
-      return []
-    }
+    // if (chatTypeValue.value === 'chat') {
+    //   return []
+    // }
     if (chatTypeValue.value === 'cmd') {
       return flattenedHostOptions.value
     }
@@ -470,9 +470,7 @@ export const useContext = (options: UseContextOptions = {}) => {
 
     // Fetch data for the selected category
     if (level === 'hosts') {
-      if (chatTypeValue.value === 'chat') {
-        hostOptions.value.splice(0, hostOptions.value.length)
-      } else if (chatTypeValue.value === 'cmd') {
+      if (chatTypeValue.value === 'cmd') {
         await fetchHostOptionsForCommandMode('')
       } else {
         await fetchHostOptions('')
@@ -622,10 +620,10 @@ export const useContext = (options: UseContextOptions = {}) => {
   }
 
   const fetchHostOptions = async (search: string) => {
-    if (chatTypeValue.value === 'chat') {
-      hostOptions.value = []
-      return
-    }
+    // if (chatTypeValue.value === 'chat') {
+    //   hostOptions.value = []
+    //   return
+    // }
     if (hostOptionsLoading.value) return
 
     hostOptionsLoading.value = true
@@ -705,10 +703,10 @@ export const useContext = (options: UseContextOptions = {}) => {
    * Fetch list of hosts from currently opened terminal tabs
    */
   const fetchOpenedHosts = async () => {
-    if (chatTypeValue.value === 'chat') {
-      openedHostsList.value = []
-      return
-    }
+    // if (chatTypeValue.value === 'chat') {
+    //   openedHostsList.value = []
+    //   return
+    // }
 
     openedHostsLoading.value = true
     const TIMEOUT_MS = 3000

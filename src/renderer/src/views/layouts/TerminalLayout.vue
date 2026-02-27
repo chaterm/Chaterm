@@ -321,6 +321,7 @@ import { captureExtensionUsage, ExtensionNames, ExtensionStatus } from '@/utils/
 import Dashboard from '@renderer/views/components/Ssh/components/dashboard.vue'
 import { getGlobalState } from '@/agent/storage/state'
 import { useAiSidebarModelRefresh } from './composables/useAiSidebarModelRefresh'
+import { isFocusInAiTab } from '@/utils/domUtils'
 
 import 'dockview-vue/dist/styles/dockview.css'
 import { type DockviewReadyEvent, DockviewVue } from 'dockview-vue'
@@ -761,6 +762,7 @@ onMounted(async () => {
 
   document.addEventListener('keydown', handleCtrlW, true)
   ;(globalThis as any).__ctrlWHandler = handleCtrlW
+  window.addEventListener('keydown', handleCloseTabKeyDown)
 
   eventBus.on('updateWatermark', (watermark) => {
     showWatermark.value = watermark !== 'close'
@@ -1753,6 +1755,7 @@ onUnmounted(() => {
     delete (globalThis as any).__ctrlWHandler
   }
   document.removeEventListener('mousemove', handleGlobalMouseMove)
+  window.removeEventListener('keydown', handleCloseTabKeyDown)
 
   eventBus.off('currentClickServer', currentClickServer)
   eventBus.off('getActiveTabAssetInfo', handleGetActiveTabAssetInfo)
@@ -2207,6 +2210,52 @@ const panelCount = ref(0)
 const hasPanels = computed(() => panelCount.value > 0)
 let dockApi: DockviewApi | null = null
 const dockApiInstance = ref<DockviewApi | null>(null)
+
+const isFocusInTerminal = (event: KeyboardEvent): boolean => {
+  const target = event.target as HTMLElement | null
+  const activeElement = document.activeElement as HTMLElement | null
+  const terminalContainer = target?.closest('.terminal-container') || activeElement?.closest('.terminal-container')
+  const xtermElement = target?.closest('.xterm') || activeElement?.closest('.xterm')
+
+  return !!(terminalContainer || xtermElement)
+}
+
+const handleCloseTabKeyDown = (event: KeyboardEvent) => {
+  const isMac = navigator.platform.toUpperCase().indexOf('MAC') >= 0
+  const isCloseShortcut = (isMac && event.metaKey && event.key === 'w') || (!isMac && event.ctrlKey && event.shiftKey && event.key === 'W')
+
+  if (!isCloseShortcut) {
+    return
+  }
+
+  if (isFocusInAiTab(event)) {
+    return
+  }
+
+  if (!dockApi || !dockApi.activePanel) {
+    return
+  }
+
+  const activePanel = dockApi.activePanel
+  const params = activePanel.params as Record<string, any> | undefined
+
+  if (isFocusInTerminal(event) && params?.organizationId && params.organizationId !== '') {
+    return
+  }
+
+  const CLOSE_DEBOUNCE_TIME = 100
+  const currentTime = Date.now()
+  if (currentTime - ((window as any).lastCloseTime || 0) < CLOSE_DEBOUNCE_TIME) {
+    event.preventDefault()
+    event.stopPropagation()
+    return
+  }
+  ;(window as any).lastCloseTime = currentTime
+
+  event.preventDefault()
+  event.stopPropagation()
+  activePanel.api.close()
+}
 
 defineOptions({
   name: 'TerminalLayout',

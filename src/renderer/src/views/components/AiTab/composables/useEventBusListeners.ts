@@ -19,9 +19,9 @@ interface UseEventBusListenersParams {
 }
 
 export const AiTypeOptions = [
-  { label: 'Chat', value: 'chat' },
-  { label: 'Command', value: 'cmd' },
-  { label: 'Agent', value: 'agent' }
+  // { label: 'Chat', value: 'chat' },
+  { label: 'Agent', value: 'agent' },
+  { label: 'Command', value: 'cmd' }
 ]
 
 interface TabInfo {
@@ -63,10 +63,9 @@ export function useEventBusListeners(params: UseEventBusListenersParams) {
 
   // Initialize asset information
   const initAssetInfo = async () => {
-    // Skip host initialization in chat mode
-    if (chatTypeValue.value === 'chat') {
-      return
-    }
+    // if (chatTypeValue.value === 'chat') {
+    //   return
+    // }
 
     // Always check for switch mode restriction first
     await checkAndHandleSwitchMode()
@@ -123,10 +122,9 @@ export function useEventBusListeners(params: UseEventBusListenersParams) {
   }
 
   const handleActiveTabChanged = async (tabInfo: TabInfo) => {
-    // Skip host update in chat mode
-    if (chatTypeValue.value === 'chat') {
-      return
-    }
+    // if (chatTypeValue.value === 'chat') {
+    //   return
+    // }
     const session = currentSession.value
     if (!autoUpdateHost.value || (session && session.chatHistory.length > 0)) {
       return

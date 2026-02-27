@@ -1316,10 +1316,8 @@ export class Task {
 
   private async initiateTaskLoop(userContent: UserContent): Promise<void> {
     let nextUserContent = userContent
-    let includeHostDetails = true
     while (!this.abort) {
-      const didEndLoop = await this.recursivelyMakeChatermRequests(nextUserContent, includeHostDetails)
-      includeHostDetails = false // we only need file details the first time
+      const didEndLoop = await this.recursivelyMakeChatermRequests(nextUserContent)
 
       //const totalCost = this.calculateApiCost(totalInputTokens, totalOutputTokens)
       if (didEndLoop) {
@@ -1841,7 +1839,7 @@ export class Task {
     }
   }
 
-  async recursivelyMakeChatermRequests(userContent: UserContent, includeHostDetails: boolean = false): Promise<boolean> {
+  async recursivelyMakeChatermRequests(userContent: UserContent): Promise<boolean> {
     if (this.abort) {
       throw new Error('Chaterm instance aborted')
     }
@@ -1853,7 +1851,7 @@ export class Task {
     await this.handleConsecutiveMistakes(userContent)
     await this.handleAutoApprovalLimits()
 
-    await this.prepareApiRequest(userContent, includeHostDetails)
+    await this.prepareApiRequest(userContent)
 
     try {
       return await this.processApiStreamAndResponse()
@@ -1922,7 +1920,7 @@ export class Task {
     this.consecutiveAutoApprovedRequestsCount = 0
   }
 
-  private async prepareApiRequest(userContent: UserContent, includeHostDetails: boolean): Promise<void> {
+  private async prepareApiRequest(userContent: UserContent): Promise<void> {
     const userInputParts = this.consumeNextUserInputContentParts()
 
     // Process all content parts: images, docs, chats, and command chips
@@ -1940,9 +1938,7 @@ export class Task {
 
     await this.handleFirstRequestCheckpoint()
 
-    const [parsedUserContent, environmentDetails] = await this.loadContext(userContent, includeHostDetails)
-    userContent.length = 0
-    userContent.push(...parsedUserContent)
+    const environmentDetails = await this.loadContext()
     userContent.push({ type: 'text', text: environmentDetails })
 
     await this.addToApiConversationHistory({
@@ -2318,38 +2314,12 @@ export class Task {
     return false
   }
 
-  async loadContext(userContent: UserContent, includeHostDetails: boolean = false): Promise<[UserContent, string]> {
-    const processUserContent = async () => {
-      return await Promise.all(
-        userContent.map(async (block) => {
-          if (block.type === 'text') {
-            // We need to ensure any user generated content is wrapped in one of these tags so that we know to parse mentions
-            // FIXME: Only parse text in between these tags instead of the entire text block which may contain other tool results. This is part of a larger issue where we shouldn't be using regex to parse mentions in the first place (ie for cases where file paths have spaces)
-            if (
-              block.text.includes('<feedback>') ||
-              block.text.includes('<answer>') ||
-              block.text.includes('<task>') ||
-              block.text.includes('<user_message>')
-            ) {
-              return {
-                ...block
-                //text: processedText,
-              }
-            }
-          }
-          return block
-        })
-      )
-    }
-
-    // Run initial promises in parallel
-    const [processedUserContent, environmentDetails] = await Promise.all([processUserContent(), this.getEnvironmentDetails(includeHostDetails)])
-
-    // Return all results
-    return [processedUserContent, environmentDetails]
+  async loadContext(): Promise<string> {
+    const environmentDetails = await this.getEnvironmentDetails()
+    return environmentDetails
   }
 
-  async getEnvironmentDetails(includeHostDetails: boolean = false) {
+  async getEnvironmentDetails() {
     let details = ''
     // Add current time information with timezone
     const now = new Date()
@@ -2367,35 +2337,31 @@ export class Task {
     const timeZoneOffsetStr = `${timeZoneOffset >= 0 ? '+' : ''}${timeZoneOffset}:00`
     details += `\n\n# ${this.messages.currentTimeTitle}:\n${formatter.format(now)} (${timeZone}, UTC${timeZoneOffsetStr})`
 
-    if (includeHostDetails && this.hosts && this.hosts.length > 0) {
-      details += `\n\n# ${this.messages.currentHostsTitle}:\n${this.hosts.map((h) => h.host).join(', ')}`
+    const hosts = this.hosts?.map((h) => h.host).join(', ') ?? ''
+    details += `\n\n# ${this.messages.currentHostsTitle}:[${hosts}]\n\n`
 
-      for (const host of this.hosts) {
-        if (host.assetType?.startsWith('person-switch-')) {
-          continue
-        }
-
-        details += `\n\n# ${formatMessage(this.messages.hostWorkingDirectory, { host: host.host })}:\n`
-
-        const res = await this.executeCommandInRemoteServer('ls -al', host.host)
-
-        const processLsOutput = (output: string): string => {
-          const lines = output.split('\n')
-          const totalLine = lines[0]
-          const fileLines = lines.slice(1).filter((line) => line.trim() !== '')
-          const limitedLines = fileLines.slice(0, 200)
-          let result = totalLine + '\n'
-          result += limitedLines.join('\n')
-          if (fileLines.length > 200) {
-            result += formatMessage(this.messages.moreFilesNotShown, { count: fileLines.length - 200 })
-          }
-          return result
-        }
-
-        const processedOutput = processLsOutput(res)
-        details += processedOutput
-      }
-    }
+    // Files informations are not used for now because we can't get the current working directory of the hosts
+    // for (const host of this.hosts) {
+    //   if (host.assetType?.startsWith('person-switch-')) {
+    //     continue
+    //   }
+    //   details += `\n\n# ${formatMessage(this.messages.hostWorkingDirectory, { host: host.host })}:\n`
+    //   const res = await this.executeCommandInRemoteServer('ls -al', host.host)
+    //   const processLsOutput = (output: string): string => {
+    //     const lines = output.split('\n')
+    //     const totalLine = lines[0]
+    //     const fileLines = lines.slice(1).filter((line) => line.trim() !== '')
+    //     const limitedLines = fileLines.slice(0, 200)
+    //     let result = totalLine + '\n'
+    //     result += limitedLines.join('\n')
+    //     if (fileLines.length > 200) {
+    //       result += formatMessage(this.messages.moreFilesNotShown, { count: fileLines.length - 200 })
+    //     }
+    //     return result
+    //   }
+    //   const processedOutput = processLsOutput(res)
+    //   details += processedOutput
+    // }
 
     // Add context window usage information
     const { contextWindow } = getContextWindowInfo(this.api)
@@ -3620,7 +3586,7 @@ export class Task {
         await this.sayUserFeedback(text, contentParts)
         this.userMessageContent.push({
           type: 'text',
-          text: `The user has provided feedback on the response. Consider their input to continue the conversation.\n<feedback>\n${text}\n</feedback>`
+          text: formatMessage(this.messages.userProvidedFeedback, { feedback: text })
         })
       }
 
