@@ -3,6 +3,10 @@ import { toRaw } from 'vue'
 
 const logger = createRendererLogger('service.userConfig')
 
+function isSystemBackgroundImage(image: string): boolean {
+  return /(?:^|\/)wall-\d+\.jpg(?:\?.*)?$/i.test(image) || image.includes('assets/backgroup/wall-')
+}
+
 export interface ShortcutConfig {
   [key: string]: string
 }
@@ -52,6 +56,7 @@ export interface UserConfig {
   }>
   workspaceExpandedKeys?: string[]
   workspaceShowIpMode?: boolean
+  lastCustomImage?: string
   background: BackgroundConfig
 }
 
@@ -115,6 +120,7 @@ export class UserConfigStoreService {
       sshAgentsMap: '[]',
       sshProxyConfigs: [],
       workspaceExpandedKeys: [],
+      lastCustomImage: '',
       background: {
         mode: 'none',
         image: '',
@@ -150,6 +156,33 @@ export class UserConfigStoreService {
         if (savedConfig.backgroundMode !== undefined) {
           savedConfig.background.mode = savedConfig.backgroundMode
         }
+      }
+
+      // Migration: Handle legacy backgroundConfig object format
+      if (savedConfig.backgroundConfig) {
+        if (!savedConfig.background.image && savedConfig.backgroundConfig.imagePath) {
+          savedConfig.background.image = savedConfig.backgroundConfig.imagePath
+        }
+        if (savedConfig.backgroundConfig.enabled !== undefined) {
+          savedConfig.background.mode = savedConfig.backgroundConfig.enabled ? 'image' : 'none'
+        }
+        delete savedConfig.backgroundConfig
+      }
+
+      // Discard base64 image data from legacy versions - only file paths are valid
+      if (savedConfig.background.image && savedConfig.background.image.startsWith('data:')) {
+        savedConfig.background.image = ''
+        savedConfig.background.mode = 'none'
+      }
+
+      // Migration: Preserve last custom background path explicitly for UI restore
+      if (
+        !savedConfig.lastCustomImage &&
+        savedConfig.background.image &&
+        !savedConfig.background.image.startsWith('data:') &&
+        !isSystemBackgroundImage(savedConfig.background.image)
+      ) {
+        savedConfig.lastCustomImage = savedConfig.background.image
       }
 
       // Merge with default config to ensure all fields exist

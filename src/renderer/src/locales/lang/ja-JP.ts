@@ -482,9 +482,8 @@ export default {
       'ボタンをクリックして、キーワードハイライト設定ファイルを直接開き、ターミナル出力のハイライトルールをカスタマイズします。',
     success: '成功',
     background: '背景',
-    backgroundNone: 'なし',
-    backgroundEnable: '有効',
-    backgroundUpload: 'アップロード',
+    backgroundDefault: 'デフォルト背景',
+    backgroundCustomUpload: 'カスタムアップロード（JPG、PNG、WebP、GIF）',
     backgroundOpacity: '不透明度',
     backgroundBrightness: '明るさ',
     saveBackgroundFailed: '背景画像の保存に失敗しました'

@@ -482,9 +482,8 @@ export default {
       'Click the button to directly open the keyword highlighting configuration file and customize highlighting rules for terminal output.',
     success: 'Success',
     background: 'Background',
-    backgroundNone: 'None',
-    backgroundEnable: 'Enable',
-    backgroundUpload: 'Upload',
+    backgroundDefault: 'Default',
+    backgroundCustomUpload: 'Custom Upload (JPG, PNG, WebP, GIF)',
     backgroundOpacity: 'Opacity',
     backgroundBrightness: 'Brightness',
     saveBackgroundFailed: 'Failed to save background image'
