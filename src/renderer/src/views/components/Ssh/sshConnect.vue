@@ -45,9 +45,10 @@
     <SuggComp
       v-bind="{ ref: (el) => setRef(el, connectionId) }"
       :unique-key="connectionId"
-      :suggestions="suggestions"
+      :suggestions="displaySuggestions"
       :active-suggestion="activeSuggestion"
       :selection-mode="suggestionSelectionMode"
+      :ai-loading="aiSuggestLoading"
     />
     <v-contextmenu ref="contextmenu">
       <Context
@@ -162,14 +163,21 @@ const getContainerFunc = () => {
   return (terminalContainer.value as HTMLElement) || document.body
 }
 
-interface CommandSuggestion {
-  command: string
-  source: 'base' | 'history'
-}
+import type { CommandSuggestion } from './types/suggestion'
 
 const suggestions = ref<CommandSuggestion[]>([])
 const activeSuggestion = ref(-1)
 const suggestionSelectionMode = ref(false) // Whether suggestion box is in selection mode
+
+// AI suggestion state
+const aiSuggestion = ref<CommandSuggestion | null>(null)
+const aiSuggestTimer = ref<ReturnType<typeof setTimeout> | null>(null)
+const aiSuggestRequestId = ref(0)
+const aiSuggestLoading = ref(false)
+const cachedOsInfo = ref<string | undefined>(undefined)
+const cachedOsInfoLoaded = ref(false)
+const AI_SUGGEST_DEBOUNCE_MS = 800
+const AI_SUGGEST_MIN_LENGTH = 3
 const props = defineProps({
   connectData: {
     type: Object as PropType<sshConnectData>,
@@ -186,6 +194,36 @@ const props = defineProps({
   isActive: { type: Boolean, default: false }
 })
 const queryCommandFlag = ref(false)
+
+// Merged suggestion list: local autocomplete + AI suggestion
+const displaySuggestions = computed(() => {
+  const result = [...suggestions.value]
+  if (aiSuggestion.value) {
+    const isDuplicate = result.some((s) => s.command === aiSuggestion.value?.command)
+    if (!isDuplicate) {
+      result.unshift(aiSuggestion.value)
+    }
+  }
+  return result
+})
+
+// Helper to clear all suggestion state at once
+const clearAllSuggestions = (options: { resetActive?: boolean } = {}) => {
+  const { resetActive = true } = options
+  suggestions.value = []
+  aiSuggestion.value = null
+  aiSuggestLoading.value = false
+  aiSuggestRequestId.value++
+  // Cancel pending debounce timer to prevent stale AI requests after clear
+  if (aiSuggestTimer.value) {
+    clearTimeout(aiSuggestTimer.value)
+    aiSuggestTimer.value = null
+  }
+  suggestionSelectionMode.value = false
+  if (resetActive) {
+    activeSuggestion.value = -1
+  }
+}
 
 export interface sshConnectData {
   uuid: string
@@ -271,6 +309,13 @@ const isConnected = ref(false)
 const terminal = ref<Terminal | null>(null)
 const fitAddon = ref<FitAddon | null>(null)
 const connectionId = ref('')
+const traceAiSuggest = (message: string, meta?: Record<string, unknown>) => {
+  logger.debug(message, {
+    event: 'ssh.aiSuggest.trace',
+    connectionId: connectionId.value || undefined,
+    ...(meta || {})
+  })
+}
 const connectionHasSudo = ref(false)
 const connectionSftpAvailable = ref(false)
 const cleanupListeners = ref<Array<() => void>>([])
@@ -496,6 +541,7 @@ onMounted(async () => {
       }
       if (!selectFlag.value) {
         queryCommand()
+        triggerAiSuggest()
       }
     }
     updateTimeout = null
@@ -829,6 +875,14 @@ onBeforeUnmount(() => {
     window.clearTimeout(viewportScrollbarHideTimer)
     viewportScrollbarHideTimer = null
   }
+
+  // Cleanup AI suggestion state
+  if (aiSuggestTimer.value) {
+    clearTimeout(aiSuggestTimer.value)
+    aiSuggestTimer.value = null
+  }
+  aiSuggestRequestId.value++
+  aiSuggestion.value = null
 })
 const getFileExt = (fileName: string): string => {
   const match = fileName.match(/\.[^.\/\\]+$/)
@@ -1272,6 +1326,7 @@ const startShell = async () => {
     initZmodem()
     if (result.status === 'success') {
       isConnected.value = true
+      void loadOsInfoOnce()
       const removeDataListener = api.onShellData(connectionId.value, (response: MarkedResponse) => {
         consumeZmodemIncoming(response)
       })
@@ -1776,10 +1831,8 @@ const setupTerminalInput = () => {
     }
 
     // Intercept Delete/Backspace when suggestions are visible: clear and forward once to actually delete char
-    if (isDeleteKeyData(data) && suggestions.value.length > 0) {
-      suggestions.value = []
-      activeSuggestion.value = -1
-      suggestionSelectionMode.value = false
+    if (isDeleteKeyData(data) && displaySuggestions.value.length > 0) {
+      clearAllSuggestions()
       // Avoid immediate re-query; user will continue typing
       selectFlag.value = true
       // Forward the delete/backspace to remote to actually remove character
@@ -1789,28 +1842,20 @@ const setupTerminalInput = () => {
     if (data === '\t') {
       const cmd = JSON.parse(JSON.stringify(terminalState.value.content))
       selectFlag.value = true
-      suggestions.value = []
-      activeSuggestion.value = -1
-      suggestionSelectionMode.value = false
+      clearAllSuggestions()
       setTimeout(() => {
         queryCommand(cmd)
       }, 100)
     }
     if (data === '\x03') {
-      if (suggestions.value.length) {
-        suggestions.value = []
-        activeSuggestion.value = -1
-        suggestionSelectionMode.value = false
-        nextTick(() => {})
+      if (displaySuggestions.value.length) {
+        clearAllSuggestions()
       }
       selectFlag.value = true
       sendData(data)
     } else if (data === '\x0c') {
-      if (suggestions.value.length) {
-        suggestions.value = []
-        activeSuggestion.value = -1
-        suggestionSelectionMode.value = false
-        nextTick(() => {})
+      if (displaySuggestions.value.length) {
+        clearAllSuggestions()
       }
       selectFlag.value = true
       sendData(data)
@@ -1819,11 +1864,8 @@ const setupTerminalInput = () => {
       if (contextmenu.value && typeof contextmenu.value.hide === 'function') {
         contextmenu.value.hide()
       }
-      if (suggestions.value.length) {
-        suggestions.value = []
-        activeSuggestion.value = -1
-        suggestionSelectionMode.value = false
-        nextTick(() => {})
+      if (displaySuggestions.value.length) {
+        clearAllSuggestions()
         return
       } else {
         sendData(data)
@@ -1855,13 +1897,8 @@ const setupTerminalInput = () => {
       }
 
       const command = terminalState.value.content
-      if (suggestions.value.length && activeSuggestion.value >= 0) {
-        selectSuggestion(suggestions.value[activeSuggestion.value])
-        selectFlag.value = true
-        selectFlag.value = true
-        suggestions.value = []
-        activeSuggestion.value = -1
-        suggestionSelectionMode.value = false
+      if (displaySuggestions.value.length && activeSuggestion.value >= 0) {
+        selectSuggestion(displaySuggestions.value[activeSuggestion.value])
         // Ensure scroll to bottom
         nextTick(() => {
           terminal.value?.scrollToBottom()
@@ -1904,15 +1941,11 @@ const setupTerminalInput = () => {
           setTimeout(() => {
             terminalMode.value = 'alternate'
             // Clear the auto-completion box immediately when entering the vim mode.
-            suggestions.value = []
-            activeSuggestion.value = -1
-            suggestionSelectionMode.value = false
+            clearAllSuggestions()
           }, 500)
         }
       }
-      suggestions.value = []
-      activeSuggestion.value = -1
-      suggestionSelectionMode.value = false
+      clearAllSuggestions()
 
       // Ensure scroll to bottom and maintain focus
       nextTick(() => {
@@ -1920,11 +1953,11 @@ const setupTerminalInput = () => {
         terminal.value?.focus()
       })
     } else if (JSON.stringify(data) === '"\\u001b[A"') {
-      if (suggestions.value.length && suggestionSelectionMode.value) {
+      if (displaySuggestions.value.length && suggestionSelectionMode.value) {
         if (data == '\u001b[A') {
           // Up arrow key: cycle up navigation - only when in selection mode
           if (activeSuggestion.value <= 0) {
-            activeSuggestion.value = suggestions.value.length - 1
+            activeSuggestion.value = displaySuggestions.value.length - 1
           } else {
             activeSuggestion.value -= 1
           }
@@ -1937,10 +1970,10 @@ const setupTerminalInput = () => {
         }
       }
     } else if (JSON.stringify(data) === '"\\u001b[B"') {
-      if (suggestions.value.length && suggestionSelectionMode.value) {
+      if (displaySuggestions.value.length && suggestionSelectionMode.value) {
         if (data == '\u001b[B') {
           // Down arrow key: cycle down navigation - only when in selection mode
-          if (activeSuggestion.value >= suggestions.value.length - 1) {
+          if (activeSuggestion.value >= displaySuggestions.value.length - 1) {
             activeSuggestion.value = 0
           } else {
             activeSuggestion.value += 1
@@ -1955,7 +1988,7 @@ const setupTerminalInput = () => {
       }
     } else if (data == '\u001b[C') {
       // Right arrow key - enter selection mode or select suggestion
-      if (suggestions.value.length) {
+      if (displaySuggestions.value.length) {
         if (!suggestionSelectionMode.value) {
           // Enter selection mode and select first item
           suggestionSelectionMode.value = true
@@ -1964,7 +1997,7 @@ const setupTerminalInput = () => {
           selectFlag.value = true
         } else {
           // Already in selection mode, select current suggestion
-          selectSuggestion(suggestions.value[activeSuggestion.value])
+          selectSuggestion(displaySuggestions.value[activeSuggestion.value])
           selectFlag.value = true
         }
       } else {
@@ -1972,7 +2005,7 @@ const setupTerminalInput = () => {
       }
     } else if (data == '\u001b[D') {
       // Left arrow key - exit selection mode or pass through
-      if (suggestions.value.length && suggestionSelectionMode.value) {
+      if (displaySuggestions.value.length && suggestionSelectionMode.value) {
         suggestionSelectionMode.value = false
       } else {
         sendData(data)
@@ -1983,6 +2016,7 @@ const setupTerminalInput = () => {
     }
     if (!selectFlag.value) {
       queryCommand()
+      triggerAiSuggest()
     }
   }
   termOndata = terminal.value?.onData(handleInput)
@@ -2090,6 +2124,12 @@ watch(
   { immediate: true }
 )
 
+// Reload OS info when connectionId changes (e.g., reconnect)
+watch(connectionId, () => {
+  cachedOsInfoLoaded.value = false
+  cachedOsInfo.value = undefined
+})
+
 const checkFullScreenClear = (data: string) => {
   const isSimpleCtrlL = data.includes('\x1b[H\x1b[2J')
   if (isSimpleCtrlL) return false
@@ -2137,9 +2177,7 @@ const checkEditorMode = (response: MarkedResponse) => {
     if (EDITOR_SEQUENCES.enter.some((seq) => matchPattern(dataBuffer.value, seq.pattern))) {
       terminalMode.value = 'alternate'
       // Clear the auto-completion box immediately when entering the vim mode.
-      suggestions.value = []
-      activeSuggestion.value = -1
-      suggestionSelectionMode.value = false
+      clearAllSuggestions()
       nextTick(handleResize)
       return
     }
@@ -2166,9 +2204,7 @@ const checkEditorMode = (response: MarkedResponse) => {
     ) {
       terminalMode.value = 'alternate'
       // Clear the auto-completion box immediately when entering the vim mode.
-      suggestions.value = []
-      activeSuggestion.value = -1
-      suggestionSelectionMode.value = false
+      clearAllSuggestions()
       nextTick(handleResize)
       return
     }
@@ -2177,9 +2213,7 @@ const checkEditorMode = (response: MarkedResponse) => {
     if (text.includes('\x1b[?25h') && (text.includes('All') || text.includes('H'))) {
       terminalMode.value = 'alternate'
       // Clear the auto-completion box immediately when entering the vim mode.
-      suggestions.value = []
-      activeSuggestion.value = -1
-      suggestionSelectionMode.value = false
+      clearAllSuggestions()
       nextTick(handleResize)
       return
     }
@@ -3973,24 +4007,150 @@ const selectSuggestion = (suggestion: CommandSuggestion) => {
   sendData(RIGHTCODE.repeat(terminalState.value.content.length - terminalState.value.beforeCursor.length))
   sendData(DELCODE.repeat(terminalState.value.content.length))
   sendData(suggestion.command)
-  suggestions.value = []
-  activeSuggestion.value = -1
-  suggestionSelectionMode.value = false
+  clearAllSuggestions()
 }
-const queryCommand = async (cmd = '') => {
-  if (!queryCommandFlag.value) return
 
-  // Check if it is in the Vim editing mode. If so, do not trigger the automatic completion.
+// Load OS info once for AI suggestion context
+const loadOsInfoOnce = async () => {
+  if (cachedOsInfoLoaded.value || !connectionId.value || !isConnected.value || isLocalConnect.value) return
+  try {
+    const res = await window.api.getSystemInfo(connectionId.value)
+    logger.debug('Fetched system info for AI suggestion context', { connectionId: connectionId.value, res })
+    if (res?.success && res.data?.osVersion) {
+      cachedOsInfo.value = res.data.osVersion
+      cachedOsInfoLoaded.value = true
+      return
+    }
+    cachedOsInfo.value = undefined
+    cachedOsInfoLoaded.value = true
+  } catch {
+    cachedOsInfo.value = undefined
+    cachedOsInfoLoaded.value = true
+  }
+}
+
+// Fetch AI suggestion from backend
+const fetchAiSuggestion = async (command: string, requestId: number) => {
+  // Early staleness check before setting loading state to prevent ghost loading indicators
+  if (requestId !== aiSuggestRequestId.value) {
+    return
+  }
+  aiSuggestLoading.value = true
+  // Update position so loading indicator is visible immediately
+  nextTick(() => {
+    const componentInstance = componentRefs.value[connectionId.value]
+    componentInstance?.updateSuggestionsPosition(terminal.value)
+  })
+  try {
+    if (!cachedOsInfoLoaded.value) {
+      await loadOsInfoOnce()
+    }
+    traceAiSuggest('Dispatching AI suggest IPC', {
+      requestId,
+      inputLength: command.length
+    })
+    const result = await window.api.aiSuggestCommand({
+      command,
+      osInfo: cachedOsInfo.value
+    })
+    // Discard stale responses: requestId + input snapshot double check
+    if (requestId !== aiSuggestRequestId.value) {
+      return
+    }
+    const currentInput = terminalState.value.beforeCursor.trim()
+    if (currentInput !== command) {
+      return
+    }
+    // Do not inject AI result while user is navigating the suggestion list
+    if (suggestionSelectionMode.value) {
+      return
+    }
+    if (result && result.command) {
+      aiSuggestion.value = {
+        command: result.command,
+        explanation: result.explanation,
+        source: 'ai'
+      }
+      traceAiSuggest('Accepted AI suggestion', {
+        requestId,
+        outputLength: result.command.length
+      })
+      // Update suggestion position after AI result arrives
+      nextTick(() => {
+        const componentInstance = componentRefs.value[connectionId.value]
+        componentInstance?.updateSuggestionsPosition(terminal.value)
+      })
+    } else {
+      aiSuggestion.value = null
+    }
+  } catch (error) {
+    traceAiSuggest('AI suggest IPC failed', {
+      error: error instanceof Error ? error.message : String(error)
+    })
+    if (requestId === aiSuggestRequestId.value) {
+      aiSuggestion.value = null
+    }
+  } finally {
+    // Always reset loading for current request; stale requests were already exited above
+    if (requestId === aiSuggestRequestId.value) {
+      aiSuggestLoading.value = false
+    }
+  }
+}
+
+// Debounced trigger for AI suggestion
+const triggerAiSuggest = () => {
+  // Cancel any pending timer
+  if (aiSuggestTimer.value) {
+    clearTimeout(aiSuggestTimer.value)
+    aiSuggestTimer.value = null
+  }
+  aiSuggestion.value = null
+
+  // Guard conditions
+  if (!queryCommandFlag.value) {
+    return
+  }
   if (terminalMode.value === 'alternate') {
-    suggestions.value = []
-    suggestionSelectionMode.value = false
+    return
+  }
+  if (suggestionSelectionMode.value) {
     return
   }
 
   const isAtEndOfLine = terminalState.value.beforeCursor.length === terminalState.value.content.length
   if (!isAtEndOfLine) {
-    suggestions.value = []
-    suggestionSelectionMode.value = false
+    return
+  }
+
+  const commandText = terminalState.value.beforeCursor.trim()
+  if (commandText.length < AI_SUGGEST_MIN_LENGTH) {
+    return
+  }
+
+  const currentRequestId = ++aiSuggestRequestId.value
+  aiSuggestTimer.value = setTimeout(() => {
+    aiSuggestTimer.value = null
+    // Re-check selection mode: user may have entered navigation during debounce wait
+    if (suggestionSelectionMode.value) {
+      return
+    }
+    fetchAiSuggestion(commandText, currentRequestId)
+  }, AI_SUGGEST_DEBOUNCE_MS)
+}
+
+const queryCommand = async (cmd = '') => {
+  if (!queryCommandFlag.value) return
+
+  // Check if it is in the Vim editing mode. If so, do not trigger the automatic completion.
+  if (terminalMode.value === 'alternate') {
+    clearAllSuggestions({ resetActive: false })
+    return
+  }
+
+  const isAtEndOfLine = terminalState.value.beforeCursor.length === terminalState.value.content.length
+  if (!isAtEndOfLine) {
+    clearAllSuggestions({ resetActive: false })
     return
   }
 
@@ -4043,7 +4203,7 @@ const handleKeyInput = (e) => {
   }
 
   if (ev.keyCode === 13 || e.key === '\u0003') {
-    if (suggestions.value.length && activeSuggestion.value >= 0) {
+    if (displaySuggestions.value.length && activeSuggestion.value >= 0) {
       return
     }
 
@@ -4067,7 +4227,7 @@ const handleKeyInput = (e) => {
     specialCode.value = true
   } else if (ev.keyCode == 37 || ev.keyCode == 39) {
     specialCode.value = true
-    if (suggestions.value.length) {
+    if (displaySuggestions.value.length) {
       specialCode.value = false
     }
   } else if (ev.keyCode == 9) {

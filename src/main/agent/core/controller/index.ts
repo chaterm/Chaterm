@@ -26,13 +26,18 @@ import {
   saveTaskMetadata,
   ensureMcpServersDirectoryExists
 } from '../storage/disk'
+import { isValidCommand } from '../../../storage/db/commandValidation'
 import { getAllExtensionState, getGlobalState, updateApiConfiguration, updateGlobalState, getUserConfig, getModelOptions } from '../storage/state'
 import { Task } from '../task'
 import { ApiConfiguration, ApiProvider, PROVIDER_MODEL_KEY_MAP } from '@shared/api'
 import { TITLE_GENERATION_PROMPT, TITLE_GENERATION_PROMPT_CN } from '../prompts/system'
 import { DEFAULT_LANGUAGE_SETTINGS } from '@shared/Languages'
 import type { CommandGenerationContext } from '@shared/WebviewMessage'
+import { isChineseEdition } from '../../../config/edition'
 const logger = createLogger('agent')
+// TODO: Replace hardcoded model names with chaterm-model configuration
+const AI_SUGGEST_MODEL_CN = 'Qwen-Plus'
+const AI_SUGGEST_MODEL_GLOBAL = 'gemini-3-pro'
 
 export class Controller {
   private postMessage: (message: ExtensionMessage) => Promise<boolean> | undefined
@@ -798,6 +803,189 @@ export class Controller {
       logger.error('Error processing title generation stream', { error: streamError })
       return ''
     }
+  }
+
+  /**
+   * Handle AI command suggestion for terminal autocomplete.
+   * Returns a single predicted command based on partial user input,
+   * or null if prediction is not possible.
+   */
+  async handleAiSuggestCommand(partialCommand: string, osInfo?: string): Promise<{ command: string; explanation: string } | null> {
+    const trace = (message: string, meta?: Record<string, unknown>) => {
+      logger.debug(message, {
+        event: 'agent.aiSuggest.trace',
+        ...meta
+      })
+    }
+
+    const trimmed = partialCommand?.trim() ?? ''
+
+    if (trimmed.length < 3) {
+      return null
+    }
+
+    try {
+      const { apiConfiguration } = await getAllExtensionState()
+      if (!apiConfiguration) {
+        return null
+      }
+
+      const timeoutMs = 2000
+      const fixedModelId = this.getFixedAiSuggestModelId()
+      // Clone configuration with a short timeout for autocomplete responsiveness
+      const suggestConfig: ApiConfiguration = {
+        ...apiConfiguration,
+        apiProvider: 'default',
+        defaultModelId: fixedModelId,
+        requestTimeoutMs: timeoutMs
+      }
+      trace('AI suggest provider selected', {
+        fixedModelId,
+        timeoutMs
+      })
+
+      if (!suggestConfig.defaultBaseUrl || !suggestConfig.defaultApiKey) {
+        return null
+      }
+
+      const api = buildApiHandler(suggestConfig)
+      const readStreamText = async (systemPrompt: string, userInput: string): Promise<string> => {
+        const conversation: Anthropic.MessageParam[] = [{ role: 'user' as const, content: userInput }]
+        const stream = api.createMessage(systemPrompt, conversation)
+        let output = ''
+
+        for await (const chunk of stream) {
+          if (chunk.type === 'text') {
+            output += chunk.text
+          }
+        }
+
+        return output
+      }
+
+      let userLanguage = DEFAULT_LANGUAGE_SETTINGS
+      try {
+        const userConfig = await getUserConfig()
+        if (userConfig?.language) {
+          userLanguage = userConfig.language
+        }
+      } catch {
+        // Ignore errors and fallback to default language.
+      }
+      const explanationLanguage = this.resolveAiSuggestExplanationLanguage(userLanguage)
+
+      const result = await readStreamText(this.buildAiSuggestPrompt(osInfo, explanationLanguage), trimmed)
+      const parsed = this.parseAiSuggestResponse(result, explanationLanguage)
+      if (!parsed) {
+        return null
+      }
+
+      if (!isValidCommand(parsed.command)) {
+        trace('AI suggest rejected by validator')
+        return null
+      }
+
+      trace('AI suggest accepted', { outputLength: parsed.command.length, explanationLength: parsed.explanation.length })
+      return parsed
+    } catch (error) {
+      trace('AI suggest failed', { error: error instanceof Error ? error.message : String(error) })
+      // Silently return null on any error to avoid disrupting autocomplete flow
+      return null
+    }
+  }
+
+  /**
+   * Build system prompt for AI command suggestion.
+   * Single-call prompt that returns both the predicted command and a brief explanation.
+   */
+  private buildAiSuggestPrompt(osInfo?: string, language?: 'zh' | 'en'): string {
+    const langInstruction = language === 'zh' ? 'EXP in Chinese, max 16 chars.' : 'EXP in English, max 8 words.'
+    const exampleExp = language === 'zh' ? '查看最近10条提交' : 'Show recent 10 commits'
+    return `You are a terminal autocomplete engine.
+The user message is a PARTIAL command typed in a terminal${osInfo ? ` (OS: ${osInfo})` : ''}. Complete it.
+
+Rules:
+- The completed command MUST start with exactly what the user typed
+- Prefer common commands and flags over obscure ones
+- Never suggest destructive commands (rm -rf /, mkfs, dd to disk)
+- If unsure, return: NONE
+- Format (two lines only, no other text):
+  CMD: <complete command>
+  EXP: <brief purpose>
+- ${langInstruction}
+
+Example:
+Input: git lo
+CMD: git log --oneline -10
+EXP: ${exampleExp}`
+  }
+
+  /**
+   * Parse the combined AI suggest response into command and explanation.
+   * Expected format:
+   *   CMD: <command>
+   *   EXP: <explanation>
+   */
+  private parseAiSuggestResponse(response: string, language: 'zh' | 'en'): { command: string; explanation: string } | null {
+    const text = response.trim()
+    if (!text || text.toUpperCase() === 'NONE') {
+      return null
+    }
+
+    const cmdMatch = text.match(/^CMD:\s*(.+)/im)
+    const expMatch = text.match(/^EXP:\s*(.+)/im)
+
+    if (!cmdMatch) {
+      // Fallback: treat entire response as command (backward compat with simple models)
+      // Strip any leftover label prefixes that slipped through
+      const cleaned = this.extractCommandFromResponse(text.replace(/^(?:cmd|exp):\s*/gim, '').trim())
+      if (!cleaned || cleaned.toUpperCase() === 'NONE') {
+        return null
+      }
+      return {
+        command: cleaned,
+        explanation: this.limitAiSuggestExplanation(this.getAiSuggestExplanationFallback(cleaned, language), language)
+      }
+    }
+
+    const command = this.extractCommandFromResponse(cmdMatch[1])
+    if (!command || command.toUpperCase() === 'NONE') {
+      return null
+    }
+
+    let explanation = expMatch ? expMatch[1].trim().replace(/^["']|["']$/g, '') : ''
+    if (!explanation) {
+      explanation = this.getAiSuggestExplanationFallback(command, language)
+    }
+
+    return {
+      command,
+      explanation: this.limitAiSuggestExplanation(explanation, language)
+    }
+  }
+
+  private resolveAiSuggestExplanationLanguage(language?: string): 'zh' | 'en' {
+    return language?.toLowerCase().startsWith('zh') ? 'zh' : 'en'
+  }
+
+  private getAiSuggestExplanationFallback(_command: string, language: 'zh' | 'en'): string {
+    if (language === 'zh') {
+      return 'AI 建议'
+    }
+    return 'AI suggested'
+  }
+
+  private limitAiSuggestExplanation(explanation: string, language: 'zh' | 'en'): string {
+    const normalized = explanation.replace(/\s+/g, ' ').trim()
+    const maxChars = language === 'zh' ? 20 : 60
+    if (normalized.length <= maxChars) {
+      return normalized
+    }
+    return `${normalized.slice(0, maxChars).trimEnd()}...`
+  }
+
+  private getFixedAiSuggestModelId(): string {
+    return isChineseEdition() ? AI_SUGGEST_MODEL_CN : AI_SUGGEST_MODEL_GLOBAL
   }
 
   /**

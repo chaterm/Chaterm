@@ -1620,6 +1620,30 @@ ipcMain.handle('insert-command', async (_, data) => {
   }
 })
 
+ipcMain.handle('ai-suggest-command', async (_, data) => {
+  try {
+    const { command, osInfo } = data
+    logger.debug('ai-suggest-command received', {
+      event: 'main.aiSuggest.ipc.received',
+      hasController: !!controller,
+      commandLength: typeof command === 'string' ? command.trim().length : 0,
+      hasOsInfo: !!osInfo
+    })
+    if (!controller) {
+      return null
+    }
+    const result = await controller.handleAiSuggestCommand(command, osInfo)
+    logger.debug('ai-suggest-command completed', {
+      event: 'main.aiSuggest.ipc.completed',
+      hasResult: !!result?.command
+    })
+    return result
+  } catch (error) {
+    logger.error('AI suggest command failed', { error })
+    return null
+  }
+})
+
 // Chaterm database related IPC handlers
 ipcMain.handle('asset-route-local-get', async (_, data) => {
   try {
