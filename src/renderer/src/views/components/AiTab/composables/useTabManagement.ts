@@ -236,7 +236,8 @@ export function useTabManagement(options: TabManagementOptions) {
             type: item.type,
             ask: item.ask,
             say: item.say,
-            ts: item.ts
+            ts: item.ts,
+            hosts: item.hosts && item.hosts.length > 0 ? item.hosts : loadedHosts
           }
 
           if (item.mcpToolCall) {

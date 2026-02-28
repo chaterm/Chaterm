@@ -17,6 +17,7 @@
         :is-active-tab="true"
         mode="edit"
         :initial-content-parts="displayParts"
+        :message-hosts="props.message.hosts || []"
         :on-confirm-edit="handleConfirmEdit"
       />
     </div>
@@ -67,7 +68,7 @@
 <script setup lang="ts">
 import { computed, ref, onMounted, onUnmounted, nextTick } from 'vue'
 import { isElementInAiTab } from '@/utils/domUtils'
-import type { ChatMessage } from '../../types'
+import type { ChatMessage, Host } from '../../types'
 import type { ContentPart } from '@shared/WebviewMessage'
 import InputSendContainer from '../InputSendContainer.vue'
 import { FileTextOutlined, MessageOutlined } from '@ant-design/icons-vue'
@@ -90,7 +91,7 @@ const displayParts = computed<ContentPart[]>(() => {
 
 // Define events
 const emit = defineEmits<{
-  (e: 'truncate-and-send', payload: { message: ChatMessage; contentParts: ContentPart[] }): void
+  (e: 'truncate-and-send', payload: { message: ChatMessage; contentParts: ContentPart[]; hosts?: Host[] }): void
 }>()
 
 // Template refs
@@ -177,10 +178,11 @@ const cancelEditing = () => {
   isMessageEditing.value = false
 }
 
-const handleConfirmEdit = (contentParts: ContentPart[]) => {
+const handleConfirmEdit = (contentParts: ContentPart[], hosts: Host[]) => {
   emit('truncate-and-send', {
     message: props.message,
-    contentParts
+    contentParts,
+    hosts
   })
 
   isEditing.value = false

@@ -1,4 +1,4 @@
-import { ref, computed, nextTick, type Ref, type InjectionKey } from 'vue'
+import { ref, computed, nextTick, onMounted, onUnmounted, type Ref, type InjectionKey } from 'vue'
 import type { ContextCommandRef, ContentPart } from '@shared/WebviewMessage'
 
 const logger = createRendererLogger('aitab.commandSelect')
@@ -260,6 +260,36 @@ export function useCommandSelect(options: UseCommandSelectOptions = {}) {
       lastPart.text = lastPart.text.slice(0, -1)
     }
   }
+
+  /**
+   * Global click event handler.
+   * This function is used to detect clicks outside of the command select popup (.command-select-popup).
+   * If the popup is open and a click occurs outside the popup, the command popup will be closed.
+   * This includes clicks on the input element itself, which will close the popup and allow normal editing.
+   *
+   * @param e MouseEvent object
+   */
+  const handleGlobalClick = (e: MouseEvent) => {
+    if (!showCommandPopup.value) return
+
+    const target = e.target as HTMLElement
+    const commandPopup = document.querySelector('.command-select-popup')
+
+    // Check if click is inside popup
+    const isInsidePopup = commandPopup && commandPopup.contains(target)
+
+    if (!isInsidePopup) {
+      closeCommandPopup()
+    }
+  }
+
+  onMounted(() => {
+    document.addEventListener('click', handleGlobalClick)
+  })
+
+  onUnmounted(() => {
+    document.removeEventListener('click', handleGlobalClick)
+  })
 
   return {
     // UI state
