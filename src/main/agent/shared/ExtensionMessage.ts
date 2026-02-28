@@ -7,6 +7,7 @@
 import { ApiConfiguration } from './api'
 import { AutoApprovalSettings } from './AutoApprovalSettings'
 import { ChatSettings } from './ChatSettings'
+import type { Host } from './WebviewMessage'
 export interface ExtensionMessage {
   type:
     | 'state'
@@ -92,6 +93,7 @@ export interface ChatermMessage {
   hostId?: string
   hostName?: string
   colorTag?: string
+  hosts?: Host[]
 }
 
 // Shared host info payload for multi-host display

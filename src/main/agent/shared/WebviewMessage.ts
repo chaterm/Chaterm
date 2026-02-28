@@ -8,7 +8,7 @@ import { ApiConfiguration } from './api'
 import { TelemetrySetting } from './TelemetrySetting'
 import { z } from 'zod'
 
-export type Host = { host: string; uuid: string; connection: string; assetType?: string }
+export type Host = { host: string; uuid: string; connection: string; organizationUuid?: string; assetType?: string }
 
 export type CommandGenerationContext = {
   platform: string
