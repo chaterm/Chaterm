@@ -42,7 +42,8 @@ import {
   jumpserverMarkedCommands,
   jumpserverConnectionStatus,
   jumpserverLastCommand,
-  createJumpServerExecStream
+  createJumpServerExecStream,
+  executeCommandOnJumpServerExec
 } from './jumpserverHandle'
 import path from 'path'
 import fs from 'fs'
@@ -1668,15 +1669,6 @@ export const registerSSHHandlers = () => {
 }
 
 const getSystemInfo = async (id: string): Promise<CommandGenerationContext> => {
-  let conn = sshConnections.get(id)
-  if (!conn) {
-    const connData = jumpserverConnections.get(id)
-    conn = connData?.conn
-  }
-  if (!conn) {
-    throw new Error('No active SSH connection found')
-  }
-
   const systemInfoScript = `uname -a | sed 's/^/OS_VERSION:/' && echo "DEFAULT_SHELL:$SHELL" && echo "HOME_DIR:$HOME" && hostname | sed 's/^/HOSTNAME:/' && whoami | sed 's/^/USERNAME:/' && (sudo -n true 2>/dev/null && echo "SUDO_CHECK:has sudo permission" || echo "SUDO_CHECK:no sudo permission")`
 
   const inferPlatformFromOsVersion = (osVersion: string): string => {
@@ -1685,6 +1677,62 @@ const getSystemInfo = async (id: string): Promise<CommandGenerationContext> => {
     if (v.includes('linux')) return 'linux'
     if (v.includes('mingw') || v.includes('msys') || v.includes('cygwin')) return 'win32'
     return 'unknown'
+  }
+
+  const parseSystemInfoOutput = (output: string): CommandGenerationContext => {
+    const lines = output.trim().split('\n')
+    const result: CommandGenerationContext = {
+      platform: 'unknown',
+      shell: 'bash',
+      osVersion: '',
+      hostname: '',
+      username: '',
+      homeDir: '',
+      sudoPermission: false
+    }
+
+    lines.forEach((line) => {
+      if (line.startsWith('OS_VERSION:')) {
+        result.osVersion = line.replace('OS_VERSION:', '')
+      } else if (line.startsWith('DEFAULT_SHELL:')) {
+        result.shell = line.replace('DEFAULT_SHELL:', '')
+      } else if (line.startsWith('HOME_DIR:')) {
+        result.homeDir = line.replace('HOME_DIR:', '')
+      } else if (line.startsWith('HOSTNAME:')) {
+        result.hostname = line.replace('HOSTNAME:', '')
+      } else if (line.startsWith('USERNAME:')) {
+        result.username = line.replace('USERNAME:', '')
+      } else if (line.startsWith('SUDO_CHECK:')) {
+        result.sudoPermission = line.includes('has sudo permission')
+      }
+    })
+
+    result.platform = inferPlatformFromOsVersion(result.osVersion || '')
+    if (!result.shell) {
+      result.shell = 'bash'
+    }
+
+    return result
+  }
+
+  const isJumpServerConnection = jumpserverConnections.has(id) || jumpserverShellStreams.has(id)
+
+  if (isJumpServerConnection) {
+    const execStream = await createJumpServerExecStream(id)
+    const execResult = await executeCommandOnJumpServerExec(execStream, systemInfoScript)
+    if (!execResult.stdout?.trim()) {
+      throw new Error(execResult.error || 'Failed to get system info from JumpServer exec stream')
+    }
+    return parseSystemInfoOutput(execResult.stdout)
+  }
+
+  let conn = sshConnections.get(id)
+  if (!conn) {
+    const connData = jumpserverConnections.get(id)
+    conn = connData?.conn
+  }
+  if (!conn) {
+    throw new Error('No active SSH connection found')
   }
 
   return new Promise((resolve, reject) => {
@@ -1709,39 +1757,7 @@ const getSystemInfo = async (id: string): Promise<CommandGenerationContext> => {
           return reject(new Error(stderr))
         }
 
-        const lines = stdout.trim().split('\n')
-        const result: CommandGenerationContext = {
-          platform: 'unknown',
-          shell: 'bash',
-          osVersion: '',
-          hostname: '',
-          username: '',
-          homeDir: '',
-          sudoPermission: false
-        }
-
-        lines.forEach((line) => {
-          if (line.startsWith('OS_VERSION:')) {
-            result.osVersion = line.replace('OS_VERSION:', '')
-          } else if (line.startsWith('DEFAULT_SHELL:')) {
-            result.shell = line.replace('DEFAULT_SHELL:', '')
-          } else if (line.startsWith('HOME_DIR:')) {
-            result.homeDir = line.replace('HOME_DIR:', '')
-          } else if (line.startsWith('HOSTNAME:')) {
-            result.hostname = line.replace('HOSTNAME:', '')
-          } else if (line.startsWith('USERNAME:')) {
-            result.username = line.replace('USERNAME:', '')
-          } else if (line.startsWith('SUDO_CHECK:')) {
-            result.sudoPermission = line.includes('has sudo permission')
-          }
-        })
-
-        result.platform = inferPlatformFromOsVersion(result.osVersion || '')
-        if (!result.shell) {
-          result.shell = 'bash'
-        }
-
-        resolve(result)
+        resolve(parseSystemInfoOutput(stdout))
       })
     })
   })
