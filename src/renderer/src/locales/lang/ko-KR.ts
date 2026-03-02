@@ -920,6 +920,10 @@ export default {
     exportedOn: '내보낸 시간',
     maxHostsLimitReached: '최대 {max} 호스트까지 선택할 수 있습니다',
     maxHostsLimit: '최대 호스트 수 제한 도달',
+    selectAll: '전체 선택',
+    deselectAll: '전체 선택 해제',
+    clearSelection: '선택 지우기',
+    addSelected: '선택 추가({count})',
     switchNotSupportAgent: '네트워크 장치는 Agent 모드를 지원하지 않습니다. Command 모드로 자동 전환되었습니다'
   },
   keyChain: {

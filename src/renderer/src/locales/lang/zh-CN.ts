@@ -915,6 +915,10 @@ export default {
     exportedOn: '导出时间',
     maxHostsLimitReached: '最多只能选择 {max} 台主机',
     maxHostsLimit: '主机数量已达上限',
+    selectAll: '全选',
+    deselectAll: '取消全选',
+    clearSelection: '清空',
+    addSelected: '添加所选({count})',
     switchNotSupportAgent: '网络设备不支持 Agent 模式，已自动切换为 Command 模式'
   },
   keyChain: {

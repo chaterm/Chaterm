@@ -928,6 +928,10 @@ export default {
     exportedOn: 'Exported on',
     maxHostsLimitReached: 'You can select up to {max} hosts',
     maxHostsLimit: 'Maximum hosts limit reached',
+    selectAll: 'Select all',
+    deselectAll: 'Deselect all',
+    clearSelection: 'Clear',
+    addSelected: 'Add selected({count})',
     switchNotSupportAgent: 'Network devices do not support Agent mode, automatically switched to Command mode'
   },
   keyChain: {

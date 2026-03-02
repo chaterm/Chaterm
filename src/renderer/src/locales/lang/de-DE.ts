@@ -925,6 +925,10 @@ export default {
     exportedOn: 'Exportiert am',
     maxHostsLimitReached: 'Sie können bis zu {max} Hosts auswählen',
     maxHostsLimit: 'Maximale Host-Limit erreicht',
+    selectAll: 'Alle auswählen',
+    deselectAll: 'Auswahl aufheben',
+    clearSelection: 'Auswahl löschen',
+    addSelected: 'Ausgewählte hinzufügen({count})',
     switchNotSupportAgent: 'Netzwerkgeräte unterstützen kein Agent-Modus, automatisch zum Command-Modus gewechselt'
   },
   keyChain: {

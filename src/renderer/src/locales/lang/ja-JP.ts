@@ -924,6 +924,10 @@ export default {
     exportedOn: 'エクスポート日時',
     maxHostsLimitReached: '{max} 台まで選択できます',
     maxHostsLimit: '最大ホスト数に達しました',
+    selectAll: 'すべて選択',
+    deselectAll: 'すべて選択解除',
+    clearSelection: 'クリア',
+    addSelected: '選択項目を追加({count})',
     switchNotSupportAgent: 'ネットワーク機器はAgentモードをサポートしていません。Commandモードに自動切り替えしました'
   },
   keyChain: {
