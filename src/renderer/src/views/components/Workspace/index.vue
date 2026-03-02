@@ -1746,7 +1746,7 @@ onUnmounted(() => {
 
   :deep(.ant-tabs-tab) {
     flex: 1;
-    background-color: var(--bg-color);
+    background-color: var(--watermark-color);
     border: none;
     border-radius: 6px;
     margin: 0 2px;
