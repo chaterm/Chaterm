@@ -586,7 +586,7 @@ const baseColumns: FlexibleColumn[] = [
     },
     sortDirections: ['descend', 'ascend'],
     ellipsis: true,
-    width: '500px'
+    width: 500
   },
   {
     title: t('files.permissions'),
@@ -659,17 +659,8 @@ const tableColumns = computed(() => {
 })
 // const tableScroll = computed(() => (uiMode.value === 'transfer' ? {} : { x: 'max-content' }))
 const tableScroll = computed(() => {
-  if (uiMode.value === 'transfer') {
-    return {
-      x: 350,
-      y: 'calc(100vh - 260px)'
-    }
-  } else {
-    return {
-      x: 'max-content',
-      y: 'calc(100vh - 300px)'
-    }
-  }
+  if (uiMode.value === 'transfer') return { x: 350, y: 'calc(100vh - 260px)' }
+  return { x: 500 + 120 + 100 + 160, y: 'calc(100vh - 300px)' }
 })
 const renderSize = (value: number): string => {
   if (value == null || value === 0) {

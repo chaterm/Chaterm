@@ -2285,6 +2285,16 @@ defineExpose({
   min-height: 0;
 }
 
+.tree-container:not(.is-transfer) :deep(.ant-tree-node-content-wrapper) {
+  min-width: 0;
+  width: 100%;
+}
+
+.tree-container:not(.is-transfer) :deep(.ant-tree-title) {
+  display: block;
+  width: 100%;
+  min-width: 0;
+}
 .tabs-content::-webkit-scrollbar {
   height: 3px;
 }
