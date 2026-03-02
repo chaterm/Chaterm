@@ -85,31 +85,34 @@
   </div>
 
   <!-- MFA dialog has been moved to global component -->
+
+  <TransferPanel />
 </template>
 
 <script lang="ts" setup>
 const copyText = ref('')
 
+import TransferPanel from '@views/components/Files/fileTransferProgress.vue'
+import { ensureTransferListener } from '@views/components/Files/fileTransfer'
+
 import SearchComp from './components/searchComp.vue'
 
-const logger = createRendererLogger('ssh.connect')
+import type { ILink, ILinkProvider } from 'xterm'
+import { IDisposable, Terminal } from 'xterm'
 import ZmodemProgress from './utils/zmodemProgress.vue'
 import Context from './components/contextComp.vue'
 import SuggComp from './components/suggestion.vue'
 import eventBus from '@/utils/eventBus'
 import { getActualTheme } from '@/utils/themeUtils'
-import { markRaw, onBeforeUnmount, onMounted, PropType, nextTick, reactive, ref, watch, computed } from 'vue'
+import { computed, markRaw, nextTick, onBeforeUnmount, onMounted, PropType, reactive, ref, watch } from 'vue'
 import { shortcutService } from '@/services/shortcutService'
 import { useI18n } from 'vue-i18n'
 import CommandDialog from '@/components/global/CommandDialog.vue'
-import { Terminal } from 'xterm'
 import { FitAddon } from 'xterm-addon-fit'
 import { SearchAddon } from 'xterm-addon-search'
-import { IDisposable } from 'xterm'
 import 'xterm/css/xterm.css'
-import { editorData } from './editors/dragEditor.vue'
+import EditorCode, { editorData } from './editors/dragEditor.vue'
 import { LanguageMap } from '../Editors/base/languageMap'
-import EditorCode from './editors/dragEditor.vue'
 import { message, Modal } from 'ant-design-vue'
 import { aliasConfigStore } from '@/store/aliasConfigStore'
 import { useMacroRecorderStore } from '@/store/macroRecorderStore'
@@ -119,19 +122,22 @@ import { v4 as uuidv4 } from 'uuid'
 import { Base64Util } from '@/utils/base64'
 import { userInfoStore } from '@/store/index'
 import stripAnsi from 'strip-ansi'
-import { inputManager, commandBarHeight } from './utils/termInputManager'
+import { commandBarHeight, inputManager } from './utils/termInputManager'
 import { shellCommands } from './utils/shellCmd'
 import {
   createJumpServerStatusHandler,
   formatStatusMessage,
-  shouldUseBastionStatusChannel,
-  type JumpServerStatusData
+  type JumpServerStatusData,
+  shouldUseBastionStatusChannel
 } from './utils/jumpServerStatusHandler'
 import { getLastNonEmptyLine, isTerminalPromptLine } from './utils/terminalPrompt'
 import { useDeviceStore } from '@/store/useDeviceStore'
 import { isFocusInAiTab } from '@/utils/domUtils'
 import { checkUserDevice } from '@api/user/user'
 import { keywordHighlightService } from '@/services/keywordHighlightService'
+import { useZmodem } from './utils/chatermZmodem'
+
+const logger = createRendererLogger('ssh.connect')
 const { t } = useI18n()
 const selectFlag = ref(false)
 const configStore = userConfigStore()
@@ -271,6 +277,7 @@ const handleRightClick = (event) => {
 }
 
 const handleMouseDown = (event) => {
+  if (event.button !== 1) return
   event.preventDefault()
   if (event.button === 1) {
     switch (config.middleMouseEvent) {
@@ -485,6 +492,20 @@ onMounted(async () => {
   termInstance.loadAddon(searchAddon.value)
   termInstance.scrollToBottom()
   termInstance.focus()
+
+  termInstance.registerLinkProvider(createCtrlLinkProvider(termInstance))
+
+  // Ctrl key monitoring
+  window.addEventListener('keydown', handleCtrlKeyDown)
+  window.addEventListener('keyup', handleCtrlKeyUp)
+  window.addEventListener('blur', () => setCtrlLinkPressed(false))
+
+  cleanupListeners.value.push(() => {
+    window.removeEventListener('keydown', handleCtrlKeyDown)
+    window.removeEventListener('keyup', handleCtrlKeyUp)
+  })
+
+  ensureTransferListener()
   // const webgl = new WebglAddon()
   // termInstance.loadAddon(webgl)
   termInstance.onResize((size) => {
@@ -1284,6 +1305,7 @@ const connectSSH = async () => {
         terminal.value?.scrollToBottom()
         terminal.value?.focus()
       }, 200)
+      api.setShellPid(connectionId.value)
     } else {
       const resolvedMessage = result?.messageKey ? t(result.messageKey, result.messageParams || {}) : (result?.message as string)
       const errorMsg = formatStatusMessage(t('ssh.connectionFailed', { message: resolvedMessage }), 'error')
@@ -1302,7 +1324,6 @@ const connectSSH = async () => {
   emit('connectSSH', { isConnected: isConnected })
 }
 
-import { useZmodem } from './utils/chatermZmodem'
 const {
   progressModalVisible,
   progressType,
@@ -1657,6 +1678,21 @@ const updateTerminalState = (quickInit: boolean, enterPress, tagPress: boolean) 
         terminal.value?.scrollToBottom()
       })
     }
+
+    if (quickInit && pendingLs.value) {
+      const promptLine = getAbsLine1Based()
+      const block: LsBlock = {
+        startLine: pendingLs.value.startLine + 1,
+        endLine: Math.max(pendingLs.value.startLine + 1, promptLine - 1),
+        cwd: pendingLs.value.cwd,
+        cmd: pendingLs.value.cmd,
+        ts: pendingLs.value.ts
+      }
+      lsBlocks.value.push(block)
+      // memory control
+      if (lsBlocks.value.length > 200) lsBlocks.value.splice(0, lsBlocks.value.length - 200)
+      pendingLs.value = null
+    }
   } catch (error) {
     logger.error('Update terminal state error', { error: error })
   }
@@ -1895,7 +1931,38 @@ const setupTerminalInput = () => {
         connectSSH()
         return
       }
+      const cmd = terminalState.value.content
+      if (cmd && isListingCmd(cmd)) {
+        const ts = Date.now()
+        pendingLs.value = {
+          startLine: getAbsLine1Based(),
+          cmd: cmd.trim(),
+          ts,
+          cwd: null
+        }
 
+        api
+          .getCwd?.({ id: connectionId.value })
+          .then((res: any) => {
+            const cwd = res?.success ? (res.cwd ?? null) : null
+            // priority update pending
+            if (pendingLs.value && pendingLs.value.ts === ts) {
+              pendingLs.value.cwd = cwd
+              return
+            }
+
+            // Otherwise, update the already pushed lsBlocks to find the corresponding block based on ts
+            for (let i = lsBlocks.value.length - 1; i >= 0; i--) {
+              if (lsBlocks.value[i].ts === ts) {
+                lsBlocks.value[i].cwd = cwd
+                break
+              }
+            }
+          })
+          .catch(() => {
+            if (pendingLs.value && pendingLs.value.ts === ts) pendingLs.value.cwd = null
+          })
+      }
       const command = terminalState.value.content
       if (displaySuggestions.value.length && activeSuggestion.value >= 0) {
         selectSuggestion(displaySuggestions.value[activeSuggestion.value])
@@ -4642,6 +4709,484 @@ function updateSelectionButtonPosition() {
 
 // Helpers for suggestion handling
 const isDeleteKeyData = (d: string) => d === '\x7f' || d === '\b' || d === '\x1b[3~'
+
+const CTRL_LINK_CLASS = 'ctrl-link-mode'
+const ctrlLinkPressed = ref(false)
+const LISTING_CMDS = new Set(['ls', 'll', 'la', 'dir', 'l'])
+const lineListingCache = new Map<number, boolean>()
+const promptBlockCache = new Map<number, { promptY: number; nextPromptY: number; isListing: boolean }>()
+
+const MAX_SCAN_UP = 2000
+const MAX_SCAN_DOWN = 4000
+
+const isPromptLine = (text: string, lineObj?: any): boolean => {
+  const t = stripAnsi(text).trimEnd()
+  if (!t) return false
+  if (lineObj?.isWrapped) return false
+
+  if (typeof startStr.value !== 'undefined' && startStr.value) {
+    const p = String(startStr.value).trimEnd()
+    if (p && t.startsWith(p)) return true
+  }
+
+  // Common shell prompts (including $/#)
+  return /[$#]\s*$/.test(t) || /[$#]\s+/.test(t)
+}
+
+const extractCmdFromPromptLine = (promptLine: string): string => {
+  const t = stripAnsi(promptLine).trimEnd()
+
+  if (typeof startStr.value !== 'undefined' && startStr.value) {
+    const p = String(startStr.value).trimEnd()
+    if (p && t.startsWith(p)) return t.slice(p.length).trim()
+  }
+
+  // Retrieve the command following the last "$" or "#"
+  const m = t.match(/[$#]\s+(.*)$/)
+  return (m?.[1] ?? '').trim()
+}
+
+const isListingCommand = (cmdLine: string): boolean => {
+  if (!cmdLine) return false
+  const firstSeg = cmdLine.split(';')[0].trim()
+  const cleaned = firstSeg
+    .replace(/^sudo\s+/, '')
+    .replace(/^\\/, '')
+    .trim()
+  const firstToken = cleaned.split(/\s+/)[0]
+  return LISTING_CMDS.has(firstToken)
+}
+
+const findPromptUp = (absY: number, term: Terminal): number | null => {
+  const buf = term.buffer.active
+  const minY = Math.max(0, absY - MAX_SCAN_UP)
+  for (let y = absY; y >= minY; y--) {
+    const line = buf.getLine(y)
+    if (!line) continue
+    const text = line.translateToString(true)
+    if (isPromptLine(text, line)) return y
+  }
+  return null
+}
+
+const findNextPromptDown = (promptY: number, term: Terminal): number => {
+  const buf = term.buffer.active
+  const maxY = Math.min(buf.length - 1, promptY + MAX_SCAN_DOWN)
+  for (let y = promptY + 1; y <= maxY; y++) {
+    const line = buf.getLine(y)
+    if (!line) continue
+    const text = line.translateToString(true)
+    if (isPromptLine(text, line)) return y
+  }
+  return buf.length
+}
+
+// Check whether (1-based) belongs to the ls/ll/la output block
+const isListingOutputLine = (bufferLineNumber: number, term: Terminal): boolean => {
+  const absY = bufferLineNumber - 1
+  const cached = lineListingCache.get(absY)
+  if (cached !== undefined) return cached
+
+  const promptY = findPromptUp(absY, term)
+  if (promptY === null) {
+    lineListingCache.set(absY, false)
+    return false
+  }
+
+  let block = promptBlockCache.get(promptY)
+  if (!block) {
+    const promptText = term.buffer.active.getLine(promptY)?.translateToString(true) ?? ''
+    const cmd = extractCmdFromPromptLine(promptText)
+    const isListing = isListingCommand(cmd)
+    const nextPromptY = findNextPromptDown(promptY, term)
+    block = { promptY, nextPromptY, isListing }
+    promptBlockCache.set(promptY, block)
+  }
+
+  const inOutput = absY > block.promptY && absY < block.nextPromptY
+  const res = block.isListing && inOutput
+  lineListingCache.set(absY, res)
+  return res
+}
+
+const isThisTerminalActive = (): boolean => {
+  const activeTerm = inputManager.getActiveTerm()
+  if (!activeTerm?.id || !connectionId.value) return false
+  if (activeTerm.id !== connectionId.value) return false
+  if (props.activeTabId !== props.currentConnectionId) return false
+  if (!props.isActive) return false
+  return true
+}
+
+// Detect terminal status
+const canLinkify = (): boolean => {
+  if (!isThisTerminalActive()) return false
+  if (terminalMode.value !== 'none') return false
+  if (!terminal.value) return false
+  return true
+}
+
+// TODO: Hover background color
+// let ctrlOverlay: HTMLDivElement | null = null
+//
+// const resetListingCache = () => {
+//   lineListingCache.clear()
+//   promptBlockCache.clear()
+// }
+// const clearCtrlOverlay = () => {
+//   ctrlOverlay?.remove()
+//   ctrlOverlay = null
+// }
+
+// const applyCtrlOverlay = () => {
+//   clearCtrlOverlay()
+//   // Rescan every time you press Ctrl
+//   resetListingCache()
+//   if (!terminal.value || !terminalElement.value) return
+//
+//   const term = terminal.value
+//   const buf = term.buffer.active
+//   const viewportY = buf.viewportY
+//
+//   const rowEl = terminalElement.value.querySelector('.xterm-rows > div') as HTMLElement
+//   if (!rowEl) return
+//   const rowHeight = rowEl.getBoundingClientRect().height
+//   if (!rowHeight) return
+//
+//   // Get the width of a single character
+//   const cellWidth = (term as any)._core._renderService.dimensions.css.cell.width
+//   if (!cellWidth) return
+//
+//   const overlay = document.createElement('div')
+//   overlay.style.cssText = `
+//     position: absolute;
+//     top: 0; left: 0;
+//     width: 100%; height: 100%;
+//     pointer-events: none;
+//     z-index: 2;
+//   `
+//
+//   let hasAny = false
+//
+//   for (let row = 0; row < term.rows; row++) {
+//     const absY = viewportY + row
+//     if (!isListingOutputLine(absY + 1, term)) continue
+//
+//     const line = buf.getLine(absY)
+//     if (!line) continue
+//     const text = line.translateToString(true)
+//     if (!text.trim()) continue
+//
+//     const candidates = extractCandidates(text)
+//     if (!candidates.length) continue
+//
+//     for (const c of candidates) {
+//       // toCellX returns a 1-based cell column, which is converted to a 0-based pixel (px) column
+//       const startCell = toCellX(text, c.startChar) - 1
+//       const endCell = toCellX(text, c.endChar) - 1
+//
+//       const token = document.createElement('div')
+//       token.style.cssText = `
+//         position: absolute;
+//         top: ${row * rowHeight}px;
+//         left: ${startCell * cellWidth}px;
+//         width: ${(endCell - startCell) * cellWidth}px;
+//         height: ${rowHeight}px;
+//         background: rgba(22,119,255,0.15);
+//         border-radius: 2px;
+//         pointer-events: none;
+//       `
+//       overlay.appendChild(token)
+//       hasAny = true
+//     }
+//   }
+//
+//   if (!hasAny) return
+//
+//   const screen = terminalElement.value.querySelector('.xterm-screen') as HTMLElement
+//   if (!screen) return
+//   if (getComputedStyle(screen).position === 'static') {
+//     screen.style.position = 'relative'
+//   }
+//
+//   screen.appendChild(overlay)
+//   ctrlOverlay = overlay
+// }
+
+const setCtrlLinkPressed = (v: boolean) => {
+  if (ctrlLinkPressed.value === v) return
+  ctrlLinkPressed.value = v
+
+  if (terminalElement.value) {
+    terminalElement.value.classList.toggle(CTRL_LINK_CLASS, v)
+  }
+
+  terminal.value?.refresh(0, (terminal.value?.rows ?? 1) - 1)
+
+  if (v) {
+    // applyCtrlOverlay()
+  } else {
+    // clearCtrlOverlay()
+    terminal.value?.clearSelection()
+    showAiButton.value = false
+  }
+}
+
+// Ctrl key listener
+const handleCtrlKeyDown = (e: KeyboardEvent) => {
+  if (e.key !== 'Control') return
+  if (!canLinkify()) return
+  setCtrlLinkPressed(true)
+}
+const handleCtrlKeyUp = (e: KeyboardEvent) => {
+  if (e.key !== 'Control') return
+  if (!ctrlLinkPressed.value) return
+  setCtrlLinkPressed(false)
+}
+
+type LsBlock = {
+  startLine: number // 1-based
+  endLine: number // 1-based
+  cwd: string | null
+  cmd: string
+  ts: number
+}
+
+const lsBlocks = ref<LsBlock[]>([])
+const pendingLs = ref<{ startLine: number; cmd: string; ts: number; cwd: string | null } | null>(null)
+
+const getAbsLine1Based = (): number => {
+  const buf: any = terminal.value?.buffer.active
+  return (buf?.baseY ?? 0) + (buf?.cursorY ?? 0) + 1
+}
+
+const isListingCmd = (cmd: string): boolean => {
+  if (!cmd) return false
+  const firstToken = cmd.trim().split(/\s+/)[0]
+  return LISTING_CMDS.has(firstToken)
+}
+
+const findLsBlockByLine = (y: number): LsBlock | null => {
+  if (!terminal.value) return null
+
+  for (let i = lsBlocks.value.length - 1; i >= 0; i--) {
+    const b = lsBlocks.value[i]
+    if (y < b.startLine) continue
+
+    // calculate endLine，
+    const term = terminal.value
+    // return 0-based absY
+    const dynamicEndLine = findNextPromptDown(b.startLine - 1, term) // findNextPromptDown
+
+    if (y < dynamicEndLine) {
+      logger.info('findLsBlockByLine matched', { y, startLine: b.startLine, dynamicEndLine, cmd: b.cmd })
+      return b
+    }
+  }
+  return null
+}
+
+const resolvePosix = (base: string, name: string): string => {
+  const b = base.endsWith('/') ? base.slice(0, -1) : base
+  const n = name.replace(/^\/+/, '')
+  return `${b}/${n}`
+}
+
+const extractLsDirArg = (cmd: string): string | null => {
+  const parts = cmd.trim().split(/\s+/)
+  if (!parts.length) return null
+  // parts[0] is ls/ll/la
+  const args = parts.slice(1).filter((p) => p && !p.startsWith('-'))
+  return args[0] ?? null
+}
+
+const safeDecodeB64 = (s: string) => {
+  try {
+    return Base64Util.decode(s)
+  } catch {
+    return ''
+  }
+}
+
+const getBasePath = (value: string) => {
+  if (value.includes('local-team')) {
+    const [, rest = ''] = String(value || '').split('@')
+    const parts = rest.split(':')
+    const hostname = safeDecodeB64(parts[2] || '') || 'Local'
+    return `/Default/${hostname}`
+  }
+
+  return ''
+}
+
+const downloadFile = async (remotePath: string, fileName: string) => {
+  logger.info('downloadFiledownloadFiledownloadFile:', { remotePath })
+  const localPath = await api.openSaveDialog({ fileName })
+  if (!localPath) return
+
+  remotePath = getBasePath(connectionId.value) + remotePath
+
+  try {
+    const res = await api.downloadFile({
+      id: connectionId.value,
+      remotePath: remotePath,
+      localPath: localPath
+    })
+
+    const config = {
+      success: { type: 'success', text: t('files.downloadSuccess') },
+      cancelled: { type: 'info', text: t('files.downloadCancel') },
+      skipped: { type: 'info', text: t('files.downloadSkipped') }
+    }[res.status] || { type: 'error', text: `${t('files.downloadFailed')}：${res.message}` }
+    message[config.type]({
+      content: config.text,
+      key: `download-${connectionId.value}-${Date.now()}`,
+      duration: 3
+    })
+  } catch (err: any) {
+    logger.error('Download error', { error: err })
+    message.error({
+      content: `${t('files.downloadError')}：${(err as Error).message}`,
+      key: `download-${connectionId.value}-${Date.now()}`,
+      duration: 3
+    })
+  }
+}
+
+const triggerDownloadOrOpen = (raw: string, y: number) => {
+  const name = normalizeClickableText(raw)
+
+  if (!name) return
+  // if (name.startsWith('/')) {
+  //   download(fullPath,name)
+  //   return
+  // }
+
+  const block = findLsBlockByLine(y)
+  const cwd = block?.cwd
+
+  if (!cwd) {
+    message.error({
+      content: `${t('files.downloadError')}：${t('files.getCwdFailed')}`,
+      key: `download-${connectionId.value}-${Date.now()}`,
+      duration: 3
+    })
+    return
+  }
+  let baseDir = cwd
+  const dirArg = block ? extractLsDirArg(block.cmd) : null
+  if (dirArg) {
+    baseDir = dirArg.startsWith('/') ? dirArg : resolvePosix(cwd, dirArg)
+  }
+
+  const fullPath = resolvePosix(baseDir, name)
+  downloadFile(fullPath, name)
+}
+
+const normalizeClickableText = (s: string): string => {
+  let t = s.trim()
+  if (!t) return ''
+  if ((t.startsWith('"') && t.endsWith('"')) || (t.startsWith("'") && t.endsWith("'"))) {
+    t = t.slice(1, -1).trim()
+  }
+  t = t.replace(/[\/\*\@\|\=]+$/g, '')
+  return t.trim()
+}
+
+const toCellX = (line: string, charIndex: number): number => {
+  return calculateDisplayPosition(line, charIndex) + 1
+}
+
+type Candidate = { text: string; startChar: number; endChar: number }
+
+// Try to recognize the `ls -l` command
+const extractCandidates = (line: string): Candidate[] => {
+  const out: Candidate[] = []
+
+  const longRe = /^[\-dlcbps][rwx\-]{9}\s+\d+\s+\S+\s+\S+\s+\d+\s+\w+\s+\d+\s+(?:\d{2}:\d{2}|\d{4})\s+(.+)$/
+  const m = longRe.exec(line)
+  if (m?.[1]) {
+    const namePart = m[1]
+
+    const startChar = m[0].length - namePart.length
+
+    const arrowIdx = namePart.indexOf(' -> ')
+    const nameOnly = arrowIdx >= 0 ? namePart.slice(0, arrowIdx) : namePart
+
+    out.push({
+      text: nameOnly,
+      startChar,
+      endChar: startChar + nameOnly.length
+    })
+    return out
+  }
+
+  const tokenRe = /\S+/g
+  let mt: RegExpExecArray | null
+  while ((mt = tokenRe.exec(line))) {
+    const token = mt[0]
+    if (token === '.' || token === '..') continue
+    out.push({ text: token, startChar: mt.index, endChar: mt.index + token.length })
+  }
+  return out
+}
+const createCtrlLinkProvider = (term: Terminal): ILinkProvider => {
+  return {
+    provideLinks: (bufferLineNumber, callback) => {
+      if (!ctrlLinkPressed.value || !canLinkify()) {
+        callback(undefined)
+        return
+      }
+      //
+      // const block = findLsBlockByLine(bufferLineNumber)
+      // if (!block) {
+      //   callback(undefined)
+      //   return
+      // }
+
+      const line = term.buffer.active.getLine(bufferLineNumber - 1)
+      if (!line) return callback(undefined)
+
+      const text = line.translateToString(true)
+      const trimmed = text.trim()
+      if (!trimmed) return callback(undefined)
+
+      const isPrompt =
+        (typeof startStr.value !== 'undefined' && startStr.value && trimmed.startsWith(startStr.value.trimEnd())) ||
+        isTerminalPromptLine(trimmed) ||
+        /[#$]\s/.test(trimmed)
+      if (isPrompt) return callback(undefined)
+
+      if (!isListingOutputLine(bufferLineNumber, term)) {
+        callback(undefined)
+        return
+      }
+
+      const candidates = extractCandidates(text)
+      if (!candidates.length) return callback(undefined)
+
+      const links: ILink[] = candidates.map((c) => {
+        const startX = toCellX(text, c.startChar)
+        const endX = toCellX(text, c.endChar) - 1
+        return {
+          text: c.text,
+          range: {
+            start: { x: startX, y: bufferLineNumber },
+            end: { x: Math.max(endX, startX), y: bufferLineNumber }
+          },
+          activate: (_event, linkText) => {
+            if (!ctrlLinkPressed.value) return
+            term.clearSelection()
+            showAiButton.value = false
+            triggerDownloadOrOpen(linkText, bufferLineNumber)
+          }
+        }
+      })
+
+      callback(links)
+    }
+  }
+}
 </script>
 
 <style lang="less">

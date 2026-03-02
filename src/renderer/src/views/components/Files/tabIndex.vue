@@ -1,4 +1,7 @@
 <template>
+  <div class="panel_header">
+    <span class="panel_title">{{ t('files.files') }}</span>
+  </div>
   <div class="term_host_list">
     <div class="term_host_header">
       <div class="workspace-tabs-container">
@@ -44,45 +47,6 @@
               <swap-outlined />
             </a-button>
           </a-tooltip>
-          <a-dropdown
-            v-if="!isPersonalWorkspace"
-            :trigger="['click']"
-            placement="bottomRight"
-          >
-            <a-button
-              type="primary"
-              size="small"
-              class="workspace-button"
-            >
-              <appstore-add-outlined />
-            </a-button>
-            <template #overlay>
-              <a-menu @click="handleMenuClick">
-                <a-menu-item key="customFolders">
-                  <folder-outlined />
-                  {{ t('personal.customFolders') }}
-                </a-menu-item>
-                <a-menu-item key="host">
-                  <laptop-outlined />
-                  {{ t('personal.host') }}
-                </a-menu-item>
-              </a-menu>
-            </template>
-          </a-dropdown>
-          <a-tooltip
-            v-else
-            :title="t('personal.host')"
-            placement="top"
-          >
-            <a-button
-              type="primary"
-              size="small"
-              class="workspace-button"
-              @click="assetManagement"
-            >
-              <laptop-outlined />
-            </a-button>
-          </a-tooltip>
         </div>
 
         <div class="tree-container">
@@ -116,7 +80,10 @@
                   <span
                     v-else-if="editingNode !== dataRef.key && commentNode !== dataRef.key"
                     class="title-with-icon"
+                    draggable="true"
                     :class="{ selected: selectedKeys.includes(dataRef.key) }"
+                    @dragstart="onAssetDragStart($event, dataRef)"
+                    @dragend="onAssetDragEnd"
                     @click="handleClick(dataRef)"
                     @dblclick="handleDblClick(dataRef)"
                     @contextmenu="handleContextMenu($event, dataRef)"
@@ -187,7 +154,10 @@
                   <span
                     v-else-if="editingNode !== dataRef.key && commentNode !== dataRef.key"
                     class="title-with-icon"
+                    draggable="true"
                     :class="{ selected: selectedKeys.includes(dataRef.key) }"
+                    @dragstart="onAssetDragStart($event, dataRef)"
+                    @dragend="onAssetDragEnd"
                     @click="handleClick(dataRef)"
                     @dblclick="handleDblClick(dataRef)"
                     @contextmenu="handleContextMenu($event, dataRef)"
@@ -423,8 +393,6 @@
 
 <script setup lang="ts">
 import { deepClone } from '@/utils/util'
-
-const logger = createRendererLogger('workspace')
 import { ref, computed, onMounted, onUnmounted, nextTick } from 'vue'
 import {
   StarFilled,
@@ -437,18 +405,19 @@ import {
   CloseOutlined,
   FolderOutlined,
   DeleteOutlined,
-  AppstoreAddOutlined,
   SwapOutlined
 } from '@ant-design/icons-vue'
 import eventBus from '@/utils/eventBus'
-import i18n from '@/locales'
 import { refreshOrganizationAssetFromWorkspace } from '../LeftTab/components/refreshOrganizationAssets'
 import { isOrganizationAsset } from '../LeftTab/utils/types'
 import { userConfigStore } from '@/services/userConfigStoreService'
 import { message, Modal, Input, Button } from 'ant-design-vue'
-
-const { t } = i18n.global
-const emit = defineEmits(['currentClickServer', 'change-company', 'open-user-tab'])
+import { useI18n } from 'vue-i18n'
+const api = (window as any).api
+const { t: $t } = useI18n()
+const { t } = useI18n()
+const emit = defineEmits(['currentClickServer', 'change-company', 'open-user-tab', 'files-open-sftp-by-asset-node'])
+const logger = createRendererLogger('files')
 
 const company = ref('personal_user_id')
 const selectedKeys = ref<string[]>([])
@@ -597,14 +566,14 @@ const handleFavoriteClick = (dataRef: any) => {
   toggleFavorite(dataRef)
 }
 const getLocalAssetMenu = () => {
-  window.api
+  api
     .getLocalAssetRoute({ searchType: 'tree', params: ['person'] })
     .then(async (res) => {
       if (res && res.data) {
         const data = res.data.routers || []
         originalTreeData.value = deepClone(data) as AssetNode[]
         assetTreeData.value = deepClone(data) as AssetNode[]
-        const localShell = await window.api.getShellsLocal()
+        const localShell = await api.getShellsLocal()
         const isExist = assetTreeData.value.some((node) => node.key === 'localTerm')
         if (!isExist && localShell) {
           assetTreeData.value.push(localShell)
@@ -614,11 +583,11 @@ const getLocalAssetMenu = () => {
         }, 200)
       }
     })
-    .catch((err) => logger.error('Failed to get local asset menu', { error: err }))
+    .catch((err) => logger.error('Error get local asset menu', { error: err }))
 }
 
 const getUserAssetMenu = () => {
-  window.api
+  api
     .getLocalAssetRoute({ searchType: 'tree', params: ['organization'] })
     .then((res) => {
       if (res && res.data) {
@@ -630,7 +599,7 @@ const getUserAssetMenu = () => {
         }, 200)
       }
     })
-    .catch((err) => logger.error('Failed to get user asset menu', { error: err }))
+    .catch((err) => logger.error('Error get user asset menu', { error: err }))
 }
 
 const expandDefaultNodes = async () => {
@@ -776,73 +745,55 @@ const getOriginalChildrenCount = (dataRef: any): number => {
 
 const toggleFavorite = (dataRef: any): void => {
   if (isPersonalWorkspace.value) {
-    logger.debug('Executing personal asset favorite logic')
-    window.api
+    api
       .updateLocalAsseFavorite({ uuid: dataRef.uuid, status: dataRef.favorite ? 2 : 1 })
       .then((res) => {
-        logger.debug('Personal asset favorite response', { result: String(res) })
         if (res.data.message === 'success') {
           dataRef.favorite = !dataRef.favorite
           getLocalAssetMenu()
         }
       })
-      .catch((err) => logger.error('Personal asset favorite error', { error: err }))
+      .catch((err) => logger.error(t('common.personalAssetFavoriteError'), { error: err }))
   } else {
-    logger.debug('Executing organization asset favorite logic')
     if (isOrganizationAsset(dataRef.asset_type) && !dataRef.organizationId) {
-      logger.debug('Updating organization itself favorite status')
-      window.api
+      api
         .updateLocalAsseFavorite({ uuid: dataRef.uuid, status: dataRef.favorite ? 2 : 1 })
         .then((res) => {
-          logger.debug('Organization itself favorite response', { result: String(res) })
           if (res.data.message === 'success') {
             dataRef.favorite = !dataRef.favorite
             getUserAssetMenu()
           }
         })
-        .catch((err) => logger.error('Organization asset favorite error', { error: err }))
+        .catch((err) => logger.error(t('common.organizationAssetFavoriteError'), { error: err }))
     } else {
-      logger.debug('Updating organization sub-asset favorite status', {
-        organizationUuid: dataRef.organizationId,
-        host: dataRef.ip,
-        status: dataRef.favorite ? 2 : 1
-      })
-
-      if (!window.api.updateOrganizationAssetFavorite) {
-        logger.error('updateOrganizationAssetFavorite method not found')
+      if (!api.updateOrganizationAssetFavorite) {
+        logger.error(t('common.updateOrganizationAssetFavoriteMethodNotFound'))
         return
       }
 
-      window.api
+      api
         .updateOrganizationAssetFavorite({
           organizationUuid: dataRef.organizationId,
           host: dataRef.ip,
           status: dataRef.favorite ? 2 : 1
         })
         .then((res) => {
-          logger.debug('updateOrganizationAssetFavorite response', { result: String(res) })
           if (res && res.data && res.data.message === 'success') {
-            logger.debug('Favorite status updated successfully, refreshing menu')
             dataRef.favorite = !dataRef.favorite
             getUserAssetMenu()
           } else {
-            logger.error('Favorite status update failed', { result: String(res) })
+            logger.error(t('common.favoriteStatusUpdateFailed'))
           }
         })
         .catch((err) => {
-          logger.error('Update organization asset favorite error', { error: err })
+          logger.error(t('common.updateOrganizationAssetFavoriteError'), { error: err })
         })
     }
   }
-  logger.debug('toggleFavorite end')
 }
 
 const clickServer = (item) => {
   emit('currentClickServer', item)
-}
-
-const assetManagement = () => {
-  emit('open-user-tab', 'assetConfig')
 }
 
 const toggleDisplayMode = async () => {
@@ -855,7 +806,7 @@ const toggleDisplayMode = async () => {
       workspaceShowIpMode: showIpMode.value
     })
   } catch (error) {
-    logger.error('Failed to save display mode preference', { error: error })
+    logger.error('Failed to save display mode preference:', { error: error })
   }
 }
 
@@ -866,24 +817,38 @@ const getDisplayText = (dataRef: any, title: string): string => {
   return title
 }
 
-const handleMenuClick = ({ key }) => {
-  switch (key) {
-    case 'customFolders':
-      showCreateFolderModal.value = true
-      break
-    case 'host':
-      assetManagement()
-      break
+const FILES_DRAG_MIME = 'application/x-asset-sftp'
+
+const toSftpDragPayload = (dataRef: any) => {
+  return {
+    uuid: dataRef?.uuid,
+    ip: dataRef?.ip,
+    title: dataRef?.title,
+    hostname: dataRef?.hostname,
+    host: dataRef?.host,
+    port: dataRef?.port,
+    username: dataRef?.username,
+    organizationId: dataRef?.organizationId,
+    sshType: dataRef?.sshType,
+    asset_type: dataRef?.asset_type,
+    proxyCommand: dataRef?.proxyCommand || ''
   }
+}
+
+const emitOpenSftpInFiles = (dataRef: any, side: 'left' | 'right' | 'auto' = 'auto', source: 'click' | 'drag' = 'click') => {
+  const payload = toSftpDragPayload(dataRef)
+  if (!payload?.uuid) return
+  eventBus.emit('files-open-sftp-by-asset-node', { node: payload, side, source })
+  eventBus.emit('open-user-tab', 'files')
 }
 
 let clickTimer: any = null
 const handleClick = (dataRef: any) => {
   if (clickTimer) clearTimeout(clickTimer)
   clickTimer = setTimeout(() => {
-    clickServer(dataRef)
+    emitOpenSftpInFiles(dataRef, 'auto', 'click')
     clickTimer = null
-  }, 500)
+  }, 250)
 }
 const handleDblClick = (dataRef: any) => {
   if (clickTimer) {
@@ -893,8 +858,23 @@ const handleDblClick = (dataRef: any) => {
   clickServer(dataRef)
 }
 
+const onAssetDragStart = (e: DragEvent, dataRef: any) => {
+  const payload = toSftpDragPayload(dataRef)
+  if (!payload?.uuid) return
+  try {
+    e.dataTransfer?.setData(FILES_DRAG_MIME, JSON.stringify(payload))
+    e.dataTransfer?.setData('text/plain', payload.title || payload.ip || '')
+    if (e.dataTransfer) e.dataTransfer.effectAllowed = 'copy'
+  } catch (err) {
+    logger.error('dragstart setData failed', { error: err })
+  }
+}
+
+const onAssetDragEnd = (_e: DragEvent) => {
+  // noop
+}
+
 const handleRefresh = async (dataRef: any) => {
-  logger.debug('Refreshing organization asset node', { key: dataRef.key })
   refreshingNode.value = dataRef.key
 
   try {
@@ -902,7 +882,7 @@ const handleRefresh = async (dataRef: any) => {
       getUserAssetMenu()
     })
   } catch (error) {
-    logger.error('Refresh failed', { error: error })
+    logger.error('Error refresh', { error: error })
     getUserAssetMenu()
   } finally {
     setTimeout(() => {
@@ -918,12 +898,11 @@ const handleCommentClick = (dataRef: any) => {
 
 const saveComment = async (dataRef: any) => {
   try {
-    if (!window.api.updateOrganizationAssetComment) {
-      logger.error('updateOrganizationAssetComment method does not exist')
+    if (!api.updateOrganizationAssetComment) {
       return
     }
 
-    const result = await window.api.updateOrganizationAssetComment({
+    const result = await api.updateOrganizationAssetComment({
       organizationUuid: dataRef.organizationId,
       host: dataRef.ip,
       comment: editingComment.value
@@ -936,7 +915,7 @@ const saveComment = async (dataRef: any) => {
       // Refresh menu to show updates
       getUserAssetMenu()
     } else {
-      logger.error('Comment save failed', { result: String(result) })
+      logger.error('Comment save failed')
     }
   } catch (error) {
     logger.error('Save comment error', { error: error })
@@ -950,7 +929,7 @@ const cancelComment = () => {
 
 const loadCustomFolders = async () => {
   try {
-    const result = await window.api.getCustomFolders()
+    const result = await api.getCustomFolders()
     if (result && result.data && result.data.message === 'success') {
       customFolders.value = result.data.folders || []
     }
@@ -966,7 +945,7 @@ const handleCreateFolder = async () => {
       return
     }
 
-    const result = await window.api.createCustomFolder({
+    const result = await api.createCustomFolder({
       name: createFolderForm.value.name.trim(),
       description: createFolderForm.value.description.trim()
     })
@@ -1002,7 +981,7 @@ const handleUpdateFolder = async () => {
       return
     }
 
-    const result = await window.api.updateCustomFolder({
+    const result = await api.updateCustomFolder({
       folderUuid: editFolderForm.value.uuid,
       name: editFolderForm.value.name.trim(),
       description: editFolderForm.value.description.trim()
@@ -1035,7 +1014,7 @@ const handleDeleteFolder = (dataRef: any) => {
     content: confirmContent,
     onOk: async () => {
       try {
-        const result = await window.api.deleteCustomFolder({
+        const result = await api.deleteCustomFolder({
           folderUuid: dataRef.folderUuid
         })
 
@@ -1063,7 +1042,7 @@ const handleMoveAssetToFolder = async (folderUuid: string) => {
   try {
     if (!selectedAssetForMove.value) return
 
-    const result = await window.api.moveAssetToFolder({
+    const result = await api.moveAssetToFolder({
       folderUuid: folderUuid,
       organizationUuid: selectedAssetForMove.value.organizationId,
       assetHost: selectedAssetForMove.value.ip
@@ -1085,7 +1064,7 @@ const handleMoveAssetToFolder = async (folderUuid: string) => {
 
 const handleRemoveFromFolder = async (dataRef: any) => {
   try {
-    const result = await window.api.removeAssetFromFolder({
+    const result = await api.removeAssetFromFolder({
       folderUuid: dataRef.folderUuid,
       organizationUuid: dataRef.organizationId,
       assetHost: dataRef.ip
@@ -1244,7 +1223,7 @@ getLocalAssetMenu()
 const getSSHAgentStatus = async () => {
   const savedConfig = await userConfigStore.getConfig()
   if (savedConfig && savedConfig.sshAgentsStatus == 1) {
-    window.api.agentEnableAndConfigure({ enabled: true }).then((res) => {
+    api.agentEnableAndConfigure({ enabled: true }).then((res) => {
       if (res.success) {
         const sshAgentMaps = savedConfig.sshAgentsMap ? JSON.parse(savedConfig.sshAgentsMap) : {}
         for (const keyId in sshAgentMaps) {
@@ -1256,8 +1235,8 @@ const getSSHAgentStatus = async () => {
 }
 
 const loadKey = (keyId) => {
-  window.api.getKeyChainInfo({ id: keyId }).then((res) => {
-    window.api.addKey({
+  api.getKeyChainInfo({ id: keyId }).then((res) => {
+    api.addKey({
       keyData: res.private_key,
       comment: res.chain_name,
       passphrase: res.passphrase
@@ -1275,27 +1254,31 @@ const refreshAssetMenu = () => {
   }
 }
 
+const handleLanguageChanged = () => {
+  refreshAssetMenu()
+}
+
+const handleDocumentClick = () => {
+  contextMenuVisible.value = false
+  contextMenuData.value = null
+}
+
 onMounted(() => {
   eventBus.on('LocalAssetMenu', refreshAssetMenu)
-  // Listen for language change event, reload asset data
-  eventBus.on('languageChanged', () => {
-    logger.info('Language changed, refreshing asset menu')
-    refreshAssetMenu()
-  })
-  // Listen for host search focus event
+  eventBus.on('languageChanged', handleLanguageChanged)
   eventBus.on('focusHostSearch', focusSearchInput)
+
   loadCustomFolders()
 
-  // Add click outside listener to close context menu
-  document.addEventListener('click', () => {
-    contextMenuVisible.value = false
-    contextMenuData.value = null
-  })
+  document.addEventListener('click', handleDocumentClick)
 })
+
 onUnmounted(() => {
   eventBus.off('LocalAssetMenu', refreshAssetMenu)
-  eventBus.off('languageChanged')
+  eventBus.off('languageChanged', handleLanguageChanged)
   eventBus.off('focusHostSearch', focusSearchInput)
+
+  document.removeEventListener('click', handleDocumentClick)
 })
 </script>
 
@@ -1670,20 +1653,20 @@ onUnmounted(() => {
   border: 1px solid var(--border-color);
 }
 
-:global(.ant-select-dropdown) {
-  background-color: var(--bg-color-secondary) !important;
-  border-color: var(--border-color) !important;
-}
-:global(.ant-select-dropdown .ant-select-item) {
-  color: var(--text-color-secondary) !important;
-}
-:global(.ant-select-item-option-selected:not(.ant-select-item-option-disabled)) {
-  background-color: var(--hover-bg-color) !important;
-  color: var(--text-color) !important;
-}
-:global(.ant-select-item-option-active:not(.ant-select-item-option-disabled)) {
-  background-color: var(--hover-bg-color) !important;
-}
+//:global(.ant-select-dropdown) {
+//  background-color: var(--bg-color-secondary) !important;
+//  border-color: var(--border-color) !important;
+//}
+//:global(.ant-select-dropdown .ant-select-item) {
+//  color: var(--text-color-secondary) !important;
+//}
+//:global(.ant-select-item-option-selected:not(.ant-select-item-option-disabled)) {
+//  background-color: var(--hover-bg-color) !important;
+//  color: var(--text-color) !important;
+//}
+//:global(.ant-select-item-option-active:not(.ant-select-item-option-disabled)) {
+//  background-color: var(--hover-bg-color) !important;
+//}
 .manage {
   display: flex;
   gap: 10px;
@@ -1746,7 +1729,7 @@ onUnmounted(() => {
 
   :deep(.ant-tabs-tab) {
     flex: 1;
-    background-color: var(--watermark-color);
+    background-color: var(--bg-color);
     border: none;
     border-radius: 6px;
     margin: 0 2px;
@@ -1831,5 +1814,15 @@ onUnmounted(() => {
       flex-shrink: 0;
     }
   }
+}
+
+.panel_header {
+  padding: 16px 16px 8px 16px;
+  flex-shrink: 0;
+}
+.panel_title {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--ant-text-color);
 }
 </style>
