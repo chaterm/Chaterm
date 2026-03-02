@@ -50,7 +50,7 @@ vi.mock('@/services/userConfigStoreService', () => ({
   }
 }))
 
-vi.mock('../fileTransfer', () => ({ initTransferListener: vi.fn() }))
+vi.mock('../fileTransfer', () => ({ ensureTransferListener: vi.fn() }))
 
 const base64Fns = vi.hoisted(() => ({
   decode: vi.fn((s: string) => `decoded:${s}`),

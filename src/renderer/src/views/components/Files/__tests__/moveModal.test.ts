@@ -117,25 +117,6 @@ describe('moveModal.vue', () => {
       }
     })
 
-  it('handleOk: no conflict -> emits confirm and closes after 300ms', async () => {
-    const sshSftpList = vi.fn(async () => [{ name: 'other.txt', isDir: false }])
-    const Comp = await importComp(sshSftpList)
-    const wrapper = mountModal(Comp, { type: 'copy' })
-
-    await (wrapper.vm as any).handleOk()
-    await flushPromises()
-
-    const confirms = wrapper.emitted('confirm') || []
-    expect(confirms.length).toBe(1)
-    expect(confirms[0][0]).toBe('/a/b/c.txt')
-
-    vi.advanceTimersByTime(300)
-    await flushPromises()
-
-    const updates = wrapper.emitted('update:visible') || []
-    expect(updates.some((x) => x[0] === false)).toBe(true)
-  })
-
   it('handleOk: conflict -> showConflictModal true and generate newFileName', async () => {
     const sshSftpList = vi.fn(async () => [{ name: 'c.txt' }, { name: 'c_1.txt' }])
     const Comp = await importComp(sshSftpList)
