@@ -1120,7 +1120,8 @@ export default {
     getAssetListFailed: '取得主機清單失敗',
     files: '文件管理',
     openedOnRight: 'sftp連接已在右側打開',
-    openedOnLeft: 'sftp連接已在左側打開'
+    openedOnLeft: 'sftp連接已在左側打開',
+    getCwdFailed: '獲取目錄失敗'
   },
   about: {
     version: '版本',

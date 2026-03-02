@@ -1134,7 +1134,8 @@ export default {
     getAssetListFailed: 'Не удалось получить список хостов',
     files: 'Управление файлами',
     openedOnRight: 'sftp-соединение открыто справа',
-    openedOnLeft: 'sftp-соединение уже открыто слева'
+    openedOnLeft: 'sftp-соединение уже открыто слева',
+    getCwdFailed: 'Не удалось получить каталог'
   },
   about: {
     version: 'Версия',

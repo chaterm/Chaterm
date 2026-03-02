@@ -1137,7 +1137,8 @@ export default {
     getAssetListFailed: 'Recupero dell’elenco host non riuscito',
     files: 'Gestione file',
     openedOnRight: 'La connessione sftp è stata aperta sul lato destro',
-    openedOnLeft: 'la connessione sftp è stata aperta sul lato sinistro'
+    openedOnLeft: 'la connessione sftp è stata aperta sul lato sinistro',
+    getCwdFailed: 'Acquisizione del catalogo fallita'
   },
   about: {
     version: 'Versione',

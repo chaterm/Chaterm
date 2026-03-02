@@ -1133,7 +1133,8 @@ export default {
     getAssetListFailed: '호스트 목록을 가져오지 못했습니다',
     files: '파일 관리',
     openedOnRight: 'sftp 연결이 오른쪽에 열렸습니다',
-    openedOnLeft: 'sftp 연결이 왼쪽에 열렸습니다'
+    openedOnLeft: 'sftp 연결이 왼쪽에 열렸습니다',
+    getCwdFailed: '목록을 가져오는 데 실패했습니다'
   },
   about: {
     version: '버전',

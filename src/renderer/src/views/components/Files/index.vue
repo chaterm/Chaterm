@@ -513,7 +513,7 @@ import { LanguageMap } from '../Editors/base/languageMap'
 import { Base64Util } from '@utils/base64'
 import eventBus from '../../../utils/eventBus'
 import { userConfigStore } from '@/services/userConfigStoreService'
-import { initTransferListener } from './fileTransfer'
+import { ensureTransferListener } from './fileTransfer'
 import TransferPanel from './fileTransferProgress.vue'
 import fileIcon from '@/assets/menu/files.svg'
 import { CheckOutlined, CloseOutlined, DownOutlined, PlusOutlined, RightOutlined } from '@ant-design/icons-vue'
@@ -812,7 +812,7 @@ const handleOpenSftpByAssetNode = async (payload: any) => {
 }
 
 onMounted(async () => {
-  initTransferListener()
+  ensureTransferListener()
   eventBus.on('files-open-sftp-by-asset-node', handleOpenSftpByAssetNode)
   const activeTerminal = await getCurrentActiveTerminalInfo()
   if (activeTerminal) {

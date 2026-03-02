@@ -1141,7 +1141,8 @@ export default {
     getAssetListFailed: 'Failed to retrieve host list',
     files: 'File Management',
     openedOnRight: 'sftp connection has been opened on the right side',
-    openedOnLeft: 'sftp connection has been opened on the left side'
+    openedOnLeft: 'sftp connection has been opened on the left side',
+    getCwdFailed: 'Failed to get current working directory'
   },
   about: {
     version: 'Version',

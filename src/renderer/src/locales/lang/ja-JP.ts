@@ -1137,7 +1137,8 @@ export default {
     getAssetListFailed: 'ホスト一覧の取得に失敗しました',
     files: 'ファイル管理',
     openedOnRight: 'SFTP接続が右側に開かれました',
-    openedOnLeft: 'sftp接続が左側に開かれています'
+    openedOnLeft: 'sftp接続が左側に開かれています',
+    getCwdFailed: '目次の取得に失敗しました'
   },
   about: {
     version: 'バージョン',

@@ -733,6 +733,9 @@ const api = {
   sftpCancel: (payload: { id: string; requestId: string }) => ipcRenderer.invoke('ssh:sftp:cancel', payload),
   sshConnExec: (args: { id: string; cmd: string }) => ipcRenderer.invoke('ssh:conn:exec', args) as Promise<ExecResult>,
   writeToShell: (params) => ipcRenderer.send('ssh:shell:write', params),
+
+  setShellPid: (id: string) => ipcRenderer.invoke('ssh:shell-pid-set', { id }),
+  getCwd: (payload: { id: string }) => ipcRenderer.invoke('ssh:cwd:get', payload) as Promise<any>,
   disconnect: (params) => ipcRenderer.invoke('ssh:disconnect', params),
   selectPrivateKey: () => ipcRenderer.invoke('ssh:select-private-key'),
   getAppPath: (name) => ipcRenderer.invoke('app:get-path', { name }),

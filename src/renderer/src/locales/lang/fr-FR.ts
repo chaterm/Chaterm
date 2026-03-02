@@ -1143,7 +1143,8 @@ export default {
     getAssetListFailed: 'Échec de la récupération de la liste des hôtes',
     files: 'Gestion des fichiers',
     openedOnRight: 'La connexion SFTP a été ouverte sur le côté droit',
-    openedOnLeft: 'La connexion sftp est ouverte à gauche'
+    openedOnLeft: 'La connexion sftp est ouverte à gauche',
+    getCwdFailed: `Échec de l'obtention du répertoire`
   },
   about: {
     version: 'Version',

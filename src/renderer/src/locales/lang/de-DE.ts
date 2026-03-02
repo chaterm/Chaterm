@@ -1138,7 +1138,8 @@ export default {
     getAssetListFailed: 'Abrufen der Hostliste fehlgeschlagen',
     files: 'Dateiverwaltung',
     openedOnRight: 'Die SFTP-Verbindung wurde auf der rechten Seite geöffnet',
-    openedOnLeft: 'Die SFTP-Verbindung wurde auf der linken Seite geöffnet'
+    openedOnLeft: 'Die SFTP-Verbindung wurde auf der linken Seite geöffnet',
+    getCwdFailed: 'Verzeichnisabruf fehlgeschlagen'
   },
   about: {
     version: 'Version',

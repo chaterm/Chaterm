@@ -1136,7 +1136,8 @@ export default {
     getAssetListFailed: 'Falha ao obter lista de hosts',
     files: 'Gerenciamento de arquivos',
     openedOnRight: 'A conexão sftp foi aberta à direita',
-    openedOnLeft: 'Conexão sftp foi aberta no lado esquerdo'
+    openedOnLeft: 'Conexão sftp foi aberta no lado esquerdo',
+    getCwdFailed: 'Falha ao obter o índice'
   },
   about: {
     version: 'Versão',

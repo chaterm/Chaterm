@@ -1128,7 +1128,8 @@ export default {
     getAssetListFailed: '获取主机列表失败',
     files: '文件管理',
     openedOnRight: 'SFTP连接已在右侧打开',
-    openedOnLeft: 'SFTP连接已在左侧打开'
+    openedOnLeft: 'SFTP连接已在左侧打开',
+    getCwdFailed: '获取目录失败'
   },
   about: {
     version: '版本',

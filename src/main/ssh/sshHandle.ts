@@ -43,7 +43,8 @@ import {
   jumpserverConnectionStatus,
   jumpserverLastCommand,
   createJumpServerExecStream,
-  executeCommandOnJumpServerExec
+  executeCommandOnJumpServerExec,
+  jumpserverSessionPids
 } from './jumpserverHandle'
 import path from 'path'
 import fs from 'fs'
@@ -115,6 +116,8 @@ const markedCommands = new Map()
 
 const KeyboardInteractiveAttempts = new Map()
 export const connectionStatus = new Map()
+
+export const sshSessionPids = new Map<string, number>()
 
 // Set KeyboardInteractive authentication timeout (milliseconds)
 export const KeyboardInteractiveTimeout = 300000 // 5 minutes timeout
@@ -317,6 +320,10 @@ export const attemptSecondaryConnection = async (event, connectionInfo, existing
       })
 
     await Promise.allSettled([cmdCheck(), sudoCheck()])
+    event.sender.send(`ssh:connect:data:${id}`, readyResult)
+    if (keyboardInteractiveOpts.has(id)) {
+      keyboardInteractiveOpts.delete(id)
+    }
     return
   }
 }
@@ -1108,88 +1115,7 @@ export const registerSSHHandlers = () => {
       }
     }
 
-    return new Promise((resolve) => {
-      const timestamp = Date.now()
-      const marker = `__CHATERM_EXEC_END_${timestamp}__`
-      const exitCodeMarker = `__CHATERM_EXIT_CODE_${timestamp}__`
-      let outputBuffer = ''
-      let timeoutHandle: NodeJS.Timeout
-
-      // Output listener
-      const dataHandler = (data: Buffer) => {
-        outputBuffer += data.toString('utf8')
-
-        // End marker detected
-        if (outputBuffer.includes(marker)) {
-          cleanup()
-
-          try {
-            // Extract output content (remove command echo and markers)
-            const lines = outputBuffer.split('\n')
-
-            // Find command line position (command echo)
-            const commandIndex = lines.findIndex((line) => line.trim().includes(cmd.trim()))
-
-            // Find end marker position
-            const markerIndex = lines.findIndex((line) => line.includes(marker))
-
-            // Extract command output (between command line and marker)
-            const outputLines = lines.slice(commandIndex + 1, markerIndex)
-            const stdout = outputLines.join('\n').trim()
-
-            // Extract exit code (from content after exitCodeMarker)
-            const exitCodePattern = new RegExp(`${exitCodeMarker}(\\d+)`)
-            const exitCodeMatch = outputBuffer.match(exitCodePattern)
-            const exitCode = exitCodeMatch ? parseInt(exitCodeMatch[1], 10) : 0
-
-            resolve({
-              success: exitCode === 0,
-              stdout,
-              stderr: '',
-              exitCode,
-              exitSignal: undefined
-            })
-          } catch (parseError) {
-            // Return raw output on parse failure
-            resolve({
-              success: false,
-              error: `Failed to parse command output: ${parseError}`,
-              stdout: outputBuffer,
-              stderr: '',
-              exitCode: undefined,
-              exitSignal: undefined
-            })
-          }
-        }
-      }
-
-      // Cleanup function
-      const cleanup = () => {
-        execStream.removeListener('data', dataHandler)
-        clearTimeout(timeoutHandle)
-      }
-
-      // Timeout protection (30 seconds)
-      timeoutHandle = setTimeout(() => {
-        cleanup()
-        resolve({
-          success: false,
-          error: 'Command execution timeout (30s)',
-          stdout: outputBuffer,
-          stderr: '',
-          exitCode: undefined,
-          exitSignal: undefined
-        })
-      }, 30000)
-
-      // Register listener
-      execStream.on('data', dataHandler)
-
-      // Send command (capture exit code)
-      // Use bash trick: command; echo marker; echo exitcode_marker$?
-      const fullCommand = `${cmd}; echo "${marker}"; echo "${exitCodeMarker}$?"\r`
-      execStream.write(fullCommand)
-    })
+    return executeCommandOnJumpServerExec(execStream, cmd)
   }
 
   ipcMain.handle('ssh:conn:exec', async (_event, { id, cmd }) => {
@@ -1551,6 +1477,170 @@ export const registerSSHHandlers = () => {
       stream.end()
       activeStreams.delete(streamId)
     }
+  })
+
+  ipcMain.handle('ssh:shell-pid-set', async (_event, { id }) => {
+    const jumpserverData = jumpserverConnections.get(id)
+    const sleep = (ms: number) => new Promise<void>((r) => setTimeout(r, ms))
+
+    if (jumpserverData) {
+      await sleep(1500)
+
+      let execStream: any
+      try {
+        execStream = await createJumpServerExecStream(id)
+      } catch {
+        logger.info('Get jumpserver exec stream error')
+        return
+      }
+
+      const pidResult = await executeCommandOnJumpServerExec(execStream, 'echo "__PID__$$\\n__PPID__$PPID"').catch(() => null)
+      logger.info('Get jumpserver pid result', { pidResult })
+
+      if (!pidResult?.success || !pidResult.stdout) return
+
+      const pidMatch = pidResult.stdout.match(/__PID__(\d+)/)
+      const ppidMatch = pidResult.stdout.match(/__PPID__(\d+)/)
+      if (!pidMatch || !ppidMatch) return
+
+      const execPid = parseInt(pidMatch[1])
+      const ppid = parseInt(ppidMatch[1])
+      const psCmd = `ps -o pid=,comm= -p $(ps -o pid= --ppid ${ppid} 2>/dev/null || ps -o pid= -p $(pgrep -P ${ppid} 2>/dev/null) 2>/dev/null) 2>/dev/null`
+
+      for (let i = 0; i < 5; i++) {
+        await new Promise((r) => setTimeout(r, 300))
+        const psResult = await executeCommandOnJumpServerExec(execStream, psCmd).catch(() => null)
+        if (!psResult?.success || !psResult.stdout) continue
+
+        const shellPid =
+          psResult.stdout
+            .replace(/\u001b\[[?]?\d*[a-zA-Z]/g, '')
+            .replace(/\r/g, '')
+            .trim()
+            .split('\n')
+            .map((line) => {
+              const [pid, comm] = line.trim().split(/\s+/)
+              return { pid: parseInt(pid), comm }
+            })
+            .filter((p) => !isNaN(p.pid) && p.pid !== execPid && /bash|sh|zsh|fish|dash|ksh|tcsh|csh/.test(p.comm))
+            .map((p) => p.pid)[0] ?? null
+
+        if (shellPid) {
+          jumpserverSessionPids.set(id, shellPid)
+          logger.info('Shell PID saved', { event: 'ssh.pid.saved', connectionId: id, shellPid })
+          break
+        }
+      }
+      return
+    }
+    const conn = sshConnections.get(id)
+    if (!conn) return
+
+    conn.exec('echo "__PID__$$\\n__PPID__$PPID"', (err, stream) => {
+      if (err) return
+      let output = ''
+      stream.on('data', (data) => (output += data.toString()))
+      stream.on('close', async () => {
+        const pidMatch = output.match(/__PID__(\d+)/)
+        const ppidMatch = output.match(/__PPID__(\d+)/)
+        if (!pidMatch || !ppidMatch) return
+
+        const execPid = parseInt(pidMatch[1])
+        const ppid = parseInt(ppidMatch[1])
+
+        const psCmd = `ps -o pid=,comm= -p $(ps -o pid= --ppid ${ppid} 2>/dev/null || ps -o pid= -p $(pgrep -P ${ppid} 2>/dev/null) 2>/dev/null) 2>/dev/null`
+        for (let i = 0; i < 5; i++) {
+          await new Promise((r) => setTimeout(r, 300))
+          await new Promise<void>((resolve) => {
+            conn.exec(psCmd, (err, stream) => {
+              if (err) return resolve()
+              let out = ''
+              stream.on('data', (data) => (out += data.toString()))
+              stream.on('close', () => {
+                const shellPid =
+                  out
+                    .trim()
+                    .split('\n')
+                    .map((line) => {
+                      const [pid, comm] = line.trim().split(/\s+/)
+                      return { pid: parseInt(pid), comm }
+                    })
+                    .filter((p) => !isNaN(p.pid) && p.pid !== execPid && /bash|sh|zsh|fish|dash|ksh|tcsh|csh/.test(p.comm))
+                    .map((p) => p.pid)[0] ?? null
+
+                if (shellPid) {
+                  sshSessionPids.set(id, shellPid)
+                  logger.info('Shell PID saved', { event: 'ssh.pid.saved', connectionId: id, shellPid })
+                }
+                resolve()
+              })
+            })
+          })
+          if (sshSessionPids.has(id)) break
+        }
+      })
+    })
+  })
+  ipcMain.handle('ssh:cwd:get', async (_event, { id }: { id: string }) => {
+    const isJump = jumpserverConnections.has(id)
+    const shellPid = isJump ? jumpserverSessionPids.get(id) : sshSessionPids.get(id)
+
+    if (!shellPid) {
+      return { success: false, cwd: null, reason: 'shellPid_missing' }
+    }
+
+    const cmd =
+      'pid=' +
+      shellPid +
+      '; while :; do child=$(grep -l "^PPid:[[:space:]]*${pid}$" /proc/[0-9]*/status 2>/dev/null | head -1 | cut -d/ -f3); [ -z "$child" ] && break; pid=$child; done; result=$(readlink /proc/$pid/cwd 2>/dev/null); if [ -z "$result" ]; then result=$(sudo -n readlink /proc/$pid/cwd 2>/dev/null); fi; echo "$result"'
+    let result: any
+    if (jumpserverShellStreams.has(id)) {
+      result = await executeCommandOnJumpServerAsset(id, cmd)
+    } else {
+      const conn = sshConnections.get(id)
+      if (!conn) return { success: false, cwd: null, reason: `no_ssh_conn:${id}` }
+
+      result = await new Promise((resolve) => {
+        conn.exec(cmd, (err, stream) => {
+          if (err) return resolve({ success: false, stdout: '', stderr: err.message, exitCode: 255 })
+          const out: Buffer[] = []
+          const errOut: Buffer[] = []
+          stream.on('data', (c) => out.push(c))
+          stream.stderr.on('data', (c) => errOut.push(c))
+          stream.on('close', (code: number) => {
+            resolve({
+              success: code === 0,
+              stdout: Buffer.concat(out).toString('utf8'),
+              stderr: Buffer.concat(errOut).toString('utf8'),
+              exitCode: code
+            })
+          })
+        })
+      })
+    }
+
+    const stdoutRaw = String(result?.stdout ?? '')
+
+    const stdoutNoAnsi = stdoutRaw.replace(/\x1B\[[0-?]*[ -/]*[@-~]/g, '')
+
+    const lines = stdoutNoAnsi
+      .replace(/\r/g, '\n')
+      .split('\n')
+      .map((s) => s.trim())
+      .filter(Boolean)
+    const cwd = lines.length ? lines[lines.length - 1] : null
+
+    if (!cwd) {
+      return {
+        success: false,
+        cwd: null,
+        reason: `cwd_unavailable`,
+        shellPid,
+        debug: { isJump, exitCode: result?.exitCode, stdoutRaw, stderr: String(result?.stderr ?? '') }
+      }
+    }
+
+    return { success: true, cwd, shellPid }
   })
 }
 
