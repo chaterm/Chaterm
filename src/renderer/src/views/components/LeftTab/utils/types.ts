@@ -50,7 +50,10 @@ export function resolveBastionAuthType(
   const normalizedAuthType: BastionAuthPolicy | undefined =
     currentAuthType === 'password' || currentAuthType === 'keyBased' ? currentAuthType : undefined
 
-  if (assetType === 'organization') return 'keyBased'
+  if (assetType === 'organization') {
+    if (normalizedAuthType) return normalizedAuthType
+    return 'password'
+  }
 
   if (isOrganizationAsset(assetType)) {
     const bastionType = getBastionHostType(assetType)

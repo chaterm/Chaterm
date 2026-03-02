@@ -336,8 +336,8 @@ const getBastionDisplayName = (bastion: BastionDefinitionSummary): string => {
 // Check if a specific bastion type supports an auth method
 const bastionSupportsAuth = (bastionType: string, authMethod: 'password' | 'keyBased'): boolean => {
   if (bastionType === 'jumpserver') {
-    // JumpServer only supports keyBased
-    return authMethod === 'keyBased'
+    // JumpServer supports both password and keyBased
+    return true
   }
   const definition = availableBastions.value.find((d) => d.type === bastionType)
   if (!definition) return authMethod === 'password' // Default to password if not found
@@ -502,9 +502,9 @@ watch([() => formData.asset_type, () => availableBastions.value], syncAuthType, 
 watch(
   [() => props.isEditMode, () => formData.asset_type],
   ([editing, assetType]) => {
-    // In edit mode, JumpServer bastion host forces keyBased, Qizhi bastion host keeps current auth type
-    if (editing && assetType === 'organization') {
-      formData.auth_type = 'keyBased'
+    // In edit mode, keep current auth type for all bastion hosts
+    if (editing && isOrganizationAsset(assetType)) {
+      // Preserve current auth_type from initial data
     }
   },
   { immediate: true }
@@ -622,21 +622,14 @@ const validateForm = (): boolean => {
       message.error(t('personal.validationUsernameRequired'))
       return false
     }
-    // JumpServer bastion host requires keychain for keyBased auth
-    if (formData.asset_type === 'organization' && formData.auth_type === 'keyBased' && !formData.keyChain) {
+    // All bastion hosts: validate based on selected auth type
+    if (formData.auth_type === 'keyBased' && !formData.keyChain) {
       message.error(t('personal.validationKeychainRequired'))
       return false
     }
-    // Plugin-based bastion hosts: validate based on selected auth type
-    if (formData.asset_type !== 'organization' && isOrganizationAsset(formData.asset_type)) {
-      if (formData.auth_type === 'keyBased' && !formData.keyChain) {
-        message.error(t('personal.validationKeychainRequired'))
-        return false
-      }
-      if (formData.auth_type === 'password' && !formData.password) {
-        message.error(t('personal.validationPasswordRequired'))
-        return false
-      }
+    if (formData.auth_type === 'password' && !formData.password) {
+      message.error(t('personal.validationPasswordRequired'))
+      return false
     }
   }
 
