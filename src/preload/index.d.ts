@@ -159,6 +159,7 @@ interface ApiType {
   invokeCustomAdsorption: (data: { appX: number; appY: number }) => void
   queryCommand: (data: { command: string; ip: string }) => Promise<any>
   insertCommand: (data: { command: string; ip: string }) => Promise<any>
+  aiSuggestCommand: (data: { command: string; osInfo?: string }) => Promise<{ command: string; explanation: string } | null>
   getLocalAssetRoute: (data: { searchType: string; params?: any[] }) => Promise<any>
   updateLocalAssetLabel: (data: { uuid: string; label: string }) => Promise<any>
   updateLocalAsseFavorite: (data: { uuid: string; status: number }) => Promise<any>

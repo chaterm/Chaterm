@@ -188,6 +188,15 @@ const insertCommand = async (data: { command: string; ip: string }) => {
   }
 }
 
+const aiSuggestCommand = async (data: { command: string; osInfo?: string }): Promise<{ command: string; explanation: string } | null> => {
+  try {
+    const result = await ipcRenderer.invoke('ai-suggest-command', data)
+    return result
+  } catch (error) {
+    return Promise.reject(error)
+  }
+}
+
 // Chaterm database related IPC handlers
 const getLocalAssetRoute = async (data: { searchType: string; params?: unknown[] }) => {
   try {
@@ -503,6 +512,7 @@ const api = {
   getPlatform,
   queryCommand,
   insertCommand,
+  aiSuggestCommand,
   getLocalAssetRoute,
   updateLocalAssetLabel,
   updateLocalAsseFavorite,

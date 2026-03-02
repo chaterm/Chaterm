@@ -1,4 +1,4 @@
-import type { ContentPart } from '@shared/WebviewMessage'
+import type { ContentPart, Host } from '@shared/WebviewMessage'
 
 export interface ChatermMessage {
   ts: number
@@ -20,6 +20,7 @@ export interface ChatermMessage {
   hostId?: string
   hostName?: string
   colorTag?: string
+  hosts?: Host[]
 }
 
 export type ChatermAsk =

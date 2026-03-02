@@ -478,9 +478,8 @@ export default {
     keywordHighlightDescribe: '버튼을 클릭하여 키워드 강조 설정 파일을 직접 열고 터미널 출력의 강조 규칙을 사용자 정의합니다.',
     success: '성공',
     background: '배경',
-    backgroundNone: '없음',
-    backgroundEnable: '활성화',
-    backgroundUpload: '업로드',
+    backgroundDefault: '기본 배경',
+    backgroundCustomUpload: '사용자 정의 업로드 (JPG, PNG, WebP, GIF)',
     backgroundOpacity: '투명도',
     backgroundBrightness: '밝기',
     saveBackgroundFailed: '배경 이미지 저장 실패'

@@ -486,9 +486,8 @@ export default {
       'Clique no botão para abrir diretamente o arquivo de configuração de destaque de palavras-chave e personalizar regras de destaque para saída do terminal.',
     success: 'Sucesso',
     background: 'Fundo',
-    backgroundNone: 'Nenhum',
-    backgroundEnable: 'Ativar',
-    backgroundUpload: 'Carregar',
+    backgroundDefault: 'Fundo padrao',
+    backgroundCustomUpload: 'Upload personalizado (JPG, PNG, WebP, GIF)',
     backgroundOpacity: 'Opacidade',
     backgroundBrightness: 'Brilho',
     saveBackgroundFailed: 'Falha ao guardar imagem de fundo'

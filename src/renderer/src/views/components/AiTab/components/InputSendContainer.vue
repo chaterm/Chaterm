@@ -19,7 +19,6 @@
       <div class="context-display-container">
         <!-- Trigger button -->
         <span
-          v-if="chatHistory.length === 0"
           class="context-trigger-tag"
           @click.stop="(e) => handleAddContextClick(e.currentTarget as HTMLElement)"
         >
@@ -38,7 +37,7 @@
           </template>
           {{ item.host }}
           <CloseOutlined
-            v-if="chatTypeValue === 'agent' && chatHistory.length === 0"
+            v-if="chatTypeValue === 'agent'"
             class="tag-delete-btn"
             @click.stop="removeHost(item)"
           />
@@ -223,7 +222,7 @@ import { parseContextDragPayload, useEditableContent } from '../composables/useE
 import { AiTypeOptions } from '../composables/useEventBusListeners'
 import { getImageMediaType } from '../utils'
 import type { ContentPart, ContextDocRef, ContextPastChatRef, ContextCommandRef } from '@shared/WebviewMessage'
-import type { HistoryItem } from '../types'
+import type { HistoryItem, Host } from '../types'
 import { CloseOutlined, LaptopOutlined } from '@ant-design/icons-vue'
 import uploadIcon from '@/assets/icons/upload.svg'
 import imageIcon from '@/assets/icons/image.svg'
@@ -239,8 +238,9 @@ interface Props {
   // New properties for edit mode
   mode?: 'create' | 'edit'
   initialContentParts?: ContentPart[]
-  onConfirmEdit?: (contentParts: ContentPart[]) => void
+  onConfirmEdit?: (contentParts: ContentPart[], hosts: Host[]) => void
   openHistoryTab?: (history: HistoryItem, options?: { forceNewTab?: boolean }) => Promise<void>
+  messageHosts?: Host[]
 }
 const logger = createRendererLogger('ai.inputSend')
 
@@ -251,7 +251,8 @@ const props = withDefaults(defineProps<Props>(), {
   interactionActive: false,
   mode: 'create',
   initialContentParts: () => [],
-  onConfirmEdit: () => {}
+  onConfirmEdit: () => {},
+  messageHosts: () => []
 })
 
 const { t } = useI18n()
@@ -262,11 +263,39 @@ const {
   chatTypeValue,
   chatAiModelValue,
   chatContainerScrollSignal,
-  hosts,
+  hosts: sessionHosts,
   chatInputParts,
-  responseLoading,
-  chatHistory
+  responseLoading
 } = useSessionState()
+
+// Local hosts state for edit mode
+const localEditHosts = ref<Host[]>([])
+
+// Initialize localEditHosts when entering edit mode
+watch(
+  () => [props.mode, props.messageHosts],
+  () => {
+    if (props.mode === 'edit') {
+      localEditHosts.value = props.messageHosts || []
+    }
+  },
+  { immediate: true }
+)
+
+// Compute the hosts to display based on mode
+// - In edit mode: display the local editable hosts (localEditHosts)
+// - In create mode: display the current session hosts (sessionHosts from useSessionState)
+// This computed is both readable and writable (like inputParts)
+const hosts = computed<Host[]>({
+  get: () => (props.mode === 'edit' ? localEditHosts.value : sessionHosts.value),
+  set: (newHosts) => {
+    if (props.mode === 'edit') {
+      localEditHosts.value = newHosts
+      return
+    }
+    sessionHosts.value = newHosts
+  }
+})
 
 const editableRef = ref<HTMLDivElement | null>(null)
 
@@ -290,13 +319,15 @@ const inputParts = computed<ContentPart[]>({
 // Create context instance and provide to child components.
 // We pass inputParts so chip insertion works in edit mode without touching the global draft.
 // Pass mode to avoid duplicate event listeners in edit mode.
+// Pass hosts (writable computed) so host operations work correctly in both modes.
 const context = useContext({
   chatInputParts: inputParts,
   focusInput: () => {
     editableRef.value?.focus()
     restoreSelection()
   },
-  mode: props.mode
+  mode: props.mode,
+  hosts: hosts
 })
 provide(contextInjectionKey, context)
 
@@ -350,7 +381,8 @@ const handleSendClick = async (type: string) => {
       })
       return
     }
-    props.onConfirmEdit?.(inputParts.value)
+    // Pass the complete Host objects (not just host strings) along with contentParts
+    props.onConfirmEdit?.(inputParts.value, hosts.value)
   } else {
     // Create mode: original logic
     props.sendMessage(type)
@@ -469,15 +501,63 @@ const handleEditableDrop = async (e: DragEvent) => {
   })
 }
 
-// Handle paste events for images
-const handlePaste = (e: ClipboardEvent) => {
-  // Check for images synchronously first to prevent default browser paste behavior
-  if (hasClipboardImages(e)) {
-    // Prevent default paste behavior immediately before async processing
-    e.preventDefault()
-    // Process images asynchronously
-    handlePasteImage(e)
+const insertPlainTextAtCursor = (text: string) => {
+  if (!editableRef.value) return
+
+  editableRef.value.focus()
+  restoreSelection()
+
+  const selection = window.getSelection()
+  if (!selection) return
+
+  let range: Range | null = selection.rangeCount > 0 ? selection.getRangeAt(0) : null
+  if (!range || !editableRef.value.contains(range.startContainer)) {
+    moveCaretToEnd()
+    range = selection.rangeCount > 0 ? selection.getRangeAt(0) : null
   }
+  if (!range) return
+
+  const fragment = document.createDocumentFragment()
+  const normalizedText = text.replace(/\r\n/g, '\n')
+  const lines = normalizedText.split('\n')
+  lines.forEach((line, index) => {
+    fragment.appendChild(document.createTextNode(line))
+    if (index < lines.length - 1) {
+      fragment.appendChild(document.createElement('br'))
+    }
+  })
+
+  const caretMarker = document.createTextNode('')
+  fragment.appendChild(caretMarker)
+
+  range.deleteContents()
+  range.insertNode(fragment)
+
+  const newRange = document.createRange()
+  newRange.setStart(caretMarker, 0)
+  newRange.collapse(true)
+  selection.removeAllRanges()
+  selection.addRange(newRange)
+  caretMarker.remove()
+
+  saveSelection()
+  handleEditableInput()
+}
+
+// Handle paste events:
+// - Keep image paste in the dedicated image pipeline.
+// - Force non-image paste to plain text to strip formatting.
+const handlePaste = (e: ClipboardEvent) => {
+  if (hasClipboardImages(e)) {
+    e.preventDefault()
+    handlePasteImage(e)
+    return
+  }
+
+  // Always prevent default before inserting to block browser rich-text paste.
+  e.preventDefault()
+  const plainText = e.clipboardData?.getData('text/plain') ?? ''
+  insertPlainTextAtCursor(plainText)
 }
 
 watch(

@@ -142,11 +142,6 @@ vi.mock('vue-i18n', () => ({
   })
 }))
 
-// Mock domUtils
-vi.mock('@/utils/domUtils', () => ({
-  isFocusInAiTab: vi.fn(() => false)
-}))
-
 describe('TabsPanel Component', () => {
   let wrapper: VueWrapper<any>
   let pinia: ReturnType<typeof createPinia>
@@ -787,112 +782,6 @@ describe('TabsPanel Component', () => {
       // Menu position should be adjusted
       expect(vm.contextMenu.x).toBeLessThan(750)
       expect(vm.contextMenu.y).toBeLessThan(500)
-    })
-  })
-
-  describe('Keyboard Shortcuts', () => {
-    it('should handle Cmd+W (Mac) or Ctrl+Shift+W (Windows/Linux) to close tab', async () => {
-      const closeCurrentPanel = vi.fn()
-      wrapper = createWrapper({
-        id: 'test-tab',
-        closeCurrentPanel
-      })
-
-      const vm = wrapper.vm as any
-      vm.isActive = true
-
-      // Mock Mac platform
-      Object.defineProperty(navigator, 'platform', {
-        writable: true,
-        configurable: true,
-        value: 'MacIntel'
-      })
-
-      const mockEvent = {
-        preventDefault: vi.fn(),
-        stopPropagation: vi.fn(),
-        metaKey: true,
-        ctrlKey: false,
-        shiftKey: false,
-        key: 'w',
-        target: document.createElement('div')
-      } as any
-
-      vm.handleCloseTabKeyDown(mockEvent)
-      await nextTick()
-
-      expect(closeCurrentPanel).toHaveBeenCalledWith('panel_test-tab')
-    })
-
-    it('should not close tab when not active', () => {
-      const closeCurrentPanel = vi.fn()
-      wrapper = createWrapper({
-        id: 'test-tab',
-        closeCurrentPanel
-      })
-
-      const vm = wrapper.vm as any
-      vm.isActive = false
-
-      const mockEvent = {
-        metaKey: true,
-        key: 'w',
-        target: document.createElement('div')
-      } as any
-
-      vm.handleCloseTabKeyDown(mockEvent)
-
-      expect(closeCurrentPanel).not.toHaveBeenCalled()
-    })
-
-    it('should not close tab when focus is in AI tab', async () => {
-      const { isFocusInAiTab } = await import('@/utils/domUtils')
-      vi.mocked(isFocusInAiTab).mockReturnValueOnce(true)
-
-      const closeCurrentPanel = vi.fn()
-      wrapper = createWrapper({
-        id: 'test-tab',
-        closeCurrentPanel
-      })
-
-      const vm = wrapper.vm as any
-      vm.isActive = true
-
-      const mockEvent = {
-        metaKey: true,
-        key: 'w',
-        target: document.createElement('div')
-      } as any
-
-      vm.handleCloseTabKeyDown(mockEvent)
-
-      expect(closeCurrentPanel).not.toHaveBeenCalled()
-    })
-
-    it('should not close SSH tab when focus is in terminal', () => {
-      const closeCurrentPanel = vi.fn()
-      wrapper = createWrapper({
-        id: 'test-tab',
-        organizationId: 'org-123',
-        closeCurrentPanel
-      })
-
-      const vm = wrapper.vm as any
-      vm.isActive = true
-
-      // Create element with terminal class
-      const terminalElement = document.createElement('div')
-      terminalElement.className = 'terminal-container'
-
-      const mockEvent = {
-        metaKey: true,
-        key: 'w',
-        target: terminalElement
-      } as any
-
-      vm.handleCloseTabKeyDown(mockEvent)
-
-      expect(closeCurrentPanel).not.toHaveBeenCalled()
     })
   })
 

@@ -1,4 +1,6 @@
-import type { ContentPart, ContextRefs } from '@shared/WebviewMessage'
+import type { ContentPart, ContextRefs, Host } from '@shared/WebviewMessage'
+
+export type { Host }
 
 export interface MessageContent {
   question: string
@@ -40,6 +42,7 @@ export interface ChatMessage {
   hostId?: string
   hostName?: string
   colorTag?: string
+  hosts?: Host[]
   // AI explanation for command (inline, not in history)
   explanation?: string
 }
@@ -78,14 +81,6 @@ export interface TaskHistoryItem {
 export interface ModelOption {
   label: string
   value: string
-}
-
-export interface Host {
-  host: string
-  uuid: string
-  connection: string
-  organizationUuid?: string
-  assetType?: string
 }
 
 // Tree structure types for host list

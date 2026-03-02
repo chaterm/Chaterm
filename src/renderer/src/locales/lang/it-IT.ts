@@ -487,9 +487,8 @@ export default {
       "Clicca il pulsante per aprire direttamente il file di configurazione dell'evidenziazione delle parole chiave e personalizza le regole di evidenziazione per l'output del terminale.",
     success: 'Successo',
     background: 'Sfondo',
-    backgroundNone: 'Nessuno',
-    backgroundEnable: 'Attivato',
-    backgroundUpload: 'Carica',
+    backgroundDefault: 'Sfondo predefinito',
+    backgroundCustomUpload: 'Caricamento personalizzato (JPG, PNG, WebP, GIF)',
     backgroundOpacity: 'Opacità',
     backgroundBrightness: 'Luminosità',
     saveBackgroundFailed: 'Salvataggio immagine di sfondo fallito'

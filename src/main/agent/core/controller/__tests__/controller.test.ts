@@ -1,24 +1,26 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import type { WebviewMessage } from '@shared/WebviewMessage'
 
-const { mockUpdateApiConfiguration, mockGetAllExtensionState, mockBuildApiHandler, mockGetGlobalState, mockUpdateGlobalState } = vi.hoisted(() => {
-  return {
-    mockUpdateApiConfiguration: vi.fn(),
-    mockGetAllExtensionState: vi.fn(async () => ({
-      apiConfiguration: { apiProvider: 'default', defaultModelId: 'mock', defaultBaseUrl: 'http://mock', defaultApiKey: 'mock' },
-      userRules: [],
-      autoApprovalSettings: {}
-    })),
-    mockBuildApiHandler: vi.fn(() => ({
-      createMessage: () =>
-        (async function* () {
-          yield { type: 'text', text: '' }
-        })()
-    })),
-    mockGetGlobalState: vi.fn(async () => undefined as unknown),
-    mockUpdateGlobalState: vi.fn(async () => undefined)
-  }
-})
+const { mockUpdateApiConfiguration, mockGetAllExtensionState, mockBuildApiHandler, mockGetGlobalState, mockUpdateGlobalState, mockGetUserConfig } =
+  vi.hoisted(() => {
+    return {
+      mockUpdateApiConfiguration: vi.fn(),
+      mockGetAllExtensionState: vi.fn(async () => ({
+        apiConfiguration: { apiProvider: 'default', defaultModelId: 'mock', defaultBaseUrl: 'http://mock', defaultApiKey: 'mock' },
+        userRules: [],
+        autoApprovalSettings: {}
+      })),
+      mockBuildApiHandler: vi.fn(() => ({
+        createMessage: () =>
+          (async function* () {
+            yield { type: 'text', text: '' }
+          })()
+      })),
+      mockGetGlobalState: vi.fn(async () => undefined as unknown),
+      mockUpdateGlobalState: vi.fn(async () => undefined),
+      mockGetUserConfig: vi.fn(async () => ({ language: 'zh-CN' }))
+    }
+  })
 
 // Mock McpHub to avoid filesystem/network side-effects in Controller constructor
 vi.mock('@services/mcp/McpHub', () => {
@@ -46,7 +48,7 @@ vi.mock('@core/storage/state', () => {
     getGlobalState: mockGetGlobalState,
     updateApiConfiguration: mockUpdateApiConfiguration,
     updateGlobalState: mockUpdateGlobalState,
-    getUserConfig: vi.fn(async () => ({ language: 'zh-CN' }))
+    getUserConfig: mockGetUserConfig
   }
 })
 
@@ -134,6 +136,7 @@ function createMockHost(id: string): Host {
 describe('Controller', () => {
   beforeEach(() => {
     vi.clearAllMocks()
+    mockGetUserConfig.mockResolvedValue({ language: 'zh-CN' })
   })
 
   it('buildExplainCommandPrompt should return professional zh-CN prompt', async () => {
@@ -422,5 +425,85 @@ describe('Controller', () => {
 
     expect(spy1).toHaveBeenCalled()
     expect(spy2).toHaveBeenCalled()
+  })
+
+  it('handleAiSuggestCommand should return command with Chinese explanation for zh clients', async () => {
+    const createMessage = vi.fn().mockImplementationOnce(() =>
+      (async function* () {
+        yield { type: 'text', text: 'CMD: ls -la\nEXP: 列出目录详细信息（含隐藏文件）' }
+      })()
+    )
+
+    mockBuildApiHandler.mockReturnValue({
+      createMessage
+    })
+
+    const controller = new Controller(
+      async () => true,
+      async () => '/tmp/mcp_settings.json'
+    )
+
+    const result = await controller.handleAiSuggestCommand('ls -')
+
+    expect(result).toEqual({
+      command: 'ls -la',
+      explanation: '列出目录详细信息（含隐藏文件）'
+    })
+    expect(createMessage).toHaveBeenCalledTimes(1)
+    expect(createMessage.mock.calls[0][0]).toContain('Chinese')
+  })
+
+  it('handleAiSuggestCommand should return command with English explanation for non-zh clients', async () => {
+    mockGetUserConfig.mockResolvedValueOnce({ language: 'fr-FR' })
+    const createMessage = vi.fn().mockImplementationOnce(() =>
+      (async function* () {
+        yield { type: 'text', text: 'CMD: find . -name *.log\nEXP: Find log files recursively' }
+      })()
+    )
+
+    mockBuildApiHandler.mockReturnValue({
+      createMessage
+    })
+
+    const controller = new Controller(
+      async () => true,
+      async () => '/tmp/mcp_settings.json'
+    )
+
+    const result = await controller.handleAiSuggestCommand('find ')
+
+    expect(result).toEqual({
+      command: 'find . -name *.log',
+      explanation: 'Find log files recursively'
+    })
+    expect(createMessage).toHaveBeenCalledTimes(1)
+    expect(createMessage.mock.calls[0][0]).toContain('English')
+  })
+
+  it('handleAiSuggestCommand should truncate overly long explanation for compact UI display', async () => {
+    mockGetUserConfig.mockResolvedValueOnce({ language: 'en-US' })
+    const createMessage = vi.fn().mockImplementationOnce(() =>
+      (async function* () {
+        yield {
+          type: 'text',
+          text: 'CMD: grep -R "TODO" .\nEXP: Recursively searches all files under the current directory and prints every line that contains TODO for quick code review.'
+        }
+      })()
+    )
+
+    mockBuildApiHandler.mockReturnValue({
+      createMessage
+    })
+
+    const controller = new Controller(
+      async () => true,
+      async () => '/tmp/mcp_settings.json'
+    )
+
+    const result = await controller.handleAiSuggestCommand('grep ')
+
+    expect(result?.command).toBe('grep -R "TODO" .')
+    expect(result?.explanation.endsWith('...')).toBe(true)
+    expect((result?.explanation ?? '').length).toBeLessThanOrEqual(63)
   })
 })

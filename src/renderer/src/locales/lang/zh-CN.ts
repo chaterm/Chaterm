@@ -476,9 +476,8 @@ export default {
     keywordHighlightDescribe: '点击按钮直接打开关键词高亮配置文件，自定义终端输出的高亮规则。',
     success: '成功',
     background: '背景',
-    backgroundNone: '无',
-    backgroundEnable: '开启',
-    backgroundUpload: '上传',
+    backgroundDefault: '默认背景',
+    backgroundCustomUpload: '自定义上传（支持JPG、PNG、WebP、GIF）',
     backgroundOpacity: '透明度',
     backgroundBrightness: '亮度',
     saveBackgroundFailed: '保存背景图片失败'

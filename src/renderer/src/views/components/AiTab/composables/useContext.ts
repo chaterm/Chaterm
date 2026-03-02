@@ -26,6 +26,7 @@ export interface UseContextOptions {
   chatInputParts?: Ref<ContentPart[]>
   focusInput?: () => void
   mode?: 'create' | 'edit'
+  hosts?: Ref<Host[]>
 }
 
 /**
@@ -43,8 +44,9 @@ const MAX_TARGET_HOSTS = 5
 export const useContext = (options: UseContextOptions = {}) => {
   const { t } = i18n.global
 
-  const { hosts, chatTypeValue, autoUpdateHost, chatInputParts: globalChatInputParts, isMessageEditing } = useSessionState()
+  const { hosts: sessionHosts, chatTypeValue, autoUpdateHost, chatInputParts: globalChatInputParts, isMessageEditing } = useSessionState()
   const chatInputParts = options.chatInputParts ?? globalChatInputParts
+  const hosts = options.hosts ?? sessionHosts
 
   const { getCurentTabAssetInfo } = useHostState()
 

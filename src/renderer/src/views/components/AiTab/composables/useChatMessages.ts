@@ -3,7 +3,7 @@ import { v4 as uuidv4 } from 'uuid'
 import { notification } from 'ant-design-vue'
 import eventBus from '@/utils/eventBus'
 
-import type { ChatMessage } from '../types'
+import type { ChatMessage, Host } from '../types'
 import type { Todo } from '@/types/todo'
 import type { ChatTab } from './useSessionState'
 import type { ExtensionMessage } from '@shared/ExtensionMessage'
@@ -102,7 +102,8 @@ export function useChatMessages(
     sendType: string,
     tabId?: string,
     truncateAtMessageTs?: number,
-    contentParts?: ContentPart[]
+    contentParts?: ContentPart[],
+    overrideHosts?: Host[]
   ) => {
     try {
       const targetTab = tabId ? chatTabs.value.find((tab) => tab.id === tabId) : currentTab.value
@@ -112,7 +113,8 @@ export function useChatMessages(
       }
 
       const session = targetTab.session
-      const targetHosts = targetTab.hosts || []
+      // Use overrideHosts if provided, otherwise use targetTab.hosts
+      const targetHosts = overrideHosts || targetTab.hosts || []
 
       const hostsArray = targetHosts.map((h) => ({
         host: h.host,
@@ -237,7 +239,8 @@ export function useChatMessages(
     sendType: string,
     tabId?: string,
     truncateAtMessageTs?: number,
-    contentParts?: ContentPart[]
+    contentParts?: ContentPart[],
+    overrideHosts?: Host[]
   ) => {
     const targetTab = tabId ? chatTabs.value.find((tab: ChatTab) => tab.id === tabId) : currentTab.value
 
@@ -249,7 +252,7 @@ export function useChatMessages(
     session.isCancelled = false
     // Strip Vue proxies before IPC to avoid structured clone failures.
     contentParts = contentParts ? contentParts.map((part) => (isProxy(part) ? (toRaw(part) as ContentPart) : part)) : undefined
-    await sendMessageToMain(userContent, sendType, tabId, truncateAtMessageTs, contentParts)
+    await sendMessageToMain(userContent, sendType, tabId, truncateAtMessageTs, contentParts, overrideHosts)
 
     const userMessage: ChatMessage = {
       id: uuidv4(),
@@ -260,6 +263,13 @@ export function useChatMessages(
       ask: '',
       say: '',
       ts: 0
+    }
+
+    // Set hosts: use overrideHosts if provided, otherwise use targetTab.hosts
+    if (overrideHosts) {
+      userMessage.hosts = overrideHosts
+    } else if (targetTab.hosts && targetTab.hosts.length > 0) {
+      userMessage.hosts = targetTab.hosts
     }
 
     if (sendType === 'commandSend') {
@@ -585,7 +595,7 @@ export function useChatMessages(
   /**
    * Handle edit and resend from UserMessage
    */
-  const handleTruncateAndSend = async ({ message, contentParts }: { message: ChatMessage; contentParts: ContentPart[] }) => {
+  const handleTruncateAndSend = async ({ message, contentParts, hosts }: { message: ChatMessage; contentParts: ContentPart[]; hosts?: Host[] }) => {
     if (!currentSession.value) return
 
     const chatHistory = currentSession.value.chatHistory
@@ -599,7 +609,7 @@ export function useChatMessages(
 
     // Build plain text content with @absPath for chips
     const newContent = buildPlainTextFromParts(contentParts)
-    await sendMessageWithContent(newContent, 'send', undefined, truncateAtMessageTs, contentParts)
+    await sendMessageWithContent(newContent, 'send', undefined, truncateAtMessageTs, contentParts, hosts)
   }
 
   /**

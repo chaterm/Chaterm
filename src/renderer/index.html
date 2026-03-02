@@ -17,7 +17,7 @@
           return 'light'
         }
 
-        const actualTheme = getActualTheme(theme)
+        const actualTheme = getSystemTheme()
         document.documentElement.className = `theme-${actualTheme}`
       })()
     </script>

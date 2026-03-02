@@ -36,28 +36,47 @@
           :label="$t('user.background')"
           class="user_my-ant-form-item"
         >
-          <a-radio-group
-            v-model:value="userConfig.background.mode"
-            class="custom-radio-group"
-            @change="changeBackgroundMode"
-          >
-            <a-radio value="none">{{ $t('user.backgroundNone') }}</a-radio>
-            <a-radio value="image">{{ $t('user.backgroundEnable') }}</a-radio>
-          </a-radio-group>
-
-          <div
-            v-if="userConfig.background.mode !== 'none'"
-            class="bg-content"
-          >
-            <!-- Unified Background Grid -->
+          <div class="bg-content">
+            <!-- Background Grid -->
             <div class="unified-bg-grid">
-              <!-- Slot 1: Custom Background -->
+              <!-- Slot 1: Default Background (no background) -->
               <div
-                class="bg-grid-item custom-item"
-                :class="{ active: userConfig.background.image === customBackgroundImage && customBackgroundImage }"
-                @click="handleCustomItemClick"
+                class="bg-grid-item default-bg-item"
+                :class="{ active: userConfig.background.mode === 'none' }"
+                @click="selectDefaultBackground"
               >
-                <template v-if="customBackgroundImage">
+                <div class="default-bg-placeholder">
+                  <desktop-outlined style="font-size: 20px; margin-bottom: 4px" />
+                  <span style="font-size: 10px">{{ $t('user.backgroundDefault') }}</span>
+                </div>
+              </div>
+
+              <!-- Slots 2-6: System Backgrounds -->
+              <div
+                v-for="i in 5"
+                :key="i"
+                class="bg-grid-item system-item"
+                :class="{ active: userConfig.background.mode === 'image' && userConfig.background.image.includes(`wall-${i}.jpg`) }"
+                @click="selectSystemBackground(i)"
+              >
+                <img
+                  :src="getSystemBgUrl(i)"
+                  loading="lazy"
+                />
+              </div>
+            </div>
+
+            <!-- Custom Upload Section -->
+            <div class="custom-upload-section">
+              <span class="custom-upload-label">{{ $t('user.backgroundCustomUpload') }}</span>
+              <div class="custom-upload-grid">
+                <!-- Custom uploaded background (if exists) -->
+                <div
+                  v-if="customBackgroundImage"
+                  class="bg-grid-item custom-item"
+                  :class="{ active: userConfig.background.mode === 'image' && userConfig.background.image === customBackgroundImage }"
+                  @click="selectCustomBackground"
+                >
                   <img
                     :src="customBackgroundImage"
                     alt="Custom Background"
@@ -68,34 +87,23 @@
                   >
                     <delete-outlined />
                   </div>
-                </template>
-                <div
-                  v-else
-                  class="upload-placeholder"
-                >
-                  <plus-outlined style="font-size: 20px; margin-bottom: 4px" />
-                  <span style="font-size: 10px">{{ $t('user.backgroundUpload') }}</span>
                 </div>
-              </div>
 
-              <!-- Slots 2-7: System Backgrounds -->
-              <div
-                v-for="i in 5"
-                :key="i"
-                class="bg-grid-item system-item"
-                :class="{ active: userConfig.background.image.includes(`wall-${i}.jpg`) }"
-                @click="selectSystemBackground(i)"
-              >
-                <img
-                  :src="getSystemBgUrl(i)"
-                  loading="lazy"
-                />
+                <!-- Upload button -->
+                <div
+                  class="bg-grid-item upload-item"
+                  @click="selectBackgroundImage"
+                >
+                  <div class="upload-placeholder">
+                    <upload-outlined style="font-size: 20px" />
+                  </div>
+                </div>
               </div>
             </div>
 
             <!-- Sliders (Global for any selected background) -->
             <div
-              v-if="userConfig.background.image"
+              v-if="userConfig.background.mode === 'image' && userConfig.background.image"
               class="bg-sliders-section mt-2"
             >
               <div class="slider-item">
@@ -286,7 +294,7 @@
 <script setup lang="ts">
 import { ref, onMounted, watch, onBeforeUnmount } from 'vue'
 import { notification } from 'ant-design-vue'
-import { DeleteOutlined, PlusOutlined } from '@ant-design/icons-vue'
+import { DeleteOutlined, UploadOutlined, DesktopOutlined } from '@ant-design/icons-vue'
 import { userConfigStore } from '@/services/userConfigStoreService'
 import { userConfigStore as configStore } from '@/store/userConfigStore'
 import { useEditorConfigStore, type EditorConfig, FONT_FAMILY_OPTIONS } from '@/stores/editorConfig'
@@ -304,6 +312,7 @@ const userConfig = ref({
   watermark: 'open',
   theme: 'auto',
   defaultLayout: 'terminal',
+  lastCustomImage: '',
   background: {
     image: '',
     opacity: 0.05,
@@ -313,6 +322,7 @@ const userConfig = ref({
 })
 
 const customBackgroundImage = ref('')
+const SYSTEM_BG_KEY_PREFIX = 'system-bg:'
 
 // Editor config form state (synced from store on load)
 const editorConfig = ref<EditorConfig>({
@@ -334,6 +344,7 @@ const loadSavedConfig = async () => {
         ...userConfig.value,
         ...savedConfig,
         defaultLayout: savedConfig.defaultLayout || 'terminal',
+        lastCustomImage: savedConfig.lastCustomImage || '',
         background: savedConfig.background || {
           image: '',
           opacity: 0.8,
@@ -343,9 +354,17 @@ const loadSavedConfig = async () => {
         watermark: (savedConfig.watermark || 'open') as 'open' | 'close'
       } as any
 
+      const normalizedSystemBg = normalizeSystemBackgroundImage(userConfig.value.background.image)
+      if (normalizedSystemBg !== userConfig.value.background.image) {
+        userConfig.value.background.image = normalizedSystemBg
+      }
+
       // Initialize custom background image if current bg is not a system one
-      if (userConfig.value.background.image && !userConfig.value.background.image.includes('assets/backgroup/wall-')) {
+      if (userConfig.value.background.image && !isSystemBackgroundImage(userConfig.value.background.image)) {
         customBackgroundImage.value = userConfig.value.background.image
+        userConfig.value.lastCustomImage = userConfig.value.background.image
+      } else if (userConfig.value.lastCustomImage) {
+        customBackgroundImage.value = userConfig.value.lastCustomImage
       }
       const actualTheme = getActualTheme(userConfig.value.theme)
       document.documentElement.className = `theme-${actualTheme}`
@@ -375,6 +394,7 @@ const saveConfig = async () => {
       watermark: (userConfig.value.watermark || 'open') as 'open' | 'close',
       theme: userConfig.value.theme,
       defaultLayout: userConfig.value.defaultLayout,
+      lastCustomImage: userConfig.value.lastCustomImage,
       background: userConfig.value.background
     }
     await userConfigStore.saveConfig(configToStore as any)
@@ -491,35 +511,68 @@ const changeDefaultLayout = async () => {
   await saveConfig()
 }
 
-const changeBackgroundMode = async () => {
-  configStore().updateBackgroundMode(userConfig.value.background.mode)
-  if (userConfig.value.background.mode === 'none') {
-    userConfig.value.background.image = ''
-    configStore().updateBackgroundImage('')
-  }
+const selectDefaultBackground = async () => {
+  userConfig.value.background.mode = 'none'
+  userConfig.value.background.image = ''
+  configStore().updateBackgroundMode('none')
+  configStore().updateBackgroundImage('')
   await saveConfig()
 }
 
 // Helper to get system background URL
 // Using a relative path that works in development and production (if assets are handled correctly)
 // In Electron renderer, we can often use relative paths or require/import
+const getSystemBgStorageKey = (index: number): string => `${SYSTEM_BG_KEY_PREFIX}${index}`
+
+const getSystemBgIndex = (imagePath: string): number | null => {
+  if (!imagePath) {
+    return null
+  }
+
+  if (imagePath.startsWith(SYSTEM_BG_KEY_PREFIX)) {
+    const index = Number(imagePath.slice(SYSTEM_BG_KEY_PREFIX.length))
+    return Number.isNaN(index) ? null : index
+  }
+
+  const match = imagePath.match(/wall-(\d+)\.jpg/)
+  if (!match) {
+    return null
+  }
+
+  const index = Number(match[1])
+  return Number.isNaN(index) ? null : index
+}
+
+const normalizeSystemBackgroundImage = (imagePath: string): string => {
+  const index = getSystemBgIndex(imagePath)
+  if (index === null) {
+    return imagePath
+  }
+  return getSystemBgStorageKey(index)
+}
+
+const isSystemBackgroundImage = (imagePath: string): boolean => getSystemBgIndex(imagePath) !== null
+
 const getSystemBgUrl = (index: number): string => {
   return new URL(`../../../../assets/backgroup/wall-${index}.jpg`, import.meta.url).href
 }
 
 const selectSystemBackground = async (index: number) => {
+  userConfig.value.background.mode = 'image'
   userConfig.value.background.image = getSystemBgUrl(index)
+  configStore().updateBackgroundMode('image')
   configStore().updateBackgroundImage(userConfig.value.background.image)
   await saveConfig()
 }
 
-const handleCustomItemClick = () => {
+const selectCustomBackground = async () => {
   if (customBackgroundImage.value) {
+    userConfig.value.background.mode = 'image'
     userConfig.value.background.image = customBackgroundImage.value
+    userConfig.value.lastCustomImage = customBackgroundImage.value
+    configStore().updateBackgroundMode('image')
     configStore().updateBackgroundImage(userConfig.value.background.image)
-    saveConfig()
-  } else {
-    selectBackgroundImage()
+    await saveConfig()
   }
 }
 
@@ -543,7 +596,10 @@ const selectBackgroundImage = async () => {
           const separator = baseUrl.includes('?') ? '&' : '?'
           const newPath = `${baseUrl}${separator}t=${Date.now()}`
           customBackgroundImage.value = newPath
+          userConfig.value.background.mode = 'image'
           userConfig.value.background.image = newPath
+          userConfig.value.lastCustomImage = newPath
+          configStore().updateBackgroundMode('image')
           configStore().updateBackgroundImage(userConfig.value.background.image)
           await saveConfig()
         }
@@ -560,12 +616,15 @@ const selectBackgroundImage = async () => {
 }
 
 const clearCustomBackground = async () => {
-  // If currently selected, clear it
+  // If currently selected, reset to default (no background)
   if (userConfig.value.background.image === customBackgroundImage.value) {
+    userConfig.value.background.mode = 'none'
     userConfig.value.background.image = ''
+    configStore().updateBackgroundMode('none')
     configStore().updateBackgroundImage('')
   }
   customBackgroundImage.value = ''
+  userConfig.value.lastCustomImage = ''
   await saveConfig()
 }
 
@@ -750,7 +809,7 @@ const saveEditorConfig = async () => {
 /* Common Grid Item Styles */
 .bg-grid-item {
   aspect-ratio: 16/9;
-  border-radius: 4px;
+  border-radius: 8px;
   overflow: hidden;
   cursor: pointer;
   border: 2px solid transparent;
@@ -778,6 +837,7 @@ const saveEditorConfig = async () => {
   width: 100%;
   height: 100%;
   border: 2px dashed rgba(255, 255, 255, 0.3);
+  border-radius: 6px;
   background: rgba(255, 255, 255, 0.08);
   display: flex;
   flex-direction: column;
@@ -843,6 +903,59 @@ const saveEditorConfig = async () => {
 
 .mt-2 {
   margin-top: 8px;
+}
+
+/* Default Background Item */
+.default-bg-placeholder {
+  width: 100%;
+  height: 100%;
+  border: 2px dashed rgba(255, 255, 255, 0.3);
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.05);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-color);
+  opacity: 0.9;
+  transition: all 0.2s;
+}
+
+.default-bg-item:hover .default-bg-placeholder {
+  border-color: var(--primary-color, #1890ff);
+  background: rgba(24, 144, 255, 0.1);
+  opacity: 1;
+  color: var(--primary-color, #1890ff);
+}
+
+.default-bg-item.active .default-bg-placeholder {
+  border-color: var(--primary-color, #1890ff);
+  color: var(--primary-color, #1890ff);
+}
+
+/* Custom Upload Section */
+.custom-upload-section {
+  margin-top: 12px;
+}
+
+.custom-upload-label {
+  font-size: 12px;
+  color: var(--text-color);
+  opacity: 0.7;
+  margin-bottom: 8px;
+  display: block;
+  text-align: left;
+}
+
+.custom-upload-grid {
+  display: flex;
+  gap: 8px;
+  padding: 2px;
+}
+
+.custom-upload-grid .bg-grid-item {
+  width: calc((100% - 16px) / 3);
+  flex-shrink: 0;
 }
 
 .editor-settings-section {

@@ -320,8 +320,17 @@ export class Task {
     }
   }
 
-  private async sayUserFeedback(text: string, contentParts?: ContentPart[]): Promise<void> {
-    await this.say('user_feedback', text, undefined, undefined, contentParts)
+  private async saveUserMessage(text: string, contentParts?: ContentPart[], say_type?: ChatermSay): Promise<void> {
+    const sayTs = Date.now()
+    this.lastMessageTs = sayTs
+    await this.addToChatermMessages({
+      ts: sayTs,
+      type: 'say',
+      say: say_type ?? 'user_feedback',
+      text,
+      contentParts,
+      hosts: this.hosts
+    })
   }
 
   /**
@@ -1229,14 +1238,15 @@ export class Task {
 
   // Task lifecycle
 
-  private async startTask(task?: string, initialUserContentParts?: ContentPart[]): Promise<void> {
+  private async startTask(task: string, initialUserContentParts?: ContentPart[]): Promise<void> {
     this.chatermMessages = []
     this.apiConversationHistory = []
     this.connectedHosts.clear()
 
     await this.postStateToWebview()
 
-    await this.say('text', task, undefined, undefined, initialUserContentParts)
+    // await this.say('text', task, undefined, undefined, initialUserContentParts)
+    await this.saveUserMessage(task, initialUserContentParts, 'text')
 
     this.isInitialized = true
 
@@ -1305,7 +1315,7 @@ export class Task {
 
     // TODO:support only chip or image input
     if (text) {
-      await this.sayUserFeedback(text, contentParts)
+      await this.saveUserMessage(text, contentParts)
 
       // If last API message is user, remove it (API requires user/assistant alternation)
       let userContent: UserContent = [{ type: 'text', text }]
@@ -1890,7 +1900,7 @@ export class Task {
     const { response, text, contentParts } = await this.ask('mistake_limit_reached', errorMessage)
 
     if (response === 'messageResponse') {
-      await this.sayUserFeedback(text ?? '', contentParts)
+      await this.saveUserMessage(text ?? '', contentParts)
       userContent.push({
         type: 'text',
         text: formatResponse.tooManyMistakes(text)
@@ -2671,13 +2681,13 @@ export class Task {
       this.pushToolResult(toolDescription, formatResponse.toolDenied())
       if (text) {
         this.pushAdditionalToolFeedback(text)
-        await this.sayUserFeedback(text, contentParts)
+        await this.saveUserMessage(text, contentParts)
         await this.saveCheckpoint()
       }
       this.didRejectTool = true
     } else if (text) {
       this.pushAdditionalToolFeedback(text)
-      await this.sayUserFeedback(text, contentParts)
+      await this.saveUserMessage(text, contentParts)
       await this.saveCheckpoint()
     }
     return approved
@@ -2759,7 +2769,7 @@ export class Task {
         }
       } else {
         telemetryService.captureOptionsIgnored(this.taskId, options.length, 'act')
-        await this.sayUserFeedback(text ?? '', contentParts)
+        await this.saveUserMessage(text ?? '', contentParts)
       }
 
       this.pushToolResult(toolDescription, formatResponse.toolResult(`<answer>\n${text}\n</answer>`))
@@ -2845,7 +2855,7 @@ export class Task {
         this.pushToolResult(toolDescription, '')
         return
       }
-      await this.sayUserFeedback(text ?? '', contentParts)
+      await this.saveUserMessage(text ?? '', contentParts)
       await this.saveCheckpoint()
 
       const toolResults: (Anthropic.TextBlockParam | Anthropic.ImageBlockParam)[] = []
@@ -2894,7 +2904,7 @@ export class Task {
       const { text, contentParts } = await this.ask('condense', context, false)
 
       if (text) {
-        await this.sayUserFeedback(text ?? '', contentParts)
+        await this.saveUserMessage(text ?? '', contentParts)
         this.pushToolResult(
           toolDescription,
           formatResponse.toolResult(`The user provided feedback on the condensed conversation summary:\n<feedback>\n${text}\n</feedback>`)
@@ -2984,7 +2994,7 @@ export class Task {
 
       const { text, contentParts } = await this.ask('report_bug', bugReportData, false)
       if (text) {
-        await this.sayUserFeedback(text ?? '', contentParts)
+        await this.saveUserMessage(text ?? '', contentParts)
         this.pushToolResult(
           toolDescription,
           formatResponse.toolResult(
@@ -3325,7 +3335,7 @@ export class Task {
           this.pushToolResult(toolDescription, formatResponse.toolDenied())
           if (text) {
             this.pushAdditionalToolFeedback(text)
-            await this.sayUserFeedback(text, contentParts)
+            await this.saveUserMessage(text, contentParts)
             await this.saveCheckpoint()
           }
           this.didRejectTool = true
@@ -3333,7 +3343,7 @@ export class Task {
           return
         } else if (text) {
           this.pushAdditionalToolFeedback(text)
-          await this.sayUserFeedback(text, contentParts)
+          await this.saveUserMessage(text, contentParts)
           await this.saveCheckpoint()
         }
       } else {
@@ -3583,7 +3593,7 @@ export class Task {
       }
 
       if (text) {
-        await this.sayUserFeedback(text, contentParts)
+        await this.saveUserMessage(text, contentParts)
         this.userMessageContent.push({
           type: 'text',
           text: formatMessage(this.messages.userProvidedFeedback, { feedback: text })

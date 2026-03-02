@@ -80,7 +80,7 @@
   </div>
 </template>
 <script setup lang="ts">
-import { computed, ref, ComponentPublicInstance, onMounted, onUnmounted, watch, nextTick } from 'vue'
+import { computed, ref, ComponentPublicInstance, onMounted, watch, nextTick } from 'vue'
 import { userConfigStore } from '@/store/userConfigStore'
 import 'splitpanes/dist/splitpanes.css'
 import UserInfo from '@views/components/LeftTab/config/userInfo.vue'
@@ -99,7 +99,6 @@ import SecurityConfigEditor from '@views/components/Editors/SecurityConfigEditor
 import KeywordHighlightEditor from '@views/components/Editors/KeywordHighlightEditor.vue'
 import PluginDetail from '@views/components/Extensions/pluginDetail.vue'
 import type { IDockviewPanelProps } from 'dockview-vue'
-import { isFocusInAiTab } from '@/utils/domUtils'
 
 interface TabItem {
   id: string
@@ -244,52 +243,6 @@ const hideContextMenu = () => {
   contextMenu.value.visible = false
 }
 
-const isFocusInTerminal = (event: KeyboardEvent): boolean => {
-  const target = event.target as HTMLElement
-  const activeElement = document.activeElement as HTMLElement
-  const terminalContainer = target.closest('.terminal-container') || activeElement?.closest('.terminal-container')
-  const xtermElement = target.closest('.xterm') || activeElement?.closest('.xterm')
-
-  return !!(terminalContainer || xtermElement)
-}
-
-const handleCloseTabKeyDown = (event: KeyboardEvent) => {
-  if (!isActive.value) {
-    return
-  }
-
-  const isMac = navigator.platform.toUpperCase().indexOf('MAC') >= 0
-  const isCloseShortcut = (isMac && event.metaKey && event.key === 'w') || (!isMac && event.ctrlKey && event.shiftKey && event.key === 'W')
-
-  if (!isCloseShortcut) {
-    return
-  }
-
-  if (isFocusInAiTab(event)) {
-    return
-  }
-
-  if (isFocusInTerminal(event) && localTab.value?.organizationId !== '') {
-    return
-  }
-
-  const CLOSE_DEBOUNCE_TIME = 100
-  const currentTime = Date.now()
-  if (currentTime - ((window as any).lastCloseTime || 0) < CLOSE_DEBOUNCE_TIME) {
-    event.preventDefault()
-    event.stopPropagation()
-    return
-  }
-
-  ;(window as any).lastCloseTime = currentTime
-  event.preventDefault()
-  event.stopPropagation()
-
-  if (localTab.value?.closeCurrentPanel) {
-    localTab.value.closeCurrentPanel('panel_' + localTab.value.id)
-  }
-}
-
 watch(
   () => [isActive.value, localTab.value?.id],
   ([newIsActive, tabId]) => {
@@ -314,12 +267,6 @@ onMounted(() => {
   props.params?.api?.onDidActiveChange?.((event) => {
     isActive.value = event.isActive
   })
-
-  window.addEventListener('keydown', handleCloseTabKeyDown)
-})
-
-onUnmounted(() => {
-  window.removeEventListener('keydown', handleCloseTabKeyDown)
 })
 
 defineExpose({
@@ -441,42 +388,6 @@ defineExpose({
   &.transparent-bg {
     background-color: transparent !important;
   }
-}
-
-.context-menu {
-  position: fixed;
-  background-color: var(--bg-color);
-  border: 1px solid var(--border-color);
-  border-radius: 8px;
-  padding: 4px;
-  z-index: 1000;
-  box-shadow:
-    0 4px 20px rgba(0, 0, 0, 0.15),
-    0 2px 8px rgba(0, 0, 0, 0.1);
-  min-width: 180px;
-  font-size: 13px;
-  backdrop-filter: blur(10px);
-}
-
-.context-menu-item {
-  padding: 6px 12px;
-  margin: 1px 0;
-  cursor: pointer;
-  color: var(--text-color);
-  border-radius: 6px;
-  font-weight: 500;
-  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
-  user-select: none;
-}
-
-.context-menu-item:hover {
-  background-color: var(--hover-bg-color);
-  transform: translateX(2px);
-}
-
-.context-menu-item:active {
-  background-color: var(--active-bg-color);
-  transform: translateX(2px) scale(0.98);
 }
 
 .tab-title-input {
