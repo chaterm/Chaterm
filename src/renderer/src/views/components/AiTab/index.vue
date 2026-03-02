@@ -131,6 +131,7 @@
                 <UserMessage
                   v-if="pair.user"
                   :message="pair.user.message"
+                  :handle-interrupt="handleCancel"
                   @truncate-and-send="handleTruncateAndSend"
                 />
 
