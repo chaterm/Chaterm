@@ -48,7 +48,10 @@
       </a-dropdown>
     </div>
 
-    <a-dropdown :trigger="['contextmenu']">
+    <a-dropdown
+      :trigger="['contextmenu']"
+      transition-name=""
+    >
       <div
         class="kb-tree-wrapper"
         :class="{
@@ -74,6 +77,7 @@
             <a-dropdown
               :trigger="['contextmenu']"
               placement="bottomLeft"
+              transition-name=""
               @visible-change="
                 (visible) => {
                   if (visible) {
