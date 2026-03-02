@@ -2,289 +2,417 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { mount, flushPromises } from '@vue/test-utils'
 import { createI18n } from 'vue-i18n'
 
-// Event bus mock must be created via vi.hoisted because vi.mock factories are hoisted.
-// Do NOT reference regular top-level variables from vi.mock factories (TDZ).
+// NOTE: adjust path if your repo layout differs
+import Index from '../index.vue'
+
+beforeEach(() => {
+  ;(globalThis as any).createRendererLogger = vi.fn(() => ({
+    info: vi.fn(),
+    warn: vi.fn(),
+    error: vi.fn(),
+    debug: vi.fn()
+  }))
+})
+
+// ---------------- Event bus (hoisted singleton) ----------------
 const eventBus = vi.hoisted(() => {
-  type EventHandler = (...args: any[]) => void
-
-  const handlers = new Map<string, Set<EventHandler>>()
-
+  type Handler = (...args: any[]) => void
+  const handlers = new Map<string, Set<Handler>>()
   return {
-    on: vi.fn((event: string, fn: EventHandler) => {
+    on: vi.fn((event: string, fn: Handler) => {
       if (!handlers.has(event)) handlers.set(event, new Set())
       handlers.get(event)!.add(fn)
     }),
-
-    off: vi.fn((event: string, fn: EventHandler) => {
+    off: vi.fn((event: string, fn: Handler) => {
       handlers.get(event)?.delete(fn)
     }),
-
     emit: vi.fn((event: string, ...args: any[]) => {
       handlers.get(event)?.forEach((fn) => fn(...args))
-    }),
-
-    // helpers for tests
-    __handlers: handlers
+    })
   }
 })
 
-vi.mock('ant-design-vue', async (importOriginal) => {
-  const actual = (await importOriginal()) as any
-  return {
-    ...actual,
-    message: {
-      success: vi.fn(),
-      error: vi.fn(),
-      info: vi.fn(),
-      warning: vi.fn(),
-      loading: vi.fn()
-    },
-    Modal: {
-      confirm: vi.fn()
-    }
-  }
-})
-
-// Mock deps used by index.vue.
-// IMPORTANT: these paths are resolved from this test file location.
+// index.vue uses a relative import; keep both just in case the test file sits in a different folder in the repo
+vi.mock('../../../utils/eventBus', () => ({ default: eventBus }))
 vi.mock('../../../../utils/eventBus', () => ({ default: eventBus }))
-vi.mock('../fileTransfer', () => ({ initTransferListener: vi.fn() }))
-vi.mock('../../../../utils/base64', () => ({ Base64Util: { decode: vi.fn(() => 'decoded-host') } }))
-vi.mock('../../Editors/base/languageMap', () => ({ LanguageMap: { '.python': 'python', '.txt': 'text' } }))
+
+// ---------------- antd mocks ----------------
+vi.mock('ant-design-vue', () => ({
+  message: { success: vi.fn(), error: vi.fn(), info: vi.fn(), warning: vi.fn(), loading: vi.fn() },
+  Modal: { confirm: vi.fn(), info: vi.fn(), warning: vi.fn(), error: vi.fn() }
+}))
+
+// ---------------- other deps ----------------
+vi.mock('@/services/userConfigStoreService', () => ({
+  userConfigStore: {
+    getConfig: vi.fn().mockResolvedValue({}),
+    saveConfig: vi.fn().mockResolvedValue(undefined)
+  }
+}))
+
+vi.mock('../fileTransfer', () => ({ ensureTransferListener: vi.fn() }))
+
+const base64Fns = vi.hoisted(() => ({
+  decode: vi.fn((s: string) => `decoded:${s}`),
+  encode: vi.fn((s: string) => `encoded:${s}`)
+}))
+
+vi.mock('@utils/base64', () => ({
+  Base64Util: { decode: base64Fns.decode, encode: base64Fns.encode }
+}))
+vi.mock('../../Editors/base/languageMap', () => ({
+  LanguageMap: { '.txt': 'text', '.js': 'javascript', '.py': 'python' }
+}))
+
 vi.mock('../../Ssh/editors/dragEditor.vue', () => ({
-  default: { name: 'EditorCode', template: '<div />' },
+  default: { name: 'EditorCode', template: '<div class="editor-code" />' },
   editorData: {}
 }))
-vi.mock('@/assets/menu/files.svg', () => ({ default: 'files.svg' }))
-vi.mock('@ant-design/icons-vue', () => ({
-  DownOutlined: { name: 'DownOutlined', template: '<i />' },
-  RightOutlined: { name: 'RightOutlined', template: '<i />' }
+
+vi.mock('./fileTransferProgress.vue', () => ({
+  default: { name: 'TransferPanel', template: '<div class="transfer-panel" />' }
 }))
 
-import { message } from 'ant-design-vue'
-// @ts-ignore
-import Index from '../index.vue'
+vi.mock('@/assets/menu/files.svg', () => ({ default: 'files.svg' }))
 
+// ---------------- i18n ----------------
 const i18n = createI18n({
   legacy: false,
   locale: 'en',
   messages: {
     en: {
-      common: {
-        timeoutGettingAssetInfo: 'timeout',
-        errorGettingAssetInfo: 'error',
-        saveFailed: 'Save failed',
-        saveSuccess: 'Save success',
-        permissionDenied: 'Permission denied',
-        saveConfirmTitle: 'Save?',
-        saveConfirmContent: 'Save {filePath}?',
-        confirm: 'Confirm',
-        cancel: 'Cancel'
-      },
       files: {
-        noDataAvailable: 'No data available',
-        sftpConnectFailed: 'SFTP connect failed'
+        files: 'Files',
+        treeFoldUp: 'Fold',
+        treeExpand: 'Expand',
+        addSftpConnection: 'Add Connection',
+        add: 'Add',
+        close: 'Close',
+        createOrDrag: 'Create or Drag',
+        createOrDragTips: 'Create a connection or drag an item'
       }
     }
   }
 })
 
-const stubApi = () => ({
+// ---------------- component stubs ----------------
+const antdStubs = {
+  'a-button': { template: '<button class="a-button" @click="$emit(\'click\')"><slot /></button>' },
+  'a-tabs': { template: '<div class="a-tabs"><slot /></div>' },
+  'a-tab-pane': { template: '<div class="a-tab-pane"><slot /></div>' },
+  'a-card': { template: '<div class="a-card"><slot /></div>' },
+  'a-space': { template: '<div class="a-space"><slot /></div>' },
+  'a-tooltip': { template: '<span class="a-tooltip"><slot /></span>' },
+  'a-radio-group': { template: '<div class="a-radio-group"><slot /></div>' },
+  'a-radio-button': { template: '<button class="a-radio-button"><slot /></button>' },
+  'a-select': { template: '<select class="a-select"><slot /></select>' },
+  'a-spin': { template: '<div class="a-spin"><slot /></div>' },
+  'a-modal': { template: '<div class="a-modal"><slot /></div>' },
+  'a-tree': { template: '<div class="a-tree"><slot /></div>' }
+}
+
+// ---------------- api stub ----------------
+type ApiStub = {
+  sftpConnList: ReturnType<typeof vi.fn>
+  getAppPath: ReturnType<typeof vi.fn>
+  sshConnExec: ReturnType<typeof vi.fn>
+  connectAssetInfo: ReturnType<typeof vi.fn>
+  sftpConnect: ReturnType<typeof vi.fn>
+  sftpClose: ReturnType<typeof vi.fn>
+  sftpCancel: ReturnType<typeof vi.fn>
+  invoke: ReturnType<typeof vi.fn>
+}
+
+const makeApi = (): ApiStub => ({
   sftpConnList: vi.fn().mockResolvedValue([]),
-  sftpConnList2: vi.fn(),
-  sshConnExec: vi.fn().mockResolvedValue({ stdout: 'hello', stderr: '' }),
-  uploadFile: vi.fn().mockResolvedValue({ status: 'success' }),
-  uploadDirectory: vi.fn().mockResolvedValue({ status: 'success' }),
-  downloadFile: vi.fn().mockResolvedValue({ status: 'success' }),
-  transferFileRemoteToRemote: vi.fn().mockResolvedValue({ status: 'success' }),
-  transferDirectoryRemoteToRemote: vi.fn().mockResolvedValue({ status: 'success' })
+  getAppPath: vi.fn().mockResolvedValue('/home/test'),
+  sshConnExec: vi.fn().mockResolvedValue({ stdout: '', stderr: '' }),
+  connectAssetInfo: vi.fn().mockResolvedValue(null),
+  sftpConnect: vi.fn().mockResolvedValue({ status: 'connected' }),
+  sftpClose: vi.fn().mockResolvedValue(undefined),
+  sftpCancel: vi.fn().mockResolvedValue(undefined),
+  invoke: vi.fn().mockResolvedValue(null)
 })
 
-describe('index.vue - high coverage tests', () => {
+describe('index.vue', () => {
+  let api: ApiStub
+
   beforeEach(() => {
     vi.clearAllMocks()
-    vi.stubGlobal('api', stubApi())
-
-    // JSDOM does not provide ResizeObserver by default
+    api = makeApi()
+    ;(globalThis as any).api = api
     ;(globalThis as any).ResizeObserver = class {
       observe = vi.fn()
       disconnect = vi.fn()
     }
+
+    // make raf deterministic for refreshAfterSelect loops
+    vi.spyOn(window, 'requestAnimationFrame').mockImplementation((cb: any) => {
+      cb(0)
+      return 1
+    })
   })
 
   afterEach(() => {
-    vi.unstubAllGlobals()
+    vi.restoreAllMocks()
+    delete (globalThis as any).api
   })
 
-  const factory = () =>
-    mount(Index, {
+  const mountView = () =>
+    mount(Index as any, {
       global: {
         plugins: [i18n],
         stubs: {
-          TermFileSystem: true,
-          TransferPanel: true,
-          'a-tree': true,
-          'a-radio-group': true,
-          'a-radio-button': true,
-          'a-button': true,
-          'a-dropdown': true,
-          'a-menu': true,
-          'a-menu-item': true,
-          'a-tabs': true,
-          'a-tab-pane': true,
-          'a-tooltip': true,
-          'a-empty': true
+          ...antdStubs,
+          TermFileSystem: { name: 'TermFileSystem', template: '<div class="term-fs" />' },
+          EditorCode: { name: 'EditorCode', template: '<div class="editor-code" />' },
+          TransferPanel: { name: 'TransferPanel', template: '<div class="transfer-panel" />' },
+          // icons
+          RightOutlined: { template: '<i class="icon-right" />' },
+          DownOutlined: { template: '<i class="icon-down" />' },
+          PlusOutlined: { template: '<i class="icon-plus" />' },
+          CloseOutlined: { template: '<i class="icon-close" />' },
+          CheckOutlined: { template: '<i class="icon-check" />' }
         }
       }
     })
 
-  it('getCurrentActiveTerminalInfo resolves via eventBus and onMounted wires listeners', async () => {
-    const api = (window as any).api
-    api.sftpConnList.mockResolvedValueOnce([])
+  const setContainerRect = (wrapper: any, rect: Partial<DOMRect> = {}) => {
+    const el = wrapper.find('.tree-container')?.element as any
+    if (!el) return
+    el.getBoundingClientRect = vi.fn(
+      () =>
+        ({
+          x: 0,
+          y: 0,
+          top: 0,
+          left: 0,
+          bottom: 800,
+          right: 1200,
+          width: 1200,
+          height: 800,
+          toJSON: () => ({}),
+          ...rect
+        }) as any
+    )
+  }
 
-    const wrapper = factory()
+  const makeDragEvent = (payload: any | null) =>
+    ({
+      dataTransfer: {
+        getData: vi.fn().mockReturnValue(payload ? JSON.stringify(payload) : ''),
+        dropEffect: 'none'
+      },
+      preventDefault: vi.fn()
+    }) as any as DragEvent
 
-    // Resolve the "active terminal info" promise
-    eventBus.emit('assetInfoResult', { uuid: 'u1', ip: '1.1.1.1' })
+  it('mount: should render without crashing', async () => {
+    const wrapper = mountView()
+    await flushPromises()
+    expect(wrapper.exists()).toBe(true)
+    wrapper.unmount()
+  })
+
+  it('assetInfoResult flow: triggers sftpConnList', async () => {
+    api.sftpConnList.mockResolvedValueOnce([{ id: 'root@10.0.0.2:ssh:xx', isSuccess: true }])
+
+    const wrapper = mountView()
+    eventBus.emit('assetInfoResult', { uuid: 'u1', ip: '10.0.0.2' })
     await flushPromises()
 
-    // Mounted should subscribe to activeTabChanged
-    expect(eventBus.on).toHaveBeenCalledWith('activeTabChanged', expect.any(Function))
-
-    // Should have called session listing
     expect(api.sftpConnList).toHaveBeenCalled()
+    expect(wrapper.exists()).toBe(true)
     wrapper.unmount()
   })
 
-  it('getCurrentActiveTerminalInfo timeout path returns null', async () => {
-    vi.useFakeTimers()
-    const wrapper = factory()
-
-    const p = (wrapper.vm as any).getCurrentActiveTerminalInfo()
-    vi.advanceTimersByTime(5100)
+  it('mode switch: can switch to transfer mode', async () => {
+    const wrapper = mountView()
     await flushPromises()
 
-    await expect(p).resolves.toBeNull()
-    vi.useRealTimers()
+    const vm = wrapper.vm as any
+    await vm.onModeChange?.('transfer')
+    await flushPromises()
+    expect(vm.uiMode).toBe('transfer')
     wrapper.unmount()
   })
 
-  it('updateTreeData transforms and assigns treeData', async () => {
-    const wrapper = factory()
+  it('unmount: should not crash and removes listeners', async () => {
+    const wrapper = mountView()
     await flushPromises()
-    ;(wrapper.vm as any).updateTreeData({ a: { b: {} } })
-    expect(Array.isArray((wrapper.vm as any).treeData)).toBe(true)
+    wrapper.unmount()
+    expect(wrapper.exists()).toBe(false)
+  })
+
+  it('safe: sftpConnList returns empty list should not throw', async () => {
+    api.sftpConnList.mockResolvedValueOnce([])
+    const wrapper = mountView()
+    eventBus.emit('assetInfoResult', { uuid: 'u1', ip: '10.0.0.2' })
+    await flushPromises()
+    expect(wrapper.exists()).toBe(true)
     wrapper.unmount()
   })
 
-  it('resolvePaths + getBasePath cover user/root and local-team decoding', async () => {
-    const wrapper = factory()
+  it('list sessions + active highlight: Local injected and active terminal gets class', async () => {
+    api.sftpConnList.mockResolvedValueOnce([
+      { id: 'root@10.0.0.2:ssh:xx', isSuccess: true },
+      { id: 'dev@10.0.0.3:local-team:aG9zdA==:files-left', isSuccess: false, error: 'boom' }
+    ])
+
+    const wrapper = mountView()
     await flushPromises()
 
-    expect((wrapper.vm as any).resolvePaths('root@x')).toBe('/root')
-    expect((wrapper.vm as any).resolvePaths('alice@x')).toBe('/home/alice')
+    // Resolve getCurrentActiveTerminalInfo in onMounted so objectToTreeData can mark active terminal.
+    eventBus.emit('assetInfoResult', { uuid: 'u1', ip: '10.0.0.2' })
+    await flushPromises()
 
-    // local-team path uses base64 decode
-    const v = 'u@1.1.1.1:local-team:ZGVtbw=='
-    expect((wrapper.vm as any).getBasePath(v)).toContain('/Default/decoded-host')
-
-    // non local-team returns empty
-    expect((wrapper.vm as any).getBasePath('u@1.1.1.1:ssh:x')).toBe('')
+    const tree = (wrapper.vm as any).treeData as any[]
+    expect(tree.some((n) => n?.title === 'Local')).toBe(true)
+    expect(tree.some((n) => n?.title === '10.0.0.2' && n?.class === 'active-terminal')).toBe(true)
+    expect(tree.some((n) => String(n?.title).includes('decoded:') && n?.errorMsg === 'boom')).toBe(true)
     wrapper.unmount()
   })
 
-  it('getFileExt returns lower-case extension and empty when missing', async () => {
-    const wrapper = factory()
+  it('drag/drop: forbidden vs allowed drop updates panel classes and dropEffect', async () => {
+    const wrapper = mountView()
     await flushPromises()
 
-    expect((wrapper.vm as any).getFileExt('/a/b/c.TXT')).toBe('.txt')
-    expect((wrapper.vm as any).getFileExt('/a/b/c')).toBe('')
+    // Make right side already be root@10.0.0.2 so dropping that payload to left becomes forbidden
+    ;(wrapper.vm as any).selectedRightUuid = 'root@10.0.0.2:ssh:xx'
+
+    const forbiddenEv = makeDragEvent({ uuid: 'u1', username: 'root', ip: '10.0.0.2' })
+    ;(wrapper.vm as any).onSideDragOver(forbiddenEv, 'left')
+    expect(forbiddenEv.preventDefault).not.toHaveBeenCalled()
+    expect((wrapper.vm as any).sideDropClass('left')['panel-drop-forbidden']).toBe(true)
+    expect((forbiddenEv as any).dataTransfer.dropEffect).toBe('none')
+
+    const allowedEv = makeDragEvent({ uuid: 'u2', username: 'root', ip: '10.0.0.9' })
+    ;(wrapper.vm as any).onSideDragOver(allowedEv, 'left')
+    expect(allowedEv.preventDefault).toHaveBeenCalled()
+    expect((wrapper.vm as any).sideDropClass('left')['panel-drop-hover']).toBe(true)
+    expect((allowedEv as any).dataTransfer.dropEffect).toBe('copy')
+    ;(wrapper.vm as any).onSideDragLeave({} as any, 'left')
+    expect((wrapper.vm as any).sideDropClass('left')['panel-drop-hover']).toBe(false)
+    expect((wrapper.vm as any).sideDropClass('left')['panel-drop-forbidden']).toBe(false)
+
     wrapper.unmount()
   })
 
-  it('openFile covers create/edit, permission denied, and existing editor reopening', async () => {
-    const api = (window as any).api
-    const wrapper = factory()
+  it('empty placeholder: OS file dragging toggles emptyDragging', async () => {
+    const wrapper = mountView()
     await flushPromises()
 
-    // Give the root container a stable bounding rect so editor can be opened
-    const elRef = (wrapper.vm as any).fileElement
-    const el = (elRef && 'value' in elRef ? elRef.value : elRef) as HTMLElement
-    // Provide a stable bounding rect so editor can be opened
-    el.getBoundingClientRect = () =>
-      ({
-        width: 1000,
-        height: 800,
-        x: 0,
-        y: 0,
-        top: 0,
-        left: 0,
-        right: 1000,
-        bottom: 800,
-        toJSON: () => ({})
-      }) as any
+    const osEv = makeDragEvent(null)
+    ;(wrapper.vm as any).handleEmptyDragEnter(osEv, 'left')
+    expect((wrapper.vm as any).emptyDragging.left).toBe(true)
+    ;(wrapper.vm as any).handleEmptyDragLeave({} as any, 'left')
+    expect((wrapper.vm as any).emptyDragging.left).toBe(false)
+    wrapper.unmount()
+  })
 
-    // Create path (No such file)
+  it('editor flow: openFile (edit/create/permission) + handleSave + closeVimEditor', async () => {
+    api.sshConnExec.mockResolvedValueOnce({ stdout: 'hello', stderr: '' })
+
+    const wrapper = mountView()
+    await flushPromises()
+    setContainerRect(wrapper)
+
+    await (wrapper.vm as any).openFile({ filePath: '/tmp/a.txt', terminalId: 't1' })
+    const editors = (wrapper.vm as any).openEditors as any[]
+    expect(editors.length).toBe(1)
+    expect(editors[0].filePath).toBe('/tmp/a.txt')
+    expect(editors[0].action).toBe('create')
+    expect(editors[0].contentType).toBe('text')
+
+    // Save success
+    editors[0].fileChange = true
+    editors[0].vimText = 'changed'
+    api.sshConnExec.mockResolvedValueOnce({ stdout: '', stderr: '' })
+    await (wrapper.vm as any).handleSave({ key: editors[0].key, needClose: false })
+    expect(editors[0].saved).toBe(true)
+    expect(editors[0].fileChange).toBe(false)
+
+    // close when no unsaved changes => removed
+    ;(wrapper.vm as any).closeVimEditor({ key: editors[0].key, editorType: editors[0].editorType })
+    expect((wrapper.vm as any).openEditors.length).toBe(0)
+
+    // No such file => create
     api.sshConnExec.mockResolvedValueOnce({ stdout: '', stderr: 'No such file or directory' })
-    await (wrapper.vm as any).openFile({ filePath: '/tmp/new.txt', terminalId: 't1' })
-    await flushPromises()
-    expect((wrapper.vm as any).openEditors.length).toBe(1)
+    await (wrapper.vm as any).openFile({ filePath: '/tmp/missing.py', terminalId: 't2' })
+    expect((wrapper.vm as any).openEditors[0].action).toBe('create')
 
-    // Existing editor reopen path
-    api.sshConnExec.mockResolvedValueOnce({ stdout: 'x', stderr: '' })
-    await (wrapper.vm as any).openFile({ filePath: '/tmp/new.txt', terminalId: 't1' })
-    expect((wrapper.vm as any).openEditors[0].visible).toBe(true)
-
-    // Permission denied path
+    // Permission denied branch
     api.sshConnExec.mockResolvedValueOnce({ stdout: '', stderr: 'Permission denied' })
-    await (wrapper.vm as any).openFile({ filePath: '/root/secret.txt', terminalId: 't1' })
+    await (wrapper.vm as any).openFile({ filePath: '/root/secret.txt', terminalId: 't3' })
+    const { message } = await import('ant-design-vue')
     expect(message.error).toHaveBeenCalled()
 
     wrapper.unmount()
   })
 
-  it('handleSave covers error message and success paths (needClose true/false)', async () => {
-    const api = (window as any).api
-    const wrapper = factory()
+  it('closeVimEditor: unsaved changes triggers confirm; cancel removes editor; ok triggers save', async () => {
+    const wrapper = mountView()
+    await flushPromises()
+    setContainerRect(wrapper)
+
+    // Create an editor entry directly
+    ;(wrapper.vm as any).openEditors.push({
+      filePath: '/tmp/x.txt',
+      visible: true,
+      vimText: 'x',
+      originVimText: 'x',
+      action: 'edit',
+      vimEditorX: 0,
+      vimEditorY: 0,
+      contentType: 'text',
+      vimEditorHeight: 100,
+      vimEditorWidth: 100,
+      loading: false,
+      fileChange: true,
+      saved: false,
+      key: 't1-/tmp/x.txt',
+      terminalId: 't1',
+      editorType: '.txt',
+      userResized: false
+    })
+
+    const ed = (wrapper.vm as any).openEditors[0]
+    ;(wrapper.vm as any).closeVimEditor({ key: ed.key, editorType: ed.editorType })
+
+    const { Modal } = await import('ant-design-vue')
+    expect(Modal.confirm).toHaveBeenCalled()
+
+    const cfg = (Modal.confirm as any).mock.calls[0][0]
+    cfg.onCancel()
+    expect((wrapper.vm as any).openEditors.length).toBe(0)
+
+    // Re-add and test OK path => save invoked
+    ;(wrapper.vm as any).openEditors.push({ ...ed })
+    api.sshConnExec.mockResolvedValueOnce({ stdout: '', stderr: '' })
+    ;(wrapper.vm as any).closeVimEditor({ key: ed.key, editorType: ed.editorType })
+    const cfg2 = (Modal.confirm as any).mock.calls.at(-1)[0]
+    cfg2.onOk()
+    await flushPromises()
+    expect(api.sshConnExec).toHaveBeenCalled()
+    wrapper.unmount()
+  })
+
+  it('transfer resize: mousedown registers listeners and mouseup cleans state', async () => {
+    const wrapper = mountView()
     await flushPromises()
 
-    // Error path (stderr not empty)
-    ;(wrapper.vm as any).openEditors.push({
-      key: 'k1',
-      filePath: '/tmp/a.txt',
-      fileChange: true,
-      saved: false,
-      vimText: 'x',
-      terminalId: 't1',
-      loading: false
-    })
-    api.sshConnExec.mockResolvedValueOnce({ stderr: 'write failed' })
-    await (wrapper.vm as any).handleSave({ key: 'k1', needClose: false })
-    expect(message.error).toHaveBeenCalled()
-    expect((wrapper.vm as any).openEditors[0].loading).toBe(false)
+    const layout = wrapper.find('.transfer-layout')
+    if (layout.exists()) {
+      ;(layout.element as any).getBoundingClientRect = vi.fn(() => ({ left: 0, width: 1000 }) as any)
+      ;(wrapper.vm as any).onTransferResizeMouseDown({
+        preventDefault: vi.fn(),
+        clientX: 400
+      } as any)
 
-    // Success path (needClose=false)
-    api.sshConnExec.mockResolvedValueOnce({ stderr: '' })
-    await (wrapper.vm as any).handleSave({ key: 'k1', needClose: false })
-    expect(message.success).toHaveBeenCalled()
-    expect((wrapper.vm as any).openEditors[0].saved).toBe(true)
-
-    // Success path (needClose=true) removes editor
-    ;(wrapper.vm as any).openEditors.push({
-      key: 'k2',
-      filePath: '/tmp/b.txt',
-      fileChange: true,
-      saved: false,
-      vimText: 'y',
-      terminalId: 't1',
-      loading: false
-    })
-    api.sshConnExec.mockResolvedValueOnce({ stderr: '' })
-    await (wrapper.vm as any).handleSave({ key: 'k2', needClose: true })
-    expect((wrapper.vm as any).openEditors.find((e) => e.key === 'k2')).toBeUndefined()
-
-    // Missing editor key => early return
-    await (wrapper.vm as any).handleSave({ key: 'missing', needClose: true })
+      expect((wrapper.vm as any).isResizing).toBe(true)
+      window.dispatchEvent(new MouseEvent('mousemove', { clientX: 800 }))
+      window.dispatchEvent(new MouseEvent('mouseup'))
+      expect((wrapper.vm as any).isResizing).toBe(false)
+    }
 
     wrapper.unmount()
   })

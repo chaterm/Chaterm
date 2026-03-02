@@ -658,7 +658,19 @@ const tableColumns = computed(() => {
     })
 })
 // const tableScroll = computed(() => (uiMode.value === 'transfer' ? {} : { x: 'max-content' }))
-const tableScroll = computed(() => (uiMode.value === 'transfer' ? { x: 350 } : { x: 'max-content' }))
+const tableScroll = computed(() => {
+  if (uiMode.value === 'transfer') {
+    return {
+      x: 350,
+      y: 'calc(100vh - 260px)'
+    }
+  } else {
+    return {
+      x: 'max-content',
+      y: 'calc(100vh - 300px)'
+    }
+  }
+})
 const renderSize = (value: number): string => {
   if (value == null || value === 0) {
     return '0 B'
@@ -1861,14 +1873,12 @@ defineExpose({
 
 .base-file :deep(.ant-card-body) {
   padding: 0px 7px;
-  background-color: var(--bg-color);
 }
 
 .files-table :deep(.ant-table) {
   background-color: var(--bg-color);
   color: var(--text-color);
 }
-
 .files-table :deep(.ant-table-container) {
   background-color: var(--bg-color);
 }
@@ -1882,7 +1892,12 @@ defineExpose({
 }
 
 .files-table :deep(.ant-table-header) {
-  background-color: var(--bg-color);
+  background: var(--bg-color) !important;
+}
+.files-table :deep(.ant-table-thead > tr > th.ant-table-cell-scrollbar) {
+  background: var(--bg-color);
+  border-bottom: 1px solid var(--border-color);
+  box-shadow: none;
 }
 
 .files-table :deep(.ant-table-header table) {
@@ -1992,9 +2007,9 @@ defineExpose({
 
 .input-search {
   background-color: var(--bg-color-secondary);
-  border-color: var(--bg-color-secondary);
   color: var(--text-color);
   height: 80%;
+  border: var(--border-color) solid 1px;
 }
 
 .file-name-cell {
@@ -2153,41 +2168,42 @@ defineExpose({
 }
 
 .files-table {
-  --sb-size: 6px;
+  --sb-size: 12px;
   --sb-thumb: var(--border-color-light);
-  --sb-thumb-hover: var(--text-color-tertiary);
-  --sb-track: transparent;
+  --sb-thumb-hover: var(--color-checks-scrollbar-thumb-bg);
 }
 
 .files-table :deep(.ant-table-body),
 .files-table :deep(.ant-table-content) {
   background: var(--bg-color);
+  overflow: auto !important;
 }
 
-/* Chromium/Electron */
 .files-table :deep(.ant-table-body)::-webkit-scrollbar,
-.files-table :deep(.ant-table-content)::-webkit-scrollbar {
-  width: var(--sb-size);
-  height: var(--sb-size);
+.files-table :deep(.ant-table-content)::-webkit-scrollbar,
+.files-table :deep(.ant-table-header)::-webkit-scrollbar {
+  display: block !important;
+  width: var(--sb-size) !important;
+  height: var(--sb-size) !important;
+  border-radius: 40px;
 }
 
 .files-table :deep(.ant-table-body)::-webkit-scrollbar-track,
 .files-table :deep(.ant-table-content)::-webkit-scrollbar-track {
-  background: var(--sb-track);
+  background: var(--sb-track) !important;
+  border-radius: 4px;
 }
 
 .files-table :deep(.ant-table-body)::-webkit-scrollbar-thumb,
 .files-table :deep(.ant-table-content)::-webkit-scrollbar-thumb {
-  background-color: var(--sb-thumb);
-  border-radius: 6px;
+  background-color: var(--sb-thumb) !important;
+  border-radius: 10px;
+  border: 2px solid transparent;
+  background-clip: content-box;
 }
 
 .files-table :deep(.ant-table-body)::-webkit-scrollbar-thumb:hover,
 .files-table :deep(.ant-table-content)::-webkit-scrollbar-thumb:hover {
-  background-color: var(--sb-thumb-hover);
-}
-
-.files-table :deep(.ant-table-cell) {
-  white-space: nowrap;
+  background-color: var(--sb-thumb-hover, #555) !important;
 }
 </style>

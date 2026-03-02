@@ -43,7 +43,8 @@ import {
   jumpserverConnectionStatus,
   jumpserverLastCommand,
   createJumpServerExecStream,
-  executeCommandOnJumpServerExec
+  executeCommandOnJumpServerExec,
+  jumpserverSessionPids
 } from './jumpserverHandle'
 import path from 'path'
 import fs from 'fs'
@@ -87,10 +88,10 @@ interface ReusableConnection {
   username: string
   hasMfaAuth: boolean // Flag indicating whether MFA authentication has been completed
 }
-const sshConnectionPool = new Map<string, ReusableConnection>()
+export const sshConnectionPool = new Map<string, ReusableConnection>()
 
 // Generate unique key for connection pool
-const getConnectionPoolKey = (host: string, port: number, username: string): string => {
+export const getConnectionPoolKey = (host: string, port: number, username: string): string => {
   return `${host}:${port}:${username}`
 }
 
@@ -116,8 +117,10 @@ const markedCommands = new Map()
 const KeyboardInteractiveAttempts = new Map()
 export const connectionStatus = new Map()
 
+export const sshSessionPids = new Map<string, number>()
+
 // Set KeyboardInteractive authentication timeout (milliseconds)
-const KeyboardInteractiveTimeout = 300000 // 5 minutes timeout
+export const KeyboardInteractiveTimeout = 300000 // 5 minutes timeout
 const MaxKeyboardInteractiveAttempts = 5 // Max KeyboardInteractive attempts
 
 const EventEmitter = require('events')
@@ -241,8 +244,8 @@ export const handleRequestKeyboardInteractive = (event, id, prompts, finish) => 
   })
 }
 
-export const attemptSecondaryConnection = async (event, connectionInfo, ident) => {
-  const { id, host, port, username, password, privateKey, passphrase, needProxy, proxyConfig, asset_type } = connectionInfo
+export const attemptSecondaryConnection = async (event, connectionInfo, existingConn?: Client) => {
+  const { id, asset_type } = connectionInfo
 
   // Check if this is a network switch connection
   const isSwitch = asset_type?.startsWith('person-switch-')
@@ -263,173 +266,66 @@ export const attemptSecondaryConnection = async (event, connectionInfo, ident) =
     return
   }
 
-  const conn = new Client()
-  const algorithms = getAlgorithmsByAssetType(asset_type)
-  const connectConfig: any = {
-    host,
-    port: port || 22,
-    username,
-    keepaliveInterval: 10000,
-    readyTimeout: KeyboardInteractiveTimeout,
-    ident: ident,
-    algorithms
-  }
+  const readyResult: { hasSudo?: boolean; commandList?: string[] } = {}
 
-  if (privateKey) {
-    connectConfig.privateKey = privateKey
-    if (passphrase) connectConfig.passphrase = passphrase
-  } else if (password) {
-    connectConfig.password = password
-  }
-
-  if (needProxy) {
-    logger.debug('Using proxy for secondary connection', { event: 'ssh.proxy', connectionId: id })
-    connectConfig.sock = await createProxySocket(proxyConfig, host, port)
-  }
-
-  // Send initialization command result
-  const readyResult: {
-    hasSudo?: boolean
-    commandList?: string[]
-  } = {}
-
-  let execCount = 0
-  const totalCounts = 2
-  const hasOpt = keyboardInteractiveOpts.has(id)
-  const sendReadyData = (stopCount) => {
-    execCount++
-    if (execCount === totalCounts || stopCount) {
-      event.sender.send(`ssh:connect:data:${id}`, readyResult)
-      if (hasOpt) {
-        keyboardInteractiveOpts.delete(id)
-      }
+  if (existingConn) {
+    try {
+      await initSftpOnConnection(existingConn, id)
+    } catch {
+      connectionStatus.set(id, { sftpAvailable: false, sftpError: 'SFTP connection failed' })
     }
-  }
 
-  if (hasOpt) {
-    connectConfig.tryKeyboard = true
-    conn.on('keyboard-interactive', (_name, _instructions, _instructionsLang, _prompts, finish) => {
-      const cached = keyboardInteractiveOpts.get(id)
-      finish(cached || [])
-    })
-  }
-
-  const sftpAsync = (conn) => {
-    return new Promise<void>((resolve) => {
-      conn.sftp((err, sftp) => {
-        if (err || !sftp) {
-          logger.debug('SFTP check error', { event: 'ssh.sftp.error', connectionId: id, error: err?.message || 'SFTP object is empty' })
-          connectionStatus.set(id, {
-            sftpAvailable: false,
-            sftpError: err?.message || 'SFTP object is empty'
-          })
-          sftpConnections.set(id, { isSuccess: false, error: `sftp init error: "${err?.message || 'SFTP object is empty'}"` })
-          resolve()
-        } else {
-          logger.debug('Starting SFTP check', { event: 'ssh.sftp.start', connectionId: id })
-          sftp.readdir('.', (readDirErr) => {
-            if (readDirErr) {
-              logger.debug('SFTP check failed', { event: 'ssh.sftp.failed', connectionId: id, error: readDirErr.message })
-              connectionStatus.set(id, {
-                sftpAvailable: false,
-                sftpError: readDirErr.message
-              })
-              sftp.end()
-            } else {
-              logger.debug('SFTP check success', { event: 'ssh.sftp.success', connectionId: id })
-              sftpConnections.set(id, { isSuccess: true, sftp: sftp })
-              connectionStatus.set(id, { sftpAvailable: true })
-            }
-            resolve()
-          })
-        }
-      })
-    })
-  }
-
-  conn
-    .on('ready', async () => {
-      // Perform sftp check
-      try {
-        await sftpAsync(conn)
-      } catch (e) {
-        connectionStatus.set(id, {
-          sftpAvailable: false,
-          sftpError: 'SFTP connection failed'
-        })
-      }
-
-      // Perform cmd check
-      try {
+    // cmd list
+    const cmdCheck = () =>
+      new Promise<void>((resolve) => {
         let stdout = ''
         let stderr = ''
-        conn.exec(
+        existingConn.exec(
           'sh -c \'if command -v bash >/dev/null 2>&1; then bash -lc "compgen -A builtin; compgen -A command"; bash -ic "compgen -A alias" 2>/dev/null; else IFS=:; for d in $PATH; do [ -d "$d" ] || continue; for f in "$d"/*; do [ -x "$f" ] && printf "%s\\n" "${f##*/}"; done; done; fi\' | sort -u',
           (err, stream) => {
             if (err) {
               readyResult.commandList = []
-              sendReadyData(false)
-            } else {
-              stream
-                .on('data', (data: Buffer) => {
-                  stdout += data.toString('utf8')
-                })
-                .stderr.on('data', (data: Buffer) => {
-                  stderr += data.toString('utf8')
-                })
-                .on('close', () => {
-                  if (stderr) {
-                    readyResult.commandList = []
-                  } else {
-                    readyResult.commandList = stdout.split('\n').filter(Boolean)
-                  }
-                  sendReadyData(false)
-                })
+              resolve()
+              return
             }
+            stream
+              .on('data', (data: Buffer) => (stdout += data.toString('utf8')))
+              .stderr.on('data', (data: Buffer) => (stderr += data.toString('utf8')))
+            stream.on('close', () => {
+              readyResult.commandList = stderr ? [] : stdout.split('\n').filter(Boolean)
+              resolve()
+            })
           }
         )
-      } catch (e) {
-        readyResult.commandList = []
-        sendReadyData(false)
-      }
+      })
 
-      // Perform sudo check
-      try {
-        conn.exec('sudo -n true 2>/dev/null && echo true || echo false', (err, stream) => {
+    // sudo check
+    const sudoCheck = () =>
+      new Promise<void>((resolve) => {
+        existingConn.exec('sudo -n true 2>/dev/null && echo true || echo false', (err, stream) => {
           if (err) {
             readyResult.hasSudo = false
-            sendReadyData(false)
-          } else {
-            stream
-              .on('data', (data: Buffer) => {
-                const result = data.toString('utf8').trim()
-                readyResult.hasSudo = result === 'true'
-              })
-              .stderr.on('data', () => {
-                readyResult.hasSudo = false
-              })
-              .on('close', () => {
-                sendReadyData(false)
-              })
+            resolve()
+            return
           }
+          stream
+            .on('data', (data: Buffer) => {
+              readyResult.hasSudo = data.toString('utf8').trim() === 'true'
+            })
+            .stderr.on('data', () => {
+              readyResult.hasSudo = false
+            })
+          stream.on('close', () => resolve())
         })
-      } catch (e) {
-        readyResult.hasSudo = false
-        sendReadyData(false)
-      }
-    })
-    .on('error', (err) => {
-      sftpConnections.set(id, { isSuccess: false, error: `sftp connection error: "${err.message}"` })
-      readyResult.hasSudo = false
-      readyResult.commandList = []
-      sendReadyData(true)
-      connectionStatus.set(id, {
-        sftpAvailable: false,
-        sftpError: err.message
       })
-    })
-  sshConnections.set(id + '-second', conn) // Save connection object
-  conn.connect(connectConfig)
+
+    await Promise.allSettled([cmdCheck(), sudoCheck()])
+    event.sender.send(`ssh:connect:data:${id}`, readyResult)
+    if (keyboardInteractiveOpts.has(id)) {
+      keyboardInteractiveOpts.delete(id)
+    }
+    return
+  }
 }
 
 function splitCommand(cmd: string): string[] {
@@ -568,7 +464,7 @@ const handleAttemptConnection = async (event, connectionInfo, resolve, reject, r
     connectionEvents.emit(`connection-status-changed:${id}`, { isVerified: true })
 
     // Execute secondary connection (sudo check, SFTP, etc.)
-    attemptSecondaryConnection(event, connectionInfo, ident)
+    attemptSecondaryConnection(event, connectionInfo, conn)
 
     logger.info('Successfully reused MFA connection', { event: 'ssh.reuse.success', connectionId: id })
     resolve({ status: 'connected', message: 'Connection successful (reused)' })
@@ -613,7 +509,7 @@ const handleAttemptConnection = async (event, connectionInfo, resolve, reject, r
     }
 
     // Execute secondary connection (this will clear keyboardInteractiveOpts, so must be placed after the check)
-    attemptSecondaryConnection(event, connectionInfo, ident)
+    attemptSecondaryConnection(event, connectionInfo, conn)
 
     logger.info('SSH connection established', {
       event: 'ssh.connect.success',
@@ -758,16 +654,13 @@ export const cleanSftpConnection = (id) => {
     const sftp = getSftpConnection(id)
     sftp.end()
     sftpConnections.delete(id)
-    if (sshConnections.get(id + '-second')) {
-      const connSec = sshConnections.get(id + '-second')
-      connSec.end()
-      sshConnections.delete(id + '-second')
-    }
+    // if (sshConnections.get(id + '-second')) {
+    //   const connSec = sshConnections.get(id + '-second')
+    //   connSec.end()
+    //   sshConnections.delete(id + '-second')
+    // }
   }
 }
-
-// download file
-export const activeTasks = new Map<string, { read: any; write: any; localPath?: string; cancel?: () => void }>()
 
 export const registerSSHHandlers = () => {
   // Handle connection
@@ -1222,88 +1115,7 @@ export const registerSSHHandlers = () => {
       }
     }
 
-    return new Promise((resolve) => {
-      const timestamp = Date.now()
-      const marker = `__CHATERM_EXEC_END_${timestamp}__`
-      const exitCodeMarker = `__CHATERM_EXIT_CODE_${timestamp}__`
-      let outputBuffer = ''
-      let timeoutHandle: NodeJS.Timeout
-
-      // Output listener
-      const dataHandler = (data: Buffer) => {
-        outputBuffer += data.toString('utf8')
-
-        // End marker detected
-        if (outputBuffer.includes(marker)) {
-          cleanup()
-
-          try {
-            // Extract output content (remove command echo and markers)
-            const lines = outputBuffer.split('\n')
-
-            // Find command line position (command echo)
-            const commandIndex = lines.findIndex((line) => line.trim().includes(cmd.trim()))
-
-            // Find end marker position
-            const markerIndex = lines.findIndex((line) => line.includes(marker))
-
-            // Extract command output (between command line and marker)
-            const outputLines = lines.slice(commandIndex + 1, markerIndex)
-            const stdout = outputLines.join('\n').trim()
-
-            // Extract exit code (from content after exitCodeMarker)
-            const exitCodePattern = new RegExp(`${exitCodeMarker}(\\d+)`)
-            const exitCodeMatch = outputBuffer.match(exitCodePattern)
-            const exitCode = exitCodeMatch ? parseInt(exitCodeMatch[1], 10) : 0
-
-            resolve({
-              success: exitCode === 0,
-              stdout,
-              stderr: '',
-              exitCode,
-              exitSignal: undefined
-            })
-          } catch (parseError) {
-            // Return raw output on parse failure
-            resolve({
-              success: false,
-              error: `Failed to parse command output: ${parseError}`,
-              stdout: outputBuffer,
-              stderr: '',
-              exitCode: undefined,
-              exitSignal: undefined
-            })
-          }
-        }
-      }
-
-      // Cleanup function
-      const cleanup = () => {
-        execStream.removeListener('data', dataHandler)
-        clearTimeout(timeoutHandle)
-      }
-
-      // Timeout protection (30 seconds)
-      timeoutHandle = setTimeout(() => {
-        cleanup()
-        resolve({
-          success: false,
-          error: 'Command execution timeout (30s)',
-          stdout: outputBuffer,
-          stderr: '',
-          exitCode: undefined,
-          exitSignal: undefined
-        })
-      }, 30000)
-
-      // Register listener
-      execStream.on('data', dataHandler)
-
-      // Send command (capture exit code)
-      // Use bash trick: command; echo marker; echo exitcode_marker$?
-      const fullCommand = `${cmd}; echo "${marker}"; echo "${exitCodeMarker}$?"\r`
-      execStream.write(fullCommand)
-    })
+    return executeCommandOnJumpServerExec(execStream, cmd)
   }
 
   ipcMain.handle('ssh:conn:exec', async (_event, { id, cmd }) => {
@@ -1666,6 +1478,170 @@ export const registerSSHHandlers = () => {
       activeStreams.delete(streamId)
     }
   })
+
+  ipcMain.handle('ssh:shell-pid-set', async (_event, { id }) => {
+    const jumpserverData = jumpserverConnections.get(id)
+    const sleep = (ms: number) => new Promise<void>((r) => setTimeout(r, ms))
+
+    if (jumpserverData) {
+      await sleep(1500)
+
+      let execStream: any
+      try {
+        execStream = await createJumpServerExecStream(id)
+      } catch {
+        logger.info('Get jumpserver exec stream error')
+        return
+      }
+
+      const pidResult = await executeCommandOnJumpServerExec(execStream, 'echo "__PID__$$\\n__PPID__$PPID"').catch(() => null)
+      logger.info('Get jumpserver pid result', { pidResult })
+
+      if (!pidResult?.success || !pidResult.stdout) return
+
+      const pidMatch = pidResult.stdout.match(/__PID__(\d+)/)
+      const ppidMatch = pidResult.stdout.match(/__PPID__(\d+)/)
+      if (!pidMatch || !ppidMatch) return
+
+      const execPid = parseInt(pidMatch[1])
+      const ppid = parseInt(ppidMatch[1])
+      const psCmd = `ps -o pid=,comm= -p $(ps -o pid= --ppid ${ppid} 2>/dev/null || ps -o pid= -p $(pgrep -P ${ppid} 2>/dev/null) 2>/dev/null) 2>/dev/null`
+
+      for (let i = 0; i < 5; i++) {
+        await new Promise((r) => setTimeout(r, 300))
+        const psResult = await executeCommandOnJumpServerExec(execStream, psCmd).catch(() => null)
+        if (!psResult?.success || !psResult.stdout) continue
+
+        const shellPid =
+          psResult.stdout
+            .replace(/\u001b\[[?]?\d*[a-zA-Z]/g, '')
+            .replace(/\r/g, '')
+            .trim()
+            .split('\n')
+            .map((line) => {
+              const [pid, comm] = line.trim().split(/\s+/)
+              return { pid: parseInt(pid), comm }
+            })
+            .filter((p) => !isNaN(p.pid) && p.pid !== execPid && /bash|sh|zsh|fish|dash|ksh|tcsh|csh/.test(p.comm))
+            .map((p) => p.pid)[0] ?? null
+
+        if (shellPid) {
+          jumpserverSessionPids.set(id, shellPid)
+          logger.info('Shell PID saved', { event: 'ssh.pid.saved', connectionId: id, shellPid })
+          break
+        }
+      }
+      return
+    }
+    const conn = sshConnections.get(id)
+    if (!conn) return
+
+    conn.exec('echo "__PID__$$\\n__PPID__$PPID"', (err, stream) => {
+      if (err) return
+      let output = ''
+      stream.on('data', (data) => (output += data.toString()))
+      stream.on('close', async () => {
+        const pidMatch = output.match(/__PID__(\d+)/)
+        const ppidMatch = output.match(/__PPID__(\d+)/)
+        if (!pidMatch || !ppidMatch) return
+
+        const execPid = parseInt(pidMatch[1])
+        const ppid = parseInt(ppidMatch[1])
+
+        const psCmd = `ps -o pid=,comm= -p $(ps -o pid= --ppid ${ppid} 2>/dev/null || ps -o pid= -p $(pgrep -P ${ppid} 2>/dev/null) 2>/dev/null) 2>/dev/null`
+        for (let i = 0; i < 5; i++) {
+          await new Promise((r) => setTimeout(r, 300))
+          await new Promise<void>((resolve) => {
+            conn.exec(psCmd, (err, stream) => {
+              if (err) return resolve()
+              let out = ''
+              stream.on('data', (data) => (out += data.toString()))
+              stream.on('close', () => {
+                const shellPid =
+                  out
+                    .trim()
+                    .split('\n')
+                    .map((line) => {
+                      const [pid, comm] = line.trim().split(/\s+/)
+                      return { pid: parseInt(pid), comm }
+                    })
+                    .filter((p) => !isNaN(p.pid) && p.pid !== execPid && /bash|sh|zsh|fish|dash|ksh|tcsh|csh/.test(p.comm))
+                    .map((p) => p.pid)[0] ?? null
+
+                if (shellPid) {
+                  sshSessionPids.set(id, shellPid)
+                  logger.info('Shell PID saved', { event: 'ssh.pid.saved', connectionId: id, shellPid })
+                }
+                resolve()
+              })
+            })
+          })
+          if (sshSessionPids.has(id)) break
+        }
+      })
+    })
+  })
+  ipcMain.handle('ssh:cwd:get', async (_event, { id }: { id: string }) => {
+    const isJump = jumpserverConnections.has(id)
+    const shellPid = isJump ? jumpserverSessionPids.get(id) : sshSessionPids.get(id)
+
+    if (!shellPid) {
+      return { success: false, cwd: null, reason: 'shellPid_missing' }
+    }
+
+    const cmd =
+      'pid=' +
+      shellPid +
+      '; while :; do child=$(grep -l "^PPid:[[:space:]]*${pid}$" /proc/[0-9]*/status 2>/dev/null | head -1 | cut -d/ -f3); [ -z "$child" ] && break; pid=$child; done; result=$(readlink /proc/$pid/cwd 2>/dev/null); if [ -z "$result" ]; then result=$(sudo -n readlink /proc/$pid/cwd 2>/dev/null); fi; echo "$result"'
+    let result: any
+    if (jumpserverShellStreams.has(id)) {
+      result = await executeCommandOnJumpServerAsset(id, cmd)
+    } else {
+      const conn = sshConnections.get(id)
+      if (!conn) return { success: false, cwd: null, reason: `no_ssh_conn:${id}` }
+
+      result = await new Promise((resolve) => {
+        conn.exec(cmd, (err, stream) => {
+          if (err) return resolve({ success: false, stdout: '', stderr: err.message, exitCode: 255 })
+          const out: Buffer[] = []
+          const errOut: Buffer[] = []
+          stream.on('data', (c) => out.push(c))
+          stream.stderr.on('data', (c) => errOut.push(c))
+          stream.on('close', (code: number) => {
+            resolve({
+              success: code === 0,
+              stdout: Buffer.concat(out).toString('utf8'),
+              stderr: Buffer.concat(errOut).toString('utf8'),
+              exitCode: code
+            })
+          })
+        })
+      })
+    }
+
+    const stdoutRaw = String(result?.stdout ?? '')
+
+    const stdoutNoAnsi = stdoutRaw.replace(/\x1B\[[0-?]*[ -/]*[@-~]/g, '')
+
+    const lines = stdoutNoAnsi
+      .replace(/\r/g, '\n')
+      .split('\n')
+      .map((s) => s.trim())
+      .filter(Boolean)
+    const cwd = lines.length ? lines[lines.length - 1] : null
+
+    if (!cwd) {
+      return {
+        success: false,
+        cwd: null,
+        reason: `cwd_unavailable`,
+        shellPid,
+        debug: { isJump, exitCode: result?.exitCode, stdoutRaw, stderr: String(result?.stderr ?? '') }
+      }
+    }
+
+    return { success: true, cwd, shellPid }
+  })
 }
 
 const getSystemInfo = async (id: string): Promise<CommandGenerationContext> => {
@@ -1760,5 +1736,59 @@ const getSystemInfo = async (id: string): Promise<CommandGenerationContext> => {
         resolve(parseSystemInfoOutput(stdout))
       })
     })
+  })
+}
+
+export const initSftpOnConnection = (conn: Client, connectionId: string): Promise<void> => {
+  return new Promise<void>((resolve) => {
+    try {
+      conn.sftp((err, sftp) => {
+        if (err || !sftp) {
+          logger.error(`SFTP check error `, { event: 'ssh.shell.sftp', connectionId: connectionId, error: err })
+
+          connectionStatus.set(connectionId, {
+            sftpAvailable: false,
+            sftpError: err?.message || 'SFTP object is empty'
+          })
+
+          sftpConnections.set(connectionId, {
+            isSuccess: false,
+            error: `sftp init error: "${err?.message || 'SFTP object is empty'}"`
+          })
+
+          resolve()
+          return
+        }
+
+        logger.info(`start SFTP `, { event: 'ssh.sftp.start', connectionId: connectionId })
+        sftp.readdir('.', (readDirErr) => {
+          if (readDirErr) {
+            logger.error(`SFTP check failed `, { event: 'ssh.shell.sftp', connectionId: connectionId, error: readDirErr.message })
+
+            connectionStatus.set(connectionId, {
+              sftpAvailable: false,
+              sftpError: readDirErr.message
+            })
+
+            try {
+              sftp.end()
+            } catch {}
+          } else {
+            logger.info(`SFTP check success`, { event: 'ssh.sftp.check', connectionId: connectionId })
+            sftpConnections.set(connectionId, { isSuccess: true, sftp })
+            connectionStatus.set(connectionId, { sftpAvailable: true })
+          }
+          resolve()
+        })
+      })
+    } catch (e: any) {
+      const msg = e?.message || String(e)
+      connectionStatus.set(connectionId, {
+        sftpAvailable: false,
+        sftpError: msg
+      })
+      sftpConnections.set(connectionId, { isSuccess: false, error: `sftp exception: "${msg}"` })
+      resolve()
+    }
   })
 }

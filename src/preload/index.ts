@@ -104,6 +104,7 @@ if (fs.existsSync(envSpecificPath)) {
 // Custom APIs for renderer
 import os from 'os'
 import { ExecResult } from '../main/ssh/sshHandle'
+import { SftpConnectResult } from '../main/ssh/sftpTransfer'
 
 const getLocalIP = (): string => {
   const interfaces = os.networkInterfaces()
@@ -727,8 +728,14 @@ const api = {
   resizeShell: (id, cols, rows) => ipcRenderer.invoke('ssh:shell:resize', { id, cols, rows }),
   sshSftpList: (opts: { id: string; remotePath: string }) => ipcRenderer.invoke('ssh:sftp:list', opts) as Promise<FileRecord[] | string[]>,
   sftpConnList: () => ipcRenderer.invoke('ssh:sftp:conn:list') as Promise<SftpConnectionInfo[]>,
+  sftpConnect: (connectionInfo) => ipcRenderer.invoke('ssh:sftp:connect', connectionInfo) as Promise<SftpConnectResult>,
+  sftpClose: (payload: { id: string }) => ipcRenderer.invoke('ssh:sftp:close', payload),
+  sftpCancel: (payload: { id: string; requestId: string }) => ipcRenderer.invoke('ssh:sftp:cancel', payload),
   sshConnExec: (args: { id: string; cmd: string }) => ipcRenderer.invoke('ssh:conn:exec', args) as Promise<ExecResult>,
   writeToShell: (params) => ipcRenderer.send('ssh:shell:write', params),
+
+  setShellPid: (id: string) => ipcRenderer.invoke('ssh:shell-pid-set', { id }),
+  getCwd: (payload: { id: string }) => ipcRenderer.invoke('ssh:cwd:get', payload) as Promise<any>,
   disconnect: (params) => ipcRenderer.invoke('ssh:disconnect', params),
   selectPrivateKey: () => ipcRenderer.invoke('ssh:select-private-key'),
   getAppPath: (name) => ipcRenderer.invoke('app:get-path', { name }),

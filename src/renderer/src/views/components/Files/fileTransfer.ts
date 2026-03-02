@@ -35,7 +35,11 @@ export interface Task {
 export const transferTasks = ref<Record<string, Task>>({})
 const api = (window as any).api
 
-export const initTransferListener = () => {
+let inited = false
+
+export function ensureTransferListener() {
+  if (inited) return false
+  inited = true
   api.onTransferProgress((payload: any) => {
     const {
       taskKey,
@@ -120,6 +124,12 @@ export const initTransferListener = () => {
       setTimeout(() => delete transferTasks.value[taskKey], 2500)
     }
   })
+
+  return true
+}
+
+export function isTransferListenerInited() {
+  return inited
 }
 
 export const downloadList = computed(() => Object.values(transferTasks.value).filter((t) => t.type === 'download'))

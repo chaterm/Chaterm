@@ -12,3 +12,5 @@ export const jumpserverConnectionStatus = new Map<string, { [key: string]: any }
 export const getExecStreamPromise = (connectionId: string) => jumpserverExecStreamPromises.get(connectionId)
 export const setExecStreamPromise = (connectionId: string, promise: Promise<any>) => jumpserverExecStreamPromises.set(connectionId, promise)
 export const deleteExecStreamPromise = (connectionId: string) => jumpserverExecStreamPromises.delete(connectionId)
+
+export const jumpserverSessionPids = new Map<string, number>()
