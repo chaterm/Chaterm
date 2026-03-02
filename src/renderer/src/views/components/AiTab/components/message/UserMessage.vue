@@ -18,6 +18,7 @@
         mode="edit"
         :initial-content-parts="displayParts"
         :message-hosts="props.message.hosts || []"
+        :handle-interrupt="props.handleInterrupt"
         :on-confirm-edit="handleConfirmEdit"
       />
     </div>
@@ -77,9 +78,12 @@ import { useSessionState } from '../../composables/useSessionState'
 
 interface Props {
   message: ChatMessage
+  handleInterrupt?: () => void
 }
 
-const props = withDefaults(defineProps<Props>(), {})
+const props = withDefaults(defineProps<Props>(), {
+  handleInterrupt: () => {}
+})
 
 const displayParts = computed<ContentPart[]>(() => {
   const parts = props.message.contentParts
