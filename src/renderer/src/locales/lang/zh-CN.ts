@@ -749,7 +749,7 @@ export default {
     showHostname: '显示主机名',
     missingAssetId: '缺少资产 ID',
     supportedFormats: '支持的格式',
-    standardFormat: '标准格式',
+    standardFormat: '导出格式',
     sessionFiles: '会话文件',
     configFiles: '配置文件',
     unsupportedFileFormat: '不支持的文件格式',

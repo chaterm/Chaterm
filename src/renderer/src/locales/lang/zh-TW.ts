@@ -750,7 +750,7 @@ export default {
     showHostname: '顯示主機名',
     missingAssetId: '缺少資產 ID',
     supportedFormats: '支持的格式',
-    standardFormat: '標準格式',
+    standardFormat: '導出格式',
     sessionFiles: '會話文件',
     configFiles: '配置文件',
     unsupportedFileFormat: '不支持的文件格式',

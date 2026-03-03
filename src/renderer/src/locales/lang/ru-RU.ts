@@ -764,7 +764,7 @@ export default {
     showHostname: 'Показать имя хоста',
     missingAssetId: 'Отсутствует ID актива',
     supportedFormats: 'Поддерживаемые форматы',
-    standardFormat: 'Стандартный формат',
+    standardFormat: 'Формат экспорта',
     sessionFiles: 'Файлы сессий',
     configFiles: 'Файлы конфигурации',
     unsupportedFileFormat: 'Неподдерживаемый формат файла',

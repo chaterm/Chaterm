@@ -754,7 +754,7 @@ export default {
     showHostname: '호스트 이름 표시',
     missingAssetId: '자산 ID 누락',
     supportedFormats: '지원되는 파일 형식',
-    standardFormat: '표준 형식',
+    standardFormat: '내보내기 형식',
     sessionFiles: '세션 파일',
     configFiles: '설정 파일',
     unsupportedFileFormat: '지원되지 않는 파일 형식',
