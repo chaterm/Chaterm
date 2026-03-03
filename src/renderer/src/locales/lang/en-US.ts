@@ -762,7 +762,7 @@ export default {
     showHostname: 'Show Hostname',
     missingAssetId: 'Missing asset ID',
     supportedFormats: 'Supported Formats',
-    standardFormat: 'Standard Format',
+    standardFormat: 'Export Format',
     sessionFiles: 'Session Files',
     configFiles: 'Config Files',
     unsupportedFileFormat: 'Unsupported File Format',
