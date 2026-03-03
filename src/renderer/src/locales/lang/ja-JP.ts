@@ -758,7 +758,7 @@ export default {
     showHostname: 'ホスト名を表示',
     missingAssetId: '資産IDが不足しています',
     supportedFormats: 'サポートされているフォーマット',
-    standardFormat: '標準フォーマット',
+    standardFormat: 'エクスポート形式',
     sessionFiles: 'セッションファイル',
     configFiles: '設定ファイル',
     unsupportedFileFormat: 'サポートされていないフォーマット',

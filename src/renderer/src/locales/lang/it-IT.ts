@@ -767,7 +767,7 @@ export default {
     showHostname: 'Mostra nome host',
     missingAssetId: 'ID asset mancante',
     supportedFormats: 'Formati supportati',
-    standardFormat: 'Formato standard',
+    standardFormat: 'Formato di esportazione',
     sessionFiles: 'File sessione',
     configFiles: 'File configurazione',
     unsupportedFileFormat: 'Formato file non supportato',
