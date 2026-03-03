@@ -1715,6 +1715,7 @@ onUnmounted(() => {
     margin-bottom: 0;
     background-color: transparent;
     width: 100%;
+    border-bottom: 1px solid var(--border-color);
   }
 
   :deep(.ant-tabs-nav-wrap) {
@@ -1729,10 +1730,11 @@ onUnmounted(() => {
 
   :deep(.ant-tabs-tab) {
     flex: 1;
-    background-color: var(--watermark-color);
+    background-color: rgba(255, 255, 255, 0.06);
     border: none;
-    border-radius: 6px;
+    border-radius: 6px 6px 0 0;
     margin: 0 2px;
+    margin-bottom: -1px;
     padding: 6px 16px;
     color: var(--text-color-secondary);
     transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
@@ -1757,13 +1759,14 @@ onUnmounted(() => {
   }
 
   :deep(.ant-tabs-tab-active) {
-    background-color: rgba(24, 144, 255, 0.1);
-    border: none;
+    background-color: var(--bg-color);
+    border: 1px solid var(--border-color);
+    border-bottom-color: var(--bg-color);
     color: #1890ff;
     font-weight: 500;
 
     &:hover {
-      background-color: rgba(24, 144, 255, 0.15);
+      background-color: var(--bg-color);
       color: #1890ff;
     }
   }
