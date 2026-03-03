@@ -2,6 +2,30 @@
   "releaseNotesUrl": "https://github.com/chaterm/Chaterm/releases/tag/v",
   "versions": [
     {
+      "version": "0.9.2",
+      "date": "2026-03-03",
+      "highlights": {
+        "zh-CN": [
+          "AI 与 Agent：删除 Chat 模式、Agent 模式支持空主机和批量的主机",
+          "命令补全：新增AI驱动的命令建议、支持长命令水平滚动不换行",
+          "终端：支持 Ctrl + 点击 快捷下载文件",
+          "知识库：Markdown 预览支持复制、下拉 transition 动画优化",
+          "界面与背景：优化自定义背景显示效果",
+          "文件管理：交互与拖拽优化、下拉选活跃 SFTP/拖拽新增、直接创建 SFTP",
+          "连接与其它：优化Jumpserver认证逻辑，支持仅密码连接"
+        ],
+        "en-US": [
+          "AI and Agent: remove Chat mode, Agent mode supports empty host and batch hosts",
+          "Command completion: add AI-driven command suggestions, support long command horizontal scroll no wrap",
+          "Terminal: support Ctrl+click to download files",
+          "Knowledge center: markdown preview supports copy, dropdown transition animation optimization",
+          "UI and background: optimize custom background display effect",
+          "File management: interaction and drag mode, dropdown active SFTP/drag to add",
+          "Connection and other: optimize Jumpserver authentication logic, support password connection only"
+        ]
+      }
+    },
+    {
       "version": "0.9.1",
       "date": "2026-02-11",
       "highlights": {
