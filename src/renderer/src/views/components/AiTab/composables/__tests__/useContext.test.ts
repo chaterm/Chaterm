@@ -139,12 +139,13 @@ describe('useContext', () => {
       expect(isHostSelected(mockHostOption)).toBe(false)
     })
 
-    it('should match by IP and connection type as fallback', () => {
+    it('should not match when uuid is different even if IP is same', () => {
       const { isHostSelected } = useContext()
 
+      // Two hosts with same IP but different UUIDs should be treated as different hosts
       hosts.value = [{ host: 'server1.example.com', uuid: 'different-uuid', connection: 'ssh' }]
 
-      expect(isHostSelected(mockHostOption)).toBe(true)
+      expect(isHostSelected(mockHostOption)).toBe(false)
     })
   })
 
@@ -274,91 +275,6 @@ describe('useContext', () => {
           description: 'ai.switchNotSupportAgent'
         })
       )
-    })
-  })
-
-  describe('pending host selection (batch mode)', () => {
-    it('should switch to cmd mode when applying switch host in agent mode', async () => {
-      const { Notice } = await import('@/views/components/Notice')
-      const { goToLevel2, togglePendingHost, applyPendingHosts } = useContext()
-
-      vi.mocked(window.api.getUserHosts).mockResolvedValue({
-        data: {
-          personal: [
-            {
-              key: 'switch-1',
-              label: 'switch-1',
-              uuid: 'switch-uuid-1',
-              connection: 'ssh',
-              type: 'personal',
-              selectable: true,
-              assetType: 'person-switch-cisco'
-            }
-          ],
-          jumpservers: []
-        }
-      })
-
-      chatTypeValue.value = 'agent'
-      await goToLevel2('hosts')
-
-      togglePendingHost({
-        label: 'switch-1',
-        value: 'switch-1',
-        key: 'switch-1',
-        uuid: 'switch-uuid-1',
-        connect: 'ssh',
-        type: 'personal',
-        selectable: true,
-        level: 0,
-        assetType: 'person-switch-cisco'
-      })
-
-      applyPendingHosts()
-
-      expect(chatTypeValue.value).toBe('cmd')
-      expect(hosts.value).toHaveLength(1)
-      expect(hosts.value[0].assetType).toBe('person-switch-cisco')
-      expect(vi.mocked(Notice.open)).toHaveBeenCalledWith(
-        expect.objectContaining({
-          description: 'ai.switchNotSupportAgent'
-        })
-      )
-    })
-
-    it('should preserve previously selected hidden hosts when applying pending selection', async () => {
-      const { goToLevel2, applyPendingHosts, pendingSelectedCount } = useContext()
-
-      vi.mocked(window.api.getUserHosts).mockResolvedValue({
-        data: {
-          personal: [
-            {
-              key: 'visible-1',
-              label: 'visible-host',
-              uuid: 'visible-uuid-1',
-              connection: 'ssh',
-              type: 'personal',
-              selectable: true
-            }
-          ],
-          jumpservers: []
-        }
-      })
-
-      const hiddenHost: Host = {
-        host: 'hidden-host',
-        uuid: 'hidden-uuid-1',
-        connection: 'ssh'
-      }
-      hosts.value = [hiddenHost]
-      chatTypeValue.value = 'agent'
-
-      await goToLevel2('hosts')
-      expect(pendingSelectedCount.value).toBe(1)
-
-      applyPendingHosts()
-
-      expect(hosts.value).toEqual([hiddenHost])
     })
   })
 

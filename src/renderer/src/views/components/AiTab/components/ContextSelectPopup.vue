@@ -119,23 +119,12 @@
               :style="{ paddingLeft: item.level === 1 ? '24px' : '6px' }"
               @mouseover="handleMouseOver(item.value, index)"
               @mouseleave="hovered = null"
-              @click="chatTypeValue === 'agent' ? togglePendingHost(item) : onHostClick(item)"
+              @click="onHostClick(item)"
             >
-              <!-- Agent mode: checkbox on left -->
-              <span
-                v-if="chatTypeValue === 'agent'"
-                class="host-checkbox"
-                :class="{ checked: isPendingSelected(item) }"
-              >
-                <CheckOutlined
-                  v-if="isPendingSelected(item)"
-                  class="checkbox-check-icon"
-                />
-              </span>
               <span class="item-label">{{ item.label }}</span>
-              <!-- Cmd mode: check icon on right -->
+              <!-- Show check icon for selected hosts -->
               <CheckOutlined
-                v-if="chatTypeValue !== 'agent' && isHostSelected(item)"
+                v-if="isHostSelected(item)"
                 class="selected-icon"
               />
             </div>
@@ -161,32 +150,26 @@
           <div class="batch-footer-left">
             <span
               class="batch-action-btn"
-              @click.stop="allVisiblePendingSelected ? clearAllPending() : selectAllPending()"
+              @click.stop="allVisibleHostsSelected ? clearAllHosts() : selectAllHosts()"
             >
               <CheckSquareOutlined
-                v-if="allVisiblePendingSelected"
+                v-if="allVisibleHostsSelected"
                 class="batch-icon"
               />
               <MinusSquareOutlined
                 v-else
                 class="batch-icon"
               />
-              {{ allVisiblePendingSelected ? $t('ai.deselectAll') : $t('ai.selectAll') }}
+              {{ allVisibleHostsSelected ? $t('ai.deselectAll') : $t('ai.selectAll') }}
             </span>
             <span
+              v-if="hosts.length > 0"
               class="batch-action-btn"
-              @click.stop="clearAllPending()"
+              @click.stop="clearAllHosts()"
             >
               {{ $t('ai.clearSelection') }}
             </span>
           </div>
-          <button
-            class="batch-apply-btn"
-            :disabled="pendingSelectedCount === 0"
-            @click.stop="applyPendingHosts()"
-          >
-            {{ $t('ai.addSelected', { count: pendingSelectedCount }) }}
-          </button>
         </div>
       </div>
 
@@ -323,20 +306,16 @@ const {
   currentMode,
   searchInputRef,
   chatTypeValue,
+  hosts,
   // Hosts
   filteredHostOptions,
   hostOptionsLoading,
   isHostSelected,
   onHostClick,
   toggleJumpserverExpand,
-  // Pending selection (agent mode batch)
-  isPendingSelected,
-  togglePendingHost,
-  selectAllPending,
-  clearAllPending,
-  applyPendingHosts,
-  pendingSelectedCount,
-  allVisiblePendingSelected,
+  selectAllHosts,
+  clearAllHosts,
+  allVisibleHostsSelected,
   // Opened hosts
   displayedOpenedHosts,
   // Docs
@@ -683,30 +662,6 @@ void searchInputRef
   overflow: hidden;
 }
 
-.host-checkbox {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 14px;
-  height: 14px;
-  border: 1px solid var(--border-color);
-  border-radius: 3px;
-  margin-right: 8px;
-  flex-shrink: 0;
-  transition: all 0.15s;
-  background: transparent;
-
-  &.checked {
-    background: #52c41a;
-    border-color: #52c41a;
-  }
-
-  .checkbox-check-icon {
-    font-size: 9px;
-    color: #fff;
-  }
-}
-
 .host-batch-footer {
   display: flex;
   align-items: center;
@@ -740,28 +695,6 @@ void searchInputRef
 
     .batch-icon {
       font-size: 12px;
-    }
-  }
-
-  .batch-apply-btn {
-    font-size: 11px;
-    padding: 2px 10px;
-    border-radius: 4px;
-    border: none;
-    background: #1890ff;
-    color: #fff;
-    cursor: pointer;
-    line-height: 20px;
-    transition: all 0.15s;
-
-    &:hover {
-      background: #40a9ff;
-    }
-
-    &:disabled {
-      background: var(--bg-color-quaternary);
-      color: var(--text-color-tertiary);
-      cursor: not-allowed;
     }
   }
 }
