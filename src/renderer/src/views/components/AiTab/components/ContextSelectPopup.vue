@@ -71,70 +71,122 @@
       <!-- Level 2: Hosts List -->
       <div
         v-else-if="currentMenuLevel === 'hosts'"
-        class="select-list"
+        class="hosts-container"
       >
-        <template
-          v-for="(item, index) in filteredHostOptions"
-          :key="item.value"
+        <div
+          class="select-list"
+          :class="{ 'has-footer': chatTypeValue === 'agent' }"
         >
-          <!-- Jumpserver parent node -->
-          <div
-            v-if="isBastionHostType(item.type)"
-            class="select-item select-group"
-            :class="{
-              hovered: hovered === item.value,
-              'keyboard-selected': keyboardSelectedIndex === index,
-              expanded: item.expanded
-            }"
-            @mouseover="handleMouseOver(item.value, index)"
-            @mouseleave="hovered = null"
-            @click="toggleJumpserverExpand(item.key)"
+          <template
+            v-for="(item, index) in filteredHostOptions"
+            :key="item.value"
           >
-            <span class="item-label group-label">{{ item.label }}</span>
-            <span class="group-badge">{{ item.childrenCount || 0 }}</span>
-            <span class="group-toggle">
-              <DownOutlined
-                v-if="item.expanded"
-                class="toggle-icon"
+            <!-- Jumpserver parent node -->
+            <div
+              v-if="isBastionHostType(item.type)"
+              class="select-item select-group"
+              :class="{
+                hovered: hovered === item.value,
+                'keyboard-selected': keyboardSelectedIndex === index,
+                expanded: item.expanded
+              }"
+              @mouseover="handleMouseOver(item.value, index)"
+              @mouseleave="hovered = null"
+              @click="toggleJumpserverExpand(item.key)"
+            >
+              <span class="item-label group-label">{{ item.label }}</span>
+              <span class="group-badge">{{ item.childrenCount || 0 }}</span>
+              <span class="group-toggle">
+                <DownOutlined
+                  v-if="item.expanded"
+                  class="toggle-icon"
+                />
+                <RightOutlined
+                  v-else
+                  class="toggle-icon"
+                />
+              </span>
+            </div>
+            <!-- Normal selectable host items -->
+            <div
+              v-else
+              class="select-item"
+              :class="{
+                hovered: hovered === item.value,
+                'keyboard-selected': keyboardSelectedIndex === index,
+                'select-child': item.level === 1
+              }"
+              :style="{ paddingLeft: item.level === 1 ? '24px' : '6px' }"
+              @mouseover="handleMouseOver(item.value, index)"
+              @mouseleave="hovered = null"
+              @click="chatTypeValue === 'agent' ? togglePendingHost(item) : onHostClick(item)"
+            >
+              <!-- Agent mode: checkbox on left -->
+              <span
+                v-if="chatTypeValue === 'agent'"
+                class="host-checkbox"
+                :class="{ checked: isPendingSelected(item) }"
+              >
+                <CheckOutlined
+                  v-if="isPendingSelected(item)"
+                  class="checkbox-check-icon"
+                />
+              </span>
+              <span class="item-label">{{ item.label }}</span>
+              <!-- Cmd mode: check icon on right -->
+              <CheckOutlined
+                v-if="chatTypeValue !== 'agent' && isHostSelected(item)"
+                class="selected-icon"
               />
-              <RightOutlined
+            </div>
+          </template>
+          <div
+            v-if="hostOptionsLoading && filteredHostOptions.length > 0"
+            class="select-loading"
+          >
+            {{ $t('ai.loading') }}...
+          </div>
+          <div
+            v-if="filteredHostOptions.length === 0 && !hostOptionsLoading"
+            class="select-empty"
+          >
+            {{ $t('ai.noMatchingHosts') }}
+          </div>
+        </div>
+        <!-- Batch action footer (agent mode only) -->
+        <div
+          v-if="chatTypeValue === 'agent'"
+          class="host-batch-footer"
+        >
+          <div class="batch-footer-left">
+            <span
+              class="batch-action-btn"
+              @click.stop="allVisiblePendingSelected ? clearAllPending() : selectAllPending()"
+            >
+              <CheckSquareOutlined
+                v-if="allVisiblePendingSelected"
+                class="batch-icon"
+              />
+              <MinusSquareOutlined
                 v-else
-                class="toggle-icon"
+                class="batch-icon"
               />
+              {{ allVisiblePendingSelected ? $t('ai.deselectAll') : $t('ai.selectAll') }}
+            </span>
+            <span
+              class="batch-action-btn"
+              @click.stop="clearAllPending()"
+            >
+              {{ $t('ai.clearSelection') }}
             </span>
           </div>
-          <!-- Normal selectable host items -->
-          <div
-            v-else
-            class="select-item"
-            :class="{
-              hovered: hovered === item.value,
-              'keyboard-selected': keyboardSelectedIndex === index,
-              'select-child': item.level === 1
-            }"
-            :style="{ paddingLeft: item.level === 1 ? '24px' : '6px' }"
-            @mouseover="handleMouseOver(item.value, index)"
-            @mouseleave="hovered = null"
-            @click="onHostClick(item)"
+          <button
+            class="batch-apply-btn"
+            :disabled="pendingSelectedCount === 0"
+            @click.stop="applyPendingHosts()"
           >
-            <span class="item-label">{{ item.label }}</span>
-            <CheckOutlined
-              v-if="isHostSelected(item)"
-              class="selected-icon"
-            />
-          </div>
-        </template>
-        <div
-          v-if="hostOptionsLoading && filteredHostOptions.length > 0"
-          class="select-loading"
-        >
-          {{ $t('ai.loading') }}...
-        </div>
-        <div
-          v-if="filteredHostOptions.length === 0 && !hostOptionsLoading"
-          class="select-empty"
-        >
-          {{ $t('ai.noMatchingHosts') }}
+            {{ $t('ai.addSelected', { count: pendingSelectedCount }) }}
+          </button>
         </div>
       </div>
 
@@ -236,7 +288,9 @@ import {
   FileTextOutlined,
   FolderOutlined,
   MessageOutlined,
-  CheckOutlined
+  CheckOutlined,
+  CheckSquareOutlined,
+  MinusSquareOutlined
 } from '@ant-design/icons-vue'
 import { contextInjectionKey } from '../composables/useContext'
 import type { ContextMenuLevel } from '../types'
@@ -275,6 +329,14 @@ const {
   isHostSelected,
   onHostClick,
   toggleJumpserverExpand,
+  // Pending selection (agent mode batch)
+  isPendingSelected,
+  togglePendingHost,
+  selectAllPending,
+  clearAllPending,
+  applyPendingHosts,
+  pendingSelectedCount,
+  allVisiblePendingSelected,
   // Opened hosts
   displayedOpenedHosts,
   // Docs
@@ -355,7 +417,7 @@ const searchPlaceholder = computed(() => {
   }
 })
 
-// Sync mode with parent and suppress unused var warning for template refs
+// Suppress unused var warnings for template refs
 void props.mode
 void searchInputRef
 </script>
@@ -490,6 +552,10 @@ void searchInputRef
   scrollbar-width: thin;
   scrollbar-color: var(--bg-color-quinary) var(--bg-color-senary);
 
+  &.has-footer {
+    max-height: 184px;
+  }
+
   &::-webkit-scrollbar {
     width: 6px;
   }
@@ -609,5 +675,94 @@ void searchInputRef
   text-align: center;
   padding: 16px 12px;
   font-size: 12px;
+}
+
+.hosts-container {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.host-checkbox {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 14px;
+  height: 14px;
+  border: 1px solid var(--border-color);
+  border-radius: 3px;
+  margin-right: 8px;
+  flex-shrink: 0;
+  transition: all 0.15s;
+  background: transparent;
+
+  &.checked {
+    background: #52c41a;
+    border-color: #52c41a;
+  }
+
+  .checkbox-check-icon {
+    font-size: 9px;
+    color: #fff;
+  }
+}
+
+.host-batch-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 6px 8px;
+  border-top: 1px solid var(--border-color);
+  background: var(--popup-bg-color);
+  flex-shrink: 0;
+
+  .batch-footer-left {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .batch-action-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 3px;
+    font-size: 11px;
+    color: var(--text-color-secondary);
+    cursor: pointer;
+    padding: 2px 4px;
+    border-radius: 3px;
+    transition: all 0.15s;
+
+    &:hover {
+      color: var(--text-color);
+      background: var(--hover-bg-color);
+    }
+
+    .batch-icon {
+      font-size: 12px;
+    }
+  }
+
+  .batch-apply-btn {
+    font-size: 11px;
+    padding: 2px 10px;
+    border-radius: 4px;
+    border: none;
+    background: #1890ff;
+    color: #fff;
+    cursor: pointer;
+    line-height: 20px;
+    transition: all 0.15s;
+
+    &:hover {
+      background: #40a9ff;
+    }
+
+    &:disabled {
+      background: var(--bg-color-quaternary);
+      color: var(--text-color-tertiary);
+      cursor: not-allowed;
+    }
+  }
 }
 </style>

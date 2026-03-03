@@ -923,6 +923,10 @@ export default {
     exportedOn: 'Exportado em',
     maxHostsLimitReached: 'Você pode selecionar até {max} hosts',
     maxHostsLimit: 'Limite de hosts atingido',
+    selectAll: 'Selecionar tudo',
+    deselectAll: 'Desmarcar tudo',
+    clearSelection: 'Limpar',
+    addSelected: 'Adicionar selecionados({count})',
     switchNotSupportAgent: 'Dispositivos de rede não suportam modo Agent, automaticamente mudado para modo Command'
   },
   keyChain: {

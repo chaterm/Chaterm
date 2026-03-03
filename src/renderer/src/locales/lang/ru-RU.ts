@@ -921,6 +921,10 @@ export default {
     exportedOn: 'Экспортировано на',
     maxHostsLimitReached: 'Вы можете выбрать до {max} хостов',
     maxHostsLimit: 'Максимальное количество хостов достигнуто',
+    selectAll: 'Выбрать все',
+    deselectAll: 'Снять выбор',
+    clearSelection: 'Очистить',
+    addSelected: 'Добавить выбранные({count})',
     switchNotSupportAgent: 'Сетевые устройства не поддерживают режим Agent, автоматически переключен на режим Command'
   },
   keyChain: {

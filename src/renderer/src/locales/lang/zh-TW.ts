@@ -907,6 +907,10 @@ export default {
     exportedOn: '導出時間',
     maxHostsLimitReached: '最多只能選擇 {max} 台主機',
     maxHostsLimit: '主機數量已達上限',
+    selectAll: '全選',
+    deselectAll: '取消全選',
+    clearSelection: '清空',
+    addSelected: '新增所選({count})',
     switchNotSupportAgent: '網路設備不支持 Agent 模式，已自動切換為 Command 模式'
   },
   keyChain: {

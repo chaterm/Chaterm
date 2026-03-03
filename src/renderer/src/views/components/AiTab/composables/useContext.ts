@@ -100,6 +100,10 @@ export const useContext = (options: UseContextOptions = {}) => {
   const chipInsertHandler = ref<((chipType: 'doc' | 'chat', ref: DocOption | ChatOption, label: string) => void) | null>(null)
   const imageInsertHandler = ref<((imagePart: ImageContentPart) => void) | null>(null)
 
+  // ========== Pending Selection State (agent mode batch selection) ==========
+  // Temporary selection keys for batch mode in agent mode hosts submenu
+  const pendingSelectedHostKeys = ref<Set<string>>(new Set())
+
   // ========== Opened Hosts State ==========
   // List of hosts from currently opened terminal tabs for quick selection
   const openedHostsList = ref<HostOption[]>([])
@@ -249,6 +253,33 @@ export const useContext = (options: UseContextOptions = {}) => {
     })
   }
 
+  const isLocalhostHostOption = (item: Pick<HostOption, 'isLocalHost' | 'label'>): boolean => {
+    return item.isLocalHost || item.label === '127.0.0.1'
+  }
+
+  const warnMaxHostsLimit = () => {
+    Notice.open({
+      type: 'warning',
+      description: t('ai.maxHostsLimitReached', { max: MAX_TARGET_HOSTS }),
+      placement: 'bottomRight',
+      duration: 2
+    })
+  }
+
+  const resetPendingSelection = () => {
+    pendingSelectedHostKeys.value = new Set()
+  }
+
+  const hostOptionToHost = (item: HostOption): Host => {
+    return {
+      host: item.label,
+      uuid: item.uuid,
+      connection: item.isLocalHost ? 'localhost' : item.connect,
+      organizationUuid: item.organizationUuid,
+      assetType: item.assetType
+    }
+  }
+
   const onHostClick = (item: HostOption) => {
     // Handle bastion host parent node click - toggle expand/collapse
     if (isBastionHostType(item.type) && !item.selectable) {
@@ -256,13 +287,7 @@ export const useContext = (options: UseContextOptions = {}) => {
       return
     }
 
-    const newHost: Host = {
-      host: item.label,
-      uuid: item.uuid,
-      connection: item.isLocalHost ? 'localhost' : item.connect,
-      organizationUuid: item.organizationUuid,
-      assetType: item.assetType
-    }
+    const newHost = hostOptionToHost(item)
 
     const isSwitchHost = isSwitchAssetType(item.assetType)
 
@@ -285,17 +310,12 @@ export const useContext = (options: UseContextOptions = {}) => {
       } else {
         let updatedHosts = [...hosts.value]
 
-        if (!item.isLocalHost && item.label !== '127.0.0.1') {
+        if (!isLocalhostHostOption(item)) {
           updatedHosts = updatedHosts.filter((h) => h.host !== '127.0.0.1')
         }
 
         if (updatedHosts.length >= MAX_TARGET_HOSTS) {
-          Notice.open({
-            type: 'warning',
-            description: t('ai.maxHostsLimitReached', { max: MAX_TARGET_HOSTS }),
-            placement: 'bottomRight',
-            duration: 2
-          })
+          warnMaxHostsLimit()
           return
         }
 
@@ -306,6 +326,130 @@ export const useContext = (options: UseContextOptions = {}) => {
     autoUpdateHost.value = false
 
     removeTrailingAtFromInputParts()
+  }
+
+  // ========== Pending Selection Operations (agent mode batch) ==========
+
+  const isPendingSelected = (item: HostOption): boolean => {
+    return pendingSelectedHostKeys.value.has(item.uuid)
+  }
+
+  const pendingSelectedCount = computed(() => pendingSelectedHostKeys.value.size)
+
+  const allVisiblePendingSelected = computed(() => {
+    const selectable = filteredHostOptions.value.filter((opt) => !isBastionHostType(opt.type))
+    if (selectable.length === 0) return false
+    return selectable.every((opt) => pendingSelectedHostKeys.value.has(opt.uuid))
+  })
+
+  const togglePendingHost = (item: HostOption) => {
+    const newSet = new Set(pendingSelectedHostKeys.value)
+
+    if (newSet.has(item.uuid)) {
+      newSet.delete(item.uuid)
+    } else {
+      // Localhost and remote host mutual exclusion
+      if (isLocalhostHostOption(item)) {
+        // Selecting localhost: clear all remote hosts
+        newSet.clear()
+      } else {
+        // Selecting remote host: remove localhost if present
+        const localhostUuid = 'localhost'
+        newSet.delete(localhostUuid)
+      }
+
+      if (newSet.size >= MAX_TARGET_HOSTS) {
+        warnMaxHostsLimit()
+        pendingSelectedHostKeys.value = newSet
+        return
+      }
+
+      newSet.add(item.uuid)
+    }
+
+    pendingSelectedHostKeys.value = newSet
+  }
+
+  const selectAllPending = () => {
+    const selectable = filteredHostOptions.value.filter((opt) => !isBastionHostType(opt.type))
+    const newSet = new Set(pendingSelectedHostKeys.value)
+
+    // Remove localhost if adding remote hosts
+    const hasRemote = selectable.some((opt) => !isLocalhostHostOption(opt))
+    if (hasRemote) {
+      newSet.delete('localhost')
+    }
+
+    for (const opt of selectable) {
+      if (newSet.size >= MAX_TARGET_HOSTS) {
+        warnMaxHostsLimit()
+        break
+      }
+      newSet.add(opt.uuid)
+    }
+
+    pendingSelectedHostKeys.value = newSet
+  }
+
+  const clearAllPending = () => {
+    pendingSelectedHostKeys.value = new Set()
+  }
+
+  const applyPendingHosts = () => {
+    if (pendingSelectedHostKeys.value.size === 0) return
+
+    // Build a flat lookup from all host options (including collapsed bastion children)
+    const hostLookup = new Map<string, Host>()
+    // Existing hosts as fallback for items no longer in current options (e.g. after search)
+    for (const h of hosts.value) {
+      hostLookup.set(h.uuid, h)
+    }
+    for (const item of hostOptions.value) {
+      if (!isBastionHostType(item.type)) {
+        hostLookup.set(item.uuid, hostOptionToHost(item))
+      }
+      if (item.children?.length) {
+        for (const child of item.children) {
+          hostLookup.set(child.uuid, {
+            host: child.label,
+            uuid: child.uuid,
+            connection: child.connection,
+            organizationUuid: child.organizationUuid,
+            assetType: child.assetType
+          })
+        }
+      }
+    }
+    // Include flattened options (e.g. localhost)
+    for (const item of flattenedHostOptions.value) {
+      if (!isBastionHostType(item.type) && !hostLookup.has(item.uuid)) {
+        hostLookup.set(item.uuid, hostOptionToHost(item))
+      }
+    }
+
+    const newHosts = Array.from(pendingSelectedHostKeys.value)
+      .map((uuid) => hostLookup.get(uuid))
+      .filter((host): host is Host => Boolean(host))
+
+    const switchHost = newHosts.find((host) => isSwitchAssetType(host.assetType))
+    if (chatTypeValue.value === 'agent' && switchHost) {
+      chatTypeValue.value = 'cmd'
+      hosts.value = [switchHost]
+      autoUpdateHost.value = false
+      removeTrailingAtFromInputParts()
+      Notice.open({
+        type: 'info',
+        description: t('ai.switchNotSupportAgent'),
+        placement: 'bottomRight'
+      })
+      closeContextPopup()
+      return
+    }
+
+    hosts.value = newHosts
+    autoUpdateHost.value = false
+    removeTrailingAtFromInputParts()
+    closeContextPopup()
   }
 
   const removeTrailingAtFromInputParts = () => {
@@ -419,7 +563,12 @@ export const useContext = (options: UseContextOptions = {}) => {
         } else if (keyboardSelectedIndex.value >= 0 && keyboardSelectedIndex.value < currentList.length) {
           const item = currentList[keyboardSelectedIndex.value]
           if (currentMenuLevel.value === 'hosts') {
-            onHostClick(item as HostOption)
+            // Agent mode uses pending selection, cmd mode uses direct selection
+            if (chatTypeValue.value === 'agent') {
+              togglePendingHost(item as HostOption)
+            } else {
+              onHostClick(item as HostOption)
+            }
           } else if (currentMenuLevel.value === 'docs') {
             await onDocClick(item as DocOption)
           } else if (currentMenuLevel.value === 'chats') {
@@ -455,6 +604,7 @@ export const useContext = (options: UseContextOptions = {}) => {
     popupPosition.value = null
     popupReady.value = false
     searchValue.value = ''
+    resetPendingSelection()
     if (options.focusInput) {
       options.focusInput()
       return
@@ -472,6 +622,10 @@ export const useContext = (options: UseContextOptions = {}) => {
 
     // Fetch data for the selected category
     if (level === 'hosts') {
+      // Initialize pending with currently selected hosts (agent mode only)
+      if (chatTypeValue.value === 'agent') {
+        pendingSelectedHostKeys.value = new Set(hosts.value.map((h) => h.uuid))
+      }
       if (chatTypeValue.value === 'cmd') {
         await fetchHostOptionsForCommandMode('')
       } else {
@@ -497,6 +651,7 @@ export const useContext = (options: UseContextOptions = {}) => {
     keyboardSelectedIndex.value = -1
     docsCurrentRelDir.value = ''
     docsDirStack.value = []
+    resetPendingSelection()
     nextTick(() => {
       getElement(searchInputRef.value)?.focus?.()
     })
@@ -1076,6 +1231,16 @@ export const useContext = (options: UseContextOptions = {}) => {
     toggleJumpserverExpand,
     fetchHostOptions,
     fetchHostOptionsForCommandMode,
+
+    // Pending selection (agent mode batch)
+    pendingSelectedHostKeys,
+    isPendingSelected,
+    pendingSelectedCount,
+    allVisiblePendingSelected,
+    togglePendingHost,
+    selectAllPending,
+    clearAllPending,
+    applyPendingHosts,
 
     // Opened hosts state (for quick selection in main menu)
     openedHostsList,

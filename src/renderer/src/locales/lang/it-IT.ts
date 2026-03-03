@@ -924,6 +924,10 @@ export default {
     exportedOn: 'Esportato il',
     maxHostsLimitReached: 'Puoi selezionare fino a {max} host',
     maxHostsLimit: 'Limite host raggiunto',
+    selectAll: 'Seleziona tutto',
+    deselectAll: 'Deseleziona tutto',
+    clearSelection: 'Cancella',
+    addSelected: 'Aggiungi selezionati({count})',
     switchNotSupportAgent: 'Dispositivi di rete non supportano modalità Agent, automaticamente cambiato a modalità Comando'
   },
   keyChain: {

@@ -930,6 +930,10 @@ export default {
     exportedOn: 'Exporté le',
     maxHostsLimitReached: "Vous pouvez sélectionner jusqu'à {max} hôtes",
     maxHostsLimit: "Limite de sélection d'hôtes atteinte",
+    selectAll: 'Tout sélectionner',
+    deselectAll: 'Tout désélectionner',
+    clearSelection: 'Effacer',
+    addSelected: 'Ajouter la sélection({count})',
     switchNotSupportAgent: 'Les appareils réseau ne prennent en charge que le mode de commande, automatiquement basculé vers le mode de commande'
   },
   keyChain: {
