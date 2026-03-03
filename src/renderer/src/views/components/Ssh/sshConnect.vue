@@ -419,6 +419,19 @@ const getUserInfo = async () => {
     logger.error('Failed to get user info', { error: error })
   }
 }
+const isMac = navigator.platform.toUpperCase().indexOf('MAC') >= 0
+
+const handleMetaKeyDown = (e: KeyboardEvent) => {
+  if (e.key !== 'Meta') return
+  if (!canLinkify()) return
+  setCtrlLinkPressed(true)
+}
+
+const handleMetaKeyUp = (e: KeyboardEvent) => {
+  if (e.key !== 'Meta') return
+  if (!ctrlLinkPressed.value) return
+  setCtrlLinkPressed(false)
+}
 
 onMounted(async () => {
   await getUserInfo()
@@ -496,13 +509,23 @@ onMounted(async () => {
   termInstance.registerLinkProvider(createCtrlLinkProvider(termInstance))
 
   // Ctrl key monitoring
-  window.addEventListener('keydown', handleCtrlKeyDown)
-  window.addEventListener('keyup', handleCtrlKeyUp)
-  window.addEventListener('blur', () => setCtrlLinkPressed(false))
+  if (isMac) {
+    window.addEventListener('keydown', handleMetaKeyDown)
+    window.addEventListener('keyup', handleMetaKeyUp)
+  } else {
+    window.addEventListener('keydown', handleCtrlKeyDown)
+    window.addEventListener('keyup', handleCtrlKeyUp)
+  }
 
+  window.addEventListener('blur', () => setCtrlLinkPressed(false))
   cleanupListeners.value.push(() => {
-    window.removeEventListener('keydown', handleCtrlKeyDown)
-    window.removeEventListener('keyup', handleCtrlKeyUp)
+    if (isMac) {
+      window.removeEventListener('keydown', handleMetaKeyDown)
+      window.removeEventListener('keyup', handleMetaKeyUp)
+    } else {
+      window.removeEventListener('keydown', handleCtrlKeyDown)
+      window.removeEventListener('keyup', handleCtrlKeyUp)
+    }
   })
 
   ensureTransferListener()
@@ -828,6 +851,7 @@ onMounted(async () => {
     }
   )
 })
+
 const getCmdList = async (systemCommands) => {
   const allCommands = [...systemCommands, ...shellCommands]
   commands.value = [...new Set(allCommands)].sort()

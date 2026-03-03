@@ -31,7 +31,7 @@
           <template #title>
             <div class="import-tooltip">
               <div class="tooltip-title">{{ t('personal.supportedFormats') }}</div>
-              <div class="format-item">JSON - Chaterm {{ t('personal.standardFormat') }}</div>
+              <div class="format-item">chaterm.json - Chaterm {{ t('personal.standardFormat') }}</div>
               <div class="format-item">XSH/XTS - XShell {{ t('personal.sessionFiles') }}</div>
               <div class="format-item">INI/XML - SecureCRT {{ t('personal.configFiles') }}</div>
               <div class="format-item">MXTSESSIONS - MobaXterm {{ t('personal.sessionFiles') }}</div>
@@ -204,7 +204,7 @@ const showSupportedFormatsDialog = () => {
     content: h('div', [
       h('p', t('personal.pleaseSelectSupportedFormat')),
       h('div', { class: 'supported-formats-list' }, [
-        h('div', 'JSON - Chaterm ' + t('personal.standardFormat')),
+        h('div', 'chaterm.json - Chaterm ' + t('personal.standardFormat')),
         h('div', 'XSH/XTS - XShell ' + t('personal.sessionFiles')),
         h('div', 'INI/XML - SecureCRT ' + t('personal.configFiles')),
         h('div', 'MXTSESSIONS - MobaXterm ' + t('personal.sessionFiles'))

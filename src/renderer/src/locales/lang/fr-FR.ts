@@ -769,7 +769,7 @@ export default {
     showHostname: "Afficher le nom d'hôte",
     missingAssetId: "ID de l'actif manquant",
     supportedFormats: 'Formats supportés',
-    standardFormat: 'Format standard',
+    standardFormat: "Format d'exportation",
     sessionFiles: 'Fichiers de session',
     configFiles: 'Fichiers de configuration',
     unsupportedFileFormat: 'Format de fichier non supporté',
