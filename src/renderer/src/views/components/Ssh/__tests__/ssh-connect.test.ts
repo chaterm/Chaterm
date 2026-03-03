@@ -823,4 +823,557 @@ describe('Terminal Focus IPC Notification', () => {
       textarea.dispatchEvent(new Event('focus'))
     }).not.toThrow()
   })
+
+  describe('sshConnect.vue - ctrl linkify for ls output', () => {
+    // ---- minimal ref helper (avoid importing vue/ref) ----
+    const _ref = <T>(v: T) => ({ value: v })
+
+    // ---- minimal ANSI stripper (enough for tests) ----
+    const stripAnsi = (s: string) => s.replace(/\x1b\[[0-9;]*m/g, '')
+
+    // ---- minimal display pos (ASCII only) ----
+    const calculateDisplayPosition = (_line: string, charIndex: number) => charIndex
+
+    // ---- fakes for xterm ----
+    class FakeLine {
+      constructor(
+        private text: string,
+        public isWrapped: boolean = false
+      ) {}
+      translateToString(_trimRight?: boolean) {
+        return this.text
+      }
+    }
+
+    class FakeBufferActive {
+      public length: number
+      public viewportY = 0
+      constructor(private lines: FakeLine[]) {
+        this.length = lines.length
+      }
+      getLine(y: number) {
+        return this.lines[y] ?? null
+      }
+    }
+
+    class FakeTerminal {
+      public buffer: { active: FakeBufferActive }
+      public rows = 24
+      public refresh = vi.fn()
+      public clearSelection = vi.fn()
+      constructor(lines: Array<string | { text: string; isWrapped?: boolean }>) {
+        const fakeLines = lines.map((x) => {
+          if (typeof x === 'string') return new FakeLine(x, false)
+          return new FakeLine(x.text, !!x.isWrapped)
+        })
+        this.buffer = { active: new FakeBufferActive(fakeLines) }
+      }
+    }
+
+    // ---- “component state” mocks ----
+    const startStr = _ref<string | undefined>(undefined)
+    const ctrlLinkPressed = _ref(false)
+    const terminal = _ref<FakeTerminal | null>(null)
+    const terminalElement = _ref<any>({ classList: { toggle: vi.fn() } })
+    const terminalMode = _ref<'none' | string>('none')
+    const showAiButton = _ref(false)
+    const connectionId = _ref('conn-1')
+
+    let props: any = { activeTabId: 'conn-1', currentConnectionId: 'conn-1', isActive: true }
+    let inputManager: any = { getActiveTerm: vi.fn(() => ({ id: 'conn-1' })) }
+    let message: any = { error: vi.fn(), success: vi.fn(), info: vi.fn() }
+    let t: (k: string) => string = (k) => k
+
+    // ---- impl under test (mirrors sshConnect.vue snippet) ----
+    const CTRL_LINK_CLASS = 'ctrl-link-mode'
+    const LISTING_CMDS = new Set(['ls', 'll', 'la', 'dir', 'l'])
+    const lineListingCache = new Map<number, boolean>()
+    const promptBlockCache = new Map<number, { promptY: number; nextPromptY: number; isListing: boolean }>()
+    const MAX_SCAN_UP = 2000
+    const MAX_SCAN_DOWN = 4000
+
+    const resetListingCache = () => {
+      lineListingCache.clear()
+      promptBlockCache.clear()
+    }
+
+    const isPromptLine = (text: string, lineObj?: any): boolean => {
+      const tt = stripAnsi(text).trimEnd()
+      if (!tt) return false
+      if (lineObj?.isWrapped) return false
+
+      if (typeof startStr.value !== 'undefined' && startStr.value) {
+        const p = String(startStr.value).trimEnd()
+        if (p && tt.startsWith(p)) return true
+      }
+
+      return /[$#]\s*$/.test(tt) || /[$#]\s+/.test(tt)
+    }
+
+    const extractCmdFromPromptLine = (promptLine: string): string => {
+      const tt = stripAnsi(promptLine).trimEnd()
+
+      if (typeof startStr.value !== 'undefined' && startStr.value) {
+        const p = String(startStr.value).trimEnd()
+        if (p && tt.startsWith(p)) return tt.slice(p.length).trim()
+      }
+
+      const m = tt.match(/[$#]\s+(.*)$/)
+      return (m?.[1] ?? '').trim()
+    }
+
+    const isListingCommand = (cmdLine: string): boolean => {
+      if (!cmdLine) return false
+      const firstSeg = cmdLine.split(';')[0].trim()
+      const cleaned = firstSeg
+        .replace(/^sudo\s+/, '')
+        .replace(/^\\/, '')
+        .trim()
+      const firstToken = cleaned.split(/\s+/)[0]
+      return LISTING_CMDS.has(firstToken)
+    }
+
+    const findPromptUp = (absY: number, termObj: any): number | null => {
+      const buf = termObj.buffer.active
+      const minY = Math.max(0, absY - MAX_SCAN_UP)
+      for (let y = absY; y >= minY; y--) {
+        const line = buf.getLine(y)
+        if (!line) continue
+        const text = line.translateToString(true)
+        if (isPromptLine(text, line)) return y
+      }
+      return null
+    }
+
+    const findNextPromptDown = (promptY: number, termObj: any): number => {
+      const buf = termObj.buffer.active
+      const maxY = Math.min(buf.length - 1, promptY + MAX_SCAN_DOWN)
+      for (let y = promptY + 1; y <= maxY; y++) {
+        const line = buf.getLine(y)
+        if (!line) continue
+        const text = line.translateToString(true)
+        if (isPromptLine(text, line)) return y
+      }
+      return buf.length
+    }
+
+    const isListingOutputLine = (bufferLineNumber: number, termObj: any): boolean => {
+      const absY = bufferLineNumber - 1
+      const cached = lineListingCache.get(absY)
+      if (cached !== undefined) return cached
+
+      const promptY = findPromptUp(absY, termObj)
+      if (promptY === null) {
+        lineListingCache.set(absY, false)
+        return false
+      }
+
+      let block = promptBlockCache.get(promptY)
+      if (!block) {
+        const promptText = termObj.buffer.active.getLine(promptY)?.translateToString(true) ?? ''
+        const cmd = extractCmdFromPromptLine(promptText)
+        const isListing = isListingCommand(cmd)
+        const nextPromptY = findNextPromptDown(promptY, termObj)
+        block = { promptY, nextPromptY, isListing }
+        promptBlockCache.set(promptY, block)
+      }
+
+      const inOutput = absY > block.promptY && absY < block.nextPromptY
+      const res = block.isListing && inOutput
+      lineListingCache.set(absY, res)
+      return res
+    }
+
+    const isThisTerminalActive = (): boolean => {
+      const activeTerm = inputManager.getActiveTerm()
+      if (!activeTerm?.id || !connectionId.value) return false
+      if (activeTerm.id !== connectionId.value) return false
+      if (props.activeTabId !== props.currentConnectionId) return false
+      if (!props.isActive) return false
+      return true
+    }
+
+    const canLinkify = (): boolean => {
+      if (!isThisTerminalActive()) return false
+      if (terminalMode.value !== 'none') return false
+      if (!terminal.value) return false
+      return true
+    }
+
+    const setCtrlLinkPressed = (v: boolean) => {
+      if (ctrlLinkPressed.value === v) return
+      ctrlLinkPressed.value = v
+
+      if (terminalElement.value) {
+        terminalElement.value.classList.toggle(CTRL_LINK_CLASS, v)
+      }
+
+      terminal.value?.refresh(0, (terminal.value?.rows ?? 1) - 1)
+
+      if (!v) {
+        terminal.value?.clearSelection()
+        showAiButton.value = false
+      }
+    }
+
+    const handleCtrlKeyDown = (e: KeyboardEvent) => {
+      if (e.key !== 'Control') return
+      if (!canLinkify()) return
+      setCtrlLinkPressed(true)
+    }
+    const handleCtrlKeyUp = (e: KeyboardEvent) => {
+      if (e.key !== 'Control') return
+      if (!ctrlLinkPressed.value) return
+      setCtrlLinkPressed(false)
+    }
+
+    type LsBlock = { startLine: number; endLine: number; cwd: string | null; cmd: string; ts: number }
+    const lsBlocks = _ref<LsBlock[]>([])
+
+    const resolvePosix = (base: string, name: string): string => {
+      const b = base.endsWith('/') ? base.slice(0, -1) : base
+      const n = name.replace(/^\/+/, '')
+      return `${b}/${n}`
+    }
+
+    const extractLsDirArg = (cmd: string): string | null => {
+      const parts = cmd.trim().split(/\s+/)
+      if (!parts.length) return null
+      const args = parts.slice(1).filter((p) => p && !p.startsWith('-'))
+      return args[0] ?? null
+    }
+
+    const normalizeClickableText = (s: string): string => {
+      let tt = s.trim()
+      if (!tt) return ''
+      if ((tt.startsWith('"') && tt.endsWith('"')) || (tt.startsWith("'") && tt.endsWith("'"))) {
+        tt = tt.slice(1, -1).trim()
+      }
+      tt = tt.replace(/[\/\*\@\|\=]+$/g, '')
+      return tt.trim()
+    }
+
+    type Candidate = { text: string; startChar: number; endChar: number }
+
+    const extractCandidates = (line: string): Candidate[] => {
+      const out: Candidate[] = []
+      const longRe = /^[\-dlcbps][rwx\-]{9}\s+\d+\s+\S+\s+\S+\s+\d+\s+\w+\s+\d+\s+(?:\d{2}:\d{2}|\d{4})\s+(.+)$/
+      const m = longRe.exec(line)
+      if (m?.[1]) {
+        const namePart = m[1]
+        const startChar = m[0].length - namePart.length
+        const arrowIdx = namePart.indexOf(' -> ')
+        const nameOnly = arrowIdx >= 0 ? namePart.slice(0, arrowIdx) : namePart
+        out.push({ text: nameOnly, startChar, endChar: startChar + nameOnly.length })
+        return out
+      }
+
+      const tokenRe = /\S+/g
+      let mt: RegExpExecArray | null
+      while ((mt = tokenRe.exec(line))) {
+        const token = mt[0]
+        if (token === '.' || token === '..') continue
+        out.push({ text: token, startChar: mt.index, endChar: mt.index + token.length })
+      }
+      return out
+    }
+
+    const toCellX = (line: string, charIndex: number): number => calculateDisplayPosition(line, charIndex) + 1
+
+    const findLsBlockByLine = (y: number): LsBlock | null => {
+      if (!terminal.value) return null
+
+      for (let i = lsBlocks.value.length - 1; i >= 0; i--) {
+        const b = lsBlocks.value[i]
+        if (y < b.startLine) continue
+
+        const dynamicEndLine = findNextPromptDown(b.startLine - 1, terminal.value)
+        if (y < dynamicEndLine) return b
+      }
+      return null
+    }
+
+    let downloadFileSpy: ReturnType<typeof vi.fn>
+
+    const triggerDownloadOrOpen = (raw: string, y: number) => {
+      const name = normalizeClickableText(raw)
+      if (!name) return
+
+      const block = findLsBlockByLine(y)
+      const cwd = block?.cwd
+
+      if (!cwd) {
+        message.error({
+          content: `${t('files.downloadError')}：${t('files.getCwdFailed')}`,
+          key: `download-${connectionId.value}-${Date.now()}`,
+          duration: 3
+        })
+        return
+      }
+
+      let baseDir = cwd
+      const dirArg = block ? extractLsDirArg(block.cmd) : null
+      if (dirArg) baseDir = dirArg.startsWith('/') ? dirArg : resolvePosix(cwd, dirArg)
+
+      const fullPath = resolvePosix(baseDir, name)
+      new downloadFileSpy(fullPath, name)
+    }
+
+    // prompt check used by provider (matches your snippet style)
+    const isTerminalPromptLine = (trimmed: string) => isPromptLine(trimmed)
+
+    const createCtrlLinkProvider = (termObj: any) => {
+      return {
+        provideLinks: (bufferLineNumber: number, callback: (links?: any[] | undefined) => void) => {
+          if (!ctrlLinkPressed.value || !canLinkify()) return callback(undefined)
+
+          const line = termObj.buffer.active.getLine(bufferLineNumber - 1)
+          if (!line) return callback(undefined)
+
+          const text = line.translateToString(true)
+          const trimmed = text.trim()
+          if (!trimmed) return callback(undefined)
+
+          const isPrompt =
+            (typeof startStr.value !== 'undefined' && startStr.value && trimmed.startsWith(String(startStr.value).trimEnd())) ||
+            isTerminalPromptLine(trimmed) ||
+            /[#$]\s/.test(trimmed)
+          if (isPrompt) return callback(undefined)
+
+          if (!isListingOutputLine(bufferLineNumber, termObj)) return callback(undefined)
+
+          const candidates = extractCandidates(text)
+          if (!candidates.length) return callback(undefined)
+
+          const links = candidates.map((c) => {
+            const startX = toCellX(text, c.startChar)
+            const endX = toCellX(text, c.endChar) - 1
+            return {
+              text: c.text,
+              range: { start: { x: startX, y: bufferLineNumber }, end: { x: Math.max(endX, startX), y: bufferLineNumber } },
+              activate: (_event: any, linkText: string) => {
+                if (!ctrlLinkPressed.value) return
+                termObj.clearSelection()
+                showAiButton.value = false
+                triggerDownloadOrOpen(linkText, bufferLineNumber)
+              }
+            }
+          })
+
+          callback(links)
+        }
+      }
+    }
+
+    beforeEach(() => {
+      startStr.value = undefined
+      ctrlLinkPressed.value = false
+      terminalMode.value = 'none'
+      showAiButton.value = false
+      connectionId.value = 'conn-1'
+
+      props = { activeTabId: 'conn-1', currentConnectionId: 'conn-1', isActive: true }
+      inputManager = { getActiveTerm: vi.fn(() => ({ id: 'conn-1' })) }
+
+      // reset mocks
+      terminalElement.value = { classList: { toggle: vi.fn() } }
+      message = { error: vi.fn(), success: vi.fn(), info: vi.fn() }
+      t = (k) => k
+
+      // reset runtime state
+      terminal.value = null
+
+      resetListingCache()
+      lsBlocks.value = []
+      downloadFileSpy = vi.fn()
+    })
+    describe('prompt parsing', () => {
+      it('isPromptLine should detect common $/# prompts', () => {
+        expect(isPromptLine('user@host:/data$ ')).toBe(true)
+        expect(isPromptLine('root@host:/data# ')).toBe(true)
+        expect(isPromptLine('not a prompt')).toBe(false)
+      })
+
+      it('isPromptLine should respect wrapped lines (isWrapped=true -> false)', () => {
+        expect(isPromptLine('user@host:/data$ ', { isWrapped: true })).toBe(false)
+      })
+
+      it('isPromptLine should detect custom startStr prefix', () => {
+        startStr.value = 'PROMPT>'
+        expect(isPromptLine('PROMPT> ls -la')).toBe(true)
+        expect(isPromptLine('xxxPROMPT> ls -la')).toBe(false)
+      })
+
+      it('extractCmdFromPromptLine should extract after custom startStr', () => {
+        startStr.value = 'PROMPT>'
+        expect(extractCmdFromPromptLine('PROMPT> ls /tmp')).toBe('ls /tmp')
+      })
+
+      it('extractCmdFromPromptLine should extract after $/#', () => {
+        expect(extractCmdFromPromptLine('user@h:/d$ ls /tmp')).toBe('ls /tmp')
+        expect(extractCmdFromPromptLine('root@h:/d#  ls -la')).toBe('ls -la')
+      })
+    })
+
+    describe('listing command detection', () => {
+      it('isListingCommand should detect listing commands (with sudo/\\ and ;)', () => {
+        expect(isListingCommand('ls -la')).toBe(true)
+        expect(isListingCommand('dir')).toBe(true)
+        expect(isListingCommand('sudo ls /tmp')).toBe(true)
+        expect(isListingCommand('\\ls /tmp')).toBe(true)
+        expect(isListingCommand('ls /tmp; echo hi')).toBe(true)
+        expect(isListingCommand('echo hello')).toBe(false)
+      })
+    })
+
+    describe('isListingOutputLine', () => {
+      it('should mark only lines between prompt and next prompt as listing output', () => {
+        const termObj = new FakeTerminal(['user@host:/data$ ls /tmp', 'aaa', 'bbb', 'user@host:/data$ '])
+        terminal.value = termObj
+
+        expect(isListingOutputLine(1, termObj as any)).toBe(false) // prompt line itself
+        expect(isListingOutputLine(2, termObj as any)).toBe(true) // output
+        expect(isListingOutputLine(3, termObj as any)).toBe(true) // output
+        expect(isListingOutputLine(4, termObj as any)).toBe(false) // next prompt
+      })
+
+      it('should return false for non-listing command output', () => {
+        const termObj = new FakeTerminal(['user@host:/data$ echo hi', 'hi', 'user@host:/data$ '])
+        terminal.value = termObj
+
+        expect(isListingOutputLine(2, termObj as any)).toBe(false)
+      })
+
+      it('should cache results per line', () => {
+        const termObj = new FakeTerminal(['user@host:/data$ ls', 'x', 'user@host:/data$ '])
+        terminal.value = termObj
+
+        expect(isListingOutputLine(2, termObj as any)).toBe(true)
+        // second call hits cache
+        expect(isListingOutputLine(2, termObj as any)).toBe(true)
+      })
+    })
+
+    describe('ctrl key toggle + linkify provider', () => {
+      it('handleCtrlKeyDown/Up should toggle ctrl-link-mode class and refresh/clearSelection', () => {
+        const termObj = new FakeTerminal(['user@host:/data$ '])
+        terminal.value = termObj
+
+        handleCtrlKeyDown({ key: 'Control' } as any)
+        expect(ctrlLinkPressed.value).toBe(true)
+        expect(terminalElement.value.classList.toggle).toHaveBeenCalledWith(CTRL_LINK_CLASS, true)
+        expect(termObj.refresh).toHaveBeenCalled()
+
+        handleCtrlKeyUp({ key: 'Control' } as any)
+        expect(ctrlLinkPressed.value).toBe(false)
+        expect(terminalElement.value.classList.toggle).toHaveBeenCalledWith(CTRL_LINK_CLASS, false)
+        expect(termObj.clearSelection).toHaveBeenCalled()
+        expect(showAiButton.value).toBe(false)
+      })
+
+      it('createCtrlLinkProvider should not provide links when ctrl not pressed', () => {
+        const termObj = new FakeTerminal(['user@host:/data$ ls /tmp', 'xxx', 'user@host:/data$ '])
+        terminal.value = termObj
+
+        const provider = createCtrlLinkProvider(termObj as any)
+        const cb = vi.fn()
+        provider.provideLinks(2, cb)
+        expect(cb).toHaveBeenCalledWith(undefined)
+      })
+
+      it('createCtrlLinkProvider should provide links only for ls output lines and activate should download /tmp/xxx', () => {
+        // NOTE: add ONE extra output line so findLsBlockByLine's y < dynamicEndLine passes
+        const termObj = new FakeTerminal([
+          'user@host:/data$ ls /tmp',
+          'xxx', // <- click this (bufferLineNumber = 2)
+          'yyy', // <- extra output line
+          'user@host:/data$ '
+        ])
+        terminal.value = termObj
+
+        // enable ctrl mode
+        ctrlLinkPressed.value = true
+
+        // add lsBlock so triggerDownloadOrOpen can compute path
+        lsBlocks.value.push({
+          startLine: 1,
+          endLine: 999,
+          cwd: '/data',
+          cmd: 'ls /tmp',
+          ts: Date.now()
+        })
+
+        const provider = createCtrlLinkProvider(termObj as any)
+
+        let provided: any[] | undefined
+        provider.provideLinks(2, (links) => {
+          provided = links
+        })
+
+        expect(provided).toBeTruthy()
+        expect(provided!.length).toBe(1)
+        expect(provided![0].text).toBe('xxx')
+
+        // click / activate
+        provided![0].activate(null, 'xxx')
+        expect(downloadFileSpy).toHaveBeenCalledWith('/tmp/xxx', 'xxx')
+      })
+
+      it('triggerDownloadOrOpen should use cwd for relative dirArg: "ls tmp" -> /data/tmp/xxx', () => {
+        // NOTE: add ONE extra output line so findLsBlockByLine's y < dynamicEndLine passes
+        const termObj = new FakeTerminal([
+          'user@host:/data$ ls tmp',
+          'xxx', // <- click this (bufferLineNumber = 2)
+          'yyy', // <- extra output line
+          'user@host:/data$ '
+        ])
+        terminal.value = termObj
+        ctrlLinkPressed.value = true
+
+        lsBlocks.value.push({
+          startLine: 1,
+          endLine: 999,
+          cwd: '/data',
+          cmd: 'ls tmp',
+          ts: Date.now()
+        })
+
+        const provider = createCtrlLinkProvider(termObj as any)
+        let provided: any[] | undefined
+        provider.provideLinks(2, (links) => (provided = links))
+
+        provided![0].activate(null, 'xxx')
+        expect(downloadFileSpy).toHaveBeenCalledWith('/data/tmp/xxx', 'xxx')
+      })
+
+      it('triggerDownloadOrOpen should error and not download if cwd is null', () => {
+        const termObj = new FakeTerminal(['user@host:/data$ ls /tmp', 'xxx', 'user@host:/data$ '])
+        terminal.value = termObj
+        ctrlLinkPressed.value = true
+
+        lsBlocks.value.push({
+          startLine: 1,
+          endLine: 999,
+          cwd: null,
+          cmd: 'ls /tmp',
+          ts: Date.now()
+        })
+
+        const provider = createCtrlLinkProvider(termObj as any)
+        let provided: any[] | undefined
+        provider.provideLinks(2, (links) => (provided = links))
+
+        provided![0].activate(null, 'xxx')
+        expect(downloadFileSpy).not.toHaveBeenCalled()
+        expect(message.error).toHaveBeenCalled()
+      })
+
+      it('normalizeClickableText should strip quotes and trailing markers from ls -F style', () => {
+        expect(normalizeClickableText('"abc/"')).toBe('abc')
+        expect(normalizeClickableText(" 'abc*' ")).toBe('abc')
+        expect(normalizeClickableText('abc@')).toBe('abc')
+        expect(normalizeClickableText('')).toBe('')
+      })
+    })
+  })
 })

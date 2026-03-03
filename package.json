@@ -1,6 +1,6 @@
 {
   "name": "chaterm",
-  "version": "0.9.1",
+  "version": "0.9.2",
   "description": "A terminal tool with AI Agent, makes you no need to learn complicated regular expressions, Perl and Python, switches and Linux commands, SQL syntax can easily manage thousands of devices!",
   "main": "./out/main/index.js",
   "author": "chaterm.ai",
@@ -90,7 +90,7 @@
     "p-wait-for": "^6.0.0",
     "pinia": "^3.0.1",
     "pinia-plugin-persistedstate": "^4.2.0",
-    "posthog-node": "^5.26.0",
+    "posthog-node": "^5.26.2",
     "serialize-error": "^13.0.1",
     "splitpanes": "^4.0.3",
     "ssh2": "^1.16.0",
