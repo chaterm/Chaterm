@@ -316,6 +316,8 @@ export function useCommandInteraction(params: CommandInteractionOptions) {
 
     logger.info('handleRetry: retry')
     session.isCancelled = false
+    session.responseLoading = true
+    session.showRetryButton = false
     const messageRsp: WebviewMessage = {
       type: 'askResponse',
       askResponse: 'yesButtonClicked'
@@ -323,7 +325,6 @@ export function useCommandInteraction(params: CommandInteractionOptions) {
     logger.info('Send message to main process', { data: messageRsp })
     const response = await window.api.sendToMain(attachTabContext(messageRsp))
     logger.info('Main process response', { data: response })
-    session.showRetryButton = false
   }
 
   return {
