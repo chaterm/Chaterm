@@ -305,6 +305,7 @@ import { Pane, Splitpanes } from 'splitpanes'
 import 'splitpanes/dist/splitpanes.css'
 import AiTab from '@views/components/AiTab/index.vue'
 import { isImageFile } from '@views/components/AiTab/utils'
+import { signalResizeStart } from '@views/components/AiTab/composables/useAutoScroll'
 import Header from '@views/components/Header/index.vue'
 import LeftTab from '@views/components/LeftTab/index.vue'
 import Workspace from '@views/components/Workspace/index.vue'
@@ -1168,6 +1169,9 @@ const handleLeftPaneResize = (params: ResizeParams) => {
   if (isQuickClosing.value) {
     return
   }
+
+  // Signal resize to pause expensive chat observers
+  signalResizeStart()
 
   const container = document.querySelector('.left-sidebar-container') as HTMLElement
   const containerWidth = container ? container.offsetWidth : 1000
@@ -2072,6 +2076,9 @@ const onMainSplitResize = (params) => {
   if (isQuickClosing.value) {
     return
   }
+
+  // Signal resize to pause expensive chat observers
+  signalResizeStart()
 
   mainTerminalSize.value = params.prevPane.size
   if (showAiSidebar.value) {

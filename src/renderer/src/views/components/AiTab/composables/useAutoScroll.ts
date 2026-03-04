@@ -3,6 +3,31 @@ import { useSessionState } from './useSessionState'
 import { focusChatInput } from './useTabManagement'
 
 /**
+ * Module-level resize state shared across all instances.
+ * When panels are being resized, MutationObserver and ResizeObserver
+ * callbacks are paused to avoid layout thrashing with large chat content.
+ */
+const _isResizing = ref(false)
+let _resizeEndTimer: ReturnType<typeof setTimeout> | null = null
+const RESIZE_END_DELAY = 200
+
+/**
+ * Signal that a panel resize is in progress.
+ * Call with `true` on every resize event; the flag auto-resets
+ * after RESIZE_END_DELAY ms of inactivity.
+ */
+export function signalResizeStart(): void {
+  _isResizing.value = true
+  if (_resizeEndTimer) {
+    clearTimeout(_resizeEndTimer)
+  }
+  _resizeEndTimer = setTimeout(() => {
+    _isResizing.value = false
+    _resizeEndTimer = null
+  }, RESIZE_END_DELAY)
+}
+
+/**
  * Composable for auto-scroll management
  * Handles automatic scrolling to bottom functionality for chat container (sticky scroll)
  */
@@ -13,6 +38,18 @@ export function useAutoScroll() {
   // Container height for dynamic min-height on last message pair
   const containerHeight = ref<number>(0)
   let resizeObserver: ResizeObserver | null = null
+  let resizeObserverDebounceTimer: ReturnType<typeof setTimeout> | null = null
+  const RESIZE_OBSERVER_DEBOUNCE = 150
+
+  const debouncedUpdateContainerHeight = () => {
+    if (resizeObserverDebounceTimer) {
+      clearTimeout(resizeObserverDebounceTimer)
+    }
+    resizeObserverDebounceTimer = setTimeout(() => {
+      updateContainerHeight()
+      resizeObserverDebounceTimer = null
+    }, RESIZE_OBSERVER_DEBOUNCE)
+  }
 
   const STICKY_THRESHOLD = 24
 
@@ -212,6 +249,8 @@ export function useAutoScroll() {
     if (!responseEl || !(responseEl instanceof Node)) return
 
     domObserver.value = new MutationObserver((mutations) => {
+      // Skip scroll adjustments during panel resize to avoid layout thrashing
+      if (_isResizing.value) return
       if (isTerminalToggleMutation(mutations, responseEl)) return
 
       if (shouldStickToBottom.value) {
@@ -243,7 +282,7 @@ export function useAutoScroll() {
       // so we guard it to avoid unhandled rejections during tests.
       if (chatContainer.value && typeof ResizeObserver !== 'undefined') {
         resizeObserver = new ResizeObserver(() => {
-          updateContainerHeight()
+          debouncedUpdateContainerHeight()
         })
         resizeObserver.observe(chatContainer.value)
       }
@@ -316,7 +355,7 @@ export function useAutoScroll() {
             // so we guard it to avoid unhandled rejections during tests.
             if (typeof ResizeObserver !== 'undefined') {
               resizeObserver = new ResizeObserver(() => {
-                updateContainerHeight()
+                debouncedUpdateContainerHeight()
               })
               resizeObserver.observe(container)
             }
@@ -325,6 +364,13 @@ export function useAutoScroll() {
       }
     }
   )
+
+  // When resize ends, do a single catch-up scroll if we should be at bottom
+  watch(_isResizing, (resizing) => {
+    if (!resizing && shouldStickToBottom.value) {
+      executeScroll()
+    }
+  })
 
   onUnmounted(() => {
     if (domObserver.value) {
@@ -338,6 +384,10 @@ export function useAutoScroll() {
     if (resizeObserver) {
       resizeObserver.disconnect()
       resizeObserver = null
+    }
+    if (resizeObserverDebounceTimer) {
+      clearTimeout(resizeObserverDebounceTimer)
+      resizeObserverDebounceTimer = null
     }
   })
 
