@@ -12,6 +12,44 @@ describe('terminalPrompt utils', () => {
       expect(getLastNonEmptyLine('')).toBe('')
       expect(getLastNonEmptyLine('\n\n')).toBe('')
     })
+
+    it('extracts trailing prompt when prompt is on the same line without newline', () => {
+      const output =
+        'curl -s http://127.0.0.1:8500/v1/catalog/datacenters\n' +
+        '["aliyun_sandbox","aliyun_autom","sandbox","secautom","uc_sandbox","autom","nx_autom","us_autom","us_sandbox"][xuhong_yao@AutomConsulSitC-172-16-158-235 ~]$ '
+
+      expect(getLastNonEmptyLine(output)).toBe('[xuhong_yao@AutomConsulSitC-172-16-158-235 ~]$')
+    })
+
+    it('extracts bracket prompt when plain text output and prompt share the same line', () => {
+      const output = 'curl -s http://127.0.0.1:8500/v1/catalog/datacenters\n"aliyun_sandbox" ssdsdsv  [xuhong_yao@AutomConsulSitC-172-16-158-235 ~]$'
+      expect(getLastNonEmptyLine(output)).toBe('[xuhong_yao@AutomConsulSitC-172-16-158-235 ~]$')
+    })
+
+    it('extracts trailing user@host:path prompt when appended without newline', () => {
+      const output = '{"status":"ok","count":8}user@host:/var/log# '
+      expect(getLastNonEmptyLine(output)).toBe('user@host:/var/log#')
+    })
+
+    it('extracts trailing Windows PowerShell prompt when appended without newline', () => {
+      const output = 'TotalMemoryMB: 31518PS C:\\Users\\admin> '
+      expect(getLastNonEmptyLine(output)).toBe('PS C:\\Users\\admin>')
+    })
+
+    it('extracts trailing Windows CMD prompt when appended without newline', () => {
+      const output = 'Volume serial number is 1234-ABCDC:\\Users\\admin> '
+      expect(getLastNonEmptyLine(output)).toBe('C:\\Users\\admin>')
+    })
+
+    it('does not treat glued single-char suffix as prompt', () => {
+      const output = 'checksum$'
+      expect(getLastNonEmptyLine(output)).toBe('checksum$')
+    })
+
+    it('extracts single-char prompt when separated by whitespace', () => {
+      const output = 'checksum $ '
+      expect(getLastNonEmptyLine(output)).toBe('$')
+    })
   })
 
   describe('isTerminalPromptLine', () => {
@@ -100,6 +138,11 @@ describe('terminalPrompt utils', () => {
       expect(isTerminalPromptLine('Info: The max number of VTY users is 5')).toBe(false)
       expect(isTerminalPromptLine('Compiled Tue 23-Apr-19 02:38 by mmen')).toBe(false)
       expect(isTerminalPromptLine('ROM: Bootstrap program is Linux')).toBe(false)
+      expect(
+        isTerminalPromptLine(
+          '["aliyun_sandbox","aliyun_autom","sandbox","secautom","uc_sandbox","autom","nx_autom","us_autom","us_sandbox"][xuhong_yao@AutomConsulSitC-172-16-158-235 ~]$'
+        )
+      ).toBe(false)
     })
   })
 

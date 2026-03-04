@@ -11,9 +11,9 @@ const ENV_PREFIX = /(?:\([^)]+\) ?)?/
 
 const PROMPT_PATTERNS: Array<{ type: PromptType; pattern: RegExp }> = [
   // Linux prompts with optional environment prefix (e.g., (base) [user@host]$)
-  { type: 'linux', pattern: new RegExp(`^${ENV_PREFIX.source}\\[([^@]+)@([^\\]]+)\\][#$]\\s*$`) },
-  { type: 'linux', pattern: new RegExp(`^${ENV_PREFIX.source}([^@]+)@([^:]+):(?:[^$]*|\\s*~)\\s*[$#]\\s*$`) },
-  { type: 'linux', pattern: new RegExp(`^${ENV_PREFIX.source}\\[([^@]+)@([^\\]]+)\\s+[^\\]]*\\][#$]\\s*$`) },
+  { type: 'linux', pattern: new RegExp(`^${ENV_PREFIX.source}\\[([^@\\]\\s]+)@([^\\]\\s]+)\\][#$]\\s*$`) },
+  { type: 'linux', pattern: new RegExp(`^${ENV_PREFIX.source}([A-Za-z0-9._-]+)@([A-Za-z0-9._-]+):(?:[^$]*|\\s*~)\\s*[$#]\\s*$`) },
+  { type: 'linux', pattern: new RegExp(`^${ENV_PREFIX.source}\\[([^@\\]\\s]+)@([^\\]\\s]+\\s+[^\\]]*)\\][#$]\\s*$`) },
   { type: 'linux', pattern: new RegExp(`^${ENV_PREFIX.source}[$#]\\s*$`) },
   { type: 'linux', pattern: new RegExp(`^${ENV_PREFIX.source}([^@]+)@([^\\s]+)\\s+(?:[^\\s]+\\s+)?[%$#]\\s*$`) },
   { type: 'linux', pattern: new RegExp(`^${ENV_PREFIX.source}[^\\s]+@[^\\s]+\\s+[%$#]\\s*$`) },
@@ -39,30 +39,80 @@ const PROMPT_PATTERNS: Array<{ type: PromptType; pattern: RegExp }> = [
   { type: 'windows', pattern: /^PS\s+[A-Za-z]:[\\\/](?:(?:[^#\\\/]+[\\\/])*[^#\\\/]*)?#\s*$/ } // PS C:\path#
 ]
 
+const cleanLineForPromptDetection = (line: string): string =>
+  line
+    .replace(/\x1b\[[0-9;]*m/g, '') // Remove ANSI color codes
+    .replace(/\x1b\[[0-9;]*[ABCDEFGJKST]/g, '') // Remove cursor control sequences
+    .replace(/\x1b\[[0-9]*[XK]/g, '') // Remove erase sequences
+    .replace(/\x1b\[[0-9;]*[Hf]/g, '') // Remove cursor position sequences
+    .replace(/\x1b\[[?][0-9;]*[hl]/g, '') // Remove other ANSI sequences
+    .replace(/\x1b\]0;[^\x07]*\x07/g, '') // Remove window title sequences
+    .replace(/\x1b\]9;[^\x07]*\x07/g, '') // Remove PowerShell specific sequences
+    .replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/g, '') // Remove remaining control characters
+
+const extractTrailingPrompt = (line: string): string | null => {
+  const trimmed = line.trimEnd()
+  if (!trimmed) return null
+
+  // Exact prompt line
+  if (matchPrompt(trimmed).isPrompt) {
+    return trimmed
+  }
+
+  // Fast-path for Windows prompts appended to output on the same line
+  const windowsPromptMatch = trimmed.match(/(PS\s+[A-Za-z]:[\\\/][^>]*>|[A-Za-z]:[\\\/][^>]*>)\s*$/)
+  if (windowsPromptMatch?.[1]) {
+    return windowsPromptMatch[1]
+  }
+
+  // Generic suffix scan for no-newline cases:
+  // output + prompt (e.g. ...][user@host ~]$)
+  // Only scan the tail — prompts never exceed ~200 chars, so scanning the
+  // entire line is wasteful for large outputs (O(n*m) per chunk).
+  const maxPromptLen = 200
+  const scanStart = Math.max(0, trimmed.length - maxPromptLen)
+  for (let start = scanStart; start < trimmed.length; start += 1) {
+    const candidateRaw = trimmed.slice(start)
+    const candidate = candidateRaw.trimStart()
+    if (!candidate) continue
+
+    const candidateStart = trimmed.length - candidate.length
+    const previousChar = candidateStart > 0 ? trimmed[candidateStart - 1] : ''
+    const hasAlphaNumericBoundary = candidateStart > 0 && /[A-Za-z0-9]/.test(previousChar)
+    const isLikelyUserHostPrompt = /@[^:\s]+:[^$#\s]*\s*[$#]\s*$/.test(candidate)
+
+    // Avoid matching inside ordinary words unless candidate clearly looks like a shell prompt.
+    if (hasAlphaNumericBoundary && !isLikelyUserHostPrompt) {
+      continue
+    }
+
+    if (!matchPrompt(candidate).isPrompt) {
+      continue
+    }
+
+    // Single-char prompts are noisy when appended to normal output.
+    if (/^[#$%>]$/.test(candidate) && !/\s/.test(previousChar)) {
+      continue
+    }
+
+    return candidate
+  }
+
+  return null
+}
+
 export const getLastNonEmptyLine = (output: string): string => {
   if (!output) return ''
   const lines = output.replace(/\r\n|\r/g, '\n').split('\n')
   for (let i = lines.length - 1; i >= 0; i -= 1) {
     let line = lines[i].trim()
     if (line) {
-      // Clean ANSI sequences before processing
-      line = line
-        .replace(/\x1b\[[0-9;]*m/g, '') // Remove ANSI color codes
-        .replace(/\x1b\[[0-9;]*[ABCDEFGJKST]/g, '') // Remove cursor control sequences
-        .replace(/\x1b\[[0-9]*[XK]/g, '') // Remove erase sequences
-        .replace(/\x1b\[[0-9;]*[Hf]/g, '') // Remove cursor position sequences
-        .replace(/\x1b\[[?][0-9;]*[hl]/g, '') // Remove other ANSI sequences
-        .replace(/\x1b\]0;[^\x07]*\x07/g, '') // Remove window title sequences
-        .replace(/\x1b\]9;[^\x07]*\x07/g, '') // Remove PowerShell specific sequences
-        .replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/g, '') // Remove remaining control characters
-        .trim()
+      line = cleanLineForPromptDetection(line).trim()
 
       if (line) {
-        // Check if the line ends with a Windows prompt pattern
-        // Look for patterns like "PS C:\path>" or "C:\path>" at the end of the line
-        const windowsPromptMatch = line.match(/(PS\s+[A-Za-z]:[\\\/][^>]*>|[A-Za-z]:[\\\/][^>]*>)\s*$/)
-        if (windowsPromptMatch) {
-          return windowsPromptMatch[1]
+        const trailingPrompt = extractTrailingPrompt(line)
+        if (trailingPrompt) {
+          return trailingPrompt
         }
 
         return line
