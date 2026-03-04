@@ -234,6 +234,14 @@
   width: 100%;
   min-width: 0;
 
+  .user-assistant-pair-message {
+    // Isolate layout/style calculations per message pair to reduce reflow cost during resize
+    contain: layout style;
+    // Enable browser-native content skipping for off-screen message pairs
+    content-visibility: auto;
+    contain-intrinsic-size: auto 200px;
+  }
+
   .message {
     display: inline-block;
     padding: 8px 12px;
