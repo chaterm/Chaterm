@@ -31,7 +31,7 @@ import { getGuestUserId } from './storage/db/connection'
 import { Controller } from './agent/core/controller'
 import { executeRemoteCommand } from './agent/integrations/remote-terminal/example'
 import { initializeStorageMain, testStorageFromMain as testRendererStorageFromMain, getGlobalState } from './agent/core/storage/state'
-import { getTaskMetadata } from './agent/core/storage/disk'
+import { getTaskMetadata, saveTaskTitle, saveTaskFavorite, getTaskList } from './agent/core/storage/disk'
 import { createMainWindow } from './windowManager'
 import { registerUpdater } from './updater'
 import { setupPluginIpc } from './plugin/pluginIpc'
@@ -2176,6 +2176,43 @@ ipcMain.handle('get-task-metadata', async (_event, { taskId }) => {
       return { success: false, error: { message: error.message } }
     }
     return { success: false, error: { message: 'Unknown error occurred' } }
+  }
+})
+
+ipcMain.handle('set-task-title', async (_event, { taskId, title }) => {
+  try {
+    await saveTaskTitle(taskId, title)
+    mainWindow?.webContents.send('main-to-webview', {
+      type: 'taskTitleUpdated',
+      taskId,
+      title
+    })
+    return { success: true }
+  } catch (error) {
+    return { success: false, error: { message: error instanceof Error ? error.message : 'Unknown error' } }
+  }
+})
+
+ipcMain.handle('set-task-favorite', async (_event, { taskId, favorite }) => {
+  try {
+    await saveTaskFavorite(taskId, favorite)
+    mainWindow?.webContents.send('main-to-webview', {
+      type: 'taskFavoriteUpdated',
+      taskId,
+      favorite
+    })
+    return { success: true }
+  } catch (error) {
+    return { success: false, error: { message: error instanceof Error ? error.message : 'Unknown error' } }
+  }
+})
+
+ipcMain.handle('get-task-list', async () => {
+  try {
+    const list = await getTaskList()
+    return { success: true, data: list }
+  } catch (error) {
+    return { success: false, error: { message: error instanceof Error ? error.message : 'Unknown error' } }
   }
 })
 

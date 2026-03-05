@@ -1,4 +1,5 @@
 import Database from 'better-sqlite3'
+import type { TaskListItem } from '../../../agent/core/context/context-tracking/ContextTrackerTypes'
 const logger = createLogger('db')
 
 export async function deleteChatermHistoryByTaskIdLogic(db: Database.Database, taskId: string): Promise<void> {
@@ -232,7 +233,7 @@ export async function saveChatermMessagesLogic(db: Database.Database, taskId: st
 export async function getTaskMetadataLogic(db: Database.Database, taskId: string): Promise<any> {
   try {
     const stmt = db.prepare(`
-        SELECT files_in_context, model_usage, hosts, todos
+        SELECT files_in_context, model_usage, hosts, todos, title, favorite
         FROM agent_task_metadata_v1
         WHERE task_id = ?
       `)
@@ -243,28 +244,31 @@ export async function getTaskMetadataLogic(db: Database.Database, taskId: string
         files_in_context: JSON.parse(row.files_in_context || '[]'),
         model_usage: JSON.parse(row.model_usage || '[]'),
         hosts: JSON.parse(row.hosts || '[]'),
-        todos: row.todos ? JSON.parse(row.todos) : []
+        todos: row.todos ? JSON.parse(row.todos) : [],
+        title: row.title || undefined,
+        favorite: row.favorite === 1
       }
     }
 
-    return { files_in_context: [], model_usage: [], hosts: [], todos: [] }
+    return { files_in_context: [], model_usage: [], hosts: [], todos: [], title: undefined, favorite: false }
   } catch (error) {
     logger.error('Failed to get task metadata', { error: error })
-    return { files_in_context: [], model_usage: [], hosts: [], todos: [] }
+    return { files_in_context: [], model_usage: [], hosts: [], todos: [], title: undefined, favorite: false }
   }
 }
 
 export async function saveTaskMetadataLogic(db: Database.Database, taskId: string, metadata: any): Promise<void> {
   try {
     const upsertStmt = db.prepare(`
-        INSERT INTO agent_task_metadata_v1 (task_id, files_in_context, model_usage, hosts, todos, updated_at)
-        VALUES (?, ?, ?, ?, ?, strftime('%s', 'now'))
+        INSERT INTO agent_task_metadata_v1 (task_id, files_in_context, model_usage, hosts, todos, title, favorite)
+        VALUES (?, ?, ?, ?, ?, ?, ?)
         ON CONFLICT(task_id) DO UPDATE SET
           files_in_context = excluded.files_in_context,
           model_usage = excluded.model_usage,
           hosts = excluded.hosts,
           todos = excluded.todos,
-          updated_at = strftime('%s', 'now')
+          title = CASE WHEN excluded.title IS NOT NULL THEN excluded.title ELSE agent_task_metadata_v1.title END,
+          favorite = CASE WHEN excluded.favorite IS NOT NULL THEN excluded.favorite ELSE agent_task_metadata_v1.favorite END
       `)
 
     upsertStmt.run(
@@ -272,10 +276,146 @@ export async function saveTaskMetadataLogic(db: Database.Database, taskId: strin
       JSON.stringify(metadata.files_in_context || []),
       JSON.stringify(metadata.model_usage || []),
       JSON.stringify(metadata.hosts || []),
-      JSON.stringify(metadata.todos || [])
+      JSON.stringify(metadata.todos || []),
+      metadata.title !== undefined ? metadata.title : null,
+      metadata.favorite !== undefined ? (metadata.favorite ? 1 : 0) : null
     )
   } catch (error) {
     logger.error('Failed to save task metadata', { error: error })
+  }
+}
+
+// Title rename should not change conversation ordering timestamp.
+export async function saveTaskTitleLogic(db: Database.Database, taskId: string, title: string): Promise<void> {
+  try {
+    const result = db
+      .prepare(
+        `
+      UPDATE agent_task_metadata_v1
+      SET title = ?
+      WHERE task_id = ?
+    `
+      )
+      .run(title, taskId)
+
+    if (result.changes === 0) {
+      logger.warn('saveTaskTitle skipped: metadata row not found', { taskId })
+    }
+  } catch (error) {
+    logger.error('Failed to save task title', { error })
+  }
+}
+
+// Favorite toggle should not change conversation ordering timestamp.
+export async function saveTaskFavoriteLogic(db: Database.Database, taskId: string, favorite: boolean): Promise<void> {
+  try {
+    const result = db
+      .prepare(
+        `
+      UPDATE agent_task_metadata_v1
+      SET favorite = ?
+      WHERE task_id = ?
+    `
+      )
+      .run(favorite ? 1 : 0, taskId)
+
+    if (result.changes === 0) {
+      logger.warn('saveTaskFavorite skipped: metadata row not found', { taskId })
+    }
+  } catch (error) {
+    logger.error('Failed to save task favorite', { error })
+  }
+}
+
+// Task list query - replaces global_taskHistory as data source
+export async function getTaskListLogic(db: Database.Database): Promise<TaskListItem[]> {
+  try {
+    const rows = db
+      .prepare(
+        `
+      SELECT task_id, title, favorite, created_at, updated_at, hosts
+      FROM agent_task_metadata_v1
+      ORDER BY updated_at DESC
+    `
+      )
+      .all() as Array<{
+      task_id: string
+      title: string | null
+      favorite: number
+      created_at: number
+      updated_at: number
+      hosts: string | null
+    }>
+
+    return rows.map((row) => {
+      let hosts: Array<{ host: string; uuid: string; connection: string }> = []
+      if (row.hosts) {
+        try {
+          const parsed = JSON.parse(row.hosts)
+          if (Array.isArray(parsed)) {
+            hosts = parsed
+          }
+        } catch {
+          // Backward compatibility: comma-separated IP strings
+          const hostStrings = row.hosts.split(',').filter(Boolean)
+          hosts = hostStrings.map((ip: string) => ({
+            host: ip.trim(),
+            uuid: '',
+            connection: ''
+          }))
+        }
+      }
+      return {
+        id: row.task_id,
+        title: row.title || null,
+        favorite: row.favorite === 1,
+        // DB stores seconds; renderer Date() expects milliseconds
+        createdAt: row.created_at * 1000,
+        updatedAt: row.updated_at * 1000,
+        hosts
+      }
+    })
+  } catch (error) {
+    logger.error('Failed to get task list', { error })
+    return []
+  }
+}
+
+// Ensure metadata row exists on task creation with initial title.
+// Uses UPSERT instead of INSERT OR IGNORE: if touchTaskUpdatedAt races ahead
+// and creates a title-less row, this will still fill in the initial title.
+export async function ensureTaskMetadataExistsLogic(db: Database.Database, taskId: string, initialTitle?: string): Promise<void> {
+  try {
+    db.prepare(
+      `
+      INSERT INTO agent_task_metadata_v1 (task_id, title, updated_at)
+      VALUES (?, ?, strftime('%s', 'now'))
+      ON CONFLICT(task_id) DO UPDATE SET
+        title = CASE
+          WHEN agent_task_metadata_v1.title IS NULL OR agent_task_metadata_v1.title = ''
+          THEN excluded.title
+          ELSE agent_task_metadata_v1.title
+        END
+    `
+    ).run(taskId, initialTitle || null)
+  } catch (error) {
+    logger.error('Failed to ensure task metadata exists', { error })
+  }
+}
+
+// Keep conversation ordering fresh by bumping metadata.updated_at on message save.
+export async function touchTaskUpdatedAtLogic(db: Database.Database, taskId: string): Promise<void> {
+  try {
+    db.prepare(
+      `
+      INSERT INTO agent_task_metadata_v1 (task_id, updated_at)
+      VALUES (?, strftime('%s', 'now'))
+      ON CONFLICT(task_id) DO UPDATE SET
+        updated_at = strftime('%s', 'now')
+    `
+    ).run(taskId)
+  } catch (error) {
+    logger.error('Failed to touch task updated_at', { error })
   }
 }
 

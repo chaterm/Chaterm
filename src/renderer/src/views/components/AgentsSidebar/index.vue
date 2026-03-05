@@ -41,7 +41,7 @@
           :key="conversation.id"
           class="conversation-item"
           :class="{ active: conversation.id === activeConversationId }"
-          @click="handleConversationClick(conversation.id)"
+          @click="handleConversationClick(conversation)"
         >
           <div class="conversation-content">
             <div class="conversation-title">{{ conversation.title }}</div>
@@ -82,7 +82,6 @@
 import { ref, computed, onMounted, onUnmounted, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { PlusOutlined, SearchOutlined, DeleteOutlined } from '@ant-design/icons-vue'
-import { getGlobalState, updateGlobalState } from '@/agent/storage/state'
 import type { WebviewMessage } from '@shared/WebviewMessage'
 import eventBus from '@/utils/eventBus'
 
@@ -96,16 +95,8 @@ interface ConversationItem {
   id: string
   title: string
   ts: number
-  chatType?: string
+  favorite?: boolean
   ipAddress?: string
-}
-
-interface TaskHistoryItem {
-  id: string
-  ts: number
-  chatTitle?: string
-  task?: string
-  chatType?: string
 }
 
 const { t } = useI18n()
@@ -170,56 +161,29 @@ const loadConversations = async () => {
   }
   isLoading = true
   try {
-    const taskHistory = ((await getGlobalState('taskHistory')) as TaskHistoryItem[]) || []
-    const favorites = ((await getGlobalState('favoriteTaskList')) as string[]) || []
+    const result = await window.api.getTaskList()
+    if (!result.success || !result.data) return
 
-    // Preserve existing IP addresses to prevent flickering
-    const existingIpMap = new Map<string, string>()
-    allConversations.value.forEach((conv) => {
-      if (conv.ipAddress) {
-        existingIpMap.set(conv.id, conv.ipAddress)
+    const taskList = result.data // sorted by updatedAt DESC from DB
+
+    // Map to conversation format, derive IP from hosts in single query result
+    allConversations.value = taskList.map((item) => {
+      let ipAddress: string | undefined
+      const hosts = (item as any).hosts as Host[] | undefined
+      if (hosts && hosts.length > 0) {
+        const ipAddresses = hosts.map((h: Host) => h.host).filter(Boolean)
+        if (ipAddresses.length > 0) {
+          ipAddress = ipAddresses.length === 1 ? ipAddresses[0] : `${ipAddresses[0]} +${ipAddresses.length - 1}`
+        }
+      }
+      return {
+        id: item.id,
+        title: item.title || 'New Chat',
+        favorite: item.favorite,
+        ts: item.updatedAt,
+        ipAddress
       }
     })
-
-    const historyItems = taskHistory
-      .sort((a, b) => b.ts - a.ts)
-      .map((task) => ({
-        id: task.id,
-        title: task?.chatTitle || task?.task || 'New Chat',
-        ts: task.ts,
-        chatType: task.chatType || 'cmd',
-        isFavorite: favorites.includes(task.id),
-        ipAddress: existingIpMap.get(task.id) as string | undefined
-      }))
-
-    allConversations.value = historyItems
-
-    // Load IP addresses for displayed conversations asynchronously (only for items without IP)
-    const itemsToLoadIp = paginatedConversations.value.filter((item) => !item.ipAddress)
-    await Promise.all(
-      itemsToLoadIp.map(async (item) => {
-        try {
-          const metadataResult = await window.api.getTaskMetadata(item.id)
-          if (metadataResult?.success && metadataResult?.data?.hosts && Array.isArray(metadataResult.data.hosts)) {
-            const hosts = metadataResult.data.hosts as Host[]
-            if (hosts.length > 0) {
-              // Get the first host's IP address, or combine multiple IPs
-              const ipAddresses = hosts.map((h: Host) => h.host).filter(Boolean)
-              if (ipAddresses.length > 0) {
-                const itemIndex = allConversations.value.findIndex((conv) => conv.id === item.id)
-                if (itemIndex !== -1) {
-                  allConversations.value[itemIndex].ipAddress =
-                    ipAddresses.length === 1 ? ipAddresses[0] : `${ipAddresses[0]}${ipAddresses.length > 1 ? ` +${ipAddresses.length - 1}` : ''}`
-                }
-              }
-            }
-          }
-        } catch (error) {
-          // Silently fail for individual IP loading
-          logger.debug('Failed to load IP for conversation', { conversationId: item.id, error: error })
-        }
-      })
-    )
   } catch (error) {
     logger.error('Failed to load conversations', { error: error })
   } finally {
@@ -232,9 +196,9 @@ const handleSearch = () => {
   currentPage.value = 1
 }
 
-const handleConversationClick = (conversationId: string) => {
-  activeConversationId.value = conversationId
-  emit('conversation-select', conversationId)
+const handleConversationClick = (conversation: ConversationItem) => {
+  activeConversationId.value = conversation.id
+  emit('conversation-select', conversation)
 }
 
 const handleNewChat = () => {
@@ -250,20 +214,7 @@ const handleDeleteConversation = async (conversationId: string) => {
       activeConversationId.value = null
     }
 
-    // Remove from globalState taskHistory
-    const taskHistory = ((await getGlobalState('taskHistory')) as TaskHistoryItem[]) || []
-    const updatedHistory = taskHistory.filter((item) => item.id !== conversationId)
-    await updateGlobalState('taskHistory', updatedHistory)
-
-    // Remove from favoriteTaskList if exists
-    const favoriteTaskList = ((await getGlobalState('favoriteTaskList')) as string[]) || []
-    const favoriteIndex = favoriteTaskList.indexOf(conversationId)
-    if (favoriteIndex > -1) {
-      favoriteTaskList.splice(favoriteIndex, 1)
-      await updateGlobalState('favoriteTaskList', favoriteTaskList)
-    }
-
-    // Send message to main process to delete task
+    // Send message to main process to delete task (DB handles metadata cleanup)
     const message: WebviewMessage = {
       type: 'deleteTaskWithId',
       text: conversationId,
@@ -286,35 +237,8 @@ const loadMoreConversations = async () => {
     // Add small delay to make loading smoother
     await new Promise((resolve) => setTimeout(resolve, 300))
 
-    // Record the previous displayed count before incrementing page
-    const previousDisplayedCount = currentPage.value * PAGE_SIZE
+    // IP addresses are already loaded from getTaskList, just increment page
     currentPage.value++
-
-    // Load IP addresses for newly displayed conversations
-    const newItems = filteredConversations.value.slice(previousDisplayedCount, currentPage.value * PAGE_SIZE).filter((item) => !item.ipAddress)
-
-    await Promise.all(
-      newItems.map(async (item) => {
-        try {
-          const metadataResult = await window.api.getTaskMetadata(item.id)
-          if (metadataResult?.success && metadataResult?.data?.hosts && Array.isArray(metadataResult.data.hosts)) {
-            const hosts = metadataResult.data.hosts as Host[]
-            if (hosts.length > 0) {
-              const ipAddresses = hosts.map((h: Host) => h.host).filter(Boolean)
-              if (ipAddresses.length > 0) {
-                const itemIndex = allConversations.value.findIndex((conv) => conv.id === item.id)
-                if (itemIndex !== -1) {
-                  allConversations.value[itemIndex].ipAddress =
-                    ipAddresses.length === 1 ? ipAddresses[0] : `${ipAddresses[0]}${ipAddresses.length > 1 ? ` +${ipAddresses.length - 1}` : ''}`
-                }
-              }
-            }
-          }
-        } catch (error) {
-          logger.debug('Failed to load IP for conversation', { conversationId: item.id, error: error })
-        }
-      })
-    )
   } finally {
     isLoadingMore.value = false
   }
@@ -349,13 +273,6 @@ const handleTabRestored = () => {
   }
 }
 
-// Handle taskHistory updated notification from main process
-const handleTaskHistoryUpdated = () => {
-  if (!isLoading) {
-    loadConversations()
-  }
-}
-
 let removeMainMessageListener: (() => void) | undefined
 
 onMounted(() => {
@@ -370,11 +287,17 @@ onMounted(() => {
   eventBus.on('create-new-empty-tab', handleNewChatCreated)
   eventBus.on('restore-history-tab', handleTabRestored)
 
-  // Listen for taskHistory updates from main process
+  // Listen for incremental task update notifications from main process
   if (window.api && window.api.onMainMessage) {
-    removeMainMessageListener = window.api.onMainMessage((message: { type?: string }) => {
-      if (message?.type === 'taskHistoryUpdated') {
-        handleTaskHistoryUpdated()
+    removeMainMessageListener = window.api.onMainMessage((message: { type?: string; taskId?: string; title?: string; favorite?: boolean }) => {
+      if (message?.type === 'taskTitleUpdated' && message.taskId) {
+        const conv = allConversations.value.find((c) => c.id === message.taskId)
+        if (conv) conv.title = message.title || 'New Chat'
+      } else if (message?.type === 'taskFavoriteUpdated' && message.taskId) {
+        const conv = allConversations.value.find((c) => c.id === message.taskId)
+        if (conv) conv.favorite = message.favorite ?? false
+      } else if (message?.type === 'taskDeleted' && message.taskId) {
+        allConversations.value = allConversations.value.filter((c) => c.id !== message.taskId)
       }
     })
   }

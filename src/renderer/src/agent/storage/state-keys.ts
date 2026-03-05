@@ -38,8 +38,6 @@ export type GlobalStateKey =
   | 'vertexRegion'
   | 'lastShownAnnouncementId'
   | 'customInstructions'
-  | 'taskHistory'
-  | 'favoriteTaskList'
   | 'openAiBaseUrl'
   | 'openAiModelId'
   | 'openAiModelInfo'

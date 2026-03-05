@@ -32,8 +32,6 @@ import {
   ExtensionMessage,
   HostInfo
 } from '@shared/ExtensionMessage'
-import { getApiMetrics } from '@shared/getApiMetrics'
-import { HistoryItem } from '@shared/HistoryItem'
 import { DEFAULT_LANGUAGE_SETTINGS } from '@shared/Languages'
 import { ChatermAskResponse } from '@shared/WebviewMessage'
 import { calculateApiCostAnthropic } from '@utils/cost'
@@ -74,7 +72,13 @@ import { CommandSecurityManager } from '../security/CommandSecurityManager'
 import { getContextWindowInfo } from '@core/context/context-management/context-window-utils'
 import { ModelContextTracker } from '@core/context/context-tracking/ModelContextTracker'
 import { ContextManager } from '@core/context/context-management/ContextManager'
-import { getSavedApiConversationHistory, getChatermMessages, saveApiConversationHistory, saveChatermMessages } from '@core/storage/disk'
+import {
+  getSavedApiConversationHistory,
+  getChatermMessages,
+  saveApiConversationHistory,
+  saveChatermMessages,
+  touchTaskUpdatedAt
+} from '@core/storage/disk'
 
 import { getGlobalState, getUserConfig } from '@core/storage/state'
 import { connectAssetInfo } from '../../../storage/database'
@@ -205,7 +209,6 @@ export class Task {
   // Instance members
   // ============================================================================
 
-  private updateTaskHistory: (historyItem: HistoryItem) => Promise<HistoryItem[]>
   private postStateToWebview: () => Promise<void>
   private postMessageToWebview: (message: ExtensionMessage) => Promise<void>
   private reinitExistingTaskFromId: (taskId: string) => Promise<void>
@@ -214,7 +217,6 @@ export class Task {
 
   readonly taskId: string
   hosts: Host[]
-  private taskIsFavorited?: boolean
   chatTitle?: string // Store the LLM-generated chat title
   api: ApiHandler
   contextManager: ContextManager
@@ -331,6 +333,7 @@ export class Task {
       contentParts,
       hosts: this.hosts
     })
+    await touchTaskUpdatedAt(this.taskId) // user sent a message = real activity
   }
 
   /**
@@ -479,7 +482,6 @@ export class Task {
   }
 
   constructor(
-    updateTaskHistory: (historyItem: HistoryItem) => Promise<HistoryItem[]>,
     postStateToWebview: () => Promise<void>,
     postMessageToWebview: (message: ExtensionMessage) => Promise<void>,
     reinitExistingTaskFromId: (taskId: string) => Promise<void>,
@@ -490,12 +492,10 @@ export class Task {
     skillsManager?: SkillsManager,
     customInstructions?: string,
     task?: string,
-    historyItem?: HistoryItem,
     chatTitle?: string,
     taskId?: string,
     initialUserContentParts?: ContentPart[]
   ) {
-    this.updateTaskHistory = updateTaskHistory
     this.postStateToWebview = postStateToWebview
     this.postMessageToWebview = postMessageToWebview
     this.reinitExistingTaskFromId = reinitExistingTaskFromId
@@ -514,23 +514,21 @@ export class Task {
     this.chatTitle = chatTitle
     this.updateMessagesLanguage()
 
-    // Set up MCP notification callback for real-time notifications
-    // this.mcpHub.setNotificationCallback(async (serverName: string, _level: string, message: string) => {
-    //   // Display notification in chat immediately
-    //   await this.say('mcp_notification', `[${serverName}] ${message}`)
-    // })
-
-    // Initialize taskId first
-    if (historyItem) {
-      this.taskId = historyItem.id
-      this.taskIsFavorited = historyItem.isFavorited
-      this.conversationHistoryDeletedRange = historyItem.conversationHistoryDeletedRange
-    } else if (task && taskId) {
+    // Initialize taskId
+    if (task && taskId) {
+      // New task
       this.taskId = taskId
       logger.info('New task created', { event: 'agent.task.created', taskId: this.taskId })
       this.setNextUserInputContentParts(initialUserContentParts)
+
+      // Note: ensureTaskMetadataExists is called by Controller.initTask()
+      // before constructing Task, to guarantee the metadata row exists
+      // before any message save path runs.
+    } else if (taskId) {
+      // Resume existing task (replaces old historyItem branch)
+      this.taskId = taskId
     } else {
-      throw new Error('Either historyItem or task/images must be provided')
+      throw new Error('Either task or taskId must be provided')
     }
 
     // Initialize file context tracker
@@ -546,19 +544,20 @@ export class Task {
     this.commandSecurityManager.initialize()
 
     // Continue with task initialization
-    if (historyItem) {
-      this.resumeTaskFromHistory()
-    } else if (task) {
+    if (task) {
       this.startTask(task, initialUserContentParts)
+    } else {
+      // taskId-only = resume, same as the old historyItem path
+      this.resumeTaskFromHistory()
     }
 
     // initialize telemetry
-    if (historyItem) {
-      // Open task from history
-      telemetryService.captureTaskRestarted(this.taskId, apiConfiguration.apiProvider)
-    } else {
+    if (task) {
       // New task started
       telemetryService.captureTaskCreated(this.taskId, apiConfiguration.apiProvider)
+    } else {
+      // Open task from history
+      telemetryService.captureTaskRestarted(this.taskId, apiConfiguration.apiProvider)
     }
   }
 
@@ -891,33 +890,13 @@ export class Task {
     }
 
     await this.saveChatermMessagesAndUpdateHistory()
+    await touchTaskUpdatedAt(this.taskId) // truncation = user-initiated change
     await this.postStateToWebview()
   }
 
   private async saveChatermMessagesAndUpdateHistory() {
     try {
       await saveChatermMessages(this.taskId, this.chatermMessages)
-
-      // combined as they are in ChatView
-      const apiMetrics = getApiMetrics(combineApiRequests(combineCommandSequences(this.chatermMessages.slice(1))))
-      const taskMessage = this.chatermMessages[0] // first message is always the task say
-      const lastRelevantMessage = this.chatermMessages.at(-1)
-      if (!lastRelevantMessage) return
-
-      await this.updateTaskHistory({
-        id: this.taskId,
-        ts: lastRelevantMessage.ts,
-        task: taskMessage.text ?? '',
-        chatTitle: this.chatTitle,
-        tokensIn: apiMetrics.totalTokensIn,
-        tokensOut: apiMetrics.totalTokensOut,
-        cacheWrites: apiMetrics.totalCacheWrites,
-        cacheReads: apiMetrics.totalCacheReads,
-        totalCost: apiMetrics.totalCost,
-        size: 0, // TODO: temporarily set to 0, consider changing or removing later
-        conversationHistoryDeletedRange: this.conversationHistoryDeletedRange,
-        isFavorited: this.taskIsFavorited
-      })
     } catch (error) {
       logger.error('Failed to save chaterm messages', { error: error })
     }
@@ -1307,6 +1286,15 @@ export class Task {
     this.chatermMessages = await getChatermMessages(this.taskId)
     this.apiConversationHistory = await getSavedApiConversationHistory(this.taskId)
     await this.contextManager.initializeContextHistory(this.taskId)
+
+    // Restore conversationHistoryDeletedRange from the latest message that carries it.
+    // Previously injected via historyItem; now recovered from persisted UI messages.
+    for (let i = this.chatermMessages.length - 1; i >= 0; i--) {
+      if (this.chatermMessages[i].conversationHistoryDeletedRange) {
+        this.conversationHistoryDeletedRange = this.chatermMessages[i].conversationHistoryDeletedRange
+        break
+      }
+    }
 
     this.isInitialized = true
 

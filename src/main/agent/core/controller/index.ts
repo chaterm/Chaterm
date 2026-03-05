@@ -14,7 +14,6 @@ import { version as extensionVersion } from '../../../../../package.json'
 import { TelemetrySetting } from '@shared/TelemetrySetting'
 import { telemetryService } from '@services/telemetry/TelemetryService'
 import { ExtensionMessage, Platform } from '@shared/ExtensionMessage'
-import { HistoryItem } from '@shared/HistoryItem'
 import { WebviewMessage } from '@shared/WebviewMessage'
 import type { ContentPart, Host } from '@shared/WebviewMessage'
 import { validateWebviewMessageContract } from '@shared/WebviewMessage'
@@ -24,10 +23,12 @@ import {
   deleteChatermHistoryByTaskId,
   getTaskMetadata,
   saveTaskMetadata,
+  saveTaskTitle,
+  ensureTaskMetadataExists,
   ensureMcpServersDirectoryExists
 } from '../storage/disk'
 import { isValidCommand } from '../../../storage/db/commandValidation'
-import { getAllExtensionState, getGlobalState, updateApiConfiguration, updateGlobalState, getUserConfig, getModelOptions } from '../storage/state'
+import { getAllExtensionState, updateApiConfiguration, updateGlobalState, getUserConfig, getModelOptions } from '../storage/state'
 import { Task } from '../task'
 import { ApiConfiguration, ApiProvider, PROVIDER_MODEL_KEY_MAP } from '@shared/api'
 import { TITLE_GENERATION_PROMPT, TITLE_GENERATION_PROMPT_CN } from '../prompts/system'
@@ -112,12 +113,11 @@ export class Controller {
     await updateGlobalState('userInfo', info)
   }
 
-  async initTask(hosts: Host[], task?: string, historyItem?: HistoryItem, taskId?: string, contentParts?: ContentPart[]) {
-    const resolvedTaskId = taskId ?? historyItem?.id
+  async initTask(hosts: Host[], task?: string, taskId?: string, contentParts?: ContentPart[]) {
+    const resolvedTaskId = taskId
     logger.info('Initializing task', {
       event: 'agent.task.init',
       taskId: resolvedTaskId || 'new',
-      hasHistory: !!historyItem,
       hasInitialPrompt: !!task
     })
     if (resolvedTaskId) {
@@ -126,13 +126,18 @@ export class Controller {
     const { apiConfiguration, userRules, autoApprovalSettings } = await getAllExtensionState()
     const customInstructions = this.formatUserRulesToInstructions(userRules)
 
-    // Create task immediately without waiting for title generation
+    // Ensure metadata row exists before Task constructor runs,
+    // so touchTaskUpdatedAt cannot insert a title-less row first.
+    if (task && taskId) {
+      const initialTitle = task.substring(0, 50).trim() || undefined
+      await ensureTaskMetadataExists(taskId, initialTitle)
+    }
+
     let newTask: Task
     const postState = () => this.postStateToWebview(newTask?.taskId ?? resolvedTaskId)
     const postMessage = (message: ExtensionMessage) => this.postMessageToWebview(message, newTask?.taskId ?? resolvedTaskId)
 
     newTask = new Task(
-      (historyItem) => this.updateTaskHistory(historyItem),
       postState,
       postMessage,
       (taskId) => this.reinitExistingTaskFromId(taskId),
@@ -143,8 +148,7 @@ export class Controller {
       this.skillsManager,
       customInstructions,
       task,
-      historyItem,
-      undefined, // Don't pass generated title initially
+      undefined, // chatTitle - Don't pass generated title initially
       taskId,
       contentParts
     )
@@ -152,7 +156,7 @@ export class Controller {
     this.tasks.set(newTask.taskId, newTask)
 
     // Generate chat title asynchronously for new tasks (non-blocking)
-    if (task && taskId && !historyItem) {
+    if (task && taskId) {
       // Start title generation in background without awaiting
       this.generateChatTitle(task, taskId).catch((error) => {
         logger.error('Failed to generate chat title', { error: error })
@@ -162,11 +166,11 @@ export class Controller {
   }
 
   async reinitExistingTaskFromId(taskId: string) {
-    const history = await this.getTaskWithId(taskId)
-    if (history) {
+    const { taskId: existingTaskId } = await this.getTaskWithId(taskId)
+    if (existingTaskId) {
       const existingTask = this.getTaskFromId(taskId)
       const hosts = existingTask?.hosts || []
-      await this.initTask(hosts, undefined, history.historyItem, taskId)
+      await this.initTask(hosts, undefined, existingTaskId)
     }
   }
 
@@ -203,7 +207,7 @@ export class Controller {
 
     switch (message.type) {
       case 'newTask':
-        await this.initTask(message.hosts!, message.text, undefined, message.taskId, message.contentParts)
+        await this.initTask(message.hosts!, message.text, message.taskId, message.contentParts)
         if (message.taskId && message.hosts) {
           await updateTaskHosts(message.taskId, message.hosts)
         }
@@ -295,7 +299,6 @@ export class Controller {
     if (!currentTask) {
       return
     }
-    const { historyItem } = await this.getTaskWithId(currentTask.taskId)
     try {
       await currentTask.abortTask()
     } catch (error) {
@@ -314,7 +317,7 @@ export class Controller {
     }
 
     currentTask.abandoned = true
-    await this.initTask(currentTask.hosts, undefined, historyItem, currentTask.taskId)
+    await this.initTask(currentTask.hosts, undefined, currentTask.taskId)
   }
 
   async gracefulCancelTask(tabId?: string) {
@@ -336,27 +339,14 @@ export class Controller {
   }
 
   async getTaskWithId(id: string): Promise<{
-    historyItem: HistoryItem
     taskId: string
     apiConversationHistory: Anthropic.MessageParam[]
   }> {
-    const history = ((await getGlobalState('taskHistory')) as HistoryItem[] | undefined) || []
-    const historyItem = history.find((item) => item.id === id)
-    if (historyItem) {
-      const taskId = await ensureTaskExists(id)
-      if (taskId) {
-        const apiConversationHistory = await getSavedApiConversationHistory(taskId)
-
-        return {
-          historyItem,
-          taskId,
-          apiConversationHistory
-        }
-      }
+    const taskId = await ensureTaskExists(id)
+    if (taskId) {
+      const apiConversationHistory = await getSavedApiConversationHistory(taskId)
+      return { taskId, apiConversationHistory }
     }
-    // if we tried to get a task that doesn't exist, remove it from state
-    // FIXME: this seems to happen sometimes when the json file doesn't save to disk for some reason
-    await this.deleteTaskFromState(id)
     throw new Error('Task not found')
   }
 
@@ -367,26 +357,16 @@ export class Controller {
       return
     }
 
-    const { historyItem } = await this.getTaskWithId(id)
-    await this.initTask(hosts, undefined, historyItem, id)
+    await this.getTaskWithId(id) // existence check only
+    await this.initTask(hosts, undefined, id)
   }
 
   async deleteTaskWithId(id: string) {
     logger.info('deleteTaskWithId', { taskId: id })
     await deleteChatermHistoryByTaskId(id)
     await this.clearTask(id)
-  }
-
-  async deleteTaskFromState(id: string) {
-    // Remove the task from history
-    const taskHistory = ((await getGlobalState('taskHistory')) as HistoryItem[] | undefined) || []
-    const updatedTaskHistory = taskHistory.filter((task) => task.id !== id)
-    await updateGlobalState('taskHistory', updatedTaskHistory)
-
-    // Notify the webview that the task has been deleted
-    await this.postStateToWebview()
-
-    return updatedTaskHistory
+    // Notify renderer so all UI components (sidebar, chatHistory) can remove the item.
+    await this.postMessageToWebview({ type: 'taskDeleted', taskId: id })
   }
 
   async postStateToWebview(taskId?: string) {
@@ -441,33 +421,7 @@ export class Controller {
     }
     this.tasks.clear()
   }
-  async updateTaskHistory(item: Partial<HistoryItem> & { id: string }): Promise<HistoryItem[]> {
-    const history = ((await getGlobalState('taskHistory')) as HistoryItem[]) || []
-    const idx = history.findIndex((h) => h.id === item.id)
-    if (idx !== -1) {
-      const existing = history[idx]
-      history[idx] = {
-        ...existing,
-        ...item,
-        task: existing.task || item.task || '',
-        // Use new chatTitle if provided and not empty, otherwise keep existing
-        chatTitle: item.chatTitle && item.chatTitle.trim() ? item.chatTitle : existing.chatTitle
-      }
-    } else {
-      // For new items, ensure required fields are present
-      if (!item.ts || !item.task || item.tokensIn === undefined || item.tokensOut === undefined || item.totalCost === undefined) {
-        throw new Error('New history item must include all required fields: ts, task, tokensIn, tokensOut, totalCost')
-      }
-      history.push(item as HistoryItem)
-    }
-    await updateGlobalState('taskHistory', history)
-    // Notify renderer process that taskHistory has been updated
-    await this.postMessageToWebview({
-      type: 'taskHistoryUpdated',
-      taskId: item.id
-    })
-    return history
-  }
+  // updateTaskHistory removed - task metadata now persisted via agent_task_metadata_v1
 
   async validateApiKey(configuration: ApiConfiguration): Promise<{ isValid: boolean; error?: string }> {
     // For LiteLLM, use createSync for synchronous initialization
@@ -781,17 +735,15 @@ export class Controller {
         const task = this.getTaskFromId(taskId)
         if (task) {
           task.chatTitle = cleanedTitle
-          // Update history immediately with the new title
-          await this.updateTaskHistory({
-            id: taskId,
-            chatTitle: cleanedTitle
-          })
         }
 
-        // Send the generated title to webview for immediate UI update
+        // Write title to agent_task_metadata_v1 (sole persistence target)
+        await saveTaskTitle(taskId, cleanedTitle)
+
+        // Send the updated title to webview for immediate UI update
         await this.postMessageToWebview({
-          type: 'chatTitleGenerated',
-          chatTitle: cleanedTitle,
+          type: 'taskTitleUpdated',
+          title: cleanedTitle,
           taskId: taskId
         })
 
