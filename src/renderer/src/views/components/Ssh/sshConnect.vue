@@ -446,6 +446,8 @@ onMounted(async () => {
     logger.error('Failed to load keyword highlight config', { error: error })
   }
 
+  const { mark: perfMark } = await import('@/utils/perf')
+  perfMark('chaterm/terminal/willCreate')
   const actualTheme = getActualTheme(config.theme)
   const termInstance = markRaw(
     new Terminal({
@@ -476,6 +478,7 @@ onMounted(async () => {
     })
   )
   terminal.value = termInstance
+  perfMark('chaterm/terminal/didCreate')
   termInstance?.onKey(handleKeyInput)
   termInstance?.onSelectionChange(() => {
     if (termInstance.hasSelection()) {
@@ -495,14 +498,18 @@ onMounted(async () => {
     }
   })
 
+  perfMark('chaterm/terminal/willLoadAddons')
   fitAddon.value = new FitAddon()
   termInstance.loadAddon(fitAddon.value)
   if (terminalElement.value) {
+    perfMark('chaterm/terminal/willOpen')
     termInstance.open(terminalElement!.value)
+    perfMark('chaterm/terminal/didOpen')
   }
   fitAddon?.value.fit()
   searchAddon.value = new SearchAddon()
   termInstance.loadAddon(searchAddon.value)
+  perfMark('chaterm/terminal/didLoadAddons')
   termInstance.scrollToBottom()
   termInstance.focus()
 
@@ -1289,7 +1296,10 @@ const connectSSH = async () => {
       connData.proxyConfig = config.sshProxyConfigs.find((item) => item.name === assetInfo?.proxy_name)
     }
 
+    const { mark: perfMark } = await import('@/utils/perf')
+    perfMark('chaterm/terminal/willConnect')
     const result = await api.connect(connData)
+    perfMark('chaterm/terminal/didConnect')
 
     if (jumpServerStatusHandler) {
       jumpServerStatusHandler.cleanup()
@@ -1315,6 +1325,7 @@ const connectSSH = async () => {
     }
 
     if (result.status === 'connected') {
+      perfMark('chaterm/terminal/connected')
       const welcomeName = email.split('@')[0] || userInfoStore().userInfo.name
       const welcome = '\x1b[38;2;22;119;255m' + t('ssh.welcomeMessage', { username: welcomeName }) + ' \x1b[m\r\n'
       terminal.value?.writeln('') // Add empty line separator
