@@ -5,7 +5,6 @@ import {
   type ApiProvider,
   type BedrockModelId,
   type ModelInfo,
-  type HistoryItem,
   type AutoApprovalSettings,
   type ChatSettings,
   type TelemetrySetting,
@@ -100,7 +99,6 @@ export async function getAllExtensionState() {
     //lastShownAnnouncementId,
     customInstructions,
     userRules,
-    taskHistory,
     autoApprovalSettings,
     //browserSettings,
     chatSettings,
@@ -187,7 +185,6 @@ export async function getAllExtensionState() {
     //getGlobalState('lastShownAnnouncementId') as Promise<string | undefined>,
     getGlobalState('customInstructions') as Promise<string | undefined>,
     getGlobalState('userRules') as Promise<Array<Rule> | undefined>,
-    getGlobalState('taskHistory') as Promise<HistoryItem[] | undefined>,
     getGlobalState('autoApprovalSettings') as Promise<AutoApprovalSettings | undefined>,
     //getGlobalState('browserSettings') as Promise<BrowserSettings | undefined>,
     getGlobalState('chatSettings') as Promise<ChatSettings | undefined>,
@@ -340,7 +337,6 @@ export async function getAllExtensionState() {
     //lastShownAnnouncementId,
     customInstructions,
     userRules,
-    taskHistory,
     autoApprovalSettings: autoApprovalSettings || DEFAULT_AUTO_APPROVAL_SETTINGS, // default value can be 0 or empty string
     //browserSettings: { ...DEFAULT_BROWSER_SETTINGS, ...browserSettings }, // this will ensure that older versions of browserSettings (e.g. before remoteBrowserEnabled was added) are merged with the default values (false for remoteBrowserEnabled)
     chatSettings: chatSettings || DEFAULT_CHAT_SETTINGS,

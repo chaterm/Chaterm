@@ -62,7 +62,6 @@ export interface AssetInfo {
 export interface HistoryItem {
   id: string
   chatTitle: string
-  chatType: string
   chatContent: ChatMessage[]
   isEditing?: boolean
   editingTitle?: string
@@ -70,12 +69,12 @@ export interface HistoryItem {
   ts?: number
 }
 
-export interface TaskHistoryItem {
+export interface TaskListItem {
   id: string
-  task?: string // Original full task description
-  chatTitle?: string // Optional LLM-generated short title
-  ts: number
-  isFavorite?: boolean
+  title: string | null
+  favorite: boolean
+  createdAt: number
+  updatedAt: number
 }
 
 export interface ModelOption {

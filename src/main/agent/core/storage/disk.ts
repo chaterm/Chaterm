@@ -6,7 +6,7 @@
 
 import { Anthropic } from '@anthropic-ai/sdk'
 import { ChatermMessage } from '../../shared/ExtensionMessage'
-import { TaskMetadata } from '../context/context-tracking/ContextTrackerTypes'
+import { TaskMetadata, TaskListItem } from '../context/context-tracking/ContextTrackerTypes'
 import { ChatermDatabaseService } from '../../../storage/database'
 import { execa } from 'execa'
 import * as path from 'path'
@@ -89,7 +89,7 @@ export async function saveChatermMessages(taskId: string, uiMessages: ChatermMes
 
 // Get task metadata
 export async function getTaskMetadata(taskId: string): Promise<TaskMetadata> {
-  const defaultMetadata: TaskMetadata = { files_in_context: [], model_usage: [], hosts: [] }
+  const defaultMetadata: TaskMetadata = { files_in_context: [], model_usage: [], hosts: [], todos: [] }
   try {
     const dbService = await ChatermDatabaseService.getInstance()
     const metadata = await dbService.getTaskMetadata(taskId)
@@ -108,6 +108,52 @@ export async function saveTaskMetadata(taskId: string, metadata: TaskMetadata) {
     await dbService.saveTaskMetadata(taskId, metadata)
   } catch (error) {
     logger.error('Failed to save task metadata to DB', { error: error })
+  }
+}
+
+export async function saveTaskTitle(taskId: string, title: string): Promise<void> {
+  try {
+    const dbService = await ChatermDatabaseService.getInstance()
+    await dbService.saveTaskTitle(taskId, title)
+  } catch (error) {
+    logger.error('Failed to save task title to DB', { error: error })
+  }
+}
+
+export async function saveTaskFavorite(taskId: string, favorite: boolean): Promise<void> {
+  try {
+    const dbService = await ChatermDatabaseService.getInstance()
+    await dbService.saveTaskFavorite(taskId, favorite)
+  } catch (error) {
+    logger.error('Failed to save task favorite to DB', { error: error })
+  }
+}
+
+export async function getTaskList(): Promise<TaskListItem[]> {
+  try {
+    const dbService = await ChatermDatabaseService.getInstance()
+    return await dbService.getTaskList()
+  } catch (error) {
+    logger.error('Failed to get task list from DB', { error: error })
+    return []
+  }
+}
+
+export async function ensureTaskMetadataExists(taskId: string, initialTitle?: string): Promise<void> {
+  try {
+    const dbService = await ChatermDatabaseService.getInstance()
+    await dbService.ensureTaskMetadataExists(taskId, initialTitle)
+  } catch (error) {
+    logger.error('Failed to ensure task metadata exists', { error: error })
+  }
+}
+
+export async function touchTaskUpdatedAt(taskId: string): Promise<void> {
+  try {
+    const dbService = await ChatermDatabaseService.getInstance()
+    await dbService.touchTaskUpdatedAt(taskId)
+  } catch (error) {
+    logger.error('Failed to touch task updated_at in DB', { error: error })
   }
 }
 

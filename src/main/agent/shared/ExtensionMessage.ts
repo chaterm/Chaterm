@@ -15,10 +15,11 @@ export interface ExtensionMessage {
     | 'commandGenerationResponse'
     | 'explainCommandResponse'
     | 'todoUpdated'
-    | 'chatTitleGenerated'
+    | 'taskTitleUpdated'
+    | 'taskFavoriteUpdated'
+    | 'taskDeleted'
     | 'mcpServersUpdate'
     | 'notification'
-    | 'taskHistoryUpdated'
 
   text?: string
   state?: ExtensionState
@@ -36,8 +37,9 @@ export interface ExtensionMessage {
   taskId?: string
   changeType?: 'created' | 'updated' | 'completed' | 'progress'
   triggerReason?: 'agent_update' | 'user_request' | 'auto_progress'
-  // For chat title generation
-  chatTitle?: string
+  // For task title/favorite updates
+  title?: string
+  favorite?: boolean
   // For MCP servers update
   mcpServers?: any[]
   // For notifications

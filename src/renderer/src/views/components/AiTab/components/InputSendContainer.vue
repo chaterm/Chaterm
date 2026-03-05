@@ -407,8 +407,7 @@ const handleChipClick = async (chipType: 'doc' | 'chat' | 'command', ref: Contex
   await props.openHistoryTab(
     {
       id: chatRef.taskId,
-      chatTitle: chatRef.title || 'Untitled Chat',
-      chatType: 'agent',
+      chatTitle: chatRef.title || 'New Chat',
       chatContent: []
     },
     { forceNewTab: true }

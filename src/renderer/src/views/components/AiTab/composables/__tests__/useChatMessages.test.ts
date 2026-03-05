@@ -863,7 +863,7 @@ describe('useChatMessages', () => {
       expect(mockMarkLatestMessageWithTodoUpdate).toHaveBeenCalledWith(session.chatHistory, todos)
     })
 
-    it('should handle chatTitleGenerated message', async () => {
+    it('should handle taskTitleUpdated message', async () => {
       const { processMainMessage } = useChatMessages(
         mockScrollToBottom,
         mockClearTodoState,
@@ -875,10 +875,10 @@ describe('useChatMessages', () => {
       const mockState = vi.mocked(useSessionState)()
 
       const message: any = {
-        type: 'chatTitleGenerated',
+        type: 'taskTitleUpdated',
         tabId: 'test-tab-1',
         taskId: 'test-tab-1',
-        chatTitle: 'New Chat Title'
+        title: 'New Chat Title'
       }
 
       await processMainMessage(message)

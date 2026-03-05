@@ -9,8 +9,6 @@ import { isBastionHostType } from '../types'
 import { useSessionState } from './useSessionState'
 import { useHostState } from './useHostState'
 import { focusChatInput } from './useTabManagement'
-import { getGlobalState } from '@renderer/agent/storage/state'
-import type { TaskHistoryItem } from '../types'
 import i18n from '@/locales'
 import { Notice } from '@/views/components/Notice'
 import type { ContentPart, ImageContentPart } from '@shared/WebviewMessage'
@@ -868,14 +866,14 @@ export const useContext = (options: UseContextOptions = {}) => {
 
     chatsOptionsLoading.value = true
     try {
-      const taskHistory = ((await getGlobalState('taskHistory')) as TaskHistoryItem[]) || []
-      chatsOptions.value = taskHistory
-        .sort((a, b) => (b.ts || 0) - (a.ts || 0))
-        .map((item) => ({
-          id: item.id,
-          title: item.chatTitle || item.task || 'Untitled Chat',
-          ts: item.ts || 0
-        }))
+      const result = await window.api.getTaskList()
+      if (!result.success || !result.data) return
+
+      chatsOptions.value = result.data.map((item) => ({
+        id: item.id,
+        title: item.title || 'New Chat',
+        ts: item.updatedAt || 0
+      }))
     } catch (error) {
       logger.error('Failed to fetch chats options', { error: error })
       chatsOptions.value = []

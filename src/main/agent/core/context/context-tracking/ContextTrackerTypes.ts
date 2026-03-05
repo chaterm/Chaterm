@@ -27,7 +27,18 @@ export interface TaskMetadata {
   hosts: Host[]
   files_in_context: FileMetadataEntry[]
   model_usage: ModelMetadataEntry[]
-  todos?: Todo[] // New field, optional to maintain backward compatibility
+  todos?: Todo[]
+  title?: string
+  favorite?: boolean
+}
+
+export interface TaskListItem {
+  id: string
+  title: string | null
+  favorite: boolean
+  createdAt: number
+  updatedAt: number
+  hosts: Array<{ host: string; uuid: string; connection: string }>
 }
 
 // Helper methods

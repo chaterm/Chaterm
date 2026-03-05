@@ -10,6 +10,7 @@ import { upgradeSkillsSupport } from './migrations/add-skills-support'
 import { upgradeMessageIndexSupport } from './migrations/add-message-index-support'
 import { upgradeBastionCommentSupport } from './migrations/add-bastion-comment-support'
 import { upgradeHostInfoSupport } from './migrations/add-host-info-support'
+import { upgradeTaskTitleSupport } from './migrations/add-task-title-support'
 import { IndexDBMigrator } from './indexdb-migrator'
 import { getUserDataPath } from '../../config/edition'
 const logger = createLogger('db')
@@ -320,6 +321,7 @@ async function applyAllMigrations(db: Database.Database): Promise<void> {
   await upgradeMessageIndexSupport(db)
   await upgradeBastionCommentSupport(db)
   await upgradeHostInfoSupport(db)
+  await upgradeTaskTitleSupport(db)
 }
 
 export async function initDatabase(userId?: number): Promise<Database.Database> {

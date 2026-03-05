@@ -527,12 +527,12 @@ export function useChatMessages(
       if (isActiveTab) {
         scrollToBottom()
       }
-    } else if (message?.type === 'chatTitleGenerated') {
-      logger.info('Received chatTitleGenerated message', { data: message })
+    } else if (message?.type === 'taskTitleUpdated') {
+      logger.info('Received taskTitleUpdated message', { data: message })
 
-      if (message.chatTitle && message.taskId) {
-        targetTab.title = message.chatTitle
-        logger.info('Updated chat title', { data: message.chatTitle })
+      if (message.title && message.taskId) {
+        targetTab.title = message.title
+        logger.info('Updated chat title', { data: message.title })
       }
     }
 
