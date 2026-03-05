@@ -102,7 +102,7 @@
 <script setup lang="ts">
 import { ref, computed, onMounted, onBeforeUnmount, h } from 'vue'
 import { PlusOutlined, CloseOutlined, EditOutlined, CheckOutlined, CloseSquareOutlined, SearchOutlined } from '@ant-design/icons-vue'
-import 'xterm/css/xterm.css'
+import '@xterm/xterm/css/xterm.css'
 import { cloneDeep } from 'lodash'
 import i18n from '@/locales'
 import { notification } from 'ant-design-vue'
