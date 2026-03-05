@@ -92,4 +92,9 @@ npm run build:linux
 
 Thank you for your contribution!
 Please refer to the <a href="./CONTRIBUTING.md">Contribution Guide</a> for more information.
-![Preview image](resources/contributors.webp)
+
+<div align=center style="margin-top: 30px;">
+  <a href="https://github.com/chaterm/Chaterm/graphs/contributors">
+    <img src="https://contrib.rocks/image?repo=chaterm/Chaterm" />
+  </a>
+</div>
