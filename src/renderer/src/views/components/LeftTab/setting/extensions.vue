@@ -79,7 +79,7 @@
 
 <script setup lang="ts">
 import { ref, onMounted, watch } from 'vue'
-import 'xterm/css/xterm.css'
+import '@xterm/xterm/css/xterm.css'
 import { notification } from 'ant-design-vue'
 import { userConfigStore } from '@/services/userConfigStoreService'
 import eventBus from '@/utils/eventBus'

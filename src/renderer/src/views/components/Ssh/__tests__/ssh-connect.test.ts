@@ -4,7 +4,7 @@ import { mount } from '@vue/test-utils'
 import { isTerminalPromptLine } from '../utils/terminalPrompt'
 
 // Mock the complex dependencies that aren't relevant to scrollbar testing
-vi.mock('xterm', () => ({
+vi.mock('@xterm/xterm', () => ({
   Terminal: vi.fn(() => ({
     onKey: vi.fn(),
     onSelectionChange: vi.fn(),
@@ -24,11 +24,11 @@ vi.mock('xterm', () => ({
   }))
 }))
 
-vi.mock('xterm-addon-fit', () => ({
+vi.mock('@xterm/addon-fit', () => ({
   FitAddon: vi.fn(() => ({ fit: vi.fn() }))
 }))
 
-vi.mock('xterm-addon-search', () => ({
+vi.mock('@xterm/addon-search', () => ({
   SearchAddon: vi.fn()
 }))
 
