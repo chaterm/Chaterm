@@ -230,50 +230,13 @@ export class SkillsManager {
   }
 
   /**
-   * Scan skill directory for resource files
+   * Scan skill directory for resource files (recursively includes subdirectories)
    */
   private async scanSkillResources(directory: string): Promise<SkillResource[]> {
     const resources: SkillResource[] = []
 
     try {
-      const entries = await fs.readdir(directory, { withFileTypes: true })
-
-      for (const entry of entries) {
-        // Skip ignored files and directories
-        if (IGNORED_RESOURCE_FILES.includes(entry.name)) {
-          continue
-        }
-
-        // Skip directories for now (could be extended to support nested resources)
-        if (entry.isDirectory()) {
-          continue
-        }
-
-        const filePath = path.join(directory, entry.name)
-        const stat = await fs.stat(filePath)
-        const ext = path.extname(entry.name).toLowerCase()
-
-        // Determine resource type
-        const type = RESOURCE_TYPE_MAP[ext] || 'other'
-
-        const resource: SkillResource = {
-          name: entry.name,
-          path: filePath,
-          type,
-          size: stat.size
-        }
-
-        // Auto-load content for small text files
-        if (stat.size <= MAX_RESOURCE_AUTO_LOAD_SIZE && this.isTextFile(ext)) {
-          try {
-            resource.content = await fs.readFile(filePath, 'utf-8')
-          } catch {
-            // Ignore read errors, content will be undefined
-          }
-        }
-
-        resources.push(resource)
-      }
+      await this.scanSkillResourcesRecursive(directory, directory, resources)
 
       if (resources.length > 0) {
         logger.debug(`[SkillsManager] Found ${resources.length} resource files in ${directory}`)
@@ -283,6 +246,55 @@ export class SkillsManager {
     }
 
     return resources
+  }
+
+  /**
+   * Recursively scan a directory for resource files
+   */
+  private async scanSkillResourcesRecursive(rootDir: string, currentDir: string, resources: SkillResource[]): Promise<void> {
+    const entries = await fs.readdir(currentDir, { withFileTypes: true })
+
+    for (const entry of entries) {
+      // Skip ignored files and directories
+      if (IGNORED_RESOURCE_FILES.includes(entry.name)) {
+        continue
+      }
+
+      const filePath = path.join(currentDir, entry.name)
+
+      if (entry.isDirectory()) {
+        // Recursively scan subdirectories (e.g., references/, scripts/)
+        await this.scanSkillResourcesRecursive(rootDir, filePath, resources)
+        continue
+      }
+
+      const stat = await fs.stat(filePath)
+      const ext = path.extname(entry.name).toLowerCase()
+
+      // Determine resource type
+      const type = RESOURCE_TYPE_MAP[ext] || 'other'
+
+      // Use relative path from skill root directory as resource name
+      const relativeName = path.relative(rootDir, filePath)
+
+      const resource: SkillResource = {
+        name: relativeName,
+        path: filePath,
+        type,
+        size: stat.size
+      }
+
+      // Auto-load content for small text files
+      if (stat.size <= MAX_RESOURCE_AUTO_LOAD_SIZE && this.isTextFile(ext)) {
+        try {
+          resource.content = await fs.readFile(filePath, 'utf-8')
+        } catch {
+          // Ignore read errors, content will be undefined
+        }
+      }
+
+      resources.push(resource)
+    }
   }
 
   /**
