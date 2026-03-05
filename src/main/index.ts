@@ -18,7 +18,6 @@ mark('chaterm/main/didEarlyMigration')
 // ============ Early migration complete ============
 
 import { app, shell, BrowserWindow, ipcMain, session, net, protocol } from 'electron'
-
 import path, { join } from 'path'
 import { electronApp } from '@electron-toolkit/utils'
 import { is } from '@electron-toolkit/utils'
