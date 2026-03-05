@@ -17,7 +17,7 @@ import eventBus from '@/utils/eventBus'
 import { useSessionState } from '../composables/useSessionState'
 
 // Mock heavy dependencies
-vi.mock('xterm')
+vi.mock('@xterm/xterm')
 vi.mock('@/services/userConfigStoreService', () => {
   return {
     UserConfigStoreService: vi.fn().mockImplementation(() => ({

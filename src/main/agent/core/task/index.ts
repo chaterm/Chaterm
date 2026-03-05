@@ -10,6 +10,7 @@ import os from 'os'
 import path from 'path'
 import * as fs from 'fs/promises'
 import { telemetryService } from '@services/telemetry/TelemetryService'
+import { mark } from '@perf'
 import pWaitFor from 'p-wait-for'
 import { serializeError } from 'serialize-error'
 import { ApiHandler, buildApiHandler } from '@api/index'
@@ -1754,6 +1755,7 @@ export class Task {
       this.summarizeUpToTs = undefined
     }
 
+    mark('chaterm/agent/willCallAPI')
     let stream = this.api.createMessage(systemPrompt, conversationHistory)
 
     const iterator = stream[Symbol.asyncIterator]()
@@ -1762,6 +1764,7 @@ export class Task {
       // awaiting first chunk to see if it will throw an error
       this.isWaitingForFirstChunk = true
       const firstChunk = await iterator.next()
+      mark('chaterm/agent/firstToken')
       yield firstChunk.value
       this.isWaitingForFirstChunk = false
     } catch (error) {

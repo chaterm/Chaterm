@@ -234,6 +234,66 @@ describe('SkillsManager', () => {
       expect(configResource).toBeDefined()
       expect(configResource!.type).toBe('config')
     })
+
+    it('should recursively scan subdirectories for resource files', async () => {
+      const skillContent = createSkillMdContent('Nested Skill', 'A skill with nested resources')
+
+      setupMemfs({
+        '/tmp/skills/nested-skill/SKILL.md': skillContent,
+        '/tmp/skills/nested-skill/script.sh': '#!/bin/bash\necho "Root"',
+        '/tmp/skills/nested-skill/references/cluster.yaml': 'apiVersion: v1\nkind: Config',
+        '/tmp/skills/nested-skill/references/deploy.json': '{"replicas": 3}',
+        '/tmp/skills/nested-skill/scripts/setup.py': 'print("setup")'
+      })
+
+      const result = await skillsManager.parseSkillFile('/tmp/skills/nested-skill/SKILL.md')
+
+      expect(result.success).toBe(true)
+      expect(result.skill!.resources).toBeDefined()
+      expect(result.skill!.resources!.length).toBe(4)
+
+      // Root-level file should use bare filename
+      const scriptResource = result.skill!.resources!.find((r) => r.name === 'script.sh')
+      expect(scriptResource).toBeDefined()
+      expect(scriptResource!.type).toBe('script')
+      expect(scriptResource!.content).toBe('#!/bin/bash\necho "Root"')
+
+      // Files in references/ subdirectory should use relative path as name
+      const yamlResource = result.skill!.resources!.find((r) => r.name === path.join('references', 'cluster.yaml'))
+      expect(yamlResource).toBeDefined()
+      expect(yamlResource!.type).toBe('config')
+      expect(yamlResource!.content).toBe('apiVersion: v1\nkind: Config')
+
+      const jsonResource = result.skill!.resources!.find((r) => r.name === path.join('references', 'deploy.json'))
+      expect(jsonResource).toBeDefined()
+      expect(jsonResource!.type).toBe('config')
+      expect(jsonResource!.content).toBe('{"replicas": 3}')
+
+      // Files in scripts/ subdirectory
+      const pyResource = result.skill!.resources!.find((r) => r.name === path.join('scripts', 'setup.py'))
+      expect(pyResource).toBeDefined()
+      expect(pyResource!.type).toBe('script')
+      expect(pyResource!.content).toBe('print("setup")')
+    })
+
+    it('should skip ignored directories during recursive scan', async () => {
+      const skillContent = createSkillMdContent('Ignore Dirs', 'Skill with ignored dirs')
+
+      setupMemfs({
+        '/tmp/skills/ignore-dirs/SKILL.md': skillContent,
+        '/tmp/skills/ignore-dirs/references/data.yaml': 'key: value',
+        '/tmp/skills/ignore-dirs/node_modules/pkg/index.js': 'module.exports = {}',
+        '/tmp/skills/ignore-dirs/.git/config': '[core]'
+      })
+
+      const result = await skillsManager.parseSkillFile('/tmp/skills/ignore-dirs/SKILL.md')
+
+      expect(result.success).toBe(true)
+      expect(result.skill!.resources).toBeDefined()
+      // Only references/data.yaml should be included; node_modules and .git should be ignored
+      expect(result.skill!.resources!.length).toBe(1)
+      expect(result.skill!.resources![0].name).toBe(path.join('references', 'data.yaml'))
+    })
   })
 
   describe('buildSkillsPrompt', () => {

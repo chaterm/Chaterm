@@ -55,14 +55,14 @@
 
 <script setup lang="ts">
 import { ref, onMounted, onBeforeUnmount, watch, nextTick, computed } from 'vue'
-import { Terminal } from 'xterm'
+import { Terminal } from '@xterm/xterm'
 import { CaretDownOutlined, CaretRightOutlined } from '@ant-design/icons-vue'
 import copySvg from '@/assets/icons/copy.svg'
 import { message } from 'ant-design-vue'
 import i18n from '@/locales'
 import { isDarkTheme } from '@/utils/themeUtils'
 import { extractFinalOutput } from '@/utils/terminalOutputExtractor'
-import 'xterm/css/xterm.css'
+import '@xterm/xterm/css/xterm.css'
 
 const { t } = i18n.global
 

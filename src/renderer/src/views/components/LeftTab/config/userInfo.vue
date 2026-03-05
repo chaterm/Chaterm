@@ -451,7 +451,7 @@
 
 <script setup lang="ts">
 import { ref, onMounted, onBeforeUnmount, reactive, computed } from 'vue'
-import 'xterm/css/xterm.css'
+import '@xterm/xterm/css/xterm.css'
 import i18n from '@/locales'
 import {
   getUser,

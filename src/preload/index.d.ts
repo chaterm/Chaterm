@@ -502,6 +502,19 @@ interface ApiType {
   unsuppressInteraction: (commandId: string) => Promise<InteractionSubmitResult>
 
   /**
+   * Report renderer performance marks to main process
+   */
+  reportPerfMarks: (marks: Array<{ name: string; startTime: number; timestamp: number }>) => Promise<{ success: boolean }>
+
+  /**
+   * Get combined startup timeline from main process
+   */
+  getPerfTimeline: () => Promise<{
+    main: { process: string; marks: Array<{ name: string; offset: number; timestamp: number }> }
+    renderer: { process: string; marks: Array<{ name: string; offset: number; timestamp: number }> } | null
+  }>
+
+  /**
    * Send a log entry from renderer to main process
    */
   log: (payload: {
