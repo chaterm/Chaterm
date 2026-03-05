@@ -34,6 +34,7 @@ import { TITLE_GENERATION_PROMPT, TITLE_GENERATION_PROMPT_CN } from '../prompts/
 import { DEFAULT_LANGUAGE_SETTINGS } from '@shared/Languages'
 import type { CommandGenerationContext } from '@shared/WebviewMessage'
 import { isChineseEdition } from '../../../config/edition'
+import { mark } from '@perf'
 const logger = createLogger('agent')
 // TODO: Replace hardcoded model names with chaterm-model configuration
 const AI_SUGGEST_MODEL_CN = 'Qwen-Plus'
@@ -114,6 +115,7 @@ export class Controller {
 
   async initTask(hosts: Host[], task?: string, historyItem?: HistoryItem, taskId?: string, contentParts?: ContentPart[]) {
     const resolvedTaskId = taskId ?? historyItem?.id
+    mark('chaterm/agent/willCreateTask')
     logger.info('Initializing task', {
       event: 'agent.task.init',
       taskId: resolvedTaskId || 'new',
@@ -150,6 +152,7 @@ export class Controller {
     )
 
     this.tasks.set(newTask.taskId, newTask)
+    mark('chaterm/agent/didCreateTask')
 
     // Generate chat title asynchronously for new tasks (non-blocking)
     if (task && taskId && !historyItem) {

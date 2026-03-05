@@ -1190,6 +1190,10 @@ const api = {
    */
   unsuppressInteraction: (commandId: string) => ipcRenderer.invoke('unsuppress-interaction', commandId),
 
+  // Performance marks
+  reportPerfMarks: (marks: Array<{ name: string; startTime: number; timestamp: number }>) => ipcRenderer.invoke('perf:report-marks', marks),
+  getPerfTimeline: () => ipcRenderer.invoke('perf:get-startup-timeline'),
+
   /**
    * Send a log entry from renderer to main process
    */

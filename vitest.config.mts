@@ -107,7 +107,8 @@ export default defineConfig({
             '@utils': resolve('src/main/agent/utils'),
             '@api': resolve('src/main/agent/api'),
             '@storage': resolve('src/main/storage'),
-            '@logging': resolve('src/main/services/logging')
+            '@logging': resolve('src/main/services/logging'),
+            '@perf': resolve('src/main/services/perf')
           }
         }
       },

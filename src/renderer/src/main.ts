@@ -1,3 +1,7 @@
+// Performance marks (must be first import to capture earliest timestamp)
+import { mark, logRendererTimeline, setupPerfIpcListener, reportMarksToMainAsync } from './utils/perf'
+// 'chaterm/renderer/start' is recorded at module load time
+
 import './assets/main.css'
 import './assets/theme.less'
 import { createApp } from 'vue'
@@ -30,6 +34,7 @@ import { setupIndexDBMigrationListener } from './services/indexdb-migration-list
 // Initialize IndexedDB migration listener
 setupIndexDBMigrationListener()
 
+mark('chaterm/renderer/willCreateApp')
 const pinia = createPinia()
 pinia.use(piniaPluginPersistedstate)
 const app = createApp(App)
@@ -41,6 +46,7 @@ app.use(i18n)
 app.use(pinia)
 // Context menu
 app.use(contextmenu)
+mark('chaterm/renderer/didCreateApp')
 
 // Vue warning handler - route Vue warnings to unified logger
 const vueLogger = createRendererLogger('vue')
@@ -67,7 +73,9 @@ const initializeEditorConfig = async () => {
   }
 }
 
+mark('chaterm/renderer/willMountApp')
 app.mount('#app')
+mark('chaterm/renderer/didMountApp')
 
 // Initialize editor config after app is mounted
 initializeEditorConfig()
@@ -99,5 +107,18 @@ function setupIPCHandlers() {
 }
 
 setupIPCHandlers()
+
+// Setup perf IPC listener for main process collection requests
+setupPerfIpcListener()
+
+// Mark interactive after microtask queue drains (all sync init complete)
+requestAnimationFrame(() => {
+  mark('chaterm/renderer/firstContentfulPaint')
+  requestAnimationFrame(() => {
+    mark('chaterm/renderer/interactive')
+    logRendererTimeline()
+    reportMarksToMainAsync()
+  })
+})
 
 export { pinia }

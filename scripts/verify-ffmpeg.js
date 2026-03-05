@@ -7,8 +7,7 @@ if (process.platform !== 'win32') {
   process.exit(0)
 }
 
-// The known good SHA256 hash for Electron 40.6.1 ffmpeg.dll (Windows x64)
-const KNOWN_HASH = '3F8800714615EE0BE74E88CF80B605F912D3D142FC829344C7B7C3B646F7A5D8'
+const KNOWN_HASH = '0B022F4E134F5306D9A84B05DF6D8C3902B271F44FA6FE04F49893EB3ACA5837'
 
 const ffmpegPath = path.join(__dirname, '../node_modules/electron/dist/ffmpeg.dll')
 

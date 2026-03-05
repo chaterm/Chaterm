@@ -1,12 +1,20 @@
+// ============ Performance Marks (must be the very first import) ============
+import { mark, registerPerfIpcHandlers, collectAndLogTimeline } from '@perf'
+// 'chaterm/main/start' is recorded at module load time inside @perf
+
 // ============ Initialize userData path FIRST (MUST be before all other imports) ============
 import { initUserDataPath, getUserDataPath } from './config/edition'
+mark('chaterm/main/willInitUserDataPath')
 initUserDataPath()
+mark('chaterm/main/didInitUserDataPath')
 // ============ userData path initialization complete ============
 
 // ============ Migrate database directory BEFORE Chromium initializes ============
 // IMPORTANT: This must be done before importing Electron modules
 import { migrateDbDirBeforeChromium } from './storage/db/early-migration'
+mark('chaterm/main/willEarlyMigration')
 migrateDbDirBeforeChromium()
+mark('chaterm/main/didEarlyMigration')
 // ============ Early migration complete ============
 
 import { app, shell, BrowserWindow, ipcMain, session, net, protocol } from 'electron'
@@ -138,12 +146,14 @@ export async function getUserConfigFromRenderer(): Promise<any> {
 }
 
 app.whenReady().then(async () => {
+  mark('chaterm/main/appReady')
+
   // [Security] Verify ffmpeg.dll integrity (Windows Only)
   if (process.platform === 'win32' && process.env.IS_DEV !== 'true') {
     try {
       const crypto = require('crypto')
       const ffmpegPath = path.join(path.dirname(process.execPath), 'ffmpeg.dll')
-      const KNOWN_HASH = '3F8800714615EE0BE74E88CF80B605F912D3D142FC829344C7B7C3B646F7A5D8'
+      const KNOWN_HASH = '0B022F4E134F5306D9A84B05DF6D8C3902B271F44FA6FE04F49893EB3ACA5837'
 
       if (fsSync.existsSync(ffmpegPath)) {
         logger.info('[Security] Verifying ffmpeg.dll integrity...')
@@ -244,17 +254,26 @@ app.whenReady().then(async () => {
 
   // IPC test
   ipcMain.on('ping', () => logger.info('pong'))
+  mark('chaterm/main/willSetupIPC')
   setupIPC()
+  registerPerfIpcHandlers()
+  mark('chaterm/main/didSetupIPC')
+  mark('chaterm/main/willCreateWindow')
   await createWindow()
+  mark('chaterm/main/didCreateWindow')
   winReadyResolve()
   // Initialize storage system
+  mark('chaterm/main/willInitStorage')
   initializeStorageMain(mainWindow)
+  mark('chaterm/main/didInitStorage')
 
   // Register SSH components
+  mark('chaterm/main/willRegisterSSH')
   registerSSHHandlers()
   registerLocalSSHHandlers()
   registerRemoteTerminalHandlers()
   registerFileSystemHandlers()
+  mark('chaterm/main/didRegisterSSH')
   registerUpdater(mainWindow, (value) => (forceQuit = value))
   setupPluginIpc()
 
@@ -265,7 +284,9 @@ app.whenReady().then(async () => {
   setupInteractionIpcHandlers()
 
   // Load all plugins (plugins will register their capabilities)
+  mark('chaterm/main/willLoadPlugins')
   await loadAllPlugins()
+  mark('chaterm/main/didLoadPlugins')
 
   app.on('activate', function () {
     // On macOS it's common to re-create a window in the app when the
@@ -327,19 +348,23 @@ app.whenReady().then(async () => {
       return Promise.resolve(false)
     }
 
+    mark('chaterm/main/willCreateController')
     controller = new Controller(messageSender, ensureMcpConfigFileExists)
+    mark('chaterm/main/didCreateController')
   } catch (error) {
     logger.error('Failed to initialize Controller', { error: error })
   }
 
   // Initialize security configuration on startup
   try {
+    mark('chaterm/main/willLoadSecurityConfig')
     const SecurityConfigModule = await import('./agent/core/security/SecurityConfig')
     const { SecurityConfigManager } = SecurityConfigModule
     const securityManager = new SecurityConfigManager()
 
     // Ensure security config file exists on startup
     await securityManager.loadConfig()
+    mark('chaterm/main/didLoadSecurityConfig')
     logger.info('Security configuration initialized successfully')
   } catch (error) {
     logger.error('Failed to initialize security configuration', { error: error })
@@ -393,6 +418,22 @@ app.whenReady().then(async () => {
   })
 
   setTimeout(initializeTelemetrySetting, 1000)
+
+  mark('chaterm/main/ready')
+
+  // Log startup timeline in development mode
+  if (is.dev) {
+    // Collect renderer marks and print combined timeline after window finishes loading
+    if (mainWindow.webContents.isLoading()) {
+      mainWindow.webContents.once('did-finish-load', () => {
+        mark('chaterm/main/windowDidFinishLoad')
+        collectAndLogTimeline(mainWindow)
+      })
+    } else {
+      mark('chaterm/main/windowDidFinishLoad')
+      collectAndLogTimeline(mainWindow)
+    }
+  }
 })
 
 // Quit when all windows are closed, except on macOS. There, it's common
