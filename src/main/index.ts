@@ -17,9 +17,8 @@ migrateDbDirBeforeChromium()
 mark('chaterm/main/didEarlyMigration')
 // ============ Early migration complete ============
 
-import { app, shell, BrowserWindow, ipcMain, session, net, protocol, Menu } from 'electron'
+import { app, shell, BrowserWindow, ipcMain, session, net, protocol } from 'electron'
 
-Menu.setApplicationMenu(null)
 import path, { join } from 'path'
 import { electronApp } from '@electron-toolkit/utils'
 import { is } from '@electron-toolkit/utils'
