@@ -371,6 +371,30 @@ const getTaskMetadata = async (taskId) => {
   }
 }
 
+const saveTaskTitle = async (taskId: string, title: string) => {
+  try {
+    return await ipcRenderer.invoke('set-task-title', { taskId, title })
+  } catch (error) {
+    return Promise.reject(error)
+  }
+}
+
+const saveTaskFavorite = async (taskId: string, favorite: boolean) => {
+  try {
+    return await ipcRenderer.invoke('set-task-favorite', { taskId, favorite })
+  } catch (error) {
+    return Promise.reject(error)
+  }
+}
+
+const getTaskList = async () => {
+  try {
+    return await ipcRenderer.invoke('get-task-list')
+  } catch (error) {
+    return Promise.reject(error)
+  }
+}
+
 const getUserHosts = async (search: string, limit?: number) => {
   try {
     const result = await ipcRenderer.invoke('get-user-hosts', { search, limit })
@@ -532,6 +556,9 @@ const api = {
   connectAssetInfo,
   chatermGetChatermMessages,
   getTaskMetadata,
+  saveTaskTitle,
+  saveTaskFavorite,
+  getTaskList,
   getUserHosts,
   initUserDatabase,
   userSnippetOperation,

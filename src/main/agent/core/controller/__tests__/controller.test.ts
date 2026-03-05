@@ -59,6 +59,8 @@ vi.mock('@core/storage/disk', () => {
     deleteChatermHistoryByTaskId: vi.fn(async () => undefined),
     getTaskMetadata: vi.fn(async () => ({})),
     saveTaskMetadata: vi.fn(async () => undefined),
+    saveTaskTitle: vi.fn(async () => undefined),
+    ensureTaskMetadataExists: vi.fn(async () => undefined),
     ensureMcpServersDirectoryExists: vi.fn(async () => undefined)
   }
 })
@@ -88,7 +90,6 @@ vi.mock('@core/task', () => {
       chatTitle = ''
 
       constructor(
-        _updateTaskHistory: unknown,
         _postStateToWebview: unknown,
         _postMessageToWebview: unknown,
         _reinitExistingTaskFromId: unknown,
@@ -99,11 +100,10 @@ vi.mock('@core/task', () => {
         _skillsManager?: unknown,
         _customInstructions?: unknown,
         _task?: unknown,
-        historyItem?: { id: string },
         chatTitle?: string,
         taskId?: string
       ) {
-        this.taskId = historyItem?.id ?? taskId ?? 'mock-task'
+        this.taskId = taskId ?? 'mock-task'
         this.hosts = hosts
         this.chatTitle = chatTitle ?? ''
       }
@@ -216,8 +216,8 @@ describe('Controller', () => {
       async () => '/tmp/mcp_settings.json'
     )
 
-    await controller.initTask([createMockHost('1')], 'task 1', undefined, 't1')
-    await controller.initTask([createMockHost('2')], 'task 2', undefined, 't2')
+    await controller.initTask([createMockHost('1')], 'task 1', 't1')
+    await controller.initTask([createMockHost('2')], 'task 2', 't2')
 
     const apiConfiguration = {
       apiProvider: 'default',
@@ -245,8 +245,8 @@ describe('Controller', () => {
       async () => '/tmp/mcp_settings.json'
     )
 
-    await controller.initTask([createMockHost('1')], 'task 1', undefined, 'task-1')
-    await controller.initTask([createMockHost('2')], 'task 2', undefined, 'task-2')
+    await controller.initTask([createMockHost('1')], 'task 1', 'task-1')
+    await controller.initTask([createMockHost('2')], 'task 2', 'task-2')
 
     const result = controller.getAllTasks()
     expect(result).toHaveLength(2)
@@ -260,8 +260,8 @@ describe('Controller', () => {
       async () => '/tmp/mcp_settings.json'
     )
 
-    await controller.initTask([createMockHost('1')], 'task 1', undefined, 'task-1')
-    await controller.initTask([createMockHost('2')], 'task 2', undefined, 'task-2')
+    await controller.initTask([createMockHost('1')], 'task 1', 'task-1')
+    await controller.initTask([createMockHost('2')], 'task 2', 'task-2')
 
     expect(controller.getAllTasks()).toHaveLength(2)
 
@@ -278,8 +278,8 @@ describe('Controller', () => {
       async () => '/tmp/mcp_settings.json'
     )
 
-    await controller.initTask([createMockHost('1')], 'task 1', undefined, 'task-1')
-    await controller.initTask([createMockHost('2')], 'task 2', undefined, 'task-2')
+    await controller.initTask([createMockHost('1')], 'task 1', 'task-1')
+    await controller.initTask([createMockHost('2')], 'task 2', 'task-2')
 
     expect(controller.getAllTasks()).toHaveLength(2)
 
@@ -288,80 +288,7 @@ describe('Controller', () => {
     expect(controller.getAllTasks()).toHaveLength(0)
   })
 
-  it('updateTaskHistory should update existing history item', async () => {
-    const existingHistory = [{ id: 'task-1', task: 'old task', chatTitle: 'Old Title', ts: 123, tokensIn: 10, tokensOut: 20, totalCost: 0.5 }]
-    mockGetGlobalState.mockResolvedValueOnce(existingHistory as never)
-
-    const controller = new Controller(
-      async () => true,
-      async () => '/tmp/mcp_settings.json'
-    )
-
-    await controller.updateTaskHistory({ id: 'task-1', chatTitle: 'New Title' })
-
-    expect(mockUpdateGlobalState).toHaveBeenCalledWith(
-      'taskHistory',
-      expect.arrayContaining([
-        expect.objectContaining({
-          id: 'task-1',
-          chatTitle: 'New Title',
-          task: 'old task'
-        })
-      ])
-    )
-  })
-
-  it('updateTaskHistory should not override chatTitle if new title is empty', async () => {
-    const existingHistory = [{ id: 'task-1', task: 'old task', chatTitle: 'Old Title', ts: 123, tokensIn: 10, tokensOut: 20, totalCost: 0.5 }]
-    mockGetGlobalState.mockResolvedValueOnce(existingHistory as never)
-
-    const controller = new Controller(
-      async () => true,
-      async () => '/tmp/mcp_settings.json'
-    )
-
-    await controller.updateTaskHistory({ id: 'task-1', chatTitle: '  ' })
-
-    expect(mockUpdateGlobalState).toHaveBeenCalledWith(
-      'taskHistory',
-      expect.arrayContaining([
-        expect.objectContaining({
-          id: 'task-1',
-          chatTitle: 'Old Title'
-        })
-      ])
-    )
-  })
-
-  it('updateTaskHistory should throw error when adding new item without required fields', async () => {
-    mockGetGlobalState.mockResolvedValueOnce([] as never)
-
-    const controller = new Controller(
-      async () => true,
-      async () => '/tmp/mcp_settings.json'
-    )
-
-    await expect(controller.updateTaskHistory({ id: 'new-task' })).rejects.toThrow('New history item must include all required fields')
-  })
-
-  it('deleteTaskFromState should remove task from history', async () => {
-    const existingHistory = [
-      { id: 'task-1', task: 'task 1' },
-      { id: 'task-2', task: 'task 2' }
-    ]
-    mockGetGlobalState.mockResolvedValueOnce(existingHistory as never)
-
-    const controller = new Controller(
-      async () => true,
-      async () => '/tmp/mcp_settings.json'
-    )
-
-    const result = await controller.deleteTaskFromState('task-1')
-
-    expect(result).toHaveLength(1)
-    expect(result[0].id).toBe('task-2')
-    expect(mockUpdateGlobalState).toHaveBeenCalledWith('taskHistory', result)
-  })
+  // updateTaskHistory and deleteTaskFromState tests removed - methods retired in task metadata migration
 
   it('handleWebviewMessage(askResponse) should handle ask response for task', async () => {
     const controller = new Controller(
@@ -369,7 +296,7 @@ describe('Controller', () => {
       async () => '/tmp/mcp_settings.json'
     )
 
-    await controller.initTask([createMockHost('1')], 'task 1', undefined, 'task-1')
+    await controller.initTask([createMockHost('1')], 'task 1', 'task-1')
 
     const tasks = controller.getAllTasks()
     const task = tasks.find((t) => t.taskId === 'task-1')
@@ -395,8 +322,8 @@ describe('Controller', () => {
       async () => '/tmp/mcp_settings.json'
     )
 
-    await controller.initTask([createMockHost('1')], 'task 1', undefined, 'task-1')
-    await controller.initTask([createMockHost('2')], 'task 2', undefined, 'task-2')
+    await controller.initTask([createMockHost('1')], 'task 1', 'task-1')
+    await controller.initTask([createMockHost('2')], 'task 2', 'task-2')
 
     const tasks = controller.getAllTasks()
     const spy1 = vi.spyOn(tasks[0], 'reloadSecurityConfig')
@@ -414,8 +341,8 @@ describe('Controller', () => {
       async () => '/tmp/mcp_settings.json'
     )
 
-    await controller.initTask([createMockHost('1')], 'task 1', undefined, 'task-1')
-    await controller.initTask([createMockHost('2')], 'task 2', undefined, 'task-2')
+    await controller.initTask([createMockHost('1')], 'task 1', 'task-1')
+    await controller.initTask([createMockHost('2')], 'task 2', 'task-2')
 
     const tasks = controller.getAllTasks()
     const spy1 = vi.spyOn(tasks[0], 'reloadSecurityConfig').mockRejectedValue(new Error('Reload failed'))

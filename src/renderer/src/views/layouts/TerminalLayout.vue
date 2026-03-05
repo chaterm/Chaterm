@@ -327,7 +327,6 @@ import { componentInstances, inputManager, isGlobalInput, isShowCommandBar } fro
 import { shortcutService } from '@/services/shortcutService'
 import { captureExtensionUsage, ExtensionNames, ExtensionStatus } from '@/utils/telemetry'
 import Dashboard from '@renderer/views/components/Ssh/components/dashboard.vue'
-import { getGlobalState } from '@/agent/storage/state'
 import { useAiSidebarModelRefresh } from './composables/useAiSidebarModelRefresh'
 import { isFocusInAiTab } from '@/utils/domUtils'
 
@@ -2160,32 +2159,21 @@ const handleModeChange = (mode: 'terminal' | 'agents') => {
 }
 
 // Agents mode handlers
-const handleConversationSelect = async (conversationId: string) => {
+const handleConversationSelect = async (conversation: { id: string; title: string; ts: number; favorite?: boolean }) => {
   if (aiTabRef.value) {
-    try {
-      const taskHistory = ((await getGlobalState('taskHistory')) as any[]) || []
-      const task = taskHistory.find((h) => h.id === conversationId)
+    const history = {
+      id: conversation.id,
+      chatTitle: conversation.title || 'New Chat',
+      chatContent: [],
+      isFavorite: conversation.favorite || false,
+      ts: conversation.ts
+    }
 
-      if (task) {
-        // Convert TaskHistoryItem to HistoryItem format to ensure chatTitle is present
-        const history = {
-          id: task.id,
-          chatTitle: task?.chatTitle || task?.task || 'New Chat',
-          chatType: task.chatType || 'agent',
-          chatContent: [],
-          isFavorite: task.isFavorite || false,
-          ts: task.ts
-        }
-
-        const aiTabInstance = aiTabRef.value as any
-        if (aiTabInstance && typeof aiTabInstance.restoreHistoryTab === 'function') {
-          await aiTabInstance.restoreHistoryTab(history)
-        } else {
-          eventBus.emit('restore-history-tab', history)
-        }
-      }
-    } catch (error) {
-      logger.error('Failed to select conversation', { error: error })
+    const aiTabInstance = aiTabRef.value as any
+    if (aiTabInstance && typeof aiTabInstance.restoreHistoryTab === 'function') {
+      await aiTabInstance.restoreHistoryTab(history)
+    } else {
+      eventBus.emit('restore-history-tab', history)
     }
   }
 }

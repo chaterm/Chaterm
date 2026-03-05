@@ -2,14 +2,9 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { ref } from 'vue'
 import { useChatHistory } from '../useChatHistory'
 import { useSessionState } from '../useSessionState'
-import type { TaskHistoryItem } from '../../types'
 
 // Mock dependencies
 vi.mock('../useSessionState')
-vi.mock('@renderer/agent/storage/state', () => ({
-  getGlobalState: vi.fn(),
-  updateGlobalState: vi.fn()
-}))
 vi.mock('@/locales', () => ({
   default: {
     global: {
@@ -20,11 +15,25 @@ vi.mock('@/locales', () => ({
 
 // Mock window.api
 const mockSendToMain = vi.fn()
+const mockSaveTaskFavorite = vi.fn().mockResolvedValue(undefined)
+const mockGetTaskList = vi.fn()
 global.window = {
   api: {
-    sendToMain: mockSendToMain
+    sendToMain: mockSendToMain,
+    saveTaskFavorite: mockSaveTaskFavorite,
+    getTaskList: mockGetTaskList
   }
 } as any
+
+// Helper to create task list API response
+interface TaskListItem {
+  id: string
+  title: string | null
+  favorite: boolean
+  createdAt: number
+  updatedAt: number
+}
+const mockTaskListResponse = (data: TaskListItem[]) => ({ success: true, data })
 
 describe('useChatHistory', () => {
   let mockCreateNewEmptyTab: ReturnType<typeof vi.fn<() => Promise<string>>>
@@ -73,24 +82,18 @@ describe('useChatHistory', () => {
       attachTabContext: mockAttachTabContext
     } as any)
 
-    const { getGlobalState, updateGlobalState } = await import('@renderer/agent/storage/state')
-    vi.mocked(getGlobalState).mockResolvedValue([])
-    vi.mocked(updateGlobalState).mockResolvedValue(undefined)
+    mockGetTaskList.mockResolvedValue({ success: true, data: [] })
     mockSendToMain.mockResolvedValue({ success: true })
+    mockSaveTaskFavorite.mockResolvedValue(undefined)
   })
 
   describe('loadHistoryList', () => {
-    it('should load history from global state', async () => {
-      const { getGlobalState } = await import('@renderer/agent/storage/state')
-      const mockTaskHistory: TaskHistoryItem[] = [
-        { id: 'task-1', task: 'Test task', chatTitle: 'Test Chat', ts: 1000 },
-        { id: 'task-2', task: 'Another task', chatTitle: 'Another Chat', ts: 2000 }
+    it('should load history from task list API', async () => {
+      const mockData: TaskListItem[] = [
+        { id: 'task-1', title: 'Test Chat', favorite: false, createdAt: 1000, updatedAt: 1000 },
+        { id: 'task-2', title: 'Another Chat', favorite: false, createdAt: 2000, updatedAt: 2000 }
       ]
-      vi.mocked(getGlobalState).mockImplementation((key: string) => {
-        if (key === 'taskHistory') return Promise.resolve(mockTaskHistory)
-        if (key === 'favoriteTaskList') return Promise.resolve([])
-        return Promise.resolve([])
-      })
+      mockGetTaskList.mockResolvedValueOnce(mockTaskListResponse(mockData))
 
       const { loadHistoryList, historyList } = useChatHistory()
 
@@ -103,16 +106,11 @@ describe('useChatHistory', () => {
     })
 
     it('should mark favorites correctly', async () => {
-      const { getGlobalState } = await import('@renderer/agent/storage/state')
-      const mockTaskHistory: TaskHistoryItem[] = [
-        { id: 'task-1', task: 'Test', chatTitle: 'Test', ts: 1000 },
-        { id: 'task-2', task: 'Test2', chatTitle: 'Test2', ts: 2000 }
+      const mockData: TaskListItem[] = [
+        { id: 'task-1', title: 'Test', favorite: true, createdAt: 1000, updatedAt: 1000 },
+        { id: 'task-2', title: 'Test2', favorite: false, createdAt: 2000, updatedAt: 2000 }
       ]
-      vi.mocked(getGlobalState).mockImplementation((key: string) => {
-        if (key === 'taskHistory') return Promise.resolve(mockTaskHistory)
-        if (key === 'favoriteTaskList') return Promise.resolve(['task-1'])
-        return Promise.resolve([])
-      })
+      mockGetTaskList.mockResolvedValueOnce(mockTaskListResponse(mockData))
 
       const { loadHistoryList, historyList } = useChatHistory()
 
@@ -123,34 +121,24 @@ describe('useChatHistory', () => {
     })
 
     it('should use default chatTitle when not provided', async () => {
-      const { getGlobalState } = await import('@renderer/agent/storage/state')
-      const mockTaskHistory: TaskHistoryItem[] = [{ id: 'task-1', task: 'Test task', ts: 1000 }]
-      vi.mocked(getGlobalState).mockImplementation((key: string) => {
-        if (key === 'taskHistory') return Promise.resolve(mockTaskHistory)
-        if (key === 'favoriteTaskList') return Promise.resolve([])
-        return Promise.resolve([])
-      })
+      const mockData: TaskListItem[] = [{ id: 'task-1', title: null, favorite: false, createdAt: 1000, updatedAt: 1000 }]
+      mockGetTaskList.mockResolvedValueOnce(mockTaskListResponse(mockData))
 
       const { loadHistoryList, historyList } = useChatHistory()
 
       await loadHistoryList()
 
-      expect(historyList.value[0].chatTitle).toBe('Test task')
+      expect(historyList.value[0].chatTitle).toBe('New Chat')
     })
   })
 
   describe('filteredHistoryList', () => {
     it('should filter by search value', async () => {
-      const { getGlobalState } = await import('@renderer/agent/storage/state')
-      const mockTaskHistory: TaskHistoryItem[] = [
-        { id: 'task-1', chatTitle: 'Python Script', ts: 1000 },
-        { id: 'task-2', chatTitle: 'JavaScript Code', ts: 2000 }
+      const mockData: TaskListItem[] = [
+        { id: 'task-1', title: 'Python Script', favorite: false, createdAt: 1000, updatedAt: 1000 },
+        { id: 'task-2', title: 'JavaScript Code', favorite: false, createdAt: 2000, updatedAt: 2000 }
       ]
-      vi.mocked(getGlobalState).mockImplementation((key: string) => {
-        if (key === 'taskHistory') return Promise.resolve(mockTaskHistory)
-        if (key === 'favoriteTaskList') return Promise.resolve([])
-        return Promise.resolve([])
-      })
+      mockGetTaskList.mockResolvedValueOnce(mockTaskListResponse(mockData))
 
       const { loadHistoryList, historySearchValue, filteredHistoryList } = useChatHistory()
 
@@ -162,16 +150,11 @@ describe('useChatHistory', () => {
     })
 
     it('should filter by favorite status', async () => {
-      const { getGlobalState } = await import('@renderer/agent/storage/state')
-      const mockTaskHistory: TaskHistoryItem[] = [
-        { id: 'task-1', chatTitle: 'Chat 1', ts: 1000 },
-        { id: 'task-2', chatTitle: 'Chat 2', ts: 2000 }
+      const mockData: TaskListItem[] = [
+        { id: 'task-1', title: 'Chat 1', favorite: true, createdAt: 1000, updatedAt: 1000 },
+        { id: 'task-2', title: 'Chat 2', favorite: false, createdAt: 2000, updatedAt: 2000 }
       ]
-      vi.mocked(getGlobalState).mockImplementation((key: string) => {
-        if (key === 'taskHistory') return Promise.resolve(mockTaskHistory)
-        if (key === 'favoriteTaskList') return Promise.resolve(['task-1'])
-        return Promise.resolve([])
-      })
+      mockGetTaskList.mockResolvedValueOnce(mockTaskListResponse(mockData))
 
       const { loadHistoryList, showOnlyFavorites, filteredHistoryList } = useChatHistory()
 
@@ -183,17 +166,12 @@ describe('useChatHistory', () => {
     })
 
     it('should filter by both search and favorite', async () => {
-      const { getGlobalState } = await import('@renderer/agent/storage/state')
-      const mockTaskHistory: TaskHistoryItem[] = [
-        { id: 'task-1', chatTitle: 'Python Code', ts: 1000 },
-        { id: 'task-2', chatTitle: 'Python Tutorial', ts: 2000 },
-        { id: 'task-3', chatTitle: 'JavaScript', ts: 3000 }
+      const mockData: TaskListItem[] = [
+        { id: 'task-1', title: 'Python Code', favorite: true, createdAt: 1000, updatedAt: 1000 },
+        { id: 'task-2', title: 'Python Tutorial', favorite: false, createdAt: 2000, updatedAt: 2000 },
+        { id: 'task-3', title: 'JavaScript', favorite: true, createdAt: 3000, updatedAt: 3000 }
       ]
-      vi.mocked(getGlobalState).mockImplementation((key: string) => {
-        if (key === 'taskHistory') return Promise.resolve(mockTaskHistory)
-        if (key === 'favoriteTaskList') return Promise.resolve(['task-1', 'task-3'])
-        return Promise.resolve([])
-      })
+      mockGetTaskList.mockResolvedValueOnce(mockTaskListResponse(mockData))
 
       const { loadHistoryList, historySearchValue, showOnlyFavorites, filteredHistoryList } = useChatHistory()
 
@@ -208,17 +186,12 @@ describe('useChatHistory', () => {
 
   describe('sortedHistoryList', () => {
     it('should sort by timestamp descending', async () => {
-      const { getGlobalState } = await import('@renderer/agent/storage/state')
-      const mockTaskHistory: TaskHistoryItem[] = [
-        { id: 'task-1', chatTitle: 'Old', ts: 1000 },
-        { id: 'task-2', chatTitle: 'New', ts: 3000 },
-        { id: 'task-3', chatTitle: 'Middle', ts: 2000 }
+      const mockData: TaskListItem[] = [
+        { id: 'task-1', title: 'Old', favorite: false, createdAt: 1000, updatedAt: 1000 },
+        { id: 'task-2', title: 'New', favorite: false, createdAt: 3000, updatedAt: 3000 },
+        { id: 'task-3', title: 'Middle', favorite: false, createdAt: 2000, updatedAt: 2000 }
       ]
-      vi.mocked(getGlobalState).mockImplementation((key: string) => {
-        if (key === 'taskHistory') return Promise.resolve(mockTaskHistory)
-        if (key === 'favoriteTaskList') return Promise.resolve([])
-        return Promise.resolve([])
-      })
+      mockGetTaskList.mockResolvedValueOnce(mockTaskListResponse(mockData))
 
       const { loadHistoryList, sortedHistoryList } = useChatHistory()
 
@@ -232,17 +205,14 @@ describe('useChatHistory', () => {
 
   describe('pagination', () => {
     it('should paginate history list', async () => {
-      const { getGlobalState } = await import('@renderer/agent/storage/state')
-      const mockTaskHistory: TaskHistoryItem[] = Array.from({ length: 25 }, (_, i) => ({
+      const mockData: TaskListItem[] = Array.from({ length: 25 }, (_, i) => ({
         id: `task-${i}`,
-        chatTitle: `Chat ${i}`,
-        ts: i * 1000
+        title: `Chat ${i}`,
+        favorite: false,
+        createdAt: i * 1000,
+        updatedAt: i * 1000
       }))
-      vi.mocked(getGlobalState).mockImplementation((key: string) => {
-        if (key === 'taskHistory') return Promise.resolve(mockTaskHistory)
-        if (key === 'favoriteTaskList') return Promise.resolve([])
-        return Promise.resolve([])
-      })
+      mockGetTaskList.mockResolvedValueOnce(mockTaskListResponse(mockData))
 
       const { loadHistoryList, paginatedHistoryList, currentPage } = useChatHistory()
 
@@ -254,17 +224,14 @@ describe('useChatHistory', () => {
     })
 
     it('should load more history', async () => {
-      const { getGlobalState } = await import('@renderer/agent/storage/state')
-      const mockTaskHistory: TaskHistoryItem[] = Array.from({ length: 25 }, (_, i) => ({
+      const mockData: TaskListItem[] = Array.from({ length: 25 }, (_, i) => ({
         id: `task-${i}`,
-        chatTitle: `Chat ${i}`,
-        ts: i * 1000
+        title: `Chat ${i}`,
+        favorite: false,
+        createdAt: i * 1000,
+        updatedAt: i * 1000
       }))
-      vi.mocked(getGlobalState).mockImplementation((key: string) => {
-        if (key === 'taskHistory') return Promise.resolve(mockTaskHistory)
-        if (key === 'favoriteTaskList') return Promise.resolve([])
-        return Promise.resolve([])
-      })
+      mockGetTaskList.mockResolvedValueOnce(mockTaskListResponse(mockData))
 
       const { loadHistoryList, loadMoreHistory, paginatedHistoryList, hasMoreHistory } = useChatHistory()
 
@@ -278,13 +245,8 @@ describe('useChatHistory', () => {
     })
 
     it('should not load more when already at end', async () => {
-      const { getGlobalState } = await import('@renderer/agent/storage/state')
-      const mockTaskHistory: TaskHistoryItem[] = [{ id: 'task-1', chatTitle: 'Chat 1', ts: 1000 }]
-      vi.mocked(getGlobalState).mockImplementation((key: string) => {
-        if (key === 'taskHistory') return Promise.resolve(mockTaskHistory)
-        if (key === 'favoriteTaskList') return Promise.resolve([])
-        return Promise.resolve([])
-      })
+      const mockData: TaskListItem[] = [{ id: 'task-1', title: 'Chat 1', favorite: false, createdAt: 1000, updatedAt: 1000 }]
+      mockGetTaskList.mockResolvedValueOnce(mockTaskListResponse(mockData))
 
       const { loadHistoryList, loadMoreHistory, currentPage, hasMoreHistory } = useChatHistory()
 
@@ -300,13 +262,8 @@ describe('useChatHistory', () => {
 
   describe('toggleFavorite', () => {
     it('should add to favorites', async () => {
-      const { getGlobalState, updateGlobalState } = await import('@renderer/agent/storage/state')
-      const mockTaskHistory: TaskHistoryItem[] = [{ id: 'task-1', chatTitle: 'Test', ts: 1000 }]
-      vi.mocked(getGlobalState).mockImplementation((key: string) => {
-        if (key === 'taskHistory') return Promise.resolve(mockTaskHistory)
-        if (key === 'favoriteTaskList') return Promise.resolve([])
-        return Promise.resolve([])
-      })
+      const mockData: TaskListItem[] = [{ id: 'task-1', title: 'Test', favorite: false, createdAt: 1000, updatedAt: 1000 }]
+      mockGetTaskList.mockResolvedValueOnce(mockTaskListResponse(mockData))
 
       const { loadHistoryList, toggleFavorite, historyList } = useChatHistory()
 
@@ -316,17 +273,12 @@ describe('useChatHistory', () => {
       await toggleFavorite(history)
 
       expect(history.isFavorite).toBe(true)
-      expect(updateGlobalState).toHaveBeenCalledWith('favoriteTaskList', ['task-1'])
+      expect(mockSaveTaskFavorite).toHaveBeenCalledWith('task-1', true)
     })
 
     it('should remove from favorites', async () => {
-      const { getGlobalState, updateGlobalState } = await import('@renderer/agent/storage/state')
-      const mockTaskHistory: TaskHistoryItem[] = [{ id: 'task-1', chatTitle: 'Test', ts: 1000 }]
-      vi.mocked(getGlobalState).mockImplementation((key: string) => {
-        if (key === 'taskHistory') return Promise.resolve(mockTaskHistory)
-        if (key === 'favoriteTaskList') return Promise.resolve(['task-1'])
-        return Promise.resolve([])
-      })
+      const mockData: TaskListItem[] = [{ id: 'task-1', title: 'Test', favorite: true, createdAt: 1000, updatedAt: 1000 }]
+      mockGetTaskList.mockResolvedValueOnce(mockTaskListResponse(mockData))
 
       const { loadHistoryList, toggleFavorite, historyList } = useChatHistory()
 
@@ -336,20 +288,13 @@ describe('useChatHistory', () => {
       await toggleFavorite(history)
 
       expect(history.isFavorite).toBe(false)
-      expect(updateGlobalState).toHaveBeenCalledWith('favoriteTaskList', [])
+      expect(mockSaveTaskFavorite).toHaveBeenCalledWith('task-1', false)
     })
 
     it('should handle toggle failure', async () => {
-      const { getGlobalState, updateGlobalState } = await import('@renderer/agent/storage/state')
-      const mockTaskHistory: TaskHistoryItem[] = [{ id: 'task-1', chatTitle: 'Test', ts: 1000 }]
-      vi.mocked(getGlobalState).mockImplementation((key: string) => {
-        if (key === 'taskHistory') return Promise.resolve(mockTaskHistory)
-        if (key === 'favoriteTaskList') return Promise.resolve([])
-        return Promise.resolve([])
-      })
-      vi.mocked(updateGlobalState).mockRejectedValue(new Error('Update failed'))
-
-      const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
+      const mockData: TaskListItem[] = [{ id: 'task-1', title: 'Test', favorite: false, createdAt: 1000, updatedAt: 1000 }]
+      mockGetTaskList.mockResolvedValueOnce(mockTaskListResponse(mockData))
+      mockSaveTaskFavorite.mockRejectedValueOnce(new Error('Update failed'))
 
       const { loadHistoryList, toggleFavorite, historyList } = useChatHistory()
 
@@ -361,20 +306,13 @@ describe('useChatHistory', () => {
 
       // Should rollback
       expect(history.isFavorite).toBe(initialState)
-      expect(consoleSpy).toHaveBeenCalled()
-      consoleSpy.mockRestore()
     })
   })
 
   describe('editHistory', () => {
     it('should enter edit mode', async () => {
-      const { getGlobalState } = await import('@renderer/agent/storage/state')
-      const mockTaskHistory: TaskHistoryItem[] = [{ id: 'task-1', chatTitle: 'Original Title', ts: 1000 }]
-      vi.mocked(getGlobalState).mockImplementation((key: string) => {
-        if (key === 'taskHistory') return Promise.resolve(mockTaskHistory)
-        if (key === 'favoriteTaskList') return Promise.resolve([])
-        return Promise.resolve([])
-      })
+      const mockData: TaskListItem[] = [{ id: 'task-1', title: 'Original Title', favorite: false, createdAt: 1000, updatedAt: 1000 }]
+      mockGetTaskList.mockResolvedValueOnce(mockTaskListResponse(mockData))
 
       const { loadHistoryList, editHistory, historyList, currentEditingId } = useChatHistory()
 
@@ -389,16 +327,11 @@ describe('useChatHistory', () => {
     })
 
     it('should cancel previous edit when editing new item', async () => {
-      const { getGlobalState } = await import('@renderer/agent/storage/state')
-      const mockTaskHistory: TaskHistoryItem[] = [
-        { id: 'task-1', chatTitle: 'Title 1', ts: 1000 },
-        { id: 'task-2', chatTitle: 'Title 2', ts: 2000 }
+      const mockData: TaskListItem[] = [
+        { id: 'task-1', title: 'Title 1', favorite: false, createdAt: 1000, updatedAt: 1000 },
+        { id: 'task-2', title: 'Title 2', favorite: false, createdAt: 2000, updatedAt: 2000 }
       ]
-      vi.mocked(getGlobalState).mockImplementation((key: string) => {
-        if (key === 'taskHistory') return Promise.resolve(mockTaskHistory)
-        if (key === 'favoriteTaskList') return Promise.resolve([])
-        return Promise.resolve([])
-      })
+      mockGetTaskList.mockResolvedValueOnce(mockTaskListResponse(mockData))
 
       const { loadHistoryList, editHistory, historyList } = useChatHistory()
 
@@ -417,13 +350,8 @@ describe('useChatHistory', () => {
 
   describe('saveHistoryTitle', () => {
     it('should save new title via renameTab', async () => {
-      const { getGlobalState } = await import('@renderer/agent/storage/state')
-      const mockTaskHistory: TaskHistoryItem[] = [{ id: 'task-1', chatTitle: 'Old Title', ts: 1000 }]
-      vi.mocked(getGlobalState).mockImplementation((key: string) => {
-        if (key === 'taskHistory') return Promise.resolve(mockTaskHistory)
-        if (key === 'favoriteTaskList') return Promise.resolve([])
-        return Promise.resolve([])
-      })
+      const mockData: TaskListItem[] = [{ id: 'task-1', title: 'Old Title', favorite: false, createdAt: 1000, updatedAt: 1000 }]
+      mockGetTaskList.mockResolvedValueOnce(mockTaskListResponse(mockData))
 
       const mockRenameTab = vi.fn()
       const { loadHistoryList, editHistory, saveHistoryTitle, historyList } = useChatHistory({
@@ -443,13 +371,8 @@ describe('useChatHistory', () => {
     })
 
     it('should cancel edit when title is empty', async () => {
-      const { getGlobalState } = await import('@renderer/agent/storage/state')
-      const mockTaskHistory: TaskHistoryItem[] = [{ id: 'task-1', chatTitle: 'Original', ts: 1000 }]
-      vi.mocked(getGlobalState).mockImplementation((key: string) => {
-        if (key === 'taskHistory') return Promise.resolve(mockTaskHistory)
-        if (key === 'favoriteTaskList') return Promise.resolve([])
-        return Promise.resolve([])
-      })
+      const mockData: TaskListItem[] = [{ id: 'task-1', title: 'Original', favorite: false, createdAt: 1000, updatedAt: 1000 }]
+      mockGetTaskList.mockResolvedValueOnce(mockTaskListResponse(mockData))
 
       const { loadHistoryList, editHistory, saveHistoryTitle, historyList } = useChatHistory()
 
@@ -465,13 +388,8 @@ describe('useChatHistory', () => {
     })
 
     it('should work without renameTab provided', async () => {
-      const { getGlobalState } = await import('@renderer/agent/storage/state')
-      const mockTaskHistory: TaskHistoryItem[] = [{ id: 'tab-1', chatTitle: 'Old Title', ts: 1000 }]
-      vi.mocked(getGlobalState).mockImplementation((key: string) => {
-        if (key === 'taskHistory') return Promise.resolve(mockTaskHistory)
-        if (key === 'favoriteTaskList') return Promise.resolve([])
-        return Promise.resolve([])
-      })
+      const mockData: TaskListItem[] = [{ id: 'tab-1', title: 'Old Title', favorite: false, createdAt: 1000, updatedAt: 1000 }]
+      mockGetTaskList.mockResolvedValueOnce(mockTaskListResponse(mockData))
 
       const { loadHistoryList, editHistory, saveHistoryTitle, historyList } = useChatHistory()
 
@@ -490,16 +408,11 @@ describe('useChatHistory', () => {
 
   describe('deleteHistory', () => {
     it('should delete history item', async () => {
-      const { getGlobalState, updateGlobalState } = await import('@renderer/agent/storage/state')
-      const mockTaskHistory: TaskHistoryItem[] = [
-        { id: 'task-1', chatTitle: 'To Delete', ts: 1000 },
-        { id: 'task-2', chatTitle: 'Keep', ts: 2000 }
+      const mockData: TaskListItem[] = [
+        { id: 'task-1', title: 'To Delete', favorite: false, createdAt: 1000, updatedAt: 1000 },
+        { id: 'task-2', title: 'Keep', favorite: false, createdAt: 2000, updatedAt: 2000 }
       ]
-      vi.mocked(getGlobalState).mockImplementation((key: string) => {
-        if (key === 'taskHistory') return Promise.resolve(mockTaskHistory)
-        if (key === 'favoriteTaskList') return Promise.resolve([])
-        return Promise.resolve([])
-      })
+      mockGetTaskList.mockResolvedValueOnce(mockTaskListResponse(mockData))
 
       const { loadHistoryList, deleteHistory, historyList } = useChatHistory()
 
@@ -510,36 +423,11 @@ describe('useChatHistory', () => {
 
       expect(historyList.value).toHaveLength(1)
       expect(historyList.value[0].id).toBe('task-2')
-      expect(updateGlobalState).toHaveBeenCalledWith('taskHistory', expect.arrayContaining([expect.objectContaining({ id: 'task-2' })]))
-    })
-
-    it('should remove from favorites when deleting', async () => {
-      const { getGlobalState, updateGlobalState } = await import('@renderer/agent/storage/state')
-      const mockTaskHistory: TaskHistoryItem[] = [{ id: 'task-1', chatTitle: 'Test', ts: 1000 }]
-      vi.mocked(getGlobalState).mockImplementation((key: string) => {
-        if (key === 'taskHistory') return Promise.resolve(mockTaskHistory)
-        if (key === 'favoriteTaskList') return Promise.resolve(['task-1'])
-        return Promise.resolve([])
-      })
-
-      const { loadHistoryList, deleteHistory, historyList } = useChatHistory()
-
-      await loadHistoryList()
-      const history = historyList.value[0]
-
-      await deleteHistory(history)
-
-      expect(updateGlobalState).toHaveBeenCalledWith('favoriteTaskList', [])
     })
 
     it('should close tab and send message to main', async () => {
-      const { getGlobalState } = await import('@renderer/agent/storage/state')
-      const mockTaskHistory: TaskHistoryItem[] = [{ id: 'tab-1', chatTitle: 'Test', ts: 1000 }]
-      vi.mocked(getGlobalState).mockImplementation((key: string) => {
-        if (key === 'taskHistory') return Promise.resolve(mockTaskHistory)
-        if (key === 'favoriteTaskList') return Promise.resolve([])
-        return Promise.resolve([])
-      })
+      const mockData: TaskListItem[] = [{ id: 'tab-1', title: 'Test', favorite: false, createdAt: 1000, updatedAt: 1000 }]
+      mockGetTaskList.mockResolvedValueOnce(mockTaskListResponse(mockData))
 
       const mockState = vi.mocked(useSessionState)()
 
@@ -561,13 +449,8 @@ describe('useChatHistory', () => {
     })
 
     it('should create new tab when deleting last tab', async () => {
-      const { getGlobalState } = await import('@renderer/agent/storage/state')
-      const mockTaskHistory: TaskHistoryItem[] = [{ id: 'tab-1', chatTitle: 'Test', ts: 1000 }]
-      vi.mocked(getGlobalState).mockImplementation((key: string) => {
-        if (key === 'taskHistory') return Promise.resolve(mockTaskHistory)
-        if (key === 'favoriteTaskList') return Promise.resolve([])
-        return Promise.resolve([])
-      })
+      const mockData: TaskListItem[] = [{ id: 'tab-1', title: 'Test', favorite: false, createdAt: 1000, updatedAt: 1000 }]
+      mockGetTaskList.mockResolvedValueOnce(mockTaskListResponse(mockData))
 
       const { loadHistoryList, deleteHistory, historyList } = useChatHistory({ createNewEmptyTab: mockCreateNewEmptyTab })
 
@@ -582,17 +465,14 @@ describe('useChatHistory', () => {
 
   describe('refreshHistoryList', () => {
     it('should reset pagination and reload', async () => {
-      const { getGlobalState } = await import('@renderer/agent/storage/state')
-      const mockTaskHistory: TaskHistoryItem[] = Array.from({ length: 25 }, (_, i) => ({
+      const mockData: TaskListItem[] = Array.from({ length: 25 }, (_, i) => ({
         id: `task-${i}`,
-        chatTitle: `Chat ${i}`,
-        ts: i * 1000
+        title: `Chat ${i}`,
+        favorite: false,
+        createdAt: i * 1000,
+        updatedAt: i * 1000
       }))
-      vi.mocked(getGlobalState).mockImplementation((key: string) => {
-        if (key === 'taskHistory') return Promise.resolve(mockTaskHistory)
-        if (key === 'favoriteTaskList') return Promise.resolve([])
-        return Promise.resolve([])
-      })
+      mockGetTaskList.mockResolvedValue(mockTaskListResponse(mockData))
 
       const { loadHistoryList, loadMoreHistory, refreshHistoryList, currentPage } = useChatHistory()
 
@@ -608,13 +488,8 @@ describe('useChatHistory', () => {
 
   describe('cancelEdit', () => {
     it('should restore original title', async () => {
-      const { getGlobalState } = await import('@renderer/agent/storage/state')
-      const mockTaskHistory: TaskHistoryItem[] = [{ id: 'task-1', chatTitle: 'Original', ts: 1000 }]
-      vi.mocked(getGlobalState).mockImplementation((key: string) => {
-        if (key === 'taskHistory') return Promise.resolve(mockTaskHistory)
-        if (key === 'favoriteTaskList') return Promise.resolve([])
-        return Promise.resolve([])
-      })
+      const mockData: TaskListItem[] = [{ id: 'task-1', title: 'Original', favorite: false, createdAt: 1000, updatedAt: 1000 }]
+      mockGetTaskList.mockResolvedValueOnce(mockTaskListResponse(mockData))
 
       const { loadHistoryList, editHistory, cancelEdit, historyList } = useChatHistory()
 
@@ -632,17 +507,12 @@ describe('useChatHistory', () => {
 
   describe('groupedPaginatedHistory', () => {
     it('should group by date labels', async () => {
-      const { getGlobalState } = await import('@renderer/agent/storage/state')
       const now = Date.now()
-      const mockTaskHistory: TaskHistoryItem[] = [
-        { id: 'task-1', chatTitle: 'Today', ts: now },
-        { id: 'task-2', chatTitle: 'Yesterday', ts: now - 86400000 }
+      const mockData: TaskListItem[] = [
+        { id: 'task-1', title: 'Today', favorite: false, createdAt: now, updatedAt: now },
+        { id: 'task-2', title: 'Yesterday', favorite: false, createdAt: now - 86400000, updatedAt: now - 86400000 }
       ]
-      vi.mocked(getGlobalState).mockImplementation((key: string) => {
-        if (key === 'taskHistory') return Promise.resolve(mockTaskHistory)
-        if (key === 'favoriteTaskList') return Promise.resolve([])
-        return Promise.resolve([])
-      })
+      mockGetTaskList.mockResolvedValueOnce(mockTaskListResponse(mockData))
 
       const { loadHistoryList, groupedPaginatedHistory } = useChatHistory()
 

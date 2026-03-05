@@ -18,7 +18,6 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { mount, VueWrapper } from '@vue/test-utils'
 import { nextTick } from 'vue'
 import AgentsSidebar from '../index.vue'
-import { getGlobalState, updateGlobalState } from '@/agent/storage/state'
 import eventBus from '@/utils/eventBus'
 
 // Mock i18n
@@ -41,12 +40,6 @@ vi.mock('vue-i18n', () => ({
   })
 }))
 
-// Mock @/agent/storage/state
-vi.mock('@/agent/storage/state', () => ({
-  getGlobalState: vi.fn(),
-  updateGlobalState: vi.fn()
-}))
-
 // Mock eventBus
 vi.mock('@/utils/eventBus', () => ({
   default: {
@@ -58,11 +51,13 @@ vi.mock('@/utils/eventBus', () => ({
 
 // Mock window.api
 const mockGetTaskMetadata = vi.fn()
+const mockGetTaskList = vi.fn()
 const mockSendToMain = vi.fn()
 const mockOnMainMessage = vi.fn()
 
 const mockWindowApi = {
   getTaskMetadata: mockGetTaskMetadata,
+  getTaskList: mockGetTaskList,
   sendToMain: mockSendToMain,
   onMainMessage: mockOnMainMessage
 }
@@ -115,16 +110,23 @@ describe('AgentsSidebar Component', () => {
     })
   }
 
-  const createMockConversations = (count: number) => {
+  // Create mock task list data in the format returned by window.api.getTaskList()
+  const createMockTaskList = (count: number) => {
     const now = Date.now()
     return Array.from({ length: count }, (_, i) => ({
       id: `task-${i}`,
-      chatTitle: `Conversation ${i}`,
-      task: `Task ${i}`,
-      ts: now - i * 1000 * 60 * 60, // 1 hour apart
-      chatType: 'cmd'
+      title: `Conversation ${i}`,
+      favorite: false,
+      createdAt: now - i * 1000 * 60 * 60,
+      updatedAt: now - i * 1000 * 60 * 60 // 1 hour apart
     }))
   }
+
+  // Helper to wrap task list data in the API response format
+  const mockTaskListResponse = (data: Array<{ id: string; title: string | null; favorite: boolean; createdAt: number; updatedAt: number }>) => ({
+    success: true,
+    data
+  })
 
   beforeEach(() => {
     // Setup window.api mock
@@ -148,16 +150,7 @@ describe('AgentsSidebar Component', () => {
     vi.clearAllMocks()
 
     // Setup default mock return values
-    ;(getGlobalState as ReturnType<typeof vi.fn>).mockImplementation(async (key: string) => {
-      if (key === 'taskHistory') {
-        return []
-      }
-      if (key === 'favoriteTaskList') {
-        return []
-      }
-      return undefined
-    })
-    ;(updateGlobalState as ReturnType<typeof vi.fn>).mockResolvedValue(undefined)
+    mockGetTaskList.mockResolvedValue({ success: true, data: [] })
     mockGetTaskMetadata.mockResolvedValue({
       success: true,
       data: {
@@ -194,15 +187,14 @@ describe('AgentsSidebar Component', () => {
     })
 
     it('should load conversations on mount', async () => {
-      const mockHistory = createMockConversations(5)
-      ;(getGlobalState as ReturnType<typeof vi.fn>).mockResolvedValueOnce(mockHistory)
+      const mockData = createMockTaskList(5)
+      mockGetTaskList.mockResolvedValueOnce(mockTaskListResponse(mockData))
 
       wrapper = createWrapper()
       await nextTick()
       await nextTick()
 
-      expect(getGlobalState).toHaveBeenCalledWith('taskHistory')
-      expect(getGlobalState).toHaveBeenCalledWith('favoriteTaskList')
+      expect(mockGetTaskList).toHaveBeenCalled()
     })
 
     it('should setup event listeners on mount', async () => {
@@ -251,11 +243,11 @@ describe('AgentsSidebar Component', () => {
     })
 
     it('should filter conversations by title', async () => {
-      const mockHistory = createMockConversations(10)
-      mockHistory[0].chatTitle = 'Test Conversation'
-      mockHistory[1].chatTitle = 'Another Test'
-      mockHistory[2].chatTitle = 'Different Title'
-      ;(getGlobalState as ReturnType<typeof vi.fn>).mockResolvedValueOnce(mockHistory).mockResolvedValueOnce([]) // favoriteTaskList
+      const mockData = createMockTaskList(10)
+      mockData[0].title = 'Test Conversation'
+      mockData[1].title = 'Another Test'
+      mockData[2].title = 'Different Title'
+      mockGetTaskList.mockResolvedValueOnce(mockTaskListResponse(mockData))
 
       wrapper = createWrapper()
       await nextTick()
@@ -271,8 +263,8 @@ describe('AgentsSidebar Component', () => {
     })
 
     it('should filter conversations by id', async () => {
-      const mockHistory = createMockConversations(5)
-      ;(getGlobalState as ReturnType<typeof vi.fn>).mockResolvedValueOnce(mockHistory)
+      const mockData = createMockTaskList(5)
+      mockGetTaskList.mockResolvedValueOnce(mockTaskListResponse(mockData))
 
       wrapper = createWrapper()
       await nextTick()
@@ -287,8 +279,8 @@ describe('AgentsSidebar Component', () => {
     })
 
     it('should reset pagination when search value changes', async () => {
-      const mockHistory = createMockConversations(25)
-      ;(getGlobalState as ReturnType<typeof vi.fn>).mockResolvedValueOnce(mockHistory)
+      const mockData = createMockTaskList(25)
+      mockGetTaskList.mockResolvedValueOnce(mockTaskListResponse(mockData))
 
       wrapper = createWrapper()
       await nextTick()
@@ -314,7 +306,7 @@ describe('AgentsSidebar Component', () => {
 
   describe('Conversation Display', () => {
     it('should display empty state when no conversations', async () => {
-      ;(getGlobalState as ReturnType<typeof vi.fn>).mockResolvedValueOnce([])
+      mockGetTaskList.mockResolvedValueOnce({ success: true, data: [] })
 
       wrapper = createWrapper()
       await nextTick()
@@ -325,8 +317,8 @@ describe('AgentsSidebar Component', () => {
     })
 
     it('should display conversation list', async () => {
-      const mockHistory = createMockConversations(5)
-      ;(getGlobalState as ReturnType<typeof vi.fn>).mockResolvedValueOnce(mockHistory).mockResolvedValueOnce([]) // favoriteTaskList
+      const mockData = createMockTaskList(5)
+      mockGetTaskList.mockResolvedValueOnce(mockTaskListResponse(mockData))
 
       wrapper = createWrapper()
       await nextTick()
@@ -338,9 +330,9 @@ describe('AgentsSidebar Component', () => {
     })
 
     it('should display conversation title', async () => {
-      const mockHistory = createMockConversations(1)
-      mockHistory[0].chatTitle = 'My Test Conversation'
-      ;(getGlobalState as ReturnType<typeof vi.fn>).mockResolvedValueOnce(mockHistory).mockResolvedValueOnce([]) // favoriteTaskList
+      const mockData = createMockTaskList(1)
+      mockData[0].title = 'My Test Conversation'
+      mockGetTaskList.mockResolvedValueOnce(mockTaskListResponse(mockData))
 
       wrapper = createWrapper()
       await nextTick()
@@ -353,15 +345,16 @@ describe('AgentsSidebar Component', () => {
 
     it('should display conversation time', async () => {
       const now = Date.now()
-      const mockHistory = [
+      const mockData = [
         {
           id: 'task-1',
-          chatTitle: 'Test',
-          ts: now,
-          chatType: 'cmd'
+          title: 'Test',
+          favorite: false,
+          createdAt: now,
+          updatedAt: now
         }
       ]
-      ;(getGlobalState as ReturnType<typeof vi.fn>).mockResolvedValueOnce(mockHistory).mockResolvedValueOnce([]) // favoriteTaskList
+      mockGetTaskList.mockResolvedValueOnce(mockTaskListResponse(mockData))
 
       wrapper = createWrapper()
       await nextTick()
@@ -374,27 +367,23 @@ describe('AgentsSidebar Component', () => {
     })
 
     it('should display IP address when available', async () => {
-      const mockHistory = [
+      const now = Date.now()
+      const mockData = [
         {
           id: 'task-1',
-          chatTitle: 'Test',
-          ts: Date.now(),
-          chatType: 'cmd'
-        }
-      ]
-      ;(getGlobalState as ReturnType<typeof vi.fn>).mockResolvedValueOnce(mockHistory).mockResolvedValueOnce([]) // favoriteTaskList
-
-      mockGetTaskMetadata.mockResolvedValueOnce({
-        success: true,
-        data: {
+          title: 'Test',
+          favorite: false,
+          createdAt: now,
+          updatedAt: now,
           hosts: [{ host: '192.168.1.1', uuid: 'uuid-1', connection: 'ssh' }]
         }
-      })
+      ]
+      mockGetTaskList.mockResolvedValueOnce(mockTaskListResponse(mockData))
 
       wrapper = createWrapper()
       await nextTick()
       await nextTick()
-      await new Promise((resolve) => setTimeout(resolve, 200)) // Wait for IP loading
+      await new Promise((resolve) => setTimeout(resolve, 200))
 
       const ipElement = wrapper.find('.conversation-ip')
       expect(ipElement.exists()).toBe(true)
@@ -402,8 +391,8 @@ describe('AgentsSidebar Component', () => {
     })
 
     it('should highlight active conversation', async () => {
-      const mockHistory = createMockConversations(3)
-      ;(getGlobalState as ReturnType<typeof vi.fn>).mockResolvedValueOnce(mockHistory).mockResolvedValueOnce([]) // favoriteTaskList
+      const mockData = createMockTaskList(3)
+      mockGetTaskList.mockResolvedValueOnce(mockTaskListResponse(mockData))
 
       wrapper = createWrapper()
       await nextTick()
@@ -423,8 +412,8 @@ describe('AgentsSidebar Component', () => {
 
   describe('Pagination and Lazy Loading', () => {
     it('should display first page of conversations (20 items)', async () => {
-      const mockHistory = createMockConversations(25)
-      ;(getGlobalState as ReturnType<typeof vi.fn>).mockResolvedValueOnce(mockHistory).mockResolvedValueOnce([]) // favoriteTaskList
+      const mockData = createMockTaskList(25)
+      mockGetTaskList.mockResolvedValueOnce(mockTaskListResponse(mockData))
 
       wrapper = createWrapper()
       await nextTick()
@@ -436,8 +425,8 @@ describe('AgentsSidebar Component', () => {
     })
 
     it('should show load more button when there are more conversations', async () => {
-      const mockHistory = createMockConversations(25)
-      ;(getGlobalState as ReturnType<typeof vi.fn>).mockResolvedValueOnce(mockHistory).mockResolvedValueOnce([]) // favoriteTaskList
+      const mockData = createMockTaskList(25)
+      mockGetTaskList.mockResolvedValueOnce(mockTaskListResponse(mockData))
 
       wrapper = createWrapper()
       await nextTick()
@@ -450,8 +439,8 @@ describe('AgentsSidebar Component', () => {
     })
 
     it('should not show load more button when all conversations are displayed', async () => {
-      const mockHistory = createMockConversations(10)
-      ;(getGlobalState as ReturnType<typeof vi.fn>).mockResolvedValueOnce(mockHistory)
+      const mockData = createMockTaskList(10)
+      mockGetTaskList.mockResolvedValueOnce(mockTaskListResponse(mockData))
 
       wrapper = createWrapper()
       await nextTick()
@@ -462,8 +451,8 @@ describe('AgentsSidebar Component', () => {
     })
 
     it('should load more conversations when load more button is clicked', async () => {
-      const mockHistory = createMockConversations(25)
-      ;(getGlobalState as ReturnType<typeof vi.fn>).mockResolvedValueOnce(mockHistory).mockResolvedValueOnce([]) // favoriteTaskList
+      const mockData = createMockTaskList(25)
+      mockGetTaskList.mockResolvedValueOnce(mockTaskListResponse(mockData))
 
       wrapper = createWrapper()
       await nextTick()
@@ -481,8 +470,8 @@ describe('AgentsSidebar Component', () => {
     })
 
     it('should show loading state when loading more', async () => {
-      const mockHistory = createMockConversations(25)
-      ;(getGlobalState as ReturnType<typeof vi.fn>).mockResolvedValueOnce(mockHistory).mockResolvedValueOnce([]) // favoriteTaskList
+      const mockData = createMockTaskList(25)
+      mockGetTaskList.mockResolvedValueOnce(mockTaskListResponse(mockData))
 
       wrapper = createWrapper()
       await nextTick()
@@ -499,23 +488,24 @@ describe('AgentsSidebar Component', () => {
     })
 
     it('should load IP addresses for newly displayed conversations', async () => {
-      const mockHistory = createMockConversations(25)
-      ;(getGlobalState as ReturnType<typeof vi.fn>).mockResolvedValueOnce(mockHistory).mockResolvedValueOnce([]) // favoriteTaskList
+      const mockData = createMockTaskList(25)
+      mockGetTaskList.mockResolvedValueOnce(mockTaskListResponse(mockData))
 
       wrapper = createWrapper()
       await nextTick()
       await nextTick()
-      await new Promise((resolve) => setTimeout(resolve, 100)) // Wait for async operations
+      await new Promise((resolve) => setTimeout(resolve, 100))
 
-      // Load more to trigger IP loading for items 20-24
+      // Load more to show items 20-24
       const loadMoreBtn = wrapper.find('.load-more-btn')
       expect(loadMoreBtn.exists()).toBe(true)
       await loadMoreBtn.trigger('click')
       await nextTick()
       await new Promise((resolve) => setTimeout(resolve, 350))
 
-      // Should have called getTaskMetadata for items without IP
-      expect(mockGetTaskMetadata).toHaveBeenCalled()
+      // IP addresses are now included in getTaskList response, no per-item getTaskMetadata needed
+      const conversationItems = wrapper.findAll('.conversation-item')
+      expect(conversationItems.length).toBeGreaterThan(20)
     })
   })
 
@@ -530,9 +520,7 @@ describe('AgentsSidebar Component', () => {
     })
 
     it('should emit new-chat event when new chat button is clicked', async () => {
-      ;(getGlobalState as ReturnType<typeof vi.fn>)
-        .mockResolvedValueOnce([]) // taskHistory
-        .mockResolvedValueOnce([]) // favoriteTaskList
+      mockGetTaskList.mockResolvedValueOnce({ success: true, data: [] })
 
       wrapper = createWrapper()
       await nextTick()
@@ -547,8 +535,8 @@ describe('AgentsSidebar Component', () => {
     })
 
     it('should clear active conversation when new chat is created', async () => {
-      const mockHistory = createMockConversations(3)
-      ;(getGlobalState as ReturnType<typeof vi.fn>).mockResolvedValueOnce(mockHistory).mockResolvedValueOnce([]) // favoriteTaskList
+      const mockData = createMockTaskList(3)
+      mockGetTaskList.mockResolvedValueOnce(mockTaskListResponse(mockData))
 
       wrapper = createWrapper()
       await nextTick()
@@ -571,19 +559,15 @@ describe('AgentsSidebar Component', () => {
     })
 
     it('should refresh conversations when new chat is created via eventBus', async () => {
-      const mockHistory = createMockConversations(5)
-      ;(getGlobalState as ReturnType<typeof vi.fn>)
-        .mockResolvedValueOnce(mockHistory)
-        .mockResolvedValueOnce([]) // favoriteTaskList
-        .mockResolvedValueOnce(mockHistory) // For refresh
-        .mockResolvedValueOnce([]) // favoriteTaskList for refresh
+      const mockData = createMockTaskList(5)
+      mockGetTaskList.mockResolvedValue(mockTaskListResponse(mockData))
 
       wrapper = createWrapper()
       await nextTick()
       await nextTick()
       await new Promise((resolve) => setTimeout(resolve, 100)) // Wait for initial load to complete
 
-      const initialCallCount = (getGlobalState as ReturnType<typeof vi.fn>).mock.calls.length
+      const initialCallCount = mockGetTaskList.mock.calls.length
 
       // Get the event handler
       const eventHandlers = (eventBus.on as ReturnType<typeof vi.fn>).mock.calls
@@ -599,15 +583,15 @@ describe('AgentsSidebar Component', () => {
         await new Promise((resolve) => setTimeout(resolve, 100)) // Wait for refresh
 
         // Should reload conversations
-        expect((getGlobalState as ReturnType<typeof vi.fn>).mock.calls.length).toBeGreaterThan(initialCallCount)
+        expect(mockGetTaskList.mock.calls.length).toBeGreaterThan(initialCallCount)
       }
     })
   })
 
   describe('Conversation Selection', () => {
     it('should emit conversation-select event when conversation is clicked', async () => {
-      const mockHistory = createMockConversations(3)
-      ;(getGlobalState as ReturnType<typeof vi.fn>).mockResolvedValueOnce(mockHistory).mockResolvedValueOnce([]) // favoriteTaskList
+      const mockData = createMockTaskList(3)
+      mockGetTaskList.mockResolvedValueOnce(mockTaskListResponse(mockData))
 
       wrapper = createWrapper()
       await nextTick()
@@ -620,12 +604,14 @@ describe('AgentsSidebar Component', () => {
       await nextTick()
 
       expect(wrapper.emitted('conversation-select')).toBeTruthy()
-      expect(wrapper.emitted('conversation-select')?.[0]).toEqual(['task-0'])
+      const emitted = wrapper.emitted('conversation-select')?.[0]?.[0] as any
+      expect(emitted).toBeDefined()
+      expect(emitted.id).toBe('task-0')
     })
 
     it('should set active conversation when clicked', async () => {
-      const mockHistory = createMockConversations(3)
-      ;(getGlobalState as ReturnType<typeof vi.fn>).mockResolvedValueOnce(mockHistory).mockResolvedValueOnce([]) // favoriteTaskList
+      const mockData = createMockTaskList(3)
+      mockGetTaskList.mockResolvedValueOnce(mockTaskListResponse(mockData))
 
       wrapper = createWrapper()
       await nextTick()
@@ -642,8 +628,8 @@ describe('AgentsSidebar Component', () => {
     })
 
     it('should support setActiveConversation method via expose', async () => {
-      const mockHistory = createMockConversations(3)
-      ;(getGlobalState as ReturnType<typeof vi.fn>).mockResolvedValueOnce(mockHistory)
+      const mockData = createMockTaskList(3)
+      mockGetTaskList.mockResolvedValueOnce(mockTaskListResponse(mockData))
 
       wrapper = createWrapper()
       await nextTick()
@@ -660,8 +646,8 @@ describe('AgentsSidebar Component', () => {
 
   describe('Conversation Deletion', () => {
     it('should show delete button on hover', async () => {
-      const mockHistory = createMockConversations(3)
-      ;(getGlobalState as ReturnType<typeof vi.fn>).mockResolvedValueOnce(mockHistory).mockResolvedValueOnce([]) // favoriteTaskList
+      const mockData = createMockTaskList(3)
+      mockGetTaskList.mockResolvedValueOnce(mockTaskListResponse(mockData))
 
       wrapper = createWrapper()
       await nextTick()
@@ -677,12 +663,8 @@ describe('AgentsSidebar Component', () => {
     })
 
     it('should emit conversation-delete event when delete button is clicked', async () => {
-      const mockHistory = createMockConversations(3)
-      ;(getGlobalState as ReturnType<typeof vi.fn>)
-        .mockResolvedValueOnce(mockHistory)
-        .mockResolvedValueOnce([]) // favoriteTaskList
-        .mockResolvedValueOnce(mockHistory) // For delete operation
-        .mockResolvedValueOnce([]) // favoriteTaskList for delete
+      const mockData = createMockTaskList(3)
+      mockGetTaskList.mockResolvedValueOnce(mockTaskListResponse(mockData))
 
       wrapper = createWrapper()
       await nextTick()
@@ -700,12 +682,8 @@ describe('AgentsSidebar Component', () => {
     })
 
     it('should remove conversation from list when deleted', async () => {
-      const mockHistory = createMockConversations(3)
-      ;(getGlobalState as ReturnType<typeof vi.fn>)
-        .mockResolvedValueOnce(mockHistory)
-        .mockResolvedValueOnce([]) // favoriteTaskList
-        .mockResolvedValueOnce(mockHistory) // For delete operation
-        .mockResolvedValueOnce([]) // favoriteTaskList for delete
+      const mockData = createMockTaskList(3)
+      mockGetTaskList.mockResolvedValueOnce(mockTaskListResponse(mockData))
 
       wrapper = createWrapper()
       await nextTick()
@@ -723,80 +701,9 @@ describe('AgentsSidebar Component', () => {
       expect(updatedItems.length).toBe(2)
     })
 
-    it('should update taskHistory when conversation is deleted', async () => {
-      const mockHistory = createMockConversations(3)
-      ;(getGlobalState as ReturnType<typeof vi.fn>)
-        .mockResolvedValueOnce(mockHistory)
-        .mockResolvedValueOnce([]) // favoriteTaskList
-        .mockResolvedValueOnce(mockHistory) // For delete operation
-        .mockResolvedValueOnce([]) // favoriteTaskList for delete
-
-      wrapper = createWrapper()
-      await nextTick()
-      await nextTick()
-      await new Promise((resolve) => setTimeout(resolve, 100)) // Wait for async operations
-
-      const conversationItems = wrapper.findAll('.conversation-item')
-      expect(conversationItems.length).toBeGreaterThan(0)
-      const deleteBtn = conversationItems[0].find('.delete-btn')
-      await deleteBtn.trigger('click')
-      await nextTick()
-
-      expect(updateGlobalState).toHaveBeenCalledWith('taskHistory', expect.arrayContaining([expect.not.objectContaining({ id: 'task-0' })]))
-    })
-
-    it('should remove from favoriteTaskList when deleted conversation is favorited', async () => {
-      const mockHistory = createMockConversations(3)
-      const favoriteList = ['task-0'] // task-0 is favorited
-      ;(getGlobalState as ReturnType<typeof vi.fn>)
-        .mockResolvedValueOnce(mockHistory) // Initial load - taskHistory
-        .mockResolvedValueOnce(favoriteList) // Initial load - favoriteTaskList
-        .mockResolvedValueOnce(mockHistory) // Delete operation - taskHistory (get current list)
-        .mockResolvedValueOnce(favoriteList) // Delete operation - favoriteTaskList (get current list, contains task-0)
-
-      wrapper = createWrapper()
-      await nextTick()
-      await nextTick()
-      await new Promise((resolve) => setTimeout(resolve, 100)) // Wait for async operations
-
-      const conversationItems = wrapper.findAll('.conversation-item')
-      expect(conversationItems.length).toBeGreaterThan(0)
-      // Delete the first conversation (task-0)
-      const deleteBtn = conversationItems[0].find('.delete-btn')
-
-      // Clear previous calls to updateGlobalState to only track delete operation calls
-      ;(updateGlobalState as ReturnType<typeof vi.fn>).mockClear()
-
-      await deleteBtn.trigger('click')
-      await nextTick()
-      await new Promise((resolve) => setTimeout(resolve, 300)) // Wait for delete operation to complete
-
-      // Verify that getGlobalState was called for favoriteTaskList during delete
-      const favoriteTaskListCalls = (getGlobalState as ReturnType<typeof vi.fn>).mock.calls.filter((call: any[]) => call[0] === 'favoriteTaskList')
-      expect(favoriteTaskListCalls.length).toBeGreaterThan(0)
-
-      // If favoriteTaskList contains the conversationId, updateGlobalState should be called
-      // The logic checks if favoriteIndex > -1, so if task-0 is in the list, it should be updated
-      const updateCalls = (updateGlobalState as ReturnType<typeof vi.fn>).mock.calls
-      const favoriteUpdateCall = updateCalls.find((call: any[]) => call[0] === 'favoriteTaskList')
-      if (favoriteUpdateCall) {
-        // If update was called, it should be with empty array (task-0 removed)
-        expect(favoriteUpdateCall[1]).toEqual([])
-      } else {
-        // If update was not called, it means task-0 was not in favoriteTaskList
-        // This could happen if the mock didn't return the expected value
-        // For now, we'll just verify the logic path was executed
-        expect(getGlobalState).toHaveBeenCalledWith('favoriteTaskList')
-      }
-    })
-
     it('should send delete message to main process', async () => {
-      const mockHistory = createMockConversations(3)
-      ;(getGlobalState as ReturnType<typeof vi.fn>)
-        .mockResolvedValueOnce(mockHistory)
-        .mockResolvedValueOnce([]) // favoriteTaskList
-        .mockResolvedValueOnce(mockHistory) // For delete operation
-        .mockResolvedValueOnce([]) // favoriteTaskList for delete
+      const mockData = createMockTaskList(3)
+      mockGetTaskList.mockResolvedValueOnce(mockTaskListResponse(mockData))
 
       wrapper = createWrapper()
       await nextTick()
@@ -817,12 +724,8 @@ describe('AgentsSidebar Component', () => {
     })
 
     it('should clear active conversation if deleted conversation is active', async () => {
-      const mockHistory = createMockConversations(3)
-      ;(getGlobalState as ReturnType<typeof vi.fn>)
-        .mockResolvedValueOnce(mockHistory)
-        .mockResolvedValueOnce([]) // favoriteTaskList
-        .mockResolvedValueOnce(mockHistory) // For delete operation
-        .mockResolvedValueOnce([]) // favoriteTaskList for delete
+      const mockData = createMockTaskList(3)
+      mockGetTaskList.mockResolvedValueOnce(mockTaskListResponse(mockData))
 
       wrapper = createWrapper()
       await nextTick()
@@ -848,12 +751,8 @@ describe('AgentsSidebar Component', () => {
     })
 
     it('should prevent click propagation when delete button is clicked', async () => {
-      const mockHistory = createMockConversations(3)
-      ;(getGlobalState as ReturnType<typeof vi.fn>)
-        .mockResolvedValueOnce(mockHistory)
-        .mockResolvedValueOnce([]) // favoriteTaskList
-        .mockResolvedValueOnce(mockHistory) // For delete operation
-        .mockResolvedValueOnce([]) // favoriteTaskList for delete
+      const mockData = createMockTaskList(3)
+      mockGetTaskList.mockResolvedValueOnce(mockTaskListResponse(mockData))
 
       wrapper = createWrapper()
       await nextTick()
@@ -877,76 +776,60 @@ describe('AgentsSidebar Component', () => {
   })
 
   describe('IP Address Loading', () => {
-    it('should load IP addresses for conversations without IP', async () => {
-      const mockHistory = createMockConversations(5)
-      ;(getGlobalState as ReturnType<typeof vi.fn>).mockResolvedValueOnce(mockHistory).mockResolvedValueOnce([]) // favoriteTaskList
+    it('should derive IP addresses from getTaskList hosts field', async () => {
+      const now = Date.now()
+      const mockData = [
+        {
+          id: 'task-1',
+          title: 'Test',
+          favorite: false,
+          createdAt: now,
+          updatedAt: now,
+          hosts: [{ host: '10.0.0.1', uuid: 'uuid-1', connection: 'ssh' }]
+        },
+        {
+          id: 'task-2',
+          title: 'Test 2',
+          favorite: false,
+          createdAt: now,
+          updatedAt: now,
+          hosts: []
+        }
+      ]
+      mockGetTaskList.mockResolvedValueOnce(mockTaskListResponse(mockData))
 
       wrapper = createWrapper()
       await nextTick()
-      await nextTick()
-      await new Promise((resolve) => setTimeout(resolve, 200)) // Wait for IP loading
-
-      // Should call getTaskMetadata for items without IP
-      expect(mockGetTaskMetadata).toHaveBeenCalled()
-    })
-
-    it('should preserve existing IP addresses to prevent flickering', async () => {
-      const mockHistory = createMockConversations(5)
-      ;(getGlobalState as ReturnType<typeof vi.fn>)
-        .mockResolvedValueOnce(mockHistory)
-        .mockResolvedValueOnce([]) // favoriteTaskList
-        .mockResolvedValueOnce(mockHistory) // For reload
-        .mockResolvedValueOnce([]) // favoriteTaskList for reload
-
-      wrapper = createWrapper()
-      await nextTick()
-      await nextTick()
-      await new Promise((resolve) => setTimeout(resolve, 200)) // Wait for IP loading
-
-      // Get the component instance and manually set IP for first item to simulate existing IP
-      const vm = wrapper.vm as any
-      if (vm.allConversations && vm.allConversations.length > 0) {
-        ;(vm.allConversations[0] as any).ipAddress = '192.168.1.1'
-      }
-
-      // Clear previous calls to getTaskMetadata
-      mockGetTaskMetadata.mockClear()
-
-      // Reload conversations - should preserve existing IP
-      await vm.loadConversations()
       await nextTick()
       await new Promise((resolve) => setTimeout(resolve, 200))
 
-      // Should preserve existing IP, so getTaskMetadata should not be called for task-0
-      // The IP should still be there
-      expect((vm.allConversations[0] as any)?.ipAddress).toBe('192.168.1.1')
-      // getTaskMetadata should not be called for task-0 since it already has IP
-      const callsForExistingIp = (mockGetTaskMetadata as ReturnType<typeof vi.fn>).mock.calls.filter((call: any[]) => call[0] === 'task-0')
-      expect(callsForExistingIp.length).toBe(0)
+      const vm = wrapper.vm as any
+      // task-1 should have IP derived from hosts
+      expect(vm.allConversations[0]?.ipAddress).toBe('10.0.0.1')
+      // task-2 has no hosts, should have no IP
+      expect(vm.allConversations[1]?.ipAddress).toBeUndefined()
+      // No per-item getTaskMetadata calls needed
+      expect(mockGetTaskMetadata).not.toHaveBeenCalled()
     })
 
     it('should handle single IP address', async () => {
-      const mockHistory = [
+      const now = Date.now()
+      const mockData = [
         {
           id: 'task-1',
-          chatTitle: 'Test',
-          ts: Date.now(),
-          chatType: 'cmd'
-        }
-      ]
-      ;(getGlobalState as ReturnType<typeof vi.fn>).mockResolvedValueOnce(mockHistory).mockResolvedValueOnce([]) // favoriteTaskList
-
-      mockGetTaskMetadata.mockResolvedValueOnce({
-        success: true,
-        data: {
+          title: 'Test',
+          favorite: false,
+          createdAt: now,
+          updatedAt: now,
           hosts: [{ host: '192.168.1.1', uuid: 'uuid-1', connection: 'ssh' }]
         }
-      })
+      ]
+      mockGetTaskList.mockResolvedValueOnce(mockTaskListResponse(mockData))
 
       wrapper = createWrapper()
       await nextTick()
       await nextTick()
-      await new Promise((resolve) => setTimeout(resolve, 200)) // Wait for IP loading
+      await new Promise((resolve) => setTimeout(resolve, 200))
 
       const ipElement = wrapper.find('.conversation-ip')
       expect(ipElement.exists()).toBe(true)
@@ -954,31 +837,27 @@ describe('AgentsSidebar Component', () => {
     })
 
     it('should handle multiple IP addresses', async () => {
-      const mockHistory = [
+      const now = Date.now()
+      const mockData = [
         {
           id: 'task-1',
-          chatTitle: 'Test',
-          ts: Date.now(),
-          chatType: 'cmd'
-        }
-      ]
-      ;(getGlobalState as ReturnType<typeof vi.fn>).mockResolvedValueOnce(mockHistory).mockResolvedValueOnce([]) // favoriteTaskList
-
-      mockGetTaskMetadata.mockResolvedValueOnce({
-        success: true,
-        data: {
+          title: 'Test',
+          favorite: false,
+          createdAt: now,
+          updatedAt: now,
           hosts: [
             { host: '192.168.1.1', uuid: 'uuid-1', connection: 'ssh' },
             { host: '192.168.1.2', uuid: 'uuid-2', connection: 'ssh' },
             { host: '192.168.1.3', uuid: 'uuid-3', connection: 'ssh' }
           ]
         }
-      })
+      ]
+      mockGetTaskList.mockResolvedValueOnce(mockTaskListResponse(mockData))
 
       wrapper = createWrapper()
       await nextTick()
       await nextTick()
-      await new Promise((resolve) => setTimeout(resolve, 200)) // Wait for IP loading
+      await new Promise((resolve) => setTimeout(resolve, 200))
 
       const ipElement = wrapper.find('.conversation-ip')
       expect(ipElement.exists()).toBe(true)
@@ -987,15 +866,17 @@ describe('AgentsSidebar Component', () => {
     })
 
     it('should handle IP loading errors gracefully', async () => {
-      const mockHistory = [
+      const now = Date.now()
+      const mockData = [
         {
           id: 'task-1',
-          chatTitle: 'Test',
-          ts: Date.now(),
-          chatType: 'cmd'
+          title: 'Test',
+          favorite: false,
+          createdAt: now,
+          updatedAt: now
         }
       ]
-      ;(getGlobalState as ReturnType<typeof vi.fn>).mockResolvedValueOnce(mockHistory).mockResolvedValueOnce([]) // favoriteTaskList
+      mockGetTaskList.mockResolvedValueOnce(mockTaskListResponse(mockData))
 
       mockGetTaskMetadata.mockRejectedValueOnce(new Error('Failed to load'))
 
@@ -1012,15 +893,16 @@ describe('AgentsSidebar Component', () => {
   describe('Time Formatting', () => {
     it('should format time for today as time only', async () => {
       const now = Date.now()
-      const mockHistory = [
+      const mockData = [
         {
           id: 'task-1',
-          chatTitle: 'Test',
-          ts: now,
-          chatType: 'cmd'
+          title: 'Test',
+          favorite: false,
+          createdAt: now,
+          updatedAt: now
         }
       ]
-      ;(getGlobalState as ReturnType<typeof vi.fn>).mockResolvedValueOnce(mockHistory).mockResolvedValueOnce([]) // favoriteTaskList
+      mockGetTaskList.mockResolvedValueOnce(mockTaskListResponse(mockData))
 
       wrapper = createWrapper()
       await nextTick()
@@ -1036,15 +918,16 @@ describe('AgentsSidebar Component', () => {
     it('should format time for recent days as days ago', async () => {
       const now = Date.now()
       const threeDaysAgo = now - 3 * 24 * 60 * 60 * 1000
-      const mockHistory = [
+      const mockData = [
         {
           id: 'task-1',
-          chatTitle: 'Test',
-          ts: threeDaysAgo,
-          chatType: 'cmd'
+          title: 'Test',
+          favorite: false,
+          createdAt: threeDaysAgo,
+          updatedAt: threeDaysAgo
         }
       ]
-      ;(getGlobalState as ReturnType<typeof vi.fn>).mockResolvedValueOnce(mockHistory).mockResolvedValueOnce([]) // favoriteTaskList
+      mockGetTaskList.mockResolvedValueOnce(mockTaskListResponse(mockData))
 
       wrapper = createWrapper()
       await nextTick()
@@ -1059,15 +942,16 @@ describe('AgentsSidebar Component', () => {
     it('should format time for older dates as date only', async () => {
       const now = Date.now()
       const tenDaysAgo = now - 10 * 24 * 60 * 60 * 1000
-      const mockHistory = [
+      const mockData = [
         {
           id: 'task-1',
-          chatTitle: 'Test',
-          ts: tenDaysAgo,
-          chatType: 'cmd'
+          title: 'Test',
+          favorite: false,
+          createdAt: tenDaysAgo,
+          updatedAt: tenDaysAgo
         }
       ]
-      ;(getGlobalState as ReturnType<typeof vi.fn>).mockResolvedValueOnce(mockHistory).mockResolvedValueOnce([]) // favoriteTaskList
+      mockGetTaskList.mockResolvedValueOnce(mockTaskListResponse(mockData))
 
       wrapper = createWrapper()
       await nextTick()
@@ -1082,19 +966,15 @@ describe('AgentsSidebar Component', () => {
 
   describe('Event Listeners', () => {
     it('should refresh conversations on visibility change', async () => {
-      const mockHistory = createMockConversations(5)
-      ;(getGlobalState as ReturnType<typeof vi.fn>)
-        .mockResolvedValueOnce(mockHistory)
-        .mockResolvedValueOnce([]) // favoriteTaskList - initial load
-        .mockResolvedValueOnce(mockHistory) // For refresh
-        .mockResolvedValueOnce([]) // favoriteTaskList - refresh
+      const mockData = createMockTaskList(5)
+      mockGetTaskList.mockResolvedValue(mockTaskListResponse(mockData))
 
       wrapper = createWrapper()
       await nextTick()
       await nextTick()
       await new Promise((resolve) => setTimeout(resolve, 200)) // Wait for initial load to complete (isLoading = false)
 
-      const initialCallCount = (getGlobalState as ReturnType<typeof vi.fn>).mock.calls.length
+      const initialCallCount = mockGetTaskList.mock.calls.length
 
       // Get the visibility change handler
       const addEventListenerCalls = (document.addEventListener as ReturnType<typeof vi.fn>).mock.calls
@@ -1116,24 +996,20 @@ describe('AgentsSidebar Component', () => {
         await new Promise((resolve) => setTimeout(resolve, 200)) // Wait for refresh
 
         // Should reload conversations
-        expect((getGlobalState as ReturnType<typeof vi.fn>).mock.calls.length).toBeGreaterThan(initialCallCount)
+        expect(mockGetTaskList.mock.calls.length).toBeGreaterThan(initialCallCount)
       }
     })
 
     it('should refresh conversations on window focus', async () => {
-      const mockHistory = createMockConversations(5)
-      ;(getGlobalState as ReturnType<typeof vi.fn>)
-        .mockResolvedValueOnce(mockHistory)
-        .mockResolvedValueOnce([]) // favoriteTaskList - initial load
-        .mockResolvedValueOnce(mockHistory) // For refresh
-        .mockResolvedValueOnce([]) // favoriteTaskList - refresh
+      const mockData = createMockTaskList(5)
+      mockGetTaskList.mockResolvedValue(mockTaskListResponse(mockData))
 
       wrapper = createWrapper()
       await nextTick()
       await nextTick()
       await new Promise((resolve) => setTimeout(resolve, 200)) // Wait for initial load to complete
 
-      const initialCallCount = (getGlobalState as ReturnType<typeof vi.fn>).mock.calls.length
+      const initialCallCount = mockGetTaskList.mock.calls.length
 
       // Get the focus handler
       const addEventListenerCalls = (window.addEventListener as ReturnType<typeof vi.fn>).mock.calls
@@ -1148,50 +1024,19 @@ describe('AgentsSidebar Component', () => {
         await new Promise((resolve) => setTimeout(resolve, 200)) // Wait for refresh
 
         // Should reload conversations
-        expect((getGlobalState as ReturnType<typeof vi.fn>).mock.calls.length).toBeGreaterThan(initialCallCount)
-      }
-    })
-
-    it('should refresh conversations when taskHistoryUpdated message is received', async () => {
-      const mockHistory = createMockConversations(5)
-      ;(getGlobalState as ReturnType<typeof vi.fn>)
-        .mockResolvedValueOnce(mockHistory)
-        .mockResolvedValueOnce([]) // favoriteTaskList - initial load
-        .mockResolvedValueOnce(mockHistory) // For refresh
-        .mockResolvedValueOnce([]) // favoriteTaskList - refresh
-
-      wrapper = createWrapper()
-      await nextTick()
-      await nextTick()
-      await new Promise((resolve) => setTimeout(resolve, 200)) // Wait for initial load to complete
-
-      const initialCallCount = (getGlobalState as ReturnType<typeof vi.fn>).mock.calls.length
-
-      // Get the message handler
-      const messageHandler = mockOnMainMessage.mock.calls[0]?.[0]
-
-      expect(messageHandler).toBeDefined()
-
-      if (messageHandler) {
-        messageHandler({ type: 'taskHistoryUpdated' })
-        await nextTick()
-        await nextTick()
-        await new Promise((resolve) => setTimeout(resolve, 200)) // Wait for refresh
-
-        // Should reload conversations
-        expect((getGlobalState as ReturnType<typeof vi.fn>).mock.calls.length).toBeGreaterThan(initialCallCount)
+        expect(mockGetTaskList.mock.calls.length).toBeGreaterThan(initialCallCount)
       }
     })
 
     it('should not refresh conversations for other message types', async () => {
-      const mockHistory = createMockConversations(5)
-      ;(getGlobalState as ReturnType<typeof vi.fn>).mockResolvedValueOnce(mockHistory).mockResolvedValueOnce([]) // favoriteTaskList
+      const mockData = createMockTaskList(5)
+      mockGetTaskList.mockResolvedValue(mockTaskListResponse(mockData))
 
       wrapper = createWrapper()
       await nextTick()
       await nextTick()
 
-      const initialCallCount = (getGlobalState as ReturnType<typeof vi.fn>).mock.calls.length
+      const initialCallCount = mockGetTaskList.mock.calls.length
 
       // Get the message handler
       const messageHandler = mockOnMainMessage.mock.calls[0]?.[0]
@@ -1202,24 +1047,20 @@ describe('AgentsSidebar Component', () => {
         await nextTick()
 
         // Should not reload conversations
-        expect((getGlobalState as ReturnType<typeof vi.fn>).mock.calls.length).toBe(initialCallCount)
+        expect(mockGetTaskList.mock.calls.length).toBe(initialCallCount)
       }
     })
 
     it('should refresh conversations when tab is restored', async () => {
-      const mockHistory = createMockConversations(5)
-      ;(getGlobalState as ReturnType<typeof vi.fn>)
-        .mockResolvedValueOnce(mockHistory)
-        .mockResolvedValueOnce([]) // favoriteTaskList - initial load
-        .mockResolvedValueOnce(mockHistory) // For refresh
-        .mockResolvedValueOnce([]) // favoriteTaskList - refresh
+      const mockData = createMockTaskList(5)
+      mockGetTaskList.mockResolvedValue(mockTaskListResponse(mockData))
 
       wrapper = createWrapper()
       await nextTick()
       await nextTick()
       await new Promise((resolve) => setTimeout(resolve, 200)) // Wait for initial load to complete
 
-      const initialCallCount = (getGlobalState as ReturnType<typeof vi.fn>).mock.calls.length
+      const initialCallCount = mockGetTaskList.mock.calls.length
 
       // Get the event handler
       const eventHandlers = (eventBus.on as ReturnType<typeof vi.fn>).mock.calls
@@ -1234,14 +1075,14 @@ describe('AgentsSidebar Component', () => {
         await new Promise((resolve) => setTimeout(resolve, 200)) // Wait for refresh
 
         // Should reload conversations
-        expect((getGlobalState as ReturnType<typeof vi.fn>).mock.calls.length).toBeGreaterThan(initialCallCount)
+        expect(mockGetTaskList.mock.calls.length).toBeGreaterThan(initialCallCount)
       }
     })
   })
 
   describe('Error Handling', () => {
     it('should handle loadConversations errors gracefully', async () => {
-      ;(getGlobalState as ReturnType<typeof vi.fn>).mockRejectedValueOnce(new Error('Load failed'))
+      mockGetTaskList.mockRejectedValueOnce(new Error('Load failed'))
 
       wrapper = createWrapper()
       await nextTick()
@@ -1252,13 +1093,9 @@ describe('AgentsSidebar Component', () => {
     })
 
     it('should handle deleteConversation errors gracefully', async () => {
-      const mockHistory = createMockConversations(3)
-      ;(getGlobalState as ReturnType<typeof vi.fn>)
-        .mockResolvedValueOnce(mockHistory)
-        .mockResolvedValueOnce([]) // favoriteTaskList
-        .mockResolvedValueOnce(mockHistory) // For delete operation
-        .mockResolvedValueOnce([]) // favoriteTaskList for delete
-      ;(updateGlobalState as ReturnType<typeof vi.fn>).mockRejectedValueOnce(new Error('Delete failed'))
+      const mockData = createMockTaskList(3)
+      mockGetTaskList.mockResolvedValueOnce(mockTaskListResponse(mockData))
+      mockSendToMain.mockRejectedValueOnce(new Error('Delete failed'))
 
       wrapper = createWrapper()
       await nextTick()
@@ -1294,19 +1131,15 @@ describe('AgentsSidebar Component', () => {
     })
 
     it('should allow manual refresh via loadConversations', async () => {
-      const mockHistory = createMockConversations(5)
-      ;(getGlobalState as ReturnType<typeof vi.fn>)
-        .mockResolvedValueOnce(mockHistory)
-        .mockResolvedValueOnce([]) // favoriteTaskList - initial load
-        .mockResolvedValueOnce(mockHistory) // For manual refresh
-        .mockResolvedValueOnce([]) // favoriteTaskList - refresh
+      const mockData = createMockTaskList(5)
+      mockGetTaskList.mockResolvedValue(mockTaskListResponse(mockData))
 
       wrapper = createWrapper()
       await nextTick()
       await nextTick()
       await new Promise((resolve) => setTimeout(resolve, 200)) // Wait for initial load to complete
 
-      const initialCallCount = (getGlobalState as ReturnType<typeof vi.fn>).mock.calls.length
+      const initialCallCount = mockGetTaskList.mock.calls.length
 
       const vm = wrapper.vm as any
       await vm.loadConversations()
@@ -1314,34 +1147,37 @@ describe('AgentsSidebar Component', () => {
       await new Promise((resolve) => setTimeout(resolve, 200)) // Wait for refresh
 
       // Should reload conversations
-      expect((getGlobalState as ReturnType<typeof vi.fn>).mock.calls.length).toBeGreaterThan(initialCallCount)
+      expect(mockGetTaskList.mock.calls.length).toBeGreaterThan(initialCallCount)
     })
   })
 
   describe('Conversation Sorting', () => {
     it('should sort conversations by timestamp (newest first)', async () => {
       const now = Date.now()
-      const mockHistory = [
+      const mockData = [
         {
           id: 'task-1',
-          chatTitle: 'Oldest',
-          ts: now - 10000,
-          chatType: 'cmd'
+          title: 'Oldest',
+          favorite: false,
+          createdAt: now - 10000,
+          updatedAt: now - 10000
         },
         {
           id: 'task-2',
-          chatTitle: 'Newest',
-          ts: now,
-          chatType: 'cmd'
+          title: 'Newest',
+          favorite: false,
+          createdAt: now,
+          updatedAt: now
         },
         {
           id: 'task-3',
-          chatTitle: 'Middle',
-          ts: now - 5000,
-          chatType: 'cmd'
+          title: 'Middle',
+          favorite: false,
+          createdAt: now - 5000,
+          updatedAt: now - 5000
         }
       ]
-      ;(getGlobalState as ReturnType<typeof vi.fn>).mockResolvedValueOnce(mockHistory).mockResolvedValueOnce([]) // favoriteTaskList
+      mockGetTaskList.mockResolvedValueOnce(mockTaskListResponse(mockData))
 
       wrapper = createWrapper()
       await nextTick()

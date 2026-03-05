@@ -30,9 +30,15 @@ import {
   saveChatermMessagesLogic,
   getTaskMetadataLogic,
   saveTaskMetadataLogic,
+  saveTaskTitleLogic,
+  saveTaskFavoriteLogic,
+  getTaskListLogic,
+  ensureTaskMetadataExistsLogic,
+  touchTaskUpdatedAtLogic,
   getContextHistoryLogic,
   saveContextHistoryLogic
 } from './chaterm/agent'
+import type { TaskListItem } from '../../agent/core/context/context-tracking/ContextTrackerTypes'
 import {
   getKeyChainSelectLogic,
   createKeyChainLogic,
@@ -210,6 +216,26 @@ export class ChatermDatabaseService {
 
   async saveTaskMetadata(taskId: string, metadata: any): Promise<void> {
     return saveTaskMetadataLogic(this.db, taskId, metadata)
+  }
+
+  async saveTaskTitle(taskId: string, title: string): Promise<void> {
+    return saveTaskTitleLogic(this.db, taskId, title)
+  }
+
+  async saveTaskFavorite(taskId: string, favorite: boolean): Promise<void> {
+    return saveTaskFavoriteLogic(this.db, taskId, favorite)
+  }
+
+  async getTaskList(): Promise<TaskListItem[]> {
+    return getTaskListLogic(this.db)
+  }
+
+  async ensureTaskMetadataExists(taskId: string, initialTitle?: string): Promise<void> {
+    return ensureTaskMetadataExistsLogic(this.db, taskId, initialTitle)
+  }
+
+  async touchTaskUpdatedAt(taskId: string): Promise<void> {
+    return touchTaskUpdatedAtLogic(this.db, taskId)
   }
 
   // Agent context history related methods

@@ -291,6 +291,32 @@ interface ApiType {
     data?: TaskMetadata
     error?: { message: string }
   }>
+  saveTaskTitle: (
+    taskId: string,
+    title: string
+  ) => Promise<{
+    success: boolean
+    error?: { message: string }
+  }>
+  saveTaskFavorite: (
+    taskId: string,
+    favorite: boolean
+  ) => Promise<{
+    success: boolean
+    error?: { message: string }
+  }>
+  getTaskList: () => Promise<{
+    success: boolean
+    data?: Array<{
+      id: string
+      title: string | null
+      favorite: boolean
+      createdAt: number
+      updatedAt: number
+      hosts: Array<{ host: string; uuid: string; connection: string }>
+    }>
+    error?: { message: string }
+  }>
   getUserHosts: (search: string, limit?: number) => Promise<any>
   initUserDatabase: (data: { uid: number }) => Promise<any>
   // File dialog and local file operations

@@ -4,10 +4,10 @@ import { Modal } from 'ant-design-vue'
 
 import { useI18n } from 'vue-i18n'
 const logger = createRendererLogger('ai.tabManagement')
-import type { HistoryItem, Host, AssetInfo, ChatMessage, TaskHistoryItem } from '../types'
+import type { HistoryItem, Host, AssetInfo, ChatMessage } from '../types'
 import type { ChatTab, SessionState } from './useSessionState'
 import { useSessionState } from './useSessionState'
-import { getGlobalState, updateGlobalState } from '@renderer/agent/storage/state'
+import { getGlobalState } from '@renderer/agent/storage/state'
 import { ChatermMessage } from '@/types/ChatermMessage'
 import { PROVIDER_MODEL_KEY_MAP } from './useModelConfiguration'
 import eventBus from '@/utils/eventBus'
@@ -174,7 +174,9 @@ export function useTabManagement(options: TabManagementOptions) {
       }
 
       let loadedHosts: Host[] = []
-      let savedChatType = normalizeChatType(history.chatType)
+      // Default chat type from chatSettings; metadata model_usage overrides below.
+      const chatSettings = await getGlobalState('chatSettings').catch(() => ({ mode: 'agent' }))
+      let savedChatType = normalizeChatType((chatSettings as { mode?: string })?.mode)
       let savedModelValue = ''
       try {
         const metadataResult = await window.api.getTaskMetadata(history.id)
@@ -377,15 +379,11 @@ export function useTabManagement(options: TabManagementOptions) {
       targetTab.title = title
     }
 
+    // Write title to agent_task_metadata_v1 via IPC (sole persistence target)
     try {
-      const taskHistory = ((await getGlobalState('taskHistory')) as TaskHistoryItem[]) || []
-      const targetHistory = taskHistory.find((item) => item.id === tabId)
-      if (targetHistory) {
-        targetHistory.chatTitle = title
-        await updateGlobalState('taskHistory', taskHistory)
-      }
+      await window.api.saveTaskTitle(tabId, title)
     } catch (err) {
-      logger.error('Failed to persist tab title', { error: err })
+      logger.error('Failed to persist tab title to metadata table', { error: err })
     }
 
     emitStateChange?.()

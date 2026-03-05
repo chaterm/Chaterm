@@ -1,8 +1,7 @@
 import { ref, computed, watch, nextTick } from 'vue'
-import { getGlobalState, updateGlobalState } from '@renderer/agent/storage/state'
 
 const logger = createRendererLogger('ai.chatHistory')
-import type { HistoryItem, TaskHistoryItem } from '../types'
+import type { HistoryItem } from '../types'
 import { useSessionState } from './useSessionState'
 import type { WebviewMessage } from '@shared/WebviewMessage'
 import { getDateLabel } from '../utils'
@@ -33,9 +32,6 @@ export function useChatHistory(options?: ChatHistoryOptions) {
 
   // History list
   const historyList = ref<HistoryItem[]>([])
-
-  // Favorite list
-  const favoriteTaskList = ref<string[]>([])
 
   // Search value
   const historySearchValue = ref('')
@@ -242,24 +238,10 @@ export function useChatHistory(options?: ChatHistoryOptions) {
    * Cancel editing history title
    */
   const cancelEdit = async (history: HistoryItem) => {
-    try {
-      // Get original title from globalState
-      const taskHistory = ((await getGlobalState('taskHistory')) as TaskHistoryItem[]) || []
-      const targetHistory = taskHistory.find((item) => item.id === history.id)
-
-      if (targetHistory) {
-        history.chatTitle = targetHistory?.chatTitle || targetHistory?.task || 'Agent Chat'
-      }
-
-      history.isEditing = false
-      history.editingTitle = ''
-      currentEditingId.value = null
-    } catch (err) {
-      logger.error('Failed to cancel edit', { error: err })
-      history.isEditing = false
-      history.editingTitle = ''
-      currentEditingId.value = null
-    }
+    // No legacy fallback read. Keep current title, just exit edit mode.
+    history.isEditing = false
+    history.editingTitle = ''
+    currentEditingId.value = null
   }
 
   /**
@@ -273,19 +255,7 @@ export function useChatHistory(options?: ChatHistoryOptions) {
         historyList.value.splice(index, 1)
       }
 
-      // Remove from globalState
-      const taskHistory = ((await getGlobalState('taskHistory')) as TaskHistoryItem[]) || []
-      const updatedHistory = taskHistory.filter((item) => item.id !== history.id)
-      await updateGlobalState('taskHistory', updatedHistory)
-
-      // Remove from favorite list (if exists)
-      const favoriteIndex = favoriteTaskList.value.indexOf(history.id)
-      if (favoriteIndex > -1) {
-        favoriteTaskList.value.splice(favoriteIndex, 1)
-        await updateGlobalState('favoriteTaskList', favoriteTaskList.value)
-      }
-
-      // Directly call logic to delete Tab and notify main process
+      // Call delete IPC (DB DELETE handles agent_task_metadata_v1 cleanup)
       await handleHistoryDelete({ ...history })
     } catch (err) {
       logger.error('Failed to delete history', { error: err })
@@ -296,34 +266,15 @@ export function useChatHistory(options?: ChatHistoryOptions) {
    * Toggle favorite status
    */
   const toggleFavorite = async (history: HistoryItem) => {
-    history.isFavorite = !history.isFavorite
+    const newValue = !history.isFavorite
+    history.isFavorite = newValue
 
     try {
-      // Load current favorite list
-      const currentFavorites = ((await getGlobalState('favoriteTaskList')) as string[]) || []
-
-      if (history.isFavorite) {
-        // Add to favorites
-        if (!currentFavorites.includes(history.id)) {
-          currentFavorites.push(history.id)
-        }
-      } else {
-        // Remove from favorites
-        const index = currentFavorites.indexOf(history.id)
-        if (index !== -1) {
-          currentFavorites.splice(index, 1)
-        }
-      }
-
-      // Update local state
-      favoriteTaskList.value = currentFavorites
-
-      // Save to globalState
-      await updateGlobalState('favoriteTaskList', currentFavorites)
+      await window.api.saveTaskFavorite(history.id, newValue)
     } catch (err) {
       logger.error('Failed to update favorite status', { error: err })
       // Rollback local state
-      history.isFavorite = !history.isFavorite
+      history.isFavorite = !newValue
     }
   }
 
@@ -332,21 +283,15 @@ export function useChatHistory(options?: ChatHistoryOptions) {
    */
   const loadHistoryList = async () => {
     try {
-      const taskHistory = ((await getGlobalState('taskHistory')) as TaskHistoryItem[]) || []
-      const favorites = ((await getGlobalState('favoriteTaskList')) as string[]) || []
+      const result = await window.api.getTaskList()
+      if (!result.success || !result.data) return
 
-      favoriteTaskList.value = favorites
-
-      // Convert to HistoryItem format
-      historyList.value = taskHistory.map((item) => ({
+      historyList.value = result.data.map((item) => ({
         id: item.id,
-        chatTitle: item.chatTitle || item.task || 'Agent Chat',
-        chatType: 'agent', // Default type
+        chatTitle: item.title || 'New Chat',
         chatContent: [],
-        isEditing: false,
-        editingTitle: '',
-        isFavorite: favorites.includes(item.id),
-        ts: item.ts
+        isFavorite: item.favorite,
+        ts: item.updatedAt
       }))
     } catch (err) {
       logger.error('Failed to load history list', { error: err })
