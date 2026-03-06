@@ -17,8 +17,8 @@
     "language": "en-US"
   },
   "legal": {
-    "privacyPolicyUrl": "https://chaterm.ai/docs/user/privacy",
-    "termsOfServiceUrl": "https://chaterm.ai/docs/user/terms"
+    "privacyPolicyUrl": "https://chaterm.ai/docs/privacy/policy",
+    "termsOfServiceUrl": "https://chaterm.ai/docs/contributing"
   },
   "speech": {
     "wsUrl": "wss://api.chaterm.net/v1/speech/asr"

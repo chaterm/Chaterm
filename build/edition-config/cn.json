@@ -17,8 +17,8 @@
     "language": "zh-CN"
   },
   "legal": {
-    "privacyPolicyUrl": "https://chaterm.cn/docs/user/privacy",
-    "termsOfServiceUrl": "https://chaterm.cn/docs/user/terms"
+    "privacyPolicyUrl": "https://chaterm.cn/docs/privacy/policy",
+    "termsOfServiceUrl": "https://chaterm.cn/docs/contributing"
   },
   "speech": {
     "wsUrl": "wss://api8.chaterm.net/v1/speech/asr"
