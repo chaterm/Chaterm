@@ -38,19 +38,33 @@ With its built-in expert knowledge base and powerful agent inference capabilitie
 
 ## Key Features
 
-- 🤖 Autonomous Agent Engine: Capable of breaking down and planning complex tasks, supporting closed-loop automated operations from log analysis to service rollback.
+- 🤖 **AI Agent Assistant**
 
-- 🧠 Intelligent Contextual Completion: Going beyond traditional history recording, it provides more personalized intelligent command suggestions based on user habits, current business context, and cross-server environment.
+  Breaks complex O&M tasks into executable steps, automating operations from log analysis to service rollback through closed-loop AI execution.
 
-- 🎙️ Real-time Voice Interaction: Breaking keyboard limitations, it supports voice command input on mobile devices, significantly improving remote maintenance and emergency response efficiency.
+- 🧠 **Intelligent Command Recommendation**
 
-- 🎨 Globally Consistent Experience: Configuration Roaming: Configure syntax highlighting and environment preferences once, and automatically synchronize upon login from any host. Visual Vim: Provides a modern IDE-like file editing experience within the terminal, supporting multi-language syntax highlighting.
+  Not only records historical commands, but also recommends the most suitable commands in real time based on user habits, current infrastructure environment, and multi-server context.
 
-- 🛡️ Enterprise-Grade Zero-Trust Security: Integrates a session-level seamless authentication system, fully supporting a zero-trust security architecture to ensure every operation is compliant and traceable.
+- 🎙️ **Voice and Conversational Operations**
 
-- 🔗 MCP Protocol Ecosystem: Fully supports the Model Context Protocol (MCP), enabling low-cost access to enterprise knowledge bases such as Notion and GitHub, achieving unlimited expansion of AI skills.
+  Execute commands via voice and conversational interaction on mobile devices, eliminating the limitations of virtual keyboards, making it particularly suitable for remote O&M and emergency fault handling scenarios.
 
-- 🏢 Unified Workspace: Supports Alias ​​shortcut sharing and enterprise-level SSO unified authorization, efficiently managing digital assets across organizations.
+- 🎨 **Modern Terminal Experience**
+
+  Automatically synchronizes themes, configurations, and syntax highlighting across devices. Supports visual Vim editing, multi-language syntax highlighting, and cross-host file synchronization similar to WinSCP.
+
+- 🧩 **Knowledge Base + Agent Skills**
+
+  Supports long-term memory and allows importing technical manuals, internal documents, and scripts to build a personal knowledge base. Combine Agent Skills to make AI more intelligent and reliable in real-world operations and maintenance scenarios.
+
+- 🛡️ **Zero Trust Security Architecture**
+
+  Built in enterprise-grade security design, ensuring all operations are auditable, traceable, and compliant with the zero trust security framework through session-level identity authentication.
+
+- 🔌 **Plug-in Ecosystem**
+
+  Extend capabilities through plugins for unified management of public cloud, network devices, containers, and Kubernetes. Combined with IAM access control, achieve unified authorization and centralized management of infrastructure assets.
 
 ![Preview image](resources/features.webp)
 
