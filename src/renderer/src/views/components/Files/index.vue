@@ -65,7 +65,7 @@
                 :dropdown-match-select-width="false"
                 @change="onLeftSelectChange"
               >
-                <template #option="{ value, label }">
+                <template #option="{ value, label, rawId }">
                   <div class="session-select-option">
                     <span class="opt-label">{{ label }}</span>
                     <a-button
@@ -74,7 +74,7 @@
                       size="small"
                       class="opt-close"
                       :disabled="sideLoading.left"
-                      @mousedown.prevent.stop="closeSftpById(String(value))"
+                      @mousedown.prevent.stop="closeSftpById(String(rawId || value))"
                     >
                       <CloseOutlined />
                     </a-button>
@@ -121,13 +121,13 @@
               >
                 <TermFileSystem
                   v-if="isOpened(String(selectedLeftUuid))"
-                  :ref="fsRefFor(String(selectedLeftUuid))"
-                  :key="String(selectedLeftUuid)"
-                  :uuid="String(selectedLeftUuid)"
-                  :current-directory-input="resolvePaths(String(selectedLeftUuid))"
-                  :base-path="getBasePath(String(selectedLeftUuid))"
+                  :ref="fsRefFor(selectedLeftRawId)"
+                  :key="selectedLeftRawId"
+                  :uuid="selectedLeftRawId"
+                  :current-directory-input="resolvePaths(selectedLeftRawId)"
+                  :base-path="getBasePath(selectedLeftRawId)"
                   panel-side="left"
-                  :cached-state="FS_CACHE.get(String(selectedLeftUuid))?.cache"
+                  :cached-state="FS_CACHE.get(selectedLeftRawId)?.cache"
                   ui-mode="transfer"
                   @state-change="stateChange"
                   @open-file="openFile"
@@ -201,7 +201,7 @@
                 :dropdown-match-select-width="false"
                 @change="onRightSelectChange"
               >
-                <template #option="{ value, label }">
+                <template #option="{ value, label, rawId }">
                   <div class="session-select-option">
                     <span class="opt-label">{{ label }}</span>
                     <a-button
@@ -210,7 +210,7 @@
                       size="small"
                       class="opt-close"
                       :disabled="sideLoading.right"
-                      @mousedown.prevent.stop="closeSftpById(String(value))"
+                      @mousedown.prevent.stop="closeSftpById(String(rawId || value))"
                     >
                       <CloseOutlined />
                     </a-button>
@@ -257,13 +257,13 @@
               >
                 <TermFileSystem
                   v-if="isOpened(String(selectedRightUuid))"
-                  :ref="fsRefFor(String(selectedRightUuid))"
-                  :key="String(selectedRightUuid)"
-                  :uuid="String(selectedRightUuid)"
-                  :current-directory-input="resolvePaths(String(selectedRightUuid))"
-                  :base-path="getBasePath(String(selectedRightUuid))"
+                  :ref="fsRefFor(selectedRightRawId)"
+                  :key="selectedRightRawId"
+                  :uuid="selectedRightRawId"
+                  :current-directory-input="resolvePaths(selectedRightRawId)"
+                  :base-path="getBasePath(selectedRightRawId)"
                   panel-side="right"
-                  :cached-state="FS_CACHE.get(String(selectedRightUuid))?.cache"
+                  :cached-state="FS_CACHE.get(selectedRightRawId)?.cache"
                   ui-mode="transfer"
                   @state-change="stateChange"
                   @open-file="openFile"
@@ -326,10 +326,10 @@
             </span>
             <div v-if="dataRef.expanded || expandedKeys.includes(dataRef.key)">
               <TermFileSystem
-                :uuid="dataRef.value"
-                :current-directory-input="resolvePaths(dataRef.value)"
-                :base-path="getBasePath(dataRef.value)"
-                :cached-state="FS_CACHE.get(dataRef.value)?.cache"
+                :uuid="dataRef.rawId || dataRef.value"
+                :current-directory-input="resolvePaths(dataRef.rawId || dataRef.value)"
+                :base-path="getBasePath(dataRef.rawId || dataRef.value)"
+                :cached-state="FS_CACHE.get(dataRef.rawId || dataRef.value)?.cache"
                 @open-file="openFile"
                 @state-change="stateChange"
                 @cross-transfer="handleCrossTransfer"
@@ -769,19 +769,29 @@ const connectSftpFromAssetNode = async (node: any, side: PanelSide) => {
     // The current asset UUID corresponding to the side connection, used for drag-and-drop disablement judgment
     sideCurrentAssetKey[side] = uuid
 
-    let found = false
+    let foundNode: any = null
     for (let i = 0; i < 6; i++) {
       await listUserSessions()
-      found = sessionNodes.value.some((n: any) => String(n.value) === targetId)
-      if (found) break
+      foundNode = sessionNodes.value.find((n: any) => {
+        const rawId = String(n.rawId || n.value || '')
+        return getConnKey(rawId) === getConnKey(targetId)
+      })
+      if (foundNode) break
       await new Promise((r) => setTimeout(r, 150))
+    }
+
+    if (foundNode?.rawId) {
+      const rawId = String(foundNode.rawId)
+      aliasToRaw.set(targetId, rawId)
+      rawToAlias.set(rawId, targetId)
+      await listUserSessions()
     }
 
     if (!targetId) return
     if (side === 'left') {
       selectedLeftUuid.value = targetId
       // The default setting should be kept as "Local"; if the same connection appears, revert to "Local" on the right side
-      if (String(selectedRightUuid.value || '') === targetId) selectedRightUuid.value = LOCAL_ID
+      if (String(selectedRightUuid.value || '') === targetId) selectedRightUuid.value = makeLocalId('right')
     } else {
       selectedRightUuid.value = targetId
       if (String(selectedLeftUuid.value || '') === targetId) selectedLeftUuid.value = ''
@@ -796,6 +806,14 @@ const connectSftpFromAssetNode = async (node: any, side: PanelSide) => {
     sideLoading[side] = false
   }
 }
+const isLocalAssetPayload = (node: any) => {
+  const ip = String(node?.ip || node?.host || '').toLowerCase()
+  const orgId = String(node?.organizationId || node?.organizationUuid || '').toLowerCase()
+  const assetType = String(node?.asset_type || '').toLowerCase()
+  const port = Number(node?.port || 0)
+
+  return (ip === '127.0.0.1' || ip === 'localhost') && orgId.includes('person') && (assetType === 'shell' || port === 0)
+}
 
 const handleOpenSftpByAssetNode = async (payload: any) => {
   let side = payload?.side as PanelSide | 'auto' | undefined
@@ -807,6 +825,56 @@ const handleOpenSftpByAssetNode = async (payload: any) => {
 
   const finalSide: PanelSide = side === 'left' ? 'left' : 'right'
   const node = payload?.node
+
+  // Local shell
+  if (isLocalAssetPayload(node)) {
+    const leftLocalId = makeLocalId('left')
+    const rightLocalId = makeLocalId('right')
+    const targetLocalId = makeLocalId(finalSide)
+
+    const currentLeft = String(selectedLeftUuid.value || '')
+    const currentRight = String(selectedRightUuid.value || '')
+
+    if (finalSide === 'left' && currentLeft === leftLocalId) {
+      message.info(t('files.openedOnLeft'))
+      return
+    }
+    if (finalSide === 'right' && currentRight === rightLocalId) {
+      message.info(t('files.openedOnRight'))
+      return
+    }
+
+    if (payload?.side !== 'left' && payload?.side !== 'right') {
+      if (currentLeft === leftLocalId) {
+        message.info(t('files.openedOnLeft'))
+        return
+      }
+      if (currentRight === rightLocalId) {
+        message.info(t('files.openedOnRight'))
+        return
+      }
+    }
+
+    if (finalSide === 'left') {
+      selectedLeftUuid.value = targetLocalId
+      if (currentRight === targetLocalId) {
+        selectedRightUuid.value = ''
+      }
+    } else {
+      selectedRightUuid.value = targetLocalId
+      if (currentLeft === targetLocalId) {
+        selectedLeftUuid.value = ''
+      }
+    }
+
+    ensureSessionState(targetLocalId)
+    collapsedState[targetLocalId] = false
+    openSession(targetLocalId)
+    await listUserSessions()
+    await nextTick()
+    await refreshAfterSelect(targetLocalId)
+    return
+  }
 
   await connectSftpFromAssetNode(node, finalSide)
 }
@@ -820,12 +888,12 @@ onMounted(async () => {
   }
   await listUserSessions()
 
-  if (uiMode.value === 'transfer' && selectedRightUuid.value === LOCAL_ID) {
-    ensureSessionState(LOCAL_ID)
-    collapsedState[LOCAL_ID] = false
-    openSession(LOCAL_ID)
+  if (uiMode.value === 'transfer' && selectedRightUuid.value === makeLocalId('right')) {
+    ensureSessionState(makeLocalId('right'))
+    collapsedState[makeLocalId('right')] = false
+    openSession(makeLocalId('right'))
     await nextTick()
-    await refreshAfterSelect(LOCAL_ID)
+    await refreshAfterSelect(makeLocalId('right'))
   }
 
   eventBus.on('activeTabChanged', handleActiveTabChanged)
@@ -862,6 +930,17 @@ interface SftpConnectionInfo {
 }
 
 const LOCAL_ID = 'localhost@127.0.0.1:local:TG9jYWw='
+const makeLocalId = (side: PanelSide) => `${LOCAL_ID}:files-${side}`
+const getConnKey = (id: string) => {
+  const parts = String(id || '').split(':')
+  return parts.length >= 4 ? parts.slice(0, 3).join(':') : String(id || '')
+}
+const aliasToRaw = reactive(new Map<string, string>())
+const rawToAlias = reactive(new Map<string, string>())
+const resolveRawId = (id: string) => {
+  const sid = String(id || '')
+  return aliasToRaw.get(sid) || sid
+}
 const isLocalTeam = (id: string) => String(id || '').includes('local-team')
 const isLocal = (id: string) => String(id || '').includes('localhost@127.0.0.1:local')
 
@@ -880,7 +959,8 @@ const getConnDisplayName = (id: string) => {
     }
   }
 
-  if (isLocal(sid)) {
+  const normalizedIp = String(ip || '').toLowerCase()
+  if (isLocal(sid) || normalizedIp === '127.0.0.1' || normalizedIp === 'localhost') {
     ip = 'Local'
   }
 
@@ -890,39 +970,39 @@ const getConnDisplayName = (id: string) => {
 const listUserSessions = async () => {
   const sessionData: SftpConnectionInfo[] = await api.sftpConnList()
 
-  if (!sessionData.some((s) => isLocal(String(s.id)))) {
-    sessionData.unshift({
-      id: LOCAL_ID,
-      isSuccess: true
-    } as SftpConnectionInfo)
-  }
+  const localIds = Array.from(
+    new Set([makeLocalId('right'), selectedLeftUuid.value, selectedRightUuid.value].map((v) => String(v || '')).filter((v) => isLocal(v)))
+  )
+
+  localIds.forEach((id) => {
+    if (!sessionData.some((s) => String(s.id) === id)) {
+      sessionData.unshift({
+        id,
+        isSuccess: true
+      } as SftpConnectionInfo)
+    }
+  })
 
   const alive = new Set(sessionData.map((s) => String(s.id)))
   for (const k of Array.from(FS_CACHE.keys())) {
     if (!alive.has(k)) FS_CACHE.delete(k)
   }
 
-  const sessionResult = sessionData.reduce<Record<string, SftpConnectionInfo>>((acc, item) => {
-    const id = String(item.id || '')
-    const [, rest = ''] = id.split('@')
-    const parts = rest.split(':')
+  const normalizedSessions = sessionData.map((item) => {
+    const rawId = String(item.id || '')
+    const aliasId = rawToAlias.get(rawId) || rawId
+    return {
+      ...item,
+      id: aliasId,
+      rawId
+    } as SftpConnectionInfo & { rawId: string }
+  })
 
-    let ip = parts[0] || 'Unknown'
+  const sessionResult = normalizedSessions.reduce<Record<string, SftpConnectionInfo & { rawId: string }>>((acc, item) => {
+    const rawId = String(item.rawId || item.id || '')
+    const displayName = getConnDisplayName(rawId) || 'Unknown'
 
-    if (isLocalTeam(id)) {
-      const hostnameBase64 = parts[2] || 'Unknown'
-      try {
-        ip = Base64Util.decode(hostnameBase64)
-      } catch {
-        ip = 'Unknown'
-      }
-    }
-
-    if (isLocal(id)) {
-      ip = 'Local'
-    }
-
-    if (!(ip in acc)) acc[ip] = item
+    if (!(displayName in acc)) acc[displayName] = item
     return acc
   }, {})
 
@@ -930,7 +1010,7 @@ const listUserSessions = async () => {
 }
 
 const objectToTreeData = (obj: object): any[] => {
-  return Object.entries(obj).map(([key, value]) => {
+  return Object.entries(obj).map(([key, value]: any) => {
     const keys: string[] = []
     const isActive = currentActiveTerminal.value && currentActiveTerminal.value.ip === key
 
@@ -940,6 +1020,7 @@ const objectToTreeData = (obj: object): any[] => {
       key: key,
       draggable: true,
       value: String(value.id),
+      rawId: String(value.rawId || value.id),
       isLeaf: false,
       class: isActive ? 'active-terminal' : ''
     }
@@ -985,12 +1066,12 @@ const invokeIpc = (channel: string, payload?: any) => {
 }
 
 const closeSftpById = async (id: string) => {
-  const cid = String(id || '')
+  const cid = resolveRawId(String(id || ''))
   if (!cid || cid === CREATE_FILE_CONN_VALUE || isLocal(cid)) return
 
   try {
-    if (pendingConnect.left?.id === cid) await cancelConnect('left')
-    if (pendingConnect.right?.id === cid) await cancelConnect('right')
+    if (resolveRawId(String(pendingConnect.left?.id || '')) === cid) await cancelConnect('left')
+    if (resolveRawId(String(pendingConnect.right?.id || '')) === cid) await cancelConnect('right')
 
     if ((api as any)?.sftpClose) {
       await (api as any).sftpClose({ id: cid })
@@ -998,8 +1079,8 @@ const closeSftpById = async (id: string) => {
       await invokeIpc('ssh:sftp:close', { id: cid })
     }
 
-    if (String(selectedLeftUuid.value || '') === cid) closeLeftPanel()
-    if (String(selectedRightUuid.value || '') === cid) closeRightPanel()
+    if (resolveRawId(String(selectedLeftUuid.value || '')) === cid) closeLeftPanel()
+    if (resolveRawId(String(selectedRightUuid.value || '')) === cid) closeRightPanel()
 
     await listUserSessions()
     message.success(t('files.sftpClosed'))
@@ -1211,18 +1292,22 @@ const handleEmptyDrop = async (e: DragEvent, side: PanelSide) => {
   const fp = (fileList[0] as any)?.path ? String((fileList[0] as any).path) : ''
   const dir = fp ? dirnameFsPath(fp) : ''
 
-  if (side === 'left') selectedLeftUuid.value = LOCAL_ID
-  else selectedRightUuid.value = LOCAL_ID
-
-  if (dir) {
-    const entry = FS_CACHE.get(LOCAL_ID) || {}
-    entry.cache = { path: dir, ts: Date.now() }
-    FS_CACHE.set(LOCAL_ID, entry)
+  if (side === 'left') {
+    selectedLeftUuid.value = makeLocalId('left')
+  } else {
+    selectedRightUuid.value = makeLocalId('right')
   }
 
-  ensureSessionState(LOCAL_ID)
-  openSession(LOCAL_ID)
-  await refreshAfterSelect(LOCAL_ID)
+  const localId = makeLocalId(side)
+  if (dir) {
+    const entry = FS_CACHE.get(localId) || {}
+    entry.cache = { path: dir, ts: Date.now() }
+    FS_CACHE.set(localId, entry)
+  }
+
+  ensureSessionState(localId)
+  openSession(localId)
+  await refreshAfterSelect(localId)
 }
 
 const uiMode = ref<UiMode>('transfer')
@@ -1347,10 +1432,12 @@ const sessionMap = computed(() => {
 const sessionNodes = computed(() => ((treeData.value as any[]) || []) as any[])
 
 const selectedLeftUuid = ref<string>('')
-const selectedRightUuid = ref<string>(LOCAL_ID)
+const selectedRightUuid = ref<string>(makeLocalId('right'))
 
 const selectedLeftNode = computed(() => sessionMap.value.get(String(selectedLeftUuid.value)))
 const selectedRightNode = computed(() => sessionMap.value.get(String(selectedRightUuid.value)))
+const selectedLeftRawId = computed(() => resolveRawId(String(selectedLeftNode.value?.rawId || selectedLeftUuid.value || '')))
+const selectedRightRawId = computed(() => resolveRawId(String(selectedRightNode.value?.rawId || selectedRightUuid.value || '')))
 
 type AddConnTarget = 'left' | 'right'
 const addConnTargetSide = ref<AddConnTarget>('right')
@@ -1359,11 +1446,13 @@ const CREATE_FILE_CONN_VALUE = '__create_file_conn__'
 
 const leftSelectOptions = computed(() => {
   const opts = sessionNodes.value.map((n: any) => ({
-    label: getConnDisplayName(String(n.value ?? '')),
+    label: getConnDisplayName(String(n.rawId ?? n.value ?? '')),
     value: String(n.value ?? ''),
+    rawId: String(n.rawId ?? n.value ?? ''),
     disabled: !!selectedRightUuid.value && String(n.value) === String(selectedRightUuid.value)
   }))
   opts.push({
+    rawId: '',
     label: t('files.addSftpConnection'),
     value: CREATE_FILE_CONN_VALUE,
     disabled: false
@@ -1373,11 +1462,13 @@ const leftSelectOptions = computed(() => {
 
 const rightSelectOptions = computed(() => {
   const opts = sessionNodes.value.map((n: any) => ({
-    label: getConnDisplayName(String(n.value ?? '')),
+    label: getConnDisplayName(String(n.rawId ?? n.value ?? '')),
     value: String(n.value ?? ''),
+    rawId: String(n.rawId ?? n.value ?? ''),
     disabled: !!selectedLeftUuid.value && String(n.value) === String(selectedLeftUuid.value)
   }))
   opts.push({
+    rawId: '',
     label: t('files.addSftpConnection'),
     value: CREATE_FILE_CONN_VALUE,
     disabled: false
@@ -1391,7 +1482,9 @@ watch(
   selectedRightUuid,
   (v) => {
     const val = String(v || '')
-    if (val && val !== CREATE_FILE_CONN_VALUE) lastRightUuid.value = val
+    if (val && val !== CREATE_FILE_CONN_VALUE) {
+      lastRightUuid.value = val
+    }
   },
   { immediate: true }
 )
@@ -1402,7 +1495,10 @@ watch(
   selectedLeftUuid,
   (v) => {
     const val = String(v || '')
-    if (val && val !== CREATE_FILE_CONN_VALUE) lastLeftUuid.value = val
+
+    if (val && val !== CREATE_FILE_CONN_VALUE) {
+      lastLeftUuid.value = val
+    }
   },
   { immediate: true }
 )
@@ -1429,7 +1525,7 @@ const onLeftSelectChange = async (v: any) => {
 }
 
 const refreshAfterSelect = async (uuid: string) => {
-  const u = String(uuid || '')
+  const u = resolveRawId(String(uuid || ''))
   if (!u || u === CREATE_FILE_CONN_VALUE) return
 
   await nextTick()
@@ -1779,23 +1875,24 @@ const onHostClick = async (item: HostOption) => {
   if (item.isLocalHost) {
     const target: PanelSide = addConnTargetSide.value === 'left' ? 'left' : 'right'
     if (target === 'left') {
-      selectedLeftUuid.value = LOCAL_ID
-      if (String(selectedRightUuid.value || '') === LOCAL_ID) selectedRightUuid.value = ''
+      selectedLeftUuid.value = makeLocalId('left')
+      if (isLocal(String(selectedRightUuid.value || ''))) selectedRightUuid.value = ''
     } else {
-      selectedRightUuid.value = LOCAL_ID
-      if (String(selectedLeftUuid.value || '') === LOCAL_ID) selectedLeftUuid.value = ''
+      selectedRightUuid.value = makeLocalId('right')
+      if (isLocal(String(selectedLeftUuid.value || ''))) selectedLeftUuid.value = ''
     }
 
-    ensureSessionState(LOCAL_ID)
-    collapsedState[LOCAL_ID] = false
-    openSession(LOCAL_ID)
+    const localId = makeLocalId(target)
+    ensureSessionState(localId)
+    collapsedState[localId] = false
+    openSession(localId)
 
     addConnVisible.value = false
     assetSearchValue.value = ''
     hovered.value = null
     keyboardSelectedIndex.value = -1
     await nextTick()
-    await refreshAfterSelect(LOCAL_ID)
+    await refreshAfterSelect(localId)
     return
   }
   // Convert to payload expected by connectSftpFromAssetNode
@@ -1852,7 +1949,7 @@ const onRightSelectChange = async (v: any) => {
 
   if (val === CREATE_FILE_CONN_VALUE) {
     selectedRightUuid.value = lastRightUuid.value || ''
-    openAddConnModal('right')
+    await openAddConnModal('right')
     return
   }
 
@@ -1866,12 +1963,12 @@ const onRightSelectChange = async (v: any) => {
 }
 const addRightPanel = async () => {
   selectedRightUuid.value = lastRightUuid.value || ''
-  openAddConnModal('right')
+  await openAddConnModal('right')
   return
 }
 const addLeftPanel = async () => {
   selectedLeftUuid.value = lastLeftUuid.value || ''
-  openAddConnModal('left')
+  await openAddConnModal('left')
   return
 }
 

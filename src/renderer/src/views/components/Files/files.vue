@@ -136,7 +136,9 @@
             <template v-if="column.dataIndex === 'name'">
               <div
                 class="file-name-cell"
+                :class="{ 'dir-name-cell-clickable': !editableData[record.key] && record.isDir }"
                 style="position: relative"
+                @click="!editableData[record.key] && record.isDir && rowClick(record as FileRecord)"
               >
                 <template v-if="editableData[record.key]">
                   <span style="position: absolute; top: 0; left: 0; display: flex; align-items: center; padding-right: 8px">
@@ -180,8 +182,6 @@
                   <span
                     v-if="record.isDir"
                     class="file-name-main"
-                    style="cursor: pointer"
-                    @click="rowClick(record as FileRecord)"
                   >
                     <FolderFilled
                       class="file-name-icon"
@@ -2010,7 +2010,9 @@ defineExpose({
   display: flex;
   align-items: center;
 }
-
+.dir-name-cell-clickable {
+  cursor: pointer;
+}
 .files-table :deep(.ant-table-cell::before) {
   display: none !important;
 }
@@ -2083,6 +2085,7 @@ defineExpose({
 .file-name-icon {
   flex: 0 0 auto;
   margin-right: 4px;
+  flex-shrink: 0;
 }
 
 .file-name-text {
