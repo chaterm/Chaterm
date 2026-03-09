@@ -1,4 +1,4 @@
-import Home from '@/views/index.vue'
+const Home = () => import('@/views/index.vue')
 import Login from '@/views/auth/login.vue'
 
 export const AppRoutes = [
