@@ -8,7 +8,9 @@ import { Anthropic } from '@anthropic-ai/sdk'
 import cloneDeep from 'clone-deep'
 import os from 'os'
 import path from 'path'
+import { createReadStream } from 'fs'
 import * as fs from 'fs/promises'
+import * as readline from 'node:readline/promises'
 import { telemetryService } from '@services/telemetry/TelemetryService'
 import { mark } from '@perf'
 import pWaitFor from 'p-wait-for'
@@ -46,6 +48,7 @@ import { globSearch } from '../../services/glob/list-files'
 import { regexSearchMatches as localGrepSearch } from '../../services/grep/index'
 import { buildRemoteGlobCommand, parseRemoteGlobOutput, buildRemoteGrepCommand, parseRemoteGrepOutput } from '../../services/search/remote'
 import { broadcastInteractionClosed } from '../../services/interaction-detector/ipc-handlers'
+import { getOffloadDir, shouldOffload, writeToolOutput } from '../offload'
 
 interface StreamMetrics {
   didReceiveUsageChunk?: boolean
@@ -66,7 +69,7 @@ import { LocalTerminalManager, LocalCommandProcess } from '../../integrations/lo
 import { createLlmCaller } from '../../services/interaction-detector/llm-caller'
 import type { InteractionResult } from '../../services/interaction-detector/types'
 import { formatResponse } from '@core/prompts/responses'
-import { addUserInstructions, SYSTEM_PROMPT, SYSTEM_PROMPT_CHAT, SYSTEM_PROMPT_CN, SYSTEM_PROMPT_CHAT_CN } from '@core/prompts/system'
+import { addUserInstructions, SYSTEM_PROMPT, SYSTEM_PROMPT_CN } from '@core/prompts/system'
 import { getSwitchPromptByAssetType } from '@core/prompts/switch-prompts'
 import { SLASH_COMMANDS, getSummaryToDocPrompt } from '@core/prompts/slash-commands'
 import { CommandSecurityManager } from '../security/CommandSecurityManager'
@@ -91,6 +94,7 @@ import { ChatermDatabaseService } from '../../../storage/db/chaterm.service'
 import type { McpTool } from '@shared/mcp'
 
 import type { ContentPart, ContextDocRef, ContextPastChatRef, ContextRefs, Host } from '@shared/WebviewMessage'
+import type { ToolResult } from '@shared/ToolResult'
 import { ExternalAssetCache } from '../../../plugin/pluginIpc'
 import type { InteractionType } from '../../services/interaction-detector/types'
 const logger = createLogger('agent')
@@ -284,11 +288,14 @@ export class Task {
   private presentAssistantMessageHasPendingUpdates = false
   private userMessageContent: (Anthropic.TextBlockParam | Anthropic.ImageBlockParam)[] = []
   private userMessageContentReady = false
+  // Structured tool results produced during the last assistant turn.
+  // These are flushed into apiConversationHistory as dedicated tool_result
+  // messages before the next API request is prepared.
+  private pendingToolResults: ToolResult[] = []
   private didRejectTool = false
   private didAlreadyUseTool = false
   private didCompleteReadingStream = false
   // private didAutomaticallyRetryFailedApiRequest = false
-  private isInsideThinkingBlock = false
   private messages: Messages = getMessages(DEFAULT_LANGUAGE_SETTINGS)
 
   private setNextUserInputContentParts(parts?: ContentPart[]): void {
@@ -365,37 +372,15 @@ export class Task {
     // 2. Process command chips
     await this.processSlashCommands(userContent, parts)
 
-    // 3. Process doc and chat context refs
+    // 3. Process chat context refs
     const refs = this.buildContextRefsFromContentParts(parts)
-    const docs = refs?.docs ?? []
     const pastChats = refs?.pastChats ?? []
 
-    const hasContextData = docs.length > 0 || pastChats.length > 0
+    const hasContextData = pastChats.length > 0
     if (!hasContextData) return blocks
 
-    const MAX_DOCS = 5
-    const MAX_DOC_BYTES = 256 * 1024
     const MAX_PAST_CHATS = 2
     const MAX_PAST_CHAT_CHARS = 24000
-
-    const docLines: string[] = []
-
-    const selectedDocs = docs.slice(0, MAX_DOCS).sort((a, b) => a.absPath.localeCompare(b.absPath))
-
-    for (const doc of selectedDocs) {
-      try {
-        if (doc.type === 'dir') {
-          docLines.push(`- DIR: ${doc.absPath}`)
-          continue
-        }
-        const { content, meta } = await this.readFile(doc.absPath, MAX_DOC_BYTES)
-        docLines.push(`- FILE: ${doc.absPath}${meta ? ` (mtimeMs=${meta.mtimeMs}, bytes=${meta.bytes}, truncated=${meta.truncated})` : ''}`)
-        docLines.push(content)
-      } catch (e) {
-        const msg = e instanceof Error ? e.message : String(e)
-        docLines.push(`- CONTEXT_READ_ERROR: ${doc.absPath}: ${msg}`)
-      }
-    }
 
     const chatLines: string[] = []
     const selectedChats = pastChats.slice(0, MAX_PAST_CHATS).sort((a, b) => a.taskId.localeCompare(b.taskId))
@@ -413,10 +398,6 @@ export class Task {
 
     // 4. Build final context block (no <commands> tag - commands are expanded inline)
     const innerTags: string[] = []
-
-    if (docLines.length > 0) {
-      innerTags.push(['<docs>', ...docLines, '</docs>'].join('\n'))
-    }
 
     if (chatLines.length > 0) {
       innerTags.push(['<past-chats>', ...chatLines, '</past-chats>'].join('\n'))
@@ -611,6 +592,112 @@ export class Task {
     } catch {
       return 'en-US'
     }
+  }
+
+  /**
+   * Flush all pending structured tool results into the API conversation history
+   * as dedicated tool_result messages. This keeps tool outputs separate from
+   * the natural-language user content while still making them available for
+   * context management and provider transforms.
+   */
+  private async flushPendingToolResults(): Promise<void> {
+    if (this.pendingToolResults.length === 0) return
+
+    for (const result of this.pendingToolResults) {
+      const isError = result.isError ?? false
+
+      const toolResultBlock: any = {
+        type: 'tool_result',
+        tool_use_id: undefined,
+        // Directly store the structured ToolResult payload in content.
+        // Downstream provider adapters will see only text because
+        // normalizeToolResultsForApi() flattens these blocks before sending.
+        content: [result],
+        is_error: isError
+      }
+
+      await this.addToApiConversationHistory({
+        role: 'user',
+        content: [toolResultBlock]
+      })
+    }
+
+    this.pendingToolResults = []
+  }
+
+  /**
+   * Transform file_ref content blocks to text blocks with metadata
+   * This ensures API compatibility while preserving file reference information
+   */
+  private normalizeToolResultsForApi(conversationHistory: Anthropic.MessageParam[]): Anthropic.MessageParam[] {
+    return conversationHistory.map((message) => {
+      if (!Array.isArray(message.content)) {
+        return message
+      }
+
+      const transformedContent = message.content.map((block) => {
+        const anyBlock = block as any
+
+        // New V2: tool_result blocks contain structured ToolResult payloads.
+        // Before sending to the provider, we flatten these into plain text so
+        // that downstream adapters only see supported block types.
+        if (anyBlock.type === 'tool_result') {
+          const toolResult = anyBlock
+          const lines: string[] = []
+
+          const addFromToolResult = (tr: ToolResult) => {
+            const segments: string[] = []
+            const header = tr.toolDescription || tr.toolName
+
+            if (header) {
+              segments.push(`Tool ${header}`)
+            }
+            if (tr.ip) {
+              segments.push(`on ${tr.ip}`)
+            }
+            if (typeof tr.size === 'number') {
+              segments.push(`(~${tr.size} bytes)`)
+            }
+            if (typeof tr.lineCount === 'number') {
+              segments.push(`(~${tr.lineCount} lines)`)
+            }
+            if (typeof tr.isError === 'boolean') {
+              segments.push(tr.isError ? 'ended with error' : 'completed successfully')
+            }
+            if (typeof tr.errorMessage === 'string' && tr.errorMessage.length > 0) {
+              segments.push(`error: ${tr.errorMessage}`)
+            }
+            if (typeof tr.result === 'string' && tr.result.length > 0) {
+              segments.push(`result: ${tr.result}`)
+            }
+
+            if (segments.length > 0) {
+              lines.push(segments.join(', '))
+            }
+          }
+
+          if (Array.isArray(toolResult.content)) {
+            for (const tr of toolResult.content as ToolResult[]) {
+              addFromToolResult(tr)
+            }
+          } else if (toolResult.content) {
+            addFromToolResult(toolResult.content as ToolResult)
+          }
+
+          return {
+            type: 'text',
+            text: lines.join('\n')
+          } as Anthropic.TextBlockParam
+        }
+
+        return block
+      })
+
+      return {
+        ...message,
+        content: transformedContent
+      }
+    })
   }
 
   /**
@@ -1526,13 +1613,11 @@ export class Task {
         await this.say('command_output', lastMessage.text, false, hostInfo)
       }
 
-      const truncatedResult = this.truncateCommandOutput(result)
-
       if (completed) {
-        return `${this.messages.commandExecutedOutput}${truncatedResult.length > 0 ? `\nOutput:\n${truncatedResult}` : ''}`
+        return `${this.messages.commandExecutedOutput}${result.length > 0 ? `\nOutput:\n${result}` : ''}`
       } else {
         return `${this.messages.commandStillRunning}${
-          truncatedResult.length > 0 ? `${this.messages.commandHereIsOutput}${truncatedResult}` : ''
+          result.length > 0 ? `${this.messages.commandHereIsOutput}${result}` : ''
         }${this.messages.commandUpdateFuture}`
       }
     } catch (error) {
@@ -1672,13 +1757,11 @@ export class Task {
       }
       result = result.trim()
 
-      const truncatedResult = this.truncateCommandOutput(result)
-
       if (completed) {
-        return `${this.messages.commandExecutedOutput}${truncatedResult.length > 0 ? `\nOutput:\n${truncatedResult}` : ''}`
+        return `${this.messages.commandExecutedOutput}${result.length > 0 ? `\nOutput:\n${result}` : ''}`
       } else {
         return `${this.messages.commandStillRunning}${
-          truncatedResult.length > 0 ? `${this.messages.commandHereIsOutput}${truncatedResult}` : ''
+          result.length > 0 ? `${this.messages.commandHereIsOutput}${result}` : ''
         }${this.messages.commandUpdateFuture}`
       }
     } catch (err) {
@@ -1693,8 +1776,7 @@ export class Task {
 
       // Check if this is a graceful cancel with partial output
       if (this.gracefulCancel && result && result.trim()) {
-        const truncatedResult = this.truncateCommandOutput(result)
-        return `Command was gracefully cancelled with partial output.${truncatedResult.length > 0 ? `\nPartial Output:\n${truncatedResult}` : ''}`
+        return `Command was gracefully cancelled with partial output.${result.length > 0 ? `\nPartial Output:\n${result}` : ''}`
       }
 
       // Original error handling logic
@@ -1754,6 +1836,10 @@ export class Task {
       conversationHistory = this.contextManager.filterConversationHistoryByTimestamp(conversationHistory, this.chatermMessages, this.summarizeUpToTs)
       this.summarizeUpToTs = undefined
     }
+
+    // Normalize tool_result and legacy file_ref blocks into text-only content
+    // so that downstream provider adapters see only supported block types.
+    conversationHistory = this.normalizeToolResultsForApi(conversationHistory)
 
     mark('chaterm/agent/willCallAPI')
     let stream = this.api.createMessage(systemPrompt, conversationHistory)
@@ -1844,6 +1930,11 @@ export class Task {
     if (this.abort) {
       throw new Error('Chaterm instance aborted')
     }
+
+    // Before starting a new API request, flush any structured tool results
+    // that were accumulated during the previous assistant turn into the
+    // API conversation history as dedicated tool_result messages.
+    await this.flushPendingToolResults()
 
     // Check if user input needs todo creation (for subsequent conversations)
     await this.checkUserContentForTodo(userContent)
@@ -2095,7 +2186,6 @@ export class Task {
     this.presentAssistantMessageLocked = false
     this.presentAssistantMessageHasPendingUpdates = false
     // this.didAutomaticallyRetryFailedApiRequest = false
-    this.isInsideThinkingBlock = false
   }
 
   private async processStream(stream: ApiStream, streamMetrics: StreamMetrics, messageUpdater: MessageUpdater): Promise<string> {
@@ -2513,16 +2603,18 @@ export class Task {
         }
 
         const ipList = ip!.split(',')
-        let result = ''
-        for (const ip of ipList) {
-          result += `\n\n# Executing result on ${ip}:`
-          result += await this.executeCommandTool(command!, ip!)
+        let uiResult = ''
+        for (const singleIp of ipList) {
+          const output = await this.executeCommandTool(command!, singleIp)
+          await this.pushToolResult(toolDescription, output, {
+            toolName: block.name,
+            ip: singleIp
+          })
+          uiResult += `\n\n# Executing result on ${singleIp}:\n${output}`
         }
         if (timeoutId) {
           clearTimeout(timeoutId)
         }
-
-        this.pushToolResult(toolDescription, result)
 
         // Record tool call to active todo
         try {
@@ -2535,8 +2627,8 @@ export class Task {
           // Don't affect main functionality, only log error
         }
 
-        // Add todo status update reminder
-        await this.addTodoStatusUpdateReminder(result)
+        // Add todo status update reminder (use UI-friendly formatted result)
+        await this.addTodoStatusUpdateReminder(uiResult)
 
         await this.saveCheckpoint()
       }
@@ -2548,7 +2640,7 @@ export class Task {
 
   private async handleMissingParam(paramName: string, toolDescription: string, toolName: ToolUseName): Promise<void> {
     this.consecutiveMistakeCount++
-    this.pushToolResult(toolDescription, await this.sayAndCreateMissingParamError(toolName, paramName))
+    await this.pushToolResult(toolDescription, await this.sayAndCreateMissingParamError(toolName, paramName))
     return this.saveCheckpoint()
   }
   /**
@@ -2592,7 +2684,7 @@ export class Task {
         const fullBlockedMessage = `${blockedMessage}\n\n${this.messages.securitySettingsLink}`
         await this.say('command_blocked', fullBlockedMessage, false)
         // Return tool execution blocked result to LLM, use keyword to trigger security stop mechanism
-        this.pushToolResult(toolDescription, `command_blocked! ${blockedMessage}`)
+        await this.pushToolResult(toolDescription, `command_blocked! ${blockedMessage}`)
         await this.saveCheckpoint()
         return { needsSecurityApproval: false, securityMessage: '', shouldReturn: true }
       }
@@ -2607,7 +2699,8 @@ export class Task {
   private getToolDescription(block: any): string {
     switch (block.name) {
       case 'execute_command':
-        return `[${block.name} for '${block.params.command}']`
+        // Keep description concise; avoid embedding verbose "for" phrasing.
+        return `[${block.name} '${block.params.command}']`
       case 'ask_followup_question':
         return `[${block.name} for '${block.params.question}']`
       case 'attempt_completion':
@@ -2627,19 +2720,69 @@ export class Task {
     }
   }
 
-  private pushToolResult(toolDescription: string, content: ToolResponse, options?: { dontLock?: boolean }): void {
-    this.userMessageContent.push({
-      type: 'text',
-      text: `${toolDescription} Result:`
-    })
-    if (typeof content === 'string') {
-      this.userMessageContent.push({
-        type: 'text',
-        text: content || '(tool did not return anything)'
-      })
-    } else {
-      this.userMessageContent.push(...content)
+  private async pushToolResult(
+    toolDescription: string,
+    content: ToolResponse,
+    options?: {
+      dontLock?: boolean
+      toolName?: string
+      ip?: string
+      hosts?: Host[]
+      isError?: boolean
+      ephemeral?: boolean
+      skipOffload?: boolean
     }
+  ): Promise<void> {
+    let docPath: string | undefined
+    let size: number | undefined
+    let resultText: string | undefined
+    let lineCount: number | undefined
+
+    if (typeof content === 'string') {
+      const text = content || '(tool did not return anything)'
+      lineCount = text.split(/\r\n|\r|\n/).length
+      if (!options?.skipOffload && shouldOffload(text)) {
+        try {
+          const offloadResult = await writeToolOutput(this.taskId, toolDescription, text)
+          docPath = `@offload/${offloadResult.relativePath}`
+          size = offloadResult.size
+          // Avoid duplicating large content in context; keep a short note instead.
+          resultText = `Offloaded output to ${docPath}`
+        } catch (error) {
+          logger.error('[pushToolResult] Failed to offload tool output, falling back to inline', {
+            error
+          })
+          resultText = text
+        }
+      } else {
+        resultText = text
+      }
+    } else {
+      const textParts = content
+        .filter((block) => block.type === 'text')
+        .map((block) => (block as Anthropic.TextBlockParam).text)
+        .join('\n')
+      resultText = textParts || '(tool did not return anything)'
+      lineCount = resultText.split(/\r\n|\r|\n/).length
+    }
+
+    const toolResult: ToolResult = {
+      toolName: options?.toolName ?? toolDescription,
+      toolDescription,
+      taskId: this.taskId,
+      timestamp: Date.now(),
+      ip: options?.ip,
+      hosts: options?.hosts,
+      docPath,
+      size,
+      lineCount,
+      isError: options?.isError,
+      ephemeral: options?.ephemeral,
+      result: resultText
+    }
+
+    this.pendingToolResults.push(toolResult)
+
     // For todo tools, we allow combining with one additional tool in the same message.
     // When options.dontLock is true, do not mark that a tool has been used yet.
     if (!options?.dontLock) {
@@ -2647,12 +2790,18 @@ export class Task {
     }
   }
 
-  private pushAdditionalToolFeedback(feedback?: string): void {
+  private async pushAdditionalToolFeedback(feedback?: string): Promise<void> {
     if (!feedback) return
-    const truncatedFeedback = this.truncateCommandOutput(feedback)
-    const content = formatResponse.toolResult(formatMessage(this.messages.userProvidedFeedback, { feedback: truncatedFeedback }))
+    const normalizedFeedback = this.truncateCommandOutput(feedback)
+    const content = formatResponse.toolResult(formatMessage(this.messages.userProvidedFeedback, { feedback: normalizedFeedback }))
+
+    // For V2, only keep a short note in userMessageContent; the full feedback
+    // is handled via structured tool_result metadata and content.
     if (typeof content === 'string') {
-      this.userMessageContent.push({ type: 'text', text: content })
+      this.userMessageContent.push({
+        type: 'text',
+        text: content
+      })
     } else {
       this.userMessageContent.push(...content)
     }
@@ -2669,15 +2818,15 @@ export class Task {
     }
 
     if (!approved) {
-      this.pushToolResult(toolDescription, formatResponse.toolDenied())
+      await this.pushToolResult(toolDescription, formatResponse.toolDenied())
       if (text) {
-        this.pushAdditionalToolFeedback(text)
+        await this.pushAdditionalToolFeedback(text)
         await this.saveUserMessage(text, contentParts)
         await this.saveCheckpoint()
       }
       this.didRejectTool = true
     } else if (text) {
-      this.pushAdditionalToolFeedback(text)
+      await this.pushAdditionalToolFeedback(text)
       await this.saveUserMessage(text, contentParts)
       await this.saveCheckpoint()
     }
@@ -2710,7 +2859,7 @@ export class Task {
     }
     const errorString = `Error ${action}: ${JSON.stringify(serializeError(error))}`
     await this.say('error', `Error ${action}:\n${error.message ?? JSON.stringify(serializeError(error), null, 2)}`)
-    this.pushToolResult(toolDescription, formatResponse.toolError(errorString))
+    await this.pushToolResult(toolDescription, formatResponse.toolError(errorString))
   }
 
   private async handleAskFollowupQuestionToolUse(block: ToolUse): Promise<void> {
@@ -2731,7 +2880,7 @@ export class Task {
 
       if (!question) {
         this.consecutiveMistakeCount++
-        this.pushToolResult(toolDescription, await this.sayAndCreateMissingParamError('ask_followup_question', 'question'))
+        await this.pushToolResult(toolDescription, await this.sayAndCreateMissingParamError('ask_followup_question', 'question'))
         await this.saveCheckpoint()
         return
       }
@@ -2763,7 +2912,7 @@ export class Task {
         await this.saveUserMessage(text ?? '', contentParts)
       }
 
-      this.pushToolResult(toolDescription, formatResponse.toolResult(`<answer>\n${text}\n</answer>`))
+      await this.pushToolResult(toolDescription, formatResponse.toolResult(`<answer>\n${text}\n</answer>`))
       await this.saveCheckpoint()
     } catch (error) {
       await this.handleToolError(toolDescription, 'asking question', error as Error)
@@ -2807,7 +2956,7 @@ export class Task {
 
       if (!result) {
         this.consecutiveMistakeCount++
-        this.pushToolResult(toolDescription, await this.sayAndCreateMissingParamError('attempt_completion', 'result'))
+        await this.pushToolResult(toolDescription, await this.sayAndCreateMissingParamError('attempt_completion', 'result'))
         return
       }
       this.consecutiveMistakeCount = 0
@@ -2843,7 +2992,7 @@ export class Task {
 
       const { response, text, contentParts } = await this.ask('completion_result', '', false)
       if (response === 'yesButtonClicked') {
-        this.pushToolResult(toolDescription, '')
+        await this.pushToolResult(toolDescription, '')
         return
       }
       await this.saveUserMessage(text ?? '', contentParts)
@@ -2879,7 +3028,7 @@ export class Task {
       }
       if (!context) {
         this.consecutiveMistakeCount++
-        this.pushToolResult(toolDescription, await this.sayAndCreateMissingParamError('condense', 'context'))
+        await this.pushToolResult(toolDescription, await this.sayAndCreateMissingParamError('condense', 'context'))
         await this.saveCheckpoint()
         return
       }
@@ -2896,12 +3045,12 @@ export class Task {
 
       if (text) {
         await this.saveUserMessage(text ?? '', contentParts)
-        this.pushToolResult(
+        await this.pushToolResult(
           toolDescription,
           formatResponse.toolResult(`The user provided feedback on the condensed conversation summary:\n<feedback>\n${text}\n</feedback>`)
         )
       } else {
-        this.pushToolResult(toolDescription, formatResponse.toolResult(formatResponse.condense()))
+        await this.pushToolResult(toolDescription, formatResponse.toolResult(formatResponse.condense()))
 
         const lastMessage = this.apiConversationHistory[this.apiConversationHistory.length - 1]
         const summaryAlreadyAppended = lastMessage && lastMessage.role === 'assistant'
@@ -2945,7 +3094,7 @@ export class Task {
       const requiredCheck = async (val: unknown, name: string): Promise<boolean> => {
         if (!val) {
           this.consecutiveMistakeCount++
-          this.pushToolResult(toolDescription, await this.sayAndCreateMissingParamError('report_bug', name))
+          await this.pushToolResult(toolDescription, await this.sayAndCreateMissingParamError('report_bug', name))
           await this.saveCheckpoint()
           return false
         }
@@ -2986,14 +3135,14 @@ export class Task {
       const { text, contentParts } = await this.ask('report_bug', bugReportData, false)
       if (text) {
         await this.saveUserMessage(text ?? '', contentParts)
-        this.pushToolResult(
+        await this.pushToolResult(
           toolDescription,
           formatResponse.toolResult(
             `The user did not submit the bug, and provided feedback on the Github issue generated instead:\n<feedback>\n${text}\n</feedback>`
           )
         )
       } else {
-        this.pushToolResult(toolDescription, formatResponse.toolResult('The user accepted the creation of the Github issue.'))
+        await this.pushToolResult(toolDescription, formatResponse.toolResult('The user accepted the creation of the Github issue.'))
         // Logic to create an issue can be added here
       }
       await this.saveCheckpoint()
@@ -3078,6 +3227,12 @@ export class Task {
       case 'grep_search':
         await this.handleGrepSearchToolUse(block)
         break
+      case 'read_file':
+        await this.handleReadFileToolUse(block)
+        break
+      case 'write_to_file':
+        await this.handleWriteToFileToolUse(block)
+        break
       case 'use_mcp_tool':
         await this.handleUseMcpToolUse(block)
         break
@@ -3127,8 +3282,19 @@ export class Task {
           .join('\n')
         if (list) summary += list
       } else {
+        // Determine base directory for local search
+        let baseDir = process.cwd()
+        let searchPath = relPath
+
+        // Check if searching in offload directory
+        if (relPath.startsWith('@offload/') || relPath.startsWith('offload/')) {
+          baseDir = getOffloadDir(this.taskId)
+          searchPath = relPath.replace(/^@?offload\//, '') || '.'
+          logger.info('[glob_search] Searching in offload directory', { taskId: this.taskId, searchPath })
+        }
+
         // Local
-        const res = await globSearch(process.cwd(), { pattern, path: relPath, limit, sort })
+        const res = await globSearch(baseDir, { pattern, path: searchPath, limit, sort })
         const count = res.total
         summary += `Found ${count} files matching "${pattern}" in ${relPath} (sorted by ${sort}).\n`
         const list = res.files
@@ -3141,7 +3307,7 @@ export class Task {
       // Show search results in UI immediately
       await this.say('search_result', summary.trim(), false)
       // Also push to LLM as tool result for context
-      this.pushToolResult(toolDescription, summary.trim())
+      await this.pushToolResult(toolDescription, summary.trim())
       await this.saveCheckpoint()
     } catch (error) {
       await this.handleToolError(toolDescription, 'glob search', error as Error)
@@ -3187,7 +3353,18 @@ export class Task {
           summary += '---\n'
         }
       } else {
-        const res = await localGrepSearch(process.cwd(), relPath, pattern, include, max, ctx, caseSensitive)
+        // Determine base directory for local search
+        let baseDir = process.cwd()
+        let searchPath = relPath
+
+        // Check if searching in offload directory
+        if (relPath.startsWith('@offload/') || relPath.startsWith('offload/')) {
+          baseDir = getOffloadDir(this.taskId)
+          searchPath = relPath.replace(/^@?offload\//, '') || '.'
+          logger.info('[grep_search] Searching in offload directory', { taskId: this.taskId, searchPath })
+        }
+
+        const res = await localGrepSearch(baseDir, searchPath, pattern, include, max, ctx, caseSensitive)
         matchesCount = res.total
         summary += `Found ${matchesCount} match(es) for /${pattern}/ in ${relPath}${include ? ` (filter: "${include}")` : ''}.\n---\n`
         const grouped: Record<string, { line: number; text: string }[]> = {}
@@ -3208,10 +3385,173 @@ export class Task {
       // Show search results in UI immediately
       await this.say('search_result', summary.trim(), false)
       // Also push to LLM as tool result for context
-      this.pushToolResult(toolDescription, summary.trim())
+      await this.pushToolResult(toolDescription, summary.trim())
       await this.saveCheckpoint()
     } catch (error) {
       await this.handleToolError(toolDescription, 'grep search', error as Error)
+      await this.saveCheckpoint()
+    }
+  }
+
+  private async handleReadFileToolUse(block: ToolUse): Promise<void> {
+    const toolDescription = this.getToolDescription(block)
+    try {
+      const filePath = block.params.path || block.params.file_path
+      // const ip = block.params.ip
+      const limit = block.params.limit ? Number.parseInt(block.params.limit, 10) : undefined
+      const offset = block.params.offset ? Math.max(Number.parseInt(block.params.offset, 10), 0) : 0
+
+      if (!filePath) {
+        await this.handleMissingParam('path', toolDescription, 'read_file')
+        return
+      }
+
+      let content = ''
+      let actualPath = filePath
+      let isOffloadFile = false
+
+      // Check if path is referencing an offload file
+      if (filePath.startsWith('@offload/') || filePath.startsWith('offload/')) {
+        const relativePath = filePath.replace(/^@?offload\//, '')
+        actualPath = path.join(getOffloadDir(this.taskId), relativePath)
+        isOffloadFile = true
+        logger.info('[read_file] Reading offload file', { taskId: this.taskId, relativePath })
+      }
+
+      // For offload files, enforce a safe default window size when the model
+      // does not provide an explicit limit to avoid loading the entire file
+      // into context in a single call.
+      const hasExplicitLimit = typeof limit === 'number' && !Number.isNaN(limit)
+      const effectiveLimit = hasExplicitLimit ? limit : isOffloadFile ? 200 : undefined
+
+      // TODO: Remote file reading
+      // if (ip && !this.isLocalHost(ip)) {
+      //   const hasLimit = typeof effectiveLimit === 'number' && !Number.isNaN(effectiveLimit)
+      //   const startLine = offset + 1
+      //   let readCommand: string
+
+      //   if (offset > 0 && hasLimit) {
+      //     // Read a specific window of lines
+      //     readCommand = `tail -n +${startLine} "${actualPath}" | head -n ${effectiveLimit}`
+      //   } else if (offset > 0) {
+      //     // Read from a specific line to the end
+      //     readCommand = `tail -n +${startLine} "${actualPath}"`
+      //   } else if (hasLimit) {
+      //     // Read only the first N lines
+      //     readCommand = `head -n ${effectiveLimit} "${actualPath}"`
+      //   } else {
+      //     // Read entire file
+      //     readCommand = `cat "${actualPath}"`
+      //   }
+
+      //   content = await this.executeCommandInRemoteServer(readCommand, ip, undefined)
+      // }
+      // Local file reading
+      const fullPath = path.isAbsolute(actualPath) ? actualPath : path.join(process.cwd(), actualPath)
+
+      // Security check: ensure file is within workspace, offload directory, or knowledge base directory
+      const workspace = process.cwd()
+      const offloadDir = getOffloadDir(this.taskId)
+      const resolvedPath = path.resolve(fullPath)
+
+      const isInWorkspace = resolvedPath.startsWith(workspace)
+      const isInOffload = resolvedPath.startsWith(offloadDir)
+      const isInKnowledgeBase = resolvedPath.includes(`${path.sep}knowledgebase${path.sep}`)
+
+      if (!isInWorkspace && !isInOffload && !isInKnowledgeBase) {
+        await this.pushToolResult(toolDescription, formatResponse.toolError(`Access denied: file is outside workspace and offload directory`))
+        await this.saveCheckpoint()
+        return
+      }
+
+      const lines: string[] = []
+      try {
+        const stream = createReadStream(fullPath, { encoding: 'utf-8' })
+        const rl = readline.createInterface({ input: stream, crlfDelay: Infinity })
+        let lineIndex = 0
+        try {
+          for await (const line of rl) {
+            lineIndex++
+            if (lineIndex < offset) {
+              continue
+            }
+            lines.push(line)
+            if (typeof effectiveLimit === 'number' && !Number.isNaN(effectiveLimit) && lines.length >= effectiveLimit) break
+          }
+          content = lines.join('\n')
+        } finally {
+          rl.close()
+        }
+      } catch (error) {
+        if ((error as NodeJS.ErrnoException).code === 'ENOENT') {
+          await this.pushToolResult(toolDescription, formatResponse.toolError(`File not found: ${actualPath}`))
+          await this.saveCheckpoint()
+          return
+        }
+        throw error
+      }
+
+      const linesRead = lines.length
+      // Display file content in UI
+      if (isOffloadFile) {
+        await this.say('text', `Read tool output L${offset + 1}~${offset + linesRead}\n`, false)
+      } else {
+        const fileName = path.basename(filePath)
+        await this.say('text', `Read file ${fileName} L${offset + 1}~${offset + linesRead}\n`, false)
+      }
+
+      await this.pushToolResult(toolDescription, content || '(empty file)', { ephemeral: true, skipOffload: true })
+      await this.saveCheckpoint()
+    } catch (error) {
+      await this.handleToolError(toolDescription, 'read file', error as Error)
+      await this.saveCheckpoint()
+    }
+  }
+
+  private async handleWriteToFileToolUse(block: ToolUse): Promise<void> {
+    const toolDescription = this.getToolDescription(block)
+    try {
+      const filePath = block.params.path || block.params.file_path
+      const content = block.params.content || ''
+      const ip = block.params.ip
+
+      if (!filePath) {
+        await this.handleMissingParam('path', toolDescription, 'write_to_file')
+        return
+      }
+
+      if (ip && !this.isLocalHost(ip)) {
+        // Remote file writing
+        const escapedContent = content.replace(/'/g, "'\\''")
+        const writeCommand = `cat > "${filePath}" << 'CHATERM_EOF'\n${escapedContent}\nCHATERM_EOF`
+        await this.executeCommandInRemoteServer(writeCommand, ip, undefined)
+      } else {
+        // Local file writing
+        const fullPath = path.isAbsolute(filePath) ? filePath : path.join(process.cwd(), filePath)
+
+        // Security check: ensure file is within workspace
+        const workspace = process.cwd()
+        const resolvedPath = path.resolve(fullPath)
+
+        if (!resolvedPath.startsWith(workspace)) {
+          await this.pushToolResult(toolDescription, formatResponse.toolError(`Access denied: cannot write outside workspace`))
+          await this.saveCheckpoint()
+          return
+        }
+
+        // Ensure parent directory exists
+        await fs.mkdir(path.dirname(fullPath), { recursive: true })
+        await fs.writeFile(fullPath, content, 'utf-8')
+      }
+
+      // Display success message in UI
+      await this.say('text', `Wrote ${content.length} bytes to ${filePath}`, false)
+
+      // Push success result to LLM
+      await this.pushToolResult(toolDescription, `Successfully wrote ${content.length} bytes to ${filePath}`)
+      await this.saveCheckpoint()
+    } catch (error) {
+      await this.handleToolError(toolDescription, 'write file', error as Error)
       await this.saveCheckpoint()
     }
   }
@@ -3258,7 +3598,7 @@ export class Task {
       } catch (parseError) {
         this.consecutiveMistakeCount++
         await this.say('error', this.messages.mcpInvalidArguments || `Invalid MCP tool arguments format: ${parseError}`)
-        this.pushToolResult(
+        await this.pushToolResult(
           toolDescription,
           formatResponse.toolError(`Invalid JSON format for arguments: ${parseError instanceof Error ? parseError.message : String(parseError)}`)
         )
@@ -3279,7 +3619,7 @@ export class Task {
           errorMsg = `MCP server "${serverName}" is not connected (status: ${server.status})`
         }
         await this.say('error', errorMsg)
-        this.pushToolResult(toolDescription, formatResponse.toolError(errorMsg))
+        await this.pushToolResult(toolDescription, formatResponse.toolError(errorMsg))
         await this.saveCheckpoint()
         return
       }
@@ -3290,7 +3630,7 @@ export class Task {
           tool: toolName
         })
         await this.say('error', errorMsg)
-        this.pushToolResult(toolDescription, formatResponse.toolError(errorMsg))
+        await this.pushToolResult(toolDescription, formatResponse.toolError(errorMsg))
         await this.saveCheckpoint()
         return
       }
@@ -3306,7 +3646,7 @@ export class Task {
           tool: toolName
         })
         await this.say('error', errorMsg)
-        this.pushToolResult(toolDescription, formatResponse.toolError(errorMsg))
+        await this.pushToolResult(toolDescription, formatResponse.toolError(errorMsg))
         await this.saveCheckpoint()
         return
       }
@@ -3323,9 +3663,9 @@ export class Task {
         })
         const approved = response === 'yesButtonClicked'
         if (!approved) {
-          this.pushToolResult(toolDescription, formatResponse.toolDenied())
+          await this.pushToolResult(toolDescription, formatResponse.toolDenied())
           if (text) {
-            this.pushAdditionalToolFeedback(text)
+            await this.pushAdditionalToolFeedback(text)
             await this.saveUserMessage(text, contentParts)
             await this.saveCheckpoint()
           }
@@ -3333,7 +3673,7 @@ export class Task {
           await this.saveCheckpoint()
           return
         } else if (text) {
-          this.pushAdditionalToolFeedback(text)
+          await this.pushAdditionalToolFeedback(text)
           await this.saveUserMessage(text, contentParts)
           await this.saveCheckpoint()
         }
@@ -3346,7 +3686,7 @@ export class Task {
       const result = await this.mcpHub.callTool(serverName, toolName, argumentsObj, ulid)
 
       const resultText = this.formatMcpToolCallResponse(result)
-      this.pushToolResult(toolDescription, resultText)
+      await this.pushToolResult(toolDescription, resultText)
 
       // Send tool execution result to frontend
       await this.say('command_output', resultText, false)
@@ -3381,7 +3721,7 @@ export class Task {
           errorMsg = `MCP server "${serverName}" is not connected (status: ${server.status})`
         }
         await this.say('error', errorMsg)
-        this.pushToolResult(toolDescription, formatResponse.toolError(errorMsg))
+        await this.pushToolResult(toolDescription, formatResponse.toolError(errorMsg))
         await this.saveCheckpoint()
         return
       }
@@ -3390,7 +3730,7 @@ export class Task {
 
       // 6. Handle return result
       const resultText = this.formatMcpResourceResponse(resourceResponse)
-      this.pushToolResult(toolDescription, resultText)
+      await this.pushToolResult(toolDescription, resultText)
 
       // Send resource access result to frontend
       await this.say('command_output', resultText, false)
@@ -3417,7 +3757,7 @@ export class Task {
       if (!this.skillsManager) {
         const errorMsg = 'Skills manager is not available'
         await this.say('error', errorMsg)
-        this.pushToolResult(toolDescription, formatResponse.toolError(errorMsg))
+        await this.pushToolResult(toolDescription, formatResponse.toolError(errorMsg))
         await this.saveCheckpoint()
         return
       }
@@ -3427,7 +3767,7 @@ export class Task {
       if (!skill) {
         const errorMsg = `Skill "${skillName}" not found. Please check the available skills list.`
         await this.say('error', errorMsg)
-        this.pushToolResult(toolDescription, formatResponse.toolError(errorMsg))
+        await this.pushToolResult(toolDescription, formatResponse.toolError(errorMsg))
         await this.saveCheckpoint()
         return
       }
@@ -3435,7 +3775,7 @@ export class Task {
       if (!skill.enabled) {
         const errorMsg = `Skill "${skillName}" is disabled. Please enable it in settings first.`
         await this.say('error', errorMsg)
-        this.pushToolResult(toolDescription, formatResponse.toolError(errorMsg))
+        await this.pushToolResult(toolDescription, formatResponse.toolError(errorMsg))
         await this.saveCheckpoint()
         return
       }
@@ -3463,7 +3803,7 @@ export class Task {
         }
       }
 
-      this.pushToolResult(toolDescription, resultText)
+      await this.pushToolResult(toolDescription, resultText)
 
       // Optionally show activation message in UI
       await this.say('text', `Activated Skill: ${skill.metadata.name}`, false)
@@ -3533,13 +3873,10 @@ export class Task {
 
     let content = block.content
     if (content) {
-      // Handle streaming <thinking> tags
-      content = this.processThinkingTags(content)
-
       const lastOpenBracketIndex = content.lastIndexOf('<')
       if (lastOpenBracketIndex !== -1) {
         const possibleTag = content.slice(lastOpenBracketIndex)
-        // Check if there's a '>' after the last '<' (i.e., if the tag is complete) (complete thinking and tool tags will have been removed by now)
+        // Check if there's a '>' after the last '<' (i.e., if the tag is complete)
         const hasCloseBracket = possibleTag.includes('>')
         if (!hasCloseBracket) {
           // Extract the potential tag name
@@ -3596,41 +3933,6 @@ export class Task {
     }
   }
 
-  private processThinkingTags(content: string): string {
-    if (!content) return content
-
-    // If currently inside a thinking block, check for an end tag
-    if (this.isInsideThinkingBlock) {
-      const endIndex = content.indexOf('</thinking>')
-      if (endIndex !== -1) {
-        // Found end tag, exit thinking block state, return content after end tag
-        this.isInsideThinkingBlock = false
-        return content.slice(endIndex + '</thinking>'.length)
-      } else {
-        // Still inside thinking block, remove all content
-        return ''
-      }
-    }
-
-    const startIndex = content.indexOf('<thinking>')
-    if (startIndex !== -1) {
-      // Found start tag
-      const beforeThinking = content.slice(0, startIndex)
-      const afterThinking = content.slice(startIndex + '<thinking>'.length)
-
-      const endIndex = afterThinking.indexOf('</thinking>')
-      if (endIndex !== -1) {
-        const afterThinkingBlock = afterThinking.slice(endIndex + '</thinking>'.length)
-        return beforeThinking + afterThinkingBlock
-      } else {
-        this.isInsideThinkingBlock = true
-        return beforeThinking
-      }
-    }
-
-    return content
-  }
-
   private async buildSystemPrompt(): Promise<string> {
     const chatSettings = await getGlobalState('chatSettings')
 
@@ -3652,17 +3954,9 @@ export class Task {
       // Use switch-specific prompt (switch only supports Command mode)
       systemPrompt = switchPrompt
     } else if (userLanguage === 'zh-CN') {
-      if (chatSettings?.mode === 'chat') {
-        systemPrompt = SYSTEM_PROMPT_CHAT_CN
-      } else {
-        systemPrompt = SYSTEM_PROMPT_CN
-      }
+      systemPrompt = SYSTEM_PROMPT_CN
     } else {
-      if (chatSettings?.mode === 'chat') {
-        systemPrompt = SYSTEM_PROMPT_CHAT
-      } else {
-        systemPrompt = SYSTEM_PROMPT
-      }
+      systemPrompt = SYSTEM_PROMPT
     }
     // Update messages language before building system information
 
@@ -3970,7 +4264,7 @@ USERNAME:${localSystemInfo.userName}`
       const todosParam = (block as { params?: { todos?: unknown } }).params?.todos
 
       if (todosParam === undefined || todosParam === null) {
-        this.pushToolResult(this.getToolDescription(block), 'Todo write failed: missing todos parameter', { dontLock: true })
+        await this.pushToolResult(this.getToolDescription(block), 'Todo write failed: missing todos parameter', { dontLock: true })
         return
       }
 
@@ -3980,7 +4274,7 @@ USERNAME:${localSystemInfo.userName}`
         try {
           todos = JSON.parse(todosParam) as Todo[]
         } catch (parseError) {
-          this.pushToolResult(this.getToolDescription(block), `Todo write failed: JSON parse error - ${parseError}`, { dontLock: true })
+          await this.pushToolResult(this.getToolDescription(block), `Todo write failed: JSON parse error - ${parseError}`, { dontLock: true })
           return
         }
       } else if (Array.isArray(todosParam)) {
@@ -3996,7 +4290,7 @@ USERNAME:${localSystemInfo.userName}`
         }
       } else {
         logger.error(`[Task] Unsupported todos parameter type: ${typeof todosParam}`)
-        this.pushToolResult(this.getToolDescription(block), 'Todo write failed: todos parameter type not supported', { dontLock: true })
+        await this.pushToolResult(this.getToolDescription(block), 'Todo write failed: todos parameter type not supported', { dontLock: true })
         return
       }
 
@@ -4004,7 +4298,7 @@ USERNAME:${localSystemInfo.userName}`
       const result = await TodoWriteTool.execute(params, this.taskId)
 
       // Allow todo_write to be combined with another tool in the same message
-      this.pushToolResult(this.getToolDescription(block), result, { dontLock: true })
+      await this.pushToolResult(this.getToolDescription(block), result, { dontLock: true })
 
       // Send todo update event to renderer process
       await this.postMessageToWebview({
@@ -4017,7 +4311,7 @@ USERNAME:${localSystemInfo.userName}`
       })
     } catch (error) {
       logger.error(`[Task] todo_write tool call handling failed`, { error: error })
-      this.pushToolResult(this.getToolDescription(block), `Todo write failed: ${error instanceof Error ? error.message : String(error)}`, {
+      await this.pushToolResult(this.getToolDescription(block), `Todo write failed: ${error instanceof Error ? error.message : String(error)}`, {
         dontLock: true
       })
     }
@@ -4028,9 +4322,9 @@ USERNAME:${localSystemInfo.userName}`
       const params: TodoReadParams = {} // TodoRead doesn't need parameters
       const result = await TodoReadTool.execute(params, this.taskId)
       // Allow todo_read to be combined with another tool in the same message
-      this.pushToolResult(this.getToolDescription(block), result, { dontLock: true })
+      await this.pushToolResult(this.getToolDescription(block), result, { dontLock: true })
     } catch (error) {
-      this.pushToolResult(this.getToolDescription(block), `Todo 读取失败: ${error instanceof Error ? error.message : String(error)}`, {
+      await this.pushToolResult(this.getToolDescription(block), `Todo 读取失败: ${error instanceof Error ? error.message : String(error)}`, {
         dontLock: true
       })
     }
@@ -4080,12 +4374,12 @@ USERNAME:${localSystemInfo.userName}`
         false
       )
 
-      this.pushToolResult(toolDescription, `Knowledge summary has been sent to knowledge base. File: ${fileName}.md`)
+      await this.pushToolResult(toolDescription, `Knowledge summary has been sent to knowledge base. File: ${fileName}.md`)
 
       await this.saveCheckpoint()
     } catch (error) {
       logger.error('[Task] summarize_to_knowledge failed', { error: error })
-      this.pushToolResult(toolDescription, `Failed to save knowledge: ${error instanceof Error ? error.message : String(error)}`)
+      await this.pushToolResult(toolDescription, `Failed to save knowledge: ${error instanceof Error ? error.message : String(error)}`)
     }
   }
 

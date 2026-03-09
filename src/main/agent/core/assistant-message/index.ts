@@ -17,6 +17,7 @@ export interface TextContent {
 export const toolUseNames = [
   'execute_command',
   'write_to_file',
+  'read_file',
   'ask_followup_question',
   'attempt_completion',
   'new_task',
@@ -41,6 +42,8 @@ export const toolParamNames = [
   'requires_approval',
   'interactive',
   'path',
+  'file_path',
+  'offset',
   'content',
   'diff',
   'regex',
