@@ -248,7 +248,7 @@ class JumpServerClient {
     })
 
     // Set maximum page limit to avoid fetching too many pages
-    const MAX_PAGES = 100 // Further reduced to 100 pages, more conservative
+    const MAX_PAGES = 10000 // Further reduced to 10000 pages, more conservative
     const maxPagesToFetch = Math.min(pagination.totalPages, MAX_PAGES)
 
     logger.debug('Asset fetch plan', { event: 'jumpserver.asset.fetch.plan', totalPages: pagination.totalPages, maxPagesToFetch })
@@ -257,12 +257,12 @@ class JumpServerClient {
     let consecutiveFailures = 0
     const MAX_CONSECUTIVE_FAILURES = 2 // Reduced to 2 consecutive failures before stopping
     const startTime = Date.now()
-    const MAX_TOTAL_TIME = 5 * 60 * 1000 // Maximum 5 minutes
+    const MAX_TOTAL_TIME = 30 * 60 * 1000 // Maximum 30 minutes
 
     while (pagination.currentPage < maxPagesToFetch && consecutiveFailures < MAX_CONSECUTIVE_FAILURES) {
       // Check total time limit
       if (Date.now() - startTime > MAX_TOTAL_TIME) {
-        logger.warn('Asset fetch running for more than 5 minutes, stopping', { event: 'jumpserver.asset.fetch.timeout' })
+        logger.warn('Asset fetch running for more than 30 minutes, stopping', { event: 'jumpserver.asset.fetch.timeout' })
         break
       }
       const nextPage = pagination.currentPage + 1
