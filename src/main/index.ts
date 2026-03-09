@@ -1,5 +1,5 @@
 // ============ Performance Marks (must be the very first import) ============
-import { mark, registerPerfIpcHandlers, collectAndLogTimeline } from '@perf'
+import { mark, registerPerfIpcHandlers, collectAndLogTimeline, logStartupTimeline } from '@perf'
 // 'chaterm/main/start' is recorded at module load time inside @perf
 
 // ============ Initialize userData path FIRST (MUST be before all other imports) ============
@@ -40,7 +40,7 @@ import { Controller } from './agent/core/controller'
 import { executeRemoteCommand } from './agent/integrations/remote-terminal/example'
 import { initializeStorageMain, testStorageFromMain as testRendererStorageFromMain, getGlobalState } from './agent/core/storage/state'
 import { getTaskMetadata, saveTaskTitle, saveTaskFavorite, getTaskList } from './agent/core/storage/disk'
-import { createMainWindow } from './windowManager'
+import { createMainWindow, type WindowCreationResult } from './windowManager'
 import { registerUpdater } from './updater'
 import { setupPluginIpc } from './plugin/pluginIpc'
 import { telemetryService, checkIsFirstLaunch, getMacAddress } from './agent/services/telemetry/TelemetryService'
@@ -91,13 +91,19 @@ let winReady = new Promise((resolve) => (winReadyResolve = resolve))
 // Initialize unified logging system before app is ready
 initLogging()
 
+// Promise that resolves when the renderer page finishes loading.
+// Main-process initialization proceeds in parallel without waiting for this.
+let windowContentLoaded: Promise<void>
+
 async function createWindow(): Promise<void> {
-  mainWindow = await createMainWindow(
+  const result: WindowCreationResult = await createMainWindow(
     (url: string) => {
       COOKIE_URL = url
     },
     () => !forceQuit
   )
+  mainWindow = result.window
+  windowContentLoaded = result.contentLoaded
   setMainWindowWebContents(mainWindow.webContents)
 
   // Monitor renderer process crashes for audit logging
@@ -148,16 +154,24 @@ export async function getUserConfigFromRenderer(): Promise<any> {
 app.whenReady().then(async () => {
   mark('chaterm/main/appReady')
 
-  // [Security] Verify ffmpeg.dll integrity (Windows Only)
+  // [Security] Verify ffmpeg.dll integrity asynchronously (Windows Only)
+  let ffmpegVerification: Promise<void> | null = null
   if (process.platform === 'win32' && process.env.IS_DEV !== 'true') {
-    try {
-      const crypto = require('crypto')
-      const ffmpegPath = path.join(path.dirname(process.execPath), 'ffmpeg.dll')
-      const KNOWN_HASH = 'BE2661FF1473E6A297121986C5100D6EC28FADEB3C74DD0407E4E3CD558C44C5'
+    ffmpegVerification = (async () => {
+      try {
+        const crypto = require('crypto')
+        const ffmpegPath = path.join(path.dirname(process.execPath), 'ffmpeg.dll')
+        const KNOWN_HASH = 'BE2661FF1473E6A297121986C5100D6EC28FADEB3C74DD0407E4E3CD558C44C5'
 
-      if (fsSync.existsSync(ffmpegPath)) {
+        try {
+          await fs.access(ffmpegPath)
+        } catch {
+          logger.warn('[Security] ffmpeg.dll not found for verification.')
+          return
+        }
+
         logger.info('[Security] Verifying ffmpeg.dll integrity...')
-        const buffer = fsSync.readFileSync(ffmpegPath)
+        const buffer = await fs.readFile(ffmpegPath)
         const hash = crypto.createHash('sha256').update(buffer).digest('hex').toUpperCase()
 
         if (hash !== KNOWN_HASH) {
@@ -171,19 +185,19 @@ app.whenReady().then(async () => {
           process.exit(1) // Force exit
         }
         logger.info('[Security] ffmpeg.dll integrity verified.')
-      } else {
-        logger.warn('[Security] ffmpeg.dll not found for verification.')
+      } catch (error) {
+        logger.error('[Security] Failed to verify ffmpeg.dll', { error: error })
       }
-    } catch (error) {
-      logger.error('[Security] Failed to verify ffmpeg.dll', { error: error })
-    }
+    })()
   }
   // Set edition-specific AppUserModelId for Windows taskbar grouping and process identification
   const edition = getEdition()
   const appUserModelId = edition === 'global' ? 'ai.chaterm.global' : 'ai.chaterm.cn'
   electronApp.setAppUserModelId(appUserModelId)
 
-  await migrateCnUserDataOnFirstLaunch()
+  // Start CN user data migration in parallel (usually a no-op, but can be
+  // slow on first launch of global edition due to process detection)
+  const migrationPromise = migrateCnUserDataOnFirstLaunch().catch((err) => logger.error('CN migration failed', { error: err }))
 
   if (process.platform === 'darwin') {
     app.dock?.setIcon(join(__dirname, '../../resources/icon.png'))
@@ -258,16 +272,18 @@ app.whenReady().then(async () => {
   setupIPC()
   registerPerfIpcHandlers()
   mark('chaterm/main/didSetupIPC')
+
+  // Create the BrowserWindow. Content loading starts in parallel (not awaited).
   mark('chaterm/main/willCreateWindow')
   await createWindow()
   mark('chaterm/main/didCreateWindow')
-  winReadyResolve()
-  // Initialize storage system
+
+  // Initialize storage system (only needs the BrowserWindow reference)
   mark('chaterm/main/willInitStorage')
   initializeStorageMain(mainWindow)
   mark('chaterm/main/didInitStorage')
 
-  // Register SSH components
+  // Register SSH components (only needs ipcMain, no window content needed)
   mark('chaterm/main/willRegisterSSH')
   registerSSHHandlers()
   registerLocalSSHHandlers()
@@ -283,10 +299,24 @@ app.whenReady().then(async () => {
   // Register interactive command IPC handlers
   setupInteractionIpcHandlers()
 
-  // Load all plugins (plugins will register their capabilities)
+  // Run plugin loading and security config in parallel
   mark('chaterm/main/willLoadPlugins')
-  await loadAllPlugins()
-  mark('chaterm/main/didLoadPlugins')
+  await Promise.all([
+    loadAllPlugins().then(() => mark('chaterm/main/didLoadPlugins')),
+    (async () => {
+      try {
+        mark('chaterm/main/willLoadSecurityConfig')
+        const SecurityConfigModule = await import('./agent/core/security/SecurityConfig')
+        const { SecurityConfigManager } = SecurityConfigModule
+        const securityManager = new SecurityConfigManager()
+        await securityManager.loadConfig()
+        mark('chaterm/main/didLoadSecurityConfig')
+        logger.info('Security configuration initialized successfully')
+      } catch (error) {
+        logger.error('Failed to initialize security configuration', { error: error })
+      }
+    })()
+  ])
 
   app.on('activate', function () {
     // On macOS it's common to re-create a window in the app when the
@@ -355,20 +385,14 @@ app.whenReady().then(async () => {
     logger.error('Failed to initialize Controller', { error: error })
   }
 
-  // Initialize security configuration on startup
-  try {
-    mark('chaterm/main/willLoadSecurityConfig')
-    const SecurityConfigModule = await import('./agent/core/security/SecurityConfig')
-    const { SecurityConfigManager } = SecurityConfigModule
-    const securityManager = new SecurityConfigManager()
+  // All IPC handlers and Controller are ready - release the main-window-show gate.
+  // The renderer's first IPC call (main-window-show) awaits winReady, so there
+  // is no race condition even though content may still be loading.
+  winReadyResolve()
 
-    // Ensure security config file exists on startup
-    await securityManager.loadConfig()
-    mark('chaterm/main/didLoadSecurityConfig')
-    logger.info('Security configuration initialized successfully')
-  } catch (error) {
-    logger.error('Failed to initialize security configuration', { error: error })
-  }
+  // Ensure parallel tasks complete before marking ready
+  if (ffmpegVerification) await ffmpegVerification
+  await migrationPromise
 
   // Function to initialize telemetry setting
   const initializeTelemetrySetting = async () => {
@@ -421,18 +445,20 @@ app.whenReady().then(async () => {
 
   mark('chaterm/main/ready')
 
-  // Log startup timeline in development mode
+  // Log startup timeline in development mode.
+  // Wait for the renderer content to finish loading first so that renderer
+  // perf marks have time to be reported back to the main process.
   if (is.dev) {
-    // Collect renderer marks and print combined timeline after window finishes loading
-    if (mainWindow.webContents.isLoading()) {
-      mainWindow.webContents.once('did-finish-load', () => {
+    windowContentLoaded
+      .then(() => {
         mark('chaterm/main/windowDidFinishLoad')
         collectAndLogTimeline(mainWindow)
       })
-    } else {
-      mark('chaterm/main/windowDidFinishLoad')
-      collectAndLogTimeline(mainWindow)
-    }
+      .catch((err) => {
+        logger.warn('windowContentLoaded rejected, logging main-process timeline only', { error: err })
+        mark('chaterm/main/windowDidFinishLoad')
+        logStartupTimeline()
+      })
   }
 })
 

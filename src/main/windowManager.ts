@@ -5,10 +5,25 @@ import icon from '../../resources/icon.png?asset'
 import { getEdition } from './config/edition'
 
 /**
+ * Result of creating the main window.
+ * `window` is available immediately for IPC registration and other setup.
+ * `contentLoaded` resolves when the renderer page finishes loading.
+ */
+export interface WindowCreationResult {
+  window: BrowserWindow
+  contentLoaded: Promise<void>
+}
+
+/**
  * Create and manage the main BrowserWindow.
  * The latest Cookie URL will be passed back via callback to avoid circular dependencies.
+ *
+ * Returns both the BrowserWindow reference and a Promise that resolves when
+ * the page content finishes loading. This allows callers to proceed with
+ * initialization that only needs the window reference while content loads
+ * in parallel.
  */
-export async function createMainWindow(onCookieUrlChange?: (url: string) => void, shouldPreventClose?: () => boolean): Promise<BrowserWindow> {
+export async function createMainWindow(onCookieUrlChange?: (url: string) => void, shouldPreventClose?: () => boolean): Promise<WindowCreationResult> {
   // Set window title based on edition
   const edition = getEdition()
   const windowTitle = edition === 'cn' ? 'Chaterm CN' : 'Chaterm'
@@ -85,12 +100,12 @@ export async function createMainWindow(onCookieUrlChange?: (url: string) => void
     return { action: 'deny' }
   })
 
-  // Load the dev-server URL in development, or the local HTML file in production
-  if (is.dev && process.env['ELECTRON_RENDERER_URL']) {
-    await mainWindow.loadURL(process.env['ELECTRON_RENDERER_URL'])
-  } else {
-    await mainWindow.loadFile(join(__dirname, '../renderer/index.html'))
-  }
+  // Start loading the renderer content without blocking.
+  // The returned `contentLoaded` promise lets callers await it when needed.
+  const contentLoaded =
+    is.dev && process.env['ELECTRON_RENDERER_URL']
+      ? mainWindow.loadURL(process.env['ELECTRON_RENDERER_URL'])
+      : mainWindow.loadFile(join(__dirname, '../renderer/index.html'))
 
   // Listen for URL changes so we can update the Cookie URL via callback
   mainWindow.webContents.on('did-finish-load', () => {
@@ -137,5 +152,5 @@ export async function createMainWindow(onCookieUrlChange?: (url: string) => void
     }
   })
 
-  return mainWindow
+  return { window: mainWindow, contentLoaded }
 }
