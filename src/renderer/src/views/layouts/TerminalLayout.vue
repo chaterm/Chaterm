@@ -168,7 +168,6 @@
                 />
                 <Files
                   v-else-if="currentMenu == 'files'"
-                  ref="assetsRef"
                   :toggle-sidebar="toggleSideBar"
                   @open-user-tab="openUserTab"
                 />
@@ -2348,7 +2347,7 @@ const onDockReady = (event: DockviewReadyEvent) => {
     panelCount.value = dockApi?.panels.length ?? 0
     // Clear Assets menu selection when corresponding tab is closed
     const content = panel.params?.content
-    if (content === 'assetConfig' || content === 'keyManagement' || content === 'files') {
+    if (content === 'assetConfig' || content === 'keyManagement') {
       assetsRef.value?.handleExplorerActive(content)
     }
   })
