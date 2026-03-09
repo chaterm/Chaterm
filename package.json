@@ -135,7 +135,7 @@
     "electron": "^40.8.0",
     "electron-builder": "^26.8.1",
     "electron-vite": "^5.0.0",
-    "eslint": "^10.0.2",
+    "eslint": "^10.0.3",
     "eslint-plugin-vue": "^10.8.0",
     "highlight.js": "^11.11.1",
     "husky": "^9.1.7",
