@@ -82,7 +82,7 @@
     "fast-json-patch": "^3.1.1",
     "globby": "^16.1.1",
     "memfs": "^4.56.11",
-    "mermaid": "^11.12.3",
+    "mermaid": "^11.13.0",
     "monaco-editor": "^0.55.1",
     "node-pty": "^1.0.0",
     "ollama": "^0.6.3",
