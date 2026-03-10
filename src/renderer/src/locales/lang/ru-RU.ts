@@ -1139,7 +1139,8 @@ export default {
     files: 'Управление файлами',
     openedOnRight: 'sftp-соединение открыто справа',
     openedOnLeft: 'sftp-соединение уже открыто слева',
-    getCwdFailed: 'Не удалось получить каталог'
+    getCwdFailed: 'Не удалось получить каталог',
+    waiting: 'Ожидание'
   },
   about: {
     version: 'Версия',

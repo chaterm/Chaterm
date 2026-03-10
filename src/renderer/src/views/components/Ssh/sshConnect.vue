@@ -460,7 +460,7 @@ onMounted(async () => {
       theme:
         actualTheme === 'light'
           ? {
-              background: config.background?.image ? 'transparent' : '#f5f5f5',
+              background: config.background?.image ? 'rgba(245, 245, 245, 0.92)' : '#f5f5f5', //
               foreground: '#000000',
               cursor: '#000000',
               cursorAccent: '#000000',
@@ -5256,8 +5256,9 @@ const createCtrlLinkProvider = (term: Terminal): ILinkProvider => {
   transform: translateZ(0);
 }
 
-.terminal .xterm-viewport {
-  background-color: transparent;
+.terminal .xterm-viewport,
+.terminal .xterm-scrollable-element {
+  background-color: transparent !important;
 }
 
 .terminal ::-webkit-scrollbar {

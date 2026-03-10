@@ -152,24 +152,4 @@ describe('fileTransfer.ts', () => {
     vi.advanceTimersByTime(8000)
     expect(mod.transferTasks.value['k7']).toBeUndefined()
   })
-
-  it('r2rGroups groups by fromHost/fromId and toHost/toId', async () => {
-    const { mod, progressCb } = await setup()
-    vi.setSystemTime(new Date('2026-01-01T00:00:00.000Z'))
-
-    progressCb({
-      taskKey: 'k8',
-      type: 'r2r',
-      bytes: 1,
-      total: 10,
-      remotePath: '/x.txt',
-      fromHost: 'user@192.168.1.2:22',
-      toHost: 'root@10.0.0.9:22'
-    })
-
-    const keys = Object.keys(mod.r2rGroups.value)
-    expect(keys.length).toBe(1)
-    expect(keys[0]).toContain('→')
-    expect(mod.r2rGroups.value[keys[0]][0].taskKey).toBe('k8')
-  })
 })

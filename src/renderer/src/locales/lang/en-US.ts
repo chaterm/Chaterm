@@ -1146,7 +1146,8 @@ export default {
     files: 'File Management',
     openedOnRight: 'sftp connection has been opened on the right side',
     openedOnLeft: 'sftp connection has been opened on the left side',
-    getCwdFailed: 'Failed to get current working directory'
+    getCwdFailed: 'Failed to get current working directory',
+    waiting: 'Waiting'
   },
   about: {
     version: 'Version',

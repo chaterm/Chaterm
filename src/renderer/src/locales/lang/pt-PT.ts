@@ -1141,7 +1141,8 @@ export default {
     files: 'Gerenciamento de arquivos',
     openedOnRight: 'A conexão sftp foi aberta à direita',
     openedOnLeft: 'Conexão sftp foi aberta no lado esquerdo',
-    getCwdFailed: 'Falha ao obter o índice'
+    getCwdFailed: 'Falha ao obter o índice',
+    waiting: 'Em espera'
   },
   about: {
     version: 'Versão',
