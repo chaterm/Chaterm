@@ -4521,19 +4521,28 @@ USERNAME:${localSystemInfo.userName}`
 
   // Complete all in_progress todos when task is completed
   private async completeAllInProgressTodos(): Promise<void> {
+    const methodName = 'completeAllInProgressTodos'
+    logger.info(`[Task:${methodName}] Starting for task ${this.taskId}`)
+
     try {
       const { TodoStorage } = await import('../storage/todo/TodoStorage')
       const storage = new TodoStorage(this.taskId)
       const todos = await storage.readTodos()
 
+      logger.info(`[Task:${methodName}] Read ${todos.length} todos for task ${this.taskId}`)
+
       if (todos.length === 0) {
+        logger.info(`[Task:${methodName}] No todos found, skipping`)
         return
       }
 
       // Find all in_progress todos
       const inProgressTodos = todos.filter((todo) => todo.status === 'in_progress')
 
+      logger.info(`[Task:${methodName}] Found ${inProgressTodos.length} in_progress todos`)
+
       if (inProgressTodos.length === 0) {
+        logger.info(`[Task:${methodName}] No in_progress todos, skipping`)
         return
       }
 
@@ -4553,9 +4562,12 @@ USERNAME:${localSystemInfo.userName}`
       })
 
       // Save updated todos
+      logger.info(`[Task:${methodName}] Writing ${updatedTodos.length} todos to storage`)
       await storage.writeTodos(updatedTodos)
+      logger.info(`[Task:${methodName}] Successfully wrote todos to storage`)
 
       // Send todo update event to renderer process
+      logger.info(`[Task:${methodName}] Sending todoUpdated message to webview`)
       await this.postMessageToWebview({
         type: 'todoUpdated',
         todos: updatedTodos,
@@ -4564,10 +4576,17 @@ USERNAME:${localSystemInfo.userName}`
         changeType: 'completed',
         triggerReason: 'agent_update'
       })
+      logger.info(`[Task:${methodName}] Successfully sent todoUpdated message`)
 
-      logger.info(`[Task] Auto-completed ${inProgressTodos.length} in_progress todos for task ${this.taskId}`)
+      logger.info(`[Task:${methodName}] Auto-completed ${inProgressTodos.length} in_progress todos for task ${this.taskId}`)
     } catch (error) {
-      logger.error('[Task] Failed to complete in_progress todos', { error: error })
+      const errorMessage = error instanceof Error ? error.message : String(error)
+      const errorStack = error instanceof Error ? error.stack : undefined
+      logger.error(`[Task:${methodName}] Failed to complete in_progress todos for task ${this.taskId}`, {
+        error: errorMessage,
+        stack: errorStack,
+        taskId: this.taskId
+      })
     }
   }
 
