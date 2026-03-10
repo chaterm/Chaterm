@@ -1,4 +1,5 @@
 import Database from 'better-sqlite3'
+import type { Anthropic } from '@anthropic-ai/sdk'
 import { initChatermDatabase, getCurrentUserId } from './connection'
 import {
   getLocalAssetRouteLogic,
@@ -196,7 +197,7 @@ export class ChatermDatabaseService {
     return getApiConversationHistoryLogic(this.db, taskId)
   }
 
-  async saveApiConversationHistory(taskId: string, apiConversationHistory: any[]): Promise<void> {
+  async saveApiConversationHistory(taskId: string, apiConversationHistory: Anthropic.MessageParam[]): Promise<void> {
     return saveApiConversationHistoryLogic(this.db, taskId, apiConversationHistory)
   }
 
