@@ -144,6 +144,36 @@ export function useEditableContent(options: UseEditableContentOptions) {
     return null
   }
 
+  /**
+   * Determine whether a slash just inserted before the caret should trigger the command popup.
+   * We only trigger when the slash is a standalone token: both sides are whitespace or boundaries.
+   *
+   * Note: This is intentionally conservative; if we cannot reliably inspect neighbors, do not trigger.
+   */
+  const shouldTriggerCommandPopupForSlash = (): boolean => {
+    const selection = window.getSelection()
+    if (!selection || selection.rangeCount === 0) return false
+
+    const range = selection.getRangeAt(0)
+    const editableEl = editableRef.value
+    if (!editableEl || !editableEl.contains(range.startContainer)) return false
+
+    if (range.startContainer.nodeType !== Node.TEXT_NODE) return false
+    const textNode = range.startContainer as Text
+    const text = textNode.data
+    const offset = range.startOffset
+
+    // Caret should be positioned right after the inserted '/'.
+    if (offset <= 0 || offset > text.length) return false
+    if (text[offset - 1] !== '/') return false
+
+    const beforeChar = offset - 2 >= 0 ? text[offset - 2] : null
+    const afterChar = offset < text.length ? text[offset] : null
+
+    const isBoundaryOrWs = (ch: string | null) => ch === null || /\s/.test(ch)
+    return isBoundaryOrWs(beforeChar) && isBoundaryOrWs(afterChar)
+  }
+
   // ============================================================================
   // Selection Management
   // ============================================================================
@@ -695,6 +725,7 @@ export function useEditableContent(options: UseEditableContentOptions) {
       setTimeout(() => {
         // Only open when actual '/' was inserted (IME may insert '、' etc. for the same key).
         if (getCharBeforeCaret() !== '/') return
+        if (!shouldTriggerCommandPopupForSlash()) return
         saveSelection()
         handleShowCommandPopup(editableRef.value)
       }, 0)
