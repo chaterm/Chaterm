@@ -336,7 +336,7 @@ describe('useEditableContent', () => {
       const { editableRef, handleEditableKeyDown } = setup({ handleShowCommandPopup })
       const el = editableRef.value as HTMLDivElement
       document.body.appendChild(el)
-      el.textContent = 'hello'
+      el.textContent = 'hello '
 
       const textNode = el.firstChild as Text
       const range = document.createRange()
@@ -348,7 +348,7 @@ describe('useEditableContent', () => {
 
       // Keydown reports '/', then browser inserts '/' before the scheduled handler runs.
       handleEditableKeyDown({ key: '/', shiftKey: false, isComposing: false } as unknown as KeyboardEvent, 'create')
-      textNode.data = 'hello/'
+      textNode.data = 'hello /'
       range.setStart(textNode, textNode.data.length)
       range.collapse(true)
       selection?.removeAllRanges()
@@ -390,6 +390,86 @@ describe('useEditableContent', () => {
       expect(handleShowCommandPopup).not.toHaveBeenCalled()
 
       el.remove()
+      vi.useRealTimers()
+    })
+  })
+
+  describe('command popup slash trigger', () => {
+    const setupSlash = (initialText: string, caretOffset: number) => {
+      const handleShowCommandPopup = vi.fn()
+      const { editableRef, handleEditableKeyDown } = setup({ handleShowCommandPopup })
+      const el = editableRef.value as HTMLDivElement
+      el.textContent = ''
+      const textNode = document.createTextNode(initialText)
+      el.appendChild(textNode)
+      document.body.appendChild(el)
+
+      const selection = window.getSelection()
+      const range = document.createRange()
+      if (!selection) {
+        throw new Error('Selection or text node not available in test environment')
+      }
+      const safeOffset = Math.max(0, Math.min(caretOffset, textNode.data.length))
+      range.setStart(textNode, safeOffset)
+      range.collapse(true)
+      selection.removeAllRanges()
+      selection.addRange(range)
+
+      return { el, textNode, selection, range, handleShowCommandPopup, handleEditableKeyDown }
+    }
+
+    const insertSlashAtCaret = (textNode: Text, selection: Selection) => {
+      const r = selection.getRangeAt(0)
+      const offset = r.startOffset
+      textNode.data = textNode.data.slice(0, offset) + '/' + textNode.data.slice(offset)
+      const newRange = document.createRange()
+      newRange.setStart(textNode, offset + 1)
+      newRange.collapse(true)
+      selection.removeAllRanges()
+      selection.addRange(newRange)
+    }
+
+    it('should trigger popup only when slash is surrounded by whitespace or boundaries', () => {
+      vi.useFakeTimers()
+
+      const okCases: Array<{ text: string; caretOffset: number }> = [
+        { text: '', caretOffset: 0 }, // "/" at start/end
+        { text: ' ', caretOffset: 1 }, // " /" (before is space, after is boundary)
+        { text: 'a ', caretOffset: 2 }, // "a /" (before is space, after is boundary)
+        { text: 'a  b', caretOffset: 2 } // "a / b" (between two spaces)
+      ]
+      for (const c of okCases) {
+        const { el, textNode, selection, handleShowCommandPopup, handleEditableKeyDown } = setupSlash(c.text, c.caretOffset)
+        const event = { key: '/', isComposing: false } as unknown as KeyboardEvent
+        handleEditableKeyDown(event)
+        insertSlashAtCaret(textNode, selection)
+        vi.runAllTimers()
+        expect(handleShowCommandPopup).toHaveBeenCalledTimes(1)
+        el.remove()
+      }
+
+      vi.useRealTimers()
+    })
+
+    it('should not trigger popup when slash is part of a path token', () => {
+      vi.useFakeTimers()
+
+      const badCases: Array<{ text: string; caretOffset: number }> = [
+        { text: 'Users', caretOffset: 0 }, // "/Users" (after is 'U')
+        { text: 'cd Users', caretOffset: 3 }, // "cd /Users" (after is 'U')
+        { text: 'a', caretOffset: 1 }, // "a/" (before is 'a')
+        { text: 'ab', caretOffset: 1 } // "a/b" (after is 'b')
+      ]
+      for (const c of badCases) {
+        const { el, textNode, selection, handleShowCommandPopup, handleEditableKeyDown } = setupSlash(c.text, c.caretOffset)
+        const event = { key: '/', isComposing: false } as unknown as KeyboardEvent
+        handleEditableKeyDown(event)
+        insertSlashAtCaret(textNode, selection)
+        vi.runAllTimers()
+        expect(handleShowCommandPopup).toHaveBeenCalledTimes(0)
+        el.remove()
+      }
+
       vi.useRealTimers()
     })
   })
