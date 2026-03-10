@@ -61,6 +61,7 @@ vi.mock('@core/storage/disk', () => ({
   saveTaskMetadata: vi.fn(async () => undefined)
 }))
 
+import { Anthropic } from '@anthropic-ai/sdk'
 import { Task } from '../index'
 import { getApiConversationHistoryLogic, saveApiConversationHistoryLogic } from '../../../../storage/db/chaterm/agent'
 
@@ -186,6 +187,43 @@ describe('Bug 1: conversationHistoryIndex points to wrong message', () => {
   })
 })
 
+describe('Tool result normalization with JSON content', () => {
+  it('normalizeToolResultsForApi should flatten JSON-encoded tool_result content into text', async () => {
+    const task = Object.create((Task as unknown as { prototype: object }).prototype) as any
+    task.normalizeToolResultsForApi = Task.prototype['normalizeToolResultsForApi'].bind(task)
+
+    const toolResult = {
+      toolName: 'execute_command',
+      toolDescription: '[execute_command for \"ls\"]',
+      taskId: 'test-task',
+      timestamp: Date.now(),
+      result: 'ls output here'
+    }
+
+    const conversationHistory: Anthropic.MessageParam[] = [
+      {
+        role: 'user',
+        content: [
+          {
+            type: 'tool_result',
+            tool_use_id: 'tool-1',
+            content: JSON.stringify(toolResult),
+            is_error: false
+          } as any
+        ]
+      }
+    ]
+
+    const normalized = task.normalizeToolResultsForApi(conversationHistory)
+    expect(normalized).toHaveLength(1)
+    expect(Array.isArray(normalized[0].content)).toBe(true)
+
+    const block = normalized[0].content![0] as Anthropic.TextBlockParam
+    expect(block.type).toBe('text')
+    expect(block.text).toContain('ls output here')
+  })
+})
+
 describe('Bug 2: apiConversationHistory flattening on save/restore', () => {
   /**
    * This test uses a mock database to verify save/restore logic
@@ -258,7 +296,7 @@ describe('Bug 2: apiConversationHistory flattening on save/restore', () => {
   })
 
   it('Bug2: save then load should preserve message count', async () => {
-    const originalHistory = [
+    const originalHistory: Anthropic.MessageParam[] = [
       {
         role: 'user',
         content: [
@@ -294,7 +332,7 @@ describe('Bug 2: apiConversationHistory flattening on save/restore', () => {
   })
 
   it('Bug2: save then load should preserve content structure per message', async () => {
-    const originalHistory = [
+    const originalHistory: Anthropic.MessageParam[] = [
       {
         role: 'user',
         content: [
@@ -320,7 +358,7 @@ describe('Bug 2: apiConversationHistory flattening on save/restore', () => {
   })
 
   it('Bug2: save then load should preserve conversationHistoryIndex mapping', async () => {
-    const originalHistory = [
+    const originalHistory: Anthropic.MessageParam[] = [
       {
         role: 'user',
         content: [
@@ -354,5 +392,40 @@ describe('Bug 2: apiConversationHistory flattening on save/restore', () => {
 
     // With fix: index 3 still points to assistant message
     expect(restoredHistory[chatermMessage.conversationHistoryIndex].role).toBe('assistant')
+  })
+
+  it('should persist ephemeral tool_result content as (expired)', async () => {
+    const originalHistory: Anthropic.MessageParam[] = [
+      {
+        role: 'user',
+        content: [
+          {
+            type: 'tool_result',
+            tool_use_id: 'tool-1',
+            // Use any here to allow extended ToolResult payload for testing
+            content: JSON.stringify({ ephemeral: true, result: '(expired)' }) as any,
+            is_error: false
+          } as any
+        ]
+      }
+    ]
+
+    const db = createMockDb()
+
+    await saveApiConversationHistoryLogic(db as never, taskId, originalHistory)
+
+    const toolResultRow = mockDbRows.find((r) => r.content_type === 'tool_result')
+    expect(toolResultRow).toBeTruthy()
+    const contentData = JSON.parse(toolResultRow!.content_data)
+    const raw = contentData.content
+
+    if (typeof raw === 'string') {
+      const parsed = JSON.parse(raw)
+      expect(typeof parsed).toBe('object')
+      expect(parsed.result).toBe('(expired)')
+    } else {
+      expect(typeof raw).toBe('object')
+      expect(raw.result).toBe('(expired)')
+    }
   })
 })

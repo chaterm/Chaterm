@@ -606,13 +606,13 @@ export class Task {
     for (const result of this.pendingToolResults) {
       const isError = result.isError ?? false
 
-      const toolResultBlock: any = {
+      const toolResultBlock: Anthropic.ToolResultBlockParam = {
         type: 'tool_result',
-        tool_use_id: undefined,
+        tool_use_id: `${result.taskId}`,
         // Directly store the structured ToolResult payload in content.
         // Downstream provider adapters will see only text because
         // normalizeToolResultsForApi() flattens these blocks before sending.
-        content: [result],
+        content: JSON.stringify(result),
         is_error: isError
       }
 
@@ -626,9 +626,24 @@ export class Task {
   }
 
   /**
-   * Transform file_ref content blocks to text blocks with metadata
-   * This ensures API compatibility while preserving file reference information
+   * Parse a tool_result.content payload (JSON string or plain object)
+   * into a single ToolResult object.
    */
+  private parseToolResultContent(raw: string): ToolResult | null {
+    if (raw === undefined || raw === null) {
+      return null
+    }
+    let value: ToolResult
+    try {
+      value = JSON.parse(raw)
+    } catch (error) {
+      logger.warn('[parseToolResultContent] Failed to parse tool_result content as JSON', { error })
+      return null
+    }
+
+    return value
+  }
+
   private normalizeToolResultsForApi(conversationHistory: Anthropic.MessageParam[]): Anthropic.MessageParam[] {
     return conversationHistory.map((message) => {
       if (!Array.isArray(message.content)) {
@@ -636,13 +651,10 @@ export class Task {
       }
 
       const transformedContent = message.content.map((block) => {
-        const anyBlock = block as any
-
         // New V2: tool_result blocks contain structured ToolResult payloads.
         // Before sending to the provider, we flatten these into plain text so
         // that downstream adapters only see supported block types.
-        if (anyBlock.type === 'tool_result') {
-          const toolResult = anyBlock
+        if (block.type === 'tool_result') {
           const lines: string[] = []
 
           const addFromToolResult = (tr: ToolResult) => {
@@ -676,12 +688,11 @@ export class Task {
             }
           }
 
-          if (Array.isArray(toolResult.content)) {
-            for (const tr of toolResult.content as ToolResult[]) {
-              addFromToolResult(tr)
+          if (typeof block.content === 'string') {
+            const toolResult = this.parseToolResultContent(block.content)
+            if (toolResult) {
+              addFromToolResult(toolResult)
             }
-          } else if (toolResult.content) {
-            addFromToolResult(toolResult.content as ToolResult)
           }
 
           return {
@@ -1373,6 +1384,7 @@ export class Task {
     await this.overwriteChatermMessages(modifiedChatermMessages)
     this.chatermMessages = await getChatermMessages(this.taskId)
     this.apiConversationHistory = await getSavedApiConversationHistory(this.taskId)
+    await this.clearEphemeralToolResults()
     await this.contextManager.initializeContextHistory(this.taskId)
 
     // Restore conversationHistoryDeletedRange from the latest message that carries it.
@@ -2790,6 +2802,34 @@ export class Task {
     }
   }
 
+  private async clearEphemeralToolResults(): Promise<void> {
+    let didChange = false
+
+    for (const message of this.apiConversationHistory) {
+      if (!Array.isArray(message?.content)) continue
+      for (const block of message.content) {
+        if (!block || block.type !== 'tool_result' || typeof block.content !== 'string') continue
+
+        const toolResult = this.parseToolResultContent(block.content)
+        const hasEphemeral = toolResult && toolResult.ephemeral === true
+
+        if (!hasEphemeral) continue
+
+        const updated: ToolResult = {
+          ...toolResult,
+          result: '(expired)'
+        }
+
+        block.content = JSON.stringify(updated)
+        didChange = true
+      }
+    }
+
+    if (didChange) {
+      await saveApiConversationHistory(this.taskId, this.apiConversationHistory)
+    }
+  }
+
   private async pushAdditionalToolFeedback(feedback?: string): Promise<void> {
     if (!feedback) return
     const normalizedFeedback = this.truncateCommandOutput(feedback)
@@ -2989,6 +3029,8 @@ export class Task {
         await addNewChangesFlagToLastCompletionResultMessage()
         telemetryService.captureTaskCompleted(this.taskId)
       }
+
+      await this.clearEphemeralToolResults()
 
       const { response, text, contentParts } = await this.ask('completion_result', '', false)
       if (response === 'yesButtonClicked') {
