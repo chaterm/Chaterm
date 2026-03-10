@@ -1143,7 +1143,8 @@ export default {
     files: 'Dateiverwaltung',
     openedOnRight: 'Die SFTP-Verbindung wurde auf der rechten Seite geöffnet',
     openedOnLeft: 'Die SFTP-Verbindung wurde auf der linken Seite geöffnet',
-    getCwdFailed: 'Verzeichnisabruf fehlgeschlagen'
+    getCwdFailed: 'Verzeichnisabruf fehlgeschlagen',
+    waiting: 'Warten'
   },
   about: {
     version: 'Version',

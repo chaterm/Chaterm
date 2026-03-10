@@ -1138,7 +1138,8 @@ export default {
     files: '파일 관리',
     openedOnRight: 'sftp 연결이 오른쪽에 열렸습니다',
     openedOnLeft: 'sftp 연결이 왼쪽에 열렸습니다',
-    getCwdFailed: '목록을 가져오는 데 실패했습니다'
+    getCwdFailed: '목록을 가져오는 데 실패했습니다',
+    waiting: '기다리는 중'
   },
   about: {
     version: '버전',

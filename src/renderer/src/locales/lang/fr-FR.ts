@@ -1148,7 +1148,8 @@ export default {
     files: 'Gestion des fichiers',
     openedOnRight: 'La connexion SFTP a été ouverte sur le côté droit',
     openedOnLeft: 'La connexion sftp est ouverte à gauche',
-    getCwdFailed: `Échec de l'obtention du répertoire`
+    getCwdFailed: `Échec de l'obtention du répertoire`,
+    waiting: 'En attente'
   },
   about: {
     version: 'Version',

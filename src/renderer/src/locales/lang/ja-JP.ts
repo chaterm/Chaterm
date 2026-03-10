@@ -1142,7 +1142,8 @@ export default {
     files: 'ファイル管理',
     openedOnRight: 'SFTP接続が右側に開かれました',
     openedOnLeft: 'sftp接続が左側に開かれています',
-    getCwdFailed: '目次の取得に失敗しました'
+    getCwdFailed: '目次の取得に失敗しました',
+    waiting: '待機中'
   },
   about: {
     version: 'バージョン',

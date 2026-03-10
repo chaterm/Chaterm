@@ -1133,7 +1133,8 @@ export default {
     files: '文件管理',
     openedOnRight: 'SFTP连接已在右侧打开',
     openedOnLeft: 'SFTP连接已在左侧打开',
-    getCwdFailed: '获取目录失败'
+    getCwdFailed: '获取目录失败',
+    waiting: '等待中'
   },
   about: {
     version: '版本',
