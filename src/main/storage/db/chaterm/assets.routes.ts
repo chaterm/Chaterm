@@ -95,6 +95,9 @@ const translations = {
   },
   'ru-RU': {
     favoriteBar: 'Избранное'
+  },
+  'ar-AR': {
+    favoriteBar: 'المفضلة'
   }
 }
 
