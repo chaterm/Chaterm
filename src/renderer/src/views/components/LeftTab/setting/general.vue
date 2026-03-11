@@ -162,6 +162,7 @@
             <a-select-option value="ru-RU">Русский</a-select-option>
             <a-select-option value="ja-JP">日本語</a-select-option>
             <a-select-option value="ko-KR">한국어</a-select-option>
+            <a-select-option value="ar-AR">العربية</a-select-option>
           </a-select>
         </a-form-item>
         <a-form-item
