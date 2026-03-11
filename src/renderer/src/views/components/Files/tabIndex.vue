@@ -88,7 +88,7 @@
                     @dblclick="handleDblClick(dataRef)"
                     @contextmenu="handleContextMenu($event, dataRef)"
                   >
-                    <laptop-outlined class="computer-icon" />
+                    <folder-outlined class="computer-icon" />
                     <span class="hostname-text">{{ getDisplayText(dataRef, title) }}</span>
 
                     <div
@@ -162,7 +162,7 @@
                     @dblclick="handleDblClick(dataRef)"
                     @contextmenu="handleContextMenu($event, dataRef)"
                   >
-                    <laptop-outlined class="computer-icon" />
+                    <folder-outlined class="computer-icon" />
                     <span class="hostname-text">{{ getDisplayText(dataRef, title) }}</span>
                     <span
                       v-if="dataRef.comment"
@@ -177,7 +177,7 @@
                     v-else-if="commentNode === dataRef.key"
                     class="title-with-icon"
                   >
-                    <laptop-outlined class="computer-icon" />
+                    <folder-outlined class="computer-icon" />
                     <span class="hostname-text">{{ getDisplayText(dataRef, title) }}</span>
                     <div class="comment-edit-container">
                       <a-input
@@ -397,7 +397,6 @@ import { ref, computed, onMounted, onUnmounted, nextTick } from 'vue'
 import {
   StarFilled,
   StarOutlined,
-  LaptopOutlined,
   SearchOutlined,
   RedoOutlined,
   EditOutlined,
