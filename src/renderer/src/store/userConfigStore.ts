@@ -108,6 +108,9 @@ export const userConfigStore = defineStore('userConfig', {
     },
     updateBackgroundMode(mode: string) {
       this.userConfig.background.mode = mode
+    },
+    updateTheme(theme: string) {
+      this.userConfig.theme = theme
     }
   }
 })

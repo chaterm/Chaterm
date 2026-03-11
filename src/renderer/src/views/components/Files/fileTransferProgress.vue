@@ -2,6 +2,7 @@
   <div
     v-if="downloadGroups.length || uploadGroups.length || r2rTaskGroups.length"
     class="transfer-panel"
+    :style="transferPanelStyle"
   >
     <div class="header">{{ $t('files.taskList') }}</div>
 
@@ -93,7 +94,7 @@
 
                   <span class="speed">
                     <template v-if="task.stage === 'scanning'"> {{ $t('files.scanning') }}... </template>
-                    <template v-else-if="task.stage === 'pending' || task.stage === 'init'"> {{ $t('files.waiting') }}... </template>
+                    <template v-else-if="task.stage === 'pending' || task.speed === 'pending'"> {{ $t('files.waiting') }}... </template>
                     <template v-else>
                       {{ task.speed }}
                     </template>
@@ -221,7 +222,7 @@
 
                   <span class="speed">
                     <template v-if="task.stage === 'scanning'"> {{ $t('files.scanning') }}... </template>
-                    <template v-else-if="task.stage === 'pending' || task.stage === 'init'"> {{ $t('files.waiting') }}... </template>
+                    <template v-else-if="task.stage === 'pending' || task.speed === 'pending'"> {{ $t('files.waiting') }}... </template>
                     <template v-else>
                       {{ task.speed }}
                     </template>
@@ -354,7 +355,7 @@
 
                   <span class="speed">
                     <template v-if="task.stage === 'scanning'"> {{ $t('files.scanning') }}... </template>
-                    <template v-else-if="task.stage === 'pending' || task.stage === 'init'">{{ $t('files.waiting') }}... </template>
+                    <template v-else-if="task.stage === 'pending' || task.speed === 'pending'">{{ $t('files.waiting') }}... </template>
                     <template v-else>
                       {{ task.speed }}
                     </template>
@@ -402,7 +403,10 @@
 import { downloadGroups, uploadGroups, r2rTaskGroups, transferTasks, type Task, type TaskStatus } from './fileTransfer'
 import { CloseOutlined, DownOutlined, RightOutlined } from '@ant-design/icons-vue'
 import { useI18n } from 'vue-i18n'
-import { ref } from 'vue'
+import { ref, watch } from 'vue'
+import { getActualTheme } from '@/utils/themeUtils'
+import { userConfigStore } from '@store/userConfigStore'
+const configStore = userConfigStore()
 
 const { t: $t } = useI18n()
 const api = (window as any).api
@@ -438,7 +442,7 @@ const isDirectoryGroupTask = (task: Task) => {
 
 const formatSummary = (task: Task) => {
   if (task.stage === 'scanning') return `${$t('files.scanning')}...`
-  if (task.stage === 'pending' || task.stage === 'init') return `${$t('files.waiting')}...`
+  if (task.stage === 'pending' || task.speed === 'pending') return `${$t('files.waiting')}...`
 
   // Folder task: Display completed/total
   if (isDirectoryGroupTask(task)) {
@@ -467,6 +471,38 @@ const extractIp = (s: string) => {
   const at = first.lastIndexOf('@')
   return at >= 0 ? first.slice(at + 1) : first
 }
+
+const transferPanelStyle = ref<Record<string, string>>({})
+
+const updateTransferPanelStyle = (theme: string) => {
+  const hasBgImage = !!configStore.getUserConfig.background.image
+  const actualTheme = getActualTheme(theme)
+  if (!hasBgImage) {
+    transferPanelStyle.value = {
+      background: 'linear-gradient(0deg, var(--hover-bg-color), var(--hover-bg-color)), var(--bg-color)'
+    }
+    return
+  }
+
+  if (actualTheme === 'light') {
+    transferPanelStyle.value = {
+      background: 'rgba(245, 245, 245, 0.95)'
+    }
+    return
+  }
+
+  transferPanelStyle.value = {
+    background: 'rgba(36, 36, 36, 0.95)'
+  }
+}
+
+watch(
+  () => [configStore.userConfig.theme, configStore.userConfig.background?.image],
+  () => {
+    const actualTheme = getActualTheme(configStore.getUserConfig.theme)
+    updateTransferPanelStyle(actualTheme)
+  }
+)
 </script>
 
 <style scoped>
@@ -477,7 +513,6 @@ const extractIp = (s: string) => {
   bottom: 20px;
   border-radius: 8px;
   padding: 12px;
-  background: linear-gradient(0deg, var(--hover-bg-color), var(--hover-bg-color)), var(--bg-color);
   z-index: 100;
 
   --sb-size: 10px;
