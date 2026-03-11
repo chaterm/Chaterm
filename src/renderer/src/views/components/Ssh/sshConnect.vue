@@ -131,11 +131,26 @@ import {
   shouldUseBastionStatusChannel
 } from './utils/jumpServerStatusHandler'
 import { getLastNonEmptyLine, isTerminalPromptLine } from './utils/terminalPrompt'
+import { stripAnsiBasic, stripAnsiExtended } from './utils/ansiUtils'
 import { useDeviceStore } from '@/store/useDeviceStore'
 import { isFocusInAiTab } from '@/utils/domUtils'
 import { checkUserDevice } from '@api/user/user'
 import { keywordHighlightService } from '@/services/keywordHighlightService'
 import { useZmodem } from './utils/chatermZmodem'
+
+// Pre-compiled regex constants for checkFullScreenClear / checkHeavyUiStyle (avoid re-creation per call)
+const CLEAR_SCREEN_PATTERNS = [
+  /\x1b\[H\x1b\[J/,
+  /\x1b\[2J\x1b\[H/,
+  /\x1b\[H.*?\x1b\[J/s,
+  /\x1b\[J.*?\x1b\[H/s,
+  /\x1b\[\d+;\d+H.*?\x1b\[J/s,
+  /\x1b\[2J(?:\x1b\[H)?/
+]
+const HEAVY_UI_MOVE_RE = /\x1b\[\d+;\d+H/g
+const HEAVY_UI_CLEAR_RE = /\x1b\[\d*K/g
+const HEAVY_UI_TABLE_RE = /NUM\s+NAME\s+IP:PORT/
+const HEAVY_UI_SEPARATOR_RE = /=+/
 
 const logger = createRendererLogger('ssh.connect')
 const { t } = useI18n()
@@ -143,6 +158,26 @@ const selectFlag = ref(false)
 const configStore = userConfigStore()
 const isTransparent = computed(() => !!configStore.getUserConfig.background.image)
 let viewportScrollbarHideTimer: number | null = null
+
+// Coalesced scrollToBottom: ensures only one scroll is queued per tick cycle
+let scrollToBottomScheduled = false
+let scrollToBottomNeedsFocus = false
+const scheduleScrollToBottom = () => {
+  if (scrollToBottomScheduled) return
+  scrollToBottomScheduled = true
+  nextTick(() => {
+    terminal.value?.scrollToBottom()
+    if (scrollToBottomNeedsFocus) {
+      terminal.value?.focus()
+      scrollToBottomNeedsFocus = false
+    }
+    scrollToBottomScheduled = false
+  })
+}
+const scheduleScrollToBottomAndFocus = () => {
+  scrollToBottomNeedsFocus = true
+  scheduleScrollToBottom()
+}
 
 const showTerminalScrollbarTemporarily = () => {
   const container = terminalContainer.value
@@ -570,7 +605,7 @@ onMounted(async () => {
       clearTimeout(updateTimeout)
     }
     if (currentIsUserCall || terminalMode.value === 'none') {
-      updateTerminalState(JSON.stringify(data).endsWith(startStr.value), enterPress.value, tagPress.value)
+      updateTerminalState(typeof data === 'string' && data.endsWith(startStr.value), enterPress.value, tagPress.value)
     }
     let highLightFlag: boolean = true
     if (enterPress.value || specialCode.value) {
@@ -591,7 +626,7 @@ onMounted(async () => {
         pasteFlag.value = false
       }
       if (!selectFlag.value) {
-        queryCommand()
+        debouncedQueryCommand()
         triggerAiSuggest()
       }
     }
@@ -619,9 +654,7 @@ onMounted(async () => {
       }
       // Ensure scroll to bottom after write completion
       if (!currentIsUserCall) {
-        nextTick(() => {
-          terminal.value?.scrollToBottom()
-        })
+        scheduleScrollToBottom()
       }
     })
 
@@ -825,24 +858,20 @@ onMounted(async () => {
   })
 
   if (terminal.value?.textarea) {
-    terminal.value.textarea.addEventListener('focus', () => {
+    const handleTextareaFocus = () => {
       inputManager.setActiveTerm(connectionId.value)
       window.electron?.ipcRenderer?.send('terminal:focus-changed', true)
-    })
-    terminal.value.textarea.addEventListener('blur', () => {
+    }
+    const handleTextareaBlur = () => {
       hideSelectionButton()
       window.electron?.ipcRenderer?.send('terminal:focus-changed', false)
-    })
+    }
+    terminal.value.textarea.addEventListener('focus', handleTextareaFocus)
+    terminal.value.textarea.addEventListener('blur', handleTextareaBlur)
     cleanupListeners.value.push(() => {
       if (terminal.value?.textarea) {
-        terminal.value.textarea.removeEventListener('focus', () => {
-          inputManager.setActiveTerm(connectionId.value)
-          window.electron?.ipcRenderer?.send('terminal:focus-changed', true)
-        })
-        terminal.value.textarea.removeEventListener('blur', () => {
-          hideSelectionButton()
-          window.electron?.ipcRenderer?.send('terminal:focus-changed', false)
-        })
+        terminal.value.textarea.removeEventListener('focus', handleTextareaFocus)
+        terminal.value.textarea.removeEventListener('blur', handleTextareaBlur)
       }
     })
   }
@@ -884,6 +913,15 @@ const handlePinchZoomStatusChanged = async (enabled: boolean) => {
 }
 
 onBeforeUnmount(() => {
+  cachedSelectionButton = null
+  if (sendTerminalStateTimer) {
+    clearTimeout(sendTerminalStateTimer)
+    sendTerminalStateTimer = null
+  }
+  if (queryCommandDebounceTimer) {
+    clearTimeout(queryCommandDebounceTimer)
+    queryCommandDebounceTimer = null
+  }
   window.removeEventListener('resize', handleResize)
   window.removeEventListener('wheel', handleWheel)
   inputManager.unregisterInstances(connectionId.value)
@@ -1709,9 +1747,7 @@ const updateTerminalState = (quickInit: boolean, enterPress, tagPress: boolean) 
 
     // Ensure terminal scrolls to bottom, keeping cursor in visible area
     if (!userInputFlag.value) {
-      nextTick(() => {
-        terminal.value?.scrollToBottom()
-      })
+      scheduleScrollToBottom()
     }
 
     if (quickInit && pendingLs.value) {
@@ -1850,22 +1886,27 @@ const updateTerminalStateObject = (cursorX: number, cursorY: number, isCrossRow:
   terminalState.value.contentCrossRowStatus = isCrossRow
 }
 
-const sendTerminalStateToServer = async (): Promise<void> => {
-  try {
-    await api.recordTerminalState({
-      id: connectionId.value,
-      state: {
-        cursorPosition: {
-          row: terminalState.value.cursorPosition.row,
-          col: terminalState.value.cursorPosition.col
-        },
-        beforeCursor: terminalState.value.beforeCursor,
-        content: terminalState.value.content
-      }
-    })
-  } catch (err) {
-    logger.error('Send terminal state error', { error: err })
-  }
+let sendTerminalStateTimer: ReturnType<typeof setTimeout> | null = null
+const sendTerminalStateToServer = (): void => {
+  if (sendTerminalStateTimer) return
+  sendTerminalStateTimer = setTimeout(async () => {
+    sendTerminalStateTimer = null
+    try {
+      await api.recordTerminalState({
+        id: connectionId.value,
+        state: {
+          cursorPosition: {
+            row: terminalState.value.cursorPosition.row,
+            col: terminalState.value.cursorPosition.col
+          },
+          beforeCursor: terminalState.value.beforeCursor,
+          content: terminalState.value.content
+        }
+      })
+    } catch (err) {
+      logger.error('Send terminal state error', { error: err })
+    }
+  }, 150)
 }
 
 function handleExternalInput(data) {
@@ -1953,10 +1994,7 @@ const setupTerminalInput = () => {
           .then((text) => {
             sendData(text)
             // Ensure scroll to bottom after paste
-            nextTick(() => {
-              terminal.value?.scrollToBottom()
-              terminal.value?.focus()
-            })
+            scheduleScrollToBottomAndFocus()
           })
           .catch(() => {})
       }
@@ -2002,10 +2040,7 @@ const setupTerminalInput = () => {
       if (displaySuggestions.value.length && activeSuggestion.value >= 0) {
         selectSuggestion(displaySuggestions.value[activeSuggestion.value])
         // Ensure scroll to bottom
-        nextTick(() => {
-          terminal.value?.scrollToBottom()
-          terminal.value?.focus()
-        })
+        scheduleScrollToBottomAndFocus()
         return
       } else {
         const delData = String.fromCharCode(127)
@@ -2050,11 +2085,8 @@ const setupTerminalInput = () => {
       clearAllSuggestions()
 
       // Ensure scroll to bottom and maintain focus
-      nextTick(() => {
-        terminal.value?.scrollToBottom()
-        terminal.value?.focus()
-      })
-    } else if (JSON.stringify(data) === '"\\u001b[A"') {
+      scheduleScrollToBottomAndFocus()
+    } else if (data === '\u001b[A') {
       if (displaySuggestions.value.length && suggestionSelectionMode.value) {
         if (data == '\u001b[A') {
           // Up arrow key: cycle up navigation - only when in selection mode
@@ -2071,7 +2103,7 @@ const setupTerminalInput = () => {
           sendData(data)
         }
       }
-    } else if (JSON.stringify(data) === '"\\u001b[B"') {
+    } else if (data === '\u001b[B') {
       if (displaySuggestions.value.length && suggestionSelectionMode.value) {
         if (data == '\u001b[B') {
           // Down arrow key: cycle down navigation - only when in selection mode
@@ -2117,7 +2149,7 @@ const setupTerminalInput = () => {
       selectFlag.value = false
     }
     if (!selectFlag.value) {
-      queryCommand()
+      debouncedQueryCommand()
       triggerAiSuggest()
     }
   }
@@ -2235,21 +2267,13 @@ watch(connectionId, () => {
 const checkFullScreenClear = (data: string) => {
   const isSimpleCtrlL = data.includes('\x1b[H\x1b[2J')
   if (isSimpleCtrlL) return false
-  const clearScreenPatterns = [
-    /\x1b\[H\x1b\[J/,
-    /\x1b\[2J\x1b\[H/,
-    /\x1b\[H.*?\x1b\[J/s,
-    /\x1b\[J.*?\x1b\[H/s,
-    /\x1b\[\d+;\d+H.*?\x1b\[J/s,
-    /\x1b\[2J(?:\x1b\[H)?/
-  ]
-  return clearScreenPatterns.some((pattern) => pattern.test(data))
+  return CLEAR_SCREEN_PATTERNS.some((pattern) => pattern.test(data))
 }
 
 const checkHeavyUiStyle = (data: string) => {
-  const moveCount = (data.match(/\x1b\[\d+;\d+H/g) || []).length
-  const clearCount = (data.match(/\x1b\[\d*K/g) || []).length
-  const hasTable = /NUM\s+NAME\s+IP:PORT/.test(data) || /=+/.test(data)
+  const moveCount = (data.match(HEAVY_UI_MOVE_RE) || []).length
+  const clearCount = (data.match(HEAVY_UI_CLEAR_RE) || []).length
+  const hasTable = HEAVY_UI_TABLE_RE.test(data) || HEAVY_UI_SEPARATOR_RE.test(data)
 
   return moveCount >= 5 && clearCount >= 5 && hasTable
 }
@@ -2286,7 +2310,6 @@ const checkEditorMode = (response: MarkedResponse) => {
 
     // More lenient vim detection: check if it contains common vim entry sequences
     // But exclude systemctl and other system commands that might use similar sequences
-    const text = new TextDecoder().decode(new Uint8Array(dataBuffer.value))
 
     // Don't enter alternate mode if we detect shell prompt or exit sequences
     // These are typically from system commands returning to shell
@@ -2323,7 +2346,6 @@ const checkEditorMode = (response: MarkedResponse) => {
 
   if (terminalMode.value === 'alternate') {
     // Only exit vim mode when shell prompt is clearly detected
-    const text = new TextDecoder().decode(new Uint8Array(dataBuffer.value))
     const lines = text.split('\n')
     const lastLine = lines[lines.length - 1] || ''
     const secondLastLine = lines[lines.length - 2] || ''
@@ -2422,18 +2444,7 @@ const removeCommandEcho = (outputLines: string[], command: string, isPowerShell:
   }
 
   // Clean command lines: remove ANSI sequences
-  const cleanCommandLines = commandLines.map((l) =>
-    l
-      .replace(/\x1b\[[0-9;]*m/g, '')
-      .replace(/\x1b\[[0-9;]*[ABCDEFGJKST]/g, '')
-      .replace(/\x1b\[[0-9]*[XK]/g, '')
-      .replace(/\x1b\[[0-9;]*[Hf]/g, '')
-      .replace(/\x1b\[[?][0-9;]*[hl]/g, '')
-      .replace(/\x1b\]0;[^\x07]*\x07/g, '')
-      .replace(/\x1b\]9;[^\x07]*\x07/g, '')
-      .replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/g, '')
-      .trim()
-  )
+  const cleanCommandLines = commandLines.map((l) => stripAnsiBasic(l).trim())
 
   const result: string[] = []
   let removedCount = 0
@@ -2506,17 +2517,7 @@ const removeCommandEcho = (outputLines: string[], command: string, isPowerShell:
   // Join all output lines for searching
   const allOutputText = outputLines
     .map((line) => {
-      let cleanLine = line
-        .replace(/\x1b\[[0-9;]*m/g, '')
-        .replace(/\x1b\[[0-9;]*[ABCDEFGJKST]/g, '')
-        .replace(/\x1b\[[0-9]*[XK]/g, '')
-        .replace(/\x1b\[[0-9;]*[Hf]/g, '')
-        .replace(/\x1b\[[?][0-9;]*[hl]/g, '')
-        .replace(/\x1b\]0;[^\x07]*\x07/g, '')
-        .replace(/\x1b\]9;[^\x07]*\x07/g, '')
-        .replace(/\x1b\[[?]25[hl]/g, '')
-        .replace(/\x1b\[[0-9;]*[JK]/g, '')
-        .replace(/[\x00-\x07\x0B\x0C\x0E-\x1F\x7F]/g, '')
+      let cleanLine = stripAnsiExtended(line)
       cleanLine = processBackspaces(cleanLine)
       return cleanLine.replace(/\s+/g, ' ').trim()
     })
@@ -2545,17 +2546,7 @@ const removeCommandEcho = (outputLines: string[], command: string, isPowerShell:
     // Find the line that contains the command end
     let currentPos = 0
     for (let i = 0; i < outputLines.length; i++) {
-      let cleanLine = outputLines[i]
-        .replace(/\x1b\[[0-9;]*m/g, '')
-        .replace(/\x1b\[[0-9;]*[ABCDEFGJKST]/g, '')
-        .replace(/\x1b\[[0-9]*[XK]/g, '')
-        .replace(/\x1b\[[0-9;]*[Hf]/g, '')
-        .replace(/\x1b\[[?][0-9;]*[hl]/g, '')
-        .replace(/\x1b\]0;[^\x07]*\x07/g, '')
-        .replace(/\x1b\]9;[^\x07]*\x07/g, '')
-        .replace(/\x1b\[[?]25[hl]/g, '')
-        .replace(/\x1b\[[0-9;]*[JK]/g, '')
-        .replace(/[\x00-\x07\x0B\x0C\x0E-\x1F\x7F]/g, '')
+      let cleanLine = stripAnsiExtended(outputLines[i])
       cleanLine = processBackspaces(cleanLine)
       const normalizedLine = cleanLine.replace(/\s+/g, ' ').trim()
 
@@ -2589,17 +2580,7 @@ const removeCommandEcho = (outputLines: string[], command: string, isPowerShell:
     const line = outputLines[i]
     // Clean the line for comparison - remove ANSI sequences first, then process backspaces
     // This ensures backspace only affects visible characters, not ANSI control sequences
-    let cleanLine = line
-      .replace(/\x1b\[[0-9;]*m/g, '') // Color codes
-      .replace(/\x1b\[[0-9;]*[ABCDEFGJKST]/g, '') // Cursor movement
-      .replace(/\x1b\[[0-9]*[XK]/g, '') // Erase sequences
-      .replace(/\x1b\[[0-9;]*[Hf]/g, '') // Position sequences
-      .replace(/\x1b\[[?][0-9;]*[hl]/g, '') // Mode sequences
-      .replace(/\x1b\]0;[^\x07]*\x07/g, '') // Window title
-      .replace(/\x1b\]9;[^\x07]*\x07/g, '') // PowerShell sequences
-      .replace(/\x1b\[[?]25[hl]/g, '') // Cursor visibility (show/hide)
-      .replace(/\x1b\[[0-9;]*[JK]/g, '') // Erase in display/line
-      .replace(/[\x00-\x07\x0B\x0C\x0E-\x1F\x7F]/g, '') // Control chars (excluding \x08 as it will be processed next)
+    let cleanLine = stripAnsiExtended(line)
     // Now process backspaces on the cleaned line (only visible characters remain)
     cleanLine = processBackspaces(cleanLine)
     cleanLine = cleanLine.trim()
@@ -2804,17 +2785,7 @@ const removeCommandEcho = (outputLines: string[], command: string, isPowerShell:
           if (hasOutputAfterCommand) {
             // Try to extract the output part from the original line
             // Find the command suffix in the original line and get what comes after
-            const originalCleanLine = line
-              .replace(/\x1b\[[0-9;]*m/g, '')
-              .replace(/\x1b\[[0-9;]*[ABCDEFGJKST]/g, '')
-              .replace(/\x1b\[[0-9]*[XK]/g, '')
-              .replace(/\x1b\[[0-9;]*[Hf]/g, '')
-              .replace(/\x1b\[[?][0-9;]*[hl]/g, '')
-              .replace(/\x1b\]0;[^\x07]*\x07/g, '')
-              .replace(/\x1b\]9;[^\x07]*\x07/g, '')
-              .replace(/\x1b\[[?]25[hl]/g, '')
-              .replace(/\x1b\[[0-9;]*[JK]/g, '')
-              .replace(/[\x00-\x07\x0B\x0C\x0E-\x1F\x7F]/g, '')
+            const originalCleanLine = stripAnsiExtended(line)
             const processedOriginalLine = processBackspaces(originalCleanLine)
             const normalizedOriginalLine = processedOriginalLine.replace(/\s+/g, ' ').trim()
 
@@ -3018,33 +2989,11 @@ const handleCommandOutput = (data: string, isInitialCommand: boolean) => {
             const cmdLines = sentCommand.split(/\r?\n/).filter((l) => l.trim())
             const normCmd =
               cmdLines
-                .map((l) =>
-                  l
-                    .replace(/\x1b\[[0-9;]*m/g, '')
-                    .replace(/\x1b\[[0-9;]*[ABCDEFGJKST]/g, '')
-                    .replace(/\x1b\[[0-9]*[XK]/g, '')
-                    .replace(/\x1b\[[0-9;]*[Hf]/g, '')
-                    .replace(/\x1b\[[?][0-9;]*[hl]/g, '')
-                    .replace(/\x1b\]0;[^\x07]*\x07/g, '')
-                    .replace(/\x1b\]9;[^\x07]*\x07/g, '')
-                    .replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/g, '')
-                    .trim()
-                )
+                .map((l) => stripAnsiBasic(l).trim())
                 .join(' ')
                 .replace(/\s+/g, ' ')
                 .trim() || ''
-            const cleanLine = (s: string) =>
-              s
-                .replace(/\x1b\[[0-9;]*m/g, '')
-                .replace(/\x1b\[[0-9;]*[ABCDEFGJKST]/g, '')
-                .replace(/\x1b\[[0-9]*[XK]/g, '')
-                .replace(/\x1b\[[0-9;]*[Hf]/g, '')
-                .replace(/\x1b\[[?][0-9;]*[hl]/g, '')
-                .replace(/\x1b\]0;[^\x07]*\x07/g, '')
-                .replace(/\x1b\]9;[^\x07]*\x07/g, '')
-                .replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/g, '')
-                .trim()
-                .replace(/\s+/g, ' ')
+            const cleanLine = (s: string) => stripAnsiBasic(s).trim().replace(/\s+/g, ' ')
             for (let i = 0; i < Math.min(lines.length, 8); i++) {
               if (cleanLine(lines[i]) === normCmd) {
                 outputStartIndex = i + 1
@@ -3292,15 +3241,7 @@ const handleCommandOutput = (data: string, isInitialCommand: boolean) => {
           if (outputEndIndex === lines.length && lines.length > 0) {
             const lastLineIndex = lines.length - 1
             const lastLine = lines[lastLineIndex]
-            const cleanLastLine = lastLine
-              .replace(/\x1b\[[0-9;]*m/g, '')
-              .replace(/\x1b\[[0-9;]*[ABCDEFGJKST]/g, '')
-              .replace(/\x1b\[[0-9]*[XK]/g, '')
-              .replace(/\x1b\[[0-9;]*[Hf]/g, '')
-              .replace(/\x1b\[[?][0-9;]*[hl]/g, '')
-              .replace(/\x1b\]0;[^\x07]*\x07/g, '')
-              .replace(/\x1b\]9;[^\x07]*\x07/g, '')
-              .replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/g, '')
+            const cleanLastLine = stripAnsiBasic(lastLine)
 
             // Check if line ends with PowerShell/CMD prompt pattern
             // Match patterns like "5066PS C:\Users\test>" or "outputC:\path>"
@@ -3474,18 +3415,7 @@ const handleCommandOutput = (data: string, isInitialCommand: boolean) => {
             .replace(/\r\n|\r/g, '\n')
             .replace(/\s+/g, ' ')
             .trim()
-          const cleanForCompare = (s: string) =>
-            s
-              .replace(/\x1b\[[0-9;]*m/g, '')
-              .replace(/\x1b\[[0-9;]*[ABCDEFGJKST]/g, '')
-              .replace(/\x1b\[[0-9]*[XK]/g, '')
-              .replace(/\x1b\[[0-9;]*[Hf]/g, '')
-              .replace(/\x1b\[[?][0-9;]*[hl]/g, '')
-              .replace(/\x1b\]0;[^\x07]*\x07/g, '')
-              .replace(/\x1b\]9;[^\x07]*\x07/g, '')
-              .replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/g, '')
-              .trim()
-              .replace(/\s+/g, ' ')
+          const cleanForCompare = (s: string) => stripAnsiBasic(s).trim().replace(/\s+/g, ' ')
           while (outputLines.length > 0 && cleanForCompare(outputLines[0]) === normalizedSent) {
             outputLines = outputLines.slice(1)
           }
@@ -3727,27 +3657,29 @@ const highlightSyntax = (allData: any, userConfig?: SyntaxHighlightConfig) => {
 
   const isValidCommand = commands.value?.includes(command)
 
+  // Build a single escape sequence buffer to minimize cusWrite calls
+  let buf = ''
+
   // Highlight main command
   if (command) {
     const cmdRow = startY + 1
     const cmdCol = cursorStartX.value + 1
 
-    // Move to command start position
-    cusWrite?.(`\x1b[${cmdRow};${cmdCol}H`, { isUserCall: true })
-
     const colorCode = isValidCommand ? colors.command.valid : colors.command.invalid
-
-    // Render
-    cusWrite?.(`\x1b[${colorCode}m${command}\x1b[0m`, { isUserCall: true })
-
-    setTimeout(() => {
-      const row = cursorPosition.row + 1
-      const col = cursorPosition.col + 1
-      cusWrite?.(`\x1b[${row};${col}H`, { isUserCall: true })
-    })
+    buf += `\x1b[${cmdRow};${cmdCol}H\x1b[${colorCode}m${command}\x1b[0m`
   }
 
-  if (!arg) return
+  if (!arg) {
+    if (buf) {
+      cusWrite?.(buf, { isUserCall: true })
+      setTimeout(() => {
+        const row = cursorPosition.row + 1
+        const col = cursorPosition.col + 1
+        cusWrite?.(`\x1b[${row};${col}H`, { isUserCall: true })
+      })
+    }
+    return
+  }
 
   // Tokenize
   type Token = {
@@ -3756,8 +3688,8 @@ const highlightSyntax = (allData: any, userConfig?: SyntaxHighlightConfig) => {
     startIndex: number
   }
 
-  // Handle pipe operators
-  const highlightPipeCommands = (argStr: string, tokens?: Token[], unmatchedStartIndex?: number | null) => {
+  // Handle pipe operators - appends to buf
+  const appendPipeCommands = (argStr: string, tokens?: Token[], unmatchedStartIndex?: number | null) => {
     if (!argStr.includes('|')) return
 
     const commandDisplayWidth = calculateDisplayPosition(command, command.length)
@@ -3807,9 +3739,7 @@ const highlightSyntax = (allData: any, userConfig?: SyntaxHighlightConfig) => {
       const { row: pipeRow0, col: pipeCol } = getRowColByDisplayOffset(startY, cursorStartX.value, pipeOffset)
       const pipeRow = pipeRow0 + 1
 
-      cusWrite?.(`\x1b[${pipeRow};${pipeCol}H`, { isUserCall: true })
-
-      cusWrite?.(`\x1b[${pipeColorCode}m|\x1b[0m`, { isUserCall: true })
+      buf += `\x1b[${pipeRow};${pipeCol}H\x1b[${pipeColorCode}m|\x1b[0m`
 
       // Handle sub-commands
       let k = pipeIndex + 1
@@ -3858,11 +3788,7 @@ const highlightSyntax = (allData: any, userConfig?: SyntaxHighlightConfig) => {
       const { row: subRow0, col: subCol } = getRowColByDisplayOffset(startY, cursorStartX.value, subOffset)
       const subRow = subRow0 + 1
 
-      cusWrite?.(`\x1b[${subRow};${subCol}H`, { isUserCall: true })
-
-      cusWrite?.(`\x1b[${subColor}m${subCommand}\x1b[0m`, {
-        isUserCall: true
-      })
+      buf += `\x1b[${subRow};${subCol}H\x1b[${subColor}m${subCommand}\x1b[0m`
 
       searchStart = pipeIndex + 1
     }
@@ -3889,10 +3815,8 @@ const highlightSyntax = (allData: any, userConfig?: SyntaxHighlightConfig) => {
         const totalOffset = commandDisplayWidth + displayPos
         const { row, col } = getRowColByDisplayOffset(startY, cursorStartX.value, totalOffset)
 
-        cusWrite?.(`\x1b[${row + 1};${col}H`, { isUserCall: true })
-
         if (token.content === ' ') {
-          cusWrite?.(`${token.content}\x1b[0m`, { isUserCall: true })
+          buf += `\x1b[${row + 1};${col}H${token.content}\x1b[0m`
         } else {
           let colorCode: string
           if (token.type === 'matched') {
@@ -3902,16 +3826,16 @@ const highlightSyntax = (allData: any, userConfig?: SyntaxHighlightConfig) => {
           } else {
             colorCode = colors.string.other
           }
-          cusWrite?.(`\x1b[${colorCode}m${token.content}\x1b[0m`, { isUserCall: true })
+          buf += `\x1b[${row + 1};${col}H\x1b[${colorCode}m${token.content}\x1b[0m`
         }
       }
 
-      highlightPipeCommands(arg, tokens, null)
+      appendPipeCommands(arg, tokens, null)
 
       // Handle cursor
       const finalRow = cursorPosition.row + 1
       const finalCol = cursorPosition.col + 1
-      cusWrite?.(`\x1b[${finalRow};${finalCol}H`, { isUserCall: true })
+      buf += `\x1b[${finalRow};${finalCol}H`
     } else {
       // Has unmatched
       for (const token of tokens) {
@@ -3923,10 +3847,8 @@ const highlightSyntax = (allData: any, userConfig?: SyntaxHighlightConfig) => {
         const { row, col } = getRowColByDisplayOffset(startY, cursorStartX.value, totalOffset)
 
         const ansiRow = row + 1
-        cusWrite?.(`\x1b[${ansiRow};${col}H`, { isUserCall: true })
-
         if (token.content === ' ') {
-          cusWrite?.(`${token.content}\x1b[0m`, { isUserCall: true })
+          buf += `\x1b[${ansiRow};${col}H${token.content}\x1b[0m`
         } else {
           let colorCode: string
           if (token.type === 'matched') {
@@ -3934,7 +3856,7 @@ const highlightSyntax = (allData: any, userConfig?: SyntaxHighlightConfig) => {
           } else {
             colorCode = colors.string.other
           }
-          cusWrite?.(`\x1b[${colorCode}m${token.content}\x1b[0m`, { isUserCall: true })
+          buf += `\x1b[${ansiRow};${col}H\x1b[${colorCode}m${token.content}\x1b[0m`
         }
       }
       // Everything after unmatchedStartIndex is unmatched
@@ -3944,31 +3866,32 @@ const highlightSyntax = (allData: any, userConfig?: SyntaxHighlightConfig) => {
 
       const { row, col } = getRowColByDisplayOffset(startY, cursorStartX.value, totalOffset)
 
-      cusWrite?.(`\x1b[${row + 1};${col}H`, { isUserCall: true })
-
-      cusWrite?.(`\x1b[${colors.string.unmatched}m${unmatchedContent}\x1b[0m`, { isUserCall: true })
+      buf += `\x1b[${row + 1};${col}H\x1b[${colors.string.unmatched}m${unmatchedContent}\x1b[0m`
 
       // Everything after unmatched is treated as string, pipes are not specially handled
-      highlightPipeCommands(arg, tokens, unmatchedStartIndex)
+      appendPipeCommands(arg, tokens, unmatchedStartIndex)
 
       const finalRow = cursorPosition.row + 1
       const finalCol = cursorPosition.col + 1
-      cusWrite?.(`\x1b[${finalRow};${finalCol}H`, { isUserCall: true })
+      buf += `\x1b[${finalRow};${finalCol}H`
     }
   } else {
     const commandDisplayWidth = calculateDisplayPosition(command, command.length)
     const row = startY + 1
     const col = cursorStartX.value + commandDisplayWidth + 1
 
-    cusWrite?.(`\x1b[${row};${col}H`, { isUserCall: true })
+    buf += `\x1b[${row};${col}H\x1b[${colors.argument.default}m${arg}\x1b[0m`
 
-    cusWrite?.(`\x1b[${colors.argument.default}m${arg}\x1b[0m`, { isUserCall: true })
-
-    highlightPipeCommands(arg)
+    appendPipeCommands(arg)
 
     const finalRow = cursorPosition.row + 1
     const finalCol = cursorPosition.col + 1
-    cusWrite?.(`\x1b[${finalRow};${finalCol}H`, { isUserCall: true })
+    buf += `\x1b[${finalRow};${finalCol}H`
+  }
+
+  // Single write for the entire highlight sequence
+  if (buf) {
+    cusWrite?.(buf, { isUserCall: true })
   }
 }
 
@@ -4278,6 +4201,14 @@ const queryCommand = async (cmd = '') => {
     logger.error('Query failed', { error: error })
   }
 }
+let queryCommandDebounceTimer: ReturnType<typeof setTimeout> | null = null
+const debouncedQueryCommand = () => {
+  if (queryCommandDebounceTimer) clearTimeout(queryCommandDebounceTimer)
+  queryCommandDebounceTimer = setTimeout(() => {
+    queryCommandDebounceTimer = null
+    queryCommand()
+  }, 80)
+}
 const insertCommand = async (cmd) => {
   try {
     await window.api.insertCommand({
@@ -4318,10 +4249,7 @@ const handleKeyInput = (e) => {
     terminalState.value.contentCrossRowLines = 0
 
     // Ensure scroll to bottom and maintain focus
-    nextTick(() => {
-      terminal.value?.scrollToBottom()
-      terminal.value?.focus()
-    })
+    scheduleScrollToBottomAndFocus()
   } else if (ev.keyCode === 8) {
     index = cursorX.value - 1 - cursorStartX.value
     currentLine.value = currentLine.value.slice(0, index) + currentLine.value.slice(index + 1)
@@ -4710,6 +4638,8 @@ const commandMarkerToCommand = ref(new Map<string, string>())
 const currentCommandMarker = ref<string | null>(null)
 const currentCommandTabId = ref<string | undefined>(undefined)
 
+let cachedSelectionButton: HTMLElement | null = null
+
 function updateSelectionButtonPosition() {
   if (!terminal.value) return
   const termInstance = terminal.value
@@ -4719,7 +4649,10 @@ function updateSelectionButtonPosition() {
   }
   const position = termInstance.getSelectionPosition()
   if (position && termInstance.getSelection().trim()) {
-    const button = document.getElementById(`${connectionId.value}Button`) as HTMLElement
+    if (!cachedSelectionButton) {
+      cachedSelectionButton = document.getElementById(`${connectionId.value}Button`) as HTMLElement
+    }
+    const button = cachedSelectionButton
     if (!button) return
     const viewportY = termInstance.buffer.active.viewportY
     const viewportRows = termInstance.rows

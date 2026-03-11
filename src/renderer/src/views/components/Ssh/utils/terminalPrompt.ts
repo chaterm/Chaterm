@@ -1,3 +1,5 @@
+import { stripAnsiBasic } from './ansiUtils'
+
 type PromptType = 'linux' | 'cisco' | 'huaweiUser' | 'huaweiSystem' | 'windows' | 'unknown'
 
 type PromptMatchResult = {
@@ -39,16 +41,7 @@ const PROMPT_PATTERNS: Array<{ type: PromptType; pattern: RegExp }> = [
   { type: 'windows', pattern: /^PS\s+[A-Za-z]:[\\\/](?:(?:[^#\\\/]+[\\\/])*[^#\\\/]*)?#\s*$/ } // PS C:\path#
 ]
 
-const cleanLineForPromptDetection = (line: string): string =>
-  line
-    .replace(/\x1b\[[0-9;]*m/g, '') // Remove ANSI color codes
-    .replace(/\x1b\[[0-9;]*[ABCDEFGJKST]/g, '') // Remove cursor control sequences
-    .replace(/\x1b\[[0-9]*[XK]/g, '') // Remove erase sequences
-    .replace(/\x1b\[[0-9;]*[Hf]/g, '') // Remove cursor position sequences
-    .replace(/\x1b\[[?][0-9;]*[hl]/g, '') // Remove other ANSI sequences
-    .replace(/\x1b\]0;[^\x07]*\x07/g, '') // Remove window title sequences
-    .replace(/\x1b\]9;[^\x07]*\x07/g, '') // Remove PowerShell specific sequences
-    .replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/g, '') // Remove remaining control characters
+const cleanLineForPromptDetection = (line: string): string => stripAnsiBasic(line)
 
 const extractTrailingPrompt = (line: string): string | null => {
   const trimmed = line.trimEnd()
