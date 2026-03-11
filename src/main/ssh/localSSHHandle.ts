@@ -37,6 +37,9 @@ const translations = {
   },
   'ru-RU': {
     localhost: 'Локальный хост'
+  },
+  'ar-AR': {
+    localhost: 'المضيف المحلي'
   }
 }
 

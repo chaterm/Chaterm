@@ -9,6 +9,7 @@ import ptPT from './lang/pt-PT'
 import ruRU from './lang/ru-RU'
 import jaJP from './lang/ja-JP'
 import koKR from './lang/ko-KR'
+import arAR from './lang/ar-AR'
 import { getDefaultLanguage } from '@utils/edition'
 
 const messages = {
@@ -41,6 +42,9 @@ const messages = {
   },
   'ko-KR': {
     ...koKR
+  },
+  'ar-AR': {
+    ...arAR
   }
 }
 
@@ -118,6 +122,13 @@ const i18n = createI18n({
       }
     },
     'ko-KR': {
+      short: {
+        year: 'numeric',
+        month: 'short',
+        day: 'numeric'
+      }
+    },
+    'ar-AR': {
       short: {
         year: 'numeric',
         month: 'short',

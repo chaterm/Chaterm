@@ -12,7 +12,8 @@ const config = {
     { name: 'Português', value: 'pt-PT' },
     { name: 'Русский', value: 'ru-RU' },
     { name: '日本語', value: 'ja-JP' },
-    { name: '한국어', value: 'ko-KR' }
+    { name: '한국어', value: 'ko-KR' },
+    { name: 'العربية', value: 'ar-AR' }
   ]
 }
 export default config

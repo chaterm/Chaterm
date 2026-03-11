@@ -231,6 +231,7 @@ The project supports ten languages. All user-facing text must be translated into
 - Italian: `src/renderer/src/locales/lang/it-IT.ts`
 - Portuguese: `src/renderer/src/locales/lang/pt-PT.ts`
 - Russian: `src/renderer/src/locales/lang/ru-RU.ts`
+- Arabic: `src/renderer/src/locales/lang/ar-AR.ts`
 
 **Usage:**
 
@@ -242,7 +243,7 @@ const text = t('key.subkey')
 
 **Translation Requirements:**
 
-- When adding new user-facing text, translations must be added to all ten locale files (zh-CN, zh-TW, en-US, ja-JP, ko-KR, de-DE, fr-FR, it-IT, pt-PT, ru-RU)
+- When adding new user-facing text, translations must be added to all ten locale files (zh-CN, zh-TW, en-US, ja-JP, ko-KR, de-DE, fr-FR, it-IT, pt-PT, ru-RU, ar-AR)
 - Translation keys must be identical across all language files
 - Maintain consistent structure and ordering across all locale files for easier maintenance
 
@@ -259,7 +260,7 @@ Before committing code, must confirm:
 1. [OK] Pass all checks: `npm run lint && npm run typecheck && npm test`
 2. [OK] No formatting changes to unrelated files (check git diff)
 3. [OK] Commit message follows Conventional Commits format
-4. [OK] If UI changes are involved, all ten language files have been updated (zh-CN, zh-TW, en-US, ja-JP, ko-KR, de-DE, fr-FR, it-IT, pt-PT, ru-RU)
+4. [OK] If UI changes are involved, all ten language files have been updated (zh-CN, zh-TW, en-US, ja-JP, ko-KR, de-DE, fr-FR, it-IT, pt-PT, ru-RU, ar-AR)
 5. [OK] If database is modified, migration files have been created
 6. [OK] If new IPC channels are added, types have been defined in `src/preload/index.d.ts`
 7. [OK] No sensitive information committed (keys, tokens, private domains)
