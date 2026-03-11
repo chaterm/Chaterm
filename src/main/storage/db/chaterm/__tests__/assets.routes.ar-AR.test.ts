@@ -33,10 +33,10 @@ describe('assets.routes - Arabic (ar-AR) translation support', () => {
       if (sql.includes('PRAGMA table_info')) {
         return { all: () => [{ name: 'comment' }] }
       }
-      if (sql.includes("SELECT name FROM sqlite_master") && sql.includes('t_custom_folders')) {
+      if (sql.includes('SELECT name FROM sqlite_master') && sql.includes('t_custom_folders')) {
         return { get: () => ({ name: 't_custom_folders' }) }
       }
-      if (sql.includes("SELECT name FROM sqlite_master") && sql.includes('t_asset_folder_mapping')) {
+      if (sql.includes('SELECT name FROM sqlite_master') && sql.includes('t_asset_folder_mapping')) {
         return { get: () => ({ name: 't_asset_folder_mapping' }) }
       }
       if (sql.includes('SELECT DISTINCT group_name')) {
