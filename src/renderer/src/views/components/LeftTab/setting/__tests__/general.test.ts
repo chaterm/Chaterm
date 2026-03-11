@@ -890,6 +890,21 @@ describe('General Component', () => {
       expect(updateLanguageSpy).toHaveBeenCalledWith('ko-KR')
       expect(eventBus.emit).toHaveBeenCalledWith('languageChanged', 'ko-KR')
     })
+
+    it('should change language to ar-AR', async () => {
+      const vm = wrapper.vm as any
+      const store = configStore()
+      const updateLanguageSpy = vi.spyOn(store, 'updateLanguage')
+
+      vm.userConfig.language = 'ar-AR'
+      await nextTick()
+
+      await vm.changeLanguage()
+
+      expect(localStorage.getItem('lang')).toBe('ar-AR')
+      expect(updateLanguageSpy).toHaveBeenCalledWith('ar-AR')
+      expect(eventBus.emit).toHaveBeenCalledWith('languageChanged', 'ar-AR')
+    })
   })
 
   describe('System Background URL Generation', () => {
