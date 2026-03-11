@@ -3030,6 +3030,9 @@ export class Task {
         telemetryService.captureTaskCompleted(this.taskId)
       }
 
+      // Auto-complete all in_progress todos when task is completed (intranet feature)
+      await this.completeAllInProgressTodos()
+      // Clear ephemeral tool results (upstream feature)
       await this.clearEphemeralToolResults()
 
       const { response, text, contentParts } = await this.ask('completion_result', '', false)
@@ -4513,6 +4516,77 @@ USERNAME:${localSystemInfo.userName}`
     } catch (error) {
       logger.error('[Smart Todo] Failed to check and create todo if needed', { error: error })
       // 不影响主要功能，只记录错误
+    }
+  }
+
+  // Complete all in_progress todos when task is completed
+  private async completeAllInProgressTodos(): Promise<void> {
+    const methodName = 'completeAllInProgressTodos'
+    logger.info(`[Task:${methodName}] Starting for task ${this.taskId}`)
+
+    try {
+      const { TodoStorage } = await import('../storage/todo/TodoStorage')
+      const storage = new TodoStorage(this.taskId)
+      const todos = await storage.readTodos()
+
+      logger.info(`[Task:${methodName}] Read ${todos.length} todos for task ${this.taskId}`)
+
+      if (todos.length === 0) {
+        logger.info(`[Task:${methodName}] No todos found, skipping`)
+        return
+      }
+
+      // Find all in_progress todos
+      const inProgressTodos = todos.filter((todo) => todo.status === 'in_progress')
+
+      logger.info(`[Task:${methodName}] Found ${inProgressTodos.length} in_progress todos`)
+
+      if (inProgressTodos.length === 0) {
+        logger.info(`[Task:${methodName}] No in_progress todos, skipping`)
+        return
+      }
+
+      // Mark all in_progress todos as completed
+      const now = new Date()
+      const updatedTodos = todos.map((todo) => {
+        if (todo.status === 'in_progress') {
+          return {
+            ...todo,
+            status: 'completed' as const,
+            completedAt: now,
+            updatedAt: now,
+            isFocused: false
+          }
+        }
+        return todo
+      })
+
+      // Save updated todos
+      logger.info(`[Task:${methodName}] Writing ${updatedTodos.length} todos to storage`)
+      await storage.writeTodos(updatedTodos)
+      logger.info(`[Task:${methodName}] Successfully wrote todos to storage`)
+
+      // Send todo update event to renderer process
+      logger.info(`[Task:${methodName}] Sending todoUpdated message to webview`)
+      await this.postMessageToWebview({
+        type: 'todoUpdated',
+        todos: updatedTodos,
+        sessionId: this.taskId,
+        taskId: this.taskId,
+        changeType: 'completed',
+        triggerReason: 'agent_update'
+      })
+      logger.info(`[Task:${methodName}] Successfully sent todoUpdated message`)
+
+      logger.info(`[Task:${methodName}] Auto-completed ${inProgressTodos.length} in_progress todos for task ${this.taskId}`)
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : String(error)
+      const errorStack = error instanceof Error ? error.stack : undefined
+      logger.error(`[Task:${methodName}] Failed to complete in_progress todos for task ${this.taskId}`, {
+        error: errorMessage,
+        stack: errorStack,
+        taskId: this.taskId
+      })
     }
   }
 
