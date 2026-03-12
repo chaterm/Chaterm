@@ -125,7 +125,7 @@ export default {
     enterprise: 'المؤسسة',
     personal: 'الشخصي',
     contact: 'تواصل معنا',
-    welcome: 'مرحبا بك في استخدام Chaterm',
+    welcome: 'مرحبا بك في استخدام',
     title: 'Chaterm',
     accountLogin: 'الحساب',
     emailLogin: 'البريد الإلكتروني',
