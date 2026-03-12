@@ -1,4 +1,5 @@
 import { userConfigStore } from './userConfigStoreService'
+import { chatSyncService } from './chatSyncService'
 
 const logger = createRendererLogger('service.dataSync')
 
@@ -61,6 +62,9 @@ export class DataSyncService {
       } else {
         logger.info('Data sync is disabled, not starting sync service')
       }
+
+      // Initialize chat sync alongside data sync
+      await chatSyncService.initialize()
 
       this.isInitialized = true
       logger.info('Data sync service initialization completed')
@@ -128,6 +132,7 @@ export class DataSyncService {
    */
   reset(): void {
     this.isInitialized = false
+    chatSyncService.reset()
     logger.info('Data sync service status has been reset')
   }
 
