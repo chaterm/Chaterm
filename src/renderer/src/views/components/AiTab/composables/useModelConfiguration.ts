@@ -39,6 +39,7 @@ export const PROVIDER_MODEL_KEY_MAP: Record<string, GlobalStateKey> = {
   litellm: 'liteLlmModelId',
   deepseek: 'apiModelId',
   openai: 'openAiModelId',
+  ollama: 'ollamaModelId',
   default: 'defaultModelId'
 }
 
