@@ -35,6 +35,7 @@ const isEmptyValue = (value: unknown): boolean => value === undefined || value =
  * Mapping from API provider to corresponding model ID global state key
  */
 export const PROVIDER_MODEL_KEY_MAP: Record<string, GlobalStateKey> = {
+  anthropic: 'anthropicModelId',
   bedrock: 'apiModelId',
   litellm: 'liteLlmModelId',
   deepseek: 'apiModelId',
@@ -166,6 +167,17 @@ export const useModelConfiguration = createGlobalState(() => {
         const openAiApiKey = await getSecret('openAiApiKey')
         const openAiModelId = await getGlobalState('openAiModelId')
         if (isEmptyValue(openAiBaseUrl) || isEmptyValue(openAiApiKey) || isEmptyValue(openAiModelId)) {
+          return {
+            success: false,
+            message: 'user.checkModelConfigFailMessage',
+            description: 'user.checkModelConfigFailDescription'
+          }
+        }
+        break
+      case 'anthropic':
+        const anthropicApiKey = await getSecret('anthropicApiKey')
+        const anthropicModelId = await getGlobalState('anthropicModelId')
+        if (isEmptyValue(anthropicApiKey) || isEmptyValue(anthropicModelId)) {
           return {
             success: false,
             message: 'user.checkModelConfigFailMessage',

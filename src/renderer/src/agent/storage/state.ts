@@ -72,18 +72,20 @@ export async function getAllExtensionState() {
     openAiBaseUrl,
     openAiApiKey,
     openAiModelId,
-    //openAiModelInfo,
+    openAiModelInfo,
     //openAiHeaders,
     ollamaModelId,
     ollamaBaseUrl,
     ollamaApiOptionsCtxNum,
     //lmStudioModelId,
     //lmStudioBaseUrl,
-    //anthropicBaseUrl,
     //geminiApiKey,
     //geminiBaseUrl,
     //openAiNativeApiKey,
     deepSeekApiKey,
+    anthropicApiKey,
+    anthropicBaseUrl,
+    anthropicModelId,
     //requestyApiKey,
     //requestyModelId,
     //requestyModelInfo,
@@ -158,18 +160,20 @@ export async function getAllExtensionState() {
     getGlobalState('openAiBaseUrl') as Promise<string | undefined>,
     getSecret('openAiApiKey') as Promise<string | undefined>,
     getGlobalState('openAiModelId') as Promise<string | undefined>,
-    //getGlobalState('openAiModelInfo') as Promise<ModelInfo | undefined>,
+    getGlobalState('openAiModelInfo') as Promise<Record<string, unknown> | undefined>,
     //getGlobalState('openAiHeaders') as Promise<Record<string, string> | undefined>,
     getGlobalState('ollamaModelId') as Promise<string | undefined>,
     getGlobalState('ollamaBaseUrl') as Promise<string | undefined>,
     getGlobalState('ollamaApiOptionsCtxNum') as Promise<string | undefined>,
     //getGlobalState('lmStudioModelId') as Promise<string | undefined>,
     //getGlobalState('lmStudioBaseUrl') as Promise<string | undefined>,
-    //getGlobalState('anthropicBaseUrl') as Promise<string | undefined>,
     //getSecret('geminiApiKey') as Promise<string | undefined>,
     //getGlobalState('geminiBaseUrl') as Promise<string | undefined>,
     //getSecret('openAiNativeApiKey') as Promise<string | undefined>,
     getSecret('deepSeekApiKey') as Promise<string | undefined>,
+    getSecret('anthropicApiKey') as Promise<string | undefined>,
+    getGlobalState('anthropicBaseUrl') as Promise<string | undefined>,
+    getGlobalState('anthropicModelId') as Promise<string | undefined>,
     //getSecret('requestyApiKey') as Promise<string | undefined>,
     //getGlobalState('requestyModelId') as Promise<string | undefined>,
     //getGlobalState('requestyModelInfo') as Promise<ModelInfo | undefined>,
@@ -285,7 +289,7 @@ export async function getAllExtensionState() {
       openAiBaseUrl,
       openAiApiKey,
       openAiModelId,
-      //openAiModelInfo,
+      openAiModelInfo,
       //openAiHeaders: openAiHeaders || {},
       ollamaModelId,
       ollamaBaseUrl,
@@ -297,6 +301,9 @@ export async function getAllExtensionState() {
       //geminiBaseUrl,
       //openAiNativeApiKey,
       deepSeekApiKey,
+      anthropicApiKey,
+      anthropicBaseUrl,
+      anthropicModelId,
       //requestyApiKey,
       //requestyModelId,
       //requestyModelInfo,
@@ -379,9 +386,13 @@ export async function updateApiConfiguration(apiConfiguration: ApiConfiguration)
     liteLlmApiKey,
     favoritedModelIds,
     deepSeekApiKey,
+    anthropicApiKey,
+    anthropicBaseUrl,
+    anthropicModelId,
     openAiBaseUrl,
     openAiApiKey,
     openAiModelId,
+    openAiModelInfo,
     ollamaModelId,
     ollamaBaseUrl,
     ollamaApiOptionsCtxNum,
@@ -409,7 +420,7 @@ export async function updateApiConfiguration(apiConfiguration: ApiConfiguration)
   await updateGlobalState('openAiBaseUrl', openAiBaseUrl)
   await storeSecret('openAiApiKey', openAiApiKey)
   await updateGlobalState('openAiModelId', openAiModelId)
-  //await updateGlobalState('openAiModelInfo', openAiModelInfo)
+  await updateGlobalState('openAiModelInfo', openAiModelInfo)
   //await updateGlobalState('openAiHeaders', openAiHeaders || {})
   await updateGlobalState('ollamaModelId', ollamaModelId)
   await updateGlobalState('ollamaBaseUrl', ollamaBaseUrl)
@@ -421,6 +432,9 @@ export async function updateApiConfiguration(apiConfiguration: ApiConfiguration)
   //await updateGlobalState('geminiBaseUrl', geminiBaseUrl)
   //await storeSecret('openAiNativeApiKey', openAiNativeApiKey)
   await storeSecret('deepSeekApiKey', deepSeekApiKey)
+  await storeSecret('anthropicApiKey', anthropicApiKey)
+  await updateGlobalState('anthropicBaseUrl', anthropicBaseUrl)
+  await updateGlobalState('anthropicModelId', anthropicModelId)
   //await storeSecret('requestyApiKey', requestyApiKey)
   //await storeSecret('togetherApiKey', togetherApiKey)
   //await storeSecret('qwenApiKey', qwenApiKey)
@@ -471,6 +485,7 @@ export async function resetExtensionState() {
     'geminiApiKey',
     'openAiNativeApiKey',
     'deepSeekApiKey',
+    'anthropicApiKey',
     'requestyApiKey',
     'togetherApiKey',
     'qwenApiKey',
