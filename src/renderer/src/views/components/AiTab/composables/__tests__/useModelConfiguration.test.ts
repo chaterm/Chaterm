@@ -139,6 +139,54 @@ describe('useModelConfiguration', () => {
       expect(AgentAiModelsOptions.value[1].label).toBe('gpt-4-Thinking')
       expect(AgentAiModelsOptions.value[2].label).toBe('claude-3-5-sonnet')
     })
+
+    it('should prefer current tab model when it is still available', async () => {
+      vi.mocked(stateModule.getGlobalState).mockImplementation(async (key) => {
+        if (key === 'modelOptions') return mockModelOptions
+        return null
+      })
+
+      mockChatAiModelValue.value = 'gpt-4'
+
+      const { initModel } = useModelConfiguration()
+      await initModel()
+
+      expect(mockChatAiModelValue.value).toBe('gpt-4')
+      expect(stateModule.getGlobalState).not.toHaveBeenCalledWith('apiProvider')
+      expect(stateModule.updateGlobalState).toHaveBeenCalledWith('apiProvider', 'openai')
+      expect(stateModule.updateGlobalState).toHaveBeenCalledWith('openAiModelId', 'gpt-4')
+    })
+
+    it('should fallback to first available model when stored default model is not available', async () => {
+      vi.mocked(stateModule.getGlobalState).mockImplementation(async (key) => {
+        if (key === 'modelOptions') return mockModelOptions
+        if (key === 'apiProvider') return 'default'
+        if (key === 'defaultModelId') return 'invalid-model'
+        return null
+      })
+
+      const { initModel } = useModelConfiguration()
+      await initModel()
+
+      expect(mockChatAiModelValue.value).toBe('claude-3-5-sonnet')
+      expect(stateModule.updateGlobalState).toHaveBeenCalledWith('apiProvider', 'anthropic')
+      expect(stateModule.updateGlobalState).toHaveBeenCalledWith('defaultModelId', 'claude-3-5-sonnet')
+    })
+
+    it('should not change model when there are no available models', async () => {
+      const noAvailableModels = [{ id: '1', name: 'claude-3-5-sonnet', checked: false, type: 'chat', apiProvider: 'anthropic' }]
+
+      vi.mocked(stateModule.getGlobalState).mockImplementation(async (key) => {
+        if (key === 'modelOptions') return noAvailableModels
+        return null
+      })
+
+      const { initModel } = useModelConfiguration()
+      await initModel()
+
+      expect(mockChatAiModelValue.value).toBe('')
+      expect(stateModule.updateGlobalState).not.toHaveBeenCalled()
+    })
   })
 
   describe('initModelOptions', () => {

@@ -39,6 +39,7 @@ export const PROVIDER_MODEL_KEY_MAP: Record<string, GlobalStateKey> = {
   litellm: 'liteLlmModelId',
   deepseek: 'apiModelId',
   openai: 'openAiModelId',
+  ollama: 'ollamaModelId',
   default: 'defaultModelId'
 }
 
@@ -70,7 +71,7 @@ export const useModelConfiguration = createGlobalState(() => {
   const initModel = async () => {
     try {
       // First initialize model options list
-      const modelOptions = (await getGlobalState('modelOptions')) as ModelOption[]
+      const modelOptions = ((await getGlobalState('modelOptions')) || []) as ModelOption[]
 
       modelOptions.sort((a, b) => {
         const aIsThinking = a.name.endsWith('-Thinking')
@@ -89,21 +90,41 @@ export const useModelConfiguration = createGlobalState(() => {
           value: item.name
         }))
 
-      if (chatAiModelValue.value && chatAiModelValue.value !== '') {
-        const isValidModel = AgentAiModelsOptions.value.some((option) => option.value === chatAiModelValue.value)
-        if (isValidModel) {
-          return
+      const availableModelNames = AgentAiModelsOptions.value.map((option) => option.value)
+
+      // If no available models, keep existing behavior and bail out
+      if (availableModelNames.length === 0) {
+        return
+      }
+
+      let targetModel: string | undefined
+
+      // 1. Prefer current tab model if it is still valid
+      if (chatAiModelValue.value && availableModelNames.includes(chatAiModelValue.value)) {
+        targetModel = chatAiModelValue.value
+      } else {
+        // 2. Try to use the model saved for current apiProvider
+        const apiProvider = (await getGlobalState('apiProvider')) as string
+        const key = PROVIDER_MODEL_KEY_MAP[apiProvider || 'default'] || 'defaultModelId'
+        const storedModelId = (await getGlobalState(key)) as string
+
+        if (storedModelId && availableModelNames.includes(storedModelId)) {
+          targetModel = storedModelId
+        } else {
+          // 3. Fallback: use the first available model
+          targetModel = AgentAiModelsOptions.value[0]?.label
         }
       }
 
-      const apiProvider = (await getGlobalState('apiProvider')) as string
-      const key = PROVIDER_MODEL_KEY_MAP[apiProvider || 'default'] || 'defaultModelId'
-      chatAiModelValue.value = (await getGlobalState(key)) as string
-
-      if ((chatAiModelValue.value === undefined || chatAiModelValue.value === '') && AgentAiModelsOptions.value[0]) {
-        chatAiModelValue.value = AgentAiModelsOptions.value[0].label
-        await handleChatAiModelChange()
+      if (!targetModel) {
+        return
       }
+
+      // Only update when necessary, but always sync global provider/model
+      if (chatAiModelValue.value !== targetModel) {
+        chatAiModelValue.value = targetModel
+      }
+      await handleChatAiModelChange()
     } finally {
       modelsLoading.value = false
     }
