@@ -69,10 +69,7 @@ function createMockStore() {
   }
 }
 
-function createStatefulDbService(
-  initialStates: Array<Partial<ChatSyncTaskState> & { task_id: string }>,
-  initialLocalTasks: string[]
-) {
+function createStatefulDbService(initialStates: Array<Partial<ChatSyncTaskState> & { task_id: string }>, initialLocalTasks: string[]) {
   const syncStates = new Map<string, any>()
   for (const state of initialStates) {
     syncStates.set(state.task_id, { ...state })
@@ -105,45 +102,28 @@ function createStatefulDbService(
 
   return {
     getAllPendingUploadTasks: vi.fn((): Partial<ChatSyncTaskState>[] => []),
-    getTasksPendingRepair: vi.fn(
-      (): Partial<ChatSyncTaskState>[] =>
-        Array.from(syncStates.values()).filter(
-          (state) =>
-            state.last_sync_status === 'apply_failed' &&
-            state.pending_upload !== 1 &&
-            state.remote_deleted !== 1 &&
-            state.is_deleted !== 1
-        )
+    getTasksPendingRepair: vi.fn((): Partial<ChatSyncTaskState>[] =>
+      Array.from(syncStates.values()).filter(
+        (state) => state.last_sync_status === 'apply_failed' && state.pending_upload !== 1 && state.remote_deleted !== 1 && state.is_deleted !== 1
+      )
     ),
     getSyncTaskState: vi.fn((taskId: string) => syncStates.get(taskId) || null),
     upsertSyncTaskState: vi.fn((state: any) => {
       const existing = syncStates.get(state.task_id) || {}
       syncStates.set(state.task_id, { ...existing, ...state })
     }),
-    getTasksPendingRemoteDeletion: vi.fn(
-      (): Partial<ChatSyncTaskState>[] =>
-        Array.from(syncStates.values()).filter(
-          (state) =>
-            state.is_deleted === 1 &&
-            state.last_server_revision > 0 &&
-            state.remote_deleted !== 1
-        )
+    getTasksPendingRemoteDeletion: vi.fn((): Partial<ChatSyncTaskState>[] =>
+      Array.from(syncStates.values()).filter((state) => state.is_deleted === 1 && state.last_server_revision > 0 && state.remote_deleted !== 1)
     ),
     getSyncCursorRevision: vi.fn(() => cursorRevision),
     upsertSyncCursorRevision: vi.fn((revision: number) => {
       cursorRevision = revision
     }),
-    getAllSyncedTasks: vi.fn(
-      (): Partial<ChatSyncTaskState>[] =>
-        Array.from(syncStates.values()).filter(
-          (state) => state.last_server_revision > 0 && state.is_deleted !== 1
-        )
+    getAllSyncedTasks: vi.fn((): Partial<ChatSyncTaskState>[] =>
+      Array.from(syncStates.values()).filter((state) => state.last_server_revision > 0 && state.is_deleted !== 1)
     ),
-    getRemoteDeletedNotCleanedTasks: vi.fn(
-      (): Partial<ChatSyncTaskState>[] =>
-        Array.from(syncStates.values()).filter(
-          (state) => state.remote_deleted === 1 && state.is_deleted !== 1
-        )
+    getRemoteDeletedNotCleanedTasks: vi.fn((): Partial<ChatSyncTaskState>[] =>
+      Array.from(syncStates.values()).filter((state) => state.remote_deleted === 1 && state.is_deleted !== 1)
     ),
     deleteTaskChatData: vi.fn((taskId: string) => {
       localTasks.delete(taskId)
@@ -174,11 +154,7 @@ describe('ChatSyncEngine', () => {
     dbService = createMockDbService()
     store = createMockStore()
 
-    engine = new ChatSyncEngine(
-      apiClient as any,
-      dbService as any,
-      store as any
-    )
+    engine = new ChatSyncEngine(apiClient as any, dbService as any, store as any)
   })
 
   describe('getStatus', () => {
@@ -210,12 +186,19 @@ describe('ChatSyncEngine', () => {
     it('should skip if already syncing', async () => {
       // Make first sync hang
       apiClient.getTaskChanges.mockImplementation(
-        () => new Promise((resolve) => setTimeout(() => resolve({
-          changes: [],
-          has_more: false,
-          cursor_expired: false,
-          last_global_revision: 0
-        }), 100))
+        () =>
+          new Promise((resolve) =>
+            setTimeout(
+              () =>
+                resolve({
+                  changes: [],
+                  has_more: false,
+                  cursor_expired: false,
+                  last_global_revision: 0
+                }),
+              100
+            )
+          )
       )
 
       const p1 = engine.runSyncCycle()
@@ -261,10 +244,7 @@ describe('ChatSyncEngine', () => {
       await engine.runSyncCycle()
 
       expect(store.exportSnapshot).toHaveBeenCalledWith('task-1')
-      expect(apiClient.upsertTaskSnapshot).toHaveBeenCalledWith(
-        'task-1',
-        expect.any(String)
-      )
+      expect(apiClient.upsertTaskSnapshot).toHaveBeenCalledWith('task-1', expect.any(String))
       expect(dbService.upsertSyncTaskState).toHaveBeenCalledWith(
         expect.objectContaining({
           task_id: 'task-1',
@@ -310,9 +290,7 @@ describe('ChatSyncEngine', () => {
         }
       ])
 
-      apiClient.upsertTaskSnapshot.mockRejectedValue(
-        new ChatSyncApiError('TASK_DELETED', 'Task deleted')
-      )
+      apiClient.upsertTaskSnapshot.mockRejectedValue(new ChatSyncApiError('TASK_DELETED', 'Task deleted'))
 
       apiClient.getTaskChanges.mockResolvedValue({
         changes: [],
@@ -345,9 +323,7 @@ describe('ChatSyncEngine', () => {
         }
       ])
 
-      apiClient.upsertTaskSnapshot.mockRejectedValue(
-        new ChatSyncApiError('TASK_SNAPSHOT_TOO_LARGE', 'Too large')
-      )
+      apiClient.upsertTaskSnapshot.mockRejectedValue(new ChatSyncApiError('TASK_SNAPSHOT_TOO_LARGE', 'Too large'))
 
       apiClient.getTaskChanges.mockResolvedValue({
         changes: [],
@@ -380,9 +356,7 @@ describe('ChatSyncEngine', () => {
         }
       ])
 
-      apiClient.upsertTaskSnapshot.mockRejectedValue(
-        new ChatSyncApiError('TASK_ARCHIVED' as any, 'Task archived')
-      )
+      apiClient.upsertTaskSnapshot.mockRejectedValue(new ChatSyncApiError('TASK_ARCHIVED' as any, 'Task archived'))
 
       apiClient.getTaskChanges.mockResolvedValue({
         changes: [],
@@ -439,13 +413,7 @@ describe('ChatSyncEngine', () => {
       await engine.runSyncCycle()
 
       expect(apiClient.getTaskSnapshot).toHaveBeenCalledWith('remote-task-1', undefined)
-      expect(store.applyRemoteSnapshot).toHaveBeenCalledWith(
-        'remote-task-1',
-        expect.any(Object),
-        5,
-        'remote-hash',
-        1
-      )
+      expect(store.applyRemoteSnapshot).toHaveBeenCalledWith('remote-task-1', expect.any(Object), 5, 'remote-hash', 1)
     })
 
     it('should skip remote change when hash matches local', async () => {
@@ -535,21 +503,19 @@ describe('ChatSyncEngine', () => {
         last_global_revision: 3
       })
 
-      apiClient.getTaskSnapshot
-        .mockRejectedValueOnce(new Error('snapshot missing'))
-        .mockResolvedValueOnce({
-          snapshot_json: JSON.stringify({
-            tables: {
-              api_conversation_history: [],
-              ui_messages: [],
-              task_metadata: [],
-              context_history: []
-            }
-          }),
-          server_revision: 3,
-          payload_hash: 'healthy-hash',
-          payload_hash_version: 1
-        })
+      apiClient.getTaskSnapshot.mockRejectedValueOnce(new Error('snapshot missing')).mockResolvedValueOnce({
+        snapshot_json: JSON.stringify({
+          tables: {
+            api_conversation_history: [],
+            ui_messages: [],
+            task_metadata: [],
+            context_history: []
+          }
+        }),
+        server_revision: 3,
+        payload_hash: 'healthy-hash',
+        payload_hash_version: 1
+      })
 
       await engine.runSyncCycle()
 
@@ -560,23 +526,13 @@ describe('ChatSyncEngine', () => {
           last_sync_status: 'blocked'
         })
       )
-      expect(store.applyRemoteSnapshot).toHaveBeenCalledWith(
-        'healthy-task',
-        expect.any(Object),
-        3,
-        'healthy-hash',
-        1
-      )
+      expect(store.applyRemoteSnapshot).toHaveBeenCalledWith('healthy-task', expect.any(Object), 3, 'healthy-hash', 1)
       expect(dbService.upsertSyncCursorRevision).toHaveBeenCalledWith(3)
     })
 
     it('should stop retrying a task after a snapshot apply failure', async () => {
       const statefulDbService = createStatefulDbService([], [])
-      const retryEngine = new ChatSyncEngine(
-        apiClient as any,
-        statefulDbService as any,
-        store as any
-      )
+      const retryEngine = new ChatSyncEngine(apiClient as any, statefulDbService as any, store as any)
 
       apiClient.getTaskChanges
         .mockResolvedValueOnce({
@@ -652,21 +608,19 @@ describe('ChatSyncEngine', () => {
         last_global_revision: 200,
         next_after_task_id: ''
       })
-      apiClient.getTaskSnapshot
-        .mockRejectedValueOnce(new Error('snapshot missing'))
-        .mockResolvedValueOnce({
-          snapshot_json: JSON.stringify({
-            tables: {
-              api_conversation_history: [],
-              ui_messages: [],
-              task_metadata: [],
-              context_history: []
-            }
-          }),
-          server_revision: 11,
-          payload_hash: 'healthy-hash',
-          payload_hash_version: 1
-        })
+      apiClient.getTaskSnapshot.mockRejectedValueOnce(new Error('snapshot missing')).mockResolvedValueOnce({
+        snapshot_json: JSON.stringify({
+          tables: {
+            api_conversation_history: [],
+            ui_messages: [],
+            task_metadata: [],
+            context_history: []
+          }
+        }),
+        server_revision: 11,
+        payload_hash: 'healthy-hash',
+        payload_hash_version: 1
+      })
 
       dbService.getAllSyncedTasks.mockReturnValue([])
 
@@ -679,13 +633,7 @@ describe('ChatSyncEngine', () => {
           last_sync_status: 'blocked'
         })
       )
-      expect(store.applyRemoteSnapshot).toHaveBeenCalledWith(
-        'healthy-task',
-        expect.any(Object),
-        11,
-        'healthy-hash',
-        1
-      )
+      expect(store.applyRemoteSnapshot).toHaveBeenCalledWith('healthy-task', expect.any(Object), 11, 'healthy-hash', 1)
       expect(dbService.upsertSyncCursorRevision).toHaveBeenCalledWith(200)
     })
 
@@ -715,9 +663,7 @@ describe('ChatSyncEngine', () => {
       await engine.runSyncCycle()
 
       expect(apiClient.listTaskSnapshots).toHaveBeenCalled()
-      expect(dbService.upsertSyncCursorRevision).toHaveBeenCalledWith(
-        100
-      )
+      expect(dbService.upsertSyncCursorRevision).toHaveBeenCalledWith(100)
     })
 
     it('should reconcile archived and deleted tasks during full sync', async () => {
@@ -831,11 +777,7 @@ describe('ChatSyncEngine', () => {
       )
       const realStore = ChatSnapshotStore.getInstance()
       realStore.initialize(statefulDbService as any, 'device-123')
-      const integrationEngine = new ChatSyncEngine(
-        apiClient as any,
-        statefulDbService as any,
-        realStore
-      )
+      const integrationEngine = new ChatSyncEngine(apiClient as any, statefulDbService as any, realStore)
 
       apiClient.getTaskChanges.mockResolvedValue({
         changes: [],

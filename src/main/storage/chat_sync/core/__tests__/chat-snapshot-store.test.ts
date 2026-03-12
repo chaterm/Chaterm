@@ -82,9 +82,7 @@ describe('ChatSnapshotStore', () => {
   })
 
   it('should throw when operations called before initialize()', async () => {
-    await expect(store.saveTaskTitle('task-1', 'test')).rejects.toThrow(
-      'ChatSnapshotStore not initialized'
-    )
+    await expect(store.saveTaskTitle('task-1', 'test')).rejects.toThrow('ChatSnapshotStore not initialized')
   })
 
   describe('after initialization', () => {
@@ -146,9 +144,7 @@ describe('ChatSnapshotStore', () => {
       expect(result.needsRemoteDeletion).toBe(true)
       expect(dbService.deleteTaskChatData).toHaveBeenCalledWith('task-1')
       // Verify that is_deleted was set via raw SQL in transaction
-      const updateCall = runLog.find(
-        (c) => c.sql.includes('is_deleted') && c.params.includes('task-1')
-      )
+      const updateCall = runLog.find((c) => c.sql.includes('is_deleted') && c.params.includes('task-1'))
       expect(updateCall).toBeDefined()
     })
 
@@ -162,17 +158,12 @@ describe('ChatSnapshotStore', () => {
       expect(dbService.importTaskSnapshot).not.toHaveBeenCalled()
 
       // Verify sync state was updated via raw SQL in transaction
-      const syncUpdate = runLog.find(
-        (c) => c.sql.includes('last_applied_hash') && c.params.includes('hash-abc')
-      )
+      const syncUpdate = runLog.find((c) => c.sql.includes('last_applied_hash') && c.params.includes('hash-abc'))
       expect(syncUpdate).toBeDefined()
     })
 
     it('should cleanup remote-deleted tasks', async () => {
-      dbService.getRemoteDeletedNotCleanedTasks.mockReturnValue([
-        { task_id: 'task-a' },
-        { task_id: 'task-b' }
-      ])
+      dbService.getRemoteDeletedNotCleanedTasks.mockReturnValue([{ task_id: 'task-a' }, { task_id: 'task-b' }])
 
       const cleaned = await store.cleanupRemoteDeletedTasks()
 
@@ -194,8 +185,7 @@ describe('ChatSnapshotStore', () => {
 
       const dirtyUpdate = runLog.find(
         (c) =>
-          c.sql.includes('UPDATE agent_chat_sync_task_state') &&
-          c.sql.includes("sync_blocked_reason IS NULL OR sync_blocked_reason != 'archived'")
+          c.sql.includes('UPDATE agent_chat_sync_task_state') && c.sql.includes("sync_blocked_reason IS NULL OR sync_blocked_reason != 'archived'")
       )
 
       expect(dirtyUpdate).toBeDefined()

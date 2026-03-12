@@ -33,8 +33,6 @@ describe('ChatSyncApiClient', () => {
     await client.deleteTaskSnapshot('task-1')
 
     expect(fetchMock).toHaveBeenCalledTimes(1)
-    expect(fetchMock.mock.calls[0]?.[0]).toBe(
-      'https://sync.example.com/v1/chat-sync/tasks/task-1?device_id=device-123&platform=desktop'
-    )
+    expect(fetchMock.mock.calls[0]?.[0]).toBe('https://sync.example.com/v1/chat-sync/tasks/task-1?device_id=device-123&platform=desktop')
   })
 })

@@ -1452,8 +1452,7 @@ function setupIPC(): void {
     try {
       if (enabled) {
         if (!chatSyncScheduler) {
-          const { ChatSnapshotStore, ChatSyncApiClient, ChatSyncEngine, ChatSyncScheduler } =
-            await import('./storage/chat_sync/index')
+          const { ChatSnapshotStore, ChatSyncApiClient, ChatSyncEngine, ChatSyncScheduler } = await import('./storage/chat_sync/index')
           const uid = getCurrentUserId()
           if (!uid) throw new Error('User ID is required for chat sync')
 
@@ -1469,9 +1468,7 @@ function setupIPC(): void {
 
           // Initialize the API client with real auth token from ChatermAuthAdapter
           const { getSyncUrl } = await import('./config/edition')
-          const { chatermAuthAdapter } = await import(
-            './storage/data_sync/envelope_encryption/services/auth'
-          )
+          const { chatermAuthAdapter } = await import('./storage/data_sync/envelope_encryption/services/auth')
           const apiClient = new ChatSyncApiClient({
             baseUrl: getSyncUrl(),
             getAuthToken: async () => {

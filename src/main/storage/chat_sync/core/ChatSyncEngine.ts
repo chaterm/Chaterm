@@ -16,13 +16,7 @@
 import type { ChatSyncApiClient } from './ChatSyncApiClient'
 import type { ChatSnapshotStore } from './ChatSnapshotStore'
 import type { ChatermDatabaseService } from '../../db/chaterm.service'
-import type {
-  SyncEngineStatus,
-  TaskChange,
-  TaskSnapshotTables,
-  ListTaskSnapshotItem,
-  NonActiveTaskStateItem
-} from '../models/ChatSyncTypes'
+import type { SyncEngineStatus, TaskChange, TaskSnapshotTables, ListTaskSnapshotItem, NonActiveTaskStateItem } from '../models/ChatSyncTypes'
 import { ChatSyncApiError, MAX_SNAPSHOT_BYTES } from '../models/ChatSyncTypes'
 const logger = createLogger('chat-sync-engine')
 
@@ -38,11 +32,7 @@ export class ChatSyncEngine {
   }
   private isSyncing = false
 
-  constructor(
-    apiClient: ChatSyncApiClient,
-    dbService: ChatermDatabaseService,
-    store: ChatSnapshotStore
-  ) {
+  constructor(apiClient: ChatSyncApiClient, dbService: ChatermDatabaseService, store: ChatSnapshotStore) {
     this.apiClient = apiClient
     this.dbService = dbService
     this.store = store
@@ -227,10 +217,7 @@ export class ChatSyncEngine {
     const repairTasks = this.dbService.getTasksPendingRepair()
 
     for (const task of repairTasks) {
-      this._blockTaskAfterApplyFailure(
-        task.task_id,
-        task.last_error || 'Task sync disabled after apply failure'
-      )
+      this._blockTaskAfterApplyFailure(task.task_id, task.last_error || 'Task sync disabled after apply failure')
     }
   }
 
@@ -463,11 +450,7 @@ export class ChatSyncEngine {
     }
 
     // Skip if same hash (already up to date)
-    if (
-      localState &&
-      localState.last_applied_hash === item.payload_hash &&
-      localState.last_applied_hash_version === item.payload_hash_version
-    ) {
+    if (localState && localState.last_applied_hash === item.payload_hash && localState.last_applied_hash_version === item.payload_hash_version) {
       // Just update server revision if needed
       if (item.server_revision > localState.last_server_revision) {
         this.dbService.upsertSyncTaskState({
@@ -589,9 +572,7 @@ export class ChatSyncEngine {
     try {
       const blockedTasks = this.dbService
         .getDb()
-        .prepare(
-          "SELECT task_id FROM agent_chat_sync_task_state WHERE sync_blocked_reason = 'oversize' AND is_deleted = 0"
-        )
+        .prepare("SELECT task_id FROM agent_chat_sync_task_state WHERE sync_blocked_reason = 'oversize' AND is_deleted = 0")
         .all() as Array<{ task_id: string }>
 
       for (const task of blockedTasks) {

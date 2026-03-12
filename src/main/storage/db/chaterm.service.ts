@@ -66,10 +66,7 @@ import {
   getEnabledSkillNamesLogic
 } from './chaterm/skills'
 import type { SkillState } from '../../agent/shared/skills'
-import type {
-  ChatSyncTaskState,
-  TaskSnapshotTables
-} from '../chat_sync/models/ChatSyncTypes'
+import type { ChatSyncTaskState, TaskSnapshotTables } from '../chat_sync/models/ChatSyncTypes'
 const logger = createLogger('db')
 
 /**
@@ -700,24 +697,17 @@ export class ChatermDatabaseService {
    */
   exportTaskSnapshot(taskId: string): TaskSnapshotTables {
     const apiHistory = this.db
-      .prepare(
-        `SELECT * FROM agent_api_conversation_history_v1 WHERE task_id = ? ORDER BY sequence_order ASC`
-      )
+      .prepare(`SELECT * FROM agent_api_conversation_history_v1 WHERE task_id = ? ORDER BY sequence_order ASC`)
       .all(taskId) as Record<string, unknown>[]
 
-    const uiMessages = this.db
-      .prepare(
-        `SELECT * FROM agent_ui_messages_v1 WHERE task_id = ? ORDER BY ts ASC`
-      )
-      .all(taskId) as Record<string, unknown>[]
+    const uiMessages = this.db.prepare(`SELECT * FROM agent_ui_messages_v1 WHERE task_id = ? ORDER BY ts ASC`).all(taskId) as Record<
+      string,
+      unknown
+    >[]
 
-    const taskMetadata = this.db
-      .prepare(`SELECT * FROM agent_task_metadata_v1 WHERE task_id = ?`)
-      .all(taskId) as Record<string, unknown>[]
+    const taskMetadata = this.db.prepare(`SELECT * FROM agent_task_metadata_v1 WHERE task_id = ?`).all(taskId) as Record<string, unknown>[]
 
-    const contextHistory = this.db
-      .prepare(`SELECT * FROM agent_context_history_v1 WHERE task_id = ?`)
-      .all(taskId) as Record<string, unknown>[]
+    const contextHistory = this.db.prepare(`SELECT * FROM agent_context_history_v1 WHERE task_id = ?`).all(taskId) as Record<string, unknown>[]
 
     return {
       agent_api_conversation_history_v1: apiHistory.map(stripLocalId),
@@ -750,10 +740,7 @@ export class ChatermDatabaseService {
     this.db.prepare('DELETE FROM agent_context_history_v1 WHERE task_id = ?').run(taskId)
 
     // Insert new data from snapshot
-    this._insertSnapshotRows(
-      'agent_api_conversation_history_v1',
-      tables.agent_api_conversation_history_v1
-    )
+    this._insertSnapshotRows('agent_api_conversation_history_v1', tables.agent_api_conversation_history_v1)
     this._insertSnapshotRows('agent_ui_messages_v1', tables.agent_ui_messages_v1)
     this._insertSnapshotRows('agent_task_metadata_v1', tables.agent_task_metadata_v1)
     this._insertSnapshotRows('agent_context_history_v1', tables.agent_context_history_v1)
@@ -787,9 +774,7 @@ export class ChatermDatabaseService {
         return val
       })
 
-      this.db
-        .prepare(`INSERT INTO ${tableName} (${columns.join(', ')}) VALUES (${placeholders})`)
-        .run(...values)
+      this.db.prepare(`INSERT INTO ${tableName} (${columns.join(', ')}) VALUES (${placeholders})`).run(...values)
     }
   }
 
@@ -808,33 +793,23 @@ export class ChatermDatabaseService {
   // ==================== Chat Sync Task State Methods ====================
 
   getSyncTaskState(taskId: string): ChatSyncTaskState | null {
-    const row = this.db
-      .prepare('SELECT * FROM agent_chat_sync_task_state WHERE task_id = ?')
-      .get(taskId) as ChatSyncTaskState | undefined
+    const row = this.db.prepare('SELECT * FROM agent_chat_sync_task_state WHERE task_id = ?').get(taskId) as ChatSyncTaskState | undefined
     return row || null
   }
 
   getAllPendingUploadTasks(): ChatSyncTaskState[] {
     return this.db
-      .prepare(
-        'SELECT * FROM agent_chat_sync_task_state WHERE pending_upload = 1 AND remote_deleted = 0 AND is_deleted = 0'
-      )
+      .prepare('SELECT * FROM agent_chat_sync_task_state WHERE pending_upload = 1 AND remote_deleted = 0 AND is_deleted = 0')
       .all() as ChatSyncTaskState[]
   }
 
   getRemoteDeletedNotCleanedTasks(): ChatSyncTaskState[] {
-    return this.db
-      .prepare(
-        'SELECT * FROM agent_chat_sync_task_state WHERE remote_deleted = 1 AND is_deleted = 0'
-      )
-      .all() as ChatSyncTaskState[]
+    return this.db.prepare('SELECT * FROM agent_chat_sync_task_state WHERE remote_deleted = 1 AND is_deleted = 0').all() as ChatSyncTaskState[]
   }
 
   getTasksPendingRemoteDeletion(): ChatSyncTaskState[] {
     return this.db
-      .prepare(
-        'SELECT * FROM agent_chat_sync_task_state WHERE is_deleted = 1 AND last_server_revision > 0 AND remote_deleted = 0'
-      )
+      .prepare('SELECT * FROM agent_chat_sync_task_state WHERE is_deleted = 1 AND last_server_revision > 0 AND remote_deleted = 0')
       .all() as ChatSyncTaskState[]
   }
 
@@ -847,11 +822,7 @@ export class ChatermDatabaseService {
   }
 
   getAllSyncedTasks(): ChatSyncTaskState[] {
-    return this.db
-      .prepare(
-        'SELECT * FROM agent_chat_sync_task_state WHERE last_server_revision > 0 AND is_deleted = 0'
-      )
-      .all() as ChatSyncTaskState[]
+    return this.db.prepare('SELECT * FROM agent_chat_sync_task_state WHERE last_server_revision > 0 AND is_deleted = 0').all() as ChatSyncTaskState[]
   }
 
   upsertSyncTaskState(state: Partial<ChatSyncTaskState> & { task_id: string }): void {
@@ -871,9 +842,7 @@ export class ChatermDatabaseService {
       values.push(now)
       values.push(state.task_id)
 
-      this.db
-        .prepare(`UPDATE agent_chat_sync_task_state SET ${updates.join(', ')} WHERE task_id = ?`)
-        .run(...values)
+      this.db.prepare(`UPDATE agent_chat_sync_task_state SET ${updates.join(', ')} WHERE task_id = ?`).run(...values)
     } else {
       this.db
         .prepare(
@@ -912,9 +881,9 @@ export class ChatermDatabaseService {
   private static readonly SYNC_CURSOR_KEY = 'chat_sync_global_revision'
 
   getSyncCursorRevision(): number {
-    const row = this.db
-      .prepare('SELECT value FROM key_value_store WHERE key = ?')
-      .get(ChatermDatabaseService.SYNC_CURSOR_KEY) as { value: string } | undefined
+    const row = this.db.prepare('SELECT value FROM key_value_store WHERE key = ?').get(ChatermDatabaseService.SYNC_CURSOR_KEY) as
+      | { value: string }
+      | undefined
     return row ? Number(row.value) : 0
   }
 

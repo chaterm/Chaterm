@@ -44,35 +44,24 @@ export class ChatSyncApiClient {
   /**
    * Upload or update a task snapshot.
    */
-  async upsertTaskSnapshot(
-    taskId: string,
-    snapshotJson: string
-  ): Promise<UpsertTaskSnapshotReply> {
+  async upsertTaskSnapshot(taskId: string, snapshotJson: string): Promise<UpsertTaskSnapshotReply> {
     const body: UpsertTaskSnapshotRequest = {
       snapshot_json: snapshotJson,
       device_id: this.deviceId,
       platform: this.platform
     }
 
-    const response = await this._request<UpsertTaskSnapshotReply>(
-      'POST',
-      `/v1/chat-sync/tasks/${encodeURIComponent(taskId)}/snapshot`,
-      body
-    )
+    const response = await this._request<UpsertTaskSnapshotReply>('POST', `/v1/chat-sync/tasks/${encodeURIComponent(taskId)}/snapshot`, body)
 
     // Server returns business errors (TASK_SNAPSHOT_TOO_LARGE, TASK_DELETED, TASK_ARCHIVED)
     // inside a 200 response body via error_code field.
     if (response.error_code) {
-      throw new ChatSyncApiError(
-        response.error_code as any,
-        `Server returned error_code: ${response.error_code}`,
-        {
-          task_deleted: response.task_deleted,
-          max_bytes: response.max_bytes,
-          actual_bytes: response.actual_bytes,
-          retryable: response.retryable
-        }
-      )
+      throw new ChatSyncApiError(response.error_code as any, `Server returned error_code: ${response.error_code}`, {
+        task_deleted: response.task_deleted,
+        max_bytes: response.max_bytes,
+        actual_bytes: response.actual_bytes,
+        retryable: response.retryable
+      })
     }
 
     return response
@@ -87,10 +76,7 @@ export class ChatSyncApiClient {
       platform: this.platform
     })
 
-    return this._request<DeleteTaskSnapshotReply>(
-      'DELETE',
-      `/v1/chat-sync/tasks/${encodeURIComponent(taskId)}?${params.toString()}`
-    )
+    return this._request<DeleteTaskSnapshotReply>('DELETE', `/v1/chat-sync/tasks/${encodeURIComponent(taskId)}?${params.toString()}`)
   }
 
   /**
@@ -109,10 +95,7 @@ export class ChatSyncApiClient {
    * Get task changes since a given global revision.
    * Does NOT pass device_id - server must return all changes including from this device.
    */
-  async getTaskChanges(
-    sinceGlobalRevision: number,
-    limit: number = 100
-  ): Promise<GetTaskChangesReply> {
+  async getTaskChanges(sinceGlobalRevision: number, limit: number = 100): Promise<GetTaskChangesReply> {
     const params = new URLSearchParams({
       since_global_revision: String(sinceGlobalRevision),
       limit: String(limit)
@@ -125,37 +108,25 @@ export class ChatSyncApiClient {
    * List task snapshot summaries (for full sync fallback).
    * Does NOT return snapshot_json, only metadata.
    */
-  async listTaskSnapshots(
-    afterTaskId: string = '',
-    limit: number = 200
-  ): Promise<ListTaskSnapshotsReply> {
+  async listTaskSnapshots(afterTaskId: string = '', limit: number = 200): Promise<ListTaskSnapshotsReply> {
     const params = new URLSearchParams({ limit: String(limit) })
     if (afterTaskId) {
       params.set('after_task_id', afterTaskId)
     }
 
-    return this._request<ListTaskSnapshotsReply>(
-      'GET',
-      `/v1/chat-sync/tasks?${params.toString()}`
-    )
+    return this._request<ListTaskSnapshotsReply>('GET', `/v1/chat-sync/tasks?${params.toString()}`)
   }
 
   /**
    * List explicit archived/deleted task states for full sync reconciliation.
    */
-  async listNonActiveTaskStates(
-    afterTaskId: string = '',
-    limit: number = 200
-  ): Promise<ListNonActiveTaskStatesReply> {
+  async listNonActiveTaskStates(afterTaskId: string = '', limit: number = 200): Promise<ListNonActiveTaskStatesReply> {
     const params = new URLSearchParams({ limit: String(limit) })
     if (afterTaskId) {
       params.set('after_task_id', afterTaskId)
     }
 
-    return this._request<ListNonActiveTaskStatesReply>(
-      'GET',
-      `/v1/chat-sync/non-active-task-states?${params.toString()}`
-    )
+    return this._request<ListNonActiveTaskStatesReply>('GET', `/v1/chat-sync/non-active-task-states?${params.toString()}`)
   }
 
   // ============================================================================
@@ -260,10 +231,6 @@ export class ChatSyncApiClient {
       })
     }
 
-    throw new ChatSyncApiError(
-      'UNKNOWN',
-      `Server error ${status}: ${responseText}`,
-      errorData
-    )
+    throw new ChatSyncApiError('UNKNOWN', `Server error ${status}: ${responseText}`, errorData)
   }
 }
