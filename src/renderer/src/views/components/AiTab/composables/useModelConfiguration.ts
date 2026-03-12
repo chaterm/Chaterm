@@ -122,8 +122,8 @@ export const useModelConfiguration = createGlobalState(() => {
       // Only update when necessary, but always sync global provider/model
       if (chatAiModelValue.value !== targetModel) {
         chatAiModelValue.value = targetModel
+        await handleChatAiModelChange()
       }
-      await handleChatAiModelChange()
     } finally {
       modelsLoading.value = false
     }
