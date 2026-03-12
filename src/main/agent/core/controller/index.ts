@@ -1039,6 +1039,7 @@ function removeSensitiveKeys(obj: any): any {
       if (
         key.toLowerCase().includes('accesskey') ||
         key.toLowerCase().includes('secretkey') ||
+        key.toLowerCase().includes('apikey') ||
         key.toLowerCase().includes('endpoint') ||
         key.toLowerCase().includes('awsprofile')
       ) {
