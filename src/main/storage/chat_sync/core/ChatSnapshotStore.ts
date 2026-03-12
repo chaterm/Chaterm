@@ -26,7 +26,10 @@ export class ChatSnapshotStore {
   private dbService: ChatermDatabaseService | null = null
   private deviceId: string = ''
 
-  private constructor() {}
+  // Private constructor to enforce singleton pattern
+  private constructor() {
+    // intentionally empty - use getInstance()
+  }
 
   static getInstance(): ChatSnapshotStore {
     if (!ChatSnapshotStore.instance) {
@@ -76,9 +79,7 @@ export class ChatSnapshotStore {
 
     db.transaction(() => {
       // Business write: delegate to existing logic but inline for transactional safety
-      const deleteStmt = db.prepare(
-        'DELETE FROM agent_api_conversation_history_v1 WHERE task_id = ?'
-      )
+      const deleteStmt = db.prepare('DELETE FROM agent_api_conversation_history_v1 WHERE task_id = ?')
       deleteStmt.run(taskId)
 
       const insertStmt = db.prepare(`
@@ -108,28 +109,10 @@ export class ChatSnapshotStore {
               toolUseId = content.tool_use_id
             }
 
-            insertStmt.run(
-              taskId,
-              now,
-              message.role,
-              contentType,
-              JSON.stringify(contentData),
-              toolUseId,
-              sequenceOrder++,
-              messageIndex
-            )
+            insertStmt.run(taskId, now, message.role, contentType, JSON.stringify(contentData), toolUseId, sequenceOrder++, messageIndex)
           }
         } else {
-          insertStmt.run(
-            taskId,
-            now,
-            message.role,
-            'text',
-            JSON.stringify({ text: message.content }),
-            null,
-            sequenceOrder++,
-            messageIndex
-          )
+          insertStmt.run(taskId, now, message.role, 'text', JSON.stringify({ text: message.content }), null, sequenceOrder++, messageIndex)
         }
         messageIndex++
       }
@@ -160,8 +143,7 @@ export class ChatSnapshotStore {
       `)
 
       for (const message of uiMessages) {
-        const hostsStr =
-          message.hosts && message.hosts.length > 0 ? JSON.stringify(message.hosts) : null
+        const hostsStr = message.hosts && message.hosts.length > 0 ? JSON.stringify(message.hosts) : null
 
         insertStmt.run(
           taskId,
@@ -178,9 +160,7 @@ export class ChatSnapshotStore {
           message.isCheckpointCheckedOut ? 1 : 0,
           message.isOperationOutsideWorkspace ? 1 : 0,
           message.conversationHistoryIndex || null,
-          message.conversationHistoryDeletedRange
-            ? JSON.stringify(message.conversationHistoryDeletedRange)
-            : null,
+          message.conversationHistoryDeletedRange ? JSON.stringify(message.conversationHistoryDeletedRange) : null,
           message.mcpToolCall ? JSON.stringify(message.mcpToolCall) : null,
           hostsStr
         )
@@ -232,10 +212,7 @@ export class ChatSnapshotStore {
     const db = dbService.getDb()
 
     db.transaction(() => {
-      db.prepare('UPDATE agent_task_metadata_v1 SET title = ? WHERE task_id = ?').run(
-        title,
-        taskId
-      )
+      db.prepare('UPDATE agent_task_metadata_v1 SET title = ? WHERE task_id = ?').run(title, taskId)
       this._markDirtyInTransaction(db, taskId)
     })()
   }
@@ -248,10 +225,7 @@ export class ChatSnapshotStore {
     const db = dbService.getDb()
 
     db.transaction(() => {
-      db.prepare('UPDATE agent_task_metadata_v1 SET favorite = ? WHERE task_id = ?').run(
-        favorite ? 1 : 0,
-        taskId
-      )
+      db.prepare('UPDATE agent_task_metadata_v1 SET favorite = ? WHERE task_id = ?').run(favorite ? 1 : 0, taskId)
       this._markDirtyInTransaction(db, taskId)
     })()
   }
@@ -265,13 +239,15 @@ export class ChatSnapshotStore {
     const jsonDataString = JSON.stringify(contextHistory)
 
     db.transaction(() => {
-      db.prepare(`
+      db.prepare(
+        `
         INSERT INTO agent_context_history_v1 (task_id, context_history_data, updated_at)
         VALUES (?, ?, strftime('%s', 'now'))
         ON CONFLICT(task_id) DO UPDATE SET
           context_history_data = excluded.context_history_data,
           updated_at = strftime('%s', 'now')
-      `).run(taskId, jsonDataString)
+      `
+      ).run(taskId, jsonDataString)
 
       this._markDirtyInTransaction(db, taskId)
     })()
@@ -285,7 +261,8 @@ export class ChatSnapshotStore {
     const db = dbService.getDb()
 
     db.transaction(() => {
-      db.prepare(`
+      db.prepare(
+        `
         INSERT INTO agent_task_metadata_v1 (task_id, title, updated_at)
         VALUES (?, ?, strftime('%s', 'now'))
         ON CONFLICT(task_id) DO UPDATE SET
@@ -294,7 +271,8 @@ export class ChatSnapshotStore {
             THEN excluded.title
             ELSE agent_task_metadata_v1.title
           END
-      `).run(taskId, initialTitle || null)
+      `
+      ).run(taskId, initialTitle || null)
 
       this._markDirtyInTransaction(db, taskId)
     })()
@@ -308,12 +286,14 @@ export class ChatSnapshotStore {
     const db = dbService.getDb()
 
     db.transaction(() => {
-      db.prepare(`
+      db.prepare(
+        `
         INSERT INTO agent_task_metadata_v1 (task_id, updated_at)
         VALUES (?, strftime('%s', 'now'))
         ON CONFLICT(task_id) DO UPDATE SET
           updated_at = strftime('%s', 'now')
-      `).run(taskId)
+      `
+      ).run(taskId)
 
       this._markDirtyInTransaction(db, taskId)
     })()
@@ -343,18 +323,14 @@ export class ChatSnapshotStore {
         dbService.deleteTaskChatData(taskId)
         if (state) {
           const now = Math.floor(Date.now() / 1000)
-          db.prepare(
-            'UPDATE agent_chat_sync_task_state SET is_deleted = 1, pending_upload = 0, updated_at = ? WHERE task_id = ?'
-          ).run(now, taskId)
+          db.prepare('UPDATE agent_chat_sync_task_state SET is_deleted = 1, pending_upload = 0, updated_at = ? WHERE task_id = ?').run(now, taskId)
         }
         needsRemoteDeletion = false
       } else {
         // Already uploaded - mark for remote deletion, delete local data
         dbService.deleteTaskChatData(taskId)
         const now = Math.floor(Date.now() / 1000)
-        db.prepare(
-          'UPDATE agent_chat_sync_task_state SET is_deleted = 1, pending_upload = 0, updated_at = ? WHERE task_id = ?'
-        ).run(now, taskId)
+        db.prepare('UPDATE agent_chat_sync_task_state SET is_deleted = 1, pending_upload = 0, updated_at = ? WHERE task_id = ?').run(now, taskId)
         needsRemoteDeletion = true
       }
     })()
@@ -374,13 +350,7 @@ export class ChatSnapshotStore {
    *
    * All operations run in a single SQLite transaction for atomicity.
    */
-  applyRemoteSnapshot(
-    taskId: string,
-    tables: TaskSnapshotTables,
-    serverRevision: number,
-    payloadHash: string,
-    payloadHashVersion: number
-  ): void {
+  applyRemoteSnapshot(taskId: string, tables: TaskSnapshotTables, serverRevision: number, payloadHash: string, payloadHashVersion: number): void {
     const dbService = this.ensureInitialized()
     const db = dbService.getDb()
 
@@ -390,9 +360,7 @@ export class ChatSnapshotStore {
 
       // Update sync state WITHOUT incrementing local_change_seq
       const now = Math.floor(Date.now() / 1000)
-      const existing = db
-        .prepare('SELECT task_id FROM agent_chat_sync_task_state WHERE task_id = ?')
-        .get(taskId)
+      const existing = db.prepare('SELECT task_id FROM agent_chat_sync_task_state WHERE task_id = ?').get(taskId)
 
       if (existing) {
         db.prepare(
@@ -523,9 +491,9 @@ export class ChatSnapshotStore {
    * from re-entering the upload queue.
    */
   private _markDirtyInTransaction(db: ReturnType<ChatermDatabaseService['getDb']>, taskId: string): void {
-    const existing = db
-      .prepare('SELECT local_change_seq FROM agent_chat_sync_task_state WHERE task_id = ?')
-      .get(taskId) as { local_change_seq: number } | undefined
+    const existing = db.prepare('SELECT local_change_seq FROM agent_chat_sync_task_state WHERE task_id = ?').get(taskId) as
+      | { local_change_seq: number }
+      | undefined
 
     const now = Math.floor(Date.now() / 1000)
 
