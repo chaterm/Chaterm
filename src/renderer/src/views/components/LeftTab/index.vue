@@ -186,6 +186,7 @@ import { pinia } from '@/main'
 import eventBus from '@/utils/eventBus'
 import { shortcutService } from '@/services/shortcutService'
 import { dataSyncService } from '@/services/dataSyncService'
+import { chatSyncService } from '@/services/chatSyncService'
 
 const logger = createRendererLogger('leftTab')
 let storageEventHandler: ((e: StorageEvent) => void) | null = null
@@ -287,8 +288,9 @@ const logout = async () => {
     if (dataSyncService.getInitializationStatus()) {
       logger.info('Data sync is enabled during logout, stopping')
       await dataSyncService.disableDataSync()
+      await chatSyncService.disable()
       dataSyncService.reset()
-      logger.info('Data sync has been stopped')
+      logger.info('Data sync and chat sync have been stopped')
     }
   } catch (error) {
     logger.error('Failed to stop data sync during logout', { error: error })

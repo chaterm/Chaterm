@@ -84,6 +84,7 @@ let autoCompleteService: autoCompleteDatabaseService
 let chatermDbService: ChatermDatabaseService
 let controller: Controller
 let dataSyncController: DataSyncController | null = null
+let chatSyncScheduler: import('./storage/chat_sync/services/ChatSyncScheduler').ChatSyncScheduler | null = null
 
 let winReadyResolve
 let winReady = new Promise((resolve) => (winReadyResolve = resolve))
@@ -490,6 +491,15 @@ app.on('before-quit', async () => {
       logger.info('Data sync controller disposed successfully.')
     } catch (error) {
       logger.error('Error during data sync controller disposal', { error: error })
+    }
+  }
+  if (chatSyncScheduler) {
+    try {
+      chatSyncScheduler.destroy()
+      chatSyncScheduler = null
+      logger.info('Chat sync scheduler disposed successfully.')
+    } catch (error) {
+      logger.error('Error during chat sync scheduler disposal', { error: error })
     }
   }
 })
@@ -952,7 +962,12 @@ function setupIPC(): void {
 
         // User switch completed, data sync will be re-initialized by renderer process
         if (isUserSwitch) {
-          logger.info(`User switch detected: ${previousUserId} -> ${targetUserId}, data sync will be handled by renderer process`)
+          logger.info(`User switch detected: ${previousUserId} -> ${targetUserId}, cleaning up chat sync scheduler`)
+          if (chatSyncScheduler) {
+            chatSyncScheduler.destroy()
+            chatSyncScheduler = null
+            logger.info('Chat sync scheduler destroyed during user switch')
+          }
         }
       } catch (error) {
         logger.warn('Exception setting authentication info', { value: error })
@@ -1429,6 +1444,84 @@ function setupIPC(): void {
       logger.warn('Failed to update full sync interval', { error: e?.message || String(e) })
       return { success: false, error: e?.message || String(e) }
     }
+  })
+
+  // ==================== Chat Sync V2 IPC Handlers ====================
+
+  ipcMain.handle('chat-sync:set-enabled', async (_evt, enabled: boolean) => {
+    try {
+      if (enabled) {
+        if (!chatSyncScheduler) {
+          const { ChatSnapshotStore, ChatSyncApiClient, ChatSyncEngine, ChatSyncScheduler } = await import('./storage/chat_sync/index')
+          const uid = getCurrentUserId()
+          if (!uid) throw new Error('User ID is required for chat sync')
+
+          const dbService = await ChatermDatabaseService.getInstance()
+
+          // Reuse the persistent device ID from data_sync (based on motherboard/machine ID)
+          const { getDeviceId } = await import('./storage/data_sync/config/devideId')
+          const deviceId = getDeviceId()
+
+          // Initialize the snapshot store
+          const store = ChatSnapshotStore.getInstance()
+          store.initialize(dbService, deviceId)
+
+          // Initialize the API client with real auth token from ChatermAuthAdapter
+          const { getSyncUrl } = await import('./config/edition')
+          const { chatermAuthAdapter } = await import('./storage/data_sync/envelope_encryption/services/auth')
+          const apiClient = new ChatSyncApiClient({
+            baseUrl: getSyncUrl(),
+            getAuthToken: async () => {
+              return chatermAuthAdapter.getAuthToken()
+            },
+            deviceId,
+            platform: 'desktop'
+          })
+
+          // Initialize the sync engine
+          const engine = new ChatSyncEngine(apiClient, dbService, store)
+
+          // Initialize the scheduler
+          chatSyncScheduler = new ChatSyncScheduler(engine)
+          await chatSyncScheduler.enable()
+        }
+      } else {
+        if (chatSyncScheduler) {
+          chatSyncScheduler.destroy()
+          chatSyncScheduler = null
+        }
+      }
+      return { success: true }
+    } catch (e: any) {
+      logger.warn('Failed to handle chat-sync:set-enabled', { error: e?.message || String(e) })
+      return { success: false, error: e?.message || String(e) }
+    }
+  })
+
+  ipcMain.handle('chat-sync:get-status', async () => {
+    if (!chatSyncScheduler) {
+      return { success: true, data: { enabled: false } }
+    }
+    return { success: true, data: chatSyncScheduler.getStatus() }
+  })
+
+  ipcMain.handle('chat-sync:sync-now', async () => {
+    if (!chatSyncScheduler) {
+      return { success: false, error: 'Chat sync not enabled' }
+    }
+    try {
+      await chatSyncScheduler.syncNow()
+      return { success: true }
+    } catch (e: any) {
+      return { success: false, error: e?.message || String(e) }
+    }
+  })
+
+  ipcMain.handle('chat-sync:set-ai-tab-visible', async (_evt, visible: boolean) => {
+    if (chatSyncScheduler) {
+      chatSyncScheduler.setAiTabVisible(visible)
+    }
+    return { success: true }
   })
 
   // Open browser window

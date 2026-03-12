@@ -574,6 +574,11 @@ const api = {
   getAssetsInFolder,
   getPathForFile: (file: File) => webUtils.getPathForFile(file), // Get the real path from File instead of using file.path
   setDataSyncEnabled: (enabled: boolean) => ipcRenderer.invoke('data-sync:set-enabled', enabled),
+  // Chat Sync V2
+  chatSyncSetEnabled: (enabled: boolean) => ipcRenderer.invoke('chat-sync:set-enabled', enabled),
+  chatSyncGetStatus: () => ipcRenderer.invoke('chat-sync:get-status'),
+  chatSyncSyncNow: () => ipcRenderer.invoke('chat-sync:sync-now'),
+  chatSyncSetAiTabVisible: (visible: boolean) => ipcRenderer.invoke('chat-sync:set-ai-tab-visible', visible),
   maximizeWindow: () => ipcRenderer.invoke('window:maximize'),
   unmaximizeWindow: () => ipcRenderer.invoke('window:unmaximize'),
   isMaximized: () => ipcRenderer.invoke('window:is-maximized'),

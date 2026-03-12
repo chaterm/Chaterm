@@ -519,10 +519,18 @@ export function useTabManagement(options: TabManagementOptions) {
   }
   onMounted(() => {
     window.addEventListener('keydown', handleCloseTabKeyDown)
+    // Notify main process that AI Tab is now visible for chat sync scheduling
+    if (window.api?.chatSyncSetAiTabVisible) {
+      window.api.chatSyncSetAiTabVisible(true)
+    }
   })
 
   onUnmounted(() => {
     window.removeEventListener('keydown', handleCloseTabKeyDown)
+    // Notify main process that AI Tab is no longer visible
+    if (window.api?.chatSyncSetAiTabVisible) {
+      window.api.chatSyncSetAiTabVisible(false)
+    }
   })
 
   return {

@@ -244,6 +244,27 @@ CREATE TABLE IF NOT EXISTS indexdb_migration_status (
   record_count INTEGER,
   error_message TEXT
 );
+
+-- Chat Sync V2: per-task sync state tracking
+CREATE TABLE IF NOT EXISTS agent_chat_sync_task_state (
+  task_id TEXT PRIMARY KEY,
+  local_change_seq INTEGER DEFAULT 0,
+  acked_local_change_seq INTEGER DEFAULT 0,
+  last_uploaded_hash TEXT,
+  last_uploaded_hash_version INTEGER DEFAULT 0,
+  last_applied_hash TEXT,
+  last_applied_hash_version INTEGER DEFAULT 0,
+  last_server_revision INTEGER DEFAULT 0,
+  pending_upload INTEGER DEFAULT 0,
+  is_deleted INTEGER DEFAULT 0,
+  remote_deleted INTEGER DEFAULT 0,
+  sync_blocked_reason TEXT,
+  last_sync_status TEXT,
+  last_error TEXT,
+  updated_at INTEGER
+);
+CREATE INDEX IF NOT EXISTS idx_task_state_pending ON agent_chat_sync_task_state(pending_upload, remote_deleted, is_deleted);
+
 `)
 
 console.log('数据库创建成功，表已创建')
