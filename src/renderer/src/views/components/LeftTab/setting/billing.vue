@@ -36,6 +36,10 @@
           }}</span>
         </div>
         <div class="info-row lr-row">
+          <span class="info-label">{{ $t('user.subscriptionExpiresAt') }}</span>
+          <span class="info-value">{{ userInfo.subscriptionExpiresAt || $t('user.subscriptionNeverExpires') }}</span>
+        </div>
+        <div class="info-row lr-row">
           <span class="info-label">{{ $t('user.budgetResetAt') }}</span>
           <span class="info-value">{{ userInfo.budgetResetAt || '-' }}</span>
         </div>

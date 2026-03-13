@@ -12,12 +12,17 @@
           v-for="model in modelOptions"
           :key="model.id"
           class="model-item"
+          :class="{ 'locked-model-item': isLockedModel(model.name) }"
         >
           <a-checkbox
             v-model:checked="model.checked"
             @change="handleModelChange(model)"
           >
             <span class="model-label">
+              <LockOutlined
+                v-if="isLockedModel(model.name)"
+                class="locked-model-icon"
+              />
               <img
                 v-if="model.name.endsWith('-Thinking')"
                 src="@/assets/icons/thinking.svg"
@@ -442,6 +447,7 @@
 <script setup lang="ts">
 import { onBeforeUnmount, onMounted, ref } from 'vue'
 import { notification } from 'ant-design-vue'
+import { LockOutlined } from '@ant-design/icons-vue'
 import { updateGlobalState, getGlobalState, getSecret, storeSecret, getAllExtensionState } from '@renderer/agent/storage/state'
 import eventBus from '@/utils/eventBus'
 import i18n from '@/locales'
@@ -469,6 +475,9 @@ interface DefaultModel {
 
 const { t } = i18n.global
 const modelOptions = ref<ModelOption[]>([])
+const lockedModelNames = ref<Set<string>>(new Set())
+
+const isLockedModel = (name: string): boolean => lockedModelNames.value.has(name)
 
 const awsRegionOptions = ref([
   { value: 'us-east-1', label: 'us-east-1' },
@@ -772,7 +781,6 @@ const handleCheck = async (provider: string): Promise<void> => {
 
 // Add model management methods
 const handleModelChange = (model) => {
-  // Update model selection state
   const index = modelOptions.value.findIndex((m) => m.id === model.id)
   if (index !== -1) {
     modelOptions.value[index].checked = model.checked
@@ -855,26 +863,32 @@ const loadModelOptions = async () => {
     }
 
     let defaultModels: DefaultModel[] = []
+    let subscriptionModelsList: string[] = []
     await getUser({}).then((res) => {
       defaultModels = res?.data?.models || []
+      subscriptionModelsList = (res?.data?.subscriptionModels || []).map((m: unknown) => String(m))
       updateGlobalState('defaultBaseUrl', res?.data?.llmGatewayAddr)
       storeSecret('defaultApiKey', res?.data?.key)
     })
+
+    const availableSet = new Set(defaultModels.map((m) => String(m)))
+    const allKnownSet = new Set([...availableSet, ...subscriptionModelsList])
+    lockedModelNames.value = new Set(subscriptionModelsList.filter((m) => !availableSet.has(m)))
+
     const savedModelOptions = (await getGlobalState('modelOptions')) || []
     if (savedModelOptions && Array.isArray(savedModelOptions)) {
-      // 1. Filter out models that type=='standard' and do not exist in defaultModels
       const filteredOptions = savedModelOptions.filter((option) => {
         if (option.type !== 'standard') return true
-        return defaultModels.some((defaultModel) => defaultModel === option.name)
+        return allKnownSet.has(option.name)
       })
 
-      // 2. Add models that do not exist in savedModelOptions in defaultModels
       defaultModels.forEach((defaultModel) => {
-        const exists = filteredOptions.some((option) => option.name === defaultModel)
+        const name = String(defaultModel)
+        const exists = filteredOptions.some((option) => option.name === name)
         if (!exists) {
           filteredOptions.push({
-            id: defaultModel || '',
-            name: defaultModel || defaultModel || '',
+            id: name,
+            name: name,
             checked: true,
             type: 'standard',
             apiProvider: 'default'
@@ -882,7 +896,19 @@ const loadModelOptions = async () => {
         }
       })
 
-      // Ensure loaded data contains all necessary properties
+      lockedModelNames.value.forEach((name) => {
+        const exists = filteredOptions.some((option) => option.name === name)
+        if (!exists) {
+          filteredOptions.push({
+            id: name,
+            name: name,
+            checked: true,
+            type: 'standard',
+            apiProvider: 'default'
+          })
+        }
+      })
+
       modelOptions.value = filteredOptions.map((option) => ({
         id: option.id || '',
         name: option.name || '',
@@ -891,7 +917,6 @@ const loadModelOptions = async () => {
         apiProvider: option.apiProvider || 'default'
       }))
 
-      // Sort model list: built-in models first, user-defined models last
       sortModelOptions()
     }
     await saveModelOptions()
@@ -1290,6 +1315,16 @@ const handleSave = async (provider) => {
 
 .model-item:hover {
   background-color: var(--text-color-septenary);
+}
+
+.locked-model-item {
+  opacity: 0.6;
+}
+
+.locked-model-icon {
+  margin-right: 6px;
+  font-size: 12px;
+  color: var(--text-color-tertiary);
 }
 
 .remove-button {

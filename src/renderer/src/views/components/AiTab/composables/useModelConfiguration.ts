@@ -50,6 +50,11 @@ export const useModelConfiguration = createGlobalState(() => {
   const { chatAiModelValue } = useSessionState()
 
   const AgentAiModelsOptions = ref<ModelSelectOption[]>([])
+  const lockedModels = ref<string[]>([])
+  /** Full list of locked model names from server (subscription but not available); used to include newly checked locked models in dropdown locked section */
+  const allLockedNames = ref<string[]>([])
+  const budgetResetAt = ref<string>('')
+  const subscription = ref<string>('')
   const modelsLoading = ref(true)
 
   const handleChatAiModelChange = async () => {
@@ -69,7 +74,6 @@ export const useModelConfiguration = createGlobalState(() => {
 
   const initModel = async () => {
     try {
-      // First initialize model options list
       const modelOptions = (await getGlobalState('modelOptions')) as ModelOption[]
 
       modelOptions.sort((a, b) => {
@@ -82,8 +86,26 @@ export const useModelConfiguration = createGlobalState(() => {
         return a.name.localeCompare(b.name)
       })
 
+      // Bootstrap full locked list from server when empty (e.g. user opened settings before AI panel)
+      if (allLockedNames.value.length === 0) {
+        try {
+          const res = await getUser({})
+          const serverModels = (res?.data?.models || []).map((m: unknown) => String(m))
+          const subscriptionModelsList = (res?.data?.subscriptionModels || []).map((m: unknown) => String(m))
+          const availableSet = new Set(serverModels)
+          allLockedNames.value = subscriptionModelsList.filter((m: string) => !availableSet.has(m))
+        } catch {
+          // ignore
+        }
+      }
+      // Always derive lockedModels from full list + current checked state (so newly checked locked models show as locked in dropdown)
+      lockedModels.value = allLockedNames.value.filter((name) => {
+        const opt = modelOptions.find((o) => o.name === name)
+        return opt && opt.checked
+      })
+      const lockedSet = new Set(lockedModels.value)
       AgentAiModelsOptions.value = modelOptions
-        .filter((item) => item.checked)
+        .filter((item) => item.checked && !lockedSet.has(item.name))
         .map((item) => ({
           label: item.name,
           value: item.name
@@ -98,9 +120,14 @@ export const useModelConfiguration = createGlobalState(() => {
 
       const apiProvider = (await getGlobalState('apiProvider')) as string
       const key = PROVIDER_MODEL_KEY_MAP[apiProvider || 'default'] || 'defaultModelId'
-      chatAiModelValue.value = (await getGlobalState(key)) as string
+      const savedModelId = (await getGlobalState(key)) as string
 
-      if ((chatAiModelValue.value === undefined || chatAiModelValue.value === '') && AgentAiModelsOptions.value[0]) {
+      if (savedModelId && AgentAiModelsOptions.value.some((opt) => opt.value === savedModelId)) {
+        chatAiModelValue.value = savedModelId
+        return
+      }
+
+      if (AgentAiModelsOptions.value[0]) {
         chatAiModelValue.value = AgentAiModelsOptions.value[0].label
         await handleChatAiModelChange()
       }
@@ -236,9 +263,13 @@ export const useModelConfiguration = createGlobalState(() => {
     if (isSkippedLogin) return
 
     let serverModels: string[] = []
+    let subscriptionModelsList: string[] = []
     try {
       const res = await getUser({})
       serverModels = (res?.data?.models || []).map((model) => String(model))
+      subscriptionModelsList = (res?.data?.subscriptionModels || []).map((m: unknown) => String(m))
+      budgetResetAt.value = res?.data?.budgetResetAt || ''
+      subscription.value = res?.data?.subscription || ''
       await updateGlobalState('defaultBaseUrl', res?.data?.llmGatewayAddr)
       await storeSecret('defaultApiKey', res?.data?.key)
     } catch (error) {
@@ -246,19 +277,24 @@ export const useModelConfiguration = createGlobalState(() => {
       return
     }
 
+    const availableSet = new Set(serverModels)
+    const lockedFromServer = subscriptionModelsList.filter((m) => !availableSet.has(m))
+    allLockedNames.value = lockedFromServer
+
     // Skip update if server returns empty list to avoid accidental clearing
-    if (serverModels.length === 0) {
+    if (serverModels.length === 0 && subscriptionModelsList.length === 0) {
+      lockedModels.value = []
       return
     }
 
     const savedModelOptions = ((await getGlobalState('modelOptions')) || []) as ModelOption[]
-    const serverSet = new Set(serverModels)
+    const allKnownSet = new Set([...serverModels, ...subscriptionModelsList])
 
     const existingStandard = savedModelOptions.filter((opt) => opt.type === 'standard')
     const existingCustom = savedModelOptions.filter((opt) => opt.type !== 'standard')
 
     const retainedStandard = existingStandard
-      .filter((opt) => serverSet.has(opt.name))
+      .filter((opt) => allKnownSet.has(opt.name))
       .map((opt) => ({
         id: opt.id || opt.name,
         name: opt.name,
@@ -268,7 +304,8 @@ export const useModelConfiguration = createGlobalState(() => {
       }))
 
     const retainedNames = new Set(retainedStandard.map((opt) => opt.name))
-    const newStandard = serverModels
+
+    const newAvailable = serverModels
       .filter((name) => !retainedNames.has(name))
       .map((name) => ({
         id: name,
@@ -278,8 +315,30 @@ export const useModelConfiguration = createGlobalState(() => {
         apiProvider: 'default'
       }))
 
-    // Order: retained standard models, new standard models, then custom models
-    await updateGlobalState('modelOptions', [...retainedStandard, ...newStandard, ...existingCustom])
+    const allAddedNames = new Set([...retainedNames, ...newAvailable.map((o) => o.name)])
+    const newLocked = lockedFromServer
+      .filter((name) => !allAddedNames.has(name))
+      .map((name) => ({
+        id: name,
+        name,
+        checked: true,
+        type: 'standard',
+        apiProvider: 'default'
+      }))
+
+    const updatedOptions = [...retainedStandard, ...newAvailable, ...newLocked, ...existingCustom]
+    await updateGlobalState('modelOptions', updatedOptions)
+
+    // Compute locked models filtered by checked state
+    if (lockedFromServer.length > 0) {
+      lockedModels.value = lockedFromServer.filter((name) => {
+        const opt = updatedOptions.find((o) => o.name === name)
+        return !opt || opt.checked
+      })
+    } else {
+      lockedModels.value = []
+    }
+
     await initModel()
   }
 
@@ -291,21 +350,34 @@ export const useModelConfiguration = createGlobalState(() => {
     return AgentAiModelsOptions.value && AgentAiModelsOptions.value.length > 0
   })
 
+  // Auto-switch to first available model when selected model is locked or invalid
   watch(
-    AgentAiModelsOptions,
-    async (newOptions) => {
+    [AgentAiModelsOptions, lockedModels],
+    ([newOptions, newLocked]) => {
       if (newOptions.length > 0) {
-        const isCurrentValueValid = newOptions.some((option) => option.value === chatAiModelValue.value)
-        if (!isCurrentValueValid && newOptions[0]) {
-          chatAiModelValue.value = ''
+        const current = chatAiModelValue.value
+        const isInAvailable = newOptions.some((opt) => opt.value === current)
+        const isInLocked = (newLocked || []).includes(current)
+        const isInvalid = !current || !isInAvailable || isInLocked
+        if (isInvalid && newOptions[0]) {
+          chatAiModelValue.value = newOptions[0].value
+          handleChatAiModelChange()
         }
       }
     },
     { immediate: true }
   )
 
+  const showLockedModelUpgradeTag = computed(() => {
+    const sub = (subscription.value || '').toLowerCase()
+    return sub === 'free' || sub === 'lite'
+  })
+
   return {
     AgentAiModelsOptions,
+    lockedModels,
+    budgetResetAt,
+    showLockedModelUpgradeTag,
     modelsLoading,
     hasAvailableModels,
     initModel,

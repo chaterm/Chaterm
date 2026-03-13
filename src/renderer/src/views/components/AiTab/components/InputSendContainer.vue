@@ -123,6 +123,29 @@
               {{ model.label.replace(/-Thinking$/, '') }}
             </span>
           </a-select-option>
+          <a-select-option
+            v-for="name in lockedModels"
+            :key="'locked-' + name"
+            :value="name"
+            disabled
+            class="locked-model-option"
+          >
+            <a-tooltip
+              :title="lockedModelTooltip"
+              placement="left"
+              overlay-class-name="locked-model-tooltip"
+            >
+              <span class="model-label locked-label">
+                <LockOutlined class="locked-model-icon" />
+                {{ name }}
+                <span
+                  v-if="showLockedModelUpgradeTag"
+                  class="locked-vip-tag"
+                  >VIP</span
+                >
+              </span>
+            </a-tooltip>
+          </a-select-option>
         </a-select>
         <div class="action-buttons-container">
           <a-tooltip :title="$t('ai.uploadImage')">
@@ -223,7 +246,7 @@ import { AiTypeOptions } from '../composables/useEventBusListeners'
 import { getImageMediaType } from '../utils'
 import type { ContentPart, ContextDocRef, ContextPastChatRef, ContextCommandRef } from '@shared/WebviewMessage'
 import type { HistoryItem, Host } from '../types'
-import { CloseOutlined, LaptopOutlined } from '@ant-design/icons-vue'
+import { CloseOutlined, LaptopOutlined, LockOutlined } from '@ant-design/icons-vue'
 import uploadIcon from '@/assets/icons/upload.svg'
 import imageIcon from '@/assets/icons/image.svg'
 import sendIcon from '@/assets/icons/send.svg'
@@ -612,7 +635,19 @@ const hasAnyContext = computed(() => {
   return hosts.value.length > 0 || inputParts.value.some((part) => part.type === 'chip')
 })
 
-const { AgentAiModelsOptions, hasAvailableModels, handleChatAiModelChange } = useModelConfiguration()
+const { AgentAiModelsOptions, lockedModels, budgetResetAt, showLockedModelUpgradeTag, hasAvailableModels, handleChatAiModelChange } =
+  useModelConfiguration()
+
+const lockedModelTooltip = computed(() => {
+  if (showLockedModelUpgradeTag.value) {
+    return t('user.modelLocked', { tier: 'VIP' })
+  }
+  const date = budgetResetAt.value
+  if (date && date.length >= 10) {
+    return t('user.modelLockedQuotaResetsAt', { date: date.slice(0, 10) })
+  }
+  return t('user.modelLockedQuotaExhausted')
+})
 
 // Use user interactions composable
 const {
@@ -1125,6 +1160,27 @@ onBeforeUnmount(() => {
   align-items: center;
 }
 
+.locked-label {
+  opacity: 0.7;
+}
+
+.locked-model-icon {
+  margin-right: 6px;
+  font-size: 10px;
+  color: var(--text-color-tertiary, #8c8c8c);
+}
+
+.locked-vip-tag {
+  margin-left: 6px;
+  font-size: 10px;
+  padding: 0 4px;
+  border-radius: 3px;
+  background-color: rgba(42, 130, 228, 0.15);
+  color: #1890ff;
+  font-weight: 600;
+  line-height: 16px;
+}
+
 .thinking-icon {
   width: 16px;
   height: 16px;
@@ -1186,6 +1242,22 @@ onBeforeUnmount(() => {
   .ant-select-item,
   .ant-select-item-option {
     font-size: 12px !important;
+  }
+}
+
+// Locked model tooltip - match dropdown dark theme
+.locked-model-tooltip {
+  .ant-tooltip-inner {
+    background-color: var(--bg-color-secondary) !important;
+    border: 1px solid var(--border-color) !important;
+    color: var(--text-color) !important;
+    border-radius: 4px;
+    box-shadow: var(--box-shadow);
+    white-space: pre-line;
+  }
+  .ant-tooltip-arrow::before {
+    background: var(--bg-color-secondary) !important;
+    border-color: var(--border-color) !important;
   }
 }
 </style>
