@@ -43,9 +43,9 @@
               : t('userInfo.personal')
         }}
         <a-tag
-          v-if="userInfo.expires && new Date() < new Date(userInfo.expires)"
+          v-if="isSubscriptionActive"
           :key="userInfo.subscription"
-          :title="t('userInfo.expirationTime') + `：${userInfo.expires}`"
+          :title="t('userInfo.expirationTime') + `：${userInfo.subscriptionExpiresAt || userInfo.expires || ''}`"
           class="subscription-tag"
         >
           {{ userInfo.subscription ? userInfo.subscription.charAt(0).toUpperCase() + userInfo.subscription.slice(1) : '-' }}
@@ -480,6 +480,7 @@ interface ApiResponse {
 interface UserInfo {
   avatar?: string
   subscription?: string
+  subscriptionExpiresAt?: string
   registrationType?: number
   expires?: string
   uid?: number
@@ -573,6 +574,14 @@ const strength = computed(() => {
 const passwordMatch = computed(() => {
   if (formState.confirmPassword === '') return true
   return formState.newPassword === formState.confirmPassword
+})
+
+const isSubscriptionActive = computed(() => {
+  if (userInfo.value.subscriptionExpiresAt) {
+    return new Date() < new Date(userInfo.value.subscriptionExpiresAt)
+  }
+  // fallback to legacy expires field for old backend
+  return userInfo.value.expires && new Date() < new Date(userInfo.value.expires)
 })
 
 const canEditMobile = computed(() => {

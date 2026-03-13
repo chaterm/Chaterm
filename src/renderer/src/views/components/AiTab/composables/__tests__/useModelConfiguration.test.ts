@@ -394,6 +394,7 @@ describe('useModelConfiguration', () => {
       vi.mocked(getUser).mockResolvedValue({
         data: {
           models: [],
+          subscriptionModels: [],
           llmGatewayAddr: 'https://api.example.com',
           key: 'server-key'
         }
@@ -407,6 +408,126 @@ describe('useModelConfiguration', () => {
       // But should still update base URL and API key
       expect(stateModule.updateGlobalState).toHaveBeenCalledWith('defaultBaseUrl', 'https://api.example.com')
       expect(stateModule.storeSecret).toHaveBeenCalledWith('defaultApiKey', 'server-key')
+    })
+
+    it('populates allLockedNames and lockedModels when server returns subscriptionModels', async () => {
+      localStorage.removeItem('login-skipped')
+
+      const existing = [
+        { id: 's1', name: 'gpt-5', checked: true, type: 'standard', apiProvider: 'default' },
+        { id: 's2', name: 'locked-one', checked: true, type: 'standard', apiProvider: 'default' }
+      ]
+
+      vi.mocked(stateModule.getGlobalState).mockImplementation(async (key) => {
+        if (key === 'modelOptions') return existing
+        if (key === 'apiProvider') return 'default'
+        if (key === 'defaultModelId') return 'gpt-5'
+        return null
+      })
+
+      vi.mocked(getUser).mockResolvedValue({
+        data: {
+          models: ['gpt-5'],
+          subscriptionModels: ['gpt-5', 'locked-one'],
+          budgetResetAt: '2025-04-01',
+          subscription: 'pro',
+          llmGatewayAddr: 'https://api.example.com',
+          key: 'server-key'
+        }
+      } as any)
+
+      const { refreshModelOptions, lockedModels, AgentAiModelsOptions } = useModelConfiguration()
+      await refreshModelOptions()
+
+      expect(lockedModels.value).toContain('locked-one')
+      expect(lockedModels.value).not.toContain('gpt-5')
+      expect(stateModule.updateGlobalState).toHaveBeenCalledWith(
+        'modelOptions',
+        expect.arrayContaining([
+          expect.objectContaining({ name: 'gpt-5', type: 'standard' }),
+          expect.objectContaining({ name: 'locked-one', type: 'standard' })
+        ])
+      )
+      expect(AgentAiModelsOptions.value.map((o) => o.value)).not.toContain('locked-one')
+      expect(AgentAiModelsOptions.value.map((o) => o.value)).toContain('gpt-5')
+    })
+  })
+
+  describe('locked models (subscription overage)', () => {
+    it('initModel excludes locked models from AgentAiModelsOptions and only shows checked locked in lockedModels', async () => {
+      vi.mocked(getUser).mockResolvedValue({
+        data: {
+          models: ['gpt-5'],
+          subscriptionModels: ['gpt-5', 'locked-a', 'locked-b']
+        }
+      } as any)
+
+      const modelOptionsWithLocked = [
+        { id: '1', name: 'gpt-5', checked: true, type: 'standard', apiProvider: 'default' },
+        { id: '2', name: 'locked-a', checked: true, type: 'standard', apiProvider: 'default' },
+        { id: '3', name: 'locked-b', checked: false, type: 'standard', apiProvider: 'default' }
+      ]
+
+      vi.mocked(stateModule.getGlobalState).mockImplementation(async (key) => {
+        if (key === 'modelOptions') return modelOptionsWithLocked
+        if (key === 'apiProvider') return 'default'
+        if (key === 'defaultModelId') return 'gpt-5'
+        return null
+      })
+
+      const { initModel, refreshModelOptions, AgentAiModelsOptions, lockedModels } = useModelConfiguration()
+      // Populate allLockedNames via refreshModelOptions so initModel uses correct locked set (avoids shared global state from prior tests)
+      await refreshModelOptions()
+      await initModel()
+
+      expect(AgentAiModelsOptions.value.map((o) => o.value)).toEqual(['gpt-5'])
+      expect(AgentAiModelsOptions.value.map((o) => o.value)).not.toContain('locked-a')
+      expect(lockedModels.value).toContain('locked-a')
+      expect(lockedModels.value).not.toContain('locked-b')
+    })
+
+    it('showLockedModelUpgradeTag is true when subscription is free or lite', async () => {
+      vi.mocked(stateModule.getGlobalState).mockImplementation(async () => null)
+      vi.mocked(getUser).mockResolvedValue({
+        data: { models: [], subscriptionModels: [], subscription: 'free' }
+      } as any)
+
+      const { refreshModelOptions, showLockedModelUpgradeTag } = useModelConfiguration()
+      await refreshModelOptions()
+
+      expect(showLockedModelUpgradeTag.value).toBe(true)
+    })
+
+    it('showLockedModelUpgradeTag is false when subscription is pro', async () => {
+      vi.mocked(stateModule.getGlobalState).mockImplementation(async (key) => {
+        if (key === 'modelOptions') return []
+        return null
+      })
+      vi.mocked(getUser).mockResolvedValue({
+        data: { models: ['gpt-5'], subscriptionModels: ['gpt-5'], subscription: 'pro' }
+      } as any)
+
+      const { refreshModelOptions, showLockedModelUpgradeTag } = useModelConfiguration()
+      await refreshModelOptions()
+
+      expect(showLockedModelUpgradeTag.value).toBe(false)
+    })
+
+    it('hasAvailableModels is false when only locked models are checked', async () => {
+      vi.mocked(getUser).mockResolvedValue({
+        data: { models: [], subscriptionModels: ['locked-only'] }
+      } as any)
+      const modelOptionsOnlyLocked = [{ id: '1', name: 'locked-only', checked: true, type: 'standard', apiProvider: 'default' }]
+      vi.mocked(stateModule.getGlobalState).mockImplementation(async (key) => {
+        if (key === 'modelOptions') return modelOptionsOnlyLocked
+        return null
+      })
+
+      const { initModel, hasAvailableModels, AgentAiModelsOptions } = useModelConfiguration()
+      await initModel()
+
+      expect(AgentAiModelsOptions.value).toHaveLength(0)
+      expect(hasAvailableModels.value).toBe(false)
     })
   })
 })
