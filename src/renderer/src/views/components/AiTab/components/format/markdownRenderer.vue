@@ -264,7 +264,7 @@
         </a-collapse>
       </template>
 
-      <div v-else-if="normalContent || codeBlocks.length > 0">
+      <div v-if="normalContent || codeBlocks.length > 0">
         <template
           v-for="(part, index) in contentParts"
           :key="index"
