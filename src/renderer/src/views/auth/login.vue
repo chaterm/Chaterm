@@ -18,7 +18,7 @@
           </a-menu>
         </template>
       </a-dropdown>
-      <TitleBar />
+      <TitleBar variant="login" />
     </div>
     <div class="term_login_content">
       <div>
@@ -580,7 +580,6 @@ const handleExternalLogin = async () => {
 onMounted(async () => {
   const api = window.api as any
   api.mainWindowShow()
-
   platform.value = await api.getPlatform()
   isDev.value =
     import.meta.env.MODE === 'development.cn' || import.meta.env.MODE === 'development.global' || ((window as any).api?.isE2E?.() ?? false)
