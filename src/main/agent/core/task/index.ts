@@ -49,6 +49,7 @@ import { regexSearchMatches as localGrepSearch } from '../../services/grep/index
 import { buildRemoteGlobCommand, parseRemoteGlobOutput, buildRemoteGrepCommand, parseRemoteGrepOutput } from '../../services/search/remote'
 import { broadcastInteractionClosed } from '../../services/interaction-detector/ipc-handlers'
 import { getOffloadDir, shouldOffload, writeToolOutput } from '../offload'
+import { getKnowledgeBaseRoot } from '../../../services/knowledgebase'
 
 interface StreamMetrics {
   didReceiveUsageChunk?: boolean
@@ -3336,6 +3337,10 @@ export class Task {
           baseDir = getOffloadDir(this.taskId)
           searchPath = relPath.replace(/^@?offload\//, '') || '.'
           logger.info('[glob_search] Searching in offload directory', { taskId: this.taskId, searchPath })
+        } else if (relPath.startsWith('@knowledgebase') || relPath.startsWith('knowledgebase')) {
+          baseDir = getKnowledgeBaseRoot()
+          searchPath = relPath.replace(/^@?knowledgebase\/?/, '') || '.'
+          logger.info('[glob_search] Searching in knowledgebase', { taskId: this.taskId, searchPath })
         }
 
         // Local

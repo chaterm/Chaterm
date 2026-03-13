@@ -44,6 +44,11 @@ function getKbRoot(): string {
   return path.join(app.getPath('userData'), 'knowledgebase')
 }
 
+/** Exported for agent glob_search to resolve @knowledgebase/ paths. */
+export function getKnowledgeBaseRoot(): string {
+  return getKbRoot()
+}
+
 const KB_DEFAULT_SEEDS_META_FILE = '.kb-default-seeds-meta.json'
 
 interface DefaultSeedMetaEntry {
