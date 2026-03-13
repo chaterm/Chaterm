@@ -76,8 +76,7 @@ export const useModelConfiguration = createGlobalState(() => {
 
   const initModel = async () => {
     try {
-      // First initialize model options list
-      const modelOptions = (await getGlobalState('modelOptions')) as ModelOption[]
+      const modelOptions = ((await getGlobalState('modelOptions')) || []) as ModelOption[]
 
       modelOptions.sort((a, b) => {
         const aIsThinking = a.name.endsWith('-Thinking')
@@ -123,7 +122,7 @@ export const useModelConfiguration = createGlobalState(() => {
 
       let targetModel: string | undefined
 
-      // 1. Prefer current tab model if it is still valid
+      // 1. Prefer current tab model if it is still valid (in available and not locked)
       if (chatAiModelValue.value && availableModelNames.includes(chatAiModelValue.value)) {
         targetModel = chatAiModelValue.value
       } else {
@@ -139,9 +138,6 @@ export const useModelConfiguration = createGlobalState(() => {
           targetModel = AgentAiModelsOptions.value[0]?.label
         }
       }
-      const apiProvider = (await getGlobalState('apiProvider')) as string
-      const key = PROVIDER_MODEL_KEY_MAP[apiProvider || 'default'] || 'defaultModelId'
-      const savedModelId = (await getGlobalState(key)) as string
 
       if (!targetModel) {
         return
@@ -152,15 +148,6 @@ export const useModelConfiguration = createGlobalState(() => {
         chatAiModelValue.value = targetModel
       }
       await handleChatAiModelChange()
-      if (savedModelId && AgentAiModelsOptions.value.some((opt) => opt.value === savedModelId)) {
-        chatAiModelValue.value = savedModelId
-        return
-      }
-
-      if (AgentAiModelsOptions.value[0]) {
-        chatAiModelValue.value = AgentAiModelsOptions.value[0].label
-        await handleChatAiModelChange()
-      }
     } finally {
       modelsLoading.value = false
     }
