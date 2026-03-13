@@ -35,10 +35,12 @@ const isEmptyValue = (value: unknown): boolean => value === undefined || value =
  * Mapping from API provider to corresponding model ID global state key
  */
 export const PROVIDER_MODEL_KEY_MAP: Record<string, GlobalStateKey> = {
+  anthropic: 'anthropicModelId',
   bedrock: 'apiModelId',
   litellm: 'liteLlmModelId',
   deepseek: 'apiModelId',
   openai: 'openAiModelId',
+  ollama: 'ollamaModelId',
   default: 'defaultModelId'
 }
 
@@ -74,6 +76,7 @@ export const useModelConfiguration = createGlobalState(() => {
 
   const initModel = async () => {
     try {
+      // First initialize model options list
       const modelOptions = (await getGlobalState('modelOptions')) as ModelOption[]
 
       modelOptions.sort((a, b) => {
@@ -111,17 +114,44 @@ export const useModelConfiguration = createGlobalState(() => {
           value: item.name
         }))
 
-      if (chatAiModelValue.value && chatAiModelValue.value !== '') {
-        const isValidModel = AgentAiModelsOptions.value.some((option) => option.value === chatAiModelValue.value)
-        if (isValidModel) {
-          return
-        }
+      const availableModelNames = AgentAiModelsOptions.value.map((option) => option.value)
+
+      // If no available models, keep existing behavior and bail out
+      if (availableModelNames.length === 0) {
+        return
       }
 
+      let targetModel: string | undefined
+
+      // 1. Prefer current tab model if it is still valid
+      if (chatAiModelValue.value && availableModelNames.includes(chatAiModelValue.value)) {
+        targetModel = chatAiModelValue.value
+      } else {
+        // 2. Try to use the model saved for current apiProvider
+        const apiProvider = (await getGlobalState('apiProvider')) as string
+        const key = PROVIDER_MODEL_KEY_MAP[apiProvider || 'default'] || 'defaultModelId'
+        const storedModelId = (await getGlobalState(key)) as string
+
+        if (storedModelId && availableModelNames.includes(storedModelId)) {
+          targetModel = storedModelId
+        } else {
+          // 3. Fallback: use the first available model
+          targetModel = AgentAiModelsOptions.value[0]?.label
+        }
+      }
       const apiProvider = (await getGlobalState('apiProvider')) as string
       const key = PROVIDER_MODEL_KEY_MAP[apiProvider || 'default'] || 'defaultModelId'
       const savedModelId = (await getGlobalState(key)) as string
 
+      if (!targetModel) {
+        return
+      }
+
+      // Only update when necessary, but always sync global provider/model
+      if (chatAiModelValue.value !== targetModel) {
+        chatAiModelValue.value = targetModel
+      }
+      await handleChatAiModelChange()
       if (savedModelId && AgentAiModelsOptions.value.some((opt) => opt.value === savedModelId)) {
         chatAiModelValue.value = savedModelId
         return
@@ -193,6 +223,17 @@ export const useModelConfiguration = createGlobalState(() => {
         const openAiApiKey = await getSecret('openAiApiKey')
         const openAiModelId = await getGlobalState('openAiModelId')
         if (isEmptyValue(openAiBaseUrl) || isEmptyValue(openAiApiKey) || isEmptyValue(openAiModelId)) {
+          return {
+            success: false,
+            message: 'user.checkModelConfigFailMessage',
+            description: 'user.checkModelConfigFailDescription'
+          }
+        }
+        break
+      case 'anthropic':
+        const anthropicApiKey = await getSecret('anthropicApiKey')
+        const anthropicModelId = await getGlobalState('anthropicModelId')
+        if (isEmptyValue(anthropicApiKey) || isEmptyValue(anthropicModelId)) {
           return {
             success: false,
             message: 'user.checkModelConfigFailMessage',

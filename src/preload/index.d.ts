@@ -363,6 +363,11 @@ interface ApiType {
   writeKeywordHighlightConfig: (content: string) => Promise<{ success: boolean }>
   onKeywordHighlightConfigFileChanged: (callback: (content: string) => void) => () => void
   setDataSyncEnabled: (enabled: boolean) => Promise<any>
+  // Chat Sync V2
+  chatSyncSetEnabled: (enabled: boolean) => Promise<{ success: boolean; error?: string }>
+  chatSyncGetStatus: () => Promise<{ success: boolean; data?: any; error?: string }>
+  chatSyncSyncNow: () => Promise<{ success: boolean; error?: string }>
+  chatSyncSetAiTabVisible: (visible: boolean) => Promise<{ success: boolean }>
   getSystemInfo: (id: string) => Promise<{
     success: boolean
     data?: CommandGenerationContext

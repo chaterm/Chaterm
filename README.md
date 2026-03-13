@@ -40,33 +40,35 @@ With its built-in expert knowledge base and powerful agent inference capabilitie
 
 ## Key Features
 
-- 🤖 **AI Agent Assistant**
+- 🤖 **AI Agent**
 
-  Breaks complex O&M tasks into executable steps, automating operations from log analysis to service rollback through closed-loop AI execution.
+  The Agent understands the target, autonomously plans, and performs problem analysis and root cause localization across multiple hosts, automatically closing the loop to complete complex process handling.
 
-- 🧠 **Intelligent Command Recommendation**
+  Every operation is auditable and traceable, and supports rapid log rollback, making AI automation more secure and reliable in production environments.
 
-  Not only records historical commands, but also recommends the most suitable commands in real time based on user habits, current infrastructure environment, and multi-server context.
+- 🧠 **Smart completion**
 
-- 🎙️ **Voice and Conversational Operations**
+  Combining user habits, local memory, and the current server context, the Agent recommends the most suitable commands, making terminal input smarter and more efficient.
 
-  Execute commands via voice and conversational interaction on mobile devices, eliminating the limitations of virtual keyboards, making it particularly suitable for remote O&M and emergency fault handling scenarios.
+  Supports cross-device session synchronization and reduces mobile input costs through quick commands and voice interaction, making remote maintenance smoother.
 
-- 🎨 **Modern Terminal Experience**
+- 🧩 **Knowledge Base**
 
-  Automatically synchronizes themes, configurations, and syntax highlighting across devices. Supports visual Vim editing, multi-language syntax highlighting, and cross-host file synchronization similar to WinSCP.
+  Supports importing technical manuals, internal documents, scripts, and white papers to build a personal maintenance knowledge system.
 
-- 🧩 **Knowledge Base + Agent Skills**
+  Chaterm understands the current infrastructure context and accurately retrieves relevant knowledge to assist in task decision-making and execution.
 
-  Supports long-term memory and allows importing technical manuals, internal documents, and scripts to build a personal knowledge base. Combine Agent Skills to make AI more intelligent and reliable in real-world operations and maintenance scenarios.
+- ⚡ **Agent Skill**
 
-- 🛡️ **Zero Trust Security Architecture**
+  Encapsulates complex maintenance processes into reusable AI skills, achieving structured and reliable automated execution.
 
-  Built in enterprise-grade security design, ensuring all operations are auditable, traceable, and compliant with the zero trust security framework through session-level identity authentication.
+  Help teams accumulate operational experience, enabling AI to be applied securely and stably in real production environments.
 
-- 🔌 **Plug-in Ecosystem**
+- 🔌 **Plugin System**
 
-  Extend capabilities through plugins for unified management of public cloud, network devices, containers, and Kubernetes. Combined with IAM access control, achieve unified authorization and centralized management of infrastructure assets.
+  Through plugin extensions, achieve unified authentication, dynamic authorization, and secure encrypted connections for public cloud servers and Kubernetes.
+
+  Provide a more efficient resource access experience and facilitate centralized infrastructure management.
 
 ![Preview image](resources/features.webp)
 

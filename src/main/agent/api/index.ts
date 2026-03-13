@@ -10,6 +10,7 @@ import { AwsBedrockHandler } from './providers/bedrock'
 import { LiteLlmHandler } from './providers/litellm'
 import { DeepSeekHandler } from './providers/deepseek'
 import { OpenAiHandler } from './providers/openai'
+import { AnthropicHandler } from './providers/anthropic'
 import { OllamaHandler } from './providers/ollama'
 import { ApiStream, ApiStreamUsageChunk } from './transform/stream'
 
@@ -75,6 +76,8 @@ export function buildApiHandler(configuration: ApiConfiguration): ApiHandler {
 
   const { apiProvider, ...options } = configuration
   switch (apiProvider) {
+    case 'anthropic':
+      return new AnthropicHandler(options)
     case 'bedrock':
       return new AwsBedrockHandler(options)
     case 'litellm':

@@ -57,7 +57,21 @@ export const DEFAULT_AUTO_APPROVAL_SETTINGS: AutoApprovalSettings = {
   favorites: ['enableAutoApprove', 'readFiles']
 }
 
-export type ApiProvider = 'bedrock' | 'litellm' | 'deepseek' | 'openai' | 'ollama' | 'default'
+export type ApiProvider = 'anthropic' | 'bedrock' | 'litellm' | 'deepseek' | 'openai' | 'ollama' | 'default'
+
+export type OpenAiApiFormat = 'chat-completions' | 'responses'
+
+export interface OpenAiCompatibleModelInfo {
+  maxTokens?: number
+  contextWindow?: number
+  supportsImages?: boolean
+  supportsPromptCache?: boolean
+  inputPrice?: number
+  outputPrice?: number
+  temperature?: number
+  isR1FormatRequired?: boolean
+  apiFormat?: OpenAiApiFormat
+}
 
 export interface ApiHandlerOptions {
   apiModelId?: string
@@ -79,9 +93,13 @@ export interface ApiHandlerOptions {
   requestTimeoutMs?: number
   onRetryAttempt?: (attempt: number, maxRetries: number, delay: number, error: any) => void
   deepSeekApiKey?: string
+  anthropicApiKey?: string
+  anthropicBaseUrl?: string
+  anthropicModelId?: string
   openAiBaseUrl?: string
   openAiApiKey?: string
   openAiModelId?: string
+  openAiModelInfo?: OpenAiCompatibleModelInfo
   ollamaModelId?: string
   ollamaBaseUrl?: string
   ollamaApiOptionsCtxNum?: string

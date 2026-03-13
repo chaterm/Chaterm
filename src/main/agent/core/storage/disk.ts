@@ -8,11 +8,38 @@ import { Anthropic } from '@anthropic-ai/sdk'
 import { ChatermMessage } from '../../shared/ExtensionMessage'
 import { TaskMetadata, TaskListItem } from '../context/context-tracking/ContextTrackerTypes'
 import { ChatermDatabaseService } from '../../../storage/database'
+import { ChatSnapshotStore } from '../../../storage/chat_sync/core/ChatSnapshotStore'
 import { execa } from 'execa'
 import * as path from 'path'
 import fs from 'fs/promises'
 import os from 'os'
 const logger = createLogger('agent')
+
+/**
+ * Lazy-initialize ChatSnapshotStore on first write.
+ *
+ * ChatSnapshotStore.initialize() only needs dbService + deviceId, both available
+ * at any time. By initializing eagerly on first call we eliminate the dual-path
+ * (store vs fallback) design entirely — every write goes through the store's
+ * atomic transaction (business write + _markDirtyInTransaction in one tx).
+ *
+ * This is safe because:
+ * - initialize() is idempotent (re-assigns fields, bootstrap uses INSERT OR IGNORE)
+ * - getDeviceId() is synchronous (execSync-based machine UUID)
+ * - Without ChatSyncScheduler running, pending_upload rows just sit inert
+ */
+async function getOrInitSnapshotStore(): Promise<ChatSnapshotStore> {
+  const store = ChatSnapshotStore.getInstance()
+  if (store.isInitialized()) {
+    return store
+  }
+
+  const dbService = await ChatermDatabaseService.getInstance()
+  const { getDeviceId } = await import('../../../storage/data_sync/config/devideId')
+  const deviceId = getDeviceId()
+  store.initialize(dbService, deviceId)
+  return store
+}
 
 export const GlobalFileNames = {
   apiConversationHistory: 'api_conversation_history.json',
@@ -37,15 +64,15 @@ export async function ensureTaskExists(taskId: string): Promise<string> {
   }
 }
 
-// Get saved API conversation history
 export async function deleteChatermHistoryByTaskId(taskId: string): Promise<void> {
   try {
-    const dbService = await ChatermDatabaseService.getInstance()
-    await dbService.deleteChatermHistoryByTaskId(taskId)
+    const store = await getOrInitSnapshotStore()
+    await store.deleteTask(taskId)
   } catch (error) {
     logger.error('Failed to delete Chaterm history by task ID', { error: error })
   }
 }
+
 export async function getSavedApiConversationHistory(taskId: string): Promise<Anthropic.MessageParam[]> {
   try {
     const dbService = await ChatermDatabaseService.getInstance()
@@ -57,11 +84,10 @@ export async function getSavedApiConversationHistory(taskId: string): Promise<An
   }
 }
 
-// Save API conversation history
 export async function saveApiConversationHistory(taskId: string, apiConversationHistory: Anthropic.MessageParam[]) {
   try {
-    const dbService = await ChatermDatabaseService.getInstance()
-    await dbService.saveApiConversationHistory(taskId, apiConversationHistory)
+    const store = await getOrInitSnapshotStore()
+    await store.saveApiConversationHistory(taskId, apiConversationHistory)
   } catch (error) {
     logger.error('Failed to save API conversation history to DB', { error: error })
   }
@@ -80,8 +106,8 @@ export async function getChatermMessages(taskId: string): Promise<ChatermMessage
 
 export async function saveChatermMessages(taskId: string, uiMessages: ChatermMessage[]) {
   try {
-    const dbService = await ChatermDatabaseService.getInstance()
-    await dbService.saveChatermMessages(taskId, uiMessages)
+    const store = await getOrInitSnapshotStore()
+    await store.saveChatermMessages(taskId, uiMessages)
   } catch (error) {
     logger.error('Failed to save Chaterm messages to DB', { error: error })
   }
@@ -104,8 +130,8 @@ export async function getTaskMetadata(taskId: string): Promise<TaskMetadata> {
 // Save task metadata
 export async function saveTaskMetadata(taskId: string, metadata: TaskMetadata) {
   try {
-    const dbService = await ChatermDatabaseService.getInstance()
-    await dbService.saveTaskMetadata(taskId, metadata)
+    const store = await getOrInitSnapshotStore()
+    await store.saveTaskMetadata(taskId, metadata)
   } catch (error) {
     logger.error('Failed to save task metadata to DB', { error: error })
   }
@@ -113,8 +139,8 @@ export async function saveTaskMetadata(taskId: string, metadata: TaskMetadata) {
 
 export async function saveTaskTitle(taskId: string, title: string): Promise<void> {
   try {
-    const dbService = await ChatermDatabaseService.getInstance()
-    await dbService.saveTaskTitle(taskId, title)
+    const store = await getOrInitSnapshotStore()
+    await store.saveTaskTitle(taskId, title)
   } catch (error) {
     logger.error('Failed to save task title to DB', { error: error })
   }
@@ -122,8 +148,8 @@ export async function saveTaskTitle(taskId: string, title: string): Promise<void
 
 export async function saveTaskFavorite(taskId: string, favorite: boolean): Promise<void> {
   try {
-    const dbService = await ChatermDatabaseService.getInstance()
-    await dbService.saveTaskFavorite(taskId, favorite)
+    const store = await getOrInitSnapshotStore()
+    await store.saveTaskFavorite(taskId, favorite)
   } catch (error) {
     logger.error('Failed to save task favorite to DB', { error: error })
   }
@@ -141,8 +167,8 @@ export async function getTaskList(): Promise<TaskListItem[]> {
 
 export async function ensureTaskMetadataExists(taskId: string, initialTitle?: string): Promise<void> {
   try {
-    const dbService = await ChatermDatabaseService.getInstance()
-    await dbService.ensureTaskMetadataExists(taskId, initialTitle)
+    const store = await getOrInitSnapshotStore()
+    await store.ensureTaskMetadataExists(taskId, initialTitle)
   } catch (error) {
     logger.error('Failed to ensure task metadata exists', { error: error })
   }
@@ -150,8 +176,8 @@ export async function ensureTaskMetadataExists(taskId: string, initialTitle?: st
 
 export async function touchTaskUpdatedAt(taskId: string): Promise<void> {
   try {
-    const dbService = await ChatermDatabaseService.getInstance()
-    await dbService.touchTaskUpdatedAt(taskId)
+    const store = await getOrInitSnapshotStore()
+    await store.touchTaskUpdatedAt(taskId)
   } catch (error) {
     logger.error('Failed to touch task updated_at in DB', { error: error })
   }
@@ -173,8 +199,8 @@ export async function getContextHistoryStorage(taskId: string): Promise<any> {
 // Save context history
 export async function saveContextHistoryStorage(taskId: string, contextHistory: any) {
   try {
-    const dbService = await ChatermDatabaseService.getInstance()
-    await dbService.saveContextHistory(taskId, contextHistory)
+    const store = await getOrInitSnapshotStore()
+    await store.saveContextHistory(taskId, contextHistory)
   } catch (error) {
     logger.error('Failed to save context history to DB', { error: error })
   }

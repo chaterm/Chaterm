@@ -226,6 +226,7 @@ export async function saveChatermMessagesLogic(db: Database.Database, taskId: st
     })()
   } catch (error) {
     logger.error('Failed to save Cline messages', { error: error })
+    throw error
   }
 }
 
