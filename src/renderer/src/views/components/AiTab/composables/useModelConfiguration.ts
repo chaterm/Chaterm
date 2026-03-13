@@ -60,7 +60,7 @@ export const useModelConfiguration = createGlobalState(() => {
   const modelsLoading = ref(true)
 
   const handleChatAiModelChange = async () => {
-    const modelOptions = (await getGlobalState('modelOptions')) as ModelOption[]
+    const modelOptions = ((await getGlobalState('modelOptions')) as ModelOption[]) || []
     const selectedModel = modelOptions.find((model) => model.name === chatAiModelValue.value)
 
     if (selectedModel && selectedModel.apiProvider) {
