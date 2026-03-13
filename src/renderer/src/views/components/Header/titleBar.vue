@@ -2,6 +2,7 @@
   <div
     v-if="!platform.includes('darwin')"
     class="window-controls"
+    :class="{ 'window-controls-login': props.variant === 'login' }"
   >
     <div
       class="window-control-btn"
@@ -98,6 +99,15 @@
 </template>
 <script setup lang="ts">
 import { onMounted, onUnmounted, ref } from 'vue'
+const props = withDefaults(
+  defineProps<{
+    variant?: 'default' | 'login'
+  }>(),
+  {
+    variant: 'default'
+  }
+)
+
 const api = window.api as any
 const platform = ref('')
 const isMaximized = ref(false)
@@ -147,6 +157,7 @@ const handleClose = () => {
   display: flex;
   height: 100%;
   width: 120px;
+
   .window-control-btn {
     -webkit-app-region: no-drag;
     width: 46px;
@@ -165,6 +176,17 @@ const handleClose = () => {
     &.close-btn:hover {
       background-color: #e81123;
       color: white;
+    }
+  }
+
+  &.window-controls-login {
+    .window-control-btn {
+      color: #dddddd;
+
+      &:hover {
+        background-color: rgba(255, 255, 255, 0.08);
+        color: #ffffff;
+      }
     }
   }
 }
