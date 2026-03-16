@@ -3474,6 +3474,18 @@ export class Task {
         actualPath = path.join(getOffloadDir(this.taskId), relativePath)
         isOffloadFile = true
         logger.info('[read_file] Reading offload file', { taskId: this.taskId, relativePath })
+      } else if (filePath.startsWith('@knowledgebase') || filePath.startsWith('knowledgebase')) {
+        // Resolve @knowledgebase/ or knowledgebase/ to absolute path under knowledge base root (cross-platform)
+        const relativePath = filePath.replace(/^@?knowledgebase\/?/, '').replace(/\\/g, '/') || '.'
+        actualPath = path.join(getKnowledgeBaseRoot(), relativePath)
+        logger.info('[read_file] Reading knowledge base file', { taskId: this.taskId, relativePath })
+      } else if (filePath.length > 1 && filePath.startsWith('@')) {
+        // Strip leading @ when the rest is an absolute path (e.g. @C:/Users/.../knowledgebase/test/1.md on Windows)
+        const candidate = filePath.slice(1).trim()
+        if (path.isAbsolute(candidate)) {
+          actualPath = path.resolve(candidate)
+          logger.info('[read_file] Resolved @-prefixed absolute path', { taskId: this.taskId, resolved: actualPath })
+        }
       }
 
       // For offload files, enforce a safe default window size when the model
