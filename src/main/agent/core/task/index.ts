@@ -3036,6 +3036,14 @@ export class Task {
       // Clear ephemeral tool results (upstream feature)
       await this.clearEphemeralToolResults()
 
+      // Trigger chat sync upload after the agent emits a completion result
+      try {
+        const { ChatSyncScheduler } = await import('../../../storage/chat_sync/index')
+        ChatSyncScheduler.getInstance()?.triggerUploadSync()
+      } catch {
+        // Chat sync module may not be available, ignore silently
+      }
+
       const { response, text, contentParts } = await this.ask('completion_result', '', false)
       if (response === 'yesButtonClicked') {
         await this.pushToolResult(toolDescription, '')

@@ -2,9 +2,10 @@
  * ChatSyncScheduler - Conditional timer for Chat Sync V2
  *
  * Scheduling rules:
- * - Default 30-second polling interval
+ * - Default 5-minute polling interval
  * - Polling only active when AI Tab is visible
  * - Immediate trigger on: login, app start, AI Tab becoming visible
+ * - Event-driven upload sync after the agent emits a completion result
  * - Manual sync always executes regardless of AI Tab state
  * - Full sync only on first login or manual sync-now
  */
@@ -14,9 +15,13 @@ import { DEFAULT_POLL_INTERVAL_MS } from '../models/ChatSyncTypes'
 const logger = createLogger('chat-sync-scheduler')
 
 export class ChatSyncScheduler {
+  private static instance: ChatSyncScheduler | null = null
+
   private engine: ChatSyncEngine
   private pollIntervalMs: number
   private pollTimer: ReturnType<typeof setInterval> | null = null
+  private syncPromise: Promise<void> | null = null
+  private syncQueued = false
   private isAiTabVisible = false
   private isEnabled = false
   private hasRunInitialSync = false
@@ -24,6 +29,15 @@ export class ChatSyncScheduler {
   constructor(engine: ChatSyncEngine, pollIntervalMs: number = DEFAULT_POLL_INTERVAL_MS) {
     this.engine = engine
     this.pollIntervalMs = pollIntervalMs
+    ChatSyncScheduler.instance = this
+  }
+
+  /**
+   * Get the singleton instance of ChatSyncScheduler.
+   * Returns null if no instance has been created yet.
+   */
+  static getInstance(): ChatSyncScheduler | null {
+    return ChatSyncScheduler.instance
   }
 
   /**
@@ -53,6 +67,7 @@ export class ChatSyncScheduler {
    */
   disable(): void {
     this.isEnabled = false
+    this.syncQueued = false
     this._stopPolling()
     logger.info('Chat sync scheduler disabled')
   }
@@ -88,11 +103,22 @@ export class ChatSyncScheduler {
     }
 
     logger.info('Manual sync triggered')
-    try {
-      await this.engine.runSyncCycle()
-    } catch (error) {
-      logger.error('Manual sync failed', { error })
+    await this._scheduleSync('manual')
+  }
+
+  /**
+   * Trigger an upload sync cycle (fire-and-forget).
+   * Called after the agent emits a completion result to ensure chat data is synced promptly
+   * without waiting for the next polling interval.
+   */
+  triggerUploadSync(): void {
+    if (!this.isEnabled) {
+      logger.info('Upload sync skipped - scheduler is disabled')
+      return
     }
+
+    logger.info('Task completion - triggering upload sync')
+    void this._scheduleSync('task_completion')
   }
 
   /**
@@ -159,10 +185,31 @@ export class ChatSyncScheduler {
   }
 
   private _triggerSync(): void {
-    // Fire-and-forget, the engine handles its own locking
-    this.engine.runSyncCycle().catch((error) => {
-      logger.error('Sync cycle failed', { error })
+    void this._scheduleSync('scheduled')
+  }
+
+  private _scheduleSync(reason: 'manual' | 'scheduled' | 'task_completion'): Promise<void> {
+    if (this.syncPromise) {
+      this.syncQueued = true
+      logger.info('Sync already in progress, queued a follow-up cycle', { reason })
+      return this.syncPromise
+    }
+
+    this.syncPromise = (async () => {
+      do {
+        this.syncQueued = false
+        try {
+          await this.engine.runSyncCycle()
+        } catch (error) {
+          logger.error('Sync cycle failed', { error, reason })
+        }
+      } while (this.syncQueued && this.isEnabled)
+    })().finally(() => {
+      this.syncPromise = null
+      this.syncQueued = false
     })
+
+    return this.syncPromise
   }
 
   /**
@@ -170,5 +217,8 @@ export class ChatSyncScheduler {
    */
   destroy(): void {
     this.disable()
+    if (ChatSyncScheduler.instance === this) {
+      ChatSyncScheduler.instance = null
+    }
   }
 }
