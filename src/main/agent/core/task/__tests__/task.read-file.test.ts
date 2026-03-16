@@ -34,8 +34,12 @@ vi.mock('../offload', () => ({
   writeToolOutput: vi.fn()
 }))
 
+vi.mock('../../../../services/knowledgebase', () => ({
+  getKnowledgeBaseRoot: vi.fn(() => '/mock/knowledgebase')
+}))
+
 vi.mock('fs', () => ({
-  createReadStream: vi.fn((path: string) => Readable.from([path.includes('knowledgebase') ? 'file content' : '']))
+  createReadStream: vi.fn((p: string) => Readable.from([p.includes('knowledgebase') ? 'file content' : '']))
 }))
 
 vi.mock('@core/prompts/responses', () => ({
@@ -102,5 +106,51 @@ describe('handleReadFileToolUse', () => {
     expect(task.pushToolResult).toHaveBeenCalledTimes(1)
     const msg = task.pushToolResult.mock.calls[0][1] as string
     expect(msg).toContain('Access denied: file is outside workspace and offload directory')
+  })
+
+  it('resolves @knowledgebase/relPath to absolute path and reads file', async () => {
+    const block: ToolUse = {
+      type: 'tool_use',
+      name: 'read_file',
+      params: {
+        path: '@knowledgebase/test/1.md',
+        limit: '100',
+        offset: '0'
+      },
+      partial: false
+    }
+
+    await task.handleReadFileToolUse(block)
+
+    expect(createReadStream).toHaveBeenCalledTimes(1)
+    const [calledPath] = (createReadStream as unknown as Mock).mock.calls[0]
+    expect(String(calledPath).replace(/\\/g, '/')).toBe('/mock/knowledgebase/test/1.md')
+    expect(task.pushToolResult).toHaveBeenCalledTimes(1)
+    const contentArg = task.pushToolResult.mock.calls[0][1]
+    expect(contentArg).toBe('file content')
+  })
+
+  it('strips leading @ when rest is absolute path and reads file', async () => {
+    // Path must contain 'knowledgebase' to pass security check (isInKnowledgeBase)
+    const block: ToolUse = {
+      type: 'tool_use',
+      name: 'read_file',
+      params: {
+        path: '@/Users/test/knowledgebase/test/1.md',
+        limit: '100',
+        offset: '0'
+      },
+      partial: false
+    }
+
+    await task.handleReadFileToolUse(block)
+
+    expect(createReadStream).toHaveBeenCalledTimes(1)
+    const [calledPath] = (createReadStream as unknown as Mock).mock.calls[0]
+    expect(String(calledPath)).toContain('knowledgebase')
+    expect(String(calledPath).replace(/\\/g, '/')).toContain('test/1.md')
+    expect(task.pushToolResult).toHaveBeenCalledTimes(1)
+    const contentArg = task.pushToolResult.mock.calls[0][1]
+    expect(contentArg).toBe('file content')
   })
 })
