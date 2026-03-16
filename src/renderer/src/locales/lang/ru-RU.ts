@@ -1411,7 +1411,11 @@ export default {
     addToChat: 'Добавить в чат',
     copyPath: 'Копировать путь',
     cut: 'Вырезать',
-    loadingImage: 'Загрузка изображения...'
+    loadingImage: 'Загрузка изображения...',
+    importErrorFileTypeNotAllowed: 'Этот тип файла нельзя импортировать',
+    importErrorFileTooLarge: 'Файл слишком большой для импорта',
+    importErrorFileFailed: 'Не удалось импортировать файл',
+    importErrorFolderFailed: 'Не удалось импортировать папку'
   },
   interaction: {
     title: 'Требуется взаимодействие с командой',

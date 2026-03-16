@@ -1413,7 +1413,11 @@ export default {
     addToChat: 'チャットに追加',
     copyPath: 'パスをコピー',
     cut: '切り取り',
-    loadingImage: '画像を読み込み中...'
+    loadingImage: '画像を読み込み中...',
+    importErrorFileTypeNotAllowed: 'このファイル形式はインポートできません',
+    importErrorFileTooLarge: 'ファイルが大きすぎてインポートできません',
+    importErrorFileFailed: 'ファイルのインポートに失敗しました',
+    importErrorFolderFailed: 'フォルダのインポートに失敗しました'
   },
   interaction: {
     waiting: '入力待機中...',

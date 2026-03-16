@@ -1417,7 +1417,11 @@ export default {
     addToChat: 'Add to Chat',
     copyPath: 'Copy Path',
     cut: 'Cut',
-    loadingImage: 'Loading image...'
+    loadingImage: 'Loading image...',
+    importErrorFileTypeNotAllowed: 'This file type cannot be imported',
+    importErrorFileTooLarge: 'File is too large to import',
+    importErrorFileFailed: 'Failed to import file',
+    importErrorFolderFailed: 'Failed to import folder'
   },
   interaction: {
     waiting: 'Waiting for input...',

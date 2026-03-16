@@ -18,26 +18,66 @@ export interface KnowledgeBaseEntry {
   mtimeMs?: number
 }
 
-const ALLOWED_IMPORT_EXTS = new Set([
-  '.txt',
-  '.md',
-  '.markdown',
-  '.json',
-  '.yaml',
-  '.yml',
-  '.log',
-  '.csv',
-  '.png',
-  '.jpg',
-  '.jpeg',
-  '.gif',
-  '.webp',
-  '.bmp',
-  '.svg'
+// Blocklist: these extensions are rejected; all others are allowed (permit new text formats by default).
+const BLOCKED_IMPORT_EXTS = new Set([
+  '.exe',
+  '.dll',
+  '.so',
+  '.dylib',
+  '.bin',
+  '.o',
+  '.obj',
+  '.class',
+  '.pyc',
+  '.elc',
+  '.wasm',
+  '.node',
+  '.com',
+  '.bat',
+  '.cmd',
+  '.msi',
+  '.deb',
+  '.rpm',
+  '.dmg',
+  '.pkg',
+  '.zip',
+  '.tar',
+  '.gz',
+  '.tgz',
+  '.rar',
+  '.7z',
+  '.xz',
+  '.bz2',
+  '.z',
+  '.pdf',
+  '.doc',
+  '.docx',
+  '.xls',
+  '.xlsx',
+  '.ppt',
+  '.pptx',
+  '.odt',
+  '.ods',
+  '.odp',
+  '.mp3',
+  '.mp4',
+  '.webm',
+  '.mov',
+  '.avi',
+  '.wav',
+  '.flac',
+  '.ogg',
+  '.m4a',
+  '.wmv',
+  '.mkv',
+  '.m4v',
+  '.db',
+  '.sqlite',
+  '.sqlite3'
 ])
 
-// Image file extensions for binary handling
-const IMAGE_EXTS = new Set(['.png', '.jpg', '.jpeg', '.gif', '.webp', '.bmp', '.svg'])
+// Image file extensions for binary handling (exported for sync encoding)
+export const IMAGE_EXTS = new Set(['.png', '.jpg', '.jpeg', '.gif', '.webp', '.bmp', '.svg'])
 const MAX_IMPORT_BYTES = 10 * 1024 * 1024
 
 function getKbRoot(): string {
@@ -378,7 +418,7 @@ async function copyFileWithProgress(srcAbs: string, destAbs: string, onProgress:
 // Check if file is allowed for import
 function isFileAllowedForImport(fileName: string, fileSize: number): boolean {
   const ext = path.extname(fileName).toLowerCase()
-  if (ext && !ALLOWED_IMPORT_EXTS.has(ext)) return false
+  if (ext && BLOCKED_IMPORT_EXTS.has(ext)) return false
   if (fileSize > MAX_IMPORT_BYTES) return false
   return true
 }
@@ -645,7 +685,7 @@ export function registerKnowledgeBaseHandlers(): void {
     if (srcStat.size > MAX_IMPORT_BYTES) throw new Error('File too large')
 
     const ext = path.extname(srcAbsPath).toLowerCase()
-    if (ext && !ALLOWED_IMPORT_EXTS.has(ext)) {
+    if (ext && BLOCKED_IMPORT_EXTS.has(ext)) {
       throw new Error('File type not allowed')
     }
 

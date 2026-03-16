@@ -238,6 +238,7 @@
 
 <script setup lang="ts">
 import { computed, nextTick, onBeforeUnmount, onMounted, reactive, ref } from 'vue'
+import { useI18n } from 'vue-i18n'
 import { message, Modal } from 'ant-design-vue'
 import eventBus from '@/utils/eventBus'
 import { CloudUploadOutlined, FileAddOutlined, FolderAddOutlined, PlusOutlined, RedoOutlined, SearchOutlined } from '@ant-design/icons-vue'
@@ -254,7 +255,15 @@ type TreeNode = {
   children?: TreeNode[]
 }
 
+const { t } = useI18n()
 const api = window.api
+
+function importErrorMessage(err: unknown, forFolder: boolean): string {
+  const msg = err instanceof Error ? err.message : String(err)
+  if (msg.includes('File type not allowed')) return t('knowledgeCenter.importErrorFileTypeNotAllowed')
+  if (msg.includes('File too large')) return t('knowledgeCenter.importErrorFileTooLarge')
+  return forFolder ? t('knowledgeCenter.importErrorFolderFailed') : t('knowledgeCenter.importErrorFileFailed')
+}
 
 const expandedKeys = ref<string[]>([])
 const selectedKeys = ref<string[]>([])
@@ -1024,8 +1033,7 @@ async function importOneFile(srcAbsPath: string, dstRelDir: string) {
     await refreshDir(dstRelDir)
     openFileInMainPane(res.relPath)
   } catch (e: unknown) {
-    const error = e as Error
-    message.error(`Failed to import file: ${error?.message || String(e)}`)
+    message.error(importErrorMessage(e, false))
   }
 }
 async function importOneFolder(srcAbsPath: string, dstRelDir: string) {
@@ -1034,8 +1042,7 @@ async function importOneFolder(srcAbsPath: string, dstRelDir: string) {
     importJobs[res.jobId] = { jobId: res.jobId, destRelPath: res.relPath, transferred: 0, total: 0 }
     await refreshDir(dstRelDir)
   } catch (e: unknown) {
-    const error = e as Error
-    message.error(`Failed to import folder: ${error?.message || String(e)}`)
+    message.error(importErrorMessage(e, true))
   }
 }
 
@@ -1045,15 +1052,7 @@ async function pickAndImport() {
   const dstRelDir = t === 'dir' ? target : getDirOf(target)
 
   const result = await api.showOpenDialog({
-    properties: ['openFile', 'openDirectory', 'multiSelections'],
-    filters: [
-      {
-        name: 'All Supported',
-        extensions: ['txt', 'md', 'markdown', 'json', 'yaml', 'yml', 'log', 'csv', 'png', 'jpg', 'jpeg', 'gif', 'webp', 'bmp', 'svg']
-      },
-      { name: 'Text', extensions: ['txt', 'md', 'markdown', 'json', 'yaml', 'yml', 'log', 'csv'] },
-      { name: 'Images', extensions: ['png', 'jpg', 'jpeg', 'gif', 'webp', 'bmp', 'svg'] }
-    ]
+    properties: ['openFile', 'openDirectory', 'multiSelections']
   })
   if (result?.canceled) return
   const filePaths: string[] = result?.filePaths || []
