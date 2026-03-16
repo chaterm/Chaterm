@@ -260,6 +260,11 @@ const clearAllSuggestions = (options: { resetActive?: boolean } = {}) => {
     clearTimeout(aiSuggestTimer.value)
     aiSuggestTimer.value = null
   }
+  // Cancel pending local query debounce timer to prevent stale suggestions after clear
+  if (queryCommandDebounceTimer) {
+    clearTimeout(queryCommandDebounceTimer)
+    queryCommandDebounceTimer = null
+  }
   suggestionSelectionMode.value = false
   if (resetActive) {
     activeSuggestion.value = -1
@@ -617,7 +622,7 @@ onMounted(async () => {
     if (currentIsUserCall) {
       highLightFlag = false
     }
-    if (pasteFlag.value) {
+    if (pasteFlag.value && !enterPress.value) {
       highLightFlag = true
     }
     if (highLightFlag) {
@@ -864,6 +869,7 @@ onMounted(async () => {
     }
     const handleTextareaBlur = () => {
       hideSelectionButton()
+      clearAllSuggestions()
       window.electron?.ipcRenderer?.send('terminal:focus-changed', false)
     }
     terminal.value.textarea.addEventListener('focus', handleTextareaFocus)
@@ -4142,6 +4148,10 @@ const triggerAiSuggest = () => {
   if (suggestionSelectionMode.value) {
     return
   }
+  // Skip if the terminal is not focused
+  if (terminal.value?.textarea && document.activeElement !== terminal.value.textarea) {
+    return
+  }
 
   const isAtEndOfLine = terminalState.value.beforeCursor.length === terminalState.value.content.length
   if (!isAtEndOfLine) {
@@ -4170,6 +4180,11 @@ const queryCommand = async (cmd = '') => {
   // Check if it is in the Vim editing mode. If so, do not trigger the automatic completion.
   if (terminalMode.value === 'alternate') {
     clearAllSuggestions({ resetActive: false })
+    return
+  }
+
+  // Skip if the terminal is not focused
+  if (terminal.value?.textarea && document.activeElement !== terminal.value.textarea) {
     return
   }
 
