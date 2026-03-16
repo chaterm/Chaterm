@@ -198,6 +198,6 @@ export interface ChatSyncSchedulerOptions {
   enabled: boolean
 }
 
-export const DEFAULT_POLL_INTERVAL_MS = 60_000
+export const DEFAULT_POLL_INTERVAL_MS = 300_000
 export const SCHEMA_VERSION = 2
 export const MAX_SNAPSHOT_BYTES = 10 * 1024 * 1024
