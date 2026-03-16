@@ -1419,7 +1419,11 @@ export default {
     addToChat: 'Ajouter au chat',
     copyPath: 'Copier le chemin',
     cut: 'Couper',
-    loadingImage: "Chargement de l'image..."
+    loadingImage: "Chargement de l'image...",
+    importErrorFileTypeNotAllowed: 'Ce type de fichier ne peut pas être importé',
+    importErrorFileTooLarge: 'Fichier trop volumineux pour être importé',
+    importErrorFileFailed: "Échec de l'import du fichier",
+    importErrorFolderFailed: "Échec de l'import du dossier"
   },
   interaction: {
     title: 'Interaction de commande requise',

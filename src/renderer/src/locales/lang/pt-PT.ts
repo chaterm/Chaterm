@@ -1413,7 +1413,11 @@ export default {
     addToChat: 'Adicionar ao chat',
     copyPath: 'Copiar caminho',
     cut: 'Cortar',
-    loadingImage: 'Carregando imagem...'
+    loadingImage: 'Carregando imagem...',
+    importErrorFileTypeNotAllowed: 'Este tipo de ficheiro não pode ser importado',
+    importErrorFileTooLarge: 'Ficheiro demasiado grande para importar',
+    importErrorFileFailed: 'Falha ao importar ficheiro',
+    importErrorFolderFailed: 'Falha ao importar pasta'
   },
   interaction: {
     title: 'Interacao de comando necessaria',

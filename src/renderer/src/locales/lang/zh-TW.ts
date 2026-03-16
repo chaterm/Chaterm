@@ -1396,7 +1396,11 @@ export default {
     addToChat: '加入聊天',
     copyPath: '複製路徑',
     cut: '剪下',
-    loadingImage: '正在載入圖片...'
+    loadingImage: '正在載入圖片...',
+    importErrorFileTypeNotAllowed: '該檔案類型不支援匯入',
+    importErrorFileTooLarge: '檔案過大，無法匯入',
+    importErrorFileFailed: '檔案匯入失敗',
+    importErrorFolderFailed: '資料夾匯入失敗'
   },
   interaction: {
     waiting: '等待輸入...',

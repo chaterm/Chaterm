@@ -1404,7 +1404,11 @@ export default {
     addToChat: '添加到聊天',
     copyPath: '复制路径',
     cut: '剪切',
-    loadingImage: '正在加载图片...'
+    loadingImage: '正在加载图片...',
+    importErrorFileTypeNotAllowed: '该文件类型不支持导入',
+    importErrorFileTooLarge: '文件过大，无法导入',
+    importErrorFileFailed: '文件导入失败',
+    importErrorFolderFailed: '文件夹导入失败'
   },
   interaction: {
     waiting: '等待输入...',
