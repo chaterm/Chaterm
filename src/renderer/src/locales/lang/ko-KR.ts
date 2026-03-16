@@ -327,7 +327,7 @@ export default {
     anthropicBaseUrlDescribe: '선택사항, 비워두면 공식 엔드포인트 사용',
     fireworksApiKey: 'Fireworks API 키',
     dataSync: '데이터 동기화',
-    dataSyncDescription: '데이터 동기화는 사용자가 설정한 자산, 키 등의 정보를 여러 기기에서 동기화하기 위해 설계되었습니다.',
+    dataSyncDescription: '데이터 동기화는 사용자가 설정한 자산, 키, AI 대화 등의 정보를 여러 기기에서 동기화하기 위해 설계되었습니다.',
     dataSyncEnabled: '활성화',
     dataSyncDisabled: '비활성화',
     dataSyncUpdateSuccess: '데이터 동기화 설정이 업데이트되었습니다',

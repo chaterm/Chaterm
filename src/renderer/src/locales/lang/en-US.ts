@@ -329,7 +329,8 @@ export default {
     anthropicBaseUrlDescribe: 'Optional, leave empty to use the official endpoint',
     fireworksApiKey: 'Fireworks API Key',
     dataSync: 'Data Sync',
-    dataSyncDescription: 'Data synchronization is designed to synchronize the user-configured assets, keys, and other information across devices.',
+    dataSyncDescription:
+      'Data synchronization is designed to synchronize the user-configured assets, keys, AI conversations, and other information across devices.',
     dataSyncEnabled: 'Enabled',
     dataSyncDisabled: 'Disabled',
     dataSyncUpdateSuccess: 'Data sync settings updated',

@@ -331,7 +331,7 @@ export default {
     fireworksApiKey: 'Chave API Fireworks',
     dataSync: 'Sincronização de dados',
     dataSyncDescription:
-      'A sincronização de dados é projetada para sincronizar os ativos, chaves e outras informações configuradas pelo usuário em dispositivos.',
+      'A sincronização de dados é projetada para sincronizar os ativos, chaves, conversas de IA e outras informações configuradas pelo usuário em dispositivos.',
     dataSyncEnabled: 'Ativado',
     dataSyncDisabled: 'Desativado',
     dataSyncUpdateSuccess: 'Configurações de sincronização de dados atualizadas',
