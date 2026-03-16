@@ -332,7 +332,7 @@ export default {
     fireworksApiKey: 'Fireworks API-Schlüssel',
     dataSync: 'Datensynchronisation',
     dataSyncDescription:
-      'Datensynchronisation ist dazu gedacht, die von Ihnen konfigurierten Assets, Schlüssel und andere Informationen über Geräte hinweg zu synchronisieren.',
+      'Datensynchronisation ist dazu gedacht, die von Ihnen konfigurierten Assets, Schlüssel, KI-Gespräche und andere Informationen über Geräte hinweg zu synchronisieren.',
     dataSyncEnabled: 'Aktiviert',
     dataSyncDisabled: 'Deaktiviert',
     dataSyncUpdateSuccess: 'Datensynchronisierungseinstellungen aktualisiert',

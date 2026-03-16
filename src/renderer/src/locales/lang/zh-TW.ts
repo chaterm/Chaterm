@@ -327,7 +327,7 @@ export default {
     anthropicBaseUrlDescribe: '選填，留空使用官方地址',
     fireworksApiKey: 'Fireworks API 密鑰',
     dataSync: '數據同步',
-    dataSyncDescription: '數據同步旨在將用戶配置的資產、密鑰等信息進行跨設備同步',
+    dataSyncDescription: '數據同步旨在將用戶配置的資產、密鑰、AI會話等信息進行跨設備同步',
     dataSyncEnabled: '開啟',
     dataSyncDisabled: '關閉',
     dataSyncUpdateSuccess: '數據同步設置已更新',

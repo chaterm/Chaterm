@@ -329,7 +329,7 @@ export default {
     anthropicBaseUrlDescribe: '任意、空欄の場合は公式エンドポイントを使用',
     fireworksApiKey: 'Fireworks API キー',
     dataSync: 'データ同期',
-    dataSyncDescription: 'データ同期は、ユーザーが設定した資産、キー、その他の情報をデバイス間で同期するために設計されています。',
+    dataSyncDescription: 'データ同期は、ユーザーが設定した資産、キー、AI会話、その他の情報をデバイス間で同期するために設計されています。',
     dataSyncEnabled: '有効',
     dataSyncDisabled: '無効',
     dataSyncUpdateSuccess: 'データ同期設定が更新されました',
