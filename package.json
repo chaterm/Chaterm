@@ -140,7 +140,7 @@
     "highlight.js": "^11.11.1",
     "husky": "^9.1.7",
     "jsdom": "^28.1.0",
-    "less": "^4.6.3",
+    "less": "^4.6.4",
     "lint-staged": "^16.4.0",
     "marked": "^17.0.4",
     "prettier": "^3.8.1",
