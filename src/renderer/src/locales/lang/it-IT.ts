@@ -1417,7 +1417,11 @@ export default {
     addToChat: 'Aggiungi alla chat',
     copyPath: 'Copia percorso',
     cut: 'Taglia',
-    loadingImage: 'Caricamento immagine...'
+    loadingImage: 'Caricamento immagine...',
+    importErrorFileTypeNotAllowed: 'Questo tipo di file non può essere importato',
+    importErrorFileTooLarge: 'File troppo grande per essere importato',
+    importErrorFileFailed: 'Importazione file non riuscita',
+    importErrorFolderFailed: 'Importazione cartella non riuscita'
   },
   interaction: {
     title: 'Interazione comando richiesta',

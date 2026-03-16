@@ -1395,7 +1395,11 @@ export default {
     addToChat: 'إضافة إلى المحادثة',
     copyPath: 'نسخ المسار',
     cut: 'قص',
-    loadingImage: 'جاري تحميل الصورة...'
+    loadingImage: 'جاري تحميل الصورة...',
+    importErrorFileTypeNotAllowed: 'نوع الملف هذا لا يمكن استيراده',
+    importErrorFileTooLarge: 'الملف كبير جداً ولا يمكن استيراده',
+    importErrorFileFailed: 'فشل استيراد الملف',
+    importErrorFolderFailed: 'فشل استيراد المجلد'
   },
   interaction: {
     waiting: 'جاري الانتظار للإدخال...',

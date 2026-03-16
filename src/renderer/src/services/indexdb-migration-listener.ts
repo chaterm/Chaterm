@@ -2,6 +2,58 @@ import { getUserInfo } from '@/utils/permission'
 
 const logger = createRendererLogger('service.indexdbMigration')
 
+async function openIndexedDb(name: string): Promise<IDBDatabase> {
+  return await new Promise<IDBDatabase>((resolve, reject) => {
+    const request = indexedDB.open(name)
+    request.onerror = () => reject(request.error)
+    request.onsuccess = () => resolve(request.result)
+  })
+}
+
+async function readAllFromStore(dbName: string, storeName: string): Promise<any[]> {
+  const db = await openIndexedDb(dbName)
+
+  try {
+    if (!db.objectStoreNames.contains(storeName)) {
+      logger.info('IndexedDB store not found, treating as empty', { dbName, storeName, stores: Array.from(db.objectStoreNames) })
+      return []
+    }
+
+    const transaction = db.transaction([storeName], 'readonly')
+    const store = transaction.objectStore(storeName)
+    const getAllRequest = store.getAll()
+
+    return await new Promise<any[]>((resolve, reject) => {
+      getAllRequest.onsuccess = () => resolve(getAllRequest.result || [])
+      getAllRequest.onerror = () => reject(getAllRequest.error)
+    })
+  } finally {
+    db.close()
+  }
+}
+
+async function readOneFromStore(dbName: string, storeName: string, key: string): Promise<any | null> {
+  const db = await openIndexedDb(dbName)
+
+  try {
+    if (!db.objectStoreNames.contains(storeName)) {
+      logger.info('IndexedDB store not found, treating as empty', { dbName, storeName, stores: Array.from(db.objectStoreNames) })
+      return null
+    }
+
+    const transaction = db.transaction([storeName], 'readonly')
+    const store = transaction.objectStore(storeName)
+    const getRequest = store.get(key)
+
+    return await new Promise<any>((resolve, reject) => {
+      getRequest.onsuccess = () => resolve(getRequest.result || null)
+      getRequest.onerror = () => reject(getRequest.error)
+    })
+  } finally {
+    db.close()
+  }
+}
+
 /**
  * Initialize IndexedDB migration listener
  * Listen to migration data requests from main process, read data directly from IndexedDB and respond
@@ -17,42 +69,10 @@ export function setupIndexDBMigrationListener(): void {
         let data
 
         if (dataSource === 'aliases') {
-          // Read alias data directly from IndexedDB (no version specified, use current version)
-          const db = await new Promise<IDBDatabase>((resolve, reject) => {
-            const request = indexedDB.open('chatermDB') // No version specified
-            request.onerror = () => reject(request.error)
-            request.onsuccess = () => resolve(request.result)
-          })
-
-          const transaction = db.transaction(['aliases'], 'readonly')
-          const store = transaction.objectStore('aliases')
-          const getAllRequest = store.getAll()
-
-          data = await new Promise<any[]>((resolve, reject) => {
-            getAllRequest.onsuccess = () => resolve(getAllRequest.result || [])
-            getAllRequest.onerror = () => reject(getAllRequest.error)
-          })
-
-          db.close()
+          data = await readAllFromStore('chatermDB', 'aliases')
           logger.info('Read aliases from IndexedDB', { count: data.length })
         } else if (dataSource === 'userConfig') {
-          // Read user config directly from IndexedDB (no version specified, use current version)
-          const db = await new Promise<IDBDatabase>((resolve, reject) => {
-            const request = indexedDB.open('chatermDB') // No version specified
-            request.onerror = () => reject(request.error)
-            request.onsuccess = () => resolve(request.result)
-          })
-
-          const transaction = db.transaction(['userConfig'], 'readonly')
-          const store = transaction.objectStore('userConfig')
-          const getRequest = store.get('userConfig')
-
-          data = await new Promise<any>((resolve, reject) => {
-            getRequest.onsuccess = () => resolve(getRequest.result || null)
-            getRequest.onerror = () => reject(getRequest.error)
-          })
-
-          db.close()
+          data = await readOneFromStore('chatermDB', 'userConfig', 'userConfig')
           logger.info('Read userConfig from IndexedDB')
         } else if (dataSource === 'keyValueStore') {
           // Read KeyValueStore directly from IndexedDB (intelligent database lookup)

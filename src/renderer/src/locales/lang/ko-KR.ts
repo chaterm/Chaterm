@@ -1409,7 +1409,11 @@ export default {
     addToChat: '채팅에 추가',
     copyPath: '경로 복사',
     cut: '잘라내기',
-    loadingImage: '이미지 로딩 중...'
+    loadingImage: '이미지 로딩 중...',
+    importErrorFileTypeNotAllowed: '이 파일 형식은 가져올 수 없습니다',
+    importErrorFileTooLarge: '파일이 너무 커서 가져올 수 없습니다',
+    importErrorFileFailed: '파일 가져오기 실패',
+    importErrorFolderFailed: '폴더 가져오기 실패'
   },
   interaction: {
     waiting: '입력 대기 중...',
