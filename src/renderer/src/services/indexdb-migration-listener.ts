@@ -13,45 +13,45 @@ async function openIndexedDb(name: string): Promise<IDBDatabase> {
 async function readAllFromStore(dbName: string, storeName: string): Promise<any[]> {
   const db = await openIndexedDb(dbName)
 
-  if (!db.objectStoreNames.contains(storeName)) {
-    logger.info('IndexedDB store not found, treating as empty', { dbName, storeName, stores: Array.from(db.objectStoreNames) })
+  try {
+    if (!db.objectStoreNames.contains(storeName)) {
+      logger.info('IndexedDB store not found, treating as empty', { dbName, storeName, stores: Array.from(db.objectStoreNames) })
+      return []
+    }
+
+    const transaction = db.transaction([storeName], 'readonly')
+    const store = transaction.objectStore(storeName)
+    const getAllRequest = store.getAll()
+
+    return await new Promise<any[]>((resolve, reject) => {
+      getAllRequest.onsuccess = () => resolve(getAllRequest.result || [])
+      getAllRequest.onerror = () => reject(getAllRequest.error)
+    })
+  } finally {
     db.close()
-    return []
   }
-
-  const transaction = db.transaction([storeName], 'readonly')
-  const store = transaction.objectStore(storeName)
-  const getAllRequest = store.getAll()
-
-  const data = await new Promise<any[]>((resolve, reject) => {
-    getAllRequest.onsuccess = () => resolve(getAllRequest.result || [])
-    getAllRequest.onerror = () => reject(getAllRequest.error)
-  })
-
-  db.close()
-  return data
 }
 
 async function readOneFromStore(dbName: string, storeName: string, key: string): Promise<any | null> {
   const db = await openIndexedDb(dbName)
 
-  if (!db.objectStoreNames.contains(storeName)) {
-    logger.info('IndexedDB store not found, treating as empty', { dbName, storeName, stores: Array.from(db.objectStoreNames) })
+  try {
+    if (!db.objectStoreNames.contains(storeName)) {
+      logger.info('IndexedDB store not found, treating as empty', { dbName, storeName, stores: Array.from(db.objectStoreNames) })
+      return null
+    }
+
+    const transaction = db.transaction([storeName], 'readonly')
+    const store = transaction.objectStore(storeName)
+    const getRequest = store.get(key)
+
+    return await new Promise<any>((resolve, reject) => {
+      getRequest.onsuccess = () => resolve(getRequest.result || null)
+      getRequest.onerror = () => reject(getRequest.error)
+    })
+  } finally {
     db.close()
-    return null
   }
-
-  const transaction = db.transaction([storeName], 'readonly')
-  const store = transaction.objectStore(storeName)
-  const getRequest = store.get(key)
-
-  const data = await new Promise<any>((resolve, reject) => {
-    getRequest.onsuccess = () => resolve(getRequest.result || null)
-    getRequest.onerror = () => reject(getRequest.error)
-  })
-
-  db.close()
-  return data
 }
 
 /**
