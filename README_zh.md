@@ -16,6 +16,7 @@
   <a href="https://vitejs.dev/"><img src="https://img.shields.io/github/package-json/dependency-version/chaterm/Chaterm/dev/vite" alt="vite-version"></a>
   <a href="https://vuejs.org/"><img src="https://img.shields.io/github/package-json/dependency-version/chaterm/Chaterm/dev/vue" alt="vue-version"></a>
   <a href="https://www.typescriptlang.org/"><img src="https://img.shields.io/github/package-json/dependency-version/chaterm/Chaterm/dev/typescript" alt="typescript-version"></a>
+  <a href="https://deepwiki.com/chaterm/Chaterm"><img src="https://deepwiki.com/badge.svg" alt="DeepWiki"></a>
 </p>
 
 <p align="center">
@@ -30,11 +31,11 @@
 
 # 产品介绍
 
-Chaterm: 您的下一代AI终端副驾驶!
+Chaterm 是一款专为基础设施和云资源管理而构建的 AI 原生终端。它使工程师能够使用自然语言执行部署服务、故障排除和解决问题等复杂任务。
 
-Chaterm是一款AI原生的智能终端Agent，旨在通过自然语言交互重构传统的命令行操作体验。它的目标是成为您的DevOps智能副驾驶，而非仅仅是一个带对话框的SSH客户端。
+凭借其内置的专家级知识库和强大的代理推理能力，Chaterm 能够理解您的业务拓扑和运维目标。无需记忆复杂的命令、语法或参数，只需用自然语言描述您的任务目标，Chaterm 即可自主规划并执行跨多个主机或集群的复杂操作，包括代码构建、服务部署、故障诊断和自动回滚等关键流程。
 
-通过内置的专家知识库与强大的 Agent 推理能力，Chaterm能够理解您的业务拓扑与操作意图。无需记忆复杂的 Shell 指令、SQL 语法或脚本参数，即可通过自然语言自动完成代码构建、服务部署、故障排查及自动回滚等全链路操作。Chaterm 致力于消除技术栈的认知门槛，让每一位开发者都能即刻拥有资深SRE的运维能力。
+Chaterm 依靠长期记忆和团队知识库，学习团队知识和用户习惯。它的目标是成为您智能的 DevOps 副驾驶，通过可重用的代理技能，帮助工程师更高效地完成日常任务。Chaterm 旨在降低不同技术栈带来的认知障碍，使每位开发人员都能快速获得高级 SRE 的运维经验和执行能力。
 
 ![Preview image](resources/hero.webp)
 

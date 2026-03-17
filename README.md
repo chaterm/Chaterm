@@ -16,6 +16,7 @@
   <a href="https://vitejs.dev/"><img src="https://img.shields.io/github/package-json/dependency-version/chaterm/Chaterm/dev/vite" alt="vite-version"></a>
   <a href="https://vuejs.org/"><img src="https://img.shields.io/github/package-json/dependency-version/chaterm/Chaterm/dev/vue" alt="vue-version"></a>
   <a href="https://www.typescriptlang.org/"><img src="https://img.shields.io/github/package-json/dependency-version/chaterm/Chaterm/dev/typescript" alt="typescript-version"></a>
+  <a href="https://deepwiki.com/chaterm/Chaterm"><img src="https://deepwiki.com/badge.svg" alt="DeepWiki"></a>
 </p>
 
 <p align="center">
@@ -30,11 +31,11 @@
 
 # Introduction
 
-Chaterm: Your Next-Generation AI Terminal Co-pilot!
+Chaterm is an AI native terminal built for infrastructure and cloud resource management. It enables engineers to use natural language to perform complex tasks such as deploying services, troubleshooting, and resolving problems.
 
-Chaterm is an AI-native intelligent terminal agent designed to reshape the traditional command-line experience through natural language interaction. Its goal is to be your intelligent DevOps co-pilot, not just a dialog-based SSH client.
+With its built-in expert-level knowledge base and powerful proxy reasoning capabilities, Chatem understands your business topology and operational goals. No need to memorize complex commands, syntax, or parameters. simply describe your task objectives in natural language, and Chatem can autonomously plan and execute complex operations across multiple hosts or clusters, including key processes such as code building, service deployment, fault diagnosis, and automatic rollback.
 
-With its built-in expert knowledge base and powerful agent inference capabilities, Chaterm understands your business topology and operational intentions. No need to memorize complex shell commands, SQL syntax, or script parameters; it automatically completes the entire chain of operations, including code building, service deployment, troubleshooting, and automatic rollback, all through natural language. Chaterm aims to eliminate the cognitive barriers of the technology stack, enabling every developer to immediately possess the operational capabilities of a seasoned SRE.
+Powered by long-term memory and team knowledge bases, Chaterm learns team knowledge and user habits. Its goal is to be your intelligent DevOps co-pilot, allowing engineers to complete daily tasks more efficiently through reusable agent skills. Chaterm aims to lower the cognitive barrier associated with different technology stacks, enabling every developer to quickly gain the operational experience and execution capabilities of a senior SRE.
 
 ![Preview image](resources/hero.webp)
 

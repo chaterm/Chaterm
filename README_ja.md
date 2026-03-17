@@ -16,6 +16,7 @@
   <a href="https://vitejs.dev/"><img src="https://img.shields.io/github/package-json/dependency-version/chaterm/Chaterm/dev/vite" alt="vite-version"></a>
   <a href="https://vuejs.org/"><img src="https://img.shields.io/github/package-json/dependency-version/chaterm/Chaterm/dev/vue" alt="vue-version"></a>
   <a href="https://www.typescriptlang.org/"><img src="https://img.shields.io/github/package-json/dependency-version/chaterm/Chaterm/dev/typescript" alt="typescript-version"></a>
+  <a href="https://deepwiki.com/chaterm/Chaterm"><img src="https://deepwiki.com/badge.svg" alt="DeepWiki"></a>
 </p>
 
 <p align="center">
@@ -30,11 +31,11 @@
 
 # 製品紹介
 
-Chaterm: 次世代AIターミナルコパイロット!
+Chatermは、インフラストラクチャおよびクラウドのリソース管理向けに構築されたAIネイティブターミナルです。エンジニアは自然言語を使用して、サービスのデプロイ、トラブルシューティング、問題解決といった複雑なタスクを実行できます。
 
-Chatermは、自然言語インタラクションを通じて従来のコマンドライン操作体験を再構築することを目的としたAIネイティブのインテリジェントターミナルエージェントです。単なるダイアログ付きSSHクライアントではなく、あなたのインテリジェントなDevOpsコパイロットになることを目指しています。
+Chatermは、組み込みのエキスパートレベルの知識ベースと強力なプロキシ推論機能により、お客様のビジネストポロジーと運用目標を理解します。複雑なコマンド、構文、パラメータを記憶する必要はありません。タスクの目的を自然言語で記述するだけで、Chatermはコード構築、サービスデプロイ、障害診断、自動ロールバックといった主要プロセスを含む、複数のホストまたはクラスタにわたる複雑な操作を自律的に計画および実行できます。
 
-内蔵の専門知識ベースと強力なエージェント推論機能により、Chatermはあなたのビジネストポロジーと操作意図を理解します。複雑なシェルコマンド、SQL構文、スクリプトパラメータを覚える必要はなく、自然言語でコードビルド、サービスデプロイ、障害対応、自動ロールバックなどの一連の操作を自動的に完了できます。Chatermは技術スタックの認知障壁を解消し、すべての開発者がベテランSREの運用能力を即座に手に入れることを目指しています。
+長期記憶とチームの知識ベースを活用することで、Chatermはチームの知識とユーザーの習慣を学習します。Chatermの目標は、再利用可能なエージェントスキルを通じてエンジニアが日々のタスクをより効率的に完了できるよう支援する、インテリジェントなDevOpsコパイロットとなることです。Chatermは、さまざまなテクノロジースタックに関連する認知障壁を低減し、すべての開発者がシニアSREの運用経験と実行能力を迅速に習得できるようにすることを目指しています。
 
 ![Preview image](resources/hero.webp)
 
