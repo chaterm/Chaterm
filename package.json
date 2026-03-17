@@ -110,7 +110,7 @@
     "fsevents": "^2.3.3"
   },
   "devDependencies": {
-    "@babel/preset-env": "^7.29.0",
+    "@babel/preset-env": "^7.29.2",
     "@babel/preset-typescript": "^7.27.1",
     "@electron-toolkit/eslint-config": "^2.1.0",
     "@electron-toolkit/eslint-config-ts": "^3.1.0",
