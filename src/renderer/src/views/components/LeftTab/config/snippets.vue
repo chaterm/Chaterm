@@ -1010,6 +1010,10 @@ const startMacroRecording = () => {
   if (success) {
     message.success(t('macro.recordingStarted'))
   }
+  // Refocus terminal after clicking the macro button
+  nextTick(() => {
+    eventBus.emit('focusActiveTerminal')
+  })
 }
 
 const stopMacroRecording = async () => {
@@ -1034,6 +1038,10 @@ const stopMacroRecording = async () => {
   } else {
     message.info(t('macro.noCommandsRecorded'))
   }
+  // Refocus terminal after clicking the stop button
+  nextTick(() => {
+    eventBus.emit('focusActiveTerminal')
+  })
 }
 
 const handleMacroLimitReached = async (payload: { reason: string; result?: { content: string; name: string; groupUuid: string | null } }) => {
