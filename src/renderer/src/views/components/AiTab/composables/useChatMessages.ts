@@ -155,7 +155,8 @@ export function useChatMessages(
       const messageWithTabId: WebviewMessage = {
         ...message,
         tabId: tabId || currentChatId.value,
-        taskId: tabId || currentChatId.value
+        taskId: tabId || currentChatId.value,
+        modelName: targetTab.modelValue || undefined
       }
       logger.debug('Send message to main process', { data: messageWithTabId })
       await window.api.sendToMain(messageWithTabId)

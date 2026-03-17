@@ -19,7 +19,7 @@ import { ApiHandler, buildApiHandler } from '@api/index'
 import { ApiStream, ApiStreamUsageChunk, ApiStreamReasoningChunk, ApiStreamTextChunk } from '@api/transform/stream'
 import { formatContentBlockToMarkdown } from '@integrations/misc/export-markdown'
 import { showSystemNotification } from '@integrations/notifications'
-import { ApiConfiguration } from '@shared/api'
+import { ApiConfiguration, ApiProvider } from '@shared/api'
 import { findLast, findLastIndex, parsePartialArrayString } from '@shared/array'
 import { AutoApprovalSettings } from '@shared/AutoApprovalSettings'
 import { combineApiRequests } from '@shared/combineApiRequests'
@@ -225,6 +225,7 @@ export class Task {
   hosts: Host[]
   chatTitle?: string // Store the LLM-generated chat title
   api: ApiHandler
+  private apiProviderId?: ApiProvider | string
   contextManager: ContextManager
   private remoteTerminalManager: RemoteTerminalManager
   private localTerminalManager: LocalTerminalManager
@@ -521,6 +522,7 @@ export class Task {
       ...apiConfiguration,
       taskId: this.taskId
     })
+    this.apiProviderId = apiConfiguration.apiProvider
 
     // Initialize CommandSecurityManager for security
     this.commandSecurityManager = new CommandSecurityManager()
@@ -544,6 +546,11 @@ export class Task {
     }
   }
 
+  setApiProvider(providerId: ApiProvider | string | undefined): void {
+    if (!providerId) return
+    this.apiProviderId = providerId
+  }
+
   private async updateMessagesLanguage(): Promise<void> {
     try {
       const userConfig = await getUserConfig()
@@ -562,7 +569,7 @@ export class Task {
   private createInteractionLlmCaller(): (command: string, output: string, locale: string) => Promise<InteractionResult> {
     return createLlmCaller(async (systemPrompt: string, userPrompt: string): Promise<string> => {
       if (process.env.CHATERM_INTERACTION_DEBUG === '1') {
-        const provider = (await getGlobalState('apiProvider')) as string
+        const provider = this.apiProviderId ?? ((await getGlobalState('apiProvider')) as string)
         const modelId = this.api.getModel().id
         logger.debug('LLM request meta', {
           provider,
@@ -1969,7 +1976,7 @@ export class Task {
   }
 
   private async recordModelUsage(): Promise<void> {
-    const currentProviderId = (await getGlobalState('apiProvider')) as string
+    const currentProviderId = this.apiProviderId ?? ((await getGlobalState('apiProvider')) as string)
     if (currentProviderId && this.api.getModel().id) {
       try {
         const chatSettings = await getGlobalState('chatSettings')
@@ -2051,7 +2058,13 @@ export class Task {
       content: userContent
     })
     const chatSettings = await getGlobalState('chatSettings')
-    telemetryService.captureApiRequestEvent(this.taskId, await getGlobalState('apiProvider'), this.api.getModel().id, 'user', chatSettings?.mode)
+    telemetryService.captureApiRequestEvent(
+      this.taskId,
+      this.apiProviderId ?? (await getGlobalState('apiProvider')),
+      this.api.getModel().id,
+      'user',
+      chatSettings?.mode
+    )
     // Update API request message
     await this.updateApiRequestMessage(userContent)
   }
@@ -3174,7 +3187,7 @@ export class Task {
       }
 
       const operatingSystem = os.platform() + ' ' + os.release()
-      const providerAndModel = `${(await getGlobalState('apiProvider')) as string} / ${this.api.getModel().id}`
+      const providerAndModel = `${this.apiProviderId ?? (await getGlobalState('apiProvider'))} / ${this.api.getModel().id}`
 
       const bugReportData = JSON.stringify({
         title,

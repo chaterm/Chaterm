@@ -1,26 +1,47 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import type { WebviewMessage } from '@shared/WebviewMessage'
 
-const { mockUpdateApiConfiguration, mockGetAllExtensionState, mockBuildApiHandler, mockGetGlobalState, mockUpdateGlobalState, mockGetUserConfig } =
-  vi.hoisted(() => {
-    return {
-      mockUpdateApiConfiguration: vi.fn(),
-      mockGetAllExtensionState: vi.fn(async () => ({
-        apiConfiguration: { apiProvider: 'default', defaultModelId: 'mock', defaultBaseUrl: 'http://mock', defaultApiKey: 'mock' },
-        userRules: [],
-        autoApprovalSettings: {}
-      })),
-      mockBuildApiHandler: vi.fn(() => ({
-        createMessage: () =>
-          (async function* () {
-            yield { type: 'text', text: '' }
-          })()
-      })),
-      mockGetGlobalState: vi.fn(async () => undefined as unknown),
-      mockUpdateGlobalState: vi.fn(async () => undefined),
-      mockGetUserConfig: vi.fn(async () => ({ language: 'zh-CN' }))
-    }
+/** Mock api handler shape used in tests; getModel is a vi.fn() so we can mockReturnValue. */
+type MockTaskApi = { createMessage: unknown; getModel: ReturnType<typeof vi.fn> }
+
+function getMockGetModel(task: { api: unknown }): ReturnType<typeof vi.fn> {
+  return (task.api as MockTaskApi).getModel
+}
+
+const {
+  mockUpdateApiConfiguration,
+  mockGetAllExtensionState,
+  mockBuildApiHandler,
+  mockGetGlobalState,
+  mockUpdateGlobalState,
+  mockGetUserConfig,
+  mockGetModelOptions
+} = vi.hoisted(() => {
+  const createMockApiHandler = (modelId: string) => ({
+    createMessage: () =>
+      (async function* () {
+        yield { type: 'text', text: '' }
+      })(),
+    getModel: vi.fn(() => ({ id: modelId }))
   })
+  return {
+    mockUpdateApiConfiguration: vi.fn(),
+    mockGetAllExtensionState: vi.fn(async () => ({
+      apiConfiguration: { apiProvider: 'default', defaultModelId: 'mock', defaultBaseUrl: 'http://mock', defaultApiKey: 'mock' },
+      userRules: [],
+      autoApprovalSettings: {}
+    })),
+    mockBuildApiHandler: vi.fn(() => createMockApiHandler('mock')),
+    mockGetGlobalState: vi.fn(async () => undefined as unknown),
+    mockUpdateGlobalState: vi.fn(async () => undefined),
+    mockGetUserConfig: vi.fn(async () => ({ language: 'zh-CN' })),
+    mockGetModelOptions: vi.fn(async () => [
+      { id: 'm1', name: 'model-A', checked: true, type: 'chat', apiProvider: 'anthropic' },
+      { id: 'm2', name: 'model-B', checked: true, type: 'chat', apiProvider: 'anthropic' },
+      { id: 'm3', name: 'model-C', checked: true, type: 'chat', apiProvider: 'openai' }
+    ])
+  }
+})
 
 // Mock McpHub to avoid filesystem/network side-effects in Controller constructor
 vi.mock('@services/mcp/McpHub', () => {
@@ -48,7 +69,8 @@ vi.mock('@core/storage/state', () => {
     getGlobalState: mockGetGlobalState,
     updateApiConfiguration: mockUpdateApiConfiguration,
     updateGlobalState: mockUpdateGlobalState,
-    getUserConfig: mockGetUserConfig
+    getUserConfig: mockGetUserConfig,
+    getModelOptions: mockGetModelOptions
   }
 })
 
@@ -80,7 +102,7 @@ vi.mock('@core/task', () => {
       static clearCommandContextsForTask = vi.fn()
 
       taskId: string
-      api: unknown = null
+      api: { createMessage: () => AsyncGenerator; getModel: () => { id: string } } = null!
       hosts: unknown[] = []
       cwd: Map<string, string> = new Map()
       abandoned = false
@@ -106,11 +128,20 @@ vi.mock('@core/task', () => {
         this.taskId = taskId ?? 'mock-task'
         this.hosts = hosts
         this.chatTitle = chatTitle ?? ''
+        // api is set by Controller after construction via buildApiHandler
+        this.api = {
+          createMessage: () =>
+            (async function* () {
+              yield { type: 'text', text: '' }
+            })(),
+          getModel: vi.fn(() => ({ id: 'mock' }))
+        }
       }
 
       getTerminalManager() {
         return null
       }
+      setApiProvider = vi.fn()
       abortTask = vi.fn(async () => undefined)
       gracefulAbortTask = vi.fn(async () => undefined)
       clearTodos = vi.fn(async () => undefined)
@@ -208,35 +239,6 @@ describe('Controller', () => {
     expect(payload.state.endpoint).toBeUndefined()
     expect(payload.state.awsProfile).toBeUndefined()
     expect(payload.state.nested.awsSecretKey).toBeUndefined()
-  })
-
-  it('handleWebviewMessage(apiConfiguration) should update api handlers for all tasks', async () => {
-    const controller = new Controller(
-      async () => true,
-      async () => '/tmp/mcp_settings.json'
-    )
-
-    await controller.initTask([createMockHost('1')], 'task 1', 't1')
-    await controller.initTask([createMockHost('2')], 'task 2', 't2')
-
-    const apiConfiguration = {
-      apiProvider: 'default',
-      defaultModelId: 'mock',
-      defaultBaseUrl: 'http://mock',
-      defaultApiKey: 'mock'
-    }
-
-    const tasksBefore = controller.getAllTasks()
-    const apisBefore = tasksBefore.map((t) => t.api)
-
-    await controller.handleWebviewMessage({ type: 'apiConfiguration', apiConfiguration } as any)
-
-    expect(mockUpdateApiConfiguration).toHaveBeenCalledWith(apiConfiguration)
-    expect(mockBuildApiHandler).toHaveBeenCalled()
-    const tasksAfter = controller.getAllTasks()
-    tasksAfter.forEach((task, index) => {
-      expect(task.api).not.toBe(apisBefore[index])
-    })
   })
 
   it('getAllTasks should return all tasks as an array', async () => {
@@ -362,7 +364,8 @@ describe('Controller', () => {
     )
 
     mockBuildApiHandler.mockReturnValue({
-      createMessage
+      createMessage,
+      getModel: vi.fn(() => ({ id: 'mock' }))
     })
 
     const controller = new Controller(
@@ -389,7 +392,8 @@ describe('Controller', () => {
     )
 
     mockBuildApiHandler.mockReturnValue({
-      createMessage
+      createMessage,
+      getModel: vi.fn(() => ({ id: 'mock' }))
     })
 
     const controller = new Controller(
@@ -419,7 +423,8 @@ describe('Controller', () => {
     )
 
     mockBuildApiHandler.mockReturnValue({
-      createMessage
+      createMessage,
+      getModel: vi.fn(() => ({ id: 'mock' }))
     })
 
     const controller = new Controller(
@@ -432,5 +437,240 @@ describe('Controller', () => {
     expect(result?.command).toBe('grep -R "TODO" .')
     expect(result?.explanation.endsWith('...')).toBe(true)
     expect((result?.explanation ?? '').length).toBeLessThanOrEqual(63)
+  })
+
+  describe('handleWebviewMessage(askResponse) model switching', () => {
+    it('should not call buildApiHandler when modelName is unchanged (short-circuit)', async () => {
+      const controller = new Controller(
+        async () => true,
+        async () => '/tmp/mcp_settings.json'
+      )
+      await controller.initTask([createMockHost('1')], 'task 1', 'task-1')
+
+      const tasks = controller.getAllTasks()
+      const task = tasks.find((t) => t.taskId === 'task-1')!
+      getMockGetModel(task).mockReturnValue({ id: 'model-A' })
+
+      mockBuildApiHandler.mockClear()
+      mockGetAllExtensionState.mockClear()
+
+      await controller.handleWebviewMessage({
+        type: 'askResponse',
+        taskId: 'task-1',
+        askResponse: 'messageResponse',
+        modelName: 'model-A'
+      } as WebviewMessage)
+
+      expect(mockGetAllExtensionState).not.toHaveBeenCalled()
+      expect(mockBuildApiHandler).not.toHaveBeenCalled()
+    })
+
+    it('should update only target task api when modelName changes in same task', async () => {
+      const controller = new Controller(
+        async () => true,
+        async () => '/tmp/mcp_settings.json'
+      )
+      await controller.initTask([createMockHost('1')], 'task 1', 'task-1')
+
+      const tasks = controller.getAllTasks()
+      const task = tasks.find((t) => t.taskId === 'task-1')!
+      getMockGetModel(task).mockReturnValue({ id: 'model-A' })
+
+      const newHandler = {
+        createMessage: vi.fn(),
+        getModel: vi.fn(() => ({ id: 'model-B' }))
+      }
+      mockBuildApiHandler.mockReturnValue(newHandler)
+
+      await controller.handleWebviewMessage({
+        type: 'askResponse',
+        taskId: 'task-1',
+        askResponse: 'messageResponse',
+        modelName: 'model-B'
+      } as WebviewMessage)
+
+      expect(mockGetAllExtensionState).toHaveBeenCalled()
+      expect(mockGetModelOptions).toHaveBeenCalled()
+      expect(mockBuildApiHandler).toHaveBeenCalled()
+      expect(task.api).toBe(newHandler)
+      expect(task.setApiProvider).toHaveBeenCalledWith('anthropic')
+    })
+
+    it('should not update api when modelName is empty or whitespace', async () => {
+      const controller = new Controller(
+        async () => true,
+        async () => '/tmp/mcp_settings.json'
+      )
+      await controller.initTask([createMockHost('1')], 'task 1', 'task-1')
+
+      const task = controller.getAllTasks().find((t) => t.taskId === 'task-1')!
+      getMockGetModel(task).mockReturnValue({ id: 'model-A' })
+      mockBuildApiHandler.mockClear()
+      mockGetAllExtensionState.mockClear()
+
+      await controller.handleWebviewMessage({
+        type: 'askResponse',
+        taskId: 'task-1',
+        askResponse: 'messageResponse',
+        modelName: ''
+      } as WebviewMessage)
+
+      await controller.handleWebviewMessage({
+        type: 'askResponse',
+        taskId: 'task-1',
+        askResponse: 'messageResponse',
+        modelName: '   '
+      } as WebviewMessage)
+
+      expect(mockGetAllExtensionState).not.toHaveBeenCalled()
+      expect(mockBuildApiHandler).not.toHaveBeenCalled()
+    })
+
+    it('when targetTask.api.getModel() throws, error should propagate', async () => {
+      const controller = new Controller(
+        async () => true,
+        async () => '/tmp/mcp_settings.json'
+      )
+      await controller.initTask([createMockHost('1')], 'task 1', 'task-1')
+
+      const task = controller.getAllTasks().find((t) => t.taskId === 'task-1')!
+      getMockGetModel(task).mockImplementation(() => {
+        throw new Error('getModel failed')
+      })
+
+      await expect(
+        controller.handleWebviewMessage({
+          type: 'askResponse',
+          taskId: 'task-1',
+          askResponse: 'messageResponse',
+          modelName: 'model-B'
+        } as WebviewMessage)
+      ).rejects.toThrow('getModel failed')
+    })
+
+    it('when getAllExtensionState returns no apiConfiguration, should not update task api', async () => {
+      const controller = new Controller(
+        async () => true,
+        async () => '/tmp/mcp_settings.json'
+      )
+      await controller.initTask([createMockHost('1')], 'task 1', 'task-1')
+
+      const task = controller.getAllTasks().find((t) => t.taskId === 'task-1')!
+      getMockGetModel(task).mockReturnValue({ id: 'model-A' })
+      const apiBefore = task.api
+      mockBuildApiHandler.mockClear()
+      // Second getAllExtensionState call is from askResponse; first was from initTask
+      mockGetAllExtensionState.mockResolvedValueOnce({
+        apiConfiguration: undefined,
+        userRules: [],
+        autoApprovalSettings: {}
+      } as unknown as Awaited<ReturnType<typeof mockGetAllExtensionState>>)
+
+      await controller.handleWebviewMessage({
+        type: 'askResponse',
+        taskId: 'task-1',
+        askResponse: 'messageResponse',
+        modelName: 'model-B'
+      } as WebviewMessage)
+
+      expect(mockBuildApiHandler).not.toHaveBeenCalled()
+      expect(task.api).toBe(apiBefore)
+    })
+
+    it('when modelName not in model options, buildApiConfigurationForModel returns base and handler is still updated', async () => {
+      mockGetModelOptions.mockResolvedValueOnce([{ id: 'm1', name: 'model-A', checked: true, type: 'chat', apiProvider: 'anthropic' }])
+      const controller = new Controller(
+        async () => true,
+        async () => '/tmp/mcp_settings.json'
+      )
+      await controller.initTask([createMockHost('1')], 'task 1', 'task-1')
+
+      const task = controller.getAllTasks().find((t) => t.taskId === 'task-1')!
+      getMockGetModel(task).mockReturnValue({ id: 'model-A' })
+
+      const baseConfig = { apiProvider: 'default', defaultModelId: 'mock', defaultBaseUrl: 'http://mock', defaultApiKey: 'mock' }
+      mockGetAllExtensionState.mockResolvedValue({
+        apiConfiguration: baseConfig,
+        userRules: [],
+        autoApprovalSettings: {}
+      })
+
+      const newHandler = { createMessage: vi.fn(), getModel: vi.fn(() => ({ id: 'unknown' })) }
+      mockBuildApiHandler.mockReturnValue(newHandler)
+
+      await controller.handleWebviewMessage({
+        type: 'askResponse',
+        taskId: 'task-1',
+        askResponse: 'messageResponse',
+        modelName: 'non-existent-model'
+      } as WebviewMessage)
+
+      expect(mockBuildApiHandler).toHaveBeenCalledWith(baseConfig)
+      expect(task.api).toBe(newHandler)
+    })
+
+    it('different tasks can have different models; askResponse only updates the target task', async () => {
+      const controller = new Controller(
+        async () => true,
+        async () => '/tmp/mcp_settings.json'
+      )
+      await controller.initTask([createMockHost('1')], 'task 1', 'task-1')
+      await controller.initTask([createMockHost('2')], 'task 2', 'task-2')
+
+      const tasks = controller.getAllTasks()
+      const task1 = tasks.find((t) => t.taskId === 'task-1')!
+      const task2 = tasks.find((t) => t.taskId === 'task-2')!
+      getMockGetModel(task1).mockReturnValue({ id: 'model-A' })
+      getMockGetModel(task2).mockReturnValue({ id: 'model-B' })
+
+      const newHandlerForTask1 = {
+        createMessage: vi.fn(),
+        getModel: vi.fn(() => ({ id: 'model-C' }))
+      }
+      mockBuildApiHandler.mockReturnValue(newHandlerForTask1)
+
+      await controller.handleWebviewMessage({
+        type: 'askResponse',
+        taskId: 'task-1',
+        askResponse: 'messageResponse',
+        modelName: 'model-C'
+      } as WebviewMessage)
+
+      expect(task1.api).toBe(newHandlerForTask1)
+      expect(task2.api).not.toBe(newHandlerForTask1)
+      expect(task2.api.getModel()).toEqual({ id: 'model-B' })
+    })
+
+    it('multiple tasks in parallel: switching model in one task does not affect the other', async () => {
+      const controller = new Controller(
+        async () => true,
+        async () => '/tmp/mcp_settings.json'
+      )
+      await controller.initTask([createMockHost('1')], 'task 1', 'task-1')
+      await controller.initTask([createMockHost('2')], 'task 2', 'task-2')
+
+      const tasks = controller.getAllTasks()
+      const task1 = tasks.find((t) => t.taskId === 'task-1')!
+      const task2 = tasks.find((t) => t.taskId === 'task-2')!
+      const api2Before = task2.api
+      getMockGetModel(task1).mockReturnValue({ id: 'model-A' })
+      getMockGetModel(task2).mockReturnValue({ id: 'model-B' })
+
+      mockBuildApiHandler.mockReturnValue({
+        createMessage: vi.fn(),
+        getModel: vi.fn(() => ({ id: 'model-C' }))
+      })
+
+      await controller.handleWebviewMessage({
+        type: 'askResponse',
+        taskId: 'task-1',
+        askResponse: 'messageResponse',
+        modelName: 'model-C'
+      } as WebviewMessage)
+
+      expect(task1.api.getModel()).toEqual({ id: 'model-C' })
+      expect(task2.api).toBe(api2Before)
+      expect(task2.api.getModel()).toEqual({ id: 'model-B' })
+    })
   })
 })
