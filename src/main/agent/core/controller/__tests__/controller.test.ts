@@ -589,7 +589,7 @@ describe('Controller', () => {
       getMockGetModel(task).mockReturnValue({ id: 'model-A' })
 
       const baseConfig = { apiProvider: 'default', defaultModelId: 'mock', defaultBaseUrl: 'http://mock', defaultApiKey: 'mock' }
-      mockGetAllExtensionState.mockResolvedValue({
+      mockGetAllExtensionState.mockResolvedValueOnce({
         apiConfiguration: baseConfig,
         userRules: [],
         autoApprovalSettings: {}
