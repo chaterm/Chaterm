@@ -116,7 +116,8 @@ import type { FileRecord } from './files.vue'
 import { useI18n } from 'vue-i18n'
 
 const { t: $t } = useI18n()
-const api = (window as any).api
+// Access lazily so tests can inject window.api without module reset
+const getApi = () => (window as any).api
 
 const props = defineProps<{
   visible: boolean
@@ -168,7 +169,7 @@ const enterSubDir = async (index: number, name: string) => {
 
 const loadSubDirs = async (index: number) => {
   const path = '/' + targetPathStack.value.slice(0, index + 1).join('/')
-  const res = await api.sshSftpList({ id: props.id, path: path })
+  const res = await getApi().sshSftpList({ id: props.id, path: path })
   if (Array.isArray(res)) {
     subDirMap.value[index] = (res as FileRecord[]).filter((i) => i.isDir)
   } else {
@@ -255,7 +256,7 @@ const splitFileName = (filename: string) => {
 
 const checkFileConflict = async () => {
   const dirPath = currentPath.value
-  const list = await api.sshSftpList({ id: props.id, path: dirPath })
+  const list = await getApi().sshSftpList({ id: props.id, path: dirPath })
   const fileList = Array.isArray(list) ? list.map((item: any) => (typeof item === 'string' ? item : item.name)) : []
 
   const name = originFileName.value
