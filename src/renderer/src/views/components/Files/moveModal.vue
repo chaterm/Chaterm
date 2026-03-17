@@ -117,7 +117,7 @@ import { useI18n } from 'vue-i18n'
 
 const { t: $t } = useI18n()
 // Access lazily so tests can inject window.api without module reset
-const getApi = () => (window as any).api
+const getApi = () => window.api
 
 const props = defineProps<{
   visible: boolean
