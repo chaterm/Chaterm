@@ -57,7 +57,7 @@
     "@anthropic-ai/bedrock-sdk": "^0.26.4",
     "@anthropic-ai/sdk": "^0.72.1",
     "@aws-crypto/client-node": "^4.2.2",
-    "@aws-sdk/client-bedrock-runtime": "^3.1010.0",
+    "@aws-sdk/client-bedrock-runtime": "^3.1011.0",
     "@aws-sdk/node-http-handler": "^3.374.0",
     "@electron-toolkit/preload": "^3.0.0",
     "@electron-toolkit/utils": "^4.0.0",
@@ -86,7 +86,7 @@
     "monaco-editor": "^0.55.1",
     "node-pty": "^1.0.0",
     "ollama": "^0.6.3",
-    "openai": "^6.31.0",
+    "openai": "^6.32.0",
     "p-wait-for": "^6.0.0",
     "pinia": "^3.0.1",
     "pinia-plugin-persistedstate": "^4.2.0",
@@ -132,7 +132,7 @@
     "@vue/test-utils": "^2.4.6",
     "ant-design-vue": "^4.2.6",
     "cross-env": "^10.1.0",
-    "electron": "^41.0.2",
+    "electron": "^41.0.3",
     "electron-builder": "^26.8.1",
     "electron-vite": "^5.0.0",
     "eslint": "^10.0.3",
@@ -154,6 +154,6 @@
     "vue": "^3.5.30",
     "vue-eslint-parser": "^10.4.0",
     "vue-router": "^5.0.3",
-    "vue-tsc": "^3.2.5"
+    "vue-tsc": "^3.2.6"
   }
 }
