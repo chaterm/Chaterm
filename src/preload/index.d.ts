@@ -350,6 +350,8 @@ interface ApiType {
   kbImportFile: (srcAbsPath: string, dstRelDir: string) => Promise<{ jobId: string; relPath: string }>
   kbImportFolder: (srcAbsPath: string, dstRelDir: string) => Promise<{ jobId: string; relPath: string }>
   onKbTransferProgress: (callback: (data: { jobId: string; transferred: number; total: number; destRelPath: string }) => void) => () => void
+  kbSyncGetStatus: () => Promise<{ status: 'idle' | 'syncing' }>
+  kbSyncLastTime: () => Promise<number | null>
   getLocalWorkingDirectory: () => Promise<{ success: boolean; cwd: string }>
   getShellsLocal: () => Promise<any>
   agentEnableAndConfigure: (opts: { enabled: boolean }) => Promise<any>

@@ -169,7 +169,7 @@ const enterSubDir = async (index: number, name: string) => {
 
 const loadSubDirs = async (index: number) => {
   const path = '/' + targetPathStack.value.slice(0, index + 1).join('/')
-  const res = await getApi().sshSftpList({ id: props.id, path: path })
+  const res = await getApi().sshSftpList({ id: props.id, remotePath: path })
   if (Array.isArray(res)) {
     subDirMap.value[index] = (res as FileRecord[]).filter((i) => i.isDir)
   } else {
@@ -256,7 +256,7 @@ const splitFileName = (filename: string) => {
 
 const checkFileConflict = async () => {
   const dirPath = currentPath.value
-  const list = await getApi().sshSftpList({ id: props.id, path: dirPath })
+  const list = await getApi().sshSftpList({ id: props.id, remotePath: dirPath })
   const fileList = Array.isArray(list) ? list.map((item: any) => (typeof item === 'string' ? item : item.name)) : []
 
   const name = originFileName.value
