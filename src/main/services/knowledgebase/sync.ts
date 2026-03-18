@@ -25,6 +25,7 @@ export interface KbManifestEntry {
 interface SnapshotData {
   updatedAt: number
   entries: KbManifestEntry[]
+  usedBytes?: number
 }
 
 function normalizeRelPath(relPath: string): string {
@@ -100,15 +101,19 @@ export async function readLocalSnapshot(): Promise<SnapshotData | null> {
     const raw = await fs.readFile(snapshotPath, 'utf-8')
     const data = JSON.parse(raw) as SnapshotData
     if (!data || !Array.isArray(data.entries)) return null
-    return { updatedAt: data.updatedAt ?? 0, entries: data.entries }
+    return {
+      updatedAt: data.updatedAt ?? 0,
+      entries: data.entries,
+      usedBytes: data.usedBytes
+    }
   } catch {
     return null
   }
 }
 
-export async function writeLocalSnapshot(entries: KbManifestEntry[]): Promise<void> {
+export async function writeLocalSnapshot(entries: KbManifestEntry[], usedBytes?: number): Promise<void> {
   const snapshotPath = getSnapshotPath()
-  const data: SnapshotData = { updatedAt: Date.now(), entries }
+  const data: SnapshotData = { updatedAt: Date.now(), entries, ...(usedBytes !== undefined && { usedBytes }) }
   await fs.writeFile(snapshotPath, JSON.stringify(data, null, 2), 'utf-8')
 }
 
@@ -251,6 +256,13 @@ async function runSync(): Promise<void> {
 
     const manifestRes = (await client.get('/kb/manifest')) as { entries?: Record<string, KbManifestEntry> } | undefined
     const entriesMap = manifestRes?.entries ?? {}
+    const cloudSizes = new Map<string, number>()
+    for (const entry of Object.values(entriesMap)) {
+      if (entry?.relPath && !isKbSyncExcludedRelPath(entry.relPath)) {
+        cloudSizes.set(entry.relPath, entry.size ?? 0)
+      }
+    }
+    let usedBytes = Array.from(cloudSizes.values()).reduce((a, b) => a + b, 0)
     for (const [_, entry] of Object.entries(entriesMap)) {
       if (isKbSyncExcludedRelPath(entry.relPath)) continue
       const { absPath } = resolveKbPath(entry.relPath)
@@ -423,4 +435,12 @@ export function getKbSyncLastSyncTime(): Promise<number | null> {
 
 export function getKbSyncStatus(): { status: 'idle' | 'syncing' } {
   return { status: syncInProgress ? 'syncing' : 'idle' }
+}
+
+/** Total cloud quota in bytes for free tier (1 GB). */
+export const KB_CLOUD_TOTAL_BYTES = 1024 * 1024 * 1024
+
+export async function getKbCloudUsedBytes(): Promise<number> {
+  const snapshot = await readLocalSnapshot()
+  return snapshot?.usedBytes ?? 0
 }
