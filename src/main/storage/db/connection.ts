@@ -319,7 +319,7 @@ async function applyAllMigrations(db: Database.Database): Promise<void> {
   upgradeSnippetGroups(db)
   upgradeSkillsSupport(db)
   await upgradeMessageIndexSupport(db)
-  await upgradeBastionCommentSupport(db)
+  await upgradeBastionCommentSupport(db) // t_organization_assets: bastion_comment + data_source
   await upgradeHostInfoSupport(db)
   await upgradeTaskTitleSupport(db)
 }

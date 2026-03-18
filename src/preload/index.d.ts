@@ -206,6 +206,12 @@ interface ApiType {
   }>
   updateOrganizationAssetFavorite: (data: { organizationUuid: string; host: string; status: number }) => Promise<any>
   updateOrganizationAssetComment: (data: { organizationUuid: string; host: string; comment: string }) => Promise<any>
+  // Organization asset management API
+  getOrganizationAssets: (data: { organizationUuid: string; search?: string; page?: number; pageSize?: number }) => Promise<any>
+  createOrganizationAsset: (data: { organizationUuid: string; hostname: string; host: string; comment?: string }) => Promise<any>
+  updateOrganizationAsset: (data: { uuid: string; hostname?: string; host?: string; comment?: string }) => Promise<any>
+  deleteOrganizationAsset: (data: { uuid: string }) => Promise<any>
+  batchDeleteOrganizationAssets: (data: { uuids: string[] }) => Promise<any>
   // Custom folder management API
   createCustomFolder: (data: { name: string; description?: string }) => Promise<any>
   getCustomFolders: () => Promise<any>

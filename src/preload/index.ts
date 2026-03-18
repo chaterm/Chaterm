@@ -450,6 +450,52 @@ const updateOrganizationAssetComment = async (data: { organizationUuid: string; 
   }
 }
 
+// Organization asset management API
+const getOrganizationAssets = async (data: { organizationUuid: string; search?: string; page?: number; pageSize?: number }) => {
+  try {
+    const result = await ipcRenderer.invoke('get-organization-assets', data)
+    return result
+  } catch (error) {
+    return Promise.reject(error)
+  }
+}
+
+const createOrganizationAsset = async (data: { organizationUuid: string; hostname: string; host: string; comment?: string }) => {
+  try {
+    const result = await ipcRenderer.invoke('create-organization-asset', data)
+    return result
+  } catch (error) {
+    return Promise.reject(error)
+  }
+}
+
+const updateOrganizationAsset = async (data: { uuid: string; hostname?: string; host?: string; comment?: string }) => {
+  try {
+    const result = await ipcRenderer.invoke('update-organization-asset', data)
+    return result
+  } catch (error) {
+    return Promise.reject(error)
+  }
+}
+
+const deleteOrganizationAsset = async (data: { uuid: string }) => {
+  try {
+    const result = await ipcRenderer.invoke('delete-organization-asset', data)
+    return result
+  } catch (error) {
+    return Promise.reject(error)
+  }
+}
+
+const batchDeleteOrganizationAssets = async (data: { uuids: string[] }) => {
+  try {
+    const result = await ipcRenderer.invoke('batch-delete-organization-assets', data)
+    return result
+  } catch (error) {
+    return Promise.reject(error)
+  }
+}
+
 // Custom folder management API
 const createCustomFolder = async (data: { name: string; description?: string }) => {
   try {
@@ -565,6 +611,11 @@ const api = {
   refreshOrganizationAssets,
   updateOrganizationAssetFavorite,
   updateOrganizationAssetComment,
+  getOrganizationAssets,
+  createOrganizationAsset,
+  updateOrganizationAsset,
+  deleteOrganizationAsset,
+  batchDeleteOrganizationAssets,
   createCustomFolder,
   getCustomFolders,
   updateCustomFolder,

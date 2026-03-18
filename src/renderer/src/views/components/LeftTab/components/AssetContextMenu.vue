@@ -43,6 +43,15 @@
       </div>
 
       <div
+        v-if="isOrganizationAsset(asset?.asset_type)"
+        class="context-menu-item"
+        @click.stop="handleManageAssets"
+      >
+        <div class="context-menu-icon"><DatabaseOutlined /></div>
+        <div>{{ t('personal.manageAssets') }}</div>
+      </div>
+
+      <div
         class="context-menu-item delete"
         @click.stop="handleRemove"
       >
@@ -55,7 +64,7 @@
 
 <script setup lang="ts">
 import { ref, computed, nextTick, watch, onMounted } from 'vue'
-import { ApiOutlined, EditOutlined, ReloadOutlined, DeleteOutlined, CopyOutlined } from '@ant-design/icons-vue'
+import { ApiOutlined, EditOutlined, ReloadOutlined, DeleteOutlined, CopyOutlined, DatabaseOutlined } from '@ant-design/icons-vue'
 import i18n from '@/locales'
 import type { AssetNode, Position } from '../utils/types'
 import { isOrganizationAsset } from '../utils/types'
@@ -123,6 +132,7 @@ const emit = defineEmits<{
   clone: []
   refresh: []
   remove: []
+  manageAssets: []
 }>()
 
 const handleClose = () => {
@@ -147,6 +157,10 @@ const handleRefresh = () => {
 
 const handleRemove = () => {
   emit('remove')
+}
+
+const handleManageAssets = () => {
+  emit('manageAssets')
 }
 
 const updateMenuSize = () => {

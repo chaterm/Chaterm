@@ -66,6 +66,10 @@
             :plugin-id="localTab.props.pluginId || ''"
             :initial-content="localTab.props.initialContent || ''"
           />
+          <AssetManagement
+            v-if="localTab.content === 'assetManagement' && localTab.props"
+            :organization-uuid="localTab.props.organizationUuid || ''"
+          />
           <SecurityConfigEditor v-if="localTab.content === 'securityConfigEditor'" />
           <KeywordHighlightEditor v-if="localTab.content === 'keywordHighlightEditor'" />
           <!-- prettier-ignore -->
@@ -98,6 +102,7 @@ import CommonConfigEditor from '@views/components/Editors/CommonConfigEditor.vue
 import SecurityConfigEditor from '@views/components/Editors/SecurityConfigEditor.vue'
 import KeywordHighlightEditor from '@views/components/Editors/KeywordHighlightEditor.vue'
 import PluginDetail from '@views/components/Extensions/pluginDetail.vue'
+import AssetManagement from '@views/components/LeftTab/config/assetManagement.vue'
 import type { IDockviewPanelProps } from 'dockview-vue'
 
 interface TabItem {
@@ -114,6 +119,7 @@ interface TabItem {
     filePath?: string
     initialContent?: string
     relPath?: string
+    organizationUuid?: string
   }
   mode?: 'editor' | 'preview'
   closeCurrentPanel?: (panelId?: string) => void
