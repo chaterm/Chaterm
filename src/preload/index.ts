@@ -1003,6 +1003,8 @@ const api = {
     ipcRenderer.on('kb:transfer-progress', listener)
     return () => ipcRenderer.removeListener('kb:transfer-progress', listener)
   },
+  kbSyncGetStatus: () => ipcRenderer.invoke('kb:sync-get-status'),
+  kbSyncLastTime: () => ipcRenderer.invoke('kb:sync-last-time'),
 
   agentEnableAndConfigure: (opts: { enabled: boolean }) => ipcRenderer.invoke('ssh:agent:enable-and-configure', opts),
   addKey: (opts: { keyData: string; passphrase?: string; comment?: string }) => ipcRenderer.invoke('ssh:agent:add-key', opts),

@@ -2,6 +2,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { mount, flushPromises } from '@vue/test-utils'
 import { createI18n } from 'vue-i18n'
+import MoveModal from '../moveModal.vue'
 
 // i18n: return key as text
 const i18n = createI18n({
@@ -84,11 +85,10 @@ describe('moveModal.vue', () => {
     delete (globalThis as any).api
   })
 
+  // Set window.api mock without module reset (component now accesses api lazily)
   const importComp = async (sshSftpListImpl: any) => {
     ;(globalThis as any).api = { sshSftpList: sshSftpListImpl }
-    vi.resetModules()
-    const Comp = (await import('../moveModal.vue')).default
-    return Comp
+    return MoveModal
   }
 
   const mountModal = (Comp: any, props?: any) =>

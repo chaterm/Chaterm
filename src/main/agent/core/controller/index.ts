@@ -28,7 +28,7 @@ import {
   ensureMcpServersDirectoryExists
 } from '../storage/disk'
 import { isValidCommand } from '../../../storage/db/commandValidation'
-import { getAllExtensionState, updateApiConfiguration, updateGlobalState, getUserConfig, getModelOptions } from '../storage/state'
+import { getAllExtensionState, updateGlobalState, getUserConfig, getModelOptions } from '../storage/state'
 import { Task } from '../task'
 import { ApiConfiguration, ApiProvider, PROVIDER_MODEL_KEY_MAP } from '@shared/api'
 import { TITLE_GENERATION_PROMPT, TITLE_GENERATION_PROMPT_CN } from '../prompts/system'
@@ -114,7 +114,37 @@ export class Controller {
     await updateGlobalState('userInfo', info)
   }
 
-  async initTask(hosts: Host[], task?: string, taskId?: string, contentParts?: ContentPart[]) {
+  /**
+   * Build ApiConfiguration for a given model name (from model options). Includes thinking models.
+   * Returns base config unchanged if modelName is empty or not found.
+   */
+  private async buildApiConfigurationForModel(base: ApiConfiguration, modelName: string): Promise<ApiConfiguration> {
+    if (!modelName?.trim()) return base
+    const modelOptions = await getModelOptions(false)
+    const selectedModel = modelOptions.find((m) => m.name === modelName)
+    if (!selectedModel?.apiProvider) return base
+    const modelKey = PROVIDER_MODEL_KEY_MAP[selectedModel.apiProvider] || 'defaultModelId'
+    return {
+      ...base,
+      apiProvider: selectedModel.apiProvider as ApiProvider,
+      [modelKey]: selectedModel.name
+    }
+  }
+
+  /**
+   * Build ApiConfiguration from task metadata model_usage entry (model_id + model_provider_id).
+   */
+  private buildApiConfigurationFromMetadata(base: ApiConfiguration, modelId: string, modelProviderId: string): ApiConfiguration {
+    if (!modelId?.trim() || !modelProviderId?.trim()) return base
+    const modelKey = PROVIDER_MODEL_KEY_MAP[modelProviderId] || 'defaultModelId'
+    return {
+      ...base,
+      apiProvider: modelProviderId as ApiProvider,
+      [modelKey]: modelId
+    }
+  }
+
+  async initTask(hosts: Host[], task?: string, taskId?: string, contentParts?: ContentPart[], modelName?: string) {
     const resolvedTaskId = taskId
     mark('chaterm/agent/willCreateTask')
     logger.info('Initializing task', {
@@ -127,6 +157,21 @@ export class Controller {
     }
     const { apiConfiguration, userRules, autoApprovalSettings } = await getAllExtensionState()
     const customInstructions = this.formatUserRulesToInstructions(userRules)
+
+    let resolvedApiConfiguration: ApiConfiguration
+    if (modelName?.trim()) {
+      resolvedApiConfiguration = await this.buildApiConfigurationForModel(apiConfiguration, modelName)
+    } else if (resolvedTaskId) {
+      const metadata = await getTaskMetadata(resolvedTaskId)
+      const lastUsage = metadata?.model_usage?.length ? metadata.model_usage[metadata.model_usage.length - 1] : null
+      if (lastUsage?.model_id && lastUsage?.model_provider_id) {
+        resolvedApiConfiguration = this.buildApiConfigurationFromMetadata(apiConfiguration, lastUsage.model_id, lastUsage.model_provider_id)
+      } else {
+        resolvedApiConfiguration = apiConfiguration
+      }
+    } else {
+      resolvedApiConfiguration = apiConfiguration
+    }
 
     // Ensure metadata row exists before Task constructor runs,
     // so touchTaskUpdatedAt cannot insert a title-less row first.
@@ -143,7 +188,7 @@ export class Controller {
       postState,
       postMessage,
       (taskId) => this.reinitExistingTaskFromId(taskId),
-      apiConfiguration,
+      resolvedApiConfiguration,
       autoApprovalSettings,
       hosts,
       this.mcpHub,
@@ -210,23 +255,13 @@ export class Controller {
 
     switch (message.type) {
       case 'newTask':
-        await this.initTask(message.hosts!, message.text, message.taskId, message.contentParts)
+        await this.initTask(message.hosts!, message.text, message.taskId, message.contentParts, message.modelName)
         if (message.taskId && message.hosts) {
           await updateTaskHosts(message.taskId, message.hosts)
         }
         break
       case 'condense':
         targetTask?.handleWebviewAskResponse('yesButtonClicked')
-        break
-      case 'apiConfiguration':
-        if (message.apiConfiguration) {
-          await updateApiConfiguration(message.apiConfiguration)
-          // Update API configuration for all tasks
-          for (const task of this.tasks.values()) {
-            task.api = buildApiHandler(message.apiConfiguration)
-          }
-        }
-        await this.postStateToWebview(targetTaskId)
         break
 
       case 'askResponse':
@@ -236,6 +271,14 @@ export class Controller {
             taskId: targetTask.taskId,
             askResponse: message.askResponse
           })
+          if (message.modelName?.trim() && message.modelName.trim() !== targetTask.api.getModel().id) {
+            const { apiConfiguration } = await getAllExtensionState()
+            if (apiConfiguration) {
+              const perTabConfig = await this.buildApiConfigurationForModel(apiConfiguration, message.modelName)
+              targetTask.api = buildApiHandler(perTabConfig)
+              targetTask.setApiProvider(perTabConfig.apiProvider)
+            }
+          }
           if (message.hosts) {
             targetTask.hosts = message.hosts
             if (targetTaskId) {

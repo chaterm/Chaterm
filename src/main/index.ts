@@ -65,6 +65,7 @@ import { getActualTheme, loadUserTheme } from './themeManager'
 import { getLoginBaseUrl, getEdition, getProtocolPrefix, getProtocolName } from './config/edition'
 import { TelemetrySetting } from '@shared/TelemetrySetting'
 import { registerKnowledgeBaseHandlers } from './services/knowledgebase'
+import { startKbSync, stopKbSync } from './services/knowledgebase/sync'
 import { setupInteractionIpcHandlers } from './agent/services/interaction-detector/ipc-handlers'
 import type { WebviewMessage } from '@shared/WebviewMessage'
 import type { SkillMetadata } from '@shared/skills'
@@ -1343,6 +1344,7 @@ function setupIPC(): void {
         if (syncStateManager) {
           syncStateManager.enableSync(uid)
         }
+        startKbSync()
       } else {
         // Disable sync
         if (dataSyncController) {
@@ -1352,6 +1354,7 @@ function setupIPC(): void {
           }
 
           logger.info('Stopping data sync service...')
+          await stopKbSync()
           await dataSyncController.destroy()
           dataSyncController = null
           logger.info('Data sync service stopped')
