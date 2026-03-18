@@ -770,6 +770,72 @@ html.theme-dark .ant-cascader-menu-item-expand .ant-cascader-menu-item-expand-ic
   color: var(--text-color) !important;
 }
 
+html.theme-dark .ant-modal-confirm .ant-modal-content {
+  background-color: rgba(37, 37, 37, 0.95) !important;
+  backdrop-filter: blur(10px);
+}
+
+html.theme-light .ant-modal-confirm .ant-modal-content {
+  background-color: rgba(243, 243, 243, 0.95) !important;
+  backdrop-filter: blur(10px);
+}
+
+.ant-modal-confirm .ant-modal-confirm-btns .ant-btn {
+  color: var(--text-color) !important;
+  border-color: var(--border-color) !important;
+  background-color: var(--bg-color-secondary) !important;
+}
+
+.ant-modal-confirm .ant-modal-confirm-btns .ant-btn-primary {
+  color: #fff !important;
+  background-color: #1890ff !important;
+  border-color: #1890ff !important;
+}
+
+.ant-modal-confirm .ant-modal-confirm-btns .ant-btn-dangerous {
+  color: #fff !important;
+  background-color: #ff4d4f !important;
+  border-color: #ff4d4f !important;
+}
+
+// Popconfirm theme adaptation
+html.theme-dark .ant-popover .ant-popover-inner {
+  background-color: rgba(37, 37, 37, 0.95) !important;
+  backdrop-filter: blur(10px);
+}
+
+html.theme-light .ant-popover .ant-popover-inner {
+  background-color: rgba(243, 243, 243, 0.95) !important;
+  backdrop-filter: blur(10px);
+}
+
+html.theme-dark .ant-popover .ant-popover-arrow::before,
+html.theme-dark .ant-popover .ant-popover-arrow::after {
+  background-color: rgba(37, 37, 37, 0.95) !important;
+}
+
+html.theme-light .ant-popover .ant-popover-arrow::before,
+html.theme-light .ant-popover .ant-popover-arrow::after {
+  background-color: rgba(243, 243, 243, 0.95) !important;
+}
+
+.ant-popover .ant-popconfirm-message-title {
+  color: var(--text-color) !important;
+}
+
+.ant-popover .ant-popconfirm-buttons .ant-btn {
+  color: var(--text-color) !important;
+  border-color: var(--border-color) !important;
+  background-color: var(--bg-color-secondary) !important;
+}
+
+.ant-popover .ant-popconfirm-buttons .ant-btn-primary,
+.ant-popover .ant-popconfirm-buttons .ant-btn-dangerous {
+  color: #fff !important;
+  background-color: #ff4d4f !important;
+  border-color: #ff4d4f !important;
+}
+
 // Light theme dropdown menu styles
 html.theme-light .ant-dropdown-menu {
   background-color: #f8fafc !important;

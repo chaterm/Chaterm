@@ -2512,6 +2512,87 @@ ipcMain.handle('organization-asset-comment', async (_, data) => {
   }
 })
 
+// Organization asset management IPC handlers
+ipcMain.handle('get-organization-assets', async (_, data) => {
+  try {
+    const { organizationUuid, search, page, pageSize } = data
+
+    if (!organizationUuid) {
+      return { data: { message: 'failed', error: 'organizationUuid is required' } }
+    }
+
+    const result = chatermDbService.getOrganizationAssets(organizationUuid, search, page, pageSize)
+    return result
+  } catch (error) {
+    logger.error('Main process get-organization-assets error', { error: error })
+    return { data: { message: 'failed', error: error instanceof Error ? error.message : String(error) } }
+  }
+})
+
+ipcMain.handle('create-organization-asset', async (_, data) => {
+  try {
+    const { organizationUuid, hostname, host, comment } = data
+
+    if (!organizationUuid || !hostname || !host) {
+      return { data: { message: 'failed', error: 'organizationUuid, hostname, and host are required' } }
+    }
+
+    const result = chatermDbService.createOrganizationAsset(organizationUuid, { hostname, host, comment })
+    return result
+  } catch (error) {
+    logger.error('Main process create-organization-asset error', { error: error })
+    return { data: { message: 'failed', error: error instanceof Error ? error.message : String(error) } }
+  }
+})
+
+ipcMain.handle('update-organization-asset', async (_, data) => {
+  try {
+    const { uuid, hostname, host, comment } = data
+
+    if (!uuid) {
+      return { data: { message: 'failed', error: 'uuid is required' } }
+    }
+
+    const result = chatermDbService.updateOrganizationAsset(uuid, { hostname, host, comment })
+    return result
+  } catch (error) {
+    logger.error('Main process update-organization-asset error', { error: error })
+    return { data: { message: 'failed', error: error instanceof Error ? error.message : String(error) } }
+  }
+})
+
+ipcMain.handle('delete-organization-asset', async (_, data) => {
+  try {
+    const { uuid } = data
+
+    if (!uuid) {
+      return { data: { message: 'failed', error: 'uuid is required' } }
+    }
+
+    const result = chatermDbService.deleteOrganizationAsset(uuid)
+    return result
+  } catch (error) {
+    logger.error('Main process delete-organization-asset error', { error: error })
+    return { data: { message: 'failed', error: error instanceof Error ? error.message : String(error) } }
+  }
+})
+
+ipcMain.handle('batch-delete-organization-assets', async (_, data) => {
+  try {
+    const { uuids } = data
+
+    if (!uuids || !Array.isArray(uuids) || uuids.length === 0) {
+      return { data: { message: 'failed', error: 'uuids array is required' } }
+    }
+
+    const result = chatermDbService.batchDeleteOrganizationAssets(uuids)
+    return result
+  } catch (error) {
+    logger.error('Main process batch-delete-organization-assets error', { error: error })
+    return { data: { message: 'failed', error: error instanceof Error ? error.message : String(error) } }
+  }
+})
+
 // Custom folder management IPC handlers
 ipcMain.handle('create-custom-folder', async (_, data) => {
   try {

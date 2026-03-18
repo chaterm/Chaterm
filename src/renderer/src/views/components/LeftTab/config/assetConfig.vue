@@ -31,6 +31,7 @@
           @clone="handleContextMenuClone"
           @refresh="handleContextMenuRefresh"
           @remove="handleContextMenuRemove"
+          @manage-assets="handleContextMenuManageAssets"
         />
       </div>
 
@@ -286,6 +287,21 @@ const handleContextMenuRefresh = () => {
 const handleContextMenuRemove = () => {
   if (selectedAsset.value) {
     handleAssetRemove(selectedAsset.value)
+  }
+}
+
+const handleContextMenuManageAssets = () => {
+  if (selectedAsset.value && isOrganizationAsset(selectedAsset.value.asset_type)) {
+    const orgUuid = selectedAsset.value.uuid || ''
+    const bastionName = selectedAsset.value.asset_ip || selectedAsset.value.label || ''
+    eventBus.emit('open-user-tab', {
+      key: 'assetManagement',
+      title: `${t('personal.manageAssets')} - ${bastionName}`,
+      props: {
+        organizationUuid: orgUuid
+      }
+    })
+    closeContextMenu()
   }
 }
 

@@ -21,7 +21,12 @@ import {
   deleteCustomFolderLogic,
   moveAssetToFolderLogic,
   removeAssetFromFolderLogic,
-  getAssetsInFolderLogic
+  getAssetsInFolderLogic,
+  getOrganizationAssetsLogic,
+  createOrganizationAssetLogic,
+  updateOrganizationAssetLogic,
+  deleteOrganizationAssetLogic,
+  batchDeleteOrganizationAssetsLogic
 } from './chaterm/assets'
 import {
   deleteChatermHistoryByTaskIdLogic,
@@ -367,6 +372,57 @@ export class ChatermDatabaseService {
       return result
     } catch (error) {
       logger.error('ChatermDatabaseService.getAssetsInFolder error', { error: error })
+      throw error
+    }
+  }
+
+  // Organization asset management methods
+  getOrganizationAssets(organizationUuid: string, search?: string, page?: number, pageSize?: number): any {
+    try {
+      const result = getOrganizationAssetsLogic(this.db, organizationUuid, search, page, pageSize)
+      return result
+    } catch (error) {
+      logger.error('ChatermDatabaseService.getOrganizationAssets error', { error: error })
+      throw error
+    }
+  }
+
+  createOrganizationAsset(organizationUuid: string, data: { hostname: string; host: string; comment?: string }): any {
+    try {
+      const result = createOrganizationAssetLogic(this.db, organizationUuid, data)
+      return result
+    } catch (error) {
+      logger.error('ChatermDatabaseService.createOrganizationAsset error', { error: error })
+      throw error
+    }
+  }
+
+  updateOrganizationAsset(uuid: string, data: { hostname?: string; host?: string; comment?: string }): any {
+    try {
+      const result = updateOrganizationAssetLogic(this.db, uuid, data)
+      return result
+    } catch (error) {
+      logger.error('ChatermDatabaseService.updateOrganizationAsset error', { error: error })
+      throw error
+    }
+  }
+
+  deleteOrganizationAsset(uuid: string): any {
+    try {
+      const result = deleteOrganizationAssetLogic(this.db, uuid)
+      return result
+    } catch (error) {
+      logger.error('ChatermDatabaseService.deleteOrganizationAsset error', { error: error })
+      throw error
+    }
+  }
+
+  batchDeleteOrganizationAssets(uuids: string[]): any {
+    try {
+      const result = batchDeleteOrganizationAssetsLogic(this.db, uuids)
+      return result
+    } catch (error) {
+      logger.error('ChatermDatabaseService.batchDeleteOrganizationAssets error', { error: error })
       throw error
     }
   }
