@@ -111,6 +111,14 @@ vi.mock('@views/components/Extensions/pluginDetail.vue', () => ({
   }
 }))
 
+vi.mock('@views/components/LeftTab/config/assetManagement.vue', () => ({
+  default: {
+    name: 'AssetManagement',
+    template: '<div class="asset-management-mock">Asset Management</div>',
+    props: ['organizationUuid']
+  }
+}))
+
 // Mock vuedraggable with slot support
 vi.mock('vuedraggable', () => ({
   default: {
