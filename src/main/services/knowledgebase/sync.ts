@@ -83,7 +83,7 @@ export async function listAllKbFilesRecursive(relDir = ''): Promise<KbManifestEn
       const stat = await fs.stat(childAbs)
       entries.push({
         relPath: normalizeRelPath(childRel),
-        mtimeMs: stat.mtimeMs,
+        mtimeMs: Math.floor(stat.mtimeMs), // stat.mtimeMs is float; Go int64 requires integer
         size: stat.size
       })
     }
@@ -237,7 +237,9 @@ let apiClient: ApiClient | null = null
 
 function getApiClient(): ApiClient {
   if (!apiClient) {
-    apiClient = new ApiClient()
+    // Disable keepAlive to avoid ECONNRESET when reusing a connection
+    // that the server has already closed between the manifest GET and upload POSTs.
+    apiClient = new ApiClient({ keepAlive: false })
   }
   return apiClient
 }
@@ -300,38 +302,48 @@ async function runSync(): Promise<void> {
     const uploadOutcomes: KbSyncPathOutcome[] = []
     const uploadSuccessRelPaths = new Set<string>()
 
-    for (const e of toUpload) {
+    // Upload in batches to avoid oversized request bodies
+    const UPLOAD_BATCH_SIZE = 20
+    for (let batchStart = 0; batchStart < toUpload.length; batchStart += UPLOAD_BATCH_SIZE) {
+      const batch = toUpload.slice(batchStart, batchStart + UPLOAD_BATCH_SIZE)
       try {
-        const { absPath } = resolveKbPath(e.relPath)
-        const ext = path.extname(e.relPath).toLowerCase()
-        const isBinary = IMAGE_EXTS.has(ext)
-        const content = isBinary ? (await fs.readFile(absPath)).toString('base64') : await fs.readFile(absPath, 'utf-8')
-        const uploadReply = (await client.post('/kb/upload', {
-          files: [
-            {
-              relPath: e.relPath,
-              content,
-              encoding: isBinary ? 'base64' : 'utf-8',
-              mtimeMs: e.mtimeMs,
-              size: e.size
-            }
-          ]
-        })) as { results?: Record<string, { status?: unknown; message?: string }> }
-        const item = uploadReply?.results?.[e.relPath]
-        const st = parseKbUploadStatus(item?.status)
-        const message = typeof item?.message === 'string' ? item.message : ''
-        if (st === 'ok') {
-          usedBytes = adjustUsedBytesAfterUploadOk(usedBytes, cloudSizes, e)
-          uploadSuccessRelPaths.add(e.relPath)
-          logger.info('KB sync uploaded', { relPath: e.relPath, status: st })
-        } else {
-          logger.warn(`KB sync upload failed for ${e.relPath}`, { status: st, message: message || undefined })
+        const files = await Promise.all(
+          batch.map(async (e) => {
+            const { absPath } = resolveKbPath(e.relPath)
+            const ext = path.extname(e.relPath).toLowerCase()
+            const isBinary = IMAGE_EXTS.has(ext)
+            const content = isBinary ? (await fs.readFile(absPath)).toString('base64') : await fs.readFile(absPath, 'utf-8')
+            return { relPath: e.relPath, content, encoding: isBinary ? 'base64' : 'utf-8', mtimeMs: e.mtimeMs, size: e.size }
+          })
+        )
+        const uploadReply = (await client.post('/kb/upload', { files })) as {
+          results?: Record<string, { status?: unknown; message?: string }>
         }
-        uploadOutcomes.push({ relPath: e.relPath, kind: 'upload', status: st, message })
+        for (const e of batch) {
+          const item = uploadReply?.results?.[e.relPath]
+          const st = parseKbUploadStatus(item?.status)
+          const message = typeof item?.message === 'string' ? item.message : ''
+          if (st === 'ok') {
+            usedBytes = adjustUsedBytesAfterUploadOk(usedBytes, cloudSizes, e)
+            uploadSuccessRelPaths.add(e.relPath)
+            logger.info('KB sync uploaded', { relPath: e.relPath, status: st })
+          } else {
+            logger.warn(`KB sync upload failed for ${e.relPath}`, { status: st, message: message || undefined })
+          }
+          uploadOutcomes.push({ relPath: e.relPath, kind: 'upload', status: st, message })
+        }
       } catch (err: any) {
         const msg = err?.message ?? 'request failed'
-        uploadOutcomes.push({ relPath: e.relPath, kind: 'upload', status: 'failed', message: msg })
-        logger.warn(`KB sync upload failed for ${e.relPath}`, { error: msg })
+        const originalMsg = (err as any)?.originalError?.message
+        const statusCode = (err as any)?.originalError?.response?.status
+        logger.warn(`KB sync batch upload failed (batch ${batchStart / UPLOAD_BATCH_SIZE + 1})`, {
+          error: msg,
+          ...(originalMsg && { originalError: originalMsg }),
+          ...(statusCode && { httpStatus: statusCode })
+        })
+        for (const e of batch) {
+          uploadOutcomes.push({ relPath: e.relPath, kind: 'upload', status: 'failed', message: msg })
+        }
       }
     }
 
