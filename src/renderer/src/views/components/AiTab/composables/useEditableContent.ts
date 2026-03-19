@@ -4,6 +4,7 @@ import type { ChatOption, DocOption } from '../types'
 import { getChipLabel } from '../utils'
 import FileTextOutlinedSvg from '@ant-design/icons-svg/es/asn/FileTextOutlined'
 import MessageOutlinedSvg from '@ant-design/icons-svg/es/asn/MessageOutlined'
+import skillsIconSrc from '@/assets/icons/skills.svg'
 
 // ============================================================================
 // Types
@@ -297,8 +298,19 @@ export function useEditableContent(options: UseEditableContentOptions) {
     if (chipType === 'doc' || chipType === 'chat') {
       const iconSpan = document.createElement('span')
       iconSpan.className = 'mention-icon'
-      const iconSvg = createIconSvg(chipType === 'doc' ? FileTextOutlinedSvg : MessageOutlinedSvg)
-      iconSpan.appendChild(iconSvg)
+
+      const isSkill = chipType === 'doc' && (chipRef as ContextDocRef).absPath?.endsWith('SKILL.md')
+      if (isSkill) {
+        const img = document.createElement('img')
+        img.src = skillsIconSrc
+        img.width = 12
+        img.height = 12
+        img.setAttribute('aria-hidden', 'true')
+        iconSpan.appendChild(img)
+      } else {
+        const iconSvg = createIconSvg(chipType === 'doc' ? FileTextOutlinedSvg : MessageOutlinedSvg)
+        iconSpan.appendChild(iconSvg)
+      }
       chip.appendChild(iconSpan)
     }
 
