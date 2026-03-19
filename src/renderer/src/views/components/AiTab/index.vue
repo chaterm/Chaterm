@@ -186,17 +186,34 @@
                             />
                           </template>
                         </a-button>
-                        <a-button
-                          type="text"
-                          class="feedback-btn summarize-btn"
-                          size="small"
-                          :title="$t('ai.summarizeToKnowledge')"
-                          @click="handleSummarizeToKnowledge(message)"
-                        >
-                          <template #icon>
-                            <BookOutlined />
-                          </template>
-                        </a-button>
+                        <a-tooltip :title="$t('ai.summarizeToKnowledge')">
+                          <a-button
+                            type="text"
+                            class="feedback-btn summarize-btn"
+                            size="small"
+                            @click="handleSummarizeToKnowledge(message)"
+                          >
+                            <template #icon>
+                              <BookOutlined />
+                            </template>
+                          </a-button>
+                        </a-tooltip>
+                        <a-tooltip :title="$t('ai.summarizeToSkill')">
+                          <a-button
+                            type="text"
+                            class="feedback-btn summarize-btn"
+                            size="small"
+                            @click="handleSummarizeToSkill(message)"
+                          >
+                            <template #icon>
+                              <img
+                                :src="skillsIcon"
+                                alt="skills"
+                                class="custom-icon"
+                              />
+                            </template>
+                          </a-button>
+                        </a-tooltip>
                       </div>
                     </div>
                     <MarkdownRenderer
@@ -776,6 +793,7 @@ import i18n from '@/locales'
 import eventBus from '@/utils/eventBus'
 import historyIcon from '@/assets/icons/history.svg'
 import plusIcon from '@/assets/icons/plus.svg'
+import skillsIcon from '@/assets/icons/skills.svg'
 
 interface TabInfo {
   id: string
@@ -848,7 +866,8 @@ const {
   handleFeedback,
   getMessageFeedback,
   handleTruncateAndSend,
-  handleSummarizeToKnowledge
+  handleSummarizeToKnowledge,
+  handleSummarizeToSkill
 } = useChatMessages(scrollToBottom, clearTodoState, markLatestMessageWithTodoUpdate, currentTodos, checkModelConfig)
 
 // Command interactions

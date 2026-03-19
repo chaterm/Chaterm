@@ -72,7 +72,7 @@ import type { InteractionResult } from '../../services/interaction-detector/type
 import { formatResponse } from '@core/prompts/responses'
 import { addUserInstructions, SYSTEM_PROMPT, SYSTEM_PROMPT_CN } from '@core/prompts/system'
 import { getSwitchPromptByAssetType } from '@core/prompts/switch-prompts'
-import { SLASH_COMMANDS, getSummaryToDocPrompt } from '@core/prompts/slash-commands'
+import { SLASH_COMMANDS, getSummaryToDocPrompt, getSummaryToSkillPrompt } from '@core/prompts/slash-commands'
 import { CommandSecurityManager } from '../security/CommandSecurityManager'
 import { getContextWindowInfo } from '@core/context/context-management/context-window-utils'
 import { ModelContextTracker } from '@core/context/context-tracking/ModelContextTracker'
@@ -107,7 +107,7 @@ type UserContent = Array<Anthropic.ContentBlockParam>
  * Check if a tool allows partial block execution
  */
 function isAllowPartialTool(toolName: string): boolean {
-  return toolName === 'summarize_to_knowledge' || toolName === 'attempt_completion'
+  return toolName === 'summarize_to_knowledge' || toolName === 'summarize_to_skill' || toolName === 'attempt_completion'
 }
 export interface CommandContext {
   /** Command identifier */
@@ -2109,6 +2109,11 @@ export class Task {
               this.summarizeUpToTs = summarizeUpToTs
             }
             expandedContent = getSummaryToDocPrompt(isChinese)
+          } else if (command === SLASH_COMMANDS.SUMMARY_TO_SKILL) {
+            if (summarizeUpToTs) {
+              this.summarizeUpToTs = summarizeUpToTs
+            }
+            expandedContent = getSummaryToSkillPrompt(isChinese)
           }
         }
 
@@ -3312,6 +3317,9 @@ export class Task {
       case 'summarize_to_knowledge':
         await this.handleSummarizeToKnowledgeToolUse(block)
         break
+      case 'summarize_to_skill':
+        await this.handleSummarizeToSkillToolUse(block)
+        break
       default:
         logger.error(`[Task] Unknown tool name: ${block.name}`)
     }
@@ -4463,6 +4471,67 @@ USERNAME:${localSystemInfo.userName}`
     } catch (error) {
       logger.error('[Task] summarize_to_knowledge failed', { error: error })
       await this.pushToolResult(toolDescription, `Failed to save knowledge: ${error instanceof Error ? error.message : String(error)}`)
+    }
+  }
+
+  /**
+   * Handle summarize_to_skill tool use.
+   * Sends skill data to the frontend for creation.
+   */
+  private async handleSummarizeToSkillToolUse(block: ToolUse): Promise<void> {
+    const toolDescription = this.getToolDescription(block)
+    const skillName = block.params.skill_name
+    const description = block.params.description
+    const content = block.params.content
+
+    try {
+      // Handle partial streaming (parameters may be incomplete)
+      if (block.partial) {
+        await this.say(
+          'skill_summary',
+          JSON.stringify({
+            skillName: skillName || '',
+            description: description || '',
+            content: content || ''
+          }),
+          true
+        )
+        return
+      }
+
+      // Only validate required parameters when streaming is complete
+      if (!skillName) {
+        await this.handleMissingParam('skill_name', toolDescription, 'summarize_to_skill')
+        return
+      }
+
+      if (!description) {
+        await this.handleMissingParam('description', toolDescription, 'summarize_to_skill')
+        return
+      }
+
+      if (!content) {
+        await this.handleMissingParam('content', toolDescription, 'summarize_to_skill')
+        return
+      }
+
+      // Send final message with complete parameters
+      await this.say(
+        'skill_summary',
+        JSON.stringify({
+          skillName,
+          description,
+          content
+        }),
+        false
+      )
+
+      await this.pushToolResult(toolDescription, `Skill has been created successfully. Name: ${skillName}`)
+
+      await this.saveCheckpoint()
+    } catch (error) {
+      logger.error('[Task] summarize_to_skill failed', { error: error })
+      await this.pushToolResult(toolDescription, `Failed to create skill: ${error instanceof Error ? error.message : String(error)}`)
     }
   }
 
