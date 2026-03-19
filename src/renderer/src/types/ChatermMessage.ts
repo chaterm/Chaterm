@@ -61,6 +61,7 @@ export type ChatermSay =
   | 'sshInfo'
   | 'search_result'
   | 'knowledge_summary'
+  | 'skill_summary'
 
 export interface ChatermSayTool {
   tool: 'readFile' | 'listFilesTopLevel' | 'listFilesRecursive' | 'searchFiles'

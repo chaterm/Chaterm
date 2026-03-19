@@ -357,6 +357,50 @@ export function useChatMessages(
     }
   }
 
+  const skillSummaryCreated = new Map<number, boolean>()
+
+  /**
+   * Handle skill_summary streaming: create skill when streaming completes
+   */
+  const handleSkillSummary = async (partial: any) => {
+    try {
+      // Only create skill when streaming is complete
+      if (partial.partial) {
+        return
+      }
+
+      const data = JSON.parse(partial.text || '{}')
+      const { skillName, description, content } = data
+      if (!skillName || !description || !content) {
+        logger.info('Missing skillName, description, or content')
+        return
+      }
+
+      const key = partial.ts ?? 0
+      if (skillSummaryCreated.get(key)) {
+        return
+      }
+      skillSummaryCreated.set(key, true)
+
+      await window.api.createSkill({ name: skillName, description }, content)
+
+      notification.success({
+        message: t('ai.skillCreated'),
+        description: skillName,
+        duration: 5
+      })
+
+      skillSummaryCreated.delete(key)
+    } catch (error) {
+      logger.error('Failed to create skill', { error: error })
+      notification.error({
+        message: t('ai.skillCreateFailed'),
+        description: error instanceof Error ? error.message : String(error),
+        duration: 5
+      })
+    }
+  }
+
   const processMainMessage = async (message: ExtensionMessage) => {
     const targetTabId = message?.tabId ?? message?.taskId
     if (!targetTabId) {
@@ -398,6 +442,15 @@ export function useChatMessages(
 
       if (partial.say === 'knowledge_summary') {
         await handleKnowledgeSummary(partial)
+        session.lastPartialMessage = message
+        if (isActiveTab) {
+          scrollToBottom()
+        }
+        return
+      }
+
+      if (partial.say === 'skill_summary') {
+        await handleSkillSummary(partial)
         session.lastPartialMessage = message
         if (isActiveTab) {
           scrollToBottom()
@@ -634,6 +687,25 @@ export function useChatMessages(
     await sendMessageWithContent('/summary-to-doc', 'send', undefined, undefined, [commandChipPart])
   }
 
+  /**
+   * Handle summarize to skill button click.
+   * Sends a command chip that will be replaced with full prompt in the backend.
+   * @param message - Optional message to summarize up to (when clicking button on specific message)
+   */
+  const handleSummarizeToSkill = async (message?: ChatMessage) => {
+    const commandChipPart: ContentPart = {
+      type: 'chip',
+      chipType: 'command',
+      ref: {
+        command: '/summary-to-skill',
+        label: '/Summary to Skill',
+        summarizeUpToTs: message?.ts
+      }
+    }
+
+    await sendMessageWithContent('/summary-to-skill', 'send', undefined, undefined, [commandChipPart])
+  }
+
   return {
     markdownRendererRefs,
     isCurrentChatMessage,
@@ -650,6 +722,7 @@ export function useChatMessages(
     cleanupPartialCommandMessages,
     isLocalHost,
     handleTruncateAndSend,
-    handleSummarizeToKnowledge
+    handleSummarizeToKnowledge,
+    handleSummarizeToSkill
   }
 }
