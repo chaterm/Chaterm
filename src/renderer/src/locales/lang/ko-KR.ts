@@ -1412,7 +1412,11 @@ export default {
     importInvalidMetadata: 'SKILL.md에 필수 필드가 없습니다',
     importOverwriteTitle: '스킬이 이미 존재합니다',
     importOverwriteContent: '기존 스킬을 덮어쓰시겠습니까?',
-    importOverwrite: '덮어쓰기'
+    importOverwrite: '덮어쓰기',
+    editSkill: '스킬 편집',
+    readContentError: '스킬 내용을 읽지 못했습니다',
+    updateSuccess: '스킬이 성공적으로 업데이트되었습니다',
+    updateError: '스킬 업데이트에 실패했습니다'
   },
   knowledgeCenter: {
     title: '지식 베이스',

@@ -1420,7 +1420,11 @@ export default {
     importInvalidMetadata: 'File SKILL.md manca campi obbligatori',
     importOverwriteTitle: 'Competenza già esistente',
     importOverwriteContent: 'Vuoi sovrascrivere la competenza esistente?',
-    importOverwrite: 'Sovrascrivi'
+    importOverwrite: 'Sovrascrivi',
+    editSkill: 'Modifica competenza',
+    readContentError: 'Impossibile leggere il contenuto della competenza',
+    updateSuccess: 'Competenza aggiornata con successo',
+    updateError: 'Impossibile aggiornare la competenza'
   },
   knowledgeCenter: {
     title: 'Base di conoscenza',

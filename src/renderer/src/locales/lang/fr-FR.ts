@@ -1422,7 +1422,11 @@ export default {
     importInvalidMetadata: 'Fichier SKILL.md manquant des champs requis',
     importOverwriteTitle: 'Compétence déjà existante',
     importOverwriteContent: 'Voulez-vous remplacer la compétence existante ?',
-    importOverwrite: 'Remplacer'
+    importOverwrite: 'Remplacer',
+    editSkill: 'Modifier la compétence',
+    readContentError: 'Impossible de lire le contenu de la compétence',
+    updateSuccess: 'Compétence mise à jour avec succès',
+    updateError: 'Impossible de mettre à jour la compétence'
   },
   knowledgeCenter: {
     title: 'Base de connaissances',

@@ -1416,7 +1416,11 @@ export default {
     importInvalidMetadata: 'SKILL.mdに必須フィールドがありません',
     importOverwriteTitle: 'スキルが既に存在します',
     importOverwriteContent: '既存のスキルを上書きしますか？',
-    importOverwrite: '上書き'
+    importOverwrite: '上書き',
+    editSkill: 'スキルを編集',
+    readContentError: 'スキルの内容の読み込みに失敗しました',
+    updateSuccess: 'スキルが正常に更新されました',
+    updateError: 'スキルの更新に失敗しました'
   },
   knowledgeCenter: {
     title: '知識ベース',

@@ -1407,7 +1407,11 @@ export default {
     importInvalidMetadata: 'SKILL.md 缺少必填字段',
     importOverwriteTitle: '技能已存在',
     importOverwriteContent: '是否覆盖已存在的技能？',
-    importOverwrite: '覆盖'
+    importOverwrite: '覆盖',
+    editSkill: '编辑技能',
+    readContentError: '读取技能内容失败',
+    updateSuccess: '技能更新成功',
+    updateError: '更新技能失败'
   },
   knowledgeCenter: {
     title: '知识库',

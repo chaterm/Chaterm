@@ -1415,7 +1415,11 @@ export default {
     importInvalidMetadata: 'Файл SKILL.md отсутствует обязательные поля',
     importOverwriteTitle: 'Навык уже существует',
     importOverwriteContent: 'Хотите заменить существующий навык?',
-    importOverwrite: 'Заменить'
+    importOverwrite: 'Заменить',
+    editSkill: 'Редактировать навык',
+    readContentError: 'Не удалось прочитать содержимое навыка',
+    updateSuccess: 'Навык успешно обновлен',
+    updateError: 'Не удалось обновить навык'
   },
   knowledgeCenter: {
     title: 'База знаний',

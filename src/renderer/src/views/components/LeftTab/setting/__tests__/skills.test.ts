@@ -11,7 +11,7 @@
  */
 
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
-import { mount, VueWrapper } from '@vue/test-utils'
+import { mount, flushPromises, VueWrapper } from '@vue/test-utils'
 import { nextTick } from 'vue'
 import { createPinia, setActivePinia } from 'pinia'
 import SkillsComponent from '../skills.vue'
@@ -69,9 +69,14 @@ const mockTranslations: Record<string, string> = {
   'skills.importOverwriteTitle': 'Skill Already Exists',
   'skills.importOverwriteContent': 'Do you want to overwrite the existing skill?',
   'skills.importOverwrite': 'Overwrite',
+  'skills.editSkill': 'Edit Skill',
+  'skills.readContentError': 'Failed to read skill content',
+  'skills.updateSuccess': 'Skill updated successfully',
+  'skills.updateError': 'Failed to update skill',
   'common.delete': 'Delete',
   'common.cancel': 'Cancel',
-  'common.create': 'Create'
+  'common.create': 'Create',
+  'common.save': 'Save'
 }
 
 const mockT = (key: string, params?: Record<string, string>) => {
@@ -93,12 +98,15 @@ vi.mock('vue-i18n', () => ({
 // Mock window.api
 const mockWindowApi = {
   getSkills: vi.fn(),
+  getSkillsUserPath: vi.fn(),
   reloadSkills: vi.fn(),
   openSkillsFolder: vi.fn(),
   importSkillZip: vi.fn(),
   createSkill: vi.fn(),
   deleteSkill: vi.fn(),
   setSkillEnabled: vi.fn(),
+  readSkillContent: vi.fn(),
+  updateSkill: vi.fn(),
   onSkillsUpdate: vi.fn(),
   showOpenDialog: vi.fn()
 }
@@ -160,7 +168,8 @@ describe('Skills Component', () => {
           PlusOutlined: { template: '<span class="plus-icon" />' },
           DeleteOutlined: { template: '<span class="delete-icon" />' },
           ThunderboltOutlined: { template: '<span class="thunderbolt-icon" />' },
-          ImportOutlined: { template: '<span class="import-icon" />' }
+          ImportOutlined: { template: '<span class="import-icon" />' },
+          EditOutlined: { template: '<span class="edit-icon" />' }
         },
         mocks: {
           $t: mockT
@@ -179,21 +188,24 @@ describe('Skills Component', () => {
     global.window = global.window || ({} as Window & typeof globalThis)
     ;(global.window as unknown as { api: typeof mockWindowApi }).api = mockWindowApi
 
-    // Setup unsubscribe mock
-    unsubscribeMock = vi.fn()
-    mockWindowApi.onSkillsUpdate.mockReturnValue(unsubscribeMock)
-
     // Reset all mocks
     vi.clearAllMocks()
 
+    // Setup unsubscribe mock (must be after clearAllMocks)
+    unsubscribeMock = vi.fn()
+    mockWindowApi.onSkillsUpdate.mockReturnValue(unsubscribeMock)
+
     // Setup default mock return values
     mockWindowApi.getSkills.mockResolvedValue([])
+    mockWindowApi.getSkillsUserPath.mockResolvedValue('/user/skills')
     mockWindowApi.reloadSkills.mockResolvedValue(undefined)
     mockWindowApi.openSkillsFolder.mockResolvedValue(undefined)
     mockWindowApi.importSkillZip.mockResolvedValue({ success: true, skillName: 'Test Skill' })
     mockWindowApi.createSkill.mockResolvedValue({ success: true })
     mockWindowApi.deleteSkill.mockResolvedValue(undefined)
     mockWindowApi.setSkillEnabled.mockResolvedValue(undefined)
+    mockWindowApi.readSkillContent.mockResolvedValue({ metadata: { name: 'test', description: 'desc' }, content: 'body' })
+    mockWindowApi.updateSkill.mockResolvedValue(undefined)
     mockWindowApi.showOpenDialog.mockResolvedValue({ canceled: true, filePaths: [] })
 
     // Clear console output for cleaner test results
@@ -253,8 +265,7 @@ describe('Skills Component', () => {
 
     it('should subscribe to skills updates on mount', async () => {
       wrapper = createWrapper()
-      await nextTick()
-      await nextTick()
+      await flushPromises()
 
       expect(mockWindowApi.onSkillsUpdate).toHaveBeenCalled()
     })
@@ -264,16 +275,14 @@ describe('Skills Component', () => {
       mockWindowApi.getSkills.mockRejectedValue(error)
 
       wrapper = createWrapper()
-      await nextTick()
-      await nextTick()
+      await flushPromises()
 
       expect(message.error).toHaveBeenCalledWith('Failed to load skills')
     })
 
     it('should update skills when onSkillsUpdate callback is called', async () => {
       wrapper = createWrapper()
-      await nextTick()
-      await nextTick()
+      await flushPromises()
 
       const updateCallback = mockWindowApi.onSkillsUpdate.mock.calls[0][0] as (skills: any[]) => void
       const updatedSkills = [
@@ -293,8 +302,7 @@ describe('Skills Component', () => {
 
     it('should cleanup subscription on unmount', async () => {
       wrapper = createWrapper()
-      await nextTick()
-      await nextTick()
+      await flushPromises()
 
       wrapper.unmount()
 
@@ -1473,6 +1481,382 @@ describe('Skills Component', () => {
     it('should have delete button with title attribute', () => {
       const deleteButton = wrapper.find('.delete-btn')
       expect(deleteButton.attributes('title')).toBe('Delete')
+    })
+
+    it('should have edit button with title attribute for editable skills', async () => {
+      const editableSkills = [
+        {
+          name: 'Test Skill',
+          description: 'Test description',
+          enabled: true,
+          path: '/user/skills/test-skill/SKILL.md'
+        }
+      ]
+      mockWindowApi.getSkills.mockResolvedValue(editableSkills)
+      wrapper = createWrapper()
+      await flushPromises()
+
+      const editButton = wrapper.find('.edit-btn')
+      expect(editButton.exists()).toBe(true)
+      expect(editButton.attributes('title')).toBe('Edit Skill')
+    })
+  })
+
+  describe('Edit Skill - isEditable', () => {
+    it('should show edit button for user-created skills', async () => {
+      const mockSkills = [
+        {
+          name: 'user-skill',
+          description: 'User skill',
+          enabled: true,
+          path: '/user/skills/user-skill/SKILL.md'
+        }
+      ]
+      mockWindowApi.getSkills.mockResolvedValue(mockSkills)
+      wrapper = createWrapper()
+      await flushPromises()
+
+      const editButton = wrapper.find('.edit-btn')
+      expect(editButton.exists()).toBe(true)
+    })
+
+    it('should not show edit button for built-in skills', async () => {
+      const mockSkills = [
+        {
+          name: 'builtin-skill',
+          description: 'Built-in skill',
+          enabled: true,
+          path: '/app/resources/skills/builtin-skill/SKILL.md'
+        }
+      ]
+      mockWindowApi.getSkills.mockResolvedValue(mockSkills)
+      wrapper = createWrapper()
+      await flushPromises()
+
+      const editButton = wrapper.find('.edit-btn')
+      expect(editButton.exists()).toBe(false)
+    })
+
+    it('should not show edit button for skills without path', async () => {
+      const mockSkills = [
+        {
+          name: 'no-path-skill',
+          description: 'No path skill',
+          enabled: true
+        }
+      ]
+      mockWindowApi.getSkills.mockResolvedValue(mockSkills)
+      wrapper = createWrapper()
+      await flushPromises()
+
+      const editButton = wrapper.find('.edit-btn')
+      expect(editButton.exists()).toBe(false)
+    })
+
+    it('should correctly determine editability via isEditable method', async () => {
+      mockWindowApi.getSkills.mockResolvedValue([])
+      wrapper = createWrapper()
+      await flushPromises()
+
+      const vm = wrapper.vm as any
+
+      expect(vm.isEditable({ name: 'test', path: '/user/skills/test/SKILL.md' })).toBe(true)
+      expect(vm.isEditable({ name: 'test', path: '/app/resources/skills/test/SKILL.md' })).toBe(false)
+      expect(vm.isEditable({ name: 'test' })).toBe(false)
+      expect(vm.isEditable({ name: 'test', path: '' })).toBe(false)
+    })
+
+    it('should show edit button only for user skills in mixed list', async () => {
+      const mockSkills = [
+        {
+          name: 'user-skill',
+          description: 'User skill',
+          enabled: true,
+          path: '/user/skills/user-skill/SKILL.md'
+        },
+        {
+          name: 'builtin-skill',
+          description: 'Built-in skill',
+          enabled: true,
+          path: '/app/resources/skills/builtin-skill/SKILL.md'
+        }
+      ]
+      mockWindowApi.getSkills.mockResolvedValue(mockSkills)
+      wrapper = createWrapper()
+      await flushPromises()
+
+      const editButtons = wrapper.findAll('.edit-btn')
+      expect(editButtons.length).toBe(1)
+    })
+  })
+
+  describe('Edit Skill - Open Edit Modal', () => {
+    const editableSkill = {
+      name: 'my-skill',
+      description: 'My skill description',
+      enabled: true,
+      path: '/user/skills/my-skill/SKILL.md'
+    }
+
+    beforeEach(async () => {
+      mockWindowApi.getSkills.mockResolvedValue([editableSkill])
+      mockWindowApi.readSkillContent.mockResolvedValue({
+        metadata: { name: 'my-skill', description: 'My skill description' },
+        content: '# My Skill\n\nSkill instructions here.'
+      })
+      wrapper = createWrapper()
+      await flushPromises()
+    })
+
+    it('should open edit modal when edit button is clicked', async () => {
+      const editButton = wrapper.find('.edit-btn')
+      await editButton.trigger('click')
+      await flushPromises()
+
+      const vm = wrapper.vm as any
+      expect(vm.editModalVisible).toBe(true)
+    })
+
+    it('should call readSkillContent when opening edit modal', async () => {
+      const vm = wrapper.vm as any
+      await vm.openEditModal(editableSkill)
+      await nextTick()
+
+      expect(mockWindowApi.readSkillContent).toHaveBeenCalledWith('my-skill')
+    })
+
+    it('should populate edit form with skill content', async () => {
+      const vm = wrapper.vm as any
+      await vm.openEditModal(editableSkill)
+      await nextTick()
+
+      expect(vm.editSkill.name).toBe('my-skill')
+      expect(vm.editSkill.description).toBe('My skill description')
+      expect(vm.editSkill.content).toBe('# My Skill\n\nSkill instructions here.')
+    })
+
+    it('should show error message when readSkillContent fails', async () => {
+      mockWindowApi.readSkillContent.mockRejectedValue(new Error('Read failed'))
+
+      const vm = wrapper.vm as any
+      await vm.openEditModal(editableSkill)
+      await nextTick()
+
+      expect(message.error).toHaveBeenCalledWith('Failed to read skill content')
+      expect(vm.editModalVisible).toBe(false)
+    })
+
+    it('should not open modal when readSkillContent fails', async () => {
+      mockWindowApi.readSkillContent.mockRejectedValue(new Error('Read failed'))
+
+      const vm = wrapper.vm as any
+      await vm.openEditModal(editableSkill)
+      await nextTick()
+
+      expect(vm.editModalVisible).toBe(false)
+    })
+
+    it('should handle empty content from readSkillContent', async () => {
+      mockWindowApi.readSkillContent.mockResolvedValue({
+        metadata: { name: 'my-skill', description: '' },
+        content: ''
+      })
+
+      const vm = wrapper.vm as any
+      await vm.openEditModal(editableSkill)
+      await nextTick()
+
+      expect(vm.editSkill.name).toBe('my-skill')
+      expect(vm.editSkill.description).toBe('')
+      expect(vm.editSkill.content).toBe('')
+      expect(vm.editModalVisible).toBe(true)
+    })
+  })
+
+  describe('Edit Skill - Update Skill', () => {
+    beforeEach(async () => {
+      mockWindowApi.getSkills.mockResolvedValue([])
+      wrapper = createWrapper()
+      await flushPromises()
+    })
+
+    it('should call updateSkill API with correct parameters', async () => {
+      const vm = wrapper.vm as any
+      vm.editSkill.name = 'test-skill'
+      vm.editSkill.description = 'Updated description'
+      vm.editSkill.content = 'Updated content'
+
+      await vm.updateSkill()
+      await nextTick()
+
+      expect(mockWindowApi.updateSkill).toHaveBeenCalledWith(
+        'test-skill',
+        { name: 'test-skill', description: 'Updated description' },
+        'Updated content'
+      )
+    })
+
+    it('should show success message after successful update', async () => {
+      const vm = wrapper.vm as any
+      vm.editSkill.name = 'test-skill'
+      vm.editSkill.description = 'Updated'
+      vm.editSkill.content = 'Updated'
+
+      await vm.updateSkill()
+      await nextTick()
+
+      expect(message.success).toHaveBeenCalledWith('Skill updated successfully')
+    })
+
+    it('should close modal after successful update', async () => {
+      const vm = wrapper.vm as any
+      vm.editModalVisible = true
+      vm.editSkill.name = 'test-skill'
+      vm.editSkill.description = 'Updated'
+      vm.editSkill.content = 'Updated'
+
+      await vm.updateSkill()
+      await nextTick()
+
+      expect(vm.editModalVisible).toBe(false)
+    })
+
+    it('should show error message on update failure', async () => {
+      mockWindowApi.updateSkill.mockRejectedValue(new Error('Update failed'))
+
+      const vm = wrapper.vm as any
+      vm.editSkill.name = 'test-skill'
+      vm.editSkill.description = 'Updated'
+      vm.editSkill.content = 'Updated'
+
+      await vm.updateSkill()
+      await nextTick()
+
+      expect(message.error).toHaveBeenCalledWith('Failed to update skill')
+    })
+
+    it('should not close modal on update failure', async () => {
+      mockWindowApi.updateSkill.mockRejectedValue(new Error('Update failed'))
+
+      const vm = wrapper.vm as any
+      vm.editModalVisible = true
+      vm.editSkill.name = 'test-skill'
+      vm.editSkill.description = 'Updated'
+      vm.editSkill.content = 'Updated'
+
+      await vm.updateSkill()
+      await nextTick()
+
+      expect(vm.editModalVisible).toBe(true)
+    })
+
+    it('should validate description is required', async () => {
+      const vm = wrapper.vm as any
+      vm.editSkill.name = 'test-skill'
+      vm.editSkill.description = ''
+      vm.editSkill.content = 'Some content'
+
+      await vm.updateSkill()
+      await nextTick()
+
+      expect(message.warning).toHaveBeenCalledWith('Please fill all required fields')
+      expect(mockWindowApi.updateSkill).not.toHaveBeenCalled()
+    })
+
+    it('should validate content is required', async () => {
+      const vm = wrapper.vm as any
+      vm.editSkill.name = 'test-skill'
+      vm.editSkill.description = 'Some description'
+      vm.editSkill.content = ''
+
+      await vm.updateSkill()
+      await nextTick()
+
+      expect(message.warning).toHaveBeenCalledWith('Please fill all required fields')
+      expect(mockWindowApi.updateSkill).not.toHaveBeenCalled()
+    })
+
+    it('should set loading state during update', async () => {
+      let resolveUpdate: () => void
+      const updatePromise = new Promise<void>((resolve) => {
+        resolveUpdate = resolve
+      })
+      mockWindowApi.updateSkill.mockReturnValue(updatePromise)
+
+      const vm = wrapper.vm as any
+      vm.editSkill.name = 'test-skill'
+      vm.editSkill.description = 'Updated'
+      vm.editSkill.content = 'Updated'
+
+      const updatePromise2 = vm.updateSkill()
+
+      await nextTick()
+      expect(vm.isUpdating).toBe(true)
+
+      resolveUpdate!()
+      await updatePromise2
+      await nextTick()
+
+      expect(vm.isUpdating).toBe(false)
+    })
+
+    it('should reset loading state after update error', async () => {
+      mockWindowApi.updateSkill.mockRejectedValue(new Error('Failed'))
+
+      const vm = wrapper.vm as any
+      vm.editSkill.name = 'test-skill'
+      vm.editSkill.description = 'Updated'
+      vm.editSkill.content = 'Updated'
+
+      await vm.updateSkill()
+      await nextTick()
+
+      expect(vm.isUpdating).toBe(false)
+    })
+  })
+
+  describe('Edit Skill - Initialization', () => {
+    it('should fetch user skills path on mount', async () => {
+      wrapper = createWrapper()
+      await flushPromises()
+
+      expect(mockWindowApi.getSkillsUserPath).toHaveBeenCalled()
+    })
+
+    it('should store user skills path', async () => {
+      mockWindowApi.getSkillsUserPath.mockResolvedValue('/custom/user/skills')
+      wrapper = createWrapper()
+      await flushPromises()
+
+      const vm = wrapper.vm as any
+      expect(vm.userSkillsPath).toBe('/custom/user/skills')
+    })
+
+    it('should handle getSkillsUserPath failure gracefully', async () => {
+      mockWindowApi.getSkillsUserPath.mockRejectedValue(new Error('Failed'))
+      wrapper = createWrapper()
+      await flushPromises()
+
+      const vm = wrapper.vm as any
+      expect(vm.userSkillsPath).toBe('')
+    })
+
+    it('should not show edit buttons when userSkillsPath is empty', async () => {
+      mockWindowApi.getSkillsUserPath.mockRejectedValue(new Error('Failed'))
+      const mockSkills = [
+        {
+          name: 'test-skill',
+          description: 'Test',
+          enabled: true,
+          path: '/user/skills/test-skill/SKILL.md'
+        }
+      ]
+      mockWindowApi.getSkills.mockResolvedValue(mockSkills)
+      wrapper = createWrapper()
+      await flushPromises()
+
+      const editButton = wrapper.find('.edit-btn')
+      expect(editButton.exists()).toBe(false)
     })
   })
 })

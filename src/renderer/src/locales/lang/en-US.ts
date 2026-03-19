@@ -1421,7 +1421,11 @@ export default {
     importInvalidMetadata: 'SKILL.md missing required fields',
     importOverwriteTitle: 'Skill Already Exists',
     importOverwriteContent: 'Overwrite existing skill?',
-    importOverwrite: 'Overwrite'
+    importOverwrite: 'Overwrite',
+    editSkill: 'Edit Skill',
+    readContentError: 'Failed to read skill content',
+    updateSuccess: 'Skill updated successfully',
+    updateError: 'Failed to update skill'
   },
   knowledgeCenter: {
     title: 'Knowledge Base',

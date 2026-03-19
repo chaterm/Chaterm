@@ -767,6 +767,30 @@ ipcMain.handle('skills:import-zip', async (_event, zipPath: string, overwrite?: 
   }
 })
 
+ipcMain.handle('skills:read-content', async (_event, skillName: string) => {
+  try {
+    if (controller && controller.skillsManager) {
+      return await controller.skillsManager.readSkillContent(skillName)
+    }
+    throw new Error('Skills manager not initialized')
+  } catch (error) {
+    logger.error('Failed to read skill content', { error: error })
+    throw error
+  }
+})
+
+ipcMain.handle('skills:update', async (_event, skillName: string, metadata: any, content: string) => {
+  try {
+    if (controller && controller.skillsManager) {
+      return await controller.skillsManager.updateUserSkill(skillName, metadata, content)
+    }
+    throw new Error('Skills manager not initialized')
+  } catch (error) {
+    logger.error('Failed to update skill', { error: error })
+    throw error
+  }
+})
+
 // ==================== End Skills IPC Handlers ====================
 
 // Get all Cookies
