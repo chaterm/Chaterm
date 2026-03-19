@@ -1452,7 +1452,18 @@ export default {
     importErrorFileTypeNotAllowed: 'Dieser Dateityp kann nicht importiert werden',
     importErrorFileTooLarge: 'Datei ist zu groß zum Importieren',
     importErrorFileFailed: 'Datei konnte nicht importiert werden',
-    importErrorFolderFailed: 'Ordner konnte nicht importiert werden'
+    importErrorFolderFailed: 'Ordner konnte nicht importiert werden',
+    myCapacity: 'Mein Speicher',
+    capacityDetail: 'Details',
+    capacitySourceDetail: 'Speicherquellen-Details',
+    serviceItem: 'Service',
+    expireAt: 'Läuft ab',
+    capacity: 'Kapazität',
+    total: 'Gesamt',
+    freeTierName: 'Persönlicher Gratis-Tarif',
+    proTierName: 'Persönlicher Pro-Tarif',
+    ultraTierName: 'Persönlicher Ultra-Tarif',
+    expireNever: 'Unbegrenzt gültig'
   },
   interaction: {
     waiting: 'Warten auf Eingabe...',

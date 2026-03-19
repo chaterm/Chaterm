@@ -1446,7 +1446,18 @@ export default {
     importErrorFileTypeNotAllowed: 'This file type cannot be imported',
     importErrorFileTooLarge: 'File is too large to import',
     importErrorFileFailed: 'Failed to import file',
-    importErrorFolderFailed: 'Failed to import folder'
+    importErrorFolderFailed: 'Failed to import folder',
+    myCapacity: 'My Capacity',
+    capacityDetail: 'Details',
+    capacitySourceDetail: 'Capacity Source Details',
+    serviceItem: 'Service',
+    expireAt: 'Expires',
+    capacity: 'Capacity',
+    total: 'Total',
+    freeTierName: 'Personal Free Plan',
+    proTierName: 'Personal Pro Plan',
+    ultraTierName: 'Personal Ultra Plan',
+    expireNever: 'Never expires'
   },
   interaction: {
     waiting: 'Waiting for input...',

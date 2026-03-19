@@ -1437,7 +1437,18 @@ export default {
     importErrorFileTypeNotAllowed: '이 파일 형식은 가져올 수 없습니다',
     importErrorFileTooLarge: '파일이 너무 커서 가져올 수 없습니다',
     importErrorFileFailed: '파일 가져오기 실패',
-    importErrorFolderFailed: '폴더 가져오기 실패'
+    importErrorFolderFailed: '폴더 가져오기 실패',
+    myCapacity: '내 용량',
+    capacityDetail: '세부정보',
+    capacitySourceDetail: '용량 출처 세부정보',
+    serviceItem: '서비스',
+    expireAt: '만료일',
+    capacity: '용량',
+    total: '합계',
+    freeTierName: '개인 무료 요금제',
+    proTierName: '개인 Pro 요금제',
+    ultraTierName: '개인 Ultra 요금제',
+    expireNever: '만료 없음'
   },
   interaction: {
     waiting: '입력 대기 중...',

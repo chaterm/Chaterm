@@ -1449,7 +1449,18 @@ export default {
     importErrorFileTypeNotAllowed: 'Этот тип файла нельзя импортировать',
     importErrorFileTooLarge: 'Файл слишком большой для импорта',
     importErrorFileFailed: 'Не удалось импортировать файл',
-    importErrorFolderFailed: 'Не удалось импортировать папку'
+    importErrorFolderFailed: 'Не удалось импортировать папку',
+    myCapacity: 'Мой объём',
+    capacityDetail: 'Подробнее',
+    capacitySourceDetail: 'Источники объёма',
+    serviceItem: 'Услуга',
+    expireAt: 'Истекает',
+    capacity: 'Объём',
+    total: 'Итого',
+    freeTierName: 'Персональный бесплатный тариф',
+    proTierName: 'Персональный тариф Pro',
+    ultraTierName: 'Персональный тариф Ultra',
+    expireNever: 'Без срока'
   },
   interaction: {
     title: 'Требуется взаимодействие с командой',

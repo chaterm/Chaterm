@@ -1433,7 +1433,18 @@ export default {
     importErrorFileTypeNotAllowed: '該檔案類型不支援匯入',
     importErrorFileTooLarge: '檔案過大，無法匯入',
     importErrorFileFailed: '檔案匯入失敗',
-    importErrorFolderFailed: '資料夾匯入失敗'
+    importErrorFolderFailed: '資料夾匯入失敗',
+    myCapacity: '我的容量',
+    capacityDetail: '明細',
+    capacitySourceDetail: '容量來源明細',
+    serviceItem: '服務項',
+    expireAt: '到期時間',
+    capacity: '容量',
+    total: '總計',
+    freeTierName: '個人免費版',
+    proTierName: '個人pro套餐',
+    ultraTierName: '個人ultra套餐',
+    expireNever: '長期有效'
   },
   interaction: {
     waiting: '等待輸入...',

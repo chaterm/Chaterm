@@ -1423,7 +1423,18 @@ export default {
     importErrorFileTypeNotAllowed: 'نوع الملف هذا لا يمكن استيراده',
     importErrorFileTooLarge: 'الملف كبير جداً ولا يمكن استيراده',
     importErrorFileFailed: 'فشل استيراد الملف',
-    importErrorFolderFailed: 'فشل استيراد المجلد'
+    importErrorFolderFailed: 'فشل استيراد المجلد',
+    myCapacity: 'سعتي',
+    capacityDetail: 'التفاصيل',
+    capacitySourceDetail: 'تفاصيل مصدر السعة',
+    serviceItem: 'الخدمة',
+    expireAt: 'ينتهي',
+    capacity: 'السعة',
+    total: 'المجموع',
+    freeTierName: 'خطة شخصية مجانية',
+    proTierName: 'خطة شخصية Pro',
+    ultraTierName: 'خطة شخصية Ultra',
+    expireNever: 'لا ينتهي'
   },
   interaction: {
     waiting: 'جاري الانتظار للإدخال...',

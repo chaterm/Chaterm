@@ -1007,6 +1007,8 @@ const api = {
   },
   kbSyncGetStatus: () => ipcRenderer.invoke('kb:sync-get-status'),
   kbSyncLastTime: () => ipcRenderer.invoke('kb:sync-last-time'),
+  kbSyncLastResults: () => ipcRenderer.invoke('kb:sync-last-results'),
+  getKbCloudStorage: () => ipcRenderer.invoke('kb:get-cloud-storage'),
 
   agentEnableAndConfigure: (opts: { enabled: boolean }) => ipcRenderer.invoke('ssh:agent:enable-and-configure', opts),
   addKey: (opts: { keyData: string; passphrase?: string; comment?: string }) => ipcRenderer.invoke('ssh:agent:add-key', opts),

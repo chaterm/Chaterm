@@ -1454,7 +1454,18 @@ export default {
     importErrorFileTypeNotAllowed: 'Questo tipo di file non può essere importato',
     importErrorFileTooLarge: 'File troppo grande per essere importato',
     importErrorFileFailed: 'Importazione file non riuscita',
-    importErrorFolderFailed: 'Importazione cartella non riuscita'
+    importErrorFolderFailed: 'Importazione cartella non riuscita',
+    myCapacity: 'La mia capacità',
+    capacityDetail: 'Dettagli',
+    capacitySourceDetail: 'Dettaglio fonti capacità',
+    serviceItem: 'Servizio',
+    expireAt: 'Scadenza',
+    capacity: 'Capacità',
+    total: 'Totale',
+    freeTierName: 'Piano personale gratuito',
+    proTierName: 'Piano personale Pro',
+    ultraTierName: 'Piano personale Ultra',
+    expireNever: 'Mai in scadenza'
   },
   interaction: {
     title: 'Interazione comando richiesta',
