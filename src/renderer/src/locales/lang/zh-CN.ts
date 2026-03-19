@@ -1429,7 +1429,18 @@ export default {
     importErrorFileTypeNotAllowed: '该文件类型不支持导入',
     importErrorFileTooLarge: '文件过大，无法导入',
     importErrorFileFailed: '文件导入失败',
-    importErrorFolderFailed: '文件夹导入失败'
+    importErrorFolderFailed: '文件夹导入失败',
+    myCapacity: '我的容量',
+    capacityDetail: '明细',
+    capacitySourceDetail: '容量来源明细',
+    serviceItem: '服务项',
+    expireAt: '到期时间',
+    capacity: '容量',
+    total: '总计',
+    freeTierName: '个人免费版',
+    proTierName: '个人pro套餐',
+    ultraTierName: '个人ultra套餐',
+    expireNever: '长期有效'
   },
   interaction: {
     waiting: '等待输入...',
