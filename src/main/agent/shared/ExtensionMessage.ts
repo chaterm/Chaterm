@@ -143,6 +143,8 @@ export type ChatermSay =
   | 'sshInfo'
   | 'search_result'
   | 'knowledge_summary'
+  | 'skill_summary'
+  | 'skill_activated'
 
 export interface ChatermSayTool {
   tool: 'readFile' | 'listFilesTopLevel' | 'listFilesRecursive' | 'searchFiles'

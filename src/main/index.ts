@@ -65,6 +65,7 @@ import { getActualTheme, loadUserTheme } from './themeManager'
 import { getLoginBaseUrl, getEdition, getProtocolPrefix, getProtocolName } from './config/edition'
 import { TelemetrySetting } from '@shared/TelemetrySetting'
 import { registerKnowledgeBaseHandlers } from './services/knowledgebase'
+import { startKbSync, stopKbSync } from './services/knowledgebase/sync'
 import { setupInteractionIpcHandlers } from './agent/services/interaction-detector/ipc-handlers'
 import type { WebviewMessage } from '@shared/WebviewMessage'
 import type { SkillMetadata } from '@shared/skills'
@@ -766,6 +767,30 @@ ipcMain.handle('skills:import-zip', async (_event, zipPath: string, overwrite?: 
   }
 })
 
+ipcMain.handle('skills:read-content', async (_event, skillName: string) => {
+  try {
+    if (controller && controller.skillsManager) {
+      return await controller.skillsManager.readSkillContent(skillName)
+    }
+    throw new Error('Skills manager not initialized')
+  } catch (error) {
+    logger.error('Failed to read skill content', { error: error })
+    throw error
+  }
+})
+
+ipcMain.handle('skills:update', async (_event, skillName: string, metadata: any, content: string) => {
+  try {
+    if (controller && controller.skillsManager) {
+      return await controller.skillsManager.updateUserSkill(skillName, metadata, content)
+    }
+    throw new Error('Skills manager not initialized')
+  } catch (error) {
+    logger.error('Failed to update skill', { error: error })
+    throw error
+  }
+})
+
 // ==================== End Skills IPC Handlers ====================
 
 // Get all Cookies
@@ -825,6 +850,10 @@ ipcMain.handle('dialog:openFile', async (event, options) => {
   const { dialog } = require('electron')
   const result = await dialog.showOpenDialog(BrowserWindow.fromWebContents(event.sender), options)
   return result
+})
+
+ipcMain.handle('app:getHomePath', () => {
+  return app.getPath('home')
 })
 
 ipcMain.handle('saveCustomBackground', async (_, sourcePath: string) => {
@@ -1343,6 +1372,7 @@ function setupIPC(): void {
         if (syncStateManager) {
           syncStateManager.enableSync(uid)
         }
+        startKbSync()
       } else {
         // Disable sync
         if (dataSyncController) {
@@ -1352,6 +1382,7 @@ function setupIPC(): void {
           }
 
           logger.info('Stopping data sync service...')
+          await stopKbSync()
           await dataSyncController.destroy()
           dataSyncController = null
           logger.info('Data sync service stopped')
@@ -2508,6 +2539,87 @@ ipcMain.handle('organization-asset-comment', async (_, data) => {
     return result
   } catch (error) {
     logger.error('Main process organization-asset-comment error', { error: error })
+    return { data: { message: 'failed', error: error instanceof Error ? error.message : String(error) } }
+  }
+})
+
+// Organization asset management IPC handlers
+ipcMain.handle('get-organization-assets', async (_, data) => {
+  try {
+    const { organizationUuid, search, page, pageSize } = data
+
+    if (!organizationUuid) {
+      return { data: { message: 'failed', error: 'organizationUuid is required' } }
+    }
+
+    const result = chatermDbService.getOrganizationAssets(organizationUuid, search, page, pageSize)
+    return result
+  } catch (error) {
+    logger.error('Main process get-organization-assets error', { error: error })
+    return { data: { message: 'failed', error: error instanceof Error ? error.message : String(error) } }
+  }
+})
+
+ipcMain.handle('create-organization-asset', async (_, data) => {
+  try {
+    const { organizationUuid, hostname, host, comment } = data
+
+    if (!organizationUuid || !hostname || !host) {
+      return { data: { message: 'failed', error: 'organizationUuid, hostname, and host are required' } }
+    }
+
+    const result = chatermDbService.createOrganizationAsset(organizationUuid, { hostname, host, comment })
+    return result
+  } catch (error) {
+    logger.error('Main process create-organization-asset error', { error: error })
+    return { data: { message: 'failed', error: error instanceof Error ? error.message : String(error) } }
+  }
+})
+
+ipcMain.handle('update-organization-asset', async (_, data) => {
+  try {
+    const { uuid, hostname, host, comment } = data
+
+    if (!uuid) {
+      return { data: { message: 'failed', error: 'uuid is required' } }
+    }
+
+    const result = chatermDbService.updateOrganizationAsset(uuid, { hostname, host, comment })
+    return result
+  } catch (error) {
+    logger.error('Main process update-organization-asset error', { error: error })
+    return { data: { message: 'failed', error: error instanceof Error ? error.message : String(error) } }
+  }
+})
+
+ipcMain.handle('delete-organization-asset', async (_, data) => {
+  try {
+    const { uuid } = data
+
+    if (!uuid) {
+      return { data: { message: 'failed', error: 'uuid is required' } }
+    }
+
+    const result = chatermDbService.deleteOrganizationAsset(uuid)
+    return result
+  } catch (error) {
+    logger.error('Main process delete-organization-asset error', { error: error })
+    return { data: { message: 'failed', error: error instanceof Error ? error.message : String(error) } }
+  }
+})
+
+ipcMain.handle('batch-delete-organization-assets', async (_, data) => {
+  try {
+    const { uuids } = data
+
+    if (!uuids || !Array.isArray(uuids) || uuids.length === 0) {
+      return { data: { message: 'failed', error: 'uuids array is required' } }
+    }
+
+    const result = chatermDbService.batchDeleteOrganizationAssets(uuids)
+    return result
+  } catch (error) {
+    logger.error('Main process batch-delete-organization-assets error', { error: error })
     return { data: { message: 'failed', error: error instanceof Error ? error.message : String(error) } }
   }
 })

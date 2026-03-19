@@ -19,7 +19,7 @@ import { ApiHandler, buildApiHandler } from '@api/index'
 import { ApiStream, ApiStreamUsageChunk, ApiStreamReasoningChunk, ApiStreamTextChunk } from '@api/transform/stream'
 import { formatContentBlockToMarkdown } from '@integrations/misc/export-markdown'
 import { showSystemNotification } from '@integrations/notifications'
-import { ApiConfiguration } from '@shared/api'
+import { ApiConfiguration, ApiProvider } from '@shared/api'
 import { findLast, findLastIndex, parsePartialArrayString } from '@shared/array'
 import { AutoApprovalSettings } from '@shared/AutoApprovalSettings'
 import { combineApiRequests } from '@shared/combineApiRequests'
@@ -67,12 +67,13 @@ interface MessageUpdater {
 import { AssistantMessageContent, parseAssistantMessageV2, ToolParamName, ToolUseName, TextContent, ToolUse } from '@core/assistant-message'
 import { RemoteTerminalManager, ConnectionInfo, RemoteTerminalInfo, RemoteTerminalProcessResultPromise } from '../../integrations/remote-terminal'
 import { LocalTerminalManager, LocalCommandProcess } from '../../integrations/local-terminal'
+import { getK8sAgentManager } from '../../integrations/k8s'
 import { createLlmCaller } from '../../services/interaction-detector/llm-caller'
 import type { InteractionResult } from '../../services/interaction-detector/types'
 import { formatResponse } from '@core/prompts/responses'
 import { addUserInstructions, SYSTEM_PROMPT, SYSTEM_PROMPT_CN } from '@core/prompts/system'
 import { getSwitchPromptByAssetType } from '@core/prompts/switch-prompts'
-import { SLASH_COMMANDS, getSummaryToDocPrompt } from '@core/prompts/slash-commands'
+import { SLASH_COMMANDS, getSummaryToDocPrompt, getSummaryToSkillPrompt } from '@core/prompts/slash-commands'
 import { CommandSecurityManager } from '../security/CommandSecurityManager'
 import { getContextWindowInfo } from '@core/context/context-management/context-window-utils'
 import { ModelContextTracker } from '@core/context/context-tracking/ModelContextTracker'
@@ -107,7 +108,7 @@ type UserContent = Array<Anthropic.ContentBlockParam>
  * Check if a tool allows partial block execution
  */
 function isAllowPartialTool(toolName: string): boolean {
-  return toolName === 'summarize_to_knowledge' || toolName === 'attempt_completion'
+  return toolName === 'summarize_to_knowledge' || toolName === 'summarize_to_skill' || toolName === 'attempt_completion'
 }
 export interface CommandContext {
   /** Command identifier */
@@ -225,6 +226,7 @@ export class Task {
   hosts: Host[]
   chatTitle?: string // Store the LLM-generated chat title
   api: ApiHandler
+  private apiProviderId?: ApiProvider | string
   contextManager: ContextManager
   private remoteTerminalManager: RemoteTerminalManager
   private localTerminalManager: LocalTerminalManager
@@ -372,6 +374,39 @@ export class Task {
 
     // 2. Process command chips
     await this.processSlashCommands(userContent, parts)
+
+    // 2.5. Process skill chips - activate skills and inject content
+    const skillChips = parts.filter((p) => p.type === 'chip' && p.chipType === 'skill')
+    const MAX_SKILLS = 5
+    for (const chip of skillChips.slice(0, MAX_SKILLS)) {
+      if (chip.type === 'chip' && chip.chipType === 'skill') {
+        const skillName = chip.ref.skillName
+        if (this.skillsManager) {
+          const skill = this.skillsManager.getSkill(skillName)
+          if (skill && skill.enabled) {
+            let skillText = `# Skill Activated: ${skill.metadata.name}\n\n`
+            skillText += `**Description:** ${skill.metadata.description}\n\n`
+            skillText += `## Instructions\n\n`
+            skillText += skill.content
+            skillText += '\n\n'
+
+            if (skill.resources && skill.resources.length > 0) {
+              const resourcesWithContent = skill.resources.filter((r) => r.content)
+              if (resourcesWithContent.length > 0) {
+                skillText += `## Available Resources\n\n`
+                for (const resource of resourcesWithContent) {
+                  skillText += `### ${resource.name} (${resource.type})\n\n`
+                  skillText += '```\n' + resource.content + '\n```\n\n'
+                }
+              }
+            }
+
+            blocks.push({ type: 'text', text: skillText })
+            await this.say('skill_activated', skill.metadata.name, false)
+          }
+        }
+      }
+    }
 
     // 3. Process chat context refs
     const refs = this.buildContextRefsFromContentParts(parts)
@@ -521,6 +556,7 @@ export class Task {
       ...apiConfiguration,
       taskId: this.taskId
     })
+    this.apiProviderId = apiConfiguration.apiProvider
 
     // Initialize CommandSecurityManager for security
     this.commandSecurityManager = new CommandSecurityManager()
@@ -544,6 +580,11 @@ export class Task {
     }
   }
 
+  setApiProvider(providerId: ApiProvider | string | undefined): void {
+    if (!providerId) return
+    this.apiProviderId = providerId
+  }
+
   private async updateMessagesLanguage(): Promise<void> {
     try {
       const userConfig = await getUserConfig()
@@ -562,7 +603,7 @@ export class Task {
   private createInteractionLlmCaller(): (command: string, output: string, locale: string) => Promise<InteractionResult> {
     return createLlmCaller(async (systemPrompt: string, userPrompt: string): Promise<string> => {
       if (process.env.CHATERM_INTERACTION_DEBUG === '1') {
-        const provider = (await getGlobalState('apiProvider')) as string
+        const provider = this.apiProviderId ?? ((await getGlobalState('apiProvider')) as string)
         const modelId = this.api.getModel().id
         logger.debug('LLM request meta', {
           provider,
@@ -718,6 +759,126 @@ export class Task {
   private isLocalHost(ip?: string): boolean {
     if (!ip) return false
     return ip === '127.0.0.1' || ip === 'localhost' || ip === '::1'
+  }
+
+  /**
+   * Check if the given IP belongs to a K8S cluster host
+   * K8S hosts are identified by assetType 'k8s' or uuid starting with 'k8s-'
+   * Also checks if the IP matches the current K8S Agent cluster server URL
+   */
+  private isK8sHost(ip?: string): boolean {
+    if (!ip) return false
+
+    // First check if it's in the hosts list with K8S type
+    if (this.hosts) {
+      const targetHost = this.hosts.find((host) => host.host === ip)
+      if (targetHost) {
+        // Check if assetType is 'k8s' or uuid starts with 'k8s-'
+        if (targetHost.assetType === 'k8s' || targetHost.uuid?.startsWith('k8s-')) {
+          return true
+        }
+      }
+    }
+
+    // Also check if IP matches the current K8S Agent cluster server URL
+    const k8sAgentManager = getK8sAgentManager()
+    const currentCluster = k8sAgentManager.getCurrentCluster()
+    if (currentCluster.contextName) {
+      // IP might be a full URL like "https://cls-xxx.ccs.tencent-cloud.com"
+      // or just a hostname/IP
+      try {
+        // Validate URL format
+        const urlToCheck = ip.startsWith('http') ? ip : `https://${ip}`
+        new URL(urlToCheck) // Just validate, don't need the result
+
+        // Check if this hostname looks like a K8S API server URL
+        // Common patterns: .ccs.tencent-cloud.com, .eks.amazonaws.com, .azmk8s.io, etc.
+        const k8sApiPatterns = [
+          '.ccs.tencent-cloud.com',
+          '.eks.amazonaws.com',
+          '.azmk8s.io',
+          '.gke.io',
+          'kubernetes',
+          'k8s',
+          ':6443' // Common K8S API port
+        ]
+
+        for (const pattern of k8sApiPatterns) {
+          if (ip.includes(pattern)) {
+            return true
+          }
+        }
+      } catch {
+        // Not a valid URL, continue with other checks
+      }
+    }
+
+    return false
+  }
+
+  /**
+   * Get K8S host info for a given IP
+   * Returns a pseudo Host object if the IP matches the current K8S Agent cluster
+   */
+  private getK8sHostInfo(ip?: string): Host | undefined {
+    if (!ip) return undefined
+
+    // First check if it's in the hosts list with K8S type
+    if (this.hosts) {
+      const targetHost = this.hosts.find((host) => host.host === ip && (host.assetType === 'k8s' || host.uuid?.startsWith('k8s-')))
+      if (targetHost) {
+        return targetHost
+      }
+    }
+
+    // If isK8sHost returns true but no host found, create a pseudo host
+    if (this.isK8sHost(ip)) {
+      const k8sAgentManager = getK8sAgentManager()
+      const currentCluster = k8sAgentManager.getCurrentCluster()
+      // Return a minimal object that executeK8sCommandTool can use
+      // Using 'as unknown as Host' to bypass strict type checking since we only need a few fields
+      return {
+        host: ip,
+        uuid: `k8s-${currentCluster.clusterId || 'unknown'}`,
+        label: currentCluster.contextName || ip,
+        assetType: 'k8s',
+        connection: {} // Placeholder to satisfy Host type
+      } as unknown as Host
+    }
+
+    return undefined
+  }
+
+  /**
+   * Execute command in K8S cluster using K8sAgentManager
+   */
+  private async executeK8sCommandTool(command: string, ip: string): Promise<ToolResponse> {
+    const k8sHost = this.getK8sHostInfo(ip)
+    if (!k8sHost) {
+      return `Error: K8S host not found for ${ip}`
+    }
+
+    const k8sAgentManager = getK8sAgentManager()
+    const currentCluster = k8sAgentManager.getCurrentCluster()
+
+    // Check if agent is configured with a cluster
+    if (!currentCluster.clusterId || !currentCluster.contextName) {
+      return `Error: No K8S cluster configured for Agent. Please connect to a cluster first.`
+    }
+
+    try {
+      // Execute the kubectl command
+      const result = await k8sAgentManager.executeKubectl(command)
+
+      if (result.success) {
+        return result.output || 'Command executed successfully (no output)'
+      } else {
+        return `Error: ${result.error || 'K8S command execution failed'}\n\nOutput:\n${result.output || '(no output)'}`
+      }
+    } catch (error) {
+      logger.error('K8S command execution error', { error })
+      return `Error: ${error instanceof Error ? error.message : String(error)}`
+    }
   }
 
   /**
@@ -1646,6 +1807,11 @@ export class Task {
       return this.executeLocalCommandTool(command)
     }
 
+    // If it's K8S host, use K8S agent execution
+    if (this.isK8sHost(ip)) {
+      return this.executeK8sCommandTool(command, ip)
+    }
+
     let result = ''
     let chunkTimer: NodeJS.Timeout | null = null
 
@@ -1969,7 +2135,7 @@ export class Task {
   }
 
   private async recordModelUsage(): Promise<void> {
-    const currentProviderId = (await getGlobalState('apiProvider')) as string
+    const currentProviderId = this.apiProviderId ?? ((await getGlobalState('apiProvider')) as string)
     if (currentProviderId && this.api.getModel().id) {
       try {
         const chatSettings = await getGlobalState('chatSettings')
@@ -2051,7 +2217,13 @@ export class Task {
       content: userContent
     })
     const chatSettings = await getGlobalState('chatSettings')
-    telemetryService.captureApiRequestEvent(this.taskId, await getGlobalState('apiProvider'), this.api.getModel().id, 'user', chatSettings?.mode)
+    telemetryService.captureApiRequestEvent(
+      this.taskId,
+      this.apiProviderId ?? (await getGlobalState('apiProvider')),
+      this.api.getModel().id,
+      'user',
+      chatSettings?.mode
+    )
     // Update API request message
     await this.updateApiRequestMessage(userContent)
   }
@@ -2096,6 +2268,11 @@ export class Task {
               this.summarizeUpToTs = summarizeUpToTs
             }
             expandedContent = getSummaryToDocPrompt(isChinese)
+          } else if (command === SLASH_COMMANDS.SUMMARY_TO_SKILL) {
+            if (summarizeUpToTs) {
+              this.summarizeUpToTs = summarizeUpToTs
+            }
+            expandedContent = getSummaryToSkillPrompt(isChinese)
           }
         }
 
@@ -3174,7 +3351,7 @@ export class Task {
       }
 
       const operatingSystem = os.platform() + ' ' + os.release()
-      const providerAndModel = `${(await getGlobalState('apiProvider')) as string} / ${this.api.getModel().id}`
+      const providerAndModel = `${this.apiProviderId ?? (await getGlobalState('apiProvider'))} / ${this.api.getModel().id}`
 
       const bugReportData = JSON.stringify({
         title,
@@ -3298,6 +3475,9 @@ export class Task {
         break
       case 'summarize_to_knowledge':
         await this.handleSummarizeToKnowledgeToolUse(block)
+        break
+      case 'summarize_to_skill':
+        await this.handleSummarizeToSkillToolUse(block)
         break
       default:
         logger.error(`[Task] Unknown tool name: ${block.name}`)
@@ -3876,7 +4056,7 @@ export class Task {
       await this.pushToolResult(toolDescription, resultText)
 
       // Optionally show activation message in UI
-      await this.say('text', `Activated Skill: ${skill.metadata.name}`, false)
+      await this.say('skill_activated', skill.metadata.name, false)
 
       await this.saveCheckpoint()
     } catch (error) {
@@ -4047,6 +4227,31 @@ export class Task {
           if (host.assetType?.startsWith('person-switch-')) {
             continue
           }
+
+          // Handle K8S hosts separately
+          if (this.isK8sHost(host.host)) {
+            const k8sAgentManager = getK8sAgentManager()
+            const currentCluster = k8sAgentManager.getCurrentCluster()
+
+            if (currentCluster.contextName) {
+              systemInformation += `
+            ## Kubernetes Cluster: ${host.host}
+            Context: ${currentCluster.contextName}
+            Type: Kubernetes
+            Commands: kubectl (use execute_command tool with kubectl commands)
+            ====
+          `
+            } else {
+              systemInformation += `
+            ## Kubernetes Cluster: ${host.host}
+            Status: Not connected
+            Note: Please ensure the K8S cluster is connected before executing kubectl commands
+            ====
+          `
+            }
+            continue
+          }
+
           // Check cache, if no cache, get system info and cache it
           let hostInfo = this.hostSystemInfoCache.get(host.host)
           if (!hostInfo) {
@@ -4450,6 +4655,67 @@ USERNAME:${localSystemInfo.userName}`
     } catch (error) {
       logger.error('[Task] summarize_to_knowledge failed', { error: error })
       await this.pushToolResult(toolDescription, `Failed to save knowledge: ${error instanceof Error ? error.message : String(error)}`)
+    }
+  }
+
+  /**
+   * Handle summarize_to_skill tool use.
+   * Sends skill data to the frontend for creation.
+   */
+  private async handleSummarizeToSkillToolUse(block: ToolUse): Promise<void> {
+    const toolDescription = this.getToolDescription(block)
+    const skillName = block.params.skill_name
+    const description = block.params.description
+    const content = block.params.content
+
+    try {
+      // Handle partial streaming (parameters may be incomplete)
+      if (block.partial) {
+        await this.say(
+          'skill_summary',
+          JSON.stringify({
+            skillName: skillName || '',
+            description: description || '',
+            content: content || ''
+          }),
+          true
+        )
+        return
+      }
+
+      // Only validate required parameters when streaming is complete
+      if (!skillName) {
+        await this.handleMissingParam('skill_name', toolDescription, 'summarize_to_skill')
+        return
+      }
+
+      if (!description) {
+        await this.handleMissingParam('description', toolDescription, 'summarize_to_skill')
+        return
+      }
+
+      if (!content) {
+        await this.handleMissingParam('content', toolDescription, 'summarize_to_skill')
+        return
+      }
+
+      // Send final message with complete parameters
+      await this.say(
+        'skill_summary',
+        JSON.stringify({
+          skillName,
+          description,
+          content
+        }),
+        false
+      )
+
+      await this.pushToolResult(toolDescription, `Skill has been created successfully. Name: ${skillName}`)
+
+      await this.saveCheckpoint()
+    } catch (error) {
+      logger.error('[Task] summarize_to_skill failed', { error: error })
+      await this.pushToolResult(toolDescription, `Failed to create skill: ${error instanceof Error ? error.message : String(error)}`)
     }
   }
 

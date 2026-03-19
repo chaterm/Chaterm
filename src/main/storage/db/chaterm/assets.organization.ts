@@ -376,7 +376,7 @@ export async function refreshOrganizationAssetsLogic(
     const existingAssetsStmt = db.prepare(`
       SELECT host, hostname, uuid, favorite
       FROM t_organization_assets
-      WHERE organization_uuid = ?
+      WHERE organization_uuid = ? AND (data_source IS NULL OR data_source = 'refresh')
     `)
     const existingAssets = existingAssetsStmt.all(organizationUuid) || []
     logger.info('Number of existing organization assets', { value: existingAssets.length })
@@ -724,6 +724,232 @@ export function getAssetsInFolderLogic(db: Database.Database, folderUuid: string
     }
   } catch (error) {
     logger.error('getAssetsInFolderLogic error', { error: error })
+    throw error
+  }
+}
+
+// ==================== Manual Asset Management ====================
+
+export function getOrganizationAssetsLogic(db: Database.Database, organizationUuid: string, search?: string, page?: number, pageSize?: number): any {
+  try {
+    const currentPage = Math.max(1, page || 1)
+    const size = Math.max(1, pageSize || 50)
+    const offset = (currentPage - 1) * size
+
+    let countSql = `SELECT COUNT(*) as total FROM t_organization_assets WHERE organization_uuid = ?`
+    let querySql = `
+      SELECT uuid, hostname, host, comment, bastion_comment, data_source, favorite, jump_server_type, created_at, updated_at
+      FROM t_organization_assets
+      WHERE organization_uuid = ?
+    `
+    const params: any[] = [organizationUuid]
+
+    if (search && search.trim()) {
+      const searchPattern = `%${search.trim()}%`
+      const searchCondition = ` AND (hostname LIKE ? OR host LIKE ?)`
+      countSql += searchCondition
+      querySql += searchCondition
+      params.push(searchPattern, searchPattern)
+    }
+
+    querySql += ` ORDER BY data_source ASC, hostname ASC LIMIT ? OFFSET ?`
+
+    const countResult = db.prepare(countSql).get(...params) as any
+    const total = countResult?.total || 0
+
+    const queryParams = [...params, size, offset]
+    const assets = db.prepare(querySql).all(...queryParams)
+
+    return {
+      data: {
+        message: 'success',
+        assets: assets,
+        total: total,
+        page: currentPage,
+        pageSize: size
+      }
+    }
+  } catch (error) {
+    logger.error('getOrganizationAssetsLogic error', { error: error })
+    throw error
+  }
+}
+
+export function createOrganizationAssetLogic(
+  db: Database.Database,
+  organizationUuid: string,
+  assetData: { hostname: string; host: string; comment?: string }
+): any {
+  try {
+    if (!organizationUuid || !assetData.hostname || !assetData.host) {
+      return {
+        data: {
+          message: 'failed',
+          error: 'Missing required fields: organizationUuid, hostname, host'
+        }
+      }
+    }
+
+    // Check for duplicate host+hostname under the same organization
+    const existingStmt = db.prepare(`
+      SELECT uuid FROM t_organization_assets
+      WHERE organization_uuid = ? AND host = ? AND hostname = ?
+    `)
+    const existing = existingStmt.get(organizationUuid, assetData.host, assetData.hostname)
+    if (existing) {
+      return {
+        data: {
+          message: 'failed',
+          error: 'Asset with the same hostname and host already exists'
+        }
+      }
+    }
+
+    // Get bastion type from parent asset
+    const parentStmt = db.prepare(`SELECT asset_type FROM t_assets WHERE uuid = ?`)
+    const parentAsset = parentStmt.get(organizationUuid)
+    const assetType = parentAsset?.asset_type || 'organization'
+    const jumpServerType = extractBastionType(assetType)
+
+    const assetUuid = uuidv4()
+    const insertStmt = db.prepare(`
+      INSERT INTO t_organization_assets (
+        organization_uuid, hostname, host, comment, uuid, jump_server_type, data_source, created_at, updated_at
+      ) VALUES (?, ?, ?, ?, ?, ?, 'manual', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+    `)
+    const result = insertStmt.run(organizationUuid, assetData.hostname, assetData.host, assetData.comment || '', assetUuid, jumpServerType)
+
+    return {
+      data: {
+        message: result.changes > 0 ? 'success' : 'failed',
+        uuid: assetUuid,
+        changes: result.changes
+      }
+    }
+  } catch (error) {
+    logger.error('createOrganizationAssetLogic error', { error: error })
+    throw error
+  }
+}
+
+export function updateOrganizationAssetLogic(
+  db: Database.Database,
+  uuid: string,
+  assetData: { hostname?: string; host?: string; comment?: string }
+): any {
+  try {
+    if (!uuid) {
+      return { data: { message: 'failed', error: 'UUID is required' } }
+    }
+
+    // Non-manual assets are allowed to update comment only.
+    const checkStmt = db.prepare(`
+      SELECT uuid, data_source FROM t_organization_assets WHERE uuid = ?
+    `)
+    const existing = checkStmt.get(uuid) as any
+    if (!existing) {
+      return { data: { message: 'failed', error: 'Asset not found' } }
+    }
+
+    const isManualAsset = existing.data_source === 'manual'
+    if (!isManualAsset) {
+      const isUpdatingProtectedFields = assetData.hostname !== undefined || assetData.host !== undefined
+      if (isUpdatingProtectedFields) {
+        return { data: { message: 'failed', error: 'Only comment can be edited for refreshed assets' } }
+      }
+    }
+
+    const updates: string[] = []
+    const values: any[] = []
+
+    if (assetData.hostname !== undefined) {
+      updates.push('hostname = ?')
+      values.push(assetData.hostname)
+    }
+    if (assetData.host !== undefined) {
+      updates.push('host = ?')
+      values.push(assetData.host)
+    }
+    if (assetData.comment !== undefined) {
+      updates.push('comment = ?')
+      values.push(assetData.comment)
+    }
+
+    if (updates.length === 0) {
+      return { data: { message: 'failed', error: 'No fields to update' } }
+    }
+
+    updates.push('updated_at = CURRENT_TIMESTAMP')
+    values.push(uuid)
+
+    const updateStmt = db.prepare(`
+      UPDATE t_organization_assets SET ${updates.join(', ')} WHERE uuid = ?
+    `)
+    const result = updateStmt.run(...values)
+
+    return {
+      data: {
+        message: result.changes > 0 ? 'success' : 'failed',
+        changes: result.changes
+      }
+    }
+  } catch (error) {
+    logger.error('updateOrganizationAssetLogic error', { error: error })
+    throw error
+  }
+}
+
+export function deleteOrganizationAssetLogic(db: Database.Database, uuid: string): any {
+  try {
+    if (!uuid) {
+      return { data: { message: 'failed', error: 'UUID is required' } }
+    }
+
+    const checkStmt = db.prepare(`
+      SELECT uuid FROM t_organization_assets WHERE uuid = ?
+    `)
+    const existing = checkStmt.get(uuid) as any
+    if (!existing) {
+      return { data: { message: 'failed', error: 'Asset not found' } }
+    }
+
+    const deleteStmt = db.prepare(`DELETE FROM t_organization_assets WHERE uuid = ?`)
+    const result = deleteStmt.run(uuid)
+
+    return {
+      data: {
+        message: result.changes > 0 ? 'success' : 'failed',
+        changes: result.changes
+      }
+    }
+  } catch (error) {
+    logger.error('deleteOrganizationAssetLogic error', { error: error })
+    throw error
+  }
+}
+
+export function batchDeleteOrganizationAssetsLogic(db: Database.Database, uuids: string[]): any {
+  try {
+    if (!uuids || uuids.length === 0) {
+      return { data: { message: 'failed', error: 'UUIDs array is required' } }
+    }
+
+    const placeholders = uuids.map(() => '?').join(', ')
+    const deleteStmt = db.prepare(`
+      DELETE FROM t_organization_assets
+      WHERE uuid IN (${placeholders})
+    `)
+    const result = deleteStmt.run(...uuids)
+
+    return {
+      data: {
+        message: 'success',
+        changes: result.changes,
+        requested: uuids.length
+      }
+    }
+  } catch (error) {
+    logger.error('batchDeleteOrganizationAssetsLogic error', { error: error })
     throw error
   }
 }

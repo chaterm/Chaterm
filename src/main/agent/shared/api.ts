@@ -61,7 +61,8 @@ export const PROVIDER_MODEL_KEY_MAP: Record<string, string> = {
   litellm: 'liteLlmModelId',
   openai: 'openAiModelId',
   deepseek: 'apiModelId',
-  bedrock: 'apiModelId'
+  bedrock: 'apiModelId',
+  ollama: 'ollamaModelId'
 }
 
 // Models

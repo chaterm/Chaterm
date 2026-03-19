@@ -3,7 +3,7 @@ import type { InjectionKey } from 'vue'
 import debounce from 'lodash/debounce'
 
 const logger = createRendererLogger('ai.context')
-import type { Host, HostOption, HostItemType, ContextMenuLevel, DocOption, ChatOption } from '../types'
+import type { Host, HostOption, HostItemType, ContextMenuLevel, DocOption, ChatOption, SkillOption } from '../types'
 import { formatHosts, isSwitchAssetType } from '../utils'
 import { isBastionHostType } from '../types'
 import { useSessionState } from './useSessionState'
@@ -11,7 +11,7 @@ import { useHostState } from './useHostState'
 import { focusChatInput } from './useTabManagement'
 import i18n from '@/locales'
 import { Notice } from '@/views/components/Notice'
-import type { ContentPart, ImageContentPart } from '@shared/WebviewMessage'
+import type { ContentPart, ImageContentPart, ContextSkillRef } from '@shared/WebviewMessage'
 import eventBus from '@/utils/eventBus'
 
 // Type for the context return value
@@ -71,7 +71,7 @@ export const useContext = (options: UseContextOptions = {}) => {
     if (chatTypeValue.value !== 'chat' && chatTypeValue.value !== 'cmd') {
       items.push('hosts')
     }
-    items.push('docs', 'chats')
+    items.push('docs', 'chats', 'skills')
     return items
   })
 
@@ -95,8 +95,14 @@ export const useContext = (options: UseContextOptions = {}) => {
   // ========== Chats State ==========
   const chatsOptions = ref<ChatOption[]>([])
   const chatsOptionsLoading = ref(false)
-  const chipInsertHandler = ref<((chipType: 'doc' | 'chat', ref: DocOption | ChatOption, label: string) => void) | null>(null)
+  const chipInsertHandler = ref<((chipType: 'doc' | 'chat' | 'skill', ref: DocOption | ChatOption | ContextSkillRef, label: string) => void) | null>(
+    null
+  )
   const imageInsertHandler = ref<((imagePart: ImageContentPart) => void) | null>(null)
+
+  // ========== Skills State ==========
+  const skillsOptions = ref<SkillOption[]>([])
+  const skillsOptionsLoading = ref(false)
 
   // ========== Opened Hosts State ==========
   // List of hosts from currently opened terminal tabs for quick selection
@@ -212,6 +218,15 @@ export const useContext = (options: UseContextOptions = {}) => {
       return chatsOptions.value
     }
     return chatsOptions.value.filter((chat) => chat.title.toLowerCase().includes(searchTerm))
+  })
+
+  // Filtered skills options based on search value
+  const filteredSkillsOptions = computed(() => {
+    const searchTerm = searchValue.value.toLowerCase()
+    if (!searchTerm) return skillsOptions.value
+    return skillsOptions.value.filter(
+      (skill) => skill.name.toLowerCase().includes(searchTerm) || skill.description.toLowerCase().includes(searchTerm)
+    )
   })
 
   // Filtered opened hosts for main menu quick selection
@@ -412,6 +427,8 @@ export const useContext = (options: UseContextOptions = {}) => {
         return filteredDocsOptions.value
       case 'chats':
         return filteredChatsOptions.value
+      case 'skills':
+        return filteredSkillsOptions.value
       default:
         return []
     }
@@ -476,6 +493,8 @@ export const useContext = (options: UseContextOptions = {}) => {
             await onDocClick(item as DocOption)
           } else if (currentMenuLevel.value === 'chats') {
             onChatClick(item as ChatOption)
+          } else if (currentMenuLevel.value === 'skills') {
+            onSkillClick(item as SkillOption)
           }
         }
         break
@@ -535,6 +554,8 @@ export const useContext = (options: UseContextOptions = {}) => {
       await fetchDocsOptions('')
     } else if (level === 'chats') {
       await fetchChatsOptions()
+    } else if (level === 'skills') {
+      await fetchSkillsOptions()
     }
 
     nextTick(() => {
@@ -882,6 +903,28 @@ export const useContext = (options: UseContextOptions = {}) => {
     }
   }
 
+  // Fetch skills list
+  const fetchSkillsOptions = async () => {
+    if (skillsOptionsLoading.value) return
+    skillsOptionsLoading.value = true
+    try {
+      const result = await window.api.getSkills()
+      skillsOptions.value = (result || [])
+        .filter((s: any) => s.enabled)
+        .map((s: any) => ({
+          name: s.name,
+          description: s.description,
+          path: s.path,
+          enabled: s.enabled
+        }))
+    } catch (error) {
+      logger.error('Failed to fetch skills options', { error: error })
+      skillsOptions.value = []
+    } finally {
+      skillsOptionsLoading.value = false
+    }
+  }
+
   const isDocSelected = (doc: DocOption): boolean => {
     return chatInputParts.value.some((part) => part.type === 'chip' && part.chipType === 'doc' && part.ref.absPath === doc.absPath)
   }
@@ -889,6 +932,21 @@ export const useContext = (options: UseContextOptions = {}) => {
   // Check if chat is selected by looking at chatInputParts chips
   const isChatSelected = (chat: ChatOption): boolean => {
     return chatInputParts.value.some((part) => part.type === 'chip' && part.chipType === 'chat' && part.ref.taskId === chat.id)
+  }
+
+  const isSkillSelected = (skill: SkillOption): boolean => {
+    return chatInputParts.value.some((part) => part.type === 'chip' && part.chipType === 'skill' && part.ref.skillName === skill.name)
+  }
+
+  const onSkillClick = (skill: SkillOption) => {
+    if (isSkillSelected(skill)) {
+      closeContextPopup()
+      return
+    }
+    if (chipInsertHandler.value) {
+      chipInsertHandler.value('skill', { skillName: skill.name, description: skill.description }, skill.name)
+    }
+    closeContextPopup()
   }
 
   const onDocClick = async (doc: DocOption) => {
@@ -1156,9 +1214,17 @@ export const useContext = (options: UseContextOptions = {}) => {
     isChatSelected,
     onChatClick,
     fetchChatsOptions,
+
+    // Skills state
+    skillsOptions,
+    skillsOptionsLoading,
+    filteredSkillsOptions,
+    isSkillSelected,
+    onSkillClick,
+    fetchSkillsOptions,
     openKbFile,
     // Chip insertion
-    setChipInsertHandler: (handler: (chipType: 'doc' | 'chat', ref: DocOption | ChatOption, label: string) => void) => {
+    setChipInsertHandler: (handler: (chipType: 'doc' | 'chat' | 'skill', ref: DocOption | ChatOption | ContextSkillRef, label: string) => void) => {
       chipInsertHandler.value = handler
     },
     // Image insertion

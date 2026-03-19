@@ -137,6 +137,7 @@
             ></LeftTab>
           </div>
           <div class="term_content">
+            <!-- Normal splitpanes layout for all menus -->
             <splitpanes
               class="left-sidebar-container"
               @resize="(params: ResizeParams) => handleLeftPaneResize(params)"
@@ -173,6 +174,7 @@
                 />
                 <Snippets v-else-if="currentMenu == 'snippets'" />
                 <KnowledgeCenter v-else-if="currentMenu == 'knowledgecenter'" />
+                <K8sTerminal v-else-if="currentMenu == 'kubernetes'" />
 
                 <ExtensionViewHost
                   v-else
@@ -313,6 +315,7 @@ import Extensions from '@views/components/Extensions/index.vue'
 import Assets from '@views/components/Assets/index.vue'
 import Snippets from '@views/components/LeftTab/config/snippets.vue'
 import KnowledgeCenter from '@views/components/KnowledgeCenter/KnowledgeCenter.vue'
+import K8sTerminal from '@views/k8s/terminal/index.vue'
 import AgentsSidebar from '@views/components/AgentsSidebar/index.vue'
 import TabsPanel from './tabsPanel.vue'
 import ExtensionViewHost from './ExtensionViewHost.vue'
@@ -1869,6 +1872,38 @@ const openUserTab = async function (arg: OpenUserTabArg) {
     return
   }
 
+  if (value === 'assetManagement') {
+    if (isStringArg) return
+    if (!dockApi) return
+
+    const target = arg as Exclude<OpenUserTabArg, string>
+    const orgUuid = String(target.props?.organizationUuid || '')
+    const existing = dockApi.panels.find((panel) => panel.params?.content === 'assetManagement' && panel.params?.props?.organizationUuid === orgUuid)
+    if (existing) {
+      existing.api.setActive()
+      return
+    }
+
+    const stableId = `assetManage_${orgUuid || Date.now()}`
+    addDockPanel({
+      id: stableId,
+      title: target.title || 'Asset Management',
+      content: 'assetManagement',
+      type: 'config',
+      organizationId: '',
+      ip: '',
+      data: {
+        title: target.title || 'Asset Management',
+        key: 'assetManagement',
+        type: 'assetManagement',
+        props: target.props
+      },
+      props: target.props
+    })
+    checkActiveTab('config')
+    return
+  }
+
   if (
     value === 'assetConfig' ||
     value === 'keyManagement' ||
@@ -1879,6 +1914,7 @@ const openUserTab = async function (arg: OpenUserTabArg) {
     value === 'keywordHighlightEditor' ||
     value === 'jumpserverSupport' ||
     value === 'aliasConfig' ||
+    value === 'k8sClusterConfig' ||
     value === 'files' ||
     value.startsWith('plugins:')
   ) {

@@ -450,6 +450,52 @@ const updateOrganizationAssetComment = async (data: { organizationUuid: string; 
   }
 }
 
+// Organization asset management API
+const getOrganizationAssets = async (data: { organizationUuid: string; search?: string; page?: number; pageSize?: number }) => {
+  try {
+    const result = await ipcRenderer.invoke('get-organization-assets', data)
+    return result
+  } catch (error) {
+    return Promise.reject(error)
+  }
+}
+
+const createOrganizationAsset = async (data: { organizationUuid: string; hostname: string; host: string; comment?: string }) => {
+  try {
+    const result = await ipcRenderer.invoke('create-organization-asset', data)
+    return result
+  } catch (error) {
+    return Promise.reject(error)
+  }
+}
+
+const updateOrganizationAsset = async (data: { uuid: string; hostname?: string; host?: string; comment?: string }) => {
+  try {
+    const result = await ipcRenderer.invoke('update-organization-asset', data)
+    return result
+  } catch (error) {
+    return Promise.reject(error)
+  }
+}
+
+const deleteOrganizationAsset = async (data: { uuid: string }) => {
+  try {
+    const result = await ipcRenderer.invoke('delete-organization-asset', data)
+    return result
+  } catch (error) {
+    return Promise.reject(error)
+  }
+}
+
+const batchDeleteOrganizationAssets = async (data: { uuids: string[] }) => {
+  try {
+    const result = await ipcRenderer.invoke('batch-delete-organization-assets', data)
+    return result
+  } catch (error) {
+    return Promise.reject(error)
+  }
+}
+
 // Custom folder management API
 const createCustomFolder = async (data: { name: string; description?: string }) => {
   try {
@@ -565,6 +611,11 @@ const api = {
   refreshOrganizationAssets,
   updateOrganizationAssetFavorite,
   updateOrganizationAssetComment,
+  getOrganizationAssets,
+  createOrganizationAsset,
+  updateOrganizationAsset,
+  deleteOrganizationAsset,
+  batchDeleteOrganizationAssets,
   createCustomFolder,
   getCustomFolders,
   updateCustomFolder,
@@ -718,6 +769,8 @@ const api = {
   deleteSkill: (skillId: string) => ipcRenderer.invoke('skills:delete', skillId),
   openSkillsFolder: () => ipcRenderer.invoke('skills:open-folder'),
   importSkillZip: (zipPath: string, overwrite?: boolean) => ipcRenderer.invoke('skills:import-zip', zipPath, overwrite),
+  readSkillContent: (skillName: string) => ipcRenderer.invoke('skills:read-content', skillName),
+  updateSkill: (skillName: string, metadata: any, content: string) => ipcRenderer.invoke('skills:update', skillName, metadata, content),
   onSkillsUpdate: (callback: (skills: any[]) => void) => {
     const listener = (_event, data) => callback(data.skills)
     ipcRenderer.on('skillsUpdate', listener)
@@ -875,6 +928,7 @@ const api = {
   checkUpdate: () => ipcRenderer.invoke('update:checkUpdate'),
   download: () => ipcRenderer.invoke('update:download'),
   showOpenDialog: (options) => ipcRenderer.invoke('dialog:openFile', options),
+  getHomePath: () => ipcRenderer.invoke('app:getHomePath'),
   autoUpdate: (update) => {
     ipcRenderer.on('update:autoUpdate', (_event, params) => update(params))
   },
@@ -952,6 +1006,10 @@ const api = {
     ipcRenderer.on('kb:transfer-progress', listener)
     return () => ipcRenderer.removeListener('kb:transfer-progress', listener)
   },
+  kbSyncGetStatus: () => ipcRenderer.invoke('kb:sync-get-status'),
+  kbSyncLastTime: () => ipcRenderer.invoke('kb:sync-last-time'),
+  kbSyncLastResults: () => ipcRenderer.invoke('kb:sync-last-results'),
+  getKbCloudStorage: () => ipcRenderer.invoke('kb:get-cloud-storage'),
 
   agentEnableAndConfigure: (opts: { enabled: boolean }) => ipcRenderer.invoke('ssh:agent:enable-and-configure', opts),
   addKey: (opts: { keyData: string; passphrase?: string; comment?: string }) => ipcRenderer.invoke('ssh:agent:add-key', opts),
@@ -1138,6 +1196,19 @@ const api = {
   k8sValidateContext: (contextName: string) => ipcRenderer.invoke('k8s:validate-context', contextName),
   k8sInitialize: () => ipcRenderer.invoke('k8s:initialize'),
 
+  // K8s Proxy Configuration APIs
+  k8sSetProxy: (
+    proxyConfig: {
+      type?: 'HTTP' | 'HTTPS' | 'SOCKS4' | 'SOCKS5'
+      host: string
+      port: number
+      enableProxyIdentity?: boolean
+      username?: string
+      password?: string
+    } | null
+  ) => ipcRenderer.invoke('k8s:set-proxy', proxyConfig),
+  k8sGetProxy: () => ipcRenderer.invoke('k8s:get-proxy'),
+
   // K8s watch stream APIs
   k8sStartWatch: (contextName: string, resourceType: string, options?: any) =>
     ipcRenderer.invoke('k8s:start-watch', contextName, resourceType, options),
@@ -1147,6 +1218,102 @@ const api = {
     ipcRenderer.on('k8s:delta-batch', listener)
     return () => ipcRenderer.removeListener('k8s:delta-batch', listener)
   },
+
+  // K8s Cluster Management APIs
+  k8sClusterList: () => ipcRenderer.invoke('k8s:cluster:list'),
+  k8sClusterGet: (id: string) => ipcRenderer.invoke('k8s:cluster:get', id),
+  k8sClusterAdd: (params: {
+    name: string
+    kubeconfigPath?: string
+    kubeconfigContent?: string
+    contextName: string
+    serverUrl: string
+    authType?: string
+    autoConnect?: boolean
+    defaultNamespace?: string
+  }) => ipcRenderer.invoke('k8s:cluster:add', params),
+  k8sClusterUpdate: (
+    id: string,
+    params: {
+      name?: string
+      kubeconfigPath?: string
+      kubeconfigContent?: string
+      contextName?: string
+      serverUrl?: string
+      authType?: string
+      isActive?: boolean
+      connectionStatus?: string
+      autoConnect?: boolean
+      defaultNamespace?: string
+    }
+  ) => ipcRenderer.invoke('k8s:cluster:update', id, params),
+  k8sClusterRemove: (id: string) => ipcRenderer.invoke('k8s:cluster:remove', id),
+  k8sClusterTest: (params: { kubeconfigPath?: string; kubeconfigContent?: string; contextName: string }) =>
+    ipcRenderer.invoke('k8s:cluster:test', params),
+  k8sClusterImportKubeconfig: (kubeconfigPath: string) => ipcRenderer.invoke('k8s:cluster:import-kubeconfig', kubeconfigPath),
+  k8sClusterConnect: (id: string) => ipcRenderer.invoke('k8s:cluster:connect', id),
+  k8sClusterDisconnect: (id: string) => ipcRenderer.invoke('k8s:cluster:disconnect', id),
+
+  // K8s Terminal APIs
+  k8sTerminalCreate: (config: { id: string; clusterId: string; namespace?: string; cols?: number; rows?: number }) =>
+    ipcRenderer.invoke('k8s:terminal:create', config),
+  k8sTerminalWrite: (terminalId: string, data: string) => ipcRenderer.invoke('k8s:terminal:write', terminalId, data),
+  k8sTerminalResize: (terminalId: string, cols: number, rows: number) => ipcRenderer.invoke('k8s:terminal:resize', terminalId, cols, rows),
+  k8sTerminalClose: (terminalId: string) => ipcRenderer.invoke('k8s:terminal:close', terminalId),
+  k8sTerminalList: (clusterId: string) => ipcRenderer.invoke('k8s:terminal:list', clusterId),
+  k8sOnTerminalData: (terminalId: string, callback: (data: string) => void) => {
+    const channel = `k8s:terminal:data:${terminalId}`
+    const listener = (_event: any, data: string) => callback(data)
+    ipcRenderer.on(channel, listener)
+    return () => ipcRenderer.removeListener(channel, listener)
+  },
+  k8sOnTerminalExit: (terminalId: string, callback: (exitCode: any) => void) => {
+    const channel = `k8s:terminal:exit:${terminalId}`
+    const listener = (_event: any, exitCode: any) => callback(exitCode)
+    ipcRenderer.on(channel, listener)
+    return () => ipcRenderer.removeListener(channel, listener)
+  },
+
+  // ============================================================================
+  // K8S Agent API
+  // ============================================================================
+
+  k8sAgentSetCluster: (params: { clusterId: string; contextName: string; kubeconfigPath?: string; kubeconfigContent?: string }) =>
+    ipcRenderer.invoke('k8s:agent:set-cluster', params),
+
+  k8sAgentSetProxy: (
+    proxyConfig: {
+      type?: 'HTTP' | 'HTTPS' | 'SOCKS4' | 'SOCKS5'
+      host: string
+      port: number
+      enableProxyIdentity?: boolean
+      username?: string
+      password?: string
+    } | null
+  ) => ipcRenderer.invoke('k8s:agent:set-proxy', proxyConfig),
+
+  k8sAgentKubectl: (command: string, timeout?: number) => ipcRenderer.invoke('k8s:agent:kubectl', command, timeout),
+
+  k8sAgentGetPods: (namespace?: string) => ipcRenderer.invoke('k8s:agent:get-pods', namespace),
+
+  k8sAgentGetNodes: () => ipcRenderer.invoke('k8s:agent:get-nodes'),
+
+  k8sAgentGetNamespaces: () => ipcRenderer.invoke('k8s:agent:get-namespaces'),
+
+  k8sAgentGetServices: (namespace?: string) => ipcRenderer.invoke('k8s:agent:get-services', namespace),
+
+  k8sAgentGetDeployments: (namespace?: string) => ipcRenderer.invoke('k8s:agent:get-deployments', namespace),
+
+  k8sAgentGetPodLogs: (params: { podName: string; namespace?: string; container?: string; tailLines?: number }) =>
+    ipcRenderer.invoke('k8s:agent:get-pod-logs', params),
+
+  k8sAgentDescribe: (params: { resourceType: string; resourceName: string; namespace?: string }) => ipcRenderer.invoke('k8s:agent:describe', params),
+
+  k8sAgentTestConnection: () => ipcRenderer.invoke('k8s:agent:test-connection'),
+
+  k8sAgentGetCurrentCluster: () => ipcRenderer.invoke('k8s:agent:get-current-cluster'),
+
+  k8sAgentCleanup: () => ipcRenderer.invoke('k8s:agent:cleanup'),
 
   // ============================================================================
   // Interactive Command Execution API

@@ -93,6 +93,16 @@
                 @change="toggleSkill(skill)"
               />
               <a-button
+                v-if="isEditable(skill)"
+                type="text"
+                size="small"
+                class="edit-btn"
+                :title="$t('skills.editSkill')"
+                @click="openEditModal(skill)"
+              >
+                <EditOutlined />
+              </a-button>
+              <a-button
                 type="text"
                 size="small"
                 class="delete-btn"
@@ -158,6 +168,53 @@
         </a-form-item>
       </a-form>
     </a-modal>
+
+    <!-- Edit Skill Modal -->
+    <a-modal
+      v-model:open="editModalVisible"
+      :title="$t('skills.editSkill')"
+      :ok-text="$t('common.save')"
+      :cancel-text="$t('common.cancel')"
+      :confirm-loading="isUpdating"
+      width="600px"
+      class="skill-modal"
+      @ok="updateSkill"
+    >
+      <a-form
+        ref="editFormRef"
+        :model="editSkill"
+        layout="vertical"
+        class="skill-form"
+      >
+        <a-form-item :label="$t('skills.skillName')">
+          <a-input
+            v-model:value="editSkill.name"
+            disabled
+          />
+        </a-form-item>
+        <a-form-item
+          :label="$t('skills.skillDescription')"
+          required
+        >
+          <a-textarea
+            v-model:value="editSkill.description"
+            :placeholder="$t('skills.skillDescriptionPlaceholder')"
+            :rows="2"
+          />
+        </a-form-item>
+        <a-form-item
+          :label="$t('skills.skillContent')"
+          required
+        >
+          <a-textarea
+            v-model:value="editSkill.content"
+            :placeholder="$t('skills.skillContentPlaceholder')"
+            :rows="10"
+            class="skill-content-textarea"
+          />
+        </a-form-item>
+      </a-form>
+    </a-modal>
   </div>
 </template>
 
@@ -165,7 +222,15 @@
 import { ref, onMounted, onBeforeUnmount } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { message, Modal } from 'ant-design-vue'
-import { FolderOpenOutlined, ReloadOutlined, PlusOutlined, DeleteOutlined, ThunderboltOutlined, ImportOutlined } from '@ant-design/icons-vue'
+import {
+  FolderOpenOutlined,
+  ReloadOutlined,
+  PlusOutlined,
+  DeleteOutlined,
+  ThunderboltOutlined,
+  ImportOutlined,
+  EditOutlined
+} from '@ant-design/icons-vue'
 
 const logger = createRendererLogger('settings.skills')
 const { t } = useI18n()
@@ -181,10 +246,19 @@ const skills = ref<Skill[]>([])
 const isReloading = ref(false)
 const isCreating = ref(false)
 const isImporting = ref(false)
+const isUpdating = ref(false)
 const createModalVisible = ref(false)
+const editModalVisible = ref(false)
 const skillFormRef = ref()
+const userSkillsPath = ref('')
 
 const newSkill = ref({
+  name: '',
+  description: '',
+  content: ''
+})
+
+const editSkill = ref({
   name: '',
   description: '',
   content: ''
@@ -206,6 +280,13 @@ let unsubscribeSkillsUpdate: (() => void) | null = null
 
 onMounted(async () => {
   await loadSkills()
+
+  // Get user skills path for determining editability
+  try {
+    userSkillsPath.value = await window.api.getSkillsUserPath()
+  } catch (error) {
+    logger.error('Failed to get user skills path', { error: error })
+  }
 
   // Subscribe to skills updates
   unsubscribeSkillsUpdate = window.api.onSkillsUpdate((updatedSkills) => {
@@ -403,6 +484,48 @@ const confirmDeleteSkill = (skill: Skill) => {
     }
   })
 }
+
+const isEditable = (skill: Skill): boolean => {
+  return !!skill.path && !!userSkillsPath.value && skill.path.startsWith(userSkillsPath.value)
+}
+
+const openEditModal = async (skill: Skill) => {
+  try {
+    const result = await window.api.readSkillContent(skill.name)
+    editSkill.value = {
+      name: skill.name,
+      description: result.metadata.description || '',
+      content: result.content || ''
+    }
+    editModalVisible.value = true
+  } catch (error) {
+    logger.error('Failed to read skill content', { error: error })
+    message.error(t('skills.readContentError'))
+  }
+}
+
+const updateSkill = async () => {
+  if (!editSkill.value.description || !editSkill.value.content) {
+    message.warning(t('skills.fillRequired'))
+    return
+  }
+
+  isUpdating.value = true
+  try {
+    const metadata = {
+      name: editSkill.value.name,
+      description: editSkill.value.description
+    }
+    await window.api.updateSkill(editSkill.value.name, metadata, editSkill.value.content)
+    editModalVisible.value = false
+    message.success(t('skills.updateSuccess'))
+  } catch (error) {
+    logger.error('Failed to update skill', { error: error })
+    message.error(t('skills.updateError'))
+  } finally {
+    isUpdating.value = false
+  }
+}
 </script>
 
 <style lang="less" scoped>
@@ -589,6 +712,23 @@ const confirmDeleteSkill = (skill: Skill) => {
     align-items: center;
     gap: 4px;
     flex-shrink: 0;
+
+    .edit-btn {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      width: 28px;
+      height: 22px;
+      color: var(--text-color-tertiary);
+      padding: 0;
+      border-radius: 4px;
+      transition: all 0.2s ease;
+
+      &:hover {
+        color: #1890ff;
+        background-color: rgba(24, 144, 255, 0.1);
+      }
+    }
 
     .delete-btn {
       display: flex;

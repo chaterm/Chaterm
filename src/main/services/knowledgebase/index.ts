@@ -9,6 +9,7 @@ import { getDefaultLanguage } from '../../config/edition'
 import { getUserConfig } from '../../agent/core/storage/state'
 import { KB_DEFAULT_SEEDS, KB_DEFAULT_SEEDS_VERSION } from './default-seeds'
 import type { KnowledgeBaseDefaultSeed } from './default-seeds'
+import { getKbCloudUsedBytes, KB_CLOUD_TOTAL_BYTES, getKbSyncLastResults } from './sync'
 
 export interface KnowledgeBaseEntry {
   name: string
@@ -479,6 +480,13 @@ export function registerKnowledgeBaseHandlers(): void {
     await initKbDefaultSeedFiles()
     return { root }
   })
+
+  ipcMain.handle('kb:get-cloud-storage', async () => {
+    const usedBytes = await getKbCloudUsedBytes()
+    return { usedBytes, totalBytes: KB_CLOUD_TOTAL_BYTES }
+  })
+
+  ipcMain.handle('kb:sync-last-results', async () => getKbSyncLastResults())
 
   ipcMain.handle('kb:list-dir', async (_evt, payload: { relDir: string }) => {
     const relDir = payload?.relDir ?? ''

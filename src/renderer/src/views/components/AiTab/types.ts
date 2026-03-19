@@ -132,7 +132,7 @@ export interface HostOption {
 }
 
 // Menu level for context popup
-export type ContextMenuLevel = 'main' | 'hosts' | 'docs' | 'chats'
+export type ContextMenuLevel = 'main' | 'hosts' | 'docs' | 'chats' | 'skills'
 
 // Knowledge base document option
 export interface DocOption {
@@ -147,4 +147,12 @@ export interface ChatOption {
   id: string
   title: string
   ts: number
+}
+
+// Skill option for @ mention
+export interface SkillOption {
+  name: string
+  description: string
+  path: string
+  enabled: boolean
 }

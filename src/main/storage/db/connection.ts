@@ -11,6 +11,7 @@ import { upgradeMessageIndexSupport } from './migrations/add-message-index-suppo
 import { upgradeBastionCommentSupport } from './migrations/add-bastion-comment-support'
 import { upgradeHostInfoSupport } from './migrations/add-host-info-support'
 import { upgradeTaskTitleSupport } from './migrations/add-task-title-support'
+import { upgradeK8sClustersSupport } from './migrations/add-k8s-clusters-support'
 import { IndexDBMigrator } from './indexdb-migrator'
 import { getUserDataPath } from '../../config/edition'
 const logger = createLogger('db')
@@ -319,9 +320,10 @@ async function applyAllMigrations(db: Database.Database): Promise<void> {
   upgradeSnippetGroups(db)
   upgradeSkillsSupport(db)
   await upgradeMessageIndexSupport(db)
-  await upgradeBastionCommentSupport(db)
+  await upgradeBastionCommentSupport(db) // t_organization_assets: bastion_comment + data_source
   await upgradeHostInfoSupport(db)
   await upgradeTaskTitleSupport(db)
+  await upgradeK8sClustersSupport(db)
 }
 
 export async function initDatabase(userId?: number): Promise<Database.Database> {

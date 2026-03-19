@@ -8,26 +8,31 @@ import { gzipSync } from 'zlib'
 const logger = createLogger('sync')
 import { chatermAuthAdapter } from '../envelope_encryption/services/auth'
 
+export interface ApiClientOptions {
+  keepAlive?: boolean
+}
+
 export class ApiClient {
   private client: AxiosInstance
   private httpAgent: HttpAgent
   private httpsAgent: HttpsAgent
 
-  constructor() {
-    // Create connection pool agent with Keep-Alive enabled
+  constructor(options?: ApiClientOptions) {
+    const keepAlive = options?.keepAlive ?? true
+
     this.httpAgent = new HttpAgent({
-      keepAlive: true,
+      keepAlive,
       keepAliveMsecs: 30000, // 30 seconds
       maxSockets: 10, // Maximum number of connections
-      maxFreeSockets: 5, // Maximum number of free connections
+      maxFreeSockets: keepAlive ? 5 : 0,
       timeout: 60000 // Connection timeout
     })
 
     this.httpsAgent = new HttpsAgent({
-      keepAlive: true,
+      keepAlive,
       keepAliveMsecs: 30000,
       maxSockets: 10,
-      maxFreeSockets: 5,
+      maxFreeSockets: keepAlive ? 5 : 0,
       timeout: 60000
     })
 
@@ -36,11 +41,10 @@ export class ApiClient {
       timeout: 15000,
       httpAgent: this.httpAgent,
       httpsAgent: this.httpsAgent,
-      // Enable request compression
       decompress: true,
       headers: {
         'Accept-Encoding': 'gzip, deflate',
-        Connection: 'keep-alive'
+        Connection: keepAlive ? 'keep-alive' : 'close'
       }
     })
 
@@ -97,7 +101,12 @@ export class ApiClient {
 
         // Check if it's a network connection error
         if (this.isNetworkError(error)) {
-          // Create a special network error with identification information
+          logger.debug('Network error detected', {
+            code: error.code,
+            message: error.message,
+            hasResponse: !!error.response,
+            hasRequest: !!error.request
+          })
           const networkError = new Error('NETWORK_UNAVAILABLE')
           ;(networkError as any).isNetworkError = true
           ;(networkError as any).originalError = error
@@ -143,8 +152,9 @@ export class ApiClient {
     }
 
     // Check axios-specific network errors
+    // Note: 'Request failed' is intentionally excluded — it matches all HTTP 4xx/5xx errors
     if (error.message) {
-      const networkMessages = ['Network Error', 'connect ECONNREFUSED', 'getaddrinfo ENOTFOUND', 'timeout', 'Request failed']
+      const networkMessages = ['Network Error', 'connect ECONNREFUSED', 'getaddrinfo ENOTFOUND', 'timeout of']
       if (networkMessages.some((msg) => error.message.includes(msg))) {
         return true
       }

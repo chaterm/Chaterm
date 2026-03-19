@@ -21,7 +21,12 @@ import {
   deleteCustomFolderLogic,
   moveAssetToFolderLogic,
   removeAssetFromFolderLogic,
-  getAssetsInFolderLogic
+  getAssetsInFolderLogic,
+  getOrganizationAssetsLogic,
+  createOrganizationAssetLogic,
+  updateOrganizationAssetLogic,
+  deleteOrganizationAssetLogic,
+  batchDeleteOrganizationAssetsLogic
 } from './chaterm/assets'
 import {
   deleteChatermHistoryByTaskIdLogic,
@@ -65,6 +70,21 @@ import {
   deleteSkillStateLogic,
   getEnabledSkillNamesLogic
 } from './chaterm/skills'
+import {
+  listK8sClustersLogic,
+  getK8sClusterLogic,
+  addK8sClusterLogic,
+  updateK8sClusterLogic,
+  removeK8sClusterLogic,
+  setActiveK8sClusterLogic,
+  updateK8sClusterStatusLogic,
+  listK8sTerminalSessionsLogic,
+  addK8sTerminalSessionLogic,
+  removeK8sTerminalSessionLogic,
+  removeAllK8sTerminalSessionsLogic,
+  type K8sClusterRecord,
+  type K8sTerminalSessionRecord
+} from './chaterm/k8s-clusters'
 import type { SkillState } from '../../agent/shared/skills'
 import type { ChatSyncTaskState, TaskSnapshotTables } from '../chat_sync/models/ChatSyncTypes'
 const logger = createLogger('db')
@@ -371,6 +391,57 @@ export class ChatermDatabaseService {
     }
   }
 
+  // Organization asset management methods
+  getOrganizationAssets(organizationUuid: string, search?: string, page?: number, pageSize?: number): any {
+    try {
+      const result = getOrganizationAssetsLogic(this.db, organizationUuid, search, page, pageSize)
+      return result
+    } catch (error) {
+      logger.error('ChatermDatabaseService.getOrganizationAssets error', { error: error })
+      throw error
+    }
+  }
+
+  createOrganizationAsset(organizationUuid: string, data: { hostname: string; host: string; comment?: string }): any {
+    try {
+      const result = createOrganizationAssetLogic(this.db, organizationUuid, data)
+      return result
+    } catch (error) {
+      logger.error('ChatermDatabaseService.createOrganizationAsset error', { error: error })
+      throw error
+    }
+  }
+
+  updateOrganizationAsset(uuid: string, data: { hostname?: string; host?: string; comment?: string }): any {
+    try {
+      const result = updateOrganizationAssetLogic(this.db, uuid, data)
+      return result
+    } catch (error) {
+      logger.error('ChatermDatabaseService.updateOrganizationAsset error', { error: error })
+      throw error
+    }
+  }
+
+  deleteOrganizationAsset(uuid: string): any {
+    try {
+      const result = deleteOrganizationAssetLogic(this.db, uuid)
+      return result
+    } catch (error) {
+      logger.error('ChatermDatabaseService.deleteOrganizationAsset error', { error: error })
+      throw error
+    }
+  }
+
+  batchDeleteOrganizationAssets(uuids: string[]): any {
+    try {
+      const result = batchDeleteOrganizationAssetsLogic(this.db, uuids)
+      return result
+    } catch (error) {
+      logger.error('ChatermDatabaseService.batchDeleteOrganizationAssets error', { error: error })
+      throw error
+    }
+  }
+
   // MCP tool state management methods
   getMcpToolState(serverName: string, toolName: string): any {
     try {
@@ -502,6 +573,163 @@ export class ChatermDatabaseService {
     } catch (error) {
       logger.error('ChatermDatabaseService.getEnabledSkillNames error', { error: error })
       return []
+    }
+  }
+
+  // ==================== K8S Cluster Management Methods ====================
+
+  /**
+   * List all K8S clusters
+   */
+  listK8sClusters(): K8sClusterRecord[] {
+    try {
+      return listK8sClustersLogic(this.db)
+    } catch (error) {
+      logger.error('ChatermDatabaseService.listK8sClusters error', { error: error })
+      return []
+    }
+  }
+
+  /**
+   * Get a K8S cluster by ID
+   */
+  getK8sCluster(id: string): K8sClusterRecord | null {
+    try {
+      return getK8sClusterLogic(this.db, id)
+    } catch (error) {
+      logger.error('ChatermDatabaseService.getK8sCluster error', { error: error })
+      return null
+    }
+  }
+
+  /**
+   * Add a new K8S cluster
+   */
+  addK8sCluster(params: {
+    name: string
+    kubeconfigPath?: string
+    kubeconfigContent?: string
+    contextName: string
+    serverUrl: string
+    authType?: string
+    autoConnect?: boolean
+    defaultNamespace?: string
+  }): { success: boolean; id?: string; error?: string } {
+    try {
+      return addK8sClusterLogic(this.db, params)
+    } catch (error) {
+      logger.error('ChatermDatabaseService.addK8sCluster error', { error: error })
+      return { success: false, error: error instanceof Error ? error.message : 'Unknown error' }
+    }
+  }
+
+  /**
+   * Update a K8S cluster
+   */
+  updateK8sCluster(
+    id: string,
+    params: {
+      name?: string
+      kubeconfigPath?: string
+      kubeconfigContent?: string
+      contextName?: string
+      serverUrl?: string
+      authType?: string
+      isActive?: boolean
+      connectionStatus?: string
+      autoConnect?: boolean
+      defaultNamespace?: string
+    }
+  ): { success: boolean; error?: string } {
+    try {
+      return updateK8sClusterLogic(this.db, id, params)
+    } catch (error) {
+      logger.error('ChatermDatabaseService.updateK8sCluster error', { error: error })
+      return { success: false, error: error instanceof Error ? error.message : 'Unknown error' }
+    }
+  }
+
+  /**
+   * Remove a K8S cluster
+   */
+  removeK8sCluster(id: string): { success: boolean; error?: string } {
+    try {
+      return removeK8sClusterLogic(this.db, id)
+    } catch (error) {
+      logger.error('ChatermDatabaseService.removeK8sCluster error', { error: error })
+      return { success: false, error: error instanceof Error ? error.message : 'Unknown error' }
+    }
+  }
+
+  /**
+   * Set active K8S cluster
+   */
+  setActiveK8sCluster(id: string): { success: boolean; error?: string } {
+    try {
+      return setActiveK8sClusterLogic(this.db, id)
+    } catch (error) {
+      logger.error('ChatermDatabaseService.setActiveK8sCluster error', { error: error })
+      return { success: false, error: error instanceof Error ? error.message : 'Unknown error' }
+    }
+  }
+
+  /**
+   * Update K8S cluster connection status
+   */
+  updateK8sClusterStatus(id: string, status: 'connected' | 'disconnected' | 'error'): { success: boolean; error?: string } {
+    try {
+      return updateK8sClusterStatusLogic(this.db, id, status)
+    } catch (error) {
+      logger.error('ChatermDatabaseService.updateK8sClusterStatus error', { error: error })
+      return { success: false, error: error instanceof Error ? error.message : 'Unknown error' }
+    }
+  }
+
+  /**
+   * List K8S terminal sessions for a cluster
+   */
+  listK8sTerminalSessions(clusterId: string): K8sTerminalSessionRecord[] {
+    try {
+      return listK8sTerminalSessionsLogic(this.db, clusterId)
+    } catch (error) {
+      logger.error('ChatermDatabaseService.listK8sTerminalSessions error', { error: error })
+      return []
+    }
+  }
+
+  /**
+   * Add a K8S terminal session
+   */
+  addK8sTerminalSession(params: { clusterId: string; name?: string; namespace?: string }): { success: boolean; id?: string; error?: string } {
+    try {
+      return addK8sTerminalSessionLogic(this.db, params)
+    } catch (error) {
+      logger.error('ChatermDatabaseService.addK8sTerminalSession error', { error: error })
+      return { success: false, error: error instanceof Error ? error.message : 'Unknown error' }
+    }
+  }
+
+  /**
+   * Remove a K8S terminal session
+   */
+  removeK8sTerminalSession(id: string): { success: boolean; error?: string } {
+    try {
+      return removeK8sTerminalSessionLogic(this.db, id)
+    } catch (error) {
+      logger.error('ChatermDatabaseService.removeK8sTerminalSession error', { error: error })
+      return { success: false, error: error instanceof Error ? error.message : 'Unknown error' }
+    }
+  }
+
+  /**
+   * Remove all K8S terminal sessions for a cluster
+   */
+  removeAllK8sTerminalSessions(clusterId: string): { success: boolean; error?: string } {
+    try {
+      return removeAllK8sTerminalSessionsLogic(this.db, clusterId)
+    } catch (error) {
+      logger.error('ChatermDatabaseService.removeAllK8sTerminalSessions error', { error: error })
+      return { success: false, error: error instanceof Error ? error.message : 'Unknown error' }
     }
   }
 
