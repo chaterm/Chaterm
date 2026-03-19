@@ -27,6 +27,7 @@ kms_*
 session_*
 # test
 tests/screenshots
+**/__screenshots__/
 tests/videos
 tests/playwright-report
 tests/test-results
