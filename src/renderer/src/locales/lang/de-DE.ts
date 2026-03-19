@@ -801,6 +801,7 @@ export default {
     today: 'Heute',
     yesterday: 'Gestern',
     favorite: 'Favoriten',
+    favorites: 'Favoriten',
     welcome: 'Was kann ich für Sie im Terminal tun?',
     welcomeTips: ['Was kann ich für Sie im Terminal tun?', '@ für Kontext, / für Befehle', 'Drücken Sie Shift + Tab um den Modus zu wechseln'],
     loginPrompt: 'Login um AI-Features zu verwenden, neue Benutzer können für 2 Wochen kostenlos verwenden',

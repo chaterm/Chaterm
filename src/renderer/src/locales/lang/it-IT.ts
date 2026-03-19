@@ -800,6 +800,7 @@ export default {
     today: 'Oggi',
     yesterday: 'Ieri',
     favorite: 'Preferiti',
+    favorites: 'Preferiti',
     welcome: 'Cosa posso fare per te nel terminale?',
     welcomeTips: ['Cosa posso fare per te nel terminale?', '@ per il contesto, / per i comandi', 'Premi Shift + Tab per cambiare modalità'],
     loginPrompt: 'Login per utilizzare funzionalità AI, nuovi utenti possono usarle gratuitamente per due settimane',

@@ -674,11 +674,26 @@
       display: flex;
       align-items: center;
       justify-content: center;
+      transition: all 0.2s ease;
+
+      &:hover {
+        background-color: var(--hover-bg-color);
+        border-radius: 4px;
+
+        .star-outline-icon {
+          color: #faad14;
+        }
+      }
 
       &.ant-btn-primary {
         background-color: transparent;
         border: none;
       }
+    }
+
+    .star-outline-icon {
+      color: #999999;
+      transition: color 0.2s ease;
     }
   }
 

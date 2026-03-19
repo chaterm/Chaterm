@@ -782,6 +782,7 @@ export default {
     today: '今天',
     yesterday: '昨天',
     favorite: '收藏',
+    favorites: '收藏夾',
     welcome: '您好,需要在終端做什麼操作?',
     welcomeTips: ['您好,請問需要在終端做什麼操作?', '輸入 @ 選擇上下文，輸入 / 選擇自訂命令', '按下 Shift + Tab 切換模式'],
     loginPrompt: '登錄後即可使用 AI 功能，新用戶註冊免費使用兩週',

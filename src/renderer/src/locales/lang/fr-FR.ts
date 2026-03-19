@@ -802,6 +802,7 @@ export default {
     today: "Aujourd'hui",
     yesterday: 'Hier',
     favorite: 'Favoris',
+    favorites: 'Favoris',
     welcome: 'Que puis-je faire pour vous dans le terminal?',
     welcomeTips: [
       'Que puis-je faire pour vous dans le terminal?',

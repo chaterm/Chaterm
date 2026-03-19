@@ -787,6 +787,7 @@ export default {
     today: '오늘',
     yesterday: '어제',
     favorite: '즐겨찾기',
+    favorites: '즐겨찾기',
     welcome: '터미널에서 무엇을 할 수 있을까요?',
     welcomeTips: ['터미널에서 무엇을 할 수 있을까요?', '@로 컨텍스트 선택, /로 사용자 지정 명령 선택', 'Shift + Tab를 눌러 모드를 전환'],
     loginPrompt: 'AI 기능을 사용하려면 로그인해주세요, 새 사용자는 무료로 2주 동안 사용할 수 있습니다',

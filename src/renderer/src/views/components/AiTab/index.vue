@@ -572,23 +572,25 @@
                       <SearchOutlined style="color: #666" />
                     </template>
                   </a-input>
-                  <a-button
-                    size="small"
-                    class="favorites-button"
-                    type="text"
-                    @click="showOnlyFavorites = !showOnlyFavorites"
-                  >
-                    <template #icon>
-                      <StarFilled
-                        v-if="showOnlyFavorites"
-                        style="color: #faad14"
-                      />
-                      <StarOutlined
-                        v-else
-                        style="color: #999999"
-                      />
-                    </template>
-                  </a-button>
+                  <a-tooltip :title="$t('ai.favorites')">
+                    <a-button
+                      size="small"
+                      class="favorites-button"
+                      type="text"
+                      @click="showOnlyFavorites = !showOnlyFavorites"
+                    >
+                      <template #icon>
+                        <StarFilled
+                          v-if="showOnlyFavorites"
+                          style="color: #faad14"
+                        />
+                        <StarOutlined
+                          v-else
+                          class="star-outline-icon"
+                        />
+                      </template>
+                    </a-button>
+                  </a-tooltip>
                 </div>
                 <div class="history-virtual-list-container">
                   <template
