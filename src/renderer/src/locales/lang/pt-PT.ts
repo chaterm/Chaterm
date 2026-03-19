@@ -1438,7 +1438,18 @@ export default {
     importErrorFileTypeNotAllowed: 'Este tipo de ficheiro não pode ser importado',
     importErrorFileTooLarge: 'Ficheiro demasiado grande para importar',
     importErrorFileFailed: 'Falha ao importar ficheiro',
-    importErrorFolderFailed: 'Falha ao importar pasta'
+    importErrorFolderFailed: 'Falha ao importar pasta',
+    myCapacity: 'A minha capacidade',
+    capacityDetail: 'Detalhes',
+    capacitySourceDetail: 'Detalhe das fontes de capacidade',
+    serviceItem: 'Serviço',
+    expireAt: 'Expira em',
+    capacity: 'Capacidade',
+    total: 'Total',
+    freeTierName: 'Plano pessoal gratuito',
+    proTierName: 'Plano pessoal Pro',
+    ultraTierName: 'Plano pessoal Ultra',
+    expireNever: 'Nunca expira'
   },
   interaction: {
     title: 'Interacao de comando necessaria',

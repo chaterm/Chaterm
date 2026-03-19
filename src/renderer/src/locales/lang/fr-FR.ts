@@ -1444,7 +1444,18 @@ export default {
     importErrorFileTypeNotAllowed: 'Ce type de fichier ne peut pas être importé',
     importErrorFileTooLarge: 'Fichier trop volumineux pour être importé',
     importErrorFileFailed: "Échec de l'import du fichier",
-    importErrorFolderFailed: "Échec de l'import du dossier"
+    importErrorFolderFailed: "Échec de l'import du dossier",
+    myCapacity: 'Mon espace',
+    capacityDetail: 'Détails',
+    capacitySourceDetail: 'Détail des sources de capacité',
+    serviceItem: 'Service',
+    expireAt: 'Expiration',
+    capacity: 'Capacité',
+    total: 'Total',
+    freeTierName: 'Forfait personnel gratuit',
+    proTierName: 'Forfait personnel Pro',
+    ultraTierName: 'Forfait personnel Ultra',
+    expireNever: 'Jamais expiré'
   },
   interaction: {
     title: 'Interaction de commande requise',

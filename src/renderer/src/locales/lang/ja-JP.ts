@@ -1438,7 +1438,18 @@ export default {
     importErrorFileTypeNotAllowed: 'このファイル形式はインポートできません',
     importErrorFileTooLarge: 'ファイルが大きすぎてインポートできません',
     importErrorFileFailed: 'ファイルのインポートに失敗しました',
-    importErrorFolderFailed: 'フォルダのインポートに失敗しました'
+    importErrorFolderFailed: 'フォルダのインポートに失敗しました',
+    myCapacity: 'マイ容量',
+    capacityDetail: '明細',
+    capacitySourceDetail: '容量の内訳',
+    serviceItem: 'サービス',
+    expireAt: '有効期限',
+    capacity: '容量',
+    total: '合計',
+    freeTierName: '個人無料版',
+    proTierName: '個人Proプラン',
+    ultraTierName: '個人Ultraプラン',
+    expireNever: '無期限'
   },
   interaction: {
     waiting: '入力待機中...',
