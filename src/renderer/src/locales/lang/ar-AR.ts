@@ -1398,7 +1398,11 @@ export default {
     importInvalidMetadata: 'SKILL.md يفتقد حقول مطلوبة',
     importOverwriteTitle: 'المهارة موجودة بالفعل',
     importOverwriteContent: 'هل أنت متأكد من رغبتك في استبدال المهارة الموجودة؟',
-    importOverwrite: 'استبدال'
+    importOverwrite: 'استبدال',
+    editSkill: 'تعديل المهارة',
+    readContentError: 'فشل في قراءة محتوى المهارة',
+    updateSuccess: 'تم تحديث المهارة بنجاح',
+    updateError: 'فشل في تحديث المهارة'
   },
   knowledgeCenter: {
     title: 'قاعدة المعرفة',

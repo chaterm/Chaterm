@@ -283,6 +283,8 @@ interface ApiType {
     error?: string
     errorCode?: 'INVALID_ZIP' | 'NO_SKILL_MD' | 'INVALID_METADATA' | 'DIR_EXISTS' | 'EXTRACT_FAILED' | 'UNKNOWN'
   }>
+  readSkillContent: (skillName: string) => Promise<{ metadata: any; content: string }>
+  updateSkill: (skillName: string, metadata: any, content: string) => Promise<void>
   onSkillsUpdate: (callback: (skills: any[]) => void) => () => void
 
   // IndexedDB migration related API

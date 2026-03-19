@@ -1418,7 +1418,11 @@ export default {
     importInvalidMetadata: 'SKILL.md fehlt erforderliche Felder',
     importOverwriteTitle: 'Skill bereits vorhanden',
     importOverwriteContent: 'Möchten Sie den bestehenden Skill überschreiben?',
-    importOverwrite: 'Überschreiben'
+    importOverwrite: 'Überschreiben',
+    editSkill: 'Skill bearbeiten',
+    readContentError: 'Skill-Inhalt konnte nicht gelesen werden',
+    updateSuccess: 'Skill erfolgreich aktualisiert',
+    updateError: 'Skill konnte nicht aktualisiert werden'
   },
   knowledgeCenter: {
     title: 'Wissensdatenbank',

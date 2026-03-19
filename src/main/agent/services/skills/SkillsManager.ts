@@ -614,7 +614,8 @@ export class SkillsManager {
         skills: this.getAllSkills().map((skill) => ({
           name: skill.metadata.name,
           description: skill.metadata.description,
-          enabled: skill.enabled
+          enabled: skill.enabled,
+          path: skill.path
         }))
       })
     }
@@ -707,6 +708,49 @@ export class SkillsManager {
 
     // Notify webview
     await this.notifySkillsUpdate()
+  }
+
+  /**
+   * Read the full content of a skill (metadata + body)
+   */
+  async readSkillContent(skillName: string): Promise<{ metadata: Partial<SkillMetadata>; content: string }> {
+    const skill = this.skills.get(skillName)
+    if (!skill) {
+      throw new Error(`Skill not found: ${skillName}`)
+    }
+
+    const result = await this.parseSkillFile(skill.path)
+    if (!result.success || !result.skill) {
+      throw new Error(result.error || 'Failed to parse skill file')
+    }
+
+    return {
+      metadata: result.skill.metadata,
+      content: result.skill.content
+    }
+  }
+
+  /**
+   * Update a user skill's SKILL.md file
+   */
+  async updateUserSkill(skillName: string, metadata: SkillMetadata, content: string): Promise<void> {
+    const skill = this.skills.get(skillName)
+    if (!skill) {
+      throw new Error(`Skill not found: ${skillName}`)
+    }
+
+    // Check if skill is in user skills directory
+    const userSkillsPath = this.getUserSkillsPath()
+    if (!skill.path.startsWith(userSkillsPath)) {
+      throw new Error('Can only update user-created skills')
+    }
+
+    // Build and write updated SKILL.md content
+    const skillContent = this.buildSkillFile(metadata, content)
+    await fs.writeFile(skill.path, skillContent, 'utf-8')
+
+    // Reload skills to pick up changes
+    await this.loadAllSkills()
   }
 
   /**
