@@ -8,16 +8,23 @@ import {
   listAllKbFilesRecursive,
   readLocalSnapshot,
   writeLocalSnapshot,
+  __testOnly,
+  DELETE_BATCH_SIZE,
   UploadItemStatus,
   DeleteItemStatus,
   parseKbUploadStatus,
   parseKbDeleteStatus,
   buildSnapshotEntriesAfterUpload,
   adjustUsedBytesAfterUploadOk,
+  decideDownloadAction,
   type KbManifestEntry
 } from '../sync'
 
 let mockUserDataPath = ''
+
+const apiClientModuleMock = vi.hoisted(() => ({
+  ApiClient: vi.fn()
+}))
 
 vi.mock('electron', () => ({
   app: {
@@ -28,9 +35,7 @@ vi.mock('electron', () => ({
   }
 }))
 
-vi.mock('../../storage/data_sync/core/ApiClient', () => ({
-  ApiClient: vi.fn()
-}))
+vi.mock('../../storage/data_sync/core/ApiClient', () => apiClientModuleMock)
 
 vi.mock('../index', () => ({
   getKnowledgeBaseRoot: () => path.join(mockUserDataPath, 'knowledgebase'),
@@ -133,8 +138,14 @@ describe('listAllKbFilesRecursive', () => {
 describe('parseKbUploadStatus', () => {
   it('maps numeric and string enum values', () => {
     expect(parseKbUploadStatus(UploadItemStatus.UploadStatusOK)).toBe('ok')
+    expect(parseKbUploadStatus('UPLOAD_STATUS_OK')).toBe('ok')
+    expect(parseKbUploadStatus('UploadStatusOK')).toBe('ok')
     expect(parseKbUploadStatus(UploadItemStatus.UploadStatusSkipped)).toBe('skipped')
+    expect(parseKbUploadStatus('UPLOAD_STATUS_SKIPPED')).toBe('skipped')
+    expect(parseKbUploadStatus('UploadStatusSkipped')).toBe('skipped')
     expect(parseKbUploadStatus(UploadItemStatus.UploadStatusFailed)).toBe('failed')
+    expect(parseKbUploadStatus('UPLOAD_STATUS_FAILED')).toBe('failed')
+    expect(parseKbUploadStatus('UploadStatusFailed')).toBe('failed')
     expect(parseKbUploadStatus(UploadItemStatus.UploadStatusUnspecified)).toBe('unspecified')
     expect(parseKbUploadStatus(undefined)).toBe('unspecified')
   })
@@ -143,8 +154,14 @@ describe('parseKbUploadStatus', () => {
 describe('parseKbDeleteStatus', () => {
   it('maps delete outcome enums', () => {
     expect(parseKbDeleteStatus(DeleteItemStatus.DeleteStatusOK)).toBe('ok')
+    expect(parseKbDeleteStatus('DELETE_STATUS_OK')).toBe('ok')
+    expect(parseKbDeleteStatus('DeleteStatusOK')).toBe('ok')
     expect(parseKbDeleteStatus(DeleteItemStatus.DeleteStatusNotFound)).toBe('not_found')
+    expect(parseKbDeleteStatus('DELETE_STATUS_NOT_FOUND')).toBe('not_found')
+    expect(parseKbDeleteStatus('DeleteStatusNotFound')).toBe('not_found')
     expect(parseKbDeleteStatus(DeleteItemStatus.DeleteStatusFailed)).toBe('failed')
+    expect(parseKbDeleteStatus('DELETE_STATUS_FAILED')).toBe('failed')
+    expect(parseKbDeleteStatus('DeleteStatusFailed')).toBe('failed')
   })
 })
 
@@ -185,5 +202,100 @@ describe('adjustUsedBytesAfterUploadOk', () => {
     const cloud = new Map<string, number>()
     expect(adjustUsedBytesAfterUploadOk(50, cloud, { relPath: '.kb-default-seeds-meta.json', mtimeMs: 1, size: 99 })).toBe(50)
     expect(cloud.has('.kb-default-seeds-meta.json')).toBe(false)
+  })
+})
+
+describe('decideDownloadAction', () => {
+  const entry = (relPath: string, mtimeMs: number): KbManifestEntry => ({ relPath, mtimeMs, size: 100 })
+  const lastEntry = (relPath: string, mtimeMs: number): KbManifestEntry => ({ relPath, mtimeMs, size: 100 })
+
+  it('skips excluded meta file regardless of local state', () => {
+    expect(decideDownloadAction(entry('.kb-default-seeds-meta.json', 200), false, null, new Set(), undefined)).toBe('skip')
+    expect(decideDownloadAction(entry('.kb-default-seeds-meta.json', 200), true, 100, new Set(), undefined)).toBe('skip')
+  })
+
+  it('downloads new cloud file that never existed locally', () => {
+    expect(decideDownloadAction(entry('a.md', 100), false, null, new Set(), undefined)).toBe('download')
+  })
+
+  it('skips locally deleted file when cloud version is not newer', () => {
+    // Cloud mtime equals snapshot mtime → delete intent wins
+    const result = decideDownloadAction(entry('a.md', 100), false, null, new Set(['a.md']), lastEntry('a.md', 100))
+    expect(result).toBe('skip')
+  })
+
+  it('skips locally deleted file when cloud version is older than snapshot', () => {
+    const result = decideDownloadAction(entry('a.md', 80), false, null, new Set(['a.md']), lastEntry('a.md', 100))
+    expect(result).toBe('skip')
+  })
+
+  it('restores locally deleted file when cloud version is strictly newer', () => {
+    const result = decideDownloadAction(entry('a.md', 200), false, null, new Set(['a.md']), lastEntry('a.md', 100))
+    expect(result).toBe('download_and_restore')
+  })
+
+  it('downloads locally deleted file when snapshot entry is missing (treat cloud as authoritative)', () => {
+    // No snapshot entry means we have no baseline → cloud wins
+    const result = decideDownloadAction(entry('a.md', 100), false, null, new Set(['a.md']), undefined)
+    expect(result).toBe('download_and_restore')
+  })
+
+  it('skips existing local file that is up to date', () => {
+    expect(decideDownloadAction(entry('a.md', 100), true, 100, new Set(), undefined)).toBe('skip')
+  })
+
+  it('skips existing local file that is newer than cloud', () => {
+    expect(decideDownloadAction(entry('a.md', 100), true, 200, new Set(), undefined)).toBe('skip')
+  })
+
+  it('downloads existing local file when cloud is strictly newer', () => {
+    expect(decideDownloadAction(entry('a.md', 300), true, 100, new Set(), undefined)).toBe('download')
+  })
+})
+
+describe('flushDeletes batching', () => {
+  beforeEach(async () => {
+    vi.useFakeTimers()
+    mockUserDataPath = path.join(os.tmpdir(), `kb-sync-delete-batch-${Date.now()}`)
+    await fsp.mkdir(mockUserDataPath, { recursive: true })
+    __testOnly.resetState()
+    vi.clearAllMocks()
+  })
+
+  it('splits delete requests into batches and updates snapshot/usedBytes', async () => {
+    const post = vi.fn(async (_url: string, data?: any) => {
+      const relPaths: string[] = data?.relPaths ?? []
+      const results: Record<string, any> = {}
+      for (const p of relPaths) results[p] = { status: DeleteItemStatus.DeleteStatusOK }
+      return { results }
+    })
+    apiClientModuleMock.ApiClient.mockImplementation(() => ({
+      isAuthenticated: vi.fn(async () => true),
+      post,
+      destroy: vi.fn()
+    }))
+
+    const total = DELETE_BATCH_SIZE * 2 + 1
+    const relPaths = Array.from({ length: total }, (_, i) => `work_notes/f-${i}.md`)
+    const entries: KbManifestEntry[] = relPaths.map((p) => ({ relPath: p, mtimeMs: 1, size: 1 }))
+    await writeLocalSnapshot(entries, total)
+
+    __testOnly.addPendingDelete(relPaths)
+    expect(__testOnly.getPendingDeleteSize()).toBe(total)
+    expect(__testOnly.getFlags().fullSyncInProgress).toBe(false)
+    expect(__testOnly.getFlags().flushInProgress).toBe(false)
+    await __testOnly.flushDeletes()
+
+    expect(apiClientModuleMock.ApiClient).toHaveBeenCalled()
+    expect(post).toHaveBeenCalledTimes(3)
+    expect(post.mock.calls[0][0]).toBe('/kb/delete')
+    expect(post.mock.calls[0][1].relPaths).toHaveLength(DELETE_BATCH_SIZE)
+    expect(post.mock.calls[1][1].relPaths).toHaveLength(DELETE_BATCH_SIZE)
+    expect(post.mock.calls[2][1].relPaths).toHaveLength(1)
+
+    const snap = await readLocalSnapshot()
+    expect(snap).not.toBeNull()
+    expect(snap!.entries).toHaveLength(0)
+    expect(snap!.usedBytes).toBe(0)
   })
 })
