@@ -401,6 +401,7 @@ export class Task {
             }
 
             blocks.push({ type: 'text', text: skillText })
+            await this.say('skill_activated', skill.metadata.name, false)
           }
         }
       }
@@ -3929,7 +3930,7 @@ export class Task {
       await this.pushToolResult(toolDescription, resultText)
 
       // Optionally show activation message in UI
-      await this.say('text', `Activated Skill: ${skill.metadata.name}`, false)
+      await this.say('skill_activated', skill.metadata.name, false)
 
       await this.saveCheckpoint()
     } catch (error) {

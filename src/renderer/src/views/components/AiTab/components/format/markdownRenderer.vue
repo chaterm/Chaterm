@@ -102,6 +102,18 @@
       </div>
     </div>
     <div v-else>
+      <!-- Skill activation notification -->
+      <div
+        v-if="props.say === 'skill_activated'"
+        class="skill-activated-notice"
+      >
+        <img
+          :src="skillsIconSvg"
+          alt=""
+          class="skill-activated-icon"
+        />
+        <span class="skill-activated-text">Activated Skill: {{ props.content }}</span>
+      </div>
       <!-- Code content of command_output uses markdown rendering -->
       <div
         v-if="props.say === 'command_output' && codeDetection.isCode"
@@ -264,7 +276,7 @@
         </a-collapse>
       </template>
 
-      <div v-if="normalContent || codeBlocks.length > 0">
+      <div v-if="(normalContent || codeBlocks.length > 0) && props.say !== 'skill_activated'">
         <template
           v-for="(part, index) in contentParts"
           :key="index"
@@ -358,6 +370,7 @@ import 'monaco-editor/esm/vs/basic-languages/sql/sql.contribution'
 import { LoadingOutlined, CaretDownOutlined, CaretRightOutlined, CodeOutlined, QuestionCircleOutlined } from '@ant-design/icons-vue'
 import thinkingSvg from '@/assets/icons/thinking.svg'
 import copySvg from '@/assets/icons/copy.svg'
+import skillsIconSvg from '@/assets/icons/skills.svg'
 import { message } from 'ant-design-vue'
 import i18n from '@/locales'
 import { extractFinalOutput, cleanAnsiEscapeSequences } from '@/utils/terminalOutputExtractor'
@@ -2769,6 +2782,31 @@ body.has-custom-bg .monaco-editor .margin {
 /* Dark theme adjustments for SSH info messages */
 .theme-dark .ssh-info-message {
   color: var(--text-color-tertiary);
+}
+
+.skill-activated-notice {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin: 4px 8px;
+  padding: 4px 10px;
+  border-radius: 4px;
+  background-color: rgba(245, 158, 11, 0.1);
+  border: 1px solid rgba(245, 158, 11, 0.25);
+  font-size: 12px;
+  line-height: 1.5;
+  color: #f59e0b;
+}
+
+.skill-activated-icon {
+  width: 14px;
+  height: 14px;
+  flex-shrink: 0;
+  filter: brightness(0) saturate(100%) invert(67%) sepia(74%) saturate(1200%) hue-rotate(2deg) brightness(103%) contrast(97%);
+}
+
+.skill-activated-text {
+  font-weight: 500;
 }
 
 .command-output::-webkit-scrollbar-thumb {
