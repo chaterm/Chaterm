@@ -362,6 +362,12 @@ interface ApiType {
   onKbTransferProgress: (callback: (data: { jobId: string; transferred: number; total: number; destRelPath: string }) => void) => () => void
   kbSyncGetStatus: () => Promise<{ status: 'idle' | 'syncing' }>
   kbSyncLastTime: () => Promise<number | null>
+  kbSyncLastResults: () => Promise<{
+    finishedAt: number
+    uploads: Array<{ relPath: string; kind: 'upload' | 'delete'; status: string; message: string }>
+    deletes: Array<{ relPath: string; kind: 'upload' | 'delete'; status: string; message: string }>
+  }>
+  getKbCloudStorage: () => Promise<{ usedBytes: number; totalBytes: number }>
   getLocalWorkingDirectory: () => Promise<{ success: boolean; cwd: string }>
   getShellsLocal: () => Promise<any>
   agentEnableAndConfigure: (opts: { enabled: boolean }) => Promise<any>

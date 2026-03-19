@@ -32,6 +32,9 @@ export type ContextCommandRef = {
   path?: string // absolute path to command file in knowledge base
 }
 
+// Skill reference (activated via @ mention in chat input)
+export type ContextSkillRef = { skillName: string; description?: string }
+
 export type ContextRefs = {
   docs?: ContextDocRef[]
   pastChats?: ContextPastChatRef[]
@@ -41,7 +44,8 @@ export type TextContentPart = { type: 'text'; text: string }
 export type DocChipContentPart = { type: 'chip'; chipType: 'doc'; ref: ContextDocRef }
 export type ChatChipContentPart = { type: 'chip'; chipType: 'chat'; ref: ContextPastChatRef }
 export type CommandChipContentPart = { type: 'chip'; chipType: 'command'; ref: ContextCommandRef }
-export type ChipContentPart = DocChipContentPart | ChatChipContentPart | CommandChipContentPart
+export type SkillChipContentPart = { type: 'chip'; chipType: 'skill'; ref: ContextSkillRef }
+export type ChipContentPart = DocChipContentPart | ChatChipContentPart | CommandChipContentPart | SkillChipContentPart
 export type ImageContentPart = {
   type: 'image'
   mediaType: 'image/jpeg' | 'image/png' | 'image/gif' | 'image/webp' | 'image/bmp' | 'image/svg+xml'

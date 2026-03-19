@@ -59,8 +59,15 @@
           @click.stop="goToLevel2(item.key)"
           @mouseover="handleMenuMouseOver(displayedOpenedHosts.length + index)"
         >
+          <img
+            v-if="item.svgSrc"
+            :src="item.svgSrc"
+            alt=""
+            class="menu-icon-svg"
+          />
           <component
             :is="item.icon"
+            v-else
             class="menu-icon"
           />
           <span class="menu-label">{{ $t(item.labelKey) }}</span>
@@ -218,6 +225,48 @@
         </div>
       </div>
 
+      <!-- Level 2: Skills List -->
+      <div
+        v-else-if="currentMenuLevel === 'skills'"
+        class="select-list"
+      >
+        <div
+          v-for="(skill, index) in filteredSkillsOptions"
+          :key="skill.name"
+          class="select-item"
+          :class="{
+            hovered: hovered === skill.name,
+            'keyboard-selected': keyboardSelectedIndex === index
+          }"
+          @mouseover="handleMouseOver(skill.name, index)"
+          @mouseleave="hovered = null"
+          @click="onSkillClick(skill)"
+        >
+          <img
+            :src="skillsIcon"
+            alt=""
+            class="item-icon-svg"
+          />
+          <span class="item-label">{{ skill.name }}</span>
+          <CheckOutlined
+            v-if="isSkillSelected(skill)"
+            class="selected-icon"
+          />
+        </div>
+        <div
+          v-if="skillsOptionsLoading"
+          class="select-loading"
+        >
+          {{ $t('ai.loading') }}...
+        </div>
+        <div
+          v-if="filteredSkillsOptions.length === 0 && !skillsOptionsLoading"
+          class="select-empty"
+        >
+          {{ $t('ai.noMatchingSkills') }}
+        </div>
+      </div>
+
       <!-- Level 2: Chats List -->
       <div
         v-else-if="currentMenuLevel === 'chats'"
@@ -275,6 +324,7 @@ import {
   CheckSquareOutlined,
   MinusSquareOutlined
 } from '@ant-design/icons-vue'
+import skillsIcon from '@/assets/icons/skills.svg'
 import { contextInjectionKey } from '../composables/useContext'
 import type { ContextMenuLevel } from '../types'
 import { isBastionHostType } from '../types'
@@ -328,6 +378,11 @@ const {
   chatsOptionsLoading,
   isChatSelected,
   onChatClick,
+  // Skills
+  filteredSkillsOptions,
+  skillsOptionsLoading,
+  isSkillSelected,
+  onSkillClick,
   // Handlers
   handleSearchKeyDown,
   handleMouseOver,
@@ -368,7 +423,8 @@ const popupClass = computed(() => ({
 interface MainMenuItem {
   key: Exclude<ContextMenuLevel, 'main'>
   labelKey: string
-  icon: Component
+  icon?: Component
+  svgSrc?: string
 }
 
 const showHostsMenuItem = computed(() => chatTypeValue.value === 'agent')
@@ -379,6 +435,7 @@ const mainMenuItems = computed<MainMenuItem[]>(() => {
     items.push({ key: 'hosts', labelKey: 'ai.hosts', icon: LaptopOutlined })
   }
   items.push({ key: 'docs', labelKey: 'ai.docs', icon: FileTextOutlined })
+  items.push({ key: 'skills', labelKey: 'ai.skills', svgSrc: skillsIcon })
   items.push({ key: 'chats', labelKey: 'ai.pastChats', icon: MessageOutlined })
   return items
 })
@@ -389,6 +446,8 @@ const searchPlaceholder = computed(() => {
       return t('ai.searchHost')
     case 'docs':
       return t('ai.searchDocs')
+    case 'skills':
+      return t('ai.searchSkills')
     case 'chats':
       return t('ai.searchChats')
     default:
@@ -504,6 +563,13 @@ void searchInputRef
     margin-right: 10px;
   }
 
+  .menu-icon-svg {
+    width: 14px;
+    height: 14px;
+    margin-right: 10px;
+    flex-shrink: 0;
+  }
+
   .menu-label {
     flex: 1;
     overflow: hidden;
@@ -570,6 +636,13 @@ void searchInputRef
   .item-icon {
     font-size: 12px;
     color: var(--text-color-secondary);
+    margin-right: 8px;
+    flex-shrink: 0;
+  }
+
+  .item-icon-svg {
+    width: 12px;
+    height: 12px;
     margin-right: 8px;
     flex-shrink: 0;
   }
