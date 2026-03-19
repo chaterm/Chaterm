@@ -52,10 +52,16 @@
             :class="`mention-chip-${part.chipType}`"
           >
             <span
-              v-if="part.chipType === 'doc' || part.chipType === 'chat'"
+              v-if="part.chipType === 'doc' || part.chipType === 'chat' || part.chipType === 'skill'"
               class="mention-icon"
             >
-              <FileTextOutlined v-if="part.chipType === 'doc'" />
+              <img
+                v-if="part.chipType === 'skill'"
+                :src="skillsIcon"
+                alt=""
+                class="mention-icon-svg"
+              />
+              <FileTextOutlined v-else-if="part.chipType === 'doc'" />
               <MessageOutlined v-else />
             </span>
             <span class="mention-label">{{ getChipLabel(part) }}</span>
@@ -75,6 +81,7 @@ import InputSendContainer from '../InputSendContainer.vue'
 import { FileTextOutlined, MessageOutlined } from '@ant-design/icons-vue'
 import { getChipLabel } from '../../utils'
 import { useSessionState } from '../../composables/useSessionState'
+import skillsIcon from '@/assets/icons/skills.svg'
 
 interface Props {
   message: ChatMessage
@@ -368,6 +375,11 @@ onUnmounted(() => {
   font-size: 12px;
   line-height: 1;
   color: var(--vscode-charts-blue);
+
+  .mention-icon-svg {
+    width: 12px;
+    height: 12px;
+  }
 }
 
 .mention-chip-doc .mention-icon {

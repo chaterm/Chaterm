@@ -374,6 +374,38 @@ export class Task {
     // 2. Process command chips
     await this.processSlashCommands(userContent, parts)
 
+    // 2.5. Process skill chips - activate skills and inject content
+    const skillChips = parts.filter((p) => p.type === 'chip' && p.chipType === 'skill')
+    const MAX_SKILLS = 5
+    for (const chip of skillChips.slice(0, MAX_SKILLS)) {
+      if (chip.type === 'chip' && chip.chipType === 'skill') {
+        const skillName = chip.ref.skillName
+        if (this.skillsManager) {
+          const skill = this.skillsManager.getSkill(skillName)
+          if (skill && skill.enabled) {
+            let skillText = `# Skill Activated: ${skill.metadata.name}\n\n`
+            skillText += `**Description:** ${skill.metadata.description}\n\n`
+            skillText += `## Instructions\n\n`
+            skillText += skill.content
+            skillText += '\n\n'
+
+            if (skill.resources && skill.resources.length > 0) {
+              const resourcesWithContent = skill.resources.filter((r) => r.content)
+              if (resourcesWithContent.length > 0) {
+                skillText += `## Available Resources\n\n`
+                for (const resource of resourcesWithContent) {
+                  skillText += `### ${resource.name} (${resource.type})\n\n`
+                  skillText += '```\n' + resource.content + '\n```\n\n'
+                }
+              }
+            }
+
+            blocks.push({ type: 'text', text: skillText })
+          }
+        }
+      }
+    }
+
     // 3. Process chat context refs
     const refs = this.buildContextRefsFromContentParts(parts)
     const pastChats = refs?.pastChats ?? []

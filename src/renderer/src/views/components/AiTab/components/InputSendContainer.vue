@@ -244,7 +244,7 @@ import { useUserInteractions } from '../composables/useUserInteractions'
 import { parseContextDragPayload, useEditableContent } from '../composables/useEditableContent'
 import { AiTypeOptions } from '../composables/useEventBusListeners'
 import { getImageMediaType } from '../utils'
-import type { ContentPart, ContextDocRef, ContextPastChatRef, ContextCommandRef } from '@shared/WebviewMessage'
+import type { ContentPart, ContextDocRef, ContextPastChatRef, ContextCommandRef, ContextSkillRef } from '@shared/WebviewMessage'
 import type { HistoryItem, Host } from '../types'
 import { CloseOutlined, LaptopOutlined, LockOutlined } from '@ant-design/icons-vue'
 import uploadIcon from '@/assets/icons/upload.svg'
@@ -412,7 +412,10 @@ const handleSendClick = async (type: string) => {
   }
 }
 
-const handleChipClick = async (chipType: 'doc' | 'chat' | 'command', ref: ContextDocRef | ContextPastChatRef | ContextCommandRef) => {
+const handleChipClick = async (
+  chipType: 'doc' | 'chat' | 'command' | 'skill',
+  ref: ContextDocRef | ContextPastChatRef | ContextCommandRef | ContextSkillRef
+) => {
   if (chipType === 'doc') {
     const docRef = ref as ContextDocRef
     if (docRef.type !== 'dir') {
@@ -423,6 +426,10 @@ const handleChipClick = async (chipType: 'doc' | 'chat' | 'command', ref: Contex
   if (chipType === 'command') {
     const cmdRef = ref as ContextCommandRef
     await context.openKbFile(cmdRef.path, cmdRef.label)
+    return
+  }
+  if (chipType === 'skill') {
+    // No special action for skill chip click
     return
   }
   const chatRef = ref as ContextPastChatRef
@@ -449,6 +456,7 @@ const {
   insertChipAtCursor,
   insertImageAtCursor,
   insertCommandChipWithPath,
+  insertSkillChip,
   handleEditableKeyDown,
   handleEditableInput,
   handleEditableClick
@@ -708,7 +716,13 @@ const inputPlaceholder = computed(() => {
 // ============================================================================
 
 onMounted(() => {
-  setChipInsertHandler(insertChipAtCursor)
+  setChipInsertHandler((chipType, ref, label) => {
+    if (chipType === 'skill') {
+      insertSkillChip(ref as ContextSkillRef, label)
+    } else {
+      insertChipAtCursor(chipType, ref as any, label)
+    }
+  })
   setImageInsertHandler(insertImageAtCursor)
   // Set command chip insert handler with path support
   setCommandChipInsertHandler((command: string, label: string, path: string) => {
