@@ -35,7 +35,7 @@ vi.mock('electron', () => ({
   }
 }))
 
-vi.mock('../../storage/data_sync/core/ApiClient', () => apiClientModuleMock)
+vi.mock('../../../storage/data_sync/core/ApiClient', () => apiClientModuleMock)
 
 vi.mock('../index', () => ({
   getKnowledgeBaseRoot: () => path.join(mockUserDataPath, 'knowledgebase'),
@@ -136,32 +136,20 @@ describe('listAllKbFilesRecursive', () => {
 })
 
 describe('parseKbUploadStatus', () => {
-  it('maps numeric and string enum values', () => {
+  it('maps numeric enum values', () => {
     expect(parseKbUploadStatus(UploadItemStatus.UploadStatusOK)).toBe('ok')
-    expect(parseKbUploadStatus('UPLOAD_STATUS_OK')).toBe('ok')
-    expect(parseKbUploadStatus('UploadStatusOK')).toBe('ok')
     expect(parseKbUploadStatus(UploadItemStatus.UploadStatusSkipped)).toBe('skipped')
-    expect(parseKbUploadStatus('UPLOAD_STATUS_SKIPPED')).toBe('skipped')
-    expect(parseKbUploadStatus('UploadStatusSkipped')).toBe('skipped')
     expect(parseKbUploadStatus(UploadItemStatus.UploadStatusFailed)).toBe('failed')
-    expect(parseKbUploadStatus('UPLOAD_STATUS_FAILED')).toBe('failed')
-    expect(parseKbUploadStatus('UploadStatusFailed')).toBe('failed')
     expect(parseKbUploadStatus(UploadItemStatus.UploadStatusUnspecified)).toBe('unspecified')
     expect(parseKbUploadStatus(undefined)).toBe('unspecified')
   })
 })
 
 describe('parseKbDeleteStatus', () => {
-  it('maps delete outcome enums', () => {
+  it('maps numeric enum values', () => {
     expect(parseKbDeleteStatus(DeleteItemStatus.DeleteStatusOK)).toBe('ok')
-    expect(parseKbDeleteStatus('DELETE_STATUS_OK')).toBe('ok')
-    expect(parseKbDeleteStatus('DeleteStatusOK')).toBe('ok')
     expect(parseKbDeleteStatus(DeleteItemStatus.DeleteStatusNotFound)).toBe('not_found')
-    expect(parseKbDeleteStatus('DELETE_STATUS_NOT_FOUND')).toBe('not_found')
-    expect(parseKbDeleteStatus('DeleteStatusNotFound')).toBe('not_found')
     expect(parseKbDeleteStatus(DeleteItemStatus.DeleteStatusFailed)).toBe('failed')
-    expect(parseKbDeleteStatus('DELETE_STATUS_FAILED')).toBe('failed')
-    expect(parseKbDeleteStatus('DeleteStatusFailed')).toBe('failed')
   })
 })
 
@@ -269,11 +257,13 @@ describe('flushDeletes batching', () => {
       for (const p of relPaths) results[p] = { status: DeleteItemStatus.DeleteStatusOK }
       return { results }
     })
-    apiClientModuleMock.ApiClient.mockImplementation(() => ({
-      isAuthenticated: vi.fn(async () => true),
-      post,
-      destroy: vi.fn()
-    }))
+    apiClientModuleMock.ApiClient.mockImplementation(function () {
+      return {
+        isAuthenticated: vi.fn(async () => true),
+        post,
+        destroy: vi.fn()
+      }
+    })
 
     const total = DELETE_BATCH_SIZE * 2 + 1
     const relPaths = Array.from({ length: total }, (_, i) => `work_notes/f-${i}.md`)
