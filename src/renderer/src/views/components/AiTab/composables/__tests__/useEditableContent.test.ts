@@ -2,14 +2,15 @@ import { describe, it, expect, vi } from 'vitest'
 import { ref } from 'vue'
 import { parseContextDragPayload, useEditableContent } from '../useEditableContent'
 import { getImageMediaType, isImageFile } from '../../utils'
-import type { ContentPart, ContextDocRef, ContextPastChatRef, ContextCommandRef } from '@shared/WebviewMessage'
+import type { ContentPart, ContextDocRef, ContextPastChatRef, ContextCommandRef, ContextSkillRef } from '@shared/WebviewMessage'
 import type { DocOption } from '../../types'
 
 describe('useEditableContent', () => {
   const setup = (opts?: { handleShowCommandPopup?: (triggerEl?: HTMLElement | null) => void }) => {
     const editableRef = ref<HTMLDivElement | null>(document.createElement('div'))
     const chatInputParts = ref<ContentPart[]>([])
-    const handleChipClick = vi.fn<(chipType: 'doc' | 'chat' | 'command', ref: ContextDocRef | ContextPastChatRef | ContextCommandRef) => void>()
+    const handleChipClick =
+      vi.fn<(chipType: 'doc' | 'chat' | 'command' | 'skill', ref: ContextDocRef | ContextPastChatRef | ContextCommandRef | ContextSkillRef) => void>()
 
     const api = useEditableContent({
       editableRef,

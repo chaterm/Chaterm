@@ -11,7 +11,7 @@ import { useHostState } from './useHostState'
 import { focusChatInput } from './useTabManagement'
 import i18n from '@/locales'
 import { Notice } from '@/views/components/Notice'
-import type { ContentPart, ImageContentPart } from '@shared/WebviewMessage'
+import type { ContentPart, ImageContentPart, ContextSkillRef } from '@shared/WebviewMessage'
 import eventBus from '@/utils/eventBus'
 
 // Type for the context return value
@@ -95,7 +95,9 @@ export const useContext = (options: UseContextOptions = {}) => {
   // ========== Chats State ==========
   const chatsOptions = ref<ChatOption[]>([])
   const chatsOptionsLoading = ref(false)
-  const chipInsertHandler = ref<((chipType: 'doc' | 'chat', ref: DocOption | ChatOption, label: string) => void) | null>(null)
+  const chipInsertHandler = ref<((chipType: 'doc' | 'chat' | 'skill', ref: DocOption | ChatOption | ContextSkillRef, label: string) => void) | null>(
+    null
+  )
   const imageInsertHandler = ref<((imagePart: ImageContentPart) => void) | null>(null)
 
   // ========== Skills State ==========
@@ -933,7 +935,7 @@ export const useContext = (options: UseContextOptions = {}) => {
   }
 
   const isSkillSelected = (skill: SkillOption): boolean => {
-    return chatInputParts.value.some((part) => part.type === 'chip' && part.chipType === 'doc' && part.ref.absPath === skill.path)
+    return chatInputParts.value.some((part) => part.type === 'chip' && part.chipType === 'skill' && part.ref.skillName === skill.name)
   }
 
   const onSkillClick = (skill: SkillOption) => {
@@ -942,8 +944,7 @@ export const useContext = (options: UseContextOptions = {}) => {
       return
     }
     if (chipInsertHandler.value) {
-      const doc: DocOption = { absPath: skill.path, name: skill.name, type: 'file' }
-      chipInsertHandler.value('doc', doc, skill.name)
+      chipInsertHandler.value('skill', { skillName: skill.name, description: skill.description }, skill.name)
     }
     closeContextPopup()
   }
@@ -1223,7 +1224,7 @@ export const useContext = (options: UseContextOptions = {}) => {
     fetchSkillsOptions,
     openKbFile,
     // Chip insertion
-    setChipInsertHandler: (handler: (chipType: 'doc' | 'chat', ref: DocOption | ChatOption, label: string) => void) => {
+    setChipInsertHandler: (handler: (chipType: 'doc' | 'chat' | 'skill', ref: DocOption | ChatOption | ContextSkillRef, label: string) => void) => {
       chipInsertHandler.value = handler
     },
     // Image insertion

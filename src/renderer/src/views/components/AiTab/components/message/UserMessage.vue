@@ -52,11 +52,11 @@
             :class="`mention-chip-${part.chipType}`"
           >
             <span
-              v-if="part.chipType === 'doc' || part.chipType === 'chat'"
+              v-if="part.chipType === 'doc' || part.chipType === 'chat' || part.chipType === 'skill'"
               class="mention-icon"
             >
               <img
-                v-if="isSkillChip(part)"
+                v-if="part.chipType === 'skill'"
                 :src="skillsIcon"
                 alt=""
                 class="mention-icon-svg"
@@ -99,10 +99,6 @@ const displayParts = computed<ContentPart[]>(() => {
   const fallbackText = typeof props.message.content === 'string' ? props.message.content : ''
   return [{ type: 'text', text: fallbackText }]
 })
-
-const isSkillChip = (part: ContentPart): boolean => {
-  return part.type === 'chip' && part.chipType === 'doc' && !!part.ref.absPath?.endsWith('SKILL.md')
-}
 
 // Define events
 const emit = defineEmits<{

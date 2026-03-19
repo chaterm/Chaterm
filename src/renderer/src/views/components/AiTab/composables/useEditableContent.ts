@@ -1,5 +1,5 @@
 import { ref, nextTick, type Ref } from 'vue'
-import type { ContentPart, ContextDocRef, ContextPastChatRef, ImageContentPart, ContextCommandRef } from '@shared/WebviewMessage'
+import type { ContentPart, ContextDocRef, ContextPastChatRef, ImageContentPart, ContextCommandRef, ContextSkillRef } from '@shared/WebviewMessage'
 import type { ChatOption, DocOption } from '../types'
 import { getChipLabel } from '../utils'
 import FileTextOutlinedSvg from '@ant-design/icons-svg/es/asn/FileTextOutlined'
@@ -98,7 +98,10 @@ export interface UseEditableContentOptions {
   handleSendClick: (type: string) => void
   handleAddContextClick: (triggerEl?: HTMLElement | null, mode?: 'create' | 'edit') => void
   handleShowCommandPopup?: (triggerEl?: HTMLElement | null) => void
-  handleChipClick?: (chipType: 'doc' | 'chat' | 'command', ref: ContextDocRef | ContextPastChatRef | ContextCommandRef) => void
+  handleChipClick?: (
+    chipType: 'doc' | 'chat' | 'command' | 'skill',
+    ref: ContextDocRef | ContextPastChatRef | ContextCommandRef | ContextSkillRef
+  ) => void
   shouldBlockEnterSend?: () => boolean
 }
 
@@ -274,9 +277,16 @@ export function useEditableContent(options: UseEditableContentOptions) {
     }
   }
 
+  const setSkillChipAttributes = (chip: HTMLElement, ref: ContextSkillRef) => {
+    chip.setAttribute('data-skill-name', ref.skillName)
+    if (ref.description) {
+      chip.setAttribute('data-description', ref.description)
+    }
+  }
+
   const createChipElement = (
-    chipType: 'doc' | 'chat' | 'command',
-    chipRef: ContextDocRef | ContextPastChatRef | ContextCommandRef,
+    chipType: 'doc' | 'chat' | 'command' | 'skill',
+    chipRef: ContextDocRef | ContextPastChatRef | ContextCommandRef | ContextSkillRef,
     label: string
   ): HTMLElement => {
     const chip = document.createElement('span')
@@ -292,15 +302,16 @@ export function useEditableContent(options: UseEditableContentOptions) {
       setChatChipAttributes(chip, chipRef as ContextPastChatRef)
     } else if (chipType === 'command') {
       setCommandChipAttributes(chip, chipRef as ContextCommandRef)
+    } else if (chipType === 'skill') {
+      setSkillChipAttributes(chip, chipRef as ContextSkillRef)
     }
 
-    // Create icon element (only for doc and chat chips, command chips display text only)
-    if (chipType === 'doc' || chipType === 'chat') {
+    // Create icon element (only for doc, chat, and skill chips; command chips display text only)
+    if (chipType === 'doc' || chipType === 'chat' || chipType === 'skill') {
       const iconSpan = document.createElement('span')
       iconSpan.className = 'mention-icon'
 
-      const isSkill = chipType === 'doc' && (chipRef as ContextDocRef).absPath?.endsWith('SKILL.md')
-      if (isSkill) {
+      if (chipType === 'skill') {
         const img = document.createElement('img')
         img.src = skillsIconSrc
         img.width = 12
@@ -399,6 +410,13 @@ export function useEditableContent(options: UseEditableContentOptions) {
     }
   }
 
+  const parseSkillChipElement = (el: HTMLElement): ContextSkillRef => {
+    return {
+      skillName: el.dataset.skillName || '',
+      description: el.dataset.description || undefined
+    }
+  }
+
   const parseChipElement = (el: HTMLElement, parts: ContentPart[]) => {
     if (el.dataset.chipType === 'doc') {
       parts.push({ type: 'chip', chipType: 'doc', ref: parseKbChipElement(el) })
@@ -406,6 +424,8 @@ export function useEditableContent(options: UseEditableContentOptions) {
       parts.push({ type: 'chip', chipType: 'chat', ref: parseChatChipElement(el) })
     } else if (el.dataset.chipType === 'command') {
       parts.push({ type: 'chip', chipType: 'command', ref: parseCommandChipElement(el) })
+    } else if (el.dataset.chipType === 'skill') {
+      parts.push({ type: 'chip', chipType: 'skill', ref: parseSkillChipElement(el) })
     }
   }
 
@@ -698,6 +718,44 @@ export function useEditableContent(options: UseEditableContentOptions) {
   }
 
   /**
+   * Insert a skill chip at the current cursor position.
+   * @param ref - The skill reference with skillName and optional description
+   * @param label - Display label for the chip
+   */
+  const insertSkillChip = (ref: ContextSkillRef, label: string) => {
+    if (!editableRef.value) return
+    restoreSelection()
+
+    let range = getEditableRange()
+    if (!range) {
+      moveCaretToEnd()
+      range = getEditableRange()
+    }
+    if (!range) return
+
+    const selection = window.getSelection()
+    if (!selection) return
+    removeAtSymbolBeforeCursor(range)
+
+    const chip = createChipElement('skill', ref, label)
+    range.deleteContents()
+    range.insertNode(chip)
+
+    // Add spacer after chip and move cursor after it
+    const spacer = document.createTextNode(' ')
+    chip.after(spacer)
+
+    const newRange = document.createRange()
+    newRange.setStart(spacer, 1)
+    newRange.collapse(true)
+    selection.removeAllRanges()
+    selection.addRange(newRange)
+
+    saveSelection()
+    syncDraftPartsFromEditable()
+  }
+
+  /**
    * Remove slash character before cursor position.
    */
   const removeSlashBeforeCursor = (range: Range) => {
@@ -783,6 +841,9 @@ export function useEditableContent(options: UseEditableContentOptions) {
     if (chip.dataset.chipType === 'command') {
       handleChipClick?.('command', parseCommandChipElement(chip))
     }
+    if (chip.dataset.chipType === 'skill') {
+      handleChipClick?.('skill', parseSkillChipElement(chip))
+    }
   }
 
   return {
@@ -812,6 +873,7 @@ export function useEditableContent(options: UseEditableContentOptions) {
     insertImageAtCursor,
     insertCommandChip,
     insertCommandChipWithPath,
+    insertSkillChip,
 
     // DOM creation (exposed for potential external use)
     createChipElement,

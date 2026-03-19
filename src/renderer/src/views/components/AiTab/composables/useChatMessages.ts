@@ -90,6 +90,9 @@ export function useChatMessages(
         if (part.chipType === 'command') {
           return part.ref.command
         }
+        if (part.chipType === 'skill') {
+          return `@skill:${part.ref.skillName}`
+        }
 
         const taskName = part.ref.title || ''
         return taskName ? `@${part.ref.taskId}_${taskName}` : `@${part.ref.taskId}`
