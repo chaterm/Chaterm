@@ -1,7 +1,7 @@
 import { KubeConfigLoader } from './KubeConfigLoader'
 import { InformerPool } from './InformerPool'
 import { DeltaPusher } from './DeltaPusher'
-import { K8sContext, K8sContextInfo, K8sManagerState, LoadConfigResult, K8sResourceEvent, InformerOptions } from './types'
+import { K8sContext, K8sContextInfo, K8sManagerState, LoadConfigResult, K8sResourceEvent, InformerOptions, K8sProxyConfig } from './types'
 import { BrowserWindow } from 'electron'
 
 import { createLogger } from '../logging'
@@ -147,6 +147,22 @@ export class K8sManager {
    */
   public getConfigLoader(): KubeConfigLoader {
     return this.configLoader
+  }
+
+  /**
+   * Set proxy configuration for K8S API server connections
+   * @param config - Proxy configuration, or null to disable proxy
+   */
+  public setProxyConfig(config: K8sProxyConfig | null): void {
+    this.configLoader.setProxyConfig(config)
+    logger.info('[K8s] Proxy configuration set', { hasProxy: !!config })
+  }
+
+  /**
+   * Get current proxy configuration
+   */
+  public getProxyConfig(): K8sProxyConfig | null {
+    return this.configLoader.getProxyConfig()
   }
 
   /**

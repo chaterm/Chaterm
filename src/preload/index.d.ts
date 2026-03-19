@@ -338,9 +338,11 @@ interface ApiType {
   openSaveDialog: (opts: { fileName: string }) => Promise<string | null>
   writeLocalFile: (filePath: string, content: string) => Promise<void>
   showOpenDialog: (options: {
+    defaultPath?: string
     properties: string[]
     filters?: Array<{ name: string; extensions: string[] }>
   }) => Promise<{ canceled: boolean; filePaths: string[] } | undefined>
+  getHomePath: () => Promise<string>
 
   kbCheckPath: (absPath: string) => Promise<{ exists: boolean; isDirectory: boolean; isFile: boolean }>
   kbEnsureRoot: () => Promise<{ success: boolean }>
@@ -445,6 +447,33 @@ interface ApiType {
     error?: string
   }>
 
+  // K8s Proxy Configuration APIs
+  k8sSetProxy: (
+    proxyConfig: {
+      type?: 'HTTP' | 'HTTPS' | 'SOCKS4' | 'SOCKS5'
+      host: string
+      port: number
+      enableProxyIdentity?: boolean
+      username?: string
+      password?: string
+    } | null
+  ) => Promise<{
+    success: boolean
+    error?: string
+  }>
+  k8sGetProxy: () => Promise<{
+    success: boolean
+    data?: {
+      type?: 'HTTP' | 'HTTPS' | 'SOCKS4' | 'SOCKS5'
+      host: string
+      port: number
+      enableProxyIdentity?: boolean
+      username?: string
+      password?: string
+    } | null
+    error?: string
+  }>
+
   // K8s watch stream APIs
   k8sStartWatch: (
     contextName: string,
@@ -462,6 +491,282 @@ interface ApiType {
     error?: string
   }>
   k8sOnDeltaBatch: (callback: (batch: any) => void) => () => void
+
+  // K8s Cluster Management APIs
+  k8sClusterList: () => Promise<{
+    success: boolean
+    data?: Array<{
+      id: string
+      name: string
+      kubeconfig_path: string | null
+      kubeconfig_content: string | null
+      context_name: string
+      server_url: string
+      auth_type: string
+      is_active: number
+      connection_status: string
+      auto_connect: number
+      default_namespace: string
+      created_at: string
+      updated_at: string
+    }>
+    error?: string
+  }>
+  k8sClusterGet: (id: string) => Promise<{
+    success: boolean
+    data?: {
+      id: string
+      name: string
+      kubeconfig_path: string | null
+      kubeconfig_content: string | null
+      context_name: string
+      server_url: string
+      auth_type: string
+      is_active: number
+      connection_status: string
+      auto_connect: number
+      default_namespace: string
+      created_at: string
+      updated_at: string
+    } | null
+    error?: string
+  }>
+  k8sClusterAdd: (params: {
+    name: string
+    kubeconfigPath?: string
+    kubeconfigContent?: string
+    contextName: string
+    serverUrl: string
+    authType?: string
+    autoConnect?: boolean
+    defaultNamespace?: string
+  }) => Promise<{
+    success: boolean
+    id?: string
+    error?: string
+  }>
+  k8sClusterUpdate: (
+    id: string,
+    params: {
+      name?: string
+      kubeconfigPath?: string
+      kubeconfigContent?: string
+      contextName?: string
+      serverUrl?: string
+      authType?: string
+      isActive?: boolean
+      connectionStatus?: string
+      autoConnect?: boolean
+      defaultNamespace?: string
+    }
+  ) => Promise<{
+    success: boolean
+    error?: string
+  }>
+  k8sClusterRemove: (id: string) => Promise<{
+    success: boolean
+    error?: string
+  }>
+  k8sClusterTest: (params: { kubeconfigPath?: string; kubeconfigContent?: string; contextName: string }) => Promise<{
+    success: boolean
+    isValid?: boolean
+    error?: string
+  }>
+  k8sClusterImportKubeconfig: (kubeconfigPath: string) => Promise<{
+    success: boolean
+    data?: {
+      contexts: Array<{
+        name: string
+        cluster: string
+        namespace: string
+        server: string
+        isActive: boolean
+      }>
+      kubeconfigPath: string
+      kubeconfigContent: string
+    }
+    error?: string
+  }>
+  k8sClusterConnect: (id: string) => Promise<{
+    success: boolean
+    status?: string
+    error?: string
+  }>
+  k8sClusterDisconnect: (id: string) => Promise<{
+    success: boolean
+    status?: string
+    error?: string
+  }>
+
+  // K8s Terminal APIs
+  k8sTerminalCreate: (config: { id: string; clusterId: string; namespace?: string; cols?: number; rows?: number }) => Promise<{
+    success: boolean
+    id?: string
+    error?: string
+  }>
+  k8sTerminalWrite: (
+    terminalId: string,
+    data: string
+  ) => Promise<{
+    success: boolean
+    error?: string
+  }>
+  k8sTerminalResize: (
+    terminalId: string,
+    cols: number,
+    rows: number
+  ) => Promise<{
+    success: boolean
+    error?: string
+  }>
+  k8sTerminalClose: (terminalId: string) => Promise<{
+    success: boolean
+    error?: string
+  }>
+  k8sTerminalList: (clusterId: string) => Promise<{
+    success: boolean
+    data?: Array<{
+      id: string
+      cluster_id: string
+      name: string | null
+      namespace: string
+      created_at: string
+      updated_at: string
+    }>
+    error?: string
+  }>
+  k8sOnTerminalData: (terminalId: string, callback: (data: string) => void) => () => void
+  k8sOnTerminalExit: (terminalId: string, callback: (exitCode: any) => void) => () => void
+
+  // ============================================================================
+  // K8S Agent API
+  // ============================================================================
+
+  /**
+   * Set current cluster for Agent operations
+   */
+  k8sAgentSetCluster: (params: {
+    clusterId: string
+    contextName: string
+    kubeconfigPath?: string
+    kubeconfigContent?: string
+  }) => Promise<{ success: boolean; error?: string }>
+
+  /**
+   * Set proxy configuration for K8S Agent
+   */
+  k8sAgentSetProxy: (
+    proxyConfig: {
+      type?: 'HTTP' | 'HTTPS' | 'SOCKS4' | 'SOCKS5'
+      host: string
+      port: number
+      enableProxyIdentity?: boolean
+      username?: string
+      password?: string
+    } | null
+  ) => Promise<{ success: boolean; error?: string }>
+
+  /**
+   * Execute kubectl command
+   */
+  k8sAgentKubectl: (
+    command: string,
+    timeout?: number
+  ) => Promise<{
+    success: boolean
+    output: string
+    error?: string
+    exitCode?: number
+  }>
+
+  /**
+   * Get pods
+   */
+  k8sAgentGetPods: (namespace?: string) => Promise<{
+    success: boolean
+    output: string
+    error?: string
+  }>
+
+  /**
+   * Get nodes
+   */
+  k8sAgentGetNodes: () => Promise<{
+    success: boolean
+    output: string
+    error?: string
+  }>
+
+  /**
+   * Get namespaces
+   */
+  k8sAgentGetNamespaces: () => Promise<{
+    success: boolean
+    output: string
+    error?: string
+  }>
+
+  /**
+   * Get services
+   */
+  k8sAgentGetServices: (namespace?: string) => Promise<{
+    success: boolean
+    output: string
+    error?: string
+  }>
+
+  /**
+   * Get deployments
+   */
+  k8sAgentGetDeployments: (namespace?: string) => Promise<{
+    success: boolean
+    output: string
+    error?: string
+  }>
+
+  /**
+   * Get pod logs
+   */
+  k8sAgentGetPodLogs: (params: { podName: string; namespace?: string; container?: string; tailLines?: number }) => Promise<{
+    success: boolean
+    output: string
+    error?: string
+  }>
+
+  /**
+   * Describe resource
+   */
+  k8sAgentDescribe: (params: { resourceType: string; resourceName: string; namespace?: string }) => Promise<{
+    success: boolean
+    output: string
+    error?: string
+  }>
+
+  /**
+   * Test K8S connection
+   */
+  k8sAgentTestConnection: () => Promise<{
+    success: boolean
+    output: string
+    error?: string
+  }>
+
+  /**
+   * Get current cluster info
+   */
+  k8sAgentGetCurrentCluster: () => Promise<{
+    success: boolean
+    data?: {
+      clusterId: string | null
+      contextName: string | null
+    }
+    error?: string
+  }>
+
+  /**
+   * Cleanup K8S Agent resources
+   */
+  k8sAgentCleanup: () => Promise<{ success: boolean; error?: string }>
 
   // ============================================================================
   // Interactive Command Execution API

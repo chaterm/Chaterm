@@ -16,8 +16,15 @@ jobs:
     runs-on: ${{ matrix.os }}
 
     steps:
+      - name: Enable long paths (Windows)
+        if: runner.os == 'Windows'
+        run: git config --system core.longpaths true
+
       - name: Checkout code
         uses: actions/checkout@v6
+        with:
+          # Enable long paths for Windows (filenames > 260 chars)
+          config: core.longpaths=true
 
       - name: Use Node.js 22.x
         uses: actions/setup-node@v6
@@ -59,6 +66,11 @@ jobs:
 
       - name: Install dependencies
         run: npm ci --prefer-offline
+
+      - name: Reinstall rollup platform bindings (Windows)
+        if: runner.os == 'Windows'
+        run: npm install @rollup/rollup-win32-x64-msvc --prefer-offline
+        shell: bash
 
       - name: Install Playwright Browsers (full)
         if: steps.playwright-cache.outputs.cache-hit != 'true'

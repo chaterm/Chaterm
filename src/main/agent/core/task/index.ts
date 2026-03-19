@@ -67,6 +67,7 @@ interface MessageUpdater {
 import { AssistantMessageContent, parseAssistantMessageV2, ToolParamName, ToolUseName, TextContent, ToolUse } from '@core/assistant-message'
 import { RemoteTerminalManager, ConnectionInfo, RemoteTerminalInfo, RemoteTerminalProcessResultPromise } from '../../integrations/remote-terminal'
 import { LocalTerminalManager, LocalCommandProcess } from '../../integrations/local-terminal'
+import { getK8sAgentManager } from '../../integrations/k8s'
 import { createLlmCaller } from '../../services/interaction-detector/llm-caller'
 import type { InteractionResult } from '../../services/interaction-detector/types'
 import { formatResponse } from '@core/prompts/responses'
@@ -758,6 +759,126 @@ export class Task {
   private isLocalHost(ip?: string): boolean {
     if (!ip) return false
     return ip === '127.0.0.1' || ip === 'localhost' || ip === '::1'
+  }
+
+  /**
+   * Check if the given IP belongs to a K8S cluster host
+   * K8S hosts are identified by assetType 'k8s' or uuid starting with 'k8s-'
+   * Also checks if the IP matches the current K8S Agent cluster server URL
+   */
+  private isK8sHost(ip?: string): boolean {
+    if (!ip) return false
+
+    // First check if it's in the hosts list with K8S type
+    if (this.hosts) {
+      const targetHost = this.hosts.find((host) => host.host === ip)
+      if (targetHost) {
+        // Check if assetType is 'k8s' or uuid starts with 'k8s-'
+        if (targetHost.assetType === 'k8s' || targetHost.uuid?.startsWith('k8s-')) {
+          return true
+        }
+      }
+    }
+
+    // Also check if IP matches the current K8S Agent cluster server URL
+    const k8sAgentManager = getK8sAgentManager()
+    const currentCluster = k8sAgentManager.getCurrentCluster()
+    if (currentCluster.contextName) {
+      // IP might be a full URL like "https://cls-xxx.ccs.tencent-cloud.com"
+      // or just a hostname/IP
+      try {
+        // Validate URL format
+        const urlToCheck = ip.startsWith('http') ? ip : `https://${ip}`
+        new URL(urlToCheck) // Just validate, don't need the result
+
+        // Check if this hostname looks like a K8S API server URL
+        // Common patterns: .ccs.tencent-cloud.com, .eks.amazonaws.com, .azmk8s.io, etc.
+        const k8sApiPatterns = [
+          '.ccs.tencent-cloud.com',
+          '.eks.amazonaws.com',
+          '.azmk8s.io',
+          '.gke.io',
+          'kubernetes',
+          'k8s',
+          ':6443' // Common K8S API port
+        ]
+
+        for (const pattern of k8sApiPatterns) {
+          if (ip.includes(pattern)) {
+            return true
+          }
+        }
+      } catch {
+        // Not a valid URL, continue with other checks
+      }
+    }
+
+    return false
+  }
+
+  /**
+   * Get K8S host info for a given IP
+   * Returns a pseudo Host object if the IP matches the current K8S Agent cluster
+   */
+  private getK8sHostInfo(ip?: string): Host | undefined {
+    if (!ip) return undefined
+
+    // First check if it's in the hosts list with K8S type
+    if (this.hosts) {
+      const targetHost = this.hosts.find((host) => host.host === ip && (host.assetType === 'k8s' || host.uuid?.startsWith('k8s-')))
+      if (targetHost) {
+        return targetHost
+      }
+    }
+
+    // If isK8sHost returns true but no host found, create a pseudo host
+    if (this.isK8sHost(ip)) {
+      const k8sAgentManager = getK8sAgentManager()
+      const currentCluster = k8sAgentManager.getCurrentCluster()
+      // Return a minimal object that executeK8sCommandTool can use
+      // Using 'as unknown as Host' to bypass strict type checking since we only need a few fields
+      return {
+        host: ip,
+        uuid: `k8s-${currentCluster.clusterId || 'unknown'}`,
+        label: currentCluster.contextName || ip,
+        assetType: 'k8s',
+        connection: {} // Placeholder to satisfy Host type
+      } as unknown as Host
+    }
+
+    return undefined
+  }
+
+  /**
+   * Execute command in K8S cluster using K8sAgentManager
+   */
+  private async executeK8sCommandTool(command: string, ip: string): Promise<ToolResponse> {
+    const k8sHost = this.getK8sHostInfo(ip)
+    if (!k8sHost) {
+      return `Error: K8S host not found for ${ip}`
+    }
+
+    const k8sAgentManager = getK8sAgentManager()
+    const currentCluster = k8sAgentManager.getCurrentCluster()
+
+    // Check if agent is configured with a cluster
+    if (!currentCluster.clusterId || !currentCluster.contextName) {
+      return `Error: No K8S cluster configured for Agent. Please connect to a cluster first.`
+    }
+
+    try {
+      // Execute the kubectl command
+      const result = await k8sAgentManager.executeKubectl(command)
+
+      if (result.success) {
+        return result.output || 'Command executed successfully (no output)'
+      } else {
+        return `Error: ${result.error || 'K8S command execution failed'}\n\nOutput:\n${result.output || '(no output)'}`
+      }
+    } catch (error) {
+      logger.error('K8S command execution error', { error })
+      return `Error: ${error instanceof Error ? error.message : String(error)}`
+    }
   }
 
   /**
@@ -1684,6 +1805,11 @@ export class Task {
     // If it's local host, use local execution
     if (this.isLocalHost(ip)) {
       return this.executeLocalCommandTool(command)
+    }
+
+    // If it's K8S host, use K8S agent execution
+    if (this.isK8sHost(ip)) {
+      return this.executeK8sCommandTool(command, ip)
     }
 
     let result = ''
@@ -4101,6 +4227,31 @@ export class Task {
           if (host.assetType?.startsWith('person-switch-')) {
             continue
           }
+
+          // Handle K8S hosts separately
+          if (this.isK8sHost(host.host)) {
+            const k8sAgentManager = getK8sAgentManager()
+            const currentCluster = k8sAgentManager.getCurrentCluster()
+
+            if (currentCluster.contextName) {
+              systemInformation += `
+            ## Kubernetes Cluster: ${host.host}
+            Context: ${currentCluster.contextName}
+            Type: Kubernetes
+            Commands: kubectl (use execute_command tool with kubectl commands)
+            ====
+          `
+            } else {
+              systemInformation += `
+            ## Kubernetes Cluster: ${host.host}
+            Status: Not connected
+            Note: Please ensure the K8S cluster is connected before executing kubectl commands
+            ====
+          `
+            }
+            continue
+          }
+
           // Check cache, if no cache, get system info and cache it
           let hostInfo = this.hostSystemInfoCache.get(host.host)
           if (!hostInfo) {
