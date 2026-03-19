@@ -852,6 +852,10 @@ ipcMain.handle('dialog:openFile', async (event, options) => {
   return result
 })
 
+ipcMain.handle('app:getHomePath', () => {
+  return app.getPath('home')
+})
+
 ipcMain.handle('saveCustomBackground', async (_, sourcePath: string) => {
   try {
     const userDataPath = app.getPath('userData')

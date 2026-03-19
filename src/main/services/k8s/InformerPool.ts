@@ -350,6 +350,12 @@ export class InformerPool extends EventEmitter {
 
       kc.setCurrentContext(options.contextName)
 
+      // Ensure proxy is applied to clusters before creating API client
+      const proxyConfig = this.configLoader.getProxyConfig()
+      if (proxyConfig) {
+        this.configLoader.applyProxyToKubeConfig(kc, proxyConfig)
+      }
+
       const api = kc.makeApiClient(k8sModule.CoreV1Api)
       const makeInformer = k8sModule.makeInformer
       const listFn = resourceType === 'Pod' ? () => api.listPodForAllNamespaces() : () => api.listNode()

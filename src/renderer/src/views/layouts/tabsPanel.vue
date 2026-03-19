@@ -45,6 +45,15 @@
             @create-new-term="createNewTerm"
           />
         </template>
+        <template v-else-if="localTab.type === 'k8s'">
+          <K8sConnect
+            :key="`k8s-terminal-${localTab.id}`"
+            :ref="(el) => setK8sConnectRef(el, localTab.id)"
+            :server-info="localTab"
+            :is-active="isActive"
+            @close-tab-in-term="closeTab"
+          />
+        </template>
         <template v-else>
           <UserInfo v-if="localTab.content === 'userInfo'" />
           <UserConfig v-if="localTab.content === 'userConfig'" />
@@ -55,6 +64,7 @@
             :mode="localTab.mode"
           />
           <Kubernetes v-if="localTab.content === 'kubernetes'" />
+          <K8sClusterConfig v-if="localTab.content === 'k8sClusterConfig'" />
           <AliasConfig v-if="localTab.content === 'aliasConfig'" />
           <jumpserverSupport v-if="localTab.content === 'jumpserverSupport'" />
           <AssetConfig v-if="localTab.content === 'assetConfig'" />
@@ -94,9 +104,11 @@ import AliasConfig from '@views/components/Extensions/aliasConfig.vue'
 import jumpserverSupport from '@views/components/Extensions/jumpserverSupport.vue'
 import KeyManagement from '@views/components/LeftTab/config/keyManagement.vue'
 import SshConnect from '@views/components/Ssh/sshConnect.vue'
+import K8sConnect from '@views/components/K8s/K8sConnect.vue'
 import Files from '@views/components/Files/index.vue'
 import KnowledgeCenterEditor from '@views/components/Editors/KnowledgeCenterEditor.vue'
 import Kubernetes from '@views/components/Kubernetes/index.vue'
+import K8sClusterConfig from '@views/components/K8s/K8sClusterConfig.vue'
 import McpConfigEditor from '@views/components/Editors/McpConfigEditor.vue'
 import CommonConfigEditor from '@views/components/Editors/CommonConfigEditor.vue'
 import SecurityConfigEditor from '@views/components/Editors/SecurityConfigEditor.vue'
@@ -159,6 +171,7 @@ const createNewTerm = () => {
 
 const termRefMap = ref<Record<string, any>>({})
 const sshConnectRefMap = ref<Record<string, any>>({})
+const k8sConnectRefMap = ref<Record<string, any>>({})
 
 const setSshConnectRef = (el: Element | ComponentPublicInstance | null, tabId: string) => {
   if (el && '$props' in el) {
@@ -168,6 +181,18 @@ const setSshConnectRef = (el: Element | ComponentPublicInstance | null, tabId: s
     }
   } else {
     delete sshConnectRefMap.value[tabId]
+  }
+}
+
+const setK8sConnectRef = (el: Element | ComponentPublicInstance | null, tabId: string) => {
+  if (el && '$props' in el) {
+    k8sConnectRefMap.value[tabId] = el as ComponentPublicInstance & {
+      getTerminalBufferContent: () => string | null
+      focus: () => void
+      handleResize: () => void
+    }
+  } else {
+    delete k8sConnectRefMap.value[tabId]
   }
 }
 
@@ -196,18 +221,28 @@ async function getTerminalOutputContent(tabId: string): Promise<string | null> {
     } catch (error: any) {
       return 'Error retrieving output from sshConnect component.'
     }
-  } else {
-    const termInstance = termRefMap.value[tabId]
-    if (termInstance && typeof termInstance.getTerminalBufferContent === 'function') {
-      try {
-        const output = await termInstance.getTerminalBufferContent()
-        return output
-      } catch (error: any) {
-        return 'Error retrieving output from Term component.'
-      }
-    }
-    return `Instance for tab ${tabId} not found or method missing.`
   }
+
+  const k8sConnectInstance = k8sConnectRefMap.value[tabId]
+  if (k8sConnectInstance && typeof k8sConnectInstance.getTerminalBufferContent === 'function') {
+    try {
+      const output = await k8sConnectInstance.getTerminalBufferContent()
+      return output
+    } catch (error: any) {
+      return 'Error retrieving output from K8sConnect component.'
+    }
+  }
+
+  const termInstance = termRefMap.value[tabId]
+  if (termInstance && typeof termInstance.getTerminalBufferContent === 'function') {
+    try {
+      const output = await termInstance.getTerminalBufferContent()
+      return output
+    } catch (error: any) {
+      return 'Error retrieving output from Term component.'
+    }
+  }
+  return `Instance for tab ${tabId} not found or method missing.`
 }
 
 const isActive = ref(!!props.params?.api?.isActive)

@@ -3,6 +3,18 @@
  */
 
 /**
+ * Proxy configuration for K8S API server connections
+ */
+export interface K8sProxyConfig {
+  type?: 'HTTP' | 'HTTPS' | 'SOCKS4' | 'SOCKS5'
+  host: string
+  port: number
+  enableProxyIdentity?: boolean
+  username?: string
+  password?: string
+}
+
+/**
  * Represents a Kubernetes context (cluster connection configuration)
  */
 export interface K8sContext {
