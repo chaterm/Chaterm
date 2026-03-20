@@ -11,7 +11,7 @@ import { canonicalJSONStringify } from './syncJson'
 const logger = createRendererLogger('service.editorConfigSync')
 
 // ---------------------------------------------------------------------------
-// EditorConfig type (mirrored from stores/editorConfig.ts to avoid circular dep)
+// EditorConfig type (mirrored from store/editorConfig.ts to avoid circular dep)
 // ---------------------------------------------------------------------------
 
 interface EditorConfigData {

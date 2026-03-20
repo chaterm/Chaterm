@@ -60,7 +60,6 @@
       v-model:visible="showEditModal"
       :cluster="editingCluster"
       @success="handleEditSuccess"
-      @delete="handleDeleteConfirm"
     />
   </a-modal>
 </template>
