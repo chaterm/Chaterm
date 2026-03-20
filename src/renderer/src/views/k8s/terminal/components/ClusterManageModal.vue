@@ -4,6 +4,7 @@
     :title="t('k8s.terminal.manageCluster')"
     :width="600"
     :footer="null"
+    wrap-class-name="cluster-manage-modal"
     @cancel="handleClose"
   >
     <a-table
@@ -151,6 +152,7 @@ const handleEditSuccess = async () => {
 
 const handleDelete = (cluster: K8sCluster) => {
   Modal.confirm({
+    wrapClassName: 'k8s-delete-confirm-modal',
     title: t('k8s.terminal.deleteConfirm'),
     content: t('k8s.terminal.deleteClusterMessage', { name: cluster.name }),
     okText: t('common.confirm'),
@@ -171,6 +173,45 @@ const handleDeleteConfirm = async (id: string) => {
   }
 }
 </script>
+
+<style>
+.cluster-manage-modal .ant-modal-content {
+  background-color: var(--bg-color) !important;
+  color: var(--text-color) !important;
+}
+
+.cluster-manage-modal .ant-modal-header {
+  background-color: transparent !important;
+  border-bottom: 1px solid var(--border-color) !important;
+}
+
+.cluster-manage-modal .ant-modal-title {
+  color: var(--text-color) !important;
+}
+
+.cluster-manage-modal .ant-modal-close {
+  color: var(--text-color-secondary) !important;
+}
+
+.cluster-manage-modal .ant-table {
+  background-color: transparent !important;
+  color: var(--text-color) !important;
+}
+
+.cluster-manage-modal .ant-table-thead > tr > th {
+  background-color: var(--bg-color-secondary) !important;
+  color: var(--text-color-secondary) !important;
+  border-bottom: 1px solid var(--border-color) !important;
+}
+
+.cluster-manage-modal .ant-table-tbody > tr > td {
+  border-bottom: 1px solid var(--border-color) !important;
+}
+
+.cluster-manage-modal .ant-table-tbody > tr:hover > td {
+  background-color: var(--hover-bg-color) !important;
+}
+</style>
 
 <style scoped>
 .cluster-name {

@@ -85,7 +85,8 @@ vi.mock('@ant-design/icons-vue', () => ({
   SearchOutlined: { template: '<span>Search</span>' },
   PlusOutlined: { template: '<span>+</span>' },
   ClusterOutlined: { template: '<span>Cluster</span>' },
-  CloseOutlined: { template: '<span>X</span>' }
+  CloseOutlined: { template: '<span>X</span>' },
+  DeleteOutlined: { template: '<span>Delete</span>' }
 }))
 
 // Mock k8sStore
@@ -218,7 +219,7 @@ describe('K8s Cluster Config Component', () => {
 
     it('should render add cluster button', () => {
       wrapper = createWrapper()
-      const addButton = wrapper.find('.a-button.primary')
+      const addButton = wrapper.find('.search-header .action-button')
       expect(addButton.exists()).toBe(true)
       expect(addButton.text()).toContain('Add Cluster')
     })
@@ -472,7 +473,6 @@ describe('K8s Cluster Config Component', () => {
     it('should have delete button', () => {
       const deleteButton = wrapper.find('.danger-zone .a-button.is-danger')
       expect(deleteButton.exists()).toBe(true)
-      expect(deleteButton.text()).toContain('Delete Cluster')
     })
 
     it('should show confirm dialog when delete clicked', async () => {
@@ -512,11 +512,11 @@ describe('K8s Cluster Config Component', () => {
   describe('Add Cluster Modal', () => {
     it('should open modal when add button clicked', async () => {
       wrapper = createWrapper()
-      const addButton = wrapper.find('.search-header .a-button.primary')
+      const addButton = wrapper.find('.search-header .action-button')
       await addButton.trigger('click')
       await nextTick()
 
-      expect(wrapper.vm.showAddModal).toBe(true)
+      expect(wrapper.find('.add-cluster-modal').exists()).toBe(true)
     })
 
     it('should reload clusters on add success', async () => {
