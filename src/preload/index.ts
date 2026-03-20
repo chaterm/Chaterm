@@ -1070,6 +1070,30 @@ const api = {
   aliasesMutate: (params: { action: string; data?: any; alias?: string }) => ipcRenderer.invoke('db:aliases:mutate', params),
   kvGet: (params: { key?: string }) => ipcRenderer.invoke('db:kv:get', params),
   kvMutate: (params: { action: string; key: string; value?: string }) => ipcRenderer.invoke('db:kv:mutate', params),
+  async kvTransaction(
+    callback: (tx: { get(key: string): Promise<string | null>; set(key: string, value: string): void; delete(key: string): void }) => Promise<void>
+  ): Promise<void> {
+    const ops: Array<{ action: 'set'; key: string; value: string } | { action: 'delete'; key: string }> = []
+    const tx = {
+      async get(key: string): Promise<string | null> {
+        const row = await ipcRenderer.invoke('db:kv:get', { key })
+        if (row && row.value) {
+          return row.value
+        }
+        return null
+      },
+      set(key: string, value: string): void {
+        ops.push({ action: 'set', key, value })
+      },
+      delete(key: string): void {
+        ops.push({ action: 'delete', key })
+      }
+    }
+    await callback(tx)
+    if (ops.length > 0) {
+      await ipcRenderer.invoke('db:kv:transaction', ops)
+    }
+  },
   saveCustomBackground: (sourcePath: string) => ipcRenderer.invoke('saveCustomBackground', sourcePath),
 
   // Plugin
@@ -1152,10 +1176,6 @@ const api = {
     ipcRenderer.on('plugin:open-user-tab-request', subscription)
     return () => ipcRenderer.removeListener('plugin:open-user-tab-request', subscription)
   },
-
-  // Editor configuration
-  getEditorConfig: () => ipcRenderer.invoke('get-editor-config'),
-  saveEditorConfig: (config: any) => ipcRenderer.invoke('save-editor-config', config),
 
   // Get registered bastion types (plugin-based, not including built-in JumpServer)
   getRegisteredBastionTypes(): Promise<string[]> {

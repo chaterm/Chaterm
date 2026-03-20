@@ -296,7 +296,7 @@
 import { ref, onMounted, watch, onBeforeUnmount } from 'vue'
 import { notification } from 'ant-design-vue'
 import { DeleteOutlined, UploadOutlined, DesktopOutlined } from '@ant-design/icons-vue'
-import { userConfigStore } from '@/services/userConfigStoreService'
+import { userConfigStore, remoteApplyGuard } from '@/services/userConfigStoreService'
 import { userConfigStore as configStore } from '@/store/userConfigStore'
 import { useEditorConfigStore, type EditorConfig, FONT_FAMILY_OPTIONS } from '@/stores/editorConfig'
 import eventBus from '@/utils/eventBus'
@@ -311,7 +311,7 @@ const editorConfigStore = useEditorConfigStore()
 const userConfig = ref({
   language: 'zh-CN',
   watermark: 'open',
-  theme: 'auto',
+  theme: 'dark',
   defaultLayout: 'terminal',
   lastCustomImage: '',
   background: {
@@ -382,9 +382,9 @@ const loadSavedConfig = async () => {
       message: t('user.loadConfigFailed'),
       description: t('user.loadConfigFailedDescription')
     })
-    const actualTheme = getActualTheme('auto')
+    const actualTheme = getActualTheme('dark')
     document.documentElement.className = `theme-${actualTheme}`
-    userConfig.value.theme = 'auto'
+    userConfig.value.theme = 'dark'
   }
 }
 
@@ -413,15 +413,32 @@ const saveConfig = async () => {
 watch(
   () => userConfig.value,
   async () => {
+    if (remoteApplyGuard.isApplying) return
     await saveConfig()
   },
   { deep: true }
 )
 
+const reloadConfigOnSync = async () => {
+  await loadSavedConfig()
+}
+
+const reloadEditorConfigOnSync = async () => {
+  try {
+    await editorConfigStore.loadConfig()
+    editorConfig.value = editorConfigStore.getConfigSnapshot()
+  } catch (error) {
+    logger.error('Failed to reload editor config on sync', { error })
+  }
+}
+
 let systemThemeListener: (() => void) | null = null
 
 onMounted(async () => {
   await loadSavedConfig()
+
+  eventBus.on('userConfigSyncApplied', reloadConfigOnSync)
+  eventBus.on('editorConfigSyncApplied', reloadEditorConfigOnSync)
 
   // Add system theme change listener
   setupSystemThemeListener()
@@ -436,6 +453,8 @@ onMounted(async () => {
 
 onBeforeUnmount(() => {
   eventBus.off('defaultLayoutChanged')
+  eventBus.off('userConfigSyncApplied', reloadConfigOnSync)
+  eventBus.off('editorConfigSyncApplied', reloadEditorConfigOnSync)
 
   // Remove system theme listener
   if (systemThemeListener) {

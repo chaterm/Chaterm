@@ -1,6 +1,7 @@
 import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
 import type { editor } from 'monaco-editor'
+import { markSyncMetaDirty } from '@/services/configSyncManager'
 
 /**
  * Editor configuration interface
@@ -224,13 +225,14 @@ export const useEditorConfigStore = defineStore('editorConfig', () => {
   }))
 
   /**
-   * Load configuration from main process
+   * Load configuration from KV store
    */
   const loadConfig = async () => {
     try {
-      const savedConfig = await (window as any).api.getEditorConfig()
+      const result = await window.api.kvGet({ key: 'editorConfig' })
+      if (result?.value) {
+        const savedConfig = JSON.parse(result.value)
 
-      if (savedConfig) {
         // Validate saved font is in supported list
         const fontKey = savedConfig.fontFamily
         const isValidFont = FONT_CONFIGS.some((f) => f.key === fontKey)
@@ -247,7 +249,8 @@ export const useEditorConfigStore = defineStore('editorConfig', () => {
   }
 
   /**
-   * Save config to main process. Build plain object to avoid IPC "object could not be cloned" (Vue Proxy).
+   * Save config to KV store and trigger sync upload via editorConfigSyncService.
+   * Build plain object to avoid IPC "object could not be cloned" (Vue Proxy).
    */
   const saveConfig = async () => {
     try {
@@ -262,7 +265,16 @@ export const useEditorConfigStore = defineStore('editorConfig', () => {
         cursorBlinking: c.cursorBlinking,
         lineHeight: Number(c.lineHeight)
       }
-      await (window as any).api.saveEditorConfig(plain)
+      await window.api.kvMutate({ action: 'set', key: 'editorConfig', value: JSON.stringify(plain) })
+
+      // Trigger sync via the dedicated sync service (has full protection mechanisms)
+      try {
+        await markSyncMetaDirty('editorConfigSyncMeta', 1)
+        const { editorConfigSyncService } = await import('../services/editorConfigSyncService')
+        editorConfigSyncService.scheduleUpload()
+      } catch (e) {
+        // Sync service may not be initialized yet, ignore
+      }
     } catch (error) {
       logger.error('Failed to save editor config', { error: error })
       throw error

@@ -71,6 +71,9 @@ vi.mock('@/services/userConfigStoreService', () => ({
   userConfigStore: {
     getConfig: vi.fn(),
     saveConfig: vi.fn()
+  },
+  remoteApplyGuard: {
+    isApplying: false
   }
 }))
 

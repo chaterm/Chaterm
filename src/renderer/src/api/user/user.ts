@@ -20,8 +20,6 @@ const urls = {
   userLogin: '/user/login-pwd',
   userLogOut: '/user/login-out',
   getUser: '/user/info',
-  getUserTermConfig: '/user/term-config',
-  updateUserTermConfig: '/user/term-config',
   userQuickCommand: '/user/quick-command',
   userQuickCommandInfo: '/user/quick-command/info',
   aliasUpdateTerm: '/term-api/alias/update',
@@ -106,22 +104,6 @@ export function getUser(params) {
     method: 'get',
     url: urls.getUser,
     params: params
-  })
-}
-
-export function getUserTermConfig(params) {
-  return request({
-    method: 'get',
-    url: urls.getUserTermConfig,
-    params: params
-  })
-}
-
-export function updateUserTermConfig(data) {
-  return request({
-    method: 'put',
-    url: urls.updateUserTermConfig,
-    data: data
   })
 }
 

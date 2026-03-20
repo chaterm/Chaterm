@@ -19,7 +19,7 @@ export const userConfigStore = defineStore('userConfig', {
         dataSync: 'disabled',
         feature: 0.0,
         terminalType: 'xterm',
-        theme: 'auto',
+        theme: 'dark',
         background: {
           image: '',
           opacity: 0.15,
@@ -73,7 +73,7 @@ export const userConfigStore = defineStore('userConfig', {
           dataSync: 'disabled',
           feature: 0.0,
           terminalType: 'xterm',
-          theme: 'auto',
+          theme: 'dark',
           background: {
             image: '',
             opacity: 0.15,
