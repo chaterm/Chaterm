@@ -2,10 +2,10 @@ import { describe, it, expect, beforeEach, vi } from 'vitest'
 import { setActivePinia, createPinia } from 'pinia'
 import { useEditorConfigStore, FONT_FAMILY_OPTIONS } from '../editorConfig'
 
-// Mock window.api
+// Mock window.api with KV store methods
 const mockApi = {
-  getEditorConfig: vi.fn(),
-  saveEditorConfig: vi.fn()
+  kvGet: vi.fn(),
+  kvMutate: vi.fn()
 }
 
 Object.defineProperty(window, 'api', {
@@ -67,7 +67,7 @@ describe('EditorConfig Store', () => {
   })
 
   it('should update config correctly', async () => {
-    mockApi.saveEditorConfig.mockResolvedValue(undefined)
+    mockApi.kvMutate.mockResolvedValue(undefined)
 
     const store = useEditorConfigStore()
 
@@ -80,15 +80,19 @@ describe('EditorConfig Store', () => {
     expect(store.config.fontSize).toBe(16)
     expect(store.config.tabSize).toBe(2)
     expect(store.config.fontFamily).toBe('system-default')
-    expect(mockApi.saveEditorConfig).toHaveBeenCalledWith({
-      fontSize: 16,
-      fontFamily: 'system-default',
-      tabSize: 2,
-      wordWrap: 'off',
-      minimap: true,
-      mouseWheelZoom: true,
-      cursorBlinking: 'blink',
-      lineHeight: 0
+    expect(mockApi.kvMutate).toHaveBeenCalledWith({
+      action: 'set',
+      key: 'editorConfig',
+      value: JSON.stringify({
+        fontSize: 16,
+        fontFamily: 'system-default',
+        tabSize: 2,
+        wordWrap: 'off',
+        minimap: true,
+        mouseWheelZoom: true,
+        cursorBlinking: 'blink',
+        lineHeight: 0
+      })
     })
   })
 
@@ -104,7 +108,7 @@ describe('EditorConfig Store', () => {
       lineHeight: 20
     }
 
-    mockApi.getEditorConfig.mockResolvedValue(savedConfig)
+    mockApi.kvGet.mockResolvedValue({ value: JSON.stringify(savedConfig) })
 
     const store = useEditorConfigStore()
     await store.loadConfig()
@@ -124,7 +128,7 @@ describe('EditorConfig Store', () => {
       lineHeight: 0
     }
 
-    mockApi.getEditorConfig.mockResolvedValue(savedConfig)
+    mockApi.kvGet.mockResolvedValue({ value: JSON.stringify(savedConfig) })
 
     const store = useEditorConfigStore()
     await store.loadConfig()
@@ -135,7 +139,7 @@ describe('EditorConfig Store', () => {
   })
 
   it('should reset to default config', async () => {
-    mockApi.saveEditorConfig.mockResolvedValue(undefined)
+    mockApi.kvMutate.mockResolvedValue(undefined)
 
     const store = useEditorConfigStore()
 

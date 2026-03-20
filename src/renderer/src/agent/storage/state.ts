@@ -15,11 +15,50 @@ import { GlobalStateKey, SecretKey } from './state-keys'
 import { storageContext } from './storage-context'
 import { getUserInfo } from '@/utils/permission'
 import { userConfigStore } from '@/store/userConfigStore'
+import { markSyncMetaDirty } from '@/services/configSyncManager'
 
 // global
 
+const AI_PREFERENCE_SYNC_KEYS = new Set<GlobalStateKey>([
+  'thinkingBudgetTokens',
+  'reasoningEffort',
+  'autoApprovalSettings',
+  'chatSettings',
+  'needProxy',
+  'proxyConfig',
+  'shellIntegrationTimeout'
+])
+
+function scheduleAiPreferencesSync(): void {
+  void import('@/services/aiPreferencesSyncService')
+    .then(async ({ aiPreferencesSyncService }) => {
+      await markSyncMetaDirty('aiPreferencesSyncMeta', 1)
+      aiPreferencesSyncService.scheduleUpload()
+    })
+    .catch(() => {
+      // Sync service may not be initialized yet, ignore.
+    })
+}
+
+function scheduleUserRulesSync(): void {
+  void import('@/services/userRulesSyncService')
+    .then(async ({ userRulesSyncService }) => {
+      await markSyncMetaDirty('userRulesSyncMeta', 1)
+      userRulesSyncService.scheduleUpload()
+    })
+    .catch(() => {
+      // Sync service may not be initialized yet, ignore.
+    })
+}
+
 export async function updateGlobalState(key: GlobalStateKey, value: any) {
   await storageContext.globalState.update(key, value)
+  if (AI_PREFERENCE_SYNC_KEYS.has(key)) {
+    scheduleAiPreferencesSync()
+  }
+  if (key === 'userRules') {
+    scheduleUserRulesSync()
+  }
 }
 
 export async function getGlobalState(key: GlobalStateKey) {

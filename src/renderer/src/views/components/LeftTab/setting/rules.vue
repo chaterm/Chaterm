@@ -130,6 +130,7 @@
 import { onBeforeUnmount, onMounted, ref } from 'vue'
 import { updateGlobalState, getGlobalState } from '@renderer/agent/storage/state'
 import { PlusOutlined, EditOutlined, DeleteOutlined } from '@ant-design/icons-vue'
+import eventBus from '@/utils/eventBus'
 
 const logger = createRendererLogger('settings.rules')
 
@@ -143,10 +144,19 @@ interface Rule {
 // Load saved configuration when component is mounted
 onMounted(async () => {
   await loadUserRules()
+  // Listen for user_rules specific sync events
+  eventBus.on('userRulesSyncApplied', onRulesSyncApplied)
 })
 
-// Save configuration before component unmounts
-onBeforeUnmount(async () => {})
+// Clean up event listener before component unmounts
+onBeforeUnmount(async () => {
+  eventBus.off('userRulesSyncApplied', onRulesSyncApplied)
+})
+
+const onRulesSyncApplied = () => {
+  // userRulesSyncService already applied remote data to local storage, just reload UI
+  loadUserRules()
+}
 
 // Rules
 const userRules = ref<Rule[]>([])

@@ -1,7 +1,16 @@
-import { userConfigStore } from './userConfigStoreService'
+import { getStoredUserConfigSnapshot, resolveDataSyncPreference } from './userConfigStoreService'
 import { chatSyncService } from './chatSyncService'
+import { userConfigSyncService } from './userConfigSyncService'
+import { editorConfigSyncService } from './editorConfigSyncService'
+import { userRulesSyncService } from './userRulesSyncService'
+import { aiPreferencesSyncService } from './aiPreferencesSyncService'
 
 const logger = createRendererLogger('service.dataSync')
+
+/**
+ * All config sync services, iterated for lifecycle operations.
+ */
+const allConfigSyncServices = [userConfigSyncService, editorConfigSyncService, userRulesSyncService, aiPreferencesSyncService]
 
 /**
  * Data sync service - manages data sync start and stop in renderer process
@@ -45,16 +54,8 @@ export class DataSyncService {
         return
       }
 
-      // Get user config
-      const userConfig = await userConfigStore.getConfig()
-
-      if (!userConfig) {
-        logger.info('Unable to get user config, skipping data sync initialization')
-        return
-      }
-
-      // Check if data sync is enabled
-      const isDataSyncEnabled = userConfig.dataSync === 'enabled'
+      const rawConfig = await getStoredUserConfigSnapshot()
+      const isDataSyncEnabled = resolveDataSyncPreference(rawConfig, true) === 'enabled'
       logger.info('User data sync config', { enabled: isDataSyncEnabled })
 
       if (isDataSyncEnabled) {
@@ -62,9 +63,6 @@ export class DataSyncService {
       } else {
         logger.info('Data sync is disabled, not starting sync service')
       }
-
-      // Initialize chat sync alongside data sync
-      await chatSyncService.initialize()
 
       this.isInitialized = true
       logger.info('Data sync service initialization completed')
@@ -88,7 +86,22 @@ export class DataSyncService {
       const result = await window.api.setDataSyncEnabled(true)
 
       if (result?.success) {
-        logger.info('Data sync successfully enabled, background sync task is in progress...')
+        logger.info('Data sync successfully enabled, initializing chat sync and all config sync services...')
+
+        // Enable chat sync as part of unified dataSync switch (failure does not block others)
+        await chatSyncService.enable().catch((e) => {
+          logger.error('Chat sync enable failed', { error: e })
+        })
+
+        // Initialize all config sync services (failure does not block others)
+        await Promise.allSettled(
+          allConfigSyncServices.map((svc) =>
+            svc.initialize().catch((e) => {
+              logger.error('Config sync service initialization failed', { error: e })
+            })
+          )
+        )
+
         return true
       } else {
         logger.error('Failed to enable data sync', { error: result?.error })
@@ -115,7 +128,20 @@ export class DataSyncService {
       const result = await window.api.setDataSyncEnabled(false)
 
       if (result?.success) {
-        logger.info('Data sync successfully disabled')
+        logger.info('Data sync successfully disabled, stopping chat sync and all config sync services')
+
+        // Disable chat sync as part of unified dataSync switch
+        try {
+          await chatSyncService.disable()
+        } catch (e) {
+          logger.error('Chat sync disable failed', { error: e })
+        }
+
+        // Stop all config sync services
+        for (const svc of allConfigSyncServices) {
+          svc.stop()
+        }
+
         return true
       } else {
         logger.error('Failed to disable data sync', { error: result?.error })
@@ -133,6 +159,9 @@ export class DataSyncService {
   reset(): void {
     this.isInitialized = false
     chatSyncService.reset()
+    for (const svc of allConfigSyncServices) {
+      svc.reset()
+    }
     logger.info('Data sync service status has been reset')
   }
 

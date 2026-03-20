@@ -359,7 +359,7 @@
 <script setup lang="ts">
 import { ref, onMounted, onBeforeUnmount, watch, nextTick } from 'vue'
 import { notification } from 'ant-design-vue'
-import { userConfigStore } from '@/services/userConfigStoreService'
+import { userConfigStore, remoteApplyGuard } from '@/services/userConfigStoreService'
 import { useI18n } from 'vue-i18n'
 import eventBus from '@/utils/eventBus'
 
@@ -743,6 +743,7 @@ const saveConfig = async () => {
 watch(
   () => userConfig.value,
   async () => {
+    if (remoteApplyGuard.isApplying) return
     await saveConfig()
   },
   { deep: true }
@@ -755,16 +756,22 @@ watch(
   }
 )
 
+const reloadConfigOnSync = async () => {
+  await loadSavedConfig()
+}
+
 const handleOpenAddProxyConfigModal = () => {
   handleProxyConfigAdd()
 }
 
 onMounted(async () => {
   await loadSavedConfig()
+  eventBus.on('userConfigSyncApplied', reloadConfigOnSync)
   eventBus.on('openAddProxyConfigModal', handleOpenAddProxyConfigModal)
 })
 
 onBeforeUnmount(() => {
+  eventBus.off('userConfigSyncApplied', reloadConfigOnSync)
   eventBus.off('openAddProxyConfigModal', handleOpenAddProxyConfigModal)
 })
 </script>

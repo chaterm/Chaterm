@@ -67,6 +67,11 @@ export class ShortcutService {
 
     // Load user-configured shortcuts
     this.loadShortcuts()
+
+    // Listen for remote shortcuts sync to reload bindings
+    eventBus.on('shortcutsSyncApplied', () => {
+      this.loadShortcuts()
+    })
   }
 
   private registerAction(id: string, name: string, handler: () => void, defaultKey: { mac: string; other: string }, nameKey: string) {

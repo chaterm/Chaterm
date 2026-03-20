@@ -909,6 +909,32 @@ export class ChatermDatabaseService {
     }
   }
 
+  /**
+   * Execute multiple KV operations in a single SQLite transaction.
+   * All operations succeed or all are rolled back.
+   * Usage: Renderer process calls via window.api.kvTransaction(callback)
+   */
+  kvTransaction(ops: Array<{ action: 'set' | 'delete'; key: string; value?: string }>): void {
+    const setStmt = this.db.prepare('INSERT OR REPLACE INTO key_value_store (key, value, updated_at) VALUES (?, ?, ?)')
+    const deleteStmt = this.db.prepare('DELETE FROM key_value_store WHERE key = ?')
+
+    this.db.transaction(() => {
+      const now = Date.now()
+      for (const op of ops) {
+        switch (op.action) {
+          case 'set':
+            setStmt.run(op.key, op.value, now)
+            break
+          case 'delete':
+            deleteStmt.run(op.key)
+            break
+          default:
+            throw new Error(`Invalid KV transaction action: ${(op as any).action}`)
+        }
+      }
+    })()
+  }
+
   // ==================== Chat Sync V2 Methods ====================
 
   /**
