@@ -311,7 +311,7 @@ const editorConfigStore = useEditorConfigStore()
 const userConfig = ref({
   language: 'zh-CN',
   watermark: 'open',
-  theme: 'auto',
+  theme: 'dark',
   defaultLayout: 'terminal',
   lastCustomImage: '',
   background: {
@@ -382,9 +382,9 @@ const loadSavedConfig = async () => {
       message: t('user.loadConfigFailed'),
       description: t('user.loadConfigFailedDescription')
     })
-    const actualTheme = getActualTheme('auto')
+    const actualTheme = getActualTheme('dark')
     document.documentElement.className = `theme-${actualTheme}`
-    userConfig.value.theme = 'auto'
+    userConfig.value.theme = 'dark'
   }
 }
 
