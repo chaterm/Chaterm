@@ -78,10 +78,10 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, watch } from 'vue'
+import { ref, onMounted, onBeforeUnmount, watch } from 'vue'
 import '@xterm/xterm/css/xterm.css'
 import { notification } from 'ant-design-vue'
-import { userConfigStore } from '@/services/userConfigStoreService'
+import { userConfigStore, remoteApplyGuard } from '@/services/userConfigStoreService'
 import eventBus from '@/utils/eventBus'
 import { captureExtensionUsage, ExtensionNames, ExtensionStatus } from '@/utils/telemetry'
 import { useI18n } from 'vue-i18n'
@@ -143,6 +143,7 @@ const saveConfig = async () => {
 watch(
   () => userConfig.value,
   async (newValue, oldValue) => {
+    if (remoteApplyGuard.isApplying) return
     if (oldValue && newValue.aliasStatus !== oldValue.aliasStatus) {
       return
     }
@@ -152,8 +153,17 @@ watch(
   { deep: true }
 )
 
+const reloadConfigOnSync = async () => {
+  await loadSavedConfig()
+}
+
 onMounted(async () => {
   await loadSavedConfig()
+  eventBus.on('userConfigSyncApplied', reloadConfigOnSync)
+})
+
+onBeforeUnmount(() => {
+  eventBus.off('userConfigSyncApplied', reloadConfigOnSync)
 })
 
 const handleAutoCompleteChange = async (checked) => {

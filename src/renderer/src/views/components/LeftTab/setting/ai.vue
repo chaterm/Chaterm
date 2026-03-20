@@ -491,13 +491,20 @@ watch(
 // Load saved configuration when component is mounted
 onMounted(async () => {
   await loadSavedConfig()
-  await saveConfig()
+  // Listen for ai_preferences specific sync events
+  eventBus.on('aiPreferencesSyncApplied', onAiSyncApplied)
 })
 
 // Save configuration before component unmounts
 onBeforeUnmount(async () => {
+  eventBus.off('aiPreferencesSyncApplied', onAiSyncApplied)
   await saveConfig()
 })
+
+const onAiSyncApplied = () => {
+  // aiPreferencesSyncService already applied remote data to local storage, just reload UI
+  loadSavedConfig()
+}
 
 // Validate shell integration timeout input
 const validateTimeout = (value: string) => {

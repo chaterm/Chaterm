@@ -1143,10 +1143,17 @@ function setupIPC(): void {
       if (params?.key) {
         const row = db.getKeyValue(params.key)
         if (row && row.value) {
-          // Use safeParse to deserialize superjson formatted data
-          const { safeParse } = await import('./storage/db/json-serializer')
-          const parsedValue = await safeParse(row.value)
-          return { ...row, value: JSON.stringify(parsedValue) }
+          const { deserializeStoredKvValue } = await import('./storage/db/kv-serialization')
+          const deserialized = await deserializeStoredKvValue(row.value)
+          if (deserialized.source !== 'superjson') {
+            logger.warn('db:kv:get used compatibility fallback for stored KV value', {
+              key: params.key,
+              userId,
+              source: deserialized.source,
+              rawPrefix: typeof row.value === 'string' ? row.value.slice(0, 200) : row.value
+            })
+          }
+          return { ...row, value: JSON.stringify(deserialized.value) }
         }
         return row
       } else {
@@ -1209,6 +1216,25 @@ function setupIPC(): void {
     }
   })
 
+  // Handler 6: KV transaction (atomic batch write)
+  ipcMain.handle('db:kv:transaction', async (_event, ops: Array<{ action: 'set' | 'delete'; key: string; value?: string }>) => {
+    try {
+      let userId = getCurrentUserId()
+
+      if (!userId) {
+        userId = getGuestUserId()
+      }
+
+      const db = await ChatermDatabaseService.getInstance(userId)
+      const { serializeKvTransactionOps } = await import('./storage/db/kv-serialization')
+      const serializedOps = await serializeKvTransactionOps(ops)
+      await db.kvTransaction(serializedOps)
+    } catch (error) {
+      logger.error('db:kv:transaction error', { error: error })
+      throw error
+    }
+  })
+
   // Unified version related operation handler
   ipcMain.handle('version:operation', async (_event, operation: string, payload?: any) => {
     try {
@@ -1229,44 +1255,6 @@ function setupIPC(): void {
     } catch (error) {
       logger.error(`version:operation [${operation}] error`, { error: error })
 
-      throw error
-    }
-  })
-
-  // Editor configuration handlers
-  ipcMain.handle('get-editor-config', async () => {
-    try {
-      const configPath = join(app.getPath('userData'), 'setting', 'editor-config.json')
-      try {
-        const configData = await fs.readFile(configPath, 'utf-8')
-        return JSON.parse(configData)
-      } catch (error: any) {
-        // If file doesn't exist, return null to use default config
-        if (error.code === 'ENOENT') {
-          return null
-        }
-        throw error
-      }
-    } catch (error) {
-      logger.error('Failed to get editor config:', { error: error })
-      throw error
-    }
-  })
-
-  ipcMain.handle('save-editor-config', async (_event, config) => {
-    try {
-      const configPath = join(app.getPath('userData'), 'setting', 'editor-config.json')
-      const configDir = join(app.getPath('userData'), 'setting')
-
-      // Ensure directory exists
-      await fs.mkdir(configDir, { recursive: true })
-
-      // Save config
-      await fs.writeFile(configPath, JSON.stringify(config, null, 2), 'utf-8')
-
-      return { success: true }
-    } catch (error) {
-      logger.error('Failed to save editor config:', { error: error })
       throw error
     }
   })

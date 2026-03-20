@@ -123,13 +123,14 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, watch, computed } from 'vue'
+import { ref, onMounted, onBeforeUnmount, watch, computed } from 'vue'
 import { notification } from 'ant-design-vue'
-import { userConfigStore } from '@/services/userConfigStoreService'
+import { userConfigStore, remoteApplyGuard, getStoredUserConfigSnapshot, resolveDataSyncPreference } from '@/services/userConfigStoreService'
 import { dataSyncService } from '@/services/dataSyncService'
 import { useI18n } from 'vue-i18n'
 import { getPrivacyPolicyUrl } from '@/utils/edition'
 import { getUserInfo } from '@/utils/permission'
+import eventBus from '@/utils/eventBus'
 import type { TelemetrySetting } from '@shared/TelemetrySetting'
 
 const logger = createRendererLogger('settings.privacy')
@@ -236,35 +237,23 @@ const secretPatterns = computed(() => [
 
 const loadSavedConfig = async () => {
   try {
-    const rawConfigResult = await window.api.kvGet({ key: 'userConfig' })
-    let rawConfig: any = {}
-    if (rawConfigResult?.value) {
-      rawConfig = JSON.parse(rawConfigResult.value)
-    }
-
+    const rawConfig = await getStoredUserConfigSnapshot()
     const savedConfig = await userConfigStore.getConfig()
     if (savedConfig) {
-      let defaultDataSync: 'enabled' | 'disabled' = 'disabled'
+      const resolvedDataSync = resolveDataSyncPreference(rawConfig, isUserLoggedIn.value)
 
-      const persistedDataSync = (rawConfig.dataSync ?? savedConfig.dataSync) as 'enabled' | 'disabled' | undefined
-
-      if (persistedDataSync) {
-        defaultDataSync = persistedDataSync
-      } else if (isUserLoggedIn.value) {
-        defaultDataSync = 'enabled'
+      if (!rawConfig?.dataSync && isUserLoggedIn.value) {
         await userConfigStore.saveConfig({
           ...savedConfig,
           dataSync: 'enabled'
         } as any)
-      } else {
-        defaultDataSync = 'disabled'
       }
 
       userConfig.value = {
         ...userConfig.value,
         ...savedConfig,
         secretRedaction: (savedConfig.secretRedaction || 'enabled') as 'enabled' | 'disabled',
-        dataSync: defaultDataSync,
+        dataSync: resolvedDataSync,
         telemetry: ((savedConfig as any).telemetry || 'unset') as 'unset' | 'enabled' | 'disabled'
       } as any
     }
@@ -297,13 +286,23 @@ const saveConfig = async () => {
 watch(
   () => userConfig.value,
   async () => {
+    if (remoteApplyGuard.isApplying) return
     await saveConfig()
   },
   { deep: true }
 )
 
+const reloadConfigOnSync = async () => {
+  await loadSavedConfig()
+}
+
 onMounted(async () => {
   await loadSavedConfig()
+  eventBus.on('userConfigSyncApplied', reloadConfigOnSync)
+})
+
+onBeforeUnmount(() => {
+  eventBus.off('userConfigSyncApplied', reloadConfigOnSync)
 })
 
 const updateTelemetry = async () => {

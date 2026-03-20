@@ -146,8 +146,50 @@ const mockT = (key: string) => {
 
 vi.mock('vue-i18n', () => ({
   useI18n: () => ({
-    t: mockT
-  })
+    t: (key: string) => {
+      const translations: Record<string, string> = {
+        'common.userInfo': 'User Info',
+        'common.userConfig': 'User Config',
+        'common.assetConfig': 'Asset Config',
+        'common.aliasConfig': 'Alias Config',
+        'common.management': 'Asset Management',
+        'common.keyManagement': 'Key Management',
+        'common.keyManagementDesc': 'Manage SSH keys and certificates',
+        'common.hostManagement': 'Host Management',
+        'common.hostManagementDesc': 'Manage SSH hosts and connection configurations'
+      }
+      return translations[key] || key
+    }
+  }),
+  createI18n: vi.fn(() => ({
+    global: {
+      t: (key: string) => key,
+      locale: { value: 'zh-CN' }
+    }
+  }))
+}))
+
+// Mock userConfigStoreService to prevent transitive import failures
+vi.mock('@/services/userConfigStoreService', () => ({
+  userConfigStore: {
+    getConfig: vi.fn().mockResolvedValue({}),
+    saveConfig: vi.fn()
+  },
+  remoteApplyGuard: { isApplying: false },
+  SUPPORTED_USER_CONFIG_SCHEMA_VERSION: 1,
+  getStoredUserConfigSnapshot: vi.fn(),
+  resolveDataSyncPreference: vi.fn()
+}))
+
+// Mock dataSyncService to prevent transitive import failures
+vi.mock('@/services/dataSyncService', () => ({
+  dataSyncService: {
+    initialize: vi.fn(),
+    enableDataSync: vi.fn(),
+    disableDataSync: vi.fn(),
+    reset: vi.fn(),
+    getInitializationStatus: vi.fn()
+  }
 }))
 
 describe('TabsPanel Component', () => {

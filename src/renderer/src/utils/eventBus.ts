@@ -35,4 +35,50 @@ export interface AppEvents {
 
 const emitter = mitt<AppEvents>()
 
-export default emitter
+const ASYNC_EMIT_DEFAULT_TIMEOUT_MS = 3_000
+
+function withTimeout<T>(promise: Promise<T>, timeoutMs: number): Promise<T> {
+  if (timeoutMs <= 0) {
+    return promise
+  }
+  return new Promise((resolve, reject) => {
+    const timeoutId = setTimeout(() => {
+      reject(new Error(`eventBus emitAsync timed out after ${timeoutMs}ms`))
+    }, timeoutMs)
+
+    promise.then(
+      (value) => {
+        clearTimeout(timeoutId)
+        resolve(value)
+      },
+      (error) => {
+        clearTimeout(timeoutId)
+        reject(error)
+      }
+    )
+  })
+}
+
+async function emitAsync<T extends keyof AppEvents>(type: T, event?: AppEvents[T], options?: { timeoutMs?: number }): Promise<void> {
+  const timeoutMs = options?.timeoutMs ?? ASYNC_EMIT_DEFAULT_TIMEOUT_MS
+  const handlers = emitter.all.get(type) as Set<(payload: AppEvents[T]) => unknown> | undefined
+
+  if (!handlers || handlers.size === 0) {
+    return
+  }
+
+  const tasks = Array.from(handlers).map(async (handler) => {
+    await withTimeout(Promise.resolve(handler(event as AppEvents[T])), timeoutMs)
+  })
+
+  await Promise.all(tasks)
+}
+
+const eventBus = {
+  on: emitter.on,
+  off: emitter.off,
+  emit: emitter.emit,
+  emitAsync
+}
+
+export default eventBus

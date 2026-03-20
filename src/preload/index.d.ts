@@ -132,6 +132,16 @@ export interface BastionDefinition {
   uiHints?: Record<string, unknown>
 }
 
+// KV transaction operation type
+type KvOp = { action: 'set'; key: string; value: string } | { action: 'delete'; key: string }
+
+// KV transaction context for collecting operations in renderer process
+interface KvTransactionContext {
+  get(key: string): Promise<string | null>
+  set(key: string, value: string): void
+  delete(key: string): void
+}
+
 interface ApiType {
   getCookie: (name: string) => Promise<{
     success: boolean
@@ -293,6 +303,7 @@ interface ApiType {
   aliasesMutate: (params: { action: string; data?: any; alias?: string }) => Promise<void>
   kvGet: (params: { key?: string }) => Promise<any>
   kvMutate: (params: { action: string; key: string; value?: string }) => Promise<void>
+  kvTransaction: (callback: (tx: KvTransactionContext) => Promise<void>) => Promise<void>
   chatermGetChatermMessages: (data: { taskId: string }) => Promise<any>
   getTaskMetadata: (taskId: string) => Promise<{
     success: boolean
@@ -401,10 +412,6 @@ interface ApiType {
   getBastionDefinition: (type: string) => Promise<BastionDefinition | undefined>
   // Check if a specific bastion type is available
   hasBastionCapability: (type: string) => Promise<boolean>
-
-  // Editor configuration
-  getEditorConfig: () => Promise<any>
-  saveEditorConfig: (config: any) => Promise<{ success: boolean }>
 
   // K8s related APIs
   k8sGetContexts: () => Promise<{
