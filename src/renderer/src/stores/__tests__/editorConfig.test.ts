@@ -2,6 +2,29 @@ import { describe, it, expect, beforeEach, vi } from 'vitest'
 import { setActivePinia, createPinia } from 'pinia'
 import { useEditorConfigStore, FONT_FAMILY_OPTIONS } from '../editorConfig'
 
+// Mock configSyncManager to prevent module import chain failures
+vi.mock('@/services/configSyncManager', () => ({
+  ConfigSyncManager: vi.fn().mockImplementation(() => ({
+    initialize: vi.fn(),
+    scheduleUpload: vi.fn(),
+    reset: vi.fn(),
+    stop: vi.fn()
+  })),
+  markSyncMetaDirty: vi.fn(),
+  buildDefaultConfigSyncMeta: vi.fn()
+}))
+
+// Mock dataSyncService to prevent transitive import failures
+vi.mock('@/services/dataSyncService', () => ({
+  dataSyncService: {
+    initialize: vi.fn(),
+    enableDataSync: vi.fn(),
+    disableDataSync: vi.fn(),
+    reset: vi.fn(),
+    getInitializationStatus: vi.fn()
+  }
+}))
+
 // Mock window.api with KV store methods
 const mockApi = {
   kvGet: vi.fn(),

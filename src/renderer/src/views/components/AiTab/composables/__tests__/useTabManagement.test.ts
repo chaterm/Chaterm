@@ -90,9 +90,24 @@ vi.mock('@/services/userConfigStoreService', () => {
       }),
       saveConfig: vi.fn().mockResolvedValue(undefined),
       initDB: vi.fn().mockResolvedValue(undefined)
-    }
+    },
+    remoteApplyGuard: { isApplying: false },
+    SUPPORTED_USER_CONFIG_SCHEMA_VERSION: 1,
+    getStoredUserConfigSnapshot: vi.fn(),
+    resolveDataSyncPreference: vi.fn()
   }
 })
+
+// Mock dataSyncService to prevent transitive import failures
+vi.mock('@/services/dataSyncService', () => ({
+  dataSyncService: {
+    initialize: vi.fn(),
+    enableDataSync: vi.fn(),
+    disableDataSync: vi.fn(),
+    reset: vi.fn(),
+    getInitializationStatus: vi.fn()
+  }
+}))
 
 // In-memory storage for testing
 const storage = new Map<string, string>()

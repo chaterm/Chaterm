@@ -25,7 +25,8 @@ import { userConfigStore as configStore } from '@/store/userConfigStore'
 vi.mock('ant-design-vue', () => ({
   notification: {
     success: vi.fn(),
-    error: vi.fn()
+    error: vi.fn(),
+    config: vi.fn()
   }
 }))
 
@@ -61,11 +62,49 @@ const mockT = (key: string) => {
   return mockTranslations[key] || key
 }
 
+const { mockTFn } = vi.hoisted(() => {
+  const translations: Record<string, string> = {
+    'user.baseSetting': 'Base Settings',
+    'user.theme': 'Theme',
+    'user.themeDark': 'Dark',
+    'user.themeLight': 'Light',
+    'user.themeAuto': 'Auto',
+    'user.background': 'Background',
+    'user.backgroundDefault': 'Default',
+    'user.backgroundCustomUpload': 'Custom Upload (JPG, PNG, WebP, GIF)',
+    'user.backgroundOpacity': 'Opacity',
+    'user.backgroundBrightness': 'Brightness',
+    'user.defaultLayout': 'Default Layout',
+    'user.defaultLayoutTerminal': 'Terminal',
+    'user.defaultLayoutAgents': 'Agents',
+    'user.language': 'Language',
+    'user.watermark': 'Watermark',
+    'user.watermarkOpen': 'Open',
+    'user.watermarkClose': 'Close',
+    'user.loadConfigFailed': 'Failed to load config',
+    'user.loadConfigFailedDescription': 'Failed to load configuration',
+    'user.error': 'Error',
+    'user.saveConfigFailedDescription': 'Failed to save configuration',
+    'user.themeSwitchFailed': 'Theme switch failed',
+    'user.themeSwitchFailedDescription': 'Failed to switch theme',
+    'user.saveBackgroundFailed': 'Failed to save background'
+  }
+  return {
+    mockTFn: (key: string) => translations[key] || key
+  }
+})
+
 vi.mock('vue-i18n', () => ({
   useI18n: () => ({
     locale: { value: 'zh-CN' },
-    t: mockT
-  })
+    t: mockTFn
+  }),
+  createI18n: vi.fn(() => ({
+    global: {
+      t: mockTFn,
+      locale: { value: 'zh-CN' }
+    }
+  }))
 }))
 
 // Mock eventBus
@@ -82,6 +121,23 @@ vi.mock('@/services/userConfigStoreService', () => ({
   userConfigStore: {
     getConfig: vi.fn(),
     saveConfig: vi.fn()
+  },
+  remoteApplyGuard: {
+    isApplying: false
+  },
+  SUPPORTED_USER_CONFIG_SCHEMA_VERSION: 1,
+  getStoredUserConfigSnapshot: vi.fn(),
+  resolveDataSyncPreference: vi.fn()
+}))
+
+// Mock dataSyncService to prevent transitive import failures
+vi.mock('@/services/dataSyncService', () => ({
+  dataSyncService: {
+    initialize: vi.fn(),
+    enableDataSync: vi.fn(),
+    disableDataSync: vi.fn(),
+    reset: vi.fn(),
+    getInitializationStatus: vi.fn()
   }
 }))
 
