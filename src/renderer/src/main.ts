@@ -17,7 +17,7 @@ import { notification } from 'ant-design-vue'
 import { shortcutService } from './services/shortcutService'
 import { APP_EDITION } from './utils/edition'
 import { createRendererLogger } from './utils/logger'
-import { useEditorConfigStore } from './stores/editorConfig'
+import { useEditorConfigStore } from './store/editorConfig'
 
 // Set document title based on edition
 document.title = APP_EDITION === 'cn' ? 'Chaterm CN' : 'Chaterm'

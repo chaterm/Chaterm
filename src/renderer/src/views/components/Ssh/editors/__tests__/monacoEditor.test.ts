@@ -37,7 +37,7 @@ vi.mock('monaco-editor/esm/vs/language/css/css.worker?worker', () => ({ default:
 vi.mock('monaco-editor/esm/vs/language/html/html.worker?worker', () => ({ default: class HtmlWorker {} }))
 vi.mock('monaco-editor/esm/vs/language/typescript/ts.worker?worker', () => ({ default: class TsWorker {} }))
 
-vi.mock('@/stores/editorConfig', async () => {
+vi.mock('@/store/editorConfig', async () => {
   const { ref } = await import('vue')
   return {
     useEditorConfigStore: () => ({

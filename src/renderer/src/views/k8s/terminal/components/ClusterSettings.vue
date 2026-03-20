@@ -47,29 +47,13 @@
         <a-tag :color="statusColor">{{ statusText }}</a-tag>
       </a-form-item>
     </a-form>
-
-    <!-- Danger Zone -->
-    <div class="danger-zone">
-      <div class="danger-title">{{ t('k8s.terminal.dangerZone') }}</div>
-      <div class="danger-content">
-        <span>{{ t('k8s.terminal.deleteClusterWarning') }}</span>
-        <a-button
-          type="text"
-          danger
-          @click="handleDelete"
-        >
-          <template #icon><DeleteOutlined /></template>
-        </a-button>
-      </div>
-    </div>
   </a-modal>
 </template>
 
 <script setup lang="ts">
 import { ref, reactive, computed, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
-import { message, Modal } from 'ant-design-vue'
-import { DeleteOutlined } from '@ant-design/icons-vue'
+import { message } from 'ant-design-vue'
 import { useK8sStore } from '@/store/k8sStore'
 import type { K8sCluster } from '@/api/k8s'
 
@@ -81,7 +65,6 @@ const props = defineProps<{
 const emit = defineEmits<{
   (e: 'update:visible', value: boolean): void
   (e: 'success'): void
-  (e: 'delete', id: string): void
 }>()
 
 const { t } = useI18n()
@@ -160,20 +143,6 @@ const handleSubmit = async () => {
     loading.value = false
   }
 }
-
-const handleDelete = () => {
-  if (!props.cluster) return
-
-  Modal.confirm({
-    wrapClassName: 'k8s-delete-confirm-modal',
-    title: t('k8s.terminal.deleteConfirm'),
-    content: t('k8s.terminal.deleteClusterMessage', { name: props.cluster.name }),
-    okText: t('common.confirm'),
-    cancelText: t('common.cancel'),
-    okType: 'danger',
-    onOk: () => emit('delete', props.cluster!.id)
-  })
-}
 </script>
 
 <style>
@@ -242,15 +211,6 @@ const handleDelete = () => {
   color: #ff4d4f !important;
 }
 
-.cluster-settings-modal .ant-btn-text.ant-btn-dangerous,
-.cluster-settings-modal .ant-btn-text.ant-btn-dangerous .anticon {
-  color: #ff4d4f !important;
-}
-
-.cluster-settings-modal .ant-btn-text.ant-btn-dangerous:hover {
-  background-color: rgba(255, 77, 79, 0.1) !important;
-}
-
 /* Style secondary buttons in modal footer and body */
 .cluster-settings-modal .ant-btn:not(.ant-btn-primary):not(.ant-btn-dangerous) {
   background-color: var(--bg-color-secondary) !important;
@@ -265,32 +225,4 @@ const handleDelete = () => {
 }
 
 /* Scoped styles for internal elements */
-</style>
-
-<style scoped>
-.danger-zone {
-  margin-top: 24px;
-  padding: 16px;
-  border: 1px solid rgba(239, 68, 68, 0.4);
-  border-radius: 8px;
-  background-color: rgba(239, 68, 68, 0.02); /* Very subtle red tint */
-}
-
-.danger-title {
-  font-weight: 600;
-  color: var(--error-color);
-  margin-bottom: 12px;
-}
-
-.danger-content {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 16px;
-}
-
-.danger-content span {
-  color: var(--text-color-secondary);
-  font-size: 13px;
-}
 </style>

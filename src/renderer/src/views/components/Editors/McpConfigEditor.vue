@@ -1,4 +1,4 @@
-<template>
+﻿<template>
   <div class="mcp-config-editor">
     <div class="editor-toolbar">
       <div class="toolbar-left">
@@ -35,7 +35,7 @@ import { mcpConfigService } from '@/services/mcpService'
 import { useI18n } from 'vue-i18n'
 import MonacoEditor from '@views/components/Editors/base/monacoEditor.vue'
 import { getMonacoTheme, addSystemThemeListener } from '@/utils/themeUtils'
-import { useEditorConfigStore } from '@/stores/editorConfig'
+import { useEditorConfigStore } from '@/store/editorConfig'
 
 const logger = createRendererLogger('ssh.mcpConfigEditor')
 

@@ -1,4 +1,4 @@
-<template>
+﻿<template>
   <div class="mcp-config-editor">
     <div class="editor-toolbar">
       <div class="toolbar-left">
@@ -31,7 +31,7 @@ import { ref, onMounted, onBeforeUnmount, computed } from 'vue'
 import { notification } from 'ant-design-vue'
 import MonacoEditor from '@views/components/Editors/base/monacoEditor.vue'
 import { getMonacoTheme, addSystemThemeListener } from '@/utils/themeUtils'
-import { useEditorConfigStore } from '@/stores/editorConfig'
+import { useEditorConfigStore } from '@/store/editorConfig'
 
 interface Props {
   filePath: string

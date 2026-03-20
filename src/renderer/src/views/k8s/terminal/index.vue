@@ -105,12 +105,10 @@
       @success="handleClusterAdded"
     />
 
-    <!-- Edit Cluster Modal -->
     <ClusterSettings
       v-model:visible="showEditModal"
       :cluster="editingCluster"
       @success="handleEditSuccess"
-      @delete="handleDeleteConfirm"
     />
   </div>
 </template>

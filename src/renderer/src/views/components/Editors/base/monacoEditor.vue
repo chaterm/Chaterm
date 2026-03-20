@@ -1,4 +1,4 @@
-<template>
+﻿<template>
   <div
     class="monaco-editor-container"
     :class="{ 'with-custom-bg': hasCustomBg }"
@@ -16,7 +16,7 @@ import { storeToRefs } from 'pinia'
 import * as monaco from 'monaco-editor'
 import 'monaco-editor/esm/vs/editor/contrib/folding/browser/folding'
 import 'monaco-editor/esm/vs/editor/contrib/find/browser/findController'
-import { useEditorConfigStore, getFontFamily } from '@/stores/editorConfig'
+import { useEditorConfigStore, getFontFamily } from '@/store/editorConfig'
 
 // Configure Monaco Environment for Web Workers
 import editorWorker from 'monaco-editor/esm/vs/editor/editor.worker?worker'

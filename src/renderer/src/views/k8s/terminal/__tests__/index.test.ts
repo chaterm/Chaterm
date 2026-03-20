@@ -121,7 +121,7 @@ vi.mock('../components/ClusterSettings.vue', () => ({
     name: 'ClusterSettings',
     template: '<div class="cluster-settings" v-if="visible"><slot /></div>',
     props: ['visible', 'cluster'],
-    emits: ['update:visible', 'success', 'delete']
+    emits: ['update:visible', 'success']
   }
 }))
 
