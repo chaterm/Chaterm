@@ -306,6 +306,16 @@ const handleDelete = () => {
   })
 }
 
+// Expose for unit testing
+defineExpose({
+  selectedClusterId,
+  editForm,
+  showAddModal,
+  getStatusColor,
+  getStatusText,
+  handleAddSuccess
+})
+
 // Initialize
 k8sStore.loadClusters()
 </script>
