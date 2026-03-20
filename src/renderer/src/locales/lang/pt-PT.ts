@@ -813,6 +813,7 @@ export default {
     today: 'Hoje',
     yesterday: 'Ontem',
     favorite: 'Favoritos',
+    favorites: 'Favoritos',
     welcome: 'O que posso fazer para você no terminal?',
     welcomeTips: ['O que posso fazer para você no terminal?', '@ para contexto, / para comandos', 'Pressione Shift + Tab para alternar modo'],
     loginPrompt: 'Login para usar recursos de IA, novos usuários podem usar gratuitamente por duas semanas',
