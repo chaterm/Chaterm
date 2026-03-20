@@ -7,6 +7,7 @@
     :ok-loading="loading"
     :ok-text="t('common.save')"
     :cancel-text="t('common.cancel')"
+    wrap-class-name="cluster-settings-modal"
     @cancel="handleClose"
     @ok="handleSubmit"
   >
@@ -53,10 +54,12 @@
       <div class="danger-content">
         <span>{{ t('k8s.terminal.deleteClusterWarning') }}</span>
         <a-button
+          type="text"
           danger
           @click="handleDelete"
-          >{{ t('common.delete') }}</a-button
         >
+          <template #icon><DeleteOutlined /></template>
+        </a-button>
       </div>
     </div>
   </a-modal>
@@ -66,6 +69,7 @@
 import { ref, reactive, computed, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { message, Modal } from 'ant-design-vue'
+import { DeleteOutlined } from '@ant-design/icons-vue'
 import { useK8sStore } from '@/store/k8sStore'
 import type { K8sCluster } from '@/api/k8s'
 
@@ -161,6 +165,7 @@ const handleDelete = () => {
   if (!props.cluster) return
 
   Modal.confirm({
+    wrapClassName: 'k8s-delete-confirm-modal',
     title: t('k8s.terminal.deleteConfirm'),
     content: t('k8s.terminal.deleteClusterMessage', { name: props.cluster.name }),
     okText: t('common.confirm'),
@@ -171,17 +176,109 @@ const handleDelete = () => {
 }
 </script>
 
+<style>
+.cluster-settings-modal .ant-modal-content {
+  background-color: var(--bg-color) !important;
+  color: var(--text-color) !important;
+}
+
+.cluster-settings-modal .ant-modal-header {
+  background-color: transparent !important;
+  border-bottom: 1px solid var(--border-color) !important;
+}
+
+.cluster-settings-modal .ant-modal-title {
+  color: var(--text-color) !important;
+}
+
+.cluster-settings-modal .ant-modal-close {
+  color: var(--text-color-secondary) !important;
+}
+
+.cluster-settings-modal .ant-form-item-label > label {
+  color: var(--text-color-secondary) !important;
+}
+
+.cluster-settings-modal .ant-input,
+.cluster-settings-modal .ant-select-selector,
+.cluster-settings-modal .ant-textarea {
+  background-color: var(--bg-color-secondary) !important;
+  border-color: var(--border-color) !important;
+  color: var(--text-color) !important;
+}
+
+.cluster-settings-modal .ant-input[disabled] {
+  background-color: var(--bg-color-tertiary) !important;
+  color: var(--text-color-secondary) !important;
+  border-color: var(--border-color) !important;
+  opacity: 0.7;
+}
+
+.cluster-settings-modal .ant-switch {
+  background-color: var(--bg-color-tertiary) !important;
+  border: 1px solid var(--border-color) !important;
+}
+
+.cluster-settings-modal .ant-switch-checked {
+  background-color: #1890ff !important;
+  border: 1px solid transparent !important;
+}
+
+.cluster-settings-modal .ant-tag {
+  background-color: var(--bg-color-tertiary) !important;
+  border: 1px solid var(--border-color) !important;
+  color: var(--text-color-secondary) !important;
+}
+
+.cluster-settings-modal .ant-tag-success {
+  background-color: rgba(82, 196, 26, 0.1) !important;
+  border-color: rgba(82, 196, 26, 0.2) !important;
+  color: #52c41a !important;
+}
+
+.cluster-settings-modal .ant-tag-error {
+  background-color: rgba(255, 77, 79, 0.1) !important;
+  border-color: rgba(255, 77, 79, 0.2) !important;
+  color: #ff4d4f !important;
+}
+
+.cluster-settings-modal .ant-btn-text.ant-btn-dangerous,
+.cluster-settings-modal .ant-btn-text.ant-btn-dangerous .anticon {
+  color: #ff4d4f !important;
+}
+
+.cluster-settings-modal .ant-btn-text.ant-btn-dangerous:hover {
+  background-color: rgba(255, 77, 79, 0.1) !important;
+}
+
+/* Style secondary buttons in modal footer and body */
+.cluster-settings-modal .ant-btn:not(.ant-btn-primary):not(.ant-btn-dangerous) {
+  background-color: var(--bg-color-secondary) !important;
+  border-color: var(--border-color) !important;
+  color: var(--text-color) !important;
+}
+
+.cluster-settings-modal .ant-btn:not(.ant-btn-primary):not(.ant-btn-dangerous):hover {
+  background-color: var(--hover-bg-color) !important;
+  border-color: var(--primary-color) !important;
+  color: var(--primary-color) !important;
+}
+
+/* Scoped styles for internal elements */
+</style>
+
 <style scoped>
 .danger-zone {
   margin-top: 24px;
   padding: 16px;
-  border: 1px solid var(--color-error);
+  border: 1px solid rgba(239, 68, 68, 0.4);
   border-radius: 8px;
+  background-color: rgba(239, 68, 68, 0.02); /* Very subtle red tint */
 }
 
 .danger-title {
   font-weight: 600;
-  color: var(--color-error);
+  color: var(--error-color);
   margin-bottom: 12px;
 }
 
@@ -193,7 +290,7 @@ const handleDelete = () => {
 }
 
 .danger-content span {
-  color: var(--color-text-secondary);
+  color: var(--text-color-secondary);
   font-size: 13px;
 }
 </style>

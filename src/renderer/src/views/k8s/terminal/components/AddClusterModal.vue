@@ -7,6 +7,7 @@
     :ok-loading="loading"
     :ok-text="t('common.save')"
     :cancel-text="t('common.cancel')"
+    wrap-class-name="add-cluster-modal"
     @cancel="handleClose"
     @ok="handleSubmit"
   >
@@ -385,6 +386,92 @@ const handleSubmit = async () => {
 }
 </script>
 
+<style>
+.add-cluster-modal .ant-modal-content {
+  background-color: var(--bg-color) !important;
+  color: var(--text-color) !important;
+}
+
+.add-cluster-modal .ant-modal-header {
+  background-color: transparent !important;
+  border-bottom: 1px solid var(--border-color) !important;
+}
+
+.add-cluster-modal .ant-modal-title {
+  color: var(--text-color) !important;
+}
+
+.add-cluster-modal .ant-modal-close {
+  color: var(--text-color-secondary) !important;
+}
+
+.add-cluster-modal .ant-tabs-nav {
+  margin-bottom: 16px;
+}
+
+.add-cluster-modal .ant-tabs-tab {
+  color: var(--text-color-secondary) !important;
+}
+
+.add-cluster-modal .ant-tabs-tab-active {
+  color: #1890ff !important;
+}
+
+.add-cluster-modal .ant-form-item-label > label {
+  color: var(--text-color-secondary) !important;
+}
+
+.add-cluster-modal .ant-input,
+.add-cluster-modal .ant-select-selector,
+.add-cluster-modal .ant-textarea {
+  background-color: var(--bg-color-secondary) !important;
+  border-color: var(--border-color) !important;
+  color: var(--text-color) !important;
+}
+
+.add-cluster-modal .ant-input[readonly] {
+  background-color: var(--bg-color-tertiary) !important;
+  color: var(--text-color-secondary) !important;
+  border-color: var(--border-color) !important;
+}
+
+.add-cluster-modal .ant-switch {
+  background-color: var(--bg-color-tertiary) !important;
+  border: 1px solid var(--border-color) !important;
+}
+
+.add-cluster-modal .ant-switch-checked {
+  background-color: #1890ff !important;
+  border: 1px solid transparent !important;
+}
+
+.add-cluster-modal .ant-tag {
+  background-color: var(--bg-color-tertiary) !important;
+  border: 1px solid var(--border-color) !important;
+  color: var(--text-color-secondary) !important;
+}
+
+/* Placeholder adaptation */
+.add-cluster-modal .ant-input::placeholder,
+.add-cluster-modal .ant-select-placeholder,
+.add-cluster-modal .ant-textarea::placeholder {
+  color: var(--text-color-tertiary) !important;
+}
+
+/* Style secondary buttons in modal footer and body */
+.add-cluster-modal .ant-btn:not(.ant-btn-primary) {
+  background-color: var(--bg-color-secondary) !important;
+  border-color: var(--border-color) !important;
+  color: var(--text-color) !important;
+}
+
+.add-cluster-modal .ant-btn:not(.ant-btn-primary):hover {
+  background-color: var(--hover-bg-color) !important;
+  border-color: var(--primary-color) !important;
+  color: var(--primary-color) !important;
+}
+</style>
+
 <style scoped>
 .test-connection {
   display: flex;
@@ -392,7 +479,7 @@ const handleSubmit = async () => {
   gap: 12px;
   margin-top: 16px;
   padding-top: 16px;
-  border-top: 1px solid var(--color-border);
+  border-top: 1px solid var(--border-color);
 }
 
 .test-result {
@@ -400,10 +487,10 @@ const handleSubmit = async () => {
 }
 
 .test-result.success {
-  color: var(--color-success);
+  color: var(--success-color);
 }
 
 .test-result.error {
-  color: var(--color-error);
+  color: var(--error-color);
 }
 </style>

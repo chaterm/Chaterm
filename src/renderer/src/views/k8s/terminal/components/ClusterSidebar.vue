@@ -189,7 +189,7 @@ const handleDeleteConfirm = async (id: string) => {
   height: 100%;
   display: flex;
   flex-direction: column;
-  background: var(--color-bg-container);
+  background: var(--bg-color);
 }
 
 .sidebar-header {
@@ -197,14 +197,14 @@ const handleDeleteConfirm = async (id: string) => {
   align-items: center;
   justify-content: space-between;
   padding: 12px 16px;
-  border-bottom: 1px solid var(--color-border);
+  border-bottom: 1px solid var(--border-color);
   min-height: 48px;
 }
 
 .header-title {
   font-weight: 600;
   font-size: 14px;
-  color: var(--color-text);
+  color: var(--text-color);
 }
 
 .header-actions {

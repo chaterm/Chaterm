@@ -14,11 +14,13 @@
 
     <div class="cluster-info">
       <div class="cluster-name">
-        <span
-          v-if="cluster.connection_status === 'connected'"
-          class="name-status-dot"
-        ></span>
-        {{ cluster.name }}
+        <div class="name-status-placeholder">
+          <span
+            v-if="cluster.connection_status === 'connected'"
+            class="name-status-dot"
+          ></span>
+        </div>
+        <span class="hostname-text">{{ cluster.name }}</span>
       </div>
       <div class="cluster-context">{{ cluster.context_name }}</div>
     </div>
@@ -111,19 +113,23 @@ const handleMenuClick = ({ key }: { key: string }) => {
 .cluster-item {
   display: flex;
   align-items: center;
-  padding: 10px 12px;
-  border-radius: 8px;
+  padding: 10px 14px;
+  border-radius: 4px;
   cursor: pointer;
-  margin-bottom: 4px;
+  margin-bottom: 2px;
   transition: all 0.2s ease;
 }
 
 .cluster-item:hover {
-  background: var(--color-bg-hover);
+  background: var(--hover-bg-color);
 }
 
 .cluster-item.active {
-  background: var(--color-primary-bg);
+  background: var(--hover-bg-color);
+}
+
+.cluster-item.active .cluster-name {
+  color: #1890ff;
 }
 
 .cluster-item.connected .cluster-icon {
@@ -132,19 +138,23 @@ const handleMenuClick = ({ key }: { key: string }) => {
 
 .cluster-icon {
   position: relative;
-  font-size: 20px;
-  color: var(--color-text-tertiary);
-  margin-right: 12px;
+  font-size: 14px;
+  color: var(--text-color);
+  margin-right: 6px;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .status-dot {
   position: absolute;
-  bottom: -2px;
-  right: -2px;
-  width: 8px;
-  height: 8px;
+  bottom: -1px;
+  right: -1px;
+  width: 6px;
+  height: 6px;
   border-radius: 50%;
-  border: 2px solid var(--color-bg-container);
+  border: 1px solid var(--bg-color);
 }
 
 .status-dot.connected {
@@ -152,7 +162,7 @@ const handleMenuClick = ({ key }: { key: string }) => {
 }
 
 .status-dot.disconnected {
-  background: var(--color-text-quaternary);
+  background: var(--text-color-quaternary);
 }
 
 .status-dot.error {
@@ -167,13 +177,21 @@ const handleMenuClick = ({ key }: { key: string }) => {
 .cluster-name {
   display: flex;
   align-items: center;
-  gap: 6px;
-  font-weight: 500;
+  font-weight: 400;
   font-size: 13px;
-  color: var(--color-text);
+  color: var(--text-color);
+  line-height: normal;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+}
+
+/* Added placeholder to stabilize text start position between connected/disconnected states */
+.name-status-placeholder {
+  width: 10px; /* dot 6px + gap roughly 4px = 10px */
+  display: flex;
+  align-items: center;
+  flex-shrink: 0;
 }
 
 .name-status-dot {
@@ -185,19 +203,35 @@ const handleMenuClick = ({ key }: { key: string }) => {
 }
 
 .cluster-context {
+  display: block;
   font-size: 11px;
-  color: var(--color-text-tertiary);
+  color: var(--text-color-tertiary);
+  line-height: normal;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+  margin-top: 0;
+  margin-left: 10px; /* This margin MUST match the .name-status-placeholder width for perfect alignment */
 }
 
 .cluster-actions {
   opacity: 0;
   transition: opacity 0.2s ease;
+  flex-shrink: 0;
 }
 
 .cluster-item:hover .cluster-actions {
   opacity: 1;
+}
+
+.cluster-actions :deep(.ant-btn-text) {
+  color: var(--text-color-secondary);
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+:deep(.ant-btn-text:hover) {
+  color: var(--primary-color) !important;
+  background-color: transparent !important;
+  transform: scale(1.15);
 }
 </style>
