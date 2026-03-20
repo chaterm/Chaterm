@@ -51,6 +51,7 @@
           <a-radio-group
             v-model:value="switchBrand"
             button-style="solid"
+            size="small"
             style="width: 100%"
             @change="handleSwitchBrandChange"
           >
@@ -66,38 +67,47 @@
             {{ t('personal.address') }}
           </div>
 
-          <a-form-item
-            :label="t('personal.remoteHost')"
-            :validate-status="validationErrors.ip ? 'error' : ''"
-            :help="validationErrors.ip"
-          >
-            <a-input
-              v-model:value="formData.ip"
-              :placeholder="t('personal.pleaseInputRemoteHost')"
-              :class="{ 'error-input': validationErrors.ip }"
-              @input="handleIpInput"
-            />
-          </a-form-item>
+          <div class="host-port-row">
+            <a-form-item
+              class="host-field"
+              :label="t('personal.remoteHost')"
+              :validate-status="validationErrors.ip ? 'error' : ''"
+              :help="validationErrors.ip"
+            >
+              <a-input
+                v-model:value="formData.ip"
+                :placeholder="t('personal.pleaseInputRemoteHost')"
+                :class="{ 'error-input': validationErrors.ip }"
+                @input="handleIpInput"
+              />
+            </a-form-item>
 
-          <a-form-item
-            :label="t('personal.port')"
-            :validate-status="validationErrors.port ? 'error' : ''"
-            :help="validationErrors.port"
-          >
-            <a-input
-              v-model:value="formData.port"
-              :min="20"
-              :max="65536"
-              :placeholder="t('personal.pleaseInputPort')"
-              :class="{ 'error-input': validationErrors.port }"
-              style="width: 100%"
-              @input="handlePortInput"
-            />
-          </a-form-item>
+            <a-form-item
+              class="port-field"
+              :label="t('personal.port')"
+              :validate-status="validationErrors.port ? 'error' : ''"
+              :help="validationErrors.port"
+            >
+              <a-input
+                v-model:value="formData.port"
+                :min="20"
+                :max="65536"
+                :placeholder="t('personal.pleaseInputPort')"
+                :class="{ 'error-input': validationErrors.port }"
+                style="width: 100%"
+                @input="handlePortInput"
+              />
+            </a-form-item>
+          </div>
         </div>
 
         <!-- Authentication information -->
         <div class="form-section">
+          <div class="section-title">
+            <div class="title-indicator"></div>
+            {{ t('personal.authentication') }}
+          </div>
+
           <a-form-item
             v-if="showAuthMethodSelector"
             :label="t('personal.verificationMethod')"
@@ -105,6 +115,7 @@
             <a-radio-group
               v-model:value="formData.auth_type"
               button-style="solid"
+              size="small"
               style="width: 100%"
               @change="handleAuthChange"
             >
@@ -794,11 +805,27 @@ watch(
   margin-right: 4px;
 }
 
+.host-port-row {
+  display: flex;
+  gap: 8px;
+  align-items: flex-start;
+}
+
+.host-field {
+  flex: 1;
+  min-width: 0;
+}
+
+.port-field {
+  width: 80px;
+  flex-shrink: 0;
+}
+
 .custom-form {
   color: var(--text-color);
 
   :deep(.ant-form-item) {
-    margin-bottom: 12px;
+    margin-bottom: 8px;
   }
 
   :deep(.ant-form-item-label) {
