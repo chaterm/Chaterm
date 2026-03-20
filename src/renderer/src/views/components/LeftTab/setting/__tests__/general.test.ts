@@ -180,7 +180,7 @@ describe('General Component', () => {
     ;(userConfigStore.getConfig as ReturnType<typeof vi.fn>).mockResolvedValue({
       language: 'zh-CN',
       watermark: 'open',
-      theme: 'auto',
+      theme: 'dark',
       defaultLayout: 'terminal',
       lastCustomImage: '',
       background: {
@@ -266,6 +266,9 @@ describe('General Component', () => {
         message: 'Failed to load config',
         description: 'Failed to load configuration'
       })
+      const vm = wrapper.vm as any
+      expect(vm.userConfig.theme).toBe('dark')
+      expect(document.documentElement.className).toBe('theme-dark')
     })
   })
 

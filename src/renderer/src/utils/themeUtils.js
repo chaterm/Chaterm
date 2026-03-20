@@ -15,7 +15,7 @@ export function prefersDarkMode() {
 export async function initializeThemeFromDatabase() {
   const { userConfigStore } = await import('../services/userConfigStoreService')
   const config = await userConfigStore.getConfig()
-  const dbTheme = config.theme || 'auto'
+  const dbTheme = config.theme || 'dark'
   const actualTheme = getActualTheme(dbTheme)
 
   // Set document theme class

@@ -111,7 +111,7 @@ export class UserConfigStoreService {
       watermark: 'open' as 'open' | 'close',
       secretRedaction: 'disabled' as 'enabled' | 'disabled',
       dataSync: 'disabled' as 'enabled' | 'disabled',
-      theme: 'auto' as 'dark' | 'light' | 'auto',
+      theme: 'dark' as 'dark' | 'light' | 'auto',
       defaultLayout: 'terminal' as 'terminal' | 'agents',
       feature: 0.0,
       quickComand: false,
