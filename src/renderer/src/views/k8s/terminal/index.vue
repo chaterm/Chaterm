@@ -208,6 +208,7 @@ const handleEditSuccess = async () => {
 
 const handleDelete = (cluster: K8sCluster) => {
   Modal.confirm({
+    wrapClassName: 'k8s-delete-confirm-modal',
     title: t('k8s.terminal.deleteConfirm'),
     content: t('k8s.terminal.deleteClusterMessage', { name: cluster.name }),
     okText: t('common.confirm'),
