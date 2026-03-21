@@ -116,8 +116,8 @@ const createK8sTerminal = async (config: K8sTerminalConfig): Promise<K8sTerminal
     sendToRenderer(`k8s:terminal:exit:${config.id}`, exitCode)
     terminalSessions.delete(config.id)
 
-    // Clean up temp kubeconfig file if it was created from content
-    if (config.kubeconfigContent && terminal.kubeconfigPath) {
+    // Clean up temp kubeconfig file only if it was written to tmpdir
+    if (terminal.kubeconfigPath && terminal.kubeconfigPath.includes(os.tmpdir())) {
       try {
         fs.unlinkSync(terminal.kubeconfigPath)
       } catch {

@@ -1941,6 +1941,9 @@ const openUserTab = async function (arg: OpenUserTabArg) {
       p.title = 'jumpserverSupportPlugin'
       p.type = 'extensions'
       break
+    case 'k8sClusterConfig':
+      p.title = t('k8s.terminal.k8sClusterConfig')
+      break
     case 'securityConfigEditor': {
       // Get config file path and extract file name
       try {
