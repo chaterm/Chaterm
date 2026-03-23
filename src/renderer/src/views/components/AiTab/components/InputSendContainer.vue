@@ -957,6 +957,10 @@ onBeforeUnmount(() => {
     color: #52c41a;
   }
 
+  :deep(.mention-icon-svg) {
+    filter: var(--icon-filter);
+  }
+
   :deep(.mention-label) {
     max-width: 160px;
     overflow: hidden;

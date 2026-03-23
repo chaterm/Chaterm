@@ -316,6 +316,7 @@ export function useEditableContent(options: UseEditableContentOptions) {
         img.src = skillsIconSrc
         img.width = 12
         img.height = 12
+        img.className = 'mention-icon-svg'
         img.setAttribute('aria-hidden', 'true')
         iconSpan.appendChild(img)
       } else {
