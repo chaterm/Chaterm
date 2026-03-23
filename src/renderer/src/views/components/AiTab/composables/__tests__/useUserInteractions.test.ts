@@ -41,6 +41,8 @@ describe('useUserInteractions', () => {
   let chatInputParts: ReturnType<typeof ref<Array<{ type: string; text: string }>>>
 
   let mockInsertChipAtCursor: any
+  let mockShowOpenDialog: ReturnType<typeof vi.fn>
+  let mockStageChatAttachment: ReturnType<typeof vi.fn>
 
   const getText = (parts: Array<{ type: string; text: string }>) => {
     return parts
@@ -73,6 +75,13 @@ describe('useUserInteractions', () => {
       chatInputParts,
       appendTextToInputParts: mockAppendTextToInputParts
     } as any)
+
+    mockShowOpenDialog = vi.fn()
+    mockStageChatAttachment = vi.fn()
+    ;(window as unknown as { api: Record<string, unknown> }).api = {
+      showOpenDialog: mockShowOpenDialog,
+      stageChatAttachment: mockStageChatAttachment
+    }
   })
 
   describe('handleTranscriptionComplete', () => {
@@ -131,86 +140,79 @@ describe('useUserInteractions', () => {
   })
 
   describe('handleFileUpload', () => {
-    it('should trigger file input click', () => {
-      const { handleFileUpload, fileInputRef } = useUserInteractions({ sendMessage: mockSendMessage })
-
-      const mockClick = vi.fn()
-      fileInputRef.value = { click: mockClick } as any
-
-      handleFileUpload()
-
-      expect(mockClick).toHaveBeenCalled()
-    })
-
-    it('should not throw when file input is not set', () => {
-      const { handleFileUpload } = useUserInteractions({ sendMessage: mockSendMessage })
-
-      expect(() => handleFileUpload()).not.toThrow()
-    })
-  })
-
-  describe('handleFileSelected', () => {
-    it('should handle no file selected', async () => {
-      const { handleFileSelected } = useUserInteractions({
-        sendMessage: mockSendMessage,
-        insertChipAtCursor: mockInsertChipAtCursor
-      })
-
-      const mockEvent = {
-        target: {
-          files: []
-        }
-      } as any
-
-      await handleFileSelected(mockEvent)
-
-      expect(getText(chatInputParts.value ?? [])).toBe('')
-      expect(mockInsertChipAtCursor).not.toHaveBeenCalled()
-    })
-
-    it('should warn when file is too large', async () => {
+    it('should warn when no task id', async () => {
       const { notification } = await import('ant-design-vue')
-      const { handleFileSelected } = useUserInteractions({
+      const { handleFileUpload } = useUserInteractions({
         sendMessage: mockSendMessage,
-        insertChipAtCursor: mockInsertChipAtCursor
+        insertChipAtCursor: mockInsertChipAtCursor,
+        getTaskId: () => undefined
       })
 
-      const largeFile = new File(['x'.repeat(2 * 1024 * 1024)], 'large.txt', { type: 'text/plain' })
-      const mockEvent = {
-        target: {
-          files: [largeFile],
-          value: 'test.txt'
-        }
-      } as any
-
-      await handleFileSelected(mockEvent)
+      await handleFileUpload()
 
       expect(notification.warning).toHaveBeenCalled()
-      expect(getText(chatInputParts.value ?? [])).toBe('')
+      expect(mockShowOpenDialog).not.toHaveBeenCalled()
       expect(mockInsertChipAtCursor).not.toHaveBeenCalled()
     })
 
-    it('should insert doc chip for selected file', async () => {
-      const { handleFileSelected } = useUserInteractions({
+    it('should do nothing when dialog canceled', async () => {
+      const { handleFileUpload } = useUserInteractions({
         sendMessage: mockSendMessage,
-        insertChipAtCursor: mockInsertChipAtCursor
+        insertChipAtCursor: mockInsertChipAtCursor,
+        getTaskId: () => 'task-1'
       })
+      mockShowOpenDialog.mockResolvedValue({ canceled: true, filePaths: [] })
 
-      const file = Object.assign(new File(['Hello'], 'test.txt', { type: 'text/plain' }), {
-        path: '/Users/demo/test.txt'
+      await handleFileUpload()
+
+      expect(mockShowOpenDialog).toHaveBeenCalled()
+      expect(mockStageChatAttachment).not.toHaveBeenCalled()
+      expect(mockInsertChipAtCursor).not.toHaveBeenCalled()
+    })
+
+    it('should insert chip with absolute path when staged as_is', async () => {
+      const { handleFileUpload } = useUserInteractions({
+        sendMessage: mockSendMessage,
+        insertChipAtCursor: mockInsertChipAtCursor,
+        getTaskId: () => 'task-1'
       })
+      mockShowOpenDialog.mockResolvedValue({ canceled: false, filePaths: ['/Users/demo/notes.md'] })
+      mockStageChatAttachment.mockResolvedValue({ mode: 'as_is', refPath: '/Users/demo/notes.md' })
 
-      const mockEvent = {
-        target: {
-          files: [file],
-          value: 'test.txt'
-        }
-      } as any
+      await handleFileUpload()
 
-      await handleFileSelected(mockEvent)
+      expect(mockStageChatAttachment).toHaveBeenCalledWith({ taskId: 'task-1', srcAbsPath: '/Users/demo/notes.md' })
+      expect(mockInsertChipAtCursor).toHaveBeenCalledWith('doc', { absPath: '/Users/demo/notes.md', name: 'notes.md', type: 'file' }, 'notes.md')
+    })
 
-      expect(mockInsertChipAtCursor).toHaveBeenCalledWith('doc', { absPath: '/Users/demo/test.txt', name: 'test.txt', type: 'file' }, 'test.txt')
-      expect(mockEvent.target.value).toBe('')
+    it('should insert chip with offload ref when staged to offload', async () => {
+      const { handleFileUpload } = useUserInteractions({
+        sendMessage: mockSendMessage,
+        insertChipAtCursor: mockInsertChipAtCursor,
+        getTaskId: () => 'task-1'
+      })
+      mockShowOpenDialog.mockResolvedValue({ canceled: false, filePaths: ['/tmp/outside/x.md'] })
+      mockStageChatAttachment.mockResolvedValue({ mode: 'offload', refPath: 'offload/user-uploads/uuid-x.md' })
+
+      await handleFileUpload()
+
+      expect(mockInsertChipAtCursor).toHaveBeenCalledWith('doc', { absPath: 'offload/user-uploads/uuid-x.md', name: 'x.md', type: 'file' }, 'x.md')
+    })
+
+    it('should show error when staging fails', async () => {
+      const { notification } = await import('ant-design-vue')
+      const { handleFileUpload } = useUserInteractions({
+        sendMessage: mockSendMessage,
+        insertChipAtCursor: mockInsertChipAtCursor,
+        getTaskId: () => 'task-1'
+      })
+      mockShowOpenDialog.mockResolvedValue({ canceled: false, filePaths: ['/bad/path'] })
+      mockStageChatAttachment.mockRejectedValue(new Error('boom'))
+
+      await handleFileUpload()
+
+      expect(notification.error).toHaveBeenCalled()
+      expect(mockInsertChipAtCursor).not.toHaveBeenCalled()
     })
   })
 
@@ -305,11 +307,11 @@ describe('useUserInteractions', () => {
   })
 
   describe('refs', () => {
-    it('should provide fileInputRef', () => {
-      const { fileInputRef } = useUserInteractions({ sendMessage: mockSendMessage })
+    it('should provide imageInputRef', () => {
+      const { imageInputRef } = useUserInteractions({ sendMessage: mockSendMessage })
 
-      expect(fileInputRef).toBeDefined()
-      expect(fileInputRef.value).toBeUndefined()
+      expect(imageInputRef).toBeDefined()
+      expect(imageInputRef.value).toBeUndefined()
     })
 
     it('should provide autoSendAfterVoice', () => {

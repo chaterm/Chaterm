@@ -213,13 +213,6 @@
     </div>
   </div>
   <input
-    ref="fileInputRef"
-    type="file"
-    accept=".txt,.md,.js,.ts,.py,.java,.cpp,.c,.html,.css,.json,.xml,.yaml,.yml,.sql,.sh,.bat,.ps1,.log,.csv,.tsv"
-    style="display: none"
-    @change="handleFileSelected"
-  />
-  <input
     ref="imageInputRef"
     type="file"
     accept="image/jpeg,image/png,image/gif,image/webp"
@@ -283,6 +276,7 @@ const { t } = useI18n()
 const {
   chatTextareaRef,
   currentTab,
+  currentChatId,
   chatTypeValue,
   chatAiModelValue,
   chatContainerScrollSignal,
@@ -659,19 +653,21 @@ const lockedModelTooltip = computed(() => {
 
 // Use user interactions composable
 const {
-  fileInputRef,
   imageInputRef,
   autoSendAfterVoice,
   handleTranscriptionComplete,
   handleTranscriptionError,
   handleFileUpload,
-  handleFileSelected,
   handleImageUpload,
   handleImageSelected,
   hasClipboardImages,
   handlePasteImage
-} = useUserInteractions({ sendMessage: props.sendMessage, insertChipAtCursor, insertImagePart: insertImageAtCursor })
-void fileInputRef
+} = useUserInteractions({
+  sendMessage: props.sendMessage,
+  insertChipAtCursor,
+  insertImagePart: insertImageAtCursor,
+  getTaskId: () => currentChatId.value
+})
 void imageInputRef
 
 const focus = () => {

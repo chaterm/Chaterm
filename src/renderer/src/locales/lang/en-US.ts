@@ -940,6 +940,8 @@ export default {
     imageProcessError: 'Image processing failed, please try again',
     fileReadFailed: 'File Read Failed',
     fileReadErrorDesc: 'Unable to read file content, please check if the file format is correct',
+    chatAttachmentNeedSession: 'Please open or create a chat tab first',
+    chatAttachmentStageFailed: 'Could not attach the file',
     fileContent: 'File Content ({fileName})',
     sendContentError: 'Send Content Error',
     sendContentEmpty: 'Send content is empty, please enter content',

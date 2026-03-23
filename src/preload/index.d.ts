@@ -355,6 +355,11 @@ interface ApiType {
   }) => Promise<{ canceled: boolean; filePaths: string[] } | undefined>
   getHomePath: () => Promise<string>
 
+  stageChatAttachment: (payload: {
+    taskId: string
+    srcAbsPath: string
+  }) => Promise<{ mode: 'as_is'; refPath: string } | { mode: 'offload'; refPath: string }>
+
   kbCheckPath: (absPath: string) => Promise<{ exists: boolean; isDirectory: boolean; isFile: boolean }>
   kbEnsureRoot: () => Promise<{ success: boolean }>
   kbGetRoot: () => Promise<{ root: string }>

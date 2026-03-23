@@ -943,6 +943,8 @@ export default {
     imageProcessError: 'Falha no processamento da imagem, tente novamente',
     fileReadFailed: 'Falha ao ler arquivo',
     fileReadErrorDesc: 'Não foi possível ler o conteúdo do arquivo, por favor, verifique se o formato do arquivo é correto',
+    chatAttachmentNeedSession: 'Abra ou crie um separador de chat primeiro',
+    chatAttachmentStageFailed: 'Não foi possível anexar o ficheiro',
     fileContent: 'Conteúdo do arquivo ({fileName})',
     sendContentError: 'Erro ao enviar conteúdo',
     sendContentEmpty: 'O conteúdo a ser enviado está vazio, por favor, insira o conteúdo',
