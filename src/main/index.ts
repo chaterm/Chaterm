@@ -65,6 +65,7 @@ import { getActualTheme, loadUserTheme } from './themeManager'
 import { getLoginBaseUrl, getEdition, getProtocolPrefix, getProtocolName } from './config/edition'
 import { TelemetrySetting } from '@shared/TelemetrySetting'
 import { registerKnowledgeBaseHandlers } from './services/knowledgebase'
+import { registerStageChatAttachmentHandlers } from './services/agent/stageChatAttachment'
 import { startKbSync, stopKbSync } from './services/knowledgebase/sync'
 import { setupInteractionIpcHandlers } from './agent/services/interaction-detector/ipc-handlers'
 import type { WebviewMessage } from '@shared/WebviewMessage'
@@ -957,6 +958,7 @@ function updateNavigationState(): void {
 function setupIPC(): void {
   // KnowledgeBase module (local file-based KB) IPC handlers
   registerKnowledgeBaseHandlers()
+  registerStageChatAttachmentHandlers()
 
   ipcMain.handle('init-user-database', async (event, { uid }) => {
     try {

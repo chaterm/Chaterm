@@ -927,6 +927,8 @@ export default {
     imageProcessError: '圖片處理失敗，請重試',
     fileReadFailed: '檔案讀取失敗',
     fileReadErrorDesc: '無法讀取檔案內容，請檢查檔案格式是否正確',
+    chatAttachmentNeedSession: '請先開啟或建立一個聊天分頁',
+    chatAttachmentStageFailed: '無法加入該檔案',
     fileContent: '檔案內容 ({fileName})',
     sendContentError: '發送內容錯誤',
     sendContentEmpty: '發送內容為空，請輸入內容',

@@ -935,6 +935,8 @@ export default {
     imageProcessError: '画像処理に失敗しました、再試行してください',
     fileReadFailed: 'ファイルの読み込みに失敗しました',
     fileReadErrorDesc: 'ファイル内容の読み込みに失敗しました、ファイルの形式を確認してください',
+    chatAttachmentNeedSession: '先にチャットタブを開くか作成してください',
+    chatAttachmentStageFailed: 'ファイルを添付できませんでした',
     fileContent: 'ファイル内容 ({fileName})',
     sendContentError: 'コンテンツの送信に失敗しました',
     sendContentEmpty: 'コンテンツが空です、コンテンツを入力してください',

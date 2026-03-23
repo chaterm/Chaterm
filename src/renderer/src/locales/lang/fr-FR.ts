@@ -950,6 +950,8 @@ export default {
     imageProcessError: "Échec du traitement de l'image, veuillez réessayer",
     fileReadFailed: 'Lecture du fichier échouée',
     fileReadErrorDesc: 'Impossible de lire le contenu du fichier, veuillez vérifier si le format du fichier est correct',
+    chatAttachmentNeedSession: 'Veuillez d’abord ouvrir ou créer un onglet de chat',
+    chatAttachmentStageFailed: 'Impossible de joindre le fichier',
     fileContent: 'Contenu du fichier ({fileName})',
     sendContentError: 'Erreur de envoi de contenu',
     sendContentEmpty: 'Le contenu à envoyer est vide, veuillez entrer du contenu',
