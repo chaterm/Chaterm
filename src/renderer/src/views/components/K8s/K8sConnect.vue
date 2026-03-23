@@ -2,7 +2,7 @@
   <div
     ref="containerRef"
     class="k8s-terminal-container"
-    :class="{ 'transparent-bg': isTransparent }"
+    :class="{ 'transparent-bg': isTransparent, 'theme-light': isLightTheme }"
   >
     <div
       ref="terminalRef"
@@ -56,6 +56,8 @@ const cleanupFns: Array<() => void> = []
 let userConfig: any = null
 
 const isTransparent = computed(() => !!configStore.getUserConfig.background.image)
+const currentTheme = ref(getActualTheme(configStore.getUserConfig.theme || 'dark'))
+const isLightTheme = computed(() => currentTheme.value === 'light')
 
 // Debounce helper (mirrors sshConnect.vue implementation)
 const debounce = (func: (...args: any[]) => void, wait: number, immediate = false) => {
@@ -286,8 +288,9 @@ onMounted(() => {
 
   // Sync theme changes (mirrors sshConnect.vue handleUpdateTheme)
   const handleUpdateTheme = (theme: string) => {
+    const actualTheme = getActualTheme(theme)
+    currentTheme.value = actualTheme
     if (terminal.value) {
-      const actualTheme = getActualTheme(theme)
       terminal.value.options.theme = getTerminalTheme(actualTheme)
     }
   }
@@ -332,10 +335,14 @@ defineExpose({
   width: 100%;
   height: 100%;
   background: #141414;
-}
 
-.k8s-terminal-container.transparent-bg {
-  background: transparent;
+  &.theme-light {
+    background: #f5f5f5;
+  }
+
+  &.transparent-bg {
+    background: transparent !important;
+  }
 }
 
 .terminal-element {
