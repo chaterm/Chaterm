@@ -379,6 +379,7 @@ onUnmounted(() => {
   .mention-icon-svg {
     width: 12px;
     height: 12px;
+    filter: var(--icon-filter);
   }
 }
 
