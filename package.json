@@ -142,7 +142,7 @@
     "jsdom": "^29.0.0",
     "less": "^4.6.4",
     "lint-staged": "^16.4.0",
-    "marked": "^17.0.4",
+    "marked": "^17.0.5",
     "prettier": "^3.8.1",
     "typescript": "^5.8.3",
     "unplugin-auto-import": "^21.0.0",
