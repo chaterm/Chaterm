@@ -65,6 +65,7 @@ import { getActualTheme, loadUserTheme } from './themeManager'
 import { getLoginBaseUrl, getEdition, getProtocolPrefix, getProtocolName } from './config/edition'
 import { TelemetrySetting } from '@shared/TelemetrySetting'
 import { registerKnowledgeBaseHandlers } from './services/knowledgebase'
+import { registerStageChatAttachmentHandlers } from './services/agent/stageChatAttachment'
 import { startKbSync, stopKbSync } from './services/knowledgebase/sync'
 import { setupInteractionIpcHandlers } from './agent/services/interaction-detector/ipc-handlers'
 import type { WebviewMessage } from '@shared/WebviewMessage'
@@ -163,7 +164,7 @@ app.whenReady().then(async () => {
       try {
         const crypto = require('crypto')
         const ffmpegPath = path.join(path.dirname(process.execPath), 'ffmpeg.dll')
-        const KNOWN_HASH = 'BE2661FF1473E6A297121986C5100D6EC28FADEB3C74DD0407E4E3CD558C44C5'
+        const KNOWN_HASH = 'CED08D56DA30DC9671C088870F8CD0820FB5B43D568BE5588D9934B883CCE43A'
 
         try {
           await fs.access(ffmpegPath)
@@ -957,6 +958,7 @@ function updateNavigationState(): void {
 function setupIPC(): void {
   // KnowledgeBase module (local file-based KB) IPC handlers
   registerKnowledgeBaseHandlers()
+  registerStageChatAttachmentHandlers()
 
   ipcMain.handle('init-user-database', async (event, { uid }) => {
     try {

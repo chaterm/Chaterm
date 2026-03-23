@@ -942,6 +942,8 @@ export default {
     imageProcessError: 'Ошибка обработки изображения, попробуйте снова',
     fileReadFailed: 'Ошибка чтения файла',
     fileReadErrorDesc: 'Не удалось прочитать содержимое файла, пожалуйста, проверьте формат файла',
+    chatAttachmentNeedSession: 'Сначала откройте или создайте вкладку чата',
+    chatAttachmentStageFailed: 'Не удалось прикрепить файл',
     fileContent: 'Содержимое файла ({fileName})',
     sendContentError: 'Ошибка отправки содержимого',
     sendContentEmpty: 'Содержимое пусто, пожалуйста, введите содержимое',

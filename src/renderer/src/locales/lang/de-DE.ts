@@ -945,6 +945,8 @@ export default {
     imageProcessError: 'Bildverarbeitung fehlgeschlagen, bitte erneut versuchen',
     fileReadFailed: 'Datei lesen fehlgeschlagen',
     fileReadErrorDesc: 'Dateiinhalt konnte nicht gelesen werden, bitte überprüfen Sie, ob das Dateiformat korrekt ist',
+    chatAttachmentNeedSession: 'Bitte öffnen oder erstellen Sie zuerst einen Chat-Tab',
+    chatAttachmentStageFailed: 'Datei konnte nicht angehängt werden',
     fileContent: 'Dateiinhalt ({fileName})',
     sendContentError: 'Inhalt senden fehlgeschlagen',
     sendContentEmpty: 'Inhalt ist leer, bitte geben Sie Inhalt ein',

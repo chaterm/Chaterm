@@ -931,6 +931,8 @@ export default {
     imageProcessError: '이미지 처리에 실패했습니다, 다시 시도해주세요',
     fileReadFailed: '파일 읽기 실패',
     fileReadErrorDesc: '파일 내용을 읽을 수 없습니다, 파일 형식을 확인해주세요',
+    chatAttachmentNeedSession: '먼저 채팅 탭을 열거나 만드세요',
+    chatAttachmentStageFailed: '파일을 첨부할 수 없습니다',
     fileContent: '파일 내용 ({fileName})',
     sendContentError: '콘텐츠 전송 오류',
     sendContentEmpty: '콘텐츠가 비어있습니다, 콘텐츠를 입력해주세요',

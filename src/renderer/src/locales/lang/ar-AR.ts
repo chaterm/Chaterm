@@ -917,6 +917,8 @@ export default {
     imageProcessError: 'فشل معالجة الصورة, الرجاء المحاولة مرة أخرى',
     fileReadFailed: 'فشل قراءة الملف',
     fileReadErrorDesc: 'لا يمكن قراءة محتوى الملف, الرجاء التحقق من تنسيق الملف',
+    chatAttachmentNeedSession: 'يرجى فتح أو إنشاء تبويب دردشة أولاً',
+    chatAttachmentStageFailed: 'تعذر إرفاق الملف',
     fileContent: 'محتوى الملف ({fileName})',
     sendContentError: 'فشل إرسال المحتوى',
     sendContentEmpty: 'محتوى الإرسال فارغ, الرجاء إدخال محتوى',

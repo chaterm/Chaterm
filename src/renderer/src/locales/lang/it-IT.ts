@@ -944,6 +944,8 @@ export default {
     imageProcessError: 'Elaborazione immagine fallita, riprova',
     fileReadFailed: 'Lettura file fallita',
     fileReadErrorDesc: 'Impossibile leggere il contenuto del file, per favore controlla se il formato del file è corretto',
+    chatAttachmentNeedSession: 'Apri o crea prima una scheda chat',
+    chatAttachmentStageFailed: 'Impossibile allegare il file',
     fileContent: 'Contenuto file ({fileName})',
     sendContentError: 'Invio contenuto fallito',
     sendContentEmpty: 'Contenuto vuoto, per favore inserisci contenuto',

@@ -105,7 +105,7 @@
           label="UID"
           class="user_my-ant-form-item"
         >
-          {{ userInfo.uid }}
+          <span class="field-selectable">{{ userInfo.uid ?? '-' }}</span>
         </a-form-item>
         <a-form-item
           :label="t('userInfo.name')"
@@ -118,7 +118,12 @@
             :placeholder="t('userInfo.pleaseInputName')"
             class="custom-input"
           />
-          <span v-else>{{ userInfo.name }}</span>
+          <span
+            v-else
+            class="field-selectable"
+          >
+            {{ userInfo.name }}
+          </span>
         </a-form-item>
         <a-form-item
           :label="t('userInfo.username')"
@@ -131,7 +136,12 @@
             :placeholder="t('userInfo.pleaseInputUsername')"
             class="custom-input"
           />
-          <span v-else>{{ userInfo.username }}</span>
+          <span
+            v-else
+            class="field-selectable"
+          >
+            {{ userInfo.username }}
+          </span>
         </a-form-item>
 
         <a-form-item
@@ -156,7 +166,7 @@
           class="user_my-ant-form-item"
           name="mobile"
         >
-          <span>{{ userInfo.mobile || '-' }}</span>
+          <span class="field-selectable">{{ userInfo.mobile || '-' }}</span>
           <a-button
             v-if="!unChange && !isEditing && canEditMobile"
             type="text"
@@ -172,7 +182,7 @@
           :label="t('userInfo.email')"
           class="user_my-ant-form-item"
         >
-          <span>{{ userInfo.email || '-' }}</span>
+          <span class="field-selectable">{{ userInfo.email || '-' }}</span>
           <a-button
             v-if="!unChange && !isEditing && canEditEmail"
             type="text"
@@ -188,13 +198,13 @@
           :label="t('userInfo.ip')"
           class="user_my-ant-form-item"
         >
-          {{ userInfo.localIp }}
+          <span class="field-selectable">{{ userInfo.localIp }}</span>
         </a-form-item>
         <a-form-item
           :label="t('userInfo.macAddress')"
           class="user_my-ant-form-item"
         >
-          {{ userInfo.macAddress }}
+          <span class="field-selectable">{{ userInfo.macAddress }}</span>
         </a-form-item>
       </a-form>
     </a-card>
@@ -1152,6 +1162,12 @@ onBeforeUnmount(() => {
   color: var(--text-color);
   align-content: center;
   width: 100%;
+}
+
+.field-selectable {
+  cursor: text;
+  user-select: text;
+  -webkit-user-select: text;
 }
 
 .custom-form :deep(.ant-form-item-label) {

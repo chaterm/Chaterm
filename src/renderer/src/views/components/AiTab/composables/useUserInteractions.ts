@@ -14,6 +14,36 @@ type SupportedImageType = (typeof SUPPORTED_IMAGE_TYPES)[number]
 // Maximum image size: 5MB
 const MAX_IMAGE_SIZE = 5 * 1024 * 1024
 
+/** Match former <input accept> list — used as Electron open dialog filter */
+const CHAT_ATTACHMENT_FILTERS = [
+  {
+    name: 'Text',
+    extensions: [
+      'txt',
+      'md',
+      'js',
+      'ts',
+      'py',
+      'java',
+      'cpp',
+      'c',
+      'html',
+      'css',
+      'json',
+      'xml',
+      'yaml',
+      'yml',
+      'sql',
+      'sh',
+      'bat',
+      'ps1',
+      'log',
+      'csv',
+      'tsv'
+    ]
+  }
+]
+
 /**
  * Composable for user interaction events
  * Handles file upload, voice input, keyboard events and other user interactions
@@ -22,14 +52,15 @@ export interface UseUserInteractionsOptions {
   sendMessage: (sendType: string) => Promise<any>
   insertChipAtCursor?: (chipType: 'doc' | 'chat', ref: DocOption | ChatOption, label: string) => void
   insertImagePart?: (imagePart: ImageContentPart) => void
+  /** Current chat / task id for staging attachments into offload when needed */
+  getTaskId?: () => string | undefined
 }
 
 export function useUserInteractions(options: UseUserInteractionsOptions) {
   const { t } = i18n.global
   const { chatInputParts, appendTextToInputParts } = useSessionState()
-  const { sendMessage, insertChipAtCursor, insertImagePart } = options
+  const { sendMessage, insertChipAtCursor, insertImagePart, getTaskId } = options
 
-  const fileInputRef = ref<HTMLInputElement>()
   const imageInputRef = ref<HTMLInputElement>()
   const autoSendAfterVoice = ref(false)
   const currentEditingId = ref<string | null>(null)
@@ -50,43 +81,39 @@ export function useUserInteractions(options: UseUserInteractionsOptions) {
     logger.error('Voice transcription error', { error: error })
   }
 
-  const handleFileUpload = () => {
-    fileInputRef.value?.click()
-  }
+  const handleFileUpload = async () => {
+    if (!insertChipAtCursor) return
 
-  const handleFileSelected = async (event: Event) => {
-    const target = event.target as HTMLInputElement
-    const file = target.files?.[0]
-
-    if (!file) return
-
-    try {
-      if (file.size > 1024 * 1024) {
-        notification.warning({
-          message: t('ai.fileTooLarge'),
-          description: t('ai.fileTooLargeDesc'),
-          duration: 3
-        })
-        return
-      }
-
-      const fileName = file.name
-      const filePath = (file as File & { path?: string }).path || fileName
-
-      if (insertChipAtCursor) {
-        insertChipAtCursor('doc', { absPath: filePath, name: fileName, type: 'file' }, fileName)
-      }
-    } catch (error) {
-      logger.error('File read error', { error: error })
-      notification.error({
-        message: t('ai.fileReadFailed'),
-        description: t('ai.fileReadErrorDesc'),
+    const taskId = getTaskId?.()?.trim()
+    if (!taskId) {
+      notification.warning({
+        message: t('ai.chatAttachmentNeedSession'),
         duration: 3
       })
-    } finally {
-      if (target) {
-        target.value = ''
-      }
+      return
+    }
+
+    try {
+      const result = await window.api.showOpenDialog({
+        properties: ['openFile'],
+        filters: CHAT_ATTACHMENT_FILTERS
+      })
+      if (!result || result.canceled || !result.filePaths?.length) return
+
+      const srcAbsPath = result.filePaths[0]
+      const staged = await window.api.stageChatAttachment({ taskId, srcAbsPath })
+      const refPath = staged.refPath
+      const displayName = srcAbsPath.split(/[/\\]/).pop() || refPath.split(/[/\\]/).pop() || 'file'
+
+      insertChipAtCursor('doc', { absPath: refPath, name: displayName, type: 'file' }, displayName)
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error)
+      logger.error('Chat file attachment error', { error })
+      notification.error({
+        message: t('ai.chatAttachmentStageFailed'),
+        description: message || t('ai.fileReadErrorDesc'),
+        duration: 4
+      })
     }
   }
 
@@ -218,14 +245,12 @@ export function useUserInteractions(options: UseUserInteractionsOptions) {
   }
 
   return {
-    fileInputRef,
     imageInputRef,
     autoSendAfterVoice,
     currentEditingId,
     handleTranscriptionComplete,
     handleTranscriptionError,
     handleFileUpload,
-    handleFileSelected,
     handleImageUpload,
     handleImageSelected,
     hasClipboardImages,

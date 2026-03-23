@@ -928,6 +928,8 @@ const api = {
   checkUpdate: () => ipcRenderer.invoke('update:checkUpdate'),
   download: () => ipcRenderer.invoke('update:download'),
   showOpenDialog: (options) => ipcRenderer.invoke('dialog:openFile', options),
+  stageChatAttachment: (payload: { taskId: string; srcAbsPath: string }) =>
+    ipcRenderer.invoke('agent:stage-chat-attachment', payload) as Promise<{ mode: 'as_is'; refPath: string } | { mode: 'offload'; refPath: string }>,
   getHomePath: () => ipcRenderer.invoke('app:getHomePath'),
   autoUpdate: (update) => {
     ipcRenderer.on('update:autoUpdate', (_event, params) => update(params))
