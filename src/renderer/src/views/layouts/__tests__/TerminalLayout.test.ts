@@ -8,6 +8,8 @@
  */
 
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
+import { readFileSync } from 'node:fs'
+import { join } from 'node:path'
 import { ref } from 'vue'
 
 // Mocks (required by AI Sidebar tests)
@@ -436,6 +438,36 @@ describe('TerminalLayout - Close Tab Keyboard Shortcut', () => {
       document.body.removeChild(xtermEl)
       expect(result).toBe(true)
     })
+  })
+})
+
+describe('TerminalLayout - Dockview Tabs Overflow', () => {
+  it('should disable tabs overflow dropdown list', () => {
+    const sourcePath = join(process.cwd(), 'src/renderer/src/views/layouts/TerminalLayout.vue')
+    const source = readFileSync(sourcePath, 'utf8')
+    expect(source).toContain('disable-tabs-overflow-list')
+  })
+})
+
+describe('TerminalLayout - Preview Actions Layout', () => {
+  it('should reserve right padding for preview actions overlay', () => {
+    const sourcePath = join(process.cwd(), 'src/renderer/src/views/layouts/TerminalLayout.vue')
+    const source = readFileSync(sourcePath, 'utf8')
+    expect(source).toContain('padding-right: 30px')
+  })
+
+  it('should set fixed width for preview actions button container', () => {
+    const sourcePath = join(process.cwd(), 'src/renderer/src/views/layouts/components/EditorActions.vue')
+    const source = readFileSync(sourcePath, 'utf8')
+    expect(source).toContain('width: 30px')
+    expect(source).toContain('min-width: 30px')
+  })
+
+  it('should only apply padding when preview actions are visible', () => {
+    const sourcePath = join(process.cwd(), 'src/renderer/src/views/layouts/TerminalLayout.vue')
+    const source = readFileSync(sourcePath, 'utf8')
+    expect(source).toContain('has-preview-actions')
+    expect(source).toContain('computePreviewActionsVisible')
   })
 })
 
