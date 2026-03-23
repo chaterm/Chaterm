@@ -204,6 +204,7 @@
                       >
                         <div
                           class="main-terminal-area"
+                          :class="{ 'has-preview-actions': isPreviewActionsVisible }"
                           @mousedown="handleMainPaneFocus"
                         >
                           <transition name="fade">
@@ -218,6 +219,7 @@
                             v-if="configLoaded"
                             ref="dockviewRef"
                             :class="currentTheme === 'light' ? 'dockview-theme-light' : 'dockview-theme-dark'"
+                            :disable-tabs-overflow-list="true"
                             :style="{
                               width: '100%',
                               height: '100%',
@@ -2251,6 +2253,14 @@ const panelCount = ref(0)
 const hasPanels = computed(() => panelCount.value > 0)
 let dockApi: DockviewApi | null = null
 const dockApiInstance = ref<DockviewApi | null>(null)
+const isPreviewActionsVisible = ref(false)
+
+const computePreviewActionsVisible = (): boolean => {
+  const panel = dockApi?.activePanel
+  if (!panel) return false
+  // Keep in sync with `EditorActions.vue` showActions logic.
+  return panel.params?.content === 'KnowledgeCenterEditor' && panel.params?.mode !== 'preview' && panel.params?.isMarkdown
+}
 
 const isFocusInTerminal = (event: KeyboardEvent): boolean => {
   const target = event.target as HTMLElement | null
@@ -2377,6 +2387,7 @@ const handleActivePanelChange = async () => {
 const onDockReady = (event: DockviewReadyEvent) => {
   dockApi = event.api
   dockApiInstance.value = event.api
+  isPreviewActionsVisible.value = computePreviewActionsVisible()
 
   dockApi.onDidAddPanel(() => {
     panelCount.value = dockApi?.panels.length ?? 0
@@ -2392,6 +2403,7 @@ const onDockReady = (event: DockviewReadyEvent) => {
   })
 
   dockApi.onDidActivePanelChange(() => {
+    isPreviewActionsVisible.value = computePreviewActionsVisible()
     handleActivePanelChange()
   })
 
@@ -2957,6 +2969,16 @@ defineExpose({
     top: 0;
     right: 0;
     z-index: 10;
+  }
+
+  // Reserve space for the preview actions overlay so it never covers
+  // Dockview header tabs when they overflow/clamp.
+  &.has-preview-actions {
+    .dockview-theme-light .dv-tabs-and-actions-container,
+    .dockview-theme-dark .dv-tabs-and-actions-container {
+      padding-right: 30px;
+      box-sizing: border-box;
+    }
   }
 }
 
