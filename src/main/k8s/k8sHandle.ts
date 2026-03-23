@@ -800,7 +800,17 @@ export function registerK8sHandlers(): void {
     try {
       const terminal = terminalSessions.get(terminalId)
       if (terminal && terminal.isAlive) {
-        terminal.pty.write(data)
+        if (data.endsWith('\n')) {
+          const command = data.slice(0, -1)
+          terminal.pty.write(command)
+          if (os.platform() === 'win32') {
+            terminal.pty.write('\r')
+          } else {
+            terminal.pty.write('\n')
+          }
+        } else {
+          terminal.pty.write(data)
+        }
         return { success: true }
       }
       return { success: false, error: 'Terminal not found or not alive' }

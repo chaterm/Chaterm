@@ -22,6 +22,8 @@ import { userConfigStore } from '@/store/userConfigStore'
 import { userConfigStore as serviceUserConfig } from '@/services/userConfigStoreService'
 import { getActualTheme } from '@/utils/themeUtils'
 import eventBus from '@/utils/eventBus'
+import { getLastNonEmptyLine, isTerminalPromptLine } from '@views/components/Ssh/utils/terminalPrompt'
+import { stripAnsiBasic } from '@views/components/Ssh/utils/ansiUtils'
 
 const logger = createRendererLogger('k8s.connect')
 
@@ -34,6 +36,7 @@ interface Props {
     data?: any
   }
   isActive: boolean
+  activeTabId?: string
 }
 
 const props = defineProps<Props>()
@@ -49,6 +52,13 @@ const terminal = ref<Terminal | null>(null)
 const fitAddon = ref<FitAddon | null>(null)
 const terminalId = ref<string>('')
 const isConnected = ref(false)
+
+// Output collection state for AI command mode
+const isCollectingOutput = ref(false)
+const commandOutput = ref('')
+const currentCommandTabId = ref<string | undefined>(undefined)
+const currentCommand = ref<string>('')
+const commandOutputProcessTimer = ref<ReturnType<typeof setTimeout> | null>(null)
 
 // Cleanup functions for IPC listeners
 const cleanupFns: Array<() => void> = []
@@ -152,6 +162,101 @@ const initTerminal = async () => {
   await connectToCluster()
 }
 
+// Handle command output collection for AI command mode (Windows PowerShell PTY)
+const handleCommandOutput = (data: string) => {
+  // Clean ANSI/OSC sequences for Windows PowerShell output
+  const cleanOutput = data
+    .replace(/\x1b\]0;[^\x07]*\x07/g, '')
+    .replace(/\x1b\]9;[^\x07]*\x07/g, '')
+    .replace(/\]0;[^\x07\n\r]*\x07?/g, '')
+    .replace(/\]9;[^\x07\n\r]*\x07?/g, '')
+    .replace(/\x1b\[[0-9;]*m/g, '')
+    .replace(/\x1b\[[0-9;]*[ABCDEFGJKST]/g, '')
+    .replace(/\x1b\[[0-9]*[XK]/g, '')
+    .replace(/\x1b\[[0-9;]*[Hf]/g, '')
+    .replace(/\x1b\[[?][0-9;]*[hl]/g, '')
+    .replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/g, '')
+    .replace(/\r\n/g, '\n')
+    .replace(/\r/g, '\n')
+
+  commandOutput.value += cleanOutput
+
+  const accumulatedOutput = commandOutput.value
+  const lastNonEmptyLine = getLastNonEmptyLine(accumulatedOutput)
+
+  if (lastNonEmptyLine && isTerminalPromptLine(lastNonEmptyLine)) {
+    const tabId = currentCommandTabId.value
+
+    // Use a short timer to allow any remaining data chunks to arrive
+    if (commandOutputProcessTimer.value) clearTimeout(commandOutputProcessTimer.value)
+    commandOutputProcessTimer.value = setTimeout(() => {
+      commandOutputProcessTimer.value = null
+      isCollectingOutput.value = false
+
+      const outputText = commandOutput.value
+      commandOutput.value = ''
+      currentCommandTabId.value = undefined
+
+      // Extract output lines, strip command echo and prompt
+      const lines = outputText.split('\n')
+      let startIdx = 0
+      let endIdx = lines.length
+
+      // Remove prompt line(s) from the end
+      while (endIdx > 0) {
+        const line = stripAnsiBasic(lines[endIdx - 1]).trim()
+        if (!line || isTerminalPromptLine(line)) {
+          endIdx--
+        } else {
+          break
+        }
+      }
+
+      // Skip leading empty lines
+      while (startIdx < endIdx && !stripAnsiBasic(lines[startIdx]).trim()) {
+        startIdx++
+      }
+
+      // Skip command echo line(s) at the start.
+      // Windows PTY echoes the sent command back; due to PTY buffering the echo
+      // may have duplicate leading characters (e.g. "kkubectl" for "kubectl").
+      // We strip any leading line whose cleaned text contains the sent command
+      // as a substring, or whose cleaned text is a prefix/suffix of the command.
+      const sentCmd = currentCommand.value
+      currentCommand.value = ''
+      if (sentCmd) {
+        const normalize = (s: string) => stripAnsiBasic(s).replace(/\s+/g, ' ').trim()
+        const normCmd = normalize(sentCmd)
+        while (startIdx < endIdx) {
+          const normLine = normalize(lines[startIdx])
+          if (
+            !normLine ||
+            normLine === normCmd ||
+            normCmd.includes(normLine) ||
+            normLine.includes(normCmd) ||
+            // PTY double-echo: "kkubectl..." — first char duplicated
+            (normLine.length > 1 && normCmd.startsWith(normLine.slice(1)))
+          ) {
+            startIdx++
+          } else {
+            break
+          }
+        }
+      }
+
+      const outputLines = lines.slice(startIdx, endIdx)
+      const finalOutput = outputLines.join('\n').trim()
+
+      if (finalOutput) {
+        const formattedOutput = `Terminal output:\n\`\`\`\n${finalOutput}\n\`\`\``
+        eventBus.emit('sendMessageToAi', { content: formattedOutput, tabId })
+      } else {
+        eventBus.emit('sendMessageToAi', { content: 'Command executed successfully, no output returned', tabId })
+      }
+    }, 150)
+  }
+}
+
 // Connect to K8s cluster
 const connectToCluster = async () => {
   const cluster = props.serverInfo.data?.data || props.serverInfo.data
@@ -187,6 +292,10 @@ const connectToCluster = async () => {
       // Subscribe to terminal data
       const dataCleanup = k8sApi.onTerminalData(terminalId.value, (data) => {
         terminal.value?.write(data)
+        // Collect output for AI command mode
+        if (isCollectingOutput.value) {
+          handleCommandOutput(data)
+        }
       })
       cleanupFns.push(dataCleanup)
 
@@ -296,6 +405,26 @@ onMounted(() => {
   }
   eventBus.on('updateTheme', handleUpdateTheme)
   cleanupFns.push(() => eventBus.off('updateTheme', handleUpdateTheme))
+
+  // Handle executeTerminalCommand for AI command mode
+  const handleExecuteCommand = (payload: { command: string; tabId?: string }) => {
+    if (!props.isActive) return
+    if (!payload?.command) {
+      logger.warn('handleExecuteCommand: command is empty')
+      return
+    }
+    if (isConnected.value && terminalId.value) {
+      // Start collecting output for AI command mode
+      isCollectingOutput.value = true
+      commandOutput.value = ''
+      currentCommandTabId.value = payload.tabId
+      currentCommand.value = payload.command.replace(/\r?\n$/, '').trim()
+      k8sApi.writeToTerminal(terminalId.value, payload.command)
+      terminal.value?.focus()
+    }
+  }
+  eventBus.on('executeTerminalCommand', handleExecuteCommand)
+  cleanupFns.push(() => eventBus.off('executeTerminalCommand', handleExecuteCommand))
 })
 
 onBeforeUnmount(() => {

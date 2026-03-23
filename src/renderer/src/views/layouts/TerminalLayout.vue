@@ -2006,6 +2006,24 @@ const getActiveTabAssetInfo = async () => {
     return null
   }
 
+  // K8s tab: use cluster.id as uuid and server_url as ip
+  if (params.type === 'k8s') {
+    const cluster = params.data?.data || params.data
+    if (!cluster || !cluster.id) {
+      return null
+    }
+    return {
+      uuid: cluster.id,
+      title: activePanel.api.title || params.title || cluster.name,
+      ip: cluster.server_url || params.ip || '',
+      organizationId: undefined,
+      type: 'k8s',
+      outputContext: 'Output context not applicable for this tab type.',
+      tabSessionId: activePanel.id,
+      assetType: undefined
+    }
+  }
+
   const ip = params.data?.ip || params.ip
   if (!ip) {
     return null
@@ -2347,6 +2365,25 @@ const handleActivePanelChange = async () => {
     const relPath = String(params.props?.relPath || params.data?.props?.relPath || '') // Active knowledge file path
     if (relPath) {
       eventBus.emit('kbActiveFileChanged', { relPath })
+    }
+    return
+  }
+
+  // Handle K8s tab changes: use cluster.id as uuid and server_url as ip
+  if (panelType === 'k8s') {
+    const cluster = params.data?.data || params.data
+    if (cluster && cluster.id && cluster.server_url) {
+      eventBus.emit('activeTabChanged', {
+        ip: cluster.server_url,
+        data: {
+          uuid: cluster.id,
+          asset_type: undefined
+        },
+        connection: 'k8s',
+        title: activePanel.api.title || params.title || cluster.name,
+        organizationId: undefined,
+        type: 'k8s'
+      })
     }
     return
   }

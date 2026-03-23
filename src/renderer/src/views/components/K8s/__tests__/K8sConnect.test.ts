@@ -9,6 +9,8 @@
  * - Cleanup on unmount
  * - Exposed methods (handleResize, focus, getTerminalBufferContent)
  * - Theme and transparent background classes
+ * - AI command mode: executeTerminalCommand event handling
+ * - AI command mode: output collection and sendMessageToAi emission
  */
 
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
@@ -128,28 +130,51 @@ vi.mock('@/utils/themeUtils', () => ({
   getActualTheme: vi.fn((theme: unknown) => (theme as string) || 'dark')
 }))
 
-// Mock eventBus - must invoke handlers on emit for updateTheme test
-const mockEventBus = vi.hoisted(() => {
-  const handlers = new Map<string, Set<(...args: any[]) => void>>()
-  return {
-    on: vi.fn((event: string, fn: (...args: any[]) => void) => {
-      if (!handlers.has(event)) handlers.set(event, new Set())
-      handlers.get(event)!.add(fn)
-    }),
-    off: vi.fn((event: string, fn: (...args: any[]) => void) => {
-      handlers.get(event)?.delete(fn)
-    }),
-    emit: vi.fn((event: string, ...args: any[]) => {
-      handlers.get(event)?.forEach((handler) => handler(...args))
-    })
-  }
-})
+// Mock terminalPrompt utilities used by handleCommandOutput
+vi.mock('@views/components/Ssh/utils/terminalPrompt', () => ({
+  getLastNonEmptyLine: vi.fn((text: string) => {
+    const lines = text.split('\n').filter((l) => l.trim())
+    return lines[lines.length - 1] || ''
+  }),
+  isTerminalPromptLine: vi.fn((line: string) => /[$#>]\s*$/.test(line.trim()))
+}))
+
+// Mock ansiUtils used by handleCommandOutput
+vi.mock('@views/components/Ssh/utils/ansiUtils', () => ({
+  stripAnsiBasic: vi.fn((text: string) => text.replace(/\x1b\[[0-9;]*m/g, '').replace(/\x1b\[[0-9;]*[A-Za-z]/g, ''))
+}))
+
+// Mock eventBus - handlers map is kept outside so clearAllMocks doesn't break routing
+const eventBusHandlers = new Map<string, Set<(...args: any[]) => void>>()
+
+const mockEventBus = vi.hoisted(() => ({
+  on: vi.fn(),
+  off: vi.fn(),
+  emit: vi.fn()
+}))
 vi.mock('@/utils/eventBus', () => ({ default: mockEventBus }))
+
+// Rebind eventBus implementations after each clearAllMocks call
+function rebindEventBus() {
+  eventBusHandlers.clear()
+  mockEventBus.on.mockImplementation((event: string, fn: (...args: any[]) => void) => {
+    if (!eventBusHandlers.has(event)) eventBusHandlers.set(event, new Set())
+    eventBusHandlers.get(event)!.add(fn)
+  })
+  mockEventBus.off.mockImplementation((event: string, fn: (...args: any[]) => void) => {
+    eventBusHandlers.get(event)?.delete(fn)
+  })
+  mockEventBus.emit.mockImplementation((event: string, ...args: any[]) => {
+    eventBusHandlers.get(event)?.forEach((handler) => handler(...args))
+  })
+}
 
 // Import component after mocks
 import K8sConnect from '../K8sConnect.vue'
 import * as k8sApi from '@/api/k8s'
 import { getActualTheme } from '@/utils/themeUtils'
+import { getLastNonEmptyLine, isTerminalPromptLine } from '@views/components/Ssh/utils/terminalPrompt'
+import { stripAnsiBasic } from '@views/components/Ssh/utils/ansiUtils'
 
 const validCluster = {
   id: 'cluster-1',
@@ -172,19 +197,31 @@ describe('K8s Connect Component', () => {
     props: {
       serverInfo?: any
       isActive?: boolean
+      activeTabId?: string
     } = {}
   ) => {
     return mount(K8sConnect, {
       props: {
         serverInfo: props.serverInfo ?? createServerInfo(validCluster),
-        isActive: props.isActive ?? false
+        isActive: props.isActive ?? false,
+        ...(props.activeTabId !== undefined ? { activeTabId: props.activeTabId } : {})
       }
     })
   }
 
   beforeEach(() => {
     vi.clearAllMocks()
+    // Rebind eventBus after clearAllMocks wipes implementations
+    rebindEventBus()
     vi.mocked(getActualTheme).mockImplementation((t: unknown) => (t as string) || 'dark')
+    // Restore terminalPrompt mocks
+    vi.mocked(getLastNonEmptyLine).mockImplementation((text: string) => {
+      const lines = text.split('\n').filter((l) => l.trim())
+      return lines[lines.length - 1] || ''
+    })
+    vi.mocked(isTerminalPromptLine).mockImplementation(() => false)
+    // Restore ansiUtils mock
+    vi.mocked(stripAnsiBasic).mockImplementation((text: string) => text.replace(/\x1b\[[0-9;]*m/g, '').replace(/\x1b\[[0-9;]*[A-Za-z]/g, ''))
     global.window = global.window || ({} as Window & typeof globalThis)
     ;(global.window as any).api = mockWindowApi
     ;(global.window as any).addEventListener = vi.fn()
@@ -192,6 +229,8 @@ describe('K8s Connect Component', () => {
     mockK8sTerminalCreate.mockResolvedValue({ success: true })
     mockK8sOnTerminalData.mockReturnValue(() => {})
     mockK8sOnTerminalExit.mockReturnValue(() => {})
+    // Restore writeToTerminal mock after clearAllMocks
+    vi.mocked(k8sApi.writeToTerminal).mockResolvedValue(undefined as any)
     ;(mockTerminalInstance.buffer.active.getLine as ReturnType<typeof vi.fn>).mockImplementation((i: number) => ({
       translateToString: () => `line${i + 1}`
     }))
@@ -306,6 +345,7 @@ describe('K8s Connect Component', () => {
       expect(mockGetActualTheme).toHaveBeenCalledWith('light')
       expect(mockTerminalInstance.options.theme).toBeDefined()
     })
+
     it('should not have transparent-bg when no background image', async () => {
       wrapper = createWrapper()
       await flushPromises()
@@ -361,17 +401,6 @@ describe('K8s Connect Component', () => {
       const content = wrapper.vm.getTerminalBufferContent()
       expect(content).toBe('line1\nline2')
     })
-
-    it('should return buffer content with multiple lines', async () => {
-      ;(mockTerminalInstance.buffer.active.getLine as ReturnType<typeof vi.fn>).mockImplementation((i: number) => ({
-        translateToString: () => (i === 0 ? 'prompt$' : 'output')
-      }))
-      Object.defineProperty(mockTerminalInstance.buffer.active, 'length', { value: 2 })
-      wrapper = createWrapper()
-      await flushPromises()
-      const content = wrapper.vm.getTerminalBufferContent()
-      expect(content).toContain('prompt$')
-    })
   })
 
   describe('Cleanup on Unmount', () => {
@@ -413,6 +442,136 @@ describe('K8s Connect Component', () => {
       await wrapper.setProps({ isActive: true })
       await nextTick()
       expect(mockTerminalInstance.focus).toHaveBeenCalled()
+    })
+  })
+
+  describe('AI Command Mode - executeTerminalCommand', () => {
+    // Helper: capture the onTerminalData callback registered during connectToCluster
+    const getDataCallback = (): ((data: string) => void) => {
+      const call = mockK8sOnTerminalData.mock.calls[0]
+      return call ? call[1] : () => {}
+    }
+
+    it('should register executeTerminalCommand listener on mount', async () => {
+      wrapper = createWrapper({ isActive: true })
+      await flushPromises()
+      const registeredEvents = mockEventBus.on.mock.calls.map((c) => c[0])
+      expect(registeredEvents).toContain('executeTerminalCommand')
+    })
+
+    it('should write command to terminal when executeTerminalCommand is emitted and component is active', async () => {
+      wrapper = createWrapper({ isActive: true })
+      await flushPromises()
+      mockEventBus.emit('executeTerminalCommand', { command: 'kubectl get pods\n', tabId: 'tab-1' })
+      await nextTick()
+      expect(k8sApi.writeToTerminal).toHaveBeenCalledWith('mock-uuid-123', 'kubectl get pods\n')
+    })
+
+    it('should not write command when component is not active', async () => {
+      wrapper = createWrapper({ isActive: false })
+      await flushPromises()
+      vi.mocked(k8sApi.writeToTerminal).mockClear()
+      mockEventBus.emit('executeTerminalCommand', { command: 'kubectl get pods\n', tabId: 'tab-1' })
+      await nextTick()
+      expect(k8sApi.writeToTerminal).not.toHaveBeenCalled()
+    })
+
+    it('should not write command when payload has no command', async () => {
+      wrapper = createWrapper({ isActive: true })
+      await flushPromises()
+      vi.mocked(k8sApi.writeToTerminal).mockClear()
+      mockEventBus.emit('executeTerminalCommand', { command: '', tabId: 'tab-1' })
+      await nextTick()
+      expect(k8sApi.writeToTerminal).not.toHaveBeenCalled()
+    })
+
+    it('should emit sendMessageToAi with output when prompt is detected', async () => {
+      // Make isTerminalPromptLine return true for lines ending with $
+      vi.mocked(isTerminalPromptLine).mockImplementation((line: string) => line.trim().endsWith('$'))
+
+      wrapper = createWrapper({ isActive: true })
+      await flushPromises()
+
+      const dataCallback = getDataCallback()
+
+      // Trigger command
+      mockEventBus.emit('executeTerminalCommand', { command: 'kubectl get pods\n', tabId: 'tab-42' })
+      await nextTick()
+
+      // Simulate PTY output: command echo + real output + prompt
+      dataCallback('kubectl get pods\n')
+      dataCallback('NAME   READY   STATUS\n')
+      dataCallback('pod-1  1/1     Running\n')
+      dataCallback('$ ')
+
+      // Wait for the debounce timer (150ms)
+      await new Promise((r) => setTimeout(r, 300))
+
+      expect(mockEventBus.emit).toHaveBeenCalledWith(
+        'sendMessageToAi',
+        expect.objectContaining({
+          tabId: 'tab-42',
+          content: expect.stringContaining('Terminal output:')
+        })
+      )
+    })
+
+    it('should strip command echo (including PTY double-echo) from output', async () => {
+      vi.mocked(isTerminalPromptLine).mockImplementation((line: string) => line.trim().endsWith('$'))
+
+      wrapper = createWrapper({ isActive: true })
+      await flushPromises()
+
+      const dataCallback = getDataCallback()
+
+      // Trigger command - PTY will double-echo "kkubectl get pods"
+      mockEventBus.emit('executeTerminalCommand', { command: 'kubectl get pods\n', tabId: 'tab-1' })
+      await nextTick()
+
+      // Simulate PTY double-echo + real output + prompt
+      dataCallback('kkubectl get pods\n') // double-echo (first char duplicated)
+      dataCallback('NAME   READY\n')
+      dataCallback('pod-1  1/1\n')
+      dataCallback('$ ')
+
+      await new Promise((r) => setTimeout(r, 300))
+
+      const emitCall = mockEventBus.emit.mock.calls.find((c) => c[0] === 'sendMessageToAi')
+      expect(emitCall).toBeDefined()
+      const content = emitCall![1].content as string
+      // The double-echo line should be stripped
+      expect(content).not.toContain('kkubectl')
+      expect(content).toContain('NAME')
+    })
+
+    it('should emit "Command executed successfully, no output returned" when output is empty', async () => {
+      vi.mocked(isTerminalPromptLine).mockImplementation((line: string) => line.trim().endsWith('$'))
+
+      wrapper = createWrapper({ isActive: true })
+      await flushPromises()
+
+      const dataCallback = getDataCallback()
+
+      mockEventBus.emit('executeTerminalCommand', { command: 'kubectl get pods\n', tabId: 'tab-1' })
+      await nextTick()
+
+      // Only prompt, no real output
+      dataCallback('kubectl get pods\n')
+      dataCallback('$ ')
+
+      await new Promise((r) => setTimeout(r, 300))
+
+      const emitCall = mockEventBus.emit.mock.calls.find((c) => c[0] === 'sendMessageToAi')
+      expect(emitCall).toBeDefined()
+      expect(emitCall![1].content).toBe('Command executed successfully, no output returned')
+    })
+
+    it('should unregister executeTerminalCommand listener on unmount', async () => {
+      wrapper = createWrapper({ isActive: true })
+      await flushPromises()
+      wrapper.unmount()
+      await nextTick()
+      expect(mockEventBus.off).toHaveBeenCalledWith('executeTerminalCommand', expect.any(Function))
     })
   })
 })
