@@ -128,16 +128,28 @@ vi.mock('@/utils/themeUtils', () => ({
   getActualTheme: vi.fn((theme: unknown) => (theme as string) || 'dark')
 }))
 
-// Mock eventBus
-const mockEventBus = vi.hoisted(() => ({
-  on: vi.fn(),
-  off: vi.fn(),
-  emit: vi.fn()
-}))
+// Mock eventBus - must invoke handlers on emit for updateTheme test
+const mockEventBus = vi.hoisted(() => {
+  const handlers = new Map<string, Set<(...args: any[]) => void>>()
+  return {
+    on: vi.fn((event: string, fn: (...args: any[]) => void) => {
+      if (!handlers.has(event)) handlers.set(event, new Set())
+      handlers.get(event)!.add(fn)
+    }),
+    off: vi.fn((event: string, fn: (...args: any[]) => void) => {
+      handlers.get(event)?.delete(fn)
+    }),
+    emit: vi.fn((event: string, ...args: any[]) => {
+      handlers.get(event)?.forEach((handler) => handler(...args))
+    })
+  }
+})
 vi.mock('@/utils/eventBus', () => ({ default: mockEventBus }))
 
 // Import component after mocks
 import K8sConnect from '../K8sConnect.vue'
+import * as k8sApi from '@/api/k8s'
+import { getActualTheme } from '@/utils/themeUtils'
 
 const validCluster = {
   id: 'cluster-1',
@@ -172,6 +184,7 @@ describe('K8s Connect Component', () => {
 
   beforeEach(() => {
     vi.clearAllMocks()
+    vi.mocked(getActualTheme).mockImplementation((t: unknown) => (t as string) || 'dark')
     global.window = global.window || ({} as Window & typeof globalThis)
     ;(global.window as any).api = mockWindowApi
     ;(global.window as any).addEventListener = vi.fn()
@@ -282,6 +295,17 @@ describe('K8s Connect Component', () => {
   })
 
   describe('Theme and Styling', () => {
+    it('should update terminal theme when updateTheme event is emitted', async () => {
+      const mockGetActualTheme = vi.mocked(getActualTheme)
+      mockGetActualTheme.mockImplementation((t: unknown) => (t as string) || 'dark')
+      wrapper = createWrapper()
+      await flushPromises()
+      mockGetActualTheme.mockClear()
+      mockEventBus.emit('updateTheme', 'light')
+      await nextTick()
+      expect(mockGetActualTheme).toHaveBeenCalledWith('light')
+      expect(mockTerminalInstance.options.theme).toBeDefined()
+    })
     it('should not have transparent-bg when no background image', async () => {
       wrapper = createWrapper()
       await flushPromises()
@@ -302,6 +326,26 @@ describe('K8s Connect Component', () => {
       wrapper.vm.handleResize()
       await nextTick()
       expect(mockFitAddonInstance.fit).toHaveBeenCalled()
+    })
+
+    it('should call resizeTerminal when handleResize with connected terminal and valid dimensions', async () => {
+      wrapper = createWrapper()
+      await flushPromises()
+      const terminalEl = wrapper.find('.terminal-element').element
+      vi.spyOn(terminalEl, 'getBoundingClientRect').mockReturnValue({
+        width: 100,
+        height: 50,
+        top: 0,
+        left: 0,
+        right: 100,
+        bottom: 50,
+        x: 0,
+        y: 0,
+        toJSON: () => ({})
+      })
+      wrapper.vm.handleResize()
+      await new Promise((r) => setTimeout(r, 150))
+      expect(k8sApi.resizeTerminal).toHaveBeenCalledWith('mock-uuid-123', 80, 24)
     })
 
     it('should expose focus and focus terminal when invoked', async () => {
