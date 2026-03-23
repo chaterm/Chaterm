@@ -809,6 +809,8 @@ watch(
   display: flex;
   gap: 8px;
   align-items: flex-start;
+  /* Allow row to shrink; paired labels each had min-width 250px from .custom-form, causing horizontal overflow */
+  min-width: 0;
 }
 
 .host-field {
@@ -835,6 +837,15 @@ watch(
     > label {
       color: var(--text-color);
     }
+  }
+
+  /* Side-by-side host + port: global label min-width would require ~500px and triggers horizontal scroll */
+  .host-port-row :deep(.ant-form-item) {
+    min-width: 0;
+  }
+
+  .host-port-row :deep(.ant-form-item-label) {
+    min-width: 0;
   }
 }
 
