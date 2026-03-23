@@ -870,11 +870,16 @@ export class Task {
       // Execute the kubectl command
       const result = await k8sAgentManager.executeKubectl(command)
 
-      if (result.success) {
-        return result.output || 'Command executed successfully (no output)'
-      } else {
-        return `Error: ${result.error || 'K8S command execution failed'}\n\nOutput:\n${result.output || '(no output)'}`
-      }
+      const output = result.success
+        ? result.output || 'Command executed successfully (no output)'
+        : `Error: ${result.error || 'K8S command execution failed'}\n\nOutput:\n${result.output || '(no output)'}`
+
+      // Push output to frontend (mirrors SSH executeCommandTool behavior:
+      // first partial=true to create the message, then partial=false to finalize)
+      await this.say('command_output', output, true)
+      await this.say('command_output', output, false)
+
+      return output
     } catch (error) {
       logger.error('K8S command execution error', { error })
       return `Error: ${error instanceof Error ? error.message : String(error)}`
