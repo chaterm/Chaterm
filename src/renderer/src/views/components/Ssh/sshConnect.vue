@@ -1221,7 +1221,7 @@ const resizeEditor = (ed: editorData, rect: DOMRect) => {
 
 const autoExecuteCode = (payload: { command: string; tabId: string }) => {
   if (payload.tabId !== props.currentConnectionId) return
-  sendData(payload.command)
+  sendDataAutoSwitchTerminal(payload.command)
 }
 const handleResize = debounce(() => {
   if (fitAddon.value && terminal.value && terminalElement.value) {
