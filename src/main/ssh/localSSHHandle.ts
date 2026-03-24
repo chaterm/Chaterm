@@ -126,6 +126,15 @@ const createTerminal = async (config: LocalTerminalConfig): Promise<LocalTermina
   const env = { ...process.env, ...config.env }
   let args: string[] = []
 
+  // Use login shell mode to ensure shell configuration files are loaded
+  // (e.g., .zprofile, .zshrc, .bash_profile, .bashrc)
+  const shellBase = path.basename(shell)
+  if (os.platform() !== 'win32') {
+    if (shellBase === 'zsh' || shellBase === 'bash' || shellBase === 'fish' || shellBase === 'sh') {
+      args = ['--login']
+    }
+  }
+
   localLogger.info('Creating local terminal', {
     event: 'terminal.local.connect.start',
     terminalId: config.id,
