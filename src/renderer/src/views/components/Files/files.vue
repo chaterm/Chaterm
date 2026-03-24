@@ -1793,50 +1793,43 @@ const copyFile = (record: FileRecord) => {
 }
 
 const copyOrMoveModalOk = async (targetPath: string) => {
-  if (!currentRecord.value) {
-    return
-  }
-  const src = currentRecord.value.path
-  const dest = targetPath
-  if (copyOrMoveModalType.value == 'copy') {
-    try {
-      const cmd = `cp -r "${src}" "${dest}"`
-      const { stderr } = await api.sshConnExec({
-        cmd: cmd,
-        id: props.uuid
-      })
-      currentRecord.value = null
-      copyOrMoveDialog.value = false
+  if (!currentRecord.value) return
 
-      if (stderr !== '') {
-        message.error(`${t('files.copyFileFailed')}：${stderr}`)
+  const srcPath = currentRecord.value.path
+
+  try {
+    const res = await api.copyOrMoveBySftp({
+      id: props.uuid,
+      srcPath,
+      targetPath,
+      action: copyOrMoveModalType.value === 'copy' ? 'copy' : 'move'
+    })
+
+    currentRecord.value = null
+    copyOrMoveDialog.value = false
+
+    if (res.status !== 'success') {
+      if (copyOrMoveModalType.value === 'copy') {
+        message.error(`${t('files.copyFileFailed')}：${res.message || ''}`)
       } else {
-        message.success(t('files.copyFileSuccess'))
-        localCurrentDirectoryInput.value = getDirname(dest)
-        refresh()
+        message.error(`${t('files.moveFileFailed')}：${res.message || ''}`)
       }
-    } catch (error) {
-      message.error(`${t('files.copyFileError')}：${error}`)
+      return
     }
-  } else {
-    try {
-      const cmd = `mv "${src}" "${dest}"`
-      const { stderr } = await api.sshConnExec({
-        cmd: cmd,
-        id: props.uuid
-      })
-      currentRecord.value = null
-      copyOrMoveDialog.value = false
 
-      if (stderr !== '') {
-        message.error(`${t('files.moveFileFailed')}：${stderr}`)
-      } else {
-        message.success(t('files.moveFileSuccess'))
-        localCurrentDirectoryInput.value = getDirname(dest)
-        refresh()
-      }
-    } catch (error) {
-      message.error(`${t('files.moveFileError')}：${error}`)
+    if (copyOrMoveModalType.value === 'copy') {
+      message.success(t('files.copyFileSuccess'))
+    } else {
+      message.success(t('files.moveFileSuccess'))
+    }
+
+    localCurrentDirectoryInput.value = getDirname(res.path || targetPath)
+    refresh()
+  } catch (error: any) {
+    if (copyOrMoveModalType.value === 'copy') {
+      message.error(`${t('files.copyFileError')}：${error?.message || error}`)
+    } else {
+      message.error(`${t('files.moveFileError')}：${error?.message || error}`)
     }
   }
 }
@@ -2118,7 +2111,9 @@ defineExpose({
 .permission-group {
   margin-bottom: 10px;
 }
-
+.permission-group :deep(.ant-checkbox-wrapper) {
+  color: var(--text-color);
+}
 .permission-settings {
   margin-top: 15px;
   padding-top: 15px;
@@ -2133,6 +2128,12 @@ defineExpose({
   margin-bottom: 8px;
   font-weight: 500;
   color: var(--text-color);
+}
+.setting-item input:disabled {
+  background-color: var(--border-color);
+  color: var(--text-color-tertiary);
+  border: 1px solid var(--border-color-light);
+  opacity: 1;
 }
 
 .files-table :deep(.ant-table-tbody > tr.file-table-row-hover > td) {

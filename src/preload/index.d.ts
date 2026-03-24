@@ -198,7 +198,7 @@ interface ApiType {
   onShellClose: (id: string, callback: () => void) => () => void
   recordTerminalState: (params: any) => Promise<any>
   recordCommand: (params: any) => Promise<any>
-  sshSftpList: (opts: { id: string; remotePath: string }) => Promise<any>
+  sshSftpList: (opts: { id: string; path: string }) => Promise<any>
   sftpConnList: () => Promise<string[]>
   sshConnExec: (args: { id: string; cmd: string }) => Promise<any>
   sendToMain: (message: WebviewMessage) => Promise<void | null>
