@@ -25,12 +25,13 @@
           v-model:value="currentPath"
           :placeholder="$t('files.pathInputTips')"
           style="margin-bottom: 8px; flex: 1"
+          class="target-path-input"
           @blur="handleInputBlur"
         />
         <a-breadcrumb
           v-else
           separator=">"
-          style="flex: 1; padding: 4px 8px; border: 1px solid #d9d9d9; border-radius: 4px; background-color: #f5f5f5; margin-bottom: 8px"
+          class="ant-breadcrumb"
         >
           <a-breadcrumb-item
             v-for="(p, i) in targetPathStack"
@@ -169,7 +170,8 @@ const enterSubDir = async (index: number, name: string) => {
 
 const loadSubDirs = async (index: number) => {
   const path = '/' + targetPathStack.value.slice(0, index + 1).join('/')
-  const res = await getApi().sshSftpList({ id: props.id, remotePath: path })
+  const res = await getApi().sshSftpList({ path: path, id: props.id })
+
   if (Array.isArray(res)) {
     subDirMap.value[index] = (res as FileRecord[]).filter((i) => i.isDir)
   } else {
@@ -256,7 +258,7 @@ const splitFileName = (filename: string) => {
 
 const checkFileConflict = async () => {
   const dirPath = currentPath.value
-  const list = await getApi().sshSftpList({ id: props.id, remotePath: dirPath })
+  const list = await getApi().sshSftpList({ id: props.id, path: dirPath })
   const fileList = Array.isArray(list) ? list.map((item: any) => (typeof item === 'string' ? item : item.name)) : []
 
   const name = originFileName.value
@@ -292,11 +294,14 @@ const handleOk = async () => {
 </script>
 
 <style scoped>
-.ant-breadcrumb > span {
-  user-select: none;
-}
-.ant-breadcrumb > span:hover {
-  color: #1890ff;
+.ant-breadcrumb {
+  flex: 1;
+  padding: 4px 8px;
+  border: 1px solid var(--border-color-light);
+  border-radius: 4px;
+  background-color: var(--bg-color);
+  margin-bottom: 8px;
+  color: var(--text-color);
 }
 
 .ant-scrollbar {
@@ -318,5 +323,41 @@ const handleOk = async () => {
   &::-webkit-scrollbar-thumb:hover {
     background: rgba(0, 0, 0, 0.18);
   }
+}
+
+:deep(.ant-breadcrumb-link),
+:deep(.ant-breadcrumb-link > span),
+:deep(.ant-breadcrumb-separator),
+:deep(.ant-breadcrumb-separator span),
+:deep(.ant-breadcrumb svg) {
+  color: var(--text-color) !important;
+  fill: currentColor;
+}
+
+:deep(.target-path-input.ant-input) {
+  background-color: var(--bg-color-secondary);
+  color: var(--text-color);
+  border: 1px solid var(--border-color-light);
+  border-radius: 4px;
+  box-shadow: none;
+  outline: none;
+  padding: 4px 8px;
+  min-height: 32px;
+  margin-bottom: 20px;
+  box-sizing: border-box;
+  transition:
+    border-color 0.2s ease,
+    box-shadow 0.2s ease;
+}
+
+:deep(.target-path-input.ant-input:hover) {
+  border-color: var(--border-color-light);
+}
+
+:deep(.target-path-input.ant-input:focus),
+:deep(.target-path-input.ant-input-focused) {
+  border-color: var(--border-color-light);
+  box-shadow: 0 0 0 1px var(--border-color-light);
+  outline: none;
 }
 </style>

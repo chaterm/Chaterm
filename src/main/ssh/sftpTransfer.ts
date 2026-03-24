@@ -309,6 +309,10 @@ export const registerFileSystemHandlers = () => {
   ipcMain.handle('sftp:r2r:dir', async (event, args: R2RDirArgs) => {
     return transferDirR2R(event, args)
   })
+
+  ipcMain.handle('ssh:sftp:copy-or-move', async (event, args) => {
+    return copyOrMoveBySftp(event, args)
+  })
 }
 
 const isLocalId = (id: string) => id.includes('localhost@127.0.0.1:local:')
@@ -1963,11 +1967,35 @@ export const initSftpOnConnection = (conn: Client, connectionId: string): Promis
   })
 }
 
-const findReusableConn = (connectionInfo: any): Client | undefined => {
-  const { id, sshType, host, port, username, assetUuid } = connectionInfo
+const findReusableSftpConn = (connectionInfo: any): Client | undefined => {
+  const { id } = connectionInfo
 
   const direct = sshConnections.get(id)
   if (direct) return direct
+
+  if (id) {
+    const prefix = id.substring(0, id.lastIndexOf(':') + 1)
+
+    for (const [existingId, existingConn] of sshConnections.entries()) {
+      const sessionPart = existingId.substring(existingId.lastIndexOf(':') + 1)
+      if (existingId.startsWith(prefix) && sessionPart.startsWith('files-')) {
+        return existingConn
+      }
+    }
+
+    for (const [existingId, existingConn] of sshConnections.entries()) {
+      if (existingId.startsWith(prefix)) return existingConn
+    }
+  }
+
+  return undefined
+}
+
+const findReusableConn = (connectionInfo: any): Client | undefined => {
+  const { id, sshType, host, port, username, assetUuid } = connectionInfo
+
+  const reusableSftpConn = findReusableSftpConn(connectionInfo)
+  if (reusableSftpConn) return reusableSftpConn
 
   if (sshType === 'jumpserver') {
     const jumpserverUuid = assetUuid || id
@@ -1991,7 +2019,6 @@ export const connectSftpReuseFirst = async (event: any, connectionInfo: any): Pr
 
   // record pending
   markPending(id, requestId)
-
   const reused = findReusableConn(connectionInfo)
   if (reused) {
     await initSftpOnConnection(reused, id)
@@ -2086,6 +2113,7 @@ export const connectSftpNew = async (event: any, connectionInfo: any): Promise<S
 
     conn.on('ready', () => {
       ;(async () => {
+        sshConnections.set(id, conn)
         try {
           const p = getPending(id)
           if (p?.cancelled) {
@@ -2229,7 +2257,6 @@ const connectJumpServerSftpNew = async (_event: any, connectionInfo: any): Promi
     conn.on('ready', async () => {
       try {
         const stream = await openShell(conn, connectionInfo)
-
         jumpserverConnections.set(id, {
           conn,
           stream,
@@ -2308,5 +2335,160 @@ export const closeSftpOnly = async (connectionId: string): Promise<{ status: str
     return { status: 'closed', message: 'SFTP closed' }
   } catch (e: any) {
     return { status: 'error', message: e?.message || String(e) }
+  }
+}
+
+type CopyOrMoveBySftpArgs = {
+  id: string
+  srcPath: string
+  targetPath: string
+  action: 'copy' | 'move'
+}
+
+type SftpCopyOrMoveResult = {
+  status: 'success' | 'error' | 'cancelled'
+  message?: string
+  path?: string
+}
+
+async function sftpStatSafe(sftp: any, p: string): Promise<any | null> {
+  try {
+    return await sftpStat(sftp, p)
+  } catch {
+    return null
+  }
+}
+
+function isRemoteDirectoryStat(st: any) {
+  return !!st?.isDirectory?.() || isRemoteDir(st)
+}
+
+async function resolveRemoteCopyMoveTarget(
+  sftp: any,
+  srcPath: string,
+  targetPath: string
+): Promise<{
+  srcStat: any
+  finalPath: string
+  isDir: boolean
+}> {
+  const normalizedSrc = toPosix(srcPath)
+  const normalizedTarget = toPosix(targetPath)
+
+  const srcStat = await sftpStat(sftp, normalizedSrc)
+  const isDir = isRemoteDirectoryStat(srcStat)
+  const srcBaseName = path.posix.basename(normalizedSrc)
+
+  const targetStat = await sftpStatSafe(sftp, normalizedTarget)
+
+  let candidatePath = normalizedTarget
+
+  if (targetStat && isRemoteDirectoryStat(targetStat)) {
+    candidatePath = path.posix.join(normalizedTarget, srcBaseName)
+  } else if (normalizedTarget.endsWith('/')) {
+    candidatePath = path.posix.join(normalizedTarget, srcBaseName)
+  }
+
+  const parentDir = path.posix.dirname(candidatePath)
+  const baseName = path.posix.basename(candidatePath)
+  const uniqueName = await getUniqueRemoteName(sftp, parentDir, baseName, isDir)
+  const finalPath = path.posix.join(parentDir, uniqueName)
+
+  return {
+    srcStat,
+    finalPath,
+    isDir
+  }
+}
+
+async function copyOrMoveBySftp(event: Electron.IpcMainInvokeEvent, args: CopyOrMoveBySftpArgs): Promise<SftpCopyOrMoveResult> {
+  const { id, srcPath, targetPath, action } = args
+  const sftp = getSftpConnection(id)
+
+  if (!sftp) {
+    return { status: 'error', message: 'Sftp Not connected' }
+  }
+
+  try {
+    const { finalPath, isDir } = await resolveRemoteCopyMoveTarget(sftp, srcPath, targetPath)
+
+    if (action === 'move') {
+      if (toPosix(srcPath) === finalPath) {
+        return { status: 'success', path: finalPath }
+      }
+
+      await new Promise<void>((resolve, reject) => {
+        sftp.rename(toPosix(srcPath), finalPath, (err: any) => {
+          if (err) reject(err)
+          else resolve()
+        })
+      })
+
+      return {
+        status: 'success',
+        path: finalPath
+      }
+    }
+
+    if (isDir) {
+      const res = await transferDirR2R(event, {
+        fromId: id,
+        toId: id,
+        fromDir: toPosix(srcPath),
+        toDir: path.posix.dirname(finalPath),
+        autoRename: false
+      })
+
+      if (res.status === 'success') {
+        return {
+          status: 'success',
+          path: res.remotePath || finalPath
+        }
+      }
+
+      if (res.status === 'cancelled') {
+        return {
+          status: 'cancelled',
+          message: res.message
+        }
+      }
+
+      return {
+        status: 'error',
+        message: res.message || 'Copy directory failed'
+      }
+    }
+
+    const res = await transferFileR2R(event, {
+      fromId: id,
+      toId: id,
+      fromPath: toPosix(srcPath),
+      toPath: finalPath,
+      autoRename: false
+    })
+
+    if (res.status === 'success') {
+      return {
+        status: 'success',
+        path: res.remotePath || finalPath
+      }
+    }
+
+    if (res.status === 'cancelled') {
+      return {
+        status: 'cancelled',
+        message: res.message
+      }
+    }
+
+    return {
+      status: 'error',
+      message: res.message || 'Copy file failed'
+    }
+  } catch (e: any) {
+    return {
+      status: 'error',
+      message: e?.message || String(e)
+    }
   }
 }
