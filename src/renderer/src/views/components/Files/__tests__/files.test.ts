@@ -138,6 +138,7 @@ const iconStubs = {
 
 type ApiStub = {
   sshSftpList: ReturnType<typeof vi.fn>
+  copyOrMoveBySftp: ReturnType<typeof vi.fn>
   openDirectoryDialog: ReturnType<typeof vi.fn>
   openFileDialog: ReturnType<typeof vi.fn>
   openSaveDialog: ReturnType<typeof vi.fn>
@@ -152,6 +153,7 @@ type ApiStub = {
 
 const makeApi = (): ApiStub => ({
   sshSftpList: vi.fn().mockResolvedValue([] as any),
+  copyOrMoveBySftp: vi.fn().mockResolvedValue({ status: 'success' }),
   openDirectoryDialog: vi.fn().mockResolvedValue(null),
   openFileDialog: vi.fn().mockResolvedValue(null),
   openSaveDialog: vi.fn().mockResolvedValue(null),
@@ -163,7 +165,6 @@ const makeApi = (): ApiStub => ({
   chmodFile: vi.fn().mockResolvedValue({ status: 'success' }),
   sshConnExec: vi.fn().mockResolvedValue({ stdout: '', stderr: '' })
 })
-
 describe('files.vue (enhanced)', () => {
   let api: ApiStub
 
@@ -513,54 +514,85 @@ describe('files.vue (enhanced)', () => {
     wrapper.unmount()
   })
 
-  it('copy/move: cp -r and mv branches, stderr and catch branches', async () => {
+  it('copy: shows error when sftp copy throws', async () => {
     const { message } = await import('ant-design-vue')
 
-    api.sshSftpList.mockResolvedValueOnce([{ name: 'a', path: '/a', isDir: true, mode: '0755', isLink: false, modTime: '', size: 0 }] as any)
+    api.sshSftpList.mockResolvedValueOnce([
+      {
+        name: 'a',
+        path: '/a',
+        isDir: true,
+        mode: '0755',
+        isLink: false,
+        modTime: '',
+        size: 0
+      }
+    ] as any)
 
     const wrapper = mountView({ currentDirectoryInput: '/' })
     await flushPromises()
+
     const vm = wrapper.vm as any
     const record = vm.files.find((x: any) => x.name === 'a')
     expect(record).toBeTruthy()
 
-    // copy success
-    api.sshConnExec.mockResolvedValueOnce({ stderr: '' })
-    api.sshSftpList.mockResolvedValueOnce([] as any)
-    vm.copyFile(record)
-    await vm.copyOrMoveModalOk('/dest/a')
-    await flushPromises()
-    expect(api.sshConnExec).toHaveBeenLastCalledWith({
-      cmd: 'cp -r "/a" "/dest/a"',
-      id: 'localhost@127.0.0.1:local'
-    })
-    expect(message.success).toHaveBeenCalled()
+    vi.mocked(message.success).mockClear()
+    vi.mocked(message.error).mockClear()
 
-    // copy stderr -> error
-    api.sshConnExec.mockResolvedValueOnce({ stderr: 'permission denied' })
+    vi.mocked(api.copyOrMoveBySftp).mockRejectedValueOnce(new Error('boom'))
+
     vm.copyFile(record)
-    await vm.copyOrMoveModalOk('/dest/a2')
+    await vm.copyOrMoveModalOk('/dest/a4')
     await flushPromises()
+
+    expect(api.copyOrMoveBySftp).toHaveBeenCalled()
     expect(message.error).toHaveBeenCalled()
+    expect(message.success).not.toHaveBeenCalled()
 
-    // move success
-    api.sshConnExec.mockResolvedValueOnce({ stderr: '' })
+    wrapper.unmount()
+  })
+
+  it('move: shows success when sftp move succeeds', async () => {
+    const { message } = await import('ant-design-vue')
+
+    api.sshSftpList.mockResolvedValueOnce([
+      {
+        name: 'a',
+        path: '/a',
+        isDir: true,
+        mode: '0755',
+        isLink: false,
+        modTime: '',
+        size: 0
+      }
+    ] as any)
+
+    const wrapper = mountView({ currentDirectoryInput: '/' })
+    await flushPromises()
+
+    const vm = wrapper.vm as any
+    const record = vm.files.find((x: any) => x.name === 'a')
+    expect(record).toBeTruthy()
+
+    vi.mocked(message.success).mockClear()
+    vi.mocked(message.error).mockClear()
+    vi.mocked(api.copyOrMoveBySftp).mockResolvedValueOnce({
+      status: 'success',
+      path: '/dest/a3'
+    })
     api.sshSftpList.mockResolvedValueOnce([] as any)
+
     vm.moveFile(record)
     await vm.copyOrMoveModalOk('/dest/a3')
     await flushPromises()
-    expect(api.sshConnExec).toHaveBeenLastCalledWith({
-      cmd: 'mv "/a" "/dest/a3"',
-      id: 'localhost@127.0.0.1:local'
+    expect(api.copyOrMoveBySftp).toHaveBeenCalledWith({
+      id: 'localhost@127.0.0.1:local',
+      srcPath: '/a',
+      targetPath: '/dest/a3',
+      action: 'move'
     })
     expect(message.success).toHaveBeenCalled()
-
-    // move catch
-    api.sshConnExec.mockRejectedValueOnce(new Error('boom'))
-    vm.moveFile(record)
-    await vm.copyOrMoveModalOk('/dest/a4')
-    await flushPromises()
-    expect(message.error).toHaveBeenCalled()
+    expect(message.error).not.toHaveBeenCalled()
 
     wrapper.unmount()
   })
@@ -718,39 +750,6 @@ describe('files.vue (enhanced)', () => {
     expect(vm.isTeamCheck('bad-uuid')).toBe(false)
     expect(vm.isTeamCheck('user@127.0.0.1:local')).toBe(false)
     expect(vm.isTeamCheck('user@127.0.0.1:local-team')).toBe(true)
-
-    wrapper.unmount()
-  })
-
-  it('copyOrMoveModalOk early return when no currentRecord; covers move stderr and copy catch', async () => {
-    const { message } = await import('ant-design-vue')
-
-    api.sshSftpList.mockResolvedValueOnce([{ name: 'a', path: '/a', isDir: true, mode: '0755', isLink: false, modTime: '', size: 0 }] as any)
-    const wrapper = mountView({ currentDirectoryInput: '/' })
-    await flushPromises()
-
-    const vm = wrapper.vm as any
-
-    // early return
-    vm.currentRecord = null
-    await vm.copyOrMoveModalOk('/dest/whatever')
-    expect(api.sshConnExec).not.toHaveBeenCalled()
-
-    const record = vm.files.find((x: any) => x.name === 'a')
-
-    // move stderr branch
-    api.sshConnExec.mockResolvedValueOnce({ stderr: 'permission denied' })
-    vm.moveFile(record)
-    await vm.copyOrMoveModalOk('/dest/a')
-    await flushPromises()
-    expect(message.error).toHaveBeenCalled()
-
-    // copy catch branch
-    api.sshConnExec.mockRejectedValueOnce(new Error('boom'))
-    vm.copyFile(record)
-    await vm.copyOrMoveModalOk('/dest/a2')
-    await flushPromises()
-    expect(message.error).toHaveBeenCalled()
 
     wrapper.unmount()
   })
