@@ -172,6 +172,24 @@ describe('LocalTerminalManager', () => {
       )
     })
 
+    it('should use login shell arguments for supported Unix shells', () => {
+      ;(os.platform as any).mockReturnValue('linux')
+      terminal.shell = '/bin/zsh'
+
+      manager.runCommand(terminal, 'echo test')
+
+      expect(spawn).toHaveBeenCalledWith('/bin/zsh', ['-l', '-c', 'echo test'], expect.any(Object))
+    })
+
+    it('should not use login shell flag for unsupported Unix shells', () => {
+      ;(os.platform as any).mockReturnValue('linux')
+      terminal.shell = '/bin/tcsh'
+
+      manager.runCommand(terminal, 'echo test')
+
+      expect(spawn).toHaveBeenCalledWith('/bin/tcsh', ['-c', 'echo test'], expect.any(Object))
+    })
+
     it('should emit line events on stdout', () => {
       return new Promise<void>((resolve) => {
         const process = manager.runCommand(terminal, 'echo test')
