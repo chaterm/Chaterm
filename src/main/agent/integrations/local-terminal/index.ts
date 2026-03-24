@@ -281,9 +281,9 @@ export class LocalTerminalManager {
         shellArgs = ['-Command', finalCommand]
       }
     } else {
-      // Unix-like platforms
+      // Unix-like platforms: use login shell to load user configuration
       shellCommand = terminal.shell
-      shellArgs = ['-c', finalCommand]
+      shellArgs = ['-l', '-c', finalCommand]
     }
 
     // Prepare environment variables
