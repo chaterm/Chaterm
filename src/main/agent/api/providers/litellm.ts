@@ -10,6 +10,7 @@ import { ApiHandlerOptions, liteLlmDefaultModelId, liteLlmModelInfoSaneDefaults 
 import { ApiHandler } from '..'
 import { ApiStream } from '../transform/stream'
 import { convertToOpenAiMessages } from '../transform/openai-format'
+import { convertToGlmMessages } from '../transform/glm-format'
 import { createProxyAgent, checkProxyConnectivity, resolveSystemProxy, createProxyAgentFromString } from './proxy/index'
 import type { Agent } from 'http'
 const logger = createLogger('agent')
@@ -136,12 +137,13 @@ export class LiteLlmHandler implements ApiHandler {
     // Refresh proxy agent to detect runtime proxy changes
     await this.refreshProxyAgent()
 
-    const formattedMessages = convertToOpenAiMessages(messages)
+    const modelId = this.options.liteLlmModelId || liteLlmDefaultModelId
+    const isGlmModel = modelId.toLowerCase().includes('glm')
+    const formattedMessages = isGlmModel ? convertToGlmMessages(messages) : convertToOpenAiMessages(messages)
     const systemMessage: OpenAI.Chat.ChatCompletionSystemMessageParam = {
       role: 'system',
       content: systemPrompt
     }
-    const modelId = this.options.liteLlmModelId || liteLlmDefaultModelId
     const isOminiModel = modelId.includes('o1-mini') || modelId.includes('o3-mini') || modelId.includes('o4-mini')
     const isGpt5OrAbove = modelId.startsWith('gpt-5') || modelId.startsWith('gpt-6')
 
@@ -198,7 +200,6 @@ export class LiteLlmHandler implements ApiHandler {
     const stream = await this.client.chat.completions.create(params)
 
     let usageInfo: OpenAI.CompletionUsage | undefined | null = undefined
-    const isGlmModel = modelId.toLowerCase().includes('glm')
     // GLM models with -Thinking suffix output <thinking>...</thinking> tags when thinking mode is enabled
     const glmThinkingParser = isGlmModel && reasoningOn ? createGlmThinkingParser() : null
     for await (const chunk of stream) {
