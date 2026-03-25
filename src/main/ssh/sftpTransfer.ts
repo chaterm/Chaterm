@@ -1,7 +1,7 @@
 import { ipcMain, app } from 'electron'
 import path from 'node:path'
 import { pipeline } from 'node:stream/promises'
-import { getSftpConnection, getUniqueRemoteName } from './sshHandle'
+import { getSftpConnection, getUniqueRemoteName, pickReconnectConnectionInfo } from './sshHandle'
 import nodeFs from 'node:fs/promises'
 import fs from 'fs'
 import type { Client } from 'ssh2'
@@ -24,6 +24,12 @@ const sftpLogger = createLogger('ssh')
 export type SftpConnectResult = { status: string; message: string }
 
 const activeTasks = new Map<string, { read?: any; write?: any; localPath?: string; cancel?: () => void }>()
+// Tracks JumpServer connections created by SFTP itself, not by the SSH connect flow.
+const sftpOwnedJumpServerConnections = new Map<string, Client>()
+// Stores shell streams opened only to bootstrap SFTP-owned JumpServer sessions.
+const sftpOwnedJumpServerStreams = new Map<string, any>()
+
+export const sftpConnectionInfoMap = new Map<string, any>()
 
 type R2RFileArgs = {
   fromId: string
@@ -116,12 +122,25 @@ function createAsyncPool<T>(worker: (item: T) => Promise<void>, concurrency: num
 
 export const registerFileSystemHandlers = () => {
   ipcMain.handle('ssh:sftp:connect', async (_event, connectionInfo) => {
-    return connectSftpReuseFirst(_event, connectionInfo)
+    const result = await connectSftpReuseFirst(_event, connectionInfo)
+
+    // Cache the minimum connection info needed for later SFTP reconnects.
+    if (result?.status === 'connected' && connectionInfo?.id) {
+      const picked = pickReconnectConnectionInfo(connectionInfo)
+      if (picked) {
+        sftpConnectionInfoMap.set(String(connectionInfo.id), picked)
+      }
+    }
+
+    return result
   })
   ipcMain.handle('ssh:sftp:close', async (_event, payload: { id: string }) => {
     const id = String(payload?.id || '')
-    return closeSftpOnly(id)
+    const res = await closeSftpOnly(id)
+    sftpConnectionInfoMap.delete(id)
+    return res
   })
+
   ipcMain.handle('ssh:sftp:cancel', async (_event, payload: { id: string; requestId?: string }) => {
     const id = String(payload?.id || '')
     const reqId = String(payload?.requestId || '')
@@ -146,52 +165,27 @@ export const registerFileSystemHandlers = () => {
     return app.getPath(name)
   })
 
-  ipcMain.handle('ssh:sftp:list', async (_e, { path: reqPath, id }) => {
-    return new Promise<unknown[]>((resolve) => {
-      if (isLocalId(id)) {
-        ;(async () => {
-          try {
-            const data = await listLocalDir(reqPath)
-            resolve(data)
-          } catch (err: any) {
-            resolve([String(err?.message || err)])
-          }
-        })()
-        return
+  ipcMain.handle('ssh:sftp:list', async (event, { path: reqPath, id }) => {
+    if (isLocalId(id)) {
+      try {
+        return await listLocalDir(reqPath)
+      } catch (err: any) {
+        return [String(err?.message || err)]
       }
+    }
 
-      const sftp = getSftpConnection(id)
-      if (!sftp) return resolve([''])
+    try {
+      // Always probe the current SFTP handle before listing, and reconnect if needed.
+      let sftp = await ensureSftpReady(event, id)
 
-      sftp.readdir(reqPath, (err, list) => {
-        if (err) {
-          const errorCode = (err as { code?: number }).code
-          switch (errorCode) {
-            case 2:
-              return resolve([`cannot open directory '${reqPath}': No such file or directory`])
-            case 3:
-              return resolve([`cannot open directory '${reqPath}': Permission denied`])
-            case 4:
-              return resolve([`cannot open directory '${reqPath}': Operation failed`])
-            case 5:
-              return resolve([`cannot open directory '${reqPath}': Bad message format`])
-            case 6:
-              return resolve([`cannot open directory '${reqPath}': No connection`])
-            case 7:
-              return resolve([`cannot open directory '${reqPath}': Connection lost`])
-            case 8:
-              return resolve([`cannot open directory '${reqPath}': Operation not supported`])
-            default: {
-              const message = (err as Error).message || `Unknown error (code: ${errorCode})`
-              return resolve([`cannot open directory '${reqPath}': ${message}`])
-            }
-          }
-        }
+      try {
+        const list = await sftpReaddirWithTimeout(sftp, reqPath, 10000)
 
-        const files = (list || []).map((item) => {
+        return (list || []).map((item) => {
           const name = item.filename
           const attrs = item.attrs
           const prefix = reqPath === '/' ? '/' : reqPath + '/'
+
           return {
             name,
             path: prefix + name,
@@ -202,11 +196,52 @@ export const registerFileSystemHandlers = () => {
             size: attrs.size
           }
         })
-        resolve(files)
-      })
-    })
-  })
+      } catch {
+        // Retry once with a fresh SFTP session if the current handle fails mid-request.
+        await closeSftpOnly(String(id))
+        sftp = await ensureSftpReady(event, id)
 
+        const list = await sftpReaddirWithTimeout(sftp, reqPath, 10000)
+
+        return (list || []).map((item) => {
+          const name = item.filename
+          const attrs = item.attrs
+          const prefix = reqPath === '/' ? '/' : reqPath + '/'
+
+          return {
+            name,
+            path: prefix + name,
+            isDir: attrs.isDirectory(),
+            isLink: attrs.isSymbolicLink(),
+            mode: '0' + (attrs.mode & 0o777).toString(8),
+            modTime: new Date(attrs.mtime * 1000).toISOString().replace('T', ' ').slice(0, 19),
+            size: attrs.size
+          }
+        })
+      }
+    } catch (err: any) {
+      const errorCode = err?.code
+
+      switch (errorCode) {
+        case 2:
+          return [`cannot open directory '${reqPath}': No such file or directory`]
+        case 3:
+          return [`cannot open directory '${reqPath}': Permission denied`]
+        case 4:
+          return [`cannot open directory '${reqPath}': Operation failed`]
+        case 5:
+          return [`cannot open directory '${reqPath}': Bad message format`]
+        case 6:
+          return [`cannot open directory '${reqPath}': No connection`]
+        case 7:
+          return [`cannot open directory '${reqPath}': Connection lost`]
+        case 8:
+          return [`cannot open directory '${reqPath}': Operation not supported`]
+        default:
+          return [`cannot open directory '${reqPath}': ${err?.message || String(err)}`]
+      }
+    }
+  })
   ipcMain.handle('ssh:sftp:upload-file', (event, args) => handleStreamTransfer(event, args.id, args.localPath, args.remotePath, 'upload'))
 
   ipcMain.handle('ssh:sftp:upload-directory', (event, args) => handleDirectoryTransfer(event, args.id, args.localPath, args.remotePath))
@@ -424,16 +459,103 @@ const handleDeleteFile = (_event, id, remotePath, resolve, reject) => {
     })
 }
 
-function sftpStat(sftp: any, p: string) {
-  return new Promise<any>((resolve, reject) => {
+const withTimeout = async <T>(promise: Promise<T>, ms: number, message: string): Promise<T> => {
+  let timer: NodeJS.Timeout | null = null
+
+  const timeoutPromise = new Promise<T>((_resolve, reject) => {
+    timer = setTimeout(() => {
+      reject(new Error(message))
+    }, ms)
+  })
+
+  try {
+    return await Promise.race([promise, timeoutPromise])
+  } finally {
+    if (timer) clearTimeout(timer)
+  }
+}
+
+// Wrap ssh2 callback APIs so we can reuse them in reconnect checks.
+const sftpStat = async (sftp: any, p: string): Promise<any> => {
+  return await new Promise<any>((resolve, reject) => {
     sftp.stat(p, (err: any, st: any) => (err ? reject(err) : resolve(st)))
   })
 }
 
-function sftpReaddir(sftp: any, p: string) {
-  return new Promise<any[]>((resolve, reject) => {
+const sftpReaddir = async (sftp: any, p: string): Promise<any[]> => {
+  return await new Promise<any[]>((resolve, reject) => {
     sftp.readdir(p, (err: any, list: any[]) => (err ? reject(err) : resolve(list || [])))
   })
+}
+
+// Keep liveness checks bounded so stale SFTP handles fail fast.
+const sftpStatWithTimeout = async (sftp: any, p: string, timeout = 3000): Promise<any> => {
+  return await withTimeout(sftpStat(sftp, p), timeout, `SFTP stat timeout: ${p}`)
+}
+
+const sftpReaddirWithTimeout = async (sftp: any, p: string, timeout = 10000): Promise<any[]> => {
+  return await withTimeout(sftpReaddir(sftp, p), timeout, `SFTP readdir timeout: ${p}`)
+}
+
+// Reuse reconnect info across sibling file sessions that share the same prefix.
+const getReusableSftpConnectionInfo = (id: string) => {
+  const direct = sftpConnectionInfoMap.get(id)
+  if (direct) return direct
+
+  if (!id) return null
+
+  const prefix = id.substring(0, id.lastIndexOf(':') + 1)
+
+  for (const [existingId, info] of sftpConnectionInfoMap.entries()) {
+    const sessionPart = existingId.substring(existingId.lastIndexOf(':') + 1)
+    if (existingId.startsWith(prefix) && sessionPart.startsWith('files-')) {
+      return info
+    }
+  }
+
+  for (const [existingId, info] of sftpConnectionInfoMap.entries()) {
+    if (existingId.startsWith(prefix)) {
+      return info
+    }
+  }
+
+  return null
+}
+
+const ensureSftpReady = async (event: any, id: string): Promise<any> => {
+  const sid = String(id || '')
+  if (!sid) {
+    throw new Error('missing connection id')
+  }
+
+  let sftp = getSftpConnection(sid)
+
+  if (sftp) {
+    try {
+      await sftpStatWithTimeout(sftp, '.', 3000)
+      return sftp
+    } catch {
+      // Drop only the current SFTP handle and rebuild it from cached connect info.
+      await closeSftpOnly(sid)
+    }
+  }
+
+  const cachedInfo = getReusableSftpConnectionInfo(sid)
+  if (!cachedInfo) {
+    throw new Error('missing reconnect connection info')
+  }
+
+  const result = await connectSftpReuseFirst(event, cachedInfo)
+  if (result?.status !== 'connected') {
+    throw new Error(result?.message || 'SFTP reconnect failed')
+  }
+
+  sftp = getSftpConnection(sid)
+  if (!sftp) {
+    throw new Error('SFTP reconnect failed: no sftp instance')
+  }
+
+  return sftp
 }
 
 function sftpMkdir(sftp: any, p: string) {
@@ -1931,121 +2053,207 @@ export async function handleDirectoryTransfer(event: any, id: string, localDir: 
 
 export const initSftpOnConnection = (conn: Client, connectionId: string): Promise<void> => {
   return new Promise<void>((resolve) => {
-    conn.sftp((err, sftp) => {
-      if (err || !sftp) {
-        connectionStatus.set(connectionId, {
-          sftpAvailable: false,
-          sftpError: err?.message || 'SFTP object is empty'
-        })
-        sftpConnections.set(connectionId, {
-          isSuccess: false,
-          error: `sftp init error: "${err?.message || 'SFTP object is empty'}"`
-        })
-        return resolve()
-      }
-
-      sftp.readdir('.', (readDirErr) => {
-        if (readDirErr) {
+    try {
+      conn.sftp((err, sftp) => {
+        if (err || !sftp) {
           connectionStatus.set(connectionId, {
             sftpAvailable: false,
-            sftpError: readDirErr.message
+            sftpError: err?.message || 'SFTP object is empty'
           })
-          try {
-            sftp.end()
-          } catch {}
           sftpConnections.set(connectionId, {
             isSuccess: false,
-            error: `sftp readdir error: "${readDirErr.message}"`
+            error: `sftp init error: "${err?.message || 'SFTP object is empty'}"`
           })
-        } else {
-          sftpConnections.set(connectionId, { isSuccess: true, sftp })
-          connectionStatus.set(connectionId, { sftpAvailable: true })
+          return resolve()
         }
-        resolve()
+
+        // Probe the session with a cheap read to avoid caching a dead SFTP wrapper.
+        sftp.readdir('.', (readDirErr) => {
+          if (readDirErr) {
+            connectionStatus.set(connectionId, {
+              sftpAvailable: false,
+              sftpError: readDirErr.message
+            })
+            try {
+              sftp.end()
+            } catch {}
+            sftpConnections.set(connectionId, {
+              isSuccess: false,
+              error: `sftp readdir error: "${readDirErr.message}"`
+            })
+          } else {
+            sftpConnections.set(connectionId, { isSuccess: true, sftp })
+            connectionStatus.set(connectionId, { sftpAvailable: true })
+          }
+          resolve()
+        })
       })
-    })
+    } catch (err: any) {
+      connectionStatus.set(connectionId, {
+        sftpAvailable: false,
+        sftpError: err?.message || String(err)
+      })
+      sftpConnections.set(connectionId, {
+        isSuccess: false,
+        error: `sftp init error: "${err?.message || String(err)}"`
+      })
+      resolve()
+    }
   })
 }
 
-const findReusableSftpConn = (connectionInfo: any): Client | undefined => {
+const isSkippedConn = (conn: Client | undefined, skipped?: Client) => {
+  return !!conn && !!skipped && conn === skipped
+}
+
+// Prefer an existing SSH connection when it is still alive and not explicitly skipped.
+const findReusableSftpConn = (connectionInfo: any, skippedConn?: Client): Client | undefined => {
   const { id } = connectionInfo
 
   const direct = sshConnections.get(id)
-  if (direct) return direct
+  if (direct && !isSkippedConn(direct, skippedConn) && isClientSocketAlive(direct)) return direct
 
   if (id) {
     const prefix = id.substring(0, id.lastIndexOf(':') + 1)
 
     for (const [existingId, existingConn] of sshConnections.entries()) {
       const sessionPart = existingId.substring(existingId.lastIndexOf(':') + 1)
-      if (existingId.startsWith(prefix) && sessionPart.startsWith('files-')) {
+      if (
+        existingId.startsWith(prefix) &&
+        sessionPart.startsWith('files-') &&
+        !isSkippedConn(existingConn, skippedConn) &&
+        isClientSocketAlive(existingConn)
+      ) {
         return existingConn
       }
     }
 
     for (const [existingId, existingConn] of sshConnections.entries()) {
-      if (existingId.startsWith(prefix)) return existingConn
+      if (existingId.startsWith(prefix) && !isSkippedConn(existingConn, skippedConn) && isClientSocketAlive(existingConn)) return existingConn
     }
   }
 
   return undefined
 }
 
-const findReusableConn = (connectionInfo: any): Client | undefined => {
-  const { id, sshType, host, port, username, assetUuid } = connectionInfo
+// ssh2 keeps socket state on the client instance, so this is the cheapest health signal we can read.
+const isClientSocketAlive = (conn?: Client) => {
+  const client = conn as any
+  if (!client) return false
 
-  const reusableSftpConn = findReusableSftpConn(connectionInfo)
+  const sock = client._sock
+  if (!sock) return true
+
+  return !sock.destroyed && !sock.closed
+}
+
+// JumpServer reuse is read-only here: dead connect-side records are ignored, not deleted.
+const findReusableJumpServerConn = (connectionInfo: any, skippedConn?: Client): Client | undefined => {
+  const { id, assetUuid } = connectionInfo
+  const jumpserverUuid = assetUuid || id
+
+  for (const [, existingData] of jumpserverConnections.entries()) {
+    if (existingData.jumpserverUuid !== jumpserverUuid || !existingData.conn) continue
+
+    if (!isSkippedConn(existingData.conn, skippedConn) && isClientSocketAlive(existingData.conn)) {
+      return existingData.conn
+    }
+  }
+
+  return undefined
+}
+
+// Reuse priority: active SFTP/SSH session first, then JumpServer/shared pooled SSH connection.
+const findReusableConn = (connectionInfo: any, skippedConn?: Client): Client | undefined => {
+  const { sshType, host, port, username } = connectionInfo
+
+  const reusableSftpConn = findReusableSftpConn(connectionInfo, skippedConn)
   if (reusableSftpConn) return reusableSftpConn
 
   if (sshType === 'jumpserver') {
-    const jumpserverUuid = assetUuid || id
-    for (const [, existingData] of jumpserverConnections.entries()) {
-      if (existingData.jumpserverUuid === jumpserverUuid) return existingData.conn
-    }
+    const reusableJumpServerConn = findReusableJumpServerConn(connectionInfo, skippedConn)
+    if (reusableJumpServerConn) return reusableJumpServerConn
   }
 
   if (host && username) {
     const poolKey = getConnectionPoolKey(host, port || 22, username)
     const pooled = sshConnectionPool.get(poolKey)
-    if (pooled?.conn) return pooled.conn
+    if (pooled?.conn && !isSkippedConn(pooled.conn, skippedConn) && isClientSocketAlive(pooled.conn)) return pooled.conn
   }
 
   return undefined
 }
 
-export const connectSftpReuseFirst = async (event: any, connectionInfo: any): Promise<SftpConnectResult> => {
+export const connectSftpReuseFirst = async (event: any, connectionInfo: any, options?: { skipReusableConn?: Client }): Promise<SftpConnectResult> => {
   const { id } = connectionInfo
   const requestId = String(connectionInfo?.sftpRequestId || `${Date.now()}_${Math.random().toString(16).slice(2)}`)
 
-  // record pending
   markPending(id, requestId)
-  const reused = findReusableConn(connectionInfo)
+  const reused = findReusableConn(connectionInfo, options?.skipReusableConn)
+
   if (reused) {
-    await initSftpOnConnection(reused, id)
+    try {
+      await initSftpOnConnection(reused, id)
 
-    const p = getPending(id)
-    if (p?.cancelled) {
-      await closeSftpOnly(id)
-      clearPending(id)
-      return { status: 'cancelled', message: 'cancelled' }
+      const p = getPending(id)
+      if (p?.cancelled) {
+        await closeSftpOnly(id)
+        clearPending(id)
+        return { status: 'cancelled', message: 'cancelled' }
+      }
+
+      const st = connectionStatus.get(id) as any
+      if (st?.sftpAvailable) {
+        clearPending(id)
+        return { status: 'connected', message: 'SFTP ready (reused existing SSH connection)' }
+      }
+
+      // Mark the reused SFTP as unavailable and fall back to a fresh connection below.
+      sftpConnections.delete(id)
+      connectionStatus.set(id, {
+        sftpAvailable: false,
+        sftpError: st?.sftpError || 'reused ssh not available'
+      })
+    } catch (e) {
+      // Reuse failed; keep connect-side state untouched and create a new SFTP connection instead.
+      sftpConnections.delete(id)
+      connectionStatus.set(id, {
+        sftpAvailable: false,
+        sftpError: (e as Error)?.message || 'reused ssh not available'
+      })
     }
-
-    clearPending(id)
-    const st = connectionStatus.get(id) as any
-    return st?.sftpAvailable
-      ? { status: 'connected', message: 'SFTP ready (reused existing SSH connection)' }
-      : { status: 'error', message: st?.sftpError || 'SFTP init failed' }
   }
 
   clearPending(id)
-  return await connectSftpNew(event, connectionInfo)
+  return await connectSftpNew(event, connectionInfo, { skipReusableConn: reused })
 }
 
-export const connectSftpNew = async (event: any, connectionInfo: any): Promise<SftpConnectResult> => {
+// Keep SFTP state in sync when the underlying transport closes unexpectedly.
+const markSftpDead = async (id: string, reason = 'SFTP connection lost') => {
+  const sid = String(id || '')
+  if (!sid) return
+
+  try {
+    const rec = sftpConnections.get(sid) as any
+    if (rec?.sftp) {
+      try {
+        rec.sftp.end()
+      } catch {}
+    }
+  } catch {}
+
+  sftpConnections.delete(sid)
+  connectionStatus.set(sid, {
+    sftpAvailable: false,
+    sftpError: reason
+  })
+}
+
+export const connectSftpNew = async (event: any, connectionInfo: any, options?: { skipReusableConn?: Client }): Promise<SftpConnectResult> => {
   const { id, sshType } = connectionInfo
 
   if (sshType === 'jumpserver') {
-    return await connectJumpServerSftpNew(event, connectionInfo)
+    return await connectJumpServerSftpNew(event, connectionInfo, options)
   }
 
   const conn = new SSHClient()
@@ -2059,6 +2267,7 @@ export const connectSftpNew = async (event: any, connectionInfo: any): Promise<S
   const requestId = String(connectionInfo?.sftpRequestId || `${Date.now()}_${Math.random().toString(16).slice(2)}`)
   markPending(id, requestId, conn as any)
 
+  // This path creates an SFTP-owned SSH connection when reuse is not possible.
   const connectConfig: any = {
     host,
     port: port || 22,
@@ -2156,6 +2365,13 @@ export const connectSftpNew = async (event: any, connectionInfo: any): Promise<S
       resolve({ status: 'error', message: `SFTP connection failed: ${err.message}` })
     })
 
+    conn.on('close', async () => {
+      await markSftpDead(id, 'SFTP connection closed')
+    })
+
+    conn.on('end', async () => {
+      await markSftpDead(id, 'SFTP connection ended')
+    })
     conn.connect(connectConfig)
   })
 }
@@ -2169,30 +2385,27 @@ function openShell(conn: any, connectionInfo: any) {
   })
 }
 
-const connectJumpServerSftpNew = async (_event: any, connectionInfo: any): Promise<SftpConnectResult> => {
-  const { id, host, port, username, password, privateKey, passphrase, needProxy, proxyConfig, proxyCommand, connIdentToken, asset_type, assetUuid } =
+const connectJumpServerSftpNew = async (_event: any, connectionInfo: any, options?: { skipReusableConn?: Client }): Promise<SftpConnectResult> => {
+  const { id, host, port, username, password, privateKey, passphrase, needProxy, proxyConfig, proxyCommand, connIdentToken, asset_type } =
     connectionInfo
-  const jumpserverUuid = assetUuid || id
+  // Try a live JumpServer connect-side session first, then fall back to an SFTP-owned one.
+  const reusableConn = findReusableJumpServerConn(connectionInfo, options?.skipReusableConn)
+  if (reusableConn) {
+    const requestId = String(connectionInfo?.sftpRequestId || `${Date.now()}_${Math.random().toString(16).slice(2)}`)
+    markPending(id, requestId)
+    await initSftpOnConnection(reusableConn, id)
 
-  // Reuse first jumpserverConnections
-  for (const [, existingData] of jumpserverConnections.entries()) {
-    if (existingData.jumpserverUuid === jumpserverUuid && existingData.conn) {
-      const requestId = String(connectionInfo?.sftpRequestId || `${Date.now()}_${Math.random().toString(16).slice(2)}`)
-      markPending(id, requestId)
-      await initSftpOnConnection(existingData.conn, id)
-
-      const p = getPending(id)
-      if (p?.cancelled) {
-        await closeSftpOnly(id)
-        clearPending(id)
-        return { status: 'cancelled', message: 'cancelled' }
-      }
-
+    const p = getPending(id)
+    if (p?.cancelled) {
+      await closeSftpOnly(id)
       clearPending(id)
-      const st = connectionStatus.get(id) as any
-      return st?.sftpAvailable
-        ? { status: 'connected', message: 'SFTP ready (reused JumpServer connection)' }
-        : { status: 'error', message: st?.sftpError || 'SFTP init failed' }
+      return { status: 'cancelled', message: 'cancelled' }
+    }
+
+    clearPending(id)
+    const st = connectionStatus.get(id) as any
+    if (st?.sftpAvailable) {
+      return { status: 'connected', message: 'SFTP ready (reused JumpServer connection)' }
     }
   }
 
@@ -2254,16 +2467,19 @@ const connectJumpServerSftpNew = async (_event: any, connectionInfo: any): Promi
       resolve(data)
     }
 
+    // Clean only the JumpServer resources created by SFTP itself.
+    const cleanupJumpServerSftpOnlySession = async (reason: string) => {
+      sftpOwnedJumpServerConnections.delete(id)
+      sftpOwnedJumpServerStreams.delete(id)
+      await markSftpDead(id, reason)
+    }
+
     conn.on('ready', async () => {
       try {
         const stream = await openShell(conn, connectionInfo)
-        jumpserverConnections.set(id, {
-          conn,
-          stream,
-          jumpserverUuid,
-          targetIp: connectionInfo.targetIp,
-          navigationPath: { needsPassword: false }
-        })
+        // Store SFTP-owned JumpServer resources separately from connect-managed sessions.
+        sftpOwnedJumpServerConnections.set(id, conn)
+        sftpOwnedJumpServerStreams.set(id, stream)
 
         await initSftpOnConnection(conn, id)
 
@@ -2291,6 +2507,14 @@ const connectJumpServerSftpNew = async (_event: any, connectionInfo: any): Promi
       })
     })
 
+    conn.on('close', async () => {
+      await cleanupJumpServerSftpOnlySession('SFTP connection closed')
+    })
+
+    conn.on('end', async () => {
+      await cleanupJumpServerSftpOnlySession('SFTP connection ended')
+    })
+
     conn.connect(connectConfig)
   })
 }
@@ -2308,29 +2532,72 @@ const markPending = (id: string, requestId: string, conn?: Client) => {
 const getPending = (id: string) => pendingSftpConnects.get(id)
 const clearPending = (id: string) => pendingSftpConnects.delete(id)
 
+// Resolve sibling file-panel ids to the same underlying SFTP record when needed.
+const findReusableSftpKey = (id: string) => {
+  if (sftpConnections.has(id)) return id
+
+  if (!id) return id
+
+  const prefix = id.substring(0, id.lastIndexOf(':') + 1)
+
+  for (const [existingId] of sftpConnections.entries()) {
+    const sessionPart = existingId.substring(existingId.lastIndexOf(':') + 1)
+    if (existingId.startsWith(prefix) && sessionPart.startsWith('files-')) {
+      return existingId
+    }
+  }
+
+  for (const [existingId] of sftpConnections.entries()) {
+    if (existingId.startsWith(prefix)) {
+      return existingId
+    }
+  }
+
+  return id
+}
+
 export const closeSftpOnly = async (connectionId: string): Promise<{ status: string; message: string }> => {
   const id = String(connectionId || '')
   if (!id) return { status: 'error', message: 'missing id' }
 
+  const actualId = findReusableSftpKey(id)
+
   try {
-    const p = pendingSftpConnects.get(id)
+    const p = pendingSftpConnects.get(actualId)
     if (p) {
       p.cancelled = true
       try {
         p.conn?.end()
       } catch {}
-      clearPending(id)
+      clearPending(actualId)
     }
 
-    const rec = sftpConnections.get(id) as any
+    const rec = sftpConnections.get(actualId) as any
     if (rec?.sftp) {
       try {
         rec.sftp.end()
       } catch {}
     }
 
-    sftpConnections.delete(id)
-    connectionStatus.set(id, { sftpAvailable: false, sftpError: 'SFTP closed by user' })
+    sftpConnections.delete(actualId)
+    connectionStatus.set(actualId, { sftpAvailable: false, sftpError: 'SFTP closed by user' })
+
+    // Only tear down JumpServer resources that were created by SFTP itself.
+    const ownedStream = sftpOwnedJumpServerStreams.get(actualId)
+    if (ownedStream) {
+      try {
+        ownedStream.end()
+      } catch {}
+      sftpOwnedJumpServerStreams.delete(actualId)
+    }
+
+    const ownedConn = sftpOwnedJumpServerConnections.get(actualId)
+    if (ownedConn) {
+      try {
+        ownedConn.end()
+      } catch {}
+      sftpOwnedJumpServerConnections.delete(actualId)
+    }
 
     return { status: 'closed', message: 'SFTP closed' }
   } catch (e: any) {
