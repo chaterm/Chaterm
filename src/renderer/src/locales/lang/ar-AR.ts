@@ -1221,6 +1221,19 @@ export default {
     welcomeMessage: '{username}, مرحبا بك في Chaterm',
     reconnecting: 'جاري الاتصال...',
     terminalConnectionError: 'خطأ في الاتصال. الرجاء التحقق من أن الخادم المحلي يعمل.',
+    autoReconnect: {
+      tag: 'إعادة الاتصال',
+      networkIssue: 'مشكلة في الشبكة',
+      networkOfflineWaitingRestoration: 'الشبكة غير متصلة. جارٍ انتظار استعادة الاتصال...',
+      stoppedAfterMaxAttempts: 'تم التوقف بعد {max} محاولات فاشلة. اضغط Enter لإعادة المحاولة يدويًا.',
+      attemptProgress: 'محاولة {current}/{max}...',
+      connectedOnAttempt: 'تم الاتصال بنجاح في المحاولة {current}/{max}.',
+      attemptFailed: 'فشلت المحاولة {current}/{max}.',
+      retryingInSeconds: 'إعادة المحاولة خلال {seconds}ث...',
+      networkRestoredStartReconnect: 'تمت استعادة الشبكة. بدء إعادة الاتصال...',
+      detectedNetworkDisconnect: 'تم اكتشاف انقطاع في الشبكة ({reason}).',
+      networkOfflineWaitingReconnect: 'الشبكة غير متصلة. جارٍ انتظار إعادة الاتصال...'
+    },
     jumpserver: {
       connectingToBastionHost: 'يتم الاتصال بالخادم البعيد...',
       connectedToBastionHost: 'تم الاتصال بالخادم البعيد بنجاح, الرجاء الانتظار...',
