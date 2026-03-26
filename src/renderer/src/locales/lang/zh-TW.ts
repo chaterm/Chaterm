@@ -61,6 +61,7 @@ export default {
     splitRightInner: '向右內分屏',
     splitDownInner: '向下內分屏',
     clone: '克隆',
+    forkSsh: '複製SSH頻道',
     clearTerm: '清屏',
     shrotenName: '縮短主機名',
     fontsize: '字體大小',

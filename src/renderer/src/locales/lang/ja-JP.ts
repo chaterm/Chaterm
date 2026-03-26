@@ -61,6 +61,7 @@ export default {
     splitRightInner: '右に分割（内側）',
     splitDownInner: '下に分割（内側）',
     clone: 'クローン',
+    forkSsh: 'SSHチャネルのフォーク',
     clearTerm: '画面をクリア',
     shrotenName: 'ホスト名を短縮',
     fontsize: 'フォントサイズ',

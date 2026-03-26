@@ -72,6 +72,7 @@ import type { WebviewMessage } from '@shared/WebviewMessage'
 import type { SkillMetadata } from '@shared/skills'
 import { registerFileSystemHandlers } from './ssh/sftpTransfer'
 import { initLogging, logRendererCrash } from '@logging'
+import { parseXshellWakeupFromArgv, redactXshellWakeupForLog, type XshellWakeupPayload } from './integrations/xshellWakeup'
 
 const logger = createLogger('main')
 
@@ -87,6 +88,7 @@ let chatermDbService: ChatermDatabaseService
 let controller: Controller
 let dataSyncController: DataSyncController | null = null
 let chatSyncScheduler: import('./storage/chat_sync/services/ChatSyncScheduler').ChatSyncScheduler | null = null
+let pendingXshellWakeups: XshellWakeupPayload[] = []
 
 let winReadyResolve
 let winReady = new Promise((resolve) => (winReadyResolve = resolve))
@@ -2993,6 +2995,62 @@ const handleProtocolRedirect = async (url: string) => {
   }
 }
 
+const dispatchXshellWakeupToRenderer = (payload: XshellWakeupPayload) => {
+  const targetWindow = BrowserWindow.getAllWindows()[0]
+  if (!targetWindow || targetWindow.isDestroyed()) {
+    return
+  }
+
+  if (targetWindow.isMinimized()) {
+    targetWindow.restore()
+  }
+  targetWindow.focus()
+  targetWindow.webContents.send('external-xshell-wakeup', payload)
+}
+
+const buildWakeupArgvFromAppSwitches = (): string[] => {
+  const fromSwitches: string[] = []
+  const encoded = app.commandLine.getSwitchValue('xshell-wakeup')
+  if (encoded) {
+    return ['--xshell-wakeup', encoded]
+  }
+
+  const url = app.commandLine.getSwitchValue('url')
+  if (url) {
+    fromSwitches.push('--url', url)
+  }
+
+  const newtab = app.commandLine.getSwitchValue('newtab')
+  if (newtab) {
+    fromSwitches.push('--newtab', newtab)
+  }
+
+  return fromSwitches
+}
+
+const handleXshellWakeupArgv = (
+  argv: string[],
+  options?: {
+    fallbackToAppSwitches?: boolean
+  }
+) => {
+  let payload = parseXshellWakeupFromArgv(argv)
+  if (!payload && options?.fallbackToAppSwitches) {
+    const switchArgv = buildWakeupArgvFromAppSwitches()
+    if (switchArgv.length > 0) {
+      payload = parseXshellWakeupFromArgv(switchArgv)
+    }
+  }
+  if (!payload) return false
+
+  logger.info('Received Xshell wakeup payload', {
+    payload: redactXshellWakeupForLog(payload)
+  })
+  pendingXshellWakeups.push(payload)
+  dispatchXshellWakeupToRenderer(payload)
+  return true
+}
+
 // Activation of Processing Protocol in Windows
 if (process.platform === 'win32') {
   const gotTheLock = app.requestSingleInstanceLock()
@@ -3009,10 +3067,27 @@ if (process.platform === 'win32') {
         mainWindow.focus()
       }
 
+      // Handle fake xshell wakeup arguments first
+      if (handleXshellWakeupArgv(commandLine)) {
+        return
+      }
+
       // Processing Protocol URL
-      const url = commandLine.pop()
+      const url = commandLine.find((arg) => arg.startsWith(protocolPrefix))
       if (url && url.startsWith(protocolPrefix)) {
         handleProtocolRedirect(url)
+      }
+    })
+  }
+
+  // Handle fake xshell wakeup parameters when app starts
+  if (handleXshellWakeupArgv(process.argv, { fallbackToAppSwitches: true })) {
+    app.whenReady().then(() => {
+      // Re-dispatch once the renderer is ready enough to consume IPC events.
+      // Payload is already queued and can also be fetched via consume API.
+      const queued = pendingXshellWakeups[pendingXshellWakeups.length - 1]
+      if (queued) {
+        dispatchXshellWakeupToRenderer(queued)
       }
     })
   }
@@ -3029,6 +3104,12 @@ app.on('open-url', (_event, url) => {
 // Add IPC handler to get protocol prefix
 ipcMain.handle('get-protocol-prefix', async () => {
   return getProtocolPrefix()
+})
+
+ipcMain.handle('xshell-wakeup:consume-pending', async () => {
+  const queue = [...pendingXshellWakeups]
+  pendingXshellWakeups = []
+  return queue
 })
 
 // Add IPC handler after creating Window function

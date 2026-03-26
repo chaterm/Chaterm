@@ -947,6 +947,11 @@ export class Task {
         })
 
         process.on('error', (error) => {
+          logger.error('executeCommandInRemoteServer error', {
+            event: 'agent.task.exec_remote.error',
+            ip,
+            error: error.message
+          })
           reject(new Error(`Command execution failed: ${error.message}`))
           clearTimeout(timeout)
           if (!isCompleted) {
@@ -1031,7 +1036,7 @@ export class Task {
 
       const hostLabel = connectionInfo?.host || targetHost.host || ip || 'unknown'
       // Create a unique connection identifier
-      const currentConnectionId = `${connectionInfo.host}:${connectionInfo.port}:${connectionInfo.username}`
+      const currentConnectionId = `${connectionInfo?.host || targetHost.host}:${connectionInfo?.port || 22}:${connectionInfo?.username || ''}`
       const isNewConnection = !this.connectedHosts.has(currentConnectionId)
 
       // Check if this is an agent mode + local connection scenario that will fail

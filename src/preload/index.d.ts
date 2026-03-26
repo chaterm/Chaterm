@@ -189,6 +189,7 @@ interface ApiType {
   connectAssetInfo: (data: { uuid: string }) => Promise<any>
   openBrowserWindow: (url: string) => Promise<void>
   connect: (connectionInfo: any) => Promise<any>
+  forkSession: (params: { sourceConnectionId: string; newConnectionId: string; host: string; port: number; username: string }) => Promise<any>
   shell: (params: any) => Promise<any>
   writeToShell: (params: any) => Promise<any>
   disconnect: (params: any) => Promise<any>
@@ -248,6 +249,8 @@ interface ApiType {
     highlights?: Record<string, string[]> | string[]
   } | null>
   onSystemThemeChanged: (callback: (theme: string) => void) => () => void
+  onXshellWakeup: (callback: (payload: any) => void) => () => void
+  consumePendingXshellWakeups: () => Promise<any[]>
   // Keyboard-interactive authentication
   onKeyboardInteractiveRequest: (callback: (data: any) => void) => () => void
   onKeyboardInteractiveTimeout: (callback: (data: any) => void) => () => void

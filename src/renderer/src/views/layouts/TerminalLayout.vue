@@ -38,6 +38,13 @@
         <span>{{ $t('common.clone') }}</span>
       </div>
       <div
+        v-if="canForkSshChannel"
+        class="context-menu-item"
+        @click="forkSshChannel"
+      >
+        <span>{{ $t('common.forkSsh') }}</span>
+      </div>
+      <div
         class="context-menu-item"
         @click="createNewPanel(false, 'right')"
       >
@@ -328,6 +335,7 @@ import { aliasConfigStore } from '@/store/aliasConfigStore'
 import eventBus from '@/utils/eventBus'
 import { getActualTheme, initializeThemeFromDatabase } from '@/utils/themeUtils'
 import { componentInstances, inputManager, isGlobalInput, isShowCommandBar } from '@renderer/views/components/Ssh/utils/termInputManager'
+import { getSshConnectionId } from '@renderer/views/components/Ssh/utils/sshConnectionRegistry'
 import { shortcutService } from '@/services/shortcutService'
 import { captureExtensionUsage, ExtensionNames, ExtensionStatus } from '@/utils/telemetry'
 import Dashboard from '@renderer/views/components/Ssh/components/dashboard.vue'
@@ -986,6 +994,7 @@ onMounted(async () => {
       }
     }
   })
+  await setupXshellWakeupBridge()
 
   // Try to restore state on initial mount (unified for both modes)
   nextTick(async () => {
@@ -1517,6 +1526,120 @@ interface TabItem {
 }
 const openedTabs = ref<TabItem[]>([])
 const activeTabId = ref('')
+
+type XshellWakeupPayload = {
+  source?: string
+  url?: string
+  host?: string
+  port?: number
+  username?: string
+  password?: string
+  targetHint?: string
+  newTab?: boolean
+  receivedAt?: string
+}
+
+let removeXshellWakeupListener: (() => void) | null = null
+const xshellWakeupDedupTimestamps = new Map<string, number>()
+const XSHELL_WAKEUP_DEDUP_WINDOW_MS = 10 * 60 * 1000
+
+const makeXshellWakeupDedupKey = (payload: XshellWakeupPayload): string => {
+  const host = String(payload.host || '')
+  const port = Number(payload.port || 22)
+  const username = String(payload.username || '')
+  const targetHint = String(payload.targetHint || '')
+  const receivedAt = String(payload.receivedAt || '')
+  return `${host}:${port}:${username}:${targetHint}:${receivedAt}`
+}
+
+const shouldSkipDuplicateXshellWakeup = (payload: XshellWakeupPayload): boolean => {
+  const key = makeXshellWakeupDedupKey(payload)
+  const now = Date.now()
+
+  for (const [dedupKey, ts] of xshellWakeupDedupTimestamps.entries()) {
+    if (now - ts > XSHELL_WAKEUP_DEDUP_WINDOW_MS) {
+      xshellWakeupDedupTimestamps.delete(dedupKey)
+    }
+  }
+
+  const last = xshellWakeupDedupTimestamps.get(key)
+  xshellWakeupDedupTimestamps.set(key, now)
+  return typeof last === 'number' && now - last <= XSHELL_WAKEUP_DEDUP_WINDOW_MS
+}
+
+const openTerminalFromXshellWakeup = (payload: XshellWakeupPayload) => {
+  if (!payload || !payload.host || !payload.username) {
+    logger.warn('Invalid xshell wakeup payload, missing host or username', { payload: payload })
+    return
+  }
+
+  if (shouldSkipDuplicateXshellWakeup(payload)) {
+    logger.info('Skip duplicated xshell wakeup event', { host: payload.host, username: payload.username, port: payload.port || 22 })
+    return
+  }
+
+  const host = String(payload.host)
+  const port = Number(payload.port || 22)
+  const username = String(payload.username)
+  const password = String(payload.password || '')
+  const targetHint = String(payload.targetHint || '')
+  const title = targetHint || `${username}@${host}`
+  const key = targetHint || host
+
+  const node = {
+    title,
+    key,
+    type: 'term',
+    organizationId: 'personal',
+    connection: 'personal',
+    uuid: `xshell-${Date.now()}-${Math.floor(Math.random() * 100000)}`,
+    ip: host,
+    host,
+    hostname: host,
+    port,
+    username,
+    password,
+    authType: 'password',
+    asset_type: 'person',
+    comment: targetHint || host,
+    source: payload.source || 'xshell-direct',
+    wakeupSource: payload.source || 'xshell-direct',
+    skipAssetLookup: true
+  }
+
+  logger.info('Open terminal from xshell wakeup', {
+    source: payload.source || 'unknown',
+    host,
+    username,
+    port,
+    hasPassword: password.length > 0,
+    targetHint
+  })
+  currentClickServer(node)
+}
+
+const setupXshellWakeupBridge = async () => {
+  const api = (window as any).api
+  if (!api) return
+
+  if (typeof api.onXshellWakeup === 'function') {
+    removeXshellWakeupListener = api.onXshellWakeup((payload: XshellWakeupPayload) => {
+      openTerminalFromXshellWakeup(payload)
+    })
+  }
+
+  if (typeof api.consumePendingXshellWakeups === 'function') {
+    try {
+      const pending = await api.consumePendingXshellWakeups()
+      if (Array.isArray(pending)) {
+        pending.forEach((payload: XshellWakeupPayload) => openTerminalFromXshellWakeup(payload))
+      }
+    } catch (error) {
+      logger.error('Failed to consume pending xshell wakeups', { error: error })
+    }
+  }
+}
+
 const currentClickServer = async (item) => {
   if (item.children) return
 
@@ -1754,6 +1877,10 @@ const handleKbFileRenamed = (payload: { oldRelPath: string; newRelPath: string; 
 }
 
 onUnmounted(() => {
+  if (removeXshellWakeupListener) {
+    removeXshellWakeupListener()
+    removeXshellWakeupListener = null
+  }
   eventBus.off('save-state-before-switch')
   shortcutService.destroy()
   window.removeEventListener('resize', updatePaneSize)
@@ -2613,6 +2740,76 @@ const setupTabDragToAi = () => {
       e.dataTransfer.effectAllowed = 'copy'
     }
   })
+}
+
+const canForkSshChannel = computed(() => {
+  const panelId = contextMenu.value.panelId
+  if (!panelId || !dockApi) return false
+  const panel = dockApi.getPanel(panelId)
+  if (!panel) return false
+  const params = (panel as any).api?.panel?._params ?? (panel as any).panel?._params
+  const panelType = params?.type || params?.data?.type
+  if (panelType !== 'term' && panelType !== 'ssh') return false
+  // params.id is the pure uuid that maps to sshConnect's currentConnectionId prop
+  const tabId = params?.id
+  return !!tabId && !!getSshConnectionId(tabId)
+})
+
+const forkSshChannel = () => {
+  const targetPanelId = contextMenu.value.panelId
+  if (!dockApi || !targetPanelId) {
+    hideContextMenu()
+    return
+  }
+
+  const sourcePanel = dockApi.getPanel(targetPanelId)
+  if (!sourcePanel) {
+    hideContextMenu()
+    return
+  }
+
+  const sourceTitle = sourcePanel.api.title ?? sourcePanel.id
+  const sourceComponent = sourcePanel.api.component
+  const rawParams = (sourcePanel as any).api?.panel?._params ?? (sourcePanel as any).panel?._params
+
+  // Get the SSH connectionId from registry using the tab's id (pure uuid)
+  const tabId = rawParams?.id
+  const sshConnectionId = tabId ? getSshConnectionId(tabId) : undefined
+  if (!sshConnectionId) {
+    hideContextMenu()
+    return
+  }
+
+  const newIdV4 = uuidv4()
+  const newId = 'panel_' + newIdV4
+
+  const params = {
+    ...safeCloneParams(rawParams),
+    currentPanelId: newId,
+    closeCurrentPanel: (pid?: string) => closeCurrentPanel(pid || newId),
+    createNewPanel: (isClone: boolean, direction: string, pid?: string) => createNewPanel(isClone, direction as any, pid || newId)
+  }
+
+  params.id = newIdV4
+  // Inject forkFromConnectionId so sshConnect.vue takes the fork path
+  if (params.data) {
+    params.data = { ...params.data, forkFromConnectionId: sshConnectionId }
+  } else {
+    params.data = { forkFromConnectionId: sshConnectionId }
+  }
+
+  dockApi.addPanel({
+    id: newId,
+    component: sourceComponent,
+    title: sourceTitle,
+    params: params,
+    position: {
+      referencePanel: sourcePanel,
+      direction: 'within'
+    }
+  })
+
+  hideContextMenu()
 }
 
 const createNewPanel = (isClone: boolean, direction: 'left' | 'right' | 'above' | 'below' | 'within', panelId?: string) => {

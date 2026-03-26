@@ -61,6 +61,7 @@ export default {
     splitRightInner: 'Dividir à Direita (Interior)',
     splitDownInner: 'Dividir para Baixo (Interior)',
     clone: 'Clonar',
+    forkSsh: 'Bifurcar canal SSH',
     clearTerm: 'Limpar Ecrã',
     shrotenName: 'Encurtar o Nome do Anfitrião',
     fontsize: 'Tamanho da Fonte',

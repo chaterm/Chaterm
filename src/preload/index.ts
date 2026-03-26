@@ -671,6 +671,12 @@ const api = {
   getProtocolPrefix: (): Promise<string> => {
     return ipcRenderer.invoke('get-protocol-prefix')
   },
+  onXshellWakeup: (callback: (payload: any) => void) => {
+    const listener = (_event, payload) => callback(payload)
+    ipcRenderer.on('external-xshell-wakeup', listener)
+    return () => ipcRenderer.removeListener('external-xshell-wakeup', listener)
+  },
+  consumePendingXshellWakeups: () => ipcRenderer.invoke('xshell-wakeup:consume-pending'),
 
   // keyboard-interactive authentication
   onKeyboardInteractiveTimeout: (callback) => {
@@ -783,6 +789,7 @@ const api = {
 
   // SSH API
   connect: (connectionInfo) => ipcRenderer.invoke('ssh:connect', connectionInfo),
+  forkSession: (params) => ipcRenderer.invoke('ssh:fork-session', params),
   connectReadyData: (id) => {
     return new Promise((resolve) => {
       const channel = `ssh:connect:data:${id}`
