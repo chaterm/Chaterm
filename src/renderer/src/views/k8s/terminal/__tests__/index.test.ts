@@ -75,7 +75,8 @@ vi.mock('ant-design-vue', () => ({
 vi.mock('@ant-design/icons-vue', () => ({
   PlusOutlined: { template: '<span>+</span>' },
   ReloadOutlined: { template: '<span>R</span>' },
-  SettingOutlined: { template: '<span>S</span>' }
+  SettingOutlined: { template: '<span>S</span>' },
+  SearchOutlined: { template: '<span>Q</span>' }
 }))
 
 // Mock eventBus
@@ -120,7 +121,7 @@ vi.mock('../components/ClusterSettings.vue', () => ({
     name: 'ClusterSettings',
     template: '<div class="cluster-settings" v-if="visible"><slot /></div>',
     props: ['visible', 'cluster'],
-    emits: ['update:visible', 'success', 'delete']
+    emits: ['update:visible', 'success']
   }
 }))
 
@@ -180,14 +181,9 @@ describe('K8s Terminal Sidebar Component', () => {
       expect(wrapper.exists()).toBe(true)
     })
 
-    it('should render header with title', () => {
-      wrapper = createWrapper()
-      expect(wrapper.find('.header-title').text()).toBe('Clusters')
-    })
-
     it('should render action buttons', () => {
       wrapper = createWrapper()
-      const buttons = wrapper.findAll('.action-button')
+      const buttons = wrapper.findAll('.workspace-button')
       expect(buttons.length).toBe(3) // Add, Refresh, Settings
     })
 
@@ -243,7 +239,7 @@ describe('K8s Terminal Sidebar Component', () => {
   describe('Add Cluster', () => {
     it('should open add cluster modal when add button clicked', async () => {
       wrapper = createWrapper()
-      const addButton = wrapper.findAll('.action-button')[0]
+      const addButton = wrapper.findAll('.workspace-button')[0]
       await addButton.trigger('click')
       await nextTick()
 
@@ -264,7 +260,7 @@ describe('K8s Terminal Sidebar Component', () => {
   describe('Refresh', () => {
     it('should call loadClusters when refresh button clicked', async () => {
       wrapper = createWrapper()
-      const refreshButton = wrapper.findAll('.action-button')[1]
+      const refreshButton = wrapper.findAll('.workspace-button')[1]
       await refreshButton.trigger('click')
       await nextTick()
 
@@ -276,7 +272,7 @@ describe('K8s Terminal Sidebar Component', () => {
   describe('Settings Button', () => {
     it('should emit open-user-tab event when settings button clicked', async () => {
       wrapper = createWrapper()
-      const settingsButton = wrapper.findAll('.action-button')[2]
+      const settingsButton = wrapper.findAll('.workspace-button')[2]
       await settingsButton.trigger('click')
       await nextTick()
 
@@ -380,12 +376,11 @@ describe('K8s Terminal Sidebar Component', () => {
         await clusterItem.vm.$emit('delete')
         await nextTick()
 
-        expect(Modal.confirm).toHaveBeenCalledWith(
-          expect.objectContaining({
-            title: 'Delete Cluster',
-            okType: 'danger'
-          })
-        )
+        expect(Modal.confirm).toHaveBeenCalled()
+        const callArgs = (Modal.confirm as any).mock.calls[0][0]
+        expect(callArgs.title).toBe('Delete Cluster')
+        expect(callArgs.wrapClassName).toBe('k8s-delete-confirm-modal')
+        expect(callArgs.okType).toBe('danger')
       })
     })
   })
@@ -395,7 +390,7 @@ describe('K8s Terminal Sidebar Component', () => {
       mockK8sStore.loading = true
       wrapper = createWrapper()
 
-      const refreshButton = wrapper.findAll('.action-button')[1]
+      const refreshButton = wrapper.findAll('.workspace-button')[1]
       expect(refreshButton.attributes('disabled')).toBeDefined()
     })
   })

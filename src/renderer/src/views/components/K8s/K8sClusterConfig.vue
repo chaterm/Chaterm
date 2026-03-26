@@ -14,7 +14,7 @@
             </template>
           </a-input>
           <a-button
-            type="primary"
+            class="action-button"
             @click="handleAddCluster"
           >
             <template #icon><PlusOutlined /></template>
@@ -120,7 +120,7 @@
               </a-tag>
             </a-form-item>
 
-            <a-form-item :wrapper-col="{ offset: 6, span: 18 }">
+            <div class="form-actions">
               <a-space>
                 <a-button
                   type="primary"
@@ -133,19 +133,22 @@
                   {{ t('common.reset') }}
                 </a-button>
               </a-space>
-            </a-form-item>
+            </div>
           </a-form>
 
           <a-divider />
 
           <div class="danger-zone">
-            <h4>{{ t('k8s.terminal.dangerZone') }}</h4>
-            <p class="danger-warning">{{ t('k8s.terminal.deleteClusterWarning') }}</p>
+            <div class="danger-info">
+              <h4>{{ t('k8s.terminal.dangerZone') }}</h4>
+              <p class="danger-warning">{{ t('k8s.terminal.deleteClusterWarning') }}</p>
+            </div>
             <a-button
+              type="text"
               danger
               @click="handleDelete"
             >
-              {{ t('k8s.terminal.deleteConfirm') }}
+              <template #icon><DeleteOutlined /></template>
             </a-button>
           </div>
         </div>
@@ -171,7 +174,7 @@
 import { ref, computed, watch, reactive } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { message, Modal } from 'ant-design-vue'
-import { SearchOutlined, PlusOutlined, ClusterOutlined, CloseOutlined } from '@ant-design/icons-vue'
+import { SearchOutlined, PlusOutlined, ClusterOutlined, CloseOutlined, DeleteOutlined } from '@ant-design/icons-vue'
 import { useK8sStore } from '@/store/k8sStore'
 import type { K8sCluster } from '@/api/k8s'
 import AddClusterModal from '@/views/k8s/terminal/components/AddClusterModal.vue'
@@ -283,6 +286,7 @@ const handleDelete = () => {
   if (!selectedCluster.value) return
 
   Modal.confirm({
+    wrapClassName: 'k8s-delete-confirm-modal',
     title: t('k8s.terminal.deleteConfirm'),
     content: t('k8s.terminal.deleteClusterMessage', { name: selectedCluster.value.name }),
     okText: t('common.confirm'),
@@ -301,6 +305,16 @@ const handleDelete = () => {
     }
   })
 }
+
+// Expose for unit testing
+defineExpose({
+  selectedClusterId,
+  editForm,
+  showAddModal,
+  getStatusColor,
+  getStatusText,
+  handleAddSuccess
+})
 
 // Initialize
 k8sStore.loadClusters()
@@ -328,13 +342,59 @@ k8sStore.loadClusters()
 
 .search-header {
   display: flex;
-  gap: 12px;
-  padding: 16px;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 16px;
   border-bottom: 1px solid var(--border-color);
 }
 
-.search-input {
-  flex: 1;
+.search-input.ant-input-affix-wrapper,
+.search-input :deep(.ant-input-affix-wrapper),
+.search-header :deep(.ant-input-affix-wrapper) {
+  background-color: var(--bg-color-secondary) !important;
+  border: 1px solid var(--border-color) !important;
+  box-shadow: none !important;
+}
+
+.search-input :deep(.ant-input) {
+  background-color: transparent !important;
+  color: var(--text-color) !important;
+}
+
+.search-input :deep(.ant-input::placeholder) {
+  color: var(--text-color-tertiary) !important;
+}
+
+.search-input :deep(.ant-input-suffix) {
+  color: var(--text-color-tertiary) !important;
+}
+
+.action-button {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  height: 32px;
+  padding: 0 12px;
+  border-radius: 4px;
+  background: var(--bg-color);
+  border: 1px solid var(--border-color);
+  color: var(--text-color);
+  transition: all 0.3s ease;
+  white-space: nowrap;
+}
+
+.action-button:hover {
+  background: var(--hover-bg-color);
+  border-color: var(--primary-color);
+  color: var(--primary-color);
+}
+
+.action-button:active {
+  background: var(--active-bg-color);
+}
+
+.danger-zone :deep(.ant-btn-text.ant-btn-dangerous:hover) {
+  background-color: rgba(255, 77, 79, 0.1) !important;
 }
 
 .cluster-list {
@@ -346,11 +406,12 @@ k8sStore.loadClusters()
 .cluster-item {
   display: flex;
   align-items: center;
-  padding: 12px 16px;
+  padding: 16px 20px;
   border-radius: 8px;
   cursor: pointer;
   transition: background-color 0.2s;
   gap: 12px;
+  margin-bottom: 4px;
 }
 
 .cluster-item:hover {
@@ -359,6 +420,7 @@ k8sStore.loadClusters()
 
 .cluster-item.active {
   background-color: var(--hover-bg-color);
+  border: 1px solid var(--border-color);
 }
 
 .cluster-icon {
@@ -400,11 +462,18 @@ k8sStore.loadClusters()
   flex-shrink: 0;
 }
 
+.cluster-status :deep(.ant-tag) {
+  background-color: var(--bg-color-tertiary) !important;
+  border: 1px solid var(--border-color) !important;
+  color: var(--text-color-secondary) !important;
+}
+
 .right-section {
   flex: 1;
   display: flex;
   flex-direction: column;
   min-width: 0;
+  background-color: var(--bg-color);
 }
 
 .right-section.collapsed {
@@ -423,6 +492,8 @@ k8sStore.loadClusters()
   justify-content: space-between;
   align-items: center;
   margin-bottom: 24px;
+  padding-bottom: 16px;
+  border-bottom: 1px solid var(--border-color);
 }
 
 .detail-header h3 {
@@ -436,22 +507,79 @@ k8sStore.loadClusters()
   max-width: 600px;
 }
 
-.danger-zone {
+.form-actions {
+  display: flex;
+  justify-content: flex-end;
   margin-top: 24px;
-  padding: 16px;
-  border: 1px solid var(--color-error);
-  border-radius: 8px;
-  max-width: 600px;
 }
 
-.danger-zone h4 {
-  margin: 0 0 8px 0;
-  color: var(--color-error);
+.detail-form :deep(.ant-form-item-label > label) {
+  color: var(--text-color-secondary) !important;
+}
+
+.detail-form :deep(.ant-input) {
+  background-color: var(--bg-color-secondary) !important;
+  border-color: var(--border-color) !important;
+  color: var(--text-color) !important;
+}
+
+.detail-form :deep(.ant-tag) {
+  background-color: var(--bg-color-tertiary) !important;
+  border: 1px solid var(--border-color) !important;
+  color: var(--text-color-secondary) !important;
+}
+
+.cluster-status :deep(.ant-tag-success),
+.cluster-name :deep(.ant-tag-success),
+.detail-form :deep(.ant-tag-success) {
+  background-color: rgba(82, 196, 26, 0.1) !important;
+  border-color: rgba(82, 196, 26, 0.3) !important;
+  color: #52c41a !important;
+}
+
+.detail-form :deep(.ant-input[disabled]) {
+  background-color: var(--bg-color-tertiary) !important;
+  color: var(--text-color-secondary) !important;
+  border-color: var(--border-color) !important;
+  opacity: 0.7;
+}
+
+/* Reset button styling */
+:deep(.form-actions .ant-btn:not(.ant-btn-primary)) {
+  background-color: var(--bg-color-secondary) !important;
+  border-color: var(--border-color) !important;
+  color: var(--text-color) !important;
+}
+
+:deep(.form-actions .ant-btn:not(.ant-btn-primary):hover) {
+  background-color: var(--hover-bg-color) !important;
+  border-color: var(--primary-color) !important;
+  color: var(--primary-color) !important;
+}
+
+.danger-zone {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-top: 32px;
+  padding: 16px 20px;
+  border: 1px solid rgba(239, 68, 68, 0.2);
+  border-radius: 8px;
+  max-width: 600px;
+  background-color: rgba(239, 68, 68, 0.02);
+}
+
+.danger-info h4 {
+  margin: 0 0 4px 0;
+  color: var(--error-color);
+  font-weight: 600;
+  font-size: 14px;
 }
 
 .danger-warning {
+  margin: 0;
   color: var(--text-color-secondary);
-  margin-bottom: 16px;
+  font-size: 12px;
 }
 
 .no-selection {
@@ -459,5 +587,62 @@ k8sStore.loadClusters()
   align-items: center;
   justify-content: center;
   height: 100%;
+  color: var(--text-color-tertiary);
+}
+
+:deep(.ant-divider) {
+  border-top-color: var(--border-color);
+}
+</style>
+
+<style>
+.k8s-delete-confirm-modal .ant-modal-content {
+  background-color: var(--bg-color) !important;
+  color: var(--text-color) !important;
+}
+
+.k8s-delete-confirm-modal .ant-modal-confirm-title {
+  color: var(--text-color) !important;
+}
+
+.k8s-delete-confirm-modal .ant-modal-body,
+.k8s-delete-confirm-modal .ant-modal-confirm-body-wrapper,
+.k8s-delete-confirm-modal .ant-modal-confirm-body {
+  background-color: transparent !important;
+}
+
+.k8s-delete-confirm-modal .ant-modal-confirm-content {
+  color: var(--text-color-secondary) !important;
+}
+
+.k8s-delete-confirm-modal .ant-btn-dangerous,
+.k8s-delete-confirm-modal .ant-btn-primary.ant-btn-dangerous {
+  background-color: rgba(255, 77, 79, 0.1) !important;
+  border-color: rgba(255, 77, 79, 0.4) !important;
+  color: #ff4d4f !important;
+}
+
+.k8s-delete-confirm-modal .ant-btn-dangerous:hover,
+.k8s-delete-confirm-modal .ant-btn-primary.ant-btn-dangerous:hover {
+  background-color: rgba(255, 77, 79, 0.2) !important;
+  border-color: #ff4d4f !important;
+  color: #ff4d4f !important;
+}
+
+/* Style secondary buttons globally in K8s context (Modals) */
+.k8s-delete-confirm-modal .ant-btn:not(.ant-btn-dangerous),
+.cluster-settings-modal .ant-btn:not(.ant-btn-primary):not(.ant-btn-dangerous),
+.add-cluster-modal .ant-btn:not(.ant-btn-primary):not(.ant-btn-dangerous) {
+  background-color: var(--bg-color-secondary) !important;
+  border-color: var(--border-color) !important;
+  color: var(--text-color) !important;
+}
+
+.k8s-delete-confirm-modal .ant-btn:not(.ant-btn-dangerous):hover,
+.cluster-settings-modal .ant-btn:not(.ant-btn-primary):not(.ant-btn-dangerous):hover,
+.add-cluster-modal .ant-btn:not(.ant-btn-primary):not(.ant-btn-dangerous):hover {
+  background-color: var(--hover-bg-color) !important;
+  border-color: var(--primary-color) !important;
+  color: var(--primary-color) !important;
 }
 </style>

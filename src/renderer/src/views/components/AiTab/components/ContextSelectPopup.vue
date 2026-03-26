@@ -568,6 +568,8 @@ void searchInputRef
     height: 14px;
     margin-right: 10px;
     flex-shrink: 0;
+    // External SVG as img renders with black fill; match Ant icon tint via theme (see theme.less --icon-filter)
+    filter: var(--icon-filter);
   }
 
   .menu-label {
@@ -645,6 +647,7 @@ void searchInputRef
     height: 12px;
     margin-right: 8px;
     flex-shrink: 0;
+    filter: var(--icon-filter);
   }
 
   .item-label {

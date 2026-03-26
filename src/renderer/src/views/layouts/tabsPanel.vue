@@ -50,6 +50,7 @@
             :key="`k8s-terminal-${localTab.id}`"
             :ref="(el) => setK8sConnectRef(el, localTab.id)"
             :server-info="localTab"
+            :active-tab-id="localTab.id"
             :is-active="isActive"
             @close-tab-in-term="closeTab"
           />

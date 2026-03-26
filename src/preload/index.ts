@@ -818,7 +818,7 @@ const api = {
   checkSftpConnAvailable: (id: string) => ipcRenderer.invoke('ssh:sftp:conn:check', { id }),
   shell: (params) => ipcRenderer.invoke('ssh:shell', params),
   resizeShell: (id, cols, rows) => ipcRenderer.invoke('ssh:shell:resize', { id, cols, rows }),
-  sshSftpList: (opts: { id: string; remotePath: string }) => ipcRenderer.invoke('ssh:sftp:list', opts) as Promise<FileRecord[] | string[]>,
+  sshSftpList: (opts: { id: string; path: string }) => ipcRenderer.invoke('ssh:sftp:list', opts) as Promise<FileRecord[] | string[]>,
   sftpConnList: () => ipcRenderer.invoke('ssh:sftp:conn:list') as Promise<SftpConnectionInfo[]>,
   sftpConnect: (connectionInfo) => ipcRenderer.invoke('ssh:sftp:connect', connectionInfo) as Promise<SftpConnectResult>,
   sftpClose: (payload: { id: string }) => ipcRenderer.invoke('ssh:sftp:close', payload),
@@ -935,6 +935,8 @@ const api = {
   checkUpdate: () => ipcRenderer.invoke('update:checkUpdate'),
   download: () => ipcRenderer.invoke('update:download'),
   showOpenDialog: (options) => ipcRenderer.invoke('dialog:openFile', options),
+  stageChatAttachment: (payload: { taskId: string; srcAbsPath: string }) =>
+    ipcRenderer.invoke('agent:stage-chat-attachment', payload) as Promise<{ mode: 'as_is'; refPath: string } | { mode: 'offload'; refPath: string }>,
   getHomePath: () => ipcRenderer.invoke('app:getHomePath'),
   autoUpdate: (update) => {
     ipcRenderer.on('update:autoUpdate', (_event, params) => update(params))
@@ -991,6 +993,9 @@ const api = {
     autoRename?: boolean
     concurrency?: number
   }) => ipcRenderer.invoke('sftp:r2r:dir', args),
+
+  copyOrMoveBySftp: (args: { id: string; srcPath: string; targetPath: string; action: 'copy' | 'move' }) =>
+    ipcRenderer.invoke('ssh:sftp:copy-or-move', args),
 
   kbCheckPath: (absPath: string) => ipcRenderer.invoke('kb:check-path', { absPath }),
   kbEnsureRoot: () => ipcRenderer.invoke('kb:ensure-root'),

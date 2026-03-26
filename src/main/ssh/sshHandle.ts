@@ -52,6 +52,7 @@ import { SSHAgentManager } from './ssh-agent/ChatermSSHAgent'
 import { getAlgorithmsByAssetType } from './algorithms'
 import { connectBastionByType, shellBastionSession, resizeBastionSession, writeBastionSession, disconnectBastionSession } from './bastionPlugin'
 import { shouldSkipPostConnectProbe } from './postConnectProbePolicy'
+import { sftpConnectionInfoMap } from './sftpTransfer'
 
 // Hybrid buffer strategy configuration
 const FLUSH_CONFIG = {
@@ -285,10 +286,9 @@ export const attemptSecondaryConnection = async (event, connectionInfo, existing
   }
 
   const readyResult: { hasSudo?: boolean; commandList?: string[] } = {}
-
   if (existingConn) {
     try {
-      await initSftpOnConnection(existingConn, id)
+      await initSftpOnConnection(existingConn, id, connectionInfo)
     } catch {
       connectionStatus.set(id, { sftpAvailable: false, sftpError: 'SFTP connection failed' })
     }
@@ -650,8 +650,32 @@ export const getUniqueRemoteName = async (sftp: SFTPWrapper, remoteDir: string, 
   return finalName
 }
 
+const findReusableSftpRecord = (id: string): any => {
+  const direct = sftpConnections.get(id)
+  if (direct) return direct
+
+  if (!id) return null
+
+  const prefix = id.substring(0, id.lastIndexOf(':') + 1)
+
+  for (const [existingId, existingRecord] of sftpConnections.entries()) {
+    const sessionPart = existingId.substring(existingId.lastIndexOf(':') + 1)
+    if (existingId.startsWith(prefix) && sessionPart.startsWith('files-')) {
+      return existingRecord
+    }
+  }
+
+  for (const [existingId, existingRecord] of sftpConnections.entries()) {
+    if (existingId.startsWith(prefix)) {
+      return existingRecord
+    }
+  }
+
+  return null
+}
+
 export const getSftpConnection = (id: string): any => {
-  const sftpConnectionInfo = sftpConnections.get(id)
+  const sftpConnectionInfo = findReusableSftpRecord(id)
 
   if (!sftpConnectionInfo) {
     logger.debug('SFTP connection not found', { event: 'ssh.sftp.notfound', connectionId: id })
@@ -659,7 +683,11 @@ export const getSftpConnection = (id: string): any => {
   }
 
   if (!sftpConnectionInfo.isSuccess || !sftpConnectionInfo.sftp) {
-    logger.debug('SFTP not available', { event: 'ssh.sftp.unavailable', connectionId: id, error: sftpConnectionInfo.error || 'Unknown error' })
+    logger.debug('SFTP not available', {
+      event: 'ssh.sftp.unavailable',
+      connectionId: id,
+      error: sftpConnectionInfo.error || 'Unknown error'
+    })
     return null
   }
 
@@ -1827,7 +1855,30 @@ const getSystemInfo = async (id: string): Promise<CommandGenerationContext> => {
   })
 }
 
-export const initSftpOnConnection = (conn: Client, connectionId: string): Promise<void> => {
+export const pickReconnectConnectionInfo = (connectionInfo: any) => {
+  if (!connectionInfo?.id) return null
+
+  return {
+    id: connectionInfo.id,
+    sshType: connectionInfo.sshType,
+    host: connectionInfo.host,
+    port: connectionInfo.port,
+    username: connectionInfo.username,
+    password: connectionInfo.password,
+    privateKey: connectionInfo.privateKey,
+    passphrase: connectionInfo.passphrase,
+    needProxy: connectionInfo.needProxy,
+    proxyConfig: connectionInfo.proxyConfig,
+    proxyCommand: connectionInfo.proxyCommand,
+    connIdentToken: connectionInfo.connIdentToken,
+    asset_type: connectionInfo.asset_type,
+    assetUuid: connectionInfo.assetUuid,
+    targetIp: connectionInfo.targetIp,
+    terminalType: connectionInfo.terminalType
+  }
+}
+
+export const initSftpOnConnection = (conn: Client, connectionId: string, connectionInfo: any): Promise<void> => {
   return new Promise<void>((resolve) => {
     try {
       conn.sftp((err, sftp) => {
@@ -1865,6 +1916,10 @@ export const initSftpOnConnection = (conn: Client, connectionId: string): Promis
             logger.info(`SFTP check success`, { event: 'ssh.sftp.check', connectionId: connectionId })
             sftpConnections.set(connectionId, { isSuccess: true, sftp })
             connectionStatus.set(connectionId, { sftpAvailable: true })
+            const picked = pickReconnectConnectionInfo(connectionInfo)
+            if (picked) {
+              sftpConnectionInfoMap.set(String(connectionId), picked)
+            }
           }
           resolve()
         })

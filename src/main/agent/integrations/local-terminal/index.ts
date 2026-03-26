@@ -281,9 +281,14 @@ export class LocalTerminalManager {
         shellArgs = ['-Command', finalCommand]
       }
     } else {
-      // Unix-like platforms
+      // Unix-like platforms: use login shell to load user configuration
       shellCommand = terminal.shell
-      shellArgs = ['-c', finalCommand]
+      const shellBase = path.basename(terminal.shell)
+      if (shellBase === 'zsh' || shellBase === 'bash' || shellBase === 'fish' || shellBase === 'sh') {
+        shellArgs = ['-l', '-c', finalCommand]
+      } else {
+        shellArgs = ['-c', finalCommand]
+      }
     }
 
     // Prepare environment variables

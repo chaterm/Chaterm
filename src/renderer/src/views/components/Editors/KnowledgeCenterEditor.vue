@@ -1,4 +1,4 @@
-<template>
+﻿<template>
   <div
     class="kb-editor-root"
     @paste.capture="handlePaste"
@@ -113,7 +113,7 @@ import { MinusOutlined, PlusOutlined, ExpandOutlined } from '@ant-design/icons-v
 import MonacoEditor from '@views/components/Editors/base/monacoEditor.vue'
 import { getMonacoTheme } from '@/utils/themeUtils'
 import eventBus from '@/utils/eventBus'
-import { useEditorConfigStore, getFontFamily } from '@/stores/editorConfig'
+import { useEditorConfigStore, getFontFamily } from '@/store/editorConfig'
 import { storeToRefs } from 'pinia'
 
 const logger = createRendererLogger('knowledgeCenter.editor')

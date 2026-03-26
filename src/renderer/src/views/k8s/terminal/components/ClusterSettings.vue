@@ -7,6 +7,7 @@
     :ok-loading="loading"
     :ok-text="t('common.save')"
     :cancel-text="t('common.cancel')"
+    wrap-class-name="cluster-settings-modal"
     @cancel="handleClose"
     @ok="handleSubmit"
   >
@@ -46,26 +47,13 @@
         <a-tag :color="statusColor">{{ statusText }}</a-tag>
       </a-form-item>
     </a-form>
-
-    <!-- Danger Zone -->
-    <div class="danger-zone">
-      <div class="danger-title">{{ t('k8s.terminal.dangerZone') }}</div>
-      <div class="danger-content">
-        <span>{{ t('k8s.terminal.deleteClusterWarning') }}</span>
-        <a-button
-          danger
-          @click="handleDelete"
-          >{{ t('common.delete') }}</a-button
-        >
-      </div>
-    </div>
   </a-modal>
 </template>
 
 <script setup lang="ts">
 import { ref, reactive, computed, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
-import { message, Modal } from 'ant-design-vue'
+import { message } from 'ant-design-vue'
 import { useK8sStore } from '@/store/k8sStore'
 import type { K8sCluster } from '@/api/k8s'
 
@@ -77,7 +65,6 @@ const props = defineProps<{
 const emit = defineEmits<{
   (e: 'update:visible', value: boolean): void
   (e: 'success'): void
-  (e: 'delete', id: string): void
 }>()
 
 const { t } = useI18n()
@@ -156,44 +143,86 @@ const handleSubmit = async () => {
     loading.value = false
   }
 }
-
-const handleDelete = () => {
-  if (!props.cluster) return
-
-  Modal.confirm({
-    title: t('k8s.terminal.deleteConfirm'),
-    content: t('k8s.terminal.deleteClusterMessage', { name: props.cluster.name }),
-    okText: t('common.confirm'),
-    cancelText: t('common.cancel'),
-    okType: 'danger',
-    onOk: () => emit('delete', props.cluster!.id)
-  })
-}
 </script>
 
-<style scoped>
-.danger-zone {
-  margin-top: 24px;
-  padding: 16px;
-  border: 1px solid var(--color-error);
-  border-radius: 8px;
+<style>
+.cluster-settings-modal .ant-modal-content {
+  background-color: var(--bg-color) !important;
+  color: var(--text-color) !important;
 }
 
-.danger-title {
-  font-weight: 600;
-  color: var(--color-error);
-  margin-bottom: 12px;
+.cluster-settings-modal .ant-modal-header {
+  background-color: transparent !important;
+  border-bottom: 1px solid var(--border-color) !important;
 }
 
-.danger-content {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 16px;
+.cluster-settings-modal .ant-modal-title {
+  color: var(--text-color) !important;
 }
 
-.danger-content span {
-  color: var(--color-text-secondary);
-  font-size: 13px;
+.cluster-settings-modal .ant-modal-close {
+  color: var(--text-color-secondary) !important;
 }
+
+.cluster-settings-modal .ant-form-item-label > label {
+  color: var(--text-color-secondary) !important;
+}
+
+.cluster-settings-modal .ant-input,
+.cluster-settings-modal .ant-select-selector,
+.cluster-settings-modal .ant-textarea {
+  background-color: var(--bg-color-secondary) !important;
+  border-color: var(--border-color) !important;
+  color: var(--text-color) !important;
+}
+
+.cluster-settings-modal .ant-input[disabled] {
+  background-color: var(--bg-color-tertiary) !important;
+  color: var(--text-color-secondary) !important;
+  border-color: var(--border-color) !important;
+  opacity: 0.7;
+}
+
+.cluster-settings-modal .ant-switch {
+  background-color: var(--bg-color-tertiary) !important;
+  border: 1px solid var(--border-color) !important;
+}
+
+.cluster-settings-modal .ant-switch-checked {
+  background-color: #1890ff !important;
+  border: 1px solid transparent !important;
+}
+
+.cluster-settings-modal .ant-tag {
+  background-color: var(--bg-color-tertiary) !important;
+  border: 1px solid var(--border-color) !important;
+  color: var(--text-color-secondary) !important;
+}
+
+.cluster-settings-modal .ant-tag-success {
+  background-color: rgba(82, 196, 26, 0.1) !important;
+  border-color: rgba(82, 196, 26, 0.2) !important;
+  color: #52c41a !important;
+}
+
+.cluster-settings-modal .ant-tag-error {
+  background-color: rgba(255, 77, 79, 0.1) !important;
+  border-color: rgba(255, 77, 79, 0.2) !important;
+  color: #ff4d4f !important;
+}
+
+/* Style secondary buttons in modal footer and body */
+.cluster-settings-modal .ant-btn:not(.ant-btn-primary):not(.ant-btn-dangerous) {
+  background-color: var(--bg-color-secondary) !important;
+  border-color: var(--border-color) !important;
+  color: var(--text-color) !important;
+}
+
+.cluster-settings-modal .ant-btn:not(.ant-btn-primary):not(.ant-btn-dangerous):hover {
+  background-color: var(--hover-bg-color) !important;
+  border-color: var(--primary-color) !important;
+  color: var(--primary-color) !important;
+}
+
+/* Scoped styles for internal elements */
 </style>

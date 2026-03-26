@@ -1,4 +1,4 @@
-<template>
+﻿<template>
   <div class="userInfo">
     <a-card
       :bordered="false"
@@ -298,7 +298,7 @@ import { notification } from 'ant-design-vue'
 import { DeleteOutlined, UploadOutlined, DesktopOutlined } from '@ant-design/icons-vue'
 import { userConfigStore, remoteApplyGuard } from '@/services/userConfigStoreService'
 import { userConfigStore as configStore } from '@/store/userConfigStore'
-import { useEditorConfigStore, type EditorConfig, FONT_FAMILY_OPTIONS } from '@/stores/editorConfig'
+import { useEditorConfigStore, type EditorConfig, FONT_FAMILY_OPTIONS } from '@/store/editorConfig'
 import eventBus from '@/utils/eventBus'
 import { getActualTheme, addSystemThemeListener } from '@/utils/themeUtils'
 import { useI18n } from 'vue-i18n'

@@ -199,7 +199,7 @@ interface ApiType {
   onShellClose: (id: string, callback: () => void) => () => void
   recordTerminalState: (params: any) => Promise<any>
   recordCommand: (params: any) => Promise<any>
-  sshSftpList: (opts: { id: string; remotePath: string }) => Promise<any>
+  sshSftpList: (opts: { id: string; path: string }) => Promise<any>
   sftpConnList: () => Promise<string[]>
   sshConnExec: (args: { id: string; cmd: string }) => Promise<any>
   sendToMain: (message: WebviewMessage) => Promise<void | null>
@@ -357,6 +357,11 @@ interface ApiType {
     filters?: Array<{ name: string; extensions: string[] }>
   }) => Promise<{ canceled: boolean; filePaths: string[] } | undefined>
   getHomePath: () => Promise<string>
+
+  stageChatAttachment: (payload: {
+    taskId: string
+    srcAbsPath: string
+  }) => Promise<{ mode: 'as_is'; refPath: string } | { mode: 'offload'; refPath: string }>
 
   kbCheckPath: (absPath: string) => Promise<{ exists: boolean; isDirectory: boolean; isFile: boolean }>
   kbEnsureRoot: () => Promise<{ success: boolean }>

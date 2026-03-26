@@ -51,7 +51,7 @@ const emit = defineEmits<{
 .terminal-tabs {
   display: flex;
   align-items: center;
-  background: var(--color-bg-container);
+  background: var(--bg-color);
   padding: 0 8px;
   height: 36px;
 }
@@ -74,8 +74,8 @@ const emit = defineEmits<{
   height: 28px;
   border-radius: 4px 4px 0 0;
   cursor: pointer;
-  background: var(--color-bg-elevated);
-  border: 1px solid var(--color-border);
+  background: var(--bg-color-secondary);
+  border: 1px solid var(--border-color);
   border-bottom: none;
   transition: all 0.2s ease;
   min-width: 120px;
@@ -83,27 +83,27 @@ const emit = defineEmits<{
 }
 
 .tab-item:hover {
-  background: var(--color-bg-hover);
+  background: var(--hover-bg-color);
 }
 
 .tab-item.active {
-  background: var(--color-bg-container);
-  border-color: var(--color-primary);
-  border-bottom: 1px solid var(--color-bg-container);
+  background: var(--bg-color);
+  border-color: #1890ff;
+  border-bottom: 1px solid var(--bg-color);
   margin-bottom: -1px;
 }
 
 .tab-name {
   flex: 1;
   font-size: 12px;
-  color: var(--color-text-secondary);
+  color: var(--text-color-secondary);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
 }
 
 .tab-item.active .tab-name {
-  color: var(--color-text);
+  color: var(--text-color);
 }
 
 .tab-close {

@@ -116,8 +116,8 @@ const createK8sTerminal = async (config: K8sTerminalConfig): Promise<K8sTerminal
     sendToRenderer(`k8s:terminal:exit:${config.id}`, exitCode)
     terminalSessions.delete(config.id)
 
-    // Clean up temp kubeconfig file if it was created from content
-    if (config.kubeconfigContent && terminal.kubeconfigPath) {
+    // Clean up temp kubeconfig file only if it was written to tmpdir
+    if (terminal.kubeconfigPath && terminal.kubeconfigPath.includes(os.tmpdir())) {
       try {
         fs.unlinkSync(terminal.kubeconfigPath)
       } catch {
@@ -800,7 +800,17 @@ export function registerK8sHandlers(): void {
     try {
       const terminal = terminalSessions.get(terminalId)
       if (terminal && terminal.isAlive) {
-        terminal.pty.write(data)
+        if (data.endsWith('\n')) {
+          const command = data.slice(0, -1)
+          terminal.pty.write(command)
+          if (os.platform() === 'win32') {
+            terminal.pty.write('\r')
+          } else {
+            terminal.pty.write('\n')
+          }
+        } else {
+          terminal.pty.write(data)
+        }
         return { success: true }
       }
       return { success: false, error: 'Terminal not found or not alive' }

@@ -2,6 +2,24 @@
   "releaseNotesUrl": "https://github.com/chaterm/Chaterm/releases/tag/v",
   "versions": [
     {
+      "version": "0.9.4",
+      "date": "2026-03-24",
+      "highlights": {
+        "zh-CN": [
+          "技能（Skill）：对话中会显示当前用到的Skill；支持把一段对话一键整理成Skill；启用Skill时会有提示；管理、编辑Skill内容更简单",
+          "知识库与同步：笔记可同步到云端并查看剩余空间；打开应用后会自动拉取最新内容；用户配置支持跨设备同步",
+          "资产管理：优化添加主机的布局样式",
+          "界面与体验：首次打开默认使用深色主题；填写主机地址与端口时排版更整齐"
+        ],
+        "en-US": [
+          "Skill: see which Skill apply to the current chat; turn a conversation into a Skill with one click; get a notice when a Skill is turned on; simpler management and editing of Skill content",
+          "Knowledge base and sync: sync notes to the cloud and see how much space is left; the app pulls the latest content when you open it; user configuration supports cross-device synchronization",
+          "Asset management: optimize the layout style of adding hosts",
+          "Look and feel: dark theme by default; tidier layout for host and port fields"
+        ]
+      }
+    },
+    {
       "version": "0.9.3",
       "date": "2026-03-12",
       "highlights": {

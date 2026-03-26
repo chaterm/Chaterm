@@ -90,6 +90,11 @@ const openPreview = () => {
   display: flex;
   align-items: center;
   padding: 0 8px;
+  width: 30px;
+  min-width: 30px;
+  flex: 0 0 30px;
+  flex-shrink: 0;
+  box-sizing: border-box;
   height: 35px; /* Match tab height */
   background: var(--bg-color-secondary);
   border-bottom: 1px solid var(--border-color);
@@ -102,6 +107,7 @@ const openPreview = () => {
   justify-content: center;
   width: 24px;
   height: 24px;
+  flex-shrink: 0;
   cursor: pointer;
   border-radius: 4px;
   color: var(--text-color-secondary);

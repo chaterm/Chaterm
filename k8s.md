@@ -14,8 +14,8 @@ Chaterm is an Electron-based AI-driven terminal tool. This project aims to exten
 
 ### 1.3 Core Features
 
-| Feature | Description |
-|---------|-------------|
+| Feature               | Description                                                         |
+| --------------------- | ------------------------------------------------------------------- |
 | Command Line Terminal | kubectl-integrated terminal with multi-tab support and AI assistant |
 
 ---
@@ -70,14 +70,14 @@ A kubectl-integrated terminal with:
 
 #### 2.1.3 Cluster Sidebar Features
 
-| Feature | Description |
-|---------|-------------|
-| Cluster List | Display all configured clusters with name, server address, and connection status |
-| Add Cluster | Add new cluster via kubeconfig file import or manual configuration |
-| Connect/Disconnect | One-click connect or disconnect from clusters |
-| Connection Status | Visual indicator (Connected/Disconnected/Error) |
-| Quick Actions | Right-click menu for edit, delete, duplicate cluster |
-| Active Selection | Radio-button style selection for current active cluster |
+| Feature            | Description                                                                      |
+| ------------------ | -------------------------------------------------------------------------------- |
+| Cluster List       | Display all configured clusters with name, server address, and connection status |
+| Add Cluster        | Add new cluster via kubeconfig file import or manual configuration               |
+| Connect/Disconnect | One-click connect or disconnect from clusters                                    |
+| Connection Status  | Visual indicator (Connected/Disconnected/Error)                                  |
+| Quick Actions      | Right-click menu for edit, delete, duplicate cluster                             |
+| Active Selection   | Radio-button style selection for current active cluster                          |
 
 #### 2.1.4 Add Cluster Modal
 
@@ -253,14 +253,14 @@ A kubectl-integrated terminal with:
 
 #### 2.1.6 Authentication Methods
 
-| Method | Description | Required Fields |
-|--------|-------------|-----------------|
-| Certificate | X.509 client certificate authentication | CA Cert, Client Cert, Client Key |
-| Token | Bearer token authentication | Token |
-| Username/Password | Basic authentication | Username, Password |
-| OIDC | OpenID Connect authentication | OIDC Provider URL, Client ID, Client Secret |
-| AWS IAM | AWS EKS IAM authentication | AWS Profile, Cluster ARN |
-| GCP | Google Cloud GKE authentication | GCP Project, Cluster Name, Zone |
+| Method            | Description                             | Required Fields                             |
+| ----------------- | --------------------------------------- | ------------------------------------------- |
+| Certificate       | X.509 client certificate authentication | CA Cert, Client Cert, Client Key            |
+| Token             | Bearer token authentication             | Token                                       |
+| Username/Password | Basic authentication                    | Username, Password                          |
+| OIDC              | OpenID Connect authentication           | OIDC Provider URL, Client ID, Client Secret |
+| AWS IAM           | AWS EKS IAM authentication              | AWS Profile, Cluster ARN                    |
+| GCP               | Google Cloud GKE authentication         | GCP Project, Cluster Name, Zone             |
 
 ---
 
@@ -317,13 +317,13 @@ A kubectl-integrated terminal with:
 
 ### 3.2 Technology Stack
 
-| Layer | Technology | Purpose |
-|-------|------------|---------|
-| UI Components | Ant Design Vue | Base components |
-| Terminal | xterm.js | Terminal emulation |
-| K8S Client | @kubernetes/client-node | K8S API communication |
-| State | Pinia | State management |
-| IPC | Electron IPC | Process communication |
+| Layer         | Technology              | Purpose               |
+| ------------- | ----------------------- | --------------------- |
+| UI Components | Ant Design Vue          | Base components       |
+| Terminal      | xterm.js                | Terminal emulation    |
+| K8S Client    | @kubernetes/client-node | K8S API communication |
+| State         | Pinia                   | State management      |
+| IPC           | Electron IPC            | Process communication |
 
 ---
 
@@ -557,6 +557,7 @@ Each K8S cluster in Chaterm maintains its own isolated kubeconfig configuration.
 ### 10.2 Storage
 
 When a cluster is added:
+
 - The kubeconfig content is stored in the `k8s_clusters.kubeconfig_content` column
 - Alternatively, a file path can be stored in `k8s_clusters.kubeconfig_path`
 - At least one of these MUST be provided - the system will NOT fall back to `~/.kube/config`
@@ -589,6 +590,7 @@ kubectl uses cluster's own kubeconfig
 ### 10.4 Error Handling
 
 If no kubeconfig is configured for a cluster:
+
 - Terminal creation will fail with clear error message
 - Connection test will fail with clear error message
 - Agent operations will fail with clear error message
@@ -599,19 +601,19 @@ This prevents silent fallback to potentially wrong cluster configurations.
 
 ## 11. AI Integration Points
 
-| Feature | AI Capability |
-|---------|---------------|
+| Feature  | AI Capability                                              |
+| -------- | ---------------------------------------------------------- |
 | Terminal | Command suggestions, error explanation, kubectl generation |
 
 ---
 
 ## 12. Success Metrics
 
-| Metric | Target |
-|--------|--------|
-| Cluster connection time | < 3s |
-| Terminal response time | < 100ms |
-| Memory usage per cluster | < 50MB |
+| Metric                   | Target  |
+| ------------------------ | ------- |
+| Cluster connection time  | < 3s    |
+| Terminal response time   | < 100ms |
+| Memory usage per cluster | < 50MB  |
 
 ---
 

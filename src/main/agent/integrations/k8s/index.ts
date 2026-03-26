@@ -249,7 +249,20 @@ export class K8sAgentManager {
         exitCode = exitInfo.exitCode
 
         // Clean up output (remove ANSI codes)
-        const cleanOutput = this.stripAnsiCodes(output)
+        let cleanOutput = this.stripAnsiCodes(output)
+
+        // On Windows, PowerShell PTY may emit OSC window title residue as a standalone line
+        // (e.g. "\windows\System32\WindowsPowerShell\v1.0\powershell.exe").
+        // Also strip inline residue appended to a real output line (e.g. "NAME:\windows\...\powershell.exe").
+        const lines = cleanOutput.split('\n')
+        const filtered = lines
+          .filter((line, idx) => {
+            if (idx > 2) return true
+            const trimmed = line.trim()
+            return !/^[A-Za-z]?[:\\\/][^\n]*\.exe\s*$/i.test(trimmed)
+          })
+          .map((line) => line.replace(/[A-Za-z]?[:\\\/][^\s]*\.exe\s*$/i, '').trimEnd())
+        cleanOutput = filtered.join('\n').trimStart()
 
         resolve({
           success: exitCode === 0,
@@ -559,12 +572,21 @@ export class K8sAgentManager {
   }
 
   private stripAnsiCodes(text: string): string {
-    return text
-      .replace(/\x1B\[[0-9;]*[JKmsu]/g, '')
-      .replace(/\x1B\[[?][0-9]*[hl]/g, '')
-      .replace(/\x1B\[K/g, '')
-      .replace(/\x1B\[[0-9]+[ABCD]/g, '')
-      .replace(/[\r]/g, '')
+    return (
+      text
+        // Remove OSC sequences (window title, etc.): ESC ] ... BEL or ESC ] ... ESC \
+        .replace(/\x1B\][^\x07\x1B]*(?:\x07|\x1B\\)/g, '')
+        // Remove orphaned OSC content (when ESC was already stripped): ]0;...BEL or ]9;...BEL
+        .replace(/\][\d]+;[^\x07\n\r]*\x07?/g, '')
+        // Standard CSI sequences
+        .replace(/\x1B\[[0-9;]*[JKmsu]/g, '')
+        .replace(/\x1B\[[?][0-9]*[hl]/g, '')
+        .replace(/\x1B\[K/g, '')
+        .replace(/\x1B\[[0-9]+[ABCD]/g, '')
+        // Remove remaining ESC sequences
+        .replace(/\x1B[^[\]]/g, '')
+        .replace(/[\r]/g, '')
+    )
   }
 
   private formatPodsOutput(pods: any[]): string {

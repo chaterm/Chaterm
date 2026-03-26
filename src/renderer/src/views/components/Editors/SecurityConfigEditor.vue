@@ -1,4 +1,4 @@
-<template>
+﻿<template>
   <div class="security-config-editor">
     <div class="editor-toolbar">
       <div class="toolbar-left">
@@ -44,7 +44,7 @@ import { useI18n } from 'vue-i18n'
 import { ExclamationCircleOutlined } from '@ant-design/icons-vue'
 import MonacoEditor from '@views/components/Editors/base/monacoEditor.vue'
 import { getMonacoTheme } from '@/utils/themeUtils'
-import { useEditorConfigStore } from '@/stores/editorConfig'
+import { useEditorConfigStore } from '@/store/editorConfig'
 
 const { t } = useI18n()
 
