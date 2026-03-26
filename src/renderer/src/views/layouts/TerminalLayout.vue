@@ -181,7 +181,7 @@
                 />
                 <Snippets v-else-if="currentMenu == 'snippets'" />
                 <KnowledgeCenter v-else-if="currentMenu == 'knowledgecenter'" />
-                <K8sTerminal v-else-if="currentMenu == 'kubernetes'" />
+                <K8sTerminal v-else-if="currentMenu == 'k8s-explorer' || currentMenu == 'kubernetes'" />
 
                 <ExtensionViewHost
                   v-else

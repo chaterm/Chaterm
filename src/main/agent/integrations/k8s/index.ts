@@ -212,17 +212,25 @@ export class K8sAgentManager {
         env.KUBECONFIG = this.kubeconfigPath
       }
 
-      // Build the full kubectl command
-      const fullCommand = command.startsWith('kubectl ')
-        ? `${command} --context=${this.currentContextName}`
-        : `kubectl ${command} --context=${this.currentContextName}`
+      const pluginKubectlPath = process.env.CHATERM_KUBECTL_PATH
+      const kubectlBinary = pluginKubectlPath && fs.existsSync(pluginKubectlPath) ? `"${pluginKubectlPath}"` : 'kubectl'
+      const isPowerShell = /(?:^|[\\/])(powershell|pwsh)(?:\.exe)?$/i.test(shell)
+      const shellKubectl = isPowerShell ? `& ${kubectlBinary}` : kubectlBinary
+
+      // Build the full kubectl command.
+      // PowerShell requires call operator (&) for quoted executable path.
+      const trimmedCommand = command.trim()
+      const fullCommand = /^kubectl\b/i.test(trimmedCommand)
+        ? `${trimmedCommand.replace(/^kubectl\b/i, shellKubectl)} --context=${this.currentContextName}`
+        : `${shellKubectl} ${trimmedCommand} --context=${this.currentContextName}`
 
       logger.info('[K8s Agent] Executing kubectl', { command: fullCommand })
 
       let output = ''
       let exitCode: number | undefined
 
-      const ptyProcess = pty.spawn(shell, ['-c', fullCommand], {
+      const shellArgs = isPowerShell ? ['-NoLogo', '-NoProfile', '-Command', fullCommand] : ['-c', fullCommand]
+      const ptyProcess = pty.spawn(shell, shellArgs, {
         name: 'xterm-256color',
         cols: 200,
         rows: 50,
