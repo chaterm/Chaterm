@@ -286,18 +286,18 @@ export async function saveTaskMetadataLogic(db: Database.Database, taskId: strin
   }
 }
 
-// Title rename should not change conversation ordering timestamp.
 export async function saveTaskTitleLogic(db: Database.Database, taskId: string, title: string): Promise<void> {
   try {
+    const nowSec = Math.floor(Date.now() / 1000)
     const result = db
       .prepare(
         `
       UPDATE agent_task_metadata_v1
-      SET title = ?
+      SET title = ?, updated_at = ?
       WHERE task_id = ?
     `
       )
-      .run(title, taskId)
+      .run(title, nowSec, taskId)
 
     if (result.changes === 0) {
       logger.warn('saveTaskTitle skipped: metadata row not found', { taskId })

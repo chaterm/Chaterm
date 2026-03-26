@@ -212,7 +212,8 @@ export class ChatSnapshotStore {
     const db = dbService.getDb()
 
     db.transaction(() => {
-      db.prepare('UPDATE agent_task_metadata_v1 SET title = ? WHERE task_id = ?').run(title, taskId)
+      const nowSec = Math.floor(Date.now() / 1000)
+      db.prepare('UPDATE agent_task_metadata_v1 SET title = ?, updated_at = ? WHERE task_id = ?').run(title, nowSec, taskId)
       this._markDirtyInTransaction(db, taskId)
     })()
   }
