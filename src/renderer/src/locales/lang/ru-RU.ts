@@ -1247,6 +1247,19 @@ export default {
     welcomeMessage: '{username}, Добро пожаловать в использование Chaterm',
     reconnecting: 'Переподключение...',
     terminalConnectionError: 'Ошибка соединения. Пожалуйста, проверьте, запущен ли терминальный сервер.',
+    autoReconnect: {
+      tag: 'Автопереподключение',
+      networkIssue: 'проблема сети',
+      networkOfflineWaitingRestoration: 'Сеть недоступна. Ожидание восстановления соединения...',
+      stoppedAfterMaxAttempts: 'Остановлено после {max} неудачных попыток. Нажмите Enter, чтобы повторить вручную.',
+      attemptProgress: 'Попытка {current}/{max}...',
+      connectedOnAttempt: 'Успешное подключение на попытке {current}/{max}.',
+      attemptFailed: 'Попытка {current}/{max} не удалась.',
+      retryingInSeconds: 'Повтор через {seconds} с...',
+      networkRestoredStartReconnect: 'Сеть восстановлена. Запуск переподключения...',
+      detectedNetworkDisconnect: 'Обнаружен сетевой разрыв ({reason}).',
+      networkOfflineWaitingReconnect: 'Сеть недоступна. Ожидание переподключения...'
+    },
     jumpserver: {
       connectingToBastionHost: 'Соединение с удаленным bastion хостом...',
       connectedToBastionHost: 'Успешно соединено с bastion хостом, пожалуйста, подождите...',

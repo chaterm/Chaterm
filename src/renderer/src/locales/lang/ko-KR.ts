@@ -1235,6 +1235,19 @@ export default {
     welcomeMessage: '{username}, Chaterm 사용을 환영합니다',
     reconnecting: '연결 재시도 중...',
     terminalConnectionError: '연결 오류. 터미널 서버가 실행 중인지 확인해주세요.',
+    autoReconnect: {
+      tag: '자동 재연결',
+      networkIssue: '네트워크 문제',
+      networkOfflineWaitingRestoration: '네트워크가 오프라인입니다. 연결 복구를 기다리는 중입니다...',
+      stoppedAfterMaxAttempts: '{max}회 실패하여 중단되었습니다. Enter 키를 눌러 수동으로 다시 시도하세요.',
+      attemptProgress: '시도 {current}/{max}...',
+      connectedOnAttempt: '{current}/{max}번째 시도에서 연결에 성공했습니다.',
+      attemptFailed: '{current}/{max}번째 시도에 실패했습니다.',
+      retryingInSeconds: '{seconds}초 후 다시 시도합니다...',
+      networkRestoredStartReconnect: '네트워크가 복구되었습니다. 재연결을 시작합니다...',
+      detectedNetworkDisconnect: '네트워크 연결 끊김이 감지되었습니다 ({reason}).',
+      networkOfflineWaitingReconnect: '네트워크가 오프라인입니다. 재연결을 기다리는 중입니다...'
+    },
     jumpserver: {
       connectingToBastionHost: '원격 배스천 호스트에 연결 중...',
       connectedToBastionHost: '배스천 호스트에 성공적으로 연결되었습니다. 잠시만 기다려주세요...',

@@ -1230,6 +1230,19 @@ export default {
     welcomeMessage: '{username}, 欢迎您使用Chaterm智能终端',
     reconnecting: '正在重新连接...',
     terminalConnectionError: '连接错误。请检查终端服务器是否运行。',
+    autoReconnect: {
+      tag: '自动重连',
+      networkIssue: '网络异常',
+      networkOfflineWaitingRestoration: '网络已断开，等待网络恢复...',
+      stoppedAfterMaxAttempts: '重连失败已达 {max} 次，已停止自动重连。请按 Enter 手动重连。',
+      attemptProgress: '正在进行第 {current}/{max} 次重连...',
+      connectedOnAttempt: '第 {current}/{max} 次重连成功。',
+      attemptFailed: '第 {current}/{max} 次重连失败。',
+      retryingInSeconds: '{seconds} 秒后重试...',
+      networkRestoredStartReconnect: '网络已恢复，开始重连...',
+      detectedNetworkDisconnect: '检测到网络断开（{reason}）。',
+      networkOfflineWaitingReconnect: '网络已断开，等待重新联网...'
+    },
     jumpserver: {
       connectingToBastionHost: '正在连接远程堡垒机...',
       connectedToBastionHost: '已成功连接堡垒机，请稍候...',
