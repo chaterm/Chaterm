@@ -13,6 +13,13 @@ vi.mock('@storage/db/chaterm.service', () => ({
   ChatermDatabaseService: { getInstance: vi.fn(async () => ({})) }
 }))
 vi.mock('@storage/database', () => ({ connectAssetInfo: vi.fn(async () => undefined) }))
+vi.mock('../../../../ssh/agentHandle', () => ({
+  remoteSshConnect: vi.fn(),
+  remoteSshDisconnect: vi.fn(),
+  isWakeupSession: vi.fn().mockReturnValue(false),
+  openWakeupShell: vi.fn(),
+  findWakeupConnectionInfoByHost: vi.fn().mockReturnValue(null)
+}))
 vi.mock('@integrations/remote-terminal', () => ({
   RemoteTerminalManager: class {
     disposeAll = vi.fn()
