@@ -2,7 +2,13 @@ import { ipcMain } from 'electron'
 import { Client, ConnectConfig } from 'ssh2'
 import { ConnectionInfo } from '../agent/integrations/remote-terminal'
 import { createProxySocket } from './proxy'
-import { createProxyCommandSocket, getReusableSshConnection, registerReusableSshSession, releaseReusableSshSession } from './sshHandle'
+import {
+  createProxyCommandSocket,
+  getReusableSshConnection,
+  registerReusableSshSession,
+  releaseReusableSshSession,
+  findWakeupConnectionInfoByHost
+} from './sshHandle'
 import { LEGACY_ALGORITHMS } from './algorithms'
 import net from 'net'
 import tls from 'tls'
@@ -364,6 +370,70 @@ export async function remoteSshDisconnect(sessionId: string): Promise<{ success?
   return { success: false, error: 'No active remote connection' }
 }
 
+// ============================================================================
+// Wakeup Agent Reuse — Session Detection & Shell Execution
+// ============================================================================
+// Technical route (agent-side wakeup connection handling):
+//
+//   task/index.ts connectTerminal() -> UUID lookup fails (xshell-xxx not in DB)
+//   -> findWakeupConnectionInfoByHost(hostIP) finds pooled connection
+//   -> builds minimal ConnectionInfo { host, port, username, password:'WAKEUP_REUSE' }
+//   -> remoteSshConnect() -> getReusableSshConnection() hits pool -> reuses conn
+//   -> session stored in reusedRemoteSessions Map
+//
+//   remote-terminal run() -> isWakeupSession(sessionId) returns true
+//   -> runWakeupCommand() -> openWakeupShell() opens conn.shell()
+//   -> runMarkerBasedCommand() writes command with start/end markers, parses output
+//
+// Why shell instead of exec: Wakeup bastion servers don't support SSH exec;
+// all exec channels are treated as tunnels. See sshHandle.ts for pool details.
+// ============================================================================
+
+// Check if a session is a wakeup connection (reused from MFA/OTP pool).
+// Wakeup connections don't support SSH exec — must use shell + markers instead.
+export function isWakeupSession(sessionId: string): boolean {
+  return reusedRemoteSessions.has(sessionId)
+}
+
+// Open an interactive shell on a wakeup connection for marker-based command execution.
+// Returns the shell stream that can be used with runMarkerBasedCommand.
+export async function openWakeupShell(sessionId: string): Promise<{ stream?: any; error?: string }> {
+  const conn = remoteConnections.get(sessionId)
+  if (!conn) {
+    return { error: 'SSH connection not found for wakeup shell' }
+  }
+
+  // If a shell stream already exists for this session, reuse it
+  const existing = remoteShellStreams.get(sessionId)
+  if (existing && existing.writable) {
+    return { stream: existing }
+  }
+
+  return new Promise((resolve) => {
+    conn.shell({ term: 'xterm-256color', rows: 40, cols: 120 }, (err, stream) => {
+      if (err) {
+        logger.error('Failed to open wakeup shell', {
+          event: 'ssh.wakeup.shell.error',
+          sessionId,
+          error: err.message
+        })
+        resolve({ error: err.message })
+        return
+      }
+
+      remoteShellStreams.set(sessionId, stream)
+
+      stream.on('close', () => {
+        remoteShellStreams.delete(sessionId)
+        logger.info('Wakeup shell closed', { event: 'ssh.wakeup.shell.close', sessionId })
+      })
+
+      logger.info('Wakeup shell opened', { event: 'ssh.wakeup.shell.open', sessionId })
+      resolve({ stream })
+    })
+  })
+}
+
 // Export function for direct use in main process
 export function handleRemoteExecInput(streamId: string, input: string): { success: boolean; error?: string } {
   const stream = remoteShellStreams.get(streamId)
@@ -373,6 +443,8 @@ export function handleRemoteExecInput(streamId: string, input: string): { succes
   }
   return { success: false, error: 'Stream not found' }
 }
+
+export { findWakeupConnectionInfoByHost }
 
 export const registerRemoteTerminalHandlers = () => {
   ipcMain.handle('ssh:remote-connect', async (_event, connectionInfo) => {

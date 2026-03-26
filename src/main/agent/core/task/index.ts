@@ -88,6 +88,7 @@ import {
 
 import { getGlobalState, getUserConfig } from '@core/storage/state'
 import { connectAssetInfo } from '../../../storage/database'
+import { findWakeupConnectionInfoByHost } from '../../../ssh/agentHandle'
 import { getMessages, formatMessage, Messages } from './messages'
 import { decodeHtmlEntities } from '@utils/decodeHtmlEntities'
 import { McpHub } from '@services/mcp/McpHub'
@@ -1031,6 +1032,30 @@ export class Task {
       let connectionInfo = await connectAssetInfo(terminalUuid)
       if (!connectionInfo) {
         connectionInfo = ExternalAssetCache.get(terminalUuid)
+      }
+      // Wakeup fallback: wakeup-created tabs have temporary UUIDs (xshell-xxx)
+      // that don't exist in the asset database or ExternalAssetCache.
+      // The underlying SSH connection is already in sshConnectionPool (saved by
+      // sshHandle.ts when wakeupSource is detected on conn.ready).
+      // We build a minimal ConnectionInfo from the pool entry so remoteSshConnect()
+      // can match it via getReusableSshConnection(host, port, username).
+      // See sshHandle.ts and agentHandle.ts for the full wakeup technical route.
+      if (!connectionInfo && targetHost.host) {
+        const wakeupInfo = findWakeupConnectionInfoByHost(targetHost.host)
+        if (wakeupInfo) {
+          connectionInfo = {
+            host: wakeupInfo.host,
+            port: wakeupInfo.port,
+            username: wakeupInfo.username,
+            password: 'WAKEUP_REUSE',
+            needProxy: false
+          } as any
+          logger.info('Using wakeup connection info from MFA pool', {
+            event: 'agent.task.wakeup.fallback',
+            host: wakeupInfo.host,
+            username: wakeupInfo.username
+          })
+        }
       }
       this.remoteTerminalManager.setConnectionInfo(connectionInfo)
 

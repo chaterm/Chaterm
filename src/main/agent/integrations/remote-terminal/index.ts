@@ -5,7 +5,7 @@
 // Licensed under the Apache License, Version 2.0
 
 import { BrownEventEmitter } from './event'
-import { remoteSshConnect, remoteSshExecStream, remoteSshDisconnect } from '../../../ssh/agentHandle'
+import { remoteSshConnect, remoteSshExecStream, remoteSshDisconnect, isWakeupSession, openWakeupShell } from '../../../ssh/agentHandle'
 import { handleJumpServerConnection, jumpserverShellStreams } from './jumpserverHandle'
 import { capabilityRegistry, BastionErrorCode } from '../../../ssh/capabilityRegistry'
 import { runMarkerBasedCommand, type MarkerStream } from './marker-based-runner'
@@ -460,7 +460,11 @@ export class RemoteTerminalProcess extends BrownEventEmitter<RemoteTerminalProce
       if (resolvedType === 'jumpserver') {
         await this.runJumpServerCommand(sessionId, command, cwd)
       } else if (resolvedType === 'ssh') {
-        await this.runSshCommand(sessionId, command, cwd)
+        if (isWakeupSession(sessionId)) {
+          await this.runWakeupCommand(sessionId, command, cwd)
+        } else {
+          await this.runSshCommand(sessionId, command, cwd)
+        }
       } else {
         // Check if this is a plugin-based bastion type
         const bastionCapability = capabilityRegistry.getBastion(resolvedType)
@@ -772,6 +776,61 @@ export class RemoteTerminalProcess extends BrownEventEmitter<RemoteTerminalProce
       stripForDetect: stripAnsiSimple,
       renderForDisplay: stripAnsiSimple, // Bastion uses simple strip instead of HTML conversion
       shouldFilterEcho: isBastionCommandEcho,
+      onLine: (line) => this.emit('line', line),
+      onDetectorOutput: (chunk) => this.interactionDetector?.onOutput(chunk),
+      onCompleted: () => this.emit('completed'),
+      onContinue: () => this.emit('continue'),
+      onExitCode: (code) => this.emit('exitCode', code),
+      cleanupInteractionDetector: () => this.cleanupInteractionDetector()
+    })
+  }
+
+  /**
+   * Run command on a wakeup connection (OTP/MFA reused SSH).
+   *
+   * Technical route:
+   *   isWakeupSession(sessionId) == true
+   *   -> openWakeupShell(sessionId) opens conn.shell() (NOT conn.exec())
+   *   -> buildJumpServerWrappedCommand() wraps command with echo start/end markers
+   *   -> runMarkerBasedCommand() writes to shell, captures output between markers
+   *
+   * Why shell+markers: Wakeup bastion servers intercept SSH exec channels as
+   * tunnels to the target host — command arguments are silently ignored.
+   * Only conn.shell() with marker-based output extraction works reliably.
+   * This is the same pattern used by JumpServer and Bastion plugin paths.
+   *
+   * See also: agentHandle.ts (isWakeupSession, openWakeupShell),
+   *           sshHandle.ts (findWakeupConnectionInfoByHost, pool save logic)
+   */
+  private async runWakeupCommand(sessionId: string, command: string, cwd?: string): Promise<void> {
+    const shellResult = await openWakeupShell(sessionId)
+    if (!shellResult.stream) {
+      throw new Error('Failed to open wakeup shell: ' + (shellResult.error || 'Unknown error'))
+    }
+
+    const stream = shellResult.stream as unknown as MarkerStream
+
+    const logPrefix = `wakeup ${sessionId}`
+    const cleanCwd = cleanWorkingDirectory(cwd, logPrefix)
+
+    const { wrappedCommand, startMarker, endMarker } = this.buildJumpServerWrappedCommand(command, cleanCwd)
+
+    const isWakeupCommandEcho = (line: string): boolean => {
+      const cleanLine = stripAnsiSimple(line).trim()
+      return cleanLine.includes('echo') && cleanLine.includes(startMarker)
+    }
+
+    await runMarkerBasedCommand({
+      stream,
+      wrappedCommand,
+      startMarker,
+      endMarker,
+      logPrefix,
+      timeoutMs: this.JUMPSERVER_COMMAND_TIMEOUT,
+      isListening: () => this.isListening,
+      stripForDetect: stripAnsiSimple,
+      renderForDisplay: stripAnsiSimple,
+      shouldFilterEcho: isWakeupCommandEcho,
       onLine: (line) => this.emit('line', line),
       onDetectorOutput: (chunk) => this.interactionDetector?.onOutput(chunk),
       onCompleted: () => this.emit('completed'),
