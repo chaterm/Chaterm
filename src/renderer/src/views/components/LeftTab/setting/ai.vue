@@ -347,7 +347,7 @@ watch(
 const loadSavedConfig = async () => {
   try {
     // Load other configurations
-    thinkingBudgetTokens.value = ((await getGlobalState('thinkingBudgetTokens')) as number) || 2048
+    thinkingBudgetTokens.value = ((await getGlobalState('thinkingBudgetTokens')) as number) ?? 2048
     customInstructions.value = ((await getGlobalState('customInstructions')) as string) || ''
 
     needProxy.value = ((await getGlobalState('needProxy')) as boolean) || false
