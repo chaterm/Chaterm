@@ -61,6 +61,7 @@ export default {
     splitRightInner: 'Разделить вправо (внутреннее)',
     splitDownInner: 'Разделить вниз (внутреннее)',
     clone: 'Клонировать',
+    forkSsh: 'Форк SSH-канала',
     clearTerm: 'Очистить экран',
     shrotenName: 'Сократить имя хоста',
     fontsize: 'Размер шрифта',

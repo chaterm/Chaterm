@@ -61,6 +61,7 @@ export default {
     splitRightInner: 'تقسيم اليمين (داخلي)',
     splitDownInner: 'تقسيم الأسفل (داخلي)',
     clone: 'تكرار',
+    forkSsh: 'تفريع قناة SSH',
     clearTerm: 'مسح الشاشة',
     shrotenName: 'إختصار اسم المضيف',
     select: 'اختيار',

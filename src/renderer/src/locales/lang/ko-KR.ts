@@ -61,6 +61,7 @@ export default {
     splitRightInner: '오른쪽 분할 (내부)',
     splitDownInner: '아래쪽 분할 (내부)',
     clone: '복제',
+    forkSsh: 'SSH 채널 포크',
     clearTerm: '화면 지우기',
     shrotenName: '호스트 이름 짧게',
     fontsize: '글꼴 크기',

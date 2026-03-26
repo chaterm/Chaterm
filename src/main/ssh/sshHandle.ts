@@ -51,6 +51,7 @@ import fs from 'fs'
 import { SSHAgentManager } from './ssh-agent/ChatermSSHAgent'
 import { getAlgorithmsByAssetType } from './algorithms'
 import { connectBastionByType, shellBastionSession, resizeBastionSession, writeBastionSession, disconnectBastionSession } from './bastionPlugin'
+import { shouldSkipPostConnectProbe } from './postConnectProbePolicy'
 
 // Hybrid buffer strategy configuration
 const FLUSH_CONFIG = {
@@ -263,6 +264,23 @@ export const attemptSecondaryConnection = async (event, connectionInfo, existing
     if (keyboardInteractiveOpts.has(id)) {
       keyboardInteractiveOpts.delete(id)
     }
+    return
+  }
+
+  if (shouldSkipPostConnectProbe(connectionInfo)) {
+    const readyResult = {
+      hasSudo: false,
+      commandList: []
+    }
+    event.sender.send(`ssh:connect:data:${id}`, readyResult)
+    if (keyboardInteractiveOpts.has(id)) {
+      keyboardInteractiveOpts.delete(id)
+    }
+    logger.info('Skip post-connect probe for wakeup/direct session', {
+      event: 'ssh.connect.probe.skip',
+      connectionId: id,
+      source: connectionInfo?.wakeupSource || connectionInfo?.source || 'unknown'
+    })
     return
   }
 
@@ -672,7 +690,16 @@ export const registerSSHHandlers = () => {
       sshType: sshType || 'ssh',
       host: connectionInfo?.host || connectionInfo?.asset_ip,
       port: connectionInfo?.port || 22,
-      username: connectionInfo?.username
+      username: connectionInfo?.username,
+      targetIp: connectionInfo?.targetIp,
+      targetAsset: connectionInfo?.targetAsset,
+      source: connectionInfo?.source || 'unknown',
+      wakeupSource: connectionInfo?.wakeupSource || 'unknown',
+      disablePostConnectProbe: connectionInfo?.disablePostConnectProbe === true,
+      needProxy: connectionInfo?.needProxy === true,
+      hasProxyCommand: !!connectionInfo?.proxyCommand,
+      hasPassword: typeof connectionInfo?.password === 'string' && connectionInfo.password.length > 0,
+      hasPrivateKey: typeof connectionInfo?.privateKey === 'string' && connectionInfo.privateKey.length > 0
     })
 
     if (sshType === 'jumpserver') {
@@ -710,7 +737,7 @@ export const registerSSHHandlers = () => {
     return false
   })
 
-  ipcMain.handle('ssh:shell', async (event, { id, terminalType }) => {
+  ipcMain.handle('ssh:shell', async (event, { id, terminalType, cols, rows }) => {
     // Check if it's a JumpServer connection
     if (jumpserverConnections.has(id)) {
       // Use JumpServer shell handling
@@ -841,6 +868,13 @@ export const registerSSHHandlers = () => {
 
     const isConnected = () => conn && conn['_sock'] && !conn['_sock'].destroyed
 
+    // Build pty options with initial window size when available
+    const ptyOpts: Record<string, unknown> = { term: termType }
+    if (cols && rows) {
+      ptyOpts.cols = cols
+      ptyOpts.rows = rows
+    }
+
     const handleStream = (stream, method: 'shell' | 'exec') => {
       shellStreams.set(id, stream)
 
@@ -946,7 +980,7 @@ export const registerSSHHandlers = () => {
       setTimeout(() => {
         if (!isConnected()) return reject(new Error('The connection has been disconnected after a delay'))
 
-        conn.shell({ term: termType }, (err, stream) => {
+        conn.shell(ptyOpts, (err, stream) => {
           if (err) {
             logger.warn('Shell start error, falling back to exec', { event: 'ssh.shell.error', connectionId: id, error: err.message })
             return tryExecFallback(fallbackExecs, resolve, reject)
@@ -1201,6 +1235,60 @@ export const registerSSHHandlers = () => {
         })
       })
     })
+  })
+
+  ipcMain.handle('ssh:fork-session', async (_event, { sourceConnectionId, newConnectionId, host, port, username }) => {
+    logger.info('Received SSH fork-session request', {
+      event: 'ssh.fork-session.start',
+      sourceConnectionId,
+      newConnectionId
+    })
+
+    const conn = sshConnections.get(sourceConnectionId)
+    if (!conn) {
+      logger.warn('Source connection not found for fork', { event: 'ssh.fork-session.notfound', sourceConnectionId })
+      return { status: 'error', message: 'Source connection not found' }
+    }
+
+    // Verify the underlying socket is still alive
+    if (conn._sock && conn._sock.destroyed) {
+      logger.warn('Source connection socket is destroyed', { event: 'ssh.fork-session.destroyed', sourceConnectionId })
+      return { status: 'error', message: 'Source connection is no longer active' }
+    }
+
+    // Register the new session with the same underlying connection
+    sshConnections.set(newConnectionId, conn)
+    connectionStatus.set(newConnectionId, { isVerified: true })
+
+    // Register in connection pool for proper reference counting on disconnect
+    let foundInPool = false
+    sshConnectionPool.forEach((value) => {
+      if (value.conn === conn) {
+        value.sessions.add(newConnectionId)
+        foundInPool = true
+      }
+    })
+
+    if (!foundInPool) {
+      // Create a new pool entry for tracking; hasMfaAuth=false prevents getReusableSshConnection from reusing it
+      const poolKey = getConnectionPoolKey(host, port || 22, username)
+      const forkPoolKey = `fork:${poolKey}:${Date.now()}`
+      sshConnectionPool.set(forkPoolKey, {
+        conn,
+        sessions: new Set([sourceConnectionId, newConnectionId]),
+        host,
+        port: port || 22,
+        username,
+        hasMfaAuth: false
+      })
+    }
+
+    logger.info('SSH fork-session successful', {
+      event: 'ssh.fork-session.success',
+      sourceConnectionId,
+      newConnectionId
+    })
+    return { status: 'connected' }
   })
 
   ipcMain.handle('ssh:disconnect', async (_event, { id }) => {

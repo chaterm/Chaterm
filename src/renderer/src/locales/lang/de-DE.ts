@@ -61,6 +61,7 @@ export default {
     splitRightInner: 'Rechts teilen (Inner)',
     splitDownInner: 'Unten teilen (Inner)',
     clone: 'Klonen',
+    forkSsh: 'SSH-Kanal forken',
     clearTerm: 'Bildschirm löschen',
     shrotenName: 'Host-Name verkürzen',
     fontsize: 'Fontsize',

@@ -130,6 +130,8 @@ import {
   type JumpServerStatusData,
   shouldUseBastionStatusChannel
 } from './utils/jumpServerStatusHandler'
+import { shouldSkipAssetLookup } from './utils/wakeupConnection'
+import { registerSshConnection, unregisterSshConnection } from './utils/sshConnectionRegistry'
 import { getLastNonEmptyLine, isTerminalPromptLine } from './utils/terminalPrompt'
 import { stripAnsiBasic, stripAnsiExtended } from './utils/ansiUtils'
 import { useDeviceStore } from '@/store/useDeviceStore'
@@ -285,6 +287,10 @@ export interface sshConnectData {
   hostname?: string
   host?: string
   comment?: string
+  source?: string
+  wakeupSource?: string
+  skipAssetLookup?: boolean
+  forkFromConnectionId?: string
 }
 
 const handleRightClick = (event) => {
@@ -958,6 +964,8 @@ onBeforeUnmount(() => {
     }
   }
 
+  unregisterSshConnection(props.currentConnectionId)
+
   if (isConnected.value) {
     disconnectSSH()
   }
@@ -1270,7 +1278,8 @@ const connectSSH = async () => {
   }
 
   try {
-    const assetInfo = await api.connectAssetInfo({ uuid: props.connectData.uuid })
+    const skipAssetLookup = shouldSkipAssetLookup(props.connectData)
+    const assetInfo = skipAssetLookup ? null : await api.connectAssetInfo({ uuid: props.connectData.uuid })
     const password = ref('')
     const privateKey = ref('')
     const passphrase = ref('')
@@ -1296,7 +1305,7 @@ const connectSSH = async () => {
     const connPassword = assetInfo?.password || props.connectData.password
     const connComment = assetInfo?.comment || props.connectData.comment
     const connSshType = assetInfo?.sshType || 'ssh'
-    const connAssetType = assetInfo?.asset_type || ''
+    const connAssetType = assetInfo?.asset_type || props.connectData.asset_type || ''
 
     const hostnameBase64 = props.serverInfo.organizationId === 'personal' ? Base64Util.encode(connAssetIp) : Base64Util.encode(connHostname)
 
@@ -1304,6 +1313,44 @@ const connectSSH = async () => {
     const jumpserverUuid = assetInfo?.organization_uuid || props.connectData.uuid
 
     connectionId.value = `${connUsername}@${props.connectData.ip}:${connOrgType}:${hostnameBase64}:${sessionId}`
+
+    // Fork path: reuse an existing authenticated SSH connection
+    if (props.connectData.forkFromConnectionId) {
+      logger.info('Fork SSH session from existing connection', {
+        sourceConnectionId: props.connectData.forkFromConnectionId,
+        newConnectionId: connectionId.value
+      })
+      const forkResult = await api.forkSession({
+        sourceConnectionId: props.connectData.forkFromConnectionId,
+        newConnectionId: connectionId.value,
+        host: connConnectHost,
+        port: connPort,
+        username: connUsername
+      })
+      if (forkResult.status === 'connected') {
+        const welcomeName = email.split('@')[0] || userInfoStore().userInfo.name
+        const welcome = '\x1b[38;2;22;119;255m' + t('ssh.welcomeMessage', { username: welcomeName }) + ' \x1b[m\r\n'
+        terminal.value?.writeln('')
+        terminal.value?.writeln(welcome)
+        terminal.value?.writeln(t('ssh.connectingTo', { ip: props.connectData.ip }))
+        await startShell()
+        shellOpenedAt = Date.now()
+        setupTerminalInput()
+        // Single deferred resize after guard window to avoid rapid setWindow killing the shell
+        setTimeout(() => {
+          handleResize()
+          terminal.value?.scrollToBottom()
+          terminal.value?.focus()
+        }, RESIZE_GUARD_MS + 100)
+        registerSshConnection(props.currentConnectionId, connectionId.value)
+      } else {
+        const errorMsg = formatStatusMessage(t('ssh.connectionFailed', { message: forkResult?.message || 'Fork failed' }), 'error')
+        terminal.value?.writeln(errorMsg)
+      }
+      connectionSftpAvailable.value = await api.checkSftpConnAvailable(connectionId.value)
+      emit('connectSSH', { isConnected: isConnected })
+      return
+    }
 
     // Setup status listener for bastion host connections
     // All plugin bastions reuse the jumpserver:status-update channel
@@ -1333,7 +1380,10 @@ const connectSSH = async () => {
       isOfficeDevice: isOfficeDevice.value,
       connIdentToken: jmsToken.value || '',
       asset_type: connAssetType, // Pass asset_type to main process for switch handling
-      proxyCommand: props.connectData.proxyCommand || ''
+      proxyCommand: props.connectData.proxyCommand || '',
+      source: props.connectData.source || '',
+      wakeupSource: props.connectData.wakeupSource || props.connectData.source || '',
+      disablePostConnectProbe: skipAssetLookup
     }
     connData.needProxy = assetInfo?.need_proxy === 1 || false
     if (connData.needProxy) {
@@ -1376,15 +1426,23 @@ const connectSSH = async () => {
       terminal.value?.writeln(welcome)
       terminal.value?.writeln(t('ssh.connectingTo', { ip: props.connectData.ip }))
       await startShell()
+      shellOpenedAt = Date.now()
       setupTerminalInput()
-      handleResize()
+      // Single deferred resize after guard window to avoid rapid setWindow killing the shell
       setTimeout(() => {
         handleResize()
-        // Ensure scroll to bottom after successful connection
         terminal.value?.scrollToBottom()
         terminal.value?.focus()
-      }, 200)
-      api.setShellPid(connectionId.value)
+      }, RESIZE_GUARD_MS + 100)
+      if (shouldSkipAssetLookup(props.connectData)) {
+        logger.info('Skip shell PID probe for xshell wakeup session', {
+          connectionId: connectionId.value,
+          source: props.connectData?.wakeupSource || props.connectData?.source || 'unknown'
+        })
+      } else {
+        api.setShellPid(connectionId.value)
+      }
+      registerSshConnection(props.currentConnectionId, connectionId.value)
     } else {
       const resolvedMessage = result?.messageKey ? t(result.messageKey, result.messageParams || {}) : (result?.message as string)
       const errorMsg = formatStatusMessage(t('ssh.connectionFailed', { message: resolvedMessage }), 'error')
@@ -1422,7 +1480,12 @@ const {
 
 const startShell = async () => {
   try {
-    const result = await api.shell({ id: connectionId.value, terminalType: config.terminalType })
+    const result = await api.shell({
+      id: connectionId.value,
+      terminalType: config.terminalType,
+      cols: terminal.value?.cols || 80,
+      rows: terminal.value?.rows || 24
+    })
     initZmodem()
     if (result.status === 'success') {
       isConnected.value = true
@@ -1466,13 +1529,30 @@ const startShell = async () => {
   emit('connectSSH', { isConnected: isConnected })
 }
 
+// Guard: suppress rapid setWindow calls right after shell opens.
+// Multiple setWindow calls within ~200ms can cause the server to close the shell.
+let shellOpenedAt = 0
+const RESIZE_GUARD_MS = 500
+let pendingResizeTimer: ReturnType<typeof setTimeout> | null = null
+
 const resizeSSH = async (cols, rows) => {
+  const elapsed = Date.now() - shellOpenedAt
+  if (shellOpenedAt > 0 && elapsed < RESIZE_GUARD_MS) {
+    // Inside guard window: schedule a single deferred resize at end of guard period
+    if (pendingResizeTimer) clearTimeout(pendingResizeTimer)
+    pendingResizeTimer = setTimeout(
+      () => {
+        pendingResizeTimer = null
+        resizeSSH(cols, rows)
+      },
+      RESIZE_GUARD_MS - elapsed + 50
+    )
+    return
+  }
   try {
     const result = await api.resizeShell(connectionId.value, cols, rows)
     if (result.status === 'error') {
       logger.error('Resize failed', { message: result.message })
-    } else {
-      // console.log('terminal resized:', result.message)
     }
   } catch (error) {
     logger.error('Failed to resize terminal', { error: error })
@@ -4044,6 +4124,15 @@ const selectSuggestion = (suggestion: CommandSuggestion) => {
 // Load OS info once for AI suggestion context
 const loadOsInfoOnce = async () => {
   if (cachedOsInfoLoaded.value || !connectionId.value || !isConnected.value || isLocalConnect.value) return
+  if (shouldSkipAssetLookup(props.connectData)) {
+    cachedOsInfo.value = undefined
+    cachedOsInfoLoaded.value = true
+    logger.info('Skip OS info probe for xshell wakeup session', {
+      connectionId: connectionId.value,
+      source: props.connectData?.wakeupSource || props.connectData?.source || 'unknown'
+    })
+    return
+  }
   try {
     const res = await window.api.getSystemInfo(connectionId.value)
     logger.debug('Fetched system info for AI suggestion context', { connectionId: connectionId.value, res })
