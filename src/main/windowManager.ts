@@ -26,7 +26,7 @@ export interface WindowCreationResult {
 export async function createMainWindow(onCookieUrlChange?: (url: string) => void, shouldPreventClose?: () => boolean): Promise<WindowCreationResult> {
   // Set window title based on edition
   const edition = getEdition()
-  const windowTitle = edition === 'cn' ? 'Chaterm CN' : 'Chaterm'
+  const windowTitle = edition === 'cn' ? 'Chaterm CN' : 'DatacubeChaterm'
 
   const mainWindow = new BrowserWindow({
     width: 1344,

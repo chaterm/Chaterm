@@ -101,18 +101,7 @@
         >
           <About />
         </a-tab-pane>
-        <a-tab-pane
-          key="12"
-          type="card"
-        >
-          <template #tab>
-            <span class="documentation-tab-label">
-              {{ $t('user.documentation') }}
-              <ExportOutlined class="export-outlined-icon" />
-            </span>
-          </template>
-          <div></div>
-        </a-tab-pane>
+        <!-- documentation tab hidden -->
       </a-tabs>
     </div>
   </div>
@@ -133,7 +122,7 @@ import Rules from '@/views/components/LeftTab/setting/rules.vue'
 import About from '@/views/components/LeftTab/setting/about.vue'
 import Mcp from '@/views/components/LeftTab/setting/mcp.vue'
 import Skills from '@/views/components/LeftTab/setting/skills.vue'
-import { ExportOutlined } from '@ant-design/icons-vue'
+// ExportOutlined import removed - documentation tab hidden
 import eventBus from '@/utils/eventBus'
 import { getDocsBaseUrl } from '@/utils/edition'
 

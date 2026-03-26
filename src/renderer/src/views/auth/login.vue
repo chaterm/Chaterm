@@ -20,7 +20,10 @@
       </a-dropdown>
       <TitleBar variant="login" />
     </div>
-    <div class="term_login_content">
+    <div
+      v-if="showLoginUI"
+      class="term_login_content"
+    >
       <div>
         <img
           src="@/assets/logo.svg"
@@ -296,6 +299,7 @@ const accountForm = reactive({
 })
 const mobileCodeSending = ref(false)
 const mobileCountdown = ref(0)
+const showLoginUI = ref(false)
 
 const checkUrlForAuthCallback = async () => {
   const url = window.location.href
@@ -580,6 +584,9 @@ const handleExternalLogin = async () => {
 onMounted(async () => {
   const api = window.api as any
   api.mainWindowShow()
+  // Auto skip login - directly enter as guest
+  await skipLogin()
+  return
   platform.value = await api.getPlatform()
   isDev.value =
     import.meta.env.MODE === 'development.cn' || import.meta.env.MODE === 'development.global' || ((window as any).api?.isE2E?.() ?? false)

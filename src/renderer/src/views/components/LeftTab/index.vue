@@ -104,7 +104,7 @@
 
     <div class="bottom-menu">
       <a-tooltip
-        v-for="i in menuTabsData.slice(-2)"
+        v-for="i in menuTabsData.slice(-2).filter((item) => !(item.key === 'user' && isSkippedLogin))"
         :key="i.key"
         :title="i.name"
         :mouse-enter-delay="1"

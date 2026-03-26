@@ -1,7 +1,7 @@
 extends: electron-builder.yml
 
 appId: ai.chaterm.global.app
-productName: Chaterm
+productName: DatacubeChaterm
 
 directories:
   output: dist/global

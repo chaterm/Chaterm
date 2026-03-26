@@ -8,7 +8,7 @@
       :bordered="false"
     >
       <div
-        v-if="isSkippedLogin"
+        v-if="false"
         class="login-prompt-container"
       >
         <div class="login-prompt-content">

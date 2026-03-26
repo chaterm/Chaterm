@@ -74,17 +74,9 @@
             <div class="ai-login-prompt">
               <p>{{ $t('user.noAvailableModelMessage') }}</p>
               <p class="ai-prompt-description">
-                {{ isSkippedLogin ? $t('user.noAvailableModelDescription') : $t('user.noAvailableModelDescriptionLoggedIn') }}
+                {{ $t('user.noAvailableModelDescriptionLoggedIn') }}
               </p>
               <div class="ai-prompt-buttons">
-                <a-button
-                  v-if="isSkippedLogin"
-                  type="primary"
-                  class="login-button"
-                  @click="goToLogin"
-                >
-                  {{ $t('common.login') }}
-                </a-button>
                 <a-button
                   type="primary"
                   class="configure-model-button"
@@ -747,7 +739,7 @@
 
 <script setup lang="ts">
 import { ref, computed, onMounted, onBeforeUnmount, watch, nextTick } from 'vue'
-import { useRouter } from 'vue-router'
+// useRouter import removed - login navigation no longer needed
 import { useAutoScroll } from './composables/useAutoScroll'
 import { useChatHistory } from './composables/useChatHistory'
 import { useChatMessages } from './composables/useChatMessages'
@@ -822,7 +814,7 @@ const props = withDefaults(defineProps<Props>(), {
 
 const emit = defineEmits(['state-changed'])
 
-const router = useRouter()
+// router removed - login navigation no longer needed
 
 const isSkippedLogin = ref(localStorage.getItem('login-skipped') === 'true')
 
@@ -1003,9 +995,7 @@ useEventBusListeners({
   isAgentMode: props.isAgentMode
 })
 
-const goToLogin = () => {
-  router.push('/login')
-}
+// goToLogin removed - login UI hidden in customized build
 
 const goToModelSettings = () => {
   eventBus.emit('openUserTab', 'userConfig')

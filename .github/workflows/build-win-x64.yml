@@ -1,0 +1,39 @@
+name: Build Windows x64
+
+on:
+  workflow_dispatch:
+  push:
+    tags:
+      - 'v*'
+
+jobs:
+  build-win-x64:
+    runs-on: windows-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'npm'
+
+      - name: Patch package-lock
+        run: node scripts/patch-package-lock.js
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Build and package Windows x64
+        run: npm run build:global && npx electron-builder --win --x64 --config electron-builder.global.yml
+        env:
+          NODE_OPTIONS: '--max-old-space-size=8192'
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: DatacubeChaterm-win-x64
+          path: |
+            dist/global/*-setup-x64.exe
+          retention-days: 30

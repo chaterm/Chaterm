@@ -1,6 +1,6 @@
 {
   "edition": "global",
-  "displayName": "Chaterm",
+  "displayName": "DatacubeChaterm",
   "api": {
     "baseUrl": "https://api.chaterm.net/v1",
     "kmsUrl": "https://api.chaterm.net/v1",

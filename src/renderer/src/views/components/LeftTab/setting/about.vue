@@ -22,7 +22,10 @@
       <div v-else>
         <div class="about-title">{{ editionConfig.displayName }}</div>
         <div class="about-description">{{ t('about.version') }} {{ appInfo.version }}</div>
-        <div class="about-update-btn-wrapper">
+        <div
+          class="about-update-btn-wrapper"
+          style="display: none"
+        >
           <button
             class="about-update-btn"
             :disabled="btnDisabled"
@@ -51,7 +54,10 @@
       </button>
     </div>
 
-    <div class="feedback-section">
+    <div
+      class="feedback-section"
+      style="display: none"
+    >
       <div class="feedback-title">
         <CommentOutlined style="margin-right: 6px" />
         {{ t('about.feedbackTitle') }}
