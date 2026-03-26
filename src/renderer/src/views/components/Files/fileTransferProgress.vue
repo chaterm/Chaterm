@@ -514,7 +514,7 @@ watch(
   border-radius: 8px;
   padding: 12px;
   z-index: 100;
-
+  background: linear-gradient(0deg, var(--hover-bg-color), var(--hover-bg-color)), var(--bg-color);
   --sb-size: 10px;
   --sb-track: rgba(0, 0, 0, 0.06);
   --sb-thumb: #bfbfbf;
