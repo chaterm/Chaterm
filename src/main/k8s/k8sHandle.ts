@@ -3,6 +3,7 @@ import * as pty from 'node-pty'
 import * as os from 'os'
 import * as fs from 'fs'
 import * as path from 'path'
+import { spawnSync } from 'child_process'
 import { K8sManager, K8sProxyConfig } from '../services/k8s'
 import { ChatermDatabaseService } from '../storage/db/chaterm.service'
 import { registerK8sAgentHandlers } from '../agent/integrations/k8s/ipc-handlers'
@@ -64,6 +65,63 @@ const getDefaultShell = (): string => {
 }
 
 /**
+ * Resolve kubectl executable path.
+ * If plugin fallback provides CHATERM_KUBECTL_PATH, prefer it.
+ */
+const resolveKubectlCommand = (): string => {
+  const fromPlugin = process.env.CHATERM_KUBECTL_PATH
+  if (fromPlugin && fs.existsSync(fromPlugin)) {
+    return fromPlugin
+  }
+  return 'kubectl'
+}
+
+/**
+ * Run kubectl with current environment.
+ */
+const runKubectl = (
+  command: string,
+  args: string[],
+  env: Record<string, string>
+): { ok: boolean; status?: number | null; stdout: string; stderr: string; error?: string } => {
+  const result = spawnSync(command, args, {
+    env,
+    encoding: 'utf8',
+    timeout: 10000,
+    windowsHide: true
+  })
+
+  return {
+    ok: !result.error && result.status === 0,
+    status: result.status,
+    stdout: result.stdout || '',
+    stderr: result.stderr || '',
+    error: result.error?.message
+  }
+}
+
+const prependPathToEnv = (env: Record<string, string>, dirPath: string): void => {
+  if (!dirPath) return
+
+  const isWin = os.platform() === 'win32'
+  const pathKey = Object.keys(env).find((k) => k.toLowerCase() === 'path') || (isWin ? 'Path' : 'PATH')
+  const current = env[pathKey] || env.PATH || env.Path || ''
+  const segments = current.split(path.delimiter).filter(Boolean)
+  const normalizedDir = isWin ? dirPath.toLowerCase() : dirPath
+  const exists = segments.some((segment) => (isWin ? segment.toLowerCase() : segment) === normalizedDir)
+  if (exists) return
+
+  const merged = `${dirPath}${path.delimiter}${current}`
+  env[pathKey] = merged
+  if (isWin) {
+    env.Path = merged
+    env.PATH = merged
+  } else {
+    env.PATH = merged
+  }
+}
+
+/**
  * Create a K8S terminal session
  */
 const createK8sTerminal = async (config: K8sTerminalConfig): Promise<K8sTerminalSession> => {
@@ -80,6 +138,55 @@ const createK8sTerminal = async (config: K8sTerminalConfig): Promise<K8sTerminal
     const tempKubeconfigPath = path.join(tempDir, `kubeconfig-${config.id}.yaml`)
     fs.writeFileSync(tempKubeconfigPath, config.kubeconfigContent, { encoding: 'utf-8' })
     env.KUBECONFIG = tempKubeconfigPath
+  }
+
+  const kubectlCommand = resolveKubectlCommand()
+  if (kubectlCommand !== 'kubectl') {
+    prependPathToEnv(env, path.dirname(kubectlCommand))
+  }
+  const kubectlCheck = runKubectl(kubectlCommand, ['version', '--client'], env)
+  if (!kubectlCheck.ok) {
+    logger.warn('kubectl preflight check failed before K8S terminal start', {
+      event: 'terminal.k8s.kubectl.preflight.failed',
+      terminalId: config.id,
+      clusterId: config.clusterId,
+      command: kubectlCommand,
+      status: kubectlCheck.status,
+      stderr: kubectlCheck.stderr,
+      error: kubectlCheck.error
+    })
+  }
+
+  if (config.contextName) {
+    const switchContextResult = runKubectl(kubectlCommand, ['config', 'use-context', config.contextName], env)
+    if (!switchContextResult.ok) {
+      logger.warn('Failed to switch kubectl context before terminal start', {
+        event: 'terminal.k8s.context.switch.failed',
+        terminalId: config.id,
+        clusterId: config.clusterId,
+        command: kubectlCommand,
+        contextName: config.contextName,
+        status: switchContextResult.status,
+        stderr: switchContextResult.stderr,
+        error: switchContextResult.error
+      })
+    }
+  }
+
+  if (config.namespace) {
+    const setNamespaceResult = runKubectl(kubectlCommand, ['config', 'set-context', '--current', `--namespace=${config.namespace}`], env)
+    if (!setNamespaceResult.ok) {
+      logger.warn('Failed to set kubectl namespace before terminal start', {
+        event: 'terminal.k8s.namespace.set.failed',
+        terminalId: config.id,
+        clusterId: config.clusterId,
+        command: kubectlCommand,
+        namespace: config.namespace,
+        status: setNamespaceResult.status,
+        stderr: setNamespaceResult.stderr,
+        error: setNamespaceResult.error
+      })
+    }
   }
 
   logger.info('Creating K8S terminal', {
