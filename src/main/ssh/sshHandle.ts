@@ -157,6 +157,40 @@ export const registerReusableSshSession = (poolKey: string, sessionId: string) =
   }
 }
 
+// ============================================================================
+// Wakeup Agent Reuse — Pool Entry & Lookup
+// ============================================================================
+// Technical route (wakeup connection pooling for agent reuse):
+//
+//   Xshell wakeup -> renderer openTerminalFromXshellWakeup -> currentClickServer(node)
+//   -> sshConnect.vue sets wakeupSource on connectionInfo
+//   -> handleAttemptConnection conn.on('ready') detects wakeupSource
+//   -> saves connection to sshConnectionPool with hasMfaAuth:true
+//   -> agent later calls findWakeupConnectionInfoByHost(hostIP) to locate the pooled connection
+//
+// Why not SSH exec: Wakeup bastion servers intercept exec channels as tunnels;
+// command arguments are ignored. Only conn.shell() + marker extraction works.
+//
+// Key constraint: wakeup connections use password auth (not keyboard-interactive),
+// so the pool-save condition checks `connectionInfo.wakeupSource` in addition to
+// the original `keyboardInteractiveOpts.has(id)` check.
+// ============================================================================
+
+// Find a wakeup (MFA-authed) connection in the pool by host IP.
+// Returns { host, port, username } so the agent can build a ConnectionInfo
+// when the asset UUID is not in the database (wakeup-created tabs).
+export const findWakeupConnectionInfoByHost = (host: string): { host: string; port: number; username: string } | null => {
+  for (const [, entry] of sshConnectionPool) {
+    if (entry.hasMfaAuth && entry.host === host) {
+      const client = entry.conn as Client | undefined
+      if (client && !(client as any)?._sock?.destroyed) {
+        return { host: entry.host, port: entry.port, username: entry.username }
+      }
+    }
+  }
+  return null
+}
+
 export const releaseReusableSshSession = (poolKey: string, sessionId: string) => {
   const reusableConn = sshConnectionPool.get(poolKey)
   if (reusableConn) {
@@ -499,11 +533,15 @@ const handleAttemptConnection = async (event, connectionInfo, resolve, reject, r
     // Check if keyboard-interactive authentication was used
     // Must check before attemptSecondaryConnection as it will clear keyboardInteractiveOpts
     const hasKeyboardInteractive = keyboardInteractiveOpts.has(id)
+    const isWakeupConnection = !!connectionInfo.wakeupSource
+    const shouldSaveToPool = hasKeyboardInteractive || isWakeupConnection
 
-    // If keyboard-interactive authentication was used, immediately save to connection pool for future reuse
-    if (hasKeyboardInteractive) {
+    // Save to connection pool for future agent reuse when:
+    // 1. keyboard-interactive (MFA/OTP) authentication was used, OR
+    // 2. this is a wakeup connection (password auth but needs agent reuse)
+    if (shouldSaveToPool) {
       const poolKey = getConnectionPoolKey(host, port || 22, username)
-      logger.info('Saving MFA authenticated connection to pool', { event: 'ssh.pool.save', poolKey })
+      logger.info('Saving connection to pool', { event: 'ssh.pool.save', poolKey, reason: isWakeupConnection ? 'wakeup' : 'keyboard-interactive' })
 
       sshConnectionPool.set(poolKey, {
         conn: conn,
