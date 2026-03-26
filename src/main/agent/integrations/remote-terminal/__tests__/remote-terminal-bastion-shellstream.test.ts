@@ -20,7 +20,10 @@ vi.mock('electron', () => ({
 vi.mock('../../../../ssh/agentHandle', () => ({
   remoteSshConnect: vi.fn(),
   remoteSshExecStream: vi.fn().mockResolvedValue({ success: true }),
-  remoteSshDisconnect: vi.fn()
+  remoteSshDisconnect: vi.fn(),
+  isWakeupSession: vi.fn().mockReturnValue(false),
+  openWakeupShell: vi.fn(),
+  findWakeupConnectionInfoByHost: vi.fn().mockReturnValue(null)
 }))
 
 const getBastionMock = vi.fn()

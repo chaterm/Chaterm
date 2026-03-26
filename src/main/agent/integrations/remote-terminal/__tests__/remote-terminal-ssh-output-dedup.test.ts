@@ -23,7 +23,10 @@ vi.mock('../../../../ssh/agentHandle', () => ({
   remoteSshConnect: vi.fn(),
   remoteSshExecStream: (...args: any[]) => remoteSshExecStreamMock(...args),
   remoteSshDisconnect: vi.fn(),
-  handleRemoteExecInput: vi.fn().mockReturnValue({ success: true })
+  handleRemoteExecInput: vi.fn().mockReturnValue({ success: true }),
+  isWakeupSession: vi.fn().mockReturnValue(false),
+  openWakeupShell: vi.fn(),
+  findWakeupConnectionInfoByHost: vi.fn().mockReturnValue(null)
 }))
 
 vi.mock('../../../../ssh/capabilityRegistry', () => ({
