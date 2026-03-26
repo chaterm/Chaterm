@@ -842,7 +842,7 @@ const api = {
     return () => ipcRenderer.removeListener(`ssh:shell:stderr:${id}`, listener)
   },
   onShellClose: (id, callback) => {
-    const listener = () => callback()
+    const listener = (_event, data) => callback(data)
     ipcRenderer.on(`ssh:shell:close:${id}`, listener)
     return () => ipcRenderer.removeListener(`ssh:shell:close:${id}`, listener)
   },

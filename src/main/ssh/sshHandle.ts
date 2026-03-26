@@ -121,6 +121,144 @@ export const connectionStatus = new Map()
 
 export const sshSessionPids = new Map<string, number>()
 
+// Track how a shell session ended so renderer can decide whether to auto reconnect.
+type ShellCloseReason = 'manual' | 'network' | 'unknown'
+
+type ShellCloseInfoPayload = {
+  reason: ShellCloseReason
+  isNetworkDisconnect: boolean
+  errorCode?: string
+  errorMessage?: string
+}
+
+const manualDisconnectSessions = new Set<string>()
+// Per-session close metadata consumed once when shell close is emitted to renderer.
+const lastConnectionErrorBySession = new Map<string, { errorCode?: string; errorMessage?: string; isNetwork: boolean }>()
+const pendingShellCloseInfoBySession = new Map<string, ShellCloseInfoPayload>()
+
+// Known socket/network error codes that indicate network interruption.
+const NETWORK_ERROR_CODES = new Set([
+  'ETIMEDOUT',
+  'ECONNRESET',
+  'ECONNABORTED',
+  'EPIPE',
+  'ENETDOWN',
+  'ENETUNREACH',
+  'EHOSTDOWN',
+  'EHOSTUNREACH',
+  'ECONNREFUSED'
+])
+
+// Message pattern fallback for errors that do not expose a stable error code.
+const NETWORK_ERROR_PATTERNS = [
+  /timed out/i,
+  /keepalive/i,
+  /connection lost/i,
+  /connection reset/i,
+  /socket hang up/i,
+  /network is unreachable/i,
+  /not reachable/i,
+  /broken pipe/i
+]
+
+// Classify whether an SSH/connect error is likely caused by network break.
+const isLikelyNetworkDisconnect = (err: any): boolean => {
+  const code = String(err?.code || err?.errno || '').toUpperCase()
+  const message = String(err?.message || '')
+
+  if (code && NETWORK_ERROR_CODES.has(code)) {
+    return true
+  }
+
+  return NETWORK_ERROR_PATTERNS.some((pattern) => pattern.test(message))
+}
+
+// Cache close reason so shell close IPC can report a precise disconnect reason.
+const setPendingShellCloseInfo = (sessionId: string, info: ShellCloseInfoPayload) => {
+  if (!sessionId) return
+  pendingShellCloseInfoBySession.set(sessionId, info)
+  logger.info('Pending shell close info updated', {
+    event: 'ssh.shell.close.pending',
+    connectionId: sessionId,
+    reason: info.reason,
+    isNetworkDisconnect: info.isNetworkDisconnect,
+    errorCode: info.errorCode,
+    errorMessage: info.errorMessage
+  })
+}
+
+// Record the latest connection failure for later close/end event classification.
+const recordSessionConnectionError = (sessionId: string, err: any) => {
+  if (!sessionId) return
+  const errorCode = String(err?.code || err?.errno || '').toUpperCase() || undefined
+  const errorMessage = String(err?.message || '').trim() || undefined
+  const isNetwork = isLikelyNetworkDisconnect(err)
+
+  lastConnectionErrorBySession.set(sessionId, {
+    errorCode,
+    errorMessage,
+    isNetwork
+  })
+
+  setPendingShellCloseInfo(sessionId, {
+    reason: isNetwork ? 'network' : 'unknown',
+    isNetworkDisconnect: isNetwork,
+    errorCode,
+    errorMessage
+  })
+
+  logger.info('Session connection error recorded', {
+    event: 'ssh.session.error.recorded',
+    connectionId: sessionId,
+    errorCode,
+    errorMessage,
+    isNetworkDisconnect: isNetwork
+  })
+}
+
+// Clear reconnect-related transient state for a session.
+const clearSessionConnectionState = (sessionId: string) => {
+  if (!sessionId) return
+  manualDisconnectSessions.delete(sessionId)
+  lastConnectionErrorBySession.delete(sessionId)
+  pendingShellCloseInfoBySession.delete(sessionId)
+}
+
+// Consume close metadata once to prevent duplicate reconnect decisions.
+const consumeShellCloseInfo = (sessionId: string): ShellCloseInfoPayload => {
+  if (!sessionId) {
+    return { reason: 'unknown', isNetworkDisconnect: false }
+  }
+
+  if (manualDisconnectSessions.has(sessionId)) {
+    clearSessionConnectionState(sessionId)
+    return {
+      reason: 'manual',
+      isNetworkDisconnect: false
+    }
+  }
+
+  const pending = pendingShellCloseInfoBySession.get(sessionId)
+  if (pending) {
+    pendingShellCloseInfoBySession.delete(sessionId)
+    lastConnectionErrorBySession.delete(sessionId)
+    return pending
+  }
+
+  const lastError = lastConnectionErrorBySession.get(sessionId)
+  if (lastError) {
+    lastConnectionErrorBySession.delete(sessionId)
+    return {
+      reason: lastError.isNetwork ? 'network' : 'unknown',
+      isNetworkDisconnect: lastError.isNetwork,
+      errorCode: lastError.errorCode,
+      errorMessage: lastError.errorMessage
+    }
+  }
+
+  return { reason: 'unknown', isNetworkDisconnect: false }
+}
+
 // Set KeyboardInteractive authentication timeout (milliseconds)
 export const KeyboardInteractiveTimeout = 300000 // 5 minutes timeout
 const MaxKeyboardInteractiveAttempts = 5 // Max KeyboardInteractive attempts
@@ -449,6 +587,7 @@ const handleAttemptConnection = async (event, connectionInfo, resolve, reject, r
     proxyCommand
   } = connectionInfo
   retryCount++
+  clearSessionConnectionState(id)
 
   logger.info('Starting SSH connection attempt', {
     event: 'ssh.connect.start',
@@ -492,6 +631,7 @@ const handleAttemptConnection = async (event, connectionInfo, resolve, reject, r
   const conn = new Client()
 
   conn.on('ready', () => {
+    clearSessionConnectionState(id)
     sshConnections.set(id, conn) // Save connection object
     connectionStatus.set(id, { isVerified: true })
     connectionEvents.emit(`connection-status-changed:${id}`, { isVerified: true })
@@ -540,6 +680,7 @@ const handleAttemptConnection = async (event, connectionInfo, resolve, reject, r
   })
 
   conn.on('error', (err) => {
+    recordSessionConnectionError(id, err)
     connectionStatus.set(id, { isVerified: false })
 
     connectionEvents.emit(`connection-status-changed:${id}`, { isVerified: false })
@@ -564,6 +705,7 @@ const handleAttemptConnection = async (event, connectionInfo, resolve, reject, r
     port: port || 22,
     username,
     keepaliveInterval: 10000, // Keep connection alive
+    keepaliveCountMax: 3,
     tryKeyboard: true, // Enable keyboard interactive authentication
     readyTimeout: KeyboardInteractiveTimeout, // Connection timeout, 30 seconds
     algorithms
@@ -627,6 +769,64 @@ const handleAttemptConnection = async (event, connectionInfo, resolve, reject, r
     logger.error('Connection configuration error', { event: 'ssh.config.error', error: err })
     reject(new Error(`Connection configuration error: ${err}`))
   }
+
+  // Classify unexpected transport close and preserve reason for renderer reconnect logic.
+  conn.on('close', () => {
+    if (manualDisconnectSessions.has(id)) {
+      logger.info('SSH connection close ignored (manual disconnect)', {
+        event: 'ssh.conn.close.manual',
+        connectionId: id
+      })
+      return
+    }
+
+    const existing = pendingShellCloseInfoBySession.get(id)
+    if (existing) {
+      return
+    }
+
+    const lastError = lastConnectionErrorBySession.get(id)
+    setPendingShellCloseInfo(id, {
+      reason: lastError?.isNetwork ? 'network' : 'unknown',
+      isNetworkDisconnect: !!lastError?.isNetwork,
+      errorCode: lastError?.errorCode,
+      errorMessage: lastError?.errorMessage || 'SSH connection closed'
+    })
+    logger.info('SSH connection close captured', {
+      event: 'ssh.conn.close',
+      connectionId: id,
+      hasLastError: !!lastError
+    })
+  })
+
+  // Some network drops surface as "end"; handle it the same as "close".
+  conn.on('end', () => {
+    if (manualDisconnectSessions.has(id)) {
+      logger.info('SSH connection end ignored (manual disconnect)', {
+        event: 'ssh.conn.end.manual',
+        connectionId: id
+      })
+      return
+    }
+
+    const existing = pendingShellCloseInfoBySession.get(id)
+    if (existing) {
+      return
+    }
+
+    const lastError = lastConnectionErrorBySession.get(id)
+    setPendingShellCloseInfo(id, {
+      reason: lastError?.isNetwork ? 'network' : 'unknown',
+      isNetworkDisconnect: !!lastError?.isNetwork,
+      errorCode: lastError?.errorCode,
+      errorMessage: lastError?.errorMessage || 'SSH connection ended'
+    })
+    logger.info('SSH connection end captured', {
+      event: 'ssh.conn.end',
+      connectionId: id,
+      hasLastError: !!lastError
+    })
+  })
 }
 export const getUniqueRemoteName = async (sftp: SFTPWrapper, remoteDir: string, originalName: string, isDir: boolean): Promise<string> => {
   const list = await new Promise<{ filename: string; longname: string; attrs: any }[]>((resolve, reject) => {
@@ -976,10 +1176,23 @@ export const registerSSHHandlers = () => {
         event.sender.send(`ssh:shell:stderr:${id}`, data.toString('utf8'))
       })
 
+      stream.on('error', (err) => {
+        recordSessionConnectionError(id, err)
+      })
+
       stream.on('close', () => {
         flushBuffer()
-        logger.debug('Shell stream closed', { event: 'ssh.stream.close', connectionId: id, method })
-        event.sender.send(`ssh:shell:close:${id}`)
+        const closeInfo = consumeShellCloseInfo(id)
+        logger.info('Shell stream closed', {
+          event: 'ssh.stream.close',
+          connectionId: id,
+          method,
+          closeReason: closeInfo.reason,
+          isNetworkDisconnect: closeInfo.isNetworkDisconnect,
+          errorCode: closeInfo.errorCode,
+          errorMessage: closeInfo.errorMessage
+        })
+        event.sender.send(`ssh:shell:close:${id}`, closeInfo)
         shellStreams.delete(id)
       })
     }
@@ -1386,6 +1599,16 @@ export const registerSSHHandlers = () => {
     }
 
     // Default SSH handling
+    manualDisconnectSessions.add(id)
+    logger.info('Mark session as manual disconnect', {
+      event: 'ssh.disconnect.manual.mark',
+      connectionId: id
+    })
+    setPendingShellCloseInfo(id, {
+      reason: 'manual',
+      isNetworkDisconnect: false
+    })
+
     const stream = shellStreams.get(id)
     if (stream) {
       stream.end()
@@ -1423,12 +1646,14 @@ export const registerSSHHandlers = () => {
       cleanSftpConnection(id)
       sshConnections.delete(id)
       sftpConnections.delete(id)
+      clearSessionConnectionState(id)
       logger.info('SSH connection disconnected', {
         event: 'ssh.disconnect.success',
         connectionId: id
       })
       return { status: 'success', message: 'Disconnected' }
     }
+    clearSessionConnectionState(id)
     logger.warn('SSH disconnect requested for non-existent connection', {
       event: 'ssh.disconnect.notfound',
       connectionId: id

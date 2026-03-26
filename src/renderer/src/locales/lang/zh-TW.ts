@@ -1231,6 +1231,19 @@ export default {
     welcomeMessage: '{username}, 歡迎您使用Chaterm智能終端',
     reconnecting: '正在重新連接...',
     terminalConnectionError: '連接錯誤。請檢查終端服務器是否運行。',
+    autoReconnect: {
+      tag: '自動重連',
+      networkIssue: '網路異常',
+      networkOfflineWaitingRestoration: '網路已中斷，等待網路恢復...',
+      stoppedAfterMaxAttempts: '重連失敗已達 {max} 次，已停止自動重連。請按 Enter 手動重連。',
+      attemptProgress: '正在進行第 {current}/{max} 次重連...',
+      connectedOnAttempt: '第 {current}/{max} 次重連成功。',
+      attemptFailed: '第 {current}/{max} 次重連失敗。',
+      retryingInSeconds: '{seconds} 秒後重試...',
+      networkRestoredStartReconnect: '網路已恢復，開始重連...',
+      detectedNetworkDisconnect: '檢測到網路中斷（{reason}）。',
+      networkOfflineWaitingReconnect: '網路已中斷，等待重新連網...'
+    },
     jumpserver: {
       connectingToBastionHost: '正在連接遠程堡壘機...',
       connectedToBastionHost: '已成功連接堡壘機，請稍候...',

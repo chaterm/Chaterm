@@ -1239,6 +1239,19 @@ export default {
     welcomeMessage: '{username}, Chatermを使用してください',
     reconnecting: '再接続中...',
     terminalConnectionError: '接続エラー。ターミナルサーバーが実行中かどうかを確認してください。',
+    autoReconnect: {
+      tag: 'AutoReconnect',
+      networkIssue: 'network issue',
+      networkOfflineWaitingRestoration: 'Network is offline. Waiting for connection restoration...',
+      stoppedAfterMaxAttempts: 'Stopped after {max} failed attempts. Press Enter to retry manually.',
+      attemptProgress: 'Attempt {current}/{max}...',
+      connectedOnAttempt: 'Connected successfully on attempt {current}/{max}.',
+      attemptFailed: 'Attempt {current}/{max} failed.',
+      retryingInSeconds: 'Retrying in {seconds}s...',
+      networkRestoredStartReconnect: 'Network restored. Starting reconnect...',
+      detectedNetworkDisconnect: 'Detected network disconnect ({reason}).',
+      networkOfflineWaitingReconnect: 'Network is offline. Waiting for reconnection...'
+    },
     jumpserver: {
       connectingToBastionHost: 'リモート踏み台サーバーに接続中...',
       connectedToBastionHost: '踏み台サーバーに接続しました。しばらくお待ちください...',

@@ -1243,6 +1243,19 @@ export default {
     connectingTo: 'Connecting to {ip}',
     welcomeMessage: '{username}, Welcome to use Chaterm',
     reconnecting: 'Reconnecting...',
+    autoReconnect: {
+      tag: 'AutoReconnect',
+      networkIssue: 'network issue',
+      networkOfflineWaitingRestoration: 'Network is offline. Waiting for connection restoration...',
+      stoppedAfterMaxAttempts: 'Stopped after {max} failed attempts. Press Enter to retry manually.',
+      attemptProgress: 'Attempt {current}/{max}...',
+      connectedOnAttempt: 'Connected successfully on attempt {current}/{max}.',
+      attemptFailed: 'Attempt {current}/{max} failed.',
+      retryingInSeconds: 'Retrying in {seconds}s...',
+      networkRestoredStartReconnect: 'Network restored. Starting reconnect...',
+      detectedNetworkDisconnect: 'Detected network disconnect ({reason}).',
+      networkOfflineWaitingReconnect: 'Network is offline. Waiting for reconnection...'
+    },
     terminalConnectionError: 'Connection error. Please check if the terminal server is running.',
     jumpserver: {
       connectingToBastionHost: 'Connecting to remote bastion host...',

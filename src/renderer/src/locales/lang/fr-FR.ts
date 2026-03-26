@@ -1254,6 +1254,19 @@ export default {
     welcomeMessage: '{username}, Bienvenue sur Chaterm',
     reconnecting: 'Reconnexion...',
     terminalConnectionError: "Erreur de connexion. Veuillez vérifier si le serveur terminal est en cours d'exécution.",
+    autoReconnect: {
+      tag: 'AutoReconnect',
+      networkIssue: 'network issue',
+      networkOfflineWaitingRestoration: 'Network is offline. Waiting for connection restoration...',
+      stoppedAfterMaxAttempts: 'Stopped after {max} failed attempts. Press Enter to retry manually.',
+      attemptProgress: 'Attempt {current}/{max}...',
+      connectedOnAttempt: 'Connected successfully on attempt {current}/{max}.',
+      attemptFailed: 'Attempt {current}/{max} failed.',
+      retryingInSeconds: 'Retrying in {seconds}s...',
+      networkRestoredStartReconnect: 'Network restored. Starting reconnect...',
+      detectedNetworkDisconnect: 'Detected network disconnect ({reason}).',
+      networkOfflineWaitingReconnect: 'Network is offline. Waiting for reconnection...'
+    },
     jumpserver: {
       connectingToBastionHost: 'Connexion au hôte bastion distant...',
       connectedToBastionHost: 'Connexion au hôte bastion distant réussie, veuillez patienter...',
