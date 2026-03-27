@@ -777,6 +777,7 @@ const api = {
   importSkillZip: (zipPath: string, overwrite?: boolean) => ipcRenderer.invoke('skills:import-zip', zipPath, overwrite),
   readSkillContent: (skillName: string) => ipcRenderer.invoke('skills:read-content', skillName),
   updateSkill: (skillName: string, metadata: any, content: string) => ipcRenderer.invoke('skills:update', skillName, metadata, content),
+  exportSkillZip: (skillName: string) => ipcRenderer.invoke('skills:export-zip', skillName),
   onSkillsUpdate: (callback: (skills: any[]) => void) => {
     const listener = (_event, data) => callback(data.skills)
     ipcRenderer.on('skillsUpdate', listener)
