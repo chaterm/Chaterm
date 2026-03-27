@@ -1457,7 +1457,10 @@ export default {
     editSkill: 'Modifica competenza',
     readContentError: 'Impossibile leggere il contenuto della competenza',
     updateSuccess: 'Competenza aggiornata con successo',
-    updateError: 'Impossibile aggiornare la competenza'
+    updateError: 'Impossibile aggiornare la competenza',
+    exportSkill: 'Esporta competenza',
+    exportSuccess: 'Competenza "{name}" esportata con successo',
+    exportError: 'Impossibile esportare la competenza'
   },
   knowledgeCenter: {
     title: 'Base di conoscenza',
