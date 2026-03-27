@@ -946,6 +946,53 @@ export class SkillsManager {
   }
 
   /**
+   * Export a skill as a ZIP buffer.
+   * The ZIP uses Structure A (SKILL.md at root) compatible with importSkillFromZip.
+   */
+  async exportSkillAsZip(skillName: string): Promise<Buffer> {
+    const skill = this.skills.get(skillName)
+    if (!skill) {
+      throw new Error(`Skill not found: ${skillName}`)
+    }
+
+    const skillDir = skill.directory
+    const dirExists = await this.directoryExists(skillDir)
+    if (!dirExists) {
+      throw new Error(`Skill directory not found: ${skillDir}`)
+    }
+
+    const zip = new AdmZip()
+    await this.addDirectoryToZip(zip, skillDir, skillDir)
+
+    logger.info(`[SkillsManager] Exported skill "${skillName}" as ZIP`)
+    return zip.toBuffer()
+  }
+
+  /**
+   * Recursively add directory contents to a ZIP archive
+   */
+  private async addDirectoryToZip(zip: AdmZip, rootDir: string, currentDir: string): Promise<void> {
+    const exportIgnored = IGNORED_RESOURCE_FILES.filter((f) => f !== SKILL_FILE_NAME)
+    const entries = await fs.readdir(currentDir, { withFileTypes: true })
+
+    for (const entry of entries) {
+      if (exportIgnored.includes(entry.name)) {
+        continue
+      }
+
+      const fullPath = path.join(currentDir, entry.name)
+      const relativePath = path.relative(rootDir, fullPath).replace(/\\/g, '/')
+
+      if (entry.isDirectory()) {
+        await this.addDirectoryToZip(zip, rootDir, fullPath)
+      } else {
+        const content = await fs.readFile(fullPath)
+        zip.addFile(relativePath, content)
+      }
+    }
+  }
+
+  /**
    * Build SKILL.md file content
    */
   private buildSkillFile(metadata: SkillMetadata, content: string): string {
