@@ -100,7 +100,7 @@ jobs:
           path: coverage
 
       - name: Upload coverage to Codecov
-        uses: codecov/codecov-action@v5
+        uses: codecov/codecov-action@v6
         if: runner.os == 'macOS'
         with:
           files: ./coverage/coverage-final.json
