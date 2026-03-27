@@ -1440,7 +1440,10 @@ export default {
     editSkill: '스킬 편집',
     readContentError: '스킬 내용을 읽지 못했습니다',
     updateSuccess: '스킬이 성공적으로 업데이트되었습니다',
-    updateError: '스킬 업데이트에 실패했습니다'
+    updateError: '스킬 업데이트에 실패했습니다',
+    exportSkill: '스킬 내보내기',
+    exportSuccess: '스킬 "{name}" 내보내기 성공',
+    exportError: '스킬 내보내기 실패'
   },
   knowledgeCenter: {
     title: '지식 베이스',
