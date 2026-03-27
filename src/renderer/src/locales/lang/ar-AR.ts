@@ -1426,7 +1426,10 @@ export default {
     editSkill: 'تعديل المهارة',
     readContentError: 'فشل في قراءة محتوى المهارة',
     updateSuccess: 'تم تحديث المهارة بنجاح',
-    updateError: 'فشل في تحديث المهارة'
+    updateError: 'فشل في تحديث المهارة',
+    exportSkill: 'تصدير المهارة',
+    exportSuccess: 'تم تصدير المهارة "{name}" بنجاح',
+    exportError: 'فشل تصدير المهارة'
   },
   knowledgeCenter: {
     title: 'قاعدة المعرفة',
