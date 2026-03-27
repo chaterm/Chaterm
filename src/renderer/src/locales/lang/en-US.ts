@@ -1449,7 +1449,10 @@ export default {
     editSkill: 'Edit Skill',
     readContentError: 'Failed to read skill content',
     updateSuccess: 'Skill updated successfully',
-    updateError: 'Failed to update skill'
+    updateError: 'Failed to update skill',
+    exportSkill: 'Export Skill',
+    exportSuccess: 'Skill "{name}" exported successfully',
+    exportError: 'Failed to export skill'
   },
   knowledgeCenter: {
     title: 'Knowledge Base',

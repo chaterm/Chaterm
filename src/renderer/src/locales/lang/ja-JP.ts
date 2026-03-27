@@ -1444,7 +1444,10 @@ export default {
     editSkill: 'スキルを編集',
     readContentError: 'スキルの内容の読み込みに失敗しました',
     updateSuccess: 'スキルが正常に更新されました',
-    updateError: 'スキルの更新に失敗しました'
+    updateError: 'スキルの更新に失敗しました',
+    exportSkill: 'スキルをエクスポート',
+    exportSuccess: 'スキル "{name}" のエクスポートに成功しました',
+    exportError: 'スキルのエクスポートに失敗しました'
   },
   knowledgeCenter: {
     title: '知識ベース',

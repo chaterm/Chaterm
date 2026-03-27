@@ -1436,7 +1436,10 @@ export default {
     editSkill: '編輯技能',
     readContentError: '讀取技能內容失敗',
     updateSuccess: '技能更新成功',
-    updateError: '更新技能失敗'
+    updateError: '更新技能失敗',
+    exportSkill: '匯出技能',
+    exportSuccess: '技能 "{name}" 匯出成功',
+    exportError: '匯出技能失敗'
   },
   knowledgeCenter: {
     title: '知識庫',

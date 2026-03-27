@@ -770,6 +770,32 @@ ipcMain.handle('skills:import-zip', async (_event, zipPath: string, overwrite?: 
   }
 })
 
+ipcMain.handle('skills:export-zip', async (event, skillName: string) => {
+  try {
+    if (controller && controller.skillsManager) {
+      const zipBuffer = await controller.skillsManager.exportSkillAsZip(skillName)
+
+      const { dialog } = require('electron')
+      const win = BrowserWindow.fromWebContents(event.sender)
+      const result = await dialog.showSaveDialog(win!, {
+        defaultPath: `${skillName}.zip`,
+        filters: [{ name: 'ZIP Files', extensions: ['zip'] }]
+      })
+
+      if (result.canceled || !result.filePath) {
+        return { success: false, error: 'cancelled' }
+      }
+
+      await fs.writeFile(result.filePath, zipBuffer)
+      return { success: true, filePath: result.filePath }
+    }
+    throw new Error('Skills manager not initialized')
+  } catch (error) {
+    logger.error('Failed to export skill as ZIP', { error: error })
+    throw error
+  }
+})
+
 ipcMain.handle('skills:read-content', async (_event, skillName: string) => {
   try {
     if (controller && controller.skillsManager) {

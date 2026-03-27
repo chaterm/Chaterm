@@ -301,6 +301,11 @@ interface ApiType {
   }>
   readSkillContent: (skillName: string) => Promise<{ metadata: any; content: string }>
   updateSkill: (skillName: string, metadata: any, content: string) => Promise<void>
+  exportSkillZip: (skillName: string) => Promise<{
+    success: boolean
+    filePath?: string
+    error?: string
+  }>
   onSkillsUpdate: (callback: (skills: any[]) => void) => () => void
 
   // IndexedDB migration related API
