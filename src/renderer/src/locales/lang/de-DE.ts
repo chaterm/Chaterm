@@ -1455,7 +1455,10 @@ export default {
     editSkill: 'Skill bearbeiten',
     readContentError: 'Skill-Inhalt konnte nicht gelesen werden',
     updateSuccess: 'Skill erfolgreich aktualisiert',
-    updateError: 'Skill konnte nicht aktualisiert werden'
+    updateError: 'Skill konnte nicht aktualisiert werden',
+    exportSkill: 'Skill exportieren',
+    exportSuccess: 'Skill "{name}" erfolgreich exportiert',
+    exportError: 'Skill konnte nicht exportiert werden'
   },
   knowledgeCenter: {
     title: 'Wissensdatenbank',
