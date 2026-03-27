@@ -1452,7 +1452,10 @@ export default {
     editSkill: 'Редактировать навык',
     readContentError: 'Не удалось прочитать содержимое навыка',
     updateSuccess: 'Навык успешно обновлен',
-    updateError: 'Не удалось обновить навык'
+    updateError: 'Не удалось обновить навык',
+    exportSkill: 'Экспортировать навык',
+    exportSuccess: 'Навык "{name}" успешно экспортирован',
+    exportError: 'Не удалось экспортировать навык'
   },
   knowledgeCenter: {
     title: 'База знаний',
