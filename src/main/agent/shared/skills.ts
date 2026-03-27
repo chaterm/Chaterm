@@ -112,6 +112,15 @@ export interface SkillImportResult {
 }
 
 /**
+ * Result of exporting a skill to ZIP
+ */
+export interface SkillExportResult {
+  success: boolean
+  filePath?: string
+  error?: string
+}
+
+/**
  * Default skill metadata values
  */
 export const DEFAULT_SKILL_METADATA: Partial<SkillMetadata> = {}
