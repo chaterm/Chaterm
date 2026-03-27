@@ -620,28 +620,34 @@ const validateField = (field: keyof typeof validationErrors, value: string) => {
 }
 
 const validateForm = (): boolean => {
-  if (isOrganizationAsset(formData.asset_type)) {
-    if (!formData.ip || !formData.ip.trim()) {
-      message.error(t('personal.validationRemoteHostRequired'))
-      return false
-    }
-    if (!formData.port || formData.port <= 0) {
-      message.error(t('personal.validationPortRequired'))
-      return false
-    }
-    if (!formData.username || !formData.username.trim()) {
-      message.error(t('personal.validationUsernameRequired'))
-      return false
-    }
-    // All bastion hosts: validate based on selected auth type
-    if (formData.auth_type === 'keyBased' && !formData.keyChain) {
-      message.error(t('personal.validationKeychainRequired'))
-      return false
-    }
-    if (formData.auth_type === 'password' && !formData.password) {
-      message.error(t('personal.validationPasswordRequired'))
-      return false
-    }
+  // Validate required connection fields for all asset types
+  let hasError = false
+
+  if (!formData.ip || !formData.ip.trim()) {
+    validationErrors.ip = t('personal.validationRemoteHostRequired')
+    hasError = true
+  }
+  if (!formData.port || formData.port <= 0) {
+    validationErrors.port = t('personal.validationPortRequired')
+    hasError = true
+  }
+  if (!formData.username || !formData.username.trim()) {
+    validationErrors.username = t('personal.validationUsernameRequired')
+    hasError = true
+  }
+
+  if (hasError) {
+    return false
+  }
+
+  // Validate auth credentials for all asset types
+  if (formData.auth_type === 'password' && !formData.password) {
+    validationErrors.password = t('personal.validationPasswordRequired')
+    return false
+  }
+  if (formData.auth_type === 'keyBased' && !formData.keyChain) {
+    message.error(t('personal.validationKeychainRequired'))
+    return false
   }
 
   validateField('ip', formData.ip)
