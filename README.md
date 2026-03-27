@@ -30,6 +30,18 @@
   <p align="center">
 </p>
 
+## Table of Contents
+
+- [Introduction](#introduction)
+- [Why Choose Chaterm](#why-choose-chaterm)
+- [Key Features](#key-features)
+- [Development Guide](#development-guide)
+  - [Install Electron](#install-electron)
+  - [Install](#install)
+  - [Development](#development)
+  - [Build](#build)
+- [Contributors](#contributors)
+
 # Introduction
 
 Chaterm is an AI native terminal built for infrastructure and cloud resource management. It enables engineers to use natural language to perform complex tasks such as deploying services, troubleshooting, and resolving problems.
@@ -39,6 +51,21 @@ With its built-in expert-level knowledge base and powerful proxy reasoning capab
 Powered by long-term memory and team knowledge bases, Chaterm learns team knowledge and user habits. Its goal is to be your intelligent DevOps co-pilot, allowing engineers to complete daily tasks more efficiently through reusable agent skills. Chaterm aims to lower the cognitive barrier associated with different technology stacks, enabling every developer to quickly gain the operational experience and execution capabilities of a senior SRE.
 
 ![Preview image](resources/hero.webp)
+
+## Why Choose Chaterm
+
+Chaterm is not just a smarter terminal, it's an infrastructure agent.
+There is a saying that every agent fails all the time, but Chaterm helps you fix it.
+
+- 🤖 From commands to execution — describe tasks, let AI plan and run them
+
+- 🌐 Built for real infrastructure — Servers, Kubernetes, and multi-cluster workflows
+
+- 🔁 Reusable Agent Skills — turn experience into automation
+
+- 🧠 Context-aware intelligence — understands your systems, not just commands
+
+- 🛡️ Safe & controllable — auditable, reviewable, and rollback-ready
 
 ## Key Features
 
