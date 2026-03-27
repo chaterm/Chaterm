@@ -40,6 +40,7 @@
   - [Install](#install)
   - [Development](#development)
   - [Build](#build)
+- [Chaterm 参考文档](https://chaterm.cn/docs/)
 - [Contributors](#contributors)
 
 # 产品介绍
