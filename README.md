@@ -40,6 +40,7 @@
   - [Install](#install)
   - [Development](#development)
   - [Build](#build)
+- [Chaterm Documentation](https://chaterm.ai/docs/)
 - [Contributors](#contributors)
 
 # Introduction
