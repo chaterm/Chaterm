@@ -205,6 +205,7 @@ export default {
     aliasStatus: 'Alias global',
     highlightStatus: 'Destacar sintaxe de comando',
     pinchZoomStatus: 'Pinch para aumentar o tamanho da fonte',
+    showCloseButton: 'Mostrar botao de fechar da aba',
     fontSize: 'Tamanho da fonte',
     fontFamily: 'Família da fonte',
     cursorStyle: 'Tipo de cursor',

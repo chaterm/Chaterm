@@ -205,6 +205,7 @@ export default {
     aliasStatus: 'グローバルエイリアス',
     highlightStatus: 'コマンド構文ハイライト',
     pinchZoomStatus: 'ピンチでフォントをズーム',
+    showCloseButton: 'Tabバーに閉じるボタンを表示',
     fontSize: 'フォントサイズ',
     fontFamily: 'フォントファミリー',
     cursorStyle: 'カーソルタイプ',

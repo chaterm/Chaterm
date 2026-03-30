@@ -95,6 +95,16 @@
           />
         </a-form-item>
         <a-form-item
+          :label="$t('user.showCloseButton')"
+          class="user_my-ant-form-item"
+        >
+          <a-switch
+            :checked="userConfig.showCloseButton === 1"
+            class="user_my-ant-form-item-content"
+            @change="handleShowCloseButtonChange"
+          />
+        </a-form-item>
+        <a-form-item
           label="SSH Agents"
           class="user_my-ant-form-item"
         >
@@ -400,6 +410,7 @@ const userConfig = ref<{
   rightMouseEvent: string
   terminalType: string
   pinchZoomStatus: number
+  showCloseButton: number
   sshAgentsStatus: number
   sshAgentsMap: string
   sshProxyStatus: boolean
@@ -413,6 +424,7 @@ const userConfig = ref<{
   rightMouseEvent: 'contextMenu',
   terminalType: 'vt100',
   pinchZoomStatus: 1,
+  showCloseButton: 1,
   sshAgentsStatus: 2,
   sshAgentsMap: '[]',
   sshProxyStatus: false,
@@ -545,6 +557,11 @@ const handleSshAgentsStatusChange = async (checked) => {
 const handlePinchZoomStatusChange = async (checked) => {
   userConfig.value.pinchZoomStatus = checked ? 1 : 2
   eventBus.emit('pinchZoomStatusChanged', checked)
+}
+
+const handleShowCloseButtonChange = async (checked) => {
+  userConfig.value.showCloseButton = checked ? 1 : 2
+  eventBus.emit('showCloseButtonChanged', checked)
 }
 
 // SSH proxy
@@ -725,6 +742,7 @@ const saveConfig = async () => {
       rightMouseEvent: userConfig.value.rightMouseEvent,
       terminalType: userConfig.value.terminalType,
       pinchZoomStatus: userConfig.value.pinchZoomStatus,
+      showCloseButton: userConfig.value.showCloseButton,
       sshAgentsStatus: userConfig.value.sshAgentsStatus,
       sshAgentsMap: userConfig.value.sshAgentsMap,
       sshProxyConfigs: userConfig.value.sshProxyConfigs

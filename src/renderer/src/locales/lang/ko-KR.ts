@@ -205,6 +205,7 @@ export default {
     aliasStatus: '전역 별칭',
     highlightStatus: '명령 구문 강조',
     pinchZoomStatus: '폰트 확대/축소',
+    showCloseButton: 'Tab 닫기 버튼 표시',
     fontSize: '글꼴 크기',
     fontFamily: '글꼴 종류',
     cursorStyle: '커서 유형',

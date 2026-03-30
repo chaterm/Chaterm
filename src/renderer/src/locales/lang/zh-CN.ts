@@ -205,6 +205,7 @@ export default {
     aliasStatus: '全局Alias',
     highlightStatus: '命令语法高亮',
     pinchZoomStatus: '触摸板缩放字体',
+    showCloseButton: 'Tab栏显示关闭按钮',
     fontSize: '字体大小(px)',
     fontFamily: '字体',
     cursorStyle: '光标样式',

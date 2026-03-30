@@ -205,6 +205,7 @@ export default {
     aliasStatus: 'Global alias',
     highlightStatus: 'Command Syntax Highlighting',
     pinchZoomStatus: 'Pinch to zoom font',
+    showCloseButton: 'Show tab close button',
     fontSize: 'Font size',
     fontFamily: 'Font family',
     cursorStyle: 'Cursor type',
