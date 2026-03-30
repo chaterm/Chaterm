@@ -205,6 +205,7 @@ export default {
     aliasStatus: 'Globales Alias',
     highlightStatus: 'Befehls-Syntax-Hervorhebung',
     pinchZoomStatus: 'Pinch to zoom font',
+    showCloseButton: 'Tab-Schliessen-Schaltflaeche anzeigen',
     fontSize: 'Font size',
     fontFamily: 'Font-Familie',
     cursorStyle: 'Cursor-Typ',

@@ -193,6 +193,7 @@ export default {
     aliasStatus: 'الألياس العام',
     highlightStatus: 'تمييز الأوامر السينتكس',
     pinchZoomStatus: 'تقريب الخط',
+    showCloseButton: 'اظهار زر اغلاق علامة التبويب',
     fontSize: 'حجم الخط',
     fontFamily: 'Font family',
     cursorStyle: 'Cursor type',

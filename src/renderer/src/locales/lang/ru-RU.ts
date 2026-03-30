@@ -205,6 +205,7 @@ export default {
     aliasStatus: 'Глобальный псевдоним',
     highlightStatus: 'Подсветка синтаксиса команды',
     pinchZoomStatus: 'Масштабирование шрифта',
+    showCloseButton: 'Показать кнопку закрытия вкладки',
     fontSize: 'Размер шрифта',
     fontFamily: 'Шрифт',
     cursorStyle: 'Тип курсора',

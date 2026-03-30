@@ -205,6 +205,7 @@ export default {
     aliasStatus: 'Alias global',
     highlightStatus: 'Mise en évidence de la syntaxe de la commande',
     pinchZoomStatus: 'Pinch pour zoomer la police',
+    showCloseButton: 'Afficher le bouton de fermeture des onglets',
     fontSize: 'Taille de police',
     fontFamily: 'Famille de police',
     cursorStyle: 'Type de curseur',
