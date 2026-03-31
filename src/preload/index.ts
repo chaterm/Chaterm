@@ -1014,6 +1014,7 @@ const api = {
   kbCopy: (srcRelPath: string, dstRelDir: string) => ipcRenderer.invoke('kb:copy', { srcRelPath, dstRelDir }),
   kbImportFile: (srcAbsPath: string, dstRelDir: string) => ipcRenderer.invoke('kb:import-file', { srcAbsPath, dstRelDir }),
   kbImportFolder: (srcAbsPath: string, dstRelDir: string) => ipcRenderer.invoke('kb:import-folder', { srcAbsPath, dstRelDir }),
+  kbSetSearchEnabled: (enabled: boolean) => ipcRenderer.invoke('kb:set-search-enabled', enabled),
   onKbTransferProgress: (callback: (data: { jobId: string; transferred: number; total: number; destRelPath: string }) => void) => {
     const listener = (_event: unknown, data: { jobId: string; transferred: number; total: number; destRelPath: string }) => callback(data)
     ipcRenderer.on('kb:transfer-progress', listener)

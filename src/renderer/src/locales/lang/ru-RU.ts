@@ -1,3 +1,5 @@
+import { KB_SEARCH_ENABLED_LABELS } from '@shared/Languages'
+
 export default {
   common: {
     runInAllTabs: 'Запустить во всех вкладках',
@@ -375,6 +377,9 @@ export default {
     autoExecuteReadOnlyCommands: 'Автовыполнение команд только для чтения',
     autoExecuteReadOnlyCommandsDescribe:
       'Команды только для чтения (ls, cat, grep и др.) во всех сессиях будут выполняться автоматически без подтверждения',
+    kbSearchEnabled: KB_SEARCH_ENABLED_LABELS['ru-RU'],
+    kbSearchEnabledDescribe:
+      'Автоматически искать релевантный контент в базе знаний при начале нового разговора и позволять ИИ искать в базе знаний во время разговоров',
     features: 'Функции',
     enableCheckpoints: 'Включить точки сохранения',
     enableCheckpointsDescribe: 'Включает расширение для сохранения точек сохранения рабочего пространства в течение всего задания',

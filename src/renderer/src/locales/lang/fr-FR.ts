@@ -1,3 +1,5 @@
+import { KB_SEARCH_ENABLED_LABELS } from '@shared/Languages'
+
 export default {
   common: {
     runInAllTabs: 'Tout dans les onglets',
@@ -376,6 +378,9 @@ export default {
     autoExecuteReadOnlyCommands: 'Exécuter auto les commandes en lecture seule',
     autoExecuteReadOnlyCommandsDescribe:
       'Les commandes en lecture seule (ex: ls, cat, grep) seront exécutées automatiquement sans confirmation dans toutes les sessions',
+    kbSearchEnabled: KB_SEARCH_ENABLED_LABELS['fr-FR'],
+    kbSearchEnabledDescribe:
+      "Rechercher automatiquement le contenu pertinent de la base de connaissances lors du demarrage d'une nouvelle conversation et permettre a l'IA de rechercher dans la base de connaissances pendant les conversations",
     features: 'Fonctionnalités',
     enableCheckpoints: 'Activer les points de contrôle',
     enableCheckpointsDescribe: "Permet à l'extension de sauvegarder les points de contrôle de l'espace de travail tout au long de la tâche",

@@ -1,3 +1,5 @@
+import { KB_SEARCH_ENABLED_LABELS } from '@shared/Languages'
+
 export default {
   common: {
     runInAllTabs: 'تشغيل في جميع الألسنة',
@@ -360,6 +362,9 @@ export default {
     autoApprovalDescribe: 'يمكن تمكين الوكيل لتنفيذ الأوامر دون الحاجة إلى التأكيد',
     autoExecuteReadOnlyCommands: 'تنفيذ الأوامر القرائية تلقائيا',
     autoExecuteReadOnlyCommandsDescribe: 'الأوامر القرائية (مثل ls, cat, grep) في جميع الجلسات سيتم تنفيذها تلقائيا دون الحاجة إلى التأكيد',
+    kbSearchEnabled: KB_SEARCH_ENABLED_LABELS['ar-AR'],
+    kbSearchEnabledDescribe:
+      'البحث التلقائي عن المحتوى ذي الصلة في قاعدة المعرفة عند بدء محادثة جديدة والسماح للذكاء الاصطناعي بالبحث في قاعدة المعرفة أثناء المحادثات',
     features: 'الميزات',
     enableCheckpoints: 'تمكين النقاط المرجعية',
     enableCheckpointsDescribe: 'يمكن تمكين الامتداد لحفظ النقاط المرجعية للمساحة العملية من خلال المهمة',

@@ -31,7 +31,8 @@ export const toolUseNames = [
   'access_mcp_resource',
   'use_skill',
   'summarize_to_knowledge',
-  'summarize_to_skill'
+  'summarize_to_skill',
+  'kb_search'
 ] as const
 
 // Converts array of tool call names into a union type ("execute_command" | "read_file" | ...)
@@ -80,7 +81,9 @@ export const toolParamNames = [
   'file_name',
   'summary',
   'skill_name',
-  'description'
+  'description',
+  'query',
+  'max_results'
 ] as const
 
 export type ToolParamName = (typeof toolParamNames)[number]

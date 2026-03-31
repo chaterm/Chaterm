@@ -386,6 +386,7 @@ interface ApiType {
   kbCopy: (srcRelPath: string, dstRelDir: string) => Promise<{ relPath: string }>
   kbImportFile: (srcAbsPath: string, dstRelDir: string) => Promise<{ jobId: string; relPath: string }>
   kbImportFolder: (srcAbsPath: string, dstRelDir: string) => Promise<{ jobId: string; relPath: string }>
+  kbSetSearchEnabled: (enabled: boolean) => Promise<{ success: boolean; error?: string }>
   onKbTransferProgress: (callback: (data: { jobId: string; transferred: number; total: number; destRelPath: string }) => void) => () => void
   kbSyncGetStatus: () => Promise<{ status: 'idle' | 'syncing' }>
   kbSyncLastTime: () => Promise<number | null>

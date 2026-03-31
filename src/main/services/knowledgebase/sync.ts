@@ -9,7 +9,7 @@ import path from 'path'
 import * as fs from 'fs/promises'
 import { createLogger } from '../logging'
 import { ApiClient } from '../../storage/data_sync/core/ApiClient'
-import { getKnowledgeBaseRoot, IMAGE_EXTS } from './index'
+import { getKnowledgeBaseRoot, IMAGE_EXTS, getKbSearchManager } from './index'
 
 const logger = createLogger('kb-sync')
 
@@ -668,22 +668,31 @@ export function startKbSync(): void {
       ignored: (p: string) => path.basename(p) === KB_SYNC_EXCLUDED_BASENAME,
       ignoreInitial: true
     })
-    // add/change: upload only.
+    // add/change: upload + search index.
     watcher.on('add', (absPath?: string) => {
       if (!absPath) return
       const rel = absToRelPath(absPath)
-      if (rel && !isKbSyncExcludedRelPath(rel)) scheduleUpload(rel)
+      if (rel && !isKbSyncExcludedRelPath(rel)) {
+        scheduleUpload(rel)
+        getKbSearchManager()?.onFileChanged(rel)
+      }
     })
     watcher.on('change', (absPath?: string) => {
       if (!absPath) return
       const rel = absToRelPath(absPath)
-      if (rel && !isKbSyncExcludedRelPath(rel)) scheduleUpload(rel)
+      if (rel && !isKbSyncExcludedRelPath(rel)) {
+        scheduleUpload(rel)
+        getKbSearchManager()?.onFileChanged(rel)
+      }
     })
-    // unlink: delete only. unlinkDir fires individual unlink events for contained files.
+    // unlink: delete + search index cleanup. unlinkDir fires individual unlink events for contained files.
     watcher.on('unlink', (absPath?: string) => {
       if (!absPath) return
       const rel = absToRelPath(absPath)
-      if (rel && !isKbSyncExcludedRelPath(rel)) scheduleDelete(rel)
+      if (rel && !isKbSyncExcludedRelPath(rel)) {
+        scheduleDelete(rel)
+        getKbSearchManager()?.onFileRemoved(rel)
+      }
     })
     logger.info('KB sync watcher started', { root })
   })

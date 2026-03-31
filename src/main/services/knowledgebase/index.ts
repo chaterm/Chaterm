@@ -10,6 +10,12 @@ import { getUserConfig } from '../../agent/core/storage/state'
 import { KB_DEFAULT_SEEDS, KB_DEFAULT_SEEDS_VERSION } from './default-seeds'
 import type { KnowledgeBaseDefaultSeed } from './default-seeds'
 import { getKbCloudUsedBytes, KB_CLOUD_TOTAL_BYTES, getKbSyncLastResults } from './sync'
+import { KbSearchManager } from './search/index'
+import type { EmbeddingConfig } from './search/types'
+import { createLogger } from '../logging'
+
+const kbLogger = createLogger('kb-search')
+const KB_SEARCH_QUERY_MAX_LEN = 2000
 
 export interface KnowledgeBaseEntry {
   name: string
@@ -101,6 +107,34 @@ interface DefaultSeedMetaEntry {
 interface DefaultKbSeedsMeta {
   version: number
   seeds: Record<string, DefaultSeedMetaEntry>
+}
+
+function isKbSearchRegion(value: unknown): value is 'cn' | 'global' {
+  return value === 'cn' || value === 'global'
+}
+
+function isValidBaseUrl(value: unknown): value is string {
+  if (typeof value !== 'string') return false
+  if (!value.trim()) return false
+  try {
+    const parsed = new URL(value)
+    return parsed.protocol === 'http:' || parsed.protocol === 'https:'
+  } catch {
+    return false
+  }
+}
+
+function normalizeKbSearchOptions(opts?: { maxResults?: number; minScore?: number }): { maxResults: number; minScore?: number } {
+  const maxResultsRaw = opts?.maxResults
+  const maxResults = typeof maxResultsRaw === 'number' && Number.isFinite(maxResultsRaw) ? Math.floor(maxResultsRaw) : 5
+  const normalized: { maxResults: number; minScore?: number } = {
+    maxResults: Math.min(Math.max(maxResults, 1), 20)
+  }
+  const minScoreRaw = opts?.minScore
+  if (typeof minScoreRaw === 'number' && Number.isFinite(minScoreRaw)) {
+    normalized.minScore = Math.min(Math.max(minScoreRaw, 0), 1)
+  }
+  return normalized
 }
 
 function normalizeRelPath(relPath: string): string {
@@ -762,4 +796,143 @@ export function registerKnowledgeBaseHandlers(): void {
 
     return { jobId, relPath: destFolderRel }
   })
+
+  // KB search IPC handlers
+  ipcMain.handle('kb:set-search-enabled', async (_evt, enabled: boolean) => {
+    try {
+      if (typeof enabled !== 'boolean') {
+        return { success: false, error: 'Invalid enabled flag' }
+      }
+      if (enabled) {
+        const { getCurrentUserId } = await import('../../storage/db/connection')
+        const { getEdition } = await import('../../config/edition')
+        const { getAllExtensionState } = await import('../../agent/core/storage/state')
+        const uid = getCurrentUserId()
+        if (!uid) return { success: false, error: 'User not logged in' }
+        const edition = getEdition()
+        const region = edition === 'cn' ? 'cn' : 'global'
+
+        // Get API credentials from user's model configuration
+        const state = await getAllExtensionState()
+        const apiConfig = state?.apiConfiguration
+        if (!apiConfig) return { success: false, error: 'No API configuration found' }
+
+        const mgr = await initKbSearchManager(uid.toString(), {
+          region,
+          apiKey: apiConfig.defaultApiKey ?? '',
+          baseUrl: apiConfig.defaultBaseUrl ?? ''
+        })
+        return { success: !!mgr }
+      } else {
+        closeKbSearchManager()
+        return { success: true }
+      }
+    } catch (err) {
+      kbLogger.error('kb:set-search-enabled failed', { error: err })
+      return { success: false, error: err instanceof Error ? err.message : String(err) }
+    }
+  })
+
+  ipcMain.handle('kb:init-search', async (_evt, config: EmbeddingConfig & { userId: string }) => {
+    try {
+      const userId = typeof config?.userId === 'string' ? config.userId.trim() : ''
+      if (!userId || userId.length > 128) {
+        return { success: false, error: 'Invalid userId' }
+      }
+      if (!isKbSearchRegion(config?.region)) {
+        return { success: false, error: 'Invalid region' }
+      }
+      const apiKey = typeof config?.apiKey === 'string' ? config.apiKey.trim() : ''
+      if (!apiKey) {
+        return { success: false, error: 'Invalid API key' }
+      }
+      const baseUrl = config?.baseUrl ?? ''
+      if (config.region === 'cn' && !isValidBaseUrl(baseUrl)) {
+        return { success: false, error: 'Invalid baseUrl for cn region' }
+      }
+
+      const mgr = await initKbSearchManager(userId, {
+        region: config.region,
+        apiKey,
+        baseUrl
+      })
+      return { success: !!mgr }
+    } catch (err) {
+      kbLogger.error('kb:init-search failed', { error: err })
+      return { success: false, error: err instanceof Error ? err.message : String(err) }
+    }
+  })
+
+  ipcMain.handle('kb:search', async (_evt, query: string, opts?: { maxResults?: number; minScore?: number }) => {
+    const mgr = getKbSearchManager()
+    if (!mgr) return []
+    if (typeof query !== 'string') return []
+    const normalizedQuery = query.trim()
+    if (!normalizedQuery) return []
+    if (normalizedQuery.length > KB_SEARCH_QUERY_MAX_LEN) return []
+    const normalizedOpts = normalizeKbSearchOptions(opts)
+    return mgr.search(normalizedQuery, normalizedOpts)
+  })
+
+  ipcMain.handle('kb:search-status', async () => {
+    const mgr = getKbSearchManager()
+    if (!mgr) return { totalFiles: 0, totalChunks: 0, model: '', provider: '' }
+    return mgr.status()
+  })
+
+  ipcMain.handle('kb:reindex', async () => {
+    const mgr = getKbSearchManager()
+    if (!mgr) return { files: 0, chunks: 0 }
+    return mgr.fullIndex()
+  })
+}
+
+// --- KbSearchManager singleton ---
+
+let kbSearchManagerInstance: KbSearchManager | null = null
+
+export function getKbSearchManager(): KbSearchManager | null {
+  return kbSearchManagerInstance
+}
+
+export async function initKbSearchManager(userId: string, embeddingConfig: EmbeddingConfig): Promise<KbSearchManager | null> {
+  // Close existing instance if any
+  if (kbSearchManagerInstance) {
+    kbSearchManagerInstance.close()
+    kbSearchManagerInstance = null
+  }
+
+  // Require an API key
+  if (!embeddingConfig.apiKey) {
+    kbLogger.info('KB search disabled: no API key available from user model configuration')
+    return null
+  }
+
+  try {
+    const kbRoot = getKbRoot()
+    const dbDir = path.join(app.getPath('userData'), 'chaterm_db')
+    kbSearchManagerInstance = KbSearchManager.create(userId, dbDir, kbRoot, embeddingConfig)
+
+    // Run full index in background (don't block startup)
+    kbSearchManagerInstance
+      .fullIndex()
+      .then((result) => {
+        kbLogger.info('KB search initial index complete', { files: result.files, chunks: result.chunks })
+      })
+      .catch((err) => {
+        kbLogger.error('KB search initial index failed', { error: err })
+      })
+
+    return kbSearchManagerInstance
+  } catch (err) {
+    kbLogger.error('Failed to initialize KB search manager', { error: err })
+    return null
+  }
+}
+
+export function closeKbSearchManager(): void {
+  if (kbSearchManagerInstance) {
+    kbSearchManagerInstance.close()
+    kbSearchManagerInstance = null
+  }
 }
