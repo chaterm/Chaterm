@@ -223,26 +223,35 @@ export class OpenAiHandler implements ApiHandler {
       }
 
       const useResponsesApi = this.options.openAiModelInfo?.apiFormat === 'responses'
+      const validationMaxOutputTokens = 16
 
       if (useResponsesApi) {
         await this.client.responses.create({
           model: this.options.openAiModelId || '',
           input: 'test',
-          max_output_tokens: 1
+          max_output_tokens: validationMaxOutputTokens
         })
       } else {
         await this.client.chat.completions.create({
           model: this.options.openAiModelId || '',
           messages: [{ role: 'user', content: 'test' }],
-          max_tokens: 1
+          max_tokens: validationMaxOutputTokens
         })
       }
       return { isValid: true }
     } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : String(error)
+      if (errorMessage.includes('max_tokens or model output limit was reached')) {
+        logger.warn('OpenAI compatible validation hit output limit, treating api key as valid', {
+          model: this.options.openAiModelId,
+          apiFormat: this.options.openAiModelInfo?.apiFormat
+        })
+        return { isValid: true }
+      }
       logger.error('OpenAI compatible configuration validation failed', { error: error })
       return {
         isValid: false,
-        error: `Validation failed:  ${error instanceof Error ? error.message : String(error)}`
+        error: `Validation failed:  ${errorMessage}`
       }
     }
   }
