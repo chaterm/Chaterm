@@ -1,9 +1,20 @@
-import { describe, it, expect, beforeEach, afterEach } from 'vitest'
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
 import fs from 'fs'
 import path from 'path'
 import os from 'os'
-import { KbSearchManager } from '../index'
 import type { EmbeddingProvider } from '../types'
+import { createMockDatabase } from './mock-database'
+
+// Mock better-sqlite3 so KbSearchManager uses our MockDatabase
+vi.mock('better-sqlite3', () => {
+  return {
+    default: function MockDatabase() {
+      return createMockDatabase()
+    }
+  }
+})
+
+import { KbSearchManager } from '../index'
 
 /**
  * Mock embedding provider that produces simple but functional vectors.
@@ -69,7 +80,7 @@ describe('KbSearchManager integration', () => {
     fs.writeFileSync(path.join(kbRoot, 'image.png'), Buffer.from([0x89, 0x50, 0x4e, 0x47]))
 
     const result = await manager.fullIndex()
-    expect(result.files).toBe(3) // md, sh, yaml — not png
+    expect(result.files).toBe(3) // md, sh, yaml -- not png
     expect(result.chunks).toBeGreaterThanOrEqual(3)
 
     const status = manager.status()

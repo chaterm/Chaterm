@@ -1,11 +1,11 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest'
-import Database from 'better-sqlite3'
 import fs from 'fs'
 import path from 'path'
 import os from 'os'
 import { initSchema } from '../schema'
 import { KbIndexer } from '../indexer'
 import type { EmbeddingProvider } from '../types'
+import { createMockDatabase, type MockDb } from './mock-database'
 
 /** Mock embedding provider that returns deterministic vectors */
 function createMockProvider(dims = 4): EmbeddingProvider & { _callCount: number } {
@@ -33,17 +33,17 @@ function createMockProvider(dims = 4): EmbeddingProvider & { _callCount: number 
 }
 
 describe('KbIndexer', () => {
-  let db: Database.Database
+  let db: MockDb
   let tmpDir: string
   let provider: EmbeddingProvider & { _callCount: number }
   let indexer: KbIndexer
 
   beforeEach(() => {
     tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'kb-indexer-test-'))
-    db = new Database(':memory:')
-    initSchema(db)
+    db = createMockDatabase()
+    initSchema(db as any)
     provider = createMockProvider()
-    indexer = new KbIndexer(db, provider, tmpDir)
+    indexer = new KbIndexer(db as any, provider, tmpDir)
   })
 
   afterEach(() => {
@@ -139,7 +139,9 @@ describe('KbIndexer', () => {
     // Verify cleanup
     expect(db.prepare('SELECT count(*) as cnt FROM files WHERE path = ?').get('to-delete.md')).toEqual({ cnt: 0 })
     expect(db.prepare('SELECT count(*) as cnt FROM chunks WHERE path = ?').get('to-delete.md')).toEqual({ cnt: 0 })
-    expect(db.prepare('SELECT count(*) as cnt FROM chunks_fts WHERE path = ?').get('to-delete.md')).toEqual({ cnt: 0 })
+    expect(db.prepare('SELECT count(*) as cnt FROM chunks_fts WHERE path = ?').get('to-delete.md')).toEqual({
+      cnt: 0
+    })
   })
 
   it('indexes various file types', async () => {
