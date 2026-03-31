@@ -1,3 +1,5 @@
+import { KB_SEARCH_ENABLED_LABELS } from '@shared/Languages'
+
 export default {
   common: {
     runInAllTabs: '所有标签执行',
@@ -368,6 +370,8 @@ export default {
     autoApprovalDescribe: '允许在不要求确认的情况下运行工具',
     autoExecuteReadOnlyCommands: '查询类命令自动执行',
     autoExecuteReadOnlyCommandsDescribe: '所有会话中的查询类命令（如 ls、cat、grep 等）将自动执行，无需人工确认',
+    kbSearchEnabled: KB_SEARCH_ENABLED_LABELS['zh-CN'],
+    kbSearchEnabledDescribe: '新对话开始时自动搜索相关知识库内容，并允许 AI 在对话中搜索知识库',
     features: '特征',
     enableCheckpoints: '开启检查点',
     enableCheckpointsDescribe: '允许在整个任务中保存工作区的检查点',
