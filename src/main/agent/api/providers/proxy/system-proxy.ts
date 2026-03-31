@@ -37,7 +37,7 @@ export async function resolveSystemProxy(targetUrl: string): Promise<string | un
       return undefined
     }
 
-    logger.info(`[Proxy] System proxy detected: ${proxyString}`)
+    logger.info('[Proxy] System proxy detected', { event: 'proxy.detected', hasProxy: true })
     return proxyString
   } catch (error) {
     logger.error('[Proxy] Failed to resolve system proxy', { error: error })
@@ -55,12 +55,12 @@ export function createProxyAgentFromString(proxyString: string): Agent | undefin
     // Parse proxy string format: "PROXY host:port" or "SOCKS5 host:port"
     const match = proxyString.match(/^(PROXY|SOCKS4|SOCKS5|HTTPS)\s+(.+):(\d+)/)
     if (!match) {
-      logger.error(`[Proxy] Invalid proxy string format: ${proxyString}`)
+      logger.error('[Proxy] Invalid proxy string format', { event: 'proxy.parse.error' })
       return undefined
     }
 
     const [, type, host, port] = match
-    logger.info(`[Proxy] Creating ${type} agent: ${host}:${port}`)
+    logger.info('[Proxy] Creating agent', { event: 'proxy.create', type, host, port })
 
     switch (type) {
       case 'PROXY':

@@ -108,7 +108,7 @@ export class KubeConfigLoader {
       cluster.proxyUrl = proxyUrl
     }
 
-    logger.info(`[K8s] Applied proxy to ${clusters.length} clusters`, { proxyUrl: proxyUrl.replace(/\/\/.*@/, '//***@') })
+    logger.info('[K8s] Applied proxy to clusters', { event: 'k8s.proxy.applied', clusterCount: clusters.length, proxyUrl })
   }
 
   /**

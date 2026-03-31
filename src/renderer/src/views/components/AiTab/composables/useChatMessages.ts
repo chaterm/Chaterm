@@ -417,7 +417,7 @@ export function useChatMessages(
       return
     }
 
-    logger.info('Received main process message', { data: { type: message.type, message } })
+    logger.info('Received main process message', { data: { type: message.type } })
 
     const session = targetTab.session
     const isActiveTab = targetTabId === currentChatId.value

@@ -1569,12 +1569,16 @@ const shouldSkipDuplicateXshellWakeup = (payload: XshellWakeupPayload): boolean 
 
 const openTerminalFromXshellWakeup = (payload: XshellWakeupPayload) => {
   if (!payload || !payload.host || !payload.username) {
-    logger.warn('Invalid xshell wakeup payload, missing host or username', { payload: payload })
+    logger.warn('Invalid xshell wakeup payload, missing host or username', {
+      event: 'xshell.wakeup.invalid',
+      hasHost: !!payload.host,
+      hasUsername: !!payload.username
+    })
     return
   }
 
   if (shouldSkipDuplicateXshellWakeup(payload)) {
-    logger.info('Skip duplicated xshell wakeup event', { host: payload.host, username: payload.username, port: payload.port || 22 })
+    logger.info('Skip duplicated xshell wakeup event', { event: 'xshell.wakeup.dedup', port: payload.port || 22 })
     return
   }
 
@@ -1609,8 +1613,6 @@ const openTerminalFromXshellWakeup = (payload: XshellWakeupPayload) => {
 
   logger.info('Open terminal from xshell wakeup', {
     source: payload.source || 'unknown',
-    host,
-    username,
     port,
     hasPassword: password.length > 0,
     targetHint

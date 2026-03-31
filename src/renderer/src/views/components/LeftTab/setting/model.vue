@@ -848,7 +848,7 @@ const handleCheck = async (provider: string): Promise<void> => {
 
   // Set corresponding loading state, check parameters
   let checkParam = await getAllExtensionState()
-  logger.info('handleCheck getAllExtensionState.apiConfiguration', { data: checkParam?.apiConfiguration })
+  logger.info('handleCheck getAllExtensionState.apiConfiguration', { event: 'model.check', provider: checkParam?.apiConfiguration?.apiProvider })
   let checkApiConfiguration = checkParam?.apiConfiguration
   let checkOptions = {}
 
@@ -915,7 +915,7 @@ const handleCheck = async (provider: string): Promise<void> => {
   // Override checkApiConfiguration content
   checkApiConfiguration = { ...checkApiConfiguration, ...checkOptions }
   try {
-    logger.info('validateApiKey checkApiConfiguration', { data: checkApiConfiguration })
+    logger.info('validateApiKey checkApiConfiguration', { event: 'model.validate', provider: checkApiConfiguration?.apiProvider })
     // Ensure correct parameter format is passed
     const result = await (
       window.api as unknown as {

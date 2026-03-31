@@ -120,6 +120,30 @@ Pre-submission Checklist:
 - Environment Variables: Renderer only exposes variables with `RENDERER_` prefix (see `electron.vite.config.ts`).
 - External Requests: If proxy or Provider switching is needed, reuse existing Provider/Proxy mechanisms (`api/providers/*`, `api/providers/proxy.ts`).
 
+### Log Sanitization Rules
+
+All log output is processed by the sanitizer (`src/main/services/logging/sanitizer.ts`), but developers must still follow these rules to avoid sensitive data leakage:
+
+- **Prohibited in logger calls:**
+  - Logging entire objects that may contain credentials: connection configs, API configurations, asset objects, keychain objects, user payloads, MCP settings
+  - String interpolation with sensitive values: hostnames, IPs, API keys, passwords, MAC addresses, usernames, proxy URLs, internal service URLs
+  - `JSON.stringify()` on objects containing credential fields
+  - Passing raw Error objects from API clients (Axios/OpenAI SDK) without sanitization — the error's config/request properties may contain tokens
+
+- **Required patterns:**
+  - Use structured logging with only safe metadata: `logger.info('description', { event: 'name', id: obj.id, count: N })`
+  - Use boolean flags for credentials: `hasApiKey: !!apiKey`, `hasPassword: !!password`, `hasPrivateKey: !!privateKey`
+  - For connection events, log only: event name, port, protocol type, connection ID — never host/username/password
+  - For API validation, log only: provider name, model ID — never the API key or full configuration object
+
+- **Sanitizer capabilities (automatic, defense-in-depth):**
+  - Key-name matching: substring match on 16+ sensitive field names (password, apikey, secret, token, etc.)
+  - Value pattern detection: PEM keys, JWT, AWS AKIA, Anthropic/OpenAI API keys, URL credentials
+  - PII partial masking: phone numbers, emails, credit cards, ID cards, IPv4, IPv6, MAC addresses
+  - Inline credential labels: `apikey: xxx`, `token: xxx`, `password: xxx` in error messages
+  - Host/hostname partial masking for debuggability
+  - Error object message/stack sanitization
+
 ## Dependencies & Build
 
 - Build aliases are in `electron.vite.config.ts`:

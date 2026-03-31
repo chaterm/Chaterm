@@ -409,7 +409,7 @@ export class SkillsManager {
       const key = line.slice(0, colonIndex).trim()
       let value = line.slice(colonIndex + 1).trim()
 
-      logger.debug(`[SkillsManager] parseYaml - key: "${key}", raw value: "${value}"`)
+      logger.debug(`[SkillsManager] parseYaml - key: "${key}", value length: ${value.length}`)
 
       // Handle quoted strings
       if ((value.startsWith('"') && value.endsWith('"')) || (value.startsWith("'") && value.endsWith("'"))) {

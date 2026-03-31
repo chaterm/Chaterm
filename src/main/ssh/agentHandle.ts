@@ -40,9 +40,7 @@ export async function remoteSshConnect(connectionInfo: ConnectionInfo): Promise<
   logger.info('Starting SSH connection', {
     event: 'ssh.connect.start',
     connectionId,
-    host: normalizedHost,
-    port: normalizedPort,
-    username: normalizedUsername
+    port: normalizedPort
   })
 
   if (normalizedHost && normalizedUsername) {
@@ -51,7 +49,7 @@ export async function remoteSshConnect(connectionInfo: ConnectionInfo): Promise<
       remoteConnections.set(connectionId, reusable.conn)
       reusedRemoteSessions.set(connectionId, { poolKey: reusable.poolKey })
       registerReusableSshSession(reusable.poolKey, connectionId)
-      logger.info('SSH connection reused via MFA pool', { event: 'ssh.reuse', connectionId, host: normalizedHost, username: normalizedUsername })
+      logger.info('SSH connection reused via MFA pool', { event: 'ssh.reuse', connectionId })
       return Promise.resolve({ id: connectionId })
     }
   }

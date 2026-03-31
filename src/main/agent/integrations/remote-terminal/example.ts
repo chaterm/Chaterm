@@ -31,7 +31,13 @@ export async function executeRemoteCommand() {
     passphrase: '',
     needProxy: false
   }
-  logger.debug('Connection info', { data: connectionInfo })
+  logger.debug('Connection info', {
+    event: 'remote-terminal.example.config',
+    host: connectionInfo.host,
+    port: connectionInfo.port,
+    hasPassword: !!connectionInfo.password,
+    hasPrivateKey: !!connectionInfo.privateKey
+  })
 
   const cwd = '/home'
   const remoteManager = new RemoteTerminalManager()
@@ -40,9 +46,12 @@ export async function executeRemoteCommand() {
     // Set connection information
     remoteManager.setConnectionInfo(connectionInfo)
 
-    logger.info('Connecting to remote server...')
-    logger.info(`Host: ${connectionInfo.host}:${connectionInfo.port}`)
-    logger.info(`Username: ${connectionInfo.username}`)
+    logger.info('Connecting to remote server...', {
+      event: 'remote-terminal.example.connect',
+      host: connectionInfo.host,
+      port: connectionInfo.port,
+      username: connectionInfo.username
+    })
 
     // Create new remote terminal
     const terminalInfo = await remoteManager.createTerminal()

@@ -103,7 +103,7 @@ export class LiteLlmHandler implements ApiHandler {
 
       // CRITICAL OPTIMIZATION: Only recreate client when proxy configuration changes
       if (proxyString !== this.currentProxyString) {
-        logger.info(`[LiteLLM] System proxy changed: ${this.currentProxyString} -> ${proxyString || 'DIRECT'}`)
+        logger.info('[LiteLLM] System proxy changed', { event: 'litellm.proxy.changed', hasProxy: !!proxyString })
         this.currentProxyString = proxyString ?? null
 
         // Unified proxy agent creation logic
