@@ -1,3 +1,5 @@
+import { KB_SEARCH_ENABLED_LABELS } from '@shared/Languages'
+
 export default {
   common: {
     runInAllTabs: '모든 탭에서 실행',
@@ -370,6 +372,8 @@ export default {
     autoApprovalDescribe: 'Agent가 도구를 실행할 때 확인 없이 실행할 수 있도록 허용합니다',
     autoExecuteReadOnlyCommands: '읽기 전용 명령 자동 실행',
     autoExecuteReadOnlyCommandsDescribe: '모든 세션에서 읽기 전용 명령(ls, cat, grep 등)이 확인 없이 자동 실행됩니다',
+    kbSearchEnabled: KB_SEARCH_ENABLED_LABELS['ko-KR'],
+    kbSearchEnabledDescribe: '새 대화를 시작할 때 관련 지식 베이스 콘텐츠를 자동으로 검색하고 대화 중 AI가 지식 베이스를 검색할 수 있도록 허용합니다',
     features: '기능',
     enableCheckpoints: '체크포인트 활성화',
     enableCheckpointsDescribe: '작업 전체에 걸쳐 작업 공간의 체크포인트를 저장할 수 있도록 허용합니다',

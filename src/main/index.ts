@@ -38,7 +38,12 @@ import { autoCompleteDatabaseService, ChatermDatabaseService, setCurrentUserId }
 import { getGuestUserId } from './storage/db/connection'
 import { Controller } from './agent/core/controller'
 import { executeRemoteCommand } from './agent/integrations/remote-terminal/example'
-import { initializeStorageMain, testStorageFromMain as testRendererStorageFromMain, getGlobalState } from './agent/core/storage/state'
+import {
+  initializeStorageMain,
+  testStorageFromMain as testRendererStorageFromMain,
+  getGlobalState,
+  getAllExtensionState
+} from './agent/core/storage/state'
 import { getTaskMetadata, saveTaskTitle, saveTaskFavorite, getTaskList } from './agent/core/storage/disk'
 import { createMainWindow, type WindowCreationResult } from './windowManager'
 import { registerUpdater } from './updater'
@@ -64,7 +69,7 @@ import { capabilityRegistry } from './ssh/capabilityRegistry'
 import { getActualTheme, loadUserTheme } from './themeManager'
 import { getLoginBaseUrl, getEdition, getProtocolPrefix, getProtocolName } from './config/edition'
 import { TelemetrySetting } from '@shared/TelemetrySetting'
-import { registerKnowledgeBaseHandlers } from './services/knowledgebase'
+import { registerKnowledgeBaseHandlers, initKbSearchManager, closeKbSearchManager } from './services/knowledgebase'
 import { registerStageChatAttachmentHandlers } from './services/agent/stageChatAttachment'
 import { startKbSync, stopKbSync } from './services/knowledgebase/sync'
 import { setupInteractionIpcHandlers } from './agent/services/interaction-detector/ipc-handlers'
@@ -1051,6 +1056,30 @@ function setupIPC(): void {
         logger.warn('Failed to reload plugins after login', { value: error })
       }
 
+      // Initialize KB search manager if the setting is enabled
+      try {
+        const kbSearchEnabled = await getGlobalState('kbSearchEnabled')
+        if (kbSearchEnabled === undefined || kbSearchEnabled === null || kbSearchEnabled) {
+          const edition = getEdition()
+          const region = edition === 'cn' ? 'cn' : 'global'
+
+          // Get API credentials from user's model configuration
+          const state = await getAllExtensionState()
+          const apiConfig = state?.apiConfiguration
+          if (apiConfig) {
+            initKbSearchManager(targetUserId.toString(), {
+              region,
+              apiKey: apiConfig.defaultApiKey ?? '',
+              baseUrl: apiConfig.defaultBaseUrl ?? ''
+            }).catch((err) => {
+              logger.warn('Failed to initialize KB search manager', { error: err })
+            })
+          }
+        }
+      } catch (error) {
+        logger.warn('Failed to check KB search setting', { value: error })
+      }
+
       return { success: true, theme: dbTheme }
     } catch (error) {
       logger.error('Database initialization failed', { error: error })
@@ -1401,6 +1430,7 @@ function setupIPC(): void {
 
           logger.info('Stopping data sync service...')
           await stopKbSync()
+          closeKbSearchManager()
           await dataSyncController.destroy()
           dataSyncController = null
           logger.info('Data sync service stopped')

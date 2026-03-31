@@ -1,3 +1,5 @@
+import { KB_SEARCH_ENABLED_LABELS } from '@shared/Languages'
+
 export default {
   common: {
     runInAllTabs: 'すべてのタブで実行',
@@ -372,6 +374,9 @@ export default {
     autoApprovalDescribe: '確認を求めずにツールを実行できるようにします',
     autoExecuteReadOnlyCommands: '読取専用コマンドを自動実行',
     autoExecuteReadOnlyCommandsDescribe: 'すべてのセッションで読取専用コマンド（ls、cat、grepなど）が確認なしで自動実行されます',
+    kbSearchEnabled: KB_SEARCH_ENABLED_LABELS['ja-JP'],
+    kbSearchEnabledDescribe:
+      '新しい会話を開始する際にナレッジベースの関連コンテンツを自動検索し、会話中にAIがナレッジベースを検索することを許可します',
     features: '機能',
     enableCheckpoints: 'チェックポイントを有効にする',
     enableCheckpointsDescribe: 'タスク全体を通じてワークスペースのチェックポイントを保存できるようにします',

@@ -49,7 +49,9 @@ export type LanguageDisplay =
 // Uses APP_EDITION env variable set at build time
 // Returns locale code consistent with renderer i18n (zh-CN, en-US)
 function getDefaultLanguageFromEdition(): LanguageKey {
-  const edition = process.env.APP_EDITION || 'cn'
+  // `src/main` can access Node's `process`, but `src/renderer` (when importing this shared module)
+  // may not have `process` defined at runtime.
+  const edition = typeof process !== 'undefined' ? process.env.APP_EDITION || 'cn' : 'cn'
   return edition === 'global' ? 'en-US' : 'zh-CN'
 }
 
@@ -85,4 +87,22 @@ export function getLanguageKey(display: LanguageDisplay | undefined): LanguageKe
     return languageOption.key
   }
   return DEFAULT_LANGUAGE_SETTINGS
+}
+
+export const KB_SEARCH_ENABLED_LABELS: Record<string, string> = {
+  'zh-CN': '知识库检索',
+  'zh-TW': '知識庫檢索',
+  'en-US': 'Knowledge base search',
+  'ja-JP': 'ナレッジベース検索',
+  'ko-KR': '지식 베이스 검색',
+  'de-DE': 'Wissensdatenbank-Suche',
+  'fr-FR': 'Recherche dans la base de connaissances',
+  'it-IT': 'Ricerca nella base di conoscenza',
+  'pt-PT': 'Pesquisa na base de conhecimento',
+  'ru-RU': 'Поиск по базе знаний',
+  'ar-AR': 'البحث في قاعدة المعرفة'
+}
+
+export function getKbSearchEnabledLabel(locale: string): string {
+  return KB_SEARCH_ENABLED_LABELS[locale] ?? KB_SEARCH_ENABLED_LABELS['en-US']
 }

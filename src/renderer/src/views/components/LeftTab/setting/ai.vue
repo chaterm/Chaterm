@@ -46,6 +46,19 @@
         </p>
       </div>
 
+      <!-- Knowledge Base Search -->
+      <div class="setting-item">
+        <a-checkbox
+          v-model:checked="kbSearchEnabled"
+          @change="handleKbSearchEnabledChange(kbSearchEnabled)"
+        >
+          {{ $t('user.kbSearchEnabled') }}
+        </a-checkbox>
+        <p class="setting-description">
+          {{ $t('user.kbSearchEnabledDescribe') }}
+        </p>
+      </div>
+
       <!-- Auto Approval -->
       <div class="setting-item">
         <a-checkbox v-model:checked="autoApprovalSettings.enabled">
@@ -248,6 +261,7 @@ const thinkingBudgetTokens = ref(2048)
 const enableExtendedThinking = ref(true)
 const reasoningEffort = ref('low')
 const shellIntegrationTimeout = ref(4)
+const kbSearchEnabled = ref(true)
 const autoApprovalSettings = ref<AutoApprovalSettings>(DEFAULT_AUTO_APPROVAL_SETTINGS)
 const chatSettings = ref<ChatSettings>(DEFAULT_CHAT_SETTINGS)
 const customInstructions = ref('')
@@ -350,6 +364,8 @@ const loadSavedConfig = async () => {
     thinkingBudgetTokens.value = ((await getGlobalState('thinkingBudgetTokens')) as number) ?? 2048
     customInstructions.value = ((await getGlobalState('customInstructions')) as string) || ''
 
+    const savedKbSearchEnabled = await getGlobalState('kbSearchEnabled')
+    kbSearchEnabled.value = savedKbSearchEnabled === undefined || savedKbSearchEnabled === null ? true : (savedKbSearchEnabled as boolean)
     needProxy.value = ((await getGlobalState('needProxy')) as boolean) || false
     proxyConfig.value = ((await getGlobalState('proxyConfig')) as ProxyConfig) || defaultProxyConfig
 
@@ -405,6 +421,7 @@ const saveConfig = async () => {
     await updateGlobalState('chatSettings', chatSettingsToSave)
     await updateGlobalState('reasoningEffort', reasoningEffort.value)
     await updateGlobalState('shellIntegrationTimeout', shellIntegrationTimeout.value)
+    await updateGlobalState('kbSearchEnabled', kbSearchEnabled.value)
     await updateGlobalState('needProxy', needProxy.value)
     const proxyConfigToSave: ProxyConfig = {
       ...proxyConfig.value
@@ -538,6 +555,18 @@ watch(
     }
   }
 )
+
+// Handle KB search enabled toggle
+const handleKbSearchEnabledChange = async (checked: boolean) => {
+  try {
+    await updateGlobalState('kbSearchEnabled', checked)
+    if (window.api?.kbSetSearchEnabled) {
+      await window.api.kbSetSearchEnabled(checked)
+    }
+  } catch (error) {
+    logger.error('Failed to update kbSearchEnabled', { error })
+  }
+}
 
 // Handle extended thinking toggle
 const handleEnableExtendedThinking = (checked: boolean) => {
