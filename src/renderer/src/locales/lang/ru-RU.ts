@@ -205,6 +205,7 @@ export default {
     aliasStatus: 'Глобальный псевдоним',
     highlightStatus: 'Подсветка синтаксиса команды',
     pinchZoomStatus: 'Масштабирование шрифта',
+    showCloseButton: 'Показать кнопку закрытия вкладки',
     fontSize: 'Размер шрифта',
     fontFamily: 'Шрифт',
     cursorStyle: 'Тип курсора',
@@ -1247,6 +1248,19 @@ export default {
     welcomeMessage: '{username}, Добро пожаловать в использование Chaterm',
     reconnecting: 'Переподключение...',
     terminalConnectionError: 'Ошибка соединения. Пожалуйста, проверьте, запущен ли терминальный сервер.',
+    autoReconnect: {
+      tag: 'Автопереподключение',
+      networkIssue: 'проблема сети',
+      networkOfflineWaitingRestoration: 'Сеть недоступна. Ожидание восстановления соединения...',
+      stoppedAfterMaxAttempts: 'Остановлено после {max} неудачных попыток. Нажмите Enter, чтобы повторить вручную.',
+      attemptProgress: 'Попытка {current}/{max}...',
+      connectedOnAttempt: 'Успешное подключение на попытке {current}/{max}.',
+      attemptFailed: 'Попытка {current}/{max} не удалась.',
+      retryingInSeconds: 'Повтор через {seconds} с...',
+      networkRestoredStartReconnect: 'Сеть восстановлена. Запуск переподключения...',
+      detectedNetworkDisconnect: 'Обнаружен сетевой разрыв ({reason}).',
+      networkOfflineWaitingReconnect: 'Сеть недоступна. Ожидание переподключения...'
+    },
     jumpserver: {
       connectingToBastionHost: 'Соединение с удаленным bastion хостом...',
       connectedToBastionHost: 'Успешно соединено с bastion хостом, пожалуйста, подождите...',
@@ -1439,7 +1453,10 @@ export default {
     editSkill: 'Редактировать навык',
     readContentError: 'Не удалось прочитать содержимое навыка',
     updateSuccess: 'Навык успешно обновлен',
-    updateError: 'Не удалось обновить навык'
+    updateError: 'Не удалось обновить навык',
+    exportSkill: 'Экспортировать навык',
+    exportSuccess: 'Навык "{name}" успешно экспортирован',
+    exportError: 'Не удалось экспортировать навык'
   },
   knowledgeCenter: {
     title: 'База знаний',

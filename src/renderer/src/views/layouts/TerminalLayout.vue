@@ -181,7 +181,7 @@
                 />
                 <Snippets v-else-if="currentMenu == 'snippets'" />
                 <KnowledgeCenter v-else-if="currentMenu == 'knowledgecenter'" />
-                <K8sTerminal v-else-if="currentMenu == 'kubernetes'" />
+                <K8sTerminal v-else-if="currentMenu == 'k8s-explorer' || currentMenu == 'kubernetes'" />
 
                 <ExtensionViewHost
                   v-else
@@ -225,7 +225,10 @@
                           <DockviewVue
                             v-if="configLoaded"
                             ref="dockviewRef"
-                            :class="currentTheme === 'light' ? 'dockview-theme-light' : 'dockview-theme-dark'"
+                            :class="[
+                              currentTheme === 'light' ? 'dockview-theme-light' : 'dockview-theme-dark',
+                              { 'hide-tab-close-button': hideTabCloseButton }
+                            ]"
                             :disable-tabs-overflow-list="true"
                             :style="{
                               width: '100%',
@@ -370,6 +373,7 @@ const getLayoutStyle = (
 }
 const aliasConfig = aliasConfigStore()
 const configStore = piniaUserConfigStore()
+const hideTabCloseButton = ref(false)
 const isTransparent = computed(() => !!configStore.getUserConfig.background.image)
 const headerRef = ref<InstanceType<typeof Header> | null>(null)
 const allTabs = ref<InstanceType<typeof TabsPanel> | null>(null)
@@ -804,6 +808,7 @@ onMounted(async () => {
     store.setUserConfig(config)
     configLoaded.value = true
     currentTheme.value = getActualTheme(config.theme || 'dark')
+    hideTabCloseButton.value = config.showCloseButton === 2
 
     // Delay of 2 seconds to wait for the main thread to complete initializeTelemetrySetting
     setTimeout(async () => {
@@ -960,6 +965,9 @@ onMounted(async () => {
   // Initialize shortcut service
   shortcutService.init()
 
+  eventBus.on('showCloseButtonChanged', (checked) => {
+    hideTabCloseButton.value = !checked
+  })
   eventBus.on('currentClickServer', currentClickServer)
   eventBus.on('getActiveTabAssetInfo', handleGetActiveTabAssetInfo)
   eventBus.on('getAllOpenedHosts', handleGetAllOpenedHosts)
@@ -2650,19 +2658,19 @@ const setupTabContextMenu = () => {
     if (!contextMenu.value.visible) return
 
     const target = e.target as HTMLElement
-
     const inMenu = contextMenuRef.value?.contains(target)
-    const inTab = !!target.closest('.dv-tab')
 
-    if (inMenu || inTab) return
+    if (inMenu) return
 
+    e.preventDefault()
+    e.stopPropagation()
     hideContextMenu()
   }
 
-  document.addEventListener('mousedown', handleMouseDown)
+  document.addEventListener('mousedown', handleMouseDown, true)
 
   onBeforeUnmount(() => {
-    document.removeEventListener('mousedown', handleMouseDown)
+    document.removeEventListener('mousedown', handleMouseDown, true)
   })
 }
 
@@ -3342,6 +3350,10 @@ defineExpose({
     color: var(--text-color) !important;
     box-shadow: none !important;
   }
+}
+
+.hide-tab-close-button .dv-default-tab-action {
+  display: none !important;
 }
 </style>
 <style lang="less">

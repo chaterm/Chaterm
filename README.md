@@ -17,7 +17,7 @@
   <img src="https://img.shields.io/codecov/c/github/chaterm/Chaterm?style=flat&logo=codecov" alt="Coverage">
   <img src="https://img.shields.io/badge/AI-Native-blue?style=flat" alt="AI Native">
   <a href="https://x.com/chaterm_ai"><img src="https://img.shields.io/twitter/follow/chaterm_ai?style=flat&logo=x&logoColor=white&label=Follow" alt="Follow on X"></a>
-  <a href="https://discord.gg/45SsUVuh"><img src="https://img.shields.io/badge/discord-join-5865F2?logo=discord&logoColor=white" alt="Discord"></a>
+  <a href="https://discord.gg/AgsYzwRp62"><img src="https://img.shields.io/badge/discord-join-5865F2?logo=discord&logoColor=white" alt="Discord"></a>
 </p>
 
 <p align="center">
@@ -30,6 +30,22 @@
   <p align="center">
 </p>
 
+## Table of Contents
+
+- [Introduction](#introduction)
+- [Why Choose Chaterm](#why-choose-chaterm)
+- [Key Features](#key-features)
+- [Development Guide](#development-guide)
+  - [Install Electron](#install-electron)
+  - [Install](#install)
+  - [Development](#development)
+  - [Build](#build)
+- [Chaterm Documentation](https://chaterm.ai/docs/)
+  - [Achieving Secure and Intelligent Operations for AWS Private Subnets Using Chaterm](https://aws.amazon.com/cn/blogs/china/bastion-using-aws-eice-ec2-instance-connect-endpoint-chaterm-implement-subnet-security-intelligent-en/)
+  - [How Chaterm’s Security Architecture Ensures Data Security and Reliability](https://aws.amazon.com/cn/blogs/china/chaterm-aws-kms-envelope-encryption-for-zero-trust-security-en/)
+  - [Enhancing DevOps Intelligence with Chaterm Skills and Qwen Large Models](https://chaterm.ai/blog/posts/agent-skills)
+- [Contributors](#contributors)
+
 # Introduction
 
 Chaterm is an AI native terminal built for infrastructure and cloud resource management. It enables engineers to use natural language to perform complex tasks such as deploying services, troubleshooting, and resolving problems.
@@ -39,6 +55,21 @@ With its built-in expert-level knowledge base and powerful proxy reasoning capab
 Powered by long-term memory and team knowledge bases, Chaterm learns team knowledge and user habits. Its goal is to be your intelligent DevOps co-pilot, allowing engineers to complete daily tasks more efficiently through reusable agent skills. Chaterm aims to lower the cognitive barrier associated with different technology stacks, enabling every developer to quickly gain the operational experience and execution capabilities of a senior SRE.
 
 ![Preview image](resources/hero.webp)
+
+## Why Choose Chaterm
+
+Chaterm is not just a smarter terminal, it's an infrastructure agent.
+There is a saying that every agent fails all the time, but Chaterm helps you fix it.
+
+- 🤖 From commands to execution — describe tasks, let AI plan and run them
+
+- 🌐 Built for real infrastructure — Servers, Kubernetes, and multi-cluster workflows
+
+- 🔁 Reusable Agent Skills — turn experience into automation
+
+- 🧠 Context-aware intelligence — understands your systems, not just commands
+
+- 🛡️ Safe & controllable — auditable, reviewable, and rollback-ready
 
 ## Key Features
 

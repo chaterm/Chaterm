@@ -205,6 +205,7 @@ export default {
     aliasStatus: '전역 별칭',
     highlightStatus: '명령 구문 강조',
     pinchZoomStatus: '폰트 확대/축소',
+    showCloseButton: 'Tab 닫기 버튼 표시',
     fontSize: '글꼴 크기',
     fontFamily: '글꼴 종류',
     cursorStyle: '커서 유형',
@@ -1235,6 +1236,19 @@ export default {
     welcomeMessage: '{username}, Chaterm 사용을 환영합니다',
     reconnecting: '연결 재시도 중...',
     terminalConnectionError: '연결 오류. 터미널 서버가 실행 중인지 확인해주세요.',
+    autoReconnect: {
+      tag: '자동 재연결',
+      networkIssue: '네트워크 문제',
+      networkOfflineWaitingRestoration: '네트워크가 오프라인입니다. 연결 복구를 기다리는 중입니다...',
+      stoppedAfterMaxAttempts: '{max}회 실패하여 중단되었습니다. Enter 키를 눌러 수동으로 다시 시도하세요.',
+      attemptProgress: '시도 {current}/{max}...',
+      connectedOnAttempt: '{current}/{max}번째 시도에서 연결에 성공했습니다.',
+      attemptFailed: '{current}/{max}번째 시도에 실패했습니다.',
+      retryingInSeconds: '{seconds}초 후 다시 시도합니다...',
+      networkRestoredStartReconnect: '네트워크가 복구되었습니다. 재연결을 시작합니다...',
+      detectedNetworkDisconnect: '네트워크 연결 끊김이 감지되었습니다 ({reason}).',
+      networkOfflineWaitingReconnect: '네트워크가 오프라인입니다. 재연결을 기다리는 중입니다...'
+    },
     jumpserver: {
       connectingToBastionHost: '원격 배스천 호스트에 연결 중...',
       connectedToBastionHost: '배스천 호스트에 성공적으로 연결되었습니다. 잠시만 기다려주세요...',
@@ -1427,7 +1441,10 @@ export default {
     editSkill: '스킬 편집',
     readContentError: '스킬 내용을 읽지 못했습니다',
     updateSuccess: '스킬이 성공적으로 업데이트되었습니다',
-    updateError: '스킬 업데이트에 실패했습니다'
+    updateError: '스킬 업데이트에 실패했습니다',
+    exportSkill: '스킬 내보내기',
+    exportSuccess: '스킬 "{name}" 내보내기 성공',
+    exportError: '스킬 내보내기 실패'
   },
   knowledgeCenter: {
     title: '지식 베이스',

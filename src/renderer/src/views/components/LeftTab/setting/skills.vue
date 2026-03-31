@@ -105,6 +105,15 @@
               <a-button
                 type="text"
                 size="small"
+                class="export-btn"
+                :title="$t('skills.exportSkill')"
+                @click="exportSkillZip(skill)"
+              >
+                <ExportOutlined />
+              </a-button>
+              <a-button
+                type="text"
+                size="small"
                 class="delete-btn"
                 :title="$t('common.delete')"
                 @click="confirmDeleteSkill(skill)"
@@ -229,7 +238,8 @@ import {
   DeleteOutlined,
   ThunderboltOutlined,
   ImportOutlined,
-  EditOutlined
+  EditOutlined,
+  ExportOutlined
 } from '@ant-design/icons-vue'
 
 const logger = createRendererLogger('settings.skills')
@@ -247,6 +257,7 @@ const isReloading = ref(false)
 const isCreating = ref(false)
 const isImporting = ref(false)
 const isUpdating = ref(false)
+const isExporting = ref(false)
 const createModalVisible = ref(false)
 const editModalVisible = ref(false)
 const skillFormRef = ref()
@@ -526,6 +537,24 @@ const updateSkill = async () => {
     isUpdating.value = false
   }
 }
+
+const exportSkillZip = async (skill: Skill) => {
+  if (isExporting.value) return
+  isExporting.value = true
+  try {
+    const result = await window.api.exportSkillZip(skill.name)
+    if (result.success) {
+      message.success(t('skills.exportSuccess', { name: skill.name }))
+    } else if (result.error !== 'cancelled') {
+      message.error(t('skills.exportError'))
+    }
+  } catch (error) {
+    logger.error('Failed to export skill', { error: error })
+    message.error(t('skills.exportError'))
+  } finally {
+    isExporting.value = false
+  }
+}
 </script>
 
 <style lang="less" scoped>
@@ -727,6 +756,23 @@ const updateSkill = async () => {
       &:hover {
         color: #1890ff;
         background-color: rgba(24, 144, 255, 0.1);
+      }
+    }
+
+    .export-btn {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      width: 28px;
+      height: 22px;
+      color: var(--text-color-tertiary);
+      padding: 0;
+      border-radius: 4px;
+      transition: all 0.2s ease;
+
+      &:hover {
+        color: #52c41a;
+        background-color: rgba(82, 196, 26, 0.1);
       }
     }
 

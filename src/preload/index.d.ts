@@ -196,7 +196,10 @@ interface ApiType {
   selectPrivateKey: () => Promise<any>
   onShellData: (id: string, callback: (data: any) => void) => () => void
   onShellError: (id: string, callback: (data: any) => void) => () => void
-  onShellClose: (id: string, callback: () => void) => () => void
+  onShellClose: (
+    id: string,
+    callback: (data?: { reason: 'manual' | 'network' | 'unknown'; isNetworkDisconnect: boolean; errorCode?: string; errorMessage?: string }) => void
+  ) => () => void
   recordTerminalState: (params: any) => Promise<any>
   recordCommand: (params: any) => Promise<any>
   sshSftpList: (opts: { id: string; path: string }) => Promise<any>
@@ -298,6 +301,11 @@ interface ApiType {
   }>
   readSkillContent: (skillName: string) => Promise<{ metadata: any; content: string }>
   updateSkill: (skillName: string, metadata: any, content: string) => Promise<void>
+  exportSkillZip: (skillName: string) => Promise<{
+    success: boolean
+    filePath?: string
+    error?: string
+  }>
   onSkillsUpdate: (callback: (skills: any[]) => void) => () => void
 
   // IndexedDB migration related API

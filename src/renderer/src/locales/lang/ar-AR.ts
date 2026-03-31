@@ -193,6 +193,7 @@ export default {
     aliasStatus: 'الألياس العام',
     highlightStatus: 'تمييز الأوامر السينتكس',
     pinchZoomStatus: 'تقريب الخط',
+    showCloseButton: 'اظهار زر اغلاق علامة التبويب',
     fontSize: 'حجم الخط',
     fontFamily: 'Font family',
     cursorStyle: 'Cursor type',
@@ -1221,6 +1222,19 @@ export default {
     welcomeMessage: '{username}, مرحبا بك في Chaterm',
     reconnecting: 'جاري الاتصال...',
     terminalConnectionError: 'خطأ في الاتصال. الرجاء التحقق من أن الخادم المحلي يعمل.',
+    autoReconnect: {
+      tag: 'إعادة الاتصال',
+      networkIssue: 'مشكلة في الشبكة',
+      networkOfflineWaitingRestoration: 'الشبكة غير متصلة. جارٍ انتظار استعادة الاتصال...',
+      stoppedAfterMaxAttempts: 'تم التوقف بعد {max} محاولات فاشلة. اضغط Enter لإعادة المحاولة يدويًا.',
+      attemptProgress: 'محاولة {current}/{max}...',
+      connectedOnAttempt: 'تم الاتصال بنجاح في المحاولة {current}/{max}.',
+      attemptFailed: 'فشلت المحاولة {current}/{max}.',
+      retryingInSeconds: 'إعادة المحاولة خلال {seconds}ث...',
+      networkRestoredStartReconnect: 'تمت استعادة الشبكة. بدء إعادة الاتصال...',
+      detectedNetworkDisconnect: 'تم اكتشاف انقطاع في الشبكة ({reason}).',
+      networkOfflineWaitingReconnect: 'الشبكة غير متصلة. جارٍ انتظار إعادة الاتصال...'
+    },
     jumpserver: {
       connectingToBastionHost: 'يتم الاتصال بالخادم البعيد...',
       connectedToBastionHost: 'تم الاتصال بالخادم البعيد بنجاح, الرجاء الانتظار...',
@@ -1413,7 +1427,10 @@ export default {
     editSkill: 'تعديل المهارة',
     readContentError: 'فشل في قراءة محتوى المهارة',
     updateSuccess: 'تم تحديث المهارة بنجاح',
-    updateError: 'فشل في تحديث المهارة'
+    updateError: 'فشل في تحديث المهارة',
+    exportSkill: 'تصدير المهارة',
+    exportSuccess: 'تم تصدير المهارة "{name}" بنجاح',
+    exportError: 'فشل تصدير المهارة'
   },
   knowledgeCenter: {
     title: 'قاعدة المعرفة',

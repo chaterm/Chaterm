@@ -2,6 +2,32 @@
   "releaseNotesUrl": "https://github.com/chaterm/Chaterm/releases/tag/v",
   "versions": [
     {
+      "version": "0.10.0",
+      "date": "2026-03-31",
+      "highlights": {
+        "zh-CN": [
+          "Kubernetes：新增 Kubernetes 插件，并适配 AI 对话的 Command/Agent 模式",
+          "SSH：新增断线后的自动重连；实现唤醒连接处理与命令执行",
+          "AI：新增 GLM 兼容消息格式转换；修复 AI 设置中“Enable Thinking”按钮显示/可用性问题",
+          "Skill：支持将 Skill 以 ZIP 形式导出进行分享",
+          "终端与命令执行：平台改用登录 Shell 获取用户配置；优化 autoExecuteCode 自动切换终端的执行逻辑",
+          "本地连接：支持本地连接的（Ctrl/Command + K）快捷键弹出的对话框进行AI对话",
+          "文件管理：修复断线后文件管理导致无法重新连接的问题",
+          "任务管理：更新任务标题时同步写入 updated_at 时间戳"
+        ],
+        "en-US": [
+          "Kubernetes: add Kubernetes plugin; adapt the AI dialog Command/Agent modes and improve K8s terminal background theme handling",
+          "SSH: add automatic reconnection after disconnects; implement wakeup connection handling with command execution",
+          "AI: add GLM-compatible message format conversion; fix the \"Enable Thinking\" button in AI settings",
+          "Skill: support exporting Skill as a ZIP for sharing",
+          "Terminal & command execution: use login shells on Unix-like platforms to load user configuration; improve autoExecuteCode switching logic for terminal execution",
+          "Local connection: support AI dialog in the dialog opened by the shortcut key (Ctrl/Command + K) for local connection",
+          "File management: fix the inability to reconnect after file management when disconnected",
+          "Task management: update the updated_at timestamp when the task title changes"
+        ]
+      }
+    },
+    {
       "version": "0.9.4",
       "date": "2026-03-24",
       "highlights": {

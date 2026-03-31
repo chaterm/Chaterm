@@ -59,6 +59,7 @@ export interface UserConfig {
   feature?: number
   quickComand?: boolean
   shortcuts?: ShortcutConfig
+  showCloseButton: number
   sshAgentsStatus: number
   sshAgentsMap?: string
   sshProxyConfigs?: Array<{
@@ -131,6 +132,7 @@ export function buildDefaultUserConfig(now: number = Date.now()): UserConfig {
     aliasStatus: 1,
     highlightStatus: 1,
     pinchZoomStatus: 1,
+    showCloseButton: 1,
     fontSize: 12,
     scrollBack: 1000,
     language: 'zh-CN',

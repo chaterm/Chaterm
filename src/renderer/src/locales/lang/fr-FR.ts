@@ -205,6 +205,7 @@ export default {
     aliasStatus: 'Alias global',
     highlightStatus: 'Mise en évidence de la syntaxe de la commande',
     pinchZoomStatus: 'Pinch pour zoomer la police',
+    showCloseButton: 'Afficher le bouton de fermeture des onglets',
     fontSize: 'Taille de police',
     fontFamily: 'Famille de police',
     cursorStyle: 'Type de curseur',
@@ -1254,6 +1255,19 @@ export default {
     welcomeMessage: '{username}, Bienvenue sur Chaterm',
     reconnecting: 'Reconnexion...',
     terminalConnectionError: "Erreur de connexion. Veuillez vérifier si le serveur terminal est en cours d'exécution.",
+    autoReconnect: {
+      tag: 'ReconnexionAuto',
+      networkIssue: 'problème réseau',
+      networkOfflineWaitingRestoration: 'Le réseau est hors ligne. En attente du rétablissement de la connexion...',
+      stoppedAfterMaxAttempts: 'Arrêt après {max} tentatives échouées. Appuyez sur Entrée pour réessayer manuellement.',
+      attemptProgress: 'Tentative {current}/{max}...',
+      connectedOnAttempt: 'Connexion réussie à la tentative {current}/{max}.',
+      attemptFailed: 'Échec de la tentative {current}/{max}.',
+      retryingInSeconds: 'Nouvelle tentative dans {seconds}s...',
+      networkRestoredStartReconnect: 'Réseau rétabli. Démarrage de la reconnexion...',
+      detectedNetworkDisconnect: 'Déconnexion réseau détectée ({reason}).',
+      networkOfflineWaitingReconnect: 'Le réseau est hors ligne. En attente de la reconnexion...'
+    },
     jumpserver: {
       connectingToBastionHost: 'Connexion au hôte bastion distant...',
       connectedToBastionHost: 'Connexion au hôte bastion distant réussie, veuillez patienter...',
@@ -1446,7 +1460,10 @@ export default {
     editSkill: 'Modifier la compétence',
     readContentError: 'Impossible de lire le contenu de la compétence',
     updateSuccess: 'Compétence mise à jour avec succès',
-    updateError: 'Impossible de mettre à jour la compétence'
+    updateError: 'Impossible de mettre à jour la compétence',
+    exportSkill: 'Exporter la compétence',
+    exportSuccess: 'Compétence "{name}" exportée avec succès',
+    exportError: "Échec de l'exportation de la compétence"
   },
   knowledgeCenter: {
     title: 'Base de connaissances',

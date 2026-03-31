@@ -205,6 +205,7 @@ export default {
     aliasStatus: 'グローバルエイリアス',
     highlightStatus: 'コマンド構文ハイライト',
     pinchZoomStatus: 'ピンチでフォントをズーム',
+    showCloseButton: 'Tabバーに閉じるボタンを表示',
     fontSize: 'フォントサイズ',
     fontFamily: 'フォントファミリー',
     cursorStyle: 'カーソルタイプ',
@@ -1239,6 +1240,19 @@ export default {
     welcomeMessage: '{username}, Chatermを使用してください',
     reconnecting: '再接続中...',
     terminalConnectionError: '接続エラー。ターミナルサーバーが実行中かどうかを確認してください。',
+    autoReconnect: {
+      tag: '自動再接続',
+      networkIssue: 'ネットワークの問題',
+      networkOfflineWaitingRestoration: 'ネットワークがオフラインです。接続の復旧を待機しています...',
+      stoppedAfterMaxAttempts: '{max} 回連続で失敗したため停止しました。Enter キーで手動再試行してください。',
+      attemptProgress: '再試行 {current}/{max}...',
+      connectedOnAttempt: '{current}/{max} 回目で接続に成功しました。',
+      attemptFailed: '{current}/{max} 回目の再試行に失敗しました。',
+      retryingInSeconds: '{seconds}秒後に再試行します...',
+      networkRestoredStartReconnect: 'ネットワークが復旧しました。再接続を開始します...',
+      detectedNetworkDisconnect: 'ネットワーク切断を検知しました（{reason}）。',
+      networkOfflineWaitingReconnect: 'ネットワークがオフラインです。再接続を待機しています...'
+    },
     jumpserver: {
       connectingToBastionHost: 'リモート踏み台サーバーに接続中...',
       connectedToBastionHost: '踏み台サーバーに接続しました。しばらくお待ちください...',
@@ -1431,7 +1445,10 @@ export default {
     editSkill: 'スキルを編集',
     readContentError: 'スキルの内容の読み込みに失敗しました',
     updateSuccess: 'スキルが正常に更新されました',
-    updateError: 'スキルの更新に失敗しました'
+    updateError: 'スキルの更新に失敗しました',
+    exportSkill: 'スキルをエクスポート',
+    exportSuccess: 'スキル "{name}" のエクスポートに成功しました',
+    exportError: 'スキルのエクスポートに失敗しました'
   },
   knowledgeCenter: {
     title: '知識ベース',
