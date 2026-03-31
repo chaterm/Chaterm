@@ -234,7 +234,8 @@
                       editingNode !== dataRef.key &&
                       company !== 'personal_user_id' &&
                       dataRef.title !== t('common.favoriteBar') &&
-                      dataRef.asset_type !== 'custom_folder'
+                      dataRef.asset_type !== 'custom_folder' &&
+                      !dataRef.isAssetGroup
                     "
                     class="refresh-icon"
                   >
@@ -770,8 +771,31 @@ const getOriginalChildrenCount = (dataRef: any): number => {
     return null
   }
 
+  // Count leaf nodes recursively, dedup by ip to handle assets in multiple groups
+  const collectLeafIps = (node: AssetNode, ips: Set<string>): void => {
+    if (!node.children || node.children.length === 0) {
+      ips.add(node.ip || node.key)
+      return
+    }
+    for (const child of node.children) {
+      collectLeafIps(child, ips)
+    }
+  }
+
   const originalNode = findNodeInOriginal(originalTreeData.value, dataRef.key)
-  return originalNode?.children?.length || 0
+  if (!originalNode?.children) return 0
+
+  // For asset group nodes (intermediate level), just count direct children
+  if ((originalNode as any).isAssetGroup) {
+    return originalNode.children.length
+  }
+
+  // For top-level organization nodes, dedup by IP
+  const ips = new Set<string>()
+  for (const child of originalNode.children) {
+    collectLeafIps(child, ips)
+  }
+  return ips.size
 }
 
 const toggleFavorite = (dataRef: any): void => {
