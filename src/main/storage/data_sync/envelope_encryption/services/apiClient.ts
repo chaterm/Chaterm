@@ -323,7 +323,7 @@ class ApiClient {
   updateServerUrl(newUrl: string): void {
     this.serverUrl = newUrl
     this.client.defaults.baseURL = newUrl
-    logger.info(`API server URL updated to: ${newUrl}`)
+    logger.info('API server URL updated', { event: 'kms.url.update' })
   }
 
   /**

@@ -1286,6 +1286,7 @@ export default {
       authenticating: 'Authenticating...',
       connectedToTarget: 'Connected to target server',
       mfaRequired: 'Qizhi bastion host 2nd authentication',
+      selectingAssetCategory: 'Selecting asset category...',
       mfaPrompt: 'Please enter 2nd Password',
       mfaFailed: '2nd authentication failed',
       mfaTimeout: 'Authentication timeout, please retry',

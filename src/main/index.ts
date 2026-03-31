@@ -2180,14 +2180,14 @@ function parseXSHContent(content: string, fileName: string, fullPath?: string): 
       if (lowerKey === 'host' || lowerKey === 'hostname') {
         session.host = value
         foundHost = true
-        logger.info(`*** Found host: ${value}`)
+        logger.info('Parsed session field', { event: 'xsh.parse.field', field: 'host', host: value })
       } else if (lowerKey === 'port') {
         session.port = parseInt(value) || 22
-        logger.info(`*** Found port: ${session.port}`)
+        logger.info('Parsed session field', { event: 'xsh.parse.field', field: 'port', port: session.port })
       } else if (lowerKey === 'username' || lowerKey === 'user') {
         session.username = value
         foundUsername = true
-        logger.info(`*** Found username: ${value}`)
+        logger.info('Parsed session field', { event: 'xsh.parse.field', field: 'username', username: value })
       } else if (lowerKey === 'password') {
         // XShell passwords are usually encrypted, only check if it exists
         if (value && value !== '') {
@@ -2199,15 +2199,15 @@ function parseXSHContent(content: string, fileName: string, fullPath?: string): 
         if (value && value !== '') {
           session.authType = 'keyBased'
           session.keyFile = value
-          logger.info(`*** Found UserKey: ${value} - setting authType to keyBased`)
+          logger.info('Parsed session field', { event: 'xsh.parse.field', field: 'userkey', authType: 'keyBased' })
         }
       } else if (lowerKey === 'protocol' || lowerKey === 'protocolname' || lowerKey === 'protocol name') {
         session.protocol = value
-        logger.info(`*** Found protocol: ${value}`)
+        logger.info('Parsed session field', { event: 'xsh.parse.field', field: 'protocol', protocol: value })
       } else if (lowerKey === 'description') {
         // Description information is only logged, does not update session name
         if (value && value !== 'Xshell session file') {
-          logger.info(`*** Found description: ${value}`)
+          logger.info('Parsed session field', { event: 'xsh.parse.field', field: 'description' })
         }
       }
     }
@@ -2215,7 +2215,11 @@ function parseXSHContent(content: string, fileName: string, fullPath?: string): 
 
   // Improved host information extraction logic
   if (!foundHost || !foundUsername) {
-    logger.info(`Missing required fields (host: ${foundHost}, username: ${foundUsername}), trying to extract from filename and path`)
+    logger.info('Missing required fields, trying to extract from filename and path', {
+      event: 'xsh.parse.fallback',
+      foundHost,
+      foundUsername
+    })
 
     // Try to extract host information from filename and path
     const extractHostFromText = (text: string): string | null => {
@@ -2257,14 +2261,14 @@ function parseXSHContent(content: string, fileName: string, fullPath?: string): 
       if (extractedHost) {
         session.host = extractedHost
         foundHost = true
-        logger.info(`*** Extracted host from filename/path: ${session.host}`)
+        logger.info('Extracted host from filename/path', { event: 'xsh.parse.extract', field: 'host', host: session.host })
       } else {
         // If still not found, use filename as hostname
         const cleanFileName = fileName.replace('.xsh', '').replace(/[^a-zA-Z0-9\-_.]/g, '')
         if (cleanFileName.length > 0) {
           session.host = cleanFileName
           foundHost = true
-          logger.info(`*** Using cleaned filename as host: ${session.host}`)
+          logger.info('Using cleaned filename as host', { event: 'xsh.parse.extract', field: 'host', host: session.host })
         }
       }
     }
@@ -2278,7 +2282,7 @@ function parseXSHContent(content: string, fileName: string, fullPath?: string): 
         if (searchText.includes(user)) {
           session.username = user
           foundUsername = true
-          logger.info(`*** Extracted username from filename/path: ${session.username}`)
+          logger.info('Extracted username from filename/path', { event: 'xsh.parse.extract', field: 'username', username: session.username })
           break
         }
       }
@@ -2286,7 +2290,7 @@ function parseXSHContent(content: string, fileName: string, fullPath?: string): 
       // If still not found, set default username
       if (!foundUsername) {
         session.username = 'root' // Changed to default to root instead of 'undefined'
-        logger.info(`*** Setting default username: ${session.username}`)
+        logger.info('Setting default username', { event: 'xsh.parse.default', field: 'username', username: session.username })
       }
     }
   }
@@ -3196,7 +3200,7 @@ ipcMain.handle('open-external-login', async () => {
     const protocolName = getProtocolName()
     const externalLoginUrl = `${loginBaseUrl}/login?client_id=${protocolName}&state=${state}&redirect_uri=${protocolPrefix}auth/callback&mac_address=${encodeURIComponent(macAddress)}&local_plugins=${localPluginsEncoded}`
 
-    logger.info(`[Login] Using edition: ${getEdition()}, login URL base: ${loginBaseUrl}`)
+    logger.info('[Login] Opening external login', { event: 'login.external.open', edition: getEdition(), loginBaseUrl })
 
     // On Linux platform, save state to local storage for new instances to access
     if (process.platform === 'linux') {

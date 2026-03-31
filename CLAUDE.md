@@ -137,6 +137,12 @@ npm run build:linux # Build Linux package
 5. **Documentation Sync:** User-visible feature changes require updating README.md/README_zh.md and related comments
 6. **No Emojis:** Emojis are strictly prohibited in code (including comments, logs, strings); use plain text descriptions instead; text markers like `[INFO]`, `[ERROR]`, `[WARNING]` can be used as alternatives
 7. **Code Comment Language:** Newly added code comments must be written in English to maintain the codebase's internationalization standards
+8. **Log Sanitization:** All log output must go through the sanitizer (`src/main/services/logging/sanitizer.ts`). When writing logger calls:
+   - **Never** log entire objects that may contain credentials (connection configs, API configurations, asset objects, keychain objects, user payloads)
+   - **Never** use string interpolation to embed sensitive values (hostnames, IPs, API keys, passwords, MAC addresses, usernames, URLs with credentials)
+   - **Do** use structured logging with only safe fields: `logger.info('event description', { event: 'event.name', id: obj.id, count: N, hasPassword: !!password })`
+   - **Do** use boolean flags (`hasApiKey`, `hasPassword`, `hasPrivateKey`) instead of actual credential values
+   - The sanitizer automatically handles: sensitive key names (substring match), credential value patterns (PEM/JWT/AWS/API keys), PII patterns (phone/email/IP/MAC/IPv6/credit card/ID card), and inline credential labels in error messages (`apikey: xxx`, `token: xxx`)
 
 ### Git Operation Standards
 

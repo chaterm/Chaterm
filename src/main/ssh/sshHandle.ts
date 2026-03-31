@@ -626,9 +626,7 @@ const handleAttemptConnection = async (event, connectionInfo, resolve, reject, r
   logger.info('Starting SSH connection attempt', {
     event: 'ssh.connect.start',
     connectionId: id,
-    host,
     port: port || 22,
-    username,
     attempt: retryCount
   })
 
@@ -641,7 +639,7 @@ const handleAttemptConnection = async (event, connectionInfo, resolve, reject, r
   const reusableConn = sshConnectionPool.get(poolKey)
 
   if (reusableConn && reusableConn.hasMfaAuth) {
-    logger.info('Detected reusable MFA connection', { event: 'ssh.reuse', connectionId: id, poolKey })
+    logger.info('Detected reusable MFA connection', { event: 'ssh.reuse', connectionId: id })
 
     // Use existing connection
     const conn = reusableConn.conn
@@ -681,7 +679,7 @@ const handleAttemptConnection = async (event, connectionInfo, resolve, reject, r
     // 2. this is a wakeup connection (password auth but needs agent reuse)
     if (shouldSaveToPool) {
       const poolKey = getConnectionPoolKey(host, port || 22, username)
-      logger.info('Saving connection to pool', { event: 'ssh.pool.save', poolKey, reason: isWakeupConnection ? 'wakeup' : 'keyboard-interactive' })
+      logger.info('Saving connection to pool', { event: 'ssh.pool.save', reason: isWakeupConnection ? 'wakeup' : 'keyboard-interactive' })
 
       sshConnectionPool.set(poolKey, {
         conn: conn,
@@ -694,12 +692,12 @@ const handleAttemptConnection = async (event, connectionInfo, resolve, reject, r
 
       // Listen for connection close event to clean up connection pool
       conn.on('close', () => {
-        logger.info('Pooled connection closed, cleaning up', { event: 'ssh.pool.cleanup', poolKey })
+        logger.info('Pooled connection closed, cleaning up', { event: 'ssh.pool.cleanup' })
         sshConnectionPool.delete(poolKey)
       })
 
       conn.on('error', (err) => {
-        logger.error('Pooled connection error, cleaning up', { event: 'ssh.pool.error', poolKey, error: err.message })
+        logger.error('Pooled connection error, cleaning up', { event: 'ssh.pool.error', error: err.message })
         sshConnectionPool.delete(poolKey)
       })
     }
@@ -710,9 +708,7 @@ const handleAttemptConnection = async (event, connectionInfo, resolve, reject, r
     logger.info('SSH connection established', {
       event: 'ssh.connect.success',
       connectionId: id,
-      host,
-      port: port || 22,
-      username
+      port: port || 22
     })
     resolve({ status: 'connected', message: 'Connection successful' })
   })
@@ -954,11 +950,7 @@ export const registerSSHHandlers = () => {
       event: 'ssh.connect.request',
       connectionId: connectionInfo?.id,
       sshType: sshType || 'ssh',
-      host: connectionInfo?.host || connectionInfo?.asset_ip,
       port: connectionInfo?.port || 22,
-      username: connectionInfo?.username,
-      targetIp: connectionInfo?.targetIp,
-      targetAsset: connectionInfo?.targetAsset,
       source: connectionInfo?.source || 'unknown',
       wakeupSource: connectionInfo?.wakeupSource || 'unknown',
       disablePostConnectProbe: connectionInfo?.disablePostConnectProbe === true,
@@ -1673,7 +1665,7 @@ export const registerSSHHandlers = () => {
 
         // If no other sessions are using this connection, close connection and clean up pool
         if ((reusableConn as ReusableConnection).sessions.size === 0) {
-          logger.info('All SSH pool sessions closed, releasing connection', { event: 'ssh.pool.release', poolKey })
+          logger.info('All SSH pool sessions closed, releasing connection', { event: 'ssh.pool.release' })
           conn.end()
           sshConnectionPool.delete(poolKey)
         }

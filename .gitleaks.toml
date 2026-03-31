@@ -1,0 +1,9 @@
+[extend]
+# Use the default gitleaks config as a base
+# https://github.com/gitleaks/gitleaks/blob/master/config/gitleaks.toml
+
+[allowlist]
+description = "Test files using fake credentials for sanitizer testing"
+paths = [
+  '''__tests__/sanitizer\.test\.ts$''',
+]

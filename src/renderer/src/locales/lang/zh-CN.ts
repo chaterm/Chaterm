@@ -1271,6 +1271,7 @@ export default {
       authenticating: '正在认证...',
       connectedToTarget: '已连接到目标服务器',
       mfaRequired: '齐治堡垒机二次认证',
+      selectingAssetCategory: '正在选择资产类别',
       mfaPrompt: '请输入二次认证密码 (2nd Password)',
       mfaFailed: '二次认证失败',
       mfaTimeout: '认证超时，请重试',

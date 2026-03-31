@@ -4443,7 +4443,7 @@ const loadOsInfoOnce = async () => {
   }
   try {
     const res = await window.api.getSystemInfo(connectionId.value)
-    logger.debug('Fetched system info for AI suggestion context', { connectionId: connectionId.value, res })
+    logger.debug('Fetched system info for AI suggestion context', { connectionId: connectionId.value, success: !!res?.success })
     if (res?.success && res.data?.osVersion) {
       cachedOsInfo.value = res.data.osVersion
       cachedOsInfoLoaded.value = true

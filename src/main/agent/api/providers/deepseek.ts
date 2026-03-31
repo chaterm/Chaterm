@@ -29,7 +29,12 @@ export class DeepSeekHandler implements ApiHandler {
       const proxyConfig = this.options.proxyConfig
       httpAgent = createProxyAgent(proxyConfig)
     }
-    logger.info('Using DeepSeekHandler with options', { value: this.options })
+    logger.info('Using DeepSeekHandler', {
+      event: 'deepseek.init',
+      baseURL: 'https://api.deepseek.com/v1',
+      hasApiKey: !!this.options.deepSeekApiKey,
+      hasProxy: this.options.needProxy !== false
+    })
     this.client = new OpenAI({
       baseURL: 'https://api.deepseek.com/v1',
       apiKey: this.options.deepSeekApiKey,

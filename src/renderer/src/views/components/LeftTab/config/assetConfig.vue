@@ -153,11 +153,11 @@ const handleSearch = () => {
 }
 
 const handleAssetClick = (asset: AssetNode) => {
-  logger.info('Asset clicked', { data: asset })
+  logger.info('Asset clicked', { event: 'asset.click', uuid: asset.uuid, title: asset.title })
 }
 
 const handleAssetConnect = (asset: AssetNode) => {
-  logger.info('Connecting to asset', { data: asset })
+  logger.info('Connecting to asset', { event: 'asset.connect', uuid: asset.uuid, title: asset.title })
   eventBus.emit('currentClickServer', asset)
 }
 
@@ -167,7 +167,7 @@ const handleAssetEdit = (asset: AssetNode) => {
   editingAssetUUID.value = asset.uuid || null
 
   let keyChain = asset.key_chain_id
-  logger.info('keyChain value', { data: keyChain })
+  logger.info('keyChain value', { event: 'asset.edit.keychain', hasKeyChain: !!keyChain && keyChain !== 0 })
   if (keyChain === 0) {
     keyChain = undefined
   }

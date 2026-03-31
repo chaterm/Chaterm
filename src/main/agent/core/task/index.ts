@@ -2020,7 +2020,13 @@ export class Task {
   private formatErrorWithStatusCode(error: unknown): string {
     const errorObj = error as { status?: number; statusCode?: number; response?: { status?: number }; message?: string }
     const statusCode = errorObj?.status || errorObj?.statusCode || (errorObj?.response && errorObj.response.status)
-    const message = errorObj?.message ?? JSON.stringify(serializeError(error), null, 2)
+    let message = errorObj?.message ?? JSON.stringify(serializeError(error), null, 2)
+
+    // Sanitize credentials that may appear in API error messages (e.g. "apikey: xxx")
+    message = message.replace(
+      /\b(api[-_]?key|token|password|secret|authorization|bearer)(?::?\s+)([^\s"',]{8,})/gi,
+      (_m, label: string, value: string) => `${label}: ${value.slice(0, 4)}***${value.slice(-4)}`
+    )
 
     // Only prepend the statusCode if it's not already part of the message
     return statusCode && !message.includes(statusCode.toString()) ? `${statusCode} - ${message}` : message
@@ -4302,7 +4308,7 @@ export class Task {
           // Check cache, if no cache, get system info and cache it
           let hostInfo = this.hostSystemInfoCache.get(host.host)
           if (!hostInfo) {
-            logger.debug(`Fetching system information for host: ${host.host}`)
+            logger.debug('Fetching system information for host')
 
             let systemInfoOutput: string
 
@@ -4385,7 +4391,7 @@ USERNAME:${localSystemInfo.userName}`
             // Cache system information
             this.hostSystemInfoCache.set(host.host, hostInfo)
           } else {
-            logger.debug(`Using cached system information for host: ${host.host}`)
+            logger.debug('Using cached system information for host')
           }
 
           systemInformation += `
