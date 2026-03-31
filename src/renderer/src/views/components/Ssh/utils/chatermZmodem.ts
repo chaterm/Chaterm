@@ -78,7 +78,7 @@ export function useZmodem() {
   }
 
   function fixLrzszLineBreak(u8: Uint8Array): Uint8Array {
-    if (!u8.length) return u8
+    if (!isZmodemActive || !u8.length) return u8
     const out: number[] = []
     for (let i = 0; i < u8.length; i++) {
       const b = u8[i]
@@ -425,8 +425,25 @@ export function useZmodem() {
     return zsentry
   }
 
+  // Zmodem magic bytes: **\x18B (0x2a 0x2a 0x18 0x42)
+  const ZMODEM_MAGIC = '**\x18B'
+
   const consumeZmodemIncoming = (response: MarkedResponse) => {
     const { raw, marker } = response
+
+    // Fast path: when not in Zmodem mode and data does not contain Zmodem magic,
+    // skip Uint8Array conversion, sanitization, and TextDecoder entirely
+    if (!isZmodemActive && response.data && !response.data.includes(ZMODEM_MAGIC)) {
+      const resp = {
+        data: response.data,
+        raw: raw,
+        marker: marker || ''
+      } as any as MarkedResponse
+      externalHandlers.checkEditorMode?.(resp)
+      externalHandlers.handleServerOutput?.(resp)
+      return
+    }
+
     const u8 = ensureU8(raw)
     if (!u8.length || !zsentry) return
     zsentry._to_terminal = (octets: Uint8Array) => {

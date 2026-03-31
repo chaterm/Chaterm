@@ -54,6 +54,9 @@ import { connectBastionByType, shellBastionSession, resizeBastionSession, writeB
 import { shouldSkipPostConnectProbe } from './postConnectProbePolicy'
 import { sftpConnectionInfoMap } from './sftpTransfer'
 
+// Maximum buffer size before forcing an immediate flush (prevents unbounded growth during bulk output)
+const MAX_BUFFER_SIZE = 64 * 1024 // 64KB
+
 // Hybrid buffer strategy configuration
 const FLUSH_CONFIG = {
   INSTANT_SIZE: 16, // < 16 bytes: send immediately (user input)
@@ -1015,14 +1018,16 @@ export const registerSSHHandlers = () => {
       // Clear old listeners
       stream.removeAllListeners('data')
 
-      let buffer = ''
+      let bufferChunks: string[] = []
+      let bufferLength = 0
       let flushTimer: NodeJS.Timeout | null = null
       let rawChunks: Buffer[] = []
       let rawBytes = 0
       const flushBuffer = () => {
-        if (!buffer && rawBytes === 0) return
-        const chunk = buffer
-        buffer = ''
+        if (!bufferLength && rawBytes === 0) return
+        const chunk = bufferChunks.join('')
+        bufferChunks = []
+        bufferLength = 0
         const raw = rawBytes ? Buffer.concat(rawChunks, rawBytes) : undefined
 
         rawChunks = []
@@ -1032,19 +1037,24 @@ export const registerSSHHandlers = () => {
       }
 
       const scheduleFlush = () => {
-        // Clear existing timer to prevent multiple timers
-        if (flushTimer) {
-          clearTimeout(flushTimer)
+        // Force immediate flush when buffer exceeds max size to prevent unbounded growth
+        if (bufferLength >= MAX_BUFFER_SIZE) {
+          if (flushTimer) {
+            clearTimeout(flushTimer)
+            flushTimer = null
+          }
+          flushBuffer()
+          return
         }
 
-        const delay = getDelayByBufferSize(buffer.length)
-
-        if (delay === 0) {
-          // Send immediately for small data (likely user input)
-          flushBuffer()
-        } else {
-          // Schedule delayed flush for larger data
-          flushTimer = setTimeout(flushBuffer, delay)
+        // Only start a new timer if one is not already pending (prevents timer starvation)
+        if (!flushTimer) {
+          const delay = getDelayByBufferSize(bufferLength)
+          if (delay === 0) {
+            flushBuffer()
+          } else {
+            flushTimer = setTimeout(flushBuffer, delay)
+          }
         }
       }
 
@@ -1098,7 +1108,8 @@ export const registerSSHHandlers = () => {
           // Only add to shared buffer for non-marked data
           rawChunks.push(data)
           rawBytes += data.length
-          buffer += dataStr
+          bufferChunks.push(dataStr)
+          bufferLength += dataStr.length
           scheduleFlush()
         }
       })
@@ -1144,15 +1155,17 @@ export const registerSSHHandlers = () => {
     const handleStream = (stream, method: 'shell' | 'exec') => {
       shellStreams.set(id, stream)
 
-      let buffer = ''
+      let bufferChunks: string[] = []
+      let bufferLength = 0
       let flushTimer: NodeJS.Timeout | null = null
       let rawChunks: Buffer[] = []
       let rawBytes = 0
       const flushBuffer = () => {
-        if (!buffer && rawBytes === 0) return
+        if (!bufferLength && rawBytes === 0) return
 
-        const chunk = buffer
-        buffer = ''
+        const chunk = bufferChunks.join('')
+        bufferChunks = []
+        bufferLength = 0
 
         const raw = rawBytes ? Buffer.concat(rawChunks, rawBytes) : undefined
 
@@ -1163,19 +1176,24 @@ export const registerSSHHandlers = () => {
       }
 
       const scheduleFlush = () => {
-        // Clear existing timer to prevent multiple timers
-        if (flushTimer) {
-          clearTimeout(flushTimer)
+        // Force immediate flush when buffer exceeds max size to prevent unbounded growth
+        if (bufferLength >= MAX_BUFFER_SIZE) {
+          if (flushTimer) {
+            clearTimeout(flushTimer)
+            flushTimer = null
+          }
+          flushBuffer()
+          return
         }
 
-        const delay = getDelayByBufferSize(buffer.length)
-
-        if (delay === 0) {
-          // Send immediately for small data (likely user input)
-          flushBuffer()
-        } else {
-          // Schedule delayed flush for larger data
-          flushTimer = setTimeout(flushBuffer, delay)
+        // Only start a new timer if one is not already pending (prevents timer starvation)
+        if (!flushTimer) {
+          const delay = getDelayByBufferSize(bufferLength)
+          if (delay === 0) {
+            flushBuffer()
+          } else {
+            flushTimer = setTimeout(flushBuffer, delay)
+          }
         }
       }
 
@@ -1205,7 +1223,8 @@ export const registerSSHHandlers = () => {
           // Only add to shared buffer for non-marked data
           rawChunks.push(data)
           rawBytes += data.length
-          buffer += chunk
+          bufferChunks.push(chunk)
+          bufferLength += chunk.length
           scheduleFlush()
         }
       })
