@@ -1963,13 +1963,9 @@ const connectLocalSSH = async () => {
 
       await startLocalShell()
 
-      // Handle input
-      terminal.value?.onData((data) => {
-        // Convert modified Arrow CSI sequences to standard word-movement ESC sequences.
-        // macOS: Option+Arrow generates \x1b[1;3D / \x1b[1;3C (Alt modifier)
-        // Windows (Git Bash) / Linux: Ctrl+Arrow generates \x1b[1;5D / \x1b[1;5C (Ctrl modifier)
-        // Default shell keybindings may not recognize these CSI forms,
-        // so convert to \x1bb (backward-word) and \x1bf (forward-word) which are universally supported.
+      // Assign handleInput so that external callers (e.g. snippet execution via
+      // inputManager.sendToActiveTerm) can write into the local terminal.
+      handleInput = (data) => {
         if (data === '\x1b[1;3D' || data === '\x1b[1;5D') {
           api.sendDataLocal(connectionId.value, '\x1bb')
           return
@@ -1979,6 +1975,11 @@ const connectLocalSSH = async () => {
           return
         }
         api.sendDataLocal(connectionId.value, data)
+      }
+
+      // Handle input — delegate to handleInput which also serves external callers
+      terminal.value?.onData((data) => {
+        handleInput && handleInput(data)
       })
 
       handleResize()
