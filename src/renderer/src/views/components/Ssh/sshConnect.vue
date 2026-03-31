@@ -167,13 +167,13 @@ const configStore = userConfigStore()
 const isTransparent = computed(() => !!configStore.getUserConfig.background.image)
 let viewportScrollbarHideTimer: number | null = null
 
-// Coalesced scrollToBottom: ensures only one scroll is queued per tick cycle
+// Coalesced scrollToBottom: uses requestAnimationFrame for smooth alignment with browser repaint
 let scrollToBottomScheduled = false
 let scrollToBottomNeedsFocus = false
 const scheduleScrollToBottom = () => {
   if (scrollToBottomScheduled) return
   scrollToBottomScheduled = true
-  nextTick(() => {
+  requestAnimationFrame(() => {
     terminal.value?.scrollToBottom()
     if (scrollToBottomNeedsFocus) {
       terminal.value?.focus()
@@ -599,8 +599,17 @@ onMounted(async () => {
   })
 
   ensureTransferListener()
-  // const webgl = new WebglAddon()
-  // termInstance.loadAddon(webgl)
+  // Enable GPU-accelerated rendering for better performance with large output
+  try {
+    const { WebglAddon } = await import('@xterm/addon-webgl')
+    const webglAddon = new WebglAddon()
+    webglAddon.onContextLoss(() => {
+      webglAddon.dispose()
+    })
+    termInstance.loadAddon(webglAddon)
+  } catch {
+    // WebGL not available, fall back to default canvas renderer
+  }
   termInstance.onResize((size) => {
     resizeSSH(size.cols, size.rows)
   })
@@ -628,6 +637,28 @@ onMounted(async () => {
   const core = (termInstance as any)._core
   const renderService = core._renderService
   const originalWrite = termInstance.write.bind(termInstance)
+
+  // High-throughput detection: bypass expensive processing during bulk output (e.g., cat large file)
+  const HIGH_THROUGHPUT_THRESHOLD = 20 // writes per second to trigger
+  const HIGH_THROUGHPUT_COOLDOWN = 500 // ms of low activity to exit
+  let highThroughputMode = false
+  let htWriteCount = 0
+  let htWindowTimer: ReturnType<typeof setTimeout> | null = null
+  let htCooldownTimer: ReturnType<typeof setTimeout> | null = null
+
+  const exitHighThroughputMode = () => {
+    highThroughputMode = false
+    // Do one final state update after bulk output settles
+    debouncedUpdateTerminalState('', false)
+  }
+
+  const scheduleHighThroughputExit = () => {
+    if (htCooldownTimer) {
+      clearTimeout(htCooldownTimer)
+    }
+    htCooldownTimer = setTimeout(exitHighThroughputMode, HIGH_THROUGHPUT_COOLDOWN)
+  }
+
   const debouncedUpdateTerminalState = (data, currentIsUserCall) => {
     if (updateTimeout) {
       clearTimeout(updateTimeout)
@@ -665,7 +696,30 @@ onMounted(async () => {
     const currentIsUserCall = options?.isUserCall ?? false
     userInputFlag.value = currentIsUserCall
 
-    // Apply keyword highlighting only to output (not user input)
+    // Track write frequency to detect high-throughput scenarios (e.g., cat large file)
+    if (!currentIsUserCall) {
+      htWriteCount++
+      if (!htWindowTimer) {
+        htWindowTimer = setTimeout(() => {
+          if (htWriteCount >= HIGH_THROUGHPUT_THRESHOLD) {
+            highThroughputMode = true
+          }
+          htWriteCount = 0
+          htWindowTimer = null
+        }, 1000)
+      }
+    }
+
+    // High-throughput mode: bypass keyword highlight, render patching, and state updates
+    if (highThroughputMode && !currentIsUserCall) {
+      originalWrite(data, () => {
+        scheduleScrollToBottom()
+      })
+      scheduleHighThroughputExit()
+      return
+    }
+
+    // Normal mode: full processing
     let processedData = data
     if (!currentIsUserCall && keywordHighlightService.isEnabled()) {
       processedData = keywordHighlightService.applyHighlight(data)
