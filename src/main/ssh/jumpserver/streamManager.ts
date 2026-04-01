@@ -38,7 +38,7 @@ export async function navigateToJumpServerAsset(
       outputBuffer += chunk
 
       if (connectionPhase === 'connecting' && outputBuffer.includes('Opt>')) {
-        logger.debug('JumpServer exec stream: Menu detected, entering IP', { event: 'jumpserver.exec.menu.detected', targetIp })
+        logger.debug('JumpServer exec stream: Menu detected', { event: 'jumpserver.exec.menu.detected' })
         connectionPhase = 'inputIp'
         outputBuffer = ''
         stream.write(targetIp + '\r')

@@ -36,6 +36,7 @@ export type GlobalStateKey =
   | 'requestTimeoutMs'
   | 'shellIntegrationTimeout'
   | 'mcpMarketplaceEnabled'
+  | 'kbSearchEnabled'
   | 'testGlobalKey' // For testing
 
 export type SecretKey =

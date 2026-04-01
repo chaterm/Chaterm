@@ -304,7 +304,9 @@ export async function refreshOrganizationAssetsLogic(
       throw new Error('Missing authentication information: private key or password required')
     }
 
-    logger.info('Final configuration', { value: { ...finalConfig, privateKey: finalConfig.privateKey ? '[HIDDEN]' : undefined } })
+    logger.info('Final configuration', {
+      value: { ...finalConfig, privateKey: finalConfig.privateKey ? '[HIDDEN]' : undefined, password: finalConfig.password ? '[HIDDEN]' : undefined }
+    })
 
     // Route to different client based on asset type
     let assets: Array<{ name: string; address: string; description?: string }>
@@ -416,7 +418,7 @@ export async function refreshOrganizationAssetsLogic(
     for (const asset of assets) {
       currentAssetHosts.add(asset.address)
       if (existingAssetsByHost.has(makeKey(asset))) {
-        logger.info(`Updating existing asset: ${asset.name} (${asset.address})`)
+        logger.info('Updating existing asset', { event: 'org.asset.update', name: asset.name })
         if (isPluginBased) {
           updateStmt.run(asset.name, asset.description || '', jumpServerType, organizationUuid, asset.address, asset.name)
         } else {
@@ -424,7 +426,7 @@ export async function refreshOrganizationAssetsLogic(
         }
       } else {
         const assetUuid = uuidv4()
-        logger.info(`Inserting new asset: ${asset.name} (${asset.address})`)
+        logger.info('Inserting new asset', { event: 'org.asset.insert', name: asset.name })
         if (isPluginBased) {
           insertStmt.run(organizationUuid, asset.name, asset.address, asset.description || '', assetUuid, jumpServerType)
         } else {

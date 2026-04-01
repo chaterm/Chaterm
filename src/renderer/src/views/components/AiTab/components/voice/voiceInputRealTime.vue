@@ -77,7 +77,7 @@ const connectWebSocket = async (): Promise<boolean> => {
   return new Promise((resolve, reject) => {
     try {
       const wsUrl = CONFIG.WS_URL
-      logger.info('Connecting to WebSocket', { data: wsUrl })
+      logger.info('Connecting to WebSocket', { event: 'voice.ws.connect' })
 
       websocket.value = new WebSocket(wsUrl)
 

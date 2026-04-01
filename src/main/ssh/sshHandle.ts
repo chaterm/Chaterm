@@ -54,6 +54,9 @@ import { connectBastionByType, shellBastionSession, resizeBastionSession, writeB
 import { shouldSkipPostConnectProbe } from './postConnectProbePolicy'
 import { sftpConnectionInfoMap } from './sftpTransfer'
 
+// Maximum buffer size before forcing an immediate flush (prevents unbounded growth during bulk output)
+const MAX_BUFFER_SIZE = 64 * 1024 // 64KB
+
 // Hybrid buffer strategy configuration
 const FLUSH_CONFIG = {
   INSTANT_SIZE: 16, // < 16 bytes: send immediately (user input)
@@ -626,9 +629,7 @@ const handleAttemptConnection = async (event, connectionInfo, resolve, reject, r
   logger.info('Starting SSH connection attempt', {
     event: 'ssh.connect.start',
     connectionId: id,
-    host,
     port: port || 22,
-    username,
     attempt: retryCount
   })
 
@@ -641,7 +642,7 @@ const handleAttemptConnection = async (event, connectionInfo, resolve, reject, r
   const reusableConn = sshConnectionPool.get(poolKey)
 
   if (reusableConn && reusableConn.hasMfaAuth) {
-    logger.info('Detected reusable MFA connection', { event: 'ssh.reuse', connectionId: id, poolKey })
+    logger.info('Detected reusable MFA connection', { event: 'ssh.reuse', connectionId: id })
 
     // Use existing connection
     const conn = reusableConn.conn
@@ -681,7 +682,7 @@ const handleAttemptConnection = async (event, connectionInfo, resolve, reject, r
     // 2. this is a wakeup connection (password auth but needs agent reuse)
     if (shouldSaveToPool) {
       const poolKey = getConnectionPoolKey(host, port || 22, username)
-      logger.info('Saving connection to pool', { event: 'ssh.pool.save', poolKey, reason: isWakeupConnection ? 'wakeup' : 'keyboard-interactive' })
+      logger.info('Saving connection to pool', { event: 'ssh.pool.save', reason: isWakeupConnection ? 'wakeup' : 'keyboard-interactive' })
 
       sshConnectionPool.set(poolKey, {
         conn: conn,
@@ -694,12 +695,12 @@ const handleAttemptConnection = async (event, connectionInfo, resolve, reject, r
 
       // Listen for connection close event to clean up connection pool
       conn.on('close', () => {
-        logger.info('Pooled connection closed, cleaning up', { event: 'ssh.pool.cleanup', poolKey })
+        logger.info('Pooled connection closed, cleaning up', { event: 'ssh.pool.cleanup' })
         sshConnectionPool.delete(poolKey)
       })
 
       conn.on('error', (err) => {
-        logger.error('Pooled connection error, cleaning up', { event: 'ssh.pool.error', poolKey, error: err.message })
+        logger.error('Pooled connection error, cleaning up', { event: 'ssh.pool.error', error: err.message })
         sshConnectionPool.delete(poolKey)
       })
     }
@@ -710,9 +711,7 @@ const handleAttemptConnection = async (event, connectionInfo, resolve, reject, r
     logger.info('SSH connection established', {
       event: 'ssh.connect.success',
       connectionId: id,
-      host,
-      port: port || 22,
-      username
+      port: port || 22
     })
     resolve({ status: 'connected', message: 'Connection successful' })
   })
@@ -954,11 +953,7 @@ export const registerSSHHandlers = () => {
       event: 'ssh.connect.request',
       connectionId: connectionInfo?.id,
       sshType: sshType || 'ssh',
-      host: connectionInfo?.host || connectionInfo?.asset_ip,
       port: connectionInfo?.port || 22,
-      username: connectionInfo?.username,
-      targetIp: connectionInfo?.targetIp,
-      targetAsset: connectionInfo?.targetAsset,
       source: connectionInfo?.source || 'unknown',
       wakeupSource: connectionInfo?.wakeupSource || 'unknown',
       disablePostConnectProbe: connectionInfo?.disablePostConnectProbe === true,
@@ -1015,14 +1010,16 @@ export const registerSSHHandlers = () => {
       // Clear old listeners
       stream.removeAllListeners('data')
 
-      let buffer = ''
+      let bufferChunks: string[] = []
+      let bufferLength = 0
       let flushTimer: NodeJS.Timeout | null = null
       let rawChunks: Buffer[] = []
       let rawBytes = 0
       const flushBuffer = () => {
-        if (!buffer && rawBytes === 0) return
-        const chunk = buffer
-        buffer = ''
+        if (!bufferLength && rawBytes === 0) return
+        const chunk = bufferChunks.join('')
+        bufferChunks = []
+        bufferLength = 0
         const raw = rawBytes ? Buffer.concat(rawChunks, rawBytes) : undefined
 
         rawChunks = []
@@ -1032,19 +1029,24 @@ export const registerSSHHandlers = () => {
       }
 
       const scheduleFlush = () => {
-        // Clear existing timer to prevent multiple timers
-        if (flushTimer) {
-          clearTimeout(flushTimer)
+        // Force immediate flush when buffer exceeds max size to prevent unbounded growth
+        if (bufferLength >= MAX_BUFFER_SIZE) {
+          if (flushTimer) {
+            clearTimeout(flushTimer)
+            flushTimer = null
+          }
+          flushBuffer()
+          return
         }
 
-        const delay = getDelayByBufferSize(buffer.length)
-
-        if (delay === 0) {
-          // Send immediately for small data (likely user input)
-          flushBuffer()
-        } else {
-          // Schedule delayed flush for larger data
-          flushTimer = setTimeout(flushBuffer, delay)
+        // Only start a new timer if one is not already pending (prevents timer starvation)
+        if (!flushTimer) {
+          const delay = getDelayByBufferSize(bufferLength)
+          if (delay === 0) {
+            flushBuffer()
+          } else {
+            flushTimer = setTimeout(flushBuffer, delay)
+          }
         }
       }
 
@@ -1098,7 +1100,8 @@ export const registerSSHHandlers = () => {
           // Only add to shared buffer for non-marked data
           rawChunks.push(data)
           rawBytes += data.length
-          buffer += dataStr
+          bufferChunks.push(dataStr)
+          bufferLength += dataStr.length
           scheduleFlush()
         }
       })
@@ -1144,15 +1147,17 @@ export const registerSSHHandlers = () => {
     const handleStream = (stream, method: 'shell' | 'exec') => {
       shellStreams.set(id, stream)
 
-      let buffer = ''
+      let bufferChunks: string[] = []
+      let bufferLength = 0
       let flushTimer: NodeJS.Timeout | null = null
       let rawChunks: Buffer[] = []
       let rawBytes = 0
       const flushBuffer = () => {
-        if (!buffer && rawBytes === 0) return
+        if (!bufferLength && rawBytes === 0) return
 
-        const chunk = buffer
-        buffer = ''
+        const chunk = bufferChunks.join('')
+        bufferChunks = []
+        bufferLength = 0
 
         const raw = rawBytes ? Buffer.concat(rawChunks, rawBytes) : undefined
 
@@ -1163,19 +1168,24 @@ export const registerSSHHandlers = () => {
       }
 
       const scheduleFlush = () => {
-        // Clear existing timer to prevent multiple timers
-        if (flushTimer) {
-          clearTimeout(flushTimer)
+        // Force immediate flush when buffer exceeds max size to prevent unbounded growth
+        if (bufferLength >= MAX_BUFFER_SIZE) {
+          if (flushTimer) {
+            clearTimeout(flushTimer)
+            flushTimer = null
+          }
+          flushBuffer()
+          return
         }
 
-        const delay = getDelayByBufferSize(buffer.length)
-
-        if (delay === 0) {
-          // Send immediately for small data (likely user input)
-          flushBuffer()
-        } else {
-          // Schedule delayed flush for larger data
-          flushTimer = setTimeout(flushBuffer, delay)
+        // Only start a new timer if one is not already pending (prevents timer starvation)
+        if (!flushTimer) {
+          const delay = getDelayByBufferSize(bufferLength)
+          if (delay === 0) {
+            flushBuffer()
+          } else {
+            flushTimer = setTimeout(flushBuffer, delay)
+          }
         }
       }
 
@@ -1205,7 +1215,8 @@ export const registerSSHHandlers = () => {
           // Only add to shared buffer for non-marked data
           rawChunks.push(data)
           rawBytes += data.length
-          buffer += chunk
+          bufferChunks.push(chunk)
+          bufferLength += chunk.length
           scheduleFlush()
         }
       })
@@ -1673,7 +1684,7 @@ export const registerSSHHandlers = () => {
 
         // If no other sessions are using this connection, close connection and clean up pool
         if ((reusableConn as ReusableConnection).sessions.size === 0) {
-          logger.info('All SSH pool sessions closed, releasing connection', { event: 'ssh.pool.release', poolKey })
+          logger.info('All SSH pool sessions closed, releasing connection', { event: 'ssh.pool.release' })
           conn.end()
           sshConnectionPool.delete(poolKey)
         }

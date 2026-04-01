@@ -1,3 +1,5 @@
+import { KB_SEARCH_ENABLED_LABELS } from '@shared/Languages'
+
 export default {
   common: {
     runInAllTabs: 'Tutti nelle schede',
@@ -376,6 +378,9 @@ export default {
     autoExecuteReadOnlyCommands: 'Esegui automaticamente comandi di sola lettura',
     autoExecuteReadOnlyCommandsDescribe:
       'I comandi di sola lettura (es. ls, cat, grep) in tutte le sessioni verranno eseguiti automaticamente senza conferma',
+    kbSearchEnabled: KB_SEARCH_ENABLED_LABELS['it-IT'],
+    kbSearchEnabledDescribe:
+      "Cerca automaticamente contenuti rilevanti nella base di conoscenza quando si avvia una nuova conversazione e consenti all'IA di cercare nella base di conoscenza durante le conversazioni",
     features: 'Funzionalità',
     enableCheckpoints: 'Abilita checkpoint',
     enableCheckpointsDescribe: "Abilita l'estensione a salvare checkpoint dello spazio di lavoro durante il task",

@@ -85,13 +85,18 @@
           </a-tooltip>
         </div>
 
-        <div class="tree-container">
+        <div
+          ref="treeContainerRef"
+          class="tree-container"
+        >
           <div v-show="company === 'personal_user_id'">
             <a-tree
               v-model:selected-keys="selectedKeys"
               v-model:expanded-keys="expandedKeys"
               :tree-data="assetTreeData"
               :field-names="{ children: 'children', title: 'title', key: 'key' }"
+              :virtual="true"
+              :height="treeHeight"
               class="dark-tree"
               @select="handleSelect"
               @expand="onTreeExpand"
@@ -162,6 +167,8 @@
               v-model:expanded-keys="expandedKeys"
               :tree-data="enterpriseData"
               :field-names="{ children: 'children', title: 'title', key: 'key' }"
+              :virtual="true"
+              :height="treeHeight"
               class="dark-tree"
               @select="handleSelect"
               @expand="onTreeExpand"
@@ -234,7 +241,8 @@
                       editingNode !== dataRef.key &&
                       company !== 'personal_user_id' &&
                       dataRef.title !== t('common.favoriteBar') &&
-                      dataRef.asset_type !== 'custom_folder'
+                      dataRef.asset_type !== 'custom_folder' &&
+                      !dataRef.isAssetGroup
                     "
                     class="refresh-icon"
                   >
@@ -507,6 +515,10 @@ interface AssetNode {
 const originalTreeData = ref<AssetNode[]>([])
 const assetTreeData = ref<AssetNode[]>([])
 const enterpriseData = ref<AssetNode[]>([])
+const treeContainerRef = ref<HTMLElement | null>(null)
+const treeHeight = ref(600)
+const treeHeightUpdaterRef = ref<(() => void) | null>(null)
+const childrenCountMap = ref(new Map<string, number>())
 interface MachineOption {
   value: any
   label: string
@@ -602,7 +614,8 @@ const getLocalAssetMenu = () => {
     .then(async (res) => {
       if (res && res.data) {
         const data = res.data.routers || []
-        originalTreeData.value = deepClone(data) as AssetNode[]
+        originalTreeData.value = data as AssetNode[]
+        childrenCountMap.value = buildChildrenCountMap(data as AssetNode[])
         assetTreeData.value = deepClone(data) as AssetNode[]
         const localShell = await window.api.getShellsLocal()
         const isExist = assetTreeData.value.some((node) => node.key === 'localTerm')
@@ -623,7 +636,8 @@ const getUserAssetMenu = () => {
     .then((res) => {
       if (res && res.data) {
         const data = res.data.routers || []
-        originalTreeData.value = deepClone(data) as AssetNode[]
+        originalTreeData.value = data as AssetNode[]
+        childrenCountMap.value = buildChildrenCountMap(data as AssetNode[])
         enterpriseData.value = deepClone(data) as AssetNode[]
         setTimeout(async () => {
           await expandDefaultNodes()
@@ -669,21 +683,35 @@ const filterTreeNodes = (inputValue: string): AssetNode[] => {
       .filter(Boolean) as AssetNode[]
   }
 
-  return filterNodes(deepClone(originalTreeData.value) as AssetNode[])
+  return filterNodes(originalTreeData.value)
 }
+
+// Only collect top-level keys (depth=1) to avoid expanding thousands of nodes at once
+const getTopLevelKeys = (nodes: AssetNode[]): string[] => {
+  return nodes.map((n) => n.key)
+}
+
+let searchDebounceTimer: ReturnType<typeof setTimeout> | null = null
 
 const onSearchInput = () => {
   // Close context menu when searching
   contextMenuVisible.value = false
   contextMenuData.value = null
 
-  if (isPersonalWorkspace.value) {
-    assetTreeData.value = filterTreeNodes(searchValue.value)
-    expandedKeys.value = getAllKeys(assetTreeData.value)
-  } else {
-    enterpriseData.value = filterTreeNodes(searchValue.value)
-    expandedKeys.value = getAllKeys(enterpriseData.value)
+  if (searchDebounceTimer !== null) {
+    clearTimeout(searchDebounceTimer)
   }
+
+  searchDebounceTimer = setTimeout(() => {
+    searchDebounceTimer = null
+    if (isPersonalWorkspace.value) {
+      assetTreeData.value = filterTreeNodes(searchValue.value)
+      expandedKeys.value = getTopLevelKeys(assetTreeData.value)
+    } else {
+      enterpriseData.value = filterTreeNodes(searchValue.value)
+      expandedKeys.value = getTopLevelKeys(enterpriseData.value)
+    }
+  }, 300)
 }
 
 const focusSearchInput = async () => {
@@ -721,21 +749,6 @@ const focusSearchInput = async () => {
   await attemptFocus()
 }
 
-const getAllKeys = (nodes: AssetNode[]): string[] => {
-  const keys: string[] = []
-  const traverse = (items: AssetNode[]) => {
-    if (!items) return
-    items.forEach((item) => {
-      keys.push(item.key)
-      if (item.children) {
-        traverse(item.children)
-      }
-    })
-  }
-  traverse(nodes)
-  return keys
-}
-
 const handleSelect = (_, { selected, selectedNodes }) => {
   if (selected && selectedNodes.length > 0) {
     machines.value = {
@@ -753,25 +766,49 @@ const isSecondLevel = (node) => {
 
 const getOriginalChildrenCount = (dataRef: any): number => {
   if (!dataRef || !dataRef.key) return 0
+  return childrenCountMap.value.get(dataRef.key) ?? 0
+}
 
-  // Find corresponding node in original data
-  const findNodeInOriginal = (nodes: AssetNode[], targetKey: string): AssetNode | null => {
-    if (!nodes) return null
+// Build a key->childCount map from the original tree data.
+// For qizhi org nodes that have group children, dedup leaf IPs.
+// This runs once when data loads (O(n)) instead of per-render (O(n^2)).
+const buildChildrenCountMap = (nodes: AssetNode[]): Map<string, number> => {
+  const map = new Map<string, number>()
 
-    for (const node of nodes) {
-      if (node.key === targetKey) {
-        return node
-      }
-      if (node.children) {
-        const found = findNodeInOriginal(node.children, targetKey)
-        if (found) return found
-      }
+  const collectLeafIps = (node: AssetNode, ips: Set<string>): void => {
+    if (!node.children || node.children.length === 0) {
+      ips.add((node as any).ip || node.key)
+      return
     }
-    return null
+    for (const child of node.children) {
+      collectLeafIps(child, ips)
+    }
   }
 
-  const originalNode = findNodeInOriginal(originalTreeData.value, dataRef.key)
-  return originalNode?.children?.length || 0
+  const traverse = (items: AssetNode[]): void => {
+    for (const item of items) {
+      if (item.children && item.children.length > 0) {
+        const hasGroupChildren = item.children.some((c: any) => c.isAssetGroup)
+        if (hasGroupChildren) {
+          // Dedup leaf IPs across groups
+          const ips = new Set<string>()
+          for (const child of item.children) {
+            collectLeafIps(child, ips)
+          }
+          map.set(item.key, ips.size)
+        } else if ((item as any).isAssetGroup) {
+          // Intermediate group node: count direct children
+          map.set(item.key, item.children.length)
+        } else {
+          map.set(item.key, item.children.length)
+        }
+        traverse(item.children)
+      }
+    }
+  }
+
+  traverse(nodes)
+  return map
 }
 
 const toggleFavorite = (dataRef: any): void => {
@@ -1291,11 +1328,29 @@ onMounted(() => {
     contextMenuVisible.value = false
     contextMenuData.value = null
   })
+
+  // Track tree container height for virtual scroll
+  const updateTreeHeight = () => {
+    if (treeContainerRef.value) {
+      treeHeight.value = treeContainerRef.value.clientHeight || 600
+    }
+  }
+  nextTick(() => {
+    updateTreeHeight()
+    window.addEventListener('resize', updateTreeHeight)
+    treeHeightUpdaterRef.value = updateTreeHeight
+  })
 })
 onUnmounted(() => {
   eventBus.off('LocalAssetMenu', refreshAssetMenu)
   eventBus.off('languageChanged')
   eventBus.off('focusHostSearch', focusSearchInput)
+  if (searchDebounceTimer !== null) {
+    clearTimeout(searchDebounceTimer)
+  }
+  if (treeHeightUpdaterRef.value) {
+    window.removeEventListener('resize', treeHeightUpdaterRef.value)
+  }
 })
 </script>
 
@@ -1354,12 +1409,10 @@ onUnmounted(() => {
 }
 .tree-container {
   margin-top: 8px;
-  overflow-y: auto;
-  overflow-x: hidden;
+  overflow: hidden;
   border-radius: 2px;
   background-color: transparent;
-  max-height: calc(100vh - 120px);
-  height: auto;
+  height: calc(100vh - 140px);
 
   /* Scrollbar styles */
   &::-webkit-scrollbar {

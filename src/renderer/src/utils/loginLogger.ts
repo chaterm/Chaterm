@@ -66,7 +66,12 @@ export async function recordLoginLog(userInfo: any, method: string, status: 'suc
       platform: platform
     }
 
-    logger.info('Recording login log', { loginData })
+    logger.info('Recording login log', {
+      event: 'login.log.record',
+      login_method: loginData.login_method,
+      status: loginData.status,
+      platform: loginData.platform
+    })
 
     const result = await api.insertLoginLog(loginData)
     if (result.success) {

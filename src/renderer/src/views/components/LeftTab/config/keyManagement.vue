@@ -406,7 +406,7 @@ const showContextMenu = (event: MouseEvent, keyChain: KeyChainItem) => {
 }
 
 const handleCardClick = (keyChain: KeyChainItem) => {
-  logger.info('Card clicked', { data: keyChain })
+  logger.info('Card clicked', { event: 'keychain.click', id: keyChain.key_chain_id })
 }
 
 const closeContextMenu = () => {
@@ -433,11 +433,11 @@ const handleEdit = async (keyChain: KeyChainItem | null) => {
   const api = window.api as any
   await api.getKeyChainInfo({ id: keyChain.key_chain_id }).then((res) => {
     keyChain = res
-    logger.info('Loaded keyChain info', { data: keyChain })
+    logger.info('Loaded keyChain info', { event: 'keychain.loaded', id: keyChain?.key_chain_id })
   })
   isEditMode.value = true
   logger.info('Entering edit mode')
-  logger.info('KeyChain data for editing', { data: keyChain })
+  logger.info('KeyChain data for editing', { event: 'keychain.edit', id: keyChain.key_chain_id, type: keyChain.chain_type })
 
   Object.assign(createForm, {
     label: keyChain.chain_name || '',

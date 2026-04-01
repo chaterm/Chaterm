@@ -592,7 +592,7 @@ export class DatabaseManager {
       upsertTransaction()
     } catch (error) {
       logger.error('SQLite execution failed', { error: error })
-      logger.error('SQL: upsertAsset', { values: JSON.stringify(values) })
+      logger.error('SQL: upsertAsset', { valueCount: values.length })
       throw error
     }
 

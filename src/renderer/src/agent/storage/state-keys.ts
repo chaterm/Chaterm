@@ -96,5 +96,6 @@ export type GlobalStateKey =
   | 'defaultModelId'
   | 'messageFeedbacks'
   | 'userRules'
+  | 'kbSearchEnabled'
 
 export type LocalStateKey = 'localClineRulesToggles'

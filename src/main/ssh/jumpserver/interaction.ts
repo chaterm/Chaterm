@@ -52,7 +52,7 @@ export const setupJumpServerInteraction = (
     connectionPhase = 'connected'
     outputBuffer = ''
 
-    logger.info('JumpServer connection successful', { event: 'jumpserver.connect.success', connectionId, targetIp: connectionInfo.targetIp, reason })
+    logger.info('JumpServer connection successful', { event: 'jumpserver.connect.success', connectionId, reason })
     jumpserverConnections.set(connectionId, {
       conn,
       stream,

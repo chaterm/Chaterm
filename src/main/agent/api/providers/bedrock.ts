@@ -107,7 +107,7 @@ export class AwsBedrockHandler implements ApiHandler {
     })
 
     for await (const chunk of stream) {
-      logger.info('returning chunks', { value: chunk })
+      logger.debug('returning chunks', { event: 'bedrock.stream.chunk', type: chunk.type })
       switch (chunk.type) {
         case 'message_start': {
           const usage = chunk.message.usage
@@ -557,7 +557,7 @@ ${combinedContent}
         // let hasReportedInputTokens = false
 
         for await (const chunk of response.stream) {
-          logger.info('nova chunk', { value: chunk })
+          logger.debug('nova chunk', { event: 'bedrock.nova.chunk', hasMetadata: !!chunk.metadata })
           // Handle metadata events with token usage information
           if (chunk.metadata?.usage) {
             // Report complete token usage from the model itself

@@ -264,7 +264,11 @@ export class McpHub {
       }
 
       const settings = await this.readAndValidateMcpSettingsFile()
-      logger.info('File changed', { value: settings })
+      logger.info('File changed', {
+        event: 'mcp.settings.changed',
+        hasSettings: !!settings,
+        serverCount: settings?.mcpServers ? Object.keys(settings.mcpServers).length : 0
+      })
 
       if (settings) {
         try {

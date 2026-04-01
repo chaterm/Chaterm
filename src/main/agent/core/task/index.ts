@@ -35,7 +35,7 @@ import {
   ExtensionMessage,
   HostInfo
 } from '@shared/ExtensionMessage'
-import { DEFAULT_LANGUAGE_SETTINGS } from '@shared/Languages'
+import { DEFAULT_LANGUAGE_SETTINGS, getKbSearchEnabledLabel } from '@shared/Languages'
 import { ChatermAskResponse } from '@shared/WebviewMessage'
 import { calculateApiCostAnthropic } from '@utils/cost'
 import { TodoWriteTool, TodoWriteParams } from './todo-tools/todo_write_tool'
@@ -49,7 +49,7 @@ import { regexSearchMatches as localGrepSearch } from '../../services/grep/index
 import { buildRemoteGlobCommand, parseRemoteGlobOutput, buildRemoteGrepCommand, parseRemoteGrepOutput } from '../../services/search/remote'
 import { broadcastInteractionClosed } from '../../services/interaction-detector/ipc-handlers'
 import { getOffloadDir, shouldOffload, writeToolOutput } from '../offload'
-import { getKnowledgeBaseRoot } from '../../../services/knowledgebase'
+import { getKnowledgeBaseRoot, getKbSearchManager } from '../../../services/knowledgebase'
 
 interface StreamMetrics {
   didReceiveUsageChunk?: boolean
@@ -2020,7 +2020,13 @@ export class Task {
   private formatErrorWithStatusCode(error: unknown): string {
     const errorObj = error as { status?: number; statusCode?: number; response?: { status?: number }; message?: string }
     const statusCode = errorObj?.status || errorObj?.statusCode || (errorObj?.response && errorObj.response.status)
-    const message = errorObj?.message ?? JSON.stringify(serializeError(error), null, 2)
+    let message = errorObj?.message ?? JSON.stringify(serializeError(error), null, 2)
+
+    // Sanitize credentials that may appear in API error messages (e.g. "apikey: xxx")
+    message = message.replace(
+      /\b(api[-_]?key|token|password|secret|authorization|bearer)(?::?\s+)([^\s"',]{8,})/gi,
+      (_m, label: string, value: string) => `${label}: ${value.slice(0, 4)}***${value.slice(-4)}`
+    )
 
     // Only prepend the statusCode if it's not already part of the message
     return statusCode && !message.includes(statusCode.toString()) ? `${statusCode} - ${message}` : message
@@ -2243,6 +2249,13 @@ export class Task {
     )
 
     await this.handleFirstRequestCheckpoint()
+
+    if (this.apiConversationHistory.length === 0) {
+      const kbContext = await this.performKbSearch(userContent)
+      if (kbContext) {
+        userContent.push({ type: 'text', text: kbContext })
+      }
+    }
 
     const environmentDetails = await this.loadContext()
     userContent.push({ type: 'text', text: environmentDetails })
@@ -2940,6 +2953,8 @@ export class Task {
         return `[${block.name} - ${block.params.server_name}/${block.params.tool_name}]`
       case 'access_mcp_resource':
         return `[${block.name} - ${block.params.server_name}:${block.params.uri}]`
+      case 'kb_search':
+        return `[${block.name} for '${block.params.query}']`
       default:
         return `[${block.name}]`
     }
@@ -3513,6 +3528,9 @@ export class Task {
         break
       case 'summarize_to_skill':
         await this.handleSummarizeToSkillToolUse(block)
+        break
+      case 'kb_search':
+        await this.handleKbSearchToolUse(block)
         break
       default:
         logger.error(`[Task] Unknown tool name: ${block.name}`)
@@ -4290,7 +4308,7 @@ export class Task {
           // Check cache, if no cache, get system info and cache it
           let hostInfo = this.hostSystemInfoCache.get(host.host)
           if (!hostInfo) {
-            logger.debug(`Fetching system information for host: ${host.host}`)
+            logger.debug('Fetching system information for host')
 
             let systemInfoOutput: string
 
@@ -4373,7 +4391,7 @@ USERNAME:${localSystemInfo.userName}`
             // Cache system information
             this.hostSystemInfoCache.set(host.host, hostInfo)
           } else {
-            logger.debug(`Using cached system information for host: ${host.host}`)
+            logger.debug('Using cached system information for host')
           }
 
           systemInformation += `
@@ -4751,6 +4769,80 @@ USERNAME:${localSystemInfo.userName}`
     } catch (error) {
       logger.error('[Task] summarize_to_skill failed', { error: error })
       await this.pushToolResult(toolDescription, `Failed to create skill: ${error instanceof Error ? error.message : String(error)}`)
+    }
+  }
+
+  private getKbSearchLabel(locale: string): string {
+    return getKbSearchEnabledLabel(locale)
+  }
+
+  private async handleKbSearchToolUse(block: ToolUse): Promise<void> {
+    const toolDescription = this.getToolDescription(block)
+    const query = block.params.query
+    const maxResults = parseInt(block.params.max_results || '5', 10)
+
+    try {
+      if (!query) {
+        await this.handleMissingParam('query', toolDescription, 'kb_search')
+        return
+      }
+
+      const mgr = getKbSearchManager()
+      if (!mgr) {
+        await this.pushToolResult(toolDescription, 'Knowledge base search is not available. No embedding provider configured.')
+        return
+      }
+
+      const results = await mgr.search(query, { maxResults: Math.min(Math.max(maxResults, 1), 20) })
+
+      if (results.length === 0) {
+        await this.pushToolResult(toolDescription, 'No relevant results found in the knowledge base.')
+      } else {
+        const kbLabel = this.getKbSearchLabel(await this.getUserLocale())
+        await this.say('text', `${kbLabel}:\n${results.map((r) => `  ${r.path} L${r.startLine}-${r.endLine}`).join('\n')}\n`, false)
+        const formatted = results
+          .map((r, i) => `[${i + 1}] ${r.path} (lines ${r.startLine}-${r.endLine}, score: ${r.score.toFixed(3)})\n${r.snippet}`)
+          .join('\n\n---\n\n')
+        await this.pushToolResult(toolDescription, `Found ${results.length} results:\n\n${formatted}`)
+      }
+
+      this.didAlreadyUseTool = true
+      await this.saveCheckpoint()
+    } catch (error) {
+      logger.error('[Task] kb_search failed', { error })
+      await this.pushToolResult(toolDescription, `Knowledge base search failed: ${error instanceof Error ? error.message : String(error)}`)
+    }
+  }
+
+  private async performKbSearch(userContent: UserContent): Promise<string | null> {
+    const mgr = getKbSearchManager()
+    if (!mgr) return null
+
+    // Extract text from user content to use as search query
+    const queryParts: string[] = []
+    for (const block of userContent) {
+      if ('text' in block && typeof block.text === 'string') {
+        const cleanedText = block.text.replace(/<\/?task\b[^>]*>/gi, '').trim()
+        if (cleanedText) {
+          queryParts.push(cleanedText)
+        }
+      }
+    }
+    const query = queryParts.join(' ').trim()
+    if (!query) return null
+
+    try {
+      const results = await mgr.search(query)
+      if (results.length === 0) return null
+
+      const kbLabel = this.getKbSearchLabel(await this.getUserLocale())
+      await this.say('text', `${kbLabel}:\n${results.map((r) => `  ${r.path} L${r.startLine}-${r.endLine}`).join('\n')}\n`, false)
+
+      const formatted = results.map((r) => `[${r.path}:${r.startLine}-${r.endLine}] (score: ${r.score.toFixed(3)})\n${r.snippet}`).join('\n\n---\n\n')
+      return `\n\n<knowledge_base_context>\nThe following knowledge base documents may be relevant to your task:\n\n${formatted}\n</knowledge_base_context>`
+    } catch (error) {
+      logger.error('[Task] First-request KB search failed', { error })
+      return null
     }
   }
 

@@ -61,11 +61,11 @@ export const findOrganizationAssetByKey = async (nodeKey: string): Promise<any |
             for (const asset of group.children) {
               if (isOrganizationAsset(asset.asset_type)) {
                 if (asset.uuid === nodeKey) {
-                  logger.info('Found matching organization asset config by uuid', { data: asset })
+                  logger.info('Found matching organization asset config by uuid', { event: 'org.asset.match.uuid', uuid: asset.uuid })
                   return asset
                 }
                 if (asset.key === nodeKey) {
-                  logger.info('Found matching organization asset config by key', { data: asset })
+                  logger.info('Found matching organization asset config by key', { event: 'org.asset.match.key', key: asset.key })
                   return asset
                 }
               }

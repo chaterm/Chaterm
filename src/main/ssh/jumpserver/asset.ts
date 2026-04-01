@@ -50,7 +50,7 @@ class JumpServerClient {
    * Connect to JumpServer and establish a persistent shell
    */
   async connect(): Promise<void> {
-    logger.info('Starting connection to JumpServer', { event: 'jumpserver.asset.connect', host: this.config.host })
+    logger.info('Starting connection to JumpServer', { event: 'jumpserver.asset.connect' })
     return new Promise((resolve, reject) => {
       const connectConfig: ConnectConfig = {
         host: this.config.host,
