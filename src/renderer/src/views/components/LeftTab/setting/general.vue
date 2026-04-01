@@ -1,4 +1,4 @@
-﻿<template>
+<template>
   <div class="userInfo">
     <a-card
       :bordered="false"
@@ -821,15 +821,17 @@ const saveEditorConfig = async () => {
 /* Unified Background Grid */
 .unified-bg-grid {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
+  grid-template-columns: repeat(3, 123.2px);
   gap: 8px;
   margin-bottom: 16px;
   padding: 2px; /* Prevent hover scale clipping */
+  justify-content: flex-end;
 }
 
 /* Common Grid Item Styles */
 .bg-grid-item {
-  aspect-ratio: 16/9;
+  width: 123.2px;
+  height: 69.3px;
   border-radius: 8px;
   overflow: hidden;
   cursor: pointer;
@@ -965,17 +967,19 @@ const saveEditorConfig = async () => {
   opacity: 0.7;
   margin-bottom: 8px;
   display: block;
-  text-align: left;
+  text-align: right;
 }
 
 .custom-upload-grid {
   display: flex;
   gap: 8px;
   padding: 2px;
+  justify-content: flex-end;
 }
 
 .custom-upload-grid .bg-grid-item {
-  width: calc((100% - 16px) / 3);
+  width: 123.2px;
+  height: 69.3px;
   flex-shrink: 0;
 }
 
