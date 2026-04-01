@@ -1,6 +1,11 @@
-// ============ Performance Marks (must be the very first import) ============
+﻿// ============ Performance Marks (must be the very first import) ============
 import { mark, registerPerfIpcHandlers, collectAndLogTimeline, logStartupTimeline } from '@perf'
 // 'chaterm/main/start' is recorded at module load time inside @perf
+
+// Electron 22 uses Node 16 runtime on Win7. Polyfill missing global Web Streams
+// before loading modules that assume TransformStream/ReadableStream globals.
+import './polyfills/web-streams'
+import './polyfills/http-globals'
 
 // ============ Initialize userData path FIRST (MUST be before all other imports) ============
 import { initUserDataPath, getUserDataPath } from './config/edition'
@@ -36,7 +41,7 @@ import { registerRemoteTerminalHandlers } from './ssh/agentHandle'
 import { registerK8sHandlers } from './k8s/k8sHandle'
 import { autoCompleteDatabaseService, ChatermDatabaseService, setCurrentUserId } from './storage/database'
 import { getGuestUserId } from './storage/db/connection'
-import { Controller } from './agent/core/controller'
+import type { Controller as ControllerType } from './agent/core/controller'
 import { executeRemoteCommand } from './agent/integrations/remote-terminal/example'
 import {
   initializeStorageMain,
@@ -90,13 +95,107 @@ let forceQuit = false
 
 let autoCompleteService: autoCompleteDatabaseService
 let chatermDbService: ChatermDatabaseService
-let controller: Controller
+let controller: ControllerType
 let dataSyncController: DataSyncController | null = null
 let chatSyncScheduler: import('./storage/chat_sync/services/ChatSyncScheduler').ChatSyncScheduler | null = null
 let pendingXshellWakeups: XshellWakeupPayload[] = []
 
 let winReadyResolve
 let winReady = new Promise((resolve) => (winReadyResolve = resolve))
+
+function showMainWindowIfHidden(reason: string): void {
+  if (mainWindow && !mainWindow.isDestroyed() && !mainWindow.isVisible()) {
+    logger.warn('Main window was hidden, showing via fallback', { reason })
+    mainWindow.show()
+  }
+}
+
+function registerMainWindowShowIpcHandler(): void {
+  ipcMain.handle('main-window-show', async () => {
+    await winReady
+    showMainWindowIfHidden('renderer-ipc')
+  })
+}
+
+function resolveLocalResourcePath(requestUrl: string): string {
+  let filePath = requestUrl.slice('local-resource://'.length)
+  filePath = decodeURIComponent(filePath)
+
+  if (filePath.length >= 2 && /[A-Z]/.test(filePath[0]) && filePath[1] === '/') {
+    filePath = filePath[0] + ':' + filePath.slice(1)
+  } else if (process.platform !== 'win32' && !filePath.startsWith('/') && !filePath.includes(':')) {
+    if (filePath.startsWith('Users/') || filePath.startsWith('home/') || filePath.startsWith('var/') || filePath.startsWith('opt/')) {
+      filePath = '/' + filePath
+    }
+  }
+
+  return filePath
+}
+
+function registerLocalResourceProtocol(): void {
+  const protocolAny = protocol as typeof protocol & {
+    handle?: (scheme: string, handler: (request: { url: string }) => Response | Promise<Response>) => void
+  }
+
+  if (typeof protocolAny.handle === 'function') {
+    logger.info('Registering local-resource protocol with protocol.handle')
+    protocolAny.handle('local-resource', (request) => {
+      const filePath = resolveLocalResourcePath(request.url)
+      const netWithFetch = net as typeof net & {
+        fetch?: (url: string) => Promise<Response>
+      }
+
+      try {
+        const fileUrl = pathToFileURL(filePath).toString()
+        if (typeof netWithFetch.fetch !== 'function') {
+          throw new Error('electron.net.fetch is unavailable')
+        }
+        return netWithFetch.fetch(fileUrl)
+      } catch (error) {
+        logger.error('Error in local-resource protocol.handle handler', { error })
+        return new Response('File Not Found', { status: 404 })
+      }
+    })
+    return
+  }
+
+  logger.info('Registering local-resource protocol with protocol.registerFileProtocol fallback')
+  protocol.registerFileProtocol('local-resource', (request, callback) => {
+    try {
+      const filePath = resolveLocalResourcePath(request.url)
+      callback(filePath)
+    } catch (error) {
+      logger.error('Error in local-resource registerFileProtocol handler', { error })
+      callback({ error: -6 })
+    }
+  })
+}
+
+function ensureWebStreamsGlobals(): void {
+  const globalAny = globalThis as any
+  if (
+    typeof globalAny.ReadableStream !== 'undefined' &&
+    typeof globalAny.WritableStream !== 'undefined' &&
+    typeof globalAny.TransformStream !== 'undefined'
+  ) {
+    return
+  }
+
+  try {
+    const webStreams = require('stream/web')
+    if (typeof globalAny.ReadableStream === 'undefined' && webStreams.ReadableStream) {
+      globalAny.ReadableStream = webStreams.ReadableStream
+    }
+    if (typeof globalAny.WritableStream === 'undefined' && webStreams.WritableStream) {
+      globalAny.WritableStream = webStreams.WritableStream
+    }
+    if (typeof globalAny.TransformStream === 'undefined' && webStreams.TransformStream) {
+      globalAny.TransformStream = webStreams.TransformStream
+    }
+  } catch {
+    // Ignore and let downstream modules handle missing globals if any.
+  }
+}
 
 // Initialize unified logging system before app is ready
 initLogging()
@@ -171,7 +270,7 @@ app.whenReady().then(async () => {
       try {
         const crypto = require('crypto')
         const ffmpegPath = path.join(path.dirname(process.execPath), 'ffmpeg.dll')
-        const KNOWN_HASH = '2256D0112A047EC96E67B9F41FC8E7A692136F0DB6A756CCFE4B525826C5F240'
+        const KNOWN_HASH = 'AAD7E7AC9D74AC18892801950C9728E9C4EACD3B676CBB5D6F63382DA2CE0559'
 
         try {
           await fs.access(ffmpegPath)
@@ -213,26 +312,7 @@ app.whenReady().then(async () => {
     app.dock?.setIcon(join(__dirname, '../../resources/icon.png'))
   }
 
-  protocol.handle('local-resource', (request) => {
-    let filePath = request.url.slice('local-resource://'.length)
-    filePath = decodeURIComponent(filePath)
-
-    if (filePath.length >= 2 && /[A-Z]/.test(filePath[0]) && filePath[1] === '/') {
-      filePath = filePath[0] + ':' + filePath.slice(1)
-    } else if (process.platform !== 'win32' && !filePath.startsWith('/') && !filePath.includes(':')) {
-      if (filePath.startsWith('Users/') || filePath.startsWith('home/') || filePath.startsWith('var/') || filePath.startsWith('opt/')) {
-        filePath = '/' + filePath
-      }
-    }
-
-    try {
-      const fileUrl = pathToFileURL(filePath).toString()
-      return net.fetch(fileUrl)
-    } catch (error) {
-      logger.error('Error in local-resource handler', { error: error })
-      return new Response('File Not Found', { status: 404 })
-    }
-  })
+  registerLocalResourceProtocol()
 
   // Register window drag handler (register only once)
   ipcMain.handle('custom-adsorption', (_, res) => {
@@ -281,12 +361,28 @@ app.whenReady().then(async () => {
   mark('chaterm/main/willSetupIPC')
   setupIPC()
   registerPerfIpcHandlers()
+  registerMainWindowShowIpcHandler()
   mark('chaterm/main/didSetupIPC')
 
   // Create the BrowserWindow. Content loading starts in parallel (not awaited).
   mark('chaterm/main/willCreateWindow')
   await createWindow()
   mark('chaterm/main/didCreateWindow')
+
+  mainWindow.webContents.on('did-fail-load', (_event, errorCode, errorDescription, validatedURL, isMainFrame) => {
+    if (!isMainFrame) return
+    logger.error('Renderer main frame failed to load', {
+      errorCode,
+      errorDescription,
+      validatedURL
+    })
+    showMainWindowIfHidden('renderer-did-fail-load')
+  })
+
+  const showWindowFallbackTimeoutMs = 12000
+  setTimeout(() => {
+    showMainWindowIfHidden(`startup-timeout-${showWindowFallbackTimeoutMs}ms`)
+  }, showWindowFallbackTimeoutMs)
 
   // Initialize storage system (only needs the BrowserWindow reference)
   mark('chaterm/main/willInitStorage')
@@ -389,6 +485,8 @@ app.whenReady().then(async () => {
     }
 
     mark('chaterm/main/willCreateController')
+    ensureWebStreamsGlobals()
+    const { Controller } = await import('./agent/core/controller')
     controller = new Controller(messageSender, ensureMcpConfigFileExists)
     mark('chaterm/main/didCreateController')
   } catch (error) {
@@ -1658,13 +1756,6 @@ function setupIPC(): void {
     })
   }
 
-  ipcMain.handle('main-window-show', async () => {
-    await winReady
-    if (mainWindow && !mainWindow.isDestroyed() && !mainWindow.isVisible()) {
-      mainWindow.show()
-    }
-  })
-
   // Security configuration handler
   ipcMain.handle('security-open-config', async () => {
     try {
@@ -2026,7 +2117,7 @@ ipcMain.handle('parseXtsFile', async (_, data) => {
       // Try to detect encoding: prioritize GBK/GB18030 (common Chinese archive encoding), then UTF-8
       // If UTF-8 decoding doesn't produce garbled characters, consider it UTF-8, otherwise try GBK
       const utf8Name = rawNameBuffer.toString('utf8')
-      if (!utf8Name.includes('') && !utf8Name.includes('♦')) {
+      if (!utf8Name.includes('\uFFFD')) {
         entryName = utf8Name
       } else {
         // Try GBK decoding

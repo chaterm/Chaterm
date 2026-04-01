@@ -15,6 +15,33 @@ import { createProxyAgent, checkProxyConnectivity, resolveSystemProxy, createPro
 import type { Agent } from 'http'
 const logger = createLogger('agent')
 
+function toSerializableApiError(error: unknown): Record<string, unknown> {
+  if (!(error instanceof Error)) {
+    return { error }
+  }
+
+  const cause = (error as Error & { cause?: unknown }).cause
+  const serializedCause =
+    cause instanceof Error
+      ? {
+          name: cause.name,
+          message: cause.message,
+          stack: cause.stack,
+          code: (cause as Error & { code?: unknown }).code,
+          errno: (cause as Error & { errno?: unknown }).errno
+        }
+      : cause
+
+  return {
+    name: error.name,
+    message: error.message,
+    stack: error.stack,
+    code: (error as Error & { code?: unknown }).code,
+    errno: (error as Error & { errno?: unknown }).errno,
+    cause: serializedCause
+  }
+}
+
 /**
  * LiteLLM Handler for OpenAI-compatible API with enhanced reasoning support
  *
@@ -197,7 +224,22 @@ export class LiteLlmHandler implements ApiHandler {
       })
     }
 
-    const stream = await this.client.chat.completions.create(params)
+    let stream: Awaited<ReturnType<typeof this.client.chat.completions.create>>
+    try {
+      stream = await this.client.chat.completions.create(params)
+    } catch (error) {
+      logger.error('[LiteLLM] Chat completions request failed', {
+        event: 'agent.api.litellm.chat_completions.failed',
+        baseURL: this.options.liteLlmBaseUrl || 'http://localhost:4000',
+        model: this.options.liteLlmModelId || liteLlmDefaultModelId,
+        timeoutMs: this.options.requestTimeoutMs || 20000,
+        needProxy: this.options.needProxy !== false,
+        hasUserProxyConfig: Boolean(this.options.proxyConfig),
+        currentProxyString: this.currentProxyString,
+        error: toSerializableApiError(error)
+      })
+      throw error
+    }
 
     let usageInfo: OpenAI.CompletionUsage | undefined | null = undefined
     // GLM models with -Thinking suffix output <thinking>...</thinking> tags when thinking mode is enabled

@@ -18,6 +18,33 @@ import { checkProxyConnectivity, createProxyAgent } from './proxy/index'
 import type { Agent } from 'http'
 const logger = createLogger('agent')
 
+function toSerializableApiError(error: unknown): Record<string, unknown> {
+  if (!(error instanceof Error)) {
+    return { error }
+  }
+
+  const cause = (error as Error & { cause?: unknown }).cause
+  const serializedCause =
+    cause instanceof Error
+      ? {
+          name: cause.name,
+          message: cause.message,
+          stack: cause.stack,
+          code: (cause as Error & { code?: unknown }).code,
+          errno: (cause as Error & { errno?: unknown }).errno
+        }
+      : cause
+
+  return {
+    name: error.name,
+    message: error.message,
+    stack: error.stack,
+    code: (error as Error & { code?: unknown }).code,
+    errno: (error as Error & { errno?: unknown }).errno,
+    cause: serializedCause
+  }
+}
+
 /**
  * Normalize the base URL for OpenAI SDK:
  * - URL ending with '#': strip '#', skip /v1 prefix (user wants direct path)
@@ -127,15 +154,29 @@ export class OpenAiHandler implements ApiHandler {
       reasoningEffort = (this.options.o3MiniReasoningEffort as ChatCompletionReasoningEffort) || 'medium'
     }
 
-    const stream = await this.client.chat.completions.create({
-      model: modelId,
-      messages: openAiMessages,
-      ...(supportsTemperature && { temperature }),
-      max_tokens: maxTokens,
-      reasoning_effort: reasoningEffort,
-      stream: true,
-      stream_options: { include_usage: true }
-    })
+    let stream: Awaited<ReturnType<typeof this.client.chat.completions.create>>
+    try {
+      stream = await this.client.chat.completions.create({
+        model: modelId,
+        messages: openAiMessages,
+        ...(supportsTemperature && { temperature }),
+        max_tokens: maxTokens,
+        reasoning_effort: reasoningEffort,
+        stream: true,
+        stream_options: { include_usage: true }
+      })
+    } catch (error) {
+      logger.error('[OpenAI] Chat completions request failed', {
+        event: 'agent.api.openai.chat_completions.failed',
+        baseURL: normalizeBaseUrl(this.options.openAiBaseUrl),
+        model: modelId,
+        timeoutMs: this.options.requestTimeoutMs || 20000,
+        needProxy: this.options.needProxy !== false,
+        hasUserProxyConfig: Boolean(this.options.proxyConfig),
+        error: toSerializableApiError(error)
+      })
+      throw error
+    }
     for await (const chunk of stream) {
       const delta = chunk.choices[0]?.delta
       if (delta?.content) {
@@ -179,13 +220,27 @@ export class OpenAiHandler implements ApiHandler {
     const input = convertToResponsesInput(messages)
     const responseInput = systemPrompt ? [{ role: 'developer' as const, content: systemPrompt }, ...input] : input
 
-    const stream = await this.client.responses.create({
-      model: modelId,
-      input: responseInput,
-      ...(supportsTemperature && temperature !== undefined && { temperature }),
-      ...(maxTokens !== undefined && { max_output_tokens: maxTokens }),
-      stream: true
-    })
+    let stream: Awaited<ReturnType<typeof this.client.responses.create>>
+    try {
+      stream = await this.client.responses.create({
+        model: modelId,
+        input: responseInput,
+        ...(supportsTemperature && temperature !== undefined && { temperature }),
+        ...(maxTokens !== undefined && { max_output_tokens: maxTokens }),
+        stream: true
+      })
+    } catch (error) {
+      logger.error('[OpenAI] Responses request failed', {
+        event: 'agent.api.openai.responses.failed',
+        baseURL: normalizeBaseUrl(this.options.openAiBaseUrl),
+        model: modelId,
+        timeoutMs: this.options.requestTimeoutMs || 20000,
+        needProxy: this.options.needProxy !== false,
+        hasUserProxyConfig: Boolean(this.options.proxyConfig),
+        error: toSerializableApiError(error)
+      })
+      throw error
+    }
 
     for await (const event of stream) {
       if (event.type === 'response.output_text.delta') {

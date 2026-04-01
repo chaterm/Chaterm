@@ -178,6 +178,16 @@ export function convertToOpenAiMessages(anthropicMessages: Anthropic.Messages.Me
 // Convert OpenAI response to Anthropic format
 export function convertToAnthropicMessage(completion: OpenAI.Chat.Completions.ChatCompletion): Anthropic.Messages.Message {
   const openAiMessage = completion.choices[0].message
+  const usage = {
+    input_tokens: completion.usage?.prompt_tokens || 0,
+    output_tokens: completion.usage?.completion_tokens || 0,
+    cache_creation: null,
+    cache_creation_input_tokens: null,
+    cache_read_input_tokens: null,
+    server_tool_use: null,
+    service_tier: null
+  } as Anthropic.Messages.Message['usage']
+
   const anthropicMessage: Anthropic.Messages.Message = {
     id: completion.id,
     type: 'message',
@@ -204,15 +214,7 @@ export function convertToAnthropicMessage(completion: OpenAI.Chat.Completions.Ch
       }
     })(),
     stop_sequence: null, // which custom stop_sequence was generated, if any (not applicable if you don't use stop_sequence)
-    usage: {
-      input_tokens: completion.usage?.prompt_tokens || 0,
-      output_tokens: completion.usage?.completion_tokens || 0,
-      cache_creation_input_tokens: null,
-      cache_read_input_tokens: null,
-      cache_creation: null,
-      server_tool_use: null,
-      service_tier: null
-    }
+    usage
   }
 
   if (openAiMessage.tool_calls && openAiMessage.tool_calls.length > 0) {

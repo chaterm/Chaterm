@@ -9,7 +9,8 @@ import path from 'path'
 import * as fs from 'fs/promises'
 import { createLogger } from '../logging'
 import { ApiClient } from '../../storage/data_sync/core/ApiClient'
-import { getKnowledgeBaseRoot, IMAGE_EXTS, getKbSearchManager } from './index'
+import { getKnowledgeBaseRoot, IMAGE_EXTS } from './index'
+import { importResolvedModule } from '../../utils/runtimeImport'
 
 const logger = createLogger('kb-sync')
 
@@ -662,37 +663,28 @@ async function flushDeletes(): Promise<void> {
 export function startKbSync(): void {
   if (watcher) return
   const root = getKbRoot()
-  import('chokidar').then((chokidarMod) => {
-    const chokidar = chokidarMod.default
-    watcher = chokidar.watch(root, {
+  importResolvedModule<any>('chokidar').then((chokidar) => {
+    const activeWatcher = chokidar.watch(root, {
       ignored: (p: string) => path.basename(p) === KB_SYNC_EXCLUDED_BASENAME,
       ignoreInitial: true
     })
-    // add/change: upload + search index.
-    watcher.on('add', (absPath?: string) => {
+    watcher = activeWatcher
+    // add/change: upload only.
+    activeWatcher.on('add', (absPath?: string) => {
       if (!absPath) return
       const rel = absToRelPath(absPath)
-      if (rel && !isKbSyncExcludedRelPath(rel)) {
-        scheduleUpload(rel)
-        getKbSearchManager()?.onFileChanged(rel)
-      }
+      if (rel && !isKbSyncExcludedRelPath(rel)) scheduleUpload(rel)
     })
-    watcher.on('change', (absPath?: string) => {
+    activeWatcher.on('change', (absPath?: string) => {
       if (!absPath) return
       const rel = absToRelPath(absPath)
-      if (rel && !isKbSyncExcludedRelPath(rel)) {
-        scheduleUpload(rel)
-        getKbSearchManager()?.onFileChanged(rel)
-      }
+      if (rel && !isKbSyncExcludedRelPath(rel)) scheduleUpload(rel)
     })
-    // unlink: delete + search index cleanup. unlinkDir fires individual unlink events for contained files.
-    watcher.on('unlink', (absPath?: string) => {
+    // unlink: delete only. unlinkDir fires individual unlink events for contained files.
+    activeWatcher.on('unlink', (absPath?: string) => {
       if (!absPath) return
       const rel = absToRelPath(absPath)
-      if (rel && !isKbSyncExcludedRelPath(rel)) {
-        scheduleDelete(rel)
-        getKbSearchManager()?.onFileRemoved(rel)
-      }
+      if (rel && !isKbSyncExcludedRelPath(rel)) scheduleDelete(rel)
     })
     logger.info('KB sync watcher started', { root })
   })

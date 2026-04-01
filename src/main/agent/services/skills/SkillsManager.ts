@@ -24,6 +24,7 @@ import {
 } from '@shared/skills'
 import { ChatermDatabaseService } from '../../../storage/db/chaterm.service'
 import { getUserDataPath } from '../../../config/edition'
+import { importResolvedModule } from '../../../utils/runtimeImport'
 const logger = createLogger('agent')
 
 // Dynamic import type for chokidar (ESM module)
@@ -571,7 +572,7 @@ export class SkillsManager {
    */
   private async setupFileWatchers(): Promise<void> {
     try {
-      const chokidar = (await import('chokidar')) as ChokidarModule
+      const chokidar = await importResolvedModule<ChokidarModule>('chokidar')
       const directories = await this.getSkillDirectories()
       // const userSkillsPath = this.getUserSkillsPath()
 
