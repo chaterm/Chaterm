@@ -634,8 +634,6 @@ onMounted(async () => {
     textarea.addEventListener('compositionend', textareaCompositionListener)
     textarea.addEventListener('paste', textareaPasteListener)
   }
-  const core = (termInstance as any)._core
-  const renderService = core._renderService
   const originalWrite = termInstance.write.bind(termInstance)
 
   // High-throughput detection: bypass expensive processing during bulk output (e.g., cat large file)
@@ -721,14 +719,11 @@ onMounted(async () => {
 
     // Normal mode: full processing
     let processedData = data
-    if (!currentIsUserCall && keywordHighlightService.isEnabled()) {
+    // Only apply keyword highlight when not in alternate/UI modes to avoid corrupting
+    // complex terminal UIs or high-frequency redraw output.
+    if (!currentIsUserCall && terminalMode.value === 'none' && keywordHighlightService.isEnabled()) {
       processedData = keywordHighlightService.applyHighlight(data)
     }
-
-    const originalRequestRefresh = renderService.refreshRows.bind(renderService)
-    const originalTriggerRedraw = renderService._renderDebouncer.refresh.bind(renderService._renderDebouncer)
-    renderService.refreshRows = () => {}
-    renderService._renderDebouncer.refresh = () => {}
 
     originalWrite(processedData, () => {
       if (!currentIsUserCall) {
@@ -739,10 +734,6 @@ onMounted(async () => {
         scheduleScrollToBottom()
       }
     })
-
-    renderService.refreshRows = originalRequestRefresh
-    renderService._renderDebouncer.refresh = originalTriggerRedraw
-    renderService.refreshRows(0, core._bufferService.rows - 1)
   }
   termInstance.write = cusWrite as any
   if (terminalContainer.value) {
