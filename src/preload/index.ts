@@ -1,4 +1,4 @@
-import { contextBridge, ipcRenderer, webUtils } from 'electron'
+import { contextBridge, ipcRenderer } from 'electron'
 import { electronAPI } from '@electron-toolkit/preload'
 import type { WebviewMessage } from '../main/agent/shared/WebviewMessage'
 
@@ -21,6 +21,10 @@ interface SftpConnectionInfo {
   isSuccess: boolean
   sftp?: import('ssh2').SFTPWrapper
   error?: string
+}
+
+type FileWithPath = File & {
+  path?: string
 }
 
 // Command list reception timeout (ms)
@@ -68,6 +72,10 @@ window.addEventListener(
 const nodeEnv = process.env.NODE_ENV || 'development'
 const envSpecificPath = path.resolve(__dirname, `../../build/.env.${nodeEnv}`)
 const envContent: Record<string, string> = {}
+
+const getPathForFile = (file: File): string => {
+  return (file as FileWithPath).path || ''
+}
 
 if (fs.existsSync(envSpecificPath)) {
   dotenv.config({ path: envSpecificPath })
@@ -623,7 +631,7 @@ const api = {
   moveAssetToFolder,
   removeAssetFromFolder,
   getAssetsInFolder,
-  getPathForFile: (file: File) => webUtils.getPathForFile(file), // Get the real path from File instead of using file.path
+  getPathForFile, // Electron 22 does not expose webUtils; fall back to the legacy File.path shape.
   setDataSyncEnabled: (enabled: boolean) => ipcRenderer.invoke('data-sync:set-enabled', enabled),
   // Chat Sync V2
   chatSyncSetEnabled: (enabled: boolean) => ipcRenderer.invoke('chat-sync:set-enabled', enabled),

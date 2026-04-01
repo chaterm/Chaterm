@@ -1,4 +1,4 @@
-const fs = require('fs')
+﻿const fs = require('fs')
 const path = require('path')
 const crypto = require('crypto')
 
@@ -7,7 +7,7 @@ if (process.platform !== 'win32') {
   process.exit(0)
 }
 
-const KNOWN_HASH = '2256D0112A047EC96E67B9F41FC8E7A692136F0DB6A756CCFE4B525826C5F240'
+const KNOWN_HASH = 'AAD7E7AC9D74AC18892801950C9728E9C4EACD3B676CBB5D6F63382DA2CE0559'
 
 const ffmpegPath = path.join(__dirname, '../node_modules/electron/dist/ffmpeg.dll')
 
@@ -15,7 +15,7 @@ console.log('Validating ffmpeg.dll integrity...')
 console.log(`Target: ${ffmpegPath}`)
 
 if (!fs.existsSync(ffmpegPath)) {
-  console.error('❌ ffmpeg.dll not found at expected path!')
+  console.error('鉂?ffmpeg.dll not found at expected path!')
   process.exit(1)
 }
 
@@ -26,7 +26,7 @@ try {
   const hex = hashSum.digest('hex').toUpperCase()
 
   if (hex !== KNOWN_HASH) {
-    console.error('❌ SECURITY ALERT: ffmpeg.dll hash mismatch!')
+    console.error('鉂?SECURITY ALERT: ffmpeg.dll hash mismatch!')
     console.error(`Expected: ${KNOWN_HASH}`)
     console.error(`Actual:   ${hex}`)
     console.error('\nPOSSIBLE CAUSES:')
@@ -36,9 +36,9 @@ try {
     process.exit(1)
   }
 
-  console.log('✅ ffmpeg.dll integrity check passed.')
+  console.log('鉁?ffmpeg.dll integrity check passed.')
   process.exit(0)
 } catch (error) {
-  console.error('❌ Error reading file:', error)
+  console.error('鉂?Error reading file:', error)
   process.exit(1)
 }

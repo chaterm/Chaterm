@@ -91,7 +91,7 @@ export default defineConfig(({ mode }) => {
     main: {
       plugins: [
         externalizeDepsPlugin({
-          exclude: ['p-wait-for', 'chrome-launcher', 'globby', 'execa', 'p-timeout', 'get-folder-size', 'serialize-error', 'os-name']
+          exclude: ['p-wait-for', 'chrome-launcher', 'globby', 'execa', 'p-timeout', 'get-folder-size', 'serialize-error', 'os-name', 'superjson']
         }),
         AutoImport({
           imports: [

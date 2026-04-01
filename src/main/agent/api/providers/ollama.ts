@@ -1,20 +1,31 @@
 import type { Anthropic } from '@anthropic-ai/sdk'
-import { Message, Ollama } from 'ollama'
+import { createRequire } from 'node:module'
+import type { Message, Ollama as OllamaClient } from 'ollama'
 import type { ApiHandler } from '../'
 import type { ApiHandlerOptions, ModelInfo } from '../../shared/api'
 import { openAiModelInfoSaneDefaults } from '../../shared/api'
 import { convertToOllamaMessages } from '../transform/ollama-format'
 import type { ApiStream } from '../transform/stream'
 import { withRetry } from '../retry'
+import { ensureHttpGlobals } from '../../../polyfills/http-globals'
 const logger = createLogger('agent')
+const runtimeRequire = createRequire(import.meta.url)
+
+function createOllamaClient(host: string): OllamaClient {
+  const { Ollama } = runtimeRequire('ollama') as typeof import('ollama')
+  // The ollama package imports whatwg-fetch and mutates global fetch.
+  // Re-apply the Node/Electron-compatible HTTP globals immediately after loading it.
+  ensureHttpGlobals(true)
+  return new Ollama({ host })
+}
 
 export class OllamaHandler implements ApiHandler {
   private options: ApiHandlerOptions
-  private client: Ollama
+  private client: OllamaClient
 
   constructor(options: ApiHandlerOptions) {
     this.options = options
-    this.client = new Ollama({ host: this.options.ollamaBaseUrl || 'http://localhost:11434' })
+    this.client = createOllamaClient(this.options.ollamaBaseUrl || 'http://localhost:11434')
   }
 
   @withRetry({ retryAllErrors: true })

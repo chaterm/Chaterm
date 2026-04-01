@@ -13,6 +13,9 @@ export const registerUpdater = (targetWindow, setForceQuit: (value: boolean) => 
     downloaded: 4
   }
 
+  let hasCheckedForUpdates = false
+  let canDownloadUpdate = false
+
   autoUpdater.autoDownload = false
   autoUpdater.autoInstallOnAppQuit = false
 
@@ -22,9 +25,21 @@ export const registerUpdater = (targetWindow, setForceQuit: (value: boolean) => 
   ipcMain.handle('update:checkUpdate', async () => {
     try {
       const result = await autoUpdater.checkForUpdates()
-      logger.info('Update check result', { version: result?.updateInfo?.version })
-      return result
+      const nextVersion = result?.updateInfo?.version
+      const currentVersion = autoUpdater.currentVersion?.version
+      const isUpdateAvailable = Boolean(nextVersion && currentVersion && nextVersion !== currentVersion)
+
+      hasCheckedForUpdates = true
+      canDownloadUpdate = isUpdateAvailable
+
+      logger.info('Update check result', { version: nextVersion, currentVersion, isUpdateAvailable })
+      return {
+        ...result,
+        isUpdateAvailable
+      }
     } catch (error) {
+      hasCheckedForUpdates = true
+      canDownloadUpdate = false
       logger.error('Update check failed', { error: error })
       throw error
     }
@@ -35,9 +50,33 @@ export const registerUpdater = (targetWindow, setForceQuit: (value: boolean) => 
    */
   ipcMain.handle('update:download', async () => {
     try {
+      if (!hasCheckedForUpdates) {
+        logger.warn('Download requested before update check')
+        return {
+          started: false,
+          reason: 'check-required'
+        }
+      }
+
+      if (!canDownloadUpdate) {
+        logger.info('Download requested but no update is available')
+        sendStatusToWindow({
+          type: 'update-not-available',
+          status: status.noAvailable,
+          desc: 'No-Available'
+        })
+        return {
+          started: false,
+          reason: 'no-update-available'
+        }
+      }
+
       const result = await autoUpdater.downloadUpdate()
       logger.info('Download started')
-      return result
+      return {
+        started: true,
+        result
+      }
     } catch (error) {
       logger.error('Download failed', { error: error })
       throw error
@@ -59,6 +98,7 @@ export const registerUpdater = (targetWindow, setForceQuit: (value: boolean) => 
   autoUpdater.on('checking-for-update', () => {})
 
   autoUpdater.on('update-available', () => {
+    canDownloadUpdate = true
     sendStatusToWindow({
       type: 'update-available',
       status: status.available,
@@ -67,6 +107,7 @@ export const registerUpdater = (targetWindow, setForceQuit: (value: boolean) => 
   })
 
   autoUpdater.on('update-not-available', () => {
+    canDownloadUpdate = false
     sendStatusToWindow({
       type: 'update-not-available',
       status: status.noAvailable,
@@ -75,6 +116,7 @@ export const registerUpdater = (targetWindow, setForceQuit: (value: boolean) => 
   })
 
   autoUpdater.on('error', (err) => {
+    canDownloadUpdate = false
     logger.error('AutoUpdater error', { error: err.message || err.toString() })
     sendStatusToWindow({
       type: 'error',
@@ -101,6 +143,7 @@ export const registerUpdater = (targetWindow, setForceQuit: (value: boolean) => 
   })
 
   autoUpdater.on('update-downloaded', (info) => {
+    canDownloadUpdate = false
     sendStatusToWindow({
       ...info,
       status: status.downloaded,

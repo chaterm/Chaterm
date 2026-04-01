@@ -43,6 +43,7 @@ import {
 import { McpSettingsSchema, ServerConfigSchema } from './schemas'
 import { McpConnection, McpServerConfig, Transport } from './types'
 import { ChatermDatabaseService } from '../../../storage/db/chaterm.service'
+import { importResolvedModule } from '../../../utils/runtimeImport'
 const logger = createLogger('agent')
 
 // Dynamic import type for chokidar (ESM module)
@@ -232,8 +233,7 @@ export class McpHub {
   private async watchMcpSettingsFile(): Promise<void> {
     const settingsPath = await this.getMcpSettingsFilePath()
 
-    // Dynamic import for chokidar (ESM module)
-    const chokidar = await import('chokidar')
+    const chokidar = await importResolvedModule<ChokidarModule>('chokidar')
     this.settingsWatcher = chokidar.watch(settingsPath, {
       persistent: true, // Keep the process running as long as files are being watched
       ignoreInitial: true, // Don't fire 'add' events when discovering the file initially
@@ -902,8 +902,7 @@ export class McpHub {
     const filePath = argsToSearch.find((arg: string) => arg.includes('build/index.js'))
     if (filePath) {
       // we use chokidar instead of onDidSaveTextDocument because it doesn't require the file to be open in the editor. The settings config is better suited for onDidSave since that will be manually updated by the user or Chaterm (and we want to detect save events, not every file change)
-      // Dynamic import for chokidar (ESM module)
-      const chokidar = await import('chokidar')
+      const chokidar = await importResolvedModule<ChokidarModule>('chokidar')
       const watcher = chokidar.watch(filePath, {
         // persistent: true,
         // ignoreInitial: true,

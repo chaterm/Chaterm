@@ -149,16 +149,15 @@ const checkVersion = async () => {
     const info = await api.checkUpdate()
     logger.info('Update check result', { info: String(info) })
 
-    // Check if update is available based on the actual response structure
-    if (info && (info.isUpdateAvailable || info.updateInfo)) {
+    if (info?.isUpdateAvailable) {
       logger.info('Update available, starting download')
-      api.download()
       api.autoUpdate((params) => {
         logger.info('Update status', { status: params.status })
         if (params.status == 4) {
           isAvailable.value = true
         }
       })
+      await api.download()
     } else {
       logger.info('No update available')
     }

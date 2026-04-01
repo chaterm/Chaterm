@@ -581,10 +581,18 @@ ${combinedContent}
           }
 
           // Handle reasoning content if present
-          if (chunk.contentBlockDelta?.delta?.reasoningContent?.text) {
+          const reasoningDelta = chunk.contentBlockDelta?.delta as
+            | {
+                reasoningContent?: {
+                  text?: string
+                }
+              }
+            | undefined
+
+          if (reasoningDelta?.reasoningContent?.text) {
             yield {
               type: 'reasoning',
-              reasoning: chunk.contentBlockDelta.delta.reasoningContent.text
+              reasoning: reasoningDelta.reasoningContent.text
             }
           }
 
