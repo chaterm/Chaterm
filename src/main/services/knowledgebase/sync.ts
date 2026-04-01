@@ -10,6 +10,7 @@ import * as fs from 'fs/promises'
 import { createLogger } from '../logging'
 import { ApiClient } from '../../storage/data_sync/core/ApiClient'
 import { getKnowledgeBaseRoot, IMAGE_EXTS } from './index'
+import { importResolvedModule } from '../../utils/runtimeImport'
 
 const logger = createLogger('kb-sync')
 
@@ -662,25 +663,25 @@ async function flushDeletes(): Promise<void> {
 export function startKbSync(): void {
   if (watcher) return
   const root = getKbRoot()
-  import('chokidar').then((chokidarMod) => {
-    const chokidar = chokidarMod.default
-    watcher = chokidar.watch(root, {
+  importResolvedModule<any>('chokidar').then((chokidar) => {
+    const activeWatcher = chokidar.watch(root, {
       ignored: (p: string) => path.basename(p) === KB_SYNC_EXCLUDED_BASENAME,
       ignoreInitial: true
     })
+    watcher = activeWatcher
     // add/change: upload only.
-    watcher.on('add', (absPath?: string) => {
+    activeWatcher.on('add', (absPath?: string) => {
       if (!absPath) return
       const rel = absToRelPath(absPath)
       if (rel && !isKbSyncExcludedRelPath(rel)) scheduleUpload(rel)
     })
-    watcher.on('change', (absPath?: string) => {
+    activeWatcher.on('change', (absPath?: string) => {
       if (!absPath) return
       const rel = absToRelPath(absPath)
       if (rel && !isKbSyncExcludedRelPath(rel)) scheduleUpload(rel)
     })
     // unlink: delete only. unlinkDir fires individual unlink events for contained files.
-    watcher.on('unlink', (absPath?: string) => {
+    activeWatcher.on('unlink', (absPath?: string) => {
       if (!absPath) return
       const rel = absToRelPath(absPath)
       if (rel && !isKbSyncExcludedRelPath(rel)) scheduleDelete(rel)

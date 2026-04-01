@@ -2,6 +2,8 @@
  * Safe JSON serialization utility
  * Uses superjson to handle special types: Date, undefined, NaN, Infinity, circular references, RegExp, Set, Map, BigInt, etc.
  */
+import superjson from 'superjson'
+
 const logger = createLogger('storage')
 
 interface SerializationOptions {
@@ -13,18 +15,6 @@ interface SerializationResult {
   success: boolean
   data?: string
   error?: string
-}
-
-// Lazy load superjson (use dynamic import to solve ESM/CommonJS compatibility issues)
-let superjsonInstance: any = null
-
-async function getSuperjson() {
-  if (!superjsonInstance) {
-    // Dynamically import ESM module
-    const module = await import('superjson')
-    superjsonInstance = module.default || module
-  }
-  return superjsonInstance
 }
 
 /**
@@ -48,7 +38,6 @@ export async function safeStringify(value: any, options: SerializationOptions = 
   const { strict = false } = options
 
   try {
-    const superjson = await getSuperjson()
     const data = superjson.stringify(value)
     return { success: true, data }
   } catch (error: any) {
@@ -80,7 +69,6 @@ export async function safeStringify(value: any, options: SerializationOptions = 
  */
 export async function safeParse<T = any>(jsonString: string): Promise<T | null> {
   try {
-    const superjson = await getSuperjson()
     return superjson.parse(jsonString) as T
   } catch (error) {
     logger.error('JSON parse failed', { error: error })
