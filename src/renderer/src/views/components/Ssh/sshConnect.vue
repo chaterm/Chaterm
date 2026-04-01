@@ -1963,9 +1963,23 @@ const connectLocalSSH = async () => {
 
       await startLocalShell()
 
-      // Handle input
-      terminal.value?.onData((data) => {
+      // Assign handleInput so that external callers (e.g. snippet execution via
+      // inputManager.sendToActiveTerm) can write into the local terminal.
+      handleInput = (data) => {
+        if (data === '\x1b[1;3D' || data === '\x1b[1;5D') {
+          api.sendDataLocal(connectionId.value, '\x1bb')
+          return
+        }
+        if (data === '\x1b[1;3C' || data === '\x1b[1;5C') {
+          api.sendDataLocal(connectionId.value, '\x1bf')
+          return
+        }
         api.sendDataLocal(connectionId.value, data)
+      }
+
+      // Handle input — delegate to handleInput which also serves external callers
+      terminal.value?.onData((data) => {
+        handleInput && handleInput(data)
       })
 
       handleResize()
