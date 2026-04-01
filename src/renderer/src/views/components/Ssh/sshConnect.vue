@@ -4787,11 +4787,9 @@ const contextAct = (action) => {
       })
       break
     case 'disconnect':
-      disconnectSSH()
-      termOndata?.dispose()
-      termOndata = null
-      termOnBinary?.dispose()
-      termOnBinary = null
+      disconnectSSH().then(() => {
+        terminal.value?.focus()
+      })
       break
     case 'reconnect':
       connectSSH()
