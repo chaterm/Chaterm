@@ -529,46 +529,63 @@ export async function getLocalAssetRouteLogic(db: Database, searchType: string, 
       `)
       const organizationAssets = organizationAssetsStmt.all(...availableOrgTypes) || []
 
-      for (const orgAsset of organizationAssets) {
-        const nodesStmt = db.prepare(`
+      if (organizationAssets.length > 0) {
+        // Fetch all org asset nodes in a single query instead of N separate queries
+        const orgUuids = organizationAssets.map((o: any) => o.uuid)
+        const placeholders = orgUuids.map(() => '?').join(', ')
+        const allNodesStmt = db.prepare(`
           SELECT hostname as asset_name, host as asset_ip, organization_uuid, uuid, created_at, favorite, comment, bastion_comment
           FROM t_organization_assets
-          WHERE organization_uuid = ?
-          ORDER BY hostname
+          WHERE organization_uuid IN (${placeholders})
+          ORDER BY organization_uuid, hostname
         `)
-        const nodes = nodesStmt.all(orgAsset.uuid) || []
+        const allNodes = allNodesStmt.all(...orgUuids) || []
 
-        // Check if this is a Qizhi organization with asset groups (bastion_comment)
-        const isQizhiType = orgAsset.asset_type === 'organization-qizhi'
-        const hasGroups = isQizhiType && nodes.some((node: any) => node.bastion_comment)
+        // Group nodes by organization_uuid
+        const nodesByOrg = new Map<string, any[]>()
+        for (const node of allNodes) {
+          const orgUuid = node.organization_uuid
+          if (!nodesByOrg.has(orgUuid)) {
+            nodesByOrg.set(orgUuid, [])
+          }
+          nodesByOrg.get(orgUuid)!.push(node)
+        }
 
-        const assetType = orgAsset.asset_type || 'organization'
+        for (const orgAsset of organizationAssets) {
+          const nodes = nodesByOrg.get(orgAsset.uuid) || []
 
-        if (hasGroups) {
-          const children = buildQizhiGroupedChildren(orgAsset.uuid, assetType, nodes)
-          result.data.routers.push({
-            key: orgAsset.uuid,
-            title: orgAsset.label || orgAsset.asset_ip,
-            children: children
-          })
-        } else {
-          // No groups — flat list (original behavior)
-          const children = nodes.map((node: any) => ({
-            key: `${orgAsset.uuid}_${node.asset_ip}_${node.asset_name || 'no_name'}`,
-            title: node.asset_name || node.asset_ip,
-            favorite: node.favorite === 1,
-            ip: node.asset_ip,
-            uuid: node.uuid,
-            comment: node.comment,
-            asset_type: assetType,
-            organizationId: orgAsset.uuid
-          }))
+          // Check if this is a Qizhi organization with asset groups (bastion_comment)
+          const isQizhiType = orgAsset.asset_type === 'organization-qizhi'
+          const hasGroups = isQizhiType && nodes.some((node: any) => node.bastion_comment)
 
-          result.data.routers.push({
-            key: orgAsset.uuid,
-            title: orgAsset.label || orgAsset.asset_ip,
-            children: children
-          })
+          const assetType = orgAsset.asset_type || 'organization'
+
+          if (hasGroups) {
+            const children = buildQizhiGroupedChildren(orgAsset.uuid, assetType, nodes)
+            result.data.routers.push({
+              key: orgAsset.uuid,
+              title: orgAsset.label || orgAsset.asset_ip,
+              children: children
+            })
+          } else {
+            // No groups — flat list (original behavior)
+            const children = nodes.map((node: any) => ({
+              key: `${orgAsset.uuid}_${node.asset_ip}_${node.asset_name || 'no_name'}`,
+              title: node.asset_name || node.asset_ip,
+              favorite: node.favorite === 1,
+              ip: node.asset_ip,
+              uuid: node.uuid,
+              comment: node.comment,
+              asset_type: assetType,
+              organizationId: orgAsset.uuid
+            }))
+
+            result.data.routers.push({
+              key: orgAsset.uuid,
+              title: orgAsset.label || orgAsset.asset_ip,
+              children: children
+            })
+          }
         }
       }
     }
