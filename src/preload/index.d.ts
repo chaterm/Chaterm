@@ -371,6 +371,7 @@ interface ApiType {
     srcAbsPath: string
   }) => Promise<{ mode: 'as_is'; refPath: string } | { mode: 'offload'; refPath: string }>
 
+  getPathForFile: (file: File) => string
   kbCheckPath: (absPath: string) => Promise<{ exists: boolean; isDirectory: boolean; isFile: boolean }>
   kbEnsureRoot: () => Promise<{ success: boolean }>
   kbGetRoot: () => Promise<{ root: string }>
