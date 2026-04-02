@@ -56,6 +56,8 @@ Chaterm 依靠长期记忆和团队知识库，学习团队知识和用户习惯
 
 ![Preview image](resources/hero.webp)
 
+![Preview image](resources/hero2.webp)
+
 ## 为什么选择 Chaterm
 
 Chaterm 不仅仅是一个更智能的终端，它是一个基础设施代理。
@@ -100,7 +102,7 @@ Chaterm 不仅仅是一个更智能的终端，它是一个基础设施代理。
 - 🔌 **插件系统**
 
   通过插件扩展，实现对公有云服务器与 Kubernetes 的统一认证、动态授权与安全加密连接。
-
+  
   提供更高效的资源访问体验，助力基础设施的集中化管理。
 
 ![Preview image](resources/features.webp)
