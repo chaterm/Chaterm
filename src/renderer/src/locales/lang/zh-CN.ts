@@ -254,6 +254,7 @@ export default {
     rightMouseEvent: '鼠标右键事件',
     pasteClipboard: '粘贴剪贴板内容',
     showContextMenu: '打开弹出式菜单',
+    closeCurrentTab: '关闭当前标签页',
     none: '无',
     watermark: '水印',
     watermarkDescribe: '在终端上显示水印',
