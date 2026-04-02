@@ -256,6 +256,7 @@ export default {
     rightMouseEvent: 'Right Mouse Event',
     pasteClipboard: 'Paste Clipboard',
     showContextMenu: 'Show Context Menu',
+    closeCurrentTab: 'Close Current Tab',
     none: 'None',
     watermark: 'Watermark',
     watermarkDescribe: 'Show the watermark on the terminal',
