@@ -1063,7 +1063,7 @@ const getAssetTunnelKey = (asset: any): string => {
 }
 
 const canCreateTunnel = (node: any): boolean => {
-  return isSecondLevel(node) && !!node?.ip && node?.asset_type !== 'shell'
+  return isSecondLevel(node) && !!node?.ip && node?.asset_type === 'person'
 }
 
 const getTunnelConfigsByAssetKey = (assetKey: string): TunnelConfig[] => {
