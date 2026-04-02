@@ -66,7 +66,7 @@ export interface RemoteTerminalProcessEvents extends Record<string, any[]> {
   // Interaction detection events
   'interaction-needed': [request: InteractionRequest]
   'interaction-suppressed': [data: { commandId: string }]
-  'tui-detected': [data: { commandId: string; taskId?: string; message: string }]
+  'tui-detected': [data: { commandId: string; taskId?: string; message: string; isShellSpawning?: boolean }]
 }
 
 export interface ConnectionInfo {
@@ -299,15 +299,20 @@ export class RemoteTerminalProcess extends BrownEventEmitter<RemoteTerminalProce
       this.emit('interaction-suppressed', data)
     })
 
-    detector.on('tui-detected', async (data: { commandId: string; taskId?: string; message: string }) => {
-      logger.debug('TUI detected', { event: 'remote-terminal.tui.detected', commandId: data.commandId })
+    detector.on('tui-detected', async (data: { commandId: string; taskId?: string; message: string; isShellSpawning?: boolean }) => {
+      logger.debug('TUI detected', { event: 'remote-terminal.tui.detected', commandId: data.commandId, isShellSpawning: !!data.isShellSpawning })
       broadcastTuiDetected(data.commandId, data.message, data.taskId)
       this.emit('tui-detected', data)
-      // Send Ctrl+C immediately to cancel TUI program
+      // Send termination signals to cancel TUI/shell program
       try {
+        if (data.isShellSpawning) {
+          // For shell-spawning commands (sudo su, bash, etc.), send exit first
+          // then Ctrl+C to ensure the spawned shell terminates
+          await this.sendInput('exit\n')
+        }
         const result = await this.sendInput('\x03')
         if (result.success) {
-          logger.debug('Auto-sent Ctrl+C for TUI command', { event: 'remote-terminal.tui.cancel.sent', commandId: data.commandId })
+          logger.debug('Auto-sent cancel signal for TUI command', { event: 'remote-terminal.tui.cancel.sent', commandId: data.commandId })
         } else {
           logger.warn('Failed to auto-cancel TUI command', {
             event: 'remote-terminal.tui.cancel.failed',
@@ -321,6 +326,13 @@ export class RemoteTerminalProcess extends BrownEventEmitter<RemoteTerminalProce
           commandId: data.commandId,
           error: error
         })
+      }
+      // For shell-spawning commands, force terminate after a short delay
+      // to unblock the waiting promise (SSH exec stream may not close)
+      if (data.isShellSpawning) {
+        setTimeout(() => {
+          this.forceTerminate()
+        }, 1500)
       }
     })
 
