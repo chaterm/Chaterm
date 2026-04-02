@@ -56,6 +56,8 @@ Powered by long-term memory and team knowledge bases, Chaterm learns team knowle
 
 ![Preview image](resources/hero.webp)
 
+![Preview image](resources/hero2.webp)
+
 ## Why Choose Chaterm
 
 Chaterm is not just a smarter terminal, it's an infrastructure agent.
