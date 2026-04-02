@@ -274,7 +274,7 @@ onUnmounted(() => {
 
 .user-message-backdrop {
   position: absolute;
-  top: 0;
+  top: -8px;
   left: 0;
   right: 0;
   bottom: 0;
@@ -295,6 +295,7 @@ onUnmounted(() => {
   overflow: hidden;
   border: 1px solid var(--border-color);
   border-radius: 6px;
+  background-color: var(--hover-bg-color);
 
   // Position relative to allow backdrop to be behind
   position: relative;
@@ -325,8 +326,8 @@ onUnmounted(() => {
   box-sizing: border-box;
   padding: 8px 12px;
 
-  // Visual styles - maintain original appearance
-  background-color: var(--bg-color-secondary);
+  // Visual styles - distinct background to differentiate from AI messages
+  background-color: var(--hover-bg-color);
   color: var(--text-color);
   border-radius: 4px;
   font-size: 12px;
@@ -422,5 +423,8 @@ onUnmounted(() => {
   position: relative;
   z-index: 5;
   width: 100%;
+  background-color: var(--hover-bg-color);
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
 }
 </style>
