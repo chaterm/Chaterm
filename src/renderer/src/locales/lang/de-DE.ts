@@ -256,6 +256,7 @@ export default {
     rightMouseEvent: 'Rechte Maus-Ereignis',
     pasteClipboard: 'Clipboard einfügen',
     showContextMenu: 'Kontextmenü anzeigen',
+    closeCurrentTab: 'Aktuellen Tab schließen',
     none: 'None',
     watermark: 'Wasserzeichen',
     watermarkDescribe: 'Zeigt das Wasserzeichen im Terminal an',

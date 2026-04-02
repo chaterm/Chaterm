@@ -244,6 +244,7 @@ export default {
     rightMouseEvent: 'حدث الماوس الأيمن',
     pasteClipboard: 'لصق الحافظة',
     showContextMenu: 'عرض القائمة السياقية',
+    closeCurrentTab: 'إغلاق علامة التبويب الحالية',
     none: 'لا شيء',
     watermark: 'المائية',
     watermarkDescribe: 'عرض المائية على التبويب',

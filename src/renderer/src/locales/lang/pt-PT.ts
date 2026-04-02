@@ -256,6 +256,7 @@ export default {
     rightMouseEvent: 'Evento do mouse direito',
     pasteClipboard: 'Colar conteúdo do clipboard',
     showContextMenu: 'Mostrar menu de contexto',
+    closeCurrentTab: 'Fechar aba atual',
     none: 'Nenhum',
     watermark: 'Filigrana',
     watermarkDescribe: 'Mostrar a filigrana no terminal',

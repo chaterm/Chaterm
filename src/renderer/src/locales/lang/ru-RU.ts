@@ -256,6 +256,7 @@ export default {
     rightMouseEvent: 'Событие правой кнопки мыши',
     pasteClipboard: 'Вставить из буфера обмена',
     showContextMenu: 'Показать контекстное меню',
+    closeCurrentTab: 'Закрыть текущую вкладку',
     none: 'Ничего',
     watermark: 'Водяной знак',
     watermarkDescribe: 'Показать водяной знак на терминале',

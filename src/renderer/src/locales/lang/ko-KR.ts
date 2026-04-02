@@ -256,6 +256,7 @@ export default {
     rightMouseEvent: '마우스 오른쪽 버튼 이벤트',
     pasteClipboard: '클립보드 붙여넣기',
     showContextMenu: '컨텍스트 메뉴 표시',
+    closeCurrentTab: '현재 탭 닫기',
     none: '없음',
     watermark: '워터마크',
     watermarkDescribe: '터미널에 워터마크 표시',

@@ -256,6 +256,7 @@ export default {
     rightMouseEvent: 'マウス右ボタンイベント',
     pasteClipboard: 'クリップボードを貼り付け',
     showContextMenu: 'コンテキストメニューを表示',
+    closeCurrentTab: '現在のタブを閉じる',
     none: 'なし',
     watermark: 'ウォーターマーク',
     watermarkDescribe: 'ターミナルにウォーターマークを表示',

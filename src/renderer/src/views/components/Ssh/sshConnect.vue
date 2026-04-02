@@ -353,6 +353,9 @@ const handleMouseDown = (event) => {
           contextmenu.value.show(event)
         }
         break
+      case 'closeTab':
+        emit('closeTabInTerm', props.activeTabId || props.currentConnectionId)
+        break
       case 'none':
         break
     }

@@ -256,6 +256,7 @@ export default {
     rightMouseEvent: '鼠標右鍵事件',
     pasteClipboard: '貼上剪貼板內容',
     showContextMenu: '打開彈出式菜單',
+    closeCurrentTab: '關閉當前標籤頁',
     none: '無',
     watermark: '水印',
     watermarkDescribe: '在終端上顯示水印',

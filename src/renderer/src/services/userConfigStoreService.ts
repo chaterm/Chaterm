@@ -48,7 +48,7 @@ export interface UserConfig {
   language: SupportedLanguage
   cursorStyle: 'bar' | 'block' | 'underline' | undefined
   terminalType?: string
-  middleMouseEvent?: 'paste' | 'contextMenu' | 'none'
+  middleMouseEvent?: 'paste' | 'contextMenu' | 'closeTab' | 'none'
   rightMouseEvent?: 'paste' | 'contextMenu' | 'none'
   watermark: 'open' | 'close' | undefined
   secretRedaction: 'enabled' | 'disabled' | undefined
@@ -371,7 +371,7 @@ export const SYNC_FIELD_VALIDATORS: Record<SyncWhitelistKey, (val: unknown) => b
   cursorStyle: (val) => typeof val === 'string' && ['block', 'bar', 'underline'].includes(val),
   terminalType: (val) =>
     typeof val === 'string' && ['xterm', 'xterm-256color', 'vt100', 'vt102', 'vt220', 'vt320', 'linux', 'scoansi', 'ansi'].includes(val),
-  middleMouseEvent: (val) => typeof val === 'string' && ['paste', 'contextMenu', 'none'].includes(val),
+  middleMouseEvent: (val) => typeof val === 'string' && ['paste', 'contextMenu', 'closeTab', 'none'].includes(val),
   rightMouseEvent: (val) => typeof val === 'string' && ['paste', 'contextMenu', 'none'].includes(val),
   pinchZoomStatus: (val) => typeof val === 'number' && [1, 2].includes(val),
   autoCompleteStatus: (val) => typeof val === 'number' && [1, 2].includes(val),
