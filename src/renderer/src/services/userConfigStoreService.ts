@@ -73,6 +73,16 @@ export interface UserConfig {
   }>
   workspaceExpandedKeys?: string[]
   workspaceShowIpMode?: boolean
+  workspaceTunnelConfigs?: Record<
+    string,
+    Array<{
+      id: string
+      type: 'local_forward' | 'remote_forward' | 'dynamic_socks'
+      localPort: number
+      remotePort?: number
+      description?: string
+    }>
+  >
   lastCustomImage?: string
   background: BackgroundConfig
 }
@@ -151,6 +161,7 @@ export function buildDefaultUserConfig(now: number = Date.now()): UserConfig {
     sshAgentsMap: '[]',
     sshProxyConfigs: [],
     workspaceExpandedKeys: [],
+    workspaceTunnelConfigs: {},
     lastCustomImage: '',
     background: {
       mode: 'none',
