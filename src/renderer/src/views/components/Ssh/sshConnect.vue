@@ -600,15 +600,17 @@ onMounted(async () => {
 
   ensureTransferListener()
   // Enable GPU-accelerated rendering for better performance with large output
-  try {
-    const { WebglAddon } = await import('@xterm/addon-webgl')
-    const webglAddon = new WebglAddon()
-    webglAddon.onContextLoss(() => {
-      webglAddon.dispose()
-    })
-    termInstance.loadAddon(webglAddon)
-  } catch {
-    // WebGL not available, fall back to default canvas renderer
+  if (!config.background?.image && actualTheme !== 'light') {
+    try {
+      const { WebglAddon } = await import('@xterm/addon-webgl')
+      const webglAddon = new WebglAddon()
+      webglAddon.onContextLoss(() => {
+        webglAddon.dispose()
+      })
+      termInstance.loadAddon(webglAddon)
+    } catch {
+      // WebGL not available, fall back to default canvas renderer
+    }
   }
   termInstance.onResize((size) => {
     resizeSSH(size.cols, size.rows)
