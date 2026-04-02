@@ -256,6 +256,7 @@ export default {
     rightMouseEvent: 'Événement du bouton droit de la souris',
     pasteClipboard: 'Coller le presse-papiers',
     showContextMenu: 'Afficher le menu contextuel',
+    closeCurrentTab: "Fermer l'onglet actuel",
     none: 'Aucun',
     watermark: 'Filigrane',
     watermarkDescribe: 'Afficher le filigrane sur le terminal',
