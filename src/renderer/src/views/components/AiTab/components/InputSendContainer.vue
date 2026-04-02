@@ -186,28 +186,26 @@
               @transcription-error="handleTranscriptionError"
             />
           </a-tooltip>
-          <a-tooltip :title="responseLoading ? $t('ai.interruptTask') : ''">
-            <a-button
-              size="small"
-              class="custom-round-button compact-button"
-              data-testid="send-message-btn"
-              @click="handleSendClick('send')"
-            >
-              <img
-                v-if="responseLoading"
-                :src="stopIcon"
-                alt="stop"
-                class="interrupt-icon"
-                style="width: 18px; height: 18px"
-              />
-              <img
-                v-else
-                :src="sendIcon"
-                alt="send"
-                style="width: 18px; height: 18px"
-              />
-            </a-button>
-          </a-tooltip>
+          <a-button
+            size="small"
+            class="custom-round-button compact-button"
+            data-testid="send-message-btn"
+            @click="handleSendClick('send')"
+          >
+            <img
+              v-if="responseLoading"
+              :src="stopIcon"
+              alt="stop"
+              class="interrupt-icon"
+              style="width: 18px; height: 18px"
+            />
+            <img
+              v-else
+              :src="sendIcon"
+              alt="send"
+              style="width: 18px; height: 18px"
+            />
+          </a-button>
         </div>
       </div>
     </div>
