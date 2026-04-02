@@ -156,6 +156,15 @@
                     >
                       ({{ dataRef.comment }})
                     </span>
+                    <a-tooltip
+                      v-if="hasTunnelConfig(dataRef)"
+                      :title="isTunnelActive(dataRef) ? t('ssh.tunnelConnected') : t('ssh.tunnelCreated')"
+                    >
+                      <ApiOutlined
+                        class="tunnel-icon"
+                        :class="{ active: isTunnelActive(dataRef) }"
+                      />
+                    </a-tooltip>
                   </span>
                 </div>
               </template>
@@ -208,6 +217,15 @@
                     >
                       ({{ dataRef.comment }})
                     </span>
+                    <a-tooltip
+                      v-if="hasTunnelConfig(dataRef)"
+                      :title="isTunnelActive(dataRef) ? t('ssh.tunnelConnected') : t('ssh.tunnelCreated')"
+                    >
+                      <ApiOutlined
+                        class="tunnel-icon"
+                        :class="{ active: isTunnelActive(dataRef) }"
+                      />
+                    </a-tooltip>
                   </span>
                   <!-- Comment edit input -->
                   <span
@@ -362,6 +380,164 @@
     </div>
   </Modal>
 
+  <Modal
+    v-model:open="showTunnelListModal"
+    :footer="null"
+    @cancel="handleCloseTunnelListModal"
+  >
+    <template #title>
+      <span class="tunnel-modal-title">
+        <span>{{ t('ssh.tunnel') }}</span>
+        <a-tooltip
+          placement="right"
+          overlay-class-name="tunnel-help-tooltip"
+        >
+          <template #title>
+            <div class="tunnel-tooltip-content">
+              <div class="tunnel-tooltip-title">{{ t('ssh.tunnelHelpTitle') }}</div>
+              <div
+                v-for="item in tunnelTypeHelpList"
+                :key="item.type"
+                class="tunnel-help-item"
+              >
+                <span class="tunnel-help-item-title">{{ item.label }}:</span>
+                <span>{{ item.help }}</span>
+              </div>
+            </div>
+          </template>
+          <QuestionCircleOutlined class="tunnel-help-trigger" />
+        </a-tooltip>
+      </span>
+    </template>
+    <div class="tunnel-list-toolbar">
+      <div class="tunnel-list-header-left">
+        <span class="tunnel-list-title">{{ tunnelListAssetName }}</span>
+      </div>
+      <a-button
+        type="primary"
+        size="small"
+        @click="handleCreateTunnelFromList"
+      >
+        {{ t('ssh.addTunnel') }}
+      </a-button>
+    </div>
+
+    <div
+      v-if="currentAssetTunnelConfigs.length === 0"
+      class="tunnel-empty"
+    >
+      {{ t('ssh.noTunnelConfig') }}
+    </div>
+    <div
+      v-else
+      class="tunnel-list"
+    >
+      <div
+        v-for="item in currentAssetTunnelConfigs"
+        :key="item.id"
+        class="tunnel-list-item"
+      >
+        <div class="tunnel-list-main">
+          <span class="tunnel-list-type">{{ getTunnelTypeLabel(item.type) }}</span>
+          <span class="tunnel-list-port">{{ formatTunnelPorts(item) }}</span>
+          <span
+            v-if="item.description"
+            class="tunnel-list-desc"
+          >
+            {{ item.description }}
+          </span>
+        </div>
+        <div class="tunnel-list-actions">
+          <a-button
+            type="link"
+            size="small"
+            @click="handleEditTunnelFromList(item.id)"
+          >
+            {{ t('ssh.edit') }}
+          </a-button>
+          <a-popconfirm
+            :title="t('ssh.deleteTunnelConfirm')"
+            :ok-text="t('ssh.delete')"
+            :cancel-text="t('common.cancel')"
+            @confirm="handleDeleteTunnelFromList(item.id)"
+          >
+            <a-button
+              type="link"
+              size="small"
+              danger
+            >
+              {{ t('ssh.delete') }}
+            </a-button>
+          </a-popconfirm>
+        </div>
+      </div>
+    </div>
+  </Modal>
+
+  <Modal
+    v-model:open="showTunnelModal"
+    :title="editingTunnelId ? t('ssh.editTunnel') : t('ssh.addTunnel')"
+    @ok="handleSaveTunnelConfig"
+    @cancel="handleCancelTunnelConfig"
+  >
+    <div class="tunnel-form-row">
+      <label>{{ t('ssh.tunnelType') }}:</label>
+      <a-select
+        v-model:value="tunnelForm.type"
+        :options="tunnelTypeOptions"
+        @change="handleTunnelTypeChange"
+      />
+    </div>
+
+    <template v-if="tunnelForm.type !== 'dynamic_socks'">
+      <div class="tunnel-form-row">
+        <label>{{ t('ssh.localPort') }}:</label>
+        <a-auto-complete
+          v-model:value="tunnelForm.localPort"
+          :options="getTunnelPortPresetOptions('localPort')"
+          @change="handleTunnelPortChange('localPort', $event)"
+          @search="handleTunnelPortSearch('localPort', $event)"
+          @select="handleTunnelPortPresetSelect"
+          @focus="handleTunnelPortFocus('localPort')"
+        />
+      </div>
+      <div class="tunnel-form-row">
+        <label>{{ t('ssh.remotePort') }}:</label>
+        <a-auto-complete
+          v-model:value="tunnelForm.remotePort"
+          :options="getTunnelPortPresetOptions('remotePort')"
+          @change="handleTunnelPortChange('remotePort', $event)"
+          @search="handleTunnelPortSearch('remotePort', $event)"
+          @select="handleTunnelPortPresetSelect"
+          @focus="handleTunnelPortFocus('remotePort')"
+        />
+      </div>
+    </template>
+
+    <div
+      v-else
+      class="tunnel-form-row"
+    >
+      <label>{{ t('ssh.localPort') }}:</label>
+      <a-input
+        v-model:value="tunnelForm.localPort"
+        @input="handleSocksPortInput"
+      />
+    </div>
+
+    <div class="tunnel-form-row">
+      <label>{{ t('ssh.description') }}:</label>
+      <a-input
+        v-model:value="tunnelForm.description"
+        :placeholder="t('ssh.optional')"
+      />
+    </div>
+    <div class="tunnel-type-help">
+      <span class="tunnel-type-help-title">{{ t('ssh.currentTypeHelp') }}:<br /></span>
+      <span>{{ currentTunnelTypeHelp }}</span>
+    </div>
+  </Modal>
+
   <!-- Right-click menu -->
   <div
     v-if="contextMenuVisible && contextMenuData"
@@ -401,6 +577,14 @@
     >
       <FolderOutlined class="menu-icon" />
       {{ t('personal.moveToFolder') }}
+    </div>
+    <div
+      v-if="canCreateTunnel(contextMenuData)"
+      class="context-menu-item"
+      @click="handleContextMenuAction('tunnel')"
+    >
+      <ApiOutlined class="menu-icon" />
+      {{ t('ssh.tunnel') }}
     </div>
     <div
       v-if="isOrganizationAsset(contextMenuData.asset_type) && contextMenuData.key.startsWith('folder_') && contextMenuData.folderUuid"
@@ -446,7 +630,9 @@ import {
   FolderOutlined,
   DeleteOutlined,
   AppstoreAddOutlined,
-  SwapOutlined
+  SwapOutlined,
+  ApiOutlined,
+  QuestionCircleOutlined
 } from '@ant-design/icons-vue'
 import eventBus from '@/utils/eventBus'
 import i18n from '@/locales'
@@ -486,6 +672,110 @@ const contextMenuVisible = ref(false)
 const contextMenuData = ref<any>(null)
 const contextMenuStyle = ref({})
 const showIpMode = ref(false)
+const showTunnelListModal = ref(false)
+const showTunnelModal = ref(false)
+
+type TunnelType = 'local_forward' | 'remote_forward' | 'dynamic_socks'
+
+interface TunnelConfig {
+  id: string
+  type: TunnelType
+  localPort: number
+  remotePort?: number
+  description?: string
+}
+
+interface TunnelRuntime {
+  active: boolean
+  runtimeKey: string
+  assetKey: string
+  configId: string
+  tunnelId: string
+  connectionId: string
+  command: string
+  targetIp: string
+}
+
+interface TunnelFormState {
+  type: TunnelType
+  localPort: string
+  remotePort: string
+  description: string
+}
+
+const tunnelTypeOptions = computed(() => [
+  { label: t('ssh.tunnelTypeLocalForward'), value: 'local_forward' },
+  { label: t('ssh.tunnelTypeRemoteForward'), value: 'remote_forward' },
+  { label: t('ssh.tunnelTypeDynamicSocks'), value: 'dynamic_socks' }
+])
+
+const tunnelTypeHelpMap = computed<Record<TunnelType, string>>(() => ({
+  local_forward: t('ssh.tunnelTypeLocalForwardHelp'),
+  remote_forward: t('ssh.tunnelTypeRemoteForwardHelp'),
+  dynamic_socks: t('ssh.tunnelTypeDynamicSocksHelp')
+}))
+
+const tunnelTypeHelpList = computed(() =>
+  tunnelTypeOptions.value.map((item) => ({
+    type: item.value as TunnelType,
+    label: item.label,
+    help: tunnelTypeHelpMap.value[item.value as TunnelType]
+  }))
+)
+
+const tunnelPortPresetOptions = [
+  { label: 'OpenClaw (18789)', value: 'OpenClaw (18789)' },
+  { label: 'MySQL (3306)', value: 'MySQL (3306)' },
+  { label: 'Redis (6379)', value: 'Redis (6379)' },
+  { label: 'PostgreSQL (5432)', value: 'PostgreSQL (5432)' },
+  { label: 'MongoDB (27017)', value: 'MongoDB (27017)' },
+  { label: 'Elasticsearch (9200)', value: 'Elasticsearch (9200)' },
+  { label: 'RabbitMQ (5672)', value: 'RabbitMQ (5672)' },
+  { label: 'Kafka (9092)', value: 'Kafka (9092)' }
+]
+
+const tunnelPortPresetLookup = new Map(tunnelPortPresetOptions.map((item) => [item.value, item]))
+const tunnelPortPresetValueByPort = new Map(
+  tunnelPortPresetOptions
+    .map((item) => {
+      const match = item.label.match(/\((\d+)\)/)
+      return match ? [Number(match[1]), item.value] : null
+    })
+    .filter((item): item is [number, string] => !!item)
+)
+
+const tunnelForm = ref<TunnelFormState>({
+  type: 'local_forward',
+  localPort: '',
+  remotePort: '',
+  description: ''
+})
+const editingTunnelId = ref<string | null>(null)
+const tunnelTargetAsset = ref<any>(null)
+const tunnelListAsset = ref<any>(null)
+const tunnelConfigMap = ref<Record<string, TunnelConfig[]>>({})
+const tunnelRuntimeMap = ref<Record<string, TunnelRuntime>>({})
+let tunnelHostPollTimer: number | undefined
+const tunnelStartQueue = new Set<string>()
+const tunnelKeyDelimiter = '::'
+
+const tunnelListAssetName = computed(() => {
+  const asset = tunnelListAsset.value
+  if (!asset) return t('ssh.currentAsset')
+  return asset.title || asset.ip || t('ssh.currentAsset')
+})
+
+const currentTunnelTypeHelp = computed(() => {
+  return tunnelTypeHelpMap.value[tunnelForm.value.type] || ''
+})
+
+const currentAssetTunnelConfigs = computed<TunnelConfig[]>(() => {
+  const asset = tunnelListAsset.value
+  if (!asset) return []
+  const assetKey = getAssetTunnelKey(asset)
+  if (!assetKey) return []
+  return tunnelConfigMap.value[assetKey] || []
+})
 
 interface WorkspaceItem {
   key: string
@@ -764,6 +1054,653 @@ const isSecondLevel = (node) => {
   return node && node.children === undefined
 }
 
+const getAssetTunnelKey = (asset: any): string => {
+  if (!asset) return ''
+  if (asset.uuid) return `uuid:${asset.uuid}`
+  if (asset.organizationId && asset.ip) return `org:${asset.organizationId}:${asset.ip}`
+  if (asset.ip) return `ip:${asset.ip}`
+  return `key:${asset.key || asset.title || ''}`
+}
+
+const canCreateTunnel = (node: any): boolean => {
+  return isSecondLevel(node) && !!node?.ip && node?.asset_type !== 'shell'
+}
+
+const getTunnelConfigsByAssetKey = (assetKey: string): TunnelConfig[] => {
+  if (!assetKey) return []
+  return tunnelConfigMap.value[assetKey] || []
+}
+
+const getActiveTunnelRuntimesByAssetKey = (assetKey: string): TunnelRuntime[] => {
+  if (!assetKey) return []
+  return Object.values(tunnelRuntimeMap.value).filter((runtime) => runtime.assetKey === assetKey && runtime.active)
+}
+
+const hasTunnelConfig = (node: any): boolean => {
+  const assetKey = getAssetTunnelKey(node)
+  return getTunnelConfigsByAssetKey(assetKey).length > 0
+}
+
+const isTunnelActive = (node: any): boolean => {
+  const assetKey = getAssetTunnelKey(node)
+  const nodeIp = String(node?.ip || '')
+  if (getActiveTunnelRuntimesByAssetKey(assetKey).length > 0) {
+    return true
+  }
+  if (!nodeIp) {
+    return false
+  }
+  return Object.values(tunnelRuntimeMap.value).some((runtime) => runtime.active && runtime.targetIp === nodeIp)
+}
+
+const getTunnelPresetPort = (value: string): number | null => {
+  const matched = tunnelPortPresetLookup.get(value)
+  if (!matched) return null
+  const portMatch = matched.label.match(/\((\d+)\)/)
+  return portMatch ? Number(portMatch[1]) : null
+}
+
+const getTunnelPortPresetOptions = (field: 'localPort' | 'remotePort') => {
+  const currentValue = String(tunnelForm.value[field] || '')
+  if (!currentValue) {
+    return tunnelPortPresetOptions
+  }
+
+  if (/^\d+$/.test(currentValue)) {
+    const matchedPresetOptions = tunnelPortPresetOptions.filter((item) => {
+      const presetPort = getTunnelPresetPort(item.value)
+      return presetPort !== null && String(presetPort).includes(currentValue)
+    })
+    if (matchedPresetOptions.length > 0) {
+      return matchedPresetOptions
+    }
+    return [
+      {
+        value: currentValue,
+        label: currentValue
+      }
+    ]
+  }
+
+  const keyword = currentValue.toLowerCase()
+  return tunnelPortPresetOptions.filter((item) => item.label.toLowerCase().includes(keyword))
+}
+
+const sanitizeTunnelPortInput = (value: string): string => {
+  if (!value) return ''
+  if (tunnelPortPresetLookup.has(value)) return value
+  return value.replace(/[^\d]/g, '')
+}
+
+const parseTunnelPort = (value: string): number | null => {
+  if (!value) return null
+  const presetPort = getTunnelPresetPort(value)
+  if (presetPort) return presetPort
+  const numeric = value.replace(/[^\d]/g, '')
+  if (!numeric) return null
+  return Number(numeric)
+}
+
+const formatTunnelPortDisplayValue = (port?: number): string => {
+  if (!isValidTunnelPort(port)) return ''
+  return tunnelPortPresetValueByPort.get(port as number) || String(port)
+}
+
+const isValidTunnelPort = (port: number | undefined): boolean => {
+  return !!port && Number.isInteger(port) && port > 0 && port <= 65535
+}
+
+const buildTunnelConfigId = (): string => {
+  return `cfg_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`
+}
+
+const buildTunnelRuntimeKey = (assetKey: string, configId: string): string => {
+  return `${assetKey}${tunnelKeyDelimiter}${configId}`
+}
+
+const buildTunnelId = (assetKey: string, configId: string): string => {
+  return `asset-tunnel:${assetKey}:${configId}`
+}
+
+const buildTunnelConnectionId = (assetKey: string, configId: string): string => {
+  return `tunnel-conn:${assetKey}:${configId}:${Date.now()}`
+}
+
+const getTunnelTypeLabel = (type: TunnelType): string => {
+  if (type === 'local_forward') return t('ssh.tunnelTypeLocalForward')
+  if (type === 'remote_forward') return t('ssh.tunnelTypeRemoteForward')
+  return t('ssh.tunnelTypeDynamicSocks')
+}
+
+const formatTunnelPorts = (config: TunnelConfig): string => {
+  if (config.type === 'dynamic_socks') {
+    return t('ssh.localPortWithValue', { port: config.localPort })
+  }
+  return t('ssh.localRemotePortWithValue', { localPort: config.localPort, remotePort: config.remotePort })
+}
+
+const normalizeTunnelConfig = (rawConfig: any, fallbackId: string): TunnelConfig | null => {
+  if (!rawConfig || typeof rawConfig !== 'object') return null
+  const type = rawConfig.type as TunnelType
+  const localPort = Number(rawConfig.localPort)
+  const remotePort = rawConfig.remotePort === undefined ? undefined : Number(rawConfig.remotePort)
+
+  if (!['local_forward', 'remote_forward', 'dynamic_socks'].includes(type)) return null
+  if (!isValidTunnelPort(localPort)) return null
+  if (type !== 'dynamic_socks' && !isValidTunnelPort(remotePort)) return null
+
+  const configId = typeof rawConfig.id === 'string' && rawConfig.id ? rawConfig.id : fallbackId
+
+  return {
+    id: configId,
+    type,
+    localPort,
+    remotePort,
+    description: typeof rawConfig.description === 'string' ? rawConfig.description : ''
+  }
+}
+
+const normalizeTunnelConfigList = (rawConfig: unknown, assetKey: string): TunnelConfig[] => {
+  const sourceList = Array.isArray(rawConfig) ? rawConfig : rawConfig && typeof rawConfig === 'object' ? [rawConfig] : []
+  const normalized: TunnelConfig[] = []
+  const idSet = new Set<string>()
+
+  sourceList.forEach((item, index) => {
+    const fallbackId = `${assetKey}-${index}-${Date.now()}`
+    const parsed = normalizeTunnelConfig(item, fallbackId)
+    if (!parsed) return
+
+    if (idSet.has(parsed.id)) {
+      parsed.id = `${parsed.id}-${index}`
+    }
+    idSet.add(parsed.id)
+    normalized.push(parsed)
+  })
+
+  return normalized
+}
+
+const loadTunnelConfigsFromStorage = async (): Promise<void> => {
+  try {
+    const currentConfig = await userConfigStore.getConfig()
+    const rawConfigs = currentConfig.workspaceTunnelConfigs
+    if (!rawConfigs || typeof rawConfigs !== 'object') {
+      tunnelConfigMap.value = {}
+      return
+    }
+
+    const nextMap: Record<string, TunnelConfig[]> = {}
+    for (const [assetKey, rawConfig] of Object.entries(rawConfigs)) {
+      const parsedList = normalizeTunnelConfigList(rawConfig, assetKey)
+      if (parsedList.length === 0) continue
+      nextMap[assetKey] = parsedList
+    }
+    tunnelConfigMap.value = nextMap
+    requestOpenedHosts()
+  } catch (error) {
+    logger.error('Failed to load tunnel configs', { error: error })
+  }
+}
+
+const persistTunnelConfigsToStorage = async (): Promise<void> => {
+  try {
+    const currentConfig = await userConfigStore.getConfig()
+    await userConfigStore.saveConfig({
+      ...currentConfig,
+      workspaceTunnelConfigs: tunnelConfigMap.value
+    })
+  } catch (error) {
+    logger.error('Failed to persist tunnel configs', { error: error })
+  }
+}
+
+const getTunnelApi = () => {
+  const api = window.api as any
+  if (typeof api?.startSshTunnel !== 'function' || typeof api?.stopSshTunnel !== 'function') {
+    return null
+  }
+  return api
+}
+
+const buildTunnelCommand = (
+  config: { type: TunnelType; localPort: number; remotePort?: number },
+  targetIp: string,
+  targetUsername: string = 'root',
+  targetPort: number = 22
+): string => {
+  const userHost = `${targetUsername}@${targetIp}`
+  const portArg = targetPort && targetPort !== 22 ? ` -p ${targetPort}` : ''
+  if (config.type === 'local_forward') {
+    return `ssh -L ${config.localPort}:localhost:${config.remotePort} ${userHost}${portArg}`
+  }
+  if (config.type === 'remote_forward') {
+    return `ssh -R ${config.remotePort}:localhost:${config.localPort} ${userHost}${portArg}`
+  }
+  return `ssh -D ${config.localPort} ${userHost}${portArg}`
+}
+
+const resolveTunnelConnectionPayload = async (asset: any, assetKey: string, configId: string): Promise<any | null> => {
+  if (!asset?.uuid) return null
+
+  const assetInfo = await window.api.connectAssetInfo({ uuid: asset.uuid })
+  if (!assetInfo) return null
+
+  const sshType = assetInfo?.sshType || 'ssh'
+  if (sshType !== 'ssh') {
+    return {
+      unsupported: true,
+      reason: `sshType=${sshType}`
+    }
+  }
+
+  const host = assetInfo?.asset_ip || assetInfo?.host || asset?.ip
+  const port = Number(assetInfo?.port || asset?.port || 22)
+  const username = assetInfo?.username || asset?.username || 'root'
+  const authType = assetInfo?.auth_type || assetInfo?.authType || 'password'
+
+  if (!host || !username || !Number.isInteger(port) || port <= 0 || port > 65535) {
+    return null
+  }
+
+  const tunnelConnectionId = buildTunnelConnectionId(assetKey, configId)
+  const payload: any = {
+    id: tunnelConnectionId,
+    host,
+    port,
+    username,
+    password: authType === 'password' ? assetInfo?.password || '' : '',
+    privateKey: authType === 'keyBased' ? assetInfo?.privateKey || '' : '',
+    passphrase: assetInfo?.passphrase || '',
+    sshType: 'ssh',
+    terminalType: 'xterm',
+    agentForward: false,
+    isOfficeDevice: false,
+    connIdentToken: '',
+    asset_type: assetInfo?.asset_type || asset?.asset_type || '',
+    proxyCommand: assetInfo?.proxyCommand || asset?.proxyCommand || '',
+    disablePostConnectProbe: true
+  }
+
+  payload.needProxy = assetInfo?.needProxy === true || assetInfo?.need_proxy === 1
+  if (payload.needProxy) {
+    const currentConfig = await userConfigStore.getConfig()
+    payload.proxyConfig = currentConfig.sshProxyConfigs?.find((item) => item.name === (assetInfo?.proxyName || assetInfo?.proxy_name))
+  }
+
+  return {
+    tunnelConnectionId,
+    connectPayload: payload,
+    targetIp: host,
+    targetUsername: username,
+    targetPort: port
+  }
+}
+
+const stopTunnelByRuntimeKey = async (runtimeKey: string): Promise<void> => {
+  const runtime = tunnelRuntimeMap.value[runtimeKey]
+  if (!runtime || !runtime.active) return
+
+  try {
+    const tunnelApi = getTunnelApi()
+    if (tunnelApi) {
+      await tunnelApi.stopSshTunnel({
+        tunnelId: runtime.tunnelId
+      })
+    }
+  } catch (error) {
+    logger.warn('Failed to stop tunnel', { runtimeKey, error: error })
+  } finally {
+    if (runtime.connectionId) {
+      try {
+        await window.api.disconnect({ id: runtime.connectionId })
+      } catch (error) {
+        logger.warn('Failed to disconnect tunnel connection', { runtimeKey, error: error })
+      }
+    }
+    const nextRuntimeMap = { ...tunnelRuntimeMap.value }
+    delete nextRuntimeMap[runtimeKey]
+    tunnelRuntimeMap.value = nextRuntimeMap
+  }
+}
+
+const stopTunnelsByAssetKey = async (assetKey: string, configId?: string): Promise<void> => {
+  const runtimeKeys = Object.keys(tunnelRuntimeMap.value).filter((runtimeKey) => {
+    const runtime = tunnelRuntimeMap.value[runtimeKey]
+    if (!runtime?.active) return false
+    if (runtime.assetKey !== assetKey) return false
+    if (configId && runtime.configId !== configId) return false
+    return true
+  })
+
+  for (const runtimeKey of runtimeKeys) {
+    await stopTunnelByRuntimeKey(runtimeKey)
+  }
+}
+
+const stopAllTunnelProcesses = async (): Promise<void> => {
+  const activeRuntimeKeys = Object.keys(tunnelRuntimeMap.value).filter((key) => tunnelRuntimeMap.value[key]?.active)
+  for (const runtimeKey of activeRuntimeKeys) {
+    await stopTunnelByRuntimeKey(runtimeKey)
+  }
+}
+
+const getCandidateTunnelAssetKeysByHost = (host: any): string[] => {
+  const keys = new Set<string>()
+  const hostAssetKey = getAssetTunnelKey(host)
+  if (hostAssetKey && getTunnelConfigsByAssetKey(hostAssetKey).length > 0) {
+    keys.add(hostAssetKey)
+  }
+
+  const hostIp = String(host?.ip || '')
+  if (!hostIp) {
+    return [...keys]
+  }
+
+  for (const assetKey of Object.keys(tunnelConfigMap.value)) {
+    if (assetKey === `ip:${hostIp}` || assetKey.endsWith(`:${hostIp}`)) {
+      keys.add(assetKey)
+    }
+  }
+
+  return [...keys]
+}
+
+const startTunnelByConfig = async (assetKey: string, asset: any, config: TunnelConfig, options?: { silent?: boolean }): Promise<void> => {
+  const silent = options?.silent !== false
+  const runtimeKey = buildTunnelRuntimeKey(assetKey, config.id)
+  const runtime = tunnelRuntimeMap.value[runtimeKey]
+  if (runtime?.active) return
+
+  if (tunnelStartQueue.has(runtimeKey)) return
+
+  const tunnelApi = getTunnelApi()
+  if (!tunnelApi) {
+    if (!silent) {
+      message.error(t('ssh.tunnelUnsupportedInVersion'))
+    }
+    return
+  }
+
+  tunnelStartQueue.add(runtimeKey)
+  const tunnelId = buildTunnelId(assetKey, config.id)
+  let tunnelConnectionId = ''
+  let targetIp = String(asset?.ip || '')
+  let targetUsername = asset?.username || 'root'
+  let targetPort = Number(asset?.port || 22)
+
+  try {
+    const connectionPayload = await resolveTunnelConnectionPayload(asset, assetKey, config.id)
+    if (!connectionPayload) {
+      if (!silent) {
+        message.error(t('ssh.tunnelStartFailedNoConfig'))
+      }
+      return
+    }
+    if (connectionPayload.unsupported) {
+      if (!silent) {
+        message.error(t('ssh.tunnelUnsupportedAssetType'))
+      }
+      logger.warn('Tunnel unsupported for asset', {
+        assetKey,
+        reason: connectionPayload.reason
+      })
+      return
+    }
+
+    tunnelConnectionId = connectionPayload.tunnelConnectionId
+    const resolvedTargetIp = String(connectionPayload.targetIp || '')
+    targetIp = String(asset?.ip || resolvedTargetIp)
+    targetUsername = connectionPayload.targetUsername
+    targetPort = connectionPayload.targetPort
+
+    const connectResult = await window.api.connect(connectionPayload.connectPayload)
+    if (connectResult?.status !== 'connected') {
+      if (!silent) {
+        message.error(t('ssh.tunnelStartFailedWithReason', { reason: connectResult?.message || t('ssh.sshConnectionFailed') }))
+      }
+      return
+    }
+
+    const result = await tunnelApi.startSshTunnel({
+      connectionId: tunnelConnectionId,
+      tunnelId,
+      type: config.type,
+      localPort: config.localPort,
+      remotePort: config.remotePort
+    })
+    if (!result?.success) {
+      if (!silent) {
+        message.error(t('ssh.tunnelStartFailedWithReason', { reason: result?.error || t('ssh.unknownError') }))
+      }
+      try {
+        await window.api.disconnect({ id: tunnelConnectionId })
+      } catch (error) {
+        logger.warn('Failed to disconnect after tunnel start failure', { runtimeKey, error: error })
+      }
+      return
+    }
+  } finally {
+    tunnelStartQueue.delete(runtimeKey)
+  }
+
+  tunnelRuntimeMap.value[runtimeKey] = {
+    active: true,
+    runtimeKey,
+    assetKey,
+    configId: config.id,
+    tunnelId,
+    connectionId: tunnelConnectionId,
+    command: buildTunnelCommand(config, targetIp, targetUsername, targetPort),
+    targetIp: String(asset?.ip || targetIp)
+  }
+}
+
+const ensureOpenedHostTunnels = async (hosts: any[]): Promise<void> => {
+  if (!Array.isArray(hosts)) return
+  for (const host of hosts) {
+    const candidateKeys = getCandidateTunnelAssetKeysByHost(host)
+    for (const assetKey of candidateKeys) {
+      const configs = getTunnelConfigsByAssetKey(assetKey)
+      for (const config of configs) {
+        await startTunnelByConfig(assetKey, host, config, { silent: true })
+      }
+    }
+  }
+}
+
+const resetTunnelForm = (): void => {
+  tunnelForm.value = {
+    type: 'local_forward',
+    localPort: '',
+    remotePort: '',
+    description: ''
+  }
+}
+
+const openTunnelListModal = (asset: any): void => {
+  tunnelListAsset.value = asset
+  showTunnelListModal.value = true
+}
+
+const handleCloseTunnelListModal = (): void => {
+  showTunnelListModal.value = false
+  tunnelListAsset.value = null
+}
+
+const handleCreateTunnelFromList = (): void => {
+  if (!tunnelListAsset.value) return
+  tunnelTargetAsset.value = tunnelListAsset.value
+  editingTunnelId.value = null
+  resetTunnelForm()
+  showTunnelModal.value = true
+}
+
+const handleEditTunnelFromList = (configId: string): void => {
+  const asset = tunnelListAsset.value
+  if (!asset) return
+  const assetKey = getAssetTunnelKey(asset)
+  if (!assetKey) return
+
+  const config = getTunnelConfigsByAssetKey(assetKey).find((item) => item.id === configId)
+  if (!config) return
+
+  tunnelTargetAsset.value = asset
+  editingTunnelId.value = config.id
+  tunnelForm.value = {
+    type: config.type,
+    localPort: formatTunnelPortDisplayValue(config.localPort),
+    remotePort: formatTunnelPortDisplayValue(config.remotePort),
+    description: config.description || ''
+  }
+  showTunnelModal.value = true
+}
+
+const handleDeleteTunnelFromList = async (configId: string): Promise<void> => {
+  const asset = tunnelListAsset.value
+  if (!asset || !asset.ip) {
+    message.error(t('ssh.targetAssetNotFound'))
+    return
+  }
+
+  const assetKey = getAssetTunnelKey(asset)
+  if (!assetKey) {
+    message.error(t('ssh.tunnelDeleteFailedInvalidAssetKey'))
+    return
+  }
+
+  await stopTunnelsByAssetKey(assetKey, configId)
+
+  const nextList = getTunnelConfigsByAssetKey(assetKey).filter((item) => item.id !== configId)
+  if (nextList.length > 0) {
+    tunnelConfigMap.value[assetKey] = nextList
+  } else {
+    const nextMap = { ...tunnelConfigMap.value }
+    delete nextMap[assetKey]
+    tunnelConfigMap.value = nextMap
+  }
+
+  await persistTunnelConfigsToStorage()
+  requestOpenedHosts()
+  message.success(t('ssh.tunnelConfigDeleted'))
+}
+
+const handleTunnelTypeChange = (value: TunnelType): void => {
+  tunnelForm.value.type = value
+  if (value === 'dynamic_socks') {
+    tunnelForm.value.localPort = '1080'
+    tunnelForm.value.remotePort = ''
+    return
+  }
+  if (!tunnelForm.value.localPort) {
+    tunnelForm.value.localPort = 'OpenClaw (18789)'
+  }
+  if (!tunnelForm.value.remotePort) {
+    tunnelForm.value.remotePort = 'OpenClaw (18789)'
+  }
+}
+
+const handleTunnelPortFocus = (field: 'localPort' | 'remotePort'): void => {
+  const value = tunnelForm.value[field]
+  const presetPort = getTunnelPresetPort(value)
+  if (presetPort) {
+    tunnelForm.value[field] = String(presetPort)
+  }
+}
+
+const handleTunnelPortPresetSelect = (value: string): void => {
+  const selectedValue = String(value || '')
+  if (!tunnelPortPresetLookup.has(selectedValue)) return
+  tunnelForm.value.localPort = selectedValue
+  tunnelForm.value.remotePort = selectedValue
+}
+
+const handleTunnelPortChange = (field: 'localPort' | 'remotePort', value: string): void => {
+  const inputValue = sanitizeTunnelPortInput(String(value || ''))
+  tunnelForm.value[field] = inputValue
+  if (tunnelPortPresetLookup.has(inputValue)) {
+    tunnelForm.value.localPort = inputValue
+    tunnelForm.value.remotePort = inputValue
+  }
+}
+
+const handleTunnelPortSearch = (field: 'localPort' | 'remotePort', value: string): void => {
+  const inputValue = sanitizeTunnelPortInput(String(value || ''))
+  tunnelForm.value[field] = inputValue
+}
+
+const handleSocksPortInput = (event: Event): void => {
+  const target = event.target as HTMLInputElement
+  tunnelForm.value.localPort = sanitizeTunnelPortInput(target?.value || '')
+}
+
+const handleCancelTunnelConfig = (): void => {
+  showTunnelModal.value = false
+  editingTunnelId.value = null
+  tunnelTargetAsset.value = null
+}
+
+const handleSaveTunnelConfig = async (): Promise<void> => {
+  const targetAsset = tunnelTargetAsset.value
+  if (!targetAsset || !targetAsset.ip) {
+    message.error(t('ssh.targetAssetNotFound'))
+    return
+  }
+
+  const assetKey = getAssetTunnelKey(targetAsset)
+  if (!assetKey) {
+    message.error(t('ssh.tunnelSaveFailedInvalidAssetKey'))
+    return
+  }
+
+  const localPort = parseTunnelPort(tunnelForm.value.localPort)
+  if (!isValidTunnelPort(localPort || undefined)) {
+    message.error(t('ssh.invalidLocalPort'))
+    return
+  }
+
+  let remotePort: number | undefined
+  if (tunnelForm.value.type !== 'dynamic_socks') {
+    const parsedRemotePort = parseTunnelPort(tunnelForm.value.remotePort || '')
+    remotePort = parsedRemotePort === null ? undefined : parsedRemotePort
+    if (!isValidTunnelPort(remotePort)) {
+      message.error(t('ssh.invalidRemotePort'))
+      return
+    }
+  }
+
+  const configId = editingTunnelId.value || buildTunnelConfigId()
+  const nextConfig: TunnelConfig = {
+    id: configId,
+    type: tunnelForm.value.type,
+    localPort: Number(localPort),
+    remotePort,
+    description: tunnelForm.value.description?.trim() || ''
+  }
+
+  if (editingTunnelId.value) {
+    await stopTunnelsByAssetKey(assetKey, configId)
+  }
+
+  const existingList = getTunnelConfigsByAssetKey(assetKey)
+  const existingIndex = existingList.findIndex((item) => item.id === configId)
+  const nextList = [...existingList]
+
+  if (existingIndex >= 0) {
+    nextList[existingIndex] = nextConfig
+  } else {
+    nextList.push(nextConfig)
+  }
+
+  tunnelConfigMap.value[assetKey] = nextList
+  await persistTunnelConfigsToStorage()
+
+  requestOpenedHosts()
+
+  showTunnelModal.value = false
+  editingTunnelId.value = null
+  tunnelTargetAsset.value = null
+  message.success(t('ssh.tunnelConfigSaved'))
+}
 const getOriginalChildrenCount = (dataRef: any): number => {
   if (!dataRef || !dataRef.key) return 0
   return childrenCountMap.value.get(dataRef.key) ?? 0
@@ -876,6 +1813,7 @@ const toggleFavorite = (dataRef: any): void => {
 
 const clickServer = (item) => {
   emit('currentClickServer', item)
+  requestOpenedHosts()
 }
 
 const assetManagement = () => {
@@ -1163,12 +2101,21 @@ const handleContextMenu = (event: MouseEvent, dataRef: any) => {
   const hasFavoriteOption = dataRef.favorite !== undefined
   const hasCommentOption = isOrganizationAsset(dataRef.asset_type) && !dataRef.key.startsWith('common_')
   const hasMoveOption = isOrganizationAsset(dataRef.asset_type) && !dataRef.key.startsWith('common_') && !dataRef.key.startsWith('folder_')
+  const hasTunnelOption = canCreateTunnel(dataRef)
   const hasRemoveOption = isOrganizationAsset(dataRef.asset_type) && dataRef.key.startsWith('folder_') && dataRef.folderUuid
   const hasEditFolderOption = dataRef.asset_type === 'custom_folder' && !dataRef.key.startsWith('common_')
   const hasDeleteFolderOption = dataRef.asset_type === 'custom_folder' && !dataRef.key.startsWith('common_')
 
   // If no menu options are available, don't show the context menu
-  if (!hasFavoriteOption && !hasCommentOption && !hasMoveOption && !hasRemoveOption && !hasEditFolderOption && !hasDeleteFolderOption) {
+  if (
+    !hasFavoriteOption &&
+    !hasCommentOption &&
+    !hasMoveOption &&
+    !hasTunnelOption &&
+    !hasRemoveOption &&
+    !hasEditFolderOption &&
+    !hasDeleteFolderOption
+  ) {
     return
   }
 
@@ -1183,9 +2130,15 @@ const handleContextMenu = (event: MouseEvent, dataRef: any) => {
   }
 
   // Calculate the number of menu items that will be shown
-  const menuItemCount = [hasFavoriteOption, hasCommentOption, hasMoveOption, hasRemoveOption, hasEditFolderOption, hasDeleteFolderOption].filter(
-    Boolean
-  ).length
+  const menuItemCount = [
+    hasFavoriteOption,
+    hasCommentOption,
+    hasMoveOption,
+    hasTunnelOption,
+    hasRemoveOption,
+    hasEditFolderOption,
+    hasDeleteFolderOption
+  ].filter(Boolean).length
 
   // Estimate menu dimensions based on CSS styles
   const menuItemHeight = 25 // approximate height per menu item (12px font * 1.4 line-height + 8px padding)
@@ -1238,6 +2191,9 @@ const handleContextMenuAction = (action: string) => {
       break
     case 'move':
       handleMoveToFolder(contextMenuData.value)
+      break
+    case 'tunnel':
+      openTunnelListModal(contextMenuData.value)
       break
     case 'remove':
       handleRemoveFromFolder(contextMenuData.value)
@@ -1312,6 +2268,45 @@ const refreshAssetMenu = () => {
   }
 }
 
+const handleAllOpenedHostsResult = (hosts: any[]) => {
+  if (!Array.isArray(hosts)) return
+
+  const openedAssetKeys = new Set<string>()
+  const openedIps = new Set<string>()
+  for (const host of hosts) {
+    const assetKey = getAssetTunnelKey(host)
+    if (!assetKey) continue
+    openedAssetKeys.add(assetKey)
+    if (host?.ip) {
+      openedIps.add(String(host.ip))
+    }
+  }
+
+  void ensureOpenedHostTunnels(hosts)
+
+  const activeRuntimeKeys = Object.keys(tunnelRuntimeMap.value).filter((key) => tunnelRuntimeMap.value[key]?.active)
+  for (const runtimeKey of activeRuntimeKeys) {
+    const runtime = tunnelRuntimeMap.value[runtimeKey]
+    const sameServerStillOpen = !!runtime?.targetIp && openedIps.has(runtime.targetIp)
+    if (!openedAssetKeys.has(runtime.assetKey) && !sameServerStillOpen) {
+      void stopTunnelByRuntimeKey(runtimeKey)
+    }
+  }
+
+  if (hosts.length === 0) {
+    void stopAllTunnelProcesses()
+  }
+}
+
+const requestOpenedHosts = () => {
+  eventBus.emit('getAllOpenedHosts')
+}
+
+const handleDocumentClick = () => {
+  contextMenuVisible.value = false
+  contextMenuData.value = null
+}
+
 onMounted(() => {
   eventBus.on('LocalAssetMenu', refreshAssetMenu)
   // Listen for language change event, reload asset data
@@ -1321,13 +2316,17 @@ onMounted(() => {
   })
   // Listen for host search focus event
   eventBus.on('focusHostSearch', focusSearchInput)
+  eventBus.on('allOpenedHostsResult', handleAllOpenedHostsResult)
   loadCustomFolders()
+  void loadTunnelConfigsFromStorage()
+
+  requestOpenedHosts()
+  tunnelHostPollTimer = window.setInterval(() => {
+    requestOpenedHosts()
+  }, 3000)
 
   // Add click outside listener to close context menu
-  document.addEventListener('click', () => {
-    contextMenuVisible.value = false
-    contextMenuData.value = null
-  })
+  document.addEventListener('click', handleDocumentClick)
 
   // Track tree container height for virtual scroll
   const updateTreeHeight = () => {
@@ -1345,12 +2344,19 @@ onUnmounted(() => {
   eventBus.off('LocalAssetMenu', refreshAssetMenu)
   eventBus.off('languageChanged')
   eventBus.off('focusHostSearch', focusSearchInput)
+  eventBus.off('allOpenedHostsResult', handleAllOpenedHostsResult)
+  document.removeEventListener('click', handleDocumentClick)
   if (searchDebounceTimer !== null) {
     clearTimeout(searchDebounceTimer)
   }
   if (treeHeightUpdaterRef.value) {
     window.removeEventListener('resize', treeHeightUpdaterRef.value)
   }
+  if (tunnelHostPollTimer) {
+    clearInterval(tunnelHostPollTimer)
+    tunnelHostPollTimer = undefined
+  }
+  void stopAllTunnelProcesses()
 })
 </script>
 
@@ -1491,7 +2497,7 @@ onUnmounted(() => {
   .title-with-icon {
     display: flex;
     align-items: center;
-    color: var(--text-color);
+    color: var(--text-color) !important;
     flex: 1;
     min-width: 0;
     overflow: hidden;
@@ -1515,7 +2521,7 @@ onUnmounted(() => {
     .computer-icon {
       margin-right: 6px;
       font-size: 14px;
-      color: var(--text-color);
+      color: var(--text-color) !important;
       flex-shrink: 0;
     }
 
@@ -1587,6 +2593,18 @@ onUnmounted(() => {
     flex-shrink: 0;
   }
 
+  .tunnel-icon {
+    margin-left: 6px;
+    color: #8c8c8c;
+    font-size: 13px;
+    flex-shrink: 0;
+    transition: color 0.2s ease;
+
+    &.active {
+      color: #52c41a;
+    }
+  }
+
   .comment-edit-container {
     display: flex;
     align-items: center;
@@ -1598,7 +2616,7 @@ onUnmounted(() => {
     .ant-input {
       background-color: var(--bg-color-secondary);
       border-color: var(--border-color);
-      color: var(--text-color);
+      color: var(--text-color) !important;
       flex: 1;
       min-width: 60px;
       max-width: 120px;
@@ -1659,7 +2677,7 @@ onUnmounted(() => {
   .ant-input {
     background-color: var(--bg-color-secondary);
     border-color: var(--border-color);
-    color: var(--text-color);
+    color: var(--text-color) !important;
     flex: 1;
     min-width: 50px;
     height: 24px;
@@ -1701,6 +2719,197 @@ onUnmounted(() => {
   &:active {
     background-color: rgb(130, 134, 155);
     border-color: rgb(130, 134, 155);
+  }
+}
+
+.tunnel-modal-title {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.tunnel-help-item {
+  color: var(--text-color-secondary);
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.tunnel-help-item + .tunnel-help-item {
+  margin-top: 4px;
+}
+
+.tunnel-help-item-title {
+  color: var(--text-color);
+}
+
+.tunnel-list-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 10px;
+  gap: 12px;
+}
+
+.tunnel-list-header-left {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+}
+
+.tunnel-list-title {
+  color: var(--text-color);
+  font-size: 13px;
+  line-height: 1.4;
+  word-break: break-all;
+}
+
+.tunnel-help-trigger {
+  color: var(--text-color-tertiary);
+  font-size: 14px;
+  cursor: pointer;
+  flex-shrink: 0;
+
+  &:hover {
+    color: var(--text-color) !important;
+  }
+}
+
+.tunnel-tooltip-content {
+  max-width: 360px;
+}
+
+.tunnel-tooltip-title {
+  color: var(--text-color);
+  font-size: 12px;
+  margin-bottom: 6px;
+}
+
+.tunnel-empty {
+  color: var(--text-color-tertiary);
+  font-size: 13px;
+  text-align: center;
+  padding: 18px 0;
+}
+
+.tunnel-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  max-height: 360px;
+  overflow-y: auto;
+}
+
+.tunnel-list-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 8px 10px;
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
+}
+
+.tunnel-list-main {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+  flex: 1;
+}
+
+.tunnel-list-type {
+  color: var(--text-color);
+  font-size: 12px;
+  white-space: nowrap;
+}
+
+.tunnel-list-port {
+  color: var(--text-color-secondary);
+  font-size: 12px;
+  white-space: nowrap;
+}
+
+.tunnel-list-desc {
+  color: var(--text-color-tertiary);
+  font-size: 12px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.tunnel-list-actions {
+  display: flex;
+  align-items: center;
+  flex-shrink: 0;
+}
+
+.tunnel-type-help {
+  margin: 2px 0 0;
+  color: var(--text-color-secondary);
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.tunnel-type-help-title {
+  color: var(--text-color);
+}
+
+:global(.tunnel-help-tooltip .ant-tooltip-inner) {
+  background-color: var(--bg-color-secondary) !important;
+  color: var(--text-color-secondary) !important;
+  border: 1px solid var(--border-color) !important;
+  box-shadow: 0 4px 12px var(--hover-bg-color) !important;
+}
+
+:global(.tunnel-help-tooltip .ant-tooltip-arrow::before) {
+  background-color: var(--bg-color-secondary) !important;
+  border: 1px solid var(--border-color) !important;
+}
+
+.tunnel-form-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 12px;
+
+  label {
+    width: 76px;
+    color: var(--text-color) !important;
+    flex-shrink: 0;
+  }
+
+  .ant-select,
+  .ant-input {
+    flex: 1;
+    color: var(--text-color) !important;
+    background-color: var(--bg-color-secondary) !important;
+  }
+
+  :deep(.ant-input),
+  :deep(.ant-input-affix-wrapper),
+  :deep(.ant-select-selector) {
+    background-color: var(--bg-color-secondary) !important;
+    border-color: var(--border-color) !important;
+    color: var(--text-color) !important;
+  }
+
+  :deep(.ant-input::placeholder) {
+    color: var(--text-color-tertiary) !important;
+  }
+
+  :deep(.ant-input:hover),
+  :deep(.ant-input-affix-wrapper:hover),
+  :deep(.ant-select-selector:hover) {
+    border-color: var(--border-color-light) !important;
+  }
+
+  :deep(.ant-input:focus),
+  :deep(.ant-input-focused),
+  :deep(.ant-input-affix-wrapper-focused),
+  :deep(.ant-select-focused .ant-select-selector),
+  :deep(.ant-select-open .ant-select-selector) {
+    border-color: var(--border-color-light) !important;
+    box-shadow: 0 0 0 2px var(--hover-bg-color) !important;
   }
 }
 
@@ -1752,7 +2961,7 @@ onUnmounted(() => {
 
   :deep(.ant-input) {
     background-color: transparent;
-    color: var(--text-color);
+    color: var(--text-color) !important;
     &::placeholder {
       color: var(--text-color-tertiary);
     }
@@ -1819,7 +3028,7 @@ onUnmounted(() => {
     justify-content: center;
 
     &:hover {
-      color: var(--text-color);
+      color: var(--text-color) !important;
       background-color: var(--hover-bg-color);
     }
 
@@ -1870,7 +3079,7 @@ onUnmounted(() => {
     align-items: center;
     padding: 4px 8px;
     cursor: pointer;
-    color: var(--text-color);
+    color: var(--text-color) !important;
     font-size: 12px;
     transition: background-color 0.15s;
     line-height: 1.4;
