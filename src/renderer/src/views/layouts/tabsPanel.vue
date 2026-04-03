@@ -31,6 +31,7 @@
       <div
         class="tabs-content"
         :class="{ 'transparent-bg': isTransparent }"
+        style="height: 100%; width: 100%"
       >
         <template v-if="localTab.organizationId && localTab.organizationId !== ''">
           <sshConnect
@@ -323,6 +324,7 @@ defineExpose({
   flex-direction: column;
   height: 100%;
   overflow: hidden;
+  background-color: var(--bg-color);
 }
 
 .tabs-bar {
