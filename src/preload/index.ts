@@ -791,6 +791,14 @@ const api = {
   // SSH API
   connect: (connectionInfo) => ipcRenderer.invoke('ssh:connect', connectionInfo),
   forkSession: (params) => ipcRenderer.invoke('ssh:fork-session', params),
+  startSshTunnel: (params: {
+    connectionId: string
+    tunnelId: string
+    type: 'local_forward' | 'remote_forward' | 'dynamic_socks'
+    localPort: number
+    remotePort?: number
+  }) => ipcRenderer.invoke('ssh:tunnel:start', params),
+  stopSshTunnel: (params: { tunnelId: string }) => ipcRenderer.invoke('ssh:tunnel:stop', params),
   connectReadyData: (id) => {
     return new Promise((resolve) => {
       const channel = `ssh:connect:data:${id}`

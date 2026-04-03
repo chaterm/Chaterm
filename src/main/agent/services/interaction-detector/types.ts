@@ -132,7 +132,7 @@ export interface InteractionDetectorEvents {
   /** Interaction has been suppressed */
   'interaction-suppressed': [data: { commandId: string }]
   /** TUI program detected - user should interact directly in terminal */
-  'tui-detected': [data: { commandId: string; taskId?: string; message: string }]
+  'tui-detected': [data: { commandId: string; taskId?: string; message: string; isShellSpawning?: boolean }]
   /** Alternate screen entered (vim, less, etc.) - includes autoCancel flag */
   'alternate-screen-entered': [data: { commandId: string; taskId?: string; autoCancel: boolean }]
   /** Command completed */

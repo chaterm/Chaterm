@@ -3,6 +3,7 @@ import { Client } from 'ssh2'
 import type { SFTPWrapper } from 'ssh2'
 import { spawn } from 'child_process'
 import { Duplex } from 'stream'
+import * as net from 'net'
 import type { CommandGenerationContext } from '@shared/WebviewMessage'
 const logger = createLogger('ssh')
 
@@ -130,6 +131,444 @@ const KeyboardInteractiveAttempts = new Map()
 export const connectionStatus = new Map()
 
 export const sshSessionPids = new Map<string, number>()
+
+type TunnelType = 'local_forward' | 'remote_forward' | 'dynamic_socks'
+
+type SshTunnelStartPayload = {
+  connectionId: string
+  tunnelId: string
+  type: TunnelType
+  localPort: number
+  remotePort?: number
+}
+
+type SshTunnelStopPayload = {
+  tunnelId: string
+}
+
+interface ActiveSshTunnel {
+  tunnelId: string
+  connectionId: string
+  type: TunnelType
+  localPort: number
+  remotePort?: number
+  server?: net.Server
+  sockets: Set<net.Socket>
+  streams: Set<Duplex>
+  remoteTcpHandler?: (details: any, accept: () => Duplex | undefined, reject: () => void) => void
+}
+
+const sshTunnels = new Map<string, ActiveSshTunnel>()
+const sshTunnelIdsByConnection = new Map<string, Set<string>>()
+const SSH_LOCALHOST = 'localhost'
+const LOOPBACK_IPV4 = '127.0.0.1'
+const LOOPBACK_IPV6 = '::1'
+
+const addTunnelConnectionIndex = (connectionId: string, tunnelId: string) => {
+  if (!connectionId || !tunnelId) return
+  if (!sshTunnelIdsByConnection.has(connectionId)) {
+    sshTunnelIdsByConnection.set(connectionId, new Set())
+  }
+  sshTunnelIdsByConnection.get(connectionId)?.add(tunnelId)
+}
+
+const removeTunnelConnectionIndex = (connectionId: string, tunnelId: string) => {
+  const set = sshTunnelIdsByConnection.get(connectionId)
+  if (!set) return
+  set.delete(tunnelId)
+  if (set.size === 0) {
+    sshTunnelIdsByConnection.delete(connectionId)
+  }
+}
+
+const closeTunnelResources = (tunnel: ActiveSshTunnel) => {
+  tunnel.server?.close()
+  tunnel.server = undefined
+
+  for (const socket of tunnel.sockets) {
+    try {
+      socket.destroy()
+    } catch {}
+  }
+  tunnel.sockets.clear()
+
+  for (const stream of tunnel.streams) {
+    try {
+      stream.destroy()
+    } catch {}
+  }
+  tunnel.streams.clear()
+}
+
+const cleanupTunnel = async (tunnelId: string): Promise<void> => {
+  const tunnel = sshTunnels.get(tunnelId)
+  if (!tunnel) return
+
+  const conn = sshConnections.get(tunnel.connectionId) as Client | undefined
+
+  if (tunnel.type === 'remote_forward' && conn && tunnel.remotePort) {
+    if (tunnel.remoteTcpHandler) {
+      conn.off('tcp connection', tunnel.remoteTcpHandler as any)
+      tunnel.remoteTcpHandler = undefined
+    }
+    await Promise.race([
+      new Promise<void>((resolve) => {
+        try {
+          conn.unforwardIn(SSH_LOCALHOST, tunnel.remotePort as number, () => resolve())
+        } catch {
+          resolve()
+        }
+      }),
+      new Promise<void>((resolve) => {
+        setTimeout(resolve, 1500)
+      })
+    ])
+  }
+
+  closeTunnelResources(tunnel)
+  sshTunnels.delete(tunnelId)
+  removeTunnelConnectionIndex(tunnel.connectionId, tunnelId)
+}
+
+const cleanupTunnelsByConnection = async (connectionId: string): Promise<void> => {
+  const tunnelIds = sshTunnelIdsByConnection.get(connectionId)
+  if (!tunnelIds || tunnelIds.size === 0) return
+  for (const tunnelId of [...tunnelIds]) {
+    await cleanupTunnel(tunnelId)
+  }
+}
+
+const createTunnelEntry = (payload: SshTunnelStartPayload): ActiveSshTunnel => {
+  return {
+    tunnelId: payload.tunnelId,
+    connectionId: payload.connectionId,
+    type: payload.type,
+    localPort: payload.localPort,
+    remotePort: payload.remotePort,
+    sockets: new Set<net.Socket>(),
+    streams: new Set<Duplex>()
+  }
+}
+
+const isIpv6LoopbackUnavailable = (err: unknown): boolean => {
+  const code = String((err as NodeJS.ErrnoException | undefined)?.code || '')
+  return code === 'EAFNOSUPPORT' || code === 'EADDRNOTAVAIL'
+}
+
+const listenServer = (server: net.Server, options: net.ListenOptions): Promise<void> => {
+  return new Promise((resolve, reject) => {
+    const onError = (err: Error) => {
+      server.off('listening', onListening)
+      reject(err)
+    }
+    const onListening = () => {
+      server.off('error', onError)
+      resolve()
+    }
+    server.once('error', onError)
+    server.once('listening', onListening)
+    server.listen(options)
+  })
+}
+
+const listenLocalServer = (server: net.Server, port: number): Promise<void> => {
+  return listenServer(server, { port, host: LOOPBACK_IPV6, ipv6Only: false }).catch(async (err) => {
+    if (!isIpv6LoopbackUnavailable(err)) {
+      throw err
+    }
+    await listenServer(server, { port, host: LOOPBACK_IPV4 })
+  })
+}
+
+const startLocalForwardTunnel = async (conn: Client, tunnel: ActiveSshTunnel): Promise<void> => {
+  const remotePort = tunnel.remotePort
+  if (!remotePort) {
+    throw new Error('remotePort is required for local_forward tunnel')
+  }
+
+  const server = net.createServer((socket) => {
+    tunnel.sockets.add(socket)
+    socket.once('close', () => tunnel.sockets.delete(socket))
+
+    const srcHost = socket.remoteAddress || '127.0.0.1'
+    const srcPort = socket.remotePort || 0
+    conn.forwardOut(srcHost, srcPort, SSH_LOCALHOST, remotePort, (err, stream) => {
+      if (err || !stream) {
+        socket.destroy()
+        return
+      }
+
+      const sshStream = stream as unknown as Duplex
+      tunnel.streams.add(sshStream)
+      sshStream.once('close', () => tunnel.streams.delete(sshStream))
+
+      socket.pipe(sshStream).pipe(socket)
+
+      socket.on('error', () => sshStream.destroy())
+      sshStream.on('error', () => socket.destroy())
+    })
+  })
+
+  tunnel.server = server
+  await listenLocalServer(server, tunnel.localPort)
+}
+
+const startRemoteForwardTunnel = async (conn: Client, tunnel: ActiveSshTunnel): Promise<void> => {
+  const remotePort = tunnel.remotePort
+  if (!remotePort) {
+    throw new Error('remotePort is required for remote_forward tunnel')
+  }
+
+  await new Promise<void>((resolve, reject) => {
+    conn.forwardIn(SSH_LOCALHOST, remotePort, (err) => {
+      if (err) {
+        reject(err)
+        return
+      }
+      resolve()
+    })
+  })
+
+  const tcpHandler = (details: any, accept: () => Duplex | undefined, reject: () => void) => {
+    if (details?.destPort !== remotePort) {
+      return
+    }
+
+    const sshStream = accept()
+    if (!sshStream) {
+      reject()
+      return
+    }
+
+    tunnel.streams.add(sshStream)
+    sshStream.once('close', () => tunnel.streams.delete(sshStream))
+
+    const localSocket = net.connect({ host: SSH_LOCALHOST, port: tunnel.localPort })
+    tunnel.sockets.add(localSocket)
+    localSocket.once('close', () => tunnel.sockets.delete(localSocket))
+
+    localSocket.pipe(sshStream).pipe(localSocket)
+
+    localSocket.on('error', () => sshStream.destroy())
+    sshStream.on('error', () => localSocket.destroy())
+  }
+
+  tunnel.remoteTcpHandler = tcpHandler
+  conn.on('tcp connection', tcpHandler as any)
+}
+
+type SocksParseResult =
+  | { status: 'incomplete' }
+  | { status: 'error'; replyCode: number }
+  | { status: 'ok'; host: string; port: number; consumed: number }
+
+const formatIPv6FromBuffer = (buf: Buffer): string => {
+  const blocks: string[] = []
+  for (let i = 0; i < 16; i += 2) {
+    blocks.push(buf.readUInt16BE(i).toString(16))
+  }
+  return blocks.join(':')
+}
+
+const parseSocks5ConnectRequest = (buffer: Buffer): SocksParseResult => {
+  if (buffer.length < 4) return { status: 'incomplete' }
+
+  const ver = buffer[0]
+  const cmd = buffer[1]
+  const atyp = buffer[3]
+  if (ver !== 0x05) return { status: 'error', replyCode: 0x01 }
+  if (cmd !== 0x01) return { status: 'error', replyCode: 0x07 }
+
+  let offset = 4
+  let host = ''
+
+  if (atyp === 0x01) {
+    if (buffer.length < offset + 4 + 2) return { status: 'incomplete' }
+    host = `${buffer[offset]}.${buffer[offset + 1]}.${buffer[offset + 2]}.${buffer[offset + 3]}`
+    offset += 4
+  } else if (atyp === 0x03) {
+    if (buffer.length < offset + 1) return { status: 'incomplete' }
+    const domainLength = buffer[offset]
+    offset += 1
+    if (buffer.length < offset + domainLength + 2) return { status: 'incomplete' }
+    host = buffer.subarray(offset, offset + domainLength).toString('utf8')
+    offset += domainLength
+  } else if (atyp === 0x04) {
+    if (buffer.length < offset + 16 + 2) return { status: 'incomplete' }
+    host = formatIPv6FromBuffer(buffer.subarray(offset, offset + 16))
+    offset += 16
+  } else {
+    return { status: 'error', replyCode: 0x08 }
+  }
+
+  const port = buffer.readUInt16BE(offset)
+  offset += 2
+
+  return {
+    status: 'ok',
+    host,
+    port,
+    consumed: offset
+  }
+}
+
+const startDynamicSocksTunnel = async (conn: Client, tunnel: ActiveSshTunnel): Promise<void> => {
+  const server = net.createServer((socket) => {
+    tunnel.sockets.add(socket)
+    socket.once('close', () => tunnel.sockets.delete(socket))
+
+    let stage: 'greeting' | 'request' | 'proxy' | 'connecting' = 'greeting'
+    let pending = Buffer.alloc(0)
+
+    const writeFailureReply = (replyCode: number) => {
+      socket.write(Buffer.from([0x05, replyCode, 0x00, 0x01, 0, 0, 0, 0, 0, 0]))
+    }
+
+    const handleData = (chunk: Buffer) => {
+      if (stage === 'connecting') {
+        pending = Buffer.concat([pending, chunk])
+        return
+      }
+
+      pending = Buffer.concat([pending, chunk])
+
+      if (stage === 'greeting') {
+        if (pending.length < 2) return
+        const nMethods = pending[1]
+        if (pending.length < 2 + nMethods) return
+        const methods = pending.subarray(2, 2 + nMethods)
+        if (!methods.includes(0x00)) {
+          socket.end(Buffer.from([0x05, 0xff]))
+          return
+        }
+        socket.write(Buffer.from([0x05, 0x00]))
+        pending = pending.subarray(2 + nMethods)
+        stage = 'request'
+      }
+
+      if (stage !== 'request') return
+
+      const parsed = parseSocks5ConnectRequest(pending)
+      if (parsed.status === 'incomplete') return
+      if (parsed.status === 'error') {
+        writeFailureReply(parsed.replyCode)
+        socket.destroy()
+        return
+      }
+
+      const rest = pending.subarray(parsed.consumed)
+      pending = Buffer.alloc(0)
+      stage = 'connecting'
+
+      const srcHost = socket.remoteAddress || '127.0.0.1'
+      const srcPort = socket.remotePort || 0
+
+      conn.forwardOut(srcHost, srcPort, parsed.host, parsed.port, (err, stream) => {
+        if (err || !stream) {
+          writeFailureReply(0x01)
+          socket.destroy()
+          return
+        }
+
+        const sshStream = stream as unknown as Duplex
+        tunnel.streams.add(sshStream)
+        sshStream.once('close', () => tunnel.streams.delete(sshStream))
+        stage = 'proxy'
+
+        socket.off('data', handleData)
+        socket.write(Buffer.from([0x05, 0x00, 0x00, 0x01, 0, 0, 0, 0, 0, 0]))
+
+        if (rest.length > 0) {
+          sshStream.write(rest)
+        }
+        if (pending.length > 0) {
+          sshStream.write(pending)
+          pending = Buffer.alloc(0)
+        }
+
+        socket.pipe(sshStream).pipe(socket)
+
+        socket.on('error', () => sshStream.destroy())
+        sshStream.on('error', () => socket.destroy())
+      })
+    }
+
+    socket.on('data', handleData)
+  })
+
+  tunnel.server = server
+  await listenLocalServer(server, tunnel.localPort)
+}
+
+const startSshTunnel = async (payload: SshTunnelStartPayload): Promise<{ success: boolean; error?: string }> => {
+  const connectionId = String(payload.connectionId || '')
+  const tunnelId = String(payload.tunnelId || '')
+  const type = payload.type
+  const localPort = Number(payload.localPort)
+  const remotePort = payload.remotePort === undefined ? undefined : Number(payload.remotePort)
+
+  if (!connectionId || !tunnelId) {
+    return { success: false, error: 'Invalid tunnel parameters' }
+  }
+  if (!Number.isInteger(localPort) || localPort <= 0 || localPort > 65535) {
+    return { success: false, error: 'Invalid local port' }
+  }
+  if (
+    (type === 'local_forward' || type === 'remote_forward') &&
+    (!Number.isInteger(remotePort) || (remotePort as number) <= 0 || (remotePort as number) > 65535)
+  ) {
+    return { success: false, error: 'Invalid remote port' }
+  }
+
+  const conn = sshConnections.get(connectionId) as Client | undefined
+  if (!conn) {
+    return { success: false, error: 'SSH connection not found' }
+  }
+
+  const existing = sshTunnels.get(tunnelId)
+  if (existing) {
+    await cleanupTunnel(tunnelId)
+  }
+
+  const tunnel = createTunnelEntry({
+    ...payload,
+    localPort,
+    remotePort
+  })
+
+  try {
+    if (type === 'local_forward') {
+      await startLocalForwardTunnel(conn, tunnel)
+    } else if (type === 'remote_forward') {
+      await startRemoteForwardTunnel(conn, tunnel)
+    } else {
+      await startDynamicSocksTunnel(conn, tunnel)
+    }
+
+    sshTunnels.set(tunnelId, tunnel)
+    addTunnelConnectionIndex(connectionId, tunnelId)
+    logger.info('SSH tunnel started', {
+      event: 'ssh.tunnel.start',
+      connectionId,
+      tunnelId,
+      type,
+      localPort,
+      remotePort
+    })
+    return { success: true }
+  } catch (error) {
+    closeTunnelResources(tunnel)
+    const errorMessage = error instanceof Error ? error.message : String(error)
+    logger.error('SSH tunnel start failed', {
+      event: 'ssh.tunnel.start.error',
+      connectionId,
+      tunnelId,
+      type,
+      error: errorMessage
+    })
+    return { success: false, error: errorMessage }
+  }
+}
 
 // Track how a shell session ended so renderer can decide whether to auto reconnect.
 type ShellCloseReason = 'manual' | 'network' | 'unknown'
@@ -879,6 +1318,8 @@ const handleAttemptConnection = async (event, connectionInfo, resolve, reject, r
 
   // Classify unexpected transport close and preserve reason for renderer reconnect logic.
   conn.on('close', () => {
+    void cleanupTunnelsByConnection(id)
+
     if (manualDisconnectSessions.has(id)) {
       logger.info('SSH connection close ignored (manual disconnect)', {
         event: 'ssh.conn.close.manual',
@@ -908,6 +1349,8 @@ const handleAttemptConnection = async (event, connectionInfo, resolve, reject, r
 
   // Some network drops surface as "end"; handle it the same as "close".
   conn.on('end', () => {
+    void cleanupTunnelsByConnection(id)
+
     if (manualDisconnectSessions.has(id)) {
       logger.info('SSH connection end ignored (manual disconnect)', {
         event: 'ssh.conn.end.manual',
@@ -1058,6 +1501,33 @@ export const registerSSHHandlers = () => {
     return new Promise((resolve, reject) => {
       handleAttemptConnection(_event, connectionInfo, resolve, reject, retryCount)
     })
+  })
+
+  ipcMain.handle('ssh:tunnel:start', async (_event, payload: SshTunnelStartPayload) => {
+    return startSshTunnel(payload)
+  })
+
+  ipcMain.handle('ssh:tunnel:stop', async (_event, payload: SshTunnelStopPayload) => {
+    const tunnelId = String(payload?.tunnelId || '')
+    if (!tunnelId) {
+      return { success: false, error: 'Invalid tunnelId' }
+    }
+    try {
+      await cleanupTunnel(tunnelId)
+      logger.info('SSH tunnel stopped', {
+        event: 'ssh.tunnel.stop',
+        tunnelId
+      })
+      return { success: true }
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : String(error)
+      logger.error('SSH tunnel stop failed', {
+        event: 'ssh.tunnel.stop.error',
+        tunnelId,
+        error: errorMessage
+      })
+      return { success: false, error: errorMessage }
+    }
   })
 
   ipcMain.handle('ssh:sftp:conn:check', async (_event, { id }) => {
@@ -1658,6 +2128,9 @@ export const registerSSHHandlers = () => {
       event: 'ssh.disconnect.start',
       connectionId: id
     })
+
+    await cleanupTunnelsByConnection(id)
+
     // Check if it's a JumpServer connection
     if (jumpserverConnections.has(id)) {
       const stream = jumpserverShellStreams.get(id)

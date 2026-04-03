@@ -47,6 +47,126 @@ describe('InteractionDetector TUI Conditional Auto-Cancel', () => {
     })
   })
 
+  describe('Shell-Spawning Command Classification', () => {
+    it('should classify sudo su as always-TUI', () => {
+      detector = new InteractionDetector('sudo su', 'cmd-su-1', testConfig)
+      // sudo su is always-TUI, hard timeout should be started
+      const state = detector.getState()
+      expect(state.isSuppressed).toBe(false)
+    })
+
+    it('should classify sudo su root as always-TUI', () => {
+      detector = new InteractionDetector('sudo su root', 'cmd-su-2', testConfig)
+      const state = detector.getState()
+      expect(state.isSuppressed).toBe(false)
+    })
+
+    it('should classify bare su as always-TUI', () => {
+      detector = new InteractionDetector('su', 'cmd-su-3', testConfig)
+      const state = detector.getState()
+      expect(state.isSuppressed).toBe(false)
+    })
+
+    it('should classify su - as always-TUI', () => {
+      detector = new InteractionDetector('su -', 'cmd-su-4', testConfig)
+      const state = detector.getState()
+      expect(state.isSuppressed).toBe(false)
+    })
+
+    it('should classify su root as always-TUI', () => {
+      detector = new InteractionDetector('su root', 'cmd-su-5', testConfig)
+      const state = detector.getState()
+      expect(state.isSuppressed).toBe(false)
+    })
+
+    it('should auto-cancel sudo su via hard timeout', () => {
+      vi.useFakeTimers()
+
+      const hardTimeoutConfig: InteractionDetectorConfig = {
+        ...testConfig,
+        tuiCancelSilenceMs: 5000,
+        tuiHardTimeoutMs: 200
+      }
+      detector = new InteractionDetector('sudo su', 'cmd-su-6', hardTimeoutConfig)
+      const tuiDetectedHandler = vi.fn()
+      detector.on('tui-detected', tuiDetectedHandler)
+
+      vi.advanceTimersByTime(201)
+      expect(tuiDetectedHandler).toHaveBeenCalledWith(
+        expect.objectContaining({
+          commandId: 'cmd-su-6'
+        })
+      )
+    })
+
+    it('should not treat bash -c as TUI (non-interactive)', () => {
+      detector = new InteractionDetector('bash -c "echo hello"', 'cmd-sh-1', testConfig)
+      const tuiDetectedHandler = vi.fn()
+      detector.on('tui-detected', tuiDetectedHandler)
+
+      detector.onOutput('\x1b[?1049h')
+      expect(tuiDetectedHandler).not.toHaveBeenCalled()
+    })
+
+    it('should not treat sh script.sh as TUI (non-interactive)', () => {
+      detector = new InteractionDetector('sh deploy.sh', 'cmd-sh-2', testConfig)
+      const tuiDetectedHandler = vi.fn()
+      detector.on('tui-detected', tuiDetectedHandler)
+
+      detector.onOutput('\x1b[?1049h')
+      expect(tuiDetectedHandler).not.toHaveBeenCalled()
+    })
+
+    it('should not treat bash /path/to/script as TUI (non-interactive)', () => {
+      detector = new InteractionDetector('bash /usr/local/bin/setup', 'cmd-sh-3', testConfig)
+      const tuiDetectedHandler = vi.fn()
+      detector.on('tui-detected', tuiDetectedHandler)
+
+      detector.onOutput('\x1b[?1049h')
+      expect(tuiDetectedHandler).not.toHaveBeenCalled()
+    })
+
+    it('should auto-cancel bare bash via hard timeout', () => {
+      vi.useFakeTimers()
+
+      const hardTimeoutConfig: InteractionDetectorConfig = {
+        ...testConfig,
+        tuiCancelSilenceMs: 5000,
+        tuiHardTimeoutMs: 200
+      }
+      detector = new InteractionDetector('bash', 'cmd-sh-4', hardTimeoutConfig)
+      const tuiDetectedHandler = vi.fn()
+      detector.on('tui-detected', tuiDetectedHandler)
+
+      vi.advanceTimersByTime(201)
+      expect(tuiDetectedHandler).toHaveBeenCalledWith(
+        expect.objectContaining({
+          commandId: 'cmd-sh-4'
+        })
+      )
+    })
+
+    it('should auto-cancel bare zsh via hard timeout', () => {
+      vi.useFakeTimers()
+
+      const hardTimeoutConfig: InteractionDetectorConfig = {
+        ...testConfig,
+        tuiCancelSilenceMs: 5000,
+        tuiHardTimeoutMs: 200
+      }
+      detector = new InteractionDetector('zsh', 'cmd-sh-5', hardTimeoutConfig)
+      const tuiDetectedHandler = vi.fn()
+      detector.on('tui-detected', tuiDetectedHandler)
+
+      vi.advanceTimersByTime(201)
+      expect(tuiDetectedHandler).toHaveBeenCalledWith(
+        expect.objectContaining({
+          commandId: 'cmd-sh-5'
+        })
+      )
+    })
+  })
+
   describe('Conditional TUI with Non-Interactive Arguments', () => {
     it('should not treat top -n 1 as TUI (has non-interactive args)', () => {
       detector = new InteractionDetector('top -n 1', 'cmd-5', testConfig)

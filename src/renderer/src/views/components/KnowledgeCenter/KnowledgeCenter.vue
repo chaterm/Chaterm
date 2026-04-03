@@ -62,6 +62,8 @@
           class="kb-tree-scroll"
           :class="{ 'scrollbar-visible': isTreeScrolling }"
           @scroll="handleTreeScroll"
+          @drop.capture="handleTreeAreaDrop"
+          @dragover.prevent
         >
           <a-directory-tree
             v-model:expanded-keys="expandedKeys"
@@ -1198,6 +1200,16 @@ function handleMenuClick({ key }: { key: string }) {
   }
 }
 
+function handleTreeAreaDrop(e: DragEvent) {
+  // Only intercept external file drops (from OS file manager),
+  // let internal tree node drags pass through to onDrop handler
+  if (e.dataTransfer?.files && e.dataTransfer.files.length > 0) {
+    e.stopPropagation()
+    e.preventDefault()
+    handleDropImport(e)
+  }
+}
+
 async function handleDropImport(e: DragEvent) {
   const files = e.dataTransfer?.files
   if (!files || files.length === 0) return
@@ -1205,7 +1217,7 @@ async function handleDropImport(e: DragEvent) {
   const t = treeNodeType(target)
   const dstRelDir = t === 'dir' ? target : getDirOf(target)
   for (const f of Array.from(files)) {
-    const p = (f as File & { path: string }).path
+    const p = api.getPathForFile(f) as string | undefined
     if (p) {
       const pathInfo = await api.kbCheckPath(p)
       if (pathInfo.isDirectory) {

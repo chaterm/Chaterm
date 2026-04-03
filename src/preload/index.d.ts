@@ -190,6 +190,14 @@ interface ApiType {
   openBrowserWindow: (url: string) => Promise<void>
   connect: (connectionInfo: any) => Promise<any>
   forkSession: (params: { sourceConnectionId: string; newConnectionId: string; host: string; port: number; username: string }) => Promise<any>
+  startSshTunnel: (params: {
+    connectionId: string
+    tunnelId: string
+    type: 'local_forward' | 'remote_forward' | 'dynamic_socks'
+    localPort: number
+    remotePort?: number
+  }) => Promise<{ success: boolean; error?: string }>
+  stopSshTunnel: (params: { tunnelId: string }) => Promise<{ success: boolean; error?: string }>
   shell: (params: any) => Promise<any>
   writeToShell: (params: any) => Promise<any>
   disconnect: (params: any) => Promise<any>
@@ -371,6 +379,7 @@ interface ApiType {
     srcAbsPath: string
   }) => Promise<{ mode: 'as_is'; refPath: string } | { mode: 'offload'; refPath: string }>
 
+  getPathForFile: (file: File) => string
   kbCheckPath: (absPath: string) => Promise<{ exists: boolean; isDirectory: boolean; isFile: boolean }>
   kbEnsureRoot: () => Promise<{ success: boolean }>
   kbGetRoot: () => Promise<{ root: string }>

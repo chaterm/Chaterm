@@ -151,6 +151,7 @@
                 <a-select-option value="none">{{ $t('user.none') }}</a-select-option>
                 <a-select-option value="paste">{{ $t('user.pasteClipboard') }}</a-select-option>
                 <a-select-option value="contextMenu">{{ $t('user.showContextMenu') }}</a-select-option>
+                <a-select-option value="closeTab">{{ $t('user.closeCurrentTab') }}</a-select-option>
               </a-select>
             </div>
             <div class="mouse-event-row">
