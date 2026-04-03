@@ -1597,6 +1597,7 @@ const openTerminalFromXshellWakeup = (payload: XshellWakeupPayload) => {
   const targetHint = String(payload.targetHint || '')
   const title = targetHint || `${username}@${host}`
   const key = targetHint || host
+  const wakeupNewTab = payload.newTab === true
 
   const node = {
     title,
@@ -1616,6 +1617,8 @@ const openTerminalFromXshellWakeup = (payload: XshellWakeupPayload) => {
     comment: targetHint || host,
     source: payload.source || 'xshell-direct',
     wakeupSource: payload.source || 'xshell-direct',
+    wakeupNewTab,
+    disablePoolReuse: true,
     skipAssetLookup: true
   }
 

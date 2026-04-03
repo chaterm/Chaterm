@@ -295,6 +295,8 @@ export interface sshConnectData {
   comment?: string
   source?: string
   wakeupSource?: string
+  wakeupNewTab?: boolean
+  disablePoolReuse?: boolean
   skipAssetLookup?: boolean
   forkFromConnectionId?: string
 }
@@ -1637,6 +1639,12 @@ const connectSSH = async (_opts?: { isAutoReconnect?: boolean }) => {
         }
 
         const jmsToken = ref(localStorage.getItem('jms-token'))
+        const isWakeupSession = Boolean(
+          props.connectData.wakeupSource ||
+          String(props.connectData.source || '')
+            .toLowerCase()
+            .startsWith('xshell')
+        )
 
         const connData: any = {
           id: connectionId.value, // Session ID (unique for each tab)
@@ -1660,6 +1668,9 @@ const connectSSH = async (_opts?: { isAutoReconnect?: boolean }) => {
           proxyCommand: props.connectData.proxyCommand || '',
           source: props.connectData.source || '',
           wakeupSource: props.connectData.wakeupSource || props.connectData.source || '',
+          wakeupNewTab: props.connectData.wakeupNewTab === true,
+          wakeupTabId: props.connectData.wakeupSource ? props.connectData.uuid : '',
+          disablePoolReuse: props.connectData.disablePoolReuse === true || props.connectData.wakeupNewTab === true || isWakeupSession,
           disablePostConnectProbe: skipAssetLookup
         }
         connData.needProxy = assetInfo?.need_proxy === 1 || false

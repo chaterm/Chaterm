@@ -99,6 +99,7 @@ export interface ConnectionInfo {
   proxyName?: string
   ident?: string
   proxyCommand?: string
+  wakeupTabId?: string
 }
 
 export interface RemoteTerminalInfo {
