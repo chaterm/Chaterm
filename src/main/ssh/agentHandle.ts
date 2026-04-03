@@ -44,7 +44,9 @@ export async function remoteSshConnect(connectionInfo: ConnectionInfo): Promise<
   })
 
   if (normalizedHost && normalizedUsername) {
-    const reusable = getReusableSshConnection(normalizedHost, normalizedPort, normalizedUsername)
+    const reusable = getReusableSshConnection(normalizedHost, normalizedPort, normalizedUsername, {
+      wakeupTabId: connectionInfo.wakeupTabId
+    })
     if (reusable) {
       remoteConnections.set(connectionId, reusable.conn)
       reusedRemoteSessions.set(connectionId, { poolKey: reusable.poolKey })

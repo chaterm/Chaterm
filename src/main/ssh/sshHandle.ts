@@ -93,12 +93,19 @@ interface ReusableConnection {
   port: number
   username: string
   hasMfaAuth: boolean // Flag indicating whether MFA authentication has been completed
+  isWakeupConnection?: boolean // Whether this pool record is from wakeup flow
+  wakeupTabId?: string // Unique wakeup tab identifier (xshell-xxx)
+  createdAt: number // Used to pick the newest reusable wakeup connection
 }
 export const sshConnectionPool = new Map<string, ReusableConnection>()
 
 // Generate unique key for connection pool
 export const getConnectionPoolKey = (host: string, port: number, username: string): string => {
   return `${host}:${port}:${username}`
+}
+
+export const getWakeupConnectionPoolKey = (host: string, port: number, username: string, wakeupTabId: string): string => {
+  return `${getConnectionPoolKey(host, port, username)}:wakeup:${wakeupTabId}`
 }
 
 interface SftpConnectionInfo {
@@ -711,13 +718,43 @@ const connectionEvents = new EventEmitter()
 // Cache
 export const keyboardInteractiveOpts = new Map<string, string[]>()
 
-export const getReusableSshConnection = (host: string, port: number, username: string) => {
-  const poolKey = getConnectionPoolKey(host, port, username)
-  const reusableConn = sshConnectionPool.get(poolKey)
-  if (!reusableConn || !reusableConn.hasMfaAuth) {
+const pickLatestReusablePoolEntry = (entries: Array<[string, ReusableConnection]>): [string, ReusableConnection] | null => {
+  if (entries.length === 0) return null
+
+  let selected = entries[0]
+  for (const current of entries) {
+    if ((current[1].createdAt || 0) > (selected[1].createdAt || 0)) {
+      selected = current
+    }
+  }
+  return selected
+}
+
+export const getReusableSshConnection = (host: string, port: number, username: string, options?: { wakeupTabId?: string }) => {
+  const normalizedPort = port || 22
+  const requestedWakeupTabId = typeof options?.wakeupTabId === 'string' ? options.wakeupTabId.trim() : ''
+  const matchedEntries: Array<[string, ReusableConnection]> = []
+
+  for (const [key, entry] of sshConnectionPool) {
+    if (!entry?.hasMfaAuth) continue
+    if (entry.host !== host || entry.port !== normalizedPort || entry.username !== username) continue
+    matchedEntries.push([key, entry])
+  }
+
+  if (matchedEntries.length === 0) {
     return null
   }
 
+  // Non-wakeup requests must only hit non-wakeup pool entries.
+  // Wakeup requests (wakeupTabId provided) must only hit exact wakeup entries.
+  const selectedEntries = requestedWakeupTabId
+    ? matchedEntries.filter(([, entry]) => entry.isWakeupConnection && entry.wakeupTabId === requestedWakeupTabId)
+    : matchedEntries.filter(([, entry]) => !entry.isWakeupConnection)
+
+  const selected = pickLatestReusablePoolEntry(selectedEntries)
+  if (!selected) return null
+
+  const [poolKey, reusableConn] = selected
   const client = reusableConn.conn as Client | undefined
   if (!client || (client as any)?._sock?.destroyed) {
     sshConnectionPool.delete(poolKey)
@@ -759,16 +796,37 @@ export const registerReusableSshSession = (poolKey: string, sessionId: string) =
 // Find a wakeup (MFA-authed) connection in the pool by host IP.
 // Returns { host, port, username } so the agent can build a ConnectionInfo
 // when the asset UUID is not in the database (wakeup-created tabs).
-export const findWakeupConnectionInfoByHost = (host: string): { host: string; port: number; username: string } | null => {
-  for (const [, entry] of sshConnectionPool) {
-    if (entry.hasMfaAuth && entry.host === host) {
-      const client = entry.conn as Client | undefined
-      if (client && !(client as any)?._sock?.destroyed) {
-        return { host: entry.host, port: entry.port, username: entry.username }
-      }
+export const findWakeupConnectionInfoByHost = (
+  host: string,
+  options?: { wakeupTabId?: string }
+): { host: string; port: number; username: string; wakeupTabId?: string } | null => {
+  const requestedWakeupTabId = typeof options?.wakeupTabId === 'string' ? options.wakeupTabId.trim() : ''
+  const matchedEntries: Array<[string, ReusableConnection]> = []
+
+  for (const [key, entry] of sshConnectionPool) {
+    if (!entry.hasMfaAuth || !entry.isWakeupConnection || entry.host !== host) continue
+
+    const client = entry.conn as Client | undefined
+    if (!client || (client as any)?._sock?.destroyed) {
+      sshConnectionPool.delete(key)
+      continue
     }
+    matchedEntries.push([key, entry])
   }
-  return null
+
+  if (matchedEntries.length === 0) return null
+
+  const exactWakeupEntries = requestedWakeupTabId ? matchedEntries.filter(([, entry]) => entry.wakeupTabId === requestedWakeupTabId) : []
+  const selected = pickLatestReusablePoolEntry(exactWakeupEntries.length > 0 ? exactWakeupEntries : matchedEntries)
+  if (!selected) return null
+
+  const [, entry] = selected
+  return {
+    host: entry.host,
+    port: entry.port,
+    username: entry.username,
+    wakeupTabId: entry.wakeupTabId
+  }
 }
 
 export const releaseReusableSshSession = (poolKey: string, sessionId: string) => {
@@ -1076,30 +1134,35 @@ const handleAttemptConnection = async (event, connectionInfo, resolve, reject, r
   const identToken = connIdentToken ? `_t=${connIdentToken}` : ''
   const ident = `${packageInfo.name}_${packageInfo.version}` + identToken
 
-  // Check connection reuse pool: only attempt reuse when using keyboard-interactive authentication
-  const poolKey = getConnectionPoolKey(host, port || 22, username)
-  const reusableConn = sshConnectionPool.get(poolKey)
+  const isWakeupConnectionRequest = !!connectionInfo.wakeupSource
+  const shouldBypassPoolReuse = connectionInfo?.disablePoolReuse === true || connectionInfo?.wakeupNewTab === true || isWakeupConnectionRequest
 
-  if (reusableConn && reusableConn.hasMfaAuth) {
-    logger.info('Detected reusable MFA connection', { event: 'ssh.reuse', connectionId: id })
+  // Check connection reuse pool unless this request explicitly disables reuse.
+  if (!shouldBypassPoolReuse) {
+    const reusable = getReusableSshConnection(host, port || 22, username, {
+      wakeupTabId: connectionInfo?.wakeupTabId
+    })
+    if (reusable) {
+      logger.info('Detected reusable MFA connection', { event: 'ssh.reuse', connectionId: id })
 
-    // Use existing connection
-    const conn = reusableConn.conn
+      // Use existing connection
+      const conn = reusable.conn
 
-    // Mark current session as connected
-    sshConnections.set(id, conn)
-    connectionStatus.set(id, { isVerified: true })
-    reusableConn.sessions.add(id)
+      // Mark current session as connected
+      sshConnections.set(id, conn)
+      connectionStatus.set(id, { isVerified: true })
+      registerReusableSshSession(reusable.poolKey, id)
 
-    // Trigger connection success event
-    connectionEvents.emit(`connection-status-changed:${id}`, { isVerified: true })
+      // Trigger connection success event
+      connectionEvents.emit(`connection-status-changed:${id}`, { isVerified: true })
 
-    // Execute secondary connection (sudo check, SFTP, etc.)
-    attemptSecondaryConnection(event, connectionInfo, conn)
+      // Execute secondary connection (sudo check, SFTP, etc.)
+      attemptSecondaryConnection(event, connectionInfo, conn)
 
-    logger.info('Successfully reused MFA connection', { event: 'ssh.reuse.success', connectionId: id })
-    resolve({ status: 'connected', message: 'Connection successful (reused)' })
-    return
+      logger.info('Successfully reused MFA connection', { event: 'ssh.reuse.success', connectionId: id })
+      resolve({ status: 'connected', message: 'Connection successful (reused)' })
+      return
+    }
   }
 
   const conn = new Client()
@@ -1114,13 +1177,17 @@ const handleAttemptConnection = async (event, connectionInfo, resolve, reject, r
     // Must check before attemptSecondaryConnection as it will clear keyboardInteractiveOpts
     const hasKeyboardInteractive = keyboardInteractiveOpts.has(id)
     const isWakeupConnection = !!connectionInfo.wakeupSource
+    const wakeupTabId = typeof connectionInfo?.wakeupTabId === 'string' ? connectionInfo.wakeupTabId.trim() : ''
     const shouldSaveToPool = hasKeyboardInteractive || isWakeupConnection
 
     // Save to connection pool for future agent reuse when:
     // 1. keyboard-interactive (MFA/OTP) authentication was used, OR
     // 2. this is a wakeup connection (password auth but needs agent reuse)
     if (shouldSaveToPool) {
-      const poolKey = getConnectionPoolKey(host, port || 22, username)
+      const poolKey =
+        isWakeupConnection && wakeupTabId
+          ? getWakeupConnectionPoolKey(host, port || 22, username, wakeupTabId)
+          : getConnectionPoolKey(host, port || 22, username)
       logger.info('Saving connection to pool', { event: 'ssh.pool.save', reason: isWakeupConnection ? 'wakeup' : 'keyboard-interactive' })
 
       sshConnectionPool.set(poolKey, {
@@ -1129,7 +1196,10 @@ const handleAttemptConnection = async (event, connectionInfo, resolve, reject, r
         host: host,
         port: port || 22,
         username: username,
-        hasMfaAuth: true
+        hasMfaAuth: true,
+        isWakeupConnection: isWakeupConnection,
+        wakeupTabId: isWakeupConnection ? wakeupTabId || undefined : undefined,
+        createdAt: Date.now()
       })
 
       // Listen for connection close event to clean up connection pool
@@ -2039,7 +2109,9 @@ export const registerSSHHandlers = () => {
         host,
         port: port || 22,
         username,
-        hasMfaAuth: false
+        hasMfaAuth: false,
+        isWakeupConnection: false,
+        createdAt: Date.now()
       })
     }
 

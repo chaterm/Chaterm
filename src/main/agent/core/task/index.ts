@@ -1041,19 +1041,22 @@ export class Task {
       // can match it via getReusableSshConnection(host, port, username).
       // See sshHandle.ts and agentHandle.ts for the full wakeup technical route.
       if (!connectionInfo && targetHost.host) {
-        const wakeupInfo = findWakeupConnectionInfoByHost(targetHost.host)
+        const wakeupTabId = targetHost.uuid?.startsWith('xshell-') ? targetHost.uuid : undefined
+        const wakeupInfo = findWakeupConnectionInfoByHost(targetHost.host, { wakeupTabId })
         if (wakeupInfo) {
           connectionInfo = {
             host: wakeupInfo.host,
             port: wakeupInfo.port,
             username: wakeupInfo.username,
+            wakeupTabId: wakeupInfo.wakeupTabId || wakeupTabId,
             password: 'WAKEUP_REUSE',
             needProxy: false
           } as any
           logger.info('Using wakeup connection info from MFA pool', {
             event: 'agent.task.wakeup.fallback',
             host: wakeupInfo.host,
-            username: wakeupInfo.username
+            username: wakeupInfo.username,
+            hasWakeupTabId: !!(wakeupInfo.wakeupTabId || wakeupTabId)
           })
         }
       }
