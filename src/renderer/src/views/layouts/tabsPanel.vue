@@ -31,6 +31,7 @@
       <div
         class="tabs-content"
         :class="{ 'transparent-bg': isTransparent }"
+        style="height: 100%; width: 100%"
       >
         <template v-if="localTab.organizationId && localTab.organizationId !== ''">
           <sshConnect
