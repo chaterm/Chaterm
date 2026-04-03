@@ -323,6 +323,7 @@ defineExpose({
   flex-direction: column;
   height: 100%;
   overflow: hidden;
+  background-color: var(--bg-color);
 }
 
 .tabs-bar {
