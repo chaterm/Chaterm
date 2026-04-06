@@ -78,7 +78,7 @@
     "diff": "^8.0.4",
     "dockview-core": "^4.13.1",
     "dockview-vue": "^4.11.0",
-    "dotenv": "^17.4.0",
+    "dotenv": "^17.4.1",
     "electron-log": "^5.4.3",
     "electron-updater": "^6.8.3",
     "execa": "^9.6.1",
