@@ -97,6 +97,7 @@
               :field-names="{ children: 'children', title: 'title', key: 'key' }"
               :virtual="true"
               :height="treeHeight"
+              block-node
               class="dark-tree"
               @select="handleSelect"
               @expand="onTreeExpand"
@@ -178,6 +179,7 @@
               :field-names="{ children: 'children', title: 'title', key: 'key' }"
               :virtual="true"
               :height="treeHeight"
+              block-node
               class="dark-tree"
               @select="handleSelect"
               @expand="onTreeExpand"
@@ -2446,6 +2448,13 @@ onUnmounted(() => {
 :deep(.dark-tree) {
   background-color: transparent;
   height: auto !important;
+  min-width: 0;
+
+  // Virtual list: avoid horizontal scrollbar when row content is long (flex-start uses intrinsic width).
+  .ant-tree-list-holder {
+    overflow-x: hidden !important;
+  }
+
   .ant-tree-node-content-wrapper,
   .ant-tree-title,
   .ant-tree-switcher,
@@ -2454,7 +2463,17 @@ onUnmounted(() => {
   }
 
   .ant-tree-node-content-wrapper {
+    display: flex;
+    align-items: center;
     width: 100%;
+    min-width: 0;
+    flex: 1 1 auto;
+  }
+
+  .ant-tree-title {
+    flex: 1 1 auto;
+    min-width: 0;
+    overflow: hidden;
   }
 
   .ant-tree-switcher {
@@ -2474,6 +2493,9 @@ onUnmounted(() => {
 
   .ant-tree-treenode {
     width: 100%;
+    max-width: 100%;
+    min-width: 0;
+    box-sizing: border-box;
     &:hover {
       background-color: var(--hover-bg-color);
     }
