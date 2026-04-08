@@ -532,16 +532,18 @@ onMounted(async () => {
               foreground: '#000000',
               cursor: '#000000',
               cursorAccent: '#f5f5f5',
-              selectionBackground: '#add6ff80',
-              selectionInactiveBackground: '#add6ff5a'
+              selectionBackground: 'rgba(255, 247, 0, 0.82)',
+              selectionInactiveBackground: 'rgba(255, 247, 0, 0.5)',
+              selectionForeground: '#141414'
             }
           : {
               background: config.background?.image ? 'transparent' : '#141414',
               foreground: '#e0e0e0',
               cursor: '#e0e0e0',
               cursorAccent: '#141414',
-              selectionBackground: 'rgba(255, 255, 255, 0.3)',
-              selectionInactiveBackground: 'rgba(255, 255, 255, 0.2)'
+              selectionBackground: 'rgba(255, 255, 0, 0.88)',
+              selectionInactiveBackground: 'rgba(255, 255, 0, 0.55)',
+              selectionForeground: '#141414'
             }
     })
   )
@@ -855,16 +857,18 @@ onMounted(async () => {
               foreground: '#000000',
               cursor: '#000000',
               cursorAccent: '#f5f5f5',
-              selectionBackground: '#add6ff80',
-              selectionInactiveBackground: '#add6ff5a'
+              selectionBackground: 'rgba(255, 247, 0, 0.82)',
+              selectionInactiveBackground: 'rgba(255, 247, 0, 0.5)',
+              selectionForeground: '#141414'
             }
           : {
               background: configStore.getUserConfig.background.image ? 'transparent' : '#141414',
               foreground: '#e0e0e0',
               cursor: '#e0e0e0',
               cursorAccent: '#141414',
-              selectionBackground: 'rgba(255, 255, 255, 0.3)',
-              selectionInactiveBackground: 'rgba(255, 255, 255, 0.2)'
+              selectionBackground: 'rgba(255, 255, 0, 0.88)',
+              selectionInactiveBackground: 'rgba(255, 255, 0, 0.55)',
+              selectionForeground: '#141414'
             }
     }
   }
