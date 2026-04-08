@@ -4,6 +4,10 @@
 <br>
 
 <p align="center">
+  <a href="https://www.producthunt.com/products/novavoice?embed=true&utm_source=badge-featured&utm_medium=badge&utm_campaign=badge-novavoice"><img src="https://api.producthunt.com/widgets/embed-image/v1/featured.svg?post_id=1108293&theme=light&t=1769347414733" alt="Product Hunt" /></a>
+</p>
+
+<p align="center">
   <a href="https://www.tbench.ai/leaderboard/terminal-bench/1.0"><img src="https://img.shields.io/badge/Terminal--Bench-Ranked_%232-00D94E?style=for-the-badge&logo=github&logoColor=white" alt="Terminal-Bench"></a>
   <a href="https://aws.amazon.com/cn/blogs/china/chaterm-aws-kms-envelope-encryption-for-zero-trust-security-en/"><img src="https://img.shields.io/badge/AWS-Security-FF9900?style=for-the-badge&logo=amazon-aws&logoColor=white&labelColor=232F3E" alt="AWS Security"></a>
   <a href="https://landscape.cncf.io/?item=provisioning--automation-configuration--chaterm"><img src="https://img.shields.io/badge/CNCF-Landscape-0086FF?style=for-the-badge&logo=kubernetes&logoColor=white" alt="CNCF Landscape"></a>
@@ -102,7 +106,7 @@ Chaterm 不仅仅是一个更智能的终端，它是一个基础设施代理。
 - 🔌 **插件系统**
 
   通过插件扩展，实现对公有云服务器与 Kubernetes 的统一认证、动态授权与安全加密连接。
-  
+
   提供更高效的资源访问体验，助力基础设施的集中化管理。
 
 ![Preview image](resources/features.webp)
