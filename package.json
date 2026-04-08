@@ -54,7 +54,7 @@
   },
   "dependencies": {
     "@ant-design/icons-vue": "^7.0.1",
-    "@anthropic-ai/bedrock-sdk": "^0.27.0",
+    "@anthropic-ai/bedrock-sdk": "^0.28.0",
     "@anthropic-ai/sdk": "^0.72.1",
     "@aws-crypto/client-node": "^4.2.2",
     "@aws-sdk/client-bedrock-runtime": "^3.1025.0",
