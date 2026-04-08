@@ -48,7 +48,8 @@
   - [Achieving Secure and Intelligent Operations for AWS Private Subnets Using Chaterm](https://aws.amazon.com/cn/blogs/china/bastion-using-aws-eice-ec2-instance-connect-endpoint-chaterm-implement-subnet-security-intelligent-en/)
   - [How Chaterm’s Security Architecture Ensures Data Security and Reliability](https://aws.amazon.com/cn/blogs/china/chaterm-aws-kms-envelope-encryption-for-zero-trust-security-en/)
   - [Enhancing DevOps Intelligence with Chaterm Skills and Qwen Models](https://chaterm.ai/blog/posts/agent-skills)
-- [コントリビューター](#コントリビューター)
+- [Gold Sponsors](#gold-sponsors)
+- [Contributors](#contributors)
 
 # 製品紹介
 
@@ -145,7 +146,11 @@ npm run build:mac
 npm run build:linux
 ```
 
-## コントリビューター
+## Gold Sponsors
+
+![Preview image](resources/aws.webp) ![Preview image](resources/aliyun.webp)
+
+## Contributors
 
 Chatermへの貢献ありがとうございます！
 詳細については<a href="./CONTRIBUTING.md">貢献ガイド</a>をご参照ください。
