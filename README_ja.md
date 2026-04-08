@@ -141,7 +141,11 @@ npm run build:mac
 npm run build:linux
 ```
 
-## コントリビューター
+## Gold Sponsors
+
+![Preview image](resources/aws.webp)
+
+## Contributors
 
 Chatermへの貢献ありがとうございます！
 詳細については<a href="./CONTRIBUTING.md">貢献ガイド</a>をご参照ください。

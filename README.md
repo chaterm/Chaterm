@@ -141,6 +141,10 @@ npm run build:mac
 npm run build:linux
 ```
 
+## Gold Sponsors
+
+![Preview image](resources/aws.webp)
+
 ## Contributors
 
 Thank you for your contribution!

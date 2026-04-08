@@ -153,6 +153,10 @@ npm run build:mac
 npm run build:linux
 ```
 
+## Gold Sponsors
+
+![Preview image](resources/aws.webp)
+
 ## Contributors
 
 感谢您为Chaterm做出贡献！请参阅<a href="./CONTRIBUTING_zh.md">贡献指南</a>获取更多信息。
