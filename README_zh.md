@@ -4,8 +4,7 @@
 <br>
 
 <p align="center">
-  <a href="https://www.producthunt.com/products/chaterm?utm_source=badge-follow&utm_medium=badge&utm_source=badge-chaterm" target="_blank"><img src="https://api.producthunt.com/widgets/embed-image/v1/follow.svg?product_id=1200057&theme=light" alt="Chatermb| Product Hunt" style="width: 250px; height: 54px;" width="250" height="54" /></a>
-  <a href="https://www.producthunt.com/products/chaterm/reviews/new?utm_source=badge-product_review&utm_medium=badge&utm_source=badge-chaterm" target="_blank"><img src="https://api.producthunt.com/widgets/embed-image/v1/product_review.svg?product_id=1200057&theme=light" alt="Chaterm - Deploy&#0044;&#0032;fix&#0044;&#0032;and&#0032;automate&#0032;your&#0032;infra&#0032;in&#0032;one&#0032;terminal&#0046; | Product Hunt" style="width: 250px; height: 54px;" width="250" height="54" /></a>
+ <a href="https://www.producthunt.com/products/chaterm?embed=true&utm_source=badge-featured&utm_medium=badge&utm_campaign=badge-chaterm" target="_blank" rel="noopener noreferrer"><img alt="Chaterm - Deploy, fix, and automate your infra in one terminal. | Product Hunt" width="250" height="54" src="https://api.producthunt.com/widgets/embed-image/v1/featured.svg?post_id=1118502&theme=light&t=1775636165729"></a>
 </p>
 
 <p align="center">
