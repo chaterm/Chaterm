@@ -144,7 +144,7 @@ npm run build:linux
 
 ## Gold Sponsors
 
-![Preview image](resources/aws.webp)
+![Preview image](resources/aws.webp) ![Preview image](resources/aliyun.webp)
 
 ## Contributors
 
