@@ -156,6 +156,6 @@ Please refer to the <a href="./CONTRIBUTING.md">Contribution Guide</a> for more 
 
 <div align=center style="margin-top: 30px;">
   <a href="https://github.com/chaterm/Chaterm/graphs/contributors">
-    <img src="https://contrib.rocks/image?repo=chaterm/Chaterm" />
+    <img src="https://contrib.rocks/image?repo=chaterm/Chaterm&refresh=true" />
   </a>
 </div>
