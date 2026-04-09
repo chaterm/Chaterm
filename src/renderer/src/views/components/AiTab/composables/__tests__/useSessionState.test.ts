@@ -26,6 +26,7 @@ describe('useSessionState', () => {
         isExecutingCommand: false,
         lastStreamMessage: null,
         lastPartialMessage: null,
+        lastStateChatermMessages: null,
         shouldStickToBottom: true,
         isCancelled: false
       })
@@ -439,6 +440,38 @@ describe('useSessionState', () => {
 
       expect(filteredChatHistory.value).toHaveLength(2)
       expect(filteredChatHistory.value.find((msg) => msg.say === 'sshInfo')).toBeUndefined()
+    })
+
+    it('should hide api_req_started messages from rendered chat history', () => {
+      const { chatTabs, currentChatId, filteredChatHistory, createEmptySessionState } = useSessionState()
+      const messages: ChatMessage[] = [
+        { id: '1', role: 'user', content: '1' },
+        {
+          id: '2',
+          role: 'assistant',
+          content: '{"request":"...","tokensIn":100,"tokensOut":20,"contextWindow":128000}',
+          say: 'api_req_started'
+        },
+        { id: '3', role: 'assistant', content: 'reply', say: 'text' }
+      ]
+      const session = createEmptySessionState()
+      session.chatHistory = messages
+      chatTabs.value = [
+        {
+          id: 'tab-1',
+          title: 'Test',
+          hosts: [],
+          chatType: 'agent',
+          autoUpdateHost: true,
+          session,
+          modelValue: '',
+          welcomeTip: ''
+        }
+      ]
+      currentChatId.value = 'tab-1'
+
+      expect(filteredChatHistory.value.find((msg) => msg.say === 'api_req_started')).toBeUndefined()
+      expect(filteredChatHistory.value).toHaveLength(2)
     })
   })
 

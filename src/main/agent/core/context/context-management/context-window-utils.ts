@@ -22,6 +22,9 @@ export function getContextWindowInfo(api: ApiHandler) {
   //     contextWindow = 64_000
   //   }
 
+  // DEBUG: Uncomment the next line to force truncation after ~5k tokens (for testing)
+  // return { contextWindow, maxAllowedSize: 20_000 }
+
   let maxAllowedSize: number
   switch (contextWindow) {
     case 64_000: // deepseek models
@@ -34,7 +37,7 @@ export function getContextWindowInfo(api: ApiHandler) {
       maxAllowedSize = contextWindow - 40_000
       break
     default:
-      maxAllowedSize = Math.max(contextWindow - 40_000, contextWindow * 0.8) // for deepseek, 80% of 64k meant only ~10k buffer which was too small and resulted in users getting context window errors.
+      maxAllowedSize = Math.max(contextWindow - 40_000, contextWindow * 0.8)
   }
 
   return { contextWindow, maxAllowedSize }

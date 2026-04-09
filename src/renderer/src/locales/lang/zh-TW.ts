@@ -966,7 +966,8 @@ export default {
     deselectAll: '取消全選',
     clearSelection: '清空',
     addSelected: '新增所選({count})',
-    switchNotSupportAgent: '網路設備不支持 Agent 模式，已自動切換為 Command 模式'
+    switchNotSupportAgent: '網路設備不支持 Agent 模式，已自動切換為 Command 模式',
+    contextTruncated: '為釋放上下文空間，較早的對話內容正在壓縮，近期訊息已保留。'
   },
   keyChain: {
     keyChain: '密鑰',

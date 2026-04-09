@@ -975,7 +975,8 @@ export default {
     deselectAll: 'すべて選択解除',
     clearSelection: 'クリア',
     addSelected: '選択項目を追加({count})',
-    switchNotSupportAgent: 'ネットワーク機器はAgentモードをサポートしていません。Commandモードに自動切り替えしました'
+    switchNotSupportAgent: 'ネットワーク機器はAgentモードをサポートしていません。Commandモードに自動切り替えしました',
+    contextTruncated: 'コンテキスト領域を確保するため、以前のメッセージを圧縮しています。最近のメッセージは保持されます。'
   },
   keyChain: {
     keyChain: 'キーチェーン',

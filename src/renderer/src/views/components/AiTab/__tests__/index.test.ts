@@ -215,6 +215,7 @@ describe('AiTab Component - Composable Integration Tests', () => {
         isExecutingCommand: false,
         lastStreamMessage: null,
         lastPartialMessage: null,
+        lastStateChatermMessages: null,
         shouldStickToBottom: true,
         isCancelled: false
       })

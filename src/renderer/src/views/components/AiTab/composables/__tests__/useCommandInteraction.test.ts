@@ -69,6 +69,7 @@ describe('useCommandInteraction', () => {
     isExecutingCommand: false,
     lastStreamMessage: null,
     lastPartialMessage: null,
+    lastStateChatermMessages: null,
     shouldStickToBottom: true,
     isCancelled: false
   })

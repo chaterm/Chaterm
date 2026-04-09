@@ -990,7 +990,8 @@ export default {
     deselectAll: 'Tout désélectionner',
     clearSelection: 'Effacer',
     addSelected: 'Ajouter la sélection({count})',
-    switchNotSupportAgent: 'Les appareils réseau ne prennent en charge que le mode de commande, automatiquement basculé vers le mode de commande'
+    switchNotSupportAgent: 'Les appareils réseau ne prennent en charge que le mode de commande, automatiquement basculé vers le mode de commande',
+    contextTruncated: "Compression des messages anciens pour libérer de l'espace contextuel. Les messages récents sont conservés."
   },
   keyChain: {
     keyChain: 'Trousseau de clés',

@@ -163,6 +163,7 @@ describe('useTabManagement', () => {
     isExecutingCommand: false,
     lastStreamMessage: null,
     lastPartialMessage: null,
+    lastStateChatermMessages: null,
     shouldStickToBottom: true,
     isCancelled: false
   })
@@ -347,6 +348,22 @@ describe('useTabManagement', () => {
           type: 'ask',
           ts: 100,
           partial: false
+        },
+        {
+          ask: undefined,
+          say: 'api_req_started',
+          text: JSON.stringify({ request: 'req', tokensIn: 100, tokensOut: 20, contextWindow: 128000 }),
+          type: 'say',
+          ts: 101,
+          partial: false
+        },
+        {
+          ask: undefined,
+          say: 'context_truncated',
+          text: 'truncated',
+          type: 'say',
+          ts: 102,
+          partial: false
         }
       ]
       mockChatermGetChatermMessages.mockResolvedValue(mockMessages)
@@ -375,6 +392,7 @@ describe('useTabManagement', () => {
       expect(restoredTab!.hosts?.[0]?.host).toBe('192.168.1.50')
       expect(restoredTab!.chatType).toBe('cmd')
       expect(restoredTab!.modelValue).toBe('gpt-4')
+      expect(restoredTab!.session.chatHistory.map((m) => m.say)).toEqual([undefined, 'api_req_started', 'context_truncated'])
     })
 
     it('should replace current new tab with history', async () => {
