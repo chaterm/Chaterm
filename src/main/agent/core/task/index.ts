@@ -70,7 +70,7 @@ import { LocalTerminalManager, LocalCommandProcess } from '../../integrations/lo
 import { getK8sAgentManager } from '../../integrations/k8s'
 import { createLlmCaller } from '../../services/interaction-detector/llm-caller'
 import type { InteractionResult } from '../../services/interaction-detector/types'
-import { formatResponse } from '@core/prompts/responses'
+import { getFormatResponse } from '@core/prompts/responses'
 import { addUserInstructions, SYSTEM_PROMPT, SYSTEM_PROMPT_CN } from '@core/prompts/system'
 import { getSwitchPromptByAssetType } from '@core/prompts/switch-prompts'
 import { SLASH_COMMANDS, getSummaryToDocPrompt, getSummaryToSkillPrompt } from '@core/prompts/slash-commands'
@@ -229,6 +229,7 @@ export class Task {
   api: ApiHandler
   private apiProviderId?: ApiProvider | string
   contextManager: ContextManager
+  private responseFormatter: ReturnType<typeof getFormatResponse>
   private remoteTerminalManager: RemoteTerminalManager
   private localTerminalManager: LocalTerminalManager
   customInstructions?: string
@@ -523,6 +524,7 @@ export class Task {
     this.remoteTerminalManager = new RemoteTerminalManager()
     this.localTerminalManager = LocalTerminalManager.getInstance()
     this.contextManager = new ContextManager()
+    this.responseFormatter = getFormatResponse(DEFAULT_LANGUAGE_SETTINGS)
     this.customInstructions = customInstructions
     this.autoApprovalSettings = autoApprovalSettings
     logger.debug('AutoApprovalSettings initialized', {
@@ -591,9 +593,11 @@ export class Task {
       const userConfig = await getUserConfig()
       const userLanguage = userConfig?.language || DEFAULT_LANGUAGE_SETTINGS
       this.messages = getMessages(userLanguage)
+      this.responseFormatter = getFormatResponse(userLanguage)
     } catch (error) {
       // If error, use default language
       this.messages = getMessages(DEFAULT_LANGUAGE_SETTINGS)
+      this.responseFormatter = getFormatResponse(DEFAULT_LANGUAGE_SETTINGS)
     }
   }
 
@@ -1502,7 +1506,7 @@ export class Task {
         relPath ? ` for '${relPath.toPosix()}'` : ''
       } without value for required parameter '${paramName}'. Retrying...`
     )
-    return formatResponse.toolError(formatResponse.missingToolParameterError(paramName))
+    return this.responseFormatter.toolError(this.responseFormatter.missingToolParameterError(paramName))
   }
 
   async removeLastPartialMessageIfExistsWithType(type: 'ask' | 'say', askOrSay: ChatermAsk | ChatermSay) {
@@ -1564,7 +1568,7 @@ export class Task {
       }
     }
 
-    // let imageBlocks: Anthropic.ImageBlockParam[] = formatResponse.imageBlocks(images)
+    // let imageBlocks: Anthropic.ImageBlockParam[] = this.responseFormatter.imageBlocks(images)
     await this.initiateTaskLoop(initialUserContent)
   }
 
@@ -1626,7 +1630,7 @@ export class Task {
         nextUserContent = [
           {
             type: 'text',
-            text: formatResponse.noToolsUsed()
+            text: this.responseFormatter.noToolsUsed()
           }
         ]
         this.consecutiveMistakeCount++
@@ -2225,7 +2229,7 @@ export class Task {
       await this.saveUserMessage(text ?? '', contentParts)
       userContent.push({
         type: 'text',
-        text: formatResponse.tooManyMistakes(text)
+        text: this.responseFormatter.tooManyMistakes(text)
       } as Anthropic.Messages.TextBlockParam)
     }
 
@@ -3082,7 +3086,7 @@ export class Task {
   private async pushAdditionalToolFeedback(feedback?: string): Promise<void> {
     if (!feedback) return
     const normalizedFeedback = this.truncateCommandOutput(feedback)
-    const content = formatResponse.toolResult(formatMessage(this.messages.userProvidedFeedback, { feedback: normalizedFeedback }))
+    const content = this.responseFormatter.toolResult(formatMessage(this.messages.userProvidedFeedback, { feedback: normalizedFeedback }))
 
     // For V2, only keep a short note in userMessageContent; the full feedback
     // is handled via structured tool_result metadata and content.
@@ -3107,7 +3111,7 @@ export class Task {
     }
 
     if (!approved) {
-      await this.pushToolResult(toolDescription, formatResponse.toolDenied())
+      await this.pushToolResult(toolDescription, this.responseFormatter.toolDenied())
       if (text) {
         await this.pushAdditionalToolFeedback(text)
         await this.saveUserMessage(text, contentParts)
@@ -3148,7 +3152,7 @@ export class Task {
     }
     const errorString = `Error ${action}: ${JSON.stringify(serializeError(error))}`
     await this.say('error', `Error ${action}:\n${error.message ?? JSON.stringify(serializeError(error), null, 2)}`)
-    await this.pushToolResult(toolDescription, formatResponse.toolError(errorString))
+    await this.pushToolResult(toolDescription, this.responseFormatter.toolError(errorString))
   }
 
   private async handleAskFollowupQuestionToolUse(block: ToolUse): Promise<void> {
@@ -3201,7 +3205,7 @@ export class Task {
         await this.saveUserMessage(text ?? '', contentParts)
       }
 
-      await this.pushToolResult(toolDescription, formatResponse.toolResult(`<answer>\n${text}\n</answer>`))
+      await this.pushToolResult(toolDescription, this.responseFormatter.toolResult(`<answer>\n${text}\n</answer>`))
       await this.saveCheckpoint()
     } catch (error) {
       await this.handleToolError(toolDescription, 'asking question', error as Error)
@@ -3349,10 +3353,10 @@ export class Task {
         await this.saveUserMessage(text ?? '', contentParts)
         await this.pushToolResult(
           toolDescription,
-          formatResponse.toolResult(`The user provided feedback on the condensed conversation summary:\n<feedback>\n${text}\n</feedback>`)
+          this.responseFormatter.toolResult(`The user provided feedback on the condensed conversation summary:\n<feedback>\n${text}\n</feedback>`)
         )
       } else {
-        await this.pushToolResult(toolDescription, formatResponse.toolResult(formatResponse.condense()))
+        await this.pushToolResult(toolDescription, this.responseFormatter.toolResult(this.responseFormatter.condense()))
 
         const lastMessage = this.apiConversationHistory[this.apiConversationHistory.length - 1]
         const summaryAlreadyAppended = lastMessage && lastMessage.role === 'assistant'
@@ -3440,12 +3444,12 @@ export class Task {
         await this.saveUserMessage(text ?? '', contentParts)
         await this.pushToolResult(
           toolDescription,
-          formatResponse.toolResult(
+          this.responseFormatter.toolResult(
             `The user did not submit the bug, and provided feedback on the Github issue generated instead:\n<feedback>\n${text}\n</feedback>`
           )
         )
       } else {
-        await this.pushToolResult(toolDescription, formatResponse.toolResult('The user accepted the creation of the Github issue.'))
+        await this.pushToolResult(toolDescription, this.responseFormatter.toolResult('The user accepted the creation of the Github issue.'))
         // Logic to create an issue can be added here
       }
       await this.saveCheckpoint()
@@ -3463,7 +3467,9 @@ export class Task {
     if (chatSettings?.mode === 'chat') {
       this.userMessageContent.push({
         type: 'text',
-        text: formatResponse.toolError('Chat mode does not support tool execution. This mode is for conversation, learning, and brainstorming only.')
+        text: this.responseFormatter.toolError(
+          'Chat mode does not support tool execution. This mode is for conversation, learning, and brainstorming only.'
+        )
       })
       await this.say('error', 'Chat mode does not support tool execution. This mode is for conversation, learning, and brainstorming only.', false)
       await this.saveCheckpoint()
@@ -3490,7 +3496,7 @@ export class Task {
       if (block.name !== 'todo_write' && block.name !== 'todo_read') {
         this.userMessageContent.push({
           type: 'text',
-          text: formatResponse.toolAlreadyUsed(block.name)
+          text: this.responseFormatter.toolAlreadyUsed(block.name)
         })
         return
       }
@@ -3784,7 +3790,7 @@ export class Task {
       const isInKnowledgeBase = resolvedPath.includes(`${path.sep}knowledgebase${path.sep}`)
 
       if (!isInWorkspace && !isInOffload && !isInKnowledgeBase) {
-        await this.pushToolResult(toolDescription, formatResponse.toolError(`Access denied: file is outside workspace and offload directory`))
+        await this.pushToolResult(toolDescription, this.responseFormatter.toolError(`Access denied: file is outside workspace and offload directory`))
         await this.saveCheckpoint()
         return
       }
@@ -3809,7 +3815,7 @@ export class Task {
         }
       } catch (error) {
         if ((error as NodeJS.ErrnoException).code === 'ENOENT') {
-          await this.pushToolResult(toolDescription, formatResponse.toolError(`File not found: ${actualPath}`))
+          await this.pushToolResult(toolDescription, this.responseFormatter.toolError(`File not found: ${actualPath}`))
           await this.saveCheckpoint()
           return
         }
@@ -3859,7 +3865,7 @@ export class Task {
         const resolvedPath = path.resolve(fullPath)
 
         if (!resolvedPath.startsWith(workspace)) {
-          await this.pushToolResult(toolDescription, formatResponse.toolError(`Access denied: cannot write outside workspace`))
+          await this.pushToolResult(toolDescription, this.responseFormatter.toolError(`Access denied: cannot write outside workspace`))
           await this.saveCheckpoint()
           return
         }
@@ -3925,7 +3931,9 @@ export class Task {
         await this.say('error', this.messages.mcpInvalidArguments || `Invalid MCP tool arguments format: ${parseError}`)
         await this.pushToolResult(
           toolDescription,
-          formatResponse.toolError(`Invalid JSON format for arguments: ${parseError instanceof Error ? parseError.message : String(parseError)}`)
+          this.responseFormatter.toolError(
+            `Invalid JSON format for arguments: ${parseError instanceof Error ? parseError.message : String(parseError)}`
+          )
         )
         await this.saveCheckpoint()
         return
@@ -3944,7 +3952,7 @@ export class Task {
           errorMsg = `MCP server "${serverName}" is not connected (status: ${server.status})`
         }
         await this.say('error', errorMsg)
-        await this.pushToolResult(toolDescription, formatResponse.toolError(errorMsg))
+        await this.pushToolResult(toolDescription, this.responseFormatter.toolError(errorMsg))
         await this.saveCheckpoint()
         return
       }
@@ -3955,7 +3963,7 @@ export class Task {
           tool: toolName
         })
         await this.say('error', errorMsg)
-        await this.pushToolResult(toolDescription, formatResponse.toolError(errorMsg))
+        await this.pushToolResult(toolDescription, this.responseFormatter.toolError(errorMsg))
         await this.saveCheckpoint()
         return
       }
@@ -3971,7 +3979,7 @@ export class Task {
           tool: toolName
         })
         await this.say('error', errorMsg)
-        await this.pushToolResult(toolDescription, formatResponse.toolError(errorMsg))
+        await this.pushToolResult(toolDescription, this.responseFormatter.toolError(errorMsg))
         await this.saveCheckpoint()
         return
       }
@@ -3988,7 +3996,7 @@ export class Task {
         })
         const approved = response === 'yesButtonClicked'
         if (!approved) {
-          await this.pushToolResult(toolDescription, formatResponse.toolDenied())
+          await this.pushToolResult(toolDescription, this.responseFormatter.toolDenied())
           if (text) {
             await this.pushAdditionalToolFeedback(text)
             await this.saveUserMessage(text, contentParts)
@@ -4046,7 +4054,7 @@ export class Task {
           errorMsg = `MCP server "${serverName}" is not connected (status: ${server.status})`
         }
         await this.say('error', errorMsg)
-        await this.pushToolResult(toolDescription, formatResponse.toolError(errorMsg))
+        await this.pushToolResult(toolDescription, this.responseFormatter.toolError(errorMsg))
         await this.saveCheckpoint()
         return
       }
@@ -4082,7 +4090,7 @@ export class Task {
       if (!this.skillsManager) {
         const errorMsg = 'Skills manager is not available'
         await this.say('error', errorMsg)
-        await this.pushToolResult(toolDescription, formatResponse.toolError(errorMsg))
+        await this.pushToolResult(toolDescription, this.responseFormatter.toolError(errorMsg))
         await this.saveCheckpoint()
         return
       }
@@ -4092,7 +4100,7 @@ export class Task {
       if (!skill) {
         const errorMsg = `Skill "${skillName}" not found. Please check the available skills list.`
         await this.say('error', errorMsg)
-        await this.pushToolResult(toolDescription, formatResponse.toolError(errorMsg))
+        await this.pushToolResult(toolDescription, this.responseFormatter.toolError(errorMsg))
         await this.saveCheckpoint()
         return
       }
@@ -4100,7 +4108,7 @@ export class Task {
       if (!skill.enabled) {
         const errorMsg = `Skill "${skillName}" is disabled. Please enable it in settings first.`
         await this.say('error', errorMsg)
-        await this.pushToolResult(toolDescription, formatResponse.toolError(errorMsg))
+        await this.pushToolResult(toolDescription, this.responseFormatter.toolError(errorMsg))
         await this.saveCheckpoint()
         return
       }

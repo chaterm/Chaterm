@@ -41,10 +41,10 @@ vi.mock('@core/storage/state', () => ({
   getUserConfig: vi.fn(async () => ({}))
 }))
 vi.mock('@core/prompts/responses', () => ({
-  formatResponse: {
+  getFormatResponse: () => ({
     toolError: (msg: string) => `ERR:${msg}`,
     toolAlreadyUsed: (name: string) => `USED:${name}`
-  }
+  })
 }))
 
 import { Task } from '../index'
@@ -78,6 +78,14 @@ describe('Task dispatch and state flow', () => {
     task.handleTodoWriteToolUse = vi.fn().mockResolvedValue(undefined)
     task.handleTodoReadToolUse = vi.fn().mockResolvedValue(undefined)
     task.handleGrepSearchToolUse = vi.fn().mockResolvedValue(undefined)
+    task.responseFormatter = {
+      toolError: (msg: string) => `ERR:${msg}`,
+      toolAlreadyUsed: (name: string) => `USED:${name}`,
+      toolDenied: () => 'Denied.',
+      toolResult: (msg: string) => msg,
+      noToolsUsed: () => 'No tools used.',
+      tooManyMistakes: (msg: string) => `Too many mistakes: ${msg}`
+    }
   })
 
   it('handleWebviewAskResponse should persist payload and apply truncation', async () => {
