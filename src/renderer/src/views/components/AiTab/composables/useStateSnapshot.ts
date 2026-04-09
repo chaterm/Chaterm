@@ -71,6 +71,7 @@ export function useStateSnapshot(emit: (event: 'state-changed', ...args: any[]) 
             showRetryButton: savedTab.session.showRetryButton || false,
             lastStreamMessage: null,
             lastPartialMessage: null,
+            lastStateChatermMessages: null,
             shouldStickToBottom: savedTab.session.shouldStickToBottom ?? true
           }
         }))

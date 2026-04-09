@@ -62,6 +62,7 @@ export type ChatermSay =
   | 'search_result'
   | 'knowledge_summary'
   | 'skill_summary'
+  | 'context_truncated'
 
 export interface ChatermSayTool {
   tool: 'readFile' | 'listFilesTopLevel' | 'listFilesRecursive' | 'searchFiles'
@@ -96,6 +97,7 @@ export interface ChatermApiReqInfo {
   cacheWrites?: number
   cacheReads?: number
   cost?: number
+  contextWindow?: number
   cancelReason?: ChatermApiReqCancelReason
   streamingFailedMessage?: string
   retryStatus?: {

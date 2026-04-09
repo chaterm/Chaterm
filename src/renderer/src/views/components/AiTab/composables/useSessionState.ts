@@ -18,6 +18,7 @@ export interface SessionState {
   isExecutingCommand: boolean // Whether command is executing
   lastStreamMessage: ExtensionMessage | null // Last stream message
   lastPartialMessage: ExtensionMessage | null // Last partial message
+  lastStateChatermMessages: unknown[] | null // Cached chatermMessages from last state message, survives partialMessage overwrites
   shouldStickToBottom: boolean // Whether should stick to bottom
   isCancelled: boolean // Whether the current task has been cancelled/interrupted
 }
@@ -54,6 +55,10 @@ export interface UserAssistantPair {
  * Uses createGlobalState to ensure global unique instance
  */
 export const useSessionState = createGlobalState(() => {
+  const isRenderableChatMessage = (msg: ChatMessage): boolean => {
+    return msg.say !== 'api_req_started'
+  }
+
   const currentChatId = ref<string | undefined>(undefined)
 
   const chatTabs = ref<ChatTab[]>([])
@@ -79,6 +84,7 @@ export const useSessionState = createGlobalState(() => {
     isExecutingCommand: false,
     lastStreamMessage: null,
     lastPartialMessage: null,
+    lastStateChatermMessages: null,
     shouldStickToBottom: true,
     isCancelled: false
   })
@@ -158,9 +164,14 @@ export const useSessionState = createGlobalState(() => {
   const filteredChatHistory = computed(() => {
     const history = currentSession.value?.chatHistory ?? []
     const hasAgentReply = history.some(
-      (msg) => msg.role === 'assistant' && msg.say !== 'sshInfo' && (msg.say === 'text' || msg.say === 'completion_result' || msg.ask === 'command')
+      (msg) =>
+        isRenderableChatMessage(msg) &&
+        msg.role === 'assistant' &&
+        msg.say !== 'sshInfo' &&
+        (msg.say === 'text' || msg.say === 'completion_result' || msg.ask === 'command')
     )
-    return hasAgentReply ? history.filter((msg) => msg.say !== 'sshInfo') : history
+    const base = hasAgentReply ? history.filter((msg) => msg.say !== 'sshInfo') : history
+    return base.filter(isRenderableChatMessage)
   })
 
   const shouldShowSendButton = computed(() => {
@@ -255,9 +266,14 @@ export const useSessionState = createGlobalState(() => {
       let history = tab.session.chatHistory ?? []
 
       const hasAgentReply = history.some(
-        (msg) => msg.role === 'assistant' && msg.say !== 'sshInfo' && (msg.say === 'text' || msg.say === 'completion_result' || msg.ask === 'command')
+        (msg) =>
+          isRenderableChatMessage(msg) &&
+          msg.role === 'assistant' &&
+          msg.say !== 'sshInfo' &&
+          (msg.say === 'text' || msg.say === 'completion_result' || msg.ask === 'command')
       )
-      history = hasAgentReply ? history.filter((msg) => msg.say !== 'sshInfo') : history
+      const baseHistory = hasAgentReply ? history.filter((msg) => msg.say !== 'sshInfo') : history
+      history = baseHistory.filter(isRenderableChatMessage)
 
       // Group into user-assistant pairs
       const pairs: UserAssistantPair[] = []

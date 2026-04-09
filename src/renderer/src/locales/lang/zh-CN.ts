@@ -965,7 +965,8 @@ export default {
     deselectAll: '取消全选',
     clearSelection: '清空',
     addSelected: '添加所选({count})',
-    switchNotSupportAgent: '网络设备不支持 Agent 模式，已自动切换为 Command 模式'
+    switchNotSupportAgent: '网络设备不支持 Agent 模式，已自动切换为 Command 模式',
+    contextTruncated: '为释放上下文空间，较早的对话内容正在压缩，近期消息已保留。'
   },
   keyChain: {
     keyChain: '密钥',

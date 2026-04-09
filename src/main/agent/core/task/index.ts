@@ -2038,6 +2038,13 @@ export class Task {
   async *attemptApiRequest(previousApiReqIndex: number): ApiStream {
     // Build system prompt
     let systemPrompt = await this.buildSystemPrompt()
+    const userLocale = await this.getUserLocale()
+    this.contextManager.setLanguage(userLocale)
+
+    // Notify the user before the potentially slow truncation + summarization process
+    if (this.contextManager.needsTruncation(this.chatermMessages, this.api, previousApiReqIndex)) {
+      await this.say('context_truncated', JSON.stringify({ contextWindow: this.api.getModel().info.contextWindow }), false)
+    }
 
     const contextManagementMetadata = await this.contextManager.getNewContextMessagesAndMetadata(
       this.apiConversationHistory,
@@ -2051,6 +2058,11 @@ export class Task {
     if (contextManagementMetadata.updatedConversationHistoryDeletedRange) {
       this.conversationHistoryDeletedRange = contextManagementMetadata.conversationHistoryDeletedRange
       await this.saveChatermMessagesAndUpdateHistory() // saves task history item which we use to keep track of conversation history deleted range
+      logger.info('Context window truncated', {
+        event: 'context.truncated',
+        taskId: this.taskId,
+        deletedRange: contextManagementMetadata.conversationHistoryDeletedRange
+      })
     }
 
     // Apply summarizeUpToTs filter if specified
@@ -2166,10 +2178,15 @@ export class Task {
     await this.handleConsecutiveMistakes(userContent)
     await this.handleAutoApprovalLimits()
 
+    // Capture the index of the PREVIOUS (completed) api_req_started message
+    // BEFORE prepareApiRequest creates a new one. The previous request carries
+    // token usage data needed by ContextManager to decide whether to truncate.
+    const previousApiReqIndex = findLastIndex(this.chatermMessages, (m) => m.say === 'api_req_started')
+
     await this.prepareApiRequest(userContent)
 
     try {
-      return await this.processApiStreamAndResponse()
+      return await this.processApiStreamAndResponse(previousApiReqIndex)
     } catch (error) {
       // this should never happen since the only thing that can throw an error is the attemptApiRequest,
       // which is wrapped in a try catch that sends an ask where if noButtonClicked, will clear current task and destroy this instance.
@@ -2247,7 +2264,8 @@ export class Task {
     await this.say(
       'api_req_started',
       JSON.stringify({
-        request: userContent.map((block) => formatContentBlockToMarkdown(block)).join('\n\n') + '\n\nLoading...'
+        request: userContent.map((block) => formatContentBlockToMarkdown(block)).join('\n\n') + '\n\nLoading...',
+        contextWindow: this.api.getModel().info.contextWindow
       })
     )
 
@@ -2362,13 +2380,12 @@ export class Task {
     await this.postStateToWebview()
   }
 
-  private async processApiStreamAndResponse(): Promise<boolean> {
+  private async processApiStreamAndResponse(previousApiReqIndex: number): Promise<boolean> {
     const streamMetrics = this.createStreamMetrics()
     const messageUpdater = this.createMessageUpdater(streamMetrics)
 
     this.resetStreamingState()
 
-    const previousApiReqIndex = findLastIndex(this.chatermMessages, (m) => m.say === 'api_req_started')
     const stream = this.attemptApiRequest(previousApiReqIndex)
 
     const assistantMessage = await this.processStream(stream, streamMetrics, messageUpdater)
@@ -2409,6 +2426,7 @@ export class Task {
               streamMetrics.cacheWriteTokens,
               streamMetrics.cacheReadTokens
             ),
+          contextWindow: this.api.getModel().info.contextWindow,
           cancelReason,
           streamingFailedMessage
         } satisfies ChatermApiReqInfo)
@@ -3346,6 +3364,7 @@ export class Task {
           keepStrategy
         )
         await this.saveChatermMessagesAndUpdateHistory()
+        this.contextManager.setLanguage(await this.getUserLocale())
         await this.contextManager.triggerApplyStandardContextTruncationNoticeChange(Date.now(), this.taskId)
       }
       await this.saveCheckpoint()

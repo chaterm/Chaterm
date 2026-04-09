@@ -984,7 +984,8 @@ export default {
     deselectAll: 'Deseleziona tutto',
     clearSelection: 'Cancella',
     addSelected: 'Aggiungi selezionati({count})',
-    switchNotSupportAgent: 'Dispositivi di rete non supportano modalità Agent, automaticamente cambiato a modalità Comando'
+    switchNotSupportAgent: 'Dispositivi di rete non supportano modalità Agent, automaticamente cambiato a modalità Comando',
+    contextTruncated: 'Compressione dei messaggi precedenti per liberare spazio nel contesto. I messaggi recenti sono conservati.'
   },
   keyChain: {
     keyChain: 'Keychain',

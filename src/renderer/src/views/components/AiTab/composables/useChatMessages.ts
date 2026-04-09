@@ -559,6 +559,11 @@ export function useChatMessages(
       }
     } else if (message?.type === 'state') {
       const chatermMessages = message.state?.chatermMessages ?? []
+      // Cache chatermMessages so contextUsage remains stable when
+      // partialMessage overwrites lastStreamMessage during streaming.
+      if (chatermMessages.length > 0) {
+        session.lastStateChatermMessages = chatermMessages
+      }
       const lastStateChatermMessages = chatermMessages.at(-1)
       const isWaitingForUserResponse =
         lastStateChatermMessages?.type === 'ask' ||

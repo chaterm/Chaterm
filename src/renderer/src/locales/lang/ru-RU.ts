@@ -982,7 +982,8 @@ export default {
     deselectAll: 'Снять выбор',
     clearSelection: 'Очистить',
     addSelected: 'Добавить выбранные({count})',
-    switchNotSupportAgent: 'Сетевые устройства не поддерживают режим Agent, автоматически переключен на режим Command'
+    switchNotSupportAgent: 'Сетевые устройства не поддерживают режим Agent, автоматически переключен на режим Command',
+    contextTruncated: 'Сжатие ранних сообщений для освобождения контекстного пространства. Недавние сообщения сохранены.'
   },
   keyChain: {
     keyChain: 'KeyChain',

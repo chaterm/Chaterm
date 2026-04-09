@@ -983,7 +983,8 @@ export default {
     deselectAll: 'Desmarcar tudo',
     clearSelection: 'Limpar',
     addSelected: 'Adicionar selecionados({count})',
-    switchNotSupportAgent: 'Dispositivos de rede não suportam modo Agent, automaticamente mudado para modo Command'
+    switchNotSupportAgent: 'Dispositivos de rede não suportam modo Agent, automaticamente mudado para modo Command',
+    contextTruncated: 'A comprimir mensagens anteriores para libertar espaço de contexto. As mensagens recentes foram preservadas.'
   },
   keyChain: {
     keyChain: 'Keychain',

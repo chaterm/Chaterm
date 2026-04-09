@@ -980,7 +980,8 @@ export default {
     deselectAll: 'Deselect all',
     clearSelection: 'Clear',
     addSelected: 'Add selected({count})',
-    switchNotSupportAgent: 'Network devices do not support Agent mode, automatically switched to Command mode'
+    switchNotSupportAgent: 'Network devices do not support Agent mode, automatically switched to Command mode',
+    contextTruncated: 'Compressing earlier messages to free up context space. Recent messages are preserved.'
   },
   keyChain: {
     keyChain: 'KeyChain',

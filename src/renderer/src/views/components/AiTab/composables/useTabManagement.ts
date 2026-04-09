@@ -221,6 +221,8 @@ export function useTabManagement(options: TabManagementOptions) {
             item.say === 'command_output' ||
             item.say === 'completion_result' ||
             item.say === 'search_result' ||
+            item.say === 'api_req_started' ||
+            item.say === 'context_truncated' ||
             item.say === 'text' ||
             item.say === 'reasoning' ||
             item.say === 'user_feedback' ||
@@ -279,6 +281,7 @@ export function useTabManagement(options: TabManagementOptions) {
         isExecutingCommand: false,
         lastStreamMessage: null,
         lastPartialMessage: null,
+        lastStateChatermMessages: null,
         shouldStickToBottom: true,
         isCancelled: false
       }

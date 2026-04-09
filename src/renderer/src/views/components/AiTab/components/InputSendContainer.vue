@@ -148,6 +148,39 @@
           </a-select-option>
         </a-select>
         <div class="action-buttons-container">
+          <a-tooltip
+            v-if="contextUsage.contextWindow > 0"
+            :title="contextUsageTooltip"
+            placement="top"
+          >
+            <div class="context-usage-ring">
+              <svg
+                width="14"
+                height="14"
+                viewBox="0 0 22 22"
+              >
+                <circle
+                  cx="11"
+                  cy="11"
+                  r="9"
+                  fill="none"
+                  :stroke="contextUsageTrackColor"
+                  stroke-width="2.5"
+                />
+                <circle
+                  cx="11"
+                  cy="11"
+                  r="9"
+                  fill="none"
+                  :stroke="contextUsageColor"
+                  stroke-width="2.5"
+                  stroke-linecap="round"
+                  :stroke-dasharray="`${contextUsage.percent * 0.5655} 56.55`"
+                  transform="rotate(-90 11 11)"
+                />
+              </svg>
+            </div>
+          </a-tooltip>
           <a-tooltip :title="$t('ai.uploadImage')">
             <a-button
               :disabled="responseLoading"
@@ -186,6 +219,7 @@
               @transcription-error="handleTranscriptionError"
             />
           </a-tooltip>
+
           <a-button
             size="small"
             class="custom-round-button compact-button"
@@ -235,6 +269,7 @@ import { useUserInteractions } from '../composables/useUserInteractions'
 import { parseContextDragPayload, useEditableContent } from '../composables/useEditableContent'
 import { AiTypeOptions } from '../composables/useEventBusListeners'
 import { getImageMediaType } from '../utils'
+import type { ChatermApiReqInfo, ChatermMessage as StateChatermMessage } from '@shared/ExtensionMessage'
 import type { ContentPart, ContextDocRef, ContextPastChatRef, ContextCommandRef, ContextSkillRef } from '@shared/WebviewMessage'
 import type { HistoryItem, Host } from '../types'
 import { CloseOutlined, LaptopOutlined, LockOutlined } from '@ant-design/icons-vue'
@@ -282,6 +317,86 @@ const {
   chatInputParts,
   responseLoading
 } = useSessionState()
+
+const parseApiReqInfo = (value: unknown): ChatermApiReqInfo | null => {
+  if (!value) return null
+  if (typeof value === 'string') {
+    try {
+      return JSON.parse(value) as ChatermApiReqInfo
+    } catch {
+      return null
+    }
+  }
+  if (typeof value === 'object') {
+    return value as ChatermApiReqInfo
+  }
+  return null
+}
+
+const resolveContextUsageFromMessages = (messages: Array<{ say?: string; text?: unknown; content?: unknown }>) => {
+  for (let i = messages.length - 1; i >= 0; i--) {
+    const msg = messages[i]
+
+    // if (msg.say === 'context_truncated') {
+    //   return null
+    // }
+
+    if (msg.say !== 'api_req_started') continue
+    const info = parseApiReqInfo(msg.text ?? msg.content)
+    if (!info || !info.contextWindow) continue
+    const hasUsageData = info.tokensIn !== undefined || info.tokensOut !== undefined
+    if (!hasUsageData) continue
+    const used = (info.tokensIn || 0) + (info.tokensOut || 0)
+    return {
+      used,
+      contextWindow: info.contextWindow,
+      percent: Math.min(100, Math.round((used / info.contextWindow) * 100))
+    }
+  }
+  return null
+}
+
+// Context usage computed from latest api_req_started message.
+// Use the cached lastStateChatermMessages which persists across partialMessage updates,
+// then try current state, and finally fallback to chatHistory.
+const contextUsage = computed(() => {
+  // Prefer cached state chatermMessages (stable across partialMessage overwrites)
+  const cachedMessages = (currentTab.value?.session.lastStateChatermMessages ?? []) as StateChatermMessage[]
+  const cachedUsage = resolveContextUsageFromMessages(cachedMessages)
+  if (cachedUsage) return cachedUsage
+
+  // Try current lastStreamMessage state (for initial load before any state is cached)
+  const stateMessages = (currentTab.value?.session.lastStreamMessage?.state?.chatermMessages ?? []) as StateChatermMessage[]
+  const stateUsage = resolveContextUsageFromMessages(stateMessages)
+  if (stateUsage) return stateUsage
+
+  // Fallback to local chat history (restored tabs)
+  const history = currentTab.value?.session.chatHistory ?? []
+  const historyUsage = resolveContextUsageFromMessages(history)
+  if (historyUsage) return historyUsage
+
+  return { used: 0, contextWindow: 0, percent: 0 }
+})
+
+const contextUsageColor = computed(() => {
+  const p = contextUsage.value.percent
+  if (p >= 90) return '#ef4444'
+  if (p >= 70) return '#f59e0b'
+  return '#3b82f6'
+})
+
+const contextUsageTrackColor = computed(() => {
+  return 'rgba(128, 128, 128, 0.2)'
+})
+
+const contextUsageTooltip = computed(() => {
+  const { used, contextWindow, percent } = contextUsage.value
+  const formatK = (n: number) => {
+    if (n >= 1000) return `${(n / 1000).toFixed(1)}K`
+    return `${n}`
+  }
+  return `${percent}% - ${formatK(used)} / ${formatK(contextWindow)} context used`
+})
 
 // Local hosts state for edit mode
 const localEditHosts = ref<Host[]>([])
@@ -1108,6 +1223,19 @@ onBeforeUnmount(() => {
 
     @media (max-width: 480px) {
       gap: 6px;
+    }
+  }
+
+  .context-usage-ring {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: default;
+    opacity: 0.7;
+    transition: opacity 0.2s;
+
+    &:hover {
+      opacity: 1;
     }
   }
 
