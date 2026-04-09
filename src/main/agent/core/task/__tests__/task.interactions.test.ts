@@ -88,6 +88,16 @@ describe('Task interaction-heavy branches', () => {
     task.addTodoStatusUpdateReminder = vi.fn().mockResolvedValue(undefined)
     task.removeLastPartialMessageIfExistsWithType = vi.fn()
     task.showNotificationIfNeeded = vi.fn()
+    task.responseFormatter = {
+      toolError: (msg: string) => `[ERROR] ${msg}`,
+      toolDenied: () => 'The user denied this operation.',
+      toolResult: (msg: string) => msg,
+      toolAlreadyUsed: (name: string) => `Tool [${name}] was already used.`,
+      missingToolParameterError: (param: string) => `Missing parameter: ${param}`,
+      noToolsUsed: () => 'No tools were used.',
+      tooManyMistakes: (msg: string) => `Too many mistakes: ${msg}`,
+      condense: () => 'Conversation condensed.'
+    }
   })
 
   it('handleAskFollowupQuestionToolUse should ask directly in partial mode', async () => {

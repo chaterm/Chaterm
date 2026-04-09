@@ -50,9 +50,9 @@ vi.mock('fs', () => ({
 }))
 
 vi.mock('@core/prompts/responses', () => ({
-  formatResponse: {
+  getFormatResponse: () => ({
     toolError: (msg: string) => `ERROR:${msg}`
-  }
+  })
 }))
 
 import { createReadStream } from 'fs'
@@ -70,6 +70,11 @@ describe('handleReadFileToolUse', () => {
     task.pushToolResult = vi.fn().mockResolvedValue(undefined)
     task.saveCheckpoint = vi.fn().mockResolvedValue(undefined)
     task.getToolDescription = vi.fn(() => '[read_file]')
+    task.responseFormatter = {
+      toolError: (msg: string) => `ERROR:${msg}`,
+      toolDenied: () => 'The user denied this operation.',
+      toolResult: (msg: string) => msg
+    }
   })
 
   it('allows reading files under knowledgebase directory', async () => {

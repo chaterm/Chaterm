@@ -68,6 +68,12 @@ describe('Task tool result helpers', () => {
     task.userMessageContent = []
     task.messages = { userProvidedFeedback: 'feedback: {feedback}' }
     task.truncateCommandOutput = vi.fn((s: string) => s.trim())
+    task.responseFormatter = {
+      toolError: (msg: string) => `[ERROR] ${msg}`,
+      toolDenied: () => 'The user denied this operation.',
+      toolResult: (msg: string) => msg,
+      toolAlreadyUsed: (name: string) => `Tool [${name}] was already used.`
+    }
   })
 
   it('pushToolResult should store inline string result and lineCount', async () => {
