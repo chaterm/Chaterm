@@ -344,9 +344,10 @@ const resolveContextUsageFromMessages = (messages: Array<{ say?: string; text?: 
     if (msg.say !== 'api_req_started') continue
     const info = parseApiReqInfo(msg.text ?? msg.content)
     if (!info || !info.contextWindow) continue
-    const hasUsageData = info.tokensIn !== undefined || info.tokensOut !== undefined
+    const hasUsageData =
+      info.tokensIn !== undefined || info.tokensOut !== undefined || info.cacheWrites !== undefined || info.cacheReads !== undefined
     if (!hasUsageData) continue
-    const used = (info.tokensIn || 0) + (info.tokensOut || 0)
+    const used = (info.tokensIn || 0) + (info.tokensOut || 0) + (info.cacheWrites || 0) + (info.cacheReads || 0)
     return {
       used,
       contextWindow: info.contextWindow,
