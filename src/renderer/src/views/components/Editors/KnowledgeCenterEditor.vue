@@ -105,6 +105,7 @@
 import { computed, nextTick, onBeforeUnmount, onMounted, reactive, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { marked } from 'marked'
+import { sanitizeHtml } from '@/utils/sanitize'
 import mermaid from 'mermaid'
 import hljs from 'highlight.js'
 import 'highlight.js/styles/atom-one-dark.css'
@@ -394,7 +395,7 @@ async function renderMarkdownWithImages() {
     code.classList.add('hljs')
   })
 
-  mdHtml.value = doc.body.innerHTML
+  mdHtml.value = sanitizeHtml(doc.body.innerHTML)
 
   await nextTick()
   if (hasMermaid) {

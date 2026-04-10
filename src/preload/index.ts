@@ -786,7 +786,9 @@ const api = {
 
   // Local host API
   getLocalWorkingDirectory: () => ipcRenderer.invoke('local:get-working-directory'),
-  executeLocalCommand: (command: string) => ipcRenderer.invoke('local:execute-command', command),
+  // executeLocalCommand removed: dangerous RCE vector via XSS.
+  // Local command execution is only used by the Agent system in the main process
+  // and should never be exposed to the renderer process via contextBridge.
 
   // SSH API
   connect: (connectionInfo) => ipcRenderer.invoke('ssh:connect', connectionInfo),
