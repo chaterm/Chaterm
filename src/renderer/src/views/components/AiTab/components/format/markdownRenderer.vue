@@ -95,7 +95,7 @@
             </template>
             <div
               class="command-explain-content markdown-content"
-              v-html="marked(props.explanation, null)"
+              v-html="sanitizeHtml(marked(props.explanation, null))"
             />
           </a-collapse-panel>
         </a-collapse>
@@ -156,7 +156,7 @@
         <div
           v-show="isCodeExpanded"
           class="code-content-body"
-          v-html="marked('```' + (codeDetection.language || '') + '\n' + props.content + '\n```')"
+          v-html="sanitizeHtml(marked('```' + (codeDetection.language || '') + '\n' + props.content + '\n```'))"
         ></div>
       </div>
       <TerminalOutputRenderer
@@ -215,7 +215,7 @@
             <span
               v-if="line.html"
               class="content"
-              v-html="line.html"
+              v-html="sanitizeHtml(line.html)"
             ></span>
             <span
               v-else
@@ -234,7 +234,7 @@
         >
           <div
             class="thinking-content markdown-content"
-            v-html="marked(getThinkingContent(thinkingContent), null)"
+            v-html="sanitizeHtml(marked(getThinkingContent(thinkingContent), null))"
           ></div>
         </div>
         <a-collapse
@@ -270,7 +270,7 @@
             </template>
             <div
               class="thinking-content markdown-content"
-              v-html="marked(getThinkingContent(thinkingContent), null)"
+              v-html="sanitizeHtml(marked(getThinkingContent(thinkingContent), null))"
             ></div>
           </a-collapse-panel>
         </a-collapse>
@@ -286,7 +286,7 @@
             class="markdown-content"
             :class="{ 'ssh-info-message': props.say === 'sshInfo' }"
             style="margin: 0 8px"
-            v-html="marked(part.content || '', null)"
+            v-html="sanitizeHtml(marked(part.content || '', null))"
           ></div>
           <div
             v-else-if="part.type === 'code'"
@@ -352,6 +352,7 @@
 <script setup lang="ts">
 import { onMounted, ref, watch, onBeforeUnmount, nextTick, computed, h } from 'vue'
 import { marked } from 'marked'
+import { sanitizeHtml } from '@/utils/sanitize'
 import 'highlight.js/styles/atom-one-dark.css'
 import * as monaco from 'monaco-editor'
 import 'monaco-editor/esm/vs/editor/editor.all.js'
