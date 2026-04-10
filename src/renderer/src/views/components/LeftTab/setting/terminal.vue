@@ -906,6 +906,38 @@ onBeforeUnmount(() => {
   text-align: left;
 }
 
+.terminal-type-select :deep(.ant-select-selector) {
+  background-color: var(--select-bg);
+  border: 1px solid var(--select-border);
+  border-radius: 6px;
+  color: var(--text-color);
+  transition: all 0.3s;
+  height: 32px;
+}
+
+.terminal-type-select :deep(.ant-select-selector:hover) {
+  border-color: #1890ff;
+  background-color: var(--select-hover-bg);
+}
+
+.terminal-type-select :deep(.ant-select-focused .ant-select-selector),
+.terminal-type-select :deep(.ant-select-selector:focus) {
+  border-color: #1890ff;
+  box-shadow: 0 0 0 2px rgba(24, 144, 255, 0.2);
+  background-color: var(--select-hover-bg);
+}
+
+.terminal-type-select :deep(.ant-select-selection-item) {
+  color: var(--text-color);
+  font-size: 14px;
+  line-height: 32px;
+}
+
+.terminal-type-select :deep(.ant-select-arrow) {
+  color: var(--text-color);
+  opacity: 0.7;
+}
+
 .font-family-select {
   width: 180px !important;
   text-align: left;
