@@ -2162,6 +2162,12 @@ defineExpose({
   max-width: calc(100% - 90px);
 }
 
+/* Keep transfer table viewport height stable even when rows are few. */
+.transfer-mode .files-table :deep(.ant-table-body) {
+  height: calc(100vh - 260px) !important;
+  max-height: calc(100vh - 260px) !important;
+}
+
 .files-table {
   --sb-size: 12px;
   --sb-thumb: var(--border-color-light);

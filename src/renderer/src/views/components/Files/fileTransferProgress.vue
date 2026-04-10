@@ -403,8 +403,8 @@
 import { downloadGroups, uploadGroups, r2rTaskGroups, transferTasks, type Task, type TaskStatus } from './fileTransfer'
 import { CloseOutlined, DownOutlined, RightOutlined } from '@ant-design/icons-vue'
 import { useI18n } from 'vue-i18n'
-import { ref, watch } from 'vue'
-import { getActualTheme } from '@/utils/themeUtils'
+import { onBeforeUnmount, ref, watch } from 'vue'
+import { addSystemThemeListener, getActualTheme } from '@/utils/themeUtils'
 import { userConfigStore } from '@store/userConfigStore'
 const configStore = userConfigStore()
 
@@ -473,10 +473,11 @@ const extractIp = (s: string) => {
 }
 
 const transferPanelStyle = ref<Record<string, string>>({})
+let removeSystemThemeListener: (() => void) | undefined
 
-const updateTransferPanelStyle = (theme: string) => {
+const updateTransferPanelStyle = () => {
   const hasBgImage = !!configStore.getUserConfig.background.image
-  const actualTheme = getActualTheme(theme)
+  const actualTheme = getActualTheme(configStore.getUserConfig.theme)
   if (!hasBgImage) {
     transferPanelStyle.value = {
       background: 'linear-gradient(0deg, var(--hover-bg-color), var(--hover-bg-color)), var(--bg-color)'
@@ -497,12 +498,32 @@ const updateTransferPanelStyle = (theme: string) => {
 }
 
 watch(
-  () => [configStore.userConfig.theme, configStore.userConfig.background?.image],
-  () => {
-    const actualTheme = getActualTheme(configStore.getUserConfig.theme)
-    updateTransferPanelStyle(actualTheme)
-  }
+  () => [configStore.getUserConfig.theme, configStore.getUserConfig.background.image],
+  ([theme]) => {
+    updateTransferPanelStyle()
+
+    if (removeSystemThemeListener) {
+      removeSystemThemeListener()
+      removeSystemThemeListener = undefined
+    }
+
+    if (theme === 'auto') {
+      removeSystemThemeListener = addSystemThemeListener(() => {
+        if (configStore.getUserConfig.theme === 'auto') {
+          updateTransferPanelStyle()
+        }
+      }) as () => void
+    }
+  },
+  { immediate: true }
 )
+
+onBeforeUnmount(() => {
+  if (removeSystemThemeListener) {
+    removeSystemThemeListener()
+    removeSystemThemeListener = undefined
+  }
+})
 </script>
 
 <style scoped>
