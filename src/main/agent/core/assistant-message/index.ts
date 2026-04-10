@@ -32,7 +32,8 @@ export const toolUseNames = [
   'use_skill',
   'summarize_to_knowledge',
   'summarize_to_skill',
-  'kb_search'
+  'kb_search',
+  'web_fetch'
 ] as const
 
 // Converts array of tool call names into a union type ("execute_command" | "read_file" | ...)
@@ -83,7 +84,9 @@ export const toolParamNames = [
   'skill_name',
   'description',
   'query',
-  'max_results'
+  'max_results',
+  'extract_mode',
+  'max_chars'
 ] as const
 
 export type ToolParamName = (typeof toolParamNames)[number]
