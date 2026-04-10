@@ -297,6 +297,19 @@ Usage:
 <max_results>5</max_results>
 </kb_search>
 
+## web_fetch
+Description: Fetch and extract readable content from a URL. Converts HTML pages to clean markdown or plain text using Mozilla Readability. Use for reading web pages, documentation, API responses, or any HTTP/HTTPS resource. Do NOT use this for downloading binary files.
+Parameters:
+- url: (required) The HTTP or HTTPS URL to fetch.
+- extract_mode: (optional) Extraction mode: "markdown" (default) preserves formatting, "text" strips all markup.
+- max_chars: (optional) Maximum characters to return. Content is truncated when exceeded. Default 50000.
+Usage:
+<web_fetch>
+<url>https://example.com/docs/api</url>
+<extract_mode>markdown</extract_mode>
+<max_chars>30000</max_chars>
+</web_fetch>
+
 # Tool Use Examples
 
 ## Example 1: Requesting to execute a non-interactive command
@@ -721,6 +734,19 @@ export const SYSTEM_PROMPT_CN = `你是 Chaterm，一位拥有 20 年经验的�
 <query>你的搜索查询</query>
 <max_results>5</max_results>
 </kb_search>
+
+## web_fetch
+描述：从 URL 获取并提取可读内容。使用 Mozilla Readability 将 HTML 页面转换为干净的 Markdown 或纯文本。用于读取网页、文档、API 响应或任何 HTTP/HTTPS 资源。请勿用于下载二进制文件。
+参数：
+- url：（必需）要获取的 HTTP 或 HTTPS URL。
+- extract_mode：（可选）提取模式："markdown"（默认）保留格式，"text" 去除所有标记。
+- max_chars：（可选）返回的最大字符数。超出时内容会被截断。默认 50000。
+用法：
+<web_fetch>
+<url>https://example.com/docs/api</url>
+<extract_mode>markdown</extract_mode>
+<max_chars>30000</max_chars>
+</web_fetch>
 
 # 工具使用示例
 

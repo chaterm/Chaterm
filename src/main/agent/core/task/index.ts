@@ -50,6 +50,7 @@ import { buildRemoteGlobCommand, parseRemoteGlobOutput, buildRemoteGrepCommand, 
 import { broadcastInteractionClosed } from '../../services/interaction-detector/ipc-handlers'
 import { getOffloadDir, shouldOffload, writeToolOutput } from '../offload'
 import { getKnowledgeBaseRoot, getKbSearchManager } from '../../../services/knowledgebase'
+import { webFetch } from '../../services/web-fetch'
 
 interface StreamMetrics {
   didReceiveUsageChunk?: boolean
@@ -2980,6 +2981,8 @@ export class Task {
         return `[${block.name} - ${block.params.server_name}:${block.params.uri}]`
       case 'kb_search':
         return `[${block.name} for '${block.params.query}']`
+      case 'web_fetch':
+        return `[${block.name} '${block.params.url}']`
       default:
         return `[${block.name}]`
     }
@@ -3559,6 +3562,9 @@ export class Task {
         break
       case 'kb_search':
         await this.handleKbSearchToolUse(block)
+        break
+      case 'web_fetch':
+        await this.handleWebFetchToolUse(block)
         break
       default:
         logger.error(`[Task] Unknown tool name: ${block.name}`)
@@ -4841,6 +4847,31 @@ USERNAME:${localSystemInfo.userName}`
     } catch (error) {
       logger.error('[Task] kb_search failed', { error })
       await this.pushToolResult(toolDescription, `Knowledge base search failed: ${error instanceof Error ? error.message : String(error)}`)
+    }
+  }
+
+  private async handleWebFetchToolUse(block: ToolUse): Promise<void> {
+    const toolDescription = this.getToolDescription(block)
+    try {
+      const url = block.params.url
+      if (!url) {
+        await this.handleMissingParam('url', toolDescription, 'web_fetch')
+        return
+      }
+      const extractMode = block.params.extract_mode === 'text' ? 'text' : 'markdown'
+      const maxChars = block.params.max_chars ? parseInt(block.params.max_chars, 10) : undefined
+
+      const result = await webFetch({
+        url,
+        extractMode: extractMode as 'markdown' | 'text',
+        maxChars
+      })
+      await this.pushToolResult(toolDescription, result, { toolName: 'web_fetch' })
+      this.didAlreadyUseTool = true
+      await this.saveCheckpoint()
+    } catch (error) {
+      await this.handleToolError(toolDescription, 'web fetch', error as Error)
+      await this.saveCheckpoint()
     }
   }
 
