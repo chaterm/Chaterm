@@ -147,6 +147,7 @@
 import { ref, onMounted, computed, watch } from 'vue'
 import { notification } from 'ant-design-vue'
 import { marked } from 'marked'
+import { sanitizeHtml } from '@/utils/sanitize'
 import eventBus from '@/utils/eventBus'
 
 import i18n from '@/locales'
@@ -394,7 +395,7 @@ const renderedReadme = computed(() => {
     gfm: true,
     breaks: true
   })
-  return marked.parse(plugin.value.readme)
+  return sanitizeHtml(marked.parse(plugin.value.readme))
 })
 
 const formatSize = (size?: number | string | null) => {
