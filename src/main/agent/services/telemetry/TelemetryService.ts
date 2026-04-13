@@ -12,7 +12,7 @@ import os from 'os'
 import crypto from 'crypto'
 import path from 'path'
 import fs from 'fs'
-import { getUserDataPath, getEdition } from '../../../config/edition'
+import { getUserDataPath, getEdition, isGlobalEdition } from '../../../config/edition'
 const logger = createLogger('agent')
 
 /**
@@ -147,10 +147,11 @@ class PostHogClient {
 
   /**
    * Captures a telemetry event if telemetry is enabled
+   * Only sends data to PostHog for the global edition
    * @param event The event to capture with its properties
    */
   public capture(event: { event: string; properties?: any }): void {
-    if (this.telemetryEnabled) {
+    if (this.telemetryEnabled && isGlobalEdition()) {
       const propertiesWithVersion = {
         ...event.properties,
         extension_version: this.version,
