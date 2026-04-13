@@ -87,6 +87,10 @@ export default defineConfig(({ mode }) => {
   // Use environment variable if available, otherwise use edition config
   const proxyTarget = env.RENDERER_VUE_APP_API_BASEURL || editionConfig.api.baseUrl
 
+  // Sourcemap: enabled in dev, disabled in production by default (use ENABLE_SOURCEMAP=true to override)
+  const isDev = resolvedMode.startsWith('development')
+  const enableSourcemap = isDev || process.env.ENABLE_SOURCEMAP === 'true'
+
   return {
     main: {
       plugins: [
@@ -119,8 +123,14 @@ export default defineConfig(({ mode }) => {
         'process.env.LOG_LEVEL': JSON.stringify(resolvedMode.startsWith('development') ? 'debug' : 'info')
       },
       build: {
-        sourcemap: true,
+        sourcemap: enableSourcemap,
         rollupOptions: {
+          onwarn(warning, defaultHandler) {
+            if (warning.message?.includes('dynamically imported by') && warning.message?.includes('but also statically imported by')) {
+              return
+            }
+            defaultHandler(warning)
+          },
           external: [
             // Force externalize native modules to prevent bundling issues
             'chokidar',
@@ -132,7 +142,7 @@ export default defineConfig(({ mode }) => {
     preload: {
       plugins: [externalizeDepsPlugin()],
       build: {
-        sourcemap: true
+        sourcemap: enableSourcemap
       }
     },
     renderer: {
@@ -173,7 +183,17 @@ export default defineConfig(({ mode }) => {
         ]
       },
       build: {
-        sourcemap: true
+        sourcemap: enableSourcemap,
+        reportCompressedSize: false,
+        chunkSizeWarningLimit: 5000,
+        rollupOptions: {
+          onwarn(warning, defaultHandler) {
+            if (warning.message?.includes('dynamically imported by') && warning.message?.includes('but also statically imported by')) {
+              return
+            }
+            defaultHandler(warning)
+          }
+        }
       },
       plugins: [
         vue(),
