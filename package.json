@@ -71,7 +71,7 @@
     "@xterm/xterm": "^6.0.0",
     "adm-zip": "^0.5.17",
     "axios": "^1.15.0",
-    "better-sqlite3": "^12.8.0",
+    "better-sqlite3": "^12.9.0",
     "chokidar": "^5.0.0",
     "clone-deep": "^4.0.1",
     "crypto-js": "^4.2.0",
