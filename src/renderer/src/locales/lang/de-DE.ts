@@ -517,7 +517,7 @@ export default {
     saveBackgroundFailed: 'Hintergrundbild speichern fehlgeschlagen'
   },
   extensions: {
-    extensions: 'Erweiterungen',
+    plugins: 'Plugins',
     alias: 'Alias',
     aliasDescription: 'Globale Alias-Konfiguration',
     fuzzySearch: 'Fuzzy-Suche',

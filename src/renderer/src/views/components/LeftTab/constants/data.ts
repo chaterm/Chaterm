@@ -25,7 +25,7 @@ const menuTabsData = [
     icon: new URL('@/assets/menu/doc.svg', import.meta.url).href
   },
   {
-    name: 'Extensions',
+    name: 'Plugins',
     key: 'extensions',
     icon: new URL('@/assets/menu/extensions.svg', import.meta.url).href
   },

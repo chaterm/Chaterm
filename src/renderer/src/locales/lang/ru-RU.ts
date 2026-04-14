@@ -516,7 +516,7 @@ export default {
     saveBackgroundFailed: 'Не удалось сохранить фоновое изображение'
   },
   extensions: {
-    extensions: 'Расширения',
+    plugins: 'Плагины',
     alias: 'Псевдоним',
     aliasDescription: 'Глобальная конфигурация псевдонимов',
     fuzzySearch: 'Поиск похожих',

@@ -507,7 +507,7 @@ export default {
     saveBackgroundFailed: '배경 이미지 저장 실패'
   },
   extensions: {
-    extensions: '확장 기능',
+    plugins: '플러그인',
     alias: '별칭',
     aliasDescription: '전역 별칭 설정',
     fuzzySearch: '모호한 검색',
