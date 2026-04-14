@@ -497,7 +497,7 @@ export default {
     saveBackgroundFailed: 'فشل حفظ صورة الخلفية'
   },
   extensions: {
-    extensions: 'الامتدادات',
+    plugins: 'الامتدادات',
     alias: 'الاسم المستعار',
     aliasDescription: 'إعدادات الاسم المستعار العالمية',
     fuzzySearch: 'البحث الضبابي',

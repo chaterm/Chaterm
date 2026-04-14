@@ -512,7 +512,7 @@ export default {
     saveBackgroundFailed: '背景画像の保存に失敗しました'
   },
   extensions: {
-    extensions: '拡張機能',
+    plugins: 'プラグイン',
     alias: 'エイリアス',
     aliasDescription: 'グローバルエイリアス設定',
     fuzzySearch: 'あいまい検索',

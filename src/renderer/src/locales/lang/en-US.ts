@@ -513,7 +513,7 @@ export default {
     saveBackgroundFailed: 'Failed to save background image'
   },
   extensions: {
-    extensions: 'Extensions',
+    plugins: 'Plugins',
     alias: 'Alias',
     aliasDescription: 'Global alias config',
     fuzzySearch: 'Fuzzy Search',

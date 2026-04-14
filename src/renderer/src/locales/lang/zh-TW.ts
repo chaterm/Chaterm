@@ -507,7 +507,7 @@ export default {
     saveBackgroundFailed: '保存背景圖片失敗'
   },
   extensions: {
-    extensions: '擴展',
+    plugins: '插件',
     alias: '別名',
     fuzzySearch: '模糊搜尋',
     aliasDescription: '全局Alias設置',

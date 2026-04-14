@@ -516,7 +516,7 @@ export default {
     saveBackgroundFailed: 'Falha ao guardar imagem de fundo'
   },
   extensions: {
-    extensions: 'Extensões',
+    plugins: 'Plugins',
     alias: 'Alias',
     aliasDescription: 'Configuração global de alias',
     fuzzySearch: 'Pesquisa difusa',

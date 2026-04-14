@@ -5,7 +5,7 @@
     @drop.prevent="onDrop"
   >
     <div class="panel_header">
-      <span class="panel_title">{{ t('extensions.extensions') }}</span>
+      <span class="panel_title">{{ t('extensions.plugins') }}</span>
     </div>
 
     <div class="search_box">
