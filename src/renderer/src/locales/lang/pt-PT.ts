@@ -984,7 +984,8 @@ export default {
     clearSelection: 'Limpar',
     addSelected: 'Adicionar selecionados({count})',
     switchNotSupportAgent: 'Dispositivos de rede não suportam modo Agent, automaticamente mudado para modo Command',
-    contextTruncated: 'A comprimir mensagens anteriores para libertar espaço de contexto. As mensagens recentes foram preservadas.'
+    contextTruncating: 'A comprimir automaticamente a informação de contexto',
+    contextTruncated: 'A informação de contexto foi comprimida automaticamente'
   },
   keyChain: {
     keyChain: 'Keychain',

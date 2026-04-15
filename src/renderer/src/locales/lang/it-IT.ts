@@ -985,7 +985,8 @@ export default {
     clearSelection: 'Cancella',
     addSelected: 'Aggiungi selezionati({count})',
     switchNotSupportAgent: 'Dispositivi di rete non supportano modalità Agent, automaticamente cambiato a modalità Comando',
-    contextTruncated: 'Compressione dei messaggi precedenti per liberare spazio nel contesto. I messaggi recenti sono conservati.'
+    contextTruncating: 'Compressione automatica delle informazioni di contesto in corso',
+    contextTruncated: 'Le informazioni di contesto sono state compresse automaticamente'
   },
   keyChain: {
     keyChain: 'Keychain',

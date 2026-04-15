@@ -976,7 +976,8 @@ export default {
     clearSelection: 'クリア',
     addSelected: '選択項目を追加({count})',
     switchNotSupportAgent: 'ネットワーク機器はAgentモードをサポートしていません。Commandモードに自動切り替えしました',
-    contextTruncated: 'コンテキスト領域を確保するため、以前のメッセージを圧縮しています。最近のメッセージは保持されます。'
+    contextTruncating: 'コンテキスト情報を自動圧縮しています',
+    contextTruncated: 'コンテキスト情報は自動圧縮されました'
   },
   keyChain: {
     keyChain: 'キーチェーン',

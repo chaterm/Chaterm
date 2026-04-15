@@ -991,7 +991,8 @@ export default {
     clearSelection: 'Effacer',
     addSelected: 'Ajouter la sélection({count})',
     switchNotSupportAgent: 'Les appareils réseau ne prennent en charge que le mode de commande, automatiquement basculé vers le mode de commande',
-    contextTruncated: "Compression des messages anciens pour libérer de l'espace contextuel. Les messages récents sont conservés."
+    contextTruncating: 'Compression automatique des informations de contexte en cours',
+    contextTruncated: 'Les informations de contexte ont été compressées automatiquement'
   },
   keyChain: {
     keyChain: 'Trousseau de clés',

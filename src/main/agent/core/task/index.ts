@@ -1458,7 +1458,7 @@ export class Task {
           ...(hostInfo ?? {})
         })
         await this.postStateToWebview()
-        if (type === 'command_output') {
+        if (type === 'command_output' || type === 'context_truncated') {
           const newMsg = this.chatermMessages.at(-1)!
           await this.postMessageToWebview({
             type: 'partialMessage',
@@ -2046,9 +2046,10 @@ export class Task {
     const userLocale = await this.getUserLocale()
     this.contextManager.setLanguage(userLocale)
 
-    // Notify the user before the potentially slow truncation + summarization process
-    if (this.contextManager.needsTruncation(this.chatermMessages, this.api, previousApiReqIndex)) {
-      await this.say('context_truncated', JSON.stringify({ contextWindow: this.api.getModel().info.contextWindow }), false)
+    // Notify the user before the potentially slow truncation + summarization process.
+    const needsContextTruncation = this.contextManager.needsTruncation(this.chatermMessages, this.api, previousApiReqIndex)
+    if (needsContextTruncation) {
+      await this.say('context_truncated', JSON.stringify({ status: 'compressing', contextWindow: this.api.getModel().info.contextWindow }), true)
     }
 
     const contextManagementMetadata = await this.contextManager.getNewContextMessagesAndMetadata(
@@ -2068,6 +2069,10 @@ export class Task {
         taskId: this.taskId,
         deletedRange: contextManagementMetadata.conversationHistoryDeletedRange
       })
+    }
+
+    if (needsContextTruncation) {
+      await this.say('context_truncated', JSON.stringify({ status: 'completed', contextWindow: this.api.getModel().info.contextWindow }), false)
     }
 
     // Apply summarizeUpToTs filter if specified
