@@ -971,7 +971,8 @@ export default {
     clearSelection: '선택 지우기',
     addSelected: '선택 추가({count})',
     switchNotSupportAgent: '네트워크 장치는 Agent 모드를 지원하지 않습니다. Command 모드로 자동 전환되었습니다',
-    contextTruncated: '컨텍스트 공간 확보를 위해 이전 메시지를 압축하고 있습니다. 최근 메시지는 유지됩니다.'
+    contextTruncating: '컨텍스트 정보를 자동으로 압축하는 중입니다',
+    contextTruncated: '컨텍스트 정보가 자동으로 압축되었습니다'
   },
   keyChain: {
     keyChain: '키체인',

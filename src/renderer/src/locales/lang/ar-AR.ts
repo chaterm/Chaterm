@@ -958,7 +958,8 @@ export default {
     clearSelection: 'مسح الاختيار',
     addSelected: 'إضافة المختار ({count})',
     switchNotSupportAgent: 'الأجهزة الشبكية لا تدعم وضع الذكاء الاصطناعي, تم التبديل تلقائيا إلى وضع الأمر',
-    contextTruncated: 'جارٍ ضغط الرسائل السابقة لتحرير مساحة السياق. تم الاحتفاظ بالرسائل الأخيرة.'
+    contextTruncating: 'يجري ضغط معلومات السياق تلقائياً',
+    contextTruncated: 'تم ضغط معلومات السياق تلقائياً'
   },
   keyChain: {
     keyChain: 'مفتاح الكي',

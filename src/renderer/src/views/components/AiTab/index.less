@@ -1371,19 +1371,49 @@
 }
 
 .context-truncated-notice {
-  display: inline-flex;
+  display: flex;
   align-items: center;
-  gap: 6px;
-  margin: 4px 8px;
-  padding: 4px 10px;
-  border-radius: 4px;
-  background-color: rgba(59, 130, 246, 0.1);
-  border: 1px solid rgba(59, 130, 246, 0.25);
-  font-size: 12px;
-  line-height: 1.5;
-  color: #3b82f6;
+  gap: 12px;
+  width: 100%;
+  margin: 8px 0 12px;
+  color: var(--text-color-tertiary);
+  font-size: 13px;
+  line-height: 1.4;
+
+  .context-truncated-line {
+    flex: 1;
+    min-width: 24px;
+    height: 1px;
+    background: var(--border-color-light);
+  }
+
+  .context-truncated-content {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    white-space: nowrap;
+  }
 
   .context-truncated-icon {
     font-size: 14px;
+    color: currentColor;
+  }
+
+  &.is-compressing {
+    color: var(--text-color-secondary);
+
+    .context-truncated-icon {
+      animation: context-truncated-spin 1.4s linear infinite;
+    }
+  }
+}
+
+@keyframes context-truncated-spin {
+  from {
+    transform: rotate(0deg);
+  }
+
+  to {
+    transform: rotate(360deg);
   }
 }

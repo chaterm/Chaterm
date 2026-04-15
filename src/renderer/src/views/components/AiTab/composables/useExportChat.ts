@@ -9,6 +9,22 @@ export function useExportChat() {
   const { chatHistory, currentChatTitle } = useSessionState()
   const { t } = i18n.global
 
+  const getContextTruncationText = (msg: ChatMessage): string => {
+    const text = extractContent(msg.content)
+    try {
+      const parsed = JSON.parse(text) as { status?: 'compressing' | 'completed' }
+      if (parsed.status === 'compressing') {
+        return t('ai.contextTruncating')
+      }
+      if (parsed.status === 'completed') {
+        return t('ai.contextTruncated')
+      }
+    } catch {
+      // Keep compatibility with legacy plain-text exports.
+    }
+    return msg.partial ? t('ai.contextTruncating') : text || t('ai.contextTruncated')
+  }
+
   const generateFileName = (): string => {
     const title = (currentChatTitle.value || 'chat').slice(0, 30)
     const safeTitle = title.replace(/[/\\?%*:|"<>]/g, '-').trim()
@@ -62,6 +78,11 @@ export function useExportChat() {
 
     if (msg.say === 'search_result') {
       return text ? `${role}\n\n**Search Result**\n\`\`\`\n${text}\n\`\`\`\n` : ''
+    }
+
+    if (msg.say === 'context_truncated') {
+      const truncationText = getContextTruncationText(msg)
+      return truncationText ? `${role}\n\n${truncationText}\n` : ''
     }
 
     if (msg.action === 'approved') return `${role}\n\n✅ Approved\n`

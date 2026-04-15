@@ -986,7 +986,8 @@ export default {
     clearSelection: 'Auswahl löschen',
     addSelected: 'Ausgewählte hinzufügen({count})',
     switchNotSupportAgent: 'Netzwerkgeräte unterstützen kein Agent-Modus, automatisch zum Command-Modus gewechselt',
-    contextTruncated: 'Frühere Nachrichten werden komprimiert, um Kontextplatz freizugeben. Aktuelle Nachrichten bleiben erhalten.'
+    contextTruncating: 'Kontextinformationen werden automatisch komprimiert',
+    contextTruncated: 'Kontextinformationen wurden automatisch komprimiert'
   },
   keyChain: {
     keyChain: 'Schlüsselkette',
