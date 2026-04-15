@@ -77,7 +77,7 @@
     "diff": "^9.0.0",
     "dockview-core": "^4.13.1",
     "dockview-vue": "^4.11.0",
-    "dompurify": "^3.3.3",
+    "dompurify": "^3.4.0",
     "dotenv": "^17.4.2",
     "electron-log": "^5.4.3",
     "electron-updater": "^6.8.3",
