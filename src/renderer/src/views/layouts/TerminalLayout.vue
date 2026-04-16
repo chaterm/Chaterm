@@ -1599,13 +1599,18 @@ const openTerminalFromXshellWakeup = (payload: XshellWakeupPayload) => {
   const key = targetHint || host
   const wakeupNewTab = payload.newTab === true
 
+  const wakeupUuid =
+    typeof globalThis.crypto?.randomUUID === 'function'
+      ? globalThis.crypto.randomUUID()
+      : `${Date.now()}-${performance.now().toString().replace('.', '')}`
+
   const node = {
     title,
     key,
     type: 'term',
     organizationId: 'personal',
     connection: 'personal',
-    uuid: `xshell-${Date.now()}-${Math.floor(Math.random() * 100000)}`,
+    uuid: `xshell-${wakeupUuid}`,
     ip: host,
     host,
     hostname: host,

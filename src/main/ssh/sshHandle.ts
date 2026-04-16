@@ -50,6 +50,7 @@ import {
 import path from 'path'
 import fs from 'fs'
 import { SSHAgentManager } from './ssh-agent/ChatermSSHAgent'
+import { randomUUID } from 'crypto'
 import { getAlgorithmsByAssetType } from './algorithms'
 import { connectBastionByType, shellBastionSession, resizeBastionSession, writeBastionSession, disconnectBastionSession } from './bastionPlugin'
 import { shouldSkipPostConnectProbe } from './postConnectProbePolicy'
@@ -2390,7 +2391,7 @@ export const registerSSHHandlers = () => {
   ipcMain.handle('zmodem:openStream', (_event, savePath) => {
     try {
       const stream = fs.createWriteStream(savePath)
-      const streamId = Math.random().toString(36).slice(2)
+      const streamId = randomUUID()
       activeStreams.set(streamId, stream)
       return streamId
     } catch (err) {

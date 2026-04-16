@@ -18,6 +18,16 @@ import { checkProxyConnectivity, createProxyAgent } from './proxy/index'
 import type { Agent } from 'http'
 const logger = createLogger('agent')
 
+function isAzureEndpoint(baseUrl: string | undefined): boolean {
+  if (!baseUrl) return false
+  try {
+    const parsed = new URL(baseUrl)
+    return parsed.hostname.toLowerCase().endsWith('.azure.com')
+  } catch {
+    return false
+  }
+}
+
 /**
  * Normalize the base URL for OpenAI SDK:
  * - URL ending with '#': strip '#', skip /v1 prefix (user wants direct path)
@@ -67,7 +77,7 @@ export class OpenAiHandler implements ApiHandler {
 
     if (
       this.options.azureApiVersion ||
-      (this.options.openAiBaseUrl?.toLowerCase().includes('azure.com') && !this.options.openAiModelId?.toLowerCase().includes('deepseek'))
+      (isAzureEndpoint(this.options.openAiBaseUrl) && !this.options.openAiModelId?.toLowerCase().includes('deepseek'))
     ) {
       this.client = new AzureOpenAI({
         baseURL: normalizeBaseUrl(this.options.openAiBaseUrl),
