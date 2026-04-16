@@ -685,6 +685,8 @@ export default {
     switchBrand: 'スイッチブランド',
     switchCisco: 'シスコ',
     switchHuawei: 'ファーウェイ',
+    switchH3c: 'H3C',
+    protocol: 'プロトコル',
     switchTip: 'スイッチはコマンドモードのみサポートしています',
     bastionHost: '踏み台サーバー',
     qizhi: '齊治踏み台',

@@ -6,6 +6,7 @@ export type AssetType =
   | `organization-${string}` // Plugin-based bastion hosts (dynamic)
   | 'person-switch-cisco'
   | 'person-switch-huawei'
+  | 'person-switch-h3c'
 
 export type BastionAuthPolicy = 'password' | 'keyBased'
 
@@ -77,9 +78,10 @@ export function isSwitch(assetType: string | undefined): boolean {
 }
 
 // Helper function to get switch brand from asset type
-export function getSwitchBrand(assetType: string | undefined): 'cisco' | 'huawei' | null {
+export function getSwitchBrand(assetType: string | undefined): 'cisco' | 'huawei' | 'h3c' | null {
   if (assetType === 'person-switch-cisco') return 'cisco'
   if (assetType === 'person-switch-huawei') return 'huawei'
+  if (assetType === 'person-switch-h3c') return 'h3c'
   return null
 }
 
@@ -113,6 +115,8 @@ export interface AssetFormData {
   asset_type: AssetType
   needProxy: boolean
   proxyName: string
+  protocolType?: 'ssh' | 'telnet'
+  uuid?: string
 }
 
 export interface sshProxyConfig {

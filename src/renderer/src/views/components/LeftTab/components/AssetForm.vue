@@ -48,15 +48,32 @@
 
         <!-- Switch brand selection (only when device is switch) -->
         <a-form-item v-if="!isEditMode && deviceTypePath[0] === 'network' && deviceTypePath[1] === 'switch'">
-          <a-radio-group
+          <a-select
             v-model:value="switchBrand"
-            button-style="solid"
             size="small"
             style="width: 100%"
             @change="handleSwitchBrandChange"
           >
-            <a-radio-button value="cisco">{{ t('personal.switchCisco') }}</a-radio-button>
-            <a-radio-button value="huawei">{{ t('personal.switchHuawei') }}</a-radio-button>
+            <a-select-option value="cisco">{{ t('personal.switchCisco') }}</a-select-option>
+            <a-select-option value="huawei">{{ t('personal.switchHuawei') }}</a-select-option>
+            <a-select-option value="h3c">{{ t('personal.switchH3c') }}</a-select-option>
+          </a-select>
+        </a-form-item>
+
+        <!-- Protocol selection (only for network switches) -->
+        <a-form-item
+          v-if="!isEditMode && deviceTypePath[0] === 'network' && deviceTypePath[1] === 'switch'"
+          :label="t('personal.protocol')"
+        >
+          <a-radio-group
+            v-model:value="protocolType"
+            button-style="solid"
+            size="small"
+            style="width: 100%"
+            @change="handleProtocolChange"
+          >
+            <a-radio-button value="ssh">SSH</a-radio-button>
+            <a-radio-button value="telnet">Telnet</a-radio-button>
           </a-radio-group>
         </a-form-item>
 
@@ -125,7 +142,7 @@
                 >{{ t('personal.password') }}</a-radio-button
               >
               <a-radio-button
-                v-if="currentBastionSupportsKey"
+                v-if="currentBastionSupportsKey && protocolType !== 'telnet'"
                 value="keyBased"
                 >{{ t('personal.key') }}</a-radio-button
               >
@@ -199,7 +216,7 @@
             </a-form-item>
           </template>
 
-          <div>
+          <div v-if="protocolType !== 'telnet'">
             <a-form-item
               :label="t('personal.proxyConfig')"
               class="user_my-ant-form-item"
@@ -434,8 +451,11 @@ initDeviceTypePath()
 // Bastion host type: 'jumpserver' or plugin type (e.g., 'qizhi', 'tencent')
 const bastionType = ref<string>(getBastionHostType(props.initialData?.asset_type) || 'jumpserver')
 
-// Switch brand: 'cisco' or 'huawei'
-const switchBrand = ref<'cisco' | 'huawei'>(getSwitchBrand(props.initialData?.asset_type) || 'cisco')
+// Switch brand: 'cisco', 'huawei', or 'h3c'
+const switchBrand = ref<'cisco' | 'huawei' | 'h3c'>(getSwitchBrand(props.initialData?.asset_type) || 'cisco')
+
+// Protocol type: 'ssh' or 'telnet' (for network switches)
+const protocolType = ref<'ssh' | 'telnet'>('ssh')
 
 const applyBastionType = () => {
   formData.asset_type = getAssetTypeFromBastionType(bastionType.value)
@@ -525,6 +545,9 @@ watch(
 const handleDeviceTypeChange = (val: string[]) => {
   if (!val || val.length === 0) return
 
+  // When switching device type, reset protocol to SSH
+  protocolType.value = 'ssh'
+
   if (val[0] === 'server') {
     if (val[1] === 'personal') {
       // Personal server
@@ -575,6 +598,18 @@ const handleAuthChange = () => {
   }
   if (formData.auth_type === 'password') {
     formData.password = cachedAuth.password
+  }
+}
+
+// Handle protocol change (ssh/telnet) for network switches
+const handleProtocolChange = () => {
+  if (protocolType.value === 'telnet') {
+    formData.port = 23
+    formData.auth_type = 'password'
+    formData.needProxy = false
+    formData.proxyName = ''
+  } else {
+    formData.port = 22
   }
 }
 
@@ -670,6 +705,11 @@ const handleSubmit = () => {
     submitData.group_name = t('personal.defaultGroup')
   }
 
+  // Include protocol info for network switch assets
+  if (deviceTypePath.value[0] === 'network' && deviceTypePath.value[1] === 'switch') {
+    submitData.protocolType = protocolType.value
+  }
+
   emit('submit', submitData)
 }
 
@@ -737,6 +777,8 @@ watch(
       username: '',
       password: ''
     })
+    // Reset protocol state
+    protocolType.value = newData?.protocolType || 'ssh'
   },
   { deep: true }
 )

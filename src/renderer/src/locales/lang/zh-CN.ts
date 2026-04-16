@@ -676,6 +676,8 @@ export default {
     switchBrand: '交换机品牌',
     switchCisco: '思科',
     switchHuawei: '华为',
+    switchH3c: '新华三',
+    protocol: '协议',
     switchTip: '交换机仅支持 Command 模式',
     bastionHost: '堡垒机',
     bastionType: '堡垒机类型',
