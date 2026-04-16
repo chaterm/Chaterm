@@ -59,29 +59,29 @@ function normalizeWhitespace(value: string): string {
 }
 
 export function htmlToMarkdown(html: string): { text: string; title?: string } {
-  const titleMatch = html.match(/<title[^>]*>([\s\S]*?)<\/title>/i)
+  const titleMatch = html.match(/<title[^>]*>([\s\S]*?)<\/title\s*>/i)
   const title = titleMatch ? normalizeWhitespace(stripTags(titleMatch[1])) : undefined
   let text = html
-    .replace(/<script[\s\S]*?<\/script>/gi, '')
-    .replace(/<style[\s\S]*?<\/style>/gi, '')
-    .replace(/<noscript[\s\S]*?<\/noscript>/gi, '')
-  text = text.replace(/<a\s+[^>]*href=["']([^"']+)["'][^>]*>([\s\S]*?)<\/a>/gi, (_, href, body) => {
+    .replace(/<script[\s\S]*?<\/script\s*>/gi, '')
+    .replace(/<style[\s\S]*?<\/style\s*>/gi, '')
+    .replace(/<noscript[\s\S]*?<\/noscript\s*>/gi, '')
+  text = text.replace(/<a\s+[^>]*href=["']([^"']+)["'][^>]*>([\s\S]*?)<\/a\s*>/gi, (_, href, body) => {
     const label = normalizeWhitespace(stripTags(body))
     if (!label) {
       return href
     }
     return `[${label}](${href})`
   })
-  text = text.replace(/<h([1-6])[^>]*>([\s\S]*?)<\/h\1>/gi, (_, level, body) => {
+  text = text.replace(/<h([1-6])[^>]*>([\s\S]*?)<\/h\1\s*>/gi, (_, level, body) => {
     const prefix = '#'.repeat(Math.max(1, Math.min(6, Number.parseInt(level, 10))))
     const label = normalizeWhitespace(stripTags(body))
     return `\n${prefix} ${label}\n`
   })
-  text = text.replace(/<li[^>]*>([\s\S]*?)<\/li>/gi, (_, body) => {
+  text = text.replace(/<li[^>]*>([\s\S]*?)<\/li\s*>/gi, (_, body) => {
     const label = normalizeWhitespace(stripTags(body))
     return label ? `\n- ${label}` : ''
   })
-  text = text.replace(/<(br|hr)\s*\/?>/gi, '\n').replace(/<\/(p|div|section|article|header|footer|table|tr|ul|ol)>/gi, '\n')
+  text = text.replace(/<(br|hr)\s*\/?>/gi, '\n').replace(/<\/(p|div|section|article|header|footer|table|tr|ul|ol)\s*>/gi, '\n')
   text = stripTags(text)
   text = normalizeWhitespace(text)
   return { text, title }
