@@ -1,6 +1,8 @@
 // HTML extraction utilities - converts HTML to markdown/text
 // Ported from openclaw/src/agents/tools/web-fetch-utils.ts
 
+import { parseHTML } from 'linkedom'
+
 import { sanitizeHtml, stripInvisibleUnicode } from './web-fetch-visibility'
 
 export type ExtractMode = 'markdown' | 'text'
@@ -79,13 +81,24 @@ function normalizeWhitespace(value: string): string {
     .trim()
 }
 
+function removeNonContentElements(html: string): string {
+  try {
+    const { document } = parseHTML(html) as { document: Document }
+    const blockedElements = Array.from(document.querySelectorAll('script, style, noscript'))
+    for (const element of blockedElements) {
+      element.parentNode?.removeChild(element)
+    }
+    return (document as unknown as { toString(): string }).toString()
+  } catch {
+    return html
+  }
+}
+
 export function htmlToMarkdown(html: string): { text: string; title?: string } {
-  const titleMatch = html.match(/<title[^>]*>([\s\S]*?)<\/title\s*>/i)
+  const sanitizedHtml = removeNonContentElements(html)
+  const titleMatch = sanitizedHtml.match(/<title[^>]*>([\s\S]*?)<\/title\s*>/i)
   const title = titleMatch ? normalizeWhitespace(stripTags(titleMatch[1])) : undefined
-  let text = html
-    .replace(/<script[\s\S]*?<\/script\s*>/gi, '')
-    .replace(/<style[\s\S]*?<\/style\s*>/gi, '')
-    .replace(/<noscript[\s\S]*?<\/noscript\s*>/gi, '')
+  let text = sanitizedHtml
   text = text.replace(/<a\s+[^>]*href=["']([^"']+)["'][^>]*>([\s\S]*?)<\/a\s*>/gi, (_, href, body) => {
     const label = normalizeWhitespace(stripTags(body))
     if (!label) {
