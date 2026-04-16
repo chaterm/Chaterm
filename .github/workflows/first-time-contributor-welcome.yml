@@ -14,7 +14,7 @@ jobs:
     steps:
       - name: Check if first time contributor
         id: check
-        uses: actions/github-script@v9
+        uses: actions/github-script@373c709c69115d41ff229c7e5df9f8788daa9553 # v9.0.0
         with:
           script: |
             const { data: issues } = await github.rest.issues.listForRepo({
@@ -33,7 +33,7 @@ jobs:
 
       - name: Welcome first time contributor
         if: steps.check.outputs.isFirstTime == 'true'
-        uses: actions-cool/issues-helper@v3
+        uses: actions-cool/issues-helper@200c78641dbf33838311e5a1e0c31bbdb92d7cf0 # v3
         with:
           actions: 'create-comment'
           token: ${{ secrets.GITHUB_TOKEN }}
