@@ -6,6 +6,9 @@ on:
   pull_request:
     branches: [main]
 
+permissions:
+  contents: read
+
 jobs:
   test:
     strategy:
@@ -21,13 +24,13 @@ jobs:
         run: git config --system core.longpaths true
 
       - name: Checkout code
-        uses: actions/checkout@v6
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
           # Enable long paths for Windows (filenames > 260 chars)
           config: core.longpaths=true
 
       - name: Use Node.js 22.x
-        uses: actions/setup-node@v6
+        uses: actions/setup-node@53b83947a5a98c8d113130e565377fae1a50d02f # v6.0.0
         with:
           node-version: 22.x
           cache: 'npm'
@@ -55,7 +58,7 @@ jobs:
         shell: bash
 
       - name: Cache Playwright Browsers
-        uses: actions/cache@v5
+        uses: actions/cache@27d5ce7f107fe9357f9df03efb73ab90386fccae # v5.2.3
         id: playwright-cache
         with:
           path: ${{ steps.playwright-path.outputs.path }}
@@ -92,7 +95,7 @@ jobs:
           CI: true
 
       - name: Save Coverage Reports
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.0
         # Only upload artifacts on macOS - We only need coverage from one OS
         if: runner.os == 'macOS'
         with:
@@ -100,7 +103,7 @@ jobs:
           path: coverage
 
       - name: Upload coverage to Codecov
-        uses: codecov/codecov-action@v6
+        uses: codecov/codecov-action@57e3a136b779b570ffcdbf80b3bdc90e7fab3de2 # v6.0.1
         if: runner.os == 'macOS'
         with:
           files: ./coverage/coverage-final.json

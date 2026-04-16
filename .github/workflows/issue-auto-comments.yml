@@ -23,7 +23,7 @@ jobs:
     steps:
       - name: Auto Comment on Issues Closed
         if: github.event.issue.state == 'closed'
-        uses: wow-actions/auto-comment@v1
+        uses: wow-actions/auto-comment@2fc064c21cfb2505de3c5c10e1473b8eb7beca1a # v1
         with:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           issuesClosed: |
@@ -33,7 +33,7 @@ jobs:
 
       - name: Auto Comment on Pull Request Merged
         if: github.event.pull_request.merged == true
-        uses: actions-cool/pr-welcome@v1
+        uses: actions-cool/pr-welcome@db204e23d550b47b449c97f19ddd13367936ffd7 # v1
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
           comment: |
@@ -47,7 +47,7 @@ jobs:
 
       - name: Remove inactive label
         if: github.event.issue.state == 'open' && github.actor == github.event.issue.user.login
-        uses: actions-cool/issues-helper@v3
+        uses: actions-cool/issues-helper@200c78641dbf33838311e5a1e0c31bbdb92d7cf0 # v3
         with:
           actions: 'remove-labels'
           token: ${{ secrets.GITHUB_TOKEN }}
