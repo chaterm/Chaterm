@@ -47,6 +47,15 @@ function buildOrganizationAssetSearchTitle(row: {
   return parts.length > 0 ? parts.join(' ') : undefined
 }
 
+/** Display name for bastion parent row when t_assets.label differs from IP */
+function buildBastionParentTitle(label: string | null | undefined, host: string): string | undefined {
+  const name = label != null && String(label).trim() ? String(label).trim() : ''
+  if (!name) return undefined
+  const h = String(host ?? '').trim()
+  if (name === h) return undefined
+  return name
+}
+
 export function connectAssetInfoLogic(db: Database.Database, uuid: string): any {
   try {
     const stmt = db.prepare(`
@@ -142,7 +151,7 @@ export function getUserHostsLogic(db: Database.Database, search: string, limit: 
 
     // Step 2: Query bastion host nodes (organization types - dynamically)
     const jumpserverStmt = db.prepare(`
-        SELECT uuid, asset_ip as host, asset_type
+        SELECT uuid, asset_ip as host, asset_type, label
         FROM t_assets
         WHERE asset_type IN (${orgTypePlaceholders})
       `)
@@ -202,6 +211,7 @@ export function getUserHostsLogic(db: Database.Database, search: string, limit: 
         return {
           key: `bastion_${js.uuid}`,
           label: js.host,
+          title: buildBastionParentTitle(js.label, js.host),
           type: 'bastion',
           selectable: false,
           uuid: js.uuid,
