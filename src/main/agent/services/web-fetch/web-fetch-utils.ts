@@ -45,8 +45,29 @@ function decodeEntities(value: string): string {
     .replace(/&amp;/gi, '&')
 }
 
+function stripHtmlTags(value: string): string {
+  let result = ''
+  let inTag = false
+
+  for (const char of value) {
+    if (char === '<') {
+      inTag = true
+      continue
+    }
+    if (char === '>' && inTag) {
+      inTag = false
+      continue
+    }
+    if (!inTag) {
+      result += char
+    }
+  }
+
+  return result
+}
+
 function stripTags(value: string): string {
-  return decodeEntities(value.replace(/<[^>]+>/g, ''))
+  return decodeEntities(stripHtmlTags(value))
 }
 
 function normalizeWhitespace(value: string): string {

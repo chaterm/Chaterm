@@ -1,6 +1,8 @@
 // HTML visibility sanitization - removes hidden elements and invisible Unicode
 // Ported from openclaw/src/agents/tools/web-fetch-visibility.ts
 
+import { parseHTML } from 'linkedom'
+
 // CSS property values that indicate an element is hidden
 const HIDDEN_STYLE_PATTERNS: Array<[string, RegExp]> = [
   ['display', /^\s*none\s*$/i],
@@ -123,17 +125,26 @@ function shouldRemoveElement(element: Element): boolean {
   return false
 }
 
-export async function sanitizeHtml(html: string): Promise<string> {
-  // Strip HTML comments
-  let sanitized = html.replace(/<!--[\s\S]*?-->/g, '')
+function removeCommentNodes(node: Node): void {
+  const childNodes = Array.from(node.childNodes)
+  for (const child of childNodes) {
+    if (child.nodeType === 8) {
+      child.parentNode?.removeChild(child)
+      continue
+    }
+    removeCommentNodes(child)
+  }
+}
 
+export async function sanitizeHtml(html: string): Promise<string> {
   let document: Document
   try {
-    const { parseHTML } = await import('linkedom')
-    ;({ document } = parseHTML(sanitized) as { document: Document })
+    ;({ document } = parseHTML(html) as { document: Document })
   } catch {
-    return sanitized
+    return html
   }
+
+  removeCommentNodes(document)
 
   // Walk all elements and remove hidden ones (bottom-up to avoid re-walking removed subtrees)
   const all = Array.from(document.querySelectorAll('*'))
@@ -151,5 +162,11 @@ export async function sanitizeHtml(html: string): Promise<string> {
 const INVISIBLE_UNICODE_RE = /[\u200B-\u200F\u202A-\u202E\u2060-\u2064\u206A-\u206F\uFEFF\u{E0000}-\u{E007F}]/gu
 
 export function stripInvisibleUnicode(text: string): string {
-  return text.replace(INVISIBLE_UNICODE_RE, '')
+  let sanitized = text
+  let previous = ''
+  while (sanitized !== previous) {
+    previous = sanitized
+    sanitized = sanitized.replace(INVISIBLE_UNICODE_RE, '')
+  }
+  return sanitized
 }

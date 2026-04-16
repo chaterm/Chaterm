@@ -2,6 +2,27 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { EventEmitter } from 'events'
 import { runMarkerBasedCommand, type MarkerStream, type MarkerRunnerConfig } from '../marker-based-runner'
 
+function stripHtmlLikeTags(text: string): string {
+  let result = ''
+  let inTag = false
+
+  for (const char of text) {
+    if (char === '<') {
+      inTag = true
+      continue
+    }
+    if (char === '>' && inTag) {
+      inTag = false
+      continue
+    }
+    if (!inTag) {
+      result += char
+    }
+  }
+
+  return result
+}
+
 // Create a mock stream
 const createMockStream = (): MarkerStream & { emitData: (data: string) => void } => {
   const emitter = new EventEmitter()
@@ -23,7 +44,7 @@ const createConfig = (stream: MarkerStream, overrides: Partial<MarkerRunnerConfi
   logPrefix: 'test',
   timeoutMs: 5000,
   isListening: () => true,
-  stripForDetect: (v) => v.replace(/<[^>]*>/g, ''),
+  stripForDetect: stripHtmlLikeTags,
   renderForDisplay: (v) => v,
   shouldFilterEcho: () => false,
   onLine: vi.fn(),

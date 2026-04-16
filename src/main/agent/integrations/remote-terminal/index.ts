@@ -168,6 +168,27 @@ function stripAnsiSimple(text: string): string {
     .replace(/\r/g, '')
 }
 
+function stripHtmlLikeTags(text: string): string {
+  let result = ''
+  let inTag = false
+
+  for (const char of text) {
+    if (char === '<') {
+      inTag = true
+      continue
+    }
+    if (char === '>' && inTag) {
+      inTag = false
+      continue
+    }
+    if (!inTag) {
+      result += char
+    }
+  }
+
+  return result
+}
+
 // ANSI color name lookup
 const ANSI_COLOR_NAMES = ['black', 'red', 'green', 'yellow', 'blue', 'magenta', 'cyan', 'white']
 
@@ -720,9 +741,7 @@ export class RemoteTerminalProcess extends BrownEventEmitter<RemoteTerminalProce
 
     // JumpServer-specific command echo detection
     const isCommandEcho = (line: string): boolean => {
-      const cleanLine = processAnsiCodes(line)
-        .replace(/<[^>]*>/g, '')
-        .trim()
+      const cleanLine = stripHtmlLikeTags(processAnsiCodes(line)).trim()
 
       return (
         cleanLine.startsWith('bash -l -c') ||
@@ -740,7 +759,7 @@ export class RemoteTerminalProcess extends BrownEventEmitter<RemoteTerminalProce
       logPrefix,
       timeoutMs: this.JUMPSERVER_COMMAND_TIMEOUT,
       isListening: () => this.isListening,
-      stripForDetect: (v) => processAnsiCodes(v).replace(/<[^>]*>/g, ''),
+      stripForDetect: (v) => stripHtmlLikeTags(processAnsiCodes(v)),
       renderForDisplay: processAnsiCodes,
       shouldFilterEcho: isCommandEcho,
       onLine: (line) => this.emit('line', line),
