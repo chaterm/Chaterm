@@ -29,6 +29,8 @@ export const createProxySocket = async (config: ProxyConfig, targetHost: string,
   if (!type || !host || !port) {
     throw new ProxyConnectionError('Proxy configuration incomplete: type, host, and port are required')
   }
+  validateEndpointForConnect(host, port, 'proxy')
+  validateEndpointForConnect(targetHost, targetPort, 'target')
 
   if (type === 'SOCKS4' && enableProxyIdentity && !username) {
     throw new ProxyConnectionError('SOCKS4 proxy requires username (userId) when authentication is enabled')
@@ -78,9 +80,7 @@ const createSocksConnection = async (config: ProxyConfig, targetHost: string, ta
     proxyLogger.debug('Creating SOCKS proxy connection', {
       event: 'ssh.proxy.connect',
       type,
-      targetHost,
       targetPort,
-      proxyHost: host,
       proxyPort: port
     })
 
@@ -143,9 +143,7 @@ const createHttpConnection = (config: ProxyConfig, targetHost: string, targetPor
     proxyLogger.debug('Creating HTTP proxy connection', {
       event: 'ssh.proxy.connect',
       type,
-      targetHost,
       targetPort,
-      proxyHost: host,
       proxyPort: port
     })
 
@@ -180,8 +178,7 @@ const createHttpConnection = (config: ProxyConfig, targetHost: string, targetPor
           if (type === 'HTTPS') {
             const tlsSocket = tls.connect({
               socket: proxySocket,
-              servername: targetHost,
-              rejectUnauthorized: false
+              servername: targetHost
             })
 
             tlsSocket.on('secureConnect', () => {
@@ -220,4 +217,14 @@ const createHttpConnection = (config: ProxyConfig, targetHost: string, targetPor
       clearTimeoutAndReject(new Error('Proxy socket closed unexpectedly'))
     })
   })
+}
+
+function validateEndpointForConnect(host: string, port: number, label: 'proxy' | 'target'): void {
+  if (/[\r\n\0]/.test(host) || host.trim() !== host) {
+    throw new ProxyConnectionError(`${label} host contains invalid characters`)
+  }
+
+  if (!Number.isInteger(port) || port < 1 || port > 65535) {
+    throw new ProxyConnectionError(`${label} port is out of range`)
+  }
 }

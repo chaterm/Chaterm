@@ -16,6 +16,7 @@ export async function checkProxyConnectivity(config?: ProxyConfig): Promise<void
   if (!config) return
 
   const { type, host, port } = config
+  validateProxyEndpoint(host, port)
 
   switch (type) {
     case 'HTTP':
@@ -58,7 +59,11 @@ function checkTcpConnection(host: string, port: number): Promise<void> {
  */
 function checkTlsConnection(host: string, port: number): Promise<void> {
   return new Promise((resolve, reject) => {
-    const socket = tls.connect(port, host, { rejectUnauthorized: false })
+    const socket = tls.connect({
+      host,
+      port,
+      servername: host
+    })
     socket.setTimeout(3000)
 
     socket.once('secureConnect', () => {
@@ -102,5 +107,20 @@ async function checkSocksConnection(config: ProxyConfig): Promise<void> {
     info.socket.end()
   } catch (err) {
     throw new Error(`SOCKS proxy connection failed: ${(err as Error).message}`)
+  }
+}
+
+function validateProxyEndpoint(host?: string, port?: number): void {
+  if (!host || !port) {
+    throw new Error('Proxy host and port are required')
+  }
+
+  // Prevent header/control-character injection and invalid endpoint formats.
+  if (/[\r\n\0]/.test(host) || host.trim() !== host) {
+    throw new Error('Proxy host contains invalid characters')
+  }
+
+  if (!Number.isInteger(port) || port < 1 || port > 65535) {
+    throw new Error('Proxy port is out of range')
   }
 }
