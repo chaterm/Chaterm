@@ -89,7 +89,7 @@
     "linkedom": "^0.18.12",
     "memfs": "^4.57.1",
     "mermaid": "^11.14.0",
-    "monaco-editor": "^0.55.1",
+    "monaco-editor": "^0.53.0",
     "node-pty": "^1.0.0",
     "ollama": "^0.6.3",
     "openai": "^6.34.0",
