@@ -823,7 +823,7 @@ export default {
     welcome: 'What can I do for you in the terminal?',
     welcomeTips: ['What can I do for you in the terminal?', '@ for context , / for commands', 'Press Shift + Tab to switch mode'],
     loginPrompt: 'Login to use AI features, new users can use for free for two weeks',
-    searchHost: 'Search by IP',
+    searchHost: 'Search by IP, hostname, or bastion note',
     noMatchingHosts: 'No matching hosts',
     hosts: 'Hosts',
     docs: 'Docs',

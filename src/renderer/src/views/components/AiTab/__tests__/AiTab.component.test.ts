@@ -183,7 +183,7 @@ function createTestI18n() {
           run: 'Run',
           copy: 'Copy',
           retry: 'Retry',
-          searchHost: 'Search by IP',
+          searchHost: 'Search by IP, hostname, or bastion note',
           loading: 'loading...',
           noMatchingHosts: 'No matching hosts',
           processing: 'processing...',

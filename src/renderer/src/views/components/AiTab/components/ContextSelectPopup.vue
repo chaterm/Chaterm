@@ -101,7 +101,9 @@
               @mouseleave="hovered = null"
               @click="toggleJumpserverExpand(item.key)"
             >
-              <span class="item-label group-label">{{ item.label }}</span>
+              <span class="item-label group-label">
+                {{ item.label }}
+              </span>
               <span class="group-badge">{{ item.childrenCount || 0 }}</span>
               <span class="group-toggle">
                 <DownOutlined
@@ -128,7 +130,15 @@
               @mouseleave="hovered = null"
               @click="onHostClick(item)"
             >
-              <span class="item-label">{{ item.label }}</span>
+              <span class="item-label">
+                {{ item.label
+                }}<span
+                  v-if="item.title"
+                  class="host-item-remark"
+                >
+                  {{ ' ' }}{{ item.title }}
+                </span>
+              </span>
               <!-- Show check icon for selected hosts -->
               <CheckOutlined
                 v-if="isHostSelected(item)"
@@ -655,6 +665,12 @@ void searchInputRef
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
+  }
+
+  .host-item-remark {
+    font-weight: 400;
+    font-size: 10px;
+    color: var(--text-color-secondary);
   }
 
   .selected-icon {
