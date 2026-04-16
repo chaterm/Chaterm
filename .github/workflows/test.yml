@@ -72,7 +72,7 @@ jobs:
 
       - name: Reinstall rollup platform bindings (Windows)
         if: runner.os == 'Windows'
-        run: npm install @rollup/rollup-win32-x64-msvc@4.59.0 --prefer-offline
+        run: npm install "https://registry.npmjs.org/@rollup/rollup-win32-x64-msvc/-/rollup-win32-x64-msvc-4.59.0.tgz#sha512-2HRCml6OztYXyJXAvdDXPKcawukWY2GpR5/nxKp4iBgiO3wcoEGkAaqctIbZcNB6KlUQBIqt8VYkNSj2397EfA==" --no-save --prefer-offline
         shell: bash
 
       - name: Install Playwright Browsers (full)
