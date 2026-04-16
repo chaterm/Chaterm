@@ -807,7 +807,7 @@ export default {
     welcome: '您好,请问需要在终端做什么操作?',
     welcomeTips: ['您好,请问需要在终端做什么操作?', '输入 @ 选择上下文，输入 / 选择自定义命令', '按下 Shift + Tab 切换模式'],
     loginPrompt: '登录后即可使用 AI 功能，新用户注册免费使用两周',
-    searchHost: '输入IP搜索',
+    searchHost: '输入 IP 或堡垒机备注搜索',
     noMatchingHosts: '无匹配主机',
     hosts: '主机',
     docs: '知识库',

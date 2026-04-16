@@ -818,7 +818,7 @@ export default {
     welcome: 'ターミナルで何をお手伝いできますか？',
     welcomeTips: ['ターミナルで何をお手伝いできますか？', '@ でコンテキスト、/ でコマンドを選択', 'Shift + Tab を押してモードを切り替え'],
     loginPrompt: 'AI機能を使用するにはログインしてください。新規ユーザーは2週間無料でご利用いただけます',
-    searchHost: 'IPで検索',
+    searchHost: 'IP または備考で検索',
     noMatchingHosts: '一致するホストがありません',
     hosts: 'ホスト',
     docs: 'ドキュメント',
