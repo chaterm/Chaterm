@@ -13,6 +13,15 @@ const HIDDEN_STYLE_PATTERNS: Array<[string, RegExp]> = [
   ['color', /^\s*hsla\s*\(\s*[\d.]+\s*,\s*[\d.]+%?\s*,\s*[\d.]+%?\s*,\s*0(?:\.0+)?\s*\)\s*$/i]
 ]
 
+const STYLE_VALUE_EXTRACTORS: Record<string, RegExp> = {
+  display: /(?:^|;)\s*display\s*:\s*([^;]+)/i,
+  visibility: /(?:^|;)\s*visibility\s*:\s*([^;]+)/i,
+  opacity: /(?:^|;)\s*opacity\s*:\s*([^;]+)/i,
+  'font-size': /(?:^|;)\s*font-size\s*:\s*([^;]+)/i,
+  'text-indent': /(?:^|;)\s*text-indent\s*:\s*([^;]+)/i,
+  color: /(?:^|;)\s*color\s*:\s*([^;]+)/i
+}
+
 // Class names associated with visually hidden content
 const HIDDEN_CLASS_NAMES = new Set(['sr-only', 'visually-hidden', 'd-none', 'hidden', 'invisible', 'screen-reader-only', 'offscreen'])
 
@@ -23,8 +32,11 @@ function hasHiddenClass(className: string): boolean {
 
 function isStyleHidden(style: string): boolean {
   for (const [prop, pattern] of HIDDEN_STYLE_PATTERNS) {
-    const escapedProp = prop.replace(/-/g, '\\-')
-    const match = style.match(new RegExp(`(?:^|;)\\s*${escapedProp}\\s*:\\s*([^;]+)`, 'i'))
+    const extractor = STYLE_VALUE_EXTRACTORS[prop]
+    if (!extractor) {
+      continue
+    }
+    const match = style.match(extractor)
     if (match && pattern.test(match[1])) {
       return true
     }

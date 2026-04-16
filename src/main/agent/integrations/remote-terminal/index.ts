@@ -35,6 +35,7 @@ import { webContents } from 'electron'
 import type { IpcMainInvokeEvent } from 'electron'
 import path from 'path'
 import fs from 'fs'
+import { randomUUID } from 'crypto'
 
 const appPath = app.getAppPath()
 const packagePath = path.join(appPath, 'package.json')
@@ -431,7 +432,7 @@ export class RemoteTerminalProcess extends BrownEventEmitter<RemoteTerminalProce
   private buildJumpServerWrappedCommand(command: string, cleanCwd?: string): { wrappedCommand: string; startMarker: string; endMarker: string } {
     // Generate unique markers for output tracking
     const timestamp = Date.now()
-    const randomId = Math.random().toString(36).substring(2, 14)
+    const randomId = randomUUID().replace(/-/g, '').slice(0, 12)
     const startMarker = `===CHATERM_START_${timestamp}_${randomId}===`
     const endMarker = `===CHATERM_END_${timestamp}_${randomId}===`
 
@@ -938,7 +939,7 @@ export class RemoteTerminalManager {
       // Choose connection method based on sshType
       if (sshType === 'jumpserver') {
         // Use JumpServer connection
-        const jumpServerSessionId = `jumpserver_${Date.now()}_${Math.random().toString(36).substring(2, 14)}`
+        const jumpServerSessionId = `jumpserver_${Date.now()}_${randomUUID().replace(/-/g, '').slice(0, 12)}`
         const assetUuid = this.connectionInfo.assetUuid || this.connectionInfo.id || jumpServerSessionId
         const jumpServerConnectionInfo = {
           id: jumpServerSessionId,
@@ -968,7 +969,7 @@ export class RemoteTerminalManager {
         if (!bastionCapability) {
           throw new Error(`${sshType} plugin not installed`)
         }
-        const bastionSessionId = `${sshType}_${Date.now()}_${Math.random().toString(36).substring(2, 14)}`
+        const bastionSessionId = `${sshType}_${Date.now()}_${randomUUID().replace(/-/g, '').slice(0, 12)}`
         const bastionHost = this.connectionInfo.asset_ip || this.connectionInfo.host
         if (!bastionHost) {
           throw new Error(`${sshType} bastion host is missing`)
