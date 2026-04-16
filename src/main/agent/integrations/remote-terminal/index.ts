@@ -58,6 +58,10 @@ try {
   packageInfo = { name: 'chaterm', version: 'unknown' }
 }
 
+const createSecureIdSegment = (length = 12): string => {
+  return randomUUID().replace(/-/g, '').slice(0, length)
+}
+
 export interface RemoteTerminalProcessEvents extends Record<string, any[]> {
   line: [line: string]
   continue: []
@@ -432,7 +436,7 @@ export class RemoteTerminalProcess extends BrownEventEmitter<RemoteTerminalProce
   private buildJumpServerWrappedCommand(command: string, cleanCwd?: string): { wrappedCommand: string; startMarker: string; endMarker: string } {
     // Generate unique markers for output tracking
     const timestamp = Date.now()
-    const randomId = randomUUID().replace(/-/g, '').slice(0, 12)
+    const randomId = createSecureIdSegment()
     const startMarker = `===CHATERM_START_${timestamp}_${randomId}===`
     const endMarker = `===CHATERM_END_${timestamp}_${randomId}===`
 
@@ -939,7 +943,7 @@ export class RemoteTerminalManager {
       // Choose connection method based on sshType
       if (sshType === 'jumpserver') {
         // Use JumpServer connection
-        const jumpServerSessionId = `jumpserver_${Date.now()}_${randomUUID().replace(/-/g, '').slice(0, 12)}`
+        const jumpServerSessionId = `jumpserver_${Date.now()}_${createSecureIdSegment()}`
         const assetUuid = this.connectionInfo.assetUuid || this.connectionInfo.id || jumpServerSessionId
         const jumpServerConnectionInfo = {
           id: jumpServerSessionId,
@@ -969,7 +973,7 @@ export class RemoteTerminalManager {
         if (!bastionCapability) {
           throw new Error(`${sshType} plugin not installed`)
         }
-        const bastionSessionId = `${sshType}_${Date.now()}_${randomUUID().replace(/-/g, '').slice(0, 12)}`
+        const bastionSessionId = `${sshType}_${Date.now()}_${createSecureIdSegment()}`
         const bastionHost = this.connectionInfo.asset_ip || this.connectionInfo.host
         if (!bastionHost) {
           throw new Error(`${sshType} bastion host is missing`)
