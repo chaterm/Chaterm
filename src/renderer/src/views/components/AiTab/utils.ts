@@ -81,6 +81,7 @@ export const formatHosts = (data: { personal?: TreeHostOption[]; jumpservers?: T
       result.push({
         key: item.key,
         label: item.label || '',
+        title: item.title,
         value: item.key,
         uuid: item.uuid,
         connect: item.connection,

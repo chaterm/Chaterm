@@ -828,7 +828,7 @@ export default {
     welcome: 'Was kann ich für Sie im Terminal tun?',
     welcomeTips: ['Was kann ich für Sie im Terminal tun?', '@ für Kontext, / für Befehle', 'Drücken Sie Shift + Tab um den Modus zu wechseln'],
     loginPrompt: 'Login um AI-Features zu verwenden, neue Benutzer können für 2 Wochen kostenlos verwenden',
-    searchHost: 'Nach IP oder Bastion-Hinweis suchen',
+    searchHost: 'Nach IP, Hostname oder Bastion-Hinweis suchen',
     noMatchingHosts: 'Keine übereinstimmenden Hosts',
     hosts: 'Hosts',
     docs: 'Dokumente',

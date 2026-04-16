@@ -47,7 +47,7 @@ function buildOrganizationAssetSearchTitle(row: {
   return parts.length > 0 ? parts.join(' ') : undefined
 }
 
-/** Display name for bastion parent row when t_assets.label differs from IP */
+/** Display title when t_assets.label (name) differs from asset_ip (also used for direct/personal hosts) */
 function buildBastionParentTitle(label: string | null | undefined, host: string): string | undefined {
   const name = label != null && String(label).trim() ? String(label).trim() : ''
   if (!name) return undefined
@@ -140,14 +140,15 @@ export function getUserHostsLogic(db: Database.Database, search: string, limit: 
     `)
     deleteOrphanedStmt.run(...orgTypes)
 
-    // Step 1: Query personal assets (asset_type='person' or switch types)
+    // Step 1: Query personal assets (asset_type='person' or switch types); match IP or display name (label / hostname)
     const personalStmt = db.prepare(`
-        SELECT asset_ip as host, uuid, asset_type
+        SELECT asset_ip as host, uuid, asset_type, label
         FROM t_assets
-        WHERE asset_ip LIKE ? AND asset_type IN ('person', 'person-switch-cisco', 'person-switch-huawei')
-        GROUP BY asset_ip, uuid, asset_type
+        WHERE asset_type IN ('person', 'person-switch-cisco', 'person-switch-huawei')
+          AND (asset_ip LIKE ? OR IFNULL(label, '') LIKE ?)
+        GROUP BY asset_ip, uuid, asset_type, label
       `)
-    const personalResults = personalStmt.all(searchPattern) || []
+    const personalResults = personalStmt.all(searchPattern, searchPattern) || []
 
     // Step 2: Query bastion host nodes (organization types - dynamically)
     const jumpserverStmt = db.prepare(`
@@ -182,6 +183,7 @@ export function getUserHostsLogic(db: Database.Database, search: string, limit: 
     const personalData = personalResults.map((item: any) => ({
       key: `personal_${item.uuid}`,
       label: item.host,
+      title: buildBastionParentTitle(item.label, item.host),
       type: 'personal',
       selectable: true,
       uuid: item.uuid,
