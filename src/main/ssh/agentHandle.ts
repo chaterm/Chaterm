@@ -12,6 +12,7 @@ import {
 import { LEGACY_ALGORITHMS } from './algorithms'
 import net from 'net'
 import tls from 'tls'
+import { randomUUID } from 'crypto'
 import { getUserConfigFromRenderer } from '../index'
 const logger = createLogger('ssh')
 
@@ -32,7 +33,7 @@ function isSystemError(_command: string, exitCode: number | null): boolean {
 
 export async function remoteSshConnect(connectionInfo: ConnectionInfo): Promise<{ id?: string; error?: string }> {
   const { host, port, username, password, privateKey, passphrase } = connectionInfo
-  const connectionId = `ssh_${Date.now()}_${Math.random().toString(36).substr(2, 12)}`
+  const connectionId = `ssh_${randomUUID()}`
   const normalizedHost = host ?? ''
   const normalizedUsername = username ?? ''
   const normalizedPort = port || 22
