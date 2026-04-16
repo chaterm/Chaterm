@@ -4,10 +4,15 @@ on:
   pull_request:
     types: [opened, edited, labeled]
 
+permissions:
+  contents: read
+
 jobs:
   check:
     runs-on: ubuntu-latest
     name: pr-title-checker
+    permissions:
+      pull-requests: write
     steps:
       - uses: thehanimo/pr-title-checker@7fbfe05602bdd86f926d3fb3bccb6f3aed43bc70 # v1.4.3
         with:
