@@ -88,10 +88,13 @@
             v-model:value="chatTypeValue"
             v-model:open="aiModeSelectOpen"
             size="small"
-            style="width: 95px"
+            class="ai-mode-select"
+            :style="{ width: `${modeSelectWidthPx}px` }"
             :options="AiTypeOptions"
             data-testid="ai-mode-select"
-            popup-class-name="input-controls-select-dropdown"
+            :dropdown-match-select-width="false"
+            :dropdown-style="modeDropdownStyle"
+            popup-class-name="input-controls-select-dropdown input-controls-mode-dropdown"
             @dropdown-visible-change="handleAiModeSelectOpenChange"
             @keydown.esc.stop
           ></a-select>
@@ -101,9 +104,11 @@
           v-model:open="modelSelectOpen"
           size="small"
           class="model-select-responsive"
-          style="width: 140px"
+          :style="{ width: `${modelSelectWidthPx}px` }"
           show-search
-          popup-class-name="input-controls-select-dropdown"
+          :dropdown-match-select-width="false"
+          :dropdown-style="modelDropdownStyle"
+          popup-class-name="input-controls-select-dropdown input-controls-model-dropdown"
           @dropdown-visible-change="modelSelectOpen = $event"
           @change="handleChatAiModelChange"
           @keydown.esc.stop
@@ -256,6 +261,7 @@
 
 <script setup lang="ts">
 import { computed, ref, watch, provide, nextTick, onMounted, onBeforeUnmount } from 'vue'
+import type { CSSProperties } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { notification } from 'ant-design-vue'
 import VoiceInput from '../components/voice/voiceInput.vue'
@@ -754,6 +760,88 @@ const hasAnyContext = computed(() => {
 const { AgentAiModelsOptions, lockedModels, budgetResetAt, showLockedModelUpgradeTag, hasAvailableModels, handleChatAiModelChange } =
   useModelConfiguration()
 
+/** Horizontal padding, arrow, and borders for Ant Design small Select (matches ~12px label). */
+const SELECT_CHROME_PX = 48
+/** Extra width when the Thinking icon is shown in the selector (icon + margin). */
+const THINKING_ICON_SELECT_EXTRA_PX = 22
+/** Padding, scrollbars, and option chrome for dropdown list rows (beyond label text). */
+const DROPDOWN_ROW_CHROME_PX = 52
+/** Lock icon + margin in locked-model dropdown rows. */
+const LOCK_ROW_ICON_EXTRA_PX = 22
+/** VIP tag width when shown in locked rows. */
+const VIP_TAG_ROW_EXTRA_PX = 36
+
+function measureUiTextWidthPx(text: string): number {
+  if (!text) return 0
+  if (typeof document === 'undefined') return text.length * 7
+  const canvas = document.createElement('canvas')
+  const ctx = canvas.getContext('2d')
+  if (!ctx) return text.length * 7
+  ctx.font = '12px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, "Noto Sans", sans-serif'
+  return ctx.measureText(text).width
+}
+
+const modeSelectWidthPx = computed(() => {
+  const opt = AiTypeOptions.find((o) => o.value === chatTypeValue.value)
+  const label = opt?.label ?? ''
+  const w = Math.ceil(measureUiTextWidthPx(label)) + SELECT_CHROME_PX
+  return Math.min(Math.max(w, 72), 160)
+})
+
+const modelSelectWidthPx = computed(() => {
+  const v = chatAiModelValue.value
+  const opt = AgentAiModelsOptions.value.find((m) => m.value === v)
+  const raw = opt?.label ?? String(v ?? '')
+  const display = raw.replace(/-Thinking$/, '')
+  const thinkingExtra = raw.endsWith('-Thinking') ? THINKING_ICON_SELECT_EXTRA_PX : 0
+  const w = Math.ceil(measureUiTextWidthPx(display)) + SELECT_CHROME_PX + thinkingExtra
+  return Math.min(Math.max(w, 88), 360)
+})
+
+const modeDropdownListWidthPx = computed(() => {
+  let max = 0
+  for (const o of AiTypeOptions) {
+    const w = Math.ceil(measureUiTextWidthPx(o.label ?? '')) + DROPDOWN_ROW_CHROME_PX
+    max = Math.max(max, w)
+  }
+  return Math.min(Math.max(max, 96), 400)
+})
+
+const modelDropdownListWidthPx = computed(() => {
+  let max = 0
+  for (const model of AgentAiModelsOptions.value) {
+    const raw = model.label
+    const display = raw.replace(/-Thinking$/, '')
+    const thinkingExtra = raw.endsWith('-Thinking') ? THINKING_ICON_SELECT_EXTRA_PX : 0
+    const w = Math.ceil(measureUiTextWidthPx(display)) + DROPDOWN_ROW_CHROME_PX + thinkingExtra
+    max = Math.max(max, w)
+  }
+  const vipExtra = showLockedModelUpgradeTag.value ? VIP_TAG_ROW_EXTRA_PX : 0
+  for (const name of lockedModels.value) {
+    const w = Math.ceil(measureUiTextWidthPx(name)) + DROPDOWN_ROW_CHROME_PX + LOCK_ROW_ICON_EXTRA_PX + vipExtra
+    max = Math.max(max, w)
+  }
+  return Math.min(Math.max(max, 120), 720)
+})
+
+const modeDropdownStyle = computed((): CSSProperties => {
+  const w = modeDropdownListWidthPx.value
+  return {
+    minWidth: `${w}px`,
+    width: `${w}px`,
+    maxWidth: 'min(92vw, 400px)'
+  }
+})
+
+const modelDropdownStyle = computed((): CSSProperties => {
+  const w = modelDropdownListWidthPx.value
+  return {
+    minWidth: `${w}px`,
+    width: `${w}px`,
+    maxWidth: 'min(92vw, 720px)'
+  }
+})
+
 const lockedModelTooltip = computed(() => {
   if (showLockedModelUpgradeTag.value) {
     return t('user.modelLocked', { tier: 'VIP' })
@@ -1154,13 +1242,13 @@ onBeforeUnmount(() => {
 
   .ant-select:first-child {
     flex-shrink: 0;
-    min-width: 85px;
+    min-width: 72px;
   }
 
   .model-select-responsive {
     flex-shrink: 1;
     min-width: 40px;
-    max-width: 200px;
+    max-width: 360px;
 
     :deep(.ant-select-selector) {
       min-width: 0;
@@ -1174,21 +1262,7 @@ onBeforeUnmount(() => {
     }
   }
 
-  @container input-controls (max-width: 260px) {
-    .model-select-responsive {
-      display: none;
-    }
-  }
-
-  @media (max-width: 600px) {
-    .model-select-responsive {
-      display: none;
-    }
-  }
-
   .ant-select {
-    width: 95px;
-
     :deep(.ant-select-selector) {
       background-color: transparent !important;
       border: none !important;
@@ -1383,6 +1457,13 @@ onBeforeUnmount(() => {
   .ant-select-item,
   .ant-select-item-option {
     font-size: 12px !important;
+    white-space: nowrap !important;
+  }
+
+  .ant-select-item-option-content {
+    overflow: visible !important;
+    text-overflow: clip !important;
+    white-space: nowrap !important;
   }
 }
 
