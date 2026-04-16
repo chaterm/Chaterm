@@ -32,7 +32,7 @@ function isPluginBastion(assetType: string): boolean {
 export function connectAssetInfoLogic(db: Database.Database, uuid: string): any {
   try {
     const stmt = db.prepare(`
-        SELECT uuid, asset_ip, asset_type, auth_type, port, username, password, key_chain_id, need_proxy, proxy_name
+        SELECT uuid, asset_ip, asset_type, auth_type, port, username, password, key_chain_id, need_proxy, proxy_name, protocol
         FROM t_assets
         WHERE uuid = ?
       `)
@@ -117,7 +117,7 @@ export function getUserHostsLogic(db: Database.Database, search: string, limit: 
     const personalStmt = db.prepare(`
         SELECT asset_ip as host, uuid, asset_type
         FROM t_assets
-        WHERE asset_ip LIKE ? AND asset_type IN ('person', 'person-switch-cisco', 'person-switch-huawei')
+        WHERE asset_ip LIKE ? AND asset_type IN ('person', 'person-switch-cisco', 'person-switch-huawei', 'person-switch-h3c')
         GROUP BY asset_ip, uuid, asset_type
       `)
     const personalResults = personalStmt.all(searchPattern) || []

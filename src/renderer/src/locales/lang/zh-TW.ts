@@ -678,6 +678,8 @@ export default {
     switchBrand: '交換機品牌',
     switchCisco: '思科',
     switchHuawei: '華為',
+    switchH3c: '新華三',
+    protocol: '協議',
     switchTip: '交換機僅支持 Command 模式',
     bastionHost: '堡壘機',
     qizhi: '齊治堡壘機',

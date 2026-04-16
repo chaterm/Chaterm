@@ -680,6 +680,8 @@ export default {
     switchBrand: '스위치 브랜드',
     switchCisco: '시스코',
     switchHuawei: '화웨이',
+    switchH3c: 'H3C',
+    protocol: '프로토콜',
     switchTip: '스위치는 명령 모드만 지원합니다',
     bastionHost: '배스천 호스트',
     qizhi: 'Qizhi 배스천',

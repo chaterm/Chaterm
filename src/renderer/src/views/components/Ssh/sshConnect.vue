@@ -1659,6 +1659,7 @@ const connectSSH = async (_opts?: { isAutoReconnect?: boolean }) => {
           isOfficeDevice: isOfficeDevice.value,
           connIdentToken: jmsToken.value || '',
           asset_type: connAssetType, // Pass asset_type to main process for switch handling
+          protocol: assetInfo?.protocol || 'ssh',
           proxyCommand: props.connectData.proxyCommand || '',
           source: props.connectData.source || '',
           wakeupSource: props.connectData.wakeupSource || props.connectData.source || '',

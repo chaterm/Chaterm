@@ -49,6 +49,7 @@ const translations: Record<string, string> = {
   'personal.bastionType': 'Bastion Type',
   'personal.switchCisco': 'Cisco',
   'personal.switchHuawei': 'Huawei',
+  'personal.protocol': 'Protocol',
   'personal.noProxyConfigFound': 'No proxy config found',
   'personal.goToProxyConfig': 'Go to proxy config',
   'personal.validationRemoteHostRequired': 'Remote host cannot be empty',
@@ -152,6 +153,7 @@ describe('AssetForm Validation', () => {
           'a-radio-group': { template: '<div class="a-radio-group"><slot /></div>', props: ['modelValue'] },
           'a-radio-button': { template: '<div class="a-radio-button"><slot /></div>', props: ['value'] },
           'a-switch': { template: '<div class="a-switch"></div>', props: ['checked'] },
+          'a-alert': { template: '<div class="a-alert"><slot /></div>', props: ['message', 'type'] },
           ToTopOutlined: { template: '<span class="close-icon" />' }
         }
       }

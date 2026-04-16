@@ -1,5 +1,6 @@
 import { BrowserWindow, dialog, ipcMain } from 'electron'
 import { Client } from 'ssh2'
+import { telnetConnect, telnetWrite, telnetResize, telnetDisconnect, isTelnetSession } from '../telnet'
 import type { SFTPWrapper } from 'ssh2'
 import { spawn } from 'child_process'
 import { Duplex } from 'stream'
@@ -426,7 +427,7 @@ export const attemptSecondaryConnection = async (event, connectionInfo, existing
 
   // Check if this is a network switch connection
   const isSwitch = asset_type?.startsWith('person-switch-')
-  const switchBrand = isSwitch ? (asset_type === 'person-switch-cisco' ? 'cisco' : 'huawei') : null
+  const switchBrand = isSwitch ? (asset_type === 'person-switch-cisco' ? 'cisco' : asset_type === 'person-switch-huawei' ? 'huawei' : 'h3c') : null
 
   // For switches, skip secondary connection logic and return minimal ready data
   if (isSwitch && switchBrand) {
@@ -983,6 +984,30 @@ export const registerSSHHandlers = () => {
       return bastionResult
     }
 
+    // Route to Telnet handler when protocol is telnet
+    if (connectionInfo.protocol === 'telnet') {
+      try {
+        const result = await telnetConnect(_event, {
+          id: connectionInfo.id,
+          host: connectionInfo.host,
+          port: connectionInfo.port || 23,
+          username: connectionInfo.username,
+          password: connectionInfo.password,
+          terminalType: connectionInfo.terminalType,
+          cols: connectionInfo.cols,
+          rows: connectionInfo.rows
+        })
+        return result
+      } catch (error: unknown) {
+        logger.error('Telnet connection failed', {
+          event: 'telnet.connect.error',
+          connectionId: connectionInfo?.id,
+          error: error
+        })
+        return buildErrorResponse(error)
+      }
+    }
+
     // Default to SSH connection when sshType is missing or explicitly 'ssh'
     const retryCount = 0
     return new Promise((resolve, reject) => {
@@ -999,6 +1024,11 @@ export const registerSSHHandlers = () => {
   })
 
   ipcMain.handle('ssh:shell', async (event, { id, terminalType, cols, rows }) => {
+    // Telnet connections are already interactive after connect, no separate shell step needed
+    if (isTelnetSession(id)) {
+      return { status: 'success' }
+    }
+
     // Check if it's a JumpServer connection
     if (jumpserverConnections.has(id)) {
       // Use JumpServer shell handling
@@ -1286,6 +1316,12 @@ export const registerSSHHandlers = () => {
 
   // Resize handling
   ipcMain.handle('ssh:shell:resize', async (_event, { id, cols, rows }) => {
+    // Route to Telnet resize handler
+    if (isTelnetSession(id)) {
+      telnetResize(id, cols, rows)
+      return { status: 'success' }
+    }
+
     // Check if it's a JumpServer connection
     if (jumpserverConnections.has(id)) {
       const stream = jumpserverShellStreams.get(id)
@@ -1322,6 +1358,12 @@ export const registerSSHHandlers = () => {
   })
 
   ipcMain.on('ssh:shell:write', (_event, { id, data, marker, lineCommand, isBinary }) => {
+    // Route to Telnet write handler
+    if (isTelnetSession(id)) {
+      telnetWrite(id, data, marker)
+      return
+    }
+
     // Check if it's a JumpServer connection
     if (jumpserverConnections.has(id)) {
       const stream = jumpserverShellStreams.get(id)
@@ -1586,6 +1628,13 @@ export const registerSSHHandlers = () => {
       event: 'ssh.disconnect.start',
       connectionId: id
     })
+
+    // Route to Telnet disconnect handler
+    if (isTelnetSession(id)) {
+      telnetDisconnect(id)
+      return { status: 'disconnected' }
+    }
+
     // Check if it's a JumpServer connection
     if (jumpserverConnections.has(id)) {
       const stream = jumpserverShellStreams.get(id)

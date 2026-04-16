@@ -692,6 +692,8 @@ export default {
     switchBrand: 'Бренд переключателя',
     switchCisco: 'Cisco',
     switchHuawei: 'Huawei',
+    switchH3c: 'H3C',
+    protocol: 'Протокол',
     switchTip: 'Переключатели поддерживают только режим команды',
     bastionHost: 'Бастион-хост',
     qizhi: 'Бастион Qizhi',

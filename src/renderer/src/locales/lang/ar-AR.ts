@@ -666,6 +666,8 @@ export default {
     switchBrand: 'المعرف المفتاحي',
     switchCisco: 'Cisco',
     switchHuawei: 'Huawei',
+    switchH3c: 'H3C',
+    protocol: 'بروتوكول',
     switchTip: 'المفتاحات تدعم فقط وضع الأوامر',
     bastionHost: 'المضيف البيئي',
     bastionType: 'نوع المضيف البيئي',
