@@ -487,7 +487,7 @@ export class ShortcutService {
         .replace(/Command/g, '⌘')
         .replace(/Option/g, '⌥')
         .replace(/Alt/g, '⌥')
-        .replace(/Shift/g, 'Shift')
+        .replace(/Shift/g, '⇧')
         .replace(/Control/g, '⌃')
         .replace(/Ctrl/g, '⌃')
     } else {
