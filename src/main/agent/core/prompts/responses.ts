@@ -410,9 +410,9 @@ ${toolUseInstructionsReminderCN}
     `工具 [${toolName}] 未执行，因为此消息中已使用了一个工具。每条消息只能使用一个工具。你必须先评估第一个工具的结果，然后再使用下一个工具。`
 }
 
-const EXPERIENCE_REQUIRED_HEADINGS_ZH = ['# 问题描述', '# 有效解决方案'] as const
+const EXPERIENCE_REQUIRED_HEADINGS_ZH = ['# 问题描述', '# 解决方案'] as const
 
-const EXPERIENCE_REQUIRED_HEADINGS_EN = ['# Problem describe', '# Effective Solution'] as const
+const EXPERIENCE_REQUIRED_HEADINGS_EN = ['# Problem describe', '# Solution'] as const
 
 function isChineseLocale(locale: string): boolean {
   return locale.toLowerCase().startsWith('zh')

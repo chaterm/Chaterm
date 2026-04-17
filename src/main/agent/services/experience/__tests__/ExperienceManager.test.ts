@@ -9,7 +9,7 @@ vi.mock('electron', () => ({
   ipcMain: { handle: vi.fn(), on: vi.fn(), once: vi.fn(), removeAllListeners: vi.fn() }
 }))
 
-import { ExperienceManager, type ExperienceExtractionInput } from '../ExperienceManager'
+import { EXPERIENCE_EXTRACTION_CONTEXT_MAX_TOKENS, ExperienceManager, type ExperienceExtractionInput } from '../ExperienceManager'
 import type { TaskExperienceLedgerEntry } from '../../../core/context/context-tracking/ContextTrackerTypes'
 import type { KbSearchResult } from '../../../../services/knowledgebase/search/types'
 
@@ -361,7 +361,7 @@ ssh -tt bastion
 
     const enc = get_encoding('o200k_base')
     try {
-      expect(enc.encode(userPrompt).length).toBeLessThanOrEqual(200_000)
+      expect(enc.encode(userPrompt).length).toBeLessThanOrEqual(EXPERIENCE_EXTRACTION_CONTEXT_MAX_TOKENS)
     } finally {
       enc.free()
     }
