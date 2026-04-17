@@ -20,9 +20,24 @@ import { userConfigStore } from '@/services/userConfigStoreService'
 import { dataSyncService } from '@/services/dataSyncService'
 import { getPrivacyPolicyUrl } from '@/utils/edition'
 
-const { mockUserConfigGetConfig, mockUserConfigSaveConfig } = vi.hoisted(() => ({
+const {
+  mockUserConfigGetConfig,
+  mockUserConfigSaveConfig,
+  mockDeactivateAccount,
+  mockRouterPush,
+  mockDeleteInfo,
+  mockChatSyncDisable,
+  mockChatSyncReset,
+  mockShortcutInit
+} = vi.hoisted(() => ({
   mockUserConfigGetConfig: vi.fn(),
-  mockUserConfigSaveConfig: vi.fn()
+  mockUserConfigSaveConfig: vi.fn(),
+  mockDeactivateAccount: vi.fn(),
+  mockRouterPush: vi.fn(),
+  mockDeleteInfo: vi.fn(),
+  mockChatSyncDisable: vi.fn(),
+  mockChatSyncReset: vi.fn(),
+  mockShortcutInit: vi.fn()
 }))
 
 // Test constants
@@ -47,7 +62,8 @@ const mockWindowApi = {
 vi.mock('ant-design-vue', () => ({
   notification: {
     success: vi.fn(),
-    error: vi.fn()
+    error: vi.fn(),
+    config: vi.fn()
   }
 }))
 
@@ -131,7 +147,9 @@ vi.mock('@/services/userConfigStoreService', async (importOriginal) => {
 vi.mock('@/services/dataSyncService', () => ({
   dataSyncService: {
     enableDataSync: vi.fn(),
-    disableDataSync: vi.fn()
+    disableDataSync: vi.fn(),
+    getInitializationStatus: vi.fn(() => false),
+    reset: vi.fn()
   }
 }))
 
@@ -146,7 +164,45 @@ vi.mock('@/utils/edition', async (importOriginal) => {
 
 // Mock permission utils
 vi.mock('@/utils/permission', () => ({
-  getUserInfo: vi.fn(() => ({ uid: 'test-uid' }))
+  getUserInfo: vi.fn(() => ({ uid: '123' })),
+  removeToken: vi.fn()
+}))
+
+vi.mock('@/api/user/user', () => ({
+  deactivateAccount: mockDeactivateAccount
+}))
+
+vi.mock('vue-router', () => ({
+  useRouter: () => ({
+    push: mockRouterPush
+  }),
+  createRouter: vi.fn(() => ({
+    replace: vi.fn(),
+    push: vi.fn(),
+    onError: vi.fn(),
+    beforeEach: vi.fn(),
+    afterEach: vi.fn()
+  })),
+  createWebHashHistory: vi.fn()
+}))
+
+vi.mock('@/store', () => ({
+  userInfoStore: () => ({
+    deleteInfo: mockDeleteInfo
+  })
+}))
+
+vi.mock('@/services/chatSyncService', () => ({
+  chatSyncService: {
+    disable: mockChatSyncDisable,
+    reset: mockChatSyncReset
+  }
+}))
+
+vi.mock('@/services/shortcutService', () => ({
+  shortcutService: {
+    init: mockShortcutInit
+  }
 }))
 
 describe('Privacy Component', () => {
@@ -195,6 +251,21 @@ describe('Privacy Component', () => {
             template:
               '<div class="a-collapse-panel"><div class="ant-collapse-header"><slot name="header" /></div><div class="ant-collapse-content"><slot /></div></div>',
             props: ['header']
+          },
+          'a-button': {
+            template: '<button class="a-button" @click="$emit(\'click\', $event)"><slot /></button>',
+            props: ['danger', 'loading'],
+            emits: ['click']
+          },
+          'a-modal': {
+            template: '<div v-if="open" class="a-modal"><slot /></div>',
+            props: ['open', 'title', 'okText', 'cancelText', 'confirmLoading', 'okButtonProps'],
+            emits: ['update:open', 'ok', 'cancel']
+          },
+          'a-input': {
+            template: '<input class="a-input" :value="value" @input="$emit(\'update:value\', $event.target.value)" />',
+            props: ['value'],
+            emits: ['update:value']
           }
         },
         mocks: {
@@ -232,6 +303,9 @@ describe('Privacy Component', () => {
     // Setup default mock return values
     mockUserConfigGetConfig.mockResolvedValue(DEFAULT_CONFIG)
     mockUserConfigSaveConfig.mockResolvedValue(undefined)
+    mockDeactivateAccount.mockResolvedValue({ code: 200 })
+    mockRouterPush.mockResolvedValue(undefined)
+    mockChatSyncDisable.mockResolvedValue(true)
     ;(dataSyncService.enableDataSync as ReturnType<typeof vi.fn>).mockResolvedValue(true)
     ;(dataSyncService.disableDataSync as ReturnType<typeof vi.fn>).mockResolvedValue(true)
     mockWindowApi.sendToMain.mockResolvedValue(undefined)
@@ -880,6 +954,24 @@ describe('Privacy Component', () => {
       expect(userConfigStore.getConfig).toHaveBeenCalled()
       expect(dataSyncService.enableDataSync).toHaveBeenCalled()
       expect(userConfigStore.saveConfig).toHaveBeenCalled()
+      expect(notification.success).toHaveBeenCalled()
+    })
+
+    it('should deactivate account and redirect to login', async () => {
+      wrapper = createWrapper()
+      await waitForUpdates()
+
+      const vm = wrapper.vm as any
+      vm.openDeactivateModal()
+      vm.deactivateConfirmationInput = vm.deactivateAccountConfirmKeyword
+      await nextTick()
+
+      await vm.handleDeactivateAccount()
+
+      expect(mockDeactivateAccount).toHaveBeenCalledWith({ uid: 123 })
+      expect(mockDeleteInfo).toHaveBeenCalled()
+      expect(mockShortcutInit).toHaveBeenCalled()
+      expect(mockRouterPush).toHaveBeenCalledWith('/login')
       expect(notification.success).toHaveBeenCalled()
     })
   })
