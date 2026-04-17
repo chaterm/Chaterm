@@ -14,7 +14,7 @@ export const handleJumpServerKeyboardInteractive = (event, id, prompts, finish) 
       finish([])
       event.sender.send('ssh:keyboard-interactive-timeout', { id })
       reject(new Error('Two-factor authentication timeout'))
-    }, 30000)
+    }, 180000)
 
     ipcMain.once(`ssh:keyboard-interactive-response:${id}`, (_evt, responses) => {
       clearTimeout(timeoutId)
