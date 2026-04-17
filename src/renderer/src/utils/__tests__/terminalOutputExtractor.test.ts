@@ -1,71 +1,32 @@
+import { describe, expect, it } from 'vitest'
 import { extractFinalOutput } from '../terminalOutputExtractor'
 
-// Test cases
-const testCases = [
-  {
-    name: 'Standard format test',
-    input: `Terminal output:\n\`\`\`\nls -la\n-rw-r--r--  1 user  staff  1234 Jan 1 12:00 file.txt\n\`\`\``,
-    expected: 'ls -la\n-rw-r--r--  1 user  staff  1234 Jan 1 12:00 file.txt'
-  },
-  {
-    name: 'Simple format test',
-    input: `\`\`\`\npwd\n/home/user\n\`\`\``,
-    expected: 'pwd\n/home/user'
-  },
-  {
-    name: 'Multi-line output test',
-    input: `Terminal output:\n\`\`\`\nCommand 1\nOutput 1\nCommand 2\nOutput 2\n\`\`\``,
-    expected: 'Command 1\nOutput 1\nCommand 2\nOutput 2'
-  },
-  {
-    name: 'Empty output test',
-    input: `Terminal output:\n\`\`\`\n\n\`\`\``,
-    expected: ''
-  },
-  {
-    name: 'Unformatted output test',
-    input: 'Unformatted output',
-    expected: ''
-  },
-  {
-    name: 'Empty string test',
-    input: '',
-    expected: ''
-  }
-]
-
-// Run tests
-export const runTests = () => {
-  console.log('Starting tests for extractFinalOutput function...')
-
-  let passedTests = 0
-  let totalTests = testCases.length
-
-  testCases.forEach((testCase, index) => {
-    const result = extractFinalOutput(testCase.input)
-    const isPassed = result === testCase.expected
-
-    console.log(`\nTest ${index + 1}: ${testCase.name}`)
-    console.log(`Result: ${isPassed ? '✅ Passed' : '❌ Failed'}`)
-
-    if (!isPassed) {
-      console.log(`Input: ${JSON.stringify(testCase.input)}`)
-      console.log(`Expected: ${JSON.stringify(testCase.expected)}`)
-      console.log(`Actual: ${JSON.stringify(result)}`)
-    }
-
-    if (isPassed) {
-      passedTests++
-    }
+describe('extractFinalOutput', () => {
+  it('extracts output from standard "Terminal output" fenced block', () => {
+    const input = `Terminal output:\n\`\`\`\nls -la\n-rw-r--r--  1 user  staff  1234 Jan 1 12:00 file.txt\n\`\`\``
+    expect(extractFinalOutput(input)).toBe('ls -la\n-rw-r--r--  1 user  staff  1234 Jan 1 12:00 file.txt')
   })
 
-  console.log(`\nTests completed: ${passedTests}/${totalTests} passed`)
+  it('extracts output from a simple fenced block', () => {
+    const input = `\`\`\`\npwd\n/home/user\n\`\`\``
+    expect(extractFinalOutput(input)).toBe('pwd\n/home/user')
+  })
 
-  return passedTests === totalTests
-}
+  it('extracts multi-line output', () => {
+    const input = `Terminal output:\n\`\`\`\nCommand 1\nOutput 1\nCommand 2\nOutput 2\n\`\`\``
+    expect(extractFinalOutput(input)).toBe('Command 1\nOutput 1\nCommand 2\nOutput 2')
+  })
 
-// If this file is run directly, execute tests
-if (typeof window !== 'undefined') {
-  // In browser environment, can be called via console
-  ;(window as any).runTerminalOutputTests = runTests
-}
+  it('returns empty string for empty fenced output', () => {
+    const input = `Terminal output:\n\`\`\`\n\n\`\`\``
+    expect(extractFinalOutput(input)).toBe('')
+  })
+
+  it('returns cleaned plain text for unformatted output', () => {
+    expect(extractFinalOutput('Unformatted output')).toBe('Unformatted output')
+  })
+
+  it('returns empty string for empty input', () => {
+    expect(extractFinalOutput('')).toBe('')
+  })
+})
