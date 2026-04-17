@@ -142,6 +142,7 @@ import iconJumpserver from '@/assets/img/jumpserver.svg'
 import { userConfigStore } from '@/services/userConfigStoreService'
 import eventBus from '@/utils/eventBus'
 import { getPluginDownload, getPluginIconUrl } from '@/api/plugin/plugin'
+import { convertFileLocalResourceSrc } from '@/utils/convertFileLocalResourceSrc'
 import { type DisplayPluginItem, usePluginStore } from './usePlugins'
 
 const api = (window as any).api
@@ -183,7 +184,7 @@ const getIcons = async (item: DisplayPluginItem): Promise<string> => {
 
   // Installed
   if (item.installed && item.iconUrl) {
-    const src = convertFileSrc(item.iconUrl)
+    const src = convertFileLocalResourceSrc(item.iconUrl)
     if (item.pluginId) {
       iconUrls[item.pluginId] = src
     }
@@ -440,27 +441,12 @@ watch(
   { immediate: false, deep: false }
 )
 
-const convertFileSrc = (path: string | null): string => {
-  if (!path || path.startsWith('http') || path.startsWith('data:')) {
-    return path || ''
-  }
-
-  let cleanPath = path
-  if (path.startsWith('file:///')) {
-    cleanPath = path.slice(8)
-  } else if (path.startsWith('file://')) {
-    cleanPath = path.slice(7)
-  }
-
-  return `local-resource://${cleanPath}`
-}
-
 const getIconSrc = (item: any) => {
   if (!item.isPlugin && item.iconKey) {
     return iconMap[item.iconKey] || ''
   }
   if (item.installed && item.iconUrl) {
-    return convertFileSrc(item.iconUrl)
+    return convertFileLocalResourceSrc(item.iconUrl)
   }
   if (!item.pluginId) {
     return ''

@@ -1,4 +1,4 @@
-import { extractFinalOutput } from './terminalOutputExtractor'
+import { extractFinalOutput } from '../terminalOutputExtractor'
 
 // Test cases
 const testCases = [
