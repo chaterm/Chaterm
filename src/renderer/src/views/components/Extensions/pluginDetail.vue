@@ -152,6 +152,7 @@ import eventBus from '@/utils/eventBus'
 
 import i18n from '@/locales'
 import { listPluginVersions, getPluginIconUrl } from '@/api/plugin/plugin'
+import { convertFileLocalResourceSrc } from '@/utils/convertFileLocalResourceSrc'
 import { usePluginStore } from './usePlugins' //
 
 const api = (window as any).api
@@ -249,7 +250,7 @@ const updateIconSrc = async () => {
     return
   }
 
-  iconUrl.value = item.iconUrl ? convertFileSrc(item.iconUrl) : ''
+  iconUrl.value = item.iconUrl ? convertFileLocalResourceSrc(item.iconUrl) : ''
 }
 
 const loadPluginDetails = async () => {
@@ -422,21 +423,6 @@ const formatSize = (size?: number | string | null) => {
   return `${value} ${units[unitIndex]}`
 }
 
-const convertFileSrc = (path: string | null): string => {
-  if (!path || path.startsWith('http') || path.startsWith('data:')) {
-    return path || ''
-  }
-
-  let cleanPath = path
-  if (path.startsWith('file:///')) {
-    cleanPath = path.slice(8)
-  } else if (path.startsWith('file://')) {
-    cleanPath = path.slice(7)
-  }
-
-  return `local-resource://${cleanPath}`
-}
-
 const getIconSrc = (item: typeof plugin.value) => {
   if (item.id === '' || item.version === '') {
     return ''
@@ -445,7 +431,7 @@ const getIconSrc = (item: typeof plugin.value) => {
     return iconUrl.value
   }
 
-  return convertFileSrc(item.iconUrl)
+  return convertFileLocalResourceSrc(item.iconUrl)
 }
 onMounted(() => {
   loadPluginDetails()
