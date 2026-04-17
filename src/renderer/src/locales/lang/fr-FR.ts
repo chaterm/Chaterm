@@ -846,7 +846,7 @@ export default {
       'Appuyez sur Shift + Tab pour changer de mode'
     ],
     loginPrompt: 'Connectez-vous pour utiliser les fonctionnalités AI, les nouveaux utilisateurs peuvent utiliser gratuitement pendant deux semaines',
-    searchHost: 'Rechercher par IP',
+    searchHost: "Rechercher par IP, nom d'hôte ou note bastion",
     noMatchingHosts: 'Aucun hôte correspondant',
     hosts: 'Hôtes',
     docs: 'Documents',

@@ -819,7 +819,7 @@ export default {
     welcome: '您好,需要在終端做什麼操作?',
     welcomeTips: ['您好,請問需要在終端做什麼操作?', '輸入 @ 選擇上下文，輸入 / 選擇自訂命令', '按下 Shift + Tab 切換模式'],
     loginPrompt: '登錄後即可使用 AI 功能，新用戶註冊免費使用兩週',
-    searchHost: '輸入IP搜尋',
+    searchHost: '輸入 IP、主機名稱或堡壘機備註搜尋',
     noMatchingHosts: '無匹配主機',
     hosts: '主機',
     docs: '知識庫',

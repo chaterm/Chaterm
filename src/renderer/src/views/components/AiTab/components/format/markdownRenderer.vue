@@ -396,7 +396,7 @@ const applySecretRedactionToMarkdown = (text: string, enabled: boolean = true): 
     { name: 'Slack App Token', pattern: /\bxapp-[0-9]+-[A-Za-z0-9_]+-[0-9]+-[a-f0-9]+\b/g },
     { name: 'Phone Number', pattern: /\b(\+\d{1,2}\s)?\(?\d{3}\)?[\s.-]\d{3}[\s.-]\d{4}\b/g },
     { name: 'AWS Access ID', pattern: /\b(AKIA|A3T|AGPA|AIDA|AROA|AIPA|ANPA|ANVA|ASIA)[A-Z0-9]{12,}\b/g },
-    { name: 'MAC Address', pattern: /\b((([a-zA-z0-9]{2}[-:]){5}([a-zA-z0-9]{2}))|(([a-zA-z0-9]{2}:){5}([a-zA-z0-9]{2})))\b/g },
+    { name: 'MAC Address', pattern: /\b((([a-zA-Z0-9]{2}[-:]){5}([a-zA-Z0-9]{2}))|(([a-zA-Z0-9]{2}:){5}([a-zA-Z0-9]{2})))\b/g },
     { name: 'Google API Key', pattern: /\bAIza[0-9A-Za-z-_]{35}\b/g },
     { name: 'Google OAuth ID', pattern: /\b[0-9]+-[0-9A-Za-z_]{32}\.apps\.googleusercontent\.com\b/g },
     { name: 'GitHub Classic Personal Access Token', pattern: /\bghp_[A-Za-z0-9_]{36}\b/g },
@@ -406,7 +406,7 @@ const applySecretRedactionToMarkdown = (text: string, enabled: boolean = true): 
     { name: 'GitHub Server to Server Token', pattern: /\bghs_[A-Za-z0-9_]{36}\b/g },
     { name: 'Stripe Key', pattern: /\b(?:r|s)k_(test|live)_[0-9a-zA-Z]{24}\b/g },
     { name: 'Firebase Auth Domain', pattern: /\b([a-z0-9-]){1,30}(\.firebaseapp\.com)\b/g },
-    { name: 'JSON Web Token', pattern: /\b(ey[a-zA-z0-9_\-=]{10,}\.){2}[a-zA-z0-9_\-=]{10,}\b/g },
+    { name: 'JSON Web Token', pattern: /\b(ey[a-zA-Z0-9_\-=]{10,}\.){2}[a-zA-Z0-9_\-=]{10,}\b/g },
     { name: 'OpenAI API Key', pattern: /\bsk-[a-zA-Z0-9]{48}\b/g },
     { name: 'Anthropic API Key', pattern: /\bsk-ant-api\d{0,2}-[a-zA-Z0-9\-]{80,120}\b/g },
     { name: 'Fireworks API Key', pattern: /\bfw_[a-zA-Z0-9]{24}\b/g }

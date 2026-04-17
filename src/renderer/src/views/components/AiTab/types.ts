@@ -94,6 +94,7 @@ export function isBastionHostType(type: string | undefined): boolean {
 export interface TreeHostOption {
   key: string
   label: string
+  title?: string
   type: HostItemType
   selectable: boolean
   uuid: string

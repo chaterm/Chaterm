@@ -1323,48 +1323,7 @@ const processAnsiCodes = (str: string): string => {
     .replace(/\x08/g, '')
     .replace(/\x0B/g, '')
     .replace(/\x0C/g, '')
-    .replace(/\u001b\[0m/g, '\x1b[0m') // Reset
-    .replace(/\u001b\[1m/g, '\x1b[1m') // Bold
-    .replace(/\u001b\[2m/g, '\x1b[2m') // Dim
-    .replace(/\u001b\[3m/g, '\x1b[3m') // Italic
-    .replace(/\u001b\[4m/g, '\x1b[4m') // Underline
-    .replace(/\u001b\[5m/g, '\x1b[5m') // Blink
-    .replace(/\u001b\[6m/g, '\x1b[6m') // Rapid blink
-    .replace(/\u001b\[7m/g, '\x1b[7m') // Reverse
-    .replace(/\u001b\[8m/g, '\x1b[8m') // Conceal
-    .replace(/\u001b\[9m/g, '\x1b[9m') // Strikethrough
-    .replace(/\u001b\[30m/g, '\x1b[30m') // Black
-    .replace(/\u001b\[31m/g, '\x1b[31m') // Red
-    .replace(/\u001b\[32m/g, '\x1b[32m') // Green
-    .replace(/\u001b\[33m/g, '\x1b[33m') // Yellow
-    .replace(/\u001b\[34m/g, '\x1b[34m') // Blue
-    .replace(/\u001b\[35m/g, '\x1b[35m') // Magenta
-    .replace(/\u001b\[36m/g, '\x1b[36m') // Cyan
-    .replace(/\u001b\[37m/g, '\x1b[37m') // White
-    .replace(/\u001b\[90m/g, '\x1b[90m') // Bright Black
-    .replace(/\u001b\[91m/g, '\x1b[91m') // Bright Red
-    .replace(/\u001b\[92m/g, '\x1b[92m') // Bright Green
-    .replace(/\u001b\[93m/g, '\x1b[93m') // Bright Yellow
-    .replace(/\u001b\[94m/g, '\x1b[94m') // Bright Blue
-    .replace(/\u001b\[95m/g, '\x1b[95m') // Bright Magenta
-    .replace(/\u001b\[96m/g, '\x1b[96m') // Bright Cyan
-    .replace(/\u001b\[97m/g, '\x1b[97m') // Bright White
-    .replace(/\u001b\[40m/g, '\x1b[40m') // Black background
-    .replace(/\u001b\[41m/g, '\x1b[41m') // Red background
-    .replace(/\u001b\[42m/g, '\x1b[42m') // Green background
-    .replace(/\u001b\[43m/g, '\x1b[43m') // Yellow background
-    .replace(/\u001b\[44m/g, '\x1b[44m') // Blue background
-    .replace(/\u001b\[45m/g, '\x1b[45m') // Magenta background
-    .replace(/\u001b\[46m/g, '\x1b[46m') // Cyan background
-    .replace(/\u001b\[47m/g, '\x1b[47m') // White background
-    .replace(/\u001b\[100m/g, '\x1b[100m') // Bright Black background
-    .replace(/\u001b\[101m/g, '\x1b[101m') // Bright Red background
-    .replace(/\u001b\[102m/g, '\x1b[102m') // Bright Green background
-    .replace(/\u001b\[103m/g, '\x1b[103m') // Bright Yellow background
-    .replace(/\u001b\[104m/g, '\x1b[104m') // Bright Blue background
-    .replace(/\u001b\[105m/g, '\x1b[105m') // Bright Magenta background
-    .replace(/\u001b\[106m/g, '\x1b[106m') // Bright Cyan background
-    .replace(/\u001b\[107m/g, '\x1b[107m') // Bright White background
+  // In JS, \u001b and \x1b are the same ESC code point; chained identity replaces were removed.
 
   // Process 256 colors and RGB colors
   result = result.replace(/\u001b\[38;5;(\d+)m/g, (_, colorCode) => {

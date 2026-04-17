@@ -35,6 +35,7 @@ import { webContents } from 'electron'
 import type { IpcMainInvokeEvent } from 'electron'
 import path from 'path'
 import fs from 'fs'
+import { randomUUID } from 'crypto'
 
 const appPath = app.getAppPath()
 const packagePath = path.join(appPath, 'package.json')
@@ -55,6 +56,10 @@ try {
   })
   // Provide a default packageInfo object if both paths fail
   packageInfo = { name: 'chaterm', version: 'unknown' }
+}
+
+const createSecureIdSegment = (length = 12): string => {
+  return randomUUID().replace(/-/g, '').slice(0, length)
 }
 
 export interface RemoteTerminalProcessEvents extends Record<string, any[]> {
@@ -163,6 +168,27 @@ function stripAnsiSimple(text: string): string {
     .replace(/\r/g, '')
 }
 
+function stripHtmlLikeTags(text: string): string {
+  let result = ''
+  let inTag = false
+
+  for (const char of text) {
+    if (char === '<') {
+      inTag = true
+      continue
+    }
+    if (char === '>' && inTag) {
+      inTag = false
+      continue
+    }
+    if (!inTag) {
+      result += char
+    }
+  }
+
+  return result
+}
+
 // ANSI color name lookup
 const ANSI_COLOR_NAMES = ['black', 'red', 'green', 'yellow', 'blue', 'magenta', 'cyan', 'white']
 
@@ -173,8 +199,6 @@ function processAnsiCodes(text: string): string {
   if (!text.includes('\u001b[') && !text.includes('\x1B[')) return text
 
   let result = text
-    // Normalize escape sequences
-    .replace(/\x1B/g, '\u001b')
     // Remove cursor/screen control sequences
     .replace(/\u001b\[[\d;]*[HfABCDEFGJKSTijklmnpqrsu]/g, '')
     .replace(/\u001b\[\?[0-9;]*[hl]/g, '')
@@ -431,7 +455,7 @@ export class RemoteTerminalProcess extends BrownEventEmitter<RemoteTerminalProce
   private buildJumpServerWrappedCommand(command: string, cleanCwd?: string): { wrappedCommand: string; startMarker: string; endMarker: string } {
     // Generate unique markers for output tracking
     const timestamp = Date.now()
-    const randomId = Math.random().toString(36).substring(2, 14)
+    const randomId = createSecureIdSegment()
     const startMarker = `===CHATERM_START_${timestamp}_${randomId}===`
     const endMarker = `===CHATERM_END_${timestamp}_${randomId}===`
 
@@ -715,9 +739,7 @@ export class RemoteTerminalProcess extends BrownEventEmitter<RemoteTerminalProce
 
     // JumpServer-specific command echo detection
     const isCommandEcho = (line: string): boolean => {
-      const cleanLine = processAnsiCodes(line)
-        .replace(/<[^>]*>/g, '')
-        .trim()
+      const cleanLine = stripHtmlLikeTags(processAnsiCodes(line)).trim()
 
       return (
         cleanLine.startsWith('bash -l -c') ||
@@ -735,7 +757,7 @@ export class RemoteTerminalProcess extends BrownEventEmitter<RemoteTerminalProce
       logPrefix,
       timeoutMs: this.JUMPSERVER_COMMAND_TIMEOUT,
       isListening: () => this.isListening,
-      stripForDetect: (v) => processAnsiCodes(v).replace(/<[^>]*>/g, ''),
+      stripForDetect: (v) => stripHtmlLikeTags(processAnsiCodes(v)),
       renderForDisplay: processAnsiCodes,
       shouldFilterEcho: isCommandEcho,
       onLine: (line) => this.emit('line', line),
@@ -938,7 +960,7 @@ export class RemoteTerminalManager {
       // Choose connection method based on sshType
       if (sshType === 'jumpserver') {
         // Use JumpServer connection
-        const jumpServerSessionId = `jumpserver_${Date.now()}_${Math.random().toString(36).substring(2, 14)}`
+        const jumpServerSessionId = `jumpserver_${Date.now()}_${createSecureIdSegment()}`
         const assetUuid = this.connectionInfo.assetUuid || this.connectionInfo.id || jumpServerSessionId
         const jumpServerConnectionInfo = {
           id: jumpServerSessionId,
@@ -968,7 +990,7 @@ export class RemoteTerminalManager {
         if (!bastionCapability) {
           throw new Error(`${sshType} plugin not installed`)
         }
-        const bastionSessionId = `${sshType}_${Date.now()}_${Math.random().toString(36).substring(2, 14)}`
+        const bastionSessionId = `${sshType}_${Date.now()}_${createSecureIdSegment()}`
         const bastionHost = this.connectionInfo.asset_ip || this.connectionInfo.host
         if (!bastionHost) {
           throw new Error(`${sshType} bastion host is missing`)

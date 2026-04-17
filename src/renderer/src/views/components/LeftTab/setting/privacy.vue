@@ -242,7 +242,7 @@ const secretPatterns = computed(() => [
   },
   {
     name: t('user.macAddress'),
-    regex: '\\b((([a-zA-z0-9]{2}[-:]){5}([a-zA-z0-9]{2}))|(([a-zA-z0-9]{2}:){5}([a-zA-z0-9]{2})))\\b'
+    regex: '\\b((([a-zA-Z0-9]{2}[-:]){5}([a-zA-Z0-9]{2}))|(([a-zA-Z0-9]{2}:){5}([a-zA-Z0-9]{2})))\\b'
   },
   {
     name: t('user.googleApiKey'),
@@ -282,7 +282,7 @@ const secretPatterns = computed(() => [
   },
   {
     name: t('user.jsonWebToken'),
-    regex: '\\b(ey[a-zA-z0-9_\\-=]{10,}\\.){2}[a-zA-z0-9_\\-=]{10,}\\b'
+    regex: '\\b(ey[a-zA-Z0-9_\\-=]{10,}\\.){2}[a-zA-Z0-9_\\-=]{10,}\\b'
   },
   {
     name: t('user.openaiApiKey'),

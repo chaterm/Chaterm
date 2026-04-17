@@ -1,6 +1,8 @@
 // HTML extraction utilities - converts HTML to markdown/text
 // Ported from openclaw/src/agents/tools/web-fetch-utils.ts
 
+import { parseHTML } from 'linkedom'
+
 import { sanitizeHtml, stripInvisibleUnicode } from './web-fetch-visibility'
 
 export type ExtractMode = 'markdown' | 'text'
@@ -36,17 +38,38 @@ async function loadReadabilityDeps(): Promise<{
 function decodeEntities(value: string): string {
   return value
     .replace(/&nbsp;/gi, ' ')
-    .replace(/&amp;/gi, '&')
     .replace(/&quot;/gi, '"')
     .replace(/&#39;/gi, "'")
     .replace(/&lt;/gi, '<')
     .replace(/&gt;/gi, '>')
-    .replace(/&#x([0-9a-f]+);/gi, (_, hex) => String.fromCharCode(Number.parseInt(hex, 16)))
-    .replace(/&#(\d+);/gi, (_, dec) => String.fromCharCode(Number.parseInt(dec, 10)))
+    .replace(/&#x([0-9a-f]+);/gi, (_, hex) => String.fromCodePoint(Number.parseInt(hex, 16)))
+    .replace(/&#(\d+);/gi, (_, dec) => String.fromCodePoint(Number.parseInt(dec, 10)))
+    .replace(/&amp;/gi, '&')
+}
+
+function stripHtmlTags(value: string): string {
+  let result = ''
+  let inTag = false
+
+  for (const char of value) {
+    if (char === '<') {
+      inTag = true
+      continue
+    }
+    if (char === '>' && inTag) {
+      inTag = false
+      continue
+    }
+    if (!inTag) {
+      result += char
+    }
+  }
+
+  return result
 }
 
 function stripTags(value: string): string {
-  return decodeEntities(value.replace(/<[^>]+>/g, ''))
+  return decodeEntities(stripHtmlTags(value))
 }
 
 function normalizeWhitespace(value: string): string {
@@ -58,30 +81,41 @@ function normalizeWhitespace(value: string): string {
     .trim()
 }
 
+function removeNonContentElements(html: string): string {
+  try {
+    const { document } = parseHTML(html) as { document: Document }
+    const blockedElements = Array.from(document.querySelectorAll('script, style, noscript'))
+    for (const element of blockedElements) {
+      element.parentNode?.removeChild(element)
+    }
+    return (document as unknown as { toString(): string }).toString()
+  } catch {
+    return html
+  }
+}
+
 export function htmlToMarkdown(html: string): { text: string; title?: string } {
-  const titleMatch = html.match(/<title[^>]*>([\s\S]*?)<\/title>/i)
+  const sanitizedHtml = removeNonContentElements(html)
+  const titleMatch = sanitizedHtml.match(/<title[^>]*>([\s\S]*?)<\/title\s*>/i)
   const title = titleMatch ? normalizeWhitespace(stripTags(titleMatch[1])) : undefined
-  let text = html
-    .replace(/<script[\s\S]*?<\/script>/gi, '')
-    .replace(/<style[\s\S]*?<\/style>/gi, '')
-    .replace(/<noscript[\s\S]*?<\/noscript>/gi, '')
-  text = text.replace(/<a\s+[^>]*href=["']([^"']+)["'][^>]*>([\s\S]*?)<\/a>/gi, (_, href, body) => {
+  let text = sanitizedHtml
+  text = text.replace(/<a\s+[^>]*href=["']([^"']+)["'][^>]*>([\s\S]*?)<\/a\s*>/gi, (_, href, body) => {
     const label = normalizeWhitespace(stripTags(body))
     if (!label) {
       return href
     }
     return `[${label}](${href})`
   })
-  text = text.replace(/<h([1-6])[^>]*>([\s\S]*?)<\/h\1>/gi, (_, level, body) => {
+  text = text.replace(/<h([1-6])[^>]*>([\s\S]*?)<\/h\1\s*>/gi, (_, level, body) => {
     const prefix = '#'.repeat(Math.max(1, Math.min(6, Number.parseInt(level, 10))))
     const label = normalizeWhitespace(stripTags(body))
     return `\n${prefix} ${label}\n`
   })
-  text = text.replace(/<li[^>]*>([\s\S]*?)<\/li>/gi, (_, body) => {
+  text = text.replace(/<li[^>]*>([\s\S]*?)<\/li\s*>/gi, (_, body) => {
     const label = normalizeWhitespace(stripTags(body))
     return label ? `\n- ${label}` : ''
   })
-  text = text.replace(/<(br|hr)\s*\/?>/gi, '\n').replace(/<\/(p|div|section|article|header|footer|table|tr|ul|ol)>/gi, '\n')
+  text = text.replace(/<(br|hr)\s*\/?>/gi, '\n').replace(/<\/(p|div|section|article|header|footer|table|tr|ul|ol)\s*>/gi, '\n')
   text = stripTags(text)
   text = normalizeWhitespace(text)
   return { text, title }

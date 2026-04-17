@@ -29,6 +29,33 @@ function isPluginBastion(assetType: string): boolean {
   return assetType.startsWith('organization-')
 }
 
+/**
+ * Build a single searchable title string for organization (bastion) child assets.
+ * Used for UI search over IP plus bastion remark, hostname, and user comment.
+ */
+function buildOrganizationAssetSearchTitle(row: {
+  bastion_comment?: string | null
+  hostname?: string | null
+  comment?: string | null
+}): string | undefined {
+  const parts: string[] = []
+  for (const v of [row.bastion_comment, row.hostname, row.comment]) {
+    if (v != null && String(v).trim()) {
+      parts.push(String(v).trim())
+    }
+  }
+  return parts.length > 0 ? parts.join(' ') : undefined
+}
+
+/** Display title when t_assets.label (name) differs from asset_ip (also used for direct/personal hosts) */
+function buildBastionParentTitle(label: string | null | undefined, host: string): string | undefined {
+  const name = label != null && String(label).trim() ? String(label).trim() : ''
+  if (!name) return undefined
+  const h = String(host ?? '').trim()
+  if (name === h) return undefined
+  return name
+}
+
 export function connectAssetInfoLogic(db: Database.Database, uuid: string): any {
   try {
     const stmt = db.prepare(`
@@ -113,35 +140,42 @@ export function getUserHostsLogic(db: Database.Database, search: string, limit: 
     `)
     deleteOrphanedStmt.run(...orgTypes)
 
-    // Step 1: Query personal assets (asset_type='person' or switch types)
+    // Step 1: Query personal assets (asset_type='person' or switch types); match IP or display name (label / hostname)
     const personalStmt = db.prepare(`
-        SELECT asset_ip as host, uuid, asset_type
+        SELECT asset_ip as host, uuid, asset_type, label
         FROM t_assets
-        WHERE asset_ip LIKE ? AND asset_type IN ('person', 'person-switch-cisco', 'person-switch-huawei')
-        GROUP BY asset_ip, uuid, asset_type
+        WHERE asset_type IN ('person', 'person-switch-cisco', 'person-switch-huawei')
+          AND (asset_ip LIKE ? OR IFNULL(label, '') LIKE ?)
+        GROUP BY asset_ip, uuid, asset_type, label
       `)
-    const personalResults = personalStmt.all(searchPattern) || []
+    const personalResults = personalStmt.all(searchPattern, searchPattern) || []
 
     // Step 2: Query bastion host nodes (organization types - dynamically)
     const jumpserverStmt = db.prepare(`
-        SELECT uuid, asset_ip as host, asset_type
+        SELECT uuid, asset_ip as host, asset_type, label
         FROM t_assets
         WHERE asset_type IN (${orgTypePlaceholders})
       `)
     const jumpserverResults = jumpserverStmt.all(...orgTypes) || []
 
-    // Step 3: Query jumpserver child assets with optional search filter
+    // Step 3: Query jumpserver child assets with optional search filter (IP, bastion remark, hostname, comment)
     const orgAssetsStmt = db.prepare(`
         SELECT
           oa.uuid as asset_uuid,
           oa.host,
           oa.organization_uuid,
-          oa.jump_server_type as connection_type
+          oa.jump_server_type as connection_type,
+          oa.bastion_comment,
+          oa.hostname,
+          oa.comment
         FROM t_organization_assets oa
         JOIN t_assets a ON oa.organization_uuid = a.uuid
         WHERE oa.host LIKE ?
+          OR IFNULL(oa.bastion_comment, '') LIKE ?
+          OR IFNULL(oa.hostname, '') LIKE ?
+          OR IFNULL(oa.comment, '') LIKE ?
       `)
-    const orgAssetResults = orgAssetsStmt.all(searchPattern) || []
+    const orgAssetResults = orgAssetsStmt.all(searchPattern, searchPattern, searchPattern, searchPattern) || []
 
     // Step 4: Build tree structure
 
@@ -149,6 +183,7 @@ export function getUserHostsLogic(db: Database.Database, search: string, limit: 
     const personalData = personalResults.map((item: any) => ({
       key: `personal_${item.uuid}`,
       label: item.host,
+      title: buildBastionParentTitle(item.label, item.host),
       type: 'personal',
       selectable: true,
       uuid: item.uuid,
@@ -178,6 +213,7 @@ export function getUserHostsLogic(db: Database.Database, search: string, limit: 
         return {
           key: `bastion_${js.uuid}`,
           label: js.host,
+          title: buildBastionParentTitle(js.label, js.host),
           type: 'bastion',
           selectable: false,
           uuid: js.uuid,
@@ -186,6 +222,7 @@ export function getUserHostsLogic(db: Database.Database, search: string, limit: 
           children: (orgAssetsMap.get(js.uuid) || []).map((child: any) => ({
             key: `bastion_${js.uuid}_${child.asset_uuid}`,
             label: child.host,
+            title: buildOrganizationAssetSearchTitle(child),
             type: 'bastion_child',
             selectable: true,
             uuid: child.asset_uuid,

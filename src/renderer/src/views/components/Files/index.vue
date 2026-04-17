@@ -517,6 +517,7 @@ import { ensureTransferListener } from './fileTransfer'
 import TransferPanel from './fileTransferProgress.vue'
 import fileIcon from '@/assets/menu/files.svg'
 import { CheckOutlined, CloseOutlined, DownOutlined, PlusOutlined, RightOutlined } from '@ant-design/icons-vue'
+import { hostLabelOrTitleMatches } from '@/views/components/AiTab/utils'
 
 const { t } = useI18n()
 
@@ -1763,6 +1764,7 @@ const flattenedHostOptions = computed<HostOption[]>(() => {
           ...child,
           key: child.key,
           label: child.label,
+          title: child.title,
           value: child.key,
           uuid: child.uuid,
           connect: child.connect,
@@ -1788,17 +1790,10 @@ const filteredHostOptions = computed<HostOption[]>(() => {
 
   const result: HostOption[] = []
   for (const item of hostOptions.value) {
-    const labelMatches = String(item.label || '')
-      .toLowerCase()
-      .includes(searchTerm)
+    const labelMatches = hostLabelOrTitleMatches(item, searchTerm)
 
     if (isBastionHostType(item.type)) {
-      const matchingChildren =
-        item.children?.filter((child) =>
-          String(child.label || '')
-            .toLowerCase()
-            .includes(searchTerm)
-        ) || []
+      const matchingChildren = item.children?.filter((child) => hostLabelOrTitleMatches(child, searchTerm)) || []
 
       if (labelMatches || matchingChildren.length > 0) {
         result.push({
@@ -1812,6 +1807,7 @@ const filteredHostOptions = computed<HostOption[]>(() => {
           result.push({
             key: child.key,
             label: child.label,
+            title: child.title,
             value: child.key,
             uuid: child.uuid,
             connect: child.connect,

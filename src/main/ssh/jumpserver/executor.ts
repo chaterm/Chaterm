@@ -2,6 +2,8 @@
  * JumpServer command execution and output parsing utilities
  */
 
+import { randomUUID } from 'crypto'
+
 /**
  * Output parser - cleans control characters and echo from command output
  */
@@ -74,7 +76,7 @@ export class OutputParser {
    */
   static generateMarkers(): { marker: string; exitCodeMarker: string } {
     const timestamp = Date.now()
-    const randomId = Math.random().toString(36).substring(7)
+    const randomId = randomUUID().replace(/-/g, '').slice(0, 12)
 
     return {
       marker: `__CHATERM_EXEC_END_${timestamp}_${randomId}__`,

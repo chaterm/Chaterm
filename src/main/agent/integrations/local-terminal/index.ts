@@ -3,6 +3,7 @@ import * as os from 'os'
 import * as path from 'path'
 import * as fs from 'fs'
 import EventEmitter from 'events'
+import { randomUUID } from 'crypto'
 const logger = createLogger('agent')
 
 export interface LocalTerminalInfo {
@@ -186,7 +187,7 @@ export class LocalTerminalManager {
     // Use provided shell, or detect default shell
     const terminalShell = shell || this.getDefaultShell()
     const platform = os.platform()
-    const sessionId = `localhost_${Date.now()}_${Math.random().toString(36).substring(2, 14)}`
+    const sessionId = `localhost_${Date.now()}_${randomUUID().replace(/-/g, '').slice(0, 12)}`
 
     const terminal: LocalTerminalInfo = {
       id: this.nextTerminalId++,

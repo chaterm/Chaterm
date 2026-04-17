@@ -63,6 +63,14 @@ export const isSwitchAssetType = (assetType?: string): boolean => {
   return assetType?.startsWith('person-switch-') ?? false
 }
 
+/** Match host list row by label (IP) or title (e.g. bastion remark, hostname) */
+export const hostLabelOrTitleMatches = (item: { label?: string; title?: string }, searchTerm: string): boolean => {
+  const term = searchTerm.toLowerCase()
+  const label = (item.label ?? '').toLowerCase()
+  const title = (item.title ?? '').toLowerCase()
+  return label.includes(term) || title.includes(term)
+}
+
 // Format tree structure data from backend to flat host options
 export const formatHosts = (data: { personal?: TreeHostOption[]; jumpservers?: TreeHostOption[] }): HostOption[] => {
   const result: HostOption[] = []
@@ -73,6 +81,7 @@ export const formatHosts = (data: { personal?: TreeHostOption[]; jumpservers?: T
       result.push({
         key: item.key,
         label: item.label || '',
+        title: item.title,
         value: item.key,
         uuid: item.uuid,
         connect: item.connection,
@@ -90,6 +99,7 @@ export const formatHosts = (data: { personal?: TreeHostOption[]; jumpservers?: T
       result.push({
         key: js.key,
         label: js.label || '',
+        title: js.title,
         value: js.key,
         uuid: js.uuid,
         connect: js.connection,

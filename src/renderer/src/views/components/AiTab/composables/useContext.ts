@@ -4,7 +4,7 @@ import debounce from 'lodash/debounce'
 
 const logger = createRendererLogger('ai.context')
 import type { Host, HostOption, HostItemType, ContextMenuLevel, DocOption, ChatOption, SkillOption } from '../types'
-import { formatHosts, isSwitchAssetType } from '../utils'
+import { formatHosts, hostLabelOrTitleMatches, isSwitchAssetType } from '../utils'
 import { isBastionHostType } from '../types'
 import { useSessionState } from './useSessionState'
 import { useHostState } from './useHostState'
@@ -135,6 +135,7 @@ export const useContext = (options: UseContextOptions = {}) => {
           result.push({
             key: child.key,
             label: child.label,
+            title: child.title,
             value: child.key,
             uuid: child.uuid,
             connect: child.connection,
@@ -166,11 +167,11 @@ export const useContext = (options: UseContextOptions = {}) => {
 
     const result: HostOption[] = []
     for (const item of hostOptions.value) {
-      const labelMatches = item.label.toLowerCase().includes(searchTerm)
+      const labelMatches = hostLabelOrTitleMatches(item, searchTerm)
 
       if (isBastionHostType(item.type)) {
-        // Check if any children match
-        const matchingChildren = item.children?.filter((child) => child.label.toLowerCase().includes(searchTerm)) || []
+        // Check if any children match (IP or bastion remark / title)
+        const matchingChildren = item.children?.filter((child) => hostLabelOrTitleMatches(child, searchTerm)) || []
 
         if (labelMatches || matchingChildren.length > 0) {
           // Add bastion host node
@@ -184,6 +185,7 @@ export const useContext = (options: UseContextOptions = {}) => {
             result.push({
               key: child.key,
               label: child.label,
+              title: child.title,
               value: child.key,
               uuid: child.uuid,
               connect: child.connection,
