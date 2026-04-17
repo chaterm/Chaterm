@@ -373,6 +373,8 @@ export default {
     autoExecuteReadOnlyCommandsDescribe: '所有会话中的查询类命令（如 ls、cat、grep 等）将自动执行，无需人工确认',
     kbSearchEnabled: KB_SEARCH_ENABLED_LABELS['zh-CN'],
     kbSearchEnabledDescribe: '新对话开始时自动搜索相关知识库内容，并允许 AI 在对话中搜索知识库',
+    experienceExtractionEnabled: '自动经验沉淀',
+    experienceExtractionEnabledDescribe: '任务成功完成后，自动沉淀可复用经验到知识库，结合“知识库检索”，显著提升 AI 处理相似任务的效率和稳定性。',
     features: '特征',
     enableCheckpoints: '开启检查点',
     enableCheckpointsDescribe: '允许在整个任务中保存工作区的检查点',

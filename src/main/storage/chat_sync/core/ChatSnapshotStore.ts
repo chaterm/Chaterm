@@ -179,13 +179,14 @@ export class ChatSnapshotStore {
 
     db.transaction(() => {
       const upsertStmt = db.prepare(`
-        INSERT INTO agent_task_metadata_v1 (task_id, files_in_context, model_usage, hosts, todos, title, favorite)
-        VALUES (?, ?, ?, ?, ?, ?, ?)
+        INSERT INTO agent_task_metadata_v1 (task_id, files_in_context, model_usage, hosts, todos, experience_ledger, title, favorite)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
         ON CONFLICT(task_id) DO UPDATE SET
           files_in_context = excluded.files_in_context,
           model_usage = excluded.model_usage,
           hosts = excluded.hosts,
           todos = excluded.todos,
+          experience_ledger = excluded.experience_ledger,
           title = CASE WHEN excluded.title IS NOT NULL THEN excluded.title ELSE agent_task_metadata_v1.title END,
           favorite = CASE WHEN excluded.favorite IS NOT NULL THEN excluded.favorite ELSE agent_task_metadata_v1.favorite END
       `)
@@ -196,6 +197,7 @@ export class ChatSnapshotStore {
         JSON.stringify(metadata.model_usage || []),
         JSON.stringify(metadata.hosts || []),
         JSON.stringify(metadata.todos || []),
+        JSON.stringify(metadata.experience_ledger || []),
         metadata.title !== undefined ? metadata.title : null,
         metadata.favorite !== undefined ? (metadata.favorite ? 1 : 0) : null
       )

@@ -410,6 +410,185 @@ ${toolUseInstructionsReminderCN}
     `工具 [${toolName}] 未执行，因为此消息中已使用了一个工具。每条消息只能使用一个工具。你必须先评估第一个工具的结果，然后再使用下一个工具。`
 }
 
+const EXPERIENCE_REQUIRED_HEADINGS_ZH = ['# 问题描述', '# 有效解决方案'] as const
+
+const EXPERIENCE_REQUIRED_HEADINGS_EN = ['# Problem describe', '# Effective Solution'] as const
+
+function isChineseLocale(locale: string): boolean {
+  return locale.toLowerCase().startsWith('zh')
+}
+
+function getExperienceExtractionSchemaExample(locale: string): string {
+  if (isChineseLocale(locale)) {
+    return `{
+  "experiences": [
+    {
+      "action": "new",
+      "dedupeKey": "ssh-bastion-login-hang",
+      "slug": "ssh-bastion-login-hang",
+      "title": "SSH login hangs after banner on bastion host",
+      "keywords": ["ssh", "bastion", "tty"],
+      "gist": "banner 后卡住，根因是未分配 PTY。",
+      "summaryMarkdown": "# 问题描述\\n...\\n\\n# 解决方案\\n...",
+      "skipReason": ""
+    }
+  ]
+}`
+  }
+
+  return `{
+  "experiences": [
+    {
+      "action": "new",
+      "dedupeKey": "ssh-bastion-login-hang",
+      "slug": "ssh-bastion-login-hang",
+      "title": "SSH login hangs after banner on bastion host",
+      "keywords": ["ssh", "bastion", "tty"],
+      "gist": "Login stalls after the banner because no PTY is allocated.",
+      "summaryMarkdown": "# Problem describe\\n...\\n\\n# Solution\\n...",
+      "skipReason": ""
+    }
+  ]
+}`
+}
+
+function getExperienceMergeSchemaExample(locale: string): string {
+  if (isChineseLocale(locale)) {
+    return `{
+  "title": "经验标题",
+  "keywords": ["keyword1", "keyword2"],
+  "summaryMarkdown": "# 问题场景\\n..."
+}`
+  }
+
+  return `{
+  "title": "Experience title",
+  "keywords": ["keyword1", "keyword2"],
+  "summaryMarkdown": "# Problem Context\\n..."
+}`
+}
+
+export function getExperienceRequiredHeadings(locale: string): string[] {
+  return isChineseLocale(locale) ? [...EXPERIENCE_REQUIRED_HEADINGS_ZH] : [...EXPERIENCE_REQUIRED_HEADINGS_EN]
+}
+
+export function getExperienceExtractionSystemPrompt(locale: string): string {
+  const headings = getExperienceRequiredHeadings(locale).join('\n')
+  const schema = getExperienceExtractionSchemaExample(locale)
+
+  if (isChineseLocale(locale)) {
+    return `你是经验沉淀提取器。你的任务是基于完整对话历史，识别截至当前已经成形的 0..N 条可复用经验。
+
+严格规则：
+1. 只输出一个原始 JSON 对象。最外层第一个非空字符必须是 {，最后一个非空字符必须是 }。
+2. 返回对象必须包含 experiences 数组。
+3. 每条经验都必须有 action，取值只能是 new、update、skip。
+4. 若与 task 内已沉淀经验是同一问题，请复用稳定的 dedupeKey，并用 update 或 skip，不要改写成另一条新经验。
+5. 只有形成了可复用、非显然的排查路径、修复方案、命令或配置时，才允许输出 new 或 update。
+6. 普通交付、常识性回答、纯状态播报、没有稳定解法的中间尝试，必须输出 skip。
+7. summaryMarkdown 中“# 问题描述”和“# 有效解决方案”里的事实、命令、配置、报错、现象与步骤，必须直接来自上下文中明确出现的信息；可以压缩、重组、忠实改写，但禁止补全上下文未写出的前提、根因、步骤、命令、配置或结论。
+8. 如果上下文里没有明确的问题描述，或没有被验证/明确给出的有效解决方案，必须输出 skip，并在 skipReason 中说明缺失点；禁止猜测或根据常识杜撰。
+9. summaryMarkdown 必须是完整 Markdown 正文，不包含 frontmatter，并严格包含以下一级标题且保持原顺序：
+${headings}
+10. 最外层响应禁止使用 Markdown 代码围栏包裹，禁止在 JSON 前后添加解释、前缀、后缀或任何额外文本。
+11. summaryMarkdown 内允许正常 Markdown 内容，包括 fenced code blocks；但它在 JSON 中是字符串，必须按 JSON 规则正确转义换行、双引号和反斜杠。
+12. gist 必须是 1-2 句高密度摘要，不要照抄正文。
+13. slug 与 dedupeKey 只允许使用小写字母、数字和连字符。
+
+返回 JSON 示例：
+${schema}`
+  }
+
+  return `You extract reusable operational experience from the full conversation history and identify 0..N issue-level experiences that are mature enough to save.
+
+Strict rules:
+1. Respond with exactly one raw JSON object. The first non-whitespace character must be { and the last non-whitespace character must be }.
+2. The top-level object must contain an experiences array.
+3. Each experience must include action and action must be one of new, update, or skip.
+4. If an item is the same issue as an already extracted task-local experience, reuse the stable dedupeKey and choose update or skip instead of inventing a new experience.
+5. Output new or update only when the conversation produced reusable, non-obvious troubleshooting, fix, command, or configuration knowledge.
+6. Ordinary delivery, generic knowledge, pure status updates, and unstable intermediate attempts must be marked skip.
+7. Every fact in "# Problem describe" and "# Effective Solution", including commands, configs, errors, symptoms, and steps, must be explicitly grounded in the context; you may compress or faithfully paraphrase, but do not add prerequisites, root causes, steps, commands, configurations, or conclusions that are not stated in the conversation.
+8. If the context does not clearly contain the problem description, or does not contain a validated/explicit effective solution, you must return skip and explain the missing evidence in skipReason instead of guessing.
+9. summaryMarkdown must be a complete markdown body without frontmatter and must include these exact H1 headings in order:
+${headings}
+10. Do not wrap the top-level response in markdown code fences, and do not add any explanation, prefix, suffix, or extra text outside the JSON object.
+11. summaryMarkdown may contain normal markdown, including fenced code blocks, but it is still a JSON string, so escape newlines, double quotes, and backslashes correctly.
+12. gist must be a dense 1-2 sentence summary rather than copied body text.
+13. slug and dedupeKey may contain only lowercase letters, numbers, and hyphens.
+
+Return JSON example:
+${schema}`
+}
+
+export function getExperienceMergeSystemPrompt(locale: string): string {
+  const headings = getExperienceRequiredHeadings(locale).join('\n')
+
+  if (isChineseLocale(locale)) {
+    return `你是经验文档合并器。请把“旧经验”和“新经验草稿”合并成一份更稳定、更紧凑、去重后的经验文档。
+
+严格规则：
+1. 只输出一个原始 JSON 对象。最外层第一个非空字符必须是 {，最后一个非空字符必须是 }。
+2. 禁止使用 Markdown 代码围栏包裹最外层响应，禁止在 JSON 前后添加任何额外文本。
+3. summaryMarkdown 必须保留以下一级标题并按原顺序输出：
+${headings}
+4. summaryMarkdown 内允许正常 Markdown 内容，包括 fenced code blocks；但它在 JSON 中是字符串，必须按 JSON 规则正确转义换行、双引号和反斜杠。
+5. 保留旧文档里仍然有效的内容，补充新发现，删除重复和噪音。
+6. 不要让文档无意义膨胀。
+7. keywords 只保留高价值关键词。`
+  }
+
+  return `You merge two experience documents into one stable, deduplicated experience document.
+
+Strict rules:
+1. Respond with exactly one raw JSON object. The first non-whitespace character must be { and the last non-whitespace character must be }.
+2. Do not wrap the top-level response in markdown code fences, and do not add any extra text outside the JSON object.
+3. summaryMarkdown must preserve these exact H1 headings in order:
+${headings}
+4. summaryMarkdown may contain normal markdown, including fenced code blocks, but it is still a JSON string, so escape newlines, double quotes, and backslashes correctly.
+5. Keep still-valid content from the old document, add new findings, remove duplication and noise.
+6. Do not let the document bloat.
+7. keywords should keep only high-value terms.`
+}
+
+export function getExperienceMergeUserPrompt(
+  locale: string,
+  existingBody: string,
+  candidate: {
+    title: string
+    keywords: string[]
+    summaryMarkdown: string
+  }
+): string {
+  const schema = getExperienceMergeSchemaExample(locale)
+
+  if (isChineseLocale(locale)) {
+    return `返回 JSON：
+${schema}
+
+旧经验文档：
+${existingBody}
+
+新经验草稿：
+标题：${candidate.title}
+关键词：${candidate.keywords.join(', ')}
+正文：
+${candidate.summaryMarkdown}`
+  }
+
+  return `Return JSON:
+${schema}
+
+Existing experience:
+${existingBody}
+
+New draft:
+Title: ${candidate.title}
+Keywords: ${candidate.keywords.join(', ')}
+Body:
+${candidate.summaryMarkdown}`
+}
+
 export function getFormatResponse(language: string): typeof formatResponse {
   return language === 'zh-CN' ? formatResponseCN : formatResponse
 }
@@ -449,6 +628,7 @@ const toolUseInstructionsReminderCN = `# 提醒：工具使用说明
 <result>
 I have completed the task...
 </result>
+<depositExperience>false</depositExperience>
 </attempt_completion>
 
 请始终遵循此格式进行所有工具调用，以确保正确的解析和执行。`
@@ -469,6 +649,7 @@ For example:
 <result>
 I have completed the task...
 </result>
+<depositExperience>false</depositExperience>
 </attempt_completion>
 
 Always adhere to this format for all tool uses to ensure proper parsing and execution.`

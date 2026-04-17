@@ -234,7 +234,7 @@ export async function saveChatermMessagesLogic(db: Database.Database, taskId: st
 export async function getTaskMetadataLogic(db: Database.Database, taskId: string): Promise<any> {
   try {
     const stmt = db.prepare(`
-        SELECT files_in_context, model_usage, hosts, todos, title, favorite
+        SELECT files_in_context, model_usage, hosts, todos, experience_ledger, title, favorite
         FROM agent_task_metadata_v1
         WHERE task_id = ?
       `)
@@ -246,28 +246,30 @@ export async function getTaskMetadataLogic(db: Database.Database, taskId: string
         model_usage: JSON.parse(row.model_usage || '[]'),
         hosts: JSON.parse(row.hosts || '[]'),
         todos: row.todos ? JSON.parse(row.todos) : [],
+        experience_ledger: row.experience_ledger ? JSON.parse(row.experience_ledger) : [],
         title: row.title || undefined,
         favorite: row.favorite === 1
       }
     }
 
-    return { files_in_context: [], model_usage: [], hosts: [], todos: [], title: undefined, favorite: false }
+    return { files_in_context: [], model_usage: [], hosts: [], todos: [], experience_ledger: [], title: undefined, favorite: false }
   } catch (error) {
     logger.error('Failed to get task metadata', { error: error })
-    return { files_in_context: [], model_usage: [], hosts: [], todos: [], title: undefined, favorite: false }
+    return { files_in_context: [], model_usage: [], hosts: [], todos: [], experience_ledger: [], title: undefined, favorite: false }
   }
 }
 
 export async function saveTaskMetadataLogic(db: Database.Database, taskId: string, metadata: any): Promise<void> {
   try {
     const upsertStmt = db.prepare(`
-        INSERT INTO agent_task_metadata_v1 (task_id, files_in_context, model_usage, hosts, todos, title, favorite)
-        VALUES (?, ?, ?, ?, ?, ?, ?)
+        INSERT INTO agent_task_metadata_v1 (task_id, files_in_context, model_usage, hosts, todos, experience_ledger, title, favorite)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
         ON CONFLICT(task_id) DO UPDATE SET
           files_in_context = excluded.files_in_context,
           model_usage = excluded.model_usage,
           hosts = excluded.hosts,
           todos = excluded.todos,
+          experience_ledger = excluded.experience_ledger,
           title = CASE WHEN excluded.title IS NOT NULL THEN excluded.title ELSE agent_task_metadata_v1.title END,
           favorite = CASE WHEN excluded.favorite IS NOT NULL THEN excluded.favorite ELSE agent_task_metadata_v1.favorite END
       `)
@@ -278,6 +280,7 @@ export async function saveTaskMetadataLogic(db: Database.Database, taskId: strin
       JSON.stringify(metadata.model_usage || []),
       JSON.stringify(metadata.hosts || []),
       JSON.stringify(metadata.todos || []),
+      JSON.stringify(metadata.experience_ledger || []),
       metadata.title !== undefined ? metadata.title : null,
       metadata.favorite !== undefined ? (metadata.favorite ? 1 : 0) : null
     )

@@ -379,6 +379,9 @@ export default {
     kbSearchEnabled: KB_SEARCH_ENABLED_LABELS['en-US'],
     kbSearchEnabledDescribe:
       'Automatically search relevant knowledge base content when starting a new conversation, and allow AI to search the knowledge base during conversations',
+    experienceExtractionEnabled: 'Automatic Experience Capture',
+    experienceExtractionEnabledDescribe:
+      'After a task completes successfully, automatically capture reusable experience into the knowledge base and, together with knowledge base retrieval, significantly improve AI efficiency and stability on similar tasks.',
     features: 'Features',
     enableCheckpoints: 'Enable Checkpoints',
     enableCheckpointsDescribe: 'Enables extension to save checkpoints of workspace throughout the task',

@@ -378,6 +378,9 @@ export default {
     kbSearchEnabled: KB_SEARCH_ENABLED_LABELS['ja-JP'],
     kbSearchEnabledDescribe:
       '新しい会話を開始する際にナレッジベースの関連コンテンツを自動検索し、会話中にAIがナレッジベースを検索することを許可します',
+    experienceExtractionEnabled: '自動経験蓄積',
+    experienceExtractionEnabledDescribe:
+      'タスク成功後、再利用可能な経験をナレッジベースへ自動的に蓄積し、「ナレッジベース検索」と組み合わせて、類似タスクにおける AI の効率と安定性を大幅に向上させます。',
     features: '機能',
     enableCheckpoints: 'チェックポイントを有効にする',
     enableCheckpointsDescribe: 'タスク全体を通じてワークスペースのチェックポイントを保存できるようにします',

@@ -26,7 +26,8 @@ const AI_PREFERENCE_SYNC_KEYS = new Set<GlobalStateKey>([
   'chatSettings',
   'needProxy',
   'proxyConfig',
-  'shellIntegrationTimeout'
+  'shellIntegrationTimeout',
+  'experienceExtractionEnabled'
 ])
 
 function scheduleAiPreferencesSync(): void {

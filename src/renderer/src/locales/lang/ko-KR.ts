@@ -375,6 +375,9 @@ export default {
     autoExecuteReadOnlyCommandsDescribe: '모든 세션에서 읽기 전용 명령(ls, cat, grep 등)이 확인 없이 자동 실행됩니다',
     kbSearchEnabled: KB_SEARCH_ENABLED_LABELS['ko-KR'],
     kbSearchEnabledDescribe: '새 대화를 시작할 때 관련 지식 베이스 콘텐츠를 자동으로 검색하고 대화 중 AI가 지식 베이스를 검색할 수 있도록 허용합니다',
+    experienceExtractionEnabled: '자동 경험 축적',
+    experienceExtractionEnabledDescribe:
+      '작업이 성공적으로 완료되면 재사용 가능한 경험을 지식 베이스에 자동으로 축적하고, "지식 베이스 검색"과 결합해 유사 작업에서 AI의 효율성과 안정성을 크게 높입니다.',
     features: '기능',
     enableCheckpoints: '체크포인트 활성화',
     enableCheckpointsDescribe: '작업 전체에 걸쳐 작업 공간의 체크포인트를 저장할 수 있도록 허용합니다',

@@ -42,6 +42,7 @@ export type ToolUseName = (typeof toolUseNames)[number]
 export const toolParamNames = [
   'ip',
   'command',
+  'depositExperience',
   'requires_approval',
   'interactive',
   'path',
