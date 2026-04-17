@@ -290,6 +290,19 @@ export default {
     extensions: 'Estensioni',
     about: 'Informazioni',
     documentation: 'Documentazione',
+    accountManagement: 'Gestione account',
+    deactivateAccount: 'Elimina account',
+    deactivateAccountDescription:
+      'Se non vuoi più usare questo account, puoi eliminarlo qui. L’operazione cancellerà lo stato di accesso corrente su questo dispositivo.',
+    deactivateAccountConfirmTitle: 'Conferma eliminazione account',
+    deactivateAccountConfirmDescription:
+      'Eliminare l’account è un’azione ad alto rischio. Per continuare, inserisci la parola di conferma qui sotto.',
+    deactivateAccountConfirmKeyword: 'ELIMINA',
+    deactivateAccountInputPlaceholder: 'Inserisci "{keyword}" per continuare',
+    deactivateAccountSuccess: 'Account eliminato',
+    deactivateAccountSuccessDescription: 'Il tuo account è stato eliminato e lo stato di accesso corrente è stato cancellato.',
+    deactivateAccountFailed: 'Impossibile eliminare l’account',
+    deactivateAccountUserMissing: 'Impossibile determinare l’account utente corrente.',
     privacy: 'Privacy',
     trustedDevices: 'Dispositivi attendibili',
     trustedDevicesDescription:
