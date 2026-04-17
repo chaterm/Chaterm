@@ -165,8 +165,8 @@ class TempFileStorageProvider {
    * Restore original key name from safe key name
    */
   private restoreKeyFromSafeKey(safeKey: string): string {
-    // This is a simplified restoration method, actual applications may need more complex mapping
-    return safeKey.replace(/_/g, '_')
+    // Lossy round-trip: getFilePath() maps disallowed chars to '_'; full inverse is not stored
+    return safeKey
   }
 
   /**

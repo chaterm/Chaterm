@@ -199,8 +199,6 @@ function processAnsiCodes(text: string): string {
   if (!text.includes('\u001b[') && !text.includes('\x1B[')) return text
 
   let result = text
-    // Normalize escape sequences
-    .replace(/\x1B/g, '\u001b')
     // Remove cursor/screen control sequences
     .replace(/\u001b\[[\d;]*[HfABCDEFGJKSTijklmnpqrsu]/g, '')
     .replace(/\u001b\[\?[0-9;]*[hl]/g, '')
