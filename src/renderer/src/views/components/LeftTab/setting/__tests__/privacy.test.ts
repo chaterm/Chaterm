@@ -62,7 +62,8 @@ const mockWindowApi = {
 vi.mock('ant-design-vue', () => ({
   notification: {
     success: vi.fn(),
-    error: vi.fn()
+    error: vi.fn(),
+    config: vi.fn()
   }
 }))
 
@@ -174,7 +175,15 @@ vi.mock('@/api/user/user', () => ({
 vi.mock('vue-router', () => ({
   useRouter: () => ({
     push: mockRouterPush
-  })
+  }),
+  createRouter: vi.fn(() => ({
+    replace: vi.fn(),
+    push: vi.fn(),
+    onError: vi.fn(),
+    beforeEach: vi.fn(),
+    afterEach: vi.fn()
+  })),
+  createWebHashHistory: vi.fn()
 }))
 
 vi.mock('@/store', () => ({
