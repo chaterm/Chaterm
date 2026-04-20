@@ -30,6 +30,7 @@ export interface ApiHandlerOptions {
   defaultBaseUrl?: string
   defaultModelId?: string
   defaultApiKey?: string
+  defaultModelInfoMap?: Record<string, { contextWindow?: number; maxTokens?: number }>
   openAiHeaders?: Record<string, string> // Custom headers for OpenAI requests
   liteLlmModelInfo?: LiteLLMModelInfo
   deepSeekApiKey?: string

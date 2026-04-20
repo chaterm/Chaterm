@@ -231,6 +231,41 @@ describe('useModelConfiguration', () => {
       expect(stateModule.updateGlobalState).toHaveBeenCalledWith('defaultBaseUrl', 'https://api.example.com')
       expect(stateModule.storeSecret).toHaveBeenCalledWith('defaultApiKey', 'test-key')
     })
+
+    it('should not block model options update on gateway model info fetch', async () => {
+      const originalFetch = global.fetch
+      global.fetch = vi.fn().mockResolvedValue({
+        ok: true,
+        json: vi.fn().mockResolvedValue({
+          data: [{ model_name: 'gpt-5', model_info: { max_input_tokens: 128000, max_output_tokens: 8192 } }]
+        })
+      } as any)
+
+      vi.mocked(stateModule.getGlobalState).mockImplementation(async (key) => {
+        if (key === 'modelOptions') return []
+        return null
+      })
+      vi.mocked(getUser).mockResolvedValue({
+        data: {
+          models: ['gpt-5'],
+          llmGatewayAddr: 'https://api.example.com',
+          key: 'server-key'
+        }
+      } as any)
+
+      const { initModelOptions } = useModelConfiguration()
+      await initModelOptions()
+      await new Promise((resolve) => setTimeout(resolve, 0))
+
+      const calls = vi.mocked(stateModule.updateGlobalState).mock.calls
+      const modelOptionsIdx = calls.findIndex((call) => call[0] === 'modelOptions')
+      const modelInfoIdx = calls.findIndex((call) => call[0] === 'defaultModelInfoMap')
+      expect(modelOptionsIdx).toBeGreaterThan(-1)
+      expect(modelInfoIdx).toBeGreaterThan(-1)
+      expect(modelOptionsIdx).toBeLessThan(modelInfoIdx)
+
+      global.fetch = originalFetch
+    })
   })
 
   describe('handleChatAiModelChange', () => {
@@ -314,6 +349,29 @@ describe('useModelConfiguration', () => {
   })
 
   describe('refreshModelOptions', () => {
+    it('clears defaultModelInfoMap when gateway credentials are unavailable', async () => {
+      localStorage.removeItem('login-skipped')
+
+      vi.mocked(stateModule.getGlobalState).mockImplementation(async (key) => {
+        if (key === 'modelOptions') return []
+        return null
+      })
+
+      vi.mocked(getUser).mockResolvedValue({
+        data: {
+          models: [],
+          subscriptionModels: [],
+          llmGatewayAddr: '',
+          key: ''
+        }
+      } as any)
+
+      const { refreshModelOptions } = useModelConfiguration()
+      await refreshModelOptions()
+
+      expect(stateModule.updateGlobalState).toHaveBeenCalledWith('defaultModelInfoMap', {})
+    })
+
     it('merges server models into existing options and preserves custom + checked state', async () => {
       localStorage.removeItem('login-skipped')
 
