@@ -439,7 +439,7 @@ ssh -tt bastion
         summaryMarkdown: `# 问题描述
 SSH 登录经由堡垒机时，在 banner 输出后卡住。
 
-# 有效解决方案
+# 解决方案
 强制分配 TTY，并执行 ssh -tt bastion 以恢复交互登录。`
       })
     ])

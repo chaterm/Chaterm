@@ -418,6 +418,10 @@ function isChineseLocale(locale: string): boolean {
   return locale.toLowerCase().startsWith('zh')
 }
 
+function buildExperienceSummaryMarkdownExample(headings: readonly string[]): string {
+  return headings.map((heading) => `${heading}\\n...`).join('\\n\\n')
+}
+
 function getExperienceExtractionSchemaExample(locale: string): string {
   if (isChineseLocale(locale)) {
     return `{
@@ -429,7 +433,7 @@ function getExperienceExtractionSchemaExample(locale: string): string {
       "title": "SSH login hangs after banner on bastion host",
       "keywords": ["ssh", "bastion", "tty"],
       "gist": "banner 后卡住，根因是未分配 PTY。",
-      "summaryMarkdown": "# 问题描述\\n...\\n\\n# 解决方案\\n...",
+      "summaryMarkdown": "${buildExperienceSummaryMarkdownExample(EXPERIENCE_REQUIRED_HEADINGS_ZH)}",
       "skipReason": ""
     }
   ]
@@ -445,7 +449,7 @@ function getExperienceExtractionSchemaExample(locale: string): string {
       "title": "SSH login hangs after banner on bastion host",
       "keywords": ["ssh", "bastion", "tty"],
       "gist": "Login stalls after the banner because no PTY is allocated.",
-      "summaryMarkdown": "# Problem describe\\n...\\n\\n# Solution\\n...",
+      "summaryMarkdown": "${buildExperienceSummaryMarkdownExample(EXPERIENCE_REQUIRED_HEADINGS_EN)}",
       "skipReason": ""
     }
   ]
@@ -457,14 +461,14 @@ function getExperienceMergeSchemaExample(locale: string): string {
     return `{
   "title": "经验标题",
   "keywords": ["keyword1", "keyword2"],
-  "summaryMarkdown": "# 问题场景\\n..."
+  "summaryMarkdown": "${buildExperienceSummaryMarkdownExample(EXPERIENCE_REQUIRED_HEADINGS_ZH)}"
 }`
   }
 
   return `{
   "title": "Experience title",
   "keywords": ["keyword1", "keyword2"],
-  "summaryMarkdown": "# Problem Context\\n..."
+  "summaryMarkdown": "${buildExperienceSummaryMarkdownExample(EXPERIENCE_REQUIRED_HEADINGS_EN)}"
 }`
 }
 
@@ -473,7 +477,9 @@ export function getExperienceRequiredHeadings(locale: string): string[] {
 }
 
 export function getExperienceExtractionSystemPrompt(locale: string): string {
-  const headings = getExperienceRequiredHeadings(locale).join('\n')
+  const requiredHeadings = getExperienceRequiredHeadings(locale)
+  const headings = requiredHeadings.join('\n')
+  const [problemHeading, solutionHeading] = requiredHeadings
   const schema = getExperienceExtractionSchemaExample(locale)
 
   if (isChineseLocale(locale)) {
@@ -486,7 +492,7 @@ export function getExperienceExtractionSystemPrompt(locale: string): string {
 4. 若与 task 内已沉淀经验是同一问题，请复用稳定的 dedupeKey，并用 update 或 skip，不要改写成另一条新经验。
 5. 只有形成了可复用、非显然的排查路径、修复方案、命令或配置时，才允许输出 new 或 update。
 6. 普通交付、常识性回答、纯状态播报、没有稳定解法的中间尝试，必须输出 skip。
-7. summaryMarkdown 中“# 问题描述”和“# 有效解决方案”里的事实、命令、配置、报错、现象与步骤，必须直接来自上下文中明确出现的信息；可以压缩、重组、忠实改写，但禁止补全上下文未写出的前提、根因、步骤、命令、配置或结论。
+7. summaryMarkdown 中“${problemHeading}”和“${solutionHeading}”里的事实、命令、配置、报错、现象与步骤，必须直接来自上下文中明确出现的信息；可以压缩、重组、忠实改写，但禁止补全上下文未写出的前提、根因、步骤、命令、配置或结论。
 8. 如果上下文里没有明确的问题描述，或没有被验证/明确给出的有效解决方案，必须输出 skip，并在 skipReason 中说明缺失点；禁止猜测或根据常识杜撰。
 9. summaryMarkdown 必须是完整 Markdown 正文，不包含 frontmatter，并严格包含以下一级标题且保持原顺序：
 ${headings}
@@ -508,7 +514,7 @@ Strict rules:
 4. If an item is the same issue as an already extracted task-local experience, reuse the stable dedupeKey and choose update or skip instead of inventing a new experience.
 5. Output new or update only when the conversation produced reusable, non-obvious troubleshooting, fix, command, or configuration knowledge.
 6. Ordinary delivery, generic knowledge, pure status updates, and unstable intermediate attempts must be marked skip.
-7. Every fact in "# Problem describe" and "# Effective Solution", including commands, configs, errors, symptoms, and steps, must be explicitly grounded in the context; you may compress or faithfully paraphrase, but do not add prerequisites, root causes, steps, commands, configurations, or conclusions that are not stated in the conversation.
+7. Every fact in "${problemHeading}" and "${solutionHeading}", including commands, configs, errors, symptoms, and steps, must be explicitly grounded in the context; you may compress or faithfully paraphrase, but do not add prerequisites, root causes, steps, commands, configurations, or conclusions that are not stated in the conversation.
 8. If the context does not clearly contain the problem description, or does not contain a validated/explicit effective solution, you must return skip and explain the missing evidence in skipReason instead of guessing.
 9. summaryMarkdown must be a complete markdown body without frontmatter and must include these exact H1 headings in order:
 ${headings}
