@@ -20,7 +20,14 @@ export type CommandGenerationContext = {
   sudoPermission?: boolean
 }
 
-export type ContextDocRef = { absPath: string; name?: string; type?: 'file' | 'dir' }
+export type ContextDocRef = {
+  absPath: string
+  relPath?: string
+  name?: string
+  type?: 'file' | 'dir'
+  startLine?: number
+  endLine?: number
+}
 
 export type ContextPastChatRef = { taskId: string; title?: string }
 

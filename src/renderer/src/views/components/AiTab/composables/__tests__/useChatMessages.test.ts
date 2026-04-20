@@ -780,6 +780,81 @@ describe('useChatMessages', () => {
       expect(session.chatHistory[0].partial).toBe(true)
     })
 
+    it('should preserve contentParts on new and updated assistant partial messages', async () => {
+      const { processMainMessage } = useChatMessages(
+        mockScrollToBottom,
+        mockClearTodoState,
+        mockMarkLatestMessageWithTodoUpdate,
+        mockCurrentTodos,
+        mockCheckModelConfig
+      )
+
+      const mockState = vi.mocked(useSessionState)()
+      const session = mockState.currentSession.value!
+      const firstContentParts = [
+        { type: 'text' as const, text: '知识库检索:' },
+        {
+          type: 'chip' as const,
+          chipType: 'doc' as const,
+          ref: {
+            absPath: '/mock/knowledgebase/rss2.md',
+            relPath: 'rss2.md',
+            name: 'rss2.md',
+            type: 'file' as const,
+            startLine: 1,
+            endLine: 3
+          }
+        }
+      ]
+      const secondContentParts = [
+        { type: 'text' as const, text: '知识库检索:' },
+        {
+          type: 'chip' as const,
+          chipType: 'doc' as const,
+          ref: {
+            absPath: '/mock/knowledgebase/rss2.md',
+            relPath: 'rss2.md',
+            name: 'rss2.md',
+            type: 'file' as const,
+            startLine: 4,
+            endLine: 6
+          }
+        }
+      ]
+
+      await processMainMessage({
+        type: 'partialMessage',
+        tabId: 'test-tab-1',
+        partialMessage: {
+          text: '知识库检索',
+          type: 'say',
+          say: 'text',
+          partial: true,
+          ts: 100,
+          contentParts: firstContentParts
+        }
+      } as ExtensionMessage)
+
+      expect(session.chatHistory).toHaveLength(1)
+      expect(session.chatHistory[0].contentParts).toEqual(firstContentParts)
+
+      await processMainMessage({
+        type: 'partialMessage',
+        tabId: 'test-tab-1',
+        partialMessage: {
+          text: '知识库检索',
+          type: 'say',
+          say: 'text',
+          partial: false,
+          ts: 100,
+          contentParts: secondContentParts
+        }
+      } as ExtensionMessage)
+
+      expect(session.chatHistory).toHaveLength(1)
+      expect(session.chatHistory[0].contentParts).toEqual(secondContentParts)
+    })
+
     it('should handle completion_result message', async () => {
       const { processMainMessage } = useChatMessages(
         mockScrollToBottom,
