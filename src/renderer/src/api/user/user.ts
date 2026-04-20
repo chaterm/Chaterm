@@ -38,7 +38,8 @@ const urls = {
   verifyAndBindMobile: '/user/bind-mobile/verify',
   updateAvatar: '/user/avatar/update',
   getTrustedDevices: '/user/trusted-devices',
-  revokeTrustedDevice: '/user/trusted-devices/revoke'
+  revokeTrustedDevice: '/user/trusted-devices/revoke',
+  deactivateAccount: '/user/account/deactivate'
 }
 export function sendEmailCode(params) {
   return request({
@@ -241,5 +242,13 @@ export function revokeTrustedDevice(deviceId: number) {
     method: 'post',
     url: urls.revokeTrustedDevice,
     data: { deviceId }
+  })
+}
+
+export function deactivateAccount(data: { uid: number }) {
+  return request({
+    method: 'post',
+    url: urls.deactivateAccount,
+    data
   })
 }

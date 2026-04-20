@@ -290,6 +290,18 @@ export default {
     extensions: '拡張機能',
     about: 'について',
     documentation: 'ドキュメント',
+    accountManagement: 'アカウント管理',
+    deactivateAccount: 'アカウントを削除',
+    deactivateAccountDescription:
+      'このアカウントを今後利用しない場合は、ここで削除できます。削除すると、この端末の現在のログイン状態も消去されます。',
+    deactivateAccountConfirmTitle: 'アカウント削除の確認',
+    deactivateAccountConfirmDescription: 'アカウント削除は高リスクの操作です。続行するには、下の確認キーワードを入力してください。',
+    deactivateAccountConfirmKeyword: '削除',
+    deactivateAccountInputPlaceholder: '続行するには「{keyword}」と入力してください',
+    deactivateAccountSuccess: 'アカウントを削除しました',
+    deactivateAccountSuccessDescription: 'アカウントが削除され、この端末の現在のログイン状態も消去されました。',
+    deactivateAccountFailed: 'アカウントを削除できませんでした',
+    deactivateAccountUserMissing: '現在のユーザーアカウントを特定できません。',
     privacy: 'プライバシー',
     trustedDevices: '信頼できるデバイス',
     trustedDevicesDescription:

@@ -290,6 +290,19 @@ export default {
     extensions: 'Erweiterungen',
     about: 'Über',
     documentation: 'Dokumentation',
+    accountManagement: 'Kontoverwaltung',
+    deactivateAccount: 'Konto löschen',
+    deactivateAccountDescription:
+      'Wenn Sie dieses Konto nicht mehr verwenden möchten, können Sie es hier löschen. Dadurch wird der aktuelle Anmeldestatus auf diesem Gerät entfernt.',
+    deactivateAccountConfirmTitle: 'Kontolöschung bestätigen',
+    deactivateAccountConfirmDescription:
+      'Das Löschen des Kontos ist ein Vorgang mit hohem Risiko. Geben Sie zur Bestätigung das unten angezeigte Schlüsselwort ein.',
+    deactivateAccountConfirmKeyword: 'LÖSCHEN',
+    deactivateAccountInputPlaceholder: 'Geben Sie "{keyword}" ein, um fortzufahren',
+    deactivateAccountSuccess: 'Konto gelöscht',
+    deactivateAccountSuccessDescription: 'Ihr Konto wurde gelöscht und der aktuelle Anmeldestatus wurde entfernt.',
+    deactivateAccountFailed: 'Konto konnte nicht gelöscht werden',
+    deactivateAccountUserMissing: 'Das aktuelle Benutzerkonto konnte nicht ermittelt werden.',
     privacy: 'Datenschutz',
     trustedDevices: 'Vertrauenswürdige Geräte',
     trustedDevicesDescription:

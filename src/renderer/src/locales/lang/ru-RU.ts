@@ -290,6 +290,19 @@ export default {
     extensions: 'Расширения',
     about: 'Обо мне',
     documentation: 'Документация',
+    accountManagement: 'Управление аккаунтом',
+    deactivateAccount: 'Удалить аккаунт',
+    deactivateAccountDescription:
+      'Если вы больше не хотите использовать этот аккаунт, вы можете удалить его здесь. Это также очистит текущее состояние входа на этом устройстве.',
+    deactivateAccountConfirmTitle: 'Подтвердите удаление аккаунта',
+    deactivateAccountConfirmDescription:
+      'Удаление аккаунта является рискованным действием. Чтобы продолжить, введите ключевое слово подтверждения ниже.',
+    deactivateAccountConfirmKeyword: 'УДАЛИТЬ',
+    deactivateAccountInputPlaceholder: 'Введите "{keyword}", чтобы продолжить',
+    deactivateAccountSuccess: 'Аккаунт удалён',
+    deactivateAccountSuccessDescription: 'Ваш аккаунт удалён, а текущее состояние входа очищено.',
+    deactivateAccountFailed: 'Не удалось удалить аккаунт',
+    deactivateAccountUserMissing: 'Не удалось определить текущий аккаунт пользователя.',
     privacy: 'Конфиденциальность',
     trustedDevices: 'Доверенные устройства',
     trustedDevicesDescription:
