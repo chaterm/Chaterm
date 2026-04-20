@@ -15,6 +15,9 @@ vi.mock('ant-design-vue', () => ({
   message: {
     success: vi.fn(),
     error: vi.fn()
+  },
+  notification: {
+    config: vi.fn()
   }
 }))
 
@@ -84,7 +87,15 @@ const mockRouter = {
 }
 
 vi.mock('vue-router', () => ({
-  useRouter: () => mockRouter
+  useRouter: () => mockRouter,
+  createRouter: vi.fn(() => ({
+    replace: vi.fn(),
+    push: vi.fn(),
+    onError: vi.fn(),
+    beforeEach: vi.fn(),
+    afterEach: vi.fn()
+  })),
+  createWebHashHistory: vi.fn()
 }))
 
 // Mock permission utils

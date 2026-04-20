@@ -290,6 +290,19 @@ export default {
     extensions: 'Erweiterungen',
     about: 'Über',
     documentation: 'Dokumentation',
+    accountManagement: 'Kontoverwaltung',
+    deactivateAccount: 'Konto löschen',
+    deactivateAccountDescription:
+      'Wenn Sie dieses Konto nicht mehr verwenden möchten, können Sie es hier löschen. Dadurch wird der aktuelle Anmeldestatus auf diesem Gerät entfernt.',
+    deactivateAccountConfirmTitle: 'Kontolöschung bestätigen',
+    deactivateAccountConfirmDescription:
+      'Das Löschen des Kontos ist ein Vorgang mit hohem Risiko. Geben Sie zur Bestätigung das unten angezeigte Schlüsselwort ein.',
+    deactivateAccountConfirmKeyword: 'LÖSCHEN',
+    deactivateAccountInputPlaceholder: 'Geben Sie "{keyword}" ein, um fortzufahren',
+    deactivateAccountSuccess: 'Konto gelöscht',
+    deactivateAccountSuccessDescription: 'Ihr Konto wurde gelöscht und der aktuelle Anmeldestatus wurde entfernt.',
+    deactivateAccountFailed: 'Konto konnte nicht gelöscht werden',
+    deactivateAccountUserMissing: 'Das aktuelle Benutzerkonto konnte nicht ermittelt werden.',
     privacy: 'Datenschutz',
     trustedDevices: 'Vertrauenswürdige Geräte',
     trustedDevicesDescription:
@@ -381,6 +394,9 @@ export default {
     kbSearchEnabled: KB_SEARCH_ENABLED_LABELS['de-DE'],
     kbSearchEnabledDescribe:
       'Automatisch relevante Wissensdatenbank-Inhalte zu Beginn einer neuen Unterhaltung durchsuchen und der KI erlauben, die Wissensdatenbank waehrend der Unterhaltung zu durchsuchen',
+    experienceExtractionEnabled: 'Automatische Erfahrungsspeicherung',
+    experienceExtractionEnabledDescribe:
+      'Nach erfolgreichem Abschluss einer Aufgabe wiederverwendbare Erfahrungen automatisch in der Wissensdatenbank speichern und zusammen mit der Wissensdatenbanksuche Effizienz und Stabilität der KI bei ähnlichen Aufgaben deutlich verbessern.',
     features: 'Funktionen',
     enableCheckpoints: 'Checkpoints aktivieren',
     enableCheckpointsDescribe: 'Ermöglicht der Erweiterung, Checkpoints des Arbeitsbereichs während der Aufgabe zu speichern',

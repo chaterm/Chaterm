@@ -115,7 +115,7 @@ export async function saveChatermMessages(taskId: string, uiMessages: ChatermMes
 
 // Get task metadata
 export async function getTaskMetadata(taskId: string): Promise<TaskMetadata> {
-  const defaultMetadata: TaskMetadata = { files_in_context: [], model_usage: [], hosts: [], todos: [] }
+  const defaultMetadata: TaskMetadata = { files_in_context: [], model_usage: [], hosts: [], todos: [], experience_ledger: [] }
   try {
     const dbService = await ChatermDatabaseService.getInstance()
     const metadata = await dbService.getTaskMetadata(taskId)

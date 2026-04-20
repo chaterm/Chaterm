@@ -291,6 +291,18 @@ export default {
     about: 'About',
     documentation: 'Docs',
     privacy: 'Privacy',
+    accountManagement: 'Account Management',
+    deactivateAccount: 'Delete Account',
+    deactivateAccountDescription:
+      'If you no longer want to use this account, you can delete it here. This will clear the current sign-in state on this device.',
+    deactivateAccountConfirmTitle: 'Confirm account deletion',
+    deactivateAccountConfirmDescription: 'Deleting your account is a high-risk action. To continue, enter the confirmation keyword below.',
+    deactivateAccountConfirmKeyword: 'DELETE',
+    deactivateAccountInputPlaceholder: 'Enter "{keyword}" to continue',
+    deactivateAccountSuccess: 'Account deleted',
+    deactivateAccountSuccessDescription: 'Your account has been deleted and the current sign-in state has been cleared.',
+    deactivateAccountFailed: 'Failed to delete account',
+    deactivateAccountUserMissing: 'Unable to determine the current user account.',
     trustedDevices: 'Trusted Devices',
     trustedDevicesDescription:
       'These devices have been verified and can skip verification on next login. After removing, the device will need to verify again.',
@@ -379,6 +391,9 @@ export default {
     kbSearchEnabled: KB_SEARCH_ENABLED_LABELS['en-US'],
     kbSearchEnabledDescribe:
       'Automatically search relevant knowledge base content when starting a new conversation, and allow AI to search the knowledge base during conversations',
+    experienceExtractionEnabled: 'Automatic Experience Capture',
+    experienceExtractionEnabledDescribe:
+      'After a task completes successfully, automatically capture reusable experience into the knowledge base and, together with knowledge base retrieval, significantly improve AI efficiency and stability on similar tasks.',
     features: 'Features',
     enableCheckpoints: 'Enable Checkpoints',
     enableCheckpointsDescribe: 'Enables extension to save checkpoints of workspace throughout the task',

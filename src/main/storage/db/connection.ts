@@ -3,6 +3,7 @@ import { join } from 'path'
 import * as fs from 'fs'
 import { v4 as uuidv4 } from 'uuid'
 import { upgradeAgentTaskMetadataSupport } from './migrations/add-todos-support'
+import { upgradeExperienceLedgerSupport } from './migrations/add-experience-ledger-support'
 import { upgradeMcpToolStateSupport } from './migrations/add-mcp-tool-state-support'
 import { upgradeMcpToolCallSupport } from './migrations/add-mcp-tool-call-support'
 import { upgradeContentPartsSupport } from './migrations/add-content-parts-support'
@@ -314,6 +315,7 @@ async function applyAllMigrations(db: Database.Database): Promise<void> {
   upgradeTAssetsTable(db)
   upgradeUserSnippetTable(db)
   await upgradeAgentTaskMetadataSupport(db)
+  await upgradeExperienceLedgerSupport(db)
   await upgradeMcpToolStateSupport(db)
   await upgradeMcpToolCallSupport(db)
   await upgradeContentPartsSupport(db)

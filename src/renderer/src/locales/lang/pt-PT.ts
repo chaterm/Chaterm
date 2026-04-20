@@ -290,6 +290,18 @@ export default {
     extensions: 'Extensões',
     about: 'Sobre',
     documentation: 'Documentação',
+    accountManagement: 'Gestão da conta',
+    deactivateAccount: 'Eliminar conta',
+    deactivateAccountDescription:
+      'Se já não quiser utilizar esta conta, pode eliminá-la aqui. Isto irá limpar o estado de sessão atual neste dispositivo.',
+    deactivateAccountConfirmTitle: 'Confirmar eliminação da conta',
+    deactivateAccountConfirmDescription: 'Eliminar a conta é uma ação de alto risco. Para continuar, introduza a palavra de confirmação abaixo.',
+    deactivateAccountConfirmKeyword: 'ELIMINAR',
+    deactivateAccountInputPlaceholder: 'Introduza "{keyword}" para continuar',
+    deactivateAccountSuccess: 'Conta eliminada',
+    deactivateAccountSuccessDescription: 'A sua conta foi eliminada e o estado de sessão atual foi limpo.',
+    deactivateAccountFailed: 'Falha ao eliminar a conta',
+    deactivateAccountUserMissing: 'Não foi possível determinar a conta do utilizador atual.',
     privacy: 'Privacidade',
     trustedDevices: 'Dispositivos confiáveis',
     trustedDevicesDescription:
@@ -381,6 +393,9 @@ export default {
     kbSearchEnabled: KB_SEARCH_ENABLED_LABELS['pt-PT'],
     kbSearchEnabledDescribe:
       'Pesquisar automaticamente conteudo relevante da base de conhecimento ao iniciar uma nova conversa e permitir que a IA pesquise a base de conhecimento durante as conversas',
+    experienceExtractionEnabled: 'Captura automática de experiência',
+    experienceExtractionEnabledDescribe:
+      'Após uma tarefa ser concluída com sucesso, guardar automaticamente experiência reutilizável na base de conhecimento e, em conjunto com a pesquisa da base de conhecimento, melhorar significativamente a eficiência e a estabilidade da IA em tarefas semelhantes.',
     features: 'Funcionalidades',
     enableCheckpoints: 'Ativar Checkpoints',
     enableCheckpointsDescribe: 'Permite à extensão guardar checkpoints do espaço de trabalho durante a tarefa',

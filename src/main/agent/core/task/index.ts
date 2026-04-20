@@ -69,6 +69,7 @@ import { AssistantMessageContent, parseAssistantMessageV2, ToolParamName, ToolUs
 import { RemoteTerminalManager, ConnectionInfo, RemoteTerminalInfo, RemoteTerminalProcessResultPromise } from '../../integrations/remote-terminal'
 import { LocalTerminalManager, LocalCommandProcess } from '../../integrations/local-terminal'
 import { getK8sAgentManager } from '../../integrations/k8s'
+import { createExperienceManager } from '../../services/experience'
 import { createLlmCaller } from '../../services/interaction-detector/llm-caller'
 import type { InteractionResult } from '../../services/interaction-detector/types'
 import { getFormatResponse } from '@core/prompts/responses'
@@ -82,8 +83,10 @@ import { ContextManager } from '@core/context/context-management/ContextManager'
 import {
   getSavedApiConversationHistory,
   getChatermMessages,
+  getTaskMetadata,
   saveApiConversationHistory,
   saveChatermMessages,
+  saveTaskMetadata,
   touchTaskUpdatedAt
 } from '@core/storage/disk'
 
@@ -301,6 +304,7 @@ export class Task {
   private didRejectTool = false
   private didAlreadyUseTool = false
   private didCompleteReadingStream = false
+  private experienceExtractionQueue: Promise<void> = Promise.resolve()
   // private didAutomaticallyRetryFailedApiRequest = false
   private messages: Messages = getMessages(DEFAULT_LANGUAGE_SETTINGS)
 
@@ -639,6 +643,66 @@ export class Task {
       return userConfig?.language || 'en-US'
     } catch {
       return 'en-US'
+    }
+  }
+
+  private createSingleTurnLlmCaller(): (systemPrompt: string, userPrompt: string) => Promise<string> {
+    return async (systemPrompt: string, userPrompt: string): Promise<string> => {
+      const stream = this.api.createMessage(systemPrompt, [{ role: 'user', content: userPrompt }])
+      let responseText = ''
+      for await (const chunk of stream) {
+        if (chunk.type === 'text') {
+          responseText += chunk.text
+        }
+      }
+      return responseText
+    }
+  }
+
+  private normalizeBooleanToolParam(value: string | undefined): boolean | null {
+    if (value === undefined || value === null) return null
+    const normalized = value.trim().toLowerCase()
+    if (normalized === 'true') return true
+    if (normalized === 'false' || normalized === '') return false
+    return false
+  }
+
+  private enqueueExperienceExtraction(): void {
+    const queue = this.experienceExtractionQueue ?? Promise.resolve()
+    this.experienceExtractionQueue = queue
+      .catch(() => undefined)
+      .then(async () => {
+        await this.triggerExperienceExtraction()
+      })
+  }
+
+  private async triggerExperienceExtraction(): Promise<void> {
+    const experienceExtractionEnabled = await getGlobalState('experienceExtractionEnabled')
+    if (experienceExtractionEnabled === false) {
+      logger.info('experience.extract.skipped', {
+        event: 'experience.extract.skipped',
+        taskId: this.taskId,
+        reason: 'disabled_by_user'
+      })
+      return
+    }
+
+    const manager = createExperienceManager({
+      completeWithLlm: this.createSingleTurnLlmCaller()
+    })
+
+    const metadata = await getTaskMetadata(this.taskId)
+    const outcome = await manager.extractFromCompletedTask({
+      taskId: this.taskId,
+      conversationHistory: cloneDeep(this.apiConversationHistory),
+      locale: await this.getUserLocale(),
+      taskExperienceLedger: cloneDeep(metadata.experience_ledger || []),
+      timestamp: new Date().toISOString()
+    })
+
+    if (JSON.stringify(outcome.taskExperienceLedger) !== JSON.stringify(metadata.experience_ledger || [])) {
+      metadata.experience_ledger = outcome.taskExperienceLedger
+      await saveTaskMetadata(this.taskId, metadata)
     }
   }
 
@@ -3226,6 +3290,7 @@ export class Task {
     const result: string | undefined = block.params.result
     const command: string | undefined = block.params.command
     const ip: string | undefined = block.params.ip
+    const depositExperienceRaw: string | undefined = block.params.depositExperience
 
     const addNewChangesFlagToLastCompletionResultMessage = async () => {
       const hasNewChanges = await this.doesLatestTaskCompletionHaveNewChanges()
@@ -3272,7 +3337,6 @@ export class Task {
           await this.say('completion_result', result, false)
           await this.saveCheckpoint(true)
           await addNewChangesFlagToLastCompletionResultMessage()
-          telemetryService.captureTaskCompleted(this.taskId)
         } else {
           await this.saveCheckpoint(true)
         }
@@ -3288,7 +3352,18 @@ export class Task {
         await this.say('completion_result', result, false)
         await this.saveCheckpoint(true)
         await addNewChangesFlagToLastCompletionResultMessage()
-        telemetryService.captureTaskCompleted(this.taskId)
+      }
+
+      telemetryService.captureTaskCompleted(this.taskId)
+      const depositExperience = this.normalizeBooleanToolParam(depositExperienceRaw)
+      if (depositExperience === true) {
+        this.enqueueExperienceExtraction()
+      } else {
+        logger.info('experience.extract.skipped', {
+          event: 'experience.extract.skipped',
+          taskId: this.taskId,
+          reason: depositExperienceRaw === undefined ? 'deposit_experience_missing' : 'deposit_experience_false'
+        })
       }
 
       // Auto-complete all in_progress todos when task is completed (intranet feature)

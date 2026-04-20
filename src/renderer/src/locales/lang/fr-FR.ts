@@ -290,6 +290,19 @@ export default {
     extensions: 'Extensions',
     about: 'À propos',
     documentation: 'Documentation',
+    accountManagement: 'Gestion du compte',
+    deactivateAccount: 'Supprimer le compte',
+    deactivateAccountDescription:
+      'Si vous ne souhaitez plus utiliser ce compte, vous pouvez le supprimer ici. Cela effacera l’état de connexion actuel sur cet appareil.',
+    deactivateAccountConfirmTitle: 'Confirmer la suppression du compte',
+    deactivateAccountConfirmDescription:
+      'La suppression du compte est une action sensible. Pour continuer, saisissez le mot de confirmation ci-dessous.',
+    deactivateAccountConfirmKeyword: 'SUPPRIMER',
+    deactivateAccountInputPlaceholder: 'Saisissez "{keyword}" pour continuer',
+    deactivateAccountSuccess: 'Compte supprimé',
+    deactivateAccountSuccessDescription: 'Votre compte a été supprimé et l’état de connexion actuel a été effacé.',
+    deactivateAccountFailed: 'Échec de la suppression du compte',
+    deactivateAccountUserMissing: 'Impossible de déterminer le compte utilisateur actuel.',
     privacy: 'Confidentialité',
     trustedDevices: 'Appareils de confiance',
     trustedDevicesDescription:
@@ -382,6 +395,9 @@ export default {
     kbSearchEnabled: KB_SEARCH_ENABLED_LABELS['fr-FR'],
     kbSearchEnabledDescribe:
       "Rechercher automatiquement le contenu pertinent de la base de connaissances lors du demarrage d'une nouvelle conversation et permettre a l'IA de rechercher dans la base de connaissances pendant les conversations",
+    experienceExtractionEnabled: 'Capture automatique d’expérience',
+    experienceExtractionEnabledDescribe:
+      'Après la réussite d’une tâche, consigner automatiquement les expériences réutilisables dans la base de connaissances et, avec la recherche dans la base de connaissances, améliorer significativement l’efficacité et la stabilité de l’IA sur des tâches similaires.',
     features: 'Fonctionnalités',
     enableCheckpoints: 'Activer les points de contrôle',
     enableCheckpointsDescribe: "Permet à l'extension de sauvegarder les points de contrôle de l'espace de travail tout au long de la tâche",

@@ -278,6 +278,18 @@ export default {
     extensions: 'الامتدادات',
     about: 'عن',
     documentation: 'الوثائق',
+    accountManagement: 'إدارة الحساب',
+    deactivateAccount: 'حذف الحساب',
+    deactivateAccountDescription:
+      'إذا لم تعد ترغب في استخدام هذا الحساب، يمكنك حذفه من هنا. سيؤدي ذلك أيضاً إلى مسح حالة تسجيل الدخول الحالية على هذا الجهاز.',
+    deactivateAccountConfirmTitle: 'تأكيد حذف الحساب',
+    deactivateAccountConfirmDescription: 'حذف الحساب إجراء عالي الخطورة. للمتابعة، أدخل كلمة التأكيد أدناه.',
+    deactivateAccountConfirmKeyword: 'حذف',
+    deactivateAccountInputPlaceholder: 'أدخل "{keyword}" للمتابعة',
+    deactivateAccountSuccess: 'تم حذف الحساب',
+    deactivateAccountSuccessDescription: 'تم حذف حسابك ومسح حالة تسجيل الدخول الحالية.',
+    deactivateAccountFailed: 'فشل حذف الحساب',
+    deactivateAccountUserMissing: 'تعذر تحديد حساب المستخدم الحالي.',
     privacy: 'الخصوصية',
     trustedDevices: 'الأجهزة الموثوق بها',
     trustedDevicesDescription: 'هذه الأجهزة قد تم التحقق منها ويمكنها تخطي التحقق على الدخول التالي. بعد الإزالة، سيحتاج الجهاز إلى التحقق مرة أخرى.',
@@ -366,6 +378,9 @@ export default {
     kbSearchEnabled: KB_SEARCH_ENABLED_LABELS['ar-AR'],
     kbSearchEnabledDescribe:
       'البحث التلقائي عن المحتوى ذي الصلة في قاعدة المعرفة عند بدء محادثة جديدة والسماح للذكاء الاصطناعي بالبحث في قاعدة المعرفة أثناء المحادثات',
+    experienceExtractionEnabled: 'ترسيخ الخبرة تلقائيًا',
+    experienceExtractionEnabledDescribe:
+      'بعد اكتمال المهمة بنجاح، يتم ترسيخ الخبرة القابلة لإعادة الاستخدام تلقائيًا في قاعدة المعرفة، وبالاقتران مع "استرجاع قاعدة المعرفة" تتحسن كفاءة الذكاء الاصطناعي واستقراره بشكل ملحوظ في المهام المتشابهة.',
     features: 'الميزات',
     enableCheckpoints: 'تمكين النقاط المرجعية',
     enableCheckpointsDescribe: 'يمكن تمكين الامتداد لحفظ النقاط المرجعية للمساحة العملية من خلال المهمة',

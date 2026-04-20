@@ -23,11 +23,24 @@ export interface ModelMetadataEntry {
   mode: string
 }
 
+export interface TaskExperienceLedgerEntry {
+  dedupeKey: string
+  title: string
+  slug: string
+  keywords: string[]
+  gist: string
+  kbRelPath: string
+  lastAction: 'new' | 'update'
+  contentFingerprint: string
+  updatedAt: string
+}
+
 export interface TaskMetadata {
   hosts: Host[]
   files_in_context: FileMetadataEntry[]
   model_usage: ModelMetadataEntry[]
   todos?: Todo[]
+  experience_ledger?: TaskExperienceLedgerEntry[]
   title?: string
   favorite?: boolean
 }
@@ -48,7 +61,8 @@ export class TaskMetadataHelper {
       hosts: [],
       files_in_context: [],
       model_usage: [],
-      todos: []
+      todos: [],
+      experience_ledger: []
     }
   }
 

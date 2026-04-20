@@ -98,5 +98,6 @@ export type GlobalStateKey =
   | 'messageFeedbacks'
   | 'userRules'
   | 'kbSearchEnabled'
+  | 'experienceExtractionEnabled'
 
 export type LocalStateKey = 'localClineRulesToggles'
