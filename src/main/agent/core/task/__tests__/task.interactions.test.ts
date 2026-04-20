@@ -9,6 +9,13 @@ const { telemetryMocks } = vi.hoisted(() => ({
   }
 }))
 
+const { experienceMocks } = vi.hoisted(() => ({
+  experienceMocks: {
+    extractFromCompletedTask: vi.fn().mockResolvedValue({ taskExperienceLedger: [], wroteAny: false }),
+    createExperienceManager: vi.fn()
+  }
+}))
+
 vi.mock('electron', () => ({
   app: { getAppPath: () => '' },
   BrowserWindow: { fromWebContents: () => null },
@@ -41,6 +48,13 @@ vi.mock('@api/index', () => ({
   ApiHandler: class {},
   buildApiHandler: vi.fn(() => ({}))
 }))
+vi.mock('@core/storage/state', () => ({
+  getGlobalState: vi.fn(async () => ({})),
+  getUserConfig: vi.fn(async () => ({ language: 'zh-CN' }))
+}))
+vi.mock('../../../services/experience', () => ({
+  createExperienceManager: experienceMocks.createExperienceManager
+}))
 vi.mock('../../../storage/chat_sync/index', () => ({
   ChatSyncScheduler: {
     getInstance: vi.fn(() => ({
@@ -50,16 +64,26 @@ vi.mock('../../../storage/chat_sync/index', () => ({
 }))
 
 import { Task } from '../index'
+import { getGlobalState } from '@core/storage/state'
 
 describe('Task interaction-heavy branches', () => {
   let task: any
 
   beforeEach(() => {
     vi.clearAllMocks()
+    experienceMocks.createExperienceManager.mockReturnValue({
+      extractFromCompletedTask: experienceMocks.extractFromCompletedTask
+    })
     task = Object.create((Task as unknown as { prototype: object }).prototype) as any
     task.taskId = 'task-interactions'
+    task.apiConversationHistory = [{ role: 'user', content: 'Fix SSH timeout on bastion' }]
     task.chatermMessages = []
     task.userMessageContent = []
+    task.api = {
+      createMessage: vi.fn(async function* () {
+        yield { type: 'text', text: 'ok' }
+      })
+    }
     task.autoApprovalSettings = { enabled: false, enableNotifications: false }
     task.messages = { userProvidedFeedback: 'feedback: {feedback}' }
 
@@ -77,6 +101,8 @@ describe('Task interaction-heavy branches', () => {
     task.executeCommandTool = vi.fn().mockResolvedValue('cmd ok')
     task.completeAllInProgressTodos = vi.fn().mockResolvedValue(undefined)
     task.clearEphemeralToolResults = vi.fn().mockResolvedValue(undefined)
+    task.triggerExperienceExtraction = vi.fn().mockResolvedValue(undefined)
+    task.enqueueExperienceExtraction = vi.fn()
     task.doesLatestTaskCompletionHaveNewChanges = vi.fn().mockResolvedValue(false)
     task.performCommandSecurityCheck = vi.fn().mockResolvedValue({
       needsSecurityApproval: false,
@@ -164,6 +190,7 @@ describe('Task interaction-heavy branches', () => {
     expect(task.askApproval).toHaveBeenCalledTimes(1)
     expect(task.executeCommandTool).not.toHaveBeenCalled()
     expect(task.saveCheckpoint).toHaveBeenCalled()
+    expect(task.triggerExperienceExtraction).not.toHaveBeenCalled()
   })
 
   it('handleAttemptCompletionToolUse should push empty tool result on acceptance', async () => {
@@ -171,13 +198,26 @@ describe('Task interaction-heavy branches', () => {
 
     await task.handleAttemptCompletionToolUse({
       name: 'attempt_completion',
-      params: { result: 'all good' },
+      params: { result: 'all good', depositExperience: 'true' },
       partial: false
     })
 
     expect(task.completeAllInProgressTodos).toHaveBeenCalledTimes(1)
     expect(task.clearEphemeralToolResults).toHaveBeenCalledTimes(1)
     expect(task.pushToolResult).toHaveBeenCalledWith('[mock-tool]', '')
+    expect(task.enqueueExperienceExtraction).toHaveBeenCalledWith()
+  })
+
+  it('handleAttemptCompletionToolUse should skip experience extraction when depositExperience is false', async () => {
+    task.ask = vi.fn().mockResolvedValue({ response: 'yesButtonClicked', text: '', contentParts: [] })
+
+    await task.handleAttemptCompletionToolUse({
+      name: 'attempt_completion',
+      params: { result: 'all good', depositExperience: 'false' },
+      partial: false
+    })
+
+    expect(task.enqueueExperienceExtraction).not.toHaveBeenCalled()
   })
 
   it('handleExecuteCommandToolUse should route missing params to handleMissingParam', async () => {
@@ -200,5 +240,31 @@ describe('Task interaction-heavy branches', () => {
     })
 
     expect(task.ask).toHaveBeenCalledWith('command', 'pwd', true)
+  })
+
+  it('triggerExperienceExtraction should skip when disabled by user', async () => {
+    vi.mocked(getGlobalState).mockResolvedValueOnce(false)
+    delete task.triggerExperienceExtraction
+
+    await task.triggerExperienceExtraction()
+
+    expect(experienceMocks.createExperienceManager).not.toHaveBeenCalled()
+    expect(experienceMocks.extractFromCompletedTask).not.toHaveBeenCalled()
+  })
+
+  it('triggerExperienceExtraction should continue when setting is missing', async () => {
+    vi.mocked(getGlobalState).mockResolvedValueOnce(undefined)
+    delete task.triggerExperienceExtraction
+
+    await task.triggerExperienceExtraction()
+
+    expect(experienceMocks.createExperienceManager).toHaveBeenCalledTimes(1)
+    expect(experienceMocks.extractFromCompletedTask).toHaveBeenCalledWith(
+      expect.objectContaining({
+        taskId: 'task-interactions',
+        locale: 'zh-CN',
+        taskExperienceLedger: []
+      })
+    )
   })
 })

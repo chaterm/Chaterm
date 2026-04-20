@@ -59,6 +59,18 @@
         </p>
       </div>
 
+      <div class="setting-item">
+        <a-checkbox
+          v-model:checked="experienceExtractionEnabled"
+          @change="handleExperienceExtractionEnabledChange(experienceExtractionEnabled)"
+        >
+          {{ $t('user.experienceExtractionEnabled') }}
+        </a-checkbox>
+        <p class="setting-description">
+          {{ $t('user.experienceExtractionEnabledDescribe') }}
+        </p>
+      </div>
+
       <!-- Auto Approval -->
       <div class="setting-item">
         <a-checkbox v-model:checked="autoApprovalSettings.enabled">
@@ -262,6 +274,7 @@ const enableExtendedThinking = ref(true)
 const reasoningEffort = ref('low')
 const shellIntegrationTimeout = ref(4)
 const kbSearchEnabled = ref(true)
+const experienceExtractionEnabled = ref(true)
 const autoApprovalSettings = ref<AutoApprovalSettings>(DEFAULT_AUTO_APPROVAL_SETTINGS)
 const chatSettings = ref<ChatSettings>(DEFAULT_CHAT_SETTINGS)
 const customInstructions = ref('')
@@ -366,6 +379,11 @@ const loadSavedConfig = async () => {
 
     const savedKbSearchEnabled = await getGlobalState('kbSearchEnabled')
     kbSearchEnabled.value = savedKbSearchEnabled === undefined || savedKbSearchEnabled === null ? true : (savedKbSearchEnabled as boolean)
+    const savedExperienceExtractionEnabled = await getGlobalState('experienceExtractionEnabled')
+    experienceExtractionEnabled.value =
+      savedExperienceExtractionEnabled === undefined || savedExperienceExtractionEnabled === null
+        ? true
+        : (savedExperienceExtractionEnabled as boolean)
     needProxy.value = ((await getGlobalState('needProxy')) as boolean) || false
     proxyConfig.value = ((await getGlobalState('proxyConfig')) as ProxyConfig) || defaultProxyConfig
 
@@ -422,6 +440,7 @@ const saveConfig = async () => {
     await updateGlobalState('reasoningEffort', reasoningEffort.value)
     await updateGlobalState('shellIntegrationTimeout', shellIntegrationTimeout.value)
     await updateGlobalState('kbSearchEnabled', kbSearchEnabled.value)
+    await updateGlobalState('experienceExtractionEnabled', experienceExtractionEnabled.value)
     await updateGlobalState('needProxy', needProxy.value)
     const proxyConfigToSave: ProxyConfig = {
       ...proxyConfig.value
@@ -565,6 +584,14 @@ const handleKbSearchEnabledChange = async (checked: boolean) => {
     }
   } catch (error) {
     logger.error('Failed to update kbSearchEnabled', { error })
+  }
+}
+
+const handleExperienceExtractionEnabledChange = async (checked: boolean) => {
+  try {
+    await updateGlobalState('experienceExtractionEnabled', checked)
+  } catch (error) {
+    logger.error('Failed to update experienceExtractionEnabled', { error })
   }
 }
 

@@ -19,6 +19,7 @@ const logger = createRendererLogger('service.aiPreferencesSync')
 interface AiPreferences {
   thinkingBudgetTokens?: number
   reasoningEffort?: string
+  experienceExtractionEnabled?: boolean
   autoApprovalSettings?: {
     version?: number
     enabled?: boolean
@@ -50,16 +51,25 @@ interface AiPreferences {
 async function buildAiPreferencesSnapshot(): Promise<AiPreferences> {
   const { getGlobalState } = await import('@renderer/agent/storage/state')
 
-  const [thinkingBudgetTokens, reasoningEffort, autoApprovalSettings, chatSettings, shellIntegrationTimeout, needProxy, proxyConfig] =
-    await Promise.all([
-      getGlobalState('thinkingBudgetTokens'),
-      getGlobalState('reasoningEffort'),
-      getGlobalState('autoApprovalSettings'),
-      getGlobalState('chatSettings'),
-      getGlobalState('shellIntegrationTimeout'),
-      getGlobalState('needProxy'),
-      getGlobalState('proxyConfig')
-    ])
+  const [
+    thinkingBudgetTokens,
+    reasoningEffort,
+    experienceExtractionEnabled,
+    autoApprovalSettings,
+    chatSettings,
+    shellIntegrationTimeout,
+    needProxy,
+    proxyConfig
+  ] = await Promise.all([
+    getGlobalState('thinkingBudgetTokens'),
+    getGlobalState('reasoningEffort'),
+    getGlobalState('experienceExtractionEnabled'),
+    getGlobalState('autoApprovalSettings'),
+    getGlobalState('chatSettings'),
+    getGlobalState('shellIntegrationTimeout'),
+    getGlobalState('needProxy'),
+    getGlobalState('proxyConfig')
+  ])
 
   const result: AiPreferences = {}
 
@@ -68,6 +78,9 @@ async function buildAiPreferencesSnapshot(): Promise<AiPreferences> {
   }
   if (typeof reasoningEffort === 'string') {
     result.reasoningEffort = reasoningEffort
+  }
+  if (typeof experienceExtractionEnabled === 'boolean') {
+    result.experienceExtractionEnabled = experienceExtractionEnabled
   }
   if (autoApprovalSettings && typeof autoApprovalSettings === 'object') {
     const aas = autoApprovalSettings as any
@@ -119,6 +132,10 @@ function validateAiPreferences(payload: unknown): AiPreferences | null {
   }
   if ('reasoningEffort' in obj && typeof obj.reasoningEffort === 'string') {
     result.reasoningEffort = obj.reasoningEffort
+    hasField = true
+  }
+  if ('experienceExtractionEnabled' in obj && typeof obj.experienceExtractionEnabled === 'boolean') {
+    result.experienceExtractionEnabled = obj.experienceExtractionEnabled
     hasField = true
   }
   if ('autoApprovalSettings' in obj && typeof obj.autoApprovalSettings === 'object' && obj.autoApprovalSettings !== null) {
@@ -177,6 +194,9 @@ const aiPreferencesAdapter: ConfigSyncAdapter<AiPreferences> = {
     if (data.reasoningEffort !== undefined) {
       ops.push({ key: 'global_reasoningEffort', value: JSON.stringify(data.reasoningEffort) })
     }
+    if (data.experienceExtractionEnabled !== undefined) {
+      ops.push({ key: 'global_experienceExtractionEnabled', value: JSON.stringify(data.experienceExtractionEnabled) })
+    }
     if (data.autoApprovalSettings !== undefined) {
       ops.push({ key: 'global_autoApprovalSettings', value: JSON.stringify(data.autoApprovalSettings) })
     }
@@ -227,6 +247,7 @@ const aiPreferencesAdapter: ConfigSyncAdapter<AiPreferences> = {
     return {
       thinkingBudgetTokens: 2048,
       reasoningEffort: 'low',
+      experienceExtractionEnabled: true,
       shellIntegrationTimeout: 4,
       needProxy: false
     }

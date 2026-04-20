@@ -394,6 +394,9 @@ export default {
     kbSearchEnabled: KB_SEARCH_ENABLED_LABELS['de-DE'],
     kbSearchEnabledDescribe:
       'Automatisch relevante Wissensdatenbank-Inhalte zu Beginn einer neuen Unterhaltung durchsuchen und der KI erlauben, die Wissensdatenbank waehrend der Unterhaltung zu durchsuchen',
+    experienceExtractionEnabled: 'Automatische Erfahrungsspeicherung',
+    experienceExtractionEnabledDescribe:
+      'Nach erfolgreichem Abschluss einer Aufgabe wiederverwendbare Erfahrungen automatisch in der Wissensdatenbank speichern und zusammen mit der Wissensdatenbanksuche Effizienz und Stabilität der KI bei ähnlichen Aufgaben deutlich verbessern.',
     features: 'Funktionen',
     enableCheckpoints: 'Checkpoints aktivieren',
     enableCheckpointsDescribe: 'Ermöglicht der Erweiterung, Checkpoints des Arbeitsbereichs während der Aufgabe zu speichern',

@@ -395,6 +395,9 @@ export default {
     kbSearchEnabled: KB_SEARCH_ENABLED_LABELS['fr-FR'],
     kbSearchEnabledDescribe:
       "Rechercher automatiquement le contenu pertinent de la base de connaissances lors du demarrage d'une nouvelle conversation et permettre a l'IA de rechercher dans la base de connaissances pendant les conversations",
+    experienceExtractionEnabled: 'Capture automatique d’expérience',
+    experienceExtractionEnabledDescribe:
+      'Après la réussite d’une tâche, consigner automatiquement les expériences réutilisables dans la base de connaissances et, avec la recherche dans la base de connaissances, améliorer significativement l’efficacité et la stabilité de l’IA sur des tâches similaires.',
     features: 'Fonctionnalités',
     enableCheckpoints: 'Activer les points de contrôle',
     enableCheckpointsDescribe: "Permet à l'extension de sauvegarder les points de contrôle de l'espace de travail tout au long de la tâche",
