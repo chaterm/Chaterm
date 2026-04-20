@@ -303,6 +303,7 @@ export function useChatMessages(
       message.partialMessage.ts,
       false
     )
+    newAssistantMessage.contentParts = message.partialMessage.contentParts
 
     cleanupPartialCommandMessages(session.chatHistory)
     session.chatHistory.push(newAssistantMessage)
@@ -505,6 +506,10 @@ export function useChatMessages(
           newAssistantMessage.content = parseMessageContent(partial.text)
         }
 
+        if (partial.contentParts) {
+          newAssistantMessage.contentParts = partial.contentParts
+        }
+
         if (partial.mcpToolCall) {
           newAssistantMessage.mcpToolCall = partial.mcpToolCall
         }
@@ -522,6 +527,9 @@ export function useChatMessages(
         lastMessageInChat.ask = partial.type === 'ask' ? (partial.ask ?? '') : ''
         lastMessageInChat.say = partial.type === 'say' ? (partial.say ?? '') : ''
         lastMessageInChat.partial = partial.partial
+        if (partial.contentParts) {
+          lastMessageInChat.contentParts = partial.contentParts
+        }
 
         if (partial.mcpToolCall) {
           lastMessageInChat.mcpToolCall = partial.mcpToolCall

@@ -123,6 +123,9 @@ const { t } = useI18n()
 const props = withDefaults(
   defineProps<{
     relPath: string
+    startLine?: number
+    endLine?: number
+    jumpToken?: number | string
     mode?: 'editor' | 'preview'
   }>(),
   {
@@ -251,6 +254,36 @@ function languageFromPath(relPath: string): string {
   if (lower.endsWith('.rs')) return 'rust'
   if (lower.endsWith('.sql')) return 'sql'
   return 'plaintext'
+}
+
+function clampLine(line: number, maxLine: number): number {
+  const normalized = Number.isFinite(line) ? Math.floor(line) : 1
+  return Math.min(Math.max(normalized, 1), Math.max(maxLine, 1))
+}
+
+async function jumpToRequestedLines() {
+  if (props.mode !== 'editor' || activeFile.isImage || !activeFile.relPath || props.startLine === undefined) return
+
+  await nextTick()
+
+  const editor = monacoEditorRef.value?.getEditor?.()
+  const model = editor?.getModel?.()
+  if (!editor || !model) return
+
+  const lineCount = typeof model.getLineCount === 'function' ? model.getLineCount() : 1
+  const startLine = clampLine(props.startLine, lineCount)
+  const requestedEndLine = props.endLine ?? props.startLine
+  const endLine = clampLine(Math.max(requestedEndLine, props.startLine), lineCount)
+  const endColumn = typeof model.getLineMaxColumn === 'function' ? model.getLineMaxColumn(endLine) : 1
+
+  editor.setSelection({
+    startLineNumber: startLine,
+    startColumn: 1,
+    endLineNumber: endLine,
+    endColumn
+  })
+  editor.revealLineInCenter?.(startLine)
+  editor.focus?.()
 }
 
 let saveTimer: number | null = null
@@ -536,6 +569,7 @@ async function openFile(relPath: string) {
       activeFile.isImage = false
       activeFile.imageDataUrl = ''
       activeFile.language = languageFromPath(relPath)
+      await jumpToRequestedLines()
     }
   } catch (e: any) {
     message.error(e?.message || String(e))
@@ -556,6 +590,22 @@ watch(
   async (next) => {
     if (next && next !== activeFile.relPath) {
       await openFile(next)
+    }
+  }
+)
+
+watch(
+  () => props.jumpToken,
+  async () => {
+    await jumpToRequestedLines()
+  }
+)
+
+watch(
+  () => monacoEditorRef.value,
+  async (editorRef) => {
+    if (editorRef) {
+      await jumpToRequestedLines()
     }
   }
 )

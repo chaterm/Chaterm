@@ -1944,6 +1944,10 @@ interface OpenUserTabObject {
   fromLocal?: boolean
   pluginId?: string
   props?: {
+    relPath?: string
+    startLine?: number
+    endLine?: number
+    jumpToken?: number | string
     pluginId?: string
     filePath?: string
     initialContent?: string
@@ -1988,11 +1992,30 @@ const openUserTab = async function (arg: OpenUserTabArg) {
 
     const target = arg as Exclude<OpenUserTabArg, string>
     const relPath = String(target.props?.relPath || '')
+    const targetProps = {
+      ...target.props,
+      relPath
+    }
     // Only check for editor mode panels, not preview panels
     const existing = dockApi.panels.find(
       (panel) => panel.params?.content === 'KnowledgeCenterEditor' && panel.params?.props?.relPath === relPath && panel.params?.mode !== 'preview'
     )
     if (existing) {
+      const existingParams = existing.params || {}
+      const shouldUpdateJump = targetProps.startLine !== undefined || targetProps.endLine !== undefined || targetProps.jumpToken !== undefined
+      if (shouldUpdateJump) {
+        const nextProps = {
+          ...(existingParams.props || {}),
+          ...targetProps
+        }
+        if (existingParams.props) existingParams.props = nextProps
+        if (existingParams.data?.props) existingParams.data.props = nextProps
+        existing.api.updateParameters?.({
+          ...existingParams,
+          props: nextProps,
+          data: existingParams.data ? { ...existingParams.data, props: nextProps } : existingParams.data
+        })
+      }
       existing.api.setActive()
       return
     }
@@ -2009,9 +2032,9 @@ const openUserTab = async function (arg: OpenUserTabArg) {
         title: target.title || relPath.split('/').pop() || 'KnowledgeCenter',
         key: 'KnowledgeCenterEditor',
         type: 'KnowledgeCenterEditor',
-        props: target.props
+        props: targetProps
       },
-      props: target.props,
+      props: targetProps,
       isMarkdown: relPath.toLowerCase().endsWith('.md') || relPath.toLowerCase().endsWith('.markdown'),
       mode: 'editor'
     })
