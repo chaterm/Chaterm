@@ -511,7 +511,11 @@ describe('K8s Connect Component', () => {
         'sendMessageToAi',
         expect.objectContaining({
           tabId: 'tab-42',
-          content: expect.stringContaining('Terminal output:')
+          content: expect.stringContaining('Terminal output:'),
+          toolResult: expect.objectContaining({
+            output: expect.stringContaining('NAME'),
+            toolName: 'execute_command'
+          })
         })
       )
     })
@@ -542,6 +546,8 @@ describe('K8s Connect Component', () => {
       // The double-echo line should be stripped
       expect(content).not.toContain('kkubectl')
       expect(content).toContain('NAME')
+      expect(emitCall![1].toolResult.output).not.toContain('kkubectl')
+      expect(emitCall![1].toolResult.output).toContain('NAME')
     })
 
     it('should emit "Command executed successfully, no output returned" when output is empty', async () => {
@@ -564,6 +570,10 @@ describe('K8s Connect Component', () => {
       const emitCall = mockEventBus.emit.mock.calls.find((c) => c[0] === 'sendMessageToAi')
       expect(emitCall).toBeDefined()
       expect(emitCall![1].content).toBe('Command executed successfully, no output returned')
+      expect(emitCall![1].toolResult).toEqual({
+        output: 'Command executed successfully, no output returned',
+        toolName: 'execute_command'
+      })
     })
 
     it('should unregister executeTerminalCommand listener on unmount', async () => {

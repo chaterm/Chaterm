@@ -3948,13 +3948,18 @@ const handleCommandOutput = (data: string, isInitialCommand: boolean) => {
           finalOutput = finalOutput.replace(/\n{2,}/g, '\n')
         }
 
+        const toolResult = {
+          output: finalOutput || 'Command executed successfully, no output returned',
+          toolName: 'execute_command'
+        }
+
         if (finalOutput) {
           const formattedOutput = `Terminal output:\n\`\`\`\n${finalOutput}\n\`\`\``
-          eventBus.emit('sendMessageToAi', { content: formattedOutput, tabId })
+          eventBus.emit('sendMessageToAi', { content: formattedOutput, tabId, toolResult })
         } else {
           const output = 'Command executed successfully, no output returned'
           const messageToSend = isInitialCommand ? `Terminal output:\n\`\`\`\n${output}\n\`\`\`` : output
-          eventBus.emit('sendMessageToAi', { content: messageToSend, tabId })
+          eventBus.emit('sendMessageToAi', { content: messageToSend, tabId, toolResult })
         }
       } catch (error) {
         logger.error('Error processing command echo output', { error: error })

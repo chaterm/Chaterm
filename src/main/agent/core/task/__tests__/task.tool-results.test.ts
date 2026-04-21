@@ -65,6 +65,7 @@ describe('Task tool result helpers', () => {
     task.taskId = 'task-tool-result'
     task.pendingToolResults = []
     task.apiConversationHistory = []
+    task.chatermMessages = []
     task.userMessageContent = []
     task.messages = { userProvidedFeedback: 'feedback: {feedback}' }
     task.truncateCommandOutput = vi.fn((s: string) => s.trim())
@@ -183,6 +184,86 @@ describe('Task tool result helpers', () => {
     expect(task.pushToolResult).not.toHaveBeenCalled()
     expect(task.pushAdditionalToolFeedback).toHaveBeenCalledWith('continue')
     expect(task.saveUserMessage).toHaveBeenCalledWith('continue', [{ type: 'text', text: 'continue' }])
+  })
+
+  it('askApproval should convert command tool results into structured tool_result payloads', async () => {
+    task.ask = vi.fn().mockResolvedValue({
+      response: 'yesButtonClicked',
+      text: 'Terminal output:\n```\nls output\n```',
+      toolResult: {
+        output: 'ls output',
+        toolName: 'execute_command'
+      }
+    })
+    task.hosts = [{ host: '10.0.0.8', uuid: 'host-1', connection: 'ssh' }]
+    task.pushToolResult = vi.fn().mockResolvedValue(undefined)
+    task.pushAdditionalToolFeedback = vi.fn().mockResolvedValue(undefined)
+    task.saveUserMessage = vi.fn().mockResolvedValue(undefined)
+    task.saveCheckpoint = vi.fn().mockResolvedValue(undefined)
+
+    const approved = await task.askApproval('[execute_command]', 'command', 'ls')
+
+    expect(approved).toBe(true)
+    expect(task.pushToolResult).toHaveBeenCalledWith(
+      '[execute_command]',
+      'ls output',
+      expect.objectContaining({
+        toolName: 'execute_command',
+        hosts: task.hosts,
+        isError: undefined
+      })
+    )
+    expect(task.pushAdditionalToolFeedback).not.toHaveBeenCalled()
+    expect(task.saveUserMessage).toHaveBeenCalledWith('ls output', undefined, 'command_output')
+    expect(task.saveCheckpoint).toHaveBeenCalledTimes(1)
+  })
+
+  it('askApproval should enqueue command tool results for tool_result persistence', async () => {
+    task.ask = vi.fn().mockResolvedValue({
+      response: 'yesButtonClicked',
+      toolResult: {
+        output: 'ls output',
+        toolName: 'execute_command'
+      }
+    })
+    task.hosts = [{ host: '10.0.0.8', uuid: 'host-1', connection: 'ssh' }]
+    task.addToApiConversationHistory = vi.fn().mockResolvedValue(undefined)
+    task.saveCheckpoint = vi.fn().mockResolvedValue(undefined)
+
+    const approved = await task.askApproval('[execute_command]', 'command', 'ls')
+
+    expect(approved).toBe(true)
+    expect(task.pendingToolResults).toHaveLength(1)
+    expect(task.pendingToolResults[0]).toEqual(
+      expect.objectContaining({
+        toolName: 'execute_command',
+        toolDescription: '[execute_command]',
+        hosts: task.hosts,
+        result: 'ls output'
+      })
+    )
+    expect(task.chatermMessages[0]).toEqual(
+      expect.objectContaining({
+        type: 'say',
+        say: 'command_output',
+        text: 'ls output',
+        hosts: task.hosts
+      })
+    )
+
+    await task.flushPendingToolResults()
+
+    expect(task.addToApiConversationHistory).toHaveBeenCalledWith(
+      expect.objectContaining({
+        role: 'user',
+        content: [
+          expect.objectContaining({
+            type: 'tool_result'
+          })
+        ]
+      })
+    )
+    expect(task.pendingToolResults).toHaveLength(0)
   })
 
   it('handleToolError should short-circuit when task is abandoned', async () => {

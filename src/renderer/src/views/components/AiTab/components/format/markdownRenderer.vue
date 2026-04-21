@@ -2917,6 +2917,28 @@ body.has-custom-bg .monaco-editor .margin {
   font-weight: 500;
 }
 
+.kb-search-results {
+  margin: 4px 8px;
+}
+
+.kb-search-result-list {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 6px;
+  margin: 6px 8px 0;
+}
+
+.kb-search-result-link {
+  padding: 0;
+  border: none;
+  background: transparent;
+  color: var(--ant-primary-color, #1677ff);
+  cursor: pointer;
+  text-decoration: underline;
+  font: inherit;
+}
+
 .command-output::-webkit-scrollbar-thumb {
   background: var(--bg-color-quaternary);
   border-radius: 1px;
