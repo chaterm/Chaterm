@@ -95,6 +95,7 @@ export type GlobalStateKey =
   | 'enterpriseModelConfigs'
   | 'defaultBaseUrl'
   | 'defaultModelId'
+  | 'defaultModelInfoMap'
   | 'messageFeedbacks'
   | 'userRules'
   | 'kbSearchEnabled'

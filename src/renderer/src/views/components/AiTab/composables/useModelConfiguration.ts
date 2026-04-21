@@ -45,6 +45,76 @@ interface EnterpriseModelConfig {
 
 const isEmptyValue = (value: unknown): boolean => value === undefined || value === ''
 
+/**
+ * Fetch model info from LiteLLM gateway /model/info endpoint.
+ * Returns a map of model name to { contextWindow, maxTokens }.
+ * Silently returns empty map on failure to avoid blocking main flow.
+ */
+async function fetchDefaultModelInfoMap(baseUrl: string, apiKey: string): Promise<Record<string, { contextWindow?: number; maxTokens?: number }>> {
+  const abortController = new AbortController()
+  const timeoutId = setTimeout(() => abortController.abort(), 10_000)
+  try {
+    const url = `${baseUrl.replace(/\/+$/, '')}/model/info`
+    const response = await fetch(url, {
+      method: 'GET',
+      headers: { Authorization: `Bearer ${apiKey}` },
+      signal: abortController.signal
+    })
+    if (!response.ok) {
+      logger.warn('Failed to fetch model info from gateway', { status: response.status })
+      return {}
+    }
+    const json = await response.json()
+    const data = json?.data
+    if (!Array.isArray(data)) return {}
+
+    const map: Record<string, { contextWindow?: number; maxTokens?: number }> = {}
+    for (const item of data) {
+      const name = item?.model_name
+      const info = item?.model_info
+      if (!name || !info) continue
+      const maxInputTokens = info.max_input_tokens
+      const maxOutputTokens = info.max_output_tokens
+      if (maxInputTokens == null && maxOutputTokens == null) continue
+      const entry: { contextWindow?: number; maxTokens?: number } = {}
+      if (typeof maxInputTokens === 'number' && maxInputTokens > 0) {
+        entry.contextWindow = maxInputTokens
+      }
+      if (typeof maxOutputTokens === 'number' && maxOutputTokens > 0) {
+        entry.maxTokens = maxOutputTokens
+      }
+      if (entry.contextWindow || entry.maxTokens) {
+        map[name] = entry
+      }
+    }
+    return map
+  } catch (error) {
+    const message = error instanceof Error ? error.message : 'unknown error'
+    logger.warn('Error fetching model info from gateway', { error: message })
+    return {}
+  } finally {
+    clearTimeout(timeoutId)
+  }
+}
+
+/**
+ * Refresh default model info map asynchronously.
+ * This must not block model options initialization/refresh flow.
+ */
+function refreshDefaultModelInfoMapInBackground(baseUrl?: string, apiKey?: string): void {
+  void (async () => {
+    if (!baseUrl || !apiKey) {
+      await updateGlobalState('defaultModelInfoMap', {})
+      return
+    }
+    const modelInfoMap = await fetchDefaultModelInfoMap(baseUrl, apiKey)
+    await updateGlobalState('defaultModelInfoMap', modelInfoMap)
+  })().catch((error) => {
+    const message = error instanceof Error ? error.message : 'unknown error'
+    logger.warn('Failed to refresh default model info map', { error: message })
+  })
+}
+
 const normalizeProvider = (provider?: string): string => {
   const normalized = String(provider || '')
     .toLowerCase()
@@ -347,6 +417,8 @@ export const useModelConfiguration = createGlobalState(() => {
 
       let defaultModels: DefaultModel[] = []
       let enterpriseModelConfigs: EnterpriseModelConfig[] = []
+      let gatewayAddr = ''
+      let gatewayKey = ''
 
       await getUser({}).then((res) => {
         logger.info('getUser response', { data: res })
@@ -355,6 +427,13 @@ export const useModelConfiguration = createGlobalState(() => {
         updateGlobalState('defaultBaseUrl', res?.data?.llmGatewayAddr)
         storeSecret('defaultApiKey', res?.data?.key)
       })
+      const res = await getUser({})
+      logger.info('getUser response', { data: res })
+      defaultModels = res?.data?.models || []
+      gatewayAddr = res?.data?.llmGatewayAddr || ''
+      gatewayKey = res?.data?.key || ''
+      await updateGlobalState('defaultBaseUrl', gatewayAddr)
+      await storeSecret('defaultApiKey', gatewayKey)
 
       await syncEnterpriseConfigsAndReloadPluginIfNeeded(enterpriseModelConfigs)
       const savedModelOptions = ((await getGlobalState('modelOptions')) || []) as ModelOption[]
@@ -388,6 +467,9 @@ export const useModelConfiguration = createGlobalState(() => {
       }))
 
       await updateGlobalState('modelOptions', serializableModelOptions)
+
+      // Refresh model context info asynchronously to avoid blocking model options init.
+      refreshDefaultModelInfoMapInBackground(gatewayAddr, gatewayKey)
     } catch (error) {
       logger.error('Failed to get/save model options', { error: error })
       notification.error({
@@ -404,6 +486,8 @@ export const useModelConfiguration = createGlobalState(() => {
 
     let serverModels: string[] = []
     let subscriptionModelsList: string[] = []
+    let gatewayAddr = ''
+    let gatewayKey = ''
     let enterpriseModelConfigs: EnterpriseModelConfig[] = []
     try {
       const res = await getUser({})
@@ -412,6 +496,10 @@ export const useModelConfiguration = createGlobalState(() => {
       enterpriseModelConfigs = (res?.data?.enterpriseModelConfigs || []) as EnterpriseModelConfig[]
       budgetResetAt.value = res?.data?.budgetResetAt || ''
       subscription.value = res?.data?.subscription || ''
+      gatewayAddr = res?.data?.llmGatewayAddr || ''
+      gatewayKey = res?.data?.key || ''
+      await updateGlobalState('defaultBaseUrl', gatewayAddr)
+      await storeSecret('defaultApiKey', gatewayKey)
       await updateGlobalState('defaultBaseUrl', res?.data?.llmGatewayAddr)
       await storeSecret('defaultApiKey', res?.data?.key)
       await syncEnterpriseConfigsAndReloadPluginIfNeeded(enterpriseModelConfigs)
@@ -419,6 +507,9 @@ export const useModelConfiguration = createGlobalState(() => {
       logger.error('Failed to refresh model options', { error: error })
       return
     }
+
+    // Refresh model context info asynchronously to avoid blocking model options refresh.
+    refreshDefaultModelInfoMapInBackground(gatewayAddr, gatewayKey)
 
     const availableSet = new Set(serverModels)
     const lockedFromServer = subscriptionModelsList.filter((m) => !availableSet.has(m))
