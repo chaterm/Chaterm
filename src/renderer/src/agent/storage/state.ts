@@ -178,7 +178,8 @@ export async function getAllExtensionState() {
     proxyConfig,
     defaultBaseUrl,
     defaultModelId,
-    defaultApiKey
+    defaultApiKey,
+    defaultModelInfoMap
   ] = await Promise.all([
     getGlobalState('apiProvider') as Promise<ApiProvider | undefined>,
     getGlobalState('apiModelId') as Promise<string | undefined>,
@@ -266,7 +267,8 @@ export async function getAllExtensionState() {
     getGlobalState('proxyConfig') as Promise<ApiConfiguration['proxyConfig'] | undefined>,
     getGlobalState('defaultBaseUrl') as Promise<string | undefined>,
     getGlobalState('defaultModelId') as Promise<string | undefined>,
-    getSecret('defaultApiKey') as Promise<string | undefined>
+    getSecret('defaultApiKey') as Promise<string | undefined>,
+    getGlobalState('defaultModelInfoMap') as Promise<Record<string, { contextWindow?: number; maxTokens?: number }> | undefined>
   ])
 
   let apiProvider: ApiProvider
@@ -379,7 +381,8 @@ export async function getAllExtensionState() {
       proxyConfig,
       defaultBaseUrl,
       defaultModelId,
-      defaultApiKey
+      defaultApiKey,
+      defaultModelInfoMap
     },
     //lastShownAnnouncementId,
     customInstructions,
