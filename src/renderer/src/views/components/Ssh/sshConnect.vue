@@ -1681,7 +1681,9 @@ const connectSSH = async (_opts?: { isAutoReconnect?: boolean }) => {
         }
 
         const isSwitchDevice = connAssetType?.startsWith('person-switch-') ?? false
-        if (isSwitchDevice) {
+        const isRouterDevice = connAssetType?.startsWith('person-router-') ?? false
+        const isNetworkDevice = isSwitchDevice || isRouterDevice
+        if (isNetworkDevice) {
           connectionHasSudo.value = false
           getCmdList([])
         } else {
@@ -1722,7 +1724,7 @@ const connectSSH = async (_opts?: { isAutoReconnect?: boolean }) => {
               terminal.value?.focus()
             }
           }, RESIZE_GUARD_MS + 100)
-          if (shouldSkipAssetLookup(props.connectData)) {
+          if (shouldSkipAssetLookup(props.connectData) || isNetworkDevice) {
             logger.info('Skip shell PID probe for xshell wakeup session', {
               connectionId: connectionId.value,
               source: props.connectData?.wakeupSource || props.connectData?.source || 'unknown'
@@ -4503,6 +4505,12 @@ const selectSuggestion = (suggestion: CommandSuggestion) => {
 // Load OS info once for AI suggestion context
 const loadOsInfoOnce = async () => {
   if (cachedOsInfoLoaded.value || !connectionId.value || !isConnected.value || isLocalConnect.value) return
+  // Skip OS info probe for network devices (exec channel not supported)
+  if (props.connectData.asset_type?.startsWith('person-switch-') || props.connectData.asset_type?.startsWith('person-router-')) {
+    cachedOsInfo.value = undefined
+    cachedOsInfoLoaded.value = true
+    return
+  }
   if (shouldSkipAssetLookup(props.connectData)) {
     cachedOsInfo.value = undefined
     cachedOsInfoLoaded.value = true

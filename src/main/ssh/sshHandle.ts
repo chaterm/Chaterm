@@ -425,15 +425,27 @@ export const handleRequestKeyboardInteractive = (event, id, prompts, finish) => 
 export const attemptSecondaryConnection = async (event, connectionInfo, existingConn?: Client) => {
   const { id, asset_type } = connectionInfo
 
-  // Check if this is a network switch connection
+  // Check if this is a network device connection (switch or router)
   const isSwitch = asset_type?.startsWith('person-switch-')
-  const switchBrand = isSwitch ? (asset_type === 'person-switch-cisco' ? 'cisco' : asset_type === 'person-switch-huawei' ? 'huawei' : 'h3c') : null
+  const isRouter = asset_type?.startsWith('person-router-')
+  const isNetworkDevice = isSwitch || isRouter
+  const switchBrand = isSwitch
+    ? asset_type === 'person-switch-cisco'
+      ? 'cisco'
+      : asset_type === 'person-switch-huawei'
+        ? 'huawei'
+        : asset_type === 'person-switch-ruijie'
+          ? 'ruijie'
+          : 'h3c'
+    : null
+  const routerBrand = isRouter ? (asset_type === 'person-router-ruijie' ? 'ruijie' : null) : null
+  const deviceBrand = switchBrand || routerBrand
 
-  // For switches, skip secondary connection logic and return minimal ready data
-  if (isSwitch && switchBrand) {
+  // For network devices, skip secondary connection logic and return minimal ready data
+  if (isNetworkDevice && deviceBrand) {
     const readyResult = {
       isSwitch: true,
-      switchBrand,
+      switchBrand: deviceBrand,
       hasSudo: false,
       commandList: []
     }

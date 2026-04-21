@@ -1,4 +1,4 @@
-// Asset type definition: person (server), organization (jumpserver), organization-* (plugin bastions), person-switch-* (network switches)
+// Asset type definition: person (server), organization (jumpserver), organization-* (plugin bastions), person-switch-* (network switches), person-router-* (network routers)
 // Note: Plugin-based bastions use 'organization-${type}' pattern (e.g., 'organization-qizhi', 'organization-tencent')
 export type AssetType =
   | 'person' // Personal server
@@ -7,6 +7,8 @@ export type AssetType =
   | 'person-switch-cisco'
   | 'person-switch-huawei'
   | 'person-switch-h3c'
+  | 'person-switch-ruijie'
+  | 'person-router-ruijie'
 
 export type BastionAuthPolicy = 'password' | 'keyBased'
 
@@ -77,11 +79,28 @@ export function isSwitch(assetType: string | undefined): boolean {
   return assetType?.startsWith('person-switch-') ?? false
 }
 
+// Helper function to check if asset type is a router device
+export function isRouter(assetType: string | undefined): boolean {
+  return assetType?.startsWith('person-router-') ?? false
+}
+
+// Helper function to check if asset type is any network device (switch or router)
+export function isNetworkDevice(assetType: string | undefined): boolean {
+  return isSwitch(assetType) || isRouter(assetType)
+}
+
 // Helper function to get switch brand from asset type
-export function getSwitchBrand(assetType: string | undefined): 'cisco' | 'huawei' | 'h3c' | null {
+export function getSwitchBrand(assetType: string | undefined): 'cisco' | 'huawei' | 'h3c' | 'ruijie' | null {
   if (assetType === 'person-switch-cisco') return 'cisco'
   if (assetType === 'person-switch-huawei') return 'huawei'
   if (assetType === 'person-switch-h3c') return 'h3c'
+  if (assetType === 'person-switch-ruijie') return 'ruijie'
+  return null
+}
+
+// Helper function to get router brand from asset type
+export function getRouterBrand(assetType: string | undefined): 'ruijie' | null {
+  if (assetType === 'person-router-ruijie') return 'ruijie'
   return null
 }
 

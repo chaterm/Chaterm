@@ -329,7 +329,7 @@ export async function getLocalAssetRouteLogic(db: Database, searchType: string, 
         const favoritesStmt = db.prepare(`
           SELECT label, asset_ip, uuid, group_name,label,auth_type,port,username,password,key_chain_id,asset_type,protocol
           FROM t_assets
-          WHERE favorite = 1 AND asset_type IN ('person', 'person-switch-cisco', 'person-switch-huawei', 'person-switch-h3c')
+          WHERE favorite = 1 AND asset_type IN ('person', 'person-switch-cisco', 'person-switch-huawei', 'person-switch-h3c', 'person-switch-ruijie', 'person-router-ruijie')
           ORDER BY created_at
         `)
         const favorites = favoritesStmt.all() || []
@@ -364,7 +364,7 @@ export async function getLocalAssetRouteLogic(db: Database, searchType: string, 
       const groupsStmt = db.prepare(`
         SELECT DISTINCT group_name
         FROM t_assets
-        WHERE group_name IS NOT NULL AND asset_type IN ('person', 'person-switch-cisco', 'person-switch-huawei', 'person-switch-h3c')
+        WHERE group_name IS NOT NULL AND asset_type IN ('person', 'person-switch-cisco', 'person-switch-huawei', 'person-switch-h3c', 'person-switch-ruijie', 'person-router-ruijie')
         ORDER BY group_name
       `)
       const groups = groupsStmt.all() || []
@@ -373,7 +373,7 @@ export async function getLocalAssetRouteLogic(db: Database, searchType: string, 
         const assetsStmt = db.prepare(`
           SELECT label, asset_ip, uuid, group_name,label,auth_type,port,username,password,key_chain_id,asset_type,favorite,protocol
           FROM t_assets
-          WHERE group_name = ? AND asset_type IN ('person', 'person-switch-cisco', 'person-switch-huawei', 'person-switch-h3c')
+          WHERE group_name = ? AND asset_type IN ('person', 'person-switch-cisco', 'person-switch-huawei', 'person-switch-h3c', 'person-switch-ruijie', 'person-router-ruijie')
           ORDER BY created_at
         `)
         const assets = assetsStmt.all(group.group_name) || []

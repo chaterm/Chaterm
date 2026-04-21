@@ -25,8 +25,12 @@ export const SWITCH_COMPAT_ALGORITHMS: Algorithms = {
 
 export const isSwitchAssetType = (assetType?: string): boolean => assetType?.startsWith('person-switch-') ?? false
 
+export const isRouterAssetType = (assetType?: string): boolean => assetType?.startsWith('person-router-') ?? false
+
+export const isNetworkDeviceAssetType = (assetType?: string): boolean => isSwitchAssetType(assetType) || isRouterAssetType(assetType)
+
 export const getAlgorithmsByAssetType = (assetType?: string): Algorithms => {
-  if (isSwitchAssetType(assetType)) {
+  if (isNetworkDeviceAssetType(assetType)) {
     return SWITCH_COMPAT_ALGORITHMS
   }
   return LEGACY_ALGORITHMS
