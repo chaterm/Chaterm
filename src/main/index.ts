@@ -226,6 +226,10 @@ app.whenReady().then(async () => {
     let filePath = request.url.slice('local-resource://'.length)
     filePath = decodeURIComponent(filePath)
 
+    if (process.platform === 'win32' && /^\/[A-Za-z]:\//.test(filePath)) {
+      filePath = filePath.slice(1)
+    }
+
     if (filePath.length >= 2 && /[A-Z]/.test(filePath[0]) && filePath[1] === '/') {
       filePath = filePath[0] + ':' + filePath.slice(1)
     } else if (process.platform !== 'win32' && !filePath.startsWith('/') && !filePath.includes(':')) {
@@ -2882,6 +2886,11 @@ ipcMain.handle(
 
 ipcMain.handle('plugins.uninstall', async (_event, pluginId: string) => {
   uninstallPlugin(pluginId)
+  await loadAllPlugins()
+  return { ok: true }
+})
+
+ipcMain.handle('plugins.reload', async () => {
   await loadAllPlugins()
   return { ok: true }
 })

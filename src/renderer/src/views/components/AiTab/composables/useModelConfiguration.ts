@@ -92,6 +92,29 @@ export const useModelConfiguration = createGlobalState(() => {
   const subscription = ref<string>('')
   const modelsLoading = ref(true)
 
+  const syncEnterpriseConfigsAndReloadPluginIfNeeded = async (configs: EnterpriseModelConfig[]): Promise<void> => {
+    const nextConfigs = Array.isArray(configs) ? configs : []
+    const previousConfigs = ((await getGlobalState('enterpriseModelConfigs')) as EnterpriseModelConfig[]) || []
+    await updateGlobalState('enterpriseModelConfigs', nextConfigs)
+
+    const hasEnterpriseConfigs = nextConfigs.length > 0
+    const changed = JSON.stringify(previousConfigs) !== JSON.stringify(nextConfigs)
+    if (!hasEnterpriseConfigs) return
+
+    const currentModelOptions = ((await getGlobalState('modelOptions')) as ModelOption[]) || []
+    const needsBootstrap = currentModelOptions.length === 0
+    if (!changed && !needsBootstrap) return
+
+    try {
+      const api = (window as any).api
+      if (api?.reloadPlugins) {
+        await api.reloadPlugins()
+      }
+    } catch (error) {
+      logger.warn('Failed to reload plugins after enterprise config update', { error })
+    }
+  }
+
   const applyEnterpriseRuntimeConfig = async (modelName: string): Promise<void> => {
     const configs = ((await getGlobalState('enterpriseModelConfigs')) as EnterpriseModelConfig[]) || []
     if (!Array.isArray(configs) || configs.length === 0) return
@@ -315,13 +338,6 @@ export const useModelConfiguration = createGlobalState(() => {
     try {
       modelsLoading.value = true
       const isSkippedLogin = localStorage.getItem('login-skipped') === 'true'
-      const savedModelOptions = ((await getGlobalState('modelOptions')) || []) as ModelOption[]
-      logger.info('savedModelOptions', { data: savedModelOptions })
-
-      if (savedModelOptions.length !== 0) {
-        return
-      }
-
       // Skip loading built-in models if user skipped login
       if (isSkippedLogin) {
         // Initialize with empty model options for guest users
@@ -340,7 +356,20 @@ export const useModelConfiguration = createGlobalState(() => {
         storeSecret('defaultApiKey', res?.data?.key)
       })
 
-      await updateGlobalState('enterpriseModelConfigs', enterpriseModelConfigs)
+      await syncEnterpriseConfigsAndReloadPluginIfNeeded(enterpriseModelConfigs)
+      const savedModelOptions = ((await getGlobalState('modelOptions')) || []) as ModelOption[]
+      logger.info('savedModelOptions', { data: savedModelOptions })
+      if (savedModelOptions.length !== 0) {
+        return
+      }
+
+      if (defaultModels.length === 0 && enterpriseModelConfigs.length > 0) {
+        const pluginSyncedModelOptions = ((await getGlobalState('modelOptions')) as ModelOption[]) || []
+        if (pluginSyncedModelOptions.length > 0) {
+          return
+        }
+      }
+
       const providerByModel = toConfigMap(enterpriseModelConfigs)
       const modelOptions: ModelOption[] = defaultModels.map((model) => ({
         id: String(model) || '',
@@ -385,7 +414,7 @@ export const useModelConfiguration = createGlobalState(() => {
       subscription.value = res?.data?.subscription || ''
       await updateGlobalState('defaultBaseUrl', res?.data?.llmGatewayAddr)
       await storeSecret('defaultApiKey', res?.data?.key)
-      await updateGlobalState('enterpriseModelConfigs', enterpriseModelConfigs)
+      await syncEnterpriseConfigsAndReloadPluginIfNeeded(enterpriseModelConfigs)
     } catch (error) {
       logger.error('Failed to refresh model options', { error: error })
       return
