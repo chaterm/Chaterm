@@ -57,12 +57,25 @@
             <a-select-option value="cisco">{{ t('personal.switchCisco') }}</a-select-option>
             <a-select-option value="huawei">{{ t('personal.switchHuawei') }}</a-select-option>
             <a-select-option value="h3c">{{ t('personal.switchH3c') }}</a-select-option>
+            <a-select-option value="ruijie">{{ t('personal.switchRuijie') }}</a-select-option>
           </a-select>
         </a-form-item>
 
-        <!-- Protocol selection (only for network switches) -->
+        <!-- Router brand selection (only when device is router) -->
+        <a-form-item v-if="!isEditMode && deviceTypePath[0] === 'network' && deviceTypePath[1] === 'router'">
+          <a-select
+            v-model:value="routerBrand"
+            size="small"
+            style="width: 100%"
+            @change="handleRouterBrandChange"
+          >
+            <a-select-option value="ruijie">{{ t('personal.routerRuijie') }}</a-select-option>
+          </a-select>
+        </a-form-item>
+
+        <!-- Protocol selection (for network devices: switches and routers) -->
         <a-form-item
-          v-if="!isEditMode && deviceTypePath[0] === 'network' && deviceTypePath[1] === 'switch'"
+          v-if="deviceTypePath[0] === 'network'"
           :label="t('personal.protocol')"
         >
           <a-radio-group
@@ -328,7 +341,15 @@ import { message } from 'ant-design-vue'
 import i18n from '@/locales'
 import eventBus from '@/utils/eventBus'
 import type { AssetFormData, KeyChainItem, SshProxyConfigItem, AssetType, BastionDefinitionSummary } from '../utils/types'
-import { getSwitchBrand, isOrganizationAsset, getBastionHostType, getAssetTypeFromBastionType, resolveBastionAuthType } from '../utils/types'
+import {
+  getSwitchBrand,
+  getRouterBrand,
+  isNetworkDevice,
+  isOrganizationAsset,
+  getBastionHostType,
+  getAssetTypeFromBastionType,
+  resolveBastionAuthType
+} from '../utils/types'
 
 const { t } = i18n.global
 const logger = createRendererLogger('config.assetForm')
@@ -430,7 +451,10 @@ const deviceOptions = computed(() => [
   {
     value: 'network',
     label: t('personal.deviceNetwork'),
-    children: [{ value: 'switch', label: t('personal.deviceSwitch') }]
+    children: [
+      { value: 'switch', label: t('personal.deviceSwitch') },
+      { value: 'router', label: t('personal.deviceRouter') }
+    ]
   }
 ])
 
@@ -438,6 +462,8 @@ const deviceOptions = computed(() => [
 const initDeviceTypePath = () => {
   if (props.initialData?.asset_type?.startsWith('person-switch-')) {
     deviceTypePath.value = ['network', 'switch']
+  } else if (props.initialData?.asset_type?.startsWith('person-router-')) {
+    deviceTypePath.value = ['network', 'router']
   } else if (isOrganizationAsset(props.initialData?.asset_type)) {
     deviceTypePath.value = ['server', 'bastion']
   } else {
@@ -451,11 +477,14 @@ initDeviceTypePath()
 // Bastion host type: 'jumpserver' or plugin type (e.g., 'qizhi', 'tencent')
 const bastionType = ref<string>(getBastionHostType(props.initialData?.asset_type) || 'jumpserver')
 
-// Switch brand: 'cisco', 'huawei', or 'h3c'
-const switchBrand = ref<'cisco' | 'huawei' | 'h3c'>(getSwitchBrand(props.initialData?.asset_type) || 'cisco')
+// Switch brand: 'cisco', 'huawei', 'h3c', or 'ruijie'
+const switchBrand = ref<'cisco' | 'huawei' | 'h3c' | 'ruijie'>(getSwitchBrand(props.initialData?.asset_type) || 'cisco')
 
-// Protocol type: 'ssh' or 'telnet' (for network switches)
-const protocolType = ref<'ssh' | 'telnet'>('ssh')
+// Router brand: 'ruijie'
+const routerBrand = ref<'ruijie'>(getRouterBrand(props.initialData?.asset_type) || 'ruijie')
+
+// Protocol type: 'ssh' or 'telnet' (for network devices)
+const protocolType = ref<'ssh' | 'telnet'>(props.initialData?.protocolType || 'ssh')
 
 const applyBastionType = () => {
   formData.asset_type = getAssetTypeFromBastionType(bastionType.value)
@@ -561,6 +590,10 @@ const handleDeviceTypeChange = (val: string[]) => {
     // Switching to network switch
     formData.asset_type = `person-switch-${switchBrand.value}` as AssetType
     formData.auth_type = 'password'
+  } else if (val[0] === 'network' && val[1] === 'router') {
+    // Switching to network router
+    formData.asset_type = `person-router-${routerBrand.value}` as AssetType
+    formData.auth_type = 'password'
   }
 }
 
@@ -575,6 +608,13 @@ const handleBastionTypeChange = () => {
 const handleSwitchBrandChange = () => {
   if (deviceTypePath.value[0] === 'network' && deviceTypePath.value[1] === 'switch') {
     formData.asset_type = `person-switch-${switchBrand.value}` as AssetType
+  }
+}
+
+// Handle router brand change
+const handleRouterBrandChange = () => {
+  if (deviceTypePath.value[0] === 'network' && deviceTypePath.value[1] === 'router') {
+    formData.asset_type = `person-router-${routerBrand.value}` as AssetType
   }
 }
 
@@ -601,7 +641,7 @@ const handleAuthChange = () => {
   }
 }
 
-// Handle protocol change (ssh/telnet) for network switches
+// Handle protocol change (ssh/telnet) for network devices
 const handleProtocolChange = () => {
   if (protocolType.value === 'telnet') {
     formData.port = 23
@@ -705,8 +745,8 @@ const handleSubmit = () => {
     submitData.group_name = t('personal.defaultGroup')
   }
 
-  // Include protocol info for network switch assets
-  if (deviceTypePath.value[0] === 'network' && deviceTypePath.value[1] === 'switch') {
+  // Include protocol info for network device assets (switches and routers)
+  if (deviceTypePath.value[0] === 'network' || isNetworkDevice(submitData.asset_type)) {
     submitData.protocolType = protocolType.value
   }
 
@@ -779,6 +819,20 @@ watch(
     })
     // Reset protocol state
     protocolType.value = newData?.protocolType || 'ssh'
+
+    // Restore deviceTypePath based on asset_type for edit mode
+    const assetType = newData?.asset_type
+    if (assetType?.startsWith('person-switch-')) {
+      deviceTypePath.value = ['network', 'switch']
+      switchBrand.value = getSwitchBrand(assetType) || 'cisco'
+    } else if (assetType?.startsWith('person-router-')) {
+      deviceTypePath.value = ['network', 'router']
+      routerBrand.value = getRouterBrand(assetType) || 'ruijie'
+    } else if (isOrganizationAsset(assetType)) {
+      deviceTypePath.value = ['server', 'bastion']
+    } else {
+      deviceTypePath.value = ['server', 'personal']
+    }
   },
   { deep: true }
 )
