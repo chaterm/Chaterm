@@ -1711,7 +1711,21 @@ const connectSSH = async (_opts?: { isAutoReconnect?: boolean }) => {
           disconnectedByNetwork.value = false
           waitingForNetworkRestore.value = false
           autoReconnectAttempts.value = 0
+          // Record connection for "Recent Connections" feature (skip auto-reconnects)
           if (!isAutoReconnect) {
+            try {
+              api.recordConnection({
+                assetUuid: props.connectData.uuid || '',
+                assetIp: props.connectData.ip || connConnectHost || '',
+                assetLabel: props.serverInfo?.title || props.serverInfo?.label || props.connectData.hostname || connHostname || '',
+                assetPort: connPort || 22,
+                assetUsername: connUsername || '',
+                assetType: connAssetType || 'person',
+                organizationId: props.serverInfo?.organizationId || 'personal'
+              })
+            } catch {
+              // Non-critical: do not block connection flow
+            }
             const welcomeName = email.split('@')[0] || userInfoStore().userInfo.name
             const welcome = '\x1b[38;2;22;119;255m' + t('ssh.welcomeMessage', { username: welcomeName }) + ' \x1b[m\r\n'
             terminal.value?.writeln('') // Add empty line separator
@@ -1967,6 +1981,20 @@ const connectLocalSSH = async () => {
 
     const result = await api.connectLocal(localConfig)
     if (result.success) {
+      // Record local connection for "Recent Connections" feature
+      try {
+        api.recordConnection({
+          assetUuid: props.connectData.uuid || props.serverInfo?.key || '',
+          assetIp: '127.0.0.1',
+          assetLabel: props.serverInfo?.title || props.connectData.hostname || 'localhost',
+          assetPort: 0,
+          assetUsername: '',
+          assetType: 'shell',
+          organizationId: 'personal'
+        })
+      } catch {
+        // Non-critical: do not block connection flow
+      }
       const welcomeName = email.split('@')[0] || userInfoStore().userInfo.name
       const welcome = '\x1b[38;2;22;119;255m' + t('ssh.welcomeMessage', { username: welcomeName }) + ' \x1b[m\r\n'
       terminal.value?.writeln('') // Add empty line separator

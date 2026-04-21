@@ -86,6 +86,7 @@ export default {
     pleaseInputPrivateKey: 'الرجاء إدخال المفتاح الخاص',
     localhost: 'المضيف المحلي',
     favoriteBar: 'المفضلة',
+    recentConnections: 'الاتصالات الأخيرة',
     executeCommandToAllWindows: 'تنفيذ الأوامر في جميع النوافذ',
     broadcastTo: 'توصيل إلى {count} التبويبات',
     reloadAliasDataFailed: 'خطأ في تحديث بيانات الألياس',

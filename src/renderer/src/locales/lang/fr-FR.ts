@@ -98,6 +98,7 @@ export default {
     pleaseInputPrivateKey: 'Veuillez saisir la clé privée',
     localhost: 'Localhost',
     favoriteBar: 'Favoris',
+    recentConnections: 'Connexions r\u00e9centes',
     executeCommandToAllWindows: 'Exécuter la commande dans toutes les fenêtres',
     broadcastTo: 'Diffuser vers {count} terminaux',
     reloadAliasDataFailed: "Échec du rechargement des données d'alias",

@@ -4931,7 +4931,7 @@ USERNAME:${localSystemInfo.userName}`
         type: 'chip',
         chipType: 'doc',
         ref: {
-          absPath: path.join(kbRoot, relPath),
+          absPath: path.join(kbRoot, relPath).replace(/\\/g, '/'),
           relPath,
           name: path.basename(relPath),
           type: 'file',
