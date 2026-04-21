@@ -26,7 +26,8 @@ import {
   createOrganizationAssetLogic,
   updateOrganizationAssetLogic,
   deleteOrganizationAssetLogic,
-  batchDeleteOrganizationAssetsLogic
+  batchDeleteOrganizationAssetsLogic,
+  recordConnectionLogic
 } from './chaterm/assets'
 import {
   deleteChatermHistoryByTaskIdLogic,
@@ -155,6 +156,18 @@ export class ChatermDatabaseService {
 
   async getLocalAssetRoute(searchType: string, params: any[] = []): Promise<any> {
     return await getLocalAssetRouteLogic(this.db, searchType, params)
+  }
+
+  recordConnection(params: {
+    assetUuid: string
+    assetIp: string
+    assetLabel?: string
+    assetPort?: number
+    assetUsername?: string
+    assetType: string
+    organizationId?: string
+  }): void {
+    recordConnectionLogic(this.db, params)
   }
 
   updateLocalAssetLabel(uuid: string, label: string): any {

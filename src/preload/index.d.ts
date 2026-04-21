@@ -171,6 +171,15 @@ interface ApiType {
   insertCommand: (data: { command: string; ip: string }) => Promise<any>
   aiSuggestCommand: (data: { command: string; osInfo?: string }) => Promise<{ command: string; explanation: string } | null>
   getLocalAssetRoute: (data: { searchType: string; params?: any[] }) => Promise<any>
+  recordConnection: (data: {
+    assetUuid: string
+    assetIp: string
+    assetLabel?: string
+    assetPort?: number
+    assetUsername?: string
+    assetType: string
+    organizationId?: string
+  }) => Promise<void>
   updateLocalAssetLabel: (data: { uuid: string; label: string }) => Promise<any>
   updateLocalAsseFavorite: (data: { uuid: string; status: number }) => Promise<any>
   chatermInsert: (data: { sql: string; params?: any[] }) => Promise<any>

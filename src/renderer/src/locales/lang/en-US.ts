@@ -98,6 +98,7 @@ export default {
     pleaseInputPrivateKey: 'Please input private key',
     localhost: 'Localhost',
     favoriteBar: 'Favorites',
+    recentConnections: 'Recent Connections',
     executeCommandToAllWindows: 'Execute command to all windows',
     broadcastTo: 'Broadcast to {count} terminals',
     reloadAliasDataFailed: 'Failed to reload alias data',

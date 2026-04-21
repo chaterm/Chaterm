@@ -137,37 +137,48 @@ function buildQizhiGroupedChildren(orgUuid: string, orgAssetType: string, nodes:
 // Import language translations
 const translations = {
   'zh-CN': {
-    favoriteBar: '收藏栏'
+    favoriteBar: '收藏栏',
+    recentConnections: '最近连接'
   },
   'zh-TW': {
-    favoriteBar: '收藏欄'
+    favoriteBar: '收藏欄',
+    recentConnections: '最近連接'
   },
   'en-US': {
-    favoriteBar: 'Favorites'
+    favoriteBar: 'Favorites',
+    recentConnections: 'Recent Connections'
   },
   'ja-JP': {
-    favoriteBar: 'お気に入り'
+    favoriteBar: 'お気に入り',
+    recentConnections: '最近の接続'
   },
   'ko-KR': {
-    favoriteBar: '즐겨찾기'
+    favoriteBar: '즐겨찾기',
+    recentConnections: '최근 연결'
   },
   'de-DE': {
-    favoriteBar: 'Favoriten'
+    favoriteBar: 'Favoriten',
+    recentConnections: 'Letzte Verbindungen'
   },
   'fr-FR': {
-    favoriteBar: 'Favoris'
+    favoriteBar: 'Favoris',
+    recentConnections: 'Connexions r\u00e9centes'
   },
   'it-IT': {
-    favoriteBar: 'Preferiti'
+    favoriteBar: 'Preferiti',
+    recentConnections: 'Connessioni recenti'
   },
   'pt-PT': {
-    favoriteBar: 'Favoritos'
+    favoriteBar: 'Favoritos',
+    recentConnections: 'Conex\u00f5es recentes'
   },
   'ru-RU': {
-    favoriteBar: 'Избранное'
+    favoriteBar: 'Избранное',
+    recentConnections: 'Недавние подключения'
   },
   'ar-AR': {
-    favoriteBar: 'المفضلة'
+    favoriteBar: 'المفضلة',
+    recentConnections: 'الاتصالات الأخيرة'
   }
 }
 
@@ -325,6 +336,40 @@ export async function getLocalAssetRouteLogic(db: Database, searchType: string, 
 
     if (assetType === 'person') {
       if (searchType !== 'assetConfig') {
+        // Recent connections for personal workspace
+        try {
+          const recentStmt = db.prepare(`
+            SELECT asset_uuid, asset_ip, asset_label, asset_port, asset_username, asset_type, organization_id,
+                   MAX(connected_at) as last_connected
+            FROM t_connection_history
+            WHERE organization_id = 'personal'
+            GROUP BY asset_uuid, asset_ip
+            ORDER BY last_connected DESC
+            LIMIT 10
+          `)
+          const recentAssets = recentStmt.all() || []
+
+          if (recentAssets.length > 0) {
+            result.data.routers.push({
+              key: 'recent_connections',
+              title: await getTranslation('recentConnections'),
+              asset_type: 'recent_connections',
+              children: recentAssets.map((item: any) => ({
+                key: `recent_${item.asset_uuid}_${item.asset_ip}_${item.asset_username || 'no_user'}`,
+                title: item.asset_label || item.asset_ip || '',
+                ip: item.asset_ip || '',
+                uuid: item.asset_uuid || '',
+                port: item.asset_port || 22,
+                username: item.asset_username || '',
+                asset_type: item.asset_type || 'person',
+                organizationId: item.organization_id || 'personal'
+              }))
+            })
+          }
+        } catch {
+          // t_connection_history may not exist yet, skip silently
+        }
+
         const favoritesStmt = db.prepare(`
           SELECT label, asset_ip, uuid, group_name,label,auth_type,port,username,password,key_chain_id,asset_type
           FROM t_assets
@@ -408,6 +453,40 @@ export async function getLocalAssetRouteLogic(db: Database, searchType: string, 
 
       // Organization asset logic (JumpServer and Qizhi) - add favorites bar support
       if (searchType !== 'assetConfig') {
+        // Recent connections for enterprise workspace
+        try {
+          const recentStmt = db.prepare(`
+            SELECT asset_uuid, asset_ip, asset_label, asset_port, asset_username, asset_type, organization_id,
+                   MAX(connected_at) as last_connected
+            FROM t_connection_history
+            WHERE organization_id != 'personal'
+            GROUP BY asset_uuid, asset_ip
+            ORDER BY last_connected DESC
+            LIMIT 10
+          `)
+          const recentAssets = recentStmt.all() || []
+
+          if (recentAssets.length > 0) {
+            result.data.routers.push({
+              key: 'recent_connections',
+              title: await getTranslation('recentConnections'),
+              asset_type: 'recent_connections',
+              children: recentAssets.map((item: any) => ({
+                key: `recent_${item.asset_uuid}_${item.asset_ip}_${item.asset_username || 'no_user'}`,
+                title: item.asset_label || item.asset_ip || '',
+                ip: item.asset_ip || '',
+                uuid: item.asset_uuid || '',
+                port: item.asset_port || 22,
+                username: item.asset_username || '',
+                asset_type: item.asset_type || 'organization',
+                organizationId: item.organization_id || ''
+              }))
+            })
+          }
+        } catch {
+          // t_connection_history may not exist yet, skip silently
+        }
+
         const favoriteAssets: any[] = []
 
         // Favorite organizations (based on available types)
@@ -594,5 +673,51 @@ export async function getLocalAssetRouteLogic(db: Database, searchType: string, 
   } catch (error) {
     logger.error('Chaterm database query error', { error: error })
     throw error
+  }
+}
+
+/**
+ * Record a successful SSH connection for the "Recent Connections" feature.
+ * Inserts a row into t_connection_history and cleans up old entries.
+ */
+export function recordConnectionLogic(
+  db: Database.Database,
+  params: {
+    assetUuid: string
+    assetIp: string
+    assetLabel?: string
+    assetPort?: number
+    assetUsername?: string
+    assetType: string
+    organizationId?: string
+  }
+): void {
+  try {
+    const stmt = db.prepare(`
+      INSERT INTO t_connection_history
+        (asset_uuid, asset_ip, asset_label, asset_port, asset_username, asset_type, organization_id)
+      VALUES (?, ?, ?, ?, ?, ?, ?)
+    `)
+    stmt.run(
+      params.assetUuid,
+      params.assetIp,
+      params.assetLabel || null,
+      params.assetPort || 22,
+      params.assetUsername || null,
+      params.assetType,
+      params.organizationId || 'personal'
+    )
+
+    // Cleanup: keep only the latest 100 rows to prevent unbounded growth
+    db.prepare(
+      `
+      DELETE FROM t_connection_history
+      WHERE id NOT IN (
+        SELECT id FROM t_connection_history ORDER BY connected_at DESC LIMIT 100
+      )
+    `
+    ).run()
+  } catch (error) {
+    logger.error('Failed to record connection history', { error: error })
   }
 }

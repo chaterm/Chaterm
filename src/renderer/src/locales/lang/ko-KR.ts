@@ -98,6 +98,7 @@ export default {
     pleaseInputPrivateKey: '비밀키를 입력해주세요',
     localhost: '로컬호스트',
     favoriteBar: '즐겨찾기',
+    recentConnections: '최근 연결',
     executeCommandToAllWindows: '모든 창에서 명령 실행',
     broadcastTo: '{count} 개의 터미널에 브로드캐스트',
     reloadAliasDataFailed: '별칭 데이터 다시 로드 실패',

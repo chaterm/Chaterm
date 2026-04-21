@@ -98,6 +98,7 @@ export default {
     pleaseInputPrivateKey: '秘密鍵を入力してください',
     localhost: 'ローカルホスト',
     favoriteBar: 'お気に入り',
+    recentConnections: '最近の接続',
     executeCommandToAllWindows: 'すべてのウィンドウでコマンドを実行',
     broadcastTo: '{count} 個のターミナルにブロードキャスト',
     reloadAliasDataFailed: 'エイリアスデータの再読み込みに失敗しました',
