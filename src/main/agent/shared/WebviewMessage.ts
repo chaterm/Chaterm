@@ -60,6 +60,12 @@ export type ImageContentPart = {
 }
 export type ContentPart = TextContentPart | ChipContentPart | ImageContentPart
 
+export type ToolResultPayload = {
+  output: string
+  toolName?: string
+  isError?: boolean
+}
+
 export type WebviewMessageType =
   | 'apiConfiguration'
   | 'newTask'
@@ -76,6 +82,7 @@ export type WebviewMessageType =
 export interface WebviewMessage {
   type: WebviewMessageType
   text?: string
+  toolResult?: ToolResultPayload
   apiConfiguration?: ApiConfiguration
   telemetrySetting?: TelemetrySetting
   askResponse?: ChatermAskResponse
@@ -112,6 +119,13 @@ export const WebviewMessageSchema = z
     tabId: z.string().optional(),
     taskId: z.string().optional(),
     text: z.string().optional(),
+    toolResult: z
+      .object({
+        output: z.string(),
+        toolName: z.string().optional(),
+        isError: z.boolean().optional()
+      })
+      .optional(),
     apiConfiguration: z.record(z.unknown()).optional()
   })
   .passthrough()
