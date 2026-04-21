@@ -92,6 +92,7 @@ export type GlobalStateKey =
   | 'needProxy'
   | 'proxyConfig'
   | 'modelOptions'
+  | 'enterpriseModelConfigs'
   | 'defaultBaseUrl'
   | 'defaultModelId'
   | 'messageFeedbacks'

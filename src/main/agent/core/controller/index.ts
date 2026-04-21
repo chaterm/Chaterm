@@ -333,6 +333,13 @@ export class Controller {
   }
 
   async updateTelemetrySetting(telemetrySetting: TelemetrySetting) {
+    const rawPolicy = process.env.CHATERM_TELEMETRY_ENABLED
+    if (typeof rawPolicy === 'string') {
+      const normalized = rawPolicy.trim().toLowerCase()
+      if (['0', 'false', 'no', 'off'].includes(normalized)) {
+        telemetrySetting = 'disabled'
+      }
+    }
     try {
       await updateGlobalState('telemetrySetting', telemetrySetting)
     } catch (error) {}

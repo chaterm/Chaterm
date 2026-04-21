@@ -7,6 +7,15 @@ import { aiPreferencesSyncService } from './aiPreferencesSyncService'
 
 const logger = createRendererLogger('service.dataSync')
 
+const parseDataSyncPolicyEnabled = (): boolean | null => {
+  const raw = import.meta.env.RENDERER_DATA_SYNC_ENABLED
+  if (typeof raw !== 'string') return null
+  const normalized = raw.trim().toLowerCase()
+  if (['1', 'true', 'yes', 'on'].includes(normalized)) return true
+  if (['0', 'false', 'no', 'off'].includes(normalized)) return false
+  return null
+}
+
 /**
  * All config sync services, iterated for lifecycle operations.
  */
@@ -43,6 +52,14 @@ export class DataSyncService {
 
     try {
       logger.info('Initializing data sync service...')
+      if (parseDataSyncPolicyEnabled() === false) {
+        logger.info('Data sync disabled by enterprise policy')
+        await this.disableDataSync().catch((error) => {
+          logger.error('Failed to enforce data sync disabled policy', { error })
+        })
+        this.isInitialized = true
+        return
+      }
 
       // Check if it's a guest user
       const isSkippedLogin = localStorage.getItem('login-skipped') === 'true'
@@ -76,6 +93,10 @@ export class DataSyncService {
    */
   async enableDataSync(): Promise<boolean> {
     try {
+      if (parseDataSyncPolicyEnabled() === false) {
+        logger.info('Data sync enable blocked by enterprise policy')
+        return false
+      }
       logger.info('Enabling data sync...')
 
       if (!window.api?.setDataSyncEnabled) {

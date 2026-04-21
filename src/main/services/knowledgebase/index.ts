@@ -124,6 +124,15 @@ function isValidBaseUrl(value: unknown): value is string {
   }
 }
 
+function readKbSearchPolicyFromEnv(): boolean | null {
+  const raw = process.env.CHATERM_KB_SEARCH_ENABLED
+  if (typeof raw !== 'string') return null
+  const normalized = raw.trim().toLowerCase()
+  if (['1', 'true', 'yes', 'on'].includes(normalized)) return true
+  if (['0', 'false', 'no', 'off'].includes(normalized)) return false
+  return null
+}
+
 function normalizeKbSearchOptions(opts?: { maxResults?: number; minScore?: number }): { maxResults: number; minScore?: number } {
   const maxResultsRaw = opts?.maxResults
   const maxResults = typeof maxResultsRaw === 'number' && Number.isFinite(maxResultsRaw) ? Math.floor(maxResultsRaw) : 5
@@ -803,7 +812,13 @@ export function registerKnowledgeBaseHandlers(): void {
       if (typeof enabled !== 'boolean') {
         return { success: false, error: 'Invalid enabled flag' }
       }
-      if (enabled) {
+      const policyEnabled = readKbSearchPolicyFromEnv()
+      const resolvedEnabled = policyEnabled === false ? false : enabled
+      if (!resolvedEnabled) {
+        closeKbSearchManager()
+        return { success: true, enabled: false, managedByPolicy: policyEnabled === false }
+      }
+      if (resolvedEnabled) {
         const { getCurrentUserId } = await import('../../storage/db/connection')
         const { getEdition } = await import('../../config/edition')
         const { getAllExtensionState } = await import('../../agent/core/storage/state')
@@ -822,11 +837,9 @@ export function registerKnowledgeBaseHandlers(): void {
           apiKey: apiConfig.defaultApiKey ?? '',
           baseUrl: apiConfig.defaultBaseUrl ?? ''
         })
-        return { success: !!mgr }
-      } else {
-        closeKbSearchManager()
-        return { success: true }
+        return { success: !!mgr, enabled: !!mgr, managedByPolicy: policyEnabled === false }
       }
+      return { success: false, error: 'Invalid KB search state' }
     } catch (err) {
       kbLogger.error('kb:set-search-enabled failed', { error: err })
       return { success: false, error: err instanceof Error ? err.message : String(err) }
@@ -835,6 +848,11 @@ export function registerKnowledgeBaseHandlers(): void {
 
   ipcMain.handle('kb:init-search', async (_evt, config: EmbeddingConfig & { userId: string }) => {
     try {
+      const policyEnabled = readKbSearchPolicyFromEnv()
+      if (policyEnabled === false) {
+        closeKbSearchManager()
+        return { success: false, error: 'KB search disabled by policy' }
+      }
       const userId = typeof config?.userId === 'string' ? config.userId.trim() : ''
       if (!userId || userId.length > 128) {
         return { success: false, error: 'Invalid userId' }

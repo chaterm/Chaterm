@@ -42,6 +42,7 @@ import {
   initializeStorageMain,
   testStorageFromMain as testRendererStorageFromMain,
   getGlobalState,
+  updateGlobalState,
   getAllExtensionState
 } from './agent/core/storage/state'
 import { getTaskMetadata, saveTaskTitle, saveTaskFavorite, getTaskList } from './agent/core/storage/disk'
@@ -80,6 +81,14 @@ import { initLogging, logRendererCrash } from '@logging'
 import { parseXshellWakeupFromArgv, redactXshellWakeupForLog, type XshellWakeupPayload } from './integrations/xshellWakeup'
 
 const logger = createLogger('main')
+
+const parsePolicyEnabled = (raw: unknown): boolean | null => {
+  if (typeof raw !== 'string') return null
+  const normalized = raw.trim().toLowerCase()
+  if (['1', 'true', 'yes', 'on'].includes(normalized)) return true
+  if (['0', 'false', 'no', 'off'].includes(normalized)) return false
+  return null
+}
 
 let mainWindow: BrowserWindow
 let COOKIE_URL = 'http://localhost'
@@ -411,6 +420,10 @@ app.whenReady().then(async () => {
       telemetrySetting = (await getGlobalState('telemetrySetting')) || 'enabled'
     } catch (error) {
       telemetrySetting = 'enabled'
+    }
+    if (parsePolicyEnabled(process.env.CHATERM_TELEMETRY_ENABLED) === false) {
+      telemetrySetting = 'disabled'
+      await updateGlobalState('telemetrySetting', 'disabled')
     }
 
     if (controller) {
@@ -1056,10 +1069,23 @@ function setupIPC(): void {
         logger.warn('Failed to reload plugins after login', { value: error })
       }
 
-      // Initialize KB search manager if the setting is enabled
+      // Initialize KB search manager if enabled by user setting / policy.
+      // CHATERM_KB_SEARCH_ENABLED enforces enterprise policy only when set to false.
       try {
-        const kbSearchEnabled = await getGlobalState('kbSearchEnabled')
-        if (kbSearchEnabled === undefined || kbSearchEnabled === null || kbSearchEnabled) {
+        let kbSearchEnabled = await getGlobalState('kbSearchEnabled')
+        const rawPolicy = process.env.CHATERM_KB_SEARCH_ENABLED
+        let kbPolicyEnabled: boolean | null = null
+        if (typeof rawPolicy === 'string') {
+          const normalized = rawPolicy.trim().toLowerCase()
+          if (['1', 'true', 'yes', 'on'].includes(normalized)) kbPolicyEnabled = true
+          if (['0', 'false', 'no', 'off'].includes(normalized)) kbPolicyEnabled = false
+        }
+        if (kbPolicyEnabled === false) {
+          kbSearchEnabled = false
+          await updateGlobalState('kbSearchEnabled', false)
+        }
+
+        if (kbSearchEnabled !== false) {
           const edition = getEdition()
           const region = edition === 'cn' ? 'cn' : 'global'
 
@@ -1405,8 +1431,10 @@ function setupIPC(): void {
       if (!uid) {
         throw new Error('User ID is required')
       }
+      const dataSyncPolicyEnabled = parsePolicyEnabled(process.env.CHATERM_DATA_SYNC_ENABLED)
+      const resolvedEnabled = dataSyncPolicyEnabled === false ? false : enabled
 
-      if (enabled) {
+      if (resolvedEnabled) {
         if (!dataSyncController) {
           const dbPath = getChatermDbPathForUser(uid)
           logger.info(`Starting data sync service for user ${uid}...`)
@@ -1436,7 +1464,7 @@ function setupIPC(): void {
           logger.info('Data sync service stopped')
         }
       }
-      return { success: true }
+      return { success: true, enabled: resolvedEnabled, managedByPolicy: dataSyncPolicyEnabled === false }
     } catch (e: any) {
       logger.warn('Failed to handle data-sync:set-enabled', { error: e?.message || String(e) })
       return { success: false, error: e?.message || String(e) }

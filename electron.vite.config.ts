@@ -120,7 +120,12 @@ export default defineConfig(({ mode }) => {
       },
       define: {
         'process.env.APP_EDITION': JSON.stringify(edition),
-        'process.env.LOG_LEVEL': JSON.stringify(resolvedMode.startsWith('development') ? 'debug' : 'info')
+        'process.env.LOG_LEVEL': JSON.stringify(resolvedMode.startsWith('development') ? 'debug' : 'info'),
+        // Single packaging switch source: build/.env.* -> RENDERER_KB_SEARCH_ENABLED
+        // Main process reads CHATERM_KB_SEARCH_ENABLED at runtime, injected at build time here.
+        'process.env.CHATERM_KB_SEARCH_ENABLED': JSON.stringify(env.RENDERER_KB_SEARCH_ENABLED || ''),
+        'process.env.CHATERM_TELEMETRY_ENABLED': JSON.stringify(env.RENDERER_TELEMETRY_ENABLED || ''),
+        'process.env.CHATERM_DATA_SYNC_ENABLED': JSON.stringify(env.RENDERER_DATA_SYNC_ENABLED || '')
       },
       build: {
         sourcemap: enableSourcemap,

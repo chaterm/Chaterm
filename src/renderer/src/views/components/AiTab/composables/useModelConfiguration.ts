@@ -29,7 +29,40 @@ interface DefaultModel {
   [key: string]: unknown
 }
 
+interface EnterpriseModelConfig {
+  modelName: string
+  provider: string
+  baseUrl?: string
+  apiKey?: string
+  apiFormat?: string
+  awsAccessKey?: string
+  awsSecretKey?: string
+  awsRegion?: string
+  awsSessionToken?: string
+  awsBedrockEndpoint?: string
+  awsUseCrossRegionInference?: boolean
+}
+
 const isEmptyValue = (value: unknown): boolean => value === undefined || value === ''
+
+const normalizeProvider = (provider?: string): string => {
+  const normalized = String(provider || '')
+    .toLowerCase()
+    .trim()
+  if (normalized === 'openai-compatible') return 'openai'
+  if (normalized === 'anthropic-compatible') return 'anthropic'
+  return normalized || 'default'
+}
+
+const toConfigMap = (configs: EnterpriseModelConfig[]): Map<string, EnterpriseModelConfig> => {
+  const map = new Map<string, EnterpriseModelConfig>()
+  for (const config of configs) {
+    const name = String(config?.modelName || '').trim()
+    if (!name) continue
+    map.set(name, config)
+  }
+  return map
+}
 
 /**
  * Mapping from API provider to corresponding model ID global state key
@@ -59,6 +92,51 @@ export const useModelConfiguration = createGlobalState(() => {
   const subscription = ref<string>('')
   const modelsLoading = ref(true)
 
+  const applyEnterpriseRuntimeConfig = async (modelName: string): Promise<void> => {
+    const configs = ((await getGlobalState('enterpriseModelConfigs')) as EnterpriseModelConfig[]) || []
+    if (!Array.isArray(configs) || configs.length === 0) return
+    const target = configs.find((item) => item.modelName === modelName)
+    if (!target) return
+
+    const provider = normalizeProvider(target.provider)
+    switch (provider) {
+      case 'openai':
+        if (!isEmptyValue(target.baseUrl)) await updateGlobalState('openAiBaseUrl', String(target.baseUrl))
+        if (!isEmptyValue(target.apiKey)) await storeSecret('openAiApiKey', String(target.apiKey))
+        if (!isEmptyValue(target.apiFormat)) {
+          const openAiModelInfo = ((await getGlobalState('openAiModelInfo')) as Record<string, unknown>) || {}
+          await updateGlobalState('openAiModelInfo', { ...openAiModelInfo, apiFormat: String(target.apiFormat) })
+        }
+        break
+      case 'litellm':
+        if (!isEmptyValue(target.baseUrl)) await updateGlobalState('liteLlmBaseUrl', String(target.baseUrl))
+        if (!isEmptyValue(target.apiKey)) await storeSecret('liteLlmApiKey', String(target.apiKey))
+        break
+      case 'anthropic':
+        if (!isEmptyValue(target.baseUrl)) await updateGlobalState('anthropicBaseUrl', String(target.baseUrl))
+        if (!isEmptyValue(target.apiKey)) await storeSecret('anthropicApiKey', String(target.apiKey))
+        break
+      case 'deepseek':
+        if (!isEmptyValue(target.apiKey)) await storeSecret('deepSeekApiKey', String(target.apiKey))
+        break
+      case 'ollama':
+        if (!isEmptyValue(target.baseUrl)) await updateGlobalState('ollamaBaseUrl', String(target.baseUrl))
+        break
+      case 'bedrock':
+        if (!isEmptyValue(target.awsAccessKey)) await storeSecret('awsAccessKey', String(target.awsAccessKey))
+        if (!isEmptyValue(target.awsSecretKey)) await storeSecret('awsSecretKey', String(target.awsSecretKey))
+        if (!isEmptyValue(target.awsSessionToken)) await storeSecret('awsSessionToken', String(target.awsSessionToken))
+        if (!isEmptyValue(target.awsRegion)) await updateGlobalState('awsRegion', String(target.awsRegion))
+        if (!isEmptyValue(target.awsBedrockEndpoint)) await updateGlobalState('awsBedrockEndpoint', String(target.awsBedrockEndpoint))
+        if (typeof target.awsUseCrossRegionInference === 'boolean') {
+          await updateGlobalState('awsUseCrossRegionInference', target.awsUseCrossRegionInference)
+        }
+        break
+      default:
+        break
+    }
+  }
+
   const handleChatAiModelChange = async () => {
     const modelOptions = ((await getGlobalState('modelOptions')) as ModelOption[]) || []
     const selectedModel = modelOptions.find((model) => model.name === chatAiModelValue.value)
@@ -70,6 +148,7 @@ export const useModelConfiguration = createGlobalState(() => {
     const apiProvider = selectedModel?.apiProvider
     const key = PROVIDER_MODEL_KEY_MAP[apiProvider || 'default'] || 'defaultModelId'
     await updateGlobalState(key, chatAiModelValue.value)
+    await applyEnterpriseRuntimeConfig(chatAiModelValue.value)
 
     focusChatInput()
   }
@@ -251,20 +330,24 @@ export const useModelConfiguration = createGlobalState(() => {
       }
 
       let defaultModels: DefaultModel[] = []
+      let enterpriseModelConfigs: EnterpriseModelConfig[] = []
 
       await getUser({}).then((res) => {
         logger.info('getUser response', { data: res })
         defaultModels = res?.data?.models || []
+        enterpriseModelConfigs = (res?.data?.enterpriseModelConfigs || []) as EnterpriseModelConfig[]
         updateGlobalState('defaultBaseUrl', res?.data?.llmGatewayAddr)
         storeSecret('defaultApiKey', res?.data?.key)
       })
 
+      await updateGlobalState('enterpriseModelConfigs', enterpriseModelConfigs)
+      const providerByModel = toConfigMap(enterpriseModelConfigs)
       const modelOptions: ModelOption[] = defaultModels.map((model) => ({
         id: String(model) || '',
         name: String(model) || '',
         checked: true,
         type: 'standard',
-        apiProvider: 'default'
+        apiProvider: normalizeProvider(providerByModel.get(String(model))?.provider || 'default')
       }))
 
       const serializableModelOptions = modelOptions.map((model) => ({
@@ -292,14 +375,17 @@ export const useModelConfiguration = createGlobalState(() => {
 
     let serverModels: string[] = []
     let subscriptionModelsList: string[] = []
+    let enterpriseModelConfigs: EnterpriseModelConfig[] = []
     try {
       const res = await getUser({})
       serverModels = (res?.data?.models || []).map((model) => String(model))
       subscriptionModelsList = (res?.data?.subscriptionModels || []).map((m: unknown) => String(m))
+      enterpriseModelConfigs = (res?.data?.enterpriseModelConfigs || []) as EnterpriseModelConfig[]
       budgetResetAt.value = res?.data?.budgetResetAt || ''
       subscription.value = res?.data?.subscription || ''
       await updateGlobalState('defaultBaseUrl', res?.data?.llmGatewayAddr)
       await storeSecret('defaultApiKey', res?.data?.key)
+      await updateGlobalState('enterpriseModelConfigs', enterpriseModelConfigs)
     } catch (error) {
       logger.error('Failed to refresh model options', { error: error })
       return
@@ -317,6 +403,7 @@ export const useModelConfiguration = createGlobalState(() => {
 
     const savedModelOptions = ((await getGlobalState('modelOptions')) || []) as ModelOption[]
     const allKnownSet = new Set([...serverModels, ...subscriptionModelsList])
+    const providerByModel = toConfigMap(enterpriseModelConfigs)
 
     const existingStandard = savedModelOptions.filter((opt) => opt.type === 'standard')
     const existingCustom = savedModelOptions.filter((opt) => opt.type !== 'standard')
@@ -328,7 +415,7 @@ export const useModelConfiguration = createGlobalState(() => {
         name: opt.name,
         checked: Boolean(opt.checked),
         type: 'standard',
-        apiProvider: opt.apiProvider || 'default'
+        apiProvider: normalizeProvider(providerByModel.get(opt.name)?.provider || opt.apiProvider || 'default')
       }))
 
     const retainedNames = new Set(retainedStandard.map((opt) => opt.name))
@@ -340,7 +427,7 @@ export const useModelConfiguration = createGlobalState(() => {
         name,
         checked: true,
         type: 'standard',
-        apiProvider: 'default'
+        apiProvider: normalizeProvider(providerByModel.get(name)?.provider || 'default')
       }))
 
     const allAddedNames = new Set([...retainedNames, ...newAvailable.map((o) => o.name)])
@@ -351,7 +438,7 @@ export const useModelConfiguration = createGlobalState(() => {
         name,
         checked: true,
         type: 'standard',
-        apiProvider: 'default'
+        apiProvider: normalizeProvider(providerByModel.get(name)?.provider || 'default')
       }))
 
     const updatedOptions = [...retainedStandard, ...newAvailable, ...newLocked, ...existingCustom]
