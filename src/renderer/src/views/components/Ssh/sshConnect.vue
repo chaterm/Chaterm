@@ -2759,10 +2759,19 @@ watch(
   { immediate: true }
 )
 
-// Reload OS info when connectionId changes (e.g., reconnect)
-watch(connectionId, () => {
+// Reload OS info and re-register inputManager when connectionId changes (e.g., reconnect)
+watch(connectionId, (newId, oldId) => {
   cachedOsInfoLoaded.value = false
   cachedOsInfo.value = undefined
+  if (oldId && newId && oldId !== newId) {
+    inputManager.unregisterInstances(oldId)
+    inputManager.registerInstances(
+      {
+        termOndata: handleExternalInput
+      },
+      newId
+    )
+  }
 })
 
 const checkFullScreenClear = (data: string) => {
