@@ -1,5 +1,5 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { useModelConfiguration } from '../useModelConfiguration'
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
+import { reconcileEnterprisePluginStateAfterMetadataChange, syncEnterpriseStateFromUserData, useModelConfiguration } from '../useModelConfiguration'
 import * as stateModule from '@renderer/agent/storage/state'
 import { getUser } from '@api/user/user'
 import { ref } from 'vue'
@@ -40,6 +40,15 @@ describe('useModelConfiguration', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     mockChatAiModelValue.value = ''
+    vi.stubEnv('RENDERER_DEPLOY_STATUS', '1')
+    global.window = global.window || ({} as Window & typeof globalThis)
+    ;(global.window as unknown as { api?: { reloadPlugins?: ReturnType<typeof vi.fn> } }).api = {
+      reloadPlugins: vi.fn().mockResolvedValue(undefined)
+    }
+  })
+
+  afterEach(() => {
+    vi.unstubAllEnvs()
   })
 
   describe('initModel', () => {
@@ -508,6 +517,104 @@ describe('useModelConfiguration', () => {
       )
       expect(AgentAiModelsOptions.value.map((o) => o.value)).not.toContain('locked-one')
       expect(AgentAiModelsOptions.value.map((o) => o.value)).toContain('gpt-5')
+    })
+  })
+
+  describe('enterprise deploy gate', () => {
+    it('clears enterprise state and skips plugin reload when deploy status is disabled', async () => {
+      vi.stubEnv('RENDERER_DEPLOY_STATUS', '0')
+
+      const state: Record<string, unknown> = {
+        modelOptions: [
+          { id: 'enterprise:openai:gpt-5', name: 'gpt-5', checked: true, type: 'standard', apiProvider: 'openai' },
+          { id: 'custom-1', name: 'custom-model', checked: true, type: 'custom', apiProvider: 'openai' }
+        ],
+        enterpriseModelPluginActive: true,
+        openAiBaseUrl: 'https://api.openai.com/v1',
+        openAiModelId: 'gpt-5',
+        liteLlmBaseUrl: 'https://litellm.example.com',
+        awsRegion: 'us-east-1'
+      }
+
+      vi.mocked(stateModule.getGlobalState).mockImplementation(async (key) => state[key] ?? null)
+      vi.mocked(stateModule.updateGlobalState).mockImplementation(async (key, value) => {
+        state[key] = value
+      })
+
+      const enterpriseConfigs = await syncEnterpriseStateFromUserData(
+        {
+          enterpriseModelConfigs: [{ modelName: 'gpt-5', provider: 'openai' }],
+          enterpriseModelConfigVersion: 'v1'
+        },
+        { reloadPlugins: true }
+      )
+
+      expect(enterpriseConfigs).toEqual([])
+      expect(stateModule.updateGlobalState).toHaveBeenCalledWith('enterpriseModelConfigs', [])
+      expect(stateModule.updateGlobalState).toHaveBeenCalledWith('enterpriseModelConfigVersion', '')
+      expect(stateModule.updateGlobalState).toHaveBeenCalledWith('enterpriseModelPluginActive', false)
+      expect(stateModule.updateGlobalState).toHaveBeenCalledWith('modelOptions', [
+        { id: 'custom-1', name: 'custom-model', checked: true, type: 'custom', apiProvider: 'openai' }
+      ])
+      expect(state.openAiBaseUrl).toBe('https://api.openai.com/v1')
+      expect(state.openAiModelId).toBe('gpt-5')
+      expect(state.liteLlmBaseUrl).toBe('https://litellm.example.com')
+      expect(state.awsRegion).toBe('us-east-1')
+      expect(stateModule.updateGlobalState).not.toHaveBeenCalledWith('openAiBaseUrl', undefined)
+      expect(stateModule.updateGlobalState).not.toHaveBeenCalledWith('openAiModelId', undefined)
+      expect(stateModule.updateGlobalState).not.toHaveBeenCalledWith('liteLlmBaseUrl', undefined)
+      expect(stateModule.updateGlobalState).not.toHaveBeenCalledWith('awsRegion', undefined)
+      expect(stateModule.storeSecret).not.toHaveBeenCalledWith('openAiApiKey', undefined)
+      expect((global.window as unknown as { api: { reloadPlugins: ReturnType<typeof vi.fn> } }).api.reloadPlugins).not.toHaveBeenCalled()
+    })
+
+    it('does not reload plugins repeatedly when the same enterprise signature was already resolved', async () => {
+      const state: Record<string, unknown> = {
+        modelOptions: [],
+        enterpriseModelPluginActive: false,
+        enterpriseModelPluginResolvedSignature: 'v1'
+      }
+
+      vi.mocked(stateModule.getGlobalState).mockImplementation(async (key) => state[key] ?? null)
+      vi.mocked(stateModule.updateGlobalState).mockImplementation(async (key, value) => {
+        state[key] = value
+      })
+
+      const enterpriseConfigs = await syncEnterpriseStateFromUserData(
+        {
+          enterpriseModelConfigs: [{ modelName: 'gpt-5', provider: 'openai' }],
+          enterpriseModelConfigVersion: 'v1'
+        },
+        { reloadPlugins: true }
+      )
+
+      expect(enterpriseConfigs).toEqual([{ modelName: 'gpt-5', provider: 'openai' }])
+      expect((global.window as unknown as { api: { reloadPlugins: ReturnType<typeof vi.fn> } }).api.reloadPlugins).not.toHaveBeenCalled()
+    })
+
+    it('cleans enterprise model options after plugin metadata change when plugin is no longer active', async () => {
+      const state: Record<string, unknown> = {
+        enterpriseModelConfigs: [{ modelName: 'gpt-5', provider: 'openai' }],
+        enterpriseModelConfigVersion: 'v1',
+        modelOptions: [
+          { id: 'enterprise:openai:gpt-5', name: 'gpt-5', checked: true, type: 'standard', apiProvider: 'openai' },
+          { id: 'custom-1', name: 'custom-model', checked: true, type: 'custom', apiProvider: 'openai' }
+        ],
+        enterpriseModelPluginActive: false
+      }
+
+      vi.mocked(stateModule.getGlobalState).mockImplementation(async (key) => state[key] ?? null)
+      vi.mocked(stateModule.updateGlobalState).mockImplementation(async (key, value) => {
+        state[key] = value
+      })
+
+      await reconcileEnterprisePluginStateAfterMetadataChange()
+
+      expect(stateModule.updateGlobalState).toHaveBeenCalledWith('enterpriseModelPluginActive', false)
+      expect(stateModule.updateGlobalState).toHaveBeenCalledWith('modelOptions', [
+        { id: 'custom-1', name: 'custom-model', checked: true, type: 'custom', apiProvider: 'openai' }
+      ])
+      expect(stateModule.storeSecret).toHaveBeenCalledWith('openAiApiKey', undefined)
     })
   })
 
