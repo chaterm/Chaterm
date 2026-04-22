@@ -780,6 +780,81 @@ describe('useChatMessages', () => {
       expect(session.chatHistory[0].partial).toBe(true)
     })
 
+    it('should preserve contentParts on new and updated assistant partial messages', async () => {
+      const { processMainMessage } = useChatMessages(
+        mockScrollToBottom,
+        mockClearTodoState,
+        mockMarkLatestMessageWithTodoUpdate,
+        mockCurrentTodos,
+        mockCheckModelConfig
+      )
+
+      const mockState = vi.mocked(useSessionState)()
+      const session = mockState.currentSession.value!
+      const firstContentParts = [
+        { type: 'text' as const, text: '知识库检索:' },
+        {
+          type: 'chip' as const,
+          chipType: 'doc' as const,
+          ref: {
+            absPath: '/mock/knowledgebase/rss2.md',
+            relPath: 'rss2.md',
+            name: 'rss2.md',
+            type: 'file' as const,
+            startLine: 1,
+            endLine: 3
+          }
+        }
+      ]
+      const secondContentParts = [
+        { type: 'text' as const, text: '知识库检索:' },
+        {
+          type: 'chip' as const,
+          chipType: 'doc' as const,
+          ref: {
+            absPath: '/mock/knowledgebase/rss2.md',
+            relPath: 'rss2.md',
+            name: 'rss2.md',
+            type: 'file' as const,
+            startLine: 4,
+            endLine: 6
+          }
+        }
+      ]
+
+      await processMainMessage({
+        type: 'partialMessage',
+        tabId: 'test-tab-1',
+        partialMessage: {
+          text: '知识库检索',
+          type: 'say',
+          say: 'text',
+          partial: true,
+          ts: 100,
+          contentParts: firstContentParts
+        }
+      } as ExtensionMessage)
+
+      expect(session.chatHistory).toHaveLength(1)
+      expect(session.chatHistory[0].contentParts).toEqual(firstContentParts)
+
+      await processMainMessage({
+        type: 'partialMessage',
+        tabId: 'test-tab-1',
+        partialMessage: {
+          text: '知识库检索',
+          type: 'say',
+          say: 'text',
+          partial: false,
+          ts: 100,
+          contentParts: secondContentParts
+        }
+      } as ExtensionMessage)
+
+      expect(session.chatHistory).toHaveLength(1)
+      expect(session.chatHistory[0].contentParts).toEqual(secondContentParts)
+    })
+
     it('should handle completion_result message', async () => {
       const { processMainMessage } = useChatMessages(
         mockScrollToBottom,
@@ -1276,6 +1351,58 @@ describe('useChatMessages', () => {
       expect(sent.type).toBe('askResponse')
       expect(sent.askResponse).toBe('messageResponse')
       expect(sent.text).toBe('hello')
+    })
+
+    it('sends structured toolResult for commandSend without overloading text', async () => {
+      const session = createMockSession()
+      session.chatHistory.push({
+        id: 'm1',
+        role: 'assistant',
+        content: 'Run ls',
+        type: 'ask',
+        ask: 'command',
+        say: '',
+        ts: Date.now()
+      })
+
+      const mockTab = createMockTab('test-tab-1', session)
+      const chatTabs = ref([mockTab])
+      const currentChatId = ref('test-tab-1')
+      const chatInputParts = ref([])
+      const hosts = ref<Host[]>([{ host: '127.0.0.1', uuid: 'localhost', connection: 'localhost' }])
+      const chatTypeValue = ref('cmd')
+
+      vi.mocked(useSessionState).mockReturnValue({
+        chatTabs,
+        currentChatId,
+        currentTab: ref(mockTab),
+        currentSession: ref(mockTab.session),
+        chatInputParts,
+        hosts,
+        chatTypeValue
+      } as any)
+
+      const { sendMessageWithContent } = useChatMessages(
+        mockScrollToBottom,
+        mockClearTodoState,
+        mockMarkLatestMessageWithTodoUpdate,
+        mockCurrentTodos,
+        mockCheckModelConfig
+      )
+
+      const toolResult = {
+        output: 'file1\nfile2',
+        toolName: 'execute_command'
+      }
+
+      await sendMessageWithContent('Terminal output:\n```\nfile1\nfile2\n```', 'commandSend', undefined, undefined, undefined, undefined, toolResult)
+
+      expect(mockSendToMain).toHaveBeenCalledTimes(1)
+      const sent = mockSendToMain.mock.calls[0][0]
+      expect(sent.type).toBe('askResponse')
+      expect(sent.askResponse).toBe('yesButtonClicked')
+      expect(sent.text).toBeUndefined()
+      expect(sent.toolResult).toEqual(toolResult)
     })
   })
 

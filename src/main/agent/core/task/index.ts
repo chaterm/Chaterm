@@ -50,6 +50,7 @@ import { buildRemoteGlobCommand, parseRemoteGlobOutput, buildRemoteGrepCommand, 
 import { broadcastInteractionClosed } from '../../services/interaction-detector/ipc-handlers'
 import { getOffloadDir, shouldOffload, writeToolOutput } from '../offload'
 import { getKnowledgeBaseRoot, getKbSearchManager } from '../../../services/knowledgebase'
+import type { KbSearchResult } from '../../../services/knowledgebase/search/types'
 import { webFetch } from '../../services/web-fetch'
 
 interface StreamMetrics {
@@ -100,7 +101,7 @@ import { SkillsManager } from '@services/skills'
 import { ChatermDatabaseService } from '../../../storage/db/chaterm.service'
 import type { McpTool } from '@shared/mcp'
 
-import type { ContentPart, ContextDocRef, ContextPastChatRef, ContextRefs, Host } from '@shared/WebviewMessage'
+import type { ContentPart, ContextDocRef, ContextPastChatRef, ContextRefs, Host, ToolResultPayload } from '@shared/WebviewMessage'
 import type { ToolResult } from '@shared/ToolResult'
 import { ExternalAssetCache } from '../../../plugin/pluginIpc'
 import type { InteractionType } from '../../services/interaction-detector/types'
@@ -241,7 +242,7 @@ export class Task {
   apiConversationHistory: Anthropic.MessageParam[] = []
   chatermMessages: ChatermMessage[] = []
   private commandSecurityManager: CommandSecurityManager
-  private askResponsePayload?: { response: ChatermAskResponse; text?: string; contentParts?: ContentPart[] }
+  private askResponsePayload?: { response: ChatermAskResponse; text?: string; contentParts?: ContentPart[]; toolResult?: ToolResultPayload }
   private nextUserInputContentParts?: ContentPart[]
   private lastMessageTs?: number
   private consecutiveAutoApprovedRequestsCount: number = 0
@@ -1329,6 +1330,7 @@ export class Task {
     response: ChatermAskResponse
     text?: string
     contentParts?: ContentPart[]
+    toolResult?: ToolResultPayload
   }> {
     if (this.abort) {
       throw new Error('Chaterm instance aborted')
@@ -1457,7 +1459,13 @@ export class Task {
     }
   }
 
-  async handleWebviewAskResponse(askResponse: ChatermAskResponse, text?: string, truncateAtMessageTs?: number, contentParts?: ContentPart[]) {
+  async handleWebviewAskResponse(
+    askResponse: ChatermAskResponse,
+    text?: string,
+    truncateAtMessageTs?: number,
+    contentParts?: ContentPart[],
+    toolResult?: ToolResultPayload
+  ) {
     logger.debug('Handling webview ask response', {
       event: 'agent.task.ask_response.received',
       askResponse,
@@ -1472,7 +1480,8 @@ export class Task {
     this.askResponsePayload = {
       response: askResponse,
       text,
-      contentParts
+      contentParts,
+      toolResult
     }
   }
 
@@ -1487,7 +1496,7 @@ export class Task {
     }
 
     if (partial !== undefined) {
-      await this.handleSayPartialMessage(type, text, partial, hostInfo)
+      await this.handleSayPartialMessage(type, text, partial, hostInfo, contentParts)
     } else {
       // this is a new non-partial message, so add it like normal
       const sayTs = Date.now()
@@ -1504,7 +1513,13 @@ export class Task {
     }
   }
 
-  private async handleSayPartialMessage(type: ChatermSay, text?: string, partial?: boolean, hostInfo?: HostInfo): Promise<void> {
+  private async handleSayPartialMessage(
+    type: ChatermSay,
+    text?: string,
+    partial?: boolean,
+    hostInfo?: HostInfo,
+    contentParts?: ContentPart[]
+  ): Promise<void> {
     const lastMessage = this.chatermMessages.at(-1)
     // Check if updating previous partial message with same type AND same host
     const isUpdatingPreviousPartial =
@@ -1513,6 +1528,7 @@ export class Task {
       if (isUpdatingPreviousPartial) {
         lastMessage.text = text
         lastMessage.partial = partial
+        lastMessage.contentParts = contentParts ?? lastMessage.contentParts
         await this.postMessageToWebview({
           type: 'partialMessage',
           partialMessage: lastMessage
@@ -1526,6 +1542,7 @@ export class Task {
           type: 'say',
           say: type,
           text,
+          contentParts,
           partial,
           ...(hostInfo ?? {})
         })
@@ -1545,6 +1562,7 @@ export class Task {
         this.lastMessageTs = lastMessage.ts
         lastMessage.text = text
         lastMessage.partial = false
+        lastMessage.contentParts = contentParts ?? lastMessage.contentParts
 
         // instead of streaming partialMessage events, we do a save and post like normal to persist to disk
         await this.saveChatermMessagesAndUpdateHistory()
@@ -1561,6 +1579,7 @@ export class Task {
           type: 'say',
           say: type,
           text,
+          contentParts,
           ...(hostInfo ?? {})
         }
         await this.addToChatermMessages(newMessage)
@@ -3188,7 +3207,7 @@ export class Task {
   }
 
   private async askApproval(toolDescription: string, type: ChatermAsk, partialMessage?: string): Promise<boolean> {
-    const { response, text, contentParts } = await this.ask(type, partialMessage, false)
+    const { response, text, contentParts, toolResult } = await this.ask(type, partialMessage, false)
     const approved = response === 'yesButtonClicked' || response === 'autoApproveReadOnlyClicked'
 
     // If user clicked "auto-approve read-only" button, enable session-level auto-approval for subsequent read-only commands
@@ -3205,6 +3224,14 @@ export class Task {
         await this.saveCheckpoint()
       }
       this.didRejectTool = true
+    } else if (toolResult) {
+      await this.pushToolResult(toolDescription, toolResult.output, {
+        toolName: toolResult.toolName ?? 'execute_command',
+        hosts: this.hosts,
+        isError: toolResult.isError
+      })
+      await this.saveUserMessage(toolResult.output, undefined, 'command_output')
+      await this.saveCheckpoint()
     } else if (text) {
       await this.pushAdditionalToolFeedback(text)
       await this.saveUserMessage(text, contentParts)
@@ -4907,6 +4934,31 @@ USERNAME:${localSystemInfo.userName}`
     return getKbSearchEnabledLabel(locale)
   }
 
+  private buildKbSearchUiMessage(results: KbSearchResult[], locale: string): { text: string; contentParts: ContentPart[] } {
+    const kbLabel = this.getKbSearchLabel(locale)
+    const kbRoot = getKnowledgeBaseRoot()
+    const text = `${kbLabel}:\n${results.map((r) => `  ${r.path} L${r.startLine}-${r.endLine}`).join('\n')}\n`
+    const contentParts: ContentPart[] = [{ type: 'text', text: `${kbLabel}:` }]
+
+    for (const result of results) {
+      const relPath = result.path.replace(/\\/g, '/')
+      contentParts.push({
+        type: 'chip',
+        chipType: 'doc',
+        ref: {
+          absPath: path.join(kbRoot, relPath).replace(/\\/g, '/'),
+          relPath,
+          name: path.basename(relPath),
+          type: 'file',
+          startLine: result.startLine,
+          endLine: result.endLine
+        }
+      })
+    }
+
+    return { text, contentParts }
+  }
+
   private async handleKbSearchToolUse(block: ToolUse): Promise<void> {
     const toolDescription = this.getToolDescription(block)
     const query = block.params.query
@@ -4929,8 +4981,9 @@ USERNAME:${localSystemInfo.userName}`
       if (results.length === 0) {
         await this.pushToolResult(toolDescription, 'No relevant results found in the knowledge base.')
       } else {
-        const kbLabel = this.getKbSearchLabel(await this.getUserLocale())
-        await this.say('text', `${kbLabel}:\n${results.map((r) => `  ${r.path} L${r.startLine}-${r.endLine}`).join('\n')}\n`, false)
+        const locale = await this.getUserLocale()
+        const uiMessage = this.buildKbSearchUiMessage(results, locale)
+        await this.say('text', uiMessage.text, false, undefined, uiMessage.contentParts)
         const formatted = results
           .map((r, i) => `[${i + 1}] ${r.path} (lines ${r.startLine}-${r.endLine}, score: ${r.score.toFixed(3)})\n${r.snippet}`)
           .join('\n\n---\n\n')
@@ -4991,8 +5044,9 @@ USERNAME:${localSystemInfo.userName}`
       const results = await mgr.search(query)
       if (results.length === 0) return null
 
-      const kbLabel = this.getKbSearchLabel(await this.getUserLocale())
-      await this.say('text', `${kbLabel}:\n${results.map((r) => `  ${r.path} L${r.startLine}-${r.endLine}`).join('\n')}\n`, false)
+      const locale = await this.getUserLocale()
+      const uiMessage = this.buildKbSearchUiMessage(results, locale)
+      await this.say('text', uiMessage.text, false, undefined, uiMessage.contentParts)
 
       const formatted = results.map((r) => `[${r.path}:${r.startLine}-${r.endLine}] (score: ${r.score.toFixed(3)})\n${r.snippet}`).join('\n\n---\n\n')
       return `\n\n<knowledge_base_context>\nThe following knowledge base documents may be relevant to your task:\n\n${formatted}\n</knowledge_base_context>`

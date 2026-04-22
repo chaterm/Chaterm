@@ -98,6 +98,7 @@ export default {
     pleaseInputPrivateKey: '请输入私钥',
     localhost: '本地主机',
     favoriteBar: '收藏栏',
+    recentConnections: '最近连接',
     executeCommandToAllWindows: '执行命令到全部窗口',
     broadcastTo: '广播到 {count} 个终端',
     reloadAliasDataFailed: '重新加载别名数据失败',

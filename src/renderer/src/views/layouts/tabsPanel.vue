@@ -62,6 +62,9 @@
           <KnowledgeCenterEditor
             v-if="localTab.content === 'KnowledgeCenterEditor' && localTab.props"
             :rel-path="localTab.props.relPath || ''"
+            :start-line="localTab.props.startLine"
+            :end-line="localTab.props.endLine"
+            :jump-token="localTab.props.jumpToken"
             :mode="localTab.mode"
           />
           <Kubernetes v-if="localTab.content === 'kubernetes'" />
@@ -132,6 +135,9 @@ interface TabItem {
     filePath?: string
     initialContent?: string
     relPath?: string
+    startLine?: number
+    endLine?: number
+    jumpToken?: number | string
     organizationUuid?: string
   }
   mode?: 'editor' | 'preview'

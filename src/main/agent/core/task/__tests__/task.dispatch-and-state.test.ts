@@ -90,14 +90,16 @@ describe('Task dispatch and state flow', () => {
 
   it('handleWebviewAskResponse should persist payload and apply truncation', async () => {
     const contentParts = [{ type: 'chip', chipType: 'doc' }]
-    await task.handleWebviewAskResponse('yesButtonClicked', 'ok', 12345, contentParts)
+    const toolResult = { output: 'ls output', toolName: 'execute_command' }
+    await task.handleWebviewAskResponse('yesButtonClicked', 'ok', 12345, contentParts, toolResult)
 
     expect(task.truncateHistoryAtTimestamp).toHaveBeenCalledWith(12345)
     expect(task.setNextUserInputContentParts).toHaveBeenCalledWith(contentParts)
     expect(task.askResponsePayload).toEqual({
       response: 'yesButtonClicked',
       text: 'ok',
-      contentParts
+      contentParts,
+      toolResult
     })
   })
 

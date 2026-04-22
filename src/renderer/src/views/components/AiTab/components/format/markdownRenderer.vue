@@ -276,73 +276,99 @@
         </a-collapse>
       </template>
 
-      <div v-if="(normalContent || codeBlocks.length > 0) && props.say !== 'skill_activated'">
-        <template
-          v-for="(part, index) in contentParts"
-          :key="index"
-        >
+      <div v-if="(normalContent || codeBlocks.length > 0 || kbSearchResults) && props.say !== 'skill_activated'">
+        <template v-if="kbSearchResults">
           <div
-            v-if="part.type === 'text'"
             class="markdown-content"
             :class="{ 'ssh-info-message': props.say === 'sshInfo' }"
             style="margin: 0 8px"
-            v-html="sanitizeHtml(marked(part.content || '', null))"
-          ></div>
-          <div
-            v-else-if="part.type === 'code'"
-            class="command-editor-container"
           >
-            <a-collapse
-              :active-key="part.block.lines < 10 ? ['1'] : part.block.activeKey"
-              :default-active-key="['1']"
-              :class="{ 'collapse-expand-icon-hidden': part.block.lines < 10 }"
-              class="code-collapse"
-              expand-icon-position="start"
-              @update:active-key="
-                (keys) => {
-                  if (part.block.lines >= 10) part.block.activeKey = keys
-                }
-              "
-            >
-              <a-collapse-panel
-                key="1"
-                class="code-panel"
-              >
-                <template #header>
-                  <a-space @click.stop>
-                    <a-typography-text
-                      type="secondary"
-                      italic
-                    >
-                      {{ t('ai.codePreview', { lines: part.block.lines }) }}
-                    </a-typography-text>
-                    <a-button
-                      class="copy-button"
-                      type="text"
-                      size="small"
-                      @click.stop="part.blockIndex !== undefined && copyBlockContent(part.blockIndex)"
-                    >
-                      <img
-                        :src="copySvg"
-                        alt="copy"
-                        class="copy-icon"
-                      />
-                    </a-button>
-                  </a-space>
-                </template>
-                <div
-                  :ref="
-                    (el) => {
-                      if (el && typeof part.blockIndex === 'number') {
-                        codeEditors[part.blockIndex] = el as HTMLElement
-                      }
-                    }
-                  "
-                  class="monaco-container"
-                />
-              </a-collapse-panel>
-            </a-collapse>
+            {{ kbSearchResults.title }}
           </div>
+          <div
+            v-for="item in kbSearchResults.items"
+            :key="`${item.relPath}:${item.startLine}-${item.endLine}`"
+            class="markdown-content"
+            :class="{ 'ssh-info-message': props.say === 'sshInfo' }"
+            style="margin: 0 8px"
+          >
+            <button
+              type="button"
+              class="kb-search-result-link"
+              @click="openKbSearchResult(item)"
+            >
+              {{ item.displayText }}
+            </button>
+          </div>
+        </template>
+        <template v-else>
+          <template
+            v-for="(part, index) in contentParts"
+            :key="index"
+          >
+            <div
+              v-if="part.type === 'text'"
+              class="markdown-content"
+              :class="{ 'ssh-info-message': props.say === 'sshInfo' }"
+              style="margin: 0 8px"
+              v-html="sanitizeHtml(marked(part.content || '', null))"
+            ></div>
+            <div
+              v-else-if="part.type === 'code'"
+              class="command-editor-container"
+            >
+              <a-collapse
+                :active-key="part.block.lines < 10 ? ['1'] : part.block.activeKey"
+                :default-active-key="['1']"
+                :class="{ 'collapse-expand-icon-hidden': part.block.lines < 10 }"
+                class="code-collapse"
+                expand-icon-position="start"
+                @update:active-key="
+                  (keys) => {
+                    if (part.block.lines >= 10) part.block.activeKey = keys
+                  }
+                "
+              >
+                <a-collapse-panel
+                  key="1"
+                  class="code-panel"
+                >
+                  <template #header>
+                    <a-space @click.stop>
+                      <a-typography-text
+                        type="secondary"
+                        italic
+                      >
+                        {{ t('ai.codePreview', { lines: part.block.lines }) }}
+                      </a-typography-text>
+                      <a-button
+                        class="copy-button"
+                        type="text"
+                        size="small"
+                        @click.stop="part.blockIndex !== undefined && copyBlockContent(part.blockIndex)"
+                      >
+                        <img
+                          :src="copySvg"
+                          alt="copy"
+                          class="copy-icon"
+                        />
+                      </a-button>
+                    </a-space>
+                  </template>
+                  <div
+                    :ref="
+                      (el) => {
+                        if (el && typeof part.blockIndex === 'number') {
+                          codeEditors[part.blockIndex] = el as HTMLElement
+                        }
+                      }
+                    "
+                    class="monaco-container"
+                  />
+                </a-collapse-panel>
+              </a-collapse>
+            </div>
+          </template>
         </template>
       </div>
     </div>
@@ -377,6 +403,8 @@ import i18n from '@/locales'
 import { extractFinalOutput, cleanAnsiEscapeSequences } from '@/utils/terminalOutputExtractor'
 import { userConfigStore as userConfigStoreService } from '@/services/userConfigStoreService'
 import { getCustomTheme, isDarkTheme } from '@/utils/themeUtils'
+import eventBus from '@/utils/eventBus'
+import type { ContentPart, ContextDocRef } from '@shared/WebviewMessage'
 import TerminalOutputRenderer from '../format/terminalOutputRenderer.vue'
 
 const logger = createRendererLogger('ai.markdown')
@@ -514,6 +542,7 @@ const props = defineProps<{
   ask?: string
   say?: string
   partial?: boolean
+  messageContentParts?: ContentPart[]
   executedCommand?: string
   // Multi-host execution identification
   hostId?: string
@@ -564,6 +593,53 @@ const codeEditors = ref<Array<HTMLElement | null>>([])
 const isCodeExpanded = ref(false) // Code content default folded
 
 const contentStableTimeout = ref<NodeJS.Timeout | null>(null)
+
+type KbSearchResultItem = {
+  relPath: string
+  name: string
+  startLine: number
+  endLine: number
+  displayText: string
+}
+
+const isKbSearchDocPart = (part: ContentPart): part is Extract<ContentPart, { type: 'chip'; chipType: 'doc' }> => {
+  return (
+    part.type === 'chip' &&
+    part.chipType === 'doc' &&
+    typeof part.ref.relPath === 'string' &&
+    part.ref.relPath.length > 0 &&
+    typeof part.ref.startLine === 'number' &&
+    typeof part.ref.endLine === 'number'
+  )
+}
+
+const kbSearchResults = computed<null | { title: string; items: KbSearchResultItem[] }>(() => {
+  if (props.say !== 'text') return null
+
+  const parts = props.messageContentParts || []
+  const docParts = parts.filter(isKbSearchDocPart)
+  if (docParts.length === 0) return null
+
+  const titlePart = parts.find((part): part is Extract<ContentPart, { type: 'text' }> => part.type === 'text')
+  const items = docParts.map((part) => {
+    const ref = part.ref as ContextDocRef
+    const relPath = ref.relPath || ''
+    const startLine = ref.startLine || 1
+    const endLine = ref.endLine || startLine
+    return {
+      relPath,
+      name: ref.name || relPath.split('/').pop() || relPath,
+      startLine,
+      endLine,
+      displayText: `${relPath} L${startLine}-${endLine}`
+    }
+  })
+
+  return {
+    title: titlePart?.text || 'Knowledge base search:',
+    items
+  }
+})
 
 const detectLanguage = (content: string): string => {
   if (!content) return 'shell'
@@ -1460,6 +1536,19 @@ const toggleCommandOutput = () => {
   }
 }
 
+const openKbSearchResult = (item: KbSearchResultItem) => {
+  eventBus.emit('openUserTab', {
+    key: 'KnowledgeCenterEditor',
+    title: item.name,
+    props: {
+      relPath: item.relPath,
+      startLine: item.startLine,
+      endLine: item.endLine,
+      jumpToken: `${Date.now()}-${Math.random()}`
+    }
+  })
+}
+
 // Expose method to parent component
 const setThinkingLoading = (loading: boolean) => {
   thinkingLoading.value = loading
@@ -2297,6 +2386,24 @@ body.has-custom-bg .monaco-editor .margin {
   cursor: pointer;
 }
 
+.kb-search-result-link {
+  padding: 0;
+  border: none;
+  background: transparent;
+  color: #1677ff;
+  text-align: left;
+  cursor: pointer;
+  font: inherit;
+  line-height: inherit;
+  white-space: normal;
+  word-break: break-all;
+}
+
+.kb-search-result-link:hover {
+  color: #4096ff;
+  text-decoration: underline;
+}
+
 .command-output .error {
   color: #e06c75;
   font-weight: 500;
@@ -2808,6 +2915,28 @@ body.has-custom-bg .monaco-editor .margin {
 
 .skill-activated-text {
   font-weight: 500;
+}
+
+.kb-search-results {
+  margin: 4px 8px;
+}
+
+.kb-search-result-list {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 6px;
+  margin: 6px 8px 0;
+}
+
+.kb-search-result-link {
+  padding: 0;
+  border: none;
+  background: transparent;
+  color: var(--ant-primary-color, #1677ff);
+  cursor: pointer;
+  text-decoration: underline;
+  font: inherit;
 }
 
 .command-output::-webkit-scrollbar-thumb {

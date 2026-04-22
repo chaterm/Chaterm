@@ -5,25 +5,56 @@ import { nextTick } from 'vue'
 // Ensure `self` exists for MonacoEnvironment assignment in component
 ;(globalThis as any).self = globalThis
 
+const { monacoMocks } = vi.hoisted(() => {
+  const model = {
+    updateOptions: vi.fn(),
+    getLineCount: vi.fn(() => 12),
+    getLineMaxColumn: vi.fn((line: number) => line + 10)
+  }
+
+  const editorInstance = {
+    onDidChangeModelContent: vi.fn(),
+    onDidContentSizeChange: vi.fn(),
+    getValue: vi.fn(() => ''),
+    setValue: vi.fn(),
+    getModel: vi.fn(() => model),
+    updateOptions: vi.fn(),
+    layout: vi.fn(),
+    dispose: vi.fn(),
+    getContentHeight: vi.fn(() => 120),
+    setSelection: vi.fn(),
+    revealLineInCenter: vi.fn(),
+    focus: vi.fn(),
+    getSelection: vi.fn(() => null),
+    executeEdits: vi.fn()
+  }
+
+  return {
+    monacoMocks: {
+      model,
+      editorInstance
+    }
+  }
+})
+
 // -----------------------------------------------------------------------------
 // Mocks for Monaco + ESM contrib modules + workers
 // -----------------------------------------------------------------------------
 vi.mock('monaco-editor', () => {
-  const editorInstance = {
-    onDidChangeModelContent: vi.fn(),
-    getValue: vi.fn(() => ''),
-    setValue: vi.fn(),
-    getModel: vi.fn(() => ({ updateOptions: vi.fn() })),
-    updateOptions: vi.fn(),
-    layout: vi.fn(),
-    dispose: vi.fn()
-  }
-
   return {
+    Selection: class {
+      constructor(
+        public startLineNumber: number,
+        public startColumn: number,
+        public endLineNumber: number,
+        public endColumn: number
+      ) {}
+    },
     editor: {
-      create: vi.fn(() => editorInstance),
+      create: vi.fn(() => monacoMocks.editorInstance),
       defineTheme: vi.fn(),
-      setModelLanguage: vi.fn()
+      setModelLanguage: vi.fn(),
+      getEditors: vi.fn(() => [monacoMocks.editorInstance])
     }
   }
 })
@@ -128,6 +159,29 @@ describe('monacoEditor background mode', () => {
     MockMutationObserver.lastInstance = null
     ;(globalThis as any).MutationObserver = MockMutationObserver as any
     document.body.className = ''
+    monacoMocks.model.updateOptions.mockClear()
+    monacoMocks.model.getLineCount.mockReset()
+    monacoMocks.model.getLineCount.mockReturnValue(12)
+    monacoMocks.model.getLineMaxColumn.mockReset()
+    monacoMocks.model.getLineMaxColumn.mockImplementation((line: number) => line + 10)
+    monacoMocks.editorInstance.onDidChangeModelContent.mockClear()
+    monacoMocks.editorInstance.onDidContentSizeChange.mockClear()
+    monacoMocks.editorInstance.getValue.mockReset()
+    monacoMocks.editorInstance.getValue.mockReturnValue('')
+    monacoMocks.editorInstance.setValue.mockClear()
+    monacoMocks.editorInstance.getModel.mockReset()
+    monacoMocks.editorInstance.getModel.mockReturnValue(monacoMocks.model)
+    monacoMocks.editorInstance.updateOptions.mockClear()
+    monacoMocks.editorInstance.layout.mockClear()
+    monacoMocks.editorInstance.dispose.mockClear()
+    monacoMocks.editorInstance.getContentHeight.mockReset()
+    monacoMocks.editorInstance.getContentHeight.mockReturnValue(120)
+    monacoMocks.editorInstance.setSelection.mockClear()
+    monacoMocks.editorInstance.revealLineInCenter.mockClear()
+    monacoMocks.editorInstance.focus.mockClear()
+    monacoMocks.editorInstance.getSelection.mockReset()
+    monacoMocks.editorInstance.getSelection.mockReturnValue(null)
+    monacoMocks.editorInstance.executeEdits.mockClear()
   })
 
   afterEach(() => {
@@ -295,5 +349,58 @@ describe('KnowledgeCenterEditor markdown highlight', () => {
     expect(preview.html()).toContain('class="mermaid"')
     expect(mermaid.initialize).toHaveBeenCalled()
     expect(mermaid.run).toHaveBeenCalled()
+  })
+
+  it('should jump to requested lines and retrigger when jumpToken changes', async () => {
+    ;(window as any).api.kbReadFile.mockResolvedValueOnce({
+      content: ['line1', 'line2', 'line3'].join('\n'),
+      mtimeMs: 1
+    })
+    monacoMocks.model.getLineCount.mockReturnValue(8)
+    monacoMocks.model.getLineMaxColumn.mockImplementation((line: number) => line * 10)
+
+    const wrapper = mount(KnowledgeCenterEditor, {
+      props: {
+        relPath: 'docs/jump.md',
+        mode: 'editor',
+        startLine: 99,
+        endLine: 120,
+        jumpToken: 'jump-1'
+      }
+    })
+
+    await nextTick()
+    await flushPromises()
+    await nextTick()
+
+    expect(monacoMocks.editorInstance.setSelection).toHaveBeenCalled()
+    expect(monacoMocks.editorInstance.revealLineInCenter).toHaveBeenCalled()
+    expect(monacoMocks.editorInstance.focus).toHaveBeenCalled()
+
+    const initialJumpCount = monacoMocks.editorInstance.setSelection.mock.calls.length
+    expect(monacoMocks.editorInstance.setSelection).toHaveBeenLastCalledWith({
+      startLineNumber: 8,
+      startColumn: 1,
+      endLineNumber: 8,
+      endColumn: 80
+    })
+    expect(monacoMocks.editorInstance.revealLineInCenter).toHaveBeenLastCalledWith(8)
+
+    await wrapper.setProps({
+      jumpToken: 'jump-2'
+    })
+    await nextTick()
+    await flushPromises()
+    await nextTick()
+
+    expect(monacoMocks.editorInstance.setSelection.mock.calls.length).toBeGreaterThan(initialJumpCount)
+    expect(monacoMocks.editorInstance.revealLineInCenter.mock.calls.length).toBeGreaterThanOrEqual(2)
+    expect(monacoMocks.editorInstance.focus.mock.calls.length).toBeGreaterThanOrEqual(2)
+    expect(monacoMocks.editorInstance.setSelection).toHaveBeenLastCalledWith({
+      startLineNumber: 8,
+      startColumn: 1,
+      endLineNumber: 8,
+      endColumn: 80
+    })
   })
 })

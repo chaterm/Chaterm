@@ -7,7 +7,7 @@ import type { ChatMessage, Host } from '../types'
 import type { Todo } from '@/types/todo'
 import type { ChatTab } from './useSessionState'
 import type { ExtensionMessage } from '@shared/ExtensionMessage'
-import type { ContentPart, WebviewMessage } from '@shared/WebviewMessage'
+import type { ContentPart, ToolResultPayload, WebviewMessage } from '@shared/WebviewMessage'
 import { createNewMessage, parseMessageContent, pickHostInfo, isSwitchAssetType } from '../utils'
 import { Notice } from '@/views/components/Notice'
 import { useSessionState } from './useSessionState'
@@ -106,7 +106,8 @@ export function useChatMessages(
     tabId?: string,
     truncateAtMessageTs?: number,
     contentParts?: ContentPart[],
-    overrideHosts?: Host[]
+    overrideHosts?: Host[],
+    toolResult?: ToolResultPayload
   ) => {
     try {
       const targetTab = tabId ? chatTabs.value.find((tab) => tab.id === tabId) : currentTab.value
@@ -140,7 +141,7 @@ export function useChatMessages(
         message = {
           type: 'askResponse',
           askResponse: 'yesButtonClicked',
-          text: userContent,
+          ...(toolResult ? { toolResult } : { text: userContent }),
           hosts: hostsArray,
           contentParts
         }
@@ -244,7 +245,8 @@ export function useChatMessages(
     tabId?: string,
     truncateAtMessageTs?: number,
     contentParts?: ContentPart[],
-    overrideHosts?: Host[]
+    overrideHosts?: Host[],
+    toolResult?: ToolResultPayload
   ) => {
     const targetTab = tabId ? chatTabs.value.find((tab: ChatTab) => tab.id === tabId) : currentTab.value
 
@@ -256,7 +258,7 @@ export function useChatMessages(
     session.isCancelled = false
     // Strip Vue proxies before IPC to avoid structured clone failures.
     contentParts = contentParts ? contentParts.map((part) => (isProxy(part) ? (toRaw(part) as ContentPart) : part)) : undefined
-    await sendMessageToMain(userContent, sendType, tabId, truncateAtMessageTs, contentParts, overrideHosts)
+    await sendMessageToMain(userContent, sendType, tabId, truncateAtMessageTs, contentParts, overrideHosts, toolResult)
 
     const userMessage: ChatMessage = {
       id: uuidv4(),
@@ -303,6 +305,7 @@ export function useChatMessages(
       message.partialMessage.ts,
       false
     )
+    newAssistantMessage.contentParts = message.partialMessage.contentParts
 
     cleanupPartialCommandMessages(session.chatHistory)
     session.chatHistory.push(newAssistantMessage)
@@ -505,6 +508,10 @@ export function useChatMessages(
           newAssistantMessage.content = parseMessageContent(partial.text)
         }
 
+        if (partial.contentParts) {
+          newAssistantMessage.contentParts = partial.contentParts
+        }
+
         if (partial.mcpToolCall) {
           newAssistantMessage.mcpToolCall = partial.mcpToolCall
         }
@@ -522,6 +529,9 @@ export function useChatMessages(
         lastMessageInChat.ask = partial.type === 'ask' ? (partial.ask ?? '') : ''
         lastMessageInChat.say = partial.type === 'say' ? (partial.say ?? '') : ''
         lastMessageInChat.partial = partial.partial
+        if (partial.contentParts) {
+          lastMessageInChat.contentParts = partial.contentParts
+        }
 
         if (partial.mcpToolCall) {
           lastMessageInChat.mcpToolCall = partial.mcpToolCall
