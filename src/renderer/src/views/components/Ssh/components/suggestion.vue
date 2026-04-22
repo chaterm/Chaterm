@@ -6,7 +6,7 @@
     @mousedown.prevent
   >
     <div class="suggestion-list">
-      <!-- AI loading indicator - shown at top of list -->
+      <!-- AI loading indicator - shown at top of list when AI is fetching -->
       <div
         v-if="aiLoading"
         class="suggestion-item ai-loading-item"
@@ -79,6 +79,26 @@
         <kbd class="key enter-key">↵</kbd>
         <span class="hint-label">{{ $t('common.confirm') }}</span>
       </div>
+      <!-- AI trigger icon - hover to request AI suggestion -->
+      <div
+        v-if="aiEnabled && !selectionMode && !aiLoading && !hasAiSuggestion"
+        class="hint-item ai-trigger"
+        @mouseenter="$emit('triggerAi')"
+      >
+        <span class="ai-trigger-icon"></span>
+        <span class="hint-label">AI</span>
+      </div>
+      <div
+        v-if="aiEnabled && !selectionMode && aiLoading"
+        class="hint-item ai-trigger ai-trigger-loading"
+      >
+        <span class="ai-trigger-icon ai-trigger-icon-loading"></span>
+        <span class="ai-loading-dots ai-trigger-dots">
+          <span class="dot"></span>
+          <span class="dot"></span>
+          <span class="dot"></span>
+        </span>
+      </div>
     </div>
   </div>
 </template>
@@ -92,6 +112,12 @@ const props = defineProps<{
   activeSuggestion: number
   selectionMode: boolean
   aiLoading: boolean
+  aiEnabled: boolean
+  hasAiSuggestion: boolean
+}>()
+
+defineEmits<{
+  triggerAi: []
 }>()
 
 const updateSuggestionsPosition = (term) => {
@@ -400,6 +426,49 @@ defineExpose({ updateSuggestionsPosition })
   font-size: 10px;
   color: rgba(255, 255, 255, 0.35);
   letter-spacing: 0.2px;
+}
+
+/* AI trigger button in keyboard hints area */
+.ai-trigger {
+  margin-left: auto;
+  cursor: pointer;
+  padding: 2px 6px;
+  border-radius: 4px;
+  transition: background 0.2s ease;
+}
+
+.ai-trigger:hover {
+  background: rgba(179, 127, 235, 0.15);
+}
+
+.ai-trigger-loading {
+  cursor: default;
+}
+
+.ai-trigger-icon {
+  display: inline-block;
+  width: 14px;
+  height: 14px;
+  background-color: #b37feb;
+  -webkit-mask: url('@/assets/icons/thinking.svg') no-repeat center/contain;
+  mask: url('@/assets/icons/thinking.svg') no-repeat center/contain;
+  vertical-align: middle;
+  transition:
+    transform 0.2s ease,
+    filter 0.2s ease;
+}
+
+.ai-trigger:hover .ai-trigger-icon {
+  transform: scale(1.15);
+  filter: drop-shadow(0 0 4px rgba(179, 127, 235, 0.5));
+}
+
+.ai-trigger-icon-loading {
+  animation: ai-icon-pulse 1.5s ease-in-out infinite;
+}
+
+.ai-trigger-dots {
+  margin-left: 2px;
 }
 </style>
 

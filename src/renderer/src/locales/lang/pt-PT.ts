@@ -640,7 +640,8 @@ export default {
       fontSizeDecrease: 'Diminuir tamanho da fonte',
       toggleLayout: 'Alternar layout (terminal/agents)',
       toggleAgentsLeftSidebar: 'Alternar barra lateral esquerda dos agents',
-      switchAiMode: 'Alternar modo AI'
+      switchAiMode: 'Alternar modo AI',
+      aiSuggestCommand: 'Sugestão de comando AI'
     },
     hints: {
       sendOrToggleAi: 'Chat com IA',

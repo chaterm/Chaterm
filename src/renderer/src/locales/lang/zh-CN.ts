@@ -621,7 +621,8 @@ export default {
       fontSizeDecrease: '字体缩小',
       toggleLayout: '切换布局（Terminal/Agents）',
       toggleAgentsLeftSidebar: '切换Agents布局左侧边栏',
-      switchAiMode: '切换AI模式'
+      switchAiMode: '切换AI模式',
+      aiSuggestCommand: 'AI命令推荐'
     },
     hints: {
       sendOrToggleAi: '与AI对话',
