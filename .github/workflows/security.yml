@@ -57,7 +57,7 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Run TruffleHog (OSS)
-        uses: trufflesecurity/trufflehog@794a6e5211d8b9c554a27a582c68e71189c5c33a # main
+        uses: trufflesecurity/trufflehog@17456f8c7d042d8c82c9a8ca9e937231f9f42e26 # main
         with:
           extra_args: --only-verified
         continue-on-error: true
