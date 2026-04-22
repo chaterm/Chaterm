@@ -39,6 +39,7 @@
           <Model />
         </a-tab-pane>
         <a-tab-pane
+          v-if="deployStatus === 0"
           key="4"
           :tab="$t('user.billing')"
           type="card"
@@ -138,6 +139,16 @@ import eventBus from '@/utils/eventBus'
 import { getDocsBaseUrl } from '@/utils/edition'
 
 const activeKey = ref('0')
+
+const parseDeployStatus = (raw: unknown): number => {
+  if (typeof raw !== 'string') return 0
+  const normalized = raw.trim()
+  if (!normalized) return 0
+  const parsed = Number(normalized)
+  if (!Number.isFinite(parsed)) return 0
+  return parsed
+}
+const deployStatus = parseDeployStatus(import.meta.env.RENDERER_DEPLOY_STATUS)
 
 const switchToTerminalTab = () => {
   activeKey.value = '1'

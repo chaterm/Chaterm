@@ -18,6 +18,7 @@
           </template>
         </a-form-item>
         <a-form-item
+          v-if="!telemetryPolicyHidden"
           :label="$t('user.telemetry')"
           class="user_my-ant-form-item"
         >
@@ -31,6 +32,7 @@
           </a-radio-group>
         </a-form-item>
         <a-form-item
+          v-if="!telemetryPolicyHidden"
           class="description-item"
           :label-col="{ span: 0 }"
           :wrapper-col="{ span: 24 }"
@@ -93,7 +95,7 @@
           </a-collapse>
         </a-form-item>
         <a-form-item
-          v-if="isUserLoggedIn"
+          v-if="isUserLoggedIn && !dataSyncPolicyHidden"
           :label="$t('user.dataSync')"
           class="user_my-ant-form-item"
         >
@@ -108,7 +110,7 @@
         </a-form-item>
 
         <a-form-item
-          v-if="isUserLoggedIn"
+          v-if="isUserLoggedIn && !dataSyncPolicyHidden"
           class="description-item"
           :label-col="{ span: 0 }"
           :wrapper-col="{ span: 24 }"
@@ -118,7 +120,7 @@
           </div>
         </a-form-item>
         <a-form-item
-          v-if="isUserLoggedIn"
+          v-if="isUserLoggedIn && deployStatus === 0"
           class="account-management-item"
           :label-col="{ span: 0 }"
           :wrapper-col="{ span: 24 }"
@@ -218,6 +220,27 @@ const isUserLoggedIn = computed(() => {
     return false
   }
 })
+
+const parsePolicyEnabled = (raw: unknown): boolean | null => {
+  if (typeof raw !== 'string') return null
+  const normalized = raw.trim().toLowerCase()
+  if (['1', 'true', 'yes', 'on'].includes(normalized)) return true
+  if (['0', 'false', 'no', 'off'].includes(normalized)) return false
+  return null
+}
+const telemetryPolicyEnabled = parsePolicyEnabled(import.meta.env.RENDERER_TELEMETRY_ENABLED)
+const dataSyncPolicyEnabled = parsePolicyEnabled(import.meta.env.RENDERER_DATA_SYNC_ENABLED)
+const telemetryPolicyHidden = computed(() => telemetryPolicyEnabled === false)
+const dataSyncPolicyHidden = computed(() => dataSyncPolicyEnabled === false)
+const parseDeployStatus = (raw: unknown): number => {
+  if (typeof raw !== 'string') return 0
+  const normalized = raw.trim()
+  if (!normalized) return 0
+  const parsed = Number(normalized)
+  if (!Number.isFinite(parsed)) return 0
+  return parsed
+}
+const deployStatus = computed(() => parseDeployStatus(import.meta.env.RENDERER_DEPLOY_STATUS))
 
 const secretPatterns = computed(() => [
   {
@@ -319,6 +342,13 @@ const loadSavedConfig = async () => {
         dataSync: resolvedDataSync,
         telemetry: ((savedConfig as any).telemetry || 'unset') as 'unset' | 'enabled' | 'disabled'
       } as any
+      if (telemetryPolicyEnabled === false) {
+        userConfig.value.telemetry = 'disabled'
+      }
+      if (dataSyncPolicyEnabled === false) {
+        userConfig.value.dataSync = 'disabled'
+      }
+      await saveConfig()
     }
   } catch (error) {
     logger.error('Failed to load config', { error: error })
@@ -370,6 +400,9 @@ onBeforeUnmount(() => {
 
 const updateTelemetry = async () => {
   try {
+    if (telemetryPolicyEnabled === false) {
+      userConfig.value.telemetry = 'disabled'
+    }
     await window.api.sendToMain({
       type: 'telemetrySetting',
       telemetrySetting: userConfig.value.telemetry as TelemetrySetting
@@ -390,6 +423,12 @@ const changeSecretRedaction = async () => {
 }
 
 const changeDataSync = async () => {
+  if (dataSyncPolicyEnabled === false) {
+    userConfig.value.dataSync = 'disabled'
+    await saveConfig()
+    await dataSyncService.disableDataSync()
+    return
+  }
   await saveConfig()
 
   const isEnabled = userConfig.value.dataSync === 'enabled'

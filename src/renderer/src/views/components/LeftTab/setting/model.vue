@@ -33,7 +33,7 @@
             </span>
           </a-checkbox>
           <a-button
-            v-if="model.checked && model.type === 'custom'"
+            v-if="model.checked && model.type === 'custom' && !enterpriseConfigLocked"
             type="text"
             class="remove-button"
             @click="removeModel(model)"
@@ -46,7 +46,10 @@
     <div>
       <div class="add-model-switch">
         <span class="switch-label">{{ $t('user.addModel') }}</span>
-        <a-switch v-model:checked="addModelSwitch" />
+        <a-switch
+          v-model:checked="addModelSwitch"
+          :disabled="enterpriseConfigLocked"
+        />
       </div>
       <div v-if="addModelSwitch">
         <div class="section-header">
@@ -115,6 +118,7 @@
                   <a-button
                     class="save-btn"
                     size="small"
+                    :disabled="enterpriseConfigLocked"
                     @click="() => handleSave('litellm')"
                   >
                     Save
@@ -212,6 +216,7 @@
                   <a-button
                     class="save-btn"
                     size="small"
+                    :disabled="enterpriseConfigLocked"
                     @click="() => handleSave('openai')"
                   >
                     Save
@@ -337,6 +342,7 @@
                   <a-button
                     class="save-btn"
                     size="small"
+                    :disabled="enterpriseConfigLocked"
                     @click="() => handleSave('bedrock')"
                   >
                     Save
@@ -396,6 +402,7 @@
                   <a-button
                     class="save-btn"
                     size="small"
+                    :disabled="enterpriseConfigLocked"
                     @click="() => handleSave('deepseek')"
                   >
                     Save
@@ -471,6 +478,7 @@
                   <a-button
                     class="save-btn"
                     size="small"
+                    :disabled="enterpriseConfigLocked"
                     @click="() => handleSave('anthropic')"
                   >
                     Save
@@ -530,6 +538,7 @@
                   <a-button
                     class="save-btn"
                     size="small"
+                    :disabled="enterpriseConfigLocked"
                     @click="() => handleSave('ollama')"
                   >
                     Save
@@ -552,6 +561,7 @@ import { updateGlobalState, getGlobalState, getSecret, storeSecret, getAllExtens
 import eventBus from '@/utils/eventBus'
 import i18n from '@/locales'
 import { getUser } from '@api/user/user'
+import { isEnterpriseDeployEnabled, syncEnterpriseStateFromUserData } from '@views/components/AiTab/composables/useModelConfiguration'
 
 const logger = createRendererLogger('settings.model')
 
@@ -573,11 +583,20 @@ interface DefaultModel {
   [key: string]: unknown
 }
 
+interface EnterpriseModelConfig {
+  modelName: string
+  provider: string
+}
+
 const { t } = i18n.global
 const modelOptions = ref<ModelOption[]>([])
 const lockedModelNames = ref<Set<string>>(new Set())
+const enterpriseConfigLocked = ref(false)
+
+const ENTERPRISE_MODEL_ID_PREFIX = 'enterprise:'
 
 const isLockedModel = (name: string): boolean => lockedModelNames.value.has(name)
+const isEnterpriseModelOption = (option: Pick<ModelOption, 'id'> | undefined): boolean => Boolean(option?.id?.startsWith(ENTERPRISE_MODEL_ID_PREFIX))
 
 const awsRegionOptions = ref([
   { value: 'us-east-1', label: 'us-east-1' },
@@ -664,13 +683,39 @@ const openAiUrlPreview = computed(() => {
   return `${baseUrl}${separator}${apiPath}`
 })
 
+const normalizeEnterpriseModelConfigs = (configs: unknown): EnterpriseModelConfig[] => {
+  if (!Array.isArray(configs)) return []
+
+  return configs
+    .map((item) => {
+      const config = item as Record<string, unknown>
+      const modelName = String(config?.modelName || '').trim()
+      const provider = String(config?.provider || '')
+        .trim()
+        .toLowerCase()
+      if (!modelName || !provider) {
+        return null
+      }
+      return { modelName, provider }
+    })
+    .filter((config): config is EnterpriseModelConfig => Boolean(config))
+}
+
+const getEnterpriseModelNameByProvider = (configs: EnterpriseModelConfig[], provider: string): string => {
+  return configs.find((config) => config.provider === provider)?.modelName || ''
+}
+
 // Load saved configuration
 const loadSavedConfig = async () => {
   try {
+    const enterpriseModelConfigs = normalizeEnterpriseModelConfigs(await getGlobalState('enterpriseModelConfigs'))
+    const deployEnterpriseEnabled = isEnterpriseDeployEnabled()
+    const sharedApiModelId = ((await getGlobalState('apiModelId')) as string) || ''
+
     // Load API related configuration
     // apiProvider.value = ((await getGlobalState('apiProvider')) as string) || 'litellm'
     // AWS information
-    // apiModelId.value = ((await getGlobalState('apiModelId')) as string) || ''
+    awsModelId.value = getEnterpriseModelNameByProvider(enterpriseModelConfigs, 'bedrock') || sharedApiModelId
     awsRegion.value = ((await getGlobalState('awsRegion')) as string) || ''
     awsUseCrossRegionInference.value = ((await getGlobalState('awsUseCrossRegionInference')) as boolean) || false
     awsBedrockEndpoint.value = ((await getGlobalState('awsBedrockEndpoint')) as string) || ''
@@ -680,13 +725,17 @@ const loadSavedConfig = async () => {
     // OpenAI information
     liteLlmBaseUrl.value = ((await getGlobalState('liteLlmBaseUrl')) as string) || ''
     liteLlmApiKey.value = (await getSecret('liteLlmApiKey')) || ''
+    liteLlmModelId.value = ((await getGlobalState('liteLlmModelId')) as string) || getEnterpriseModelNameByProvider(enterpriseModelConfigs, 'litellm')
+    deepSeekModelId.value = getEnterpriseModelNameByProvider(enterpriseModelConfigs, 'deepseek') || sharedApiModelId
     deepSeekApiKey.value = (await getSecret('deepSeekApiKey')) || ''
     // Anthropic information
     anthropicBaseUrl.value = ((await getGlobalState('anthropicBaseUrl')) as string) || ''
     anthropicApiKey.value = (await getSecret('anthropicApiKey')) || ''
-    anthropicModelId.value = ((await getGlobalState('anthropicModelId')) as string) || ''
+    anthropicModelId.value =
+      ((await getGlobalState('anthropicModelId')) as string) || getEnterpriseModelNameByProvider(enterpriseModelConfigs, 'anthropic')
     openAiBaseUrl.value = ((await getGlobalState('openAiBaseUrl')) as string) || 'https://api.openai.com/v1'
     openAiApiKey.value = (await getSecret('openAiApiKey')) || ''
+    openAiModelId.value = ((await getGlobalState('openAiModelId')) as string) || getEnterpriseModelNameByProvider(enterpriseModelConfigs, 'openai')
     const savedModelInfo = (await getGlobalState('openAiModelInfo')) as Record<string, unknown> | undefined
     if (savedModelInfo?.apiFormat) {
       openAiApiFormat.value = savedModelInfo.apiFormat as 'chat-completions' | 'responses'
@@ -694,7 +743,11 @@ const loadSavedConfig = async () => {
     awsEndpointSelected.value = ((await getGlobalState('awsEndpointSelected')) as boolean) || false
     // Ollama information
     ollamaBaseUrl.value = ((await getGlobalState('ollamaBaseUrl')) as string) || 'http://localhost:11434'
-    ollamaModelId.value = ((await getGlobalState('ollamaModelId')) as string) || ''
+    ollamaModelId.value = ((await getGlobalState('ollamaModelId')) as string) || getEnterpriseModelNameByProvider(enterpriseModelConfigs, 'ollama')
+    enterpriseConfigLocked.value = deployEnterpriseEnabled && enterpriseModelConfigs.length > 0
+    if (enterpriseConfigLocked.value) {
+      addModelSwitch.value = false
+    }
   } catch (error) {
     logger.error('Failed to load config', { error: error })
     notification.error({
@@ -790,8 +843,8 @@ const saveOllamaConfig = async () => {
 
 // Load saved configuration when component is mounted
 onMounted(async () => {
-  await loadSavedConfig()
   await loadModelOptions()
+  await loadSavedConfig()
 })
 
 // Save configuration before component unmounts
@@ -965,6 +1018,10 @@ const handleModelChange = (model) => {
 }
 
 const removeModel = (model) => {
+  if (enterpriseConfigLocked.value) {
+    return
+  }
+
   if (model.type === 'custom') {
     const index = modelOptions.value.findIndex((m) => m.id === model.id)
     if (index !== -1) {
@@ -1040,21 +1097,48 @@ const loadModelOptions = async () => {
 
     let defaultModels: DefaultModel[] = []
     let subscriptionModelsList: string[] = []
-    await getUser({}).then((res) => {
-      defaultModels = res?.data?.models || []
-      subscriptionModelsList = (res?.data?.subscriptionModels || []).map((m: unknown) => String(m))
-      updateGlobalState('defaultBaseUrl', res?.data?.llmGatewayAddr)
-      storeSecret('defaultApiKey', res?.data?.key)
+    let enterpriseModelConfigs: EnterpriseModelConfig[] = []
+    let enterprisePluginActive = false
+    await getUser({}).then(async (res) => {
+      const userData = res?.data || {}
+      await syncEnterpriseStateFromUserData(userData, { reloadPlugins: true })
+      enterpriseModelConfigs = normalizeEnterpriseModelConfigs(userData.enterpriseModelConfigs)
+      enterprisePluginActive =
+        isEnterpriseDeployEnabled() && enterpriseModelConfigs.length > 0 && Boolean(await getGlobalState('enterpriseModelPluginActive'))
+      defaultModels = enterprisePluginActive ? [] : userData.models || []
+      subscriptionModelsList = enterprisePluginActive ? [] : (userData.subscriptionModels || []).map((m: unknown) => String(m))
+      await updateGlobalState('defaultBaseUrl', userData.llmGatewayAddr)
+      await storeSecret('defaultApiKey', userData.key)
     })
 
     const availableSet = new Set(defaultModels.map((m) => String(m)))
     const allKnownSet = new Set([...availableSet, ...subscriptionModelsList])
-    lockedModelNames.value = new Set(subscriptionModelsList.filter((m) => !availableSet.has(m)))
+    const enterpriseModelNames = new Set(enterpriseModelConfigs.map((config) => config.modelName))
+    lockedModelNames.value = new Set(enterprisePluginActive ? [] : subscriptionModelsList.filter((m) => !availableSet.has(m)))
 
     const savedModelOptions = (await getGlobalState('modelOptions')) || []
     if (savedModelOptions && Array.isArray(savedModelOptions)) {
+      if (enterprisePluginActive) {
+        modelOptions.value = savedModelOptions
+          .filter((option) => isEnterpriseModelOption(option))
+          .map((option) => ({
+            id: option.id || '',
+            name: option.name || '',
+            checked: Boolean(option.checked),
+            type: option.type || 'standard',
+            apiProvider: option.apiProvider || 'default'
+          }))
+        sortModelOptions()
+        await saveModelOptions()
+        return
+      }
+
       const filteredOptions = savedModelOptions.filter((option) => {
         if (option.type !== 'standard') return true
+        if (isEnterpriseModelOption(option)) return true
+        if (enterprisePluginActive) {
+          return !enterpriseModelNames.has(option.name)
+        }
         return allKnownSet.has(option.name)
       })
 
@@ -1072,18 +1156,20 @@ const loadModelOptions = async () => {
         }
       })
 
-      lockedModelNames.value.forEach((name) => {
-        const exists = filteredOptions.some((option) => option.name === name)
-        if (!exists) {
-          filteredOptions.push({
-            id: name,
-            name: name,
-            checked: true,
-            type: 'standard',
-            apiProvider: 'default'
-          })
-        }
-      })
+      if (!enterprisePluginActive) {
+        lockedModelNames.value.forEach((name) => {
+          const exists = filteredOptions.some((option) => option.name === name)
+          if (!exists) {
+            filteredOptions.push({
+              id: name,
+              name: name,
+              checked: true,
+              type: 'standard',
+              apiProvider: 'default'
+            })
+          }
+        })
+      }
 
       modelOptions.value = filteredOptions.map((option) => ({
         id: option.id || '',
@@ -1103,6 +1189,10 @@ const loadModelOptions = async () => {
 
 // Handle saving new model
 const handleSave = async (provider) => {
+  if (enterpriseConfigLocked.value) {
+    return
+  }
+
   let modelId = ''
   let modelName = ''
 

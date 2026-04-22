@@ -1162,6 +1162,10 @@ const api = {
     return ipcRenderer.invoke('plugins.uninstall', pluginId)
   },
 
+  reloadPlugins() {
+    return ipcRenderer.invoke('plugins.reload')
+  },
+
   listPlugins() {
     return ipcRenderer.invoke('plugins.listUi')
   },

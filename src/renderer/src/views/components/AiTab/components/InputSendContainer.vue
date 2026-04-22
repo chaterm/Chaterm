@@ -216,7 +216,10 @@
               />
             </a-button>
           </a-tooltip>
-          <a-tooltip :title="$t('ai.startVoiceInput')">
+          <a-tooltip
+            v-if="showVoiceInput"
+            :title="$t('ai.startVoiceInput')"
+          >
             <VoiceInput
               :disabled="responseLoading"
               :auto-send-after-voice="autoSendAfterVoice"
@@ -311,6 +314,17 @@ const props = withDefaults(defineProps<Props>(), {
 })
 
 const { t } = useI18n()
+
+const parseDeployStatus = (raw: unknown): number => {
+  if (typeof raw !== 'string') return 0
+  const normalized = raw.trim()
+  if (!normalized) return 0
+  const parsed = Number(normalized)
+  if (!Number.isFinite(parsed)) return 0
+  return parsed
+}
+const deployStatus = parseDeployStatus(import.meta.env.RENDERER_DEPLOY_STATUS)
+const showVoiceInput = deployStatus === 0
 
 const {
   chatTextareaRef,
