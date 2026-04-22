@@ -1,0 +1,55 @@
+name: Auto Request Reviewers
+
+on:
+  pull_request:
+    types: [opened, reopened, ready_for_review]
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  request-reviewers:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Request default reviewers
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
+        with:
+          script: |
+            const defaultReviewers = [
+              'zhouyu123666',
+              'dingdingdingyinyinyin',
+              'fishyu-mushroom',
+              'dsd2077',
+              'jarvishappy'
+            ];
+
+            const pr = context.payload.pull_request;
+            if (!pr) {
+              core.info('No pull_request payload found, skipping.');
+              return;
+            }
+
+            const existingRequested = (pr.requested_reviewers || []).map((u) => u.login);
+            const author = pr.user?.login;
+
+            const reviewersToRequest = defaultReviewers.filter(
+              (login) => login !== author && !existingRequested.includes(login)
+            );
+
+            if (reviewersToRequest.length === 0) {
+              core.info('No additional reviewers need to be requested.');
+              return;
+            }
+
+            try {
+              await github.rest.pulls.requestReviewers({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                pull_number: pr.number,
+                reviewers: reviewersToRequest
+              });
+              core.info(`Requested reviewers: ${reviewersToRequest.join(', ')}`);
+            } catch (error) {
+              core.warning(`Failed to request reviewers: ${error.message}`);
+            }
