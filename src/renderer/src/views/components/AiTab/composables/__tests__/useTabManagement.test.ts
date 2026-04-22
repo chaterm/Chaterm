@@ -513,7 +513,7 @@ describe('useTabManagement', () => {
       expect(mockState.chatTabs.value[0].id).not.toBe('history-3')
     })
 
-    it('should send showTaskWithId message to main', async () => {
+    it('should NOT send showTaskWithId message on history restore (deferred to askResponse)', async () => {
       mockChatermGetChatermMessagesPage.mockResolvedValue(createPageResult([]))
       mockGetTaskMetadata.mockResolvedValue({
         success: true,
@@ -538,11 +538,9 @@ describe('useTabManagement', () => {
 
       await restoreHistoryTab(history)
 
-      expect(mockSendToMain).toHaveBeenCalledWith(
+      expect(mockSendToMain).not.toHaveBeenCalledWith(
         expect.objectContaining({
-          type: 'showTaskWithId',
-          text: 'history-3',
-          hosts: [{ host: '10.0.0.1', uuid: 'srv-1', connection: 'jumpserver', assetType: 'person-switch-cisco' }]
+          type: 'showTaskWithId'
         })
       )
     })
@@ -620,7 +618,7 @@ describe('useTabManagement', () => {
 
       expect(mockChatermGetChatermMessagesPage).toHaveBeenCalledWith({
         taskId: 'history-paged',
-        limit: 60,
+        limit: 40,
         beforeCursor: null
       })
 
@@ -632,7 +630,7 @@ describe('useTabManagement', () => {
         beforeCursor: 41,
         hasMoreBefore: true,
         isLoadingBefore: false,
-        pageSize: 60
+        pageSize: 40
       })
     })
 
@@ -691,7 +689,7 @@ describe('useTabManagement', () => {
 
       expect(mockChatermGetChatermMessagesPage).toHaveBeenNthCalledWith(2, {
         taskId: 'history-load-older',
-        limit: 60,
+        limit: 40,
         beforeCursor: 21
       })
 
@@ -702,7 +700,7 @@ describe('useTabManagement', () => {
         beforeCursor: null,
         hasMoreBefore: false,
         isLoadingBefore: false,
-        pageSize: 60
+        pageSize: 40
       })
       expect(scrollContainer.scrollTop).toBe(240)
     })
@@ -777,7 +775,7 @@ describe('useTabManagement', () => {
         beforeCursor: null,
         hasMoreBefore: false,
         isLoadingBefore: false,
-        pageSize: 60
+        pageSize: 40
       })
     })
 
