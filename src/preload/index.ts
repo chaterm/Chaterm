@@ -1,6 +1,7 @@
 import { contextBridge, ipcRenderer, webUtils } from 'electron'
 import { electronAPI } from '@electron-toolkit/preload'
 import type { WebviewMessage } from '../main/agent/shared/WebviewMessage'
+import type { ChatermMessagesPage } from '../main/agent/shared/ExtensionMessage'
 
 import * as dotenv from 'dotenv'
 import * as path from 'path'
@@ -375,6 +376,19 @@ const chatermGetChatermMessages = async (data: { taskId: string }) => {
   }
 }
 
+const chatermGetChatermMessagesPage = async (data: {
+  taskId: string
+  beforeCursor?: number | null
+  limit?: number
+}): Promise<ChatermMessagesPage> => {
+  try {
+    const result = await ipcRenderer.invoke('agent-chaterm-messages-page', data)
+    return result
+  } catch (error) {
+    return Promise.reject(error)
+  }
+}
+
 const getPlatform = () => ipcRenderer.invoke('get-platform')
 const invokeCustomAdsorption = (data: { appX: number; appY: number }) => ipcRenderer.invoke('custom-adsorption', data)
 
@@ -618,6 +632,7 @@ const api = {
   updateKeyChain,
   connectAssetInfo,
   chatermGetChatermMessages,
+  chatermGetChatermMessagesPage,
   getTaskMetadata,
   saveTaskTitle,
   saveTaskFavorite,

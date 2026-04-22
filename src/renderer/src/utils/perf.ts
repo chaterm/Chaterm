@@ -30,11 +30,12 @@ const _marks: PerfMark[] = []
  * Record a performance mark at the current instant.
  */
 export function mark(name: string): void {
-  _marks.push({
+  const entry = {
     name,
     startTime: performance.now(),
     timestamp: Date.now()
-  })
+  }
+  _marks.push(entry)
 }
 
 /**

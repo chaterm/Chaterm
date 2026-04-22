@@ -5,6 +5,7 @@ import { useTabManagement } from '../useTabManagement'
 import { useSessionState } from '../useSessionState'
 import type { AssetInfo, HistoryItem } from '../../types'
 import type { ChatermMessage } from '@/types/ChatermMessage'
+import type { ChatermMessagesPage } from '@shared/ExtensionMessage'
 
 // Mock dependencies
 vi.mock('../useSessionState')
@@ -115,6 +116,7 @@ const storage = new Map<string, string>()
 // Mock window.api
 const mockGetTaskMetadata = vi.fn()
 const mockChatermGetChatermMessages = vi.fn()
+const mockChatermGetChatermMessagesPage = vi.fn()
 const mockSendToMain = vi.fn()
 const mockCancelTask = vi.fn()
 const mockSaveTaskTitle = vi.fn().mockResolvedValue(undefined)
@@ -139,6 +141,7 @@ global.window = {
   api: {
     getTaskMetadata: mockGetTaskMetadata,
     chatermGetChatermMessages: mockChatermGetChatermMessages,
+    chatermGetChatermMessagesPage: mockChatermGetChatermMessagesPage,
     sendToMain: mockSendToMain,
     cancelTask: mockCancelTask,
     saveTaskTitle: mockSaveTaskTitle,
@@ -220,6 +223,13 @@ describe('useTabManagement', () => {
     })
 
     mockSendToMain.mockResolvedValue({ success: true })
+  })
+
+  const createPageResult = (messages: ChatermMessage[], overrides: Partial<ChatermMessagesPage> = {}): ChatermMessagesPage => ({
+    messages,
+    nextCursor: null,
+    hasMore: false,
+    ...overrides
   })
 
   describe('createNewEmptyTab', () => {
@@ -366,7 +376,7 @@ describe('useTabManagement', () => {
           partial: false
         }
       ]
-      mockChatermGetChatermMessages.mockResolvedValue(mockMessages)
+      mockChatermGetChatermMessagesPage.mockResolvedValue(createPageResult(mockMessages))
 
       const { restoreHistoryTab } = useTabManagement({
         getCurentTabAssetInfo: mockGetCurentTabAssetInfo,
@@ -395,8 +405,58 @@ describe('useTabManagement', () => {
       expect(restoredTab!.session.chatHistory.map((m) => m.say)).toEqual([undefined, 'api_req_started', 'context_truncated'])
     })
 
+    it('should keep a paged text message as assistant when the chunk starts mid-conversation', async () => {
+      mockGetTaskMetadata.mockResolvedValue({ success: true, data: {} })
+      mockChatermGetChatermMessagesPage.mockResolvedValue(
+        createPageResult(
+          [
+            {
+              ask: undefined,
+              say: 'text',
+              text: 'Assistant reply',
+              type: 'say',
+              ts: 100,
+              partial: false
+            },
+            {
+              ask: undefined,
+              say: 'completion_result',
+              text: 'Done',
+              type: 'say',
+              ts: 101,
+              partial: false
+            }
+          ],
+          {
+            nextCursor: 88,
+            hasMore: true
+          }
+        )
+      )
+
+      const { restoreHistoryTab } = useTabManagement({
+        getCurentTabAssetInfo: mockGetCurentTabAssetInfo,
+        toggleSidebar: mockToggleSidebar
+      })
+
+      const history: HistoryItem = {
+        id: 'history-mid-page',
+        chatTitle: 'Paged Chat',
+        chatContent: [],
+        isFavorite: false,
+        isEditing: false,
+        editingTitle: ''
+      }
+
+      await restoreHistoryTab(history)
+
+      const mockState = vi.mocked(useSessionState)()
+      const restoredTab = mockState.chatTabs.value.find((t) => t.id === 'history-mid-page')
+      expect(restoredTab?.session.chatHistory[0].role).toBe('assistant')
+    })
+
     it('should replace current new tab with history', async () => {
-      mockChatermGetChatermMessages.mockResolvedValue([])
+      mockChatermGetChatermMessagesPage.mockResolvedValue(createPageResult([]))
       mockGetTaskMetadata.mockResolvedValue({ success: true, data: {} })
 
       const { restoreHistoryTab } = useTabManagement({
@@ -425,7 +485,7 @@ describe('useTabManagement', () => {
     })
 
     it('should keep current new tab when forceNewTab is true', async () => {
-      mockChatermGetChatermMessages.mockResolvedValue([])
+      mockChatermGetChatermMessagesPage.mockResolvedValue(createPageResult([]))
       mockGetTaskMetadata.mockResolvedValue({ success: true, data: {} })
 
       const { restoreHistoryTab } = useTabManagement({
@@ -453,8 +513,8 @@ describe('useTabManagement', () => {
       expect(mockState.chatTabs.value[0].id).not.toBe('history-3')
     })
 
-    it('should send showTaskWithId message to main', async () => {
-      mockChatermGetChatermMessages.mockResolvedValue([])
+    it('should NOT send showTaskWithId message on history restore (deferred to askResponse)', async () => {
+      mockChatermGetChatermMessagesPage.mockResolvedValue(createPageResult([]))
       mockGetTaskMetadata.mockResolvedValue({
         success: true,
         data: {
@@ -478,11 +538,9 @@ describe('useTabManagement', () => {
 
       await restoreHistoryTab(history)
 
-      expect(mockSendToMain).toHaveBeenCalledWith(
+      expect(mockSendToMain).not.toHaveBeenCalledWith(
         expect.objectContaining({
-          type: 'showTaskWithId',
-          text: 'history-3',
-          hosts: [{ host: '10.0.0.1', uuid: 'srv-1', connection: 'jumpserver', assetType: 'person-switch-cisco' }]
+          type: 'showTaskWithId'
         })
       )
     })
@@ -498,7 +556,7 @@ describe('useTabManagement', () => {
           partial: false
         }
       ]
-      mockChatermGetChatermMessages.mockResolvedValue(mockMessages)
+      mockChatermGetChatermMessagesPage.mockResolvedValue(createPageResult(mockMessages))
       mockGetTaskMetadata.mockResolvedValue({ success: true, data: {} })
 
       const { restoreHistoryTab } = useTabManagement({
@@ -522,6 +580,254 @@ describe('useTabManagement', () => {
       const message = restoredTab!.session.chatHistory[0]
       expect(message.say).toBe('command_output')
       expect(message.role).toBe('assistant')
+    })
+
+    it('should request the newest history page first and store paging state', async () => {
+      const mockMessages: ChatermMessage[] = Array.from({ length: 3 }, (_, index) => ({
+        ask: undefined,
+        say: 'text',
+        text: `Message ${index + 1}`,
+        type: 'say',
+        ts: 100 + index,
+        partial: false
+      }))
+
+      mockChatermGetChatermMessagesPage.mockResolvedValue(
+        createPageResult(mockMessages, {
+          nextCursor: 41,
+          hasMore: true
+        })
+      )
+      mockGetTaskMetadata.mockResolvedValue({ success: true, data: {} })
+
+      const { restoreHistoryTab } = useTabManagement({
+        getCurentTabAssetInfo: mockGetCurentTabAssetInfo,
+        toggleSidebar: mockToggleSidebar
+      })
+
+      const history: HistoryItem = {
+        id: 'history-paged',
+        chatTitle: 'Paged Chat',
+        chatContent: [],
+        isFavorite: false,
+        isEditing: false,
+        editingTitle: ''
+      }
+
+      await restoreHistoryTab(history)
+
+      expect(mockChatermGetChatermMessagesPage).toHaveBeenCalledWith({
+        taskId: 'history-paged',
+        limit: 40,
+        beforeCursor: null
+      })
+
+      const mockState = vi.mocked(useSessionState)()
+      const restoredTab = mockState.chatTabs.value.find((t) => t.id === 'history-paged')
+      expect(restoredTab).toBeDefined()
+      expect(restoredTab!.session.chatHistory).toHaveLength(3)
+      expect(restoredTab!.session.historyPagination).toEqual({
+        beforeCursor: 41,
+        hasMoreBefore: true,
+        isLoadingBefore: false,
+        pageSize: 40
+      })
+    })
+
+    it('should prepend older history pages when requested', async () => {
+      const firstPageMessages: ChatermMessage[] = [
+        { ask: undefined, say: 'text', text: 'Message 3', type: 'say', ts: 103, partial: false },
+        { ask: undefined, say: 'text', text: 'Message 4', type: 'say', ts: 104, partial: false }
+      ]
+      const olderPageMessages: ChatermMessage[] = [
+        { ask: undefined, say: 'text', text: 'Message 1', type: 'say', ts: 101, partial: false },
+        { ask: undefined, say: 'text', text: 'Message 2', type: 'say', ts: 102, partial: false }
+      ]
+
+      mockChatermGetChatermMessagesPage
+        .mockResolvedValueOnce(
+          createPageResult(firstPageMessages, {
+            nextCursor: 21,
+            hasMore: true
+          })
+        )
+        .mockImplementationOnce(async () => {
+          scrollHeight = 560
+          return createPageResult(olderPageMessages, {
+            nextCursor: null,
+            hasMore: false
+          })
+        })
+      mockGetTaskMetadata.mockResolvedValue({ success: true, data: {} })
+
+      let scrollHeight = 400
+      const scrollContainer = document.createElement('div')
+      Object.defineProperties(scrollContainer, {
+        scrollTop: { value: 80, writable: true, configurable: true },
+        scrollHeight: {
+          get: () => scrollHeight,
+          configurable: true
+        }
+      })
+
+      const { restoreHistoryTab, loadOlderHistoryForTab } = useTabManagement({
+        getCurentTabAssetInfo: mockGetCurentTabAssetInfo,
+        toggleSidebar: mockToggleSidebar
+      })
+
+      const history: HistoryItem = {
+        id: 'history-load-older',
+        chatTitle: 'Paged Chat',
+        chatContent: [],
+        isFavorite: false,
+        isEditing: false,
+        editingTitle: ''
+      }
+
+      await restoreHistoryTab(history)
+      await loadOlderHistoryForTab('history-load-older', { container: scrollContainer })
+
+      expect(mockChatermGetChatermMessagesPage).toHaveBeenNthCalledWith(2, {
+        taskId: 'history-load-older',
+        limit: 40,
+        beforeCursor: 21
+      })
+
+      const mockState = vi.mocked(useSessionState)()
+      const restoredTab = mockState.chatTabs.value.find((t) => t.id === 'history-load-older')
+      expect(restoredTab?.session.chatHistory.map((message) => message.content)).toEqual(['Message 1', 'Message 2', 'Message 3', 'Message 4'])
+      expect(restoredTab?.session.historyPagination).toEqual({
+        beforeCursor: null,
+        hasMoreBefore: false,
+        isLoadingBefore: false,
+        pageSize: 40
+      })
+      expect(scrollContainer.scrollTop).toBe(240)
+    })
+
+    it('should keep loading older history until the container becomes scrollable', async () => {
+      const latestPageMessages: ChatermMessage[] = [
+        { ask: undefined, say: 'completion_result', text: 'Message 4', type: 'say', ts: 104, partial: false }
+      ]
+      const olderPageMessages: ChatermMessage[] = [{ ask: undefined, say: 'text', text: 'Message 3', type: 'say', ts: 103, partial: false }]
+      const oldestPageMessages: ChatermMessage[] = [
+        { ask: undefined, say: 'text', text: 'Message 1', type: 'say', ts: 101, partial: false },
+        { ask: undefined, say: 'text', text: 'Message 2', type: 'say', ts: 102, partial: false }
+      ]
+
+      mockChatermGetChatermMessagesPage
+        .mockResolvedValueOnce(
+          createPageResult(latestPageMessages, {
+            nextCursor: 33,
+            hasMore: true
+          })
+        )
+        .mockImplementationOnce(async () => {
+          scrollHeight = 420
+          return createPageResult(olderPageMessages, {
+            nextCursor: 11,
+            hasMore: true
+          })
+        })
+        .mockImplementationOnce(async () => {
+          scrollHeight = 640
+          return createPageResult(oldestPageMessages, {
+            nextCursor: null,
+            hasMore: false
+          })
+        })
+      mockGetTaskMetadata.mockResolvedValue({ success: true, data: {} })
+
+      let scrollHeight = 320
+      const scrollContainer = document.createElement('div')
+      Object.defineProperties(scrollContainer, {
+        scrollTop: { value: 0, writable: true, configurable: true },
+        scrollHeight: {
+          get: () => scrollHeight,
+          configurable: true
+        },
+        clientHeight: { value: 500, writable: true, configurable: true }
+      })
+
+      const { restoreHistoryTab, loadOlderHistoryForTab } = useTabManagement({
+        getCurentTabAssetInfo: mockGetCurentTabAssetInfo,
+        toggleSidebar: mockToggleSidebar
+      })
+
+      const history: HistoryItem = {
+        id: 'history-fill-viewport',
+        chatTitle: 'Paged Chat',
+        chatContent: [],
+        isFavorite: false,
+        isEditing: false,
+        editingTitle: ''
+      }
+
+      await restoreHistoryTab(history)
+      await loadOlderHistoryForTab('history-fill-viewport', { container: scrollContainer })
+
+      expect(mockChatermGetChatermMessagesPage).toHaveBeenCalledTimes(3)
+
+      const mockState = vi.mocked(useSessionState)()
+      const restoredTab = mockState.chatTabs.value.find((t) => t.id === 'history-fill-viewport')
+      expect(restoredTab?.session.chatHistory.map((message) => message.content)).toEqual(['Message 1', 'Message 2', 'Message 3', 'Message 4'])
+      expect(restoredTab?.session.historyPagination).toEqual({
+        beforeCursor: null,
+        hasMoreBefore: false,
+        isLoadingBefore: false,
+        pageSize: 40
+      })
+    })
+
+    it('should treat the first text message from the oldest loaded page as a user message', async () => {
+      const latestPageMessages: ChatermMessage[] = [{ ask: undefined, say: 'completion_result', text: 'Done', type: 'say', ts: 104, partial: false }]
+      const oldestPageMessages: ChatermMessage[] = [
+        { ask: undefined, say: 'text', text: 'Initial task', type: 'say', ts: 101, partial: false },
+        { ask: undefined, say: 'text', text: 'Assistant reply', type: 'say', ts: 102, partial: false }
+      ]
+
+      mockChatermGetChatermMessagesPage
+        .mockResolvedValueOnce(
+          createPageResult(latestPageMessages, {
+            nextCursor: 33,
+            hasMore: true
+          })
+        )
+        .mockResolvedValueOnce(
+          createPageResult(oldestPageMessages, {
+            nextCursor: null,
+            hasMore: false
+          })
+        )
+      mockGetTaskMetadata.mockResolvedValue({ success: true, data: {} })
+
+      const scrollContainer = document.createElement('div')
+      Object.defineProperties(scrollContainer, {
+        scrollTop: { value: 0, writable: true, configurable: true },
+        scrollHeight: { value: 600, writable: true, configurable: true }
+      })
+
+      const { restoreHistoryTab, loadOlderHistoryForTab } = useTabManagement({
+        getCurentTabAssetInfo: mockGetCurentTabAssetInfo,
+        toggleSidebar: mockToggleSidebar
+      })
+
+      const history: HistoryItem = {
+        id: 'history-oldest-page',
+        chatTitle: 'Paged Chat',
+        chatContent: [],
+        isFavorite: false,
+        isEditing: false,
+        editingTitle: ''
+      }
+
+      await restoreHistoryTab(history)
+      await loadOlderHistoryForTab('history-oldest-page', { container: scrollContainer })
+
+      const mockState = vi.mocked(useSessionState)()
+      const restoredTab = mockState.chatTabs.value.find((t) => t.id === 'history-oldest-page')
+
+      expect(restoredTab?.session.chatHistory.map((message) => message.role)).toEqual(['user', 'assistant', 'assistant'])
     })
   })
 

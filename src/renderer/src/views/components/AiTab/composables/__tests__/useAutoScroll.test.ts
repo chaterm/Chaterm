@@ -4,11 +4,14 @@ import { useAutoScroll } from '../useAutoScroll'
 
 // Create shared ref for shouldStickToBottom
 const shouldStickToBottom = ref(true)
+const chatContainerScrollSignal = ref(0)
+let latestIntersectionCallback: ((entries: Array<{ isIntersecting: boolean }>) => void) | null = null
 
 // Mock useSessionState
 vi.mock('../useSessionState', () => ({
   useSessionState: () => ({
-    shouldStickToBottom
+    shouldStickToBottom,
+    chatContainerScrollSignal
   })
 }))
 
@@ -23,6 +26,7 @@ describe('useAutoScroll', () => {
   beforeEach(() => {
     // Reset shouldStickToBottom
     shouldStickToBottom.value = true
+    chatContainerScrollSignal.value = 0
 
     // Create a mock container element
     mockContainer = document.createElement('div')
@@ -38,11 +42,25 @@ describe('useAutoScroll', () => {
       cb(0)
       return 0
     })
+
+    latestIntersectionCallback = null
+    class MockIntersectionObserver {
+      observe = vi.fn()
+      disconnect = vi.fn()
+      unobserve = vi.fn()
+
+      constructor(callback: (entries: Array<{ isIntersecting: boolean }>) => void) {
+        latestIntersectionCallback = callback
+      }
+    }
+
+    vi.stubGlobal('IntersectionObserver', MockIntersectionObserver)
   })
 
   afterEach(() => {
     document.body.removeChild(mockContainer)
     vi.clearAllMocks()
+    vi.unstubAllGlobals()
   })
 
   describe('isAtBottom', () => {
@@ -166,6 +184,38 @@ describe('useAutoScroll', () => {
       // Since we're at bottom, shouldStickToBottom should be true
       // This is verified through the isAtBottom check
       expect(mockContainer.scrollTop).toBe(500)
+    })
+
+    it('should trigger older history loading when scrolling near top', async () => {
+      const onReachHistoryTop = vi.fn()
+      const { initializeAutoScroll, chatContainer, historyTopSentinel } = useAutoScroll({ onReachHistoryTop })
+
+      chatContainer.value = mockContainer
+      historyTopSentinel.value = document.createElement('div')
+      initializeAutoScroll()
+      await nextTick()
+
+      Object.defineProperty(mockContainer, 'scrollTop', { value: 80, writable: true })
+      mockContainer.dispatchEvent(new Event('scroll'))
+
+      expect(onReachHistoryTop).toHaveBeenCalledWith(mockContainer)
+      expect(chatContainerScrollSignal.value).toBe(1)
+    })
+
+    it('should trigger older history loading via IntersectionObserver without prior user scroll', async () => {
+      const onReachHistoryTop = vi.fn()
+      const { initializeAutoScroll, chatContainer, historyTopSentinel } = useAutoScroll({ onReachHistoryTop })
+
+      chatContainer.value = mockContainer
+      historyTopSentinel.value = document.createElement('div')
+      initializeAutoScroll()
+      await nextTick()
+
+      // No user scroll has happened, but IntersectionObserver should still trigger
+      Object.defineProperty(mockContainer, 'scrollTop', { value: 0, writable: true })
+      latestIntersectionCallback?.([{ isIntersecting: true }])
+
+      expect(onReachHistoryTop).toHaveBeenCalledWith(mockContainer)
     })
   })
 

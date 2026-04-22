@@ -28,7 +28,13 @@ describe('useSessionState', () => {
         lastPartialMessage: null,
         lastStateChatermMessages: null,
         shouldStickToBottom: true,
-        isCancelled: false
+        isCancelled: false,
+        historyPagination: {
+          beforeCursor: null,
+          hasMoreBefore: false,
+          isLoadingBefore: false,
+          pageSize: 40
+        }
       })
     })
 
@@ -566,6 +572,35 @@ describe('useSessionState', () => {
       const nextPairs = getTabUserAssistantPairs('tab-1')
       expect(nextPairs).toHaveLength(1)
       expect(nextPairs[0].assistants).toHaveLength(1)
+    })
+  })
+
+  describe('getTabHasOlderHistory', () => {
+    it('should report whether a tab still has older history available', () => {
+      const { chatTabs, createEmptySessionState, getTabHasOlderHistory } = useSessionState()
+      const session = createEmptySessionState()
+      session.historyPagination = {
+        beforeCursor: 12,
+        hasMoreBefore: true,
+        isLoadingBefore: false,
+        pageSize: 40
+      }
+
+      chatTabs.value = [
+        {
+          id: 'tab-1',
+          title: 'Test',
+          hosts: [],
+          chatType: 'agent',
+          autoUpdateHost: true,
+          session,
+          modelValue: '',
+          welcomeTip: ''
+        }
+      ]
+
+      expect(getTabHasOlderHistory('tab-1')).toBe(true)
+      expect(getTabHasOlderHistory('missing-tab')).toBe(false)
     })
   })
 })

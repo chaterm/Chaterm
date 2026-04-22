@@ -4,6 +4,13 @@ import type { ChatMessage, Host } from '../types'
 import type { ContentPart } from '@shared/WebviewMessage'
 import type { ExtensionMessage } from '@shared/ExtensionMessage'
 
+export interface HistoryPaginationState {
+  beforeCursor: number | null
+  hasMoreBefore: boolean
+  isLoadingBefore: boolean
+  pageSize: number
+}
+
 /**
  * Session state interface
  * Defines the session state structure for each Tab
@@ -21,6 +28,7 @@ export interface SessionState {
   lastStateChatermMessages: unknown[] | null // Cached chatermMessages from last state message, survives partialMessage overwrites
   shouldStickToBottom: boolean // Whether should stick to bottom
   isCancelled: boolean // Whether the current task has been cancelled/interrupted
+  historyPagination?: HistoryPaginationState
 }
 
 /**
@@ -86,7 +94,13 @@ export const useSessionState = createGlobalState(() => {
     lastPartialMessage: null,
     lastStateChatermMessages: null,
     shouldStickToBottom: true,
-    isCancelled: false
+    isCancelled: false,
+    historyPagination: {
+      beforeCursor: null,
+      hasMoreBefore: false,
+      isLoadingBefore: false,
+      pageSize: 40
+    }
   })
 
   const currentTab = computed(() => {
@@ -345,6 +359,14 @@ export const useSessionState = createGlobalState(() => {
   }
 
   /**
+   * Whether the specified tab still has older history available.
+   */
+  const getTabHasOlderHistory = (tabId: string): boolean => {
+    const tab = chatTabs.value.find((t) => t.id === tabId)
+    return tab?.session.historyPagination?.hasMoreBefore ?? false
+  }
+
+  /**
    * Append text to input parts
    * @param text - Text to append
    * @param prefix - Prefix when parts is not empty (default: ' ')
@@ -395,6 +417,7 @@ export const useSessionState = createGlobalState(() => {
     getTabChatTypeValue,
     getTabLastChatMessageId,
     getTabResponseLoading,
+    getTabHasOlderHistory,
     cleanupTabPairsCache,
     appendTextToInputParts
   }

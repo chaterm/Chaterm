@@ -254,6 +254,9 @@ export class Task {
   checkpointTrackerErrorMessage?: string
   conversationHistoryDeletedRange?: [number, number]
   isInitialized = false
+  /** Resolves once the DB rewrite (if any) in resumeTaskFromHistory is complete. */
+  readonly dbReady: Promise<void>
+  private resolveDbReady!: () => void
   summarizeUpToTs?: number // Limit conversation history for current API request only
 
   // Metadata tracking
@@ -525,6 +528,9 @@ export class Task {
     this.postStateToWebview = postStateToWebview
     this.postMessageToWebview = postMessageToWebview
     this.reinitExistingTaskFromId = reinitExistingTaskFromId
+    this.dbReady = new Promise<void>((resolve) => {
+      this.resolveDbReady = resolve
+    })
     this.mcpHub = mcpHub
     this.skillsManager = skillsManager
     this.remoteTerminalManager = new RemoteTerminalManager()
@@ -573,9 +579,11 @@ export class Task {
 
     // Continue with task initialization
     if (task) {
+      this.resolveDbReady() // new task, no DB rewrite needed
       this.startTask(task, initialUserContentParts)
     } else {
       // taskId-only = resume, same as the old historyItem path
+      // resolveDbReady is called inside resumeTaskFromHistory after DB operations complete
       this.resumeTaskFromHistory()
     }
 
@@ -1661,16 +1669,22 @@ export class Task {
 
     // Remove incomplete api_req_started (no cost and no cancel reason indicates interrupted request)
     const lastApiReqStartedIndex = findLastIndex(modifiedChatermMessages, (m) => m.type === 'say' && m.say === 'api_req_started')
+    let needsRewrite = false
     if (lastApiReqStartedIndex !== -1) {
       const lastApiReqStarted = modifiedChatermMessages[lastApiReqStartedIndex]
       const { cost, cancelReason }: ChatermApiReqInfo = JSON.parse(lastApiReqStarted.text || '{}')
       if (cost === undefined && cancelReason === undefined) {
         modifiedChatermMessages.splice(lastApiReqStartedIndex, 1)
+        needsRewrite = true
       }
     }
 
-    await this.overwriteChatermMessages(modifiedChatermMessages)
-    this.chatermMessages = await getChatermMessages(this.taskId)
+    if (needsRewrite) {
+      await this.overwriteChatermMessages(modifiedChatermMessages)
+      this.chatermMessages = await getChatermMessages(this.taskId)
+    } else {
+      this.chatermMessages = modifiedChatermMessages
+    }
     this.apiConversationHistory = await getSavedApiConversationHistory(this.taskId)
     await this.clearEphemeralToolResults()
     await this.contextManager.initializeContextHistory(this.taskId)
@@ -1685,6 +1699,7 @@ export class Task {
     }
 
     this.isInitialized = true
+    this.resolveDbReady()
 
     // Wait for user to send a message to continue
     const { text, contentParts } = await this.ask('resume_task', '', false)

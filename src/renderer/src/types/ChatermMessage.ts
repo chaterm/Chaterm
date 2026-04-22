@@ -63,6 +63,7 @@ export type ChatermSay =
   | 'knowledge_summary'
   | 'skill_summary'
   | 'context_truncated'
+  | 'skill_activated'
 
 export interface ChatermSayTool {
   tool: 'readFile' | 'listFilesTopLevel' | 'listFilesRecursive' | 'searchFiles'

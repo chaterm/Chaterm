@@ -865,6 +865,7 @@ export default {
     searchHistoryPH: '请输入',
     loading: '加载中...',
     loadMore: '加载',
+    historyLoadHint: '还有更早历史消息，向上滚动可继续加载',
     copyToClipboard: '已复制到剪贴板',
     retry: '重试',
     taskCompleted: '任务已完成',

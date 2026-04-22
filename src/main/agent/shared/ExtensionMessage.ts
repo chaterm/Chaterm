@@ -98,6 +98,12 @@ export interface ChatermMessage {
   hosts?: Host[]
 }
 
+export interface ChatermMessagesPage {
+  messages: ChatermMessage[]
+  nextCursor: number | null
+  hasMore: boolean
+}
+
 // Shared host info payload for multi-host display
 export interface HostInfo {
   hostId?: string
