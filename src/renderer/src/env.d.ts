@@ -1,6 +1,21 @@
 /// <reference types="vite/client" />
 /// <reference types="../../preload/index.d.ts" />
 
+interface ImportMetaEnv {
+  /** Deployment status: empty/0 means non-enterprise; non-zero means enterprise deployment. */
+  readonly RENDERER_DEPLOY_STATUS?: string
+  /** Build-time policy switch for KB search. When set, UI switch is locked to this value. */
+  readonly RENDERER_KB_SEARCH_ENABLED?: string
+  /** Build-time policy switch for telemetry settings in privacy page. */
+  readonly RENDERER_TELEMETRY_ENABLED?: string
+  /** Build-time policy switch for data sync settings in privacy page. */
+  readonly RENDERER_DATA_SYNC_ENABLED?: string
+}
+
+interface ImportMeta {
+  readonly env: ImportMetaEnv
+}
+
 declare const __APP_INFO__: {
   version: string
 }

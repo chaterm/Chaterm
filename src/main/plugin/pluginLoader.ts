@@ -44,13 +44,13 @@ export async function loadAllPlugins() {
 
   clearVersionProviders()
   clearInstallHints()
-  handlePluginChange()
   treeProviders.clear()
   pluginCommands.clear()
   globalContext.clear()
 
   capabilityRegistry.clearBastions()
   const storage = new PluginStorageContext()
+  await storage.globalState.update('enterpriseModelPluginActive', false)
   let loadedCount = 0
   let failedCount = 0
   let skippedCount = 0
@@ -238,4 +238,5 @@ export async function loadAllPlugins() {
     failedCount,
     skippedCount
   })
+  await handlePluginChange()
 }

@@ -183,6 +183,7 @@ describe('Model Component', () => {
     // Setup Pinia
     pinia = createPinia()
     setActivePinia(pinia)
+    vi.stubEnv('RENDERER_DEPLOY_STATUS', '1')
 
     // Setup window.api mock
     global.window = global.window || ({} as Window & typeof globalThis)
@@ -232,6 +233,7 @@ describe('Model Component', () => {
     wrapper?.unmount()
     vi.clearAllMocks()
     vi.restoreAllMocks()
+    vi.unstubAllEnvs()
     localStorage.clear()
   })
 
@@ -289,12 +291,55 @@ describe('Model Component', () => {
 
       wrapper = createWrapper()
       await nextTick()
-      await nextTick()
+      await new Promise((resolve) => setTimeout(resolve, 50))
 
       expect(notification.error).toHaveBeenCalledWith({
         message: 'Error',
         description: 'Failed to load saved configuration'
       })
+    })
+
+    it('should keep public model settings editable when deploy status is disabled', async () => {
+      vi.stubEnv('RENDERER_DEPLOY_STATUS', '0')
+
+      const state: Record<string, unknown> = {
+        modelOptions: [{ id: 'gpt-4', name: 'gpt-4', checked: true, type: 'standard', apiProvider: 'default' }],
+        enterpriseModelConfigs: [{ modelName: 'enterprise-gpt', provider: 'openai' }],
+        enterpriseModelPluginActive: true,
+        awsRegion: 'us-east-1',
+        awsUseCrossRegionInference: false,
+        awsBedrockEndpoint: '',
+        awsEndpointSelected: false,
+        liteLlmBaseUrl: '',
+        openAiBaseUrl: 'https://api.openai.com/v1',
+        ollamaBaseUrl: 'http://localhost:11434',
+        ollamaModelId: ''
+      }
+
+      ;(getGlobalState as ReturnType<typeof vi.fn>).mockImplementation(async (key: string) => state[key] ?? null)
+      ;(updateGlobalState as ReturnType<typeof vi.fn>).mockImplementation(async (key: string, value: unknown) => {
+        state[key] = value
+      })
+      ;(getUser as ReturnType<typeof vi.fn>).mockResolvedValue({
+        data: {
+          models: ['gpt-4'],
+          subscriptionModels: ['gpt-4'],
+          enterpriseModelConfigs: [{ modelName: 'enterprise-gpt', provider: 'openai' }],
+          llmGatewayAddr: 'https://api.example.com',
+          key: 'default-api-key'
+        }
+      })
+
+      wrapper = createWrapper()
+      await nextTick()
+      await new Promise((resolve) => setTimeout(resolve, 50))
+
+      const addModelSwitch = wrapper.find('.a-switch')
+      expect((addModelSwitch.element as HTMLInputElement).disabled).toBe(false)
+      expect(wrapper.text()).toContain('gpt-4')
+      expect(wrapper.vm.openAiBaseUrl).toBe('https://api.openai.com/v1')
+      expect(updateGlobalState).toHaveBeenCalledWith('enterpriseModelConfigs', [])
+      expect(updateGlobalState).toHaveBeenCalledWith('enterpriseModelPluginActive', false)
     })
   })
 
@@ -911,6 +956,10 @@ describe('Model Component', () => {
       wrapper = createWrapper()
       await nextTick()
       await nextTick()
+      ;(updateGlobalState as ReturnType<typeof vi.fn>).mockClear()
+      ;(storeSecret as ReturnType<typeof vi.fn>).mockClear()
+      ;(notification.error as ReturnType<typeof vi.fn>).mockClear()
+      ;(notification.success as ReturnType<typeof vi.fn>).mockClear()
     })
 
     it('should save new model when all fields are valid', async () => {
@@ -932,6 +981,9 @@ describe('Model Component', () => {
     it('should not save model when model ID is empty', async () => {
       const vm = wrapper.vm as any
       vm.liteLlmModelId = ''
+      await new Promise((resolve) => setTimeout(resolve, 50))
+      ;(updateGlobalState as ReturnType<typeof vi.fn>).mockClear()
+      ;(notification.error as ReturnType<typeof vi.fn>).mockClear()
 
       await vm.handleSave('litellm')
 
