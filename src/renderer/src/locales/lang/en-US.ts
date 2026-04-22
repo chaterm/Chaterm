@@ -881,6 +881,7 @@ export default {
     searchHistoryPH: 'Please Input',
     loading: 'loading...',
     loadMore: 'load more',
+    historyLoadHint: 'Older messages are available. Scroll up to load them.',
     copyToClipboard: 'Copy to clipboard',
     retry: 'Retry',
     taskCompleted: 'Task Completed',

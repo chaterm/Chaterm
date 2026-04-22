@@ -227,6 +227,26 @@
   }
 }
 
+.history-top-sentinel {
+  width: 100%;
+  height: 1px;
+  margin-top: -1px;
+  pointer-events: none;
+}
+
+.history-load-hint {
+  align-self: center;
+  margin: 8px 0 4px;
+  padding: 4px 10px;
+  border-radius: 999px;
+  font-size: 12px;
+  line-height: 1.4;
+  color: var(--text-color-secondary);
+  background: color-mix(in srgb, var(--bg-color-secondary) 82%, transparent);
+  border: 1px solid var(--border-color-light);
+  pointer-events: none;
+}
+
 .chat-response {
   display: flex;
   flex-direction: column;

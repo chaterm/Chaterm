@@ -2391,6 +2391,17 @@ ipcMain.handle('agent-chaterm-messages', async (_, data) => {
   }
 })
 
+ipcMain.handle('agent-chaterm-messages-page', async (_, data) => {
+  try {
+    const { taskId, beforeCursor = null, limit = 40 } = data
+    const result = await chatermDbService.getSavedChatermMessagesPage(taskId, { beforeCursor, limit })
+    return result
+  } catch (error) {
+    logger.error('Chaterm get paged UI messages failed', { error: error })
+    return { messages: [], nextCursor: null, hasMore: false }
+  }
+})
+
 // This code is newly added to handle calls from the renderer process
 ipcMain.handle('execute-remote-command', async () => {
   logger.info('Received execute-remote-command IPC call') // Add log

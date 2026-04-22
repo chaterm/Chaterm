@@ -265,40 +265,49 @@ export class Controller {
         break
 
       case 'askResponse':
-        if (targetTask) {
-          logger.debug('Received askResponse message', {
-            event: 'agent.controller.ask.response',
-            taskId: targetTask.taskId,
-            askResponse: message.askResponse
-          })
-          if (message.modelName?.trim() && message.modelName.trim() !== targetTask.api.getModel().id) {
-            const { apiConfiguration } = await getAllExtensionState()
-            if (apiConfiguration) {
-              const perTabConfig = await this.buildApiConfigurationForModel(apiConfiguration, message.modelName)
-              targetTask.api = buildApiHandler(perTabConfig)
-              targetTask.setApiProvider(perTabConfig.apiProvider)
-            }
-          }
-          if (message.hosts) {
-            targetTask.hosts = message.hosts
-            if (targetTaskId) {
-              await updateTaskHosts(targetTaskId, message.hosts)
-            }
-          }
-          if (message.askResponse === 'messageResponse') {
-            // Clean up all command contexts for this task and broadcast close events
-            logger.debug('Cleaning command contexts before handling messageResponse', {
-              event: 'agent.controller.message_response.cleanup.start',
-              taskId: targetTask.taskId
+        if (!targetTask && targetTaskId) {
+          // Lazy initialization: Task was not created when the user opened the
+          // history tab (to avoid DB rewrite race). Initialize it now that the
+          // user is actually continuing the conversation.
+          await this.showTaskWithId(targetTaskId, message.hosts || [])
+        }
+        {
+          const task = targetTask || (targetTaskId ? this.getTaskFromId(targetTaskId) : undefined)
+          if (task) {
+            logger.debug('Received askResponse message', {
+              event: 'agent.controller.ask.response',
+              taskId: task.taskId,
+              askResponse: message.askResponse
             })
-            Task.clearCommandContextsForTask(targetTask.taskId)
-            await targetTask.clearTodos('new_user_input')
-            logger.debug('Command contexts and todos cleared for messageResponse', {
-              event: 'agent.controller.message_response.cleanup.complete',
-              taskId: targetTask.taskId
-            })
+            if (message.modelName?.trim() && message.modelName.trim() !== task.api.getModel().id) {
+              const { apiConfiguration } = await getAllExtensionState()
+              if (apiConfiguration) {
+                const perTabConfig = await this.buildApiConfigurationForModel(apiConfiguration, message.modelName)
+                task.api = buildApiHandler(perTabConfig)
+                task.setApiProvider(perTabConfig.apiProvider)
+              }
+            }
+            if (message.hosts) {
+              task.hosts = message.hosts
+              if (targetTaskId) {
+                await updateTaskHosts(targetTaskId, message.hosts)
+              }
+            }
+            if (message.askResponse === 'messageResponse') {
+              // Clean up all command contexts for this task and broadcast close events
+              logger.debug('Cleaning command contexts before handling messageResponse', {
+                event: 'agent.controller.message_response.cleanup.start',
+                taskId: task.taskId
+              })
+              Task.clearCommandContextsForTask(task.taskId)
+              await task.clearTodos('new_user_input')
+              logger.debug('Command contexts and todos cleared for messageResponse', {
+                event: 'agent.controller.message_response.cleanup.complete',
+                taskId: task.taskId
+              })
+            }
+            await task.handleWebviewAskResponse(message.askResponse!, message.text, message.truncateAtMessageTs, message.contentParts)
           }
-          await targetTask.handleWebviewAskResponse(message.askResponse!, message.text, message.truncateAtMessageTs, message.contentParts)
         }
         break
       case 'showTaskWithId':
@@ -405,6 +414,12 @@ export class Controller {
 
     await this.getTaskWithId(id) // existence check only
     await this.initTask(hosts, undefined, id)
+    // Wait for Task's DB initialization (resumeTaskFromHistory) to complete
+    // before returning, so that callers can safely query paginated messages.
+    const newTask = this.tasks.get(id)
+    if (newTask) {
+      await newTask.dbReady
+    }
   }
 
   async deleteTaskWithId(id: string) {

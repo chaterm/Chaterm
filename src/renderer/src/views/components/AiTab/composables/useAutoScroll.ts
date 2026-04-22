@@ -27,17 +27,23 @@ export function signalResizeStart(): void {
   }, RESIZE_END_DELAY)
 }
 
+interface AutoScrollOptions {
+  onReachHistoryTop?: (container: HTMLElement) => void
+}
+
 /**
  * Composable for auto-scroll management
  * Handles automatic scrolling to bottom functionality for chat container (sticky scroll)
  */
-export function useAutoScroll() {
+export function useAutoScroll(options: AutoScrollOptions = {}) {
   const { shouldStickToBottom, chatContainerScrollSignal } = useSessionState()
   const chatContainer = ref<HTMLElement | null>(null)
   const chatResponse = ref<HTMLElement | null>(null)
+  const historyTopSentinel = ref<HTMLElement | null>(null)
   // Container height for dynamic min-height on last message pair
   const containerHeight = ref<number>(0)
   let resizeObserver: ResizeObserver | null = null
+  let historyTopObserver: IntersectionObserver | null = null
   let resizeObserverDebounceTimer: ReturnType<typeof setTimeout> | null = null
   const RESIZE_OBSERVER_DEBOUNCE = 150
 
@@ -52,6 +58,7 @@ export function useAutoScroll() {
   }
 
   const STICKY_THRESHOLD = 24
+  const HISTORY_LOAD_TOP_THRESHOLD = 120
 
   const domObserver = ref<MutationObserver | null>(null)
   // Track last scrollTop to distinguish user-initiated scroll from content-change-induced scroll
@@ -59,6 +66,7 @@ export function useAutoScroll() {
   const lastScrollHeight = ref<number>(0)
   // Flag to mark programmatic scrolling (to ignore scroll events during auto-scroll)
   const isProgrammaticScroll = ref<boolean>(false)
+  const hasUserScrolledContainer = ref<boolean>(false)
 
   const getElement = (refValue: any): HTMLElement | null => {
     if (!refValue) return null
@@ -67,6 +75,15 @@ export function useAutoScroll() {
 
   const isAtBottom = (el: HTMLElement): boolean => {
     return el.scrollHeight - (el.scrollTop + el.clientHeight) <= STICKY_THRESHOLD
+  }
+
+  const maybeRequestOlderHistory = (container: HTMLElement, opts?: { fromObserver?: boolean }) => {
+    if (!opts?.fromObserver && !hasUserScrolledContainer.value) {
+      return
+    }
+    if (container.scrollTop <= HISTORY_LOAD_TOP_THRESHOLD) {
+      options.onReachHistoryTop?.(container)
+    }
   }
 
   const executeScroll = () => {
@@ -207,7 +224,9 @@ export function useAutoScroll() {
       const currentScrollHeight = container.scrollHeight
 
       // Only update shouldStickToBottom if it's a user-initiated scroll
-      if (isUserScroll(container)) {
+      const userScroll = isUserScroll(container)
+      if (userScroll) {
+        hasUserScrolledContainer.value = true
         shouldStickToBottom.value = isAtBottom(container)
       }
 
@@ -216,6 +235,8 @@ export function useAutoScroll() {
       lastScrollHeight.value = currentScrollHeight
 
       chatContainerScrollSignal.value += 1
+
+      maybeRequestOlderHistory(container)
     }
   }
 
@@ -276,6 +297,7 @@ export function useAutoScroll() {
         lastScrollHeight.value = container.scrollHeight // Initialize lastScrollHeight
       }
       startObservingDom()
+      startObservingHistoryTop()
 
       updateContainerHeight()
       // ResizeObserver is not available in jsdom (used by Vitest renderer-process in CI),
@@ -323,6 +345,34 @@ export function useAutoScroll() {
     }
   )
 
+  const startObservingHistoryTop = () => {
+    if (historyTopObserver) {
+      historyTopObserver.disconnect()
+      historyTopObserver = null
+    }
+
+    const container = getElement(chatContainer.value)
+    const sentinel = getElement(historyTopSentinel.value)
+    if (!container || !sentinel || typeof IntersectionObserver === 'undefined') {
+      return
+    }
+
+    historyTopObserver = new IntersectionObserver(
+      (entries) => {
+        const isVisible = entries.some((entry) => entry.isIntersecting)
+        if (isVisible) {
+          maybeRequestOlderHistory(container, { fromObserver: true })
+        }
+      },
+      {
+        root: container,
+        threshold: 0
+      }
+    )
+
+    historyTopObserver.observe(sentinel)
+  }
+
   // Watch chatContainer to initialize scroll listener when element becomes available
   // This is needed because chatContainer is conditionally rendered (v-if="filteredChatHistory.length > 0")
   // Also handles tab switching by re-initializing listeners when container changes
@@ -359,9 +409,18 @@ export function useAutoScroll() {
               })
               resizeObserver.observe(container)
             }
+
+            startObservingHistoryTop()
           }
         })
       }
+    }
+  )
+
+  watch(
+    () => historyTopSentinel.value,
+    () => {
+      nextTick(startObservingHistoryTop)
     }
   )
 
@@ -385,6 +444,10 @@ export function useAutoScroll() {
       resizeObserver.disconnect()
       resizeObserver = null
     }
+    if (historyTopObserver) {
+      historyTopObserver.disconnect()
+      historyTopObserver = null
+    }
     if (resizeObserverDebounceTimer) {
       clearTimeout(resizeObserverDebounceTimer)
       resizeObserverDebounceTimer = null
@@ -394,6 +457,7 @@ export function useAutoScroll() {
   return {
     chatContainer,
     chatResponse,
+    historyTopSentinel,
     scrollToBottom,
     scrollToBottomWithRetry,
     initializeAutoScroll,

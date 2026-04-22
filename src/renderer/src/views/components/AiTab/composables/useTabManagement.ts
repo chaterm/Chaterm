@@ -11,6 +11,7 @@ import { getGlobalState } from '@renderer/agent/storage/state'
 import { ChatermMessage } from '@/types/ChatermMessage'
 import { PROVIDER_MODEL_KEY_MAP } from './useModelConfiguration'
 import eventBus from '@/utils/eventBus'
+import type { ChatermMessagesPage } from '@shared/ExtensionMessage'
 
 interface TabManagementOptions {
   getCurentTabAssetInfo: () => Promise<AssetInfo | null>
@@ -55,6 +56,46 @@ export const focusChatInput = () => {
 const normalizeChatType = (mode?: string): 'agent' | 'cmd' => {
   // return mode === 'chat' ? 'chat' : mode === 'cmd' ? 'cmd' : 'agent'
   return mode === 'cmd' ? 'cmd' : 'agent'
+}
+
+const HISTORY_RESTORE_PAGE_SIZE = 40
+
+const HISTORY_MESSAGE_TYPES = new Set([
+  'followup',
+  'command',
+  'mcp_tool_call',
+  'command_output',
+  'completion_result',
+  'search_result',
+  'api_req_started',
+  'context_truncated',
+  'text',
+  'reasoning',
+  'user_feedback',
+  'sshInfo'
+])
+
+const waitForNextPaint = async (): Promise<void> => {
+  await nextTick()
+
+  if (typeof window === 'undefined' || typeof window.requestAnimationFrame !== 'function') {
+    await new Promise((resolve) => setTimeout(resolve, 0))
+    return
+  }
+
+  await new Promise<void>((resolve) => {
+    window.requestAnimationFrame(() => {
+      window.requestAnimationFrame(() => resolve())
+    })
+  })
+}
+
+const shouldContinueViewportFill = (container: HTMLElement | null, pagination: { hasMoreBefore: boolean } | null | undefined): boolean => {
+  if (!container || !pagination?.hasMoreBefore) {
+    return false
+  }
+
+  return container.scrollHeight <= container.clientHeight + 1
 }
 
 /**
@@ -165,8 +206,79 @@ export function useTabManagement(options: TabManagementOptions) {
     return typeof content === 'string'
   }
 
+  const mapStoredMessagesToChatMessages = (
+    conversationHistory: ChatermMessage[],
+    fallbackHosts: Host[],
+    options?: {
+      includesConversationStart?: boolean
+    }
+  ): ChatMessage[] => {
+    const historyChatMessages: ChatMessage[] = []
+    let lastItem: ChatermMessage | null = null
+
+    conversationHistory.forEach((item, index) => {
+      const isDuplicate =
+        lastItem && item.text === lastItem.text && item.ask === lastItem.ask && item.say === lastItem.say && item.type === lastItem.type
+
+      const messageKind = item.ask ?? item.say
+      if (!isDuplicate && messageKind && HISTORY_MESSAGE_TYPES.has(messageKind)) {
+        const isConversationStartUserMessage = !!options?.includesConversationStart && index === 0 && item.type === 'say' && item.say === 'text'
+        const role: 'assistant' | 'user' = item.say === 'user_feedback' || isConversationStartUserMessage ? 'user' : 'assistant'
+
+        const message: ChatMessage = {
+          id: uuidv4(),
+          role,
+          content: item.text || '',
+          contentParts: item.contentParts,
+          type: item.type,
+          ask: item.ask,
+          say: item.say,
+          ts: item.ts,
+          hosts: item.hosts && item.hosts.length > 0 ? item.hosts : fallbackHosts
+        }
+
+        if (item.mcpToolCall) {
+          message.mcpToolCall = item.mcpToolCall
+        }
+
+        if (message.say === 'user_feedback' && isStringContent(message.content) && message.content.startsWith('Terminal output:')) {
+          message.say = 'command_output'
+          message.role = 'assistant'
+        }
+
+        if (!item.partial && item.type === 'ask' && item.text) {
+          try {
+            const contentJson = JSON.parse(item.text)
+            if (item.ask === 'followup') {
+              message.content = contentJson
+              message.selectedOption = contentJson?.selected
+            } else {
+              message.content = contentJson?.question
+            }
+          } catch {
+            message.content = item.text
+          }
+        }
+
+        historyChatMessages.push(message)
+        lastItem = item
+      }
+    })
+
+    return historyChatMessages
+  }
+
+  const createHistoryPaginationState = (page: ChatermMessagesPage) => ({
+    beforeCursor: page.nextCursor,
+    hasMoreBefore: page.hasMore,
+    isLoadingBefore: false,
+    pageSize: HISTORY_RESTORE_PAGE_SIZE
+  })
+
   const restoreHistoryTab = async (history: HistoryItem, options?: { forceNewTab?: boolean }) => {
     try {
+      const restoreStartTime = performance.now()
+
       const existingTabIndex = chatTabs.value.findIndex((tab) => tab.id === history.id)
       if (existingTabIndex !== -1) {
         currentChatId.value = history.id
@@ -201,74 +313,21 @@ export function useTabManagement(options: TabManagementOptions) {
         logger.error('Failed to get metadata', { error: e })
       }
 
-      const result = await window.api.chatermGetChatermMessages({
-        taskId: history.id
+      const finalHosts = loadedHosts.length > 0 ? loadedHosts : (currentTab.value?.hosts ?? [])
+
+      // Do NOT call showTaskWithId here. Task initialization is deferred
+      // until the user actually sends a message to continue the conversation.
+      // This avoids resumeTaskFromHistory rewriting DB rows (DELETE + INSERT
+      // with new auto-increment ids) which invalidates pagination cursors.
+
+      const pageResult = await window.api.chatermGetChatermMessagesPage({
+        taskId: history.id,
+        limit: HISTORY_RESTORE_PAGE_SIZE,
+        beforeCursor: null
       })
-      const conversationHistory = result as ChatermMessage[]
 
-      const historyChatMessages: ChatMessage[] = []
-      let lastItem: ChatermMessage | null = null
-      conversationHistory.forEach((item, index) => {
-        const isDuplicate =
-          lastItem && item.text === lastItem.text && item.ask === lastItem.ask && item.say === lastItem.say && item.type === lastItem.type
-
-        if (
-          !isDuplicate &&
-          (item.ask === 'followup' ||
-            item.ask === 'command' ||
-            item.ask === 'mcp_tool_call' ||
-            item.say === 'command' ||
-            item.say === 'command_output' ||
-            item.say === 'completion_result' ||
-            item.say === 'search_result' ||
-            item.say === 'api_req_started' ||
-            item.say === 'context_truncated' ||
-            item.say === 'text' ||
-            item.say === 'reasoning' ||
-            item.say === 'user_feedback' ||
-            item.say === 'sshInfo')
-        ) {
-          let role: 'assistant' | 'user' = 'assistant'
-          if (index === 0 || item.say === 'user_feedback') {
-            role = 'user'
-          }
-          const userMessage: ChatMessage = {
-            id: uuidv4(),
-            role: role,
-            content: item.text || '',
-            contentParts: item.contentParts,
-            type: item.type,
-            ask: item.ask,
-            say: item.say,
-            ts: item.ts,
-            hosts: item.hosts && item.hosts.length > 0 ? item.hosts : loadedHosts
-          }
-
-          if (item.mcpToolCall) {
-            userMessage.mcpToolCall = item.mcpToolCall
-          }
-
-          if (userMessage.say === 'user_feedback' && isStringContent(userMessage.content) && userMessage.content.startsWith('Terminal output:')) {
-            userMessage.say = 'command_output'
-            userMessage.role = 'assistant'
-          }
-
-          if (!item.partial && item.type === 'ask' && item.text) {
-            try {
-              let contentJson = JSON.parse(item.text)
-              if (item.ask === 'followup') {
-                userMessage.content = contentJson
-                userMessage.selectedOption = contentJson?.selected
-              } else {
-                userMessage.content = contentJson?.question
-              }
-            } catch (e) {
-              userMessage.content = item.text
-            }
-          }
-          historyChatMessages.push(userMessage)
-          lastItem = item
-        }
+      const historyChatMessages = mapStoredMessagesToChatMessages(pageResult.messages, loadedHosts, {
+        includesConversationStart: !pageResult.hasMore
       })
 
       const historySession: SessionState = {
@@ -283,10 +342,9 @@ export function useTabManagement(options: TabManagementOptions) {
         lastPartialMessage: null,
         lastStateChatermMessages: null,
         shouldStickToBottom: true,
-        isCancelled: false
+        isCancelled: false,
+        historyPagination: createHistoryPaginationState(pageResult)
       }
-
-      const finalHosts = loadedHosts.length > 0 ? loadedHosts : (currentTab.value?.hosts ?? [])
 
       const historyTab: ChatTab = {
         id: history.id,
@@ -313,20 +371,69 @@ export function useTabManagement(options: TabManagementOptions) {
       }
       currentChatId.value = history.id
 
-      await window.api.sendToMain({
-        type: 'showTaskWithId',
-        text: history.id,
-        hosts: finalHosts.map((h) => ({
-          host: h.host,
-          uuid: h.uuid,
-          connection: h.connection,
-          ...(h.assetType ? { assetType: h.assetType } : {})
-        }))
-      })
+      await waitForNextPaint()
+      if (import.meta.env.DEV) {
+        logger.info('History conversation first screen rendered', {
+          event: 'ai.history.open',
+          taskId: history.id,
+          totalMs: Math.max(0, Math.round((performance.now() - restoreStartTime) * 10) / 10)
+        })
+      }
 
       focusChatInput()
     } catch (err) {
       logger.error('Failed to restore history tab', { error: err })
+    }
+  }
+
+  const loadOlderHistoryForTab = async (
+    tabId: string,
+    options?: {
+      container?: HTMLElement | null
+    }
+  ) => {
+    const targetTab = chatTabs.value.find((tab) => tab.id === tabId)
+    const pagination = targetTab?.session.historyPagination
+    if (!targetTab || !pagination || pagination.isLoadingBefore || !pagination.hasMoreBefore || pagination.beforeCursor == null) {
+      return
+    }
+
+    const scrollContainer = options?.container ?? null
+    const previousScrollHeight = scrollContainer?.scrollHeight ?? 0
+    const previousScrollTop = scrollContainer?.scrollTop ?? 0
+
+    pagination.isLoadingBefore = true
+    try {
+      const pageResult = await window.api.chatermGetChatermMessagesPage({
+        taskId: tabId,
+        limit: pagination.pageSize,
+        beforeCursor: pagination.beforeCursor
+      })
+
+      const olderMessages = mapStoredMessagesToChatMessages(pageResult.messages, targetTab.hosts, {
+        includesConversationStart: !pageResult.hasMore
+      })
+      targetTab.session.chatHistory = [...olderMessages, ...targetTab.session.chatHistory]
+      await waitForNextPaint()
+
+      if (scrollContainer) {
+        const scrollHeightDelta = scrollContainer.scrollHeight - previousScrollHeight
+        scrollContainer.scrollTop = previousScrollTop + Math.max(0, scrollHeightDelta)
+      }
+
+      targetTab.session.historyPagination = {
+        ...pagination,
+        beforeCursor: pageResult.nextCursor,
+        hasMoreBefore: pageResult.hasMore,
+        isLoadingBefore: false
+      }
+
+      if (shouldContinueViewportFill(scrollContainer, targetTab.session.historyPagination)) {
+        await loadOlderHistoryForTab(tabId, { container: scrollContainer })
+      }
+    } catch (error) {
+      pagination.isLoadingBefore = false
+      logger.error('Failed to load older history messages', { error })
     }
   }
 
@@ -539,6 +646,7 @@ export function useTabManagement(options: TabManagementOptions) {
   return {
     createNewEmptyTab,
     restoreHistoryTab,
+    loadOlderHistoryForTab,
     handleTabRemove,
     renameTab,
     closeOtherTabs,

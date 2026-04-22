@@ -33,6 +33,7 @@ import {
   getApiConversationHistoryLogic,
   saveApiConversationHistoryLogic,
   getSavedChatermMessagesLogic,
+  getSavedChatermMessagesPageLogic,
   saveChatermMessagesLogic,
   getTaskMetadataLogic,
   saveTaskMetadataLogic,
@@ -236,6 +237,10 @@ export class ChatermDatabaseService {
   // Agent UI message related methods
   async getSavedChatermMessages(taskId: string): Promise<any[]> {
     return getSavedChatermMessagesLogic(this.db, taskId)
+  }
+
+  async getSavedChatermMessagesPage(taskId: string, options?: { beforeCursor?: number | null; limit?: number }) {
+    return getSavedChatermMessagesPageLogic(this.db, taskId, options)
   }
 
   async saveChatermMessages(taskId: string, uiMessages: any[]): Promise<void> {

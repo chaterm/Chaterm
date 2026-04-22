@@ -324,6 +324,11 @@ interface ApiType {
   kvMutate: (params: { action: string; key: string; value?: string }) => Promise<void>
   kvTransaction: (callback: (tx: KvTransactionContext) => Promise<void>) => Promise<void>
   chatermGetChatermMessages: (data: { taskId: string }) => Promise<any>
+  chatermGetChatermMessagesPage: (data: {
+    taskId: string
+    beforeCursor?: number | null
+    limit?: number
+  }) => Promise<import('../main/agent/shared/ExtensionMessage').ChatermMessagesPage>
   getTaskMetadata: (taskId: string) => Promise<{
     success: boolean
     data?: TaskMetadata
