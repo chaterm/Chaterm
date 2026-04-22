@@ -1927,6 +1927,14 @@ ipcMain.handle('asset-route-local-get', async (_, data) => {
   }
 })
 
+ipcMain.handle('record-connection', async (_, data) => {
+  try {
+    chatermDbService.recordConnection(data)
+  } catch (error) {
+    logger.error('Record connection failed', { error: error })
+  }
+})
+
 ipcMain.handle('asset-route-local-update', async (_, data) => {
   try {
     const { uuid, label } = data

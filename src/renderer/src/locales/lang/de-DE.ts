@@ -98,6 +98,7 @@ export default {
     pleaseInputPrivateKey: 'Bitte geben Sie den privaten Schlüssel ein',
     localhost: 'Localhost',
     favoriteBar: 'Favoriten',
+    recentConnections: 'Letzte Verbindungen',
     executeCommandToAllWindows: 'Befehl an alle Fenster ausführen',
     broadcastTo: 'Broadcast an {count} Terminals',
     reloadAliasDataFailed: 'Alias-Daten konnten nicht neu geladen werden',

@@ -101,7 +101,7 @@ import { SkillsManager } from '@services/skills'
 import { ChatermDatabaseService } from '../../../storage/db/chaterm.service'
 import type { McpTool } from '@shared/mcp'
 
-import type { ContentPart, ContextDocRef, ContextPastChatRef, ContextRefs, Host } from '@shared/WebviewMessage'
+import type { ContentPart, ContextDocRef, ContextPastChatRef, ContextRefs, Host, ToolResultPayload } from '@shared/WebviewMessage'
 import type { ToolResult } from '@shared/ToolResult'
 import { ExternalAssetCache } from '../../../plugin/pluginIpc'
 import type { InteractionType } from '../../services/interaction-detector/types'
@@ -242,7 +242,7 @@ export class Task {
   apiConversationHistory: Anthropic.MessageParam[] = []
   chatermMessages: ChatermMessage[] = []
   private commandSecurityManager: CommandSecurityManager
-  private askResponsePayload?: { response: ChatermAskResponse; text?: string; contentParts?: ContentPart[] }
+  private askResponsePayload?: { response: ChatermAskResponse; text?: string; contentParts?: ContentPart[]; toolResult?: ToolResultPayload }
   private nextUserInputContentParts?: ContentPart[]
   private lastMessageTs?: number
   private consecutiveAutoApprovedRequestsCount: number = 0
@@ -1322,6 +1322,7 @@ export class Task {
     response: ChatermAskResponse
     text?: string
     contentParts?: ContentPart[]
+    toolResult?: ToolResultPayload
   }> {
     if (this.abort) {
       throw new Error('Chaterm instance aborted')
@@ -1450,7 +1451,13 @@ export class Task {
     }
   }
 
-  async handleWebviewAskResponse(askResponse: ChatermAskResponse, text?: string, truncateAtMessageTs?: number, contentParts?: ContentPart[]) {
+  async handleWebviewAskResponse(
+    askResponse: ChatermAskResponse,
+    text?: string,
+    truncateAtMessageTs?: number,
+    contentParts?: ContentPart[],
+    toolResult?: ToolResultPayload
+  ) {
     logger.debug('Handling webview ask response', {
       event: 'agent.task.ask_response.received',
       askResponse,
@@ -1465,7 +1472,8 @@ export class Task {
     this.askResponsePayload = {
       response: askResponse,
       text,
-      contentParts
+      contentParts,
+      toolResult
     }
   }
 
@@ -3184,7 +3192,7 @@ export class Task {
   }
 
   private async askApproval(toolDescription: string, type: ChatermAsk, partialMessage?: string): Promise<boolean> {
-    const { response, text, contentParts } = await this.ask(type, partialMessage, false)
+    const { response, text, contentParts, toolResult } = await this.ask(type, partialMessage, false)
     const approved = response === 'yesButtonClicked' || response === 'autoApproveReadOnlyClicked'
 
     // If user clicked "auto-approve read-only" button, enable session-level auto-approval for subsequent read-only commands
@@ -3201,6 +3209,14 @@ export class Task {
         await this.saveCheckpoint()
       }
       this.didRejectTool = true
+    } else if (toolResult) {
+      await this.pushToolResult(toolDescription, toolResult.output, {
+        toolName: toolResult.toolName ?? 'execute_command',
+        hosts: this.hosts,
+        isError: toolResult.isError
+      })
+      await this.saveUserMessage(toolResult.output, undefined, 'command_output')
+      await this.saveCheckpoint()
     } else if (text) {
       await this.pushAdditionalToolFeedback(text)
       await this.saveUserMessage(text, contentParts)
@@ -4915,7 +4931,7 @@ USERNAME:${localSystemInfo.userName}`
         type: 'chip',
         chipType: 'doc',
         ref: {
-          absPath: path.join(kbRoot, relPath),
+          absPath: path.join(kbRoot, relPath).replace(/\\/g, '/'),
           relPath,
           name: path.basename(relPath),
           type: 'file',

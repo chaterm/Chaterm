@@ -1,5 +1,6 @@
 import mitt from 'mitt'
 import type { AssetInfo } from '@/views/components/AiTab/types'
+import type { ToolResultPayload } from '@shared/WebviewMessage'
 
 /**
  * Define event types
@@ -18,7 +19,7 @@ export interface AppEvents {
   apiProviderChanged: any
   activeTabChanged: any
   chatToAi: any
-  sendMessageToAi: { content: string; tabId?: string }
+  sendMessageToAi: { content: string; tabId?: string; toolResult?: ToolResultPayload }
   toggleMenu: any
   updateWatermark: string // Update watermark status
   updateSecretRedaction: string // Update secret redaction status

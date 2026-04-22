@@ -3,7 +3,8 @@ import eventBus from '@/utils/eventBus'
 import { useSessionState } from './useSessionState'
 import { focusChatInput } from './useTabManagement'
 import { isFocusInAiTab } from '@/utils/domUtils'
-import type { AssetInfo } from '../types'
+import type { AssetInfo, Host } from '../types'
+import type { ContentPart, ToolResultPayload } from '@shared/WebviewMessage'
 import { isSwitchAssetType } from '../utils'
 import i18n from '@/locales'
 import { Notice } from '@/views/components/Notice'
@@ -11,7 +12,15 @@ import { Notice } from '@/views/components/Notice'
 const logger = createRendererLogger('aitab.eventBus')
 
 interface UseEventBusListenersParams {
-  sendMessageWithContent: (content: string, sendType: string, tabId?: string) => Promise<void>
+  sendMessageWithContent: (
+    content: string,
+    sendType: string,
+    tabId?: string,
+    truncateAtMessageTs?: number,
+    contentParts?: ContentPart[],
+    overrideHosts?: Host[],
+    toolResult?: ToolResultPayload
+  ) => Promise<void>
   initModel: () => Promise<void>
   getCurentTabAssetInfo: () => Promise<AssetInfo | null>
   updateHosts: (hostInfo: { ip: string; uuid: string; connection: string; assetType?: string } | null) => void
@@ -87,13 +96,13 @@ export function useEventBusListeners(params: UseEventBusListenersParams) {
     }
   }
 
-  const handleSendMessageToAi = async (payload: { content: string; tabId?: string }) => {
+  const handleSendMessageToAi = async (payload: { content: string; tabId?: string; toolResult?: ToolResultPayload }) => {
     if (isAgentMode) {
       logger.debug('Ignoring sendMessageToAi event in agent mode')
       return
     }
 
-    const { content, tabId } = payload
+    const { content, tabId, toolResult } = payload
 
     if (!content || content.trim() === '') {
       return
@@ -108,7 +117,7 @@ export function useEventBusListeners(params: UseEventBusListenersParams) {
     }
 
     await initAssetInfo()
-    await sendMessageWithContent(content.trim(), 'commandSend', tabId)
+    await sendMessageWithContent(content.trim(), 'commandSend', tabId, undefined, undefined, undefined, toolResult)
   }
 
   const handleChatToAi = async (text: string) => {

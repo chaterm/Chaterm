@@ -207,6 +207,22 @@ const getLocalAssetRoute = async (data: { searchType: string; params?: unknown[]
   }
 }
 
+const recordConnection = async (data: {
+  assetUuid: string
+  assetIp: string
+  assetLabel?: string
+  assetPort?: number
+  assetUsername?: string
+  assetType: string
+  organizationId?: string
+}) => {
+  try {
+    await ipcRenderer.invoke('record-connection', data)
+  } catch {
+    // Non-critical: silently ignore recording failures
+  }
+}
+
 const updateLocalAssetLabel = async (data: { uuid: string; label: string }) => {
   try {
     const result = await ipcRenderer.invoke('asset-route-local-update', data)
@@ -584,6 +600,7 @@ const api = {
   insertCommand,
   aiSuggestCommand,
   getLocalAssetRoute,
+  recordConnection,
   updateLocalAssetLabel,
   updateLocalAsseFavorite,
   getKeyChainSelect,

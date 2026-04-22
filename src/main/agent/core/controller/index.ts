@@ -298,7 +298,13 @@ export class Controller {
               taskId: targetTask.taskId
             })
           }
-          await targetTask.handleWebviewAskResponse(message.askResponse!, message.text, message.truncateAtMessageTs, message.contentParts)
+          await targetTask.handleWebviewAskResponse(
+            message.askResponse!,
+            message.text,
+            message.truncateAtMessageTs,
+            message.contentParts,
+            message.toolResult
+          )
         }
         break
       case 'showTaskWithId':

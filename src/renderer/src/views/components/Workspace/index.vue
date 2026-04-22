@@ -262,6 +262,7 @@
                       company !== 'personal_user_id' &&
                       dataRef.title !== t('common.favoriteBar') &&
                       dataRef.asset_type !== 'custom_folder' &&
+                      dataRef.asset_type !== 'recent_connections' &&
                       !dataRef.isAssetGroup
                     "
                     class="refresh-icon"

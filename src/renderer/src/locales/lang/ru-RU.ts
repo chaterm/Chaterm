@@ -98,6 +98,7 @@ export default {
     pleaseInputPrivateKey: 'Пожалуйста, введите приватный ключ',
     localhost: 'Локальный хост',
     favoriteBar: 'Избранное',
+    recentConnections: 'Недавние подключения',
     executeCommandToAllWindows: 'Выполнить команду во всех окнах',
     broadcastTo: 'Трансляция в {count} терминалов',
     reloadAliasDataFailed: 'Не удалось перезагрузить данные псевдонимов',
