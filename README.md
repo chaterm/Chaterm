@@ -10,9 +10,12 @@
 </p>
 
 <p align="center">
-  <a href="https://github.com/chaterm/Chaterm/releases"><img src="https://img.shields.io/github/v/release/chaterm/Chaterm" alt="Releases"></a>
-  <img src="https://img.shields.io/github/stars/chaterm/Chaterm?style=flat&logo=github" alt="Stars">
-  <img src="https://img.shields.io/github/forks/chaterm/Chaterm?style=flat&logo=github" alt="Forks">
+<a href="https://scorecard.dev/viewer/?uri=github.com/chaterm/Chaterm">
+  <img src="https://api.scorecard.dev/projects/github.com/chaterm/Chaterm/badge" alt="OpenSSF Scorecard">
+</a>
+<a href="https://www.bestpractices.dev/projects/12617">
+  <img src="https://www.bestpractices.dev/projects/12617/badge" alt="OpenSSF Best Practices">
+</a>
   <img src="https://img.shields.io/codecov/c/github/chaterm/Chaterm?style=flat&logo=codecov" alt="Coverage">
   <img src="https://img.shields.io/badge/AI-Native-blue?style=flat" alt="AI Native">
   <a href="https://x.com/chaterm_ai"><img src="https://img.shields.io/twitter/follow/chaterm_ai?style=flat&logo=x&logoColor=white&label=Follow" alt="Follow on X"></a>
