@@ -371,6 +371,10 @@ export async function remoteSshDisconnect(sessionId: string): Promise<{ success?
   return { success: false, error: 'No active remote connection' }
 }
 
+export function isRemoteConnectionAlive(sessionId: string): boolean {
+  return remoteConnections.has(sessionId)
+}
+
 // ============================================================================
 // Wakeup Agent Reuse — Session Detection & Shell Execution
 // ============================================================================
