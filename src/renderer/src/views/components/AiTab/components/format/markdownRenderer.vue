@@ -1,5 +1,5 @@
 <template>
-  <div>
+  <div ref="containerRef">
     <div
       v-if="props.ask === 'command' || props.say === 'command'"
       ref="editorContainer"
@@ -517,6 +517,7 @@ let thinkingMeasurementToken = 0
 const isCancelled = ref(false)
 const commandOutputActiveKey = ref<string[]>(['1'])
 const activeKey = ref<string[]>(['1'])
+const containerRef = ref<HTMLElement | null>(null)
 const contentRef = ref<HTMLElement | null>(null)
 // Template ref used in template
 // @ts-expect-error - Template ref, used in template via ref="editorContainer"
@@ -1113,6 +1114,7 @@ onMounted(async () => {
   })
 
   themeObserver.observe(document.documentElement, { attributes: true })
+  document.addEventListener('keydown', handleSelectedTextCopy, true)
 
   if (props.content) {
     if (props.ask === 'command' || props.say === 'command') {
@@ -1248,6 +1250,7 @@ watch(
 
 onBeforeUnmount(() => {
   themeObserver.disconnect()
+  document.removeEventListener('keydown', handleSelectedTextCopy, true)
 
   if (contentStableTimeout.value) {
     clearTimeout(contentStableTimeout.value)
@@ -1466,6 +1469,38 @@ const processContentLines = async (content: string) => {
 const contentLines = computed(() => {
   return processedContentLines.value
 })
+
+const isSelectionWithinContainer = (selection: Selection): boolean => {
+  const container = containerRef.value
+  if (!container || selection.rangeCount === 0) return false
+
+  for (let index = 0; index < selection.rangeCount; index++) {
+    const range = selection.getRangeAt(index)
+    if (container.contains(range.commonAncestorContainer)) {
+      return true
+    }
+  }
+
+  return false
+}
+
+const handleSelectedTextCopy = (event: KeyboardEvent) => {
+  const isCopyShortcut = (event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 'c'
+  if (!isCopyShortcut) return
+
+  const selection = window.getSelection()
+  if (!selection || selection.isCollapsed) return
+  if (!isSelectionWithinContainer(selection)) return
+
+  const text = selection.toString()
+  if (!text.trim()) return
+
+  event.preventDefault()
+  event.stopPropagation()
+  navigator.clipboard.writeText(text).catch((error) => {
+    logger.error('Failed to copy selected markdown text', { error })
+  })
+}
 
 const copyEditorContent = () => {
   if (editor) {
@@ -1760,6 +1795,8 @@ code {
   word-wrap: break-word;
   word-break: break-word;
   overflow-wrap: break-word;
+  user-select: text;
+  -webkit-user-select: text;
 }
 
 .markdown-content ul,
