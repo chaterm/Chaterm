@@ -643,7 +643,8 @@ export default {
       fontSizeDecrease: 'Diminuer la taille de la police',
       toggleLayout: 'Basculer la disposition (Terminal/Agents)',
       toggleAgentsLeftSidebar: 'Basculer la barre latérale des agents',
-      switchAiMode: 'Basculer le mode AI'
+      switchAiMode: 'Basculer le mode AI',
+      aiSuggestCommand: 'Suggestion de commande AI'
     },
     hints: {
       sendOrToggleAi: 'Chat avec AI',

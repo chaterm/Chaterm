@@ -640,7 +640,8 @@ export default {
       fontSizeDecrease: 'Уменьшить размер шрифта',
       toggleLayout: 'Переключить макет (терминал/агенты)',
       toggleAgentsLeftSidebar: 'Переключить панель агентов слева',
-      switchAiMode: 'Переключить режим ИИ'
+      switchAiMode: 'Переключить режим ИИ',
+      aiSuggestCommand: 'ИИ-подсказка команд'
     },
     hints: {
       sendOrToggleAi: 'Чат с ИИ',

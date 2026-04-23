@@ -642,7 +642,8 @@ export default {
       fontSizeDecrease: 'Diminuisci dimensione font',
       toggleLayout: 'Attiva layout (Terminal/Agents)',
       toggleAgentsLeftSidebar: 'Attiva sidebar agenti',
-      switchAiMode: 'Attiva modalità AI'
+      switchAiMode: 'Attiva modalità AI',
+      aiSuggestCommand: 'Suggerimento comando AI'
     },
     hints: {
       sendOrToggleAi: 'Chat con AI',

@@ -49,6 +49,9 @@
       :active-suggestion="activeSuggestion"
       :selection-mode="suggestionSelectionMode"
       :ai-loading="aiSuggestLoading"
+      :ai-enabled="queryCommandFlag"
+      :has-ai-suggestion="!!aiSuggestion"
+      @trigger-ai="onAiTriggerHover"
     />
     <v-contextmenu ref="contextmenu">
       <Context
@@ -225,7 +228,6 @@ const aiSuggestRequestId = ref(0)
 const aiSuggestLoading = ref(false)
 const cachedOsInfo = ref<string | undefined>(undefined)
 const cachedOsInfoLoaded = ref(false)
-const AI_SUGGEST_DEBOUNCE_MS = 800
 const AI_SUGGEST_MIN_LENGTH = 3
 const props = defineProps({
   connectData: {
@@ -692,8 +694,8 @@ onMounted(async () => {
         pasteFlag.value = false
       }
       if (!selectFlag.value) {
+        aiSuggestion.value = null
         debouncedQueryCommand()
-        triggerAiSuggest()
       }
     }
     updateTimeout = null
@@ -928,6 +930,13 @@ onMounted(async () => {
     }
   })
 
+  eventBus.on('triggerAiSuggest', () => {
+    const activeTerm = inputManager.getActiveTerm()
+    if (activeTerm.id && connectionId.value && activeTerm.id === connectionId.value) {
+      triggerAiSuggestByShortcut()
+    }
+  })
+
   cleanupListeners.value.push(() => {
     eventBus.off('updateTheme', handleUpdateTheme)
     eventBus.off('executeTerminalCommand', handleExecuteCommand)
@@ -939,6 +948,7 @@ onMounted(async () => {
     eventBus.off('clearCurrentTerminal')
     eventBus.off('fontSizeIncrease')
     eventBus.off('fontSizeDecrease')
+    eventBus.off('triggerAiSuggest')
     window.removeEventListener('keydown', handleGlobalKeyDown)
     window.removeEventListener('message', handlePostMessage)
   })
@@ -2650,8 +2660,8 @@ const setupTerminalInput = () => {
       selectFlag.value = false
     }
     if (!selectFlag.value) {
+      aiSuggestion.value = null
       debouncedQueryCommand()
-      triggerAiSuggest()
     }
   }
   termOndata = terminal.value?.onData(handleInput)
@@ -4647,49 +4657,34 @@ const fetchAiSuggestion = async (command: string, requestId: number) => {
   }
 }
 
-// Debounced trigger for AI suggestion
-const triggerAiSuggest = () => {
-  // Cancel any pending timer
-  if (aiSuggestTimer.value) {
-    clearTimeout(aiSuggestTimer.value)
-    aiSuggestTimer.value = null
-  }
-  aiSuggestion.value = null
-
-  // Guard conditions
-  if (!queryCommandFlag.value) {
-    return
-  }
-  if (terminalMode.value === 'alternate') {
-    return
-  }
-  if (suggestionSelectionMode.value) {
-    return
-  }
-  // Skip if the terminal is not focused
-  if (terminal.value?.textarea && document.activeElement !== terminal.value.textarea) {
-    return
-  }
-
-  const isAtEndOfLine = terminalState.value.beforeCursor.length === terminalState.value.content.length
-  if (!isAtEndOfLine) {
-    return
-  }
+// Hover-triggered AI suggestion: called when user hovers the AI icon in suggestion panel
+const onAiTriggerHover = () => {
+  if (!queryCommandFlag.value) return
+  if (terminalMode.value === 'alternate') return
 
   const commandText = terminalState.value.beforeCursor.trim()
-  if (commandText.length < AI_SUGGEST_MIN_LENGTH) {
-    return
-  }
+  if (commandText.length < AI_SUGGEST_MIN_LENGTH) return
+
+  // Skip if already loading or already has a result
+  if (aiSuggestLoading.value || aiSuggestion.value) return
 
   const currentRequestId = ++aiSuggestRequestId.value
-  aiSuggestTimer.value = setTimeout(() => {
-    aiSuggestTimer.value = null
-    // Re-check selection mode: user may have entered navigation during debounce wait
-    if (suggestionSelectionMode.value) {
-      return
-    }
-    fetchAiSuggestion(commandText, currentRequestId)
-  }, AI_SUGGEST_DEBOUNCE_MS)
+  fetchAiSuggestion(commandText, currentRequestId)
+}
+
+// Shortcut-triggered AI suggestion: called via Ctrl+I / Cmd+I even when suggestion panel is not visible
+const triggerAiSuggestByShortcut = () => {
+  if (!queryCommandFlag.value) return
+  if (terminalMode.value === 'alternate') return
+
+  const commandText = terminalState.value.beforeCursor.trim()
+  if (commandText.length < AI_SUGGEST_MIN_LENGTH) return
+
+  // Skip if already loading or already has a result
+  if (aiSuggestLoading.value || aiSuggestion.value) return
+
+  const currentRequestId = ++aiSuggestRequestId.value
+  fetchAiSuggestion(commandText, currentRequestId)
 }
 
 const queryCommand = async (cmd = '') => {

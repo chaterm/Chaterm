@@ -627,7 +627,8 @@ export default {
       fontSizeDecrease: '글꼴 크기 감소',
       toggleLayout: '레이아웃 토글 (터미널/에이전트)',
       toggleAgentsLeftSidebar: '에이전트 왼쪽 사이드바 토글',
-      switchAiMode: 'AI 모드 토글'
+      switchAiMode: 'AI 모드 토글',
+      aiSuggestCommand: 'AI 명령어 추천'
     },
     hints: {
       sendOrToggleAi: 'AI와 대화',
