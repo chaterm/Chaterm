@@ -643,7 +643,8 @@ export default {
       fontSizeDecrease: 'Schriftgröße verringern',
       toggleLayout: 'Layout umschalten (Terminal/Agents)',
       toggleAgentsLeftSidebar: 'Agents-Linke Seitenleiste umschalten',
-      switchAiMode: 'AI-Modus umschalten'
+      switchAiMode: 'AI-Modus umschalten',
+      aiSuggestCommand: 'AI-Befehlsvorschlag'
     },
     hints: {
       sendOrToggleAi: 'Mit AI chatten',

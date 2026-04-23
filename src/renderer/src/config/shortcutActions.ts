@@ -198,5 +198,16 @@ export const shortcutActions: Omit<ShortcutAction, 'name'>[] = [
     handler: () => {
       eventBus.emit('switchAiMode')
     }
+  },
+  {
+    id: 'aiSuggestCommand',
+    nameKey: 'shortcuts.actions.aiSuggestCommand',
+    defaultKey: {
+      mac: 'Command+I',
+      other: 'Ctrl+I'
+    },
+    handler: () => {
+      eventBus.emit('triggerAiSuggest')
+    }
   }
 ]

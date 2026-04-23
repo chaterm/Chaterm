@@ -632,7 +632,8 @@ export default {
       fontSizeDecrease: 'フォントサイズを減らす',
       toggleLayout: 'レイアウトを切り替え(ターミナル/エージェント)',
       toggleAgentsLeftSidebar: 'エージェント左サイドバーを切り替え',
-      switchAiMode: 'AIモードを切り替え'
+      switchAiMode: 'AIモードを切り替え',
+      aiSuggestCommand: 'AIコマンド提案'
     },
     hints: {
       sendOrToggleAi: 'AIとチャット',

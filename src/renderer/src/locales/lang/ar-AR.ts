@@ -613,7 +613,8 @@ export default {
       fontSizeDecrease: 'تقليل الحجم الخط',
       toggleLayout: 'تبديل التخطيط (التبويب/الأجهزة)',
       toggleAgentsLeftSidebar: 'تبديل شريط الأجهزة الأيسر',
-      switchAiMode: 'تبديل وضع الذكاء الاصطناعي'
+      switchAiMode: 'تبديل وضع الذكاء الاصطناعي',
+      aiSuggestCommand: 'اقتراح أوامر الذكاء الاصطناعي'
     },
     hints: {
       sendOrToggleAi: 'الدردشة مع الذكاء الاصطناعي',
