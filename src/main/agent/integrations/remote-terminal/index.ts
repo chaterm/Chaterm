@@ -5,7 +5,14 @@
 // Licensed under the Apache License, Version 2.0
 
 import { BrownEventEmitter } from './event'
-import { remoteSshConnect, remoteSshExecStream, remoteSshDisconnect, isWakeupSession, openWakeupShell } from '../../../ssh/agentHandle'
+import {
+  remoteSshConnect,
+  remoteSshExecStream,
+  remoteSshDisconnect,
+  isRemoteConnectionAlive,
+  isWakeupSession,
+  openWakeupShell
+} from '../../../ssh/agentHandle'
 import { handleJumpServerConnection, jumpserverShellStreams } from './jumpserverHandle'
 import { capabilityRegistry, BastionErrorCode } from '../../../ssh/capabilityRegistry'
 import { runMarkerBasedCommand, type MarkerStream } from './marker-based-runner'
@@ -936,13 +943,31 @@ export class RemoteTerminalManager {
     )
 
     if (existingTerminal) {
-      logger.debug('Reusing existing remote terminal connection', {
-        event: 'remote-terminal.connect.reuse',
-        terminalId: existingTerminal.id,
-        sessionId: existingTerminal.sessionId,
-        sshType
-      })
-      return existingTerminal
+      let isAlive = true
+      if (sshType === 'jumpserver') {
+        isAlive = jumpserverShellStreams.has(existingTerminal.sessionId)
+      } else if (sshType === 'ssh') {
+        isAlive = isRemoteConnectionAlive(existingTerminal.sessionId)
+      }
+
+      if (!isAlive) {
+        logger.info('Stale terminal detected, removing and reconnecting', {
+          event: 'remote-terminal.connect.stale',
+          terminalId: existingTerminal.id,
+          sessionId: existingTerminal.sessionId,
+          sshType
+        })
+        this.processes.delete(existingTerminal.id)
+        this.terminals.delete(existingTerminal.id)
+      } else {
+        logger.debug('Reusing existing remote terminal connection', {
+          event: 'remote-terminal.connect.reuse',
+          terminalId: existingTerminal.id,
+          sessionId: existingTerminal.sessionId,
+          sshType
+        })
+        return existingTerminal
+      }
     }
 
     try {
