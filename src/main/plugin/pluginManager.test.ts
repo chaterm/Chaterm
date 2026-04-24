@@ -38,15 +38,18 @@ describe('pluginManager per-user storage', () => {
     return dir
   }
 
-  function createPluginZip(): string {
+  function createPluginZip(overrides?: { id?: string; displayName?: string; version?: string }): string {
+    const id = overrides?.id || 'p1'
+    const displayName = overrides?.displayName || 'P1'
+    const version = overrides?.version || '1.0.0'
     const pkgDir = makeTempDir('plugin-pkg-')
-    fs.writeFileSync(path.join(pkgDir, 'plugin.json'), JSON.stringify({ id: 'p1', displayName: 'P1', version: '1.0.0', main: 'index.js' }))
+    fs.writeFileSync(path.join(pkgDir, 'plugin.json'), JSON.stringify({ id, displayName, version, main: 'index.js' }))
     fs.writeFileSync(path.join(pkgDir, 'index.js'), 'module.exports = {}')
 
     const zip = new AdmZip()
     zip.addLocalFolder(pkgDir)
 
-    const zipPath = path.join(makeTempDir('plugin-zip-'), 'p1.chaterm')
+    const zipPath = path.join(makeTempDir('plugin-zip-'), `${id}.chaterm`)
     zip.writeZip(zipPath)
     return zipPath
   }
@@ -93,5 +96,22 @@ describe('pluginManager per-user storage', () => {
 
     expect(registry.length).toBe(1)
     expect(registry[0]?.id).toBe('p2')
+  })
+
+  it('blocks uninstall for required plugins unless force is enabled', async () => {
+    const userData = makeTempDir('userData-')
+    mockUserDataPath.mockReturnValue(userData)
+    mockGetCurrentUserId.mockReturnValue(42)
+
+    const { installPlugin, uninstallPlugin, listPlugins } = await import('./pluginManager')
+
+    const zipPath = createPluginZip({ id: 'required-plugin', displayName: 'Required Plugin' })
+    installPlugin(zipPath, { source: 'preinstalled', required: true })
+
+    expect(() => uninstallPlugin('required-plugin')).toThrow('This plugin is required and cannot be uninstalled')
+    expect(listPlugins()).toHaveLength(1)
+
+    uninstallPlugin('required-plugin', { force: true })
+    expect(listPlugins()).toHaveLength(0)
   })
 })

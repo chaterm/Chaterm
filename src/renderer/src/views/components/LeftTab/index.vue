@@ -177,7 +177,6 @@ import { shortcutService } from '@/services/shortcutService'
 import { dataSyncService } from '@/services/dataSyncService'
 import { chatSyncService } from '@/services/chatSyncService'
 import { convertFileLocalResourceSrc } from '@/utils/convertFileLocalResourceSrc'
-import { reconcileEnterprisePluginStateAfterMetadataChange } from '../AiTab/composables/useModelConfiguration'
 
 const logger = createRendererLogger('leftTab')
 let storageEventHandler: ((e: StorageEvent) => void) | null = null
@@ -333,7 +332,6 @@ onMounted(async () => {
   }
   removePluginMetadataListener = api.onPluginMetadataChanged(async () => {
     await refreshPluginViews()
-    await reconcileEnterprisePluginStateAfterMetadataChange()
   })
   storageEventHandler = (e: StorageEvent) => {
     if (e.key === 'login-skipped') {

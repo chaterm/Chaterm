@@ -57,6 +57,7 @@ import * as fsSync from 'fs'
 import { pathToFileURL } from 'url'
 import { loadAllPlugins } from './plugin/pluginLoader'
 import {
+  getInstalledPlugin,
   getAllPluginVersions,
   installPlugin,
   listPlugins,
@@ -82,12 +83,115 @@ import { parseXshellWakeupFromArgv, redactXshellWakeupForLog, type XshellWakeupP
 
 const logger = createLogger('main')
 
+type PreinstalledPluginConfig = {
+  id: string
+  fileName?: string
+  required?: boolean
+  autoInstall?: boolean
+  source?: 'preinstalled' | 'store' | 'local'
+}
+
 const parsePolicyEnabled = (raw: unknown): boolean | null => {
   if (typeof raw !== 'string') return null
   const normalized = raw.trim().toLowerCase()
   if (['1', 'true', 'yes', 'on'].includes(normalized)) return true
   if (['0', 'false', 'no', 'off'].includes(normalized)) return false
   return null
+}
+
+const parseDeployStatus = (raw: unknown): number => {
+  if (typeof raw === 'number' && Number.isFinite(raw)) return raw
+  if (typeof raw !== 'string') return 0
+  const parsed = Number.parseInt(raw.trim(), 10)
+  return Number.isFinite(parsed) ? parsed : 0
+}
+
+const parsePreinstalledPluginConfig = (): PreinstalledPluginConfig[] => {
+  const raw = process.env.CHATERM_PREINSTALLED_PLUGINS
+  if (!raw) return []
+  try {
+    const parsed = JSON.parse(raw)
+    if (!Array.isArray(parsed)) return []
+    return parsed.filter((item): item is PreinstalledPluginConfig => typeof item?.id === 'string' && item.id.trim().length > 0)
+  } catch (error) {
+    logger.warn('Failed to parse preinstalled plugin config', { error: error })
+    return []
+  }
+}
+
+const compareVersion = (a?: string | null, b?: string | null): number => {
+  if (!a && !b) return 0
+  if (!a) return -1
+  if (!b) return 1
+  const pa = a.split('.').map((n) => Number.parseInt(n, 10) || 0)
+  const pb = b.split('.').map((n) => Number.parseInt(n, 10) || 0)
+  const length = Math.max(pa.length, pb.length)
+  for (let i = 0; i < length; i++) {
+    const va = pa[i] || 0
+    const vb = pb[i] || 0
+    if (va > vb) return 1
+    if (va < vb) return -1
+  }
+  return 0
+}
+
+const getPreinstalledPluginPackagePath = (plugin: PreinstalledPluginConfig): string => {
+  const fileName = plugin.fileName || `${plugin.id}.chaterm`
+  const resourceDir = app.isPackaged ? process.resourcesPath : path.join(process.cwd(), 'resources')
+  return path.join(resourceDir, 'preinstalled-plugins', fileName)
+}
+
+const bootstrapPreinstalledPlugins = async () => {
+  if (parseDeployStatus(process.env.CHATERM_DEPLOY_STATUS) === 0) {
+    return
+  }
+
+  const configuredPlugins = parsePreinstalledPluginConfig().filter((plugin) => plugin.autoInstall !== false)
+  if (configuredPlugins.length === 0) {
+    return
+  }
+
+  for (const plugin of configuredPlugins) {
+    const packagePath = getPreinstalledPluginPackagePath(plugin)
+    if (!fsSync.existsSync(packagePath)) {
+      logger.warn('Preinstalled plugin package not found', { pluginId: plugin.id, packagePath })
+      continue
+    }
+
+    const installed = getInstalledPlugin(plugin.id)
+    let shouldInstall = !installed
+
+    try {
+      const zip = new (require('adm-zip'))(packagePath)
+      const entry = zip.getEntry('plugin.json')
+      if (!entry) {
+        logger.warn('Preinstalled plugin package missing plugin.json', { pluginId: plugin.id, packagePath })
+        continue
+      }
+      const manifest = JSON.parse(zip.readAsText(entry)) as PluginManifest
+      if (!installed || compareVersion(installed.version, manifest.version) < 0) {
+        shouldInstall = true
+      } else {
+        shouldInstall = false
+      }
+    } catch (error) {
+      logger.warn('Failed to inspect preinstalled plugin package', { pluginId: plugin.id, packagePath, error: error })
+      continue
+    }
+
+    if (!shouldInstall) {
+      continue
+    }
+
+    if (installed) {
+      uninstallPlugin(plugin.id, { force: true })
+    }
+
+    installPlugin(packagePath, {
+      source: plugin.source || 'preinstalled',
+      required: plugin.required === true
+    })
+  }
 }
 
 let mainWindow: BrowserWindow
@@ -1064,6 +1168,13 @@ function setupIPC(): void {
         } catch (error) {
           logger.warn('Failed to reload skill states after login', { value: error })
         }
+      }
+
+      // Install preloaded plugins after the current user is resolved so they go to the correct user scope.
+      try {
+        await bootstrapPreinstalledPlugins()
+      } catch (error) {
+        logger.warn('Failed to bootstrap preinstalled plugins after login', { value: error })
       }
 
       // Reload plugins after user login to switch to per-user plugin directory
@@ -2850,7 +2961,7 @@ ipcMain.handle('capture-telemetry-event', async (_, { eventType, data }) => {
 // Plugins
 
 ipcMain.handle('plugins.install', async (_event, pluginFilePath: string) => {
-  const record = installPlugin(pluginFilePath)
+  const record = installPlugin(pluginFilePath, { source: 'local', required: false })
   await loadAllPlugins()
   return record
 })
@@ -2867,10 +2978,11 @@ ipcMain.handle(
     }
   ) => {
     const { pluginId, version, fileName, data } = payload
+    const installedPlugin = getInstalledPlugin(pluginId)
 
     // Uninstall the old version
     try {
-      await uninstallPlugin(pluginId)
+      await uninstallPlugin(pluginId, { force: true })
     } catch (e) {
       logger.warn('uninstall before update failed, continue install', { value: e })
     }
@@ -2886,7 +2998,10 @@ ipcMain.handle(
     const buffer = Buffer.from(data) // ArrayBuffer -> Buffer
     await fsSync.promises.writeFile(tmpFilePath, buffer)
 
-    const record = installPlugin(tmpFilePath)
+    const record = installPlugin(tmpFilePath, {
+      source: installedPlugin?.source || 'store',
+      required: installedPlugin?.required === true
+    })
     await loadAllPlugins()
     return record
   }
@@ -2933,6 +3048,8 @@ ipcMain.handle('plugins.listUi', async () => {
       id: p.id,
       version: p.version,
       enabled: p.enabled,
+      required: p.required === true,
+      source: p.source || 'local',
       name,
       description,
       iconUrl,

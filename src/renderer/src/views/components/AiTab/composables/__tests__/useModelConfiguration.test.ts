@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
-import { reconcileEnterprisePluginStateAfterMetadataChange, syncEnterpriseStateFromUserData, useModelConfiguration } from '../useModelConfiguration'
+import { syncEnterpriseStateFromUserData, useModelConfiguration } from '../useModelConfiguration'
 import * as stateModule from '@renderer/agent/storage/state'
 import { getUser } from '@api/user/user'
 import { ref } from 'vue'
@@ -590,31 +590,6 @@ describe('useModelConfiguration', () => {
 
       expect(enterpriseConfigs).toEqual([{ modelName: 'gpt-5', provider: 'openai' }])
       expect((global.window as unknown as { api: { reloadPlugins: ReturnType<typeof vi.fn> } }).api.reloadPlugins).not.toHaveBeenCalled()
-    })
-
-    it('cleans enterprise model options after plugin metadata change when plugin is no longer active', async () => {
-      const state: Record<string, unknown> = {
-        enterpriseModelConfigs: [{ modelName: 'gpt-5', provider: 'openai' }],
-        enterpriseModelConfigVersion: 'v1',
-        modelOptions: [
-          { id: 'enterprise:openai:gpt-5', name: 'gpt-5', checked: true, type: 'standard', apiProvider: 'openai' },
-          { id: 'custom-1', name: 'custom-model', checked: true, type: 'custom', apiProvider: 'openai' }
-        ],
-        enterpriseModelPluginActive: false
-      }
-
-      vi.mocked(stateModule.getGlobalState).mockImplementation(async (key) => state[key] ?? null)
-      vi.mocked(stateModule.updateGlobalState).mockImplementation(async (key, value) => {
-        state[key] = value
-      })
-
-      await reconcileEnterprisePluginStateAfterMetadataChange()
-
-      expect(stateModule.updateGlobalState).toHaveBeenCalledWith('enterpriseModelPluginActive', false)
-      expect(stateModule.updateGlobalState).toHaveBeenCalledWith('modelOptions', [
-        { id: 'custom-1', name: 'custom-model', checked: true, type: 'custom', apiProvider: 'openai' }
-      ])
-      expect(stateModule.storeSecret).toHaveBeenCalledWith('openAiApiKey', undefined)
     })
   })
 

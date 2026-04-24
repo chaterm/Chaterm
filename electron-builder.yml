@@ -58,6 +58,9 @@ extraResources:
     to: 'update-notes.json'
   - from: 'keyword-highlight.json'
     to: 'keyword-highlight.json'
+  - from: 'resources/preinstalled-plugins/'
+    to: 'preinstalled-plugins/'
+    filter: '**/*'
 asarUnpack:
   - resources/**
 icon: resources/icon.ico
