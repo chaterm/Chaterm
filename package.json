@@ -137,7 +137,7 @@
     "@vitest/ui": "^4.0.15",
     "@vue/eslint-config-prettier": "^10.2.0",
     "@vue/eslint-config-typescript": "^14.7.0",
-    "@vue/test-utils": "^2.4.6",
+    "@vue/test-utils": "^2.4.8",
     "ant-design-vue": "^4.2.6",
     "cross-env": "^10.1.0",
     "electron": "^41.3.0",
