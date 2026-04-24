@@ -105,7 +105,7 @@
     "superjson": "^2.2.5",
     "tiktoken": "^1.0.22",
     "v-contextmenu": "^3.2.0",
-    "vue-i18n": "^11.3.2",
+    "vue-i18n": "^11.4.0",
     "zmodem.js": "^0.1.10",
     "zod": "^3.24.2",
     "zxcvbn": "^4.4.2"
