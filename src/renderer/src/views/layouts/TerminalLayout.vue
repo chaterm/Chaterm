@@ -2884,6 +2884,17 @@ const createNewPanel = (isClone: boolean, direction: 'left' | 'right' | 'above' 
   }
 
   params.id = newIdV4
+
+  // Tag clone/split origin so bastion plugins (e.g. qizhi) can auto-apply the
+  // previously selected user instead of re-prompting for multi-user assets.
+  if (params.connectData) {
+    if (isClone) {
+      params.connectData = { ...params.connectData, source: 'clone' }
+    } else if (direction !== 'within') {
+      params.connectData = { ...params.connectData, source: 'split' }
+    }
+  }
+
   dockApi.addPanel({
     id: newId,
     component: sourceComponent,
