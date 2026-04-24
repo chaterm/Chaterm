@@ -187,6 +187,32 @@ describe('Extensions index.vue', () => {
     expect(wrapper.text()).toContain('Plugin A')
   })
 
+  it('shows required tag for required installed plugins', async () => {
+    pluginListRef.value = [
+      {
+        name: 'Enterprise Plugin',
+        description: 'desc',
+        iconKey: '',
+        iconUrl: '',
+        tabName: 'Enterprise Plugin',
+        show: true,
+        isPlugin: true,
+        pluginId: 'enterprise-plugin',
+        installed: true,
+        hasUpdate: false,
+        installedVersion: '1.0.0',
+        latestVersion: '1.0.0',
+        required: true
+      }
+    ]
+
+    wrapper = createWrapper()
+    await nextTick()
+    await nextTick()
+
+    expect(wrapper.text()).toContain('System')
+  })
+
   it('hides Alias when aliasStatus is disabled', async () => {
     ;(userConfigStore.getConfig as ReturnType<typeof vi.fn>).mockResolvedValue({
       aliasStatus: 2,

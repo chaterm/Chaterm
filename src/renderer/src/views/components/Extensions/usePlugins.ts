@@ -12,6 +12,8 @@ export interface PluginUiItem {
   version: string | null
   tabName: string
   enabled: boolean
+  required?: boolean
+  source?: 'preinstalled' | 'store' | 'local'
 }
 
 export interface StorePluginItem {
@@ -39,6 +41,8 @@ export interface DisplayPluginItem {
   latestVersion?: string
   isDraggedOnly?: boolean
   installable?: boolean
+  required?: boolean
+  source?: 'preinstalled' | 'store' | 'local'
 }
 
 const pluginItems = ref<PluginUiItem[]>([])
@@ -89,7 +93,9 @@ const pluginList = computed<DisplayPluginItem[]>(() => {
         hasUpdate,
         installedVersion,
         latestVersion: sp.latestVersion,
-        installable: sp.installable
+        installable: sp.installable,
+        required: installed.required === true,
+        source: installed.source
       })
       installedMap.delete(sp.pluginId)
     } else {
@@ -127,7 +133,9 @@ const pluginList = computed<DisplayPluginItem[]>(() => {
       installed: true,
       hasUpdate: false,
       installedVersion: p.version || '',
-      latestVersion: ''
+      latestVersion: '',
+      required: p.required === true,
+      source: p.source
     })
   })
 
@@ -160,7 +168,9 @@ const loadPlugins = async () => {
         description: p.description,
         iconUrl: p.iconUrl || null,
         tabName: p.tabName || p.id,
-        enabled: p.enabled
+        enabled: p.enabled,
+        required: p.required === true,
+        source: p.source
       }))
   } catch (e) {
     logger.error('loadPlugins error', { error: e })

@@ -278,18 +278,6 @@ export async function syncEnterpriseStateFromUserData(
     await updateGlobalState('enterpriseModelPluginResolvedSignature', signature)
   }
 
-  const enterprisePluginActiveAfterReload = Boolean(await getGlobalState('enterpriseModelPluginActive'))
-  const reloadedModelOptions = (((await getGlobalState('modelOptions')) || []) as ModelOption[]) || []
-  const hasEnterpriseModelsAfterReload = reloadedModelOptions.some((option) => isEnterpriseModelOption(option))
-
-  if (!enterprisePluginActiveAfterReload) {
-    if (hasEnterpriseModelsAfterReload) {
-      await cleanupEnterpriseManagedState({ preserveConfigs: true })
-    } else {
-      await clearEnterpriseRuntimeConfiguration()
-    }
-  }
-
   if (shouldReload) {
     eventBus.emit('SettingModelOptionsChanged')
   }
@@ -302,27 +290,6 @@ export async function syncEnterpriseModelsFromServer(options: { reloadPlugins?: 
   const userData = (response?.data || {}) as UserInfoPayload
   await syncEnterpriseStateFromUserData(userData, options)
   return userData
-}
-
-export async function reconcileEnterprisePluginStateAfterMetadataChange(): Promise<void> {
-  if (!isEnterpriseDeployEnabled()) return
-
-  const enterpriseModelConfigs = normalizeEnterpriseModelConfigs(await getGlobalState('enterpriseModelConfigs'))
-  if (enterpriseModelConfigs.length === 0) return
-
-  const signature = buildEnterpriseConfigSignature(
-    enterpriseModelConfigs,
-    (await getGlobalState('enterpriseModelConfigVersion')) as string | number | undefined
-  )
-  const enterprisePluginActive = Boolean(await getGlobalState('enterpriseModelPluginActive'))
-
-  if (enterprisePluginActive) {
-    await updateGlobalState('enterpriseModelPluginResolvedSignature', signature)
-    eventBus.emit('SettingModelOptionsChanged')
-    return
-  }
-
-  await cleanupEnterpriseManagedState({ preserveConfigs: true })
 }
 
 /**

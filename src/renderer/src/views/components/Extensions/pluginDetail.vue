@@ -47,6 +47,7 @@
 
                 <template v-else>
                   <a-button
+                    v-if="!isRequiredPlugin"
                     class="op_btn"
                     size="small"
                     danger
@@ -192,6 +193,7 @@ const isInstalled = computed(() => !!pluginMeta.value?.installed)
 const needUpdate = computed(() => !!pluginMeta.value?.hasUpdate)
 const isStorePlugin = computed(() => storePlugins.value.some((sp) => sp.pluginId === pluginId.value))
 const isInstallable = computed(() => pluginMeta.value?.installable !== false)
+const isRequiredPlugin = computed(() => pluginMeta.value?.required === true)
 
 const loading = ref(true)
 const uninstalling = ref(false)
@@ -209,6 +211,9 @@ const pluginSourceText = computed(() => {
     const storeKey = sp.pluginId
     return storeKey === pluginKey
   })
+  if (plugin.source === 'preinstalled') {
+    return 'Preinstalled'
+  }
   return inStore ? t('extensions.sourceStore') : t('extensions.sourceLocal')
 })
 
@@ -331,6 +336,13 @@ const emit = defineEmits<{
 const handleUninstall = async () => {
   const id = pluginId.value
   if (!id || uninstalling.value) return
+  if (isRequiredPlugin.value) {
+    notification.error({
+      message: t('extensions.uninstallFailed'),
+      description: 'This plugin is required and cannot be uninstalled'
+    })
+    return
+  }
   uninstalling.value = true
   try {
     await api.uninstallPlugin(id)

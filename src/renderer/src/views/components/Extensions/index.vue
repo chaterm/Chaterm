@@ -64,6 +64,12 @@
                   >
                     {{ $t('extensions.system') }}
                   </a-tag>
+                  <a-tag
+                    v-else-if="item.required"
+                    class="right-tag"
+                  >
+                    System
+                  </a-tag>
                 </div>
 
                 <div

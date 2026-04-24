@@ -34,6 +34,13 @@ export interface InstalledPlugin {
   version: string
   path: string
   enabled: boolean
+  source?: 'preinstalled' | 'store' | 'local'
+  required?: boolean
+}
+
+export interface InstallPluginOptions {
+  source?: InstalledPlugin['source']
+  required?: boolean
 }
 
 // Database directory name - must match connection.ts DB_DIR_NAME
@@ -76,7 +83,7 @@ export function listPlugins(): InstalledPlugin[] {
   return readRegistry()
 }
 
-export function installPlugin(pluginFilePath: string): InstalledPlugin {
+export function installPlugin(pluginFilePath: string, options?: InstallPluginOptions): InstalledPlugin {
   logger.info('Installing plugin package', {
     event: 'plugin.install.start',
     packageName: path.basename(pluginFilePath)
@@ -116,7 +123,9 @@ export function installPlugin(pluginFilePath: string): InstalledPlugin {
       displayName: manifest.displayName,
       version: manifest.version,
       path: finalDir,
-      enabled: true
+      enabled: true,
+      source: options?.source,
+      required: options?.required === true
     }
     registry.push(record)
     writeRegistry(registry)
@@ -138,9 +147,12 @@ export function installPlugin(pluginFilePath: string): InstalledPlugin {
   }
 }
 
-export function uninstallPlugin(pluginId: string) {
+export function uninstallPlugin(pluginId: string, options?: { force?: boolean }) {
   logger.info('Uninstalling plugin', { event: 'plugin.uninstall.start', pluginId })
   const registry = readRegistry()
+  if (!options?.force && registry.some((p) => p.id === pluginId && p.required)) {
+    throw new Error('This plugin is required and cannot be uninstalled')
+  }
   const rest: InstalledPlugin[] = []
   let removed = false
   for (const p of registry) {
@@ -163,6 +175,10 @@ export function uninstallPlugin(pluginId: string) {
       pluginId
     })
   }
+}
+
+export function getInstalledPlugin(pluginId: string): InstalledPlugin | null {
+  return readRegistry().find((plugin) => plugin.id === pluginId) ?? null
 }
 
 type VersionProviderFn = () => string | null | Promise<string | null>

@@ -150,7 +150,7 @@
         >
           <span>****************</span>
           <a-button
-            v-if="!unChange && !isEditing"
+            v-if="!unChange && !isEditing && canResetPassword"
             type="text"
             size="small"
             class="edit-icon-btn"
@@ -598,6 +598,10 @@ const canEditMobile = computed(() => {
   return userInfo.value.registrationType !== 7
 })
 
+const canResetPassword = computed(() => {
+  return userInfo.value.registrationType !== 1
+})
+
 const canEditEmail = computed(() => {
   return (
     userInfo.value.registrationType !== 2 &&
@@ -761,6 +765,11 @@ const cancelResetPassword = () => {
 }
 
 const handleResetPassword = async () => {
+  if (!canResetPassword.value) {
+    message.error('SSO users cannot change password')
+    showPasswordModal.value = false
+    return
+  }
   if (!validatePassword()) {
     return
   }

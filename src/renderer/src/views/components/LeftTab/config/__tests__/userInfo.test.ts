@@ -261,6 +261,25 @@ describe('UserInfo Component', () => {
       const editButton = wrapper.find('.edit-icon-btn')
       expect(editButton.exists()).toBe(false)
     })
+
+    it('should hide reset password button for SSO users', async () => {
+      vi.mocked(getUser).mockResolvedValue({
+        code: 200,
+        data: {
+          uid: 1001,
+          name: 'SSO User',
+          username: 'ssouser',
+          registrationType: 1
+        }
+      } as any)
+
+      wrapper = createWrapper()
+      await nextTick()
+      await nextTick()
+
+      const vm = wrapper.vm as any
+      expect(vm.canResetPassword).toBe(false)
+    })
   })
 
   describe('User Interactions - Edit Mode', () => {
@@ -454,6 +473,35 @@ describe('UserInfo Component', () => {
         password: 'newpassword123'
       })
       expect(vi.mocked(message.success)).toHaveBeenCalledWith('Password reset successful')
+      expect(vm.showPasswordModal).toBe(false)
+    })
+
+    it('should block password reset for SSO users', async () => {
+      vi.mocked(getUser).mockResolvedValue({
+        code: 200,
+        data: {
+          uid: 1001,
+          name: 'SSO User',
+          username: 'ssouser',
+          registrationType: 1
+        }
+      } as any)
+
+      wrapper.unmount()
+      wrapper = createWrapper()
+      await nextTick()
+      await nextTick()
+
+      const vm = wrapper.vm as any
+      vm.showPasswordModal = true
+      vm.formState.newPassword = 'newpassword123'
+      vm.formState.confirmPassword = 'newpassword123'
+
+      await vm.handleResetPassword()
+      await nextTick()
+
+      expect(vi.mocked(changePassword)).not.toHaveBeenCalled()
+      expect(vi.mocked(message.error)).toHaveBeenCalledWith('SSO users cannot change password')
       expect(vm.showPasswordModal).toBe(false)
     })
 
