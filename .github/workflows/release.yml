@@ -1,0 +1,72 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*"
+
+# Keep default permissions minimal. Each job grants only what it needs.
+permissions:
+  contents: read
+
+jobs:
+  build-and-sign:
+    name: Build and sign release artifacts
+    runs-on: macos-latest
+
+    permissions:
+      contents: write
+      id-token: write
+
+    outputs:
+      hashes: ${{ steps.sign.outputs.hashes }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      # Adjust this command to match Chaterm's actual release build command.
+      - name: Build release artifacts
+        run: npm run build
+
+      - name: Install cosign
+        uses: sigstore/cosign-installer@v3
+
+      - name: Sign release artifacts
+        id: sign
+        env:
+          COSIGN_YES: "true"
+          # Adjust this if your build output directory is not "dist".
+          ARTIFACT_SOURCE_DIR: "dist"
+          ARTIFACT_OUTPUT_DIR: "release-assets"
+        run: |
+          chmod +x scripts/sign-release-artifacts.sh
+          scripts/sign-release-artifacts.sh
+
+      - name: Upload GitHub Release assets
+        uses: softprops/action-gh-release@v2
+        with:
+          files: release-assets/*
+
+  provenance:
+    name: Generate SLSA provenance
+    needs: build-and-sign
+
+    permissions:
+      actions: read
+      id-token: write
+      contents: write
+
+    uses: slsa-framework/slsa-github-generator/.github/workflows/generator_generic_slsa3.yml@v2.1.0
+    with:
+      base64-subjects: ${{ needs.build-and-sign.outputs.hashes }}
+      upload-assets: true
