@@ -3,7 +3,7 @@ name: Release
 on:
   push:
     tags:
-      - "v*"
+      - 'v*'
 
 # Keep default permissions minimal. Each job grants only what it needs.
 permissions:
@@ -23,10 +23,10 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
 
       - name: Setup Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
           node-version: 22
           cache: npm
@@ -39,21 +39,21 @@ jobs:
         run: npm run build
 
       - name: Install cosign
-        uses: sigstore/cosign-installer@v3
+        uses: sigstore/cosign-installer@f713795cb21599bc4e5c4b58cbad1da852d7eeb9 # v3
 
       - name: Sign release artifacts
         id: sign
         env:
-          COSIGN_YES: "true"
+          COSIGN_YES: 'true'
           # Adjust this if your build output directory is not "dist".
-          ARTIFACT_SOURCE_DIR: "dist"
-          ARTIFACT_OUTPUT_DIR: "release-assets"
+          ARTIFACT_SOURCE_DIR: 'dist'
+          ARTIFACT_OUTPUT_DIR: 'release-assets'
         run: |
           chmod +x scripts/sign-release-artifacts.sh
           scripts/sign-release-artifacts.sh
 
       - name: Upload GitHub Release assets
-        uses: softprops/action-gh-release@v2
+        uses: softprops/action-gh-release@3bb12739c298aeb8a4eeaf626c5b8d85266b0e65 # v2
         with:
           files: release-assets/*
 
@@ -66,7 +66,7 @@ jobs:
       id-token: write
       contents: write
 
-    uses: slsa-framework/slsa-github-generator/.github/workflows/generator_generic_slsa3.yml@v2.1.0
+    uses: slsa-framework/slsa-github-generator/.github/workflows/generator_generic_slsa3.yml@f7dd8c54c2067bafc12ca7a55595d5ee9b75204a # v2.1.0
     with:
       base64-subjects: ${{ needs.build-and-sign.outputs.hashes }}
       upload-assets: true
