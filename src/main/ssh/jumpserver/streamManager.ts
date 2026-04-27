@@ -326,7 +326,8 @@ export async function executeCommandOnJumpServerExec(
 
     execStream.on('data', dataHandler)
 
-    const fullCommand = `${cmd}; echo "${marker}"; echo "${exitCodeMarker}$?"\r`
+    // Leading space prevents the command from being recorded in shell history
+    const fullCommand = ` ${cmd}; echo "${marker}"; echo "${exitCodeMarker}$?"\r`
     execStream.write(fullCommand)
 
     setTimeout(() => {

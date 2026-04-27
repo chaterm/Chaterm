@@ -487,7 +487,9 @@ export class RemoteTerminalProcess extends BrownEventEmitter<RemoteTerminalProce
     }
 
     // Build complete wrapped command with markers
-    const wrappedCommand = `bash -l -c 'echo "${startMarker}"; ${commandToExecute}; EXIT_CODE=$?; echo "${endMarker}:$EXIT_CODE"'`
+    // set +o history prevents the inner commands from being recorded in shell history
+    // as a fallback for shells that do not honor the leading-space convention
+    const wrappedCommand = `bash -l -c 'set +o history 2>/dev/null; echo "${startMarker}"; ${commandToExecute}; EXIT_CODE=$?; echo "${endMarker}:$EXIT_CODE"; set -o history 2>/dev/null'`
 
     return {
       wrappedCommand,
