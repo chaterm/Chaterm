@@ -197,6 +197,14 @@
   overflow: hidden;
 }
 
+.chat-area-wrapper {
+  flex-grow: 1;
+  position: relative;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
 .chat-response-container {
   flex-grow: 1;
   overflow-y: auto;
@@ -1435,5 +1443,31 @@
 
   to {
     transform: rotate(360deg);
+  }
+}
+
+// AI Chat search highlight styles
+mark.ai-chat-search-highlight {
+  background-color: rgba(255, 213, 0, 0.4);
+  color: inherit;
+  border-radius: 2px;
+  padding: 0;
+
+  &.ai-chat-search-highlight-active {
+    background-color: rgba(255, 140, 0, 0.6);
+    outline: 2px solid rgba(255, 140, 0, 0.8);
+    outline-offset: 1px;
+  }
+}
+
+// Highlight for special containers (Monaco editor / xterm terminal) that contain search matches
+.ai-chat-search-container-highlight {
+  outline: 2px solid rgba(255, 213, 0, 0.6);
+  outline-offset: -2px;
+  border-radius: 6px;
+
+  &.ai-chat-search-container-highlight-active {
+    outline-color: rgba(255, 140, 0, 0.8);
+    outline-width: 3px;
   }
 }

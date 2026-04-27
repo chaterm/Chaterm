@@ -4942,6 +4942,9 @@ const handleGlobalKeyDown = (e: KeyboardEvent) => {
   // Search functionality
   // Windows uses the method of listening for key messages, window.addEventListener('message', handlePostMessage)
   if ((isMac ? e.metaKey : e.ctrlKey) && e.key === 'f') {
+    if (isFocusInAiTab(e)) {
+      return
+    }
     e.preventDefault()
     e.stopPropagation()
     openSearch()
