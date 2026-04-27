@@ -97,6 +97,8 @@ vi.mock('@ant-design/icons-vue', () => ({
   QuestionCircleOutlined: { template: '<span />' }
 }))
 
+const clipboardWriteText = vi.fn().mockResolvedValue(undefined)
+
 const globalMountOptions = {
   global: {
     stubs: {
@@ -113,6 +115,11 @@ describe('markdownRenderer kb search results', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     document.documentElement.className = ''
+    Object.defineProperty(globalThis.navigator, 'clipboard', {
+      value: { writeText: clipboardWriteText },
+      configurable: true
+    })
+    window.getSelection()?.removeAllRanges()
   })
 
   it('renders structured kb search results as clickable links', async () => {
@@ -179,5 +186,47 @@ describe('markdownRenderer kb search results', () => {
 
     expect(wrapper.find('.kb-search-result-link').exists()).toBe(false)
     expect(wrapper.text()).toContain('Plain text message')
+  })
+
+  it('copies selected markdown text with keyboard shortcut', async () => {
+    const content = 'Copy this text'
+    const wrapper = mount(MarkdownRenderer, {
+      ...globalMountOptions,
+      attachTo: document.body,
+      props: {
+        content,
+        say: 'text'
+      }
+    })
+
+    await flushPromises()
+    await nextTick()
+
+    const paragraph = wrapper.find('.markdown-content p')
+    expect(paragraph.exists()).toBe(true)
+
+    const textNode = paragraph.element.firstChild
+    expect(textNode).not.toBeNull()
+
+    const selection = window.getSelection()
+    const range = document.createRange()
+    range.setStart(textNode!, 0)
+    range.setEnd(textNode!, content.length)
+    selection?.removeAllRanges()
+    selection?.addRange(range)
+
+    const event = new KeyboardEvent('keydown', {
+      key: 'c',
+      metaKey: true,
+      bubbles: true,
+      cancelable: true
+    })
+    document.dispatchEvent(event)
+    await flushPromises()
+
+    expect(event.defaultPrevented).toBe(true)
+    expect(clipboardWriteText).toHaveBeenCalledWith(content)
+
+    wrapper.unmount()
   })
 })
