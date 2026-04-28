@@ -3,7 +3,7 @@
   "versions": [
     {
       "version": "0.10.2",
-      "date": "2026-04-29",
+      "date": "2026-04-28",
       "highlights": {
         "zh-CN": [
           "内置模型：Chaterm CN 版新增内置 DeepSeek V4 模型支持",
