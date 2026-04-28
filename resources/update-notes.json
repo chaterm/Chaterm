@@ -2,6 +2,30 @@
   "releaseNotesUrl": "https://github.com/chaterm/Chaterm/releases/tag/v",
   "versions": [
     {
+      "version": "0.10.2",
+      "date": "2026-04-28",
+      "highlights": {
+        "zh-CN": [
+          "内置模型：Chaterm CN 版新增内置 DeepSeek V4 模型支持",
+          "AI 与模型：优化模型插件与选择体验；支持插件输入模型；可在后台自动拉取并刷新默认模型信息；增强 OpenAI 兼容（含 Azure 端点识别）",
+          "对话体验：新增“历史消息加载中”提示，并支持按页加载更早消息；上下文截断提示更清楚，减少对话中断时的困惑; 支持对AI对话内容搜索",
+          "连接管理：新增最近连接记录；远程终端可识别并处理陈旧连接；分屏/克隆标签时会保留来源标记，排查上下文更直观",
+          "主机与资产检索：搜索支持主机名等更多维度；优化组织资产搜索与堡垒机父级标题展示，跨层级查找更快",
+          "知识库与内容处理：知识库搜索与结果展示更贴近语义；网页内容提取会过滤导航等非正文区域，粘贴到 AI 对话更干净可读",
+          "阅读与操作细节：Markdown 渲染区支持文本选择复制，查看长内容时摘录更方便"
+        ],
+        "en-US": [
+          "Built-in model: Chaterm CN version adds built-in DeepSeek V4 model support",
+          "AI and models: improved model plugin and model selection experience; support for plugin input models; background refresh of default model info; better OpenAI compatibility including Azure endpoint detection",
+          "Conversation flow: added a clear 'loading history' hint and paginated loading for older messages; clearer context truncation notices reduce confusion when long chats are trimmed; support searching for AI conversation content",
+          "Connection management: recent connections are now recorded; remote terminals can detect and handle stale connections; split/clone panels keep source tags so context is easier to track",
+          "Host and asset search: search now covers more fields such as hostnames; improved organization asset search and bastion parent-title display for faster cross-level lookup",
+          "Knowledge base and content handling: knowledge search and result rendering are more semantic; web content extraction removes navigation and other non-content blocks before sending to AI",
+          "Reading and interaction polish: text selection and copy are now supported in the markdown renderer, making long-output excerpts easier"
+        ]
+      }
+    },
+    {
       "version": "0.10.1",
       "date": "2026-04-13",
       "highlights": {
