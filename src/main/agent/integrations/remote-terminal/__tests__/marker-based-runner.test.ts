@@ -299,6 +299,23 @@ describe('runMarkerBasedCommand', () => {
     expect(lines).toContain('visible again')
   })
 
+  it('prepends a space to wrappedCommand so it is excluded from shell history', async () => {
+    const stream = createMockStream()
+    const config = createConfig(stream, { wrappedCommand: 'bash -l -c "echo hi"' })
+
+    const resultPromise = runMarkerBasedCommand(config)
+
+    // Verify the command written to the stream starts with a leading space
+    expect(stream.write).toHaveBeenCalledWith(expect.stringMatching(/^ /))
+    // Verify the original command is still present after the leading space
+    expect(stream.write).toHaveBeenCalledWith(' bash -l -c "echo hi"\r')
+
+    // Complete the command so the promise resolves
+    stream.emitData('===CHATERM_START===\n')
+    stream.emitData('===CHATERM_END===:0\n')
+    await resultPromise
+  })
+
   it('calls cleanupInteractionDetector on completion', async () => {
     const stream = createMockStream()
     const cleanupInteractionDetector = vi.fn()

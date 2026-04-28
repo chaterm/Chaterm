@@ -263,7 +263,9 @@ export function runMarkerBasedCommand(config: MarkerRunnerConfig): Promise<Marke
 
     // Send command
     logger.debug('Sending wrapped command', { event: 'remote-terminal.marker.command.send', logPrefix })
-    stream.write(`${wrappedCommand}\r`)
+    // Leading space prevents the command from being recorded in shell history
+    // (bash HISTCONTROL=ignorespace, zsh HIST_IGNORE_SPACE)
+    stream.write(` ${wrappedCommand}\r`)
 
     // Set up timeout
     commandTimeout = setTimeout(() => {
