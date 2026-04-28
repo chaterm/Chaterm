@@ -60,11 +60,14 @@ import { CaretDownOutlined, CaretRightOutlined } from '@ant-design/icons-vue'
 import copySvg from '@/assets/icons/copy.svg'
 import { message } from 'ant-design-vue'
 import i18n from '@/locales'
-import { isDarkTheme } from '@/utils/themeUtils'
 import { extractFinalOutput } from '@/utils/terminalOutputExtractor'
+import { getResolvedTerminalTheme } from '@/themes/terminalTheme'
+import { userConfigStore } from '@/store/userConfigStore'
+import type { ThemeId } from '../../../../../../../shared/themes/types'
 import '@xterm/xterm/css/xterm.css'
 
 const { t } = i18n.global
+const configStore = userConfigStore()
 
 const props = defineProps<{
   content: string
@@ -817,36 +820,9 @@ const adjustTerminalHeight = () => {
 
 // Get theme related colors (light background matches --command-output-bg for unified output boxes)
 const getThemeColors = () => {
-  const isDark = isDarkTheme()
-  const lightBg =
-    typeof document !== 'undefined'
-      ? getComputedStyle(document.documentElement).getPropertyValue('--command-output-bg').trim() || '#f5f5f5'
-      : '#f5f5f5'
-  return {
-    background: isDark ? '#1e1e1e' : lightBg,
-    foreground: isDark ? '#d4d4d4' : '#0f172a',
-    cursor: 'transparent',
-    cursorAccent: 'transparent',
-    // Selection: visible in both themes (light theme was barely visible with default)
-    selectionBackground: isDark ? 'rgba(255, 255, 255, 0.3)' : 'rgba(0, 90, 156, 0.45)',
-    selectionForeground: isDark ? undefined : '#0f172a',
-    black: '#000000',
-    red: '#e06c75',
-    green: '#98c379',
-    yellow: '#e5c07b',
-    blue: '#61afef',
-    magenta: '#c678dd',
-    cyan: '#4a9ba8',
-    white: '#abb2bf',
-    brightBlack: '#5c6370',
-    brightRed: '#ff7b86',
-    brightGreen: '#b5e890',
-    brightYellow: '#ffd68a',
-    brightBlue: '#79c0ff',
-    brightMagenta: '#d8a6ff',
-    brightCyan: '#6bb6c7',
-    brightWhite: '#ffffff'
-  }
+  const themeId = (configStore.getUserConfig?.theme ?? 'dark') as ThemeId
+  // AI output renderer does not use custom background image.
+  return getResolvedTerminalTheme(themeId, { hasCustomBg: false })
 }
 
 // Initialize terminal
@@ -3411,7 +3387,7 @@ onMounted(async () => {
   // Watch theme changes
   const themeObserver = new MutationObserver((mutations) => {
     mutations.forEach((mutation) => {
-      if (mutation.type === 'attributes' && mutation.attributeName === 'class') {
+      if (mutation.type === 'attributes' && (mutation.attributeName === 'class' || mutation.attributeName === 'data-theme-id')) {
         if (terminal) {
           terminal.options.theme = getThemeColors()
         }
@@ -3420,7 +3396,7 @@ onMounted(async () => {
   })
   themeObserver.observe(document.documentElement, {
     attributes: true,
-    attributeFilter: ['class']
+    attributeFilter: ['class', 'data-theme-id']
   })
 
   // Clean up observer when component unmounts

@@ -1,4 +1,7 @@
 // Theme utility functions for consistent theme detection across components
+import { resolveThemeAppearance } from '../../../shared/themes/resolve'
+import { resolveThemePreset } from '../../../shared/themes/resolve'
+import { applyThemeToDocument } from '@/themes/applyTheme'
 
 /**
  * Check if system prefers dark mode
@@ -15,11 +18,11 @@ export function prefersDarkMode() {
 export async function initializeThemeFromDatabase() {
   const { userConfigStore } = await import('../services/userConfigStoreService')
   const config = await userConfigStore.getConfig()
-  const dbTheme = config.theme || 'dark'
-  const actualTheme = getActualTheme(dbTheme)
+  const themeId = config.theme || 'dark'
+  const system = getSystemTheme()
+  const preset = resolveThemePreset(themeId, system)
 
-  // Set document theme class
-  document.documentElement.className = `theme-${actualTheme}`
+  applyThemeToDocument(preset)
 
   window.api.mainWindowShow()
 }
@@ -52,10 +55,8 @@ export function getSystemTheme() {
  * @returns {string} 'dark' or 'light'
  */
 export function getActualTheme(theme) {
-  if (theme === 'auto') {
-    return getSystemTheme()
-  }
-  return theme
+  const system = getSystemTheme()
+  return resolveThemeAppearance(theme, system)
 }
 
 /**

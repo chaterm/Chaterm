@@ -6,7 +6,8 @@
     "src/renderer/src/**/*",
     "src/renderer/src/**/*.vue",
     "src/preload/*.d.ts",
-    "src/main/agent/shared/**/*"
+    "src/main/agent/shared/**/*",
+    "src/shared/**/*"
   ],
   "exclude": [
     "node_modules",

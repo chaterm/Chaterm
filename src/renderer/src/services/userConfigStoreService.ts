@@ -2,9 +2,13 @@ import { shortcutActions } from '@/config/shortcutActions'
 import { toRaw, nextTick } from 'vue'
 import i18n from '@/locales'
 import eventBus from '@/utils/eventBus'
-import { getActualTheme } from '@/utils/themeUtils'
+import { getSystemTheme } from '@/utils/themeUtils'
 import { userConfigStore as piniaConfigStore } from '@/store/userConfigStore'
 import { type ConfigSyncMeta, buildDefaultConfigSyncMeta } from './configSyncManager'
+import { THEME_PRESETS } from '../../../shared/themes/presets'
+import { resolveThemePreset } from '../../../shared/themes/resolve'
+import type { ThemeId } from '../../../shared/themes/types'
+import { applyThemeToDocument } from '@/themes/applyTheme'
 
 const logger = createRendererLogger('service.userConfig')
 
@@ -54,7 +58,7 @@ export interface UserConfig {
   secretRedaction: 'enabled' | 'disabled' | undefined
   dataSync: 'enabled' | 'disabled' | undefined
   telemetry?: string
-  theme: 'dark' | 'light' | 'auto' | undefined
+  theme: ThemeId | undefined
   defaultLayout?: 'terminal' | 'agents'
   feature?: number
   quickComand?: boolean
@@ -373,7 +377,7 @@ export const SUPPORTED_USER_CONFIG_SCHEMA_VERSION = 1
 
 export const SYNC_FIELD_VALIDATORS: Record<SyncWhitelistKey, (val: unknown) => boolean> = {
   language: (val) => typeof val === 'string' && SUPPORTED_LANGUAGE_VALUES.includes(val as SupportedLanguage),
-  theme: (val) => typeof val === 'string' && ['dark', 'light', 'auto'].includes(val),
+  theme: (val) => typeof val === 'string' && (val === 'auto' || Object.prototype.hasOwnProperty.call(THEME_PRESETS, val)),
   defaultLayout: (val) => typeof val === 'string' && ['terminal', 'agents'].includes(val),
   watermark: (val) => typeof val === 'string' && ['open', 'close'].includes(val),
   secretRedaction: (val) => typeof val === 'string' && ['enabled', 'disabled'].includes(val),
@@ -537,10 +541,19 @@ export function dispatchSideEffects(changedFields: Partial<SyncableUserConfig>):
 
   // theme -> document class + main process
   if ('theme' in changedFields && changedFields.theme) {
-    const actualTheme = getActualTheme(changedFields.theme)
-    document.documentElement.className = `theme-${actualTheme}`
-    eventBus.emit('updateTheme', actualTheme)
-    window.api.updateTheme(changedFields.theme)
+    const themeId = changedFields.theme as import('../../../shared/themes/types').ThemeId
+    const system = getSystemTheme() as 'dark' | 'light'
+    const preset = resolveThemePreset(themeId, system)
+
+    applyThemeToDocument(preset)
+
+    eventBus.emit('updateTheme', {
+      themeId,
+      appearance: preset.appearance,
+      preset
+    })
+
+    window.api.updateTheme(themeId)
   }
 
   // defaultLayout -> eventBus notification

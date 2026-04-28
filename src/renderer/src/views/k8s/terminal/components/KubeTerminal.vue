@@ -17,6 +17,10 @@ import { Terminal } from '@xterm/xterm'
 import { FitAddon } from '@xterm/addon-fit'
 import '@xterm/xterm/css/xterm.css'
 import * as k8sApi from '@/api/k8s'
+import eventBus from '@/utils/eventBus'
+import { getResolvedTerminalTheme } from '@/themes/terminalTheme'
+import { userConfigStore } from '@/store/userConfigStore'
+import type { ThemeId, ThemeChangePayload } from '../../../../../../shared/themes/types'
 
 const props = defineProps<{
   terminalId: string
@@ -34,12 +38,28 @@ const terminalRef = ref<HTMLElement | null>(null)
 const terminal = ref<Terminal | null>(null)
 const fitAddon = ref<FitAddon | null>(null)
 
+const configStore = userConfigStore()
+
+// Whether the user has set a custom background image; when true the terminal
+// should render on a transparent surface so the image shows through.
+const hasCustomBg = (): boolean => !!configStore.getUserConfig.background.image
+
 // Cleanup functions for IPC listeners
 const cleanupFns: Array<() => void> = []
+
+// Handle theme updates from global event bus
+const handleUpdateTheme = (payload: string | ThemeChangePayload) => {
+  const themeId = (typeof payload === 'string' ? payload : payload.themeId) as ThemeId
+  if (terminal.value) {
+    terminal.value.options.theme = getResolvedTerminalTheme(themeId, { hasCustomBg: hasCustomBg() })
+  }
+}
 
 // Initialize terminal
 const initTerminal = () => {
   if (!terminalRef.value) return
+
+  const initialTheme = configStore.getUserConfig.theme as ThemeId
 
   terminal.value = new Terminal({
     scrollback: 5000,
@@ -47,29 +67,7 @@ const initTerminal = () => {
     cursorStyle: 'block',
     fontSize: 13,
     fontFamily: 'Menlo, Monaco, "Courier New", monospace',
-    theme: {
-      background: '#1e1e1e',
-      foreground: '#d4d4d4',
-      cursor: '#d4d4d4',
-      cursorAccent: '#1e1e1e',
-      selectionBackground: '#264f78',
-      black: '#000000',
-      red: '#cd3131',
-      green: '#0dbc79',
-      yellow: '#e5e510',
-      blue: '#2472c8',
-      magenta: '#bc3fbc',
-      cyan: '#11a8cd',
-      white: '#e5e5e5',
-      brightBlack: '#666666',
-      brightRed: '#f14c4c',
-      brightGreen: '#23d18b',
-      brightYellow: '#f5f543',
-      brightBlue: '#3b8eea',
-      brightMagenta: '#d670d6',
-      brightCyan: '#29b8db',
-      brightWhite: '#e5e5e5'
-    }
+    theme: getResolvedTerminalTheme(initialTheme, { hasCustomBg: hasCustomBg() })
   })
 
   fitAddon.value = new FitAddon()
@@ -127,6 +125,22 @@ let resizeObserver: ResizeObserver | null = null
 onMounted(() => {
   initTerminal()
 
+  // Subscribe to global theme updates
+  eventBus.on('updateTheme', handleUpdateTheme)
+
+  // Re-apply terminal theme when the custom background image is toggled so
+  // the xterm surface picks up the new transparent/opaque state immediately.
+  const stopBgWatch = watch(
+    () => configStore.getUserConfig.background.image,
+    () => {
+      if (terminal.value) {
+        const themeId = configStore.getUserConfig.theme as ThemeId
+        terminal.value.options.theme = getResolvedTerminalTheme(themeId, { hasCustomBg: hasCustomBg() })
+      }
+    }
+  )
+  cleanupFns.push(stopBgWatch)
+
   // Setup ResizeObserver
   if (containerRef.value) {
     resizeObserver = new ResizeObserver(() => {
@@ -145,6 +159,9 @@ onBeforeUnmount(() => {
   // Cleanup IPC listeners
   cleanupFns.forEach((fn) => fn())
   cleanupFns.length = 0
+
+  // Cleanup theme event listener
+  eventBus.off('updateTheme', handleUpdateTheme)
 
   // Cleanup ResizeObserver
   if (resizeObserver) {

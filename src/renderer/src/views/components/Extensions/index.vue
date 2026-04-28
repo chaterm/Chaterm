@@ -150,6 +150,7 @@ import eventBus from '@/utils/eventBus'
 import { getPluginDownload, getPluginIconUrl } from '@/api/plugin/plugin'
 import { convertFileLocalResourceSrc } from '@/utils/convertFileLocalResourceSrc'
 import { type DisplayPluginItem, usePluginStore } from './usePlugins'
+import { getActualTheme } from '@/utils/themeUtils'
 
 const api = (window as any).api
 const { t } = i18n.global
@@ -361,7 +362,7 @@ const loadConfig = async () => {
     const config = await userConfigStore.getConfig()
     if (config) {
       userConfig.value = config
-      currentTheme.value = config.theme || 'dark'
+      currentTheme.value = getActualTheme(config.theme || 'dark')
     }
   } catch (error) {
     logger.error('Failed to load config', { error: error })
@@ -376,8 +377,11 @@ onMounted(() => {
   eventBus.on('aliasStatusChanged', () => {
     loadConfig()
   })
-  eventBus.on('updateTheme', (theme) => {
-    currentTheme.value = theme
+  eventBus.on('updateTheme', (payload) => {
+    // Accept both legacy string and the new ThemeChangePayload shape.
+    const themeId = typeof payload === 'string' ? payload : payload?.themeId
+    if (!themeId) return
+    currentTheme.value = getActualTheme(themeId)
   })
   eventBus.on('reloadPlugins', refreshPlugins)
   eventBus.on('uninstallPluginEvent', uninstallPluginEvent)

@@ -21,6 +21,8 @@ import { v4 as uuidv4 } from 'uuid'
 import { userConfigStore } from '@/store/userConfigStore'
 import { userConfigStore as serviceUserConfig } from '@/services/userConfigStoreService'
 import { getActualTheme } from '@/utils/themeUtils'
+import { getResolvedTerminalTheme } from '@/themes/terminalTheme'
+import type { ThemeId, ThemeChangePayload } from '../../../../../shared/themes/types'
 import eventBus from '@/utils/eventBus'
 import { getLastNonEmptyLine, isTerminalPromptLine } from '@views/components/Ssh/utils/terminalPrompt'
 import { stripAnsiBasic } from '@views/components/Ssh/utils/ansiUtils'
@@ -109,28 +111,10 @@ const debounce = (func: (...args: any[]) => void, wait: number, immediate = fals
   }
 }
 
-// Get terminal theme matching sshConnect.vue
+// Get terminal theme using unified resolver
 const getTerminalTheme = (themeOverride?: string) => {
-  const theme = themeOverride || getActualTheme(userConfig?.theme || configStore.getUserConfig.theme || 'dark')
-  const hasBackground = !!(userConfig?.background?.image || configStore.getUserConfig.background.image)
-  if (theme === 'light') {
-    return {
-      background: hasBackground ? 'rgba(245, 245, 245, 0.82)' : '#f5f5f5',
-      foreground: '#000000',
-      cursor: '#000000',
-      cursorAccent: '#f5f5f5',
-      selectionBackground: '#add6ff80',
-      selectionInactiveBackground: '#add6ff5a'
-    }
-  }
-  return {
-    background: hasBackground ? 'transparent' : '#141414',
-    foreground: '#e0e0e0',
-    cursor: '#e0e0e0',
-    cursorAccent: '#141414',
-    selectionBackground: 'rgba(255, 255, 255, 0.3)',
-    selectionInactiveBackground: 'rgba(255, 255, 255, 0.2)'
-  }
+  const themeId = (themeOverride || userConfig?.theme || configStore.getUserConfig.theme || 'dark') as ThemeId
+  return getResolvedTerminalTheme(themeId, { hasCustomBg: isTransparent.value === true })
 }
 
 // Initialize terminal
@@ -399,16 +383,29 @@ onMounted(() => {
     }, 100)
   })
 
-  // Sync theme changes (mirrors sshConnect.vue handleUpdateTheme)
-  const handleUpdateTheme = (theme: string) => {
-    const actualTheme = getActualTheme(theme)
+  // Sync theme changes (supports both legacy string and new ThemeChangePayload)
+  const handleUpdateTheme = (payload: string | ThemeChangePayload) => {
+    const themeId = (typeof payload === 'string' ? payload : payload.themeId) as ThemeId
+    const actualTheme = getActualTheme(themeId)
     currentTheme.value = actualTheme
     if (terminal.value) {
-      terminal.value.options.theme = getTerminalTheme(actualTheme)
+      terminal.value.options.theme = getTerminalTheme(themeId)
     }
   }
   eventBus.on('updateTheme', handleUpdateTheme)
   cleanupFns.push(() => eventBus.off('updateTheme', handleUpdateTheme))
+
+  // Re-apply terminal theme when the custom background image is toggled so
+  // the xterm surface picks up the new transparent/opaque state immediately.
+  const stopBgWatch = watch(
+    () => configStore.getUserConfig.background.image,
+    () => {
+      if (terminal.value) {
+        terminal.value.options.theme = getTerminalTheme()
+      }
+    }
+  )
+  cleanupFns.push(stopBgWatch)
 
   // Handle executeTerminalCommand for AI command mode
   const handleExecuteCommand = (payload: { command: string; tabId?: string }) => {

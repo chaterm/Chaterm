@@ -37,6 +37,23 @@ const mockTranslations: Record<string, string> = {
   'user.themeDark': 'Dark',
   'user.themeLight': 'Light',
   'user.themeAuto': 'Auto',
+  'user.themeGroupSystem': 'System',
+  'user.themeGroupDefault': 'Default',
+  'user.themeGroupOfficial': 'Official Themes',
+  'user.themeTermiusDark': 'Graphite Dark',
+  'user.themeTermiusLight': 'Mist Light',
+  'user.themeFlexokiDark': 'Ember Earth',
+  'user.themeFlexokiLight': 'Canvas Paper',
+  'user.themeKanagawaWave': 'Tide Indigo',
+  'user.themeKanagawaDragon': 'Forge Copper',
+  'user.themeKanagawaLotus': 'Dawn Petal',
+  'user.themeHackerBlue': 'Pulse Blue',
+  'user.themeHackerGreen': 'Pulse Green',
+  'user.themeDraculaNight': 'Eclipse Violet',
+  'user.themeCatppuccinMocha': 'Truffle Mocha',
+  'user.themeCatppuccinLatte': 'Cream Latte',
+  'user.themeGruvboxDark': 'Grove Moss',
+  'user.themeNordFrost': 'Fjord Ice',
   'user.background': 'Background',
   'user.backgroundDefault': 'Default',
   'user.backgroundCustomUpload': 'Custom Upload (JPG, PNG, WebP, GIF)',
@@ -69,6 +86,23 @@ const { mockTFn } = vi.hoisted(() => {
     'user.themeDark': 'Dark',
     'user.themeLight': 'Light',
     'user.themeAuto': 'Auto',
+    'user.themeGroupSystem': 'System',
+    'user.themeGroupDefault': 'Default',
+    'user.themeGroupOfficial': 'Official Themes',
+    'user.themeTermiusDark': 'Graphite Dark',
+    'user.themeTermiusLight': 'Mist Light',
+    'user.themeFlexokiDark': 'Ember Earth',
+    'user.themeFlexokiLight': 'Canvas Paper',
+    'user.themeKanagawaWave': 'Tide Indigo',
+    'user.themeKanagawaDragon': 'Forge Copper',
+    'user.themeKanagawaLotus': 'Dawn Petal',
+    'user.themeHackerBlue': 'Pulse Blue',
+    'user.themeHackerGreen': 'Pulse Green',
+    'user.themeDraculaNight': 'Eclipse Violet',
+    'user.themeCatppuccinMocha': 'Truffle Mocha',
+    'user.themeCatppuccinLatte': 'Cream Latte',
+    'user.themeGruvboxDark': 'Grove Moss',
+    'user.themeNordFrost': 'Fjord Ice',
     'user.background': 'Background',
     'user.backgroundDefault': 'Default',
     'user.backgroundCustomUpload': 'Custom Upload (JPG, PNG, WebP, GIF)',
@@ -156,6 +190,7 @@ const mockAddSystemThemeListener = vi.fn((_callback: (theme: string) => void) =>
 
 vi.mock('@/utils/themeUtils', () => ({
   getActualTheme: (theme: string) => mockGetActualTheme(theme),
+  getSystemTheme: () => 'dark',
   addSystemThemeListener: (callback: (theme: string) => void) => mockAddSystemThemeListener(callback)
 }))
 
@@ -186,6 +221,18 @@ describe('General Component', () => {
           'a-form-item': {
             template: '<div class="a-form-item"><slot name="label" /><slot /></div>',
             props: ['label']
+          },
+          'a-select': {
+            template: '<div class="a-select"><slot /></div>',
+            props: ['value']
+          },
+          'a-select-opt-group': {
+            template: '<div class="a-select-opt-group"><slot /></div>',
+            props: ['label']
+          },
+          'a-select-option': {
+            template: '<div class="a-select-option" :data-value="value"><slot /></div>',
+            props: ['value']
           },
           'a-radio-group': {
             template: '<div class="a-radio-group" @change="$emit(\'change\', $event)"><slot /></div>',
@@ -286,7 +333,7 @@ describe('General Component', () => {
       await nextTick()
       await nextTick()
 
-      expect(mockGetActualTheme).toHaveBeenCalled()
+      // Shape-tolerant: theme system applied (via resolver pipeline or legacy helper)
       expect(mockWindowApi.updateTheme).toHaveBeenCalled()
     })
 
@@ -340,6 +387,12 @@ describe('General Component', () => {
       expect(radioGroup.exists()).toBe(true)
     })
 
+    it('should render theme preview swatches in the theme select', () => {
+      const swatches = wrapper.findAll('.theme-option-swatch')
+      expect(swatches.length).toBe(17)
+      expect(swatches[0].attributes('style')).toContain('--theme-preview-bg')
+    })
+
     it('should change theme to dark when dark option is selected', async () => {
       const vm = wrapper.vm as any
       vm.userConfig.theme = 'dark'
@@ -347,9 +400,17 @@ describe('General Component', () => {
 
       await vm.changeTheme()
 
-      expect(mockGetActualTheme).toHaveBeenCalledWith('dark')
       expect(document.documentElement.className).toBe('theme-dark')
-      expect(eventBus.emit).toHaveBeenCalledWith('updateTheme', 'dark')
+      {
+        const emitSpy = eventBus.emit as unknown as { mock: { calls: any[][] } }
+        const themeCalls = emitSpy.mock.calls.filter((c) => c[0] === 'updateTheme')
+        expect(themeCalls.length).toBeGreaterThan(0)
+        const appearances = themeCalls.map((c) => {
+          const payload = c[1]
+          return typeof payload === 'string' ? payload : payload?.appearance
+        })
+        expect(appearances).toContain('dark')
+      }
       expect(mockWindowApi.updateTheme).toHaveBeenCalledWith('dark')
     })
 
@@ -360,9 +421,17 @@ describe('General Component', () => {
 
       await vm.changeTheme()
 
-      expect(mockGetActualTheme).toHaveBeenCalledWith('light')
       expect(document.documentElement.className).toBe('theme-light')
-      expect(eventBus.emit).toHaveBeenCalledWith('updateTheme', 'light')
+      {
+        const emitSpy = eventBus.emit as unknown as { mock: { calls: any[][] } }
+        const themeCalls = emitSpy.mock.calls.filter((c) => c[0] === 'updateTheme')
+        expect(themeCalls.length).toBeGreaterThan(0)
+        const appearances = themeCalls.map((c) => {
+          const payload = c[1]
+          return typeof payload === 'string' ? payload : payload?.appearance
+        })
+        expect(appearances).toContain('light')
+      }
     })
 
     it('should change theme to auto when auto option is selected', async () => {
@@ -372,8 +441,17 @@ describe('General Component', () => {
 
       await vm.changeTheme()
 
-      expect(mockGetActualTheme).toHaveBeenCalledWith('auto')
-      expect(eventBus.emit).toHaveBeenCalledWith('updateTheme', 'dark') // Mock returns dark for auto
+      {
+        const emitSpy = eventBus.emit as unknown as { mock: { calls: any[][] } }
+        const themeCalls = emitSpy.mock.calls.filter((c) => c[0] === 'updateTheme')
+        expect(themeCalls.length).toBeGreaterThan(0)
+        const appearances = themeCalls.map((c) => {
+          const payload = c[1]
+          return typeof payload === 'string' ? payload : payload?.appearance
+        })
+        // Mock returns dark for auto
+        expect(appearances).toContain('dark')
+      }
     })
 
     it('should handle theme change errors', async () => {
@@ -1037,7 +1115,16 @@ describe('General Component', () => {
         await nextTick()
 
         expect(document.documentElement.className).toBe('theme-light')
-        expect(eventBus.emit).toHaveBeenCalledWith('updateTheme', 'light')
+        {
+          const emitSpy = eventBus.emit as unknown as { mock: { calls: any[][] } }
+          const themeCalls = emitSpy.mock.calls.filter((c) => c[0] === 'updateTheme')
+          expect(themeCalls.length).toBeGreaterThan(0)
+          const appearances = themeCalls.map((c) => {
+            const payload = c[1]
+            return typeof payload === 'string' ? payload : payload?.appearance
+          })
+          expect(appearances).toContain('light')
+        }
       }
     })
 
