@@ -5,7 +5,7 @@
 
 
 <!-- Vote for Chaterm on DevHunt! -->
-<br><br>
+<br>
 <p align="center">
   <a href="https://devhunt.org/tool/chaterm">
     <img 
