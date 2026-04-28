@@ -107,6 +107,8 @@ import Context from './components/contextComp.vue'
 import SuggComp from './components/suggestion.vue'
 import eventBus from '@/utils/eventBus'
 import { getActualTheme } from '@/utils/themeUtils'
+import { getResolvedTerminalTheme } from '@/themes/terminalTheme'
+import type { ThemeId, ThemeChangePayload } from '../../../../../shared/themes/types'
 import { computed, markRaw, nextTick, onBeforeUnmount, onMounted, PropType, reactive, ref, watch } from 'vue'
 import { shortcutService } from '@/services/shortcutService'
 import { useI18n } from 'vue-i18n'
@@ -168,6 +170,7 @@ type ShellCloseInfo = {
 const selectFlag = ref(false)
 const configStore = userConfigStore()
 const isTransparent = computed(() => !!configStore.getUserConfig.background.image)
+const hasCustomBg = (): boolean => isTransparent.value === true
 let viewportScrollbarHideTimer: number | null = null
 
 // Coalesced scrollToBottom: uses requestAnimationFrame for smooth alignment with browser repaint
@@ -518,7 +521,6 @@ onMounted(async () => {
 
   const { mark: perfMark } = await import('@/utils/perf')
   perfMark('chaterm/terminal/willCreate')
-  const actualTheme = getActualTheme(config.theme)
   const termInstance = markRaw(
     new Terminal({
       scrollback: config.scrollBack,
@@ -527,26 +529,7 @@ onMounted(async () => {
       fontSize: config.fontSize || 12,
       fontFamily: config.fontFamily || 'Menlo, Monaco, "Courier New", Consolas, Courier, monospace',
       allowTransparency: true,
-      theme:
-        actualTheme === 'light'
-          ? {
-              background: config.background?.image ? 'rgba(245, 245, 245, 0.82)' : '#f5f5f5',
-              foreground: '#000000',
-              cursor: '#000000',
-              cursorAccent: '#f5f5f5',
-              selectionBackground: 'rgba(255, 247, 0, 0.82)',
-              selectionInactiveBackground: 'rgba(255, 247, 0, 0.5)',
-              selectionForeground: '#141414'
-            }
-          : {
-              background: config.background?.image ? 'transparent' : '#141414',
-              foreground: '#e0e0e0',
-              cursor: '#e0e0e0',
-              cursorAccent: '#141414',
-              selectionBackground: 'rgba(255, 255, 0, 0.88)',
-              selectionInactiveBackground: 'rgba(255, 255, 0, 0.55)',
-              selectionForeground: '#141414'
-            }
+      theme: getResolvedTerminalTheme(config.theme as ThemeId, { hasCustomBg: hasCustomBg() })
     })
   )
   terminal.value = termInstance
@@ -609,7 +592,7 @@ onMounted(async () => {
 
   ensureTransferListener()
   // Enable GPU-accelerated rendering for better performance with large output
-  if (!config.background?.image && actualTheme !== 'light') {
+  if (!config.background?.image && getActualTheme(config.theme) !== 'light') {
     try {
       const { WebglAddon } = await import('@xterm/addon-webgl')
       const webglAddon = new WebglAddon()
@@ -849,29 +832,10 @@ onMounted(async () => {
     termInstance.focus()
   }
 
-  const handleUpdateTheme = (theme) => {
+  const handleUpdateTheme = (payload: string | ThemeChangePayload) => {
+    const themeId = (typeof payload === 'string' ? payload : payload.themeId) as ThemeId
     if (terminal.value) {
-      const actualTheme = getActualTheme(theme)
-      terminal.value.options.theme =
-        actualTheme === 'light'
-          ? {
-              background: config.background?.image ? 'rgba(245, 245, 245, 0.82)' : '#f5f5f5',
-              foreground: '#000000',
-              cursor: '#000000',
-              cursorAccent: '#f5f5f5',
-              selectionBackground: 'rgba(255, 247, 0, 0.82)',
-              selectionInactiveBackground: 'rgba(255, 247, 0, 0.5)',
-              selectionForeground: '#141414'
-            }
-          : {
-              background: configStore.getUserConfig.background.image ? 'transparent' : '#141414',
-              foreground: '#e0e0e0',
-              cursor: '#e0e0e0',
-              cursorAccent: '#141414',
-              selectionBackground: 'rgba(255, 255, 0, 0.88)',
-              selectionInactiveBackground: 'rgba(255, 255, 0, 0.55)',
-              selectionForeground: '#141414'
-            }
+      terminal.value.options.theme = getResolvedTerminalTheme(themeId, { hasCustomBg: hasCustomBg() })
     }
   }
   const handleGetCursorPosition = (payload: { connectionId?: string; callback: (position: any) => void }) => {
@@ -978,8 +942,7 @@ onMounted(async () => {
     () => configStore.getUserConfig.background.image,
     () => {
       if (terminal.value) {
-        const actualTheme = getActualTheme(configStore.getUserConfig.theme)
-        handleUpdateTheme(actualTheme)
+        handleUpdateTheme(configStore.getUserConfig.theme as ThemeId)
       }
     }
   )

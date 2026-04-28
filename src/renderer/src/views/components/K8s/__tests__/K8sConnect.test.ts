@@ -127,7 +127,8 @@ vi.mock('@/services/userConfigStoreService', () => {
 
 // Mock themeUtils
 vi.mock('@/utils/themeUtils', () => ({
-  getActualTheme: vi.fn((theme: unknown) => (theme as string) || 'dark')
+  getActualTheme: vi.fn((theme: unknown) => (theme as string) || 'dark'),
+  getSystemTheme: vi.fn(() => 'dark')
 }))
 
 // Mock terminalPrompt utilities used by handleCommandOutput

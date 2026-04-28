@@ -94,7 +94,7 @@ export default defineConfig({
         extends: true,
         test: {
           name: 'main-process',
-          include: ['src/main/**/*.test.ts', 'src/main/**/*.spec.ts'],
+          include: ['src/main/**/*.test.ts', 'src/main/**/*.spec.ts', 'src/shared/**/*.test.ts', 'src/shared/**/*.spec.ts'],
           environment: 'node'
         },
         plugins: createMainProcessPlugins(),

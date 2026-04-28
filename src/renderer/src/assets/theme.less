@@ -143,51 +143,23 @@ body {
   background-color: var(--bg-color);
 
   &.has-custom-bg {
-    // Use rgba for background colors to allow the image to show through
-    // The opacity is controlled by --custom-opacity variable
-
-    // ===================================================================================
-    // Custom Background Mode - Dropdown & Menu Transparency Fix
-    // ===================================================================================
-    // When custom background is enabled, dropdown menus (Select, Menu, etc.) need special
-    // handling to prevent text overlap issues while maintaining visual harmony with the
-    // background image.
-    //
-    // Solution: Use semi-transparent backgrounds (0.85 opacity) with strong blur effect
-    // (glassmorphism style) to:
-    // 1. Allow the background image to subtly show through
-    // 2. Ensure text remains readable with sufficient contrast
-    // 3. Create a cohesive visual experience that doesn't feel jarring
-    //
-    // The fixed opacity values (0.85) are used instead of --custom-opacity variable
-    // because dropdown menus require higher opacity for text readability regardless
-    // of the user's background transparency preference.
-    // ===================================================================================
+    // Background-image mode styling. Large-surface UI tokens
+    // (--bg-color, --bg-color-secondary, etc.) are translucent-rewritten at
+    // runtime by applyThemeToDocument() so the chosen theme's color still
+    // shows through. What remains here are non-variable rules: making layout
+    // containers transparent, and fixed glassmorphism overrides for dropdown
+    // menus / modals / user-menu where readability requires a higher opacity
+    // than --custom-opacity.
 
     // Dark theme overrides
     &.theme-dark,
     .theme-dark & {
-      --bg-color: rgba(20, 20, 20, var(--custom-opacity, 0.8));
-      --bg-color-secondary: rgba(30, 30, 30, var(--custom-opacity, 0.8));
-      --bg-color-tertiary: rgba(37, 37, 37, var(--custom-opacity, 0.8));
-      --bg-color-quaternary: rgba(60, 60, 60, var(--custom-opacity, 0.8));
-      --bg-color-quinary: rgba(45, 45, 48, var(--custom-opacity, 0.8));
-      --command-output-bg: rgba(30, 30, 30, var(--custom-opacity, 0.8));
-
-      // Border colors - use semi-transparent white borders for better visibility on background images
-      --border-color: rgba(255, 255, 255, 0.12);
-      --border-color-light: rgba(255, 255, 255, 0.08);
-      --splitter-color: rgba(255, 255, 255, 0.1);
-
-      // Text colors - higher contrast for readability over background image
-      --text-color: #f5f5f5;
-      --text-color-secondary: #e2e8f0;
-      --text-color-secondary-light: #e2e8f0;
-      --text-color-tertiary: #94a3b8;
-      --text-color-quaternary: #94a3b8;
-      --text-color-quinary: #64748b;
-      --text-color-senary: #475569;
-      --text-color-septenary: #334155;
+      // NOTE: `--bg-color*`, `--text-color*`, `--border-color*`, `--splitter-color`,
+      // `--command-output-bg` are deliberately NOT overridden here anymore. They
+      // are driven by the active theme preset (src/shared/themes/presets.ts) and
+      // rewritten as rgba(..., var(--custom-opacity, 0.8)) by
+      // applyThemeToDocument() when has-custom-bg is active. This keeps the
+      // chosen theme's identity visible even with a background image.
 
       // Ensure other components that might have hardcoded backgrounds are also transparent
       .ant-layout,
@@ -350,27 +322,8 @@ body {
     // Light theme overrides
     &.theme-light,
     .theme-light & {
-      --bg-color: rgba(243, 243, 243, var(--custom-opacity, 0.8));
-      --bg-color-secondary: rgba(248, 250, 252, var(--custom-opacity, 0.8));
-      --bg-color-tertiary: rgba(241, 245, 249, var(--custom-opacity, 0.8));
-      --bg-color-quaternary: rgba(226, 232, 240, var(--custom-opacity, 0.8));
-      --bg-color-quinary: rgba(248, 250, 252, var(--custom-opacity, 0.8));
-      --command-output-bg: rgba(245, 245, 245, var(--custom-opacity, 0.8));
-
-      // Border colors - use semi-transparent dark borders for better visibility on background images
-      --border-color: rgba(0, 0, 0, 0.12);
-      --border-color-light: rgba(0, 0, 0, 0.08);
-      --splitter-color: rgba(0, 0, 0, 0.1);
-
-      // Text colors - darker shades for readability over background image
-      --text-color: #0a0f1a;
-      --text-color-secondary: #1e293b;
-      --text-color-secondary-light: #334155;
-      --text-color-tertiary: #475569;
-      --text-color-quaternary: #64748b;
-      --text-color-quinary: #64748b;
-      --text-color-senary: #94a3b8;
-      --text-color-septenary: #cbd5e1;
+      // See note in the dark-theme branch above: UI tokens are owned by the
+      // theme preset, not hardcoded here.
 
       .ant-layout,
       .ant-layout-sider,

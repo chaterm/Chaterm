@@ -790,13 +790,19 @@ onMounted(async () => {
   eventBus.on('updateWatermark', (watermark) => {
     showWatermark.value = watermark !== 'close'
   })
-  eventBus.on('updateTheme', (theme) => {
-    const actualTheme = getActualTheme(theme)
+  eventBus.on('updateTheme', (payload) => {
+    // Accept both legacy string ('dark'|'light'|'auto'|...) and the new
+    // ThemeChangePayload ({ themeId, appearance, preset }) shape.
+    const themeId = typeof payload === 'string' ? payload : payload?.themeId
+    if (!themeId) return
+    const actualTheme = getActualTheme(themeId)
     currentTheme.value = actualTheme
     if (dockApi) {
       applyTheme()
     }
-    document.documentElement.className = `theme-${actualTheme}`
+    // NOTE: do NOT rewrite document.documentElement.className here —
+    // applyThemeToDocument() in the theme pipeline already owns that, and
+    // overwriting it would lose data-theme-id plus any non-default theme class.
   })
   try {
     let config = await userConfigStore.getConfig()

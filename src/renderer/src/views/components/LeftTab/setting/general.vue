@@ -21,15 +21,36 @@
           :label="$t('user.theme')"
           class="user_my-ant-form-item"
         >
-          <a-radio-group
+          <a-select
             v-model:value="userConfig.theme"
-            class="custom-radio-group"
+            style="width: 240px"
+            class="theme-select"
+            :dropdown-match-select-width="false"
             @change="changeTheme"
           >
-            <a-radio value="dark">{{ $t('user.themeDark') }}</a-radio>
-            <a-radio value="light">{{ $t('user.themeLight') }}</a-radio>
-            <a-radio value="auto">{{ $t('user.themeAuto') }}</a-radio>
-          </a-radio-group>
+            <a-select-opt-group
+              v-for="group in themeOptionGroups"
+              :key="group.labelKey"
+              :label="$t(group.labelKey)"
+            >
+              <a-select-option
+                v-for="option in group.options"
+                :key="option.value"
+                :value="option.value"
+              >
+                <span class="theme-option-content">
+                  <span
+                    class="theme-option-swatch"
+                    :style="getThemeSwatchStyle(option)"
+                  >
+                    <span class="theme-option-swatch-surface"></span>
+                    <span class="theme-option-swatch-accent"></span>
+                  </span>
+                  <span class="theme-option-label">{{ $t(option.labelKey) }}</span>
+                </span>
+              </a-select-option>
+            </a-select-opt-group>
+          </a-select>
         </a-form-item>
 
         <a-form-item
@@ -293,14 +314,18 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, watch, onBeforeUnmount } from 'vue'
+import { ref, onMounted, watch, onBeforeUnmount, computed } from 'vue'
 import { notification } from 'ant-design-vue'
 import { DeleteOutlined, UploadOutlined, DesktopOutlined } from '@ant-design/icons-vue'
 import { userConfigStore, remoteApplyGuard } from '@/services/userConfigStoreService'
 import { userConfigStore as configStore } from '@/store/userConfigStore'
 import { useEditorConfigStore, type EditorConfig, FONT_FAMILY_OPTIONS } from '@/store/editorConfig'
 import eventBus from '@/utils/eventBus'
-import { getActualTheme, addSystemThemeListener } from '@/utils/themeUtils'
+import { getActualTheme, getSystemTheme, addSystemThemeListener } from '@/utils/themeUtils'
+import { resolveThemePreset } from '../../../../../../shared/themes/resolve'
+import { THEME_PRESETS } from '../../../../../../shared/themes/presets'
+import { applyThemeToDocument } from '@/themes/applyTheme'
+import type { ThemeId } from '../../../../../../shared/themes/types'
 import { useI18n } from 'vue-i18n'
 
 const logger = createRendererLogger('settings.general')
@@ -324,6 +349,99 @@ const userConfig = ref({
 
 const customBackgroundImage = ref('')
 const SYSTEM_BG_KEY_PREFIX = 'system-bg:'
+
+interface ThemeOptionPreview {
+  value: ThemeId
+  labelKey: string
+  background: string
+  surface: string
+  accent: string
+  accentAlt?: string
+  border: string
+}
+
+const THEME_LABEL_KEYS: Record<Exclude<ThemeId, 'auto'>, string> = {
+  dark: 'user.themeDark',
+  light: 'user.themeLight',
+  'termius-dark': 'user.themeTermiusDark',
+  'termius-light': 'user.themeTermiusLight',
+  'flexoki-dark': 'user.themeFlexokiDark',
+  'flexoki-light': 'user.themeFlexokiLight',
+  'kanagawa-wave': 'user.themeKanagawaWave',
+  'kanagawa-dragon': 'user.themeKanagawaDragon',
+  'kanagawa-lotus': 'user.themeKanagawaLotus',
+  'hacker-blue': 'user.themeHackerBlue',
+  'hacker-green': 'user.themeHackerGreen',
+  'dracula-night': 'user.themeDraculaNight',
+  'catppuccin-mocha': 'user.themeCatppuccinMocha',
+  'catppuccin-latte': 'user.themeCatppuccinLatte',
+  'gruvbox-dark': 'user.themeGruvboxDark',
+  'nord-frost': 'user.themeNordFrost'
+}
+
+const buildThemePreview = (themeId: ThemeId): ThemeOptionPreview => {
+  if (themeId === 'auto') {
+    const dark = THEME_PRESETS.dark.uiTokens
+    const light = THEME_PRESETS.light.uiTokens
+    return {
+      value: 'auto',
+      labelKey: 'user.themeAuto',
+      background: `linear-gradient(135deg, ${dark['--bg-color']} 0%, ${dark['--bg-color']} 49%, ${light['--bg-color']} 51%, ${light['--bg-color']} 100%)`,
+      surface: `linear-gradient(90deg, ${dark['--bg-color-secondary']} 0%, ${light['--bg-color-secondary']} 100%)`,
+      accent: dark['--button-bg-color'],
+      accentAlt: light['--button-bg-color'],
+      border: '#94a3b8'
+    }
+  }
+
+  const preset = THEME_PRESETS[themeId]
+  return {
+    value: themeId,
+    labelKey: THEME_LABEL_KEYS[themeId],
+    background: preset.uiTokens['--bg-color'],
+    surface: preset.uiTokens['--bg-color-secondary'],
+    accent: preset.uiTokens['--button-bg-color'],
+    border: preset.uiTokens['--border-color-light']
+  }
+}
+
+const themeOptionGroups = computed(() => [
+  {
+    labelKey: 'user.themeGroupSystem',
+    options: [buildThemePreview('auto')]
+  },
+  {
+    labelKey: 'user.themeGroupDefault',
+    options: [buildThemePreview('dark'), buildThemePreview('light')]
+  },
+  {
+    labelKey: 'user.themeGroupOfficial',
+    options: [
+      buildThemePreview('termius-dark'),
+      buildThemePreview('termius-light'),
+      buildThemePreview('flexoki-dark'),
+      buildThemePreview('flexoki-light'),
+      buildThemePreview('kanagawa-wave'),
+      buildThemePreview('kanagawa-dragon'),
+      buildThemePreview('kanagawa-lotus'),
+      buildThemePreview('hacker-blue'),
+      buildThemePreview('hacker-green'),
+      buildThemePreview('dracula-night'),
+      buildThemePreview('catppuccin-mocha'),
+      buildThemePreview('catppuccin-latte'),
+      buildThemePreview('gruvbox-dark'),
+      buildThemePreview('nord-frost')
+    ]
+  }
+])
+
+const getThemeSwatchStyle = (option: ThemeOptionPreview): Record<string, string> => ({
+  '--theme-preview-bg': option.background,
+  '--theme-preview-surface': option.surface,
+  '--theme-preview-accent': option.accent,
+  '--theme-preview-accent-alt': option.accentAlt || option.accent,
+  '--theme-preview-border': option.border
+})
 
 // Editor config form state (synced from store on load)
 const editorConfig = ref<EditorConfig>({
@@ -367,9 +485,13 @@ const loadSavedConfig = async () => {
       } else if (userConfig.value.lastCustomImage) {
         customBackgroundImage.value = userConfig.value.lastCustomImage
       }
-      const actualTheme = getActualTheme(userConfig.value.theme)
-      document.documentElement.className = `theme-${actualTheme}`
-      eventBus.emit('updateTheme', actualTheme)
+      const preset = resolveThemePreset(userConfig.value.theme as ThemeId, getSystemTheme() as 'dark' | 'light')
+      applyThemeToDocument(preset)
+      eventBus.emit('updateTheme', {
+        themeId: userConfig.value.theme,
+        appearance: preset.appearance,
+        preset
+      })
       api.updateTheme(userConfig.value.theme)
     }
 
@@ -382,8 +504,8 @@ const loadSavedConfig = async () => {
       message: t('user.loadConfigFailed'),
       description: t('user.loadConfigFailedDescription')
     })
-    const actualTheme = getActualTheme('dark')
-    document.documentElement.className = `theme-${actualTheme}`
+    const fallbackPreset = resolveThemePreset('dark' as ThemeId, getSystemTheme() as 'dark' | 'light')
+    applyThemeToDocument(fallbackPreset)
     userConfig.value.theme = 'dark'
   }
 }
@@ -400,7 +522,12 @@ const saveConfig = async () => {
     }
     await userConfigStore.saveConfig(configToStore as any)
     eventBus.emit('updateWatermark', configToStore.watermark)
-    eventBus.emit('updateTheme', configToStore.theme)
+    const savedPreset = resolveThemePreset(configToStore.theme as ThemeId, getSystemTheme() as 'dark' | 'light')
+    eventBus.emit('updateTheme', {
+      themeId: configToStore.theme,
+      appearance: savedPreset.appearance,
+      preset: savedPreset
+    })
   } catch (error) {
     logger.error('Failed to save config', { error: error })
     notification.error({
@@ -482,8 +609,13 @@ const setupSystemThemeListener = () => {
 
       if (currentTheme !== actualTheme) {
         // System theme changed, update application theme
-        document.documentElement.className = `theme-${actualTheme}`
-        eventBus.emit('updateTheme', actualTheme)
+        const preset = resolveThemePreset('auto' as ThemeId, getSystemTheme() as 'dark' | 'light')
+        applyThemeToDocument(preset)
+        eventBus.emit('updateTheme', {
+          themeId: 'auto',
+          appearance: preset.appearance,
+          preset
+        })
         // Update main process window controls
         await api.updateTheme(userConfig.value.theme)
         logger.info(`System theme changed, updating application theme to ${actualTheme}`)
@@ -498,8 +630,13 @@ const setupSystemThemeListener = () => {
       if (userConfig.value.theme === 'auto') {
         const currentTheme = document.documentElement.className.replace('theme-', '')
         if (currentTheme !== newSystemTheme) {
-          document.documentElement.className = `theme-${newSystemTheme}`
-          eventBus.emit('updateTheme', newSystemTheme)
+          const preset = resolveThemePreset('auto' as ThemeId, newSystemTheme as 'dark' | 'light')
+          applyThemeToDocument(preset)
+          eventBus.emit('updateTheme', {
+            themeId: 'auto',
+            appearance: preset.appearance,
+            preset
+          })
           logger.info(`System theme changed to ${newSystemTheme} (from main process)`)
         }
       }
@@ -509,9 +646,13 @@ const setupSystemThemeListener = () => {
 
 const changeTheme = async () => {
   try {
-    const actualTheme = getActualTheme(userConfig.value.theme)
-    document.documentElement.className = `theme-${actualTheme}`
-    eventBus.emit('updateTheme', actualTheme)
+    const preset = resolveThemePreset(userConfig.value.theme as ThemeId, getSystemTheme() as 'dark' | 'light')
+    applyThemeToDocument(preset)
+    eventBus.emit('updateTheme', {
+      themeId: userConfig.value.theme,
+      appearance: preset.appearance,
+      preset
+    })
     // Update main process window controls immediately
     configStore().updateTheme(userConfig.value.theme)
     await api.updateTheme(userConfig.value.theme)
@@ -761,12 +902,18 @@ const saveEditorConfig = async () => {
   color: #ffffff;
 }
 
-.language-select {
+.language-select,
+.theme-select {
   width: 180px !important;
   text-align: left;
 }
 
-.language-select :deep(.ant-select-selector) {
+.theme-select {
+  width: 240px !important;
+}
+
+.language-select :deep(.ant-select-selector),
+.theme-select :deep(.ant-select-selector) {
   background-color: var(--select-bg);
   border: 1px solid var(--select-border);
   border-radius: 6px;
@@ -775,27 +922,80 @@ const saveEditorConfig = async () => {
   height: 32px;
 }
 
-.language-select :deep(.ant-select-selector:hover) {
+.language-select :deep(.ant-select-selector:hover),
+.theme-select :deep(.ant-select-selector:hover) {
   border-color: #1890ff;
   background-color: var(--select-hover-bg);
 }
 
 .language-select :deep(.ant-select-focused .ant-select-selector),
-.language-select :deep(.ant-select-selector:focus) {
+.language-select :deep(.ant-select-selector:focus),
+.theme-select :deep(.ant-select-focused .ant-select-selector),
+.theme-select :deep(.ant-select-selector:focus) {
   border-color: #1890ff;
   box-shadow: 0 0 0 2px rgba(24, 144, 255, 0.2);
   background-color: var(--select-hover-bg);
 }
 
-.language-select :deep(.ant-select-selection-item) {
+.language-select :deep(.ant-select-selection-item),
+.theme-select :deep(.ant-select-selection-item) {
   color: var(--text-color);
   font-size: 14px;
   line-height: 32px;
 }
 
-.language-select :deep(.ant-select-arrow) {
+.theme-select :deep(.ant-select-item-option-content) {
+  display: flex;
+  align-items: center;
+}
+
+.language-select :deep(.ant-select-arrow),
+.theme-select :deep(.ant-select-arrow) {
   color: var(--text-color);
   opacity: 0.7;
+}
+
+.theme-option-content {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.theme-option-swatch {
+  position: relative;
+  width: 28px;
+  height: 18px;
+  flex: 0 0 auto;
+  overflow: hidden;
+  border: 1px solid var(--theme-preview-border);
+  border-radius: 6px;
+  background: var(--theme-preview-bg);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.06);
+}
+
+.theme-option-swatch-surface {
+  position: absolute;
+  top: 4px;
+  left: 4px;
+  width: 14px;
+  height: 4px;
+  border-radius: 999px;
+  background: var(--theme-preview-surface);
+}
+
+.theme-option-swatch-accent {
+  position: absolute;
+  right: 4px;
+  bottom: 4px;
+  width: 10px;
+  height: 4px;
+  border-radius: 999px;
+  background: linear-gradient(90deg, var(--theme-preview-accent) 0%, var(--theme-preview-accent-alt) 100%);
+}
+
+.theme-option-label {
+  display: inline-flex;
+  align-items: center;
 }
 
 .divider-container {

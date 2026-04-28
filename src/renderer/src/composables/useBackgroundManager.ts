@@ -1,6 +1,10 @@
 import { computed, watch, onUnmounted } from 'vue'
 import { userConfigStore } from '@/store/userConfigStore'
 import { userConfigStore as userConfigService } from '@/services/userConfigStoreService'
+import { applyThemeToDocument } from '@/themes/applyTheme'
+import { resolveThemePreset } from '../../../shared/themes/resolve'
+import { getSystemTheme } from '@/utils/themeUtils'
+import type { ThemeId } from '../../../shared/themes/types'
 
 /**
  * Manage application background image and related styles
@@ -67,6 +71,17 @@ export function useBackgroundManager() {
     return {}
   })
 
+  // Re-apply the current theme so translucent/solid background tokens are
+  // rewritten to match the new has-custom-bg state. Without this, toggling the
+  // background image leaves UI variables in the wrong format until the user
+  // changes theme manually.
+  const reapplyCurrentTheme = () => {
+    const themeId = configStore.getUserConfig.theme as ThemeId
+    if (!themeId) return
+    const preset = resolveThemePreset(themeId, getSystemTheme() as 'dark' | 'light')
+    applyThemeToDocument(preset)
+  }
+
   // Watch background image and opacity to update body class and CSS variables.
   watch(
     () => [configStore.getUserConfig.background.image, configStore.getUserConfig.background.opacity],
@@ -75,13 +90,14 @@ export function useBackgroundManager() {
         document.body.classList.add('has-custom-bg')
         if (opacity === undefined || opacity === null) {
           document.documentElement.style.removeProperty('--custom-opacity')
-          return
+        } else {
+          document.documentElement.style.setProperty('--custom-opacity', String(opacity))
         }
-        document.documentElement.style.setProperty('--custom-opacity', String(opacity))
       } else {
         document.body.classList.remove('has-custom-bg')
         document.documentElement.style.removeProperty('--custom-opacity')
       }
+      reapplyCurrentTheme()
     },
     { immediate: true }
   )
@@ -90,6 +106,7 @@ export function useBackgroundManager() {
   const cleanup = () => {
     document.body.classList.remove('has-custom-bg')
     document.documentElement.style.removeProperty('--custom-opacity')
+    reapplyCurrentTheme()
   }
 
   // Automatically cleanup when component unmounts
