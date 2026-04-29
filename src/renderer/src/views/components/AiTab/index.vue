@@ -885,6 +885,7 @@ const {
   isLastMessage,
   messageFeedbacks,
   buttonsDisabled,
+  shouldStickToBottom,
   getTabUserAssistantPairs,
   getTabHasOlderHistory,
   getTabChatTypeValue,
@@ -904,15 +905,22 @@ const { currentTodos, shouldShowTodoAfterMessage, getTodosForMessage, markLatest
 // Host state management
 const { updateHosts, updateHostsForCommandMode, getCurentTabAssetInfo } = useHostState()
 // Auto scroll
-const { chatContainer, chatResponse, historyTopSentinel, scrollToBottom, initializeAutoScroll, handleTabSwitch, getMessagePairStyle } = useAutoScroll(
-  {
-    onReachHistoryTop: (container) => {
-      const tabId = currentChatId.value
-      if (!tabId) return
-      void loadOlderHistoryForTab(tabId, { container })
-    }
+const {
+  chatContainer,
+  chatResponse,
+  historyTopSentinel,
+  scrollToBottom,
+  scrollToBottomWithRetry,
+  initializeAutoScroll,
+  handleTabSwitch,
+  getMessagePairStyle
+} = useAutoScroll({
+  onReachHistoryTop: (container) => {
+    const tabId = currentChatId.value
+    if (!tabId) return
+    void loadOlderHistoryForTab(tabId, { container })
   }
-)
+})
 
 // AI chat search
 const {
@@ -1144,6 +1152,27 @@ watch(
   () => localStorage.getItem('login-skipped'),
   (newValue) => {
     isSkippedLogin.value = newValue === 'true'
+  }
+)
+
+// When a streaming response finishes and the last message is awaiting user
+// approval (command / mcp_tool_call), the inline approval buttons mount in
+// the next tick. If the user drifted from bottom during streaming,
+// shouldStickToBottom may have been cleared and the MutationObserver won't
+// re-pin. Force a sticky scroll so the buttons stay visible.
+watch(
+  () => currentSession.value?.responseLoading,
+  (loading, prevLoading) => {
+    if (prevLoading && !loading) {
+      const session = currentSession.value
+      if (!session) return
+      const history = session.chatHistory
+      const last = history?.[history.length - 1]
+      if (last && (last.ask === 'command' || last.ask === 'mcp_tool_call')) {
+        shouldStickToBottom.value = true
+        nextTick(() => scrollToBottomWithRetry())
+      }
+    }
   }
 )
 
