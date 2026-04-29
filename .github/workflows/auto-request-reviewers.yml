@@ -18,10 +18,11 @@ jobs:
           script: |
             const defaultReviewers = [
               'zhouyu123666',
-              'dingdingdingyinyinyin',
+              'jarvishappy',
+              'chaterm',
               'fishyu-mushroom',
-              'dsd2077',
-              'jarvishappy'
+              'dingdingdingyinyinyin',
+              'dsd2077'
             ];
 
             const pr = context.payload.pull_request;
