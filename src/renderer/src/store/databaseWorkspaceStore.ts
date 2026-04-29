@@ -339,6 +339,54 @@ export const useDatabaseWorkspaceStore = defineStore('databaseWorkspace', {
       for (const a of assets) statuses[a.id] = a.status
       this.connectionStatuses = statuses
     },
+    openNewSqlTab() {
+      // Derive the next "Query N" number from currently open SQL tabs.
+      // Using max-existing-index + 1 (not tabs.length) keeps new titles
+      // unique even after the user closes an earlier Query tab.
+      const existingQueryNums = this.tabs
+        .filter((t) => t.kind === 'sql')
+        .map((t) => /^Query (\d+)$/.exec(t.title)?.[1])
+        .filter((n): n is string => typeof n === 'string')
+        .map((n) => parseInt(n, 10))
+        .filter((n) => !Number.isNaN(n))
+      const nextN = existingQueryNums.length === 0 ? 1 : Math.max(...existingQueryNums) + 1
+
+      // Context inheritance: active tab first, then the selected tree node.
+      let assetId: string | undefined
+      let databaseName: string | undefined
+      let connectionId: string | undefined
+      const active = this.activeTab
+      if (active && active.kind !== 'overview') {
+        assetId = active.assetId
+        databaseName = active.databaseName
+        connectionId = active.connectionId
+      }
+      if (!assetId && this.selectedNodeId) {
+        const connNode = findConnectionAncestor(this.tree, this.selectedNodeId)
+        const dbNode = findDatabaseAncestor(this.tree, this.selectedNodeId)
+        const meta = connNode?.meta as { assetId?: string } | undefined
+        assetId = meta?.assetId
+        databaseName = dbNode?.name
+        connectionId = connNode?.id
+      }
+
+      const tab: DatabaseWorkspaceTab = {
+        id: `tab-sql-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+        title: `Query ${nextN}`,
+        kind: 'sql',
+        connectionId,
+        assetId,
+        databaseName,
+        sql: '',
+        resultColumns: [],
+        resultRows: [],
+        resultTabs: [],
+        activeResultTabId: 'overview',
+        history: []
+      }
+      this.tabs.push(tab)
+      this.activeTabId = tab.id
+    },
     openSqlTab(nodeId: string) {
       const node = findNode(this.tree, nodeId)
       if (!node || node.type !== 'table') return

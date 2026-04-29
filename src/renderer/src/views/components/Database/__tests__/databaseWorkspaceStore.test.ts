@@ -272,3 +272,59 @@ describe('databaseWorkspaceStore sql workspace — state', () => {
     expect(store.resultSeq).toBe(0)
   })
 })
+
+describe('openNewSqlTab', () => {
+  beforeEach(() => {
+    setActivePinia(createPinia())
+  })
+
+  it('inherits context from the active data tab and increments Query titles', () => {
+    const store = useDatabaseWorkspaceStore()
+    store.tabs.push({
+      id: 'tab-data-users',
+      title: 'users',
+      kind: 'data',
+      connectionId: 'conn-asset-1',
+      assetId: 'asset-1',
+      databaseName: 'db_cloud',
+      tableName: 'users',
+      sql: '',
+      resultColumns: [],
+      resultRows: []
+    })
+    store.setActiveTab('tab-data-users')
+
+    store.openNewSqlTab()
+
+    expect(store.activeTab).toMatchObject({
+      kind: 'sql',
+      title: 'Query 1',
+      assetId: 'asset-1',
+      databaseName: 'db_cloud',
+      activeResultTabId: 'overview'
+    })
+    expect(store.activeTab?.resultTabs).toEqual([])
+    expect(store.activeTab?.history).toEqual([])
+
+    store.openNewSqlTab()
+    expect(store.activeTab?.title).toBe('Query 2')
+  })
+
+  it('uses max existing Query index + 1 so closed tabs do not cause duplicates', () => {
+    const store = useDatabaseWorkspaceStore()
+    store.openNewSqlTab() // Query 1
+    store.openNewSqlTab() // Query 2
+    const firstId = store.tabs.find((t) => t.title === 'Query 1')!.id
+    store.closeTab(firstId)
+    store.openNewSqlTab()
+    expect(store.activeTab?.title).toBe('Query 3')
+  })
+
+  it('opens a blank SQL tab when no context is available', () => {
+    const store = useDatabaseWorkspaceStore()
+    store.openNewSqlTab()
+    expect(store.activeTab).toMatchObject({ kind: 'sql', title: 'Query 1' })
+    expect(store.activeTab?.assetId).toBeUndefined()
+    expect(store.activeTab?.databaseName).toBeUndefined()
+  })
+})
