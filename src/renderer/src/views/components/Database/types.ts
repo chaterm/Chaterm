@@ -101,6 +101,14 @@ export interface DatabaseWorkspaceTab {
   history?: SqlExecutionHistoryEntry[]
 }
 
+/**
+ * A single SQL execution result attached to a `kind: 'sql'` workspace tab.
+ * - `seq` is monotonic store-wide (allocated from `DatabaseWorkspaceState.resultSeq`),
+ *   while `idx` is the 1-based display ordinal within the owning tab.
+ * - `status` includes a `'running'` state because the result tab is created
+ *   up-front and exists while the query is in flight.
+ * - `error: string | null` is always present; it is null unless `status === 'error'`.
+ */
 export interface SqlResultTab {
   id: string
   seq: number
@@ -116,6 +124,11 @@ export interface SqlResultTab {
   startedAt: number
 }
 
+/**
+ * A single entry in the per-tab SQL execution history. Records terminal
+ * states only (`status: 'ok' | 'error'`, never `'running'`).
+ * `resultTabId` is nulled when the corresponding result tab is closed.
+ */
 export interface SqlExecutionHistoryEntry {
   resultTabId: string | null
   seq: number

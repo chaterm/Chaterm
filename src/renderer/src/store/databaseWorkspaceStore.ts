@@ -285,6 +285,7 @@ interface DatabaseWorkspaceState {
   loading: boolean
   lastError: string | null
   lastTestResult: { ok: boolean; message: string } | null
+  // Monotonic allocator for SqlResultTab.seq; never decremented.
   resultSeq: number
 }
 
