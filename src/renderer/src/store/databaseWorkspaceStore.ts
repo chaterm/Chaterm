@@ -285,6 +285,7 @@ interface DatabaseWorkspaceState {
   loading: boolean
   lastError: string | null
   lastTestResult: { ok: boolean; message: string } | null
+  resultSeq: number
 }
 
 export const useDatabaseWorkspaceStore = defineStore('databaseWorkspace', {
@@ -299,7 +300,8 @@ export const useDatabaseWorkspaceStore = defineStore('databaseWorkspace', {
     connectionStatuses: {},
     loading: false,
     lastError: null,
-    lastTestResult: null
+    lastTestResult: null,
+    resultSeq: 0
   }),
   getters: {
     filteredTree(state): DatabaseTreeNode[] {

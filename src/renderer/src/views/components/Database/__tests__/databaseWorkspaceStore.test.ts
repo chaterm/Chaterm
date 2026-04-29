@@ -261,3 +261,14 @@ describe('databaseWorkspaceStore', () => {
     })
   })
 })
+
+describe('databaseWorkspaceStore sql workspace — state', () => {
+  beforeEach(() => {
+    setActivePinia(createPinia())
+  })
+
+  it('initializes resultSeq at 0', () => {
+    const store = useDatabaseWorkspaceStore()
+    expect(store.resultSeq).toBe(0)
+  })
+})

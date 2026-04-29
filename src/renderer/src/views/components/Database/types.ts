@@ -96,4 +96,34 @@ export interface DatabaseWorkspaceTab {
   dirtyState?: DirtyState
   undoStack?: EditOp[]
   selectedRowKey?: string | null
+  resultTabs?: SqlResultTab[]
+  activeResultTabId?: string | null
+  history?: SqlExecutionHistoryEntry[]
+}
+
+export interface SqlResultTab {
+  id: string
+  seq: number
+  idx: number
+  title: string
+  sql: string
+  status: 'running' | 'ok' | 'error'
+  columns: string[]
+  rows: Array<Record<string, unknown>>
+  rowCount: number
+  durationMs: number
+  error: string | null
+  startedAt: number
+}
+
+export interface SqlExecutionHistoryEntry {
+  resultTabId: string | null
+  seq: number
+  idx: number
+  sql: string
+  status: 'ok' | 'error'
+  message: string
+  durationMs: number
+  startedAt: number
+  rowCount?: number
 }
