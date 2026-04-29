@@ -327,4 +327,46 @@ describe('openNewSqlTab', () => {
     expect(store.activeTab?.assetId).toBeUndefined()
     expect(store.activeTab?.databaseName).toBeUndefined()
   })
+
+  it('does NOT fall back to selectedNodeId when active tab is a non-overview tab without assetId', () => {
+    const store = useDatabaseWorkspaceStore()
+    // Active tab is a blank SQL tab created with no context
+    store.openNewSqlTab()
+    // Simulate the user picking a tree node after opening the blank tab.
+    // Seed a tree with a connection + database and select the database.
+    store.tree = [
+      {
+        id: 'group-default',
+        type: 'group',
+        name: 'Default Group',
+        expanded: true,
+        children: [
+          {
+            id: 'conn-asset-9',
+            type: 'connection',
+            name: 'ctm9',
+            parentId: 'group-default',
+            expanded: true,
+            meta: { assetId: 'asset-9' },
+            children: [
+              {
+                id: 'db-asset-9-main',
+                type: 'database',
+                name: 'main',
+                parentId: 'conn-asset-9',
+                expanded: false,
+                children: []
+              }
+            ]
+          }
+        ]
+      }
+    ]
+    store.setSelectedNode('db-asset-9-main')
+    store.openNewSqlTab() // active tab is the previous blank SQL tab
+    // New tab must remain blank because the previous tab, though blank, was a
+    // non-overview tab — tree fallback should not run.
+    expect(store.activeTab?.assetId).toBeUndefined()
+    expect(store.activeTab?.databaseName).toBeUndefined()
+  })
 })

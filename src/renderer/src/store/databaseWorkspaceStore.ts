@@ -356,12 +356,13 @@ export const useDatabaseWorkspaceStore = defineStore('databaseWorkspace', {
       let databaseName: string | undefined
       let connectionId: string | undefined
       const active = this.activeTab
-      if (active && active.kind !== 'overview') {
-        assetId = active.assetId
-        databaseName = active.databaseName
-        connectionId = active.connectionId
+      const inheritedFromActive = !!(active && active.kind !== 'overview')
+      if (inheritedFromActive) {
+        assetId = active!.assetId
+        databaseName = active!.databaseName
+        connectionId = active!.connectionId
       }
-      if (!assetId && this.selectedNodeId) {
+      if (!inheritedFromActive && this.selectedNodeId) {
         const connNode = findConnectionAncestor(this.tree, this.selectedNodeId)
         const dbNode = findDatabaseAncestor(this.tree, this.selectedNodeId)
         const meta = connNode?.meta as { assetId?: string } | undefined
