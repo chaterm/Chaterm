@@ -1646,5 +1646,18 @@ export default {
       selectClusterToEdit: '클러스터를 선택하여 세부 정보 보기 및 편집',
       k8sClusterConfig: '클러스터 관리'
     }
+  },
+  database: {
+    addRow: '행 추가',
+    deleteRow: '행 삭제',
+    undo: '실행 취소',
+    saveChanges: '변경 사항 저장',
+    editDisabledSqlResult: '현재 보기에서는 편집할 수 없습니다',
+    deleteDisabledNoRow: '먼저 행을 선택하세요',
+    undoDisabledEmpty: '실행 취소할 작업이 없습니다',
+    saveDisabledClean: '저장할 변경 사항이 없습니다',
+    noPkWarning: '기본 키를 찾을 수 없어 편집이 비활성화되었습니다',
+    saveFailed: '변경 사항 저장 실패',
+    setNull: 'NULL로 설정'
   }
 }

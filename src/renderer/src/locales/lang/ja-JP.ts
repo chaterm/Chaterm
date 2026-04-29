@@ -1654,5 +1654,18 @@ export default {
       selectClusterToEdit: 'クラスターを選択して詳細を表示・編集',
       k8sClusterConfig: 'クラスター管理'
     }
+  },
+  database: {
+    addRow: '行を追加',
+    deleteRow: '行を削除',
+    undo: '元に戻す',
+    saveChanges: '変更を保存',
+    editDisabledSqlResult: 'このビューでは編集できません',
+    deleteDisabledNoRow: '先に行を選択してください',
+    undoDisabledEmpty: '元に戻す操作がありません',
+    saveDisabledClean: '保存する変更はありません',
+    noPkWarning: '主キーが検出されなかったため、編集は無効です',
+    saveFailed: '変更の保存に失敗しました',
+    setNull: 'NULL に設定'
   }
 }

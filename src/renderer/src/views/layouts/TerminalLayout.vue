@@ -144,8 +144,16 @@
             ></LeftTab>
           </div>
           <div class="term_content">
-            <!-- Normal splitpanes layout for all menus -->
+            <!-- Database workspace mode: replaces terminal dock + AI sidebar -->
+            <div
+              v-if="currentMenu === 'database'"
+              class="database-workspace-mode"
+            >
+              <Database />
+            </div>
+            <!-- Normal splitpanes layout for all other menus -->
             <splitpanes
+              v-else
               class="left-sidebar-container"
               @resize="(params: ResizeParams) => handleLeftPaneResize(params)"
             >
@@ -325,6 +333,7 @@ import Workspace from '@views/components/Workspace/index.vue'
 import Files from '@views/components/Files/tabIndex.vue'
 import Extensions from '@views/components/Extensions/index.vue'
 import Assets from '@views/components/Assets/index.vue'
+import Database from '@views/components/Database/index.vue'
 import Snippets from '@views/components/LeftTab/config/snippets.vue'
 import KnowledgeCenter from '@views/components/KnowledgeCenter/KnowledgeCenter.vue'
 import K8sTerminal from '@views/k8s/terminal/index.vue'
@@ -3441,6 +3450,13 @@ defineExpose({
 .left-sidebar-container .splitpanes__pane {
   transition: none !important;
   animation: none !important;
+}
+
+// Database workspace mode fills the full term_content area
+.database-workspace-mode {
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
 }
 
 .context-menu {

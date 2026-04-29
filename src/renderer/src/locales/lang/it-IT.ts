@@ -1680,5 +1680,18 @@ export default {
       selectClusterToEdit: 'Seleziona un cluster per visualizzare e modificare i dettagli',
       k8sClusterConfig: 'Gestione cluster'
     }
+  },
+  database: {
+    addRow: 'Aggiungi riga',
+    deleteRow: 'Elimina riga',
+    undo: 'Annulla',
+    saveChanges: 'Salva modifiche',
+    editDisabledSqlResult: 'La modifica non e disponibile in questa vista',
+    deleteDisabledNoRow: 'Seleziona prima una riga',
+    undoDisabledEmpty: 'Nulla da annullare',
+    saveDisabledClean: 'Nessuna modifica in attesa',
+    noPkWarning: 'Nessuna chiave primaria rilevata; modifica disabilitata',
+    saveFailed: 'Salvataggio delle modifiche non riuscito',
+    setNull: 'Imposta NULL'
   }
 }

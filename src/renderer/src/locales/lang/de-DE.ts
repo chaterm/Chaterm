@@ -1666,5 +1666,18 @@ export default {
       selectClusterToEdit: 'Cluster auswaehlen, um Details anzuzeigen und zu bearbeiten',
       k8sClusterConfig: 'Cluster-Verwaltung'
     }
+  },
+  database: {
+    addRow: 'Zeile hinzufuegen',
+    deleteRow: 'Zeile loeschen',
+    undo: 'Rueckgaengig',
+    saveChanges: 'Aenderungen speichern',
+    editDisabledSqlResult: 'Bearbeitung in dieser Ansicht nicht moeglich',
+    deleteDisabledNoRow: 'Bitte zuerst eine Zeile auswaehlen',
+    undoDisabledEmpty: 'Nichts zum Rueckgaengigmachen',
+    saveDisabledClean: 'Keine ausstehenden Aenderungen',
+    noPkWarning: 'Kein Primaerschluessel erkannt; Bearbeitung deaktiviert',
+    saveFailed: 'Speichern der Aenderungen fehlgeschlagen',
+    setNull: 'Auf NULL setzen'
   }
 }

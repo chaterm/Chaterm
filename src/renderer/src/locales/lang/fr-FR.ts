@@ -1684,5 +1684,18 @@ export default {
       selectClusterToEdit: 'Selectionnez un cluster pour afficher et modifier les details',
       k8sClusterConfig: 'Gestion des clusters'
     }
+  },
+  database: {
+    addRow: 'Ajouter une ligne',
+    deleteRow: 'Supprimer la ligne',
+    undo: 'Annuler',
+    saveChanges: 'Enregistrer les modifications',
+    editDisabledSqlResult: "L'edition est desactivee pour cette vue",
+    deleteDisabledNoRow: "Selectionnez d'abord une ligne",
+    undoDisabledEmpty: 'Rien a annuler',
+    saveDisabledClean: 'Aucune modification en attente',
+    noPkWarning: "Aucune cle primaire detectee; l'edition est desactivee",
+    saveFailed: "Echec de l'enregistrement des modifications",
+    setNull: 'Definir sur NULL'
   }
 }

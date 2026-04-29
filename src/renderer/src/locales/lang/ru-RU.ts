@@ -1675,5 +1675,18 @@ export default {
       selectClusterToEdit: 'Выберите кластер для просмотра и редактирования',
       k8sClusterConfig: 'Управление кластерами'
     }
+  },
+  database: {
+    addRow: 'Добавить строку',
+    deleteRow: 'Удалить строку',
+    undo: 'Отменить',
+    saveChanges: 'Сохранить изменения',
+    editDisabledSqlResult: 'Редактирование недоступно в этом представлении',
+    deleteDisabledNoRow: 'Сначала выберите строку',
+    undoDisabledEmpty: 'Нет действий для отмены',
+    saveDisabledClean: 'Нет несохранённых изменений',
+    noPkWarning: 'Первичный ключ не найден; редактирование отключено',
+    saveFailed: 'Не удалось сохранить изменения',
+    setNull: 'Установить NULL'
   }
 }

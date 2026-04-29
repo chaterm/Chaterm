@@ -1635,5 +1635,18 @@ export default {
       selectClusterToEdit: 'حدد مجموعة لعرض التفاصيل وتعديلها',
       k8sClusterConfig: 'إدارة المجموعات'
     }
+  },
+  database: {
+    addRow: 'إضافة صف',
+    deleteRow: 'حذف الصف',
+    undo: 'تراجع',
+    saveChanges: 'حفظ التغييرات',
+    editDisabledSqlResult: 'التحرير غير متاح في هذا العرض',
+    deleteDisabledNoRow: 'يرجى تحديد صف أولاً',
+    undoDisabledEmpty: 'لا توجد عمليات للتراجع عنها',
+    saveDisabledClean: 'لا توجد تغييرات معلقة',
+    noPkWarning: 'لم يتم اكتشاف مفتاح أساسي؛ تم تعطيل التحرير',
+    saveFailed: 'فشل حفظ التغييرات',
+    setNull: 'تعيين NULL'
   }
 }

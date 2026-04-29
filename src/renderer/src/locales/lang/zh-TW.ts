@@ -1640,5 +1640,18 @@ export default {
       selectClusterToEdit: '選擇一個叢集以檢視和編輯詳情',
       k8sClusterConfig: '叢集管理'
     }
+  },
+  database: {
+    addRow: '新增列',
+    deleteRow: '刪除列',
+    undo: '復原',
+    saveChanges: '儲存變更',
+    editDisabledSqlResult: '目前檢視不支援編輯',
+    deleteDisabledNoRow: '請先選取一列',
+    undoDisabledEmpty: '沒有可復原的操作',
+    saveDisabledClean: '沒有待提交的變更',
+    noPkWarning: '未偵測到主鍵，已停用編輯',
+    saveFailed: '儲存失敗',
+    setNull: '設為 NULL'
   }
 }

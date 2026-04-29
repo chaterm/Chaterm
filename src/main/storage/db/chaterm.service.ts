@@ -87,6 +87,18 @@ import {
   type K8sClusterRecord,
   type K8sTerminalSessionRecord
 } from './chaterm/k8s-clusters'
+import {
+  listDbAssetsLogic,
+  getDbAssetLogic,
+  createDbAssetLogic,
+  updateDbAssetLogic,
+  softDeleteDbAssetLogic,
+  updateDbAssetStatusLogic,
+  type DbAssetRecord,
+  type DbAssetCreateInput,
+  type DbAssetUpdateInput,
+  type DbAssetStatus
+} from './chaterm/db-assets'
 import type { SkillState } from '../../agent/shared/skills'
 import type { ChatSyncTaskState, TaskSnapshotTables } from '../chat_sync/models/ChatSyncTypes'
 const logger = createLogger('db')
@@ -749,6 +761,56 @@ export class ChatermDatabaseService {
       logger.error('ChatermDatabaseService.removeAllK8sTerminalSessions error', { error: error })
       return { success: false, error: error instanceof Error ? error.message : 'Unknown error' }
     }
+  }
+
+  // ==================== Database Asset Management Methods ====================
+
+  listDbAssets(): DbAssetRecord[] {
+    try {
+      return listDbAssetsLogic(this.db, this.userId)
+    } catch (error) {
+      logger.error('ChatermDatabaseService.listDbAssets error', { event: 'db-asset.list.error', error })
+      return []
+    }
+  }
+
+  getDbAsset(id: string): DbAssetRecord | null {
+    try {
+      return getDbAssetLogic(this.db, this.userId, id)
+    } catch (error) {
+      logger.error('ChatermDatabaseService.getDbAsset error', { event: 'db-asset.get.error', id, error })
+      return null
+    }
+  }
+
+  createDbAsset(input: DbAssetCreateInput): DbAssetRecord {
+    return createDbAssetLogic(this.db, this.userId, input)
+  }
+
+  updateDbAsset(id: string, patch: DbAssetUpdateInput): DbAssetRecord {
+    return updateDbAssetLogic(this.db, this.userId, id, patch)
+  }
+
+  deleteDbAsset(id: string): boolean {
+    try {
+      return softDeleteDbAssetLogic(this.db, this.userId, id)
+    } catch (error) {
+      logger.error('ChatermDatabaseService.deleteDbAsset error', { event: 'db-asset.delete.error', id, error })
+      return false
+    }
+  }
+
+  updateDbAssetStatus(
+    id: string,
+    patch: {
+      status?: DbAssetStatus
+      last_connected_at?: string | null
+      last_tested_at?: string | null
+      last_error_code?: string | null
+      last_error_message?: string | null
+    }
+  ): void {
+    updateDbAssetStatusLogic(this.db, this.userId, id, patch)
   }
 
   // ==================== IndexedDB Migration Status Query Methods ====================
