@@ -1223,6 +1223,8 @@ export default {
     transferSuccess: 'Transmission terminée',
     transferFailed: 'Échec de la transmission',
     openFolder: 'Ouvrir le dossier',
+    showHiddenFiles: 'Afficher les fichiers cachés',
+    hideHiddenFiles: 'Masquer les fichiers cachés',
     uploadSkipped: 'Téléchargement ignoré',
     transferSkipped: 'Transfert ignoré',
     transferCancel: 'Transfert annulé',

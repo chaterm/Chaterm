@@ -46,6 +46,8 @@ const i18n = createI18n({
         write: 'Write',
         exec: 'Execute',
         rollback: 'Rollback',
+        showHiddenFiles: 'Show Hidden Files',
+        hideHiddenFiles: 'Hide Hidden Files',
 
         // upload
         uploadSuccess: 'Upload success',
@@ -124,6 +126,8 @@ const iconStubs = {
   DownloadOutlined: true,
   EditOutlined: true,
   EllipsisOutlined: true,
+  EyeOutlined: true,
+  EyeInvisibleOutlined: true,
   FileFilled: true,
   FolderFilled: true,
   FolderOpenOutlined: true,
@@ -772,5 +776,133 @@ describe('files.vue (enhanced)', () => {
     expect(vm.currentRecord).toBe(null)
 
     wrapper.unmount()
+  })
+
+  describe('hidden files toggle', () => {
+    const dotFilesListing = [
+      { name: '.bashrc', path: '/home/u/.bashrc', isDir: false, mode: '0644', isLink: false, modTime: '', size: 1 },
+      { name: '.ssh', path: '/home/u/.ssh', isDir: true, mode: '0700', isLink: false, modTime: '', size: 0 },
+      { name: 'notes.txt', path: '/home/u/notes.txt', isDir: false, mode: '0644', isLink: false, modTime: '', size: 2 },
+      { name: 'docs', path: '/home/u/docs', isDir: true, mode: '0755', isLink: false, modTime: '', size: 0 }
+    ]
+
+    it('defaults to showing hidden files (showHidden = true)', async () => {
+      api.sshSftpList.mockResolvedValueOnce(dotFilesListing as any)
+      const wrapper = mountView({ currentDirectoryInput: '/home/u' })
+      await flushPromises()
+
+      const vm = wrapper.vm as any
+      expect(vm.showHidden).toBe(true)
+
+      const names = vm.visibleFiles.map((f: any) => f.name)
+      // includes parent ("..") + dot entries + regular entries
+      expect(names).toContain('..')
+      expect(names).toContain('.bashrc')
+      expect(names).toContain('.ssh')
+      expect(names).toContain('notes.txt')
+      expect(names).toContain('docs')
+
+      wrapper.unmount()
+    })
+
+    it('toggleHidden flips the state and filters dot-prefixed files/dirs while keeping parent ".."', async () => {
+      api.sshSftpList.mockResolvedValueOnce(dotFilesListing as any)
+      const wrapper = mountView({ currentDirectoryInput: '/home/u' })
+      await flushPromises()
+
+      const vm = wrapper.vm as any
+
+      // hide hidden
+      vm.toggleHidden()
+      await flushPromises()
+      expect(vm.showHidden).toBe(false)
+
+      const hiddenOffNames = vm.visibleFiles.map((f: any) => f.name)
+      expect(hiddenOffNames).toContain('..')
+      expect(hiddenOffNames).toContain('docs')
+      expect(hiddenOffNames).toContain('notes.txt')
+      expect(hiddenOffNames).not.toContain('.bashrc')
+      expect(hiddenOffNames).not.toContain('.ssh')
+
+      // underlying files array is NOT mutated
+      const rawNames = vm.files.map((f: any) => f.name)
+      expect(rawNames).toContain('.bashrc')
+      expect(rawNames).toContain('.ssh')
+
+      // toggle back on
+      vm.toggleHidden()
+      await flushPromises()
+      expect(vm.showHidden).toBe(true)
+      const restored = vm.visibleFiles.map((f: any) => f.name)
+      expect(restored).toContain('.bashrc')
+      expect(restored).toContain('.ssh')
+
+      wrapper.unmount()
+    })
+
+    it('visibleFiles stays reactive when files list is reloaded while hidden is off', async () => {
+      api.sshSftpList.mockResolvedValueOnce(dotFilesListing as any)
+      const wrapper = mountView({ currentDirectoryInput: '/home/u' })
+      await flushPromises()
+
+      const vm = wrapper.vm as any
+      vm.toggleHidden()
+      await flushPromises()
+      expect(vm.showHidden).toBe(false)
+
+      // refresh with a new listing that contains a new dot-entry and a new regular entry
+      api.sshSftpList.mockResolvedValueOnce([
+        { name: '.env', path: '/home/u/.env', isDir: false, mode: '0644', isLink: false, modTime: '', size: 3 },
+        { name: 'readme.md', path: '/home/u/readme.md', isDir: false, mode: '0644', isLink: false, modTime: '', size: 4 }
+      ] as any)
+      await vm.refresh()
+      await flushPromises()
+
+      const names = vm.visibleFiles.map((f: any) => f.name)
+      expect(names).toContain('readme.md')
+      expect(names).not.toContain('.env')
+      // parent ".." is injected for non-root paths
+      expect(names).toContain('..')
+
+      wrapper.unmount()
+    })
+
+    it('parent entry ".." is always visible regardless of toggle state', async () => {
+      api.sshSftpList.mockResolvedValueOnce([
+        { name: '.secret', path: '/home/u/.secret', isDir: false, mode: '0600', isLink: false, modTime: '', size: 1 }
+      ] as any)
+      const wrapper = mountView({ currentDirectoryInput: '/home/u' })
+      await flushPromises()
+
+      const vm = wrapper.vm as any
+      // hide
+      vm.toggleHidden()
+      await flushPromises()
+      const names = vm.visibleFiles.map((f: any) => f.name)
+      expect(names).toContain('..')
+      expect(names).not.toContain('.secret')
+
+      wrapper.unmount()
+    })
+
+    it('does nothing visible when there are no dot-prefixed files', async () => {
+      api.sshSftpList.mockResolvedValueOnce([
+        { name: 'a.txt', path: '/home/u/a.txt', isDir: false, mode: '0644', isLink: false, modTime: '', size: 1 },
+        { name: 'b', path: '/home/u/b', isDir: true, mode: '0755', isLink: false, modTime: '', size: 0 }
+      ] as any)
+      const wrapper = mountView({ currentDirectoryInput: '/home/u' })
+      await flushPromises()
+
+      const vm = wrapper.vm as any
+      const before = vm.visibleFiles.map((f: any) => f.name)
+
+      vm.toggleHidden()
+      await flushPromises()
+      const after = vm.visibleFiles.map((f: any) => f.name)
+
+      expect(after).toEqual(before)
+
+      wrapper.unmount()
+    })
   })
 })

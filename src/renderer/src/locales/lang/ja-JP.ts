@@ -1207,6 +1207,8 @@ export default {
     transferSuccess: '転送完了',
     transferFailed: '転送失敗',
     openFolder: 'フォルダを開く',
+    showHiddenFiles: '隠しファイルを表示',
+    hideHiddenFiles: '隠しファイルを非表示',
     uploadSkipped: 'アップロードをスキップしました',
     transferSkipped: '転送をスキップしました',
     transferCancel: '転送がキャンセルされました',
