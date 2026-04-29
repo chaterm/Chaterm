@@ -1272,7 +1272,7 @@ export default {
     disconnectedFromHost: '与远程主机({host})断开连接于 {date}',
     pressEnterToReconnectEn: '按 Enter 键重新连接...',
     connectingTo: '连接到 {ip}',
-    welcomeMessage: '{username}, 欢迎您使用Chaterm智能终端',
+    welcomeMessage: '{username}, 欢迎您使用 Chaterm 智能终端',
     reconnecting: '正在重新连接...',
     terminalConnectionError: '连接错误。请检查终端服务器是否运行。',
     autoReconnect: {
