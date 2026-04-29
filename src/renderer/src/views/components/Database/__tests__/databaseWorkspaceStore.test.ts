@@ -370,3 +370,150 @@ describe('openNewSqlTab', () => {
     expect(store.activeTab?.databaseName).toBeUndefined()
   })
 })
+
+describe('runSqlOnActiveTab', () => {
+  beforeEach(() => {
+    setActivePinia(createPinia())
+    ;(globalThis as any).window = {
+      api: {
+        dbAssetExecuteQuery: vi.fn(async ({ sql }: { sql: string }) => {
+          if (sql.includes('BOOM')) return { ok: false, errorMessage: 'syntax error' }
+          return {
+            ok: true,
+            columns: ['id'],
+            rows: [{ id: 1 }],
+            rowCount: 1,
+            durationMs: 12
+          }
+        })
+      }
+    }
+  })
+
+  it('does nothing when no context (no result tab, no history)', async () => {
+    const store = useDatabaseWorkspaceStore()
+    store.openNewSqlTab()
+    await store.runSqlOnActiveTab('all', 'SELECT 1')
+    expect(store.activeTab?.resultTabs).toEqual([])
+    expect(store.activeTab?.history).toEqual([])
+    expect(store.lastError).toBe('sqlNoContext')
+  })
+
+  it('does nothing on empty SQL', async () => {
+    const store = useDatabaseWorkspaceStore()
+    store.openNewSqlTab()
+    store.setSqlTabContext(store.activeTab!.id, 'a1', 'db1')
+    await store.runSqlOnActiveTab('all', '   ')
+    expect(store.activeTab?.resultTabs).toEqual([])
+    expect(store.lastError).toBe('sqlEmpty')
+  })
+
+  it('creates a result tab, runs, and appends history on success', async () => {
+    const store = useDatabaseWorkspaceStore()
+    store.openNewSqlTab()
+    store.setSqlTabContext(store.activeTab!.id, 'a1', 'db1')
+    await store.runSqlOnActiveTab('all', 'SELECT 1')
+    const tab = store.activeTab!
+    expect(tab.resultTabs).toHaveLength(1)
+    expect(tab.resultTabs![0]).toMatchObject({
+      seq: 1,
+      idx: 1,
+      status: 'ok',
+      rowCount: 1
+    })
+    expect(tab.activeResultTabId).toBe(tab.resultTabs![0].id)
+    expect(tab.history).toHaveLength(1)
+    expect(tab.history![0].status).toBe('ok')
+  })
+
+  it('records error status on failure', async () => {
+    const store = useDatabaseWorkspaceStore()
+    store.openNewSqlTab()
+    store.setSqlTabContext(store.activeTab!.id, 'a1', 'db1')
+    await store.runSqlOnActiveTab('all', 'SELECT BOOM')
+    const tab = store.activeTab!
+    expect(tab.resultTabs![0].status).toBe('error')
+    expect(tab.resultTabs![0].error).toBe('syntax error')
+    expect(tab.history![0].status).toBe('error')
+  })
+
+  it('increments global seq across tabs; per-sql-tab idx resets per tab', async () => {
+    const store = useDatabaseWorkspaceStore()
+    store.openNewSqlTab()
+    store.setSqlTabContext(store.activeTab!.id, 'a1', 'db1')
+    await store.runSqlOnActiveTab('all', 'SELECT 1')
+
+    store.openNewSqlTab()
+    store.setSqlTabContext(store.activeTab!.id, 'a1', 'db1')
+    await store.runSqlOnActiveTab('all', 'SELECT 2')
+    await store.runSqlOnActiveTab('all', 'SELECT 3')
+
+    const secondTab = store.activeTab!
+    expect(secondTab.resultTabs!.map((r) => `#${r.seq}-${r.idx}`)).toEqual(['#2-1', '#3-2'])
+  })
+
+  it('builds titles as #<seq>-<idx> <first 40 chars>', async () => {
+    const store = useDatabaseWorkspaceStore()
+    store.openNewSqlTab()
+    store.setSqlTabContext(store.activeTab!.id, 'a1', 'db1')
+    const long = 'select * from backup_lists limit 10 ' + 'x'.repeat(100)
+    await store.runSqlOnActiveTab('all', long)
+    const title = store.activeTab!.resultTabs![0].title
+    expect(title.startsWith('#1-1 select * from backup_lists limit 10')).toBe(true)
+    expect(title.length).toBeLessThanOrEqual(60)
+  })
+})
+
+describe('closeResultTab / setActiveResultTab', () => {
+  beforeEach(() => {
+    setActivePinia(createPinia())
+    ;(globalThis as any).window = {
+      api: {
+        dbAssetExecuteQuery: vi.fn(async () => ({
+          ok: true,
+          columns: [],
+          rows: [],
+          rowCount: 0,
+          durationMs: 1
+        }))
+      }
+    }
+  })
+
+  it('closes a result tab, falls back to previous, nullifies history link', async () => {
+    const store = useDatabaseWorkspaceStore()
+    store.openNewSqlTab()
+    store.setSqlTabContext(store.activeTab!.id, 'a1', 'db1')
+    await store.runSqlOnActiveTab('all', 'SELECT 1')
+    await store.runSqlOnActiveTab('all', 'SELECT 2')
+    const tab = store.activeTab!
+    const secondId = tab.resultTabs![1].id
+    store.closeResultTab(tab.id, secondId)
+    expect(tab.resultTabs).toHaveLength(1)
+    expect(tab.activeResultTabId).toBe(tab.resultTabs![0].id)
+    expect(tab.history![1].resultTabId).toBeNull()
+  })
+
+  it('falls back to overview when closing the last result tab', async () => {
+    const store = useDatabaseWorkspaceStore()
+    store.openNewSqlTab()
+    store.setSqlTabContext(store.activeTab!.id, 'a1', 'db1')
+    await store.runSqlOnActiveTab('all', 'SELECT 1')
+    const tab = store.activeTab!
+    store.closeResultTab(tab.id, tab.resultTabs![0].id)
+    expect(tab.resultTabs).toEqual([])
+    expect(tab.activeResultTabId).toBe('overview')
+  })
+
+  it('setActiveResultTab accepts overview and real ids', async () => {
+    const store = useDatabaseWorkspaceStore()
+    store.openNewSqlTab()
+    store.setSqlTabContext(store.activeTab!.id, 'a1', 'db1')
+    await store.runSqlOnActiveTab('all', 'SELECT 1')
+    const tab = store.activeTab!
+    store.setActiveResultTab(tab.id, 'overview')
+    expect(tab.activeResultTabId).toBe('overview')
+    store.setActiveResultTab(tab.id, tab.resultTabs![0].id)
+    expect(tab.activeResultTabId).toBe(tab.resultTabs![0].id)
+  })
+})

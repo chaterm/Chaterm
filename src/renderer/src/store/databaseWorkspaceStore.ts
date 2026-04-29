@@ -7,7 +7,8 @@ import type {
   DbColumnFilter,
   DbColumnSort,
   DirtyState,
-  EditOp
+  EditOp,
+  SqlResultTab
 } from '@views/components/Database/types'
 import { buildMutations, DB_IDENTIFIER_RE } from './helpers/dbMutationBuilder'
 import { OVERVIEW_TAB_ID, buildOverviewTab, buildSampleTabFromTable, mockExplorerTree } from '@views/components/Database/mock/data'
@@ -387,6 +388,157 @@ export const useDatabaseWorkspaceStore = defineStore('databaseWorkspace', {
       }
       this.tabs.push(tab)
       this.activeTabId = tab.id
+    },
+    /**
+     * Overwrite the connection + database context of an existing SQL tab.
+     * Noop for non-sql tabs or unknown tabIds.
+     */
+    setSqlTabContext(tabId: string, assetId: string | undefined, databaseName: string | undefined) {
+      const tab = this.tabs.find((t) => t.id === tabId)
+      if (!tab || tab.kind !== 'sql') return
+      tab.assetId = assetId
+      tab.databaseName = databaseName
+    },
+    /**
+     * Switch which result panel is visible within a SQL tab.
+     * Accepts the sentinel string 'overview' or the id of a live result tab.
+     * Noop for non-sql tabs or unknown result tabs.
+     */
+    setActiveResultTab(tabId: string, resultTabId: string) {
+      const tab = this.tabs.find((t) => t.id === tabId)
+      if (!tab || tab.kind !== 'sql') return
+      if (resultTabId === 'overview' || (tab.resultTabs ?? []).some((r) => r.id === resultTabId)) {
+        tab.activeResultTabId = resultTabId
+      }
+    },
+    /**
+     * Close a result tab from a SQL tab. The Overview sentinel cannot be closed.
+     * If the closed tab was active, fall back to the previous result tab, then
+     * the next, else the Overview sentinel. The matching history entry's
+     * `resultTabId` is nulled so Overview rows can render as disabled.
+     */
+    closeResultTab(tabId: string, resultTabId: string) {
+      const tab = this.tabs.find((t) => t.id === tabId)
+      if (!tab || tab.kind !== 'sql' || resultTabId === 'overview') return
+      const list = tab.resultTabs ?? []
+      const index = list.findIndex((r) => r.id === resultTabId)
+      if (index === -1) return
+      list.splice(index, 1)
+      if (tab.activeResultTabId === resultTabId) {
+        const fallback = list[index - 1] ?? list[index]
+        tab.activeResultTabId = fallback ? fallback.id : 'overview'
+      }
+      for (const h of tab.history ?? []) {
+        if (h.resultTabId === resultTabId) h.resultTabId = null
+      }
+    },
+    /**
+     * Run SQL on the currently active SQL tab. The `mode` is informational;
+     * the caller has already resolved the actual SQL text from its editor
+     * (full text / selection / up-to-cursor). This action owns the lifecycle
+     * of the matching result tab: it creates the tab in 'running' state,
+     * dispatches the query via the main-process driver, then patches the
+     * same tab by id when the result arrives. Concurrent runs each get their
+     * own result tab; id-anchored patching means ordering of completions
+     * does not matter.
+     *
+     * Context-missing and empty-SQL cases set lastError and do NOT create a
+     * result tab or history entry.
+     */
+
+    async runSqlOnActiveTab(_mode: 'all' | 'selection' | 'toCursor', sqlText: string) {
+      const tab = this.activeTab
+      if (!tab || tab.kind !== 'sql') return
+      if (!tab.assetId || !tab.databaseName) {
+        this.lastError = 'sqlNoContext'
+        return
+      }
+      if (!sqlText || sqlText.trim().length === 0) {
+        this.lastError = 'sqlEmpty'
+        return
+      }
+      const api = getApi()
+      if (!api?.dbAssetExecuteQuery) {
+        this.lastError = 'not connected'
+        return
+      }
+
+      const seq = ++this.resultSeq
+      const idx = (tab.resultTabs?.length ?? 0) + 1
+      const preview = sqlText.replace(/\s+/g, ' ').trim().slice(0, 40)
+      const resultTab: SqlResultTab = {
+        id: `res-${seq}`,
+        seq,
+        idx,
+        title: `#${seq}-${idx} ${preview}`,
+        sql: sqlText,
+        status: 'running',
+        columns: [],
+        rows: [],
+        rowCount: 0,
+        durationMs: 0,
+        error: null,
+        startedAt: Date.now()
+      }
+      if (!tab.resultTabs) tab.resultTabs = []
+      if (!tab.history) tab.history = []
+      tab.resultTabs.push(resultTab)
+      tab.activeResultTabId = resultTab.id
+
+      let result
+      try {
+        result = await api.dbAssetExecuteQuery({
+          id: String(tab.assetId),
+          sql: String(sqlText),
+          databaseName: String(tab.databaseName)
+        })
+      } catch (err) {
+        resultTab.status = 'error'
+        resultTab.error = (err as Error).message ?? 'ipc error'
+        tab.history.push({
+          resultTabId: resultTab.id,
+          seq,
+          idx,
+          sql: sqlText,
+          status: 'error',
+          message: `failure: ${resultTab.error}`,
+          durationMs: 0,
+          startedAt: resultTab.startedAt
+        })
+        return
+      }
+
+      if (result.ok) {
+        resultTab.status = 'ok'
+        resultTab.columns = result.columns ?? []
+        resultTab.rows = result.rows ?? []
+        resultTab.rowCount = result.rowCount ?? resultTab.rows.length
+        resultTab.durationMs = result.durationMs ?? 0
+        tab.history.push({
+          resultTabId: resultTab.id,
+          seq,
+          idx,
+          sql: sqlText,
+          status: 'ok',
+          message: resultTab.rowCount > 0 ? `successful: Affected rows ${resultTab.rowCount}` : 'successful',
+          durationMs: resultTab.durationMs,
+          startedAt: resultTab.startedAt,
+          rowCount: resultTab.rowCount
+        })
+      } else {
+        resultTab.status = 'error'
+        resultTab.error = result.errorMessage ?? 'query failed'
+        tab.history.push({
+          resultTabId: resultTab.id,
+          seq,
+          idx,
+          sql: sqlText,
+          status: 'error',
+          message: `failure: ${resultTab.error}`,
+          durationMs: 0,
+          startedAt: resultTab.startedAt
+        })
+      }
     },
     openSqlTab(nodeId: string) {
       const node = findNode(this.tree, nodeId)
