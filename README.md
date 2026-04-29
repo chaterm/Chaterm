@@ -3,7 +3,6 @@
 </div>
 <br>
 
-
 <!-- Vote for Chaterm on DevHunt! -->
 <br>
 <p align="center">
@@ -16,7 +15,6 @@
   </a>
 </p>
 <br><br>
-
 
 <p align="center">
   <a href="https://www.tbench.ai/leaderboard/terminal-bench/1.0"><img src="https://img.shields.io/badge/Terminal--Bench-Ranked_%232-00D94E?style=for-the-badge&logo=github&logoColor=white" alt="Terminal-Bench"></a>
@@ -42,7 +40,6 @@
   <a href="https://aws.amazon.com/marketplace/"><img src="https://img.shields.io/badge/AWS-Marketplace-FF9900?style=for-the-badge&logo=amazon-aws&logoColor=white&labelColor=232F3E" alt="AWS Marketplace"></a>
   <p align="center">
 </p>
-
 
 ## Table of Contents
 
