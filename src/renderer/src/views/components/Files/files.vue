@@ -88,6 +88,23 @@
           </a-space>
           <a-space>
             <div class="fs-header-right-item">
+              <a-tooltip :title="showHidden ? $t('files.hideHiddenFiles') : $t('files.showHiddenFiles')">
+                <a-button
+                  type="primary"
+                  size="small"
+                  ghost
+                  @click="toggleHidden"
+                >
+                  <template #icon>
+                    <EyeOutlined v-if="showHidden" />
+                    <EyeInvisibleOutlined v-else />
+                  </template>
+                </a-button>
+              </a-tooltip>
+            </div>
+          </a-space>
+          <a-space>
+            <div class="fs-header-right-item">
               <a-tooltip :title="$t('common.refresh')">
                 <a-button
                   type="primary"
@@ -124,7 +141,7 @@
           ref="tableRef"
           :row-key="(record: FileRecord) => record.name"
           :columns="tableColumns"
-          :data-source="files"
+          :data-source="visibleFiles"
           size="small"
           :pagination="false"
           :loading="loading"
@@ -463,6 +480,8 @@ import {
   EditOutlined,
   EllipsisOutlined,
   ExclamationCircleOutlined,
+  EyeOutlined,
+  EyeInvisibleOutlined,
   FileFilled,
   FolderFilled,
   LinkOutlined,
@@ -563,6 +582,14 @@ const panelSide = computed(() => props.panelSide as PanelSide)
 const localCurrentDirectoryInput = ref(props.currentDirectoryInput)
 const basePath = ref(props.basePath)
 const files = ref<FileRecord[]>([])
+const showHidden = ref(true)
+const visibleFiles = computed(() => {
+  if (showHidden.value) return files.value
+  return files.value.filter((f) => f.key === '..' || !f.name.startsWith('.'))
+})
+const toggleHidden = () => {
+  showHidden.value = !showHidden.value
+}
 const loading = ref(false)
 const showErr = ref(false)
 const errTips = ref('')

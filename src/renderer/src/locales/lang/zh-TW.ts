@@ -1196,6 +1196,8 @@ export default {
     transferSuccess: '傳輸完成',
     transferFailed: '傳輸失敗',
     openFolder: '打開文件夾',
+    showHiddenFiles: '顯示隱藏檔案',
+    hideHiddenFiles: '隱藏隱藏檔案',
     uploadSkipped: '已跳過上傳',
     transferSkipped: '已跳過傳輸',
     transferCancel: '已取消傳輸',
