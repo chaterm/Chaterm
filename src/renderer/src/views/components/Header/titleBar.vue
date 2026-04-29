@@ -3,6 +3,7 @@
     v-if="!platform.includes('darwin')"
     class="window-controls"
     :class="{ 'window-controls-login': props.variant === 'login' }"
+    @mousedown.prevent
   >
     <div
       class="window-control-btn"
