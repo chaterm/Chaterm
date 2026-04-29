@@ -13,6 +13,7 @@ export interface DbAssetRecord {
   id: string
   user_id: number
   name: string
+  group_id: string | null
   group_name: string | null
   db_type: DbAssetType
   environment: string | null
@@ -42,11 +43,23 @@ export interface DbAssetRecord {
   updated_at: string
 }
 
+export interface DbAssetGroupRecord {
+  id: string
+  user_id: number
+  name: string
+  parent_id: string | null
+  sort_order: number
+  deleted_at: string | null
+  created_at: string
+  updated_at: string
+}
+
 export interface DbAssetCreateInput {
   name: string
   db_type: DbAssetType
   host: string
   port: number
+  group_id?: string | null
   username?: string | null
   password_ciphertext?: string | null
   auth_type?: DbAssetAuthType
@@ -65,8 +78,16 @@ export interface DbAssetCreateInput {
 
 export type DbAssetUpdateInput = Partial<DbAssetCreateInput>
 
+export interface DbAssetGroupCreateInput {
+  name: string
+  parent_id?: string | null
+  sort_order?: number
+}
+
+export type DbAssetGroupUpdateInput = Partial<DbAssetGroupCreateInput>
+
 const ALL_COLUMNS = `
-  id, user_id, name, group_name, db_type, environment, host, port,
+  id, user_id, name, group_id, group_name, db_type, environment, host, port,
   database_name, schema_name, auth_type, username, password_ciphertext,
   ssl_mode, jdbc_url, driver_name, driver_class_name,
   ssh_tunnel_enabled, ssh_tunnel_asset_uuid, options_json, tags_json,
@@ -74,8 +95,158 @@ const ALL_COLUMNS = `
   sort_order, deleted_at, created_at, updated_at
 `
 
+const GROUP_COLUMNS = `
+  id, user_id, name, parent_id, sort_order, deleted_at, created_at, updated_at
+`
+
 function nowIso(): string {
   return new Date().toISOString()
+}
+
+function getDbAssetGroupNameById(db: Database.Database, userId: number, groupId: string | null | undefined): string | null {
+  if (!groupId) return null
+  const stmt = db.prepare(`
+    SELECT name
+    FROM db_asset_groups
+    WHERE user_id = ? AND id = ? AND deleted_at IS NULL
+  `)
+  const row = stmt.get(userId, groupId) as { name: string } | undefined
+  if (!row) throw new Error('group not found')
+  return row.name
+}
+
+function resolveAssetGroupFields(
+  db: Database.Database,
+  userId: number,
+  input: { group_id?: string | null; group_name?: string | null }
+): { group_id: string | null; group_name: string | null } {
+  if (input.group_id !== undefined) {
+    const groupId = input.group_id || null
+    return {
+      group_id: groupId,
+      group_name: getDbAssetGroupNameById(db, userId, groupId)
+    }
+  }
+  return {
+    group_id: null,
+    group_name: input.group_name ?? null
+  }
+}
+
+export function listDbAssetGroupsLogic(db: Database.Database, userId: number): DbAssetGroupRecord[] {
+  const stmt = db.prepare(`
+    SELECT ${GROUP_COLUMNS}
+    FROM db_asset_groups
+    WHERE user_id = ? AND deleted_at IS NULL
+    ORDER BY sort_order ASC, created_at DESC
+  `)
+  return stmt.all(userId) as DbAssetGroupRecord[]
+}
+
+export function getDbAssetGroupLogic(db: Database.Database, userId: number, id: string): DbAssetGroupRecord | null {
+  const stmt = db.prepare(`
+    SELECT ${GROUP_COLUMNS}
+    FROM db_asset_groups
+    WHERE user_id = ? AND id = ? AND deleted_at IS NULL
+  `)
+  return (stmt.get(userId, id) as DbAssetGroupRecord | undefined) || null
+}
+
+export function createDbAssetGroupLogic(db: Database.Database, userId: number, input: DbAssetGroupCreateInput): DbAssetGroupRecord {
+  if (!input.name?.trim()) throw new Error('group name is required')
+  const id = randomUUID()
+  const ts = nowIso()
+  db.prepare(
+    `
+    INSERT INTO db_asset_groups (
+      id, user_id, name, parent_id, sort_order, created_at, updated_at
+    ) VALUES (
+      @id, @user_id, @name, @parent_id, @sort_order, @created_at, @updated_at
+    )
+  `
+  ).run({
+    id,
+    user_id: userId,
+    name: input.name.trim(),
+    parent_id: input.parent_id ?? null,
+    sort_order: input.sort_order ?? 0,
+    created_at: ts,
+    updated_at: ts
+  })
+  const inserted = getDbAssetGroupLogic(db, userId, id)
+  if (!inserted) throw new Error('Insert succeeded but group row not found')
+  return inserted
+}
+
+export function updateDbAssetGroupLogic(db: Database.Database, userId: number, id: string, patch: DbAssetGroupUpdateInput): DbAssetGroupRecord {
+  const existing = getDbAssetGroupLogic(db, userId, id)
+  if (!existing) throw new Error('group not found')
+  const merged: DbAssetGroupRecord = {
+    ...existing,
+    ...Object.fromEntries(Object.entries(patch).filter(([, value]) => value !== undefined))
+  } as DbAssetGroupRecord
+  merged.updated_at = nowIso()
+
+  db.prepare(
+    `
+    UPDATE db_asset_groups SET
+      name = @name,
+      parent_id = @parent_id,
+      sort_order = @sort_order,
+      updated_at = @updated_at
+    WHERE user_id = @user_id AND id = @id AND deleted_at IS NULL
+  `
+  ).run({
+    id,
+    user_id: userId,
+    name: merged.name,
+    parent_id: merged.parent_id,
+    sort_order: merged.sort_order,
+    updated_at: merged.updated_at
+  })
+
+  if (merged.name !== existing.name) {
+    db.prepare(
+      `
+      UPDATE db_assets SET
+        group_name = ?,
+        updated_at = ?
+      WHERE user_id = ? AND group_id = ? AND deleted_at IS NULL
+    `
+    ).run(merged.name, merged.updated_at, userId, id)
+  }
+
+  const refreshed = getDbAssetGroupLogic(db, userId, id)
+  if (!refreshed) throw new Error('update succeeded but group row not found')
+  return refreshed
+}
+
+export function softDeleteDbAssetGroupLogic(db: Database.Database, userId: number, id: string): boolean {
+  const ts = nowIso()
+  const info = db
+    .prepare(
+      `
+    UPDATE db_asset_groups SET
+      deleted_at = ?,
+      updated_at = ?
+    WHERE user_id = ? AND id = ? AND deleted_at IS NULL
+  `
+    )
+    .run(ts, ts, userId, id)
+
+  if (info.changes > 0) {
+    db.prepare(
+      `
+      UPDATE db_assets SET
+        group_id = NULL,
+        group_name = NULL,
+        updated_at = ?
+      WHERE user_id = ? AND group_id = ? AND deleted_at IS NULL
+    `
+    ).run(ts, userId, id)
+  }
+
+  return info.changes > 0
 }
 
 /**
@@ -119,24 +290,26 @@ export function createDbAssetLogic(db: Database.Database, userId: number, input:
   const ts = nowIso()
   const stmt = db.prepare(`
     INSERT INTO db_assets (
-      id, user_id, name, group_name, db_type, environment, host, port,
+      id, user_id, name, group_id, group_name, db_type, environment, host, port,
       database_name, schema_name, auth_type, username, password_ciphertext,
       ssl_mode, jdbc_url, driver_name, driver_class_name,
       ssh_tunnel_enabled, ssh_tunnel_asset_uuid, options_json, tags_json,
       status, sort_order, created_at, updated_at
     ) VALUES (
-      @id, @user_id, @name, @group_name, @db_type, @environment, @host, @port,
+      @id, @user_id, @name, @group_id, @group_name, @db_type, @environment, @host, @port,
       @database_name, @schema_name, @auth_type, @username, @password_ciphertext,
       @ssl_mode, @jdbc_url, @driver_name, @driver_class_name,
       0, NULL, @options_json, @tags_json,
       'idle', @sort_order, @created_at, @updated_at
     )
   `)
+  const group = resolveAssetGroupFields(db, userId, input)
   stmt.run({
     id,
     user_id: userId,
     name: input.name.trim(),
-    group_name: input.group_name ?? null,
+    group_id: group.group_id,
+    group_name: group.group_name,
     db_type: input.db_type,
     environment: input.environment ?? null,
     host: input.host.trim(),
@@ -167,9 +340,11 @@ export function createDbAssetLogic(db: Database.Database, userId: number, input:
 export function updateDbAssetLogic(db: Database.Database, userId: number, id: string, patch: DbAssetUpdateInput): DbAssetRecord {
   const existing = getDbAssetLogic(db, userId, id)
   if (!existing) throw new Error('asset not found')
+  const groupPatch = resolveAssetGroupFields(db, userId, patch)
 
   const merged: DbAssetRecord = {
     ...existing,
+    ...(patch.group_id !== undefined || patch.group_name !== undefined ? groupPatch : {}),
     ...Object.fromEntries(Object.entries(patch).filter(([, v]) => v !== undefined))
   } as DbAssetRecord
   merged.updated_at = nowIso()
@@ -177,6 +352,7 @@ export function updateDbAssetLogic(db: Database.Database, userId: number, id: st
   const stmt = db.prepare(`
     UPDATE db_assets SET
       name = @name,
+      group_id = @group_id,
       group_name = @group_name,
       db_type = @db_type,
       environment = @environment,
@@ -201,6 +377,7 @@ export function updateDbAssetLogic(db: Database.Database, userId: number, id: st
     id,
     user_id: userId,
     name: merged.name,
+    group_id: merged.group_id,
     group_name: merged.group_name,
     db_type: merged.db_type,
     environment: merged.environment,

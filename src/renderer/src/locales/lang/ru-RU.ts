@@ -1687,6 +1687,24 @@ export default {
     saveDisabledClean: 'Нет несохранённых изменений',
     noPkWarning: 'Первичный ключ не найден; редактирование отключено',
     saveFailed: 'Не удалось сохранить изменения',
-    setNull: 'Установить NULL'
+    setNull: 'Установить NULL',
+    addTab: 'Новая вкладка запроса',
+    runAll: 'Выполнить всё',
+    runSelection: 'Выполнить выделенное',
+    runToCursor: 'Выполнить до курсора',
+    runCurrentStatement: 'Выполнить текущую инструкцию',
+    explain: 'План выполнения',
+    save: 'Сохранить',
+    saveAs: 'Сохранить как',
+    pickConnection: 'Соединение',
+    pickDatabase: 'База данных',
+    sqlEmpty: 'SQL пуст',
+    sqlNoContext: 'Сначала выберите соединение и базу данных',
+    sqlRunning: 'Выполняется…',
+    overviewColSql: 'SQL',
+    overviewColMessage: 'Сообщение',
+    overviewColTime: 'Время',
+    noExecutionsYet: 'Пока нет запусков.',
+    closeResultTab: 'Закрыть вкладку результата'
   }
 }

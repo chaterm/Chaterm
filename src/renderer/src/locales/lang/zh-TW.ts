@@ -1652,6 +1652,24 @@ export default {
     saveDisabledClean: '沒有待提交的變更',
     noPkWarning: '未偵測到主鍵，已停用編輯',
     saveFailed: '儲存失敗',
-    setNull: '設為 NULL'
+    setNull: '設為 NULL',
+    addTab: '新建查詢分頁',
+    runAll: '執行全部',
+    runSelection: '執行選取範圍',
+    runToCursor: '執行至游標',
+    runCurrentStatement: '執行目前語句',
+    explain: '解釋執行計畫',
+    save: '儲存',
+    saveAs: '另存為',
+    pickConnection: '連線',
+    pickDatabase: '資料庫',
+    sqlEmpty: 'SQL 為空',
+    sqlNoContext: '請先選擇連線與資料庫',
+    sqlRunning: '執行中…',
+    overviewColSql: 'SQL',
+    overviewColMessage: '訊息',
+    overviewColTime: '耗時',
+    noExecutionsYet: '尚無執行紀錄。',
+    closeResultTab: '關閉結果分頁'
   }
 }

@@ -87,12 +87,21 @@ describe('databaseWorkspaceStore', () => {
   })
 
   describe('backend integration', () => {
-    it('loads assets from window.api and rebuilds the tree', async () => {
+    it('loads groups and assets from window.api and rebuilds the tree', async () => {
       const mockApi = {
+        dbAssetGroupList: vi.fn().mockResolvedValue([
+          {
+            id: 'group-1',
+            name: 'Production',
+            parent_id: null,
+            sort_order: 1
+          }
+        ]),
         dbAssetList: vi.fn().mockResolvedValue([
           {
             id: 'asset-1',
             name: 'prod-mysql',
+            group_id: 'group-1',
             group_name: null,
             db_type: 'mysql',
             host: '10.0.0.1',
@@ -121,17 +130,19 @@ describe('databaseWorkspaceStore', () => {
       const store = useDatabaseWorkspaceStore()
       await store.loadAssetsFromBackend()
 
+      expect(mockApi.dbAssetGroupList).toHaveBeenCalled()
       expect(mockApi.dbAssetList).toHaveBeenCalled()
-      const group = store.tree[0]
-      const names = group.children?.map((c) => c.name)
-      expect(names).toEqual(['prod-mysql', 'analytics-pg'])
+      expect(store.tree.map((group) => group.name)).toContain('Production')
+      const prodGroup = store.tree.find((group) => group.name === 'Production')
+      expect(prodGroup?.children?.map((c) => c.name)).toEqual(['prod-mysql'])
       expect(store.connectionStatuses['asset-2']).toBe('connected')
     })
 
-    it('saveConnection delegates to dbAssetCreate and refreshes the tree', async () => {
+    it('saveConnection delegates to dbAssetCreate with group_id and refreshes the tree', async () => {
       const newAsset = {
         id: 'asset-new',
         name: 'prod-mysql',
+        group_id: 'group-1',
         group_name: null,
         db_type: 'mysql' as const,
         host: '10.0.0.1',
@@ -142,6 +153,14 @@ describe('databaseWorkspaceStore', () => {
         status: 'idle' as const
       }
       const mockApi = {
+        dbAssetGroupList: vi.fn().mockResolvedValue([
+          {
+            id: 'group-1',
+            name: 'Production',
+            parent_id: null,
+            sort_order: 1
+          }
+        ]),
         dbAssetCreate: vi.fn().mockResolvedValue({ ok: true, asset: newAsset }),
         dbAssetList: vi.fn().mockResolvedValue([newAsset])
       }
@@ -152,6 +171,7 @@ describe('databaseWorkspaceStore', () => {
       const draft: DatabaseConnectionDraft = {
         ...store.connectionDraft!,
         name: 'prod-mysql',
+        groupId: 'group-1',
         user: 'root',
         password: 's3cret',
         host: '10.0.0.1',
@@ -163,6 +183,7 @@ describe('databaseWorkspaceStore', () => {
         expect.objectContaining({
           name: 'prod-mysql',
           db_type: 'mysql',
+          group_id: 'group-1',
           host: '10.0.0.1',
           port: 3306,
           username: 'root',
@@ -171,6 +192,28 @@ describe('databaseWorkspaceStore', () => {
       )
       expect(mockApi.dbAssetList).toHaveBeenCalled()
       expect(store.connectionModalVisible).toBe(false)
+    })
+
+    it('createGroup delegates to dbAssetGroupCreate and reloads the tree', async () => {
+      const mockApi = {
+        dbAssetGroupCreate: vi.fn().mockResolvedValue({
+          ok: true,
+          group: { id: 'group-2', name: 'Analytics', parent_id: null, sort_order: 0 }
+        }),
+        dbAssetGroupList: vi.fn().mockResolvedValue([{ id: 'group-2', name: 'Analytics', parent_id: null, sort_order: 0 }]),
+        dbAssetList: vi.fn().mockResolvedValue([])
+      }
+      ;(window as unknown as { api: unknown }).api = mockApi
+
+      const store = useDatabaseWorkspaceStore()
+      await store.createGroup('Analytics')
+
+      expect(mockApi.dbAssetGroupCreate).toHaveBeenCalledWith({
+        name: 'Analytics',
+        parent_id: null,
+        sort_order: 0
+      })
+      expect(store.tree.map((group) => group.name)).toContain('Analytics')
     })
 
     it('connectAsset updates status and triggers loadConnectedTree', async () => {
@@ -515,5 +558,62 @@ describe('closeResultTab / setActiveResultTab', () => {
     expect(tab.activeResultTabId).toBe('overview')
     store.setActiveResultTab(tab.id, tab.resultTabs![0].id)
     expect(tab.activeResultTabId).toBe(tab.resultTabs![0].id)
+  })
+})
+
+describe('runSqlOnActiveTab — IPC resilience', () => {
+  beforeEach(() => {
+    setActivePinia(createPinia())
+  })
+
+  it('marks the result tab as error when the IPC call resolves to undefined', async () => {
+    // Simulates the bug: IPC main-process silently returns undefined on
+    // the 3rd concurrent query (e.g. driver queue drop). Prior to the fix,
+    // `if (result.ok)` threw a TypeError outside try/catch and left the
+    // result tab stuck on 'running' forever.
+    let call = 0
+    ;(globalThis as any).window = {
+      api: {
+        dbAssetExecuteQuery: vi.fn(async () => {
+          call++
+          if (call === 3) return undefined
+          return { ok: true, columns: ['id'], rows: [{ id: call }], rowCount: 1, durationMs: 5 }
+        })
+      }
+    }
+    const store = useDatabaseWorkspaceStore()
+    store.openNewSqlTab()
+    store.setSqlTabContext(store.activeTab!.id, 'a1', 'db1')
+
+    await store.runSqlOnActiveTab('all', 'SELECT 1')
+    await store.runSqlOnActiveTab('all', 'SELECT 2')
+    await store.runSqlOnActiveTab('all', 'SELECT 3')
+
+    const tab = store.activeTab!
+    expect(tab.resultTabs).toHaveLength(3)
+    const third = tab.resultTabs![2]
+    expect(third.status).toBe('error')
+    expect(third.error).toBeTruthy()
+    expect(tab.history).toHaveLength(3)
+    expect(tab.history![2].status).toBe('error')
+  })
+
+  it('marks the result tab as error when the IPC call throws a non-Error value', async () => {
+    ;(globalThis as any).window = {
+      api: {
+        dbAssetExecuteQuery: vi.fn(async () => {
+          throw 'boom-string'
+        })
+      }
+    }
+    const store = useDatabaseWorkspaceStore()
+    store.openNewSqlTab()
+    store.setSqlTabContext(store.activeTab!.id, 'a1', 'db1')
+
+    await store.runSqlOnActiveTab('all', 'SELECT 1')
+
+    const tab = store.activeTab!
+    expect(tab.resultTabs![0].status).toBe('error')
+    expect(tab.resultTabs![0].error).toBe('boom-string')
   })
 })

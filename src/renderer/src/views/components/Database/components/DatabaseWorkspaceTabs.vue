@@ -24,11 +24,19 @@
         </button>
       </div>
     </div>
+    <button
+      class="db-tabs__add"
+      :aria-label="$t('database.addTab')"
+      :title="$t('database.addTab')"
+      @click="emit('add')"
+    >
+      <PlusOutlined />
+    </button>
   </div>
 </template>
 
 <script setup lang="ts">
-import { CloseOutlined } from '@ant-design/icons-vue'
+import { CloseOutlined, PlusOutlined } from '@ant-design/icons-vue'
 import type { DatabaseWorkspaceTab } from '../types'
 
 defineProps<{
@@ -39,12 +47,14 @@ defineProps<{
 const emit = defineEmits<{
   (e: 'select', tabId: string): void
   (e: 'close', tabId: string): void
+  (e: 'add'): void
 }>()
 </script>
 
 <style lang="less" scoped>
 .db-tabs {
   display: flex;
+  align-items: stretch;
   height: 32px;
   border-bottom: 1px solid var(--border-color);
   background: var(--bg-color-secondary);
@@ -54,6 +64,8 @@ const emit = defineEmits<{
     display: flex;
     align-items: stretch;
     height: 100%;
+    flex: 1;
+    min-width: 0;
   }
 
   &__item {
@@ -97,6 +109,26 @@ const emit = defineEmits<{
 
     &:hover {
       background: var(--active-bg-color);
+    }
+  }
+
+  &__add {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 28px;
+    height: 100%;
+    flex: 0 0 auto;
+    margin-left: auto;
+    background: transparent;
+    border: none;
+    border-left: 1px solid var(--border-color);
+    color: var(--text-color-secondary, #8a94a6);
+    cursor: pointer;
+
+    &:hover {
+      background: var(--hover-bg-color);
+      color: var(--text-color);
     }
   }
 }

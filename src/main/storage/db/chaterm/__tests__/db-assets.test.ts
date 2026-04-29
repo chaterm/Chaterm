@@ -11,8 +11,19 @@ vi.mock('@logging/index', () => ({
 }))
 
 const { upgradeDbAssetsSupport } = await import('../../migrations/add-db-assets-support')
-const { listDbAssetsLogic, getDbAssetLogic, createDbAssetLogic, updateDbAssetLogic, softDeleteDbAssetLogic, updateDbAssetStatusLogic } =
-  await import('../db-assets')
+const {
+  listDbAssetsLogic,
+  getDbAssetLogic,
+  createDbAssetLogic,
+  updateDbAssetLogic,
+  softDeleteDbAssetLogic,
+  updateDbAssetStatusLogic,
+  listDbAssetGroupsLogic,
+  getDbAssetGroupLogic,
+  createDbAssetGroupLogic,
+  updateDbAssetGroupLogic,
+  softDeleteDbAssetGroupLogic
+} = await import('../db-assets')
 
 const USER_ID = 42
 
@@ -147,5 +158,61 @@ describe('db-assets storage', () => {
 
   it('updateDbAssetStatus is a no-op when asset does not exist', () => {
     expect(() => updateDbAssetStatusLogic(db, USER_ID, 'does-not-exist', { status: 'failed' })).not.toThrow()
+  })
+
+  it('creates a db asset group and lists it by user', () => {
+    const group = createDbAssetGroupLogic(db, USER_ID, {
+      name: 'Production',
+      parent_id: null,
+      sort_order: 1
+    })
+
+    expect(group.id).toBeTruthy()
+    expect(group.name).toBe('Production')
+
+    const groups = listDbAssetGroupsLogic(db, USER_ID)
+    expect(groups).toHaveLength(1)
+    expect(groups[0].name).toBe('Production')
+  })
+
+  it('renames a group and synchronizes member asset group_name', () => {
+    const group = createDbAssetGroupLogic(db, USER_ID, {
+      name: 'Staging'
+    })
+    const asset = createDbAssetLogic(db, USER_ID, {
+      name: 'pg-staging',
+      db_type: 'postgresql',
+      host: 'db.internal',
+      port: 5432,
+      group_id: group.id
+    })
+
+    const renamed = updateDbAssetGroupLogic(db, USER_ID, group.id, {
+      name: 'Analytics'
+    })
+
+    expect(renamed.name).toBe('Analytics')
+    expect(getDbAssetGroupLogic(db, USER_ID, group.id)?.name).toBe('Analytics')
+    expect(getDbAssetLogic(db, USER_ID, asset.id)?.group_name).toBe('Analytics')
+  })
+
+  it('soft-deletes a group and clears member asset grouping', () => {
+    const group = createDbAssetGroupLogic(db, USER_ID, {
+      name: 'Temporary'
+    })
+    const asset = createDbAssetLogic(db, USER_ID, {
+      name: 'mysql-temp',
+      db_type: 'mysql',
+      host: '127.0.0.1',
+      port: 3306,
+      group_id: group.id
+    })
+
+    const ok = softDeleteDbAssetGroupLogic(db, USER_ID, group.id)
+
+    expect(ok).toBe(true)
+    expect(getDbAssetGroupLogic(db, USER_ID, group.id)).toBeNull()
+    expect(getDbAssetLogic(db, USER_ID, asset.id)?.group_id).toBeNull()
+    expect(getDbAssetLogic(db, USER_ID, asset.id)?.group_name).toBeNull()
   })
 })

@@ -10,6 +10,7 @@
       :style="{ paddingLeft: `${8 + depth * 14}px` }"
       @click="handleRowClick"
       @dblclick="handleRowDoubleClick"
+      @contextmenu.prevent="handleContextMenu"
     >
       <span
         v-if="canExpand"
@@ -71,6 +72,7 @@
         @open-table="(id) => emit('openTable', id)"
         @connect="(id) => emit('connect', id)"
         @disconnect="(id) => emit('disconnect', id)"
+        @group-context="(payload) => emit('group-context', payload)"
       />
     </ul>
   </li>
@@ -108,6 +110,7 @@ const emit = defineEmits<{
   (e: 'openTable', id: string): void
   (e: 'connect', id: string): void
   (e: 'disconnect', id: string): void
+  (e: 'group-context', payload: { id: string; name: string; x: number; y: number }): void
 }>()
 
 const hasChildren = computed(() => !!props.node.children && props.node.children.length > 0)
@@ -166,6 +169,16 @@ const handleRowClick = () => {
 
 const handleRowDoubleClick = () => {
   if (props.node.type === 'table') emit('openTable', props.node.id)
+}
+
+const handleContextMenu = (event: MouseEvent) => {
+  if (props.node.type !== 'group') return
+  emit('group-context', {
+    id: props.node.id,
+    name: props.node.name,
+    x: event.clientX,
+    y: event.clientY
+  })
 }
 </script>
 

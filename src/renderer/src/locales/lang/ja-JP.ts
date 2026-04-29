@@ -1666,6 +1666,24 @@ export default {
     saveDisabledClean: '保存する変更はありません',
     noPkWarning: '主キーが検出されなかったため、編集は無効です',
     saveFailed: '変更の保存に失敗しました',
-    setNull: 'NULL に設定'
+    setNull: 'NULL に設定',
+    addTab: '新しいクエリタブ',
+    runAll: 'すべて実行',
+    runSelection: '選択範囲を実行',
+    runToCursor: 'カーソル位置まで実行',
+    runCurrentStatement: '現在のステートメントを実行',
+    explain: '実行計画を表示',
+    save: '保存',
+    saveAs: '名前を付けて保存',
+    pickConnection: '接続',
+    pickDatabase: 'データベース',
+    sqlEmpty: 'SQL が空です',
+    sqlNoContext: '先に接続とデータベースを選択してください',
+    sqlRunning: '実行中…',
+    overviewColSql: 'SQL',
+    overviewColMessage: 'メッセージ',
+    overviewColTime: '時間',
+    noExecutionsYet: 'まだ実行履歴はありません。',
+    closeResultTab: '結果タブを閉じる'
   }
 }

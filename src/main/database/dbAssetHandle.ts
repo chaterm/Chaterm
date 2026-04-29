@@ -3,7 +3,7 @@
 
 import { ipcMain } from 'electron'
 import { ChatermDatabaseService } from '../storage/db/chaterm.service'
-import type { DbAssetCreateInput, DbAssetRecord, DbAssetUpdateInput } from '../storage/db/chaterm/db-assets'
+import type { DbAssetCreateInput, DbAssetGroupRecord, DbAssetRecord, DbAssetUpdateInput } from '../storage/db/chaterm/db-assets'
 import { getConnectionManager } from '../services/database'
 import { getCredentialStore } from '../services/database/credential-store'
 import type { ConnectionTestResult, MutationStatement } from '../services/database/types'
@@ -22,6 +22,7 @@ interface RendererDbAssetPayload {
   db_type: 'mysql' | 'postgresql'
   host: string
   port: number
+  group_id?: string | null
   username?: string | null
   password?: string | null
   database_name?: string | null
@@ -35,6 +36,12 @@ interface RendererDbAssetPayload {
   sort_order?: number
 }
 
+interface RendererDbAssetGroupPayload {
+  name: string
+  parent_id?: string | null
+  sort_order?: number
+}
+
 /**
  * Safe projection: the renderer never sees the raw ciphertext.
  * `hasPassword` signals whether a credential is currently stored.
@@ -42,6 +49,7 @@ interface RendererDbAssetPayload {
 export interface DbAssetDto {
   id: string
   name: string
+  group_id: string | null
   group_name: string | null
   db_type: 'mysql' | 'postgresql'
   environment: string | null
@@ -63,10 +71,20 @@ export interface DbAssetDto {
   updated_at: string
 }
 
+export interface DbAssetGroupDto {
+  id: string
+  name: string
+  parent_id: string | null
+  sort_order: number
+  created_at: string
+  updated_at: string
+}
+
 function toDto(record: DbAssetRecord): DbAssetDto {
   return {
     id: record.id,
     name: record.name,
+    group_id: record.group_id,
     group_name: record.group_name,
     db_type: record.db_type,
     environment: record.environment,
@@ -89,6 +107,17 @@ function toDto(record: DbAssetRecord): DbAssetDto {
   }
 }
 
+function toGroupDto(record: DbAssetGroupRecord): DbAssetGroupDto {
+  return {
+    id: record.id,
+    name: record.name,
+    parent_id: record.parent_id,
+    sort_order: record.sort_order,
+    created_at: record.created_at,
+    updated_at: record.updated_at
+  }
+}
+
 /**
  * Translate renderer payload into a storage-level create input, encrypting
  * the plaintext password along the way.
@@ -101,6 +130,7 @@ async function toCreateInput(payload: RendererDbAssetPayload): Promise<DbAssetCr
     db_type: payload.db_type,
     host: payload.host,
     port: payload.port,
+    group_id: payload.group_id ?? null,
     username: payload.username ?? null,
     password_ciphertext: cipher,
     auth_type: 'password',
@@ -129,6 +159,7 @@ async function toUpdatePatch(payload: Partial<RendererDbAssetPayload>): Promise<
   if (payload.db_type !== undefined) patch.db_type = payload.db_type
   if (payload.host !== undefined) patch.host = payload.host
   if (payload.port !== undefined) patch.port = payload.port
+  if (payload.group_id !== undefined) patch.group_id = payload.group_id
   if (payload.username !== undefined) patch.username = payload.username
   if (payload.group_name !== undefined) patch.group_name = payload.group_name
   if (payload.environment !== undefined) patch.environment = payload.environment
@@ -151,6 +182,53 @@ async function resolveAssetService(): Promise<ChatermDatabaseService> {
 }
 
 export function registerDbAssetHandlers(): void {
+  ipcMain.handle('db-asset-group-list', async () => {
+    try {
+      const service = await resolveAssetService()
+      return service.listDbAssetGroups().map(toGroupDto)
+    } catch (error) {
+      logger.error('db-asset-group-list failed', { event: 'db-asset-group.list.error', error })
+      return []
+    }
+  })
+
+  ipcMain.handle('db-asset-group-create', async (_, payload: RendererDbAssetGroupPayload) => {
+    try {
+      const service = await resolveAssetService()
+      const row = service.createDbAssetGroup({
+        name: payload.name,
+        parent_id: payload.parent_id ?? null,
+        sort_order: payload.sort_order ?? 0
+      })
+      return { ok: true, group: toGroupDto(row) }
+    } catch (error) {
+      logger.error('db-asset-group-create failed', { event: 'db-asset-group.create.error', name: payload?.name, error })
+      return { ok: false, errorMessage: (error as Error).message }
+    }
+  })
+
+  ipcMain.handle('db-asset-group-update', async (_, payload: { id: string; patch: Partial<RendererDbAssetGroupPayload> }) => {
+    try {
+      const service = await resolveAssetService()
+      const row = service.updateDbAssetGroup(payload.id, payload.patch)
+      return { ok: true, group: toGroupDto(row) }
+    } catch (error) {
+      logger.error('db-asset-group-update failed', { event: 'db-asset-group.update.error', id: payload?.id, error })
+      return { ok: false, errorMessage: (error as Error).message }
+    }
+  })
+
+  ipcMain.handle('db-asset-group-delete', async (_, id: string) => {
+    try {
+      const service = await resolveAssetService()
+      const ok = service.deleteDbAssetGroup(id)
+      return { ok }
+    } catch (error) {
+      logger.error('db-asset-group-delete failed', { event: 'db-asset-group.delete.error', id, error })
+      return { ok: false, errorMessage: (error as Error).message }
+    }
+  })
+
   ipcMain.handle('db-asset-list', async () => {
     try {
       const service = await resolveAssetService()
@@ -225,6 +303,7 @@ export function registerDbAssetHandlers(): void {
         id: 'ephemeral-test',
         user_id: 0,
         name: payload.name ?? '',
+        group_id: payload.group_id ?? null,
         group_name: null,
         db_type: payload.db_type,
         environment: null,

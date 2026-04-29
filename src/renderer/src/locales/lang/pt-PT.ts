@@ -1687,6 +1687,24 @@ export default {
     saveDisabledClean: 'Nenhuma alteracao pendente',
     noPkWarning: 'Nenhuma chave primaria detectada; edicao desativada',
     saveFailed: 'Falha ao salvar alteracoes',
-    setNull: 'Definir como NULL'
+    setNull: 'Definir como NULL',
+    addTab: 'Novo separador de consulta',
+    runAll: 'Executar tudo',
+    runSelection: 'Executar selecao',
+    runToCursor: 'Executar ate ao cursor',
+    runCurrentStatement: 'Executar instrucao atual',
+    explain: 'Plano de execucao',
+    save: 'Guardar',
+    saveAs: 'Guardar como',
+    pickConnection: 'Ligacao',
+    pickDatabase: 'Base de dados',
+    sqlEmpty: 'SQL vazio',
+    sqlNoContext: 'Selecione primeiro a ligacao e a base de dados',
+    sqlRunning: 'A executar…',
+    overviewColSql: 'SQL',
+    overviewColMessage: 'Mensagem',
+    overviewColTime: 'Tempo',
+    noExecutionsYet: 'Ainda sem execucoes.',
+    closeResultTab: 'Fechar separador de resultado'
   }
 }

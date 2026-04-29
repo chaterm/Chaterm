@@ -17,6 +17,7 @@ export type DatabaseAuthentication = 'UserAndPassword'
 export interface DatabaseConnectionDraft {
   id: string
   name: string
+  groupId?: string
   env: string
   dbType: DatabaseType
   host: string

@@ -94,9 +94,17 @@ import {
   updateDbAssetLogic,
   softDeleteDbAssetLogic,
   updateDbAssetStatusLogic,
+  listDbAssetGroupsLogic,
+  getDbAssetGroupLogic,
+  createDbAssetGroupLogic,
+  updateDbAssetGroupLogic,
+  softDeleteDbAssetGroupLogic,
   type DbAssetRecord,
+  type DbAssetGroupRecord,
   type DbAssetCreateInput,
   type DbAssetUpdateInput,
+  type DbAssetGroupCreateInput,
+  type DbAssetGroupUpdateInput,
   type DbAssetStatus
 } from './chaterm/db-assets'
 import type { SkillState } from '../../agent/shared/skills'
@@ -811,6 +819,26 @@ export class ChatermDatabaseService {
     }
   ): void {
     updateDbAssetStatusLogic(this.db, this.userId, id, patch)
+  }
+
+  listDbAssetGroups(): DbAssetGroupRecord[] {
+    return listDbAssetGroupsLogic(this.db, this.userId)
+  }
+
+  getDbAssetGroup(id: string): DbAssetGroupRecord | null {
+    return getDbAssetGroupLogic(this.db, this.userId, id)
+  }
+
+  createDbAssetGroup(input: DbAssetGroupCreateInput): DbAssetGroupRecord {
+    return createDbAssetGroupLogic(this.db, this.userId, input)
+  }
+
+  updateDbAssetGroup(id: string, patch: DbAssetGroupUpdateInput): DbAssetGroupRecord {
+    return updateDbAssetGroupLogic(this.db, this.userId, id, patch)
+  }
+
+  deleteDbAssetGroup(id: string): boolean {
+    return softDeleteDbAssetGroupLogic(this.db, this.userId, id)
   }
 
   // ==================== IndexedDB Migration Status Query Methods ====================

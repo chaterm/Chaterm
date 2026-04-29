@@ -21,6 +21,7 @@ import { OVERVIEW_TAB_ID, buildOverviewTab, buildSampleTabFromTable, mockExplore
 interface DbAssetDtoLike {
   id: string
   name: string
+  group_id?: string | null
   group_name: string | null
   db_type: 'mysql' | 'postgresql'
   host: string
@@ -33,7 +34,25 @@ interface DbAssetDtoLike {
   ssl_mode?: string | null
 }
 
+interface DbAssetGroupDtoLike {
+  id: string
+  name: string
+  parent_id: string | null
+  sort_order: number
+}
+
 type DbApi = {
+  dbAssetGroupList?: () => Promise<DbAssetGroupDtoLike[]>
+  dbAssetGroupCreate?: (payload: {
+    name: string
+    parent_id?: string | null
+    sort_order?: number
+  }) => Promise<{ ok: boolean; group?: DbAssetGroupDtoLike | null; errorMessage?: string }>
+  dbAssetGroupUpdate?: (payload: {
+    id: string
+    patch: { name?: string; parent_id?: string | null; sort_order?: number }
+  }) => Promise<{ ok: boolean; group?: DbAssetGroupDtoLike | null; errorMessage?: string }>
+  dbAssetGroupDelete?: (id: string) => Promise<{ ok: boolean; errorMessage?: string }>
   dbAssetList?: () => Promise<DbAssetDtoLike[]>
   dbAssetCreate?: (payload: Record<string, unknown>) => Promise<{ ok: boolean; asset?: DbAssetDtoLike | null; errorMessage?: string }>
   dbAssetDelete?: (id: string) => Promise<{ ok: boolean; errorMessage?: string }>
@@ -119,11 +138,12 @@ const GROUP_LABELS: Record<string, string> = {
 
 function connectionNodeFromAsset(asset: DbAssetDtoLike): DatabaseTreeNode {
   const childrenPlaceholder: DatabaseTreeNode[] = []
+  const parentId = asset.group_id || (asset.group_name ? `legacy-group-${asset.group_name}` : DEFAULT_GROUP_ID)
   return {
     id: `conn-${asset.id}`,
     type: 'connection',
     name: asset.name,
-    parentId: DEFAULT_GROUP_ID,
+    parentId,
     expanded: false,
     children: childrenPlaceholder,
     meta: {
@@ -138,21 +158,48 @@ function connectionNodeFromAsset(asset: DbAssetDtoLike): DatabaseTreeNode {
   }
 }
 
-function buildTreeFromAssets(assets: DbAssetDtoLike[]): DatabaseTreeNode[] {
+function buildTreeFromAssets(groups: DbAssetGroupDtoLike[], assets: DbAssetDtoLike[]): DatabaseTreeNode[] {
   const groupIds = new Set<string>([DEFAULT_GROUP_ID])
-  for (const asset of assets) {
-    if (asset.group_name && asset.group_name.trim()) groupIds.add(`group-${asset.group_name}`)
-  }
-  const tree: DatabaseTreeNode[] = Array.from(groupIds).map((id) => ({
-    id,
-    type: 'group',
-    name: GROUP_LABELS[id] ?? id.replace(/^group-/, ''),
+  const explicitGroups = groups.map((group) => ({
+    id: group.id,
+    type: 'group' as const,
+    name: group.name,
     expanded: true,
     children: []
   }))
+
+  for (const asset of assets) {
+    if (asset.group_id && asset.group_id.trim()) {
+      groupIds.add(asset.group_id)
+    } else if (asset.group_name && asset.group_name.trim()) {
+      groupIds.add(`legacy-group-${asset.group_name}`)
+    }
+  }
+
+  const legacyGroups: DatabaseTreeNode[] = Array.from(groupIds)
+    .filter((id) => id.startsWith('legacy-group-'))
+    .map((id) => ({
+      id,
+      type: 'group' as const,
+      name: id.replace(/^legacy-group-/, ''),
+      expanded: true,
+      children: []
+    }))
+
+  const tree: DatabaseTreeNode[] = [
+    {
+      id: DEFAULT_GROUP_ID,
+      type: 'group',
+      name: GROUP_LABELS[DEFAULT_GROUP_ID],
+      expanded: true,
+      children: []
+    },
+    ...explicitGroups,
+    ...legacyGroups
+  ]
   const indexById = new Map(tree.map((n) => [n.id, n]))
   for (const asset of assets) {
-    const groupId = asset.group_name ? `group-${asset.group_name}` : DEFAULT_GROUP_ID
+    const groupId = asset.group_id || (asset.group_name ? `legacy-group-${asset.group_name}` : DEFAULT_GROUP_ID)
     const group = indexById.get(groupId)
     if (!group) continue
     group.children = [...(group.children ?? []), connectionNodeFromAsset(asset)]
@@ -275,6 +322,8 @@ function confirmNoPk(): boolean {
 }
 
 interface DatabaseWorkspaceState {
+  groups: DbAssetGroupDtoLike[]
+  assets: DbAssetDtoLike[]
   tree: DatabaseTreeNode[]
   tabs: DatabaseWorkspaceTab[]
   activeTabId: string
@@ -292,6 +341,8 @@ interface DatabaseWorkspaceState {
 
 export const useDatabaseWorkspaceStore = defineStore('databaseWorkspace', {
   state: (): DatabaseWorkspaceState => ({
+    groups: [],
+    assets: [],
     tree: mockExplorerTree,
     tabs: [buildOverviewTab()],
     activeTabId: OVERVIEW_TAB_ID,
@@ -326,16 +377,18 @@ export const useDatabaseWorkspaceStore = defineStore('databaseWorkspace', {
       this.loading = true
       this.lastError = null
       try {
-        const assets = await api.dbAssetList()
-        this.applyAssets(assets ?? [])
+        const [groups, assets] = await Promise.all([api.dbAssetGroupList ? api.dbAssetGroupList() : Promise.resolve([]), api.dbAssetList()])
+        this.applyAssets(groups ?? [], assets ?? [])
       } catch (e) {
         this.lastError = (e as Error).message
       } finally {
         this.loading = false
       }
     },
-    applyAssets(assets: DbAssetDtoLike[]) {
-      this.tree = buildTreeFromAssets(assets)
+    applyAssets(groups: DbAssetGroupDtoLike[], assets: DbAssetDtoLike[]) {
+      this.groups = groups
+      this.assets = assets
+      this.tree = buildTreeFromAssets(groups, assets)
       const statuses: Record<string, DbAssetDtoLike['status']> = {}
       for (const a of assets) statuses[a.id] = a.status
       this.connectionStatuses = statuses
@@ -446,7 +499,7 @@ export const useDatabaseWorkspaceStore = defineStore('databaseWorkspace', {
      * result tab or history entry.
      */
 
-    async runSqlOnActiveTab(_mode: 'all' | 'selection' | 'toCursor', sqlText: string) {
+    async runSqlOnActiveTab(_mode: 'all' | 'selection' | 'toCursor' | 'currentStatement' | 'explain', sqlText: string) {
       const tab = this.activeTab
       if (!tab || tab.kind !== 'sql') return
       if (!tab.assetId || !tab.databaseName) {
@@ -466,8 +519,10 @@ export const useDatabaseWorkspaceStore = defineStore('databaseWorkspace', {
       const seq = ++this.resultSeq
       const idx = (tab.resultTabs?.length ?? 0) + 1
       const preview = sqlText.replace(/\s+/g, ' ').trim().slice(0, 40)
-      const resultTab: SqlResultTab = {
-        id: `res-${seq}`,
+      const startedAt = Date.now()
+      const resultTabId = `res-${seq}`
+      const initial: SqlResultTab = {
+        id: resultTabId,
         seq,
         idx,
         title: `#${seq}-${idx} ${preview}`,
@@ -478,12 +533,24 @@ export const useDatabaseWorkspaceStore = defineStore('databaseWorkspace', {
         rowCount: 0,
         durationMs: 0,
         error: null,
-        startedAt: Date.now()
+        startedAt
       }
       if (!tab.resultTabs) tab.resultTabs = []
       if (!tab.history) tab.history = []
-      tab.resultTabs.push(resultTab)
-      tab.activeResultTabId = resultTab.id
+      tab.resultTabs.push(initial)
+      tab.activeResultTabId = resultTabId
+
+      // Helper: replace the result tab by id with a fresh object so Vue's
+      // reactive proxy picks up the whole mutation. We intentionally avoid
+      // field-level writes via a local variable — those would target the
+      // raw object that predates the proxy wrap and the UI would not
+      // re-render until an unrelated re-render refreshed the reference.
+      const patchResultTab = (patch: Partial<SqlResultTab>) => {
+        const list = tab.resultTabs ?? []
+        const i = list.findIndex((r) => r.id === resultTabId)
+        if (i === -1) return
+        list[i] = { ...list[i], ...patch }
+      }
 
       let result
       try {
@@ -493,50 +560,73 @@ export const useDatabaseWorkspaceStore = defineStore('databaseWorkspace', {
           databaseName: String(tab.databaseName)
         })
       } catch (err) {
-        resultTab.status = 'error'
-        resultTab.error = (err as Error).message ?? 'ipc error'
+        // Defensive extraction: drivers occasionally throw non-Error values
+        // (e.g. bare strings from underlying native bindings). We want the
+        // visible error text to carry whatever signal the thrower gave us.
+        const message = err instanceof Error ? err.message : typeof err === 'string' ? err : 'ipc error'
+        patchResultTab({ status: 'error', error: message })
         tab.history.push({
-          resultTabId: resultTab.id,
+          resultTabId,
           seq,
           idx,
           sql: sqlText,
           status: 'error',
-          message: `failure: ${resultTab.error}`,
+          message: `failure: ${message}`,
           durationMs: 0,
-          startedAt: resultTab.startedAt
+          startedAt
+        })
+        return
+      }
+
+      // Defend against silent IPC failures: the main process handler always
+      // intends to return `{ ok, ... }`, but if the renderer-side bridge or a
+      // future refactor lets `undefined` through, we must NOT crash here and
+      // leave the result tab stuck in 'running'. Treat it as an error.
+      if (!result || typeof result !== 'object') {
+        const message = 'ipc error: empty response'
+        patchResultTab({ status: 'error', error: message })
+        tab.history.push({
+          resultTabId,
+          seq,
+          idx,
+          sql: sqlText,
+          status: 'error',
+          message: `failure: ${message}`,
+          durationMs: 0,
+          startedAt
         })
         return
       }
 
       if (result.ok) {
-        resultTab.status = 'ok'
-        resultTab.columns = result.columns ?? []
-        resultTab.rows = result.rows ?? []
-        resultTab.rowCount = result.rowCount ?? resultTab.rows.length
-        resultTab.durationMs = result.durationMs ?? 0
+        const columns = result.columns ?? []
+        const rows = result.rows ?? []
+        const rowCount = result.rowCount ?? rows.length
+        const durationMs = result.durationMs ?? 0
+        patchResultTab({ status: 'ok', columns, rows, rowCount, durationMs })
         tab.history.push({
-          resultTabId: resultTab.id,
+          resultTabId,
           seq,
           idx,
           sql: sqlText,
           status: 'ok',
-          message: resultTab.rowCount > 0 ? `successful: Affected rows ${resultTab.rowCount}` : 'successful',
-          durationMs: resultTab.durationMs,
-          startedAt: resultTab.startedAt,
-          rowCount: resultTab.rowCount
+          message: rowCount > 0 ? `successful: Affected rows ${rowCount}` : 'successful',
+          durationMs,
+          startedAt,
+          rowCount
         })
       } else {
-        resultTab.status = 'error'
-        resultTab.error = result.errorMessage ?? 'query failed'
+        const message = result.errorMessage ?? 'query failed'
+        patchResultTab({ status: 'error', error: message })
         tab.history.push({
-          resultTabId: resultTab.id,
+          resultTabId,
           seq,
           idx,
           sql: sqlText,
           status: 'error',
-          message: `failure: ${resultTab.error}`,
+          message: `failure: ${message}`,
           durationMs: 0,
-          startedAt: resultTab.startedAt
+          startedAt
         })
       }
     },
@@ -1184,6 +1274,7 @@ export const useDatabaseWorkspaceStore = defineStore('databaseWorkspace', {
       this.connectionDraft = {
         id: draft?.id ?? `conn-${Date.now()}`,
         name: draft?.name ?? '',
+        groupId: draft?.groupId,
         env: draft?.env ?? 'Development',
         dbType: draft?.dbType ?? 'MySQL',
         host: draft?.host ?? '127.0.0.1',
@@ -1220,6 +1311,7 @@ export const useDatabaseWorkspaceStore = defineStore('databaseWorkspace', {
         JSON.stringify({
           name: draft.name,
           db_type: draft.dbType === 'MySQL' ? 'mysql' : 'postgresql',
+          group_id: draft.groupId || null,
           host: draft.host,
           port: draft.port,
           username: draft.user || null,
@@ -1265,12 +1357,12 @@ export const useDatabaseWorkspaceStore = defineStore('databaseWorkspace', {
         id: draft.id,
         type: 'connection',
         name: draft.name || 'new-connection',
-        parentId: DEFAULT_GROUP_ID,
+        parentId: draft.groupId || DEFAULT_GROUP_ID,
         expanded: false,
         meta: { dbType: draft.dbType, host: draft.host, port: draft.port },
         children: []
       }
-      const group = this.tree.find((n) => n.id === DEFAULT_GROUP_ID)
+      const group = this.tree.find((n) => n.id === (draft.groupId || DEFAULT_GROUP_ID))
       if (group) {
         group.children = [...(group.children ?? []), node]
         group.expanded = true
@@ -1280,6 +1372,43 @@ export const useDatabaseWorkspaceStore = defineStore('databaseWorkspace', {
       this.connectionModalVisible = false
       this.connectionDraft = null
       return cloneDraft(draft)
+    },
+    async createGroup(name: string, parentId: string | null = null) {
+      const api = getApi()
+      if (!api?.dbAssetGroupCreate) return
+      const result = await api.dbAssetGroupCreate({
+        name,
+        parent_id: parentId,
+        sort_order: 0
+      })
+      if (!result.ok) {
+        this.lastError = result.errorMessage ?? 'create group failed'
+        return
+      }
+      await this.loadAssetsFromBackend()
+    },
+    async renameGroup(id: string, name: string) {
+      const api = getApi()
+      if (!api?.dbAssetGroupUpdate) return
+      const result = await api.dbAssetGroupUpdate({
+        id,
+        patch: { name }
+      })
+      if (!result.ok) {
+        this.lastError = result.errorMessage ?? 'rename group failed'
+        return
+      }
+      await this.loadAssetsFromBackend()
+    },
+    async deleteGroup(id: string) {
+      const api = getApi()
+      if (!api?.dbAssetGroupDelete) return
+      const result = await api.dbAssetGroupDelete(id)
+      if (!result.ok) {
+        this.lastError = result.errorMessage ?? 'delete group failed'
+        return
+      }
+      await this.loadAssetsFromBackend()
     },
     async deleteAsset(assetId: string) {
       const api = getApi()

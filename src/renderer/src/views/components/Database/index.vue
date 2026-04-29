@@ -13,7 +13,13 @@
           :keyword="store.searchKeyword"
           :connection-statuses="store.connectionStatuses"
           @update:keyword="store.setSearchKeyword"
-          @add-connection="store.openConnectionModal"
+          @add-connection="handleOpenConnectionModal"
+          @add-connection-to-group="handleOpenConnectionModalForGroup"
+          @add-group="handleCreateGroup"
+          @add-group-child="handleCreateChildGroup"
+          @rename-group="handleRenameGroup"
+          @delete-group="handleDeleteGroup"
+          @copy-group-name="handleCopyGroupName"
           @toggle="handleToggle"
           @select="handleSelect"
           @open-table="handleOpenTable"
@@ -30,6 +36,7 @@
           :active-tab-id="store.activeTabId"
           @select="store.setActiveTab"
           @close="store.closeTab"
+          @add="store.openNewSqlTab"
         />
         <div class="db-workspace__panel">
           <DatabaseOverview v-if="activeTab && activeTab.kind === 'overview'" />
@@ -95,31 +102,17 @@
               :row-count="activeTab.rowCount"
             />
           </div>
-          <splitpanes
-            v-else-if="activeTab"
-            horizontal
-            class="db-workspace__sql-splitpanes"
-          >
-            <pane
-              :size="45"
-              :min-size="20"
-            >
-              <DatabaseEditorPane
-                :model-value="activeTab.sql"
-                @update:model-value="(v: string) => updateSql(v)"
-                @run="handleRun"
-              />
-            </pane>
-            <pane
-              :size="55"
-              :min-size="20"
-            >
-              <DatabaseResultPane
-                :columns="activeTab.resultColumns"
-                :rows="activeTab.resultRows"
-              />
-            </pane>
-          </splitpanes>
+          <SqlWorkspace
+            v-else-if="activeTab && activeTab.kind === 'sql'"
+            :tab="activeTab"
+            :tree="store.tree"
+            :connection-statuses="store.connectionStatuses"
+            @update-sql="(v) => updateSql(v)"
+            @update-context="(a, d) => store.setSqlTabContext(activeTab!.id, a, d)"
+            @run="(mode, sql) => store.runSqlOnActiveTab(mode, sql)"
+            @select-result-tab="(id) => store.setActiveResultTab(activeTab!.id, id)"
+            @close-result-tab="(id) => store.closeResultTab(activeTab!.id, id)"
+          />
         </div>
       </pane>
     </splitpanes>
@@ -127,6 +120,7 @@
     <DatabaseConnectionModal
       :visible="store.connectionModalVisible"
       :draft="store.connectionDraft"
+      :groups="store.groups"
       :last-test-result="store.lastTestResult"
       @update="store.updateConnectionDraft"
       @cancel="store.closeConnectionModal"
@@ -143,12 +137,12 @@ import 'splitpanes/dist/splitpanes.css'
 import DatabaseSidebar from './components/DatabaseSidebar.vue'
 import DatabaseWorkspaceTabs from './components/DatabaseWorkspaceTabs.vue'
 import DatabaseOverview from './components/DatabaseOverview.vue'
-import DatabaseEditorPane from './components/DatabaseEditorPane.vue'
 import DatabaseResultPane from './components/DatabaseResultPane.vue'
 import DatabaseConnectionModal from './components/DatabaseConnectionModal.vue'
 import DataGridToolbar from './components/DataGridToolbar.vue'
 import DataStatusBar from './components/DataStatusBar.vue'
 import WhereOrderBar from './components/WhereOrderBar.vue'
+import SqlWorkspace from './components/SqlWorkspace.vue'
 import { useDatabaseWorkspaceStore } from '@/store/databaseWorkspaceStore'
 import type { DatabaseConnectionDraft, DatabaseTreeNode } from './types'
 
@@ -257,12 +251,6 @@ const updateSql = (value: string) => {
   activeTab.value.sql = value
 }
 
-const handleRun = () => {
-  const tab = activeTab.value
-  if (!tab || tab.kind !== 'sql') return
-  store.runQueryForTab(tab.id)
-}
-
 const handleTest = async () => {
   if (!store.connectionDraft) return
   await store.testConnectionFromDraft(store.connectionDraft)
@@ -270,6 +258,42 @@ const handleTest = async () => {
 
 const handleSave = async (draft: DatabaseConnectionDraft) => {
   await store.saveConnection(draft)
+}
+
+const handleOpenConnectionModal = (dbType: DatabaseConnectionDraft['dbType']) => {
+  store.openConnectionModal({ dbType })
+}
+
+const handleOpenConnectionModalForGroup = (dbType: DatabaseConnectionDraft['dbType'], groupId: string) => {
+  store.openConnectionModal({ dbType, groupId })
+}
+
+const handleCreateGroup = async () => {
+  const name = globalThis.window?.prompt?.('Group name')
+  if (!name || !name.trim()) return
+  await store.createGroup(name.trim())
+}
+
+const handleCreateChildGroup = async (_groupId: string) => {
+  const name = globalThis.window?.prompt?.('Group name')
+  if (!name || !name.trim()) return
+  await store.createGroup(name.trim())
+}
+
+const handleRenameGroup = async (groupId: string, currentName: string) => {
+  const name = globalThis.window?.prompt?.('Group name', currentName)
+  if (!name || !name.trim() || name.trim() === currentName) return
+  await store.renameGroup(groupId, name.trim())
+}
+
+const handleDeleteGroup = async (groupId: string, currentName: string) => {
+  const confirmed = globalThis.window?.confirm?.(`Delete group "${currentName}"?`) ?? true
+  if (!confirmed) return
+  await store.deleteGroup(groupId)
+}
+
+const handleCopyGroupName = async (value: string) => {
+  await globalThis.navigator?.clipboard?.writeText?.(value)
 }
 
 const handleGotoLastPage = () => {

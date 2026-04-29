@@ -67,6 +67,7 @@
 
     <div class="db-toolbar__group">
       <button
+        v-if="!hideRefresh"
         class="db-toolbar__btn"
         :title="$t('database.refresh')"
         @click="onRefresh"
@@ -143,8 +144,11 @@ const props = withDefaults(
     hasSelection?: boolean
     canUndo?: boolean
     isDirty?: boolean
+    // Hide the refresh button. Used by the SQL result toolbar where
+    // "refresh" has no semantic meaning (the rows are already in memory).
+    hideRefresh?: boolean
   }>(),
-  { canEdit: false, hasSelection: false, canUndo: false, isDirty: false }
+  { canEdit: false, hasSelection: false, canUndo: false, isDirty: false, hideRefresh: false }
 )
 
 const emit = defineEmits<{

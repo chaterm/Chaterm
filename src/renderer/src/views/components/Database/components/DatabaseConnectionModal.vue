@@ -19,6 +19,22 @@
           @update:value="(v: string) => update({ name: v })"
         />
       </div>
+      <div class="db-connection-modal__row">
+        <label class="db-connection-modal__label">{{ $t('database.group') }}</label>
+        <a-select
+          :value="draft.groupId"
+          style="width: 100%"
+          @update:value="(v: string) => update({ groupId: v })"
+        >
+          <a-select-option
+            v-for="group in groups"
+            :key="group.id"
+            :value="group.id"
+          >
+            {{ group.name }}
+          </a-select-option>
+        </a-select>
+      </div>
       <div class="db-connection-modal__row-grid">
         <div class="db-connection-modal__row">
           <label class="db-connection-modal__label">{{ $t('database.fields.env') }}</label>
@@ -154,6 +170,7 @@ import type { DatabaseConnectionDraft } from '../types'
 const props = defineProps<{
   visible: boolean
   draft: DatabaseConnectionDraft | null
+  groups?: Array<{ id: string; name: string }>
   lastTestResult?: { ok: boolean; message: string } | null
 }>()
 

@@ -14,6 +14,7 @@
       @open-table="(id) => emit('openTable', id)"
       @connect="(id) => emit('connect', id)"
       @disconnect="(id) => emit('disconnect', id)"
+      @group-context="(payload) => emit('groupContext', payload)"
     />
   </ul>
 </template>
@@ -34,6 +35,7 @@ const emit = defineEmits<{
   (e: 'openTable', id: string): void
   (e: 'connect', id: string): void
   (e: 'disconnect', id: string): void
+  (e: 'groupContext', payload: { id: string; name: string; x: number; y: number }): void
 }>()
 </script>
 

@@ -13,6 +13,7 @@ function makeAsset(overrides: Partial<DbAssetRecord> = {}): DbAssetRecord {
     id: 'asset-1',
     user_id: 1,
     name: 'a',
+    group_id: null,
     group_name: null,
     db_type: 'mysql',
     environment: null,

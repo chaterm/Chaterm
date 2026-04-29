@@ -1692,6 +1692,24 @@ export default {
     saveDisabledClean: 'Nessuna modifica in attesa',
     noPkWarning: 'Nessuna chiave primaria rilevata; modifica disabilitata',
     saveFailed: 'Salvataggio delle modifiche non riuscito',
-    setNull: 'Imposta NULL'
+    setNull: 'Imposta NULL',
+    addTab: 'Nuova scheda query',
+    runAll: 'Esegui tutto',
+    runSelection: 'Esegui selezione',
+    runToCursor: 'Esegui fino al cursore',
+    runCurrentStatement: 'Esegui istruzione corrente',
+    explain: 'Piano di esecuzione',
+    save: 'Salva',
+    saveAs: 'Salva con nome',
+    pickConnection: 'Connessione',
+    pickDatabase: 'Database',
+    sqlEmpty: 'SQL vuoto',
+    sqlNoContext: 'Seleziona prima connessione e database',
+    sqlRunning: 'In esecuzione…',
+    overviewColSql: 'SQL',
+    overviewColMessage: 'Messaggio',
+    overviewColTime: 'Tempo',
+    noExecutionsYet: 'Nessuna esecuzione finora.',
+    closeResultTab: 'Chiudi scheda risultato'
   }
 }

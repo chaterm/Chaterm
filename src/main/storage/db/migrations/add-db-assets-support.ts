@@ -15,6 +15,7 @@ const logger = createLogger('db')
 export async function upgradeDbAssetsSupport(db: Database.Database): Promise<void> {
   try {
     const assetsExists = db.prepare("SELECT name FROM sqlite_master WHERE type='table' AND name='db_assets'").get()
+    const groupsExists = db.prepare("SELECT name FROM sqlite_master WHERE type='table' AND name='db_asset_groups'").get()
 
     if (!assetsExists) {
       logger.info('[Migration] Creating db_assets table')
@@ -23,6 +24,7 @@ export async function upgradeDbAssetsSupport(db: Database.Database): Promise<voi
           id TEXT PRIMARY KEY,
           user_id INTEGER NOT NULL,
           name TEXT NOT NULL,
+          group_id TEXT,
           group_name TEXT,
           db_type TEXT NOT NULL,
           environment TEXT,
@@ -52,13 +54,42 @@ export async function upgradeDbAssetsSupport(db: Database.Database): Promise<voi
           updated_at TEXT NOT NULL DEFAULT (datetime('now'))
         )
       `)
-      db.exec(`CREATE INDEX IF NOT EXISTS idx_db_assets_user_id ON db_assets(user_id)`)
-      db.exec(`CREATE INDEX IF NOT EXISTS idx_db_assets_type ON db_assets(db_type)`)
-      db.exec(`CREATE INDEX IF NOT EXISTS idx_db_assets_group_name ON db_assets(group_name)`)
-      db.exec(`CREATE INDEX IF NOT EXISTS idx_db_assets_status ON db_assets(status)`)
-      db.exec(`CREATE INDEX IF NOT EXISTS idx_db_assets_user_deleted ON db_assets(user_id, deleted_at)`)
       logger.info('[Migration] db_assets table created')
+    } else {
+      const groupIdColumnExists = db.prepare("SELECT name FROM pragma_table_info('db_assets') WHERE name='group_id'").get()
+      if (!groupIdColumnExists) {
+        logger.info('[Migration] Adding group_id column to db_assets table')
+        db.exec(`ALTER TABLE db_assets ADD COLUMN group_id TEXT`)
+      }
     }
+
+    db.exec(`CREATE INDEX IF NOT EXISTS idx_db_assets_user_id ON db_assets(user_id)`)
+    db.exec(`CREATE INDEX IF NOT EXISTS idx_db_assets_type ON db_assets(db_type)`)
+    db.exec(`CREATE INDEX IF NOT EXISTS idx_db_assets_group_name ON db_assets(group_name)`)
+    db.exec(`CREATE INDEX IF NOT EXISTS idx_db_assets_group_id ON db_assets(group_id)`)
+    db.exec(`CREATE INDEX IF NOT EXISTS idx_db_assets_status ON db_assets(status)`)
+    db.exec(`CREATE INDEX IF NOT EXISTS idx_db_assets_user_deleted ON db_assets(user_id, deleted_at)`)
+
+    if (!groupsExists) {
+      logger.info('[Migration] Creating db_asset_groups table')
+      db.exec(`
+        CREATE TABLE db_asset_groups (
+          id TEXT PRIMARY KEY,
+          user_id INTEGER NOT NULL,
+          name TEXT NOT NULL,
+          parent_id TEXT,
+          sort_order INTEGER DEFAULT 0,
+          deleted_at TEXT,
+          created_at TEXT NOT NULL DEFAULT (datetime('now')),
+          updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+        )
+      `)
+      logger.info('[Migration] db_asset_groups table created')
+    }
+
+    db.exec(`CREATE INDEX IF NOT EXISTS idx_db_asset_groups_user_id ON db_asset_groups(user_id)`)
+    db.exec(`CREATE INDEX IF NOT EXISTS idx_db_asset_groups_parent_id ON db_asset_groups(parent_id)`)
+    db.exec(`CREATE INDEX IF NOT EXISTS idx_db_asset_groups_user_deleted ON db_asset_groups(user_id, deleted_at)`)
 
     const sessionsExists = db.prepare("SELECT name FROM sqlite_master WHERE type='table' AND name='db_connection_sessions'").get()
 

@@ -1678,6 +1678,24 @@ export default {
     saveDisabledClean: 'Keine ausstehenden Aenderungen',
     noPkWarning: 'Kein Primaerschluessel erkannt; Bearbeitung deaktiviert',
     saveFailed: 'Speichern der Aenderungen fehlgeschlagen',
-    setNull: 'Auf NULL setzen'
+    setNull: 'Auf NULL setzen',
+    addTab: 'Neuer Abfrage-Tab',
+    runAll: 'Alles ausfuehren',
+    runSelection: 'Auswahl ausfuehren',
+    runToCursor: 'Bis zum Cursor ausfuehren',
+    runCurrentStatement: 'Aktuelle Anweisung ausfuehren',
+    explain: 'Ausfuehrungsplan',
+    save: 'Speichern',
+    saveAs: 'Speichern unter',
+    pickConnection: 'Verbindung',
+    pickDatabase: 'Datenbank',
+    sqlEmpty: 'SQL ist leer',
+    sqlNoContext: 'Bitte zuerst Verbindung und Datenbank waehlen',
+    sqlRunning: 'Wird ausgefuehrt…',
+    overviewColSql: 'SQL',
+    overviewColMessage: 'Meldung',
+    overviewColTime: 'Dauer',
+    noExecutionsYet: 'Noch keine Ausfuehrungen.',
+    closeResultTab: 'Ergebnis-Tab schliessen'
   }
 }

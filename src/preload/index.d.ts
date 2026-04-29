@@ -16,6 +16,7 @@ export interface DbAssetPayload {
   db_type: 'mysql' | 'postgresql'
   host: string
   port: number
+  group_id?: string | null
   username?: string | null
   password?: string | null
   database_name?: string | null
@@ -31,6 +32,7 @@ export interface DbAssetPayload {
 export interface DbAssetDto {
   id: string
   name: string
+  group_id: string | null
   group_name: string | null
   db_type: 'mysql' | 'postgresql'
   environment: string | null
@@ -55,6 +57,27 @@ export interface DbAssetDto {
 export interface DbAssetMutationResult {
   ok: boolean
   asset?: DbAssetDto | null
+  errorMessage?: string
+}
+
+export interface DbAssetGroupPayload {
+  name: string
+  parent_id?: string | null
+  sort_order?: number
+}
+
+export interface DbAssetGroupDto {
+  id: string
+  name: string
+  parent_id: string | null
+  sort_order: number
+  created_at?: string
+  updated_at?: string
+}
+
+export interface DbAssetGroupMutationResult {
+  ok: boolean
+  group?: DbAssetGroupDto | null
   errorMessage?: string
 }
 
@@ -279,6 +302,10 @@ interface ApiType {
   getLocalAssetRoute: (data: { searchType: string; params?: any[] }) => Promise<any>
 
   // Database assets
+  dbAssetGroupList: () => Promise<DbAssetGroupDto[]>
+  dbAssetGroupCreate: (payload: DbAssetGroupPayload) => Promise<DbAssetGroupMutationResult>
+  dbAssetGroupUpdate: (payload: { id: string; patch: Partial<DbAssetGroupPayload> }) => Promise<DbAssetGroupMutationResult>
+  dbAssetGroupDelete: (id: string) => Promise<{ ok: boolean; errorMessage?: string }>
   dbAssetList: () => Promise<DbAssetDto[]>
   dbAssetGet: (id: string) => Promise<DbAssetDto | null>
   dbAssetCreate: (payload: DbAssetPayload) => Promise<DbAssetMutationResult>

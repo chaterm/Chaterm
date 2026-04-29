@@ -1647,6 +1647,24 @@ export default {
     saveDisabledClean: 'لا توجد تغييرات معلقة',
     noPkWarning: 'لم يتم اكتشاف مفتاح أساسي؛ تم تعطيل التحرير',
     saveFailed: 'فشل حفظ التغييرات',
-    setNull: 'تعيين NULL'
+    setNull: 'تعيين NULL',
+    addTab: 'علامة تبويب استعلام جديدة',
+    runAll: 'تشغيل الكل',
+    runSelection: 'تشغيل التحديد',
+    runToCursor: 'تشغيل حتى المؤشر',
+    runCurrentStatement: 'تشغيل العبارة الحالية',
+    explain: 'خطة التنفيذ',
+    save: 'حفظ',
+    saveAs: 'حفظ باسم',
+    pickConnection: 'الاتصال',
+    pickDatabase: 'قاعدة البيانات',
+    sqlEmpty: 'SQL فارغ',
+    sqlNoContext: 'يرجى اختيار الاتصال وقاعدة البيانات أولاً',
+    sqlRunning: 'قيد التنفيذ…',
+    overviewColSql: 'SQL',
+    overviewColMessage: 'رسالة',
+    overviewColTime: 'الوقت',
+    noExecutionsYet: 'لا توجد عمليات تنفيذ بعد.',
+    closeResultTab: 'إغلاق علامة تبويب النتيجة'
   }
 }

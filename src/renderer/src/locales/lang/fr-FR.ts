@@ -1696,6 +1696,24 @@ export default {
     saveDisabledClean: 'Aucune modification en attente',
     noPkWarning: "Aucune cle primaire detectee; l'edition est desactivee",
     saveFailed: "Echec de l'enregistrement des modifications",
-    setNull: 'Definir sur NULL'
+    setNull: 'Definir sur NULL',
+    addTab: 'Nouvel onglet de requete',
+    runAll: 'Tout executer',
+    runSelection: 'Executer la selection',
+    runToCursor: "Executer jusqu'au curseur",
+    runCurrentStatement: "Executer l'instruction courante",
+    explain: "Plan d'execution",
+    save: 'Enregistrer',
+    saveAs: 'Enregistrer sous',
+    pickConnection: 'Connexion',
+    pickDatabase: 'Base de donnees',
+    sqlEmpty: 'SQL vide',
+    sqlNoContext: "Choisissez d'abord une connexion et une base",
+    sqlRunning: 'Execution en cours…',
+    overviewColSql: 'SQL',
+    overviewColMessage: 'Message',
+    overviewColTime: 'Duree',
+    noExecutionsYet: 'Aucune execution pour le moment.',
+    closeResultTab: "Fermer l'onglet de resultat"
   }
 }

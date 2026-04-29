@@ -1658,6 +1658,24 @@ export default {
     saveDisabledClean: '저장할 변경 사항이 없습니다',
     noPkWarning: '기본 키를 찾을 수 없어 편집이 비활성화되었습니다',
     saveFailed: '변경 사항 저장 실패',
-    setNull: 'NULL로 설정'
+    setNull: 'NULL로 설정',
+    addTab: '새 쿼리 탭',
+    runAll: '전체 실행',
+    runSelection: '선택 영역 실행',
+    runToCursor: '커서 위치까지 실행',
+    runCurrentStatement: '현재 문장 실행',
+    explain: '실행 계획 보기',
+    save: '저장',
+    saveAs: '다른 이름으로 저장',
+    pickConnection: '연결',
+    pickDatabase: '데이터베이스',
+    sqlEmpty: 'SQL이 비어 있습니다',
+    sqlNoContext: '먼저 연결과 데이터베이스를 선택하세요',
+    sqlRunning: '실행 중…',
+    overviewColSql: 'SQL',
+    overviewColMessage: '메시지',
+    overviewColTime: '소요 시간',
+    noExecutionsYet: '아직 실행 기록이 없습니다.',
+    closeResultTab: '결과 탭 닫기'
   }
 }

@@ -303,6 +303,7 @@ interface DbAssetPayload {
   db_type: 'mysql' | 'postgresql'
   host: string
   port: number
+  group_id?: string | null
   username?: string | null
   password?: string | null
   database_name?: string | null
@@ -313,6 +314,44 @@ interface DbAssetPayload {
   options_json?: string | null
   tags_json?: string | null
   sort_order?: number
+}
+
+interface DbAssetGroupPayload {
+  name: string
+  parent_id?: string | null
+  sort_order?: number
+}
+
+const dbAssetGroupList = async () => {
+  try {
+    return await ipcRenderer.invoke('db-asset-group-list')
+  } catch (error) {
+    return Promise.reject(error)
+  }
+}
+
+const dbAssetGroupCreate = async (payload: DbAssetGroupPayload) => {
+  try {
+    return await ipcRenderer.invoke('db-asset-group-create', payload)
+  } catch (error) {
+    return Promise.reject(error)
+  }
+}
+
+const dbAssetGroupUpdate = async (payload: { id: string; patch: Partial<DbAssetGroupPayload> }) => {
+  try {
+    return await ipcRenderer.invoke('db-asset-group-update', payload)
+  } catch (error) {
+    return Promise.reject(error)
+  }
+}
+
+const dbAssetGroupDelete = async (id: string) => {
+  try {
+    return await ipcRenderer.invoke('db-asset-group-delete', id)
+  } catch (error) {
+    return Promise.reject(error)
+  }
 }
 
 const dbAssetList = async () => {
@@ -777,6 +816,10 @@ const api = {
   getKeyChainList,
   getAssetGroup,
   dbAssetList,
+  dbAssetGroupList,
+  dbAssetGroupCreate,
+  dbAssetGroupUpdate,
+  dbAssetGroupDelete,
   dbAssetGet,
   dbAssetCreate,
   dbAssetUpdate,
