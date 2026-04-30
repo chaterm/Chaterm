@@ -1642,6 +1642,10 @@ export default {
     }
   },
   database: {
+    deleteGroupConfirmTitle: '確認刪除分組',
+    deleteGroupConfirmContent: '確定要刪除分組 "{name}" 嗎？此操作無法復原。',
+    refreshConnected: '刷新已連接會話',
+    comingSoon: '即將支援',
     addRow: '新增列',
     deleteRow: '刪除列',
     undo: '復原',

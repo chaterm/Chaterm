@@ -1686,6 +1686,10 @@ export default {
     }
   },
   database: {
+    deleteGroupConfirmTitle: 'Supprimer le groupe',
+    deleteGroupConfirmContent: 'Êtes-vous sûr de vouloir supprimer le groupe "{name}" ? Cette action est irréversible.',
+    refreshConnected: 'Actualiser les sessions connectées',
+    comingSoon: 'Bientôt disponible',
     addRow: 'Ajouter une ligne',
     deleteRow: 'Supprimer la ligne',
     undo: 'Annuler',

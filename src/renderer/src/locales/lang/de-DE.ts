@@ -1668,6 +1668,10 @@ export default {
     }
   },
   database: {
+    deleteGroupConfirmTitle: 'Gruppe löschen',
+    deleteGroupConfirmContent: 'Möchten Sie die Gruppe "{name}" wirklich löschen? Diese Aktion kann nicht rückgängig gemacht werden.',
+    refreshConnected: 'Verbundene Sitzungen aktualisieren',
+    comingSoon: 'Demnächst verfügbar',
     addRow: 'Zeile hinzufuegen',
     deleteRow: 'Zeile loeschen',
     undo: 'Rueckgaengig',

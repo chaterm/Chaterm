@@ -317,7 +317,8 @@ interface ApiType {
   dbAssetListChildren: (payload: {
     id: string
     databaseName?: string
-  }) => Promise<{ ok: boolean; databases?: string[]; tables?: string[]; errorMessage?: string }>
+    tableName?: string
+  }) => Promise<{ ok: boolean; databases?: string[]; tables?: string[]; columns?: string[]; errorMessage?: string }>
   dbAssetExecuteQuery: (payload: { id: string; sql: string; databaseName?: string }) => Promise<DbQueryResult>
   dbAssetQueryTable: (payload: DbTableQueryPayload) => Promise<DbTableQueryResult>
   dbAssetCountTable: (payload: {

@@ -68,7 +68,8 @@ type DbApi = {
   dbAssetListChildren?: (payload: {
     id: string
     databaseName?: string
-  }) => Promise<{ ok: boolean; databases?: string[]; tables?: string[]; errorMessage?: string }>
+    tableName?: string
+  }) => Promise<{ ok: boolean; databases?: string[]; tables?: string[]; columns?: string[]; errorMessage?: string }>
   dbAssetExecuteQuery?: (payload: { id: string; sql: string; databaseName?: string }) => Promise<{
     ok: boolean
     errorMessage?: string
@@ -159,24 +160,42 @@ function connectionNodeFromAsset(asset: DbAssetDtoLike): DatabaseTreeNode {
 }
 
 function buildTreeFromAssets(groups: DbAssetGroupDtoLike[], assets: DbAssetDtoLike[]): DatabaseTreeNode[] {
-  const groupIds = new Set<string>([DEFAULT_GROUP_ID])
-  const explicitGroups = groups.map((group) => ({
+  const defaultGroup: DatabaseTreeNode = {
+    id: DEFAULT_GROUP_ID,
+    type: 'group',
+    name: GROUP_LABELS[DEFAULT_GROUP_ID],
+    expanded: true,
+    children: []
+  }
+
+  const explicitGroups: DatabaseTreeNode[] = groups.map((group) => ({
     id: group.id,
     type: 'group' as const,
     name: group.name,
+    parentId: group.parent_id ?? undefined,
     expanded: true,
     children: []
   }))
+  const explicitById = new Map(explicitGroups.map((group) => [group.id, group]))
+  const rootGroups: DatabaseTreeNode[] = [defaultGroup]
 
-  for (const asset of assets) {
-    if (asset.group_id && asset.group_id.trim()) {
-      groupIds.add(asset.group_id)
-    } else if (asset.group_name && asset.group_name.trim()) {
-      groupIds.add(`legacy-group-${asset.group_name}`)
+  for (const group of explicitGroups) {
+    const parent = group.parentId ? explicitById.get(group.parentId) : null
+    if (parent) {
+      parent.children = [...(parent.children ?? []), group]
+    } else {
+      rootGroups.push(group)
     }
   }
 
-  const legacyGroups: DatabaseTreeNode[] = Array.from(groupIds)
+  const legacyGroupIds = new Set<string>()
+  for (const asset of assets) {
+    if (!asset.group_id && asset.group_name && asset.group_name.trim()) {
+      legacyGroupIds.add(`legacy-group-${asset.group_name}`)
+    }
+  }
+
+  const legacyGroups: DatabaseTreeNode[] = Array.from(legacyGroupIds)
     .filter((id) => id.startsWith('legacy-group-'))
     .map((id) => ({
       id,
@@ -186,18 +205,9 @@ function buildTreeFromAssets(groups: DbAssetGroupDtoLike[], assets: DbAssetDtoLi
       children: []
     }))
 
-  const tree: DatabaseTreeNode[] = [
-    {
-      id: DEFAULT_GROUP_ID,
-      type: 'group',
-      name: GROUP_LABELS[DEFAULT_GROUP_ID],
-      expanded: true,
-      children: []
-    },
-    ...explicitGroups,
-    ...legacyGroups
-  ]
+  const tree: DatabaseTreeNode[] = [...rootGroups, ...legacyGroups]
   const indexById = new Map(tree.map((n) => [n.id, n]))
+  for (const group of explicitGroups) indexById.set(group.id, group)
   for (const asset of assets) {
     const groupId = asset.group_id || (asset.group_name ? `legacy-group-${asset.group_name}` : DEFAULT_GROUP_ID)
     const group = indexById.get(groupId)
@@ -1271,19 +1281,25 @@ export const useDatabaseWorkspaceStore = defineStore('databaseWorkspace', {
     openConnectionModal(draft?: Partial<DatabaseConnectionDraft>) {
       this.connectionModalVisible = true
       this.lastTestResult = null
+      // Default port follows the chosen dbType so users don't have to change
+      // it when switching between MySQL (3306) and PostgreSQL (5432). An
+      // explicit port in the incoming draft still wins.
+      const dbType = draft?.dbType ?? 'MySQL'
+      const defaultPort = dbType === 'PostgreSQL' ? 5432 : 3306
       this.connectionDraft = {
         id: draft?.id ?? `conn-${Date.now()}`,
         name: draft?.name ?? '',
         groupId: draft?.groupId,
         env: draft?.env ?? 'Development',
-        dbType: draft?.dbType ?? 'MySQL',
+        dbType,
         host: draft?.host ?? '127.0.0.1',
-        port: draft?.port ?? 3306,
+        port: draft?.port ?? defaultPort,
         authentication: draft?.authentication ?? 'UserAndPassword',
         user: draft?.user ?? '',
         password: draft?.password ?? '',
         database: draft?.database ?? '',
-        url: draft?.url ?? ''
+        url: draft?.url ?? '',
+        sslMode: draft?.sslMode
       }
     },
     closeConnectionModal() {
@@ -1317,7 +1333,8 @@ export const useDatabaseWorkspaceStore = defineStore('databaseWorkspace', {
           username: draft.user || null,
           password: draft.password || null,
           database_name: draft.database || null,
-          environment: draft.env || null
+          environment: draft.env || null,
+          ssl_mode: draft.sslMode || null
         })
       )
     },
@@ -1373,9 +1390,9 @@ export const useDatabaseWorkspaceStore = defineStore('databaseWorkspace', {
       this.connectionDraft = null
       return cloneDraft(draft)
     },
-    async createGroup(name: string, parentId: string | null = null) {
+    async createGroup(name: string, parentId: string | null = null): Promise<string | undefined> {
       const api = getApi()
-      if (!api?.dbAssetGroupCreate) return
+      if (!api?.dbAssetGroupCreate) return undefined
       const result = await api.dbAssetGroupCreate({
         name,
         parent_id: parentId,
@@ -1383,6 +1400,20 @@ export const useDatabaseWorkspaceStore = defineStore('databaseWorkspace', {
       })
       if (!result.ok) {
         this.lastError = result.errorMessage ?? 'create group failed'
+        return undefined
+      }
+      await this.loadAssetsFromBackend()
+      return result.group?.id
+    },
+    async moveGroup(id: string, parentId: string | null) {
+      const api = getApi()
+      if (!api?.dbAssetGroupUpdate) return
+      const result = await api.dbAssetGroupUpdate({
+        id,
+        patch: { parent_id: parentId }
+      })
+      if (!result.ok) {
+        this.lastError = result.errorMessage ?? 'move group failed'
         return
       }
       await this.loadAssetsFromBackend()
@@ -1486,11 +1517,45 @@ export const useDatabaseWorkspaceStore = defineStore('databaseWorkspace', {
             id: `table-${assetId}-${databaseName}-${t}`,
             type: 'table' as const,
             name: t,
-            parentId: tableFolderId
+            parentId: tableFolderId,
+            expanded: false,
+            children: [],
+            meta: { assetId, databaseName }
           }))
         }
       ]
       dbNode.expanded = true
+    },
+    /**
+     * Lazy-load columns for a table node on first expand. Columns are
+     * rendered as flat leaves directly under the table. The meta on the
+     * table node (populated when the table was built in loadDatabaseTables)
+     * supplies the assetId/databaseName needed for the IPC call.
+     */
+    async loadTableColumns(tableNodeId: string) {
+      const tableNode = findNode(this.tree, tableNodeId)
+      if (!tableNode || tableNode.type !== 'table') return
+      const meta = tableNode.meta as { assetId?: string; databaseName?: string } | undefined
+      const assetId = meta?.assetId
+      const databaseName = meta?.databaseName
+      if (!assetId || !databaseName) return
+      const api = getApi()
+      if (!api?.dbAssetListChildren) return
+      const result = await api.dbAssetListChildren({
+        id: assetId,
+        databaseName,
+        tableName: tableNode.name
+      })
+      if (!result.ok) {
+        this.lastError = result.errorMessage ?? null
+        return
+      }
+      tableNode.children = (result.columns ?? []).map((col) => ({
+        id: `col-${assetId}-${databaseName}-${tableNode.name}-${col}`,
+        type: 'column' as const,
+        name: col,
+        parentId: tableNode.id
+      }))
     }
   }
 })

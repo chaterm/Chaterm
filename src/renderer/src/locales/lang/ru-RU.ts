@@ -1677,6 +1677,10 @@ export default {
     }
   },
   database: {
+    deleteGroupConfirmTitle: 'Удалить группу',
+    deleteGroupConfirmContent: 'Вы уверены, что хотите удалить группу "{name}"? Это действие нельзя отменить.',
+    refreshConnected: 'Обновить подключённые сеансы',
+    comingSoon: 'Скоро',
     addRow: 'Добавить строку',
     deleteRow: 'Удалить строку',
     undo: 'Отменить',

@@ -1,4 +1,4 @@
-export type DatabaseTreeNodeType = 'group' | 'connection' | 'database' | 'folder' | 'table'
+export type DatabaseTreeNodeType = 'group' | 'connection' | 'database' | 'folder' | 'table' | 'column'
 
 export interface DatabaseTreeNode {
   id: string
@@ -11,7 +11,23 @@ export interface DatabaseTreeNode {
   meta?: Record<string, unknown>
 }
 
-export type DatabaseType = 'MySQL' | 'PostgreSQL'
+export type DatabaseType =
+  | 'MySQL'
+  | 'Oracle'
+  | 'PostgreSQL'
+  | 'SQLServer'
+  | 'SQLite'
+  | 'MariaDB'
+  | 'ClickHouse'
+  | 'DM'
+  | 'Presto'
+  | 'DB2'
+  | 'OceanBase'
+  | 'Hive'
+  | 'KingBase'
+  | 'MongoDB'
+  | 'Timeplus'
+  | 'H2'
 export type DatabaseAuthentication = 'UserAndPassword'
 
 export interface DatabaseConnectionDraft {
@@ -27,6 +43,9 @@ export interface DatabaseConnectionDraft {
   password: string
   database?: string
   url?: string
+  // Postgres-only today: SSL mode (disable | require | verify-ca | verify-full).
+  // MySQL driver accepts the same key but the UI only exposes it for PG.
+  sslMode?: string
 }
 
 export type DatabaseWorkspaceTabKind = 'overview' | 'data' | 'sql'

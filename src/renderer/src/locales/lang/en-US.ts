@@ -1665,11 +1665,18 @@ export default {
   database: {
     title: 'Database',
     group: 'Group',
+    rootGroup: 'Root',
     newGroup: 'New Group',
     copyName: 'Copy Name',
+    moveTo: 'Move To',
     deleteGroup: 'Delete Group',
+    deleteGroupConfirmTitle: 'Delete Group',
+    deleteGroupConfirmContent: 'Are you sure you want to delete the group "{name}"? This action cannot be undone.',
+    refreshConnected: 'Refresh connected sessions',
     searchPlaceholder: 'Search connections or tables...',
     newConnection: 'New Connection',
+    newConnectionOf: 'New {dbType} Connection',
+    comingSoon: 'Coming soon',
     overview: 'Overview',
     overviewLead: 'Pick a table on the left; double-click to open a SQL tab.',
     overviewTipExplore: 'Browse groups, connections, and schema objects from the explorer.',
@@ -1683,6 +1690,8 @@ export default {
     authUserAndPassword: 'User & Password',
     driver: 'Driver',
     driverPlaceholder: 'Driver upload will be supported in a later phase.',
+    driverClass: 'Class',
+    uploadDriver: 'Upload driver',
     sshConfiguration: 'SSH Configuration',
     sshConfigurationPlaceholder: 'SSH tunnel reuse will be wired up in a later phase.',
     advancedConfiguration: 'Advanced Configuration',
@@ -1752,7 +1761,8 @@ export default {
       user: 'User',
       password: 'Password',
       database: 'Database',
-      url: 'URL'
+      url: 'URL',
+      sslMode: 'SSL Mode'
     }
   }
 }

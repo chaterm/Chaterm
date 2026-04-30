@@ -79,7 +79,12 @@ vi.mock('vue-i18n', () => ({
 const mountWorkspace = () =>
   mount(DatabaseWorkspace, {
     global: {
+      // Teleport-disable so the connection panel (which teleports to body)
+      // renders inline in the component tree and stays addressable via
+      // wrapper.find(). We only care about the DOM, not the portal.
       stubs: {
+        teleport: true,
+        transition: false,
         'a-input': {
           props: ['value'],
           emits: ['update:value'],
@@ -110,6 +115,32 @@ const mountWorkspace = () =>
         'a-modal': {
           props: ['open'],
           template: '<div v-if="open" class="a-modal"><slot /></div>'
+        },
+        // Ant Design Vue overlay-based components used by DatabaseSidebar.
+        // The real components teleport overlays out of the tree and gate
+        // visibility on click state, so we flatten them into plain divs that
+        // render default + overlay slots inline. This lets tests click menu
+        // items by their db-sidebar__* class hooks directly.
+        'a-dropdown': {
+          template: '<div class="a-dropdown"><slot /><slot name="overlay" /></div>'
+        },
+        'a-menu': {
+          template: '<div class="a-menu"><slot /></div>'
+        },
+        'a-menu-item': {
+          inheritAttrs: false,
+          emits: ['click'],
+          props: {
+            disabled: { type: Boolean, default: false }
+          },
+          template:
+            '<div class="a-menu-item" :class="{ \'a-menu-item--disabled\': disabled }" v-bind="$attrs" @click="!disabled && $emit(\'click\', $event)"><slot /></div>'
+        },
+        'a-sub-menu': {
+          template: '<div class="a-sub-menu"><slot name="title" /><slot /></div>'
+        },
+        'a-tooltip': {
+          template: '<div class="a-tooltip"><slot /></div>'
         }
       },
       mocks: {
@@ -170,7 +201,10 @@ describe('Database workspace shell', () => {
     const store = useDatabaseWorkspaceStore()
     await wrapper.find('.db-sidebar__add-btn').trigger('click')
     expect(store.connectionModalVisible).toBe(false)
-    expect(wrapper.find('.db-sidebar__add-menu').exists()).toBe(true)
+    // a-dropdown overlay is rendered inside the sidebar when stubbed; the
+    // "new group" entry confirms the add menu is available without the
+    // connection modal opening.
+    expect(wrapper.find('.db-sidebar__add-menu-item--group').exists()).toBe(true)
   })
 
   it('opens connection modal only after a database type is selected', async () => {
@@ -183,7 +217,8 @@ describe('Database workspace shell', () => {
     await wrapper.find('.db-sidebar__db-type-option--mysql').trigger('click')
     expect(store.connectionModalVisible).toBe(true)
     expect(store.connectionDraft?.dbType).toBe('MySQL')
-    expect(wrapper.find('.a-modal').exists()).toBe(true)
+    await wrapper.vm.$nextTick()
+    expect(wrapper.find('.db-conn-panel').exists()).toBe(true)
   })
 
   it('saves a connection from the modal and inserts it into the tree', async () => {
@@ -197,7 +232,7 @@ describe('Database workspace shell', () => {
       user: 'root'
     })
     await wrapper.vm.$nextTick()
-    const buttons = wrapper.findAll('.a-button')
+    const buttons = wrapper.findAll('.db-conn-btn')
     const saveButton = buttons.find((btn) => btn.text() === 'common.save')
     expect(saveButton).toBeDefined()
     await saveButton!.trigger('click')
@@ -212,7 +247,7 @@ describe('Database workspace shell', () => {
     const store = useDatabaseWorkspaceStore()
     store.openConnectionModal()
     await wrapper.vm.$nextTick()
-    const buttons = wrapper.findAll('.a-button')
+    const buttons = wrapper.findAll('.db-conn-btn')
     const saveButton = buttons.find((btn) => btn.text() === 'common.save')
     await saveButton!.trigger('click')
     expect(store.connectionModalVisible).toBe(true)

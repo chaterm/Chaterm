@@ -1637,6 +1637,10 @@ export default {
     }
   },
   database: {
+    deleteGroupConfirmTitle: 'حذف المجموعة',
+    deleteGroupConfirmContent: 'هل أنت متأكد من حذف المجموعة "{name}"؟ لا يمكن التراجع عن هذا الإجراء.',
+    refreshConnected: 'تحديث الجلسات المتصلة',
+    comingSoon: 'قريبا',
     addRow: 'إضافة صف',
     deleteRow: 'حذف الصف',
     undo: 'تراجع',

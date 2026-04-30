@@ -1656,6 +1656,10 @@ export default {
     }
   },
   database: {
+    deleteGroupConfirmTitle: 'グループを削除',
+    deleteGroupConfirmContent: 'グループ "{name}" を削除してもよろしいですか？この操作は取り消せません。',
+    refreshConnected: '接続中のセッションを更新',
+    comingSoon: '近日対応',
     addRow: '行を追加',
     deleteRow: '行を削除',
     undo: '元に戻す',

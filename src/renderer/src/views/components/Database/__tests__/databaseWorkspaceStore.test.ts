@@ -138,6 +138,49 @@ describe('databaseWorkspaceStore', () => {
       expect(store.connectionStatuses['asset-2']).toBe('connected')
     })
 
+    it('renders nested groups from parent_id and places connections under the child group', async () => {
+      const mockApi = {
+        dbAssetGroupList: vi.fn().mockResolvedValue([
+          {
+            id: 'group-parent',
+            name: 'Parent',
+            parent_id: null,
+            sort_order: 0
+          },
+          {
+            id: 'group-child',
+            name: 'Child',
+            parent_id: 'group-parent',
+            sort_order: 0
+          }
+        ]),
+        dbAssetList: vi.fn().mockResolvedValue([
+          {
+            id: 'asset-1',
+            name: 'nested-mysql',
+            group_id: 'group-child',
+            group_name: 'Child',
+            db_type: 'mysql',
+            host: '10.0.0.1',
+            port: 3306,
+            database_name: null,
+            username: 'root',
+            hasPassword: true,
+            status: 'idle'
+          }
+        ])
+      }
+      ;(window as unknown as { api: unknown }).api = mockApi
+
+      const store = useDatabaseWorkspaceStore()
+      await store.loadAssetsFromBackend()
+
+      const parent = store.tree.find((group) => group.id === 'group-parent')
+      const child = parent?.children?.find((node) => node.id === 'group-child')
+      expect(child?.type).toBe('group')
+      expect(child?.children?.map((node) => node.name)).toEqual(['nested-mysql'])
+    })
+
     it('saveConnection delegates to dbAssetCreate with group_id and refreshes the tree', async () => {
       const newAsset = {
         id: 'asset-new',
@@ -216,6 +259,31 @@ describe('databaseWorkspaceStore', () => {
       expect(store.tree.map((group) => group.name)).toContain('Analytics')
     })
 
+    it('moveGroup delegates to dbAssetGroupUpdate with a parent_id patch', async () => {
+      const mockApi = {
+        dbAssetGroupUpdate: vi.fn().mockResolvedValue({
+          ok: true,
+          group: { id: 'group-child', name: 'Child', parent_id: 'group-parent', sort_order: 0 }
+        }),
+        dbAssetGroupList: vi.fn().mockResolvedValue([
+          { id: 'group-parent', name: 'Parent', parent_id: null, sort_order: 0 },
+          { id: 'group-child', name: 'Child', parent_id: 'group-parent', sort_order: 0 }
+        ]),
+        dbAssetList: vi.fn().mockResolvedValue([])
+      }
+      ;(window as unknown as { api: unknown }).api = mockApi
+
+      const store = useDatabaseWorkspaceStore()
+      await store.moveGroup('group-child', 'group-parent')
+
+      expect(mockApi.dbAssetGroupUpdate).toHaveBeenCalledWith({
+        id: 'group-child',
+        patch: { parent_id: 'group-parent' }
+      })
+      const parent = store.tree.find((group) => group.id === 'group-parent')
+      expect(parent?.children?.some((node) => node.id === 'group-child')).toBe(true)
+    })
+
     it('connectAsset updates status and triggers loadConnectedTree', async () => {
       const asset = {
         id: 'asset-1',
@@ -283,6 +351,54 @@ describe('databaseWorkspaceStore', () => {
       expect(folder?.type).toBe('folder')
       expect(folder?.name).toBe('tables')
       expect(folder?.children?.map((c) => c.name)).toEqual(['t1', 't2'])
+    })
+
+    it('loadTableColumns appends column leaves to the table node', async () => {
+      const asset = {
+        id: 'asset-1',
+        name: 'a',
+        group_name: null,
+        db_type: 'mysql' as const,
+        host: 'h',
+        port: 3306,
+        database_name: null,
+        username: 'u',
+        hasPassword: true,
+        status: 'connected' as const
+      }
+      const mockApi = {
+        dbAssetList: vi.fn().mockResolvedValue([asset]),
+        dbAssetConnect: vi.fn().mockResolvedValue({ ok: true, asset }),
+        dbAssetListChildren: vi.fn().mockImplementation((p: { id: string; databaseName?: string; tableName?: string }) => {
+          if (p.tableName) return Promise.resolve({ ok: true, columns: ['id', 'name', 'created_at'] })
+          if (p.databaseName) return Promise.resolve({ ok: true, tables: ['users'] })
+          return Promise.resolve({ ok: true, databases: ['db1'] })
+        })
+      }
+      ;(window as unknown as { api: unknown }).api = mockApi
+
+      const store = useDatabaseWorkspaceStore()
+      await store.loadAssetsFromBackend()
+      await store.connectAsset('asset-1')
+      await store.loadDatabaseTables('asset-1', 'db1')
+
+      const tableNodeId = `table-asset-1-db1-users`
+      await store.loadTableColumns(tableNodeId)
+
+      const connNode = store.tree[0].children?.[0]
+      const dbNode = connNode?.children?.[0]
+      const folder = dbNode?.children?.[0]
+      const tableNode = folder?.children?.[0]
+      expect(tableNode?.children?.map((c) => ({ name: c.name, type: c.type }))).toEqual([
+        { name: 'id', type: 'column' },
+        { name: 'name', type: 'column' },
+        { name: 'created_at', type: 'column' }
+      ])
+      expect(mockApi.dbAssetListChildren).toHaveBeenCalledWith({
+        id: 'asset-1',
+        databaseName: 'db1',
+        tableName: 'users'
+      })
     })
 
     it('testConnectionFromDraft surfaces backend error message via lastTestResult', async () => {

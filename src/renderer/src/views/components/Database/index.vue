@@ -12,12 +12,16 @@
           :selected-id="store.selectedNodeId"
           :keyword="store.searchKeyword"
           :connection-statuses="store.connectionStatuses"
+          :editing-group-id="editingGroupId"
           @update:keyword="store.setSearchKeyword"
           @add-connection="handleOpenConnectionModal"
           @add-connection-to-group="handleOpenConnectionModalForGroup"
           @add-group="handleCreateGroup"
           @add-group-child="handleCreateChildGroup"
+          @move-group="handleMoveGroup"
           @rename-group="handleRenameGroup"
+          @commit-group-rename="handleCommitGroupRename"
+          @cancel-group-rename="handleCancelGroupRename"
           @delete-group="handleDeleteGroup"
           @copy-group-name="handleCopyGroupName"
           @toggle="handleToggle"
@@ -25,6 +29,7 @@
           @open-table="handleOpenTable"
           @connect="handleConnect"
           @disconnect="handleDisconnect"
+          @refresh-connected="handleRefreshConnected"
         />
       </pane>
       <pane
@@ -131,9 +136,11 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted } from 'vue'
+import { computed, onMounted, ref } from 'vue'
 import { Pane, Splitpanes } from 'splitpanes'
 import 'splitpanes/dist/splitpanes.css'
+import { Modal } from 'ant-design-vue'
+import { useI18n } from 'vue-i18n'
 import DatabaseSidebar from './components/DatabaseSidebar.vue'
 import DatabaseWorkspaceTabs from './components/DatabaseWorkspaceTabs.vue'
 import DatabaseOverview from './components/DatabaseOverview.vue'
@@ -147,6 +154,10 @@ import { useDatabaseWorkspaceStore } from '@/store/databaseWorkspaceStore'
 import type { DatabaseConnectionDraft, DatabaseTreeNode } from './types'
 
 const store = useDatabaseWorkspaceStore()
+const { t } = useI18n()
+
+// Id of the group currently in inline-rename mode (null when none).
+const editingGroupId = ref<string | null>(null)
 
 const sidebarSize = 22
 
@@ -218,6 +229,14 @@ const handleToggle = async (id: string) => {
     }
   }
 
+  // Lazy-load columns on first expand of a table node.
+  if (node.type === 'table' && !node.expanded) {
+    const alreadyLoaded = (node.children ?? []).some((c) => c.type === 'column')
+    if (!alreadyLoaded) {
+      await store.loadTableColumns(node.id)
+    }
+  }
+
   node.expanded = !node.expanded
 }
 
@@ -246,6 +265,17 @@ const handleDisconnect = async (id: string) => {
   await store.disconnectAsset(assetId)
 }
 
+// Reload the schema tree for every currently-connected asset in parallel.
+// Disconnected assets are skipped so the refresh icon does not implicitly
+// reconnect anything.
+const handleRefreshConnected = async () => {
+  const connectedIds = Object.entries(store.connectionStatuses)
+    .filter(([, status]) => status === 'connected')
+    .map(([assetId]) => assetId)
+  if (connectedIds.length === 0) return
+  await Promise.all(connectedIds.map((assetId) => store.loadConnectedTree(assetId)))
+}
+
 const updateSql = (value: string) => {
   if (!activeTab.value) return
   activeTab.value.sql = value
@@ -269,27 +299,48 @@ const handleOpenConnectionModalForGroup = (dbType: DatabaseConnectionDraft['dbTy
 }
 
 const handleCreateGroup = async () => {
-  const name = globalThis.window?.prompt?.('Group name')
-  if (!name || !name.trim()) return
-  await store.createGroup(name.trim())
+  const id = await store.createGroup('New Group')
+  if (id) editingGroupId.value = id
 }
 
-const handleCreateChildGroup = async (_groupId: string) => {
-  const name = globalThis.window?.prompt?.('Group name')
-  if (!name || !name.trim()) return
-  await store.createGroup(name.trim())
+const handleCreateChildGroup = async (groupId: string) => {
+  const id = await store.createGroup('New Group', groupId)
+  if (id) editingGroupId.value = id
 }
 
-const handleRenameGroup = async (groupId: string, currentName: string) => {
-  const name = globalThis.window?.prompt?.('Group name', currentName)
-  if (!name || !name.trim() || name.trim() === currentName) return
-  await store.renameGroup(groupId, name.trim())
+const handleMoveGroup = async (groupId: string, parentId: string | null) => {
+  await store.moveGroup(groupId, parentId)
+}
+
+const handleRenameGroup = async (groupId: string) => {
+  // Switch the target group into inline-edit mode; the tree node renders an
+  // input that will call handleCommitGroupRename on blur/Enter.
+  editingGroupId.value = groupId
+}
+
+const handleCommitGroupRename = async (groupId: string, currentName: string, nextName: string) => {
+  editingGroupId.value = null
+  const trimmed = nextName.trim()
+  if (!trimmed || trimmed === currentName) return
+  await store.renameGroup(groupId, trimmed)
+}
+
+const handleCancelGroupRename = () => {
+  editingGroupId.value = null
 }
 
 const handleDeleteGroup = async (groupId: string, currentName: string) => {
-  const confirmed = globalThis.window?.confirm?.(`Delete group "${currentName}"?`) ?? true
-  if (!confirmed) return
-  await store.deleteGroup(groupId)
+  Modal.confirm({
+    title: t('database.deleteGroupConfirmTitle'),
+    content: t('database.deleteGroupConfirmContent', { name: currentName }),
+    okText: t('common.delete'),
+    okType: 'danger',
+    cancelText: t('common.cancel'),
+    maskClosable: true,
+    onOk: async () => {
+      await store.deleteGroup(groupId)
+    }
+  })
 }
 
 const handleCopyGroupName = async (value: string) => {

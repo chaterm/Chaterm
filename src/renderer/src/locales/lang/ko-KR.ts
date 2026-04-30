@@ -1648,6 +1648,10 @@ export default {
     }
   },
   database: {
+    deleteGroupConfirmTitle: '그룹 삭제',
+    deleteGroupConfirmContent: '"{name}" 그룹을 삭제하시겠습니까? 이 작업은 취소할 수 없습니다.',
+    refreshConnected: '연결된 세션 새로 고침',
+    comingSoon: '출시 예정',
     addRow: '행 추가',
     deleteRow: '행 삭제',
     undo: '실행 취소',

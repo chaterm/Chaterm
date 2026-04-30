@@ -418,7 +418,7 @@ const dbAssetDisconnect = async (id: string) => {
   }
 }
 
-const dbAssetListChildren = async (payload: { id: string; databaseName?: string }) => {
+const dbAssetListChildren = async (payload: { id: string; databaseName?: string; tableName?: string }) => {
   try {
     return await ipcRenderer.invoke('db-asset-list-children', payload)
   } catch (error) {

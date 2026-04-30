@@ -1682,6 +1682,10 @@ export default {
     }
   },
   database: {
+    deleteGroupConfirmTitle: 'Elimina gruppo',
+    deleteGroupConfirmContent: 'Sei sicuro di voler eliminare il gruppo "{name}"? Questa azione non può essere annullata.',
+    refreshConnected: 'Aggiorna sessioni connesse',
+    comingSoon: 'Prossimamente',
     addRow: 'Aggiungi riga',
     deleteRow: 'Elimina riga',
     undo: 'Annulla',

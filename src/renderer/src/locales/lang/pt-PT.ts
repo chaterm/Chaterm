@@ -1677,6 +1677,10 @@ export default {
     }
   },
   database: {
+    deleteGroupConfirmTitle: 'Eliminar grupo',
+    deleteGroupConfirmContent: 'Tem a certeza de que deseja eliminar o grupo "{name}"? Esta ação não pode ser desfeita.',
+    refreshConnected: 'Atualizar sessões conectadas',
+    comingSoon: 'Em breve',
     addRow: 'Adicionar linha',
     deleteRow: 'Excluir linha',
     undo: 'Desfazer',

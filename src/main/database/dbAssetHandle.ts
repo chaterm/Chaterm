@@ -373,10 +373,14 @@ export function registerDbAssetHandlers(): void {
     }
   })
 
-  ipcMain.handle('db-asset-list-children', async (_, payload: { id: string; databaseName?: string }) => {
+  ipcMain.handle('db-asset-list-children', async (_, payload: { id: string; databaseName?: string; tableName?: string }) => {
     try {
       const mgr = await getConnectionManager()
       if (!mgr.isConnected(payload.id)) return { ok: false, errorMessage: 'not connected' }
+      if (payload.databaseName && payload.tableName) {
+        const columns = await mgr.listColumns(payload.id, payload.databaseName, payload.tableName)
+        return { ok: true, columns }
+      }
       if (payload.databaseName) {
         const tables = await mgr.listTables(payload.id, payload.databaseName)
         return { ok: true, tables }

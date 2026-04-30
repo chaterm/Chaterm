@@ -9,12 +9,15 @@
       :node="node"
       :selected-id="selectedId"
       :connection-statuses="connectionStatuses"
+      :editing-group-id="editingGroupId"
       @toggle="(id) => emit('toggle', id)"
       @select="(id) => emit('select', id)"
       @open-table="(id) => emit('openTable', id)"
       @connect="(id) => emit('connect', id)"
       @disconnect="(id) => emit('disconnect', id)"
       @group-context="(payload) => emit('groupContext', payload)"
+      @commit-group-rename="(id, cur, next) => emit('commitGroupRename', id, cur, next)"
+      @cancel-group-rename="() => emit('cancelGroupRename')"
     />
   </ul>
 </template>
@@ -27,6 +30,7 @@ defineProps<{
   nodes: DatabaseTreeNode[]
   selectedId: string | null
   connectionStatuses?: Record<string, 'idle' | 'testing' | 'connected' | 'failed'>
+  editingGroupId?: string | null
 }>()
 
 const emit = defineEmits<{
@@ -36,6 +40,8 @@ const emit = defineEmits<{
   (e: 'connect', id: string): void
   (e: 'disconnect', id: string): void
   (e: 'groupContext', payload: { id: string; name: string; x: number; y: number }): void
+  (e: 'commitGroupRename', groupId: string, currentName: string, nextName: string): void
+  (e: 'cancelGroupRename'): void
 }>()
 </script>
 

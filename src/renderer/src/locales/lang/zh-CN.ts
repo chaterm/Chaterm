@@ -1646,11 +1646,18 @@ export default {
   database: {
     title: '数据库',
     group: '分组',
+    rootGroup: '根分组',
     newGroup: '新建分组',
     copyName: '复制名称',
+    moveTo: '移动到',
     deleteGroup: '删除分组',
+    deleteGroupConfirmTitle: '确认删除分组',
+    deleteGroupConfirmContent: '确定要删除分组 "{name}" 吗？此操作无法撤销。',
+    refreshConnected: '刷新已连接会话',
     searchPlaceholder: '搜索连接或表...',
     newConnection: '新建连接',
+    newConnectionOf: '新建 {dbType} 连接',
+    comingSoon: '即将支持',
     overview: '概览',
     overviewLead: '从左侧选择一张表，双击可以打开 SQL 工作区。',
     overviewTipExplore: '在左侧探索分组、连接和数据库对象。',
@@ -1664,6 +1671,8 @@ export default {
     authUserAndPassword: '用户名与密码',
     driver: '驱动',
     driverPlaceholder: '驱动上传能力将在后续阶段提供。',
+    driverClass: '类名',
+    uploadDriver: '上传驱动',
     sshConfiguration: 'SSH 配置',
     sshConfigurationPlaceholder: 'SSH 隧道复用将在后续阶段接入。',
     advancedConfiguration: '高级配置',
@@ -1733,7 +1742,8 @@ export default {
       user: '用户',
       password: '密码',
       database: '数据库',
-      url: 'URL'
+      url: 'URL',
+      sslMode: 'SSL 模式'
     }
   }
 }
