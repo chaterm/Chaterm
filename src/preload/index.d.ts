@@ -115,6 +115,8 @@ export interface DbColumnSort {
 export interface DbTableQueryPayload {
   id: string
   database: string
+  /** PG-only: schema the table lives in. MySQL ignores. */
+  schema?: string
   table: string
   filters?: DbColumnFilter[]
   sort?: DbColumnSort | null
@@ -317,13 +319,27 @@ interface ApiType {
   dbAssetListChildren: (payload: {
     id: string
     databaseName?: string
+    schemaName?: string
+    objectKind?: 'tables' | 'views' | 'functions' | 'procedures'
     tableName?: string
-  }) => Promise<{ ok: boolean; databases?: string[]; tables?: string[]; columns?: string[]; errorMessage?: string }>
+  }) => Promise<{
+    ok: boolean
+    databases?: string[]
+    tables?: string[]
+    objects?: string[]
+    columns?: string[]
+    errorMessage?: string
+  }>
+  dbAssetListSchemas: (payload: {
+    id: string
+    databaseName: string
+  }) => Promise<{ ok: boolean; schemas?: Array<{ name: string; isSystem: boolean }>; errorMessage?: string }>
   dbAssetExecuteQuery: (payload: { id: string; sql: string; databaseName?: string }) => Promise<DbQueryResult>
   dbAssetQueryTable: (payload: DbTableQueryPayload) => Promise<DbTableQueryResult>
   dbAssetCountTable: (payload: {
     id: string
     database: string
+    schema?: string
     table: string
     filters?: DbColumnFilter[]
     whereRaw?: string | null
@@ -331,6 +347,7 @@ interface ApiType {
   dbAssetColumnDistinct: (payload: {
     id: string
     database: string
+    schema?: string
     table: string
     column: string
     limit?: number
@@ -338,11 +355,13 @@ interface ApiType {
   dbAssetDetectPrimaryKey: (payload: {
     id: string
     database: string
+    schema?: string
     table: string
   }) => Promise<{ ok: boolean; primaryKey: string[] | null; errorMessage?: string }>
   dbAssetExecuteMutations: (payload: {
     id: string
     database?: string
+    schema?: string
     statements: Array<{ sql: string; params: unknown[] }>
   }) => Promise<{ ok: boolean; errorMessage?: string; affected?: number[]; durationMs: number }>
   recordConnection: (data: {

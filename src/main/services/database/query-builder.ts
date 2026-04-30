@@ -37,6 +37,11 @@ export interface ColumnSort {
 export interface QueryTableInput {
   dbType: 'mysql' | 'postgresql'
   database: string
+  /**
+   * Schema the table lives in. PG-only: used to emit "schema"."table"
+   * qualifiers. MySQL ignores it (no schema layer).
+   */
+  schema?: string
   table: string
   knownColumns: string[]
   filters: ColumnFilter[]
@@ -164,12 +169,19 @@ function buildLimitOffset(
   }
 }
 
-function qualifiedTable(input: Pick<QueryTableInput, 'dbType' | 'database' | 'table'>): string {
-  const { dbType, database, table } = input
+function qualifiedTable(input: Pick<QueryTableInput, 'dbType' | 'database' | 'schema' | 'table'>): string {
+  const { dbType, database, schema, table } = input
   assertIdent(table, 'table')
   if (dbType === 'mysql' && database) {
     assertIdent(database, 'database')
     return `${quoteIdent(database, dbType)}.${quoteIdent(table, dbType)}`
+  }
+  // Postgres: connections are bound to one database, so we cannot
+  // cross-qualify with the database name. Qualify with the schema when
+  // known; otherwise fall back to bare table and rely on search_path.
+  if (dbType === 'postgresql' && schema) {
+    assertIdent(schema, 'schema')
+    return `${quoteIdent(schema, dbType)}.${quoteIdent(table, dbType)}`
   }
   return quoteIdent(table, dbType)
 }

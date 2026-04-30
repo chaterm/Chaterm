@@ -22,6 +22,12 @@ export type DbDialect = 'mysql' | 'postgresql'
 export interface BuildMutationsArgs {
   dbType: DbDialect
   database: string
+  /**
+   * Schema the table lives in. Required for PostgreSQL tables not in the
+   * connection's default search_path; ignored for MySQL (it has no schema
+   * layer — the "database.table" qualifier already scopes the table).
+   */
+  schema?: string
   table: string
   primaryKey: string[] | null
   newRows: Array<{ tmpId: string; values: Record<string, unknown> }>
@@ -53,8 +59,23 @@ function quoteIdent(dialect: DbDialect, ident: string): string {
   return dialect === 'mysql' ? `\`${ident}\`` : `"${ident}"`
 }
 
-function qualifiedTable(dialect: DbDialect, database: string, table: string): string {
-  return `${quoteIdent(dialect, database)}.${quoteIdent(dialect, table)}`
+/**
+ * Build the dialect-correct table reference.
+ *
+ * - MySQL has no schema layer, so we qualify with the database: `db`.`tbl`.
+ * - PostgreSQL connections are already bound to one database, so we cannot
+ *   cross-qualify with the database name. Instead, when a schema is known
+ *   we emit `"schema"."table"`; otherwise we fall back to bare `"table"`
+ *   and let the server's search_path resolve it.
+ */
+function qualifiedTable(dialect: DbDialect, database: string, schema: string | undefined, table: string): string {
+  if (dialect === 'mysql') {
+    return `${quoteIdent(dialect, database)}.${quoteIdent(dialect, table)}`
+  }
+  if (schema) {
+    return `${quoteIdent(dialect, schema)}.${quoteIdent(dialect, table)}`
+  }
+  return quoteIdent(dialect, table)
 }
 
 /**
@@ -122,6 +143,7 @@ function buildWhereForRow(
 function buildDeleteStatement(
   dialect: DbDialect,
   database: string,
+  schema: string | undefined,
   table: string,
   pk: string[] | null,
   knownColumns: string[],
@@ -163,11 +185,11 @@ function buildDeleteStatement(
   const hasPk = !!pk && pk.length > 0
   let sql: string
   if (hasPk) {
-    sql = `DELETE FROM ${qualifiedTable(dialect, database, table)} WHERE ${where}`
+    sql = `DELETE FROM ${qualifiedTable(dialect, database, schema, table)} WHERE ${where}`
   } else if (dialect === 'mysql') {
-    sql = `DELETE FROM ${qualifiedTable(dialect, database, table)} WHERE ${where} LIMIT 1`
+    sql = `DELETE FROM ${qualifiedTable(dialect, database, schema, table)} WHERE ${where} LIMIT 1`
   } else {
-    sql = `DELETE FROM ${qualifiedTable(dialect, database, table)} WHERE ctid = (SELECT ctid FROM ${qualifiedTable(dialect, database, table)} WHERE ${where} LIMIT 1)`
+    sql = `DELETE FROM ${qualifiedTable(dialect, database, schema, table)} WHERE ctid = (SELECT ctid FROM ${qualifiedTable(dialect, database, schema, table)} WHERE ${where} LIMIT 1)`
   }
   return { sql, params }
 }
@@ -175,6 +197,7 @@ function buildDeleteStatement(
 function buildUpdateStatement(
   dialect: DbDialect,
   database: string,
+  schema: string | undefined,
   table: string,
   pk: string[] | null,
   knownColumns: string[],
@@ -224,16 +247,22 @@ function buildUpdateStatement(
   const hasPk = !!pk && pk.length > 0
   let sql: string
   if (hasPk) {
-    sql = `UPDATE ${qualifiedTable(dialect, database, table)} SET ${setParts.join(', ')} WHERE ${where}`
+    sql = `UPDATE ${qualifiedTable(dialect, database, schema, table)} SET ${setParts.join(', ')} WHERE ${where}`
   } else if (dialect === 'mysql') {
-    sql = `UPDATE ${qualifiedTable(dialect, database, table)} SET ${setParts.join(', ')} WHERE ${where} LIMIT 1`
+    sql = `UPDATE ${qualifiedTable(dialect, database, schema, table)} SET ${setParts.join(', ')} WHERE ${where} LIMIT 1`
   } else {
-    sql = `UPDATE ${qualifiedTable(dialect, database, table)} SET ${setParts.join(', ')} WHERE ctid = (SELECT ctid FROM ${qualifiedTable(dialect, database, table)} WHERE ${where} LIMIT 1)`
+    sql = `UPDATE ${qualifiedTable(dialect, database, schema, table)} SET ${setParts.join(', ')} WHERE ctid = (SELECT ctid FROM ${qualifiedTable(dialect, database, schema, table)} WHERE ${where} LIMIT 1)`
   }
   return { sql, params }
 }
 
-function buildInsertStatement(dialect: DbDialect, database: string, table: string, values: Record<string, unknown>): BuiltStatement | null {
+function buildInsertStatement(
+  dialect: DbDialect,
+  database: string,
+  schema: string | undefined,
+  table: string,
+  values: Record<string, unknown>
+): BuiltStatement | null {
   const cols = Object.keys(values)
   if (cols.length === 0) return null
   // Drop rows where every cell is null/undefined. The user almost certainly
@@ -252,7 +281,7 @@ function buildInsertStatement(dialect: DbDialect, database: string, table: strin
     placeholders.push(placeholder())
     params.push(values[col])
   }
-  const sql = `INSERT INTO ${qualifiedTable(dialect, database, table)} (${quotedCols.join(', ')}) VALUES (${placeholders.join(', ')})`
+  const sql = `INSERT INTO ${qualifiedTable(dialect, database, schema, table)} (${quotedCols.join(', ')}) VALUES (${placeholders.join(', ')})`
   return { sql, params }
 }
 
@@ -262,9 +291,10 @@ function buildInsertStatement(dialect: DbDialect, database: string, table: strin
  * identifier quoting. Identifiers that fail `IDENT_RE` abort the build.
  */
 export function buildMutations(args: BuildMutationsArgs): BuiltStatement[] {
-  const { dbType, database, table, primaryKey, newRows, deletedRowKeys, updatedCells, originalRows, knownColumns } = args
+  const { dbType, database, schema, table, primaryKey, newRows, deletedRowKeys, updatedCells, originalRows, knownColumns } = args
 
   assertIdent('database', database)
+  if (schema) assertIdent('schema', schema)
   assertIdent('table', table)
   if (primaryKey && primaryKey.length > 0) {
     for (const c of primaryKey) assertIdent('primaryKey column', c)
@@ -275,18 +305,18 @@ export function buildMutations(args: BuildMutationsArgs): BuiltStatement[] {
 
   // 1) DELETEs
   for (const rowKey of deletedRowKeys) {
-    out.push(buildDeleteStatement(dbType, database, table, primaryKey ?? null, knownColumns, rowKey, originalRows))
+    out.push(buildDeleteStatement(dbType, database, schema, table, primaryKey ?? null, knownColumns, rowKey, originalRows))
   }
 
   // 2) UPDATEs
   for (const [rowKey, changes] of updatedCells) {
     if (!changes || Object.keys(changes).length === 0) continue
-    out.push(buildUpdateStatement(dbType, database, table, primaryKey ?? null, knownColumns, rowKey, changes, originalRows))
+    out.push(buildUpdateStatement(dbType, database, schema, table, primaryKey ?? null, knownColumns, rowKey, changes, originalRows))
   }
 
   // 3) INSERTs
   for (const row of newRows) {
-    const stmt = buildInsertStatement(dbType, database, table, row.values)
+    const stmt = buildInsertStatement(dbType, database, schema, table, row.values)
     if (stmt) out.push(stmt)
   }
 

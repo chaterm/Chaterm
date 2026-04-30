@@ -6,7 +6,7 @@ import { ChatermDatabaseService } from '../storage/db/chaterm.service'
 import type { DbAssetCreateInput, DbAssetGroupRecord, DbAssetRecord, DbAssetUpdateInput } from '../storage/db/chaterm/db-assets'
 import { getConnectionManager } from '../services/database'
 import { getCredentialStore } from '../services/database/credential-store'
-import type { ConnectionTestResult, MutationStatement } from '../services/database/types'
+import type { ConnectionTestResult, DbObjectKind, MutationStatement } from '../services/database/types'
 import { buildTableQuery, type ColumnFilter, type ColumnSort } from '../services/database/query-builder'
 
 const logger = createLogger('db')
@@ -348,6 +348,7 @@ export function registerDbAssetHandlers(): void {
       const mgr = await getConnectionManager()
       await mgr.connect(row)
       const refreshed = service.getDbAsset(id)
+      logger.info('db-asset-connect ok', { event: 'db-asset.connect.ok', id, dbType: row.db_type })
       return { ok: true, asset: refreshed ? toDto(refreshed) : null }
     } catch (error) {
       logger.error('db-asset-connect failed', { event: 'db-asset.connect.error', id, error })
@@ -373,23 +374,52 @@ export function registerDbAssetHandlers(): void {
     }
   })
 
-  ipcMain.handle('db-asset-list-children', async (_, payload: { id: string; databaseName?: string; tableName?: string }) => {
+  ipcMain.handle(
+    'db-asset-list-children',
+    async (_, payload: { id: string; databaseName?: string; schemaName?: string; objectKind?: DbObjectKind; tableName?: string }) => {
+      try {
+        const mgr = await getConnectionManager()
+        if (!mgr.isConnected(payload.id)) return { ok: false, errorMessage: 'not connected' }
+        // Column leaves: table name (+ optional schema for PG) triggers column lookup.
+        if (payload.databaseName && payload.tableName) {
+          const columns = await mgr.listColumns(payload.id, payload.databaseName, payload.tableName, payload.schemaName)
+          return { ok: true, columns }
+        }
+        // Object folder leaves: schemaName + objectKind returns the list for
+        // that kind (tables/views/functions/procedures). PG only — MySQL
+        // drivers don't implement listObjects and will return [].
+        if (payload.databaseName && payload.schemaName && payload.objectKind) {
+          const objects = await mgr.listObjects(payload.id, payload.databaseName, payload.schemaName, payload.objectKind)
+          return { ok: true, objects }
+        }
+        // Legacy MySQL path: database -> tables. Left intact for backward
+        // compatibility and because MySQL has no schema layer.
+        if (payload.databaseName && !payload.schemaName) {
+          const tables = await mgr.listTables(payload.id, payload.databaseName)
+          return { ok: true, tables }
+        }
+        const databases = await mgr.listDatabases(payload.id)
+        return { ok: true, databases }
+      } catch (error) {
+        logger.error('db-asset-list-children failed', {
+          event: 'db-asset.list-children.error',
+          id: payload?.id,
+          error
+        })
+        return { ok: false, errorMessage: (error as Error).message }
+      }
+    }
+  )
+
+  ipcMain.handle('db-asset-list-schemas', async (_, payload: { id: string; databaseName: string }) => {
     try {
       const mgr = await getConnectionManager()
       if (!mgr.isConnected(payload.id)) return { ok: false, errorMessage: 'not connected' }
-      if (payload.databaseName && payload.tableName) {
-        const columns = await mgr.listColumns(payload.id, payload.databaseName, payload.tableName)
-        return { ok: true, columns }
-      }
-      if (payload.databaseName) {
-        const tables = await mgr.listTables(payload.id, payload.databaseName)
-        return { ok: true, tables }
-      }
-      const databases = await mgr.listDatabases(payload.id)
-      return { ok: true, databases }
+      const schemas = await mgr.listSchemas(payload.id, payload.databaseName)
+      return { ok: true, schemas }
     } catch (error) {
-      logger.error('db-asset-list-children failed', {
-        event: 'db-asset.list-children.error',
+      logger.error('db-asset-list-schemas failed', {
+        event: 'db-asset.list-schemas.error',
         id: payload?.id,
         error
       })
@@ -426,6 +456,7 @@ export function registerDbAssetHandlers(): void {
       payload: {
         id: string
         database: string
+        schema?: string
         table: string
         filters?: ColumnFilter[]
         sort?: ColumnSort | null
@@ -442,6 +473,7 @@ export function registerDbAssetHandlers(): void {
         console.log('[DB-DEBUG] ipc db-asset-query-table entry', {
           id: payload.id,
           database: payload.database,
+          schema: payload.schema,
           table: payload.table,
           page: payload.page,
           pageSize: payload.pageSize,
@@ -461,7 +493,7 @@ export function registerDbAssetHandlers(): void {
         if (!asset) return { ok: false, errorMessage: 'asset not found' }
 
         const listColumnsStart = Date.now()
-        const columns = await mgr.listColumns(payload.id, payload.database, payload.table)
+        const columns = await mgr.listColumns(payload.id, payload.database, payload.table, payload.schema)
         // eslint-disable-next-line no-console
         console.log('[DB-DEBUG] ipc listColumns done', {
           ms: Date.now() - listColumnsStart,
@@ -482,6 +514,7 @@ export function registerDbAssetHandlers(): void {
         const built = buildTableQuery({
           dbType: asset.db_type,
           database: payload.database,
+          schema: payload.schema,
           table: payload.table,
           knownColumns: columns,
           filters: payload.filters ?? [],
@@ -552,6 +585,7 @@ export function registerDbAssetHandlers(): void {
       payload: {
         id: string
         database: string
+        schema?: string
         table: string
         filters?: ColumnFilter[]
         whereRaw?: string | null
@@ -564,7 +598,7 @@ export function registerDbAssetHandlers(): void {
         const asset = service.getDbAsset(payload.id)
         if (!asset) return { ok: false, errorMessage: 'asset not found' }
 
-        const columns = await mgr.listColumns(payload.id, payload.database, payload.table)
+        const columns = await mgr.listColumns(payload.id, payload.database, payload.table, payload.schema)
         if (columns.length === 0) return { ok: false, errorMessage: 'failed to resolve columns for table' }
 
         if (asset.db_type === 'mysql' && payload.database) {
@@ -575,6 +609,7 @@ export function registerDbAssetHandlers(): void {
         const built = buildTableQuery({
           dbType: asset.db_type,
           database: payload.database,
+          schema: payload.schema,
           table: payload.table,
           knownColumns: columns,
           filters: payload.filters ?? [],
@@ -613,6 +648,7 @@ export function registerDbAssetHandlers(): void {
       payload: {
         id: string
         database: string
+        schema?: string
         table: string
         column: string
         limit?: number
@@ -626,7 +662,7 @@ export function registerDbAssetHandlers(): void {
         if (!asset) return { ok: false, errorMessage: 'asset not found' }
 
         // Validate column against the real schema to prevent injection.
-        const columns = await mgr.listColumns(payload.id, payload.database, payload.table)
+        const columns = await mgr.listColumns(payload.id, payload.database, payload.table, payload.schema)
         if (!columns.includes(payload.column)) {
           return { ok: false, errorMessage: `unknown column: ${payload.column}` }
         }
@@ -635,6 +671,9 @@ export function registerDbAssetHandlers(): void {
         }
         if (!/^[A-Za-z_][A-Za-z0-9_]*$/.test(payload.table)) {
           return { ok: false, errorMessage: 'unsafe table name' }
+        }
+        if (payload.schema && !/^[A-Za-z_][A-Za-z0-9_]*$/.test(payload.schema)) {
+          return { ok: false, errorMessage: 'unsafe schema name' }
         }
 
         const limit = Math.max(1, Math.min(Math.floor(payload.limit ?? 1000), 10000))
@@ -650,8 +689,9 @@ export function registerDbAssetHandlers(): void {
           const values = (res.rows ?? []).map((r) => r.v ?? null)
           return { ok: true, values }
         }
-        // postgres
-        const sql = `SELECT DISTINCT "${payload.column}" AS v FROM "${payload.table}" ORDER BY 1 LIMIT ${limit}`
+        // postgres: schema-qualify when known so non-public tables resolve.
+        const qualified = payload.schema ? `"${payload.schema}"."${payload.table}"` : `"${payload.table}"`
+        const sql = `SELECT DISTINCT "${payload.column}" AS v FROM ${qualified} ORDER BY 1 LIMIT ${limit}`
         const res = await mgr.executeQuery(payload.id, sql)
         const values = (res.rows ?? []).map((r) => r.v ?? null)
         return { ok: true, values }
@@ -668,7 +708,7 @@ export function registerDbAssetHandlers(): void {
     }
   )
 
-  ipcMain.handle('db-asset:detect-primary-key', async (_, payload: { id: string; database: string; table: string }) => {
+  ipcMain.handle('db-asset:detect-primary-key', async (_, payload: { id: string; database: string; schema?: string; table: string }) => {
     try {
       if (!payload || typeof payload.id !== 'string') {
         return { ok: false, primaryKey: null, errorMessage: 'invalid payload' }
@@ -677,7 +717,7 @@ export function registerDbAssetHandlers(): void {
       if (!mgr.isConnected(payload.id)) {
         return { ok: false, primaryKey: null, errorMessage: 'not connected' }
       }
-      const primaryKey = await mgr.detectPrimaryKey(payload.id, payload.database, payload.table)
+      const primaryKey = await mgr.detectPrimaryKey(payload.id, payload.database, payload.table, payload.schema)
       return { ok: true, primaryKey }
     } catch (error) {
       logger.error('db-asset.detect-primary-key failed', {

@@ -68,8 +68,21 @@ type DbApi = {
   dbAssetListChildren?: (payload: {
     id: string
     databaseName?: string
+    schemaName?: string
+    objectKind?: 'tables' | 'views' | 'functions' | 'procedures'
     tableName?: string
-  }) => Promise<{ ok: boolean; databases?: string[]; tables?: string[]; columns?: string[]; errorMessage?: string }>
+  }) => Promise<{
+    ok: boolean
+    databases?: string[]
+    tables?: string[]
+    objects?: string[]
+    columns?: string[]
+    errorMessage?: string
+  }>
+  dbAssetListSchemas?: (payload: {
+    id: string
+    databaseName: string
+  }) => Promise<{ ok: boolean; schemas?: Array<{ name: string; isSystem: boolean }>; errorMessage?: string }>
   dbAssetExecuteQuery?: (payload: { id: string; sql: string; databaseName?: string }) => Promise<{
     ok: boolean
     errorMessage?: string
@@ -81,6 +94,7 @@ type DbApi = {
   dbAssetQueryTable?: (payload: {
     id: string
     database: string
+    schema?: string
     table: string
     filters?: DbColumnFilter[]
     sort?: DbColumnSort | null
@@ -102,6 +116,7 @@ type DbApi = {
   dbAssetCountTable?: (payload: {
     id: string
     database: string
+    schema?: string
     table: string
     filters?: DbColumnFilter[]
     whereRaw?: string | null
@@ -109,6 +124,7 @@ type DbApi = {
   dbAssetColumnDistinct?: (payload: {
     id: string
     database: string
+    schema?: string
     table: string
     column: string
     limit?: number
@@ -116,11 +132,13 @@ type DbApi = {
   dbAssetDetectPrimaryKey?: (payload: {
     id: string
     database: string
+    schema?: string
     table: string
   }) => Promise<{ ok: boolean; primaryKey: string[] | null; errorMessage?: string }>
   dbAssetExecuteMutations?: (payload: {
     id: string
     database: string
+    schema?: string
     statements: Array<{ sql: string; params: unknown[] }>
   }) => Promise<{ ok: boolean; errorMessage?: string; affected?: number; durationMs?: number }>
 }
@@ -222,6 +240,23 @@ function findNode(nodes: DatabaseTreeNode[], id: string): DatabaseTreeNode | nul
     if (node.id === id) return node
     if (node.children) {
       const found = findNode(node.children, id)
+      if (found) return found
+    }
+  }
+  return null
+}
+
+/**
+ * Recursively locate a connection node by its asset id. Needed because
+ * groups can nest sub-groups, so a flat one-level scan of the tree misses
+ * connections that live inside nested groups.
+ */
+function findConnectionByAssetId(nodes: DatabaseTreeNode[], assetId: string): DatabaseTreeNode | null {
+  for (const node of nodes) {
+    const nodeAssetId = (node.meta as { assetId?: string } | undefined)?.assetId
+    if (node.type === 'connection' && nodeAssetId === assetId) return node
+    if (node.children && node.children.length > 0) {
+      const found = findConnectionByAssetId(node.children, assetId)
       if (found) return found
     }
   }
@@ -677,6 +712,10 @@ export const useDatabaseWorkspaceStore = defineStore('databaseWorkspace', {
       const assetMeta = connectionNode?.meta as { assetId?: string } | undefined
       const assetId = assetMeta?.assetId
       const databaseName = databaseNode?.name
+      // Schema is populated on PG table nodes during loadSchemaObjects; MySQL
+      // table nodes leave it undefined.
+      const tableMeta = node.meta as { schemaName?: string } | undefined
+      const schemaName = tableMeta?.schemaName
 
       const tab: DatabaseWorkspaceTab = {
         id: tabId,
@@ -685,6 +724,7 @@ export const useDatabaseWorkspaceStore = defineStore('databaseWorkspace', {
         connectionId: connectionNode?.id,
         assetId,
         databaseName,
+        schemaName,
         tableName: node.name,
         sql: '',
         resultColumns: [],
@@ -773,6 +813,7 @@ export const useDatabaseWorkspaceStore = defineStore('databaseWorkspace', {
         const payload = {
           id: String(tab.assetId),
           database: String(tab.databaseName),
+          schema: tab.schemaName ? String(tab.schemaName) : undefined,
           table: String(tab.tableName),
           filters: plainFilters,
           sort: plainSort,
@@ -838,6 +879,7 @@ export const useDatabaseWorkspaceStore = defineStore('databaseWorkspace', {
         const result = await api.dbAssetCountTable({
           id: String(tab.assetId),
           database: String(tab.databaseName),
+          schema: tab.schemaName ? String(tab.schemaName) : undefined,
           table: String(tab.tableName),
           filters: plainFilters,
           whereRaw: tab.whereRaw == null ? null : String(tab.whereRaw)
@@ -861,6 +903,7 @@ export const useDatabaseWorkspaceStore = defineStore('databaseWorkspace', {
         const result = await api.dbAssetColumnDistinct({
           id: String(tab.assetId),
           database: String(tab.databaseName),
+          schema: tab.schemaName ? String(tab.schemaName) : undefined,
           table: String(tab.tableName),
           column: String(column),
           limit
@@ -950,6 +993,7 @@ export const useDatabaseWorkspaceStore = defineStore('databaseWorkspace', {
         const result = await api.dbAssetDetectPrimaryKey({
           id: String(tab.assetId),
           database: String(tab.databaseName),
+          schema: tab.schemaName ? String(tab.schemaName) : undefined,
           table: String(tab.tableName)
         })
         // eslint-disable-next-line no-console
@@ -1175,6 +1219,7 @@ export const useDatabaseWorkspaceStore = defineStore('databaseWorkspace', {
       return buildMutations({
         dbType,
         database: tab.databaseName,
+        schema: tab.schemaName,
         table: tab.tableName,
         primaryKey: tab.primaryKey ?? null,
         newRows: dirty.newRows,
@@ -1217,6 +1262,7 @@ export const useDatabaseWorkspaceStore = defineStore('databaseWorkspace', {
         const result = await api.dbAssetExecuteMutations({
           id: String(tab.assetId),
           database: String(tab.databaseName),
+          schema: tab.schemaName ? String(tab.schemaName) : undefined,
           statements
         })
         if (result.ok) {
@@ -1468,14 +1514,14 @@ export const useDatabaseWorkspaceStore = defineStore('databaseWorkspace', {
       if (result.ok) {
         this.connectionStatuses = { ...this.connectionStatuses, [assetId]: 'idle' }
         // Remove loaded schema children so reconnect reloads a fresh tree.
-        const connNode = this.tree.flatMap((g) => g.children ?? []).find((c) => c.meta && (c.meta as { assetId?: string }).assetId === assetId)
+        const connNode = findConnectionByAssetId(this.tree, assetId)
         if (connNode) connNode.children = []
       }
     },
     async loadConnectedTree(assetId: string) {
       const api = getApi()
       if (!api?.dbAssetListChildren) return
-      const connNode = this.tree.flatMap((g) => g.children ?? []).find((c) => c.meta && (c.meta as { assetId?: string }).assetId === assetId)
+      const connNode = findConnectionByAssetId(this.tree, assetId)
       if (!connNode) return
       const dbResult = await api.dbAssetListChildren({ id: assetId })
       if (!dbResult.ok) {
@@ -1496,10 +1542,46 @@ export const useDatabaseWorkspaceStore = defineStore('databaseWorkspace', {
     async loadDatabaseTables(assetId: string, databaseName: string) {
       const api = getApi()
       if (!api?.dbAssetListChildren) return
-      const connNode = this.tree.flatMap((g) => g.children ?? []).find((c) => c.meta && (c.meta as { assetId?: string }).assetId === assetId)
+      const connNode = findConnectionByAssetId(this.tree, assetId)
       if (!connNode) return
       const dbNode = (connNode.children ?? []).find((d) => d.name === databaseName)
       if (!dbNode) return
+
+      // Postgres: databases contain schemas; each schema exposes four object
+      // folders (tables/views/functions/procedures). MySQL has no schema
+      // layer, so it stays on the legacy database -> tables path below.
+      const dbType = (connNode.meta as { dbType?: string } | undefined)?.dbType
+      if (dbType === 'postgresql' && api?.dbAssetListSchemas) {
+        const schemaResult = await api.dbAssetListSchemas({ id: assetId, databaseName })
+        if (!schemaResult.ok) {
+          this.lastError = schemaResult.errorMessage ?? null
+          return
+        }
+        const kinds: Array<'tables' | 'views' | 'functions' | 'procedures'> = ['tables', 'views', 'functions', 'procedures']
+        dbNode.children = (schemaResult.schemas ?? []).map((schema) => {
+          const schemaNodeId = `schema-${assetId}-${databaseName}-${schema.name}`
+          return {
+            id: schemaNodeId,
+            type: 'schema' as const,
+            name: schema.name,
+            parentId: dbNode.id,
+            expanded: false,
+            children: kinds.map((kind) => ({
+              id: `${schemaNodeId}-${kind}`,
+              type: 'folder' as const,
+              name: kind,
+              parentId: schemaNodeId,
+              expanded: false,
+              children: [],
+              meta: { assetId, databaseName, schemaName: schema.name, objectKind: kind, loaded: false }
+            })),
+            meta: { assetId, databaseName, schemaName: schema.name, isSystem: schema.isSystem }
+          }
+        })
+        dbNode.expanded = true
+        return
+      }
+
       const result = await api.dbAssetListChildren({ id: assetId, databaseName })
       if (!result.ok) {
         this.lastError = result.errorMessage ?? null
@@ -1527,6 +1609,60 @@ export const useDatabaseWorkspaceStore = defineStore('databaseWorkspace', {
       dbNode.expanded = true
     },
     /**
+     * Lazy-load objects (tables/views/functions/procedures) for a PG schema
+     * folder on first expand. The folder node's meta carries the asset id,
+     * database name, schema name, and object kind.
+     */
+    async loadSchemaObjects(folderNodeId: string) {
+      const folderNode = findNode(this.tree, folderNodeId)
+      if (!folderNode || folderNode.type !== 'folder') return
+      const meta = folderNode.meta as
+        | {
+            assetId?: string
+            databaseName?: string
+            schemaName?: string
+            objectKind?: 'tables' | 'views' | 'functions' | 'procedures'
+            loaded?: boolean
+          }
+        | undefined
+      if (!meta?.assetId || !meta.databaseName || !meta.schemaName || !meta.objectKind) return
+      if (meta.loaded) return
+      const api = getApi()
+      if (!api?.dbAssetListChildren) return
+      const result = await api.dbAssetListChildren({
+        id: meta.assetId,
+        databaseName: meta.databaseName,
+        schemaName: meta.schemaName,
+        objectKind: meta.objectKind
+      })
+      if (!result.ok) {
+        this.lastError = result.errorMessage ?? null
+        return
+      }
+      const names = result.objects ?? []
+      if (meta.objectKind === 'tables' || meta.objectKind === 'views') {
+        folderNode.children = names.map((t) => ({
+          id: `${folderNode.id}-${t}`,
+          type: 'table' as const,
+          name: t,
+          parentId: folderNode.id,
+          expanded: false,
+          children: [],
+          meta: { assetId: meta.assetId, databaseName: meta.databaseName, schemaName: meta.schemaName }
+        }))
+      } else {
+        // Functions/procedures are rendered as leaf nodes with no children.
+        folderNode.children = names.map((n) => ({
+          id: `${folderNode.id}-${n}`,
+          type: 'column' as const,
+          name: n,
+          parentId: folderNode.id,
+          meta: { assetId: meta.assetId, databaseName: meta.databaseName, schemaName: meta.schemaName, kind: meta.objectKind }
+        }))
+      }
+      folderNode.meta = { ...meta, loaded: true }
+    },
+    /**
      * Lazy-load columns for a table node on first expand. Columns are
      * rendered as flat leaves directly under the table. The meta on the
      * table node (populated when the table was built in loadDatabaseTables)
@@ -1535,7 +1671,7 @@ export const useDatabaseWorkspaceStore = defineStore('databaseWorkspace', {
     async loadTableColumns(tableNodeId: string) {
       const tableNode = findNode(this.tree, tableNodeId)
       if (!tableNode || tableNode.type !== 'table') return
-      const meta = tableNode.meta as { assetId?: string; databaseName?: string } | undefined
+      const meta = tableNode.meta as { assetId?: string; databaseName?: string; schemaName?: string } | undefined
       const assetId = meta?.assetId
       const databaseName = meta?.databaseName
       if (!assetId || !databaseName) return
@@ -1544,6 +1680,7 @@ export const useDatabaseWorkspaceStore = defineStore('databaseWorkspace', {
       const result = await api.dbAssetListChildren({
         id: assetId,
         databaseName,
+        schemaName: meta?.schemaName,
         tableName: tableNode.name
       })
       if (!result.ok) {

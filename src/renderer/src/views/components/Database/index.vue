@@ -221,11 +221,22 @@ const handleToggle = async (id: string) => {
 
   // Lazy-load tables on first expand of a database node.
   if (node.type === 'database' && !node.expanded) {
-    const alreadyLoaded = (node.children ?? []).some((c) => c.type === 'folder')
+    const alreadyLoaded = (node.children ?? []).some((c) => c.type === 'folder' || c.type === 'schema')
     if (!alreadyLoaded) {
       const connection = findNode(store.tree, node.parentId ?? '')
       const assetId = connection ? assetIdOf(connection) : null
       if (assetId) await store.loadDatabaseTables(assetId, node.name)
+    }
+  }
+
+  // Lazy-load schema-scoped objects (tables/views/functions/procedures) on
+  // first expand of a PG schema object-kind folder. Folders outside a PG
+  // schema (e.g. the legacy MySQL "tables" folder) have no objectKind meta
+  // and fall through unchanged.
+  if (node.type === 'folder' && !node.expanded) {
+    const meta = node.meta as { objectKind?: string; loaded?: boolean } | undefined
+    if (meta?.objectKind && !meta.loaded) {
+      await store.loadSchemaObjects(node.id)
     }
   }
 

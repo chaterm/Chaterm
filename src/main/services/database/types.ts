@@ -31,19 +31,47 @@ export interface RuntimeDbConnection {
   connectedAt: string
 }
 
+/**
+ * Kinds of schema-scoped objects a driver may enumerate. PG supports all
+ * four; MySQL uses only 'tables'/'views' and ignores schemaName.
+ */
+export type DbObjectKind = 'tables' | 'views' | 'functions' | 'procedures'
+
+/**
+ * A PG schema entry. isSystem flags pg_catalog / information_schema so the
+ * renderer can sort or style them differently. MySQL drivers do not emit
+ * schema rows.
+ */
+export interface DbSchemaInfo {
+  name: string
+  isSystem: boolean
+}
+
 export interface DatabaseDriverAdapter {
   testConnection(input: ResolvedDbCredential): Promise<ConnectionTestResult>
   connect(input: ResolvedDbCredential): Promise<unknown>
   disconnect(handle: unknown): Promise<void>
   listDatabases?(handle: unknown): Promise<string[]>
-  listTables?(handle: unknown, databaseName: string): Promise<string[]>
-  listColumns?(handle: unknown, databaseName: string, tableName: string): Promise<string[]>
+  /**
+   * List schemas within a database. Only engines with a schema layer
+   * (Postgres) implement this; MySQL adapters leave it undefined and the
+   * renderer falls back to the legacy database -> tables tree.
+   */
+  listSchemas?(handle: unknown, databaseName: string): Promise<DbSchemaInfo[]>
+  listTables?(handle: unknown, databaseName: string, schemaName?: string): Promise<string[]>
+  /**
+   * Enumerate schema-scoped objects by kind. PG-only; MySQL returns [] for
+   * kinds other than 'tables'/'views'.
+   */
+  listObjects?(handle: unknown, databaseName: string, schemaName: string, kind: DbObjectKind): Promise<string[]>
+  listColumns?(handle: unknown, databaseName: string, tableName: string, schemaName?: string): Promise<string[]>
   executeQuery?(handle: unknown, sql: string, params?: unknown[]): Promise<QueryResult>
   /**
    * Detect the primary-key column(s) of a table. Returns the ordered column
    * names (by ordinal_position) or null when no primary key is defined.
+   * schemaName is PG-only; MySQL drivers ignore it.
    */
-  detectPrimaryKey?(handle: unknown, databaseName: string, tableName: string): Promise<string[] | null>
+  detectPrimaryKey?(handle: unknown, databaseName: string, tableName: string, schemaName?: string): Promise<string[] | null>
   /** Begin a SQL transaction on the given handle. */
   beginTransaction?(handle: unknown): Promise<void>
   /** Commit the current SQL transaction on the given handle. */

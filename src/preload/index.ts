@@ -418,9 +418,23 @@ const dbAssetDisconnect = async (id: string) => {
   }
 }
 
-const dbAssetListChildren = async (payload: { id: string; databaseName?: string; tableName?: string }) => {
+const dbAssetListChildren = async (payload: {
+  id: string
+  databaseName?: string
+  schemaName?: string
+  objectKind?: 'tables' | 'views' | 'functions' | 'procedures'
+  tableName?: string
+}) => {
   try {
     return await ipcRenderer.invoke('db-asset-list-children', payload)
+  } catch (error) {
+    return Promise.reject(error)
+  }
+}
+
+const dbAssetListSchemas = async (payload: { id: string; databaseName: string }) => {
+  try {
+    return await ipcRenderer.invoke('db-asset-list-schemas', payload)
   } catch (error) {
     return Promise.reject(error)
   }
@@ -437,6 +451,7 @@ const dbAssetExecuteQuery = async (payload: { id: string; sql: string; databaseN
 const dbAssetQueryTable = async (payload: {
   id: string
   database: string
+  schema?: string
   table: string
   filters?: Array<{ column: string; operator: string; value?: string; values?: string[] }>
   sort?: { column: string; direction: 'asc' | 'desc' } | null
@@ -456,6 +471,7 @@ const dbAssetQueryTable = async (payload: {
 const dbAssetCountTable = async (payload: {
   id: string
   database: string
+  schema?: string
   table: string
   filters?: Array<{ column: string; operator: string; value?: string; values?: string[] }>
   whereRaw?: string | null
@@ -467,7 +483,7 @@ const dbAssetCountTable = async (payload: {
   }
 }
 
-const dbAssetColumnDistinct = async (payload: { id: string; database: string; table: string; column: string; limit?: number }) => {
+const dbAssetColumnDistinct = async (payload: { id: string; database: string; schema?: string; table: string; column: string; limit?: number }) => {
   try {
     return await ipcRenderer.invoke('db-asset-column-distinct', payload)
   } catch (error) {
@@ -475,7 +491,7 @@ const dbAssetColumnDistinct = async (payload: { id: string; database: string; ta
   }
 }
 
-const dbAssetDetectPrimaryKey = async (payload: { id: string; database: string; table: string }) => {
+const dbAssetDetectPrimaryKey = async (payload: { id: string; database: string; schema?: string; table: string }) => {
   try {
     return await ipcRenderer.invoke('db-asset:detect-primary-key', payload)
   } catch (error) {
@@ -483,7 +499,12 @@ const dbAssetDetectPrimaryKey = async (payload: { id: string; database: string; 
   }
 }
 
-const dbAssetExecuteMutations = async (payload: { id: string; database?: string; statements: Array<{ sql: string; params: unknown[] }> }) => {
+const dbAssetExecuteMutations = async (payload: {
+  id: string
+  database?: string
+  schema?: string
+  statements: Array<{ sql: string; params: unknown[] }>
+}) => {
   try {
     return await ipcRenderer.invoke('db-asset:execute-mutations', payload)
   } catch (error) {
@@ -828,6 +849,7 @@ const api = {
   dbAssetConnect,
   dbAssetDisconnect,
   dbAssetListChildren,
+  dbAssetListSchemas,
   dbAssetExecuteQuery,
   dbAssetQueryTable,
   dbAssetCountTable,

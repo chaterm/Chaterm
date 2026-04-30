@@ -1,4 +1,4 @@
-export type DatabaseTreeNodeType = 'group' | 'connection' | 'database' | 'folder' | 'table' | 'column'
+export type DatabaseTreeNodeType = 'group' | 'connection' | 'database' | 'schema' | 'folder' | 'table' | 'column'
 
 export interface DatabaseTreeNode {
   id: string
@@ -92,6 +92,8 @@ export interface DatabaseWorkspaceTab {
   connectionId?: string
   assetId?: string
   databaseName?: string
+  /** Schema the table lives in (Postgres only). Undefined for MySQL tabs. */
+  schemaName?: string
   tableName?: string
   sql: string
   resultColumns: string[]

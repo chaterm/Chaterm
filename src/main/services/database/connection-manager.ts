@@ -6,6 +6,8 @@ import type { DbAssetRecord, DbAssetType } from '../../storage/db/chaterm/db-ass
 import type {
   ConnectionTestResult,
   DatabaseDriverAdapter,
+  DbObjectKind,
+  DbSchemaInfo,
   MutationBatchResult,
   MutationStatement,
   QueryResult,
@@ -156,20 +158,40 @@ export class ConnectionManager {
     return adapter.listDatabases(session.handle)
   }
 
-  async listTables(assetId: string, databaseName: string): Promise<string[]> {
+  async listTables(assetId: string, databaseName: string, schemaName?: string): Promise<string[]> {
     const session = this.sessions.get(assetId)
     if (!session) throw new Error('not connected')
     const adapter = this.adapterFor(session.dbType)
     if (!adapter.listTables) return []
-    return adapter.listTables(session.handle, databaseName)
+    return adapter.listTables(session.handle, databaseName, schemaName)
   }
 
-  async listColumns(assetId: string, databaseName: string, tableName: string): Promise<string[]> {
+  /**
+   * List schemas for PG connections. MySQL adapters do not implement
+   * listSchemas; returns [] so callers can branch on emptiness.
+   */
+  async listSchemas(assetId: string, databaseName: string): Promise<DbSchemaInfo[]> {
+    const session = this.sessions.get(assetId)
+    if (!session) throw new Error('not connected')
+    const adapter = this.adapterFor(session.dbType)
+    if (!adapter.listSchemas) return []
+    return adapter.listSchemas(session.handle, databaseName)
+  }
+
+  async listObjects(assetId: string, databaseName: string, schemaName: string, kind: DbObjectKind): Promise<string[]> {
+    const session = this.sessions.get(assetId)
+    if (!session) throw new Error('not connected')
+    const adapter = this.adapterFor(session.dbType)
+    if (!adapter.listObjects) return []
+    return adapter.listObjects(session.handle, databaseName, schemaName, kind)
+  }
+
+  async listColumns(assetId: string, databaseName: string, tableName: string, schemaName?: string): Promise<string[]> {
     const session = this.sessions.get(assetId)
     if (!session) throw new Error('not connected')
     const adapter = this.adapterFor(session.dbType)
     if (!adapter.listColumns) return []
-    return adapter.listColumns(session.handle, databaseName, tableName)
+    return adapter.listColumns(session.handle, databaseName, tableName, schemaName)
   }
 
   async executeQuery(assetId: string, sql: string, params: unknown[] = []): Promise<QueryResult> {
@@ -183,13 +205,14 @@ export class ConnectionManager {
   /**
    * Ask the adapter for the primary-key columns of a table. Returns null
    * when the table has no PK or when the adapter does not support detection.
+   * schemaName is PG-only; MySQL adapters ignore it.
    */
-  async detectPrimaryKey(assetId: string, databaseName: string, tableName: string): Promise<string[] | null> {
+  async detectPrimaryKey(assetId: string, databaseName: string, tableName: string, schemaName?: string): Promise<string[] | null> {
     const session = this.sessions.get(assetId)
     if (!session) throw new Error('not connected')
     const adapter = this.adapterFor(session.dbType)
     if (!adapter.detectPrimaryKey) return null
-    return adapter.detectPrimaryKey(session.handle, databaseName, tableName)
+    return adapter.detectPrimaryKey(session.handle, databaseName, tableName, schemaName)
   }
 
   /**

@@ -114,6 +114,7 @@
 <script setup lang="ts">
 import { computed, nextTick, ref, watch } from 'vue'
 import {
+  ApartmentOutlined,
   DatabaseOutlined,
   DisconnectOutlined,
   DownOutlined,
@@ -190,7 +191,13 @@ const hasChildren = computed(() => !!props.node.children && props.node.children.
  */
 const canExpand = computed(() => {
   if (hasChildren.value) return true
-  return props.node.type === 'database' || props.node.type === 'connection' || props.node.type === 'table'
+  return (
+    props.node.type === 'database' ||
+    props.node.type === 'connection' ||
+    props.node.type === 'table' ||
+    props.node.type === 'schema' ||
+    props.node.type === 'folder'
+  )
 })
 
 const assetId = computed(() => {
@@ -220,6 +227,8 @@ const iconComponent = computed(() => {
       return LinkOutlined
     case 'database':
       return DatabaseOutlined
+    case 'schema':
+      return ApartmentOutlined
     case 'folder':
       return props.node.expanded ? FolderOpenOutlined : FolderOutlined
     case 'table':
