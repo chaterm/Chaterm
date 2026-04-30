@@ -380,6 +380,7 @@ interface DatabaseWorkspaceState {
   selectedNodeId: string | null
   searchKeyword: string
   connectionModalVisible: boolean
+  connectionModalMode: 'create' | 'edit'
   connectionDraft: DatabaseConnectionDraft | null
   connectionStatuses: Record<string, DbAssetDtoLike['status']>
   loading: boolean
@@ -399,6 +400,7 @@ export const useDatabaseWorkspaceStore = defineStore('databaseWorkspace', {
     selectedNodeId: null,
     searchKeyword: '',
     connectionModalVisible: false,
+    connectionModalMode: 'create',
     connectionDraft: null,
     connectionStatuses: {},
     loading: false,
@@ -1330,6 +1332,7 @@ export const useDatabaseWorkspaceStore = defineStore('databaseWorkspace', {
       }
     },
     openConnectionModal(draft?: Partial<DatabaseConnectionDraft>) {
+      this.connectionModalMode = 'create'
       this.connectionModalVisible = true
       this.lastTestResult = null
       // Default port follows the chosen dbType so users don't have to change
@@ -1353,8 +1356,40 @@ export const useDatabaseWorkspaceStore = defineStore('databaseWorkspace', {
         sslMode: draft?.sslMode
       }
     },
+    /**
+     * Populate the connection modal in edit mode with fields from an existing
+     * asset. The draft's `id` is the real asset id (not a synthesized
+     * `conn-*`) so `saveConnection` can address the correct row via
+     * `dbAssetUpdate`. The password is intentionally left blank so save
+     * paths can distinguish "keep existing password" (blank) from "set a new
+     * password" (non-empty).
+     */
+    openEditConnectionModal(assetId: string) {
+      const asset = this.assets.find((a) => a.id === assetId)
+      if (!asset) return
+      const draft: DatabaseConnectionDraft = {
+        id: asset.id,
+        name: asset.name,
+        groupId: asset.group_id ?? undefined,
+        env: asset.environment ?? 'Development',
+        dbType: asset.db_type === 'mysql' ? 'MySQL' : 'PostgreSQL',
+        host: asset.host,
+        port: asset.port,
+        authentication: 'UserAndPassword',
+        user: asset.username ?? '',
+        password: '',
+        database: asset.database_name ?? '',
+        url: '',
+        sslMode: asset.ssl_mode ?? undefined
+      }
+      this.connectionDraft = draft
+      this.connectionModalVisible = true
+      this.connectionModalMode = 'edit'
+      this.lastTestResult = null
+    },
     closeConnectionModal() {
       this.connectionModalVisible = false
+      this.connectionModalMode = 'create'
       this.connectionDraft = null
       this.lastTestResult = null
     },
@@ -1406,9 +1441,50 @@ export const useDatabaseWorkspaceStore = defineStore('databaseWorkspace', {
      * Save the current draft. If the main-process API is available, persist
      * through it and refresh the tree. Otherwise fall back to adding a local
      * mock node so renderer-only tests and demos still work.
+     *
+     * In edit mode the draft's id points at the real asset; we dispatch an
+     * update via `dbAssetUpdate` and omit the password field when the user
+     * left it blank so the stored credential is preserved.
      */
     async saveConnection(draft: DatabaseConnectionDraft) {
       const api = getApi()
+      if (this.connectionModalMode === 'edit') {
+        if (api?.dbAssetUpdate) {
+          const patch = this.draftToPayload(draft) as Record<string, unknown>
+          // Blank password means "do not change" — strip it from the patch so
+          // the backend retains the existing credential.
+          if (!draft.password) {
+            delete patch.password
+          }
+          const result = await api.dbAssetUpdate({ id: draft.id, patch })
+          if (!result.ok) {
+            this.lastError = result.errorMessage ?? 'update failed'
+            return cloneDraft(draft)
+          }
+          await this.loadAssetsFromBackend()
+          this.connectionModalVisible = false
+          this.connectionModalMode = 'create'
+          this.connectionDraft = null
+          return cloneDraft(draft)
+        }
+        // Fallback when the IPC is unavailable: patch the in-memory tree
+        // node so renderer-only tests see the update.
+        const connNode = findConnectionByAssetId(this.tree, draft.id)
+        if (connNode) {
+          connNode.name = draft.name || connNode.name
+          connNode.meta = {
+            ...(connNode.meta ?? {}),
+            dbType: draft.dbType === 'MySQL' ? 'mysql' : 'postgresql',
+            host: draft.host,
+            port: draft.port,
+            username: draft.user
+          }
+        }
+        this.connectionModalVisible = false
+        this.connectionModalMode = 'create'
+        this.connectionDraft = null
+        return cloneDraft(draft)
+      }
       if (api?.dbAssetCreate) {
         const result = await api.dbAssetCreate(this.draftToPayload(draft))
         if (!result.ok) {
@@ -1417,6 +1493,7 @@ export const useDatabaseWorkspaceStore = defineStore('databaseWorkspace', {
         }
         await this.loadAssetsFromBackend()
         this.connectionModalVisible = false
+        this.connectionModalMode = 'create'
         this.connectionDraft = null
         return cloneDraft(draft)
       }
@@ -1438,6 +1515,7 @@ export const useDatabaseWorkspaceStore = defineStore('databaseWorkspace', {
         this.tree = [...this.tree, node]
       }
       this.connectionModalVisible = false
+      this.connectionModalMode = 'create'
       this.connectionDraft = null
       return cloneDraft(draft)
     },
@@ -1733,27 +1811,6 @@ export const useDatabaseWorkspaceStore = defineStore('databaseWorkspace', {
       if (!result?.ok) return { ok: false, errorMessage: result?.errorMessage ?? 'execute failed' }
       await this.refreshConnectionChildren(connectionId)
       return { ok: true }
-    },
-
-    /**
-     * Serialize a compact, non-secret subset of the asset's fields as JSON.
-     * Deliberately excludes username / password / hasPassword so the output
-     * is safe to place on the system clipboard.
-     */
-    copyDataSource(connectionId: string): string {
-      const a = this.assets.find((x) => x.id === connectionId)
-      if (!a) return ''
-      const payload = {
-        name: a.name,
-        db_type: a.db_type,
-        host: a.host,
-        port: a.port,
-        database_name: a.database_name ?? null,
-        schema_name: a.schema_name ?? null,
-        environment: a.environment ?? null,
-        ssl_mode: a.ssl_mode ?? null
-      }
-      return JSON.stringify(payload, null, 2)
     },
 
     /**

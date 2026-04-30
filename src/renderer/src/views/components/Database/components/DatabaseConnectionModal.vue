@@ -28,7 +28,9 @@
               width="40"
               height="40"
             />
-            <div class="db-conn-panel__header-title">{{ typeOption?.name ?? draft.dbType }}</div>
+            <div class="db-conn-panel__header-title">{{
+              props.mode === 'edit' ? $t('database.editConnection') : (typeOption?.name ?? draft.dbType)
+            }}</div>
           </header>
 
           <div class="db-conn-panel__body">
@@ -150,6 +152,7 @@
                   class="db-conn-input db-conn-password__input"
                   :type="passwordVisible ? 'text' : 'password'"
                   :value="draft.password"
+                  :placeholder="props.mode === 'edit' ? $t('database.editPasswordPlaceholder') : ''"
                   autocomplete="new-password"
                   @input="onInput('password', $event)"
                 />
@@ -338,6 +341,7 @@ const props = defineProps<{
   draft: DatabaseConnectionDraft | null
   groups?: Array<{ id: string; name: string }>
   lastTestResult?: { ok: boolean; message: string } | null
+  mode?: 'create' | 'edit'
 }>()
 
 const emit = defineEmits<{

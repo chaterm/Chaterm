@@ -56,6 +56,7 @@ vi.mock('@ant-design/icons-vue', () => {
     PauseCircleOutlined: make('PauseCircleOutlined'),
     PlayCircleOutlined: make('PlayCircleOutlined'),
     PlusOutlined: make('PlusOutlined'),
+    ReloadOutlined: make('ReloadOutlined'),
     RightOutlined: make('RightOutlined'),
     SaveOutlined: make('SaveOutlined'),
     SearchOutlined: make('SearchOutlined'),

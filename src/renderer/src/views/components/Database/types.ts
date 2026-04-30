@@ -173,7 +173,6 @@ export type ConnectionMenuAction =
   | 'queryConsole'
   | 'createDatabase'
   | 'editorSource'
-  | 'copyDataSource'
   | 'copyName'
   | 'moveTo'
   | 'refresh'

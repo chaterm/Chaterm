@@ -9,6 +9,7 @@ vi.mock('@ant-design/icons-vue', () => {
   })
   return {
     PlusOutlined: make('PlusOutlined'),
+    ReloadOutlined: make('ReloadOutlined'),
     SearchOutlined: make('SearchOutlined')
   }
 })
@@ -19,13 +20,18 @@ vi.mock('vue-i18n', () => ({
   })
 }))
 
-// Stubs for Ant Design Vue components used by DatabaseSidebar. The defaults
-// (dropdown / sub-menu / tooltip) teleport overlays to document.body and
-// hide slots that our test selectors need, so we flatten them here into
-// plain divs that render their default (and, for dropdowns, overlay) slots
-// inline. `a-menu-item` is a div carrying a @click handler so we can find
-// items by the same `db-sidebar__*` class hooks the component assigns.
+// Stubs for Ant Design Vue components used by DatabaseSidebar. The Sidebar
+// now renders group / add / connection context menus as raw <Teleport to="body">
+// blocks, not through a-dropdown overlays. We still stub a-tooltip /a-input
+// and keep the remaining ant stubs (a-menu*/a-sub-menu/a-dropdown) as
+// flat divs so any residual usage (e.g. DbTypeMenuItems in variant="plain"
+// still uses a-tooltip for disabled items) renders inline.
+//
+// `teleport: true` flattens <Teleport> targets into the component tree so
+// wrapper.find() can reach the menu overlays that the real component moves
+// to document.body.
 const antStubs = {
+  teleport: true,
   'a-dropdown': {
     inheritAttrs: false,
     template: '<div class="a-dropdown" :data-overlay-class-name="$attrs[\'overlay-class-name\']"><slot /><slot name="overlay" /></div>'
@@ -96,12 +102,18 @@ describe('DatabaseSidebar', () => {
       }
     })
 
+    // Open group context menu by emitting from the stubbed tree, then hover
+    // the "new connection" submenu trigger to expose the DB type options.
     await wrapper.find('.tree-trigger').trigger('click')
+    await wrapper.find('.db-sidebar__group-submenu-trigger--connection').trigger('mouseenter')
     await wrapper.find('.db-sidebar__context-db-type-option--postgresql').trigger('click')
 
     expect(wrapper.emitted('add-connection-to-group')).toEqual([['PostgreSQL', 'group-child']])
 
+    // The context menu closes after selecting a DB type. Reopen it and hover
+    // the "move to" submenu trigger to reveal the root group target.
     await wrapper.find('.tree-trigger').trigger('click')
+    await wrapper.find('.db-sidebar__group-submenu-trigger--move').trigger('mouseenter')
     await wrapper.find('.db-sidebar__move-target--root').trigger('click')
 
     expect(wrapper.emitted('move-group')).toEqual([['group-child', null]])
@@ -138,8 +150,11 @@ describe('DatabaseSidebar', () => {
     })
 
     await wrapper.find('.tree-trigger').trigger('click')
+    // Hover the "new connection" submenu trigger to render the DB type list.
+    await wrapper.find('.db-sidebar__group-submenu-trigger--connection').trigger('mouseenter')
     // Oracle is disabled in DATABASE_TYPE_OPTIONS; clicking the disabled
-    // a-menu-item must not produce an add-connection-to-group emission.
+    // option (rendered as a plain <li>, not an a-menu-item, under the
+    // variant="plain" DbTypeMenuItems) must not emit anything.
     const oracleItem = wrapper.find('.db-sidebar__context-db-type-option--oracle')
     expect(oracleItem.exists()).toBe(true)
     await oracleItem.trigger('click')
@@ -148,7 +163,7 @@ describe('DatabaseSidebar', () => {
     expect(wrapper.emitted('add-connection')).toBeUndefined()
   })
 
-  it('applies the dedicated submenu popup class to add and context menus', () => {
+  it('applies the dedicated submenu overlay class to add and context menus', async () => {
     const wrapper = mount(DatabaseSidebar, {
       props: {
         nodes: [
@@ -167,7 +182,9 @@ describe('DatabaseSidebar', () => {
         stubs: {
           ...antStubs,
           DatabaseTree: {
-            template: '<div class="tree-stub" />'
+            emits: ['group-context'],
+            template:
+              "<button class=\"tree-trigger\" @click=\"$emit('group-context', { id: 'group-child', name: 'Child', x: 10, y: 20 })\">tree</button>"
           }
         },
         mocks: {
@@ -176,10 +193,26 @@ describe('DatabaseSidebar', () => {
       }
     })
 
-    expect(wrapper.find('.a-dropdown').attributes('data-overlay-class-name')).toBe('db-sidebar__menu-overlay')
+    // Open the "+" add menu; it teleports to body but the teleport: true stub
+    // renders it inline. Both the outer panel and the nested connection
+    // sub-panel must carry the shared overlay skin class.
+    await wrapper.find('.db-sidebar__add-btn').trigger('click')
+    const addMenuRoots = wrapper.findAll('.db-sidebar__group-menu')
+    expect(addMenuRoots.length).toBeGreaterThan(0)
+    for (const root of addMenuRoots) {
+      expect(root.classes()).toContain('db-sidebar__menu-overlay')
+    }
 
-    const popupClassNames = wrapper.findAll('.a-sub-menu').map((node) => node.attributes('data-popup-class-name'))
+    // Open the group context menu via the stubbed tree trigger.
+    await wrapper.find('.tree-trigger').trigger('click')
 
-    expect(popupClassNames).toContain('db-sidebar__menu-overlay db-sidebar__submenu-overlay')
+    // Every rendered sub-popup (the per-menu <div v-show="activeSubmenu …">
+    // blocks) must advertise the overlay + sub-popup class pair.
+    const subPopups = wrapper.findAll('.db-sidebar__ctx-subpopup')
+    expect(subPopups.length).toBeGreaterThan(0)
+    for (const popup of subPopups) {
+      expect(popup.classes()).toContain('db-sidebar__menu-overlay')
+      expect(popup.classes()).toContain('db-sidebar__ctx-subpopup')
+    }
   })
 })

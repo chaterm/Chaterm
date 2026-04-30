@@ -765,31 +765,6 @@ describe('connection-menu actions', () => {
     expect(refreshSpy).not.toHaveBeenCalled()
   })
 
-  it('copyDataSource returns a JSON string with only non-secret fields', () => {
-    const store = useDatabaseWorkspaceStore()
-    store.applyAssets([], [baseAsset])
-    const out = store.copyDataSource('a1')
-    expect(out.length).toBeGreaterThan(0)
-    const parsed = JSON.parse(out)
-    expect(parsed).toMatchObject({
-      name: 'conn-1',
-      db_type: 'mysql',
-      host: '10.0.0.1',
-      port: 3306,
-      database_name: 'demo',
-      environment: 'Dev'
-    })
-    // No credentials whatsoever.
-    expect(Object.keys(parsed)).not.toContain('password')
-    expect(Object.keys(parsed)).not.toContain('username')
-    expect(Object.keys(parsed)).not.toContain('hasPassword')
-  })
-
-  it('copyDataSource returns empty string for unknown asset', () => {
-    const store = useDatabaseWorkspaceStore()
-    expect(store.copyDataSource('missing')).toBe('')
-  })
-
   it('copyConnectionName returns the asset name', () => {
     const store = useDatabaseWorkspaceStore()
     store.applyAssets([], [baseAsset])
@@ -917,5 +892,112 @@ describe('runSqlOnActiveTab — IPC resilience', () => {
     const tab = store.activeTab!
     expect(tab.resultTabs![0].status).toBe('error')
     expect(tab.resultTabs![0].error).toBe('boom-string')
+  })
+})
+
+describe('edit connection mode', () => {
+  // Shared fixture: a minimal asset suitable for edit-mode assertions.
+  const editAsset = {
+    id: 'asset-42',
+    name: 'prod-mysql',
+    group_id: 'g-1',
+    group_name: null,
+    db_type: 'mysql' as const,
+    host: '10.0.0.5',
+    port: 3307,
+    database_name: 'orders',
+    schema_name: null,
+    environment: 'Production',
+    ssl_mode: 'require',
+    username: 'app_user',
+    hasPassword: true,
+    status: 'idle' as const
+  }
+
+  let mockApi: {
+    dbAssetUpdate: ReturnType<typeof vi.fn>
+    dbAssetList: ReturnType<typeof vi.fn>
+    dbAssetGroupList: ReturnType<typeof vi.fn>
+    dbAssetCreate: ReturnType<typeof vi.fn>
+  }
+
+  beforeEach(() => {
+    setActivePinia(createPinia())
+    mockApi = {
+      dbAssetUpdate: vi.fn().mockResolvedValue({ ok: true }),
+      dbAssetList: vi.fn().mockResolvedValue([]),
+      dbAssetGroupList: vi.fn().mockResolvedValue([]),
+      dbAssetCreate: vi.fn().mockResolvedValue({ ok: true })
+    }
+    ;(window as unknown as { api: unknown }).api = mockApi
+  })
+
+  afterEach(() => {
+    ;(window as unknown as { api?: unknown }).api = undefined
+  })
+
+  it('openEditConnectionModal populates draft from asset', () => {
+    const store = useDatabaseWorkspaceStore()
+    store.applyAssets([], [editAsset])
+
+    store.openEditConnectionModal('asset-42')
+
+    expect(store.connectionModalVisible).toBe(true)
+    expect(store.connectionModalMode).toBe('edit')
+    const draft = store.connectionDraft
+    expect(draft).not.toBeNull()
+    expect(draft!.id).toBe('asset-42')
+    expect(draft!.name).toBe('prod-mysql')
+    expect(draft!.groupId).toBe('g-1')
+    expect(draft!.env).toBe('Production')
+    expect(draft!.dbType).toBe('MySQL')
+    expect(draft!.host).toBe('10.0.0.5')
+    expect(draft!.port).toBe(3307)
+    expect(draft!.authentication).toBe('UserAndPassword')
+    expect(draft!.user).toBe('app_user')
+    // Password must NOT be prefilled with any existing credential.
+    expect(draft!.password).toBe('')
+    expect(draft!.database).toBe('orders')
+    expect(draft!.sslMode).toBe('require')
+  })
+
+  it('saveConnection in edit mode calls dbAssetUpdate not dbAssetCreate', async () => {
+    const store = useDatabaseWorkspaceStore()
+    store.applyAssets([], [editAsset])
+    store.openEditConnectionModal('asset-42')
+    const draft = store.connectionDraft!
+    // Simulate the user typing a new password before saving.
+    store.updateConnectionDraft({ password: 'new-secret', host: '10.0.0.6' })
+
+    await store.saveConnection(store.connectionDraft!)
+
+    expect(mockApi.dbAssetUpdate).toHaveBeenCalledTimes(1)
+    expect(mockApi.dbAssetCreate).not.toHaveBeenCalled()
+    const call = mockApi.dbAssetUpdate.mock.calls[0][0]
+    expect(call.id).toBe('asset-42')
+    expect(call.patch).toMatchObject({
+      host: '10.0.0.6',
+      password: 'new-secret',
+      name: draft.name
+    })
+    // Modal should be closed and mode reset on success.
+    expect(store.connectionModalVisible).toBe(false)
+    expect(store.connectionModalMode).toBe('create')
+  })
+
+  it('saveConnection in edit mode omits password from patch when blank', async () => {
+    const store = useDatabaseWorkspaceStore()
+    store.applyAssets([], [editAsset])
+    store.openEditConnectionModal('asset-42')
+    // Leave password blank so the backend retains the stored credential.
+    store.updateConnectionDraft({ name: 'prod-mysql-renamed' })
+
+    await store.saveConnection(store.connectionDraft!)
+
+    expect(mockApi.dbAssetUpdate).toHaveBeenCalledTimes(1)
+    const call = mockApi.dbAssetUpdate.mock.calls[0][0]
+    expect(call.id).toBe('asset-42')
+    expect(call.patch.name).toBe('prod-mysql-renamed')
+    expect(Object.prototype.hasOwnProperty.call(call.patch, 'password')).toBe(false)
   })
 })

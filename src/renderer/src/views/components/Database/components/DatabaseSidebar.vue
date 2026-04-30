@@ -46,6 +46,7 @@
         @connect="(id) => emit('connect', id)"
         @disconnect="(id) => emit('disconnect', id)"
         @group-context="handleGroupContext"
+        @connection-context="handleConnectionContext"
         @commit-group-rename="(id, cur, next) => emit('commit-group-rename', id, cur, next)"
         @cancel-group-rename="() => emit('cancel-group-rename')"
       />
@@ -190,15 +191,118 @@
         </div>
       </div>
     </Teleport>
+    <Teleport to="body">
+      <div
+        v-if="connMenu"
+        ref="connMenuRef"
+        class="db-sidebar__group-menu db-sidebar__menu-overlay"
+        :style="{ left: `${connMenu.x}px`, top: `${connMenu.y}px` }"
+        @click.stop
+        @contextmenu.stop.prevent
+      >
+        <ul class="ant-dropdown-menu">
+          <li
+            class="ant-dropdown-menu-item"
+            @mouseenter="closeSubmenu"
+            @click="runConnAction(connIsConnected ? 'closeConnection' : 'openConnection')"
+          >
+            {{ connIsConnected ? t('database.connectionMenu.closeConnection') : t('database.connectionMenu.openConnection') }}
+          </li>
+          <li class="ant-dropdown-menu-item-divider" />
+          <li
+            :class="['ant-dropdown-menu-item', !connIsConnected && 'ant-dropdown-menu-item-disabled']"
+            @mouseenter="closeSubmenu"
+            @click="connIsConnected && runConnAction('queryConsole')"
+          >
+            {{ t('database.connectionMenu.queryConsole') }}
+          </li>
+          <li
+            :class="['ant-dropdown-menu-item', !connIsConnected && 'ant-dropdown-menu-item-disabled']"
+            @mouseenter="closeSubmenu"
+            @click="connIsConnected && runConnAction('createDatabase')"
+          >
+            {{ t('database.connectionMenu.createDatabase') }}
+          </li>
+          <li class="ant-dropdown-menu-item-divider" />
+          <li
+            class="ant-dropdown-menu-item"
+            @mouseenter="closeSubmenu"
+            @click="runConnAction('editorSource')"
+          >
+            {{ t('database.connectionMenu.editorSource') }}
+          </li>
+          <li
+            class="ant-dropdown-menu-item"
+            @mouseenter="closeSubmenu"
+            @click="runConnAction('copyName')"
+          >
+            {{ t('database.connectionMenu.copyName') }}
+          </li>
+          <li class="ant-dropdown-menu-item-divider" />
+          <li
+            class="ant-dropdown-menu-item db-sidebar__ctx-item--submenu"
+            @mouseenter="openSubmenu('connMove', $event)"
+          >
+            <span>{{ t('database.connectionMenu.moveTo') }}</span>
+            <span class="db-sidebar__ctx-arrow">›</span>
+          </li>
+          <li
+            class="ant-dropdown-menu-item"
+            @mouseenter="closeSubmenu"
+            @click="runConnAction('refresh')"
+          >
+            {{ t('database.connectionMenu.refresh') }}
+          </li>
+          <li class="ant-dropdown-menu-item-divider" />
+          <li
+            class="ant-dropdown-menu-item db-sidebar__group-menu-item--danger"
+            @mouseenter="closeSubmenu"
+            @click="runConnAction('remove')"
+          >
+            {{ t('database.connectionMenu.remove') }}
+          </li>
+        </ul>
+        <div
+          v-show="activeSubmenu === 'connMove'"
+          class="db-sidebar__menu-overlay db-sidebar__ctx-subpopup"
+          :style="{ top: `${submenuTop}px` }"
+          @mouseenter="openSubmenu('connMove')"
+        >
+          <ul class="ant-dropdown-menu">
+            <li
+              v-for="target in connMoveTargets"
+              :key="`cmv-${target.id ?? 'root'}`"
+              class="ant-dropdown-menu-item"
+              @click="runConnAction('moveTo', { targetGroupId: target.id })"
+            >
+              {{ target.id === null ? t('database.connectionMenu.moveToRoot') : target.label }}
+            </li>
+          </ul>
+        </div>
+      </div>
+    </Teleport>
+    <CreateDatabaseModal
+      v-if="createDbCtx"
+      :open="createDbOpen"
+      :connection-id="createDbCtx.connectionId"
+      :db-type="createDbCtx.dbType"
+      :connection-name="createDbCtx.connectionName"
+      @update:open="(v: boolean) => (createDbOpen = v)"
+      @created="() => createDbCtx && store.refreshConnectionChildren(createDbCtx.connectionId)"
+    />
   </div>
 </template>
 
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
+import { Modal, message } from 'ant-design-vue'
 import { PlusOutlined, ReloadOutlined, SearchOutlined } from '@ant-design/icons-vue'
 import DatabaseTree from './DatabaseTree.vue'
 import DbTypeMenuItems from './DbTypeMenuItems.vue'
+import CreateDatabaseModal from './CreateDatabaseModal.vue'
+import { useDatabaseWorkspaceStore } from '@/store/databaseWorkspaceStore'
+import { flattenGroupPaths } from '@/store/databaseWorkspaceStore.helpers'
 import type { DatabaseTreeNode, DatabaseType } from '../types'
 
 const DEFAULT_GROUP_ID = 'group-default'
@@ -231,7 +335,23 @@ const emit = defineEmits<{
   (e: 'connect', id: string): void
   (e: 'disconnect', id: string): void
   (e: 'refresh-connected'): void
+  (e: 'edit-connection', assetId: string): void
 }>()
+
+// Store wrapper used by the connection-menu code paths. Legacy unit tests in
+// __tests__/DatabaseSidebar.test.ts mount this component without installing
+// a Pinia instance; that was fine before this component grew a store
+// dependency. To avoid breaking those tests (they only exercise the group
+// menu, which never touches the store) we tolerate a missing Pinia here.
+// Real app code always runs with a real Pinia instance.
+type WorkspaceStore = ReturnType<typeof useDatabaseWorkspaceStore>
+let storeInstance: WorkspaceStore | null = null
+try {
+  storeInstance = useDatabaseWorkspaceStore()
+} catch {
+  storeInstance = null
+}
+const store = storeInstance as WorkspaceStore
 
 // Only group context menu needs manual positioning; main add menu is now
 // handled by a-dropdown.
@@ -250,7 +370,7 @@ const addBtnRef = ref<HTMLButtonElement | null>(null)
 // Manually controlled sub-panel inside the context menu. antd's a-sub-menu
 // does not reliably apply popup-class-name in a bare a-menu, so we render a
 // plain div panel and own the hover state ourselves.
-const activeSubmenu = ref<'connection' | 'move' | null>(null)
+const activeSubmenu = ref<'connection' | 'move' | 'connMove' | null>(null)
 // Vertical offset of the active sub-panel, measured against the context menu
 // outer container. Computed from the triggering <li>'s offsetTop on hover so
 // the sub-panel's top edge lines up with the parent item, not with the top of
@@ -270,7 +390,7 @@ function cancelSubmenuClose(): void {
   }
 }
 
-function openSubmenu(name: 'connection' | 'move', event?: MouseEvent): void {
+function openSubmenu(name: 'connection' | 'move' | 'connMove', event?: MouseEvent): void {
   cancelSubmenuClose()
   activeSubmenu.value = name
   const target = event?.currentTarget as HTMLElement | undefined
@@ -426,6 +546,137 @@ const handleContextDelete = (): void => {
   hideGroupMenu()
 }
 
+// --- Connection node context menu -----------------------------------------
+
+const connMenu = ref<{ nodeId: string; assetId: string; x: number; y: number } | null>(null)
+const connMenuRef = ref<HTMLElement | null>(null)
+const createDbOpen = ref(false)
+const createDbCtx = ref<{ connectionId: string; dbType: 'mysql' | 'postgresql'; connectionName: string } | null>(null)
+
+const connAsset = computed(() => (connMenu.value && store ? (store.assets.find((a) => a.id === connMenu.value!.assetId) ?? null) : null))
+const connIsConnected = computed(() => {
+  if (!connMenu.value || !store) return false
+  // connectionStatuses is the live source of truth (updated by connectAsset/
+  // disconnectAsset). assets[i].status only reflects what was loaded from the
+  // main process and lags behind until loadAssetsFromBackend() runs.
+  return store.connectionStatuses[connMenu.value.assetId] === 'connected'
+})
+const connMoveTargets = computed(() => {
+  if (!connAsset.value || !store) return []
+  const currentGroupId = connAsset.value.group_id ?? null
+  const flattened = flattenGroupPaths(
+    store.groups.map((g) => ({ id: g.id, name: g.name, parent_id: g.parent_id ?? null })),
+    null
+  )
+  // Filter out the entry whose id equals the current group id (both null/root
+  // and explicit group ids) so users don't see "move to current location".
+  return flattened.filter((t) => t.id !== currentGroupId)
+})
+
+const handleConnectionContext = (payload: { id: string; assetId: string; x: number; y: number }): void => {
+  hideAddMenu()
+  hideGroupMenu()
+  connMenu.value = { nodeId: payload.id, assetId: payload.assetId, x: payload.x, y: payload.y }
+  activeSubmenu.value = null
+}
+
+const closeConnMenu = (): void => {
+  connMenu.value = null
+  activeSubmenu.value = null
+}
+
+/**
+ * Copy text to the system clipboard. Falls back to a hidden textarea +
+ * document.execCommand('copy') when the async Clipboard API is unavailable
+ * (older Electron contexts or non-secure origins).
+ */
+const copyToClipboard = async (value: string): Promise<void> => {
+  const nav = globalThis.navigator as Navigator | undefined
+  if (nav?.clipboard?.writeText) {
+    await nav.clipboard.writeText(value)
+    return
+  }
+  const ta = document.createElement('textarea')
+  ta.value = value
+  ta.style.position = 'fixed'
+  ta.style.opacity = '0'
+  document.body.appendChild(ta)
+  ta.focus()
+  ta.select()
+  try {
+    document.execCommand('copy')
+  } finally {
+    document.body.removeChild(ta)
+  }
+}
+
+const runConnAction = async (action: string, payload?: { targetGroupId?: string | null }): Promise<void> => {
+  if (!connMenu.value) return
+  const id = connMenu.value.assetId
+  const asset = store.assets.find((a) => a.id === id)
+  if (!asset) {
+    closeConnMenu()
+    return
+  }
+  // Capture locals before closing the menu so state stays stable for the
+  // rest of this handler.
+  const assetName = asset.name
+  const assetDbType = asset.db_type
+  closeConnMenu()
+
+  switch (action) {
+    case 'openConnection': {
+      await store.connectAsset(id)
+      break
+    }
+    case 'closeConnection': {
+      await store.disconnectAsset(id)
+      break
+    }
+    case 'queryConsole':
+      await store.openQueryConsole(id)
+      break
+    case 'createDatabase':
+      createDbCtx.value = { connectionId: id, dbType: assetDbType, connectionName: assetName }
+      createDbOpen.value = true
+      break
+    case 'editorSource':
+      emit('edit-connection', id)
+      break
+    case 'copyName': {
+      const text = store.copyConnectionName(id)
+      await copyToClipboard(text)
+      message.success(t('database.copiedToClipboard'))
+      break
+    }
+    case 'moveTo': {
+      const res = await store.moveConnectionToGroup(id, payload?.targetGroupId ?? null)
+      if (res?.ok) {
+        message.success(t('database.movedSuccess'))
+      } else {
+        message.error(res?.errorMessage ?? '')
+      }
+      break
+    }
+    case 'refresh':
+      await store.refreshConnectionChildren(id)
+      break
+    case 'remove':
+      Modal.confirm({
+        title: t('database.removeConfirm.title'),
+        content: t('database.removeConfirm.content', { name: assetName }),
+        okType: 'danger',
+        okText: t('common.delete'),
+        cancelText: t('common.cancel'),
+        onOk: async () => {
+          const res = await store.removeConnection(id)
+          if (!res?.ok) message.error(res?.errorMessage ?? '')
+        }
+      })
+      break
+  }
+}
+
 // Close the submenu when the cursor leaves the menu DOM subtree. We listen at
 // the document level and check containment directly, so transient elements
 // under the cursor (such as the splitpanes gutter) do not interfere with
@@ -436,7 +687,8 @@ const handlePointerMove = (event: PointerEvent): void => {
   if (!target) return
   const inGroupMenu = !!groupMenuRef.value && groupMenuRef.value.contains(target)
   const inAddMenu = !!addMenuRef.value && addMenuRef.value.contains(target)
-  if (inGroupMenu || inAddMenu) {
+  const inConnMenu = !!connMenuRef.value && connMenuRef.value.contains(target)
+  if (inGroupMenu || inAddMenu || inConnMenu) {
     cancelSubmenuClose()
     return
   }
@@ -446,6 +698,7 @@ const handlePointerMove = (event: PointerEvent): void => {
 const hideAllMenus = (): void => {
   hideGroupMenu()
   hideAddMenu()
+  closeConnMenu()
 }
 
 onMounted(() => {
@@ -563,17 +816,19 @@ onBeforeUnmount(() => {
     border-radius: 12px;
     box-shadow: 0 16px 40px rgb(0 0 0 / 32%);
     color: var(--text-color);
+    font-size: 12px;
   }
 
   .ant-dropdown-menu-item,
   .ant-menu-item,
   .ant-menu-submenu-title {
-    height: 36px;
-    line-height: 36px;
-    padding: 0 12px;
+    height: 28px;
+    line-height: 28px;
+    padding: 0 10px;
     margin: 0;
     border-radius: 8px;
     color: var(--text-color);
+    font-size: 12px;
     transition: background-color 0.15s ease;
 
     &:hover,
@@ -768,7 +1023,7 @@ onBeforeUnmount(() => {
 
 .db-sidebar__ctx-arrow {
   color: var(--text-color-secondary, #8a94a6);
-  font-size: 14px;
+  font-size: 12px;
   line-height: 1;
 }
 

@@ -30,6 +30,7 @@
           @connect="handleConnect"
           @disconnect="handleDisconnect"
           @refresh-connected="handleRefreshConnected"
+          @edit-connection="handleEditConnection"
         />
       </pane>
       <pane
@@ -127,6 +128,7 @@
       :draft="store.connectionDraft"
       :groups="store.groups"
       :last-test-result="store.lastTestResult"
+      :mode="store.connectionModalMode"
       @update="store.updateConnectionDraft"
       @cancel="store.closeConnectionModal"
       @test="handleTest"
@@ -307,6 +309,10 @@ const handleOpenConnectionModal = (dbType: DatabaseConnectionDraft['dbType']) =>
 
 const handleOpenConnectionModalForGroup = (dbType: DatabaseConnectionDraft['dbType'], groupId: string) => {
   store.openConnectionModal({ dbType, groupId })
+}
+
+const handleEditConnection = (assetId: string) => {
+  store.openEditConnectionModal(assetId)
 }
 
 const handleCreateGroup = async () => {

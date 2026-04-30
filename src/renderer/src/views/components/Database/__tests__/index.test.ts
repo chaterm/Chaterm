@@ -53,6 +53,7 @@ vi.mock('@ant-design/icons-vue', () => {
     PauseCircleOutlined: make('PauseCircleOutlined'),
     PlayCircleOutlined: make('PlayCircleOutlined'),
     PlusOutlined: make('PlusOutlined'),
+    ReloadOutlined: make('ReloadOutlined'),
     RightOutlined: make('RightOutlined'),
     SaveOutlined: make('SaveOutlined'),
     SearchOutlined: make('SearchOutlined'),
@@ -201,10 +202,13 @@ describe('Database workspace shell', () => {
     const store = useDatabaseWorkspaceStore()
     await wrapper.find('.db-sidebar__add-btn').trigger('click')
     expect(store.connectionModalVisible).toBe(false)
-    // a-dropdown overlay is rendered inside the sidebar when stubbed; the
-    // "new group" entry confirms the add menu is available without the
-    // connection modal opening.
-    expect(wrapper.find('.db-sidebar__add-menu-item--group').exists()).toBe(true)
+    // The add menu now renders as a raw Teleport overlay with the shared
+    // .db-sidebar__group-menu / .db-sidebar__menu-overlay classes. Presence
+    // of the overlay plus the localized "new group" entry confirms the
+    // add menu is available without the connection modal opening.
+    const addMenu = wrapper.find('.db-sidebar__group-menu')
+    expect(addMenu.exists()).toBe(true)
+    expect(addMenu.text()).toContain('database.newGroup')
   })
 
   it('opens connection modal only after a database type is selected', async () => {
