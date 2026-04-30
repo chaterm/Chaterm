@@ -162,3 +162,38 @@ export interface SqlExecutionHistoryEntry {
   startedAt: number
   rowCount?: number
 }
+
+/**
+ * Action kinds emitted by the connection (data source) right-click context menu.
+ * Handled centrally in the sidebar and routed to the corresponding store action.
+ */
+export type ConnectionMenuAction =
+  | 'openConnection'
+  | 'closeConnection'
+  | 'queryConsole'
+  | 'createDatabase'
+  | 'editorSource'
+  | 'copyDataSource'
+  | 'copyName'
+  | 'moveTo'
+  | 'refresh'
+  | 'remove'
+
+/**
+ * Optional payload accompanying a connection-menu action. Currently used only
+ * by the `moveTo` action to carry the destination group id. `null` denotes the
+ * root (no group).
+ */
+export interface ConnectionMenuPayload {
+  targetGroupId?: string | null
+}
+
+/**
+ * A single entry in the flattened Move-to submenu. `id` is `null` when the
+ * target is the root (no group); otherwise it is the destination group id.
+ * `label` is the user-facing path (e.g. "GroupA/SubB") or "Root node".
+ */
+export interface MoveToTarget {
+  id: string | null
+  label: string
+}
