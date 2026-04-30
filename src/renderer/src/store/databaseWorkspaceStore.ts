@@ -27,6 +27,7 @@ interface DbAssetDtoLike {
   host: string
   port: number
   database_name: string | null
+  schema_name?: string | null
   username: string | null
   hasPassword: boolean
   status: 'idle' | 'testing' | 'connected' | 'failed'
@@ -55,6 +56,10 @@ type DbApi = {
   dbAssetGroupDelete?: (id: string) => Promise<{ ok: boolean; errorMessage?: string }>
   dbAssetList?: () => Promise<DbAssetDtoLike[]>
   dbAssetCreate?: (payload: Record<string, unknown>) => Promise<{ ok: boolean; asset?: DbAssetDtoLike | null; errorMessage?: string }>
+  dbAssetUpdate?: (payload: {
+    id: string
+    patch: Record<string, unknown>
+  }) => Promise<{ ok: boolean; asset?: DbAssetDtoLike | null; errorMessage?: string }>
   dbAssetDelete?: (id: string) => Promise<{ ok: boolean; errorMessage?: string }>
   dbAssetTestConnection?: (payload: Record<string, unknown>) => Promise<{
     ok: boolean
@@ -1693,6 +1698,124 @@ export const useDatabaseWorkspaceStore = defineStore('databaseWorkspace', {
         name: col,
         parentId: tableNode.id
       }))
+    },
+
+    // --- Connection context-menu actions ---
+
+    /**
+     * Open a new SQL tab bound to the targeted connection. Reuses
+     * `openNewSqlTab` to preserve the Query-N numbering and blank SQL
+     * scaffolding, then overwrites the tab's connection context to the
+     * explicitly requested asset so the new tab doesn't inherit from the
+     * currently active unrelated tab.
+     */
+    async openQueryConsole(connectionId: string) {
+      const asset = this.assets.find((a) => a.id === connectionId)
+      if (!asset) return
+      this.openNewSqlTab()
+      const last = this.tabs[this.tabs.length - 1]
+      if (last?.kind === 'sql') {
+        last.assetId = connectionId
+        last.connectionId = `conn-${connectionId}`
+        last.databaseName = asset.database_name ?? undefined
+      }
+    },
+
+    /**
+     * Execute a raw CREATE DATABASE statement via the existing query IPC.
+     * Refreshes the connection's child nodes on success so the new database
+     * becomes visible without reloading the entire asset list.
+     */
+    async createDatabase(connectionId: string, sql: string): Promise<{ ok: boolean; errorMessage?: string }> {
+      const api = getApi()
+      if (!api?.dbAssetExecuteQuery) return { ok: false, errorMessage: 'not connected' }
+      const result = await api.dbAssetExecuteQuery({ id: connectionId, sql })
+      if (!result?.ok) return { ok: false, errorMessage: result?.errorMessage ?? 'execute failed' }
+      await this.refreshConnectionChildren(connectionId)
+      return { ok: true }
+    },
+
+    /**
+     * Serialize a compact, non-secret subset of the asset's fields as JSON.
+     * Deliberately excludes username / password / hasPassword so the output
+     * is safe to place on the system clipboard.
+     */
+    copyDataSource(connectionId: string): string {
+      const a = this.assets.find((x) => x.id === connectionId)
+      if (!a) return ''
+      const payload = {
+        name: a.name,
+        db_type: a.db_type,
+        host: a.host,
+        port: a.port,
+        database_name: a.database_name ?? null,
+        schema_name: a.schema_name ?? null,
+        environment: a.environment ?? null,
+        ssl_mode: a.ssl_mode ?? null
+      }
+      return JSON.stringify(payload, null, 2)
+    },
+
+    /**
+     * Return just the connection's display name for clipboard copy.
+     */
+    copyConnectionName(connectionId: string): string {
+      return this.assets.find((x) => x.id === connectionId)?.name ?? ''
+    },
+
+    /**
+     * Move a connection to a different group (or to root when targetGroupId
+     * is null). Reloads the full asset list on success so the tree reflects
+     * the new placement.
+     */
+    async moveConnectionToGroup(connectionId: string, targetGroupId: string | null) {
+      const api = getApi()
+      if (!api?.dbAssetUpdate) return { ok: false as const, errorMessage: 'not connected' }
+      const result = await api.dbAssetUpdate({ id: connectionId, patch: { group_id: targetGroupId } })
+      if (result?.ok) {
+        await this.loadAssetsFromBackend()
+      } else if (result?.errorMessage) {
+        this.lastError = result.errorMessage
+      }
+      return result
+    },
+
+    /**
+     * Drop the cached children under the connection node and, if it is
+     * currently expanded, re-trigger the lazy loader so fresh data is
+     * fetched. Leaves the node collapsed state alone otherwise — the next
+     * user expansion will trigger a fresh load via the regular path.
+     */
+    async refreshConnectionChildren(connectionId: string) {
+      const connNode = findConnectionByAssetId(this.tree, connectionId)
+      if (!connNode) return
+      const wasExpanded = connNode.expanded === true
+      connNode.children = []
+      if (wasExpanded) {
+        await this.loadConnectedTree(connectionId)
+      }
+    },
+
+    /**
+     * Delete the connection. Closes any workspace tabs bound to the asset
+     * first so stale context cannot linger, then fixes `activeTabId` so it
+     * points at a surviving tab, then calls the delete IPC and reloads.
+     */
+    async removeConnection(connectionId: string) {
+      // Close any open tabs bound to this asset.
+      this.tabs = this.tabs.filter((t) => t.assetId !== connectionId)
+      if (!this.tabs.some((t) => t.id === this.activeTabId)) {
+        this.activeTabId = this.tabs[0]?.id ?? OVERVIEW_TAB_ID
+      }
+      const api = getApi()
+      if (!api?.dbAssetDelete) return { ok: false as const, errorMessage: 'not connected' }
+      const result = await api.dbAssetDelete(connectionId)
+      if (result?.ok) {
+        await this.loadAssetsFromBackend()
+      } else if (result?.errorMessage) {
+        this.lastError = result.errorMessage
+      }
+      return result
     }
   }
 })

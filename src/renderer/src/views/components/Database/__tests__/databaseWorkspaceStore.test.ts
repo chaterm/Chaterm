@@ -677,6 +677,192 @@ describe('closeResultTab / setActiveResultTab', () => {
   })
 })
 
+describe('connection-menu actions', () => {
+  // Shared baseline asset used by most cases to avoid repeating the full DTO.
+  const baseAsset = {
+    id: 'a1',
+    name: 'conn-1',
+    group_id: null,
+    group_name: null,
+    db_type: 'mysql' as const,
+    host: '10.0.0.1',
+    port: 3306,
+    database_name: 'demo',
+    schema_name: null,
+    environment: 'Dev',
+    ssl_mode: null,
+    username: 'root',
+    hasPassword: true,
+    status: 'connected' as const
+  }
+
+  let mockApi: {
+    dbAssetConnect: ReturnType<typeof vi.fn>
+    dbAssetDisconnect: ReturnType<typeof vi.fn>
+    dbAssetUpdate: ReturnType<typeof vi.fn>
+    dbAssetDelete: ReturnType<typeof vi.fn>
+    dbAssetExecuteQuery: ReturnType<typeof vi.fn>
+    dbAssetList: ReturnType<typeof vi.fn>
+    dbAssetGroupList: ReturnType<typeof vi.fn>
+  }
+
+  beforeEach(() => {
+    setActivePinia(createPinia())
+    mockApi = {
+      dbAssetConnect: vi.fn().mockResolvedValue({ ok: true }),
+      dbAssetDisconnect: vi.fn().mockResolvedValue({ ok: true }),
+      dbAssetUpdate: vi.fn().mockResolvedValue({ ok: true, asset: { ...baseAsset, group_id: 'g2' } }),
+      dbAssetDelete: vi.fn().mockResolvedValue({ ok: true }),
+      dbAssetExecuteQuery: vi.fn().mockResolvedValue({ ok: true }),
+      dbAssetList: vi.fn().mockResolvedValue([baseAsset]),
+      dbAssetGroupList: vi.fn().mockResolvedValue([])
+    }
+    ;(window as unknown as { api: unknown }).api = mockApi
+  })
+
+  afterEach(() => {
+    ;(window as unknown as { api?: unknown }).api = undefined
+  })
+
+  it('openQueryConsole creates a new SQL tab bound to the targeted connection', async () => {
+    const store = useDatabaseWorkspaceStore()
+    store.applyAssets([], [baseAsset])
+    await store.openQueryConsole('a1')
+    const sqlTabs = store.tabs.filter((t) => t.kind === 'sql')
+    expect(sqlTabs).toHaveLength(1)
+    const last = store.tabs[store.tabs.length - 1]
+    expect(last.kind).toBe('sql')
+    expect(last.assetId).toBe('a1')
+    expect(last.connectionId).toBe('conn-a1')
+    expect(last.databaseName).toBe('demo')
+  })
+
+  it('openQueryConsole is a no-op when the asset cannot be found', async () => {
+    const store = useDatabaseWorkspaceStore()
+    const beforeCount = store.tabs.length
+    await store.openQueryConsole('unknown')
+    expect(store.tabs.length).toBe(beforeCount)
+  })
+
+  it('createDatabase executes SQL then calls refreshConnectionChildren on success', async () => {
+    const store = useDatabaseWorkspaceStore()
+    store.applyAssets([], [{ ...baseAsset, db_type: 'postgresql' }])
+    const refreshSpy = vi.spyOn(store, 'refreshConnectionChildren').mockResolvedValue(undefined)
+    const res = await store.createDatabase('a1', 'CREATE DATABASE "x";')
+    expect(mockApi.dbAssetExecuteQuery).toHaveBeenCalledWith({ id: 'a1', sql: 'CREATE DATABASE "x";' })
+    expect(refreshSpy).toHaveBeenCalledWith('a1')
+    expect(res.ok).toBe(true)
+  })
+
+  it('createDatabase returns errorMessage on failure and does not refresh', async () => {
+    const store = useDatabaseWorkspaceStore()
+    store.applyAssets([], [baseAsset])
+    mockApi.dbAssetExecuteQuery.mockResolvedValueOnce({ ok: false, errorMessage: 'syntax error' })
+    const refreshSpy = vi.spyOn(store, 'refreshConnectionChildren').mockResolvedValue(undefined)
+    const res = await store.createDatabase('a1', 'BAD SQL')
+    expect(res.ok).toBe(false)
+    expect(res.errorMessage).toBe('syntax error')
+    expect(refreshSpy).not.toHaveBeenCalled()
+  })
+
+  it('copyDataSource returns a JSON string with only non-secret fields', () => {
+    const store = useDatabaseWorkspaceStore()
+    store.applyAssets([], [baseAsset])
+    const out = store.copyDataSource('a1')
+    expect(out.length).toBeGreaterThan(0)
+    const parsed = JSON.parse(out)
+    expect(parsed).toMatchObject({
+      name: 'conn-1',
+      db_type: 'mysql',
+      host: '10.0.0.1',
+      port: 3306,
+      database_name: 'demo',
+      environment: 'Dev'
+    })
+    // No credentials whatsoever.
+    expect(Object.keys(parsed)).not.toContain('password')
+    expect(Object.keys(parsed)).not.toContain('username')
+    expect(Object.keys(parsed)).not.toContain('hasPassword')
+  })
+
+  it('copyDataSource returns empty string for unknown asset', () => {
+    const store = useDatabaseWorkspaceStore()
+    expect(store.copyDataSource('missing')).toBe('')
+  })
+
+  it('copyConnectionName returns the asset name', () => {
+    const store = useDatabaseWorkspaceStore()
+    store.applyAssets([], [baseAsset])
+    expect(store.copyConnectionName('a1')).toBe('conn-1')
+    expect(store.copyConnectionName('missing')).toBe('')
+  })
+
+  it('moveConnectionToGroup calls dbAssetUpdate with group_id and reloads assets on success', async () => {
+    const store = useDatabaseWorkspaceStore()
+    store.applyAssets([], [baseAsset])
+    const res = await store.moveConnectionToGroup('a1', 'g2')
+    expect(mockApi.dbAssetUpdate).toHaveBeenCalledWith({ id: 'a1', patch: { group_id: 'g2' } })
+    expect(mockApi.dbAssetList).toHaveBeenCalled()
+    expect(res?.ok).toBe(true)
+  })
+
+  it('moveConnectionToGroup accepts null to move to root', async () => {
+    const store = useDatabaseWorkspaceStore()
+    store.applyAssets([], [baseAsset])
+    await store.moveConnectionToGroup('a1', null)
+    expect(mockApi.dbAssetUpdate).toHaveBeenCalledWith({ id: 'a1', patch: { group_id: null } })
+  })
+
+  it('refreshConnectionChildren clears cached children and re-triggers lazy load when expanded', async () => {
+    const store = useDatabaseWorkspaceStore()
+    store.applyAssets([], [baseAsset])
+    // Connection node gets seeded with some stale children and is marked expanded.
+    const connNode = store.tree.flatMap((g) => g.children ?? []).find((n) => n.type === 'connection')
+    expect(connNode).toBeTruthy()
+    connNode!.children = [{ id: 'stale', type: 'database', name: 'stale', parentId: connNode!.id, expanded: false, children: [] }]
+    connNode!.expanded = true
+    const loadSpy = vi.spyOn(store, 'loadConnectedTree').mockResolvedValue(undefined)
+    await store.refreshConnectionChildren('a1')
+    expect(connNode!.children).toEqual([])
+    expect(loadSpy).toHaveBeenCalledWith('a1')
+  })
+
+  it('refreshConnectionChildren does NOT re-trigger lazy load when not expanded', async () => {
+    const store = useDatabaseWorkspaceStore()
+    store.applyAssets([], [baseAsset])
+    const connNode = store.tree.flatMap((g) => g.children ?? []).find((n) => n.type === 'connection')
+    connNode!.children = [{ id: 'stale', type: 'database', name: 'stale', parentId: connNode!.id, expanded: false, children: [] }]
+    connNode!.expanded = false
+    const loadSpy = vi.spyOn(store, 'loadConnectedTree').mockResolvedValue(undefined)
+    await store.refreshConnectionChildren('a1')
+    expect(connNode!.children).toEqual([])
+    expect(loadSpy).not.toHaveBeenCalled()
+  })
+
+  it('removeConnection closes tabs bound to the asset, fixes activeTabId, calls dbAssetDelete, reloads', async () => {
+    const store = useDatabaseWorkspaceStore()
+    store.applyAssets([], [baseAsset])
+    // Seed two sql tabs bound to a1 and make one of them active.
+    await store.openQueryConsole('a1')
+    const firstTabId = store.tabs[store.tabs.length - 1].id
+    await store.openQueryConsole('a1')
+    const secondTabId = store.tabs[store.tabs.length - 1].id
+    store.setActiveTab(secondTabId)
+    expect(store.activeTabId).toBe(secondTabId)
+
+    mockApi.dbAssetList.mockResolvedValueOnce([]) // after delete: asset gone
+    await store.removeConnection('a1')
+
+    expect(mockApi.dbAssetDelete).toHaveBeenCalledWith('a1')
+    expect(store.tabs.some((t) => t.assetId === 'a1')).toBe(false)
+    // The two SQL tabs bound to a1 must be gone; Overview tab remains.
+    expect(store.tabs.some((t) => t.id === firstTabId)).toBe(false)
+    expect(store.tabs.some((t) => t.id === secondTabId)).toBe(false)
+    // activeTabId must point at a surviving tab (the Overview tab).
+    expect(store.tabs.some((t) => t.id === store.activeTabId)).toBe(true)
+  })
+})
+
 describe('runSqlOnActiveTab — IPC resilience', () => {
   beforeEach(() => {
     setActivePinia(createPinia())
