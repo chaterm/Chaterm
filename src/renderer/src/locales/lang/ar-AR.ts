@@ -1669,6 +1669,37 @@ export default {
     overviewColMessage: 'رسالة',
     overviewColTime: 'الوقت',
     noExecutionsYet: 'لا توجد عمليات تنفيذ بعد.',
-    closeResultTab: 'إغلاق علامة تبويب النتيجة'
+    closeResultTab: 'إغلاق علامة تبويب النتيجة',
+    connectionMenu: {
+      openConnection: 'فتح الاتصال',
+      closeConnection: 'إغلاق الاتصال',
+      queryConsole: 'وحدة الاستعلام',
+      createDatabase: 'إنشاء قاعدة بيانات',
+      editorSource: 'تحرير المصدر',
+      copyDataSource: 'نسخ مصدر البيانات',
+      copyName: 'نسخ الاسم',
+      moveTo: 'نقل إلى',
+      moveToRoot: 'العقدة الجذر',
+      refresh: 'تحديث',
+      remove: 'إزالة مصدر البيانات',
+      disabledNeedConnection: 'يرجى الاتصال أولاً'
+    },
+    createDatabaseModal: {
+      title: 'إنشاء قاعدة بيانات',
+      nameLabel: 'الاسم',
+      previewLabel: 'معاينة',
+      nameRequired: 'الاسم مطلوب',
+      nameInvalid: 'يحتوي الاسم على أحرف غير صالحة',
+      submit: 'موافق',
+      cancel: 'إلغاء',
+      createdSuccess: 'تم إنشاء قاعدة البيانات',
+      executeFailed: 'فشل إنشاء قاعدة البيانات'
+    },
+    removeConfirm: {
+      title: 'إزالة مصدر البيانات؟',
+      content: 'سيتم إزالة الاتصال "{name}". لا يمكن التراجع عن هذا الإجراء.'
+    },
+    copiedToClipboard: 'تم النسخ إلى الحافظة',
+    movedSuccess: 'تم نقل الاتصال'
   }
 }

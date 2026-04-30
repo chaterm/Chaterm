@@ -1714,6 +1714,37 @@ export default {
     overviewColMessage: 'Messaggio',
     overviewColTime: 'Tempo',
     noExecutionsYet: 'Nessuna esecuzione finora.',
-    closeResultTab: 'Chiudi scheda risultato'
+    closeResultTab: 'Chiudi scheda risultato',
+    connectionMenu: {
+      openConnection: 'Apri connessione',
+      closeConnection: 'Chiudi connessione',
+      queryConsole: 'Console query',
+      createDatabase: 'Crea database',
+      editorSource: 'Modifica sorgente',
+      copyDataSource: 'Copia origine dati',
+      copyName: 'Copia nome',
+      moveTo: 'Sposta in',
+      moveToRoot: 'Nodo radice',
+      refresh: 'Aggiorna',
+      remove: 'Rimuovi origine dati',
+      disabledNeedConnection: 'Connettiti prima'
+    },
+    createDatabaseModal: {
+      title: 'Crea database',
+      nameLabel: 'Nome',
+      previewLabel: 'Anteprima',
+      nameRequired: 'Il nome è richiesto',
+      nameInvalid: 'Il nome contiene caratteri non validi',
+      submit: 'OK',
+      cancel: 'Annulla',
+      createdSuccess: 'Database creato',
+      executeFailed: 'Creazione database non riuscita'
+    },
+    removeConfirm: {
+      title: 'Rimuovere origine dati?',
+      content: 'La connessione "{name}" verrà rimossa. Questa operazione non può essere annullata.'
+    },
+    copiedToClipboard: 'Copiato negli appunti',
+    movedSuccess: 'Connessione spostata'
   }
 }

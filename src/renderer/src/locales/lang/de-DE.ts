@@ -1700,6 +1700,37 @@ export default {
     overviewColMessage: 'Meldung',
     overviewColTime: 'Dauer',
     noExecutionsYet: 'Noch keine Ausfuehrungen.',
-    closeResultTab: 'Ergebnis-Tab schliessen'
+    closeResultTab: 'Ergebnis-Tab schliessen',
+    connectionMenu: {
+      openConnection: 'Verbindung oeffnen',
+      closeConnection: 'Verbindung schliessen',
+      queryConsole: 'Abfragekonsole',
+      createDatabase: 'Datenbank erstellen',
+      editorSource: 'Quelle bearbeiten',
+      copyDataSource: 'Datenquelle kopieren',
+      copyName: 'Name kopieren',
+      moveTo: 'Verschieben nach',
+      moveToRoot: 'Stammknoten',
+      refresh: 'Aktualisieren',
+      remove: 'Datenquelle entfernen',
+      disabledNeedConnection: 'Bitte zuerst verbinden'
+    },
+    createDatabaseModal: {
+      title: 'Datenbank erstellen',
+      nameLabel: 'Name',
+      previewLabel: 'Vorschau',
+      nameRequired: 'Name ist erforderlich',
+      nameInvalid: 'Name enthaelt ungueltige Zeichen',
+      submit: 'OK',
+      cancel: 'Abbrechen',
+      createdSuccess: 'Datenbank erstellt',
+      executeFailed: 'Datenbankerstellung fehlgeschlagen'
+    },
+    removeConfirm: {
+      title: 'Datenquelle entfernen?',
+      content: 'Die Verbindung "{name}" wird entfernt. Dies kann nicht rueckgaengig gemacht werden.'
+    },
+    copiedToClipboard: 'In Zwischenablage kopiert',
+    movedSuccess: 'Verbindung verschoben'
   }
 }

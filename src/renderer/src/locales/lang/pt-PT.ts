@@ -1709,6 +1709,37 @@ export default {
     overviewColMessage: 'Mensagem',
     overviewColTime: 'Tempo',
     noExecutionsYet: 'Ainda sem execucoes.',
-    closeResultTab: 'Fechar separador de resultado'
+    closeResultTab: 'Fechar separador de resultado',
+    connectionMenu: {
+      openConnection: 'Abrir ligacao',
+      closeConnection: 'Fechar ligacao',
+      queryConsole: 'Consola de consulta',
+      createDatabase: 'Criar base de dados',
+      editorSource: 'Editar origem',
+      copyDataSource: 'Copiar fonte de dados',
+      copyName: 'Copiar nome',
+      moveTo: 'Mover para',
+      moveToRoot: 'No raiz',
+      refresh: 'Atualizar',
+      remove: 'Remover fonte de dados',
+      disabledNeedConnection: 'Ligue-se primeiro'
+    },
+    createDatabaseModal: {
+      title: 'Criar base de dados',
+      nameLabel: 'Nome',
+      previewLabel: 'Pre-visualizacao',
+      nameRequired: 'O nome e obrigatorio',
+      nameInvalid: 'O nome contem caracteres invalidos',
+      submit: 'OK',
+      cancel: 'Cancelar',
+      createdSuccess: 'Base de dados criada',
+      executeFailed: 'Falha ao criar base de dados'
+    },
+    removeConfirm: {
+      title: 'Remover fonte de dados?',
+      content: 'A ligacao "{name}" sera removida. Esta acao nao pode ser revertida.'
+    },
+    copiedToClipboard: 'Copiado para a area de transferencia',
+    movedSuccess: 'Ligacao movida'
   }
 }

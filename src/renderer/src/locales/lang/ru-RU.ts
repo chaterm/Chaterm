@@ -1709,6 +1709,37 @@ export default {
     overviewColMessage: 'Сообщение',
     overviewColTime: 'Время',
     noExecutionsYet: 'Пока нет запусков.',
-    closeResultTab: 'Закрыть вкладку результата'
+    closeResultTab: 'Закрыть вкладку результата',
+    connectionMenu: {
+      openConnection: 'Открыть соединение',
+      closeConnection: 'Закрыть соединение',
+      queryConsole: 'Консоль запросов',
+      createDatabase: 'Создать базу данных',
+      editorSource: 'Редактировать источник',
+      copyDataSource: 'Копировать источник данных',
+      copyName: 'Копировать имя',
+      moveTo: 'Переместить в',
+      moveToRoot: 'Корневой узел',
+      refresh: 'Обновить',
+      remove: 'Удалить источник данных',
+      disabledNeedConnection: 'Сначала подключитесь'
+    },
+    createDatabaseModal: {
+      title: 'Создать базу данных',
+      nameLabel: 'Имя',
+      previewLabel: 'Предпросмотр',
+      nameRequired: 'Имя обязательно',
+      nameInvalid: 'Имя содержит недопустимые символы',
+      submit: 'ОК',
+      cancel: 'Отмена',
+      createdSuccess: 'База данных создана',
+      executeFailed: 'Не удалось создать базу данных'
+    },
+    removeConfirm: {
+      title: 'Удалить источник данных?',
+      content: 'Соединение "{name}" будет удалено. Это действие нельзя отменить.'
+    },
+    copiedToClipboard: 'Скопировано в буфер обмена',
+    movedSuccess: 'Соединение перемещено'
   }
 }

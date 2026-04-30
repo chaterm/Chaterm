@@ -1688,6 +1688,37 @@ export default {
     overviewColMessage: 'メッセージ',
     overviewColTime: '時間',
     noExecutionsYet: 'まだ実行履歴はありません。',
-    closeResultTab: '結果タブを閉じる'
+    closeResultTab: '結果タブを閉じる',
+    connectionMenu: {
+      openConnection: '接続を開く',
+      closeConnection: '接続を閉じる',
+      queryConsole: 'クエリコンソール',
+      createDatabase: 'データベース作成',
+      editorSource: 'ソースを編集',
+      copyDataSource: 'データソースをコピー',
+      copyName: '名前をコピー',
+      moveTo: '移動先',
+      moveToRoot: 'ルートノード',
+      refresh: '更新',
+      remove: 'データソースを削除',
+      disabledNeedConnection: '先に接続してください'
+    },
+    createDatabaseModal: {
+      title: 'データベースを作成',
+      nameLabel: '名前',
+      previewLabel: 'プレビュー',
+      nameRequired: '名前を入力してください',
+      nameInvalid: '名前に無効な文字が含まれています',
+      submit: 'OK',
+      cancel: 'キャンセル',
+      createdSuccess: 'データベースを作成しました',
+      executeFailed: 'データベースの作成に失敗しました'
+    },
+    removeConfirm: {
+      title: 'データソースを削除しますか？',
+      content: '接続 "{name}" は削除されます。この操作は取り消せません。'
+    },
+    copiedToClipboard: 'クリップボードにコピーしました',
+    movedSuccess: '接続を移動しました'
   }
 }

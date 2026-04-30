@@ -1674,6 +1674,37 @@ export default {
     overviewColMessage: '訊息',
     overviewColTime: '耗時',
     noExecutionsYet: '尚無執行紀錄。',
-    closeResultTab: '關閉結果分頁'
+    closeResultTab: '關閉結果分頁',
+    connectionMenu: {
+      openConnection: '開啟連線',
+      closeConnection: '關閉連線',
+      queryConsole: '查詢主控台',
+      createDatabase: '新增資料庫',
+      editorSource: '編輯資料來源',
+      copyDataSource: '複製資料來源',
+      copyName: '複製名稱',
+      moveTo: '移動至',
+      moveToRoot: '根節點',
+      refresh: '重新整理',
+      remove: '刪除資料來源',
+      disabledNeedConnection: '請先連線'
+    },
+    createDatabaseModal: {
+      title: '建立資料庫',
+      nameLabel: '名稱',
+      previewLabel: '預覽',
+      nameRequired: '請輸入名稱',
+      nameInvalid: '名稱包含無效字元',
+      submit: '確定',
+      cancel: '取消',
+      createdSuccess: '資料庫已建立',
+      executeFailed: '建立資料庫失敗'
+    },
+    removeConfirm: {
+      title: '刪除資料來源？',
+      content: '連線 "{name}" 將被刪除，此操作無法復原。'
+    },
+    copiedToClipboard: '已複製到剪貼簿',
+    movedSuccess: '連線已移動'
   }
 }

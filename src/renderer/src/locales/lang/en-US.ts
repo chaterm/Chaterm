@@ -1763,6 +1763,37 @@ export default {
       database: 'Database',
       url: 'URL',
       sslMode: 'SSL Mode'
-    }
+    },
+    connectionMenu: {
+      openConnection: 'Open connection',
+      closeConnection: 'Close connection',
+      queryConsole: 'Query console',
+      createDatabase: 'Create database',
+      editorSource: 'Edit source',
+      copyDataSource: 'Copy Data Source',
+      copyName: 'Copy name',
+      moveTo: 'Move to',
+      moveToRoot: 'Root node',
+      refresh: 'Refresh',
+      remove: 'Remove data source',
+      disabledNeedConnection: 'Connect first'
+    },
+    createDatabaseModal: {
+      title: 'Create Database',
+      nameLabel: 'Name',
+      previewLabel: 'Preview',
+      nameRequired: 'Name is required',
+      nameInvalid: 'Name contains invalid characters',
+      submit: 'OK',
+      cancel: 'Cancel',
+      createdSuccess: 'Database created',
+      executeFailed: 'Create database failed'
+    },
+    removeConfirm: {
+      title: 'Remove data source?',
+      content: 'The connection "{name}" will be removed. This cannot be undone.'
+    },
+    copiedToClipboard: 'Copied to clipboard',
+    movedSuccess: 'Connection moved'
   }
 }

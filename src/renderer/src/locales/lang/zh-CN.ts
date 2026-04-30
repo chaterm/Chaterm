@@ -1744,6 +1744,37 @@ export default {
       database: '数据库',
       url: 'URL',
       sslMode: 'SSL 模式'
-    }
+    },
+    connectionMenu: {
+      openConnection: '打开连接',
+      closeConnection: '关闭连接',
+      queryConsole: '查询控制台',
+      createDatabase: '新建数据库',
+      editorSource: '编辑数据源',
+      copyDataSource: '复制数据源',
+      copyName: '复制名称',
+      moveTo: '移动到',
+      moveToRoot: '根节点',
+      refresh: '刷新',
+      remove: '删除数据源',
+      disabledNeedConnection: '请先连接'
+    },
+    createDatabaseModal: {
+      title: '创建数据库',
+      nameLabel: '名称',
+      previewLabel: '预览',
+      nameRequired: '请输入名称',
+      nameInvalid: '名称包含非法字符',
+      submit: '确定',
+      cancel: '取消',
+      createdSuccess: '数据库已创建',
+      executeFailed: '创建数据库失败'
+    },
+    removeConfirm: {
+      title: '删除数据源？',
+      content: '连接 "{name}" 将被删除，此操作无法撤销。'
+    },
+    copiedToClipboard: '已复制到剪贴板',
+    movedSuccess: '连接已移动'
   }
 }

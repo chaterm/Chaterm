@@ -1680,6 +1680,37 @@ export default {
     overviewColMessage: '메시지',
     overviewColTime: '소요 시간',
     noExecutionsYet: '아직 실행 기록이 없습니다.',
-    closeResultTab: '결과 탭 닫기'
+    closeResultTab: '결과 탭 닫기',
+    connectionMenu: {
+      openConnection: '연결 열기',
+      closeConnection: '연결 닫기',
+      queryConsole: '쿼리 콘솔',
+      createDatabase: '데이터베이스 생성',
+      editorSource: '소스 편집',
+      copyDataSource: '데이터 소스 복사',
+      copyName: '이름 복사',
+      moveTo: '이동',
+      moveToRoot: '루트 노드',
+      refresh: '새로 고침',
+      remove: '데이터 소스 삭제',
+      disabledNeedConnection: '먼저 연결하세요'
+    },
+    createDatabaseModal: {
+      title: '데이터베이스 생성',
+      nameLabel: '이름',
+      previewLabel: '미리보기',
+      nameRequired: '이름을 입력하세요',
+      nameInvalid: '이름에 잘못된 문자가 포함되어 있습니다',
+      submit: '확인',
+      cancel: '취소',
+      createdSuccess: '데이터베이스가 생성되었습니다',
+      executeFailed: '데이터베이스 생성 실패'
+    },
+    removeConfirm: {
+      title: '데이터 소스를 삭제하시겠습니까?',
+      content: '연결 "{name}"이(가) 삭제됩니다. 이 작업은 되돌릴 수 없습니다.'
+    },
+    copiedToClipboard: '클립보드에 복사되었습니다',
+    movedSuccess: '연결이 이동되었습니다'
   }
 }

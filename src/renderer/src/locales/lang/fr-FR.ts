@@ -1718,6 +1718,37 @@ export default {
     overviewColMessage: 'Message',
     overviewColTime: 'Duree',
     noExecutionsYet: 'Aucune execution pour le moment.',
-    closeResultTab: "Fermer l'onglet de resultat"
+    closeResultTab: "Fermer l'onglet de resultat",
+    connectionMenu: {
+      openConnection: 'Ouvrir la connexion',
+      closeConnection: 'Fermer la connexion',
+      queryConsole: 'Console de requete',
+      createDatabase: 'Creer une base de donnees',
+      editorSource: 'Modifier la source',
+      copyDataSource: 'Copier la source de donnees',
+      copyName: 'Copier le nom',
+      moveTo: 'Deplacer vers',
+      moveToRoot: 'Noeud racine',
+      refresh: 'Actualiser',
+      remove: 'Supprimer la source de donnees',
+      disabledNeedConnection: 'Connectez-vous d abord'
+    },
+    createDatabaseModal: {
+      title: 'Creer une base de donnees',
+      nameLabel: 'Nom',
+      previewLabel: 'Apercu',
+      nameRequired: 'Le nom est requis',
+      nameInvalid: 'Le nom contient des caracteres invalides',
+      submit: 'OK',
+      cancel: 'Annuler',
+      createdSuccess: 'Base de donnees creee',
+      executeFailed: 'Echec de la creation de la base de donnees'
+    },
+    removeConfirm: {
+      title: 'Supprimer la source de donnees ?',
+      content: 'La connexion "{name}" sera supprimee. Cette action est irreversible.'
+    },
+    copiedToClipboard: 'Copie dans le presse-papiers',
+    movedSuccess: 'Connexion deplacee'
   }
 }
