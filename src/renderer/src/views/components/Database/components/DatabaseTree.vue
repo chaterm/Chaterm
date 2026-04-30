@@ -16,6 +16,7 @@
       @connect="(id) => emit('connect', id)"
       @disconnect="(id) => emit('disconnect', id)"
       @group-context="(payload) => emit('groupContext', payload)"
+      @connection-context="(p) => emit('connectionContext', p)"
       @commit-group-rename="(id, cur, next) => emit('commitGroupRename', id, cur, next)"
       @cancel-group-rename="() => emit('cancelGroupRename')"
     />
@@ -40,6 +41,7 @@ const emit = defineEmits<{
   (e: 'connect', id: string): void
   (e: 'disconnect', id: string): void
   (e: 'groupContext', payload: { id: string; name: string; x: number; y: number }): void
+  (e: 'connectionContext', payload: { id: string; assetId: string; x: number; y: number }): void
   (e: 'commitGroupRename', groupId: string, currentName: string, nextName: string): void
   (e: 'cancelGroupRename'): void
 }>()

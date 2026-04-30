@@ -104,6 +104,7 @@
         @connect="(id) => emit('connect', id)"
         @disconnect="(id) => emit('disconnect', id)"
         @group-context="(payload) => emit('group-context', payload)"
+        @connection-context="(payload) => emit('connection-context', payload)"
         @commit-group-rename="(id, cur, next) => emit('commit-group-rename', id, cur, next)"
         @cancel-group-rename="() => emit('cancel-group-rename')"
       />
@@ -147,6 +148,7 @@ const emit = defineEmits<{
   (e: 'connect', id: string): void
   (e: 'disconnect', id: string): void
   (e: 'group-context', payload: { id: string; name: string; x: number; y: number }): void
+  (e: 'connection-context', payload: { id: string; assetId: string; x: number; y: number }): void
   (e: 'commit-group-rename', groupId: string, currentName: string, nextName: string): void
   (e: 'cancel-group-rename'): void
 }>()
@@ -295,13 +297,23 @@ const handleRowDoubleClick = () => {
 
 const handleContextMenu = (event: MouseEvent) => {
   if (isEditing.value) return
-  if (props.node.type !== 'group') return
-  emit('group-context', {
-    id: props.node.id,
-    name: props.node.name,
-    x: event.clientX,
-    y: event.clientY
-  })
+  if (props.node.type === 'group') {
+    emit('group-context', {
+      id: props.node.id,
+      name: props.node.name,
+      x: event.clientX,
+      y: event.clientY
+    })
+    return
+  }
+  if (props.node.type === 'connection' && assetId.value) {
+    emit('connection-context', {
+      id: props.node.id,
+      assetId: assetId.value,
+      x: event.clientX,
+      y: event.clientY
+    })
+  }
 }
 </script>
 
