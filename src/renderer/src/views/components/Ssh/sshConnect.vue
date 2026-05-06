@@ -3764,22 +3764,12 @@ const handleCommandOutput = (data: string, isInitialCommand: boolean) => {
         case 'linux':
         case 'unknown': {
           // Linux/Git Bash terminal processing (Git Bash uses same logic as Linux)
-          const filteredLines = lines.filter((line) => line.trim())
+          const filteredLines = lines.map((line) => stripAnsiExtended(line).trimEnd()).filter((line) => line.trim())
 
           const isCommandEchoLine = (line: string): boolean => {
             // First, clean ANSI sequences to ensure command detection works correctly
             // Git Bash command echo may contain color codes (e.g., colored $ symbol)
-            let cleanedLine = line
-              .replace(/\x1b\[[0-9;]*m/g, '') // Color codes
-              .replace(/\x1b\[[0-9;]*[ABCDEFGJKST]/g, '') // Cursor movement
-              .replace(/\x1b\[[0-9]*[XK]/g, '') // Erase sequences
-              .replace(/\x1b\[[0-9;]*[Hf]/g, '') // Position sequences
-              .replace(/\x1b\[[?][0-9;]*[hl]/g, '') // Mode sequences
-              .replace(/\x1b\]0;[^\x07]*\x07/g, '') // Window title
-              .replace(/\x1b\]9;[^\x07]*\x07/g, '') // PowerShell sequences
-              .replace(/\x1b\[[?]25[hl]/g, '') // Cursor visibility
-              .replace(/\x1b\[[0-9;]*[JK]/g, '') // Erase in display/line
-              .replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/g, '') // Control chars
+            const cleanedLine = stripAnsiExtended(line)
 
             const trimmed = cleanedLine.trim()
             if (!trimmed) return false
@@ -3834,18 +3824,7 @@ const handleCommandOutput = (data: string, isInitialCommand: boolean) => {
           // Helper function to clean ANSI sequences for prompt detection
           // This ensures prompts with ANSI color codes can be correctly identified
           const cleanLineForPromptCheck = (line: string): string => {
-            return line
-              .replace(/\x1b\[[0-9;]*m/g, '') // Color codes
-              .replace(/\x1b\[[0-9;]*[ABCDEFGJKST]/g, '') // Cursor movement
-              .replace(/\x1b\[[0-9]*[XK]/g, '') // Erase sequences
-              .replace(/\x1b\[[0-9;]*[Hf]/g, '') // Position sequences
-              .replace(/\x1b\[[?][0-9;]*[hl]/g, '') // Mode sequences
-              .replace(/\x1b\]0;[^\x07]*\x07/g, '') // Window title
-              .replace(/\x1b\]9;[^\x07]*\x07/g, '') // PowerShell sequences
-              .replace(/\x1b\[[?]25[hl]/g, '') // Cursor visibility
-              .replace(/\x1b\[[0-9;]*[JK]/g, '') // Erase in display/line
-              .replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/g, '') // Control chars
-              .trim()
+            return stripAnsiExtended(line).trim()
           }
 
           // Remove all consecutive prompt lines from the end
