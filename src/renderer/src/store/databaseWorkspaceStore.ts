@@ -11,6 +11,7 @@ import type {
   SqlResultTab
 } from '@views/components/Database/types'
 import { buildMutations, DB_IDENTIFIER_RE } from './helpers/dbMutationBuilder'
+import { toErrorMessage } from './databaseWorkspaceStore.helpers'
 import { OVERVIEW_TAB_ID, buildOverviewTab, buildSampleTabFromTable, mockExplorerTree } from '@views/components/Database/mock/data'
 
 /**
@@ -712,9 +713,7 @@ export const useDatabaseWorkspaceStore = defineStore('databaseWorkspace', {
         })
       } catch (err) {
         // Defensive extraction: drivers occasionally throw non-Error values
-        // (e.g. bare strings from underlying native bindings). We want the
-        // visible error text to carry whatever signal the thrower gave us.
-        const message = err instanceof Error ? err.message : typeof err === 'string' ? err : 'ipc error'
+        const message = toErrorMessage(err)
         patchResultTab({ status: 'error', error: message })
         tab.history.push({
           resultTabId,
@@ -870,29 +869,9 @@ export const useDatabaseWorkspaceStore = defineStore('databaseWorkspace', {
      */
     async reloadTableData(tabId: string, withTotal = false) {
       const tab = this.tabs.find((t) => t.id === tabId)
-      // eslint-disable-next-line no-console
-      console.log('[DB-DEBUG] store reloadTableData called', {
-        tabId,
-        withTotal,
-        found: !!tab,
-        kind: tab?.kind,
-        assetId: tab?.assetId,
-        database: tab?.databaseName,
-        table: tab?.tableName,
-        page: tab?.page,
-        pageSize: tab?.pageSize
-      })
       if (!tab || tab.kind !== 'data') return
       const api = getApi()
       if (!api?.dbAssetQueryTable || !tab.assetId || !tab.databaseName || !tab.tableName) {
-        // eslint-disable-next-line no-console
-        console.warn('[DB-DEBUG] store reloadTableData preconditions failed', {
-          hasApi: !!api,
-          hasFn: !!api?.dbAssetQueryTable,
-          assetId: tab.assetId,
-          database: tab.databaseName,
-          table: tab.tableName
-        })
         tab.loading = false
         tab.error = 'not connected'
         return
@@ -929,22 +908,10 @@ export const useDatabaseWorkspaceStore = defineStore('databaseWorkspace', {
           pageSize: Number(tab.pageSize ?? 100),
           withTotal: !!withTotal
         }
-        // eslint-disable-next-line no-console
-        console.log('[DB-DEBUG] store payload before IPC', payload)
         result = await api.dbAssetQueryTable(payload)
-        // eslint-disable-next-line no-console
-        console.log('[DB-DEBUG] store dbAssetQueryTable returned', {
-          ok: result.ok,
-          rowCount: result.rowCount,
-          columnCount: result.columns?.length,
-          total: result.total,
-          errorMessage: result.errorMessage
-        })
       } catch (err) {
-        // eslint-disable-next-line no-console
-        console.error('[DB-DEBUG] store dbAssetQueryTable threw', err)
         tab.loading = false
-        tab.error = (err as Error).message ?? 'ipc error'
+        tab.error = toErrorMessage(err)
         return
       }
       if (result.ok) {
@@ -993,7 +960,7 @@ export const useDatabaseWorkspaceStore = defineStore('databaseWorkspace', {
         if (result.ok) tab.total = result.total ?? null
         else this.lastError = result.errorMessage ?? 'count failed'
       } catch (err) {
-        this.lastError = (err as Error).message
+        this.lastError = toErrorMessage(err)
       }
     },
     /**
@@ -1020,22 +987,18 @@ export const useDatabaseWorkspaceStore = defineStore('databaseWorkspace', {
         }
         return (result.values ?? []).map((v) => (v === null || v === undefined ? '' : String(v)))
       } catch (err) {
-        this.lastError = (err as Error).message
+        this.lastError = toErrorMessage(err)
         return []
       }
     },
     setTablePage(tabId: string, page: number) {
       const tab = this.tabs.find((t) => t.id === tabId)
-      // eslint-disable-next-line no-console
-      console.log('[DB-DEBUG] store setTablePage', { tabId, page, found: !!tab })
       if (!tab || tab.kind !== 'data') return
       tab.page = Math.max(1, Math.floor(page))
       this.reloadTableData(tabId)
     },
     setTablePageSize(tabId: string, pageSize: number) {
       const tab = this.tabs.find((t) => t.id === tabId)
-      // eslint-disable-next-line no-console
-      console.log('[DB-DEBUG] store setTablePageSize', { tabId, pageSize, found: !!tab })
       if (!tab || tab.kind !== 'data') return
       tab.pageSize = pageSize
       tab.page = 1
@@ -1084,14 +1047,6 @@ export const useDatabaseWorkspaceStore = defineStore('databaseWorkspace', {
       if (!tab || tab.kind !== 'data') return
       const api = getApi()
       if (!api?.dbAssetDetectPrimaryKey || !tab.assetId || !tab.databaseName || !tab.tableName) {
-        // eslint-disable-next-line no-console
-        console.warn('[DB-DEBUG] detectPrimaryKey preconditions failed', {
-          hasApi: !!api,
-          hasFn: !!api?.dbAssetDetectPrimaryKey,
-          assetId: tab.assetId,
-          database: tab.databaseName,
-          table: tab.tableName
-        })
         tab.primaryKey = null
         return
       }
@@ -1102,13 +1057,6 @@ export const useDatabaseWorkspaceStore = defineStore('databaseWorkspace', {
           schema: tab.schemaName ? String(tab.schemaName) : undefined,
           table: String(tab.tableName)
         })
-        // eslint-disable-next-line no-console
-        console.log('[DB-DEBUG] detectPrimaryKey returned', {
-          table: tab.tableName,
-          ok: result.ok,
-          primaryKey: result.primaryKey,
-          errorMessage: result.errorMessage
-        })
         if (result.ok) {
           tab.primaryKey = result.primaryKey ?? null
         } else {
@@ -1116,10 +1064,8 @@ export const useDatabaseWorkspaceStore = defineStore('databaseWorkspace', {
           this.lastError = result.errorMessage ?? null
         }
       } catch (err) {
-        // eslint-disable-next-line no-console
-        console.error('[DB-DEBUG] detectPrimaryKey threw', err)
         tab.primaryKey = null
-        this.lastError = (err as Error).message
+        this.lastError = toErrorMessage(err)
       }
     },
 
@@ -1358,8 +1304,8 @@ export const useDatabaseWorkspaceStore = defineStore('databaseWorkspace', {
       try {
         statements = this.buildDirtyMutations(tabId)
       } catch (err) {
-        this.lastError = (err as Error).message
-        return { ok: false as const, errorMessage: (err as Error).message }
+        this.lastError = toErrorMessage(err)
+        return { ok: false as const, errorMessage: toErrorMessage(err) }
       }
       if (statements.length === 0) {
         return { ok: true as const, affected: 0 }
@@ -1381,8 +1327,8 @@ export const useDatabaseWorkspaceStore = defineStore('databaseWorkspace', {
         this.lastError = result.errorMessage ?? 'commit failed'
         return { ok: false as const, errorMessage: result.errorMessage ?? 'commit failed' }
       } catch (err) {
-        this.lastError = (err as Error).message
-        return { ok: false as const, errorMessage: (err as Error).message }
+        this.lastError = toErrorMessage(err)
+        return { ok: false as const, errorMessage: toErrorMessage(err) }
       }
     },
 
@@ -1487,10 +1433,13 @@ export const useDatabaseWorkspaceStore = defineStore('databaseWorkspace', {
       this.lastTestResult = null
     },
     closeConnectionModal() {
+      this._resetConnectionModal()
+      this.lastTestResult = null
+    },
+    _resetConnectionModal() {
       this.connectionModalVisible = false
       this.connectionModalMode = 'create'
       this.connectionDraft = null
-      this.lastTestResult = null
     },
     updateConnectionDraft(patch: Partial<DatabaseConnectionDraft>) {
       if (!this.connectionDraft) return
@@ -1561,9 +1510,7 @@ export const useDatabaseWorkspaceStore = defineStore('databaseWorkspace', {
             return cloneDraft(draft)
           }
           await this.loadAssetsFromBackend()
-          this.connectionModalVisible = false
-          this.connectionModalMode = 'create'
-          this.connectionDraft = null
+          this._resetConnectionModal()
           return cloneDraft(draft)
         }
         // Fallback when the IPC is unavailable: patch the in-memory tree
@@ -1579,9 +1526,7 @@ export const useDatabaseWorkspaceStore = defineStore('databaseWorkspace', {
             username: draft.user
           }
         }
-        this.connectionModalVisible = false
-        this.connectionModalMode = 'create'
-        this.connectionDraft = null
+        this._resetConnectionModal()
         return cloneDraft(draft)
       }
       if (api?.dbAssetCreate) {
@@ -1591,9 +1536,7 @@ export const useDatabaseWorkspaceStore = defineStore('databaseWorkspace', {
           return cloneDraft(draft)
         }
         await this.loadAssetsFromBackend()
-        this.connectionModalVisible = false
-        this.connectionModalMode = 'create'
-        this.connectionDraft = null
+        this._resetConnectionModal()
         return cloneDraft(draft)
       }
       // Fallback for tests and renderer-only demos.
@@ -1613,9 +1556,7 @@ export const useDatabaseWorkspaceStore = defineStore('databaseWorkspace', {
       } else {
         this.tree = [...this.tree, node]
       }
-      this.connectionModalVisible = false
-      this.connectionModalMode = 'create'
-      this.connectionDraft = null
+      this._resetConnectionModal()
       return cloneDraft(draft)
     },
     async createGroup(name: string, parentId: string | null = null): Promise<string | undefined> {
@@ -2021,7 +1962,7 @@ export const useDatabaseWorkspaceStore = defineStore('databaseWorkspace', {
         }
         return result
       } catch (err) {
-        const message = err instanceof Error ? err.message : typeof err === 'string' ? err : 'ipc error'
+        const message = toErrorMessage(err)
         return { ok: false, errorCode: 'other', errorMessage: message }
       }
     },
@@ -2054,6 +1995,25 @@ export const useDatabaseWorkspaceStore = defineStore('databaseWorkspace', {
       return { ok: true }
     },
 
+    async _executeTableMutation(
+      ctx: { assetId: string; databaseName: string; sql: string },
+      defaultErrorMessage: string
+    ): Promise<{ ok: boolean; errorMessage?: string }> {
+      const api = getApi()
+      if (!api?.dbAssetExecuteQuery) return { ok: false, errorMessage: 'not connected' }
+      try {
+        const result = await api.dbAssetExecuteQuery({
+          id: String(ctx.assetId),
+          sql: ctx.sql,
+          databaseName: String(ctx.databaseName)
+        })
+        if (!result?.ok) return { ok: false, errorMessage: result?.errorMessage ?? defaultErrorMessage }
+        return { ok: true }
+      } catch (err) {
+        return { ok: false, errorMessage: toErrorMessage(err) }
+      }
+    },
+
     /**
      * Run `TRUNCATE TABLE <qualified>` against the connection. On success,
      * reload every open data tab that references the same (assetId, database,
@@ -2066,27 +2026,12 @@ export const useDatabaseWorkspaceStore = defineStore('databaseWorkspace', {
       schemaName?: string
       tableName: string
     }): Promise<{ ok: boolean; errorMessage?: string }> {
-      const api = getApi()
-      if (!api?.dbAssetExecuteQuery) return { ok: false, errorMessage: 'not connected' }
       const qualified = buildQualifiedTable(ctx.dbType, ctx.schemaName, ctx.tableName)
-      const sql = `TRUNCATE TABLE ${qualified}`
-      let result
-      try {
-        result = await api.dbAssetExecuteQuery({
-          id: String(ctx.assetId),
-          sql,
-          databaseName: String(ctx.databaseName)
-        })
-      } catch (err) {
-        const message = err instanceof Error ? err.message : 'ipc error'
-        return { ok: false, errorMessage: message }
-      }
-      if (!result?.ok) {
-        return { ok: false, errorMessage: result?.errorMessage ?? 'truncate failed' }
-      }
-      // Reload any data tab bound to this exact table so stale rows are not
-      // left on screen. SchemaName equality also matters for PG multi-schema
-      // setups where the same table name can live in multiple schemas.
+      const res = await this._executeTableMutation(
+        { assetId: ctx.assetId, databaseName: ctx.databaseName, sql: `TRUNCATE TABLE ${qualified}` },
+        'truncate failed'
+      )
+      if (!res.ok) return res
       const affectedTabs = this.tabs.filter(
         (t) =>
           t.kind === 'data' &&
@@ -2113,27 +2058,12 @@ export const useDatabaseWorkspaceStore = defineStore('databaseWorkspace', {
       schemaName?: string
       tableName: string
     }): Promise<{ ok: boolean; errorMessage?: string }> {
-      const api = getApi()
-      if (!api?.dbAssetExecuteQuery) return { ok: false, errorMessage: 'not connected' }
       const qualified = buildQualifiedTable(ctx.dbType, ctx.schemaName, ctx.tableName)
-      const sql = `DROP TABLE ${qualified}`
-      let result
-      try {
-        result = await api.dbAssetExecuteQuery({
-          id: String(ctx.assetId),
-          sql,
-          databaseName: String(ctx.databaseName)
-        })
-      } catch (err) {
-        const message = err instanceof Error ? err.message : 'ipc error'
-        return { ok: false, errorMessage: message }
-      }
-      if (!result?.ok) {
-        return { ok: false, errorMessage: result?.errorMessage ?? 'drop failed' }
-      }
-      // Close every tab that pointed at the dropped table. Match on the
-      // (assetId, databaseName, schemaName, tableName) tuple so tabs for
-      // sibling tables in the same connection are left alone.
+      const res = await this._executeTableMutation(
+        { assetId: ctx.assetId, databaseName: ctx.databaseName, sql: `DROP TABLE ${qualified}` },
+        'drop failed'
+      )
+      if (!res.ok) return res
       const survivors = this.tabs.filter(
         (t) =>
           !(
@@ -2147,9 +2077,8 @@ export const useDatabaseWorkspaceStore = defineStore('databaseWorkspace', {
       if (!this.tabs.some((t) => t.id === this.activeTabId)) {
         this.activeTabId = this.tabs[0]?.id ?? OVERVIEW_TAB_ID
       }
-      // Refresh the connection subtree so the dropped table disappears from
-      // the explorer. We reuse the existing lazy loader; it is cheap enough
-      // and avoids a bespoke "reload-only-this-schema" path.
+      // Reuse the existing lazy loader instead of a bespoke "reload-only-this-schema"
+      // path — cheap and keeps one source of truth for subtree state.
       await this.refreshConnectionChildren(ctx.assetId)
       return { ok: true }
     }

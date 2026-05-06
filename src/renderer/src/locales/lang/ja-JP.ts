@@ -1716,6 +1716,11 @@ export default {
       createdSuccess: 'データベースを作成しました',
       executeFailed: 'データベースの作成に失敗しました'
     },
+    ddlViewerModal: {
+      title: 'テーブル DDL - {table}',
+      copy: 'コピー',
+      copyFailed: 'コピーに失敗しました'
+    },
     tableMenu: {
       openTable: 'テーブルを開く',
       queryConsole: 'クエリコンソール',

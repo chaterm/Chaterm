@@ -78,7 +78,7 @@ describe('PostgresDriverAdapter - detectPrimaryKey', () => {
     expect(calls).toHaveLength(1)
     expect(calls[0].sql).toContain('pg_index')
     expect(calls[0].sql).toContain('indisprimary')
-    expect(calls[0].params).toEqual(['orders'])
+    expect(calls[0].params).toEqual(['"orders"'])
   })
 
   it('returns null when table has no primary key', async () => {
@@ -130,8 +130,9 @@ describe('fetchPostgresTableDdl', () => {
     )
   })
 
-  it('unconditionally drops + reinstalls helper, then SETs search_path and SELECTs', async () => {
+  it('installs helper when missing, then SETs search_path and SELECTs', async () => {
     const { client, calls } = makeFakeClient([
+      { rows: [{ has_type: false, has_fn: false }] }, // probe
       { rows: [] }, // DROP TYPE IF EXISTS public.tabledefs CASCADE
       { rows: [] }, // PG_TABLE_DEF_FUNCTION_SQL
       { rows: [] }, // SET search_path
@@ -139,43 +140,43 @@ describe('fetchPostgresTableDdl', () => {
     ])
     const ddl = await fetchPostgresTableDdl(client, 'appdb', 'public', 'orders')
     expect(ddl).toBe('CREATE TABLE "public"."orders" (...);')
-    expect(calls).toHaveLength(4)
-    expect(calls[0].sql).toBe('DROP TYPE IF EXISTS public.tabledefs CASCADE')
-    expect(calls[1].sql).toBe(PG_TABLE_DEF_FUNCTION_SQL)
-    expect(calls[2].sql).toContain('SET search_path')
-    expect(calls[2].sql).toContain('"public"')
-    expect(calls[3].sql).toContain('public.pg_get_tabledef')
-    expect(calls[3].params).toEqual(['public', 'orders'])
+    expect(calls).toHaveLength(5)
+    expect(calls[0].sql).toContain('to_regtype')
+    expect(calls[1].sql).toBe('DROP TYPE IF EXISTS public.tabledefs CASCADE')
+    expect(calls[2].sql).toBe(PG_TABLE_DEF_FUNCTION_SQL)
+    expect(calls[3].sql).toContain('SET search_path')
+    expect(calls[3].sql).toContain('"public"')
+    expect(calls[4].sql).toContain('public.pg_get_tabledef')
+    expect(calls[4].params).toEqual(['public', 'orders'])
   })
 
-  it('reinstalls on every call even when helper already exists (idempotent path)', async () => {
-    // Two consecutive fetches should both issue the DROP+CREATE+SET+SELECT sequence.
+  it('skips install when helper already present (fast path)', async () => {
     const { client, calls } = makeFakeClient([
-      { rows: [] }, // call 1: DROP
-      { rows: [] }, // call 1: CREATE
-      { rows: [] }, // call 1: SET
-      { rows: [{ ddl: 'A' }] }, // call 1: SELECT
-      { rows: [] }, // call 2: DROP
-      { rows: [] }, // call 2: CREATE
-      { rows: [] }, // call 2: SET
-      { rows: [{ ddl: 'B' }] } // call 2: SELECT
+      { rows: [{ has_type: true, has_fn: true }] }, // probe: installed
+      { rows: [] }, // SET
+      { rows: [{ ddl: 'A' }] }, // SELECT
+      { rows: [{ has_type: true, has_fn: true }] }, // probe: installed (second call)
+      { rows: [] }, // SET
+      { rows: [{ ddl: 'B' }] } // SELECT
     ])
     await fetchPostgresTableDdl(client, 'appdb', 'public', 't1')
     await fetchPostgresTableDdl(client, 'appdb', 'public', 't2')
-    expect(calls).toHaveLength(8)
-    expect(calls[0].sql).toBe('DROP TYPE IF EXISTS public.tabledefs CASCADE')
-    expect(calls[4].sql).toBe('DROP TYPE IF EXISTS public.tabledefs CASCADE')
+    expect(calls).toHaveLength(6)
+    expect(calls[0].sql).toContain('to_regtype')
+    expect(calls[1].sql).toContain('SET search_path')
+    expect(calls[3].sql).toContain('to_regtype')
+    expect(calls[4].sql).toContain('SET search_path')
   })
 
   it('quotes mixed-case / reserved-word schema names in SET search_path', async () => {
-    const { client, calls } = makeFakeClient([{ rows: [] }, { rows: [] }, { rows: [] }, { rows: [{ ddl: '' }] }])
+    const { client, calls } = makeFakeClient([{ rows: [{ has_type: true, has_fn: true }] }, { rows: [] }, { rows: [{ ddl: '' }] }])
     await fetchPostgresTableDdl(client, 'appdb', 'User', 't')
-    expect(calls[2].sql).toBe('SET search_path = "User", public')
+    expect(calls[1].sql).toBe('SET search_path = "User", public')
   })
 
   it('throws code=permission when DROP TYPE is denied (SQLSTATE 42501)', async () => {
     const denied = Object.assign(new Error('permission denied for schema public'), { code: '42501' })
-    const { client } = makeFakeClient([denied])
+    const { client } = makeFakeClient([{ rows: [{ has_type: false, has_fn: false }] }, denied])
     await expect(fetchPostgresTableDdl(client, 'appdb', 'public', 'orders')).rejects.toMatchObject({
       code: 'permission'
     })
@@ -184,6 +185,7 @@ describe('fetchPostgresTableDdl', () => {
   it('throws code=permission when CREATE FUNCTION bundle is denied', async () => {
     const denied = Object.assign(new Error('permission denied for database appdb'), { code: '42501' })
     const { client } = makeFakeClient([
+      { rows: [{ has_type: false, has_fn: false }] }, // probe
       { rows: [] }, // DROP ok
       denied // CREATE denied
     ])
@@ -194,7 +196,7 @@ describe('fetchPostgresTableDdl', () => {
 
   it('throws code=permission when message contains "must be owner"', async () => {
     const denied = new Error('ERROR: must be owner of type tabledefs')
-    const { client } = makeFakeClient([{ rows: [] }, denied])
+    const { client } = makeFakeClient([{ rows: [{ has_type: false, has_fn: false }] }, { rows: [] }, denied])
     await expect(fetchPostgresTableDdl(client, 'appdb', 'public', 'orders')).rejects.toMatchObject({
       code: 'permission'
     })
@@ -202,15 +204,14 @@ describe('fetchPostgresTableDdl', () => {
 
   it('rethrows non-permission install errors unchanged', async () => {
     const other = Object.assign(new Error('disk full'), { code: '53100' })
-    const { client } = makeFakeClient([{ rows: [] }, other])
+    const { client } = makeFakeClient([{ rows: [{ has_type: false, has_fn: false }] }, { rows: [] }, other])
     await expect(fetchPostgresTableDdl(client, 'appdb', 'public', 'orders')).rejects.toThrow('disk full')
   })
 
   it('rethrows unexpected SELECT errors unchanged', async () => {
     const other = Object.assign(new Error('syntax error at or near "FOO"'), { code: '42601' })
     const { client } = makeFakeClient([
-      { rows: [] }, // DROP
-      { rows: [] }, // CREATE
+      { rows: [{ has_type: true, has_fn: true }] }, // probe
       { rows: [] }, // SET
       other // SELECT fails
     ])

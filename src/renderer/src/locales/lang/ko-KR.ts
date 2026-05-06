@@ -1708,6 +1708,11 @@ export default {
       createdSuccess: '데이터베이스가 생성되었습니다',
       executeFailed: '데이터베이스 생성 실패'
     },
+    ddlViewerModal: {
+      title: '테이블 DDL - {table}',
+      copy: '복사',
+      copyFailed: '복사 실패'
+    },
     tableMenu: {
       openTable: '테이블 열기',
       queryConsole: '쿼리 콘솔',

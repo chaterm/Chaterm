@@ -1791,6 +1791,11 @@ export default {
       createdSuccess: 'Database created',
       executeFailed: 'Create database failed'
     },
+    ddlViewerModal: {
+      title: 'Table DDL - {table}',
+      copy: 'Copy',
+      copyFailed: 'Copy failed'
+    },
     tableMenu: {
       openTable: 'Open Table',
       queryConsole: 'Query console',

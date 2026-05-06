@@ -1728,6 +1728,11 @@ export default {
       createdSuccess: 'Datenbank erstellt',
       executeFailed: 'Datenbankerstellung fehlgeschlagen'
     },
+    ddlViewerModal: {
+      title: 'Tabellen-DDL - {table}',
+      copy: 'Kopieren',
+      copyFailed: 'Kopieren fehlgeschlagen'
+    },
     tableMenu: {
       openTable: 'Tabelle oeffnen',
       queryConsole: 'Abfragekonsole',

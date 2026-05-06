@@ -1773,6 +1773,11 @@ export default {
       createdSuccess: '数据库已创建',
       executeFailed: '创建数据库失败'
     },
+    ddlViewerModal: {
+      title: '表 DDL - {table}',
+      copy: '复制',
+      copyFailed: '复制失败'
+    },
     tableMenu: {
       openTable: '打开表',
       queryConsole: '查询控制台',

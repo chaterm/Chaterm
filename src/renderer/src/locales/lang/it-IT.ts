@@ -1742,6 +1742,11 @@ export default {
       createdSuccess: 'Database creato',
       executeFailed: 'Creazione database non riuscita'
     },
+    ddlViewerModal: {
+      title: 'DDL tabella - {table}',
+      copy: 'Copia',
+      copyFailed: 'Copia non riuscita'
+    },
     tableMenu: {
       openTable: 'Apri tabella',
       queryConsole: 'Console query',

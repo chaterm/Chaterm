@@ -1702,6 +1702,11 @@ export default {
       createdSuccess: '資料庫已建立',
       executeFailed: '建立資料庫失敗'
     },
+    ddlViewerModal: {
+      title: '資料表 DDL - {table}',
+      copy: '複製',
+      copyFailed: '複製失敗'
+    },
     tableMenu: {
       openTable: '開啟資料表',
       queryConsole: '查詢主控台',

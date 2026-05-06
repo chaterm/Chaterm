@@ -1697,6 +1697,11 @@ export default {
       createdSuccess: 'تم إنشاء قاعدة البيانات',
       executeFailed: 'فشل إنشاء قاعدة البيانات'
     },
+    ddlViewerModal: {
+      title: 'DDL الجدول - {table}',
+      copy: 'نسخ',
+      copyFailed: 'فشل النسخ'
+    },
     tableMenu: {
       openTable: 'فتح الجدول',
       queryConsole: 'وحدة تحكم الاستعلام',

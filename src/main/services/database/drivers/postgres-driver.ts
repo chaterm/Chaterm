@@ -371,58 +371,57 @@ function isPermissionError(err: unknown): boolean {
 
 /**
  * Retrieve the CREATE TABLE DDL for a Postgres table by delegating to the
- * helper PL/pgSQL function `pg_get_tabledef`. Mirrors chat2db's
- * PostgreSQLMetaData.tableDDL path: unconditionally drop and reinstall the
- * helper type/function on every call. This avoids the
- * "type tabledefs already exists" race where a previous install landed the
- * TYPE in the caller's search_path schema (not public) and a subsequent
- * `DROP TYPE public.tabledefs` becomes a no-op, leaving the next CREATE
- * conflicting. `DROP TYPE IF EXISTS ... CASCADE` is idempotent, and the
- * reinstall SQL pins the TYPE to `public.tabledefs` explicitly.
+ * helper PL/pgSQL function `pg_get_tabledef`. Lazy-installs the helper type
+ * and function into `public` only when missing — checked via `to_regtype`
+ * and `to_regprocedure`. If a prior install landed the TYPE outside `public`
+ * and the probe returns NULL for `public.tabledefs`, `DROP TYPE IF EXISTS`
+ * during reinstall clears the conflict.
  *
- * The `schemaName` and `tableName` are bound as parameters to the SELECT
- * to avoid SQL injection. `SET search_path` is issued after the reinstall
- * so that subsequent unqualified references resolve against the target
- * schema first.
+ * `schemaName` and `tableName` are bound as parameters to the SELECT to avoid
+ * SQL injection. `SET search_path` targets the requested schema so the helper
+ * resolves unqualified references there first.
  *
- * Permission failures during DROP / CREATE surface as `code = 'permission'`.
+ * Permission failures during install surface as `code = 'permission'`.
  */
 export async function fetchPostgresTableDdl(handle: unknown, databaseName: string, schemaName: string, tableName: string): Promise<string> {
   const client = handle as PgClient
   void databaseName
   const safeSchema = String(schemaName).replace(/"/g, '""')
 
-  // Step 1-2: always reinstall the helper. Idempotent thanks to IF EXISTS.
-  try {
-    await client.query('DROP TYPE IF EXISTS public.tabledefs CASCADE')
-    await client.query(PG_TABLE_DEF_FUNCTION_SQL)
-  } catch (installError) {
-    if (isPermissionError(installError)) {
-      const err: TableDdlError = new Error('insufficient privilege to install pg_get_tabledef helper on this database') as TableDdlError
-      err.code = 'permission'
-      logger.error('postgres fetchTableDdl install denied', {
-        event: 'db.postgres.fetchTableDdl.install.denied',
+  const probe = await client.query<{ has_type: boolean; has_fn: boolean }>(
+    "SELECT to_regtype('public.tabledefs') IS NOT NULL AS has_type, " +
+      "to_regprocedure('public.pg_get_tabledef(varchar,varchar,boolean,tabledefs)') IS NOT NULL AS has_fn"
+  )
+  const installed = !!probe.rows?.[0]?.has_type && !!probe.rows?.[0]?.has_fn
+  if (!installed) {
+    try {
+      await client.query('DROP TYPE IF EXISTS public.tabledefs CASCADE')
+      await client.query(PG_TABLE_DEF_FUNCTION_SQL)
+    } catch (installError) {
+      if (isPermissionError(installError)) {
+        const err: TableDdlError = new Error('insufficient privilege to install pg_get_tabledef helper on this database') as TableDdlError
+        err.code = 'permission'
+        logger.error('postgres fetchTableDdl install denied', {
+          event: 'db.postgres.fetchTableDdl.install.denied',
+          hasSchema: !!schemaName,
+          tableLen: tableName.length
+        })
+        throw err
+      }
+      logger.error('postgres fetchTableDdl install failed', {
+        event: 'db.postgres.fetchTableDdl.install.fail',
         hasSchema: !!schemaName,
-        tableLen: tableName.length
+        tableLen: tableName.length,
+        sqlState: (installError as { code?: string })?.code
       })
-      throw err
+      throw installError
     }
-    logger.error('postgres fetchTableDdl install failed', {
-      event: 'db.postgres.fetchTableDdl.install.fail',
-      hasSchema: !!schemaName,
-      tableLen: tableName.length,
-      sqlState: (installError as { code?: string })?.code
-    })
-    throw installError
   }
 
-  // Step 3: scope search_path to the target schema. Quoted to tolerate
-  // mixed-case or reserved-word schema names.
   await client.query(`SET search_path = "${safeSchema}", public`)
 
-  // Step 4: call the helper with bound params to avoid SQL injection.
-  // Schema-qualify with public. so we never resolve to a stale overload
-  // that might live in another schema on the search_path.
+  // Schema-qualify with `public.` so we never resolve to a stale overload
+  // living in another schema on the search_path.
   try {
     const res = await client.query<{ ddl: string }>("SELECT public.pg_get_tabledef($1::varchar, $2::varchar, false, 'COMMENTS'::tabledefs) AS ddl", [
       schemaName,

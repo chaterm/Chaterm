@@ -1737,6 +1737,11 @@ export default {
       createdSuccess: 'База данных создана',
       executeFailed: 'Не удалось создать базу данных'
     },
+    ddlViewerModal: {
+      title: 'DDL таблицы - {table}',
+      copy: 'Копировать',
+      copyFailed: 'Сбой копирования'
+    },
     tableMenu: {
       openTable: 'Открыть таблицу',
       queryConsole: 'Консоль запросов',

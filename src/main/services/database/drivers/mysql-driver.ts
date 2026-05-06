@@ -149,39 +149,16 @@ export class MysqlDriverAdapter implements DatabaseDriverAdapter {
   async executeQuery(handle: unknown, sql: string, params: unknown[] = []): Promise<QueryResult> {
     const conn = handle as MySqlConnection
     const start = Date.now()
-    // eslint-disable-next-line no-console
-    console.log('[DB-DEBUG] mysql executeQuery in', {
-      sqlPreview: sql.slice(0, 200),
-      paramCount: params.length
-    })
-    try {
-      const [rows, fields] =
-        params.length === 0
-          ? ((await conn.query(sql)) as [Array<Record<string, unknown>>, Array<{ name: string }>])
-          : ((await conn.query(sql, params)) as [Array<Record<string, unknown>>, Array<{ name: string }>])
-      const durationMs = Date.now() - start
-      if (!Array.isArray(rows)) {
-        // eslint-disable-next-line no-console
-        console.log('[DB-DEBUG] mysql executeQuery out (non-array)', { durationMs })
-        return { columns: [], rows: [], rowCount: 0, durationMs }
-      }
-      const columns = Array.isArray(fields) && fields.length > 0 ? fields.map((f) => f.name) : Object.keys(rows[0] ?? {})
-      // eslint-disable-next-line no-console
-      console.log('[DB-DEBUG] mysql executeQuery out', {
-        durationMs,
-        rowCount: rows.length,
-        columnCount: columns.length
-      })
-      return { columns, rows, rowCount: rows.length, durationMs }
-    } catch (err) {
-      // eslint-disable-next-line no-console
-      console.error('[DB-DEBUG] mysql executeQuery threw', {
-        sqlPreview: sql.slice(0, 200),
-        message: (err as Error)?.message,
-        code: (err as { code?: string })?.code
-      })
-      throw err
+    const [rows, fields] =
+      params.length === 0
+        ? ((await conn.query(sql)) as [Array<Record<string, unknown>>, Array<{ name: string }>])
+        : ((await conn.query(sql, params)) as [Array<Record<string, unknown>>, Array<{ name: string }>])
+    const durationMs = Date.now() - start
+    if (!Array.isArray(rows)) {
+      return { columns: [], rows: [], rowCount: 0, durationMs }
     }
+    const columns = Array.isArray(fields) && fields.length > 0 ? fields.map((f) => f.name) : Object.keys(rows[0] ?? {})
+    return { columns, rows, rowCount: rows.length, durationMs }
   }
 }
 

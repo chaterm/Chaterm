@@ -136,6 +136,13 @@
       @test="handleTest"
       @save="handleSave"
     />
+
+    <DdlViewerModal
+      :open="ddlViewer.open"
+      :table-name="ddlViewer.tableName"
+      :ddl="ddlViewer.ddl"
+      @update:open="(v) => (ddlViewer.open = v)"
+    />
   </div>
 </template>
 
@@ -150,6 +157,7 @@ import DatabaseWorkspaceTabs from './components/DatabaseWorkspaceTabs.vue'
 import DatabaseOverview from './components/DatabaseOverview.vue'
 import DatabaseResultPane from './components/DatabaseResultPane.vue'
 import DatabaseConnectionModal from './components/DatabaseConnectionModal.vue'
+import DdlViewerModal from './components/DdlViewerModal.vue'
 import DataGridToolbar from './components/DataGridToolbar.vue'
 import DataStatusBar from './components/DataStatusBar.vue'
 import WhereOrderBar from './components/WhereOrderBar.vue'
@@ -160,6 +168,8 @@ import type { DatabaseConnectionDraft, DatabaseTreeNode } from './types'
 
 const store = useDatabaseWorkspaceStore()
 const { t } = useI18n()
+
+const ddlViewer = ref<{ open: boolean; tableName: string; ddl: string }>({ open: false, tableName: '', ddl: '' })
 
 // Id of the group currently in inline-rename mode (null when none).
 const editingGroupId = ref<string | null>(null)
@@ -542,14 +552,16 @@ const handleTableAction = async (payload: { action: TableActionKind; ctx: TableA
       return
     }
     case 'viewDdl': {
-      const res = await store.openDdlTab(storeCtx)
+      const res = await store.fetchTableDdl(storeCtx)
       if (!res.ok) {
         if (res.errorCode === 'permission') {
           message.error(t('database.tableMenu.ddlPermissionDenied'))
         } else {
           message.error(t('database.tableMenu.ddlFetchFailed', { msg: res.errorMessage }))
         }
+        return
       }
+      ddlViewer.value = { open: true, tableName: ctx.tableName, ddl: res.ddl }
       return
     }
     case 'copyDdl': {

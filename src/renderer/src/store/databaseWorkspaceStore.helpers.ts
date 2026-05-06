@@ -45,3 +45,9 @@ export function flattenGroupPaths(groups: FlatGroup[], currentGroupId: string | 
   walk(null, '')
   return out
 }
+
+export function toErrorMessage(err: unknown, fallback = 'ipc error'): string {
+  if (err instanceof Error) return err.message
+  if (typeof err === 'string') return err
+  return fallback
+}

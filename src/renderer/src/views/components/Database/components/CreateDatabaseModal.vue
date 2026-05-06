@@ -37,7 +37,7 @@ import { computed, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { message } from 'ant-design-vue'
 import SqlMonacoEditor from './SqlMonacoEditor.vue'
-import { useDatabaseWorkspaceStore } from '@/store/databaseWorkspaceStore'
+import { useDatabaseWorkspaceStore, quoteIdent } from '@/store/databaseWorkspaceStore'
 
 const props = defineProps<{
   open: boolean
@@ -76,8 +76,7 @@ const canSubmit = computed(() => NAME_PATTERN.test(name.value.trim()) && sql.val
 
 const renderTemplate = (n: string): string => {
   if (!n) return ''
-  // MySQL quotes identifiers with backticks; PostgreSQL uses double quotes.
-  return props.dbType === 'mysql' ? `CREATE DATABASE \`${n}\`;` : `CREATE DATABASE "${n}";`
+  return `CREATE DATABASE ${quoteIdent(n, props.dbType)};`
 }
 
 const onNameChange = (v: string): void => {
