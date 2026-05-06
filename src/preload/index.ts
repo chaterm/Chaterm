@@ -296,6 +296,230 @@ const createAsset = async (data: { form: Record<string, unknown> }) => {
   }
 }
 
+// ==================== Database Asset API ====================
+
+interface DbAssetPayload {
+  name: string
+  db_type: 'mysql' | 'postgresql'
+  host: string
+  port: number
+  group_id?: string | null
+  username?: string | null
+  password?: string | null
+  database_name?: string | null
+  schema_name?: string | null
+  environment?: string | null
+  group_name?: string | null
+  ssl_mode?: string | null
+  options_json?: string | null
+  tags_json?: string | null
+  sort_order?: number
+}
+
+interface DbAssetGroupPayload {
+  name: string
+  parent_id?: string | null
+  sort_order?: number
+}
+
+const dbAssetGroupList = async () => {
+  try {
+    return await ipcRenderer.invoke('db-asset-group-list')
+  } catch (error) {
+    return Promise.reject(error)
+  }
+}
+
+const dbAssetGroupCreate = async (payload: DbAssetGroupPayload) => {
+  try {
+    return await ipcRenderer.invoke('db-asset-group-create', payload)
+  } catch (error) {
+    return Promise.reject(error)
+  }
+}
+
+const dbAssetGroupUpdate = async (payload: { id: string; patch: Partial<DbAssetGroupPayload> }) => {
+  try {
+    return await ipcRenderer.invoke('db-asset-group-update', payload)
+  } catch (error) {
+    return Promise.reject(error)
+  }
+}
+
+const dbAssetGroupDelete = async (id: string) => {
+  try {
+    return await ipcRenderer.invoke('db-asset-group-delete', id)
+  } catch (error) {
+    return Promise.reject(error)
+  }
+}
+
+const dbAssetList = async () => {
+  try {
+    return await ipcRenderer.invoke('db-asset-list')
+  } catch (error) {
+    return Promise.reject(error)
+  }
+}
+
+const dbAssetGet = async (id: string) => {
+  try {
+    return await ipcRenderer.invoke('db-asset-get', id)
+  } catch (error) {
+    return Promise.reject(error)
+  }
+}
+
+const dbAssetCreate = async (payload: DbAssetPayload) => {
+  try {
+    return await ipcRenderer.invoke('db-asset-create', payload)
+  } catch (error) {
+    return Promise.reject(error)
+  }
+}
+
+const dbAssetUpdate = async (payload: { id: string; patch: Partial<DbAssetPayload> }) => {
+  try {
+    return await ipcRenderer.invoke('db-asset-update', payload)
+  } catch (error) {
+    return Promise.reject(error)
+  }
+}
+
+const dbAssetDelete = async (id: string) => {
+  try {
+    return await ipcRenderer.invoke('db-asset-delete', id)
+  } catch (error) {
+    return Promise.reject(error)
+  }
+}
+
+const dbAssetTestConnection = async (payload: DbAssetPayload) => {
+  try {
+    return await ipcRenderer.invoke('db-asset-test-connection', payload)
+  } catch (error) {
+    return Promise.reject(error)
+  }
+}
+
+const dbAssetConnect = async (id: string) => {
+  try {
+    return await ipcRenderer.invoke('db-asset-connect', id)
+  } catch (error) {
+    return Promise.reject(error)
+  }
+}
+
+const dbAssetDisconnect = async (id: string) => {
+  try {
+    return await ipcRenderer.invoke('db-asset-disconnect', id)
+  } catch (error) {
+    return Promise.reject(error)
+  }
+}
+
+const dbAssetListChildren = async (payload: {
+  id: string
+  databaseName?: string
+  schemaName?: string
+  objectKind?: 'tables' | 'views' | 'functions' | 'procedures'
+  tableName?: string
+}) => {
+  try {
+    return await ipcRenderer.invoke('db-asset-list-children', payload)
+  } catch (error) {
+    return Promise.reject(error)
+  }
+}
+
+const dbAssetListSchemas = async (payload: { id: string; databaseName: string }) => {
+  try {
+    return await ipcRenderer.invoke('db-asset-list-schemas', payload)
+  } catch (error) {
+    return Promise.reject(error)
+  }
+}
+
+const dbAssetExecuteQuery = async (payload: { id: string; sql: string; databaseName?: string; schemaName?: string }) => {
+  try {
+    return await ipcRenderer.invoke('db-asset-execute-query', payload)
+  } catch (error) {
+    return Promise.reject(error)
+  }
+}
+
+const dbAssetTableDdl = async (payload: { id: string; database: string; schema?: string; table: string }) => {
+  try {
+    return await ipcRenderer.invoke('db-asset-table-ddl', payload)
+  } catch (error) {
+    return Promise.reject(error)
+  }
+}
+
+const dbAssetQueryTable = async (payload: {
+  id: string
+  database: string
+  schema?: string
+  table: string
+  filters?: Array<{ column: string; operator: string; value?: string; values?: string[] }>
+  sort?: { column: string; direction: 'asc' | 'desc' } | null
+  whereRaw?: string | null
+  orderByRaw?: string | null
+  page: number
+  pageSize: number
+  withTotal?: boolean
+}) => {
+  try {
+    return await ipcRenderer.invoke('db-asset-query-table', payload)
+  } catch (error) {
+    return Promise.reject(error)
+  }
+}
+
+const dbAssetCountTable = async (payload: {
+  id: string
+  database: string
+  schema?: string
+  table: string
+  filters?: Array<{ column: string; operator: string; value?: string; values?: string[] }>
+  whereRaw?: string | null
+}) => {
+  try {
+    return await ipcRenderer.invoke('db-asset-count-table', payload)
+  } catch (error) {
+    return Promise.reject(error)
+  }
+}
+
+const dbAssetColumnDistinct = async (payload: { id: string; database: string; schema?: string; table: string; column: string; limit?: number }) => {
+  try {
+    return await ipcRenderer.invoke('db-asset-column-distinct', payload)
+  } catch (error) {
+    return Promise.reject(error)
+  }
+}
+
+const dbAssetDetectPrimaryKey = async (payload: { id: string; database: string; schema?: string; table: string }) => {
+  try {
+    return await ipcRenderer.invoke('db-asset:detect-primary-key', payload)
+  } catch (error) {
+    return Promise.reject(error)
+  }
+}
+
+const dbAssetExecuteMutations = async (payload: {
+  id: string
+  database?: string
+  schema?: string
+  statements: Array<{ sql: string; params: unknown[] }>
+}) => {
+  try {
+    return await ipcRenderer.invoke('db-asset:execute-mutations', payload)
+  } catch (error) {
+    return Promise.reject(error)
+  }
+}
+
 const createOrUpdateAsset = async (data: { form: Record<string, unknown> }) => {
   try {
     const result = await ipcRenderer.invoke('asset-create-or-update', data)
@@ -620,6 +844,27 @@ const api = {
   getKeyChainSelect,
   getKeyChainList,
   getAssetGroup,
+  dbAssetList,
+  dbAssetGroupList,
+  dbAssetGroupCreate,
+  dbAssetGroupUpdate,
+  dbAssetGroupDelete,
+  dbAssetGet,
+  dbAssetCreate,
+  dbAssetUpdate,
+  dbAssetDelete,
+  dbAssetTestConnection,
+  dbAssetConnect,
+  dbAssetDisconnect,
+  dbAssetListChildren,
+  dbAssetListSchemas,
+  dbAssetExecuteQuery,
+  dbAssetTableDdl,
+  dbAssetQueryTable,
+  dbAssetCountTable,
+  dbAssetColumnDistinct,
+  dbAssetDetectPrimaryKey,
+  dbAssetExecuteMutations,
   chatermInsert,
   chatermUpdate,
   deleteAsset,

@@ -8,6 +8,137 @@ interface Cookie {
 }
 
 // ============================================================================
+// Database Asset Types
+// ============================================================================
+
+export interface DbAssetPayload {
+  name: string
+  db_type: 'mysql' | 'postgresql'
+  host: string
+  port: number
+  group_id?: string | null
+  username?: string | null
+  password?: string | null
+  database_name?: string | null
+  schema_name?: string | null
+  environment?: string | null
+  group_name?: string | null
+  ssl_mode?: string | null
+  options_json?: string | null
+  tags_json?: string | null
+  sort_order?: number
+}
+
+export interface DbAssetDto {
+  id: string
+  name: string
+  group_id: string | null
+  group_name: string | null
+  db_type: 'mysql' | 'postgresql'
+  environment: string | null
+  host: string
+  port: number
+  database_name: string | null
+  schema_name: string | null
+  auth_type: string
+  username: string | null
+  hasPassword: boolean
+  ssl_mode: string | null
+  status: 'idle' | 'testing' | 'connected' | 'failed'
+  last_connected_at: string | null
+  last_tested_at: string | null
+  last_error_code: string | null
+  last_error_message: string | null
+  sort_order: number
+  created_at: string
+  updated_at: string
+}
+
+export interface DbAssetMutationResult {
+  ok: boolean
+  asset?: DbAssetDto | null
+  errorMessage?: string
+}
+
+export interface DbAssetGroupPayload {
+  name: string
+  parent_id?: string | null
+  sort_order?: number
+}
+
+export interface DbAssetGroupDto {
+  id: string
+  name: string
+  parent_id: string | null
+  sort_order: number
+  created_at?: string
+  updated_at?: string
+}
+
+export interface DbAssetGroupMutationResult {
+  ok: boolean
+  group?: DbAssetGroupDto | null
+  errorMessage?: string
+}
+
+export interface DbConnectionTestResult {
+  ok: boolean
+  errorCode?: string
+  errorMessage?: string
+  serverVersion?: string
+  latencyMs?: number
+}
+
+export interface DbQueryResult {
+  ok: boolean
+  errorMessage?: string
+  columns?: string[]
+  rows?: Array<Record<string, unknown>>
+  rowCount?: number
+  durationMs?: number
+}
+
+export type DbFilterOperator = 'eq' | 'neq' | 'like' | 'in' | 'isnull' | 'notnull'
+
+export interface DbColumnFilter {
+  column: string
+  operator: DbFilterOperator
+  value?: string
+  values?: string[]
+}
+
+export interface DbColumnSort {
+  column: string
+  direction: 'asc' | 'desc'
+}
+
+export interface DbTableQueryPayload {
+  id: string
+  database: string
+  /** PG-only: schema the table lives in. MySQL ignores. */
+  schema?: string
+  table: string
+  filters?: DbColumnFilter[]
+  sort?: DbColumnSort | null
+  whereRaw?: string | null
+  orderByRaw?: string | null
+  page: number
+  pageSize: number
+  withTotal?: boolean
+}
+
+export interface DbTableQueryResult {
+  ok: boolean
+  errorMessage?: string
+  columns?: string[]
+  rows?: Array<Record<string, unknown>>
+  rowCount?: number
+  durationMs?: number
+  total?: number | null
+  knownColumns?: string[]
+}
+
+// ============================================================================
 // Interactive Command Execution Types
 // ============================================================================
 
@@ -171,6 +302,74 @@ interface ApiType {
   insertCommand: (data: { command: string; ip: string }) => Promise<any>
   aiSuggestCommand: (data: { command: string; osInfo?: string }) => Promise<{ command: string; explanation: string } | null>
   getLocalAssetRoute: (data: { searchType: string; params?: any[] }) => Promise<any>
+
+  // Database assets
+  dbAssetGroupList: () => Promise<DbAssetGroupDto[]>
+  dbAssetGroupCreate: (payload: DbAssetGroupPayload) => Promise<DbAssetGroupMutationResult>
+  dbAssetGroupUpdate: (payload: { id: string; patch: Partial<DbAssetGroupPayload> }) => Promise<DbAssetGroupMutationResult>
+  dbAssetGroupDelete: (id: string) => Promise<{ ok: boolean; errorMessage?: string }>
+  dbAssetList: () => Promise<DbAssetDto[]>
+  dbAssetGet: (id: string) => Promise<DbAssetDto | null>
+  dbAssetCreate: (payload: DbAssetPayload) => Promise<DbAssetMutationResult>
+  dbAssetUpdate: (payload: { id: string; patch: Partial<DbAssetPayload> }) => Promise<DbAssetMutationResult>
+  dbAssetDelete: (id: string) => Promise<{ ok: boolean; errorMessage?: string }>
+  dbAssetTestConnection: (payload: DbAssetPayload) => Promise<DbConnectionTestResult>
+  dbAssetConnect: (id: string) => Promise<DbAssetMutationResult>
+  dbAssetDisconnect: (id: string) => Promise<DbAssetMutationResult>
+  dbAssetListChildren: (payload: {
+    id: string
+    databaseName?: string
+    schemaName?: string
+    objectKind?: 'tables' | 'views' | 'functions' | 'procedures'
+    tableName?: string
+  }) => Promise<{
+    ok: boolean
+    databases?: string[]
+    tables?: string[]
+    objects?: string[]
+    columns?: string[]
+    errorMessage?: string
+  }>
+  dbAssetListSchemas: (payload: {
+    id: string
+    databaseName: string
+  }) => Promise<{ ok: boolean; schemas?: Array<{ name: string; isSystem: boolean }>; errorMessage?: string }>
+  dbAssetExecuteQuery: (payload: { id: string; sql: string; databaseName?: string; schemaName?: string }) => Promise<DbQueryResult>
+  dbAssetTableDdl: (payload: {
+    id: string
+    database: string
+    schema?: string
+    table: string
+  }) => Promise<{ ok: boolean; ddl?: string; errorCode?: 'permission' | 'other'; errorMessage?: string }>
+  dbAssetQueryTable: (payload: DbTableQueryPayload) => Promise<DbTableQueryResult>
+  dbAssetCountTable: (payload: {
+    id: string
+    database: string
+    schema?: string
+    table: string
+    filters?: DbColumnFilter[]
+    whereRaw?: string | null
+  }) => Promise<{ ok: boolean; total?: number; durationMs?: number; errorMessage?: string }>
+  dbAssetColumnDistinct: (payload: {
+    id: string
+    database: string
+    schema?: string
+    table: string
+    column: string
+    limit?: number
+  }) => Promise<{ ok: boolean; values?: unknown[]; errorMessage?: string }>
+  dbAssetDetectPrimaryKey: (payload: {
+    id: string
+    database: string
+    schema?: string
+    table: string
+  }) => Promise<{ ok: boolean; primaryKey: string[] | null; errorMessage?: string }>
+  dbAssetExecuteMutations: (payload: {
+    id: string
+    database?: string
+    schema?: string
+    statements: Array<{ sql: string; params: unknown[] }>
+  }) => Promise<{ ok: boolean; errorMessage?: string; affected?: number[]; durationMs: number }>
   recordConnection: (data: {
     assetUuid: string
     assetIp: string

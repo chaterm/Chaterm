@@ -1,0 +1,70 @@
+<template>
+  <ul
+    class="db-tree"
+    role="tree"
+  >
+    <DatabaseTreeNodeItem
+      v-for="node in nodes"
+      :key="node.id"
+      :node="node"
+      :selected-id="selectedId"
+      :connection-statuses="connectionStatuses"
+      :editing-group-id="editingGroupId"
+      @toggle="(id) => emit('toggle', id)"
+      @select="(id) => emit('select', id)"
+      @open-table="(id) => emit('openTable', id)"
+      @connect="(id) => emit('connect', id)"
+      @disconnect="(id) => emit('disconnect', id)"
+      @group-context="(payload) => emit('groupContext', payload)"
+      @connection-context="(p) => emit('connectionContext', p)"
+      @table-context="(p) => emit('tableContext', p)"
+      @commit-group-rename="(id, cur, next) => emit('commitGroupRename', id, cur, next)"
+      @cancel-group-rename="() => emit('cancelGroupRename')"
+    />
+  </ul>
+</template>
+
+<script setup lang="ts">
+import type { DatabaseTreeNode } from '../types'
+import DatabaseTreeNodeItem from './DatabaseTreeNodeItem.vue'
+
+defineProps<{
+  nodes: DatabaseTreeNode[]
+  selectedId: string | null
+  connectionStatuses?: Record<string, 'idle' | 'testing' | 'connected' | 'failed'>
+  editingGroupId?: string | null
+}>()
+
+const emit = defineEmits<{
+  (e: 'toggle', id: string): void
+  (e: 'select', id: string): void
+  (e: 'openTable', id: string): void
+  (e: 'connect', id: string): void
+  (e: 'disconnect', id: string): void
+  (e: 'groupContext', payload: { id: string; name: string; x: number; y: number }): void
+  (e: 'connectionContext', payload: { id: string; assetId: string; x: number; y: number }): void
+  (
+    e: 'tableContext',
+    payload: {
+      id: string
+      assetId: string
+      dbType: 'mysql' | 'postgresql'
+      databaseName: string
+      schemaName?: string
+      tableName: string
+      x: number
+      y: number
+    }
+  ): void
+  (e: 'commitGroupRename', groupId: string, currentName: string, nextName: string): void
+  (e: 'cancelGroupRename'): void
+}>()
+</script>
+
+<style lang="less" scoped>
+.db-tree {
+  list-style: none;
+  margin: 0;
+  padding: 4px 0;
+}
+</style>

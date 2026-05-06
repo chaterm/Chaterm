@@ -137,7 +137,8 @@ npm run build:linux # Build Linux package
 5. **Documentation Sync:** User-visible feature changes require updating README.md/README_zh.md and related comments
 6. **No Emojis:** Emojis are strictly prohibited in code (including comments, logs, strings); use plain text descriptions instead; text markers like `[INFO]`, `[ERROR]`, `[WARNING]` can be used as alternatives
 7. **Code Comment Language:** Newly added code comments must be written in English to maintain the codebase's internationalization standards
-8. **Log Sanitization:** All log output must go through the sanitizer (`src/main/services/logging/sanitizer.ts`). When writing logger calls:
+8. **No Console Logging:** All log output must use the project logger (`createLogger(module)`) rather than `console.log` / `console.info` / `console.warn` / `console.error` / `console.debug`. This applies to both main and renderer processes, and to both permanent and temporary/debug logs. Reasons: console output bypasses the sanitizer (see rule 9), is not captured by the app's log files, and is not routed through the unified log channel. When adding temporary debug logs, use `logger.debug` or `logger.info` and remove them before committing.
+9. **Log Sanitization:** All log output must go through the sanitizer (`src/main/services/logging/sanitizer.ts`). When writing logger calls:
    - **Never** log entire objects that may contain credentials (connection configs, API configurations, asset objects, keychain objects, user payloads)
    - **Never** use string interpolation to embed sensitive values (hostnames, IPs, API keys, passwords, MAC addresses, usernames, URLs with credentials)
    - **Do** use structured logging with only safe fields: `logger.info('event description', { event: 'event.name', id: obj.id, count: N, hasPassword: !!password })`

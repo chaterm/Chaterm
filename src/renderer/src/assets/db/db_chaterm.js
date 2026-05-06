@@ -266,6 +266,62 @@ CREATE TABLE IF NOT EXISTS agent_chat_sync_task_state (
 );
 CREATE INDEX IF NOT EXISTS idx_task_state_pending ON agent_chat_sync_task_state(pending_upload, remote_deleted, is_deleted);
 
+-- 数据库资产表 (Database assets: MySQL / PostgreSQL connections and metadata)
+CREATE TABLE IF NOT EXISTS db_assets (
+  id TEXT PRIMARY KEY,
+  user_id INTEGER NOT NULL,
+  name TEXT NOT NULL,
+  group_id TEXT,
+  group_name TEXT,
+  db_type TEXT NOT NULL,
+  environment TEXT,
+  host TEXT NOT NULL,
+  port INTEGER NOT NULL,
+  database_name TEXT,
+  schema_name TEXT,
+  auth_type TEXT NOT NULL DEFAULT 'password',
+  username TEXT,
+  password_ciphertext TEXT,
+  ssl_mode TEXT,
+  jdbc_url TEXT,
+  driver_name TEXT,
+  driver_class_name TEXT,
+  ssh_tunnel_enabled INTEGER DEFAULT 0,
+  ssh_tunnel_asset_uuid TEXT,
+  options_json TEXT,
+  tags_json TEXT,
+  status TEXT DEFAULT 'idle',
+  last_connected_at TEXT,
+  last_tested_at TEXT,
+  last_error_code TEXT,
+  last_error_message TEXT,
+  sort_order INTEGER DEFAULT 0,
+  deleted_at TEXT,
+  created_at TEXT NOT NULL DEFAULT (datetime('now')),
+  updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+CREATE INDEX IF NOT EXISTS idx_db_assets_user_id ON db_assets(user_id);
+CREATE INDEX IF NOT EXISTS idx_db_assets_type ON db_assets(db_type);
+CREATE INDEX IF NOT EXISTS idx_db_assets_group_name ON db_assets(group_name);
+CREATE INDEX IF NOT EXISTS idx_db_assets_group_id ON db_assets(group_id);
+CREATE INDEX IF NOT EXISTS idx_db_assets_status ON db_assets(status);
+CREATE INDEX IF NOT EXISTS idx_db_assets_user_deleted ON db_assets(user_id, deleted_at);
+
+-- 数据库资产分组表 (Database asset groups: tree-structured grouping)
+CREATE TABLE IF NOT EXISTS db_asset_groups (
+  id TEXT PRIMARY KEY,
+  user_id INTEGER NOT NULL,
+  name TEXT NOT NULL,
+  parent_id TEXT,
+  sort_order INTEGER DEFAULT 0,
+  deleted_at TEXT,
+  created_at TEXT NOT NULL DEFAULT (datetime('now')),
+  updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+CREATE INDEX IF NOT EXISTS idx_db_asset_groups_user_id ON db_asset_groups(user_id);
+CREATE INDEX IF NOT EXISTS idx_db_asset_groups_parent_id ON db_asset_groups(parent_id);
+CREATE INDEX IF NOT EXISTS idx_db_asset_groups_user_deleted ON db_asset_groups(user_id, deleted_at);
+
 `)
 
 console.log('数据库创建成功，表已创建')
