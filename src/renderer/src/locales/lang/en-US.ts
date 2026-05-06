@@ -1683,7 +1683,7 @@ export default {
     overviewLead: 'Pick a table on the left; double-click to open a SQL tab.',
     overviewTipExplore: 'Browse groups, connections, and schema objects from the explorer.',
     overviewTipConnection: 'Click the plus button in the top-right to create a new connection.',
-    overviewTipQuery: 'Real query execution will be wired up in a later phase.',
+    overviewTipQuery: 'Double-click a table to open the SQL workbench to run and format queries.',
     testConnection: 'Test',
     testConnectionPassed: 'Connected',
     testConnectionInFlight: 'Testing connection...',

@@ -958,6 +958,27 @@ onBeforeUnmount(() => {
   &__search {
     padding: 8px 10px;
     background: var(--bg-color-secondary);
+
+    // Themed sibling of the shared `transparent-Input` convention used
+    // elsewhere (Assets, Files, Extensions). Scoped so the override only
+    // applies to the sidebar's a-input and not any nested popovers.
+    .transparent-Input {
+      background-color: var(--bg-color-secondary) !important;
+      border: 1px solid var(--border-color) !important;
+
+      :deep(.ant-input) {
+        background-color: var(--bg-color-secondary) !important;
+        color: var(--text-color) !important;
+
+        &::placeholder {
+          color: var(--text-color-tertiary) !important;
+        }
+      }
+
+      :deep(.ant-input-suffix) {
+        color: var(--text-color-tertiary) !important;
+      }
+    }
   }
 
   &__tree {

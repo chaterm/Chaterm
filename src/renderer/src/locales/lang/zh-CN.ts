@@ -1664,7 +1664,7 @@ export default {
     overviewLead: '从左侧选择一张表，双击可以打开 SQL 工作区。',
     overviewTipExplore: '在左侧探索分组、连接和数据库对象。',
     overviewTipConnection: '点击右上角加号按钮创建新的连接。',
-    overviewTipQuery: 'SQL 执行能力将在后续阶段接入真实数据库。',
+    overviewTipQuery: '双击表可打开 SQL 工作区，运行并格式化查询。',
     testConnection: '测试连接',
     testConnectionPassed: '连接成功',
     testConnectionInFlight: '正在测试连接...',
