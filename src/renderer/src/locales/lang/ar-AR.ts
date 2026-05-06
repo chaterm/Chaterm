@@ -1696,6 +1696,29 @@ export default {
       createdSuccess: 'تم إنشاء قاعدة البيانات',
       executeFailed: 'فشل إنشاء قاعدة البيانات'
     },
+    tableMenu: {
+      openTable: 'فتح الجدول',
+      queryConsole: 'وحدة تحكم الاستعلام',
+      copyName: 'نسخ الاسم',
+      viewDdl: 'عرض DDL',
+      copyTable: 'نسخ الجدول',
+      copyTableName: 'نسخ الاسم',
+      copyTableSelect: 'نسخ عبارة SELECT',
+      copyTableDdl: 'نسخ DDL',
+      truncate: 'تفريغ الجدول',
+      drop: 'حذف الجدول',
+      truncateConfirmTitle: 'تفريغ الجدول؟',
+      truncateConfirmContent: 'تفريغ الجدول {table}؟ ستتم إزالة جميع البيانات نهائيًا.',
+      dropConfirmTitle: 'حذف الجدول؟',
+      dropConfirmContent: 'حذف الجدول {table}؟ لا يمكن التراجع عن هذا الإجراء.',
+      ddlPermissionDenied: 'الصلاحيات غير كافية لإنشاء DDL. يحتاج مستخدم قاعدة البيانات الحالي إلى صلاحية CREATE FUNCTION.',
+      ddlFetchFailed: 'فشل جلب DDL: {msg}',
+      nameCopied: 'تم نسخ اسم الجدول',
+      selectCopied: 'تم نسخ عبارة SELECT',
+      ddlCopied: 'تم نسخ DDL',
+      truncated: 'تم تفريغ الجدول',
+      dropped: 'تم حذف الجدول'
+    },
     removeConfirm: {
       title: 'إزالة مصدر البيانات؟',
       content: 'سيتم إزالة الاتصال "{name}". لا يمكن التراجع عن هذا الإجراء.'

@@ -184,3 +184,61 @@ export class MysqlDriverAdapter implements DatabaseDriverAdapter {
     }
   }
 }
+
+/**
+ * Typed error produced when a MySQL DDL fetch fails. Mirrors the shape
+ * of the Postgres variant so the IPC layer can treat both alike.
+ */
+export type MysqlTableDdlError = Error & { code?: 'permission' | 'other' }
+
+function isMysqlPermissionError(err: unknown): boolean {
+  const e = err as { code?: string; errno?: number; message?: string } | null
+  if (!e) return false
+  // MySQL error numbers: 1142 table access denied, 1227 access denied.
+  if (e.errno === 1142 || e.errno === 1227) return true
+  const code = String(e.code ?? '')
+  if (code === 'ER_TABLEACCESS_DENIED_ERROR' || code === 'ER_SPECIFIC_ACCESS_DENIED_ERROR') return true
+  const msg = String(e.message ?? '').toLowerCase()
+  return msg.includes('access denied')
+}
+
+/**
+ * Retrieve the CREATE TABLE DDL for a MySQL table via `SHOW CREATE TABLE`.
+ * Returns the second column of the first row (the server's canonical DDL
+ * rendering). A permission failure surfaces as `code = 'permission'` so the
+ * IPC layer can return a friendly message without leaking driver text.
+ */
+export async function fetchMysqlTableDdl(handle: unknown, databaseName: string, tableName: string): Promise<string> {
+  const conn = handle as MySqlConnection
+  const safeDb = String(databaseName).replace(/`/g, '')
+  const safeTable = String(tableName).replace(/`/g, '')
+  try {
+    await conn.query(`USE \`${safeDb}\``)
+    const [rows] = (await conn.query(`SHOW CREATE TABLE \`${safeTable}\``)) as [Array<Record<string, unknown>>, unknown]
+    if (!Array.isArray(rows) || rows.length === 0) return ''
+    const row = rows[0] as Record<string, unknown>
+    // MySQL returns {Table, Create Table}; driver modes vary on key casing.
+    const values = Object.values(row)
+    const ddl = typeof values[1] === 'string' ? (values[1] as string) : ''
+    return ddl
+  } catch (error) {
+    if (isMysqlPermissionError(error)) {
+      const err: MysqlTableDdlError = new Error('insufficient privilege to read table definition') as MysqlTableDdlError
+      err.code = 'permission'
+      logger.error('mysql fetchTableDdl denied', {
+        event: 'db.mysql.fetchTableDdl.denied',
+        hasDatabase: !!databaseName,
+        tableLen: tableName.length
+      })
+      throw err
+    }
+    logger.error('mysql fetchTableDdl failed', {
+      event: 'db.mysql.fetchTableDdl.fail',
+      hasDatabase: !!databaseName,
+      tableLen: tableName.length,
+      mysqlCode: (error as { code?: string })?.code,
+      errno: (error as { errno?: number })?.errno
+    })
+    throw error
+  }
+}

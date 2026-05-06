@@ -1745,6 +1745,30 @@ export default {
       createdSuccess: 'Base de donnees creee',
       executeFailed: 'Echec de la creation de la base de donnees'
     },
+    tableMenu: {
+      openTable: 'Ouvrir la table',
+      queryConsole: 'Console de requetes',
+      copyName: 'Copier le nom',
+      viewDdl: 'Afficher le DDL',
+      copyTable: 'Copier la table',
+      copyTableName: 'Copier le nom',
+      copyTableSelect: 'Copier l instruction SELECT',
+      copyTableDdl: 'Copier le DDL',
+      truncate: 'Vider la table',
+      drop: 'Supprimer la table',
+      truncateConfirmTitle: 'Vider la table ?',
+      truncateConfirmContent: 'Vider la table {table} ? Toutes les donnees seront definitivement supprimees.',
+      dropConfirmTitle: 'Supprimer la table ?',
+      dropConfirmContent: 'Supprimer la table {table} ? Cette action est irreversible.',
+      ddlPermissionDenied:
+        'Privileges insuffisants pour generer le DDL. L utilisateur actuel de la base de donnees a besoin de la permission CREATE FUNCTION.',
+      ddlFetchFailed: 'Echec de la recuperation du DDL : {msg}',
+      nameCopied: 'Nom de la table copie',
+      selectCopied: 'Instruction SELECT copiee',
+      ddlCopied: 'DDL copie',
+      truncated: 'Table videe',
+      dropped: 'Table supprimee'
+    },
     removeConfirm: {
       title: 'Supprimer la source de donnees ?',
       content: 'La connexion "{name}" sera supprimee. Cette action est irreversible.'

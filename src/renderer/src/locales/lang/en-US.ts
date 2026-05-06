@@ -1790,6 +1790,29 @@ export default {
       createdSuccess: 'Database created',
       executeFailed: 'Create database failed'
     },
+    tableMenu: {
+      openTable: 'Open Table',
+      queryConsole: 'Query console',
+      copyName: 'Copy name',
+      viewDdl: 'View DDL',
+      copyTable: 'Copy table',
+      copyTableName: 'Copy name',
+      copyTableSelect: 'Copy SELECT statement',
+      copyTableDdl: 'Copy DDL',
+      truncate: 'Truncate table',
+      drop: 'Delete Table',
+      truncateConfirmTitle: 'Truncate table?',
+      truncateConfirmContent: 'Truncate table {table}? All data will be permanently removed.',
+      dropConfirmTitle: 'Drop table?',
+      dropConfirmContent: 'Drop table {table}? This cannot be undone.',
+      ddlPermissionDenied: 'Insufficient privileges to generate DDL. The current database user needs CREATE FUNCTION permission.',
+      ddlFetchFailed: 'Failed to fetch DDL: {msg}',
+      nameCopied: 'Table name copied',
+      selectCopied: 'SELECT statement copied',
+      ddlCopied: 'DDL copied',
+      truncated: 'Table truncated',
+      dropped: 'Table dropped'
+    },
     removeConfirm: {
       title: 'Remove data source?',
       content: 'The connection "{name}" will be removed. This cannot be undone.'

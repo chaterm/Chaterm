@@ -8,6 +8,8 @@ import { getConnectionManager } from '../services/database'
 import { getCredentialStore } from '../services/database/credential-store'
 import type { ConnectionTestResult, DbObjectKind, MutationStatement } from '../services/database/types'
 import { buildTableQuery, type ColumnFilter, type ColumnSort } from '../services/database/query-builder'
+import { fetchPostgresTableDdl } from '../services/database/drivers/postgres-driver'
+import { fetchMysqlTableDdl } from '../services/database/drivers/mysql-driver'
 
 const logger = createLogger('db')
 
@@ -771,6 +773,66 @@ export function registerDbAssetHandlers(): void {
         error
       })
       return { ok: false, errorMessage: (error as Error).message, durationMs: 0 }
+    }
+  })
+
+  ipcMain.handle('db-asset-table-ddl', async (_, payload: { id: string; database: string; schema?: string; table: string }) => {
+    try {
+      if (!payload || typeof payload.id !== 'string' || typeof payload.table !== 'string' || typeof payload.database !== 'string') {
+        return { ok: false, errorCode: 'other', errorMessage: 'invalid payload' }
+      }
+      const mgr = await getConnectionManager()
+      if (!mgr.isConnected(payload.id)) {
+        return { ok: false, errorCode: 'other', errorMessage: 'not connected' }
+      }
+      const service = await resolveAssetService()
+      const asset = service.getDbAsset(payload.id)
+      if (!asset) return { ok: false, errorCode: 'other', errorMessage: 'asset not found' }
+
+      const session = mgr.getSession(payload.id)
+      if (!session) return { ok: false, errorCode: 'other', errorMessage: 'not connected' }
+
+      logger.info('db-asset-table-ddl start', {
+        event: 'db-asset.table-ddl.start',
+        id: payload.id,
+        dbType: asset.db_type,
+        hasSchema: !!payload.schema,
+        tableLen: payload.table.length
+      })
+
+      let ddl = ''
+      if (asset.db_type === 'postgresql') {
+        const schema = payload.schema ?? asset.schema_name ?? 'public'
+        ddl = await fetchPostgresTableDdl(session.handle, payload.database, schema, payload.table)
+      } else if (asset.db_type === 'mysql') {
+        ddl = await fetchMysqlTableDdl(session.handle, payload.database, payload.table)
+      } else {
+        return { ok: false, errorCode: 'other', errorMessage: `unsupported db_type: ${asset.db_type}` }
+      }
+
+      logger.info('db-asset-table-ddl ok', {
+        event: 'db-asset.table-ddl.ok',
+        id: payload.id,
+        dbType: asset.db_type,
+        hasSchema: !!payload.schema,
+        tableLen: payload.table.length,
+        ddlLen: ddl.length
+      })
+      return { ok: true, ddl }
+    } catch (error) {
+      const code = (error as { code?: 'permission' | 'other' })?.code === 'permission' ? 'permission' : 'other'
+      logger.error('db-asset-table-ddl failed', {
+        event: 'db-asset.table-ddl.error',
+        id: payload?.id,
+        hasSchema: !!payload?.schema,
+        tableLen: typeof payload?.table === 'string' ? payload.table.length : 0,
+        errorCode: code
+      })
+      return {
+        ok: false,
+        errorCode: code,
+        errorMessage: (error as Error)?.message ?? 'unknown error'
+      }
     }
   })
 }

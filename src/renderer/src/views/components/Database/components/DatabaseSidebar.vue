@@ -47,6 +47,7 @@
         @disconnect="(id) => emit('disconnect', id)"
         @group-context="handleGroupContext"
         @connection-context="handleConnectionContext"
+        @table-context="handleTableContext"
         @commit-group-rename="(id, cur, next) => emit('commit-group-rename', id, cur, next)"
         @cancel-group-rename="() => emit('cancel-group-rename')"
       />
@@ -281,6 +282,97 @@
         </div>
       </div>
     </Teleport>
+    <Teleport to="body">
+      <div
+        v-if="tableMenu"
+        ref="tableMenuRef"
+        class="db-sidebar__group-menu db-sidebar__menu-overlay"
+        :style="{ left: `${tableMenu.x}px`, top: `${tableMenu.y}px` }"
+        @click.stop
+        @contextmenu.stop.prevent
+      >
+        <ul class="ant-dropdown-menu">
+          <li
+            class="ant-dropdown-menu-item"
+            @mouseenter="closeSubmenu"
+            @click="runTableAction('openTable')"
+          >
+            {{ t('database.tableMenu.openTable') }}
+          </li>
+          <li
+            class="ant-dropdown-menu-item"
+            @mouseenter="closeSubmenu"
+            @click="runTableAction('queryConsole')"
+          >
+            {{ t('database.tableMenu.queryConsole') }}
+          </li>
+          <li class="ant-dropdown-menu-item-divider" />
+          <li
+            class="ant-dropdown-menu-item"
+            @mouseenter="closeSubmenu"
+            @click="runTableAction('copyName')"
+          >
+            {{ t('database.tableMenu.copyName') }}
+          </li>
+          <li
+            class="ant-dropdown-menu-item"
+            @mouseenter="closeSubmenu"
+            @click="runTableAction('viewDdl')"
+          >
+            {{ t('database.tableMenu.viewDdl') }}
+          </li>
+          <li
+            class="ant-dropdown-menu-item db-sidebar__ctx-item--submenu"
+            @mouseenter="openSubmenu('tableCopy', $event)"
+          >
+            <span>{{ t('database.tableMenu.copyTable') }}</span>
+            <span class="db-sidebar__ctx-arrow">›</span>
+          </li>
+          <li class="ant-dropdown-menu-item-divider" />
+          <li
+            class="ant-dropdown-menu-item"
+            @mouseenter="closeSubmenu"
+            @click="runTableAction('truncate')"
+          >
+            {{ t('database.tableMenu.truncate') }}
+          </li>
+          <li
+            class="ant-dropdown-menu-item db-sidebar__group-menu-item--danger"
+            @mouseenter="closeSubmenu"
+            @click="runTableAction('drop')"
+          >
+            {{ t('database.tableMenu.drop') }}
+          </li>
+        </ul>
+        <div
+          v-show="activeSubmenu === 'tableCopy'"
+          class="db-sidebar__menu-overlay db-sidebar__ctx-subpopup"
+          :style="{ top: `${submenuTop}px` }"
+          @mouseenter="openSubmenu('tableCopy')"
+        >
+          <ul class="ant-dropdown-menu">
+            <li
+              class="ant-dropdown-menu-item"
+              @click="runTableAction('copyName')"
+            >
+              {{ t('database.tableMenu.copyTableName') }}
+            </li>
+            <li
+              class="ant-dropdown-menu-item"
+              @click="runTableAction('copySelect')"
+            >
+              {{ t('database.tableMenu.copyTableSelect') }}
+            </li>
+            <li
+              class="ant-dropdown-menu-item"
+              @click="runTableAction('copyDdl')"
+            >
+              {{ t('database.tableMenu.copyTableDdl') }}
+            </li>
+          </ul>
+        </div>
+      </div>
+    </Teleport>
     <CreateDatabaseModal
       v-if="createDbCtx"
       :open="createDbOpen"
@@ -336,6 +428,20 @@ const emit = defineEmits<{
   (e: 'disconnect', id: string): void
   (e: 'refresh-connected'): void
   (e: 'edit-connection', assetId: string): void
+  (
+    e: 'table-action',
+    payload: {
+      action: 'openTable' | 'queryConsole' | 'copyName' | 'viewDdl' | 'copySelect' | 'copyDdl' | 'truncate' | 'drop'
+      ctx: {
+        nodeId: string
+        assetId: string
+        dbType: 'mysql' | 'postgresql'
+        databaseName: string
+        schemaName?: string
+        tableName: string
+      }
+    }
+  ): void
 }>()
 
 // Store wrapper used by the connection-menu code paths. Legacy unit tests in
@@ -370,7 +476,7 @@ const addBtnRef = ref<HTMLButtonElement | null>(null)
 // Manually controlled sub-panel inside the context menu. antd's a-sub-menu
 // does not reliably apply popup-class-name in a bare a-menu, so we render a
 // plain div panel and own the hover state ourselves.
-const activeSubmenu = ref<'connection' | 'move' | 'connMove' | null>(null)
+const activeSubmenu = ref<'connection' | 'move' | 'connMove' | 'tableCopy' | null>(null)
 // Vertical offset of the active sub-panel, measured against the context menu
 // outer container. Computed from the triggering <li>'s offsetTop on hover so
 // the sub-panel's top edge lines up with the parent item, not with the top of
@@ -390,7 +496,7 @@ function cancelSubmenuClose(): void {
   }
 }
 
-function openSubmenu(name: 'connection' | 'move' | 'connMove', event?: MouseEvent): void {
+function openSubmenu(name: 'connection' | 'move' | 'connMove' | 'tableCopy', event?: MouseEvent): void {
   cancelSubmenuClose()
   activeSubmenu.value = name
   const target = event?.currentTarget as HTMLElement | undefined
@@ -553,6 +659,22 @@ const connMenuRef = ref<HTMLElement | null>(null)
 const createDbOpen = ref(false)
 const createDbCtx = ref<{ connectionId: string; dbType: 'mysql' | 'postgresql'; connectionName: string } | null>(null)
 
+// --- Table node context menu ----------------------------------------------
+
+interface TableMenuState {
+  nodeId: string
+  assetId: string
+  dbType: 'mysql' | 'postgresql'
+  databaseName: string
+  schemaName?: string
+  tableName: string
+  x: number
+  y: number
+}
+
+const tableMenu = ref<TableMenuState | null>(null)
+const tableMenuRef = ref<HTMLElement | null>(null)
+
 const connAsset = computed(() => (connMenu.value && store ? (store.assets.find((a) => a.id === connMenu.value!.assetId) ?? null) : null))
 const connIsConnected = computed(() => {
   if (!connMenu.value || !store) return false
@@ -677,6 +799,66 @@ const runConnAction = async (action: string, payload?: { targetGroupId?: string 
   }
 }
 
+// --- Table context menu handlers ------------------------------------------
+
+const handleTableContext = (payload: {
+  id: string
+  assetId: string
+  dbType: 'mysql' | 'postgresql'
+  databaseName: string
+  schemaName?: string
+  tableName: string
+  x: number
+  y: number
+}): void => {
+  hideAddMenu()
+  hideGroupMenu()
+  closeConnMenu()
+  // The tree item forwards dbType from node.meta, which was only recently
+  // added to table nodes. Fall back to the connection asset's db_type when
+  // the meta field is missing so older trees still produce a correct menu.
+  let dbType: 'mysql' | 'postgresql' = payload.dbType
+  if (store) {
+    const asset = store.assets.find((a) => a.id === payload.assetId)
+    if (asset) dbType = asset.db_type
+  }
+  tableMenu.value = {
+    nodeId: payload.id,
+    assetId: payload.assetId,
+    dbType,
+    databaseName: payload.databaseName,
+    schemaName: payload.schemaName,
+    tableName: payload.tableName,
+    x: payload.x,
+    y: payload.y
+  }
+  activeSubmenu.value = null
+}
+
+const closeTableMenu = (): void => {
+  tableMenu.value = null
+  if (activeSubmenu.value === 'tableCopy') activeSubmenu.value = null
+}
+
+const runTableAction = async (
+  action: 'openTable' | 'queryConsole' | 'copyName' | 'viewDdl' | 'copySelect' | 'copyDdl' | 'truncate' | 'drop'
+): Promise<void> => {
+  const menu = tableMenu.value
+  if (!menu) return
+  const ctx = {
+    nodeId: menu.nodeId,
+    assetId: menu.assetId,
+    dbType: menu.dbType,
+    databaseName: menu.databaseName,
+    schemaName: menu.schemaName,
+    tableName: menu.tableName
+  }
+  closeTableMenu()
+  // The parent owns side effects (store actions, clipboard, confirm dialogs)
+  // so the sidebar component stays declarative — mirrors the connection-menu
+  // contract where the parent handles the `table-action` event.
+  emit('table-action', { action, ctx })
+}
 // Close the submenu when the cursor leaves the menu DOM subtree. We listen at
 // the document level and check containment directly, so transient elements
 // under the cursor (such as the splitpanes gutter) do not interfere with
@@ -688,7 +870,8 @@ const handlePointerMove = (event: PointerEvent): void => {
   const inGroupMenu = !!groupMenuRef.value && groupMenuRef.value.contains(target)
   const inAddMenu = !!addMenuRef.value && addMenuRef.value.contains(target)
   const inConnMenu = !!connMenuRef.value && connMenuRef.value.contains(target)
-  if (inGroupMenu || inAddMenu || inConnMenu) {
+  const inTableMenu = !!tableMenuRef.value && tableMenuRef.value.contains(target)
+  if (inGroupMenu || inAddMenu || inConnMenu || inTableMenu) {
     cancelSubmenuClose()
     return
   }
@@ -699,6 +882,7 @@ const hideAllMenus = (): void => {
   hideGroupMenu()
   hideAddMenu()
   closeConnMenu()
+  closeTableMenu()
 }
 
 onMounted(() => {

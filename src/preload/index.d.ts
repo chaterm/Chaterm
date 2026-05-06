@@ -335,6 +335,12 @@ interface ApiType {
     databaseName: string
   }) => Promise<{ ok: boolean; schemas?: Array<{ name: string; isSystem: boolean }>; errorMessage?: string }>
   dbAssetExecuteQuery: (payload: { id: string; sql: string; databaseName?: string }) => Promise<DbQueryResult>
+  dbAssetTableDdl: (payload: {
+    id: string
+    database: string
+    schema?: string
+    table: string
+  }) => Promise<{ ok: boolean; ddl?: string; errorCode?: 'permission' | 'other'; errorMessage?: string }>
   dbAssetQueryTable: (payload: DbTableQueryPayload) => Promise<DbTableQueryResult>
   dbAssetCountTable: (payload: {
     id: string

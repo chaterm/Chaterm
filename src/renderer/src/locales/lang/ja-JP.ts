@@ -1715,6 +1715,29 @@ export default {
       createdSuccess: 'データベースを作成しました',
       executeFailed: 'データベースの作成に失敗しました'
     },
+    tableMenu: {
+      openTable: 'テーブルを開く',
+      queryConsole: 'クエリコンソール',
+      copyName: '名前をコピー',
+      viewDdl: 'DDL を表示',
+      copyTable: 'テーブルをコピー',
+      copyTableName: '名前をコピー',
+      copyTableSelect: 'SELECT 文をコピー',
+      copyTableDdl: 'DDL をコピー',
+      truncate: 'テーブルを空にする',
+      drop: 'テーブルを削除',
+      truncateConfirmTitle: 'テーブルを空にしますか？',
+      truncateConfirmContent: 'テーブル {table} を空にしますか？すべてのデータが完全に削除されます。',
+      dropConfirmTitle: 'テーブルを削除しますか？',
+      dropConfirmContent: 'テーブル {table} を削除しますか？この操作は取り消せません。',
+      ddlPermissionDenied: '権限が不足しているため DDL を生成できません。現在のデータベースユーザーには CREATE FUNCTION 権限が必要です。',
+      ddlFetchFailed: 'DDL の取得に失敗しました: {msg}',
+      nameCopied: 'テーブル名をコピーしました',
+      selectCopied: 'SELECT 文をコピーしました',
+      ddlCopied: 'DDL をコピーしました',
+      truncated: 'テーブルを空にしました',
+      dropped: 'テーブルを削除しました'
+    },
     removeConfirm: {
       title: 'データソースを削除しますか？',
       content: '接続 "{name}" は削除されます。この操作は取り消せません。'

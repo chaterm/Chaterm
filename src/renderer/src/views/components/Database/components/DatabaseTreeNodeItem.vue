@@ -105,6 +105,7 @@
         @disconnect="(id) => emit('disconnect', id)"
         @group-context="(payload) => emit('group-context', payload)"
         @connection-context="(payload) => emit('connection-context', payload)"
+        @table-context="(payload) => emit('table-context', payload)"
         @commit-group-rename="(id, cur, next) => emit('commit-group-rename', id, cur, next)"
         @cancel-group-rename="() => emit('cancel-group-rename')"
       />
@@ -149,6 +150,19 @@ const emit = defineEmits<{
   (e: 'disconnect', id: string): void
   (e: 'group-context', payload: { id: string; name: string; x: number; y: number }): void
   (e: 'connection-context', payload: { id: string; assetId: string; x: number; y: number }): void
+  (
+    e: 'table-context',
+    payload: {
+      id: string
+      assetId: string
+      dbType: 'mysql' | 'postgresql'
+      databaseName: string
+      schemaName?: string
+      tableName: string
+      x: number
+      y: number
+    }
+  ): void
   (e: 'commit-group-rename', groupId: string, currentName: string, nextName: string): void
   (e: 'cancel-group-rename'): void
 }>()
@@ -310,6 +324,32 @@ const handleContextMenu = (event: MouseEvent) => {
     emit('connection-context', {
       id: props.node.id,
       assetId: assetId.value,
+      x: event.clientX,
+      y: event.clientY
+    })
+    return
+  }
+  if (props.node.type === 'table') {
+    // Table-level meta is populated during lazy-load in the store. The
+    // connection-scoped fields (assetId, dbType) reach us only via ancestor
+    // lookups in the sidebar; here we forward everything we have locally and
+    // let the sidebar fill the gaps from the store tree.
+    const meta = (props.node.meta ?? {}) as {
+      assetId?: string
+      dbType?: 'mysql' | 'postgresql'
+      databaseName?: string
+      schemaName?: string
+    }
+    if (!meta.assetId || !meta.databaseName) return
+    emit('table-context', {
+      id: props.node.id,
+      assetId: meta.assetId,
+      // dbType may be undefined on nodes built before the dbType meta existed;
+      // the sidebar resolves the real value from the connection asset record.
+      dbType: (meta.dbType ?? 'mysql') as 'mysql' | 'postgresql',
+      databaseName: meta.databaseName,
+      schemaName: meta.schemaName,
+      tableName: props.node.name,
       x: event.clientX,
       y: event.clientY
     })

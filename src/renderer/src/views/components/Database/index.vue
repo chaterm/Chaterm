@@ -31,6 +31,7 @@
           @disconnect="handleDisconnect"
           @refresh-connected="handleRefreshConnected"
           @edit-connection="handleEditConnection"
+          @table-action="handleTableAction"
         />
       </pane>
       <pane
@@ -141,7 +142,7 @@
 import { computed, onMounted, ref } from 'vue'
 import { Pane, Splitpanes } from 'splitpanes'
 import 'splitpanes/dist/splitpanes.css'
-import { Modal } from 'ant-design-vue'
+import { Modal, message } from 'ant-design-vue'
 import { useI18n } from 'vue-i18n'
 import DatabaseSidebar from './components/DatabaseSidebar.vue'
 import DatabaseWorkspaceTabs from './components/DatabaseWorkspaceTabs.vue'
@@ -153,6 +154,7 @@ import DataStatusBar from './components/DataStatusBar.vue'
 import WhereOrderBar from './components/WhereOrderBar.vue'
 import SqlWorkspace from './components/SqlWorkspace.vue'
 import { useDatabaseWorkspaceStore } from '@/store/databaseWorkspaceStore'
+import { buildQualifiedTable } from '@/store/databaseWorkspaceStore'
 import type { DatabaseConnectionDraft, DatabaseTreeNode } from './types'
 
 const store = useDatabaseWorkspaceStore()
@@ -473,6 +475,133 @@ const handleSelectRow = (rowKey: string) => {
   const tab = activeTab.value
   if (!tab || tab.kind !== 'data') return
   store.selectRow(tab.id, rowKey)
+}
+
+// --- Table context-menu actions -----------------------------------------
+
+interface TableActionCtx {
+  nodeId: string
+  assetId: string
+  dbType: 'mysql' | 'postgresql'
+  databaseName: string
+  schemaName?: string
+  tableName: string
+}
+
+type TableActionKind = 'openTable' | 'queryConsole' | 'copyName' | 'viewDdl' | 'copySelect' | 'copyDdl' | 'truncate' | 'drop'
+
+/**
+ * Copy text to the system clipboard with a textarea fallback for older
+ * Electron contexts where navigator.clipboard is unavailable.
+ */
+const copyTextToClipboard = async (value: string): Promise<void> => {
+  const nav = globalThis.navigator as Navigator | undefined
+  if (nav?.clipboard?.writeText) {
+    await nav.clipboard.writeText(value)
+    return
+  }
+  const ta = document.createElement('textarea')
+  ta.value = value
+  ta.style.position = 'fixed'
+  ta.style.opacity = '0'
+  document.body.appendChild(ta)
+  ta.focus()
+  ta.select()
+  try {
+    document.execCommand('copy')
+  } finally {
+    document.body.removeChild(ta)
+  }
+}
+
+const handleTableAction = async (payload: { action: TableActionKind; ctx: TableActionCtx }): Promise<void> => {
+  const { action, ctx } = payload
+  const storeCtx = {
+    assetId: ctx.assetId,
+    dbType: ctx.dbType,
+    databaseName: ctx.databaseName,
+    schemaName: ctx.schemaName,
+    tableName: ctx.tableName
+  }
+  switch (action) {
+    case 'openTable':
+      await store.openTableDataTab(ctx.nodeId)
+      return
+    case 'queryConsole':
+      store.openSqlTabWithSelect(storeCtx)
+      return
+    case 'copyName':
+      await copyTextToClipboard(ctx.tableName)
+      message.success(t('database.tableMenu.nameCopied'))
+      return
+    case 'copySelect': {
+      const qualified = buildQualifiedTable(ctx.dbType, ctx.schemaName, ctx.tableName)
+      await copyTextToClipboard(`SELECT * FROM ${qualified}`)
+      message.success(t('database.tableMenu.selectCopied'))
+      return
+    }
+    case 'viewDdl': {
+      const res = await store.openDdlTab(storeCtx)
+      if (!res.ok) {
+        if (res.errorCode === 'permission') {
+          message.error(t('database.tableMenu.ddlPermissionDenied'))
+        } else {
+          message.error(t('database.tableMenu.ddlFetchFailed', { msg: res.errorMessage }))
+        }
+      }
+      return
+    }
+    case 'copyDdl': {
+      const res = await store.fetchTableDdl(storeCtx)
+      if (!res.ok) {
+        if (res.errorCode === 'permission') {
+          message.error(t('database.tableMenu.ddlPermissionDenied'))
+        } else {
+          message.error(t('database.tableMenu.ddlFetchFailed', { msg: res.errorMessage }))
+        }
+        return
+      }
+      await copyTextToClipboard(res.ddl)
+      message.success(t('database.tableMenu.ddlCopied'))
+      return
+    }
+    case 'truncate': {
+      Modal.confirm({
+        title: t('database.tableMenu.truncateConfirmTitle'),
+        content: t('database.tableMenu.truncateConfirmContent', { table: ctx.tableName }),
+        okType: 'danger',
+        okText: t('common.delete'),
+        cancelText: t('common.cancel'),
+        onOk: async () => {
+          const res = await store.truncateTable(storeCtx)
+          if (res.ok) {
+            message.success(t('database.tableMenu.truncated'))
+          } else {
+            message.error(res.errorMessage ?? '')
+          }
+        }
+      })
+      return
+    }
+    case 'drop': {
+      Modal.confirm({
+        title: t('database.tableMenu.dropConfirmTitle'),
+        content: t('database.tableMenu.dropConfirmContent', { table: ctx.tableName }),
+        okType: 'danger',
+        okText: t('common.delete'),
+        cancelText: t('common.cancel'),
+        onOk: async () => {
+          const res = await store.dropTable(storeCtx)
+          if (res.ok) {
+            message.success(t('database.tableMenu.dropped'))
+          } else {
+            message.error(res.errorMessage ?? '')
+          }
+        }
+      })
+      return
+    }
+  }
 }
 </script>
 

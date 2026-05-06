@@ -1736,6 +1736,29 @@ export default {
       createdSuccess: 'База данных создана',
       executeFailed: 'Не удалось создать базу данных'
     },
+    tableMenu: {
+      openTable: 'Открыть таблицу',
+      queryConsole: 'Консоль запросов',
+      copyName: 'Копировать имя',
+      viewDdl: 'Просмотреть DDL',
+      copyTable: 'Копировать таблицу',
+      copyTableName: 'Копировать имя',
+      copyTableSelect: 'Копировать оператор SELECT',
+      copyTableDdl: 'Копировать DDL',
+      truncate: 'Очистить таблицу',
+      drop: 'Удалить таблицу',
+      truncateConfirmTitle: 'Очистить таблицу?',
+      truncateConfirmContent: 'Очистить таблицу {table}? Все данные будут удалены безвозвратно.',
+      dropConfirmTitle: 'Удалить таблицу?',
+      dropConfirmContent: 'Удалить таблицу {table}? Это действие нельзя отменить.',
+      ddlPermissionDenied: 'Недостаточно прав для создания DDL. Текущему пользователю базы данных требуется разрешение CREATE FUNCTION.',
+      ddlFetchFailed: 'Не удалось получить DDL: {msg}',
+      nameCopied: 'Имя таблицы скопировано',
+      selectCopied: 'Оператор SELECT скопирован',
+      ddlCopied: 'DDL скопирован',
+      truncated: 'Таблица очищена',
+      dropped: 'Таблица удалена'
+    },
     removeConfirm: {
       title: 'Удалить источник данных?',
       content: 'Соединение "{name}" будет удалено. Это действие нельзя отменить.'

@@ -146,6 +146,12 @@ type DbApi = {
     schema?: string
     statements: Array<{ sql: string; params: unknown[] }>
   }) => Promise<{ ok: boolean; errorMessage?: string; affected?: number; durationMs?: number }>
+  dbAssetTableDdl?: (payload: {
+    id: string
+    database: string
+    schema?: string
+    table: string
+  }) => Promise<{ ok: true; ddl: string } | { ok: false; errorCode: 'permission' | 'other'; errorMessage: string }>
 }
 
 function getApi(): DbApi | null {
@@ -371,6 +377,35 @@ function confirmNoPk(): boolean {
   return true
 }
 
+/**
+ * Quote a SQL identifier (database / schema / table / column) for the given
+ * dialect. MySQL uses backticks; PostgreSQL uses double-quotes. Embedded
+ * quote characters are escaped by doubling (the standard escape for both
+ * dialects). Callers must still validate the identifier shape when they
+ * need defense-in-depth — this helper is about producing correct syntax,
+ * not about deciding whether the identifier is allowed.
+ */
+export function quoteIdent(name: string, dbType: 'mysql' | 'postgresql'): string {
+  if (dbType === 'postgresql') {
+    return `"${String(name).replace(/"/g, '""')}"`
+  }
+  return `\`${String(name).replace(/`/g, '``')}\``
+}
+
+/**
+ * Build a fully-qualified reference for a table, including schema when the
+ * dialect supports it. PG: `"schema"."table"`. MySQL: `` `table` `` (MySQL
+ * has no schema layer; `databaseName` is addressed via the connection, not
+ * the identifier).
+ */
+export function buildQualifiedTable(dbType: 'mysql' | 'postgresql', schemaName: string | undefined, tableName: string): string {
+  const quotedTable = quoteIdent(tableName, dbType)
+  if (dbType === 'postgresql' && schemaName) {
+    return `${quoteIdent(schemaName, dbType)}.${quotedTable}`
+  }
+  return quotedTable
+}
+
 interface DatabaseWorkspaceState {
   groups: DbAssetGroupDtoLike[]
   assets: DbAssetDtoLike[]
@@ -441,8 +476,14 @@ export const useDatabaseWorkspaceStore = defineStore('databaseWorkspace', {
       this.groups = groups
       this.assets = assets
       this.tree = buildTreeFromAssets(groups, assets)
+      // Persisted asset.status is stale after a restart — the main process has
+      // no live connections yet. Preserve any in-memory statuses set during
+      // this session (e.g. from an ongoing connect) and default the rest to
+      // 'idle' so the UI reflects the actual runtime state.
       const statuses: Record<string, DbAssetDtoLike['status']> = {}
-      for (const a of assets) statuses[a.id] = a.status
+      for (const a of assets) {
+        statuses[a.id] = this.connectionStatuses[a.id] ?? 'idle'
+      }
       this.connectionStatuses = statuses
     },
     openNewSqlTab() {
@@ -1873,6 +1914,186 @@ export const useDatabaseWorkspaceStore = defineStore('databaseWorkspace', {
         this.lastError = result.errorMessage
       }
       return result
+    },
+
+    // --- Table context-menu actions -----------------------------------------
+
+    /**
+     * Open a new SQL tab pre-populated with `SELECT * FROM <table> LIMIT 100`
+     * bound to the targeted connection + database. Intended for the "Query
+     * console" entry of the table context menu — the user gets an editable
+     * query they can tweak rather than the read-only data grid.
+     */
+    openSqlTabWithSelect(ctx: { assetId: string; dbType: 'mysql' | 'postgresql'; databaseName: string; schemaName?: string; tableName: string }) {
+      this.openNewSqlTab()
+      const last = this.tabs[this.tabs.length - 1]
+      if (!last || last.kind !== 'sql') return
+      last.assetId = ctx.assetId
+      last.connectionId = `conn-${ctx.assetId}`
+      last.databaseName = ctx.databaseName
+      last.schemaName = ctx.schemaName
+      const qualified = buildQualifiedTable(ctx.dbType, ctx.schemaName, ctx.tableName)
+      last.sql = `SELECT * FROM ${qualified} LIMIT 100`
+    },
+
+    /**
+     * Fetch the DDL statement for a single table via the backend. Resolves a
+     * discriminated union so callers can distinguish permission errors from
+     * generic failures without parsing the error message.
+     */
+    async fetchTableDdl(ctx: {
+      assetId: string
+      databaseName: string
+      schemaName?: string
+      tableName: string
+    }): Promise<{ ok: true; ddl: string } | { ok: false; errorCode: 'permission' | 'other'; errorMessage: string }> {
+      const api = getApi()
+      if (!api?.dbAssetTableDdl) {
+        return { ok: false, errorCode: 'other', errorMessage: 'not connected' }
+      }
+      try {
+        const result = await api.dbAssetTableDdl({
+          id: String(ctx.assetId),
+          database: String(ctx.databaseName),
+          schema: ctx.schemaName ? String(ctx.schemaName) : undefined,
+          table: String(ctx.tableName)
+        })
+        if (!result) {
+          return { ok: false, errorCode: 'other', errorMessage: 'ipc error: empty response' }
+        }
+        return result
+      } catch (err) {
+        const message = err instanceof Error ? err.message : typeof err === 'string' ? err : 'ipc error'
+        return { ok: false, errorCode: 'other', errorMessage: message }
+      }
+    },
+
+    /**
+     * Open a read-only SQL tab showing the DDL for the table. Reuses the SQL
+     * workspace scaffolding; the title is prefixed with "DDL:" so it is
+     * visually distinct from user-authored queries. Failure is surfaced to
+     * the caller so the UI can render a message.
+     */
+    async openDdlTab(ctx: {
+      assetId: string
+      dbType: 'mysql' | 'postgresql'
+      databaseName: string
+      schemaName?: string
+      tableName: string
+    }): Promise<{ ok: true } | { ok: false; errorCode: 'permission' | 'other'; errorMessage: string }> {
+      const result = await this.fetchTableDdl(ctx)
+      if (!result.ok) return result
+      this.openNewSqlTab()
+      const last = this.tabs[this.tabs.length - 1]
+      if (!last || last.kind !== 'sql') return { ok: true }
+      last.assetId = ctx.assetId
+      last.connectionId = `conn-${ctx.assetId}`
+      last.databaseName = ctx.databaseName
+      last.schemaName = ctx.schemaName
+      last.tableName = ctx.tableName
+      last.title = `DDL: ${ctx.tableName}`
+      last.sql = result.ddl
+      return { ok: true }
+    },
+
+    /**
+     * Run `TRUNCATE TABLE <qualified>` against the connection. On success,
+     * reload every open data tab that references the same (assetId, database,
+     * schema, table) tuple so the grid reflects the empty table.
+     */
+    async truncateTable(ctx: {
+      assetId: string
+      dbType: 'mysql' | 'postgresql'
+      databaseName: string
+      schemaName?: string
+      tableName: string
+    }): Promise<{ ok: boolean; errorMessage?: string }> {
+      const api = getApi()
+      if (!api?.dbAssetExecuteQuery) return { ok: false, errorMessage: 'not connected' }
+      const qualified = buildQualifiedTable(ctx.dbType, ctx.schemaName, ctx.tableName)
+      const sql = `TRUNCATE TABLE ${qualified}`
+      let result
+      try {
+        result = await api.dbAssetExecuteQuery({
+          id: String(ctx.assetId),
+          sql,
+          databaseName: String(ctx.databaseName)
+        })
+      } catch (err) {
+        const message = err instanceof Error ? err.message : 'ipc error'
+        return { ok: false, errorMessage: message }
+      }
+      if (!result?.ok) {
+        return { ok: false, errorMessage: result?.errorMessage ?? 'truncate failed' }
+      }
+      // Reload any data tab bound to this exact table so stale rows are not
+      // left on screen. SchemaName equality also matters for PG multi-schema
+      // setups where the same table name can live in multiple schemas.
+      const affectedTabs = this.tabs.filter(
+        (t) =>
+          t.kind === 'data' &&
+          t.assetId === ctx.assetId &&
+          t.databaseName === ctx.databaseName &&
+          (t.schemaName ?? undefined) === (ctx.schemaName ?? undefined) &&
+          t.tableName === ctx.tableName
+      )
+      for (const tab of affectedTabs) {
+        await this.reloadTableData(tab.id)
+      }
+      return { ok: true }
+    },
+
+    /**
+     * Run `DROP TABLE <qualified>` against the connection. On success, close
+     * every open tab (both data and sql) that references the dropped table
+     * and refresh the schema subtree so the explorer no longer lists it.
+     */
+    async dropTable(ctx: {
+      assetId: string
+      dbType: 'mysql' | 'postgresql'
+      databaseName: string
+      schemaName?: string
+      tableName: string
+    }): Promise<{ ok: boolean; errorMessage?: string }> {
+      const api = getApi()
+      if (!api?.dbAssetExecuteQuery) return { ok: false, errorMessage: 'not connected' }
+      const qualified = buildQualifiedTable(ctx.dbType, ctx.schemaName, ctx.tableName)
+      const sql = `DROP TABLE ${qualified}`
+      let result
+      try {
+        result = await api.dbAssetExecuteQuery({
+          id: String(ctx.assetId),
+          sql,
+          databaseName: String(ctx.databaseName)
+        })
+      } catch (err) {
+        const message = err instanceof Error ? err.message : 'ipc error'
+        return { ok: false, errorMessage: message }
+      }
+      if (!result?.ok) {
+        return { ok: false, errorMessage: result?.errorMessage ?? 'drop failed' }
+      }
+      // Close every tab that pointed at the dropped table. Match on the
+      // (assetId, databaseName, schemaName, tableName) tuple so tabs for
+      // sibling tables in the same connection are left alone.
+      const survivors = this.tabs.filter(
+        (t) =>
+          !(
+            t.assetId === ctx.assetId &&
+            t.databaseName === ctx.databaseName &&
+            (t.schemaName ?? undefined) === (ctx.schemaName ?? undefined) &&
+            t.tableName === ctx.tableName
+          )
+      )
+      this.tabs = survivors
+      if (!this.tabs.some((t) => t.id === this.activeTabId)) {
+        this.activeTabId = this.tabs[0]?.id ?? OVERVIEW_TAB_ID
+      }
+      // Refresh the connection subtree so the dropped table disappears from
+      // the explorer. We reuse the existing lazy loader; it is cheap enough
+      // and avoids a bespoke "reload-only-this-schema" path.
+      await this.refreshConnectionChildren(ctx.assetId)
+      return { ok: true }
     }
   }
 })

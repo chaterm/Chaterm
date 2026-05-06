@@ -448,6 +448,14 @@ const dbAssetExecuteQuery = async (payload: { id: string; sql: string; databaseN
   }
 }
 
+const dbAssetTableDdl = async (payload: { id: string; database: string; schema?: string; table: string }) => {
+  try {
+    return await ipcRenderer.invoke('db-asset-table-ddl', payload)
+  } catch (error) {
+    return Promise.reject(error)
+  }
+}
+
 const dbAssetQueryTable = async (payload: {
   id: string
   database: string
@@ -851,6 +859,7 @@ const api = {
   dbAssetListChildren,
   dbAssetListSchemas,
   dbAssetExecuteQuery,
+  dbAssetTableDdl,
   dbAssetQueryTable,
   dbAssetCountTable,
   dbAssetColumnDistinct,

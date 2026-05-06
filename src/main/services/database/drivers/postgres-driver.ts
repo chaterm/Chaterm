@@ -2,6 +2,7 @@
 //  This source code is licensed under the GPL-3.0
 
 import type { ConnectionTestResult, DatabaseDriverAdapter, DbObjectKind, DbSchemaInfo, QueryResult, ResolvedDbCredential } from '../types'
+import { PG_TABLE_DEF_FUNCTION_SQL } from '../ddl/pg-table-ddl'
 
 const logger = createLogger('db')
 
@@ -349,5 +350,93 @@ export class PostgresDriverAdapter implements DatabaseDriverAdapter {
     const rows = res.rows ?? []
     const columns = Array.isArray(res.fields) && res.fields.length > 0 ? res.fields.map((f) => f.name) : Object.keys(rows[0] ?? {})
     return { columns, rows, rowCount: rows.length, durationMs }
+  }
+}
+
+/**
+ * Typed error produced when a DDL fetch fails. `code` carries a coarse
+ * category the IPC layer can forward to the renderer without leaking
+ * the underlying driver error text.
+ */
+export type TableDdlError = Error & { code?: 'permission' | 'other' }
+
+function isPermissionError(err: unknown): boolean {
+  const e = err as { code?: string; message?: string } | null
+  if (!e) return false
+  // SQLSTATE 42501: insufficient privilege.
+  if (e.code === '42501') return true
+  const msg = String(e.message ?? '').toLowerCase()
+  return msg.includes('permission denied') || msg.includes('must be owner') || msg.includes('must be superuser')
+}
+
+/**
+ * Retrieve the CREATE TABLE DDL for a Postgres table by delegating to the
+ * helper PL/pgSQL function `pg_get_tabledef`. Mirrors chat2db's
+ * PostgreSQLMetaData.tableDDL path: unconditionally drop and reinstall the
+ * helper type/function on every call. This avoids the
+ * "type tabledefs already exists" race where a previous install landed the
+ * TYPE in the caller's search_path schema (not public) and a subsequent
+ * `DROP TYPE public.tabledefs` becomes a no-op, leaving the next CREATE
+ * conflicting. `DROP TYPE IF EXISTS ... CASCADE` is idempotent, and the
+ * reinstall SQL pins the TYPE to `public.tabledefs` explicitly.
+ *
+ * The `schemaName` and `tableName` are bound as parameters to the SELECT
+ * to avoid SQL injection. `SET search_path` is issued after the reinstall
+ * so that subsequent unqualified references resolve against the target
+ * schema first.
+ *
+ * Permission failures during DROP / CREATE surface as `code = 'permission'`.
+ */
+export async function fetchPostgresTableDdl(handle: unknown, databaseName: string, schemaName: string, tableName: string): Promise<string> {
+  const client = handle as PgClient
+  void databaseName
+  const safeSchema = String(schemaName).replace(/"/g, '""')
+
+  // Step 1-2: always reinstall the helper. Idempotent thanks to IF EXISTS.
+  try {
+    await client.query('DROP TYPE IF EXISTS public.tabledefs CASCADE')
+    await client.query(PG_TABLE_DEF_FUNCTION_SQL)
+  } catch (installError) {
+    if (isPermissionError(installError)) {
+      const err: TableDdlError = new Error('insufficient privilege to install pg_get_tabledef helper on this database') as TableDdlError
+      err.code = 'permission'
+      logger.error('postgres fetchTableDdl install denied', {
+        event: 'db.postgres.fetchTableDdl.install.denied',
+        hasSchema: !!schemaName,
+        tableLen: tableName.length
+      })
+      throw err
+    }
+    logger.error('postgres fetchTableDdl install failed', {
+      event: 'db.postgres.fetchTableDdl.install.fail',
+      hasSchema: !!schemaName,
+      tableLen: tableName.length,
+      sqlState: (installError as { code?: string })?.code
+    })
+    throw installError
+  }
+
+  // Step 3: scope search_path to the target schema. Quoted to tolerate
+  // mixed-case or reserved-word schema names.
+  await client.query(`SET search_path = "${safeSchema}", public`)
+
+  // Step 4: call the helper with bound params to avoid SQL injection.
+  // Schema-qualify with public. so we never resolve to a stale overload
+  // that might live in another schema on the search_path.
+  try {
+    const res = await client.query<{ ddl: string }>("SELECT public.pg_get_tabledef($1::varchar, $2::varchar, false, 'COMMENTS'::tabledefs) AS ddl", [
+      schemaName,
+      tableName
+    ])
+    const ddl = res.rows?.[0]?.ddl
+    return typeof ddl === 'string' ? ddl : ''
+  } catch (error) {
+    logger.error('postgres fetchTableDdl failed', {
+      event: 'db.postgres.fetchTableDdl.fail',
+      hasSchema: !!schemaName,
+      tableLen: tableName.length,
+      sqlState: (error as { code?: string })?.code
+    })
+    throw error
   }
 }

@@ -1771,6 +1771,29 @@ export default {
       createdSuccess: '数据库已创建',
       executeFailed: '创建数据库失败'
     },
+    tableMenu: {
+      openTable: '打开表',
+      queryConsole: '查询控制台',
+      copyName: '复制名称',
+      viewDdl: '查看 DDL',
+      copyTable: '复制表',
+      copyTableName: '复制名称',
+      copyTableSelect: '复制 SELECT 语句',
+      copyTableDdl: '复制 DDL',
+      truncate: '清空表',
+      drop: '删除表',
+      truncateConfirmTitle: '清空表？',
+      truncateConfirmContent: '确定清空表 {table}？所有数据将被永久删除。',
+      dropConfirmTitle: '删除表？',
+      dropConfirmContent: '确定删除表 {table}？此操作无法撤销。',
+      ddlPermissionDenied: '权限不足，无法生成 DDL。当前数据库用户需要 CREATE FUNCTION 权限。',
+      ddlFetchFailed: '获取 DDL 失败：{msg}',
+      nameCopied: '表名已复制',
+      selectCopied: 'SELECT 语句已复制',
+      ddlCopied: 'DDL 已复制',
+      truncated: '表已清空',
+      dropped: '表已删除'
+    },
     removeConfirm: {
       title: '删除数据源？',
       content: '连接 "{name}" 将被删除，此操作无法撤销。'

@@ -17,6 +17,7 @@
       @disconnect="(id) => emit('disconnect', id)"
       @group-context="(payload) => emit('groupContext', payload)"
       @connection-context="(p) => emit('connectionContext', p)"
+      @table-context="(p) => emit('tableContext', p)"
       @commit-group-rename="(id, cur, next) => emit('commitGroupRename', id, cur, next)"
       @cancel-group-rename="() => emit('cancelGroupRename')"
     />
@@ -42,6 +43,19 @@ const emit = defineEmits<{
   (e: 'disconnect', id: string): void
   (e: 'groupContext', payload: { id: string; name: string; x: number; y: number }): void
   (e: 'connectionContext', payload: { id: string; assetId: string; x: number; y: number }): void
+  (
+    e: 'tableContext',
+    payload: {
+      id: string
+      assetId: string
+      dbType: 'mysql' | 'postgresql'
+      databaseName: string
+      schemaName?: string
+      tableName: string
+      x: number
+      y: number
+    }
+  ): void
   (e: 'commitGroupRename', groupId: string, currentName: string, nextName: string): void
   (e: 'cancelGroupRename'): void
 }>()

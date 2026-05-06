@@ -1741,6 +1741,29 @@ export default {
       createdSuccess: 'Database creato',
       executeFailed: 'Creazione database non riuscita'
     },
+    tableMenu: {
+      openTable: 'Apri tabella',
+      queryConsole: 'Console query',
+      copyName: 'Copia nome',
+      viewDdl: 'Visualizza DDL',
+      copyTable: 'Copia tabella',
+      copyTableName: 'Copia nome',
+      copyTableSelect: 'Copia istruzione SELECT',
+      copyTableDdl: 'Copia DDL',
+      truncate: 'Svuota tabella',
+      drop: 'Elimina tabella',
+      truncateConfirmTitle: 'Svuotare la tabella?',
+      truncateConfirmContent: 'Svuotare la tabella {table}? Tutti i dati verranno rimossi definitivamente.',
+      dropConfirmTitle: 'Eliminare la tabella?',
+      dropConfirmContent: 'Eliminare la tabella {table}? Questa operazione non può essere annullata.',
+      ddlPermissionDenied: 'Privilegi insufficienti per generare il DDL. L utente corrente del database necessita del permesso CREATE FUNCTION.',
+      ddlFetchFailed: 'Impossibile recuperare il DDL: {msg}',
+      nameCopied: 'Nome tabella copiato',
+      selectCopied: 'Istruzione SELECT copiata',
+      ddlCopied: 'DDL copiato',
+      truncated: 'Tabella svuotata',
+      dropped: 'Tabella eliminata'
+    },
     removeConfirm: {
       title: 'Rimuovere origine dati?',
       content: 'La connessione "{name}" verrà rimossa. Questa operazione non può essere annullata.'

@@ -1707,6 +1707,29 @@ export default {
       createdSuccess: '데이터베이스가 생성되었습니다',
       executeFailed: '데이터베이스 생성 실패'
     },
+    tableMenu: {
+      openTable: '테이블 열기',
+      queryConsole: '쿼리 콘솔',
+      copyName: '이름 복사',
+      viewDdl: 'DDL 보기',
+      copyTable: '테이블 복사',
+      copyTableName: '이름 복사',
+      copyTableSelect: 'SELECT 문 복사',
+      copyTableDdl: 'DDL 복사',
+      truncate: '테이블 비우기',
+      drop: '테이블 삭제',
+      truncateConfirmTitle: '테이블을 비우시겠습니까?',
+      truncateConfirmContent: '테이블 {table}을(를) 비우시겠습니까? 모든 데이터가 영구적으로 삭제됩니다.',
+      dropConfirmTitle: '테이블을 삭제하시겠습니까?',
+      dropConfirmContent: '테이블 {table}을(를) 삭제하시겠습니까? 이 작업은 되돌릴 수 없습니다.',
+      ddlPermissionDenied: '권한이 부족하여 DDL을 생성할 수 없습니다. 현재 데이터베이스 사용자에게 CREATE FUNCTION 권한이 필요합니다.',
+      ddlFetchFailed: 'DDL 가져오기 실패: {msg}',
+      nameCopied: '테이블 이름이 복사되었습니다',
+      selectCopied: 'SELECT 문이 복사되었습니다',
+      ddlCopied: 'DDL이 복사되었습니다',
+      truncated: '테이블이 비워졌습니다',
+      dropped: '테이블이 삭제되었습니다'
+    },
     removeConfirm: {
       title: '데이터 소스를 삭제하시겠습니까?',
       content: '연결 "{name}"이(가) 삭제됩니다. 이 작업은 되돌릴 수 없습니다.'

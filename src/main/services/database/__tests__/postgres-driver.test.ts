@@ -4,7 +4,8 @@ vi.mock('@logging/index', () => ({
   createLogger: vi.fn(() => ({ info: vi.fn(), error: vi.fn(), warn: vi.fn(), debug: vi.fn() }))
 }))
 
-const { PostgresDriverAdapter } = await import('../drivers/postgres-driver')
+const { PostgresDriverAdapter, fetchPostgresTableDdl } = await import('../drivers/postgres-driver')
+const { PG_TABLE_DEF_FUNCTION_SQL } = await import('../ddl/pg-table-ddl')
 
 /**
  * Build a fake pg client whose `query` method returns pre-canned results
@@ -101,5 +102,118 @@ describe('PostgresDriverAdapter - transactions', () => {
     await adapter.commitTransaction(client)
     await adapter.rollbackTransaction(client)
     expect(calls.map((c) => c.sql)).toEqual(['BEGIN', 'COMMIT', 'ROLLBACK'])
+  })
+})
+
+describe('fetchPostgresTableDdl', () => {
+  it('PG_TABLE_DEF_FUNCTION_SQL pins type and functions to public and drops stale overloads', () => {
+    // The helper bundle must schema-qualify the TYPE and CREATE FUNCTION
+    // statements so a SET search_path to a user schema cannot leak them
+    // into the wrong namespace. Additionally, stale overloads with
+    // different signatures must be dropped to avoid the
+    // "pg_get_coldef(..., sql_identifier) does not exist" resolution
+    // failure when information_schema.column_name flows in.
+    expect(PG_TABLE_DEF_FUNCTION_SQL).toContain('CREATE TYPE public.tabledefs')
+    expect(PG_TABLE_DEF_FUNCTION_SQL).toContain('CREATE OR REPLACE FUNCTION public.pg_get_coldef(')
+    expect(PG_TABLE_DEF_FUNCTION_SQL).toContain('CREATE OR REPLACE FUNCTION public.pg_get_tabledef(')
+    expect(PG_TABLE_DEF_FUNCTION_SQL).toContain('DROP FUNCTION IF EXISTS public.pg_get_coldef(text, text, text, boolean)')
+    expect(PG_TABLE_DEF_FUNCTION_SQL).toContain(
+      'DROP FUNCTION IF EXISTS public.pg_get_coldef(character varying, character varying, character varying, boolean)'
+    )
+    expect(PG_TABLE_DEF_FUNCTION_SQL).toContain('DROP FUNCTION IF EXISTS public.pg_get_coldef(text, text, text)')
+    expect(PG_TABLE_DEF_FUNCTION_SQL).toContain(
+      'DROP FUNCTION IF EXISTS public.pg_get_coldef(character varying, character varying, character varying)'
+    )
+    expect(PG_TABLE_DEF_FUNCTION_SQL).toContain('DROP FUNCTION IF EXISTS public.pg_get_tabledef(text, text, boolean, tabledefs[])')
+    expect(PG_TABLE_DEF_FUNCTION_SQL).toContain(
+      'DROP FUNCTION IF EXISTS public.pg_get_tabledef(character varying, character varying, boolean, tabledefs[])'
+    )
+  })
+
+  it('unconditionally drops + reinstalls helper, then SETs search_path and SELECTs', async () => {
+    const { client, calls } = makeFakeClient([
+      { rows: [] }, // DROP TYPE IF EXISTS public.tabledefs CASCADE
+      { rows: [] }, // PG_TABLE_DEF_FUNCTION_SQL
+      { rows: [] }, // SET search_path
+      { rows: [{ ddl: 'CREATE TABLE "public"."orders" (...);' }] }
+    ])
+    const ddl = await fetchPostgresTableDdl(client, 'appdb', 'public', 'orders')
+    expect(ddl).toBe('CREATE TABLE "public"."orders" (...);')
+    expect(calls).toHaveLength(4)
+    expect(calls[0].sql).toBe('DROP TYPE IF EXISTS public.tabledefs CASCADE')
+    expect(calls[1].sql).toBe(PG_TABLE_DEF_FUNCTION_SQL)
+    expect(calls[2].sql).toContain('SET search_path')
+    expect(calls[2].sql).toContain('"public"')
+    expect(calls[3].sql).toContain('public.pg_get_tabledef')
+    expect(calls[3].params).toEqual(['public', 'orders'])
+  })
+
+  it('reinstalls on every call even when helper already exists (idempotent path)', async () => {
+    // Two consecutive fetches should both issue the DROP+CREATE+SET+SELECT sequence.
+    const { client, calls } = makeFakeClient([
+      { rows: [] }, // call 1: DROP
+      { rows: [] }, // call 1: CREATE
+      { rows: [] }, // call 1: SET
+      { rows: [{ ddl: 'A' }] }, // call 1: SELECT
+      { rows: [] }, // call 2: DROP
+      { rows: [] }, // call 2: CREATE
+      { rows: [] }, // call 2: SET
+      { rows: [{ ddl: 'B' }] } // call 2: SELECT
+    ])
+    await fetchPostgresTableDdl(client, 'appdb', 'public', 't1')
+    await fetchPostgresTableDdl(client, 'appdb', 'public', 't2')
+    expect(calls).toHaveLength(8)
+    expect(calls[0].sql).toBe('DROP TYPE IF EXISTS public.tabledefs CASCADE')
+    expect(calls[4].sql).toBe('DROP TYPE IF EXISTS public.tabledefs CASCADE')
+  })
+
+  it('quotes mixed-case / reserved-word schema names in SET search_path', async () => {
+    const { client, calls } = makeFakeClient([{ rows: [] }, { rows: [] }, { rows: [] }, { rows: [{ ddl: '' }] }])
+    await fetchPostgresTableDdl(client, 'appdb', 'User', 't')
+    expect(calls[2].sql).toBe('SET search_path = "User", public')
+  })
+
+  it('throws code=permission when DROP TYPE is denied (SQLSTATE 42501)', async () => {
+    const denied = Object.assign(new Error('permission denied for schema public'), { code: '42501' })
+    const { client } = makeFakeClient([denied])
+    await expect(fetchPostgresTableDdl(client, 'appdb', 'public', 'orders')).rejects.toMatchObject({
+      code: 'permission'
+    })
+  })
+
+  it('throws code=permission when CREATE FUNCTION bundle is denied', async () => {
+    const denied = Object.assign(new Error('permission denied for database appdb'), { code: '42501' })
+    const { client } = makeFakeClient([
+      { rows: [] }, // DROP ok
+      denied // CREATE denied
+    ])
+    await expect(fetchPostgresTableDdl(client, 'appdb', 'public', 'orders')).rejects.toMatchObject({
+      code: 'permission'
+    })
+  })
+
+  it('throws code=permission when message contains "must be owner"', async () => {
+    const denied = new Error('ERROR: must be owner of type tabledefs')
+    const { client } = makeFakeClient([{ rows: [] }, denied])
+    await expect(fetchPostgresTableDdl(client, 'appdb', 'public', 'orders')).rejects.toMatchObject({
+      code: 'permission'
+    })
+  })
+
+  it('rethrows non-permission install errors unchanged', async () => {
+    const other = Object.assign(new Error('disk full'), { code: '53100' })
+    const { client } = makeFakeClient([{ rows: [] }, other])
+    await expect(fetchPostgresTableDdl(client, 'appdb', 'public', 'orders')).rejects.toThrow('disk full')
+  })
+
+  it('rethrows unexpected SELECT errors unchanged', async () => {
+    const other = Object.assign(new Error('syntax error at or near "FOO"'), { code: '42601' })
+    const { client } = makeFakeClient([
+      { rows: [] }, // DROP
+      { rows: [] }, // CREATE
+      { rows: [] }, // SET
+      other // SELECT fails
+    ])
+    await expect(fetchPostgresTableDdl(client, 'appdb', 'public', 't')).rejects.toThrow('syntax error')
   })
 })

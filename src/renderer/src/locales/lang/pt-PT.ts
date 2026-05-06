@@ -1736,6 +1736,29 @@ export default {
       createdSuccess: 'Base de dados criada',
       executeFailed: 'Falha ao criar base de dados'
     },
+    tableMenu: {
+      openTable: 'Abrir tabela',
+      queryConsole: 'Consola de consultas',
+      copyName: 'Copiar nome',
+      viewDdl: 'Ver DDL',
+      copyTable: 'Copiar tabela',
+      copyTableName: 'Copiar nome',
+      copyTableSelect: 'Copiar instrucao SELECT',
+      copyTableDdl: 'Copiar DDL',
+      truncate: 'Esvaziar tabela',
+      drop: 'Eliminar tabela',
+      truncateConfirmTitle: 'Esvaziar a tabela?',
+      truncateConfirmContent: 'Esvaziar a tabela {table}? Todos os dados serao removidos permanentemente.',
+      dropConfirmTitle: 'Eliminar a tabela?',
+      dropConfirmContent: 'Eliminar a tabela {table}? Esta acao nao pode ser revertida.',
+      ddlPermissionDenied: 'Privilegios insuficientes para gerar o DDL. O utilizador atual da base de dados precisa da permissao CREATE FUNCTION.',
+      ddlFetchFailed: 'Falha ao obter o DDL: {msg}',
+      nameCopied: 'Nome da tabela copiado',
+      selectCopied: 'Instrucao SELECT copiada',
+      ddlCopied: 'DDL copiado',
+      truncated: 'Tabela esvaziada',
+      dropped: 'Tabela eliminada'
+    },
     removeConfirm: {
       title: 'Remover fonte de dados?',
       content: 'A ligacao "{name}" sera removida. Esta acao nao pode ser revertida.'

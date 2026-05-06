@@ -1727,6 +1727,30 @@ export default {
       createdSuccess: 'Datenbank erstellt',
       executeFailed: 'Datenbankerstellung fehlgeschlagen'
     },
+    tableMenu: {
+      openTable: 'Tabelle oeffnen',
+      queryConsole: 'Abfragekonsole',
+      copyName: 'Name kopieren',
+      viewDdl: 'DDL anzeigen',
+      copyTable: 'Tabelle kopieren',
+      copyTableName: 'Name kopieren',
+      copyTableSelect: 'SELECT-Anweisung kopieren',
+      copyTableDdl: 'DDL kopieren',
+      truncate: 'Tabelle leeren',
+      drop: 'Tabelle loeschen',
+      truncateConfirmTitle: 'Tabelle leeren?',
+      truncateConfirmContent: 'Tabelle {table} leeren? Alle Daten werden dauerhaft entfernt.',
+      dropConfirmTitle: 'Tabelle loeschen?',
+      dropConfirmContent: 'Tabelle {table} loeschen? Dies kann nicht rueckgaengig gemacht werden.',
+      ddlPermissionDenied:
+        'Unzureichende Berechtigungen zum Erzeugen von DDL. Der aktuelle Datenbankbenutzer benoetigt die Berechtigung CREATE FUNCTION.',
+      ddlFetchFailed: 'DDL konnte nicht abgerufen werden: {msg}',
+      nameCopied: 'Tabellenname kopiert',
+      selectCopied: 'SELECT-Anweisung kopiert',
+      ddlCopied: 'DDL kopiert',
+      truncated: 'Tabelle geleert',
+      dropped: 'Tabelle geloescht'
+    },
     removeConfirm: {
       title: 'Datenquelle entfernen?',
       content: 'Die Verbindung "{name}" wird entfernt. Dies kann nicht rueckgaengig gemacht werden.'

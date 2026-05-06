@@ -1701,6 +1701,29 @@ export default {
       createdSuccess: '資料庫已建立',
       executeFailed: '建立資料庫失敗'
     },
+    tableMenu: {
+      openTable: '開啟資料表',
+      queryConsole: '查詢主控台',
+      copyName: '複製名稱',
+      viewDdl: '檢視 DDL',
+      copyTable: '複製資料表',
+      copyTableName: '複製名稱',
+      copyTableSelect: '複製 SELECT 陳述式',
+      copyTableDdl: '複製 DDL',
+      truncate: '清空資料表',
+      drop: '刪除資料表',
+      truncateConfirmTitle: '清空資料表？',
+      truncateConfirmContent: '確定清空資料表 {table}？所有資料將被永久移除。',
+      dropConfirmTitle: '刪除資料表？',
+      dropConfirmContent: '確定刪除資料表 {table}？此操作無法復原。',
+      ddlPermissionDenied: '權限不足，無法產生 DDL。目前資料庫使用者需要 CREATE FUNCTION 權限。',
+      ddlFetchFailed: '取得 DDL 失敗：{msg}',
+      nameCopied: '資料表名稱已複製',
+      selectCopied: 'SELECT 陳述式已複製',
+      ddlCopied: 'DDL 已複製',
+      truncated: '資料表已清空',
+      dropped: '資料表已刪除'
+    },
     removeConfirm: {
       title: '刪除資料來源？',
       content: '連線 "{name}" 將被刪除，此操作無法復原。'

@@ -135,7 +135,10 @@ describe('databaseWorkspaceStore', () => {
       expect(store.tree.map((group) => group.name)).toContain('Production')
       const prodGroup = store.tree.find((group) => group.name === 'Production')
       expect(prodGroup?.children?.map((c) => c.name)).toEqual(['prod-mysql'])
-      expect(store.connectionStatuses['asset-2']).toBe('connected')
+      // Persisted asset.status is stale after a restart — the store always
+      // initialises connectionStatuses to 'idle' and lets an explicit connect
+      // transition it to 'connected'.
+      expect(store.connectionStatuses['asset-2']).toBe('idle')
     })
 
     it('renders nested groups from parent_id and places connections under the child group', async () => {
@@ -999,5 +1002,225 @@ describe('edit connection mode', () => {
     expect(call.id).toBe('asset-42')
     expect(call.patch.name).toBe('prod-mysql-renamed')
     expect(Object.prototype.hasOwnProperty.call(call.patch, 'password')).toBe(false)
+  })
+})
+
+describe('table context-menu actions', () => {
+  const asset = {
+    id: 'a1',
+    name: 'conn-1',
+    group_id: null,
+    group_name: null,
+    db_type: 'mysql' as const,
+    host: 'h',
+    port: 3306,
+    database_name: 'demo',
+    schema_name: null,
+    username: 'u',
+    hasPassword: false,
+    status: 'idle' as const
+  }
+
+  let mockApi: {
+    dbAssetExecuteQuery: ReturnType<typeof vi.fn>
+    dbAssetTableDdl: ReturnType<typeof vi.fn>
+    dbAssetList: ReturnType<typeof vi.fn>
+    dbAssetGroupList: ReturnType<typeof vi.fn>
+  }
+
+  beforeEach(() => {
+    setActivePinia(createPinia())
+    mockApi = {
+      dbAssetExecuteQuery: vi.fn().mockResolvedValue({ ok: true }),
+      dbAssetTableDdl: vi.fn().mockResolvedValue({ ok: true, ddl: 'CREATE TABLE `t` (...)' }),
+      dbAssetList: vi.fn().mockResolvedValue([asset]),
+      dbAssetGroupList: vi.fn().mockResolvedValue([])
+    }
+    ;(window as unknown as { api: unknown }).api = mockApi
+  })
+
+  afterEach(() => {
+    ;(window as unknown as { api?: unknown }).api = undefined
+  })
+
+  it('openSqlTabWithSelect opens a new SQL tab with SELECT * FROM <quoted> LIMIT 100 and proper context', () => {
+    const store = useDatabaseWorkspaceStore()
+    store.applyAssets([], [asset])
+
+    store.openSqlTabWithSelect({
+      assetId: 'a1',
+      dbType: 'mysql',
+      databaseName: 'demo',
+      tableName: 'users'
+    })
+
+    const sqlTabs = store.tabs.filter((t) => t.kind === 'sql')
+    expect(sqlTabs).toHaveLength(1)
+    const last = store.tabs[store.tabs.length - 1]
+    expect(last.kind).toBe('sql')
+    expect(last.assetId).toBe('a1')
+    expect(last.connectionId).toBe('conn-a1')
+    expect(last.databaseName).toBe('demo')
+    expect(last.sql).toBe('SELECT * FROM `users` LIMIT 100')
+  })
+
+  it('openSqlTabWithSelect qualifies PostgreSQL tables with schema and uses double-quotes', () => {
+    const store = useDatabaseWorkspaceStore()
+    store.applyAssets([], [{ ...asset, db_type: 'postgresql' }])
+
+    store.openSqlTabWithSelect({
+      assetId: 'a1',
+      dbType: 'postgresql',
+      databaseName: 'demo',
+      schemaName: 'public',
+      tableName: 'users'
+    })
+
+    const last = store.tabs[store.tabs.length - 1]
+    expect(last.kind).toBe('sql')
+    expect(last.sql).toBe('SELECT * FROM "public"."users" LIMIT 100')
+    expect(last.schemaName).toBe('public')
+  })
+
+  it('truncateTable runs TRUNCATE TABLE via executeQuery and resolves ok on success', async () => {
+    const store = useDatabaseWorkspaceStore()
+    store.applyAssets([], [asset])
+
+    const res = await store.truncateTable({
+      assetId: 'a1',
+      dbType: 'mysql',
+      databaseName: 'demo',
+      tableName: 'users'
+    })
+
+    expect(mockApi.dbAssetExecuteQuery).toHaveBeenCalledWith({
+      id: 'a1',
+      sql: 'TRUNCATE TABLE `users`',
+      databaseName: 'demo'
+    })
+    expect(res.ok).toBe(true)
+  })
+
+  it('truncateTable surfaces errorMessage when the backend fails', async () => {
+    const store = useDatabaseWorkspaceStore()
+    store.applyAssets([], [asset])
+    mockApi.dbAssetExecuteQuery.mockResolvedValueOnce({ ok: false, errorMessage: 'perm denied' })
+
+    const res = await store.truncateTable({
+      assetId: 'a1',
+      dbType: 'mysql',
+      databaseName: 'demo',
+      tableName: 'users'
+    })
+
+    expect(res.ok).toBe(false)
+    expect(res.errorMessage).toBe('perm denied')
+  })
+
+  it('dropTable closes open tabs referencing the dropped table and refreshes the connection children', async () => {
+    const store = useDatabaseWorkspaceStore()
+    store.applyAssets([], [asset])
+
+    // Seed an SQL tab unrelated to the dropped table, plus a data-kind tab
+    // bound to the exact table that will be dropped.
+    await store.openQueryConsole('a1')
+    const siblingSqlTabId = store.tabs[store.tabs.length - 1].id
+    const droppedTabId = 'tab-data-users'
+    store.tabs.push({
+      id: droppedTabId,
+      title: 'users',
+      kind: 'data',
+      assetId: 'a1',
+      connectionId: 'conn-a1',
+      databaseName: 'demo',
+      tableName: 'users',
+      sql: '',
+      resultColumns: [],
+      resultRows: []
+    })
+    store.setActiveTab(droppedTabId)
+
+    const refreshSpy = vi.spyOn(store, 'refreshConnectionChildren').mockResolvedValue(undefined)
+
+    const res = await store.dropTable({
+      assetId: 'a1',
+      dbType: 'mysql',
+      databaseName: 'demo',
+      tableName: 'users'
+    })
+
+    expect(mockApi.dbAssetExecuteQuery).toHaveBeenCalledWith({
+      id: 'a1',
+      sql: 'DROP TABLE `users`',
+      databaseName: 'demo'
+    })
+    expect(res.ok).toBe(true)
+    // Data tab bound to the dropped table must be gone; unrelated SQL tab stays.
+    expect(store.tabs.some((t) => t.id === droppedTabId)).toBe(false)
+    expect(store.tabs.some((t) => t.id === siblingSqlTabId)).toBe(true)
+    // activeTabId must point at a surviving tab (the refresh should also fire).
+    expect(store.tabs.some((t) => t.id === store.activeTabId)).toBe(true)
+    expect(refreshSpy).toHaveBeenCalledWith('a1')
+  })
+
+  it('dropTable surfaces errorMessage on failure and does not drop tabs', async () => {
+    const store = useDatabaseWorkspaceStore()
+    store.applyAssets([], [asset])
+    mockApi.dbAssetExecuteQuery.mockResolvedValueOnce({ ok: false, errorMessage: 'still referenced' })
+
+    const tabCountBefore = store.tabs.length
+    const res = await store.dropTable({
+      assetId: 'a1',
+      dbType: 'mysql',
+      databaseName: 'demo',
+      tableName: 'users'
+    })
+
+    expect(res.ok).toBe(false)
+    expect(res.errorMessage).toBe('still referenced')
+    expect(store.tabs.length).toBe(tabCountBefore)
+  })
+
+  it('fetchTableDdl returns the ddl string on success and forwards permission errors unchanged', async () => {
+    const store = useDatabaseWorkspaceStore()
+    store.applyAssets([], [asset])
+
+    const okRes = await store.fetchTableDdl({
+      assetId: 'a1',
+      databaseName: 'demo',
+      tableName: 'users'
+    })
+    expect(okRes.ok).toBe(true)
+    if (okRes.ok) expect(okRes.ddl).toBe('CREATE TABLE `t` (...)')
+
+    mockApi.dbAssetTableDdl.mockResolvedValueOnce({ ok: false, errorCode: 'permission', errorMessage: 'need CREATE FUNCTION' })
+    const failRes = await store.fetchTableDdl({
+      assetId: 'a1',
+      databaseName: 'demo',
+      tableName: 'users'
+    })
+    expect(failRes.ok).toBe(false)
+    if (!failRes.ok) {
+      expect(failRes.errorCode).toBe('permission')
+      expect(failRes.errorMessage).toContain('CREATE FUNCTION')
+    }
+  })
+
+  it('openDdlTab opens a new SQL tab titled "DDL: <table>" containing the ddl text', async () => {
+    const store = useDatabaseWorkspaceStore()
+    store.applyAssets([], [asset])
+
+    const res = await store.openDdlTab({
+      assetId: 'a1',
+      dbType: 'mysql',
+      databaseName: 'demo',
+      tableName: 'users'
+    })
+
+    expect(res.ok).toBe(true)
+    const last = store.tabs[store.tabs.length - 1]
+    expect(last.kind).toBe('sql')
+    expect(last.title).toBe('DDL: users')
+    expect(last.sql).toBe('CREATE TABLE `t` (...)')
   })
 })
