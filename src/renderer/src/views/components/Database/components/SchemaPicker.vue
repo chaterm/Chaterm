@@ -1,6 +1,6 @@
 <template>
   <select
-    class="db-picker db-picker--database"
+    class="db-picker db-picker--schema"
     :value="modelValue ?? ''"
     :disabled="options.length === 0"
     @change="onChange"
@@ -9,7 +9,7 @@
       value=""
       disabled
     >
-      {{ $t('database.pickDatabase') }}
+      {{ $t('database.pickSchema') }}
     </option>
     <option
       v-for="opt in options"
@@ -26,28 +26,29 @@ import { computed } from 'vue'
 import type { DatabaseTreeNode } from '../types'
 import { findConnectionByAssetId } from '@/store/databaseWorkspaceStore'
 
-/**
- * Database picker for the SQL workbench toolbar. Locates the connection
- * whose `meta.assetId` matches the provided `assetId` (recursively so
- * connections inside nested groups are found) and exposes its child
- * database node names. Empty when no connection is chosen or the
- * connection has not loaded databases yet.
- */
+// Schema picker for the SQL workbench toolbar. Rendered only for PostgreSQL
+// connections. Sources its option list from the tree: locates the connection
+// whose meta.assetId matches (recursively so nested groups are supported),
+// descends into the named database, then returns its `type === 'schema'`
+// children.
 const props = defineProps<{
   modelValue?: string
   tree: DatabaseTreeNode[]
   assetId?: string
+  databaseName?: string
 }>()
 
 const emit = defineEmits<{
-  (e: 'update:modelValue', db: string): void
+  (e: 'update:modelValue', schema: string): void
 }>()
 
 const options = computed(() => {
-  if (!props.assetId) return []
+  if (!props.assetId || !props.databaseName) return []
   const conn = findConnectionByAssetId(props.tree, props.assetId)
   if (!conn) return []
-  return (conn.children ?? []).filter((c) => c.type === 'database').map((c) => c.name)
+  const db = (conn.children ?? []).find((c) => c.type === 'database' && c.name === props.databaseName)
+  if (!db) return []
+  return (db.children ?? []).filter((c) => c.type === 'schema').map((c) => c.name)
 })
 
 const onChange = (e: Event) => {

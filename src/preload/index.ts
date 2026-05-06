@@ -440,7 +440,7 @@ const dbAssetListSchemas = async (payload: { id: string; databaseName: string })
   }
 }
 
-const dbAssetExecuteQuery = async (payload: { id: string; sql: string; databaseName?: string }) => {
+const dbAssetExecuteQuery = async (payload: { id: string; sql: string; databaseName?: string; schemaName?: string }) => {
   try {
     return await ipcRenderer.invoke('db-asset-execute-query', payload)
   } catch (error) {

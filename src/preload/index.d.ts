@@ -334,7 +334,7 @@ interface ApiType {
     id: string
     databaseName: string
   }) => Promise<{ ok: boolean; schemas?: Array<{ name: string; isSystem: boolean }>; errorMessage?: string }>
-  dbAssetExecuteQuery: (payload: { id: string; sql: string; databaseName?: string }) => Promise<DbQueryResult>
+  dbAssetExecuteQuery: (payload: { id: string; sql: string; databaseName?: string; schemaName?: string }) => Promise<DbQueryResult>
   dbAssetTableDdl: (payload: {
     id: string
     database: string

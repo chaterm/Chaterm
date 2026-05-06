@@ -41,8 +41,9 @@
     </button>
     <button
       class="sql-toolbar__btn"
-      disabled
+      :disabled="!assetId"
       :title="$t('database.format')"
+      @click="emit('format')"
     >
       <AlignLeftOutlined />
     </button>
@@ -59,6 +60,14 @@
       :asset-id="assetId"
       @update:model-value="(v: string) => emit('update:databaseName', v)"
     />
+    <SchemaPicker
+      v-if="isPostgres"
+      :model-value="schemaName"
+      :tree="tree"
+      :asset-id="assetId"
+      :database-name="databaseName"
+      @update:model-value="(v: string) => emit('update:schemaName', v)"
+    />
   </div>
 </template>
 
@@ -67,22 +76,49 @@ import { computed } from 'vue'
 import { AlignLeftOutlined, BulbOutlined, CaretRightOutlined, SaveOutlined, VerticalAlignBottomOutlined } from '@ant-design/icons-vue'
 import ConnectionPicker from './ConnectionPicker.vue'
 import DatabasePicker from './DatabasePicker.vue'
+import SchemaPicker from './SchemaPicker.vue'
 import type { DatabaseTreeNode } from '../types'
+import { findConnectionByAssetId } from '@/store/databaseWorkspaceStore'
 
 const props = defineProps<{
   assetId?: string
   databaseName?: string
+  schemaName?: string
   tree: DatabaseTreeNode[]
   connectionStatuses: Record<string, 'idle' | 'testing' | 'connected' | 'failed'>
 }>()
 
 const emit = defineEmits<{
   (e: 'run', mode: 'all' | 'currentStatement' | 'explain'): void
+  (e: 'format'): void
   (e: 'update:assetId', v: string): void
   (e: 'update:databaseName', v: string): void
+  (e: 'update:schemaName', v: string): void
 }>()
 
-const canRun = computed(() => !!props.assetId && !!props.databaseName)
+// Resolve the dbType of the currently selected connection. Walks nested
+// groups so connections inside sub-groups are also handled. Backend
+// normalizes db_type to lowercase (e.g. 'mysql', 'postgresql'), which is
+// what ends up on the connection node's meta.dbType (see
+// store:connectionNodeFromAsset). Kept as a plain string so new drivers
+// flow through without editing this file — downstream consumers that only
+// care about PG vs. MySQL narrow it themselves.
+const currentDbType = computed<string | undefined>(() => {
+  if (!props.assetId) return undefined
+  const conn = findConnectionByAssetId(props.tree, props.assetId)
+  if (!conn) return undefined
+  const meta = conn.meta as { dbType?: string } | undefined
+  return meta?.dbType
+})
+
+const isPostgres = computed(() => currentDbType.value === 'postgresql')
+
+// PG requires a schema selection before running; MySQL only needs database.
+const canRun = computed(() => {
+  if (!props.assetId || !props.databaseName) return false
+  if (isPostgres.value && !props.schemaName) return false
+  return true
+})
 </script>
 
 <style scoped lang="less">

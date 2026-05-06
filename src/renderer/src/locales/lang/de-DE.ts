@@ -1695,6 +1695,7 @@ export default {
     saveAs: 'Speichern unter',
     pickConnection: 'Verbindung',
     pickDatabase: 'Datenbank',
+    pickSchema: 'Schema',
     sqlEmpty: 'SQL ist leer',
     sqlNoContext: 'Bitte zuerst Verbindung und Datenbank waehlen',
     sqlRunning: 'Wird ausgefuehrt…',
@@ -1756,6 +1757,8 @@ export default {
       content: 'Die Verbindung "{name}" wird entfernt. Dies kann nicht rueckgaengig gemacht werden.'
     },
     copiedToClipboard: 'In Zwischenablage kopiert',
-    movedSuccess: 'Verbindung verschoben'
+    movedSuccess: 'Verbindung verschoben',
+    format: 'Formatieren',
+    formatError: 'Formatierung fehlgeschlagen'
   }
 }

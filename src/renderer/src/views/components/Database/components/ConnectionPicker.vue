@@ -24,14 +24,15 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import type { DatabaseTreeNode } from '../types'
+import { collectConnections } from '@/store/databaseWorkspaceStore'
 
 /**
  * Connection picker for the SQL workbench toolbar.
  *
- * Walks `tree` (group -> connection -> database) and surfaces only the
- * connections that are currently `connected`. A connection's `assetId` is
- * kept inside `meta` by the backend-sync layer (`buildTreeFromAssets`), so
- * this component reads it from there.
+ * Walks the tree depth-first (groups can nest sub-groups) and surfaces only
+ * the connections that are currently `connected`. A connection's `assetId`
+ * is kept inside `meta` by the backend-sync layer (`buildTreeFromAssets`),
+ * so this component reads it from there.
  */
 const props = defineProps<{
   modelValue?: string
@@ -45,15 +46,12 @@ const emit = defineEmits<{
 
 const options = computed(() => {
   const out: Array<{ assetId: string; label: string }> = []
-  for (const group of props.tree) {
-    for (const conn of group.children ?? []) {
-      if (conn.type !== 'connection') continue
-      const meta = conn.meta as { assetId?: string } | undefined
-      const assetId = meta?.assetId
-      if (!assetId) continue
-      if (props.connectionStatuses[assetId] === 'connected') {
-        out.push({ assetId, label: conn.name })
-      }
+  for (const conn of collectConnections(props.tree)) {
+    const meta = conn.meta as { assetId?: string } | undefined
+    const assetId = meta?.assetId
+    if (!assetId) continue
+    if (props.connectionStatuses[assetId] === 'connected') {
+      out.push({ assetId, label: conn.name })
     }
   }
   return out

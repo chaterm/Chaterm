@@ -101,6 +101,7 @@
     "posthog-node": "^5.30.1",
     "serialize-error": "^13.0.1",
     "splitpanes": "^4.0.3",
+    "sql-formatter": "^15.7.3",
     "ssh2": "^1.16.0",
     "strip-ansi": "^7.2.0",
     "strip-ansi-cjs": "npm:strip-ansi@^6.0.1",

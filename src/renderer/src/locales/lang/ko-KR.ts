@@ -1675,6 +1675,7 @@ export default {
     saveAs: '다른 이름으로 저장',
     pickConnection: '연결',
     pickDatabase: '데이터베이스',
+    pickSchema: '스키마',
     sqlEmpty: 'SQL이 비어 있습니다',
     sqlNoContext: '먼저 연결과 데이터베이스를 선택하세요',
     sqlRunning: '실행 중…',
@@ -1735,6 +1736,8 @@ export default {
       content: '연결 "{name}"이(가) 삭제됩니다. 이 작업은 되돌릴 수 없습니다.'
     },
     copiedToClipboard: '클립보드에 복사되었습니다',
-    movedSuccess: '연결이 이동되었습니다'
+    movedSuccess: '연결이 이동되었습니다',
+    format: '포맷',
+    formatError: '포맷에 실패했습니다'
   }
 }

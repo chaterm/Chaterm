@@ -1704,6 +1704,7 @@ export default {
     saveAs: 'Guardar como',
     pickConnection: 'Ligacao',
     pickDatabase: 'Base de dados',
+    pickSchema: 'Schema',
     sqlEmpty: 'SQL vazio',
     sqlNoContext: 'Selecione primeiro a ligacao e a base de dados',
     sqlRunning: 'A executar…',
@@ -1764,6 +1765,8 @@ export default {
       content: 'A ligacao "{name}" sera removida. Esta acao nao pode ser revertida.'
     },
     copiedToClipboard: 'Copiado para a area de transferencia',
-    movedSuccess: 'Ligacao movida'
+    movedSuccess: 'Ligacao movida',
+    format: 'Formatar',
+    formatError: 'Falha ao formatar'
   }
 }

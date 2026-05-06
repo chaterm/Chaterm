@@ -1683,6 +1683,7 @@ export default {
     saveAs: '名前を付けて保存',
     pickConnection: '接続',
     pickDatabase: 'データベース',
+    pickSchema: 'スキーマ',
     sqlEmpty: 'SQL が空です',
     sqlNoContext: '先に接続とデータベースを選択してください',
     sqlRunning: '実行中…',
@@ -1743,6 +1744,8 @@ export default {
       content: '接続 "{name}" は削除されます。この操作は取り消せません。'
     },
     copiedToClipboard: 'クリップボードにコピーしました',
-    movedSuccess: '接続を移動しました'
+    movedSuccess: '接続を移動しました',
+    format: 'フォーマット',
+    formatError: 'フォーマットに失敗しました'
   }
 }

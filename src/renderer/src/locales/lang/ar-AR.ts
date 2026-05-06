@@ -1664,6 +1664,7 @@ export default {
     saveAs: 'حفظ باسم',
     pickConnection: 'الاتصال',
     pickDatabase: 'قاعدة البيانات',
+    pickSchema: 'المخطط',
     sqlEmpty: 'SQL فارغ',
     sqlNoContext: 'يرجى اختيار الاتصال وقاعدة البيانات أولاً',
     sqlRunning: 'قيد التنفيذ…',
@@ -1724,6 +1725,8 @@ export default {
       content: 'سيتم إزالة الاتصال "{name}". لا يمكن التراجع عن هذا الإجراء.'
     },
     copiedToClipboard: 'تم النسخ إلى الحافظة',
-    movedSuccess: 'تم نقل الاتصال'
+    movedSuccess: 'تم نقل الاتصال',
+    format: 'تنسيق',
+    formatError: 'فشل التنسيق'
   }
 }

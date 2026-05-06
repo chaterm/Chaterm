@@ -88,7 +88,7 @@ type DbApi = {
     id: string
     databaseName: string
   }) => Promise<{ ok: boolean; schemas?: Array<{ name: string; isSystem: boolean }>; errorMessage?: string }>
-  dbAssetExecuteQuery?: (payload: { id: string; sql: string; databaseName?: string }) => Promise<{
+  dbAssetExecuteQuery?: (payload: { id: string; sql: string; databaseName?: string; schemaName?: string }) => Promise<{
     ok: boolean
     errorMessage?: string
     columns?: string[]
@@ -262,7 +262,7 @@ function findNode(nodes: DatabaseTreeNode[], id: string): DatabaseTreeNode | nul
  * groups can nest sub-groups, so a flat one-level scan of the tree misses
  * connections that live inside nested groups.
  */
-function findConnectionByAssetId(nodes: DatabaseTreeNode[], assetId: string): DatabaseTreeNode | null {
+export function findConnectionByAssetId(nodes: DatabaseTreeNode[], assetId: string): DatabaseTreeNode | null {
   for (const node of nodes) {
     const nodeAssetId = (node.meta as { assetId?: string } | undefined)?.assetId
     if (node.type === 'connection' && nodeAssetId === assetId) return node
@@ -272,6 +272,24 @@ function findConnectionByAssetId(nodes: DatabaseTreeNode[], assetId: string): Da
     }
   }
   return null
+}
+
+/**
+ * Depth-first collect every connection node anywhere in the tree. Used by
+ * the SQL toolbar's connection picker so connections inside nested groups
+ * (e.g. "Default Group > Team A > pg-prod") surface alongside root-level
+ * ones. A flat `group -> connection` scan would hide them.
+ */
+export function collectConnections(nodes: DatabaseTreeNode[]): DatabaseTreeNode[] {
+  const out: DatabaseTreeNode[] = []
+  const walk = (list: DatabaseTreeNode[]): void => {
+    for (const node of list) {
+      if (node.type === 'connection') out.push(node)
+      if (node.children && node.children.length > 0) walk(node.children)
+    }
+  }
+  walk(nodes)
+  return out
 }
 
 function findConnectionAncestor(nodes: DatabaseTreeNode[], startId: string): DatabaseTreeNode | null {
@@ -404,6 +422,26 @@ export function buildQualifiedTable(dbType: 'mysql' | 'postgresql', schemaName: 
     return `${quoteIdent(schemaName, dbType)}.${quotedTable}`
   }
   return quotedTable
+}
+
+// Pick a sensible default schema for a PG database node in the tree after
+// the user switches database in the SQL toolbar. Prefers `public` when it
+// exists (PG's conventional user schema), otherwise returns undefined so
+// the toolbar's Run stays disabled until the user picks one explicitly.
+// Returns undefined for MySQL connections or when schemas have not loaded
+// yet.
+function pickDefaultSchema(tree: DatabaseTreeNode[], assetId: string | undefined, databaseName: string | undefined): string | undefined {
+  if (!assetId || !databaseName) return undefined
+  const conn = findConnectionByAssetId(tree, assetId)
+  if (!conn) return undefined
+  const meta = conn.meta as { dbType?: string } | undefined
+  if (meta?.dbType !== 'postgresql') return undefined
+  const db = (conn.children ?? []).find((c) => c.type === 'database' && c.name === databaseName)
+  if (!db) return undefined
+  const schemas = (db.children ?? []).filter((c) => c.type === 'schema')
+  if (schemas.length === 0) return undefined
+  const pub = schemas.find((s) => s.name === 'public')
+  return pub?.name
 }
 
 interface DatabaseWorkspaceState {
@@ -542,8 +580,24 @@ export const useDatabaseWorkspaceStore = defineStore('databaseWorkspace', {
     setSqlTabContext(tabId: string, assetId: string | undefined, databaseName: string | undefined) {
       const tab = this.tabs.find((t) => t.id === tabId)
       if (!tab || tab.kind !== 'sql') return
+      const prevAsset = tab.assetId
+      const prevDb = tab.databaseName
       tab.assetId = assetId
       tab.databaseName = databaseName
+      // When the connection or database changes, reset the PG schema to a
+      // sensible default ('public' when it exists in the freshly-loaded
+      // schema list, otherwise undefined). No-op for MySQL tabs since they
+      // never carry a schemaName.
+      if (prevAsset !== assetId || prevDb !== databaseName) {
+        tab.schemaName = pickDefaultSchema(this.tree, assetId, databaseName)
+      }
+    },
+    // Update just the PG schema on a SQL tab. Trust the caller's value
+    // (including undefined to clear). Noop for non-sql tabs.
+    setSqlTabSchema(tabId: string, schemaName: string | undefined) {
+      const tab = this.tabs.find((t) => t.id === tabId)
+      if (!tab || tab.kind !== 'sql') return
+      tab.schemaName = schemaName
     },
     /**
      * Switch which result panel is visible within a SQL tab.
@@ -647,10 +701,14 @@ export const useDatabaseWorkspaceStore = defineStore('databaseWorkspace', {
 
       let result
       try {
+        // For PG, pass the selected schema down so the main-process handler
+        // can issue `SET search_path` on the same session before the user
+        // SQL. Non-PG connections simply ignore schemaName.
         result = await api.dbAssetExecuteQuery({
           id: String(tab.assetId),
           sql: String(sqlText),
-          databaseName: String(tab.databaseName)
+          databaseName: String(tab.databaseName),
+          schemaName: tab.schemaName ? String(tab.schemaName) : undefined
         })
       } catch (err) {
         // Defensive extraction: drivers occasionally throw non-Error values

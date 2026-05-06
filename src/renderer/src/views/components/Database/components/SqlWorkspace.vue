@@ -3,11 +3,14 @@
     <SqlToolbar
       :asset-id="tab.assetId"
       :database-name="tab.databaseName"
+      :schema-name="tab.schemaName"
       :tree="tree"
       :connection-statuses="connectionStatuses"
       @run="handleRun"
+      @format="handleFormat"
       @update:asset-id="(v: string) => emit('update-context', v || undefined, tab.databaseName)"
       @update:database-name="(v: string) => emit('update-context', tab.assetId, v || undefined)"
+      @update:schema-name="(v: string) => emit('update-schema', v || undefined)"
     />
     <splitpanes
       horizontal
@@ -93,6 +96,8 @@
 
 <script setup lang="ts">
 import { computed, reactive, ref } from 'vue'
+import { message } from 'ant-design-vue'
+import { format as formatSql } from 'sql-formatter'
 import { Pane, Splitpanes } from 'splitpanes'
 import SqlToolbar from './SqlToolbar.vue'
 import SqlMonacoEditor from './SqlMonacoEditor.vue'
@@ -102,6 +107,12 @@ import DatabaseResultPane from './DatabaseResultPane.vue'
 import DataGridToolbar from './DataGridToolbar.vue'
 import DataStatusBar from './DataStatusBar.vue'
 import type { DatabaseTreeNode, DatabaseWorkspaceTab, DbColumnFilter, DbColumnSort } from '../types'
+import { toFormatterLanguage } from '../constants/sqlFormatLanguage'
+import { findConnectionByAssetId } from '@/store/databaseWorkspaceStore'
+import { useI18n } from 'vue-i18n'
+import { createRendererLogger } from '@/utils/logger'
+
+const logger = createRendererLogger('database:sql-format')
 
 /**
  * Shell that composes the SQL workbench for a `kind: 'sql'` tab:
@@ -130,6 +141,7 @@ const props = defineProps<{
 const emit = defineEmits<{
   (e: 'update-sql', v: string): void
   (e: 'update-context', assetId: string | undefined, databaseName: string | undefined): void
+  (e: 'update-schema', schemaName: string | undefined): void
   (e: 'run', mode: 'all' | 'currentStatement' | 'explain', sql: string): void
   (e: 'select-result-tab', id: string): void
   (e: 'close-result-tab', id: string): void
@@ -140,10 +152,13 @@ interface EditorApi {
   getSelectedText(): string
   getTextUntilCursor(): string
   getCurrentStatement(): string
+  replaceAll(next: string): void
+  replaceSelection(next: string): void
   focus?: () => void
 }
 
 const editorRef = ref<EditorApi | null>(null)
+const { t } = useI18n()
 
 const activeResult = computed(() => {
   const id = props.tab.activeResultTabId
@@ -378,6 +393,52 @@ const handleRun = (mode: 'all' | 'currentStatement' | 'explain') => {
     sql = stmt.length > 0 ? `EXPLAIN ${stmt}` : ''
   }
   emit('run', mode, sql)
+}
+
+// Resolve the backend dbType of the active connection so we can pick the
+// matching sql-formatter dialect. Returns undefined when no connection is
+// selected; toFormatterLanguage falls back to generic ANSI SQL in that
+// case, which is still the desired behaviour.
+const currentDbType = computed<string | undefined>(() => {
+  if (!props.tab.assetId) return undefined
+  const conn = findConnectionByAssetId(props.tree, props.tab.assetId)
+  const meta = conn?.meta as { dbType?: string } | undefined
+  return meta?.dbType
+})
+
+// Format the current selection if the user has one; otherwise format the
+// entire document. Using Monaco's executeEdits (see the editor component)
+// keeps the change in the undo stack so Cmd/Ctrl+Z restores the previous
+// text. On failure we surface a toast and log; the original SQL is left
+// untouched.
+const handleFormat = () => {
+  const ed = editorRef.value
+  if (!ed) return
+  const selected = ed.getSelectedText()
+  const hasSelection = selected.trim().length > 0
+  const source = hasSelection ? selected : ed.getText()
+  if (source.trim().length === 0) {
+    message.info(t('database.sqlEmpty'))
+    return
+  }
+  const language = toFormatterLanguage(currentDbType.value)
+  try {
+    const formatted = formatSql(source, { language, keywordCase: 'upper' })
+    if (hasSelection) {
+      ed.replaceSelection(formatted)
+    } else {
+      ed.replaceAll(formatted)
+    }
+  } catch (err) {
+    logger.warn('sql format failed', {
+      event: 'database.sql.format.failed',
+      language,
+      hasSelection,
+      length: source.length,
+      reason: err instanceof Error ? err.message : 'unknown'
+    })
+    message.error(t('database.formatError'))
+  }
 }
 </script>
 

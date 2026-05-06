@@ -1713,6 +1713,7 @@ export default {
     saveAs: 'Enregistrer sous',
     pickConnection: 'Connexion',
     pickDatabase: 'Base de donnees',
+    pickSchema: 'Schema',
     sqlEmpty: 'SQL vide',
     sqlNoContext: "Choisissez d'abord une connexion et une base",
     sqlRunning: 'Execution en cours…',
@@ -1774,6 +1775,8 @@ export default {
       content: 'La connexion "{name}" sera supprimee. Cette action est irreversible.'
     },
     copiedToClipboard: 'Copie dans le presse-papiers',
-    movedSuccess: 'Connexion deplacee'
+    movedSuccess: 'Connexion deplacee',
+    format: 'Formater',
+    formatError: 'Echec du formatage'
   }
 }

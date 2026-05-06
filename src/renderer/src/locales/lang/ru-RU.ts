@@ -1704,6 +1704,7 @@ export default {
     saveAs: 'Сохранить как',
     pickConnection: 'Соединение',
     pickDatabase: 'База данных',
+    pickSchema: 'Схема',
     sqlEmpty: 'SQL пуст',
     sqlNoContext: 'Сначала выберите соединение и базу данных',
     sqlRunning: 'Выполняется…',
@@ -1764,6 +1765,8 @@ export default {
       content: 'Соединение "{name}" будет удалено. Это действие нельзя отменить.'
     },
     copiedToClipboard: 'Скопировано в буфер обмена',
-    movedSuccess: 'Соединение перемещено'
+    movedSuccess: 'Соединение перемещено',
+    format: 'Форматировать',
+    formatError: 'Ошибка форматирования'
   }
 }

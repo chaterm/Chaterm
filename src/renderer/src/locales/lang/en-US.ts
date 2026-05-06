@@ -1735,6 +1735,7 @@ export default {
     run: 'Run',
     stop: 'Stop',
     format: 'Format',
+    formatError: 'Format failed',
     settings: 'Settings',
     addTab: 'New query tab',
     runAll: 'Run all',

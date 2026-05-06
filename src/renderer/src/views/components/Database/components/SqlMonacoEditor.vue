@@ -88,6 +88,23 @@ defineExpose({
     if (!sel || !editor) return ''
     return editor.getModel()?.getValueInRange(sel) ?? ''
   },
+  // Replace the full document via executeEdits so the change participates
+  // in Monaco's undo stack (setValue would wipe undo history).
+  replaceAll(next: string): void {
+    if (!editor) return
+    const model = editor.getModel()
+    if (!model) return
+    const full = model.getFullModelRange()
+    editor.executeEdits('sql-format', [{ range: full, text: next, forceMoveMarkers: true }])
+  },
+  // Replace the current selection (used when the user only wants to format
+  // the highlighted fragment). No-op if the selection is empty.
+  replaceSelection(next: string): void {
+    if (!editor) return
+    const sel = editor.getSelection()
+    if (!sel || sel.isEmpty()) return
+    editor.executeEdits('sql-format', [{ range: sel, text: next, forceMoveMarkers: true }])
+  },
   getTextUntilCursor(): string {
     if (!editor) return ''
     const pos = editor.getPosition()

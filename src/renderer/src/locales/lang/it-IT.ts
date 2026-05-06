@@ -1709,6 +1709,7 @@ export default {
     saveAs: 'Salva con nome',
     pickConnection: 'Connessione',
     pickDatabase: 'Database',
+    pickSchema: 'Schema',
     sqlEmpty: 'SQL vuoto',
     sqlNoContext: 'Seleziona prima connessione e database',
     sqlRunning: 'In esecuzione…',
@@ -1769,6 +1770,8 @@ export default {
       content: 'La connessione "{name}" verrà rimossa. Questa operazione non può essere annullata.'
     },
     copiedToClipboard: 'Copiato negli appunti',
-    movedSuccess: 'Connessione spostata'
+    movedSuccess: 'Connessione spostata',
+    format: 'Formatta',
+    formatError: 'Formattazione non riuscita'
   }
 }

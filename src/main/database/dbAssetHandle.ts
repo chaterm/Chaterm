@@ -429,7 +429,7 @@ export function registerDbAssetHandlers(): void {
     }
   })
 
-  ipcMain.handle('db-asset-execute-query', async (_, payload: { id: string; sql: string; databaseName?: string }) => {
+  ipcMain.handle('db-asset-execute-query', async (_, payload: { id: string; sql: string; databaseName?: string; schemaName?: string }) => {
     try {
       const mgr = await getConnectionManager()
       if (!mgr.isConnected(payload.id)) return { ok: false, errorMessage: 'not connected' }
@@ -438,6 +438,15 @@ export function registerDbAssetHandlers(): void {
       if (payload.databaseName && asset?.db_type === 'mysql') {
         const safe = payload.databaseName.replace(/`/g, '')
         await mgr.executeQuery(payload.id, `USE \`${safe}\``)
+      }
+      // For Postgres, set the session search_path so unqualified references
+      // in the user SQL resolve against the schema selected in the toolbar.
+      // Run as a separate statement because the pg driver uses the extended
+      // query protocol (params are always passed), which rejects multi-
+      // statement strings.
+      if (payload.schemaName && asset?.db_type === 'postgresql') {
+        const safeSchema = String(payload.schemaName).replace(/"/g, '""')
+        await mgr.executeQuery(payload.id, `SET search_path TO "${safeSchema}", public`)
       }
       const result = await mgr.executeQuery(payload.id, payload.sql)
       return { ok: true, ...result }

@@ -1669,6 +1669,7 @@ export default {
     saveAs: '另存為',
     pickConnection: '連線',
     pickDatabase: '資料庫',
+    pickSchema: 'Schema',
     sqlEmpty: 'SQL 為空',
     sqlNoContext: '請先選擇連線與資料庫',
     sqlRunning: '執行中…',
@@ -1729,6 +1730,8 @@ export default {
       content: '連線 "{name}" 將被刪除，此操作無法復原。'
     },
     copiedToClipboard: '已複製到剪貼簿',
-    movedSuccess: '連線已移動'
+    movedSuccess: '連線已移動',
+    format: '格式化',
+    formatError: '格式化失敗'
   }
 }

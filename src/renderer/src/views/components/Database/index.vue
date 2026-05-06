@@ -116,6 +116,7 @@
             :connection-statuses="store.connectionStatuses"
             @update-sql="(v) => updateSql(v)"
             @update-context="(a, d) => store.setSqlTabContext(activeTab!.id, a, d)"
+            @update-schema="(s) => store.setSqlTabSchema(activeTab!.id, s)"
             @run="(mode, sql) => store.runSqlOnActiveTab(mode, sql)"
             @select-result-tab="(id) => store.setActiveResultTab(activeTab!.id, id)"
             @close-result-tab="(id) => store.closeResultTab(activeTab!.id, id)"
