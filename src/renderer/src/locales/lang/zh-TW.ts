@@ -1196,6 +1196,8 @@ export default {
     transferSuccess: '傳輸完成',
     transferFailed: '傳輸失敗',
     openFolder: '打開文件夾',
+    showHiddenFiles: '顯示隱藏檔案',
+    hideHiddenFiles: '隱藏隱藏檔案',
     uploadSkipped: '已跳過上傳',
     transferSkipped: '已跳過傳輸',
     transferCancel: '已取消傳輸',
@@ -1272,7 +1274,7 @@ export default {
     disconnectedFromHost: '與遠程主機({host})斷開連接于 {date}',
     pressEnterToReconnectEn: '按 Enter 鍵重新連接...',
     connectingTo: '連接到 {ip}',
-    welcomeMessage: '{username}, 歡迎您使用Chaterm智能終端',
+    welcomeMessage: '{username}, 歡迎您使用 Chaterm 智能終端',
     reconnecting: '正在重新連接...',
     terminalConnectionError: '連接錯誤。請檢查終端服務器是否運行。',
     autoReconnect: {

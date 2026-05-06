@@ -114,10 +114,23 @@ export function useAutoScroll(options: AutoScrollOptions = {}) {
   const scrollToBottomWithRetry = (maxRetries = 5, delay = 50) => {
     let retryCount = 0
     let lastScrollHeight = 0
+    isProgrammaticScroll.value = true
+
+    const finish = () => {
+      // Release the flag after the last scroll event has had a chance to fire.
+      requestAnimationFrame(() => {
+        setTimeout(() => {
+          isProgrammaticScroll.value = false
+        }, 100)
+      })
+    }
 
     const attemptScroll = () => {
       const el = getElement(chatContainer.value)
-      if (!(el instanceof HTMLElement)) return
+      if (!(el instanceof HTMLElement)) {
+        finish()
+        return
+      }
 
       const currentScrollHeight = el.scrollHeight
       const clientHeight = el.clientHeight
@@ -131,6 +144,7 @@ export function useAutoScroll(options: AutoScrollOptions = {}) {
       const scrollHeightChanged = currentScrollHeight !== lastScrollHeight
 
       if (isReallyAtBottom && !scrollHeightChanged && retryCount > 0) {
+        finish()
         return
       }
 
@@ -141,6 +155,8 @@ export function useAutoScroll(options: AutoScrollOptions = {}) {
         setTimeout(() => {
           requestAnimationFrame(attemptScroll)
         }, delay)
+      } else {
+        finish()
       }
     }
 
@@ -275,7 +291,10 @@ export function useAutoScroll(options: AutoScrollOptions = {}) {
       if (isTerminalToggleMutation(mutations, responseEl)) return
 
       if (shouldStickToBottom.value) {
-        executeScroll()
+        // Use retry-based scroll so late-rendered children (e.g. approval
+        // buttons with async icons / tooltips) that grow scrollHeight after
+        // the initial frame still get pinned to the bottom.
+        scrollToBottomWithRetry()
       }
     })
 

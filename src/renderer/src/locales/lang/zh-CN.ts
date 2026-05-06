@@ -1197,6 +1197,8 @@ export default {
     transferSuccess: '传输完成',
     transferFailed: '传输失败',
     openFolder: '打开文件夹',
+    showHiddenFiles: '显示隐藏文件',
+    hideHiddenFiles: '隐藏隐藏文件',
     uploadSkipped: '已跳过上传',
     transferSkipped: '已跳过传输',
     transferCancel: '已取消传输',
@@ -1273,7 +1275,7 @@ export default {
     disconnectedFromHost: '与远程主机({host})断开连接于 {date}',
     pressEnterToReconnectEn: '按 Enter 键重新连接...',
     connectingTo: '连接到 {ip}',
-    welcomeMessage: '{username}, 欢迎您使用Chaterm智能终端',
+    welcomeMessage: '{username}, 欢迎您使用 Chaterm 智能终端',
     reconnecting: '正在重新连接...',
     terminalConnectionError: '连接错误。请检查终端服务器是否运行。',
     autoReconnect: {

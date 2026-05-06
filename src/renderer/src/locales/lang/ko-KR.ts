@@ -1202,6 +1202,8 @@ export default {
     transferSuccess: '전송 완료',
     transferFailed: '전송 실패',
     openFolder: '폴더 열기',
+    showHiddenFiles: '숨김 파일 표시',
+    hideHiddenFiles: '숨김 파일 숨기기',
     uploadSkipped: '업로드를 건너뛰었습니다',
     transferSkipped: '전송을 건너뛰었습니다',
     transferCancel: '전송이 취소되었습니다',

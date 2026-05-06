@@ -1214,6 +1214,8 @@ export default {
     transferSuccess: 'Transfer completed',
     transferFailed: 'Transfer failed',
     openFolder: 'Open Folder',
+    showHiddenFiles: 'Show Hidden Files',
+    hideHiddenFiles: 'Hide Hidden Files',
     uploadSkipped: 'Upload skipped',
     transferSkipped: 'Transfer skipped',
     transferCancel: 'Transfer canceled',

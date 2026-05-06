@@ -1189,6 +1189,8 @@ export default {
     transferSuccess: 'تحويل ناجح',
     transferFailed: 'تحويل غير ناجح',
     openFolder: 'فتح المجلد',
+    showHiddenFiles: 'إظهار الملفات المخفية',
+    hideHiddenFiles: 'إخفاء الملفات المخفية',
     uploadSkipped: 'رفع ملغي',
     transferSkipped: 'تحويل ملغي',
     transferCancel: 'تحويل ملغي',

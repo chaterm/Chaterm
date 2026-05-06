@@ -1218,6 +1218,8 @@ export default {
     transferSuccess: 'Übertragung abgeschlossen',
     transferFailed: 'Übertragung fehlgeschlagen',
     openFolder: 'Ordner öffnen',
+    showHiddenFiles: 'Versteckte Dateien anzeigen',
+    hideHiddenFiles: 'Versteckte Dateien ausblenden',
     uploadSkipped: 'Upload wurde übersprungen',
     transferSkipped: 'Übertragung übersprungen',
     transferCancel: 'Übertragung abgebrochen',

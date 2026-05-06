@@ -1215,6 +1215,8 @@ export default {
     transferSuccess: 'Передача завершена',
     transferFailed: 'Передача не удалась',
     openFolder: 'Открыть папку',
+    showHiddenFiles: 'Показать скрытые файлы',
+    hideHiddenFiles: 'Скрыть скрытые файлы',
     uploadSkipped: 'Загрузка пропущена',
     transferSkipped: 'Передача пропущена',
     transferCancel: 'Передача отменена',
