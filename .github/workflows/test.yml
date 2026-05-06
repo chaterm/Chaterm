@@ -70,6 +70,9 @@ jobs:
       - name: Install dependencies
         run: npm ci --prefer-offline
 
+      - name: Rebuild native modules for current Node
+        run: npm rebuild better-sqlite3
+
       - name: Install Playwright Browsers (full)
         if: steps.playwright-cache.outputs.cache-hit != 'true'
         run: npx playwright install --with-deps chromium

@@ -240,7 +240,7 @@ describe('ConnectionManager - detectPrimaryKey / executeMutations', () => {
     await mgr.connect(makeAsset())
     const pk = await mgr.detectPrimaryKey('asset-1', 'db', 'users')
     expect(pk).toEqual(['id'])
-    expect(detectPrimaryKey).toHaveBeenCalledWith(expect.anything(), 'db', 'users')
+    expect(detectPrimaryKey).toHaveBeenCalledWith(expect.anything(), 'db', 'users', undefined)
   })
 
   it('executeMutations wraps statements in BEGIN/COMMIT and returns ok with affected counts', async () => {

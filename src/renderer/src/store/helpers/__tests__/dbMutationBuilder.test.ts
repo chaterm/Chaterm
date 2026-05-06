@@ -60,6 +60,7 @@ describe('dbMutationBuilder.buildMutations', () => {
     const stmts = buildMutations({
       dbType: 'postgresql',
       database: 'pub',
+      schema: 'pub',
       table: 'users',
       primaryKey: ['id'],
       newRows: [{ tmpId: 't1', values: { a: 1, b: 'x', c: null } }],
@@ -130,6 +131,7 @@ describe('dbMutationBuilder.buildMutations', () => {
     const stmts = buildMutations({
       dbType: 'postgresql',
       database: 'pub',
+      schema: 'pub',
       table: 't',
       primaryKey: null,
       newRows: [],
@@ -183,6 +185,7 @@ describe('dbMutationBuilder.buildMutations', () => {
     const stmts = buildMutations({
       dbType: 'postgresql',
       database: 'pub',
+      schema: 'pub',
       table: 't',
       primaryKey: null,
       newRows: [],
