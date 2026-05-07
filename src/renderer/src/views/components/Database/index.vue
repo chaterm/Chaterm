@@ -1,8 +1,9 @@
 <template>
   <div class="db-workspace">
+    <!-- Outer splitpanes: sidebar (fixed 22%) | content area -->
     <splitpanes
       class="db-workspace__splitpanes"
-      @resize="handleSplitpanesResize"
+      @resize="handleOuterSplitResize"
     >
       <pane
         class="db-workspace__sidebar"
@@ -37,139 +38,150 @@
           @table-action="handleTableAction"
         />
       </pane>
+      <!-- Inner splitpanes: main content | AI pane (conditional) -->
       <pane
-        class="db-workspace__main"
-        :size="mainPaneSize"
+        class="db-workspace__content-outer"
+        :size="contentAreaSize"
       >
-        <DatabaseWorkspaceTabs
-          :tabs="store.tabs"
-          :active-tab-id="store.activeTabId"
-          :ai-pane-open="store.dbAi.aiPaneOpen"
-          :can-toggle-ai-pane="canToggleAiPane"
-          @select="store.setActiveTab"
-          @close="store.closeTab"
-          @add="store.openNewSqlTab"
-        />
-        <div class="db-workspace__panel">
-          <DatabaseOverview v-if="activeTab && activeTab.kind === 'overview'" />
-          <div
-            v-else-if="activeTab && activeTab.kind === 'data'"
-            class="db-workspace__data"
+        <splitpanes
+          class="db-workspace__content-split"
+          @resize="handleInnerSplitResize"
+        >
+          <pane
+            class="db-workspace__main"
+            :size="innerMainSize"
           >
-            <DataGridToolbar
-              :page="activeTab.page ?? 1"
-              :page-size="activeTab.pageSize ?? 100"
-              :total="activeTab.total ?? null"
-              :can-edit="canEditActiveTab"
-              :has-selection="hasSelectionOnActiveTab"
-              :can-undo="canUndoActiveTab"
-              :is-dirty="isActiveTabDirty"
-              @goto-page="(p) => handleGotoPage(p)"
-              @goto-last-page="handleGotoLastPage"
-              @change-page-size="(s) => handleChangePageSize(s)"
-              @refresh-total="() => handleRefreshTotal()"
-              @refresh="() => handleRefresh()"
-              @add-row="handleAddRow"
-              @delete-row="handleDeleteRow"
-              @undo="handleUndo"
-              @save="handleSaveEdits"
+            <DatabaseWorkspaceTabs
+              :tabs="store.tabs"
+              :active-tab-id="store.activeTabId"
+              :ai-pane-open="store.dbAi.aiPaneOpen"
+              :can-toggle-ai-pane="canToggleAiPane"
+              @select="store.setActiveTab"
+              @close="store.closeTab"
+              @add="store.openNewSqlTab"
             />
-            <WhereOrderBar
-              :where-raw="activeTab.whereRaw"
-              :order-by-raw="activeTab.orderByRaw"
-              @apply-where="(v) => store.setTableWhereRaw(activeTab!.id, v)"
-              @apply-order-by="(v) => store.setTableOrderByRaw(activeTab!.id, v)"
-            />
-            <div class="db-workspace__grid">
+            <div class="db-workspace__panel">
+              <DatabaseOverview v-if="activeTab && activeTab.kind === 'overview'" />
               <div
-                v-if="activeTab.loading"
-                class="db-workspace__status"
+                v-else-if="activeTab && activeTab.kind === 'data'"
+                class="db-workspace__data"
               >
-                {{ $t('database.loading') }}
+                <DataGridToolbar
+                  :page="activeTab.page ?? 1"
+                  :page-size="activeTab.pageSize ?? 100"
+                  :total="activeTab.total ?? null"
+                  :can-edit="canEditActiveTab"
+                  :has-selection="hasSelectionOnActiveTab"
+                  :can-undo="canUndoActiveTab"
+                  :is-dirty="isActiveTabDirty"
+                  @goto-page="(p) => handleGotoPage(p)"
+                  @goto-last-page="handleGotoLastPage"
+                  @change-page-size="(s) => handleChangePageSize(s)"
+                  @refresh-total="() => handleRefreshTotal()"
+                  @refresh="() => handleRefresh()"
+                  @add-row="handleAddRow"
+                  @delete-row="handleDeleteRow"
+                  @undo="handleUndo"
+                  @save="handleSaveEdits"
+                />
+                <WhereOrderBar
+                  :where-raw="activeTab.whereRaw"
+                  :order-by-raw="activeTab.orderByRaw"
+                  @apply-where="(v) => store.setTableWhereRaw(activeTab!.id, v)"
+                  @apply-order-by="(v) => store.setTableOrderByRaw(activeTab!.id, v)"
+                />
+                <div class="db-workspace__grid">
+                  <div
+                    v-if="activeTab.loading"
+                    class="db-workspace__status"
+                  >
+                    {{ $t('database.loading') }}
+                  </div>
+                  <DatabaseResultPane
+                    v-else
+                    :columns="activeTab.resultColumns"
+                    :rows="activeTab.resultRows"
+                    :filters="activeTab.filters ?? []"
+                    :sort="activeTab.sort ?? null"
+                    :start-row-index="((activeTab.page ?? 1) - 1) * (activeTab.pageSize ?? 100) + 1"
+                    :load-distinct="(col: string) => store.loadColumnDistinct(activeTab!.id, col)"
+                    :editable="canEditActiveTab"
+                    :new-rows="activeTab.dirtyState?.newRows ?? []"
+                    :deleted-row-keys="activeTab.dirtyState?.deletedRowKeys ?? new Set()"
+                    :updated-cells="activeTab.dirtyState?.updatedCells ?? new Map()"
+                    :primary-key="activeTab.primaryKey ?? null"
+                    :selected-row-key="activeTab.selectedRowKey ?? null"
+                    @sort="(col, dir) => store.setTableSort(activeTab!.id, col, dir)"
+                    @apply-filter="(col, f) => store.setTableFilter(activeTab!.id, f, col)"
+                    @cell-edit="(rowKey, col, newVal) => handleCellEdit(rowKey, col, newVal)"
+                    @new-row-cell-edit="(tmpId, col, newVal) => handleNewRowCellEdit(tmpId, col, newVal)"
+                    @select-row="(rowKey) => handleSelectRow(rowKey)"
+                  />
+                </div>
+                <DataStatusBar
+                  :error="activeTab.error"
+                  :duration-ms="activeTab.durationMs"
+                  :row-count="activeTab.rowCount"
+                />
               </div>
-              <DatabaseResultPane
-                v-else
-                :columns="activeTab.resultColumns"
-                :rows="activeTab.resultRows"
-                :filters="activeTab.filters ?? []"
-                :sort="activeTab.sort ?? null"
-                :start-row-index="((activeTab.page ?? 1) - 1) * (activeTab.pageSize ?? 100) + 1"
-                :load-distinct="(col: string) => store.loadColumnDistinct(activeTab!.id, col)"
-                :editable="canEditActiveTab"
-                :new-rows="activeTab.dirtyState?.newRows ?? []"
-                :deleted-row-keys="activeTab.dirtyState?.deletedRowKeys ?? new Set()"
-                :updated-cells="activeTab.dirtyState?.updatedCells ?? new Map()"
-                :primary-key="activeTab.primaryKey ?? null"
-                :selected-row-key="activeTab.selectedRowKey ?? null"
-                @sort="(col, dir) => store.setTableSort(activeTab!.id, col, dir)"
-                @apply-filter="(col, f) => store.setTableFilter(activeTab!.id, f, col)"
-                @cell-edit="(rowKey, col, newVal) => handleCellEdit(rowKey, col, newVal)"
-                @new-row-cell-edit="(tmpId, col, newVal) => handleNewRowCellEdit(tmpId, col, newVal)"
-                @select-row="(rowKey) => handleSelectRow(rowKey)"
+              <SqlWorkspace
+                v-else-if="activeTab && activeTab.kind === 'sql'"
+                ref="sqlWorkspaceRef"
+                :tab="activeTab"
+                :tree="store.tree"
+                :connection-statuses="store.connectionStatuses"
+                @update-sql="(v) => updateSql(v)"
+                @update-context="(a, d) => store.setSqlTabContext(activeTab!.id, a, d)"
+                @update-schema="(s) => store.setSqlTabSchema(activeTab!.id, s)"
+                @run="(mode, sql) => store.runSqlOnActiveTab(mode, sql)"
+                @select-result-tab="(id) => store.setActiveResultTab(activeTab!.id, id)"
+                @close-result-tab="(id) => store.closeResultTab(activeTab!.id, id)"
+                @db-ai="(kind, sql) => handleDbAiEditorAction(kind, sql)"
               />
             </div>
-            <DataStatusBar
-              :error="activeTab.error"
-              :duration-ms="activeTab.durationMs"
-              :row-count="activeTab.rowCount"
-            />
-          </div>
-          <SqlWorkspace
-            v-else-if="activeTab && activeTab.kind === 'sql'"
-            ref="sqlWorkspaceRef"
-            :tab="activeTab"
-            :tree="store.tree"
-            :connection-statuses="store.connectionStatuses"
-            @update-sql="(v) => updateSql(v)"
-            @update-context="(a, d) => store.setSqlTabContext(activeTab!.id, a, d)"
-            @update-schema="(s) => store.setSqlTabSchema(activeTab!.id, s)"
-            @run="(mode, sql) => store.runSqlOnActiveTab(mode, sql)"
-            @select-result-tab="(id) => store.setActiveResultTab(activeTab!.id, id)"
-            @close-result-tab="(id) => store.closeResultTab(activeTab!.id, id)"
-            @db-ai="(kind, sql) => handleDbAiEditorAction(kind, sql)"
-          />
-        </div>
-      </pane>
-      <pane
-        v-if="store.dbAi.aiPaneOpen"
-        class="db-workspace__ai"
-        :size="aiPaneSize"
-        :min-size="18"
-        :max-size="60"
-      >
-        <div class="db-workspace__ai-pane">
-          <div class="db-workspace__ai-context-row">
-            <ConnectionPicker
-              :model-value="dbAiContext.assetId"
-              :tree="store.tree"
-              :connection-statuses="store.connectionStatuses"
-              @update:model-value="onDbAiAssetChange"
-            />
-            <DatabasePicker
-              :model-value="dbAiContext.databaseName"
-              :tree="store.tree"
-              :asset-id="dbAiContext.assetId"
-              @update:model-value="onDbAiDatabaseChange"
-            />
-            <SchemaPicker
-              v-if="dbAiContext.dbType === 'postgresql'"
-              :model-value="dbAiContext.schemaName"
-              :tree="store.tree"
-              :asset-id="dbAiContext.assetId"
-              :database-name="dbAiContext.databaseName"
-              @update:model-value="onDbAiSchemaChange"
-            />
-          </div>
-          <AiTab
-            ref="dbAiTabRef"
-            :toggle-sidebar="handleCloseAiPane"
-            :saved-state="savedDbAiTabState || undefined"
-            :is-agent-mode="true"
-            :workspace="'database'"
-            :db-context="resolveDbContextForAiTab"
-            @state-changed="handleDbAiTabStateChanged"
-          />
-        </div>
+          </pane>
+          <pane
+            v-if="store.dbAi.aiPaneOpen"
+            class="db-workspace__ai"
+            :size="aiPaneSize"
+            :min-size="18"
+            :max-size="60"
+          >
+            <div class="db-workspace__ai-pane">
+              <div class="db-workspace__ai-context-row">
+                <ConnectionPicker
+                  :model-value="dbAiContext.assetId"
+                  :tree="store.tree"
+                  :connection-statuses="store.connectionStatuses"
+                  @update:model-value="onDbAiAssetChange"
+                />
+                <DatabasePicker
+                  :model-value="dbAiContext.databaseName"
+                  :tree="store.tree"
+                  :asset-id="dbAiContext.assetId"
+                  @update:model-value="onDbAiDatabaseChange"
+                />
+                <SchemaPicker
+                  v-if="dbAiContext.dbType === 'postgresql'"
+                  :model-value="dbAiContext.schemaName"
+                  :tree="store.tree"
+                  :asset-id="dbAiContext.assetId"
+                  :database-name="dbAiContext.databaseName"
+                  @update:model-value="onDbAiSchemaChange"
+                />
+              </div>
+              <AiTab
+                ref="dbAiTabRef"
+                :toggle-sidebar="handleCloseAiPane"
+                :saved-state="savedDbAiTabState || undefined"
+                :is-agent-mode="true"
+                :workspace="'database'"
+                :db-context="resolveDbContextForAiTab"
+                @state-changed="handleDbAiTabStateChanged"
+              />
+            </div>
+          </pane>
+        </splitpanes>
       </pane>
     </splitpanes>
 
@@ -283,41 +295,50 @@ const canToggleAiPane = computed(() => {
 })
 
 /**
- * Splitpanes accepts percentages. Convert the stored pixel width into a
- * percentage of the container width on each render. Falls back to a
- * nominal 26% when the container width is not yet known (splitpanes
- * mounts once before we can measure it).
+ * Outer splitpanes: sidebar (22%) | content area (78%).
+ * The content-area pane holds an inner splitpanes for main + AI.
+ * This nesting ensures the sidebar width stays at 22% regardless
+ * of AI pane open/close, avoiding the splitpanes redistribution bug
+ * that occurs with conditional v-if panes.
  */
-const containerWidthPx = ref<number>(0)
+const contentAreaSize = computed(() => 100 - sidebarSize)
+
+/**
+ * Inner splitpanes: main | AI pane.
+ * When AI pane is closed, main takes 100%. When open, sizes are
+ * computed from the stored pixel width converted to percentage of
+ * the content-area (not the full container).
+ */
+const contentAreaWidthPx = ref<number>(0)
 
 const aiPaneSize = computed(() => {
   if (!store.dbAi.aiPaneOpen) return 0
-  const w = containerWidthPx.value
+  const w = contentAreaWidthPx.value
   if (!w || w <= 0) return 26
   const pct = (store.dbAi.sidebarSize / w) * 100
-  // Clamp to min/max bounds that match the pane template constraints.
   return Math.min(60, Math.max(18, pct))
 })
 
-/**
- * The main pane always fills whatever the sidebar + AI pane don't take.
- */
-const mainPaneSize = computed(() => {
-  const base = 100 - sidebarSize
-  if (!store.dbAi.aiPaneOpen) return base
-  return Math.max(10, base - aiPaneSize.value)
+const innerMainSize = computed(() => {
+  if (!store.dbAi.aiPaneOpen) return 100
+  return Math.max(10, 100 - aiPaneSize.value)
 })
 
+/** Handle outer splitpanes resize (sidebar | content area split). */
+const handleOuterSplitResize = (_panes: Array<{ size: number }>) => {
+  // Outer split only has sidebar + content area; no pixel conversion needed
+}
+
 /**
- * Update the stored pixel width of the AI pane after the user drags the
- * splitter. Splitpanes emits an array of {min, max, size} for every pane;
- * the third entry corresponds to the AI pane (index 2 when open).
+ * Update the stored pixel width of the AI pane after the user drags
+ * the inner splitter. The inner splitpanes emits sizes for its panes;
+ * the second entry corresponds to the AI pane (index 1 when open).
  */
-const handleSplitpanesResize = (panes: Array<{ size: number }>) => {
+const handleInnerSplitResize = (panes: Array<{ size: number }>) => {
   if (!store.dbAi.aiPaneOpen) return
-  const aiPane = panes[2]
+  const aiPane = panes[1]
   if (!aiPane || typeof aiPane.size !== 'number') return
-  const w = containerWidthPx.value
+  const w = contentAreaWidthPx.value
   if (!w || w <= 0) return
   const nextPx = Math.round((aiPane.size / 100) * w)
   if (nextPx > 0) store.setDbAiSidebarSize(nextPx)
@@ -691,7 +712,6 @@ const isActiveTabDirty = computed(() => {
   return hasNew || hasDeleted || hasUpdated
 })
 
-const workspaceRootRef = ref<HTMLElement | null>(null)
 let resizeObserver: ResizeObserver | null = null
 
 onMounted(() => {
@@ -700,20 +720,24 @@ onMounted(() => {
   loadSavedDbAiTabState()
   ensureDbAiContextInitialized()
 
-  // Measure the workspace root so splitpanes' percentage<->pixel math
-  // for the AI pane stays honest across window resizes. Uses ResizeObserver
-  // when available; falls back to window resize (coarse but enough).
-  const root = document.querySelector('.db-workspace') as HTMLElement | null
-  workspaceRootRef.value = root
-  const measure = () => {
-    if (root) containerWidthPx.value = root.clientWidth
+  // Measure the content-area width (outer splitpanes' right pane) so
+  // the inner splitpanes can convert AI pane px -> percentage accurately.
+  const measureContentArea = () => {
+    const contentPane = document.querySelector('.db-workspace__content-outer') as HTMLElement | null
+    if (contentPane) {
+      contentAreaWidthPx.value = contentPane.clientWidth
+    }
   }
-  measure()
+  measureContentArea()
+
+  // Observe the workspace root for container width changes that affect
+  // both outer and inner splitpanes sizing.
+  const root = document.querySelector('.db-workspace') as HTMLElement | null
   if (typeof ResizeObserver !== 'undefined' && root) {
-    resizeObserver = new ResizeObserver(measure)
+    resizeObserver = new ResizeObserver(measureContentArea)
     resizeObserver.observe(root)
   } else {
-    globalThis.addEventListener?.('resize', measure)
+    globalThis.addEventListener?.('resize', measureContentArea)
   }
 })
 
@@ -1215,6 +1239,25 @@ const handleTableAction = async (payload: { action: TableActionKind; ctx: TableA
 
   &__splitpanes {
     flex: 1;
+
+    .splitpanes__pane {
+      transition: none !important;
+      animation: none !important;
+    }
+  }
+
+  &__content-outer {
+    // The outer splitpanes' right pane that holds the inner splitpanes
+    // must also disable transitions
+  }
+
+  &__content-split {
+    height: 100%;
+
+    .splitpanes__pane {
+      transition: none !important;
+      animation: none !important;
+    }
   }
 
   &__sidebar {
