@@ -10,6 +10,7 @@ type PromptMatchResult = {
 // Optional prefix pattern for conda/virtualenv environments like (base), (myenv), etc.
 // Only allow zero or one space after the environment prefix (input is already trimmed)
 const ENV_PREFIX = /(?:\([^)]+\) ?)?/
+const ZSH_THEME_PROMPT_PATTERN = new RegExp(`^${ENV_PREFIX.source}[➜❯❮➤➔λ]\\s+\\S+(?:\\s+git:\\([^)]*\\))?(?:\\s+[✗✔✘!*+?-]+)?\\s*$`)
 
 const PROMPT_PATTERNS: Array<{ type: PromptType; pattern: RegExp }> = [
   // Linux prompts with optional environment prefix (e.g., (base) [user@host]$)
@@ -26,6 +27,8 @@ const PROMPT_PATTERNS: Array<{ type: PromptType; pattern: RegExp }> = [
   { type: 'linux', pattern: new RegExp(`^${ENV_PREFIX.source}[a-zA-Z][a-zA-Z0-9_-]*:[^\\s]*[$#]\\s*$`) },
   // Path only format (e.g., ~/projects $, /var/log #, ~ $)
   { type: 'linux', pattern: new RegExp(`^${ENV_PREFIX.source}[~./][^\\s]*\\s+[$#]\\s*$`) },
+  // Common zsh themes such as oh-my-zsh robbyrussell: "(base) ➜  ~"
+  { type: 'linux', pattern: ZSH_THEME_PROMPT_PATTERN },
   // Fish shell format (e.g., user@host ~/path>, hostname ~>)
   { type: 'linux', pattern: new RegExp(`^${ENV_PREFIX.source}([^@]+@)?[^\\s]+\\s+[^\\s]*>\\s*$`) },
   { type: 'linux', pattern: new RegExp(`^${ENV_PREFIX.source}>\\s*$`) },
@@ -73,6 +76,11 @@ const extractTrailingPrompt = (line: string): string | null => {
     const previousChar = candidateStart > 0 ? trimmed[candidateStart - 1] : ''
     const hasAlphaNumericBoundary = candidateStart > 0 && /[A-Za-z0-9]/.test(previousChar)
     const isLikelyUserHostPrompt = /@[^:\s]+:[^$#\s]*\s*[$#]\s*$/.test(candidate)
+    const isLikelyZshThemePrompt = ZSH_THEME_PROMPT_PATTERN.test(candidate)
+
+    if (isLikelyZshThemePrompt && candidateStart > 0) {
+      continue
+    }
 
     // Avoid matching inside ordinary words unless candidate clearly looks like a shell prompt.
     if (hasAlphaNumericBoundary && !isLikelyUserHostPrompt) {

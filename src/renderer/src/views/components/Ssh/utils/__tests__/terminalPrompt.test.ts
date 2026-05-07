@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { getLastNonEmptyLine, isTerminalPromptLine, matchPrompt } from '../terminalPrompt'
+import { stripAnsiBasic } from '../ansiUtils'
 
 describe('terminalPrompt utils', () => {
   describe('getLastNonEmptyLine', () => {
@@ -50,6 +51,22 @@ describe('terminalPrompt utils', () => {
       const output = 'checksum $ '
       expect(getLastNonEmptyLine(output)).toBe('$')
     })
+
+    it('extracts zsh theme prompt after macOS redraw sequences', () => {
+      const output =
+        'ProductName:\t\tmacOS\r\n' +
+        '\x1b[1m\x1b[7m%\x1b[27m\x1b[1m\x1b[0m     \r \r' +
+        '\x1b]2;user@host:~\x07\x1b]1;~\x07' +
+        '\x1b]7;file://host/Users/test\x1b\\' +
+        '\r\x1b[0m\x1b[27m\x1b[24m\x1b[J(base) \x1b[01;32m➜  \x1b[36m~\x1b[00m \x1b[K\x1b[?1h\x1b=\x1b[?2004h'
+
+      expect(getLastNonEmptyLine(output)).toBe('(base) ➜  ~')
+    })
+
+    it('does not extract zsh prompt markers from ordinary output text', () => {
+      expect(getLastNonEmptyLine('Deploy ➜ production')).toBe('Deploy ➜ production')
+      expect(getLastNonEmptyLine('Next ❯ done')).toBe('Next ❯ done')
+    })
   })
 
   describe('isTerminalPromptLine', () => {
@@ -92,6 +109,12 @@ describe('terminalPrompt utils', () => {
       expect(isTerminalPromptLine('~ $')).toBe(true)
       expect(isTerminalPromptLine('./src $')).toBe(true)
       expect(isTerminalPromptLine('(venv) ~/code $')).toBe(true)
+    })
+
+    it('matches zsh theme prompts', () => {
+      expect(isTerminalPromptLine('(base) ➜  ~')).toBe(true)
+      expect(isTerminalPromptLine('➜  Chaterm git:(main) ✗')).toBe(true)
+      expect(isTerminalPromptLine('❯  ~/code')).toBe(true)
     })
 
     it('matches fish shell prompts', () => {
@@ -138,6 +161,7 @@ describe('terminalPrompt utils', () => {
       expect(isTerminalPromptLine('Info: The max number of VTY users is 5')).toBe(false)
       expect(isTerminalPromptLine('Compiled Tue 23-Apr-19 02:38 by mmen')).toBe(false)
       expect(isTerminalPromptLine('ROM: Bootstrap program is Linux')).toBe(false)
+      expect(isTerminalPromptLine('Deploy ➜ production')).toBe(false)
       expect(
         isTerminalPromptLine(
           '["aliyun_sandbox","aliyun_autom","sandbox","secautom","uc_sandbox","autom","nx_autom","us_autom","us_sandbox"][xuhong_yao@AutomConsulSitC-172-16-158-235 ~]$'
@@ -161,6 +185,16 @@ describe('terminalPrompt utils', () => {
       const result = matchPrompt('Not a prompt line')
       expect(result.isPrompt).toBe(false)
       expect(result.type).toBe('unknown')
+    })
+  })
+
+  describe('ANSI cleanup for prompt and command echo parsing', () => {
+    it('strips OSC title sequences used by macOS zsh', () => {
+      expect(stripAnsiBasic('\x1b]2;sw_vers\x07\x1b]1;sw_vers\x07ProductName:\t\tmacOS')).toBe('ProductName:\t\tmacOS')
+    })
+
+    it('applies backspace redraws before comparing command echo', () => {
+      expect(stripAnsiBasic('s\x08sw_vers\x1b[?1l\x1b>\x1b[?2004l')).toBe('sw_vers')
     })
   })
 })
