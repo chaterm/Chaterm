@@ -1808,6 +1808,45 @@ export default {
       content: '连接 "{name}" 将被删除，此操作无法撤销。'
     },
     copiedToClipboard: '已复制到剪贴板',
-    movedSuccess: '连接已移动'
+    movedSuccess: '连接已移动',
+    dbAi: {
+      title: '数据库 AI',
+      drawerTitle: '数据库 AI 结果',
+      emptyState: '暂无 DB-AI 请求。请在 SQL 编辑器中触发解释、自然语言转 SQL、优化或转换。',
+      emptyInput: '没有可发送到 AI 的内容。',
+      contextRequired: '请先选择连接和数据库。',
+      unknownError: 'DB-AI 请求失败。',
+      reasoning: '推理过程',
+      generatedSql: '生成的 SQL',
+      targetDialect: '目标方言',
+      textOnlyDialectHint: '仅文本转换；只读执行已禁用。',
+      insertIntoEditor: '插入到编辑器',
+      replaceSelection: '替换选中内容',
+      insertedIntoEditor: '已插入到编辑器',
+      replacedSelection: '已替换选中内容',
+      copy: '复制 SQL',
+      copyFailed: '复制失败',
+      runReadOnly: '运行（只读）',
+      cancel: '取消请求',
+      clear: '清空',
+      statusIdle: '空闲',
+      statusQueued: '排队中',
+      statusStreaming: '流式传输中',
+      statusDone: '已完成',
+      statusError: '错误',
+      statusCancelled: '已取消',
+      actionExplain: '解释',
+      actionNl2Sql: '自然语言转 SQL',
+      actionOptimize: '优化',
+      actionConvert: '转换方言',
+      actionComplete: '补全',
+      nl2SqlPrompt: {
+        title: '根据问题生成 SQL',
+        hint: '用自然语言描述你想查询的内容，当前连接和 schema 会作为上下文。',
+        placeholder: '例如：列出近 30 天累计付款金额最高的 5 位客户',
+        submit: '生成',
+        cancel: '取消'
+      }
+    }
   }
 }

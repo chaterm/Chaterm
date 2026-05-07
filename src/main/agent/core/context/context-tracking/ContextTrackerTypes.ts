@@ -6,7 +6,13 @@
 
 // Type definitions for FileContextTracker
 import type { Host } from '@shared/WebviewMessage'
+import type { DbAiRequestContext } from '@common/db-ai-types'
+import type { TaskWorkspace } from '@shared/task-workspace'
 import { Todo } from '../../../shared/todo/TodoSchemas'
+
+// Re-export for backwards-compatibility; existing main-side consumers import
+// `TaskWorkspace` from this module today.
+export type { TaskWorkspace }
 export interface FileMetadataEntry {
   path: string
   record_state: 'active' | 'stale'
@@ -43,6 +49,16 @@ export interface TaskMetadata {
   experience_ledger?: TaskExperienceLedgerEntry[]
   title?: string
   favorite?: boolean
+  /**
+   * Workspace a task belongs to. Absent or unknown values are treated as
+   * `'server'` by all consumers, which preserves pre-Phase-3 behaviour.
+   */
+  workspace?: TaskWorkspace
+  /**
+   * DB-AI connection context captured at task creation for
+   * `workspace='database'`. Must be `undefined` when `workspace='server'`.
+   */
+  db_context?: DbAiRequestContext
 }
 
 export interface TaskListItem {

@@ -2,6 +2,15 @@ import { contextBridge, ipcRenderer, webUtils } from 'electron'
 import { electronAPI } from '@electron-toolkit/preload'
 import type { WebviewMessage } from '../main/agent/shared/WebviewMessage'
 import type { ChatermMessagesPage } from '../main/agent/shared/ExtensionMessage'
+import {
+  DB_AI_IPC_CHANNELS,
+  type DbAiCancelResult,
+  type DbAiDoneEvent,
+  type DbAiStartRequest,
+  type DbAiStartResult,
+  type DbAiStreamEvent,
+  type DbAiToolEvent
+} from '../shared/db-ai-types'
 
 import * as dotenv from 'dotenv'
 import * as path from 'path'
@@ -520,6 +529,54 @@ const dbAssetExecuteMutations = async (payload: {
   }
 }
 
+// ---------------------------------------------------------------------------
+// DB-AI (single-turn, track A) preload surface. See docs/database_ai.md §5.2.
+// Subscription helpers return an unsubscribe function so renderers can clean
+// up on component unmount without leaking listeners across navigations.
+// ---------------------------------------------------------------------------
+
+const dbAiStart = async (req: DbAiStartRequest): Promise<DbAiStartResult> => {
+  try {
+    return await ipcRenderer.invoke(DB_AI_IPC_CHANNELS.start, req)
+  } catch (error) {
+    return Promise.reject(error)
+  }
+}
+
+const dbAiCancel = async (reqId: string): Promise<DbAiCancelResult> => {
+  try {
+    return await ipcRenderer.invoke(DB_AI_IPC_CHANNELS.cancel, reqId)
+  } catch (error) {
+    return Promise.reject(error)
+  }
+}
+
+const dbAiOnStream = (cb: (event: DbAiStreamEvent) => void): (() => void) => {
+  const listener = (_e: unknown, event: DbAiStreamEvent): void => cb(event)
+  ipcRenderer.on(DB_AI_IPC_CHANNELS.stream, listener)
+  return () => ipcRenderer.removeListener(DB_AI_IPC_CHANNELS.stream, listener)
+}
+
+const dbAiOnTool = (cb: (event: DbAiToolEvent) => void): (() => void) => {
+  const listener = (_e: unknown, event: DbAiToolEvent): void => cb(event)
+  ipcRenderer.on(DB_AI_IPC_CHANNELS.tool, listener)
+  return () => ipcRenderer.removeListener(DB_AI_IPC_CHANNELS.tool, listener)
+}
+
+const dbAiOnDone = (cb: (event: DbAiDoneEvent) => void): (() => void) => {
+  const listener = (_e: unknown, event: DbAiDoneEvent): void => cb(event)
+  ipcRenderer.on(DB_AI_IPC_CHANNELS.done, listener)
+  return () => ipcRenderer.removeListener(DB_AI_IPC_CHANNELS.done, listener)
+}
+
+const dbAi = {
+  start: dbAiStart,
+  cancel: dbAiCancel,
+  onStream: dbAiOnStream,
+  onTool: dbAiOnTool,
+  onDone: dbAiOnDone
+}
+
 const createOrUpdateAsset = async (data: { form: Record<string, unknown> }) => {
   try {
     const result = await ipcRenderer.invoke('asset-create-or-update', data)
@@ -865,6 +922,7 @@ const api = {
   dbAssetColumnDistinct,
   dbAssetDetectPrimaryKey,
   dbAssetExecuteMutations,
+  dbAi,
   chatermInsert,
   chatermUpdate,
   deleteAsset,

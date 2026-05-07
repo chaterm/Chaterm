@@ -114,6 +114,7 @@ export interface HostInfo {
 export type ChatermAsk =
   | 'followup'
   | 'command'
+  | 'db_sql_approval'
   | 'command_output'
   | 'completion_result'
   | 'tool'
@@ -152,6 +153,7 @@ export type ChatermSay =
   | 'skill_summary'
   | 'skill_activated'
   | 'context_truncated'
+  | 'db_query_result'
 
 export interface ChatermSayTool {
   tool: 'readFile' | 'listFilesTopLevel' | 'listFilesRecursive' | 'searchFiles'

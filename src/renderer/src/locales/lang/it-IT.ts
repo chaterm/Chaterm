@@ -1779,6 +1779,45 @@ export default {
     copiedToClipboard: 'Copiato negli appunti',
     movedSuccess: 'Connessione spostata',
     format: 'Formatta',
-    formatError: 'Formattazione non riuscita'
+    formatError: 'Formattazione non riuscita',
+    dbAi: {
+      title: 'IA Database',
+      drawerTitle: 'Risultato IA Database',
+      emptyState: 'Nessuna richiesta DB-AI ancora. Attiva Spiega, NL in SQL, Ottimizza o Converti dall editor SQL.',
+      emptyInput: 'Nulla da inviare all IA.',
+      contextRequired: 'Seleziona prima una connessione e un database.',
+      unknownError: 'Richiesta DB-AI non riuscita.',
+      reasoning: 'Ragionamento',
+      generatedSql: 'SQL generato',
+      targetDialect: 'Dialetto di destinazione',
+      textOnlyDialectHint: 'Conversione solo testo; esecuzione in sola lettura disabilitata.',
+      insertIntoEditor: 'Inserisci nell editor',
+      replaceSelection: 'Sostituisci selezione',
+      insertedIntoEditor: 'Inserito nell editor',
+      replacedSelection: 'Selezione sostituita',
+      copy: 'Copia SQL',
+      copyFailed: 'Copia non riuscita',
+      runReadOnly: 'Esegui (sola lettura)',
+      cancel: 'Annulla richiesta',
+      clear: 'Cancella',
+      statusIdle: 'Inattivo',
+      statusQueued: 'In coda',
+      statusStreaming: 'Streaming in corso',
+      statusDone: 'Completato',
+      statusError: 'Errore',
+      statusCancelled: 'Annullato',
+      actionExplain: 'Spiega',
+      actionNl2Sql: 'NL in SQL',
+      actionOptimize: 'Ottimizza',
+      actionConvert: 'Converti dialetto',
+      actionComplete: 'Completamento',
+      nl2SqlPrompt: {
+        title: 'Genera SQL da una domanda',
+        hint: 'Descrivi in linguaggio naturale cio che vuoi interrogare. La connessione e lo schema correnti saranno usati come contesto.',
+        placeholder: 'es. mostra i primi 5 clienti per importo totale pagato negli ultimi 30 giorni',
+        submit: 'Genera',
+        cancel: 'Annulla'
+      }
+    }
   }
 }

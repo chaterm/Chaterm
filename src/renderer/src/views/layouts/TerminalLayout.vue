@@ -344,6 +344,7 @@ import EditorActions from './components/EditorActions.vue'
 import { v4 as uuidv4 } from 'uuid'
 import { userInfoStore } from '@/store'
 import { aliasConfigStore } from '@/store/aliasConfigStore'
+import { useDatabaseWorkspaceStore } from '@/store/databaseWorkspaceStore'
 import eventBus from '@/utils/eventBus'
 import { getActualTheme, initializeThemeFromDatabase } from '@/utils/themeUtils'
 import { componentInstances, inputManager, isGlobalInput, isShowCommandBar } from '@renderer/views/components/Ssh/utils/termInputManager'
@@ -353,6 +354,7 @@ import { captureExtensionUsage, ExtensionNames, ExtensionStatus } from '@/utils/
 import Dashboard from '@renderer/views/components/Ssh/components/dashboard.vue'
 import { useAiSidebarModelRefresh } from './composables/useAiSidebarModelRefresh'
 import { isFocusInAiTab } from '@/utils/domUtils'
+import { aiTabStorageKey, migrateLegacyAiTabStorage } from '@/views/components/AiTab/workspace'
 
 import 'dockview-vue/dist/styles/dockview.css'
 import { type DockviewReadyEvent, DockviewVue } from 'dockview-vue'
@@ -381,6 +383,7 @@ const getLayoutStyle = (
   }
 }
 const aliasConfig = aliasConfigStore()
+const databaseWorkspaceStore = useDatabaseWorkspaceStore()
 const configStore = piniaUserConfigStore()
 const hideTabCloseButton = ref(false)
 const isTransparent = computed(() => !!configStore.getUserConfig.background.image)
@@ -871,7 +874,12 @@ onMounted(async () => {
   // Restore AI state (unified function since both modes use the same aiTabRef)
   const restoreAiTabState = async () => {
     try {
-      const savedStateStr = localStorage.getItem('sharedAiTabState')
+      // Stage 1 of #18: promote any legacy blob to the terminal-namespaced
+      // key before the first read. Safe to call repeatedly — a no-op once
+      // the legacy key has been removed.
+      migrateLegacyAiTabStorage()
+      const terminalKey = aiTabStorageKey('terminal')
+      const savedStateStr = localStorage.getItem(terminalKey)
       if (savedStateStr && aiTabRef.value && aiTabRef.value.restoreState) {
         const savedState = JSON.parse(savedStateStr)
         // Update savedAiSidebarState to match
@@ -880,13 +888,13 @@ onMounted(async () => {
         await nextTick()
         await aiTabRef.value.restoreState(savedState)
         // Clear the shared state after restoring to avoid restoring again
-        localStorage.removeItem('sharedAiTabState')
+        localStorage.removeItem(terminalKey)
         return true
       }
     } catch (error) {
       logger.warn('Failed to restore AI Tab state', { error: error })
       // Clear invalid state
-      localStorage.removeItem('sharedAiTabState')
+      localStorage.removeItem(aiTabStorageKey('terminal'))
     }
     return false
   }
@@ -1008,7 +1016,7 @@ onMounted(async () => {
       try {
         const currentState = aiTabRef.value.getCurrentState?.()
         if (currentState) {
-          localStorage.setItem('sharedAiTabState', JSON.stringify(currentState))
+          localStorage.setItem(aiTabStorageKey('terminal'), JSON.stringify(currentState))
           // Also update savedAiSidebarState for immediate use
           savedAiSidebarState.value = currentState
         }
@@ -1311,6 +1319,13 @@ const debouncedAiResizeCheck = () => {
 }
 
 const toggleSideBar = (value: string) => {
+  if (value === 'right' && currentMenu.value === 'database') {
+    const nextOpen = !databaseWorkspaceStore.dbAi.aiPaneOpen
+    databaseWorkspaceStore.setDbAiPaneOpen(nextOpen)
+    headerRef.value?.switchIcon('right', nextOpen)
+    return
+  }
+
   const container = (document.querySelector('.main-split-container') as HTMLElement) || (document.querySelector('.splitpanes') as HTMLElement)
   const containerWidth = container ? container.offsetWidth : 1000
 
@@ -1420,6 +1435,16 @@ const handleSearchHost = () => {
 
 const toggleMenu = function (params) {
   const type = params?.type
+  const isDatabaseWorkspace = currentMenu.value === 'database' || params?.beforeActive === 'database'
+
+  if (isDatabaseWorkspace && (params.menu === 'ai' || params.menu === 'openAiRight')) {
+    currentMenu.value = 'database'
+    const shouldOpen = params.menu === 'openAiRight' ? true : !databaseWorkspaceStore.dbAi.aiPaneOpen
+    databaseWorkspaceStore.setDbAiPaneOpen(shouldOpen)
+    headerRef.value?.switchIcon('right', shouldOpen)
+    return
+  }
+
   const container = document.querySelector('.splitpanes') as HTMLElement
   const containerWidth = container.offsetWidth
   const expandFn = (dir) => {
@@ -2388,7 +2413,7 @@ const handleModeChange = (mode: 'terminal' | 'agents') => {
       const currentState = aiTabRef.value.getCurrentState?.()
       if (currentState) {
         // Save state to localStorage for persistence across mode switches
-        localStorage.setItem('sharedAiTabState', JSON.stringify(currentState))
+        localStorage.setItem(aiTabStorageKey('terminal'), JSON.stringify(currentState))
         // Also update savedAiSidebarState for immediate use
         savedAiSidebarState.value = currentState
       }

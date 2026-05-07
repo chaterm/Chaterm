@@ -108,7 +108,8 @@ export default defineConfig({
             '@api': resolve('src/main/agent/api'),
             '@storage': resolve('src/main/storage'),
             '@logging': resolve('src/main/services/logging'),
-            '@perf': resolve('src/main/services/perf')
+            '@perf': resolve('src/main/services/perf'),
+            '@common': resolve('src/shared')
           }
         }
       },

@@ -7,6 +7,7 @@
 import { ApiConfiguration } from './api'
 import { TelemetrySetting } from './TelemetrySetting'
 import { z } from 'zod'
+import type { DbTaskContext, TaskWorkspace } from './task-workspace'
 
 export type Host = { host: string; uuid: string; connection: string; organizationUuid?: string; assetType?: string }
 
@@ -103,6 +104,15 @@ export interface WebviewMessage {
   changeType?: 'created' | 'updated' | 'completed' | 'progress'
   triggerReason?: 'agent_update' | 'user_request' | 'auto_progress'
   truncateAtMessageTs?: number // For truncate and resend
+
+  // DB-AI workspace fields (Stage 2 of #18). Populated by the renderer on
+  // `newTask` when the AiTab is mounted in the Database workspace so the
+  // controller can start a Task with `workspace='database'` + the matching
+  // dbContext. Both are optional — absence means "run as classic server
+  // workspace task", preserving backward compatibility with every
+  // existing caller. See docs/database_ai.md §9.2 + docs/db-ai-aitab-mount-decision.md Q4.
+  workspace?: TaskWorkspace
+  dbContext?: DbTaskContext
 }
 
 export type ChatermAskResponse = 'yesButtonClicked' | 'noButtonClicked' | 'messageResponse' | 'autoApproveReadOnlyClicked'
@@ -126,7 +136,13 @@ export const WebviewMessageSchema = z
         isError: z.boolean().optional()
       })
       .optional(),
-    apiConfiguration: z.record(z.unknown()).optional()
+    apiConfiguration: z.record(z.unknown()).optional(),
+    // DB-AI workspace fields (Stage 2 of #18). Declared explicitly for TS
+    // inference even though `.passthrough()` below already allows extra
+    // keys at runtime. Validation stays loose — `Controller.initTask`
+    // re-normalises via `normaliseWorkspace` / `hasValidDbContext`.
+    workspace: z.enum(['server', 'database']).optional(),
+    dbContext: z.record(z.unknown()).optional()
   })
   .passthrough()
 

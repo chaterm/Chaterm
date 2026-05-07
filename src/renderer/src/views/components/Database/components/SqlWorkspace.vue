@@ -25,6 +25,10 @@
           :model-value="tab.sql"
           @update:model-value="(v: string) => emit('update-sql', v)"
           @run="(m: 'all' | 'currentStatement') => handleRun(m)"
+          @db-ai="
+            (kind: 'explainSelection' | 'optimizeSelection' | 'convertDialect' | 'nl2sqlFromComment' | 'nl2sqlPrompt', sql: string) =>
+              emit('db-ai', kind, sql)
+          "
         />
       </pane>
       <pane
@@ -145,6 +149,14 @@ const emit = defineEmits<{
   (e: 'run', mode: 'all' | 'currentStatement' | 'explain', sql: string): void
   (e: 'select-result-tab', id: string): void
   (e: 'close-result-tab', id: string): void
+  /**
+   * DB-AI editor action bubbled up from the Monaco editor. Five kinds:
+   * `explainSelection`, `optimizeSelection`, `convertDialect`,
+   * `nl2sqlFromComment` (extracted comment body), `nl2sqlPrompt` (open
+   * the NL → SQL modal with an optional seed string). Parent resolves
+   * fresh store context before kicking off the request.
+   */
+  (e: 'db-ai', kind: 'explainSelection' | 'optimizeSelection' | 'convertDialect' | 'nl2sqlFromComment' | 'nl2sqlPrompt', sql: string): void
 }>()
 
 interface EditorApi {
@@ -154,6 +166,7 @@ interface EditorApi {
   getCurrentStatement(): string
   replaceAll(next: string): void
   replaceSelection(next: string): void
+  insertAtCursor(next: string): void
   focus?: () => void
 }
 
@@ -440,6 +453,20 @@ const handleFormat = () => {
     message.error(t('database.formatError'))
   }
 }
+
+// Expose a thin set of editor commands so the DB-AI drawer can insert /
+// replace SQL without reaching across two component boundaries.
+defineExpose({
+  insertSqlAtCursor(sql: string) {
+    editorRef.value?.insertAtCursor(sql)
+  },
+  replaceEditorSelection(sql: string) {
+    editorRef.value?.replaceSelection(sql)
+  },
+  replaceEditorAll(sql: string) {
+    editorRef.value?.replaceAll(sql)
+  }
+})
 </script>
 
 <style scoped lang="less">

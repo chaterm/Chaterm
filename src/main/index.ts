@@ -35,6 +35,7 @@ import { registerLocalSSHHandlers } from './ssh/localSSHHandle'
 import { registerRemoteTerminalHandlers } from './ssh/agentHandle'
 import { registerK8sHandlers } from './k8s/k8sHandle'
 import { registerDbAssetHandlers } from './database/dbAssetHandle'
+import { registerDbAiHandlers } from './database/dbAiHandle'
 import { autoCompleteDatabaseService, ChatermDatabaseService, setCurrentUserId } from './storage/database'
 import { getGuestUserId } from './storage/db/connection'
 import { Controller } from './agent/core/controller'
@@ -426,6 +427,9 @@ app.whenReady().then(async () => {
 
   // Register Database asset handlers
   registerDbAssetHandlers()
+
+  // Register Database AI (single-turn, track A) handlers
+  registerDbAiHandlers()
 
   // Register interactive command IPC handlers
   setupInteractionIpcHandlers()

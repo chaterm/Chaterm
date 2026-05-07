@@ -1739,6 +1739,45 @@ export default {
     copiedToClipboard: '已複製到剪貼簿',
     movedSuccess: '連線已移動',
     format: '格式化',
-    formatError: '格式化失敗'
+    formatError: '格式化失敗',
+    dbAi: {
+      title: '資料庫 AI',
+      drawerTitle: '資料庫 AI 結果',
+      emptyState: '尚無 DB-AI 請求。請在 SQL 編輯器中觸發解釋、自然語言轉 SQL、優化或轉換。',
+      emptyInput: '沒有可傳送到 AI 的內容。',
+      contextRequired: '請先選擇連線和資料庫。',
+      unknownError: 'DB-AI 請求失敗。',
+      reasoning: '推理過程',
+      generatedSql: '產生的 SQL',
+      targetDialect: '目標方言',
+      textOnlyDialectHint: '僅文字轉換；唯讀執行已停用。',
+      insertIntoEditor: '插入到編輯器',
+      replaceSelection: '取代選取內容',
+      insertedIntoEditor: '已插入到編輯器',
+      replacedSelection: '已取代選取內容',
+      copy: '複製 SQL',
+      copyFailed: '複製失敗',
+      runReadOnly: '執行（唯讀）',
+      cancel: '取消請求',
+      clear: '清除',
+      statusIdle: '閒置',
+      statusQueued: '排隊中',
+      statusStreaming: '串流中',
+      statusDone: '已完成',
+      statusError: '錯誤',
+      statusCancelled: '已取消',
+      actionExplain: '解釋',
+      actionNl2Sql: '自然語言轉 SQL',
+      actionOptimize: '優化',
+      actionConvert: '轉換方言',
+      actionComplete: '補全',
+      nl2SqlPrompt: {
+        title: '依問題產生 SQL',
+        hint: '用自然語言描述你想查詢的內容，目前連線和 schema 會作為上下文。',
+        placeholder: '例如：列出近 30 天累計付款金額最高的 5 位客戶',
+        submit: '產生',
+        cancel: '取消'
+      }
+    }
   }
 }

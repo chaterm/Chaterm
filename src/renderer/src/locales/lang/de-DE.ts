@@ -1766,6 +1766,45 @@ export default {
     copiedToClipboard: 'In Zwischenablage kopiert',
     movedSuccess: 'Verbindung verschoben',
     format: 'Formatieren',
-    formatError: 'Formatierung fehlgeschlagen'
+    formatError: 'Formatierung fehlgeschlagen',
+    dbAi: {
+      title: 'Datenbank-KI',
+      drawerTitle: 'Ergebnis der Datenbank-KI',
+      emptyState: 'Noch keine DB-AI-Anfrage. Losen Sie Erklaren, NL → SQL, Optimieren oder Umwandeln aus dem SQL-Editor aus.',
+      emptyInput: 'Nichts an die KI zu senden.',
+      contextRequired: 'Wahlen Sie zuerst eine Verbindung und eine Datenbank aus.',
+      unknownError: 'DB-AI-Anfrage fehlgeschlagen.',
+      reasoning: 'Denkprozess',
+      generatedSql: 'Generiertes SQL',
+      targetDialect: 'Zieldialekt',
+      textOnlyDialectHint: 'Nur Textkonvertierung; schreibgeschutzte Ausfuhrung ist deaktiviert.',
+      insertIntoEditor: 'In Editor einfugen',
+      replaceSelection: 'Auswahl ersetzen',
+      insertedIntoEditor: 'In Editor eingefugt',
+      replacedSelection: 'Auswahl ersetzt',
+      copy: 'SQL kopieren',
+      copyFailed: 'Kopieren fehlgeschlagen',
+      runReadOnly: 'Ausfuhren (schreibgeschutzt)',
+      cancel: 'Anfrage abbrechen',
+      clear: 'Loschen',
+      statusIdle: 'Inaktiv',
+      statusQueued: 'In Warteschlange',
+      statusStreaming: 'Streaming',
+      statusDone: 'Abgeschlossen',
+      statusError: 'Fehler',
+      statusCancelled: 'Abgebrochen',
+      actionExplain: 'Erklaren',
+      actionNl2Sql: 'NL zu SQL',
+      actionOptimize: 'Optimieren',
+      actionConvert: 'Dialekt umwandeln',
+      actionComplete: 'Vervollstandigung',
+      nl2SqlPrompt: {
+        title: 'SQL aus einer Frage generieren',
+        hint: 'Beschreiben Sie in naturlicher Sprache, was Sie abfragen mochten. Aktuelle Verbindung und Schema werden als Kontext verwendet.',
+        placeholder: 'z. B. Top 5 Kunden nach Gesamtzahlbetrag in den letzten 30 Tagen anzeigen',
+        submit: 'Generieren',
+        cancel: 'Abbrechen'
+      }
+    }
   }
 }

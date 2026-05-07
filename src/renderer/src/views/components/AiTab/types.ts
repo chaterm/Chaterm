@@ -67,6 +67,21 @@ export interface HistoryItem {
   editingTitle?: string
   isFavorite?: boolean
   ts?: number
+  /**
+   * DB-AI workspace metadata (optional). Populated for Tasks that were
+   * started in the Database workspace so the history list can render a
+   * badge (docs/db-ai-aitab-mount-decision.md Q6). Absent for classic
+   * server-workspace Tasks — the badge is simply not rendered in that
+   * case.
+   */
+  workspace?: 'server' | 'database'
+  dbContext?: {
+    assetId?: string
+    dbType?: 'mysql' | 'postgresql'
+    databaseName?: string
+    schemaName?: string
+    assetName?: string
+  }
 }
 
 export interface TaskListItem {
@@ -75,6 +90,14 @@ export interface TaskListItem {
   favorite: boolean
   createdAt: number
   updatedAt: number
+  workspace?: 'server' | 'database'
+  dbContext?: {
+    assetId?: string
+    dbType?: 'mysql' | 'postgresql'
+    databaseName?: string
+    schemaName?: string
+    assetName?: string
+  }
 }
 
 export interface ModelOption {

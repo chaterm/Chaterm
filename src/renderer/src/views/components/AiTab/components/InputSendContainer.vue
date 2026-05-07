@@ -72,6 +72,7 @@
       </div>
       <div class="input-controls">
         <a-tooltip
+          v-if="!isDatabaseWorkspace"
           :title="$t('ai.switchAiModeHint')"
           placement="top"
           :get-popup-container="(triggerNode) => triggerNode.parentElement"
@@ -277,6 +278,7 @@ import { useModelConfiguration } from '../composables/useModelConfiguration'
 import { useUserInteractions } from '../composables/useUserInteractions'
 import { parseContextDragPayload, useEditableContent } from '../composables/useEditableContent'
 import { AiTypeOptions } from '../composables/useEventBusListeners'
+import { AI_TAB_DEFAULT_WORKSPACE, type AiTabWorkspace } from '../workspace'
 import { getImageMediaType } from '../utils'
 import type { ChatermApiReqInfo, ChatermMessage as StateChatermMessage } from '@shared/ExtensionMessage'
 import type { ContentPart, ContextDocRef, ContextPastChatRef, ContextCommandRef, ContextSkillRef } from '@shared/WebviewMessage'
@@ -299,6 +301,13 @@ interface Props {
   onConfirmEdit?: (contentParts: ContentPart[], hosts: Host[]) => void
   openHistoryTab?: (history: HistoryItem, options?: { forceNewTab?: boolean }) => Promise<void>
   messageHosts?: Host[]
+  /**
+   * AiTab workspace — when `'database'` the agent/cmd mode selector is
+   * hidden because DB sessions lock chat mode to `agent`. Defaults to
+   * `'terminal'` so existing two call sites stay byte-identical.
+   * See docs/db-ai-aitab-mount-decision.md Q1 / Stage 2.
+   */
+  workspace?: AiTabWorkspace
 }
 const logger = createRendererLogger('ai.inputSend')
 
@@ -310,8 +319,12 @@ const props = withDefaults(defineProps<Props>(), {
   mode: 'create',
   initialContentParts: () => [],
   onConfirmEdit: () => {},
-  messageHosts: () => []
+  openHistoryTab: undefined,
+  messageHosts: () => [],
+  workspace: AI_TAB_DEFAULT_WORKSPACE
 })
+
+const isDatabaseWorkspace = computed(() => props.workspace === 'database')
 
 const { t } = useI18n()
 

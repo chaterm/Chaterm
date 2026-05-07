@@ -1784,6 +1784,45 @@ export default {
     copiedToClipboard: 'Copie dans le presse-papiers',
     movedSuccess: 'Connexion deplacee',
     format: 'Formater',
-    formatError: 'Echec du formatage'
+    formatError: 'Echec du formatage',
+    dbAi: {
+      title: 'IA Base de donnees',
+      drawerTitle: 'Resultat de l IA Base de donnees',
+      emptyState: 'Aucune requete DB-AI pour le moment. Declenchez Expliquer, NL vers SQL, Optimiser ou Convertir depuis l editeur SQL.',
+      emptyInput: 'Rien a envoyer a l IA.',
+      contextRequired: 'Selectionnez d abord une connexion et une base de donnees.',
+      unknownError: 'Echec de la requete DB-AI.',
+      reasoning: 'Raisonnement',
+      generatedSql: 'SQL genere',
+      targetDialect: 'Dialecte cible',
+      textOnlyDialectHint: 'Conversion en texte uniquement ; l execution en lecture seule est desactivee.',
+      insertIntoEditor: 'Inserer dans l editeur',
+      replaceSelection: 'Remplacer la selection',
+      insertedIntoEditor: 'Insere dans l editeur',
+      replacedSelection: 'Selection remplacee',
+      copy: 'Copier le SQL',
+      copyFailed: 'Echec de la copie',
+      runReadOnly: 'Executer (lecture seule)',
+      cancel: 'Annuler la requete',
+      clear: 'Effacer',
+      statusIdle: 'Inactif',
+      statusQueued: 'En file d attente',
+      statusStreaming: 'Diffusion en cours',
+      statusDone: 'Termine',
+      statusError: 'Erreur',
+      statusCancelled: 'Annule',
+      actionExplain: 'Expliquer',
+      actionNl2Sql: 'NL vers SQL',
+      actionOptimize: 'Optimiser',
+      actionConvert: 'Convertir le dialecte',
+      actionComplete: 'Completion',
+      nl2SqlPrompt: {
+        title: 'Generer du SQL a partir d une question',
+        hint: 'Decrivez ce que vous souhaitez interroger en langage naturel. La connexion et le schema actuels seront utilises comme contexte.',
+        placeholder: 'Ex : afficher les 5 meilleurs clients par montant total paye au cours des 30 derniers jours',
+        submit: 'Generer',
+        cancel: 'Annuler'
+      }
+    }
   }
 }

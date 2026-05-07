@@ -187,7 +187,10 @@
                       class="assistant-message-container"
                       data-testid="ai-message"
                       :class="{
-                        'has-history-copy-btn': getTabChatTypeValue(tab.id) === 'cmd' && message.ask === 'command' && message.actioned,
+                        'has-history-copy-btn':
+                          getTabChatTypeValue(tab.id) === 'cmd' &&
+                          (message.ask === 'command' || message.ask === 'db_sql_approval') &&
+                          message.actioned,
                         'last-message': message.say === 'completion_result'
                       }"
                     >
@@ -278,7 +281,7 @@
                         @explain-command="(cmd: string) => handleExplainCommand(message.id, cmd, tab.id)"
                       />
                       <MarkdownRenderer
-                        v-else
+                        v-else-if="!parseDbQueryResult(message)"
                         :ref="(el) => tab.id === currentChatId && setMarkdownRendererRef(el, historyIndex)"
                         :content="typeof message.content === 'string' ? message.content : ''"
                         :class="`message ${message.role} ${message.say === 'completion_result' ? 'completion-result' : ''}`"
@@ -293,6 +296,10 @@
                         :explanation="message.explanation"
                         :explanation-loading="explainLoadingMessageId === message.id"
                         @explain-command="(cmd: string) => handleExplainCommand(message.id, cmd, tab.id)"
+                      />
+                      <DbQueryResultCard
+                        v-else-if="shouldRenderDbQueryResultCard(parseDbQueryResult(message))"
+                        :result="parseDbQueryResult(message)!"
                       />
 
                       <div
@@ -386,7 +393,7 @@
                             getTabChatTypeValue(tab.id) === 'agent' &&
                             isLastMessage(tab.id, message.id) &&
                             getTabLastChatMessageId(tab.id) === message.id &&
-                            (message.ask === 'command' || message.ask === 'mcp_tool_call') &&
+                            (message.ask === 'command' || message.ask === 'db_sql_approval' || message.ask === 'mcp_tool_call') &&
                             !getTabResponseLoading(tab.id)
                           "
                         >
@@ -415,7 +422,7 @@
                               {{ $t('ai.addAutoApprove') }}
                             </a-button>
                             <a-tooltip
-                              v-if="message.ask === 'command'"
+                              v-if="message.ask === 'command' || message.ask === 'db_sql_approval'"
                               :title="$t('ai.autoApproveReadOnlyTip')"
                               placement="top"
                             >
@@ -451,7 +458,7 @@
                             getTabChatTypeValue(tab.id) === 'cmd' &&
                             isLastMessage(tab.id, message.id) &&
                             getTabLastChatMessageId(tab.id) === message.id &&
-                            message.ask === 'command' &&
+                            (message.ask === 'command' || message.ask === 'db_sql_approval') &&
                             !getTabResponseLoading(tab.id)
                           "
                         >
@@ -591,6 +598,7 @@
             :interrupt-and-send-if-busy="interruptAndSendIfBusy"
             :interaction-active="!!(getInteractionStateForTab(tab.id)?.visible || getInteractionStateForTab(tab.id)?.tuiDetected)"
             :open-history-tab="restoreHistoryTab"
+            :workspace="props.workspace"
           />
         </div>
       </div>
@@ -685,6 +693,13 @@
                           v-if="!history.isEditing"
                           class="history-title"
                         >
+                          <span
+                            v-if="history.workspace === 'database'"
+                            class="history-db-badge"
+                            :title="describeDbContextBadge(history)"
+                          >
+                            {{ $t('database.dbAi.historyBadge.databaseTask') }}
+                          </span>
                           {{ history.chatTitle }}
                         </div>
                         <a-input
@@ -810,9 +825,12 @@ import { useTabManagement } from './composables/useTabManagement'
 import { useTodo } from './composables/useTodo'
 import { useWatchers } from './composables/useWatchers'
 import { useExportChat } from './composables/useExportChat'
+import { AI_TAB_DEFAULT_WORKSPACE, type AiTabWorkspace } from './workspace'
+import type { AiTabDbContext } from './composables/useChatMessages'
 import InputSendContainer from './components/InputSendContainer.vue'
 import AiChatSearchBar from './components/AiChatSearchBar.vue'
 import MarkdownRenderer from './components/format/markdownRenderer.vue'
+import DbQueryResultCard from './components/DbQueryResultCard.vue'
 import TodoInlineDisplay from './components/todo/TodoInlineDisplay.vue'
 import UserMessage from './components/message/UserMessage.vue'
 import CommandInteractionInput from '@/components/agent/CommandInteractionInput.vue'
@@ -840,7 +858,7 @@ import {
 } from '@ant-design/icons-vue'
 import { isFocusInAiTab } from '@/utils/domUtils'
 import { getGlobalState } from '@renderer/agent/storage/state'
-import type { MessageContent } from './types'
+import type { HistoryItem, MessageContent } from './types'
 import i18n from '@/locales'
 import eventBus from '@/utils/eventBus'
 import historyIcon from '@/assets/icons/history.svg'
@@ -864,10 +882,29 @@ interface Props {
   toggleSidebar: () => void
   savedState?: Record<string, any> | null
   isAgentMode?: boolean
+  /**
+   * AiTab workspace identifier. Defaults to `'terminal'` (existing
+   * TerminalLayout mounts). Set to `'database'` when mounting inside the
+   * Database workspace — short-circuits terminal-only event bus paths,
+   * locks chat mode to `agent` (see useHostState / useEventBusListeners),
+   * and stamps outgoing Task messages with `workspace='database'` +
+   * optional `dbContext`. See docs/db-ai-aitab-mount-decision.md.
+   */
+  workspace?: AiTabWorkspace
+  /**
+   * Getter for the current DB context (assetId / dbType / database /
+   * schema). Called at send-time so late switching of the Database
+   * workspace's active tab is reflected in the next message without the
+   * parent having to re-prop every render. Only read when
+   * `workspace === 'database'`.
+   */
+  dbContext?: () => AiTabDbContext | null
 }
 
 const props = withDefaults(defineProps<Props>(), {
-  savedState: null
+  savedState: null,
+  workspace: AI_TAB_DEFAULT_WORKSPACE,
+  dbContext: undefined
 })
 
 const emit = defineEmits(['state-changed'])
@@ -903,7 +940,7 @@ const { getCurrentState, restoreState, emitStateChange } = useStateSnapshot(emit
 const { currentTodos, shouldShowTodoAfterMessage, getTodosForMessage, markLatestMessageWithTodoUpdate, clearTodoState } = useTodo()
 
 // Host state management
-const { updateHosts, updateHostsForCommandMode, getCurentTabAssetInfo } = useHostState()
+const { updateHosts, updateHostsForCommandMode, getCurentTabAssetInfo } = useHostState(props.workspace)
 // Auto scroll
 const {
   chatContainer,
@@ -949,7 +986,10 @@ const {
   handleTruncateAndSend,
   handleSummarizeToKnowledge,
   handleSummarizeToSkill
-} = useChatMessages(scrollToBottom, clearTodoState, markLatestMessageWithTodoUpdate, currentTodos, checkModelConfig)
+} = useChatMessages(scrollToBottom, clearTodoState, markLatestMessageWithTodoUpdate, currentTodos, checkModelConfig, {
+  workspace: props.workspace,
+  dbContext: props.dbContext
+})
 
 // Command interactions
 const {
@@ -1074,12 +1114,68 @@ const {
 const { t } = i18n.global
 const favoriteLabel = computed(() => t('ai.favorite'))
 
+/**
+ * Build the hover-title for the "Database" badge on history items. Shows
+ * connection / database / schema metadata when present, falling back to
+ * just the badge label. Safe against partial dbContext (main side may
+ * expose only a subset).
+ */
+const describeDbContextBadge = (history: HistoryItem): string => {
+  const ctx = history.dbContext
+  if (!ctx) return t('database.dbAi.historyBadge.databaseTask')
+  const parts: string[] = []
+  if (ctx.assetName) parts.push(t('database.dbAi.historyBadge.connection', { name: ctx.assetName }))
+  if (ctx.databaseName) parts.push(t('database.dbAi.historyBadge.database', { name: ctx.databaseName }))
+  if (ctx.schemaName) parts.push(t('database.dbAi.historyBadge.schema', { name: ctx.schemaName }))
+  if (parts.length === 0) return t('database.dbAi.historyBadge.databaseTask')
+  return parts.join(' · ')
+}
+
 type ContextTruncationStatus = 'compressing' | 'completed'
 
 interface ContextTruncationNoticeMessage {
   text?: string
   content?: string | MessageContent
   partial?: boolean
+}
+
+interface DbQueryResultView {
+  engine: 'mysql' | 'postgresql'
+  executedSql: string
+  columns: string[]
+  rows: Array<Record<string, unknown>>
+  rowCount: number
+  truncated: boolean
+  durationMs: number
+}
+
+const parseDbQueryResult = (message: { content: string | MessageContent }): DbQueryResultView | null => {
+  if ((message as { say?: string }).say !== 'db_query_result') return null
+  if (typeof message.content !== 'string') return null
+  const raw = message.content.trim()
+  if (!raw) return null
+  try {
+    const parsed = JSON.parse(raw) as Partial<DbQueryResultView>
+    if (
+      (parsed.engine === 'mysql' || parsed.engine === 'postgresql') &&
+      typeof parsed.executedSql === 'string' &&
+      Array.isArray(parsed.columns) &&
+      Array.isArray(parsed.rows) &&
+      typeof parsed.rowCount === 'number' &&
+      typeof parsed.truncated === 'boolean' &&
+      typeof parsed.durationMs === 'number'
+    ) {
+      return parsed as DbQueryResultView
+    }
+  } catch {
+    return null
+  }
+  return null
+}
+
+const shouldRenderDbQueryResultCard = (result: DbQueryResultView | null): boolean => {
+  if (!result) return false
+  return Array.isArray(result.rows) && result.rows.length > 0
 }
 
 const parseContextTruncationStatus = (message: ContextTruncationNoticeMessage): ContextTruncationStatus => {
@@ -1114,7 +1210,8 @@ useEventBusListeners({
   initModel,
   getCurentTabAssetInfo,
   updateHosts,
-  isAgentMode: props.isAgentMode
+  isAgentMode: props.isAgentMode,
+  workspace: props.workspace
 })
 
 const goToLogin = () => {
@@ -1168,7 +1265,7 @@ watch(
       if (!session) return
       const history = session.chatHistory
       const last = history?.[history.length - 1]
-      if (last && (last.ask === 'command' || last.ask === 'mcp_tool_call')) {
+      if (last && (last.ask === 'command' || last.ask === 'db_sql_approval' || last.ask === 'mcp_tool_call')) {
         shouldStickToBottom.value = true
         nextTick(() => scrollToBottomWithRetry())
       }

@@ -1826,6 +1826,56 @@ export default {
       content: 'The connection "{name}" will be removed. This cannot be undone.'
     },
     copiedToClipboard: 'Copied to clipboard',
-    movedSuccess: 'Connection moved'
+    movedSuccess: 'Connection moved',
+    dbAi: {
+      title: 'Database AI',
+      drawerTitle: 'Database AI result',
+      emptyState: 'No DB-AI request yet. Trigger Explain, NL→SQL, Optimize, or Convert from the SQL editor.',
+      emptyInput: 'Nothing to send to the AI.',
+      contextRequired: 'Pick a connection and database first.',
+      unknownError: 'DB-AI request failed.',
+      reasoning: 'Reasoning',
+      generatedSql: 'Generated SQL',
+      targetDialect: 'Target dialect',
+      textOnlyDialectHint: 'Text-only conversion; read-only execution is disabled.',
+      insertIntoEditor: 'Insert into editor',
+      replaceSelection: 'Replace selection',
+      insertedIntoEditor: 'Inserted into editor',
+      replacedSelection: 'Replaced selection',
+      copy: 'Copy SQL',
+      copyFailed: 'Copy failed',
+      runReadOnly: 'Run (read-only)',
+      cancel: 'Cancel request',
+      clear: 'Clear',
+      statusIdle: 'Idle',
+      statusQueued: 'Queued',
+      statusStreaming: 'Streaming',
+      statusDone: 'Completed',
+      statusError: 'Error',
+      statusCancelled: 'Cancelled',
+      actionExplain: 'Explain',
+      actionNl2Sql: 'NL to SQL',
+      actionOptimize: 'Optimize',
+      actionConvert: 'Convert dialect',
+      actionComplete: 'Completion',
+      nl2SqlPrompt: {
+        title: 'Generate SQL from a question',
+        hint: 'Describe what you want to query in natural language. Current connection and schema will be used as context.',
+        placeholder: 'e.g. Show the top 5 customers by total paid amount in the last 30 days',
+        submit: 'Generate',
+        cancel: 'Cancel'
+      },
+      aiPaneToggle: {
+        open: 'Open AI panel',
+        close: 'Close AI panel',
+        connectionRequired: 'Select a connection first'
+      },
+      historyBadge: {
+        databaseTask: 'Database',
+        connection: 'Connection: {name}',
+        database: 'DB: {name}',
+        schema: 'Schema: {name}'
+      }
+    }
   }
 }

@@ -286,13 +286,31 @@ export function useChatHistory(options?: ChatHistoryOptions) {
       const result = await window.api.getTaskList()
       if (!result.success || !result.data) return
 
-      historyList.value = result.data.map((item) => ({
-        id: item.id,
-        chatTitle: item.title || 'New Chat',
-        chatContent: [],
-        isFavorite: item.favorite,
-        ts: item.updatedAt
-      }))
+      historyList.value = result.data.map((item) => {
+        // Main-side TaskListItem may or may not expose DB-AI metadata
+        // depending on whether #11 has extended the preload type. Read
+        // defensively so Stage 2 renderer lands cleanly; once main
+        // publishes the fields typed, this cast can be removed.
+        const extended = item as typeof item & {
+          workspace?: 'server' | 'database'
+          dbContext?: {
+            assetId?: string
+            dbType?: 'mysql' | 'postgresql'
+            databaseName?: string
+            schemaName?: string
+            assetName?: string
+          }
+        }
+        return {
+          id: extended.id,
+          chatTitle: extended.title || 'New Chat',
+          chatContent: [],
+          isFavorite: extended.favorite,
+          ts: extended.updatedAt,
+          workspace: extended.workspace,
+          dbContext: extended.dbContext
+        }
+      })
     } catch (err) {
       logger.error('Failed to load history list', { error: err })
     }
