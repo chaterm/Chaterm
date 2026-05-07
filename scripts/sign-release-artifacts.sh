@@ -23,7 +23,8 @@ find "$SOURCE_DIR" -type f \( \
   -name "*.msi" -o \
   -name "*.AppImage" -o \
   -name "*.deb" -o \
-  -name "*.rpm" \
+  -name "*.rpm" -o \
+  -name "latest*.yml" \
 \) -exec cp {} "$OUTPUT_DIR"/ \;
 
 artifact_count="$(find "$OUTPUT_DIR" -maxdepth 1 -type f ! -name "*.sig" ! -name "*.pem" ! -name "*.bundle" ! -name "SHA256SUMS.txt" | wc -l | tr -d ' ')"
