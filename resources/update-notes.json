@@ -6,18 +6,20 @@
       "date": "2026-05-08",
       "highlights": {
         "zh-CN": [
+          "资产管理：新增主机导出选择弹窗，支持按连接类型与分组筛选导出范围，批量导出更灵活",
           "数据库工作区：新增数据库资产与分组能力，支持筛选、排序与索引优化，管理大规模连接更高效",
           "PostgreSQL 增强：SQL 编辑器支持 Schema 选择，并补充 Schema 相关主键识别与测试覆盖",
-          "数据库操作体验：新增连接右键菜单、表级上下文操作、编辑连接与快速建库入口，常用操作更顺手",
-          "AI 对话：支持对聊天内容进行搜索，并优化流式回复中内联审批按钮的自动滚动可见性",
+          "数据库操作体验：新增连接右键菜单、表级上下文操作、编辑连接与快速建库入口，并增强 DDL 查看与 SQL 结果标签操作",
+          "AI 对话：优化流式回复中内联审批按钮的自动滚动可见性，减少操作被遮挡",
           "界面与文件管理：新增官方主题适配；文件浏览器支持显示/隐藏隐藏文件",
           "稳定性修复：修复终端命令结果转发可靠性问题、代理凭据 URL 编码问题，并将换行包裹命令默认排除出 shell 历史"
         ],
         "en-US": [
+          "Asset management: added a host export selection modal with filters by connection type and group for more flexible batch export",
           "Database workspace: added database assets and group management, with filtering, ordering, and indexing improvements for large-scale connection management",
           "PostgreSQL improvements: schema selection is now supported in the SQL editor, with improved schema-aware primary key detection and test coverage",
-          "Database operations UX: added connection context menus, table-level context actions, edit-connection support, and a faster create-database entry",
-          "AI conversation: added chat content search and improved auto-scroll visibility for inline approval actions during streaming responses",
+          "Database operations UX: added connection context menus, table-level context actions, edit-connection support, and a faster create-database entry, plus improved DDL viewing and SQL result tab actions",
+          "AI conversation: improved auto-scroll visibility for inline approval actions during streaming responses to reduce hidden actions",
           "UI and file explorer: introduced official theme adaptation and support for showing/hiding hidden files in the explorer",
           "Stability fixes: improved terminal command result forwarding reliability, fixed proxy credential URL encoding, and excluded wrapped commands from shell history by default"
         ]
