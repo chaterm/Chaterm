@@ -33,8 +33,13 @@ vi.mock('@api/index', () => ({
   ApiHandler: class {},
   buildApiHandler: vi.fn(() => ({}))
 }))
+vi.mock('@core/storage/state', () => ({
+  getGlobalState: vi.fn(async () => ({ mode: 'agent' })),
+  getUserConfig: vi.fn(async () => ({ language: 'en-US' }))
+}))
 
 import { Task } from '../index'
+import { getGlobalState, getUserConfig } from '@core/storage/state'
 
 // ---------------------------------------------------------------------------
 // shouldAutoApproveTool workspace branch (§9.5.1 hard rule)
@@ -187,5 +192,51 @@ describe('Task.abortTask - workspace-conditional cleanup', () => {
     }
     await Task.prototype.abortTask.call(mockThis as unknown as Task)
     expect(mockThis.dbAiSession).toBe(opaque)
+  })
+})
+
+interface MockBuildSystemPromptThis {
+  workspace: 'server' | 'database'
+  hosts?: Array<{ host: string }>
+  messages: {
+    systemInformationTitle: string
+    languageSettingsTitle: string
+    defaultLanguage: string
+    languageRules: string
+  }
+  customInstructions?: string
+  dbContext?: { assetId?: string; dbType?: 'mysql' | 'postgresql'; databaseName?: string; schemaName?: string }
+  buildMcpToolsSection: (userLanguage: string) => Promise<string | null>
+  buildSkillsSection: () => string | null
+}
+
+describe('Task.buildSystemPrompt - workspace-aware system information suffix', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+  })
+
+  it('workspace=database does not append generic system information block', async () => {
+    vi.mocked(getGlobalState).mockResolvedValue({ mode: 'agent' } as any)
+    vi.mocked(getUserConfig).mockResolvedValue({ language: 'en-US' } as any)
+
+    const mockThis: MockBuildSystemPromptThis = {
+      workspace: 'database',
+      hosts: [{ host: '10.0.0.1' }],
+      messages: {
+        systemInformationTitle: 'SYSTEM INFORMATION',
+        languageSettingsTitle: 'Language Settings',
+        defaultLanguage: 'Default language: {{language}}',
+        languageRules: 'Always answer in the user language.'
+      },
+      dbContext: { assetId: 'ast-1', dbType: 'postgresql', databaseName: 'app_prod', schemaName: 'public' },
+      buildMcpToolsSection: vi.fn(async () => null),
+      buildSkillsSection: vi.fn(() => null)
+    }
+
+    const prompt = await Task.prototype['buildSystemPrompt'].call(mockThis as unknown as Task)
+
+    expect(prompt).toContain('Chaterm DB-AI')
+    expect(prompt).not.toContain('# SYSTEM INFORMATION')
+    expect(prompt).not.toContain('## Host:')
   })
 })

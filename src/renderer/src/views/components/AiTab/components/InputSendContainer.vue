@@ -9,7 +9,10 @@
       style="display: none"
     ></div>
     <!-- Context Select Popup Component -->
-    <ContextSelectPopup :mode="mode" />
+    <ContextSelectPopup
+      :mode="mode"
+      :workspace="props.workspace"
+    />
     <!-- Command Select Popup Component -->
     <CommandSelectPopup />
     <div

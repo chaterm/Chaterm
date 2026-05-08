@@ -341,10 +341,12 @@ import { isBastionHostType } from '../types'
 
 interface Props {
   mode?: 'create' | 'edit'
+  workspace?: 'terminal' | 'database'
 }
 
 const props = withDefaults(defineProps<Props>(), {
-  mode: 'create'
+  mode: 'create',
+  workspace: 'terminal'
 })
 
 const { t } = useI18n()
@@ -437,7 +439,7 @@ interface MainMenuItem {
   svgSrc?: string
 }
 
-const showHostsMenuItem = computed(() => chatTypeValue.value === 'agent')
+const showHostsMenuItem = computed(() => props.workspace !== 'database' && chatTypeValue.value === 'agent')
 
 const mainMenuItems = computed<MainMenuItem[]>(() => {
   const items: MainMenuItem[] = []

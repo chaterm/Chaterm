@@ -106,7 +106,8 @@ import {
   saveApiConversationHistory,
   saveChatermMessages,
   saveTaskMetadata,
-  touchTaskUpdatedAt
+  touchTaskUpdatedAt,
+  setTaskWorkspace
 } from '@core/storage/disk'
 
 import { getGlobalState, getUserConfig } from '@core/storage/state'
@@ -1803,6 +1804,21 @@ export class Task {
         this.consecutiveMistakeCount++
       }
     }
+  }
+
+  /**
+   * Update the DB connection context for an active database-workspace task.
+   * Discards the cached DB session so the next tool invocation opens a fresh
+   * connection against the new asset/database/schema.
+   */
+  updateDbContext(newContext: DbTaskContext): void {
+    if (this.workspace !== 'database') return
+    this.dbContext = newContext
+    if (this.dbAiSession) {
+      void closeSessionsOwnedBy({ type: 'task', taskId: this.taskId }).catch(() => undefined)
+      this.dbAiSession = undefined
+    }
+    void setTaskWorkspace(this.taskId, 'database', newContext).catch(() => undefined)
   }
 
   async abortTask() {
@@ -4646,140 +4662,141 @@ export class Task {
         dbContext: this.dbContext
       })
     }
-    // Update messages language before building system information
+    // DB workspace has no host/shell context: keep prompt contract aligned by
+    // skipping shared host/system-information suffix entirely.
+    if (this.workspace !== 'database') {
+      let systemInformation = `# ${this.messages.systemInformationTitle}\n\n`
 
-    let systemInformation = `# ${this.messages.systemInformationTitle}\n\n`
+      // In chat mode, skip system information collection (no server operations)
+      if (chatSettings?.mode === 'chat') {
+        systemInformation +=
+          'Chat mode: No server connection or system information available. This mode is for conversation, learning, and brainstorming only.\n'
+      } else if (!this.hosts || this.hosts.length === 0) {
+        logger.warn('No hosts configured, skipping system information collection')
+        systemInformation += this.messages.noHostsConfigured + '\n'
+      } else {
+        logger.info(`Collecting system information for ${this.hosts.length} host(s)`)
 
-    // In chat mode, skip system information collection (no server operations)
-    if (chatSettings?.mode === 'chat') {
-      systemInformation +=
-        'Chat mode: No server connection or system information available. This mode is for conversation, learning, and brainstorming only.\n'
-    } else if (!this.hosts || this.hosts.length === 0) {
-      logger.warn('No hosts configured, skipping system information collection')
-      systemInformation += this.messages.noHostsConfigured + '\n'
-    } else {
-      logger.info(`Collecting system information for ${this.hosts.length} host(s)`)
+        for (const host of this.hosts) {
+          try {
+            if (host.assetType?.startsWith('person-switch-')) {
+              continue
+            }
 
-      for (const host of this.hosts) {
-        try {
-          if (host.assetType?.startsWith('person-switch-')) {
-            continue
-          }
+            // Handle K8S hosts separately
+            if (this.isK8sHost(host.host)) {
+              const k8sAgentManager = getK8sAgentManager()
+              const currentCluster = k8sAgentManager.getCurrentCluster()
 
-          // Handle K8S hosts separately
-          if (this.isK8sHost(host.host)) {
-            const k8sAgentManager = getK8sAgentManager()
-            const currentCluster = k8sAgentManager.getCurrentCluster()
-
-            if (currentCluster.contextName) {
-              systemInformation += `
+              if (currentCluster.contextName) {
+                systemInformation += `
             ## Kubernetes Cluster: ${host.host}
             Context: ${currentCluster.contextName}
             Type: Kubernetes
             Commands: kubectl (use execute_command tool with kubectl commands)
             ====
           `
-            } else {
-              systemInformation += `
+              } else {
+                systemInformation += `
             ## Kubernetes Cluster: ${host.host}
             Status: Not connected
             Note: Please ensure the K8S cluster is connected before executing kubectl commands
             ====
           `
+              }
+              continue
             }
-            continue
-          }
 
-          // Check cache, if no cache, get system info and cache it
-          let hostInfo = this.hostSystemInfoCache.get(host.host)
-          if (!hostInfo) {
-            logger.debug('Fetching system information for host')
+            // Check cache, if no cache, get system info and cache it
+            let hostInfo = this.hostSystemInfoCache.get(host.host)
+            if (!hostInfo) {
+              logger.debug('Fetching system information for host')
 
-            let systemInfoOutput: string
+              let systemInfoOutput: string
 
-            // If it's local host, directly get system information
-            if (this.isLocalHost(host.host)) {
-              const localSystemInfo = await this.localTerminalManager.getSystemInfo()
-              systemInfoOutput = `OS_VERSION:${localSystemInfo.osVersion}
+              // If it's local host, directly get system information
+              if (this.isLocalHost(host.host)) {
+                const localSystemInfo = await this.localTerminalManager.getSystemInfo()
+                systemInfoOutput = `OS_VERSION:${localSystemInfo.osVersion}
 DEFAULT_SHELL:${localSystemInfo.defaultShell}
 HOME_DIR:${localSystemInfo.homeDir}
 HOSTNAME:${localSystemInfo.hostName}
 USERNAME:${localSystemInfo.userName}`
-            } else {
-              // Optimization: Get all system information at once to avoid multiple network requests
-              // Simplified script to avoid complex quoting issues in JumpServer environment
-              const systemInfoScript = `uname -a | sed 's/^/OS_VERSION:/' && echo "DEFAULT_SHELL:$SHELL" && echo "HOME_DIR:$HOME" && hostname | sed 's/^/HOSTNAME:/' && whoami | sed 's/^/USERNAME:/'`
-              systemInfoOutput = await this.executeCommandInRemoteServer(systemInfoScript, host.host)
-            }
-
-            logger.debug(`System info command completed for host: ${host.host}`, {
-              event: 'agent.task.system_info.command.complete',
-              host: host.host,
-              outputLength: systemInfoOutput?.length || 0
-            })
-
-            if (!systemInfoOutput || systemInfoOutput.trim() === '') {
-              throw new Error('Failed to get system information: connection failed or no output received')
-            }
-
-            // Parse output result
-            const parseSystemInfo = (
-              output: string
-            ): {
-              osVersion: string
-              defaultShell: string
-              homeDir: string
-              hostName: string
-              userName: string
-            } => {
-              const lines = output.split('\n').filter((line) => line.trim())
-              const info = {
-                osVersion: '',
-                defaultShell: '',
-                homeDir: '',
-                hostName: '',
-                userName: ''
+              } else {
+                // Optimization: Get all system information at once to avoid multiple network requests
+                // Simplified script to avoid complex quoting issues in JumpServer environment
+                const systemInfoScript = `uname -a | sed 's/^/OS_VERSION:/' && echo "DEFAULT_SHELL:$SHELL" && echo "HOME_DIR:$HOME" && hostname | sed 's/^/HOSTNAME:/' && whoami | sed 's/^/USERNAME:/'`
+                systemInfoOutput = await this.executeCommandInRemoteServer(systemInfoScript, host.host)
               }
 
-              lines.forEach((line) => {
-                const [key, ...valueParts] = line.split(':')
-                const value = valueParts.join(':').trim()
-
-                switch (key) {
-                  case 'OS_VERSION':
-                    info.osVersion = value
-                    break
-                  case 'DEFAULT_SHELL':
-                    info.defaultShell = value
-                    break
-                  case 'HOME_DIR':
-                    info.homeDir = value
-                    break
-                  case 'HOSTNAME':
-                    info.hostName = value
-                    break
-                  case 'USERNAME':
-                    info.userName = value
-                    break
-                }
+              logger.debug(`System info command completed for host: ${host.host}`, {
+                event: 'agent.task.system_info.command.complete',
+                host: host.host,
+                outputLength: systemInfoOutput?.length || 0
               })
 
-              return info
+              if (!systemInfoOutput || systemInfoOutput.trim() === '') {
+                throw new Error('Failed to get system information: connection failed or no output received')
+              }
+
+              // Parse output result
+              const parseSystemInfo = (
+                output: string
+              ): {
+                osVersion: string
+                defaultShell: string
+                homeDir: string
+                hostName: string
+                userName: string
+              } => {
+                const lines = output.split('\n').filter((line) => line.trim())
+                const info = {
+                  osVersion: '',
+                  defaultShell: '',
+                  homeDir: '',
+                  hostName: '',
+                  userName: ''
+                }
+
+                lines.forEach((line) => {
+                  const [key, ...valueParts] = line.split(':')
+                  const value = valueParts.join(':').trim()
+
+                  switch (key) {
+                    case 'OS_VERSION':
+                      info.osVersion = value
+                      break
+                    case 'DEFAULT_SHELL':
+                      info.defaultShell = value
+                      break
+                    case 'HOME_DIR':
+                      info.homeDir = value
+                      break
+                    case 'HOSTNAME':
+                      info.hostName = value
+                      break
+                    case 'USERNAME':
+                      info.userName = value
+                      break
+                  }
+                })
+
+                return info
+              }
+
+              hostInfo = parseSystemInfo(systemInfoOutput)
+              logger.debug(`Parsed system info for ${host.host}`, {
+                event: 'agent.task.system_info.parsed',
+                host: host.host
+              })
+
+              // Cache system information
+              this.hostSystemInfoCache.set(host.host, hostInfo)
+            } else {
+              logger.debug('Using cached system information for host')
             }
 
-            hostInfo = parseSystemInfo(systemInfoOutput)
-            logger.debug(`Parsed system info for ${host.host}`, {
-              event: 'agent.task.system_info.parsed',
-              host: host.host
-            })
-
-            // Cache system information
-            this.hostSystemInfoCache.set(host.host, hostInfo)
-          } else {
-            logger.debug('Using cached system information for host')
-          }
-
-          systemInformation += `
+            systemInformation += `
             ## Host: ${host.host}
             ${this.messages.osVersion}: ${hostInfo.osVersion}
             ${this.messages.defaultShell}: ${hostInfo.defaultShell}
@@ -4788,18 +4805,18 @@ USERNAME:${localSystemInfo.userName}`
             ${this.messages.user}: ${hostInfo.userName}
             ====
           `
-        } catch (error) {
-          logger.error(`Failed to get system information for host ${host.host}`, { error: error })
-          const chatSettings = await getGlobalState('chatSettings')
-          const isLocalConnection = host.connection?.toLowerCase?.() === 'localhost' || this.isLocalHost(host.host) || host.uuid === 'localhost'
+          } catch (error) {
+            logger.error(`Failed to get system information for host ${host.host}`, { error: error })
+            const chatSettings = await getGlobalState('chatSettings')
+            const isLocalConnection = host.connection?.toLowerCase?.() === 'localhost' || this.isLocalHost(host.host) || host.uuid === 'localhost'
 
-          if (chatSettings?.mode === 'agent' && isLocalConnection) {
-            const errorMessage = 'Error: Cannot connect to local target machine in Agent mode, please create a new task and select Command mode.'
-            await this.ask('ssh_con_failed', errorMessage, false)
-            await this.abortTask()
-          }
-          // Even if getting system information fails, add basic information
-          systemInformation += `
+            if (chatSettings?.mode === 'agent' && isLocalConnection) {
+              const errorMessage = 'Error: Cannot connect to local target machine in Agent mode, please create a new task and select Command mode.'
+              await this.ask('ssh_con_failed', errorMessage, false)
+              await this.abortTask()
+            }
+            // Even if getting system information fails, add basic information
+            systemInformation += `
             ## Host: ${host.host}
             ${this.messages.osVersion}: ${this.messages.unableToRetrieve} (${error instanceof Error ? error.message : this.messages.unknown})
             ${this.messages.defaultShell}: ${this.messages.unableToRetrieve}
@@ -4808,15 +4825,16 @@ USERNAME:${localSystemInfo.userName}`
             ${this.messages.user}: ${this.messages.unableToRetrieve}
             ====
           `
+          }
         }
       }
-    }
 
-    logger.debug('Final system information section built', {
-      event: 'agent.task.system_info.section.built',
-      length: systemInformation.length
-    })
-    systemPrompt += systemInformation
+      logger.debug('Final system information section built', {
+        event: 'agent.task.system_info.section.built',
+        length: systemInformation.length
+      })
+      systemPrompt += systemInformation
+    }
 
     // Build MCP Tools and Resources section
     const mcpSection = await this.buildMcpToolsSection(userLanguage)

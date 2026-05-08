@@ -28,6 +28,7 @@ interface ChatHistoryOptions {
  */
 export function useChatHistory(options?: ChatHistoryOptions) {
   const { createNewEmptyTab, renameTab, workspace } = options || {}
+  const taskWorkspaceFilter: 'server' | 'database' = workspace === 'database' ? 'database' : 'server'
   // Get required state from global singleton state
   const { chatTabs, currentChatId, attachTabContext } = useSessionState()
 
@@ -53,8 +54,8 @@ export function useChatHistory(options?: ChatHistoryOptions) {
    */
   const filteredHistoryList = computed(() => {
     return historyList.value.filter((history) => {
-      // Workspace filter: database workspace only shows database tasks,
-      // terminal workspace only shows server tasks
+      // Defensive filter: backend already supports workspace filtering, and we
+      // keep this check to protect against mixed legacy callers.
       if (workspace === 'database') {
         if (history.workspace !== 'database') return false
       } else {
@@ -293,7 +294,7 @@ export function useChatHistory(options?: ChatHistoryOptions) {
    */
   const loadHistoryList = async () => {
     try {
-      const result = await window.api.getTaskList()
+      const result = await window.api.getTaskList(taskWorkspaceFilter)
       if (!result.success || !result.data) return
 
       historyList.value = result.data.map((item) => ({

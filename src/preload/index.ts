@@ -698,9 +698,9 @@ const saveTaskFavorite = async (taskId: string, favorite: boolean) => {
   }
 }
 
-const getTaskList = async () => {
+const getTaskList = async (workspace?: 'server' | 'database') => {
   try {
-    return await ipcRenderer.invoke('get-task-list')
+    return await ipcRenderer.invoke('get-task-list', { workspace })
   } catch (error) {
     return Promise.reject(error)
   }

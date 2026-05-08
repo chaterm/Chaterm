@@ -155,10 +155,10 @@ export async function saveTaskFavorite(taskId: string, favorite: boolean): Promi
   }
 }
 
-export async function getTaskList(): Promise<TaskListItem[]> {
+export async function getTaskList(workspace?: 'server' | 'database'): Promise<TaskListItem[]> {
   try {
     const dbService = await ChatermDatabaseService.getInstance()
-    return await dbService.getTaskList()
+    return await dbService.getTaskList(workspace)
   } catch (error) {
     logger.error('Failed to get task list from DB', { error: error })
     return []

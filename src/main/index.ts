@@ -2620,9 +2620,9 @@ ipcMain.handle('set-task-favorite', async (_event, { taskId, favorite }) => {
   }
 })
 
-ipcMain.handle('get-task-list', async () => {
+ipcMain.handle('get-task-list', async (_event, data?: { workspace?: 'server' | 'database' }) => {
   try {
-    const list = await getTaskList()
+    const list = await getTaskList(data?.workspace)
     return { success: true, data: list }
   } catch (error) {
     return { success: false, error: { message: error instanceof Error ? error.message : 'Unknown error' } }

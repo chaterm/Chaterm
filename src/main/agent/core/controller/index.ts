@@ -351,6 +351,9 @@ export class Controller {
                 await updateTaskHosts(targetTaskId, message.hosts)
               }
             }
+            if (task.workspace === 'database' && hasValidDbContext(message.dbContext)) {
+              task.updateDbContext(message.dbContext as DbTaskContext)
+            }
             if (message.askResponse === 'messageResponse') {
               // Clean up all command contexts for this task and broadcast close events
               logger.debug('Cleaning command contexts before handling messageResponse', {

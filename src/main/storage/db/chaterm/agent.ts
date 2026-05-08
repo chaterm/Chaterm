@@ -437,17 +437,41 @@ export async function saveTaskFavoriteLogic(db: Database.Database, taskId: strin
 }
 
 // Task list query - replaces global_taskHistory as data source
-export async function getTaskListLogic(db: Database.Database): Promise<TaskListItem[]> {
+export async function getTaskListLogic(db: Database.Database, workspace?: 'server' | 'database'): Promise<TaskListItem[]> {
   try {
-    const rows = db
-      .prepare(
-        `
+    const rows = (
+      workspace === 'database'
+        ? db
+            .prepare(
+              `
+      SELECT task_id, title, favorite, created_at, updated_at, hosts, workspace, db_context
+      FROM agent_task_metadata_v1
+      WHERE workspace = ?
+      ORDER BY updated_at DESC
+    `
+            )
+            .all('database')
+        : workspace === 'server'
+          ? db
+              .prepare(
+                `
+      SELECT task_id, title, favorite, created_at, updated_at, hosts, workspace, db_context
+      FROM agent_task_metadata_v1
+      WHERE workspace IS NULL OR workspace != 'database'
+      ORDER BY updated_at DESC
+    `
+              )
+              .all()
+          : db
+              .prepare(
+                `
       SELECT task_id, title, favorite, created_at, updated_at, hosts, workspace, db_context
       FROM agent_task_metadata_v1
       ORDER BY updated_at DESC
     `
-      )
-      .all() as Array<{
+              )
+              .all()
+    ) as Array<{
       task_id: string
       title: string | null
       favorite: number

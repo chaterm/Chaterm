@@ -13,7 +13,7 @@ vi.mock('@logging/index', () => ({
   }))
 }))
 
-const { getTaskMetadataLogic, saveTaskMetadataLogic } = await import('../agent')
+const { getTaskMetadataLogic, saveTaskMetadataLogic, getTaskListLogic } = await import('../agent')
 
 type CapturedInsert = {
   sql: string
@@ -39,11 +39,33 @@ function createMockDb(opts: { selectRow?: Record<string, unknown> | undefined } 
         run(...args: unknown[]) {
           captures.push({ sql, args })
           return { changes: 1 }
+        },
+        all() {
+          return []
         }
       }
     }
   }
   return { db: mockDb as any, captures }
+}
+
+function createTaskListMockDb(rows: Array<Record<string, unknown>>) {
+  const mockDb = {
+    prepare(sql: string) {
+      return {
+        all(_workspace?: string) {
+          if (sql.includes('WHERE workspace = ?')) {
+            return rows.filter((row) => row.workspace === 'database')
+          }
+          if (sql.includes("WHERE workspace IS NULL OR workspace != 'database'")) {
+            return rows.filter((row) => row.workspace == null || row.workspace !== 'database')
+          }
+          return rows
+        }
+      }
+    }
+  }
+  return { db: mockDb as any }
 }
 
 describe('agent.ts - saveTaskMetadataLogic workspace handling', () => {
@@ -198,5 +220,62 @@ describe('agent.ts - getTaskMetadataLogic workspace reads', () => {
     expect(result.workspace).toBe('server')
     expect(result.db_context).toBeUndefined()
     expect(result.files_in_context).toEqual([])
+  })
+})
+
+describe('agent.ts - getTaskListLogic workspace filtering', () => {
+  const sourceRows = [
+    {
+      task_id: 'server-1',
+      title: 'Server task',
+      favorite: 0,
+      created_at: 100,
+      updated_at: 200,
+      hosts: JSON.stringify([{ host: '127.0.0.1', uuid: 'u1', connection: 'local' }]),
+      workspace: 'server',
+      db_context: null
+    },
+    {
+      task_id: 'db-1',
+      title: 'DB task',
+      favorite: 1,
+      created_at: 101,
+      updated_at: 201,
+      hosts: JSON.stringify([{ host: 'db-host', uuid: 'u2', connection: 'db' }]),
+      workspace: 'database',
+      db_context: JSON.stringify({ assetId: 'ast-1', dbType: 'mysql' })
+    },
+    {
+      task_id: 'legacy-null',
+      title: 'Legacy task',
+      favorite: 0,
+      created_at: 102,
+      updated_at: 202,
+      hosts: null,
+      workspace: null,
+      db_context: null
+    }
+  ]
+
+  it('returns all rows when workspace filter is omitted', async () => {
+    const { db } = createTaskListMockDb(sourceRows)
+    const result = await getTaskListLogic(db)
+    expect(result.map((item) => item.id)).toEqual(['server-1', 'db-1', 'legacy-null'])
+  })
+
+  it('returns only workspace=database rows when filter is database', async () => {
+    const { db } = createTaskListMockDb(sourceRows)
+    const result = await getTaskListLogic(db, 'database')
+    expect(result.map((item) => item.id)).toEqual(['db-1'])
+    expect(result[0].workspace).toBe('database')
+    expect(result[0].dbContext).toEqual({ assetId: 'ast-1', dbType: 'mysql' })
+  })
+
+  it('returns non-database rows when filter is server (including legacy null workspace)', async () => {
+    const { db } = createTaskListMockDb(sourceRows)
+    const result = await getTaskListLogic(db, 'server')
+    expect(result.map((item) => item.id)).toEqual(['server-1', 'legacy-null'])
+    expect(result[0].workspace).toBe('server')
+    expect(result[1].workspace).toBe('server')
   })
 })

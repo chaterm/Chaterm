@@ -206,19 +206,23 @@ export function useEventBusListeners(params: UseEventBusListenersParams) {
   }
 
   onMounted(async () => {
-    eventBus.on('sendMessageToAi', handleSendMessageToAi)
-    eventBus.on('chatToAi', handleChatToAi)
-    eventBus.on('activeTabChanged', handleActiveTabChanged)
     eventBus.on('SettingModelOptionsChanged', handleSettingModelOptionsChanged)
-    eventBus.on('switchAiMode', handleSwitchAiMode)
-    await initAssetInfo()
+    if (!isDatabaseWorkspace) {
+      eventBus.on('sendMessageToAi', handleSendMessageToAi)
+      eventBus.on('chatToAi', handleChatToAi)
+      eventBus.on('activeTabChanged', handleActiveTabChanged)
+      eventBus.on('switchAiMode', handleSwitchAiMode)
+      await initAssetInfo()
+    }
   })
 
   onUnmounted(() => {
-    eventBus.off('sendMessageToAi', handleSendMessageToAi)
-    eventBus.off('chatToAi', handleChatToAi)
-    eventBus.off('activeTabChanged', handleActiveTabChanged)
     eventBus.off('SettingModelOptionsChanged', handleSettingModelOptionsChanged)
-    eventBus.off('switchAiMode', handleSwitchAiMode)
+    if (!isDatabaseWorkspace) {
+      eventBus.off('sendMessageToAi', handleSendMessageToAi)
+      eventBus.off('chatToAi', handleChatToAi)
+      eventBus.off('activeTabChanged', handleActiveTabChanged)
+      eventBus.off('switchAiMode', handleSwitchAiMode)
+    }
   })
 }

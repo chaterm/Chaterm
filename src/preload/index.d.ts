@@ -560,7 +560,7 @@ interface ApiType {
     success: boolean
     error?: { message: string }
   }>
-  getTaskList: () => Promise<{
+  getTaskList: (workspace?: 'server' | 'database') => Promise<{
     success: boolean
     data?: Array<{
       id: string
