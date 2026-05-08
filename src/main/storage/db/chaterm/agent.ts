@@ -442,7 +442,7 @@ export async function getTaskListLogic(db: Database.Database): Promise<TaskListI
     const rows = db
       .prepare(
         `
-      SELECT task_id, title, favorite, created_at, updated_at, hosts
+      SELECT task_id, title, favorite, created_at, updated_at, hosts, workspace, db_context
       FROM agent_task_metadata_v1
       ORDER BY updated_at DESC
     `
@@ -454,6 +454,8 @@ export async function getTaskListLogic(db: Database.Database): Promise<TaskListI
       created_at: number
       updated_at: number
       hosts: string | null
+      workspace: string | null
+      db_context: string | null
     }>
 
     return rows.map((row) => {
@@ -474,6 +476,17 @@ export async function getTaskListLogic(db: Database.Database): Promise<TaskListI
           }))
         }
       }
+
+      const workspace: 'server' | 'database' = row.workspace === 'database' ? 'database' : 'server'
+      let dbContext: TaskListItem['dbContext'] = undefined
+      if (row.db_context) {
+        try {
+          dbContext = JSON.parse(row.db_context)
+        } catch {
+          // Ignore malformed db_context
+        }
+      }
+
       return {
         id: row.task_id,
         title: row.title || null,
@@ -481,7 +494,9 @@ export async function getTaskListLogic(db: Database.Database): Promise<TaskListI
         // DB stores seconds; renderer Date() expects milliseconds
         createdAt: row.created_at * 1000,
         updatedAt: row.updated_at * 1000,
-        hosts
+        hosts,
+        workspace,
+        dbContext
       }
     })
   } catch (error) {

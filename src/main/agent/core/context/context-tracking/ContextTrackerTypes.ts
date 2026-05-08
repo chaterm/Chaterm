@@ -68,6 +68,14 @@ export interface TaskListItem {
   createdAt: number
   updatedAt: number
   hosts: Array<{ host: string; uuid: string; connection: string }>
+  workspace: 'server' | 'database'
+  dbContext?: {
+    assetId?: string
+    dbType?: 'mysql' | 'postgresql'
+    databaseName?: string
+    schemaName?: string
+    assetName?: string
+  }
 }
 
 // Helper methods

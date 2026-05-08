@@ -484,8 +484,8 @@ const savedAiSidebarState = ref<AiSidebarState | null>(null)
 const aiTabRef = ref<InstanceType<typeof AiTab> | null>(null)
 useAiSidebarModelRefresh(showAiSidebar, aiTabRef)
 
-const handleAiTabStateChanged = (state: AiSidebarState) => {
-  savedAiSidebarState.value = state
+const handleAiTabStateChanged = (state: Record<string, unknown>) => {
+  savedAiSidebarState.value = state as unknown as AiSidebarState
 }
 
 const handleKbAddDocToChatRequest = (payload: Array<{ relPath: string; name?: string }>) => {

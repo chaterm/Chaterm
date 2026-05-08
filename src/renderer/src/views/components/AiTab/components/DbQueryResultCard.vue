@@ -174,15 +174,22 @@ const pagination = computed(() => ({
 
 .db-result-table :deep(.ant-pagination) {
   color: var(--text-color-secondary);
+  font-size: 10px;
+  margin: 2px 0 0;
 }
 
 .db-result-table :deep(.ant-pagination .ant-pagination-item) {
   background: var(--bg-color);
   border-color: var(--border-color);
+  min-width: 20px;
+  height: 20px;
+  line-height: 18px;
 }
 
 .db-result-table :deep(.ant-pagination .ant-pagination-item a) {
   color: var(--text-color-secondary);
+  font-size: 10px;
+  padding: 0 3px;
 }
 
 .db-result-table :deep(.ant-pagination .ant-pagination-item-active) {
@@ -193,5 +200,25 @@ const pagination = computed(() => ({
   background: var(--bg-color) !important;
   border-color: var(--border-color) !important;
   color: var(--text-color-secondary) !important;
+  font-size: 10px !important;
+  height: 20px !important;
+  line-height: 18px !important;
+}
+
+.db-result-table :deep(.ant-pagination .ant-pagination-prev),
+.db-result-table :deep(.ant-pagination .ant-pagination-next) {
+  min-width: 20px;
+  height: 20px;
+  line-height: 18px;
+}
+
+.db-result-table :deep(.ant-pagination .ant-select) {
+  font-size: 10px;
+}
+
+.db-result-table :deep(.ant-pagination-total-text) {
+  font-size: 10px;
+  height: 20px;
+  line-height: 20px;
 }
 </style>

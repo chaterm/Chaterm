@@ -17,6 +17,7 @@ const PAGE_SIZE = 20
 interface ChatHistoryOptions {
   createNewEmptyTab?: () => Promise<string>
   renameTab?: (tabId: string, title: string) => Promise<void>
+  workspace?: 'terminal' | 'database'
 }
 
 /**
@@ -26,7 +27,7 @@ interface ChatHistoryOptions {
  * @param options Configuration options including createNewEmptyTab and renameTab functions
  */
 export function useChatHistory(options?: ChatHistoryOptions) {
-  const { createNewEmptyTab, renameTab } = options || {}
+  const { createNewEmptyTab, renameTab, workspace } = options || {}
   // Get required state from global singleton state
   const { chatTabs, currentChatId, attachTabContext } = useSessionState()
 
@@ -48,10 +49,19 @@ export function useChatHistory(options?: ChatHistoryOptions) {
 
   /**
    * Filtered history list
-   * Filtered by search value and favorite status
+   * Filtered by search value, favorite status, and workspace
    */
   const filteredHistoryList = computed(() => {
     return historyList.value.filter((history) => {
+      // Workspace filter: database workspace only shows database tasks,
+      // terminal workspace only shows server tasks
+      if (workspace === 'database') {
+        if (history.workspace !== 'database') return false
+      } else {
+        // Default 'terminal' workspace excludes database tasks
+        if (history.workspace === 'database') return false
+      }
+
       // Search filter
       const matchesSearch = history.chatTitle.toLowerCase().includes(historySearchValue.value.toLowerCase())
 
@@ -286,31 +296,15 @@ export function useChatHistory(options?: ChatHistoryOptions) {
       const result = await window.api.getTaskList()
       if (!result.success || !result.data) return
 
-      historyList.value = result.data.map((item) => {
-        // Main-side TaskListItem may or may not expose DB-AI metadata
-        // depending on whether #11 has extended the preload type. Read
-        // defensively so Stage 2 renderer lands cleanly; once main
-        // publishes the fields typed, this cast can be removed.
-        const extended = item as typeof item & {
-          workspace?: 'server' | 'database'
-          dbContext?: {
-            assetId?: string
-            dbType?: 'mysql' | 'postgresql'
-            databaseName?: string
-            schemaName?: string
-            assetName?: string
-          }
-        }
-        return {
-          id: extended.id,
-          chatTitle: extended.title || 'New Chat',
-          chatContent: [],
-          isFavorite: extended.favorite,
-          ts: extended.updatedAt,
-          workspace: extended.workspace,
-          dbContext: extended.dbContext
-        }
-      })
+      historyList.value = result.data.map((item) => ({
+        id: item.id,
+        chatTitle: item.title || 'New Chat',
+        chatContent: [],
+        isFavorite: item.favorite,
+        ts: item.updatedAt,
+        workspace: item.workspace,
+        dbContext: item.dbContext
+      }))
     } catch (err) {
       logger.error('Failed to load history list', { error: err })
     }

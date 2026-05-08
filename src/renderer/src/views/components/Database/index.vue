@@ -148,28 +148,6 @@
             :max-size="60"
           >
             <div class="db-workspace__ai-pane">
-              <div class="db-workspace__ai-context-row">
-                <ConnectionPicker
-                  :model-value="dbAiContext.assetId"
-                  :tree="store.tree"
-                  :connection-statuses="store.connectionStatuses"
-                  @update:model-value="onDbAiAssetChange"
-                />
-                <DatabasePicker
-                  :model-value="dbAiContext.databaseName"
-                  :tree="store.tree"
-                  :asset-id="dbAiContext.assetId"
-                  @update:model-value="onDbAiDatabaseChange"
-                />
-                <SchemaPicker
-                  v-if="dbAiContext.dbType === 'postgresql'"
-                  :model-value="dbAiContext.schemaName"
-                  :tree="store.tree"
-                  :asset-id="dbAiContext.assetId"
-                  :database-name="dbAiContext.databaseName"
-                  @update:model-value="onDbAiSchemaChange"
-                />
-              </div>
               <AiTab
                 ref="dbAiTabRef"
                 :toggle-sidebar="handleCloseAiPane"
@@ -177,7 +155,13 @@
                 :is-agent-mode="true"
                 :workspace="'database'"
                 :db-context="resolveDbContextForAiTab"
+                :db-picker-context="dbAiContext"
+                :db-tree="store.tree"
+                :db-connection-statuses="store.connectionStatuses"
                 @state-changed="handleDbAiTabStateChanged"
+                @db-asset-change="onDbAiAssetChange"
+                @db-database-change="onDbAiDatabaseChange"
+                @db-schema-change="onDbAiSchemaChange"
               />
             </div>
           </pane>
@@ -247,9 +231,6 @@ import DataStatusBar from './components/DataStatusBar.vue'
 import WhereOrderBar from './components/WhereOrderBar.vue'
 import SqlWorkspace from './components/SqlWorkspace.vue'
 import DbAiResultDrawer from './components/DbAiResultDrawer.vue'
-import ConnectionPicker from './components/ConnectionPicker.vue'
-import DatabasePicker from './components/DatabasePicker.vue'
-import SchemaPicker from './components/SchemaPicker.vue'
 import AiTab from '@views/components/AiTab/index.vue'
 import type { AiTabDbContext } from '@views/components/AiTab/composables/useChatMessages'
 import { aiTabStorageKey } from '@views/components/AiTab/workspace'
@@ -1282,15 +1263,6 @@ const handleTableAction = async (payload: { action: TableActionKind; ctx: TableA
     height: 100%;
     display: flex;
     flex-direction: column;
-  }
-
-  &__ai-context-row {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    padding: 6px 10px;
-    border-bottom: 1px solid var(--border-color);
-    background: var(--bg-color-secondary);
   }
 
   &__data {

@@ -591,6 +591,31 @@
             @focus-terminal="handleFocusTerminal"
             @clear-error="clearError"
           />
+          <div
+            v-if="props.workspace === 'database' && props.dbTree && props.dbConnectionStatuses"
+            class="db-context-bar"
+          >
+            <ConnectionPicker
+              :model-value="props.dbPickerContext?.assetId"
+              :tree="props.dbTree"
+              :connection-statuses="props.dbConnectionStatuses"
+              @update:model-value="(v: string) => emit('db-asset-change', v)"
+            />
+            <DatabasePicker
+              :model-value="props.dbPickerContext?.databaseName"
+              :tree="props.dbTree"
+              :asset-id="props.dbPickerContext?.assetId"
+              @update:model-value="(v: string) => emit('db-database-change', v)"
+            />
+            <SchemaPicker
+              v-if="props.dbPickerContext?.dbType === 'postgresql'"
+              :model-value="props.dbPickerContext?.schemaName"
+              :tree="props.dbTree"
+              :asset-id="props.dbPickerContext?.assetId"
+              :database-name="props.dbPickerContext?.databaseName"
+              @update:model-value="(v: string) => emit('db-schema-change', v)"
+            />
+          </div>
           <InputSendContainer
             :is-active-tab="tab.id === currentChatId"
             :send-message="sendMessage"
@@ -693,13 +718,6 @@
                           v-if="!history.isEditing"
                           class="history-title"
                         >
-                          <span
-                            v-if="history.workspace === 'database'"
-                            class="history-db-badge"
-                            :title="describeDbContextBadge(history)"
-                          >
-                            {{ $t('database.dbAi.historyBadge.databaseTask') }}
-                          </span>
                           {{ history.chatTitle }}
                         </div>
                         <a-input
@@ -827,6 +845,10 @@ import { useWatchers } from './composables/useWatchers'
 import { useExportChat } from './composables/useExportChat'
 import { AI_TAB_DEFAULT_WORKSPACE, type AiTabWorkspace } from './workspace'
 import type { AiTabDbContext } from './composables/useChatMessages'
+import type { DatabaseTreeNode } from '@views/components/Database/types'
+import ConnectionPicker from '@views/components/Database/components/ConnectionPicker.vue'
+import DatabasePicker from '@views/components/Database/components/DatabasePicker.vue'
+import SchemaPicker from '@views/components/Database/components/SchemaPicker.vue'
 import InputSendContainer from './components/InputSendContainer.vue'
 import AiChatSearchBar from './components/AiChatSearchBar.vue'
 import MarkdownRenderer from './components/format/markdownRenderer.vue'
@@ -858,7 +880,7 @@ import {
 } from '@ant-design/icons-vue'
 import { isFocusInAiTab } from '@/utils/domUtils'
 import { getGlobalState } from '@renderer/agent/storage/state'
-import type { HistoryItem, MessageContent } from './types'
+import type { MessageContent } from './types'
 import i18n from '@/locales'
 import eventBus from '@/utils/eventBus'
 import historyIcon from '@/assets/icons/history.svg'
@@ -899,15 +921,38 @@ interface Props {
    * `workspace === 'database'`.
    */
   dbContext?: () => AiTabDbContext | null
+  /**
+   * Current db picker state (assetId / dbType / databaseName / schemaName).
+   * Passed from Database/index.vue when workspace='database' so the
+   * InputSendContainer can render inline connection chips.
+   */
+  dbPickerContext?: {
+    assetId?: string
+    databaseName?: string
+    schemaName?: string
+    dbType?: 'mysql' | 'postgresql'
+  }
+  /** Database tree for ConnectionPicker / DatabasePicker / SchemaPicker options. */
+  dbTree?: DatabaseTreeNode[]
+  /** Connection statuses for ConnectionPicker options. */
+  dbConnectionStatuses?: Record<string, 'idle' | 'testing' | 'connected' | 'failed'>
 }
 
 const props = withDefaults(defineProps<Props>(), {
   savedState: null,
   workspace: AI_TAB_DEFAULT_WORKSPACE,
-  dbContext: undefined
+  dbContext: undefined,
+  dbPickerContext: undefined,
+  dbTree: undefined,
+  dbConnectionStatuses: undefined
 })
 
-const emit = defineEmits(['state-changed'])
+const emit = defineEmits<{
+  (e: 'state-changed', state: Record<string, unknown>): void
+  (e: 'db-asset-change', assetId: string): void
+  (e: 'db-database-change', databaseName: string): void
+  (e: 'db-schema-change', schemaName: string): void
+}>()
 
 const router = useRouter()
 
@@ -1108,28 +1153,11 @@ const {
   deleteHistory,
   toggleFavorite,
   refreshHistoryList
-} = useChatHistory({ createNewEmptyTab, renameTab })
+} = useChatHistory({ createNewEmptyTab, renameTab, workspace: props.workspace })
 
 // i18n
 const { t } = i18n.global
 const favoriteLabel = computed(() => t('ai.favorite'))
-
-/**
- * Build the hover-title for the "Database" badge on history items. Shows
- * connection / database / schema metadata when present, falling back to
- * just the badge label. Safe against partial dbContext (main side may
- * expose only a subset).
- */
-const describeDbContextBadge = (history: HistoryItem): string => {
-  const ctx = history.dbContext
-  if (!ctx) return t('database.dbAi.historyBadge.databaseTask')
-  const parts: string[] = []
-  if (ctx.assetName) parts.push(t('database.dbAi.historyBadge.connection', { name: ctx.assetName }))
-  if (ctx.databaseName) parts.push(t('database.dbAi.historyBadge.database', { name: ctx.databaseName }))
-  if (ctx.schemaName) parts.push(t('database.dbAi.historyBadge.schema', { name: ctx.schemaName }))
-  if (parts.length === 0) return t('database.dbAi.historyBadge.databaseTask')
-  return parts.join(' · ')
-}
 
 type ContextTruncationStatus = 'compressing' | 'completed'
 
