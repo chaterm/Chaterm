@@ -137,6 +137,7 @@
                 @select-result-tab="(id) => store.setActiveResultTab(activeTab!.id, id)"
                 @close-result-tab="(id) => store.closeResultTab(activeTab!.id, id)"
                 @db-ai="(kind, sql) => handleDbAiEditorAction(kind, sql)"
+                @auto-connect="(assetId: string) => store.connectAsset(assetId)"
               />
             </div>
           </pane>
@@ -162,6 +163,7 @@
                 @db-asset-change="onDbAiAssetChange"
                 @db-database-change="onDbAiDatabaseChange"
                 @db-schema-change="onDbAiSchemaChange"
+                @db-auto-connect="onDbAiAutoConnect"
               />
             </div>
           </pane>
@@ -235,7 +237,7 @@ import AiTab from '@views/components/AiTab/index.vue'
 import type { AiTabDbContext } from '@views/components/AiTab/composables/useChatMessages'
 import { aiTabStorageKey } from '@views/components/AiTab/workspace'
 import { useDatabaseWorkspaceStore } from '@/store/databaseWorkspaceStore'
-import { buildQualifiedTable, findConnectionByAssetId } from '@/store/databaseWorkspaceStore'
+import { buildQualifiedTable } from '@/store/databaseWorkspaceStore'
 import { createRendererLogger } from '@/utils/logger'
 import type { DatabaseConnectionDraft, DatabaseTreeNode } from './types'
 
@@ -272,7 +274,7 @@ const dbAiContext = ref<{
 }>({})
 
 const canToggleAiPane = computed(() => {
-  return store.assets.some((asset) => store.connectionStatuses[asset.id] === 'connected')
+  return store.assets.length > 0
 })
 
 /**
@@ -358,11 +360,22 @@ const onDbAiAssetChange = (assetId: string) => {
   }
 }
 
-const onDbAiDatabaseChange = (databaseName: string) => {
+const onDbAiAutoConnect = async (assetId: string) => {
+  await store.connectAsset(assetId)
+  ensureDbAiContextInitialized()
+}
+
+const onDbAiDatabaseChange = async (databaseName: string) => {
+  const assetId = dbAiContext.value.assetId
   dbAiContext.value = {
     ...dbAiContext.value,
     databaseName,
     schemaName: undefined
+  }
+  // Ensure schema nodes are loaded so SchemaPicker has options.
+  // loadDatabaseTables is idempotent when children are already populated.
+  if (assetId) {
+    await store.loadDatabaseTables(assetId, databaseName)
   }
 }
 
@@ -385,19 +398,15 @@ const ensureDbAiContextInitialized = () => {
     }
     return
   }
-  const connectedAsset = store.assets.find((asset) => store.connectionStatuses[asset.id] === 'connected')
-  if (!connectedAsset) return
-  const connNode = findConnectionByAssetId(store.tree, connectedAsset.id)
-  const firstDb = connNode?.children?.find((node) => node.type === 'database')?.name
-  const firstSchema =
-    connectedAsset.db_type === 'postgresql' && firstDb
-      ? connNode?.children?.find((node) => node.type === 'database' && node.name === firstDb)?.children?.find((node) => node.type === 'schema')?.name
-      : undefined
+  // Fallback: pick first asset regardless of connection status.
+  // database/schema will be populated after the user connects via ConnectionPicker.
+  const firstAsset = store.assets[0]
+  if (!firstAsset) return
   dbAiContext.value = {
-    assetId: connectedAsset.id,
-    dbType: connectedAsset.db_type,
-    databaseName: firstDb,
-    schemaName: firstSchema
+    assetId: firstAsset.id,
+    dbType: firstAsset.db_type,
+    databaseName: undefined,
+    schemaName: undefined
   }
 }
 
@@ -965,62 +974,26 @@ const handleGotoLastPage = () => {
 
 const handleGotoPage = (page: number) => {
   const tab = activeTab.value
-  // eslint-disable-next-line no-console
-  console.log('[DB-DEBUG] index handleGotoPage', {
-    page,
-    tabId: tab?.id,
-    tabKind: tab?.kind,
-    currentPage: tab?.page,
-    assetId: tab?.assetId,
-    database: tab?.databaseName,
-    table: tab?.tableName
-  })
   if (!tab || tab.kind !== 'data') return
-  try {
-    store.setTablePage(tab.id, page)
-  } catch (err) {
-    // eslint-disable-next-line no-console
-    console.error('[DB-DEBUG] index setTablePage threw', err)
-  }
+  store.setTablePage(tab.id, page)
 }
 
 const handleChangePageSize = (size: number) => {
   const tab = activeTab.value
-  // eslint-disable-next-line no-console
-  console.log('[DB-DEBUG] index handleChangePageSize', { size, tabId: tab?.id })
   if (!tab || tab.kind !== 'data') return
-  try {
-    store.setTablePageSize(tab.id, size)
-  } catch (err) {
-    // eslint-disable-next-line no-console
-    console.error('[DB-DEBUG] index setTablePageSize threw', err)
-  }
+  store.setTablePageSize(tab.id, size)
 }
 
 const handleRefreshTotal = () => {
   const tab = activeTab.value
-  // eslint-disable-next-line no-console
-  console.log('[DB-DEBUG] index handleRefreshTotal', { tabId: tab?.id })
   if (!tab || tab.kind !== 'data') return
-  try {
-    store.refreshTableTotal(tab.id)
-  } catch (err) {
-    // eslint-disable-next-line no-console
-    console.error('[DB-DEBUG] index refreshTableTotal threw', err)
-  }
+  store.refreshTableTotal(tab.id)
 }
 
 const handleRefresh = () => {
   const tab = activeTab.value
-  // eslint-disable-next-line no-console
-  console.log('[DB-DEBUG] index handleRefresh', { tabId: tab?.id })
   if (!tab || tab.kind !== 'data') return
-  try {
-    store.reloadTableData(tab.id)
-  } catch (err) {
-    // eslint-disable-next-line no-console
-    console.error('[DB-DEBUG] index reloadTableData threw', err)
-  }
+  store.reloadTableData(tab.id)
 }
 
 // --- Edit toolbar handlers ----------------------------------------------

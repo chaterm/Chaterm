@@ -11,6 +11,7 @@
       @update:asset-id="(v: string) => emit('update-context', v || undefined, tab.databaseName)"
       @update:database-name="(v: string) => emit('update-context', tab.assetId, v || undefined)"
       @update:schema-name="(v: string) => emit('update-schema', v || undefined)"
+      @auto-connect="(assetId: string) => emit('auto-connect', assetId)"
     />
     <splitpanes
       horizontal
@@ -157,6 +158,7 @@ const emit = defineEmits<{
    * fresh store context before kicking off the request.
    */
   (e: 'db-ai', kind: 'explainSelection' | 'optimizeSelection' | 'convertDialect' | 'nl2sqlFromComment' | 'nl2sqlPrompt', sql: string): void
+  (e: 'auto-connect', assetId: string): void
 }>()
 
 interface EditorApi {

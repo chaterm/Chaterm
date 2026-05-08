@@ -600,6 +600,7 @@
               :tree="props.dbTree"
               :connection-statuses="props.dbConnectionStatuses"
               @update:model-value="(v: string) => emit('db-asset-change', v)"
+              @auto-connect="(assetId: string) => emit('db-auto-connect', assetId)"
             />
             <DatabasePicker
               :model-value="props.dbPickerContext?.databaseName"
@@ -952,6 +953,7 @@ const emit = defineEmits<{
   (e: 'db-asset-change', assetId: string): void
   (e: 'db-database-change', databaseName: string): void
   (e: 'db-schema-change', schemaName: string): void
+  (e: 'db-auto-connect', assetId: string): void
 }>()
 
 const router = useRouter()
