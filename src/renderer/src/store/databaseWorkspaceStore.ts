@@ -1011,7 +1011,7 @@ export const useDatabaseWorkspaceStore = defineStore('databaseWorkspace', {
      * Fetch distinct values for one column of the data tab's table. Used by
      * the column-filter popover (chat2db-style discrete value picker).
      */
-    async loadColumnDistinct(tabId: string, column: string, limit = 1000): Promise<string[]> {
+    async loadColumnDistinct(tabId: string, column: string, limit = 1000000): Promise<string[]> {
       const tab = this.tabs.find((t) => t.id === tabId)
       if (!tab || tab.kind !== 'data') return []
       const api = getApi()

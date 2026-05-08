@@ -480,46 +480,29 @@ export function registerDbAssetHandlers(): void {
       }
     ) => {
       try {
-        // eslint-disable-next-line no-console
-        console.log('[DB-DEBUG] ipc db-asset-query-table entry', {
+        logger.debug('db-asset-query-table', {
+          event: 'db-asset.query-table.entry',
           id: payload.id,
-          database: payload.database,
-          schema: payload.schema,
-          table: payload.table,
-          page: payload.page,
-          pageSize: payload.pageSize,
-          withTotal: payload.withTotal,
           filtersCount: payload.filters?.length ?? 0,
-          hasWhereRaw: !!payload.whereRaw,
-          hasOrderByRaw: !!payload.orderByRaw
+          hasWhereRaw: !!payload.whereRaw
         })
         const mgr = await getConnectionManager()
         if (!mgr.isConnected(payload.id)) {
-          // eslint-disable-next-line no-console
-          console.warn('[DB-DEBUG] ipc query-table not connected', { id: payload.id })
+          logger.warn('db-asset-query-table not connected', { event: 'db-asset.query-table.not-connected', id: payload.id })
           return { ok: false, errorMessage: 'not connected' }
         }
         const service = await resolveAssetService()
         const asset = service.getDbAsset(payload.id)
         if (!asset) return { ok: false, errorMessage: 'asset not found' }
 
-        const listColumnsStart = Date.now()
         const columns = await mgr.listColumns(payload.id, payload.database, payload.table, payload.schema)
-        // eslint-disable-next-line no-console
-        console.log('[DB-DEBUG] ipc listColumns done', {
-          ms: Date.now() - listColumnsStart,
-          columnsCount: columns.length
-        })
         if (columns.length === 0) {
           return { ok: false, errorMessage: 'failed to resolve columns for table' }
         }
 
         if (asset.db_type === 'mysql' && payload.database) {
           const safe = payload.database.replace(/`/g, '')
-          const useStart = Date.now()
           await mgr.executeQuery(payload.id, `USE \`${safe}\``)
-          // eslint-disable-next-line no-console
-          console.log('[DB-DEBUG] ipc USE database done', { ms: Date.now() - useStart })
         }
 
         const built = buildTableQuery({
@@ -535,21 +518,8 @@ export function registerDbAssetHandlers(): void {
           page: payload.page,
           pageSize: payload.pageSize
         })
-        // eslint-disable-next-line no-console
-        console.log('[DB-DEBUG] ipc built SQL', {
-          sql: built.sql,
-          paramCount: built.params.length,
-          countSql: built.countSql
-        })
 
-        const pageStart = Date.now()
         const page = await mgr.executeQuery(payload.id, built.sql, built.params)
-        // eslint-disable-next-line no-console
-        console.log('[DB-DEBUG] ipc page query done', {
-          ms: Date.now() - pageStart,
-          rowCount: page.rowCount,
-          columnCount: page.columns.length
-        })
 
         let total: number | null = null
         if (payload.withTotal) {
@@ -571,13 +541,6 @@ export function registerDbAssetHandlers(): void {
           knownColumns: columns
         }
       } catch (error) {
-        // eslint-disable-next-line no-console
-        console.error('[DB-DEBUG] ipc query-table threw', {
-          id: payload?.id,
-          table: payload?.table,
-          message: (error as Error)?.message,
-          stack: (error as Error)?.stack
-        })
         logger.error('db-asset-query-table failed', {
           event: 'db-asset.query-table.error',
           id: payload?.id,
@@ -687,7 +650,7 @@ export function registerDbAssetHandlers(): void {
           return { ok: false, errorMessage: 'unsafe schema name' }
         }
 
-        const limit = Math.max(1, Math.min(Math.floor(payload.limit ?? 1000), 10000))
+        const limit = Math.max(1, Math.min(Math.floor(payload.limit ?? 1000000), 1000000))
         if (asset.db_type === 'mysql') {
           if (payload.database && !/^[A-Za-z_][A-Za-z0-9_]*$/.test(payload.database)) {
             return { ok: false, errorMessage: 'unsafe database name' }
