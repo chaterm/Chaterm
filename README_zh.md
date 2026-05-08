@@ -3,19 +3,6 @@
 </div>
 <br>
 
-<!-- Vote for Chaterm on DevHunt! -->
-<br>
-<p align="center">
-  <a href="https://devhunt.org/tool/chaterm">
-    <img 
-      src="https://img.shields.io/badge/%F0%9F%94%A5_SUPPORT_CHATERM_ON-DEVHUNT-FF6154?style=for-the-badge&logo=producthunt&logoColor=white&labelColor=FF6154"
-      alt="Vote on DevHunt"
-      width="600"
-    />
-  </a>
-</p>
-<br><br>
-
 <p align="center">
   <a href="https://www.tbench.ai/leaderboard/terminal-bench/1.0"><img src="https://img.shields.io/badge/Terminal--Bench-Ranked_%232-00D94E?style=for-the-badge&logo=github&logoColor=white" alt="Terminal-Bench"></a>
   <a href="https://aws.amazon.com/cn/blogs/china/chaterm-aws-kms-envelope-encryption-for-zero-trust-security-en/"><img src="https://img.shields.io/badge/AWS-Security-FF9900?style=for-the-badge&logo=amazon-aws&logoColor=white&labelColor=232F3E" alt="AWS Security"></a>

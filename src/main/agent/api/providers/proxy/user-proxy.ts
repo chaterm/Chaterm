@@ -16,7 +16,7 @@ import { ProxyConfig } from '@shared/Proxy'
 export function createProxyAgent(config?: ProxyConfig): Agent | undefined {
   if (!config) return undefined
   const { type, host, port, enableProxyIdentity, username, password } = config
-  const auth = enableProxyIdentity && username && password ? `${username}:${password}@` : ''
+  const auth = enableProxyIdentity && username && password ? `${encodeURIComponent(username)}:${encodeURIComponent(password)}@` : ''
   const url = `http://${auth}${host}:${port}`
 
   switch (type) {

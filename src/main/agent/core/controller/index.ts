@@ -367,7 +367,13 @@ export class Controller {
                 taskId: task.taskId
               })
             }
-            await task.handleWebviewAskResponse(message.askResponse!, message.text, message.truncateAtMessageTs, message.contentParts)
+            await task.handleWebviewAskResponse(
+              message.askResponse!,
+              message.text,
+              message.truncateAtMessageTs,
+              message.contentParts,
+              message.toolResult
+            )
           }
         }
         break

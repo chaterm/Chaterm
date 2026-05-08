@@ -53,12 +53,69 @@
         />
       </div>
     </div>
+
+    <a-modal
+      v-model:open="showExportModal"
+      :title="t('personal.selectExportHostsTitle')"
+      :ok-text="t('common.confirm')"
+      :cancel-text="t('common.cancel')"
+      :ok-button-props="{ disabled: resolvedExportLeafCount === 0 }"
+      centered
+      width="520px"
+      class="export-assets-modal"
+      @ok="handleExportModalOk"
+      @cancel="handleExportModalCancel"
+    >
+      <div class="export-modal-body">
+        <p class="export-modal-tip">{{ t('personal.selectExportHostsDescription') }}</p>
+        <div class="export-modal-toolbar">
+          <a-input
+            v-model:value="exportSearchValue"
+            :placeholder="t('personal.searchHosts')"
+            allow-clear
+            class="export-modal-search"
+          />
+          <a-button
+            size="small"
+            @click="selectAllExportKeys"
+          >
+            {{ t('personal.selectAll') }}
+          </a-button>
+          <a-button
+            size="small"
+            @click="exportCheckedKeys = []"
+          >
+            {{ t('personal.clearSelection') }}
+          </a-button>
+        </div>
+        <div class="export-modal-tree-wrap">
+          <a-tree
+            v-if="filteredExportTree.length > 0"
+            v-model:checked-keys="exportCheckedKeys"
+            v-model:expanded-keys="exportExpandedKeys"
+            :tree-data="filteredExportTree"
+            :field-names="{ children: 'children', title: 'title', key: 'key' }"
+            checkable
+            block-node
+          />
+          <div
+            v-else
+            class="export-modal-empty"
+          >
+            {{ t('personal.selectExportHostsEmpty') }}
+          </div>
+        </div>
+        <div class="export-modal-count">
+          {{ t('personal.selectedCount', { count: resolvedExportLeafCount }) }}
+        </div>
+      </div>
+    </a-modal>
   </div>
 </template>
 
 <script setup lang="ts">
 import { Modal, message, notification } from 'ant-design-vue'
-import { ref, onMounted, onBeforeUnmount, reactive, watch, h } from 'vue'
+import { ref, onMounted, onBeforeUnmount, reactive, watch, computed, h } from 'vue'
 import AssetSearch from '../components/AssetSearch.vue'
 import AssetList from '../components/AssetList.vue'
 import AssetForm from '../components/AssetForm.vue'
@@ -69,6 +126,15 @@ import i18n from '@/locales'
 import { handleRefreshOrganizationAssets } from '../components/refreshOrganizationAssets'
 import type { AssetNode, AssetFormData, KeyChainItem, SshProxyConfigItem } from '../utils/types'
 import { isOrganizationAsset } from '../utils/types'
+import {
+  buildExportTree,
+  collectAllGroupKeys,
+  collectAllLeafKeys,
+  countExportableLeaves,
+  filterExportTree,
+  resolveCheckedLeafNodes,
+  toExportPayloads
+} from '../utils/exportAssets'
 
 const logger = createRendererLogger('config.asset')
 
@@ -481,58 +547,90 @@ const handleImportAssets = async (assets: any[]) => {
   }
 }
 
-const handleExportAssets = () => {
+// Export dialog state
+const showExportModal = ref<boolean>(false)
+const exportCheckedKeys = ref<string[]>([])
+const exportExpandedKeys = ref<string[]>([])
+const exportSearchValue = ref<string>('')
+
+// Rebuild the asset tree with guaranteed-unique keys for export use.
+// Backend can produce duplicate keys (e.g. same IP across groups), which causes
+// a-tree to treat them as one node — checking one ticks all siblings.
+const exportTreeSource = computed<AssetNode[]>(() => buildExportTree(assetGroups.value))
+
+// Filter tree by search value; mirrors AssetList.vue filterNodes pattern.
+const filteredExportTree = computed<AssetNode[]>(() => filterExportTree(exportTreeSource.value, exportSearchValue.value))
+
+const resolvedExportLeafCount = computed<number>(() => {
+  return resolveCheckedLeafNodes(exportTreeSource.value, new Set(exportCheckedKeys.value)).length
+})
+
+const selectAllExportKeys = () => {
+  exportCheckedKeys.value = collectAllLeafKeys(exportTreeSource.value)
+}
+
+type ExportResult = 'success' | 'cancelled' | 'empty' | 'error'
+
+const exportAssetsByKeys = async (checkedKeys: string[]): Promise<ExportResult> => {
+  const leaves = resolveCheckedLeafNodes(exportTreeSource.value, new Set(checkedKeys))
+  if (leaves.length === 0) {
+    message.warning(t('personal.exportNoData'))
+    return 'empty'
+  }
+
   try {
-    const allAssets: any[] = []
-
-    const extractAssets = (nodes: AssetNode[]) => {
-      nodes.forEach((node) => {
-        if (node.children && node.children.length > 0) {
-          extractAssets(node.children)
-        } else {
-          if (node.ip && node.username) {
-            allAssets.push({
-              username: node.username,
-              password: node.password || '',
-              ip: node.ip,
-              label: node.label || node.title,
-              group_name: node.group_name,
-              auth_type: node.auth_type || 'password',
-              keyChain: node.key_chain_id,
-              port: node.port || 22,
-              asset_type: node.asset_type || 'person',
-              needProxy: node.needProxy || false,
-              proxyName: node.proxyName || ''
-            })
-          }
-        }
-      })
-    }
-
-    extractAssets(assetGroups.value)
-
-    if (allAssets.length === 0) {
-      message.warning(t('personal.exportNoData'))
-      return
-    }
-
+    const allAssets = toExportPayloads(leaves)
     const dataStr = JSON.stringify(allAssets, null, 2)
-    const dataBlob = new Blob([dataStr], { type: 'application/json' })
-    const url = URL.createObjectURL(dataBlob)
+    const fileName = `chaterm-assets-${new Date().toISOString().split('T')[0]}.json`
 
-    const link = document.createElement('a')
-    link.href = url
-    link.download = `chaterm-assets-${new Date().toISOString().split('T')[0]}.json`
-    document.body.appendChild(link)
-    link.click()
-    document.body.removeChild(link)
-    URL.revokeObjectURL(url)
+    const filePath = await (window as any).api.openSaveDialog({ fileName })
+    if (!filePath) {
+      return 'cancelled'
+    }
 
+    await (window as any).api.writeLocalFile(filePath, dataStr)
     message.success(t('personal.exportSuccess', { count: allAssets.length }))
+    return 'success'
   } catch (error) {
     logger.error('Export assets error', { error: error })
     message.error(t('personal.exportError'))
+    return 'error'
   }
+}
+
+// Auto-expand matched groups when search value changes so results are visible.
+watch(exportSearchValue, (val) => {
+  if (!showExportModal.value) return
+  if (val.trim()) {
+    exportExpandedKeys.value = collectAllGroupKeys(filteredExportTree.value)
+  } else {
+    exportExpandedKeys.value = collectAllGroupKeys(exportTreeSource.value)
+  }
+})
+
+const handleExportAssets = () => {
+  if (countExportableLeaves(assetGroups.value) === 0) {
+    message.warning(t('personal.exportNoData'))
+    return
+  }
+  exportCheckedKeys.value = []
+  exportSearchValue.value = ''
+  exportExpandedKeys.value = collectAllGroupKeys(exportTreeSource.value)
+  showExportModal.value = true
+}
+
+const handleExportModalOk = async () => {
+  const result = await exportAssetsByKeys(exportCheckedKeys.value)
+  if (result === 'success') {
+    showExportModal.value = false
+  }
+}
+
+const handleExportModalCancel = () => {
+  exportCheckedKeys.value = []
+  exportSearchValue.value = ''
+  exportExpandedKeys.value = []
+  showExportModal.value = false
 }
 
 // Handle file import
@@ -1423,5 +1521,189 @@ watch(isRightSectionVisible, (val) => {
   visibility: hidden;
   overflow: hidden;
   pointer-events: none;
+}
+</style>
+
+<style lang="less">
+.ant-modal-wrap .ant-modal.export-assets-modal {
+  .ant-modal-content,
+  .ant-modal-body,
+  .ant-modal-header,
+  .ant-modal-footer {
+    background-color: var(--bg-color-senary) !important;
+  }
+
+  .ant-modal-title {
+    color: var(--text-color) !important;
+  }
+
+  .ant-modal-close {
+    color: var(--text-color-secondary) !important;
+    &:hover {
+      color: var(--text-color) !important;
+    }
+  }
+
+  .export-modal-body {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+
+  .export-modal-tip {
+    margin: 0;
+    color: var(--text-color-secondary) !important;
+    font-size: 12px;
+  }
+
+  .export-modal-toolbar {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+
+    .export-modal-search {
+      flex: 1;
+    }
+
+    .ant-input-affix-wrapper,
+    .ant-input {
+      background-color: var(--bg-color-quinary) !important;
+      border-color: var(--border-color) !important;
+      color: var(--text-color) !important;
+
+      &::placeholder {
+        color: var(--text-color-tertiary) !important;
+      }
+
+      &:hover {
+        border-color: var(--text-color-secondary) !important;
+      }
+
+      &:focus,
+      &.ant-input-focused {
+        border-color: #1890ff !important;
+        box-shadow: 0 0 0 2px rgba(24, 144, 255, 0.2) !important;
+      }
+    }
+
+    .ant-input-affix-wrapper .ant-input {
+      background-color: transparent !important;
+      border: none !important;
+      box-shadow: none !important;
+    }
+
+    .ant-btn {
+      background-color: var(--bg-color-quinary) !important;
+      border-color: var(--border-color) !important;
+      color: var(--text-color) !important;
+
+      &:hover {
+        color: #1890ff !important;
+        border-color: #1890ff !important;
+      }
+    }
+  }
+
+  .export-modal-tree-wrap {
+    max-height: 320px;
+    overflow: auto;
+    border: 1px solid var(--border-color) !important;
+    border-radius: 4px;
+    padding: 6px 8px;
+    background-color: var(--bg-color-senary) !important;
+  }
+
+  .ant-tree {
+    background-color: transparent !important;
+    color: var(--text-color) !important;
+
+    .ant-tree-treenode {
+      padding: 2px 0;
+    }
+
+    .ant-tree-node-content-wrapper {
+      color: var(--text-color) !important;
+      background-color: transparent !important;
+      transition: background-color 0.15s ease;
+
+      &:hover {
+        background-color: rgba(255, 255, 255, 0.06) !important;
+      }
+
+      &.ant-tree-node-selected {
+        background-color: rgba(24, 144, 255, 0.18) !important;
+        color: var(--text-color) !important;
+      }
+    }
+
+    .ant-tree-switcher {
+      color: var(--text-color-secondary) !important;
+    }
+
+    .ant-tree-checkbox-inner {
+      background-color: var(--bg-color-quinary) !important;
+      border-color: var(--border-color) !important;
+    }
+
+    .ant-tree-checkbox-checked .ant-tree-checkbox-inner,
+    .ant-tree-checkbox-indeterminate .ant-tree-checkbox-inner {
+      background-color: #1890ff !important;
+      border-color: #1890ff !important;
+    }
+
+    .ant-tree-checkbox-disabled .ant-tree-checkbox-inner {
+      background-color: var(--bg-color-secondary) !important;
+      border-color: var(--border-color) !important;
+    }
+
+    .ant-tree-title {
+      color: var(--text-color) !important;
+    }
+  }
+
+  .export-modal-empty {
+    padding: 24px 0;
+    text-align: center;
+    color: var(--text-color-secondary) !important;
+    font-size: 13px;
+  }
+
+  .export-modal-count {
+    text-align: right;
+    font-size: 12px;
+    color: var(--text-color-secondary) !important;
+  }
+
+  .ant-modal-footer {
+    border-top: 1px solid var(--border-color) !important;
+    .ant-btn {
+      background-color: var(--bg-color-quinary) !important;
+      border-color: var(--border-color) !important;
+      color: var(--text-color) !important;
+
+      &:hover:not([disabled]) {
+        color: #1890ff !important;
+        border-color: #1890ff !important;
+      }
+
+      &[disabled] {
+        color: var(--text-color-tertiary) !important;
+        background-color: var(--bg-color-secondary) !important;
+        border-color: var(--border-color) !important;
+      }
+    }
+
+    .ant-btn-primary:not([disabled]) {
+      background-color: #1890ff !important;
+      border-color: #1890ff !important;
+      color: #fff !important;
+
+      &:hover {
+        background-color: #40a9ff !important;
+        border-color: #40a9ff !important;
+        color: #fff !important;
+      }
+    }
+  }
 }
 </style>

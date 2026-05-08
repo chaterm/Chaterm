@@ -315,7 +315,34 @@ describe('Controller', () => {
     } as WebviewMessage)
 
     expect(clearTodosSpy).toHaveBeenCalledWith('new_user_input')
-    expect(handleResponseSpy).toHaveBeenCalledWith('messageResponse', 'response text', undefined, undefined)
+    expect(handleResponseSpy).toHaveBeenCalledWith('messageResponse', 'response text', undefined, undefined, undefined)
+  })
+
+  it('handleWebviewMessage(askResponse) should forward command tool result to task', async () => {
+    const controller = new Controller(
+      async () => true,
+      async () => '/tmp/mcp_settings.json'
+    )
+
+    await controller.initTask([createMockHost('1')], 'task 1', 'task-1')
+
+    const task = controller.getAllTasks().find((t) => t.taskId === 'task-1')
+    expect(task).toBeDefined()
+
+    const handleResponseSpy = vi.spyOn(task!, 'handleWebviewAskResponse')
+    const toolResult = {
+      output: 'ProductName:\t\tmacOS\nProductVersion:\t\t14.6.1',
+      toolName: 'execute_command'
+    }
+
+    await controller.handleWebviewMessage({
+      type: 'askResponse',
+      taskId: 'task-1',
+      askResponse: 'yesButtonClicked',
+      toolResult
+    } as WebviewMessage)
+
+    expect(handleResponseSpy).toHaveBeenCalledWith('yesButtonClicked', undefined, undefined, undefined, toolResult)
   })
 
   it('reloadSecurityConfigForAllTasks should reload config for all tasks', async () => {
