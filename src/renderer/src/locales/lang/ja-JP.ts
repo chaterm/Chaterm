@@ -991,6 +991,8 @@ export default {
     sendContentEmpty: 'コンテンツが空です、コンテンツを入力してください',
     getAssetInfoFailed: '現在の資産接続情報の取得に失敗しました',
     pleaseConnectAsset: '資産接続を先に確立してください',
+    dbContextRequired: 'まずデータベース接続を選択してください',
+    dbContextMissingField: 'まず{field}を選択してください',
     operationFailed: '操作に失敗しました',
     noOperableMessage: '操作可能なメッセージがありません',
     commandCopied: 'コマンドをコピー',

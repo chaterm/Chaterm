@@ -981,6 +981,8 @@ export default {
     sendContentEmpty: '发送内容为空，请输入内容',
     getAssetInfoFailed: '获取当前资产连接信息失败',
     pleaseConnectAsset: '请先建立资产连接',
+    dbContextRequired: '请先选择数据库连接',
+    dbContextMissingField: '请先选择{field}',
     operationFailed: '操作失败',
     noOperableMessage: '没有可操作的消息',
     commandCopied: '命令已复制',

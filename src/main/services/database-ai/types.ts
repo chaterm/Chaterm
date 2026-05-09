@@ -163,6 +163,12 @@ export interface DbAiActiveSession {
    * flow — tools use `opts.refresh` on individual calls instead.
    */
   invalidateMetadataCache(): void
+  /**
+   * True once the session has been closed (normal close or timeout-triggered
+   * force-close). Callers MUST check this before reusing a cached session
+   * reference; if true they should discard the reference and open a new session.
+   */
+  isClosed: boolean
   close(): Promise<void>
 }
 

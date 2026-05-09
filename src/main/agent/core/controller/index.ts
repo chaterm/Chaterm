@@ -210,6 +210,27 @@ export class Controller {
       resolvedDbContext = resolvedWorkspace === 'database' && hasValidDbContext(dbContext) ? dbContext : undefined
     }
 
+    // Guard: a database-workspace new task must carry a valid dbContext.
+    // The renderer already validates this before sending; this check is a
+    // server-side safety net to prevent half-created DB sessions.
+    if (task && taskId && resolvedWorkspace === 'database' && !resolvedDbContext) {
+      logger.warn('Rejected database-workspace task creation: missing or invalid dbContext', {
+        event: 'agent.task.db_context_missing',
+        taskId
+      })
+      await this.postMessageToWebview(
+        {
+          type: 'notification',
+          notification: {
+            type: 'error',
+            description: 'Database workspace requires a valid database connection context.'
+          }
+        },
+        taskId
+      )
+      return
+    }
+
     // Ensure metadata row exists before Task constructor runs,
     // so touchTaskUpdatedAt cannot insert a title-less row first.
     if (task && taskId) {

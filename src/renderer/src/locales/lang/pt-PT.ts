@@ -999,6 +999,8 @@ export default {
     sendContentEmpty: 'O conteúdo a ser enviado está vazio, por favor, insira o conteúdo',
     getAssetInfoFailed: 'Falha ao obter informações de conexão do ativo atual',
     pleaseConnectAsset: 'Por favor, estabeleça a conexão do ativo primeiro',
+    dbContextRequired: 'Por favor, selecione uma conexão de banco de dados primeiro',
+    dbContextMissingField: 'Por favor, selecione {field} primeiro',
     operationFailed: 'Operação falhou',
     noOperableMessage: 'Nenhum mensagem operável',
     commandCopied: 'Comando copiado',

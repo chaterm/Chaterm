@@ -980,6 +980,8 @@ export default {
     sendContentEmpty: '發送內容為空，請輸入內容',
     getAssetInfoFailed: '獲取當前資產連接信息失敗',
     pleaseConnectAsset: '請先建立資產連接',
+    dbContextRequired: '請先選擇資料庫連線',
+    dbContextMissingField: '請先選擇{field}',
     operationFailed: '操作失敗',
     noOperableMessage: '沒有可操作的消息',
     commandCopied: '命令已複製',

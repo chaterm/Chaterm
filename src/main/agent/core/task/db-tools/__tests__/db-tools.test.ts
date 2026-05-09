@@ -81,6 +81,7 @@ function makeSession(overrides: MockOverrides = {}): DbAiActiveSession {
     invalidateMetadataCache() {
       /* mock: no-op */
     },
+    isClosed: false,
     async close() {
       /* mock: no-op */
     }

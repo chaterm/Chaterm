@@ -113,6 +113,13 @@ export class PostgresDriverAdapter implements DatabaseDriverAdapter {
     await client.end()
   }
 
+  async forceClose(handle: unknown): Promise<void> {
+    // node-postgres has no destroy() equivalent; end() is the closest option.
+    // The OS will reclaim the socket once end() resolves or when the process
+    // exits, which terminates the server-side query via connection reset.
+    await this.disconnect(handle)
+  }
+
   async listDatabases(handle: unknown): Promise<string[]> {
     const client = handle as PgClient
     try {

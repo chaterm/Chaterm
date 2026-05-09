@@ -998,6 +998,8 @@ export default {
     sendContentEmpty: 'Send content is empty, please enter content',
     getAssetInfoFailed: 'Failed to get current asset connection information',
     pleaseConnectAsset: 'Please establish asset connection first',
+    dbContextRequired: 'Please select a database connection first',
+    dbContextMissingField: 'Please select {field} first',
     operationFailed: 'Operation Failed',
     noOperableMessage: 'No operable message',
     commandCopied: 'Command Copied',

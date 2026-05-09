@@ -494,7 +494,8 @@ const context = useContext({
     restoreSelection()
   },
   mode: props.mode,
-  hosts: hosts
+  hosts: hosts,
+  workspace: props.workspace
 })
 provide(contextInjectionKey, context)
 

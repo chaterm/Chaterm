@@ -999,6 +999,8 @@ export default {
     sendContentEmpty: 'Содержимое пусто, пожалуйста, введите содержимое',
     getAssetInfoFailed: 'Не удалось получить информацию о текущем активном соединении',
     pleaseConnectAsset: 'Пожалуйста, сначала установите соединение с активом',
+    dbContextRequired: 'Пожалуйста, сначала выберите подключение к базе данных',
+    dbContextMissingField: 'Пожалуйста, сначала выберите {field}',
     operationFailed: 'Операция не удалась',
     noOperableMessage: 'Нет операбельного сообщения',
     commandCopied: 'Команда скопирована',

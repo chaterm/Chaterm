@@ -136,6 +136,19 @@ export function useChatMessages(
       .join('')
   }
 
+  /**
+   * Validate the DB context for a new database-workspace task.
+   * Returns null when valid, or an i18n key + optional params when invalid.
+   * Only applies when workspace === 'database'; always returns null otherwise.
+   */
+  const validateDbContextForNewTask = (): { key: string; params?: Record<string, string> } | null => {
+    if (workspace !== 'database') return null
+    const ctx = resolveDbContext?.()
+    if (!ctx || !ctx.assetId || !ctx.dbType) return { key: 'ai.dbContextRequired' }
+    if (!ctx.databaseName) return { key: 'ai.dbContextMissingField', params: { field: t('common.database') } }
+    return null
+  }
+
   const sendMessageToMain = async (
     userContent: string,
     sendType: string,
@@ -144,7 +157,7 @@ export function useChatMessages(
     contentParts?: ContentPart[],
     overrideHosts?: Host[],
     toolResult?: ToolResultPayload
-  ) => {
+  ): Promise<'BLOCKED' | undefined> => {
     try {
       const targetTab = tabId ? chatTabs.value.find((tab) => tab.id === tabId) : currentTab.value
 
@@ -165,6 +178,17 @@ export function useChatMessages(
 
       let message: WebviewMessage
       if (session.chatHistory.length === 0) {
+        // Guard: reject DB workspace new-task messages that lack a valid
+        // dbContext. This covers all callers of sendMessageWithContent
+        // (edit-resend, event-bus, summary, etc.) not just the primary
+        // sendMessage path, which has its own early-return check.
+        const dbValidation = validateDbContextForNewTask()
+        if (dbValidation) {
+          logger.warn('blocked newTask: invalid db context for database workspace', {
+            event: 'chat.newTask.db_context_invalid'
+          })
+          return 'BLOCKED'
+        }
         message = {
           type: 'newTask',
           askResponse: 'messageResponse',
@@ -224,8 +248,10 @@ export function useChatMessages(
       logger.debug('Send message to main process', { data: messageWithTabId })
       await window.api.sendToMain(messageWithTabId)
       // console.log('Main process response:', response)
+      return undefined
     } catch (error) {
       logger.error('Failed to send message to main process', { error: error })
+      return undefined
     }
   }
 
@@ -266,6 +292,18 @@ export function useChatMessages(
     }
 
     if (!userContent && !hasChips) return
+
+    // Validate database context before creating a DB workspace task.
+    const dbValidationError = validateDbContextForNewTask()
+    if (dbValidationError) {
+      const desc = dbValidationError.params ? t(dbValidationError.key, dbValidationError.params as Record<string, unknown>) : t(dbValidationError.key)
+      notification.error({
+        message: t('ai.sendContentError'),
+        description: desc,
+        duration: 4
+      })
+      return 'SEND_ERROR'
+    }
 
     if (chatTypeValue.value === 'agent' && hosts.value.some((host) => isSwitchAssetType(host.assetType))) {
       chatTypeValue.value = 'cmd'
@@ -317,7 +355,10 @@ export function useChatMessages(
     session.isCancelled = false
     // Strip Vue proxies before IPC to avoid structured clone failures.
     contentParts = contentParts ? contentParts.map((part) => (isProxy(part) ? (toRaw(part) as ContentPart) : part)) : undefined
-    await sendMessageToMain(userContent, sendType, tabId, truncateAtMessageTs, contentParts, overrideHosts, toolResult)
+    const sendResult = await sendMessageToMain(userContent, sendType, tabId, truncateAtMessageTs, contentParts, overrideHosts, toolResult)
+    if (sendResult === 'BLOCKED') {
+      return
+    }
 
     const userMessage: ChatMessage = {
       id: uuidv4(),

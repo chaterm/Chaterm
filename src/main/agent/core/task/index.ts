@@ -472,6 +472,17 @@ export class Task {
     const selectedChats = pastChats.slice(0, MAX_PAST_CHATS).sort((a, b) => a.taskId.localeCompare(b.taskId))
     for (const c of selectedChats) {
       try {
+        const meta = await getTaskMetadata(c.taskId)
+        const refWorkspace = normaliseWorkspace(meta.workspace)
+        if (refWorkspace !== this.workspace) {
+          logger.warn('Rejected past-chat reference across workspace boundary', {
+            event: 'agent.context.workspace_mismatch',
+            refTaskId: c.taskId,
+            refWorkspace,
+            currentWorkspace: this.workspace
+          })
+          continue
+        }
         const history = await getSavedApiConversationHistory(c.taskId)
         const text = this.formatPastChatHistory(history, MAX_PAST_CHAT_CHARS)
         chatLines.push(`- PAST_CHAT: ${c.taskId}${c.title ? ` (${c.title})` : ''}`)
@@ -5228,7 +5239,10 @@ USERNAME:${localSystemInfo.userName}`
     if (this.workspace !== 'database' || !this.dbContext) {
       throw new Error('db-tool called outside database workspace')
     }
-    if (this.dbAiSession) return this.dbAiSession
+    if (this.dbAiSession && !this.dbAiSession.isClosed) return this.dbAiSession
+    if (this.dbAiSession?.isClosed) {
+      this.dbAiSession = undefined
+    }
     const session = await openDbAiSession({
       assetId: this.dbContext.assetId,
       owner: { type: 'task', taskId: this.taskId },
@@ -5300,6 +5314,12 @@ USERNAME:${localSystemInfo.userName}`
         workspace: this.workspace,
         errorCode: err?.code
       })
+      // On timeout the session's connection has already been closed by the
+      // onTimeout callback. Clear the cached session reference so the next
+      // tool call opens a fresh connection rather than reusing the dead handle.
+      if (err?.code === 'E_QUERY_TIMEOUT') {
+        this.dbAiSession = undefined
+      }
       await this.pushToolResult(toolDescription, this.responseFormatter.toolError(`E_UNEXPECTED: ${err?.code ?? 'driver error'}`))
     }
   }
@@ -5362,6 +5382,9 @@ USERNAME:${localSystemInfo.userName}`
         workspace: this.workspace,
         errorCode: err?.code
       })
+      if (err?.code === 'E_QUERY_TIMEOUT') {
+        this.dbAiSession = undefined
+      }
       await this.pushToolResult(toolDescription, this.responseFormatter.toolError(`E_UNEXPECTED: ${err?.code ?? 'driver error'}`))
     }
   }

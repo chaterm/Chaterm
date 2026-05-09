@@ -986,6 +986,8 @@ export default {
     sendContentEmpty: '콘텐츠가 비어있습니다, 콘텐츠를 입력해주세요',
     getAssetInfoFailed: '자산 정보 가져오기 실패',
     pleaseConnectAsset: '자산 연결을 먼저 설정해주세요',
+    dbContextRequired: '먼저 데이터베이스 연결을 선택해주세요',
+    dbContextMissingField: '먼저 {field}을(를) 선택해주세요',
     operationFailed: '작업 실패',
     noOperableMessage: '실행 가능한 메시지 없음',
     commandCopied: '명령 복사',

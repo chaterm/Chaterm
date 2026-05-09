@@ -142,15 +142,38 @@ describe('useChatMessages — workspace stamping', () => {
   })
 
   describe("workspace='database'", () => {
-    it('stamps workspace=database on newTask even when dbContext is undefined', async () => {
+    it('blocks newTask when dbContext is undefined (no getter provided)', async () => {
       setupEmptyTab()
       const { sendMessageWithContent } = makeInstance({ workspace: 'database' })
 
       await sendMessageWithContent('run explain for orders', 'chatSend')
 
-      const payload = mockSendToMain.mock.calls[0][0]
-      expect(payload.workspace).toBe('database')
-      expect(payload).not.toHaveProperty('dbContext')
+      // sendMessageToMain must NOT have forwarded the payload to the IPC bridge.
+      expect(mockSendToMain).not.toHaveBeenCalled()
+    })
+
+    it('blocks newTask when dbContext getter returns null', async () => {
+      setupEmptyTab()
+      const { sendMessageWithContent } = makeInstance({
+        workspace: 'database',
+        dbContext: () => null
+      })
+
+      await sendMessageWithContent('ask', 'chatSend')
+
+      expect(mockSendToMain).not.toHaveBeenCalled()
+    })
+
+    it('blocks newTask when dbContext is missing databaseName', async () => {
+      setupEmptyTab()
+      const { sendMessageWithContent } = makeInstance({
+        workspace: 'database',
+        dbContext: () => ({ assetId: 'asset-1', dbType: 'mysql' as const })
+      })
+
+      await sendMessageWithContent('query', 'chatSend')
+
+      expect(mockSendToMain).not.toHaveBeenCalled()
     })
 
     it('stamps both workspace and dbContext when provided', async () => {
@@ -175,16 +198,17 @@ describe('useChatMessages — workspace stamping', () => {
         schemaName: 'public',
         assetName: 'pg-prod'
       })
-      // dbContext getter is called at send-time, not at instance creation,
-      // so it reflects the currently-focused Database tab.
-      expect(dbContext).toHaveBeenCalledTimes(1)
+      // dbContext getter is called at send-time: once for validation, once to
+      // stamp the payload. Both calls reflect the currently-focused Database tab.
+      expect(dbContext).toHaveBeenCalledTimes(2)
     })
 
     it('re-reads dbContext on each send (no stale closure)', async () => {
       setupEmptyTab()
       let current = {
         assetId: 'asset-1',
-        dbType: 'mysql' as const
+        dbType: 'mysql' as const,
+        databaseName: 'shop'
       }
       const { sendMessageWithContent } = makeInstance({
         workspace: 'database',
@@ -195,22 +219,9 @@ describe('useChatMessages — workspace stamping', () => {
       expect(mockSendToMain.mock.calls[0][0].dbContext.assetId).toBe('asset-1')
 
       // Simulate the user switching to a different DB tab between sends.
-      current = { assetId: 'asset-2', dbType: 'mysql' as const }
+      current = { assetId: 'asset-2', dbType: 'mysql' as const, databaseName: 'analytics' }
       await sendMessageWithContent('second question', 'chatSend')
       expect(mockSendToMain.mock.calls[1][0].dbContext.assetId).toBe('asset-2')
-    })
-
-    it('omits dbContext field when the getter returns null', async () => {
-      setupEmptyTab()
-      const { sendMessageWithContent } = makeInstance({
-        workspace: 'database',
-        dbContext: () => null
-      })
-
-      await sendMessageWithContent('ask', 'chatSend')
-      const payload = mockSendToMain.mock.calls[0][0]
-      expect(payload.workspace).toBe('database')
-      expect(payload).not.toHaveProperty('dbContext')
     })
   })
 })

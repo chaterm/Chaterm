@@ -1007,6 +1007,8 @@ export default {
     sendContentEmpty: 'Le contenu à envoyer est vide, veuillez entrer du contenu',
     getAssetInfoFailed: "Échec de la récupération des informations de connexion de l'actif actuel",
     pleaseConnectAsset: "Veuillez établir d'abord la connexion de l'actif",
+    dbContextRequired: 'Veuillez sélectionner une connexion à la base de données',
+    dbContextMissingField: 'Veuillez sélectionner {field}',
     operationFailed: 'Opération échouée',
     noOperableMessage: 'Aucun message opérable',
     commandCopied: 'Commande copiée',

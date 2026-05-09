@@ -48,17 +48,22 @@ function clampTimeoutMs(timeoutMs: number | undefined): number {
 /**
  * Run a promise with a client-side deadline. The returned promise rejects
  * with `E_QUERY_TIMEOUT` if the deadline fires first. The upstream promise
- * is NOT cancelled — MVP drivers do not surface a cancel API — so the
- * session layer simply stops waiting and lets the driver complete in the
- * background. Phase 4 streaming work will tighten this by forwarding an
- * `AbortSignal`.
+ * is NOT cancelled by Promise.race itself — but the optional `onTimeout`
+ * callback is invoked before the rejection so callers can close the underlying
+ * connection. Any exception thrown by `onTimeout` is swallowed to guarantee
+ * that `reject(err)` always fires.
  */
-function raceWithTimeout<T>(promise: Promise<T>, timeoutMs: number): Promise<T> {
+function raceWithTimeout<T>(promise: Promise<T>, timeoutMs: number, onTimeout?: () => void): Promise<T> {
   let timer: NodeJS.Timeout | undefined
   const timeout = new Promise<never>((_, reject) => {
     timer = setTimeout(() => {
       const err = new Error('query timeout') as Error & { code?: string }
       err.code = 'E_QUERY_TIMEOUT'
+      try {
+        onTimeout?.()
+      } catch {
+        // Swallow so reject(err) always fires even if cleanup throws.
+      }
       reject(err)
     }, timeoutMs)
   })
@@ -91,6 +96,7 @@ interface SessionEntry {
   handle: unknown
   owner: DbAiSessionOwner
   cache: DbAiMetadataCache
+  session: DbAiActiveSession
 }
 const OPEN_SESSIONS = new Map<string, SessionEntry>()
 
@@ -149,13 +155,14 @@ function buildSession(input: {
   cache: DbAiMetadataCache
 }): DbAiActiveSession {
   const { assetId, sessionId, dbType, adapter, handle, databaseName, schemaName, cache } = input
-  return {
+  const session: DbAiActiveSession = {
     assetId,
     sessionId,
     dbType,
     handle,
     databaseName,
     schemaName,
+    isClosed: false,
 
     async listDatabases(opts?: MetadataFetchOptions): Promise<string[]> {
       if (!adapter.listDatabases) return []
@@ -233,16 +240,26 @@ function buildSession(input: {
       const timeoutMs = clampTimeoutMs(opts?.timeoutMs)
       const params = opts?.params ?? []
       const startedAt = Date.now()
-      // MVP does not have driver-level streaming (see
-      // docs/db-ai-driver-streaming-investigation.md). We therefore apply:
-      //   - A client-side Promise.race deadline so the session layer stops
-      //     waiting, freeing the tool caller even if the driver keeps running
-      //     in the background. This is best-effort: it bounds the tool, not
-      //     the driver.
-      //   - An application-level `rows.slice(0, maxRows)` truncation as the
-      //     last line of defence. Driver-layer streaming (Phase 4) will
-      //     eventually enforce the cap at the network level.
-      const result = await raceWithTimeout<QueryResult>(adapter.executeQuery!(handle, sql, params), timeoutMs)
+      // Client-side deadline: when the timer fires we close the independent
+      // DB-AI connection. For MySQL this calls destroy() which abruptly tears
+      // down the socket; for Postgres this calls end(). Either path terminates
+      // the server-side query sooner than leaving the connection open. The
+      // session is removed from OPEN_SESSIONS so subsequent tool calls on this
+      // task get a fresh connection rather than queuing on the dead handle.
+      const onTimeout = () => {
+        logger.warn('query timeout: closing db-ai connection to terminate server-side query', {
+          event: 'db-ai.session.query_timeout_close',
+          sessionId,
+          timeoutMs
+        })
+        session.isClosed = true
+        OPEN_SESSIONS.delete(sessionId)
+        const closeMethod = adapter.forceClose ?? adapter.disconnect
+        void Promise.resolve(closeMethod.call(adapter, handle)).catch(() => {
+          // Best-effort: ignore close errors during timeout cleanup.
+        })
+      }
+      const result = await raceWithTimeout<QueryResult>(adapter.executeQuery!(handle, sql, params), timeoutMs, onTimeout)
       const allRows = result.rows
       const truncated = allRows.length > maxRows
       const rows = truncated ? allRows.slice(0, maxRows) : allRows
@@ -264,6 +281,7 @@ function buildSession(input: {
       // Close the driver handle, drop the metadata cache, and remove the
       // registry entry. Errors are swallowed after logging to keep the
       // session-close path best-effort.
+      session.isClosed = true
       try {
         await adapter.disconnect(handle)
       } catch (error) {
@@ -279,6 +297,7 @@ function buildSession(input: {
       }
     }
   }
+  return session
 }
 
 /**
@@ -313,6 +332,16 @@ export async function openDbAiSession(input: {
   const handle = await adapter.connect(credential)
   const sessionId = randomUUID()
   const cache = new DbAiMetadataCache(input.schemaCacheTtlMs ?? TTL_DEFAULT_MS)
+  const session = buildSession({
+    assetId: input.assetId,
+    sessionId,
+    dbType,
+    adapter,
+    handle,
+    databaseName: input.databaseName,
+    schemaName: input.schemaName,
+    cache
+  })
   const entry: SessionEntry = {
     assetId: input.assetId,
     sessionId,
@@ -320,7 +349,8 @@ export async function openDbAiSession(input: {
     adapter,
     handle,
     owner: input.owner,
-    cache
+    cache,
+    session
   }
   OPEN_SESSIONS.set(sessionId, entry)
   logger.info('db-ai session opened', {
@@ -331,16 +361,7 @@ export async function openDbAiSession(input: {
     hasDatabaseName: Boolean(input.databaseName),
     hasSchemaName: Boolean(input.schemaName)
   })
-  return buildSession({
-    assetId: input.assetId,
-    sessionId,
-    dbType,
-    adapter,
-    handle,
-    databaseName: input.databaseName,
-    schemaName: input.schemaName,
-    cache
-  })
+  return session
 }
 
 /**
@@ -361,6 +382,7 @@ export async function closeSessionsOwnedBy(owner: DbAiSessionOwner): Promise<voi
   }
   for (const v of victims) {
     try {
+      v.session.isClosed = true
       await v.adapter.disconnect(v.handle)
     } catch (error) {
       const err = error as { code?: string; message?: string }

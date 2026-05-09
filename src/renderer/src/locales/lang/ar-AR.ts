@@ -973,6 +973,8 @@ export default {
     sendContentEmpty: 'محتوى الإرسال فارغ, الرجاء إدخال محتوى',
     getAssetInfoFailed: 'فشل الحصول على معلومات اتصال الأصل الحالي',
     pleaseConnectAsset: 'الرجاء تحديد اتصال الأصل أولا',
+    dbContextRequired: 'الرجاء تحديد اتصال قاعدة البيانات أولاً',
+    dbContextMissingField: 'الرجاء تحديد {field} أولاً',
     operationFailed: 'فشل العملية',
     noOperableMessage: 'لا يوجد رسالة قابلة للتنفيذ',
     commandCopied: 'أمر منسوخ',

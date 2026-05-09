@@ -1003,6 +1003,8 @@ export default {
     sendContentEmpty: 'Inhalt ist leer, bitte geben Sie Inhalt ein',
     getAssetInfoFailed: 'Fehler beim Abrufen der aktuellen Asset-Verbindungsinformationen',
     pleaseConnectAsset: 'Bitte stellen Sie zuerst eine Asset-Verbindung her',
+    dbContextRequired: 'Bitte wählen Sie zuerst eine Datenbankverbindung aus',
+    dbContextMissingField: 'Bitte wählen Sie zuerst {field} aus',
     operationFailed: 'Operation fehlgeschlagen',
     noOperableMessage: 'Keine operable Nachricht',
     commandCopied: 'Befehl kopiert',
