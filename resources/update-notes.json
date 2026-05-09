@@ -2,6 +2,22 @@
   "releaseNotesUrl": "https://github.com/chaterm/Chaterm/releases/tag/v",
   "versions": [
     {
+      "version": "0.10.4",
+      "date": "2026-05-09",
+      "highlights": {
+        "zh-CN": [
+          "自定义背景图：优化本地资源转换与加载流程，提升自定义背景显示稳定性",
+          "界面适配：优化文件区、工作区与扩展视图中的主机名文本响应式布局，长名称场景下显示更稳",
+          "发布安全与完整性：增强发布流程中的签名与校验产物处理，新增 SLSA 签名结果校验，降低发布链路异常风险"
+        ],
+        "en-US": [
+          "Custom backgrounds: improved local resource conversion and loading flow for more reliable custom background rendering",
+          "UI adaptation: refined responsive hostname text layout in Files, Workspace, and Extension views for more stable display with long names",
+          "Release security and integrity: strengthened signature/checksum artifact handling in the release workflow and added SLSA signing result verification to reduce release pipeline risks"
+        ]
+      }
+    },
+    {
       "version": "0.10.3",
       "date": "2026-05-08",
       "highlights": {
