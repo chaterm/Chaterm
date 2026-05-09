@@ -571,8 +571,9 @@ onUnmounted(() => {
 
     // Host name text style - Display in one line, ellipsis displayed when exceeding the limit
     .hostname-text {
-      flex: 1;
+      flex: 0 0 auto;
       min-width: 0;
+      max-width: 100%;
       overflow: hidden;
       text-overflow: ellipsis;
       white-space: nowrap;
@@ -630,11 +631,13 @@ onUnmounted(() => {
     color: var(--text-color-tertiary);
     font-size: 12px;
     opacity: 0.8;
-    max-width: 120px;
+    flex: 0 1 auto;
+    min-width: 0;
+    max-width: none;
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
-    flex-shrink: 0;
+    margin-left: 6px;
   }
 
   .comment-edit-container {

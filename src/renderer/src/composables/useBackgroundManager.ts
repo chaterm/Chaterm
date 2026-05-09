@@ -4,6 +4,7 @@ import { userConfigStore as userConfigService } from '@/services/userConfigStore
 import { applyThemeToDocument } from '@/themes/applyTheme'
 import { resolveThemePreset } from '../../../shared/themes/resolve'
 import { getSystemTheme } from '@/utils/themeUtils'
+import { convertFileLocalResourceSrc } from '@/utils/convertFileLocalResourceSrc'
 import type { ThemeId } from '../../../shared/themes/types'
 
 /**
@@ -35,7 +36,7 @@ export function useBackgroundManager() {
       return new URL(`../assets/backgroup/wall-${index}.jpg`, import.meta.url).href
     }
 
-    return imagePath
+    return convertFileLocalResourceSrc(imagePath)
   }
 
   // Load background config from SQLite into Pinia Store on initialization,

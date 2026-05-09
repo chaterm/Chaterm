@@ -329,8 +329,9 @@ app.whenReady().then(async () => {
   }
 
   protocol.handle('local-resource', (request) => {
-    let filePath = request.url.slice('local-resource://'.length)
-    filePath = decodeURIComponent(filePath)
+    // Strip query string before resolving to a file path (e.g. cache-busting ?t=xxx params)
+    const rawPath = request.url.slice('local-resource://'.length).split('?')[0]
+    let filePath = decodeURIComponent(rawPath)
 
     if (process.platform === 'win32' && /^\/[A-Za-z]:\//.test(filePath)) {
       filePath = filePath.slice(1)

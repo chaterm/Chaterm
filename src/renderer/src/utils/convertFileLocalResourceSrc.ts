@@ -2,6 +2,7 @@
  * Maps file:// URLs to the Electron custom protocol used for <img src> in the renderer.
  * Must preserve an absolute path with a leading slash so the URL is not parsed as
  * local-resource://Users/... (host "Users", wrong pathname).
+ * Query parameters (e.g. cache-busting ?t=xxx) are preserved.
  */
 export function convertFileLocalResourceSrc(path: string | null): string {
   if (!path || path.startsWith('http') || path.startsWith('data:')) {
@@ -18,7 +19,8 @@ export function convertFileLocalResourceSrc(path: string | null): string {
     } catch {
       // Keep encoded pathname if decode fails (e.g. stray % in filenames)
     }
-    return `local-resource://${encodeURI(pathname)}`
+    const base = `local-resource://${encodeURI(pathname)}`
+    return url.search ? `${base}${url.search}` : base
   } catch {
     return ''
   }
