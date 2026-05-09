@@ -307,6 +307,38 @@ jobs:
           chmod +x scripts/sign-release-artifacts.sh
           scripts/sign-release-artifacts.sh
 
+      - name: Verify SLSA subjects output
+        shell: bash
+        env:
+          HASHES: ${{ steps.sign.outputs.hashes }}
+        run: |
+          if [ -z "$HASHES" ]; then
+            echo "::error::sign step produced empty hashes output; SLSA provenance job would fail with exit 27" >&2
+            exit 1
+          fi
+          len=${#HASHES}
+          echo "SLSA subjects output length: $len base64 chars"
+          echo "slsa_subjects_length=$len" >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Stage signatures and checksums for upload
+        shell: bash
+        run: |
+          shopt -s nullglob
+          staged=0
+          for f in signed-release-assets/*.sig \
+                   signed-release-assets/*.pem \
+                   signed-release-assets/*.bundle \
+                   signed-release-assets/SHA256SUMS.txt; do
+            [ -f "$f" ] || continue
+            cp "$f" "release-upload/$(basename "$f")"
+            staged=$((staged + 1))
+          done
+          if [ "$staged" -eq 0 ]; then
+            echo "No signature/checksum files staged for upload" >&2
+            exit 1
+          fi
+          echo "Staged $staged signature/checksum file(s) for release upload"
+
       - name: Ensure draft release exists
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -345,4 +377,6 @@ jobs:
     uses: slsa-framework/slsa-github-generator/.github/workflows/generator_generic_slsa3.yml@f7dd8c54c2067bafc12ca7a55595d5ee9b75204a # v2.1.0
     with:
       base64-subjects: ${{ needs.release.outputs.hashes }}
-      upload-assets: false
+      upload-assets: true
+      upload-tag-name: ${{ github.ref_name }}
+      draft-release: true
