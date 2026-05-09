@@ -99,7 +99,7 @@
                   @click="selectCustomBackground"
                 >
                   <img
-                    :src="customBackgroundImage"
+                    :src="convertFileLocalResourceSrc(customBackgroundImage)"
                     alt="Custom Background"
                   />
                   <div
@@ -327,6 +327,7 @@ import { THEME_PRESETS } from '../../../../../../shared/themes/presets'
 import { applyThemeToDocument } from '@/themes/applyTheme'
 import type { ThemeId } from '../../../../../../shared/themes/types'
 import { useI18n } from 'vue-i18n'
+import { convertFileLocalResourceSrc } from '@/utils/convertFileLocalResourceSrc'
 
 const logger = createRendererLogger('settings.general')
 const api = window.api
