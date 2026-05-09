@@ -384,4 +384,3 @@ jobs:
       upload-assets: true
       upload-tag-name: ${{ github.ref_name }}
       draft-release: true
-      compile-generator: true
