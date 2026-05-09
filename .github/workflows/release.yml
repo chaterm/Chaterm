@@ -307,6 +307,19 @@ jobs:
           chmod +x scripts/sign-release-artifacts.sh
           scripts/sign-release-artifacts.sh
 
+      - name: Verify SLSA subjects output
+        shell: bash
+        env:
+          HASHES: ${{ steps.sign.outputs.hashes }}
+        run: |
+          if [ -z "$HASHES" ]; then
+            echo "::error::sign step produced empty hashes output; SLSA provenance job would fail with exit 27" >&2
+            exit 1
+          fi
+          len=${#HASHES}
+          echo "SLSA subjects output length: $len base64 chars"
+          echo "slsa_subjects_length=$len" >> "$GITHUB_STEP_SUMMARY"
+
       - name: Stage signatures and checksums for upload
         shell: bash
         run: |

@@ -84,15 +84,27 @@ subjects_file="$(mktemp)"
 ) > "$subjects_file"
 
 if [ ! -s "$subjects_file" ]; then
-  echo "Error: failed to generate SLSA subject hashes" >&2
+  echo "Error: failed to generate SLSA subject hashes (no eligible artifacts in $OUTPUT_DIR)" >&2
   exit 1
 fi
 
+subject_count="$(wc -l < "$subjects_file" | tr -d ' ')"
+echo "SLSA subjects ($subject_count):"
+cat "$subjects_file"
+
 base64_subjects="$(base64 < "$subjects_file" | tr -d '\n')"
+
+if [ -z "$base64_subjects" ]; then
+  echo "Error: base64-encoded SLSA subjects are empty" >&2
+  exit 1
+fi
 
 # Expose hashes to GitHub Actions step output.
 if [ -n "${GITHUB_OUTPUT:-}" ]; then
-  echo "hashes=$base64_subjects" >> "$GITHUB_OUTPUT"
+  printf 'hashes=%s\n' "$base64_subjects" >> "$GITHUB_OUTPUT"
+  echo "Wrote hashes output ($subject_count subject(s), ${#base64_subjects} base64 chars)"
+else
+  echo "Warning: GITHUB_OUTPUT not set; skipping hashes export" >&2
 fi
 
 echo "Done. Release assets:"
