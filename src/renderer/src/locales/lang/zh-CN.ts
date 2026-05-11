@@ -1717,6 +1717,7 @@ export default {
     filterAll: '全部',
     sortTooltip: '点击切换排序：升序 / 降序 / 取消',
     filterTooltip: '列筛选',
+    sqlFilterPlaceholder: '输入一个 SQL 表达式来过滤结果 (使用 Ctrl+Space)',
     wherePlaceholder: "手写 WHERE 表达式（会覆盖列筛选），例如：id > 100 AND name LIKE '%abc%'",
     orderByPlaceholder: '手写 ORDER BY 表达式（会覆盖列排序），例如：created_at DESC, id ASC',
     statusResult: '结果',

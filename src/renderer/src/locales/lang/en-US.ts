@@ -1736,6 +1736,7 @@ export default {
     filterAll: 'All',
     sortTooltip: 'Click to cycle sort: asc / desc / none',
     filterTooltip: 'Column filter',
+    sqlFilterPlaceholder: 'Enter a SQL expression to filter results (use Ctrl+Space)',
     wherePlaceholder: "Custom WHERE expression (overrides column filters), e.g. id > 100 AND name LIKE '%abc%'",
     orderByPlaceholder: 'Custom ORDER BY expression (overrides column sort), e.g. created_at DESC, id ASC',
     statusResult: 'Result',

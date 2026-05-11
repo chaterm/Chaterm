@@ -85,6 +85,7 @@
                   @save="handleSaveEdits"
                 />
                 <WhereOrderBar
+                  :table-name="activeTab.tableName"
                   :where-raw="activeTab.whereRaw"
                   :order-by-raw="activeTab.orderByRaw"
                   @apply-where="(v) => store.setTableWhereRaw(activeTab!.id, v)"
