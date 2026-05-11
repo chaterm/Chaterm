@@ -5,6 +5,12 @@ import { nextTick } from 'vue'
 import DatabaseWorkspace from '../index.vue'
 import { useDatabaseWorkspaceStore } from '@/store/databaseWorkspaceStore'
 
+// markdownRenderer imports monaco-editor/esm/vs/editor/editor.all.js which calls
+// document.queryCommandSupported — not available in jsdom. Stub it out entirely.
+vi.mock('@views/components/AiTab/components/format/markdownRenderer.vue', () => ({
+  default: { template: '<div class="markdown-renderer-stub"></div>' }
+}))
+
 // Replace the real Monaco-backed SQL editor with a textarea stub so we don't
 // have to boot Monaco inside jsdom.
 vi.mock('../components/SqlMonacoEditor.vue', async () => {
@@ -72,14 +78,18 @@ vi.mock('@ant-design/icons-vue', () => {
 })
 
 // vue-i18n: just return the key to keep assertions deterministic.
-vi.mock('vue-i18n', () => ({
-  useI18n: () => ({
-    t: (key: string, args?: Record<string, unknown>) => {
-      if (args && args.count !== undefined) return `${key}:${args.count}`
-      return key
-    }
-  })
-}))
+vi.mock('vue-i18n', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('vue-i18n')>()
+  return {
+    ...actual,
+    useI18n: () => ({
+      t: (key: string, args?: Record<string, unknown>) => {
+        if (args && args.count !== undefined) return `${key}:${args.count}`
+        return key
+      }
+    })
+  }
+})
 
 const mountWorkspace = () =>
   mount(DatabaseWorkspace, {
