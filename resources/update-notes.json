@@ -2,6 +2,22 @@
   "releaseNotesUrl": "https://github.com/chaterm/Chaterm/releases/tag/v",
   "versions": [
     {
+      "version": "0.11.0",
+      "date": "2026-05-11",
+      "highlights": {
+        "zh-CN": [
+          "数据库 AI 助手：支持自然语言转 SQL、SQL 解释与优化、SQL 转换与补全等能力，提升数据库问答与分析效率",
+          "数据库工具能力增强：新增 schema/表结构探查、查询执行、索引建议与数据采样，覆盖从诊断到优化的常见流程",
+          "数据库工作区体验升级：引入工作区感知任务与历史过滤、数据库查询结果可视化（含分页），并补齐多语言界面支持"
+        ],
+        "en-US": [
+          "Database AI assistant: added capabilities for natural language to SQL, SQL explanation and optimization, SQL conversion, and completion to improve database analysis workflows",
+          "Database tooling is expanded: added schema/table inspection, query execution, index suggestions, and row sampling to cover common diagnostics-to-optimization scenarios",
+          "Database workspace UX is upgraded: introduced workspace-aware task and history filtering, query result visualization with pagination, and multilingual UI coverage"
+        ]
+      }
+    },
+    {
       "version": "0.10.4",
       "date": "2026-05-09",
       "highlights": {

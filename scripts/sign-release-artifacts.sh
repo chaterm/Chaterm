@@ -27,7 +27,7 @@ find "$SOURCE_DIR" -type f \( \
   -name "latest*.yml" \
 \) -exec cp {} "$OUTPUT_DIR"/ \;
 
-artifact_count="$(find "$OUTPUT_DIR" -maxdepth 1 -type f ! -name "*.sig" ! -name "*.pem" ! -name "*.bundle" ! -name "SHA256SUMS.txt" | wc -l | tr -d ' ')"
+artifact_count="$(find "$OUTPUT_DIR" -maxdepth 1 -type f ! -name "*.sig" ! -name "SHA256SUMS.txt" | wc -l | tr -d ' ')"
 
 if [ "$artifact_count" = "0" ]; then
   echo "Error: no release artifacts found in $SOURCE_DIR" >&2
@@ -41,17 +41,16 @@ for file in "$OUTPUT_DIR"/*; do
   [ -f "$file" ] || continue
 
   case "$file" in
-    *.sig|*.pem|*.bundle|*SHA256SUMS.txt)
+    *.sig|*SHA256SUMS.txt)
       continue
       ;;
   esac
 
   echo "Signing: $file"
 
+  # Keep one detached signature per artifact to reduce release asset noise.
   cosign sign-blob "$file" \
-    --bundle "$file.bundle" \
-    --output-signature "$file.sig" \
-    --output-certificate "$file.pem"
+    --output-signature "$file.sig"
 done
 
 echo "Generating SHA256SUMS.txt"
@@ -65,7 +64,7 @@ echo "Generating SLSA subject hashes"
 # The SLSA generic generator expects base64-encoded lines in the format:
 # <sha256>  <artifact-name>
 #
-# Exclude generated signature/certificate/bundle/checksum files from provenance subjects.
+# Exclude generated signature/checksum files from provenance subjects.
 subjects_file="$(mktemp)"
 
 (
@@ -74,7 +73,7 @@ subjects_file="$(mktemp)"
     [ -f "$artifact" ] || continue
 
     case "$artifact" in
-      *.sig|*.pem|*.bundle|SHA256SUMS.txt)
+      *.sig|SHA256SUMS.txt)
         continue
         ;;
     esac

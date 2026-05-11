@@ -16,6 +16,5 @@ Resolves #(issue_number)
 
 ## Checklist
 
-- [ ] I have read [CONTRIBUTING](https://github.com/chaterm/Chaterm/blob/main/CONTRIBUTING.md) and linked the related issue above if any.
-- [ ] `npm run lint && npm run format && npm run typecheck && npm test` all pass; tests added/updated as needed.
+- [ ] `npm run lint && npm run format && npm run typecheck` all pass; tests added/updated as needed.
 - [ ] If UI or user-visible change: i18n and README updated.

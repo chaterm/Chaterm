@@ -1,0 +1,106 @@
+name: Backfill SLSA Provenance
+
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Release tag to backfill provenance for (for example: v0.10.4)'
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  prepare-subjects:
+    name: Prepare SLSA Subjects
+    runs-on: ubuntu-latest
+    outputs:
+      hashes: ${{ steps.subjects.outputs.hashes }}
+    permissions:
+      contents: write
+    steps:
+      - name: Validate release exists
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TARGET_TAG: ${{ inputs.tag }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          gh release view "$TARGET_TAG" --json tagName --jq .tagName >/dev/null
+          echo "Validated release tag: $TARGET_TAG"
+
+      - name: Download release assets
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TARGET_TAG: ${{ inputs.tag }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p backfill-release-assets
+          gh release download "$TARGET_TAG" --dir backfill-release-assets --clobber
+          echo "Downloaded assets for $TARGET_TAG"
+          ls -la backfill-release-assets
+
+      - name: Compute base64 SLSA subjects
+        id: subjects
+        shell: bash
+        run: |
+          set -euo pipefail
+          subjects_file="$(mktemp)"
+
+          (
+            cd backfill-release-assets
+            shopt -s nullglob
+
+            for artifact in *; do
+              [ -f "$artifact" ] || continue
+
+              case "$artifact" in
+                *.sig|*.pem|*.bundle|SHA256SUMS.txt|*.intoto.jsonl|*.spdx.json)
+                  echo "Skipping generated metadata asset: $artifact"
+                  continue
+                  ;;
+              esac
+
+              case "$artifact" in
+                chaterm-*.dmg|chaterm-*.zip|chaterm-*.AppImage|chaterm-*.deb|chaterm-*-setup-*.exe|latest*.yml)
+                  shasum -a 256 "$artifact"
+                  ;;
+                *)
+                  echo "Skipping non-release asset: $artifact"
+                  ;;
+              esac
+            done
+          ) > "$subjects_file"
+
+          if [ ! -s "$subjects_file" ]; then
+            echo "No eligible release artifacts found to compute SLSA subjects" >&2
+            exit 1
+          fi
+
+          subject_count="$(wc -l < "$subjects_file" | tr -d ' ')"
+          base64_subjects="$(base64 < "$subjects_file" | tr -d '\n')"
+
+          if [ -z "$base64_subjects" ]; then
+            echo "Base64-encoded SLSA subjects are empty" >&2
+            exit 1
+          fi
+
+          printf 'hashes=%s\n' "$base64_subjects" >> "$GITHUB_OUTPUT"
+          echo "Prepared $subject_count SLSA subject(s) for provenance generation"
+
+  provenance:
+    name: Generate SLSA Provenance (Backfill)
+    needs:
+      - prepare-subjects
+    permissions:
+      actions: read
+      id-token: write
+      contents: write
+    uses: slsa-framework/slsa-github-generator/.github/workflows/generator_generic_slsa3.yml@v2.1.0
+    with:
+      base64-subjects: ${{ needs.prepare-subjects.outputs.hashes }}
+      upload-assets: true
+      upload-tag-name: ${{ inputs.tag }}
+      draft-release: false

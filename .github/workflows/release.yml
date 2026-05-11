@@ -326,8 +326,6 @@ jobs:
           shopt -s nullglob
           staged=0
           for f in signed-release-assets/*.sig \
-                   signed-release-assets/*.pem \
-                   signed-release-assets/*.bundle \
                    signed-release-assets/SHA256SUMS.txt; do
             [ -f "$f" ] || continue
             cp "$f" "release-upload/$(basename "$f")"
@@ -339,31 +337,16 @@ jobs:
           fi
           echo "Staged $staged signature/checksum file(s) for release upload"
 
-      - name: Ensure draft release exists
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        shell: bash
-        run: |
-          if gh release view "$GITHUB_REF_NAME" >/dev/null 2>&1; then
-            IS_DRAFT=$(gh release view "$GITHUB_REF_NAME" --json isDraft --jq .isDraft)
-            echo "Release $GITHUB_REF_NAME already exists (draft=$IS_DRAFT)."
-          else
-            gh release create "$GITHUB_REF_NAME" --draft --title "$GITHUB_REF_NAME" --generate-notes
-          fi
-
-      - name: Upload assets to GitHub Release
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        shell: bash
-        run: |
-          mapfile -d '' files < <(find release-upload -maxdepth 1 -type f -print0 | sort -z)
-
-          if [ "${#files[@]}" -eq 0 ]; then
-            echo "No uploadable release assets found" >&2
-            exit 1
-          fi
-
-          gh release upload "$GITHUB_REF_NAME" "${files[@]}" --clobber
+      - name: Publish draft GitHub Release
+        uses: softprops/action-gh-release@da05d552573ad5aba039eaac05058a918a7bf631 # v2.4.1
+        with:
+          tag_name: ${{ github.ref_name }}
+          name: ${{ github.ref_name }}
+          draft: true
+          generate_release_notes: true
+          files: release-upload/*
+          overwrite_files: true
+          fail_on_unmatched_files: true
 
   provenance:
     name: Generate SLSA provenance
@@ -374,10 +357,6 @@ jobs:
       actions: read
       id-token: write
       contents: write
-    # NOTE: SLSA generator reusable workflow must be pinned to a tag, not a commit SHA.
-    # The detect-env step uses the tag to download the matching prebuilt builder binary
-    # from the generator's GitHub release; pinning to a SHA breaks that lookup and
-    # causes "slsa-generator-generic-linux-amd64: No such file or directory" (exit 127).
     uses: slsa-framework/slsa-github-generator/.github/workflows/generator_generic_slsa3.yml@v2.1.0
     with:
       base64-subjects: ${{ needs.release.outputs.hashes }}
