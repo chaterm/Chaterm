@@ -24,21 +24,23 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           TARGET_TAG: ${{ inputs.tag }}
+          TARGET_REPO: ${{ github.repository }}
         shell: bash
         run: |
           set -euo pipefail
-          gh release view "$TARGET_TAG" --json tagName --jq .tagName >/dev/null
+          gh release view "$TARGET_TAG" --repo "$TARGET_REPO" --json tagName --jq .tagName >/dev/null
           echo "Validated release tag: $TARGET_TAG"
 
       - name: Download release assets
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           TARGET_TAG: ${{ inputs.tag }}
+          TARGET_REPO: ${{ github.repository }}
         shell: bash
         run: |
           set -euo pipefail
           mkdir -p backfill-release-assets
-          gh release download "$TARGET_TAG" --dir backfill-release-assets --clobber
+          gh release download "$TARGET_TAG" --repo "$TARGET_REPO" --dir backfill-release-assets --clobber
           echo "Downloaded assets for $TARGET_TAG"
           ls -la backfill-release-assets
 
