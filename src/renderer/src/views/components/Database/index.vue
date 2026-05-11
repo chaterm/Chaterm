@@ -7,11 +7,13 @@
     >
       <pane
         class="db-workspace__sidebar"
+        :class="{ 'db-workspace__sidebar--collapsed': !store.databaseSidebarOpen }"
         :size="sidebarSize"
-        :min-size="16"
+        :min-size="store.databaseSidebarOpen ? 16 : 0"
         :max-size="40"
       >
         <DatabaseSidebar
+          v-if="store.databaseSidebarOpen"
           :nodes="store.filteredTree"
           :selected-id="store.selectedNodeId"
           :keyword="store.searchKeyword"
@@ -238,7 +240,7 @@ const sqlWorkspaceRef = ref<{
   replaceEditorAll: (sql: string) => void
 } | null>(null)
 
-const sidebarSize = 22
+const sidebarSize = computed(() => (store.databaseSidebarOpen ? store.databaseSidebarSize : 0))
 
 const activeTab = computed(() => store.activeTab)
 
@@ -256,13 +258,13 @@ const canToggleAiPane = computed(() => {
 })
 
 /**
- * Outer splitpanes: sidebar (22%) | content area (78%).
+ * Outer splitpanes: sidebar | content area.
  * The content-area pane holds an inner splitpanes for main + AI.
  * This nesting ensures the sidebar width stays at 22% regardless
  * of AI pane open/close, avoiding the splitpanes redistribution bug
  * that occurs with conditional v-if panes.
  */
-const contentAreaSize = computed(() => 100 - sidebarSize)
+const contentAreaSize = computed(() => 100 - sidebarSize.value)
 
 /**
  * Inner splitpanes: main | AI pane.
@@ -286,8 +288,11 @@ const innerMainSize = computed(() => {
 })
 
 /** Handle outer splitpanes resize (sidebar | content area split). */
-const handleOuterSplitResize = (_panes: Array<{ size: number }>) => {
-  // Outer split only has sidebar + content area; no pixel conversion needed
+const handleOuterSplitResize = (panes: Array<{ size: number }>) => {
+  if (!store.databaseSidebarOpen) return
+  const sidebarPane = panes[0]
+  if (!sidebarPane || typeof sidebarPane.size !== 'number') return
+  store.setDatabaseSidebarSize(sidebarPane.size)
 }
 
 /**
@@ -999,6 +1004,10 @@ const handleTableAction = async (payload: { action: TableActionKind; ctx: TableA
 
   &__sidebar {
     min-width: 220px;
+
+    &--collapsed {
+      min-width: 0;
+    }
   }
 
   &__main {

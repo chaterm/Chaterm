@@ -473,6 +473,8 @@ interface DatabaseWorkspaceState {
   activeTabId: string
   selectedNodeId: string | null
   searchKeyword: string
+  databaseSidebarOpen: boolean
+  databaseSidebarSize: number
   connectionModalVisible: boolean
   connectionModalMode: 'create' | 'edit'
   connectionDraft: DatabaseConnectionDraft | null
@@ -496,6 +498,8 @@ export const useDatabaseWorkspaceStore = defineStore('databaseWorkspace', {
     activeTabId: OVERVIEW_TAB_ID,
     selectedNodeId: null,
     searchKeyword: '',
+    databaseSidebarOpen: true,
+    databaseSidebarSize: 22,
     connectionModalVisible: false,
     connectionModalMode: 'create',
     connectionDraft: null,
@@ -537,6 +541,15 @@ export const useDatabaseWorkspaceStore = defineStore('databaseWorkspace', {
   actions: {
     setSearchKeyword(keyword: string) {
       this.searchKeyword = keyword
+    },
+    setDatabaseSidebarOpen(open: boolean) {
+      this.databaseSidebarOpen = open
+    },
+    toggleDatabaseSidebar() {
+      this.databaseSidebarOpen = !this.databaseSidebarOpen
+    },
+    setDatabaseSidebarSize(size: number) {
+      this.databaseSidebarSize = size
     },
     setSelectedNode(id: string | null) {
       this.selectedNodeId = id

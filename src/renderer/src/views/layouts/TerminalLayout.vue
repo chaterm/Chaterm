@@ -341,6 +341,7 @@ import AgentsSidebar from '@views/components/AgentsSidebar/index.vue'
 import TabsPanel from './tabsPanel.vue'
 import ExtensionViewHost from './ExtensionViewHost.vue'
 import EditorActions from './components/EditorActions.vue'
+import { getMenuForDockBackedUserTab } from './terminalLayoutNavigation'
 import { v4 as uuidv4 } from 'uuid'
 import { userInfoStore } from '@/store'
 import { aliasConfigStore } from '@/store/aliasConfigStore'
@@ -1445,6 +1446,16 @@ const toggleMenu = function (params) {
     return
   }
 
+  if (params.menu === 'database') {
+    currentMenu.value = 'database'
+    if (type === 'same') {
+      databaseWorkspaceStore.toggleDatabaseSidebar()
+    } else {
+      databaseWorkspaceStore.setDatabaseSidebarOpen(true)
+    }
+    return
+  }
+
   const container = document.querySelector('.splitpanes') as HTMLElement
   const containerWidth = container.offsetWidth
   const expandFn = (dir) => {
@@ -1996,10 +2007,20 @@ interface OpenUserTabObject {
 }
 
 type OpenUserTabArg = string | OpenUserTabObject
+
+const ensureDockWorkspaceVisibleForUserTab = async (value: string) => {
+  const nextMenu = getMenuForDockBackedUserTab(currentMenu.value, value)
+  if (nextMenu === currentMenu.value) return
+
+  currentMenu.value = nextMenu
+  await nextTick()
+}
+
 const openUserTab = async function (arg: OpenUserTabArg) {
   const isStringArg = typeof arg === 'string'
 
   const value = isStringArg ? arg : arg.key || arg.content || ''
+  await ensureDockWorkspaceVisibleForUserTab(value)
 
   if (value === 'CommonConfigEditor') {
     if (isStringArg) return
