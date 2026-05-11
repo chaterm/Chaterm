@@ -11,6 +11,7 @@
       @update:asset-id="(v: string) => emit('update-context', v || undefined, tab.databaseName)"
       @update:database-name="(v: string) => emit('update-context', tab.assetId, v || undefined)"
       @update:schema-name="(v: string) => emit('update-schema', v || undefined)"
+      @auto-connect="(assetId: string) => emit('auto-connect', assetId)"
     />
     <splitpanes
       horizontal
@@ -145,6 +146,7 @@ const emit = defineEmits<{
   (e: 'run', mode: 'all' | 'currentStatement' | 'explain', sql: string): void
   (e: 'select-result-tab', id: string): void
   (e: 'close-result-tab', id: string): void
+  (e: 'auto-connect', assetId: string): void
 }>()
 
 interface EditorApi {
@@ -154,6 +156,7 @@ interface EditorApi {
   getCurrentStatement(): string
   replaceAll(next: string): void
   replaceSelection(next: string): void
+  insertAtCursor(next: string): void
   focus?: () => void
 }
 
@@ -440,6 +443,20 @@ const handleFormat = () => {
     message.error(t('database.formatError'))
   }
 }
+
+// Expose a thin set of editor commands so the DB-AI drawer can insert /
+// replace SQL without reaching across two component boundaries.
+defineExpose({
+  insertSqlAtCursor(sql: string) {
+    editorRef.value?.insertAtCursor(sql)
+  },
+  replaceEditorSelection(sql: string) {
+    editorRef.value?.replaceSelection(sql)
+  },
+  replaceEditorAll(sql: string) {
+    editorRef.value?.replaceAll(sql)
+  }
+})
 </script>
 
 <style scoped lang="less">

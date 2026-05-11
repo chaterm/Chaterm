@@ -13,6 +13,17 @@ import type {
 import { buildMutations, DB_IDENTIFIER_RE } from './helpers/dbMutationBuilder'
 import { toErrorMessage } from './databaseWorkspaceStore.helpers'
 import { OVERVIEW_TAB_ID, buildOverviewTab, buildSampleTabFromTable, mockExplorerTree } from '@views/components/Database/mock/data'
+import type {
+  DbAiAction,
+  DbAiDoneEvent,
+  DbAiRequestContext,
+  DbAiRequestState,
+  DbAiStartInput,
+  DbAiStoreState,
+  DbAiStreamEvent,
+  DbType,
+  SqlDialect
+} from '@common/db-ai-types'
 
 /**
  * DbAsset DTO shape as it comes from the main process.
@@ -445,6 +456,15 @@ function pickDefaultSchema(tree: DatabaseTreeNode[], assetId: string | undefined
   return pub?.name
 }
 
+/**
+ * Track-A (single-turn) DB-AI request state lives in `@common/db-ai-types`
+ * so the store / drawer / preload all import from one source of truth. We
+ * re-export the two shared types here for backwards-compatibility with
+ * downstream consumers that previously imported them from this module.
+ * See docs/database_ai.md §11.3.
+ */
+export type { DbAiRequestState, DbAiStoreState as DbAiState } from '@common/db-ai-types'
+
 interface DatabaseWorkspaceState {
   groups: DbAssetGroupDtoLike[]
   assets: DbAssetDtoLike[]
@@ -453,6 +473,8 @@ interface DatabaseWorkspaceState {
   activeTabId: string
   selectedNodeId: string | null
   searchKeyword: string
+  databaseSidebarOpen: boolean
+  databaseSidebarSize: number
   connectionModalVisible: boolean
   connectionModalMode: 'create' | 'edit'
   connectionDraft: DatabaseConnectionDraft | null
@@ -462,6 +484,9 @@ interface DatabaseWorkspaceState {
   lastTestResult: { ok: boolean; message: string } | null
   // Monotonic allocator for SqlResultTab.seq; never decremented.
   resultSeq: number
+  // DB-AI track-A (single-turn) runtime state. Track B (ChatBot) lives in
+  // Task/Controller and is NOT stored here. See docs/database_ai.md §11.3.
+  dbAi: DbAiStoreState
 }
 
 export const useDatabaseWorkspaceStore = defineStore('databaseWorkspace', {
@@ -473,6 +498,8 @@ export const useDatabaseWorkspaceStore = defineStore('databaseWorkspace', {
     activeTabId: OVERVIEW_TAB_ID,
     selectedNodeId: null,
     searchKeyword: '',
+    databaseSidebarOpen: true,
+    databaseSidebarSize: 22,
     connectionModalVisible: false,
     connectionModalMode: 'create',
     connectionDraft: null,
@@ -480,7 +507,18 @@ export const useDatabaseWorkspaceStore = defineStore('databaseWorkspace', {
     loading: false,
     lastError: null,
     lastTestResult: null,
-    resultSeq: 0
+    resultSeq: 0,
+    dbAi: {
+      modelOverride: undefined,
+      requests: {},
+      activeReqId: null,
+      drawerOpen: false,
+      aiPaneOpen: false,
+      // Default chosen in docs/db-ai-aitab-mount-decision.md Q1. Stored as
+      // a raw pixel value so splitpanes can convert to percentage per
+      // viewport.
+      sidebarSize: 360
+    }
   }),
   getters: {
     filteredTree(state): DatabaseTreeNode[] {
@@ -488,11 +526,30 @@ export const useDatabaseWorkspaceStore = defineStore('databaseWorkspace', {
     },
     activeTab(state): DatabaseWorkspaceTab | undefined {
       return state.tabs.find((tab) => tab.id === state.activeTabId)
+    },
+    /**
+     * Convenience getter exposing the currently-focused DB-AI request. The
+     * drawer binds directly to this so it re-renders when `activeReqId` or
+     * the underlying request fields change.
+     */
+    activeDbAiRequest(state): DbAiRequestState | null {
+      const id = state.dbAi.activeReqId
+      if (!id) return null
+      return state.dbAi.requests[id] ?? null
     }
   },
   actions: {
     setSearchKeyword(keyword: string) {
       this.searchKeyword = keyword
+    },
+    setDatabaseSidebarOpen(open: boolean) {
+      this.databaseSidebarOpen = open
+    },
+    toggleDatabaseSidebar() {
+      this.databaseSidebarOpen = !this.databaseSidebarOpen
+    },
+    setDatabaseSidebarSize(size: number) {
+      this.databaseSidebarSize = size
     },
     setSelectedNode(id: string | null) {
       this.selectedNodeId = id
@@ -967,7 +1024,7 @@ export const useDatabaseWorkspaceStore = defineStore('databaseWorkspace', {
      * Fetch distinct values for one column of the data tab's table. Used by
      * the column-filter popover (chat2db-style discrete value picker).
      */
-    async loadColumnDistinct(tabId: string, column: string, limit = 1000): Promise<string[]> {
+    async loadColumnDistinct(tabId: string, column: string, limit = 1000000): Promise<string[]> {
       const tab = this.tabs.find((t) => t.id === tabId)
       if (!tab || tab.kind !== 'data') return []
       const api = getApi()
@@ -2081,6 +2138,207 @@ export const useDatabaseWorkspaceStore = defineStore('databaseWorkspace', {
       // path — cheap and keeps one source of truth for subtree state.
       await this.refreshConnectionChildren(ctx.assetId)
       return { ok: true }
+    },
+
+    // --- DB-AI (single-turn, track A) helpers -------------------------------
+    //
+    // These helpers manage only the renderer-side view state for single-turn
+    // DB-AI requests. The actual model call and stream plumbing lives in the
+    // main process (db-ai service) and reaches here via `window.api.dbAi.*`
+    // callbacks that are forwarded to `appendDbAiStream` / `finishDbAiRequest`.
+    // See docs/database_ai.md §11.3.
+
+    /**
+     * Resolve the DB-AI request context from the currently-active workspace
+     * tab. Returns `null` when no active tab carries a DB connection (e.g.
+     * Overview) or when the tab has not yet been bound to an asset. Both
+     * track A (drawer) and track B (AiTab) read through this getter so the
+     * source of truth for "current DB context" stays in one place.
+     */
+    getActiveDbAiContext(): DbAiRequestContext | null {
+      const tab = this.activeTab
+      if (!tab || tab.kind === 'overview') return null
+      if (!tab.assetId) return null
+      // Resolve dbType via the connection node. Tabs only carry dbType
+      // indirectly through their connection; look it up here so callers
+      // can pass the context straight into a DB-AI request.
+      const conn = findConnectionByAssetId(this.tree, tab.assetId)
+      const meta = conn?.meta as { dbType?: DbType } | undefined
+      const dbType = meta?.dbType
+      if (!dbType) return null
+      return {
+        assetId: tab.assetId,
+        databaseName: tab.databaseName,
+        schemaName: tab.schemaName,
+        tableName: tab.tableName,
+        dbType
+      }
+    },
+
+    /**
+     * Create a new DB-AI request record and mark it active so the drawer
+     * focuses it. Returns the fully-populated request state (so callers can
+     * extract `reqId` synchronously before invoking the IPC). Duplicate
+     * `reqId`s overwrite in place — the renderer generates UUIDs so
+     * collisions are expected only in tests.
+     */
+    startDbAiRequest(params: {
+      reqId: string
+      action: DbAiAction
+      context: DbAiRequestContext
+      input?: DbAiStartInput
+      targetDialect?: SqlDialect
+    }): DbAiRequestState {
+      const now = Date.now()
+      const next: DbAiRequestState = {
+        reqId: params.reqId,
+        action: params.action,
+        status: 'queued',
+        context: {
+          assetId: params.context.assetId,
+          databaseName: params.context.databaseName,
+          schemaName: params.context.schemaName,
+          tableName: params.context.tableName,
+          dbType: params.context.dbType
+        },
+        text: '',
+        reasoningText: '',
+        sql: undefined,
+        errorMessage: undefined,
+        targetDialect: params.targetDialect ?? params.input?.targetDialect,
+        createdAt: now,
+        updatedAt: now
+      }
+      this.dbAi.requests = { ...this.dbAi.requests, [params.reqId]: next }
+      this.dbAi.activeReqId = params.reqId
+      this.dbAi.drawerOpen = true
+      return next
+    },
+
+    /**
+     * Append a streaming chunk to the matching request. Silently ignores
+     * chunks for unknown requests (e.g. those that arrived after the user
+     * cancelled). Transitions status from `queued` to `streaming` on the
+     * first chunk so the drawer can distinguish "model is thinking" from
+     * "no tokens received yet".
+     */
+    appendDbAiStream(event: DbAiStreamEvent) {
+      const existing = this.dbAi.requests[event.reqId]
+      if (!existing) return
+      if (existing.status === 'cancelled' || existing.status === 'done' || existing.status === 'error') return
+      const patch: DbAiRequestState = {
+        ...existing,
+        status: 'streaming',
+        updatedAt: Date.now()
+      }
+      if (event.kind === 'text') {
+        patch.text = existing.text + event.text
+      } else {
+        patch.reasoningText = existing.reasoningText + event.text
+      }
+      this.dbAi.requests = { ...this.dbAi.requests, [event.reqId]: patch }
+    },
+
+    /**
+     * Mark the request as finished with the final outcome. `done.result.sql`
+     * is preserved verbatim (the main-process SQL extractor owns parsing) so
+     * the drawer can offer insert/replace/execute buttons without re-running
+     * regex on the Markdown blob.
+     */
+    finishDbAiRequest(event: DbAiDoneEvent) {
+      const existing = this.dbAi.requests[event.reqId]
+      if (!existing) return
+      if (existing.status === 'cancelled') return
+      const patch: DbAiRequestState = {
+        ...existing,
+        status: event.ok ? 'done' : 'error',
+        errorMessage: event.ok ? undefined : event.errorMessage,
+        sql: event.result?.sql ?? existing.sql,
+        updatedAt: Date.now()
+      }
+      // Some providers emit the complete text only in the done event (no
+      // stream chunks). Preserve whatever we have, but fall back to
+      // result.text when the stream never produced any text.
+      if ((!existing.text || existing.text.length === 0) && event.result?.text) {
+        patch.text = event.result.text
+      }
+      this.dbAi.requests = { ...this.dbAi.requests, [event.reqId]: patch }
+    },
+
+    /**
+     * Flag a request as cancelled locally. The main process IPC is the
+     * source of truth for "has the model actually stopped" — this helper
+     * just freezes the renderer state so subsequent chunks are ignored.
+     */
+    cancelDbAiRequest(reqId: string) {
+      const existing = this.dbAi.requests[reqId]
+      if (!existing) return
+      if (existing.status === 'done' || existing.status === 'error') return
+      this.dbAi.requests = {
+        ...this.dbAi.requests,
+        [reqId]: { ...existing, status: 'cancelled', updatedAt: Date.now() }
+      }
+    },
+
+    /**
+     * Drop a request from the store. Intended for the drawer's close/clear
+     * action; the stream listener will no-op on unknown ids after removal.
+     */
+    removeDbAiRequest(reqId: string) {
+      if (!this.dbAi.requests[reqId]) return
+      const { [reqId]: _removed, ...rest } = this.dbAi.requests
+      this.dbAi.requests = rest
+      if (this.dbAi.activeReqId === reqId) {
+        const ids = Object.keys(rest)
+        this.dbAi.activeReqId = ids.length > 0 ? ids[ids.length - 1] : null
+      }
+    },
+
+    /**
+     * Focus an existing request (e.g. when the user clicks a history entry).
+     */
+    setActiveDbAiRequest(reqId: string | null) {
+      if (reqId && !this.dbAi.requests[reqId]) return
+      this.dbAi.activeReqId = reqId
+    },
+
+    /**
+     * Open or close the result drawer. Kept on the store so any entry point
+     * (editor action, sidebar, shortcut) can trigger it uniformly.
+     */
+    setDbAiDrawerOpen(open: boolean) {
+      this.dbAi.drawerOpen = open
+    },
+
+    /**
+     * Update DB-AI settings that should persist for the lifetime of this
+     * workspace instance (currently just `modelOverride`; more fields can
+     * follow in Phase 3+).
+     */
+    setDbAiModelOverride(modelOverride: string | undefined) {
+      this.dbAi.modelOverride = modelOverride
+    },
+
+    /**
+     * Open or close the Database workspace's AI pane (third splitpanes
+     * pane hosting AiTab). Independent of `drawerOpen` — a user can have
+     * both the single-turn Drawer and the multi-turn AI pane visible at
+     * once. See docs/db-ai-aitab-mount-decision.md Q1.
+     */
+    setDbAiPaneOpen(open: boolean) {
+      this.dbAi.aiPaneOpen = open
+    },
+
+    /**
+     * Persist the AI pane width after the user drags the splitter.
+     * `size` is the raw pixel width; callers should clamp via MIN/MAX
+     * constants before calling if needed. Values outside a sane range
+     * (e.g. negative) are ignored so a race during layout init can't
+     * wipe the saved size.
+     */
+    setDbAiSidebarSize(size: number) {
+      if (!Number.isFinite(size) || size <= 0) return
+      this.dbAi.sidebarSize = Math.floor(size)
     }
   }
 })

@@ -181,7 +181,7 @@ export function useCommandInteraction(params: CommandInteractionOptions) {
 
       message.action = 'approved'
 
-      if (message.ask === 'command') {
+      if (message.ask === 'command' || message.ask === 'db_sql_approval') {
         session.isExecutingCommand = true
       }
 
@@ -209,7 +209,7 @@ export function useCommandInteraction(params: CommandInteractionOptions) {
       return
     }
 
-    if (message.ask !== 'command') {
+    if (message.ask !== 'command' && message.ask !== 'db_sql_approval') {
       return
     }
 

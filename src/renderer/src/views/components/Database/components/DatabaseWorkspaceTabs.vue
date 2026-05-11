@@ -84,6 +84,8 @@ import type { DatabaseWorkspaceTab } from '../types'
 const props = defineProps<{
   tabs: DatabaseWorkspaceTab[]
   activeTabId: string
+  aiPaneOpen: boolean
+  canToggleAiPane: boolean
 }>()
 
 const emit = defineEmits<{
@@ -225,6 +227,35 @@ function onOverflowSelect(tabId: string): void {
     &:hover {
       background: var(--hover-bg-color);
       color: var(--text-color);
+    }
+  }
+
+  &__ai-toggle {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 32px;
+    height: 100%;
+    flex: 0 0 auto;
+    background: transparent;
+    border: none;
+    border-left: 1px solid var(--border-color);
+    color: var(--text-color-secondary, #8a94a6);
+    cursor: pointer;
+
+    &:hover:not(:disabled) {
+      background: var(--hover-bg-color);
+      color: var(--text-color);
+    }
+
+    &:disabled {
+      opacity: 0.4;
+      cursor: not-allowed;
+    }
+
+    &--active {
+      color: var(--primary-color, #3b82f6);
+      background: var(--active-bg-color);
     }
   }
 

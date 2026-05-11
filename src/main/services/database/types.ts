@@ -78,6 +78,14 @@ export interface DatabaseDriverAdapter {
   commitTransaction?(handle: unknown): Promise<void>
   /** Rollback the current SQL transaction on the given handle. */
   rollbackTransaction?(handle: unknown): Promise<void>
+  /**
+   * Forcibly close the connection without waiting for a graceful shutdown.
+   * Used by the timeout path to abort an in-flight query immediately. MySQL
+   * implementations call `connection.destroy()`; Postgres calls `client.end()`
+   * (the pg library has no lower-level destroy API). When absent, the timeout
+   * path falls back to `disconnect`.
+   */
+  forceClose?(handle: unknown): Promise<void>
   /** Quote an identifier (schema/table/column) for safe SQL interpolation. */
   quoteIdentifier?(name: string): string
   /** Build a positional placeholder token for the given 1-based index. */

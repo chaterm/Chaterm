@@ -24,6 +24,18 @@ describe('databaseWorkspaceStore', () => {
     expect(store.activeTabId).toBe(store.tabs[0].id)
   })
 
+  it('toggles the database asset sidebar open state', () => {
+    const store = useDatabaseWorkspaceStore()
+
+    expect(store.databaseSidebarOpen).toBe(true)
+
+    store.toggleDatabaseSidebar()
+    expect(store.databaseSidebarOpen).toBe(false)
+
+    store.setDatabaseSidebarOpen(true)
+    expect(store.databaseSidebarOpen).toBe(true)
+  })
+
   it('opens a sql tab when selecting a table node', () => {
     const store = useDatabaseWorkspaceStore()
 

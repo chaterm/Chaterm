@@ -216,83 +216,6 @@
               />
             </div>
 
-            <section class="db-conn-section">
-              <button
-                type="button"
-                class="db-conn-section__header"
-                :aria-expanded="driverOpen"
-                @click="driverOpen = !driverOpen"
-              >
-                <span class="db-conn-section__caret">{{ driverOpen ? '▾' : '▸' }}</span>
-                {{ $t('database.driver') }}
-              </button>
-              <div
-                v-if="driverOpen"
-                class="db-conn-section__body"
-              >
-                <div class="db-conn-row">
-                  <label class="db-conn-row__label">{{ $t('database.driver') }}</label>
-                  <input
-                    class="db-conn-input"
-                    type="text"
-                    :value="driverStub.jar"
-                    disabled
-                  />
-                </div>
-                <div class="db-conn-row">
-                  <label class="db-conn-row__label">{{ $t('database.driverClass') }}</label>
-                  <input
-                    class="db-conn-input"
-                    type="text"
-                    :value="driverStub.className"
-                    disabled
-                  />
-                </div>
-                <div class="db-conn-section__actions">
-                  <button
-                    type="button"
-                    class="db-conn-btn"
-                    disabled
-                    >{{ $t('database.uploadDriver') }}</button
-                  >
-                </div>
-              </div>
-            </section>
-
-            <section class="db-conn-section">
-              <button
-                type="button"
-                class="db-conn-section__header"
-                :aria-expanded="sshOpen"
-                @click="sshOpen = !sshOpen"
-              >
-                <span class="db-conn-section__caret">{{ sshOpen ? '▾' : '▸' }}</span>
-                {{ $t('database.sshConfiguration') }}
-              </button>
-              <div
-                v-if="sshOpen"
-                class="db-conn-section__body db-conn-section__placeholder"
-                >{{ $t('database.sshConfigurationPlaceholder') }}</div
-              >
-            </section>
-
-            <section class="db-conn-section">
-              <button
-                type="button"
-                class="db-conn-section__header"
-                :aria-expanded="advancedOpen"
-                @click="advancedOpen = !advancedOpen"
-              >
-                <span class="db-conn-section__caret">{{ advancedOpen ? '▾' : '▸' }}</span>
-                {{ $t('database.advancedConfiguration') }}
-              </button>
-              <div
-                v-if="advancedOpen"
-                class="db-conn-section__body db-conn-section__placeholder"
-                >{{ $t('database.advancedConfigurationPlaceholder') }}</div
-              >
-            </section>
-
             <div
               v-if="feedback"
               class="db-conn-feedback"
@@ -356,9 +279,6 @@ const errors = ref<string[]>([])
 const feedback = ref<{ kind: 'info' | 'error'; message: string } | null>(null)
 const urlDirty = ref(false)
 const passwordVisible = ref(false)
-const driverOpen = ref(false)
-const sshOpen = ref(false)
-const advancedOpen = ref(false)
 
 const schema = computed(() => (props.draft ? getConnectionSchema(props.draft.dbType) : null))
 const typeOption = computed(() => (props.draft ? getDatabaseTypeOption(props.draft.dbType) : undefined))
@@ -377,13 +297,6 @@ const autoUrl = computed(() => {
 
 const urlDisplay = computed(() => (urlDirty.value && props.draft?.url ? props.draft.url : autoUrl.value))
 
-const driverStub = computed(() => {
-  if (props.draft?.dbType === 'PostgreSQL') {
-    return { jar: 'postgresql-42.7.3.jar', className: 'org.postgresql.Driver' }
-  }
-  return { jar: 'mysql-connector-java-8.0.30.jar', className: 'com.mysql.cj.jdbc.Driver' }
-})
-
 const fieldId = (key: string): string => `db-conn-${key}-${props.draft?.id ?? 'new'}`
 
 watch(
@@ -394,9 +307,6 @@ watch(
       feedback.value = null
       urlDirty.value = false
       passwordVisible.value = false
-      driverOpen.value = false
-      sshOpen.value = false
-      advancedOpen.value = false
     }
   }
 )

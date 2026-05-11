@@ -4,6 +4,11 @@
 // Copyright (c) 2025 cline Authors, All rights reserved.
 // Licensed under the Apache License, Version 2.0
 
+// Tool names and the `ToolUseName` union are owned by the ToolRegistry
+// (see `../task/tool-registry.ts`). We re-export them here so existing
+// parser/dispatch call sites keep working unchanged.
+import { registeredToolNames, type ToolUseName as RegistryToolUseName } from '../task/tool-registry'
+
 export type AssistantMessageContent = TextContent | ToolUse
 
 export { parseAssistantMessageV2 } from './parse-assistant-message'
@@ -14,30 +19,14 @@ export interface TextContent {
   partial: boolean
 }
 
-export const toolUseNames = [
-  'execute_command',
-  'write_to_file',
-  'read_file',
-  'ask_followup_question',
-  'attempt_completion',
-  'new_task',
-  'condense',
-  'report_bug',
-  'todo_write',
-  'todo_read',
-  'glob_search',
-  'grep_search',
-  'use_mcp_tool',
-  'access_mcp_resource',
-  'use_skill',
-  'summarize_to_knowledge',
-  'summarize_to_skill',
-  'kb_search',
-  'web_fetch'
-] as const
+/**
+ * Canonical list of tool names accepted by the parser. Derived from
+ * `toolMetadata` in the registry so there is exactly one source of truth.
+ */
+export const toolUseNames: readonly RegistryToolUseName[] = registeredToolNames
 
-// Converts array of tool call names into a union type ("execute_command" | "read_file" | ...)
-export type ToolUseName = (typeof toolUseNames)[number]
+/** Union type of all registered tool names. */
+export type ToolUseName = RegistryToolUseName
 
 export const toolParamNames = [
   'ip',
@@ -87,7 +76,13 @@ export const toolParamNames = [
   'query',
   'max_results',
   'extract_mode',
-  'max_chars'
+  'max_chars',
+  'database',
+  'schema',
+  'table',
+  'sql',
+  'exact',
+  'query_patterns'
 ] as const
 
 export type ToolParamName = (typeof toolParamNames)[number]

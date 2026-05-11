@@ -155,10 +155,10 @@ export async function saveTaskFavorite(taskId: string, favorite: boolean): Promi
   }
 }
 
-export async function getTaskList(): Promise<TaskListItem[]> {
+export async function getTaskList(workspace?: 'server' | 'database'): Promise<TaskListItem[]> {
   try {
     const dbService = await ChatermDatabaseService.getInstance()
-    return await dbService.getTaskList()
+    return await dbService.getTaskList(workspace)
   } catch (error) {
     logger.error('Failed to get task list from DB', { error: error })
     return []
@@ -171,6 +171,22 @@ export async function ensureTaskMetadataExists(taskId: string, initialTitle?: st
     await store.ensureTaskMetadataExists(taskId, initialTitle)
   } catch (error) {
     logger.error('Failed to ensure task metadata exists', { error: error })
+  }
+}
+
+/**
+ * Persist the workspace assignment (and optional DB-AI context) for a task.
+ * Used on the new-task path to mark a task as `workspace='database'` as soon
+ * as Controller.initTask knows the caller's intent, ensuring subsequent
+ * patches (title/favorite/todos) cannot accidentally leave the workspace
+ * column unset.
+ */
+export async function setTaskWorkspace(taskId: string, workspace: 'server' | 'database', dbContext?: unknown): Promise<void> {
+  try {
+    const store = await getOrInitSnapshotStore()
+    await store.setTaskWorkspace(taskId, workspace, dbContext)
+  } catch (error) {
+    logger.error('Failed to set task workspace', { error: error })
   }
 }
 

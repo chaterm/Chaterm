@@ -24,7 +24,8 @@
       "@logging": ["src/main/services/logging/index.ts"],
       "@logging/*": ["src/main/services/logging/*"],
       "@perf": ["src/main/services/perf/index.ts"],
-      "@perf/*": ["src/main/services/perf/*"]
+      "@perf/*": ["src/main/services/perf/*"],
+      "@common/*": ["src/shared/*"]
     }
   }
 }

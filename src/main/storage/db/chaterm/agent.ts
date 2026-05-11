@@ -284,13 +284,25 @@ export async function saveChatermMessagesLogic(db: Database.Database, taskId: st
 export async function getTaskMetadataLogic(db: Database.Database, taskId: string): Promise<any> {
   try {
     const stmt = db.prepare(`
-        SELECT files_in_context, model_usage, hosts, todos, experience_ledger, title, favorite
+        SELECT files_in_context, model_usage, hosts, todos, experience_ledger, title, favorite, workspace, db_context
         FROM agent_task_metadata_v1
         WHERE task_id = ?
       `)
     const row = stmt.get(taskId)
 
     if (row) {
+      // Backward compatibility: rows written before the workspace migration
+      // may not have a workspace value yet (the migration itself defaults to
+      // 'server', but defensive normalisation keeps us safe during rollouts).
+      const workspace: 'server' | 'database' = row.workspace === 'database' ? 'database' : 'server'
+      let dbContext: unknown = undefined
+      if (row.db_context) {
+        try {
+          dbContext = JSON.parse(row.db_context)
+        } catch (parseError) {
+          logger.warn('Failed to parse db_context JSON, ignoring', { taskId, error: parseError })
+        }
+      }
       return {
         files_in_context: JSON.parse(row.files_in_context || '[]'),
         model_usage: JSON.parse(row.model_usage || '[]'),
@@ -298,22 +310,59 @@ export async function getTaskMetadataLogic(db: Database.Database, taskId: string
         todos: row.todos ? JSON.parse(row.todos) : [],
         experience_ledger: row.experience_ledger ? JSON.parse(row.experience_ledger) : [],
         title: row.title || undefined,
-        favorite: row.favorite === 1
+        favorite: row.favorite === 1,
+        workspace,
+        db_context: dbContext
       }
     }
 
-    return { files_in_context: [], model_usage: [], hosts: [], todos: [], experience_ledger: [], title: undefined, favorite: false }
+    return {
+      files_in_context: [],
+      model_usage: [],
+      hosts: [],
+      todos: [],
+      experience_ledger: [],
+      title: undefined,
+      favorite: false,
+      workspace: 'server',
+      db_context: undefined
+    }
   } catch (error) {
     logger.error('Failed to get task metadata', { error: error })
-    return { files_in_context: [], model_usage: [], hosts: [], todos: [], experience_ledger: [], title: undefined, favorite: false }
+    return {
+      files_in_context: [],
+      model_usage: [],
+      hosts: [],
+      todos: [],
+      experience_ledger: [],
+      title: undefined,
+      favorite: false,
+      workspace: 'server',
+      db_context: undefined
+    }
   }
 }
 
 export async function saveTaskMetadataLogic(db: Database.Database, taskId: string, metadata: any): Promise<void> {
   try {
+    // workspace / db_context behaviour:
+    //   - An explicit metadata.workspace='database' with metadata.db_context
+    //     sets both columns.
+    //   - When metadata omits both keys (common case: title/favorite/todos
+    //     patches), we do NOT overwrite the existing columns - the UPSERT
+    //     branch below falls back to the stored value via CASE WHEN.
+    // We encode "provided vs omitted" via a dedicated int placeholder so the
+    // SQL can distinguish "caller set the field to null/undefined" from
+    // "caller did not touch the field at all".
+    const workspaceProvided = metadata.workspace === 'server' || metadata.workspace === 'database' ? 1 : 0
+    const workspaceValue = workspaceProvided ? metadata.workspace : null
+    const dbContextProvided = Object.prototype.hasOwnProperty.call(metadata, 'db_context') ? 1 : 0
+    const dbContextValue =
+      dbContextProvided && metadata.db_context !== undefined && metadata.db_context !== null ? JSON.stringify(metadata.db_context) : null
     const upsertStmt = db.prepare(`
-        INSERT INTO agent_task_metadata_v1 (task_id, files_in_context, model_usage, hosts, todos, experience_ledger, title, favorite)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+        INSERT INTO agent_task_metadata_v1
+          (task_id, files_in_context, model_usage, hosts, todos, experience_ledger, title, favorite, workspace, db_context)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, COALESCE(?, 'server'), ?)
         ON CONFLICT(task_id) DO UPDATE SET
           files_in_context = excluded.files_in_context,
           model_usage = excluded.model_usage,
@@ -321,7 +370,9 @@ export async function saveTaskMetadataLogic(db: Database.Database, taskId: strin
           todos = excluded.todos,
           experience_ledger = excluded.experience_ledger,
           title = CASE WHEN excluded.title IS NOT NULL THEN excluded.title ELSE agent_task_metadata_v1.title END,
-          favorite = CASE WHEN excluded.favorite IS NOT NULL THEN excluded.favorite ELSE agent_task_metadata_v1.favorite END
+          favorite = CASE WHEN excluded.favorite IS NOT NULL THEN excluded.favorite ELSE agent_task_metadata_v1.favorite END,
+          workspace = CASE WHEN ? = 1 THEN excluded.workspace ELSE agent_task_metadata_v1.workspace END,
+          db_context = CASE WHEN ? = 1 THEN excluded.db_context ELSE agent_task_metadata_v1.db_context END
       `)
 
     upsertStmt.run(
@@ -332,7 +383,11 @@ export async function saveTaskMetadataLogic(db: Database.Database, taskId: strin
       JSON.stringify(metadata.todos || []),
       JSON.stringify(metadata.experience_ledger || []),
       metadata.title !== undefined ? metadata.title : null,
-      metadata.favorite !== undefined ? (metadata.favorite ? 1 : 0) : null
+      metadata.favorite !== undefined ? (metadata.favorite ? 1 : 0) : null,
+      workspaceValue,
+      dbContextValue,
+      workspaceProvided,
+      dbContextProvided
     )
   } catch (error) {
     logger.error('Failed to save task metadata', { error: error })
@@ -382,23 +437,49 @@ export async function saveTaskFavoriteLogic(db: Database.Database, taskId: strin
 }
 
 // Task list query - replaces global_taskHistory as data source
-export async function getTaskListLogic(db: Database.Database): Promise<TaskListItem[]> {
+export async function getTaskListLogic(db: Database.Database, workspace?: 'server' | 'database'): Promise<TaskListItem[]> {
   try {
-    const rows = db
-      .prepare(
-        `
-      SELECT task_id, title, favorite, created_at, updated_at, hosts
+    const rows = (
+      workspace === 'database'
+        ? db
+            .prepare(
+              `
+      SELECT task_id, title, favorite, created_at, updated_at, hosts, workspace, db_context
+      FROM agent_task_metadata_v1
+      WHERE workspace = ?
+      ORDER BY updated_at DESC
+    `
+            )
+            .all('database')
+        : workspace === 'server'
+          ? db
+              .prepare(
+                `
+      SELECT task_id, title, favorite, created_at, updated_at, hosts, workspace, db_context
+      FROM agent_task_metadata_v1
+      WHERE workspace IS NULL OR workspace != 'database'
+      ORDER BY updated_at DESC
+    `
+              )
+              .all()
+          : db
+              .prepare(
+                `
+      SELECT task_id, title, favorite, created_at, updated_at, hosts, workspace, db_context
       FROM agent_task_metadata_v1
       ORDER BY updated_at DESC
     `
-      )
-      .all() as Array<{
+              )
+              .all()
+    ) as Array<{
       task_id: string
       title: string | null
       favorite: number
       created_at: number
       updated_at: number
       hosts: string | null
+      workspace: string | null
+      db_context: string | null
     }>
 
     return rows.map((row) => {
@@ -419,6 +500,17 @@ export async function getTaskListLogic(db: Database.Database): Promise<TaskListI
           }))
         }
       }
+
+      const workspace: 'server' | 'database' = row.workspace === 'database' ? 'database' : 'server'
+      let dbContext: TaskListItem['dbContext'] = undefined
+      if (row.db_context) {
+        try {
+          dbContext = JSON.parse(row.db_context)
+        } catch {
+          // Ignore malformed db_context
+        }
+      }
+
       return {
         id: row.task_id,
         title: row.title || null,
@@ -426,7 +518,9 @@ export async function getTaskListLogic(db: Database.Database): Promise<TaskListI
         // DB stores seconds; renderer Date() expects milliseconds
         createdAt: row.created_at * 1000,
         updatedAt: row.updated_at * 1000,
-        hosts
+        hosts,
+        workspace,
+        dbContext
       }
     })
   } catch (error) {

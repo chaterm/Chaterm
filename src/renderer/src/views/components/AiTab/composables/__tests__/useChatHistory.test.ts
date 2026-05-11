@@ -100,10 +100,21 @@ describe('useChatHistory', () => {
 
       await loadHistoryList()
 
+      expect(mockGetTaskList).toHaveBeenCalledWith('server')
       expect(historyList.value).toHaveLength(2)
       expect(historyList.value[0].id).toBe('task-1')
       expect(historyList.value[0].chatTitle).toBe('Test Chat')
       expect(historyList.value[0].isFavorite).toBe(false)
+    })
+
+    it('should request database-scoped list when workspace=database', async () => {
+      const mockData: TaskListItem[] = [{ id: 'task-db-1', title: 'DB Chat', favorite: false, createdAt: 1000, updatedAt: 1000 }]
+      mockGetTaskList.mockResolvedValueOnce(mockTaskListResponse(mockData))
+
+      const { loadHistoryList } = useChatHistory({ workspace: 'database' })
+      await loadHistoryList()
+
+      expect(mockGetTaskList).toHaveBeenCalledWith('database')
     })
 
     it('should mark favorites correctly', async () => {

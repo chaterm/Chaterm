@@ -13,9 +13,27 @@ import { Notice } from '@/views/components/Notice'
 import { useSessionState } from './useSessionState'
 import { getGlobalState, updateGlobalState } from '@renderer/agent/storage/state'
 import i18n from '@/locales'
+import { AI_TAB_DEFAULT_WORKSPACE, type AiTabWorkspace } from '../workspace'
 const logger = createRendererLogger('ai.chatMessages')
 const { t } = i18n.global
 let globalIpcListenerInitialized = false
+
+/**
+ * Per-AiTab context that must be threaded into outgoing Task messages when
+ * the AiTab is mounted in the Database workspace (task #18 Stage 1).
+ *
+ * Shape mirrors docs/database_ai.md §9.2 `dbContext`; the canonical type
+ * lives in `@common/db-ai-types` but is intentionally duplicated here as
+ * a plain object literal so useChatMessages does not grow a hard dep on
+ * the main-side `@shared` alias (kept testable in isolation).
+ */
+export interface AiTabDbContext {
+  assetId: string
+  dbType: 'mysql' | 'postgresql'
+  databaseName?: string
+  schemaName?: string
+  assetName?: string
+}
 
 /**
  * Composable for chat message core logic
@@ -26,9 +44,22 @@ export function useChatMessages(
   clearTodoState: (messages: ChatMessage[]) => void,
   markLatestMessageWithTodoUpdate: (messages: ChatMessage[], todos: Todo[]) => void,
   currentTodos: any,
-  checkModelConfig: () => Promise<{ success: boolean; message?: string; description?: string }>
+  checkModelConfig: () => Promise<{ success: boolean; message?: string; description?: string }>,
+  workspaceContext: {
+    /**
+     * Workspace identifier. Defaults to `'terminal'`; when `'database'`
+     * the renderer stamps `workspace` + `dbContext` onto every outgoing
+     * Task message so the main-process Task constructor can route it to
+     * the DB ChatBot track (see #11 for the main-side handling).
+     * Stage 1 only adds the fields to the payload; `#11` consumes them.
+     */
+    workspace?: AiTabWorkspace
+    dbContext?: () => AiTabDbContext | null
+  } = {}
 ) {
   const { chatTabs, currentChatId, currentTab, currentSession, hosts, chatTypeValue, chatInputParts, messageFeedbacks } = useSessionState()
+  const workspace: AiTabWorkspace = workspaceContext.workspace ?? AI_TAB_DEFAULT_WORKSPACE
+  const resolveDbContext = workspaceContext.dbContext
 
   const markdownRendererRefs = ref<Array<{ setThinkingLoading: (loading: boolean) => void }>>([])
 
@@ -67,7 +98,12 @@ export function useChatMessages(
   const cleanupPartialCommandMessages = (chatHistory: ChatMessage[]) => {
     for (let i = chatHistory.length - 1; i >= 0; i--) {
       const message = chatHistory[i]
-      if (message.role === 'assistant' && message.partial === true && message.type === 'ask' && message.ask === 'command') {
+      if (
+        message.role === 'assistant' &&
+        message.partial === true &&
+        message.type === 'ask' &&
+        (message.ask === 'command' || message.ask === 'db_sql_approval')
+      ) {
         logger.info('Removing partial command message', { data: { id: message.id, ts: message.ts } })
         chatHistory.splice(i, 1)
         break
@@ -100,6 +136,19 @@ export function useChatMessages(
       .join('')
   }
 
+  /**
+   * Validate the DB context for a new database-workspace task.
+   * Returns null when valid, or an i18n key + optional params when invalid.
+   * Only applies when workspace === 'database'; always returns null otherwise.
+   */
+  const validateDbContextForNewTask = (): { key: string; params?: Record<string, string> } | null => {
+    if (workspace !== 'database') return null
+    const ctx = resolveDbContext?.()
+    if (!ctx || !ctx.assetId || !ctx.dbType) return { key: 'ai.dbContextRequired' }
+    if (!ctx.databaseName) return { key: 'ai.dbContextMissingField', params: { field: t('common.database') } }
+    return null
+  }
+
   const sendMessageToMain = async (
     userContent: string,
     sendType: string,
@@ -108,7 +157,7 @@ export function useChatMessages(
     contentParts?: ContentPart[],
     overrideHosts?: Host[],
     toolResult?: ToolResultPayload
-  ) => {
+  ): Promise<'BLOCKED' | undefined> => {
     try {
       const targetTab = tabId ? chatTabs.value.find((tab) => tab.id === tabId) : currentTab.value
 
@@ -129,6 +178,17 @@ export function useChatMessages(
 
       let message: WebviewMessage
       if (session.chatHistory.length === 0) {
+        // Guard: reject DB workspace new-task messages that lack a valid
+        // dbContext. This covers all callers of sendMessageWithContent
+        // (edit-resend, event-bus, summary, etc.) not just the primary
+        // sendMessage path, which has its own early-return check.
+        const dbValidation = validateDbContextForNewTask()
+        if (dbValidation) {
+          logger.warn('blocked newTask: invalid db context for database workspace', {
+            event: 'chat.newTask.db_context_invalid'
+          })
+          return 'BLOCKED'
+        }
         message = {
           type: 'newTask',
           askResponse: 'messageResponse',
@@ -162,11 +222,36 @@ export function useChatMessages(
         taskId: tabId || currentChatId.value,
         modelName: targetTab.modelValue || undefined
       }
+
+      // Stage 1 of #18: when the AiTab is mounted in the Database
+      // workspace, stamp the outgoing payload with `workspace` + optional
+      // `dbContext` so the main-process Task constructor can route it to
+      // the DB ChatBot track. Fields are additive — WebviewMessage uses
+      // a zod passthrough schema and the main side (#11) adds the typed
+      // fields when that task lands. For `workspace='terminal'` (the
+      // default) we intentionally do NOT emit the `workspace` field so
+      // bytes on the wire stay identical to pre-#18 for server Agent.
+      if (workspace === 'database') {
+        // Cast through unknown so we can attach fields that #11 will
+        // formalise on WebviewMessage. zod passthrough preserves them.
+        const augmented = messageWithTabId as unknown as WebviewMessage & {
+          workspace?: AiTabWorkspace
+          dbContext?: AiTabDbContext
+        }
+        augmented.workspace = 'database'
+        const ctx = resolveDbContext?.()
+        if (ctx) {
+          augmented.dbContext = { ...ctx }
+        }
+      }
+
       logger.debug('Send message to main process', { data: messageWithTabId })
       await window.api.sendToMain(messageWithTabId)
       // console.log('Main process response:', response)
+      return undefined
     } catch (error) {
       logger.error('Failed to send message to main process', { error: error })
+      return undefined
     }
   }
 
@@ -207,6 +292,18 @@ export function useChatMessages(
     }
 
     if (!userContent && !hasChips) return
+
+    // Validate database context before creating a DB workspace task.
+    const dbValidationError = validateDbContextForNewTask()
+    if (dbValidationError) {
+      const desc = dbValidationError.params ? t(dbValidationError.key, dbValidationError.params as Record<string, unknown>) : t(dbValidationError.key)
+      notification.error({
+        message: t('ai.sendContentError'),
+        description: desc,
+        duration: 4
+      })
+      return 'SEND_ERROR'
+    }
 
     if (chatTypeValue.value === 'agent' && hosts.value.some((host) => isSwitchAssetType(host.assetType))) {
       chatTypeValue.value = 'cmd'
@@ -258,7 +355,10 @@ export function useChatMessages(
     session.isCancelled = false
     // Strip Vue proxies before IPC to avoid structured clone failures.
     contentParts = contentParts ? contentParts.map((part) => (isProxy(part) ? (toRaw(part) as ContentPart) : part)) : undefined
-    await sendMessageToMain(userContent, sendType, tabId, truncateAtMessageTs, contentParts, overrideHosts, toolResult)
+    const sendResult = await sendMessageToMain(userContent, sendType, tabId, truncateAtMessageTs, contentParts, overrideHosts, toolResult)
+    if (sendResult === 'BLOCKED') {
+      return
+    }
 
     const userMessage: ChatMessage = {
       id: uuidv4(),
@@ -558,7 +658,8 @@ export function useChatMessages(
       if (!partial.partial) {
         session.showSendButton = true
         if (
-          (partial.type === 'ask' && (partial.ask === 'command' || partial.ask === 'mcp_tool_call' || partial.ask === 'followup')) ||
+          (partial.type === 'ask' &&
+            (partial.ask === 'command' || partial.ask === 'db_sql_approval' || partial.ask === 'mcp_tool_call' || partial.ask === 'followup')) ||
           partial.say === 'command_blocked'
         ) {
           session.responseLoading = false

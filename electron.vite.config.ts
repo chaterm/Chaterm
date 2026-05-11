@@ -115,7 +115,8 @@ export default defineConfig(({ mode }) => {
           '@utils': resolve('src/main/agent/utils'),
           '@api': resolve('src/main/agent/api'),
           '@logging': resolve('src/main/services/logging'),
-          '@perf': resolve('src/main/services/perf')
+          '@perf': resolve('src/main/services/perf'),
+          '@common': resolve('src/shared')
         }
       },
       define: {
@@ -166,7 +167,8 @@ export default defineConfig(({ mode }) => {
           '@api': resolve('src/renderer/src/api'),
           '@config': resolve('src/renderer/src/config'),
           '@': resolve('src/renderer/src'),
-          '@shared': resolve('src/main/agent/shared')
+          '@shared': resolve('src/main/agent/shared'),
+          '@common': resolve('src/shared')
         }
       },
       server: {

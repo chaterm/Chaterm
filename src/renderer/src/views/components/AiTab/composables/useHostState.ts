@@ -5,6 +5,7 @@ import i18n from '@/locales'
 import eventBus from '@/utils/eventBus'
 import { Notice } from '@/views/components/Notice'
 import { getBastionHostType } from '../../LeftTab/utils/types'
+import { AI_TAB_DEFAULT_WORKSPACE, type AiTabWorkspace } from '../workspace'
 
 const logger = createRendererLogger('aitab.hostState')
 
@@ -22,15 +23,33 @@ export interface HostInfo {
  * Composable for host state operations
  * Provides functions to manage hosts data
  * Note: No singleton needed since all state comes from useSessionState
+ *
+ * `workspace` identifies which surface owns this AiTab instance. When set
+ * to `'database'` the composable:
+ *   - returns `null` from `getCurentTabAssetInfo` immediately (no 5s event
+ *     bus timeout, no reliance on a terminal tab that does not exist in
+ *     the Database workspace)
+ *   - skips the agent→cmd auto-flip inside `updateHosts` (DB workspace
+ *     locks chat mode to agent; see docs/database_ai.md §3.2)
+ * For `'terminal'` (default, legacy callers) behaviour is byte-for-byte
+ * identical to the pre-#18 implementation.
  */
-export const useHostState = () => {
+export const useHostState = (workspace: AiTabWorkspace = AI_TAB_DEFAULT_WORKSPACE) => {
   const { t } = i18n.global
   const { hosts, chatTypeValue } = useSessionState()
 
   /**
-   * Get current tab's asset information via event bus
+   * Get current tab's asset information via event bus.
+   *
+   * In Database workspace there is no SSH tab to respond to the
+   * `getActiveTabAssetInfo` event, so issuing the request guarantees a 5s
+   * timeout and spews `ai.timeoutGettingAssetInfo` into the logger on
+   * every tab activation. Short-circuit to `null` instead.
    */
   const getCurentTabAssetInfo = async (): Promise<AssetInfo | null> => {
+    if (workspace === 'database') {
+      return null
+    }
     const TIMEOUT_MS = 5000
 
     try {
@@ -65,16 +84,16 @@ export const useHostState = () => {
   }
 
   /**
-   * Update hosts based on host info
+   * Update hosts based on host info. In `terminal` workspace this also
+   * flips `chatTypeValue` from `agent` to `cmd` when the asset is a
+   * network-switch device (those devices do not support agent-mode
+   * tooling). In `database` workspace the flip is suppressed — DB chat
+   * sessions stay in agent mode by design, and hosts is expected to be
+   * empty anyway.
    */
   const updateHosts = (hostInfo: HostInfo | null) => {
-    // if (chatTypeValue.value === 'chat') {
-    //   hosts.value = []
-    //   return
-    // }
-
     if (hostInfo) {
-      if (chatTypeValue.value === 'agent' && isSwitchAssetType(hostInfo.assetType)) {
+      if (workspace !== 'database' && chatTypeValue.value === 'agent' && isSwitchAssetType(hostInfo.assetType)) {
         chatTypeValue.value = 'cmd'
         Notice.open({
           type: 'info',

@@ -1,6 +1,7 @@
 import { ElectronAPI } from '@electron-toolkit/preload'
 import type { TaskMetadata } from '../main/agent/core/context/context-tracking/ContextTrackerTypes'
 import type { CommandGenerationContext, WebviewMessage } from '../main/agent/shared/WebviewMessage'
+import type { DbAiApi } from '../shared/db-ai-types'
 
 interface Cookie {
   name: string
@@ -370,6 +371,9 @@ interface ApiType {
     schema?: string
     statements: Array<{ sql: string; params: unknown[] }>
   }) => Promise<{ ok: boolean; errorMessage?: string; affected?: number[]; durationMs: number }>
+
+  // Database AI (single-turn, track A). See docs/database_ai.md §5.
+  dbAi: DbAiApi
   recordConnection: (data: {
     assetUuid: string
     assetIp: string
@@ -556,7 +560,7 @@ interface ApiType {
     success: boolean
     error?: { message: string }
   }>
-  getTaskList: () => Promise<{
+  getTaskList: (workspace?: 'server' | 'database') => Promise<{
     success: boolean
     data?: Array<{
       id: string
@@ -565,6 +569,14 @@ interface ApiType {
       createdAt: number
       updatedAt: number
       hosts: Array<{ host: string; uuid: string; connection: string }>
+      workspace: 'server' | 'database'
+      dbContext?: {
+        assetId?: string
+        dbType?: 'mysql' | 'postgresql'
+        databaseName?: string
+        schemaName?: string
+        assetName?: string
+      }
     }>
     error?: { message: string }
   }>

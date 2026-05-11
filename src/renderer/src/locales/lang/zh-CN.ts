@@ -981,6 +981,8 @@ export default {
     sendContentEmpty: '发送内容为空，请输入内容',
     getAssetInfoFailed: '获取当前资产连接信息失败',
     pleaseConnectAsset: '请先建立资产连接',
+    dbContextRequired: '请先选择数据库连接',
+    dbContextMissingField: '请先选择{field}',
     operationFailed: '操作失败',
     noOperableMessage: '没有可操作的消息',
     commandCopied: '命令已复制',
@@ -1715,6 +1717,7 @@ export default {
     filterAll: '全部',
     sortTooltip: '点击切换排序：升序 / 降序 / 取消',
     filterTooltip: '列筛选',
+    sqlFilterPlaceholder: '输入一个 SQL 表达式来过滤结果 (使用 Ctrl+Space)',
     wherePlaceholder: "手写 WHERE 表达式（会覆盖列筛选），例如：id > 100 AND name LIKE '%abc%'",
     orderByPlaceholder: '手写 ORDER BY 表达式（会覆盖列排序），例如：created_at DESC, id ASC',
     statusResult: '结果',
@@ -1815,6 +1818,45 @@ export default {
       content: '连接 "{name}" 将被删除，此操作无法撤销。'
     },
     copiedToClipboard: '已复制到剪贴板',
-    movedSuccess: '连接已移动'
+    movedSuccess: '连接已移动',
+    dbAi: {
+      title: '数据库 AI',
+      drawerTitle: '数据库 AI 结果',
+      emptyState: '暂无 DB-AI 请求。请在 SQL 编辑器中触发解释、自然语言转 SQL、优化或转换。',
+      emptyInput: '没有可发送到 AI 的内容。',
+      contextRequired: '请先选择连接和数据库。',
+      unknownError: 'DB-AI 请求失败。',
+      reasoning: '推理过程',
+      generatedSql: '生成的 SQL',
+      targetDialect: '目标方言',
+      textOnlyDialectHint: '仅文本转换；只读执行已禁用。',
+      insertIntoEditor: '插入到编辑器',
+      replaceSelection: '替换选中内容',
+      insertedIntoEditor: '已插入到编辑器',
+      replacedSelection: '已替换选中内容',
+      copy: '复制 SQL',
+      copyFailed: '复制失败',
+      runReadOnly: '运行（只读）',
+      cancel: '取消请求',
+      clear: '清空',
+      statusIdle: '空闲',
+      statusQueued: '排队中',
+      statusStreaming: '流式传输中',
+      statusDone: '已完成',
+      statusError: '错误',
+      statusCancelled: '已取消',
+      actionExplain: '解释',
+      actionNl2Sql: '自然语言转 SQL',
+      actionOptimize: '优化',
+      actionConvert: '转换方言',
+      actionComplete: '补全',
+      nl2SqlPrompt: {
+        title: '根据问题生成 SQL',
+        hint: '用自然语言描述你想查询的内容，当前连接和 schema 会作为上下文。',
+        placeholder: '例如：列出近 30 天累计付款金额最高的 5 位客户',
+        submit: '生成',
+        cancel: '取消'
+      }
+    }
   }
 }

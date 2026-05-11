@@ -25,11 +25,14 @@ import {
   saveTaskMetadata,
   saveTaskTitle,
   ensureTaskMetadataExists,
-  ensureMcpServersDirectoryExists
+  ensureMcpServersDirectoryExists,
+  setTaskWorkspace
 } from '../storage/disk'
 import { isValidCommand } from '../../../storage/db/commandValidation'
 import { getAllExtensionState, updateGlobalState, getUserConfig, getModelOptions } from '../storage/state'
 import { Task } from '../task'
+import type { TaskWorkspace } from '../task/tool-registry'
+import { hasValidDbContext, normaliseWorkspace, type DbTaskContext } from '../task/workspace'
 import { ApiConfiguration, ApiProvider, PROVIDER_MODEL_KEY_MAP } from '@shared/api'
 import { TITLE_GENERATION_PROMPT, TITLE_GENERATION_PROMPT_CN } from '../prompts/system'
 import { DEFAULT_LANGUAGE_SETTINGS } from '@shared/Languages'
@@ -144,13 +147,22 @@ export class Controller {
     }
   }
 
-  async initTask(hosts: Host[], task?: string, taskId?: string, contentParts?: ContentPart[], modelName?: string) {
+  async initTask(
+    hosts: Host[],
+    task?: string,
+    taskId?: string,
+    contentParts?: ContentPart[],
+    modelName?: string,
+    workspace?: TaskWorkspace,
+    dbContext?: DbTaskContext
+  ) {
     const resolvedTaskId = taskId
     mark('chaterm/agent/willCreateTask')
     logger.info('Initializing task', {
       event: 'agent.task.init',
       taskId: resolvedTaskId || 'new',
-      hasInitialPrompt: !!task
+      hasInitialPrompt: !!task,
+      workspace: workspace ?? 'server'
     })
     if (resolvedTaskId) {
       await this.clearTask(resolvedTaskId)
@@ -173,11 +185,64 @@ export class Controller {
       resolvedApiConfiguration = apiConfiguration
     }
 
+    // Resolve workspace + dbContext:
+    //   - New-task path: use caller-provided workspace (defaulting to 'server');
+    //     when caller asks for 'database', require a valid DbTaskContext.
+    //   - Resume path: read from persisted metadata; caller-provided overrides
+    //     are honoured (e.g. when a UI explicitly pins the workspace), but
+    //     fall back to storage on absence.
+    let resolvedWorkspace: TaskWorkspace
+    let resolvedDbContext: DbTaskContext | undefined
+    if (task && taskId) {
+      // New task: caller intent wins.
+      resolvedWorkspace = normaliseWorkspace(workspace)
+      resolvedDbContext = resolvedWorkspace === 'database' && hasValidDbContext(dbContext) ? dbContext : undefined
+    } else if (resolvedTaskId) {
+      // Resume: prefer caller override, else storage.
+      const metadata = await getTaskMetadata(resolvedTaskId)
+      const storedWorkspace = normaliseWorkspace(metadata?.workspace)
+      resolvedWorkspace = workspace ? normaliseWorkspace(workspace) : storedWorkspace
+      const callerDbContext = hasValidDbContext(dbContext) ? dbContext : undefined
+      const storedDbContext = hasValidDbContext(metadata?.db_context) ? (metadata?.db_context as DbTaskContext) : undefined
+      resolvedDbContext = resolvedWorkspace === 'database' ? (callerDbContext ?? storedDbContext) : undefined
+    } else {
+      resolvedWorkspace = normaliseWorkspace(workspace)
+      resolvedDbContext = resolvedWorkspace === 'database' && hasValidDbContext(dbContext) ? dbContext : undefined
+    }
+
+    // Guard: a database-workspace new task must carry a valid dbContext.
+    // The renderer already validates this before sending; this check is a
+    // server-side safety net to prevent half-created DB sessions.
+    if (task && taskId && resolvedWorkspace === 'database' && !resolvedDbContext) {
+      logger.warn('Rejected database-workspace task creation: missing or invalid dbContext', {
+        event: 'agent.task.db_context_missing',
+        taskId
+      })
+      await this.postMessageToWebview(
+        {
+          type: 'notification',
+          notification: {
+            type: 'error',
+            description: 'Database workspace requires a valid database connection context.'
+          }
+        },
+        taskId
+      )
+      return
+    }
+
     // Ensure metadata row exists before Task constructor runs,
     // so touchTaskUpdatedAt cannot insert a title-less row first.
     if (task && taskId) {
       const initialTitle = task.substring(0, 50).trim() || undefined
       await ensureTaskMetadataExists(taskId, initialTitle)
+      // Persist workspace assignment immediately so later patches
+      // (title generation, favorite toggles, todos updates) observe the
+      // correct workspace. For server tasks this is a no-op vs the column
+      // default; for database tasks it seals the workspace+dbContext pair.
+      if (resolvedWorkspace === 'database') {
+        await setTaskWorkspace(taskId, resolvedWorkspace, resolvedDbContext)
+      }
     }
 
     let newTask: Task
@@ -197,7 +262,9 @@ export class Controller {
       task,
       undefined, // chatTitle - Don't pass generated title initially
       taskId,
-      contentParts
+      contentParts,
+      resolvedWorkspace,
+      resolvedDbContext
     )
 
     this.tasks.set(newTask.taskId, newTask)
@@ -255,7 +322,19 @@ export class Controller {
 
     switch (message.type) {
       case 'newTask':
-        await this.initTask(message.hosts!, message.text, message.taskId, message.contentParts, message.modelName)
+        // Stage 2 of #18: forward workspace + dbContext to Controller.initTask
+        // so DB ChatBot Tasks from the Database workspace start with the
+        // right prompt/tool/approval branch. `initTask` already normalises
+        // and validates both fields; absent → defaults to 'server'.
+        await this.initTask(
+          message.hosts!,
+          message.text,
+          message.taskId,
+          message.contentParts,
+          message.modelName,
+          message.workspace,
+          message.dbContext
+        )
         if (message.taskId && message.hosts) {
           await updateTaskHosts(message.taskId, message.hosts)
         }
@@ -292,6 +371,9 @@ export class Controller {
               if (targetTaskId) {
                 await updateTaskHosts(targetTaskId, message.hosts)
               }
+            }
+            if (task.workspace === 'database' && hasValidDbContext(message.dbContext)) {
+              task.updateDbContext(message.dbContext as DbTaskContext)
             }
             if (message.askResponse === 'messageResponse') {
               // Clean up all command contexts for this task and broadcast close events

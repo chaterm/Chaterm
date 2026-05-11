@@ -53,6 +53,7 @@
       :tree="tree"
       :connection-statuses="connectionStatuses"
       @update:model-value="(v: string) => emit('update:assetId', v)"
+      @auto-connect="(assetId: string) => emit('auto-connect', assetId)"
     />
     <DatabasePicker
       :model-value="databaseName"
@@ -94,6 +95,7 @@ const emit = defineEmits<{
   (e: 'update:assetId', v: string): void
   (e: 'update:databaseName', v: string): void
   (e: 'update:schemaName', v: string): void
+  (e: 'auto-connect', assetId: string): void
 }>()
 
 // Resolve the dbType of the currently selected connection. Walks nested

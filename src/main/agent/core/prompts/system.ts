@@ -964,3 +964,58 @@ ${messages.userCustomInstructionsDescription}
 
 ${customInstructions.trim()}`
 }
+
+// ---------------------------------------------------------------------------
+// Workspace-aware system prompt dispatcher (Phase 3)
+// ---------------------------------------------------------------------------
+
+import type { TaskWorkspace } from '@shared/task-workspace'
+import type { DbAiRequestContext } from '@common/db-ai-types'
+import { renderDatabaseChatSystemPrompt } from '../../../services/database-ai/prompts/chat-system'
+
+/**
+ * Input shape accepted by `selectSystemPrompt`.
+ *
+ * - `workspace`: chooses the prompt group (classic server vs DB-AI ChatBot).
+ *   Defaults to `'server'` when omitted so pre-Phase-3 call sites behave
+ *   exactly as before.
+ * - `language`: renderer-provided locale (`'en-US'` / `'zh-CN'`). Unknown
+ *   values fall back to English, matching the classic selection logic.
+ * - `dbContext`: only consulted for `workspace='database'`. Supplies the
+ *   placeholders substituted into the DB-AI template.
+ */
+export interface SelectSystemPromptInput {
+  workspace?: TaskWorkspace
+  language?: string
+  dbContext?: Pick<DbAiRequestContext, 'assetId' | 'dbType' | 'databaseName' | 'schemaName'>
+}
+
+/**
+ * Return the base system prompt string for the given workspace + language.
+ *
+ * Selection order:
+ *   1. `workspace='database'` → render the DB-AI ChatBot template (EN/CN).
+ *      A `dbContext` is required for sensible output; when absent we fall
+ *      back to a synthetic "(not set)" context so the prompt is still
+ *      well-formed instead of throwing.
+ *   2. `workspace='server'` or undefined → classic SYSTEM_PROMPT /
+ *      SYSTEM_PROMPT_CN chosen by language.
+ *
+ * This function is intentionally pure - `Task.buildSystemPrompt()` layers
+ * switch-specific prompts, system information, and user rules on top.
+ */
+export function selectSystemPrompt(input: SelectSystemPromptInput): string {
+  const workspace: TaskWorkspace = input.workspace ?? 'server'
+  const language = input.language ?? 'en-US'
+
+  if (workspace === 'database') {
+    // When the caller forgot to pass a dbContext, synthesise a fully-empty
+    // one. The renderer will substitute "(not set)" tokens so the prompt
+    // stays readable; Task.buildSystemPrompt always passes a real context
+    // in practice, this fallback is purely defensive.
+    const ctx = input.dbContext ?? { assetId: '', dbType: 'mysql' as const, databaseName: undefined, schemaName: undefined }
+    return renderDatabaseChatSystemPrompt(ctx, language)
+  }
+
+  return language === 'zh-CN' ? SYSTEM_PROMPT_CN : SYSTEM_PROMPT
+}

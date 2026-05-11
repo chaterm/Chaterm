@@ -12,6 +12,7 @@ import { focusChatInput } from './useTabManagement'
 import i18n from '@/locales'
 import { Notice } from '@/views/components/Notice'
 import type { ContentPart, ImageContentPart, ContextSkillRef } from '@shared/WebviewMessage'
+import { AI_TAB_DEFAULT_WORKSPACE, type AiTabWorkspace } from '../workspace'
 import eventBus from '@/utils/eventBus'
 
 // Type for the context return value
@@ -25,6 +26,7 @@ export interface UseContextOptions {
   focusInput?: () => void
   mode?: 'create' | 'edit'
   hosts?: Ref<Host[]>
+  workspace?: AiTabWorkspace
 }
 
 /**
@@ -45,6 +47,7 @@ export const useContext = (options: UseContextOptions = {}) => {
   const { hosts: sessionHosts, chatTypeValue, autoUpdateHost, chatInputParts: globalChatInputParts, isMessageEditing } = useSessionState()
   const chatInputParts = options.chatInputParts ?? globalChatInputParts
   const hosts = options.hosts ?? sessionHosts
+  const workspace = options.workspace ?? AI_TAB_DEFAULT_WORKSPACE
 
   const { getCurentTabAssetInfo } = useHostState()
 
@@ -889,7 +892,8 @@ export const useContext = (options: UseContextOptions = {}) => {
 
     chatsOptionsLoading.value = true
     try {
-      const result = await window.api.getTaskList()
+      const taskListWorkspace: 'server' | 'database' = workspace === 'database' ? 'database' : 'server'
+      const result = await window.api.getTaskList(taskListWorkspace)
       if (!result.success || !result.data) return
 
       chatsOptions.value = result.data.map((item) => ({

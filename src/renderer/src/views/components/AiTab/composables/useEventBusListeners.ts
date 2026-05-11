@@ -8,6 +8,7 @@ import type { ContentPart, ToolResultPayload } from '@shared/WebviewMessage'
 import { isSwitchAssetType } from '../utils'
 import i18n from '@/locales'
 import { Notice } from '@/views/components/Notice'
+import { AI_TAB_DEFAULT_WORKSPACE, type AiTabWorkspace } from '../workspace'
 
 const logger = createRendererLogger('aitab.eventBus')
 
@@ -25,6 +26,18 @@ interface UseEventBusListenersParams {
   getCurentTabAssetInfo: () => Promise<AssetInfo | null>
   updateHosts: (hostInfo: { ip: string; uuid: string; connection: string; assetType?: string } | null) => void
   isAgentMode?: boolean
+  /**
+   * AiTab workspace identifier. Defaults to `'terminal'` so legacy callers
+   * see byte-for-byte identical behaviour. When `'database'`, all
+   * terminal-only event bus side effects are short-circuited:
+   *   - initAssetInfo() returns early (no host fetch, no mode flip)
+   *   - activeTabChanged listener ignores SSH tab switches
+   *   - switchAiMode (Cmd+/) ignores the keyboard shortcut
+   *   - sendMessageToAi / chatToAi already guarded by isAgentMode, remain
+   *     ignored (DB workspace always passes isAgentMode=true)
+   * See docs/db-ai-aitab-mount-decision.md (Stage 1) for rationale.
+   */
+  workspace?: AiTabWorkspace
 }
 
 export const AiTypeOptions = [
@@ -48,8 +61,9 @@ interface TabInfo {
  */
 export function useEventBusListeners(params: UseEventBusListenersParams) {
   const { t } = i18n.global
-  const { sendMessageWithContent, initModel, getCurentTabAssetInfo, updateHosts, isAgentMode = false } = params
+  const { sendMessageWithContent, initModel, getCurentTabAssetInfo, updateHosts, isAgentMode = false, workspace = AI_TAB_DEFAULT_WORKSPACE } = params
   const { chatTabs, currentSession, autoUpdateHost, chatTypeValue, appendTextToInputParts } = useSessionState()
+  const isDatabaseWorkspace = workspace === 'database'
 
   // Check and handle network switch device mode restriction
   const checkAndHandleSwitchMode = async (): Promise<boolean> => {
@@ -75,6 +89,12 @@ export function useEventBusListeners(params: UseEventBusListenersParams) {
     // if (chatTypeValue.value === 'chat') {
     //   return
     // }
+    if (isDatabaseWorkspace) {
+      // No SSH tab in Database workspace — bail before touching the
+      // terminal event bus. Leaves `hosts` untouched so DB callers can
+      // inject their own context downstream.
+      return
+    }
 
     // Always check for switch mode restriction first
     await checkAndHandleSwitchMode()
@@ -134,6 +154,12 @@ export function useEventBusListeners(params: UseEventBusListenersParams) {
     // if (chatTypeValue.value === 'chat') {
     //   return
     // }
+    if (isDatabaseWorkspace) {
+      // `activeTabChanged` is fired from the SSH tab bar. In the Database
+      // workspace an SSH tab switch must not mutate the DB AI sidebar's
+      // host context.
+      return
+    }
     const session = currentSession.value
     if (!autoUpdateHost.value || (session && session.chatHistory.length > 0)) {
       return
@@ -155,6 +181,12 @@ export function useEventBusListeners(params: UseEventBusListenersParams) {
   }
 
   const handleSwitchAiMode = async () => {
+    if (isDatabaseWorkspace) {
+      // DB workspace locks chat mode to `agent`; ignore the Cmd+/
+      // keyboard shortcut entirely so the user cannot toggle between
+      // agent and cmd inside a DB session.
+      return
+    }
     if (!isFocusInAiTab()) {
       return
     }
@@ -174,19 +206,23 @@ export function useEventBusListeners(params: UseEventBusListenersParams) {
   }
 
   onMounted(async () => {
-    eventBus.on('sendMessageToAi', handleSendMessageToAi)
-    eventBus.on('chatToAi', handleChatToAi)
-    eventBus.on('activeTabChanged', handleActiveTabChanged)
     eventBus.on('SettingModelOptionsChanged', handleSettingModelOptionsChanged)
-    eventBus.on('switchAiMode', handleSwitchAiMode)
-    await initAssetInfo()
+    if (!isDatabaseWorkspace) {
+      eventBus.on('sendMessageToAi', handleSendMessageToAi)
+      eventBus.on('chatToAi', handleChatToAi)
+      eventBus.on('activeTabChanged', handleActiveTabChanged)
+      eventBus.on('switchAiMode', handleSwitchAiMode)
+      await initAssetInfo()
+    }
   })
 
   onUnmounted(() => {
-    eventBus.off('sendMessageToAi', handleSendMessageToAi)
-    eventBus.off('chatToAi', handleChatToAi)
-    eventBus.off('activeTabChanged', handleActiveTabChanged)
     eventBus.off('SettingModelOptionsChanged', handleSettingModelOptionsChanged)
-    eventBus.off('switchAiMode', handleSwitchAiMode)
+    if (!isDatabaseWorkspace) {
+      eventBus.off('sendMessageToAi', handleSendMessageToAi)
+      eventBus.off('chatToAi', handleChatToAi)
+      eventBus.off('activeTabChanged', handleActiveTabChanged)
+      eventBus.off('switchAiMode', handleSwitchAiMode)
+    }
   })
 }

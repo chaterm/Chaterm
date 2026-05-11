@@ -177,10 +177,20 @@ export class ChatSnapshotStore {
     const dbService = this.ensureInitialized()
     const db = dbService.getDb()
 
+    // workspace / db_context: only touch the columns when the caller
+    // explicitly provided them. This keeps partial patches (e.g. updating
+    // hosts or todos only) from clobbering the DB-AI workspace assignment.
+    const workspaceProvided = metadata.workspace === 'server' || metadata.workspace === 'database' ? 1 : 0
+    const workspaceValue = workspaceProvided ? metadata.workspace : null
+    const dbContextProvided = Object.prototype.hasOwnProperty.call(metadata, 'db_context') ? 1 : 0
+    const dbContextValue =
+      dbContextProvided && metadata.db_context !== undefined && metadata.db_context !== null ? JSON.stringify(metadata.db_context) : null
+
     db.transaction(() => {
       const upsertStmt = db.prepare(`
-        INSERT INTO agent_task_metadata_v1 (task_id, files_in_context, model_usage, hosts, todos, experience_ledger, title, favorite)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+        INSERT INTO agent_task_metadata_v1
+          (task_id, files_in_context, model_usage, hosts, todos, experience_ledger, title, favorite, workspace, db_context)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, COALESCE(?, 'server'), ?)
         ON CONFLICT(task_id) DO UPDATE SET
           files_in_context = excluded.files_in_context,
           model_usage = excluded.model_usage,
@@ -188,7 +198,9 @@ export class ChatSnapshotStore {
           todos = excluded.todos,
           experience_ledger = excluded.experience_ledger,
           title = CASE WHEN excluded.title IS NOT NULL THEN excluded.title ELSE agent_task_metadata_v1.title END,
-          favorite = CASE WHEN excluded.favorite IS NOT NULL THEN excluded.favorite ELSE agent_task_metadata_v1.favorite END
+          favorite = CASE WHEN excluded.favorite IS NOT NULL THEN excluded.favorite ELSE agent_task_metadata_v1.favorite END,
+          workspace = CASE WHEN ? = 1 THEN excluded.workspace ELSE agent_task_metadata_v1.workspace END,
+          db_context = CASE WHEN ? = 1 THEN excluded.db_context ELSE agent_task_metadata_v1.db_context END
       `)
 
       upsertStmt.run(
@@ -199,7 +211,11 @@ export class ChatSnapshotStore {
         JSON.stringify(metadata.todos || []),
         JSON.stringify(metadata.experience_ledger || []),
         metadata.title !== undefined ? metadata.title : null,
-        metadata.favorite !== undefined ? (metadata.favorite ? 1 : 0) : null
+        metadata.favorite !== undefined ? (metadata.favorite ? 1 : 0) : null,
+        workspaceValue,
+        dbContextValue,
+        workspaceProvided,
+        dbContextProvided
       )
 
       this._markDirtyInTransaction(db, taskId)
@@ -276,6 +292,44 @@ export class ChatSnapshotStore {
           END
       `
       ).run(taskId, initialTitle || null)
+
+      this._markDirtyInTransaction(db, taskId)
+    })()
+  }
+
+  /**
+   * Set `workspace` and `db_context` for a task without touching any other
+   * metadata columns. Used by Controller.initTask on the new-task path so
+   * a workspace='database' task is flagged in storage from the very first
+   * write, before any title/favorite/todos patches run.
+   */
+  async setTaskWorkspace(taskId: string, workspace: 'server' | 'database', dbContext?: unknown): Promise<void> {
+    const dbService = this.ensureInitialized()
+    const db = dbService.getDb()
+    const dbContextValue = dbContext === undefined || dbContext === null ? null : JSON.stringify(dbContext)
+
+    db.transaction(() => {
+      const result = db
+        .prepare(
+          `
+          UPDATE agent_task_metadata_v1
+          SET workspace = ?, db_context = ?
+          WHERE task_id = ?
+        `
+        )
+        .run(workspace, dbContextValue, taskId)
+
+      if (result.changes === 0) {
+        // Metadata row does not exist yet - insert a fresh one so we never
+        // silently drop a workspace assignment. The row skeleton mirrors
+        // ensureTaskMetadataExists.
+        db.prepare(
+          `
+          INSERT INTO agent_task_metadata_v1 (task_id, workspace, db_context, updated_at)
+          VALUES (?, ?, ?, strftime('%s', 'now'))
+        `
+        ).run(taskId, workspace, dbContextValue)
+      }
 
       this._markDirtyInTransaction(db, taskId)
     })()

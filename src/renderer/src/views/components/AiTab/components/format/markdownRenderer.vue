@@ -1,7 +1,7 @@
 <template>
   <div ref="containerRef">
     <div
-      v-if="props.ask === 'command' || props.say === 'command'"
+      v-if="props.ask === 'command' || props.ask === 'db_sql_approval' || props.say === 'command'"
       ref="editorContainer"
       class="command-editor-container"
     >
@@ -29,7 +29,7 @@
               "
             >
               <div class="output-title-section">
-                <span class="output-title">Command</span>
+                <span class="output-title">{{ isSqlCommand ? 'SQL' : 'Command' }}</span>
                 <a-tooltip
                   :title="t('ai.explainCommand')"
                   placement="top"
@@ -589,6 +589,13 @@ const codeDetection = computed(() => {
   return { isCode: false }
 })
 
+const isSqlCommand = computed(() => {
+  if (props.ask === 'db_sql_approval' || props.say === 'db_sql_approval') return true
+  const content = (props.content || '').trim()
+  if (!content) return false
+  return detectLanguage(content) === 'sql'
+})
+
 const codeBlocks = ref<Array<{ content: string; activeKey: string[]; lines: number }>>([])
 const codeEditors = ref<Array<HTMLElement | null>>([])
 const isCodeExpanded = ref(false) // Code content default folded
@@ -705,7 +712,17 @@ const detectLanguage = (content: string): string => {
   if (contentLower.includes('fn ') && contentLower.includes('impl ')) {
     return 'rust'
   }
-  if (contentLower.includes('select ') && (contentLower.includes('from ') || contentLower.includes('where '))) {
+  if (
+    contentLower.includes('select ') ||
+    contentLower.includes('insert ') ||
+    contentLower.includes('update ') ||
+    contentLower.includes('delete ') ||
+    contentLower.includes('alter ') ||
+    contentLower.includes('create ') ||
+    contentLower.includes('drop ') ||
+    contentLower.includes('truncate ') ||
+    contentLower.includes('rename ')
+  ) {
     return 'sql'
   }
 
@@ -1117,7 +1134,7 @@ onMounted(async () => {
   document.addEventListener('keydown', handleSelectedTextCopy, true)
 
   if (props.content) {
-    if (props.ask === 'command' || props.say === 'command') {
+    if (props.ask === 'command' || props.ask === 'db_sql_approval' || props.say === 'command') {
       initEditor(props.content)
     } else if (props.say === 'command_output') {
       // command_output is handled by TerminalOutputRenderer component, no additional processing needed
@@ -1145,7 +1162,7 @@ watch(
       return
     }
 
-    if (props.ask === 'command' || props.say === 'command') {
+    if (props.ask === 'command' || props.ask === 'db_sql_approval' || props.say === 'command') {
       if (contentStableTimeout.value) {
         clearTimeout(contentStableTimeout.value)
       }
@@ -1178,7 +1195,7 @@ watch(
 watch(
   () => props.ask,
   (newAsk) => {
-    if (newAsk === 'command') {
+    if (newAsk === 'command' || newAsk === 'db_sql_approval') {
       if (props.content) {
         if (!editor) {
           initEditor(props.content)

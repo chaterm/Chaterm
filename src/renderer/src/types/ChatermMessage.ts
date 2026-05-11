@@ -26,6 +26,7 @@ export interface ChatermMessage {
 export type ChatermAsk =
   | 'followup'
   | 'command'
+  | 'db_sql_approval'
   | 'command_output'
   | 'completion_result'
   | 'tool'
@@ -62,6 +63,7 @@ export type ChatermSay =
   | 'search_result'
   | 'knowledge_summary'
   | 'skill_summary'
+  | 'db_query_result'
   | 'context_truncated'
   | 'skill_activated'
 

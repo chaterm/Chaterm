@@ -297,8 +297,8 @@ export class ChatermDatabaseService {
     return saveTaskFavoriteLogic(this.db, taskId, favorite)
   }
 
-  async getTaskList(): Promise<TaskListItem[]> {
-    return getTaskListLogic(this.db)
+  async getTaskList(workspace?: 'server' | 'database'): Promise<TaskListItem[]> {
+    return getTaskListLogic(this.db, workspace)
   }
 
   async ensureTaskMetadataExists(taskId: string, initialTitle?: string): Promise<void> {

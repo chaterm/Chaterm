@@ -11,6 +11,7 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { ref } from 'vue'
+import { getMenuForDockBackedUserTab, isDockBackedUserTab } from '../terminalLayoutNavigation'
 
 // Mocks (required by AI Sidebar tests)
 vi.mock('@/services/userConfigStoreService', () => ({
@@ -1118,5 +1119,17 @@ describe('TerminalLayout - Database Workspace Mode', () => {
   it('defines scoped styles so database mode fills term_content', () => {
     expect(source).toContain('.database-workspace-mode')
     expect(source).toMatch(/\.database-workspace-mode\s*\{[\s\S]{0,200}height:\s*100%/)
+  })
+
+  it('switches back to a Dockview-backed menu before opening settings from database mode', () => {
+    expect(isDockBackedUserTab('userConfig')).toBe(true)
+    expect(getMenuForDockBackedUserTab('database', 'userConfig')).toBe('workspace')
+    expect(source).toContain('await ensureDockWorkspaceVisibleForUserTab(value)')
+  })
+
+  it('routes repeated database menu clicks to the database asset sidebar', () => {
+    expect(source).toContain("params.menu === 'database'")
+    expect(source).toContain('databaseWorkspaceStore.toggleDatabaseSidebar()')
+    expect(source).toContain('databaseWorkspaceStore.setDatabaseSidebarOpen(true)')
   })
 })

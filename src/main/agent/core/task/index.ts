@@ -67,6 +67,24 @@ interface MessageUpdater {
 }
 
 import { AssistantMessageContent, parseAssistantMessageV2, ToolParamName, ToolUseName, TextContent, ToolUse } from '@core/assistant-message'
+import { isToolAllowed, type TaskWorkspace } from './tool-registry'
+import { DEFAULT_WORKSPACE, hasValidDbContext, normaliseWorkspace, type DbTaskContext } from './workspace'
+import {
+  runCountRows,
+  runDescribeTable,
+  runExecuteReadonlyQuery,
+  runExecuteWriteQuery,
+  runExplainPlan,
+  runInspectIndexes,
+  runListDatabases,
+  runListSchemas,
+  runListTables,
+  runSampleRows,
+  runSuggestIndexes,
+  type DbToolResult
+} from './db-tools'
+import { closeSessionsOwnedBy, openDbAiSession } from '../../../services/database-ai/db-session'
+import type { DbAiActiveSession } from '../../../services/database-ai/types'
 import { RemoteTerminalManager, ConnectionInfo, RemoteTerminalInfo, RemoteTerminalProcessResultPromise } from '../../integrations/remote-terminal'
 import { LocalTerminalManager, LocalCommandProcess } from '../../integrations/local-terminal'
 import { getK8sAgentManager } from '../../integrations/k8s'
@@ -74,7 +92,7 @@ import { createExperienceManager } from '../../services/experience'
 import { createLlmCaller } from '../../services/interaction-detector/llm-caller'
 import type { InteractionResult } from '../../services/interaction-detector/types'
 import { getFormatResponse } from '@core/prompts/responses'
-import { addUserInstructions, SYSTEM_PROMPT, SYSTEM_PROMPT_CN } from '@core/prompts/system'
+import { addUserInstructions, selectSystemPrompt } from '@core/prompts/system'
 import { getSwitchPromptByAssetType } from '@core/prompts/switch-prompts'
 import { SLASH_COMMANDS, getSummaryToDocPrompt, getSummaryToSkillPrompt } from '@core/prompts/slash-commands'
 import { CommandSecurityManager } from '../security/CommandSecurityManager'
@@ -88,7 +106,8 @@ import {
   saveApiConversationHistory,
   saveChatermMessages,
   saveTaskMetadata,
-  touchTaskUpdatedAt
+  touchTaskUpdatedAt,
+  setTaskWorkspace
 } from '@core/storage/disk'
 
 import { getGlobalState, getUserConfig } from '@core/storage/state'
@@ -230,6 +249,26 @@ export class Task {
 
   readonly taskId: string
   hosts: Host[]
+  /**
+   * Workspace this task is executing in. Defaults to `'server'` for every
+   * existing code path; only DB-AI ChatBot entrypoints set `'database'`.
+   * Read by the tool dispatcher as the final workspace-visibility safety
+   * boundary (see `handleToolUse()` below).
+   */
+  workspace: TaskWorkspace
+  /**
+   * DB-AI connection context bound to the task when `workspace === 'database'`.
+   * Always `undefined` for server workspace; populated from metadata on
+   * resume and from Controller.initTask input on new-task paths.
+   */
+  dbContext?: DbTaskContext
+  /**
+   * Lazily-created DB-AI independent session, owned by this task. Created on
+   * first DB-tool invocation in `workspace === 'database'`; released in
+   * `abortTask()` via `closeSessionsOwnedBy({ type: 'task', taskId })`.
+   * Never touched in `workspace === 'server'` tasks.
+   */
+  private dbAiSession?: DbAiActiveSession
   chatTitle?: string // Store the LLM-generated chat title
   api: ApiHandler
   private apiProviderId?: ApiProvider | string
@@ -433,6 +472,17 @@ export class Task {
     const selectedChats = pastChats.slice(0, MAX_PAST_CHATS).sort((a, b) => a.taskId.localeCompare(b.taskId))
     for (const c of selectedChats) {
       try {
+        const meta = await getTaskMetadata(c.taskId)
+        const refWorkspace = normaliseWorkspace(meta.workspace)
+        if (refWorkspace !== this.workspace) {
+          logger.warn('Rejected past-chat reference across workspace boundary', {
+            event: 'agent.context.workspace_mismatch',
+            refTaskId: c.taskId,
+            refWorkspace,
+            currentWorkspace: this.workspace
+          })
+          continue
+        }
         const history = await getSavedApiConversationHistory(c.taskId)
         const text = this.formatPastChatHistory(history, MAX_PAST_CHAT_CHARS)
         chatLines.push(`- PAST_CHAT: ${c.taskId}${c.title ? ` (${c.title})` : ''}`)
@@ -523,7 +573,9 @@ export class Task {
     task?: string,
     chatTitle?: string,
     taskId?: string,
-    initialUserContentParts?: ContentPart[]
+    initialUserContentParts?: ContentPart[],
+    workspace?: TaskWorkspace,
+    dbContext?: DbTaskContext
   ) {
     this.postStateToWebview = postStateToWebview
     this.postMessageToWebview = postMessageToWebview
@@ -545,6 +597,16 @@ export class Task {
     })
     this.hosts = hosts
     this.chatTitle = chatTitle
+    // Workspace bootstrap:
+    //   - For new tasks the caller may pass an explicit workspace; absence
+    //     means "server".
+    //   - For resume paths the real workspace lives in storage; we seed the
+    //     field to the default synchronously so code that runs before
+    //     `resumeTaskFromHistory()` (e.g. logging, tool registry gate on
+    //     early partial blocks) sees a valid value. resumeTaskFromHistory
+    //     reloads it from metadata asynchronously.
+    this.workspace = workspace ?? DEFAULT_WORKSPACE
+    this.dbContext = this.workspace === 'database' && hasValidDbContext(dbContext) ? dbContext : undefined
     this.updateMessagesLanguage()
 
     // Initialize taskId
@@ -1667,6 +1729,24 @@ export class Task {
   private async resumeTaskFromHistory() {
     const modifiedChatermMessages = await getChatermMessages(this.taskId)
 
+    // Restore workspace assignment from persisted metadata. Constructor seeded
+    // `this.workspace` to DEFAULT_WORKSPACE so any log/dispatch path running
+    // before this point is safe; once metadata arrives we promote the value
+    // to the persisted workspace (falling back to 'server' for legacy rows).
+    try {
+      const persisted = await getTaskMetadata(this.taskId)
+      this.workspace = normaliseWorkspace(persisted.workspace)
+      this.dbContext = this.workspace === 'database' && hasValidDbContext(persisted.db_context) ? (persisted.db_context as DbTaskContext) : undefined
+    } catch (error) {
+      logger.warn('Failed to restore workspace from metadata, defaulting to server', {
+        event: 'agent.task.workspace_restore_failed',
+        taskId: this.taskId,
+        error
+      })
+      this.workspace = DEFAULT_WORKSPACE
+      this.dbContext = undefined
+    }
+
     // Remove incomplete api_req_started (no cost and no cancel reason indicates interrupted request)
     const lastApiReqStartedIndex = findLastIndex(modifiedChatermMessages, (m) => m.type === 'say' && m.say === 'api_req_started')
     let needsRewrite = false
@@ -1737,11 +1817,32 @@ export class Task {
     }
   }
 
+  /**
+   * Update the DB connection context for an active database-workspace task.
+   * Discards the cached DB session so the next tool invocation opens a fresh
+   * connection against the new asset/database/schema.
+   */
+  updateDbContext(newContext: DbTaskContext): void {
+    if (this.workspace !== 'database') return
+    this.dbContext = newContext
+    if (this.dbAiSession) {
+      void closeSessionsOwnedBy({ type: 'task', taskId: this.taskId }).catch(() => undefined)
+      this.dbAiSession = undefined
+    }
+    void setTaskWorkspace(this.taskId, 'database', newContext).catch(() => undefined)
+  }
+
   async abortTask() {
     this.abort = true // will stop any autonomously running promises
     this.remoteTerminalManager.disposeAll()
     // Clean up command contexts to prevent stale IPC references
     Task.clearCommandContextsForTask(this.taskId)
+    // Release any DB-AI independent sessions owned by this task. Fire and
+    // forget: the cleanup is best-effort and must not block abort.
+    if (this.workspace === 'database') {
+      void closeSessionsOwnedBy({ type: 'task', taskId: this.taskId }).catch(() => undefined)
+      this.dbAiSession = undefined
+    }
   }
 
   async gracefulAbortTask() {
@@ -2109,6 +2210,17 @@ export class Task {
   // Check if the tool should be auto-approved based on the settings
   // Returns bool for most tools, and tuple for tools with nested settings
   shouldAutoApproveTool(toolName: ToolUseName): boolean | [boolean, boolean] {
+    // DB-AI workspace hard rule (docs/database_ai.md §9.5.1):
+    //   - DB tools never go through command approval.
+    //   - AutoApprovalSettings is intentionally NOT consulted here; the
+    //     only safety mechanisms for DB tools are the read-only guard,
+    //     row caps, query timeouts, and workspace gate — all enforced
+    //     unconditionally in the dispatch handlers below.
+    //   - Returning `false` here also prevents any accidental "auto-approve
+    //     command" path from being reached in the database workspace.
+    if (this.workspace === 'database') {
+      return false
+    }
     if (this.autoApprovalSettings.enabled) {
       switch (toolName) {
         case 'execute_command':
@@ -3086,6 +3198,33 @@ export class Task {
         return `[${block.name} for '${block.params.query}']`
       case 'web_fetch':
         return `[${block.name} '${block.params.url}']`
+      // DB-AI tools: surface the scoped identifiers so task-trace shows which
+      // database/schema/table the call targets. Never include `sql` — that
+      // may contain user-sensitive fragments.
+      case 'list_databases':
+        return `[${block.name}]`
+      case 'list_schemas':
+        return `[${block.name}${block.params.database ? ` ${block.params.database}` : ''}]`
+      case 'list_tables':
+      case 'describe_table':
+      case 'inspect_indexes':
+      case 'sample_rows':
+      case 'count_rows':
+      case 'suggest_indexes': {
+        const db = block.params.database
+        const schema = block.params.schema
+        const table = block.params.table
+        const parts: string[] = []
+        if (db) parts.push(db)
+        if (schema) parts.push(schema)
+        if (table) parts.push(table)
+        return parts.length > 0 ? `[${block.name} ${parts.join('.')}]` : `[${block.name}]`
+      }
+      case 'explain_plan':
+        return `[${block.name}]`
+      case 'execute_readonly_query':
+      case 'execute_write_query':
+        return `[${block.name}]`
       default:
         return `[${block.name}]`
     }
@@ -3633,6 +3772,28 @@ export class Task {
       return
     }
 
+    // Workspace visibility gate (Phase 3 - DB-AI).
+    // `this.workspace` is seeded by the constructor (or reloaded from
+    // metadata on resume). Fall back to DEFAULT_WORKSPACE defensively -
+    // any code path that constructs a Task without going through the real
+    // constructor (e.g. test doubles) inherits safe legacy behaviour.
+    // DB-AI workspaces see a strict subset of tools; see
+    // docs/db-ai-tool-whitelist-decision.md.
+    const workspace: TaskWorkspace = this.workspace ?? DEFAULT_WORKSPACE
+    if (!isToolAllowed(block.name, workspace)) {
+      logger.warn('Tool blocked by workspace visibility policy', {
+        event: 'tool.workspace_violation',
+        toolName: block.name,
+        workspace,
+        taskId: this.taskId
+      })
+      this.userMessageContent.push({
+        type: 'text',
+        text: this.responseFormatter.toolError(`Tool '${block.name}' is not available in the '${workspace}' workspace.`)
+      })
+      return
+    }
+
     switch (block.name) {
       case 'execute_command':
         await this.handleExecuteCommandToolUse(block)
@@ -3687,6 +3848,90 @@ export class Task {
         break
       case 'web_fetch':
         await this.handleWebFetchToolUse(block)
+        break
+      // ----- DB-AI workspace tools (Phase 3, #16 + #17) ---------------------
+      // All DB tools share the same dispatch shape: resolve the session,
+      // call the pure tool function from ./db-tools/, and forward the
+      // structured result via `pushDbToolResult`. DB tools NEVER go through
+      // command approval (docs/database_ai.md §9.5.1); safety comes from
+      // the read-only guard, row caps, query timeouts, and the workspace gate.
+      case 'list_databases':
+        await this.handleDbToolUse(block, (session) => runListDatabases(session))
+        break
+      case 'list_schemas':
+        await this.handleDbToolUse(block, (session) => runListSchemas(session, { database: block.params.database }))
+        break
+      case 'list_tables':
+        await this.handleDbToolUse(block, (session) => runListTables(session, { database: block.params.database ?? '', schema: block.params.schema }))
+        break
+      case 'describe_table':
+        await this.handleDbToolUse(block, (session) =>
+          runDescribeTable(session, {
+            database: block.params.database ?? '',
+            schema: block.params.schema,
+            table: block.params.table ?? ''
+          })
+        )
+        break
+      case 'inspect_indexes':
+        await this.handleDbToolUse(block, (session) =>
+          runInspectIndexes(session, {
+            database: block.params.database ?? '',
+            schema: block.params.schema,
+            table: block.params.table ?? ''
+          })
+        )
+        break
+      case 'sample_rows':
+        await this.handleDbToolUse(block, (session) =>
+          runSampleRows(session, {
+            database: block.params.database ?? '',
+            schema: block.params.schema,
+            table: block.params.table ?? '',
+            limit: block.params.limit
+          })
+        )
+        break
+      case 'count_rows':
+        await this.handleDbToolUse(block, (session) =>
+          runCountRows(session, {
+            database: block.params.database ?? '',
+            schema: block.params.schema,
+            table: block.params.table ?? '',
+            exact: block.params.exact
+          })
+        )
+        break
+      case 'explain_plan':
+        await this.handleDbToolUse(block, (session) =>
+          runExplainPlan(session, {
+            database: block.params.database,
+            schema: block.params.schema,
+            sql: block.params.sql ?? ''
+          })
+        )
+        break
+      case 'execute_readonly_query':
+        await this.handleDbToolUse(block, (session) =>
+          runExecuteReadonlyQuery(session, {
+            database: block.params.database,
+            schema: block.params.schema,
+            sql: block.params.sql ?? ''
+          })
+        )
+        break
+      case 'execute_write_query':
+        await this.handleDbWriteToolUse(block)
+        break
+      case 'suggest_indexes':
+        await this.handleDbToolUse(block, (session) =>
+          runSuggestIndexes(session, {
+            database: block.params.database ?? '',
+            schema: block.params.schema,
+            table: block.params.table ?? '',
+            query_patterns: block.params.query_patterns
+          })
+        )
         break
       default:
         logger.error(`[Task] Unknown tool name: ${block.name}`)
@@ -4406,153 +4651,163 @@ export class Task {
       }
     } catch (error) {}
 
-    // Select system prompt based on language and mode
+    // Select system prompt based on workspace + language + (optional) asset
+    // specific overrides.
     let systemPrompt: string
 
-    // Check if connected host is a network switch - use switch-specific prompt with language support
-    const switchPrompt = this.hosts && this.hosts.length > 0 ? getSwitchPromptByAssetType(this.hosts[0].assetType, userLanguage) : null
+    // Highest priority: classic network-switch asset gets a dedicated prompt.
+    // This only applies in the server workspace - switch assets never show
+    // up inside a DB-AI workspace task.
+    const switchPrompt =
+      this.workspace === 'server' && this.hosts && this.hosts.length > 0 ? getSwitchPromptByAssetType(this.hosts[0].assetType, userLanguage) : null
+
     if (switchPrompt) {
-      // Use switch-specific prompt (switch only supports Command mode)
       systemPrompt = switchPrompt
-    } else if (userLanguage === 'zh-CN') {
-      systemPrompt = SYSTEM_PROMPT_CN
     } else {
-      systemPrompt = SYSTEM_PROMPT
+      // Workspace-aware dispatcher: 'server' returns the classic EN/CN
+      // SYSTEM_PROMPT, 'database' returns the DB-AI ChatBot template with
+      // placeholders filled from `this.dbContext`.
+      systemPrompt = selectSystemPrompt({
+        workspace: this.workspace,
+        language: userLanguage,
+        dbContext: this.dbContext
+      })
     }
-    // Update messages language before building system information
+    // DB workspace has no host/shell context: keep prompt contract aligned by
+    // skipping shared host/system-information suffix entirely.
+    if (this.workspace !== 'database') {
+      let systemInformation = `# ${this.messages.systemInformationTitle}\n\n`
 
-    let systemInformation = `# ${this.messages.systemInformationTitle}\n\n`
+      // In chat mode, skip system information collection (no server operations)
+      if (chatSettings?.mode === 'chat') {
+        systemInformation +=
+          'Chat mode: No server connection or system information available. This mode is for conversation, learning, and brainstorming only.\n'
+      } else if (!this.hosts || this.hosts.length === 0) {
+        logger.warn('No hosts configured, skipping system information collection')
+        systemInformation += this.messages.noHostsConfigured + '\n'
+      } else {
+        logger.info(`Collecting system information for ${this.hosts.length} host(s)`)
 
-    // In chat mode, skip system information collection (no server operations)
-    if (chatSettings?.mode === 'chat') {
-      systemInformation +=
-        'Chat mode: No server connection or system information available. This mode is for conversation, learning, and brainstorming only.\n'
-    } else if (!this.hosts || this.hosts.length === 0) {
-      logger.warn('No hosts configured, skipping system information collection')
-      systemInformation += this.messages.noHostsConfigured + '\n'
-    } else {
-      logger.info(`Collecting system information for ${this.hosts.length} host(s)`)
+        for (const host of this.hosts) {
+          try {
+            if (host.assetType?.startsWith('person-switch-')) {
+              continue
+            }
 
-      for (const host of this.hosts) {
-        try {
-          if (host.assetType?.startsWith('person-switch-')) {
-            continue
-          }
+            // Handle K8S hosts separately
+            if (this.isK8sHost(host.host)) {
+              const k8sAgentManager = getK8sAgentManager()
+              const currentCluster = k8sAgentManager.getCurrentCluster()
 
-          // Handle K8S hosts separately
-          if (this.isK8sHost(host.host)) {
-            const k8sAgentManager = getK8sAgentManager()
-            const currentCluster = k8sAgentManager.getCurrentCluster()
-
-            if (currentCluster.contextName) {
-              systemInformation += `
+              if (currentCluster.contextName) {
+                systemInformation += `
             ## Kubernetes Cluster: ${host.host}
             Context: ${currentCluster.contextName}
             Type: Kubernetes
             Commands: kubectl (use execute_command tool with kubectl commands)
             ====
           `
-            } else {
-              systemInformation += `
+              } else {
+                systemInformation += `
             ## Kubernetes Cluster: ${host.host}
             Status: Not connected
             Note: Please ensure the K8S cluster is connected before executing kubectl commands
             ====
           `
+              }
+              continue
             }
-            continue
-          }
 
-          // Check cache, if no cache, get system info and cache it
-          let hostInfo = this.hostSystemInfoCache.get(host.host)
-          if (!hostInfo) {
-            logger.debug('Fetching system information for host')
+            // Check cache, if no cache, get system info and cache it
+            let hostInfo = this.hostSystemInfoCache.get(host.host)
+            if (!hostInfo) {
+              logger.debug('Fetching system information for host')
 
-            let systemInfoOutput: string
+              let systemInfoOutput: string
 
-            // If it's local host, directly get system information
-            if (this.isLocalHost(host.host)) {
-              const localSystemInfo = await this.localTerminalManager.getSystemInfo()
-              systemInfoOutput = `OS_VERSION:${localSystemInfo.osVersion}
+              // If it's local host, directly get system information
+              if (this.isLocalHost(host.host)) {
+                const localSystemInfo = await this.localTerminalManager.getSystemInfo()
+                systemInfoOutput = `OS_VERSION:${localSystemInfo.osVersion}
 DEFAULT_SHELL:${localSystemInfo.defaultShell}
 HOME_DIR:${localSystemInfo.homeDir}
 HOSTNAME:${localSystemInfo.hostName}
 USERNAME:${localSystemInfo.userName}`
-            } else {
-              // Optimization: Get all system information at once to avoid multiple network requests
-              // Simplified script to avoid complex quoting issues in JumpServer environment
-              const systemInfoScript = `uname -a | sed 's/^/OS_VERSION:/' && echo "DEFAULT_SHELL:$SHELL" && echo "HOME_DIR:$HOME" && hostname | sed 's/^/HOSTNAME:/' && whoami | sed 's/^/USERNAME:/'`
-              systemInfoOutput = await this.executeCommandInRemoteServer(systemInfoScript, host.host)
-            }
-
-            logger.debug(`System info command completed for host: ${host.host}`, {
-              event: 'agent.task.system_info.command.complete',
-              host: host.host,
-              outputLength: systemInfoOutput?.length || 0
-            })
-
-            if (!systemInfoOutput || systemInfoOutput.trim() === '') {
-              throw new Error('Failed to get system information: connection failed or no output received')
-            }
-
-            // Parse output result
-            const parseSystemInfo = (
-              output: string
-            ): {
-              osVersion: string
-              defaultShell: string
-              homeDir: string
-              hostName: string
-              userName: string
-            } => {
-              const lines = output.split('\n').filter((line) => line.trim())
-              const info = {
-                osVersion: '',
-                defaultShell: '',
-                homeDir: '',
-                hostName: '',
-                userName: ''
+              } else {
+                // Optimization: Get all system information at once to avoid multiple network requests
+                // Simplified script to avoid complex quoting issues in JumpServer environment
+                const systemInfoScript = `uname -a | sed 's/^/OS_VERSION:/' && echo "DEFAULT_SHELL:$SHELL" && echo "HOME_DIR:$HOME" && hostname | sed 's/^/HOSTNAME:/' && whoami | sed 's/^/USERNAME:/'`
+                systemInfoOutput = await this.executeCommandInRemoteServer(systemInfoScript, host.host)
               }
 
-              lines.forEach((line) => {
-                const [key, ...valueParts] = line.split(':')
-                const value = valueParts.join(':').trim()
-
-                switch (key) {
-                  case 'OS_VERSION':
-                    info.osVersion = value
-                    break
-                  case 'DEFAULT_SHELL':
-                    info.defaultShell = value
-                    break
-                  case 'HOME_DIR':
-                    info.homeDir = value
-                    break
-                  case 'HOSTNAME':
-                    info.hostName = value
-                    break
-                  case 'USERNAME':
-                    info.userName = value
-                    break
-                }
+              logger.debug(`System info command completed for host: ${host.host}`, {
+                event: 'agent.task.system_info.command.complete',
+                host: host.host,
+                outputLength: systemInfoOutput?.length || 0
               })
 
-              return info
+              if (!systemInfoOutput || systemInfoOutput.trim() === '') {
+                throw new Error('Failed to get system information: connection failed or no output received')
+              }
+
+              // Parse output result
+              const parseSystemInfo = (
+                output: string
+              ): {
+                osVersion: string
+                defaultShell: string
+                homeDir: string
+                hostName: string
+                userName: string
+              } => {
+                const lines = output.split('\n').filter((line) => line.trim())
+                const info = {
+                  osVersion: '',
+                  defaultShell: '',
+                  homeDir: '',
+                  hostName: '',
+                  userName: ''
+                }
+
+                lines.forEach((line) => {
+                  const [key, ...valueParts] = line.split(':')
+                  const value = valueParts.join(':').trim()
+
+                  switch (key) {
+                    case 'OS_VERSION':
+                      info.osVersion = value
+                      break
+                    case 'DEFAULT_SHELL':
+                      info.defaultShell = value
+                      break
+                    case 'HOME_DIR':
+                      info.homeDir = value
+                      break
+                    case 'HOSTNAME':
+                      info.hostName = value
+                      break
+                    case 'USERNAME':
+                      info.userName = value
+                      break
+                  }
+                })
+
+                return info
+              }
+
+              hostInfo = parseSystemInfo(systemInfoOutput)
+              logger.debug(`Parsed system info for ${host.host}`, {
+                event: 'agent.task.system_info.parsed',
+                host: host.host
+              })
+
+              // Cache system information
+              this.hostSystemInfoCache.set(host.host, hostInfo)
+            } else {
+              logger.debug('Using cached system information for host')
             }
 
-            hostInfo = parseSystemInfo(systemInfoOutput)
-            logger.debug(`Parsed system info for ${host.host}`, {
-              event: 'agent.task.system_info.parsed',
-              host: host.host
-            })
-
-            // Cache system information
-            this.hostSystemInfoCache.set(host.host, hostInfo)
-          } else {
-            logger.debug('Using cached system information for host')
-          }
-
-          systemInformation += `
+            systemInformation += `
             ## Host: ${host.host}
             ${this.messages.osVersion}: ${hostInfo.osVersion}
             ${this.messages.defaultShell}: ${hostInfo.defaultShell}
@@ -4561,18 +4816,18 @@ USERNAME:${localSystemInfo.userName}`
             ${this.messages.user}: ${hostInfo.userName}
             ====
           `
-        } catch (error) {
-          logger.error(`Failed to get system information for host ${host.host}`, { error: error })
-          const chatSettings = await getGlobalState('chatSettings')
-          const isLocalConnection = host.connection?.toLowerCase?.() === 'localhost' || this.isLocalHost(host.host) || host.uuid === 'localhost'
+          } catch (error) {
+            logger.error(`Failed to get system information for host ${host.host}`, { error: error })
+            const chatSettings = await getGlobalState('chatSettings')
+            const isLocalConnection = host.connection?.toLowerCase?.() === 'localhost' || this.isLocalHost(host.host) || host.uuid === 'localhost'
 
-          if (chatSettings?.mode === 'agent' && isLocalConnection) {
-            const errorMessage = 'Error: Cannot connect to local target machine in Agent mode, please create a new task and select Command mode.'
-            await this.ask('ssh_con_failed', errorMessage, false)
-            await this.abortTask()
-          }
-          // Even if getting system information fails, add basic information
-          systemInformation += `
+            if (chatSettings?.mode === 'agent' && isLocalConnection) {
+              const errorMessage = 'Error: Cannot connect to local target machine in Agent mode, please create a new task and select Command mode.'
+              await this.ask('ssh_con_failed', errorMessage, false)
+              await this.abortTask()
+            }
+            // Even if getting system information fails, add basic information
+            systemInformation += `
             ## Host: ${host.host}
             ${this.messages.osVersion}: ${this.messages.unableToRetrieve} (${error instanceof Error ? error.message : this.messages.unknown})
             ${this.messages.defaultShell}: ${this.messages.unableToRetrieve}
@@ -4581,15 +4836,16 @@ USERNAME:${localSystemInfo.userName}`
             ${this.messages.user}: ${this.messages.unableToRetrieve}
             ====
           `
+          }
         }
       }
-    }
 
-    logger.debug('Final system information section built', {
-      event: 'agent.task.system_info.section.built',
-      length: systemInformation.length
-    })
-    systemPrompt += systemInformation
+      logger.debug('Final system information section built', {
+        event: 'agent.task.system_info.section.built',
+        length: systemInformation.length
+      })
+      systemPrompt += systemInformation
+    }
 
     // Build MCP Tools and Resources section
     const mcpSection = await this.buildMcpToolsSection(userLanguage)
@@ -4957,6 +5213,180 @@ USERNAME:${localSystemInfo.userName}`
     }
 
     return { text, contentParts }
+  }
+
+  // ---------------------------------------------------------------------------
+  // DB-AI tool dispatch helpers (§9.5 / §9.6).
+  //
+  // A DB tool invocation:
+  //   1. Requires `workspace === 'database'` AND a valid `dbContext` (both
+  //      already checked by the workspace-visibility gate; we re-verify
+  //      dbContext here for defensive reasons).
+  //   2. Resolves a lazily-created per-task DB-AI independent session. The
+  //      session is held on the Task instance so subsequent DB tool calls
+  //      reuse metadata cache and the driver connection.
+  //   3. Executes the pure tool function (exported from ./db-tools/*.ts).
+  //   4. Forwards the `DbToolResult<T>` to the model via pushToolResult /
+  //      pushToolError. No command-approval prompt ever fires.
+  // ---------------------------------------------------------------------------
+
+  /**
+   * Resolve or create the per-task DB-AI independent session. Throws when the
+   * task is not in the database workspace or when `dbContext` is missing —
+   * callers translate that into a tool error.
+   */
+  private async getOrCreateDbAiSession(): Promise<DbAiActiveSession> {
+    if (this.workspace !== 'database' || !this.dbContext) {
+      throw new Error('db-tool called outside database workspace')
+    }
+    if (this.dbAiSession && !this.dbAiSession.isClosed) return this.dbAiSession
+    if (this.dbAiSession?.isClosed) {
+      this.dbAiSession = undefined
+    }
+    const session = await openDbAiSession({
+      assetId: this.dbContext.assetId,
+      owner: { type: 'task', taskId: this.taskId },
+      databaseName: this.dbContext.databaseName,
+      schemaName: this.dbContext.schemaName
+    })
+    this.dbAiSession = session
+    return session
+  }
+
+  /**
+   * Shared dispatch for every DB tool. Handles session resolution, error
+   * sanitization, and checkpoint/save. Each case in `handleToolUse()` passes
+   * a closure that invokes the specific tool's pure function.
+   */
+  private async handleDbToolUse<T>(block: ToolUse, runner: (session: DbAiActiveSession) => Promise<DbToolResult<T>>): Promise<void> {
+    const toolDescription = this.getToolDescription(block)
+    try {
+      if (this.workspace !== 'database') {
+        await this.pushToolResult(
+          toolDescription,
+          this.responseFormatter.toolError(`Tool '${block.name}' is only available in the database workspace.`)
+        )
+        return
+      }
+      if (!this.dbContext) {
+        await this.pushToolResult(toolDescription, this.responseFormatter.toolError(`Tool '${block.name}' requires a database connection context.`))
+        return
+      }
+      const session = await this.getOrCreateDbAiSession()
+      const result = await runner(session)
+      if (result.ok) {
+        const payload = JSON.stringify(result.data, null, 2)
+        const maybeSql = (result.data as { executedSql?: unknown })?.executedSql
+        const sql = typeof maybeSql === 'string' && maybeSql.trim().length > 0 ? maybeSql : null
+        const maybeColumns = (result.data as { columns?: unknown })?.columns
+        const maybeRows = (result.data as { rows?: unknown })?.rows
+        const isTabular =
+          Array.isArray(maybeColumns) &&
+          maybeColumns.every((c) => typeof c === 'string') &&
+          Array.isArray(maybeRows) &&
+          maybeRows.every((row) => row && typeof row === 'object' && !Array.isArray(row))
+        if (isTabular) {
+          await this.say('db_query_result', payload, false)
+        } else {
+          const preview = sql
+            ? `### SQL\n\`\`\`sql\n${sql}\n\`\`\`\n\n### Result\n\`\`\`json\n${payload}\n\`\`\``
+            : `### Result\n\`\`\`json\n${payload}\n\`\`\``
+          await this.say('text', preview, false)
+        }
+        // DB workspace metadata results must remain inline so the model can
+        // immediately reason over row contents without a follow-up offload
+        // file read path.
+        await this.pushToolResult(toolDescription, this.responseFormatter.toolResult(payload), { skipOffload: true })
+      } else {
+        // `errorMessage` is already user-safe (no SQL fragments / credentials).
+        // We forward `errorCode` as a machine-readable prefix so the model
+        // can react deterministically (e.g. retry with list_tables first).
+        await this.pushToolResult(toolDescription, this.responseFormatter.toolError(`${result.errorCode}: ${result.errorMessage}`))
+      }
+      this.didAlreadyUseTool = true
+      await this.saveCheckpoint()
+    } catch (error) {
+      const err = error as { code?: string; message?: string }
+      logger.error('[Task] db-tool dispatch failed', {
+        event: 'task.db-tool.fail',
+        toolName: block.name,
+        taskId: this.taskId,
+        workspace: this.workspace,
+        errorCode: err?.code
+      })
+      // On timeout the session's connection has already been closed by the
+      // onTimeout callback. Clear the cached session reference so the next
+      // tool call opens a fresh connection rather than reusing the dead handle.
+      if (err?.code === 'E_QUERY_TIMEOUT') {
+        this.dbAiSession = undefined
+      }
+      await this.pushToolResult(toolDescription, this.responseFormatter.toolError(`E_UNEXPECTED: ${err?.code ?? 'driver error'}`))
+    }
+  }
+
+  /**
+   * DB write tool dispatch with explicit user approval, reusing the same
+   * command-approval UX as server workspace.
+   */
+  private async handleDbWriteToolUse(block: ToolUse): Promise<void> {
+    const toolDescription = this.getToolDescription(block)
+    try {
+      if (this.workspace !== 'database') {
+        await this.pushToolResult(
+          toolDescription,
+          this.responseFormatter.toolError(`Tool '${block.name}' is only available in the database workspace.`)
+        )
+        return
+      }
+      if (!this.dbContext) {
+        await this.pushToolResult(toolDescription, this.responseFormatter.toolError(`Tool '${block.name}' requires a database connection context.`))
+        return
+      }
+
+      const sql = (block.params.sql ?? '').trim()
+      if (!sql) {
+        await this.handleMissingParam('sql', toolDescription, 'execute_write_query')
+        return
+      }
+
+      // Reuse server-agent command approval UI/flow.
+      const didApprove = await this.askApproval(toolDescription, 'db_sql_approval', sql)
+      if (!didApprove) {
+        await this.saveCheckpoint()
+        return
+      }
+
+      const session = await this.getOrCreateDbAiSession()
+      const result = await runExecuteWriteQuery(session, {
+        database: block.params.database,
+        schema: block.params.schema,
+        sql
+      })
+
+      if (result.ok) {
+        const payload = JSON.stringify(result.data, null, 2)
+        await this.say('db_query_result', payload, false)
+        await this.pushToolResult(toolDescription, this.responseFormatter.toolResult(payload), { skipOffload: true })
+      } else {
+        await this.pushToolResult(toolDescription, this.responseFormatter.toolError(`${result.errorCode}: ${result.errorMessage}`))
+      }
+
+      this.didAlreadyUseTool = true
+      await this.saveCheckpoint()
+    } catch (error) {
+      const err = error as { code?: string }
+      logger.error('[Task] db-write-tool dispatch failed', {
+        event: 'task.db-write-tool.fail',
+        toolName: block.name,
+        taskId: this.taskId,
+        workspace: this.workspace,
+        errorCode: err?.code
+      })
+      if (err?.code === 'E_QUERY_TIMEOUT') {
+        this.dbAiSession = undefined
+      }
+      await this.pushToolResult(toolDescription, this.responseFormatter.toolError(`E_UNEXPECTED: ${err?.code ?? 'driver error'}`))
+    }
   }
 
   private async handleKbSearchToolUse(block: ToolUse): Promise<void> {

@@ -46,7 +46,8 @@ onMounted(() => {
     fontSize: 13,
     minimap: { enabled: false },
     automaticLayout: true,
-    scrollBeyondLastLine: false
+    scrollBeyondLastLine: false,
+    contextmenu: false
   })
 
   editor.onDidChangeModelContent(() => {
@@ -104,6 +105,26 @@ defineExpose({
     const sel = editor.getSelection()
     if (!sel || sel.isEmpty()) return
     editor.executeEdits('sql-format', [{ range: sel, text: next, forceMoveMarkers: true }])
+  },
+  /**
+   * Insert `text` at the cursor via executeEdits so the change participates
+   * in Monaco's undo stack. If the editor currently has a non-empty
+   * selection, replaces the selection instead (matches Monaco's own paste
+   * behaviour). Used by the DB-AI drawer's "Insert into editor" action.
+   */
+  insertAtCursor(next: string): void {
+    if (!editor) return
+    const sel = editor.getSelection()
+    const model = editor.getModel()
+    if (!model) return
+    if (sel && !sel.isEmpty()) {
+      editor.executeEdits('db-ai-insert', [{ range: sel, text: next, forceMoveMarkers: true }])
+    } else {
+      const pos = editor.getPosition()
+      if (!pos) return
+      const range = new monaco.Range(pos.lineNumber, pos.column, pos.lineNumber, pos.column)
+      editor.executeEdits('db-ai-insert', [{ range, text: next, forceMoveMarkers: true }])
+    }
   },
   getTextUntilCursor(): string {
     if (!editor) return ''

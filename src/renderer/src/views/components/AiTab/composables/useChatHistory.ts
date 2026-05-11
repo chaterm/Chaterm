@@ -17,6 +17,7 @@ const PAGE_SIZE = 20
 interface ChatHistoryOptions {
   createNewEmptyTab?: () => Promise<string>
   renameTab?: (tabId: string, title: string) => Promise<void>
+  workspace?: 'terminal' | 'database'
 }
 
 /**
@@ -26,7 +27,8 @@ interface ChatHistoryOptions {
  * @param options Configuration options including createNewEmptyTab and renameTab functions
  */
 export function useChatHistory(options?: ChatHistoryOptions) {
-  const { createNewEmptyTab, renameTab } = options || {}
+  const { createNewEmptyTab, renameTab, workspace } = options || {}
+  const taskWorkspaceFilter: 'server' | 'database' = workspace === 'database' ? 'database' : 'server'
   // Get required state from global singleton state
   const { chatTabs, currentChatId, attachTabContext } = useSessionState()
 
@@ -48,10 +50,19 @@ export function useChatHistory(options?: ChatHistoryOptions) {
 
   /**
    * Filtered history list
-   * Filtered by search value and favorite status
+   * Filtered by search value, favorite status, and workspace
    */
   const filteredHistoryList = computed(() => {
     return historyList.value.filter((history) => {
+      // Defensive filter: backend already supports workspace filtering, and we
+      // keep this check to protect against mixed legacy callers.
+      if (workspace === 'database') {
+        if (history.workspace !== 'database') return false
+      } else {
+        // Default 'terminal' workspace excludes database tasks
+        if (history.workspace === 'database') return false
+      }
+
       // Search filter
       const matchesSearch = history.chatTitle.toLowerCase().includes(historySearchValue.value.toLowerCase())
 
@@ -283,7 +294,7 @@ export function useChatHistory(options?: ChatHistoryOptions) {
    */
   const loadHistoryList = async () => {
     try {
-      const result = await window.api.getTaskList()
+      const result = await window.api.getTaskList(taskWorkspaceFilter)
       if (!result.success || !result.data) return
 
       historyList.value = result.data.map((item) => ({
@@ -291,7 +302,9 @@ export function useChatHistory(options?: ChatHistoryOptions) {
         chatTitle: item.title || 'New Chat',
         chatContent: [],
         isFavorite: item.favorite,
-        ts: item.updatedAt
+        ts: item.updatedAt,
+        workspace: item.workspace,
+        dbContext: item.dbContext
       }))
     } catch (err) {
       logger.error('Failed to load history list', { error: err })

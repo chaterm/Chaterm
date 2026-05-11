@@ -8,6 +8,7 @@ const logger = createLogger('db')
 type MySqlConnection = {
   query<T = unknown>(sql: string, params?: unknown[]): Promise<[T, unknown]>
   end(): Promise<void>
+  destroy(): void
 }
 
 type MySqlDriver = {
@@ -73,6 +74,12 @@ export class MysqlDriverAdapter implements DatabaseDriverAdapter {
     const conn = handle as MySqlConnection | null
     if (!conn) return
     await conn.end()
+  }
+
+  async forceClose(handle: unknown): Promise<void> {
+    const conn = handle as MySqlConnection | null
+    if (!conn) return
+    conn.destroy()
   }
 
   async listDatabases(handle: unknown): Promise<string[]> {

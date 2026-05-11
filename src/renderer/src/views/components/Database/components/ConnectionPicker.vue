@@ -16,7 +16,7 @@
       :key="opt.assetId"
       :value="opt.assetId"
     >
-      {{ opt.label }}
+      {{ opt.label }}{{ opt.status === 'testing' ? ' [connecting...]' : '' }}
     </option>
   </select>
 </template>
@@ -29,10 +29,11 @@ import { collectConnections } from '@/store/databaseWorkspaceStore'
 /**
  * Connection picker for the SQL workbench toolbar.
  *
- * Walks the tree depth-first (groups can nest sub-groups) and surfaces only
- * the connections that are currently `connected`. A connection's `assetId`
- * is kept inside `meta` by the backend-sync layer (`buildTreeFromAssets`),
- * so this component reads it from there.
+ * Walks the tree depth-first (groups can nest sub-groups) and surfaces all
+ * connections regardless of status. A connection's `assetId` is kept inside
+ * `meta` by the backend-sync layer (`buildTreeFromAssets`). When the user
+ * selects a disconnected asset, the component emits `auto-connect` so the
+ * parent can trigger `connectAsset` on demand.
  */
 const props = defineProps<{
   modelValue?: string
@@ -42,24 +43,31 @@ const props = defineProps<{
 
 const emit = defineEmits<{
   (e: 'update:modelValue', assetId: string): void
+  (e: 'auto-connect', assetId: string): void
 }>()
 
 const options = computed(() => {
-  const out: Array<{ assetId: string; label: string }> = []
+  const out: Array<{ assetId: string; label: string; status: 'connected' | 'testing' | 'idle' | 'failed' }> = []
   for (const conn of collectConnections(props.tree)) {
     const meta = conn.meta as { assetId?: string } | undefined
     const assetId = meta?.assetId
     if (!assetId) continue
-    if (props.connectionStatuses[assetId] === 'connected') {
-      out.push({ assetId, label: conn.name })
-    }
+    out.push({
+      assetId,
+      label: conn.name,
+      status: props.connectionStatuses[assetId] ?? 'idle'
+    })
   }
   return out
 })
 
 const onChange = (e: Event) => {
-  const v = (e.target as HTMLSelectElement).value
-  emit('update:modelValue', v)
+  const assetId = (e.target as HTMLSelectElement).value
+  const opt = options.value.find((o) => o.assetId === assetId)
+  if (opt && opt.status !== 'connected' && opt.status !== 'testing') {
+    emit('auto-connect', assetId)
+  }
+  emit('update:modelValue', assetId)
 }
 </script>
 
