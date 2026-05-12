@@ -133,7 +133,7 @@ const handleMenuClick = ({ key }: { key: string }) => {
 }
 
 .cluster-item.connected .cluster-icon {
-  color: var(--color-success);
+  color: var(--success-color);
 }
 
 .cluster-icon {
@@ -158,7 +158,7 @@ const handleMenuClick = ({ key }: { key: string }) => {
 }
 
 .status-dot.connected {
-  background: var(--color-success);
+  background: var(--success-color);
 }
 
 .status-dot.disconnected {
@@ -166,7 +166,7 @@ const handleMenuClick = ({ key }: { key: string }) => {
 }
 
 .status-dot.error {
-  background: var(--color-error);
+  background: var(--error-color);
 }
 
 .cluster-info {
@@ -199,7 +199,7 @@ const handleMenuClick = ({ key }: { key: string }) => {
   width: 6px;
   height: 6px;
   border-radius: 50%;
-  background: var(--color-success);
+  background: var(--success-color);
 }
 
 .cluster-context {
