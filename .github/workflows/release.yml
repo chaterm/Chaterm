@@ -338,7 +338,7 @@ jobs:
           echo "Staged $staged signature/checksum file(s) for release upload"
 
       - name: Publish draft GitHub Release
-        uses: softprops/action-gh-release@da05d552573ad5aba039eaac05058a918a7bf631 # v2.4.1
+        uses: softprops/action-gh-release@b4309332981a82ec1c5618f44dd2e27cc8bfbfda # v2.4.1
         with:
           tag_name: ${{ github.ref_name }}
           name: ${{ github.ref_name }}
