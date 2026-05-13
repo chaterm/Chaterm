@@ -98,7 +98,7 @@
     "pg": "^8.20.0",
     "pinia": "^3.0.1",
     "pinia-plugin-persistedstate": "^4.2.0",
-    "posthog-node": "^5.33.3",
+    "posthog-node": "^5.34.1",
     "serialize-error": "^13.0.1",
     "splitpanes": "^4.0.3",
     "sql-formatter": "^15.7.3",
