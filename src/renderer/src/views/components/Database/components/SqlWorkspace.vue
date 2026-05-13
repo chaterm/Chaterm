@@ -68,7 +68,29 @@
                 v-else-if="activeResult.status === 'error'"
                 class="sql-workspace__status sql-workspace__status--error"
               >
-                {{ activeResult.error }}
+                <span class="sql-workspace__error-text">{{ activeResult.error }}</span>
+                <span
+                  v-if="diagnoseSuccess"
+                  class="sql-workspace__diagnose-success"
+                  >{{ $t('database.dbAi.diagnosedAndReplaced') }}</span
+                >
+                <span
+                  v-if="diagnoseError"
+                  class="sql-workspace__diagnose-error"
+                  >{{ diagnoseError }}</span
+                >
+                <button
+                  class="sql-workspace__ai-fix-btn"
+                  :class="{ 'sql-workspace__ai-fix-btn--loading': diagnosing }"
+                  :disabled="diagnosing"
+                  @click="handleAiFix(activeResult)"
+                >
+                  <span
+                    v-if="diagnosing"
+                    class="sql-workspace__ai-fix-spinner"
+                  />
+                  <span v-else>{{ $t('database.dbAi.actionDiagnose') }}</span>
+                </button>
               </div>
               <DatabaseResultPane
                 v-else
@@ -107,7 +129,7 @@ import SqlOverviewPane from './SqlOverviewPane.vue'
 import DatabaseResultPane from './DatabaseResultPane.vue'
 import DataGridToolbar from './DataGridToolbar.vue'
 import DataStatusBar from './DataStatusBar.vue'
-import type { DatabaseTreeNode, DatabaseWorkspaceTab, DbColumnFilter, DbColumnSort } from '../types'
+import type { DatabaseTreeNode, DatabaseWorkspaceTab, DbColumnFilter, DbColumnSort, SqlResultTab } from '../types'
 import { toFormatterLanguage } from '../constants/sqlFormatLanguage'
 import { findConnectionByAssetId } from '@/store/databaseWorkspaceStore'
 import { useI18n } from 'vue-i18n'
@@ -137,6 +159,9 @@ const props = defineProps<{
   tab: DatabaseWorkspaceTab
   tree: DatabaseTreeNode[]
   connectionStatuses: Record<string, 'idle' | 'testing' | 'connected' | 'failed'>
+  diagnosing?: boolean
+  diagnoseError?: string | null
+  diagnoseSuccess?: boolean
 }>()
 
 const emit = defineEmits<{
@@ -147,6 +172,7 @@ const emit = defineEmits<{
   (e: 'select-result-tab', id: string): void
   (e: 'close-result-tab', id: string): void
   (e: 'auto-connect', assetId: string): void
+  (e: 'diagnose', sql: string, error: string): void
 }>()
 
 interface EditorApi {
@@ -414,6 +440,11 @@ const currentDbType = computed<string | undefined>(() => {
 // keeps the change in the undo stack so Cmd/Ctrl+Z restores the previous
 // text. On failure we surface a toast and log; the original SQL is left
 // untouched.
+const handleAiFix = (result: SqlResultTab) => {
+  if (!result.error) return
+  emit('diagnose', result.sql, result.error)
+}
+
 const handleFormat = () => {
   const ed = editorRef.value
   if (!ed) return
@@ -486,9 +517,85 @@ defineExpose({
   padding: 12px 16px;
   font-size: 12px;
   color: var(--text-color-secondary, #8a94a6);
+  display: flex;
+  align-items: center;
+  gap: 10px;
 
   &--error {
     color: #ef4444;
+  }
+}
+
+.sql-workspace__error-text {
+  flex: 1;
+  min-width: 0;
+  word-break: break-word;
+}
+
+.sql-workspace__diagnose-success {
+  flex-shrink: 0;
+  font-size: 11px;
+  color: #34d399;
+  animation: sql-diagnose-fadeout 3s ease forwards;
+}
+
+.sql-workspace__diagnose-error {
+  flex-shrink: 0;
+  font-size: 11px;
+  color: #f87171;
+}
+
+.sql-workspace__ai-fix-btn {
+  flex-shrink: 0;
+  padding: 2px 10px;
+  font-size: 11px;
+  line-height: 18px;
+  color: #a78bfa;
+  background: transparent;
+  border: 1px solid #a78bfa;
+  border-radius: 4px;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background 0.15s ease;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 64px;
+
+  &:hover:not(:disabled) {
+    background: rgba(167, 139, 250, 0.12);
+  }
+
+  &--loading,
+  &:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+  }
+}
+
+.sql-workspace__ai-fix-spinner {
+  display: inline-block;
+  width: 11px;
+  height: 11px;
+  border: 1.5px solid rgba(167, 139, 250, 0.3);
+  border-top-color: #a78bfa;
+  border-radius: 50%;
+  animation: sql-ai-spin 0.7s linear infinite;
+}
+
+@keyframes sql-diagnose-fadeout {
+  0%,
+  60% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+  }
+}
+
+@keyframes sql-ai-spin {
+  to {
+    transform: rotate(360deg);
   }
 }
 </style>

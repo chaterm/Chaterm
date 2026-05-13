@@ -21,7 +21,7 @@ export type SqlDialect = 'mysql' | 'postgresql'
  * multi-turn conversations go through the Task/Controller pipeline
  * (workspace='database') on track B. See docs/database_ai.md §5.0.
  */
-export type DbAiAction = 'nl2sql' | 'explain' | 'optimize' | 'convert' | 'complete'
+export type DbAiAction = 'nl2sql' | 'explain' | 'optimize' | 'convert' | 'complete' | 'diagnose'
 
 /**
  * Hint describing a table the user or caller explicitly references.
@@ -60,6 +60,8 @@ export interface DbAiStartInput {
   cursorTextAfter?: string
   targetDialect?: SqlDialect
   hintedTables?: DbAiTableHint[]
+  /** Error message from a failed SQL execution, used by the 'diagnose' action. */
+  errorMessage?: string
 }
 
 /**
