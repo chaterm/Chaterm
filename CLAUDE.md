@@ -4,297 +4,109 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-Chaterm is an Electron-based AI-driven terminal tool that provides intelligent command completion, multi-device management, AI Agent capabilities, and enterprise-grade security features.
+Chaterm is an Electron-based AI-driven terminal tool with intelligent command completion, multi-device management, AI Agent capabilities, and enterprise-grade security.
 
-**Tech Stack:**
-
-- **Frontend Framework:** Vue 3 + TypeScript + Pinia + Vue Router + Vue I18n
-- **UI Components:** Ant Design Vue (auto-imported) + Monaco Editor + xterm.js
-- **Desktop Application:** Electron 30 + electron-vite + electron-builder
-- **Data Storage:** better-sqlite3 (local database) + migration system
-- **SSH/Terminal:** ssh2 + node-pty + custom SSH agent
-- **AI Integration:** Anthropic Claude + OpenAI + AWS Bedrock + Ollama
-- **Testing Framework:** Vitest (unit tests) + Playwright (E2E)
-- **Code Quality:** ESLint + Prettier + TypeScript + Husky (pre-commit hooks)
+**Tech Stack:** Vue 3 + TypeScript + Pinia + Ant Design Vue + Monaco Editor + xterm.js + Electron 30 + better-sqlite3 + ssh2 + node-pty + Anthropic/OpenAI/Bedrock/Ollama + Vitest + Playwright
 
 ## Core Architecture
 
-### Three-Layer Architecture
+Three-layer: Renderer (Vue 3 SPA) → Preload (contextBridge IPC) → Main (Agent, SSH, Storage).
 
-```
-┌─────────────────────────────────────────────────────┐
-│ Renderer Process (src/renderer) │
-│ - Vue 3 SPA with Pinia state management │
-│ - xterm.js for terminal UI │
-│ - Monaco Editor for text editing │
-│ - Ant Design Vue components │
-└──────────────────┬──────────────────────────────────┘
- │ IPC (contextBridge)
-┌──────────────────┴──────────────────────────────────┐
-│ Preload Scripts (src/preload) │
-│ - Secure API bridge between main & renderer │
-│ - Type definitions in index.d.ts │
-└──────────────────┬──────────────────────────────────┘
- │
-┌──────────────────┴──────────────────────────────────┐
-│ Main Process (src/main) │
-│ ┌─────────────────────────────────────────────┐ │
-│ │ Agent System (src/main/agent) │ │
-│ │ - AI providers, context, tools, integrations │ │
-│ │ - Path aliases: @core, @services, @api, etc.│ │
-│ └─────────────────────────────────────────────┘ │
-│ ┌─────────────────────────────────────────────┐ │
-│ │ SSH Layer (src/main/ssh) │ │
-│ │ - SSH connections, SFTP, port forwarding │ │
-│ │ - SSH agent, jumpserver integration │ │
-│ └─────────────────────────────────────────────┘ │
-│ ┌─────────────────────────────────────────────┐ │
-│ │ Storage (src/main/storage) │ │
-│ │ - DB layer: better-sqlite3 + migrations │ │
-│ │ - Data sync: cloud sync with encryption │ │
-│ └─────────────────────────────────────────────┘ │
-└─────────────────────────────────────────────────────┘
-```
+**Main Process Aliases:** `@shared` `@core` `@services` `@integrations` `@utils` `@api` → `src/main/agent/*`
 
-### Key Path Aliases (electron.vite.config.ts)
+**Renderer Process Aliases:** `@renderer` `@views` `@router` `@store` `@utils` `@api` `@config` `@` → `src/renderer/src/*`
 
-**Main Process Aliases:**
-
-- `@shared` → `src/main/agent/shared`
-- `@core` → `src/main/agent/core`
-- `@services` → `src/main/agent/services`
-- `@integrations` → `src/main/agent/integrations`
-- `@utils` → `src/main/agent/utils`
-- `@api` → `src/main/agent/api`
-
-**Renderer Process Aliases:**
-
-- `@renderer` → `src/renderer/src`
-- `@views` → `src/renderer/src/views`
-- `@router` → `src/renderer/src/router`
-- `@store` → `src/renderer/src/store`
-- `@utils` → `src/renderer/src/utils`
-- `@api` → `src/renderer/src/api`
-- `@config` → `src/renderer/src/config`
-- `@` → `src/renderer/src`
-
-## Common Development Commands
-
-### Environment Setup
+## Development Commands
 
 ```bash
-# Must run this script before installation to fix package-lock.json
-node scripts/patch-package-lock.js
-npm install
+node scripts/patch-package-lock.js && npm install  # setup
+npm run dev                                         # dev server
+npm run lint && npm run typecheck && npm test       # pre-commit checks
 ```
 
-### Development and Debugging
+## Behavioral Rules
 
-```bash
-npm run dev # Start development server (hot reload)
-npm run dev:watch # Start development server (file watch mode)
-npm run start # Preview build results
-```
+### Rule 1 — Think Before Coding
+State assumptions explicitly. If uncertain, ask rather than guess. Push back when a simpler approach exists. Stop when confused — name what's unclear.
 
-### Code Quality Checks
+### Rule 2 — Simplicity First
+Minimum code that solves the problem. No speculative features. No abstractions for single-use code. If a senior engineer would call it overcomplicated, simplify.
 
-```bash
-npm run format # Prettier format all files
-npm run lint # ESLint check and auto-fix
-npm run lint:staged # Check staged files only (pre-commit hook)
-npm run typecheck # TypeScript type checking (main + renderer processes)
-npm run typecheck:node # Check main process types only
-npm run typecheck:web # Check renderer process types only
-```
+### Rule 3 — Surgical Changes
+Touch only what you must. Don't "improve" adjacent code, comments, or formatting. Don't refactor what isn't broken. Match existing style.
 
-### Testing
+### Rule 7 — Surface Conflicts, Don't Average Them
+If two existing patterns contradict, pick one (more recent / more tested), explain why, and flag the other for cleanup. Don't blend conflicting patterns.
 
-```bash
-npm test # Vitest unit tests (watch mode)
-npm run test:e2e # Playwright E2E tests (headless)
-npm run test:e2e:headed # Playwright E2E tests (with browser)
-npm run test:e2e:ui # Playwright E2E tests (UI mode)
-```
+### Rule 8 — Read Before You Write
+Before adding code in a file, read its exports, the immediate caller, and any obvious shared utilities. "Looks orthogonal to me" is dangerous — if unsure why code is structured a certain way, ask.
 
-### Build and Package
+### Rule 12 — Fail Loud
+"Completed" is wrong if anything was skipped silently. "Tests pass" is wrong if any were skipped. Default to surfacing uncertainty, not hiding it.
 
-```bash
-npm run build # Build all source code (without packaging)
-npm run build:unpack # Build and generate unpacked directory (for verification)
-npm run build:win # Build Windows installer
-npm run build:mac # Build macOS application
-npm run build:linux # Build Linux package
-```
+## Code Standards
 
-## Development Standards and Constraints
-
-### Code Change Principles
-
-1. **Minimize Change Scope:** Only modify files directly related to current requirements, avoid "incidental" refactoring of unrelated code
-2. **Type Safety First:** Strict TypeScript type definitions, avoid `any`; new IPC channels must define types in `src/preload/index.d.ts`
+1. **Minimize Change Scope:** Only modify files directly related to current requirements
+2. **Type Safety First:** Strict TypeScript, avoid `any`; new IPC channels must define types in `src/preload/index.d.ts`
 3. **Maintain Contract Stability:** Do not break existing IPC interfaces, Pinia Stores, or database table structures
 4. **Test Coverage:** Core logic changes require adding or updating unit tests
-5. **Documentation Sync:** User-visible feature changes require updating README.md/README_zh.md and related comments
-6. **No Emojis:** Emojis are strictly prohibited in code (including comments, logs, strings); use plain text descriptions instead; text markers like `[INFO]`, `[ERROR]`, `[WARNING]` can be used as alternatives
-7. **Code Comment Language:** Newly added code comments must be written in English to maintain the codebase's internationalization standards
-8. **No Console Logging:** All log output must use the project logger (`createLogger(module)`) rather than `console.log` / `console.info` / `console.warn` / `console.error` / `console.debug`. This applies to both main and renderer processes, and to both permanent and temporary/debug logs. Reasons: console output bypasses the sanitizer (see rule 9), is not captured by the app's log files, and is not routed through the unified log channel. When adding temporary debug logs, use `logger.debug` or `logger.info` and remove them before committing.
-9. **Log Sanitization:** All log output must go through the sanitizer (`src/main/services/logging/sanitizer.ts`). When writing logger calls:
-   - **Never** log entire objects that may contain credentials (connection configs, API configurations, asset objects, keychain objects, user payloads)
-   - **Never** use string interpolation to embed sensitive values (hostnames, IPs, API keys, passwords, MAC addresses, usernames, URLs with credentials)
-   - **Do** use structured logging with only safe fields: `logger.info('event description', { event: 'event.name', id: obj.id, count: N, hasPassword: !!password })`
-   - **Do** use boolean flags (`hasApiKey`, `hasPassword`, `hasPrivateKey`) instead of actual credential values
-   - The sanitizer automatically handles: sensitive key names (substring match), credential value patterns (PEM/JWT/AWS/API keys), PII patterns (phone/email/IP/MAC/IPv6/credit card/ID card), and inline credential labels in error messages (`apikey: xxx`, `token: xxx`)
+5. **No Emojis:** Prohibited in code, comments, logs, strings
+6. **English Comments:** All code comments must be in English
+7. **No Console Logging:** Use `createLogger(module)` from the project logger — never `console.*`
+8. **Log Sanitization:** Never log objects that may contain credentials (configs, API configs, keychain objects). Never use string interpolation to embed sensitive values (hostnames, IPs, API keys, passwords). Use safe fields only: `logger.info('msg', { event: 'name', id, count, hasPassword: !!password })`. Use boolean flags (`hasApiKey`, `hasPrivateKey`) instead of actual values.
 
-### Git Operation Standards
+## Git Rules
 
-**Strictly Prohibit Automatic Git Operations:**
+- **No auto git operations:** Never run `git add` or `git commit` automatically
+- After changes, only show `git status` and `git diff` for user review
 
-- **Prohibit `git add`:** After generating code changes, strictly prohibit automatically executing `git add` to stage files
-- **Prohibit `git commit`:** Strictly prohibit automatically creating commits; all commit operations must be performed manually by the user
-- **User Review First:** Code changes must be reviewed by the user first, and only after confirmation should the user decide whether to commit
-- **Show Changes Only:** After completing code modifications, only use `git status` and `git diff` to display changes for user review
+## Electron Constraints
 
-**Reason:**
-Code changes involve the project's core logic and functionality, and must undergo manual review to ensure quality and security. Automatically executing git operations may lead to:
+- Main: no blocking event loop; IPC payloads must be serializable. Entry: `src/main/index.ts`. Window management: `src/main/windowManager.ts`
+- Preload: `contextBridge` only; minimal API surface; types in `src/preload/index.d.ts`
+- Renderer: Vue 3 Composition API; Pinia for state. Entry: `src/renderer/src/main.ts`. Routes: `src/renderer/src/router/routes.ts`. Guards: `src/renderer/src/router/guards.ts`
 
-- Unreviewed code being committed
-- Unexpected files being added to version control
-- Inaccurate commit messages or non-compliant formats
-- Difficult-to-rollback erroneous changes
+## Agent Subsystem (src/main/agent)
 
-### Electron-Specific Constraints
+- `api/` — AI provider adapters (Anthropic, OpenAI, Bedrock, Ollama)
+- `core/` — controller, prompts, storage, context
+- `services/` — telemetry, diff, terminal
+- `integrations/` — remote-terminal, tools
+- `shared/` — shared types and constants
+- `utils/` — utility functions
 
-**Main Process (src/main):**
+Extending a provider: create file in `api/providers/`, register in `api/providers/types.ts`, complete in `api/index.ts`, route network requests through `api/retry.ts`.
 
-- Prohibit blocking the event loop; use async or child processes for long-running tasks
-- Communication with renderer layer must go through IPC, keep channel names unique and payloads serializable
-- Window management logic: see `src/main/windowManager.ts`
-- Entry file: `src/main/index.ts`
+## Database Migrations
 
-**Preload Scripts (src/preload):**
+New tables or schema changes:
+1. Create timestamped file in `migrations/`
+2. Ensure idempotent and replayable
+3. Add service methods in corresponding `.service.ts`
+4. Define types in `types.ts`
 
-- Use `contextBridge` to expose minimal API set
-- All exposed APIs must define types in `src/preload/index.d.ts`
-- Do not directly expose Node.js capabilities to renderer layer
+## i18n
 
-**Renderer Process (src/renderer):**
-
-- Use Vue 3 Composition API
-- State management uses Pinia with persistence plugin
-- Route configuration: `src/renderer/src/router/routes.ts`
-- Route guards: `src/renderer/src/router/guards.ts`
-- Entry file: `src/renderer/src/main.ts`
-
-### Agent Subsystem Development (src/main/agent)
-
-**Directory Structure:**
-
-- `api/` - AI provider adapter layer (Anthropic, OpenAI, AWS Bedrock, Ollama)
-- `core/` - Core logic (controller, prompts, storage, context)
-- `services/` - Service layer (telemetry, diff, terminal)
-- `integrations/` - Integration features (remote-terminal, tools)
-- `shared/` - Shared types and constants
-- `utils/` - Utility functions
-
-**Extending AI Provider:**
-
-1. Create new provider file in `api/providers/`
-2. Register type in `api/providers/types.ts`
-3. Complete registration in `api/index.ts`
-4. Network requests should uniformly go through `api/retry.ts` and `api/transform/` wrappers
-
-### Database and Migrations (src/main/storage/db)
-
-**Key Files:**
-
-- `connection.ts` - Database connection and path management
-- `chaterm.service.ts` - Database service layer
-- `autocomplete.service.ts` - Autocomplete data service
-- `migrations/` - Database migration files
-- `types.ts` - Database type definitions
-
-**Adding New Tables or Modifying Table Structure:**
-
-1. Create new migration file in `migrations/` (named by timestamp)
-2. Ensure migrations are idempotent and replayable
-3. Add service layer methods in corresponding `.service.ts`
-4. Define related types in `types.ts`
-
-### i18n Internationalization
-
-**Supported Languages:**
-
-The project supports ten languages. All user-facing text must be translated into all languages.
-
-**Text Location:**
-
-- Chinese (Simplified): `src/renderer/src/locales/lang/zh-CN.ts`
-- Chinese (Traditional): `src/renderer/src/locales/lang/zh-TW.ts`
-- English: `src/renderer/src/locales/lang/en-US.ts`
-- Japanese: `src/renderer/src/locales/lang/ja-JP.ts`
-- Korean: `src/renderer/src/locales/lang/ko-KR.ts`
-- German: `src/renderer/src/locales/lang/de-DE.ts`
-- French: `src/renderer/src/locales/lang/fr-FR.ts`
-- Italian: `src/renderer/src/locales/lang/it-IT.ts`
-- Portuguese: `src/renderer/src/locales/lang/pt-PT.ts`
-- Russian: `src/renderer/src/locales/lang/ru-RU.ts`
-- Arabic: `src/renderer/src/locales/lang/ar-AR.ts`
-
-**Usage:**
-
-```typescript
-// In Vue components
-const { t } = useI18n()
-const text = t('key.subkey')
-```
-
-**Translation Requirements:**
-
-- When adding new user-facing text, translations must be added to all ten locale files (zh-CN, zh-TW, en-US, ja-JP, ko-KR, de-DE, fr-FR, it-IT, pt-PT, ru-RU, ar-AR)
-- Translation keys must be identical across all language files
-- Maintain consistent structure and ordering across all locale files for easier maintenance
-
-### Environment Variables
-
-- Renderer process can only access environment variables starting with `RENDERER_`
-- Configuration location: `build/.env` file (gitignored)
-- Controlled via `envPrefix: 'RENDERER_'` in `electron.vite.config.ts`
+All user-facing text must be translated into all 11 locale files: `zh-CN` `zh-TW` `en-US` `ja-JP` `ko-KR` `de-DE` `fr-FR` `it-IT` `pt-PT` `ru-RU` `ar-AR`
 
 ## Pre-commit Checklist
 
-Before committing code, must confirm:
+1. `npm run lint && npm run typecheck && npm test` passes
+2. No formatting changes to unrelated files
+3. Commit message follows Conventional Commits
+4. UI changes: all 11 locale files updated
+5. DB changes: migration file created
+6. New IPC channels: types defined in `src/preload/index.d.ts`
+7. No sensitive data committed
 
-1. [OK] Pass all checks: `npm run lint && npm run typecheck && npm test`
-2. [OK] No formatting changes to unrelated files (check git diff)
-3. [OK] Commit message follows Conventional Commits format
-4. [OK] If UI changes are involved, all ten language files have been updated (zh-CN, zh-TW, en-US, ja-JP, ko-KR, de-DE, fr-FR, it-IT, pt-PT, ru-RU, ar-AR)
-5. [OK] If database is modified, migration files have been created
-6. [OK] If new IPC channels are added, types have been defined in `src/preload/index.d.ts`
-7. [OK] No sensitive information committed (keys, tokens, private domains)
+## Security
 
-## Security Considerations
+- No API keys, tokens, private domains in commits
+- All IPC via `contextBridge`; validate all renderer IPC messages
+- Evaluate security and bundle size before adding dependencies
 
-1. **Prohibit Committing Sensitive Data:** API keys, tokens, private domains, account information
-2. **IPC Security:** All communication between main and renderer processes must go through APIs exposed by `contextBridge`
-3. **Input Validation:** Strictly validate all IPC messages from renderer process
-4. **Dependency Security:** Evaluate security and package size before adding third-party libraries
+## Related Docs
 
-## Common Questions
-
-**Q: Why run `node scripts/patch-package-lock.js` before `npm install`?**
-A: The project uses a custom script to fix package-lock.json to resolve specific dependency issues.
-
-**Q: How to debug main process code?**
-A: Use Electron debug configuration in VS Code, or use `console.log` in code and check terminal output.
-
-**Q: How to view renderer process logs?**
-A: Press `Cmd+Option+I` (macOS) or `Ctrl+Shift+I` (Windows/Linux) in the application to open DevTools.
-
-**Q: Where is the database file stored?**
-A: Get the path via `getChatermDbPathForUser()`, usually in the user data directory.
-
-## Related Documentation
-
-- **Contribution Guide:** `CONTRIBUTING.md` (English) / `CONTRIBUTING_zh.md` (Chinese)
-- **Agent Development Guide:** `AGENTS.md` (detailed AI Agent development standards)
-- **Security Policy:** `SECURITY.md`
+- Contribution: `CONTRIBUTING.md` / `CONTRIBUTING_zh.md`
+- Agent development: `AGENTS.md`
+- Security policy: `SECURITY.md`
