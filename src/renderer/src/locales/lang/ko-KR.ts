@@ -1182,6 +1182,8 @@ export default {
     uploadCancel: '업로드가 취소되었습니다',
     downloadSkipped: '다운로드 건너뛰기',
     taskList: '전송 목록',
+    collapseTransferList: '전송 목록 접기',
+    expandTransferList: '전송 목록 펼치기',
     upload: '업로드',
     modifyFilePermissionsSuccess: '파일 권한 수정 성공',
     modifyFilePermissionsFailed: '파일 권한 수정 실패',

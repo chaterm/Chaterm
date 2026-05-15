@@ -1193,6 +1193,8 @@ export default {
     download: '下載',
     upload: '上傳',
     taskList: '傳輸列表',
+    collapseTransferList: '收起傳輸列表',
+    expandTransferList: '展開傳輸列表',
     doubleClickToOpen: '雙擊打開',
     sftpConnectFailed: 'SFTP連接失敗',
     noDataAvailable: '暫無數據，請先連接到服務器',

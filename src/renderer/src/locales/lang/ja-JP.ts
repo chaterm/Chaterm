@@ -1187,6 +1187,8 @@ export default {
     uploadCancel: 'アップロードがキャンセルされました',
     downloadSkipped: 'ダウンロードをスキップしました',
     taskList: '転送リスト',
+    collapseTransferList: '転送リストを折りたたむ',
+    expandTransferList: '転送リストを展開',
     upload: 'アップロード',
     modifyFilePermissionsSuccess: 'ファイル権限の修正成功',
     modifyFilePermissionsFailed: 'ファイル権限の修正に失敗しました',
