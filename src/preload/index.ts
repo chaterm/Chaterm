@@ -640,7 +640,7 @@ const updateKeyChain = async (data: { form: Record<string, unknown> }) => {
   }
 }
 
-const connectAssetInfo = async (data: { uuid: string }) => {
+const connectAssetInfo = async (data: { uuid: string; organizationUuid?: string; ip?: string }) => {
   try {
     const result = await ipcRenderer.invoke('chaterm-connect-asset-info', data)
     return result

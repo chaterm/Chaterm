@@ -56,7 +56,7 @@ function buildBastionParentTitle(label: string | null | undefined, host: string)
   return name
 }
 
-export function connectAssetInfoLogic(db: Database.Database, uuid: string): any {
+export function connectAssetInfoLogic(db: Database.Database, uuid: string, fallback?: { organizationUuid?: string; ip?: string }): any {
   try {
     const stmt = db.prepare(`
         SELECT uuid, asset_ip, asset_type, auth_type, port, username, password, key_chain_id, need_proxy, proxy_name
@@ -87,6 +87,26 @@ export function connectAssetInfoLogic(db: Database.Database, uuid: string): any 
       }
     } else {
       ;(result as any).host = (result as any).asset_ip
+    }
+
+    // Fallback: uuid stale after asset refresh — look up by organizationUuid + host
+    if (!result && fallback?.organizationUuid && fallback?.ip) {
+      const fallbackStmt = db.prepare(`
+        SELECT oa.hostname, oa.host, oa.bastion_comment as comment, a.asset_ip, oa.organization_uuid, oa.uuid, oa.jump_server_type,
+              a.asset_type, a.auth_type, a.port, a.username, a.password, a.key_chain_id, a.need_proxy, a.proxy_name
+        FROM t_organization_assets oa
+        JOIN t_assets a ON oa.organization_uuid = a.uuid
+        WHERE oa.organization_uuid = ? AND oa.host = ?
+        LIMIT 1
+      `)
+      result = fallbackStmt.get(fallback.organizationUuid, fallback.ip)
+      if (result) {
+        if ((result as any).jump_server_type) {
+          sshType = (result as any).jump_server_type
+        } else {
+          sshType = extractBastionType((result as any).asset_type || 'organization')
+        }
+      }
     }
 
     if (!result) {

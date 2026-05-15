@@ -1515,7 +1515,15 @@ const connectSSH = async (_opts?: { isAutoReconnect?: boolean }) => {
 
     try {
       const skipAssetLookup = shouldSkipAssetLookup(props.connectData)
-      const assetInfo = skipAssetLookup ? null : await api.connectAssetInfo({ uuid: props.connectData.uuid })
+      const orgId = props.serverInfo?.organizationId
+      const fallbackOrgUuid = orgId && orgId !== 'personal' ? orgId : undefined
+      const assetInfo = skipAssetLookup
+        ? null
+        : await api.connectAssetInfo({
+            uuid: props.connectData.uuid,
+            organizationUuid: fallbackOrgUuid,
+            ip: props.connectData.ip || props.connectData.host
+          })
       const password = ref('')
       const privateKey = ref('')
       const passphrase = ref('')

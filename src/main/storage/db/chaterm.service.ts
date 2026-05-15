@@ -240,8 +240,8 @@ export class ChatermDatabaseService {
   getKeyChainList(): any {
     return getKeyChainListLogic(this.db)
   }
-  connectAssetInfo(uuid: string): any {
-    return connectAssetInfoLogic(this.db, uuid)
+  connectAssetInfo(uuid: string, fallback?: { organizationUuid?: string; ip?: string }): any {
+    return connectAssetInfoLogic(this.db, uuid, fallback)
   }
   // @Get user host list (limited)
   getUserHosts(search: string, limit: number = 50): any {
