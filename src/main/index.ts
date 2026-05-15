@@ -22,7 +22,7 @@ import path, { join } from 'path'
 import { electronApp } from '@electron-toolkit/utils'
 import { is } from '@electron-toolkit/utils'
 import * as fs from 'fs/promises'
-import { startDataSync } from './storage/data_sync/index'
+import { startDataSync, AuthExpiredError } from './storage/data_sync/index'
 import type { SyncController as DataSyncController } from './storage/data_sync/core/SyncController'
 import { getChatermDbPathForUser, getCurrentUserId, setMainWindowWebContents } from './storage/db/connection'
 import { migrateCnUserDataOnFirstLaunch } from './storage/editionDataMigration'
@@ -54,6 +54,7 @@ import { setupPluginIpc } from './plugin/pluginIpc'
 import { telemetryService, checkIsFirstLaunch, getMacAddress } from './agent/services/telemetry/TelemetryService'
 import { envelopeEncryptionService } from './storage/data_sync/envelope_encryption/service'
 import { versionPromptService } from './version/versionPromptService'
+import { authFailureNotifier } from './services/authFailureNotifier'
 
 import * as fsSync from 'fs'
 import { pathToFileURL } from 'url'
@@ -1149,6 +1150,7 @@ function setupIPC(): void {
         if (ctmToken && ctmToken !== 'guest_token') {
           logger.info(`Setting authentication info for user ${targetUserId}...`)
           envelopeEncryptionService.setAuthInfo(ctmToken, targetUserId.toString())
+          authFailureNotifier.reset()
           logger.info(`Authentication info set completed for user ${targetUserId}`)
         } else {
           logger.warn(`No valid authentication token found for user ${targetUserId}`)
@@ -1559,19 +1561,38 @@ function setupIPC(): void {
       const resolvedEnabled = dataSyncPolicyEnabled === false ? false : enabled
 
       if (resolvedEnabled) {
+        let authExpiredDuringStartup = false
         if (!dataSyncController) {
           const dbPath = getChatermDbPathForUser(uid)
           logger.info(`Starting data sync service for user ${uid}...`)
-          const instance = await startDataSync(dbPath)
-          dataSyncController = instance
+          try {
+            const instance = await startDataSync(dbPath, () => {
+              authFailureNotifier.notify()
+            })
+            dataSyncController = instance
+          } catch (e) {
+            if (e instanceof AuthExpiredError) {
+              authExpiredDuringStartup = true
+              logger.warn('Data sync startup aborted due to auth expiry; dataSyncController remains null')
+              // onAuthFailure already sent auth:token-expired to renderer
+            } else {
+              throw e
+            }
+          }
         }
 
-        // Enable sync
-        const syncStateManager = dataSyncController.getSyncStateManager()
-        if (syncStateManager) {
-          syncStateManager.enableSync(uid)
+        // Enable sync only if controller was successfully created
+        if (dataSyncController) {
+          const syncStateManager = dataSyncController.getSyncStateManager()
+          if (syncStateManager) {
+            syncStateManager.enableSync(uid)
+          }
+          startKbSync()
         }
-        startKbSync()
+
+        if (authExpiredDuringStartup) {
+          return { success: false, enabled: false, error: 'AUTH_EXPIRED', authExpired: true }
+        }
       } else {
         // Disable sync
         if (dataSyncController) {
@@ -1706,7 +1727,8 @@ function setupIPC(): void {
               return chatermAuthAdapter.getAuthToken()
             },
             deviceId,
-            platform: 'desktop'
+            platform: 'desktop',
+            onAuthFailure: () => authFailureNotifier.notify()
           })
 
           // Initialize the sync engine

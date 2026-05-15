@@ -1,6 +1,6 @@
 import axios from 'axios'
 import config from '@/config'
-import { removeToken } from '@/utils/permission'
+import { notifyTokenExpired } from '@/utils/authEvents'
 
 const authRequest = axios.create({
   baseURL: config.api
@@ -35,8 +35,7 @@ authRequest.interceptors.response.use(
     if (error.response?.status === 401) {
       const data = error.response.data
       if (!(data.result && data.result.isLogin)) {
-        removeToken()
-        window.location.hash = '#/login'
+        notifyTokenExpired()
       }
     }
     return Promise.reject(error)
