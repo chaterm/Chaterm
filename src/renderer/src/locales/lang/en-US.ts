@@ -1188,6 +1188,8 @@ export default {
     uploadCancel: 'Upload Cancelled',
     downloadSkipped: 'download Skipped',
     taskList: 'Transmission List',
+    collapseTransferList: 'Collapse transfer list',
+    expandTransferList: 'Expand transfer list',
     upload: 'Upload',
     copyFileSuccess: 'File Copied Successfully',
     copyFileFailed: 'File Copy Failed',

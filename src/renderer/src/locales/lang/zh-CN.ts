@@ -1194,6 +1194,8 @@ export default {
     download: '下载',
     upload: '上传',
     taskList: '传输列表',
+    collapseTransferList: '收起传输列表',
+    expandTransferList: '展开传输列表',
     doubleClickToOpen: '双击打开',
     sftpConnectFailed: 'SFTP连接失败',
     noDataAvailable: '暂无数据，请先连接到服务器',

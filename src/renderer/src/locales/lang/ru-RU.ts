@@ -1189,6 +1189,8 @@ export default {
     uploadCancel: 'Загрузка отменена',
     downloadSkipped: 'Скачивание пропущено',
     taskList: 'Список передач',
+    collapseTransferList: 'Свернуть список передач',
+    expandTransferList: 'Развернуть список передач',
     upload: 'Загрузить',
     copyFileSuccess: 'Файл скопирован успешно',
     copyFileFailed: 'Ошибка копирования файла',
