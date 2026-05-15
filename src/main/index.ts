@@ -2531,8 +2531,9 @@ ipcMain.handle('key-chain-local-update', async (_, data) => {
 
 ipcMain.handle('chaterm-connect-asset-info', async (_, data) => {
   try {
-    const { uuid } = data
-    const result = chatermDbService.connectAssetInfo(uuid)
+    const { uuid, organizationUuid, ip } = data
+    const fallback = organizationUuid || ip ? { organizationUuid, ip } : undefined
+    const result = chatermDbService.connectAssetInfo(uuid, fallback)
     return result
   } catch (error) {
     logger.error('Chaterm get asset info failed', { error: error })

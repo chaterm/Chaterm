@@ -6,7 +6,7 @@ import { setCurrentUserId } from './db/connection'
 export { ChatermDatabaseService, autoCompleteDatabaseService, setCurrentUserId }
 
 // Export connection asset information for agent Task connection usage
-export async function connectAssetInfo(uuid: string): Promise<any> {
+export async function connectAssetInfo(uuid: string, fallback?: { organizationUuid?: string; ip?: string }): Promise<any> {
   const service = await ChatermDatabaseService.getInstance()
-  return service.connectAssetInfo(uuid)
+  return service.connectAssetInfo(uuid, fallback)
 }
