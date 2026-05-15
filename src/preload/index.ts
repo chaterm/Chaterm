@@ -1790,7 +1790,17 @@ const api = {
   /**
    * Open the log directory in the system file manager
    */
-  openLogDir: () => ipcRenderer.invoke('logging:openDir')
+  openLogDir: () => ipcRenderer.invoke('logging:openDir'),
+
+  /**
+   * Listen for auth token expiry notifications from main process.
+   * Returns an unsubscribe function.
+   */
+  onTokenExpired: (callback: () => void): (() => void) => {
+    const listener = () => callback()
+    ipcRenderer.on('auth:token-expired', listener)
+    return () => ipcRenderer.removeListener('auth:token-expired', listener)
+  }
 }
 // Custom API for browser control
 

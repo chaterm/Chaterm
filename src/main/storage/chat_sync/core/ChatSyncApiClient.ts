@@ -26,6 +26,7 @@ export interface ChatSyncApiClientOptions {
   getAuthToken: () => Promise<string | null>
   deviceId: string
   platform: string
+  onAuthFailure?: () => void
 }
 
 export class ChatSyncApiClient {
@@ -33,12 +34,15 @@ export class ChatSyncApiClient {
   private getAuthToken: () => Promise<string | null>
   private deviceId: string
   private platform: string
+  private onAuthFailure?: () => void
+  private authFailureFired = false
 
   constructor(options: ChatSyncApiClientOptions) {
     this.baseUrl = options.baseUrl.replace(/\/$/, '')
     this.getAuthToken = options.getAuthToken
     this.deviceId = options.deviceId
     this.platform = options.platform
+    this.onAuthFailure = options.onAuthFailure
   }
 
   /**
@@ -209,6 +213,10 @@ export class ChatSyncApiClient {
     }
 
     if (status === 401 || status === 403) {
+      if (!this.authFailureFired) {
+        this.authFailureFired = true
+        this.onAuthFailure?.()
+      }
       throw new ChatSyncApiError('UNAUTHORIZED', 'Authentication failed')
     }
 

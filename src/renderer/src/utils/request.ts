@@ -1,6 +1,6 @@
 import axios, { type AxiosInstance } from 'axios'
 import config from '@/config'
-import { removeToken } from '@/utils/permission'
+import { notifyTokenExpired } from '@/utils/authEvents'
 
 function attachAuthInterceptors(instance: AxiosInstance): AxiosInstance {
   // Add request interceptor
@@ -35,8 +35,7 @@ function attachAuthInterceptors(instance: AxiosInstance): AxiosInstance {
       if (error.response?.status === 401) {
         const data = error.response.data
         if (!(data.result && data.result.isLogin)) {
-          removeToken()
-          window.location.hash = '#/login'
+          notifyTokenExpired()
         }
       }
       // Status codes outside the 2xx range will trigger this function
