@@ -37,7 +37,7 @@ const MAX_HINTED_TABLES = 64
 /** Maximum cursor context payload for `complete` action. */
 const MAX_CURSOR_CONTEXT_BYTES = 8 * 1024
 
-const VALID_ACTIONS: ReadonlyArray<DbAiAction> = ['nl2sql', 'explain', 'optimize', 'convert', 'complete']
+const VALID_ACTIONS: ReadonlyArray<DbAiAction> = ['nl2sql', 'explain', 'optimize', 'convert', 'complete', 'diagnose']
 const VALID_DB_TYPES: ReadonlyArray<DbType> = ['mysql', 'postgresql']
 
 /** UUIDv4 / UUIDv7 style id shape used by the renderer. */
@@ -154,7 +154,8 @@ function validateRequest(raw: unknown): { ok: true; req: DbAiStartRequest } | { 
       cursorTextBefore: inputRaw.cursorTextBefore as string | undefined,
       cursorTextAfter: inputRaw.cursorTextAfter as string | undefined,
       targetDialect: inputRaw.targetDialect as DbAiStartRequest['input']['targetDialect'],
-      hintedTables: inputRaw.hintedTables as DbAiTableHint[] | undefined
+      hintedTables: inputRaw.hintedTables as DbAiTableHint[] | undefined,
+      errorMessage: typeof inputRaw.errorMessage === 'string' ? inputRaw.errorMessage : undefined
     },
     options: optionsRaw
       ? {

@@ -133,6 +133,9 @@
                 :tab="activeTab"
                 :tree="store.tree"
                 :connection-statuses="store.connectionStatuses"
+                :diagnosing="isDiagnosing"
+                :diagnose-error="diagnoseError"
+                :diagnose-success="diagnoseSuccess"
                 @update-sql="(v) => updateSql(v)"
                 @update-context="(a, d) => store.setSqlTabContext(activeTab!.id, a, d)"
                 @update-schema="(s) => store.setSqlTabSchema(activeTab!.id, s)"
@@ -140,6 +143,7 @@
                 @select-result-tab="(id) => store.setActiveResultTab(activeTab!.id, id)"
                 @close-result-tab="(id) => store.closeResultTab(activeTab!.id, id)"
                 @auto-connect="(assetId: string) => store.connectAsset(assetId)"
+                @diagnose="(sql, error) => handleDiagnose(sql, error)"
               />
             </div>
           </pane>
@@ -441,6 +445,38 @@ const handleCloseAiPane = () => {
   store.setDbAiPaneOpen(false)
 }
 
+const isDiagnosing = ref(false)
+const diagnoseError = ref<string | null>(null)
+const diagnoseSuccess = ref(false)
+
+const handleDiagnose = async (sql: string, error: string) => {
+  const ctx = store.getActiveDbAiContext()
+  if (!ctx) {
+    diagnoseError.value = t('database.dbAi.contextRequired')
+    return
+  }
+  const reqId = `dbai-diag-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`
+  diagnoseReqIds.add(reqId)
+  isDiagnosing.value = true
+  diagnoseError.value = null
+  const anyGlobal = globalThis as unknown as {
+    window?: { api?: { dbAi?: { start?: (req: unknown) => Promise<{ ok: boolean; errorMessage?: string }> } } }
+  }
+  const startFn = anyGlobal.window?.api?.dbAi?.start
+  if (typeof startFn !== 'function') {
+    diagnoseReqIds.delete(reqId)
+    isDiagnosing.value = false
+    diagnoseError.value = t('database.dbAi.unknownError')
+    return
+  }
+  const result = await startFn({ reqId, action: 'diagnose', context: ctx, input: { sql, errorMessage: error } })
+  if (!result.ok) {
+    diagnoseReqIds.delete(reqId)
+    isDiagnosing.value = false
+    diagnoseError.value = result.errorMessage ?? t('database.dbAi.unknownError')
+  }
+}
+
 // Editor command bundle handed to the drawer. `null` when the active tab
 // isn't a SQL tab (data/overview) so the drawer disables insert/replace.
 const dbAiEditorCommands = computed(() => {
@@ -541,6 +577,10 @@ onBeforeUnmount(() => {
 
 const dbAiUnsubs: Array<() => void> = []
 
+// Track in-flight diagnose reqIds so the onDone handler can intercept them
+// and replace the editor SQL directly, without opening the Drawer.
+const diagnoseReqIds = new Set<string>()
+
 /**
  * Wire the store to the DB-AI IPC event stream. Subscriptions are disposed
  * on unmount so repeated Database workspace mounts do not accumulate
@@ -566,6 +606,7 @@ function subscribeDbAiEvents() {
   if (typeof dbAi.onStream === 'function') {
     dbAiUnsubs.push(
       dbAi.onStream((ev) => {
+        if (diagnoseReqIds.has(ev.reqId)) return
         store.appendDbAiStream({
           reqId: ev.reqId,
           action: ev.action as Parameters<typeof store.appendDbAiStream>[0]['action'],
@@ -578,6 +619,21 @@ function subscribeDbAiEvents() {
   if (typeof dbAi.onDone === 'function') {
     dbAiUnsubs.push(
       dbAi.onDone((ev) => {
+        if (diagnoseReqIds.has(ev.reqId)) {
+          diagnoseReqIds.delete(ev.reqId)
+          isDiagnosing.value = false
+          if (ev.ok && ev.result?.sql) {
+            sqlWorkspaceRef.value?.replaceEditorAll(ev.result.sql)
+            diagnoseError.value = null
+            diagnoseSuccess.value = true
+            setTimeout(() => {
+              diagnoseSuccess.value = false
+            }, 30000)
+          } else if (!ev.ok) {
+            diagnoseError.value = ev.errorMessage ?? t('database.dbAi.unknownError')
+          }
+          return
+        }
         store.finishDbAiRequest({
           reqId: ev.reqId,
           action: ev.action as Parameters<typeof store.finishDbAiRequest>[0]['action'],
