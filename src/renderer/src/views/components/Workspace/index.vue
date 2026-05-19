@@ -167,6 +167,11 @@
                       />
                     </a-tooltip>
                   </span>
+                  <MoreOutlined
+                    v-if="hasContextMenu(dataRef)"
+                    class="more-icon"
+                    @click.stop="handleContextMenu($event, dataRef)"
+                  />
                 </div>
               </template>
             </a-tree>
@@ -282,6 +287,11 @@
                       </a-button>
                     </a-tooltip>
                   </div>
+                  <MoreOutlined
+                    v-if="hasContextMenu(dataRef)"
+                    class="more-icon"
+                    @click.stop="handleContextMenu($event, dataRef)"
+                  />
                 </div>
               </template>
             </a-tree>
@@ -635,7 +645,8 @@ import {
   AppstoreAddOutlined,
   SwapOutlined,
   ApiOutlined,
-  QuestionCircleOutlined
+  QuestionCircleOutlined,
+  MoreOutlined
 } from '@ant-design/icons-vue'
 import eventBus from '@/utils/eventBus'
 import i18n from '@/locales'
@@ -2096,6 +2107,19 @@ const handleFolderMouseLeave = (e: Event) => {
   if (target) target.style.backgroundColor = 'transparent'
 }
 
+const hasContextMenu = (dataRef: any): boolean => {
+  if (!dataRef) return false
+  const hasFavoriteOption = dataRef.favorite !== undefined
+  const hasCommentOption = isOrganizationAsset(dataRef.asset_type) && !dataRef.key.startsWith('common_')
+  const hasMoveOption = isOrganizationAsset(dataRef.asset_type) && !dataRef.key.startsWith('common_') && !dataRef.key.startsWith('folder_')
+  const hasTunnelOption = canCreateTunnel(dataRef)
+  const hasRemoveOption = isOrganizationAsset(dataRef.asset_type) && dataRef.key.startsWith('folder_') && dataRef.folderUuid
+  const hasEditFolderOption = dataRef.asset_type === 'custom_folder' && !dataRef.key.startsWith('common_')
+  const hasDeleteFolderOption = dataRef.asset_type === 'custom_folder' && !dataRef.key.startsWith('common_')
+
+  return hasFavoriteOption || hasCommentOption || hasMoveOption || hasTunnelOption || hasRemoveOption || hasEditFolderOption || hasDeleteFolderOption
+}
+
 const handleContextMenu = (event: MouseEvent, dataRef: any) => {
   event.preventDefault()
   event.stopPropagation()
@@ -2120,16 +2144,6 @@ const handleContextMenu = (event: MouseEvent, dataRef: any) => {
     !hasDeleteFolderOption
   ) {
     return
-  }
-
-  // Select the host when right-clicking to show selection state
-  if (isSecondLevel(dataRef)) {
-    selectedKeys.value = [dataRef.key]
-    // Update machines value to reflect the selection
-    machines.value = {
-      value: dataRef.key,
-      label: dataRef.title
-    }
   }
 
   // Calculate the number of menu items that will be shown
@@ -2523,6 +2537,29 @@ onUnmounted(() => {
   padding-right: 4px;
   min-width: 0;
   overflow: hidden;
+
+  &:hover .more-icon {
+    opacity: 1;
+  }
+
+  .more-icon {
+    margin-left: auto;
+    padding: 2px 4px;
+    color: var(--text-color-tertiary);
+    font-size: 14px;
+    cursor: pointer;
+    border-radius: 4px;
+    opacity: 0;
+    transition:
+      opacity 0.2s ease,
+      background-color 0.15s ease;
+    flex-shrink: 0;
+
+    &:hover {
+      background-color: var(--hover-bg-color);
+      color: var(--text-color);
+    }
+  }
 
   .title-with-icon {
     display: flex;
