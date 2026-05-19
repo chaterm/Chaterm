@@ -251,92 +251,112 @@ export class Controller {
     }
 
     const targetTaskId = message.tabId ?? message.taskId
-    const targetTask = targetTaskId ? this.getTaskFromId(targetTaskId) : undefined
+    try {
+      const targetTask = targetTaskId ? this.getTaskFromId(targetTaskId) : undefined
 
-    switch (message.type) {
-      case 'newTask':
-        await this.initTask(message.hosts!, message.text, message.taskId, message.contentParts, message.modelName)
-        if (message.taskId && message.hosts) {
-          await updateTaskHosts(message.taskId, message.hosts)
-        }
-        break
-      case 'condense':
-        targetTask?.handleWebviewAskResponse('yesButtonClicked')
-        break
-
-      case 'askResponse':
-        if (!targetTask && targetTaskId) {
-          // Lazy initialization: Task was not created when the user opened the
-          // history tab (to avoid DB rewrite race). Initialize it now that the
-          // user is actually continuing the conversation.
-          await this.showTaskWithId(targetTaskId, message.hosts || [])
-        }
-        {
-          const task = targetTask || (targetTaskId ? this.getTaskFromId(targetTaskId) : undefined)
-          if (task) {
-            logger.debug('Received askResponse message', {
-              event: 'agent.controller.ask.response',
-              taskId: task.taskId,
-              askResponse: message.askResponse
-            })
-            if (message.modelName?.trim() && message.modelName.trim() !== task.api.getModel().id) {
-              const { apiConfiguration } = await getAllExtensionState()
-              if (apiConfiguration) {
-                const perTabConfig = await this.buildApiConfigurationForModel(apiConfiguration, message.modelName)
-                task.api = buildApiHandler(perTabConfig)
-                task.setApiProvider(perTabConfig.apiProvider)
-              }
-            }
-            if (message.hosts) {
-              task.hosts = message.hosts
-              if (targetTaskId) {
-                await updateTaskHosts(targetTaskId, message.hosts)
-              }
-            }
-            if (message.askResponse === 'messageResponse') {
-              // Clean up all command contexts for this task and broadcast close events
-              logger.debug('Cleaning command contexts before handling messageResponse', {
-                event: 'agent.controller.message_response.cleanup.start',
-                taskId: task.taskId
-              })
-              Task.clearCommandContextsForTask(task.taskId)
-              await task.clearTodos('new_user_input')
-              logger.debug('Command contexts and todos cleared for messageResponse', {
-                event: 'agent.controller.message_response.cleanup.complete',
-                taskId: task.taskId
-              })
-            }
-            await task.handleWebviewAskResponse(message.askResponse!, message.text, message.truncateAtMessageTs, message.contentParts)
+      switch (message.type) {
+        case 'newTask':
+          await this.initTask(message.hosts!, message.text, message.taskId, message.contentParts, message.modelName)
+          if (message.taskId && message.hosts) {
+            await updateTaskHosts(message.taskId, message.hosts)
           }
+          break
+        case 'condense':
+          targetTask?.handleWebviewAskResponse('yesButtonClicked')
+          break
+
+        case 'askResponse':
+          if (!targetTask && targetTaskId) {
+            // Lazy initialization: Task was not created when the user opened the
+            // history tab (to avoid DB rewrite race). Initialize it now that the
+            // user is actually continuing the conversation.
+            await this.showTaskWithId(targetTaskId, message.hosts || [])
+          }
+          {
+            const task = targetTask || (targetTaskId ? this.getTaskFromId(targetTaskId) : undefined)
+            if (task) {
+              logger.debug('Received askResponse message', {
+                event: 'agent.controller.ask.response',
+                taskId: task.taskId,
+                askResponse: message.askResponse
+              })
+              if (message.modelName?.trim() && message.modelName.trim() !== task.api.getModel().id) {
+                const { apiConfiguration } = await getAllExtensionState()
+                if (apiConfiguration) {
+                  const perTabConfig = await this.buildApiConfigurationForModel(apiConfiguration, message.modelName)
+                  task.api = buildApiHandler(perTabConfig)
+                  task.setApiProvider(perTabConfig.apiProvider)
+                }
+              }
+              if (message.hosts) {
+                task.hosts = message.hosts
+                if (targetTaskId) {
+                  await updateTaskHosts(targetTaskId, message.hosts)
+                }
+              }
+              if (message.askResponse === 'messageResponse') {
+                // Clean up all command contexts for this task and broadcast close events
+                logger.debug('Cleaning command contexts before handling messageResponse', {
+                  event: 'agent.controller.message_response.cleanup.start',
+                  taskId: task.taskId
+                })
+                Task.clearCommandContextsForTask(task.taskId)
+                await task.clearTodos('new_user_input')
+                logger.debug('Command contexts and todos cleared for messageResponse', {
+                  event: 'agent.controller.message_response.cleanup.complete',
+                  taskId: task.taskId
+                })
+              }
+              await task.handleWebviewAskResponse(message.askResponse!, message.text, message.truncateAtMessageTs, message.contentParts)
+            }
+          }
+          break
+        case 'showTaskWithId':
+          this.showTaskWithId(message.text!, message.hosts || [])
+          break
+        case 'deleteTaskWithId':
+          this.deleteTaskWithId(message.text!)
+          break
+        case 'taskFeedback':
+          if (message.feedbackType && targetTaskId) {
+            telemetryService.captureTaskFeedback(targetTaskId, message.feedbackType)
+          }
+          break
+        case 'commandGeneration':
+          if (message.instruction) {
+            await this.handleCommandGeneration(message.instruction, message.context, message.tabId, message.modelName)
+          }
+          break
+        case 'explainCommand':
+          if (message.command != null) {
+            await this.handleExplainCommand(message.command, message.tabId, message.commandMessageId)
+          }
+          break
+        case 'telemetrySetting': {
+          if (message.telemetrySetting) {
+            await this.updateTelemetrySetting(message.telemetrySetting)
+          }
+          await this.postStateToWebview(targetTaskId)
+          break
         }
-        break
-      case 'showTaskWithId':
-        this.showTaskWithId(message.text!, message.hosts || [])
-        break
-      case 'deleteTaskWithId':
-        this.deleteTaskWithId(message.text!)
-        break
-      case 'taskFeedback':
-        if (message.feedbackType && targetTaskId) {
-          telemetryService.captureTaskFeedback(targetTaskId, message.feedbackType)
-        }
-        break
-      case 'commandGeneration':
-        if (message.instruction) {
-          await this.handleCommandGeneration(message.instruction, message.context, message.tabId, message.modelName)
-        }
-        break
-      case 'explainCommand':
-        if (message.command != null) {
-          await this.handleExplainCommand(message.command, message.tabId, message.commandMessageId)
-        }
-        break
-      case 'telemetrySetting': {
-        if (message.telemetrySetting) {
-          await this.updateTelemetrySetting(message.telemetrySetting)
-        }
-        await this.postStateToWebview(targetTaskId)
-        break
+      }
+    } catch (error) {
+      logger.error('handleWebviewMessage unhandled error', { event: 'agent.controller.unhandled_error', error })
+      try {
+        await this.postMessage({
+          type: 'partialMessage',
+          tabId: targetTaskId,
+          taskId: targetTaskId,
+          partialMessage: {
+            type: 'ask',
+            ask: 'api_req_failed',
+            text: `[ERROR] An unexpected error occurred: ${error instanceof Error ? error.message : String(error)}`,
+            ts: Date.now(),
+            partial: false
+          }
+        })
+      } catch (postError) {
+        logger.error('Failed to send error message to renderer', { event: 'agent.controller.error_post_failed', error: postError })
       }
     }
   }

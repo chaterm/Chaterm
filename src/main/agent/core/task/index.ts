@@ -1362,9 +1362,17 @@ export class Task {
       await this.postStateToWebview()
     }
 
-    await pWaitFor(() => this.askResponsePayload !== undefined || this.lastMessageTs !== askTsRef.value, {
-      interval: 100
-    })
+    try {
+      await pWaitFor(() => this.askResponsePayload !== undefined || this.lastMessageTs !== askTsRef.value, {
+        interval: 100,
+        timeout: 300_000 // 5 minutes
+      })
+    } catch {
+      // Timeout: notify renderer and abort
+      await this.say('error', '[TIMEOUT] Agent did not receive a response within 5 minutes. Task has been cancelled.')
+      this.abortTask()
+      throw new Error('Ask response timed out after 5 minutes')
+    }
 
     if (this.lastMessageTs !== askTsRef.value) {
       throw new Error('Current ask promise was ignored')
@@ -1905,13 +1913,21 @@ export class Task {
         await flushBuffer(true)
       })
 
-      // Wait for completion
-      await new Promise<void>((resolve) => {
+      // Wait for completion (with 10-minute timeout to prevent indefinite hangs)
+      await new Promise<void>((resolve, reject) => {
+        const CHECK_INTERVAL = 100
+        const COMMAND_TIMEOUT = 600_000 // 10 minutes
+        const startTime = Date.now()
         const checkCompletion = () => {
           if (completed) {
             resolve()
+          } else if (Date.now() - startTime > COMMAND_TIMEOUT) {
+            completed = true
+            this.currentRunningProcess = null
+            result += '\n[TIMEOUT] Command execution exceeded time limit (10 minutes).'
+            reject(new Error('Command execution timed out'))
           } else {
-            setTimeout(checkCompletion, 100)
+            setTimeout(checkCompletion, CHECK_INTERVAL)
           }
         }
         checkCompletion()
@@ -2751,7 +2767,12 @@ export class Task {
       content: [{ type: 'text', text: assistantMessage }]
     })
 
-    await pWaitFor(() => this.userMessageContentReady)
+    try {
+      await pWaitFor(() => this.userMessageContentReady, { timeout: 60_000 }) // 1 minute
+    } catch {
+      // Timeout waiting for assistant message content to be fully presented
+      logger.warn('Timeout waiting for userMessageContentReady', { event: 'agent.task.user_message_content_ready.timeout' })
+    }
 
     return await this.recursivelyMakeChatermRequests(this.userMessageContent)
   }

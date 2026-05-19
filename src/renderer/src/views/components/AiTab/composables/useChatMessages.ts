@@ -167,6 +167,12 @@ export function useChatMessages(
       // console.log('Main process response:', response)
     } catch (error) {
       logger.error('Failed to send message to main process', { error: error })
+      const targetTabId = tabId || currentChatId.value
+      const errTab = chatTabs.value.find((t) => t.id === targetTabId)
+      if (errTab) {
+        errTab.session.responseLoading = false
+        errTab.session.showRetryButton = true
+      }
     }
   }
 
