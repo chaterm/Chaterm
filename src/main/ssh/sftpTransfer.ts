@@ -2519,7 +2519,7 @@ const connectJumpServerSftpNew = async (_event: any, connectionInfo: any, option
       })
 
       conn.on('error', (err: any) => {
-        logger.error('SFTP compound username connection error', { event: 'sftp.connect.error', error: err?.message || String(err) })
+        sftpLogger.error('SFTP compound username connection error', { event: 'sftp.connect.error', error: err?.message || String(err) })
         cleanup()
         clearPending(id)
         safeResolve({ status: 'error', message: err?.message || 'Connection failed' })

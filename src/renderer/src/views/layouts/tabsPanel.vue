@@ -28,7 +28,7 @@
         <template v-if="localTab.organizationId && localTab.organizationId !== ''">
           <sshConnect
             :key="`main-terminal-${localTab.id}`"
-            :ref="(el) => setSshConnectRef(el, localTab.id)"
+            :ref="(el) => setSshConnectRef(el, localTab?.id ?? '')"
             :server-info="localTab"
             :connect-data="localTab.data"
             :active-tab-id="localTab.id"
@@ -41,7 +41,7 @@
         <template v-else-if="localTab.type === 'k8s'">
           <K8sConnect
             :key="`k8s-terminal-${localTab.id}`"
-            :ref="(el) => setK8sConnectRef(el, localTab.id)"
+            :ref="(el) => setK8sConnectRef(el, localTab?.id ?? '')"
             :server-info="localTab"
             :active-tab-id="localTab.id"
             :is-active="isActive"

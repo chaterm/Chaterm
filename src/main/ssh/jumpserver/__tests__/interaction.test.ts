@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { describe, it, expect } from 'vitest'
 import type { JumpServerNavigationPath } from '../constants'
 
 // We test the key behavioral changes of setupJumpServerInteraction indirectly
@@ -9,7 +9,7 @@ import type { JumpServerNavigationPath } from '../constants'
 describe('JumpServer Interaction - Multi-user fixes', () => {
   describe('navigationPath inheritance', () => {
     it('should create empty navigationPath when no inheritedNavigationPath is provided', () => {
-      const inheritedNavigationPath = undefined
+      const inheritedNavigationPath: JumpServerNavigationPath | undefined = undefined as JumpServerNavigationPath | undefined
       const navigationPath: JumpServerNavigationPath = inheritedNavigationPath ? { ...inheritedNavigationPath } : { needsPassword: false }
 
       expect(navigationPath).toEqual({ needsPassword: false })

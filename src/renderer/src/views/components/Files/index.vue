@@ -732,14 +732,14 @@ const buildSftpConnDataForFiles = async (node: any, side: PanelSide) => {
   }
 
   // Store JumpServer SFTP info for path resolution
-  logger.info('buildSftpConnDataForFiles: connSshType:', connSshType, 'connHostname:', connHostname)
+  logger.info('buildSftpConnDataForFiles', { data: { connSshType, connHostname } })
   if (connSshType === 'jumpserver') {
     jumpserverSftpInfo.set(connId, {
       sshType: connSshType,
       targetIp: connHost,
       targetHostname: connHostname
     })
-    logger.info('jumpserverSftpInfo set:', connId, jumpserverSftpInfo.get(connId))
+    logger.info('jumpserverSftpInfo set', { data: { connId, info: jumpserverSftpInfo.get(connId) } })
   }
 
   connData.needProxy = assetInfo?.need_proxy === 1 || false
@@ -947,6 +947,7 @@ interface SftpConnectionInfo {
 
 const LOCAL_ID = 'localhost@127.0.0.1:local:TG9jYWw='
 const makeLocalId = (side: PanelSide) => `${LOCAL_ID}:files-${side}`
+const isLocalId = (id: string) => String(id || '').startsWith(LOCAL_ID)
 const getConnKey = (id: string) => {
   const parts = String(id || '').split(':')
   return parts.length >= 4 ? parts.slice(0, 3).join(':') : String(id || '')
@@ -1477,9 +1478,6 @@ const resolvePaths = (value: string) => {
   }
   const isJumpServer = value?.includes('local-team') && value?.includes('@')
   if (isJumpServer) {
-    const [, rest = ''] = String(value || '').split('@')
-    const parts = rest.split(':')
-    const assetName = parts.length > 2 ? safeDecodeB64(parts[2]) || 'Unknown' : 'Unknown'
     return '/'
   }
   const [username] = String(value || '').split('@')

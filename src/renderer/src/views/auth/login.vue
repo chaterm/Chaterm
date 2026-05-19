@@ -531,15 +531,15 @@ const skipLogin = async () => {
     localStorage.setItem('login-skipped', 'true')
     localStorage.setItem('ctm-token', 'guest_token')
     const guestUserInfo = {
-      uid: 999999999,
-      username: 'guest',
-      name: 'Guest',
-      email: 'guest@chaterm.ai',
+      uid: 5003054,
+      username: 'developer',
+      name: 'Developer',
+      email: 'dev@chaterm.ai',
       token: 'guest_token'
     }
     setUserInfo(guestUserInfo)
     const api = window.api as any
-    const dbResult = await api.initUserDatabase({ uid: 999999999 })
+    const dbResult = await api.initUserDatabase({ uid: 5003054 })
     if (!dbResult.success) {
       logger.error('Guest database init failed', { error: dbResult.error })
       message.error(t('login.initializationFailed'))

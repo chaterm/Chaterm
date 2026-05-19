@@ -181,7 +181,9 @@ export function convertToAnthropicMessage(completion: OpenAI.Chat.Completions.Ch
   const anthropicMessage: Anthropic.Messages.Message = {
     id: completion.id,
     type: 'message',
-    role: openAiMessage.role, // always "assistant"
+    role: openAiMessage.role as 'assistant',
+    container: null,
+    stop_details: null,
     content: [
       {
         type: 'text',
@@ -210,6 +212,7 @@ export function convertToAnthropicMessage(completion: OpenAI.Chat.Completions.Ch
       cache_creation_input_tokens: null,
       cache_read_input_tokens: null,
       cache_creation: null,
+      inference_geo: null,
       server_tool_use: null,
       service_tier: null
     }
@@ -227,11 +230,12 @@ export function convertToAnthropicMessage(completion: OpenAI.Chat.Completions.Ch
             logger.error('Failed to parse tool arguments', { error: error })
           }
           return {
-            type: 'tool_use',
+            type: 'tool_use' as const,
             id: toolCall.id,
             name: toolCall.function.name,
-            input: parsedInput
-          }
+            input: parsedInput,
+            caller: { type: 'direct' as const }
+          } as Anthropic.ToolUseBlock
         })
     )
   }

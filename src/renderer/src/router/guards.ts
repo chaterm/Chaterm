@@ -21,7 +21,8 @@ export const beforeEach = async (to, _from, next) => {
   if (isSkippedLogin && token === 'guest_token') {
     try {
       const api = window.api as any
-      const dbResult = await api.initUserDatabase({ uid: 999999999 })
+      const userInfo = getUserInfo()
+      const dbResult = await api.initUserDatabase({ uid: userInfo?.uid || 5003054 })
       logger.info('Database initialization result', { success: dbResult.success })
 
       if (dbResult.success) {
