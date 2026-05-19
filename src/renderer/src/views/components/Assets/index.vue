@@ -30,7 +30,10 @@
           :key="item.key"
           class="assets_item"
         >
-          <div class="item_wrapper">
+          <div
+            class="item_wrapper"
+            :data-onboarding-id="item.key === 'assetConfig' ? 'host-management-entry' : undefined"
+          >
             <div class="item_icon">
               <img
                 v-if="item.icon"

@@ -1,5 +1,8 @@
 <template>
-  <div class="card-wrapper">
+  <div
+    class="card-wrapper"
+    data-onboarding-id="asset-card"
+  >
     <a-card
       class="asset-card"
       :bordered="false"

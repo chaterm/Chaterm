@@ -26,6 +26,7 @@ export default {
     userConfig: 'Setting',
     alias: 'Alias Config',
     assetConfig: 'Host Management',
+    onboardingGuide: 'Onboarding Guide',
     search: 'Search',
     connect: 'Connect',
     edit: 'Edit',
@@ -264,6 +265,8 @@ export default {
     watermarkDescribe: 'Show the watermark on the terminal',
     watermarkOpen: 'Open',
     watermarkClose: 'Close',
+    onboardingGuide: 'Onboarding Guide',
+    openOnboardingGuide: 'Open Onboarding Guide',
     language: 'Language',
     theme: 'Theme',
     themeDark: 'Dark',
@@ -667,6 +670,179 @@ export default {
       toggleLayout: 'Toggle Layout (Terminal/Agents)'
     }
   },
+  onboarding: {
+    guide: {
+      title: 'Start with one Chaterm module',
+      description:
+        'Each module opens the relevant page and uses a spotlight layer to mark key areas. The background is disabled, while the highlighted target remains clickable.',
+      progress: '{completed}/{total} completed'
+    },
+    modules: {
+      interfaceGuide: {
+        title: 'Interface guide',
+        description: 'Learn the module rail, function panel, workspace tabs, layout controls, and AI entry.'
+      },
+      systemSettings: {
+        title: 'System settings',
+        description: 'Review general settings, theme and language, default layout, terminal font, proxy, and SSH Agent settings.'
+      },
+      addAndConnectHost: {
+        title: 'Add and connect host',
+        description: 'Create a host and start a real connection attempt from the asset card.'
+      },
+      aiChat: {
+        title: 'Use AI chat',
+        description: 'Open the right AI sidebar, choose Agent, model, and localhost, then start a real AI request.'
+      }
+    },
+    spotlight: {
+      previous: 'Previous',
+      next: 'Next',
+      finish: 'Finish',
+      progress: '{current}/{total}',
+      targetMissing: 'This target is not visible yet. Complete the previous action first, or continue to the next step.'
+    },
+    tours: {
+      interfaceGuide: {
+        moduleSwitcher: {
+          title: 'Left module rail',
+          description: 'Switch between workspace, assets, files, knowledge center, and other core modules here.'
+        },
+        functionPanel: {
+          title: 'Left function panel',
+          description: 'After choosing a module, its lists, search, and management actions appear here.'
+        },
+        workspace: {
+          title: 'Main workspace tabs',
+          description: 'Terminals, settings, asset management, and editors open as tabs in the main workspace.'
+        },
+        topControls: {
+          title: 'Top layout controls',
+          description: 'Use the top area to switch Terminal/Agents layouts and control sidebars.'
+        },
+        aiToggle: {
+          title: 'Right AI chat entry',
+          description: 'Click here, or press Command/Ctrl + L, to open the AI sidebar for terminal workflows.'
+        },
+        aiSidebar: {
+          title: 'Right AI sidebar',
+          description: 'This is the AI workspace beside the terminal, with conversations, messages, context entry, and bottom input controls.'
+        }
+      },
+      systemSettings: {
+        settingEntry: {
+          title: 'Settings entry',
+          description: 'Click the lower-left gear, click Next, or press Command/Ctrl + , to open the system settings tab.'
+        },
+        sideNav: {
+          title: 'Settings category navigation',
+          description: 'Use the left categories to switch between General, Terminal, Extensions, Models, and more.'
+        },
+        general: {
+          title: 'General settings content',
+          description: 'General settings collect appearance, language, default layout, background, and common preferences.'
+        },
+        background: {
+          title: 'Background settings',
+          description: 'Choose a built-in background or upload a custom image, then tune opacity and brightness.'
+        },
+        backgroundPreset: {
+          title: 'Choose a background',
+          description: 'Click the highlighted background thumbnail to continue.'
+        },
+        terminalTab: {
+          title: 'Terminal settings category',
+          description: 'Click Terminal to open display, input, and connection-related settings.'
+        },
+        terminalOptions: {
+          title: 'Terminal font, proxy, and SSH Agent',
+          description: 'Tune font size, proxy settings, and SSH Agent behavior here.'
+        },
+        aiPreferencesTab: {
+          title: 'AI preferences',
+          description: 'Open AI preferences to configure reasoning, knowledge base retrieval, and auto-execution behavior.'
+        },
+        aiPreferencesContent: {
+          title: 'AI preference content',
+          description:
+            'Control extended thinking, read-only command auto-execution, knowledge base retrieval, experience capture, proxy, and related AI behavior here.'
+        },
+        aiAutoApproval: {
+          title: 'Enable auto execution',
+          description: 'Turn this switch on. Once enabled, AI can run allowed tools without asking for confirmation each time.'
+        }
+      },
+      addAndConnectHost: {
+        assetsEntry: {
+          title: 'Assets entry',
+          description: 'Open Assets to access host and key management.'
+        },
+        hostManagement: {
+          title: 'Host management entry',
+          description: 'Host Management is where you add, edit, import, and connect SSH hosts.'
+        },
+        newHost: {
+          title: 'New host button',
+          description: 'Click New Host to open the host form on the right.'
+        },
+        formFields: {
+          title: 'Key host form fields',
+          description: 'Fill in address, port, username, authentication, group, and proxy details.'
+        },
+        formSubmit: {
+          title: 'Save host',
+          description: 'Saving creates the host profile. It does not fake a connection.'
+        },
+        connectAsset: {
+          title: 'Connect from the asset card',
+          description: 'After saving, click or double-click the asset card to start a real connection attempt and complete this module.'
+        }
+      },
+      aiChat: {
+        sidebar: {
+          title: 'Open the right AI sidebar',
+          description:
+            'Click the top-right entry, or press Command/Ctrl + L, to open the AI sidebar. The AI icon in the left module rail opens it too.'
+        },
+        sidebarOverview: {
+          title: 'Right AI sidebar',
+          description: 'This sidebar supports terminal workflows with history, messages, context entry, and bottom input controls.'
+        },
+        input: {
+          title: 'AI input',
+          description: 'Use the input to describe your goal, question, or the terminal state you want AI to inspect.'
+        },
+        modeAgent: {
+          title: 'Choose Agent mode',
+          description: 'This is the mode selector. The menu is open; click Agent so AI can work through a fuller host task.'
+        },
+        modelOpen: {
+          title: 'Open model selector',
+          description: 'Click here to open the model list.'
+        },
+        modelOption: {
+          title: 'Choose a model',
+          description: 'Click an available model for this AI request.'
+        },
+        contextOpen: {
+          title: 'Open context selector',
+          description: 'Click the Add context entry to choose the target host for this Agent request.'
+        },
+        contextHosts: {
+          title: 'Open host list',
+          description: 'Click Hosts to view machines that can be used as execution targets.'
+        },
+        localhost: {
+          title: 'Select 127.0.0.1',
+          description: 'Click localhost 127.0.0.1 as the target for this Agent request.'
+        },
+        send: {
+          title: 'Send button',
+          description: 'The input is filled with "查看主机状态". Click Send to start a real AI request and finish this module.'
+        }
+      }
+    }
+  },
   personal: {
     host: 'Host Management',
     newHost: 'New Host',
@@ -713,6 +889,7 @@ export default {
     favoriteUpdateError: 'Error updating favorite status',
     defaultGroup: 'Hosts',
     noAssets: 'No assets',
+    emptyAssetsDescription: 'Create a host manually or import existing session files to start connecting.',
     hostType: 'ssh',
     personalAsset: 'Personal Asset',
     enterpriseAsset: 'Enterprise Asset',

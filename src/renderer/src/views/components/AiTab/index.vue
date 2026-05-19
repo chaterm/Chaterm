@@ -88,6 +88,7 @@
                 <a-button
                   type="primary"
                   class="configure-model-button"
+                  data-onboarding-id="ai-model-settings-button"
                   @click="goToModelSettings"
                 >
                   {{ $t('user.configureModel') }}

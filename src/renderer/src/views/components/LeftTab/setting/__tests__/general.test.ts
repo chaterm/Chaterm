@@ -66,6 +66,8 @@ const mockTranslations: Record<string, string> = {
   'user.watermark': 'Watermark',
   'user.watermarkOpen': 'Open',
   'user.watermarkClose': 'Close',
+  'user.onboardingGuide': 'Onboarding Guide',
+  'user.openOnboardingGuide': 'Open Onboarding Guide',
   'user.loadConfigFailed': 'Failed to load config',
   'user.loadConfigFailedDescription': 'Failed to load configuration',
   'user.error': 'Error',
@@ -115,6 +117,8 @@ const { mockTFn } = vi.hoisted(() => {
     'user.watermark': 'Watermark',
     'user.watermarkOpen': 'Open',
     'user.watermarkClose': 'Close',
+    'user.onboardingGuide': 'Onboarding Guide',
+    'user.openOnboardingGuide': 'Open Onboarding Guide',
     'user.loadConfigFailed': 'Failed to load config',
     'user.loadConfigFailedDescription': 'Failed to load configuration',
     'user.error': 'Error',
@@ -245,6 +249,10 @@ describe('General Component', () => {
           'a-slider': {
             template: '<div class="a-slider"><input type="range" :value="value" @input="$emit(\'change\', parseFloat($event.target.value))" /></div>',
             props: ['value', 'min', 'max', 'step']
+          },
+          'a-button': {
+            template: '<button class="a-button setting-button" @click="$emit(\'click\', $event)"><slot /></button>',
+            emits: ['click']
           },
           DeleteOutlined: { template: '<span class="delete-icon" />' },
           UploadOutlined: { template: '<span class="upload-icon" />' },
@@ -490,6 +498,13 @@ describe('General Component', () => {
 
       // Grid should always be visible since we removed the mode toggle
       expect(wrapper.find('.unified-bg-grid').exists()).toBe(true)
+    })
+
+    it('should expose a concrete background preset target for onboarding', () => {
+      const presetTarget = wrapper.find('[data-onboarding-id="settings-background-preset"]')
+
+      expect(presetTarget.exists()).toBe(true)
+      expect(presetTarget.classes()).toContain('system-item')
     })
 
     it('should hide background grid when mode is none - grid is always visible', async () => {
@@ -785,6 +800,18 @@ describe('General Component', () => {
       await nextTick() // Wait for watcher
 
       expect(userConfigStore.saveConfig).toHaveBeenCalled()
+    })
+  })
+
+  describe('Onboarding Guide', () => {
+    it('should open the onboarding guide tab from general settings', async () => {
+      wrapper = createWrapper()
+      await nextTick()
+      await nextTick()
+
+      await wrapper.find('.setting-button').trigger('click')
+
+      expect(eventBus.emit).toHaveBeenCalledWith('open-user-tab', 'onboardingGuide')
     })
   })
 
