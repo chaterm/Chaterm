@@ -408,6 +408,82 @@ export const PROVIDER_MODEL_KEY_MAP: Record<string, GlobalStateKey> = {
   default: 'defaultModelId'
 }
 
+const normalizedString = (value: unknown): string => (typeof value === 'string' ? value.trim() : '')
+
+const createStoredModelOption = (provider: string, modelName: string): ModelOption => ({
+  id: `${provider}:${modelName}`,
+  name: modelName,
+  checked: true,
+  type: provider === 'default' ? 'standard' : 'custom',
+  apiProvider: provider
+})
+
+async function bootstrapSkippedLoginModelOptions(existingModelOptions: ModelOption[]): Promise<ModelOption[]> {
+  const existing = existingModelOptions.filter((option) => normalizedString(option?.name))
+  if (existing.length > 0) return existing
+
+  const [
+    defaultModelId,
+    defaultBaseUrl,
+    defaultApiKey,
+    openAiModelId,
+    openAiBaseUrl,
+    openAiApiKey,
+    anthropicModelId,
+    anthropicApiKey,
+    liteLlmModelId,
+    liteLlmBaseUrl,
+    liteLlmApiKey,
+    ollamaModelId,
+    ollamaBaseUrl,
+    apiModelId,
+    deepSeekApiKey,
+    awsAccessKey,
+    awsSecretKey,
+    awsRegion
+  ] = await Promise.all([
+    getGlobalState('defaultModelId'),
+    getGlobalState('defaultBaseUrl'),
+    getSecret('defaultApiKey'),
+    getGlobalState('openAiModelId'),
+    getGlobalState('openAiBaseUrl'),
+    getSecret('openAiApiKey'),
+    getGlobalState('anthropicModelId'),
+    getSecret('anthropicApiKey'),
+    getGlobalState('liteLlmModelId'),
+    getGlobalState('liteLlmBaseUrl'),
+    getSecret('liteLlmApiKey'),
+    getGlobalState('ollamaModelId'),
+    getGlobalState('ollamaBaseUrl'),
+    getGlobalState('apiModelId'),
+    getSecret('deepSeekApiKey'),
+    getSecret('awsAccessKey'),
+    getSecret('awsSecretKey'),
+    getGlobalState('awsRegion')
+  ])
+
+  const options: ModelOption[] = []
+  const seen = new Set<string>()
+  const addOption = (provider: string, modelName: unknown, hasConfig: boolean) => {
+    const name = normalizedString(modelName)
+    if (!name || !hasConfig) return
+    const key = `${provider}:${name}`
+    if (seen.has(key)) return
+    seen.add(key)
+    options.push(createStoredModelOption(provider, name))
+  }
+
+  addOption('default', defaultModelId, !isEmptyValue(defaultBaseUrl) && !isEmptyValue(defaultApiKey))
+  addOption('openai', openAiModelId, !isEmptyValue(openAiBaseUrl) && !isEmptyValue(openAiApiKey))
+  addOption('anthropic', anthropicModelId, !isEmptyValue(anthropicApiKey))
+  addOption('litellm', liteLlmModelId, !isEmptyValue(liteLlmBaseUrl) && !isEmptyValue(liteLlmApiKey))
+  addOption('ollama', ollamaModelId, !isEmptyValue(ollamaBaseUrl))
+  addOption('deepseek', apiModelId, !isEmptyValue(deepSeekApiKey))
+  addOption('bedrock', apiModelId, !isEmptyValue(awsAccessKey) && !isEmptyValue(awsSecretKey) && !isEmptyValue(awsRegion))
+
+  return options
+}
+
 /**
  * Composable for AI model configuration management
  * Handles model selection, configuration and initialization
@@ -611,13 +687,15 @@ export const useModelConfiguration = createGlobalState(() => {
 
       // Skip loading built-in models if user skipped login
       if (isSkippedLogin) {
-        // Preserve user-added custom models; remove enterprise/server models only
-        const customModelsOnly = initialSavedModelOptions.filter ? initialSavedModelOptions.filter((m) => m.type !== 'standard') : []
-        await updateGlobalState('modelOptions', customModelsOnly)
+        const skippedLoginModelOptions = await bootstrapSkippedLoginModelOptions(initialSavedModelOptions)
+        await updateGlobalState('modelOptions', skippedLoginModelOptions)
         await updateGlobalState('enterpriseModelConfigs', [])
         await updateGlobalState('enterpriseModelConfigVersion', '')
         await updateGlobalState('enterpriseModelPluginActive', false)
         clearEnterpriseSyncTimer()
+        const defaultBaseUrl = (await getGlobalState('defaultBaseUrl')) as string | undefined
+        const defaultApiKey = await getSecret('defaultApiKey')
+        refreshDefaultModelInfoMapInBackground(defaultBaseUrl, defaultApiKey)
         return
       }
 
