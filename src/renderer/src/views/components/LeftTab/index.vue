@@ -100,14 +100,27 @@
       >
         <div v-if="i.key === 'user'">
           <p
-            class="setting_menu"
-            :class="{ active: activeKey === i.key }"
+            class="setting_menu user-menu-trigger"
+            :class="{ active: activeKey === i.key, 'has-avatar': showUserAvatar }"
             @click="showUserMenu = !showUserMenu"
           >
             <img
+              v-if="showUserAvatar"
+              class="user-avatar-icon"
+              :src="userStore.userInfo.avatar"
+              referrerpolicy="no-referrer"
+              alt=""
+            />
+            <img
+              v-else
               :src="i.icon"
               alt=""
             />
+            <span
+              v-if="isVipUser"
+              class="vip-flag"
+              >VIP</span
+            >
           </p>
         </div>
         <div v-else-if="i.key === 'setting'">
@@ -167,11 +180,12 @@
 import { removeToken } from '@/utils/permission'
 const emit = defineEmits(['toggle-menu', 'open-user-tab'])
 import { menuTabsData } from './constants/data'
-import { onMounted, onUnmounted, ref } from 'vue'
+import { computed, onMounted, onUnmounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
-import { userLogOut } from '@/api/user/user'
+import { userLogOut, getUser } from '@/api/user/user'
 import { userInfoStore } from '@/store/index'
 import { pinia } from '@/main'
+import { setUserInfo } from '@/utils/permission'
 import eventBus from '@/utils/eventBus'
 import { shortcutService } from '@/services/shortcutService'
 import { dataSyncService } from '@/services/dataSyncService'
@@ -189,6 +203,15 @@ const userStore = userInfoStore(pinia)
 const activeKey = ref('workspace')
 const showUserMenu = ref<boolean>(false)
 const isSkippedLogin = ref<boolean>(localStorage.getItem('login-skipped') === 'true')
+const showUserAvatar = computed(() => !isSkippedLogin.value && !!userStore.userInfo.avatar)
+const isVipUser = computed(() => {
+  if (isSkippedLogin.value) return false
+  const info: any = userStore.userInfo
+  const sub = info?.subscription?.toLowerCase?.()
+  if (sub !== 'pro' && sub !== 'ultra') return false
+  const expiresAt = info?.subscriptionExpiresAt || info?.expires
+  return !!expiresAt && new Date() < new Date(expiresAt)
+})
 const router = useRouter()
 
 const goToLogin = () => {
@@ -319,11 +342,22 @@ const refreshPluginViews = async () => {
   pluginViews.value = views
 }
 
+const refreshUserInfo = async () => {
+  if (isSkippedLogin.value) return
+  try {
+    const res: any = await getUser({})
+    if (res?.data) setUserInfo(res.data)
+  } catch (e) {
+    logger.error('Refresh user info failed', { error: e })
+  }
+}
+
 onMounted(async () => {
   eventBus.on('openAiRight', openAiRight)
   eventBus.on('openUserTab', (tab) => {
     emit('open-user-tab', tab)
   })
+  refreshUserInfo()
   try {
     const views = await api.getPluginViews()
     pluginViews.value = views
@@ -403,6 +437,35 @@ onUnmounted(() => {
     &.active img {
       opacity: 1;
       transform: scale(1.1);
+    }
+
+    &.has-avatar img.user-avatar-icon {
+      width: 20px;
+      height: 20px;
+      border-radius: 50%;
+      object-fit: cover;
+      opacity: 1;
+      filter: none;
+    }
+  }
+
+  .user-menu-trigger {
+    position: relative;
+
+    .vip-flag {
+      position: absolute;
+      bottom: 0;
+      right: 2px;
+      background: linear-gradient(135deg, #ffd700, #ff8f00);
+      color: #000;
+      font-size: 8px;
+      font-weight: bold;
+      line-height: 1;
+      padding: 1px 3px;
+      border-radius: 4px;
+      letter-spacing: 0.4px;
+      pointer-events: none;
+      z-index: 1;
     }
   }
 
