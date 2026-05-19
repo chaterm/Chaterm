@@ -27,7 +27,8 @@
                     'shortcut-display',
                     {
                       recording: recordingAction === action.id,
-                      'modifiable-part': action.id === 'switchToSpecificTab'
+                      'modifiable-part': action.id === 'switchToSpecificTab',
+                      'is-empty': !getCurrentShortcut(action.id) && recordingAction !== action.id
                     }
                   ]"
                   @click="startRecording(action.id)"
@@ -38,11 +39,20 @@
                   >
                     {{ $t('user.shortcutRecording') }}
                   </span>
+                  <template v-else-if="getCurrentShortcut(action.id)">
+                    <kbd
+                      v-for="(token, index) in getShortcutTokens(action.id)"
+                      :key="index"
+                      class="key-chip"
+                    >
+                      {{ token }}
+                    </kbd>
+                  </template>
                   <span
                     v-else
-                    class="shortcut-text"
+                    class="placeholder-text"
                   >
-                    {{ formatShortcut(getCurrentShortcut(action.id)) || $t('user.shortcutClickToModify') }}
+                    {{ $t('user.shortcutClickToModify') }}
                   </span>
                 </div>
                 <!-- Only show suffix for switchToSpecificTab -->
@@ -50,7 +60,7 @@
                   v-if="action.id === 'switchToSpecificTab'"
                   class="fixed-part"
                 >
-                  +[1...9]
+                  <kbd class="key-chip key-chip-range">1-9</kbd>
                 </span>
               </div>
             </div>
@@ -161,6 +171,13 @@ const getCurrentShortcut = (actionId: string): string => {
 
 const formatShortcut = (shortcut: string, actionId?: string): string => {
   return shortcutService.formatShortcut(shortcut, actionId)
+}
+
+const getShortcutTokens = (actionId: string): string[] => {
+  const raw = getCurrentShortcut(actionId)
+  if (!raw) return []
+  const formatted = formatShortcut(raw)
+  return formatted.split('+').filter((t) => t.length > 0)
 }
 
 const getActionName = (actionId: string): string => {
@@ -391,54 +408,81 @@ const resetAllShortcuts = async () => {
         .shortcut-container {
           display: flex;
           align-items: center;
+          flex-wrap: wrap;
+          gap: 6px;
 
           &.special-shortcut-display {
-            gap: 4px;
-
             .modifiable-part {
               min-width: 40px;
             }
 
             .fixed-part {
-              font-family: 'SFMono-Regular', 'Monaco', 'Inconsolata', 'Roboto Mono', monospace;
-              font-size: 13px;
-              color: var(--text-color-secondary);
+              display: inline-flex;
+              align-items: center;
               white-space: nowrap;
               user-select: none;
-              pointer-events: none;
             }
           }
         }
 
         .shortcut-display {
+          display: inline-flex;
+          align-items: center;
+          flex-wrap: wrap;
+          gap: 4px;
           min-width: 100px;
-          padding: 6px 10px;
-          border: 1px solid var(--border-color);
-          border-radius: 4px;
-          background-color: var(--bg-color);
+          min-height: 30px;
+          padding: 3px 6px;
+          border: 1px solid transparent;
+          border-radius: 6px;
+          background-color: transparent;
           cursor: pointer;
           transition: all 0.2s;
 
           &:hover {
-            border-color: #1890ff;
-            background-color: rgba(24, 144, 255, 0.1);
+            border-color: var(--border-color);
+            background-color: var(--hover-bg-color);
+          }
+
+          &.is-empty {
+            border-style: dashed;
+            border-color: var(--border-color);
           }
 
           &.recording {
             border-color: #1890ff;
-            background-color: rgba(24, 144, 255, 0.1);
+            background-color: rgba(24, 144, 255, 0.08);
             animation: recording-pulse 1s infinite;
           }
 
-          .shortcut-text {
+          .key-chip {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            min-width: 24px;
+            height: 24px;
+            padding: 0 8px;
             font-family: 'SFMono-Regular', 'Monaco', 'Inconsolata', 'Roboto Mono', monospace;
-            font-size: 13px;
+            font-size: 12px;
+            font-weight: 500;
+            line-height: 1;
             color: var(--text-color);
+            background-color: var(--hover-bg-color);
+            border: 1px solid var(--border-color);
+            border-radius: 5px;
+            box-shadow: 0 1px 0 rgba(0, 0, 0, 0.06);
+            white-space: nowrap;
+            user-select: none;
           }
 
           .recording-text {
             font-size: 13px;
             color: #1890ff;
+          }
+
+          .placeholder-text {
+            font-size: 13px;
+            color: var(--text-color-secondary);
           }
         }
       }
