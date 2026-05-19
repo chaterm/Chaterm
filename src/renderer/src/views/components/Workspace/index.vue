@@ -2493,11 +2493,13 @@ onUnmounted(() => {
     background-color: transparent;
   }
 
-  // Enhanced selection state for right-clicked hosts
+  // Selected host: blue text + blue icon, no border
   .ant-tree-node-selected .title-with-icon {
-    border: 1px solid #1890ff !important;
-    // border-radius: 4px !important;
-    // box-shadow: 0 0 0 2px rgba(24, 144, 255, 0.2) !important;
+    color: #1890ff !important;
+
+    .computer-icon {
+      color: #1890ff !important;
+    }
   }
 
   .ant-tree-treenode {
@@ -2541,9 +2543,11 @@ onUnmounted(() => {
 
     // Selection state for right-clicked hosts
     &.selected {
-      // border: 1px solid #1890ff !important;
-      // box-shadow: 0 0 0 2px rgba(24, 144, 255, 0.2) !important;
       color: #1890ff !important;
+
+      .computer-icon {
+        color: #1890ff !important;
+      }
     }
 
     .computer-icon {
