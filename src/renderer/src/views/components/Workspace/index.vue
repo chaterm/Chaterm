@@ -2501,6 +2501,9 @@ onUnmounted(() => {
 
   .ant-tree-switcher {
     color: var(--text-color-tertiary) !important;
+    display: flex;
+    align-items: center;
+    justify-content: center;
   }
 
   .ant-tree-node-selected {
@@ -2521,6 +2524,7 @@ onUnmounted(() => {
     max-width: 100%;
     min-width: 0;
     box-sizing: border-box;
+    align-items: center;
   }
 
   .ant-tree-indent {
