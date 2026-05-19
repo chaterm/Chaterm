@@ -611,8 +611,9 @@ export const useModelConfiguration = createGlobalState(() => {
 
       // Skip loading built-in models if user skipped login
       if (isSkippedLogin) {
-        // Initialize with empty model options for guest users
-        await updateGlobalState('modelOptions', [])
+        // Preserve user-added custom models; remove enterprise/server models only
+        const customModelsOnly = initialSavedModelOptions.filter ? initialSavedModelOptions.filter((m) => m.type !== 'standard') : []
+        await updateGlobalState('modelOptions', customModelsOnly)
         await updateGlobalState('enterpriseModelConfigs', [])
         await updateGlobalState('enterpriseModelConfigVersion', '')
         await updateGlobalState('enterpriseModelPluginActive', false)
