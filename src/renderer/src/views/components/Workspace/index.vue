@@ -2469,6 +2469,14 @@ onUnmounted(() => {
     width: 100%;
     min-width: 0;
     flex: 1 1 auto;
+
+    &:hover {
+      background-color: var(--hover-bg-color) !important;
+    }
+
+    &.ant-tree-node-selected {
+      background-color: var(--hover-bg-color) !important;
+    }
   }
 
   .ant-tree-title {
@@ -2497,9 +2505,6 @@ onUnmounted(() => {
     max-width: 100%;
     min-width: 0;
     box-sizing: border-box;
-    &:hover {
-      background-color: var(--hover-bg-color);
-    }
   }
 
   .ant-tree-indent {
