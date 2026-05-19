@@ -167,6 +167,11 @@
                       />
                     </a-tooltip>
                   </span>
+                  <MoreOutlined
+                    v-if="hasContextMenu(dataRef)"
+                    class="more-icon"
+                    @click.stop="handleContextMenu($event, dataRef)"
+                  />
                 </div>
               </template>
             </a-tree>
@@ -282,6 +287,11 @@
                       </a-button>
                     </a-tooltip>
                   </div>
+                  <MoreOutlined
+                    v-if="hasContextMenu(dataRef)"
+                    class="more-icon"
+                    @click.stop="handleContextMenu($event, dataRef)"
+                  />
                 </div>
               </template>
             </a-tree>
@@ -635,7 +645,8 @@ import {
   AppstoreAddOutlined,
   SwapOutlined,
   ApiOutlined,
-  QuestionCircleOutlined
+  QuestionCircleOutlined,
+  MoreOutlined
 } from '@ant-design/icons-vue'
 import eventBus from '@/utils/eventBus'
 import i18n from '@/locales'
@@ -2096,6 +2107,19 @@ const handleFolderMouseLeave = (e: Event) => {
   if (target) target.style.backgroundColor = 'transparent'
 }
 
+const hasContextMenu = (dataRef: any): boolean => {
+  if (!dataRef) return false
+  const hasFavoriteOption = dataRef.favorite !== undefined
+  const hasCommentOption = isOrganizationAsset(dataRef.asset_type) && !dataRef.key.startsWith('common_')
+  const hasMoveOption = isOrganizationAsset(dataRef.asset_type) && !dataRef.key.startsWith('common_') && !dataRef.key.startsWith('folder_')
+  const hasTunnelOption = canCreateTunnel(dataRef)
+  const hasRemoveOption = isOrganizationAsset(dataRef.asset_type) && dataRef.key.startsWith('folder_') && dataRef.folderUuid
+  const hasEditFolderOption = dataRef.asset_type === 'custom_folder' && !dataRef.key.startsWith('common_')
+  const hasDeleteFolderOption = dataRef.asset_type === 'custom_folder' && !dataRef.key.startsWith('common_')
+
+  return hasFavoriteOption || hasCommentOption || hasMoveOption || hasTunnelOption || hasRemoveOption || hasEditFolderOption || hasDeleteFolderOption
+}
+
 const handleContextMenu = (event: MouseEvent, dataRef: any) => {
   event.preventDefault()
   event.stopPropagation()
@@ -2120,16 +2144,6 @@ const handleContextMenu = (event: MouseEvent, dataRef: any) => {
     !hasDeleteFolderOption
   ) {
     return
-  }
-
-  // Select the host when right-clicking to show selection state
-  if (isSecondLevel(dataRef)) {
-    selectedKeys.value = [dataRef.key]
-    // Update machines value to reflect the selection
-    machines.value = {
-      value: dataRef.key,
-      label: dataRef.title
-    }
   }
 
   // Calculate the number of menu items that will be shown
@@ -2469,6 +2483,14 @@ onUnmounted(() => {
     width: 100%;
     min-width: 0;
     flex: 1 1 auto;
+
+    &:hover {
+      background-color: var(--hover-bg-color) !important;
+    }
+
+    &.ant-tree-node-selected {
+      background-color: var(--hover-bg-color) !important;
+    }
   }
 
   .ant-tree-title {
@@ -2479,17 +2501,22 @@ onUnmounted(() => {
 
   .ant-tree-switcher {
     color: var(--text-color-tertiary) !important;
+    display: flex;
+    align-items: center;
+    justify-content: center;
   }
 
   .ant-tree-node-selected {
     background-color: transparent;
   }
 
-  // Enhanced selection state for right-clicked hosts
+  // Selected host: blue text + blue icon, no border
   .ant-tree-node-selected .title-with-icon {
-    border: 1px solid #1890ff !important;
-    // border-radius: 4px !important;
-    // box-shadow: 0 0 0 2px rgba(24, 144, 255, 0.2) !important;
+    color: #1890ff !important;
+
+    .computer-icon {
+      color: #1890ff !important;
+    }
   }
 
   .ant-tree-treenode {
@@ -2497,9 +2524,7 @@ onUnmounted(() => {
     max-width: 100%;
     min-width: 0;
     box-sizing: border-box;
-    &:hover {
-      background-color: var(--hover-bg-color);
-    }
+    align-items: center;
   }
 
   .ant-tree-indent {
@@ -2516,6 +2541,29 @@ onUnmounted(() => {
   padding-right: 4px;
   min-width: 0;
   overflow: hidden;
+
+  &:hover .more-icon {
+    opacity: 1;
+  }
+
+  .more-icon {
+    margin-left: auto;
+    padding: 2px 4px;
+    color: var(--text-color-tertiary);
+    font-size: 14px;
+    cursor: pointer;
+    border-radius: 4px;
+    opacity: 0;
+    transition:
+      opacity 0.2s ease,
+      background-color 0.15s ease;
+    flex-shrink: 0;
+
+    &:hover {
+      background-color: var(--hover-bg-color);
+      color: var(--text-color);
+    }
+  }
 
   .title-with-icon {
     display: flex;
@@ -2536,9 +2584,11 @@ onUnmounted(() => {
 
     // Selection state for right-clicked hosts
     &.selected {
-      // border: 1px solid #1890ff !important;
-      // box-shadow: 0 0 0 2px rgba(24, 144, 255, 0.2) !important;
       color: #1890ff !important;
+
+      .computer-icon {
+        color: #1890ff !important;
+      }
     }
 
     .computer-icon {
