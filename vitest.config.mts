@@ -122,7 +122,8 @@ export default defineConfig({
             'src/renderer/src/utils/terminalOutputExtractor.test.ts',
             'src/renderer/**/*.component.test.ts' // Exclude component tests from jsdom
           ],
-          environment: 'jsdom'
+          environment: 'jsdom',
+          setupFiles: [resolve('tests/setup-renderer.ts')]
         },
         plugins: createRendererPlugins(),
         resolve: {
