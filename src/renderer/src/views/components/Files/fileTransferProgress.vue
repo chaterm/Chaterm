@@ -1,394 +1,439 @@
 <template>
-  <div
-    v-if="downloadGroups.length || uploadGroups.length || r2rTaskGroups.length"
-    class="transfer-panel"
-    :style="transferPanelStyle"
-  >
-    <div class="header">{{ $t('files.taskList') }}</div>
-
-    <div class="transferBody">
-      <div
-        v-if="downloadGroups.length"
-        class="group"
+  <template v-if="downloadGroups.length || uploadGroups.length || r2rTaskGroups.length">
+    <div
+      v-if="collapsed"
+      class="transfer-fab"
+      :title="$t('files.expandTransferList')"
+      role="button"
+      tabindex="0"
+      @click="collapsed = false"
+      @keydown.enter.space.prevent="collapsed = false"
+    >
+      <a-progress
+        type="circle"
+        :percent="overallPercent"
+        :size="48"
+        :stroke-width="8"
+        :show-info="false"
+        class="fab-ring"
+      />
+      <div class="fab-icon">
+        <SwapOutlined v-if="r2rTaskGroups.length && !uploadGroups.length && !downloadGroups.length" />
+        <ArrowUpOutlined v-else-if="uploadGroups.length && !downloadGroups.length" />
+        <ArrowDownOutlined v-else-if="downloadGroups.length && !uploadGroups.length" />
+        <SwapOutlined v-else />
+      </div>
+      <span
+        v-if="totalTaskCount > 0"
+        class="fab-badge"
       >
-        <div class="label">{{ $t('files.download') }}：</div>
+        {{ totalTaskCount > 99 ? '99+' : totalTaskCount }}
+      </span>
+    </div>
 
-        <div
-          v-for="group in downloadGroups"
-          :key="group.parent.taskKey"
-          class="dir-group"
+    <div
+      v-else
+      class="transfer-panel"
+      :style="transferPanelStyle"
+    >
+      <div class="header">
+        <span>{{ $t('files.taskList') }}</span>
+        <a-button
+          type="text"
+          class="collapse-btn"
+          :title="$t('files.collapseTransferList')"
+          @click="collapsed = true"
         >
-          <div class="parent-item">
-            <div class="meta-row">
-              <span
-                class="file-name"
-                :title="group.parent.destPath || group.parent.remotePath"
-              >
-                {{ group.parent.name }}
-              </span>
+          <template #icon>
+            <MinusOutlined />
+          </template>
+        </a-button>
+      </div>
 
-              <span class="speed">
-                <template v-if="group.parent.stage === 'scanning'"> {{ $t('files.scanning') }}... </template>
-                <template v-else>
-                  {{ formatSummary(group.parent) }}
-                </template>
-              </span>
-            </div>
-
-            <div class="progress-row">
-              <div
-                v-if="showExpand(group)"
-                class="left-actions"
-              >
-                <a-button
-                  type="text"
-                  class="expand-btn"
-                  @click.stop="toggleExpand(group.parent.taskKey)"
-                >
-                  <template #icon>
-                    <DownOutlined v-if="isExpanded(group.parent.taskKey)" />
-                    <RightOutlined v-else />
-                  </template>
-                </a-button>
-              </div>
-
-              <div class="progress-container parent-progress-container">
-                <a-progress
-                  :percent="group.parent.progress"
-                  size="small"
-                  class="file-progress"
-                  :status="mapAntdStatus(group.parent.status, group.parent.progress)"
-                />
-              </div>
-
-              <a-button
-                type="link"
-                danger
-                class="cancel-btn"
-                @click="cancel(group.parent.taskKey)"
-              >
-                <template #icon>
-                  <CloseOutlined />
-                </template>
-              </a-button>
-            </div>
-          </div>
+      <div class="transferBody">
+        <div
+          v-if="downloadGroups.length"
+          class="group"
+        >
+          <div class="label">{{ $t('files.download') }}：</div>
 
           <div
-            v-if="showExpand(group) && isExpanded(group.parent.taskKey)"
-            class="children"
+            v-for="group in downloadGroups"
+            :key="group.parent.taskKey"
+            class="dir-group"
           >
-            <div class="children-scroll">
-              <div
-                v-for="task in group.children"
-                :key="task.taskKey"
-                class="child-item"
-              >
-                <div class="meta-row">
-                  <span
-                    class="file-name"
-                    :title="task.destPath || task.remotePath"
-                  >
-                    {{ task.name }}
-                  </span>
+            <div class="parent-item">
+              <div class="meta-row">
+                <span
+                  class="file-name"
+                  :title="group.parent.destPath || group.parent.remotePath"
+                >
+                  {{ group.parent.name }}
+                </span>
 
-                  <span class="speed">
-                    <template v-if="task.stage === 'scanning'"> {{ $t('files.scanning') }}... </template>
-                    <template v-else-if="task.stage === 'pending' || task.speed === 'pending'"> {{ $t('files.waiting') }}... </template>
-                    <template v-else>
-                      {{ task.speed }}
-                    </template>
-                  </span>
-                </div>
+                <span class="speed">
+                  <template v-if="group.parent.stage === 'scanning'"> {{ $t('files.scanning') }}... </template>
+                  <template v-else>
+                    {{ formatSummary(group.parent) }}
+                  </template>
+                </span>
+              </div>
 
-                <div class="progress-row child-progress-row">
-                  <div class="progress-container">
-                    <a-progress
-                      :percent="task.progress"
-                      size="small"
-                      class="file-progress"
-                      :status="mapAntdStatus(task.status, task.progress)"
-                    />
-                  </div>
-
+              <div class="progress-row">
+                <div
+                  v-if="showExpand(group)"
+                  class="left-actions"
+                >
                   <a-button
-                    type="link"
-                    danger
-                    class="cancel-btn"
-                    @click="cancel(task.taskKey)"
+                    type="text"
+                    class="expand-btn"
+                    @click.stop="toggleExpand(group.parent.taskKey)"
                   >
                     <template #icon>
-                      <CloseOutlined />
+                      <DownOutlined v-if="isExpanded(group.parent.taskKey)" />
+                      <RightOutlined v-else />
                     </template>
                   </a-button>
                 </div>
 
-                <div
-                  v-if="task.message"
-                  class="message-row"
+                <div class="progress-container parent-progress-container">
+                  <a-progress
+                    :percent="group.parent.progress"
+                    size="small"
+                    class="file-progress"
+                    :status="mapAntdStatus(group.parent.status, group.parent.progress)"
+                  />
+                </div>
+
+                <a-button
+                  type="link"
+                  danger
+                  class="cancel-btn"
+                  @click="cancel(group.parent.taskKey)"
                 >
-                  {{ task.message }}
+                  <template #icon>
+                    <CloseOutlined />
+                  </template>
+                </a-button>
+              </div>
+            </div>
+
+            <div
+              v-if="showExpand(group) && isExpanded(group.parent.taskKey)"
+              class="children"
+            >
+              <div class="children-scroll">
+                <div
+                  v-for="task in group.children"
+                  :key="task.taskKey"
+                  class="child-item"
+                >
+                  <div class="meta-row">
+                    <span
+                      class="file-name"
+                      :title="task.destPath || task.remotePath"
+                    >
+                      {{ task.name }}
+                    </span>
+
+                    <span class="speed">
+                      <template v-if="task.stage === 'scanning'"> {{ $t('files.scanning') }}... </template>
+                      <template v-else-if="task.stage === 'pending' || task.speed === 'pending'"> {{ $t('files.waiting') }}... </template>
+                      <template v-else>
+                        {{ task.speed }}
+                      </template>
+                    </span>
+                  </div>
+
+                  <div class="progress-row child-progress-row">
+                    <div class="progress-container">
+                      <a-progress
+                        :percent="task.progress"
+                        size="small"
+                        class="file-progress"
+                        :status="mapAntdStatus(task.status, task.progress)"
+                      />
+                    </div>
+
+                    <a-button
+                      type="link"
+                      danger
+                      class="cancel-btn"
+                      @click="cancel(task.taskKey)"
+                    >
+                      <template #icon>
+                        <CloseOutlined />
+                      </template>
+                    </a-button>
+                  </div>
+
+                  <div
+                    v-if="task.message"
+                    class="message-row"
+                  >
+                    {{ task.message }}
+                  </div>
                 </div>
               </div>
             </div>
           </div>
         </div>
-      </div>
-
-      <div
-        v-if="uploadGroups.length"
-        class="group"
-      >
-        <div class="label">{{ $t('files.upload') }}：</div>
 
         <div
-          v-for="group in uploadGroups"
-          :key="group.parent.taskKey"
-          class="dir-group"
+          v-if="uploadGroups.length"
+          class="group"
         >
-          <div class="parent-item">
-            <div class="meta-row">
-              <span
-                class="file-name"
-                :title="group.parent.destPath || group.parent.remotePath"
-              >
-                {{ group.parent.name }}
-              </span>
-
-              <span class="speed">
-                <template v-if="group.parent.stage === 'scanning'"> {{ $t('files.scanning') }}... </template>
-                <template v-else>
-                  {{ formatSummary(group.parent) }}
-                </template>
-              </span>
-            </div>
-
-            <div class="progress-row">
-              <div
-                v-if="showExpand(group)"
-                class="left-actions"
-              >
-                <a-button
-                  type="text"
-                  class="expand-btn"
-                  @click.stop="toggleExpand(group.parent.taskKey)"
-                >
-                  <template #icon>
-                    <DownOutlined v-if="isExpanded(group.parent.taskKey)" />
-                    <RightOutlined v-else />
-                  </template>
-                </a-button>
-              </div>
-
-              <div class="progress-container parent-progress-container">
-                <a-progress
-                  :percent="group.parent.progress"
-                  size="small"
-                  class="file-progress"
-                  :status="mapAntdStatus(group.parent.status, group.parent.progress)"
-                />
-              </div>
-
-              <a-button
-                type="link"
-                danger
-                class="cancel-btn"
-                @click="cancel(group.parent.taskKey)"
-              >
-                <template #icon>
-                  <CloseOutlined />
-                </template>
-              </a-button>
-            </div>
-          </div>
+          <div class="label">{{ $t('files.upload') }}：</div>
 
           <div
-            v-if="showExpand(group) && isExpanded(group.parent.taskKey)"
-            class="children"
+            v-for="group in uploadGroups"
+            :key="group.parent.taskKey"
+            class="dir-group"
           >
-            <div class="children-scroll">
-              <div
-                v-for="task in group.children"
-                :key="task.taskKey"
-                class="child-item"
-              >
-                <div class="meta-row">
-                  <span
-                    class="file-name"
-                    :title="task.destPath || task.remotePath"
-                  >
-                    {{ task.name }}
-                  </span>
+            <div class="parent-item">
+              <div class="meta-row">
+                <span
+                  class="file-name"
+                  :title="group.parent.destPath || group.parent.remotePath"
+                >
+                  {{ group.parent.name }}
+                </span>
 
-                  <span class="speed">
-                    <template v-if="task.stage === 'scanning'"> {{ $t('files.scanning') }}... </template>
-                    <template v-else-if="task.stage === 'pending' || task.speed === 'pending'"> {{ $t('files.waiting') }}... </template>
-                    <template v-else>
-                      {{ task.speed }}
-                    </template>
-                  </span>
-                </div>
+                <span class="speed">
+                  <template v-if="group.parent.stage === 'scanning'"> {{ $t('files.scanning') }}... </template>
+                  <template v-else>
+                    {{ formatSummary(group.parent) }}
+                  </template>
+                </span>
+              </div>
 
-                <div class="progress-row child-progress-row">
-                  <div class="progress-container">
-                    <a-progress
-                      :percent="task.progress"
-                      size="small"
-                      class="file-progress"
-                      :status="mapAntdStatus(task.status, task.progress)"
-                    />
-                  </div>
-
+              <div class="progress-row">
+                <div
+                  v-if="showExpand(group)"
+                  class="left-actions"
+                >
                   <a-button
-                    type="link"
-                    danger
-                    class="cancel-btn"
-                    @click="cancel(task.taskKey)"
+                    type="text"
+                    class="expand-btn"
+                    @click.stop="toggleExpand(group.parent.taskKey)"
                   >
                     <template #icon>
-                      <CloseOutlined />
+                      <DownOutlined v-if="isExpanded(group.parent.taskKey)" />
+                      <RightOutlined v-else />
                     </template>
                   </a-button>
                 </div>
 
-                <div
-                  v-if="task.message"
-                  class="message-row"
+                <div class="progress-container parent-progress-container">
+                  <a-progress
+                    :percent="group.parent.progress"
+                    size="small"
+                    class="file-progress"
+                    :status="mapAntdStatus(group.parent.status, group.parent.progress)"
+                  />
+                </div>
+
+                <a-button
+                  type="link"
+                  danger
+                  class="cancel-btn"
+                  @click="cancel(group.parent.taskKey)"
                 >
-                  {{ task.message }}
+                  <template #icon>
+                    <CloseOutlined />
+                  </template>
+                </a-button>
+              </div>
+            </div>
+
+            <div
+              v-if="showExpand(group) && isExpanded(group.parent.taskKey)"
+              class="children"
+            >
+              <div class="children-scroll">
+                <div
+                  v-for="task in group.children"
+                  :key="task.taskKey"
+                  class="child-item"
+                >
+                  <div class="meta-row">
+                    <span
+                      class="file-name"
+                      :title="task.destPath || task.remotePath"
+                    >
+                      {{ task.name }}
+                    </span>
+
+                    <span class="speed">
+                      <template v-if="task.stage === 'scanning'"> {{ $t('files.scanning') }}... </template>
+                      <template v-else-if="task.stage === 'pending' || task.speed === 'pending'"> {{ $t('files.waiting') }}... </template>
+                      <template v-else>
+                        {{ task.speed }}
+                      </template>
+                    </span>
+                  </div>
+
+                  <div class="progress-row child-progress-row">
+                    <div class="progress-container">
+                      <a-progress
+                        :percent="task.progress"
+                        size="small"
+                        class="file-progress"
+                        :status="mapAntdStatus(task.status, task.progress)"
+                      />
+                    </div>
+
+                    <a-button
+                      type="link"
+                      danger
+                      class="cancel-btn"
+                      @click="cancel(task.taskKey)"
+                    >
+                      <template #icon>
+                        <CloseOutlined />
+                      </template>
+                    </a-button>
+                  </div>
+
+                  <div
+                    v-if="task.message"
+                    class="message-row"
+                  >
+                    {{ task.message }}
+                  </div>
                 </div>
               </div>
             </div>
           </div>
         </div>
-      </div>
 
-      <!-- Transfer -->
-      <div
-        v-if="r2rTaskGroups.length"
-        class="group"
-      >
-        <div class="label">{{ $t('files.dragTransfer') }}：</div>
-
+        <!-- Transfer -->
         <div
-          v-for="group in r2rTaskGroups"
-          :key="group.parent.taskKey"
-          class="dir-group"
+          v-if="r2rTaskGroups.length"
+          class="group"
         >
-          <div class="subgroup-title">
-            {{ parseGroupTitle(group.parent) }}
-          </div>
-
-          <div class="parent-item">
-            <div class="meta-row">
-              <span
-                class="file-name"
-                :title="group.parent.destPath || group.parent.remotePath"
-              >
-                {{ group.parent.name }}
-              </span>
-
-              <span class="speed">
-                <template v-if="group.parent.stage === 'scanning'"> {{ $t('files.scanning') }}... </template>
-                <template v-else>
-                  {{ formatSummary(group.parent) }}
-                </template>
-              </span>
-            </div>
-
-            <div class="progress-row">
-              <div
-                v-if="showExpand(group)"
-                class="left-actions"
-              >
-                <a-button
-                  type="text"
-                  class="expand-btn"
-                  @click.stop="toggleExpand(group.parent.taskKey)"
-                >
-                  <template #icon>
-                    <DownOutlined v-if="isExpanded(group.parent.taskKey)" />
-                    <RightOutlined v-else />
-                  </template>
-                </a-button>
-              </div>
-
-              <div class="progress-container parent-progress-container">
-                <a-progress
-                  :percent="group.parent.progress"
-                  size="small"
-                  class="file-progress"
-                  :status="mapAntdStatus(group.parent.status, group.parent.progress)"
-                />
-              </div>
-
-              <a-button
-                type="link"
-                danger
-                class="cancel-btn"
-                @click="cancel(group.parent.taskKey)"
-              >
-                <template #icon>
-                  <CloseOutlined />
-                </template>
-              </a-button>
-            </div>
-          </div>
+          <div class="label">{{ $t('files.dragTransfer') }}：</div>
 
           <div
-            v-if="showExpand(group) && isExpanded(group.parent.taskKey)"
-            class="children"
+            v-for="group in r2rTaskGroups"
+            :key="group.parent.taskKey"
+            class="dir-group"
           >
-            <div class="children-scroll">
-              <div
-                v-for="task in group.children"
-                :key="task.taskKey"
-                class="child-item"
-              >
-                <div class="meta-row">
-                  <span
-                    class="file-name"
-                    :title="task.destPath || task.remotePath"
-                  >
-                    {{ task.name }}
-                  </span>
+            <div class="subgroup-title">
+              {{ parseGroupTitle(group.parent) }}
+            </div>
 
-                  <span class="speed">
-                    <template v-if="task.stage === 'scanning'"> {{ $t('files.scanning') }}... </template>
-                    <template v-else-if="task.stage === 'pending' || task.speed === 'pending'">{{ $t('files.waiting') }}... </template>
-                    <template v-else>
-                      {{ task.speed }}
-                    </template>
-                  </span>
-                </div>
+            <div class="parent-item">
+              <div class="meta-row">
+                <span
+                  class="file-name"
+                  :title="group.parent.destPath || group.parent.remotePath"
+                >
+                  {{ group.parent.name }}
+                </span>
 
-                <div class="progress-row child-progress-row">
-                  <div class="progress-container">
-                    <a-progress
-                      :percent="task.progress"
-                      size="small"
-                      class="file-progress"
-                      :status="mapAntdStatus(task.status, task.progress)"
-                    />
-                  </div>
+                <span class="speed">
+                  <template v-if="group.parent.stage === 'scanning'"> {{ $t('files.scanning') }}... </template>
+                  <template v-else>
+                    {{ formatSummary(group.parent) }}
+                  </template>
+                </span>
+              </div>
 
+              <div class="progress-row">
+                <div
+                  v-if="showExpand(group)"
+                  class="left-actions"
+                >
                   <a-button
-                    type="link"
-                    danger
-                    class="cancel-btn"
-                    @click="cancel(task.taskKey)"
+                    type="text"
+                    class="expand-btn"
+                    @click.stop="toggleExpand(group.parent.taskKey)"
                   >
                     <template #icon>
-                      <CloseOutlined />
+                      <DownOutlined v-if="isExpanded(group.parent.taskKey)" />
+                      <RightOutlined v-else />
                     </template>
                   </a-button>
                 </div>
 
-                <div
-                  v-if="task.message"
-                  class="message-row"
+                <div class="progress-container parent-progress-container">
+                  <a-progress
+                    :percent="group.parent.progress"
+                    size="small"
+                    class="file-progress"
+                    :status="mapAntdStatus(group.parent.status, group.parent.progress)"
+                  />
+                </div>
+
+                <a-button
+                  type="link"
+                  danger
+                  class="cancel-btn"
+                  @click="cancel(group.parent.taskKey)"
                 >
-                  {{ task.message }}
+                  <template #icon>
+                    <CloseOutlined />
+                  </template>
+                </a-button>
+              </div>
+            </div>
+
+            <div
+              v-if="showExpand(group) && isExpanded(group.parent.taskKey)"
+              class="children"
+            >
+              <div class="children-scroll">
+                <div
+                  v-for="task in group.children"
+                  :key="task.taskKey"
+                  class="child-item"
+                >
+                  <div class="meta-row">
+                    <span
+                      class="file-name"
+                      :title="task.destPath || task.remotePath"
+                    >
+                      {{ task.name }}
+                    </span>
+
+                    <span class="speed">
+                      <template v-if="task.stage === 'scanning'"> {{ $t('files.scanning') }}... </template>
+                      <template v-else-if="task.stage === 'pending' || task.speed === 'pending'">{{ $t('files.waiting') }}... </template>
+                      <template v-else>
+                        {{ task.speed }}
+                      </template>
+                    </span>
+                  </div>
+
+                  <div class="progress-row child-progress-row">
+                    <div class="progress-container">
+                      <a-progress
+                        :percent="task.progress"
+                        size="small"
+                        class="file-progress"
+                        :status="mapAntdStatus(task.status, task.progress)"
+                      />
+                    </div>
+
+                    <a-button
+                      type="link"
+                      danger
+                      class="cancel-btn"
+                      @click="cancel(task.taskKey)"
+                    >
+                      <template #icon>
+                        <CloseOutlined />
+                      </template>
+                    </a-button>
+                  </div>
+
+                  <div
+                    v-if="task.message"
+                    class="message-row"
+                  >
+                    {{ task.message }}
+                  </div>
                 </div>
               </div>
             </div>
@@ -396,14 +441,14 @@
         </div>
       </div>
     </div>
-  </div>
+  </template>
 </template>
 
 <script setup lang="ts">
 import { downloadGroups, uploadGroups, r2rTaskGroups, transferTasks, type Task, type TaskStatus } from './fileTransfer'
-import { CloseOutlined, DownOutlined, RightOutlined } from '@ant-design/icons-vue'
+import { ArrowDownOutlined, ArrowUpOutlined, CloseOutlined, DownOutlined, MinusOutlined, RightOutlined, SwapOutlined } from '@ant-design/icons-vue'
 import { useI18n } from 'vue-i18n'
-import { onBeforeUnmount, ref, watch } from 'vue'
+import { computed, onBeforeUnmount, ref, watch } from 'vue'
 import { addSystemThemeListener, getActualTheme } from '@/utils/themeUtils'
 import { userConfigStore } from '@store/userConfigStore'
 const configStore = userConfigStore()
@@ -412,6 +457,20 @@ const { t: $t } = useI18n()
 const api = (window as any).api
 
 const expandedMap = ref<Record<string, boolean>>({})
+const collapsed = ref(false)
+
+const totalTaskCount = computed(() => downloadGroups.value.length + uploadGroups.value.length + r2rTaskGroups.value.length)
+
+const overallPercent = computed(() => {
+  const parents = [
+    ...downloadGroups.value.map((g) => g.parent),
+    ...uploadGroups.value.map((g) => g.parent),
+    ...r2rTaskGroups.value.map((g) => g.parent)
+  ]
+  if (!parents.length) return 0
+  const sum = parents.reduce((acc, p) => acc + (Number(p.progress) || 0), 0)
+  return Math.floor(sum / parents.length)
+})
 
 const toggleExpand = (taskKey: string) => {
   const next = !expandedMap.value[taskKey]
@@ -548,6 +607,101 @@ onBeforeUnmount(() => {
   font-size: 17px;
   border-bottom: 1px solid var(--text-color-tertiary);
   color: var(--text-color);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.collapse-btn {
+  padding: 0 !important;
+  width: 22px;
+  height: 22px;
+  min-width: 22px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-color);
+  border: none;
+  background: transparent;
+  box-shadow: none;
+}
+
+.collapse-btn:hover {
+  color: var(--button-bg-color);
+  background: transparent;
+}
+
+.collapse-btn :deep(.anticon) {
+  font-size: 14px;
+}
+
+.transfer-fab {
+  position: fixed;
+  right: 20px;
+  bottom: 20px;
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  z-index: 100;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--bg-color);
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.25);
+  transition: transform 0.15s ease;
+}
+
+.transfer-fab:hover {
+  transform: scale(1.05);
+}
+
+.transfer-fab .fab-ring {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.transfer-fab .fab-ring :deep(.ant-progress-inner) {
+  background: transparent;
+}
+
+.transfer-fab .fab-ring :deep(.ant-progress-circle-trail) {
+  stroke: var(--text-color-tertiary);
+  opacity: 0.4;
+}
+
+.transfer-fab .fab-ring :deep(.ant-progress-circle-path) {
+  stroke: var(--button-bg-color);
+}
+
+.transfer-fab .fab-icon {
+  position: relative;
+  z-index: 1;
+  color: var(--button-bg-color);
+  font-size: 18px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.transfer-fab .fab-badge {
+  position: absolute;
+  top: -4px;
+  right: -4px;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 5px;
+  border-radius: 9px;
+  background: #ff4d4f;
+  color: #fff;
+  font-size: 11px;
+  line-height: 18px;
+  text-align: center;
+  font-weight: 600;
+  box-shadow: 0 0 0 2px var(--bg-color);
 }
 
 .transferBody {

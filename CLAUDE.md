@@ -27,21 +27,27 @@ npm run lint && npm run typecheck && npm test       # pre-commit checks
 ## Behavioral Rules
 
 ### Rule 1 — Think Before Coding
+
 State assumptions explicitly. If uncertain, ask rather than guess. Push back when a simpler approach exists. Stop when confused — name what's unclear.
 
 ### Rule 2 — Simplicity First
+
 Minimum code that solves the problem. No speculative features. No abstractions for single-use code. If a senior engineer would call it overcomplicated, simplify.
 
 ### Rule 3 — Surgical Changes
+
 Touch only what you must. Don't "improve" adjacent code, comments, or formatting. Don't refactor what isn't broken. Match existing style.
 
 ### Rule 7 — Surface Conflicts, Don't Average Them
+
 If two existing patterns contradict, pick one (more recent / more tested), explain why, and flag the other for cleanup. Don't blend conflicting patterns.
 
 ### Rule 8 — Read Before You Write
+
 Before adding code in a file, read its exports, the immediate caller, and any obvious shared utilities. "Looks orthogonal to me" is dangerous — if unsure why code is structured a certain way, ask.
 
 ### Rule 12 — Fail Loud
+
 "Completed" is wrong if anything was skipped silently. "Tests pass" is wrong if any were skipped. Default to surfacing uncertainty, not hiding it.
 
 ## Code Standards
@@ -80,6 +86,7 @@ Extending a provider: create file in `api/providers/`, register in `api/provider
 ## Database Migrations
 
 New tables or schema changes:
+
 1. Create timestamped file in `migrations/`
 2. Ensure idempotent and replayable
 3. Add service methods in corresponding `.service.ts`

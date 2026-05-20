@@ -835,13 +835,29 @@ describe('Terminal Focus IPC Notification', () => {
     const calculateDisplayPosition = (_line: string, charIndex: number) => charIndex
 
     // ---- fakes for xterm ----
+    class FakeCell {
+      constructor(private chars: string) {}
+      getChars() {
+        return this.chars
+      }
+      getWidth() {
+        return 1
+      }
+    }
+
     class FakeLine {
+      public length: number
       constructor(
         private text: string,
         public isWrapped: boolean = false
-      ) {}
-      translateToString(_trimRight?: boolean) {
-        return this.text
+      ) {
+        this.length = text.length
+      }
+      getCell(x: number) {
+        return new FakeCell(x < this.text.length ? this.text[x] : '')
+      }
+      translateToString(trimRight?: boolean) {
+        return trimRight ? this.text.trimEnd() : this.text
       }
     }
 
@@ -859,8 +875,10 @@ describe('Terminal Focus IPC Notification', () => {
     class FakeTerminal {
       public buffer: { active: FakeBufferActive }
       public rows = 24
+      public cols = 80
       public refresh = vi.fn()
       public clearSelection = vi.fn()
+      public select = vi.fn()
       constructor(lines: Array<string | { text: string; isWrapped?: boolean }>) {
         const fakeLines = lines.map((x) => {
           if (typeof x === 'string') return new FakeLine(x, false)
@@ -873,8 +891,14 @@ describe('Terminal Focus IPC Notification', () => {
     // ---- “component state” mocks ----
     const startStr = _ref<string | undefined>(undefined)
     const ctrlLinkPressed = _ref(false)
+    const preserveSelectionOnCtrlLinkRelease = _ref(false)
     const terminal = _ref<FakeTerminal | null>(null)
-    const terminalElement = _ref<any>({ classList: { toggle: vi.fn() } })
+    const terminalContainer = _ref<HTMLElement | null>(null)
+    const terminalElement = _ref<any>({
+      classList: { toggle: vi.fn() },
+      closest: vi.fn(() => null)
+    })
+    let isMac = true
     const terminalMode = _ref<'none' | string>('none')
     const showAiButton = _ref(false)
     const connectionId = _ref('conn-1')
@@ -1000,7 +1024,7 @@ describe('Terminal Focus IPC Notification', () => {
       return true
     }
 
-    const setCtrlLinkPressed = (v: boolean) => {
+    const setCtrlLinkPressed = (v: boolean, options: { preserveSelection?: boolean } = {}) => {
       if (ctrlLinkPressed.value === v) return
       ctrlLinkPressed.value = v
 
@@ -1011,20 +1035,114 @@ describe('Terminal Focus IPC Notification', () => {
       terminal.value?.refresh(0, (terminal.value?.rows ?? 1) - 1)
 
       if (!v) {
-        terminal.value?.clearSelection()
-        showAiButton.value = false
+        if (!options.preserveSelection) {
+          terminal.value?.clearSelection()
+          showAiButton.value = false
+        }
       }
     }
 
+    const isSelectAllShortcut = (e: KeyboardEvent): boolean => {
+      if (e.key.toLowerCase() !== 'a') return false
+      if (isMac) return e.metaKey
+      return e.ctrlKey && !e.metaKey
+    }
+
+    const isTerminalKeyboardTarget = (e: KeyboardEvent): boolean => {
+      const target = e.target as Node | null
+      const activeElement = document.activeElement
+      const container = terminalContainer.value || terminalElement.value?.closest('.terminal-container')
+
+      if (!container) return false
+      return (!!target && container.contains(target)) || (!!activeElement && container.contains(activeElement))
+    }
+
+    const handleSelectAllShortcut = (e: KeyboardEvent): boolean => {
+      if (!isSelectAllShortcut(e)) return false
+      if (!canLinkify() || !isTerminalKeyboardTarget(e)) return false
+      e.preventDefault()
+      e.stopPropagation()
+      preserveSelectionOnCtrlLinkRelease.value = true
+      selectTerminalContent()
+      return true
+    }
+
+    const getLastContentColumn = (line: FakeLine, cols: number): number => {
+      const maxColumn = Math.min(line.length, cols)
+      for (let column = maxColumn - 1; column >= 0; column--) {
+        const cell = line.getCell(column)
+        const chars = cell?.getChars() ?? ''
+        if (chars.trim().length > 0) {
+          return Math.min(column + Math.max(cell?.getWidth() || 1, 1), cols)
+        }
+      }
+      return 0
+    }
+
+    const selectTerminalContent = () => {
+      const termObj = terminal.value
+      if (!termObj) return
+
+      const buffer = termObj.buffer.active
+      let firstContentLine = -1
+      let lastContentLine = -1
+      let lastContentColumn = 0
+
+      for (let lineIndex = 0; lineIndex < buffer.length; lineIndex++) {
+        const line = buffer.getLine(lineIndex)
+        if (!line) continue
+
+        const contentColumn = getLastContentColumn(line, termObj.cols)
+        if (contentColumn === 0) continue
+
+        if (firstContentLine === -1) {
+          firstContentLine = lineIndex
+        }
+        lastContentLine = lineIndex
+        lastContentColumn = contentColumn
+      }
+
+      if (firstContentLine === -1 || lastContentLine === -1 || lastContentColumn === 0) {
+        termObj.clearSelection()
+        showAiButton.value = false
+        return
+      }
+
+      const selectionLength = (lastContentLine - firstContentLine) * termObj.cols + lastContentColumn
+      termObj.select(0, firstContentLine, selectionLength)
+    }
+
+    const handleMetaKeyDown = (e: KeyboardEvent) => {
+      if (handleSelectAllShortcut(e)) return
+      if (e.key !== 'Meta') return
+      if (!canLinkify()) return
+      setCtrlLinkPressed(true)
+    }
+
+    const handleMetaKeyUp = (e: KeyboardEvent) => {
+      if (e.key !== 'Meta') return
+      if (!ctrlLinkPressed.value) {
+        preserveSelectionOnCtrlLinkRelease.value = false
+        return
+      }
+      setCtrlLinkPressed(false, { preserveSelection: preserveSelectionOnCtrlLinkRelease.value })
+      preserveSelectionOnCtrlLinkRelease.value = false
+    }
+
     const handleCtrlKeyDown = (e: KeyboardEvent) => {
+      if (handleSelectAllShortcut(e)) return
       if (e.key !== 'Control') return
       if (!canLinkify()) return
       setCtrlLinkPressed(true)
     }
     const handleCtrlKeyUp = (e: KeyboardEvent) => {
       if (e.key !== 'Control') return
-      if (!ctrlLinkPressed.value) return
-      setCtrlLinkPressed(false)
+      if (!ctrlLinkPressed.value) {
+        preserveSelectionOnCtrlLinkRelease.value = false
+        return
+      }
+      setCtrlLinkPressed(false, { preserveSelection: preserveSelectionOnCtrlLinkRelease.value })
+      preserveSelectionOnCtrlLinkRelease.value = false
     }
 
     type LsBlock = { startLine: number; endLine: number; cwd: string | null; cmd: string; ts: number }
@@ -1165,9 +1283,21 @@ describe('Terminal Focus IPC Notification', () => {
       }
     }
 
+    const mountTerminalKeyboardTarget = () => {
+      const container = document.createElement('motion-div')
+      const target = document.createElement('textarea')
+      container.appendChild(target)
+      terminalContainer.value = container
+      target.focus()
+      return { container, target }
+    }
+
     beforeEach(() => {
+      isMac = true
       startStr.value = undefined
       ctrlLinkPressed.value = false
+      preserveSelectionOnCtrlLinkRelease.value = false
+      terminalContainer.value = null
       terminalMode.value = 'none'
       showAiButton.value = false
       connectionId.value = 'conn-1'
@@ -1176,7 +1306,10 @@ describe('Terminal Focus IPC Notification', () => {
       inputManager = { getActiveTerm: vi.fn(() => ({ id: 'conn-1' })) }
 
       // reset mocks
-      terminalElement.value = { classList: { toggle: vi.fn() } }
+      terminalElement.value = {
+        classList: { toggle: vi.fn() },
+        closest: vi.fn(() => null)
+      }
       message = { error: vi.fn(), success: vi.fn(), info: vi.fn() }
       t = (k) => k
 
@@ -1269,6 +1402,76 @@ describe('Terminal Focus IPC Notification', () => {
         expect(terminalElement.value.classList.toggle).toHaveBeenCalledWith(CTRL_LINK_CLASS, false)
         expect(termObj.clearSelection).toHaveBeenCalled()
         expect(showAiButton.value).toBe(false)
+      })
+
+      it('handleMetaKeyUp should preserve selection after Command+A', () => {
+        isMac = true
+        const { target } = mountTerminalKeyboardTarget()
+        const termObj = new FakeTerminal(['user@host:/data$ ', 'output', '', '   '])
+        terminal.value = termObj
+        showAiButton.value = true
+        const preventDefault = vi.fn()
+        const stopPropagation = vi.fn()
+
+        handleMetaKeyDown({ key: 'Meta', metaKey: true, target } as any)
+        expect(ctrlLinkPressed.value).toBe(true)
+
+        handleMetaKeyDown({ key: 'a', metaKey: true, target, preventDefault, stopPropagation } as any)
+        handleMetaKeyUp({ key: 'Meta' } as any)
+
+        expect(preventDefault).toHaveBeenCalled()
+        expect(stopPropagation).toHaveBeenCalled()
+        expect(termObj.select).toHaveBeenCalledWith(0, 0, 86)
+        expect(ctrlLinkPressed.value).toBe(false)
+        expect(termObj.clearSelection).not.toHaveBeenCalled()
+        expect(showAiButton.value).toBe(true)
+        expect(preserveSelectionOnCtrlLinkRelease.value).toBe(false)
+      })
+
+      it('handleCtrlKeyUp should preserve selection after Ctrl+A on Windows/Linux', () => {
+        isMac = false
+        const { target } = mountTerminalKeyboardTarget()
+        const termObj = new FakeTerminal(['user@host:/data$ ', 'output', '', '   '])
+        terminal.value = termObj
+        showAiButton.value = true
+        const preventDefault = vi.fn()
+        const stopPropagation = vi.fn()
+
+        handleCtrlKeyDown({ key: 'Control', ctrlKey: true, target } as any)
+        expect(ctrlLinkPressed.value).toBe(true)
+
+        handleCtrlKeyDown({ key: 'a', ctrlKey: true, target, preventDefault, stopPropagation } as any)
+        handleCtrlKeyUp({ key: 'Control' } as any)
+
+        expect(preventDefault).toHaveBeenCalled()
+        expect(stopPropagation).toHaveBeenCalled()
+        expect(termObj.select).toHaveBeenCalledWith(0, 0, 86)
+        expect(ctrlLinkPressed.value).toBe(false)
+        expect(termObj.clearSelection).not.toHaveBeenCalled()
+        expect(showAiButton.value).toBe(true)
+        expect(preserveSelectionOnCtrlLinkRelease.value).toBe(false)
+      })
+
+      it('handleSelectAllShortcut should not run when keyboard target is outside terminal container', () => {
+        isMac = true
+        const termObj = new FakeTerminal(['user@host:/data$ ', 'output'])
+        terminal.value = termObj
+        const preventDefault = vi.fn()
+        const stopPropagation = vi.fn()
+        const outsideTarget = document.createElement('input')
+        document.body.appendChild(outsideTarget)
+
+        handleMetaKeyDown({
+          key: 'a',
+          metaKey: true,
+          target: outsideTarget,
+          preventDefault,
+          stopPropagation
+        } as any)
+
+        expect(preventDefault).not.toHaveBeenCalled()
+        expect(termObj.select).not.toHaveBeenCalled()
+        outsideTarget.remove()
       })
 
       it('createCtrlLinkProvider should not provide links when ctrl not pressed', () => {

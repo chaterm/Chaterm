@@ -475,6 +475,7 @@ import {
 } from '@api/user/user'
 import { EditOutlined, CheckOutlined, CloseOutlined, FormOutlined, CameraOutlined } from '@ant-design/icons-vue'
 import { useDeviceStore } from '@/store/useDeviceStore'
+import { setUserInfo } from '@/utils/permission'
 import { message } from 'ant-design-vue'
 import zxcvbn from 'zxcvbn'
 import { isChineseEdition } from '@/utils/edition'
@@ -574,6 +575,7 @@ const getUserInfo = () => {
     formState.username = userInfo.value.username || ''
     formState.name = userInfo.value.name || ''
     formState.mobile = userInfo.value.mobile || ''
+    setUserInfo(res.data)
   })
 }
 const strength = computed(() => {
