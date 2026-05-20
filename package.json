@@ -130,7 +130,7 @@
     "@playwright/test": "^1.60.0",
     "@types/clone-deep": "^4.0.4",
     "@types/dompurify": "^3.2.0",
-    "@types/node": "^25.7.0",
+    "@types/node": "^25.9.1",
     "@types/ssh2": "^1.15.5",
     "@types/ws": "^8.5.11",
     "@vitejs/plugin-vue": "^6.0.6",
@@ -146,7 +146,7 @@
     "electron": "^41.3.0",
     "electron-builder": "^26.8.1",
     "electron-vite": "^5.0.0",
-    "eslint": "^10.3.0",
+    "eslint": "^10.4.0",
     "eslint-plugin-vue": "^10.9.1",
     "highlight.js": "^11.11.1",
     "husky": "^9.1.7",
@@ -165,6 +165,6 @@
     "vue": "^3.5.34",
     "vue-eslint-parser": "^10.4.0",
     "vue-router": "^5.0.6",
-    "vue-tsc": "^3.2.8"
+    "vue-tsc": "^3.3.1"
   }
 }
