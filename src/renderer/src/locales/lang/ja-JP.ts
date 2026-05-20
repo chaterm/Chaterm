@@ -131,6 +131,8 @@ export default {
     run: '実行',
     jumpserverSupportPlugin: 'Jumpserver Support',
     noSearchResults: '検索結果がありません',
+    previous: '前へ',
+    next: '次へ',
     database: 'データベース'
   },
   term: {
@@ -1505,7 +1507,12 @@ export default {
       mfaFailed: '二要素認証に失敗しました',
       multipleUsersDetected: '複数のユーザーアカウントが検出されました。選択してください...',
       connectingWithSelectedAccount: '選択したアカウントで接続中...',
-      userSelectionCanceled: 'ユーザー選択がキャンセルされました'
+      userSelectionCanceled: 'ユーザー選択がキャンセルされました',
+      syncFromJumpServer: 'JumpServer K8sアセットを同期',
+      sourceTag: 'JumpServer',
+      noBastion: '踏み台が設定されていません。SSHで先に設定してください',
+      syncSuccess: '同期完了、{inserted} 件追加、{updated} 件更新',
+      syncFailed: '同期失敗'
     },
     qizhi: {
       connectingToBastionHost: '齊治踏み台サーバーに接続中...',
@@ -1796,6 +1803,7 @@ export default {
       addCluster: 'クラスターを追加',
       clusterAdded: 'クラスターが追加されました',
       noClusters: '設定されたクラスターがありません',
+      localClusters: 'ローカルクラスター',
       noTerminal: 'ターミナルセッションがありません',
       createTerminal: 'ターミナルを作成',
       selectClusterFirst: '先にクラスターを選択してください',
@@ -1847,6 +1855,14 @@ export default {
       active: 'アクティブ',
       selectClusterToEdit: 'クラスターを選択して詳細を表示・編集',
       k8sClusterConfig: 'クラスター管理'
+    },
+    jumpserver: {
+      bastionResources: '踏み台リソース',
+      syncFromJumpServer: 'JumpServer K8sアセットを同期',
+      sourceTag: 'JumpServer',
+      noBastion: '踏み台が設定されていません。SSHで先に設定してください',
+      syncSuccess: '同期完了、{inserted} 件追加、{updated} 件更新',
+      syncFailed: '同期失敗'
     }
   },
   database: {

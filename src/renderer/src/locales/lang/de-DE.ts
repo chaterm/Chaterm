@@ -131,6 +131,8 @@ export default {
     run: 'Ausführen',
     jumpserverSupportPlugin: 'Jumpserver Unterstützung',
     noSearchResults: 'Keine Suchergebnisse',
+    previous: 'Zurück',
+    next: 'Weiter',
     database: 'Datenbank'
   },
   term: {
@@ -1522,7 +1524,12 @@ export default {
       mfaFailed: 'Zwei-Faktor-Authentifizierung fehlgeschlagen',
       multipleUsersDetected: 'Mehrere Benutzerkonten erkannt, bitte wählen Sie...',
       connectingWithSelectedAccount: 'Mit ausgewähltem Konto verbinden...',
-      userSelectionCanceled: 'Benutzerauswahl abgebrochen'
+      userSelectionCanceled: 'Benutzerauswahl abgebrochen',
+      syncFromJumpServer: 'JumpServer K8s-Assets synchronisieren',
+      sourceTag: 'JumpServer',
+      noBastion: 'Keine Bastion konfiguriert, bitte zuerst in SSH einrichten',
+      syncSuccess: 'Synchronisierung abgeschlossen, {inserted} hinzugefügt, {updated} aktualisiert',
+      syncFailed: 'Synchronisierung fehlgeschlagen'
     },
     qizhi: {
       connectingToBastionHost: 'Verbindung zum Qizhi-Bastion-Host...',
@@ -1814,6 +1821,7 @@ export default {
       addCluster: 'Cluster hinzufuegen',
       clusterAdded: 'Cluster erfolgreich hinzugefuegt',
       noClusters: 'Keine Cluster konfiguriert',
+      localClusters: 'Lokale Cluster',
       noTerminal: 'Keine Terminal-Sitzung geoeffnet',
       createTerminal: 'Terminal erstellen',
       selectClusterFirst: 'Bitte waehlen Sie zuerst einen Cluster',
@@ -1865,6 +1873,14 @@ export default {
       active: 'Aktiv',
       selectClusterToEdit: 'Cluster auswaehlen, um Details anzuzeigen und zu bearbeiten',
       k8sClusterConfig: 'Cluster-Verwaltung'
+    },
+    jumpserver: {
+      bastionResources: 'Bastion-Ressourcen',
+      syncFromJumpServer: 'JumpServer K8s-Assets synchronisieren',
+      sourceTag: 'JumpServer',
+      noBastion: 'Keine Bastion konfiguriert, bitte zuerst in SSH einrichten',
+      syncSuccess: 'Synchronisierung abgeschlossen, {inserted} hinzugefügt, {updated} aktualisiert',
+      syncFailed: 'Synchronisierung fehlgeschlagen'
     }
   },
   database: {

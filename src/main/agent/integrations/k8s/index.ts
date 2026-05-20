@@ -11,6 +11,9 @@
  */
 
 import { K8sManager, K8sProxyConfig } from '../../../services/k8s'
+import { jumpserverK8sSessions } from '../../../ssh/jumpserver/state'
+import { connectK8sAssetByIdentity, closeK8sSession } from '../../../ssh/jumpserver/k8sNavigator'
+import { executeCommandOnJumpServerExec } from '../../../ssh/jumpserver/streamManager'
 import * as os from 'os'
 import * as path from 'path'
 import * as fs from 'fs'
@@ -65,6 +68,18 @@ export class K8sAgentManager {
   private kubeconfigPath: string | null = null
   private kubeconfigContent: string | null = null
   private kubeConfig: any = null
+  // JumpServer mode
+  private sourceType: 'local' | 'jumpserver' = 'local'
+  private bastionUuid: string | null = null
+  private bastionAssetAddress: string | null = null
+  private bastionAssetName: string | null = null
+  private bastionAssetIdLast: number | null = null
+  // Dedicated agent session — never shared with user terminal streams
+  private agentSessionId: string | null = null
+  // Per-agent command queue for serialization (prevents concurrent stream pollution)
+  private commandQueue: Promise<K8sCommandResult> = Promise.resolve({ success: true, output: '' })
+  // Monotonic epoch to invalidate queued commands on cluster switch/cleanup
+  private clusterEpoch = 0
 
   private constructor() {
     this.k8sManager = K8sManager.getInstance()
@@ -83,41 +98,82 @@ export class K8sAgentManager {
   /**
    * Set current cluster for operations
    */
-  public async setCurrentCluster(clusterId: string, contextName: string, kubeconfigPath?: string, kubeconfigContent?: string): Promise<void> {
+  public async setCurrentCluster(
+    clusterId: string,
+    contextName: string,
+    kubeconfigPath?: string,
+    kubeconfigContent?: string,
+    options?: {
+      sourceType?: 'local' | 'jumpserver'
+      bastionUuid?: string
+      bastionAssetAddress?: string
+      bastionAssetName?: string
+      bastionAssetIdLast?: number | null
+    }
+  ): Promise<void> {
+    // Invalidate all in-flight and queued JumpServer commands from previous cluster
+    this.clusterEpoch += 1
+
+    // Close previous agent session
+    if (this.agentSessionId) {
+      try {
+        closeK8sSession(this.agentSessionId)
+      } catch {
+        /* ignore */
+      }
+      this.agentSessionId = null
+    }
+
+    // Reset command queue to prevent queued commands from running on the new cluster
+    this.commandQueue = Promise.resolve({ success: true, output: '' })
+
+    // Clean up temp kubeconfig file before losing the path reference
+    this.cleanupKubeconfigTempFile()
+
+    // Clear all previous state
+    this.kubeconfigPath = null
+    this.kubeconfigContent = null
+    this.kubeConfig = null
+
+    // Set new cluster identity
     this.currentClusterId = clusterId
     this.currentContextName = contextName
+    this.sourceType = (options?.sourceType as 'local' | 'jumpserver') || 'local'
+    this.bastionUuid = options?.bastionUuid || null
+    this.bastionAssetAddress = options?.bastionAssetAddress || null
+    this.bastionAssetName = options?.bastionAssetName || null
+    this.bastionAssetIdLast = options?.bastionAssetIdLast ?? null
 
-    // Handle kubeconfig - prefer content, but read from path if only path is provided
+    // JumpServer mode: no local kubeconfig needed
+    if (this.sourceType === 'jumpserver') {
+      logger.info('[K8s Agent] JumpServer mode configured', {
+        clusterId,
+        hasBastionUuid: !!this.bastionUuid
+      })
+      return
+    }
+
+    // Local mode: original kubeconfig handling
     if (kubeconfigContent) {
       this.kubeconfigContent = kubeconfigContent
-      // Also write to temp file for kubectl commands
-      const tempDir = os.tmpdir()
-      const tempPath = path.join(tempDir, `kubeconfig-agent-${clusterId}.yaml`)
+      const tempPath = path.join(os.tmpdir(), `kubeconfig-agent-${clusterId}.yaml`)
       fs.writeFileSync(tempPath, kubeconfigContent, { encoding: 'utf-8' })
       this.kubeconfigPath = tempPath
     } else if (kubeconfigPath) {
-      // Read content from file path
       if (fs.existsSync(kubeconfigPath)) {
         this.kubeconfigContent = fs.readFileSync(kubeconfigPath, { encoding: 'utf-8' })
         this.kubeconfigPath = kubeconfigPath
       } else {
         logger.error('[K8s Agent] Kubeconfig file not found', { path: kubeconfigPath })
-        this.kubeconfigContent = null
-        this.kubeconfigPath = null
       }
-    } else {
-      this.kubeconfigContent = null
-      this.kubeconfigPath = null
     }
 
-    // Initialize KubeConfig for API calls
     await this.initKubeConfig()
 
-    logger.info('[K8s Agent] Current cluster set', {
+    logger.info('[K8s Agent] Local cluster configured', {
       clusterId,
       contextName,
-      hasKubeconfigPath: !!this.kubeconfigPath,
-      hasKubeconfigContent: !!this.kubeconfigContent
+      hasKubeconfigPath: !!this.kubeconfigPath
     })
   }
 
@@ -192,9 +248,13 @@ export class K8sAgentManager {
 
   /**
    * Execute kubectl command
-   * This uses node-pty to run kubectl with the correct kubeconfig
+   * Routes to JumpServer stream or local PTY based on source_type
    */
   public async executeKubectl(command: string, timeout: number = 30000): Promise<K8sCommandResult> {
+    if (this.sourceType === 'jumpserver') {
+      return this.executeKubectlViaJumpServer(command, timeout)
+    }
+
     if (!this.currentContextName) {
       return {
         success: false,
@@ -286,6 +346,10 @@ export class K8sAgentManager {
    * Get pods using K8S API client
    */
   public async getPods(namespace?: string): Promise<K8sCommandResult> {
+    if (this.sourceType === 'jumpserver') {
+      const cmd = namespace ? `kubectl get pods -n ${namespace} -o wide` : `kubectl get pods -A -o wide`
+      return this.executeKubectlViaJumpServer(cmd)
+    }
     try {
       const k8s = await ensureK8sModule()
       const kc = await this.getKubeConfig()
@@ -327,6 +391,9 @@ export class K8sAgentManager {
    * Get nodes using K8S API client
    */
   public async getNodes(): Promise<K8sCommandResult> {
+    if (this.sourceType === 'jumpserver') {
+      return this.executeKubectlViaJumpServer('kubectl get nodes -o wide')
+    }
     try {
       const k8s = await ensureK8sModule()
       const kc = await this.getKubeConfig()
@@ -362,6 +429,9 @@ export class K8sAgentManager {
    * Get namespaces using K8S API client
    */
   public async getNamespaces(): Promise<K8sCommandResult> {
+    if (this.sourceType === 'jumpserver') {
+      return this.executeKubectlViaJumpServer('kubectl get namespaces')
+    }
     try {
       const k8s = await ensureK8sModule()
       const kc = await this.getKubeConfig()
@@ -397,6 +467,10 @@ export class K8sAgentManager {
    * Get services using K8S API client
    */
   public async getServices(namespace?: string): Promise<K8sCommandResult> {
+    if (this.sourceType === 'jumpserver') {
+      const cmd = namespace ? `kubectl get services -n ${namespace}` : `kubectl get services -A`
+      return this.executeKubectlViaJumpServer(cmd)
+    }
     try {
       const k8s = await ensureK8sModule()
       const kc = await this.getKubeConfig()
@@ -438,6 +512,12 @@ export class K8sAgentManager {
    * Get pod logs using K8S API client
    */
   public async getPodLogs(podName: string, namespace: string = 'default', container?: string, tailLines: number = 100): Promise<K8sCommandResult> {
+    if (this.sourceType === 'jumpserver') {
+      const parts = ['kubectl', 'logs', podName, '-n', namespace]
+      if (container) parts.push(`--container=${container}`)
+      parts.push(`--tail=${tailLines}`)
+      return this.executeKubectlViaJumpServer(parts.join(' '))
+    }
     try {
       const k8s = await ensureK8sModule()
       const kc = await this.getKubeConfig()
@@ -487,6 +567,10 @@ export class K8sAgentManager {
    * Get deployments using K8S API client
    */
   public async getDeployments(namespace?: string): Promise<K8sCommandResult> {
+    if (this.sourceType === 'jumpserver') {
+      const cmd = namespace ? `kubectl get deployments -n ${namespace}` : `kubectl get deployments -A`
+      return this.executeKubectlViaJumpServer(cmd)
+    }
     try {
       const k8s = await ensureK8sModule()
       const kc = await this.getKubeConfig()
@@ -528,6 +612,10 @@ export class K8sAgentManager {
    * Test cluster connection
    */
   public async testConnection(): Promise<K8sCommandResult> {
+    if (this.sourceType === 'jumpserver') {
+      return this.executeKubectlViaJumpServer('kubectl version --request-timeout=10s')
+    }
+
     if (!this.currentContextName) {
       return {
         success: false,
@@ -565,6 +653,152 @@ export class K8sAgentManager {
   }
 
   // ==================== Helper Methods ====================
+
+  private cleanupKubeconfigTempFile(): void {
+    if (this.kubeconfigPath && this.kubeconfigPath.includes(os.tmpdir())) {
+      try {
+        fs.unlinkSync(this.kubeconfigPath)
+      } catch {
+        /* ignore */
+      }
+    }
+  }
+
+  private async ensureAgentSession(expectedEpoch: number): Promise<any> {
+    if (expectedEpoch !== this.clusterEpoch) {
+      throw new Error('Cluster switched before command execution')
+    }
+
+    if (!this.bastionUuid || !this.bastionAssetAddress || !this.bastionAssetName) {
+      throw new Error('Missing bastion connection info for JumpServer K8s agent')
+    }
+
+    // Freeze identity fields to avoid reading mutated state during async connection build
+    const bastionUuid = this.bastionUuid
+    const bastionAssetAddress = this.bastionAssetAddress
+    const bastionAssetName = this.bastionAssetName
+    const bastionAssetIdLast = this.bastionAssetIdLast
+
+    // Check existing session liveness
+    if (this.agentSessionId) {
+      const existing = jumpserverK8sSessions.get(this.agentSessionId)
+      const stream = existing?.stream as any
+      if (existing && stream && !stream.destroyed && stream.writable !== false) {
+        return stream
+      }
+      this.agentSessionId = null
+    }
+
+    const sessionId = `agent-k8s-${this.currentClusterId}-${Date.now()}`
+    logger.info('[K8s Agent] Creating agent session', { sessionId })
+
+    // TODO(k8s-jumpserver-auto-connect):
+    // Current product decision: prioritize "already-authenticated user connection" workflows.
+    // If future requirements need agent-initiated connection when user has not connected,
+    // implement it by reusing the unified JumpServer connection pipeline (MFA/proxy/ident)
+    // instead of adding another standalone SSH bootstrap path here.
+    await connectK8sAssetByIdentity(
+      sessionId,
+      {
+        bastion_uuid: bastionUuid,
+        bastion_asset_address: bastionAssetAddress,
+        bastion_asset_name: bastionAssetName,
+        bastion_asset_id_last: bastionAssetIdLast
+      },
+      200,
+      50,
+      false // do not forward data to renderer
+    )
+
+    const session = jumpserverK8sSessions.get(sessionId)
+    if (!session) {
+      throw new Error('Failed to establish JumpServer agent session')
+    }
+
+    if (expectedEpoch !== this.clusterEpoch) {
+      // A different cluster is active now; close stale session immediately.
+      try {
+        closeK8sSession(sessionId)
+      } catch {
+        /* ignore */
+      }
+      throw new Error('Cluster switched during session creation')
+    }
+
+    const invalidate = () => {
+      if (this.agentSessionId === sessionId) {
+        logger.info('[K8s Agent] Agent session invalidated', { sessionId })
+        this.agentSessionId = null
+      }
+    }
+    ;(session.stream as any).once('close', invalidate)
+    ;(session.stream as any).once('error', invalidate)
+    ;(session.stream as any).once('end', invalidate)
+
+    this.agentSessionId = sessionId
+    logger.info('[K8s Agent] Agent session ready', { sessionId })
+    return session.stream
+  }
+
+  private executeKubectlViaJumpServer(command: string, timeout: number = 30000): Promise<K8sCommandResult> {
+    const commandEpoch = this.clusterEpoch
+
+    // Enqueue to prevent concurrent execution on the same stream
+    const next = this.commandQueue.then(() => this._doExecuteViaJumpServer(command, timeout, commandEpoch))
+    this.commandQueue = next.catch(() => ({ success: true, output: '' }))
+    return next
+  }
+
+  private async _doExecuteViaJumpServer(command: string, timeout: number, expectedEpoch: number): Promise<K8sCommandResult> {
+    if (expectedEpoch !== this.clusterEpoch) {
+      return {
+        success: false,
+        output: '',
+        error: 'Cluster switched before command execution'
+      }
+    }
+
+    let timeoutHandle: NodeJS.Timeout | null = null
+    try {
+      const stream = await this.ensureAgentSession(expectedEpoch)
+
+      if (expectedEpoch !== this.clusterEpoch) {
+        return {
+          success: false,
+          output: '',
+          error: 'Cluster switched before command execution'
+        }
+      }
+
+      logger.info('[K8s Agent] Executing via JumpServer stream', { command })
+
+      const raceResult = await Promise.race([
+        executeCommandOnJumpServerExec(stream, command),
+        new Promise<never>((_, reject) => (timeoutHandle = setTimeout(() => reject(new Error(`Command timed out after ${timeout}ms`)), timeout)))
+      ])
+
+      if (timeoutHandle) {
+        clearTimeout(timeoutHandle)
+      }
+
+      return {
+        success: raceResult.success,
+        output: raceResult.stdout || '',
+        error: raceResult.error,
+        exitCode: raceResult.exitCode
+      }
+    } catch (err) {
+      if (timeoutHandle) {
+        clearTimeout(timeoutHandle)
+      }
+      logger.error('[K8s Agent] JumpServer execution failed', { error: err })
+      return {
+        success: false,
+        output: '',
+        error: err instanceof Error ? err.message : 'Unknown error'
+      }
+    }
+  }
 
   private getDefaultShell(): string {
     const platform = os.platform()
@@ -728,18 +962,31 @@ export class K8sAgentManager {
    * Cleanup temporary files
    */
   public cleanup(): void {
-    if (this.kubeconfigPath && this.kubeconfigPath.includes(os.tmpdir())) {
+    this.clusterEpoch += 1
+
+    // Close agent session
+    if (this.agentSessionId) {
       try {
-        fs.unlinkSync(this.kubeconfigPath)
+        closeK8sSession(this.agentSessionId)
       } catch {
-        // Ignore cleanup errors
+        /* ignore */
       }
+      this.agentSessionId = null
     }
+    this.commandQueue = Promise.resolve({ success: true, output: '' })
+    // Clean temp kubeconfig file
+    this.cleanupKubeconfigTempFile()
     this.kubeconfigPath = null
     this.kubeconfigContent = null
     this.currentClusterId = null
     this.currentContextName = null
     this.kubeConfig = null
+    // Reset JumpServer fields
+    this.sourceType = 'local'
+    this.bastionUuid = null
+    this.bastionAssetAddress = null
+    this.bastionAssetName = null
+    this.bastionAssetIdLast = null
   }
 }
 

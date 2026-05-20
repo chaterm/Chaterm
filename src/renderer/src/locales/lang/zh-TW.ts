@@ -131,6 +131,8 @@ export default {
     run: '執行',
     jumpserverSupportPlugin: 'Jumpserver Support',
     noSearchResults: '無搜尋結果',
+    previous: '上一頁',
+    next: '下一頁',
     database: '資料庫'
   },
   term: {
@@ -1491,7 +1493,12 @@ export default {
       mfaFailed: '雙重認證失敗',
       multipleUsersDetected: '檢測到多個用戶賬號，請選擇...',
       connectingWithSelectedAccount: '正在使用所選賬號連接...',
-      userSelectionCanceled: '已取消用戶選擇'
+      userSelectionCanceled: '已取消用戶選擇',
+      syncFromJumpServer: '同步 JumpServer K8s 資產',
+      sourceTag: 'JumpServer',
+      noBastion: '暫無堡壘機，請先在 SSH 中設定',
+      syncSuccess: '同步完成，新增 {inserted} 個，更新 {updated} 個',
+      syncFailed: '同步失敗'
     },
     qizhi: {
       connectingToBastionHost: '正在連接齊治堡壘機...',
@@ -1779,6 +1786,7 @@ export default {
       addCluster: '新增叢集',
       clusterAdded: '叢集新增成功',
       noClusters: '尚無配置的叢集',
+      localClusters: '本機叢集',
       noTerminal: '尚無開啟的終端工作階段',
       createTerminal: '建立終端',
       selectClusterFirst: '請先選擇一個叢集',
@@ -1830,6 +1838,14 @@ export default {
       active: '活躍',
       selectClusterToEdit: '選擇一個叢集以檢視和編輯詳情',
       k8sClusterConfig: '叢集管理'
+    },
+    jumpserver: {
+      bastionResources: '堡壘機資源',
+      syncFromJumpServer: '同步 JumpServer K8s 資產',
+      sourceTag: 'JumpServer',
+      noBastion: '暫無堡壘機，請先在 SSH 中設定',
+      syncSuccess: '同步完成，新增 {inserted} 個，更新 {updated} 個',
+      syncFailed: '同步失敗'
     }
   },
   database: {

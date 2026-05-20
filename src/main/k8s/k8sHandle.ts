@@ -7,6 +7,8 @@ import { spawnSync } from 'child_process'
 import { K8sManager, K8sProxyConfig } from '../services/k8s'
 import { ChatermDatabaseService } from '../storage/db/chaterm.service'
 import { registerK8sAgentHandlers } from '../agent/integrations/k8s/ipc-handlers'
+import { connectK8sAssetByIdentity, closeK8sSession, syncK8sAssetsFromBastion } from '../ssh/jumpserver/k8sNavigator'
+import { jumpserverK8sSessions } from '../ssh/jumpserver/state'
 const logger = createLogger('k8s')
 
 /**
@@ -768,7 +770,7 @@ export function registerK8sHandlers(): void {
    * Connect to a cluster (update status)
    * Channel: k8s:cluster:connect
    */
-  ipcMain.handle('k8s:cluster:connect', async (_event, id: string) => {
+  ipcMain.handle('k8s:cluster:connect', async (event, id: string) => {
     try {
       logger.info('[K8s IPC] Connecting to cluster', { id })
       const dbService = await ChatermDatabaseService.getInstance()
@@ -777,6 +779,46 @@ export function registerK8sHandlers(): void {
       const cluster = dbService.getK8sCluster(id)
       if (!cluster) {
         return { success: false, error: 'Cluster not found' }
+      }
+
+      // JumpServer-sourced cluster: probe asset existence via bastion API
+      if ((cluster.source_type || 'local') === 'jumpserver') {
+        try {
+          await connectK8sAssetByIdentity(
+            id,
+            {
+              bastion_uuid: cluster.bastion_uuid!,
+              bastion_asset_address: cluster.bastion_asset_address!,
+              bastion_asset_name: cluster.bastion_asset_name!,
+              bastion_asset_id_last: cluster.bastion_asset_id_last
+            },
+            80,
+            24,
+            false,
+            {
+              allowAutoConnect: true,
+              mfaEvent: event,
+              mfaRequestId: `k8s-cluster-connect-${id}-${Date.now()}`
+            }
+          )
+          // Immediately close the probe session to avoid connection leak
+          try {
+            closeK8sSession(id)
+          } catch {
+            /* ignore */
+          }
+          dbService.updateK8sClusterStatus(id, 'connected')
+          dbService.setActiveK8sCluster(id)
+          return { success: true, status: 'connected' }
+        } catch (error) {
+          try {
+            closeK8sSession(id)
+          } catch {
+            /* ignore */
+          }
+          dbService.updateK8sClusterStatus(id, 'error')
+          return { success: false, error: error instanceof Error ? error.message : 'Bastion probe failed' }
+        }
       }
 
       // Validate connection using cluster's own kubeconfig
@@ -859,7 +901,7 @@ export function registerK8sHandlers(): void {
    * Create a K8S terminal session
    * Channel: k8s:terminal:create
    */
-  ipcMain.handle('k8s:terminal:create', async (_event, config: K8sTerminalConfig) => {
+  ipcMain.handle('k8s:terminal:create', async (event, config: K8sTerminalConfig) => {
     try {
       logger.info('[K8s IPC] Creating terminal session', { clusterId: config.clusterId })
 
@@ -869,6 +911,32 @@ export function registerK8sHandlers(): void {
 
       if (!cluster) {
         return { success: false, error: 'Cluster not found' }
+      }
+
+      // JumpServer-sourced cluster: route through bastion SSH instead of local PTY
+      if ((cluster.source_type || 'local') === 'jumpserver') {
+        if (!cluster.bastion_uuid || !cluster.bastion_asset_address || !cluster.bastion_asset_name) {
+          return { success: false, error: 'Missing bastion connection info' }
+        }
+        await connectK8sAssetByIdentity(
+          config.id,
+          {
+            bastion_uuid: cluster.bastion_uuid,
+            bastion_asset_address: cluster.bastion_asset_address,
+            bastion_asset_name: cluster.bastion_asset_name,
+            bastion_asset_id_last: cluster.bastion_asset_id_last ?? null
+          },
+          config.cols || 80,
+          config.rows || 24,
+          true,
+          {
+            allowAutoConnect: true,
+            mfaEvent: event,
+            mfaRequestId: `k8s-terminal-create-${config.id}-${Date.now()}`
+          }
+        )
+        dbService.addK8sTerminalSession({ clusterId: config.clusterId, name: config.id, namespace: 'default' })
+        return { success: true, id: config.id }
       }
 
       // Create terminal with cluster's kubeconfig
@@ -905,6 +973,11 @@ export function registerK8sHandlers(): void {
    */
   ipcMain.handle('k8s:terminal:write', (_event, terminalId: string, data: string) => {
     try {
+      const jsStream = jumpserverK8sSessions.get(terminalId)
+      if (jsStream) {
+        jsStream.stream.write(data)
+        return { success: true }
+      }
       const terminal = terminalSessions.get(terminalId)
       if (terminal && terminal.isAlive) {
         if (data.endsWith('\n')) {
@@ -936,6 +1009,15 @@ export function registerK8sHandlers(): void {
    */
   ipcMain.handle('k8s:terminal:resize', (_event, terminalId: string, cols: number, rows: number) => {
     try {
+      const jsSession = jumpserverK8sSessions.get(terminalId)
+      if (jsSession) {
+        try {
+          jsSession.stream.setWindow(rows, cols, 0, 0)
+        } catch {
+          // ignore
+        }
+        return { success: true }
+      }
       const terminal = terminalSessions.get(terminalId)
       if (terminal && terminal.isAlive) {
         terminal.pty.resize(cols, rows)
@@ -957,6 +1039,12 @@ export function registerK8sHandlers(): void {
    */
   ipcMain.handle('k8s:terminal:close', async (_event, terminalId: string) => {
     try {
+      if (jumpserverK8sSessions.has(terminalId)) {
+        closeK8sSession(terminalId)
+        const dbService = await ChatermDatabaseService.getInstance()
+        dbService.removeK8sTerminalSession(terminalId)
+        return { success: true }
+      }
       const result = closeK8sTerminal(terminalId)
 
       // Remove from database
@@ -993,6 +1081,27 @@ export function registerK8sHandlers(): void {
         success: false,
         error: error instanceof Error ? error.message : 'Unknown error'
       }
+    }
+  })
+
+  /**
+   * Sync all JumpServer K8s assets into k8s_clusters via upsert
+   * Channel: k8s:jumpserver:sync-assets
+   */
+  ipcMain.handle('k8s:jumpserver:sync-assets', async (event, params: { bastionUuid: string }) => {
+    try {
+      const requestId = `k8s-jumpserver-sync-${params.bastionUuid}-${Date.now()}`
+      const assets = await syncK8sAssetsFromBastion(params.bastionUuid, {
+        mfaEvent: event,
+        mfaRequestId: requestId
+      })
+      const dbService = await ChatermDatabaseService.getInstance()
+      const { inserted, updated } = dbService.upsertJumpserverK8sClusters(params.bastionUuid, assets)
+      logger.info('[K8s IPC] JumpServer K8s sync complete', { inserted, updated })
+      return { success: true, data: { inserted, updated, total: assets.length } }
+    } catch (error) {
+      logger.error('[K8s IPC] Failed to sync jumpserver k8s assets', { error })
+      return { success: false, error: error instanceof Error ? error.message : 'Unknown error' }
     }
   })
 

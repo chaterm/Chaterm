@@ -131,7 +131,9 @@ export default {
     run: '执行',
     jumpserverSupportPlugin: 'Jumpserver Support',
     noSearchResults: '无搜索结果',
-    database: '数据库'
+    database: '数据库',
+    previous: '上一页',
+    next: '下一页'
   },
   term: {
     welcome: '欢迎使用 Chaterm',
@@ -1489,7 +1491,12 @@ export default {
       mfaFailed: '双重认证失败',
       multipleUsersDetected: '检测到多个用户账号，请选择...',
       connectingWithSelectedAccount: '正在使用所选账号连接...',
-      userSelectionCanceled: '已取消用户选择'
+      userSelectionCanceled: '已取消用户选择',
+      syncFromJumpServer: '同步 JumpServer K8s 资产',
+      sourceTag: 'JumpServer',
+      noBastion: '暂无堡垒机，请先在 SSH 中配置',
+      syncSuccess: '同步完成，新增 {inserted} 个，更新 {updated} 个',
+      syncFailed: '同步失败'
     },
     qizhi: {
       connectingToBastionHost: '正在连接齐治堡垒机...',
@@ -1777,6 +1784,7 @@ export default {
       addCluster: '添加集群',
       clusterAdded: '集群添加成功',
       noClusters: '暂无配置的集群',
+      localClusters: '本地集群',
       noTerminal: '暂无打开的终端会话',
       createTerminal: '创建终端',
       selectClusterFirst: '请先选择一个集群',
@@ -1828,6 +1836,14 @@ export default {
       active: '活跃',
       selectClusterToEdit: '选择一个集群以查看和编辑详情',
       k8sClusterConfig: '集群管理'
+    },
+    jumpserver: {
+      bastionResources: '堡垒机资源',
+      syncFromJumpServer: '同步 JumpServer K8s 资产',
+      sourceTag: 'JumpServer',
+      noBastion: '暂无堡垒机，请先在 SSH 中配置',
+      syncSuccess: '同步完成，新增 {inserted} 个，更新 {updated} 个',
+      syncFailed: '同步失败'
     }
   },
   database: {

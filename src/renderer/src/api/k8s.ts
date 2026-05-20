@@ -31,6 +31,11 @@ export interface K8sCluster {
   default_namespace: string
   created_at: string
   updated_at: string
+  source_type: string
+  bastion_uuid: string | null
+  bastion_asset_address: string | null
+  bastion_asset_name: string | null
+  bastion_asset_id_last: number | null
 }
 
 export interface K8sTerminalSession {
@@ -232,6 +237,11 @@ export async function addCluster(params: {
   authType?: string
   autoConnect?: boolean
   defaultNamespace?: string
+  sourceType?: string
+  bastionUuid?: string
+  bastionAssetAddress?: string
+  bastionAssetName?: string
+  bastionAssetIdLast?: number
 }): Promise<K8sApiResponse<{ id: string }>> {
   try {
     const result = await getApi().k8sClusterAdd(params)
@@ -378,6 +388,18 @@ export async function disconnectCluster(id: string): Promise<K8sApiResponse<{ st
   }
 }
 
+/**
+ * Sync all K8s assets from a JumpServer bastion into local k8s_clusters via upsert
+ */
+export async function syncJumpserverK8sAssets(bastionUuid: string): Promise<K8sApiResponse<{ inserted: number; updated: number; total: number }>> {
+  try {
+    return await getApi().k8sJumpserverSyncAssets({ bastionUuid })
+  } catch (error) {
+    logger.error('Failed to sync jumpserver k8s assets', { error })
+    return { success: false, error: error instanceof Error ? error.message : 'Unknown error' }
+  }
+}
+
 // ==================== Terminal APIs ====================
 
 /**
@@ -500,6 +522,11 @@ export async function agentSetCluster(params: {
   contextName: string
   kubeconfigPath?: string
   kubeconfigContent?: string
+  sourceType?: string
+  bastionUuid?: string
+  bastionAssetAddress?: string
+  bastionAssetName?: string
+  bastionAssetIdLast?: number | null
 }): Promise<K8sApiResponse> {
   try {
     return await getApi().k8sAgentSetCluster(params)
