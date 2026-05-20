@@ -1,10 +1,31 @@
 import { SyncController } from './core/SyncController'
 const logger = createLogger('sync')
 
-export async function startDataSync(dbPath?: string): Promise<SyncController> {
-  // Log retention is now handled by the unified logging system
+export class AuthExpiredError extends Error {
+  code = 'AUTH_EXPIRED'
 
-  const controller = new SyncController(dbPath)
+  constructor() {
+    super('AUTH_EXPIRED')
+    this.name = 'AuthExpiredError'
+  }
+}
+
+export async function startDataSync(dbPath?: string, onAuthFailure?: () => void): Promise<SyncController> {
+  // Set when ApiClient fires a 401 during startup so we can abort before startAutoSync.
+  let authFailedDuringStartup = false
+
+  const controller = new SyncController(dbPath, {
+    onAuthFailure: () => {
+      authFailedDuringStartup = true
+      onAuthFailure?.()
+    }
+  })
+
+  const abortStartupForAuthFailure = async (message: string): Promise<never> => {
+    logger.warn(message)
+    await controller.destroy()
+    throw new AuthExpiredError()
+  }
 
   // Unified auth check and encryption service initialization (only during data sync startup)
   let isAuthInitialized = false
@@ -32,8 +53,6 @@ export async function startDataSync(dbPath?: string): Promise<SyncController> {
     logger.warn('Skipping encryption service initialization due to failed authentication')
   }
 
-  // Force check if encryption service is ready; stop sync startup if not ready
-
   // Reuse the first auth check result to avoid duplicate calls
   if (!isAuthInitialized) {
     try {
@@ -54,16 +73,12 @@ export async function startDataSync(dbPath?: string): Promise<SyncController> {
     await controller.backupInit()
   } catch (e: any) {
     logger.warn('Backup initialization failed', { error: e?.message })
-    // If authentication failed, try automatic recovery
-    if (e?.message?.includes('401') || e?.message?.includes('auth')) {
-      logger.info('Detected authentication issue, attempting automatic recovery...')
-      try {
-        await controller.handleAuthFailure()
-        await controller.backupInit() // Retry
-      } catch (retryError: any) {
-        logger.error('Automatic auth recovery failed', { error: retryError?.message })
-      }
-    }
+  }
+
+  // If a 401 was received at any point during startup, abort before starting the polling loop.
+  // Caller (main/index.ts) keeps dataSyncController null so a subsequent disable IPC is not needed.
+  if (authFailedDuringStartup) {
+    await abortStartupForAuthFailure('Auth failure detected during startup, aborting data sync startup')
   }
 
   try {
@@ -72,10 +87,18 @@ export async function startDataSync(dbPath?: string): Promise<SyncController> {
     logger.warn('Incremental sync failed', { error: e?.message })
   }
 
+  if (authFailedDuringStartup) {
+    await abortStartupForAuthFailure('Auth failure detected after incremental sync, aborting data sync startup')
+  }
+
   try {
     await controller.fullSyncAll()
   } catch (e: any) {
     logger.warn('Full sync failed', { error: e?.message })
+  }
+
+  if (authFailedDuringStartup) {
+    await abortStartupForAuthFailure('Auth failure detected after full sync, aborting data sync startup')
   }
 
   await controller.startAutoSync()

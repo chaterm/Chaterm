@@ -10,6 +10,7 @@ import * as fs from 'fs/promises'
 import { createLogger } from '../logging'
 import { ApiClient } from '../../storage/data_sync/core/ApiClient'
 import { getKnowledgeBaseRoot, IMAGE_EXTS, getKbSearchManager } from './index'
+import { authFailureNotifier } from '../authFailureNotifier'
 
 const logger = createLogger('kb-sync')
 
@@ -296,7 +297,7 @@ function getApiClient(): ApiClient {
   if (!apiClient) {
     // Disable keepAlive to avoid ECONNRESET when reusing a connection
     // that the server has already closed between the manifest GET and upload POSTs.
-    apiClient = new ApiClient({ keepAlive: false })
+    apiClient = new ApiClient({ keepAlive: false, onAuthFailure: () => authFailureNotifier.notify() })
   }
   return apiClient
 }

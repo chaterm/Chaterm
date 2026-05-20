@@ -1113,6 +1113,12 @@ interface ApiType {
    * Open the log directory in the system file manager
    */
   openLogDir: () => Promise<void>
+
+  /**
+   * Listen for auth token expiry notifications from main process.
+   * Returns an unsubscribe function.
+   */
+  onTokenExpired: (callback: () => void) => () => void
 }
 
 declare global {

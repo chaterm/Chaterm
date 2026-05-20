@@ -10,12 +10,14 @@ import { chatermAuthAdapter } from '../envelope_encryption/services/auth'
 
 export interface ApiClientOptions {
   keepAlive?: boolean
+  onAuthFailure?: () => void | Promise<void>
 }
 
 export class ApiClient {
   private client: AxiosInstance
   private httpAgent: HttpAgent
   private httpsAgent: HttpsAgent
+  private authFailureFired = false
 
   constructor(options?: ApiClientOptions) {
     const keepAlive = options?.keepAlive ?? true
@@ -96,7 +98,11 @@ export class ApiClient {
         if (error.response && error.response.status === 401) {
           logger.warn('Authentication failed (401), clearing auth info')
           chatermAuthAdapter.clearAuthInfo()
-          // Can trigger re-login logic or notify upper layer here
+          // Fire onAuthFailure once per session to avoid flooding renderer with multiple events
+          if (!this.authFailureFired) {
+            this.authFailureFired = true
+            await options?.onAuthFailure?.()
+          }
         }
 
         // Check if it's a network connection error

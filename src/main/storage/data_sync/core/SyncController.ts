@@ -12,6 +12,10 @@ const logger = createLogger('sync')
 import { setEncryptionService } from '../services/EncryptionRegistry'
 import type { EncryptionServiceStatus } from '../envelope_encryption/service'
 
+export interface SyncControllerOptions {
+  onAuthFailure?: () => void | Promise<void>
+}
+
 export class SyncController {
   private api: ApiClient
   private db: DatabaseManager
@@ -25,8 +29,14 @@ export class SyncController {
   // Simplified real-time sync
   private static instance: SyncController | null = null
 
-  constructor(dbPathOverride?: string) {
-    this.api = new ApiClient()
+  constructor(dbPathOverride?: string, options?: SyncControllerOptions) {
+    this.api = new ApiClient({
+      onAuthFailure: async () => {
+        logger.warn('Auth failure detected in ApiClient, stopping sync and notifying renderer')
+        await options?.onAuthFailure?.()
+        await this.handleAuthFailure()
+      }
+    })
     const dbPath = dbPathOverride || syncConfig.dbPath
     this.db = new DatabaseManager(dbPath)
     this.engine = new SyncEngine(this.db, this.api)
