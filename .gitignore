@@ -36,3 +36,4 @@ test_data/
 coverage/
 .Trae/
 .worktrees/
+electron.vite.config.*.mjs

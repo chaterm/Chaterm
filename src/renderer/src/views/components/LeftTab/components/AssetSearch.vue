@@ -17,6 +17,7 @@
           v-if="showNewButton"
           size="small"
           class="action-button"
+          data-onboarding-id="asset-new-host-button"
           @click="handleNewAsset"
         >
           <template #icon>
@@ -254,6 +255,11 @@ ${t('personal.importFormatThirdPartyNote')}
     class: 'import-help-modal'
   })
 }
+
+defineExpose({
+  openImportDialog: handleImport,
+  showImportHelp
+})
 </script>
 
 <style lang="less" scoped>

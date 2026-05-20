@@ -26,6 +26,7 @@ export default {
     userConfig: '设置',
     alias: 'Alias配置',
     assetConfig: '主机管理',
+    onboardingGuide: '入门引导',
     search: '搜索',
     connect: '连接',
     edit: '编辑',
@@ -262,6 +263,8 @@ export default {
     watermarkDescribe: '在终端上显示水印',
     watermarkOpen: '开启',
     watermarkClose: '关闭',
+    onboardingGuide: '入门引导',
+    openOnboardingGuide: '打开入门引导',
     language: '语言',
     theme: '主题',
     themeDark: '暗色',
@@ -652,6 +655,176 @@ export default {
       toggleLayout: '切换布局（Terminal/Agents）'
     }
   },
+  onboarding: {
+    guide: {
+      title: '从一个模块开始熟悉 Chaterm',
+      description: '选择模块后会自动打开对应页面，并高亮展示关键区域。引导过程中，非高亮区域将暂时不可操作，当前高亮区域仍可点击。',
+      progress: '已完成 {completed}/{total}'
+    },
+    modules: {
+      interfaceGuide: {
+        title: '界面引导',
+        description: '了解左侧模块、功能面板、工作区 Tab、顶部布局控制和 AI 入口。'
+      },
+      systemSettings: {
+        title: '系统设置',
+        description: '熟悉通用设置、主题语言、默认布局，以及终端字体、代理和 SSH Agent 设置。'
+      },
+      addAndConnectHost: {
+        title: '添加并连接主机',
+        description: '创建一台主机并通过点击或双击资产卡片发起真实连接。'
+      },
+      aiChat: {
+        title: '使用 AI 对话',
+        description: '打开右侧 AI 栏，选择 Agent、模型和本地主机，并发起一次真实 AI 请求。'
+      }
+    },
+    spotlight: {
+      previous: '上一步',
+      next: '下一步',
+      finish: '完成',
+      progress: '{current}/{total}',
+      targetMissing: '当前目标暂时不可见。请先完成前置操作，或点击下一步继续。'
+    },
+    tours: {
+      interfaceGuide: {
+        moduleSwitcher: {
+          title: '左侧模块切换栏',
+          description: '这里切换工作空间、资产、文件、知识库等核心模块。'
+        },
+        functionPanel: {
+          title: '左侧功能面板',
+          description: '选中模块后，相关列表、搜索和管理入口会显示在这里。'
+        },
+        workspace: {
+          title: '主工作区 Tab',
+          description: '终端、设置、资产管理和编辑器都会作为 Tab 在主工作区打开。'
+        },
+        topControls: {
+          title: '顶部窗口与布局控制',
+          description: '顶部区域用于切换 Terminal/Agents 布局，并控制左右侧栏显示。'
+        },
+        aiToggle: {
+          title: '右侧 AI 对话入口',
+          description: '点击这里，或使用 Command/Ctrl + L，打开终端右侧的 AI 对话栏。'
+        },
+        aiSidebar: {
+          title: '右侧 AI 侧边栏',
+          description: '这里是终端右侧的 AI 工作区，包含对话列表、消息区域、上下文入口和底部输入控制。'
+        }
+      },
+      systemSettings: {
+        settingEntry: {
+          title: '设置入口',
+          description: '点击左下角齿轮、点击下一步，或使用 Command/Ctrl + , 打开系统设置 Tab。'
+        },
+        sideNav: {
+          title: '设置分类导航',
+          description: '左侧分类用于切换通用、终端、扩展、模型等设置页面。'
+        },
+        general: {
+          title: '通用设置内容',
+          description: '通用页集中管理外观、语言、默认布局、背景和常用偏好。'
+        },
+        background: {
+          title: '背景设置',
+          description: '可以选择预置背景图，也可以上传自定义图片，并调整透明度和亮度。'
+        },
+        backgroundPreset: {
+          title: '选择一个背景',
+          description: '点击被高亮的背景缩略图继续。'
+        },
+        terminalTab: {
+          title: '终端设置分类',
+          description: '点击终端分类，进入终端显示、输入和连接相关选项。'
+        },
+        terminalOptions: {
+          title: '终端字体、代理与 SSH Agent',
+          description: '这里可以调整字体字号、代理配置和 SSH Agent 行为。'
+        },
+        aiPreferencesTab: {
+          title: 'AI 偏好设置',
+          description: '点击这里进入 AI 偏好设置，配置推理、知识库检索和自动执行行为。'
+        },
+        aiPreferencesContent: {
+          title: 'AI 偏好内容',
+          description: '这里可以控制扩展思考、查询类命令自动执行、知识库检索、经验沉淀和代理等 AI 行为。'
+        },
+        aiAutoApproval: {
+          title: '开启自动执行',
+          description: '点击这个开关开启自动执行。开启后，AI 可在无需逐次确认的情况下执行允许的工具。'
+        }
+      },
+      addAndConnectHost: {
+        assetsEntry: {
+          title: '资产入口',
+          description: '先进入资产模块，查看主机与密钥管理入口。'
+        },
+        hostManagement: {
+          title: '主机管理入口',
+          description: '主机管理用于新增、编辑、导入和连接 SSH 主机。'
+        },
+        newHost: {
+          title: '新建主机按钮',
+          description: '点击新建主机后，右侧会展开主机表单。'
+        },
+        formFields: {
+          title: '主机表单关键字段',
+          description: '填写地址、端口、用户名、认证方式、分组和代理等连接信息。'
+        },
+        formSubmit: {
+          title: '保存主机',
+          description: '保存只会创建主机配置，不会伪造连接。'
+        },
+        connectAsset: {
+          title: '从资产卡片发起连接',
+          description: '保存成功后，点击或双击资产卡片发起真实连接尝试，完成本模块。'
+        }
+      },
+      aiChat: {
+        sidebar: {
+          title: '打开右侧 AI 栏',
+          description: '点击右上角入口，或使用 Command/Ctrl + L 打开右侧 AI 栏；左侧模块切换栏的 AI 图标也能打开它。'
+        },
+        sidebarOverview: {
+          title: '右侧 AI 侧边栏',
+          description: '这里承载当前终端工作流里的 AI 对话，包含历史、消息区域、上下文入口和底部输入控制。'
+        },
+        input: {
+          title: 'AI 输入框',
+          description: '输入框用于描述你的目标、问题或需要 AI 检查的终端状态。'
+        },
+        modeAgent: {
+          title: '选择 Agent 模式',
+          description: '这里是模式选择框。下拉已展开，点击 Agent，让 AI 按主机任务执行更完整的排查。'
+        },
+        modelOpen: {
+          title: '点开模型选择',
+          description: '点击这里展开模型列表。'
+        },
+        modelOption: {
+          title: '选择一个模型',
+          description: '点击可用模型，作为这次 AI 请求的调用模型。'
+        },
+        contextOpen: {
+          title: '点开上下文选择',
+          description: '点击添加上下文入口，准备选择本次 Agent 请求的目标主机。'
+        },
+        contextHosts: {
+          title: '进入主机列表',
+          description: '点击主机分类，查看可以作为执行目标的主机。'
+        },
+        localhost: {
+          title: '选择 127.0.0.1',
+          description: '点击本地主机 127.0.0.1，作为这次 Agent 请求的目标。'
+        },
+        send: {
+          title: '发送按钮',
+          description: '输入框已填入“查看主机状态”。点击发送按钮发起真实 AI 请求并完成本模块。'
+        }
+      }
+    }
+  },
   personal: {
     host: '主机管理',
     newHost: '添加主机',
@@ -698,6 +871,7 @@ export default {
     favoriteUpdateError: '更新收藏状态出错',
     defaultGroup: '主机',
     noAssets: '暂无资产',
+    emptyAssetsDescription: '可以手动创建主机，或导入已有会话文件后开始连接。',
     hostType: 'ssh',
     personalAsset: '个人',
     enterpriseAsset: '企业',

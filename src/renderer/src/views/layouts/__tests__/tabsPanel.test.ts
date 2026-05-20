@@ -119,6 +119,13 @@ vi.mock('@views/components/LeftTab/config/assetManagement.vue', () => ({
   }
 }))
 
+vi.mock('@/components/global/onboarding/OnboardingGuide.vue', () => ({
+  default: {
+    name: 'OnboardingGuide',
+    template: '<div class="onboarding-guide-mock">Onboarding Guide</div>'
+  }
+}))
+
 // Mock vuedraggable with slot support
 vi.mock('vuedraggable', () => ({
   default: {
@@ -134,6 +141,7 @@ const mockT = (key: string) => {
     'common.userInfo': 'User Info',
     'common.userConfig': 'User Config',
     'common.assetConfig': 'Asset Config',
+    'common.onboardingGuide': 'Onboarding Guide',
     'common.aliasConfig': 'Alias Config',
     'common.management': 'Asset Management',
     'common.keyManagement': 'Key Management',
@@ -151,6 +159,7 @@ vi.mock('vue-i18n', () => ({
         'common.userInfo': 'User Info',
         'common.userConfig': 'User Config',
         'common.assetConfig': 'Asset Config',
+        'common.onboardingGuide': 'Onboarding Guide',
         'common.aliasConfig': 'Alias Config',
         'common.management': 'Asset Management',
         'common.keyManagement': 'Key Management',
@@ -311,6 +320,11 @@ describe('TabsPanel Component', () => {
     it('should render AssetConfig when content is assetConfig', () => {
       wrapper = createWrapper({ content: 'assetConfig', organizationId: '' })
       expect(wrapper.html()).toContain('Asset Config')
+    })
+
+    it('should render OnboardingGuide when content is onboardingGuide', () => {
+      wrapper = createWrapper({ content: 'onboardingGuide', organizationId: '' })
+      expect(wrapper.html()).toContain('Onboarding Guide')
     })
 
     it('should render KeyManagement when content is keyManagement', () => {

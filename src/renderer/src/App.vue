@@ -8,6 +8,7 @@
     <VersionPromptModal :store="promptStore" />
     <MfaDialog />
     <UserSelectionDialog />
+    <OnboardingSpotlight />
   </div>
 </template>
 <script setup lang="ts">
@@ -15,6 +16,7 @@ import { onMounted, onUnmounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { MfaDialog, setupGlobalMfaListeners } from './components/global/mfa'
 import { UserSelectionDialog, setupGlobalUserSelectionListeners } from './components/global/user-selection'
+import { OnboardingSpotlight } from './components/global/onboarding'
 import { useNotificationListener } from './composables/useNotificationListener'
 import { useBackgroundManager } from './composables/useBackgroundManager'
 import VersionPromptModal from './components/global/version-prompt/VersionPromptModal.vue'

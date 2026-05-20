@@ -1,6 +1,7 @@
 import mitt from 'mitt'
 import type { AssetInfo } from '@/views/components/AiTab/types'
 import type { ToolResultPayload } from '@shared/WebviewMessage'
+import type { OnboardingModuleId } from '@/store/onboardingStore'
 
 /**
  * Define event types
@@ -27,6 +28,18 @@ export interface AppEvents {
   keyChainUpdated: void // Keychain update event, used to sync key options in host configuration
   aliasStatusChanged: number // Alias status change event, 1 means enabled, 2 means disabled
   openUserTab: any // Open Tab
+  'open-user-tab': any // Open Dockview-backed user tab
+  'onboarding:startTour': OnboardingModuleId
+  'onboarding:stopTour': void
+  'onboarding:openGuideTab': void
+  'onboarding:showLeftMenu': string
+  'onboarding:openAssetCreate': void
+  'onboarding:autoApprovalEnabled': void
+  'onboarding:openAiModeSelect': void
+  'onboarding:openAiModelSelect': void
+  'onboarding:openAiContextPopup': void
+  'onboarding:openAiContextHosts': void
+  'onboarding:closeAiContextPopup': void
   kbActiveFileChanged: { relPath: string } // KnowledgeCenter active file changed
   kbEntriesRemoved: { entries: Array<{ relPath: string; isDir: boolean }> } // KnowledgeCenter delete/cut remove tabs
   kbFileRenamed: { oldRelPath: string; newRelPath: string; newName: string } // KnowledgeCenter file/folder renamed

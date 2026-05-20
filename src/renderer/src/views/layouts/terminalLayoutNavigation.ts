@@ -4,6 +4,7 @@ const dockBackedUserTabs = new Set([
   'assetManagement',
   'assetConfig',
   'keyManagement',
+  'onboardingGuide',
   'userInfo',
   'userConfig',
   'mcpConfigEditor',
