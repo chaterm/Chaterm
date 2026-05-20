@@ -2,6 +2,22 @@
   "releaseNotesUrl": "https://github.com/chaterm/Chaterm/releases/tag/v",
   "versions": [
     {
+      "version": "0.11.1",
+      "date": "2026-05-19",
+      "highlights": {
+        "zh-CN": [
+          "工作区交互升级：新增节点右键上下文菜单，并优化树节点悬停、选中态与布局对齐，主机管理操作更直观",
+          "用户信息体验增强：用户菜单新增头像与会员状态展示，账户状态查看更清晰",
+          "终端与数据库流程优化：支持终端全选快捷键并保留选择状态，改进终端自动滚动与 AI SQL 报错诊断提示，同时修复组织资产 ID 变更后最近连接可能认证失败的问题"
+        ],
+        "en-US": [
+          "Workspace interaction upgrades: added right-click context menus for nodes and improved tree node hover, selection states, and layout alignment for more intuitive host management",
+          "User info UX enhancements: the user menu now shows avatar and VIP status to view account status more clearly",
+          "Terminal and database workflow improvements: added terminal select-all shortcuts with preserved selection state, refined terminal auto-scroll and AI SQL error diagnosis feedback, and fixed recent connection authentication failures after organization asset ID changes"
+        ]
+      }
+    },
+    {
       "version": "0.11.0",
       "date": "2026-05-11",
       "highlights": {
