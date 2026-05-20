@@ -78,6 +78,7 @@
       <div
         v-if="currentMode !== 'agents'"
         class="toggle-right-btn"
+        data-onboarding-id="right-ai-toggle"
         @click="toggleSidebarRight('right')"
       >
         <img

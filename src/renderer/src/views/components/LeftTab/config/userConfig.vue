@@ -3,6 +3,10 @@
     <div class="user-config-title"> {{ $t('common.userConfig') }}</div>
     <a-divider style="border-color: var(--border-color); margin: 0 0 0 0" />
     <div class="tabs-container">
+      <div
+        class="settings-side-nav-target"
+        data-onboarding-id="settings-side-nav"
+      ></div>
       <a-tabs
         v-model:active-key="activeKey"
         tab-position="left"
@@ -10,18 +14,22 @@
       >
         <a-tab-pane
           key="0"
-          :tab="$t('user.general')"
           force-render
           type="card"
         >
+          <template #tab>
+            <span data-onboarding-id="settings-general-tab">{{ $t('user.general') }}</span>
+          </template>
           <General />
         </a-tab-pane>
         <a-tab-pane
           key="1"
-          :tab="$t('user.terminal')"
           force-render
           type="card"
         >
+          <template #tab>
+            <span data-onboarding-id="settings-terminal-tab">{{ $t('user.terminal') }}</span>
+          </template>
           <Terminal />
         </a-tab-pane>
         <a-tab-pane
@@ -48,9 +56,11 @@
         </a-tab-pane>
         <a-tab-pane
           key="5"
-          :tab="$t('user.aiPreferences')"
           type="card"
         >
+          <template #tab>
+            <span data-onboarding-id="settings-ai-preferences-tab">{{ $t('user.aiPreferences') }}</span>
+          </template>
           <AI />
         </a-tab-pane>
         <a-tab-pane
@@ -154,8 +164,16 @@ const switchToTerminalTab = () => {
   activeKey.value = '1'
 }
 
+const switchToGeneralSettingsTab = () => {
+  activeKey.value = '0'
+}
+
 const switchToModelSettingsTab = () => {
   activeKey.value = '3'
+}
+
+const switchToAiPreferencesTab = () => {
+  activeKey.value = '5'
 }
 
 // Watch for documentation tab click and redirect
@@ -169,13 +187,17 @@ watch(activeKey, (newKey) => {
 })
 
 onMounted(() => {
+  eventBus.on('switchToGeneralSettingsTab', switchToGeneralSettingsTab)
   eventBus.on('switchToTerminalTab', switchToTerminalTab)
   eventBus.on('switchToModelSettingsTab', switchToModelSettingsTab)
+  eventBus.on('switchToAiPreferencesTab', switchToAiPreferencesTab)
 })
 
 onBeforeUnmount(() => {
+  eventBus.off('switchToGeneralSettingsTab', switchToGeneralSettingsTab)
   eventBus.off('switchToTerminalTab', switchToTerminalTab)
   eventBus.off('switchToModelSettingsTab', switchToModelSettingsTab)
+  eventBus.off('switchToAiPreferencesTab', switchToAiPreferencesTab)
 })
 </script>
 
@@ -199,7 +221,17 @@ onBeforeUnmount(() => {
 
 .tabs-container {
   flex: 1;
+  position: relative;
   overflow: hidden;
+}
+
+.settings-side-nav-target {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  width: 120px;
+  pointer-events: none;
 }
 
 .user-config-tab {

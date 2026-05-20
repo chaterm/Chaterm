@@ -26,6 +26,7 @@ export default {
     userConfig: '設定',
     alias: 'エイリアス設定',
     assetConfig: 'ホスト管理',
+    onboardingGuide: 'オンボーディングガイド',
     search: '検索',
     connect: '接続',
     edit: '編集',
@@ -131,7 +132,8 @@ export default {
     jumpserverSupportPlugin: 'Jumpserver Support',
     noSearchResults: '検索結果がありません',
     previous: '前へ',
-    next: '次へ'
+    next: '次へ',
+    database: 'データベース'
   },
   term: {
     welcome: 'Chaterm へようこそ',
@@ -265,6 +267,8 @@ export default {
     watermarkDescribe: 'ターミナルにウォーターマークを表示',
     watermarkOpen: '開く',
     watermarkClose: '閉じる',
+    onboardingGuide: 'オンボーディングガイド',
+    openOnboardingGuide: 'オンボーディングガイドを開く',
     language: '言語',
     theme: 'テーマ',
     themeDark: 'ダーク',
@@ -664,6 +668,178 @@ export default {
       toggleLayout: 'レイアウトを切り替え(ターミナル/エージェント)'
     }
   },
+  onboarding: {
+    guide: {
+      title: 'モジュールから Chaterm を理解する',
+      description:
+        'モジュールを選択すると対応するページが自動で開き、重要な領域が強調表示されます。ガイド中は強調されていない領域は一時的に操作できず、現在の強調領域はクリックできます。',
+      progress: '{completed}/{total} 完了'
+    },
+    modules: {
+      interfaceGuide: {
+        title: 'インターフェースガイド',
+        description: '左側モジュール、機能パネル、ワークスペースタブ、上部レイアウト制御、AI 入口を確認します。'
+      },
+      systemSettings: {
+        title: 'システム設定',
+        description: '一般設定、テーマと言語、既定レイアウト、ターミナルフォント、プロキシ、SSH Agent 設定を確認します。'
+      },
+      addAndConnectHost: {
+        title: 'ホストを追加して接続',
+        description: 'ホストを作成し、アセットカードのクリックまたはダブルクリックで実際の接続を開始します。'
+      },
+      aiChat: {
+        title: 'AI チャットを使う',
+        description: '右側の AI バーを開き、Agent、モデル、ローカルホストを選択して実際の AI リクエストを開始します。'
+      }
+    },
+    spotlight: {
+      previous: '前へ',
+      next: '次へ',
+      finish: '完了',
+      progress: '{current}/{total}',
+      targetMissing: '現在の対象は一時的に表示されていません。前の操作を完了するか、次へをクリックしてください。'
+    },
+    tours: {
+      interfaceGuide: {
+        moduleSwitcher: {
+          title: '左側モジュール切替バー',
+          description: 'ここでワークスペース、アセット、ファイル、ナレッジベースなどの主要モジュールを切り替えます。'
+        },
+        functionPanel: {
+          title: '左側機能パネル',
+          description: 'モジュールを選択すると、関連する一覧、検索、管理入口がここに表示されます。'
+        },
+        workspace: {
+          title: 'メインワークスペースタブ',
+          description: 'ターミナル、設定、アセット管理、エディタはメインワークスペースのタブとして開きます。'
+        },
+        topControls: {
+          title: '上部ウィンドウとレイアウト制御',
+          description: '上部領域で Terminal/Agents レイアウトを切り替え、左右のサイドバーを制御します。'
+        },
+        aiToggle: {
+          title: '右側 AI チャット入口',
+          description: 'ここをクリックするか Command/Ctrl + L を使うと、ターミナル右側の AI チャットバーを開けます。'
+        },
+        aiSidebar: {
+          title: '右側 AI サイドバー',
+          description: 'ターミナル右側の AI ワークスペースで、履歴、メッセージ、コンテキスト入口、入力操作を含みます。'
+        }
+      },
+      systemSettings: {
+        settingEntry: {
+          title: '設定入口',
+          description: '左下の歯車をクリックし、次へを押すか Command/Ctrl + , を使ってシステム設定タブを開きます。'
+        },
+        sideNav: {
+          title: '設定カテゴリナビゲーション',
+          description: '左側カテゴリで一般、ターミナル、拡張、モデルなどの設定ページを切り替えます。'
+        },
+        general: {
+          title: '一般設定',
+          description: '一般ページでは外観、言語、既定レイアウト、背景、よく使う設定を管理します。'
+        },
+        background: {
+          title: '背景設定',
+          description: 'プリセット背景を選ぶかカスタム画像をアップロードし、透明度と明るさを調整できます。'
+        },
+        backgroundPreset: {
+          title: '背景を選択',
+          description: '強調表示された背景サムネイルをクリックして続行します。'
+        },
+        terminalTab: {
+          title: 'ターミナル設定カテゴリ',
+          description: 'ターミナルカテゴリをクリックして、表示、入力、接続関連のオプションを開きます。'
+        },
+        terminalOptions: {
+          title: 'ターミナルフォント、プロキシ、SSH Agent',
+          description: 'ここでフォント、サイズ、プロキシ設定、SSH Agent 動作を調整できます。'
+        },
+        aiPreferencesTab: {
+          title: 'AI 設定',
+          description: 'ここから AI 設定に入り、推論、ナレッジ検索、自動実行を構成します。'
+        },
+        aiPreferencesContent: {
+          title: 'AI 設定内容',
+          description: '拡張思考、クエリ系コマンドの自動実行、ナレッジ検索、経験蓄積、プロキシなどの AI 動作を制御します。'
+        },
+        aiAutoApproval: {
+          title: '自動実行を有効化',
+          description: 'このスイッチをクリックして自動実行を有効化します。有効化後、AI は許可されたツールを毎回確認せずに実行できます。'
+        }
+      },
+      addAndConnectHost: {
+        assetsEntry: {
+          title: 'アセット入口',
+          description: 'まずアセットモジュールに入り、ホストと鍵の管理入口を確認します。'
+        },
+        hostManagement: {
+          title: 'ホスト管理入口',
+          description: 'ホスト管理では SSH ホストの追加、編集、インポート、接続を行います。'
+        },
+        newHost: {
+          title: '新規ホストボタン',
+          description: '新規ホストをクリックすると、右側にホストフォームが展開されます。'
+        },
+        formFields: {
+          title: 'ホストフォームの主要項目',
+          description: 'アドレス、ポート、ユーザー名、認証方式、グループ、プロキシなどの接続情報を入力します。'
+        },
+        formSubmit: {
+          title: 'ホストを保存',
+          description: '保存はホスト設定を作成するだけで、接続を偽装しません。'
+        },
+        connectAsset: {
+          title: 'アセットカードから接続',
+          description: '保存後、アセットカードをクリックまたはダブルクリックして実際の接続を開始し、このモジュールを完了します。'
+        }
+      },
+      aiChat: {
+        sidebar: {
+          title: '右側 AI バーを開く',
+          description: '右上入口をクリックするか Command/Ctrl + L を使用します。左側モジュールバーの AI アイコンからも開けます。'
+        },
+        sidebarOverview: {
+          title: '右側 AI サイドバー',
+          description: '現在のターミナルワークフローの AI チャットを担い、履歴、メッセージ、コンテキスト入口、入力を含みます。'
+        },
+        input: {
+          title: 'AI 入力欄',
+          description: '目的、質問、または AI に確認してほしいターミナル状態を入力します。'
+        },
+        modeAgent: {
+          title: 'Agent モードを選択',
+          description: 'これはモード選択です。ドロップダウンが開いています。Agent をクリックすると、AI がホストタスクをより完全に処理します。'
+        },
+        modelOpen: {
+          title: 'モデル選択を開く',
+          description: 'ここをクリックしてモデル一覧を開きます。'
+        },
+        modelOption: {
+          title: 'モデルを選択',
+          description: '利用可能なモデルをクリックして、この AI リクエストで使います。'
+        },
+        contextOpen: {
+          title: 'コンテキスト選択を開く',
+          description: 'コンテキスト追加入口をクリックして、この Agent リクエストの対象ホストを選びます。'
+        },
+        contextHosts: {
+          title: 'ホスト一覧へ',
+          description: 'ホストカテゴリをクリックして、実行対象にできるホストを確認します。'
+        },
+        localhost: {
+          title: '127.0.0.1 を選択',
+          description: 'ローカルホスト 127.0.0.1 をこの Agent リクエストの対象として選択します。'
+        },
+        send: {
+          title: '送信ボタン',
+          description:
+            '入力欄には「ホスト状態を確認」が入っています。送信ボタンをクリックして実際の AI リクエストを開始し、このモジュールを完了します。'
+        }
+      }
+    }
+  },
   personal: {
     host: 'ホスト管理',
     newHost: '新しいホスト',
@@ -710,6 +886,7 @@ export default {
     favoriteUpdateError: 'お気に入り状態の更新エラー',
     defaultGroup: 'ホスト',
     noAssets: '資産がありません',
+    emptyAssetsDescription: 'ホストを手動で作成するか、既存のセッションファイルをインポートして接続を開始できます。',
     hostType: 'ssh',
     personalAsset: '個人資産',
     enterpriseAsset: '企業資産',
@@ -724,6 +901,7 @@ export default {
     switchHuawei: 'ファーウェイ',
     switchTip: 'スイッチはコマンドモードのみサポートしています',
     bastionHost: '踏み台サーバー',
+    bastionType: '踏み台タイプ',
     qizhi: '齊治踏み台',
     refreshAssets: '資産を更新',
     refreshingAssets: '資産を更新しています...',
@@ -879,6 +1057,7 @@ export default {
     noMatchingCommands: '一致するコマンドがありません',
     copy: 'コピー',
     run: '実行',
+    paste: '貼り付け',
     reject: '拒否',
     approve: '承認',
     addAutoApprove: '自動承認を追加',
@@ -904,6 +1083,7 @@ export default {
     searchHistoryPH: '入力してください',
     loading: '読み込み中...',
     loadMore: 'さらに読み込む',
+    historyLoadHint: 'さらに古いメッセージがあります。上にスクロールして読み込めます。',
     copyToClipboard: 'クリップボードにコピー',
     retry: '再試行',
     taskCompleted: 'タスク完了',
@@ -1342,6 +1522,7 @@ export default {
       authenticating: '認証中...',
       connectedToTarget: 'ターゲットサーバーに接続しました',
       mfaRequired: '齊治踏み台2次認証',
+      selectingAssetCategory: 'アセットカテゴリを選択中',
       mfaPrompt: '2次パスワードを入力してください',
       mfaFailed: '2次認証に失敗しました',
       mfaTimeout: '認証がタイムアウトしました。再試行してください',
@@ -1685,6 +1866,62 @@ export default {
     }
   },
   database: {
+    title: 'データベース',
+    group: 'グループ',
+    rootGroup: 'ルートグループ',
+    newGroup: '新しいグループ',
+    copyName: '名前をコピー',
+    moveTo: '移動先',
+    deleteGroup: 'グループを削除',
+    searchPlaceholder: '接続またはテーブルを検索...',
+    newConnection: '新しい接続',
+    newConnectionOf: '新しい {dbType} 接続',
+    overview: '概要',
+    overviewLead: '左側でテーブルを選択し、ダブルクリックすると SQL ワークスペースが開きます。',
+    overviewTipExplore: '左側でグループ、接続、データベースオブジェクトを確認できます。',
+    overviewTipConnection: '右上のプラスボタンをクリックして新しい接続を作成します。',
+    overviewTipQuery: 'テーブルをダブルクリックして SQL ワークスペースを開き、クエリの実行や整形を行います。',
+    testConnection: '接続をテスト',
+    testConnectionPassed: '接続に成功しました',
+    testConnectionInFlight: '接続をテスト中...',
+    fixRequiredFields: '先に必須項目を入力してください。',
+    authentication: '認証',
+    authUserAndPassword: 'ユーザー名とパスワード',
+    driver: 'ドライバー',
+    driverPlaceholder: 'ドライバーのアップロードは後続フェーズで提供されます。',
+    driverClass: 'クラス名',
+    uploadDriver: 'ドライバーをアップロード',
+    sshConfiguration: 'SSH 設定',
+    sshConfigurationPlaceholder: 'SSH トンネルの再利用は後続フェーズで接続されます。',
+    advancedConfiguration: '詳細設定',
+    advancedConfigurationPlaceholder: '詳細パラメーターパネルのプレースホルダー。',
+    noResults: '結果なし',
+    loading: '読み込み中...',
+    firstPage: '先頭ページ',
+    prevPage: '前のページ',
+    nextPage: '次のページ',
+    lastPage: '最後のページ',
+    refresh: '更新',
+    total: '合計',
+    totalTooltip: 'クリックして総行数を更新',
+    filterApply: '適用',
+    filterClear: 'フィルターをクリア',
+    filterLikePlaceholder: 'あいまい一致、Enter で適用',
+    filterLocalSearch: '{column} をローカル検索',
+    filterAll: 'すべて',
+    sortTooltip: 'クリックして並び替えを切り替え：昇順 / 降順 / なし',
+    filterTooltip: '列フィルター',
+    sqlFilterPlaceholder: '結果を絞り込む SQL 式を入力（Ctrl+Space を使用）',
+    wherePlaceholder: "手動 WHERE 式（列フィルターを上書き）、例：id > 100 AND name LIKE '%abc%'",
+    orderByPlaceholder: '手動 ORDER BY 式（列ソートを上書き）、例：created_at DESC, id ASC',
+    statusResult: '結果',
+    statusTime: '所要時間',
+    statusRows: '行数',
+    statusExecutionOk: '実行に成功しました',
+    rowCount: '合計 {count} 行',
+    run: '実行',
+    stop: '停止',
+    settings: '設定',
     deleteGroupConfirmTitle: 'グループを削除',
     deleteGroupConfirmContent: 'グループ "{name}" を削除してもよろしいですか？この操作は取り消せません。',
     refreshConnected: '接続中のセッションを更新',
@@ -1721,6 +1958,18 @@ export default {
     overviewColTime: '時間',
     noExecutionsYet: 'まだ実行履歴はありません。',
     closeResultTab: '結果タブを閉じる',
+    fields: {
+      name: '名前',
+      env: '環境',
+      dbType: 'データベースタイプ',
+      host: 'ホスト',
+      port: 'ポート',
+      user: 'ユーザー',
+      password: 'パスワード',
+      database: 'データベース',
+      url: 'URL',
+      sslMode: 'SSL モード'
+    },
     connectionMenu: {
       openConnection: '接続を開く',
       closeConnection: '接続を閉じる',

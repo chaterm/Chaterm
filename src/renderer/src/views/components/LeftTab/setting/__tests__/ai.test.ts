@@ -2,11 +2,12 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { flushPromises, mount } from '@vue/test-utils'
 import AiSettings from '../ai.vue'
 
-const { mockGetGlobalState, mockUpdateGlobalState, mockOn, mockOff } = vi.hoisted(() => ({
+const { mockGetGlobalState, mockUpdateGlobalState, mockOn, mockOff, mockEmit } = vi.hoisted(() => ({
   mockGetGlobalState: vi.fn(),
   mockUpdateGlobalState: vi.fn(),
   mockOn: vi.fn(),
-  mockOff: vi.fn()
+  mockOff: vi.fn(),
+  mockEmit: vi.fn()
 }))
 
 vi.mock('ant-design-vue', () => ({
@@ -73,7 +74,7 @@ vi.mock('@/utils/eventBus', () => ({
   default: {
     on: mockOn,
     off: mockOff,
-    emit: vi.fn()
+    emit: mockEmit
   }
 }))
 
@@ -110,7 +111,9 @@ describe('AI Settings Component', () => {
             (
               ({
                 'user.experienceExtractionEnabled': 'Automatic Experience Capture',
-                'user.experienceExtractionEnabledDescribe': 'desc'
+                'user.experienceExtractionEnabledDescribe': 'desc',
+                'user.autoApproval': 'Auto Approval',
+                'user.autoApprovalDescribe': 'desc'
               }) as Record<string, string>
             )[key] || key
         },
@@ -161,5 +164,33 @@ describe('AI Settings Component', () => {
     await flushPromises()
 
     expect(mockUpdateGlobalState).toHaveBeenCalledWith('experienceExtractionEnabled', false)
+  })
+
+  it('exposes onboarding targets for AI preferences and auto approval', async () => {
+    const wrapper = mountComponent()
+    await flushPromises()
+
+    expect(wrapper.find('[data-onboarding-id="settings-ai-preferences-content"]').exists()).toBe(true)
+    expect(wrapper.find('[data-onboarding-id="settings-ai-auto-approval"]').exists()).toBe(true)
+  })
+
+  it('emits onboarding completion when auto approval is enabled', async () => {
+    const wrapper = mountComponent()
+    await flushPromises()
+
+    const autoApprovalTarget = wrapper.find('[data-onboarding-id="settings-ai-auto-approval"]')
+    await autoApprovalTarget.find('input').setValue(true)
+    await flushPromises()
+
+    expect(mockUpdateGlobalState).toHaveBeenCalledWith(
+      'autoApprovalSettings',
+      expect.objectContaining({
+        enabled: true,
+        actions: expect.objectContaining({
+          executeAllCommands: true
+        })
+      })
+    )
+    expect(mockEmit).toHaveBeenCalledWith('onboarding:autoApprovalEnabled')
   })
 })

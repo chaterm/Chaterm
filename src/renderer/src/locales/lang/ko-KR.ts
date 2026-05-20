@@ -26,6 +26,7 @@ export default {
     userConfig: '설정',
     alias: '별칭 설정',
     assetConfig: '호스트 관리',
+    onboardingGuide: '온보딩 가이드',
     search: '검색',
     connect: '연결',
     edit: '편집',
@@ -131,7 +132,8 @@ export default {
     jumpserverSupportPlugin: 'Jumpserver Support',
     noSearchResults: '검색 결과 없음',
     previous: '이전',
-    next: '다음'
+    next: '다음',
+    database: '데이터베이스'
   },
   term: {
     welcome: 'Chaterm 사용을 환영합니다',
@@ -265,6 +267,8 @@ export default {
     watermarkDescribe: '터미널에 워터마크 표시',
     watermarkOpen: '열기',
     watermarkClose: '닫기',
+    onboardingGuide: '온보딩 가이드',
+    openOnboardingGuide: '온보딩 가이드 열기',
     language: '언어',
     theme: '테마',
     themeDark: '다크',
@@ -659,6 +663,177 @@ export default {
       toggleLayout: '레이아웃 토글 (터미널/에이전트)'
     }
   },
+  onboarding: {
+    guide: {
+      title: '하나의 모듈부터 Chaterm 익히기',
+      description:
+        '모듈을 선택하면 해당 페이지가 자동으로 열리고 핵심 영역이 강조됩니다. 가이드 중에는 강조되지 않은 영역이 잠시 비활성화되며, 현재 강조된 영역은 클릭할 수 있습니다.',
+      progress: '{completed}/{total} 완료'
+    },
+    modules: {
+      interfaceGuide: {
+        title: '인터페이스 가이드',
+        description: '왼쪽 모듈, 기능 패널, 작업 영역 탭, 상단 레이아웃 제어 및 AI 진입점을 알아봅니다.'
+      },
+      systemSettings: {
+        title: '시스템 설정',
+        description: '일반 설정, 테마와 언어, 기본 레이아웃, 터미널 글꼴, 프록시 및 SSH Agent 설정을 익힙니다.'
+      },
+      addAndConnectHost: {
+        title: '호스트 추가 및 연결',
+        description: '호스트를 만들고 자산 카드를 클릭하거나 두 번 클릭해 실제 연결을 시작합니다.'
+      },
+      aiChat: {
+        title: 'AI 대화 사용',
+        description: '오른쪽 AI 바를 열고 Agent, 모델, 로컬 호스트를 선택한 뒤 실제 AI 요청을 시작합니다.'
+      }
+    },
+    spotlight: {
+      previous: '이전',
+      next: '다음',
+      finish: '완료',
+      progress: '{current}/{total}',
+      targetMissing: '현재 대상이 잠시 보이지 않습니다. 먼저 이전 작업을 완료하거나 다음을 클릭하세요.'
+    },
+    tours: {
+      interfaceGuide: {
+        moduleSwitcher: {
+          title: '왼쪽 모듈 전환 바',
+          description: '여기에서 작업 영역, 자산, 파일, 지식 베이스 등 핵심 모듈을 전환합니다.'
+        },
+        functionPanel: {
+          title: '왼쪽 기능 패널',
+          description: '모듈을 선택하면 관련 목록, 검색 및 관리 진입점이 여기에 표시됩니다.'
+        },
+        workspace: {
+          title: '기본 작업 영역 탭',
+          description: '터미널, 설정, 자산 관리 및 편집기는 기본 작업 영역의 탭으로 열립니다.'
+        },
+        topControls: {
+          title: '상단 창 및 레이아웃 제어',
+          description: '상단 영역에서 Terminal/Agents 레이아웃을 전환하고 좌우 사이드바를 제어합니다.'
+        },
+        aiToggle: {
+          title: '오른쪽 AI 대화 진입점',
+          description: '여기를 클릭하거나 Command/Ctrl + L을 사용해 터미널 오른쪽 AI 대화 바를 엽니다.'
+        },
+        aiSidebar: {
+          title: '오른쪽 AI 사이드바',
+          description: '터미널 오른쪽 AI 작업 영역으로, 기록, 메시지, 컨텍스트 진입점 및 입력 제어를 포함합니다.'
+        }
+      },
+      systemSettings: {
+        settingEntry: {
+          title: '설정 진입점',
+          description: '왼쪽 아래 톱니바퀴를 클릭하거나 다음을 누르거나 Command/Ctrl + , 를 사용해 시스템 설정 탭을 엽니다.'
+        },
+        sideNav: {
+          title: '설정 분류 탐색',
+          description: '왼쪽 분류에서 일반, 터미널, 확장, 모델 등 설정 페이지를 전환합니다.'
+        },
+        general: {
+          title: '일반 설정 내용',
+          description: '일반 페이지에서 외관, 언어, 기본 레이아웃, 배경 및 자주 쓰는 기본 설정을 관리합니다.'
+        },
+        background: {
+          title: '배경 설정',
+          description: '기본 배경을 선택하거나 사용자 이미지를 업로드하고 투명도와 밝기를 조정할 수 있습니다.'
+        },
+        backgroundPreset: {
+          title: '배경 선택',
+          description: '강조된 배경 썸네일을 클릭해 계속합니다.'
+        },
+        terminalTab: {
+          title: '터미널 설정 분류',
+          description: '터미널 분류를 클릭해 표시, 입력 및 연결 관련 옵션으로 이동합니다.'
+        },
+        terminalOptions: {
+          title: '터미널 글꼴, 프록시 및 SSH Agent',
+          description: '여기에서 글꼴과 크기, 프록시 구성 및 SSH Agent 동작을 조정합니다.'
+        },
+        aiPreferencesTab: {
+          title: 'AI 기본 설정',
+          description: '여기에서 AI 기본 설정으로 들어가 추론, 지식 검색 및 자동 실행을 구성합니다.'
+        },
+        aiPreferencesContent: {
+          title: 'AI 기본 설정 내용',
+          description: '확장 사고, 조회 명령 자동 실행, 지식 검색, 경험 축적 및 프록시 등 AI 동작을 제어합니다.'
+        },
+        aiAutoApproval: {
+          title: '자동 실행 켜기',
+          description: '이 스위치를 클릭해 자동 실행을 켭니다. 켜면 AI가 허용된 도구를 매번 확인 없이 실행할 수 있습니다.'
+        }
+      },
+      addAndConnectHost: {
+        assetsEntry: {
+          title: '자산 진입점',
+          description: '먼저 자산 모듈로 들어가 호스트 및 키 관리 진입점을 확인합니다.'
+        },
+        hostManagement: {
+          title: '호스트 관리 진입점',
+          description: '호스트 관리는 SSH 호스트를 추가, 편집, 가져오기 및 연결하는 데 사용됩니다.'
+        },
+        newHost: {
+          title: '새 호스트 버튼',
+          description: '새 호스트를 클릭하면 오른쪽에 호스트 양식이 열립니다.'
+        },
+        formFields: {
+          title: '호스트 양식 주요 필드',
+          description: '주소, 포트, 사용자 이름, 인증 방식, 그룹 및 프록시 등 연결 정보를 입력합니다.'
+        },
+        formSubmit: {
+          title: '호스트 저장',
+          description: '저장은 호스트 구성만 만들며 연결을 가장하지 않습니다.'
+        },
+        connectAsset: {
+          title: '자산 카드에서 연결 시작',
+          description: '저장 후 자산 카드를 클릭하거나 두 번 클릭해 실제 연결을 시도하고 이 모듈을 완료합니다.'
+        }
+      },
+      aiChat: {
+        sidebar: {
+          title: '오른쪽 AI 바 열기',
+          description: '오른쪽 위 진입점을 클릭하거나 Command/Ctrl + L을 사용합니다. 왼쪽 모듈 전환 바의 AI 아이콘으로도 열 수 있습니다.'
+        },
+        sidebarOverview: {
+          title: '오른쪽 AI 사이드바',
+          description: '현재 터미널 워크플로의 AI 대화가 위치하며 기록, 메시지 영역, 컨텍스트 진입점 및 입력을 포함합니다.'
+        },
+        input: {
+          title: 'AI 입력 상자',
+          description: '목표, 질문 또는 AI가 확인해야 할 터미널 상태를 입력합니다.'
+        },
+        modeAgent: {
+          title: 'Agent 모드 선택',
+          description: '모드 선택 상자입니다. 목록이 열려 있으니 Agent를 클릭해 AI가 호스트 작업을 더 완전하게 처리하도록 합니다.'
+        },
+        modelOpen: {
+          title: '모델 선택 열기',
+          description: '여기를 클릭해 모델 목록을 엽니다.'
+        },
+        modelOption: {
+          title: '모델 선택',
+          description: '사용 가능한 모델을 클릭해 이번 AI 요청에 사용할 모델로 지정합니다.'
+        },
+        contextOpen: {
+          title: '컨텍스트 선택 열기',
+          description: '컨텍스트 추가 진입점을 클릭해 이번 Agent 요청의 대상 호스트를 선택합니다.'
+        },
+        contextHosts: {
+          title: '호스트 목록으로 이동',
+          description: '호스트 분류를 클릭해 실행 대상으로 사용할 수 있는 호스트를 확인합니다.'
+        },
+        localhost: {
+          title: '127.0.0.1 선택',
+          description: '로컬 호스트 127.0.0.1을 이번 Agent 요청의 대상으로 선택합니다.'
+        },
+        send: {
+          title: '전송 버튼',
+          description: '입력 상자에는 “호스트 상태 확인”이 입력되어 있습니다. 전송 버튼을 클릭해 실제 AI 요청을 시작하고 이 모듈을 완료합니다.'
+        }
+      }
+    }
+  },
   personal: {
     host: '호스트 관리',
     newHost: '새 호스트',
@@ -705,6 +880,7 @@ export default {
     favoriteUpdateError: '즐겨찾기 상태 업데이트 오류',
     defaultGroup: '호스트',
     noAssets: '자산 없음',
+    emptyAssetsDescription: '호스트를 직접 만들거나 기존 세션 파일을 가져와 연결을 시작할 수 있습니다.',
     hostType: 'ssh',
     personalAsset: '개인',
     enterpriseAsset: '기업',
@@ -719,6 +895,7 @@ export default {
     switchHuawei: '화웨이',
     switchTip: '스위치는 명령 모드만 지원합니다',
     bastionHost: '배스천 호스트',
+    bastionType: '배스천 유형',
     qizhi: 'Qizhi 배스천',
     refreshAssets: '자산',
     refreshingAssets: '자산 새로고침 중...',
@@ -874,6 +1051,7 @@ export default {
     noMatchingCommands: '일치하는 명령 없음',
     copy: '복사',
     run: '실행',
+    paste: '붙여넣기',
     reject: '거절',
     approve: '승인',
     addAutoApprove: '자동 승인 추가',
@@ -899,6 +1077,7 @@ export default {
     searchHistoryPH: '입력해주세요',
     loading: '로딩 중...',
     loadMore: '더 로드',
+    historyLoadHint: '더 이전 메시지가 있습니다. 위로 스크롤하면 계속 불러올 수 있습니다.',
     copyToClipboard: '클립보드에 복사',
     retry: '다시 시도',
     taskCompleted: '작업 완료',
@@ -1337,6 +1516,7 @@ export default {
       authenticating: '인증 중...',
       connectedToTarget: '대상 서버에 연결되었습니다',
       mfaRequired: 'Qizhi 배스천 2차 인증',
+      selectingAssetCategory: '자산 카테고리 선택 중',
       mfaPrompt: '2차 비밀번호를 입력해주세요',
       mfaFailed: '2차 인증 실패',
       mfaTimeout: '인증 시간이 초과되었습니다. 다시 시도해주세요',
@@ -1677,6 +1857,62 @@ export default {
     }
   },
   database: {
+    title: '데이터베이스',
+    group: '그룹',
+    rootGroup: '루트 그룹',
+    newGroup: '새 그룹',
+    copyName: '이름 복사',
+    moveTo: '이동',
+    deleteGroup: '그룹 삭제',
+    searchPlaceholder: '연결 또는 테이블 검색...',
+    newConnection: '새 연결',
+    newConnectionOf: '새 {dbType} 연결',
+    overview: '개요',
+    overviewLead: '왼쪽에서 테이블을 선택하고 두 번 클릭하면 SQL 작업 영역이 열립니다.',
+    overviewTipExplore: '왼쪽에서 그룹, 연결 및 데이터베이스 객체를 탐색합니다.',
+    overviewTipConnection: '오른쪽 위의 더하기 버튼을 클릭해 새 연결을 만듭니다.',
+    overviewTipQuery: '테이블을 두 번 클릭해 SQL 작업 영역을 열고 쿼리를 실행하거나 서식을 지정합니다.',
+    testConnection: '연결 테스트',
+    testConnectionPassed: '연결 성공',
+    testConnectionInFlight: '연결 테스트 중...',
+    fixRequiredFields: '먼저 필수 필드를 입력하세요.',
+    authentication: '인증',
+    authUserAndPassword: '사용자 이름 및 비밀번호',
+    driver: '드라이버',
+    driverPlaceholder: '드라이버 업로드 기능은 이후 단계에서 제공됩니다.',
+    driverClass: '클래스 이름',
+    uploadDriver: '드라이버 업로드',
+    sshConfiguration: 'SSH 구성',
+    sshConfigurationPlaceholder: 'SSH 터널 재사용은 이후 단계에서 연결됩니다.',
+    advancedConfiguration: '고급 구성',
+    advancedConfigurationPlaceholder: '고급 매개변수 패널 자리 표시자입니다.',
+    noResults: '결과 없음',
+    loading: '불러오는 중...',
+    firstPage: '첫 페이지',
+    prevPage: '이전 페이지',
+    nextPage: '다음 페이지',
+    lastPage: '마지막 페이지',
+    refresh: '새로 고침',
+    total: '전체',
+    totalTooltip: '클릭하여 전체 행 수 업데이트',
+    filterApply: '적용',
+    filterClear: '필터 지우기',
+    filterLikePlaceholder: '퍼지 검색, Enter로 적용',
+    filterLocalSearch: '{column} 로컬 검색',
+    filterAll: '전체',
+    sortTooltip: '클릭하여 정렬 전환: 오름차순 / 내림차순 / 취소',
+    filterTooltip: '열 필터',
+    sqlFilterPlaceholder: '결과를 필터링할 SQL 표현식 입력(Ctrl+Space 사용)',
+    wherePlaceholder: "수동 WHERE 표현식(열 필터를 덮어씀), 예: id > 100 AND name LIKE '%abc%'",
+    orderByPlaceholder: '수동 ORDER BY 표현식(열 정렬을 덮어씀), 예: created_at DESC, id ASC',
+    statusResult: '결과',
+    statusTime: '소요 시간',
+    statusRows: '반환',
+    statusExecutionOk: '실행 성공',
+    rowCount: '총 {count}행',
+    run: '실행',
+    stop: '중지',
+    settings: '설정',
     deleteGroupConfirmTitle: '그룹 삭제',
     deleteGroupConfirmContent: '"{name}" 그룹을 삭제하시겠습니까? 이 작업은 취소할 수 없습니다.',
     refreshConnected: '연결된 세션 새로 고침',
@@ -1713,6 +1949,18 @@ export default {
     overviewColTime: '소요 시간',
     noExecutionsYet: '아직 실행 기록이 없습니다.',
     closeResultTab: '결과 탭 닫기',
+    fields: {
+      name: '이름',
+      env: '환경',
+      dbType: '데이터베이스 유형',
+      host: '호스트',
+      port: '포트',
+      user: '사용자',
+      password: '비밀번호',
+      database: '데이터베이스',
+      url: 'URL',
+      sslMode: 'SSL 모드'
+    },
     connectionMenu: {
       openConnection: '연결 열기',
       closeConnection: '연결 닫기',

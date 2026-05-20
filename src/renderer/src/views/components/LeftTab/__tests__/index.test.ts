@@ -110,4 +110,32 @@ describe('LeftTab', () => {
       isPlugin: false
     })
   })
+
+  it('marks the AI menu as an onboarding entry and opens the AI sidebar menu action', async () => {
+    const wrapper = mount(LeftTab, {
+      global: {
+        stubs: {
+          'a-tooltip': {
+            template: '<div><slot /></div>'
+          }
+        },
+        mocks: {
+          $t: (key: string) => key
+        }
+      }
+    })
+
+    const aiMenu = wrapper.find('[data-onboarding-id="left-ai-toggle"]')
+    expect(aiMenu.exists()).toBe(true)
+
+    await aiMenu.trigger('click')
+
+    const emitted = wrapper.emitted('toggle-menu')
+    expect(emitted).toBeTruthy()
+    expect(emitted?.[0]?.[0]).toMatchObject({
+      menu: 'ai',
+      type: 'dif',
+      isPlugin: false
+    })
+  })
 })

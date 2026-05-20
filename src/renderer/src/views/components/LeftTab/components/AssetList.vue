@@ -33,8 +33,38 @@
           style="width: 48px; height: 48px; opacity: 0.5"
         />
       </div>
-      <div class="empty-text">
+      <div class="empty-title">
         {{ searchValue ? t('common.noSearchResults') : t('personal.noAssets') }}
+      </div>
+      <div
+        v-if="!searchValue"
+        class="empty-description"
+      >
+        {{ t('personal.emptyAssetsDescription') }}
+      </div>
+      <div
+        v-if="!searchValue"
+        class="empty-actions"
+      >
+        <a-button
+          type="primary"
+          size="small"
+          @click="emit('empty-new-asset')"
+        >
+          <template #icon>
+            <PlusOutlined />
+          </template>
+          {{ t('personal.newHost') }}
+        </a-button>
+        <a-button
+          size="small"
+          @click="emit('empty-import-assets')"
+        >
+          <template #icon>
+            <ImportOutlined />
+          </template>
+          {{ t('personal.import') }}
+        </a-button>
       </div>
     </div>
   </div>
@@ -42,6 +72,7 @@
 
 <script setup lang="ts">
 import { computed } from 'vue'
+import { ImportOutlined, PlusOutlined } from '@ant-design/icons-vue'
 import assetCard from './AssetCard.vue'
 import { deepClone } from '@/utils/util'
 import i18n from '@/locales'
@@ -68,6 +99,8 @@ const emit = defineEmits<{
   'asset-edit': [asset: AssetNode]
   'asset-delete': [asset: AssetNode]
   'asset-context-menu': [event: MouseEvent, asset: AssetNode]
+  'empty-new-asset': []
+  'empty-import-assets': []
 }>()
 
 const filteredAssetGroups = computed(() => {
@@ -183,8 +216,22 @@ const handleAssetContextMenu = (event: MouseEvent, asset: AssetNode) => {
   margin-bottom: 16px;
 }
 
-.empty-text {
+.empty-title {
   font-size: 14px;
   color: var(--text-color-secondary);
+}
+
+.empty-description {
+  max-width: 320px;
+  margin-top: 8px;
+  color: var(--text-color-tertiary);
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.empty-actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 16px;
 }
 </style>
