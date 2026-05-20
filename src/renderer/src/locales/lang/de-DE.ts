@@ -1629,7 +1629,7 @@ export default {
     milliseconds: 'Millisekunden'
   },
   mcp: {
-    title: 'Tools & MCP',
+    title: 'MCP',
     description: 'MCP Server-Verbindungen verwalten, um AI-Fähigkeiten zu erweitern',
     serverList: 'MCP Server',
     addServer: 'Server hinzufügen',

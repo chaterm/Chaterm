@@ -1,5 +1,8 @@
 ﻿<template>
-  <div class="mcp-config-editor">
+  <div
+    class="mcp-config-editor"
+    :class="{ 'transparent-bg': isTransparent }"
+  >
     <div class="editor-toolbar">
       <div class="toolbar-left">
         <span
@@ -43,6 +46,8 @@ const { t } = useI18n()
 
 // Initialize editor config store
 const editorConfigStore = useEditorConfigStore()
+const hasCustomBackground = ref(false)
+const isTransparent = computed(() => hasCustomBackground.value)
 
 const configContent = ref('')
 const error = ref('')
@@ -54,6 +59,11 @@ let statusTimer: NodeJS.Timeout | null = null
 let removeFileChangeListener: (() => void) | undefined
 let isFormatting = ref(false) // Flag indicating if formatting is in progress
 let removeSystemThemeListener: (() => void) | undefined
+let backgroundClassObserver: MutationObserver | null = null
+
+const syncBackgroundState = () => {
+  hasCustomBackground.value = typeof document !== 'undefined' && document.body?.classList.contains('has-custom-bg') === true
+}
 
 // Reactive theme state that will trigger re-renders
 const themeState = ref(getMonacoTheme())
@@ -85,6 +95,15 @@ const handleKeydown = (e: KeyboardEvent) => {
 // Load config on mount
 onMounted(async () => {
   logger.debug('Loading MCP config')
+  syncBackgroundState()
+  if (typeof MutationObserver !== 'undefined' && document.body) {
+    backgroundClassObserver = new MutationObserver(syncBackgroundState)
+    backgroundClassObserver.observe(document.body, {
+      attributes: true,
+      attributeFilter: ['class']
+    })
+  }
+
   // Load global editor configuration
   await editorConfigStore.loadConfig()
 
@@ -147,6 +166,10 @@ onBeforeUnmount(() => {
   }
   if (removeSystemThemeListener) {
     removeSystemThemeListener()
+  }
+  if (backgroundClassObserver) {
+    backgroundClassObserver.disconnect()
+    backgroundClassObserver = null
   }
   window.removeEventListener('keydown', handleKeydown)
 })
@@ -239,6 +262,26 @@ const saveConfig = async (isManualSave = false) => {
   width: 100%;
   overflow: hidden;
   background-color: var(--bg-color-vim-editor);
+
+  &.transparent-bg {
+    background-color: transparent !important;
+
+    .editor-toolbar,
+    .editor-content {
+      background-color: transparent !important;
+    }
+
+    :deep(.monaco-editor),
+    :deep(.monaco-editor-background),
+    :deep(.monaco-editor .overflow-guard),
+    :deep(.monaco-editor .monaco-scrollable-element),
+    :deep(.monaco-editor .lines-content),
+    :deep(.monaco-editor .margin),
+    :deep(.monaco-editor .minimap),
+    :deep(.monaco-editor .minimap-slider) {
+      background-color: transparent !important;
+    }
+  }
 
   .editor-toolbar {
     display: flex;

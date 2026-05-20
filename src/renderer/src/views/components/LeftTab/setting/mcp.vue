@@ -1,8 +1,13 @@
 <template>
-  <div class="mcp-container">
+  <div
+    class="mcp-container"
+    :class="{ 'transparent-bg': isTransparent }"
+  >
     <a-card
       :bordered="false"
       class="mcp-toolbar-card"
+      :style="transparentCardStyle"
+      :body-style="transparentCardBodyStyle"
     >
       <div class="mcp-toolbar">
         <div class="toolbar-info">
@@ -32,6 +37,8 @@
         class="server-card"
         :class="{ 'server-card-loading': loadingServers.has(server.name) }"
         :bordered="false"
+        :style="transparentCardStyle"
+        :body-style="transparentCardBodyStyle"
       >
         <a-collapse
           :bordered="false"
@@ -230,6 +237,29 @@ const logger = createRendererLogger('settings.mcp')
 const { t } = useI18n()
 
 const servers = ref<McpServer[]>([])
+const hasCustomBackground = ref(false)
+const isTransparent = computed(() => hasCustomBackground.value)
+const transparentCardStyle = computed(() => {
+  if (!isTransparent.value) {
+    return undefined
+  }
+
+  return {
+    background: 'transparent',
+    backgroundColor: 'transparent'
+  }
+})
+const transparentCardBodyStyle = computed(() => {
+  if (!isTransparent.value) {
+    return undefined
+  }
+
+  return {
+    background: 'transparent',
+    backgroundColor: 'transparent',
+    borderColor: 'rgba(255, 255, 255, 0.12)'
+  }
+})
 
 // Track optimistic updates for immediate UI feedback
 const optimisticUpdates = ref<Map<string, Partial<McpServer>>>(new Map())
@@ -354,9 +384,23 @@ const deleteServer = async (name: string) => {
 // Listen for MCP status updates
 let removeStatusListener: (() => void) | undefined
 let removeServerListener: (() => void) | undefined
+let backgroundClassObserver: MutationObserver | null = null
+
+const syncBackgroundState = () => {
+  hasCustomBackground.value = typeof document !== 'undefined' && document.body?.classList.contains('has-custom-bg') === true
+}
 
 onMounted(async () => {
   logger.info('Mounting MCP component')
+  syncBackgroundState()
+  if (typeof MutationObserver !== 'undefined' && document.body) {
+    backgroundClassObserver = new MutationObserver(syncBackgroundState)
+    backgroundClassObserver.observe(document.body, {
+      attributes: true,
+      attributeFilter: ['class']
+    })
+  }
+
   // Set up listener for full status updates (all servers)
   if (window.api && window.api.onMcpStatusUpdate) {
     removeStatusListener = window.api.onMcpStatusUpdate((updatedServers: McpServer[]) => {
@@ -406,6 +450,10 @@ onBeforeUnmount(() => {
   if (removeServerListener) {
     removeServerListener()
   }
+  if (backgroundClassObserver) {
+    backgroundClassObserver.disconnect()
+    backgroundClassObserver = null
+  }
 })
 </script>
 
@@ -425,6 +473,27 @@ onBeforeUnmount(() => {
   overflow-y: auto;
   background-color: var(--bg-color);
   color: var(--text-color);
+
+  &.transparent-bg {
+    background-color: transparent;
+
+    .mcp-toolbar-card,
+    .server-card {
+      background: transparent !important;
+      background-color: transparent !important;
+    }
+
+    :deep(.ant-card),
+    :deep(.ant-card-body),
+    :deep(.ant-collapse),
+    :deep(.ant-collapse-item),
+    :deep(.ant-collapse-header),
+    :deep(.ant-collapse-content),
+    :deep(.ant-collapse-content-box) {
+      background: transparent !important;
+      background-color: transparent !important;
+    }
+  }
 }
 
 .mcp-toolbar-card {

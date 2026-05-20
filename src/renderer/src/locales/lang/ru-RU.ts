@@ -1620,7 +1620,7 @@ export default {
     milliseconds: 'миллисекунды'
   },
   mcp: {
-    title: 'Инструменты & MCP',
+    title: 'MCP',
     description: 'Управление соединениями MCP серверов для расширения возможностей AI',
     serverList: 'MCP сервера',
     addServer: 'Добавить сервер',
