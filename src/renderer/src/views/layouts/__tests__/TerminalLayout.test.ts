@@ -1116,6 +1116,16 @@ describe('TerminalLayout - Database Workspace Mode', () => {
     expect(source).toContain("props.currentMode === 'terminal' && showAiSidebar")
   })
 
+  it('exposes the whole AI sidebar as an onboarding target', () => {
+    expect(source).toContain('data-onboarding-id="right-ai-sidebar"')
+  })
+
+  it('uses a wider AI sidebar while the AI chat onboarding tour is active', () => {
+    expect(source).toContain('ONBOARDING_AI_SIDEBAR_WIDTH_PX = 420')
+    expect(source).toContain("onboardingStore.activeTour === 'aiChat'")
+    expect(source).toContain('restoredSize = Math.max(restoredSize, preferredSize)')
+  })
+
   it('defines scoped styles so database mode fills term_content', () => {
     expect(source).toContain('.database-workspace-mode')
     expect(source).toMatch(/\.database-workspace-mode\s*\{[\s\S]{0,200}height:\s*100%/)
@@ -1123,8 +1133,17 @@ describe('TerminalLayout - Database Workspace Mode', () => {
 
   it('switches back to a Dockview-backed menu before opening settings from database mode', () => {
     expect(isDockBackedUserTab('userConfig')).toBe(true)
+    expect(isDockBackedUserTab('onboardingGuide')).toBe(true)
     expect(getMenuForDockBackedUserTab('database', 'userConfig')).toBe('workspace')
+    expect(getMenuForDockBackedUserTab('database', 'onboardingGuide')).toBe('workspace')
     expect(source).toContain('await ensureDockWorkspaceVisibleForUserTab(value)')
+  })
+
+  it('auto-opens the onboarding guide tab once after Dockview is ready', () => {
+    expect(source).toContain('openInitialOnboardingGuideTab()')
+    expect(source).toContain('onboardingStore.guideTabAutoOpened')
+    expect(source).toContain("await openUserTab('onboardingGuide')")
+    expect(source).toContain('onboardingStore.markGuideTabAutoOpened()')
   })
 
   it('routes repeated database menu clicks to the database asset sidebar', () => {

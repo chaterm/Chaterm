@@ -84,7 +84,10 @@
       class="terminal-layout"
       :class="{ 'transparent-bg': isTransparent, 'agents-mode': props.currentMode === 'agents' }"
     >
-      <div class="term_header">
+      <div
+        class="term_header"
+        data-onboarding-id="top-layout-controls"
+      >
         <Header
           ref="headerRef"
           @toggle-sidebar="toggleSideBar"
@@ -137,7 +140,10 @@
           class="terminal-mode-layout"
           :style="getLayoutStyle('terminal')"
         >
-          <div class="term_left_menu">
+          <div
+            class="term_left_menu"
+            data-onboarding-id="left-module-switcher"
+          >
             <LeftTab
               @toggle-menu="toggleMenu"
               @open-user-tab="openUserTab"
@@ -163,6 +169,7 @@
                 :size="leftPaneSize"
                 :min-size="leftMinSize"
                 :max-size="50"
+                data-onboarding-id="left-function-panel"
               >
                 <Workspace
                   v-if="currentMenu == 'workspace'"
@@ -220,8 +227,13 @@
                         <div
                           class="main-terminal-area"
                           :class="{ 'has-preview-actions': isPreviewActionsVisible }"
+                          data-onboarding-id="main-workspace"
                           @mousedown="handleMainPaneFocus"
                         >
+                          <div
+                            class="main-workspace-tabs-target"
+                            data-onboarding-id="main-workspace-tabs"
+                          ></div>
                           <transition name="fade">
                             <div
                               v-if="!hasPanels"
@@ -262,6 +274,7 @@
                   >
                     <div
                       class="rigth-sidebar"
+                      data-onboarding-id="right-ai-sidebar"
                       tabindex="0"
                     >
                       <AiTab
@@ -346,6 +359,7 @@ import { v4 as uuidv4 } from 'uuid'
 import { userInfoStore } from '@/store'
 import { aliasConfigStore } from '@/store/aliasConfigStore'
 import { useDatabaseWorkspaceStore } from '@/store/databaseWorkspaceStore'
+import { useOnboardingStore } from '@/store/onboardingStore'
 import eventBus from '@/utils/eventBus'
 import { getActualTheme, initializeThemeFromDatabase } from '@/utils/themeUtils'
 import { componentInstances, inputManager, isGlobalInput, isShowCommandBar } from '@renderer/views/components/Ssh/utils/termInputManager'
@@ -385,6 +399,7 @@ const getLayoutStyle = (
 }
 const aliasConfig = aliasConfigStore()
 const databaseWorkspaceStore = useDatabaseWorkspaceStore()
+const onboardingStore = useOnboardingStore()
 const configStore = piniaUserConfigStore()
 const hideTabCloseButton = ref(false)
 const isTransparent = computed(() => !!configStore.getUserConfig.background.image)
@@ -1007,6 +1022,8 @@ onMounted(async () => {
   eventBus.on('switchToSpecificTab', switchToSpecificTab)
   eventBus.on('createNewTerminal', handleCreateNewTerminal)
   eventBus.on('open-user-tab', openUserTab)
+  eventBus.on('onboarding:openGuideTab', openOnboardingGuideTab)
+  eventBus.on('onboarding:showLeftMenu', showLeftMenuForOnboarding)
   eventBus.on('kbEntriesRemoved', handleKbEntriesRemoved)
   eventBus.on('kbFileRenamed', handleKbFileRenamed)
   eventBus.on('openKbPreview', handleOpenKbPreview)
@@ -1104,12 +1121,53 @@ const closeGlobalInput = () => {
 }
 const DEFAULT_WIDTH_PX = 250
 const DEFAULT_WIDTH_RIGHT_PX = 350
+const ONBOARDING_AI_SIDEBAR_WIDTH_PX = 420
 const MIN_AI_SIDEBAR_WIDTH_PX = 320 // AI sidebar minimum usable width
 const SNAP_THRESHOLD_PX = 240 // Sticky resistance threshold
 // Left sidebar constants
 const MIN_LEFT_SIDEBAR_WIDTH_PX = 200 // Left sidebar minimum usable width
 const LEFT_QUICK_CLOSE_THRESHOLD_PX = 50 // Left sidebar quick close threshold
 const currentMenu = ref('workspace')
+
+const isAiChatOnboardingActive = () => onboardingStore.activeTour === 'aiChat'
+
+const getPreferredAiSidebarWidthPx = () => (isAiChatOnboardingActive() ? ONBOARDING_AI_SIDEBAR_WIDTH_PX : DEFAULT_WIDTH_RIGHT_PX)
+
+const getAiSidebarOpenSize = (containerWidth: number) => {
+  const safeContainerWidth = Math.max(containerWidth, 1)
+  const minSizePercent = (MIN_AI_SIDEBAR_WIDTH_PX / safeContainerWidth) * 100
+  const preferredSize = (getPreferredAiSidebarWidthPx() / safeContainerWidth) * 100
+  let restoredSize = savedAiSidebarState.value?.size || preferredSize
+
+  if (isAiChatOnboardingActive()) {
+    restoredSize = Math.max(restoredSize, preferredSize)
+  }
+
+  if ((restoredSize / 100) * safeContainerWidth < MIN_AI_SIDEBAR_WIDTH_PX) {
+    restoredSize = minSizePercent
+  }
+
+  return restoredSize
+}
+
+const applyAiSidebarSize = (size: number) => {
+  aiSidebarSize.value = size
+  if (showSplitPane.value) {
+    adjustSplitPaneToEqualWidth()
+  } else {
+    mainTerminalSize.value = 100 - aiSidebarSize.value
+  }
+}
+
+const ensureAiChatOnboardingSidebarWidth = (containerWidth: number) => {
+  if (!isAiChatOnboardingActive()) return
+
+  const targetSize = getAiSidebarOpenSize(containerWidth)
+  if (targetSize <= aiSidebarSize.value) return
+
+  applyAiSidebarSize(targetSize)
+}
+
 const updatePaneSize = () => {
   const container = document.querySelector('.splitpanes') as HTMLElement
   if (container) {
@@ -1346,21 +1404,8 @@ const toggleSideBar = (value: string) => {
       } else {
         savePreviousFocus()
         showAiSidebar.value = true
-        // Calculate minimum percentage
-        const minSizePercent = (MIN_AI_SIDEBAR_WIDTH_PX / containerWidth) * 100
-        // Try to restore saved width, otherwise use default width
-        let restoredSize = savedAiSidebarState.value?.size || (DEFAULT_WIDTH_RIGHT_PX / containerWidth) * 100
-        // Ensure restored width is not less than minimum usable width
-        if ((restoredSize / 100) * containerWidth < MIN_AI_SIDEBAR_WIDTH_PX) {
-          restoredSize = minSizePercent
-        }
-        aiSidebarSize.value = restoredSize
+        applyAiSidebarSize(getAiSidebarOpenSize(containerWidth))
         headerRef.value?.switchIcon('right', true)
-        if (showSplitPane.value) {
-          adjustSplitPaneToEqualWidth()
-        } else {
-          mainTerminalSize.value = 100 - aiSidebarSize.value
-        }
         nextTick(() => {
           if (aiTabRef.value && savedAiSidebarState.value) {
             aiTabRef.value.restoreState(savedAiSidebarState.value)
@@ -1475,17 +1520,10 @@ const toggleMenu = function (params) {
       headerRef.value?.switchIcon(iconKey, true)
     } else {
       showAiSidebar.value = true
-      // Calculate minimum percentage
-      const minSizePercent = (MIN_AI_SIDEBAR_WIDTH_PX / containerWidth) * 100
-      // Try to restore saved width, otherwise use default width
-      let restoredSize = savedAiSidebarState.value?.size || (DEFAULT_WIDTH_RIGHT_PX / containerWidth) * 100
-      // Ensure restored width is not less than minimum usable width
-      if ((restoredSize / 100) * containerWidth < MIN_AI_SIDEBAR_WIDTH_PX) {
-        restoredSize = minSizePercent
+      applyAiSidebarSize(getAiSidebarOpenSize(containerWidth))
+      if (splitPanes.value.length > 0) {
+        mainTerminalSize.value = 100 - aiSidebarSize.value - splitPanes.value.reduce((acc, pane) => acc + pane.size, 0)
       }
-      aiSidebarSize.value = restoredSize
-      mainTerminalSize.value =
-        100 - aiSidebarSize.value - (splitPanes.value.length > 0 ? splitPanes.value.reduce((acc, pane) => acc + pane.size, 0) : 0)
       headerRef.value?.switchIcon('right', true)
       nextTick(() => {
         if (aiTabRef.value && savedAiSidebarState.value) {
@@ -1514,21 +1552,8 @@ const toggleMenu = function (params) {
       if (container) {
         const containerWidth = container.offsetWidth
         showAiSidebar.value = true
-        // Calculate minimum percentage
-        const minSizePercent = (MIN_AI_SIDEBAR_WIDTH_PX / containerWidth) * 100
-        // Try to restore saved width, otherwise use default width
-        let restoredSize = savedAiSidebarState.value?.size || (DEFAULT_WIDTH_RIGHT_PX / containerWidth) * 100
-        // Ensure restored width is not less than minimum usable width
-        if ((restoredSize / 100) * containerWidth < MIN_AI_SIDEBAR_WIDTH_PX) {
-          restoredSize = minSizePercent
-        }
-        aiSidebarSize.value = restoredSize
+        applyAiSidebarSize(getAiSidebarOpenSize(containerWidth))
         headerRef.value?.switchIcon('right', true)
-        if (showSplitPane.value) {
-          adjustSplitPaneToEqualWidth()
-        } else {
-          mainTerminalSize.value = 100 - aiSidebarSize.value
-        }
         nextTick(() => {
           if (aiTabRef.value && savedAiSidebarState.value) {
             aiTabRef.value.restoreState(savedAiSidebarState.value)
@@ -1553,6 +1578,9 @@ const toggleMenu = function (params) {
     if (!showAiSidebar.value) {
       savePreviousFocus()
       expandFn('right')
+      focusRightSidebar()
+    } else {
+      ensureAiChatOnboardingSidebarWidth(containerWidth)
       focusRightSidebar()
     }
   } else {
@@ -1981,6 +2009,8 @@ onUnmounted(() => {
   eventBus.off('switchToSpecificTab', switchToSpecificTab)
   eventBus.off('createNewTerminal', handleCreateNewTerminal)
   eventBus.off('open-user-tab', openUserTab)
+  eventBus.off('onboarding:openGuideTab', openOnboardingGuideTab)
+  eventBus.off('onboarding:showLeftMenu', showLeftMenuForOnboarding)
   eventBus.off('kbEntriesRemoved', handleKbEntriesRemoved)
   eventBus.off('kbFileRenamed', handleKbFileRenamed)
   eventBus.off('openKbPreview', handleOpenKbPreview)
@@ -2014,6 +2044,29 @@ const ensureDockWorkspaceVisibleForUserTab = async (value: string) => {
 
   currentMenu.value = nextMenu
   await nextTick()
+}
+
+async function openOnboardingGuideTab() {
+  await openUserTab('onboardingGuide')
+}
+
+async function showLeftMenuForOnboarding(menu: string) {
+  currentMenu.value = menu
+  await nextTick()
+
+  if (getLeftSidebarSize() > 0) return
+
+  const leftContainer = document.querySelector('.left-sidebar-container') as HTMLElement | null
+  const containerWidth = leftContainer?.offsetWidth || 1200
+  const minSizePercent = (MIN_LEFT_SIDEBAR_WIDTH_PX / containerWidth) * 100
+  let defaultSize = (DEFAULT_WIDTH_PX / containerWidth) * 100
+
+  if ((defaultSize / 100) * containerWidth < MIN_LEFT_SIDEBAR_WIDTH_PX) {
+    defaultSize = minSizePercent
+  }
+
+  setLeftSidebarSize(defaultSize)
+  headerRef.value?.switchIcon(props.currentMode === 'agents' ? 'agentsLeft' : 'left', true)
 }
 
 const openUserTab = async function (arg: OpenUserTabArg) {
@@ -2138,6 +2191,7 @@ const openUserTab = async function (arg: OpenUserTabArg) {
   if (
     value === 'assetConfig' ||
     value === 'keyManagement' ||
+    value === 'onboardingGuide' ||
     value === 'userInfo' ||
     value === 'userConfig' ||
     value === 'mcpConfigEditor' ||
@@ -2164,6 +2218,10 @@ const openUserTab = async function (arg: OpenUserTabArg) {
     props: {}
   }
   switch (value) {
+    case 'onboardingGuide':
+      p.title = 'onboardingGuide'
+      p.type = 'config'
+      break
     case 'aliasConfig':
       p.title = 'alias'
       p.type = 'extensions'
@@ -2216,6 +2274,14 @@ const openUserTab = async function (arg: OpenUserTabArg) {
     }
   }
   currentClickServer(p)
+}
+
+async function openInitialOnboardingGuideTab() {
+  onboardingStore.ensureV2State()
+  if (onboardingStore.guideTabAutoOpened) return
+
+  await openUserTab('onboardingGuide')
+  onboardingStore.markGuideTabAutoOpened()
 }
 
 const changeCompany = () => {
@@ -2337,21 +2403,8 @@ const toggleAiSidebar = () => {
     } else {
       savePreviousFocus()
       showAiSidebar.value = true
-      // Calculate minimum percentage
-      const minSizePercent = (MIN_AI_SIDEBAR_WIDTH_PX / containerWidth) * 100
-      // Try to restore saved width, otherwise use default width
-      let restoredSize = savedAiSidebarState.value?.size || (DEFAULT_WIDTH_RIGHT_PX / containerWidth) * 100
-      // Ensure restored width is not less than minimum usable width
-      if ((restoredSize / 100) * containerWidth < MIN_AI_SIDEBAR_WIDTH_PX) {
-        restoredSize = minSizePercent
-      }
-      aiSidebarSize.value = restoredSize
+      applyAiSidebarSize(getAiSidebarOpenSize(containerWidth))
       headerRef.value?.switchIcon('right', true)
-      if (showSplitPane.value) {
-        adjustSplitPaneToEqualWidth()
-      } else {
-        mainTerminalSize.value = 100 - aiSidebarSize.value
-      }
       focusRightSidebar()
     }
   }
@@ -2679,6 +2732,7 @@ const onDockReady = (event: DockviewReadyEvent) => {
     setupTabContextMenu()
     setupTabDragToAi()
     handleActivePanelChange()
+    openInitialOnboardingGuideTab()
   })
 }
 const addDockPanel = (params) => {
@@ -3310,6 +3364,16 @@ defineExpose({
 
   width: 100%;
   height: 100%;
+
+  .main-workspace-tabs-target {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 34px;
+    height: 34px;
+    z-index: 11;
+    pointer-events: none;
+  }
 
   .dockview-actions-overlay {
     position: absolute;

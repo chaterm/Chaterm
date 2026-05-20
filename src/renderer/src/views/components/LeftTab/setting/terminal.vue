@@ -1,5 +1,8 @@
 <template>
-  <div class="userInfo">
+  <div
+    class="userInfo"
+    data-onboarding-id="settings-terminal-options"
+  >
     <a-card
       :bordered="false"
       class="userInfo-container"

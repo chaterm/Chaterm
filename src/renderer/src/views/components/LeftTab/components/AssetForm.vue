@@ -11,7 +11,10 @@
       />
     </div>
 
-    <div class="form-content">
+    <div
+      class="form-content"
+      data-onboarding-id="asset-form-fields"
+    >
       <a-form
         :label-col="{ span: 27 }"
         :wrapper-col="{ span: 27 }"
@@ -319,6 +322,7 @@
       <a-button
         type="primary"
         class="submit-button"
+        data-onboarding-id="asset-form-submit"
         @click="handleSubmit"
       >
         {{ isEditMode ? t('personal.saveAsset') : t('personal.createAsset') }}

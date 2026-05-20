@@ -26,6 +26,7 @@ export default {
     userConfig: 'Paramètres',
     alias: 'Configuration des alias',
     assetConfig: 'Gestion des hôtes',
+    onboardingGuide: "Guide d'intégration",
     search: 'Rechercher',
     connect: 'Se connecter',
     edit: 'Modifier',
@@ -129,7 +130,8 @@ export default {
     daysAgo: ' jours auparavant',
     run: 'Exécuter',
     jumpserverSupportPlugin: 'Support Jumpserver',
-    noSearchResults: 'Aucun résultat de recherche'
+    noSearchResults: 'Aucun résultat de recherche',
+    database: 'Base de données'
   },
   term: {
     welcome: 'Bienvenue à utiliser Chaterm',
@@ -263,6 +265,8 @@ export default {
     watermarkDescribe: 'Afficher le filigrane sur le terminal',
     watermarkOpen: 'Ouvrir',
     watermarkClose: 'Fermer',
+    onboardingGuide: "Guide d'intégration",
+    openOnboardingGuide: "Ouvrir le guide d'intégration",
     language: 'Langue',
     theme: 'Theme',
     themeDark: 'Sombre',
@@ -673,6 +677,182 @@ export default {
       toggleLayout: 'Basculer la disposition (Terminal/Agents)'
     }
   },
+  onboarding: {
+    guide: {
+      title: 'Découvrir Chaterm avec un module',
+      description:
+        'Sélectionnez un module pour ouvrir automatiquement la page correspondante et mettre en évidence les zones clés. Pendant le guide, les zones non mises en évidence sont temporairement désactivées; la zone mise en évidence reste cliquable.',
+      progress: '{completed}/{total} terminé'
+    },
+    modules: {
+      interfaceGuide: {
+        title: "Guide de l'interface",
+        description: "Découvrez les modules de gauche, le panneau fonctionnel, les onglets de travail, les contrôles de mise en page et l'entrée IA."
+      },
+      systemSettings: {
+        title: 'Paramètres système',
+        description:
+          'Découvrez les paramètres généraux, le thème et la langue, la mise en page par défaut, ainsi que la police du terminal, le proxy et SSH Agent.'
+      },
+      addAndConnectHost: {
+        title: 'Ajouter et connecter un hôte',
+        description: "Créez un hôte et lancez une vraie connexion en cliquant ou double-cliquant sur la carte d'actif."
+      },
+      aiChat: {
+        title: 'Utiliser le chat IA',
+        description: 'Ouvrez la barre IA à droite, choisissez Agent, modèle et hôte local, puis lancez une vraie requête IA.'
+      }
+    },
+    spotlight: {
+      previous: 'Précédent',
+      next: 'Suivant',
+      finish: 'Terminer',
+      progress: '{current}/{total}',
+      targetMissing: "La cible actuelle est temporairement invisible. Terminez d'abord l'étape précédente ou cliquez sur Suivant."
+    },
+    tours: {
+      interfaceGuide: {
+        moduleSwitcher: {
+          title: 'Barre de modules gauche',
+          description: 'Permet de passer entre espace de travail, actifs, fichiers, base de connaissances et autres modules clés.'
+        },
+        functionPanel: {
+          title: 'Panneau fonctionnel gauche',
+          description: "Après sélection d'un module, les listes, recherches et entrées de gestion correspondantes apparaissent ici."
+        },
+        workspace: {
+          title: "Onglets de l'espace principal",
+          description: "Terminal, paramètres, gestion des actifs et éditeurs s'ouvrent en onglets dans l'espace principal."
+        },
+        topControls: {
+          title: 'Contrôles supérieurs de fenêtre et mise en page',
+          description: 'La zone supérieure change la mise en page Terminal/Agents et contrôle les barres latérales.'
+        },
+        aiToggle: {
+          title: 'Entrée du chat IA à droite',
+          description: 'Cliquez ici ou utilisez Command/Ctrl + L pour ouvrir la barre de chat IA à droite du terminal.'
+        },
+        aiSidebar: {
+          title: 'Barre latérale IA droite',
+          description: "C'est l'espace IA à droite du terminal, avec historique, messages, contexte et contrôles de saisie."
+        }
+      },
+      systemSettings: {
+        settingEntry: {
+          title: 'Entrée des paramètres',
+          description:
+            "Cliquez sur l'engrenage en bas à gauche, cliquez sur Suivant ou utilisez Command/Ctrl + , pour ouvrir l'onglet des paramètres."
+        },
+        sideNav: {
+          title: 'Navigation des catégories',
+          description: 'La navigation gauche permet de passer entre paramètres généraux, terminal, extensions, modèles et autres pages.'
+        },
+        general: {
+          title: 'Paramètres généraux',
+          description: 'La page générale gère apparence, langue, mise en page par défaut, arrière-plan et préférences courantes.'
+        },
+        background: {
+          title: "Paramètres d'arrière-plan",
+          description: 'Choisissez un arrière-plan prédéfini ou importez une image personnalisée, puis ajustez transparence et luminosité.'
+        },
+        backgroundPreset: {
+          title: 'Choisir un arrière-plan',
+          description: 'Cliquez sur la miniature mise en évidence pour continuer.'
+        },
+        terminalTab: {
+          title: 'Paramètres du terminal',
+          description: "Cliquez sur Terminal pour accéder aux options d'affichage, de saisie et de connexion."
+        },
+        terminalOptions: {
+          title: 'Police du terminal, proxy et SSH Agent',
+          description: 'Réglez ici la police, la taille, la configuration proxy et le comportement de SSH Agent.'
+        },
+        aiPreferencesTab: {
+          title: 'Préférences IA',
+          description: 'Ouvrez ici les préférences IA pour configurer raisonnement, recherche de connaissances et exécution automatique.'
+        },
+        aiPreferencesContent: {
+          title: 'Contenu des préférences IA',
+          description:
+            "Contrôlez ici raisonnement étendu, exécution automatique des commandes de requête, recherche de connaissances, accumulation d'expérience et proxy."
+        },
+        aiAutoApproval: {
+          title: "Activer l'exécution automatique",
+          description:
+            "Cliquez sur cet interrupteur pour activer l'exécution automatique. Ensuite, l'IA peut exécuter les outils autorisés sans confirmation à chaque fois."
+        }
+      },
+      addAndConnectHost: {
+        assetsEntry: {
+          title: 'Entrée des actifs',
+          description: "Ouvrez d'abord le module Actifs pour voir la gestion des hôtes et des clés."
+        },
+        hostManagement: {
+          title: 'Gestion des hôtes',
+          description: 'La gestion des hôtes sert à ajouter, modifier, importer et connecter des hôtes SSH.'
+        },
+        newHost: {
+          title: 'Bouton Nouvel hôte',
+          description: "Après clic sur Nouvel hôte, le formulaire d'hôte s'ouvre à droite."
+        },
+        formFields: {
+          title: 'Champs clés du formulaire',
+          description: 'Renseignez adresse, port, utilisateur, authentification, groupe et proxy.'
+        },
+        formSubmit: {
+          title: "Enregistrer l'hôte",
+          description: "L'enregistrement crée uniquement la configuration d'hôte et ne simule pas de connexion."
+        },
+        connectAsset: {
+          title: "Connecter depuis la carte d'actif",
+          description: "Après l'enregistrement, cliquez ou double-cliquez sur la carte d'actif pour lancer une vraie connexion et terminer ce module."
+        }
+      },
+      aiChat: {
+        sidebar: {
+          title: 'Ouvrir la barre IA droite',
+          description: "Cliquez en haut à droite ou utilisez Command/Ctrl + L; l'icône IA de la barre de modules gauche l'ouvre aussi."
+        },
+        sidebarOverview: {
+          title: 'Barre latérale IA droite',
+          description: 'Elle porte le chat IA du flux terminal actuel avec historique, messages, contexte et saisie.'
+        },
+        input: {
+          title: 'Champ de saisie IA',
+          description: "Décrivez ici votre objectif, votre question ou l'état du terminal que l'IA doit vérifier."
+        },
+        modeAgent: {
+          title: 'Choisir le mode Agent',
+          description:
+            "Ceci est le sélecteur de mode. La liste est ouverte; cliquez sur Agent pour que l'IA traite les tâches d'hôte plus complètement."
+        },
+        modelOpen: {
+          title: 'Ouvrir le choix du modèle',
+          description: 'Cliquez ici pour afficher la liste des modèles.'
+        },
+        modelOption: {
+          title: 'Choisir un modèle',
+          description: 'Cliquez sur un modèle disponible pour cette requête IA.'
+        },
+        contextOpen: {
+          title: 'Ouvrir le choix du contexte',
+          description: "Cliquez sur Ajouter un contexte pour choisir l'hôte cible de cette requête Agent."
+        },
+        contextHosts: {
+          title: 'Ouvrir la liste des hôtes',
+          description: 'Cliquez sur la catégorie Hôtes pour voir les cibles disponibles.'
+        },
+        localhost: {
+          title: 'Sélectionner 127.0.0.1',
+          description: "Choisissez l'hôte local 127.0.0.1 comme cible de cette requête Agent."
+        },
+        send: {
+          title: 'Bouton Envoyer',
+          description: "Le champ contient « vérifier l'état de l'hôte ». Cliquez sur Envoyer pour lancer une vraie requête IA et terminer ce module."
+        }
+      }
+    }
+  },
   personal: {
     host: 'Gestion des hôtes',
     newHost: 'Nouvel hôte',
@@ -722,6 +902,7 @@ export default {
     favoriteUpdateError: 'Erreur de mise à jour du statut favori',
     defaultGroup: 'Hôtes',
     noAssets: 'Aucun actif',
+    emptyAssetsDescription: 'Créez un hôte manuellement ou importez des fichiers de session existants pour commencer à vous connecter.',
     hostType: 'ssh',
     personalAsset: 'Actif personnel',
     enterpriseAsset: 'Actif entreprise',
@@ -736,6 +917,7 @@ export default {
     switchHuawei: 'Huawei',
     switchTip: 'Les commutateurs ne prennent en charge que le mode de commande',
     bastionHost: 'Hôte bastion',
+    bastionType: 'Type de bastion',
     qizhi: 'Bastion Qizhi',
     refreshAssets: 'Actualiser les actifs',
     refreshingAssets: 'Actualisation des actifs...',
@@ -896,6 +1078,7 @@ export default {
     noMatchingCommands: 'Aucune commande correspondante',
     copy: 'Copier',
     run: 'Exécuter',
+    paste: 'Coller',
     reject: 'Refuser',
     approve: 'Approuver',
     addAutoApprove: 'Ajouter Auto-Approuver',
@@ -921,6 +1104,7 @@ export default {
     searchHistoryPH: 'Veuillez entrer',
     loading: 'Chargement...',
     loadMore: 'Charger plus',
+    historyLoadHint: 'Des messages plus anciens sont disponibles. Faites défiler vers le haut pour les charger.',
     copyToClipboard: 'Copier dans le presse-papiers',
     retry: 'Réessayer',
     taskCompleted: 'Tâche terminée',
@@ -1354,6 +1538,7 @@ export default {
       authenticating: 'Authentification...',
       connectedToTarget: 'Connecté au serveur cible',
       mfaRequired: 'Authentification secondaire du bastion Qizhi',
+      selectingAssetCategory: "Sélection de la catégorie d'actif",
       mfaPrompt: 'Veuillez saisir le 2e mot de passe',
       mfaFailed: "Échec de l'authentification secondaire",
       mfaTimeout: "Délai d'authentification dépassé, veuillez réessayer",
@@ -1702,6 +1887,62 @@ export default {
     }
   },
   database: {
+    title: 'Base de données',
+    group: 'Groupe',
+    rootGroup: 'Groupe racine',
+    newGroup: 'Nouveau groupe',
+    copyName: 'Copier le nom',
+    moveTo: 'Déplacer vers',
+    deleteGroup: 'Supprimer le groupe',
+    searchPlaceholder: 'Rechercher des connexions ou des tables...',
+    newConnection: 'Nouvelle connexion',
+    newConnectionOf: 'Nouvelle connexion {dbType}',
+    overview: 'Aperçu',
+    overviewLead: "Sélectionnez une table à gauche; double-cliquez pour ouvrir l'espace SQL.",
+    overviewTipExplore: 'Explorez les groupes, connexions et objets de base de données à gauche.',
+    overviewTipConnection: 'Cliquez sur le bouton plus en haut à droite pour créer une connexion.',
+    overviewTipQuery: "Double-cliquez sur une table pour ouvrir l'espace SQL, exécuter et formater des requêtes.",
+    testConnection: 'Tester la connexion',
+    testConnectionPassed: 'Connexion réussie',
+    testConnectionInFlight: 'Test de connexion...',
+    fixRequiredFields: "Veuillez d'abord renseigner les champs obligatoires.",
+    authentication: 'Authentification',
+    authUserAndPassword: 'Utilisateur et mot de passe',
+    driver: 'Pilote',
+    driverPlaceholder: 'Le téléversement de pilotes sera pris en charge ultérieurement.',
+    driverClass: 'Nom de classe',
+    uploadDriver: 'Téléverser le pilote',
+    sshConfiguration: 'Configuration SSH',
+    sshConfigurationPlaceholder: 'La réutilisation du tunnel SSH sera intégrée ultérieurement.',
+    advancedConfiguration: 'Configuration avancée',
+    advancedConfigurationPlaceholder: 'Emplacement réservé pour les paramètres avancés.',
+    noResults: 'Aucun résultat',
+    loading: 'Chargement...',
+    firstPage: 'Première page',
+    prevPage: 'Page précédente',
+    nextPage: 'Page suivante',
+    lastPage: 'Dernière page',
+    refresh: 'Actualiser',
+    total: 'Total',
+    totalTooltip: 'Cliquer pour mettre à jour le nombre total de lignes',
+    filterApply: 'Appliquer',
+    filterClear: 'Effacer le filtre',
+    filterLikePlaceholder: 'Correspondance floue, Entrée pour appliquer',
+    filterLocalSearch: 'Recherche locale {column}',
+    filterAll: 'Tout',
+    sortTooltip: 'Cliquer pour changer le tri : croissant / décroissant / aucun',
+    filterTooltip: 'Filtre de colonne',
+    sqlFilterPlaceholder: 'Saisir une expression SQL pour filtrer les résultats (Ctrl+Espace)',
+    wherePlaceholder: "Expression WHERE manuelle (remplace les filtres de colonne), ex. : id > 100 AND name LIKE '%abc%'",
+    orderByPlaceholder: 'Expression ORDER BY manuelle (remplace le tri de colonne), ex. : created_at DESC, id ASC',
+    statusResult: 'Résultat',
+    statusTime: 'Durée',
+    statusRows: 'Lignes',
+    statusExecutionOk: 'Exécution réussie',
+    rowCount: '{count} lignes au total',
+    run: 'Exécuter',
+    stop: 'Arrêter',
+    settings: 'Paramètres',
     deleteGroupConfirmTitle: 'Supprimer le groupe',
     deleteGroupConfirmContent: 'Êtes-vous sûr de vouloir supprimer le groupe "{name}" ? Cette action est irréversible.',
     refreshConnected: 'Actualiser les sessions connectées',
@@ -1738,6 +1979,18 @@ export default {
     overviewColTime: 'Duree',
     noExecutionsYet: 'Aucune execution pour le moment.',
     closeResultTab: "Fermer l'onglet de resultat",
+    fields: {
+      name: 'Nom',
+      env: 'Environnement',
+      dbType: 'Type de base',
+      host: 'Hôte',
+      port: 'Port',
+      user: 'Utilisateur',
+      password: 'Mot de passe',
+      database: 'Base de données',
+      url: 'URL',
+      sslMode: 'Mode SSL'
+    },
     connectionMenu: {
       openConnection: 'Ouvrir la connexion',
       closeConnection: 'Fermer la connexion',

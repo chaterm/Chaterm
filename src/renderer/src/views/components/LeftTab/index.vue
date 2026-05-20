@@ -34,6 +34,19 @@
           v-else-if="i.key === 'assets'"
           class="term_menu"
           :class="{ active: activeKey === i.key }"
+          data-onboarding-id="assets-entry"
+          @click="menuClick(i.key)"
+        >
+          <img
+            :src="i.icon"
+            alt=""
+          />
+        </p>
+        <p
+          v-else-if="i.key === 'ai'"
+          class="term_menu"
+          :class="{ active: activeKey === i.key }"
+          data-onboarding-id="left-ai-toggle"
           @click="menuClick(i.key)"
         >
           <img
@@ -127,6 +140,7 @@
           <p
             class="setting_menu"
             :class="{ active: activeKey === i.key }"
+            data-onboarding-id="setting-entry"
             @click="userConfig"
           >
             <img

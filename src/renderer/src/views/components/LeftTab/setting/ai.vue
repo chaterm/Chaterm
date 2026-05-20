@@ -1,5 +1,5 @@
 <template>
-  <div>
+  <div data-onboarding-id="settings-ai-preferences-content">
     <div class="section-header">
       <h3>{{ $t('user.general') }}</h3>
     </div>
@@ -75,7 +75,10 @@
       </div>
 
       <!-- Auto Approval -->
-      <div class="setting-item">
+      <div
+        class="setting-item"
+        data-onboarding-id="settings-ai-auto-approval"
+      >
         <a-checkbox v-model:checked="autoApprovalSettings.enabled">
           {{ $t('user.autoApproval') }}
         </a-checkbox>
@@ -324,6 +327,9 @@ watch(
       }
 
       await updateGlobalState('autoApprovalSettings', settingsToStore)
+      if (newValue) {
+        eventBus.emit('onboarding:autoApprovalEnabled')
+      }
     } catch (error) {
       logger.error('Failed to update auto approval settings', { error: error })
       notification.error({
