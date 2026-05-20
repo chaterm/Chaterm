@@ -34,6 +34,7 @@ try {
 }
 import { createProxySocket } from './proxy'
 import { buildErrorResponse } from './jumpserver/errorUtils'
+import { createJumpHostTunnel, JumpHostAuth } from './jumpHost'
 
 import {
   jumpserverConnections,
@@ -1119,7 +1120,8 @@ const handleAttemptConnection = async (event, connectionInfo, resolve, reject, r
     proxyConfig,
     connIdentToken,
     asset_type,
-    proxyCommand
+    proxyCommand,
+    jumpHostUuid
   } = connectionInfo
   retryCount++
   clearSessionConnectionState(id)
@@ -1136,7 +1138,8 @@ const handleAttemptConnection = async (event, connectionInfo, resolve, reject, r
   const ident = `${packageInfo.name}_${packageInfo.version}` + identToken
 
   const isWakeupConnectionRequest = !!connectionInfo.wakeupSource
-  const shouldBypassPoolReuse = connectionInfo?.disablePoolReuse === true || connectionInfo?.wakeupNewTab === true || isWakeupConnectionRequest
+  const shouldBypassPoolReuse =
+    connectionInfo?.disablePoolReuse === true || connectionInfo?.wakeupNewTab === true || isWakeupConnectionRequest || !!jumpHostUuid
 
   // Check connection reuse pool unless this request explicitly disables reuse.
   if (!shouldBypassPoolReuse) {
@@ -1304,6 +1307,32 @@ const handleAttemptConnection = async (event, connectionInfo, resolve, reject, r
         connectConfig.sock = await createProxyCommandSocket(proxyCommand, host, port || 22)
         delete connectConfig.host
         delete connectConfig.port
+      } else if (jumpHostUuid) {
+        const { connectAssetInfo } = require('../storage/database') as typeof import('../storage/database')
+        const jumpAsset = await connectAssetInfo(jumpHostUuid)
+        if (!jumpAsset) {
+          throw new Error('Jump host asset not found')
+        }
+        const jumpAuth: JumpHostAuth = {
+          host: jumpAsset.asset_ip || jumpAsset.host,
+          port: jumpAsset.port || 22,
+          username: jumpAsset.username,
+          asset_type: jumpAsset.asset_type,
+          password: jumpAsset.auth_type === 'password' ? jumpAsset.password : undefined,
+          privateKey: jumpAsset.auth_type === 'keyBased' ? jumpAsset.privateKey : undefined,
+          passphrase: jumpAsset.auth_type === 'keyBased' ? jumpAsset.passphrase : undefined
+        }
+        const tunnel = await createJumpHostTunnel(jumpAuth, host, port || 22)
+        connectConfig.sock = tunnel.sock
+        // Tear down the jump connection together with the target connection so the
+        // tunnel does not outlive its consumer.
+        const tearDownJump = () => {
+          try {
+            tunnel.jumpClient.end()
+          } catch {}
+        }
+        conn.once('close', tearDownJump)
+        conn.once('error', tearDownJump)
       } else if (needProxy) {
         connectConfig.sock = await createProxySocket(proxyConfig, host, port)
       }

@@ -238,6 +238,15 @@ function upgradeTAssetsTable(db: Database.Database): void {
       logger.info('Added proxy_name column to t_assets')
     }
 
+    // Additional column upgrade: t_assets.jump_host_uuid (SSH ProxyJump support)
+    // References another asset's uuid; foreign key relation is enforced at the service layer.
+    try {
+      db.prepare('SELECT jump_host_uuid FROM t_assets LIMIT 1').get()
+    } catch (e) {
+      db.exec('ALTER TABLE t_assets ADD COLUMN jump_host_uuid TEXT')
+      logger.info('Added jump_host_uuid column to t_assets')
+    }
+
     // Add composite unique constraint: asset_ip + username + port + label + asset_type
     try {
       // Always drop old indexes if they exist

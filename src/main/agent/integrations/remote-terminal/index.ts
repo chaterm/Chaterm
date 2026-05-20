@@ -111,6 +111,7 @@ export interface ConnectionInfo {
   proxyName?: string
   ident?: string
   proxyCommand?: string
+  jumpHostUuid?: string
   wakeupTabId?: string
 }
 

@@ -198,59 +198,6 @@
               />
             </a-form-item>
           </template>
-
-          <div>
-            <a-form-item
-              :label="t('personal.proxyConfig')"
-              class="user_my-ant-form-item"
-            >
-              <a-switch
-                :checked="formData.needProxy"
-                class="user_my-ant-form-item-content"
-                @change="handleSshProxyStatusChange"
-              />
-            </a-form-item>
-
-            <a-form-item
-              v-if="formData.needProxy"
-              :label="t('personal.pleaseSelectSshProxy')"
-            >
-              <a-select
-                v-if="sshProxyConfigs && sshProxyConfigs.length > 0"
-                v-model:value="formData.proxyName"
-                :placeholder="t('personal.pleaseSelectSshProxy')"
-                style="width: 100%"
-                show-search
-                :max-tag-count="4"
-                :options="sshProxyConfigs"
-                :option-filter-prop="'label'"
-                :field-names="{ value: 'key', label: 'label' }"
-                :allow-clear="true"
-              >
-              </a-select>
-              <div
-                v-else
-                style="
-                  width: 100%;
-                  padding: 12px;
-                  border: 1px solid var(--border-color);
-                  border-radius: 4px;
-                  text-align: center;
-                  background-color: var(--bg-color);
-                "
-              >
-                <div style="margin-bottom: 8px; color: var(--text-color-secondary)">
-                  {{ t('personal.noProxyConfigFound') }}
-                </div>
-                <a-button
-                  type="link"
-                  size="small"
-                  @click="handleAddProxyConfig"
-                  >{{ t('personal.goToProxyConfig') }}</a-button
-                >
-              </div>
-            </a-form-item>
-          </div>
         </div>
 
         <!-- General information -->
@@ -286,6 +233,82 @@
               >
                 {{ item }}
               </a-select-option>
+            </a-select>
+          </a-form-item>
+        </div>
+
+        <!-- Advanced options -->
+        <div class="form-section">
+          <div class="section-title">
+            <div class="title-indicator"></div>
+            {{ t('personal.advancedOptions') }}
+          </div>
+
+          <a-form-item
+            :label="t('personal.proxyConfig')"
+            class="user_my-ant-form-item"
+          >
+            <a-switch
+              :checked="formData.needProxy"
+              class="user_my-ant-form-item-content"
+              @change="handleSshProxyStatusChange"
+            />
+          </a-form-item>
+
+          <a-form-item
+            v-if="formData.needProxy"
+            :label="t('personal.pleaseSelectSshProxy')"
+          >
+            <a-select
+              v-if="sshProxyConfigs && sshProxyConfigs.length > 0"
+              v-model:value="formData.proxyName"
+              :placeholder="t('personal.pleaseSelectSshProxy')"
+              style="width: 100%"
+              show-search
+              :max-tag-count="4"
+              :options="sshProxyConfigs"
+              :option-filter-prop="'label'"
+              :field-names="{ value: 'key', label: 'label' }"
+              :allow-clear="true"
+            >
+            </a-select>
+            <div
+              v-else
+              style="
+                width: 100%;
+                padding: 12px;
+                border: 1px solid var(--border-color);
+                border-radius: 4px;
+                text-align: center;
+                background-color: var(--bg-color);
+              "
+            >
+              <div style="margin-bottom: 8px; color: var(--text-color-secondary)">
+                {{ t('personal.noProxyConfigFound') }}
+              </div>
+              <a-button
+                type="link"
+                size="small"
+                @click="handleAddProxyConfig"
+                >{{ t('personal.goToProxyConfig') }}</a-button
+              >
+            </div>
+          </a-form-item>
+
+          <a-form-item
+            v-if="formData.asset_type === 'person'"
+            :label="t('personal.jumpHost')"
+          >
+            <a-select
+              v-model:value="formData.jumpHostUuid"
+              :placeholder="t('personal.jumpHostSelect')"
+              style="width: 100%"
+              show-search
+              :options="filteredJumpHostOptions"
+              :option-filter-prop="'label'"
+              :field-names="{ value: 'value', label: 'label' }"
+              :allow-clear="true"
+            >
             </a-select>
           </a-form-item>
         </div>
@@ -375,12 +398,19 @@ onMounted(() => {
   loadBastionDefinitions()
 })
 
+interface JumpHostOption {
+  value: string
+  label: string
+}
+
 interface Props {
   isEditMode?: boolean
   initialData?: Partial<AssetFormData>
   keyChainOptions?: KeyChainItem[]
   sshProxyConfigs?: SshProxyConfigItem[]
   defaultGroups?: string[]
+  jumpHostOptions?: JumpHostOption[]
+  editingAssetUuid?: string | null
 }
 
 const props = withDefaults(defineProps<Props>(), {
@@ -388,8 +418,15 @@ const props = withDefaults(defineProps<Props>(), {
   initialData: () => ({}),
   keyChainOptions: () => [],
   sshProxyConfigs: () => [],
-  defaultGroups: () => ['development', 'production', 'staging', 'testing', 'database']
+  defaultGroups: () => ['development', 'production', 'staging', 'testing', 'database'],
+  jumpHostOptions: () => [],
+  editingAssetUuid: null
 })
+
+// Exclude the asset being edited so it cannot reference itself.
+const filteredJumpHostOptions = computed(() =>
+  (props.jumpHostOptions || []).filter((opt) => !props.editingAssetUuid || opt.value !== props.editingAssetUuid)
+)
 
 const emit = defineEmits<{
   close: []
@@ -476,6 +513,7 @@ const formData = reactive<AssetFormData>({
   asset_type: 'person',
   needProxy: false,
   proxyName: '',
+  jumpHostUuid: '',
   ...props.initialData
 })
 
@@ -673,7 +711,7 @@ const handleSubmit = () => {
   emit('submit', submitData)
 }
 
-const handleSshProxyStatusChange = async (checked) => {
+const handleSshProxyStatusChange = async (checked: boolean) => {
   formData.needProxy = checked
 }
 
@@ -729,6 +767,7 @@ watch(
       asset_type: 'person',
       needProxy: false,
       proxyName: '',
+      jumpHostUuid: '',
       ...newData
     })
     Object.assign(validationErrors, {
