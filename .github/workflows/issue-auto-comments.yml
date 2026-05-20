@@ -22,34 +22,43 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Auto Comment on Issues Closed
-        if: github.event.issue.state == 'closed'
-        uses: wow-actions/auto-comment@2fc064c21cfb2505de3c5c10e1473b8eb7beca1a # v1
-        with:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          issuesClosed: |
-            ✅ @{{ author }}
+        if: github.event_name == 'issues' && github.event.issue.state == 'closed'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          BODY=$(cat <<'EOF'
+          @${{ github.event.issue.user.login }}
 
-            This issue has been closed. If you have any questions or concerns, please feel free to comment and we'll be happy to help!
+          This issue has been closed. If you have any questions or concerns, please feel free to comment and we'll be happy to help!
+          EOF
+          )
+
+          gh api "repos/${{ github.repository }}/issues/${{ github.event.issue.number }}/comments" \
+            --method POST \
+            --field "body=${BODY}"
 
       - name: Auto Comment on Pull Request Merged
-        if: github.event.pull_request.merged == true
-        uses: actions-cool/pr-welcome@db204e23d550b47b449c97f19ddd13367936ffd7 # v1
-        with:
-          token: ${{ secrets.GITHUB_TOKEN }}
-          comment: |
-            ❤️ Great PR @${{ github.event.pull_request.user.login }} ❤️
+        if: github.event_name == 'pull_request_target' && github.event.pull_request.merged == true
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          BODY=$(cat <<'EOF'
+          Great PR @${{ github.event.pull_request.user.login }}
 
-            Thank you for your contribution to Chaterm! The growth of this project is inseparable from community feedback and contributions like yours.
+          Thank you for your contribution to Chaterm! The growth of this project is inseparable from community feedback and contributions like yours.
 
-            We appreciate your time and effort in making Chaterm better! 🎉
-          emoji: 'hooray'
-          pr-emoji: '+1, heart'
+          We appreciate your time and effort in making Chaterm better!
+          EOF
+          )
+
+          gh api "repos/${{ github.repository }}/issues/${{ github.event.pull_request.number }}/comments" \
+            --method POST \
+            --field "body=${BODY}"
 
       - name: Remove inactive label
-        if: github.event.issue.state == 'open' && github.actor == github.event.issue.user.login
-        uses: actions-cool/issues-helper@200c78641dbf33838311e5a1e0c31bbdb92d7cf0 # v3
-        with:
-          actions: 'remove-labels'
-          token: ${{ secrets.GITHUB_TOKEN }}
-          issue-number: ${{ github.event.issue.number }}
-          labels: 'Inactive'
+        if: github.event_name == 'issues' && github.event.issue.state == 'open' && github.actor == github.event.issue.user.login
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh api "repos/${{ github.repository }}/issues/${{ github.event.issue.number }}/labels/Inactive" \
+            --method DELETE
