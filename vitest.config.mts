@@ -1,4 +1,4 @@
-import { defineConfig } from 'vitest/config'
+import { defineConfig, configDefaults } from 'vitest/config'
 import { resolve } from 'path'
 import { readFileSync } from 'fs'
 import vue from '@vitejs/plugin-vue'
@@ -95,6 +95,11 @@ export default defineConfig({
         test: {
           name: 'main-process',
           include: ['src/main/**/*.test.ts', 'src/main/**/*.spec.ts', 'src/shared/**/*.test.ts', 'src/shared/**/*.spec.ts'],
+          // db-assets.test.ts loads better-sqlite3, which is rebuilt against
+          // the Electron ABI by `postinstall` (electron-builder install-app-deps).
+          // Running it under the system Node fails with NODE_MODULE_VERSION
+          // mismatch. Run it via Electron-aware tooling instead.
+          exclude: [...configDefaults.exclude, 'src/main/storage/db/chaterm/__tests__/db-assets.test.ts'],
           environment: 'node'
         },
         plugins: createMainProcessPlugins(),
@@ -122,7 +127,8 @@ export default defineConfig({
             'src/renderer/src/utils/terminalOutputExtractor.test.ts',
             'src/renderer/**/*.component.test.ts' // Exclude component tests from jsdom
           ],
-          environment: 'jsdom'
+          environment: 'jsdom',
+          setupFiles: [resolve('tests/setup-renderer.ts')]
         },
         plugins: createRendererPlugins(),
         resolve: {

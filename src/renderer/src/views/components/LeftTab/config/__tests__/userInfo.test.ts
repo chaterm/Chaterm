@@ -128,6 +128,15 @@ vi.mock('@/utils/edition', () => ({
   isChineseEdition: vi.fn(() => false)
 }))
 
+// Mock permission utils to avoid pulling main.ts (and its ant-design-vue / sync side effects) into the test graph
+vi.mock('@/utils/permission', () => ({
+  setUserInfo: vi.fn(),
+  getUserInfo: vi.fn(() => ({})),
+  removeToken: vi.fn(),
+  CtmTokenKey: 'Ctm-Token',
+  getLoginUrl: vi.fn(() => '')
+}))
+
 describe('UserInfo Component', () => {
   let wrapper: VueWrapper<any>
   let pinia: ReturnType<typeof createPinia>

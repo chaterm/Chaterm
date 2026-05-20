@@ -1165,6 +1165,8 @@ export default {
     uploadCancel: 'رفع ملغي',
     downloadSkipped: 'تحميل ملغي',
     taskList: 'قائمة التحويل',
+    collapseTransferList: 'طي قائمة النقل',
+    expandTransferList: 'توسيع قائمة النقل',
     upload: 'رفع',
     copyFileSuccess: 'نسخة ناجحة',
     copyFileFailed: 'نسخة غير ناجحة',

@@ -100,7 +100,7 @@ import { ensureTransferListener } from '@views/components/Files/fileTransfer'
 
 import SearchComp from './components/searchComp.vue'
 
-import type { ILink, ILinkProvider } from '@xterm/xterm'
+import type { IBufferLine, ILink, ILinkProvider } from '@xterm/xterm'
 import { IDisposable, Terminal } from '@xterm/xterm'
 import ZmodemProgress from './utils/zmodemProgress.vue'
 import Context from './components/contextComp.vue'
@@ -494,8 +494,80 @@ const getUserInfo = async () => {
   }
 }
 const isMac = navigator.platform.toUpperCase().indexOf('MAC') >= 0
+const preserveSelectionOnCtrlLinkRelease = ref(false)
+
+const isSelectAllShortcut = (e: KeyboardEvent): boolean => {
+  if (e.key.toLowerCase() !== 'a') return false
+  if (isMac) return e.metaKey
+  return e.ctrlKey && !e.metaKey
+}
+
+const handleSelectAllShortcut = (e: KeyboardEvent): boolean => {
+  if (!isSelectAllShortcut(e)) return false
+  if (!canLinkify() || !isTerminalKeyboardTarget(e)) return false
+  e.preventDefault()
+  e.stopPropagation()
+  preserveSelectionOnCtrlLinkRelease.value = true
+  selectTerminalContent()
+  return true
+}
+
+const isTerminalKeyboardTarget = (e: KeyboardEvent): boolean => {
+  const target = e.target as Node | null
+  const activeElement = document.activeElement
+  const container = terminalContainer.value || terminalElement.value?.closest('.terminal-container')
+
+  if (!container) return false
+  return (!!target && container.contains(target)) || (!!activeElement && container.contains(activeElement))
+}
+
+const getLastContentColumn = (line: IBufferLine, cols: number): number => {
+  const maxColumn = Math.min(line.length, cols)
+  for (let column = maxColumn - 1; column >= 0; column--) {
+    const cell = line.getCell(column)
+    const chars = cell?.getChars() ?? ''
+    if (chars.trim().length > 0) {
+      return Math.min(column + Math.max(cell?.getWidth() || 1, 1), cols)
+    }
+  }
+  return 0
+}
+
+const selectTerminalContent = () => {
+  const termInstance = terminal.value
+  if (!termInstance) return
+
+  const buffer = termInstance.buffer.active
+  let firstContentLine = -1
+  let lastContentLine = -1
+  let lastContentColumn = 0
+
+  for (let lineIndex = 0; lineIndex < buffer.length; lineIndex++) {
+    const line = buffer.getLine(lineIndex)
+    if (!line) continue
+
+    const contentColumn = getLastContentColumn(line, termInstance.cols)
+    if (contentColumn === 0) continue
+
+    if (firstContentLine === -1) {
+      firstContentLine = lineIndex
+    }
+    lastContentLine = lineIndex
+    lastContentColumn = contentColumn
+  }
+
+  if (firstContentLine === -1 || lastContentLine === -1 || lastContentColumn === 0) {
+    termInstance.clearSelection()
+    showAiButton.value = false
+    return
+  }
+
+  const selectionLength = (lastContentLine - firstContentLine) * termInstance.cols + lastContentColumn
+  termInstance.select(0, firstContentLine, selectionLength)
+}
 
 const handleMetaKeyDown = (e: KeyboardEvent) => {
+  if (handleSelectAllShortcut(e)) return
   if (e.key !== 'Meta') return
   if (!canLinkify()) return
   setCtrlLinkPressed(true)
@@ -503,8 +575,12 @@ const handleMetaKeyDown = (e: KeyboardEvent) => {
 
 const handleMetaKeyUp = (e: KeyboardEvent) => {
   if (e.key !== 'Meta') return
-  if (!ctrlLinkPressed.value) return
-  setCtrlLinkPressed(false)
+  if (!ctrlLinkPressed.value) {
+    preserveSelectionOnCtrlLinkRelease.value = false
+    return
+  }
+  setCtrlLinkPressed(false, { preserveSelection: preserveSelectionOnCtrlLinkRelease.value })
+  preserveSelectionOnCtrlLinkRelease.value = false
 }
 
 onMounted(async () => {
@@ -573,21 +649,21 @@ onMounted(async () => {
 
   // Ctrl key monitoring
   if (isMac) {
-    window.addEventListener('keydown', handleMetaKeyDown)
-    window.addEventListener('keyup', handleMetaKeyUp)
+    window.addEventListener('keydown', handleMetaKeyDown, true)
+    window.addEventListener('keyup', handleMetaKeyUp, true)
   } else {
-    window.addEventListener('keydown', handleCtrlKeyDown)
-    window.addEventListener('keyup', handleCtrlKeyUp)
+    window.addEventListener('keydown', handleCtrlKeyDown, true)
+    window.addEventListener('keyup', handleCtrlKeyUp, true)
   }
 
   window.addEventListener('blur', () => setCtrlLinkPressed(false))
   cleanupListeners.value.push(() => {
     if (isMac) {
-      window.removeEventListener('keydown', handleMetaKeyDown)
-      window.removeEventListener('keyup', handleMetaKeyUp)
+      window.removeEventListener('keydown', handleMetaKeyDown, true)
+      window.removeEventListener('keyup', handleMetaKeyUp, true)
     } else {
-      window.removeEventListener('keydown', handleCtrlKeyDown)
-      window.removeEventListener('keyup', handleCtrlKeyUp)
+      window.removeEventListener('keydown', handleCtrlKeyDown, true)
+      window.removeEventListener('keyup', handleCtrlKeyUp, true)
     }
   })
 
@@ -5374,7 +5450,7 @@ const canLinkify = (): boolean => {
 //   ctrlOverlay = overlay
 // }
 
-const setCtrlLinkPressed = (v: boolean) => {
+const setCtrlLinkPressed = (v: boolean, options: { preserveSelection?: boolean } = {}) => {
   if (ctrlLinkPressed.value === v) return
   ctrlLinkPressed.value = v
 
@@ -5388,21 +5464,28 @@ const setCtrlLinkPressed = (v: boolean) => {
     // applyCtrlOverlay()
   } else {
     // clearCtrlOverlay()
-    terminal.value?.clearSelection()
-    showAiButton.value = false
+    if (!options.preserveSelection) {
+      terminal.value?.clearSelection()
+      showAiButton.value = false
+    }
   }
 }
 
 // Ctrl key listener
 const handleCtrlKeyDown = (e: KeyboardEvent) => {
+  if (handleSelectAllShortcut(e)) return
   if (e.key !== 'Control') return
   if (!canLinkify()) return
   setCtrlLinkPressed(true)
 }
 const handleCtrlKeyUp = (e: KeyboardEvent) => {
   if (e.key !== 'Control') return
-  if (!ctrlLinkPressed.value) return
-  setCtrlLinkPressed(false)
+  if (!ctrlLinkPressed.value) {
+    preserveSelectionOnCtrlLinkRelease.value = false
+    return
+  }
+  setCtrlLinkPressed(false, { preserveSelection: preserveSelectionOnCtrlLinkRelease.value })
+  preserveSelectionOnCtrlLinkRelease.value = false
 }
 
 type LsBlock = {
