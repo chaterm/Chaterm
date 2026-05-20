@@ -390,7 +390,12 @@ export const useK8sStore = defineStore('k8s', () => {
             clusterId: cluster.id,
             contextName: cluster.context_name,
             kubeconfigPath: cluster.kubeconfig_path || undefined,
-            kubeconfigContent: cluster.kubeconfig_content || undefined
+            kubeconfigContent: cluster.kubeconfig_content || undefined,
+            sourceType: cluster.source_type || 'local',
+            bastionUuid: cluster.bastion_uuid || undefined,
+            bastionAssetAddress: cluster.bastion_asset_address || undefined,
+            bastionAssetName: cluster.bastion_asset_name || undefined,
+            bastionAssetIdLast: cluster.bastion_asset_id_last ?? null
           })
 
           // Apply proxy configuration to Agent if enabled

@@ -131,6 +131,8 @@ export default {
     run: 'Запустить',
     jumpserverSupportPlugin: 'Поддержка Jumpserver',
     noSearchResults: 'Нет результатов поиска',
+    previous: 'Предыдущая',
+    next: 'Следующая',
     database: 'База данных'
   },
   term: {
@@ -1517,7 +1519,12 @@ export default {
       mfaFailed: 'Двухфакторная аутентификация не удалась',
       multipleUsersDetected: 'Обнаружено несколько пользовательских учетных записей, пожалуйста, выберите...',
       connectingWithSelectedAccount: 'Соединение с выбранным учетным записями...',
-      userSelectionCanceled: 'Выбор пользовательского учетного записи отменен'
+      userSelectionCanceled: 'Выбор пользовательского учетного записи отменен',
+      syncFromJumpServer: 'Синхронизировать K8s ресурсы JumpServer',
+      sourceTag: 'JumpServer',
+      noBastion: 'Бастион не настроен, сначала настройте в SSH',
+      syncSuccess: 'Синхронизация завершена, добавлено {inserted}, обновлено {updated}',
+      syncFailed: 'Ошибка синхронизации'
     },
     qizhi: {
       connectingToBastionHost: 'Подключение к бастион-хосту Qizhi...',
@@ -1616,7 +1623,7 @@ export default {
     milliseconds: 'миллисекунды'
   },
   mcp: {
-    title: 'Инструменты & MCP',
+    title: 'MCP',
     description: 'Управление соединениями MCP серверов для расширения возможностей AI',
     serverList: 'MCP сервера',
     addServer: 'Добавить сервер',
@@ -1820,6 +1827,7 @@ export default {
       addCluster: 'Добавить кластер',
       clusterAdded: 'Кластер успешно добавлен',
       noClusters: 'Кластеры не настроены',
+      localClusters: 'Локальные кластеры',
       noTerminal: 'Нет открытых сеансов терминала',
       createTerminal: 'Создать терминал',
       selectClusterFirst: 'Сначала выберите кластер',
@@ -1871,6 +1879,14 @@ export default {
       active: 'Активный',
       selectClusterToEdit: 'Выберите кластер для просмотра и редактирования',
       k8sClusterConfig: 'Управление кластерами'
+    },
+    jumpserver: {
+      bastionResources: 'Ресурсы бастиона',
+      syncFromJumpServer: 'Синхронизировать K8s ресурсы JumpServer',
+      sourceTag: 'JumpServer',
+      noBastion: 'Бастион не настроен, сначала настройте в SSH',
+      syncSuccess: 'Синхронизация завершена, добавлено {inserted}, обновлено {updated}',
+      syncFailed: 'Ошибка синхронизации'
     }
   },
   database: {

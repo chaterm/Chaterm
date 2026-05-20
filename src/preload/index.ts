@@ -1661,8 +1661,17 @@ const api = {
   // K8S Agent API
   // ============================================================================
 
-  k8sAgentSetCluster: (params: { clusterId: string; contextName: string; kubeconfigPath?: string; kubeconfigContent?: string }) =>
-    ipcRenderer.invoke('k8s:agent:set-cluster', params),
+  k8sAgentSetCluster: (params: {
+    clusterId: string
+    contextName: string
+    kubeconfigPath?: string
+    kubeconfigContent?: string
+    sourceType?: string
+    bastionUuid?: string
+    bastionAssetAddress?: string
+    bastionAssetName?: string
+    bastionAssetIdLast?: number | null
+  }) => ipcRenderer.invoke('k8s:agent:set-cluster', params),
 
   k8sAgentSetProxy: (
     proxyConfig: {
@@ -1697,6 +1706,8 @@ const api = {
   k8sAgentGetCurrentCluster: () => ipcRenderer.invoke('k8s:agent:get-current-cluster'),
 
   k8sAgentCleanup: () => ipcRenderer.invoke('k8s:agent:cleanup'),
+
+  k8sJumpserverSyncAssets: (params: { bastionUuid: string }) => ipcRenderer.invoke('k8s:jumpserver:sync-assets', params),
 
   // ============================================================================
   // Interactive Command Execution API

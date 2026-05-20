@@ -29,11 +29,22 @@ export function registerK8sAgentHandlers(): void {
         contextName: string
         kubeconfigPath?: string
         kubeconfigContent?: string
+        sourceType?: string
+        bastionUuid?: string
+        bastionAssetAddress?: string
+        bastionAssetName?: string
+        bastionAssetIdLast?: number | null
       }
     ) => {
       try {
-        logger.info('[K8s Agent IPC] Setting current cluster', { clusterId: params.clusterId })
-        await k8sAgent.setCurrentCluster(params.clusterId, params.contextName, params.kubeconfigPath, params.kubeconfigContent)
+        logger.info('[K8s Agent IPC] Setting current cluster', { clusterId: params.clusterId, sourceType: params.sourceType })
+        await k8sAgent.setCurrentCluster(params.clusterId, params.contextName, params.kubeconfigPath, params.kubeconfigContent, {
+          sourceType: params.sourceType as 'local' | 'jumpserver' | undefined,
+          bastionUuid: params.bastionUuid,
+          bastionAssetAddress: params.bastionAssetAddress,
+          bastionAssetName: params.bastionAssetName,
+          bastionAssetIdLast: params.bastionAssetIdLast
+        })
         return { success: true }
       } catch (error) {
         logger.error('[K8s Agent IPC] Failed to set cluster', { error })

@@ -908,6 +908,11 @@ interface ApiType {
     contextName: string
     kubeconfigPath?: string
     kubeconfigContent?: string
+    sourceType?: string
+    bastionUuid?: string
+    bastionAssetAddress?: string
+    bastionAssetName?: string
+    bastionAssetIdLast?: number | null
   }) => Promise<{ success: boolean; error?: string }>
 
   /**
@@ -1025,6 +1030,15 @@ interface ApiType {
    * Cleanup K8S Agent resources
    */
   k8sAgentCleanup: () => Promise<{ success: boolean; error?: string }>
+
+  /**
+   * Sync all JumpServer K8s assets into k8s_clusters via upsert
+   */
+  k8sJumpserverSyncAssets: (params: { bastionUuid: string }) => Promise<{
+    success: boolean
+    data?: { inserted: number; updated: number; total: number }
+    error?: string
+  }>
 
   // ============================================================================
   // Interactive Command Execution API

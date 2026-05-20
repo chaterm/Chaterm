@@ -131,6 +131,8 @@ export default {
     run: 'تنفيذ',
     jumpserverSupportPlugin: 'دعم Jumpserver',
     noSearchResults: 'لا يوجد نتائج البحث',
+    previous: 'السابق',
+    next: 'التالي',
     database: 'قاعدة البيانات'
   },
   term: {
@@ -1507,7 +1509,12 @@ export default {
       mfaFailed: 'فشل المصادقة الثنائية',
       multipleUsersDetected: 'تم الكشف عن حسابات مستخدم متعددة, الرجاء الاختيار...',
       connectingWithSelectedAccount: 'يتم الاتصال بالحساب المختار...',
-      userSelectionCanceled: 'تم إلغاء اختيار الحساب'
+      userSelectionCanceled: 'تم إلغاء اختيار الحساب',
+      syncFromJumpServer: 'مزامنة أصول K8s من JumpServer',
+      sourceTag: 'JumpServer',
+      noBastion: 'لا توجد قلعة مكونة، يرجى الإعداد في SSH أولاً',
+      syncSuccess: 'اكتملت المزامنة، تمت إضافة {inserted}، تم تحديث {updated}',
+      syncFailed: 'فشلت المزامنة'
     },
     qizhi: {
       connectingToBastionHost: 'يتم الاتصال بالخادم البعيد...',
@@ -1606,7 +1613,7 @@ export default {
     milliseconds: 'ملي ثانية'
   },
   mcp: {
-    title: 'الأدوات و MCP',
+    title: 'MCP',
     description: 'إدارة اتصالات الخوادم MCP لتوسيع قدرات الذكاء الاصطناعي',
     serverList: 'الخوادم MCP',
     addServer: 'إضافة الخادم',
@@ -1797,6 +1804,7 @@ export default {
       addCluster: 'إضافة مجموعة',
       clusterAdded: 'تمت إضافة المجموعة بنجاح',
       noClusters: 'لا توجد مجموعات مكونة',
+      localClusters: 'المجموعات المحلية',
       noTerminal: 'لا توجد جلسة طرفية مفتوحة',
       createTerminal: 'إنشاء طرفية',
       selectClusterFirst: 'الرجاء اختيار مجموعة أولاً',
@@ -1848,6 +1856,14 @@ export default {
       active: 'نشط',
       selectClusterToEdit: 'حدد مجموعة لعرض التفاصيل وتعديلها',
       k8sClusterConfig: 'إدارة المجموعات'
+    },
+    jumpserver: {
+      bastionResources: 'موارد القلعة',
+      syncFromJumpServer: 'مزامنة أصول K8s من JumpServer',
+      sourceTag: 'JumpServer',
+      noBastion: 'لا توجد قلعة مكونة، يرجى الإعداد في SSH أولاً',
+      syncSuccess: 'اكتملت المزامنة، تمت إضافة {inserted}، تم تحديث {updated}',
+      syncFailed: 'فشلت المزامنة'
     }
   },
   database: {

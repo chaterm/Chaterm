@@ -84,6 +84,7 @@ import {
   addK8sTerminalSessionLogic,
   removeK8sTerminalSessionLogic,
   removeAllK8sTerminalSessionsLogic,
+  upsertJumpserverK8sClustersLogic,
   type K8sClusterRecord,
   type K8sTerminalSessionRecord
 } from './chaterm/k8s-clusters'
@@ -652,6 +653,11 @@ export class ChatermDatabaseService {
     authType?: string
     autoConnect?: boolean
     defaultNamespace?: string
+    sourceType?: string
+    bastionUuid?: string
+    bastionAssetAddress?: string
+    bastionAssetName?: string
+    bastionAssetIdLast?: number
   }): { success: boolean; id?: string; error?: string } {
     try {
       return addK8sClusterLogic(this.db, params)
@@ -677,6 +683,11 @@ export class ChatermDatabaseService {
       connectionStatus?: string
       autoConnect?: boolean
       defaultNamespace?: string
+      sourceType?: string
+      bastionUuid?: string
+      bastionAssetAddress?: string
+      bastionAssetName?: string
+      bastionAssetIdLast?: number
     }
   ): { success: boolean; error?: string } {
     try {
@@ -769,6 +780,13 @@ export class ChatermDatabaseService {
       logger.error('ChatermDatabaseService.removeAllK8sTerminalSessions error', { error: error })
       return { success: false, error: error instanceof Error ? error.message : 'Unknown error' }
     }
+  }
+
+  upsertJumpserverK8sClusters(
+    bastionUuid: string,
+    assets: Array<{ id: number; name: string; address: string }>
+  ): { inserted: number; updated: number } {
+    return upsertJumpserverK8sClustersLogic(this.db, bastionUuid, assets)
   }
 
   // ==================== Database Asset Management Methods ====================

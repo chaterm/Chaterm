@@ -245,12 +245,12 @@ describe('K8s Cluster Config Component', () => {
       expect(names[2].text()).toContain('Production')
     })
 
-    it('should display context names', () => {
+    it('should display server urls', () => {
       wrapper = createWrapper()
       const contexts = wrapper.findAll('.cluster-context')
-      expect(contexts[0].text()).toBe('ctx1')
-      expect(contexts[1].text()).toBe('ctx2')
-      expect(contexts[2].text()).toBe('prod')
+      expect(contexts[0].text()).toBe('https://localhost:6443')
+      expect(contexts[1].text()).toBe('https://localhost:6444')
+      expect(contexts[2].text()).toBe('https://prod.example.com:6443')
     })
 
     it('should display active tag for active cluster', () => {
@@ -286,7 +286,7 @@ describe('K8s Cluster Config Component', () => {
 
       const items = wrapper.findAll('.cluster-item')
       expect(items.length).toBe(1)
-      expect(items[0].find('.cluster-context').text()).toBe('ctx2')
+      expect(items[0].find('.cluster-context').text()).toBe('https://localhost:6444')
     })
 
     it('should be case insensitive', async () => {

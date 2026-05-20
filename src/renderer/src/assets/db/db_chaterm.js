@@ -322,6 +322,44 @@ CREATE INDEX IF NOT EXISTS idx_db_asset_groups_user_id ON db_asset_groups(user_i
 CREATE INDEX IF NOT EXISTS idx_db_asset_groups_parent_id ON db_asset_groups(parent_id);
 CREATE INDEX IF NOT EXISTS idx_db_asset_groups_user_deleted ON db_asset_groups(user_id, deleted_at);
 
+-- K8s 集群表
+CREATE TABLE IF NOT EXISTS k8s_clusters (
+  id TEXT PRIMARY KEY,
+  name TEXT NOT NULL,
+  kubeconfig_path TEXT,
+  kubeconfig_content TEXT,
+  context_name TEXT NOT NULL,
+  server_url TEXT NOT NULL,
+  auth_type TEXT DEFAULT 'kubeconfig',
+  is_active INTEGER DEFAULT 0,
+  connection_status TEXT DEFAULT 'disconnected',
+  auto_connect INTEGER DEFAULT 0,
+  default_namespace TEXT DEFAULT 'default',
+  source_type TEXT DEFAULT 'local',              -- 来源类型: local/jumpserver
+  bastion_uuid TEXT,                             -- 堡垒机UUID
+  bastion_asset_address TEXT,                    -- 堡垒机资产地址
+  bastion_asset_name TEXT,                       -- 堡垒机资产名称
+  bastion_asset_id_last INTEGER,                 -- 堡垒机资产最后ID
+  created_at TEXT DEFAULT (datetime('now')),
+  updated_at TEXT DEFAULT (datetime('now'))
+);
+CREATE INDEX IF NOT EXISTS idx_k8s_clusters_context_name ON k8s_clusters(context_name);
+CREATE INDEX IF NOT EXISTS idx_k8s_clusters_is_active ON k8s_clusters(is_active);
+CREATE INDEX IF NOT EXISTS idx_k8s_clusters_source_type ON k8s_clusters(source_type);
+CREATE INDEX IF NOT EXISTS idx_k8s_clusters_bastion_identity ON k8s_clusters(bastion_uuid, bastion_asset_address, bastion_asset_name);
+
+-- K8s 终端会话表
+CREATE TABLE IF NOT EXISTS k8s_terminal_sessions (
+  id TEXT PRIMARY KEY,
+  cluster_id TEXT NOT NULL,
+  name TEXT,
+  namespace TEXT DEFAULT 'default',
+  created_at TEXT DEFAULT (datetime('now')),
+  updated_at TEXT DEFAULT (datetime('now')),
+  FOREIGN KEY (cluster_id) REFERENCES k8s_clusters(id) ON DELETE CASCADE
+);
+CREATE INDEX IF NOT EXISTS idx_k8s_terminal_sessions_cluster_id ON k8s_terminal_sessions(cluster_id);
+
 `)
 
 console.log('数据库创建成功，表已创建')
