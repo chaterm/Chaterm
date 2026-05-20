@@ -1617,7 +1617,7 @@ export default {
     milliseconds: 'milissegundos'
   },
   mcp: {
-    title: 'Ferramentas & MCP',
+    title: 'MCP',
     description: 'Gerencie as conexões do servidor MCP para estender as capacidades da IA',
     serverList: 'Servidores MCP',
     addServer: 'Adicionar Servidor',

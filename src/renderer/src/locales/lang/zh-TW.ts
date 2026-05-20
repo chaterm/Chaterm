@@ -1588,7 +1588,7 @@ export default {
     milliseconds: '毫秒數'
   },
   mcp: {
-    title: '工具與 MCP',
+    title: 'MCP',
     description: '管理 MCP 服務器連接，擴展 AI 能力',
     serverList: 'MCP 服務器',
     addServer: '添加伺服器',

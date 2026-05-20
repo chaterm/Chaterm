@@ -1603,7 +1603,7 @@ export default {
     milliseconds: 'ملي ثانية'
   },
   mcp: {
-    title: 'الأدوات و MCP',
+    title: 'MCP',
     description: 'إدارة اتصالات الخوادم MCP لتوسيع قدرات الذكاء الاصطناعي',
     serverList: 'الخوادم MCP',
     addServer: 'إضافة الخادم',
