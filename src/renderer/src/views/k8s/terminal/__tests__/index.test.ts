@@ -286,13 +286,13 @@ describe('K8s Terminal Sidebar Component', () => {
     })
 
     describe('Click Cluster', () => {
-      it('should connect to cluster and emit event on click', async () => {
+      it('should emit event immediately on click', async () => {
         wrapper = createWrapper()
         const clusterItem = wrapper.findComponent({ name: 'ClusterItem' })
         await clusterItem.vm.$emit('select')
         await nextTick()
 
-        expect(mockK8sStore.connectCluster).toHaveBeenCalledWith('c1')
+        expect(mockK8sStore.connectCluster).not.toHaveBeenCalled()
         expect(mockEventBus.emit).toHaveBeenCalledWith(
           'currentClickServer',
           expect.objectContaining({
@@ -302,14 +302,22 @@ describe('K8s Terminal Sidebar Component', () => {
         )
       })
 
-      it('should show error message when connect fails', async () => {
+      it('should still open tab event even if connectCluster mock fails', async () => {
         mockK8sStore.connectCluster.mockResolvedValue({ success: false, error: 'Connection failed' })
         wrapper = createWrapper()
         const clusterItem = wrapper.findComponent({ name: 'ClusterItem' })
         await clusterItem.vm.$emit('select')
         await nextTick()
 
-        expect(message.error).toHaveBeenCalledWith('Connection failed')
+        expect(mockK8sStore.connectCluster).not.toHaveBeenCalled()
+        expect(message.error).not.toHaveBeenCalled()
+        expect(mockEventBus.emit).toHaveBeenCalledWith(
+          'currentClickServer',
+          expect.objectContaining({
+            key: 'k8s-c1',
+            type: 'k8s'
+          })
+        )
       })
     })
 

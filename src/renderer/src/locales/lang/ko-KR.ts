@@ -129,7 +129,9 @@ export default {
     daysAgo: ' 일 전',
     run: '실행',
     jumpserverSupportPlugin: 'Jumpserver Support',
-    noSearchResults: '검색 결과 없음'
+    noSearchResults: '검색 결과 없음',
+    previous: '이전',
+    next: '다음'
   },
   term: {
     welcome: 'Chaterm 사용을 환영합니다',
@@ -1318,7 +1320,12 @@ export default {
       mfaFailed: '2단계 인증 실패',
       multipleUsersDetected: '여러 사용자 계정이 감지되었습니다. 선택해주세요...',
       connectingWithSelectedAccount: '선택한 계정으로 연결 중...',
-      userSelectionCanceled: '사용자 선택이 취소되었습니다'
+      userSelectionCanceled: '사용자 선택이 취소되었습니다',
+      syncFromJumpServer: 'JumpServer K8s 자산 동기화',
+      sourceTag: 'JumpServer',
+      noBastion: '배스천이 없습니다. SSH에서 먼저 설정하세요',
+      syncSuccess: '동기화 완료, {inserted}개 추가, {updated}개 업데이트',
+      syncFailed: '동기화 실패'
     },
     qizhi: {
       connectingToBastionHost: 'Qizhi 배스천 호스트에 연결 중...',
@@ -1605,6 +1612,7 @@ export default {
       addCluster: '클러스터 추가',
       clusterAdded: '클러스터가 추가되었습니다',
       noClusters: '구성된 클러스터가 없습니다',
+      localClusters: '로컬 클러스터',
       noTerminal: '열린 터미널 세션이 없습니다',
       createTerminal: '터미널 생성',
       selectClusterFirst: '먼저 클러스터를 선택하세요',
@@ -1656,6 +1664,14 @@ export default {
       active: '활성',
       selectClusterToEdit: '클러스터를 선택하여 세부 정보 보기 및 편집',
       k8sClusterConfig: '클러스터 관리'
+    },
+    jumpserver: {
+      bastionResources: '배스천 리소스',
+      syncFromJumpServer: 'JumpServer K8s 자산 동기화',
+      sourceTag: 'JumpServer',
+      noBastion: '배스천이 없습니다. SSH에서 먼저 설정하세요',
+      syncSuccess: '동기화 완료, {inserted}개 추가, {updated}개 업데이트',
+      syncFailed: '동기화 실패'
     }
   },
   database: {

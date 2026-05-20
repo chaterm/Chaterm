@@ -150,7 +150,12 @@ describe('K8s Store', () => {
           auto_connect: 1,
           default_namespace: 'default',
           created_at: '2024-01-01',
-          updated_at: '2024-01-01'
+          updated_at: '2024-01-01',
+          source_type: 'kubeconfig',
+          bastion_uuid: null,
+          bastion_asset_address: null,
+          bastion_asset_name: null,
+          bastion_asset_id_last: null
         }
         store.clusters = [cluster]
         store.activeClusterId = 'c1'

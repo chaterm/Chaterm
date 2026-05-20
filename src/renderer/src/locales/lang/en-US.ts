@@ -130,7 +130,9 @@ export default {
     run: 'Run',
     jumpserverSupportPlugin: 'Jumpserver Support',
     noSearchResults: 'No search results',
-    database: 'Database'
+    database: 'Database',
+    previous: 'Previous',
+    next: 'Next'
   },
   term: {
     welcome: 'Welcome to use Chaterm',
@@ -1330,7 +1332,12 @@ export default {
       mfaFailed: 'Two-factor authentication failed',
       multipleUsersDetected: 'Multiple user accounts detected, please select...',
       connectingWithSelectedAccount: 'Connecting with selected account...',
-      userSelectionCanceled: 'User selection cancelled'
+      userSelectionCanceled: 'User selection cancelled',
+      syncFromJumpServer: 'Sync JumpServer K8s Assets',
+      sourceTag: 'JumpServer',
+      noBastion: 'No bastion configured, please set up in SSH first',
+      syncSuccess: 'Sync complete, {inserted} added, {updated} updated',
+      syncFailed: 'Sync failed'
     },
     qizhi: {
       connectingToBastionHost: 'Connecting to Qizhi bastion host...',
@@ -1620,6 +1627,7 @@ export default {
       addCluster: 'Add Cluster',
       clusterAdded: 'Cluster added successfully',
       noClusters: 'No clusters configured',
+      localClusters: 'Local Clusters',
       noTerminal: 'No terminal session open',
       createTerminal: 'Create Terminal',
       selectClusterFirst: 'Please select a cluster first',
@@ -1671,6 +1679,14 @@ export default {
       active: 'Active',
       selectClusterToEdit: 'Select a cluster to view and edit details',
       k8sClusterConfig: 'Cluster Management'
+    },
+    jumpserver: {
+      bastionResources: 'Bastion Resources',
+      syncFromJumpServer: 'Sync JumpServer K8s Assets',
+      sourceTag: 'JumpServer',
+      noBastion: 'No bastion configured, please set up in SSH first',
+      syncSuccess: 'Sync complete, {inserted} added, {updated} updated',
+      syncFailed: 'Sync failed'
     }
   },
   database: {

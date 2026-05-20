@@ -20,6 +20,11 @@ export interface K8sClusterRecord {
   connection_status: string
   auto_connect: number
   default_namespace: string
+  source_type: string
+  bastion_uuid: string | null
+  bastion_asset_address: string | null
+  bastion_asset_name: string | null
+  bastion_asset_id_last: number | null
   created_at: string
   updated_at: string
 }
@@ -44,6 +49,7 @@ export function listK8sClustersLogic(db: Database.Database): K8sClusterRecord[] 
     const stmt = db.prepare(`
       SELECT id, name, kubeconfig_path, kubeconfig_content, context_name, server_url,
              auth_type, is_active, connection_status, auto_connect, default_namespace,
+             source_type, bastion_uuid, bastion_asset_address, bastion_asset_name, bastion_asset_id_last,
              created_at, updated_at
       FROM k8s_clusters
       ORDER BY created_at DESC
@@ -63,6 +69,7 @@ export function getK8sClusterLogic(db: Database.Database, id: string): K8sCluste
     const stmt = db.prepare(`
       SELECT id, name, kubeconfig_path, kubeconfig_content, context_name, server_url,
              auth_type, is_active, connection_status, auto_connect, default_namespace,
+             source_type, bastion_uuid, bastion_asset_address, bastion_asset_name, bastion_asset_id_last,
              created_at, updated_at
       FROM k8s_clusters
       WHERE id = ?
@@ -88,6 +95,11 @@ export function addK8sClusterLogic(
     authType?: string
     autoConnect?: boolean
     defaultNamespace?: string
+    sourceType?: string
+    bastionUuid?: string
+    bastionAssetAddress?: string
+    bastionAssetName?: string
+    bastionAssetIdLast?: number
   }
 ): { success: boolean; id?: string; error?: string } {
   try {
@@ -95,8 +107,9 @@ export function addK8sClusterLogic(
     const stmt = db.prepare(`
       INSERT INTO k8s_clusters (
         id, name, kubeconfig_path, kubeconfig_content, context_name, server_url,
-        auth_type, is_active, connection_status, auto_connect, default_namespace
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, 0, 'disconnected', ?, ?)
+        auth_type, is_active, connection_status, auto_connect, default_namespace,
+        source_type, bastion_uuid, bastion_asset_address, bastion_asset_name, bastion_asset_id_last
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, 0, 'disconnected', ?, ?, ?, ?, ?, ?, ?)
     `)
 
     stmt.run(
@@ -108,7 +121,12 @@ export function addK8sClusterLogic(
       params.serverUrl,
       params.authType || 'kubeconfig',
       params.autoConnect ? 1 : 0,
-      params.defaultNamespace || 'default'
+      params.defaultNamespace || 'default',
+      params.sourceType || 'local',
+      params.bastionUuid || null,
+      params.bastionAssetAddress || null,
+      params.bastionAssetName || null,
+      params.bastionAssetIdLast ?? null
     )
 
     logger.info('K8S cluster added', { id, name: params.name })
@@ -136,6 +154,11 @@ export function updateK8sClusterLogic(
     connectionStatus?: string
     autoConnect?: boolean
     defaultNamespace?: string
+    sourceType?: string
+    bastionUuid?: string
+    bastionAssetAddress?: string
+    bastionAssetName?: string
+    bastionAssetIdLast?: number
   }
 ): { success: boolean; error?: string } {
   try {
@@ -181,6 +204,26 @@ export function updateK8sClusterLogic(
     if (params.defaultNamespace !== undefined) {
       updates.push('default_namespace = ?')
       values.push(params.defaultNamespace)
+    }
+    if (params.sourceType !== undefined) {
+      updates.push('source_type = ?')
+      values.push(params.sourceType)
+    }
+    if (params.bastionUuid !== undefined) {
+      updates.push('bastion_uuid = ?')
+      values.push(params.bastionUuid || null)
+    }
+    if (params.bastionAssetAddress !== undefined) {
+      updates.push('bastion_asset_address = ?')
+      values.push(params.bastionAssetAddress || null)
+    }
+    if (params.bastionAssetName !== undefined) {
+      updates.push('bastion_asset_name = ?')
+      values.push(params.bastionAssetName || null)
+    }
+    if (params.bastionAssetIdLast !== undefined) {
+      updates.push('bastion_asset_id_last = ?')
+      values.push(params.bastionAssetIdLast)
     }
 
     if (updates.length === 0) {
@@ -353,4 +396,57 @@ export function removeAllK8sTerminalSessionsLogic(db: Database.Database, cluster
     logger.error('Failed to remove K8S terminal sessions', { error: error })
     return { success: false, error: error instanceof Error ? error.message : 'Unknown error' }
   }
+}
+
+/**
+ * Upsert a batch of JumpServer K8s assets into k8s_clusters.
+ * Match key: (bastion_uuid, bastion_asset_address, bastion_asset_name).
+ * On match: update name, server_url, bastion_asset_id_last.
+ * On no match: insert new record with source_type='jumpserver'.
+ * Returns counts of inserted and updated records.
+ */
+export function upsertJumpserverK8sClustersLogic(
+  db: Database.Database,
+  bastionUuid: string,
+  assets: Array<{ id: number; name: string; address: string }>
+): { inserted: number; updated: number } {
+  let inserted = 0
+  let updated = 0
+
+  const selectStmt = db.prepare(`
+    SELECT id FROM k8s_clusters
+    WHERE bastion_uuid = ? AND bastion_asset_address = ? AND bastion_asset_name = ?
+  `)
+
+  const updateStmt = db.prepare(`
+    UPDATE k8s_clusters
+    SET name = ?, context_name = ?, server_url = ?, bastion_asset_id_last = ?, updated_at = datetime('now')
+    WHERE bastion_uuid = ? AND bastion_asset_address = ? AND bastion_asset_name = ?
+  `)
+
+  const insertStmt = db.prepare(`
+    INSERT INTO k8s_clusters (
+      id, name, kubeconfig_path, kubeconfig_content, context_name, server_url,
+      auth_type, is_active, connection_status, auto_connect, default_namespace,
+      source_type, bastion_uuid, bastion_asset_address, bastion_asset_name, bastion_asset_id_last
+    ) VALUES (?, ?, NULL, NULL, ?, ?, 'jumpserver', 0, 'disconnected', 0, 'default', 'jumpserver', ?, ?, ?, ?)
+  `)
+
+  const upsertAll = db.transaction(() => {
+    for (const asset of assets) {
+      const existing = selectStmt.get(bastionUuid, asset.address, asset.name)
+      if (existing) {
+        updateStmt.run(asset.name, asset.name, asset.address, asset.id, bastionUuid, asset.address, asset.name)
+        updated += 1
+      } else {
+        const newId = randomUUID()
+        insertStmt.run(newId, asset.name, asset.name, asset.address, bastionUuid, asset.address, asset.name, asset.id)
+        inserted += 1
+      }
+    }
+  })
+
+  upsertAll()
+  logger.info('Upserted JumpServer K8s clusters', { bastionUuid, inserted, updated })
+  return { inserted, updated }
 }

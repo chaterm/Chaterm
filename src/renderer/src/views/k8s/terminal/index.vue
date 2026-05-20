@@ -158,20 +158,14 @@ const handleOpenClusterConfig = () => {
 }
 
 const handleClusterClick = async (cluster: K8sCluster) => {
-  // Connect to cluster first
-  const result = await k8sStore.connectCluster(cluster.id)
-  if (result.success) {
-    // Emit event to open terminal in main area (similar to hosts)
-    eventBus.emit('currentClickServer', {
-      key: `k8s-${cluster.id}`,
-      title: cluster.name,
-      type: 'k8s',
-      ip: cluster.server_url,
-      data: cluster
-    })
-  } else {
-    message.error(result.error || t('k8s.terminal.connectFailed'))
-  }
+  // Open terminal tab immediately; connection lifecycle is shown inside K8sConnect tab.
+  eventBus.emit('currentClickServer', {
+    key: `k8s-${cluster.id}`,
+    title: cluster.name,
+    type: 'k8s',
+    ip: cluster.server_url,
+    data: cluster
+  })
 }
 
 const handleConnect = async (id: string) => {

@@ -19,6 +19,7 @@ import '@xterm/xterm/css/xterm.css'
 import * as k8sApi from '@/api/k8s'
 import { v4 as uuidv4 } from 'uuid'
 import { userConfigStore } from '@/store/userConfigStore'
+import { useK8sStore } from '@/store/k8sStore'
 import { userConfigStore as serviceUserConfig } from '@/services/userConfigStoreService'
 import { getActualTheme } from '@/utils/themeUtils'
 import { getResolvedTerminalTheme } from '@/themes/terminalTheme'
@@ -28,6 +29,7 @@ import { getLastNonEmptyLine, isTerminalPromptLine } from '@views/components/Ssh
 import { stripAnsiBasic } from '@views/components/Ssh/utils/ansiUtils'
 
 const logger = createRendererLogger('k8s.connect')
+const k8sStore = useK8sStore()
 
 interface Props {
   serverInfo: {
@@ -256,8 +258,17 @@ const connectToCluster = async () => {
 
   terminalId.value = uuidv4()
   logger.info('Connecting to K8s cluster', { clusterId: cluster.id, terminalId: terminalId.value })
+  terminal.value?.writeln(`Connecting to cluster ${cluster.name || cluster.id}...`)
 
   try {
+    const connectResult = await k8sStore.connectCluster(cluster.id)
+    if (!connectResult.success) {
+      const errMsg = connectResult.error || 'Failed to connect cluster'
+      terminal.value?.writeln(`Error: ${errMsg}`)
+      logger.error('Failed to connect K8s cluster', { clusterId: cluster.id, error: errMsg })
+      return
+    }
+
     const cols = terminal.value?.cols || 80
     const rows = terminal.value?.rows || 24
 

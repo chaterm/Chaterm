@@ -129,7 +129,9 @@ export default {
     daysAgo: ' dias atrás',
     run: 'Executar',
     jumpserverSupportPlugin: 'Suporte Jumpserver',
-    noSearchResults: 'Sem resultados de pesquisa'
+    noSearchResults: 'Sem resultados de pesquisa',
+    previous: 'Anterior',
+    next: 'Próximo'
   },
   term: {
     welcome: 'Bem-vindo a usar o Chaterm',
@@ -1332,7 +1334,12 @@ export default {
       mfaFailed: 'Autenticação de dois fatores falhou',
       multipleUsersDetected: 'Múltiplos usuários detectados, por favor, selecione...',
       connectingWithSelectedAccount: 'Conectando com a conta selecionada...',
-      userSelectionCanceled: 'Seleção de usuário cancelada'
+      userSelectionCanceled: 'Seleção de usuário cancelada',
+      syncFromJumpServer: 'Sincronizar Ativos K8s do JumpServer',
+      sourceTag: 'JumpServer',
+      noBastion: 'Sem bastion configurado, configure primeiro no SSH',
+      syncSuccess: 'Sincronização concluída, {inserted} adicionados, {updated} atualizados',
+      syncFailed: 'Falha na sincronização'
     },
     qizhi: {
       connectingToBastionHost: 'A ligar ao bastião Qizhi...',
@@ -1634,6 +1641,7 @@ export default {
       addCluster: 'Adicionar cluster',
       clusterAdded: 'Cluster adicionado com sucesso',
       noClusters: 'Nenhum cluster configurado',
+      localClusters: 'Clusters locais',
       noTerminal: 'Nenhuma sessao de terminal aberta',
       createTerminal: 'Criar terminal',
       selectClusterFirst: 'Por favor, selecione um cluster primeiro',
@@ -1685,6 +1693,14 @@ export default {
       active: 'Ativo',
       selectClusterToEdit: 'Selecione um cluster para visualizar e editar detalhes',
       k8sClusterConfig: 'Gerenciamento de clusters'
+    },
+    jumpserver: {
+      bastionResources: 'Recursos Bastion',
+      syncFromJumpServer: 'Sincronizar Ativos K8s do JumpServer',
+      sourceTag: 'JumpServer',
+      noBastion: 'Sem bastion configurado, configure primeiro no SSH',
+      syncSuccess: 'Sincronização concluída, {inserted} adicionados, {updated} atualizados',
+      syncFailed: 'Falha na sincronização'
     }
   },
   database: {

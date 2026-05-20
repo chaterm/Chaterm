@@ -129,7 +129,9 @@ export default {
     daysAgo: ' jours auparavant',
     run: 'Exécuter',
     jumpserverSupportPlugin: 'Support Jumpserver',
-    noSearchResults: 'Aucun résultat de recherche'
+    noSearchResults: 'Aucun résultat de recherche',
+    previous: 'Précédent',
+    next: 'Suivant'
   },
   term: {
     welcome: 'Bienvenue à utiliser Chaterm',
@@ -1339,7 +1341,12 @@ export default {
       mfaFailed: 'Authentification à deux facteurs échouée',
       multipleUsersDetected: 'Multiple comptes utilisateur détectés, veuillez sélectionner...',
       connectingWithSelectedAccount: 'Connexion avec le compte sélectionné...',
-      userSelectionCanceled: "Sélection d'utilisateur annulée"
+      userSelectionCanceled: "Sélection d'utilisateur annulée",
+      syncFromJumpServer: 'Synchroniser les actifs K8s JumpServer',
+      sourceTag: 'JumpServer',
+      noBastion: "Aucun bastion configuré, veuillez d'abord configurer dans SSH",
+      syncSuccess: 'Synchronisation terminée, {inserted} ajouté(s), {updated} mis à jour',
+      syncFailed: 'Échec de la synchronisation'
     },
     qizhi: {
       connectingToBastionHost: 'Connexion au bastion Qizhi...',
@@ -1643,6 +1650,7 @@ export default {
       addCluster: 'Ajouter un cluster',
       clusterAdded: 'Cluster ajoute avec succes',
       noClusters: 'Aucun cluster configure',
+      localClusters: 'Clusters locaux',
       noTerminal: 'Aucune session de terminal ouverte',
       createTerminal: 'Creer un terminal',
       selectClusterFirst: 'Veuillez d abord selectionner un cluster',
@@ -1694,6 +1702,14 @@ export default {
       active: 'Actif',
       selectClusterToEdit: 'Selectionnez un cluster pour afficher et modifier les details',
       k8sClusterConfig: 'Gestion des clusters'
+    },
+    jumpserver: {
+      bastionResources: 'Ressources Bastion',
+      syncFromJumpServer: 'Synchroniser les actifs K8s JumpServer',
+      sourceTag: 'JumpServer',
+      noBastion: "Aucun bastion configuré, veuillez d'abord configurer dans SSH",
+      syncSuccess: 'Synchronisation terminée, {inserted} ajouté(s), {updated} mis à jour',
+      syncFailed: 'Échec de la synchronisation'
     }
   },
   database: {
