@@ -223,19 +223,60 @@
           >
             <a-select
               v-model:value="formData.group_name"
-              mode="tags"
               :placeholder="t('personal.pleaseSelectGroup')"
-              :max-tag-count="2"
               style="width: 100%"
+              show-search
+              :options="groupOptions"
+              :option-filter-prop="'label'"
+              :allow-clear="false"
               @change="handleGroupChange"
             >
-              <a-select-option
-                v-for="item in defaultGroups"
-                :key="item"
-                :value="item"
-              >
-                {{ item }}
-              </a-select-option>
+              <template #dropdownRender="{ menuNode }">
+                <component :is="menuNode" />
+                <a-divider class="group-create-divider" />
+                <div
+                  class="group-create-area"
+                  @mousedown.prevent
+                >
+                  <template v-if="!isCreatingGroup">
+                    <a-button
+                      type="link"
+                      block
+                      @click="startCreateGroup"
+                      >+ {{ t('personal.newGroup') }}</a-button
+                    >
+                  </template>
+                  <template v-else>
+                    <a-input
+                      ref="newGroupInputRef"
+                      v-model:value="newGroupName"
+                      :placeholder="t('personal.newGroupPlaceholder')"
+                      size="small"
+                      style="flex: 1; min-width: 0"
+                      @mousedown.stop
+                      @keydown.enter.prevent="confirmCreateGroup"
+                      @keydown.esc.prevent="cancelCreateGroup"
+                    />
+                    <a-button
+                      type="text"
+                      size="small"
+                      class="group-create-action"
+                      :disabled="!newGroupName.trim()"
+                      @click="confirmCreateGroup"
+                    >
+                      <CheckOutlined />
+                    </a-button>
+                    <a-button
+                      type="text"
+                      size="small"
+                      class="group-create-action"
+                      @click="cancelCreateGroup"
+                    >
+                      <CloseOutlined />
+                    </a-button>
+                  </template>
+                </div>
+              </template>
             </a-select>
           </a-form-item>
         </div>
@@ -332,8 +373,8 @@
 </template>
 
 <script setup lang="ts">
-import { reactive, watch, ref, computed, onMounted } from 'vue'
-import { ToTopOutlined } from '@ant-design/icons-vue'
+import { reactive, watch, ref, computed, onMounted, nextTick } from 'vue'
+import { ToTopOutlined, CheckOutlined, CloseOutlined } from '@ant-design/icons-vue'
 import { message } from 'ant-design-vue'
 import i18n from '@/locales'
 import eventBus from '@/utils/eventBus'
@@ -624,16 +665,56 @@ const handleAddKeychain = () => {
   emit('add-keychain')
 }
 
-const handleGroupChange = (val: any) => {
-  if (Array.isArray(val) && val.length > 0) {
-    formData.group_name = String(val[val.length - 1])
-  } else if (typeof val === 'string' && val.trim()) {
-    formData.group_name = val
-  } else if (typeof val === 'number') {
-    formData.group_name = String(val)
-  } else {
-    formData.group_name = ''
+const handleGroupChange = (val: string | undefined) => {
+  formData.group_name = typeof val === 'string' ? val : ''
+}
+
+// Inline group creation (single-select dropdown footer)
+const customGroups = ref<string[]>([])
+const isCreatingGroup = ref(false)
+const newGroupName = ref('')
+const newGroupInputRef = ref<any>(null)
+
+const groupOptions = computed(() => {
+  const seen = new Set<string>()
+  const out: { label: string; value: string }[] = []
+  const push = (name: string | undefined | null) => {
+    if (!name) return
+    const trimmed = String(name).trim()
+    if (!trimmed || seen.has(trimmed)) return
+    seen.add(trimmed)
+    out.push({ label: trimmed, value: trimmed })
   }
+  push(t('personal.defaultGroup'))
+  ;(props.defaultGroups || []).forEach(push)
+  customGroups.value.forEach(push)
+  push(formData.group_name)
+  return out
+})
+
+const startCreateGroup = () => {
+  isCreatingGroup.value = true
+  newGroupName.value = ''
+  nextTick(() => newGroupInputRef.value?.focus())
+}
+
+const cancelCreateGroup = () => {
+  isCreatingGroup.value = false
+  newGroupName.value = ''
+}
+
+const confirmCreateGroup = () => {
+  const name = newGroupName.value.trim()
+  if (!name) return
+  const existing = groupOptions.value.find((o) => o.value.toLowerCase() === name.toLowerCase())
+  if (existing) {
+    formData.group_name = existing.value
+  } else {
+    customGroups.value.push(name)
+    formData.group_name = name
+  }
+  isCreatingGroup.value = false
+  newGroupName.value = ''
 }
 
 const hasSpaces = (value: string): boolean => {
@@ -946,8 +1027,20 @@ watch(
   color: var(--text-color);
 }
 
-.general-group :deep(.ant-select-selection-item) {
-  background-color: var(--hover-bg-color);
+.group-create-divider {
+  margin: 4px 0;
+}
+
+.group-create-area {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 8px;
+}
+
+.group-create-action {
+  flex-shrink: 0;
+  padding: 0 6px;
 }
 
 /* Error input styles */
