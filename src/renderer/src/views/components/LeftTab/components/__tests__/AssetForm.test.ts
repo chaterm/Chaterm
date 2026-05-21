@@ -38,6 +38,9 @@ const translations: Record<string, string> = {
   'personal.pleaseSelectKeychain': 'Please select keychain',
   'personal.proxyConfig': 'Proxy Config',
   'personal.pleaseSelectSshProxy': 'Please select SSH proxy',
+  'personal.advancedOptions': 'Advanced Options',
+  'personal.jumpHost': 'Jump Host',
+  'personal.jumpHostSelect': 'Select jump host',
   'personal.general': 'General',
   'personal.alias': 'Alias',
   'personal.pleaseInputAlias': 'Please input alias',
@@ -146,7 +149,11 @@ describe('AssetForm Validation', () => {
             template: '<button class="a-button" @click="$emit(\'click\')"><slot /></button>',
             props: ['type']
           },
-          'a-select': { template: '<select class="a-select"><slot /></select>', props: ['modelValue'] },
+          'a-select': {
+            template:
+              '<select class="a-select" :data-placeholder="placeholder" :data-options-count="(options || []).length" :data-option-values="(options || []).map(o => o.value).join(\',\')"><slot /></select>',
+            props: ['modelValue', 'options', 'placeholder']
+          },
           'a-select-option': { template: '<option><slot /></option>' },
           'a-cascader': { template: '<div class="a-cascader"></div>', props: ['modelValue'] },
           'a-radio-group': { template: '<div class="a-radio-group"><slot /></div>', props: ['modelValue'] },
@@ -495,6 +502,87 @@ describe('AssetForm Validation', () => {
       await clickSubmit(wrapper)
 
       expect(wrapper.emitted('submit')).toBeUndefined()
+    })
+  })
+
+  describe('advanced options - jump host', () => {
+    const baseValidData = {
+      ip: '192.168.1.1',
+      port: 22,
+      username: 'root',
+      password: 'pass',
+      asset_type: 'person' as const,
+      auth_type: 'password'
+    }
+
+    it('should propagate jumpHostUuid in submit payload', async () => {
+      wrapper = createWrapper({
+        initialData: { ...baseValidData, jumpHostUuid: 'jump-uuid-1' },
+        jumpHostOptions: [
+          { value: 'jump-uuid-1', label: 'bastion (root@10.0.0.2:22)' },
+          { value: 'jump-uuid-2', label: 'gateway (root@10.0.0.3:22)' }
+        ]
+      })
+      await nextTick()
+      await clickSubmit(wrapper)
+
+      const submitted = wrapper.emitted('submit')
+      expect(submitted).toBeTruthy()
+      const payload = submitted![0][0] as { jumpHostUuid?: string }
+      expect(payload.jumpHostUuid).toBe('jump-uuid-1')
+    })
+
+    it('should default jumpHostUuid to empty string when none provided', async () => {
+      wrapper = createWrapper({
+        initialData: baseValidData
+      })
+      await nextTick()
+      await clickSubmit(wrapper)
+
+      const submitted = wrapper.emitted('submit')
+      expect(submitted).toBeTruthy()
+      const payload = submitted![0][0] as { jumpHostUuid?: string }
+      expect(payload.jumpHostUuid).toBe('')
+    })
+
+    it('should exclude the editing asset from jump host options to prevent self-reference', async () => {
+      const options = [
+        { value: 'self-uuid', label: 'self (root@10.0.0.1:22)' },
+        { value: 'other-uuid', label: 'other (root@10.0.0.2:22)' }
+      ]
+      wrapper = createWrapper({
+        isEditMode: true,
+        editingAssetUuid: 'self-uuid',
+        jumpHostOptions: options,
+        initialData: baseValidData
+      })
+      await nextTick()
+
+      const selects = wrapper.findAll('select.a-select')
+      const jumpSelect = selects.find((s) => s.attributes('data-placeholder') === 'Select jump host')
+      expect(jumpSelect).toBeTruthy()
+      expect(jumpSelect!.attributes('data-options-count')).toBe('1')
+      expect(jumpSelect!.attributes('data-option-values')).toBe('other-uuid')
+    })
+
+    it('should keep all jump host options when not editing', async () => {
+      const options = [
+        { value: 'a', label: 'A' },
+        { value: 'b', label: 'B' }
+      ]
+      wrapper = createWrapper({
+        isEditMode: false,
+        editingAssetUuid: null,
+        jumpHostOptions: options,
+        initialData: baseValidData
+      })
+      await nextTick()
+
+      const selects = wrapper.findAll('select.a-select')
+      const jumpSelect = selects.find((s) => s.attributes('data-placeholder') === 'Select jump host')
+      expect(jumpSelect).toBeTruthy()
+      expect(jumpSelect!.attributes('data-options-count')).toBe('2')
+      expect(jumpSelect!.attributes('data-option-values')).toBe('a,b')
     })
   })
 })

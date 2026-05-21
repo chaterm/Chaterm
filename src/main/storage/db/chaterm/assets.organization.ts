@@ -59,7 +59,7 @@ function buildBastionParentTitle(label: string | null | undefined, host: string)
 export function connectAssetInfoLogic(db: Database.Database, uuid: string, fallback?: { organizationUuid?: string; ip?: string }): any {
   try {
     const stmt = db.prepare(`
-        SELECT uuid, asset_ip, asset_type, auth_type, port, username, password, key_chain_id, need_proxy, proxy_name
+        SELECT uuid, asset_ip, asset_type, auth_type, port, username, password, key_chain_id, need_proxy, proxy_name, jump_host_uuid
         FROM t_assets
         WHERE uuid = ?
       `)
@@ -128,6 +128,7 @@ export function connectAssetInfoLogic(db: Database.Database, uuid: string, fallb
     ;(result as any).sshType = sshType
     ;(result as any).needProxy = !!(result as any).need_proxy
     ;(result as any).proxyName = (result as any).proxy_name
+    ;(result as any).jumpHostUuid = (result as any).jump_host_uuid || null
     const organizationUuid = (result as any).organization_uuid
     ;(result as any).assetUuid = organizationUuid || (result as any).uuid
     return result

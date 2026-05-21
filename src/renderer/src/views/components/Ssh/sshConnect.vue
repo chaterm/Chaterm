@@ -1738,6 +1738,9 @@ const connectSSH = async (_opts?: { isAutoReconnect?: boolean }) => {
         if (connData.needProxy) {
           connData.proxyConfig = config.sshProxyConfigs.find((item) => item.name === assetInfo?.proxy_name)
         }
+        if (assetInfo?.jump_host_uuid) {
+          connData.jumpHostUuid = assetInfo.jump_host_uuid
+        }
 
         const { mark: perfMark } = await import('@/utils/perf')
         perfMark('chaterm/terminal/willConnect')

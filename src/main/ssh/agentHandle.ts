@@ -9,6 +9,7 @@ import {
   releaseReusableSshSession,
   findWakeupConnectionInfoByHost
 } from './sshHandle'
+import { createJumpHostTunnel, JumpHostAuth } from './jumpHost'
 import { LEGACY_ALGORITHMS } from './algorithms'
 import net from 'net'
 import tls from 'tls'
@@ -44,7 +45,7 @@ export async function remoteSshConnect(connectionInfo: ConnectionInfo): Promise<
     port: normalizedPort
   })
 
-  if (normalizedHost && normalizedUsername) {
+  if (normalizedHost && normalizedUsername && !connectionInfo.jumpHostUuid) {
     const reusable = getReusableSshConnection(normalizedHost, normalizedPort, normalizedUsername, {
       wakeupTabId: connectionInfo.wakeupTabId
     })
@@ -57,10 +58,34 @@ export async function remoteSshConnect(connectionInfo: ConnectionInfo): Promise<
     }
   }
 
-  let sock: net.Socket | tls.TLSSocket
+  let sock: net.Socket | tls.TLSSocket | NodeJS.ReadWriteStream | undefined
+  let jumpClient: Client | undefined
 
   if (connectionInfo.proxyCommand) {
     sock = await createProxyCommandSocket(connectionInfo.proxyCommand, connectionInfo.host || '', port || 22)
+  } else if (connectionInfo.jumpHostUuid) {
+    const { connectAssetInfo } = require('../storage/database') as typeof import('../storage/database')
+    const jumpAsset = await connectAssetInfo(connectionInfo.jumpHostUuid)
+    if (!jumpAsset) {
+      return Promise.resolve({ error: 'Jump host asset not found' })
+    }
+    const jumpAuth: JumpHostAuth = {
+      host: jumpAsset.asset_ip || jumpAsset.host,
+      port: jumpAsset.port || 22,
+      username: jumpAsset.username,
+      asset_type: jumpAsset.asset_type,
+      password: jumpAsset.auth_type === 'password' ? jumpAsset.password : undefined,
+      privateKey: jumpAsset.auth_type === 'keyBased' ? jumpAsset.privateKey : undefined,
+      passphrase: jumpAsset.auth_type === 'keyBased' ? jumpAsset.passphrase : undefined
+    }
+    try {
+      const tunnel = await createJumpHostTunnel(jumpAuth, connectionInfo.host || '', connectionInfo.port || 22)
+      sock = tunnel.sock as any
+      jumpClient = tunnel.jumpClient
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : String(err)
+      return Promise.resolve({ error: errorMessage })
+    }
   } else if (connectionInfo.needProxy) {
     const cfg = await getUserConfigFromRenderer()
     if (connectionInfo.proxyName) {
@@ -127,8 +152,20 @@ export async function remoteSshConnect(connectionInfo: ConnectionInfo): Promise<
 
     connectConfig.ident = connectionInfo.ident
 
-    if (connectionInfo.needProxy || connectionInfo.proxyCommand) {
-      connectConfig.sock = sock
+    if (connectionInfo.needProxy || connectionInfo.proxyCommand || connectionInfo.jumpHostUuid) {
+      connectConfig.sock = sock as any
+    }
+
+    // Tear down the jump-host tunnel together with the target connection so it
+    // does not outlive its consumer.
+    if (jumpClient) {
+      const tearDownJump = () => {
+        try {
+          jumpClient!.end()
+        } catch {}
+      }
+      conn.once('close', tearDownJump)
+      conn.once('error', tearDownJump)
     }
 
     try {

@@ -49,6 +49,8 @@
           :key-chain-options="keyChainOptions"
           :ssh-proxy-configs="sshProxyConfigs"
           :default-groups="defaultGroups"
+          :jump-host-options="jumpHostOptions"
+          :editing-asset-uuid="editingAssetUUID"
           @close="closeForm"
           @submit="handleFormSubmit"
           @add-keychain="addKeychain"
@@ -173,6 +175,23 @@ const defaultGroups = ref(['development', 'production', 'staging', 'testing', 'd
 const contextMenuVisible = ref(false)
 const contextMenuPosition = reactive({ x: 0, y: 0 })
 const selectedAsset = ref<AssetNode | null>(null)
+
+// Build jump host options: only personal assets (asset_type === 'person') with a real uuid.
+const jumpHostOptions = computed(() => {
+  const opts: { value: string; label: string }[] = []
+  for (const group of assetGroups.value) {
+    for (const child of group.children || []) {
+      if (child.asset_type === 'person' && child.uuid) {
+        const display = child.label || child.title || child.ip || ''
+        opts.push({
+          value: child.uuid,
+          label: `${display} (${child.username || ''}@${child.ip || ''}:${child.port || 22})`
+        })
+      }
+    }
+  }
+  return opts
+})
 import { userConfigStore } from '@/services/userConfigStoreService'
 
 const formData = reactive<AssetFormData>({
@@ -186,7 +205,8 @@ const formData = reactive<AssetFormData>({
   port: 22,
   asset_type: 'person',
   needProxy: false,
-  proxyName: ''
+  proxyName: '',
+  jumpHostUuid: ''
 })
 
 const resetForm = () => {
@@ -201,7 +221,8 @@ const resetForm = () => {
     port: 22,
     asset_type: 'person',
     needProxy: false,
-    proxyName: ''
+    proxyName: '',
+    jumpHostUuid: ''
   })
 }
 
@@ -270,7 +291,8 @@ const handleAssetEdit = (asset: AssetNode) => {
     port: asset.port || 22,
     asset_type: asset.asset_type || 'person',
     needProxy: asset.needProxy || false,
-    proxyName: asset.proxyName || ''
+    proxyName: asset.proxyName || '',
+    jumpHostUuid: asset.jumpHostUuid || ''
   })
 
   getAssetGroup()
@@ -304,7 +326,8 @@ const handleAssetClone = (asset: AssetNode) => {
     port: asset.port || 22,
     asset_type: asset.asset_type || 'person',
     needProxy: asset.needProxy || false,
-    proxyName: asset.proxyName || ''
+    proxyName: asset.proxyName || '',
+    jumpHostUuid: asset.jumpHostUuid || ''
   })
 
   getAssetGroup()
@@ -1372,7 +1395,8 @@ const handleCreateAsset = async (data: AssetFormData) => {
       port: data.port,
       asset_type: data.asset_type,
       needProxy: data.needProxy,
-      proxyName: data.proxyName
+      proxyName: data.proxyName,
+      jumpHostUuid: data.jumpHostUuid || ''
     }
 
     const api = window.api as any
@@ -1420,7 +1444,8 @@ const handleSaveAsset = async (data: AssetFormData) => {
       port: data.port,
       asset_type: data.asset_type,
       needProxy: data.needProxy,
-      proxyName: data.proxyName
+      proxyName: data.proxyName,
+      jumpHostUuid: data.jumpHostUuid || ''
     }
 
     const api = window.api as any

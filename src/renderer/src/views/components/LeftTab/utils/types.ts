@@ -113,6 +113,7 @@ export interface AssetFormData {
   asset_type: AssetType
   needProxy: boolean
   proxyName: string
+  jumpHostUuid?: string
 }
 
 export interface sshProxyConfig {

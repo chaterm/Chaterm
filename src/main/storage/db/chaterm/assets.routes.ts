@@ -295,7 +295,7 @@ export async function getLocalAssetRouteLogic(db: Database, searchType: string, 
 
       for (const group of groups) {
         const assetsStmt = db.prepare(`
-          SELECT label, asset_ip, uuid, group_name, auth_type, port, username, password, key_chain_id, asset_type, favorite, need_proxy, proxy_name
+          SELECT label, asset_ip, uuid, group_name, auth_type, port, username, password, key_chain_id, asset_type, favorite, need_proxy, proxy_name, jump_host_uuid
           FROM t_assets
           WHERE group_name = ?
           ORDER BY created_at
@@ -322,7 +322,8 @@ export async function getLocalAssetRouteLogic(db: Database, searchType: string, 
               asset_type: item.asset_type || 'person',
               organizationId: isOrganizationType(item.asset_type) ? item.uuid : 'personal',
               needProxy: item.need_proxy === 1,
-              proxyName: item.proxy_name
+              proxyName: item.proxy_name,
+              jumpHostUuid: item.jump_host_uuid || ''
             }))
           })
         }
