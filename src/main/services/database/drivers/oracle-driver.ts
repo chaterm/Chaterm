@@ -8,6 +8,7 @@ const logger = createLogger('db')
 
 const DEFAULT_ORACLE_PORT = 1521
 const DEFAULT_CALL_TIMEOUT_MS = 30_000
+const ORACLE_DRIVER_NAME = 'Chaterm'
 
 const SYSTEM_SCHEMAS = new Set([
   'SYS',
@@ -30,6 +31,13 @@ const SYSTEM_SCHEMAS = new Set([
 type OracleDriver = typeof OracleDb
 
 type OracleConnection = OracleDb.Connection
+
+interface OracleClientInitArgs {
+  libDir?: string
+  configDir?: string
+}
+
+let oracleClientInitArgs: OracleClientInitArgs | null = null
 
 interface OracleHandle {
   connection: OracleConnection
@@ -62,6 +70,21 @@ function numberOption(options: Record<string, unknown> | null | undefined, key: 
     if (Number.isFinite(parsed)) return parsed
   }
   return null
+}
+
+function sameOracleClientInitArgs(a: OracleClientInitArgs, b: OracleClientInitArgs): boolean {
+  return a.libDir === b.libDir && a.configDir === b.configDir
+}
+
+function ensureOracleClientInitialized(driver: OracleDriver, args: OracleClientInitArgs): void {
+  if (oracleClientInitArgs) {
+    if (!sameOracleClientInitArgs(oracleClientInitArgs, args)) {
+      throw new Error('Oracle thick client already initialized with different client library settings')
+    }
+    return
+  }
+  driver.initOracleClient({ ...args, driverName: ORACLE_DRIVER_NAME })
+  oracleClientInitArgs = { ...args }
 }
 
 function normalizeConnectString(raw: string): string {
@@ -188,7 +211,7 @@ async function createConnection(
   if (thickMode) {
     const libDir = stringOption(input.options, 'clientLibraryPath') ?? stringOption(input.options, 'libDir') ?? undefined
     const configDir = stringOption(input.options, 'configDir') ?? undefined
-    driver.initOracleClient({ libDir, configDir, driverName: 'Chaterm' })
+    ensureOracleClientInitialized(driver, { libDir, configDir })
   }
 
   const connection = await driver.getConnection({
@@ -444,4 +467,15 @@ export async function fetchOracleTableDdl(handle: unknown, schemaName: string, t
   }
 }
 
-export const __testing = { buildConnectString, normalizeConnectString, sanitizeSql, quoteOracleIdentifier }
+function resetOracleClientInitForTests(): void {
+  oracleClientInitArgs = null
+}
+
+export const __testing = {
+  buildConnectString,
+  normalizeConnectString,
+  sanitizeSql,
+  quoteOracleIdentifier,
+  ensureOracleClientInitialized,
+  resetOracleClientInitForTests
+}

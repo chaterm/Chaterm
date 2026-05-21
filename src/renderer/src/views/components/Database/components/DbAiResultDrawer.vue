@@ -282,7 +282,9 @@ const isExecutableDialect = computed(() => {
   const dialect = selectedDialect.value
   if (!request.value) return true
   if (!isConvertAction.value) return true
-  return dialect === 'postgresql' || dialect === 'mysql' || dialect === 'sqlite' || dialect === 'oracle'
+  const supported = dialect === 'postgresql' || dialect === 'mysql' || dialect === 'sqlite' || dialect === 'oracle'
+  if (!supported) return false
+  return request.value.context?.dbType === dialect
 })
 
 const dialectOptions = [

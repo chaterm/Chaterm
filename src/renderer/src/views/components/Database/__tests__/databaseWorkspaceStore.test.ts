@@ -279,8 +279,8 @@ describe('databaseWorkspaceStore', () => {
       const draft: DatabaseConnectionDraft = {
         ...store.connectionDraft!,
         name: 'hr-oracle',
-        host: '',
-        port: 0,
+        host: null,
+        port: null,
         user: 'hr',
         password: 's3cret',
         database: 'ORCLPDB1',
@@ -291,18 +291,19 @@ describe('databaseWorkspaceStore', () => {
       expect(validation.valid).toBe(true)
       await store.saveConnection(draft)
 
-      expect(mockApi.dbAssetCreate).toHaveBeenCalledWith(
+      const createPayload = mockApi.dbAssetCreate.mock.calls[0][0]
+      expect(createPayload).toEqual(
         expect.objectContaining({
           name: 'hr-oracle',
           db_type: 'oracle',
-          host: '',
-          port: 0,
           username: 'hr',
           password: 's3cret',
           database_name: 'ORCLPDB1',
           jdbc_url: 'jdbc:oracle:thin:@//db.example.test:1521/ORCLPDB1'
         })
       )
+      expect(createPayload.host).toBeNull()
+      expect(createPayload.port).toBeNull()
       expect(store.connectionModalVisible).toBe(false)
     })
 

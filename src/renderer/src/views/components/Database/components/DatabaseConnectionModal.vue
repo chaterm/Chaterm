@@ -137,7 +137,7 @@
                   class="db-conn-input db-conn-host-port__host"
                   :class="{ 'db-conn-input--error': errors.includes('host') }"
                   type="text"
-                  :value="draft.host"
+                  :value="draft.host ?? ''"
                   @input="onInput('host', $event)"
                 />
                 <label
@@ -152,7 +152,7 @@
                   type="number"
                   min="1"
                   max="65535"
-                  :value="draft.port"
+                  :value="draft.port ?? ''"
                   @input="onNumberInput('port', $event)"
                 />
               </div>
@@ -399,13 +399,14 @@ const validate = (): { valid: boolean; errors: string[] } => {
   const s = schema.value
   if (!draft || !s) return { valid: false, errors: ['draft'] }
   const hasOracleConnectString = draft.dbType === 'Oracle' && !!draft.url?.trim()
+  const hasOracleHost = !!draft.host?.trim()
+  const hasOraclePort = typeof draft.port === 'number' && Number.isFinite(draft.port) && draft.port > 0
+  if (draft.dbType === 'Oracle' && !hasOracleConnectString) {
+    if (!hasOracleHost) errs.push('host')
+    if (!hasOraclePort) errs.push('port')
+  }
   for (const field of s.fields) {
     if (!field.required) continue
-    // Oracle can be configured with a full EZ Connect/JDBC-style connect
-    // string instead of separate host/port/service fields. Keep the modal's
-    // validation aligned with the store/main-process validation so URL-only
-    // Oracle connections can be tested and saved.
-    if (hasOracleConnectString && (field.key === 'host' || field.key === 'port')) continue
     const raw = draft[field.key]
     if (field.kind === 'number') {
       const n = Number(raw ?? 0)
@@ -428,7 +429,8 @@ const onInput = (key: keyof DatabaseConnectionDraft, e: Event) => {
 }
 
 const onNumberInput = (key: keyof DatabaseConnectionDraft, e: Event) => {
-  const value = Number((e.target as HTMLInputElement).value)
+  const raw = (e.target as HTMLInputElement).value
+  const value = raw.trim() ? Number(raw) : null
   update({ [key]: value } as Partial<DatabaseConnectionDraft>)
 }
 

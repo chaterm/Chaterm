@@ -1965,6 +1965,11 @@ export default {
       user: 'المستخدم',
       password: 'كلمة المرور',
       database: 'قاعدة البيانات',
+      oracleService: 'اسم الخدمة / PDB',
+      oracleConnectString: 'سلسلة الاتصال',
+      filePath: 'ملف قاعدة البيانات',
+      readonly: 'للقراءة فقط',
+      readonlyHint: 'فتح بدون إذن كتابة',
       url: 'URL',
       sslMode: 'وضع SSL'
     },

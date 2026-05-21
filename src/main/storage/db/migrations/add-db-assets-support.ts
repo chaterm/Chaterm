@@ -131,15 +131,18 @@ function defaultExpressionForColumn(name: string): string {
 
 function rebuildDbAssetsTable(db: Database.Database, existingColumns: Set<string>): void {
   logger.info('[Migration] Rebuilding db_assets table for SQLite file assets support')
-  db.exec('ALTER TABLE db_assets RENAME TO db_assets__old')
-  db.exec(DB_ASSETS_CREATE_SQL)
-  const selectExprs = DB_ASSETS_COLUMNS.map((name) => (existingColumns.has(name) ? name : `${defaultExpressionForColumn(name)} AS ${name}`))
-  db.exec(`
-    INSERT INTO db_assets (${DB_ASSETS_COLUMNS.join(', ')})
-    SELECT ${selectExprs.join(', ')}
-    FROM db_assets__old
-  `)
-  db.exec('DROP TABLE db_assets__old')
+  const rebuild = db.transaction(() => {
+    db.exec('ALTER TABLE db_assets RENAME TO db_assets__old')
+    db.exec(DB_ASSETS_CREATE_SQL)
+    const selectExprs = DB_ASSETS_COLUMNS.map((name) => (existingColumns.has(name) ? name : `${defaultExpressionForColumn(name)} AS ${name}`))
+    db.exec(`
+      INSERT INTO db_assets (${DB_ASSETS_COLUMNS.join(', ')})
+      SELECT ${selectExprs.join(', ')}
+      FROM db_assets__old
+    `)
+    db.exec('DROP TABLE db_assets__old')
+  })
+  rebuild()
 }
 
 function ensureDbAssetsSqliteColumns(db: Database.Database): void {

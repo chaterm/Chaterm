@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
 import type { ResolvedDbCredential } from '../types'
 
 vi.mock('@logging/index', () => ({
@@ -6,6 +6,8 @@ vi.mock('@logging/index', () => ({
 }))
 
 const { __testing } = await import('../drivers/oracle-driver')
+
+type OracleDriverForInit = Parameters<typeof __testing.ensureOracleClientInitialized>[0]
 
 function credential(overrides: Partial<ResolvedDbCredential> = {}): ResolvedDbCredential {
   return {
@@ -24,6 +26,10 @@ function credential(overrides: Partial<ResolvedDbCredential> = {}): ResolvedDbCr
 }
 
 describe('OracleDriverAdapter helpers', () => {
+  beforeEach(() => {
+    __testing.resetOracleClientInitForTests()
+  })
+
   it('builds EZ Connect from host, port, and service name', () => {
     expect(__testing.buildConnectString(credential())).toBe('db.example.test:1521/ORCLPDB1')
   })
@@ -57,5 +63,30 @@ describe('OracleDriverAdapter helpers', () => {
   it('quotes Oracle identifiers by doubling embedded double quotes', () => {
     expect(__testing.quoteOracleIdentifier('HR')).toBe('"HR"')
     expect(__testing.quoteOracleIdentifier('A"B')).toBe('"A""B"')
+  })
+
+  it('initializes thick client once when repeated settings match', () => {
+    const driver = { initOracleClient: vi.fn() } as unknown as OracleDriverForInit
+
+    __testing.ensureOracleClientInitialized(driver, { libDir: '/opt/oracle', configDir: '/etc/oracle' })
+    __testing.ensureOracleClientInitialized(driver, { libDir: '/opt/oracle', configDir: '/etc/oracle' })
+
+    expect(driver.initOracleClient).toHaveBeenCalledTimes(1)
+    expect(driver.initOracleClient).toHaveBeenCalledWith({
+      libDir: '/opt/oracle',
+      configDir: '/etc/oracle',
+      driverName: 'Chaterm'
+    })
+  })
+
+  it('rejects conflicting thick-client initialization settings', () => {
+    const driver = { initOracleClient: vi.fn() } as unknown as OracleDriverForInit
+
+    __testing.ensureOracleClientInitialized(driver, { libDir: '/opt/oracle-a', configDir: '/etc/oracle' })
+
+    expect(() => __testing.ensureOracleClientInitialized(driver, { libDir: '/opt/oracle-b', configDir: '/etc/oracle' })).toThrow(
+      /already initialized/i
+    )
+    expect(driver.initOracleClient).toHaveBeenCalledTimes(1)
   })
 })

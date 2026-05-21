@@ -1459,14 +1459,15 @@ export const useDatabaseWorkspaceStore = defineStore('databaseWorkspace', {
       // explicit port in the incoming draft still wins.
       const dbType = draft?.dbType ?? 'MySQL'
       const defaultPort = dbType === 'PostgreSQL' ? 5432 : dbType === 'SQLite' ? 0 : dbType === 'Oracle' ? 1521 : 3306
+      const hasOracleConnectString = dbType === 'Oracle' && !!draft?.url?.trim()
       this.connectionDraft = {
         id: draft?.id ?? `conn-${Date.now()}`,
         name: draft?.name ?? '',
         groupId: draft?.groupId,
         env: draft?.env ?? 'Development',
         dbType,
-        host: draft?.host ?? '127.0.0.1',
-        port: draft?.port ?? defaultPort,
+        host: draft?.host ?? (hasOracleConnectString ? null : '127.0.0.1'),
+        port: draft?.port ?? (hasOracleConnectString ? null : defaultPort),
         authentication: draft?.authentication ?? 'UserAndPassword',
         user: draft?.user ?? '',
         password: draft?.password ?? '',
@@ -1494,8 +1495,8 @@ export const useDatabaseWorkspaceStore = defineStore('databaseWorkspace', {
         groupId: asset.group_id ?? undefined,
         env: asset.environment ?? 'Development',
         dbType: asset.db_type === 'mysql' ? 'MySQL' : asset.db_type === 'sqlite' ? 'SQLite' : asset.db_type === 'oracle' ? 'Oracle' : 'PostgreSQL',
-        host: asset.host ?? '',
-        port: asset.port ?? (asset.db_type === 'postgresql' ? 5432 : asset.db_type === 'mysql' ? 3306 : asset.db_type === 'oracle' ? 1521 : 0),
+        host: asset.host ?? null,
+        port: asset.port ?? null,
         authentication: 'UserAndPassword',
         user: asset.username ?? '',
         password: '',
@@ -1531,9 +1532,11 @@ export const useDatabaseWorkspaceStore = defineStore('databaseWorkspace', {
         if (!draft.filePath?.trim()) errors.push('filePath')
       } else {
         const hasOracleConnectString = draft.dbType === 'Oracle' && !!draft.url?.trim()
-        if (!hasOracleConnectString) {
-          if (!draft.host.trim()) errors.push('host')
-          if (!draft.port || draft.port <= 0) errors.push('port')
+        const hasHost = !!draft.host?.trim()
+        const hasPort = typeof draft.port === 'number' && Number.isFinite(draft.port) && draft.port > 0
+        if (draft.dbType !== 'Oracle' || !hasOracleConnectString) {
+          if (!hasHost) errors.push('host')
+          if (!hasPort) errors.push('port')
         }
         if (!draft.user.trim()) errors.push('user')
       }
@@ -1556,13 +1559,20 @@ export const useDatabaseWorkspaceStore = defineStore('databaseWorkspace', {
       }
       // JSON round-trip to strip any Vue reactive proxy wrapping — Electron
       // IPC structured-clone rejects Pinia-tracked values.
+      const hasOracleConnectString = draft.dbType === 'Oracle' && !!draft.url?.trim()
+      const normalizedHost = hasOracleConnectString ? null : draft.host?.trim() || null
+      const normalizedPort = hasOracleConnectString
+        ? null
+        : typeof draft.port === 'number' && Number.isFinite(draft.port) && draft.port > 0
+          ? draft.port
+          : null
       return JSON.parse(
         JSON.stringify({
           name: draft.name,
           db_type: draft.dbType === 'MySQL' ? 'mysql' : draft.dbType === 'Oracle' ? 'oracle' : 'postgresql',
           group_id: draft.groupId || null,
-          host: draft.host,
-          port: draft.port,
+          host: normalizedHost,
+          port: normalizedPort,
           username: draft.user || null,
           password: draft.password || null,
           database_name: draft.database || null,

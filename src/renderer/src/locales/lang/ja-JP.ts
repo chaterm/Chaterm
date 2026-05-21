@@ -1967,6 +1967,11 @@ export default {
       user: 'ユーザー',
       password: 'パスワード',
       database: 'データベース',
+      oracleService: 'サービス名 / PDB',
+      oracleConnectString: '接続文字列',
+      filePath: 'データベースファイル',
+      readonly: '読み取り専用',
+      readonlyHint: '書き込み権限なしで開く',
       url: 'URL',
       sslMode: 'SSL モード'
     },

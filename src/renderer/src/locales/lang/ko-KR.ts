@@ -1958,6 +1958,11 @@ export default {
       user: '사용자',
       password: '비밀번호',
       database: '데이터베이스',
+      oracleService: '서비스 이름 / PDB',
+      oracleConnectString: '연결 문자열',
+      filePath: '데이터베이스 파일',
+      readonly: '읽기 전용',
+      readonlyHint: '쓰기 권한 없이 열기',
       url: 'URL',
       sslMode: 'SSL 모드'
     },

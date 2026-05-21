@@ -123,7 +123,12 @@ function validateRequest(raw: unknown): { ok: true; req: DbAiStartRequest } | { 
     }
   }
   if (inputRaw.targetDialect !== undefined) {
-    if (inputRaw.targetDialect !== 'mysql' && inputRaw.targetDialect !== 'postgresql' && inputRaw.targetDialect !== 'sqlite') {
+    if (
+      inputRaw.targetDialect !== 'mysql' &&
+      inputRaw.targetDialect !== 'postgresql' &&
+      inputRaw.targetDialect !== 'sqlite' &&
+      inputRaw.targetDialect !== 'oracle'
+    ) {
       return { ok: false, errorMessage: 'invalid targetDialect' }
     }
   }

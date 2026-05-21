@@ -1985,6 +1985,11 @@ export default {
       user: 'Benutzer',
       password: 'Passwort',
       database: 'Datenbank',
+      oracleService: 'Dienstname / PDB',
+      oracleConnectString: 'Verbindungszeichenfolge',
+      filePath: 'Datenbankdatei',
+      readonly: 'Schreibgeschützt',
+      readonlyHint: 'Ohne Schreibberechtigung öffnen',
       url: 'URL',
       sslMode: 'SSL-Modus'
     },

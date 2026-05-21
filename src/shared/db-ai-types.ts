@@ -11,7 +11,7 @@ export type DbType = 'mysql' | 'postgresql' | 'sqlite' | 'oracle'
 
 /**
  * Supported SQL dialects for prompt construction and target-dialect conversion.
- * The current MVP targets PostgreSQL, MySQL, and SQLite; additional dialects
+ * The current MVP targets PostgreSQL, MySQL, SQLite, and Oracle; additional dialects
  * should be appended to this union (never renamed) to preserve IPC payload stability.
  */
 export type SqlDialect = 'mysql' | 'postgresql' | 'sqlite' | 'oracle'
@@ -26,7 +26,8 @@ export type DbAiAction = 'nl2sql' | 'explain' | 'optimize' | 'convert' | 'comple
 /**
  * Hint describing a table the user or caller explicitly references.
  * `schema` is optional because MySQL and SQLite typically rely on a database
- * name / attached alias, whereas PostgreSQL relies on schema + search_path.
+ * name / attached alias, while PostgreSQL and Oracle typically resolve via
+ * schema context (with engine-specific defaults/search paths).
  */
 export interface DbAiTableHint {
   schema?: string

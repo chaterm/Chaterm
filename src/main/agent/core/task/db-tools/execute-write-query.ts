@@ -31,8 +31,14 @@ function byteLen(s: string): number {
   return Buffer.byteLength(s, 'utf8')
 }
 
+function stripLeadingSqlComments(sql: string): string {
+  return String(sql ?? '')
+    .replace(/^(?:\s|--[^\n\r]*(?:\r?\n|$)|\/\*[\s\S]*?\*\/)*/g, '')
+    .trim()
+}
+
 function isOracleTransactionalDml(sql: string): boolean {
-  return /^(insert|update|delete|merge)\b/i.test(String(sql ?? '').trim())
+  return /^(insert|update|delete|merge)\b/i.test(stripLeadingSqlComments(sql))
 }
 
 export async function runExecuteWriteQuery(
@@ -81,4 +87,4 @@ export async function runExecuteWriteQuery(
   }
 }
 
-export const __testing = { byteLen, isOracleTransactionalDml, MAX_SQL_BYTES }
+export const __testing = { byteLen, stripLeadingSqlComments, isOracleTransactionalDml, MAX_SQL_BYTES }

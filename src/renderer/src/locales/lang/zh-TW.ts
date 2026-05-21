@@ -1950,6 +1950,11 @@ export default {
       user: '使用者',
       password: '密碼',
       database: '資料庫',
+      oracleService: '服務名稱 / PDB',
+      oracleConnectString: '連線字串',
+      filePath: '資料庫檔案',
+      readonly: '唯讀',
+      readonlyHint: '以唯讀模式開啟',
       url: 'URL',
       sslMode: 'SSL 模式'
     },

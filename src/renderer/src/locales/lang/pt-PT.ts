@@ -1992,6 +1992,11 @@ export default {
       user: 'Utilizador',
       password: 'Palavra-passe',
       database: 'Base de dados',
+      oracleService: 'Nome do serviço / PDB',
+      oracleConnectString: 'Cadeia de ligação',
+      filePath: 'Ficheiro da base de dados',
+      readonly: 'Só de leitura',
+      readonlyHint: 'Abrir sem permissão de escrita',
       url: 'URL',
       sslMode: 'Modo SSL'
     },

@@ -49,7 +49,7 @@ describe('workspace helpers - hasValidDbContext', () => {
   })
 
   it('rejects objects with unsupported dbType', () => {
-    expect(hasValidDbContext({ assetId: 'a1', dbType: 'oracle' })).toBe(false)
+    expect(hasValidDbContext({ assetId: 'a1', dbType: 'mssql' })).toBe(false)
   })
 
   it('accepts minimal valid context', () => {
@@ -59,6 +59,11 @@ describe('workspace helpers - hasValidDbContext', () => {
 
   it('accepts sqlite context', () => {
     const ctx: DbTaskContext = { assetId: 'a1', dbType: 'sqlite', databaseName: 'main' }
+    expect(hasValidDbContext(ctx)).toBe(true)
+  })
+
+  it('accepts oracle context', () => {
+    const ctx: DbTaskContext = { assetId: 'a1', dbType: 'oracle', databaseName: 'ORCLPDB1', schemaName: 'HR' }
     expect(hasValidDbContext(ctx)).toBe(true)
   })
 

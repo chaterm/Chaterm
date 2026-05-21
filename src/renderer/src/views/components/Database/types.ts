@@ -36,8 +36,8 @@ export interface DatabaseConnectionDraft {
   groupId?: string
   env: string
   dbType: DatabaseType
-  host: string
-  port: number
+  host: string | null
+  port: number | null
   authentication: DatabaseAuthentication
   user: string
   password: string
