@@ -1,6 +1,6 @@
 // inspect_indexes: list indexes on a table, including column ordering and
-// uniqueness. Queries information_schema on both engines so the output is
-// comparable without pulling driver-specific DDL parsing into the tool.
+// uniqueness. Queries engine catalogs directly so the output is comparable
+// without pulling driver-specific DDL parsing into the tool.
 
 import type { DbAiActiveSession, DbToolResult } from './shared'
 import { optionalStringParam, requireStringParam, unexpectedError, validateTableScope } from './shared'
@@ -63,6 +63,22 @@ WHERE n.nspname = $1 AND t.relname = $2
 ORDER BY i.relname, k
 `.trim()
 
+const ORACLE_INDEX_SQL = `
+SELECT i.index_name AS "name",
+       ic.column_name AS "column_name",
+       ic.column_position AS "seq",
+       CASE WHEN i.uniqueness = 'UNIQUE' THEN 1 ELSE 0 END AS "is_unique",
+       CASE WHEN c.constraint_type = 'P' THEN 1 ELSE 0 END AS "is_primary",
+       i.index_type AS "method"
+FROM all_indexes i
+JOIN all_ind_columns ic
+  ON ic.index_owner = i.owner AND ic.index_name = i.index_name
+LEFT JOIN all_constraints c
+  ON c.owner = i.owner AND c.index_name = i.index_name AND c.constraint_type = 'P'
+WHERE i.table_owner = :1 AND i.table_name = :2
+ORDER BY i.index_name, ic.column_position
+`.trim()
+
 interface RawIndexRow {
   name?: string
   column_name?: string
@@ -73,7 +89,7 @@ interface RawIndexRow {
   method?: string
 }
 
-function aggregateRows(rows: Array<Record<string, unknown>>, engine: 'mysql' | 'postgresql'): IndexInfo[] {
+function aggregateRows(rows: Array<Record<string, unknown>>, engine: 'mysql' | 'postgresql' | 'sqlite' | 'oracle'): IndexInfo[] {
   const byName = new Map<string, IndexInfo>()
   for (const raw of rows as RawIndexRow[]) {
     const name = raw.name
@@ -86,11 +102,15 @@ function aggregateRows(rows: Array<Record<string, unknown>>, engine: 'mysql' | '
         const unique = String(raw.non_unique) === '0'
         entry = { name, columns: [], unique, primary: name === 'PRIMARY', method: raw.method }
       } else {
+        const unique =
+          typeof raw.is_unique === 'boolean' ? raw.is_unique : String(raw.is_unique) === '1' || String(raw.is_unique).toLowerCase() === 'true'
+        const primary =
+          typeof raw.is_primary === 'boolean' ? raw.is_primary : String(raw.is_primary) === '1' || String(raw.is_primary).toLowerCase() === 'true'
         entry = {
           name,
           columns: [],
-          unique: Boolean(raw.is_unique),
-          primary: Boolean(raw.is_primary),
+          unique,
+          primary,
           method: raw.method
         }
       }
@@ -99,6 +119,10 @@ function aggregateRows(rows: Array<Record<string, unknown>>, engine: 'mysql' | '
     entry.columns.push(col)
   }
   return Array.from(byName.values())
+}
+
+function quoteSqliteIdentifier(name: string): string {
+  return '"' + String(name).replace(/"/g, '""') + '"'
 }
 
 export async function runInspectIndexes(session: DbAiActiveSession, input: InspectIndexesInput): Promise<DbToolResult<InspectIndexesResult>> {
@@ -126,6 +150,46 @@ export async function runInspectIndexes(session: DbAiActiveSession, input: Inspe
         maxRows: 1000,
         timeoutMs: 15_000,
         params: [db.value, table.value]
+      })
+      rows = result.rows
+    } else if (engine === 'sqlite') {
+      const databaseAlias = db.value || 'main'
+      executedSql = `PRAGMA ${quoteSqliteIdentifier(databaseAlias)}.index_list(${quoteSqliteIdentifier(table.value)})`
+      const list = await session.executeQuery(executedSql, {
+        maxRows: 1000,
+        timeoutMs: 15_000
+      })
+      const indexes: IndexInfo[] = []
+      for (const row of list.rows) {
+        const name = typeof row.name === 'string' ? row.name : ''
+        if (!name) continue
+        const infoSql = `PRAGMA ${quoteSqliteIdentifier(databaseAlias)}.index_info(${quoteSqliteIdentifier(name)})`
+        const info = await session.executeQuery(infoSql, { maxRows: 1000, timeoutMs: 15_000 })
+        indexes.push({
+          name,
+          columns: info.rows.map((r) => (typeof r.name === 'string' ? r.name : '')).filter(Boolean),
+          unique: Number(row.unique ?? 0) === 1,
+          primary: row.origin === 'pk',
+          method: 'btree'
+        })
+      }
+      return {
+        ok: true,
+        data: {
+          database: db.value,
+          schema: schema.value,
+          table: table.value,
+          executedSql,
+          indexes
+        }
+      }
+    } else if (engine === 'oracle') {
+      executedSql = ORACLE_INDEX_SQL
+      const oracleSchema = schema.value ?? session.schemaName ?? ''
+      const result = await session.executeQuery(ORACLE_INDEX_SQL, {
+        maxRows: 1000,
+        timeoutMs: 15_000,
+        params: [oracleSchema.toUpperCase(), table.value.toUpperCase()]
       })
       rows = result.rows
     } else {

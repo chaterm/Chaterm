@@ -14,9 +14,11 @@ interface Cookie {
 
 export interface DbAssetPayload {
   name: string
-  db_type: 'mysql' | 'postgresql'
-  host: string
-  port: number
+  db_type: 'mysql' | 'postgresql' | 'sqlite' | 'oracle'
+  host?: string | null
+  port?: number | null
+  file_path?: string | null
+  connection_mode?: 'readwrite' | 'readonly' | null
   group_id?: string | null
   username?: string | null
   password?: string | null
@@ -25,6 +27,7 @@ export interface DbAssetPayload {
   environment?: string | null
   group_name?: string | null
   ssl_mode?: string | null
+  jdbc_url?: string | null
   options_json?: string | null
   tags_json?: string | null
   sort_order?: number
@@ -35,16 +38,19 @@ export interface DbAssetDto {
   name: string
   group_id: string | null
   group_name: string | null
-  db_type: 'mysql' | 'postgresql'
+  db_type: 'mysql' | 'postgresql' | 'sqlite' | 'oracle'
   environment: string | null
-  host: string
-  port: number
+  host: string | null
+  port: number | null
+  file_path: string | null
+  connection_mode: 'readwrite' | 'readonly' | null
   database_name: string | null
   schema_name: string | null
   auth_type: string
   username: string | null
   hasPassword: boolean
   ssl_mode: string | null
+  jdbc_url: string | null
   status: 'idle' | 'testing' | 'connected' | 'failed'
   last_connected_at: string | null
   last_tested_at: string | null
@@ -572,7 +578,7 @@ interface ApiType {
       workspace: 'server' | 'database'
       dbContext?: {
         assetId?: string
-        dbType?: 'mysql' | 'postgresql'
+        dbType?: 'mysql' | 'postgresql' | 'sqlite' | 'oracle'
         databaseName?: string
         schemaName?: string
         assetName?: string

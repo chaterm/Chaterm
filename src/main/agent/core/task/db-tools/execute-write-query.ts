@@ -16,7 +16,7 @@ export interface ExecuteWriteQueryInput {
 }
 
 export interface ExecuteWriteQueryResult {
-  engine: 'mysql' | 'postgresql'
+  engine: 'mysql' | 'postgresql' | 'sqlite' | 'oracle'
   executedSql: string
   columns: string[]
   rows: Array<Record<string, unknown>>
@@ -29,6 +29,16 @@ const MAX_SQL_BYTES = 50 * 1024
 
 function byteLen(s: string): number {
   return Buffer.byteLength(s, 'utf8')
+}
+
+function stripLeadingSqlComments(sql: string): string {
+  return String(sql ?? '')
+    .replace(/^(?:\s|--[^\n\r]*(?:\r?\n|$)|\/\*[\s\S]*?\*\/)*/g, '')
+    .trim()
+}
+
+function isOracleTransactionalDml(sql: string): boolean {
+  return /^(insert|update|delete|merge)\b/i.test(stripLeadingSqlComments(sql))
 }
 
 export async function runExecuteWriteQuery(
@@ -57,6 +67,9 @@ export async function runExecuteWriteQuery(
 
   try {
     const result = await session.executeQuery(sqlParam.value, { maxRows: 200, timeoutMs: 30_000 })
+    if (session.dbType === 'oracle' && isOracleTransactionalDml(sqlParam.value)) {
+      await session.executeQuery('COMMIT', { maxRows: 1, timeoutMs: 30_000 })
+    }
     return {
       ok: true,
       data: {
@@ -74,4 +87,4 @@ export async function runExecuteWriteQuery(
   }
 }
 
-export const __testing = { byteLen, MAX_SQL_BYTES }
+export const __testing = { byteLen, stripLeadingSqlComments, isOracleTransactionalDml, MAX_SQL_BYTES }

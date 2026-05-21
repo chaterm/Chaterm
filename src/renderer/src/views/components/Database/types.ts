@@ -36,12 +36,14 @@ export interface DatabaseConnectionDraft {
   groupId?: string
   env: string
   dbType: DatabaseType
-  host: string
-  port: number
+  host: string | null
+  port: number | null
   authentication: DatabaseAuthentication
   user: string
   password: string
   database?: string
+  filePath?: string
+  readonly?: boolean
   url?: string
   // Postgres-only today: SSL mode (disable | require | verify-ca | verify-full).
   // MySQL driver accepts the same key but the UI only exposes it for PG.

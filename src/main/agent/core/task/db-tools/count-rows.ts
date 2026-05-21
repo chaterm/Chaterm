@@ -1,8 +1,9 @@
 // count_rows: approximate or exact row count.
 //
 //   - exact=false (default): use statistics tables (fast, possibly stale).
-//     MySQL: information_schema.tables.table_rows.
-//     PG:    pg_class.reltuples.
+//     MySQL:  information_schema.tables.table_rows.
+//     PG:     pg_class.reltuples.
+//     Oracle: all_tables.num_rows.
 //   - exact=true: run `SELECT COUNT(*)` with a 30s deadline. Can be slow on
 //     large tables; callers should prefer approximate unless the model
 //     explicitly asks for exact.
@@ -50,6 +51,12 @@ JOIN pg_namespace n ON n.oid = c.relnamespace
 WHERE n.nspname = $1 AND c.relname = $2
 `.trim()
 
+const ORACLE_APPROX_SQL = `
+SELECT num_rows AS "n"
+FROM all_tables
+WHERE owner = :1 AND table_name = :2
+`.trim()
+
 function toNonNegativeInt(value: unknown): number {
   if (typeof value === 'number' && Number.isFinite(value)) return Math.max(0, Math.floor(value))
   if (typeof value === 'bigint') return Number(value < 0n ? 0n : value)
@@ -79,7 +86,7 @@ export async function runCountRows(session: DbAiActiveSession, input: CountRowsI
   const engine = session.dbType
   const dialect = dialectOf(session)
   try {
-    if (!exact) {
+    if (!exact && engine !== 'sqlite') {
       let n = 0
       let executedSql = ''
       if (engine === 'mysql') {
@@ -90,6 +97,15 @@ export async function runCountRows(session: DbAiActiveSession, input: CountRowsI
           params: [db.value, table.value]
         })
         n = toNonNegativeInt(r.rows[0]?.n)
+      } else if (engine === 'oracle') {
+        executedSql = ORACLE_APPROX_SQL
+        const oracleSchema = schema.value ?? session.schemaName ?? ''
+        const r = await session.executeQuery(ORACLE_APPROX_SQL, {
+          maxRows: 1,
+          timeoutMs: 5_000,
+          params: [oracleSchema.toUpperCase(), table.value.toUpperCase()]
+        })
+        n = toNonNegativeInt(r.rows[0]?.n ?? r.rows[0]?.N)
       } else {
         executedSql = POSTGRES_APPROX_SQL
         const pgSchema = schema.value ?? 'public'
@@ -114,6 +130,8 @@ export async function runCountRows(session: DbAiActiveSession, input: CountRowsI
     }
 
     // Exact count: SELECT COUNT(*) against the quoted, validated table.
+    // SQLite has no cheap catalog-wide approximate count equivalent, so it
+    // always takes this exact path even when exact=false.
     const qualified = qualifiedTableName(dialect, {
       database: db.value,
       schema: schema.value,

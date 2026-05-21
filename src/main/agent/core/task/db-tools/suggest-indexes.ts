@@ -11,7 +11,15 @@
 // the MVP output is clearly labelled "based on schema only".
 
 import type { DbAiActiveSession, DbToolResult, ColumnInfo } from './shared'
-import { dialectOf, optionalStringParam, quoteIdentifier, requireStringParam, unexpectedError, validateTableScope } from './shared'
+import {
+  dialectOf,
+  optionalStringParam,
+  qualifiedTableName,
+  quoteIdentifier,
+  requireStringParam,
+  unexpectedError,
+  validateTableScope
+} from './shared'
 
 export interface SuggestIndexesInput {
   database: string
@@ -85,10 +93,7 @@ export async function runSuggestIndexes(session: DbAiActiveSession, input: Sugge
   try {
     const cols = await session.listColumnsDetailed(db.value, table.value, schema.value)
     const dialect = dialectOf(session)
-    const quotedTable =
-      dialect === 'postgresql'
-        ? `${quoteIdentifier(dialect, schema.value ?? 'public')}.${quoteIdentifier(dialect, table.value)}`
-        : `${quoteIdentifier(dialect, db.value)}.${quoteIdentifier(dialect, table.value)}`
+    const quotedTable = qualifiedTableName(dialect, { database: db.value, schema: schema.value, table: table.value })
 
     const patternCols = extractPatternColumns(patterns.value, cols)
     const suggested = new Map<string, { columns: string[]; rationale: string }>()

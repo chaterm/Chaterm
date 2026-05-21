@@ -60,5 +60,8 @@ export function normaliseWorkspace(value: unknown): TaskWorkspace {
 export function hasValidDbContext(ctx: unknown): ctx is DbTaskContext {
   if (!ctx || typeof ctx !== 'object') return false
   const candidate = ctx as Record<string, unknown>
-  return typeof candidate.assetId === 'string' && (candidate.dbType === 'mysql' || candidate.dbType === 'postgresql')
+  return (
+    typeof candidate.assetId === 'string' &&
+    (candidate.dbType === 'mysql' || candidate.dbType === 'postgresql' || candidate.dbType === 'sqlite' || candidate.dbType === 'oracle')
+  )
 }

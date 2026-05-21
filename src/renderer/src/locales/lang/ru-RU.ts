@@ -1991,6 +1991,11 @@ export default {
       user: 'Пользователь',
       password: 'Пароль',
       database: 'База данных',
+      oracleService: 'Имя службы / PDB',
+      oracleConnectString: 'Строка подключения',
+      filePath: 'Файл базы данных',
+      readonly: 'Только чтение',
+      readonlyHint: 'Открыть без прав на запись',
       url: 'URL',
       sslMode: 'Режим SSL'
     },

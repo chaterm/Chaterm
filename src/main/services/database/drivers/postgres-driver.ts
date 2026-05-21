@@ -31,8 +31,8 @@ function buildConfig(input: ResolvedDbCredential): Record<string, unknown> {
   // If a per-query timeout is needed, issue `SET statement_timeout` after
   // connect, or wrap executeQuery with a client-side AbortController.
   const config: Record<string, unknown> = {
-    host: input.host,
-    port: input.port,
+    host: input.host ?? undefined,
+    port: input.port ?? undefined,
     user: input.username ?? undefined,
     password: input.password ?? undefined,
     database: input.database ?? undefined,

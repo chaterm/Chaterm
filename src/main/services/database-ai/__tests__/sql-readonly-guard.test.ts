@@ -261,6 +261,16 @@ describe('isReadOnlySql - allow with traps', () => {
     expect(r.ok).toBe(true)
   })
 
+  it('allows Oracle q-quoted string containing DML keywords', () => {
+    const r = isReadOnlySql("SELECT q'[DELETE FROM users]' AS script FROM dual")
+    expect(r.ok).toBe(true)
+  })
+
+  it('allows Oracle q-quoted string with custom delimiter containing DROP', () => {
+    const r = isReadOnlySql("SELECT q'!DROP TABLE x!' AS script FROM dual")
+    expect(r.ok).toBe(true)
+  })
+
   it("allows single-quoted string with escaped quote containing 'DELETE'", () => {
     const r = isReadOnlySql("SELECT 'it''s fine DELETE' AS note")
     expect(r.ok).toBe(true)
@@ -372,6 +382,12 @@ describe('stripper internals', () => {
     const r = stripCommentsAndLiterals("SELECT E'delete\\n'")
     expect(r.hardFail).toBeUndefined()
     expect(r.skeleton).not.toMatch(/delete/i)
+  })
+
+  it('blanks out Oracle q-quoted strings', () => {
+    const r = stripCommentsAndLiterals("SELECT q'[drop table x]' FROM dual")
+    expect(r.hardFail).toBeUndefined()
+    expect(r.skeleton).not.toMatch(/drop/i)
   })
 
   it('flags nested block comment', () => {

@@ -275,14 +275,16 @@ const isConvertAction = computed(() => request.value?.action === 'convert')
 const selectedDialect = computed(() => request.value?.targetDialect ?? 'postgresql')
 
 // MVP supports executing generated SQL only against backends that match the
-// active connection — PostgreSQL / MySQL. Other targets (e.g. Oracle, SQL
+// active connection — PostgreSQL / MySQL / SQLite / Oracle. Other targets (e.g. SQL
 // Server) are text-only conversions: copy / insert is still available but
 // read-only execution is hidden.
 const isExecutableDialect = computed(() => {
   const dialect = selectedDialect.value
   if (!request.value) return true
   if (!isConvertAction.value) return true
-  return dialect === 'postgresql' || dialect === 'mysql'
+  const supported = dialect === 'postgresql' || dialect === 'mysql' || dialect === 'sqlite' || dialect === 'oracle'
+  if (!supported) return false
+  return request.value.context?.dbType === dialect
 })
 
 const dialectOptions = [

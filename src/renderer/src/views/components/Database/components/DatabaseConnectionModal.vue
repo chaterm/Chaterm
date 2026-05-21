@@ -80,7 +80,52 @@
               </select>
             </div>
 
-            <div class="db-conn-row">
+            <div
+              v-if="isSqlite"
+              class="db-conn-row"
+            >
+              <label
+                class="db-conn-row__label"
+                :for="fieldId('filePath')"
+                >{{ $t('database.fields.filePath') }}</label
+              >
+              <div class="db-conn-file">
+                <input
+                  :id="fieldId('filePath')"
+                  class="db-conn-input db-conn-file__input"
+                  :class="{ 'db-conn-input--error': errors.includes('filePath') }"
+                  type="text"
+                  :value="draft.filePath"
+                  @input="onInput('filePath', $event)"
+                />
+                <button
+                  type="button"
+                  class="db-conn-btn db-conn-file__btn"
+                  @click="handlePickSqliteFile"
+                  >{{ $t('common.select') }}</button
+                >
+              </div>
+            </div>
+
+            <div
+              v-if="isSqlite"
+              class="db-conn-row"
+            >
+              <span class="db-conn-row__label">{{ $t('database.fields.readonly') }}</span>
+              <label class="db-conn-checkbox">
+                <input
+                  type="checkbox"
+                  :checked="!!draft.readonly"
+                  @change="onCheckbox('readonly', $event)"
+                />
+                <span>{{ $t('database.fields.readonlyHint') }}</span>
+              </label>
+            </div>
+
+            <div
+              v-if="!isSqlite"
+              class="db-conn-row"
+            >
               <label
                 class="db-conn-row__label"
                 :for="fieldId('host')"
@@ -92,7 +137,7 @@
                   class="db-conn-input db-conn-host-port__host"
                   :class="{ 'db-conn-input--error': errors.includes('host') }"
                   type="text"
-                  :value="draft.host"
+                  :value="draft.host ?? ''"
                   @input="onInput('host', $event)"
                 />
                 <label
@@ -107,13 +152,16 @@
                   type="number"
                   min="1"
                   max="65535"
-                  :value="draft.port"
+                  :value="draft.port ?? ''"
                   @input="onNumberInput('port', $event)"
                 />
               </div>
             </div>
 
-            <div class="db-conn-row">
+            <div
+              v-if="!isSqlite"
+              class="db-conn-row"
+            >
               <label class="db-conn-row__label">{{ $t('database.authentication') }}</label>
               <select
                 class="db-conn-input"
@@ -124,7 +172,10 @@
               </select>
             </div>
 
-            <div class="db-conn-row">
+            <div
+              v-if="!isSqlite"
+              class="db-conn-row"
+            >
               <label
                 class="db-conn-row__label"
                 :for="fieldId('user')"
@@ -140,7 +191,10 @@
               />
             </div>
 
-            <div class="db-conn-row">
+            <div
+              v-if="!isSqlite"
+              class="db-conn-row"
+            >
               <label
                 class="db-conn-row__label"
                 :for="fieldId('password')"
@@ -166,7 +220,10 @@
               </div>
             </div>
 
-            <div class="db-conn-row">
+            <div
+              v-if="!isSqlite"
+              class="db-conn-row"
+            >
               <label
                 class="db-conn-row__label"
                 :for="fieldId('database')"
@@ -282,12 +339,20 @@ const passwordVisible = ref(false)
 
 const schema = computed(() => (props.draft ? getConnectionSchema(props.draft.dbType) : null))
 const typeOption = computed(() => (props.draft ? getDatabaseTypeOption(props.draft.dbType) : undefined))
+const isSqlite = computed(() => props.draft?.dbType === 'SQLite')
 const hasSslMode = computed(() => !!schema.value?.fields.some((f) => f.key === 'sslMode'))
 const sslModeOptions = computed(() => schema.value?.fields.find((f) => f.key === 'sslMode')?.options ?? [])
 
 const autoUrl = computed(() => {
   const d = props.draft
   if (!d) return ''
+  if (d.dbType === 'SQLite') return d.filePath ? `sqlite://${d.filePath}` : 'sqlite://'
+  if (d.dbType === 'Oracle') {
+    const host = d.host || ''
+    const port = d.port ? String(d.port) : ''
+    const service = d.database ? `/${d.database}` : ''
+    return `${host}${port ? `:${port}` : ''}${service}`
+  }
   const scheme = d.dbType === 'PostgreSQL' ? 'jdbc:postgresql' : 'jdbc:mysql'
   const host = d.host || ''
   const port = d.port ? String(d.port) : ''
@@ -333,6 +398,13 @@ const validate = (): { valid: boolean; errors: string[] } => {
   const draft = props.draft
   const s = schema.value
   if (!draft || !s) return { valid: false, errors: ['draft'] }
+  const hasOracleConnectString = draft.dbType === 'Oracle' && !!draft.url?.trim()
+  const hasOracleHost = !!draft.host?.trim()
+  const hasOraclePort = typeof draft.port === 'number' && Number.isFinite(draft.port) && draft.port > 0
+  if (draft.dbType === 'Oracle' && !hasOracleConnectString) {
+    if (!hasOracleHost) errs.push('host')
+    if (!hasOraclePort) errs.push('port')
+  }
   for (const field of s.fields) {
     if (!field.required) continue
     const raw = draft[field.key]
@@ -357,7 +429,8 @@ const onInput = (key: keyof DatabaseConnectionDraft, e: Event) => {
 }
 
 const onNumberInput = (key: keyof DatabaseConnectionDraft, e: Event) => {
-  const value = Number((e.target as HTMLInputElement).value)
+  const raw = (e.target as HTMLInputElement).value
+  const value = raw.trim() ? Number(raw) : null
   update({ [key]: value } as Partial<DatabaseConnectionDraft>)
 }
 
@@ -366,10 +439,40 @@ const onSelect = (key: keyof DatabaseConnectionDraft, e: Event) => {
   update({ [key]: value } as Partial<DatabaseConnectionDraft>)
 }
 
+const onCheckbox = (key: keyof DatabaseConnectionDraft, e: Event) => {
+  const checked = (e.target as HTMLInputElement).checked
+  update({ [key]: checked } as Partial<DatabaseConnectionDraft>)
+}
+
 const onUrlInput = (e: Event) => {
   const value = (e.target as HTMLInputElement).value
   urlDirty.value = true
   update({ url: value })
+}
+
+const handlePickSqliteFile = async () => {
+  const api = (
+    globalThis as unknown as {
+      window?: {
+        api?: {
+          showOpenDialog?: (options: {
+            properties: string[]
+            filters?: Array<{ name: string; extensions: string[] }>
+          }) => Promise<{ canceled: boolean; filePaths: string[] } | undefined>
+        }
+      }
+    }
+  ).window?.api
+  if (typeof api?.showOpenDialog !== 'function') return
+  const result = await api.showOpenDialog({
+    properties: ['openFile'],
+    filters: [
+      { name: 'SQLite Database', extensions: ['db', 'sqlite', 'sqlite3'] },
+      { name: 'All Files', extensions: ['*'] }
+    ]
+  })
+  const filePath = result && !result.canceled ? result.filePaths?.[0] : undefined
+  if (filePath) update({ filePath, url: `sqlite://${filePath}` })
 }
 
 const handleOverlayClick = () => {
@@ -645,6 +748,35 @@ select.db-conn-input {
     &:hover {
       background: var(--hover-bg-color, rgba(255, 255, 255, 0.1));
     }
+  }
+}
+
+.db-conn-file {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  gap: 8px;
+
+  &__input {
+    flex: 1;
+  }
+
+  &__btn {
+    flex: 0 0 auto;
+  }
+}
+
+.db-conn-checkbox {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  color: var(--text-color, #e0e0e0);
+
+  input {
+    width: 14px;
+    height: 14px;
   }
 }
 

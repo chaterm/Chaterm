@@ -10,6 +10,8 @@ import type { ConnectionTestResult, DbObjectKind, MutationStatement } from '../s
 import { buildTableQuery, type ColumnFilter, type ColumnSort } from '../services/database/query-builder'
 import { fetchPostgresTableDdl } from '../services/database/drivers/postgres-driver'
 import { fetchMysqlTableDdl } from '../services/database/drivers/mysql-driver'
+import { fetchSqliteTableDdl } from '../services/database/drivers/sqlite-driver'
+import { fetchOracleTableDdl } from '../services/database/drivers/oracle-driver'
 
 const logger = createLogger('db')
 
@@ -21,9 +23,11 @@ const logger = createLogger('db')
  */
 interface RendererDbAssetPayload {
   name: string
-  db_type: 'mysql' | 'postgresql'
-  host: string
-  port: number
+  db_type: 'mysql' | 'postgresql' | 'sqlite' | 'oracle'
+  host?: string | null
+  port?: number | null
+  file_path?: string | null
+  connection_mode?: 'readwrite' | 'readonly' | null
   group_id?: string | null
   username?: string | null
   password?: string | null
@@ -53,16 +57,19 @@ export interface DbAssetDto {
   name: string
   group_id: string | null
   group_name: string | null
-  db_type: 'mysql' | 'postgresql'
+  db_type: 'mysql' | 'postgresql' | 'sqlite' | 'oracle'
   environment: string | null
-  host: string
-  port: number
+  host: string | null
+  port: number | null
+  file_path: string | null
+  connection_mode: 'readwrite' | 'readonly' | null
   database_name: string | null
   schema_name: string | null
   auth_type: string
   username: string | null
   hasPassword: boolean
   ssl_mode: string | null
+  jdbc_url: string | null
   status: string
   last_connected_at: string | null
   last_tested_at: string | null
@@ -92,12 +99,15 @@ function toDto(record: DbAssetRecord): DbAssetDto {
     environment: record.environment,
     host: record.host,
     port: record.port,
+    file_path: record.file_path,
+    connection_mode: record.connection_mode,
     database_name: record.database_name,
     schema_name: record.schema_name,
     auth_type: record.auth_type,
     username: record.username,
     hasPassword: !!record.password_ciphertext,
     ssl_mode: record.ssl_mode,
+    jdbc_url: record.jdbc_url,
     status: record.status,
     last_connected_at: record.last_connected_at,
     last_tested_at: record.last_tested_at,
@@ -120,6 +130,10 @@ function toGroupDto(record: DbAssetGroupRecord): DbAssetGroupDto {
   }
 }
 
+function isOracleTransactionalDml(sql: string): boolean {
+  return /^(insert|update|delete|merge)\b/i.test(String(sql ?? '').trim())
+}
+
 /**
  * Translate renderer payload into a storage-level create input, encrypting
  * the plaintext password along the way.
@@ -130,15 +144,17 @@ async function toCreateInput(payload: RendererDbAssetPayload): Promise<DbAssetCr
   return {
     name: payload.name,
     db_type: payload.db_type,
-    host: payload.host,
-    port: payload.port,
+    host: payload.db_type === 'sqlite' ? null : (payload.host ?? null),
+    port: payload.db_type === 'sqlite' ? null : (payload.port ?? null),
+    file_path: payload.file_path ?? null,
+    connection_mode: payload.connection_mode ?? (payload.db_type === 'sqlite' ? 'readwrite' : null),
     group_id: payload.group_id ?? null,
     username: payload.username ?? null,
     password_ciphertext: cipher,
     auth_type: 'password',
     group_name: payload.group_name ?? null,
     environment: payload.environment ?? null,
-    database_name: payload.database_name ?? null,
+    database_name: payload.database_name ?? (payload.db_type === 'sqlite' ? 'main' : null),
     schema_name: payload.schema_name ?? null,
     ssl_mode: payload.ssl_mode ?? null,
     jdbc_url: payload.jdbc_url ?? null,
@@ -161,6 +177,8 @@ async function toUpdatePatch(payload: Partial<RendererDbAssetPayload>): Promise<
   if (payload.db_type !== undefined) patch.db_type = payload.db_type
   if (payload.host !== undefined) patch.host = payload.host
   if (payload.port !== undefined) patch.port = payload.port
+  if (payload.file_path !== undefined) patch.file_path = payload.file_path
+  if (payload.connection_mode !== undefined) patch.connection_mode = payload.connection_mode
   if (payload.group_id !== undefined) patch.group_id = payload.group_id
   if (payload.username !== undefined) patch.username = payload.username
   if (payload.group_name !== undefined) patch.group_name = payload.group_name
@@ -309,20 +327,22 @@ export function registerDbAssetHandlers(): void {
         group_name: null,
         db_type: payload.db_type,
         environment: null,
-        host: payload.host,
-        port: payload.port,
-        database_name: payload.database_name ?? null,
-        schema_name: null,
+        host: payload.host ?? null,
+        port: payload.port ?? null,
+        file_path: payload.file_path ?? null,
+        connection_mode: payload.connection_mode ?? (payload.db_type === 'sqlite' ? 'readwrite' : null),
+        database_name: payload.database_name ?? (payload.db_type === 'sqlite' ? 'main' : null),
+        schema_name: payload.schema_name ?? null,
         auth_type: 'password',
         username: payload.username ?? null,
         password_ciphertext: cipher,
         ssl_mode: payload.ssl_mode ?? null,
-        jdbc_url: null,
+        jdbc_url: payload.jdbc_url ?? null,
         driver_name: null,
         driver_class_name: null,
         ssh_tunnel_enabled: 0,
         ssh_tunnel_asset_uuid: null,
-        options_json: null,
+        options_json: payload.options_json ?? null,
         tags_json: null,
         status: 'testing',
         last_connected_at: null,
@@ -439,16 +459,21 @@ export function registerDbAssetHandlers(): void {
         const safe = payload.databaseName.replace(/`/g, '')
         await mgr.executeQuery(payload.id, `USE \`${safe}\``)
       }
-      // For Postgres, set the session search_path so unqualified references
-      // in the user SQL resolve against the schema selected in the toolbar.
-      // Run as a separate statement because the pg driver uses the extended
-      // query protocol (params are always passed), which rejects multi-
-      // statement strings.
+      // For schema-aware engines, scope unqualified references to the schema
+      // selected in the toolbar. Run as a separate statement because drivers
+      // may reject multi-statement strings under their extended protocols.
       if (payload.schemaName && asset?.db_type === 'postgresql') {
         const safeSchema = String(payload.schemaName).replace(/"/g, '""')
         await mgr.executeQuery(payload.id, `SET search_path TO "${safeSchema}", public`)
       }
+      if (payload.schemaName && asset?.db_type === 'oracle') {
+        const safeSchema = String(payload.schemaName).replace(/"/g, '""')
+        await mgr.executeQuery(payload.id, `ALTER SESSION SET CURRENT_SCHEMA = "${safeSchema}"`)
+      }
       const result = await mgr.executeQuery(payload.id, payload.sql)
+      if (asset?.db_type === 'oracle' && isOracleTransactionalDml(payload.sql)) {
+        await mgr.executeQuery(payload.id, 'COMMIT')
+      }
       return { ok: true, ...result }
     } catch (error) {
       logger.error('db-asset-execute-query failed', {
@@ -663,6 +688,23 @@ export function registerDbAssetHandlers(): void {
           const values = (res.rows ?? []).map((r) => r.v ?? null)
           return { ok: true, values }
         }
+        if (asset.db_type === 'sqlite') {
+          if (payload.database && !/^[A-Za-z_][A-Za-z0-9_]*$/.test(payload.database)) {
+            return { ok: false, errorMessage: 'unsafe database name' }
+          }
+          const database = payload.database || 'main'
+          const sql = `SELECT DISTINCT "${payload.column}" AS v FROM "${database}"."${payload.table}" ORDER BY 1 LIMIT ${limit}`
+          const res = await mgr.executeQuery(payload.id, sql)
+          const values = (res.rows ?? []).map((r) => r.v ?? null)
+          return { ok: true, values }
+        }
+        if (asset.db_type === 'oracle') {
+          const qualified = payload.schema ? `"${payload.schema}"."${payload.table}"` : `"${payload.table}"`
+          const sql = `SELECT DISTINCT "${payload.column}" AS "V" FROM ${qualified} ORDER BY 1 FETCH FIRST ${limit} ROWS ONLY`
+          const res = await mgr.executeQuery(payload.id, sql)
+          const values = (res.rows ?? []).map((r) => r.V ?? r.v ?? null)
+          return { ok: true, values }
+        }
         // postgres: schema-qualify when known so non-public tables resolve.
         const qualified = payload.schema ? `"${payload.schema}"."${payload.table}"` : `"${payload.table}"`
         const sql = `SELECT DISTINCT "${payload.column}" AS v FROM ${qualified} ORDER BY 1 LIMIT ${limit}`
@@ -704,49 +746,59 @@ export function registerDbAssetHandlers(): void {
     }
   })
 
-  ipcMain.handle('db-asset:execute-mutations', async (_, payload: { id: string; database?: string; statements: MutationStatement[] }) => {
-    try {
-      if (!payload || typeof payload.id !== 'string' || !Array.isArray(payload.statements)) {
-        return { ok: false, errorMessage: 'invalid payload', durationMs: 0 }
-      }
-      const mgr = await getConnectionManager()
-      if (!mgr.isConnected(payload.id)) {
-        return { ok: false, errorMessage: 'not connected', durationMs: 0 }
-      }
-      const service = await resolveAssetService()
-      const asset = service.getDbAsset(payload.id)
-      if (!asset) return { ok: false, errorMessage: 'asset not found', durationMs: 0 }
-
-      // Scope MySQL sessions to the requested database before mutating.
-      if (payload.database && asset.db_type === 'mysql') {
-        if (!/^[A-Za-z_][A-Za-z0-9_]*$/.test(payload.database)) {
-          return { ok: false, errorMessage: 'unsafe database name', durationMs: 0 }
+  ipcMain.handle(
+    'db-asset:execute-mutations',
+    async (_, payload: { id: string; database?: string; schema?: string; statements: MutationStatement[] }) => {
+      try {
+        if (!payload || typeof payload.id !== 'string' || !Array.isArray(payload.statements)) {
+          return { ok: false, errorMessage: 'invalid payload', durationMs: 0 }
         }
-        await mgr.executeQuery(payload.id, `USE \`${payload.database}\``)
-      }
+        const mgr = await getConnectionManager()
+        if (!mgr.isConnected(payload.id)) {
+          return { ok: false, errorMessage: 'not connected', durationMs: 0 }
+        }
+        const service = await resolveAssetService()
+        const asset = service.getDbAsset(payload.id)
+        if (!asset) return { ok: false, errorMessage: 'asset not found', durationMs: 0 }
 
-      const result = await mgr.executeMutations(payload.id, payload.statements)
-      // Sanitized telemetry: never log statement params, only aggregate counts.
-      const affectedTotal = Array.isArray(result.affected) ? result.affected.reduce((acc, n) => acc + (typeof n === 'number' ? n : 0), 0) : 0
-      logger.info('db-asset.execute-mutations done', {
-        event: 'db-asset.execute-mutations.done',
-        id: payload.id,
-        stmtCount: payload.statements.length,
-        ok: result.ok,
-        affectedTotal,
-        durationMs: result.durationMs
-      })
-      return result
-    } catch (error) {
-      logger.error('db-asset.execute-mutations failed', {
-        event: 'db-asset.execute-mutations.error',
-        id: payload?.id,
-        stmtCount: Array.isArray(payload?.statements) ? payload.statements.length : 0,
-        error
-      })
-      return { ok: false, errorMessage: (error as Error).message, durationMs: 0 }
+        // Scope MySQL sessions to the requested database before mutating.
+        if (payload.database && asset.db_type === 'mysql') {
+          if (!/^[A-Za-z_][A-Za-z0-9_]*$/.test(payload.database)) {
+            return { ok: false, errorMessage: 'unsafe database name', durationMs: 0 }
+          }
+          await mgr.executeQuery(payload.id, `USE \`${payload.database}\``)
+        }
+        if (payload.schema && asset.db_type === 'oracle') {
+          if (!/^[A-Za-z_][A-Za-z0-9_]*$/.test(payload.schema)) {
+            return { ok: false, errorMessage: 'unsafe schema name', durationMs: 0 }
+          }
+          const safeSchema = payload.schema.replace(/"/g, '""')
+          await mgr.executeQuery(payload.id, `ALTER SESSION SET CURRENT_SCHEMA = "${safeSchema}"`)
+        }
+
+        const result = await mgr.executeMutations(payload.id, payload.statements)
+        // Sanitized telemetry: never log statement params, only aggregate counts.
+        const affectedTotal = Array.isArray(result.affected) ? result.affected.reduce((acc, n) => acc + (typeof n === 'number' ? n : 0), 0) : 0
+        logger.info('db-asset.execute-mutations done', {
+          event: 'db-asset.execute-mutations.done',
+          id: payload.id,
+          stmtCount: payload.statements.length,
+          ok: result.ok,
+          affectedTotal,
+          durationMs: result.durationMs
+        })
+        return result
+      } catch (error) {
+        logger.error('db-asset.execute-mutations failed', {
+          event: 'db-asset.execute-mutations.error',
+          id: payload?.id,
+          stmtCount: Array.isArray(payload?.statements) ? payload.statements.length : 0,
+          error
+        })
+        return { ok: false, errorMessage: (error as Error).message, durationMs: 0 }
+      }
     }
-  })
+  )
 
   ipcMain.handle('db-asset-table-ddl', async (_, payload: { id: string; database: string; schema?: string; table: string }) => {
     try {
@@ -778,6 +830,11 @@ export function registerDbAssetHandlers(): void {
         ddl = await fetchPostgresTableDdl(session.handle, payload.database, schema, payload.table)
       } else if (asset.db_type === 'mysql') {
         ddl = await fetchMysqlTableDdl(session.handle, payload.database, payload.table)
+      } else if (asset.db_type === 'sqlite') {
+        ddl = await fetchSqliteTableDdl(session.handle, payload.database || 'main', payload.table)
+      } else if (asset.db_type === 'oracle') {
+        const schema = payload.schema ?? asset.schema_name ?? ''
+        ddl = await fetchOracleTableDdl(session.handle, schema, payload.table)
       } else {
         return { ok: false, errorCode: 'other', errorMessage: `unsupported db_type: ${asset.db_type}` }
       }

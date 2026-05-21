@@ -4,22 +4,12 @@
 import Database from 'better-sqlite3'
 const logger = createLogger('db')
 
-/**
- * Database migration to add database asset support.
- * Creates:
- * - db_assets: persistent metadata + ciphered credentials for database assets
- *   (MySQL, PostgreSQL at launch; schema reserves room for more types)
- * - db_connection_sessions: optional transient session ledger; live driver
- *   handles stay in the main-process runtime, only metadata is persisted
- */
-export async function upgradeDbAssetsSupport(db: Database.Database): Promise<void> {
-  try {
-    const assetsExists = db.prepare("SELECT name FROM sqlite_master WHERE type='table' AND name='db_assets'").get()
-    const groupsExists = db.prepare("SELECT name FROM sqlite_master WHERE type='table' AND name='db_asset_groups'").get()
+interface TableColumnInfo {
+  name: string
+  notnull?: number
+}
 
-    if (!assetsExists) {
-      logger.info('[Migration] Creating db_assets table')
-      db.exec(`
+const DB_ASSETS_CREATE_SQL = `
         CREATE TABLE db_assets (
           id TEXT PRIMARY KEY,
           user_id INTEGER NOT NULL,
@@ -28,8 +18,10 @@ export async function upgradeDbAssetsSupport(db: Database.Database): Promise<voi
           group_name TEXT,
           db_type TEXT NOT NULL,
           environment TEXT,
-          host TEXT NOT NULL,
-          port INTEGER NOT NULL,
+          host TEXT,
+          port INTEGER,
+          file_path TEXT,
+          connection_mode TEXT DEFAULT 'readwrite',
           database_name TEXT,
           schema_name TEXT,
           auth_type TEXT NOT NULL DEFAULT 'password',
@@ -53,14 +45,149 @@ export async function upgradeDbAssetsSupport(db: Database.Database): Promise<voi
           created_at TEXT NOT NULL DEFAULT (datetime('now')),
           updated_at TEXT NOT NULL DEFAULT (datetime('now'))
         )
-      `)
+      `
+
+const DB_ASSETS_COLUMNS = [
+  'id',
+  'user_id',
+  'name',
+  'group_id',
+  'group_name',
+  'db_type',
+  'environment',
+  'host',
+  'port',
+  'file_path',
+  'connection_mode',
+  'database_name',
+  'schema_name',
+  'auth_type',
+  'username',
+  'password_ciphertext',
+  'ssl_mode',
+  'jdbc_url',
+  'driver_name',
+  'driver_class_name',
+  'ssh_tunnel_enabled',
+  'ssh_tunnel_asset_uuid',
+  'options_json',
+  'tags_json',
+  'status',
+  'last_connected_at',
+  'last_tested_at',
+  'last_error_code',
+  'last_error_message',
+  'sort_order',
+  'deleted_at',
+  'created_at',
+  'updated_at'
+] as const
+
+function listColumns(db: Database.Database): TableColumnInfo[] {
+  return db.prepare("PRAGMA table_info('db_assets')").all() as TableColumnInfo[]
+}
+
+function defaultExpressionForColumn(name: string): string {
+  switch (name) {
+    case 'group_id':
+    case 'group_name':
+    case 'environment':
+    case 'host':
+    case 'port':
+    case 'file_path':
+    case 'database_name':
+    case 'schema_name':
+    case 'username':
+    case 'password_ciphertext':
+    case 'ssl_mode':
+    case 'jdbc_url':
+    case 'driver_name':
+    case 'driver_class_name':
+    case 'ssh_tunnel_asset_uuid':
+    case 'options_json':
+    case 'tags_json':
+    case 'last_connected_at':
+    case 'last_tested_at':
+    case 'last_error_code':
+    case 'last_error_message':
+    case 'deleted_at':
+      return 'NULL'
+    case 'connection_mode':
+      return `'readwrite'`
+    case 'auth_type':
+      return `'password'`
+    case 'ssh_tunnel_enabled':
+    case 'sort_order':
+      return '0'
+    case 'status':
+      return `'idle'`
+    case 'created_at':
+    case 'updated_at':
+      return `datetime('now')`
+    default:
+      throw new Error(`cannot provide default for db_assets.${name}`)
+  }
+}
+
+function rebuildDbAssetsTable(db: Database.Database, existingColumns: Set<string>): void {
+  logger.info('[Migration] Rebuilding db_assets table for SQLite file assets support')
+  const rebuild = db.transaction(() => {
+    db.exec('ALTER TABLE db_assets RENAME TO db_assets__old')
+    db.exec(DB_ASSETS_CREATE_SQL)
+    const selectExprs = DB_ASSETS_COLUMNS.map((name) => (existingColumns.has(name) ? name : `${defaultExpressionForColumn(name)} AS ${name}`))
+    db.exec(`
+      INSERT INTO db_assets (${DB_ASSETS_COLUMNS.join(', ')})
+      SELECT ${selectExprs.join(', ')}
+      FROM db_assets__old
+    `)
+    db.exec('DROP TABLE db_assets__old')
+  })
+  rebuild()
+}
+
+function ensureDbAssetsSqliteColumns(db: Database.Database): void {
+  const columns = listColumns(db)
+  const byName = new Map(columns.map((col) => [col.name, col]))
+  const hostNotNull = byName.get('host')?.notnull === 1
+  const portNotNull = byName.get('port')?.notnull === 1
+  if (hostNotNull || portNotNull) {
+    rebuildDbAssetsTable(db, new Set(byName.keys()))
+    return
+  }
+
+  if (!byName.has('group_id')) {
+    logger.info('[Migration] Adding group_id column to db_assets table')
+    db.exec(`ALTER TABLE db_assets ADD COLUMN group_id TEXT`)
+  }
+  if (!byName.has('file_path')) {
+    logger.info('[Migration] Adding file_path column to db_assets table')
+    db.exec(`ALTER TABLE db_assets ADD COLUMN file_path TEXT`)
+  }
+  if (!byName.has('connection_mode')) {
+    logger.info('[Migration] Adding connection_mode column to db_assets table')
+    db.exec(`ALTER TABLE db_assets ADD COLUMN connection_mode TEXT DEFAULT 'readwrite'`)
+  }
+}
+
+/**
+ * Database migration to add database asset support.
+ * Creates:
+ * - db_assets: persistent metadata + ciphered credentials for database assets
+ *   (MySQL, PostgreSQL, SQLite file assets)
+ * - db_connection_sessions: optional transient session ledger; live driver
+ *   handles stay in the main-process runtime, only metadata is persisted
+ */
+export async function upgradeDbAssetsSupport(db: Database.Database): Promise<void> {
+  try {
+    const assetsExists = db.prepare("SELECT name FROM sqlite_master WHERE type='table' AND name='db_assets'").get()
+    const groupsExists = db.prepare("SELECT name FROM sqlite_master WHERE type='table' AND name='db_asset_groups'").get()
+
+    if (!assetsExists) {
+      logger.info('[Migration] Creating db_assets table')
+      db.exec(DB_ASSETS_CREATE_SQL)
       logger.info('[Migration] db_assets table created')
     } else {
-      const groupIdColumnExists = db.prepare("SELECT name FROM pragma_table_info('db_assets') WHERE name='group_id'").get()
-      if (!groupIdColumnExists) {
-        logger.info('[Migration] Adding group_id column to db_assets table')
-        db.exec(`ALTER TABLE db_assets ADD COLUMN group_id TEXT`)
-      }
+      ensureDbAssetsSqliteColumns(db)
     }
 
     db.exec(`CREATE INDEX IF NOT EXISTS idx_db_assets_user_id ON db_assets(user_id)`)

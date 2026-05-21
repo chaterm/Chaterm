@@ -2004,6 +2004,11 @@ export default {
       user: 'Utilisateur',
       password: 'Mot de passe',
       database: 'Base de données',
+      oracleService: 'Nom du service / PDB',
+      oracleConnectString: 'Chaîne de connexion',
+      filePath: 'Fichier de base de données',
+      readonly: 'Lecture seule',
+      readonlyHint: 'Ouvrir sans droit d’écriture',
       url: 'URL',
       sslMode: 'Mode SSL'
     },

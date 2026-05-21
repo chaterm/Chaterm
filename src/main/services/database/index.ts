@@ -3,7 +3,9 @@
 
 import { ConnectionManager } from './connection-manager'
 import { MysqlDriverAdapter } from './drivers/mysql-driver'
+import { OracleDriverAdapter } from './drivers/oracle-driver'
 import { PostgresDriverAdapter } from './drivers/postgres-driver'
+import { SqliteDriverAdapter } from './drivers/sqlite-driver'
 import { getCredentialStore } from './credential-store'
 import { ChatermDatabaseService } from '../../storage/db/chaterm.service'
 
@@ -26,7 +28,9 @@ export async function getConnectionManager(): Promise<ConnectionManager> {
   singleton = new ConnectionManager({
     adapters: {
       mysql: new MysqlDriverAdapter(),
-      postgresql: new PostgresDriverAdapter()
+      postgresql: new PostgresDriverAdapter(),
+      sqlite: new SqliteDriverAdapter(),
+      oracle: new OracleDriverAdapter()
     },
     credentialResolver: { decryptSecret: (c: string) => credential.decryptSecret(c) },
     statusUpdater: {

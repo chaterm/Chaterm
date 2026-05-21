@@ -37,7 +37,7 @@
 import { computed } from 'vue'
 
 interface DbQueryResultView {
-  engine: 'mysql' | 'postgresql'
+  engine: 'mysql' | 'postgresql' | 'sqlite' | 'oracle'
   executedSql: string
   columns: string[]
   rows: Array<Record<string, unknown>>

@@ -35,9 +35,11 @@ interface DbAssetDtoLike {
   name: string
   group_id?: string | null
   group_name: string | null
-  db_type: 'mysql' | 'postgresql'
-  host: string
-  port: number
+  db_type: 'mysql' | 'postgresql' | 'sqlite' | 'oracle'
+  host: string | null
+  port: number | null
+  file_path?: string | null
+  connection_mode?: 'readwrite' | 'readonly' | null
   database_name: string | null
   schema_name?: string | null
   username: string | null
@@ -45,6 +47,7 @@ interface DbAssetDtoLike {
   status: 'idle' | 'testing' | 'connected' | 'failed'
   environment?: string | null
   ssl_mode?: string | null
+  jdbc_url?: string | null
 }
 
 interface DbAssetGroupDtoLike {
@@ -193,6 +196,8 @@ function connectionNodeFromAsset(asset: DbAssetDtoLike): DatabaseTreeNode {
       dbType: asset.db_type,
       host: asset.host,
       port: asset.port,
+      filePath: asset.file_path,
+      connectionMode: asset.connection_mode,
       username: asset.username,
       hasPassword: asset.hasPassword,
       status: asset.status
@@ -415,22 +420,25 @@ function confirmNoPk(): boolean {
  * need defense-in-depth — this helper is about producing correct syntax,
  * not about deciding whether the identifier is allowed.
  */
-export function quoteIdent(name: string, dbType: 'mysql' | 'postgresql'): string {
-  if (dbType === 'postgresql') {
-    return `"${String(name).replace(/"/g, '""')}"`
+export function quoteIdent(name: string, dbType: 'mysql' | 'postgresql' | 'sqlite' | 'oracle'): string {
+  if (dbType === 'mysql') {
+    return `\`${String(name).replace(/`/g, '``')}\``
   }
-  return `\`${String(name).replace(/`/g, '``')}\``
+  return `"${String(name).replace(/"/g, '""')}"`
 }
 
 /**
  * Build a fully-qualified reference for a table, including schema when the
  * dialect supports it. PG: `"schema"."table"`. MySQL: `` `table` `` (MySQL
  * has no schema layer; `databaseName` is addressed via the connection, not
- * the identifier).
+ * the identifier). SQLite callers pass the database alias as schemaName.
  */
-export function buildQualifiedTable(dbType: 'mysql' | 'postgresql', schemaName: string | undefined, tableName: string): string {
+export function buildQualifiedTable(dbType: 'mysql' | 'postgresql' | 'sqlite' | 'oracle', schemaName: string | undefined, tableName: string): string {
   const quotedTable = quoteIdent(tableName, dbType)
-  if (dbType === 'postgresql' && schemaName) {
+  if ((dbType === 'postgresql' || dbType === 'oracle') && schemaName) {
+    return `${quoteIdent(schemaName, dbType)}.${quotedTable}`
+  }
+  if (dbType === 'sqlite' && schemaName) {
     return `${quoteIdent(schemaName, dbType)}.${quotedTable}`
   }
   return quotedTable
@@ -447,13 +455,17 @@ function pickDefaultSchema(tree: DatabaseTreeNode[], assetId: string | undefined
   const conn = findConnectionByAssetId(tree, assetId)
   if (!conn) return undefined
   const meta = conn.meta as { dbType?: string } | undefined
-  if (meta?.dbType !== 'postgresql') return undefined
+  if (meta?.dbType !== 'postgresql' && meta?.dbType !== 'oracle') return undefined
   const db = (conn.children ?? []).find((c) => c.type === 'database' && c.name === databaseName)
   if (!db) return undefined
   const schemas = (db.children ?? []).filter((c) => c.type === 'schema')
   if (schemas.length === 0) return undefined
-  const pub = schemas.find((s) => s.name === 'public')
-  return pub?.name
+  if (meta?.dbType === 'postgresql') {
+    const pub = schemas.find((s) => s.name === 'public')
+    return pub?.name
+  }
+  const userSchema = schemas.find((s) => !(s.meta as { isSystem?: boolean } | undefined)?.isSystem)
+  return userSchema?.name ?? schemas[0]?.name
 }
 
 /**
@@ -759,9 +771,9 @@ export const useDatabaseWorkspaceStore = defineStore('databaseWorkspace', {
 
       let result
       try {
-        // For PG, pass the selected schema down so the main-process handler
-        // can issue `SET search_path` on the same session before the user
-        // SQL. Non-PG connections simply ignore schemaName.
+        // For schema-aware engines, pass the selected schema down so the
+        // main-process handler can scope the same session before running
+        // user SQL. MySQL/SQLite connections simply ignore schemaName.
         result = await api.dbAssetExecuteQuery({
           id: String(tab.assetId),
           sql: String(sqlText),
@@ -1324,7 +1336,7 @@ export const useDatabaseWorkspaceStore = defineStore('databaseWorkspace', {
       const dirty = tab.dirtyState
       if (!dirty) return []
       const connNode = findConnectionAncestor(this.tree, tab.connectionId ?? '')
-      const dbType = ((connNode?.meta as { dbType?: string } | undefined)?.dbType ?? 'mysql') as 'mysql' | 'postgresql'
+      const dbType = ((connNode?.meta as { dbType?: string } | undefined)?.dbType ?? 'mysql') as 'mysql' | 'postgresql' | 'sqlite' | 'oracle'
       return buildMutations({
         dbType,
         database: tab.databaseName,
@@ -1354,7 +1366,12 @@ export const useDatabaseWorkspaceStore = defineStore('databaseWorkspace', {
         return { ok: false as const, errorMessage: 'not connected' }
       }
       const pk = tab.primaryKey ?? null
+      const connNode = findConnectionAncestor(this.tree, tab.connectionId ?? '')
+      const dbType = ((connNode?.meta as { dbType?: string } | undefined)?.dbType ?? 'mysql') as 'mysql' | 'postgresql' | 'sqlite' | 'oracle'
       if (pk === null) {
+        if (dbType === 'oracle') {
+          return { ok: false as const, errorMessage: 'Oracle table editing requires a primary key in this version' }
+        }
         if (!confirmNoPk()) return { ok: false as const, errorMessage: 'cancelled' }
       }
       let statements: Array<{ sql: string; params: unknown[] }>
@@ -1441,21 +1458,24 @@ export const useDatabaseWorkspaceStore = defineStore('databaseWorkspace', {
       // it when switching between MySQL (3306) and PostgreSQL (5432). An
       // explicit port in the incoming draft still wins.
       const dbType = draft?.dbType ?? 'MySQL'
-      const defaultPort = dbType === 'PostgreSQL' ? 5432 : 3306
+      const defaultPort = dbType === 'PostgreSQL' ? 5432 : dbType === 'SQLite' ? 0 : dbType === 'Oracle' ? 1521 : 3306
+      const hasOracleConnectString = dbType === 'Oracle' && !!draft?.url?.trim()
       this.connectionDraft = {
         id: draft?.id ?? `conn-${Date.now()}`,
         name: draft?.name ?? '',
         groupId: draft?.groupId,
         env: draft?.env ?? 'Development',
         dbType,
-        host: draft?.host ?? '127.0.0.1',
-        port: draft?.port ?? defaultPort,
+        host: draft?.host ?? (hasOracleConnectString ? null : '127.0.0.1'),
+        port: draft?.port ?? (hasOracleConnectString ? null : defaultPort),
         authentication: draft?.authentication ?? 'UserAndPassword',
         user: draft?.user ?? '',
         password: draft?.password ?? '',
         database: draft?.database ?? '',
         url: draft?.url ?? '',
-        sslMode: draft?.sslMode
+        sslMode: draft?.sslMode,
+        filePath: draft?.filePath ?? '',
+        readonly: draft?.readonly ?? false
       }
     },
     /**
@@ -1474,15 +1494,17 @@ export const useDatabaseWorkspaceStore = defineStore('databaseWorkspace', {
         name: asset.name,
         groupId: asset.group_id ?? undefined,
         env: asset.environment ?? 'Development',
-        dbType: asset.db_type === 'mysql' ? 'MySQL' : 'PostgreSQL',
-        host: asset.host,
-        port: asset.port,
+        dbType: asset.db_type === 'mysql' ? 'MySQL' : asset.db_type === 'sqlite' ? 'SQLite' : asset.db_type === 'oracle' ? 'Oracle' : 'PostgreSQL',
+        host: asset.host ?? null,
+        port: asset.port ?? null,
         authentication: 'UserAndPassword',
         user: asset.username ?? '',
         password: '',
         database: asset.database_name ?? '',
-        url: '',
-        sslMode: asset.ssl_mode ?? undefined
+        url: asset.jdbc_url ?? '',
+        sslMode: asset.ssl_mode ?? undefined,
+        filePath: asset.file_path ?? '',
+        readonly: asset.connection_mode === 'readonly'
       }
       this.connectionDraft = draft
       this.connectionModalVisible = true
@@ -1506,26 +1528,57 @@ export const useDatabaseWorkspaceStore = defineStore('databaseWorkspace', {
       const errors: string[] = []
       if (!draft) return { valid: false, errors: ['Draft is empty'] }
       if (!draft.name.trim()) errors.push('name')
-      if (!draft.host.trim()) errors.push('host')
-      if (!draft.port || draft.port <= 0) errors.push('port')
-      if (!draft.user.trim()) errors.push('user')
+      if (draft.dbType === 'SQLite') {
+        if (!draft.filePath?.trim()) errors.push('filePath')
+      } else {
+        const hasOracleConnectString = draft.dbType === 'Oracle' && !!draft.url?.trim()
+        const hasHost = !!draft.host?.trim()
+        const hasPort = typeof draft.port === 'number' && Number.isFinite(draft.port) && draft.port > 0
+        if (draft.dbType !== 'Oracle' || !hasOracleConnectString) {
+          if (!hasHost) errors.push('host')
+          if (!hasPort) errors.push('port')
+        }
+        if (!draft.user.trim()) errors.push('user')
+      }
       return { valid: errors.length === 0, errors }
     },
     draftToPayload(draft: DatabaseConnectionDraft) {
+      if (draft.dbType === 'SQLite') {
+        return JSON.parse(
+          JSON.stringify({
+            name: draft.name,
+            db_type: 'sqlite',
+            group_id: draft.groupId || null,
+            file_path: draft.filePath || null,
+            connection_mode: draft.readonly ? 'readonly' : 'readwrite',
+            database_name: 'main',
+            environment: draft.env || null,
+            jdbc_url: draft.filePath ? `sqlite://${draft.filePath}` : null
+          })
+        )
+      }
       // JSON round-trip to strip any Vue reactive proxy wrapping — Electron
       // IPC structured-clone rejects Pinia-tracked values.
+      const hasOracleConnectString = draft.dbType === 'Oracle' && !!draft.url?.trim()
+      const normalizedHost = hasOracleConnectString ? null : draft.host?.trim() || null
+      const normalizedPort = hasOracleConnectString
+        ? null
+        : typeof draft.port === 'number' && Number.isFinite(draft.port) && draft.port > 0
+          ? draft.port
+          : null
       return JSON.parse(
         JSON.stringify({
           name: draft.name,
-          db_type: draft.dbType === 'MySQL' ? 'mysql' : 'postgresql',
+          db_type: draft.dbType === 'MySQL' ? 'mysql' : draft.dbType === 'Oracle' ? 'oracle' : 'postgresql',
           group_id: draft.groupId || null,
-          host: draft.host,
-          port: draft.port,
+          host: normalizedHost,
+          port: normalizedPort,
           username: draft.user || null,
           password: draft.password || null,
           database_name: draft.database || null,
           environment: draft.env || null,
-          ssl_mode: draft.sslMode || null
+          ssl_mode: draft.sslMode || null,
+          jdbc_url: draft.url || null
         })
       )
     },
@@ -1577,9 +1630,11 @@ export const useDatabaseWorkspaceStore = defineStore('databaseWorkspace', {
           connNode.name = draft.name || connNode.name
           connNode.meta = {
             ...(connNode.meta ?? {}),
-            dbType: draft.dbType === 'MySQL' ? 'mysql' : 'postgresql',
+            dbType: draft.dbType === 'MySQL' ? 'mysql' : draft.dbType === 'SQLite' ? 'sqlite' : draft.dbType === 'Oracle' ? 'oracle' : 'postgresql',
             host: draft.host,
             port: draft.port,
+            filePath: draft.filePath,
+            connectionMode: draft.readonly ? 'readonly' : 'readwrite',
             username: draft.user
           }
         }
@@ -1603,7 +1658,13 @@ export const useDatabaseWorkspaceStore = defineStore('databaseWorkspace', {
         name: draft.name || 'new-connection',
         parentId: draft.groupId || DEFAULT_GROUP_ID,
         expanded: false,
-        meta: { dbType: draft.dbType, host: draft.host, port: draft.port },
+        meta: {
+          dbType: draft.dbType === 'MySQL' ? 'mysql' : draft.dbType === 'SQLite' ? 'sqlite' : draft.dbType === 'Oracle' ? 'oracle' : 'postgresql',
+          host: draft.host,
+          port: draft.port,
+          filePath: draft.filePath,
+          connectionMode: draft.readonly ? 'readonly' : 'readwrite'
+        },
         children: []
       }
       const group = this.tree.find((n) => n.id === (draft.groupId || DEFAULT_GROUP_ID))
@@ -1727,11 +1788,12 @@ export const useDatabaseWorkspaceStore = defineStore('databaseWorkspace', {
       const dbNode = (connNode.children ?? []).find((d) => d.name === databaseName)
       if (!dbNode) return
 
-      // Postgres: databases contain schemas; each schema exposes four object
-      // folders (tables/views/functions/procedures). MySQL has no schema
-      // layer, so it stays on the legacy database -> tables path below.
+      // Schema-aware engines: database/service nodes contain schemas; each
+      // schema exposes four object folders (tables/views/functions/procedures).
+      // MySQL has no schema layer, so it stays on the legacy
+      // database -> tables path below.
       const dbType = (connNode.meta as { dbType?: string } | undefined)?.dbType
-      if (dbType === 'postgresql' && api?.dbAssetListSchemas) {
+      if ((dbType === 'postgresql' || dbType === 'oracle') && api?.dbAssetListSchemas) {
         const schemaResult = await api.dbAssetListSchemas({ id: assetId, databaseName })
         if (!schemaResult.ok) {
           this.lastError = schemaResult.errorMessage ?? null
@@ -1789,7 +1851,7 @@ export const useDatabaseWorkspaceStore = defineStore('databaseWorkspace', {
       dbNode.expanded = true
     },
     /**
-     * Lazy-load objects (tables/views/functions/procedures) for a PG schema
+     * Lazy-load objects (tables/views/functions/procedures) for a schema
      * folder on first expand. The folder node's meta carries the asset id,
      * database name, schema name, and object kind.
      */
@@ -1980,7 +2042,13 @@ export const useDatabaseWorkspaceStore = defineStore('databaseWorkspace', {
      * console" entry of the table context menu — the user gets an editable
      * query they can tweak rather than the read-only data grid.
      */
-    openSqlTabWithSelect(ctx: { assetId: string; dbType: 'mysql' | 'postgresql'; databaseName: string; schemaName?: string; tableName: string }) {
+    openSqlTabWithSelect(ctx: {
+      assetId: string
+      dbType: 'mysql' | 'postgresql' | 'sqlite' | 'oracle'
+      databaseName: string
+      schemaName?: string
+      tableName: string
+    }) {
       this.openNewSqlTab()
       const last = this.tabs[this.tabs.length - 1]
       if (!last || last.kind !== 'sql') return
@@ -1988,8 +2056,8 @@ export const useDatabaseWorkspaceStore = defineStore('databaseWorkspace', {
       last.connectionId = `conn-${ctx.assetId}`
       last.databaseName = ctx.databaseName
       last.schemaName = ctx.schemaName
-      const qualified = buildQualifiedTable(ctx.dbType, ctx.schemaName, ctx.tableName)
-      last.sql = `SELECT * FROM ${qualified} LIMIT 100`
+      const qualified = buildQualifiedTable(ctx.dbType, ctx.dbType === 'sqlite' ? ctx.databaseName : ctx.schemaName, ctx.tableName)
+      last.sql = ctx.dbType === 'oracle' ? `SELECT * FROM ${qualified} FETCH FIRST 100 ROWS ONLY` : `SELECT * FROM ${qualified} LIMIT 100`
     },
 
     /**
@@ -2032,7 +2100,7 @@ export const useDatabaseWorkspaceStore = defineStore('databaseWorkspace', {
      */
     async openDdlTab(ctx: {
       assetId: string
-      dbType: 'mysql' | 'postgresql'
+      dbType: 'mysql' | 'postgresql' | 'sqlite' | 'oracle'
       databaseName: string
       schemaName?: string
       tableName: string
@@ -2078,12 +2146,15 @@ export const useDatabaseWorkspaceStore = defineStore('databaseWorkspace', {
      */
     async truncateTable(ctx: {
       assetId: string
-      dbType: 'mysql' | 'postgresql'
+      dbType: 'mysql' | 'postgresql' | 'sqlite' | 'oracle'
       databaseName: string
       schemaName?: string
       tableName: string
     }): Promise<{ ok: boolean; errorMessage?: string }> {
-      const qualified = buildQualifiedTable(ctx.dbType, ctx.schemaName, ctx.tableName)
+      const qualified = buildQualifiedTable(ctx.dbType, ctx.dbType === 'sqlite' ? ctx.databaseName : ctx.schemaName, ctx.tableName)
+      if (ctx.dbType === 'sqlite') {
+        return { ok: false, errorMessage: 'SQLite does not support TRUNCATE TABLE; use DELETE FROM instead.' }
+      }
       const res = await this._executeTableMutation(
         { assetId: ctx.assetId, databaseName: ctx.databaseName, sql: `TRUNCATE TABLE ${qualified}` },
         'truncate failed'
@@ -2110,12 +2181,12 @@ export const useDatabaseWorkspaceStore = defineStore('databaseWorkspace', {
      */
     async dropTable(ctx: {
       assetId: string
-      dbType: 'mysql' | 'postgresql'
+      dbType: 'mysql' | 'postgresql' | 'sqlite' | 'oracle'
       databaseName: string
       schemaName?: string
       tableName: string
     }): Promise<{ ok: boolean; errorMessage?: string }> {
-      const qualified = buildQualifiedTable(ctx.dbType, ctx.schemaName, ctx.tableName)
+      const qualified = buildQualifiedTable(ctx.dbType, ctx.dbType === 'sqlite' ? ctx.databaseName : ctx.schemaName, ctx.tableName)
       const res = await this._executeTableMutation(
         { assetId: ctx.assetId, databaseName: ctx.databaseName, sql: `DROP TABLE ${qualified}` },
         'drop failed'

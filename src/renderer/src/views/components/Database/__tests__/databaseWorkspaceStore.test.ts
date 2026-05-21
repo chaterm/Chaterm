@@ -252,6 +252,61 @@ describe('databaseWorkspaceStore', () => {
       expect(store.connectionModalVisible).toBe(false)
     })
 
+    it('saveConnection accepts Oracle connect-string-only drafts and includes jdbc_url', async () => {
+      const newAsset = {
+        id: 'asset-oracle',
+        name: 'hr-oracle',
+        group_id: null,
+        group_name: null,
+        db_type: 'oracle' as const,
+        host: null,
+        port: null,
+        database_name: 'ORCLPDB1',
+        schema_name: 'HR',
+        jdbc_url: 'jdbc:oracle:thin:@//db.example.test:1521/ORCLPDB1',
+        username: 'hr',
+        hasPassword: true,
+        status: 'idle' as const
+      }
+      const mockApi = {
+        dbAssetCreate: vi.fn().mockResolvedValue({ ok: true, asset: newAsset }),
+        dbAssetList: vi.fn().mockResolvedValue([newAsset])
+      }
+      ;(window as unknown as { api: unknown }).api = mockApi
+
+      const store = useDatabaseWorkspaceStore()
+      store.openConnectionModal({ dbType: 'Oracle' })
+      const draft: DatabaseConnectionDraft = {
+        ...store.connectionDraft!,
+        name: 'hr-oracle',
+        host: null,
+        port: null,
+        user: 'hr',
+        password: 's3cret',
+        database: 'ORCLPDB1',
+        url: 'jdbc:oracle:thin:@//db.example.test:1521/ORCLPDB1'
+      }
+
+      const validation = store.validateDraft(draft)
+      expect(validation.valid).toBe(true)
+      await store.saveConnection(draft)
+
+      const createPayload = mockApi.dbAssetCreate.mock.calls[0][0]
+      expect(createPayload).toEqual(
+        expect.objectContaining({
+          name: 'hr-oracle',
+          db_type: 'oracle',
+          username: 'hr',
+          password: 's3cret',
+          database_name: 'ORCLPDB1',
+          jdbc_url: 'jdbc:oracle:thin:@//db.example.test:1521/ORCLPDB1'
+        })
+      )
+      expect(createPayload.host).toBeNull()
+      expect(createPayload.port).toBeNull()
+      expect(store.connectionModalVisible).toBe(false)
+    })
+
     it('createGroup delegates to dbAssetGroupCreate and reloads the tree', async () => {
       const mockApi = {
         dbAssetGroupCreate: vi.fn().mockResolvedValue({

@@ -6,7 +6,7 @@
 //
 // IMPORTANT: this is NOT a full SQL parser. It performs two passes:
 //
-//   1. Strip comments and string literals (including PG dollar-quoted and
+//   1. Strip comments and string literals (including PG dollar-quoted, Oracle q-quoted,
 //      E'...' escape, MySQL backticks, block + line comments). Nested block
 //      comments are rejected because JavaScript regex cannot disambiguate
 //      them safely, and §10.1 requires conservative rejection.
@@ -139,6 +139,24 @@ function stripCommentsAndLiterals(sqlIn: string): StripOutcome {
       if (j > len) return { skeleton: sql, hardFail: 'E_UNTERMINATED_LITERAL' }
       sql = blankRange(sql, i, j)
       i = j
+      continue
+    }
+
+    // Oracle alternative quoting mechanism: q'[ ... ]', q'( ... )',
+    // q'{ ... }', q'< ... >', or q'X ... X'. Strip it before the
+    // standard single-quote branch so semicolons/keywords inside literals
+    // do not affect read-only checks.
+    if ((c === 'Q' || c === 'q') && n === "'") {
+      const open = sql[i + 2]
+      if (!open) return { skeleton: sql, hardFail: 'E_UNTERMINATED_LITERAL' }
+      const closeMap: Record<string, string> = { '[': ']', '(': ')', '{': '}', '<': '>' }
+      const close = closeMap[open] ?? open
+      const needle = `${close}'`
+      const endIdx = sql.indexOf(needle, i + 3)
+      if (endIdx === -1) return { skeleton: sql, hardFail: 'E_UNTERMINATED_LITERAL' }
+      const endPos = endIdx + needle.length
+      sql = blankRange(sql, i, endPos)
+      i = endPos
       continue
     }
 
