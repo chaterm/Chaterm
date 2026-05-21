@@ -358,6 +358,10 @@
                           <DeleteOutlined />
                           {{ $t('files.delete') }}
                         </a-menu-item>
+                        <a-menu-item @click="copyAbsolutePath(record as FileRecord)">
+                          <LinkOutlined />
+                          {{ $t('files.copyAbsolutePath') }}
+                        </a-menu-item>
                       </a-menu>
                     </template>
                   </a-dropdown>
@@ -1808,6 +1812,32 @@ const confirmDeleteFile = async (record: FileRecord) => {
     })
   } catch (err) {
     message.error({ content: `${t('files.deleteError')}：${(err as Error).message}`, key, duration: 3 })
+  }
+}
+
+const copyAbsolutePath = async (record: FileRecord) => {
+  const absolutePath = removeBasePathInContent(record.path)
+  try {
+    const nav = globalThis.navigator as Navigator | undefined
+    if (nav?.clipboard?.writeText) {
+      await nav.clipboard.writeText(absolutePath)
+    } else {
+      const ta = document.createElement('textarea')
+      ta.value = absolutePath
+      ta.style.position = 'fixed'
+      ta.style.opacity = '0'
+      document.body.appendChild(ta)
+      ta.focus()
+      ta.select()
+      try {
+        document.execCommand('copy')
+      } finally {
+        document.body.removeChild(ta)
+      }
+    }
+    message.success(t('files.copyAbsolutePathSuccess'))
+  } catch (err) {
+    message.error(`${t('files.copyAbsolutePathFailed')}: ${(err as Error).message}`)
   }
 }
 
