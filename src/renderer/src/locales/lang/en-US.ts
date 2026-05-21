@@ -1973,6 +1973,11 @@ export default {
       user: 'User',
       password: 'Password',
       database: 'Database',
+      oracleService: 'Service name / PDB',
+      oracleConnectString: 'Connect string',
+      filePath: 'Database File',
+      readonly: 'Read only',
+      readonlyHint: 'Open without write permission',
       url: 'URL',
       sslMode: 'SSL Mode'
     },

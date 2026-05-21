@@ -38,7 +38,7 @@ const MAX_HINTED_TABLES = 64
 const MAX_CURSOR_CONTEXT_BYTES = 8 * 1024
 
 const VALID_ACTIONS: ReadonlyArray<DbAiAction> = ['nl2sql', 'explain', 'optimize', 'convert', 'complete', 'diagnose']
-const VALID_DB_TYPES: ReadonlyArray<DbType> = ['mysql', 'postgresql']
+const VALID_DB_TYPES: ReadonlyArray<DbType> = ['mysql', 'postgresql', 'sqlite', 'oracle']
 
 /** UUIDv4 / UUIDv7 style id shape used by the renderer. */
 const REQ_ID_REGEX = /^[A-Za-z0-9][A-Za-z0-9_-]{7,63}$/
@@ -123,7 +123,7 @@ function validateRequest(raw: unknown): { ok: true; req: DbAiStartRequest } | { 
     }
   }
   if (inputRaw.targetDialect !== undefined) {
-    if (inputRaw.targetDialect !== 'mysql' && inputRaw.targetDialect !== 'postgresql') {
+    if (inputRaw.targetDialect !== 'mysql' && inputRaw.targetDialect !== 'postgresql' && inputRaw.targetDialect !== 'sqlite') {
       return { ok: false, errorMessage: 'invalid targetDialect' }
     }
   }

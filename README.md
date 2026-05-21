@@ -104,6 +104,10 @@ There is a saying that every agent fails all the time, but Chaterm helps you fix
 
   Provide a more efficient resource access experience and facilitate centralized infrastructure management.
 
+- 🗄️ **Database Workspace**
+
+  Connect to MySQL, PostgreSQL, SQLite, and Oracle to browse schemas, query data, inspect DDL, edit table rows, and use database-aware AI assistance.
+
 ![Preview image](resources/features.webp)
 
 ## Development Guide
@@ -120,6 +124,14 @@ npm i electron -D
 node scripts/patch-package-lock.js
 npm install
 ```
+
+If Electron reports a native module ABI mismatch, rebuild native dependencies for Electron instead of the local Node.js runtime:
+
+```bash
+npm run rebuild:native
+```
+
+Do not use `npm rebuild better-sqlite3` for Electron runtime fixes; it can compile the module against the wrong Node ABI.
 
 ### Development
 

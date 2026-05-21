@@ -22,8 +22,8 @@ async function loadDriver(): Promise<MySqlDriver> {
 
 function buildConfig(input: ResolvedDbCredential): Record<string, unknown> {
   const config: Record<string, unknown> = {
-    host: input.host,
-    port: input.port,
+    host: input.host ?? undefined,
+    port: input.port ?? undefined,
     user: input.username ?? undefined,
     password: input.password ?? undefined,
     database: input.database ?? undefined,

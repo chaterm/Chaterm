@@ -7,14 +7,14 @@
  * Supported database engines for DB-AI single-turn actions (track A).
  * DB ChatBot (track B) uses the same literal union; keep in sync if extended.
  */
-export type DbType = 'mysql' | 'postgresql'
+export type DbType = 'mysql' | 'postgresql' | 'sqlite' | 'oracle'
 
 /**
  * Supported SQL dialects for prompt construction and target-dialect conversion.
- * The current MVP targets PostgreSQL and MySQL only; additional dialects should
- * be appended to this union (never renamed) to preserve IPC payload stability.
+ * The current MVP targets PostgreSQL, MySQL, and SQLite; additional dialects
+ * should be appended to this union (never renamed) to preserve IPC payload stability.
  */
-export type SqlDialect = 'mysql' | 'postgresql'
+export type SqlDialect = 'mysql' | 'postgresql' | 'sqlite' | 'oracle'
 
 /**
  * Single-turn DB-AI actions. `chat` is deliberately NOT part of this union:
@@ -25,8 +25,8 @@ export type DbAiAction = 'nl2sql' | 'explain' | 'optimize' | 'convert' | 'comple
 
 /**
  * Hint describing a table the user or caller explicitly references.
- * `schema` is optional because MySQL sessions typically rely on the current
- * database, whereas PostgreSQL relies on schema + search_path.
+ * `schema` is optional because MySQL and SQLite typically rely on a database
+ * name / attached alias, whereas PostgreSQL relies on schema + search_path.
  */
 export interface DbAiTableHint {
   schema?: string

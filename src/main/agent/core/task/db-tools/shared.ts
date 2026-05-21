@@ -77,7 +77,7 @@ export async function validateTableScope(
   input: { database: string; schema?: string; table: string }
 ): Promise<DbToolResult<{ database: string; schema?: string; table: string }>> {
   const { database, schema, table } = input
-  // Schema validation is PG-only; MySQL has no schema layer and listSchemas
+  // Schema validation applies to engines with a schema layer; MySQL has no schema layer and listSchemas
   // returns []. We only enforce schema membership when the caller actually
   // supplied one AND `listSchemas` reports at least one entry.
   if (schema) {
@@ -93,7 +93,7 @@ export async function validateTableScope(
 }
 
 /**
- * Quote an identifier for safe SQL interpolation. PG uses double quotes with
+ * Quote an identifier for safe SQL interpolation. PostgreSQL/SQLite/Oracle use double quotes with
  * `""` escape; MySQL uses backticks with `` `` `` escape. We NEVER interpolate
  * a raw identifier that came from a model; callers must have gone through
  * `validateTableScope` first so the identifier is known to exist.
@@ -105,13 +105,20 @@ export function quoteIdentifier(dialect: SqlDialect, ident: string): string {
 
 /**
  * Fully-qualified table reference used inside sample-rows / count-rows.
- * PG prefers "schema"."table"; MySQL prefers `database`.`table` with the
- * database name taking the schema slot.
+ * PostgreSQL/Oracle prefer "schema"."table"; MySQL prefers `database`.`table`
+ * with the database name taking the schema slot. SQLite treats database as the
+ * attached database alias (`main`, `temp`, or ATTACH name).
  */
 export function qualifiedTableName(dialect: SqlDialect, parts: { database: string; schema?: string; table: string }): string {
   if (dialect === 'postgresql') {
     const schema = parts.schema ?? 'public'
     return `${quoteIdentifier(dialect, schema)}.${quoteIdentifier(dialect, parts.table)}`
+  }
+  if (dialect === 'oracle') {
+    return parts.schema ? `${quoteIdentifier(dialect, parts.schema)}.${quoteIdentifier(dialect, parts.table)}` : quoteIdentifier(dialect, parts.table)
+  }
+  if (dialect === 'sqlite') {
+    return `${quoteIdentifier(dialect, parts.database || 'main')}.${quoteIdentifier(dialect, parts.table)}`
   }
   return `${quoteIdentifier(dialect, parts.database)}.${quoteIdentifier(dialect, parts.table)}`
 }

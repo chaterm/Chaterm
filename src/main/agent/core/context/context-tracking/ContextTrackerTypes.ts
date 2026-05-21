@@ -71,7 +71,7 @@ export interface TaskListItem {
   workspace: 'server' | 'database'
   dbContext?: {
     assetId?: string
-    dbType?: 'mysql' | 'postgresql'
+    dbType?: 'mysql' | 'postgresql' | 'sqlite' | 'oracle'
     databaseName?: string
     schemaName?: string
     assetName?: string

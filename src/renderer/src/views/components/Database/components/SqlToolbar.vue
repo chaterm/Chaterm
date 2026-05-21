@@ -62,7 +62,7 @@
       @update:model-value="(v: string) => emit('update:databaseName', v)"
     />
     <SchemaPicker
-      v-if="isPostgres"
+      v-if="requiresSchema"
       :model-value="schemaName"
       :tree="tree"
       :asset-id="assetId"
@@ -113,12 +113,12 @@ const currentDbType = computed<string | undefined>(() => {
   return meta?.dbType
 })
 
-const isPostgres = computed(() => currentDbType.value === 'postgresql')
+const requiresSchema = computed(() => currentDbType.value === 'postgresql' || currentDbType.value === 'oracle')
 
-// PG requires a schema selection before running; MySQL only needs database.
+// Schema-aware engines require a schema selection before running; MySQL/SQLite only need database.
 const canRun = computed(() => {
   if (!props.assetId || !props.databaseName) return false
-  if (isPostgres.value && !props.schemaName) return false
+  if (requiresSchema.value && !props.schemaName) return false
   return true
 })
 </script>

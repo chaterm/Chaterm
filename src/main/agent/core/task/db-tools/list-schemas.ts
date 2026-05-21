@@ -46,6 +46,15 @@ export async function runListSchemas(session: DbAiActiveSession, input: ListSche
         }
       }
     }
+    if (schemas.length === 0 && session.dbType === 'sqlite') {
+      return {
+        ok: true,
+        data: {
+          schemas: [],
+          note: 'SQLite has no independent schema layer; use the database parameter as the attached database alias such as main.'
+        }
+      }
+    }
     return { ok: true, data: { schemas } }
   } catch (error) {
     return unexpectedError(error)

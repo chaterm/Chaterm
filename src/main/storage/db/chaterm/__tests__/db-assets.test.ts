@@ -86,6 +86,47 @@ describe('db-assets storage', () => {
     ).toThrow(/port/)
   })
 
+  it('creates a sqlite asset with file path and nullable host/port', () => {
+    const created = createDbAssetLogic(db, USER_ID, {
+      name: 'local-sqlite',
+      db_type: 'sqlite',
+      file_path: '/tmp/app.sqlite3',
+      connection_mode: 'readonly'
+    })
+
+    expect(created.id).toBeTruthy()
+    expect(created.host).toBeNull()
+    expect(created.port).toBeNull()
+    expect(created.file_path).toBe('/tmp/app.sqlite3')
+    expect(created.connection_mode).toBe('readonly')
+  })
+
+  it('rejects sqlite assets without file path', () => {
+    expect(() =>
+      createDbAssetLogic(db, USER_ID, {
+        name: 'missing-file',
+        db_type: 'sqlite'
+      })
+    ).toThrow(/file_path/)
+  })
+
+  it('creates an oracle asset with a connect string without requiring host and port', () => {
+    const created = createDbAssetLogic(db, USER_ID, {
+      name: 'oracle-pdb',
+      db_type: 'oracle',
+      username: 'hr',
+      database_name: 'ORCLPDB1',
+      schema_name: 'HR',
+      jdbc_url: 'jdbc:oracle:thin:@//db.example.test:1521/ORCLPDB1'
+    })
+
+    expect(created.db_type).toBe('oracle')
+    expect(created.host).toBeNull()
+    expect(created.port).toBeNull()
+    expect(created.jdbc_url).toBe('jdbc:oracle:thin:@//db.example.test:1521/ORCLPDB1')
+    expect(created.schema_name).toBe('HR')
+  })
+
   it('scopes reads by user_id', () => {
     createDbAssetLogic(db, USER_ID, {
       name: 'mine',

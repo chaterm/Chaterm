@@ -44,6 +44,23 @@ function nowIso(): string {
   return new Date().toISOString()
 }
 
+function parseOptionsJson(raw: string | null): Record<string, unknown> | null {
+  if (!raw?.trim()) return null
+  try {
+    const parsed = JSON.parse(raw) as unknown
+    if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {
+      return parsed as Record<string, unknown>
+    }
+  } catch (error) {
+    logger.warn('db asset options_json parse failed', {
+      event: 'db.options.parse.fail',
+      hasOptions: true,
+      errorCode: (error as { code?: string })?.code
+    })
+  }
+  return null
+}
+
 async function resolveCredential(asset: DbAssetRecord, resolver: CredentialResolver): Promise<ResolvedDbCredential> {
   const password = asset.password_ciphertext ? await resolver.decryptSecret(asset.password_ciphertext) : null
   return {
@@ -53,7 +70,12 @@ async function resolveCredential(asset: DbAssetRecord, resolver: CredentialResol
     username: asset.username,
     password,
     database: asset.database_name,
-    sslMode: asset.ssl_mode
+    schemaName: asset.schema_name,
+    jdbcUrl: asset.jdbc_url,
+    sslMode: asset.ssl_mode,
+    filePath: asset.file_path,
+    connectionMode: asset.connection_mode,
+    options: parseOptionsJson(asset.options_json)
   }
 }
 
@@ -167,7 +189,7 @@ export class ConnectionManager {
   }
 
   /**
-   * List schemas for PG connections. MySQL adapters do not implement
+   * List schemas for schema-aware connections. MySQL adapters do not implement
    * listSchemas; returns [] so callers can branch on emptiness.
    */
   async listSchemas(assetId: string, databaseName: string): Promise<DbSchemaInfo[]> {
@@ -205,7 +227,7 @@ export class ConnectionManager {
   /**
    * Ask the adapter for the primary-key columns of a table. Returns null
    * when the table has no PK or when the adapter does not support detection.
-   * schemaName is PG-only; MySQL adapters ignore it.
+   * schemaName is used by schema-aware engines; MySQL adapters ignore it.
    */
   async detectPrimaryKey(assetId: string, databaseName: string, tableName: string, schemaName?: string): Promise<string[] | null> {
     const session = this.sessions.get(assetId)

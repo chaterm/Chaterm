@@ -205,7 +205,7 @@ interface MockBuildSystemPromptThis {
     languageRules: string
   }
   customInstructions?: string
-  dbContext?: { assetId?: string; dbType?: 'mysql' | 'postgresql'; databaseName?: string; schemaName?: string }
+  dbContext?: { assetId?: string; dbType?: 'mysql' | 'postgresql' | 'sqlite' | 'oracle'; databaseName?: string; schemaName?: string }
   buildMcpToolsSection: (userLanguage: string) => Promise<string | null>
   buildSkillsSection: () => string | null
 }

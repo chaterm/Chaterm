@@ -5,12 +5,16 @@ import type { DbAssetType } from '../../storage/db/chaterm/db-assets'
 
 export interface ResolvedDbCredential {
   dbType: DbAssetType
-  host: string
-  port: number
+  host: string | null
+  port: number | null
   username: string | null
   password: string | null
   database: string | null
+  schemaName?: string | null
+  jdbcUrl?: string | null
   sslMode: string | null
+  filePath?: string | null
+  connectionMode?: 'readwrite' | 'readonly' | null
   options?: Record<string, unknown> | null
 }
 
@@ -32,15 +36,14 @@ export interface RuntimeDbConnection {
 }
 
 /**
- * Kinds of schema-scoped objects a driver may enumerate. PG supports all
- * four; MySQL uses only 'tables'/'views' and ignores schemaName.
+ * Kinds of schema-scoped objects a driver may enumerate. PostgreSQL/Oracle
+ * support all four; MySQL uses only 'tables'/'views' and ignores schemaName.
  */
 export type DbObjectKind = 'tables' | 'views' | 'functions' | 'procedures'
 
 /**
- * A PG schema entry. isSystem flags pg_catalog / information_schema so the
- * renderer can sort or style them differently. MySQL drivers do not emit
- * schema rows.
+ * A schema entry. isSystem flags catalog/system schemas so the renderer can
+ * sort or style them differently. MySQL drivers do not emit schema rows.
  */
 export interface DbSchemaInfo {
   name: string
@@ -54,14 +57,14 @@ export interface DatabaseDriverAdapter {
   listDatabases?(handle: unknown): Promise<string[]>
   /**
    * List schemas within a database. Only engines with a schema layer
-   * (Postgres) implement this; MySQL adapters leave it undefined and the
+   * (Postgres/Oracle) implement this; MySQL adapters leave it undefined and the
    * renderer falls back to the legacy database -> tables tree.
    */
   listSchemas?(handle: unknown, databaseName: string): Promise<DbSchemaInfo[]>
   listTables?(handle: unknown, databaseName: string, schemaName?: string): Promise<string[]>
   /**
-   * Enumerate schema-scoped objects by kind. PG-only; MySQL returns [] for
-   * kinds other than 'tables'/'views'.
+   * Enumerate schema-scoped objects by kind. PostgreSQL/Oracle implement all
+   * four; MySQL returns [] for kinds other than 'tables'/'views'.
    */
   listObjects?(handle: unknown, databaseName: string, schemaName: string, kind: DbObjectKind): Promise<string[]>
   listColumns?(handle: unknown, databaseName: string, tableName: string, schemaName?: string): Promise<string[]>
@@ -69,7 +72,7 @@ export interface DatabaseDriverAdapter {
   /**
    * Detect the primary-key column(s) of a table. Returns the ordered column
    * names (by ordinal_position) or null when no primary key is defined.
-   * schemaName is PG-only; MySQL drivers ignore it.
+   * schemaName is used by schema-aware engines (Postgres/Oracle); MySQL drivers ignore it.
    */
   detectPrimaryKey?(handle: unknown, databaseName: string, tableName: string, schemaName?: string): Promise<string[] | null>
   /** Begin a SQL transaction on the given handle. */

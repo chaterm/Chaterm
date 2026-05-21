@@ -33,10 +33,10 @@ export interface DatabaseTypeOption {
 export const DATABASE_TYPE_OPTIONS: readonly DatabaseTypeOption[] = [
   { code: 'MySQL', name: 'MySQL', iconUrl: mysqlIcon, enabled: true },
   { code: 'H2', name: 'H2', iconUrl: h2Icon, enabled: false },
-  { code: 'Oracle', name: 'Oracle', iconUrl: oracleIcon, enabled: false },
+  { code: 'Oracle', name: 'Oracle', iconUrl: oracleIcon, enabled: true },
   { code: 'PostgreSQL', name: 'PostgreSQL', iconUrl: postgresqlIcon, enabled: true },
   { code: 'SQLServer', name: 'SQLServer', iconUrl: sqlserverIcon, enabled: false },
-  { code: 'SQLite', name: 'SQLite', iconUrl: sqliteIcon, enabled: false },
+  { code: 'SQLite', name: 'SQLite', iconUrl: sqliteIcon, enabled: true },
   { code: 'MariaDB', name: 'MariaDB', iconUrl: mariadbIcon, enabled: false },
   { code: 'ClickHouse', name: 'ClickHouse', iconUrl: clickhouseIcon, enabled: false },
   { code: 'DM', name: 'DM', iconUrl: dmIcon, enabled: false },

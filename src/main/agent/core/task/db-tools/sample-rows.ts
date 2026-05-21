@@ -2,7 +2,7 @@
 //
 // Safety:
 //   - `limit` is clamped to [1, 100] then inlined as a numeric literal into
-//     `LIMIT N`. LIMIT placeholder binding is inconsistent across engines
+//     `LIMIT N` / Oracle `FETCH FIRST N ROWS ONLY`. LIMIT placeholder binding is inconsistent across engines
 //     (MySQL prepared statements reject string params in LIMIT) so we stick
 //     to literal interpolation after range validation.
 //   - The table reference is built via `qualifiedTableName` AFTER the table
@@ -75,7 +75,10 @@ export async function runSampleRows(session: DbAiActiveSession, input: SampleRow
   })
   // `limit` is a clamped integer, safe to interpolate. We still strip any
   // stray characters as an extra belt-and-braces step.
-  const sql = `SELECT * FROM ${qualified} LIMIT ${Math.floor(limit)}`
+  const sql =
+    dialect === 'oracle'
+      ? `SELECT * FROM ${qualified} FETCH FIRST ${Math.floor(limit)} ROWS ONLY`
+      : `SELECT * FROM ${qualified} LIMIT ${Math.floor(limit)}`
   try {
     const result = await session.executeQuery(sql, { maxRows: limit, timeoutMs: 15_000 })
     return {

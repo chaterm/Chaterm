@@ -155,7 +155,7 @@ const emit = defineEmits<{
     payload: {
       id: string
       assetId: string
-      dbType: 'mysql' | 'postgresql'
+      dbType: 'mysql' | 'postgresql' | 'sqlite' | 'oracle'
       databaseName: string
       schemaName?: string
       tableName: string
@@ -290,6 +290,12 @@ function normalizeDbType(raw: string): DatabaseType | null {
     case 'postgresql':
     case 'postgres':
       return 'PostgreSQL'
+    case 'sqlite':
+    case 'sqlite3':
+      return 'SQLite'
+    case 'oracle':
+    case 'oracledb':
+      return 'Oracle'
     default:
       return null
   }
@@ -336,7 +342,7 @@ const handleContextMenu = (event: MouseEvent) => {
     // let the sidebar fill the gaps from the store tree.
     const meta = (props.node.meta ?? {}) as {
       assetId?: string
-      dbType?: 'mysql' | 'postgresql'
+      dbType?: 'mysql' | 'postgresql' | 'sqlite' | 'oracle'
       databaseName?: string
       schemaName?: string
     }
@@ -346,7 +352,7 @@ const handleContextMenu = (event: MouseEvent) => {
       assetId: meta.assetId,
       // dbType may be undefined on nodes built before the dbType meta existed;
       // the sidebar resolves the real value from the connection asset record.
-      dbType: (meta.dbType ?? 'mysql') as 'mysql' | 'postgresql',
+      dbType: (meta.dbType ?? 'mysql') as 'mysql' | 'postgresql' | 'sqlite' | 'oracle',
       databaseName: meta.databaseName,
       schemaName: meta.schemaName,
       tableName: props.node.name,

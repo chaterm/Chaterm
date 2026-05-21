@@ -106,6 +106,10 @@ Chaterm 不仅仅是一个更智能的终端，它是一个基础设施代理。
 
   提供更高效的资源访问体验，助力基础设施的集中化管理。
 
+- 🗄️ **数据库工作区**
+
+  支持连接 MySQL、PostgreSQL、SQLite 和 Oracle，完成 schema 浏览、数据查询、DDL 查看、表格行编辑以及数据库上下文 AI 辅助。
+
 ![Preview image](resources/features.webp)
 
 ## 开发指南
@@ -134,6 +138,14 @@ npm i electron -D
 node scripts/patch-package-lock.js
 npm install
 ```
+
+如果 Electron 提示原生模块 ABI 不匹配，请按 Electron 运行时重建原生依赖，而不是按本机 Node.js 重建：
+
+```bash
+npm run rebuild:native
+```
+
+不要使用 `npm rebuild better-sqlite3` 修复 Electron 运行时问题；它可能按错误的 Node ABI 编译。
 
 ### Development
 

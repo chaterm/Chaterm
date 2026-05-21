@@ -119,7 +119,7 @@ describe('DatabaseSidebar', () => {
     expect(wrapper.emitted('move-group')).toEqual([['group-child', null]])
   })
 
-  it('does not emit add-connection-to-group when clicking a disabled DB type', async () => {
+  it('emits add-connection-to-group when clicking the enabled Oracle DB type', async () => {
     const wrapper = mount(DatabaseSidebar, {
       props: {
         nodes: [
@@ -152,15 +152,12 @@ describe('DatabaseSidebar', () => {
     await wrapper.find('.tree-trigger').trigger('click')
     // Hover the "new connection" submenu trigger to render the DB type list.
     await wrapper.find('.db-sidebar__group-submenu-trigger--connection').trigger('mouseenter')
-    // Oracle is disabled in DATABASE_TYPE_OPTIONS; clicking the disabled
-    // option (rendered as a plain <li>, not an a-menu-item, under the
-    // variant="plain" DbTypeMenuItems) must not emit anything.
+    // Oracle is now a supported driver option.
     const oracleItem = wrapper.find('.db-sidebar__context-db-type-option--oracle')
     expect(oracleItem.exists()).toBe(true)
     await oracleItem.trigger('click')
 
-    expect(wrapper.emitted('add-connection-to-group')).toBeUndefined()
-    expect(wrapper.emitted('add-connection')).toBeUndefined()
+    expect(wrapper.emitted('add-connection-to-group')).toEqual([['Oracle', 'group-child']])
   })
 
   it('applies the dedicated submenu overlay class to add and context menus', async () => {
