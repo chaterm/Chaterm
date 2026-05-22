@@ -118,6 +118,7 @@
   "overrides": {
     "@xmldom/xmldom": "^0.8.13",
     "fast-xml-parser": "^5.7.0",
+    "js-cookie": "^3.0.7",
     "uuid": "^14.0.0"
   },
   "optionalDependencies": {

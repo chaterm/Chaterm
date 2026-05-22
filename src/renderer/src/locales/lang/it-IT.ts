@@ -270,6 +270,7 @@ export default {
     onboardingGuide: 'Guida introduttiva',
     openOnboardingGuide: 'Apri la guida introduttiva',
     language: 'Lingua',
+    languageSystem: 'Segui il sistema',
     theme: 'Tema',
     themeDark: 'Scuro',
     themeLight: 'Chiaro',

@@ -11,6 +11,7 @@ import jaJP from './lang/ja-JP'
 import koKR from './lang/ko-KR'
 import arAR from './lang/ar-AR'
 import { getDefaultLanguage } from '@utils/edition'
+import { resolveAppliedLanguage, SYSTEM_LANGUAGE_VALUE } from '@utils/languageUtils'
 
 const messages = {
   'zh-CN': {
@@ -51,9 +52,12 @@ const messages = {
 // Get default language from edition config (cn -> zh-CN, global -> en-US)
 const defaultLanguage = getDefaultLanguage()
 
+const storedLang = localStorage.getItem('lang')
+const initialLocale = storedLang === SYSTEM_LANGUAGE_VALUE ? resolveAppliedLanguage(storedLang) : storedLang || defaultLanguage
+
 const i18n = createI18n({
   legacy: false,
-  locale: localStorage.getItem('lang') || defaultLanguage,
+  locale: initialLocale,
   fallbackLocale: 'en-US',
   messages,
   globalInjection: true,

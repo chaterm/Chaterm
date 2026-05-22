@@ -27,7 +27,7 @@ find "$SOURCE_DIR" -type f \( \
   -name "latest*.yml" \
 \) -exec cp {} "$OUTPUT_DIR"/ \;
 
-artifact_count="$(find "$OUTPUT_DIR" -maxdepth 1 -type f ! -name "*.sig" ! -name "SHA256SUMS.txt" | wc -l | tr -d ' ')"
+artifact_count="$(find "$OUTPUT_DIR" -maxdepth 1 -type f ! -name "*.sig" ! -name "*.bundle.json" ! -name "SHA256SUMS.txt" | wc -l | tr -d ' ')"
 
 if [ "$artifact_count" = "0" ]; then
   echo "Error: no release artifacts found in $SOURCE_DIR" >&2
@@ -41,16 +41,16 @@ for file in "$OUTPUT_DIR"/*; do
   [ -f "$file" ] || continue
 
   case "$file" in
-    *.sig|*SHA256SUMS.txt)
+    *.sig|*.bundle.json|*SHA256SUMS.txt)
       continue
       ;;
   esac
 
   echo "Signing: $file"
 
-  # Keep one detached signature per artifact to reduce release asset noise.
+  # Use cosign bundle output for new bundle format compatibility.
   cosign sign-blob "$file" \
-    --output-signature "$file.sig"
+    --bundle "$file.bundle.json"
 done
 
 echo "Generating SHA256SUMS.txt"
@@ -73,7 +73,7 @@ subjects_file="$(mktemp)"
     [ -f "$artifact" ] || continue
 
     case "$artifact" in
-      *.sig|SHA256SUMS.txt)
+      *.sig|*.bundle.json|SHA256SUMS.txt)
         continue
         ;;
     esac

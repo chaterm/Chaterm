@@ -172,20 +172,26 @@
         v-if="isSkippedLogin"
         class="menu-item"
         @click="goToLogin"
-        >{{ $t('common.login') }}</div
       >
+        <LoginOutlined class="menu-item-icon" />
+        <span>{{ $t('common.login') }}</span>
+      </div>
       <div
         v-if="!isSkippedLogin"
         class="menu-item"
         @click="userInfo"
-        >{{ $t('common.userInfo') }}</div
       >
+        <UserOutlined class="menu-item-icon" />
+        <span>{{ $t('common.userInfo') }}</span>
+      </div>
       <div
         v-if="!isSkippedLogin"
         class="menu-item"
         @click="logout"
-        >{{ $t('common.logout') }}</div
       >
+        <LogoutOutlined class="menu-item-icon" />
+        <span>{{ $t('common.logout') }}</span>
+      </div>
     </div>
   </div>
 </template>
@@ -205,6 +211,7 @@ import { shortcutService } from '@/services/shortcutService'
 import { dataSyncService } from '@/services/dataSyncService'
 import { chatSyncService } from '@/services/chatSyncService'
 import { convertFileLocalResourceSrc } from '@/utils/convertFileLocalResourceSrc'
+import { LoginOutlined, LogoutOutlined, UserOutlined } from '@ant-design/icons-vue'
 
 const logger = createRendererLogger('leftTab')
 let storageEventHandler: ((e: StorageEvent) => void) | null = null
@@ -501,6 +508,14 @@ onUnmounted(() => {
       cursor: pointer;
       transition: all 0.2s ease;
       font-size: 14px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+
+      .menu-item-icon {
+        font-size: 14px;
+        opacity: 0.85;
+      }
 
       &:hover {
         background: var(--hover-bg-color);

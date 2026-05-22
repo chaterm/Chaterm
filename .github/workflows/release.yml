@@ -325,7 +325,8 @@ jobs:
         run: |
           shopt -s nullglob
           staged=0
-          for f in signed-release-assets/*.sig \
+          for f in signed-release-assets/*.bundle.json \
+                   signed-release-assets/*.sig \
                    signed-release-assets/SHA256SUMS.txt; do
             [ -f "$f" ] || continue
             cp "$f" "release-upload/$(basename "$f")"

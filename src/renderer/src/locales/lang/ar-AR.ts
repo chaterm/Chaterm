@@ -270,6 +270,7 @@ export default {
     onboardingGuide: 'دليل البدء',
     openOnboardingGuide: 'فتح دليل البدء',
     language: 'اللغة',
+    languageSystem: 'اتباع النظام',
     theme: 'السمة',
     themeDark: 'داكن',
     themeLight: 'فاتح',

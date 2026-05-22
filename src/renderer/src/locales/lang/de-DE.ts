@@ -270,6 +270,7 @@ export default {
     onboardingGuide: 'Einführungsanleitung',
     openOnboardingGuide: 'Einführungsanleitung öffnen',
     language: 'Sprache',
+    languageSystem: 'System folgen',
     theme: 'Theme',
     themeDark: 'Dark',
     themeLight: 'Hell',
