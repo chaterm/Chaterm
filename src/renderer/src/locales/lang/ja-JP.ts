@@ -270,6 +270,7 @@ export default {
     onboardingGuide: 'オンボーディングガイド',
     openOnboardingGuide: 'オンボーディングガイドを開く',
     language: '言語',
+    languageSystem: 'システムに従う',
     theme: 'テーマ',
     themeDark: 'ダーク',
     themeLight: 'ライト',

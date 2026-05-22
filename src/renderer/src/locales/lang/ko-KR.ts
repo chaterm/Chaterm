@@ -270,6 +270,7 @@ export default {
     onboardingGuide: '온보딩 가이드',
     openOnboardingGuide: '온보딩 가이드 열기',
     language: '언어',
+    languageSystem: '시스템 따르기',
     theme: '테마',
     themeDark: '다크',
     themeLight: '라이트',

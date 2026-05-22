@@ -268,6 +268,7 @@ export default {
     onboardingGuide: '入门引导',
     openOnboardingGuide: '打开入门引导',
     language: '语言',
+    languageSystem: '跟随系统',
     theme: '主题',
     themeDark: '暗色',
     themeLight: '亮色',

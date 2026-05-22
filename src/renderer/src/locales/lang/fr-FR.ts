@@ -270,6 +270,7 @@ export default {
     onboardingGuide: "Guide d'intégration",
     openOnboardingGuide: "Ouvrir le guide d'intégration",
     language: 'Langue',
+    languageSystem: 'Suivre le système',
     theme: 'Theme',
     themeDark: 'Sombre',
     themeLight: 'Clair',

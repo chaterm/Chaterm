@@ -180,6 +180,7 @@
             class="language-select"
             @change="changeLanguage"
           >
+            <a-select-option value="system">{{ $t('user.languageSystem') }}</a-select-option>
             <a-select-option value="zh-CN">简体中文</a-select-option>
             <a-select-option value="zh-TW">繁體中文</a-select-option>
             <a-select-option value="en-US">English</a-select-option>
@@ -347,6 +348,7 @@ import { applyThemeToDocument } from '@/themes/applyTheme'
 import type { ThemeId } from '../../../../../../shared/themes/types'
 import { useI18n } from 'vue-i18n'
 import { convertFileLocalResourceSrc } from '@/utils/convertFileLocalResourceSrc'
+import { resolveAppliedLanguage } from '@/utils/languageUtils'
 
 const logger = createRendererLogger('settings.general')
 const api = window.api
@@ -611,12 +613,14 @@ onBeforeUnmount(() => {
 })
 
 const changeLanguage = async () => {
-  locale.value = userConfig.value.language
-  localStorage.setItem('lang', userConfig.value.language)
-  configStore().updateLanguage(userConfig.value.language)
+  const stored = userConfig.value.language
+  const applied = resolveAppliedLanguage(stored)
+  locale.value = applied
+  localStorage.setItem('lang', stored)
+  configStore().updateLanguage(stored)
 
   // Notify other components that language has changed, need to refresh data
-  eventBus.emit('languageChanged', userConfig.value.language)
+  eventBus.emit('languageChanged', stored)
 }
 
 // Setup system theme change listener

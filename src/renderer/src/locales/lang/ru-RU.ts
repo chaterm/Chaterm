@@ -270,6 +270,7 @@ export default {
     onboardingGuide: 'Руководство по началу работы',
     openOnboardingGuide: 'Открыть руководство по началу работы',
     language: 'Язык',
+    languageSystem: 'Следовать системе',
     theme: 'Тема',
     themeDark: 'Тёмный',
     themeLight: 'Светлый',

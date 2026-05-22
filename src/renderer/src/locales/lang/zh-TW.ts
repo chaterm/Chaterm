@@ -270,6 +270,7 @@ export default {
     onboardingGuide: '入門引導',
     openOnboardingGuide: '開啟入門引導',
     language: '語言',
+    languageSystem: '跟隨系統',
     theme: '主題',
     themeDark: '暗色',
     themeLight: '亮色',
