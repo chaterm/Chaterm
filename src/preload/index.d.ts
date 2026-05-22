@@ -304,6 +304,18 @@ interface ApiType {
   getLocalIP: () => Promise<string>
   getMacAddress: () => Promise<string>
   getPlatform: () => Promise<string>
+  downloadPluginPackage: (url: string) => Promise<ArrayBuffer>
+  installPluginFromUrl: (payload: { pluginId: string; version?: string; fileName?: string; url: string; sha256?: string }) => Promise<any>
+  cancelPluginInstall: (pluginId: string) => Promise<{ ok: boolean }>
+  onPluginInstallProgress: (
+    callback: (payload: {
+      pluginId: string
+      stage: 'downloading' | 'verifying' | 'installing' | 'done' | 'error' | 'cancelled'
+      receivedBytes?: number
+      totalBytes?: number
+      percent?: number
+    }) => void
+  ) => () => void
   invokeCustomAdsorption: (data: { appX: number; appY: number }) => void
   queryCommand: (data: { command: string; ip: string }) => Promise<any>
   insertCommand: (data: { command: string; ip: string }) => Promise<any>

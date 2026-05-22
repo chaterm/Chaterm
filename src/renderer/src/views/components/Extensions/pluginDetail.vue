@@ -27,12 +27,14 @@
                   <a-button
                     v-if="isInstallable"
                     class="op_btn"
+                    :class="{ download_progress_btn: downloadProgressVisible && installing }"
+                    :style="downloadProgressButtonStyle"
                     type="primary"
                     size="small"
                     :loading="installing"
                     @click="handleInstall"
                   >
-                    {{ t('extensions.install') }}
+                    {{ installButtonText }}
                   </a-button>
                   <a-button
                     v-else
@@ -60,13 +62,23 @@
                   <a-button
                     v-if="needUpdate"
                     class="op_btn"
+                    :class="{ download_progress_btn: downloadProgressVisible && updating }"
+                    :style="downloadProgressButtonStyle"
                     size="small"
                     :loading="updating"
                     @click="handleUpdate"
                   >
-                    {{ updating ? t('extensions.updating') : t('extensions.update') }}
+                    {{ updateButtonText }}
                   </a-button>
                 </template>
+                <a-button
+                  v-if="downloadProgressVisible"
+                  size="small"
+                  class="cancel_download_btn"
+                  @click="handleCancelInstall"
+                >
+                  {{ t('common.cancel') }}
+                </a-button>
               </div>
             </div>
           </div>
@@ -145,7 +157,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, computed, watch } from 'vue'
+import { ref, onBeforeUnmount, onMounted, computed, watch } from 'vue'
 import { notification } from 'ant-design-vue'
 import { marked } from 'marked'
 import { sanitizeHtml } from '@/utils/sanitize'
@@ -160,6 +172,13 @@ const api = (window as any).api
 const { t } = i18n.global
 
 const logger = createRendererLogger('extensions')
+
+const normalizePluginPlatform = (platform: string): string => {
+  if (platform === 'win32') return 'win'
+  if (platform === 'darwin') return 'mac'
+  if (platform === 'linux') return 'linux'
+  return 'all'
+}
 
 const props = defineProps({
   pluginInfo: {
@@ -199,7 +218,60 @@ const loading = ref(true)
 const uninstalling = ref(false)
 const installing = ref(false)
 const updating = ref(false)
+type PluginInstallStage = 'downloading' | 'verifying' | 'installing' | 'done' | 'error' | 'cancelled' | ''
+const installStage = ref<PluginInstallStage>('')
+const downloadProgressPercent = ref(0)
 const activeTabKey = ref('details')
+
+const installStageText = computed(() => {
+  switch (installStage.value) {
+    case 'downloading':
+      return t('extensions.downloading')
+    case 'verifying':
+      return t('extensions.verifying')
+    case 'installing':
+      return t('extensions.installing')
+    default:
+      return ''
+  }
+})
+
+const installButtonText = computed(() => {
+  if (installing.value) {
+    return installStageText.value || t('extensions.installing')
+  }
+  return t('extensions.install')
+})
+
+const updateButtonText = computed(() => {
+  if (updating.value) {
+    return installStageText.value || t('extensions.updating')
+  }
+  return t('extensions.update')
+})
+
+const downloadProgressVisible = computed(() => {
+  return (installing.value || updating.value) && installStage.value === 'downloading'
+})
+
+const downloadProgressButtonStyle = computed(() => {
+  return { '--download-progress': `${downloadProgressPercent.value}%` }
+})
+
+const isPluginInstallCancelled = (error: any) => {
+  return String(error?.message || error || '')
+    .toLowerCase()
+    .includes('plugin install cancelled')
+}
+
+const getReadableUninstallError = (error: any) => {
+  const message = String(error?.message || error || '')
+  if (message.includes('PLUGIN_UNINSTALL_DIRECTORY_BUSY') || /EPERM|EACCES|Permission denied/i.test(message)) {
+    return t('extensions.uninstallDirectoryBusy')
+  }
+
+  return t('extensions.uninstallError')
+}
 
 const pluginSourceText = computed(() => {
   const plugin = pluginMeta.value
@@ -231,7 +303,8 @@ const plugin = ref({
 
 const getPluginDetailsFromStore = async () => {
   if (!pluginId.value) return null
-  const res: any = await listPluginVersions(pluginId.value)
+  const platform = api?.getPlatform ? normalizePluginPlatform(await api.getPlatform()) : 'all'
+  const res: any = await listPluginVersions(pluginId.value, platform)
   return res?.data || res
 }
 
@@ -356,9 +429,14 @@ const handleUninstall = async () => {
       emit('uninstall-plugin', props.pluginInfo.id)
     }
   } catch (e: any) {
+    logger.error('Plugin uninstall failed in detail view', {
+      event: 'plugin.uninstall.detail.error',
+      pluginId: id,
+      error: e
+    })
     notification.error({
       message: t('extensions.uninstallFailed'),
-      description: e?.message ?? t('extensions.uninstallError')
+      description: getReadableUninstallError(e)
     })
   } finally {
     uninstalling.value = false
@@ -370,13 +448,19 @@ const handleInstall = async () => {
   if (!id || installing.value) return
   installing.value = true
   try {
-    eventBus.emit('installPluginEvent', id)
+    await eventBus.emitAsync('installPluginEvent', id, { timeoutMs: 0 })
   } catch (e: any) {
+    if (isPluginInstallCancelled(e)) {
+      return
+    }
     notification.error({
-      message: t('extensions.installFailed')
+      message: t('extensions.installFailed'),
+      description: e?.message ?? String(e)
     })
   } finally {
     installing.value = false
+    installStage.value = ''
+    downloadProgressPercent.value = 0
   }
 }
 
@@ -385,19 +469,31 @@ const handleUpdate = async () => {
   if (!id || updating.value) return
   updating.value = true
   try {
-    eventBus.emit('updatePluginEvent', id)
+    await eventBus.emitAsync('updatePluginEvent', id, { timeoutMs: 0 })
   } catch (e: any) {
+    if (isPluginInstallCancelled(e)) {
+      return
+    }
     notification.error({
-      message: t('extensions.updateFailed')
+      message: t('extensions.updateFailed'),
+      description: e?.message ?? String(e)
     })
   } finally {
     updating.value = false
+    installStage.value = ''
+    downloadProgressPercent.value = 0
   }
 }
 
 const handleSubscribe = () => {
   const pricingUrl = 'https://github.com/chaterm/Chaterm/discussions/1521'
   window.open(pricingUrl, '_blank')
+}
+
+const handleCancelInstall = async () => {
+  const id = pluginId.value
+  if (!id || installStage.value !== 'downloading') return
+  await api.cancelPluginInstall(id)
 }
 
 const renderedReadme = computed(() => {
@@ -445,8 +541,70 @@ const getIconSrc = (item: typeof plugin.value) => {
 
   return convertFileLocalResourceSrc(item.iconUrl)
 }
+
+const handleInstallLoadingChanged = (payload: { pluginId: string; loading: boolean }) => {
+  if (payload?.pluginId === pluginId.value) {
+    installing.value = payload.loading
+    if (payload.loading && !installStage.value) {
+      installStage.value = 'installing'
+    }
+    if (!payload.loading) {
+      installStage.value = ''
+      downloadProgressPercent.value = 0
+    }
+  }
+}
+
+const handleUpdateLoadingChanged = (payload: { pluginId: string; loading: boolean }) => {
+  if (payload?.pluginId === pluginId.value) {
+    updating.value = payload.loading
+    if (payload.loading && !installStage.value) {
+      installStage.value = 'installing'
+    }
+    if (!payload.loading) {
+      installStage.value = ''
+      downloadProgressPercent.value = 0
+    }
+  }
+}
+
+const handlePluginInstallProgress = (payload: { pluginId: string; stage: PluginInstallStage; percent?: number }) => {
+  if (payload?.pluginId !== pluginId.value) return
+  installStage.value = ['done', 'error', 'cancelled'].includes(payload.stage) ? '' : payload.stage
+  if (payload.stage === 'downloading') {
+    downloadProgressPercent.value = Math.max(0, Math.min(100, Math.round(payload.percent || 0)))
+  }
+  if (['done', 'error', 'cancelled'].includes(payload.stage)) {
+    downloadProgressPercent.value = 0
+  }
+}
+
+const syncCurrentPluginLoadingState = () => {
+  const id = pluginId.value
+  if (!id) return
+  eventBus.emit('pluginLoadingStateRequest', {
+    pluginId: id,
+    callback: (state: { installing: boolean; updating: boolean }) => {
+      handleInstallLoadingChanged({ pluginId: id, loading: state.installing })
+      handleUpdateLoadingChanged({ pluginId: id, loading: state.updating })
+    }
+  })
+}
+
+let stopPluginInstallProgress: (() => void) | undefined
+
 onMounted(() => {
+  eventBus.on('pluginInstallLoadingChanged', handleInstallLoadingChanged)
+  eventBus.on('pluginUpdateLoadingChanged', handleUpdateLoadingChanged)
+  stopPluginInstallProgress = api?.onPluginInstallProgress?.(handlePluginInstallProgress)
+  syncCurrentPluginLoadingState()
   loadPluginDetails()
+})
+
+onBeforeUnmount(() => {
+  eventBus.off('pluginInstallLoadingChanged', handleInstallLoadingChanged)
+  eventBus.off('pluginUpdateLoadingChanged', handleUpdateLoadingChanged)
+  stopPluginInstallProgress?.()
 })
 </script>
 
@@ -524,15 +682,12 @@ onMounted(() => {
 .action_buttons {
   flex-shrink: 0;
   display: flex;
+  align-items: center;
   gap: 10px;
 }
-.op_btn {
-  background-color: var(--button-bg-color) !important;
-  border-color: var(--button-bg-color) !important;
-  color: #fff !important;
-  &:hover {
-    background-color: var(--button-hover-bg) !important;
-  }
+
+.cancel_download_btn {
+  flex-shrink: 0;
   &.ant-btn.ant-btn-sm {
     font-size: 13px;
     height: 20px;
@@ -540,6 +695,47 @@ onMounted(() => {
     border-radius: 4px;
   }
 }
+
+.op_btn {
+  background-color: var(--button-bg-color) !important;
+  border-color: var(--button-bg-color) !important;
+  color: #fff !important;
+
+  &:hover {
+    background-color: var(--button-hover-bg) !important;
+  }
+
+  &.ant-btn.ant-btn-sm {
+    font-size: 13px;
+    height: 20px;
+    padding: 0 10px 20px 10px;
+    border-radius: 4px;
+  }
+
+  &.download_progress_btn {
+    overflow: hidden;
+
+    background: linear-gradient(
+      90deg,
+      var(--button-hover-bg) 0 var(--download-progress, 0%),
+      var(--button-bg-color) var(--download-progress, 0%) 100%
+    ) !important;
+
+    border-color: var(--button-bg-color) !important;
+    box-shadow: none !important;
+    color: #fff !important;
+    min-width: 64px;
+
+    &::before {
+      display: none !important;
+    }
+
+    :deep(.ant-btn-loading-icon) {
+      color: #fff !important;
+    }
+  }
+}
+
 .detail_body {
   display: flex;
   gap: 40px;

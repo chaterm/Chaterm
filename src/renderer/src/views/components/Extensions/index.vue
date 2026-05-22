@@ -147,7 +147,7 @@ import iconAlias from '@/assets/img/alias.svg'
 import iconJumpserver from '@/assets/img/jumpserver.svg'
 import { userConfigStore } from '@/services/userConfigStoreService'
 import eventBus from '@/utils/eventBus'
-import { getPluginDownload, getPluginIconUrl } from '@/api/plugin/plugin'
+import { downloadPluginPackage, getPluginDownload, getPluginDownloadInfo, getPluginIconUrl } from '@/api/plugin/plugin'
 import { convertFileLocalResourceSrc } from '@/utils/convertFileLocalResourceSrc'
 import { type DisplayPluginItem, usePluginStore } from './usePlugins'
 import { getActualTheme } from '@/utils/themeUtils'
@@ -343,18 +343,26 @@ const uninstallPluginEvent = (pluginId: string) => {
   getIcons(pluginList.value[0])
 }
 
-const updatePluginEvent = (pluginId: string) => {
+const updatePluginEvent = async (pluginId: string) => {
   const active = filteredList.value.find((i) => i.pluginId === pluginId)
   if (!active) return
   const latestVersion = active.latestVersion
-  onUpdateClick({ pluginId, latestVersion })
+  await onUpdateClick({ pluginId, latestVersion })
 }
 
-const installPluginEvent = (pluginId: string) => {
+const installPluginEvent = async (pluginId: string) => {
   const active = filteredList.value.find((i) => i.pluginId === pluginId)
   if (!active) return
   const latestVersion = active.latestVersion
-  onInstallClick({ pluginId, latestVersion })
+  await onInstallClick({ pluginId, latestVersion })
+}
+
+const pluginLoadingStateRequest = (payload: { pluginId: string; callback?: (state: { installing: boolean; updating: boolean }) => void }) => {
+  if (!payload?.pluginId || typeof payload.callback !== 'function') return
+  payload.callback({
+    installing: !!installLoadingMap.value[payload.pluginId],
+    updating: !!updateLoadingMap.value[payload.pluginId]
+  })
 }
 
 const loadConfig = async () => {
@@ -387,6 +395,7 @@ onMounted(() => {
   eventBus.on('uninstallPluginEvent', uninstallPluginEvent)
   eventBus.on('installPluginEvent', installPluginEvent)
   eventBus.on('updatePluginEvent', updatePluginEvent)
+  eventBus.on('pluginLoadingStateRequest', pluginLoadingStateRequest)
 })
 
 watch(
@@ -465,21 +474,107 @@ const getIconSrc = (item: any) => {
   return blobUrl || ''
 }
 
-const installOrUpdateFromStore = async (pluginId: string, version: string) => {
-  const res: any = await getPluginDownload(pluginId, version)
-  const data: ArrayBuffer = res
+interface PluginDownloadInfo {
+  download_url?: string
+  file_name?: string
+  sha256?: string
+}
 
-  const disposition = res.headers?.['content-disposition'] || res.headers?.['Content-Disposition']
-  let fileName = ''
-  if (disposition) {
-    const match = /filename="?([^"]+)"?/.exec(disposition)
-    if (match && match[1]) {
-      fileName = decodeURIComponent(match[1])
-    }
+const normalizePluginPlatform = (platform: string): string => {
+  if (platform === 'win32') return 'win'
+  if (platform === 'darwin') return 'mac'
+  if (platform === 'linux') return 'linux'
+  return 'all'
+}
+
+const getCurrentPluginPlatform = async (): Promise<string> => {
+  try {
+    const platform = await api.getPlatform()
+    return normalizePluginPlatform(platform)
+  } catch {
+    return 'all'
   }
+}
+
+// Axios and the project request may return different binary formats, so convert them to ArrayBuffer before installation.
+const toArrayBuffer = (data: any): ArrayBuffer => {
+  if (data?.data) return toArrayBuffer(data.data)
+  if (data instanceof ArrayBuffer) return data
+  if (ArrayBuffer.isView(data)) {
+    const buffer = data.buffer as ArrayBuffer
+    return buffer.slice(data.byteOffset, data.byteOffset + data.byteLength)
+  }
+  return data as ArrayBuffer
+}
+
+// Compatible with old download interfaces
+const getFileNameFromDownloadResponse = (res: any): string => {
+  const disposition = res?.headers?.['content-disposition'] || res?.headers?.['Content-Disposition']
+  const match = disposition ? /filename="?([^"]+)"?/.exec(disposition) : null
+  return match?.[1] ? decodeURIComponent(match[1]) : ''
+}
+
+const sha256Hex = async (data: ArrayBuffer): Promise<string> => {
+  const digest = await globalThis.crypto.subtle.digest('SHA-256', data)
+  return Array.from(new Uint8Array(digest))
+    .map((b) => b.toString(16).padStart(2, '0'))
+    .join('')
+}
+
+const verifyPackageSha256 = async (data: ArrayBuffer, expected?: string) => {
+  if (!expected) return
+  const actual = await sha256Hex(data)
+  if (actual.toLowerCase() !== expected.toLowerCase()) {
+    throw new Error('Plugin package checksum mismatch')
+  }
+}
+
+const installOrUpdateFromStore = async (pluginId: string, version: string) => {
+  let data: ArrayBuffer | null = null
+  let fileName = ''
+  let sha256 = ''
+  const platform = await getCurrentPluginPlatform()
+  let info: PluginDownloadInfo | null = null
+
+  try {
+    const infoRes: any = await getPluginDownloadInfo(pluginId, version, platform)
+    info = infoRes?.data ?? infoRes
+    if (!info?.download_url) {
+      throw new Error('missing download url')
+    }
+  } catch (error) {
+    logger.warn('download-info unavailable, fallback to legacy plugin download', { pluginId, version, error })
+    const legacyRes: any = await getPluginDownload(pluginId, version, platform)
+    fileName = getFileNameFromDownloadResponse(legacyRes)
+    data = toArrayBuffer(legacyRes)
+    info = null
+  }
+
+  if (info?.download_url) {
+    fileName = info.file_name || ''
+    sha256 = info.sha256 || ''
+    if (/^https?:\/\//i.test(info.download_url)) {
+      // The CDN package is directly handed over to the main process for downloading, verification, and installation, avoiding slowdowns caused by bidirectional transmission of large packages between the main process and the Renderer
+      await api.installPluginFromUrl({
+        pluginId,
+        version,
+        fileName: fileName || `${pluginId}-${version || 'latest'}.chaterm`,
+        url: info.download_url,
+        sha256
+      })
+      return
+    }
+    data = toArrayBuffer(await downloadPluginPackage(info.download_url))
+  }
+
   if (!fileName) {
     fileName = `${pluginId}-${version || 'latest'}.chaterm`
   }
+  if (!data) {
+    throw new Error('Plugin package download failed')
+  }
+
+  await verifyPackageSha256(data, sha256)
 
   await api.installPluginFromBuffer({
     pluginId,
@@ -497,6 +592,13 @@ const setInstallLoading = (id: string, v: boolean) => {
   } else {
     delete installLoadingMap.value[id]
   }
+  eventBus.emit('pluginInstallLoadingChanged', { pluginId: id, loading: v })
+}
+
+const isPluginInstallCancelled = (error: any) => {
+  return String(error?.message || error || '')
+    .toLowerCase()
+    .includes('plugin install cancelled')
 }
 
 const onInstallClick = async (item: any) => {
@@ -517,6 +619,9 @@ const onInstallClick = async (item: any) => {
       showNotification('success', t('extensions.installSuccess'), installHint.message)
     }
   } catch (e: any) {
+    if (isPluginInstallCancelled(e)) {
+      return
+    }
     showNotification('error', t('extensions.installFailed'), e?.message ?? String(e))
     throw e
   } finally {
@@ -529,6 +634,8 @@ const setUpdateLoading = (id: string, v: boolean) => {
   } else {
     delete updateLoadingMap.value[id]
   }
+  // The update button on the sidebar and the details page share the same update status to avoid inconsistent status display.
+  eventBus.emit('pluginUpdateLoadingChanged', { pluginId: id, loading: v })
 }
 
 const onUpdateClick = async (item: any) => {
@@ -541,6 +648,9 @@ const onUpdateClick = async (item: any) => {
     await loadPlugins()
     showNotification('success', t('extensions.updateSuccess'))
   } catch (e: any) {
+    if (isPluginInstallCancelled(e)) {
+      return
+    }
     showNotification('error', t('extensions.updateFailed'), e?.message ?? String(e))
     throw e
   } finally {
@@ -559,6 +669,7 @@ onBeforeUnmount(() => {
   eventBus.off('uninstallPluginEvent', uninstallPluginEvent)
   eventBus.off('installPluginEvent', installPluginEvent)
   eventBus.off('updatePluginEvent', updatePluginEvent)
+  eventBus.off('pluginLoadingStateRequest', pluginLoadingStateRequest)
   createdBlobUrls.forEach((url) => URL.revokeObjectURL(url))
   createdBlobUrls.clear()
 })
