@@ -27,7 +27,7 @@ find "$SOURCE_DIR" -type f \( \
   -name "latest*.yml" \
 \) -exec cp {} "$OUTPUT_DIR"/ \;
 
-artifact_count="$(find "$OUTPUT_DIR" -maxdepth 1 -type f ! -name "*.sig" ! -name "*.bundle.json" ! -name "*.cosign.bundle" ! -name "SHA256SUMS.txt" | wc -l | tr -d ' ')"
+artifact_count="$(find "$OUTPUT_DIR" -maxdepth 1 -type f ! -name "*.cosign.bundle" ! -name "SHA256SUMS.txt" | wc -l | tr -d ' ')"
 
 if [ "$artifact_count" = "0" ]; then
   echo "Error: no release artifacts found in $SOURCE_DIR" >&2
@@ -41,7 +41,7 @@ for file in "$OUTPUT_DIR"/*; do
   [ -f "$file" ] || continue
 
   case "$file" in
-    *.sig|*.bundle.json|*.cosign.bundle|*SHA256SUMS.txt)
+    *.cosign.bundle|*SHA256SUMS.txt)
       continue
       ;;
   esac
@@ -75,7 +75,7 @@ subjects_file="$(mktemp)"
     [ -f "$artifact" ] || continue
 
     case "$artifact" in
-      *.sig|*.bundle.json|*.cosign.bundle|SHA256SUMS.txt)
+      *.cosign.bundle|SHA256SUMS.txt)
         continue
         ;;
     esac
