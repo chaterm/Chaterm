@@ -2,6 +2,26 @@
   "releaseNotesUrl": "https://github.com/chaterm/Chaterm/releases/tag/v",
   "versions": [
     {
+      "version": "0.11.2",
+      "date": "2026-05-22",
+      "highlights": {
+        "zh-CN": [
+          "新增交互式新手引导系统",
+          "连接能力扩展：新增 SSH 跳板机支持，并增强 Kubernetes 集群管理流程，复杂网络环境下连接更顺畅",
+          "数据库能力增强：本地工作区新增 SQLite 与 Oracle 支持，并统一 DB-AI 方言校验与图标展示，数据库使用体验更一致",
+          "文件与分组体验优化：新增复制文件绝对路径功能，并完善多语言分组选择与新建分组提示，常见操作更高效",
+          "MCP和快捷键设置UI显示优化"
+        ],
+        "en-US": [
+          "Added an interactive onboarding guide system",
+          "Connection capabilities expanded: added SSH jump host support and improved Kubernetes cluster management workflows for smoother connectivity in complex network environments",
+          "Database support enhanced: added SQLite and Oracle support for local workspaces, and unified DB-AI dialect validation and icon presentation for a more consistent database experience",
+          "File and grouping UX improved: added copy-absolute-path support for files and refined multilingual prompts for group selection and group creation to streamline common actions",
+          "MCP and shortcut settings UI display optimization"
+        ]
+      }
+    },
+    {
       "version": "0.11.1",
       "date": "2026-05-19",
       "highlights": {
