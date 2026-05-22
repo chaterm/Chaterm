@@ -469,7 +469,8 @@ onUnmounted(() => {
     .vip-flag {
       position: absolute;
       bottom: 0;
-      right: 2px;
+      left: 50%;
+      transform: translateX(-50%);
       background: linear-gradient(135deg, #ffd700, #ff8f00);
       color: #000;
       font-size: 8px;
