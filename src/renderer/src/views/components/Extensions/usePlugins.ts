@@ -48,6 +48,13 @@ export interface DisplayPluginItem {
 const pluginItems = ref<PluginUiItem[]>([])
 const storePlugins = ref<StorePluginItem[]>([])
 
+const normalizePluginPlatform = (platform: string): string => {
+  if (platform === 'win32') return 'win'
+  if (platform === 'darwin') return 'mac'
+  if (platform === 'linux') return 'linux'
+  return 'all'
+}
+
 const compareVersion = (a?: string, b?: string): number => {
   if (!a && !b) return 0
   if (!a) return -1
@@ -179,7 +186,8 @@ const loadPlugins = async () => {
 
 const loadStorePlugins = async () => {
   try {
-    const res: any = await listStorePlugins()
+    const platform = api?.getPlatform ? normalizePluginPlatform(await api.getPlatform()) : 'all'
+    const res: any = await listStorePlugins({ platform })
     const data = res?.data || res
     const plugins = data?.plugins || []
 

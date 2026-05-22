@@ -4,6 +4,8 @@ const urls = {
   listPlugins: '/plugin/list',
   listPluginVersions: (pluginKey: string) => `/plugin/${pluginKey}/versions`,
 
+  getPluginDownloadInfo: (pluginKey: string) => `/plugin/${pluginKey}/download-info`,
+
   getPluginDownload: (pluginKey: string) => `/plugin/${pluginKey}/download`,
 
   getPluginIcon: (pluginKey: string) => `/plugin/${pluginKey}/icon`
@@ -17,18 +19,48 @@ export function listStorePlugins(params?: any) {
   })
 }
 
-export function listPluginVersions(pluginKey: string) {
+export function listPluginVersions(pluginKey: string, platform?: string) {
   return request({
     method: 'get',
-    url: urls.listPluginVersions(pluginKey)
+    url: urls.listPluginVersions(pluginKey),
+    params: {
+      platform
+    }
   })
 }
 
-export function getPluginDownload(pluginKey: string, version?: string) {
+export function getPluginDownload(pluginKey: string, version?: string, platform?: string) {
   return request({
     method: 'get',
     url: urls.getPluginDownload(pluginKey),
-    params: version ? { version } : undefined,
+    params: {
+      version,
+      platform
+    },
+    responseType: 'arraybuffer'
+  })
+}
+
+export function getPluginDownloadInfo(pluginKey: string, version?: string, platform?: string, region?: string) {
+  return request({
+    method: 'get',
+    url: urls.getPluginDownloadInfo(pluginKey),
+    params: {
+      version,
+      platform,
+      region
+    }
+  })
+}
+
+export function downloadPluginPackage(downloadUrl: string) {
+  if (/^https?:\/\//i.test(downloadUrl)) {
+    return (window as any).api.downloadPluginPackage(downloadUrl)
+  }
+
+  return request({
+    method: 'get',
+    url: downloadUrl,
     responseType: 'arraybuffer'
   })
 }

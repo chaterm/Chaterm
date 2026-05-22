@@ -14,6 +14,7 @@ const uninstallLocalPluginMock = vi.fn()
 
 const apiMock = {
   getPathForFile: vi.fn(),
+  getPlatform: vi.fn(),
   installPlugin: vi.fn(),
   installPluginFromBuffer: vi.fn(),
   getInstallHint: vi.fn()
@@ -79,7 +80,9 @@ vi.mock('@/services/userConfigStoreService', () => ({
 }))
 
 vi.mock('@/api/plugin/plugin', () => ({
+  downloadPluginPackage: vi.fn(),
   getPluginDownload: vi.fn(),
+  getPluginDownloadInfo: vi.fn(),
   getPluginIconUrl: vi.fn()
 }))
 
