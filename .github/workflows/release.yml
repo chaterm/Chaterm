@@ -325,7 +325,8 @@ jobs:
         run: |
           shopt -s nullglob
           staged=0
-          for f in signed-release-assets/*.bundle.json \
+          for f in signed-release-assets/*.cosign.bundle \
+                   signed-release-assets/*.bundle.json \
                    signed-release-assets/*.sig \
                    signed-release-assets/SHA256SUMS.txt; do
             [ -f "$f" ] || continue
