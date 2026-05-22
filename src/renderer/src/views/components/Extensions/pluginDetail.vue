@@ -230,7 +230,7 @@ const installStageText = computed(() => {
     case 'verifying':
       return t('extensions.verifying')
     case 'installing':
-      return 'extensions.installing'
+      return t('extensions.installing')
     default:
       return ''
   }
