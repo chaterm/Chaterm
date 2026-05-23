@@ -166,3 +166,66 @@ Please refer to the <a href="./CONTRIBUTING.md">Contribution Guide</a> for more 
     <img src="https://contrib.rocks/image?repo=chaterm/Chaterm&refresh=true" />
   </a>
 </div>
+
+
+## ❓ FAQ (Frequently Asked Questions)
+
+### What is Chaterm?
+
+Open source AI terminal for cloud and infrastructure management, enabling you to deploy, troubleshoot, and automate services using natural language and intelligent agents.. Open-source AI agent framework for building intelligent, autonomous systems.
+
+### Key Features
+
+| Feature | Description |
+|---------|-------------|
+| **Open Source** | MIT License, community-driven development |
+| **Agent Architecture** | Modular, extensible agent design patterns |
+| **Tool Integration** | MCP protocol support, extensible tool ecosystem |
+| **Memory System** | Persistent memory, context-aware conversations |
+| **Multi-Agent** | Collaborative agent workflows and handoffs |
+
+### Getting Started
+
+```bash
+# Clone the repository
+git clone https://github.com/chaterm/Chaterm.git
+
+# Install dependencies
+npm install  # or pip install -r requirements.txt
+
+# Run examples
+node examples/basic-agent.js
+```
+
+### Supported Platforms
+
+- Node.js 18+
+- Python 3.10+
+- Docker containers
+
+### LLM Providers
+
+- OpenAI (GPT-4, GPT-3.5)
+- Anthropic (Claude)
+- Google (Gemini)
+- Azure OpenAI
+- Local models (Ollama)
+
+### Use Cases
+
+| Use Case | Description |
+|----------|-------------|
+| **Chatbots** | Conversational AI assistants |
+| **Automation** | Task automation workflows |
+| **Research** | Information gathering agents |
+| **Development** | Code generation assistants |
+
+### License
+
+MIT License - Free for personal and commercial use.
+
+### Help & Resources
+
+- **Documentation**: https://github.com/chaterm/Chaterm/wiki
+- **Issues**: https://github.com/chaterm/Chaterm/issues
+- **Examples**: https://github.com/chaterm/Chaterm/tree/main/examples
