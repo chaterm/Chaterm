@@ -1483,8 +1483,9 @@ onBeforeUnmount(() => {
 :deep(.kb-tree) {
   background-color: transparent;
 
-  // DirectoryTree uses ::before for selected background; override it here
   &.ant-tree.ant-tree-directory {
+    .ant-tree-treenode::before,
+    .ant-tree-treenode:hover::before,
     .ant-tree-treenode-selected::before,
     .ant-tree-treenode-selected:hover::before {
       background: none !important;
