@@ -412,6 +412,9 @@ export default {
     autoApprovalDescribe: 'يمكن تمكين الوكيل لتنفيذ الأوامر دون الحاجة إلى التأكيد',
     autoExecuteReadOnlyCommands: 'تنفيذ الأوامر القرائية تلقائيا',
     autoExecuteReadOnlyCommandsDescribe: 'الأوامر القرائية (مثل ls, cat, grep) في جميع الجلسات سيتم تنفيذها تلقائيا دون الحاجة إلى التأكيد',
+    commandOutputFilteringEnabled: 'تصفية مخرجات الأوامر',
+    commandOutputFilteringEnabledDescribe:
+      'يستخدم rtk لتصفية نتائج تنفيذ الأوامر وتقليل استهلاك الرموز. في بعض السيناريوهات قد يؤثر ذلك في دقة النموذج',
     kbSearchEnabled: KB_SEARCH_ENABLED_LABELS['ar-AR'],
     kbSearchEnabledDescribe:
       'البحث التلقائي عن المحتوى ذي الصلة في قاعدة المعرفة عند بدء محادثة جديدة والسماح للذكاء الاصطناعي بالبحث في قاعدة المعرفة أثناء المحادثات',

@@ -52,6 +52,7 @@ import { getOffloadDir, shouldOffload, writeToolOutput } from '../offload'
 import { getKnowledgeBaseRoot, getKbSearchManager } from '../../../services/knowledgebase'
 import type { KbSearchResult } from '../../../services/knowledgebase/search/types'
 import { webFetch } from '../../services/web-fetch'
+import { RtkOutputFilterService } from '../../services/rtk-output-filter'
 
 interface StreamMetrics {
   didReceiveUsageChunk?: boolean
@@ -276,6 +277,7 @@ export class Task {
   private responseFormatter: ReturnType<typeof getFormatResponse>
   private remoteTerminalManager: RemoteTerminalManager
   private localTerminalManager: LocalTerminalManager
+  private rtkOutputFilterService: RtkOutputFilterService
   customInstructions?: string
   autoApprovalSettings: AutoApprovalSettings
   apiConversationHistory: Anthropic.MessageParam[] = []
@@ -587,6 +589,7 @@ export class Task {
     this.skillsManager = skillsManager
     this.remoteTerminalManager = new RemoteTerminalManager()
     this.localTerminalManager = LocalTerminalManager.getInstance()
+    this.rtkOutputFilterService = new RtkOutputFilterService()
     this.contextManager = new ContextManager()
     this.responseFormatter = getFormatResponse(DEFAULT_LANGUAGE_SETTINGS)
     this.customInstructions = customInstructions
@@ -714,6 +717,50 @@ export class Task {
       return userConfig?.language || 'en-US'
     } catch {
       return 'en-US'
+    }
+  }
+
+  private async filterCommandOutputForModel(command: string, output: string, cwd?: string): Promise<string> {
+    try {
+      if (!(await this.isCommandOutputFilteringEnabled())) {
+        return output
+      }
+
+      const result = await this.rtkOutputFilterService.filterOutput({
+        command,
+        output,
+        cwd
+      })
+
+      if (result.applied) {
+        logger.debug('RTK filtered command output for model context', {
+          event: 'agent.task.command_output.rtk_filtered',
+          commandLength: command.length,
+          originalLength: output.length,
+          filteredLength: result.output.length
+        })
+      }
+
+      return result.output
+    } catch (error) {
+      logger.warn('RTK command output filtering failed at task layer; using original output', {
+        event: 'agent.task.command_output.rtk_failed_open',
+        error: error instanceof Error ? error.message : String(error)
+      })
+      return output
+    }
+  }
+
+  private async isCommandOutputFilteringEnabled(): Promise<boolean> {
+    try {
+      const enabled = await getGlobalState('commandOutputFilteringEnabled')
+      return enabled !== false
+    } catch (error) {
+      logger.warn('Failed to read command output filtering setting; defaulting to enabled', {
+        event: 'agent.task.command_output_filtering.setting_read_failed',
+        error: error instanceof Error ? error.message : String(error)
+      })
+      return true
     }
   }
 
@@ -1020,7 +1067,7 @@ export class Task {
       await this.say('command_output', output, true)
       await this.say('command_output', output, false)
 
-      return output
+      return this.filterCommandOutputForModel(command, output)
     } catch (error) {
       logger.error('K8S command execution error', { error })
       return `Error: ${error instanceof Error ? error.message : String(error)}`
@@ -2030,7 +2077,8 @@ export class Task {
       }
 
       if (completed) {
-        return `${this.messages.commandExecutedOutput}${result.length > 0 ? `\nOutput:\n${result}` : ''}`
+        const modelOutput = await this.filterCommandOutputForModel(command, result)
+        return `${this.messages.commandExecutedOutput}${modelOutput.length > 0 ? `\nOutput:\n${modelOutput}` : ''}`
       } else {
         return `${this.messages.commandStillRunning}${
           result.length > 0 ? `${this.messages.commandHereIsOutput}${result}` : ''
@@ -2179,7 +2227,8 @@ export class Task {
       result = result.trim()
 
       if (completed) {
-        return `${this.messages.commandExecutedOutput}${result.length > 0 ? `\nOutput:\n${result}` : ''}`
+        const modelOutput = await this.filterCommandOutputForModel(command, result)
+        return `${this.messages.commandExecutedOutput}${modelOutput.length > 0 ? `\nOutput:\n${modelOutput}` : ''}`
       } else {
         return `${this.messages.commandStillRunning}${
           result.length > 0 ? `${this.messages.commandHereIsOutput}${result}` : ''

@@ -57,18 +57,20 @@ describe('aiPreferencesSyncService', () => {
       if (key === 'thinkingBudgetTokens') return 2048
       if (key === 'reasoningEffort') return 'low'
       if (key === 'experienceExtractionEnabled') return false
+      if (key === 'commandOutputFilteringEnabled') return true
       return undefined
     })
 
     const snapshot = await captured.adapter.readLocal()
 
     expect(snapshot.experienceExtractionEnabled).toBe(false)
+    expect(snapshot.commandOutputFilteringEnabled).toBe(true)
   })
 
   it('accepts experienceExtractionEnabled from remote payload', async () => {
-    const parsed = captured.adapter.parseRemote({ experienceExtractionEnabled: true })
+    const parsed = captured.adapter.parseRemote({ experienceExtractionEnabled: true, commandOutputFilteringEnabled: false })
 
-    expect(parsed).toEqual({ experienceExtractionEnabled: true })
+    expect(parsed).toEqual({ experienceExtractionEnabled: true, commandOutputFilteringEnabled: false })
   })
 
   it('writes experienceExtractionEnabled during applyRemote', async () => {
@@ -77,16 +79,22 @@ describe('aiPreferencesSyncService', () => {
       await cb({ set: txSet })
     })
 
-    await captured.adapter.applyRemote({ experienceExtractionEnabled: false }, { version: 1 }, 'aiPreferencesSyncMeta')
+    await captured.adapter.applyRemote(
+      { experienceExtractionEnabled: false, commandOutputFilteringEnabled: true },
+      { version: 1 },
+      'aiPreferencesSyncMeta'
+    )
 
     expect(txSet).toHaveBeenCalledWith('global_experienceExtractionEnabled', 'false')
+    expect(txSet).toHaveBeenCalledWith('global_commandOutputFilteringEnabled', 'true')
     expect(mockEmit).toHaveBeenCalledWith('aiPreferencesSyncApplied')
   })
 
   it('defaults experienceExtractionEnabled to true', () => {
     expect(captured.adapter.getDefault()).toEqual(
       expect.objectContaining({
-        experienceExtractionEnabled: true
+        experienceExtractionEnabled: true,
+        commandOutputFilteringEnabled: true
       })
     )
   })

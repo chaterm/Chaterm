@@ -20,6 +20,7 @@ interface AiPreferences {
   thinkingBudgetTokens?: number
   reasoningEffort?: string
   experienceExtractionEnabled?: boolean
+  commandOutputFilteringEnabled?: boolean
   autoApprovalSettings?: {
     version?: number
     enabled?: boolean
@@ -55,6 +56,7 @@ async function buildAiPreferencesSnapshot(): Promise<AiPreferences> {
     thinkingBudgetTokens,
     reasoningEffort,
     experienceExtractionEnabled,
+    commandOutputFilteringEnabled,
     autoApprovalSettings,
     chatSettings,
     shellIntegrationTimeout,
@@ -64,6 +66,7 @@ async function buildAiPreferencesSnapshot(): Promise<AiPreferences> {
     getGlobalState('thinkingBudgetTokens'),
     getGlobalState('reasoningEffort'),
     getGlobalState('experienceExtractionEnabled'),
+    getGlobalState('commandOutputFilteringEnabled'),
     getGlobalState('autoApprovalSettings'),
     getGlobalState('chatSettings'),
     getGlobalState('shellIntegrationTimeout'),
@@ -81,6 +84,9 @@ async function buildAiPreferencesSnapshot(): Promise<AiPreferences> {
   }
   if (typeof experienceExtractionEnabled === 'boolean') {
     result.experienceExtractionEnabled = experienceExtractionEnabled
+  }
+  if (typeof commandOutputFilteringEnabled === 'boolean') {
+    result.commandOutputFilteringEnabled = commandOutputFilteringEnabled
   }
   if (autoApprovalSettings && typeof autoApprovalSettings === 'object') {
     const aas = autoApprovalSettings as any
@@ -136,6 +142,10 @@ function validateAiPreferences(payload: unknown): AiPreferences | null {
   }
   if ('experienceExtractionEnabled' in obj && typeof obj.experienceExtractionEnabled === 'boolean') {
     result.experienceExtractionEnabled = obj.experienceExtractionEnabled
+    hasField = true
+  }
+  if ('commandOutputFilteringEnabled' in obj && typeof obj.commandOutputFilteringEnabled === 'boolean') {
+    result.commandOutputFilteringEnabled = obj.commandOutputFilteringEnabled
     hasField = true
   }
   if ('autoApprovalSettings' in obj && typeof obj.autoApprovalSettings === 'object' && obj.autoApprovalSettings !== null) {
@@ -197,6 +207,9 @@ const aiPreferencesAdapter: ConfigSyncAdapter<AiPreferences> = {
     if (data.experienceExtractionEnabled !== undefined) {
       ops.push({ key: 'global_experienceExtractionEnabled', value: JSON.stringify(data.experienceExtractionEnabled) })
     }
+    if (data.commandOutputFilteringEnabled !== undefined) {
+      ops.push({ key: 'global_commandOutputFilteringEnabled', value: JSON.stringify(data.commandOutputFilteringEnabled) })
+    }
     if (data.autoApprovalSettings !== undefined) {
       ops.push({ key: 'global_autoApprovalSettings', value: JSON.stringify(data.autoApprovalSettings) })
     }
@@ -248,6 +261,7 @@ const aiPreferencesAdapter: ConfigSyncAdapter<AiPreferences> = {
       thinkingBudgetTokens: 2048,
       reasoningEffort: 'low',
       experienceExtractionEnabled: true,
+      commandOutputFilteringEnabled: true,
       shellIntegrationTimeout: 4,
       needProxy: false
     }

@@ -407,6 +407,8 @@ export default {
     autoApprovalDescribe: '允许在不要求确认的情况下运行工具',
     autoExecuteReadOnlyCommands: '查询类命令自动执行',
     autoExecuteReadOnlyCommandsDescribe: '所有会话中的查询类命令（如 ls、cat、grep 等）将自动执行，无需人工确认',
+    commandOutputFilteringEnabled: '命令输出过滤',
+    commandOutputFilteringEnabledDescribe: '采用 rtk 对命令执行结果进行过滤，减少 token 消耗，部分场景可能影响模型的准确度',
     kbSearchEnabled: KB_SEARCH_ENABLED_LABELS['zh-CN'],
     kbSearchEnabledDescribe: '新对话开始时自动搜索相关知识库内容，并允许 AI 在对话中搜索知识库',
     experienceExtractionEnabled: '自动经验沉淀',

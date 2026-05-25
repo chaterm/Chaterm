@@ -1,9 +1,11 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { EventEmitter } from 'events'
 
-const { shouldOffloadMock, writeToolOutputMock, saveApiConversationHistoryMock } = vi.hoisted(() => ({
+const { shouldOffloadMock, writeToolOutputMock, saveApiConversationHistoryMock, getGlobalStateMock } = vi.hoisted(() => ({
   shouldOffloadMock: vi.fn(() => false),
   writeToolOutputMock: vi.fn(async () => ({ relativePath: 'tool/out.txt', size: 128 })),
-  saveApiConversationHistoryMock: vi.fn(async () => undefined)
+  saveApiConversationHistoryMock: vi.fn(async () => undefined),
+  getGlobalStateMock: vi.fn(async (_key?: string) => undefined as unknown)
 }))
 
 vi.mock('electron', () => ({
@@ -45,6 +47,10 @@ vi.mock('@core/storage/disk', () => ({
   saveChatermMessages: vi.fn(async () => undefined),
   touchTaskUpdatedAt: vi.fn(async () => undefined)
 }))
+vi.mock('@core/storage/state', () => ({
+  getGlobalState: getGlobalStateMock,
+  getUserConfig: vi.fn(async () => ({ language: 'en-US' }))
+}))
 vi.mock('../../offload', () => ({
   getOffloadDir: vi.fn(() => '/tmp/offload'),
   shouldOffload: shouldOffloadMock,
@@ -60,6 +66,7 @@ describe('Task tool result helpers', () => {
     vi.clearAllMocks()
     shouldOffloadMock.mockReturnValue(false)
     writeToolOutputMock.mockResolvedValue({ relativePath: 'tool/out.txt', size: 128 })
+    getGlobalStateMock.mockResolvedValue(undefined)
 
     task = Object.create((Task as unknown as { prototype: object }).prototype) as any
     task.taskId = 'task-tool-result'
@@ -356,5 +363,120 @@ describe('Task tool result helpers', () => {
 
   it('removeClosingTag should return original text when not partial', () => {
     expect(task.removeClosingTag(false, 'command', 'ls </com')).toBe('ls </com')
+  })
+
+  it('executeLocalCommandTool should filter returned model result without changing displayed command output', async () => {
+    const commandProcess = new EventEmitter() as EventEmitter & {
+      stdin: null
+      kill: ReturnType<typeof vi.fn>
+    }
+    commandProcess.stdin = null
+    commandProcess.kill = vi.fn()
+
+    task.messages = {
+      ...task.messages,
+      commandExecutedOutput: 'Command executed.',
+      commandStillRunning: 'Command is still running.',
+      commandHereIsOutput: '\nOutput so far:\n',
+      commandUpdateFuture: '\nFuture output will be shown here.'
+    }
+    task.buildHostInfo = vi.fn(() => ({ host: '127.0.0.1', uuid: 'localhost', connection: 'localhost' }))
+    task.localTerminalManager = {
+      createTerminal: vi.fn(async () => ({ id: 1 })),
+      runCommand: vi.fn(() => {
+        setTimeout(() => {
+          commandProcess.emit('line', 'raw command output\n')
+          commandProcess.emit('completed', { code: 0, output: 'raw command output\n' })
+        }, 0)
+        return commandProcess
+      })
+    }
+    task.rtkOutputFilterService = {
+      filterOutput: vi.fn(async () => ({
+        output: 'filtered command output\n',
+        applied: true
+      }))
+    }
+
+    const sayCalls: Array<{ type: string; text?: string; partial?: boolean }> = []
+    task.say = vi.fn(async (type: string, text?: string, partial?: boolean) => {
+      sayCalls.push({ type, text, partial })
+      task.chatermMessages.push({
+        ts: Date.now() + sayCalls.length,
+        type: 'say',
+        say: type,
+        text,
+        partial
+      })
+    })
+
+    const response = await task.executeLocalCommandTool('rg main src')
+
+    expect(task.rtkOutputFilterService.filterOutput).toHaveBeenCalledWith(
+      expect.objectContaining({
+        command: 'rg main src',
+        output: 'raw command output\n'
+      })
+    )
+    expect(response).toContain('filtered command output')
+    expect(response).not.toContain('raw command output')
+    expect(sayCalls.filter((call) => call.type === 'command_output').map((call) => call.text)).toEqual([
+      'raw command output\n',
+      'raw command output\n'
+    ])
+  })
+
+  it('executeLocalCommandTool should skip rtk filtering when command output filtering is disabled', async () => {
+    getGlobalStateMock.mockImplementation(async (key?: string) => {
+      if (key === 'commandOutputFilteringEnabled') return false
+      return undefined
+    })
+
+    const commandProcess = new EventEmitter() as EventEmitter & {
+      stdin: null
+      kill: ReturnType<typeof vi.fn>
+    }
+    commandProcess.stdin = null
+    commandProcess.kill = vi.fn()
+
+    task.messages = {
+      ...task.messages,
+      commandExecutedOutput: 'Command executed.',
+      commandStillRunning: 'Command is still running.',
+      commandHereIsOutput: '\nOutput so far:\n',
+      commandUpdateFuture: '\nFuture output will be shown here.'
+    }
+    task.buildHostInfo = vi.fn(() => ({ host: '127.0.0.1', uuid: 'localhost', connection: 'localhost' }))
+    task.localTerminalManager = {
+      createTerminal: vi.fn(async () => ({ id: 1 })),
+      runCommand: vi.fn(() => {
+        setTimeout(() => {
+          commandProcess.emit('line', 'raw command output\n')
+          commandProcess.emit('completed', { code: 0, output: 'raw command output\n' })
+        }, 0)
+        return commandProcess
+      })
+    }
+    task.rtkOutputFilterService = {
+      filterOutput: vi.fn(async () => ({
+        output: 'filtered command output\n',
+        applied: true
+      }))
+    }
+    task.say = vi.fn(async (type: string, text?: string, partial?: boolean) => {
+      task.chatermMessages.push({
+        ts: Date.now(),
+        type: 'say',
+        say: type,
+        text,
+        partial
+      })
+    })
+
+    const response = await task.executeLocalCommandTool('rg main src')
+
+    expect(task.rtkOutputFilterService.filterOutput).not.toHaveBeenCalled()
+    expect(response).toContain('raw command output')
+    expect(response).not.toContain('filtered command output')
   })
 })
