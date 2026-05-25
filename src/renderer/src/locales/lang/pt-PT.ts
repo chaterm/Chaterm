@@ -17,6 +17,7 @@ export default {
     keychain: 'Cadeia de Chaves',
     extensions: 'Extensões',
     ai: 'IA',
+    knowledge: 'Base de conhecimento',
     user: 'Utilizador',
     setting: 'Configurações',
     notice: 'Aviso',

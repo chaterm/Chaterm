@@ -4,7 +4,7 @@
       <a-tooltip
         v-for="i in menuTabsData.slice(0, -2)"
         :key="i.key"
-        :title="i.name"
+        :title="$t(i.nameKey)"
         placement="right"
         :mouse-enter-delay="1"
       >
@@ -108,7 +108,7 @@
       <a-tooltip
         v-for="i in menuTabsData.slice(-2)"
         :key="i.key"
-        :title="i.name"
+        :title="$t(i.nameKey)"
         :mouse-enter-delay="1"
       >
         <div v-if="i.key === 'user'">

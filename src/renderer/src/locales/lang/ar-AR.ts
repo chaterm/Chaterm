@@ -17,6 +17,7 @@ export default {
     keychain: 'المفاتيح',
     extensions: 'الملحقات',
     ai: 'الذكاء الاصطناعي',
+    knowledge: 'قاعدة المعرفة',
     user: 'المستخدم',
     setting: 'الإعدادات',
     notice: 'الإشعارات',

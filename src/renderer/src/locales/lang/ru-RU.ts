@@ -17,6 +17,7 @@ export default {
     keychain: 'Связка ключей',
     extensions: 'Расширения',
     ai: 'ИИ',
+    knowledge: 'База знаний',
     user: 'Пользователь',
     setting: 'Настройки',
     notice: 'Уведомление',

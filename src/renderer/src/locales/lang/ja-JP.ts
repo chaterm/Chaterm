@@ -17,6 +17,7 @@ export default {
     keychain: 'キーチェーン',
     extensions: '拡張機能',
     ai: 'AI',
+    knowledge: 'ナレッジベース',
     user: 'ユーザー',
     setting: '設定',
     notice: '通知',

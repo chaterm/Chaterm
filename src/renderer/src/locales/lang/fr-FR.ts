@@ -17,6 +17,7 @@ export default {
     keychain: 'Trousseau de clés',
     extensions: 'Extensions',
     ai: 'IA',
+    knowledge: 'Base de connaissances',
     user: 'Utilisateur',
     setting: 'Paramètres',
     notice: 'Avis',

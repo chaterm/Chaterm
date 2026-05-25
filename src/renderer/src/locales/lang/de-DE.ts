@@ -17,6 +17,7 @@ export default {
     keychain: 'Schlüsselbund',
     extensions: 'Erweiterungen',
     ai: 'AI',
+    knowledge: 'Wissensdatenbank',
     user: 'Benutzer',
     setting: 'Einstellung',
     notice: 'Hinweis',
