@@ -33,6 +33,8 @@ vi.mock('@/locales', () => ({
             'user.enableExtendedThinkingDescribe': 'desc',
             'user.autoExecuteReadOnlyCommands': 'Auto-execute read-only commands',
             'user.autoExecuteReadOnlyCommandsDescribe': 'desc',
+            'user.commandOutputFilteringEnabled': 'Command output filtering',
+            'user.commandOutputFilteringEnabledDescribe': 'desc',
             'user.kbSearchEnabled': 'Knowledge Base Search',
             'user.kbSearchEnabledDescribe': 'desc',
             'user.experienceExtractionEnabled': 'Automatic Experience Capture',
@@ -93,6 +95,7 @@ describe('AI Settings Component', () => {
 
     mockGetGlobalState.mockImplementation(async (key: string) => {
       if (key === 'experienceExtractionEnabled') return undefined
+      if (key === 'commandOutputFilteringEnabled') return undefined
       if (key === 'kbSearchEnabled') return true
       if (key === 'thinkingBudgetTokens') return 2048
       if (key === 'reasoningEffort') return 'low'
@@ -112,6 +115,8 @@ describe('AI Settings Component', () => {
               ({
                 'user.experienceExtractionEnabled': 'Automatic Experience Capture',
                 'user.experienceExtractionEnabledDescribe': 'desc',
+                'user.commandOutputFilteringEnabled': 'Command output filtering',
+                'user.commandOutputFilteringEnabledDescribe': 'desc',
                 'user.autoApproval': 'Auto Approval',
                 'user.autoApprovalDescribe': 'desc'
               }) as Record<string, string>
@@ -164,6 +169,28 @@ describe('AI Settings Component', () => {
     await flushPromises()
 
     expect(mockUpdateGlobalState).toHaveBeenCalledWith('experienceExtractionEnabled', false)
+  })
+
+  it('defaults commandOutputFilteringEnabled to enabled when state is missing', async () => {
+    const wrapper = mountComponent()
+    await flushPromises()
+
+    const checkboxRow = wrapper.findAll('.checkbox-stub').find((node) => node.text().includes('Command output filtering'))
+
+    expect(checkboxRow).toBeTruthy()
+    expect((checkboxRow!.find('input').element as HTMLInputElement).checked).toBe(true)
+  })
+
+  it('updates global state when commandOutputFilteringEnabled is toggled', async () => {
+    const wrapper = mountComponent()
+    await flushPromises()
+
+    const checkboxRow = wrapper.findAll('.checkbox-stub').find((node) => node.text().includes('Command output filtering'))
+
+    await checkboxRow!.find('input').setValue(false)
+    await flushPromises()
+
+    expect(mockUpdateGlobalState).toHaveBeenCalledWith('commandOutputFilteringEnabled', false)
   })
 
   it('exposes onboarding targets for AI preferences and auto approval', async () => {

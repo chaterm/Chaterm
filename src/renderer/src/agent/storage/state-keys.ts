@@ -103,5 +103,6 @@ export type GlobalStateKey =
   | 'userRules'
   | 'kbSearchEnabled'
   | 'experienceExtractionEnabled'
+  | 'commandOutputFilteringEnabled'
 
 export type LocalStateKey = 'localClineRulesToggles'

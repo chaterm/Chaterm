@@ -38,6 +38,7 @@ export type GlobalStateKey =
   | 'mcpMarketplaceEnabled'
   | 'kbSearchEnabled'
   | 'experienceExtractionEnabled'
+  | 'commandOutputFilteringEnabled'
   | 'testGlobalKey' // For testing
 
 export type SecretKey =

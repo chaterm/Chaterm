@@ -61,6 +61,9 @@ extraResources:
   - from: 'resources/preinstalled-plugins/'
     to: 'preinstalled-plugins/'
     filter: '**/*'
+  - from: 'resources/rtk/'
+    to: 'rtk/'
+    filter: '**/*'
 asarUnpack:
   - resources/**
 icon: resources/icon.ico
