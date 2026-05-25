@@ -4,6 +4,7 @@ import { Client, ConnectConfig } from 'ssh2'
 import { Asset, parseJumpserverOutput } from './parser'
 
 import { getPackageInfo } from './connectionManager'
+import { jumpserverConnections } from './state'
 import { LEGACY_ALGORITHMS } from '../algorithms'
 const logger = createLogger('jumpserver')
 
@@ -20,6 +21,7 @@ interface JumpServerConfig {
   password?: string
   passphrase?: string
   connIdentToken?: string
+  jumpserverUuid?: string
 }
 
 interface KeyboardInteractiveHandler {
@@ -46,11 +48,81 @@ class JumpServerClient {
     this.authResultCallback = authResultCallback
   }
 
+  private async connectViaExisting(conn: Client): Promise<void> {
+    return new Promise((resolve, reject) => {
+      conn.shell((err, stream) => {
+        if (err) {
+          return reject(new Error(`Failed to open shell on existing connection: ${err.message}`))
+        }
+        this.stream = stream
+        this.isConnected = true
+
+        this.stream.on('data', (data: Buffer) => {
+          const ansiRegex = /[][[()#;?]*.{0,2}(?:[0-9]{1,4}(?:;[0-9]{0,4})*)?[0-9A-ORZcf-nry=><]/g
+          const chunk = data.toString().replace(ansiRegex, '')
+          this.outputBuffer += chunk
+
+          if (this.dataResolve && (this.outputBuffer.includes('[Host]>') || this.outputBuffer.includes('Opt>'))) {
+            this.dataResolve(this.outputBuffer)
+            this.outputBuffer = ''
+            this.dataResolve = null
+          }
+        })
+
+        this.stream.on('close', () => {
+          this.isConnected = false
+        })
+
+        this.stream.on('error', (error: Error) => {
+          logger.error('Reused asset stream error', { event: 'jumpserver.asset.reuse.stream.error', error: error.message })
+          if (this.dataResolve) {
+            this.dataResolve = null
+            this.outputBuffer = ''
+          }
+        })
+
+        const waitForMenu = (retries = 10) => {
+          if (retries === 0) {
+            return reject(new Error('Failed to get initial menu prompt on reused connection.'))
+          }
+          if (this.outputBuffer.includes('Opt>')) {
+            this.outputBuffer = ''
+            resolve()
+          } else {
+            setTimeout(() => waitForMenu(retries - 1), 500)
+          }
+        }
+        setTimeout(waitForMenu, 500)
+      })
+    })
+  }
+
   /**
    * Connect to JumpServer and establish a persistent shell
    */
   async connect(): Promise<void> {
     logger.info('Starting connection to JumpServer', { event: 'jumpserver.asset.connect' })
+
+    if (this.config.jumpserverUuid) {
+      for (const [, existingData] of jumpserverConnections.entries()) {
+        if (existingData.jumpserverUuid === this.config.jumpserverUuid) {
+          logger.info('Reusing existing JumpServer connection for asset fetch', {
+            event: 'jumpserver.asset.reuse',
+            jumpserverUuid: this.config.jumpserverUuid
+          })
+          try {
+            await this.connectViaExisting(existingData.conn)
+            return
+          } catch (err) {
+            logger.warn('Reusing existing connection failed, falling back to new connection', {
+              event: 'jumpserver.asset.reuse.failed',
+              error: err instanceof Error ? err.message : String(err)
+            })
+          }
+        }
+      }
+    }
+
     return new Promise((resolve, reject) => {
       const connectConfig: ConnectConfig = {
         host: this.config.host,

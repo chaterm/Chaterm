@@ -578,12 +578,6 @@ export const useModelConfiguration = createGlobalState(() => {
 
       // Skip loading built-in models if user skipped login
       if (isSkippedLogin) {
-        // Initialize with empty model options for guest users
-        await updateGlobalState('modelOptions', [])
-        await updateGlobalState('enterpriseModelConfigs', [])
-        await updateGlobalState('enterpriseModelConfigVersion', '')
-        await updateGlobalState('enterpriseModelPluginActive', false)
-        clearEnterpriseSyncTimer()
         return
       }
 
