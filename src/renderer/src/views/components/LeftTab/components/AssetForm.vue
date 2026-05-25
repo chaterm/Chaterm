@@ -585,6 +585,7 @@ watch(
 )
 
 const syncAuthType = () => {
+  if (!isOrganizationAsset(formData.asset_type)) return
   const resolved = resolveBastionAuthType(formData.asset_type, availableBastions.value, formData.auth_type)
   if (resolved !== formData.auth_type) {
     formData.auth_type = resolved
