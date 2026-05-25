@@ -1461,6 +1461,7 @@ onBeforeUnmount(() => {
   font-size: 12px;
   color: var(--kb-primary-color);
   flex-shrink: 0;
+  cursor: pointer;
   &:hover {
     color: var(--kb-primary-color);
     opacity: 0.85;
