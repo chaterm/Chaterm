@@ -410,6 +410,8 @@ export default {
     autoApprovalDescribe: '允許在不要求確認的情況下運行工具',
     autoExecuteReadOnlyCommands: '查詢類命令自動執行',
     autoExecuteReadOnlyCommandsDescribe: '所有會話中的查詢類命令（如 ls、cat、grep 等）將自動執行，無需人工確認',
+    commandOutputFilteringEnabled: '命令輸出過濾',
+    commandOutputFilteringEnabledDescribe: '採用 rtk 對命令執行結果進行過濾，減少 token 消耗，部分場景可能影響模型的準確度',
     kbSearchEnabled: KB_SEARCH_ENABLED_LABELS['zh-TW'],
     kbSearchEnabledDescribe: '新對話開始時自動搜索相關知識庫內容，並允許 AI 在對話中搜索知識庫',
     experienceExtractionEnabled: '自動經驗沉澱',

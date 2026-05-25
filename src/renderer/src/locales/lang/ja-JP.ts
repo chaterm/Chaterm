@@ -413,6 +413,9 @@ export default {
     autoApprovalDescribe: '確認を求めずにツールを実行できるようにします',
     autoExecuteReadOnlyCommands: '読取専用コマンドを自動実行',
     autoExecuteReadOnlyCommandsDescribe: 'すべてのセッションで読取専用コマンド（ls、cat、grepなど）が確認なしで自動実行されます',
+    commandOutputFilteringEnabled: 'コマンド出力フィルタリング',
+    commandOutputFilteringEnabledDescribe:
+      'rtk を使用してコマンド実行結果をフィルタリングし、token 消費を削減します。一部の場面ではモデルの精度に影響する可能性があります',
     kbSearchEnabled: KB_SEARCH_ENABLED_LABELS['ja-JP'],
     kbSearchEnabledDescribe:
       '新しい会話を開始する際にナレッジベースの関連コンテンツを自動検索し、会話中にAIがナレッジベースを検索することを許可します',

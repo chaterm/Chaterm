@@ -46,6 +46,19 @@
         </p>
       </div>
 
+      <!-- Command Output Filtering -->
+      <div class="setting-item">
+        <a-checkbox
+          v-model:checked="commandOutputFilteringEnabled"
+          @change="handleCommandOutputFilteringEnabledChange(commandOutputFilteringEnabled)"
+        >
+          {{ $t('user.commandOutputFilteringEnabled') }}
+        </a-checkbox>
+        <p class="setting-description">
+          {{ $t('user.commandOutputFilteringEnabledDescribe') }}
+        </p>
+      </div>
+
       <!-- Knowledge Base Search -->
       <div
         v-if="!kbSearchPolicyHidden"
@@ -281,6 +294,7 @@ const reasoningEffort = ref('low')
 const shellIntegrationTimeout = ref(4)
 const kbSearchEnabled = ref(true)
 const experienceExtractionEnabled = ref(true)
+const commandOutputFilteringEnabled = ref(true)
 const autoApprovalSettings = ref<AutoApprovalSettings>(DEFAULT_AUTO_APPROVAL_SETTINGS)
 const chatSettings = ref<ChatSettings>(DEFAULT_CHAT_SETTINGS)
 const customInstructions = ref('')
@@ -426,6 +440,11 @@ const loadSavedConfig = async () => {
       savedExperienceExtractionEnabled === undefined || savedExperienceExtractionEnabled === null
         ? true
         : (savedExperienceExtractionEnabled as boolean)
+    const savedCommandOutputFilteringEnabled = await getGlobalState('commandOutputFilteringEnabled')
+    commandOutputFilteringEnabled.value =
+      savedCommandOutputFilteringEnabled === undefined || savedCommandOutputFilteringEnabled === null
+        ? true
+        : (savedCommandOutputFilteringEnabled as boolean)
     needProxy.value = ((await getGlobalState('needProxy')) as boolean) || false
     proxyConfig.value = ((await getGlobalState('proxyConfig')) as ProxyConfig) || defaultProxyConfig
 
@@ -483,6 +502,7 @@ const saveConfig = async () => {
     await updateGlobalState('shellIntegrationTimeout', shellIntegrationTimeout.value)
     await updateGlobalState('kbSearchEnabled', kbSearchEnabled.value)
     await updateGlobalState('experienceExtractionEnabled', experienceExtractionEnabled.value)
+    await updateGlobalState('commandOutputFilteringEnabled', commandOutputFilteringEnabled.value)
     await updateGlobalState('needProxy', needProxy.value)
     const proxyConfigToSave: ProxyConfig = {
       ...proxyConfig.value
@@ -642,6 +662,14 @@ const handleExperienceExtractionEnabledChange = async (checked: boolean) => {
     await updateGlobalState('experienceExtractionEnabled', checked)
   } catch (error) {
     logger.error('Failed to update experienceExtractionEnabled', { error })
+  }
+}
+
+const handleCommandOutputFilteringEnabledChange = async (checked: boolean) => {
+  try {
+    await updateGlobalState('commandOutputFilteringEnabled', checked)
+  } catch (error) {
+    logger.error('Failed to update commandOutputFilteringEnabled', { error })
   }
 }
 

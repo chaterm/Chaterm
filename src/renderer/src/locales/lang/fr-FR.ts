@@ -418,6 +418,9 @@ export default {
     autoExecuteReadOnlyCommands: 'Exécuter auto les commandes en lecture seule',
     autoExecuteReadOnlyCommandsDescribe:
       'Les commandes en lecture seule (ex: ls, cat, grep) seront exécutées automatiquement sans confirmation dans toutes les sessions',
+    commandOutputFilteringEnabled: 'Filtrage de la sortie des commandes',
+    commandOutputFilteringEnabledDescribe:
+      "Utilise rtk pour filtrer les résultats d'exécution des commandes et réduire la consommation de tokens. Dans certains cas, cela peut affecter la précision du modèle",
     kbSearchEnabled: KB_SEARCH_ENABLED_LABELS['fr-FR'],
     kbSearchEnabledDescribe:
       "Rechercher automatiquement le contenu pertinent de la base de connaissances lors du demarrage d'une nouvelle conversation et permettre a l'IA de rechercher dans la base de connaissances pendant les conversations",

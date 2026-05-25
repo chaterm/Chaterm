@@ -411,6 +411,9 @@ export default {
     autoApprovalDescribe: 'Agent가 도구를 실행할 때 확인 없이 실행할 수 있도록 허용합니다',
     autoExecuteReadOnlyCommands: '읽기 전용 명령 자동 실행',
     autoExecuteReadOnlyCommandsDescribe: '모든 세션에서 읽기 전용 명령(ls, cat, grep 등)이 확인 없이 자동 실행됩니다',
+    commandOutputFilteringEnabled: '명령 출력 필터링',
+    commandOutputFilteringEnabledDescribe:
+      'rtk를 사용해 명령 실행 결과를 필터링하여 token 사용량을 줄입니다. 일부 상황에서는 모델 정확도에 영향을 줄 수 있습니다',
     kbSearchEnabled: KB_SEARCH_ENABLED_LABELS['ko-KR'],
     kbSearchEnabledDescribe: '새 대화를 시작할 때 관련 지식 베이스 콘텐츠를 자동으로 검색하고 대화 중 AI가 지식 베이스를 검색할 수 있도록 허용합니다',
     experienceExtractionEnabled: '자동 경험 축적',
