@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
-import { mount, VueWrapper } from '@vue/test-utils'
+import { flushPromises, mount, VueWrapper } from '@vue/test-utils'
 import { nextTick, ref } from 'vue'
 import ExtensionsComponent from '../index.vue'
 import { notification } from 'ant-design-vue'
@@ -14,6 +14,7 @@ const uninstallLocalPluginMock = vi.fn()
 
 const apiMock = {
   getPathForFile: vi.fn(),
+  getPlatform: vi.fn(),
   installPlugin: vi.fn(),
   installPluginFromBuffer: vi.fn(),
   getInstallHint: vi.fn()
@@ -68,7 +69,8 @@ vi.mock('ant-design-vue', () => ({
 vi.mock('@/utils/eventBus', () => ({
   default: {
     on: vi.fn(),
-    off: vi.fn()
+    off: vi.fn(),
+    emit: vi.fn()
   }
 }))
 
@@ -79,7 +81,9 @@ vi.mock('@/services/userConfigStoreService', () => ({
 }))
 
 vi.mock('@/api/plugin/plugin', () => ({
+  downloadPluginPackage: vi.fn(),
   getPluginDownload: vi.fn(),
+  getPluginDownloadInfo: vi.fn(),
   getPluginIconUrl: vi.fn()
 }))
 
@@ -316,10 +320,9 @@ describe('Extensions index.vue', () => {
 
     const button = wrapper.find('.a-button')
     await button.trigger('click')
-    await nextTick()
-    await Promise.resolve()
+    await flushPromises()
 
-    expect(getPluginDownload).toHaveBeenCalledWith('pluginA', '1.0.0')
+    expect(getPluginDownload).toHaveBeenCalledWith('pluginA', '1.0.0', 'all')
     expect(apiMock.installPluginFromBuffer).toHaveBeenCalled()
     expect(loadPluginsMock).toHaveBeenCalled()
     expect(notification.success).toHaveBeenCalled()

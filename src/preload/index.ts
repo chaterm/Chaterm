@@ -1484,6 +1484,41 @@ const api = {
     return ipcRenderer.invoke('plugins.details', pluginName)
   },
 
+  downloadPluginPackage(url: string) {
+    return ipcRenderer.invoke('plugin:downloadPackage', { url })
+  },
+
+  installPluginFromUrl(payload: { pluginId: string; version?: string; fileName?: string; url: string; sha256?: string }) {
+    return ipcRenderer.invoke('plugin:installFromUrl', payload)
+  },
+
+  cancelPluginInstall(pluginId: string) {
+    return ipcRenderer.invoke('plugin:cancelInstall', { pluginId })
+  },
+
+  onPluginInstallProgress(
+    callback: (payload: {
+      pluginId: string
+      stage: 'downloading' | 'verifying' | 'installing' | 'done' | 'error' | 'cancelled'
+      receivedBytes?: number
+      totalBytes?: number
+      percent?: number
+    }) => void
+  ) {
+    const listener = (
+      _event: any,
+      payload: {
+        pluginId: string
+        stage: 'downloading' | 'verifying' | 'installing' | 'done' | 'error' | 'cancelled'
+        receivedBytes?: number
+        totalBytes?: number
+        percent?: number
+      }
+    ) => callback(payload)
+    ipcRenderer.on('plugin:install-progress', listener)
+    return () => ipcRenderer.removeListener('plugin:install-progress', listener)
+  },
+
   installPluginFromBuffer(payload: { pluginId: string; version?: string; fileName?: string; data: ArrayBuffer }) {
     return ipcRenderer.invoke('plugin:installFromBuffer', payload)
   },

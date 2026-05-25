@@ -3,6 +3,7 @@ import { toRaw, nextTick } from 'vue'
 import i18n from '@/locales'
 import eventBus from '@/utils/eventBus'
 import { getSystemTheme } from '@/utils/themeUtils'
+import { resolveAppliedLanguage } from '@/utils/languageUtils'
 import { userConfigStore as piniaConfigStore } from '@/store/userConfigStore'
 import { type ConfigSyncMeta, buildDefaultConfigSyncMeta } from './configSyncManager'
 import { THEME_PRESETS } from '../../../shared/themes/presets'
@@ -32,7 +33,20 @@ export interface BackgroundConfig {
   brightness: number
 }
 
-export const SUPPORTED_LANGUAGE_VALUES = ['zh-CN', 'zh-TW', 'en-US', 'de-DE', 'fr-FR', 'it-IT', 'pt-PT', 'ru-RU', 'ja-JP', 'ko-KR', 'ar-AR'] as const
+export const SUPPORTED_LANGUAGE_VALUES = [
+  'system',
+  'zh-CN',
+  'zh-TW',
+  'en-US',
+  'de-DE',
+  'fr-FR',
+  'it-IT',
+  'pt-PT',
+  'ru-RU',
+  'ja-JP',
+  'ko-KR',
+  'ar-AR'
+] as const
 
 export type SupportedLanguage = (typeof SUPPORTED_LANGUAGE_VALUES)[number]
 
@@ -536,7 +550,7 @@ export function dispatchSideEffects(changedFields: Partial<SyncableUserConfig>):
   // language -> localStorage + i18n locale
   if ('language' in changedFields && changedFields.language) {
     localStorage.setItem('lang', changedFields.language)
-    i18n.global.locale.value = changedFields.language
+    i18n.global.locale.value = resolveAppliedLanguage(changedFields.language) as typeof i18n.global.locale.value
   }
 
   // theme -> document class + main process
