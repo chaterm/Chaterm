@@ -50,9 +50,13 @@ for file in "$OUTPUT_DIR"/*; do
 
   # cosign v3+ defaults to the new bundle format; pass it explicitly so the
   # --bundle path is interpreted consistently across cosign versions.
-  cosign sign-blob "$file" \
+  # The blob path must come after all flags (use `--` to separate) so cosign
+  # does not treat it as a flag value and leave --bundle empty.
+  cosign sign-blob \
+    --yes \
     --new-bundle-format \
-    --bundle "$file.cosign.bundle"
+    --bundle "$file.cosign.bundle" \
+    -- "$file"
 done
 
 echo "Generating SHA256SUMS.txt"
