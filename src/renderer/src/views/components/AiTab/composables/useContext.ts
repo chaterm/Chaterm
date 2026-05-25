@@ -74,7 +74,7 @@ export const useContext = (options: UseContextOptions = {}) => {
     if (chatTypeValue.value !== 'chat' && chatTypeValue.value !== 'cmd') {
       items.push('hosts')
     }
-    items.push('docs', 'chats', 'skills')
+    items.push('docs', 'skills', 'chats')
     return items
   })
 
