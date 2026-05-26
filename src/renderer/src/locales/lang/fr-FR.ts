@@ -257,6 +257,8 @@ export default {
     cursorStyleBlock: 'Bloc',
     cursorStyleBar: 'Barre',
     cursorStyleUnderline: 'Sous-ligne',
+    cursorBlink: 'Clignotement du curseur',
+    lineHeight: 'Hauteur de ligne',
     mouseEvent: 'Événement de la souris',
     middleMouseEvent: 'Événement de la molette de la souris',
     rightMouseEvent: 'Événement du bouton droit de la souris',

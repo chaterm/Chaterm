@@ -130,10 +130,11 @@ const initTerminal = async () => {
 
   terminal.value = new Terminal({
     scrollback: userConfig?.scrollBack || 5000,
-    cursorBlink: true,
+    cursorBlink: userConfig?.cursorBlink !== false,
     cursorStyle: userConfig?.cursorStyle || 'block',
     fontSize,
     fontFamily,
+    lineHeight: typeof userConfig?.lineHeight === 'number' ? userConfig.lineHeight : 1,
     allowTransparency: true,
     theme: getTerminalTheme()
   })

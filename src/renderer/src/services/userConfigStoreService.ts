@@ -65,6 +65,8 @@ export interface UserConfig {
   scrollBack: number
   language: SupportedLanguage
   cursorStyle: 'bar' | 'block' | 'underline' | undefined
+  cursorBlink?: boolean
+  lineHeight?: number
   terminalType?: string
   middleMouseEvent?: 'paste' | 'contextMenu' | 'closeTab' | 'none'
   rightMouseEvent?: 'paste' | 'contextMenu' | 'none'
@@ -165,6 +167,8 @@ export function buildDefaultUserConfig(now: number = Date.now()): UserConfig {
     scrollBack: 1000,
     language: 'zh-CN',
     cursorStyle: 'block',
+    cursorBlink: true,
+    lineHeight: 1,
     middleMouseEvent: 'paste',
     rightMouseEvent: 'contextMenu',
     watermark: 'open',
@@ -363,6 +367,8 @@ export const SYNC_WHITELIST = [
   'fontSize',
   'scrollBack',
   'cursorStyle',
+  'cursorBlink',
+  'lineHeight',
   'terminalType',
   'middleMouseEvent',
   'rightMouseEvent',
@@ -398,6 +404,8 @@ export const SYNC_FIELD_VALIDATORS: Record<SyncWhitelistKey, (val: unknown) => b
   fontSize: (val) => typeof val === 'number' && Number.isInteger(val) && val >= 8 && val <= 64,
   scrollBack: (val) => typeof val === 'number' && Number.isInteger(val) && val >= 1 && val <= 100000,
   cursorStyle: (val) => typeof val === 'string' && ['block', 'bar', 'underline'].includes(val),
+  cursorBlink: (val) => typeof val === 'boolean',
+  lineHeight: (val) => typeof val === 'number' && Number.isFinite(val) && val >= 1 && val <= 3,
   terminalType: (val) =>
     typeof val === 'string' && ['xterm', 'xterm-256color', 'vt100', 'vt102', 'vt220', 'vt320', 'linux', 'scoansi', 'ansi'].includes(val),
   middleMouseEvent: (val) => typeof val === 'string' && ['paste', 'contextMenu', 'closeTab', 'none'].includes(val),

@@ -257,6 +257,8 @@ export default {
     cursorStyleBlock: 'ブロック',
     cursorStyleBar: 'バー',
     cursorStyleUnderline: '下線',
+    cursorBlink: 'カーソルの点滅',
+    lineHeight: '行の高さ',
     mouseEvent: 'マウスイベント',
     middleMouseEvent: 'マウス中ボタンイベント',
     rightMouseEvent: 'マウス右ボタンイベント',

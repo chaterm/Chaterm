@@ -257,6 +257,8 @@ export default {
     cursorStyleBlock: 'Блок',
     cursorStyleBar: 'Полоса',
     cursorStyleUnderline: 'Подчеркивание',
+    cursorBlink: 'Мигание курсора',
+    lineHeight: 'Высота строки',
     mouseEvent: 'Событие мыши',
     middleMouseEvent: 'Событие средней кнопки мыши',
     rightMouseEvent: 'Событие правой кнопки мыши',

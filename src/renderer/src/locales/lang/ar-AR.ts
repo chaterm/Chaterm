@@ -257,6 +257,8 @@ export default {
     cursorStyleBlock: 'مربع',
     cursorStyleBar: 'شريط',
     cursorStyleUnderline: 'تحتية',
+    cursorBlink: 'وميض المؤشر',
+    lineHeight: 'ارتفاع السطر',
     mouseEvent: 'حدث الماوس',
     middleMouseEvent: 'حدث الماوس الأوسط',
     rightMouseEvent: 'حدث الماوس الأيمن',
