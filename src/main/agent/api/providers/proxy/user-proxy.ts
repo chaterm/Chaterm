@@ -9,15 +9,22 @@ import type { Agent } from 'http'
 import { ProxyConfig } from '@shared/Proxy'
 
 /**
+ * Build proxy URL from configuration
+ */
+export function buildProxyUrl(config: ProxyConfig): string {
+  const { host, port, enableProxyIdentity, username, password } = config
+  const auth = enableProxyIdentity && username && password ? `${encodeURIComponent(username)}:${encodeURIComponent(password)}@` : ''
+  return `http://${auth}${host}:${port}`
+}
+
+/**
  * Create proxy agent from user configuration
- * @param config - User proxy configuration
- * @returns HTTP/HTTPS/SOCKS proxy agent, or undefined if no config
  */
 export function createProxyAgent(config?: ProxyConfig): Agent | undefined {
   if (!config) return undefined
-  const { type, host, port, enableProxyIdentity, username, password } = config
-  const auth = enableProxyIdentity && username && password ? `${encodeURIComponent(username)}:${encodeURIComponent(password)}@` : ''
-  const url = `http://${auth}${host}:${port}`
+
+  const { type } = config
+  const url = buildProxyUrl(config)
 
   switch (type) {
     case 'HTTP':
