@@ -52,6 +52,7 @@
       :ai-enabled="queryCommandFlag"
       :has-ai-suggestion="!!aiSuggestion"
       @trigger-ai="onAiTriggerHover"
+      @click-item="onSuggestionClickItem"
     />
     <v-contextmenu ref="contextmenu">
       <Context
@@ -4707,6 +4708,12 @@ const onAiTriggerHover = () => {
 
   const currentRequestId = ++aiSuggestRequestId.value
   fetchAiSuggestion(commandText, currentRequestId)
+}
+
+const onSuggestionClickItem = (index: number) => {
+  if (index < 0 || index >= displaySuggestions.value.length) return
+  selectSuggestion(displaySuggestions.value[index])
+  terminal.value?.focus()
 }
 
 // Shortcut-triggered AI suggestion: called via Ctrl+I / Cmd+I even when suggestion panel is not visible

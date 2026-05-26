@@ -24,6 +24,7 @@
         :key="index"
         :class="{ active: index === activeSuggestion }"
         class="suggestion-item"
+        @mousedown.prevent="$emit('clickItem', index)"
       >
         <!-- Icon -->
         <span
@@ -118,6 +119,7 @@ const props = defineProps<{
 
 defineEmits<{
   triggerAi: []
+  clickItem: [index: number]
 }>()
 
 const updateSuggestionsPosition = (term) => {
