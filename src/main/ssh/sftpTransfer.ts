@@ -613,6 +613,178 @@ const getTotalUi = (total: number) => (Number.isFinite(total) && total > 0 ? tot
 
 const terminalBytes = (total: number) => getTotalUi(total)
 
+const FAST_DOWNLOAD_CONCURRENCY = 64
+const FAST_DOWNLOAD_CHUNK_SIZE = 32 * 1024
+
+const markTransferSide = (side: ErrorSide, err: any) => {
+  if (err && typeof err === 'object') {
+    err.__errorSide ??= side
+    return err
+  }
+
+  const wrapped = new Error(String(err))
+  ;(wrapped as any).__errorSide = side
+  return wrapped
+}
+
+const getMarkedTransferSide = (err: any): ErrorSide | undefined => {
+  const side = err?.__errorSide
+  return side === 'local' || side === 'remote' ? side : undefined
+}
+
+const createTransferCancelledError = () => Object.assign(new Error('Transfer was cancelled by user'), { __cancelled: true })
+
+const isTransferCancelledError = (err: any) => err?.__cancelled === true
+
+const sftpOpenForRead = async (sftp: any, remotePath: string): Promise<Buffer> => {
+  return await new Promise<Buffer>((resolve, reject) => {
+    sftp.open(remotePath, 'r', (err: any, handle: Buffer) => {
+      if (err) reject(markTransferSide('remote', err))
+      else resolve(handle)
+    })
+  })
+}
+
+const sftpReadChunk = async (sftp: any, handle: Buffer, buffer: Buffer, length: number, position: number): Promise<number> => {
+  return await new Promise<number>((resolve, reject) => {
+    sftp.read(handle, buffer, 0, length, position, (err: any, bytesRead: number) => {
+      if (err) reject(markTransferSide('remote', err))
+      else resolve(bytesRead || 0)
+    })
+  })
+}
+
+const closeSftpHandleQuietly = async (sftp: any, handle: Buffer | null) => {
+  if (!handle) return
+
+  await new Promise<void>((resolve) => {
+    try {
+      sftp.close(handle, () => resolve())
+    } catch {
+      resolve()
+    }
+  })
+}
+
+type FastDownloadControl = {
+  abort?: () => void
+}
+
+async function fastDownloadFromSftp(
+  sftp: any,
+  remotePath: string,
+  localPath: string,
+  options: {
+    total: number
+    isCancelled: () => boolean
+    onProgress: (bytes: number, chunk: number) => void
+    control: FastDownloadControl
+  }
+) {
+  const total = Math.max(0, options.total || 0)
+
+  if (total === 0) {
+    if (options.isCancelled()) throw createTransferCancelledError()
+    try {
+      await fs.promises.writeFile(localPath, Buffer.alloc(0))
+    } catch (e) {
+      throw markTransferSide('local', e)
+    }
+    return 0
+  }
+
+  let remoteHandle: Buffer | null = null
+  let localFile: any = null
+  let nextOffset = 0
+  let transferred = 0
+  let stopping = false
+
+  const throwIfCancelled = () => {
+    if (options.isCancelled() || stopping) throw createTransferCancelledError()
+  }
+
+  const abortOpenHandles = () => {
+    stopping = true
+    void closeSftpHandleQuietly(sftp, remoteHandle)
+    void localFile?.close?.().catch?.(() => {})
+  }
+
+  options.control.abort = abortOpenHandles
+
+  try {
+    throwIfCancelled()
+    remoteHandle = await sftpOpenForRead(sftp, remotePath)
+
+    throwIfCancelled()
+    try {
+      localFile = await fs.promises.open(localPath, 'w')
+    } catch (e) {
+      throw markTransferSide('local', e)
+    }
+
+    const workerCount = Math.min(FAST_DOWNLOAD_CONCURRENCY, Math.ceil(total / FAST_DOWNLOAD_CHUNK_SIZE))
+    const worker = async () => {
+      const buffer = Buffer.allocUnsafe(FAST_DOWNLOAD_CHUNK_SIZE)
+
+      while (true) {
+        throwIfCancelled()
+
+        const offset = nextOffset
+        if (offset >= total) return
+
+        const length = Math.min(FAST_DOWNLOAD_CHUNK_SIZE, total - offset)
+        nextOffset += length
+
+        let chunkOffset = 0
+        while (chunkOffset < length) {
+          throwIfCancelled()
+
+          const position = offset + chunkOffset
+          const bytesRead = await sftpReadChunk(sftp, remoteHandle!, buffer, length - chunkOffset, position)
+          if (bytesRead <= 0) throw markTransferSide('remote', new Error(`Unexpected EOF while reading ${remotePath}`))
+
+          throwIfCancelled()
+          try {
+            await localFile.write(buffer, 0, bytesRead, position)
+          } catch (e) {
+            throw markTransferSide('local', e)
+          }
+
+          transferred += bytesRead
+          options.onProgress(transferred, bytesRead)
+          chunkOffset += bytesRead
+        }
+      }
+    }
+
+    let firstWorkerError: any = null
+    const runWorker = async () => {
+      try {
+        await worker()
+      } catch (e) {
+        firstWorkerError ??= e
+        abortOpenHandles()
+        throw e
+      }
+    }
+
+    await Promise.allSettled(Array.from({ length: workerCount }, () => runWorker()))
+    if (firstWorkerError) throw firstWorkerError
+
+    return transferred
+  } catch (e) {
+    if (options.isCancelled() || isTransferCancelledError(e)) throw createTransferCancelledError()
+    throw e
+  } finally {
+    options.control.abort = undefined
+
+    try {
+      await localFile?.close?.()
+    } catch {}
+    await closeSftpHandleQuietly(sftp, remoteHandle)
+  }
+}
+
 function hookStartOnce(rs: any, ws: any, startOnce: () => void) {
   rs?.once?.('open', startOnce)
   ws?.once?.('open', startOnce)
@@ -1353,6 +1525,111 @@ export async function handleStreamTransfer(
   const remotePathForUI = type === 'upload' ? finalRemotePath : toPosix(srcPath)
   const destPathForUI = type === 'download' ? finalLocalPath : undefined
 
+  if (type === 'download') {
+    const control: FastDownloadControl = {}
+
+    activeTasks.set(progressTaskKey, {
+      localPath: finalLocalPath,
+      cancel: () => {
+        isCancelled = true
+        control.abort?.()
+      }
+    })
+
+    const emitDownloadProgress = (bytes: number) => {
+      transferred = bytes
+      const now = Date.now()
+      if (now - lastEmitTime > 150 || (total > 0 && transferred >= total)) {
+        sendProgress(event, {
+          id,
+          host,
+          taskKey: progressTaskKey,
+          parentTaskKey: childOpts?.parentTaskKey,
+          type,
+          isGroup: childOpts?.isGroup ?? false,
+          groupKind: childOpts?.groupKind ?? 'file',
+          remotePath: remotePathForUI,
+          destPath: destPathForUI,
+          bytes: transferred,
+          total: totalUi,
+          status: 'running' as TaskStatus
+        })
+        lastEmitTime = now
+      }
+    }
+
+    try {
+      transferred = await fastDownloadFromSftp(sftp, remotePathForUI, finalLocalPath, {
+        total,
+        isCancelled: () => isCancelled,
+        onProgress: emitDownloadProgress,
+        control
+      })
+      activeTasks.delete(progressTaskKey)
+
+      sendProgress(event, {
+        id,
+        host,
+        taskKey: progressTaskKey,
+        parentTaskKey: childOpts?.parentTaskKey,
+        type,
+        isGroup: childOpts?.isGroup ?? false,
+        groupKind: childOpts?.groupKind ?? 'file',
+        remotePath: remotePathForUI,
+        destPath: destPathForUI,
+        bytes: total > 0 ? total || transferred : 1,
+        total: totalUi,
+        status: 'success' as TaskStatus
+      })
+
+      return { status: 'success', remotePath: remotePathForUI, taskKey: progressTaskKey, host }
+    } catch (e: any) {
+      activeTasks.delete(progressTaskKey)
+
+      if (isCancelled || isTransferCancelledError(e)) {
+        sendProgress(event, {
+          id,
+          host,
+          taskKey: progressTaskKey,
+          parentTaskKey: childOpts?.parentTaskKey,
+          type,
+          isGroup: childOpts?.isGroup ?? false,
+          groupKind: childOpts?.groupKind ?? 'file',
+          remotePath: remotePathForUI,
+          destPath: destPathForUI,
+          bytes: terminalBytes(total),
+          total: totalUi,
+          status: 'failed' as TaskStatus,
+          message: 'Transfer was cancelled by user',
+          errorSide: 'local'
+        })
+        return { status: 'cancelled', message: 'Transfer was cancelled by user', taskKey: progressTaskKey, host, errorSide: 'local' }
+      }
+
+      const errorSide = getMarkedTransferSide(e) || 'remote'
+      const msg = errToMessage(e)
+
+      sendProgress(event, {
+        id,
+        host,
+        taskKey: progressTaskKey,
+        parentTaskKey: childOpts?.parentTaskKey,
+        type,
+        isGroup: childOpts?.isGroup ?? false,
+        groupKind: childOpts?.groupKind ?? 'file',
+        remotePath: remotePathForUI,
+        destPath: destPathForUI,
+        bytes: terminalBytes(total),
+        total: totalUi,
+        status: 'error' as TaskStatus,
+        message: msg,
+        errorSide
+      })
+
+      return { status: 'error', message: msg, code: e?.code, taskKey: progressTaskKey, host, errorSide }
+    }
+  }
+
   let readStream: any
   let writeStream: any
 
@@ -1365,16 +1642,11 @@ export async function handleStreamTransfer(
   }
 
   try {
-    if (type === 'download') {
-      readStream = sftp.createReadStream(toPosix(srcPath))
-      readStream.once?.('error', (e: any) => markFirstErr('remote', e))
-    } else {
-      readStream = fs.createReadStream(srcPath)
-      readStream.once?.('error', (e: any) => markFirstErr('local', e))
-    }
+    readStream = fs.createReadStream(srcPath)
+    readStream.once?.('error', (e: any) => markFirstErr('local', e))
   } catch (e: any) {
     const msg = errToMessage(e)
-    const errorSide: ErrorSide = type === 'download' ? 'remote' : 'local'
+    const errorSide: ErrorSide = 'local'
     sendProgress(event, {
       id,
       host,
@@ -1395,16 +1667,11 @@ export async function handleStreamTransfer(
   }
 
   try {
-    if (type === 'download') {
-      writeStream = fs.createWriteStream(finalLocalPath)
-      writeStream.once?.('error', (e: any) => markFirstErr('local', e))
-    } else {
-      writeStream = sftp.createWriteStream(finalRemotePath)
-      writeStream.once?.('error', (e: any) => markFirstErr('remote', e))
-    }
+    writeStream = sftp.createWriteStream(finalRemotePath)
+    writeStream.once?.('error', (e: any) => markFirstErr('remote', e))
   } catch (e: any) {
     const msg = errToMessage(e)
-    const errorSide: ErrorSide = type === 'download' ? 'local' : 'remote'
+    const errorSide: ErrorSide = 'remote'
     sendProgress(event, {
       id,
       host,
@@ -1430,21 +1697,21 @@ export async function handleStreamTransfer(
   readStream.on('error', (e: any) => {
     readErr ??= e
     if (!firstErr) {
-      markFirstErr(type === 'download' ? 'remote' : 'local', e)
+      markFirstErr('local', e)
     }
   })
 
   writeStream.on('error', (e: any) => {
     writeErr ??= e
     if (!firstErr) {
-      markFirstErr(type === 'download' ? 'local' : 'remote', e)
+      markFirstErr('remote', e)
     }
   })
 
   activeTasks.set(progressTaskKey, {
     read: readStream,
     write: writeStream,
-    localPath: type === 'download' ? finalLocalPath : srcPath,
+    localPath: srcPath,
     cancel: () => {
       isCancelled = true
       readStream.destroy()
@@ -1526,7 +1793,7 @@ export async function handleStreamTransfer(
     if (firstErrSide) {
       errorSide = firstErrSide
     } else {
-      errorSide = type === 'download' ? (writeErr ? 'local' : 'remote') : readErr ? 'local' : 'remote'
+      errorSide = readErr ? 'local' : 'remote'
     }
 
     sendProgress(event, {
