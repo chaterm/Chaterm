@@ -257,6 +257,8 @@ export default {
     cursorStyleBlock: '블록',
     cursorStyleBar: '바',
     cursorStyleUnderline: '밑줄',
+    cursorBlink: '커서 깜박임',
+    lineHeight: '줄 높이',
     mouseEvent: '마우스 이벤트',
     middleMouseEvent: '마우스 중간 버튼 이벤트',
     rightMouseEvent: '마우스 오른쪽 버튼 이벤트',

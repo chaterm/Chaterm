@@ -16,6 +16,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { mount, VueWrapper, flushPromises } from '@vue/test-utils'
 import { nextTick } from 'vue'
+import { Terminal } from '@xterm/xterm'
 
 // Must be hoisted before vi.mock
 const mockK8sTerminalCreate = vi.fn()
@@ -24,6 +25,9 @@ const mockK8sOnTerminalData = vi.fn((_id: string, _cb: (data: string) => void) =
 const mockK8sOnTerminalExit = vi.fn((_id: string, _cb: () => void) => () => {})
 const mockK8sStore = vi.hoisted(() => ({
   connectCluster: vi.fn()
+}))
+const { mockUserConfigGetConfig } = vi.hoisted(() => ({
+  mockUserConfigGetConfig: vi.fn()
 }))
 
 const mockTerminalInstance = {
@@ -122,13 +126,7 @@ vi.mock('@/store/k8sStore', () => ({
 vi.mock('@/services/userConfigStoreService', () => {
   return {
     userConfigStore: {
-      getConfig: vi.fn().mockResolvedValue({
-        background: { image: null },
-        theme: 'dark',
-        fontSize: 13,
-        fontFamily: 'Menlo, Monaco, "Courier New", monospace',
-        scrollBack: 5000
-      })
+      getConfig: mockUserConfigGetConfig
     }
   }
 })
@@ -239,6 +237,13 @@ describe('K8s Connect Component', () => {
     mockK8sStore.connectCluster.mockResolvedValue({ success: true })
     mockK8sOnTerminalData.mockReturnValue(() => {})
     mockK8sOnTerminalExit.mockReturnValue(() => {})
+    mockUserConfigGetConfig.mockResolvedValue({
+      background: { image: null },
+      theme: 'dark',
+      fontSize: 13,
+      fontFamily: 'Menlo, Monaco, "Courier New", monospace',
+      scrollBack: 5000
+    })
     // Restore writeToTerminal mock after clearAllMocks
     vi.mocked(k8sApi.writeToTerminal).mockResolvedValue(undefined as any)
     ;(mockTerminalInstance.buffer.active.getLine as ReturnType<typeof vi.fn>).mockImplementation((i: number) => ({
@@ -352,6 +357,31 @@ describe('K8s Connect Component', () => {
       await flushPromises()
       expect(mockK8sOnTerminalData).toHaveBeenCalled()
       expect(mockK8sOnTerminalExit).toHaveBeenCalled()
+    })
+
+    it('should initialize terminal with cursorBlink and lineHeight from user config', async () => {
+      mockUserConfigGetConfig.mockResolvedValue({
+        background: { image: null },
+        theme: 'dark',
+        fontSize: 13,
+        fontFamily: 'Menlo, Monaco, "Courier New", monospace',
+        scrollBack: 5000,
+        cursorStyle: 'underline',
+        cursorBlink: false,
+        lineHeight: 1.7
+      })
+
+      wrapper = createWrapper()
+      await flushPromises()
+
+      const terminalConstructor = Terminal as unknown as ReturnType<typeof vi.fn>
+      expect(terminalConstructor).toHaveBeenCalledWith(
+        expect.objectContaining({
+          cursorStyle: 'underline',
+          cursorBlink: false,
+          lineHeight: 1.7
+        })
+      )
     })
   })
 

@@ -257,6 +257,8 @@ export default {
     cursorStyleBlock: '塊',
     cursorStyleBar: '豎線',
     cursorStyleUnderline: '下劃線',
+    cursorBlink: '是否開啟游標閃爍',
+    lineHeight: '行高',
     mouseEvent: '滑鼠事件',
     middleMouseEvent: '鼠標中鍵事件',
     rightMouseEvent: '鼠標右鍵事件',

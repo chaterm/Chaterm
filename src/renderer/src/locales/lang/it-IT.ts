@@ -257,6 +257,8 @@ export default {
     cursorStyleBlock: 'Blocco',
     cursorStyleBar: 'Barra',
     cursorStyleUnderline: 'Sottolineato',
+    cursorBlink: 'Lampeggio del cursore',
+    lineHeight: 'Altezza riga',
     mouseEvent: 'Evento mouse',
     middleMouseEvent: 'Evento mouse centrale',
     rightMouseEvent: 'Evento mouse destro',

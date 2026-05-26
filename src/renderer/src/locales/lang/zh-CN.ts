@@ -255,6 +255,8 @@ export default {
     cursorStyleBlock: '块',
     cursorStyleBar: '竖线',
     cursorStyleUnderline: '下划线',
+    cursorBlink: '是否开启光标闪烁',
+    lineHeight: '行高',
     mouseEvent: '鼠标事件',
     middleMouseEvent: '鼠标中键事件',
     rightMouseEvent: '鼠标右键事件',
