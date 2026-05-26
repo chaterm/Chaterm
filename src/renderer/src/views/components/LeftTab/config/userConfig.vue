@@ -18,7 +18,13 @@
           type="card"
         >
           <template #tab>
-            <span data-onboarding-id="settings-general-tab">{{ $t('user.general') }}</span>
+            <span
+              class="settings-tab-label"
+              data-onboarding-id="settings-general-tab"
+            >
+              <SettingFilled class="settings-tab-icon" />
+              <span>{{ $t('user.general') }}</span>
+            </span>
           </template>
           <General />
         </a-tab-pane>
@@ -28,30 +34,51 @@
           type="card"
         >
           <template #tab>
-            <span data-onboarding-id="settings-terminal-tab">{{ $t('user.terminal') }}</span>
+            <span
+              class="settings-tab-label"
+              data-onboarding-id="settings-terminal-tab"
+            >
+              <CodeFilled class="settings-tab-icon" />
+              <span>{{ $t('user.terminal') }}</span>
+            </span>
           </template>
           <Terminal />
         </a-tab-pane>
         <a-tab-pane
           key="2"
-          :tab="$t('user.extensions')"
           type="card"
         >
+          <template #tab>
+            <span class="settings-tab-label">
+              <AppstoreFilled class="settings-tab-icon" />
+              <span>{{ $t('user.extensions') }}</span>
+            </span>
+          </template>
           <Extensions />
         </a-tab-pane>
         <a-tab-pane
           key="3"
-          :tab="$t('user.models')"
           type="card"
         >
+          <template #tab>
+            <span class="settings-tab-label">
+              <CodeSandboxSquareFilled class="settings-tab-icon" />
+              <span>{{ $t('user.models') }}</span>
+            </span>
+          </template>
           <Model />
         </a-tab-pane>
         <a-tab-pane
           v-if="deployStatus === 0"
           key="4"
-          :tab="$t('user.billing')"
           type="card"
         >
+          <template #tab>
+            <span class="settings-tab-label">
+              <CreditCardFilled class="settings-tab-icon" />
+              <span>{{ $t('user.billing') }}</span>
+            </span>
+          </template>
           <Billing />
         </a-tab-pane>
         <a-tab-pane
@@ -59,57 +86,98 @@
           type="card"
         >
           <template #tab>
-            <span data-onboarding-id="settings-ai-preferences-tab">{{ $t('user.aiPreferences') }}</span>
+            <span
+              class="settings-tab-label"
+              data-onboarding-id="settings-ai-preferences-tab"
+            >
+              <ControlFilled class="settings-tab-icon" />
+              <span>{{ $t('user.aiPreferences') }}</span>
+            </span>
           </template>
           <AI />
         </a-tab-pane>
         <a-tab-pane
           key="6"
-          :tab="$t('mcp.title')"
           type="card"
         >
+          <template #tab>
+            <span class="settings-tab-label">
+              <ApiFilled class="settings-tab-icon" />
+              <span>{{ $t('mcp.title') }}</span>
+            </span>
+          </template>
           <Mcp />
         </a-tab-pane>
         <a-tab-pane
           key="7"
-          :tab="$t('skills.title')"
           type="card"
         >
+          <template #tab>
+            <span class="settings-tab-label">
+              <ThunderboltFilled class="settings-tab-icon" />
+              <span>{{ $t('skills.title') }}</span>
+            </span>
+          </template>
           <Skills />
         </a-tab-pane>
         <a-tab-pane
           key="8"
-          :tab="$t('user.rules')"
           type="card"
         >
+          <template #tab>
+            <span class="settings-tab-label">
+              <SafetyCertificateFilled class="settings-tab-icon" />
+              <span>{{ $t('user.rules') }}</span>
+            </span>
+          </template>
           <Rules />
         </a-tab-pane>
         <a-tab-pane
           key="9"
-          :tab="$t('user.shortcuts')"
           type="card"
         >
+          <template #tab>
+            <span class="settings-tab-label">
+              <GoldFilled class="settings-tab-icon" />
+              <span>{{ $t('user.shortcuts') }}</span>
+            </span>
+          </template>
           <Shortcuts />
         </a-tab-pane>
         <a-tab-pane
           key="13"
-          :tab="$t('user.trustedDevices')"
           type="card"
         >
+          <template #tab>
+            <span class="settings-tab-label">
+              <MobileFilled class="settings-tab-icon" />
+              <span>{{ $t('user.trustedDevices') }}</span>
+            </span>
+          </template>
           <TrustedDevices :is-active="activeKey === '13'" />
         </a-tab-pane>
         <a-tab-pane
           key="10"
-          :tab="$t('user.privacy')"
           type="card"
         >
+          <template #tab>
+            <span class="settings-tab-label">
+              <LockFilled class="settings-tab-icon" />
+              <span>{{ $t('user.privacy') }}</span>
+            </span>
+          </template>
           <Privacy />
         </a-tab-pane>
         <a-tab-pane
           key="11"
-          :tab="$t('user.about')"
           type="card"
         >
+          <template #tab>
+            <span class="settings-tab-label">
+              <InfoCircleFilled class="settings-tab-icon" />
+              <span>{{ $t('user.about') }}</span>
+            </span>
+          </template>
           <About />
         </a-tab-pane>
         <a-tab-pane
@@ -118,6 +186,7 @@
         >
           <template #tab>
             <span class="documentation-tab-label">
+              <BookFilled class="settings-tab-icon" />
               {{ $t('user.documentation') }}
               <ExportOutlined class="export-outlined-icon" />
             </span>
@@ -144,7 +213,23 @@ import Rules from '@/views/components/LeftTab/setting/rules.vue'
 import About from '@/views/components/LeftTab/setting/about.vue'
 import Mcp from '@/views/components/LeftTab/setting/mcp.vue'
 import Skills from '@/views/components/LeftTab/setting/skills.vue'
-import { ExportOutlined } from '@ant-design/icons-vue'
+import {
+  ApiFilled,
+  AppstoreFilled,
+  BookFilled,
+  CodeFilled,
+  CreditCardFilled,
+  CodeSandboxSquareFilled,
+  ExportOutlined,
+  InfoCircleFilled,
+  LockFilled,
+  MobileFilled,
+  ControlFilled,
+  SafetyCertificateFilled,
+  SettingFilled,
+  ThunderboltFilled,
+  GoldFilled
+} from '@ant-design/icons-vue'
 import eventBus from '@/utils/eventBus'
 import { getDocsBaseUrl } from '@/utils/edition'
 
@@ -289,11 +374,16 @@ onBeforeUnmount(() => {
   }
 
   :deep(.ant-tabs-tab) {
-    padding: 8px 16px !important;
+    padding: 8px 12px !important;
     margin: 0 !important;
-    min-height: 40px;
+    min-height: 30px;
     font-size: 14px;
     color: var(--text-color-secondary);
+    border-radius: 6px;
+
+    &:hover {
+      background-color: var(--hover-bg-color);
+    }
   }
 
   :deep(.ant-tabs-tab-active) {
@@ -316,12 +406,21 @@ onBeforeUnmount(() => {
 .documentation-tab-label {
   display: flex;
   align-items: center;
-  gap: 6px;
+}
+
+.settings-tab-label {
+  display: inline-flex;
+  align-items: center;
+}
+
+.settings-tab-icon {
+  font-size: 16px;
+  opacity: 0.85;
 }
 
 .export-outlined-icon {
   font-size: 12px;
-  opacity: 0.6;
+  opacity: 0.4;
   color: var(--text-color-secondary);
 }
 </style>
