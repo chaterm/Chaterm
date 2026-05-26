@@ -3704,4 +3704,25 @@ defineExpose({
   opacity: 0;
   transition: none;
 }
+
+.dockview-theme-light .dv-tab,
+.dockview-theme-dark .dv-tab {
+  max-width: 180px;
+  min-width: 0;
+}
+
+.dockview-theme-light .dv-default-tab,
+.dockview-theme-dark .dv-default-tab {
+  min-width: 0;
+  overflow: hidden;
+}
+
+.dockview-theme-light .dv-default-tab .dv-default-tab-content,
+.dockview-theme-dark .dv-default-tab .dv-default-tab-content {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
 </style>
