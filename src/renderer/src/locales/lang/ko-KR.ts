@@ -17,6 +17,7 @@ export default {
     keychain: '키체인',
     extensions: '확장',
     ai: 'AI',
+    knowledge: '지식 베이스',
     user: '사용자',
     setting: '설정',
     notice: '알림',

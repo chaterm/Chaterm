@@ -17,6 +17,7 @@ export default {
     keychain: 'Keychain',
     extensions: 'Extensions',
     ai: 'AI',
+    knowledge: 'Knowledge',
     user: 'User',
     setting: 'Setting',
     notice: 'Notice',

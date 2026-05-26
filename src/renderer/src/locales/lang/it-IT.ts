@@ -17,6 +17,7 @@ export default {
     keychain: 'Portachiavi',
     extensions: 'Estensioni',
     ai: 'IA',
+    knowledge: 'Base di conoscenza',
     user: 'Utente',
     setting: 'Impostazioni',
     notice: 'Nota',

@@ -17,6 +17,7 @@ export default {
     keychain: '秘鑰',
     extensions: '擴展',
     ai: 'AI',
+    knowledge: '知識庫',
     user: '用戶',
     setting: '設置',
     notice: '公告',
