@@ -5,7 +5,7 @@
     </div>
     <!-- User Rules -->
     <a-card
-      class="settings-section"
+      class="settings-section user-rules-card"
       :bordered="false"
     >
       <div class="setting-item">
@@ -299,6 +299,10 @@ const editUserRule = (index: number) => {
   :deep(.ant-card-body) {
     padding: 16px;
   }
+}
+
+.theme-light .user-rules-card {
+  box-shadow: none !important;
 }
 
 .section-header {

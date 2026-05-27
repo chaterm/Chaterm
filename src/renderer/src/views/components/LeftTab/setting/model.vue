@@ -4,7 +4,7 @@
       <h3>{{ $t('user.modelNames') }}</h3>
     </div>
     <a-card
-      class="settings-section"
+      class="settings-section model-names-card"
       :bordered="false"
     >
       <div class="model-list">
@@ -1297,6 +1297,10 @@ const handleSave = async (provider) => {
   :deep(.ant-card-body) {
     padding: 16px;
   }
+}
+
+.theme-light .model-names-card {
+  box-shadow: none !important;
 }
 
 .section-header {

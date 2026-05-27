@@ -308,6 +308,7 @@ onMounted(() => {
     background-color: var(--bg-color);
     padding-left: 4px;
     padding-top: 4px;
+    box-shadow: none !important;
   }
   .label-text {
     font-size: 20px;

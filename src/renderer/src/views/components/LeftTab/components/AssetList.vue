@@ -27,11 +27,7 @@
       class="empty-state"
     >
       <div class="empty-icon">
-        <img
-          :src="laptopIcon"
-          alt="empty"
-          style="width: 48px; height: 48px; opacity: 0.5"
-        />
+        <LaptopOutlined class="empty-icon-svg" />
       </div>
       <div class="empty-title">
         {{ searchValue ? t('common.noSearchResults') : t('personal.noAssets') }}
@@ -72,12 +68,11 @@
 
 <script setup lang="ts">
 import { computed } from 'vue'
-import { ImportOutlined, PlusOutlined } from '@ant-design/icons-vue'
+import { ImportOutlined, LaptopOutlined, PlusOutlined } from '@ant-design/icons-vue'
 import assetCard from './AssetCard.vue'
 import { deepClone } from '@/utils/util'
 import i18n from '@/locales'
 import type { AssetNode } from '../utils/types'
-import laptopIcon from '@/assets/menu/laptop.svg'
 
 const { t } = i18n.global
 const logger = createRendererLogger('config.assetList')
@@ -214,6 +209,12 @@ const handleAssetContextMenu = (event: MouseEvent, asset: AssetNode) => {
 
 .empty-icon {
   margin-bottom: 16px;
+
+  .empty-icon-svg {
+    font-size: 48px;
+    color: var(--text-color-tertiary);
+    opacity: 0.6;
+  }
 }
 
 .empty-title {

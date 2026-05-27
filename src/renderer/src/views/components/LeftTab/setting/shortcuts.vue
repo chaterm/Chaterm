@@ -359,6 +359,7 @@ const resetAllShortcuts = async () => {
 .shortcuts-section {
   background-color: var(--bg-color);
   border-radius: 8px;
+  box-shadow: none !important;
 
   :deep(.ant-card-body) {
     padding: 16px;
@@ -521,27 +522,24 @@ const resetAllShortcuts = async () => {
     border-radius: 6px;
     font-size: 13px;
     font-weight: 500;
-    background-color: var(--bg-color);
-    border: 1px solid var(--border-color);
-    color: var(--text-color);
+    background: var(--bg-color-octonary);
+    border: none;
+    color: var(--text-color-secondary);
     transition: all 0.2s ease;
 
     &:hover:not(:disabled) {
-      background-color: var(--hover-bg-color);
-      border-color: var(--text-color-secondary);
+      background: var(--bg-color-default);
       color: var(--text-color);
     }
 
     &:active:not(:disabled) {
-      background-color: var(--border-color);
+      background: var(--bg-color-default);
       transform: translateY(1px);
     }
 
     &:disabled {
-      background-color: var(--bg-color);
-      border-color: var(--border-color);
-      color: var(--text-color-disabled);
-      opacity: 0.6;
+      background: var(--bg-color-octonary);
+      color: var(--text-color-secondary);
       cursor: not-allowed;
     }
 
@@ -549,6 +547,25 @@ const resetAllShortcuts = async () => {
       outline: none;
       box-shadow: 0 0 0 2px rgba(24, 144, 255, 0.2);
     }
+  }
+
+  :deep(.theme-light) .reset-button,
+  :deep(.theme-light .reset-button) {
+    background: #e2e8f0 !important;
+    color: #0f172a !important;
+    border: none !important;
+  }
+
+  :deep(.theme-light) .reset-button:hover:not(:disabled),
+  :deep(.theme-light .reset-button:hover:not(:disabled)) {
+    background: #cbd5e1 !important;
+    color: #0f172a !important;
+  }
+
+  :deep(.theme-light) .reset-button:disabled,
+  :deep(.theme-light .reset-button:disabled) {
+    background: #e2e8f0 !important;
+    color: #64748b !important;
   }
 }
 
