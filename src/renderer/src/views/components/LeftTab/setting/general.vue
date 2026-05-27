@@ -953,6 +953,19 @@ const saveEditorConfig = async () => {
   border-color: var(--button-hover-bg);
 }
 
+.theme-light .setting-button {
+  background-color: #e2e8f0;
+  border-color: #e2e8f0;
+  color: #0f172a;
+}
+
+.theme-light .setting-button:hover,
+.theme-light .setting-button:focus {
+  background-color: #cbd5e1;
+  border-color: #cbd5e1;
+  color: #0f172a;
+}
+
 .language-select :deep(.ant-select-selector),
 .theme-select :deep(.ant-select-selector) {
   background-color: var(--select-bg);
