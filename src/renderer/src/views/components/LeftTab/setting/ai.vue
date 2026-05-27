@@ -703,6 +703,7 @@ const openSecurityConfig = async () => {
 <style lang="less" scoped>
 .settings-section {
   background-color: var(--bg-color);
+  box-shadow: none;
 
   :deep(.ant-card-body) {
     padding: 16px;
@@ -1005,5 +1006,19 @@ const openSecurityConfig = async () => {
     background-color: var(--bg-color-novenary) !important;
     color: var(--text-color) !important;
   }
+}
+
+// Align light-mode button colors with the onboarding guide button in general settings
+.theme-light .security-config-btn {
+  background-color: #e2e8f0 !important;
+  border-color: #e2e8f0 !important;
+  color: #0f172a !important;
+}
+
+.theme-light .security-config-btn:hover,
+.theme-light .security-config-btn:focus {
+  background-color: #cbd5e1 !important;
+  border-color: #cbd5e1 !important;
+  color: #0f172a !important;
 }
 </style>

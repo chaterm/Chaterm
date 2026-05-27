@@ -610,6 +610,21 @@ const exportSkillZip = async (skill: Skill) => {
   }
 }
 
+// In light mode, give the text-style action buttons (open folder / reload / import)
+// a gray background to match the onboarding-guide style in general settings.
+.theme-light .skills-actions {
+  .ant-btn-text {
+    background-color: #e2e8f0;
+    color: #0f172a;
+
+    &:hover,
+    &:focus {
+      background-color: #cbd5e1;
+      color: #0f172a;
+    }
+  }
+}
+
 .settings-section {
   background-color: transparent;
 
