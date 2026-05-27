@@ -635,6 +635,7 @@ const exportSkillZip = async (skill: Skill) => {
 
 .skills-list-section {
   margin-top: 0;
+  box-shadow: none !important;
 }
 
 .empty-state {
