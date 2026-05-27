@@ -1100,9 +1100,9 @@ const saveEditorConfig = async () => {
 .upload-placeholder {
   width: 100%;
   height: 100%;
-  border: 2px dashed rgba(255, 255, 255, 0.3);
+  border: 2px dashed var(--text-color-tertiary);
   border-radius: 6px;
-  background: rgba(255, 255, 255, 0.08);
+  background: var(--bg-color-tertiary);
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -1193,7 +1193,7 @@ const saveEditorConfig = async () => {
 }
 
 .default-bg-item.active .default-bg-placeholder {
-  border-color: var(--primary-color, #1890ff);
+  border-color: transparent;
   color: var(--primary-color, #1890ff);
 }
 
