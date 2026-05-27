@@ -265,9 +265,9 @@ describe('Header Component', () => {
       expect(eventBus.emit).toHaveBeenCalledWith('defaultLayoutChanged', 'agents')
     })
 
-    it('should show robot icon in terminal mode', async () => {
+    it('should show code icon in terminal mode', async () => {
       const modeToggleButton = wrapper.find('.mode-button')
-      expect(modeToggleButton.text()).toContain('RobotOutlined')
+      expect(modeToggleButton.text()).toContain('CodeOutlined')
     })
 
     it('should keep a single toggle button after switching mode', async () => {
@@ -481,7 +481,7 @@ describe('Header Component', () => {
       await wrapper.vm.$nextTick()
 
       const modeToggleButton = wrapper.find('.mode-button')
-      expect(modeToggleButton.text()).toContain('CodeOutlined')
+      expect(modeToggleButton.text()).toContain('RobotOutlined')
     })
   })
 
