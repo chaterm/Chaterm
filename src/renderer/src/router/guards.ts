@@ -4,6 +4,7 @@ import { getUserInfo, removeToken } from '@/utils/permission'
 import { dataSyncService } from '@/services/dataSyncService'
 
 const logger = createRendererLogger('router')
+let aiModelWarmupScheduled = false
 
 // 独立 axios 实例，仅用于启动时 token 验证，不挂任何全局 401 跳转拦截器
 const authCheckRequest = axios.create({ baseURL: config.api, timeout: 5000 })
@@ -12,6 +13,38 @@ authCheckRequest.interceptors.request.use((cfg) => {
   if (token) cfg.headers['Authorization'] = `Bearer ${token}`
   return cfg
 })
+
+function scheduleAiModelWarmup(): void {
+  if (aiModelWarmupScheduled) {
+    return
+  }
+  aiModelWarmupScheduled = true
+
+  const runWarmup = () => {
+    void import('@/views/components/AiTab/composables/useModelConfiguration')
+      .then(({ useModelConfiguration }) => {
+        void useModelConfiguration()
+          .initModelOptions()
+          .catch((error) => {
+            logger.warn('Failed to warm up AI model options', { error })
+          })
+      })
+      .catch((error) => {
+        logger.warn('Failed to load AI model configuration warmup', { error })
+      })
+  }
+
+  const idleWindow = window as Window & {
+    requestIdleCallback?: (callback: () => void, options?: { timeout?: number }) => number
+  }
+
+  if (typeof idleWindow.requestIdleCallback === 'function') {
+    idleWindow.requestIdleCallback(runWarmup, { timeout: 5_000 })
+    return
+  }
+
+  window.setTimeout(runWarmup, 1_500)
+}
 
 async function verifyTokenWithServer(): Promise<'ok' | 'unauthorized' | 'network_error'> {
   try {
@@ -95,6 +128,9 @@ export const beforeEach = async (to, _from, next) => {
           dataSyncService.initialize().catch((error) => {
             logger.error('Data sync service initialization failed', { error: error })
           })
+          if (tokenStatus === 'ok') {
+            scheduleAiModelWarmup()
+          }
           next()
         } else {
           logger.error('Database initialization failed, redirecting to login page')
