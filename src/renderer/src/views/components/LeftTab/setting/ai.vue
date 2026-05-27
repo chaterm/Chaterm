@@ -739,14 +739,14 @@ const openSecurityConfig = async () => {
 .setting-description {
   margin-top: 8px;
   font-size: 12px;
-  color: var(--text-color-tertiary);
+  color: var(--text-color);
   padding-left: 22px;
 }
 
 .setting-description-no-padding {
   margin-top: 8px;
   font-size: 12px;
-  color: var(--text-color-tertiary);
+  color: var(--text-color);
 }
 
 // Unified component styles
@@ -871,7 +871,7 @@ const openSecurityConfig = async () => {
   font-weight: 500;
   display: block;
   margin-right: auto;
-  color: var(--text-color-tertiary);
+  color: var(--text-color);
 }
 
 .slider-container {

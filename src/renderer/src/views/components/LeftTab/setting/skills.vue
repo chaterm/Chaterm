@@ -741,7 +741,7 @@ const exportSkillZip = async (skill: Skill) => {
   }
 
   .skill-description {
-    color: var(--text-color-tertiary);
+    color: var(--text-color);
     font-size: 12px;
     line-height: 1.5;
     overflow: hidden;
