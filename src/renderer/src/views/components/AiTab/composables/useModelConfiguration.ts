@@ -597,6 +597,7 @@ export const useModelConfiguration = createGlobalState(() => {
       allLockedNames.value = enterprisePluginActive ? [] : subscriptionModelsList.filter((model) => !availableSet.has(model))
       budgetResetAt.value = userData.budgetResetAt || ''
       subscription.value = userData.subscription || ''
+      await updateGlobalState('defaultLockedModelNames', allLockedNames.value)
 
       if (enterprisePluginActive) {
         refreshDefaultModelInfoMapInBackground(gatewayAddr, gatewayKey)
@@ -610,8 +611,15 @@ export const useModelConfiguration = createGlobalState(() => {
         type: 'standard',
         apiProvider: 'default'
       }))
+      const lockedModelOptions: ModelOption[] = allLockedNames.value.map((model) => ({
+        id: model,
+        name: model,
+        checked: true,
+        type: 'standard',
+        apiProvider: 'default'
+      }))
 
-      const serializableModelOptions = modelOptions.map((model) => ({
+      const serializableModelOptions = [...modelOptions, ...lockedModelOptions].map((model) => ({
         id: model.id,
         name: model.name,
         checked: Boolean(model.checked),
@@ -660,6 +668,7 @@ export const useModelConfiguration = createGlobalState(() => {
       if (enterprisePluginActive) {
         allLockedNames.value = []
         lockedModels.value = []
+        await updateGlobalState('defaultLockedModelNames', [])
         await initModel()
         return
       }
@@ -674,6 +683,7 @@ export const useModelConfiguration = createGlobalState(() => {
     const availableSet = new Set(serverModels)
     const lockedFromServer = subscriptionModelsList.filter((m) => !availableSet.has(m))
     allLockedNames.value = lockedFromServer
+    await updateGlobalState('defaultLockedModelNames', lockedFromServer)
 
     // Skip update if server returns empty list to avoid accidental clearing
     if (enterpriseModelConfigs.length === 0 && serverModels.length === 0 && subscriptionModelsList.length === 0) {
