@@ -79,7 +79,7 @@
     "diff": "^9.0.0",
     "dockview-core": "^4.13.1",
     "dockview-vue": "^4.11.0",
-    "dompurify": "^3.4.2",
+    "dompurify": "^3.4.6",
     "dotenv": "^17.4.2",
     "electron-log": "^5.4.4",
     "electron-updater": "^6.8.3",
@@ -139,7 +139,7 @@
     "@types/ssh2": "^1.15.5",
     "@types/ws": "^8.5.11",
     "@vitejs/plugin-vue": "^6.0.7",
-    "@vitest/browser": "^4.1.6",
+    "@vitest/browser": "^4.1.7",
     "@vitest/browser-playwright": "^4.1.2",
     "@vitest/coverage-v8": "^4.1.2",
     "@vitest/ui": "^4.0.15",
@@ -171,6 +171,6 @@
     "vue": "^3.5.34",
     "vue-eslint-parser": "^10.4.0",
     "vue-router": "^5.0.7",
-    "vue-tsc": "^3.3.1"
+    "vue-tsc": "^3.3.2"
   }
 }
