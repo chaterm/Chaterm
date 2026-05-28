@@ -1245,7 +1245,7 @@ describe('Model Component', () => {
       expect(vm.modelOptions.length).toBeGreaterThan(0)
     })
 
-    it('should filter out standard models not in default models', async () => {
+    it('should reuse cached model options without fetching user', async () => {
       ;(getGlobalState as ReturnType<typeof vi.fn>).mockImplementation(async (key: string) => {
         if (key === 'modelOptions') {
           return [
@@ -1255,13 +1255,6 @@ describe('Model Component', () => {
         }
         return null
       })
-      ;(getUser as ReturnType<typeof vi.fn>).mockResolvedValue({
-        data: {
-          models: ['gpt-4'],
-          llmGatewayAddr: 'https://api.example.com',
-          key: 'default-api-key'
-        }
-      })
 
       wrapper = createWrapper()
       await nextTick()
@@ -1269,13 +1262,32 @@ describe('Model Component', () => {
 
       const vm = wrapper.vm as any
       const oldModel = vm.modelOptions.find((m: any) => m.name === 'old-model')
-      expect(oldModel).toBeUndefined()
+      expect(oldModel).toBeDefined()
+      expect(getUser).not.toHaveBeenCalled()
     })
 
-    it('should add new default models to options', async () => {
+    it('should reuse cached locked model names', async () => {
       ;(getGlobalState as ReturnType<typeof vi.fn>).mockImplementation(async (key: string) => {
         if (key === 'modelOptions') {
-          return [{ id: 'gpt-4', name: 'gpt-4', checked: true, type: 'standard', apiProvider: 'default' }]
+          return [{ id: 'locked-model', name: 'locked-model', checked: true, type: 'standard', apiProvider: 'default' }]
+        }
+        if (key === 'defaultLockedModelNames') return ['locked-model']
+        return null
+      })
+
+      wrapper = createWrapper()
+      await nextTick()
+      await nextTick()
+
+      const vm = wrapper.vm as any
+      expect(vm.isLockedModel('locked-model')).toBe(true)
+      expect(getUser).not.toHaveBeenCalled()
+    })
+
+    it('should add default models to options when cache is empty', async () => {
+      ;(getGlobalState as ReturnType<typeof vi.fn>).mockImplementation(async (key: string) => {
+        if (key === 'modelOptions') {
+          return []
         }
         if (key === 'awsRegion') return 'us-east-1'
         if (key === 'awsUseCrossRegionInference') return false

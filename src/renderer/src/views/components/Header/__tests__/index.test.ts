@@ -66,6 +66,14 @@ vi.mock('@ant-design/icons-vue', () => ({
   RightOutlined: {
     name: 'RightOutlined',
     template: '<span>RightOutlined</span>'
+  },
+  RobotOutlined: {
+    name: 'RobotOutlined',
+    template: '<span>RobotOutlined</span>'
+  },
+  CodeOutlined: {
+    name: 'CodeOutlined',
+    template: '<span>CodeOutlined</span>'
   }
 }))
 
@@ -88,9 +96,9 @@ describe('Header Component', () => {
             template: '<button class="a-button mode-button" :class="$attrs.class" @click="$emit(\'click\')"><slot /></button>',
             props: ['type', 'size']
           },
-          'a-button-group': {
-            template: '<div class="a-button-group"><slot /></div>',
-            props: ['size']
+          'a-tooltip': {
+            template: '<div class="a-tooltip"><slot /></div>',
+            props: ['title']
           }
         },
         mocks: {
@@ -217,30 +225,31 @@ describe('Header Component', () => {
       await new Promise((resolve) => setTimeout(resolve, 100))
     })
 
-    it('should display terminal and agents mode buttons', () => {
+    it('should render a single mode toggle button', () => {
       const buttons = wrapper.findAll('.mode-button')
-      expect(buttons.length).toBe(2)
+      expect(buttons.length).toBe(1)
     })
 
-    it('should switch to terminal mode when terminal button is clicked', async () => {
-      const terminalButton = wrapper.findAll('.mode-button')[0]
-      await terminalButton.trigger('click')
-
-      expect(wrapper.emitted('mode-change')).toBeTruthy()
-      expect(wrapper.emitted('mode-change')?.[0]).toEqual(['terminal'])
-    })
-
-    it('should switch to agents mode when agents button is clicked', async () => {
-      const agentsButton = wrapper.findAll('.mode-button')[1]
-      await agentsButton.trigger('click')
+    it('should switch to agents mode when toggle button is clicked in terminal mode', async () => {
+      const modeToggleButton = wrapper.find('.mode-button')
+      await modeToggleButton.trigger('click')
 
       expect(wrapper.emitted('mode-change')).toBeTruthy()
       expect(wrapper.emitted('mode-change')?.[0]).toEqual(['agents'])
     })
 
+    it('should switch back to terminal mode when toggle button is clicked twice', async () => {
+      const modeToggleButton = wrapper.find('.mode-button')
+      await modeToggleButton.trigger('click')
+      await modeToggleButton.trigger('click')
+
+      expect(wrapper.emitted('mode-change')).toBeTruthy()
+      expect(wrapper.emitted('mode-change')?.[1]).toEqual(['terminal'])
+    })
+
     it('should save default layout when mode changes', async () => {
-      const agentsButton = wrapper.findAll('.mode-button')[1]
-      await agentsButton.trigger('click')
+      const modeToggleButton = wrapper.find('.mode-button')
+      await modeToggleButton.trigger('click')
       await new Promise((resolve) => setTimeout(resolve, 0))
 
       expect(userConfigStore.saveConfig).toHaveBeenCalledWith({
@@ -249,27 +258,22 @@ describe('Header Component', () => {
     })
 
     it('should emit defaultLayoutChanged event when mode changes', async () => {
-      const agentsButton = wrapper.findAll('.mode-button')[1]
-      await agentsButton.trigger('click')
+      const modeToggleButton = wrapper.find('.mode-button')
+      await modeToggleButton.trigger('click')
       await new Promise((resolve) => setTimeout(resolve, 0))
 
       expect(eventBus.emit).toHaveBeenCalledWith('defaultLayoutChanged', 'agents')
     })
 
-    it('should apply active class to current mode button', async () => {
-      const terminalButton = wrapper.findAll('.mode-button')[0]
-      expect(terminalButton.classes()).toContain('mode-button-active')
+    it('should show code icon in terminal mode', async () => {
+      const modeToggleButton = wrapper.find('.mode-button')
+      expect(modeToggleButton.text()).toContain('CodeOutlined')
     })
 
-    it('should update active class when mode changes', async () => {
-      const terminalButton = wrapper.findAll('.mode-button')[0]
-      const agentsButton = wrapper.findAll('.mode-button')[1]
-
-      await agentsButton.trigger('click')
+    it('should keep a single toggle button after switching mode', async () => {
+      await wrapper.find('.mode-button').trigger('click')
       await wrapper.vm.$nextTick()
-
-      expect(agentsButton.classes()).toContain('mode-button-active')
-      expect(terminalButton.classes()).not.toContain('mode-button-active')
+      expect(wrapper.findAll('.mode-button')).toHaveLength(1)
     })
   })
 
@@ -299,8 +303,8 @@ describe('Header Component', () => {
 
     it('should emit toggle-sidebar event for agents left sidebar in agents mode', async () => {
       // Switch to agents mode first
-      const agentsButton = wrapper.findAll('.mode-button')[1]
-      await agentsButton.trigger('click')
+      const modeToggleButton = wrapper.find('.mode-button')
+      await modeToggleButton.trigger('click')
       await wrapper.vm.$nextTick()
 
       const leftToggle = wrapper.find('.toggle-right-btn')
@@ -476,8 +480,8 @@ describe('Header Component', () => {
       wrapper.vm.setMode('agents')
       await wrapper.vm.$nextTick()
 
-      const agentsButton = wrapper.findAll('.mode-button')[1]
-      expect(agentsButton.classes()).toContain('mode-button-active')
+      const modeToggleButton = wrapper.find('.mode-button')
+      expect(modeToggleButton.text()).toContain('RobotOutlined')
     })
   })
 
@@ -495,8 +499,8 @@ describe('Header Component', () => {
     })
 
     it('should show agents sidebar toggle in agents mode', async () => {
-      const agentsButton = wrapper.findAll('.mode-button')[1]
-      await agentsButton.trigger('click')
+      const modeToggleButton = wrapper.find('.mode-button')
+      await modeToggleButton.trigger('click')
       await wrapper.vm.$nextTick()
 
       const toggleButtons = wrapper.findAll('.toggle-right-btn')

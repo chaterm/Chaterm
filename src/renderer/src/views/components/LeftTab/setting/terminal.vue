@@ -164,7 +164,6 @@
         >
           <a-button
             class="setting-button"
-            size="small"
             @click="openAgentConfig"
             >{{ $t('common.setting') }}</a-button
           >
@@ -175,7 +174,6 @@
         >
           <a-button
             class="setting-button"
-            size="small"
             @click="openProxyConfig"
             >{{ $t('common.setting') }}</a-button
           >
@@ -957,7 +955,7 @@ onBeforeUnmount(() => {
   list-style: none;
   -webkit-font-feature-settings: 'tnum';
   font-feature-settings: 'tnum';
-  margin-bottom: 14px;
+  margin-bottom: 12px;
   vertical-align: top;
   color: #ffffff;
 }
@@ -1224,6 +1222,19 @@ onBeforeUnmount(() => {
 .setting-button:focus {
   background-color: var(--bg-color-novenary) !important;
   color: var(--text-color) !important;
+}
+
+.theme-light .setting-button {
+  background-color: #e2e8f0 !important;
+  border-color: #e2e8f0 !important;
+  color: #0f172a !important;
+}
+
+.theme-light .setting-button:hover,
+.theme-light .setting-button:focus {
+  background-color: #cbd5e1 !important;
+  border-color: #cbd5e1 !important;
+  color: #0f172a !important;
 }
 
 /* Ensure setting button form items inherit right alignment */

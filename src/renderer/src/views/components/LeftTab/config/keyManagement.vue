@@ -92,11 +92,7 @@
             class="empty-state"
           >
             <div class="empty-icon">
-              <img
-                :src="keyIcon"
-                alt="Key Icon"
-                style="width: 48px; height: 48px; opacity: 0.5"
-              />
+              <KeyOutlined class="empty-icon-svg" />
             </div>
             <div class="empty-text">
               {{ searchValue ? t('common.noSearchResults') : t('keyChain.noKeys') }}
@@ -267,7 +263,7 @@
 <script setup lang="ts">
 import { ref, onMounted, onBeforeUnmount, reactive, computed, watch } from 'vue'
 import { Modal, message } from 'ant-design-vue'
-import { EditOutlined, DeleteOutlined, ToTopOutlined, SearchOutlined } from '@ant-design/icons-vue'
+import { EditOutlined, DeleteOutlined, ToTopOutlined, SearchOutlined, KeyOutlined } from '@ant-design/icons-vue'
 import keyIcon from '@/assets/menu/key.svg'
 import i18n from '@/locales'
 import eventBus from '@/utils/eventBus'
@@ -771,7 +767,7 @@ watch(isRightSectionVisible, (val) => {
 .keychain-card {
   position: relative;
   padding-right: 60px;
-  background-color: var(--bg-color-secondary);
+  background-color: var(--bg-color-card);
   border-radius: 6px;
   overflow: hidden;
   cursor: pointer;
@@ -1036,6 +1032,12 @@ watch(isRightSectionVisible, (val) => {
 
 .empty-icon {
   margin-bottom: 16px;
+
+  .empty-icon-svg {
+    font-size: 48px;
+    color: var(--text-color-tertiary);
+    opacity: 0.6;
+  }
 }
 
 .empty-text {

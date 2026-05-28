@@ -6,7 +6,6 @@
         :placeholder="t('common.search')"
         class="search-input"
         allow-clear
-        size="small"
         @input="handleSearch"
       >
         <template #prefix>
@@ -14,7 +13,6 @@
         </template>
       </a-input>
       <a-button
-        size="small"
         class="new-chat-btn"
         block
         @click="handleNewChat"

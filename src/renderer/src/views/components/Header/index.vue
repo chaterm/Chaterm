@@ -5,24 +5,17 @@
         class="mode-switcher"
         :class="{ 'mode-switcher-mac': platform.includes('darwin') }"
       >
-        <a-button-group size="small">
+        <a-tooltip :title="modeToggleTooltip">
           <a-button
             type="text"
-            :class="{ 'mode-button-active': currentMode === 'terminal' }"
-            class="mode-button"
-            @click="handleModeChange('terminal')"
+            class="mode-button mode-icon-button"
+            :class="`mode-icon-button-${currentMode}`"
+            @click="handleModeToggle"
           >
-            {{ t('common.terminalMode') }}
+            <CodeOutlined v-if="currentMode === 'terminal'" />
+            <RobotOutlined v-else />
           </a-button>
-          <a-button
-            type="text"
-            :class="{ 'mode-button-active': currentMode === 'agents' }"
-            class="mode-button"
-            @click="handleModeChange('agents')"
-          >
-            {{ t('common.agentsMode') }}
-          </a-button>
-        </a-button-group>
+        </a-tooltip>
       </div>
     </div>
     <div class="term_tab_Info">
@@ -99,9 +92,9 @@
   </div>
 </template>
 <script setup lang="ts">
-import { ref, onMounted, getCurrentInstance } from 'vue'
+import { ref, onMounted, getCurrentInstance, computed } from 'vue'
 import { useI18n } from 'vue-i18n'
-import { ArrowDownOutlined, RightOutlined } from '@ant-design/icons-vue'
+import { ArrowDownOutlined, RightOutlined, RobotOutlined, CodeOutlined } from '@ant-design/icons-vue'
 import { useDeviceStore } from '@/store/useDeviceStore'
 import { userConfigStore } from '@/services/userConfigStoreService'
 import TitleBar from './titleBar.vue'
@@ -123,6 +116,8 @@ const isAgentsLeftSidebarCollapsed = ref(true)
 const isAvailable = ref(false)
 const currentMode = ref<'terminal' | 'agents'>('terminal')
 const emit = defineEmits(['toggle-sidebar', 'mode-change'])
+const nextMode = computed<'terminal' | 'agents'>(() => (currentMode.value === 'terminal' ? 'agents' : 'terminal'))
+const modeToggleTooltip = computed(() => (nextMode.value === 'terminal' ? t('common.agentsMode') : t('common.terminalMode')))
 const toggleSidebarRight = (params) => {
   emit('toggle-sidebar', params)
   isRightSidebarCollapsed.value = !isRightSidebarCollapsed.value
@@ -184,6 +179,10 @@ const handleModeChange = async (mode: 'terminal' | 'agents') => {
   } catch (error) {
     logger.error('Failed to update default layout', { error: error })
   }
+}
+
+const handleModeToggle = async () => {
+  await handleModeChange(nextMode.value)
 }
 
 defineExpose({
@@ -248,39 +247,42 @@ onMounted(async () => {
     display: flex;
     align-items: center;
 
-    .ant-btn-group {
-      border-radius: 6px;
-      overflow: hidden;
-      background-color: transparent;
+    .mode-icon-button {
+      width: 28px;
+      height: 22px;
       border: none;
+      border-radius: 6px;
+      margin: 0 2px;
+      padding: 0;
+      line-height: 1;
+      color: var(--text-color-secondary);
+      background-color: transparent;
+      transition: all 0.2s ease;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
 
-      .mode-button {
-        font-size: 12px;
-        height: 22px;
-        line-height: 20px;
-        border: none;
-        border-radius: 6px;
-        margin: 0 2px;
-        color: var(--text-color-secondary);
-        background-color: transparent;
-        transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-        font-weight: 400;
+      .anticon {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 15px;
+        line-height: 1;
+        vertical-align: middle;
+        transform: translateY(2px);
+      }
 
-        &:hover {
-          color: var(--text-color);
-          background-color: var(--hover-bg-color);
-        }
+      &:hover {
+        color: var(--text-color);
+        background-color: var(--hover-bg-color);
+      }
 
-        &.mode-button-active {
-          background-color: rgba(24, 144, 255, 0.1);
-          color: #1890ff;
-          font-weight: 500;
+      &.mode-icon-button-terminal {
+        color: #2f54eb;
+      }
 
-          &:hover {
-            background-color: rgba(24, 144, 255, 0.15);
-            color: #1890ff;
-          }
-        }
+      &.mode-icon-button-agents {
+        color: #52c41a;
       }
     }
 

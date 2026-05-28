@@ -114,7 +114,7 @@ const handleContextMenu = (event: MouseEvent) => {
 .asset-card {
   position: relative;
   padding-right: 60px;
-  background-color: var(--bg-color-secondary);
+  background-color: var(--bg-color-card);
   border-radius: 6px;
   overflow: hidden;
   cursor: pointer;

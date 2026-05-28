@@ -344,6 +344,10 @@ async function fetchDefaultModelInfoMap(baseUrl: string, apiKey: string): Promis
   }
 }
 
+function hasCachedModelInfoMap(value: unknown): boolean {
+  return !!value && typeof value === 'object' && Object.keys(value as Record<string, unknown>).length > 0
+}
+
 /**
  * Refresh default model info map asynchronously.
  * This must not block model options initialization/refresh flow.
@@ -352,6 +356,10 @@ function refreshDefaultModelInfoMapInBackground(baseUrl?: string, apiKey?: strin
   void (async () => {
     if (!baseUrl || !apiKey) {
       await updateGlobalState('defaultModelInfoMap', {})
+      return
+    }
+    const cachedModelInfoMap = await getGlobalState('defaultModelInfoMap')
+    if (hasCachedModelInfoMap(cachedModelInfoMap)) {
       return
     }
     const modelInfoMap = await fetchDefaultModelInfoMap(baseUrl, apiKey)
@@ -419,24 +427,6 @@ export const useModelConfiguration = createGlobalState(() => {
         return a.name.localeCompare(b.name)
       })
 
-      // Bootstrap full locked list from server when empty (e.g. user opened settings before AI panel)
-      if (allLockedNames.value.length === 0) {
-        try {
-          const res = await getUser({})
-          const userData = (res?.data || {}) as UserInfoPayload
-          const enterpriseModelConfigs = normalizeEnterpriseModelConfigs(userData.enterpriseModelConfigs)
-          if (enterpriseModelConfigs.length > 0) {
-            allLockedNames.value = []
-          } else {
-            const serverModels = (userData.models || []).map((m: unknown) => String(m))
-            const subscriptionModelsList = (userData.subscriptionModels || []).map((m: unknown) => String(m))
-            const availableSet = new Set(serverModels)
-            allLockedNames.value = subscriptionModelsList.filter((m: string) => !availableSet.has(m))
-          }
-        } catch {
-          // ignore
-        }
-      }
       // Always derive lockedModels from full list + current checked state (so newly checked locked models show as locked in dropdown)
       lockedModels.value = allLockedNames.value.filter((name) => {
         const opt = modelOptions.find((o) => o.name === name)
@@ -581,6 +571,15 @@ export const useModelConfiguration = createGlobalState(() => {
         return
       }
 
+      if (initialSavedModelOptions.length !== 0) {
+        const [gatewayAddr, gatewayKey] = await Promise.all([
+          getGlobalState('defaultBaseUrl') as Promise<string | undefined>,
+          getSecret('defaultApiKey')
+        ])
+        refreshDefaultModelInfoMapInBackground(gatewayAddr, gatewayKey)
+        return
+      }
+
       const res = await getUser({})
       logger.info('getUser response', { data: res })
       const userData = (res?.data || {}) as UserInfoPayload
@@ -588,18 +587,19 @@ export const useModelConfiguration = createGlobalState(() => {
       const enterprisePluginActive =
         isEnterpriseDeployEnabled() && enterpriseModelConfigs.length > 0 && Boolean(await getGlobalState('enterpriseModelPluginActive'))
       const defaultModels: DefaultModel[] = enterprisePluginActive ? [] : (userData.models as DefaultModel[]) || []
+      const subscriptionModelsList = enterprisePluginActive ? [] : ((userData.subscriptionModels || []).map((m: unknown) => String(m)) as string[])
       const gatewayAddr = userData.llmGatewayAddr || ''
       const gatewayKey = userData.key || ''
       await updateGlobalState('defaultBaseUrl', gatewayAddr)
       await storeSecret('defaultApiKey', gatewayKey)
 
-      if (enterprisePluginActive) {
-        refreshDefaultModelInfoMapInBackground(gatewayAddr, gatewayKey)
-        return
-      }
+      const availableSet = new Set(defaultModels.map((model) => String(model)))
+      allLockedNames.value = enterprisePluginActive ? [] : subscriptionModelsList.filter((model) => !availableSet.has(model))
+      budgetResetAt.value = userData.budgetResetAt || ''
+      subscription.value = userData.subscription || ''
+      await updateGlobalState('defaultLockedModelNames', allLockedNames.value)
 
-      const savedModelOptions = ((await getGlobalState('modelOptions')) || []) as ModelOption[]
-      if (savedModelOptions.length !== 0) {
+      if (enterprisePluginActive) {
         refreshDefaultModelInfoMapInBackground(gatewayAddr, gatewayKey)
         return
       }
@@ -611,8 +611,15 @@ export const useModelConfiguration = createGlobalState(() => {
         type: 'standard',
         apiProvider: 'default'
       }))
+      const lockedModelOptions: ModelOption[] = allLockedNames.value.map((model) => ({
+        id: model,
+        name: model,
+        checked: true,
+        type: 'standard',
+        apiProvider: 'default'
+      }))
 
-      const serializableModelOptions = modelOptions.map((model) => ({
+      const serializableModelOptions = [...modelOptions, ...lockedModelOptions].map((model) => ({
         id: model.id,
         name: model.name,
         checked: Boolean(model.checked),
@@ -661,6 +668,7 @@ export const useModelConfiguration = createGlobalState(() => {
       if (enterprisePluginActive) {
         allLockedNames.value = []
         lockedModels.value = []
+        await updateGlobalState('defaultLockedModelNames', [])
         await initModel()
         return
       }
@@ -675,6 +683,7 @@ export const useModelConfiguration = createGlobalState(() => {
     const availableSet = new Set(serverModels)
     const lockedFromServer = subscriptionModelsList.filter((m) => !availableSet.has(m))
     allLockedNames.value = lockedFromServer
+    await updateGlobalState('defaultLockedModelNames', lockedFromServer)
 
     // Skip update if server returns empty list to avoid accidental clearing
     if (enterpriseModelConfigs.length === 0 && serverModels.length === 0 && subscriptionModelsList.length === 0) {
