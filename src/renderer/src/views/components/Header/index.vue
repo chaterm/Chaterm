@@ -12,8 +12,8 @@
             :class="`mode-icon-button-${currentMode}`"
             @click="handleModeToggle"
           >
-            <RobotOutlined v-if="currentMode === 'terminal'" />
-            <CodeOutlined v-else />
+            <CodeOutlined v-if="currentMode === 'terminal'" />
+            <RobotOutlined v-else />
           </a-button>
         </a-tooltip>
       </div>
@@ -117,7 +117,7 @@ const isAvailable = ref(false)
 const currentMode = ref<'terminal' | 'agents'>('terminal')
 const emit = defineEmits(['toggle-sidebar', 'mode-change'])
 const nextMode = computed<'terminal' | 'agents'>(() => (currentMode.value === 'terminal' ? 'agents' : 'terminal'))
-const modeToggleTooltip = computed(() => (nextMode.value === 'agents' ? t('common.agentsMode') : t('common.terminalMode')))
+const modeToggleTooltip = computed(() => (nextMode.value === 'terminal' ? t('common.agentsMode') : t('common.terminalMode')))
 const toggleSidebarRight = (params) => {
   emit('toggle-sidebar', params)
   isRightSidebarCollapsed.value = !isRightSidebarCollapsed.value
@@ -278,11 +278,11 @@ onMounted(async () => {
       }
 
       &.mode-icon-button-terminal {
-        color: #030852;
+        color: #2f54eb;
       }
 
       &.mode-icon-button-agents {
-        color: #2f54eb;
+        color: #52c41a;
       }
     }
 

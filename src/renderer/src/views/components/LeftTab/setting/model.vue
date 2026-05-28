@@ -1353,14 +1353,14 @@ const handleSave = async (provider) => {
 .setting-description {
   margin-top: 8px;
   font-size: 12px;
-  color: var(--text-color-tertiary);
+  color: var(--text-color);
   padding-left: 22px;
 }
 
 .setting-description-no-padding {
   margin-top: 8px;
   font-size: 12px;
-  color: var(--text-color-tertiary);
+  color: var(--text-color);
 }
 
 .url-preview {

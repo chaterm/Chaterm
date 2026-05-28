@@ -400,7 +400,7 @@ onMounted(() => {
       }
       .device-ua {
         font-size: 12px;
-        color: var(--text-color-tertiary, var(--text-color-secondary));
+        color: var(--text-color-secondary, var(--text-color));
         max-width: 100%;
         overflow: hidden;
         text-overflow: ellipsis;
