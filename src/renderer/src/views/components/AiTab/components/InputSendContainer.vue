@@ -160,10 +160,21 @@
             class="locked-model-option"
           >
             <a-tooltip
-              :title="lockedModelTooltip"
+              :title="showLockedModelUpgradeTag ? undefined : lockedModelTooltip"
               placement="left"
               overlay-class-name="locked-model-tooltip"
             >
+              <template
+                v-if="showLockedModelUpgradeTag"
+                #title
+              >
+                <span
+                  class="locked-model-upgrade-link"
+                  @click.stop="openAccountCenterFromModelLimit"
+                >
+                  {{ lockedModelTooltip }}
+                </span>
+              </template>
               <span class="model-label locked-label">
                 <LockOutlined class="locked-model-icon" />
                 {{ name }}
@@ -313,6 +324,8 @@ import uploadIcon from '@/assets/icons/upload.svg'
 import imageIcon from '@/assets/icons/image.svg'
 import sendIcon from '@/assets/icons/send.svg'
 import stopIcon from '@/assets/icons/stop.svg'
+import { getAccountCenterUrl } from '@/utils/edition'
+import { captureButtonClick } from '@/utils/telemetry'
 
 interface Props {
   isActiveTab: boolean
@@ -916,6 +929,15 @@ const lockedModelTooltip = computed(() => {
   return t('user.modelLockedQuotaExhausted')
 })
 
+const openAccountCenterFromModelLimit = async () => {
+  const token = localStorage.getItem('ctm-token') || ''
+  await captureButtonClick('model_limit_account_center_clicked', {
+    source: 'model_limit',
+    entryType: 'upgrade_tag'
+  })
+  await window.api.openExternalUrl(getAccountCenterUrl(token))
+}
+
 // Use user interactions composable
 const {
   imageInputRef,
@@ -1509,6 +1531,15 @@ onBeforeUnmount(() => {
   color: #1890ff;
   font-weight: 600;
   line-height: 16px;
+}
+
+.locked-model-upgrade-link {
+  cursor: pointer;
+  color: var(--text-color);
+}
+
+.locked-model-upgrade-link:hover {
+  color: #1890ff;
 }
 
 .thinking-icon {

@@ -21,6 +21,7 @@ export interface EditionConfig {
   }
   auth: {
     loginBaseUrl: string
+    accountCenterBaseUrl: string
   }
   defaults: {
     language: string
@@ -95,6 +96,19 @@ export const getDocsBaseUrl = (): string => import.meta.env.RENDERER_DOCS_BASE_U
  * Get SSO/login base URL for current edition
  */
 export const getSsoBaseUrl = (): string => import.meta.env.RENDERER_SSO || __EDITION_CONFIG__.auth.loginBaseUrl
+
+export const getAccountCenterOrigin = (): string => __EDITION_CONFIG__.auth.accountCenterBaseUrl
+
+/**
+ * Get the account center overview URL.
+ */
+export const getAccountCenterUrl = (token?: string): string => {
+  const url = new URL(`${getAccountCenterOrigin()}/subscription`)
+  if (token) {
+    url.searchParams.set('auth_token', token)
+  }
+  return url.toString()
+}
 
 /**
  * Get privacy policy URL for current edition

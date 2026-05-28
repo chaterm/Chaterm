@@ -986,6 +986,7 @@ const api = {
   openBrowserWindow: (url: string): void => {
     ipcRenderer.send('open-browser-window', url)
   },
+  openExternalUrl: (url: string): Promise<{ success: boolean; error?: string }> => ipcRenderer.invoke('open-external-url', url),
   onUrlChange: (callback: (url: string) => void): void => {
     ipcRenderer.on('url-changed', (_event, url) => callback(url))
   },

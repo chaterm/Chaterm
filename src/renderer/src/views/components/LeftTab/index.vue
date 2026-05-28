@@ -179,6 +179,14 @@
       <div
         v-if="!isSkippedLogin"
         class="menu-item"
+        @click="openAccountCenter"
+      >
+        <DashboardOutlined class="menu-item-icon" />
+        <span>{{ $t('common.accountCenter') }}</span>
+      </div>
+      <div
+        v-if="!isSkippedLogin"
+        class="menu-item"
         @click="userInfo"
       >
         <UserOutlined class="menu-item-icon" />
@@ -211,7 +219,9 @@ import { shortcutService } from '@/services/shortcutService'
 import { dataSyncService } from '@/services/dataSyncService'
 import { chatSyncService } from '@/services/chatSyncService'
 import { convertFileLocalResourceSrc } from '@/utils/convertFileLocalResourceSrc'
-import { LoginOutlined, LogoutOutlined, UserOutlined } from '@ant-design/icons-vue'
+import { getAccountCenterUrl } from '@/utils/edition'
+import { captureButtonClick } from '@/utils/telemetry'
+import { DashboardOutlined, LoginOutlined, LogoutOutlined, UserOutlined } from '@ant-design/icons-vue'
 
 const logger = createRendererLogger('leftTab')
 let storageEventHandler: ((e: StorageEvent) => void) | null = null
@@ -304,6 +314,17 @@ const openAiRight = () => {
 const userInfo = () => {
   emit('open-user-tab', 'userInfo')
   showUserMenu.value = false
+}
+
+const openAccountCenter = async () => {
+  showUserMenu.value = false
+  const token = localStorage.getItem('ctm-token') || ''
+  await captureButtonClick('account_center_menu_clicked', {
+    source: 'left_tab_menu',
+    entryType: 'menu',
+    subscription: userStore.userInfo?.subscription || ''
+  })
+  await window.api.openExternalUrl(getAccountCenterUrl(token))
 }
 
 const userConfig = () => {
