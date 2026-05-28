@@ -35,6 +35,7 @@ declare const __EDITION_CONFIG__: {
   }
   auth: {
     loginBaseUrl: string
+    accountCenterBaseUrl: string
   }
   defaults: {
     language: string

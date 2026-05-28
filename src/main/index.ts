@@ -1791,6 +1791,16 @@ function setupIPC(): void {
     createBrowserWindow(url)
   })
 
+  ipcMain.handle('open-external-url', async (_, url: string) => {
+    try {
+      await shell.openExternal(url)
+      return { success: true }
+    } catch (error) {
+      logger.error('Failed to open external url', { error, url })
+      return { success: false, error: error instanceof Error ? error.message : String(error) }
+    }
+  })
+
   // Browser navigation control
   ipcMain.on('browser-go-back', () => {
     if (browserWindow && !browserWindow.isDestroyed() && browserWindow.webContents.canGoBack()) {

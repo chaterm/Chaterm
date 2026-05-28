@@ -25,6 +25,18 @@
         v-else
         class="setting-item"
       >
+        <div class="info-row lr-row account-center-row">
+          <span class="info-label">{{ $t('common.accountCenter') }}</span>
+          <div class="info-value account-center-value">
+            <a-button
+              size="small"
+              class="setting-button"
+              @click="openAccountCenter"
+            >
+              {{ $t('common.open') }}
+            </a-button>
+          </div>
+        </div>
         <div class="info-row lr-row">
           <span class="info-label">{{ $t('user.email') }}</span>
           <span class="info-value">{{ userInfo.email || '-' }}</span>
@@ -67,6 +79,8 @@
 import { ref, onMounted, computed } from 'vue'
 import { getUser } from '@/api/user/user'
 import { useRouter } from 'vue-router'
+import { getAccountCenterUrl } from '@/utils/edition'
+import { captureButtonClick } from '@/utils/telemetry'
 
 const router = useRouter()
 const isSkippedLogin = ref(localStorage.getItem('login-skipped') === 'true')
@@ -86,6 +100,16 @@ const getProgressColor = computed(() => {
 
 const goToLogin = () => {
   router.push('/login')
+}
+
+const openAccountCenter = async () => {
+  const token = localStorage.getItem('ctm-token') || ''
+  await captureButtonClick('billing_account_center_clicked', {
+    source: 'billing_page',
+    entryType: 'button',
+    subscription: userInfo.value.subscription || ''
+  })
+  await window.api.openExternalUrl(getAccountCenterUrl(token))
 }
 
 onMounted(() => {
@@ -204,6 +228,30 @@ const getUserInfo = () => {
 .ratio-value {
   color: var(--text-color-secondary);
   min-width: 40px;
+}
+
+.account-center-row {
+  align-items: center;
+}
+
+.account-center-value {
+  flex: 1;
+  display: flex;
+  justify-content: flex-end;
+}
+
+.setting-button {
+  width: 100px;
+  color: var(--text-color) !important;
+  background-color: var(--bg-color-octonary) !important;
+  border: none !important;
+  box-shadow: none !important;
+}
+
+.setting-button:hover,
+.setting-button:focus {
+  color: var(--text-color) !important;
+  background-color: var(--bg-color-novenary) !important;
 }
 
 :deep(.ant-progress) {
