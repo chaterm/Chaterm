@@ -561,7 +561,11 @@ import { updateGlobalState, getGlobalState, getSecret, storeSecret, getAllExtens
 import eventBus from '@/utils/eventBus'
 import i18n from '@/locales'
 import { getUser } from '@api/user/user'
-import { isEnterpriseDeployEnabled, syncEnterpriseStateFromUserData } from '@views/components/AiTab/composables/useModelConfiguration'
+import {
+  isEnterpriseDeployEnabled,
+  syncEnterpriseStateFromUserData,
+  useModelConfiguration
+} from '@views/components/AiTab/composables/useModelConfiguration'
 
 const logger = createRendererLogger('settings.model')
 
@@ -1071,27 +1075,49 @@ const sortModelOptions = () => {
   })
 }
 
+const loadCachedModelOptions = async (customOnly = false): Promise<boolean> => {
+  const savedModelOptions = (await getGlobalState('modelOptions')) || []
+  if (!Array.isArray(savedModelOptions) || savedModelOptions.length === 0) {
+    return false
+  }
+
+  const cachedLockedModelNames = (await getGlobalState('defaultLockedModelNames')) || []
+  lockedModelNames.value = new Set(Array.isArray(cachedLockedModelNames) ? cachedLockedModelNames.map((name) => String(name)) : [])
+
+  modelOptions.value = savedModelOptions
+    .filter((option) => !customOnly || option.type !== 'standard')
+    .map((option) => ({
+      id: option.id || '',
+      name: option.name || '',
+      checked: Boolean(option.checked),
+      type: option.type || (customOnly ? 'custom' : 'standard'),
+      apiProvider: option.apiProvider || 'default'
+    }))
+  sortModelOptions()
+  return true
+}
+
 const loadModelOptions = async () => {
   try {
     const isSkippedLogin = localStorage.getItem('login-skipped') === 'true'
 
     // Skip loading built-in models if user skipped login
     if (isSkippedLogin) {
-      const savedModelOptions = (await getGlobalState('modelOptions')) || []
-      if (savedModelOptions && Array.isArray(savedModelOptions)) {
-        // Only load custom models for guest users
-        modelOptions.value = savedModelOptions
-          .filter((option) => option.type !== 'standard')
-          .map((option) => ({
-            id: option.id || '',
-            name: option.name || '',
-            checked: Boolean(option.checked),
-            type: option.type || 'custom',
-            apiProvider: option.apiProvider || 'default'
-          }))
-        sortModelOptions()
-      }
+      await loadCachedModelOptions(true)
       await saveModelOptions()
+      return
+    }
+
+    if (!isEnterpriseDeployEnabled()) {
+      await syncEnterpriseStateFromUserData({}, { reloadPlugins: true })
+    }
+
+    if (await loadCachedModelOptions()) {
+      return
+    }
+
+    await useModelConfiguration().initModelOptions()
+    if (await loadCachedModelOptions()) {
       return
     }
 
@@ -1115,6 +1141,7 @@ const loadModelOptions = async () => {
     const allKnownSet = new Set([...availableSet, ...subscriptionModelsList])
     const enterpriseModelNames = new Set(enterpriseModelConfigs.map((config) => config.modelName))
     lockedModelNames.value = new Set(enterprisePluginActive ? [] : subscriptionModelsList.filter((m) => !availableSet.has(m)))
+    await updateGlobalState('defaultLockedModelNames', Array.from(lockedModelNames.value))
 
     const savedModelOptions = (await getGlobalState('modelOptions')) || []
     if (savedModelOptions && Array.isArray(savedModelOptions)) {
