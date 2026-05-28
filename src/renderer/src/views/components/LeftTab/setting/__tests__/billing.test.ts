@@ -21,6 +21,7 @@ import { createPinia, setActivePinia } from 'pinia'
 import { createRouter, createWebHistory } from 'vue-router'
 import BillingComponent from '../billing.vue'
 import { getUser } from '@/api/user/user'
+import { captureButtonClick } from '@/utils/telemetry'
 
 // Mock i18n
 const mockTranslations: Record<string, string> = {
@@ -30,7 +31,10 @@ const mockTranslations: Record<string, string> = {
   'user.subscription': 'Subscription Type',
   'user.budgetResetAt': 'Next Reset Time',
   'user.ratio': 'Usage Ratio',
-  'common.login': 'Login'
+  'user.accountCenterDescription': 'Manage your account and billing',
+  'common.login': 'Login',
+  'common.open': 'Open',
+  'common.accountCenter': 'Account Center'
 }
 
 const mockT = (key: string) => {
@@ -46,6 +50,14 @@ vi.mock('vue-i18n', () => ({
 // Mock getUser API
 vi.mock('@/api/user/user', () => ({
   getUser: vi.fn()
+}))
+
+vi.mock('@/utils/edition', () => ({
+  getAccountCenterUrl: vi.fn((token?: string) => `https://account.example.com/subscription?auth_token=${token || ''}`)
+}))
+
+vi.mock('@/utils/telemetry', () => ({
+  captureButtonClick: vi.fn(() => Promise.resolve())
 }))
 
 // Set up global unhandled rejection handler for the entire test file
@@ -131,6 +143,10 @@ describe('Billing Component', () => {
     // Clear console output for cleaner test results
     vi.spyOn(console, 'log').mockImplementation(() => {})
     vi.spyOn(console, 'error').mockImplementation(() => {})
+    localStorage.setItem('ctm-token', 'test-ctm-token')
+    ;(globalThis as any).window.api = {
+      openExternalUrl: vi.fn(() => Promise.resolve())
+    }
   })
 
   afterEach(() => {
@@ -283,6 +299,34 @@ describe('Billing Component', () => {
       await nextTick()
 
       expect(wrapper.find('.login-prompt-container').exists()).toBe(false)
+    })
+
+    it('should render account center button', async () => {
+      wrapper = createWrapper()
+      await nextTick()
+      await nextTick()
+
+      const buttons = wrapper.findAll('.a-button')
+      expect(buttons.some((button) => button.text() === 'Open')).toBe(true)
+      expect(wrapper.text()).toContain('Account Center')
+    })
+
+    it('should open account center and capture telemetry when button is clicked', async () => {
+      wrapper = createWrapper()
+      await nextTick()
+      await nextTick()
+
+      const button = wrapper.findAll('.a-button').find((item) => item.text() === 'Open')
+      expect(button).toBeDefined()
+
+      await button!.trigger('click')
+
+      expect(captureButtonClick).toHaveBeenCalledWith('billing_account_center_clicked', {
+        source: 'billing_page',
+        entryType: 'button',
+        subscription: 'premium'
+      })
+      expect(window.api.openExternalUrl).toHaveBeenCalledWith('https://account.example.com/subscription?auth_token=test-ctm-token')
     })
   })
 
