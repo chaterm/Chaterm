@@ -17,6 +17,7 @@ import { upgradeK8sJumpserverSupport } from './migrations/add-k8s-jumpserver-sup
 import { upgradeConnectionHistorySupport } from './migrations/add-connection-history-support'
 import { upgradeDbAssetsSupport } from './migrations/add-db-assets-support'
 import { upgradeTaskWorkspaceSupport } from './migrations/add-task-workspace-support'
+import { upgradeHistoryScoringSupport } from './migrations/add-history-scoring-support'
 import { IndexDBMigrator } from './indexdb-migrator'
 import { getUserDataPath } from '../../config/edition'
 const logger = createLogger('db')
@@ -375,6 +376,7 @@ export async function initDatabase(userId?: number): Promise<Database.Database> 
 
     const db = new Database(COMPLETE_DB_PATH)
     logger.info('Complete database connection established', { path: COMPLETE_DB_PATH })
+    await upgradeHistoryScoringSupport(db)
     return db
   } catch (error) {
     logger.error('Complete database initialization failed', { error: error })

@@ -3,6 +3,13 @@ import type { TaskMetadata } from '../main/agent/core/context/context-tracking/C
 import type { CommandGenerationContext, WebviewMessage } from '../main/agent/shared/WebviewMessage'
 import type { DbAiApi } from '../shared/db-ai-types'
 
+interface FigSuggestion {
+  text: string
+  displayText: string
+  description?: string
+  source: 'subcommand' | 'option' | 'arg' | 'command'
+}
+
 interface Cookie {
   name: string
   value: string
@@ -319,6 +326,7 @@ interface ApiType {
   invokeCustomAdsorption: (data: { appX: number; appY: number }) => void
   queryCommand: (data: { command: string; ip: string }) => Promise<any>
   insertCommand: (data: { command: string; ip: string }) => Promise<any>
+  queryFigSpec: (data: { commandLine: string; tokens: string[] }) => Promise<FigSuggestion[]>
   aiSuggestCommand: (data: { command: string; osInfo?: string }) => Promise<{ command: string; explanation: string } | null>
   getLocalAssetRoute: (data: { searchType: string; params?: any[] }) => Promise<any>
 
