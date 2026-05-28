@@ -67,6 +67,7 @@ describe('useModelConfiguration', () => {
       expect(AgentAiModelsOptions.value[0].label).toBe('claude-4-5-sonnet')
       expect(AgentAiModelsOptions.value[1].label).toBe('deepseek-chat')
       expect(AgentAiModelsOptions.value[2].label).toBe('gpt-5')
+      expect(getUser).not.toHaveBeenCalled()
     })
 
     it('should filter out unchecked models', async () => {
@@ -210,6 +211,7 @@ describe('useModelConfiguration', () => {
 
       // Should return early and not call getUser since modelOptions already exists
       expect(stateModule.getGlobalState).toHaveBeenCalledWith('modelOptions')
+      expect(getUser).not.toHaveBeenCalled()
     })
 
     it('should fetch and save model options when none exist', async () => {
@@ -264,6 +266,8 @@ describe('useModelConfiguration', () => {
 
       const { initModelOptions } = useModelConfiguration()
       await initModelOptions()
+      await Promise.resolve()
+      await Promise.resolve()
       await new Promise((resolve) => setTimeout(resolve, 0))
 
       const calls = vi.mocked(stateModule.updateGlobalState).mock.calls
@@ -273,6 +277,29 @@ describe('useModelConfiguration', () => {
       expect(modelInfoIdx).toBeGreaterThan(-1)
       expect(modelOptionsIdx).toBeLessThan(modelInfoIdx)
 
+      global.fetch = originalFetch
+    })
+
+    it('skips gateway model info fetch when cached model info exists', async () => {
+      const originalFetch = global.fetch
+      global.fetch = vi.fn()
+
+      vi.mocked(stateModule.getGlobalState).mockImplementation(async (key) => {
+        if (key === 'modelOptions') return mockModelOptions
+        if (key === 'defaultBaseUrl') return 'https://api.example.com'
+        if (key === 'defaultModelInfoMap') return { 'gpt-5': { contextWindow: 128000 } }
+        return null
+      })
+      vi.mocked(stateModule.getSecret).mockImplementation(async (key) => {
+        if (key === 'defaultApiKey') return 'server-key'
+        return undefined
+      })
+
+      const { initModelOptions } = useModelConfiguration()
+      await initModelOptions()
+      await new Promise((resolve) => setTimeout(resolve, 0))
+
+      expect(global.fetch).not.toHaveBeenCalled()
       global.fetch = originalFetch
     })
   })
@@ -660,11 +687,13 @@ describe('useModelConfiguration', () => {
       const modelOptionsOnlyLocked = [{ id: '1', name: 'locked-only', checked: true, type: 'standard', apiProvider: 'default' }]
       vi.mocked(stateModule.getGlobalState).mockImplementation(async (key) => {
         if (key === 'modelOptions') return modelOptionsOnlyLocked
+        if (key === 'apiProvider') return 'default'
+        if (key === 'defaultModelId') return 'locked-only'
         return null
       })
 
-      const { initModel, hasAvailableModels, AgentAiModelsOptions } = useModelConfiguration()
-      await initModel()
+      const { refreshModelOptions, hasAvailableModels, AgentAiModelsOptions } = useModelConfiguration()
+      await refreshModelOptions()
 
       expect(AgentAiModelsOptions.value).toHaveLength(0)
       expect(hasAvailableModels.value).toBe(false)
