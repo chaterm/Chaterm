@@ -15,6 +15,7 @@ export function removeToken() {
   localStorage.removeItem('userInfo')
   localStorage.removeItem('login-skipped')
   void updateGlobalState('modelOptions', [])
+  void updateGlobalState('defaultLockedModelNames', [])
 }
 export const setUserInfo = (info) => {
   const userStore = userInfoStore(pinia)
