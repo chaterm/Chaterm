@@ -275,6 +275,18 @@ const handleCheckUpdate = async () => {
   color: var(--text-color-secondary);
   cursor: not-allowed;
 }
+.theme-light .about-update-btn {
+  background: #e2e8f0 !important;
+  color: #0f172a !important;
+}
+.theme-light .about-update-btn:hover:not(:disabled) {
+  background: #cbd5e1 !important;
+  color: #0f172a !important;
+}
+.theme-light .about-update-btn:disabled {
+  background: #e2e8f0 !important;
+  color: #64748b !important;
+}
 .log-diagnostics {
   width: 90%;
   max-width: 600px;
@@ -310,6 +322,14 @@ const handleCheckUpdate = async () => {
 .log-diagnostics-btn:hover {
   background: var(--bg-color-default);
   color: var(--text-color);
+}
+.theme-light .log-diagnostics-btn {
+  background: #e2e8f0 !important;
+  color: #0f172a !important;
+}
+.theme-light .log-diagnostics-btn:hover {
+  background: #cbd5e1 !important;
+  color: #0f172a !important;
 }
 .feedback-section {
   width: 90%;
@@ -347,5 +367,15 @@ const handleCheckUpdate = async () => {
 }
 .feedback-btn:hover {
   background: rgba(24, 144, 255, 0.1);
+}
+.theme-light .feedback-btn {
+  background: #e2e8f0 !important;
+  color: #0f172a !important;
+  border-color: #e2e8f0 !important;
+}
+.theme-light .feedback-btn:hover {
+  background: #cbd5e1 !important;
+  color: #0f172a !important;
+  border-color: #cbd5e1 !important;
 }
 </style>

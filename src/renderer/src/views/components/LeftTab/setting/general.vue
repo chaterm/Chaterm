@@ -953,6 +953,19 @@ const saveEditorConfig = async () => {
   border-color: var(--button-hover-bg);
 }
 
+.theme-light .setting-button {
+  background-color: #e2e8f0;
+  border-color: #e2e8f0;
+  color: #0f172a;
+}
+
+.theme-light .setting-button:hover,
+.theme-light .setting-button:focus {
+  background-color: #cbd5e1;
+  border-color: #cbd5e1;
+  color: #0f172a;
+}
+
 .language-select :deep(.ant-select-selector),
 .theme-select :deep(.ant-select-selector) {
   background-color: var(--select-bg);
@@ -1100,9 +1113,9 @@ const saveEditorConfig = async () => {
 .upload-placeholder {
   width: 100%;
   height: 100%;
-  border: 2px dashed rgba(255, 255, 255, 0.3);
+  border: 2px dashed var(--text-color-tertiary);
   border-radius: 6px;
-  background: rgba(255, 255, 255, 0.08);
+  background: var(--bg-color-tertiary);
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -1193,7 +1206,7 @@ const saveEditorConfig = async () => {
 }
 
 .default-bg-item.active .default-bg-placeholder {
-  border-color: var(--primary-color, #1890ff);
+  border-color: transparent;
   color: var(--primary-color, #1890ff);
 }
 

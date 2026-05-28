@@ -64,7 +64,6 @@
           class="user_my-ant-form-item"
         >
           <a-button
-            size="small"
             class="keyword-highlight-config-btn"
             :loading="keywordHighlightConfigLoading"
             @click="openKeywordHighlightConfig"
@@ -393,5 +392,18 @@ const openKeywordHighlightConfig = async () => {
 .keyword-highlight-config-btn:focus {
   background-color: var(--bg-color-novenary) !important;
   color: var(--text-color) !important;
+}
+
+.theme-light .keyword-highlight-config-btn {
+  background-color: #e2e8f0 !important;
+  border-color: #e2e8f0 !important;
+  color: #0f172a !important;
+}
+
+.theme-light .keyword-highlight-config-btn:hover,
+.theme-light .keyword-highlight-config-btn:focus {
+  background-color: #cbd5e1 !important;
+  border-color: #cbd5e1 !important;
+  color: #0f172a !important;
 }
 </style>

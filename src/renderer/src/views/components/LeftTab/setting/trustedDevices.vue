@@ -308,6 +308,7 @@ onMounted(() => {
     background-color: var(--bg-color);
     padding-left: 4px;
     padding-top: 4px;
+    box-shadow: none !important;
   }
   .label-text {
     font-size: 20px;
@@ -399,7 +400,7 @@ onMounted(() => {
       }
       .device-ua {
         font-size: 12px;
-        color: var(--text-color-tertiary, var(--text-color-secondary));
+        color: var(--text-color-secondary, var(--text-color));
         max-width: 100%;
         overflow: hidden;
         text-overflow: ellipsis;

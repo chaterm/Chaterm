@@ -5,7 +5,7 @@
     </div>
     <!-- User Rules -->
     <a-card
-      class="settings-section"
+      class="settings-section user-rules-card"
       :bordered="false"
     >
       <div class="setting-item">
@@ -301,6 +301,10 @@ const editUserRule = (index: number) => {
   }
 }
 
+.theme-light .user-rules-card {
+  box-shadow: none !important;
+}
+
 .section-header {
   margin: 30px 16px 16px 28px;
 
@@ -324,14 +328,14 @@ const editUserRule = (index: number) => {
 .setting-description {
   margin-top: 8px;
   font-size: 12px;
-  color: var(--text-color-tertiary);
+  color: var(--text-color);
   padding-left: 22px;
 }
 
 .setting-description-no-padding {
   margin-top: 8px;
   font-size: 12px;
-  color: var(--text-color-tertiary);
+  color: var(--text-color);
 }
 
 // Unified component styles
@@ -526,7 +530,7 @@ const editUserRule = (index: number) => {
 .setting-description-no-padding {
   margin-top: 8px;
   font-size: 12px;
-  color: var(--text-color-tertiary);
+  color: var(--text-color);
 }
 
 .rules-list-item {

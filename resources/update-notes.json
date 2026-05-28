@@ -2,8 +2,30 @@
   "releaseNotesUrl": "https://github.com/chaterm/Chaterm/releases/tag/v",
   "versions": [
     {
+      "version": "0.11.3",
+      "date": "2026-05-28",
+      "highlights": {
+        "zh-CN": [
+          "设置页左侧导航新增对应图标，信息层级更清晰",
+          "亮色主题视觉优化：统一设置页相关按钮背景样式，并提升主机管理与密钥管理空状态图标可见性",
+          "Header 的 Agents 与 Terminal 布局切换改为图标按钮，界面更简洁",
+          "左侧栏名称补齐英文国际化显示，跨语言界面一致性更好",
+          "桌面端应用图标更新，适配 Dock/Launchpad 的视觉风格",
+          "终端设置增强：光标样式改为图标选择，并新增光标闪烁开关与行高输入选项"
+        ],
+        "en-US": [
+          "Added corresponding icons to the left navigation in Settings for clearer information hierarchy",
+          "Light theme visual polish: unified button background styles in Settings and improved empty-state icon visibility in Host Management and Key Management",
+          "Changed the Header layout switches for Agents and Terminal to icon buttons for a cleaner interface",
+          "Completed English i18n for left sidebar names to improve cross-language UI consistency",
+          "Updated desktop app icons to better match Dock and Launchpad visual style",
+          "Enhanced terminal settings: cursor style now uses icon-based selection, with new cursor blink toggle and line-height input options"
+        ]
+      }
+    },
+    {
       "version": "0.11.2",
-      "date": "2026-05-22",
+      "date": "2026-05-26",
       "highlights": {
         "zh-CN": [
           "新增交互式新手引导系统",
