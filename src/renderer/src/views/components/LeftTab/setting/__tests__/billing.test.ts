@@ -308,7 +308,7 @@ describe('Billing Component', () => {
 
       const buttons = wrapper.findAll('.a-button')
       expect(buttons.some((button) => button.text() === 'Open')).toBe(true)
-      expect(wrapper.text()).toContain('Manage your account and billing')
+      expect(wrapper.text()).toContain('Account Center')
     })
 
     it('should open account center and capture telemetry when button is clicked', async () => {
