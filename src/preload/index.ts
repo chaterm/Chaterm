@@ -198,6 +198,14 @@ const insertCommand = async (data: { command: string; ip: string }) => {
   }
 }
 
+const queryFigSpec = async (data: { commandLine: string; tokens: string[] }) => {
+  try {
+    return await ipcRenderer.invoke('query-fig-spec', data)
+  } catch (error) {
+    return []
+  }
+}
+
 const aiSuggestCommand = async (data: { command: string; osInfo?: string }): Promise<{ command: string; explanation: string } | null> => {
   try {
     const result = await ipcRenderer.invoke('ai-suggest-command', data)
@@ -896,6 +904,7 @@ const api = {
   getPlatform,
   queryCommand,
   insertCommand,
+  queryFigSpec,
   aiSuggestCommand,
   getLocalAssetRoute,
   recordConnection,

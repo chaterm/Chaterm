@@ -4732,6 +4732,68 @@ const triggerAiSuggestByShortcut = () => {
   fetchAiSuggestion(commandText, currentRequestId)
 }
 
+function tokenizeCommandLine(input: string): string[] {
+  const tokens: string[] = []
+  let current = ''
+  let inSingle = false
+  let inDouble = false
+  let escaped = false
+  for (let i = 0; i < input.length; i++) {
+    const ch = input[i]
+    if (escaped) {
+      current += ch
+      escaped = false
+      continue
+    }
+    if (ch === '\\') {
+      escaped = true
+      current += ch
+      continue
+    }
+    if (ch === "'" && !inDouble) {
+      inSingle = !inSingle
+      current += ch
+      continue
+    }
+    if (ch === '"' && !inSingle) {
+      inDouble = !inDouble
+      current += ch
+      continue
+    }
+    if (ch === ' ' && !inSingle && !inDouble) {
+      if (current.length > 0) {
+        tokens.push(current)
+        current = ''
+      }
+      continue
+    }
+    current += ch
+  }
+  tokens.push(current)
+  return tokens
+}
+
+function mergeSuggestions(history: CommandSuggestion[], spec: CommandSuggestion[], wordIndex: number): CommandSuggestion[] {
+  const seen = new Set<string>()
+  const result: CommandSuggestion[] = []
+  const MAX = 8
+  const push = (s: CommandSuggestion) => {
+    if (result.length >= MAX) return
+    if (!seen.has(s.command)) {
+      seen.add(s.command)
+      result.push(s)
+    }
+  }
+  if (wordIndex === 0) {
+    history.forEach(push)
+    spec.forEach(push)
+  } else {
+    spec.forEach(push)
+    history.forEach(push)
+  }
+  return result
+}
+
 const queryCommand = async (cmd = '') => {
   if (!queryCommandFlag.value) return
 
@@ -4758,13 +4820,27 @@ const queryCommand = async (cmd = '') => {
     }
 
     const commandText = cmd ? cmd : terminalState.value.beforeCursor
-    const result = await (window.api as any).queryCommand({
-      command: commandText,
-      ip: props.connectData.ip
-    })
+    const tokens = tokenizeCommandLine(commandText)
+    const wordIndex = tokens.length - 1
 
-    if (result) {
-      suggestions.value = result as CommandSuggestion[]
+    const [historyResult, figResult] = await Promise.all([
+      (window.api as any).queryCommand({ command: commandText, ip: props.connectData.ip }).catch(() => []),
+      (window.api as any).queryFigSpec({ commandLine: commandText, tokens }).catch(() => [])
+    ])
+
+    const merged = mergeSuggestions(
+      (historyResult ?? []) as CommandSuggestion[],
+      (figResult ?? []).map((s: { text: string; displayText: string; description?: string; source: CommandSuggestion['source'] }) => ({
+        command: s.text,
+        displayLabel: s.displayText,
+        explanation: s.description,
+        source: s.source
+      })) as CommandSuggestion[],
+      wordIndex
+    )
+
+    suggestions.value = merged
+    if (merged.length) {
       setTimeout(() => {
         const componentInstance = componentRefs.value[connectionId.value]
         componentInstance?.updateSuggestionsPosition(terminal.value)
