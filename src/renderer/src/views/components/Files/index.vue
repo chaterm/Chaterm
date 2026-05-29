@@ -719,7 +719,7 @@ const buildSftpConnDataForFiles = async (node: any, side: PanelSide) => {
     targetAsset: connComment || connHost,
     comment: connComment,
     sshType: connSshType,
-    terminalType: cfg?.terminalType || 'vt100',
+    terminalType: cfg?.terminalType || 'xterm-256color',
     agentForward: cfg?.sshAgentsStatus === 1,
     isOfficeDevice: false,
     connIdentToken: jmsToken,
