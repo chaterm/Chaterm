@@ -468,7 +468,7 @@ const userConfig = ref<{
   lineHeight: 1,
   middleMouseEvent: 'paste',
   rightMouseEvent: 'contextMenu',
-  terminalType: 'vt100',
+  terminalType: 'xterm-256color',
   pinchZoomStatus: 1,
   showCloseButton: 1,
   sshAgentsStatus: 2,

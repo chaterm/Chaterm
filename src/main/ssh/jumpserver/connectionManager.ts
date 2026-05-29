@@ -117,7 +117,7 @@ const attemptJumpServerConnection = async (
           sendStatusUpdate('Reusing existing connection, creating new shell session...', 'info', 'ssh.jumpserver.reuseConnection')
 
           const conn = existingData.conn
-          conn.shell({ term: connectionInfo.terminalType || 'vt100' }, (err, newStream) => {
+          conn.shell({ term: connectionInfo.terminalType || 'xterm-256color' }, (err, newStream) => {
             if (err) {
               logger.error('Failed to create shell with reused connection', {
                 event: 'jumpserver.shell.reuse.error',
@@ -231,7 +231,7 @@ const attemptJumpServerConnection = async (
         })
       }
 
-      conn.shell({ term: connectionInfo.terminalType || 'vt100' }, (err, stream) => {
+      conn.shell({ term: connectionInfo.terminalType || 'xterm-256color' }, (err, stream) => {
         if (err) {
           reject(new Error(`Failed to create shell: ${err.message}`))
           return
