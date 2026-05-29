@@ -2645,7 +2645,7 @@ export const connectSftpNew = async (event: any, connectionInfo: any, options?: 
 
 function openShell(conn: any, connectionInfo: any) {
   return new Promise((resolve, reject) => {
-    conn.shell({ term: connectionInfo.terminalType || 'vt100' }, (err, stream) => {
+    conn.shell({ term: connectionInfo.terminalType || 'xterm-256color' }, (err, stream) => {
       if (err) return reject(err)
       resolve(stream)
     })

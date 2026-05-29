@@ -1701,7 +1701,7 @@ export const registerSSHHandlers = () => {
       return { status: 'error', message: 'Not connected to the server' }
     }
 
-    const termType = terminalType || 'vt100'
+    const termType = terminalType || 'xterm-256color'
     const delayMs = 300
     const fallbackExecs = ['bash', 'sh']
 
