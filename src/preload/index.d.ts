@@ -426,6 +426,7 @@ interface ApiType {
   updateKeyChain: (data: { form: any }) => Promise<any>
   connectAssetInfo: (data: { uuid: string; organizationUuid?: string; ip?: string }) => Promise<any>
   openBrowserWindow: (url: string) => Promise<void>
+  openExternalUrl: (url: string) => Promise<{ success: boolean; error?: string }>
   connect: (connectionInfo: any) => Promise<any>
   forkSession: (params: { sourceConnectionId: string; newConnectionId: string; host: string; port: number; username: string }) => Promise<any>
   startSshTunnel: (params: {

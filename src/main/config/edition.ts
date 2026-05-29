@@ -26,6 +26,7 @@ export interface EditionConfig {
   }
   auth: {
     loginBaseUrl: string
+    accountCenterBaseUrl: string
   }
   defaults: {
     language: string

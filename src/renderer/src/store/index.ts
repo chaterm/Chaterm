@@ -1,15 +1,28 @@
 import { defineStore } from 'pinia'
 
+interface UserInfoState {
+  name: string
+  email: string
+  avatar: string
+  registrationType: string
+  token: string
+  uid: number
+  subscription: string
+}
+
+const createDefaultUserInfo = (): UserInfoState => ({
+  name: '',
+  email: '',
+  avatar: '',
+  registrationType: '',
+  token: '',
+  uid: 0,
+  subscription: ''
+})
+
 export const userInfoStore = defineStore('userInfo', {
   state: () => ({
-    userInfo: {
-      name: '',
-      email: '',
-      avatar: '',
-      registrationType: '',
-      token: '',
-      uid: 0
-    },
+    userInfo: createDefaultUserInfo(),
     stashMenu: ''
   }),
   actions: {
@@ -20,14 +33,7 @@ export const userInfoStore = defineStore('userInfo', {
       this.stashMenu = info
     },
     deleteInfo() {
-      this.userInfo = {
-        name: '',
-        email: '',
-        avatar: '',
-        registrationType: '',
-        token: '',
-        uid: 0
-      }
+      this.userInfo = createDefaultUserInfo()
     }
   },
   getters: {},
