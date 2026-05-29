@@ -2052,6 +2052,18 @@ ipcMain.handle('insert-command', async (_, data) => {
   }
 })
 
+ipcMain.handle('query-fig-spec', async (_, data) => {
+  try {
+    const { commandLine, tokens } = data
+    if (!commandLine || !Array.isArray(tokens)) return []
+    const { getFigSuggestions } = await import('./ssh/figSpecHandler')
+    return await getFigSuggestions({ commandLine, tokens })
+  } catch (error) {
+    logger.error('query-fig-spec failed', { error: error })
+    return []
+  }
+})
+
 ipcMain.handle('ai-suggest-command', async (_, data) => {
   try {
     const { command, osInfo } = data

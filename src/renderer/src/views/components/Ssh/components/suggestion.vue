@@ -35,13 +35,13 @@
         <span
           class="text"
           :class="{ 'ai-text': suggestion.source === 'ai' }"
-          >{{ suggestion.command }}</span
+          >{{ suggestion.displayLabel ?? suggestion.command }}</span
         >
         <span
-          v-if="suggestion.source === 'ai' && suggestion.explanation"
+          v-if="suggestion.explanation"
           class="text explanation-text"
         >
-          - AI: {{ suggestion.explanation }}</span
+          {{ suggestion.explanation }}</span
         >
       </div>
     </div>
@@ -246,6 +246,30 @@ defineExpose({ updateSuggestionsPosition })
   -webkit-mask: url('@/assets/icons/thinking.svg') no-repeat center/contain;
   mask: url('@/assets/icons/thinking.svg') no-repeat center/contain;
   filter: drop-shadow(0 0 6px rgba(179, 127, 235, 0.55));
+}
+
+/* Fig spec: subcommand — teal branch icon */
+.suggestion-item .icon.subcommand {
+  background: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="%2336CFC9"><path d="M6 3a3 3 0 1 1 0 6 3 3 0 0 1 0-6zm12 0a3 3 0 1 1 0 6 3 3 0 0 1 0-6zM6 15a3 3 0 1 1 0 6 3 3 0 0 1 0-6zm0-6v6M6 9h6a3 3 0 0 1 3 3v3"/></svg>')
+    no-repeat center/contain;
+}
+
+/* Fig spec: option — green dash icon */
+.suggestion-item .icon.option {
+  background: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="%2352C41A"><rect x="3" y="11" width="18" height="2" rx="1"/></svg>')
+    no-repeat center/contain;
+}
+
+/* Fig spec: arg — orange dot icon */
+.suggestion-item .icon.arg {
+  background: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="%23FA8C16"><circle cx="12" cy="12" r="5"/></svg>')
+    no-repeat center/contain;
+}
+
+/* Fig spec: command name match — same yellow list as base */
+.suggestion-item .icon.command {
+  background: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="%23FADB14"><path d="M4 4h16v2H4zm0 6h16v2H4zm0 6h16v2H4z"/></svg>')
+    no-repeat center/contain;
 }
 
 /* Command text - single line with horizontal scroll instead of wrapping */
