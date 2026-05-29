@@ -202,9 +202,25 @@ async function removeEnterpriseModelOptions(): Promise<void> {
   eventBus.emit('SettingModelOptionsChanged')
 }
 
+async function deleteEnterpriseRuntimeGlobalState(key: GlobalStateKey): Promise<void> {
+  const kvMutate = (
+    window as unknown as {
+      api?: {
+        kvMutate?: (params: { action: 'delete'; key: string }) => Promise<void>
+      }
+    }
+  ).api?.kvMutate
+
+  if (typeof kvMutate !== 'function') {
+    throw new Error('KV mutation API is unavailable')
+  }
+
+  await kvMutate({ action: 'delete', key: `global_${key}` })
+}
+
 async function clearEnterpriseRuntimeConfiguration(): Promise<void> {
   for (const key of ENTERPRISE_RUNTIME_GLOBAL_KEYS) {
-    await updateGlobalState(key, undefined)
+    await deleteEnterpriseRuntimeGlobalState(key)
   }
   for (const key of ENTERPRISE_RUNTIME_SECRET_KEYS) {
     await storeSecret(key, undefined)

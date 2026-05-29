@@ -42,8 +42,9 @@ describe('useModelConfiguration', () => {
     mockChatAiModelValue.value = ''
     vi.stubEnv('RENDERER_DEPLOY_STATUS', '1')
     global.window = global.window || ({} as Window & typeof globalThis)
-    ;(global.window as unknown as { api?: { reloadPlugins?: ReturnType<typeof vi.fn> } }).api = {
-      reloadPlugins: vi.fn().mockResolvedValue(undefined)
+    ;(global.window as unknown as { api?: { reloadPlugins?: ReturnType<typeof vi.fn>; kvMutate?: ReturnType<typeof vi.fn> } }).api = {
+      reloadPlugins: vi.fn().mockResolvedValue(undefined),
+      kvMutate: vi.fn().mockResolvedValue(undefined)
     }
   })
 
@@ -593,6 +594,37 @@ describe('useModelConfiguration', () => {
       expect(stateModule.updateGlobalState).not.toHaveBeenCalledWith('awsRegion', undefined)
       expect(stateModule.storeSecret).not.toHaveBeenCalledWith('openAiApiKey', undefined)
       expect((global.window as unknown as { api: { reloadPlugins: ReturnType<typeof vi.fn> } }).api.reloadPlugins).not.toHaveBeenCalled()
+    })
+
+    it('clears enterprise runtime global state through kv delete when enterprise configs are empty', async () => {
+      const state: Record<string, unknown> = {
+        modelOptions: [
+          { id: 'enterprise:openai:gpt-5', name: 'gpt-5', checked: true, type: 'standard', apiProvider: 'openai' },
+          { id: 'custom-1', name: 'custom-model', checked: true, type: 'custom', apiProvider: 'openai' }
+        ],
+        enterpriseModelPluginActive: true
+      }
+
+      vi.mocked(stateModule.getGlobalState).mockImplementation(async (key) => state[key] ?? null)
+      vi.mocked(stateModule.updateGlobalState).mockImplementation(async (key, value) => {
+        state[key] = value
+      })
+
+      const enterpriseConfigs = await syncEnterpriseStateFromUserData(
+        {
+          enterpriseModelConfigs: [],
+          enterpriseModelConfigVersion: 'empty'
+        },
+        { reloadPlugins: true }
+      )
+
+      const kvMutate = (global.window as unknown as { api: { kvMutate: ReturnType<typeof vi.fn> } }).api.kvMutate
+      expect(enterpriseConfigs).toEqual([])
+      expect(kvMutate).toHaveBeenCalledWith({ action: 'delete', key: 'global_apiProvider' })
+      expect(kvMutate).toHaveBeenCalledWith({ action: 'delete', key: 'global_openAiBaseUrl' })
+      expect(stateModule.updateGlobalState).not.toHaveBeenCalledWith('apiProvider', undefined)
+      expect(stateModule.updateGlobalState).not.toHaveBeenCalledWith('openAiBaseUrl', undefined)
+      expect(stateModule.storeSecret).toHaveBeenCalledWith('openAiApiKey', undefined)
     })
 
     it('does not reload plugins repeatedly when the same enterprise signature was already resolved', async () => {
