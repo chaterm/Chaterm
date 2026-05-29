@@ -585,7 +585,8 @@ const handleMetaKeyUp = (e: KeyboardEvent) => {
 }
 
 onMounted(async () => {
-  await getUserInfo()
+  const isLocalShellConnection = props.connectData.asset_type === 'shell'
+  const userInfoReady = isLocalShellConnection ? Promise.resolve() : getUserInfo()
   config = await serviceUserConfig.getConfig()
   dbConfigStash = config
   queryCommandFlag.value = config.autoCompleteStatus == 1
@@ -886,12 +887,13 @@ onMounted(async () => {
     handleSendOrToggleAi()
   }
 
-  if (props.connectData.asset_type === 'shell') {
+  if (isLocalShellConnection) {
     config.highlightStatus = 2
     config.autoCompleteStatus = 2
     isLocalConnect.value = true
     connectLocalSSH()
   } else {
+    await userInfoReady
     connectSSH()
   }
 
