@@ -98,7 +98,7 @@ function parseDeployStatus(raw: unknown): number {
 }
 
 export function isEnterpriseDeployEnabled(): boolean {
-  return parseDeployStatus(import.meta.env.RENDERER_DEPLOY_STATUS) === 1
+  return parseDeployStatus(import.meta.env.RENDERER_DEPLOY_STATUS) !== 0
 }
 
 function normalizeProvider(rawProvider: unknown): string {
@@ -202,25 +202,9 @@ async function removeEnterpriseModelOptions(): Promise<void> {
   eventBus.emit('SettingModelOptionsChanged')
 }
 
-async function deleteEnterpriseRuntimeGlobalState(key: GlobalStateKey): Promise<void> {
-  const kvMutate = (
-    window as unknown as {
-      api?: {
-        kvMutate?: (params: { action: 'delete'; key: string }) => Promise<void>
-      }
-    }
-  ).api?.kvMutate
-
-  if (typeof kvMutate !== 'function') {
-    throw new Error('KV mutation API is unavailable')
-  }
-
-  await kvMutate({ action: 'delete', key: `global_${key}` })
-}
-
 async function clearEnterpriseRuntimeConfiguration(): Promise<void> {
   for (const key of ENTERPRISE_RUNTIME_GLOBAL_KEYS) {
-    await deleteEnterpriseRuntimeGlobalState(key)
+    await updateGlobalState(key, undefined)
   }
   for (const key of ENTERPRISE_RUNTIME_SECRET_KEYS) {
     await storeSecret(key, undefined)
@@ -798,6 +782,7 @@ export const useModelConfiguration = createGlobalState(() => {
   )
 
   const showLockedModelUpgradeTag = computed(() => {
+    if (isEnterpriseDeployEnabled()) return false
     const sub = (subscription.value || '').toLowerCase()
     return sub === 'free' || sub === 'lite'
   })

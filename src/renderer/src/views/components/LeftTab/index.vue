@@ -177,7 +177,7 @@
         <span>{{ $t('common.login') }}</span>
       </div>
       <div
-        v-if="!isSkippedLogin"
+        v-if="!isSkippedLogin && !isEnterpriseDeploy"
         class="menu-item"
         @click="openAccountCenter"
       >
@@ -220,6 +220,7 @@ import { dataSyncService } from '@/services/dataSyncService'
 import { chatSyncService } from '@/services/chatSyncService'
 import { convertFileLocalResourceSrc } from '@/utils/convertFileLocalResourceSrc'
 import { getAccountCenterUrl } from '@/utils/edition'
+import { isEnterpriseDeployEnabled } from '@/views/components/AiTab/composables/useModelConfiguration'
 import { captureButtonClick } from '@/utils/telemetry'
 import { DashboardOutlined, LoginOutlined, LogoutOutlined, UserOutlined } from '@ant-design/icons-vue'
 
@@ -240,6 +241,7 @@ const activeKey = ref('workspace')
 const showUserMenu = ref<boolean>(false)
 const isSkippedLogin = ref<boolean>(localStorage.getItem('login-skipped') === 'true')
 const showUserAvatar = computed(() => !isSkippedLogin.value && !!userStore.userInfo.avatar)
+const isEnterpriseDeploy = isEnterpriseDeployEnabled()
 const isVipUser = computed(() => {
   if (isSkippedLogin.value) return false
   const info: any = userStore.userInfo
