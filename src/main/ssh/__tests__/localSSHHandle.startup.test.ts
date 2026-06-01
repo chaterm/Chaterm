@@ -1,4 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import * as os from 'os'
 
 const ipcHandleMock = vi.hoisted(() => vi.fn())
 const spawnMock = vi.hoisted(() => vi.fn())
@@ -13,6 +14,15 @@ vi.mock('node-pty', () => ({
   spawn: spawnMock
 }))
 
+vi.mock('os', async () => {
+  const actual = await vi.importActual<typeof import('os')>('os')
+  return {
+    ...actual,
+    platform: vi.fn(() => 'darwin'),
+    homedir: vi.fn(() => '/Users/test')
+  }
+})
+
 vi.mock('../../../agent/core/storage/state', () => ({
   getUserConfig: vi.fn().mockResolvedValue({ language: 'zh-CN' })
 }))
@@ -23,6 +33,8 @@ describe('localSSHHandle - local shell startup', () => {
     vi.resetModules()
     ipcHandleMock.mockClear()
     spawnMock.mockReset()
+    vi.mocked(os.platform).mockReturnValue('darwin')
+    vi.mocked(os.homedir).mockReturnValue('/Users/test')
     spawnMock.mockReturnValue({
       onData: vi.fn(),
       onExit: vi.fn(),
@@ -77,6 +89,33 @@ describe('localSSHHandle - local shell startup', () => {
     expect(spawnMock).toHaveBeenCalledWith(
       '/bin/zsh',
       ['-f'],
+      expect.objectContaining({
+        name: 'xterm-256color',
+        cols: 80,
+        rows: 24
+      })
+    )
+  })
+
+  it('does not pass Unix fast startup args on Windows', async () => {
+    vi.mocked(os.platform).mockReturnValue('win32')
+
+    const { registerLocalSSHHandlers } = await import('../localSSHHandle')
+    registerLocalSSHHandlers()
+
+    const connectHandler = ipcHandleMock.mock.calls.find(([channel]) => channel === 'local:connect')?.[1]
+    expect(connectHandler).toBeTypeOf('function')
+
+    await connectHandler(null, {
+      id: 'local-test',
+      shell: '/bin/zsh',
+      termType: 'xterm-256color',
+      startupMode: 'fast'
+    })
+
+    expect(spawnMock).toHaveBeenCalledWith(
+      '/bin/zsh',
+      [],
       expect.objectContaining({
         name: 'xterm-256color',
         cols: 80,
