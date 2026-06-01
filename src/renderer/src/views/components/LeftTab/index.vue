@@ -2,7 +2,7 @@
   <div class="term_left_tab">
     <div class="main-menu">
       <a-tooltip
-        v-for="i in menuTabsData.slice(0, -2)"
+        v-for="i in visibleMainMenuTabs"
         :key="i.key"
         :title="$t(i.nameKey)"
         placement="right"
@@ -177,7 +177,7 @@
         <span>{{ $t('common.login') }}</span>
       </div>
       <div
-        v-if="!isSkippedLogin"
+        v-if="!isSkippedLogin && !isEnterpriseDeploy"
         class="menu-item"
         @click="openAccountCenter"
       >
@@ -220,6 +220,7 @@ import { dataSyncService } from '@/services/dataSyncService'
 import { chatSyncService } from '@/services/chatSyncService'
 import { convertFileLocalResourceSrc } from '@/utils/convertFileLocalResourceSrc'
 import { getAccountCenterUrl } from '@/utils/edition'
+import { isEnterpriseDeployEnabled } from '@/views/components/AiTab/composables/useModelConfiguration'
 import { captureButtonClick } from '@/utils/telemetry'
 import { DashboardOutlined, LoginOutlined, LogoutOutlined, UserOutlined } from '@ant-design/icons-vue'
 
@@ -227,6 +228,11 @@ const logger = createRendererLogger('leftTab')
 let storageEventHandler: ((e: StorageEvent) => void) | null = null
 let removePluginMetadataListener: (() => void) | null = null
 const pluginViews = ref<any[]>([])
+const kbSearchPolicyEnabled =
+  String(import.meta.env.RENDERER_KB_SEARCH_ENABLED || '')
+    .trim()
+    .toLowerCase() !== 'false'
+const visibleMainMenuTabs = computed(() => menuTabsData.slice(0, -2).filter((tab) => kbSearchPolicyEnabled || tab.key !== 'knowledgecenter'))
 
 /** file:// URLs cannot be used in img src in the renderer; map via custom protocol (see main process). */
 const pluginViewIconSrc = (icon: string) => convertFileLocalResourceSrc(icon)
@@ -235,6 +241,7 @@ const activeKey = ref('workspace')
 const showUserMenu = ref<boolean>(false)
 const isSkippedLogin = ref<boolean>(localStorage.getItem('login-skipped') === 'true')
 const showUserAvatar = computed(() => !isSkippedLogin.value && !!userStore.userInfo.avatar)
+const isEnterpriseDeploy = isEnterpriseDeployEnabled()
 const isVipUser = computed(() => {
   if (isSkippedLogin.value) return false
   const info: any = userStore.userInfo
