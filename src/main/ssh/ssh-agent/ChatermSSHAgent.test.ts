@@ -21,6 +21,7 @@ describe('Chaterm SSHAgent transport security', () => {
 
   it('does not create a Windows named pipe for the built-in agent transport', async () => {
     vi.spyOn(process, 'platform', 'get').mockReturnValue('win32')
+    const originalAuthSock = process.env.SSH_AUTH_SOCK
 
     const createServerMock = vi.fn()
     vi.doMock('net', async (importOriginal) => {
@@ -36,7 +37,7 @@ describe('Chaterm SSHAgent transport security', () => {
     const authSock = await agent.start()
 
     expect(authSock).toBeNull()
-    expect(process.env.SSH_AUTH_SOCK).toBeUndefined()
+    expect(process.env.SSH_AUTH_SOCK).toBe(originalAuthSock)
     expect(createServerMock).not.toHaveBeenCalled()
 
     const stream = await new Promise<NodeJS.ReadWriteStream>((resolve, reject) => {
