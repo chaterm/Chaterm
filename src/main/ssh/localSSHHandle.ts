@@ -67,6 +67,7 @@ interface LocalTerminalConfig {
   cols?: number
   rows?: number
   termType?: string
+  startupMode?: 'interactive' | 'fast'
 }
 
 interface LocalTerminal {
@@ -120,20 +121,46 @@ const getDefaultShell = (): string => {
   }
 }
 
+const getLocalShellStartupArgs = (shellBase: string, startupMode: LocalTerminalConfig['startupMode']): string[] => {
+  if (os.platform() === 'win32') return []
+  if (startupMode !== 'fast') return []
+
+  switch (shellBase) {
+    case 'zsh':
+      return ['-f']
+    case 'bash':
+      return ['--noprofile', '--norc']
+    case 'fish':
+      return ['--no-config']
+    default:
+      return []
+  }
+}
+
+const buildLocalTerminalEnv = (overrides?: Record<string, string>): NodeJS.ProcessEnv => {
+  const env = { ...process.env, ...overrides }
+
+  for (const key of Object.keys(env)) {
+    if (key.startsWith('VSCODE_') || key.startsWith('CURSOR_')) {
+      delete env[key]
+    }
+  }
+
+  env.TERM_PROGRAM = 'Chaterm'
+  return env
+}
+
 const createTerminal = async (config: LocalTerminalConfig): Promise<LocalTerminal> => {
   const shell = config.shell || getDefaultShell()
   const cwd = config.cwd || os.homedir()
-  const env = { ...process.env, ...config.env }
-  let args: string[] = []
-
-  // Use login shell mode to ensure shell configuration files are loaded
-  // (e.g., .zprofile, .zshrc, .bash_profile, .bashrc)
+  const env = buildLocalTerminalEnv(config.env)
   const shellBase = path.basename(shell)
-  if (os.platform() !== 'win32') {
-    if (shellBase === 'zsh' || shellBase === 'bash' || shellBase === 'fish' || shellBase === 'sh') {
-      args = ['--login']
-    }
-  }
+  const startupMode = config.startupMode || 'interactive'
+  const args = getLocalShellStartupArgs(shellBase, startupMode)
+
+  // Fast mode intentionally skips shell startup files. This keeps the local
+  // terminal responsive when user shell configs are slow, at the cost of aliases
+  // or PATH mutations that only exist in those startup files.
 
   localLogger.info('Creating local terminal', {
     event: 'terminal.local.connect.start',
