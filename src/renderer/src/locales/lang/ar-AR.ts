@@ -260,6 +260,7 @@ export default {
     cursorStyleUnderline: 'تحتية',
     cursorBlink: 'وميض المؤشر',
     lineHeight: 'ارتفاع السطر',
+    localEcho: 'تفعيل الصدى المحلي',
     mouseEvent: 'حدث الماوس',
     middleMouseEvent: 'حدث الماوس الأوسط',
     rightMouseEvent: 'حدث الماوس الأيمن',

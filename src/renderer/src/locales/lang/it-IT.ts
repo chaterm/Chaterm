@@ -260,6 +260,7 @@ export default {
     cursorStyleUnderline: 'Sottolineato',
     cursorBlink: 'Lampeggio del cursore',
     lineHeight: 'Altezza riga',
+    localEcho: 'Abilita eco locale',
     mouseEvent: 'Evento mouse',
     middleMouseEvent: 'Evento mouse centrale',
     rightMouseEvent: 'Evento mouse destro',

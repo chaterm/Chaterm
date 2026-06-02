@@ -277,20 +277,22 @@ describe('UserConfigStoreService', () => {
     expect(txWrites[0]).toEqual(['userConfig', 'userConfigSyncMeta'])
   })
 
-  it('buildDefaultUserConfig should include cursorBlink and lineHeight defaults', async () => {
+  it('buildDefaultUserConfig should include cursorBlink, lineHeight, and localEchoEnabled defaults', async () => {
     const { buildDefaultUserConfig } = await import('../userConfigStoreService')
 
     const config = buildDefaultUserConfig()
 
     expect(config.cursorBlink).toBe(true)
     expect(config.lineHeight).toBe(1)
+    expect(config.localEchoEnabled).toBe(false)
   })
 
-  it('sync whitelist and validators should support cursorBlink and lineHeight', async () => {
+  it('sync whitelist and validators should support cursorBlink, lineHeight, and localEchoEnabled', async () => {
     const { SYNC_WHITELIST, SYNC_FIELD_VALIDATORS } = await import('../userConfigStoreService')
 
     expect(SYNC_WHITELIST).toContain('cursorBlink')
     expect(SYNC_WHITELIST).toContain('lineHeight')
+    expect(SYNC_WHITELIST).toContain('localEchoEnabled')
 
     expect(SYNC_FIELD_VALIDATORS.cursorBlink(true)).toBe(true)
     expect(SYNC_FIELD_VALIDATORS.cursorBlink(false)).toBe(true)
@@ -302,5 +304,9 @@ describe('UserConfigStoreService', () => {
     expect(SYNC_FIELD_VALIDATORS.lineHeight(0.9)).toBe(false)
     expect(SYNC_FIELD_VALIDATORS.lineHeight(3.1)).toBe(false)
     expect(SYNC_FIELD_VALIDATORS.lineHeight('1.5' as any)).toBe(false)
+
+    expect(SYNC_FIELD_VALIDATORS.localEchoEnabled(true)).toBe(true)
+    expect(SYNC_FIELD_VALIDATORS.localEchoEnabled(false)).toBe(true)
+    expect(SYNC_FIELD_VALIDATORS.localEchoEnabled(1 as any)).toBe(false)
   })
 })

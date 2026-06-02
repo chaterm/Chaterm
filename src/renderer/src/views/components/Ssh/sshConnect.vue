@@ -146,6 +146,7 @@ import { checkUserDevice } from '@api/user/user'
 import { keywordHighlightService } from '@/services/keywordHighlightService'
 import { useZmodem } from './utils/chatermZmodem'
 import { shouldAutoScrollAfterTerminalStateUpdate, shouldAutoScrollAfterTerminalWrite } from './utils/terminalScroll'
+import { LocalEchoController } from './utils/localEcho'
 
 // Pre-compiled regex constants for checkFullScreenClear / checkHeavyUiStyle (avoid re-creation per call)
 const CLEAR_SCREEN_PATTERNS = [
@@ -407,7 +408,9 @@ const contextmenu = ref()
 const cursorStartX = ref(0)
 const api = window.api as any
 const encoder = new TextEncoder()
-let cusWrite: ((data: string, options?: { isUserCall?: boolean }) => void) | null = null
+type TerminalWriteOptions = { isUserCall?: boolean; updateStateAfterWrite?: boolean; allowHighlightAfterWrite?: boolean }
+let cusWrite: ((data: string, options?: TerminalWriteOptions) => void) | null = null
+const localEcho = new LocalEchoController()
 let resizeObserver: ResizeObserver | null = null
 const showSearch = ref(false)
 const searchAddon = ref<SearchAddon | null>(null)
@@ -612,6 +615,12 @@ onMounted(async () => {
     })
   )
   terminal.value = termInstance
+  localEcho.setEnabled(config.localEchoEnabled === true)
+  localEcho.setTerminal({
+    write: (data: string) => {
+      cusWrite?.(data, { isUserCall: true, updateStateAfterWrite: true, allowHighlightAfterWrite: true })
+    }
+  })
   perfMark('chaterm/terminal/didCreate')
   termInstance?.onKey(handleKeyInput)
   termInstance?.onSelectionChange(() => {
@@ -730,7 +739,7 @@ onMounted(async () => {
     htCooldownTimer = setTimeout(exitHighThroughputMode, HIGH_THROUGHPUT_COOLDOWN)
   }
 
-  const debouncedUpdateTerminalState = (data, currentIsUserCall, shouldAutoScrollAfterWrite = true) => {
+  const debouncedUpdateTerminalState = (data, currentIsUserCall, shouldAutoScrollAfterWrite = true, options?: { allowHighlight?: boolean }) => {
     if (updateTimeout) {
       clearTimeout(updateTimeout)
     }
@@ -744,7 +753,7 @@ onMounted(async () => {
     if (terminalMode.value !== 'none') {
       highLightFlag = false
     }
-    if (currentIsUserCall) {
+    if (currentIsUserCall && options?.allowHighlight !== true) {
       highLightFlag = false
     }
     if (pasteFlag.value && !enterPress.value) {
@@ -763,8 +772,9 @@ onMounted(async () => {
     updateTimeout = null
   }
 
-  cusWrite = function (data: string, options?: { isUserCall?: boolean }): void {
+  cusWrite = function (data: string, options?: TerminalWriteOptions): void {
     const currentIsUserCall = options?.isUserCall ?? false
+    const updateStateAfterWrite = options?.updateStateAfterWrite === true
     userInputFlag.value = currentIsUserCall
 
     // Track write frequency to detect high-throughput scenarios (e.g., cat large file)
@@ -803,8 +813,8 @@ onMounted(async () => {
 
     const shouldAutoScroll = !currentIsUserCall && shouldAutoScrollAfterTerminalWrite(terminal.value)
     originalWrite(processedData, () => {
-      if (!currentIsUserCall) {
-        debouncedUpdateTerminalState(data, currentIsUserCall, shouldAutoScroll)
+      if (!currentIsUserCall || updateStateAfterWrite) {
+        debouncedUpdateTerminalState(data, currentIsUserCall, shouldAutoScroll, { allowHighlight: options?.allowHighlightAfterWrite === true })
       }
       if (shouldAutoScroll) {
         scheduleScrollToBottom()
@@ -920,6 +930,14 @@ onMounted(async () => {
       terminal.value.options.theme = getResolvedTerminalTheme(themeId, { hasCustomBg: hasCustomBg() })
     }
   }
+
+  const handleLocalEchoSettingChanged = (enabled: boolean) => {
+    if (config) {
+      config.localEchoEnabled = enabled
+    }
+    localEcho.setEnabled(enabled)
+  }
+
   const handleGetCursorPosition = (payload: { connectionId?: string; callback: (position: any) => void }) => {
     const { connectionId: targetId, callback } = payload
     if (targetId && targetId !== props.currentConnectionId) return
@@ -939,6 +957,7 @@ onMounted(async () => {
   eventBus.on('getCursorPosition', handleGetCursorPosition)
   eventBus.on('sendOrToggleAiFromTerminalForTab', handleSendOrToggleAiForTab)
   eventBus.on('updateTheme', handleUpdateTheme)
+  eventBus.on('localEchoSettingChanged', handleLocalEchoSettingChanged)
   eventBus.on('openSearch', openSearch)
   eventBus.on('pinchZoomStatusChanged', handlePinchZoomStatusChanged)
 
@@ -991,6 +1010,7 @@ onMounted(async () => {
     eventBus.off('sendOrToggleAiFromTerminalForTab', handleSendOrToggleAiForTab)
     eventBus.off('openSearch', openSearch)
     eventBus.off('pinchZoomStatusChanged', handlePinchZoomStatusChanged)
+    eventBus.off('localEchoSettingChanged', handleLocalEchoSettingChanged)
     eventBus.off('clearCurrentTerminal')
     eventBus.off('fontSizeIncrease')
     eventBus.off('fontSizeDecrease')
@@ -1056,6 +1076,8 @@ const handlePinchZoomStatusChanged = async (enabled: boolean) => {
 
 onBeforeUnmount(() => {
   manualDisconnectRequested.value = true
+  localEcho.reset()
+  localEcho.setTerminal(null)
   resetAutoReconnectState()
   cachedSelectionButton = null
   if (sendTerminalStateTimer) {
@@ -1569,6 +1591,7 @@ const connectSSH = async (_opts?: { isAutoReconnect?: boolean }) => {
   connectInProgress.value = true
   try {
     manualDisconnectRequested.value = false
+    localEcho.reset()
     clearAutoReconnectTimer()
     let connectSuccess = false
     logger.info('Start SSH connect', {
@@ -1900,13 +1923,18 @@ const startShell = async () => {
       isConnected.value = true
       void loadOsInfoOnce()
       const removeDataListener = api.onShellData(connectionId.value, (response: MarkedResponse) => {
-        consumeZmodemIncoming(response)
+        const preparedResponse = prepareIncomingShellResponse(response)
+        if (preparedResponse) {
+          consumeZmodemIncoming(preparedResponse)
+        }
       })
       const removeErrorListener = api.onShellError(connectionId.value, (data) => {
+        localEcho.reset()
         cusWrite?.(data)
       })
       const removeCloseListener = api.onShellClose(connectionId.value, (closeInfo?: ShellCloseInfo) => {
         isConnected.value = false
+        localEcho.reset()
         logger.info('Shell close received', {
           event: 'ssh.shell.close.renderer',
           connectionId: connectionId.value,
@@ -2744,6 +2772,7 @@ const sendDataAutoSwitchTerminal = (data) => {
   }
 }
 const sendData = (data) => {
+  tryPredictLocalEcho(data)
   api.writeToShell({
     id: connectionId.value,
     data: data.replace(/\r\n/g, '\n'),
@@ -2795,6 +2824,41 @@ export interface MarkedResponse {
   marker?: string
 }
 
+const ZMODEM_MAGIC = '**\x18B'
+
+const getCurrentLineForLocalEcho = (): string => {
+  const activeBuffer = terminal.value?.buffer?.active
+  const absoluteCursorLine = (activeBuffer?.baseY ?? 0) + (activeBuffer?.cursorY ?? 0)
+  const line = activeBuffer?.getLine(absoluteCursorLine)
+  return line?.translateToString(true) || ''
+}
+
+const tryPredictLocalEcho = (data: string): void => {
+  if (isLocalConnect.value || data.includes(ZMODEM_MAGIC)) {
+    return
+  }
+
+  localEcho.predict(data, {
+    isConnected: isConnected.value,
+    terminalMode: terminalMode.value,
+    isPaste: pasteFlag.value,
+    currentLine: getCurrentLineForLocalEcho()
+  })
+}
+
+const prepareIncomingShellResponse = (response: MarkedResponse): MarkedResponse | null => {
+  if (!response?.data || typeof response.data !== 'string' || response.data.includes(ZMODEM_MAGIC)) {
+    return response
+  }
+
+  const data = localEcho.reconcile(response.data)
+  if (!data) {
+    return null
+  }
+
+  return data === response.data ? response : { ...response, data }
+}
+
 const matchPattern = (data: number[], pattern: number[]): boolean => {
   if (data.length < pattern.length) return false
   for (let i = data.length - pattern.length; i >= Math.max(0, data.length - 500); i--) {
@@ -2817,6 +2881,9 @@ const terminalMode = ref<TerminalMode>('none')
 watch(
   terminalMode,
   (newMode) => {
+    if (newMode !== 'none') {
+      localEcho.reset()
+    }
     const isVimMode = newMode === 'alternate'
     window.postMessage(
       {
@@ -4920,6 +4987,7 @@ const handleKeyInput = (e) => {
 
 const disconnectSSH = async () => {
   manualDisconnectRequested.value = true
+  localEcho.reset()
   resetAutoReconnectState()
   logger.info('Manual disconnect requested', {
     event: 'ssh.disconnect.manual.renderer',
