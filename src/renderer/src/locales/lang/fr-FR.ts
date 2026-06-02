@@ -260,6 +260,7 @@ export default {
     cursorStyleUnderline: 'Sous-ligne',
     cursorBlink: 'Clignotement du curseur',
     lineHeight: 'Hauteur de ligne',
+    localEcho: "Activer l'écho local",
     mouseEvent: 'Événement de la souris',
     middleMouseEvent: 'Événement de la molette de la souris',
     rightMouseEvent: 'Événement du bouton droit de la souris',

@@ -128,6 +128,16 @@
           />
         </a-form-item>
         <a-form-item
+          :label="$t('user.localEcho')"
+          class="user_my-ant-form-item"
+        >
+          <a-switch
+            :checked="userConfig.localEchoEnabled"
+            class="user_my-ant-form-item-content"
+            @change="handleLocalEchoEnabledChange"
+          />
+        </a-form-item>
+        <a-form-item
           :label="$t('user.pinchZoomStatus')"
           class="user_my-ant-form-item"
         >
@@ -450,6 +460,7 @@ const userConfig = ref<{
   cursorStyle: 'block' | 'bar' | 'underline'
   cursorBlink: boolean
   lineHeight: number
+  localEchoEnabled: boolean
   middleMouseEvent: string
   rightMouseEvent: string
   terminalType: string
@@ -466,6 +477,7 @@ const userConfig = ref<{
   cursorStyle: 'block',
   cursorBlink: true,
   lineHeight: 1,
+  localEchoEnabled: true,
   middleMouseEvent: 'paste',
   rightMouseEvent: 'contextMenu',
   terminalType: 'xterm-256color',
@@ -582,6 +594,7 @@ const loadSavedConfig = async () => {
         cursorStyle: (savedConfig.cursorStyle || 'block') as 'block' | 'bar' | 'underline',
         cursorBlink: savedConfig.cursorBlink !== false,
         lineHeight: typeof savedConfig.lineHeight === 'number' ? savedConfig.lineHeight : 1,
+        localEchoEnabled: savedConfig.localEchoEnabled === true,
         sshProxyConfigs: (savedConfig.sshProxyConfigs || []) as ProxyConfig[]
       }
     } else {
@@ -615,6 +628,11 @@ const handlePinchZoomStatusChange = async (checked) => {
 
 const handleCursorBlinkChange = (checked: boolean) => {
   userConfig.value.cursorBlink = checked
+}
+
+const handleLocalEchoEnabledChange = (checked: boolean) => {
+  userConfig.value.localEchoEnabled = checked
+  eventBus.emit('localEchoSettingChanged', checked)
 }
 
 const handleShowCloseButtonChange = async (checked) => {
@@ -798,6 +816,7 @@ const saveConfig = async () => {
       cursorStyle: userConfig.value.cursorStyle,
       cursorBlink: userConfig.value.cursorBlink,
       lineHeight: userConfig.value.lineHeight,
+      localEchoEnabled: userConfig.value.localEchoEnabled,
       middleMouseEvent: userConfig.value.middleMouseEvent,
       rightMouseEvent: userConfig.value.rightMouseEvent,
       terminalType: userConfig.value.terminalType,
@@ -857,29 +876,23 @@ onBeforeUnmount(() => {
 <style scoped>
 .userInfo {
   width: 100%;
-  height: 100%;
 }
 
 .userInfo-container {
   width: 100%;
-  height: 100%;
   background-color: var(--bg-color) !important;
   border-radius: 6px;
-  overflow: hidden;
   padding: 4px;
   box-shadow: 0 4px 10px rgba(0, 0, 0, 0.15);
   color: var(--text-color);
 }
 
 :deep(.ant-card) {
-  height: 100%;
   background-color: var(--bg-color) !important;
 }
 
 :deep(.ant-card-body) {
-  height: 100%;
-  display: flex;
-  flex-direction: column;
+  padding: 16px;
   background-color: var(--bg-color);
 }
 

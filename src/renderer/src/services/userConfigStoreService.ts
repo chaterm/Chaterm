@@ -67,6 +67,7 @@ export interface UserConfig {
   cursorStyle: 'bar' | 'block' | 'underline' | undefined
   cursorBlink?: boolean
   lineHeight?: number
+  localEchoEnabled?: boolean
   terminalType?: string
   middleMouseEvent?: 'paste' | 'contextMenu' | 'closeTab' | 'none'
   rightMouseEvent?: 'paste' | 'contextMenu' | 'none'
@@ -169,6 +170,7 @@ export function buildDefaultUserConfig(now: number = Date.now()): UserConfig {
     cursorStyle: 'block',
     cursorBlink: true,
     lineHeight: 1,
+    localEchoEnabled: false,
     middleMouseEvent: 'paste',
     rightMouseEvent: 'contextMenu',
     watermark: 'open',
@@ -369,6 +371,7 @@ export const SYNC_WHITELIST = [
   'cursorStyle',
   'cursorBlink',
   'lineHeight',
+  'localEchoEnabled',
   'terminalType',
   'middleMouseEvent',
   'rightMouseEvent',
@@ -406,6 +409,7 @@ export const SYNC_FIELD_VALIDATORS: Record<SyncWhitelistKey, (val: unknown) => b
   cursorStyle: (val) => typeof val === 'string' && ['block', 'bar', 'underline'].includes(val),
   cursorBlink: (val) => typeof val === 'boolean',
   lineHeight: (val) => typeof val === 'number' && Number.isFinite(val) && val >= 1 && val <= 3,
+  localEchoEnabled: (val) => typeof val === 'boolean',
   terminalType: (val) =>
     typeof val === 'string' && ['xterm', 'xterm-256color', 'vt100', 'vt102', 'vt220', 'vt320', 'linux', 'scoansi', 'ansi'].includes(val),
   middleMouseEvent: (val) => typeof val === 'string' && ['paste', 'contextMenu', 'closeTab', 'none'].includes(val),
@@ -591,6 +595,10 @@ export function dispatchSideEffects(changedFields: Partial<SyncableUserConfig>):
   // pinchZoomStatus -> eventBus notification
   if ('pinchZoomStatus' in changedFields && changedFields.pinchZoomStatus !== undefined) {
     eventBus.emit('pinchZoomStatusChanged', changedFields.pinchZoomStatus === 1)
+  }
+
+  if ('localEchoEnabled' in changedFields && changedFields.localEchoEnabled !== undefined) {
+    eventBus.emit('localEchoSettingChanged', changedFields.localEchoEnabled === true)
   }
 
   // aliasStatus -> eventBus notification

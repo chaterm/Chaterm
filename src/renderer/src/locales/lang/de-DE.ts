@@ -260,6 +260,7 @@ export default {
     cursorStyleUnderline: 'Unterstreichung',
     cursorBlink: 'Cursor-Blinken',
     lineHeight: 'Zeilenhöhe',
+    localEcho: 'Lokales Echo aktivieren',
     mouseEvent: 'Maus-Ereignis',
     middleMouseEvent: 'Mittlere Maus-Ereignis',
     rightMouseEvent: 'Rechte Maus-Ereignis',

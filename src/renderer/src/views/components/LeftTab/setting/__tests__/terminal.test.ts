@@ -107,14 +107,15 @@ describe('Terminal Settings Component', () => {
     vi.clearAllMocks()
   })
 
-  it('loads cursorBlink and lineHeight from saved config', async () => {
+  it('loads cursorBlink, lineHeight, and localEchoEnabled from saved config', async () => {
     mockGetConfig.mockResolvedValue({
       fontSize: 12,
       fontFamily: 'Menlo',
       scrollBack: 1000,
       cursorStyle: 'underline',
       cursorBlink: false,
-      lineHeight: 1.8
+      lineHeight: 1.8,
+      localEchoEnabled: true
     })
 
     wrapper = createWrapper()
@@ -125,9 +126,10 @@ describe('Terminal Settings Component', () => {
     expect(vm.userConfig.cursorStyle).toBe('underline')
     expect(vm.userConfig.cursorBlink).toBe(false)
     expect(vm.userConfig.lineHeight).toBe(1.8)
+    expect(vm.userConfig.localEchoEnabled).toBe(true)
   })
 
-  it('falls back to defaults when cursorBlink and lineHeight are missing', async () => {
+  it('falls back to defaults when cursorBlink, lineHeight, and localEchoEnabled are missing', async () => {
     mockGetConfig.mockResolvedValue({
       fontSize: 12,
       fontFamily: 'Menlo',
@@ -142,9 +144,10 @@ describe('Terminal Settings Component', () => {
     const vm = wrapper.vm as any
     expect(vm.userConfig.cursorBlink).toBe(true)
     expect(vm.userConfig.lineHeight).toBe(1)
+    expect(vm.userConfig.localEchoEnabled).toBe(false)
   })
 
-  it('saveConfig persists cursorBlink and lineHeight', async () => {
+  it('saveConfig persists cursorBlink, lineHeight, and localEchoEnabled', async () => {
     wrapper = createWrapper()
     await nextTick()
     await nextTick()
@@ -154,13 +157,15 @@ describe('Terminal Settings Component', () => {
     const vm = wrapper.vm as any
     vm.userConfig.cursorBlink = false
     vm.userConfig.lineHeight = 2.2
+    vm.userConfig.localEchoEnabled = true
 
     await vm.saveConfig()
 
     expect(userConfigStore.saveConfig).toHaveBeenCalledWith(
       expect.objectContaining({
         cursorBlink: false,
-        lineHeight: 2.2
+        lineHeight: 2.2,
+        localEchoEnabled: true
       })
     )
   })
@@ -173,5 +178,15 @@ describe('Terminal Settings Component', () => {
     vm.handleCursorBlinkChange(false)
 
     expect(vm.userConfig.cursorBlink).toBe(false)
+  })
+
+  it('handleLocalEchoEnabledChange updates local state', async () => {
+    wrapper = createWrapper()
+    await nextTick()
+
+    const vm = wrapper.vm as any
+    vm.handleLocalEchoEnabledChange(true)
+
+    expect(vm.userConfig.localEchoEnabled).toBe(true)
   })
 })
