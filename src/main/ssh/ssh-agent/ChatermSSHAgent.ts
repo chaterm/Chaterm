@@ -1,5 +1,5 @@
 import { BaseAgent, utils } from 'ssh2'
-import { createServer, Server, Socket } from 'net'
+import { createServer, Socket, type ListenOptions, type Server } from 'net'
 import { EventEmitter } from 'events'
 import * as crypto from 'crypto'
 import * as fs from 'fs/promises'
@@ -36,18 +36,67 @@ interface SSHAgentKey {
   addedAt: Date
 }
 
+interface AgentConnection {
+  on(event: 'data', listener: (data: Buffer) => void): this
+  on(event: 'error', listener: (err: Error) => void): this
+  on(event: 'close', listener: () => void): this
+  write(data: Buffer): boolean
+  destroy(): void
+}
+
+class InMemoryAgentConnection extends EventEmitter implements AgentConnection {
+  private closed = false
+
+  constructor(private readonly stream: Duplex) {
+    super()
+  }
+
+  receive(data: Buffer): void {
+    if (!this.closed) {
+      this.emit('data', data)
+    }
+  }
+
+  write(data: Buffer): boolean {
+    if (this.closed) {
+      return false
+    }
+    return this.stream.push(Buffer.from(data))
+  }
+
+  destroy(): void {
+    if (this.closed) {
+      return
+    }
+    this.closed = true
+    this.stream.push(null)
+    this.emit('close')
+  }
+
+  closeFromClient(error?: Error | null): void {
+    if (this.closed) {
+      return
+    }
+    if (error) {
+      this.emit('error', error)
+    }
+    this.closed = true
+    this.emit('close')
+  }
+}
+
 // Define the SSH Agent class, inheriting the BaseAgent of ssh2
 export class SSHAgent extends BaseAgent {
   private eventEmitter = new EventEmitter()
   private server: Server | null = null
-  private readonly socketPath: string
+  private readonly socketPath: string | null
   private keys: Map<string, SSHAgentKey> = new Map()
   private isRunning: boolean = false
-  private clientConnections: Set<Socket> = new Set()
+  private clientConnections: Set<AgentConnection> = new Set()
 
   constructor(socketPath?: string) {
     super()
-    this.socketPath = socketPath || this.generateSocketPath()
+    this.socketPath = socketPath || (process.platform === 'win32' ? null : this.generateSocketPath())
   }
 
   // EventEmitter
@@ -75,24 +124,30 @@ export class SSHAgent extends BaseAgent {
     const randomSuffix = crypto.randomBytes(8).toString('hex')
     const timestamp = Date.now()
 
-    if (process.platform === 'win32') {
-      return `\\\\.\\pipe\\ssh-agent-${timestamp}-${randomSuffix}`
-    } else {
-      return path.join(tmpDir, `ssh-agent-${timestamp}-${randomSuffix}.sock`)
-    }
+    return path.join(tmpDir, `ssh-agent-${timestamp}-${randomSuffix}.sock`)
   }
 
-  async start(): Promise<string> {
+  async start(): Promise<string | null> {
     if (this.isRunning) {
       return this.socketPath
     }
 
-    // Clean up old socket files
-    if (process.platform !== 'win32') {
-      try {
-        await fs.unlink(this.socketPath)
-      } catch (error) {}
+    if (process.platform === 'win32') {
+      this.isRunning = true
+      logger.info('SSH Agent started without Windows named pipe', { event: 'ssh.agent.started.inmemory' })
+      this.emit('started', null)
+      return null
     }
+
+    if (!this.socketPath) {
+      throw new Error('SSH Agent socket path is not available')
+    }
+    const socketPath = this.socketPath
+
+    // Clean up old socket files
+    try {
+      await fs.unlink(socketPath)
+    } catch (error) {}
 
     return new Promise((resolve, reject) => {
       this.server = createServer((socket) => {
@@ -104,29 +159,40 @@ export class SSHAgent extends BaseAgent {
         reject(err)
       })
 
-      this.server.listen(this.socketPath, () => {
+      this.server.listen(this.createListenOptions(), () => {
         this.isRunning = true
         logger.info('SSH Agent started', { event: 'ssh.agent.started' })
 
         // Set SSH_AUTH_SOCK
-        process.env.SSH_AUTH_SOCK = this.socketPath
+        process.env.SSH_AUTH_SOCK = socketPath
 
         // Set Permissions
-        if (process.platform !== 'win32') {
-          fs.chmod(this.socketPath, 0o600).catch((err) => {
-            logger.warn('Could not set socket permissions', { event: 'ssh.agent.chmod.error', error: err.message })
-          })
-        }
+        fs.chmod(socketPath, 0o600).catch((err) => {
+          logger.warn('Could not set socket permissions', { event: 'ssh.agent.chmod.error', error: err.message })
+        })
 
-        this.emit('started', this.socketPath)
-        resolve(this.socketPath)
+        this.emit('started', socketPath)
+        resolve(socketPath)
       })
     })
   }
 
+  private createListenOptions(): ListenOptions {
+    if (!this.socketPath) {
+      throw new Error('SSH Agent socket path is not available')
+    }
+
+    return {
+      path: this.socketPath,
+      exclusive: true,
+      readableAll: false,
+      writableAll: false
+    }
+  }
+
   async stop(): Promise<void> {
     return new Promise((resolve) => {
-      if (!this.isRunning || !this.server) {
+      if (!this.isRunning) {
         resolve()
         return
       }
@@ -137,11 +203,11 @@ export class SSHAgent extends BaseAgent {
       })
       this.clientConnections.clear()
 
-      this.server.close(async () => {
+      const finishStop = async () => {
         this.isRunning = false
 
         // Clean up socket files
-        if (process.platform !== 'win32') {
+        if (this.socketPath) {
           try {
             await fs.unlink(this.socketPath)
           } catch (err) {
@@ -157,11 +223,18 @@ export class SSHAgent extends BaseAgent {
         logger.info('SSH Agent stopped', { event: 'ssh.agent.stopped' })
         this.emit('stopped')
         resolve()
-      })
+      }
+
+      if (!this.server) {
+        finishStop()
+        return
+      }
+
+      this.server.close(finishStop)
     })
   }
 
-  private handleConnection(socket: Socket): void {
+  private handleConnection(socket: AgentConnection): void {
     this.clientConnections.add(socket)
     logger.debug('SSH Agent client connected', { event: 'ssh.agent.client.connect' })
 
@@ -183,7 +256,7 @@ export class SSHAgent extends BaseAgent {
     })
   }
 
-  private processMessages(socket: Socket, buffer: Buffer): Buffer {
+  private processMessages(socket: AgentConnection, buffer: Buffer): Buffer {
     let offset = 0
 
     while (offset + 4 <= buffer.length) {
@@ -214,7 +287,7 @@ export class SSHAgent extends BaseAgent {
     return buffer.slice(offset)
   }
 
-  private handleAgentMessage(socket: Socket, message: Buffer): void {
+  private handleAgentMessage(socket: AgentConnection, message: Buffer): void {
     if (message.length === 0) return
 
     const messageType = message.readUInt8(0)
@@ -238,7 +311,7 @@ export class SSHAgent extends BaseAgent {
     }
   }
 
-  private handleRequestIdentities(socket: Socket): void {
+  private handleRequestIdentities(socket: AgentConnection): void {
     logger.debug('Handling request identities', { event: 'ssh.agent.identities' })
 
     const keys = Array.from(this.keys.values())
@@ -292,7 +365,7 @@ export class SSHAgent extends BaseAgent {
     this.sendResponse(socket, response)
   }
 
-  private handleSignRequest(socket: Socket, message: Buffer): void {
+  private handleSignRequest(socket: AgentConnection, message: Buffer): void {
     logger.debug('Handling sign request', { event: 'ssh.agent.sign' })
 
     let offset = 1 // Skip message
@@ -417,7 +490,7 @@ export class SSHAgent extends BaseAgent {
     return result
   }
 
-  private sendResponse(socket: Socket, data: Buffer): void {
+  private sendResponse(socket: AgentConnection, data: Buffer): void {
     const response = Buffer.alloc(4 + data.length)
     response.writeUInt32BE(data.length, 0)
     data.copy(response, 4)
@@ -427,7 +500,7 @@ export class SSHAgent extends BaseAgent {
     socket.write(response)
   }
 
-  private sendSignResponse(socket: Socket, signature: Buffer): void {
+  private sendSignResponse(socket: AgentConnection, signature: Buffer): void {
     const response = Buffer.alloc(1 + 4 + signature.length)
     let offset = 0
 
@@ -445,7 +518,7 @@ export class SSHAgent extends BaseAgent {
     this.sendResponse(socket, response)
   }
 
-  private sendFailureResponse(socket: Socket): void {
+  private sendFailureResponse(socket: AgentConnection): void {
     const response = Buffer.from([SSH_AGENT_FAILURE])
     this.sendResponse(socket, response)
   }
@@ -497,6 +570,15 @@ export class SSHAgent extends BaseAgent {
     }
 
     try {
+      if (process.platform === 'win32') {
+        callback(null, this.createInMemoryStream())
+        return
+      }
+
+      if (!this.socketPath) {
+        return callback(new Error('SSH Agent socket path is not available'))
+      }
+
       // Create a stream connected to the local agent
       const socket = new Socket()
       socket.connect(this.socketPath, () => {
@@ -509,6 +591,28 @@ export class SSHAgent extends BaseAgent {
     } catch (error) {
       callback(error as Error)
     }
+  }
+
+  private createInMemoryStream(): Duplex {
+    let connection: InMemoryAgentConnection
+
+    const readNoop = () => undefined
+    const stream = new Duplex({
+      read: readNoop,
+      write: (chunk, _encoding, next) => {
+        connection.receive(Buffer.from(chunk))
+        next()
+      },
+      destroy: (error, next) => {
+        connection.closeFromClient(error)
+        next(error)
+      }
+    })
+
+    connection = new InMemoryAgentConnection(stream)
+    this.handleConnection(connection)
+
+    return stream
   }
 
   async addKeyFromData(privateKeyData: string, passphrase?: string, comment?: string): Promise<string> {
@@ -589,7 +693,7 @@ export class SSHAgent extends BaseAgent {
     }))
   }
 
-  getSocketPath(): string {
+  getSocketPath(): string | null {
     return this.socketPath
   }
 
