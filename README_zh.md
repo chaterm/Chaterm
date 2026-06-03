@@ -45,6 +45,7 @@
   - [How Chaterm’s Security Architecture Ensures Data Security and Reliability](https://aws.amazon.com/cn/blogs/china/chaterm-aws-kms-envelope-encryption-for-zero-trust-security-en/)
   - [Enhancing DevOps Intelligence with Chaterm Skills and Qwen Models](https://chaterm.ai/blog/posts/agent-skills)
 - [Gold Sponsors](#gold-sponsors)
+- [致谢](#致谢)
 - [Contributors](#contributors)
 
 # 产品介绍
@@ -171,6 +172,13 @@ npm run build:linux
 ## Gold Sponsors
 
 ![Preview image](resources/aws.webp) ![Preview image](resources/aliyun.webp)
+
+## 致谢
+
+Chaterm 受益于优秀的开源项目，在此特别感谢：
+
+- **[Cline](https://github.com/cline/cline)** — AI Agent 系统的部分实现参考并改编自 Cline。
+- **[RTK](https://github.com/rtk-ai/rtk)** — 用于命令输出过滤，在 Agent 工作流中减少 token 消耗。
 
 ## Contributors
 
