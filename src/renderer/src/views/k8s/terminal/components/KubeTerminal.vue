@@ -21,6 +21,7 @@ import eventBus from '@/utils/eventBus'
 import { getResolvedTerminalTheme } from '@/themes/terminalTheme'
 import { userConfigStore } from '@/store/userConfigStore'
 import type { ThemeId, ThemeChangePayload } from '../../../../../../shared/themes/types'
+import { createTerminalWriteQueue, type TerminalWriteQueue } from '@/utils/terminalWriteQueue'
 
 const props = defineProps<{
   terminalId: string
@@ -37,6 +38,7 @@ const containerRef = ref<HTMLElement | null>(null)
 const terminalRef = ref<HTMLElement | null>(null)
 const terminal = ref<Terminal | null>(null)
 const fitAddon = ref<FitAddon | null>(null)
+let writeQueue: TerminalWriteQueue | null = null
 
 const configStore = userConfigStore()
 
@@ -75,6 +77,17 @@ const initTerminal = () => {
 
   terminal.value.open(terminalRef.value)
   fitAddon.value.fit()
+  writeQueue = createTerminalWriteQueue({
+    write: (data, callback) => {
+      if (!terminal.value) {
+        callback?.()
+        return
+      }
+      terminal.value.write(data, callback)
+    },
+    maxBatchBytes: 64 * 1024,
+    maxPendingBytes: 2 * 1024 * 1024
+  })
 
   // Handle user input
   terminal.value.onData((data) => {
@@ -88,13 +101,13 @@ const initTerminal = () => {
 
   // Subscribe to terminal data
   const dataCleanup = k8sApi.onTerminalData(props.terminalId, (data) => {
-    terminal.value?.write(data)
+    writeQueue?.enqueue(data, { droppable: true })
   })
   cleanupFns.push(dataCleanup)
 
   // Subscribe to terminal exit
   const exitCleanup = k8sApi.onTerminalExit(props.terminalId, () => {
-    terminal.value?.writeln('\r\n[Terminal session ended]')
+    writeQueue?.enqueue('\r\n[Terminal session ended]\r\n', { droppable: false })
   })
   cleanupFns.push(exitCleanup)
 }
@@ -170,6 +183,8 @@ onBeforeUnmount(() => {
   }
 
   // Dispose terminal
+  writeQueue?.dispose()
+  writeQueue = null
   if (terminal.value) {
     terminal.value.dispose()
     terminal.value = null

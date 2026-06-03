@@ -4,6 +4,7 @@ import * as os from 'os'
 import * as path from 'path'
 import * as fs from 'fs'
 import { getUserConfig } from '../agent/core/storage/state'
+import { createTerminalOutputBuffer, type TerminalOutputBuffer } from '../services/terminalOutputBuffer'
 const localLogger = createLogger('terminal')
 
 // Import language translations
@@ -75,6 +76,7 @@ interface LocalTerminal {
   pty: pty.IPty
   isAlive: boolean
   shell: string
+  outputBuffer: TerminalOutputBuffer
 }
 
 interface ShellItem {
@@ -176,23 +178,29 @@ const createTerminal = async (config: LocalTerminalConfig): Promise<LocalTermina
     cwd,
     env
   })
+  const outputBuffer = createTerminalOutputBuffer({
+    send: (data) => sendToRenderer(`local:data:${config.id}`, data)
+  })
   const terminal: LocalTerminal = {
     id: config.id,
     pty: ptyProcess,
     isAlive: true,
-    shell: shell
+    shell: shell,
+    outputBuffer
   }
 
   ptyProcess.onData((data) => {
     if (data.includes('command not found') || data.includes('error') || data.includes('Error')) {
       sendToRenderer(`local:error:${config.id}`, data)
     }
-    sendToRenderer(`local:data:${config.id}`, data)
+    outputBuffer.push(data)
   })
 
   ptyProcess.onExit((exitCode) => {
     localLogger.debug('Local terminal exited', { event: 'terminal.exit', terminalId: config.id, exitCode: exitCode?.exitCode })
     terminal.isAlive = false
+    outputBuffer.flush()
+    outputBuffer.dispose()
     sendToRenderer(`local:exit:${config.id}`, exitCode)
     terminals.delete(config.id)
   })
@@ -210,6 +218,8 @@ const closeTerminal = (terminalId: string) => {
   const terminal = terminals.get(terminalId)
   if (terminal) {
     try {
+      terminal.outputBuffer.flush()
+      terminal.outputBuffer.dispose()
       terminal.pty.kill()
       terminal.isAlive = false
       terminals.delete(terminalId)

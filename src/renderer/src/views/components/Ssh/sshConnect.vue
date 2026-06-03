@@ -149,6 +149,7 @@ import { shouldAutoScrollAfterTerminalStateUpdate, shouldAutoScrollAfterTerminal
 import { LocalEchoController } from './utils/localEcho'
 import { resolveAliasExpansion, shouldSuppressCtrlVAfterNativePaste } from './utils/terminalInput'
 import { applyTerminalRuntimeConfig, TERMINAL_RUNTIME_CONFIG_CHANGED_EVENT, type TerminalRuntimeConfig } from '@/utils/terminalRuntimeConfig'
+import { createTerminalWriteQueue } from '@/utils/terminalWriteQueue'
 
 // Pre-compiled regex constants for checkFullScreenClear / checkHeavyUiStyle (avoid re-creation per call)
 const CLEAR_SCREEN_PATTERNS = [
@@ -730,12 +731,22 @@ onMounted(async () => {
     textarea.addEventListener('paste', textareaPasteListener)
   }
   const originalWrite = termInstance.write.bind(termInstance)
+  const terminalWriteQueue = createTerminalWriteQueue({
+    write: originalWrite,
+    maxBatchBytes: 64 * 1024,
+    maxPendingBytes: 2 * 1024 * 1024
+  })
+  cleanupListeners.value.push(() => terminalWriteQueue.dispose())
 
   // High-throughput detection: bypass expensive processing during bulk output (e.g., cat large file)
   const HIGH_THROUGHPUT_THRESHOLD = 20 // writes per second to trigger
   const HIGH_THROUGHPUT_COOLDOWN = 500 // ms of low activity to exit
+  const HIGH_THROUGHPUT_PENDING_BYTES = 256 * 1024
+  const HIGH_THROUGHPUT_BYTES_THRESHOLD = 256 * 1024
+  const HIGH_THROUGHPUT_CHUNK_BYTES = 32 * 1024
   let highThroughputMode = false
   let htWriteCount = 0
+  let htWriteBytes = 0
   let htWindowTimer: ReturnType<typeof setTimeout> | null = null
   let htCooldownTimer: ReturnType<typeof setTimeout> | null = null
 
@@ -793,26 +804,46 @@ onMounted(async () => {
     // Track write frequency to detect high-throughput scenarios (e.g., cat large file)
     if (!currentIsUserCall) {
       htWriteCount++
+      htWriteBytes += data.length
+      if (data.length >= HIGH_THROUGHPUT_CHUNK_BYTES || htWriteBytes >= HIGH_THROUGHPUT_BYTES_THRESHOLD) {
+        highThroughputMode = true
+      }
       if (!htWindowTimer) {
         htWindowTimer = setTimeout(() => {
-          if (htWriteCount >= HIGH_THROUGHPUT_THRESHOLD) {
+          if (htWriteCount >= HIGH_THROUGHPUT_THRESHOLD || htWriteBytes >= HIGH_THROUGHPUT_BYTES_THRESHOLD) {
             highThroughputMode = true
+            scheduleHighThroughputExit()
           }
           htWriteCount = 0
+          htWriteBytes = 0
           htWindowTimer = null
         }, 1000)
       }
     }
 
     // High-throughput mode: bypass keyword highlight, render patching, and state updates
-    if (highThroughputMode && !currentIsUserCall) {
+    const pendingBytes = terminalWriteQueue.getPendingBytes()
+    if ((highThroughputMode || pendingBytes >= HIGH_THROUGHPUT_PENDING_BYTES) && !currentIsUserCall) {
       const shouldAutoScroll = shouldAutoScrollAfterTerminalWrite(terminal.value)
-      originalWrite(data, () => {
-        if (shouldAutoScroll) {
-          scheduleScrollToBottom()
+      terminalWriteQueue.enqueue(data, {
+        droppable: terminalMode.value === 'none',
+        callback: () => {
+          if (shouldAutoScroll) {
+            scheduleScrollToBottom()
+          }
         }
       })
+      highThroughputMode = true
       scheduleHighThroughputExit()
+      return
+    }
+
+    if (currentIsUserCall) {
+      originalWrite(data, () => {
+        if (updateStateAfterWrite) {
+          debouncedUpdateTerminalState(data, currentIsUserCall, false, { allowHighlight: options?.allowHighlightAfterWrite === true })
+        }
+      })
       return
     }
 
@@ -825,12 +856,15 @@ onMounted(async () => {
     }
 
     const shouldAutoScroll = !currentIsUserCall && shouldAutoScrollAfterTerminalWrite(terminal.value)
-    originalWrite(processedData, () => {
-      if (!currentIsUserCall || updateStateAfterWrite) {
-        debouncedUpdateTerminalState(data, currentIsUserCall, shouldAutoScroll, { allowHighlight: options?.allowHighlightAfterWrite === true })
-      }
-      if (shouldAutoScroll) {
-        scheduleScrollToBottom()
+    terminalWriteQueue.enqueue(processedData, {
+      droppable: terminalMode.value === 'none',
+      callback: () => {
+        if (!currentIsUserCall || updateStateAfterWrite) {
+          debouncedUpdateTerminalState(data, currentIsUserCall, shouldAutoScroll, { allowHighlight: options?.allowHighlightAfterWrite === true })
+        }
+        if (shouldAutoScroll) {
+          scheduleScrollToBottom()
+        }
       }
     })
   }
