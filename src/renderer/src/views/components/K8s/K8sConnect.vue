@@ -27,6 +27,7 @@ import type { ThemeId, ThemeChangePayload } from '../../../../../shared/themes/t
 import eventBus from '@/utils/eventBus'
 import { getLastNonEmptyLine, isTerminalPromptLine } from '@views/components/Ssh/utils/terminalPrompt'
 import { stripAnsiBasic } from '@views/components/Ssh/utils/ansiUtils'
+import { applyTerminalRuntimeConfig, TERMINAL_RUNTIME_CONFIG_CHANGED_EVENT, type TerminalRuntimeConfig } from '@/utils/terminalRuntimeConfig'
 
 const logger = createRendererLogger('k8s.connect')
 const k8sStore = useK8sStore()
@@ -117,6 +118,22 @@ const debounce = (func: (...args: any[]) => void, wait: number, immediate = fals
 const getTerminalTheme = (themeOverride?: string) => {
   const themeId = (themeOverride || userConfig?.theme || configStore.getUserConfig.theme || 'dark') as ThemeId
   return getResolvedTerminalTheme(themeId, { hasCustomBg: isTransparent.value === true })
+}
+
+const handleTerminalRuntimeConfigChanged = (updatedConfig: Partial<TerminalRuntimeConfig>) => {
+  if (!updatedConfig || typeof updatedConfig !== 'object') return
+
+  userConfig = {
+    ...(userConfig || {}),
+    ...updatedConfig
+  }
+
+  const { requiresResize } = applyTerminalRuntimeConfig(terminal.value, updatedConfig)
+  if (requiresResize) {
+    nextTick(() => {
+      handleResize()
+    })
+  }
 }
 
 // Initialize terminal
@@ -406,6 +423,9 @@ onMounted(() => {
   }
   eventBus.on('updateTheme', handleUpdateTheme)
   cleanupFns.push(() => eventBus.off('updateTheme', handleUpdateTheme))
+
+  eventBus.on(TERMINAL_RUNTIME_CONFIG_CHANGED_EVENT, handleTerminalRuntimeConfigChanged)
+  cleanupFns.push(() => eventBus.off(TERMINAL_RUNTIME_CONFIG_CHANGED_EVENT, handleTerminalRuntimeConfigChanged))
 
   // Re-apply terminal theme when the custom background image is toggled so
   // the xterm surface picks up the new transparent/opaque state immediately.

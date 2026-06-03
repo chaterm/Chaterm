@@ -172,6 +172,7 @@ const currentTheme = computed(() => {
 })
 
 const handleTextChange = (editor, newValue) => {
+  editor.vimText = newValue
   if (editor.originVimText !== newValue) {
     editor.fileChange = true
     editor.saved = false

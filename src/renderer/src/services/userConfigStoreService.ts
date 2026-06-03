@@ -10,6 +10,12 @@ import { THEME_PRESETS } from '../../../shared/themes/presets'
 import { resolveThemePreset } from '../../../shared/themes/resolve'
 import type { ThemeId } from '../../../shared/themes/types'
 import { applyThemeToDocument } from '@/themes/applyTheme'
+import {
+  TERMINAL_RUNTIME_CONFIG_CHANGED_EVENT,
+  diffTerminalRuntimeConfig,
+  hasTerminalRuntimeConfig,
+  pickTerminalRuntimeConfig
+} from '@/utils/terminalRuntimeConfig'
 
 const logger = createRendererLogger('service.userConfig')
 
@@ -300,15 +306,16 @@ export class UserConfigStoreService {
 
   async saveConfig(config: Partial<UserConfig>): Promise<void> {
     try {
-      const defaultConfig = await this.getConfig()
+      const currentConfig = await this.getConfig()
 
       const sanitizedConfig: UserConfig = {
-        ...defaultConfig,
+        ...currentConfig,
         ...config,
-        sshProxyConfigs: config.sshProxyConfigs ? toRaw(config.sshProxyConfigs) : defaultConfig.sshProxyConfigs,
+        sshProxyConfigs: config.sshProxyConfigs ? toRaw(config.sshProxyConfigs) : currentConfig.sshProxyConfigs,
         id: 'userConfig',
         updatedAt: Date.now()
       }
+      const changedTerminalRuntimeConfig = diffTerminalRuntimeConfig(currentConfig, sanitizedConfig)
 
       await window.api.kvTransaction(async (tx) => {
         const existingMetaRaw = await tx.get('userConfigSyncMeta')
@@ -333,6 +340,10 @@ export class UserConfigStoreService {
         defaultLayout: sanitizedConfig.defaultLayout,
         watermark: sanitizedConfig.watermark
       })
+
+      if (hasTerminalRuntimeConfig(changedTerminalRuntimeConfig)) {
+        eventBus.emit(TERMINAL_RUNTIME_CONFIG_CHANGED_EVENT, changedTerminalRuntimeConfig)
+      }
 
       // Trigger sync upload after successful save
       try {
@@ -611,8 +622,10 @@ export function dispatchSideEffects(changedFields: Partial<SyncableUserConfig>):
     eventBus.emit('shortcutsSyncApplied')
   }
 
-  // Other fields (fontSize, scrollBack, cursorStyle, terminalType, etc.)
-  // are consumed via Pinia computed/watch - no extra side-effects needed.
+  const changedTerminalRuntimeConfig = pickTerminalRuntimeConfig(changedFields)
+  if (hasTerminalRuntimeConfig(changedTerminalRuntimeConfig)) {
+    eventBus.emit(TERMINAL_RUNTIME_CONFIG_CHANGED_EVENT, changedTerminalRuntimeConfig)
+  }
 }
 
 // ---------------------------------------------------------------------------

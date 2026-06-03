@@ -846,13 +846,6 @@ watch(
   { deep: true }
 )
 
-watch(
-  () => userConfig.value.fontFamily,
-  (newFontFamily) => {
-    eventBus.emit('updateTerminalFont', newFontFamily)
-  }
-)
-
 const reloadConfigOnSync = async () => {
   await loadSavedConfig()
 }
