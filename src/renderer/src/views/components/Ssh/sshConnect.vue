@@ -147,6 +147,9 @@ import { keywordHighlightService } from '@/services/keywordHighlightService'
 import { useZmodem } from './utils/chatermZmodem'
 import { shouldAutoScrollAfterTerminalStateUpdate, shouldAutoScrollAfterTerminalWrite } from './utils/terminalScroll'
 import { LocalEchoController } from './utils/localEcho'
+import { resolveAliasExpansion, shouldSuppressCtrlVAfterNativePaste } from './utils/terminalInput'
+import { applyTerminalRuntimeConfig, TERMINAL_RUNTIME_CONFIG_CHANGED_EVENT, type TerminalRuntimeConfig } from '@/utils/terminalRuntimeConfig'
+import { createTerminalWriteQueue, type TerminalWriteQueue } from '@/utils/terminalWriteQueue'
 
 // Pre-compiled regex constants for checkFullScreenClear / checkHeavyUiStyle (avoid re-creation per call)
 const CLEAR_SCREEN_PATTERNS = [
@@ -179,21 +182,27 @@ let viewportScrollbarHideTimer: number | null = null
 // Coalesced scrollToBottom: uses requestAnimationFrame for smooth alignment with browser repaint
 let scrollToBottomScheduled = false
 let scrollToBottomNeedsFocus = false
-const scheduleScrollToBottom = () => {
+const scheduleScrollToBottom = (options?: { force?: boolean }) => {
+  if (options?.force === true || scrollToBottomNeedsFocus) {
+    terminalWriteQueue?.setPaused(false)
+  }
   if (scrollToBottomScheduled) return
   scrollToBottomScheduled = true
   requestAnimationFrame(() => {
-    terminal.value?.scrollToBottom()
-    if (scrollToBottomNeedsFocus) {
-      terminal.value?.focus()
-      scrollToBottomNeedsFocus = false
+    const force = options?.force === true || scrollToBottomNeedsFocus
+    if (force || shouldAutoScrollAfterTerminalWrite(terminal.value)) {
+      terminal.value?.scrollToBottom()
+      if (scrollToBottomNeedsFocus) {
+        terminal.value?.focus()
+      }
     }
+    scrollToBottomNeedsFocus = false
     scrollToBottomScheduled = false
   })
 }
 const scheduleScrollToBottomAndFocus = () => {
   scrollToBottomNeedsFocus = true
-  scheduleScrollToBottom()
+  scheduleScrollToBottom({ force: true })
 }
 
 const showTerminalScrollbarTemporarily = () => {
@@ -213,6 +222,7 @@ const showTerminalScrollbarTemporarily = () => {
 }
 
 const handleViewportScroll = () => {
+  terminalWriteQueue?.setPaused(!shouldAutoScrollAfterTerminalWrite(terminal.value))
   updateSelectionButtonPosition()
   showTerminalScrollbarTemporarily()
 }
@@ -410,6 +420,7 @@ const api = window.api as any
 const encoder = new TextEncoder()
 type TerminalWriteOptions = { isUserCall?: boolean; updateStateAfterWrite?: boolean; allowHighlightAfterWrite?: boolean }
 let cusWrite: ((data: string, options?: TerminalWriteOptions) => void) | null = null
+let terminalWriteQueue: TerminalWriteQueue | null = null
 const localEcho = new LocalEchoController()
 let resizeObserver: ResizeObserver | null = null
 const showSearch = ref(false)
@@ -472,8 +483,9 @@ let termOndata: IDisposable | null = null
 let termOnBinary: IDisposable | null = null
 let handleInput
 let textareaCompositionListener: ((e: CompositionEvent) => void) | null = null
-let textareaPasteListener: (() => void) | null = null
+let textareaPasteListener: ((e: ClipboardEvent) => void) | null = null
 const pasteFlag = ref(false)
+let lastNativePasteAt = 0
 let dbConfigStash: {
   aliasStatus?: number
   autoCompleteStatus?: number
@@ -711,19 +723,41 @@ onMounted(async () => {
         key: e.data
       })
     }
-    textareaPasteListener = () => {
+    textareaPasteListener = (e: ClipboardEvent) => {
       pasteFlag.value = true
+      const text = e.clipboardData?.getData('text/plain') ?? ''
+      if (!text) {
+        return
+      }
+
+      e.preventDefault()
+      lastNativePasteAt = Date.now()
+      sendDataAutoSwitchTerminal(text)
+      scheduleScrollToBottomAndFocus()
     }
     textarea.addEventListener('compositionend', textareaCompositionListener)
     textarea.addEventListener('paste', textareaPasteListener)
   }
   const originalWrite = termInstance.write.bind(termInstance)
+  terminalWriteQueue = createTerminalWriteQueue({
+    write: originalWrite,
+    maxBatchBytes: 64 * 1024,
+    maxPendingBytes: 2 * 1024 * 1024
+  })
+  cleanupListeners.value.push(() => {
+    terminalWriteQueue?.dispose()
+    terminalWriteQueue = null
+  })
 
   // High-throughput detection: bypass expensive processing during bulk output (e.g., cat large file)
   const HIGH_THROUGHPUT_THRESHOLD = 20 // writes per second to trigger
   const HIGH_THROUGHPUT_COOLDOWN = 500 // ms of low activity to exit
+  const HIGH_THROUGHPUT_PENDING_BYTES = 256 * 1024
+  const HIGH_THROUGHPUT_BYTES_THRESHOLD = 256 * 1024
+  const HIGH_THROUGHPUT_CHUNK_BYTES = 32 * 1024
   let highThroughputMode = false
   let htWriteCount = 0
+  let htWriteBytes = 0
   let htWindowTimer: ReturnType<typeof setTimeout> | null = null
   let htCooldownTimer: ReturnType<typeof setTimeout> | null = null
 
@@ -781,26 +815,46 @@ onMounted(async () => {
     // Track write frequency to detect high-throughput scenarios (e.g., cat large file)
     if (!currentIsUserCall) {
       htWriteCount++
+      htWriteBytes += data.length
+      if (data.length >= HIGH_THROUGHPUT_CHUNK_BYTES || htWriteBytes >= HIGH_THROUGHPUT_BYTES_THRESHOLD) {
+        highThroughputMode = true
+      }
       if (!htWindowTimer) {
         htWindowTimer = setTimeout(() => {
-          if (htWriteCount >= HIGH_THROUGHPUT_THRESHOLD) {
+          if (htWriteCount >= HIGH_THROUGHPUT_THRESHOLD || htWriteBytes >= HIGH_THROUGHPUT_BYTES_THRESHOLD) {
             highThroughputMode = true
+            scheduleHighThroughputExit()
           }
           htWriteCount = 0
+          htWriteBytes = 0
           htWindowTimer = null
         }, 1000)
       }
     }
 
     // High-throughput mode: bypass keyword highlight, render patching, and state updates
-    if (highThroughputMode && !currentIsUserCall) {
+    const pendingBytes = terminalWriteQueue?.getPendingBytes() ?? 0
+    if ((highThroughputMode || pendingBytes >= HIGH_THROUGHPUT_PENDING_BYTES) && !currentIsUserCall) {
       const shouldAutoScroll = shouldAutoScrollAfterTerminalWrite(terminal.value)
-      originalWrite(data, () => {
-        if (shouldAutoScroll) {
-          scheduleScrollToBottom()
+      terminalWriteQueue?.enqueue(data, {
+        droppable: terminalMode.value === 'none',
+        callback: () => {
+          if (shouldAutoScroll) {
+            scheduleScrollToBottom()
+          }
         }
       })
+      highThroughputMode = true
       scheduleHighThroughputExit()
+      return
+    }
+
+    if (currentIsUserCall) {
+      originalWrite(data, () => {
+        if (updateStateAfterWrite) {
+          debouncedUpdateTerminalState(data, currentIsUserCall, false, { allowHighlight: options?.allowHighlightAfterWrite === true })
+        }
+      })
       return
     }
 
@@ -813,12 +867,15 @@ onMounted(async () => {
     }
 
     const shouldAutoScroll = !currentIsUserCall && shouldAutoScrollAfterTerminalWrite(terminal.value)
-    originalWrite(processedData, () => {
-      if (!currentIsUserCall || updateStateAfterWrite) {
-        debouncedUpdateTerminalState(data, currentIsUserCall, shouldAutoScroll, { allowHighlight: options?.allowHighlightAfterWrite === true })
-      }
-      if (shouldAutoScroll) {
-        scheduleScrollToBottom()
+    terminalWriteQueue?.enqueue(processedData, {
+      droppable: terminalMode.value === 'none',
+      callback: () => {
+        if (!currentIsUserCall || updateStateAfterWrite) {
+          debouncedUpdateTerminalState(data, currentIsUserCall, shouldAutoScroll, { allowHighlight: options?.allowHighlightAfterWrite === true })
+        }
+        if (shouldAutoScroll) {
+          scheduleScrollToBottom()
+        }
       }
     })
   }
@@ -940,6 +997,22 @@ onMounted(async () => {
     localEcho.setEnabled(enabled)
   }
 
+  const handleTerminalRuntimeConfigChanged = (updatedConfig: Partial<TerminalRuntimeConfig>) => {
+    if (!updatedConfig || typeof updatedConfig !== 'object') return
+
+    config = {
+      ...(config || {}),
+      ...updatedConfig
+    }
+
+    const { requiresResize } = applyTerminalRuntimeConfig(terminal.value, updatedConfig)
+    if (requiresResize) {
+      nextTick(() => {
+        handleResize()
+      })
+    }
+  }
+
   const handleGetCursorPosition = (payload: { connectionId?: string; callback: (position: any) => void }) => {
     const { connectionId: targetId, callback } = payload
     if (targetId && targetId !== props.currentConnectionId) return
@@ -960,6 +1033,7 @@ onMounted(async () => {
   eventBus.on('sendOrToggleAiFromTerminalForTab', handleSendOrToggleAiForTab)
   eventBus.on('updateTheme', handleUpdateTheme)
   eventBus.on('localEchoSettingChanged', handleLocalEchoSettingChanged)
+  eventBus.on(TERMINAL_RUNTIME_CONFIG_CHANGED_EVENT, handleTerminalRuntimeConfigChanged)
   eventBus.on('openSearch', openSearch)
   eventBus.on('pinchZoomStatusChanged', handlePinchZoomStatusChanged)
 
@@ -1013,6 +1087,7 @@ onMounted(async () => {
     eventBus.off('openSearch', openSearch)
     eventBus.off('pinchZoomStatusChanged', handlePinchZoomStatusChanged)
     eventBus.off('localEchoSettingChanged', handleLocalEchoSettingChanged)
+    eventBus.off(TERMINAL_RUNTIME_CONFIG_CHANGED_EVENT, handleTerminalRuntimeConfigChanged)
     eventBus.off('clearCurrentTerminal')
     eventBus.off('fontSizeIncrease')
     eventBus.off('fontSizeDecrease')
@@ -1254,8 +1329,8 @@ const handleSave = async (data) => {
   const { key, needClose } = data
   let errMsg = ''
   const editor = openEditors.find((editor) => editor?.key === key)
+  const newContent = editor?.vimText.replace(/\r\n/g, '\n') || ''
   if (editor?.fileChange) {
-    const newContent = editor.vimText.replace(/\r\n/g, '\n')
     let cmd = `cat <<'EOFChaterm:save' > ${editor.filePath}\n${newContent}\nEOFChaterm:save\n`
     if (connectionHasSudo.value) {
       cmd = `cat <<'EOFChaterm:save' | sudo tee  ${editor.filePath} > /dev/null \n${newContent}\nEOFChaterm:save\n`
@@ -1278,6 +1353,8 @@ const handleSave = async (data) => {
         }
       } else {
         editor.loading = false
+        editor.originVimText = newContent
+        editor.vimText = newContent
         editor.saved = true
         editor.fileChange = false
       }
@@ -1323,6 +1400,7 @@ const createEditor = async (filePath, contentType) => {
     } else if (existingEditor) {
       existingEditor.visible = true
       existingEditor.vimText = stdout
+      existingEditor.originVimText = stdout
     }
   }
 }
@@ -2101,6 +2179,9 @@ const connectLocalSSH = async () => {
       // Assign handleInput so that external callers (e.g. snippet execution via
       // inputManager.sendToActiveTerm) can write into the local terminal.
       handleInput = (data) => {
+        if (data === '\x16' && shouldSuppressCtrlVAfterNativePaste(lastNativePasteAt)) {
+          return
+        }
         if (data === '\x1b[1;3D' || data === '\x1b[1;5D') {
           api.sendDataLocal(connectionId.value, '\x1bb')
           return
@@ -2108,6 +2189,16 @@ const connectLocalSSH = async () => {
         if (data === '\x1b[1;3C' || data === '\x1b[1;5C') {
           api.sendDataLocal(connectionId.value, '\x1bf')
           return
+        }
+        if (data === '\r') {
+          const command = terminalState.value.content
+          const aliasStore = aliasConfigStore()
+          const newCommand = resolveAliasExpansion(command, dbConfigStash.aliasStatus, aliasStore.getCommand)
+          if (newCommand) {
+            const delData = String.fromCharCode(127)
+            api.sendDataLocal(connectionId.value, delData.repeat(command.length) + newCommand + '\r')
+            return
+          }
         }
         api.sendDataLocal(connectionId.value, data)
       }
@@ -2150,7 +2241,9 @@ const startLocalShell = async () => {
         handleCommandOutput(data, true)
       } else {
         // Normal data output, just write to terminal
-        if (terminal.value) {
+        if (cusWrite) {
+          cusWrite(data)
+        } else if (terminal.value) {
           terminal.value.write(data)
         }
       }
@@ -2583,6 +2676,9 @@ const setupTerminalInput = () => {
         sendData(data)
       }
     } else if (data === '\x16') {
+      if (shouldSuppressCtrlVAfterNativePaste(lastNativePasteAt)) {
+        return
+      }
       // Check if we're in vim mode (alternate mode)
       if (terminalMode.value === 'alternate') {
         // In vim mode, pass Ctrl+V to remote terminal for visual block mode
@@ -2646,8 +2742,8 @@ const setupTerminalInput = () => {
       } else {
         const delData = String.fromCharCode(127)
         const aliasStore = aliasConfigStore()
-        const newCommand = aliasStore.getCommand(command)
-        if (dbConfigStash.aliasStatus === 1 && newCommand !== null) {
+        const newCommand = resolveAliasExpansion(command, dbConfigStash.aliasStatus, aliasStore.getCommand)
+        if (newCommand) {
           sendData(delData.repeat(command.length) + newCommand + '\r')
         } else if (config.quickVimStatus === 1) {
           // connectionSftpAvailable.value = await api.checkSftpConnAvailable(connectionId.value)
@@ -5062,8 +5158,9 @@ const contextAct = (action) => {
 
 const focus = () => {
   if (terminal.value) {
-    // Ensure terminal scrolls to bottom, keeping cursor in visible area
-    terminal.value.scrollToBottom()
+    if (shouldAutoScrollAfterTerminalWrite(terminal.value)) {
+      terminal.value.scrollToBottom()
+    }
     terminal.value.focus()
     inputManager.setActiveTerm(connectionId.value)
   }
@@ -5261,7 +5358,9 @@ const terminalContainerResize = () => {
   } else {
     terminalContainer.value?.style.setProperty('height', '100%')
     if (terminal.value) {
-      terminal.value.scrollToBottom()
+      if (shouldAutoScrollAfterTerminalWrite(terminal.value)) {
+        terminal.value.scrollToBottom()
+      }
       terminal.value.focus()
     }
   }
