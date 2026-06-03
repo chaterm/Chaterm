@@ -148,6 +148,7 @@ import { useZmodem } from './utils/chatermZmodem'
 import { shouldAutoScrollAfterTerminalStateUpdate, shouldAutoScrollAfterTerminalWrite } from './utils/terminalScroll'
 import { LocalEchoController } from './utils/localEcho'
 import { resolveAliasExpansion, shouldSuppressCtrlVAfterNativePaste } from './utils/terminalInput'
+import { applyTerminalRuntimeConfig, TERMINAL_RUNTIME_CONFIG_CHANGED_EVENT, type TerminalRuntimeConfig } from '@/utils/terminalRuntimeConfig'
 
 // Pre-compiled regex constants for checkFullScreenClear / checkHeavyUiStyle (avoid re-creation per call)
 const CLEAR_SCREEN_PATTERNS = [
@@ -951,6 +952,22 @@ onMounted(async () => {
     localEcho.setEnabled(enabled)
   }
 
+  const handleTerminalRuntimeConfigChanged = (updatedConfig: Partial<TerminalRuntimeConfig>) => {
+    if (!updatedConfig || typeof updatedConfig !== 'object') return
+
+    config = {
+      ...(config || {}),
+      ...updatedConfig
+    }
+
+    const { requiresResize } = applyTerminalRuntimeConfig(terminal.value, updatedConfig)
+    if (requiresResize) {
+      nextTick(() => {
+        handleResize()
+      })
+    }
+  }
+
   const handleGetCursorPosition = (payload: { connectionId?: string; callback: (position: any) => void }) => {
     const { connectionId: targetId, callback } = payload
     if (targetId && targetId !== props.currentConnectionId) return
@@ -971,6 +988,7 @@ onMounted(async () => {
   eventBus.on('sendOrToggleAiFromTerminalForTab', handleSendOrToggleAiForTab)
   eventBus.on('updateTheme', handleUpdateTheme)
   eventBus.on('localEchoSettingChanged', handleLocalEchoSettingChanged)
+  eventBus.on(TERMINAL_RUNTIME_CONFIG_CHANGED_EVENT, handleTerminalRuntimeConfigChanged)
   eventBus.on('openSearch', openSearch)
   eventBus.on('pinchZoomStatusChanged', handlePinchZoomStatusChanged)
 
@@ -1024,6 +1042,7 @@ onMounted(async () => {
     eventBus.off('openSearch', openSearch)
     eventBus.off('pinchZoomStatusChanged', handlePinchZoomStatusChanged)
     eventBus.off('localEchoSettingChanged', handleLocalEchoSettingChanged)
+    eventBus.off(TERMINAL_RUNTIME_CONFIG_CHANGED_EVENT, handleTerminalRuntimeConfigChanged)
     eventBus.off('clearCurrentTerminal')
     eventBus.off('fontSizeIncrease')
     eventBus.off('fontSizeDecrease')
@@ -5094,8 +5113,9 @@ const contextAct = (action) => {
 
 const focus = () => {
   if (terminal.value) {
-    // Ensure terminal scrolls to bottom, keeping cursor in visible area
-    terminal.value.scrollToBottom()
+    if (shouldAutoScrollAfterTerminalWrite(terminal.value)) {
+      terminal.value.scrollToBottom()
+    }
     terminal.value.focus()
     inputManager.setActiveTerm(connectionId.value)
   }
@@ -5293,7 +5313,9 @@ const terminalContainerResize = () => {
   } else {
     terminalContainer.value?.style.setProperty('height', '100%')
     if (terminal.value) {
-      terminal.value.scrollToBottom()
+      if (shouldAutoScrollAfterTerminalWrite(terminal.value)) {
+        terminal.value.scrollToBottom()
+      }
       terminal.value.focus()
     }
   }
