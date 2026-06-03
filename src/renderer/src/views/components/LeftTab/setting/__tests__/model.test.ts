@@ -17,7 +17,7 @@
  */
 
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
-import { mount, VueWrapper } from '@vue/test-utils'
+import { flushPromises, mount, VueWrapper } from '@vue/test-utils'
 import { nextTick } from 'vue'
 import { createPinia, setActivePinia } from 'pinia'
 import ModelComponent from '../model.vue'
@@ -179,6 +179,13 @@ describe('Model Component', () => {
     })
   }
 
+  const waitForMountedAsync = async () => {
+    await flushPromises()
+    await nextTick()
+    await flushPromises()
+    await nextTick()
+  }
+
   beforeEach(() => {
     // Setup Pinia
     pinia = createPinia()
@@ -269,7 +276,7 @@ describe('Model Component', () => {
       wrapper = createWrapper()
       await nextTick()
       // Wait for async operations in onMounted
-      await new Promise((resolve) => setTimeout(resolve, 50))
+      await waitForMountedAsync()
 
       expect(getGlobalState).toHaveBeenCalled()
       expect(getSecret).toHaveBeenCalled()
@@ -279,7 +286,7 @@ describe('Model Component', () => {
       wrapper = createWrapper()
       await nextTick()
       // Wait for async operations in onMounted
-      await new Promise((resolve) => setTimeout(resolve, 50))
+      await waitForMountedAsync()
 
       expect(getUser).toHaveBeenCalled()
       expect(getGlobalState).toHaveBeenCalledWith('modelOptions')
@@ -291,7 +298,7 @@ describe('Model Component', () => {
 
       wrapper = createWrapper()
       await nextTick()
-      await new Promise((resolve) => setTimeout(resolve, 50))
+      await waitForMountedAsync()
 
       expect(notification.error).toHaveBeenCalledWith({
         message: 'Error',
@@ -332,7 +339,7 @@ describe('Model Component', () => {
 
       wrapper = createWrapper()
       await nextTick()
-      await new Promise((resolve) => setTimeout(resolve, 50))
+      await waitForMountedAsync()
 
       const addModelSwitch = wrapper.find('.a-switch')
       expect((addModelSwitch.element as HTMLInputElement).disabled).toBe(false)
@@ -373,7 +380,7 @@ describe('Model Component', () => {
       wrapper = createWrapper()
       await nextTick()
       // Wait for async operations in onMounted
-      await new Promise((resolve) => setTimeout(resolve, 50))
+      await waitForMountedAsync()
     })
 
     it('should display model list', () => {
@@ -417,7 +424,7 @@ describe('Model Component', () => {
       wrapper = createWrapper()
       await nextTick()
       // Wait for async operations in onMounted
-      await new Promise((resolve) => setTimeout(resolve, 50))
+      await waitForMountedAsync()
 
       const thinkingIcon = wrapper.find('.thinking-icon')
       expect(thinkingIcon.exists()).toBe(true)
@@ -449,7 +456,7 @@ describe('Model Component', () => {
       wrapper = createWrapper()
       await nextTick()
       // Wait for async operations in onMounted
-      await new Promise((resolve) => setTimeout(resolve, 50))
+      await waitForMountedAsync()
 
       const removeButton = wrapper.find('.remove-button')
       expect(removeButton.exists()).toBe(true)
@@ -499,7 +506,7 @@ describe('Model Component', () => {
       wrapper = createWrapper()
       await nextTick()
       // Wait for async operations in onMounted
-      await new Promise((resolve) => setTimeout(resolve, 50))
+      await waitForMountedAsync()
     })
 
     it('should handle model checkbox change', async () => {
@@ -557,7 +564,7 @@ describe('Model Component', () => {
       wrapper = createWrapper()
       await nextTick()
       // Wait for async operations in onMounted
-      await new Promise((resolve) => setTimeout(resolve, 50))
+      await waitForMountedAsync()
     })
 
     it('should remove custom model when remove button is clicked', async () => {
@@ -735,7 +742,7 @@ describe('Model Component', () => {
     it('should save Bedrock configuration', async () => {
       wrapper = createWrapper()
       await nextTick()
-      await new Promise((resolve) => setTimeout(resolve, 50))
+      await waitForMountedAsync()
 
       const vm = wrapper.vm as any
       vm.awsAccessKey = 'test-access-key'
@@ -981,7 +988,7 @@ describe('Model Component', () => {
     it('should not save model when model ID is empty', async () => {
       const vm = wrapper.vm as any
       vm.liteLlmModelId = ''
-      await new Promise((resolve) => setTimeout(resolve, 50))
+      await nextTick()
       ;(updateGlobalState as ReturnType<typeof vi.fn>).mockClear()
       ;(notification.error as ReturnType<typeof vi.fn>).mockClear()
 
@@ -1020,7 +1027,7 @@ describe('Model Component', () => {
 
       wrapper = createWrapper()
       await nextTick()
-      await new Promise((resolve) => setTimeout(resolve, 50))
+      await waitForMountedAsync()
 
       const vm = wrapper.vm as any
       vm.liteLlmBaseUrl = 'https://litellm.example.com'
@@ -1073,7 +1080,7 @@ describe('Model Component', () => {
 
       wrapper = createWrapper()
       await nextTick()
-      await new Promise((resolve) => setTimeout(resolve, 50))
+      await waitForMountedAsync()
 
       const vm = wrapper.vm as any
       vm.liteLlmBaseUrl = 'https://litellm.example.com'
@@ -1120,7 +1127,7 @@ describe('Model Component', () => {
 
       wrapper = createWrapper()
       await nextTick()
-      await new Promise((resolve) => setTimeout(resolve, 50))
+      await waitForMountedAsync()
 
       const vm = wrapper.vm as any
       vm.sortModelOptions()
@@ -1163,7 +1170,7 @@ describe('Model Component', () => {
 
       wrapper = createWrapper()
       await nextTick()
-      await new Promise((resolve) => setTimeout(resolve, 50))
+      await waitForMountedAsync()
 
       const vm = wrapper.vm as any
       vm.sortModelOptions()
@@ -1239,7 +1246,7 @@ describe('Model Component', () => {
 
       wrapper = createWrapper()
       await nextTick()
-      await new Promise((resolve) => setTimeout(resolve, 50))
+      await waitForMountedAsync()
 
       const vm = wrapper.vm as any
       expect(vm.modelOptions.length).toBeGreaterThan(0)
@@ -1309,7 +1316,7 @@ describe('Model Component', () => {
 
       wrapper = createWrapper()
       await nextTick()
-      await new Promise((resolve) => setTimeout(resolve, 50))
+      await waitForMountedAsync()
 
       const vm = wrapper.vm as any
       const newModel = vm.modelOptions.find((m: any) => m.name === 'gpt-3.5-turbo')
@@ -1337,7 +1344,7 @@ describe('Model Component', () => {
 
       wrapper = createWrapper()
       await nextTick()
-      await new Promise((resolve) => setTimeout(resolve, 50))
+      await waitForMountedAsync()
 
       // Error is caught and logged in component
       expect(getUser).toHaveBeenCalled()
@@ -1368,7 +1375,7 @@ describe('Model Component', () => {
 
       wrapper = createWrapper()
       await nextTick()
-      await new Promise((resolve) => setTimeout(resolve, 50))
+      await waitForMountedAsync()
 
       const error = new Error('Save failed')
       ;(updateGlobalState as ReturnType<typeof vi.fn>).mockRejectedValue(error)

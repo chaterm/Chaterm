@@ -260,6 +260,7 @@ export default {
     cursorStyleUnderline: 'Подчеркивание',
     cursorBlink: 'Мигание курсора',
     lineHeight: 'Высота строки',
+    localEcho: 'Включить локальное эхо',
     mouseEvent: 'Событие мыши',
     middleMouseEvent: 'Событие средней кнопки мыши',
     rightMouseEvent: 'Событие правой кнопки мыши',

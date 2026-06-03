@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
-import { syncEnterpriseStateFromUserData, useModelConfiguration } from '../useModelConfiguration'
+import { isEnterpriseDeployEnabled, syncEnterpriseStateFromUserData, useModelConfiguration } from '../useModelConfiguration'
 import * as stateModule from '@renderer/agent/storage/state'
 import { getUser } from '@api/user/user'
 import { ref } from 'vue'
@@ -548,6 +548,11 @@ describe('useModelConfiguration', () => {
   })
 
   describe('enterprise deploy gate', () => {
+    it('treats non-zero deploy status as enterprise deployment', () => {
+      vi.stubEnv('RENDERER_DEPLOY_STATUS', '2')
+      expect(isEnterpriseDeployEnabled()).toBe(true)
+    })
+
     it('clears enterprise state and skips plugin reload when deploy status is disabled', async () => {
       vi.stubEnv('RENDERER_DEPLOY_STATUS', '0')
 
@@ -654,6 +659,7 @@ describe('useModelConfiguration', () => {
     })
 
     it('showLockedModelUpgradeTag is true when subscription is free or lite', async () => {
+      vi.stubEnv('RENDERER_DEPLOY_STATUS', '0')
       vi.mocked(stateModule.getGlobalState).mockImplementation(async () => null)
       vi.mocked(getUser).mockResolvedValue({
         data: { models: [], subscriptionModels: [], subscription: 'free' }

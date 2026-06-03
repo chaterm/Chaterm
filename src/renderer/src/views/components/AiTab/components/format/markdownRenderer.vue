@@ -95,7 +95,7 @@
             </template>
             <div
               class="command-explain-content markdown-content"
-              v-html="sanitizeHtml(marked(props.explanation, null))"
+              v-html="renderedExplanationHtml"
             />
           </a-collapse-panel>
         </a-collapse>
@@ -156,7 +156,7 @@
         <div
           v-show="isCodeExpanded"
           class="code-content-body"
-          v-html="sanitizeHtml(marked('```' + (codeDetection.language || '') + '\n' + props.content + '\n```'))"
+          v-html="renderedCodeOutputHtml"
         ></div>
       </div>
       <TerminalOutputRenderer
@@ -234,7 +234,7 @@
         >
           <div
             class="thinking-content markdown-content"
-            v-html="sanitizeHtml(marked(getThinkingContent(thinkingContent), null))"
+            v-html="thinkingBodyHtml"
           ></div>
         </div>
         <a-collapse
@@ -270,7 +270,7 @@
             </template>
             <div
               class="thinking-content markdown-content"
-              v-html="sanitizeHtml(marked(getThinkingContent(thinkingContent), null))"
+              v-html="thinkingBodyHtml"
             ></div>
           </a-collapse-panel>
         </a-collapse>
@@ -303,7 +303,7 @@
         </template>
         <template v-else>
           <template
-            v-for="(part, index) in contentParts"
+            v-for="(part, index) in renderedContentParts"
             :key="index"
           >
             <div
@@ -311,7 +311,7 @@
               class="markdown-content"
               :class="{ 'ssh-info-message': props.say === 'sshInfo' }"
               style="margin: 0 8px"
-              v-html="sanitizeHtml(marked(part.content || '', null))"
+              v-html="part.html || ''"
             ></div>
             <div
               v-else-if="part.type === 'code'"
@@ -462,6 +462,21 @@ const isMarkdownSecretRedactionEnabled = async (): Promise<boolean> => {
   }
 }
 
+const escapeHtml = (text: string): string => {
+  return text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;')
+}
+
+const renderPlainTextToHtml = (content: string): string => {
+  if (!content) return ''
+  return escapeHtml(content).replace(/\n/g, '<br>')
+}
+
+const renderMarkdownToHtml = (content: string, lightweight: boolean = false): string => {
+  if (!content) return ''
+  const html = lightweight ? renderPlainTextToHtml(content) : marked(content, null)
+  return sanitizeHtml(html)
+}
+
 if (monaco.editor) {
   monaco.editor.defineTheme('custom-dark', {
     base: 'vs-dark',
@@ -525,6 +540,7 @@ const editorContainer = ref<HTMLElement | null>(null)
 const codeActiveKey = ref<string[]>(['1'])
 const monacoContainer = ref<HTMLElement | null>(null)
 const totalLines = ref(0)
+const secretRedactionEnabled = ref(false)
 
 // When lines < 10, prevent collapse from toggling (keep expanded)
 watch(
@@ -587,6 +603,10 @@ const codeDetection = computed(() => {
     return isCodeContent(props.content)
   }
   return { isCode: false }
+})
+
+const shouldUseLightweightStreamingRender = computed(() => {
+  return props.partial === true && props.say !== 'command_output' && props.say !== 'search_result'
 })
 
 const isSqlCommand = computed(() => {
@@ -890,13 +910,13 @@ const processContent = async (content: string) => {
     thinkingMeasurementToken++
     normalContent.value = ''
     codeBlocks.value = []
+    codeEditors.value = []
     thinkingLoading.value = false
     return
   }
 
   // Apply sensitive data de-identification
-  const redactionEnabled = await isMarkdownSecretRedactionEnabled()
-  let processedContent = applySecretRedactionToMarkdown(content, redactionEnabled)
+  let processedContent = applySecretRedactionToMarkdown(content, secretRedactionEnabled.value)
 
   if (props.say === 'reasoning') {
     processReasoningContent(processedContent)
@@ -944,6 +964,13 @@ const processContent = async (content: string) => {
   }
 
   if (processedContent) {
+    if (props.partial) {
+      normalContent.value = processedContent.trim()
+      codeBlocks.value = []
+      codeEditors.value = []
+      return
+    }
+
     const blocks = extractCodeBlocks(processedContent)
     codeBlocks.value = blocks
 
@@ -1132,6 +1159,7 @@ onMounted(async () => {
 
   themeObserver.observe(document.documentElement, { attributes: true })
   document.addEventListener('keydown', handleSelectedTextCopy, true)
+  secretRedactionEnabled.value = await isMarkdownSecretRedactionEnabled()
 
   if (props.content) {
     if (props.ask === 'command' || props.ask === 'db_sql_approval' || props.say === 'command') {
@@ -1288,6 +1316,24 @@ const getThinkingContent = (content: string) => {
   return firstLineEnd > -1 ? content.substring(firstLineEnd + 1).trim() : ''
 }
 
+const thinkingBody = computed(() => getThinkingContent(thinkingContent.value))
+
+const thinkingBodyHtml = computed(() => {
+  return renderMarkdownToHtml(thinkingBody.value, shouldUseLightweightStreamingRender.value)
+})
+
+const renderedExplanationHtml = computed(() => {
+  return renderMarkdownToHtml(props.explanation || '')
+})
+
+const renderedCodeOutputHtml = computed(() => {
+  if (!codeDetection.value.isCode || !props.content) {
+    return ''
+  }
+
+  return renderMarkdownToHtml(`\`\`\`${codeDetection.value.language || ''}\n${props.content}\n\`\`\``)
+})
+
 const contentParts = computed(() => {
   if (!normalContent.value && codeBlocks.value.length === 0) return []
 
@@ -1296,6 +1342,7 @@ const contentParts = computed(() => {
     content?: string
     block?: any
     blockIndex?: number
+    html?: string
   }> = []
   const segments = normalContent.value.split(/\[CODE_BLOCK_(\d+)\]/)
 
@@ -1317,6 +1364,19 @@ const contentParts = computed(() => {
   })
 
   return parts
+})
+
+const renderedContentParts = computed(() => {
+  return contentParts.value.map((part) => {
+    if (part.type !== 'text') {
+      return part
+    }
+
+    return {
+      ...part,
+      html: renderMarkdownToHtml(part.content || '', shouldUseLightweightStreamingRender.value)
+    }
+  })
 })
 
 const stripAnsiCodes = (str: string): string => {
@@ -1433,11 +1493,10 @@ const processContentLines = async (content: string) => {
     return
   }
 
-  const redactionEnabled = await isMarkdownSecretRedactionEnabled()
   const formattedOutput = extractFinalOutput(content)
 
   // Apply secret redaction to the entire output if redaction is enabled
-  const processedOutput = redactionEnabled ? applySecretRedactionToMarkdown(formattedOutput, true) : formattedOutput
+  const processedOutput = secretRedactionEnabled.value ? applySecretRedactionToMarkdown(formattedOutput, true) : formattedOutput
 
   const lines = processedOutput.split('\n')
 
@@ -1470,7 +1529,7 @@ const processContentLines = async (content: string) => {
 
     // Convert markdown strikethrough to HTML for command output
     let htmlContent = processAnsiCodes(line)
-    if (redactionEnabled && htmlContent.includes('~~')) {
+    if (secretRedactionEnabled.value && htmlContent.includes('~~')) {
       htmlContent = htmlContent.replace(/~~([^~]+)~~/g, '<del>$1</del>')
     }
 

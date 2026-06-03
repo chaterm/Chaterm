@@ -260,6 +260,7 @@ export default {
     cursorStyleUnderline: '下劃線',
     cursorBlink: '是否開啟游標閃爍',
     lineHeight: '行高',
+    localEcho: '啟用本地回顯',
     mouseEvent: '滑鼠事件',
     middleMouseEvent: '鼠標中鍵事件',
     rightMouseEvent: '鼠標右鍵事件',

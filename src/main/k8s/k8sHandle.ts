@@ -9,6 +9,7 @@ import { ChatermDatabaseService } from '../storage/db/chaterm.service'
 import { registerK8sAgentHandlers } from '../agent/integrations/k8s/ipc-handlers'
 import { connectK8sAssetByIdentity, closeK8sSession, syncK8sAssetsFromBastion } from '../ssh/jumpserver/k8sNavigator'
 import { jumpserverK8sSessions } from '../ssh/jumpserver/state'
+import { createTerminalOutputBuffer, type TerminalOutputBuffer } from '../services/terminalOutputBuffer'
 const logger = createLogger('k8s')
 
 /**
@@ -21,6 +22,7 @@ interface K8sTerminalSession {
   isAlive: boolean
   namespace: string
   kubeconfigPath?: string
+  outputBuffer: TerminalOutputBuffer
 }
 
 /**
@@ -206,22 +208,28 @@ const createK8sTerminal = async (config: K8sTerminalConfig): Promise<K8sTerminal
     env
   })
 
+  const outputBuffer = createTerminalOutputBuffer({
+    send: (data) => sendToRenderer(`k8s:terminal:data:${config.id}`, data)
+  })
   const terminal: K8sTerminalSession = {
     id: config.id,
     clusterId: config.clusterId,
     pty: ptyProcess,
     isAlive: true,
     namespace: config.namespace || 'default',
-    kubeconfigPath: env.KUBECONFIG
+    kubeconfigPath: env.KUBECONFIG,
+    outputBuffer
   }
 
   ptyProcess.onData((data) => {
-    sendToRenderer(`k8s:terminal:data:${config.id}`, data)
+    outputBuffer.push(data)
   })
 
   ptyProcess.onExit((exitCode) => {
     logger.debug('K8S terminal exited', { event: 'terminal.k8s.exit', terminalId: config.id, exitCode: exitCode?.exitCode })
     terminal.isAlive = false
+    outputBuffer.flush()
+    outputBuffer.dispose()
     sendToRenderer(`k8s:terminal:exit:${config.id}`, exitCode)
     terminalSessions.delete(config.id)
 
@@ -252,6 +260,8 @@ const closeK8sTerminal = (terminalId: string): { success: boolean; error?: strin
   const terminal = terminalSessions.get(terminalId)
   if (terminal) {
     try {
+      terminal.outputBuffer.flush()
+      terminal.outputBuffer.dispose()
       terminal.pty.kill()
       terminal.isAlive = false
       terminalSessions.delete(terminalId)

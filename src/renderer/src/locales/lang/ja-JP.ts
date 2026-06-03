@@ -260,6 +260,7 @@ export default {
     cursorStyleUnderline: '下線',
     cursorBlink: 'カーソルの点滅',
     lineHeight: '行の高さ',
+    localEcho: 'ローカルエコーを有効にする',
     mouseEvent: 'マウスイベント',
     middleMouseEvent: 'マウス中ボタンイベント',
     rightMouseEvent: 'マウス右ボタンイベント',

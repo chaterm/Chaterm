@@ -98,7 +98,7 @@ function parseDeployStatus(raw: unknown): number {
 }
 
 export function isEnterpriseDeployEnabled(): boolean {
-  return parseDeployStatus(import.meta.env.RENDERER_DEPLOY_STATUS) === 1
+  return parseDeployStatus(import.meta.env.RENDERER_DEPLOY_STATUS) !== 0
 }
 
 function normalizeProvider(rawProvider: unknown): string {
@@ -782,6 +782,7 @@ export const useModelConfiguration = createGlobalState(() => {
   )
 
   const showLockedModelUpgradeTag = computed(() => {
+    if (isEnterpriseDeployEnabled()) return false
     const sub = (subscription.value || '').toLowerCase()
     return sub === 'free' || sub === 'lite'
   })
