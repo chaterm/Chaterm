@@ -147,6 +147,7 @@ import { keywordHighlightService } from '@/services/keywordHighlightService'
 import { useZmodem } from './utils/chatermZmodem'
 import { shouldAutoScrollAfterTerminalStateUpdate, shouldAutoScrollAfterTerminalWrite } from './utils/terminalScroll'
 import { LocalEchoController } from './utils/localEcho'
+import { resolveAliasExpansion, shouldSuppressCtrlVAfterNativePaste } from './utils/terminalInput'
 
 // Pre-compiled regex constants for checkFullScreenClear / checkHeavyUiStyle (avoid re-creation per call)
 const CLEAR_SCREEN_PATTERNS = [
@@ -472,8 +473,9 @@ let termOndata: IDisposable | null = null
 let termOnBinary: IDisposable | null = null
 let handleInput
 let textareaCompositionListener: ((e: CompositionEvent) => void) | null = null
-let textareaPasteListener: (() => void) | null = null
+let textareaPasteListener: ((e: ClipboardEvent) => void) | null = null
 const pasteFlag = ref(false)
+let lastNativePasteAt = 0
 let dbConfigStash: {
   aliasStatus?: number
   autoCompleteStatus?: number
@@ -711,8 +713,17 @@ onMounted(async () => {
         key: e.data
       })
     }
-    textareaPasteListener = () => {
+    textareaPasteListener = (e: ClipboardEvent) => {
       pasteFlag.value = true
+      const text = e.clipboardData?.getData('text/plain') ?? ''
+      if (!text) {
+        return
+      }
+
+      e.preventDefault()
+      lastNativePasteAt = Date.now()
+      sendDataAutoSwitchTerminal(text)
+      scheduleScrollToBottomAndFocus()
     }
     textarea.addEventListener('compositionend', textareaCompositionListener)
     textarea.addEventListener('paste', textareaPasteListener)
@@ -1254,8 +1265,8 @@ const handleSave = async (data) => {
   const { key, needClose } = data
   let errMsg = ''
   const editor = openEditors.find((editor) => editor?.key === key)
+  const newContent = editor?.vimText.replace(/\r\n/g, '\n') || ''
   if (editor?.fileChange) {
-    const newContent = editor.vimText.replace(/\r\n/g, '\n')
     let cmd = `cat <<'EOFChaterm:save' > ${editor.filePath}\n${newContent}\nEOFChaterm:save\n`
     if (connectionHasSudo.value) {
       cmd = `cat <<'EOFChaterm:save' | sudo tee  ${editor.filePath} > /dev/null \n${newContent}\nEOFChaterm:save\n`
@@ -1278,6 +1289,8 @@ const handleSave = async (data) => {
         }
       } else {
         editor.loading = false
+        editor.originVimText = newContent
+        editor.vimText = newContent
         editor.saved = true
         editor.fileChange = false
       }
@@ -1323,6 +1336,7 @@ const createEditor = async (filePath, contentType) => {
     } else if (existingEditor) {
       existingEditor.visible = true
       existingEditor.vimText = stdout
+      existingEditor.originVimText = stdout
     }
   }
 }
@@ -2101,6 +2115,9 @@ const connectLocalSSH = async () => {
       // Assign handleInput so that external callers (e.g. snippet execution via
       // inputManager.sendToActiveTerm) can write into the local terminal.
       handleInput = (data) => {
+        if (data === '\x16' && shouldSuppressCtrlVAfterNativePaste(lastNativePasteAt)) {
+          return
+        }
         if (data === '\x1b[1;3D' || data === '\x1b[1;5D') {
           api.sendDataLocal(connectionId.value, '\x1bb')
           return
@@ -2108,6 +2125,16 @@ const connectLocalSSH = async () => {
         if (data === '\x1b[1;3C' || data === '\x1b[1;5C') {
           api.sendDataLocal(connectionId.value, '\x1bf')
           return
+        }
+        if (data === '\r') {
+          const command = terminalState.value.content
+          const aliasStore = aliasConfigStore()
+          const newCommand = resolveAliasExpansion(command, dbConfigStash.aliasStatus, aliasStore.getCommand)
+          if (newCommand) {
+            const delData = String.fromCharCode(127)
+            api.sendDataLocal(connectionId.value, delData.repeat(command.length) + newCommand + '\r')
+            return
+          }
         }
         api.sendDataLocal(connectionId.value, data)
       }
@@ -2150,7 +2177,9 @@ const startLocalShell = async () => {
         handleCommandOutput(data, true)
       } else {
         // Normal data output, just write to terminal
-        if (terminal.value) {
+        if (cusWrite) {
+          cusWrite(data)
+        } else if (terminal.value) {
           terminal.value.write(data)
         }
       }
@@ -2583,6 +2612,9 @@ const setupTerminalInput = () => {
         sendData(data)
       }
     } else if (data === '\x16') {
+      if (shouldSuppressCtrlVAfterNativePaste(lastNativePasteAt)) {
+        return
+      }
       // Check if we're in vim mode (alternate mode)
       if (terminalMode.value === 'alternate') {
         // In vim mode, pass Ctrl+V to remote terminal for visual block mode
@@ -2646,8 +2678,8 @@ const setupTerminalInput = () => {
       } else {
         const delData = String.fromCharCode(127)
         const aliasStore = aliasConfigStore()
-        const newCommand = aliasStore.getCommand(command)
-        if (dbConfigStash.aliasStatus === 1 && newCommand !== null) {
+        const newCommand = resolveAliasExpansion(command, dbConfigStash.aliasStatus, aliasStore.getCommand)
+        if (newCommand) {
           sendData(delData.repeat(command.length) + newCommand + '\r')
         } else if (config.quickVimStatus === 1) {
           // connectionSftpAvailable.value = await api.checkSftpConnAvailable(connectionId.value)
