@@ -302,6 +302,43 @@ const handleAssetEdit = (asset: AssetNode) => {
   isRightSectionVisible.value = true
 }
 
+const findAssetByUuid = (uuid: string): AssetNode | null => {
+  const stack = [...assetGroups.value]
+  while (stack.length > 0) {
+    const node = stack.shift()
+    if (!node) continue
+    if (node.uuid === uuid) {
+      return node
+    }
+    if (node.children?.length) {
+      stack.push(...node.children)
+    }
+  }
+  return null
+}
+
+const handleWorkspaceEditAsset = async (payload: { uuid?: string; asset?: AssetNode }) => {
+  const uuid = payload?.uuid || payload?.asset?.uuid
+  if (!uuid) {
+    if (payload?.asset) {
+      handleAssetEdit(payload.asset)
+    }
+    return
+  }
+
+  let asset = findAssetByUuid(uuid)
+  if (!asset) {
+    await getAssetList()
+    asset = findAssetByUuid(uuid)
+  }
+
+  if (asset) {
+    handleAssetEdit(asset)
+  } else if (payload?.asset) {
+    handleAssetEdit(payload.asset)
+  }
+}
+
 const handleAssetClone = (asset: AssetNode) => {
   if (!asset) return
 
@@ -1464,19 +1501,19 @@ const handleSaveAsset = async (data: AssetFormData) => {
   }
 }
 
-const getAssetList = () => {
+const getAssetList = async () => {
   const api = window.api as any
-  api
-    .getLocalAssetRoute({ searchType: 'assetConfig', params: [] })
-    .then((res) => {
-      if (res && res.data) {
-        const data = res.data.routers || []
-        assetGroups.value = data as AssetNode[]
-      } else {
-        assetGroups.value = []
-      }
-    })
-    .catch((err) => logger.error('Failed to get asset list', { error: err }))
+  try {
+    const res = await api.getLocalAssetRoute({ searchType: 'assetConfig', params: [] })
+    if (res && res.data) {
+      const data = res.data.routers || []
+      assetGroups.value = data as AssetNode[]
+    } else {
+      assetGroups.value = []
+    }
+  } catch {
+    logger.error('Failed to get asset list', { event: 'assetConfig.list.failed' })
+  }
 }
 
 onMounted(() => {
@@ -1491,6 +1528,7 @@ onMounted(() => {
   })
   eventBus.on('onboarding:openAssetCreate', openNewPanel)
   eventBus.on('onboarding:showAssetImportHelp', handleShowAssetImportHelp)
+  eventBus.on('assetConfig:editAsset', handleWorkspaceEditAsset)
   // Listen to language change event, reload asset data
   eventBus.on('languageChanged', () => {
     logger.info('Language changed in asset config, refreshing asset list')
@@ -1504,6 +1542,7 @@ onBeforeUnmount(() => {
   eventBus.off('sshProxyConfigsUpdated')
   eventBus.off('onboarding:openAssetCreate')
   eventBus.off('onboarding:showAssetImportHelp')
+  eventBus.off('assetConfig:editAsset', handleWorkspaceEditAsset)
   eventBus.off('languageChanged')
 })
 
