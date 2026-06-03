@@ -646,7 +646,10 @@
           </a-button>
         </a-tooltip>
         <a-tooltip :title="$t('ai.showChatHistory')">
-          <a-dropdown :trigger="['click']">
+          <a-dropdown
+            :trigger="['click']"
+            transition-name="history-dropdown-motion"
+          >
             <a-button
               type="text"
               class="action-icon-btn"
