@@ -149,7 +149,7 @@ import { shouldAutoScrollAfterTerminalStateUpdate, shouldAutoScrollAfterTerminal
 import { LocalEchoController } from './utils/localEcho'
 import { resolveAliasExpansion, shouldSuppressCtrlVAfterNativePaste } from './utils/terminalInput'
 import { applyTerminalRuntimeConfig, TERMINAL_RUNTIME_CONFIG_CHANGED_EVENT, type TerminalRuntimeConfig } from '@/utils/terminalRuntimeConfig'
-import { createTerminalWriteQueue } from '@/utils/terminalWriteQueue'
+import { createTerminalWriteQueue, type TerminalWriteQueue } from '@/utils/terminalWriteQueue'
 
 // Pre-compiled regex constants for checkFullScreenClear / checkHeavyUiStyle (avoid re-creation per call)
 const CLEAR_SCREEN_PATTERNS = [
@@ -182,21 +182,27 @@ let viewportScrollbarHideTimer: number | null = null
 // Coalesced scrollToBottom: uses requestAnimationFrame for smooth alignment with browser repaint
 let scrollToBottomScheduled = false
 let scrollToBottomNeedsFocus = false
-const scheduleScrollToBottom = () => {
+const scheduleScrollToBottom = (options?: { force?: boolean }) => {
+  if (options?.force === true || scrollToBottomNeedsFocus) {
+    terminalWriteQueue?.setPaused(false)
+  }
   if (scrollToBottomScheduled) return
   scrollToBottomScheduled = true
   requestAnimationFrame(() => {
-    terminal.value?.scrollToBottom()
-    if (scrollToBottomNeedsFocus) {
-      terminal.value?.focus()
-      scrollToBottomNeedsFocus = false
+    const force = options?.force === true || scrollToBottomNeedsFocus
+    if (force || shouldAutoScrollAfterTerminalWrite(terminal.value)) {
+      terminal.value?.scrollToBottom()
+      if (scrollToBottomNeedsFocus) {
+        terminal.value?.focus()
+      }
     }
+    scrollToBottomNeedsFocus = false
     scrollToBottomScheduled = false
   })
 }
 const scheduleScrollToBottomAndFocus = () => {
   scrollToBottomNeedsFocus = true
-  scheduleScrollToBottom()
+  scheduleScrollToBottom({ force: true })
 }
 
 const showTerminalScrollbarTemporarily = () => {
@@ -216,6 +222,7 @@ const showTerminalScrollbarTemporarily = () => {
 }
 
 const handleViewportScroll = () => {
+  terminalWriteQueue?.setPaused(!shouldAutoScrollAfterTerminalWrite(terminal.value))
   updateSelectionButtonPosition()
   showTerminalScrollbarTemporarily()
 }
@@ -413,6 +420,7 @@ const api = window.api as any
 const encoder = new TextEncoder()
 type TerminalWriteOptions = { isUserCall?: boolean; updateStateAfterWrite?: boolean; allowHighlightAfterWrite?: boolean }
 let cusWrite: ((data: string, options?: TerminalWriteOptions) => void) | null = null
+let terminalWriteQueue: TerminalWriteQueue | null = null
 const localEcho = new LocalEchoController()
 let resizeObserver: ResizeObserver | null = null
 const showSearch = ref(false)
@@ -731,12 +739,15 @@ onMounted(async () => {
     textarea.addEventListener('paste', textareaPasteListener)
   }
   const originalWrite = termInstance.write.bind(termInstance)
-  const terminalWriteQueue = createTerminalWriteQueue({
+  terminalWriteQueue = createTerminalWriteQueue({
     write: originalWrite,
     maxBatchBytes: 64 * 1024,
     maxPendingBytes: 2 * 1024 * 1024
   })
-  cleanupListeners.value.push(() => terminalWriteQueue.dispose())
+  cleanupListeners.value.push(() => {
+    terminalWriteQueue?.dispose()
+    terminalWriteQueue = null
+  })
 
   // High-throughput detection: bypass expensive processing during bulk output (e.g., cat large file)
   const HIGH_THROUGHPUT_THRESHOLD = 20 // writes per second to trigger
@@ -822,10 +833,10 @@ onMounted(async () => {
     }
 
     // High-throughput mode: bypass keyword highlight, render patching, and state updates
-    const pendingBytes = terminalWriteQueue.getPendingBytes()
+    const pendingBytes = terminalWriteQueue?.getPendingBytes() ?? 0
     if ((highThroughputMode || pendingBytes >= HIGH_THROUGHPUT_PENDING_BYTES) && !currentIsUserCall) {
       const shouldAutoScroll = shouldAutoScrollAfterTerminalWrite(terminal.value)
-      terminalWriteQueue.enqueue(data, {
+      terminalWriteQueue?.enqueue(data, {
         droppable: terminalMode.value === 'none',
         callback: () => {
           if (shouldAutoScroll) {
@@ -856,7 +867,7 @@ onMounted(async () => {
     }
 
     const shouldAutoScroll = !currentIsUserCall && shouldAutoScrollAfterTerminalWrite(terminal.value)
-    terminalWriteQueue.enqueue(processedData, {
+    terminalWriteQueue?.enqueue(processedData, {
       droppable: terminalMode.value === 'none',
       callback: () => {
         if (!currentIsUserCall || updateStateAfterWrite) {

@@ -42,6 +42,25 @@ let writeQueue: TerminalWriteQueue | null = null
 
 const configStore = userConfigStore()
 
+type TerminalScrollBuffer = {
+  buffer?: {
+    active?: {
+      baseY?: number
+      viewportY?: number
+    }
+  }
+}
+
+const isTerminalAtBottom = (target: TerminalScrollBuffer | null | undefined): boolean => {
+  const buffer = target?.buffer?.active
+  if (!buffer) return true
+
+  const { baseY, viewportY } = buffer
+  if (typeof baseY !== 'number' || typeof viewportY !== 'number') return true
+
+  return viewportY >= baseY
+}
+
 // Whether the user has set a custom background image; when true the terminal
 // should render on a transparent surface so the image shows through.
 const hasCustomBg = (): boolean => !!configStore.getUserConfig.background.image
@@ -98,6 +117,11 @@ const initTerminal = () => {
   terminal.value.onResize((size) => {
     k8sApi.resizeTerminal(props.terminalId, size.cols, size.rows)
   })
+
+  const scrollDisposable = terminal.value.onScroll(() => {
+    writeQueue?.setPaused(!isTerminalAtBottom(terminal.value))
+  })
+  cleanupFns.push(() => scrollDisposable.dispose())
 
   // Subscribe to terminal data
   const dataCleanup = k8sApi.onTerminalData(props.terminalId, (data) => {

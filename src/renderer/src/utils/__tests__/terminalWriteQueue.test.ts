@@ -76,4 +76,32 @@ describe('terminalWriteQueue', () => {
 
     expect(writes).toEqual(['abcd', 'ef'])
   })
+
+  it('pauses terminal writes until resumed', () => {
+    const writes: string[] = []
+    const scheduled: Array<() => void> = []
+    const queue = createTerminalWriteQueue({
+      write: (data, callback) => {
+        writes.push(data)
+        callback?.()
+      },
+      scheduleFrame: (callback) => {
+        scheduled.push(callback)
+        return scheduled.length
+      },
+      cancelFrame: vi.fn()
+    })
+
+    queue.setPaused(true)
+    queue.enqueue('a')
+    queue.enqueue('b')
+
+    expect(writes).toEqual([])
+    expect(scheduled).toHaveLength(0)
+
+    queue.setPaused(false)
+    scheduled.shift()?.()
+
+    expect(writes).toEqual(['ab'])
+  })
 })

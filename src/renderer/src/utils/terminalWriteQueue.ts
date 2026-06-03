@@ -17,6 +17,7 @@ export interface TerminalWriteQueueOptions {
 
 export interface TerminalWriteQueue {
   enqueue: (data: string, options?: { droppable?: boolean; callback?: () => void }) => void
+  setPaused: (paused: boolean) => void
   flush: () => void
   dispose: () => void
   getPendingBytes: () => number
@@ -56,6 +57,7 @@ export const createTerminalWriteQueue = (options: TerminalWriteQueueOptions): Te
   let writing = false
   let disposed = false
   let noticeQueued = false
+  let paused = false
 
   const byteLength = (data: string): number => data.length
 
@@ -116,7 +118,7 @@ export const createTerminalWriteQueue = (options: TerminalWriteQueueOptions): Te
   }
 
   const schedule = () => {
-    if (disposed || writing || frameHandle !== null) return
+    if (disposed || paused || writing || frameHandle !== null) return
     frameHandle = scheduleFrame(() => {
       frameHandle = null
       flush()
@@ -124,7 +126,7 @@ export const createTerminalWriteQueue = (options: TerminalWriteQueueOptions): Te
   }
 
   const flush = () => {
-    if (disposed || writing || queue.length === 0) return
+    if (disposed || paused || writing || queue.length === 0) return
 
     let batch = ''
     const callbacks: Array<() => void> = []
@@ -180,6 +182,13 @@ export const createTerminalWriteQueue = (options: TerminalWriteQueueOptions): Te
         callbacks: enqueueOptions?.callback ? [enqueueOptions.callback] : []
       })
       schedule()
+    },
+    setPaused(nextPaused) {
+      if (disposed || paused === nextPaused) return
+      paused = nextPaused
+      if (!paused) {
+        schedule()
+      }
     },
     flush,
     dispose() {
