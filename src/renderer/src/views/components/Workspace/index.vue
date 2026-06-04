@@ -376,15 +376,13 @@
         <div
           v-for="folder in customFolders"
           :key="folder.uuid"
-          style="padding: 12px; border: 1px solid #d9d9d9; border-radius: 6px; margin-bottom: 8px; cursor: pointer; transition: all 0.2s"
+          class="move-folder-item"
           @click="handleMoveAssetToFolder(folder.uuid)"
-          @mouseenter="handleFolderMouseEnter"
-          @mouseleave="handleFolderMouseLeave"
         >
-          <div style="font-weight: 500; margin-bottom: 4px">{{ folder.name }}</div>
+          <div class="move-folder-item__name">{{ folder.name }}</div>
           <div
             v-if="folder.description"
-            style="color: #666; font-size: 12px"
+            class="move-folder-item__desc"
           >
             {{ folder.description }}
           </div>
@@ -2114,16 +2112,6 @@ const handleCreateFolderFromMoveModal = () => {
   showMoveToFolderModal.value = false
 }
 
-const handleFolderMouseEnter = (e: Event) => {
-  const target = e.target as HTMLElement
-  if (target) target.style.backgroundColor = '#f5f5f5'
-}
-
-const handleFolderMouseLeave = (e: Event) => {
-  const target = e.target as HTMLElement
-  if (target) target.style.backgroundColor = 'transparent'
-}
-
 const hasContextMenu = (dataRef: any): boolean => {
   if (!dataRef) return false
   const hasDirectHostOption = canEditDirectHost(dataRef)
@@ -3237,6 +3225,30 @@ onUnmounted(() => {
   :deep(.ant-tabs-tab-btn) {
     width: 100%;
     text-align: center;
+  }
+}
+
+.move-folder-item {
+  padding: 12px;
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
+  margin-bottom: 8px;
+  cursor: pointer;
+  transition: background-color 0.2s;
+
+  &:hover {
+    background-color: var(--hover-bg-color);
+  }
+
+  &__name {
+    font-weight: 500;
+    margin-bottom: 4px;
+    color: var(--text-color);
+  }
+
+  &__desc {
+    color: var(--text-color-secondary);
+    font-size: 12px;
   }
 }
 
