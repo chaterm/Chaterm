@@ -17,6 +17,7 @@ import { useDeviceStore } from '@/store/useDeviceStore'
 import { message } from 'ant-design-vue'
 import zxcvbn from 'zxcvbn'
 import { isChineseEdition } from '@/utils/edition'
+import { isEnterpriseDeployEnabled } from '@/views/components/AiTab/composables/useModelConfiguration'
 
 // Mock ant-design-vue message
 vi.mock('ant-design-vue', () => ({
@@ -126,6 +127,10 @@ vi.mock('zxcvbn', () => ({
 // Mock isChineseEdition
 vi.mock('@/utils/edition', () => ({
   isChineseEdition: vi.fn(() => false)
+}))
+
+vi.mock('@/views/components/AiTab/composables/useModelConfiguration', () => ({
+  isEnterpriseDeployEnabled: vi.fn(() => false)
 }))
 
 // Mock permission utils to avoid pulling main.ts (and its ant-design-vue / sync side effects) into the test graph
@@ -238,6 +243,7 @@ describe('UserInfo Component', () => {
     vi.mocked(updateAvatar).mockResolvedValue({ code: 200 } as any)
 
     vi.mocked(zxcvbn).mockReturnValue({ score: 2 } as any)
+    vi.mocked(isEnterpriseDeployEnabled).mockReturnValue(false)
 
     // Clear console output for cleaner test results
     vi.spyOn(console, 'log').mockImplementation(() => {})
@@ -269,6 +275,27 @@ describe('UserInfo Component', () => {
 
       const editButton = wrapper.find('.edit-icon-btn')
       expect(editButton.exists()).toBe(false)
+    })
+
+    it('should hide subscription tags in enterprise deployment', async () => {
+      vi.mocked(isEnterpriseDeployEnabled).mockReturnValue(true)
+      vi.mocked(getUser).mockResolvedValue({
+        code: 200,
+        data: {
+          uid: 1001,
+          name: 'Enterprise User',
+          username: 'enterpriseuser',
+          subscription: 'pro',
+          subscriptionExpiresAt: '2099-12-31 23:59:59',
+          registrationType: 1
+        }
+      } as any)
+
+      wrapper = createWrapper()
+      await nextTick()
+      await nextTick()
+
+      expect(wrapper.find('.subscription-tag').exists()).toBe(false)
     })
 
     it('should hide reset password button for SSO users', async () => {
