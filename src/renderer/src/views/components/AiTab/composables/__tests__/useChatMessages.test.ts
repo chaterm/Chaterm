@@ -70,6 +70,7 @@ describe('useChatMessages', () => {
   let mockMarkLatestMessageWithTodoUpdate: (messages: ChatMessage[], todos: Todo[]) => void
   let mockCheckModelConfig: ReturnType<typeof vi.fn<() => Promise<{ success: boolean; message?: string; description?: string }>>>
   let mockCurrentTodos: ReturnType<typeof ref<any[]>>
+  let mockTab: ReturnType<typeof createMockTab>
 
   const createMockSession = () => ({
     chatHistory: [] as ChatMessage[],
@@ -106,7 +107,7 @@ describe('useChatMessages', () => {
     mockCheckModelConfig = vi.fn().mockResolvedValue({ success: true })
     mockCurrentTodos = ref([])
 
-    const mockTab = createMockTab('test-tab-1')
+    mockTab = createMockTab('test-tab-1')
     const chatTabs = ref([mockTab])
     const currentChatId = ref('test-tab-1')
     const chatInputParts = ref([])
@@ -131,6 +132,7 @@ describe('useChatMessages', () => {
   })
 
   afterEach(() => {
+    vi.useRealTimers()
     vi.restoreAllMocks()
   })
 
@@ -276,6 +278,63 @@ describe('useChatMessages', () => {
       cleanupPartialCommandMessages(chatHistory)
 
       expect(chatHistory).toHaveLength(1)
+    })
+  })
+
+  describe('handleIncomingMainMessage', () => {
+    it('coalesces streamed partial messages and only renders the latest chunk per throttle window', async () => {
+      vi.useFakeTimers()
+      mockTab.session.chatHistory.push({
+        id: 'user-1',
+        role: 'user',
+        content: 'hello',
+        type: 'message',
+        ask: '',
+        say: '',
+        ts: 1
+      })
+
+      const { handleIncomingMainMessage } = useChatMessages(
+        mockScrollToBottom,
+        mockClearTodoState,
+        mockMarkLatestMessageWithTodoUpdate,
+        mockCurrentTodos,
+        mockCheckModelConfig
+      )
+
+      await handleIncomingMainMessage({
+        type: 'partialMessage',
+        tabId: 'test-tab-1',
+        taskId: 'test-tab-1',
+        partialMessage: {
+          type: 'say',
+          say: 'text',
+          text: 'first chunk',
+          ts: 10,
+          partial: true
+        }
+      } as any)
+
+      await handleIncomingMainMessage({
+        type: 'partialMessage',
+        tabId: 'test-tab-1',
+        taskId: 'test-tab-1',
+        partialMessage: {
+          type: 'say',
+          say: 'text',
+          text: 'latest chunk',
+          ts: 10,
+          partial: true
+        }
+      } as any)
+
+      expect(mockTab.session.chatHistory).toHaveLength(1)
+
+      await vi.advanceTimersByTimeAsync(32)
+
+      expect(mockTab.session.chatHistory).toHaveLength(2)
+      expect(mockTab.session.chatHistory[1].content).toBe('latest chunk')
+      expect(mockScrollToBottom).toHaveBeenCalledTimes(1)
     })
   })
 

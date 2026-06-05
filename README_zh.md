@@ -45,6 +45,7 @@
   - [How Chaterm’s Security Architecture Ensures Data Security and Reliability](https://aws.amazon.com/cn/blogs/china/chaterm-aws-kms-envelope-encryption-for-zero-trust-security-en/)
   - [Enhancing DevOps Intelligence with Chaterm Skills and Qwen Models](https://chaterm.ai/blog/posts/agent-skills)
 - [Gold Sponsors](#gold-sponsors)
+- [致谢](#致谢)
 - [Contributors](#contributors)
 
 # 产品介绍
@@ -85,6 +86,8 @@ Chaterm 不仅仅是一个更智能的终端，它是一个基础设施代理。
 - 🧠 **智能命令推荐**
 
   结合用户习惯、本地记忆及当前服务器上下文，推荐最合适的命令，让终端输入更智能、更高效。
+
+  可选本地回显会在高延迟 SSH 会话中立即渲染安全的交互式输入，并抵消确认后的远端回显。
 
   支持跨设备会话同步，并通过快捷命令与语音交互减少移动端输入成本，使远程运维更加流畅。
 
@@ -169,6 +172,13 @@ npm run build:linux
 ## Gold Sponsors
 
 ![Preview image](resources/aws.webp) ![Preview image](resources/aliyun.webp)
+
+## 致谢
+
+Chaterm 受益于优秀的开源项目，在此特别感谢：
+
+- **[Cline](https://github.com/cline/cline)** — AI Agent 系统的部分实现参考并改编自 Cline。
+- **[RTK](https://github.com/rtk-ai/rtk)** — 用于命令输出过滤，在 Agent 工作流中减少 token 消耗。
 
 ## Contributors
 

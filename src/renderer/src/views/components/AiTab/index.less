@@ -657,7 +657,10 @@
     justify-content: center;
     color: var(--text-color);
     border-radius: 4px;
-    transition: all 0.3s ease;
+    transition:
+      background-color 0.16s ease,
+      color 0.16s ease,
+      filter 0.16s ease;
     filter: var(--icon-filter);
 
     &:hover {
@@ -713,7 +716,7 @@
       display: flex;
       align-items: center;
       justify-content: center;
-      transition: all 0.2s ease;
+      transition: background-color 0.16s ease;
 
       &:hover {
         background-color: var(--hover-bg-color);
@@ -759,6 +762,23 @@
       }
     }
   }
+}
+
+:global(.history-dropdown-motion-enter),
+:global(.history-dropdown-motion-appear),
+:global(.history-dropdown-motion-leave-active) {
+  opacity: 0;
+}
+
+:global(.history-dropdown-motion-enter-active),
+:global(.history-dropdown-motion-appear-active) {
+  opacity: 1;
+  transition: opacity 0.08s ease-out;
+}
+
+:global(.history-dropdown-motion-leave-active) {
+  pointer-events: none;
+  transition: opacity 0.06s ease-in;
 }
 
 .history-date-header {
@@ -812,7 +832,9 @@
   padding: 6px 8px !important;
   margin: 2px 0 !important;
   border-radius: 4px !important;
-  transition: all 0.2s ease !important;
+  transition:
+    background-color 0.16s ease,
+    transform 0.16s ease !important;
   min-height: unset !important;
   width: 100% !important;
   max-width: 100% !important;
@@ -820,19 +842,15 @@
 
   .menu-action-buttons {
     opacity: 0;
+    transition: opacity 0.12s ease;
   }
 
   &:hover {
     background-color: var(--hover-bg-color) !important;
     transform: translateX(2px);
-    border-color: var(--border-color-light);
 
     .menu-action-buttons {
       opacity: 1;
-    }
-
-    .history-title {
-      max-width: 190px;
     }
   }
 

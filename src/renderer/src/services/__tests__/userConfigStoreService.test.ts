@@ -14,6 +14,11 @@ const { mockUserConfigPiniaStore } = vi.hoisted(() => ({
   }))
 }))
 
+const { mockEventBusEmit, mockEventBusEmitAsync } = vi.hoisted(() => ({
+  mockEventBusEmit: vi.fn(),
+  mockEventBusEmitAsync: vi.fn().mockResolvedValue(undefined)
+}))
+
 vi.mock('@/api/sync/sync', () => ({
   getUserTermConfig: mockGetUserTermConfig,
   updateUserTermConfig: mockUpdateUserTermConfig
@@ -23,11 +28,19 @@ vi.mock('@/store/userConfigStore', () => ({
   userConfigStore: mockUserConfigPiniaStore
 }))
 
+vi.mock('@/utils/eventBus', () => ({
+  default: {
+    emit: mockEventBusEmit,
+    emitAsync: mockEventBusEmitAsync
+  }
+}))
+
 describe('UserConfigStoreService', () => {
   beforeEach(() => {
     vi.resetModules()
     vi.clearAllMocks()
     vi.useFakeTimers()
+    mockEventBusEmitAsync.mockResolvedValue(undefined)
   })
 
   it('persists dirty sync meta atomically when saving local config', async () => {
@@ -99,6 +112,66 @@ describe('UserConfigStoreService', () => {
     expect(storedConfig.theme).toBe('dark')
     expect(storedMeta.dirty).toBe(true)
     expect(storedMeta.schemaVersion).toBe(1)
+  })
+
+  it('emits runtime terminal config updates after local terminal settings change', async () => {
+    const kvStore = new Map<string, string>()
+
+    const kvGet = vi.fn(async ({ key }: { key?: string }) => {
+      if (!key || !kvStore.has(key)) {
+        return null
+      }
+      return { key, value: kvStore.get(key)! }
+    })
+
+    const kvMutate = vi.fn(async ({ action, key, value }: { action: string; key: string; value?: string }) => {
+      if (action === 'set' && value !== undefined) {
+        kvStore.set(key, value)
+      }
+    })
+
+    const kvTransaction = vi.fn(
+      async (
+        callback: (tx: {
+          get(key: string): Promise<string | null>
+          set(key: string, value: string): void
+          delete(key: string): void
+        }) => Promise<void>
+      ) => {
+        const ops: Array<{ key: string; value: string }> = []
+        await callback({
+          get: async (key) => kvStore.get(key) ?? null,
+          set: (key, value) => ops.push({ key, value }),
+          delete: () => {}
+        })
+
+        for (const op of ops) {
+          kvStore.set(op.key, op.value)
+        }
+      }
+    )
+
+    ;(window as any).api = {
+      kvGet,
+      kvMutate,
+      kvTransaction,
+      updateTheme: vi.fn()
+    }
+
+    const { UserConfigStoreService } = await import('../userConfigStoreService')
+    const { TERMINAL_RUNTIME_CONFIG_CHANGED_EVENT } = await import('@/utils/terminalRuntimeConfig')
+    const service = new UserConfigStoreService()
+
+    await service.initDB()
+    await service.saveConfig({
+      scrollBack: 8000,
+      fontSize: 14
+    })
+
+    expect(mockEventBusEmit).toHaveBeenCalledWith(TERMINAL_RUNTIME_CONFIG_CHANGED_EVENT, {
+      scrollBack: 8000,
+      fontSize: 14
+    })
   })
 
   it('does not export a user-config specific default sync meta builder', async () => {
@@ -277,20 +350,93 @@ describe('UserConfigStoreService', () => {
     expect(txWrites[0]).toEqual(['userConfig', 'userConfigSyncMeta'])
   })
 
-  it('buildDefaultUserConfig should include cursorBlink and lineHeight defaults', async () => {
+  it('applyRemoteConfig emits runtime terminal config updates for changed terminal settings', async () => {
+    const kvStore = new Map<string, string>()
+    kvStore.set(
+      'userConfig',
+      JSON.stringify({
+        id: 'userConfig',
+        updatedAt: 100,
+        autoCompleteStatus: 1,
+        vimStatus: false,
+        quickVimStatus: 1,
+        commonVimStatus: 2,
+        aliasStatus: 1,
+        highlightStatus: 1,
+        pinchZoomStatus: 1,
+        fontSize: 12,
+        scrollBack: 1000,
+        language: 'zh-CN',
+        cursorStyle: 'block',
+        middleMouseEvent: 'paste',
+        rightMouseEvent: 'contextMenu',
+        watermark: 'open',
+        secretRedaction: 'disabled',
+        dataSync: 'disabled',
+        theme: 'auto',
+        defaultLayout: 'terminal',
+        shortcuts: {},
+        sshAgentsStatus: 2,
+        sshAgentsMap: '[]',
+        sshProxyConfigs: [],
+        workspaceExpandedKeys: [],
+        lastCustomImage: '',
+        background: {
+          mode: 'none',
+          image: '',
+          opacity: 0.15,
+          brightness: 0.45
+        }
+      })
+    )
+    ;(window as any).api = {
+      kvGet: vi.fn(async ({ key }: { key?: string }) => {
+        if (!key || !kvStore.has(key)) {
+          return null
+        }
+        return { key, value: kvStore.get(key)! }
+      }),
+      kvMutate: vi.fn(),
+      kvTransaction: vi.fn(async (callback: (tx: { set(key: string, value: string): void }) => Promise<void>) => {
+        const writes = new Map<string, string>()
+        await callback({
+          set: (key, value) => writes.set(key, value)
+        } as any)
+        writes.forEach((value, key) => kvStore.set(key, value))
+      }),
+      updateTheme: vi.fn()
+    }
+
+    const { applyRemoteConfig } = await import('../userConfigStoreService')
+    const { TERMINAL_RUNTIME_CONFIG_CHANGED_EVENT } = await import('@/utils/terminalRuntimeConfig')
+
+    await applyRemoteConfig({
+      scrollBack: 5000,
+      cursorStyle: 'underline'
+    })
+
+    expect(mockEventBusEmit).toHaveBeenCalledWith(TERMINAL_RUNTIME_CONFIG_CHANGED_EVENT, {
+      scrollBack: 5000,
+      cursorStyle: 'underline'
+    })
+  })
+
+  it('buildDefaultUserConfig should include cursorBlink, lineHeight, and localEchoEnabled defaults', async () => {
     const { buildDefaultUserConfig } = await import('../userConfigStoreService')
 
     const config = buildDefaultUserConfig()
 
     expect(config.cursorBlink).toBe(true)
     expect(config.lineHeight).toBe(1)
+    expect(config.localEchoEnabled).toBe(false)
   })
 
-  it('sync whitelist and validators should support cursorBlink and lineHeight', async () => {
+  it('sync whitelist and validators should support cursorBlink, lineHeight, and localEchoEnabled', async () => {
     const { SYNC_WHITELIST, SYNC_FIELD_VALIDATORS } = await import('../userConfigStoreService')
 
     expect(SYNC_WHITELIST).toContain('cursorBlink')
     expect(SYNC_WHITELIST).toContain('lineHeight')
+    expect(SYNC_WHITELIST).toContain('localEchoEnabled')
 
     expect(SYNC_FIELD_VALIDATORS.cursorBlink(true)).toBe(true)
     expect(SYNC_FIELD_VALIDATORS.cursorBlink(false)).toBe(true)
@@ -302,5 +448,9 @@ describe('UserConfigStoreService', () => {
     expect(SYNC_FIELD_VALIDATORS.lineHeight(0.9)).toBe(false)
     expect(SYNC_FIELD_VALIDATORS.lineHeight(3.1)).toBe(false)
     expect(SYNC_FIELD_VALIDATORS.lineHeight('1.5' as any)).toBe(false)
+
+    expect(SYNC_FIELD_VALIDATORS.localEchoEnabled(true)).toBe(true)
+    expect(SYNC_FIELD_VALIDATORS.localEchoEnabled(false)).toBe(true)
+    expect(SYNC_FIELD_VALIDATORS.localEchoEnabled(1 as any)).toBe(false)
   })
 })

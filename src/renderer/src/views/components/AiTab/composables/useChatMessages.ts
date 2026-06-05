@@ -17,6 +17,23 @@ import { AI_TAB_DEFAULT_WORKSPACE, type AiTabWorkspace } from '../workspace'
 const logger = createRendererLogger('ai.chatMessages')
 const { t } = i18n.global
 let globalIpcListenerInitialized = false
+const STREAM_RENDER_THROTTLE_MS = 32
+const pendingPartialMessages = new Map<string, ExtensionMessage>()
+const pendingPartialFlushTimers = new Map<string, ReturnType<typeof setTimeout>>()
+
+const clearPendingPartialFlushTimer = (tabId: string) => {
+  const timer = pendingPartialFlushTimers.get(tabId)
+  if (timer) {
+    clearTimeout(timer)
+    pendingPartialFlushTimers.delete(tabId)
+  }
+}
+
+const takePendingPartialMessage = (tabId: string): ExtensionMessage | undefined => {
+  const pending = pendingPartialMessages.get(tabId)
+  pendingPartialMessages.delete(tabId)
+  return pending
+}
 
 /**
  * Per-AiTab context that must be threaded into outgoing Task messages when
@@ -712,6 +729,66 @@ export function useChatMessages(
     session.lastStreamMessage = message
   }
 
+  const shouldBypassPartialThrottle = (message: ExtensionMessage): boolean => {
+    if (message?.type !== 'partialMessage') {
+      return true
+    }
+
+    const partial = message.partialMessage
+    if (!partial) {
+      return true
+    }
+
+    if (!partial.partial) {
+      return true
+    }
+
+    if (partial.say === 'knowledge_summary' || partial.say === 'skill_summary') {
+      return true
+    }
+
+    return partial.type === 'ask' && ['completion_result', 'api_req_failed', 'ssh_con_failed'].includes(partial.ask ?? '')
+  }
+
+  const flushPendingPartialMessageForTab = async (tabId: string) => {
+    clearPendingPartialFlushTimer(tabId)
+    const pendingMessage = takePendingPartialMessage(tabId)
+    if (pendingMessage) {
+      await processMainMessage(pendingMessage)
+    }
+  }
+
+  const handleIncomingMainMessage = async (message: ExtensionMessage) => {
+    const targetTabId = message?.tabId ?? message?.taskId
+
+    if (message?.type !== 'partialMessage' || !targetTabId || shouldBypassPartialThrottle(message)) {
+      if (targetTabId) {
+        await flushPendingPartialMessageForTab(targetTabId)
+      }
+      await processMainMessage(message)
+      return
+    }
+
+    pendingPartialMessages.set(targetTabId, message)
+    if (pendingPartialFlushTimers.has(targetTabId)) {
+      return
+    }
+
+    const timer = setTimeout(() => {
+      pendingPartialFlushTimers.delete(targetTabId)
+      const pendingMessage = takePendingPartialMessage(targetTabId)
+      if (!pendingMessage) {
+        return
+      }
+
+      processMainMessage(pendingMessage).catch((error) => {
+        logger.error('Failed to process throttled main process message', { error: error })
+      })
+    }, STREAM_RENDER_THROTTLE_MS)
+
+    pendingPartialFlushTimers.set(targetTabId, timer)
+  }
+
   const initializeListener = () => {
     // Only register IPC listener once globally to prevent duplicate event handling
     if (globalIpcListenerInitialized) {
@@ -720,7 +797,7 @@ export function useChatMessages(
     globalIpcListenerInitialized = true
 
     window.api.onMainMessage((message: any) => {
-      processMainMessage(message).catch((error) => {
+      handleIncomingMainMessage(message).catch((error) => {
         logger.error('Failed to process main process message', { error: error })
       })
     })
@@ -831,6 +908,7 @@ export function useChatMessages(
     sendMessageToMain,
     sendMessage,
     sendMessageWithContent,
+    handleIncomingMainMessage,
     processMainMessage,
     handleModelApiReqFailed,
     handleFeedback,
