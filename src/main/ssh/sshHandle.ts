@@ -1106,7 +1106,56 @@ export async function createProxyCommandSocket(commandStr: string, host: string,
 
   return socketProxy
 }
+
+const hasNonEmptyCredential = (value: unknown): boolean => typeof value === 'string' && value.length > 0
+
+export async function enrichConnectionCredentials(connectionInfo: Record<string, unknown>): Promise<Record<string, unknown>> {
+  if (hasNonEmptyCredential(connectionInfo.password) || hasNonEmptyCredential(connectionInfo.privateKey)) {
+    return connectionInfo
+  }
+
+  const assetUuid = typeof connectionInfo.assetUuid === 'string' ? connectionInfo.assetUuid.trim() : ''
+  if (!assetUuid) {
+    return connectionInfo
+  }
+
+  try {
+    const { connectAssetInfo } = require('../storage/database') as typeof import('../storage/database')
+    const organizationUuid = typeof connectionInfo.organizationUuid === 'string' ? connectionInfo.organizationUuid.trim() : undefined
+    const ip =
+      typeof connectionInfo.targetIp === 'string'
+        ? connectionInfo.targetIp.trim()
+        : typeof connectionInfo.host === 'string'
+          ? connectionInfo.host.trim()
+          : undefined
+    const fallback = organizationUuid || ip ? { organizationUuid, ip } : undefined
+    const asset = await connectAssetInfo(assetUuid, fallback)
+    if (!asset) {
+      return connectionInfo
+    }
+
+    const authType = asset.auth_type || 'password'
+    return {
+      ...connectionInfo,
+      username: asset.username || connectionInfo.username,
+      password: authType !== 'keyBased' ? asset.password || connectionInfo.password : '',
+      privateKey: authType === 'keyBased' ? asset.privateKey || connectionInfo.privateKey : '',
+      passphrase: authType === 'keyBased' ? asset.passphrase || connectionInfo.passphrase : connectionInfo.passphrase
+    }
+  } catch (error) {
+    const errorMessage = error instanceof Error ? error.message : String(error)
+    logger.warn('Failed to resolve asset credentials for SSH connect', {
+      event: 'ssh.connect.resolve_credentials_failed',
+      connectionId: connectionInfo.id,
+      error: errorMessage
+    })
+    return connectionInfo
+  }
+}
+
 const handleAttemptConnection = async (event, connectionInfo, resolve, reject, retryCount) => {
+  connectionInfo = await enrichConnectionCredentials(connectionInfo)
+
   const {
     id,
     host,
@@ -1318,7 +1367,7 @@ const handleAttemptConnection = async (event, connectionInfo, resolve, reject, r
           port: jumpAsset.port || 22,
           username: jumpAsset.username,
           asset_type: jumpAsset.asset_type,
-          password: jumpAsset.auth_type === 'password' ? jumpAsset.password : undefined,
+          password: jumpAsset.auth_type !== 'keyBased' ? jumpAsset.password : undefined,
           privateKey: jumpAsset.auth_type === 'keyBased' ? jumpAsset.privateKey : undefined,
           passphrase: jumpAsset.auth_type === 'keyBased' ? jumpAsset.passphrase : undefined
         }

@@ -1709,11 +1709,11 @@ const connectSSH = async (_opts?: { isAutoReconnect?: boolean }) => {
       const privateKey = ref('')
       const passphrase = ref('')
       if (assetInfo) {
-        password.value = assetInfo.auth_type === 'password' ? assetInfo.password : ''
+        password.value = assetInfo.auth_type !== 'keyBased' ? assetInfo.password : ''
         privateKey.value = assetInfo.auth_type === 'keyBased' ? assetInfo.privateKey : ''
         passphrase.value = assetInfo.auth_type === 'keyBased' ? assetInfo.passphrase : ''
       } else {
-        password.value = props.connectData.authType === 'password' ? props.connectData.password : ''
+        password.value = props.connectData.authType !== 'privateKey' ? props.connectData.password : ''
         privateKey.value = props.connectData.authType === 'privateKey' ? props.connectData.privateKey : ''
         passphrase.value = props.connectData.passphrase || ''
       }
@@ -1815,6 +1815,7 @@ const connectSSH = async (_opts?: { isAutoReconnect?: boolean }) => {
         const connData: any = {
           id: connectionId.value, // Session ID (unique for each tab)
           assetUuid: jumpserverUuid, // JumpServer UUID (for connection pool reuse)
+          organizationUuid: fallbackOrgUuid,
           host: connConnectHost,
           port: connPort,
           username: connUsername,

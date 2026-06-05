@@ -268,6 +268,15 @@ const getKeyChainSelect = async () => {
   }
 }
 
+const getPasswordChainSelect = async () => {
+  try {
+    const result = await ipcRenderer.invoke('password-chain-local-get')
+    return result
+  } catch (error) {
+    return Promise.reject(error)
+  }
+}
+
 const getAssetGroup = async () => {
   try {
     const result = await ipcRenderer.invoke('asset-group-local-get')
@@ -911,6 +920,7 @@ const api = {
   updateLocalAssetLabel,
   updateLocalAsseFavorite,
   getKeyChainSelect,
+  getPasswordChainSelect,
   getKeyChainList,
   getAssetGroup,
   dbAssetList,

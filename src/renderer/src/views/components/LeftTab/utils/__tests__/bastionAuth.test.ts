@@ -16,6 +16,11 @@ describe('resolveBastionAuthType', () => {
     expect(resolveBastionAuthType('organization-tencent', defs, 'password')).toBe('password')
   })
 
+  it('keeps passwordCredential when password auth is allowed', () => {
+    const defs: BastionDefinitionSummary[] = [{ type: 'tencent', authPolicy: ['password', 'keyBased'] }]
+    expect(resolveBastionAuthType('organization-tencent', defs, 'passwordCredential')).toBe('passwordCredential')
+  })
+
   it('preserves current auth type when definition is missing', () => {
     expect(resolveBastionAuthType('organization-unknown', [], 'keyBased')).toBe('keyBased')
   })

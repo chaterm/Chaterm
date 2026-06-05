@@ -49,6 +49,7 @@ import {
 import type { TaskListItem } from '../../agent/core/context/context-tracking/ContextTrackerTypes'
 import {
   getKeyChainSelectLogic,
+  getPasswordChainSelectLogic,
   createKeyChainLogic,
   deleteKeyChainLogic,
   getKeyChainInfoLogic,
@@ -207,6 +208,9 @@ export class ChatermDatabaseService {
   // Get keychain options
   getKeyChainSelect(): any {
     return getKeyChainSelectLogic(this.db)
+  }
+  getPasswordChainSelect(): any {
+    return getPasswordChainSelectLogic(this.db)
   }
   createKeyChain(params: any): any {
     return createKeyChainLogic(this.db, params)
