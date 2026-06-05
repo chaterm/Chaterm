@@ -128,6 +128,11 @@
                 >{{ t('personal.password') }}</a-radio-button
               >
               <a-radio-button
+                v-if="currentBastionSupportsPassword"
+                value="passwordCredential"
+                >{{ t('personal.passwordCredential') }}</a-radio-button
+              >
+              <a-radio-button
                 v-if="currentBastionSupportsKey"
                 value="keyBased"
                 >{{ t('personal.key') }}</a-radio-button
@@ -136,6 +141,7 @@
           </a-form-item>
 
           <a-form-item
+            v-if="formData.auth_type !== 'passwordCredential'"
             :label="t('personal.username')"
             :validate-status="validationErrors.username ? 'error' : ''"
             :help="validationErrors.username"
@@ -149,7 +155,35 @@
           </a-form-item>
 
           <a-form-item
-            v-if="formData.auth_type == 'password'"
+            v-if="formData.auth_type === 'passwordCredential'"
+            :label="t('personal.passwordCredential')"
+          >
+            <a-select
+              v-model:value="selectedPasswordChain"
+              :placeholder="t('personal.pleaseSelectPasswordCredential')"
+              style="width: 100%"
+              show-search
+              :max-tag-count="4"
+              :options="passwordChainOptions"
+              :option-filter-prop="'label'"
+              :field-names="{ value: 'key', label: 'label' }"
+              :allow-clear="true"
+              @change="handlePasswordChainChange"
+            >
+              <template #notFoundContent>
+                <div style="text-align: center; width: 100%">
+                  <a-button
+                    type="link"
+                    @click="handleAddKeychain"
+                    >{{ t('keyChain.newCredential') }}</a-button
+                  >
+                </div>
+              </template>
+            </a-select>
+          </a-form-item>
+
+          <a-form-item
+            v-if="formData.auth_type === 'password'"
             :label="t('personal.password')"
             :validate-status="validationErrors.password ? 'error' : ''"
             :help="validationErrors.password"
@@ -378,7 +412,15 @@ import { ToTopOutlined, CheckOutlined, CloseOutlined } from '@ant-design/icons-v
 import { message } from 'ant-design-vue'
 import i18n from '@/locales'
 import eventBus from '@/utils/eventBus'
-import type { AssetFormData, KeyChainItem, SshProxyConfigItem, AssetType, BastionDefinitionSummary } from '../utils/types'
+import type {
+  AssetAuthType,
+  AssetFormData,
+  KeyChainItem,
+  PasswordChainItem,
+  SshProxyConfigItem,
+  AssetType,
+  BastionDefinitionSummary
+} from '../utils/types'
 import { getSwitchBrand, isOrganizationAsset, getBastionHostType, getAssetTypeFromBastionType, resolveBastionAuthType } from '../utils/types'
 
 const { t } = i18n.global
@@ -452,6 +494,7 @@ interface Props {
   isEditMode?: boolean
   initialData?: Partial<AssetFormData>
   keyChainOptions?: KeyChainItem[]
+  passwordChainOptions?: PasswordChainItem[]
   sshProxyConfigs?: SshProxyConfigItem[]
   defaultGroups?: string[]
   jumpHostOptions?: JumpHostOption[]
@@ -462,6 +505,7 @@ const props = withDefaults(defineProps<Props>(), {
   isEditMode: false,
   initialData: () => ({}),
   keyChainOptions: () => [],
+  passwordChainOptions: () => [],
   sshProxyConfigs: () => [],
   defaultGroups: () => ['development', 'production', 'staging', 'testing', 'database'],
   jumpHostOptions: () => [],
@@ -472,6 +516,12 @@ const props = withDefaults(defineProps<Props>(), {
 const filteredJumpHostOptions = computed(() =>
   (props.jumpHostOptions || []).filter((opt) => !props.editingAssetUuid || opt.value !== props.editingAssetUuid)
 )
+
+const normalizeAssetAuthType = (authType?: string): AssetAuthType =>
+  authType === 'passwordCredential' || authType === 'keyBased' ? authType : 'password'
+
+const selectedPasswordChain = ref<number | undefined>(props.initialData?.auth_type === 'passwordCredential' ? props.initialData?.keyChain : undefined)
+const lastAuthType = ref<AssetAuthType>(normalizeAssetAuthType(props.initialData?.auth_type))
 
 const emit = defineEmits<{
   close: []
@@ -539,9 +589,12 @@ const showAuthMethodSelector = computed(() => {
   const assetType = formData.asset_type
   // Personal server or switch - show selector
   if (assetType === 'person' || assetType?.startsWith('person-switch-')) return true
-  // Organization asset - show selector only if both auth methods are supported
+  // Built-in JumpServer is always keyBased.
+  if (assetType === 'organization') return false
+  // Plugin bastions: show selector when password auth is available (manual password vs password credential),
+  // or when both password and key auth are supported.
   if (isOrganizationAsset(assetType)) {
-    return currentBastionSupportsPassword.value && currentBastionSupportsKey.value
+    return currentBastionSupportsPassword.value
   }
   return false
 })
@@ -562,9 +615,18 @@ const formData = reactive<AssetFormData>({
   ...props.initialData
 })
 
-const cachedAuth = reactive<{ password: string; keyChain?: number }>({
-  password: '',
-  keyChain: undefined
+const cachedAuth = reactive<{
+  password: string
+  keyChain?: number
+  passwordChain?: number
+  manualUsername: string
+  passwordCredentialUsername: string
+}>({
+  password: normalizeAssetAuthType(props.initialData?.auth_type) === 'password' ? (props.initialData?.password ?? '') : '',
+  keyChain: props.initialData?.auth_type === 'keyBased' ? props.initialData?.keyChain : undefined,
+  passwordChain: props.initialData?.auth_type === 'passwordCredential' ? props.initialData?.keyChain : undefined,
+  manualUsername: props.initialData?.auth_type === 'passwordCredential' ? '' : (props.initialData?.username ?? ''),
+  passwordCredentialUsername: props.initialData?.auth_type === 'passwordCredential' ? (props.initialData?.username ?? '') : ''
 })
 
 const validationErrors = reactive({
@@ -644,26 +706,87 @@ const handleClose = () => {
 }
 
 const handleAuthChange = () => {
-  if (formData.auth_type === 'keyBased') {
+  const previousAuthType = lastAuthType.value
+  const nextAuthType = normalizeAssetAuthType(formData.auth_type)
+
+  if (previousAuthType === 'password') {
     cachedAuth.password = formData.password
-    emit('auth-change', 'keyBased')
-  }
-  if (formData.auth_type === 'password') {
+    cachedAuth.manualUsername = formData.username
+  } else if (previousAuthType === 'keyBased') {
     cachedAuth.keyChain = formData.keyChain
+    cachedAuth.manualUsername = formData.username
+  } else if (previousAuthType === 'passwordCredential') {
+    cachedAuth.passwordChain = selectedPasswordChain.value ?? formData.keyChain
+    cachedAuth.passwordCredentialUsername = formData.username
+  }
+
+  validationErrors.password = ''
+  validationErrors.username = ''
+
+  if (nextAuthType === 'password') {
+    selectedPasswordChain.value = undefined
     formData.keyChain = undefined
-  } else {
-    formData.password = ''
-  }
-  if (formData.auth_type === 'keyBased' && cachedAuth.keyChain !== undefined) {
-    formData.keyChain = cachedAuth.keyChain
-  }
-  if (formData.auth_type === 'password') {
     formData.password = cachedAuth.password
+    formData.username = cachedAuth.manualUsername
+  } else if (nextAuthType === 'passwordCredential') {
+    selectedPasswordChain.value = cachedAuth.passwordChain
+    formData.keyChain = cachedAuth.passwordChain
+    formData.password = ''
+    formData.username = cachedAuth.passwordCredentialUsername
+  } else {
+    selectedPasswordChain.value = undefined
+    formData.keyChain = cachedAuth.keyChain
+    formData.password = ''
+    formData.username = cachedAuth.manualUsername
   }
+
+  lastAuthType.value = nextAuthType
+  emit('auth-change', nextAuthType)
 }
 
 const handleAddKeychain = () => {
   emit('add-keychain')
+}
+
+const handlePasswordChainChange = async (value?: number) => {
+  selectedPasswordChain.value = value
+  if (!value) {
+    cachedAuth.passwordChain = undefined
+    cachedAuth.passwordCredentialUsername = ''
+    formData.keyChain = undefined
+    formData.password = ''
+    formData.username = ''
+    return
+  }
+
+  try {
+    const api = window.api as any
+    const credential = await api.getKeyChainInfo({ id: value })
+    if (!credential || credential.chain_type !== 'PASSWORD') {
+      message.error(t('personal.passwordCredentialLoadFailed'))
+      selectedPasswordChain.value = undefined
+      cachedAuth.passwordChain = undefined
+      formData.keyChain = undefined
+      return
+    }
+
+    formData.password = credential.passphrase || ''
+    formData.keyChain = value
+    cachedAuth.passwordChain = value
+    formData.username = credential.public_key || ''
+    cachedAuth.passwordCredentialUsername = formData.username
+    validationErrors.username = ''
+    validationErrors.password = ''
+    cachedAuth.password = formData.password
+  } catch (error) {
+    logger.error('Failed to load password credential', { error: error })
+    message.error(t('personal.passwordCredentialLoadFailed'))
+    selectedPasswordChain.value = undefined
+    cachedAuth.passwordChain = undefined
+    cachedAuth.passwordCredentialUsername = ''
+    formData.keyChain = undefined
+    formData.username = ''
+  }
 }
 
 const handleGroupChange = (val: string | undefined) => {
@@ -755,7 +878,7 @@ const validateForm = (): boolean => {
     validationErrors.port = t('personal.validationPortRequired')
     hasError = true
   }
-  if (!formData.username || !formData.username.trim()) {
+  if (formData.auth_type !== 'passwordCredential' && (!formData.username || !formData.username.trim())) {
     validationErrors.username = t('personal.validationUsernameRequired')
     hasError = true
   }
@@ -769,6 +892,14 @@ const validateForm = (): boolean => {
     validationErrors.password = t('personal.validationPasswordRequired')
     return false
   }
+  if (formData.auth_type === 'passwordCredential' && !formData.keyChain) {
+    message.error(t('personal.validationPasswordCredentialRequired'))
+    return false
+  }
+  if (formData.auth_type === 'passwordCredential' && (!formData.username || !formData.username.trim())) {
+    message.error(t('personal.validationPasswordCredentialUsernameRequired'))
+    return false
+  }
   if (formData.auth_type === 'keyBased' && !formData.keyChain) {
     message.error(t('personal.validationKeychainRequired'))
     return false
@@ -776,7 +907,9 @@ const validateForm = (): boolean => {
 
   validateField('ip', formData.ip)
   validateField('port', String(formData.port))
-  validateField('username', formData.username)
+  if (formData.auth_type !== 'passwordCredential') {
+    validateField('username', formData.username)
+  }
   validateField('password', formData.password)
 
   if (Object.values(validationErrors).some((error) => error !== '')) {
@@ -792,6 +925,11 @@ const handleSubmit = () => {
   const submitData = { ...formData }
   if (!submitData.group_name || submitData.group_name.trim() === '') {
     submitData.group_name = t('personal.defaultGroup')
+  }
+  if (submitData.auth_type === 'password') {
+    submitData.keyChain = undefined
+  } else if (submitData.auth_type === 'passwordCredential') {
+    submitData.password = ''
   }
 
   emit('submit', submitData)
@@ -838,9 +976,14 @@ const handlePasswordInput = (event: Event) => {
 watch(
   () => props.initialData,
   (newData) => {
+    lastAuthType.value = normalizeAssetAuthType(newData?.auth_type)
     const defaultGroupName = t('personal.defaultGroup')
-    cachedAuth.password = newData?.password ?? ''
-    cachedAuth.keyChain = newData?.keyChain
+    cachedAuth.password = lastAuthType.value === 'password' ? (newData?.password ?? '') : ''
+    cachedAuth.keyChain = newData?.auth_type === 'keyBased' ? newData?.keyChain : undefined
+    cachedAuth.passwordChain = newData?.auth_type === 'passwordCredential' ? newData?.keyChain : undefined
+    cachedAuth.manualUsername = newData?.auth_type === 'passwordCredential' ? '' : (newData?.username ?? '')
+    cachedAuth.passwordCredentialUsername = newData?.auth_type === 'passwordCredential' ? (newData?.username ?? '') : ''
+    selectedPasswordChain.value = cachedAuth.passwordChain
     Object.assign(formData, {
       username: '',
       password: '',
@@ -862,6 +1005,10 @@ watch(
       username: '',
       password: ''
     })
+    selectedPasswordChain.value = cachedAuth.passwordChain
+    if (lastAuthType.value === 'passwordCredential' && cachedAuth.passwordChain) {
+      void handlePasswordChainChange(cachedAuth.passwordChain)
+    }
   },
   { deep: true }
 )

@@ -38,6 +38,11 @@ const translations: Record<string, string> = {
   'personal.pleaseInputUsername': 'Please input username',
   'personal.pleaseInputPassword': 'Please input password',
   'personal.pleaseSelectKeychain': 'Please select keychain',
+  'personal.passwordCredential': 'Password Credential',
+  'personal.pleaseSelectPasswordCredential': 'Please select password credential',
+  'personal.passwordCredentialLoadFailed': 'Failed to load password credential',
+  'personal.validationPasswordCredentialRequired': 'Password credential cannot be empty',
+  'personal.validationPasswordCredentialUsernameRequired': 'Password credential is missing a username. Please update it in credential management.',
   'personal.proxyConfig': 'Proxy Config',
   'personal.pleaseSelectSshProxy': 'Please select SSH proxy',
   'personal.advancedOptions': 'Advanced Options',
@@ -64,7 +69,8 @@ const translations: Record<string, string> = {
   'personal.validationIpNoSpaces': 'IP cannot contain spaces',
   'personal.validationPortNoSpaces': 'Port cannot contain spaces',
   'personal.validationUsernameNoSpaces': 'Username cannot contain spaces',
-  'personal.validationPasswordNoSpaces': 'Password cannot contain spaces'
+  'personal.validationPasswordNoSpaces': 'Password cannot contain spaces',
+  'keyChain.newCredential': 'New Credential'
 }
 
 // Mock i18n
@@ -102,7 +108,8 @@ vi.mock('@/utils/eventBus', () => ({
 
 // Mock window.api
 const mockWindowApi = {
-  getBastionDefinitions: vi.fn().mockResolvedValue([])
+  getBastionDefinitions: vi.fn().mockResolvedValue([]),
+  getKeyChainInfo: vi.fn()
 }
 
 describe('AssetForm Validation', () => {
@@ -120,6 +127,7 @@ describe('AssetForm Validation', () => {
         isEditMode: false,
         initialData: {},
         keyChainOptions: [],
+        passwordChainOptions: [],
         sshProxyConfigs: [],
         defaultGroups: ['development', 'production'],
         ...props
@@ -402,6 +410,25 @@ describe('AssetForm Validation', () => {
       expect(wrapper.emitted('submit')).toBeUndefined()
     })
 
+    it('should not emit submit when auth is passwordCredential and no credential is selected', async () => {
+      wrapper = createWrapper({
+        initialData: {
+          ip: '192.168.1.1',
+          port: 22,
+          username: 'root',
+          password: '',
+          asset_type: 'person',
+          auth_type: 'passwordCredential',
+          keyChain: undefined
+        }
+      })
+      await nextTick()
+      await clickSubmit(wrapper)
+
+      expect(message.error).toHaveBeenCalledWith('Password credential cannot be empty')
+      expect(wrapper.emitted('submit')).toBeUndefined()
+    })
+
     it('should emit submit when auth is password and password is provided', async () => {
       wrapper = createWrapper({
         initialData: {
@@ -417,6 +444,59 @@ describe('AssetForm Validation', () => {
       await clickSubmit(wrapper)
 
       expect(wrapper.emitted('submit')).toBeTruthy()
+    })
+
+    it('should load password from selected password credential', async () => {
+      mockWindowApi.getKeyChainInfo.mockResolvedValue({
+        chain_type: 'PASSWORD',
+        passphrase: 'shared-secret',
+        public_key: 'root'
+      })
+      wrapper = createWrapper({
+        initialData: {
+          ip: '192.168.1.1',
+          port: 22,
+          username: 'manual-user',
+          password: '',
+          asset_type: 'person',
+          auth_type: 'passwordCredential'
+        },
+        passwordChainOptions: [{ key: 7, label: 'Shared root password' }]
+      })
+      await nextTick()
+
+      await wrapper.vm.handlePasswordChainChange(7)
+
+      expect(mockWindowApi.getKeyChainInfo).toHaveBeenCalledWith({ id: 7 })
+      expect(wrapper.vm.formData.password).toBe('shared-secret')
+      expect(wrapper.vm.formData.username).toBe('root')
+      expect(wrapper.vm.formData.keyChain).toBe(7)
+    })
+
+    it('should not emit submit when password credential has no username', async () => {
+      mockWindowApi.getKeyChainInfo.mockResolvedValue({
+        chain_type: 'PASSWORD',
+        passphrase: 'shared-secret',
+        public_key: ''
+      })
+      wrapper = createWrapper({
+        initialData: {
+          ip: '192.168.1.1',
+          port: 22,
+          username: '',
+          password: '',
+          asset_type: 'person',
+          auth_type: 'passwordCredential'
+        },
+        passwordChainOptions: [{ key: 8, label: 'Broken credential' }]
+      })
+      await nextTick()
+
+      await wrapper.vm.handlePasswordChainChange(8)
+      await clickSubmit(wrapper)
+
+      expect(message.error).toHaveBeenCalledWith('Password credential is missing a username. Please update it in credential management.')
+      expect(wrapper.emitted('submit')).toBeUndefined()
     })
 
     it('should emit submit when auth is keyBased and key is selected', async () => {
@@ -641,8 +721,7 @@ describe('AssetForm Validation', () => {
       wrapper = createWrapper({
         initialData: {
           ...baseValidData,
-          password: 'secret',
-          keyChain: 11
+          password: 'secret'
         }
       })
       await nextTick()
@@ -653,10 +732,26 @@ describe('AssetForm Validation', () => {
       expect(wrapper.vm.formData.password).toBe('')
 
       wrapper.vm.formData.keyChain = 22
+      wrapper.vm.formData.auth_type = 'passwordCredential'
+      wrapper.vm.handleAuthChange()
+      expect(wrapper.vm.formData.keyChain).toBeUndefined()
+      expect(wrapper.vm.formData.password).toBe('')
+
+      wrapper.vm.selectedPasswordChain = 33
+      wrapper.vm.formData.keyChain = 33
       wrapper.vm.formData.auth_type = 'password'
       wrapper.vm.handleAuthChange()
       expect(wrapper.vm.formData.keyChain).toBeUndefined()
       expect(wrapper.vm.formData.password).toBe('secret')
+
+      wrapper.vm.formData.auth_type = 'keyBased'
+      wrapper.vm.handleAuthChange()
+      expect(wrapper.vm.formData.keyChain).toBe(22)
+
+      wrapper.vm.formData.auth_type = 'passwordCredential'
+      wrapper.vm.handleAuthChange()
+      expect(wrapper.vm.formData.keyChain).toBe(33)
+      expect(wrapper.vm.selectedPasswordChain).toBe(33)
     })
 
     it('should emit add-keychain event from handler', async () => {

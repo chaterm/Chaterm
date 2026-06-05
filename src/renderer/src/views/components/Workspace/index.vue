@@ -1337,7 +1337,7 @@ const resolveTunnelConnectionPayload = async (asset: any, assetKey: string, conf
     host,
     port,
     username,
-    password: authType === 'password' ? assetInfo?.password || '' : '',
+    password: authType !== 'keyBased' ? assetInfo?.password || '' : '',
     privateKey: authType === 'keyBased' ? assetInfo?.privateKey || '' : '',
     passphrase: assetInfo?.passphrase || '',
     sshType: 'ssh',

@@ -47,6 +47,7 @@
           :is-edit-mode="isEditMode"
           :initial-data="formData"
           :key-chain-options="keyChainOptions"
+          :password-chain-options="passwordChainOptions"
           :ssh-proxy-configs="sshProxyConfigs"
           :default-groups="defaultGroups"
           :jump-host-options="jumpHostOptions"
@@ -130,7 +131,7 @@ import i18n from '@/locales'
 import { useOnboardingStore } from '@/store/onboardingStore'
 
 import { handleRefreshOrganizationAssets } from '../components/refreshOrganizationAssets'
-import type { AssetNode, AssetFormData, KeyChainItem, SshProxyConfigItem } from '../utils/types'
+import type { AssetNode, AssetFormData, KeyChainItem, PasswordChainItem, SshProxyConfigItem } from '../utils/types'
 import { isOrganizationAsset } from '../utils/types'
 import {
   buildExportTree,
@@ -170,6 +171,7 @@ const searchValue = ref('')
 const assetSearchRef = ref<InstanceType<typeof AssetSearch> | null>(null)
 const assetGroups = ref<AssetNode[]>([])
 const keyChainOptions = ref<KeyChainItem[]>([])
+const passwordChainOptions = ref<PasswordChainItem[]>([])
 const sshProxyConfigs = ref<SshProxyConfigItem[]>([])
 const defaultGroups = ref(['development', 'production', 'staging', 'testing', 'database'])
 const contextMenuVisible = ref(false)
@@ -233,6 +235,8 @@ const openNewPanel = () => {
   getAssetGroup()
   if (formData.auth_type === 'keyBased') {
     getkeyChainData()
+  } else if (formData.auth_type === 'passwordCredential') {
+    getPasswordChainData()
   }
   isRightSectionVisible.value = true
 }
@@ -298,6 +302,8 @@ const handleAssetEdit = (asset: AssetNode) => {
   getAssetGroup()
   if (formData.auth_type === 'keyBased') {
     getkeyChainData()
+  } else if (formData.auth_type === 'passwordCredential') {
+    getPasswordChainData()
   }
   isRightSectionVisible.value = true
 }
@@ -370,6 +376,8 @@ const handleAssetClone = (asset: AssetNode) => {
   getAssetGroup()
   if (formData.auth_type === 'keyBased') {
     getkeyChainData()
+  } else if (formData.auth_type === 'passwordCredential') {
+    getPasswordChainData()
   }
   isRightSectionVisible.value = true
 }
@@ -1363,15 +1371,25 @@ const convertToAssetFormat = (sessions: ParsedSession[]): any[] => {
 const handleAuthChange = (authType: string) => {
   if (authType === 'keyBased') {
     getkeyChainData()
+  } else if (authType === 'passwordCredential') {
+    getPasswordChainData()
   }
 }
 
 const getkeyChainData = () => {
   const api = window.api as any
   api.getKeyChainSelect().then((res) => {
-    keyChainOptions.value = res.data.keyChain
+    keyChainOptions.value = res?.data?.keyChain || []
   })
 }
+
+const getPasswordChainData = () => {
+  const api = window.api as any
+  api.getPasswordChainSelect().then((res) => {
+    passwordChainOptions.value = res?.data?.passwordChain || []
+  })
+}
+
 const getProxyConfigData = async () => {
   try {
     const savedConfig = await userConfigStore.getConfig()
@@ -1423,12 +1441,12 @@ const handleCreateAsset = async (data: AssetFormData) => {
 
     const cleanForm = {
       username: data.username,
-      password: data.password,
+      password: data.auth_type === 'passwordCredential' ? '' : data.password,
       ip: data.ip,
       label: data.label || data.ip,
       group_name: groupName,
       auth_type: data.auth_type,
-      keyChain: data.keyChain,
+      keyChain: data.auth_type === 'password' ? undefined : data.keyChain,
       port: data.port,
       asset_type: data.asset_type,
       needProxy: data.needProxy,
@@ -1472,12 +1490,12 @@ const handleSaveAsset = async (data: AssetFormData) => {
     const cleanForm = {
       uuid: editingAssetUUID.value,
       username: data.username,
-      password: data.password,
+      password: data.auth_type === 'passwordCredential' ? '' : data.password,
       ip: data.ip,
       label: data.label || data.ip,
       group_name: groupName,
       auth_type: data.auth_type,
-      keyChain: data.keyChain,
+      keyChain: data.auth_type === 'password' ? undefined : data.keyChain,
       port: data.port,
       asset_type: data.asset_type,
       needProxy: data.needProxy,
@@ -1519,9 +1537,11 @@ const getAssetList = async () => {
 onMounted(() => {
   getAssetList()
   getkeyChainData()
+  getPasswordChainData()
   getProxyConfigData()
   eventBus.on('keyChainUpdated', () => {
     getkeyChainData()
+    getPasswordChainData()
   })
   eventBus.on('sshProxyConfigsUpdated', () => {
     getProxyConfigData()
