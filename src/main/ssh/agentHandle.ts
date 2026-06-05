@@ -4,6 +4,7 @@ import { ConnectionInfo } from '../agent/integrations/remote-terminal'
 import { createProxySocket } from './proxy'
 import {
   createProxyCommandSocket,
+  enrichConnectionCredentials,
   getReusableSshConnection,
   registerReusableSshSession,
   releaseReusableSshSession,
@@ -33,6 +34,7 @@ function isSystemError(_command: string, exitCode: number | null): boolean {
 }
 
 export async function remoteSshConnect(connectionInfo: ConnectionInfo): Promise<{ id?: string; error?: string }> {
+  connectionInfo = (await enrichConnectionCredentials(connectionInfo as unknown as Record<string, unknown>)) as unknown as ConnectionInfo
   const { host, port, username, password, privateKey, passphrase } = connectionInfo
   const connectionId = `ssh_${randomUUID()}`
   const normalizedHost = host ?? ''
@@ -74,7 +76,7 @@ export async function remoteSshConnect(connectionInfo: ConnectionInfo): Promise<
       port: jumpAsset.port || 22,
       username: jumpAsset.username,
       asset_type: jumpAsset.asset_type,
-      password: jumpAsset.auth_type === 'password' ? jumpAsset.password : undefined,
+      password: jumpAsset.auth_type !== 'keyBased' ? jumpAsset.password : undefined,
       privateKey: jumpAsset.auth_type === 'keyBased' ? jumpAsset.privateKey : undefined,
       passphrase: jumpAsset.auth_type === 'keyBased' ? jumpAsset.passphrase : undefined
     }

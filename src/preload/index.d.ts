@@ -415,6 +415,7 @@ interface ApiType {
   chatermUpdate: (data: { sql: string; params?: any[] }) => Promise<any>
   deleteAsset: (data: { uuid: string }) => Promise<any>
   getKeyChainSelect: () => Promise<any>
+  getPasswordChainSelect: () => Promise<any>
   getAssetGroup: () => Promise<any>
   createAsset: (data: { form: any }) => Promise<any>
   createOrUpdateAsset: (data: { form: any }) => Promise<any>

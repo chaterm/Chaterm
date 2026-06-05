@@ -8,6 +8,7 @@ export type AssetType =
   | 'person-switch-huawei'
 
 export type BastionAuthPolicy = 'password' | 'keyBased'
+export type AssetAuthType = 'password' | 'passwordCredential' | 'keyBased'
 
 export interface BastionDefinitionSummary {
   type: string
@@ -46,9 +47,9 @@ export function resolveBastionAuthType(
   assetType: string | undefined,
   definitions: BastionDefinitionSummary[],
   currentAuthType?: string
-): BastionAuthPolicy {
-  const normalizedAuthType: BastionAuthPolicy | undefined =
-    currentAuthType === 'password' || currentAuthType === 'keyBased' ? currentAuthType : undefined
+): AssetAuthType {
+  const normalizedAuthType: AssetAuthType | undefined =
+    currentAuthType === 'password' || currentAuthType === 'passwordCredential' || currentAuthType === 'keyBased' ? currentAuthType : undefined
 
   if (assetType === 'organization') return 'keyBased'
 
@@ -57,8 +58,12 @@ export function resolveBastionAuthType(
     const definition = bastionType ? definitions.find((d) => d.type === bastionType) : undefined
 
     if (normalizedAuthType) {
+      if (normalizedAuthType === 'passwordCredential') {
+        if (!definition) return normalizedAuthType
+        if (definition.authPolicy.includes('password')) return normalizedAuthType
+      }
       if (!definition) return normalizedAuthType
-      if (definition.authPolicy.includes(normalizedAuthType)) return normalizedAuthType
+      if (normalizedAuthType !== 'passwordCredential' && definition.authPolicy.includes(normalizedAuthType)) return normalizedAuthType
     }
 
     if (definition?.authPolicy?.length) {
@@ -130,6 +135,11 @@ export interface SshProxyConfigItem {
   label: string
 }
 export interface KeyChainItem {
+  key: number
+  label: string
+}
+
+export interface PasswordChainItem {
   key: number
   label: string
 }
