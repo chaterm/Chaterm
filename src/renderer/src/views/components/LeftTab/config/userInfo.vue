@@ -43,7 +43,7 @@
               : t('userInfo.personal')
         }}
         <a-tag
-          v-if="isSubscriptionActive"
+          v-if="shouldShowSubscriptionTag && isSubscriptionActive"
           :key="userInfo.subscription"
           :title="t('userInfo.expirationTime') + `：${userInfo.subscriptionExpiresAt || userInfo.expires || ''}`"
           class="subscription-tag"
@@ -51,7 +51,7 @@
           {{ userInfo.subscription ? userInfo.subscription.charAt(0).toUpperCase() + userInfo.subscription.slice(1) : '-' }}
         </a-tag>
         <a-tag
-          v-else
+          v-else-if="shouldShowSubscriptionTag"
           class="subscription-tag free-tag"
           >free
         </a-tag>
@@ -479,6 +479,7 @@ import { setUserInfo } from '@/utils/permission'
 import { message } from 'ant-design-vue'
 import zxcvbn from 'zxcvbn'
 import { isChineseEdition } from '@/utils/edition'
+import { isEnterpriseDeployEnabled } from '@/views/components/AiTab/composables/useModelConfiguration'
 
 const logger = createRendererLogger('config.userInfo')
 
@@ -594,6 +595,10 @@ const isSubscriptionActive = computed(() => {
   }
   // fallback to legacy expires field for old backend
   return userInfo.value.expires && new Date() < new Date(userInfo.value.expires)
+})
+
+const shouldShowSubscriptionTag = computed(() => {
+  return !isEnterpriseDeployEnabled()
 })
 
 const canEditMobile = computed(() => {

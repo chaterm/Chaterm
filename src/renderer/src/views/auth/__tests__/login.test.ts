@@ -354,6 +354,7 @@ describe('Login Component', () => {
       wrapper = createWrapper()
       await nextTick()
       const vm = wrapper.vm as any
+      vm.isDev = true
       vm.activeTab = 'email'
       await nextTick()
     })
@@ -399,6 +400,23 @@ describe('Login Component', () => {
       expect(vi.mocked(mockRouter.replace)).toHaveBeenCalledWith({ path: '/', replace: true })
     })
 
+    it('should submit email login when form is submitted', async () => {
+      const vm = wrapper.vm as any
+      vm.emailForm.email = 'test@example.com'
+      vm.emailForm.code = '123456'
+      await nextTick()
+
+      wrapper.find('.login-form').element.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }))
+      await nextTick()
+
+      expect(vi.mocked(emailLogin)).toHaveBeenCalledWith({
+        email: 'test@example.com',
+        code: '123456',
+        macAddress: '00:11:22:33:44:55',
+        localPlugins: {}
+      })
+    })
+
     it('should validate email and code before login', async () => {
       const vm = wrapper.vm as any
       vm.emailForm.email = ''
@@ -440,6 +458,7 @@ describe('Login Component', () => {
       wrapper = createWrapper()
       await nextTick()
       const vm = wrapper.vm as any
+      vm.isDev = true
       vm.activeTab = 'mobile'
       await nextTick()
     })
@@ -485,6 +504,23 @@ describe('Login Component', () => {
       expect(vi.mocked(mockRouter.replace)).toHaveBeenCalledWith({ path: '/', replace: true })
     })
 
+    it('should submit mobile login when form is submitted', async () => {
+      const vm = wrapper.vm as any
+      vm.mobileForm.mobile = '13800138000'
+      vm.mobileForm.code = '123456'
+      await nextTick()
+
+      wrapper.find('.login-form').element.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }))
+      await nextTick()
+
+      expect(vi.mocked(mobileLogin)).toHaveBeenCalledWith({
+        mobile: '13800138000',
+        code: '123456',
+        macAddress: '00:11:22:33:44:55',
+        localPlugins: {}
+      })
+    })
+
     it('should validate mobile and code before login', async () => {
       const vm = wrapper.vm as any
       vm.mobileForm.mobile = ''
@@ -523,6 +559,7 @@ describe('Login Component', () => {
       wrapper = createWrapper()
       await nextTick()
       const vm = wrapper.vm as any
+      vm.isDev = true
       vm.activeTab = 'account'
       await nextTick()
     })
@@ -543,6 +580,23 @@ describe('Login Component', () => {
       })
       expect(vi.mocked(setUserInfo)).toHaveBeenCalled()
       expect(vi.mocked(mockRouter.replace)).toHaveBeenCalledWith({ path: '/', replace: true })
+    })
+
+    it('should submit account login when form is submitted', async () => {
+      const vm = wrapper.vm as any
+      vm.accountForm.username = 'testuser'
+      vm.accountForm.password = 'password123'
+      await nextTick()
+
+      wrapper.find('.login-form').element.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }))
+      await nextTick()
+
+      expect(vi.mocked(userLogin)).toHaveBeenCalledWith({
+        username: 'testuser',
+        password: 'password123',
+        macAddress: '00:11:22:33:44:55',
+        localPlugins: {}
+      })
     })
 
     it('should validate username and password before login', async () => {

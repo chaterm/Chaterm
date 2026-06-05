@@ -61,7 +61,10 @@
           </div>
 
           <!-- Login form -->
-          <div class="login-form">
+          <form
+            class="login-form"
+            @submit.prevent="handleLoginSubmit"
+          >
             <!-- Account password login -->
             <div
               v-if="activeTab === 'account'"
@@ -96,8 +99,8 @@
 
               <button
                 class="login-btn primary"
+                type="submit"
                 :disabled="loading"
-                @click="onAccountLogin"
               >
                 <span
                   v-if="loading"
@@ -137,6 +140,7 @@
                   />
                   <button
                     class="code-btn"
+                    type="button"
                     :disabled="codeSending || countdown > 0"
                     @click="sendCode"
                   >
@@ -148,8 +152,8 @@
 
               <button
                 class="login-btn primary"
+                type="submit"
                 :disabled="loading"
-                @click="onEmailLogin"
               >
                 <span
                   v-if="loading"
@@ -190,6 +194,7 @@
                   />
                   <button
                     class="code-btn"
+                    type="button"
                     :disabled="mobileCodeSending || mobileCountdown > 0"
                     @click="sendMobileCode"
                   >
@@ -201,8 +206,8 @@
 
               <button
                 class="login-btn primary"
+                type="submit"
                 :disabled="loading"
-                @click="onMobileLogin"
               >
                 <span
                   v-if="loading"
@@ -220,7 +225,7 @@
                 >{{ $t('login.skipLogin') }}</a
               >
             </div>
-          </div>
+          </form>
         </template>
         <template v-else>
           <a-form
@@ -296,6 +301,20 @@ const accountForm = reactive({
 })
 const mobileCodeSending = ref(false)
 const mobileCountdown = ref(0)
+
+const handleLoginSubmit = async () => {
+  if (activeTab.value === 'email') {
+    await onEmailLogin()
+    return
+  }
+
+  if (activeTab.value === 'mobile' && isChineseEdition()) {
+    await onMobileLogin()
+    return
+  }
+
+  await onAccountLogin()
+}
 
 const checkUrlForAuthCallback = async () => {
   const url = window.location.href

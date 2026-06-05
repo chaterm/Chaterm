@@ -2,6 +2,8 @@ import Database from 'better-sqlite3'
 import { randomUUID } from 'crypto'
 const logger = createLogger('db')
 
+const PASSWORD_CHAIN_TYPE = 'PASSWORD'
+
 /**
  * Trigger incremental sync
  * Called after data changes to trigger immediate sync
@@ -25,9 +27,10 @@ export function getKeyChainSelectLogic(db: Database.Database): any {
     const stmt = db.prepare(`
         SELECT key_chain_id, chain_name
         FROM t_asset_chains
+        WHERE chain_type IS NULL OR chain_type != ?
         ORDER BY created_at
       `)
-    const results = stmt.all() || []
+    const results = stmt.all(PASSWORD_CHAIN_TYPE) || []
 
     return {
       data: {
@@ -39,6 +42,30 @@ export function getKeyChainSelectLogic(db: Database.Database): any {
     }
   } catch (error) {
     logger.error('Chaterm database get keychain error', { error: error })
+    throw error
+  }
+}
+
+export function getPasswordChainSelectLogic(db: Database.Database): any {
+  try {
+    const stmt = db.prepare(`
+        SELECT key_chain_id, chain_name
+        FROM t_asset_chains
+        WHERE chain_type = ?
+        ORDER BY created_at
+      `)
+    const results = stmt.all(PASSWORD_CHAIN_TYPE) || []
+
+    return {
+      data: {
+        passwordChain: results.map((item: any) => ({
+          key: item.key_chain_id,
+          label: item.chain_name
+        }))
+      }
+    }
+  } catch (error) {
+    logger.error('Chaterm database get password chain error', { error: error })
     throw error
   }
 }
