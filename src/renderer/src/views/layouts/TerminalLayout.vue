@@ -582,6 +582,27 @@ const setLeftSidebarSize = (size: number) => {
   }
 }
 
+const handleDockviewTabsWheel = (event: WheelEvent) => {
+  const target = event.target
+  if (!(target instanceof Element)) return
+
+  const tabsContainer = target.closest('.dv-tabs-container') as HTMLElement | null
+  if (!tabsContainer) return
+
+  const delta = Math.abs(event.deltaX) > Math.abs(event.deltaY) ? event.deltaX : event.deltaY
+  if (delta === 0) return
+
+  const maxScrollLeft = tabsContainer.scrollWidth - tabsContainer.clientWidth
+  if (maxScrollLeft <= 0) return
+
+  const nextScrollLeft = Math.min(Math.max(tabsContainer.scrollLeft + delta, 0), maxScrollLeft)
+  if (nextScrollLeft === tabsContainer.scrollLeft) return
+
+  tabsContainer.scrollLeft = nextScrollLeft
+  event.preventDefault()
+  event.stopPropagation()
+}
+
 // Detect if splitter was clicked
 const handleMouseDown = (e: MouseEvent) => {
   const target = e.target as HTMLElement
@@ -998,6 +1019,7 @@ onMounted(async () => {
   document.addEventListener('mousedown', handleMouseDown)
   document.addEventListener('mouseup', handleGlobalMouseUp)
   document.addEventListener('mousemove', handleGlobalMouseMove)
+  document.addEventListener('wheel', handleDockviewTabsWheel, { capture: true, passive: false })
 
   aliasConfig.initialize()
 
@@ -1987,6 +2009,7 @@ onUnmounted(() => {
   // Unregister global mouse event listeners
   document.removeEventListener('mousedown', handleMouseDown)
   document.removeEventListener('mouseup', handleGlobalMouseUp)
+  document.removeEventListener('wheel', handleDockviewTabsWheel, true)
 
   if ((globalThis as any).__ctrlWHandler) {
     document.removeEventListener('keydown', (globalThis as any).__ctrlWHandler, true)
