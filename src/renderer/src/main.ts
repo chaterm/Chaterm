@@ -19,6 +19,21 @@ import { APP_EDITION } from './utils/edition'
 import { createRendererLogger } from './utils/logger'
 import { useEditorConfigStore } from './store/editorConfig'
 
+try {
+  const paintObserver = new PerformanceObserver((list, observer) => {
+    for (const entry of list.getEntries()) {
+      if (entry.name === 'first-contentful-paint') {
+        mark('chaterm/renderer/paint/firstContentfulPaint')
+        observer.disconnect()
+        break
+      }
+    }
+  })
+  paintObserver.observe({ type: 'paint', buffered: true })
+} catch {
+  // Paint timing is not available in every Electron/runtime mode.
+}
+
 // Set document title based on edition
 document.title = APP_EDITION === 'cn' ? 'Chaterm CN' : 'Chaterm'
 
@@ -32,7 +47,9 @@ import * as storageState from './agent/storage/state'
 import { setupIndexDBMigrationListener } from './services/indexdb-migration-listener'
 
 // Initialize IndexedDB migration listener
+mark('chaterm/renderer/willSetupIndexedDbMigrationListener')
 setupIndexDBMigrationListener()
+mark('chaterm/renderer/didSetupIndexedDbMigrationListener')
 
 mark('chaterm/renderer/willCreateApp')
 const pinia = createPinia()
@@ -66,9 +83,12 @@ window.storageAPI = storageState
 // Initialize editor config store early
 const initializeEditorConfig = async () => {
   try {
+    mark('chaterm/renderer/willInitEditorConfig')
     const editorConfigStore = useEditorConfigStore()
     await editorConfigStore.loadConfig()
+    mark('chaterm/renderer/didInitEditorConfig')
   } catch (error) {
+    mark('chaterm/renderer/didFailInitEditorConfig')
     vueLogger.error('Failed to initialize editor config:', { error })
   }
 }
@@ -90,9 +110,13 @@ import { userConfigStore } from '@/services/userConfigStoreService'
 
 // Register IPC handlers when renderer process starts
 function setupIPCHandlers() {
+  mark('chaterm/renderer/willSetupIpcHandlers')
   const electronAPI = (window as any).electron
 
-  if (!electronAPI?.ipcRenderer) return
+  if (!electronAPI?.ipcRenderer) {
+    mark('chaterm/renderer/didSkipIpcHandlers')
+    return
+  }
   const { ipcRenderer } = electronAPI
 
   ipcRenderer.on('userConfig:get', async () => {
@@ -104,6 +128,7 @@ function setupIPCHandlers() {
       ipcRenderer.send('userConfig:get-error', e.message)
     }
   })
+  mark('chaterm/renderer/didSetupIpcHandlers')
 }
 
 setupIPCHandlers()
@@ -113,7 +138,7 @@ setupPerfIpcListener()
 
 // Mark interactive after microtask queue drains (all sync init complete)
 requestAnimationFrame(() => {
-  mark('chaterm/renderer/firstContentfulPaint')
+  mark('chaterm/renderer/firstAnimationFrame')
   requestAnimationFrame(() => {
     mark('chaterm/renderer/interactive')
     logRendererTimeline()

@@ -6,6 +6,7 @@ import { ref, onMounted, onUnmounted, nextTick } from 'vue'
 import TerminalLayout from './layouts/TerminalLayout.vue'
 import eventBus from '@/utils/eventBus'
 import { userConfigStore } from '@/services/userConfigStoreService'
+import { mark } from '@/utils/perf'
 
 const logger = createRendererLogger('views.index')
 
@@ -33,15 +34,19 @@ const handleToggleLayout = async () => {
 }
 
 onMounted(async () => {
+  mark('chaterm/renderer/homeMounted')
   eventBus.on('switch-mode', handleModeChange)
   eventBus.on('toggle-layout', handleToggleLayout)
 
   // Load default layout from user config
   try {
+    mark('chaterm/renderer/willLoadDefaultLayout')
     const config = await userConfigStore.getConfig()
     const defaultLayout = config.defaultLayout || 'terminal'
     currentMode.value = defaultLayout
+    mark('chaterm/renderer/didLoadDefaultLayout')
   } catch (error) {
+    mark('chaterm/renderer/didFailLoadDefaultLayout')
     logger.error('Failed to load default layout', { error: error })
     // Use default value 'terminal' if loading fails
     currentMode.value = 'terminal'
