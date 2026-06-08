@@ -21,6 +21,8 @@ import type {
 } from '../models/ChatSyncTypes'
 import { ChatSyncApiError } from '../models/ChatSyncTypes'
 
+const logger = createLogger('chat-sync')
+
 export interface ChatSyncApiClientOptions {
   baseUrl: string
   getAuthToken: () => Promise<string | null>
@@ -212,7 +214,8 @@ export class ChatSyncApiClient {
       // Response is not JSON
     }
 
-    if (status === 401 || status === 403) {
+    if (status === 401) {
+      logger.warn('Chat sync authentication failed (401)', { event: 'chat_sync.auth_failure', firstFailure: !this.authFailureFired })
       if (!this.authFailureFired) {
         this.authFailureFired = true
         this.onAuthFailure?.()
