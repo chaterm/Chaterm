@@ -28,20 +28,14 @@ class ChatermAuthAdapter {
 
   /**
    * Get the current user's JWT Token
+   *
+   * The client does not judge token expiry locally. As long as a token is
+   * cached, it is returned and attached to requests; the server is the single
+   * source of truth and will respond with 401 if the token is actually expired.
    * @returns JWT Token
    */
   async getAuthToken(): Promise<string | null> {
-    // Return cached token directly, external code is responsible for setting and updating
-    if (this.cachedToken && this.isTokenValid()) {
-      return this.cachedToken
-    }
-
-    // Return null if token is invalid or doesn't exist
-    if (this.cachedToken) {
-      logger.warn('Cached token has expired')
-    }
-
-    return null
+    return this.cachedToken
   }
 
   /**
@@ -53,44 +47,33 @@ class ChatermAuthAdapter {
   }
 
   /**
-   * Check if token is valid
-   * @returns Whether the token is valid
+   * Whether a usable token is present.
+   *
+   * Expiry is intentionally not evaluated here: only the server (via 401) may
+   * invalidate a token. This reports presence, not server-side validity.
+   * @returns Whether a token exists
    */
-  private isTokenValid(): boolean {
-    if (!this.cachedToken) {
-      return false
-    }
-
-    // Guest token is always valid
-    if (this.cachedToken === 'guest_token') {
-      return true
-    }
-
-    // Check if expired (consider expired 5 minutes early)
-    if (!this.tokenExpiry) {
-      return false
-    }
-
-    const fiveMinutes = 5 * 60 * 1000
-    return Date.now() < this.tokenExpiry - fiveMinutes
+  private hasUsableToken(): boolean {
+    return !!this.cachedToken
   }
 
   /**
    * Set authentication information
    * @param token JWT Token
    * @param userId User ID
-   * @param expiry Expiration time (optional, default 24 hours)
+   * @param expiry Optional expiry timestamp in ms, kept for status reporting only
    */
   setAuthInfo(token: string, userId: string, expiry?: number): void {
     this.cachedToken = token
     this.cachedUserId = userId
-    this.tokenExpiry = expiry || Date.now() + 24 * 60 * 60 * 1000
+    this.tokenExpiry = expiry ?? null
   }
 
   /**
    * Clear authentication information
    */
   clearAuthInfo(): void {
+    logger.info('Clearing cached auth info', { event: 'auth.clear', hadToken: !!this.cachedToken })
     this.cachedToken = null
     this.cachedUserId = null
     this.tokenExpiry = null
@@ -104,7 +87,7 @@ class ChatermAuthAdapter {
     return {
       hasToken: !!this.cachedToken,
       hasUserId: !!this.cachedUserId,
-      isValid: this.isTokenValid(),
+      isValid: this.hasUsableToken(),
       tokenType: this.cachedToken === 'guest_token' ? 'guest' : 'user',
       expiry: this.tokenExpiry
     }
