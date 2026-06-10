@@ -137,7 +137,7 @@
     "@playwright/test": "^1.60.0",
     "@types/clone-deep": "^4.0.4",
     "@types/dompurify": "^3.2.0",
-    "@types/node": "^25.9.1",
+    "@types/node": "^25.9.2",
     "@types/ssh2": "^1.15.5",
     "@types/ws": "^8.5.11",
     "@vitejs/plugin-vue": "^6.0.7",
@@ -146,8 +146,8 @@
     "@vitest/coverage-v8": "^4.1.2",
     "@vitest/ui": "^4.0.15",
     "@vue/eslint-config-prettier": "^10.2.0",
-    "@vue/eslint-config-typescript": "^14.7.0",
-    "@vue/test-utils": "^2.4.10",
+    "@vue/eslint-config-typescript": "^14.8.0",
+    "@vue/test-utils": "^2.4.11",
     "ant-design-vue": "^4.2.6",
     "cross-env": "^10.1.0",
     "electron": "^41.3.0",
@@ -162,7 +162,7 @@
     "less": "^4.6.4",
     "lint-staged": "^16.4.0",
     "marked": "^18.0.3",
-    "prettier": "^3.8.3",
+    "prettier": "^3.8.4",
     "typescript": "^5.8.3",
     "unplugin-auto-import": "^21.0.0",
     "unplugin-vue-components": "^32.1.0",
@@ -173,6 +173,6 @@
     "vue": "^3.5.34",
     "vue-eslint-parser": "^10.4.1",
     "vue-router": "^5.0.7",
-    "vue-tsc": "^3.3.3"
+    "vue-tsc": "^3.3.4"
   }
 }
