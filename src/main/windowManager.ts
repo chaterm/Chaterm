@@ -3,6 +3,7 @@ import { join } from 'path'
 import { is } from '@electron-toolkit/utils'
 import icon from '../../resources/icon.png?asset'
 import { getEdition } from './config/edition'
+import { mark } from '@perf'
 
 /**
  * Result of creating the main window.
@@ -28,6 +29,7 @@ export async function createMainWindow(onCookieUrlChange?: (url: string) => void
   const edition = getEdition()
   const windowTitle = edition === 'cn' ? 'Chaterm CN' : 'Chaterm'
 
+  mark('chaterm/main/willCreateBrowserWindow')
   const mainWindow = new BrowserWindow({
     width: 1344,
     height: 756,
@@ -57,6 +59,7 @@ export async function createMainWindow(onCookieUrlChange?: (url: string) => void
       }
     }
   })
+  mark('chaterm/main/didCreateBrowserWindow')
 
   /**
    * Show the window only after the 'ready-to-show' event to avoid a white flash.
@@ -101,10 +104,29 @@ export async function createMainWindow(onCookieUrlChange?: (url: string) => void
 
   // Start loading the renderer content without blocking.
   // The returned `contentLoaded` promise lets callers await it when needed.
-  const contentLoaded =
+  mainWindow.once('ready-to-show', () => {
+    mark('chaterm/main/windowReadyToShow')
+  })
+
+  mainWindow.webContents.once('dom-ready', () => {
+    mark('chaterm/main/windowDomReady')
+  })
+
+  mark('chaterm/main/willLoadRenderer')
+  const contentLoaded = (
     is.dev && process.env['ELECTRON_RENDERER_URL']
       ? mainWindow.loadURL(process.env['ELECTRON_RENDERER_URL'])
       : mainWindow.loadFile(join(__dirname, '../renderer/index.html'))
+  ).then(
+    () => {
+      mark('chaterm/main/didLoadRenderer')
+    },
+    (error) => {
+      mark('chaterm/main/didFailLoadRenderer')
+      throw error
+    }
+  )
+  mark('chaterm/main/didStartRendererLoad')
 
   // Listen for URL changes so we can update the Cookie URL via callback
   mainWindow.webContents.on('did-finish-load', () => {

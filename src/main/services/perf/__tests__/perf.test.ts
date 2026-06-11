@@ -1,17 +1,25 @@
+import path from 'path'
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 
-const { ipcMainMock, loggerMock } = vi.hoisted(() => ({
+const TEST_USER_DATA = '/tmp/chaterm-test-user-data'
+
+const { ipcMainMock, appendFileMock, mkdirMock } = vi.hoisted(() => ({
   ipcMainMock: { handle: vi.fn() },
-  loggerMock: { info: vi.fn() }
+  appendFileMock: vi.fn(),
+  mkdirMock: vi.fn()
 }))
 
 vi.mock('electron', () => ({
   ipcMain: ipcMainMock,
-  BrowserWindow: {}
+  BrowserWindow: {},
+  app: {
+    getPath: vi.fn(() => TEST_USER_DATA)
+  }
 }))
 
-vi.mock('@logging', () => ({
-  createLogger: vi.fn(() => loggerMock)
+vi.mock('fs/promises', () => ({
+  appendFile: appendFileMock,
+  mkdir: mkdirMock
 }))
 
 import {
@@ -19,16 +27,22 @@ import {
   getMarks,
   measure,
   getStartupTimeline,
+  buildStartupTimelineReport,
+  writeStartupTimeline,
+  getStartupLogPath,
   logStartupTimeline,
   exportMarksAsJson,
   registerPerfIpcHandlers,
   collectAndLogTimeline,
+  scheduleStartupTimelineFallback,
   type PerfMark
 } from '../index'
 
 describe('perf', () => {
   beforeEach(() => {
     vi.clearAllMocks()
+    appendFileMock.mockResolvedValue(undefined)
+    mkdirMock.mockResolvedValue(undefined)
   })
 
   afterEach(() => {
@@ -112,26 +126,48 @@ describe('perf', () => {
   })
 
   describe('exportMarksAsJson', () => {
-    it('returns main timeline and null renderer when no renderer marks', () => {
+    it('returns main timeline and null external timelines when no external marks', () => {
       const out = exportMarksAsJson()
       expect(out.main).toBeDefined()
       expect(out.main.process).toBe('main')
+      expect(out.preload).toBe(null)
       expect(out.renderer).toBe(null)
     })
   })
 
   describe('logStartupTimeline', () => {
-    it('calls logger.info with Main Process Startup Timeline when marks exist', () => {
-      logStartupTimeline()
-      expect(loggerMock.info).toHaveBeenCalledTimes(1)
-      const [message] = loggerMock.info.mock.calls[0]
-      expect(message).toContain('=== Main Process Startup Timeline ===')
+    it('builds report with Startup Milestones when marks exist', () => {
+      const report = buildStartupTimelineReport()
+      expect(report).toContain('=== Startup Milestones ===')
     })
 
-    it('includes Key Durations section in logged message', () => {
+    it('includes Startup Durations section in report', () => {
+      mark('chaterm/main/appReady')
+      const report = buildStartupTimelineReport()
+      expect(report).toContain('Startup Durations')
+    })
+
+    it('uses a dedicated daily startup log file path', () => {
+      const logPath = getStartupLogPath(new Date('2026-06-08T00:00:00.000Z'))
+      expect(logPath).toBe(path.join(TEST_USER_DATA, 'logs', 'chaterm_startup_2026-06-08.log'))
+    })
+
+    it('writes startup timeline to the dedicated startup file', async () => {
+      const logPath = await writeStartupTimeline()
+      expect(logPath).toContain('chaterm_startup_')
+      expect(mkdirMock).toHaveBeenCalledWith(path.join(TEST_USER_DATA, 'logs'), { recursive: true })
+      expect(appendFileMock).toHaveBeenCalledTimes(1)
+      const [filePath, content, encoding] = appendFileMock.mock.calls[0]
+      expect(filePath).toContain('chaterm_startup_')
+      expect(content).toContain('=== Startup Milestones ===')
+      expect(encoding).toBe('utf8')
+    })
+
+    it('schedules startup timeline file write without using unified logger', async () => {
       logStartupTimeline()
-      const [message] = loggerMock.info.mock.calls[0]
-      expect(message).toContain('Key Durations')
+      await vi.waitFor(() => {
+        expect(appendFileMock).toHaveBeenCalledTimes(1)
+      })
     })
   })
 
@@ -160,6 +196,26 @@ describe('perf', () => {
       expect(exported.renderer).not.toBe(null)
       expect(exported.renderer!.process).toBe('renderer')
       expect(exported.renderer!.marks).toHaveLength(2)
+    })
+
+    it('perf:report-marks handler stores preload marks when payload has process', async () => {
+      registerPerfIpcHandlers()
+      const reportHandler = ipcMainMock.handle.mock.calls.find((c: unknown[]) => c[0] === 'perf:report-marks')?.[1] as (
+        _e: unknown,
+        payload: { process: 'preload'; marks: PerfMark[] }
+      ) => Promise<{ success: boolean }>
+
+      const marks: PerfMark[] = [
+        { name: 'preload/start', startTime: 1, timestamp: 100 },
+        { name: 'preload/end', startTime: 2, timestamp: 200 }
+      ]
+      const result = await reportHandler(null, { process: 'preload', marks })
+      expect(result).toEqual({ success: true })
+
+      const exported = exportMarksAsJson()
+      expect(exported.preload).not.toBe(null)
+      expect(exported.preload!.process).toBe('preload')
+      expect(exported.preload!.marks).toHaveLength(2)
     })
 
     it('perf:report-marks handler ignores non-array payload and keeps previous marks', async () => {
@@ -194,10 +250,26 @@ describe('perf', () => {
   describe('collectAndLogTimeline', () => {
     it('does nothing when window is null', () => {
       collectAndLogTimeline(null as never)
-      expect(loggerMock.info).not.toHaveBeenCalled()
+      expect(appendFileMock).not.toHaveBeenCalled()
     })
 
-    it('sends perf:collect-marks and logs after delay when window is valid', () => {
+    it('delays fallback startup logging to give main-window-show a chance to win', () => {
+      vi.useFakeTimers()
+      const send = vi.fn()
+      const mainWindow = {
+        isDestroyed: () => false,
+        webContents: { send }
+      } as never
+
+      scheduleStartupTimelineFallback(mainWindow)
+      vi.advanceTimersByTime(500)
+      expect(send).not.toHaveBeenCalled()
+
+      vi.advanceTimersByTime(9500)
+      expect(send).toHaveBeenCalledWith('perf:collect-marks')
+    })
+
+    it('collects renderer marks shortly before writing the startup log', () => {
       vi.useFakeTimers()
       const send = vi.fn()
       const mainWindow = {
@@ -206,11 +278,17 @@ describe('perf', () => {
       } as never
 
       collectAndLogTimeline(mainWindow)
-      expect(send).toHaveBeenCalledWith('perf:collect-marks')
-      expect(loggerMock.info).not.toHaveBeenCalled()
+      expect(send).not.toHaveBeenCalled()
+      expect(appendFileMock).not.toHaveBeenCalled()
 
       vi.advanceTimersByTime(500)
-      expect(loggerMock.info).toHaveBeenCalledTimes(1)
+      expect(send).toHaveBeenCalledWith('perf:collect-marks')
+      expect(appendFileMock).not.toHaveBeenCalled()
+
+      vi.advanceTimersByTime(50)
+      return vi.waitFor(() => {
+        expect(appendFileMock).toHaveBeenCalledTimes(1)
+      })
     })
 
     it('does nothing when window is destroyed', () => {
