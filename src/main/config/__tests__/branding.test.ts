@@ -37,8 +37,8 @@ describe('main branding config', () => {
       displayName: 'Chaterm CN',
       branding: {
         enterpriseBrandingEnabled: false,
-        productNameZh: '小猿Shell',
-        productNameEn: 'CICC AI Shell'
+        productNameZh: '你好 Shell',
+        productNameEn: 'Hello AI Shell'
       }
     })
 
@@ -58,8 +58,8 @@ describe('main branding config', () => {
       displayName: 'Chaterm CN',
       branding: {
         enterpriseBrandingEnabled: true,
-        productNameZh: '小猿Shell',
-        productNameEn: 'CICC AI Shell'
+        productNameZh: '你好 Shell',
+        productNameEn: 'Hello AI Shell'
       }
     })
     mockExistsSync.mockImplementation((targetPath: string) => targetPath.endsWith('logo.svg') || targetPath.endsWith('icon.png'))
@@ -68,7 +68,7 @@ describe('main branding config', () => {
     const config = getBrandingConfig()
 
     expect(config.enabled).toBe(true)
-    expect(config.displayName).toBe('小猿Shell')
+    expect(config.displayName).toBe('你好 Shell')
     expect(config.logoUrl).toContain('logo.svg')
     expect(config.iconPngPath).toContain('icon.png')
     expect(config.logoLightUrl).toBeUndefined()
@@ -82,8 +82,8 @@ describe('main branding config', () => {
       displayName: 'Chaterm',
       branding: {
         enterpriseBrandingEnabled: true,
-        productNameZh: '小猿Shell',
-        productNameEn: 'CICC AI Shell'
+        productNameZh: '你好 Shell',
+        productNameEn: 'Hello AI Shell'
       }
     })
 
@@ -91,6 +91,6 @@ describe('main branding config', () => {
     const config = getBrandingConfig()
 
     expect(config.enabled).toBe(true)
-    expect(config.displayName).toBe('CICC AI Shell')
+    expect(config.displayName).toBe('Hello AI Shell')
   })
 })

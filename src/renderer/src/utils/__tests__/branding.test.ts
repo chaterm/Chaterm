@@ -22,8 +22,8 @@ describe('renderer branding utils', () => {
       displayName: 'Chaterm CN',
       branding: {
         enterpriseBrandingEnabled: false,
-        productNameZh: ' 小猿Shell ',
-        productNameEn: ' CICC AI Shell '
+        productNameZh: ' 你好 Shell ',
+        productNameEn: ' Hello AI Shell '
       }
     })
 
@@ -32,8 +32,8 @@ describe('renderer branding utils', () => {
 
     expect(config.enabled).toBe(false)
     expect(config.displayName).toBe('Chaterm CN')
-    expect(config.productNameZh).toBe('小猿Shell')
-    expect(config.productNameEn).toBe('CICC AI Shell')
+    expect(config.productNameZh).toBe('你好 Shell')
+    expect(config.productNameEn).toBe('Hello AI Shell')
     expect(config.logoUrl).not.toBe('/branding/logo.svg')
     expect(config.logoLightUrl).not.toBe('/branding/logo-light.svg')
     expect(config.logoDarkUrl).not.toBe('/branding/logo-dark.svg')
@@ -45,8 +45,8 @@ describe('renderer branding utils', () => {
       displayName: 'Chaterm CN',
       branding: {
         enterpriseBrandingEnabled: true,
-        productNameZh: '小猿Shell',
-        productNameEn: 'CICC AI Shell'
+        productNameZh: '你好 Shell',
+        productNameEn: 'Hello AI Shell'
       }
     })
 
@@ -65,14 +65,14 @@ describe('renderer branding utils', () => {
       displayName: 'Chaterm',
       branding: {
         enterpriseBrandingEnabled: true,
-        productNameZh: '小猿Shell',
-        productNameEn: 'CICC AI Shell'
+        productNameZh: '你好 Shell',
+        productNameEn: 'Hello AI Shell'
       }
     })
     getMockWindow().api = {
       getBrandingConfig: vi.fn().mockResolvedValue({
         enabled: true,
-        displayName: 'CICC AI Shell',
+        displayName: 'Hello AI Shell',
         logoUrl: 'file:///broken/logo.svg',
         logoLightUrl: 'file:///broken/logo-light.svg',
         logoDarkUrl: 'file:///broken/logo-dark.svg'
@@ -82,7 +82,7 @@ describe('renderer branding utils', () => {
     const { loadBrandingConfig } = await import('../branding')
     const config = await loadBrandingConfig()
 
-    expect(config.displayName).toBe('CICC AI Shell')
+    expect(config.displayName).toBe('Hello AI Shell')
     expect(config.logoUrl).toBe('/branding/logo.svg')
     expect(config.logoLightUrl).toBe('/branding/logo-light.svg')
     expect(config.logoDarkUrl).toBe('/branding/logo-dark.svg')
