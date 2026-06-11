@@ -1,4 +1,7 @@
+import path from 'path'
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
+
+const TEST_USER_DATA = '/tmp/chaterm-test-user-data'
 
 const { ipcMainMock, appendFileMock, mkdirMock } = vi.hoisted(() => ({
   ipcMainMock: { handle: vi.fn() },
@@ -10,7 +13,7 @@ vi.mock('electron', () => ({
   ipcMain: ipcMainMock,
   BrowserWindow: {},
   app: {
-    getPath: vi.fn(() => '/tmp/chaterm-test-user-data')
+    getPath: vi.fn(() => TEST_USER_DATA)
   }
 }))
 
@@ -145,14 +148,14 @@ describe('perf', () => {
     })
 
     it('uses a dedicated daily startup log file path', () => {
-      const path = getStartupLogPath(new Date('2026-06-08T00:00:00.000Z'))
-      expect(path).toBe('/tmp/chaterm-test-user-data/logs/chaterm_startup_2026-06-08.log')
+      const logPath = getStartupLogPath(new Date('2026-06-08T00:00:00.000Z'))
+      expect(logPath).toBe(path.join(TEST_USER_DATA, 'logs', 'chaterm_startup_2026-06-08.log'))
     })
 
     it('writes startup timeline to the dedicated startup file', async () => {
-      const path = await writeStartupTimeline()
-      expect(path).toContain('chaterm_startup_')
-      expect(mkdirMock).toHaveBeenCalledWith('/tmp/chaterm-test-user-data/logs', { recursive: true })
+      const logPath = await writeStartupTimeline()
+      expect(logPath).toContain('chaterm_startup_')
+      expect(mkdirMock).toHaveBeenCalledWith(path.join(TEST_USER_DATA, 'logs'), { recursive: true })
       expect(appendFileMock).toHaveBeenCalledTimes(1)
       const [filePath, content, encoding] = appendFileMock.mock.calls[0]
       expect(filePath).toContain('chaterm_startup_')
