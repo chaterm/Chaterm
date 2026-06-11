@@ -2146,6 +2146,16 @@ ipcMain.handle('key-chain-local-get', async () => {
   }
 })
 
+ipcMain.handle('password-chain-local-get', async () => {
+  try {
+    const result = chatermDbService.getPasswordChainSelect()
+    return result
+  } catch (error) {
+    logger.error('Chaterm get password chain failed', { error: error })
+    return null
+  }
+})
+
 ipcMain.handle('asset-group-local-get', async () => {
   try {
     const result = chatermDbService.getAssetGroup()

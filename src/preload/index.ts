@@ -281,6 +281,15 @@ const getKeyChainSelect = async () => {
   }
 }
 
+const getPasswordChainSelect = async () => {
+  try {
+    const result = await ipcRenderer.invoke('password-chain-local-get')
+    return result
+  } catch (error) {
+    return Promise.reject(error)
+  }
+}
+
 const getAssetGroup = async () => {
   try {
     const result = await ipcRenderer.invoke('asset-group-local-get')
@@ -925,6 +934,7 @@ const api = {
   updateLocalAssetLabel,
   updateLocalAsseFavorite,
   getKeyChainSelect,
+  getPasswordChainSelect,
   getKeyChainList,
   getAssetGroup,
   dbAssetList,
@@ -1402,8 +1412,15 @@ const api = {
   removeKey: (opts: { keyId: string }) => ipcRenderer.invoke('ssh:agent:remove-key', opts),
   listKeys: () => ipcRenderer.invoke('ssh:agent:list-key') as Promise<[]>,
 
-  connectLocal: (config: { id: string; shell?: string; cwd?: string; env?: Record<string, string>; cols?: number; rows?: number }) =>
-    ipcRenderer.invoke('local:connect', config),
+  connectLocal: (config: {
+    id: string
+    shell?: string
+    cwd?: string
+    env?: Record<string, string>
+    cols?: number
+    rows?: number
+    startupMode?: 'interactive' | 'fast'
+  }) => ipcRenderer.invoke('local:connect', config),
   sendDataLocal: (terminalId: string, data: string) => ipcRenderer.invoke('local:send:data', terminalId, data),
   resizeLocal: (terminalId: string, cols: number, rows: number) => ipcRenderer.invoke('local:resize', terminalId, cols, rows),
   closeLocal: (terminalId: string) => ipcRenderer.invoke('local:close', terminalId),

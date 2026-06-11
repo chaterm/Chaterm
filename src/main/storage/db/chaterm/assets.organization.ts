@@ -56,6 +56,64 @@ function buildBastionParentTitle(label: string | null | undefined, host: string)
   return name
 }
 
+const PASSWORD_CHAIN_TYPE = 'PASSWORD'
+
+function resolveStoredKeyChainId(value: unknown): number | null {
+  const id = Number(value)
+  return Number.isFinite(id) && id > 0 ? id : null
+}
+
+function readPrivateKeyFromChainRow(row: Record<string, unknown> | undefined): string | undefined {
+  if (!row) return undefined
+  const candidates = [row.privateKey, row.privatekey, row.chain_private_key]
+  for (const candidate of candidates) {
+    if (typeof candidate === 'string' && candidate.length > 0) {
+      return candidate
+    }
+  }
+  return undefined
+}
+
+function applyKeyChainAuthToAsset(result: Record<string, unknown>, db: Database.Database): void {
+  const keyChainId = resolveStoredKeyChainId(result.key_chain_id)
+  if (!keyChainId) return
+
+  const keyChainStmt = db.prepare(`
+      SELECT chain_private_key as privateKey, passphrase, chain_type
+      FROM t_asset_chains
+      WHERE key_chain_id = ?
+    `)
+  const keyChainResult = keyChainStmt.get(keyChainId) as Record<string, unknown> | undefined
+  const privateKey = readPrivateKeyFromChainRow(keyChainResult)
+  if (privateKey) {
+    result.privateKey = privateKey
+    if (typeof keyChainResult?.passphrase === 'string') {
+      result.passphrase = keyChainResult.passphrase
+    }
+  }
+}
+
+function applyPasswordCredentialToAsset(result: Record<string, unknown>, db: Database.Database): void {
+  const keyChainId = resolveStoredKeyChainId(result.key_chain_id)
+  if (!keyChainId) return
+
+  const passwordChainStmt = db.prepare(`
+      SELECT chain_type, passphrase, chain_public_key as username
+      FROM t_asset_chains
+      WHERE key_chain_id = ?
+    `)
+  const passwordChainResult = passwordChainStmt.get(keyChainId) as { chain_type?: string; passphrase?: string; username?: string } | undefined
+  if (!passwordChainResult) return
+
+  const chainType = String(passwordChainResult.chain_type || '').toUpperCase()
+  const isPasswordChain = chainType === PASSWORD_CHAIN_TYPE
+  const passphrase = passwordChainResult.passphrase
+  if (isPasswordChain && typeof passphrase === 'string') {
+    result.password = passphrase
+    result.username = passwordChainResult.username || result.username
+  }
+}
+
 export function connectAssetInfoLogic(db: Database.Database, uuid: string, fallback?: { organizationUuid?: string; ip?: string }): any {
   try {
     const stmt = db.prepare(`
@@ -113,17 +171,11 @@ export function connectAssetInfoLogic(db: Database.Database, uuid: string, fallb
       return null
     }
 
-    if (result && (result as any).auth_type === 'keyBased') {
-      const keyChainStmt = db.prepare(`
-          SELECT chain_private_key as privateKey, passphrase
-          FROM t_asset_chains
-          WHERE key_chain_id = ?
-        `)
-      const keyChainResult = keyChainStmt.get((result as any).key_chain_id)
-      if (keyChainResult) {
-        ;(result as any).privateKey = keyChainResult.privateKey
-        ;(result as any).passphrase = keyChainResult.passphrase
-      }
+    const assetRecord = result as Record<string, unknown>
+    if (assetRecord.auth_type === 'keyBased') {
+      applyKeyChainAuthToAsset(assetRecord, db)
+    } else if (assetRecord.auth_type === 'passwordCredential') {
+      applyPasswordCredentialToAsset(assetRecord, db)
     }
     ;(result as any).sshType = sshType
     ;(result as any).needProxy = !!(result as any).need_proxy

@@ -1,7 +1,6 @@
 export const CtmTokenKey: string = 'Ctm-Token'
 import { userInfoStore } from '@/store/index'
 import { pinia } from '@/main'
-import { updateGlobalState } from '@renderer/agent/storage/state'
 
 const baseSso = import.meta.env.RENDERER_SSO
 const currentUrl = location.href
@@ -14,8 +13,6 @@ export function removeToken() {
   localStorage.removeItem('bearer-token')
   localStorage.removeItem('userInfo')
   localStorage.removeItem('login-skipped')
-  void updateGlobalState('modelOptions', [])
-  void updateGlobalState('defaultLockedModelNames', [])
 }
 export const setUserInfo = (info) => {
   const userStore = userInfoStore(pinia)

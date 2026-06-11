@@ -376,15 +376,13 @@
         <div
           v-for="folder in customFolders"
           :key="folder.uuid"
-          style="padding: 12px; border: 1px solid #d9d9d9; border-radius: 6px; margin-bottom: 8px; cursor: pointer; transition: all 0.2s"
+          class="move-folder-item"
           @click="handleMoveAssetToFolder(folder.uuid)"
-          @mouseenter="handleFolderMouseEnter"
-          @mouseleave="handleFolderMouseLeave"
         >
-          <div style="font-weight: 500; margin-bottom: 4px">{{ folder.name }}</div>
+          <div class="move-folder-item__name">{{ folder.name }}</div>
           <div
             v-if="folder.description"
-            style="color: #666; font-size: 12px"
+            class="move-folder-item__desc"
           >
             {{ folder.description }}
           </div>
@@ -559,6 +557,22 @@
     @click.stop
   >
     <div
+      v-if="canEditDirectHost(contextMenuData)"
+      class="context-menu-item"
+      @click="handleContextMenuAction('editHost')"
+    >
+      <EditOutlined class="menu-icon" />
+      {{ t('personal.editHost') }}
+    </div>
+    <div
+      v-if="canEditDirectHost(contextMenuData)"
+      class="context-menu-item"
+      @click="handleContextMenuAction('copyPassword')"
+    >
+      <CopyOutlined class="menu-icon" />
+      {{ t('personal.copyPassword') }}
+    </div>
+    <div
       v-if="contextMenuData.favorite !== undefined"
       class="context-menu-item"
       @click="handleContextMenuAction('favorite')"
@@ -646,7 +660,8 @@ import {
   SwapOutlined,
   ApiOutlined,
   QuestionCircleOutlined,
-  MoreOutlined
+  MoreOutlined,
+  CopyOutlined
 } from '@ant-design/icons-vue'
 import eventBus from '@/utils/eventBus'
 import i18n from '@/locales'
@@ -1322,7 +1337,7 @@ const resolveTunnelConnectionPayload = async (asset: any, assetKey: string, conf
     host,
     port,
     username,
-    password: authType === 'password' ? assetInfo?.password || '' : '',
+    password: authType !== 'keyBased' ? assetInfo?.password || '' : '',
     privateKey: authType === 'keyBased' ? assetInfo?.privateKey || '' : '',
     passphrase: assetInfo?.passphrase || '',
     sshType: 'ssh',
@@ -2097,18 +2112,9 @@ const handleCreateFolderFromMoveModal = () => {
   showMoveToFolderModal.value = false
 }
 
-const handleFolderMouseEnter = (e: Event) => {
-  const target = e.target as HTMLElement
-  if (target) target.style.backgroundColor = '#f5f5f5'
-}
-
-const handleFolderMouseLeave = (e: Event) => {
-  const target = e.target as HTMLElement
-  if (target) target.style.backgroundColor = 'transparent'
-}
-
 const hasContextMenu = (dataRef: any): boolean => {
   if (!dataRef) return false
+  const hasDirectHostOption = canEditDirectHost(dataRef)
   const hasFavoriteOption = dataRef.favorite !== undefined
   const hasCommentOption = isOrganizationAsset(dataRef.asset_type) && !dataRef.key.startsWith('common_')
   const hasMoveOption = isOrganizationAsset(dataRef.asset_type) && !dataRef.key.startsWith('common_') && !dataRef.key.startsWith('folder_')
@@ -2117,7 +2123,16 @@ const hasContextMenu = (dataRef: any): boolean => {
   const hasEditFolderOption = dataRef.asset_type === 'custom_folder' && !dataRef.key.startsWith('common_')
   const hasDeleteFolderOption = dataRef.asset_type === 'custom_folder' && !dataRef.key.startsWith('common_')
 
-  return hasFavoriteOption || hasCommentOption || hasMoveOption || hasTunnelOption || hasRemoveOption || hasEditFolderOption || hasDeleteFolderOption
+  return (
+    hasDirectHostOption ||
+    hasFavoriteOption ||
+    hasCommentOption ||
+    hasMoveOption ||
+    hasTunnelOption ||
+    hasRemoveOption ||
+    hasEditFolderOption ||
+    hasDeleteFolderOption
+  )
 }
 
 const handleContextMenu = (event: MouseEvent, dataRef: any) => {
@@ -2125,6 +2140,7 @@ const handleContextMenu = (event: MouseEvent, dataRef: any) => {
   event.stopPropagation()
 
   // Check if the node has any available menu options
+  const hasDirectHostOption = canEditDirectHost(dataRef)
   const hasFavoriteOption = dataRef.favorite !== undefined
   const hasCommentOption = isOrganizationAsset(dataRef.asset_type) && !dataRef.key.startsWith('common_')
   const hasMoveOption = isOrganizationAsset(dataRef.asset_type) && !dataRef.key.startsWith('common_') && !dataRef.key.startsWith('folder_')
@@ -2135,6 +2151,7 @@ const handleContextMenu = (event: MouseEvent, dataRef: any) => {
 
   // If no menu options are available, don't show the context menu
   if (
+    !hasDirectHostOption &&
     !hasFavoriteOption &&
     !hasCommentOption &&
     !hasMoveOption &&
@@ -2148,6 +2165,8 @@ const handleContextMenu = (event: MouseEvent, dataRef: any) => {
 
   // Calculate the number of menu items that will be shown
   const menuItemCount = [
+    hasDirectHostOption,
+    hasDirectHostOption,
     hasFavoriteOption,
     hasCommentOption,
     hasMoveOption,
@@ -2196,10 +2215,79 @@ const handleContextMenu = (event: MouseEvent, dataRef: any) => {
   contextMenuVisible.value = true
 }
 
-const handleContextMenuAction = (action: string) => {
+const isDirectHostAssetType = (assetType: string | undefined): boolean => {
+  return assetType === 'person' || assetType === 'person-switch-cisco' || assetType === 'person-switch-huawei'
+}
+
+const canEditDirectHost = (dataRef: any): boolean => {
+  return isSecondLevel(dataRef) && !!dataRef?.uuid && dataRef?.organizationId === 'personal' && isDirectHostAssetType(dataRef?.asset_type)
+}
+
+const copyToClipboard = async (value: string): Promise<void> => {
+  const nav = globalThis.navigator as Navigator | undefined
+  if (nav?.clipboard?.writeText) {
+    await nav.clipboard.writeText(value)
+    return
+  }
+
+  const textarea = document.createElement('textarea')
+  textarea.value = value
+  textarea.style.position = 'fixed'
+  textarea.style.opacity = '0'
+  document.body.appendChild(textarea)
+  textarea.focus()
+  textarea.select()
+  try {
+    document.execCommand('copy')
+  } finally {
+    document.body.removeChild(textarea)
+  }
+}
+
+const getDirectHostPassword = async (asset: any): Promise<string> => {
+  if (typeof asset?.password === 'string' && asset.password) {
+    return asset.password
+  }
+  if (!asset?.uuid) {
+    return ''
+  }
+
+  const assetInfo = await window.api.connectAssetInfo({ uuid: asset.uuid })
+  return typeof assetInfo?.password === 'string' ? assetInfo.password : ''
+}
+
+const handleCopyPassword = async (asset: any): Promise<void> => {
+  try {
+    const password = await getDirectHostPassword(asset)
+    if (!password) {
+      message.warning(t('personal.noPasswordToCopy'))
+      return
+    }
+
+    await copyToClipboard(password)
+    message.success(t('personal.copyPasswordSuccess'))
+  } catch {
+    logger.error('Failed to copy host password', { event: 'workspace.copyPassword.failed' })
+    message.error(t('ssh.copyFailed'))
+  }
+}
+
+const handleEditDirectHost = async (asset: any): Promise<void> => {
+  await eventBus.emitAsync('open-user-tab', 'assetConfig')
+  await nextTick()
+  eventBus.emit('assetConfig:editAsset', { uuid: asset.uuid, asset })
+}
+
+const handleContextMenuAction = async (action: string) => {
   if (!contextMenuData.value) return
 
   switch (action) {
+    case 'editHost':
+      await handleEditDirectHost(contextMenuData.value)
+      break
+    case 'copyPassword':
+      await handleCopyPassword(contextMenuData.value)
+      break
     case 'favorite':
       handleFavoriteClick(contextMenuData.value)
       break
@@ -3137,6 +3225,30 @@ onUnmounted(() => {
   :deep(.ant-tabs-tab-btn) {
     width: 100%;
     text-align: center;
+  }
+}
+
+.move-folder-item {
+  padding: 12px;
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
+  margin-bottom: 8px;
+  cursor: pointer;
+  transition: background-color 0.2s;
+
+  &:hover {
+    background-color: var(--hover-bg-color);
+  }
+
+  &__name {
+    font-weight: 500;
+    margin-bottom: 4px;
+    color: var(--text-color);
+  }
+
+  &__desc {
+    color: var(--text-color-secondary);
+    font-size: 12px;
   }
 }
 

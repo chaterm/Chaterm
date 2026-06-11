@@ -4,6 +4,7 @@ import * as os from 'os'
 import * as path from 'path'
 import * as fs from 'fs'
 import { getUserConfig } from '../agent/core/storage/state'
+import { createTerminalOutputBuffer, type TerminalOutputBuffer } from '../services/terminalOutputBuffer'
 const localLogger = createLogger('terminal')
 
 // Import language translations
@@ -67,6 +68,7 @@ interface LocalTerminalConfig {
   cols?: number
   rows?: number
   termType?: string
+  startupMode?: 'interactive' | 'fast'
 }
 
 interface LocalTerminal {
@@ -74,6 +76,7 @@ interface LocalTerminal {
   pty: pty.IPty
   isAlive: boolean
   shell: string
+  outputBuffer: TerminalOutputBuffer
 }
 
 interface ShellItem {
@@ -120,20 +123,46 @@ const getDefaultShell = (): string => {
   }
 }
 
+const getLocalShellStartupArgs = (shellBase: string, startupMode: LocalTerminalConfig['startupMode']): string[] => {
+  if (os.platform() === 'win32') return []
+  if (startupMode !== 'fast') return []
+
+  switch (shellBase) {
+    case 'zsh':
+      return ['-f']
+    case 'bash':
+      return ['--noprofile', '--norc']
+    case 'fish':
+      return ['--no-config']
+    default:
+      return []
+  }
+}
+
+const buildLocalTerminalEnv = (overrides?: Record<string, string>): NodeJS.ProcessEnv => {
+  const env = { ...process.env, ...overrides }
+
+  for (const key of Object.keys(env)) {
+    if (key.startsWith('VSCODE_') || key.startsWith('CURSOR_')) {
+      delete env[key]
+    }
+  }
+
+  env.TERM_PROGRAM = 'Chaterm'
+  return env
+}
+
 const createTerminal = async (config: LocalTerminalConfig): Promise<LocalTerminal> => {
   const shell = config.shell || getDefaultShell()
   const cwd = config.cwd || os.homedir()
-  const env = { ...process.env, ...config.env }
-  let args: string[] = []
-
-  // Use login shell mode to ensure shell configuration files are loaded
-  // (e.g., .zprofile, .zshrc, .bash_profile, .bashrc)
+  const env = buildLocalTerminalEnv(config.env)
   const shellBase = path.basename(shell)
-  if (os.platform() !== 'win32') {
-    if (shellBase === 'zsh' || shellBase === 'bash' || shellBase === 'fish' || shellBase === 'sh') {
-      args = ['--login']
-    }
-  }
+  const startupMode = config.startupMode || 'interactive'
+  const args = getLocalShellStartupArgs(shellBase, startupMode)
+
+  // Fast mode intentionally skips shell startup files. This keeps the local
+  // terminal responsive when user shell configs are slow, at the cost of aliases
+  // or PATH mutations that only exist in those startup files.
 
   localLogger.info('Creating local terminal', {
     event: 'terminal.local.connect.start',
@@ -149,23 +178,29 @@ const createTerminal = async (config: LocalTerminalConfig): Promise<LocalTermina
     cwd,
     env
   })
+  const outputBuffer = createTerminalOutputBuffer({
+    send: (data) => sendToRenderer(`local:data:${config.id}`, data)
+  })
   const terminal: LocalTerminal = {
     id: config.id,
     pty: ptyProcess,
     isAlive: true,
-    shell: shell
+    shell: shell,
+    outputBuffer
   }
 
   ptyProcess.onData((data) => {
     if (data.includes('command not found') || data.includes('error') || data.includes('Error')) {
       sendToRenderer(`local:error:${config.id}`, data)
     }
-    sendToRenderer(`local:data:${config.id}`, data)
+    outputBuffer.push(data)
   })
 
   ptyProcess.onExit((exitCode) => {
     localLogger.debug('Local terminal exited', { event: 'terminal.exit', terminalId: config.id, exitCode: exitCode?.exitCode })
     terminal.isAlive = false
+    outputBuffer.flush()
+    outputBuffer.dispose()
     sendToRenderer(`local:exit:${config.id}`, exitCode)
     terminals.delete(config.id)
   })
@@ -183,6 +218,8 @@ const closeTerminal = (terminalId: string) => {
   const terminal = terminals.get(terminalId)
   if (terminal) {
     try {
+      terminal.outputBuffer.flush()
+      terminal.outputBuffer.dispose()
       terminal.pty.kill()
       terminal.isAlive = false
       terminals.delete(terminalId)

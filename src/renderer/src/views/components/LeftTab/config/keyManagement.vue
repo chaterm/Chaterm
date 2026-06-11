@@ -30,7 +30,7 @@
                     style="width: 14px; height: 14px; margin-right: 5px"
                 /></template>
                 <span style="margin-left: 5px">
-                  {{ t('keyChain.newKey') }}
+                  {{ t('keyChain.newCredential') }}
                 </span>
               </a-button>
             </div>
@@ -57,14 +57,19 @@
                 <div class="keychain-card-content">
                   <div class="keychain-icon">
                     <img
+                      v-if="!isPasswordChain(item)"
                       :src="keyIcon"
                       alt="Key Card Icon"
                       style="width: 24px; height: 24px"
                     />
+                    <LockOutlined
+                      v-else
+                      class="password-card-icon"
+                    />
                   </div>
                   <div class="keychain-info">
                     <div class="keychain-name">{{ item.chain_name }}</div>
-                    <div class="keychain-type">{{ t('keyChain.type') }}{{ item.chain_type }}</div>
+                    <div class="keychain-type">{{ t('keyChain.type') }}{{ getCredentialTypeLabel(item.chain_type) }}</div>
                   </div>
                   <div class="action-buttons">
                     <div
@@ -95,7 +100,7 @@
               <KeyOutlined class="empty-icon-svg" />
             </div>
             <div class="empty-text">
-              {{ searchValue ? t('common.noSearchResults') : t('keyChain.noKeys') }}
+              {{ searchValue ? t('common.noSearchResults') : t('keyChain.noCredentials') }}
             </div>
           </div>
         </div>
@@ -118,7 +123,7 @@
       >
         <div class="right-section-header">
           <div style="font-size: 14px; font-weight: bold">
-            <h3>{{ isEditMode ? t('keyChain.editKey') : t('keyChain.newKey') }}</h3>
+            <h3>{{ isEditMode ? t('keyChain.editCredential') : t('keyChain.newCredential') }}</h3>
           </div>
           <ToTopOutlined
             style="font-size: 20px; transform: rotate(90deg); cursor: pointer"
@@ -134,6 +139,19 @@
             layout="vertical"
             class="custom-form"
           >
+            <a-form-item :label="t('keyChain.credentialType')">
+              <a-radio-group
+                v-model:value="createForm.credentialType"
+                button-style="solid"
+                class="credential-type-radio"
+                :disabled="isCredentialTypeLocked"
+                style="width: 100%"
+              >
+                <a-radio-button :value="PASSWORD_CHAIN_TYPE">{{ t('keyChain.passwordCredential') }}</a-radio-button>
+                <a-radio-button :value="KEY_CREDENTIAL_TYPE">{{ t('keyChain.keyCredential') }}</a-radio-button>
+              </a-radio-group>
+            </a-form-item>
+
             <a-form-item
               :label="`${t('keyChain.name')}*`"
               :validate-status="validationErrors.label ? 'error' : ''"
@@ -146,49 +164,70 @@
                 @input="validateField('label', createForm.label)"
               />
             </a-form-item>
-            <a-form-item :label="`${t('keyChain.privateKey')}*`">
-              <a-textarea
-                v-model:value="createForm.privateKey"
-                :rows="4"
-                :auto-size="{ minRows: 5, maxRows: 8 }"
-                spellcheck="false"
-                autocorrect="off"
-                autocapitalize="off"
-                autocomplete="off"
-                :placeholder="t('keyChain.pleaseInput')"
-              />
-            </a-form-item>
-            <a-form-item
-              :label="t('keyChain.publicKey')"
-              :validate-status="validationErrors.publicKey ? 'error' : ''"
-              :help="validationErrors.publicKey"
-            >
-              <a-textarea
-                v-model:value="createForm.publicKey"
-                :class="{ 'error-input': validationErrors.publicKey }"
-                :rows="4"
-                :auto-size="{ minRows: 3, maxRows: 8 }"
-                spellcheck="false"
-                autocorrect="off"
-                autocapitalize="off"
-                autocomplete="off"
-                :placeholder="t('keyChain.pleaseInput')"
-                @input="validateField('publicKey', createForm.publicKey)"
-              />
-            </a-form-item>
-            <a-form-item
-              :label="t('keyChain.passphrase')"
-              :validate-status="validationErrors.passphrase ? 'error' : ''"
-              :help="validationErrors.passphrase"
-            >
-              <a-input-password
-                v-model:value="createForm.passphrase"
-                :class="{ 'error-input': validationErrors.passphrase }"
-                :placeholder="t('keyChain.pleaseInput')"
-                @input="validateField('passphrase', createForm.passphrase)"
-              />
-            </a-form-item>
+
+            <template v-if="createForm.credentialType === PASSWORD_CHAIN_TYPE">
+              <a-form-item :label="t('keyChain.username')">
+                <a-input
+                  :key="`password-username-${editingKeyChainId ?? 'new'}`"
+                  v-model:value="createForm.username"
+                  :placeholder="t('keyChain.pleaseInput')"
+                  autocomplete="off"
+                />
+              </a-form-item>
+              <a-form-item :label="`${t('keyChain.password')}*`">
+                <a-input-password
+                  v-model:value="createForm.password"
+                  :placeholder="t('keyChain.pleaseInput')"
+                />
+              </a-form-item>
+            </template>
+
+            <template v-else>
+              <a-form-item :label="`${t('keyChain.privateKey')}*`">
+                <a-textarea
+                  v-model:value="createForm.privateKey"
+                  :rows="4"
+                  :auto-size="{ minRows: 5, maxRows: 8 }"
+                  spellcheck="false"
+                  autocorrect="off"
+                  autocapitalize="off"
+                  autocomplete="off"
+                  :placeholder="t('keyChain.pleaseInput')"
+                />
+              </a-form-item>
+              <a-form-item
+                :label="t('keyChain.publicKey')"
+                :validate-status="validationErrors.publicKey ? 'error' : ''"
+                :help="validationErrors.publicKey"
+              >
+                <a-textarea
+                  v-model:value="createForm.publicKey"
+                  :class="{ 'error-input': validationErrors.publicKey }"
+                  :rows="4"
+                  :auto-size="{ minRows: 3, maxRows: 8 }"
+                  spellcheck="false"
+                  autocorrect="off"
+                  autocapitalize="off"
+                  autocomplete="off"
+                  :placeholder="t('keyChain.pleaseInput')"
+                  @input="validateField('publicKey', createForm.publicKey)"
+                />
+              </a-form-item>
+              <a-form-item
+                :label="t('keyChain.passphrase')"
+                :validate-status="validationErrors.passphrase ? 'error' : ''"
+                :help="validationErrors.passphrase"
+              >
+                <a-input-password
+                  v-model:value="createForm.passphrase"
+                  :class="{ 'error-input': validationErrors.passphrase }"
+                  :placeholder="t('keyChain.pleaseInput')"
+                  @input="validateField('passphrase', createForm.passphrase)"
+                />
+              </a-form-item>
+            </template>
             <div
+              v-if="createForm.credentialType !== PASSWORD_CHAIN_TYPE"
               class="drag-drop-area"
               :class="{ 'drag-over': isDragOver }"
               style="
@@ -252,7 +291,7 @@
             class="connect-button"
             @click="isEditMode ? handleUpdateKeyChain() : handleCreateKeyChain()"
           >
-            {{ isEditMode ? t('keyChain.saveKey') : t('keyChain.createKey') }}
+            {{ isEditMode ? t('keyChain.saveCredential') : t('keyChain.createCredential') }}
           </a-button>
         </div>
       </div>
@@ -261,9 +300,9 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, onBeforeUnmount, reactive, computed, watch } from 'vue'
+import { ref, onMounted, onBeforeUnmount, reactive, computed, watch, nextTick } from 'vue'
 import { Modal, message } from 'ant-design-vue'
-import { EditOutlined, DeleteOutlined, ToTopOutlined, SearchOutlined, KeyOutlined } from '@ant-design/icons-vue'
+import { EditOutlined, DeleteOutlined, ToTopOutlined, SearchOutlined, KeyOutlined, LockOutlined } from '@ant-design/icons-vue'
 import keyIcon from '@/assets/menu/key.svg'
 import i18n from '@/locales'
 import eventBus from '@/utils/eventBus'
@@ -271,6 +310,8 @@ import KeyContextMenu from '../components/KeyContextMenu.vue'
 
 const { t } = i18n.global
 const logger = createRendererLogger('config.keyManagement')
+const PASSWORD_CHAIN_TYPE = 'PASSWORD'
+const KEY_CREDENTIAL_TYPE = 'KEY'
 
 interface KeyChainItem {
   key_chain_id: number
@@ -279,6 +320,34 @@ interface KeyChainItem {
   private_key?: string
   public_key?: string
   passphrase?: string
+}
+
+type KeyChainDetail = KeyChainItem & {
+  publicKey?: string
+  privateKey?: string
+}
+
+const isPasswordChainType = (type?: string | null): boolean => {
+  return (
+    String(type || '')
+      .trim()
+      .toUpperCase() === PASSWORD_CHAIN_TYPE
+  )
+}
+
+const normalizeKeyChainDetail = (raw: KeyChainDetail | null, fallback: KeyChainItem): KeyChainItem | null => {
+  if (!raw || raw.key_chain_id == null) {
+    return null
+  }
+
+  return {
+    key_chain_id: raw.key_chain_id,
+    chain_name: raw.chain_name ?? fallback.chain_name,
+    chain_type: raw.chain_type ?? fallback.chain_type,
+    private_key: raw.private_key ?? raw.privateKey,
+    public_key: raw.public_key ?? raw.publicKey,
+    passphrase: raw.passphrase
+  }
 }
 
 const keyChainList = ref<KeyChainItem[]>([])
@@ -296,16 +365,22 @@ interface CreateFormType {
   label: string
   privateKey: string
   publicKey: string
+  credentialType: string
   type: string
   passphrase: string
+  username: string
+  password: string
 }
 
 const createForm = reactive<CreateFormType>({
   label: '',
   privateKey: '',
   publicKey: '',
+  credentialType: PASSWORD_CHAIN_TYPE,
   type: 'RSA',
-  passphrase: ''
+  passphrase: '',
+  username: '',
+  password: ''
 })
 
 const validationErrors = reactive({
@@ -319,8 +394,11 @@ const resetForm = () => {
     label: '',
     privateKey: '',
     publicKey: '',
+    credentialType: PASSWORD_CHAIN_TYPE,
     type: 'RSA',
-    passphrase: ''
+    passphrase: '',
+    username: '',
+    password: ''
   })
   Object.assign(validationErrors, {
     label: '',
@@ -328,6 +406,24 @@ const resetForm = () => {
     passphrase: ''
   })
 }
+
+const isCredentialTypeLocked = computed(() => isEditMode.value)
+
+const isPasswordChain = (item: KeyChainItem | null): boolean => {
+  return isPasswordChainType(item?.chain_type)
+}
+
+const getCredentialTypeLabel = (type?: string | null): string => {
+  return isPasswordChainType(type) ? t('keyChain.passwordCredential') : t('keyChain.keyCredential')
+}
+
+watch(
+  () => createForm.credentialType,
+  () => {
+    validationErrors.publicKey = ''
+    validationErrors.passphrase = ''
+  }
+)
 
 const validateField = (field: keyof typeof validationErrors, value: string) => {
   if (value.includes(' ')) {
@@ -349,8 +445,10 @@ const validateField = (field: keyof typeof validationErrors, value: string) => {
 
 const validateAllFields = () => {
   validateField('label', createForm.label)
-  validateField('publicKey', createForm.publicKey)
-  validateField('passphrase', createForm.passphrase)
+  if (createForm.credentialType !== PASSWORD_CHAIN_TYPE) {
+    validateField('publicKey', createForm.publicKey)
+    validateField('passphrase', createForm.passphrase)
+  }
 
   return !Object.values(validationErrors).some((error) => error !== '')
 }
@@ -360,7 +458,12 @@ const filteredKeyChainList = computed(() => {
 
   const lowerCaseInput = searchValue.value.toLowerCase()
   return keyChainList.value.filter(
-    (item) => item.chain_name.toLowerCase().includes(lowerCaseInput) || item.chain_type.toLowerCase().includes(lowerCaseInput)
+    (item) =>
+      item.chain_name.toLowerCase().includes(lowerCaseInput) ||
+      String(item.chain_type || '')
+        .toLowerCase()
+        .includes(lowerCaseInput) ||
+      getCredentialTypeLabel(item.chain_type).toLowerCase().includes(lowerCaseInput)
   )
 })
 
@@ -422,27 +525,55 @@ const handleContextMenuRemove = () => {
   }
 }
 
+const applyKeyChainToForm = (detail: KeyChainItem) => {
+  const isPassword = isPasswordChainType(detail.chain_type)
+
+  Object.assign(createForm, {
+    label: detail.chain_name || '',
+    privateKey: isPassword ? '' : detail.private_key || '',
+    publicKey: isPassword ? '' : detail.public_key || '',
+    credentialType: isPassword ? PASSWORD_CHAIN_TYPE : KEY_CREDENTIAL_TYPE,
+    type: isPassword ? PASSWORD_CHAIN_TYPE : detail.chain_type || 'RSA',
+    passphrase: isPassword ? '' : detail.passphrase || '',
+    username: isPassword ? detail.public_key || '' : '',
+    password: isPassword ? detail.passphrase || '' : ''
+  })
+}
+
 const handleEdit = async (keyChain: KeyChainItem | null) => {
   if (!keyChain) return
   editingKeyChainId.value = keyChain.key_chain_id
 
   const api = window.api as any
-  await api.getKeyChainInfo({ id: keyChain.key_chain_id }).then((res) => {
-    keyChain = res
-    logger.info('Loaded keyChain info', { event: 'keychain.loaded', id: keyChain?.key_chain_id })
-  })
-  isEditMode.value = true
-  logger.info('Entering edit mode')
-  logger.info('KeyChain data for editing', { event: 'keychain.edit', id: keyChain.key_chain_id, type: keyChain.chain_type })
+  let detail: KeyChainItem = keyChain
 
-  Object.assign(createForm, {
-    label: keyChain.chain_name || '',
-    privateKey: keyChain.private_key || '',
-    publicKey: keyChain.public_key || '',
-    type: keyChain.chain_type || 'RSA',
-    passphrase: keyChain.passphrase || ''
+  try {
+    const res = await api.getKeyChainInfo({ id: keyChain.key_chain_id })
+    const normalized = normalizeKeyChainDetail(res, keyChain)
+    if (normalized) {
+      detail = normalized
+      logger.info('Loaded keyChain info', { event: 'keychain.loaded', id: detail.key_chain_id })
+    } else {
+      logger.warn('KeyChain detail missing after load', { event: 'keychain.load_empty', id: keyChain.key_chain_id })
+      message.error(t('keyChain.getKeyListFailed'))
+    }
+  } catch (error) {
+    logger.error('Failed to load keychain info', { error: error })
+    message.error(t('keyChain.getKeyListFailed'))
+  }
+
+  logger.info('KeyChain data for editing', {
+    event: 'keychain.edit',
+    id: detail.key_chain_id,
+    type: detail.chain_type,
+    isPassword: isPasswordChainType(detail.chain_type),
+    hasUsername: isPasswordChainType(detail.chain_type) ? !!detail.public_key : false
   })
+
+  isEditMode.value = true
+  applyKeyChainToForm(detail)
   isRightSectionVisible.value = true
+  await nextTick()
 }
 
 const handleRemove = (keyChain: KeyChainItem | null) => {
@@ -488,23 +619,28 @@ const handleCreateKeyChain = async () => {
     if (!createForm.label) {
       return message.error(t('common.pleaseInputLabel'))
     }
-    if (!createForm.privateKey) {
+    if (createForm.credentialType === PASSWORD_CHAIN_TYPE && !createForm.password) {
+      return message.error(t('keyChain.pleaseInputPassword'))
+    }
+    if (createForm.credentialType !== PASSWORD_CHAIN_TYPE && !createForm.privateKey) {
       return message.error(t('common.pleaseInputPrivateKey'))
     }
     const api = window.api as any
     if (api.createKeyChain) {
       const cleanForm = {
         chain_name: createForm.label,
-        private_key: createForm.privateKey,
-        public_key: createForm.publicKey,
-        chain_type: createForm.type,
-        passphrase: createForm.passphrase
+        private_key: createForm.credentialType === PASSWORD_CHAIN_TYPE ? '' : createForm.privateKey,
+        public_key: createForm.credentialType === PASSWORD_CHAIN_TYPE ? createForm.username : createForm.publicKey,
+        chain_type: createForm.credentialType === PASSWORD_CHAIN_TYPE ? PASSWORD_CHAIN_TYPE : createForm.type,
+        passphrase: createForm.credentialType === PASSWORD_CHAIN_TYPE ? createForm.password : createForm.passphrase
       }
-      cleanForm.chain_type = detectKeyType(createForm.privateKey, createForm.publicKey)
+      if (createForm.credentialType !== PASSWORD_CHAIN_TYPE) {
+        cleanForm.chain_type = detectKeyType(createForm.privateKey, createForm.publicKey)
+      }
 
       const res = await api.createKeyChain({ form: cleanForm })
       if (res?.data?.message === 'success') {
-        message.success(t('keyChain.createSuccess'))
+        message.success(t('keyChain.createCredentialSuccess'))
         isRightSectionVisible.value = false
         fetchKeyChainList()
         eventBus.emit('keyChainUpdated')
@@ -528,7 +664,10 @@ const handleUpdateKeyChain = async () => {
     if (!createForm.label) {
       return message.error(t('common.pleaseInputLabel'))
     }
-    if (!createForm.privateKey) {
+    if (createForm.credentialType === PASSWORD_CHAIN_TYPE && !createForm.password) {
+      return message.error(t('keyChain.pleaseInputPassword'))
+    }
+    if (createForm.credentialType !== PASSWORD_CHAIN_TYPE && !createForm.privateKey) {
       return message.error(t('common.pleaseInputPrivateKey'))
     }
 
@@ -537,12 +676,14 @@ const handleUpdateKeyChain = async () => {
       const cleanForm = {
         key_chain_id: editingKeyChainId.value,
         chain_name: createForm.label,
-        private_key: createForm.privateKey,
-        public_key: createForm.publicKey,
-        chain_type: createForm.type,
-        passphrase: createForm.passphrase
+        private_key: createForm.credentialType === PASSWORD_CHAIN_TYPE ? '' : createForm.privateKey,
+        public_key: createForm.credentialType === PASSWORD_CHAIN_TYPE ? createForm.username : createForm.publicKey,
+        chain_type: createForm.credentialType === PASSWORD_CHAIN_TYPE ? PASSWORD_CHAIN_TYPE : createForm.type,
+        passphrase: createForm.credentialType === PASSWORD_CHAIN_TYPE ? createForm.password : createForm.passphrase
       }
-      cleanForm.chain_type = detectKeyType(createForm.privateKey, createForm.publicKey)
+      if (createForm.credentialType !== PASSWORD_CHAIN_TYPE) {
+        cleanForm.chain_type = detectKeyType(createForm.privateKey, createForm.publicKey)
+      }
 
       const res = await api.updateKeyChain({ form: cleanForm })
       if (res?.data?.message === 'success') {
@@ -860,6 +1001,11 @@ watch(isRightSectionVisible, (val) => {
   }
 }
 
+.password-card-icon {
+  font-size: 22px;
+  color: #1890ff;
+}
+
 .keychain-info {
   flex: 1;
   overflow: hidden; /* Prevent content overflow */
@@ -919,10 +1065,51 @@ watch(isRightSectionVisible, (val) => {
 }
 
 .custom-form {
-  color: rgba(255, 255, 255, 0.85);
+  color: var(--text-color);
   :deep(.ant-form-item) {
     margin-bottom: 12px;
-    color: rgba(255, 255, 255, 0.65);
+    color: var(--text-color-secondary);
+  }
+}
+
+.custom-form :deep(.credential-type-radio) {
+  display: flex;
+  width: 100%;
+
+  .ant-radio-button-wrapper {
+    flex: 1;
+    text-align: center;
+    background: var(--bg-color-secondary) !important;
+    border-color: var(--border-color) !important;
+    color: var(--text-color) !important;
+
+    &::before {
+      background-color: var(--border-color) !important;
+    }
+
+    &:hover {
+      color: #1677ff !important;
+    }
+  }
+
+  .ant-radio-button-wrapper-checked:not(.ant-radio-button-wrapper-disabled) {
+    background: #1677ff !important;
+    border-color: #1677ff !important;
+    color: #fff !important;
+
+    &:hover {
+      color: #fff !important;
+    }
+  }
+
+  .ant-radio-button-wrapper-disabled {
+    color: var(--text-color-tertiary) !important;
+    background: var(--bg-color-secondary) !important;
+  }
+
+  .ant-radio-button-wrapper-checked.ant-radio-button-wrapper-disabled {
+    background: var(--border-color) !important;
+    color: var(--text-color) !important;
   }
 }
 

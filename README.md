@@ -43,6 +43,7 @@
   - [How Chaterm’s Security Architecture Ensures Data Security and Reliability](https://aws.amazon.com/cn/blogs/china/chaterm-aws-kms-envelope-encryption-for-zero-trust-security-en/)
   - [Enhancing DevOps Intelligence with Chaterm Skills and Qwen Large Models](https://chaterm.ai/blog/posts/agent-skills)
 - [Gold Sponsors](#gold-sponsors)
+- [Acknowledgements](#acknowledgements)
 - [Contributors](#contributors)
 
 # Introduction
@@ -83,6 +84,8 @@ There is a saying that every agent fails all the time, but Chaterm helps you fix
 - 🧠 **Smart completion**
 
   Combining user habits, local memory, and the current server context, the Agent recommends the most suitable commands, making terminal input smarter and more efficient.
+
+  Optional local echo renders safe interactive typing immediately on high-latency SSH sessions while suppressing the confirmed remote echo.
 
   Supports cross-device session synchronization and reduces mobile input costs through quick commands and voice interaction, making remote maintenance smoother.
 
@@ -155,6 +158,13 @@ npm run build:linux
 ## Gold Sponsors
 
 ![Preview image](resources/aws.webp) ![Preview image](resources/aliyun.webp)
+
+## Acknowledgements
+
+Chaterm builds upon excellent open-source projects. We gratefully acknowledge:
+
+- **[Cline](https://github.com/cline/cline)** — portions of the AI Agent system are adapted from Cline.
+- **[RTK](https://github.com/rtk-ai/rtk)** — command output filtering to reduce token usage in agent workflows.
 
 ## Contributors
 

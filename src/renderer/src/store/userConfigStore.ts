@@ -11,6 +11,7 @@ export const userConfigStore = defineStore('userConfig', {
         commonVimStatus: 2,
         quickVimStatus: 1,
         cursorStyle: 'bar',
+        localEchoEnabled: false,
         fontSize: 12,
         highlightStatus: 1,
         scrollBack: 1000,
@@ -40,6 +41,7 @@ export const userConfigStore = defineStore('userConfig', {
       commonVimStatus: number
       quickVimStatus: number
       cursorStyle: string
+      localEchoEnabled: boolean
       fontSize: number
       highlightStatus: number
       scrollBack: number
@@ -65,6 +67,7 @@ export const userConfigStore = defineStore('userConfig', {
           commonVimStatus: 2,
           quickVimStatus: 2,
           cursorStyle: 'bar',
+          localEchoEnabled: false,
           fontSize: 12,
           highlightStatus: 2,
           scrollBack: 1000,

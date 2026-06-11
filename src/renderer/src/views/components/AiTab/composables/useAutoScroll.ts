@@ -45,6 +45,7 @@ export function useAutoScroll(options: AutoScrollOptions = {}) {
   let resizeObserver: ResizeObserver | null = null
   let historyTopObserver: IntersectionObserver | null = null
   let resizeObserverDebounceTimer: ReturnType<typeof setTimeout> | null = null
+  let domMutationScrollRafId: number | null = null
   const RESIZE_OBSERVER_DEBOUNCE = 150
 
   const debouncedUpdateContainerHeight = () => {
@@ -290,18 +291,20 @@ export function useAutoScroll(options: AutoScrollOptions = {}) {
       if (_isResizing.value) return
       if (isTerminalToggleMutation(mutations, responseEl)) return
 
-      if (shouldStickToBottom.value) {
-        // Use retry-based scroll so late-rendered children (e.g. approval
-        // buttons with async icons / tooltips) that grow scrollHeight after
-        // the initial frame still get pinned to the bottom.
-        scrollToBottomWithRetry()
+      if (shouldStickToBottom.value && domMutationScrollRafId === null) {
+        domMutationScrollRafId = requestAnimationFrame(() => {
+          domMutationScrollRafId = null
+          // Use retry-based scroll so late-rendered children (e.g. approval
+          // buttons with async icons / tooltips) that grow scrollHeight after
+          // the initial frame still get pinned to the bottom.
+          scrollToBottomWithRetry()
+        })
       }
     })
 
     domObserver.value.observe(responseEl, {
       childList: true,
-      subtree: true,
-      characterData: true
+      subtree: true
     })
   }
 
@@ -470,6 +473,10 @@ export function useAutoScroll(options: AutoScrollOptions = {}) {
     if (resizeObserverDebounceTimer) {
       clearTimeout(resizeObserverDebounceTimer)
       resizeObserverDebounceTimer = null
+    }
+    if (domMutationScrollRafId !== null) {
+      cancelAnimationFrame(domMutationScrollRafId)
+      domMutationScrollRafId = null
     }
   })
 
