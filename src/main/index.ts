@@ -74,6 +74,7 @@ import { getPluginDetailsByName, getLocalizedStrings, getUserLanguage } from './
 import { capabilityRegistry } from './ssh/capabilityRegistry'
 import { getActualTheme, loadUserTheme } from './themeManager'
 import { getLoginBaseUrl, getEdition, getProtocolPrefix, getProtocolName } from './config/edition'
+import { getBrandingConfig } from './config/branding'
 import { TelemetrySetting } from '@shared/TelemetrySetting'
 import { registerKnowledgeBaseHandlers, initKbSearchManager, closeKbSearchManager } from './services/knowledgebase'
 import { registerStageChatAttachmentHandlers } from './services/agent/stageChatAttachment'
@@ -335,7 +336,8 @@ app.whenReady().then(async () => {
   const migrationPromise = migrateCnUserDataOnFirstLaunch().catch((err) => logger.error('CN migration failed', { error: err }))
 
   if (process.platform === 'darwin') {
-    app.dock?.setIcon(join(__dirname, '../../resources/icon.png'))
+    const brandingConfig = getBrandingConfig()
+    app.dock?.setIcon(brandingConfig.iconPngPath || join(__dirname, '../../resources/icon.png'))
   }
 
   protocol.handle('local-resource', (request) => {
@@ -679,6 +681,10 @@ const getCookieByName = async (name) => {
 }
 ipcMain.handle('get-platform', () => {
   return process.platform
+})
+
+ipcMain.handle('app:get-branding-config', () => {
+  return getBrandingConfig()
 })
 
 /**

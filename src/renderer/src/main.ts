@@ -15,7 +15,7 @@ import 'ant-design-vue/dist/reset.css'
 import piniaPluginPersistedstate from 'pinia-plugin-persistedstate'
 import { notification } from 'ant-design-vue'
 import { shortcutService } from './services/shortcutService'
-import { APP_EDITION } from './utils/edition'
+import { getDefaultBrandingConfig, loadBrandingConfig } from './utils/branding'
 import { createRendererLogger } from './utils/logger'
 import { useEditorConfigStore } from './store/editorConfig'
 
@@ -34,8 +34,11 @@ try {
   // Paint timing is not available in every Electron/runtime mode.
 }
 
-// Set document title based on edition
-document.title = APP_EDITION === 'cn' ? 'Chaterm CN' : 'Chaterm'
+const defaultBrandingConfig = getDefaultBrandingConfig()
+document.title = defaultBrandingConfig.displayName
+void loadBrandingConfig().then((brandingConfig) => {
+  document.title = brandingConfig.displayName
+})
 
 // Set global notification top position
 notification.config({

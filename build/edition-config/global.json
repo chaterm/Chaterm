@@ -1,6 +1,11 @@
 {
   "edition": "global",
   "displayName": "Chaterm",
+  "branding": {
+    "enterpriseBrandingEnabled": false,
+    "productNameZh": "",
+    "productNameEn": ""
+  },
   "api": {
     "baseUrl": "https://api.chaterm.net/v1",
     "kmsUrl": "https://api.chaterm.net/v1",
