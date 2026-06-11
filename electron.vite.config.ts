@@ -16,6 +16,11 @@ type Edition = 'cn' | 'global'
 interface EditionConfig {
   edition: Edition
   displayName: string
+  branding?: {
+    enterpriseBrandingEnabled?: boolean
+    productNameZh?: string
+    productNameEn?: string
+  }
   api: {
     baseUrl: string
     kmsUrl: string

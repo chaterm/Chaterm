@@ -1,10 +1,8 @@
 import { BrowserWindow, shell, session, ipcMain } from 'electron'
 import { join } from 'path'
 import { is } from '@electron-toolkit/utils'
-import icon from '../../resources/icon.png?asset'
-import { getEdition } from './config/edition'
+import { getBrandingConfig } from './config/branding'
 import { mark } from '@perf'
-
 /**
  * Result of creating the main window.
  * `window` is available immediately for IPC registration and other setup.
@@ -25,9 +23,9 @@ export interface WindowCreationResult {
  * in parallel.
  */
 export async function createMainWindow(onCookieUrlChange?: (url: string) => void, shouldPreventClose?: () => boolean): Promise<WindowCreationResult> {
-  // Set window title based on edition
-  const edition = getEdition()
-  const windowTitle = edition === 'cn' ? 'Chaterm CN' : 'Chaterm'
+  const brandingConfig = getBrandingConfig()
+  const windowTitle = brandingConfig.displayName
+  const windowIconPath = brandingConfig.iconPngPath || join(__dirname, '../../resources/icon.png')
 
   mark('chaterm/main/willCreateBrowserWindow')
   const mainWindow = new BrowserWindow({
@@ -36,7 +34,7 @@ export async function createMainWindow(onCookieUrlChange?: (url: string) => void
     minWidth: 1060,
     minHeight: 600,
     title: windowTitle,
-    icon: join(__dirname, '../../resources/icon.png'),
+    icon: windowIconPath,
     titleBarStyle: 'hidden',
     ...(process.platform !== 'darwin'
       ? {
@@ -45,7 +43,7 @@ export async function createMainWindow(onCookieUrlChange?: (url: string) => void
       : {}),
     show: false,
     autoHideMenuBar: true,
-    ...(process.platform === 'linux' ? { icon } : {}),
+    ...(process.platform === 'linux' ? { icon: windowIconPath } : {}),
     webPreferences: {
       preload: join(__dirname, '../preload/index.js'),
       sandbox: false,
