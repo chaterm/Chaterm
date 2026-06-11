@@ -296,7 +296,7 @@ app.whenReady().then(async () => {
       try {
         const crypto = require('crypto')
         const ffmpegPath = path.join(path.dirname(process.execPath), 'ffmpeg.dll')
-        const KNOWN_HASH = 'E7AEC5CA86D80540EA30C5ACDF0A13ACB34D1D9DD0F9E78B36FB21776B711A1E'
+        const KNOWN_HASH = '2382025652CCB4AB5EE3121B3BB20DE08B0E04B27A8E624C231D438CC0B14E36'
 
         try {
           await fs.access(ffmpegPath)

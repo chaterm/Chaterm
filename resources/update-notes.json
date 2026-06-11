@@ -2,6 +2,26 @@
   "releaseNotesUrl": "https://github.com/chaterm/Chaterm/releases/tag/v",
   "versions": [
     {
+      "version": "0.11.4",
+      "date": "2026-06-11",
+      "highlights": {
+        "zh-CN": [
+          "AI 能力增强：支持开通会员获取更高大模型额度，并新增模型预热调度，优化模型信息获取",
+          "AI 对话体验优化：终端输出会在聊天会话准备就绪后再写入，并增强 Markdown 呈现与消息处理",
+          "终端与 SSH 能力升级：集成 Fig 自动补全，终端类型升级为 `xterm-256color`，并支持本地 Shell 启动模式与环境配置",
+          "连接与凭据管理优化：新增密码复制与密码凭据管理，并增强 SSH 连接处理",
+          "标签页交互修复：修复打开多个终端标签时，触摸板左右滑动无法滚动标签列表的问题"
+        ],
+        "en-US": [
+          "Enhanced AI capabilities: added membership support for higher LLM quotas and model warm-up scheduling to improve model info retrieval",
+          "Improved AI conversation flow: terminal output is now written only after the chat session is ready, with enhanced Markdown rendering and message handling",
+          "Upgraded terminal and SSH capabilities: integrated Fig autocomplete, updated the terminal type to `xterm-256color`, and added local shell startup modes and environment configuration",
+          "Improved connection and credential management: added password copy and password credential management, and enhanced SSH connection handling",
+          "Fixed tab interaction: resolved an issue where horizontal touchpad swipes could not scroll the tab list when multiple terminal tabs were open"
+        ]
+      }
+    },
+    {
       "version": "0.11.3",
       "date": "2026-05-28",
       "highlights": {
