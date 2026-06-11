@@ -2,6 +2,7 @@ import axios from 'axios'
 import config from '@/config'
 import { getUserInfo, removeToken } from '@/utils/permission'
 import { dataSyncService } from '@/services/dataSyncService'
+import { mark, reportMarksToMainAsync } from '@/utils/perf'
 
 const logger = createRendererLogger('router')
 let aiModelWarmupScheduled = false
@@ -57,6 +58,17 @@ async function verifyTokenWithServer(): Promise<'ok' | 'unauthorized' | 'network
 }
 
 export const beforeEach = async (to, _from, next) => {
+  mark('chaterm/renderer/willRouteAuth')
+  function finish(location?: any): void {
+    mark('chaterm/renderer/didRouteAuth')
+    void reportMarksToMainAsync()
+    if (typeof location === 'undefined') {
+      next()
+      return
+    }
+    next(location)
+  }
+
   const token = localStorage.getItem('ctm-token')
   const isSkippedLogin = localStorage.getItem('login-skipped') === 'true'
   const isDev = import.meta.env.MODE === 'development'
@@ -67,21 +79,23 @@ export const beforeEach = async (to, _from, next) => {
       localStorage.removeItem('jms-token')
       localStorage.removeItem('userInfo')
     }
-    next()
+    finish()
     return
   }
 
   if (isSkippedLogin && token === 'guest_token') {
     try {
       const api = window.api as any
+      mark('chaterm/renderer/willInitUserDatabase')
       const dbResult = await api.initUserDatabase({ uid: 999999999 })
+      mark('chaterm/renderer/didInitUserDatabase')
       logger.info('Database initialization result', { success: dbResult.success })
 
       if (dbResult.success) {
         if (to.path === '/') {
-          next()
+          finish()
         } else {
-          next('/')
+          finish('/')
         }
       } else {
         logger.error('Database initialization failed, redirecting to login page')
@@ -89,15 +103,16 @@ export const beforeEach = async (to, _from, next) => {
         localStorage.removeItem('ctm-token')
         localStorage.removeItem('jms-token')
         localStorage.removeItem('userInfo')
-        next('/login')
+        finish('/login')
       }
     } catch (error) {
+      mark('chaterm/renderer/didFailInitUserDatabase')
       logger.error('Database initialization failed', { error: error })
       localStorage.removeItem('login-skipped')
       localStorage.removeItem('ctm-token')
       localStorage.removeItem('jms-token')
       localStorage.removeItem('userInfo')
-      next('/login')
+      finish('/login')
     }
     return
   }
@@ -107,12 +122,16 @@ export const beforeEach = async (to, _from, next) => {
       const userInfo = getUserInfo()
       if (userInfo && userInfo.uid) {
         const api = window.api as any
+        mark('chaterm/renderer/willInitUserDatabase')
         const dbResult = await api.initUserDatabase({ uid: userInfo.uid })
+        mark('chaterm/renderer/didInitUserDatabase')
 
         if (dbResult.success) {
           // Verify token against server before starting sync services.
           // Only redirect on explicit 401; network errors are ignored to allow offline use.
+          mark('chaterm/renderer/willVerifyToken')
           const tokenStatus = await verifyTokenWithServer()
+          mark('chaterm/renderer/didVerifyToken')
           if (tokenStatus === 'unauthorized') {
             logger.warn('Token expired on startup, redirecting to login')
             await dataSyncService.disableDataSync().catch((error) => {
@@ -120,39 +139,42 @@ export const beforeEach = async (to, _from, next) => {
             })
             dataSyncService.reset()
             removeToken()
-            next('/login')
+            finish('/login')
             return
           }
 
           // After database initialization succeeds, asynchronously initialize data sync service (non-blocking UI display)
+          mark('chaterm/renderer/willScheduleDataSync')
           dataSyncService.initialize().catch((error) => {
             logger.error('Data sync service initialization failed', { error: error })
           })
+          mark('chaterm/renderer/didScheduleDataSync')
           if (tokenStatus === 'ok') {
             scheduleAiModelWarmup()
           }
-          next()
+          finish()
         } else {
           logger.error('Database initialization failed, redirecting to login page')
-          next('/login')
+          finish('/login')
         }
       } else {
-        next('/login')
+        finish('/login')
       }
     } catch (error) {
+      mark('chaterm/renderer/didFailRouteAuth')
       logger.error('Processing failed', { error: error })
 
       const message = error instanceof Error ? error.message : String(error)
 
       // In the development environment, bypass the relevant errors (usually caused by hot updates)
       if (isDev && (message.includes('nextSibling') || message.includes('getUserInfo'))) {
-        next()
+        finish()
         return
       }
-      next('/login')
+      finish('/login')
     }
   } else {
-    next('/login')
+    finish('/login')
   }
 }
 

@@ -24,6 +24,7 @@ import { useVersionPrompt } from './composables/useVersionPrompt'
 import { dataSyncService } from './services/dataSyncService'
 import { removeToken } from './utils/permission'
 import { TOKEN_EXPIRED_EVENT } from './utils/authEvents'
+import { mark } from './utils/perf'
 import './styles/app.less'
 
 const logger = createRendererLogger('app')
@@ -61,6 +62,7 @@ const handleTokenExpired = async () => {
 }
 
 onMounted(() => {
+  mark('chaterm/renderer/willSetupGlobalListeners')
   setupGlobalMfaListeners()
   setupGlobalUserSelectionListeners()
 
@@ -68,6 +70,7 @@ onMounted(() => {
     unsubscribeTokenExpired = window.api.onTokenExpired(handleTokenExpired)
   }
   window.addEventListener(TOKEN_EXPIRED_EVENT, handleTokenExpired)
+  mark('chaterm/renderer/didSetupGlobalListeners')
 })
 
 onUnmounted(() => {

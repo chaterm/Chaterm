@@ -1167,6 +1167,7 @@ interface ApiType {
    */
   getPerfTimeline: () => Promise<{
     main: { process: string; marks: Array<{ name: string; offset: number; timestamp: number }> }
+    preload: { process: string; marks: Array<{ name: string; offset: number; timestamp: number }> } | null
     renderer: { process: string; marks: Array<{ name: string; offset: number; timestamp: number }> } | null
   }>
 

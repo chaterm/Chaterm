@@ -1,5 +1,5 @@
 // ============ Performance Marks (must be the very first import) ============
-import { mark, registerPerfIpcHandlers, collectAndLogTimeline, logStartupTimeline } from '@perf'
+import { mark, registerPerfIpcHandlers, collectAndLogTimeline, scheduleStartupTimelineFallback, logStartupTimeline } from '@perf'
 // 'chaterm/main/start' is recorded at module load time inside @perf
 
 // ============ Initialize userData path FIRST (MUST be before all other imports) ============
@@ -432,20 +432,32 @@ app.whenReady().then(async () => {
   registerRemoteTerminalHandlers()
   registerFileSystemHandlers()
   mark('chaterm/main/didRegisterSSH')
+
+  mark('chaterm/main/willRegisterUpdater')
   registerUpdater(mainWindow, (value) => (forceQuit = value))
+  mark('chaterm/main/didRegisterUpdater')
+
+  mark('chaterm/main/willSetupPluginIpc')
   setupPluginIpc()
+  mark('chaterm/main/didSetupPluginIpc')
 
   // Register K8s handlers
+  mark('chaterm/main/willRegisterK8s')
   registerK8sHandlers()
+  mark('chaterm/main/didRegisterK8s')
 
   // Register Database asset handlers
+  mark('chaterm/main/willRegisterDatabase')
   registerDbAssetHandlers()
 
   // Register Database AI (single-turn, track A) handlers
   registerDbAiHandlers()
+  mark('chaterm/main/didRegisterDatabase')
 
   // Register interactive command IPC handlers
+  mark('chaterm/main/willRegisterInteraction')
   setupInteractionIpcHandlers()
+  mark('chaterm/main/didRegisterInteraction')
 
   // Run plugin loading and security config in parallel
   mark('chaterm/main/willLoadPlugins')
@@ -604,7 +616,7 @@ app.whenReady().then(async () => {
     windowContentLoaded
       .then(() => {
         mark('chaterm/main/windowDidFinishLoad')
-        collectAndLogTimeline(mainWindow)
+        scheduleStartupTimelineFallback(mainWindow)
       })
       .catch((err) => {
         logger.warn('windowContentLoaded rejected, logging main-process timeline only', { error: err })
@@ -1140,26 +1152,37 @@ function setupIPC(): void {
   registerStageChatAttachmentHandlers()
 
   ipcMain.handle('init-user-database', async (event, { uid }) => {
+    mark('chaterm/main/willInitUserDatabase')
     try {
+      mark('chaterm/main/willResolveStartupUser')
       const isSkippedLogin = await event.sender.executeJavaScript("localStorage.getItem('login-skipped') === 'true'")
       const targetUserId = uid || (isSkippedLogin ? getGuestUserId() : null)
       if (!targetUserId) {
         throw new Error('User ID is required')
       }
+      mark('chaterm/main/didResolveStartupUser')
 
       // Check if user switch occurred (user ID changed)
       const previousUserId = getCurrentUserId()
       const isUserSwitch = previousUserId && previousUserId !== targetUserId
 
       setCurrentUserId(targetUserId)
+      mark('chaterm/main/willInitChatermDatabase')
       chatermDbService = await ChatermDatabaseService.getInstance(targetUserId)
+      mark('chaterm/main/didInitChatermDatabase')
+
+      mark('chaterm/main/willInitAutocompleteDatabase')
       autoCompleteService = await autoCompleteDatabaseService.getInstance(targetUserId)
+      mark('chaterm/main/didInitAutocompleteDatabase')
 
       // Load and apply user theme configuration
+      mark('chaterm/main/willLoadUserTheme')
       const dbTheme = await loadUserTheme(chatermDbService)
+      mark('chaterm/main/didLoadUserTheme')
 
       // Sync authentication info, ensure completion before data sync starts
       try {
+        mark('chaterm/main/willSetAuthInfo')
         // Get user authentication info and set it to encryption service
         const ctmToken = await event.sender.executeJavaScript("localStorage.getItem('ctm-token')")
         if (ctmToken && ctmToken !== 'guest_token') {
@@ -1180,7 +1203,9 @@ function setupIPC(): void {
             logger.info('Chat sync scheduler destroyed during user switch')
           }
         }
+        mark('chaterm/main/didSetAuthInfo')
       } catch (error) {
+        mark('chaterm/main/didFailSetAuthInfo')
         logger.warn('Exception setting authentication info', { value: error })
         if (isUserSwitch) {
           logger.info(`Authentication info setting failed, user switch: ${previousUserId} -> ${targetUserId}`)
@@ -1190,29 +1215,39 @@ function setupIPC(): void {
       // Reload skill states after user login (skills are loaded but states need user DB)
       if (controller && controller.skillsManager) {
         try {
+          mark('chaterm/main/willReloadSkillStates')
           await controller.skillsManager.reloadSkillStates()
+          mark('chaterm/main/didReloadSkillStates')
         } catch (error) {
+          mark('chaterm/main/didFailReloadSkillStates')
           logger.warn('Failed to reload skill states after login', { value: error })
         }
       }
 
       // Install preloaded plugins after the current user is resolved so they go to the correct user scope.
       try {
+        mark('chaterm/main/willBootstrapPreinstalledPlugins')
         await bootstrapPreinstalledPlugins()
+        mark('chaterm/main/didBootstrapPreinstalledPlugins')
       } catch (error) {
+        mark('chaterm/main/didFailBootstrapPreinstalledPlugins')
         logger.warn('Failed to bootstrap preinstalled plugins after login', { value: error })
       }
 
       // Reload plugins after user login to switch to per-user plugin directory
       try {
+        mark('chaterm/main/willReloadUserPlugins')
         await loadAllPlugins()
+        mark('chaterm/main/didReloadUserPlugins')
       } catch (error) {
+        mark('chaterm/main/didFailReloadUserPlugins')
         logger.warn('Failed to reload plugins after login', { value: error })
       }
 
       // Initialize KB search manager if enabled by user setting / policy.
       // CHATERM_KB_SEARCH_ENABLED enforces enterprise policy only when set to false.
       try {
+        mark('chaterm/main/willInitKbSearch')
         let kbSearchEnabled = await getGlobalState('kbSearchEnabled')
         const rawPolicy = process.env.CHATERM_KB_SEARCH_ENABLED
         let kbPolicyEnabled: boolean | null = null
@@ -1243,12 +1278,16 @@ function setupIPC(): void {
             })
           }
         }
+        mark('chaterm/main/didInitKbSearch')
       } catch (error) {
+        mark('chaterm/main/didFailInitKbSearch')
         logger.warn('Failed to check KB search setting', { value: error })
       }
 
+      mark('chaterm/main/didInitUserDatabase')
       return { success: true, theme: dbTheme }
     } catch (error) {
+      mark('chaterm/main/didFailInitUserDatabase')
       logger.error('Database initialization failed', { error: error })
       return { success: false, error: error instanceof Error ? error.message : 'Unknown error occurred' }
     }
@@ -1858,9 +1897,14 @@ function setupIPC(): void {
   }
 
   ipcMain.handle('main-window-show', async () => {
+    mark('chaterm/main/willShowWindow')
     await winReady
     if (mainWindow && !mainWindow.isDestroyed() && !mainWindow.isVisible()) {
       mainWindow.show()
+    }
+    mark('chaterm/main/didShowWindow')
+    if (is.dev) {
+      collectAndLogTimeline(mainWindow)
     }
   })
 

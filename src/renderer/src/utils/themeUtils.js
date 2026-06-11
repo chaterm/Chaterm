@@ -2,6 +2,7 @@
 import { resolveThemeAppearance } from '../../../shared/themes/resolve'
 import { resolveThemePreset } from '../../../shared/themes/resolve'
 import { applyThemeToDocument } from '@/themes/applyTheme'
+import { mark, reportMarksToMainAsync } from '@/utils/perf'
 
 /**
  * Check if system prefers dark mode
@@ -24,7 +25,10 @@ export async function initializeThemeFromDatabase() {
 
   applyThemeToDocument(preset)
 
-  window.api.mainWindowShow()
+  mark('chaterm/renderer/willRequestMainWindowShow')
+  await window.api?.mainWindowShow?.()
+  mark('chaterm/renderer/didRequestMainWindowShow')
+  await reportMarksToMainAsync()
 }
 
 /**

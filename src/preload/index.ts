@@ -1,3 +1,4 @@
+import { mark as perfMark, reportPreloadMarksToMain } from './perf'
 import { contextBridge, ipcRenderer, webUtils } from 'electron'
 import { electronAPI } from '@electron-toolkit/preload'
 import type { WebviewMessage } from '../main/agent/shared/WebviewMessage'
@@ -49,6 +50,7 @@ interface BrandingConfig {
 // Command list reception timeout (ms)
 const COMMAND_LIST_TIMEOUT = 30000
 
+perfMark('chaterm/preload/willLoadEnv')
 const envPath = path.resolve(__dirname, '../../../build/.env')
 
 // Ensure path exists
@@ -63,6 +65,7 @@ dotenv.config({ path: envPath })
 let isVimMode = false
 
 // Listen for vim mode state updates from renderer process
+perfMark('chaterm/preload/willRegisterDomListeners')
 window.addEventListener('message', (event) => {
   if (event.data && event.data.type === 'VIM_MODE_UPDATE') {
     isVimMode = event.data.isVimMode
@@ -86,6 +89,7 @@ window.addEventListener(
   },
   true
 )
+perfMark('chaterm/preload/didRegisterDomListeners')
 
 // If there is a .env file for a specific environment, it can also be loaded
 const nodeEnv = process.env.NODE_ENV || 'development'
@@ -123,6 +127,7 @@ if (fs.existsSync(envSpecificPath)) {
 } else {
   // Environment file not found, proceed with defaults
 }
+perfMark('chaterm/preload/didLoadEnv')
 
 // Custom APIs for renderer
 import os from 'os'
@@ -1897,6 +1902,7 @@ const api = {
 // Use `contextBridge` APIs to expose Electron APIs to
 // renderer only if context isolation is enabled, otherwise
 // just add to the DOM global.
+perfMark('chaterm/preload/willExposeBridge')
 if (process.contextIsolated) {
   try {
     contextBridge.exposeInMainWorld('electron', {
@@ -1909,7 +1915,9 @@ if (process.contextIsolated) {
       getCurrentURL: () => window.location.href // Get current URL via window.location
     })
     contextBridge.exposeInMainWorld('api', api)
+    perfMark('chaterm/preload/didExposeBridge')
   } catch {
+    perfMark('chaterm/preload/didFailExposeBridge')
     // Silently ignore contextBridge errors
   }
 } else {
@@ -1917,4 +1925,7 @@ if (process.contextIsolated) {
   window.electron = electronAPI
   // @ts-ignore (define in dts)
   window.api = api
+  perfMark('chaterm/preload/didExposeBridge')
 }
+
+void reportPreloadMarksToMain()

@@ -888,6 +888,7 @@ import { getGlobalState } from '@renderer/agent/storage/state'
 import type { MessageContent } from './types'
 import i18n from '@/locales'
 import eventBus from '@/utils/eventBus'
+import { mark } from '@/utils/perf'
 import historyIcon from '@/assets/icons/history.svg'
 import plusIcon from '@/assets/icons/plus.svg'
 import skillsIcon from '@/assets/icons/skills.svg'
@@ -1325,6 +1326,7 @@ const handleAiChatSearchKeyDown = (e: KeyboardEvent) => {
 }
 
 onMounted(async () => {
+  mark('chaterm/renderer/willInitAiTab')
   await initModelOptions()
 
   if (props.savedState && props.savedState.chatTabs && props.savedState.chatTabs.length > 0) {
@@ -1344,6 +1346,7 @@ onMounted(async () => {
   if (window.api?.onCommandExplainResponse) {
     unsubscribeExplainResponse = window.api.onCommandExplainResponse(handleExplainCommandResponse)
   }
+  mark('chaterm/renderer/didInitAiTab')
 })
 
 onBeforeUnmount(() => {

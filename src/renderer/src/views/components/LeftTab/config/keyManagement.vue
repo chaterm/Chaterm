@@ -923,6 +923,13 @@ watch(isRightSectionVisible, (val) => {
   }
 }
 
+:global(body.has-custom-bg .keychain-card) {
+  background-color: var(--bg-color-secondary);
+  box-shadow: inset 0 0 0 1px var(--border-color);
+  backdrop-filter: blur(10px) saturate(140%);
+  -webkit-backdrop-filter: blur(10px) saturate(140%);
+}
+
 .action-buttons {
   position: absolute;
   top: 50%;
