@@ -67,6 +67,19 @@ vi.mock('@/views/components/Notice', () => ({
   }
 }))
 
+const mockBrandingConfig = {
+  enabled: false,
+  displayName: 'Chaterm CN',
+  logoUrl: '/default-logo.svg',
+  logoLightUrl: '/default-logo-light.svg',
+  logoDarkUrl: '/default-logo-dark.svg'
+}
+
+vi.mock('@/utils/branding', () => ({
+  getDefaultBrandingConfig: () => ({ ...mockBrandingConfig }),
+  loadBrandingConfig: vi.fn().mockImplementation(async () => ({ ...mockBrandingConfig }))
+}))
+
 // Mock getEditionConfig - use mutable config for testing different editions
 const mockEditionConfig: {
   edition: 'cn' | 'global'
@@ -121,6 +134,12 @@ describe('About Component', () => {
   }
 
   beforeEach(() => {
+    mockBrandingConfig.enabled = false
+    mockBrandingConfig.displayName = 'Chaterm CN'
+    mockBrandingConfig.logoUrl = '/default-logo.svg'
+    mockBrandingConfig.logoLightUrl = '/default-logo-light.svg'
+    mockBrandingConfig.logoDarkUrl = '/default-logo-dark.svg'
+
     // Setup Pinia
     pinia = createPinia()
     setActivePinia(pinia)
@@ -172,22 +191,25 @@ describe('About Component', () => {
     })
 
     it('should display app logo', async () => {
+      mockBrandingConfig.logoUrl = '/branding/logo.svg'
       wrapper = createWrapper()
+      await nextTick()
       await nextTick()
 
       const logo = wrapper.find('.about-logo')
       expect(logo.exists()).toBe(true)
-      // Vite resolves @ alias, so check that src contains logo.svg
-      expect(logo.attributes('src')).toContain('logo.svg')
+      expect(logo.attributes('src')).toBe('/branding/logo.svg')
     })
 
     it('should display app name from edition config', async () => {
+      mockBrandingConfig.displayName = 'Enterprise Shell'
       wrapper = createWrapper()
+      await nextTick()
       await nextTick()
 
       const title = wrapper.find('.about-title')
       expect(title.exists()).toBe(true)
-      expect(title.text()).toBe('Chaterm CN')
+      expect(title.text()).toBe('Enterprise Shell')
     })
 
     it('should display current version', async () => {
@@ -945,8 +967,10 @@ describe('About Component', () => {
     it('should display correct displayName for global edition', async () => {
       // Change to global edition
       mockEditionConfig.displayName = 'Chaterm'
+      mockBrandingConfig.displayName = 'Chaterm'
 
       wrapper = createWrapper()
+      await nextTick()
       await nextTick()
 
       const copyright = wrapper.find('.about-description:last-child')

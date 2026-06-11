@@ -24,6 +24,11 @@ declare const __APP_INFO__: {
 declare const __EDITION_CONFIG__: {
   edition: 'cn' | 'global'
   displayName: string
+  branding?: {
+    enterpriseBrandingEnabled?: boolean
+    productNameZh?: string
+    productNameEn?: string
+  }
   api: {
     baseUrl: string
     kmsUrl: string
