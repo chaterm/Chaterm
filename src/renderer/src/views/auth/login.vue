@@ -23,14 +23,14 @@
     <div class="term_login_content">
       <div>
         <img
-          src="@/assets/logo.svg"
+          :src="brandingConfig.logoUrl"
           class="logo"
           alt=""
         />
       </div>
       <div class="term_login_welcome">
         <span>{{ $t('login.welcome') }}</span>
-        <span style="color: #2a82e4; margin-left: 12px">{{ isChineseEdition() ? 'Chaterm CN' : $t('login.title') }}</span>
+        <span style="color: #2a82e4; margin-left: 12px">{{ brandingConfig.displayName }}</span>
       </div>
       <div class="term_login_input">
         <template v-if="isDev">
@@ -275,11 +275,13 @@ import { sendEmailCode, emailLogin, userLogin, sendMobileCode as sendMobileCodeA
 import { useI18n } from 'vue-i18n'
 import { useDeviceStore } from '@/store/useDeviceStore'
 import { isChineseEdition } from '@/utils/edition'
+import { getDefaultBrandingConfig, loadBrandingConfig } from '@/utils/branding'
 import TitleBar from '@views/components/Header/titleBar.vue'
 
 const logger = createRendererLogger('auth.login')
 const { t, locale } = useI18n()
 const platform = ref<string>('')
+const brandingConfig = ref(getDefaultBrandingConfig())
 const isDev = ref(false)
 const loading = ref(false)
 const externalLoginLoading = ref(false)
@@ -598,6 +600,7 @@ const handleExternalLogin = async () => {
 
 onMounted(async () => {
   const api = window.api as any
+  brandingConfig.value = await loadBrandingConfig()
   api.mainWindowShow()
   platform.value = await api.getPlatform()
   isDev.value =

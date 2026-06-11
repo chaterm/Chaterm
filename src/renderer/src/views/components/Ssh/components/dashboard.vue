@@ -37,15 +37,15 @@ import { shortcutActions, shortcutHintKeys } from '@/config/shortcutActions'
 import { shortcutService } from '@/services/shortcutService'
 import type { ShortcutConfig } from '@/services/userConfigStoreService'
 import { useI18n } from 'vue-i18n'
-import logoDark from '@/assets/img/logo-dark.svg'
-import logoLight from '@/assets/img/logo-light.svg'
+import { getDefaultBrandingConfig, loadBrandingConfig } from '@/utils/branding'
 
 const logger = createRendererLogger('ssh.dashboard')
+const brandingConfig = ref(getDefaultBrandingConfig())
 
 // Reactive theme tracking
 const isDark = ref(document.documentElement.className.includes('theme-dark'))
 
-const logoSrc = computed(() => (isDark.value ? logoDark : logoLight))
+const logoSrc = computed(() => (isDark.value ? brandingConfig.value.logoDarkUrl : brandingConfig.value.logoLightUrl))
 
 const { t } = useI18n()
 
@@ -110,6 +110,9 @@ const handleShortcutClick = (actionId: string) => {
 // Load shortcuts on component mount
 onMounted(() => {
   loadShortcuts()
+  void loadBrandingConfig().then((config) => {
+    brandingConfig.value = config
+  })
 
   // Observe theme changes on document.documentElement
   const observer = new MutationObserver(() => {

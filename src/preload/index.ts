@@ -33,6 +33,19 @@ interface SftpConnectionInfo {
   error?: string
 }
 
+interface BrandingConfig {
+  enabled: boolean
+  displayName: string
+  productNameZh?: string
+  productNameEn?: string
+  logoUrl?: string
+  logoLightUrl?: string
+  logoDarkUrl?: string
+  iconPngPath?: string
+  iconIcoPath?: string
+  iconIcnsPath?: string
+}
+
 // Command list reception timeout (ms)
 const COMMAND_LIST_TIMEOUT = 30000
 
@@ -902,6 +915,7 @@ const api = {
   setCookie,
   invokeCustomAdsorption,
   getPlatform,
+  getBrandingConfig: (): Promise<BrandingConfig> => ipcRenderer.invoke('app:get-branding-config'),
   queryCommand,
   insertCommand,
   queryFigSpec,

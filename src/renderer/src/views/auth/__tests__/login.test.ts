@@ -132,6 +132,19 @@ vi.mock('@/services/shortcutService', () => ({
   }
 }))
 
+const mockBrandingConfig = {
+  enabled: false,
+  displayName: 'Chaterm',
+  logoUrl: '/default-logo.svg',
+  logoLightUrl: '/default-logo-light.svg',
+  logoDarkUrl: '/default-logo-dark.svg'
+}
+
+vi.mock('@/utils/branding', () => ({
+  getDefaultBrandingConfig: () => ({ ...mockBrandingConfig }),
+  loadBrandingConfig: vi.fn().mockImplementation(async () => ({ ...mockBrandingConfig }))
+}))
+
 // Mock config
 vi.mock('@renderer/config', () => ({
   default: {
@@ -225,6 +238,12 @@ describe('Login Component', () => {
   }
 
   beforeEach(() => {
+    mockBrandingConfig.enabled = false
+    mockBrandingConfig.displayName = 'Chaterm'
+    mockBrandingConfig.logoUrl = '/default-logo.svg'
+    mockBrandingConfig.logoLightUrl = '/default-logo-light.svg'
+    mockBrandingConfig.logoDarkUrl = '/default-logo-dark.svg'
+
     // Setup Pinia
     pinia = createPinia()
     setActivePinia(pinia)
@@ -307,6 +326,21 @@ describe('Login Component', () => {
         await nextTick()
       }
       expect(wrapper.find('.login-tabs').exists()).toBe(true)
+    })
+
+    it('should render branding logo and display name from branding config', async () => {
+      mockBrandingConfig.displayName = 'Enterprise Shell'
+      mockBrandingConfig.logoUrl = '/branding/logo.svg'
+
+      wrapper = createWrapper()
+      await nextTick()
+      await new Promise((resolve) => setTimeout(resolve, 0))
+      await nextTick()
+
+      const logo = wrapper.find('.logo')
+      expect(logo.exists()).toBe(true)
+      expect(logo.attributes('src')).toBe('/branding/logo.svg')
+      expect(wrapper.text()).toContain('Enterprise Shell')
     })
 
     it('should render title bar controls on non-mac platforms', async () => {
@@ -402,6 +436,8 @@ describe('Login Component', () => {
 
     it('should submit email login when form is submitted', async () => {
       const vm = wrapper.vm as any
+      vm.isDev = true
+      vm.activeTab = 'email'
       vm.emailForm.email = 'test@example.com'
       vm.emailForm.code = '123456'
       await nextTick()
@@ -506,6 +542,8 @@ describe('Login Component', () => {
 
     it('should submit mobile login when form is submitted', async () => {
       const vm = wrapper.vm as any
+      vm.isDev = true
+      vm.activeTab = 'mobile'
       vm.mobileForm.mobile = '13800138000'
       vm.mobileForm.code = '123456'
       await nextTick()
@@ -584,6 +622,8 @@ describe('Login Component', () => {
 
     it('should submit account login when form is submitted', async () => {
       const vm = wrapper.vm as any
+      vm.isDev = true
+      vm.activeTab = 'account'
       vm.accountForm.username = 'testuser'
       vm.accountForm.password = 'password123'
       await nextTick()
