@@ -59,7 +59,7 @@ describe('renderer branding utils', () => {
     expect(config.logoDarkUrl).toBe('/branding/logo-dark.svg')
   })
 
-  it('uses main-process display name but keeps renderer logo paths stable', async () => {
+  it('uses main-process display name and converts local branding file URLs for renderer usage', async () => {
     mockGetEditionConfig.mockReturnValue({
       edition: 'global',
       displayName: 'Chaterm',
@@ -83,9 +83,9 @@ describe('renderer branding utils', () => {
     const config = await loadBrandingConfig()
 
     expect(config.displayName).toBe('Hello AI Shell')
-    expect(config.logoUrl).toBe('/branding/logo.svg')
-    expect(config.logoLightUrl).toBe('/branding/logo-light.svg')
-    expect(config.logoDarkUrl).toBe('/branding/logo-dark.svg')
+    expect(config.logoUrl).toBe('local-resource:///broken/logo.svg')
+    expect(config.logoLightUrl).toBe('local-resource:///broken/logo-light.svg')
+    expect(config.logoDarkUrl).toBe('local-resource:///broken/logo-dark.svg')
   })
 
   it('falls back to default branding config when preload api is unavailable', async () => {

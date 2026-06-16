@@ -2,6 +2,7 @@ import defaultLogoUrl from '@/assets/logo.svg'
 import defaultLogoLightUrl from '@/assets/img/logo-light.svg'
 import defaultLogoDarkUrl from '@/assets/img/logo-dark.svg'
 import { getEditionConfig } from './edition'
+import { convertFileLocalResourceSrc } from './convertFileLocalResourceSrc'
 
 const enterpriseLogoUrl = '/branding/logo.svg'
 const enterpriseLogoLightUrl = '/branding/logo-light.svg'
@@ -57,9 +58,9 @@ export const loadBrandingConfig = async (): Promise<BrandingConfig> => {
       ...defaultConfig,
       ...resolved,
       displayName: resolved.displayName || defaultConfig.displayName,
-      logoUrl: defaultConfig.logoUrl,
-      logoLightUrl: defaultConfig.logoLightUrl,
-      logoDarkUrl: defaultConfig.logoDarkUrl
+      logoUrl: convertFileLocalResourceSrc(resolved.logoUrl || null) || defaultConfig.logoUrl,
+      logoLightUrl: convertFileLocalResourceSrc(resolved.logoLightUrl || null) || defaultConfig.logoLightUrl,
+      logoDarkUrl: convertFileLocalResourceSrc(resolved.logoDarkUrl || null) || defaultConfig.logoDarkUrl
     }
   } catch (error) {
     return defaultConfig
