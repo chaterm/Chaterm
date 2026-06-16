@@ -303,6 +303,38 @@ const accountForm = reactive({
 })
 const mobileCodeSending = ref(false)
 const mobileCountdown = ref(0)
+const EXTERNAL_LOGIN_TIMESTAMP_TTL_MS = 5 * 60 * 1000
+
+const normalizeExternalLoginTimestamp = (value: unknown): number | null => {
+  if (typeof value !== 'string' && typeof value !== 'number') {
+    return null
+  }
+
+  const rawValue = String(value).trim()
+  if (!rawValue) {
+    return null
+  }
+
+  const parsedValue = Number(rawValue)
+  if (!Number.isFinite(parsedValue) || parsedValue <= 0) {
+    return null
+  }
+
+  return parsedValue > 1_000_000_000_000 ? parsedValue : parsedValue * 1000
+}
+
+const validateExternalLoginTimestamp = (value: unknown): boolean => {
+  if (value === undefined || value === null || value === '') {
+    return true
+  }
+
+  const normalizedTimestamp = normalizeExternalLoginTimestamp(value)
+  if (!normalizedTimestamp) {
+    return false
+  }
+
+  return Math.abs(Date.now() - normalizedTimestamp) <= EXTERNAL_LOGIN_TIMESTAMP_TTL_MS
+}
 
 const handleLoginSubmit = async () => {
   if (activeTab.value === 'email') {
@@ -325,12 +357,20 @@ const checkUrlForAuthCallback = async () => {
     logger.debug('Auth callback detected', { url })
     const userInfo = urlObj.searchParams.get('userInfo')
     const method = urlObj.searchParams.get('method')
+    const state = urlObj.searchParams.get('state') || ''
+    const timestamp = urlObj.searchParams.get('timestamp') || ''
+    const sign = urlObj.searchParams.get('sign') || ''
 
     if (userInfo) {
       const api = window.api as any
       // Get protocol prefix dynamically based on edition
       const protocolPrefix = await api.getProtocolPrefix()
-      const chatermUrl = `${protocolPrefix}auth/callback?userInfo=${userInfo}&method=${method || ''}&state=${urlObj.searchParams.get('state') || ''}`
+      const chatermUrl =
+        `${protocolPrefix}auth/callback?userInfo=${userInfo}` +
+        `&method=${method || ''}` +
+        `&state=${state}` +
+        `&timestamp=${timestamp}` +
+        `&sign=${sign}`
       if (platform.value === 'linux') {
         logger.debug('Linux platform handling auth')
         api.handleProtocolUrl(chatermUrl).catch((error: any) => {
@@ -609,12 +649,31 @@ onMounted(async () => {
   if (!isDev.value) {
     const ipcRenderer = (window as any).electron?.ipcRenderer
     ipcRenderer?.on('external-login-success', async (_event, data) => {
-      const { userInfo, method } = data
+      const { userInfo, method, timestamp, sign } = data
+      logger.info('Received external-login-success event', {
+        method: method,
+        uid: userInfo?.uid,
+        email: userInfo?.email,
+        hasTimestamp: Boolean(timestamp),
+        hasSign: Boolean(sign)
+      })
       try {
         if (userInfo) {
+          if (!validateExternalLoginTimestamp(timestamp)) {
+            throw new Error('External login callback expired')
+          }
+
+          if ((timestamp && !sign) || (!timestamp && sign)) {
+            throw new Error('External login callback signature payload is incomplete')
+          }
+
           localStorage.setItem('ctm-token', userInfo?.token)
           localStorage.setItem('jms-token', userInfo?.jmsToken)
           setUserInfo(userInfo)
+          logger.info('Stored external login tokens and user info', {
+            method: method,
+            uid: userInfo?.uid
+          })
 
           const api = window.api as any
           const dbResult = await api.initUserDatabase({ uid: userInfo.uid })
@@ -629,13 +688,26 @@ onMounted(async () => {
           }
 
           shortcutService.init()
+          logger.info('External login completed successfully in renderer', {
+            method: method,
+            uid: userInfo?.uid
+          })
           await captureButtonClick(LoginFunnelEvents.LOGIN_SUCCESS, { method: method })
           router.push('/')
           return true
         }
+        logger.warn('Received external-login-success event without userInfo', {
+          method: method
+        })
         return false
       } catch (error) {
-        logger.error('Login handle failed', { error: error })
+        logger.error('Login handle failed', {
+          error: error,
+          method: method,
+          uid: userInfo?.uid,
+          hasTimestamp: Boolean(timestamp),
+          hasSign: Boolean(sign)
+        })
         message.error(t('login.loginProcessFailed'))
         await captureButtonClick(LoginFunnelEvents.LOGIN_FAILED, {
           method: method,

@@ -132,6 +132,7 @@ export default defineConfig(({ mode }) => {
         'process.env.CHATERM_KB_SEARCH_ENABLED': JSON.stringify(env.RENDERER_KB_SEARCH_ENABLED || ''),
         'process.env.CHATERM_TELEMETRY_ENABLED': JSON.stringify(env.RENDERER_TELEMETRY_ENABLED || ''),
         'process.env.CHATERM_DATA_SYNC_ENABLED': JSON.stringify(env.RENDERER_DATA_SYNC_ENABLED || ''),
+        'process.env.CHATERM_OAUTH_DEEPLINK_SIGNATURE_ENABLED': JSON.stringify(env.RENDERER_OAUTH_DEEPLINK_SIGNATURE_ENABLED || ''),
         'process.env.CHATERM_DEPLOY_STATUS': JSON.stringify(env.RENDERER_DEPLOY_STATUS || '0'),
         'process.env.CHATERM_PREINSTALLED_PLUGINS': JSON.stringify(env.RENDERER_PREINSTALLED_PLUGINS || '')
       },

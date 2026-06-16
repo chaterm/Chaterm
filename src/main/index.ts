@@ -57,7 +57,7 @@ import { versionPromptService } from './version/versionPromptService'
 import { authFailureNotifier } from './services/authFailureNotifier'
 
 import * as fsSync from 'fs'
-import { createHash } from 'crypto'
+import { createHash, createVerify, randomUUID } from 'crypto'
 import { pathToFileURL } from 'url'
 import { loadAllPlugins } from './plugin/pluginLoader'
 import {
@@ -117,6 +117,44 @@ const parseDeployStatus = (raw: unknown): number => {
   if (typeof raw !== 'string') return 0
   const parsed = Number.parseInt(raw.trim(), 10)
   return Number.isFinite(parsed) ? parsed : 0
+}
+
+// This runtime flag controls whether the client must require and verify signed OAuth Deep Link callbacks.
+const oauthDeepLinkSignatureEnabled = parsePolicyEnabled(process.env.CHATERM_OAUTH_DEEPLINK_SIGNATURE_ENABLED) === true
+const oauthDeepLinkPublicKeyPath = app.isPackaged
+  ? path.join(process.resourcesPath, 'oauth_deeplink_public_key.pem')
+  : path.join(process.cwd(), 'resources', 'oauth_deeplink_public_key.pem')
+
+const decodeBase64Url = (value: string): Buffer => {
+  const normalized = value.replace(/-/g, '+').replace(/_/g, '/')
+  const padding = normalized.length % 4
+  const paddedValue = padding === 0 ? normalized : normalized + '='.repeat(4 - padding)
+  return Buffer.from(paddedValue, 'base64')
+}
+
+const buildStableOAuthDeepLinkUserInfoJson = (userInfo: Record<string, unknown>): string => {
+  const keys = Object.keys(userInfo).sort()
+  const serializedEntries = keys.map((key) => `${JSON.stringify(key)}:${JSON.stringify(userInfo[key])}`)
+  return `{${serializedEntries.join(',')}}`
+}
+
+const buildOAuthDeepLinkSignaturePayload = (userInfo: Record<string, unknown>, method: string, state: string, timestamp: string): string => {
+  return `userInfo=${buildStableOAuthDeepLinkUserInfoJson(userInfo)}&method=${method}&state=${state}&timestamp=${timestamp}`
+}
+
+const verifyOAuthDeepLinkSignature = (params: {
+  userInfo: Record<string, unknown>
+  method: string
+  state: string
+  timestamp: string
+  sign: string
+}): boolean => {
+  const publicKey = fsSync.readFileSync(oauthDeepLinkPublicKeyPath, 'utf8')
+  const verifier = createVerify('RSA-SHA256')
+  const payload = buildOAuthDeepLinkSignaturePayload(params.userInfo, params.method, params.state, params.timestamp)
+  verifier.update(payload)
+  verifier.end()
+  return verifier.verify(publicKey, decodeBase64Url(params.sign))
 }
 
 const parsePreinstalledPluginConfig = (): PreinstalledPluginConfig[] => {
@@ -220,6 +258,16 @@ let controller: Controller
 let dataSyncController: DataSyncController | null = null
 let chatSyncScheduler: import('./storage/chat_sync/services/ChatSyncScheduler').ChatSyncScheduler | null = null
 let pendingXshellWakeups: XshellWakeupPayload[] = []
+const EXTERNAL_LOGIN_STATE_TTL_MS = 5 * 60 * 1000
+
+type PendingExternalLoginState = {
+  state: string
+  createdAt: number
+  expiresAt: number
+  windowId: number
+}
+
+let pendingExternalLoginState: PendingExternalLoginState | null = null
 
 let winReadyResolve
 let winReady = new Promise((resolve) => (winReadyResolve = resolve))
@@ -230,6 +278,57 @@ initLogging()
 // Promise that resolves when the renderer page finishes loading.
 // Main-process initialization proceeds in parallel without waiting for this.
 let windowContentLoaded: Promise<void>
+
+const clearPendingExternalLoginState = async (): Promise<void> => {
+  pendingExternalLoginState = null
+
+  if (process.platform !== 'linux') {
+    return
+  }
+
+  try {
+    await session.defaultSession.cookies.remove(COOKIE_URL, 'chaterm_auth_state')
+  } catch (error) {
+    logger.warn('Failed to clear external login auth state cookie', { error: error })
+  }
+}
+
+const loadPendingExternalLoginStateFromCookie = async (): Promise<PendingExternalLoginState | null> => {
+  if (process.platform !== 'linux') {
+    return pendingExternalLoginState
+  }
+
+  try {
+    const authStateCookie = await session.defaultSession.cookies.get({
+      url: COOKIE_URL,
+      name: 'chaterm_auth_state'
+    })
+
+    if (!authStateCookie || authStateCookie.length === 0) {
+      return pendingExternalLoginState
+    }
+
+    const parsedState = JSON.parse(authStateCookie[0].value) as Partial<PendingExternalLoginState>
+    if (
+      typeof parsedState?.state !== 'string' ||
+      typeof parsedState?.createdAt !== 'number' ||
+      typeof parsedState?.expiresAt !== 'number' ||
+      typeof parsedState?.windowId !== 'number'
+    ) {
+      return null
+    }
+
+    return {
+      state: parsedState.state,
+      createdAt: parsedState.createdAt,
+      expiresAt: parsedState.expiresAt,
+      windowId: parsedState.windowId
+    }
+  } catch (error) {
+    logger.error('Failed to load external login auth state cookie', { error: error })
+    return null
+  }
+}
 
 async function createWindow(): Promise<void> {
   const result: WindowCreationResult = await createMainWindow(
@@ -3405,34 +3504,15 @@ if (process.platform === 'linux') {
 
 // Process protocol redirection
 const handleProtocolRedirect = async (url: string) => {
+  const pendingState = (await loadPendingExternalLoginStateFromCookie()) ?? pendingExternalLoginState
+
   // Get main window
   let targetWindow = BrowserWindow.getAllWindows()[0]
-
-  // On Linux platform, try to find the original window that initiated login
-  if (process.platform === 'linux') {
-    try {
-      // Try to get original window ID from cookie
-      const authStateCookie = await session.defaultSession.cookies.get({
-        url: COOKIE_URL,
-        name: 'chaterm_auth_state'
-      })
-
-      if (authStateCookie && authStateCookie.length > 0) {
-        const authState = JSON.parse(authStateCookie[0].value)
-        const originalWindowId = authState.windowId
-
-        // Try to find original window
-        const originalWindow = BrowserWindow.fromId(originalWindowId)
-        if (originalWindow && !originalWindow.isDestroyed()) {
-          targetWindow = originalWindow
-          logger.info('Found original window, ID', { value: originalWindowId })
-
-          // Clear authentication state cookie
-          await session.defaultSession.cookies.remove(COOKIE_URL, 'chaterm_auth_state')
-        }
-      }
-    } catch (error) {
-      logger.error('Failed to get original window', { error: error })
+  if (pendingState) {
+    const originalWindow = BrowserWindow.fromId(pendingState.windowId)
+    if (originalWindow && !originalWindow.isDestroyed()) {
+      targetWindow = originalWindow
+      logger.info('Found original window for external login callback', { windowId: pendingState.windowId })
     }
   }
 
@@ -3445,13 +3525,107 @@ const handleProtocolRedirect = async (url: string) => {
   const urlObj = new URL(url)
   const userInfo = urlObj.searchParams.get('userInfo')
   const method = urlObj.searchParams.get('method')
+  const state = urlObj.searchParams.get('state')
+  const timestamp = urlObj.searchParams.get('timestamp')
+  const sign = urlObj.searchParams.get('sign')
 
   if (userInfo) {
+    logger.info('Received external login callback', {
+      hasPendingState: Boolean(pendingState),
+      hasMethod: Boolean(method),
+      hasState: Boolean(state),
+      hasTimestamp: Boolean(timestamp),
+      hasSign: Boolean(sign),
+      signatureEnabled: oauthDeepLinkSignatureEnabled,
+      targetWindowId: targetWindow.id
+    })
+
+    if (!pendingState) {
+      logger.warn('Rejected external login callback without pending auth state')
+      await clearPendingExternalLoginState()
+      return
+    }
+
+    if (!state || state !== pendingState.state) {
+      logger.warn('Rejected external login callback due to invalid state', {
+        hasState: Boolean(state),
+        stateMatches: state === pendingState.state,
+        callbackStateSuffix: state ? state.slice(-8) : '',
+        pendingStateSuffix: pendingState.state.slice(-8),
+        windowId: pendingState.windowId
+      })
+      await clearPendingExternalLoginState()
+      return
+    }
+
+    if (pendingState.expiresAt <= Date.now()) {
+      logger.warn('Rejected external login callback because auth state expired', {
+        createdAt: pendingState.createdAt,
+        expiresAt: pendingState.expiresAt
+      })
+      await clearPendingExternalLoginState()
+      return
+    }
+
     try {
+      const parsedUserInfo = JSON.parse(userInfo) as Record<string, unknown>
+      logger.info('Parsed external login callback payload', {
+        method: method,
+        uid: parsedUserInfo.uid,
+        email: parsedUserInfo.email,
+        signatureEnabled: oauthDeepLinkSignatureEnabled
+      })
+
+      if (oauthDeepLinkSignatureEnabled) {
+        if (!method || !timestamp || !sign) {
+          logger.warn('Rejected external login callback because signature payload is incomplete', {
+            hasMethod: Boolean(method),
+            hasTimestamp: Boolean(timestamp),
+            hasSign: Boolean(sign)
+          })
+          await clearPendingExternalLoginState()
+          return
+        }
+
+        const signatureValid = verifyOAuthDeepLinkSignature({
+          userInfo: parsedUserInfo,
+          method,
+          state,
+          timestamp,
+          sign
+        })
+
+        if (!signatureValid) {
+          logger.warn('Rejected external login callback because signature verification failed', {
+            method: method,
+            uid: parsedUserInfo.uid,
+            email: parsedUserInfo.email
+          })
+          await clearPendingExternalLoginState()
+          return
+        }
+
+        logger.info('External login callback signature verification passed', {
+          method: method,
+          uid: parsedUserInfo.uid
+        })
+      }
+
+      await clearPendingExternalLoginState()
+
       // Send data to renderer process
       targetWindow.webContents.send('external-login-success', {
-        userInfo: JSON.parse(userInfo),
-        method: method
+        userInfo: parsedUserInfo,
+        userInfoRaw: userInfo,
+        method: method,
+        state: state,
+        timestamp: timestamp,
+        sign: sign
+      })
+      logger.info('Dispatched external login callback to renderer', {
+        method: method,
+        uid: parsedUserInfo.uid,
+        targetWindowId: targetWindow.id
       })
 
       // Ensure window is visible and focused
@@ -3465,7 +3639,13 @@ const handleProtocolRedirect = async (url: string) => {
       // So we handle data sync restart through init-user-database after renderer process finishes login
       logger.info('External login succeeded, waiting for renderer process to handle user initialization...')
     } catch (error) {
-      logger.error('Failed to process external login data', { error: error })
+      logger.error('Failed to process external login data', {
+        error: error,
+        hasMethod: Boolean(method),
+        hasState: Boolean(state),
+        hasTimestamp: Boolean(timestamp),
+        hasSign: Boolean(sign)
+      })
     }
   }
 }
@@ -3591,9 +3771,15 @@ ipcMain.handle('xshell-wakeup:consume-pending', async () => {
 ipcMain.handle('open-external-login', async () => {
   try {
     // Generate a random state value for security verification
-    const state = Math.random().toString(36).substring(2)
-    // Store status values for subsequent verification
-    global.authState = state
+    const state = randomUUID()
+    const now = Date.now()
+    const nextPendingState: PendingExternalLoginState = {
+      state,
+      createdAt: now,
+      expiresAt: now + EXTERNAL_LOGIN_STATE_TTL_MS,
+      windowId: mainWindow.id
+    }
+    pendingExternalLoginState = nextPendingState
 
     // Get MAC address
     const macAddress = getMacAddress()
@@ -3620,13 +3806,11 @@ ipcMain.handle('open-external-login', async () => {
     // On Linux platform, save state to local storage for new instances to access
     if (process.platform === 'linux') {
       try {
-        // Save current window ID for callback to find the correct window
-        const windowId = mainWindow.id
         await session.defaultSession.cookies.set({
           url: COOKIE_URL,
           name: 'chaterm_auth_state',
-          value: JSON.stringify({ state, windowId }),
-          expirationDate: Date.now() / 1000 + 600 // 10 minutes expiry
+          value: JSON.stringify(nextPendingState),
+          expirationDate: nextPendingState.expiresAt / 1000
         })
       } catch (error) {
         logger.error('Failed to save auth state', { error: error })
@@ -3641,12 +3825,3 @@ ipcMain.handle('open-external-login', async () => {
     return { success: false, error: error instanceof Error ? error.message : String(error) }
   }
 })
-
-// Global type declarations
-declare global {
-  namespace NodeJS {
-    interface Global {
-      authState: string
-    }
-  }
-}

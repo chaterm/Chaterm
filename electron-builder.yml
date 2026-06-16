@@ -64,6 +64,8 @@ extraResources:
   - from: 'resources/rtk/'
     to: 'rtk/'
     filter: '**/*'
+  - from: 'resources/oauth_deeplink_public_key.pem'
+    to: 'oauth_deeplink_public_key.pem'
 asarUnpack:
   - resources/**
 icon: resources/icon.ico
