@@ -1,0 +1,11 @@
+# OSV-Scanner ignore list.
+# Each entry documents a vulnerability that cannot currently be remediated by a
+# dependency upgrade, with the reason it does not affect this project.
+
+[[IgnoredVulns]]
+id = "GHSA-x4vx-rjvf-j5p4"
+# DOMPurify: IN_PLACE mode trusts attacker-controlled nodeName on live non-form
+# nodes. No fixed version is published upstream (latest 3.4.10 still affected).
+# Chaterm does not use DOMPurify in IN_PLACE mode, nor does it sanitize
+# attacker-supplied live DOM nodes, so this vector is not reachable.
+reason = "No upstream fix available; IN_PLACE mode is not used in this project."
