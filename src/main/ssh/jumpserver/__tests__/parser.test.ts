@@ -223,6 +223,30 @@ ID>
       expect(users).toHaveLength(1)
       expect(users[0].name).toBe('admin')
     })
+
+    it('should parse Chinese user selection table', () => {
+      const chineseUserSelectionOutput = `
+  ID    | 名称                                                                    | 用户名                                                                   
+--------+-------------------------------------------------------------------------+--------------------------------------------------------------------------
+  1     | test_sftp                                                               | test_sftp                                                                
+  2     | app_user                                                                | app_user                                                                 
+提示：输入资产[centos-demo(192.0.2.10)]的账号ID
+返回：B/b
+`
+      const users = parseJumpServerUsers(chineseUserSelectionOutput)
+
+      expect(users).toHaveLength(2)
+      expect(users[0]).toEqual({
+        id: 1,
+        name: 'test_sftp',
+        username: 'test_sftp'
+      })
+      expect(users[1]).toEqual({
+        id: 2,
+        name: 'app_user',
+        username: 'app_user'
+      })
+    })
   })
 
   describe('hasUserSelectionPrompt', () => {
@@ -245,6 +269,18 @@ Select account ID to login:
   2  | developer     | dev_user     
 `
       expect(hasUserSelectionPrompt(fullPromptOutput)).toBe(true)
+    })
+
+    it('should detect Chinese user selection prompt', () => {
+      const chinesePromptOutput = `
+  ID    | 名称                                                                    | 用户名                                                                   
+--------+-------------------------------------------------------------------------+--------------------------------------------------------------------------
+  1     | test_sftp                                                               | test_sftp                                                                
+  2     | app_user                                                                | app_user                                                                 
+提示：输入资产[centos-demo(192.0.2.10)]的账号ID
+返回：B/b
+`
+      expect(hasUserSelectionPrompt(chinesePromptOutput)).toBe(true)
     })
 
     it('should return false when account ID is missing', () => {
