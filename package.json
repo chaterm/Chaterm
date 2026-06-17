@@ -102,7 +102,7 @@
     "pg": "^8.21.0",
     "pinia": "^3.0.1",
     "pinia-plugin-persistedstate": "^4.2.0",
-    "posthog-node": "^5.35.14",
+    "posthog-node": "^5.38.0",
     "serialize-error": "^13.0.1",
     "splitpanes": "^4.0.3",
     "sql-formatter": "^15.8.1",
