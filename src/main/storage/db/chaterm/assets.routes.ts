@@ -340,11 +340,20 @@ export async function getLocalAssetRouteLogic(db: Database, searchType: string, 
         // Recent connections for personal workspace
         try {
           const recentStmt = db.prepare(`
-            SELECT asset_uuid, asset_ip, asset_label, asset_port, asset_username, asset_type, organization_id,
-                   MAX(connected_at) as last_connected
-            FROM t_connection_history
-            WHERE organization_id = 'personal'
-            GROUP BY asset_uuid, asset_ip
+            SELECT h.asset_uuid,
+                   COALESCE(a.asset_ip, h.asset_ip) as asset_ip,
+                   COALESCE(a.label, h.asset_label) as asset_label,
+                   COALESCE(a.port, h.asset_port) as asset_port,
+                   COALESCE(a.username, h.asset_username) as asset_username,
+                   COALESCE(a.asset_type, h.asset_type) as asset_type,
+                   h.organization_id,
+                   MAX(h.connected_at) as last_connected
+            FROM t_connection_history h
+            LEFT JOIN t_assets a ON a.uuid = h.asset_uuid
+            WHERE h.organization_id = 'personal'
+              AND (h.asset_type = 'shell' OR a.uuid IS NOT NULL)
+            GROUP BY h.asset_uuid, a.asset_ip, h.asset_ip, a.label, h.asset_label, a.port, h.asset_port,
+                     a.username, h.asset_username, a.asset_type, h.asset_type, h.organization_id
             ORDER BY last_connected DESC
             LIMIT 10
           `)
@@ -457,15 +466,24 @@ export async function getLocalAssetRouteLogic(db: Database, searchType: string, 
         // Recent connections for enterprise workspace
         try {
           const recentStmt = db.prepare(`
-            SELECT asset_uuid, asset_ip, asset_label, asset_port, asset_username, asset_type, organization_id,
-                   MAX(connected_at) as last_connected
-            FROM t_connection_history
-            WHERE organization_id != 'personal'
-            GROUP BY asset_uuid, asset_ip
+            SELECT h.asset_uuid,
+                   oa.host as asset_ip,
+                   oa.hostname as asset_label,
+                   h.asset_port,
+                   h.asset_username,
+                   a.asset_type,
+                   oa.organization_uuid as organization_id,
+                   MAX(h.connected_at) as last_connected
+            FROM t_connection_history h
+            JOIN t_organization_assets oa ON oa.uuid = h.asset_uuid
+            JOIN t_assets a ON a.uuid = oa.organization_uuid
+            WHERE h.organization_id != 'personal'
+              AND a.asset_type IN (${orgTypePlaceholders})
+            GROUP BY h.asset_uuid, oa.host, oa.hostname, h.asset_port, h.asset_username, a.asset_type, oa.organization_uuid
             ORDER BY last_connected DESC
             LIMIT 10
           `)
-          const recentAssets = recentStmt.all() || []
+          const recentAssets = recentStmt.all(...availableOrgTypes) || []
 
           if (recentAssets.length > 0) {
             result.data.routers.push({
