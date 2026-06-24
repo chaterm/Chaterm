@@ -32,6 +32,7 @@ interface SftpConnectionInfo {
   isSuccess: boolean
   sftp?: import('ssh2').SFTPWrapper
   error?: string
+  rootPath?: string
 }
 
 interface BrandingConfig {

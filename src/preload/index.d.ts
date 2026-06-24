@@ -465,7 +465,7 @@ interface ApiType {
   recordTerminalState: (params: any) => Promise<any>
   recordCommand: (params: any) => Promise<any>
   sshSftpList: (opts: { id: string; path: string }) => Promise<any>
-  sftpConnList: () => Promise<string[]>
+  sftpConnList: () => Promise<{ id: string; isSuccess: boolean; error?: string; rootPath?: string }[]>
   sshConnExec: (args: { id: string; cmd: string }) => Promise<any>
   sendToMain: (message: WebviewMessage) => Promise<void | null>
   onMainMessage: (callback: (message: any) => void) => () => void

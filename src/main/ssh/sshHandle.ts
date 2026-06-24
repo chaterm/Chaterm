@@ -114,6 +114,7 @@ interface SftpConnectionInfo {
   isSuccess: boolean
   sftp?: any
   error?: string
+  rootPath?: string
 }
 export const sftpConnections = new Map<string, SftpConnectionInfo>()
 
@@ -2797,6 +2798,16 @@ export const initSftpOnConnection = (conn: Client, connectionId: string, connect
           return
         }
 
+        const resolveSftpRootPath = async (): Promise<string> => {
+          if (typeof sftp?.realpath !== 'function') return ''
+
+          return await new Promise<string>((resolveRoot) => {
+            sftp.realpath('.', (realpathErr: any, resolvedPath: string) => {
+              resolveRoot(realpathErr ? '' : String(resolvedPath || ''))
+            })
+          })
+        }
+
         logger.info(`start SFTP `, { event: 'ssh.sftp.start', connectionId: connectionId })
         sftp.readdir('.', (readDirErr) => {
           if (readDirErr) {
@@ -2811,13 +2822,18 @@ export const initSftpOnConnection = (conn: Client, connectionId: string, connect
               sftp.end()
             } catch {}
           } else {
-            logger.info(`SFTP check success`, { event: 'ssh.sftp.check', connectionId: connectionId })
-            sftpConnections.set(connectionId, { isSuccess: true, sftp })
-            connectionStatus.set(connectionId, { sftpAvailable: true })
-            const picked = pickReconnectConnectionInfo(connectionInfo)
-            if (picked) {
-              sftpConnectionInfoMap.set(String(connectionId), picked)
-            }
+            void (async () => {
+              const rootPath = await resolveSftpRootPath()
+              logger.info(`SFTP check success`, { event: 'ssh.sftp.check', connectionId: connectionId })
+              sftpConnections.set(connectionId, { isSuccess: true, sftp, rootPath })
+              connectionStatus.set(connectionId, { sftpAvailable: true, sftpRootPath: rootPath })
+              const picked = pickReconnectConnectionInfo(connectionInfo)
+              if (picked) {
+                sftpConnectionInfoMap.set(String(connectionId), picked)
+              }
+              resolve()
+            })()
+            return
           }
           resolve()
         })
