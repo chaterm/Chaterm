@@ -528,6 +528,12 @@ const props = defineProps({
       return ''
     }
   },
+  fallbackPath: {
+    type: String,
+    default: () => {
+      return ''
+    }
+  },
   connectType: {
     type: String,
     default: () => {
@@ -585,6 +591,7 @@ const panelSide = computed(() => props.panelSide as PanelSide)
 
 const localCurrentDirectoryInput = ref(props.currentDirectoryInput)
 const basePath = ref(props.basePath)
+const fallbackPath = ref(props.fallbackPath)
 const files = ref<FileRecord[]>([])
 const showHidden = ref(true)
 const visibleFiles = computed(() => {
@@ -598,6 +605,7 @@ const loading = ref(false)
 const showErr = ref(false)
 const errTips = ref('')
 const tableRef = ref<HTMLElement | null>(null)
+let latestLoadRequestId = 0
 
 type FlexibleColumn = Partial<ColumnsType<FileRecord>[number]>
 
@@ -739,11 +747,35 @@ function fixPath(path: string): string {
   return path.replace(/\/+/g, '/')
 }
 
+const trimEndSlash = (p: string) => String(p || '').replace(/\/+$/, '')
+
+const normalizeComparablePath = (p: string) => {
+  const normalized = trimEndSlash(fixPath(p || '/') || '/')
+  return normalized || '/'
+}
+
+const isSftpListError = (data: any): data is string[] => Array.isArray(data) && data.length > 0 && typeof data[0] === 'string'
+
+const isMissingDirectoryError = (data: any) => {
+  if (!isSftpListError(data)) return false
+  return /no such file|not found|does not exist|operation failed/i.test(String(data[0] || ''))
+}
+
+const samePath = (a: string, b: string) => normalizeComparablePath(a) === normalizeComparablePath(b)
+
 import { nextTick } from 'vue'
 
 const raf = () => new Promise<void>((r) => requestAnimationFrame(() => r()))
 
-const loadFiles = async (uuid: string, filePath: string): Promise<void> => {
+type LoadFilesOptions = {
+  allowFallback?: boolean
+}
+
+const loadFiles = async (uuid: string, filePath: string, options?: LoadFilesOptions): Promise<void> => {
+  const requestId = ++latestLoadRequestId
+  const isStale = () => requestId !== latestLoadRequestId
+  const allowFallback = options?.allowFallback === true
+
   filePath = fixPath(filePath)
   loading.value = true
   showErr.value = false
@@ -751,12 +783,46 @@ const loadFiles = async (uuid: string, filePath: string): Promise<void> => {
 
   await nextTick()
   await raf()
+  if (isStale()) return
 
   const fetchList = async (path: string) => {
     return await api.sshSftpList({ path, id: uuid })
   }
 
-  let data = await fetchList(filePath || '/')
+  let loadedPath = filePath || '/'
+  let data = await fetchList(loadedPath)
+  if (isStale()) return
+
+  const tryFallbackPath = async (candidatePath: string, options?: { clearBasePath?: boolean }) => {
+    const nextPath = fixPath(candidatePath || '/')
+    if (!nextPath || samePath(nextPath, loadedPath)) return false
+
+    const nextData = await fetchList(nextPath)
+    if (isStale()) return false
+    data = nextData
+    loadedPath = nextPath
+
+    if (!isSftpListError(nextData)) {
+      if (options?.clearBasePath) {
+        basePath.value = ''
+      }
+      return true
+    }
+
+    return false
+  }
+
+  if (allowFallback && isMissingDirectoryError(data) && basePath.value) {
+    const currentWithoutBase = getLoadFilePath(loadedPath)
+    if (currentWithoutBase !== '/') {
+      await tryFallbackPath(basePath.value || '/')
+    }
+  }
+
+  if (allowFallback && isMissingDirectoryError(data) && fallbackPath.value) {
+    await tryFallbackPath(fallbackPath.value, { clearBasePath: true })
+  }
+  if (isStale()) return
 
   if (data.length > 0 && typeof data[0] === 'string') {
     errTips.value = removeBasePathInContent(data[0])
@@ -765,7 +831,9 @@ const loadFiles = async (uuid: string, filePath: string): Promise<void> => {
 
   if (isFirstLoad.value) isFirstLoad.value = false
 
-  const items = data.map((item: ApiFileRecord) => ({ ...item, key: item.path }) as FileRecord)
+  const displayPath = getLoadFilePath(loadedPath)
+  const listData = isSftpListError(data) ? [] : data
+  const items = listData.map((item: ApiFileRecord) => ({ ...item, key: item.path }) as FileRecord)
 
   const dirs = items.filter((item) => item.isDir === true)
   dirs.sort(sortByName)
@@ -774,7 +842,7 @@ const loadFiles = async (uuid: string, filePath: string): Promise<void> => {
   fileItems.sort(sortByName)
   dirs.push(...fileItems)
 
-  if (filePath !== '/' && !isWindowsDriveRoot(filePath)) {
+  if (displayPath !== '/' && !isWindowsDriveRoot(loadedPath)) {
     dirs.splice(0, 0, {
       filePath: '..',
       name: '..',
@@ -790,13 +858,13 @@ const loadFiles = async (uuid: string, filePath: string): Promise<void> => {
   }
 
   files.value = dirs
-  localCurrentDirectoryInput.value = getLoadFilePath(filePath)
+  localCurrentDirectoryInput.value = displayPath
 
   loading.value = false
 
   emit('stateChange', {
     uuid: props.uuid,
-    path: filePath
+    path: loadedPath
   })
 }
 
@@ -813,8 +881,6 @@ const openLocalFolder = async () => {
 }
 
 function getLoadFilePath(filePath: string): string {
-  const trimEndSlash = (p: string) => p.replace(/\/+$/, '')
-
   const full = trimEndSlash(filePath)
   const base = trimEndSlash(basePath.value)
 
@@ -824,11 +890,35 @@ function getLoadFilePath(filePath: string): string {
   return rest || '/'
 }
 
+watch(
+  () => [props.uuid, props.currentDirectoryInput, props.basePath, props.fallbackPath],
+  async ([nextUuid, nextCurrentDirectoryInput, nextBasePath, nextFallbackPath]) => {
+    const nextUuidStr = String(nextUuid || '')
+    const nextCurrentDirectory = String(nextCurrentDirectoryInput || '')
+    const nextBasePathStr = String(nextBasePath || '')
+    const nextFallbackPathStr = String(nextFallbackPath || '')
+    const nextTargetPath = fixPath(nextBasePathStr + nextCurrentDirectory)
+    const currentTargetPath = fixPath(basePath.value + localCurrentDirectoryInput.value)
+    const baseChanged = nextBasePathStr !== basePath.value
+    const fallbackChanged = nextFallbackPathStr !== fallbackPath.value
+
+    basePath.value = nextBasePathStr
+    fallbackPath.value = nextFallbackPathStr
+
+    if (!nextUuidStr || (!baseChanged && !fallbackChanged && nextTargetPath === currentTargetPath)) {
+      return
+    }
+
+    await loadFiles(nextUuidStr, nextTargetPath, { allowFallback: true })
+  }
+)
+
 const rowClick = (record: FileRecord): void => {
   if (record.isDir || record.isLink) {
     if (record.path === '..') {
       // Get parent directory of current directory
       const currentDirectory = basePath.value + localCurrentDirectoryInput.value
+      if (basePath.value && getLoadFilePath(currentDirectory) === '/') return
       if (isWindowsDriveRoot(currentDirectory)) return
       const cur = normalizeSlashes(currentDirectory)
       const idx = cur.lastIndexOf('/')
@@ -856,6 +946,10 @@ const openFile = (record: FileRecord): void => {
 
 const refresh = (): void => {
   loadFiles(props.uuid, basePath.value + localCurrentDirectoryInput.value)
+}
+
+const refreshWithFallback = (): void => {
+  loadFiles(props.uuid, basePath.value + localCurrentDirectoryInput.value, { allowFallback: true })
 }
 
 // instead of path.dirname()
@@ -1251,7 +1345,9 @@ const onDropZoneDrop = (e: DragEvent) => {
 }
 
 const rollback = (): void => {
-  loadFiles(props.uuid, getDirname(basePath.value + localCurrentDirectoryInput.value))
+  const currentDirectory = basePath.value + localCurrentDirectoryInput.value
+  if (basePath.value && getLoadFilePath(currentDirectory) === '/') return
+  loadFiles(props.uuid, getDirname(currentDirectory))
 }
 
 const handleRefresh = (): void => {
@@ -1269,14 +1365,14 @@ onMounted(async () => {
     try {
       localCurrentDirectoryInput.value = getLoadFilePath(c.path)
 
-      await loadFiles(props.uuid, basePath.value + localCurrentDirectoryInput.value)
+      await loadFiles(props.uuid, basePath.value + localCurrentDirectoryInput.value, { allowFallback: true })
 
       loading.value = false
       return
     } catch {}
   }
 
-  await loadFiles(props.uuid, basePath.value + localCurrentDirectoryInput.value)
+  await loadFiles(props.uuid, basePath.value + localCurrentDirectoryInput.value, { allowFallback: true })
 })
 
 onBeforeUnmount(() => {
@@ -1902,6 +1998,7 @@ defineExpose({
   uploadFolder,
   downloadFile,
   refresh,
+  refreshWithFallback,
   basePath,
   localCurrentDirectoryInput
 })

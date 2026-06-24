@@ -1370,6 +1370,7 @@ onUnmounted(() => {
     width: 100%;
     min-width: 0;
     flex: 1 1 auto;
+    cursor: pointer;
 
     &:hover {
       background-color: var(--hover-bg-color) !important;
@@ -1378,6 +1379,11 @@ onUnmounted(() => {
     &.ant-tree-node-selected {
       background-color: var(--hover-bg-color) !important;
     }
+  }
+
+  .ant-tree-title {
+    flex: 1 1 auto;
+    min-width: 0;
   }
 
   .ant-tree-switcher {
@@ -1429,6 +1435,7 @@ onUnmounted(() => {
     color: var(--text-color);
     flex: 1;
     min-width: 0;
+    max-width: 100%;
     overflow: hidden;
     cursor: pointer;
     border-radius: 4px;

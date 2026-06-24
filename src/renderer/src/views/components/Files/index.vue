@@ -126,6 +126,7 @@
                   :uuid="selectedLeftRawId"
                   :current-directory-input="resolvePaths(selectedLeftRawId)"
                   :base-path="getBasePath(selectedLeftRawId)"
+                  :fallback-path="resolveFallbackPath(selectedLeftRawId)"
                   panel-side="left"
                   :cached-state="FS_CACHE.get(selectedLeftRawId)?.cache"
                   ui-mode="transfer"
@@ -262,6 +263,7 @@
                   :uuid="selectedRightRawId"
                   :current-directory-input="resolvePaths(selectedRightRawId)"
                   :base-path="getBasePath(selectedRightRawId)"
+                  :fallback-path="resolveFallbackPath(selectedRightRawId)"
                   panel-side="right"
                   :cached-state="FS_CACHE.get(selectedRightRawId)?.cache"
                   ui-mode="transfer"
@@ -329,6 +331,7 @@
                 :uuid="dataRef.rawId || dataRef.value"
                 :current-directory-input="resolvePaths(dataRef.rawId || dataRef.value)"
                 :base-path="getBasePath(dataRef.rawId || dataRef.value)"
+                :fallback-path="resolveFallbackPath(dataRef.rawId || dataRef.value)"
                 :cached-state="FS_CACHE.get(dataRef.rawId || dataRef.value)?.cache"
                 @open-file="openFile"
                 @state-change="stateChange"
@@ -518,6 +521,7 @@ import TransferPanel from './fileTransferProgress.vue'
 import fileIcon from '@/assets/menu/files.svg'
 import { CheckOutlined, CloseOutlined, DownOutlined, PlusOutlined, RightOutlined } from '@ant-design/icons-vue'
 import { hostLabelOrTitleMatches } from '@/views/components/AiTab/utils'
+import { getSshConnectionId } from '../Ssh/utils/sshConnectionRegistry'
 
 const { t } = useI18n()
 
@@ -527,7 +531,7 @@ type PanelCache = {
   ts: number
 }
 
-type TermFsExpose = { refresh?: () => void | Promise<void> }
+type TermFsExpose = { refresh?: () => void | Promise<void>; refreshWithFallback?: () => void | Promise<void> }
 
 type FsEntry = {
   cache?: PanelCache
@@ -567,13 +571,14 @@ interface ActiveTerminalInfo {
   type?: string
   outputContext?: string
   tabSessionId?: string
+  connectionId?: string
 }
 
 const currentActiveTerminal = ref<ActiveTerminalInfo | null>(null)
 
 const handleActiveTabChanged = async (tabInfo: ActiveTerminalInfo) => {
   if (tabInfo && tabInfo.ip) {
-    currentActiveTerminal.value = tabInfo
+    currentActiveTerminal.value = (await getCurrentActiveTerminalInfo()) || tabInfo
     await listUserSessions()
   }
 }
@@ -743,17 +748,17 @@ const connectSftpFromAssetNode = async (node: any, side: PanelSide) => {
   try {
     const connData = await buildSftpConnDataForFiles(node, side)
     const targetId = String(connData.id || '')
-    const targetDisplayName = getConnDisplayName(String(connData.id || ''))
+    const targetConnKey = getConnKey(targetId)
 
     // Check whether there is already a similar connection on both the left and right sides
-    const leftDisplayName = getConnDisplayName(String(selectedLeftUuid.value || ''))
-    const rightDisplayName = getConnDisplayName(String(selectedRightUuid.value || ''))
-    if (targetDisplayName) {
-      if (targetDisplayName === rightDisplayName) {
+    const leftConnKey = getConnKey(resolveRawId(String(selectedLeftUuid.value || '')))
+    const rightConnKey = getConnKey(resolveRawId(String(selectedRightUuid.value || '')))
+    if (targetConnKey) {
+      if (targetConnKey === rightConnKey) {
         message.info(t('files.openedOnRight'))
         return
       }
-      if (targetDisplayName === leftDisplayName) {
+      if (targetConnKey === leftConnKey) {
         message.info(t('files.openedOnLeft'))
         return
       }
@@ -928,6 +933,8 @@ interface SftpConnectionInfo {
   isSuccess: boolean
   sftp?: any
   error?: string
+  rootPath?: string
+  cwdPath?: string
 }
 
 const LOCAL_ID = 'localhost@127.0.0.1:local:TG9jYWw='
@@ -936,14 +943,24 @@ const getConnKey = (id: string) => {
   const parts = String(id || '').split(':')
   return parts.length >= 4 ? parts.slice(0, 3).join(':') : String(id || '')
 }
+const isFilesPanelSession = (id: string) => {
+  const sid = String(id || '')
+  const sessionPart = sid.substring(sid.lastIndexOf(':') + 1)
+  return sessionPart.startsWith('files-')
+}
 const aliasToRaw = reactive(new Map<string, string>())
 const rawToAlias = reactive(new Map<string, string>())
+const sessionResolvedPathByKey = reactive(new Map<string, string>())
 const resolveRawId = (id: string) => {
   const sid = String(id || '')
   return aliasToRaw.get(sid) || sid
 }
 const isLocalTeam = (id: string) => String(id || '').includes('local-team')
 const isLocal = (id: string) => String(id || '').includes('localhost@127.0.0.1:local')
+const getConnUsername = (id: string) => {
+  const [username = ''] = String(id || '').split('@')
+  return username
+}
 
 const getConnDisplayName = (id: string) => {
   const sid = String(id || '')
@@ -966,6 +983,60 @@ const getConnDisplayName = (id: string) => {
   }
 
   return ip || sid
+}
+
+const getConnDisplayLabel = (id: string, withUsername = false) => {
+  const displayName = getConnDisplayName(id)
+  const username = getConnUsername(id)
+  return withUsername && username && displayName !== 'Local' ? `${username}@${displayName}` : displayName
+}
+
+const resolveActiveTerminalConnectionId = (terminalInfo?: ActiveTerminalInfo | null) => {
+  const sessionId = String(terminalInfo?.tabSessionId || '')
+  return String(terminalInfo?.connectionId || '') || (sessionId ? String(getSshConnectionId(sessionId) || '') : '')
+}
+
+const resolveSessionCwdPath = (value: string) => {
+  const rawId = resolveRawId(String(value || ''))
+  return String(sessionResolvedPathByKey.get(getConnKey(rawId)) || '')
+}
+
+const getSessionPreferenceScore = (item: SftpConnectionInfo & { rawId: string }) => {
+  let score = 0
+  if (item.isSuccess) score += 100
+  if (String(item.cwdPath || '').trim()) score += 40
+  if (String(item.rootPath || '').trim()) score += 20
+  if (isFilesPanelSession(String(item.rawId || item.id || ''))) score += 10
+  if (!String(item.error || '').trim()) score += 1
+  return score
+}
+
+const warmActiveTerminalCwdForSessions = async (sessions: Array<SftpConnectionInfo & { rawId: string }>) => {
+  const activeTerminal = currentActiveTerminal.value
+  const activeIp = String(activeTerminal?.ip || '')
+  const sshConnectionId = resolveActiveTerminalConnectionId(activeTerminal)
+
+  if (!activeIp || !sshConnectionId || !(api as any)?.getCwd) return
+
+  const matchingSessions = sessions.filter((item) => {
+    const rawId = String(item.rawId || item.id || '')
+    return rawId.includes(`@${activeIp}:local-team:`) && !resolveSessionCwdPath(rawId)
+  })
+
+  if (matchingSessions.length < 1) return
+
+  try {
+    const res = await (api as any).getCwd({ id: sshConnectionId })
+    const cwd = res?.success ? String(res.cwd || '') : ''
+    if (!cwd || !cwd.startsWith('/')) return
+
+    const normalized = String(cwd).replace(/\\/g, '/').replace(/\/+$/, '') || '/'
+    for (const session of matchingSessions) {
+      sessionResolvedPathByKey.set(getConnKey(String(session.rawId || session.id || '')), normalized)
+    }
+  } catch {
+    // ignore cwd lookup failures and keep the normal fallback chain
+  }
 }
 
 const listUserSessions = async () => {
@@ -995,33 +1066,62 @@ const listUserSessions = async () => {
     return {
       ...item,
       id: aliasId,
-      rawId
+      rawId,
+      cwdPath: resolveSessionCwdPath(rawId)
     } as SftpConnectionInfo & { rawId: string }
   })
 
+  await warmActiveTerminalCwdForSessions(normalizedSessions)
+
+  const aliveConnKeys = new Set(normalizedSessions.map((item) => getConnKey(String(item.rawId || item.id || ''))))
+  for (const key of Array.from(sessionResolvedPathByKey.keys())) {
+    if (!aliveConnKeys.has(key)) sessionResolvedPathByKey.delete(key)
+  }
+
   const sessionResult = normalizedSessions.reduce<Record<string, SftpConnectionInfo & { rawId: string }>>((acc, item) => {
     const rawId = String(item.rawId || item.id || '')
-    const displayName = getConnDisplayName(rawId) || 'Unknown'
-
-    if (!(displayName in acc)) acc[displayName] = item
+    const connKey = getConnKey(rawId) || rawId
+    const existing = acc[connKey]
+    if (!existing || getSessionPreferenceScore(item) >= getSessionPreferenceScore(existing)) {
+      acc[connKey] = item
+    }
     return acc
   }, {})
 
-  updateTreeData({ ...sessionResult })
+  updateTreeData(Object.values(sessionResult))
 }
 
-const objectToTreeData = (obj: object): any[] => {
-  return Object.entries(obj).map(([key, value]: any) => {
+const objectToTreeData = (obj: object | Array<SftpConnectionInfo & { rawId: string }>): any[] => {
+  const entries = Array.isArray(obj)
+    ? obj.map((value: any) => {
+        const rawId = String(value.rawId || value.id || '')
+        return [getConnKey(rawId) || rawId, value]
+      })
+    : Object.entries(obj)
+
+  const displayCounts = new Map<string, number>()
+  entries.forEach(([, value]: any) => {
+    const rawId = String(value.rawId || value.id || '')
+    const displayName = getConnDisplayName(rawId) || 'Unknown'
+    displayCounts.set(displayName, (displayCounts.get(displayName) || 0) + 1)
+  })
+
+  return entries.map(([key, value]: any) => {
     const keys: string[] = []
-    const isActive = currentActiveTerminal.value && currentActiveTerminal.value.ip === key
+    const rawId = String(value.rawId || value.id || '')
+    const displayName = getConnDisplayName(rawId) || 'Unknown'
+    const title = getConnDisplayLabel(rawId, (displayCounts.get(displayName) || 0) > 1) || 'Unknown'
+    const isActive = currentActiveTerminal.value && currentActiveTerminal.value.ip === displayName
 
     const node = {
-      title: key,
+      title,
       errorMsg: value.isSuccess ? null : (value.error ?? ''),
-      key: key,
+      key: key || title,
       draggable: true,
       value: String(value.id),
       rawId: String(value.rawId || value.id),
+      rootPath: String(value.rootPath || ''),
+      cwdPath: String(value.cwdPath || ''),
       isLeaf: false,
       class: isActive ? 'active-terminal' : ''
     }
@@ -1426,6 +1526,7 @@ const sessionMap = computed(() => {
   const map = new Map<string, any>()
   ;((treeData.value as any[]) || []).forEach((n: any) => {
     map.set(String(n.value), n)
+    map.set(String(n.rawId), n)
   })
   return map
 })
@@ -1447,7 +1548,7 @@ const CREATE_FILE_CONN_VALUE = '__create_file_conn__'
 
 const leftSelectOptions = computed(() => {
   const opts = sessionNodes.value.map((n: any) => ({
-    label: getConnDisplayName(String(n.rawId ?? n.value ?? '')),
+    label: String(n.title || getConnDisplayLabel(String(n.rawId ?? n.value ?? ''))),
     value: String(n.value ?? ''),
     rawId: String(n.rawId ?? n.value ?? ''),
     disabled: !!selectedRightUuid.value && String(n.value) === String(selectedRightUuid.value)
@@ -1463,7 +1564,7 @@ const leftSelectOptions = computed(() => {
 
 const rightSelectOptions = computed(() => {
   const opts = sessionNodes.value.map((n: any) => ({
-    label: getConnDisplayName(String(n.rawId ?? n.value ?? '')),
+    label: String(n.title || getConnDisplayLabel(String(n.rawId ?? n.value ?? ''))),
     value: String(n.value ?? ''),
     rawId: String(n.rawId ?? n.value ?? ''),
     disabled: !!selectedLeftUuid.value && String(n.value) === String(selectedLeftUuid.value)
@@ -1534,9 +1635,13 @@ const refreshAfterSelect = async (uuid: string) => {
   for (let i = 0; i < 12; i++) {
     await new Promise<void>((r) => requestAnimationFrame(() => r()))
     const inst = FS_CACHE.get(u)?.inst
-    if (inst?.refresh) {
+    if (inst?.refreshWithFallback || inst?.refresh) {
       try {
-        await inst.refresh()
+        if (inst?.refreshWithFallback) {
+          await inst.refreshWithFallback()
+        } else {
+          await inst.refresh?.()
+        }
       } catch {
         // ignore
       }
@@ -1559,7 +1664,7 @@ const activeSelectableOptions = computed(() => {
     .map((n: any) => {
       const v = String(n.value ?? '')
       return {
-        label: getConnDisplayName(v),
+        label: String(n.title || getConnDisplayLabel(String(n.rawId ?? v))),
         value: v,
         disabled: used.has(v)
       }
@@ -1987,7 +2092,11 @@ watch(isTransferAvailable, (ok) => {
 watch(
   treeData,
   () => {
-    const uuids = new Set(sessionNodes.value.map((n: any) => String(n.value)))
+    const uuids = new Set<string>()
+    sessionNodes.value.forEach((n: any) => {
+      if (n.value) uuids.add(String(n.value))
+      if (n.rawId) uuids.add(String(n.rawId))
+    })
 
     if (uuids.size === 0) return
 
@@ -2206,6 +2315,42 @@ onMounted(async () => {
   }
 })
 
+const normalizeRemotePath = (value: string) => {
+  const normalized = String(value || '')
+    .replace(/\\/g, '/')
+    .replace(/\/+$/, '')
+  return normalized || '/'
+}
+const trimRemotePath = (value: string) => normalizeRemotePath(value).replace(/\/+$/, '') || '/'
+const resolveSessionRootPath = (value: string) => {
+  const sid = String(value || '')
+  const rawId = resolveRawId(sid)
+  const node = sessionNodes.value.find((item: any) => String(item.rawId || item.value || '') === rawId || String(item.value || '') === sid)
+  return String(node?.rootPath || '')
+}
+const resolveSessionDisplayPath = (value: string) => {
+  const sid = String(value || '')
+  const rawId = resolveRawId(sid)
+  const node = sessionNodes.value.find((item: any) => String(item.rawId || item.value || '') === rawId || String(item.value || '') === sid)
+  return String(node?.cwdPath || resolveSessionCwdPath(rawId) || '')
+}
+const resolveJumpServerAssetPath = (value: string) => {
+  const rootPath = normalizeRemotePath(resolveSessionRootPath(value))
+  if (!rootPath || rootPath === '/') return ''
+
+  const basePath = trimRemotePath(getBasePath(value))
+  const normalizedRoot = trimRemotePath(rootPath)
+
+  if (basePath && normalizedRoot.startsWith(`${basePath}/`)) {
+    return normalizedRoot.slice(basePath.length) || '/'
+  }
+
+  if (/^\/(home\/[^/]+|root)(\/|$)/.test(normalizedRoot)) {
+    return normalizedRoot
+  }
+
+  return ''
+}
 const getBasePath = (value: string) => {
   if (value.includes('local-team')) {
     const [, rest = ''] = String(value || '').split('@')
@@ -2221,8 +2366,32 @@ const resolvePaths = (value: string) => {
     return localHome.value || ''
   }
 
+  if (value.includes('local-team')) {
+    const sessionDisplayPath = resolveSessionDisplayPath(value)
+    if (sessionDisplayPath) return normalizeRemotePath(sessionDisplayPath)
+
+    const assetPath = resolveJumpServerAssetPath(value)
+    if (assetPath) return assetPath
+
+    const [username] = String(value || '').split('@')
+    return username ? `/home/${username}` : '/'
+  }
+
+  const rootPath = resolveSessionRootPath(value)
+  if (rootPath) {
+    return normalizeRemotePath(rootPath)
+  }
+
   const [username] = String(value || '').split('@')
   return username === 'root' ? '/root' : `/home/${username}`
+}
+const resolveFallbackPath = (value: string) => {
+  if (!value.includes('local-team')) {
+    return ''
+  }
+
+  const rootPath = resolveSessionRootPath(value)
+  return rootPath ? normalizeRemotePath(rootPath) : ''
 }
 
 // Define editor interface
