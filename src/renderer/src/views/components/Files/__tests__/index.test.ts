@@ -73,6 +73,12 @@ vi.mock('./fileTransferProgress.vue', () => ({
   default: { name: 'TransferPanel', template: '<div class="transfer-panel" />' }
 }))
 
+const sshRegistry = vi.hoisted(() => ({
+  getSshConnectionId: vi.fn(() => 'active-ssh-conn')
+}))
+
+vi.mock('../Ssh/utils/sshConnectionRegistry', () => sshRegistry)
+
 vi.mock('@/assets/menu/files.svg', () => ({ default: 'files.svg' }))
 
 // ---------------- i18n ----------------
@@ -115,6 +121,7 @@ const antdStubs = {
 type ApiStub = {
   sftpConnList: ReturnType<typeof vi.fn>
   getAppPath: ReturnType<typeof vi.fn>
+  getCwd: ReturnType<typeof vi.fn>
   sshConnExec: ReturnType<typeof vi.fn>
   connectAssetInfo: ReturnType<typeof vi.fn>
   sftpConnect: ReturnType<typeof vi.fn>
@@ -126,6 +133,7 @@ type ApiStub = {
 const makeApi = (): ApiStub => ({
   sftpConnList: vi.fn().mockResolvedValue([]),
   getAppPath: vi.fn().mockResolvedValue('/home/test'),
+  getCwd: vi.fn().mockResolvedValue({ success: false, cwd: null }),
   sshConnExec: vi.fn().mockResolvedValue({ stdout: '', stderr: '' }),
   connectAssetInfo: vi.fn().mockResolvedValue(null),
   sftpConnect: vi.fn().mockResolvedValue({ status: 'connected' }),
@@ -140,6 +148,7 @@ describe('index.vue', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     api = makeApi()
+    sshRegistry.getSshConnectionId.mockReturnValue('active-ssh-conn')
     ;(globalThis as any).api = api
     ;(globalThis as any).ResizeObserver = class {
       observe = vi.fn()
@@ -269,6 +278,225 @@ describe('index.vue', () => {
     expect(tree.some((n) => n?.title === 'Local')).toBe(true)
     expect(tree.some((n) => n?.title === '10.0.0.2' && n?.class === 'active-terminal')).toBe(true)
     expect(tree.some((n) => String(n?.title).includes('decoded:') && n?.errorMsg === 'boom')).toBe(true)
+    wrapper.unmount()
+  })
+
+  it('uses the SFTP session root path instead of guessing /home/username', async () => {
+    api.sftpConnList.mockResolvedValueOnce([{ id: 'zhwysftp@10.0.0.8:local:aG9zdA==:files-left', isSuccess: true, rootPath: '/srv/chroot/upload' }])
+
+    const wrapper = mountView()
+    eventBus.emit('assetInfoResult', { uuid: 'u1', ip: '10.0.0.8' })
+    await flushPromises()
+    await flushPromises()
+
+    expect((wrapper.vm as any).treeData).toEqual(
+      expect.arrayContaining([expect.objectContaining({ rawId: 'zhwysftp@10.0.0.8:local:aG9zdA==:files-left', rootPath: '/srv/chroot/upload' })])
+    )
+    expect((wrapper.vm as any).resolvePaths('zhwysftp@10.0.0.8:local:aG9zdA==:files-left')).toBe('/srv/chroot/upload')
+    wrapper.unmount()
+  })
+
+  it('keeps JumpServer local-team sessions under the asset base path even when rootPath is present', async () => {
+    api.sftpConnList.mockResolvedValueOnce([
+      {
+        id: 'deploy@10.0.0.8:local-team:aG9zdC0x:files-left',
+        isSuccess: true,
+        rootPath: '/Default'
+      }
+    ])
+
+    const wrapper = mountView()
+    eventBus.emit('assetInfoResult', { uuid: 'u1', ip: '10.0.0.8' })
+    await flushPromises()
+    await flushPromises()
+
+    const vm = wrapper.vm as any
+    expect(vm.getBasePath('deploy@10.0.0.8:local-team:aG9zdC0x:files-left')).toBe('/Default/decoded:aG9zdC0x')
+    expect(vm.resolvePaths('deploy@10.0.0.8:local-team:aG9zdC0x:files-left')).toBe('/home/deploy')
+    expect(vm.resolveFallbackPath('deploy@10.0.0.8:local-team:aG9zdC0x:files-left')).toBe('/Default')
+
+    wrapper.unmount()
+  })
+
+  it('uses JumpServer asset rootPath as the real server user directory when it is inside the asset base path', async () => {
+    api.sftpConnList.mockResolvedValueOnce([
+      {
+        id: 'zhishang_hu@10.0.0.8:local-team:aG9zdC0x:files-left',
+        isSuccess: true,
+        rootPath: '/Default/decoded:aG9zdC0x/home/test_sftp'
+      }
+    ])
+
+    const wrapper = mountView()
+    eventBus.emit('assetInfoResult', { uuid: 'u1', ip: '10.0.0.8' })
+    await flushPromises()
+    await flushPromises()
+
+    const vm = wrapper.vm as any
+    expect(vm.getBasePath('zhishang_hu@10.0.0.8:local-team:aG9zdC0x:files-left')).toBe('/Default/decoded:aG9zdC0x')
+    expect(vm.resolvePaths('zhishang_hu@10.0.0.8:local-team:aG9zdC0x:files-left')).toBe('/home/test_sftp')
+
+    wrapper.unmount()
+  })
+
+  it('prefers the active terminal cwd when JumpServer rootPath is too generic to identify the asset user directory', async () => {
+    api.sftpConnList.mockResolvedValueOnce([
+      {
+        id: 'zhishang_hu@10.0.0.8:local-team:aG9zdC0x:files-left',
+        isSuccess: true,
+        rootPath: '/Default'
+      }
+    ])
+    api.getCwd.mockResolvedValueOnce({ success: true, cwd: '/home/test_sftp' })
+
+    const wrapper = mountView()
+    await flushPromises()
+    eventBus.emit('assetInfoResult', { uuid: 'u1', ip: '10.0.0.8', tabSessionId: 'tab-1', connectionId: 'active-ssh-conn' })
+    await flushPromises()
+    await flushPromises()
+
+    const vm = wrapper.vm as any
+    expect(api.getCwd).toHaveBeenCalledWith({ id: 'active-ssh-conn' })
+    expect(vm.resolvePaths('zhishang_hu@10.0.0.8:local-team:aG9zdC0x:files-left')).toBe('/home/test_sftp')
+
+    wrapper.unmount()
+  })
+
+  it('prefers the richer successful session when duplicate host display names exist', async () => {
+    api.sftpConnList.mockResolvedValueOnce([
+      {
+        id: 'zhishang_hu@10.0.0.8:local-team:aG9zdC0x:stale-shell',
+        isSuccess: false,
+        error: 'old failure'
+      },
+      {
+        id: 'zhishang_hu@10.0.0.8:local-team:aG9zdC0x:files-left',
+        isSuccess: true,
+        rootPath: '/Default/decoded:aG9zdC0x/home/test_sftp'
+      }
+    ])
+
+    const wrapper = mountView()
+    eventBus.emit('assetInfoResult', { uuid: 'u1', ip: '10.0.0.8' })
+    await flushPromises()
+    await flushPromises()
+
+    const vm = wrapper.vm as any
+    expect(vm.treeData).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          rawId: 'zhishang_hu@10.0.0.8:local-team:aG9zdC0x:files-left',
+          rootPath: '/Default/decoded:aG9zdC0x/home/test_sftp',
+          errorMsg: null
+        })
+      ])
+    )
+    expect(vm.resolvePaths('zhishang_hu@10.0.0.8:local-team:aG9zdC0x:files-left')).toBe('/home/test_sftp')
+
+    wrapper.unmount()
+  })
+
+  it('prefers the richer successful normal SFTP session when duplicate host display names exist', async () => {
+    api.sftpConnList.mockResolvedValueOnce([
+      {
+        id: 'zhwysftp@101.34.32.188:local:MTAxLjM0LjMyLjE4OA==:stale-shell',
+        isSuccess: false,
+        error: 'old failure'
+      },
+      {
+        id: 'zhwysftp@101.34.32.188:local:MTAxLjM0LjMyLjE4OA==:files-left',
+        isSuccess: true,
+        rootPath: '/srv/chroot/upload'
+      }
+    ])
+
+    const wrapper = mountView()
+    eventBus.emit('assetInfoResult', { uuid: 'u1', ip: '101.34.32.188' })
+    await flushPromises()
+    await flushPromises()
+
+    const vm = wrapper.vm as any
+    expect(vm.treeData).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          rawId: 'zhwysftp@101.34.32.188:local:MTAxLjM0LjMyLjE4OA==:files-left',
+          rootPath: '/srv/chroot/upload',
+          errorMsg: null
+        })
+      ])
+    )
+    expect(vm.resolvePaths('zhwysftp@101.34.32.188:local:MTAxLjM0LjMyLjE4OA==:files-left')).toBe('/srv/chroot/upload')
+
+    wrapper.unmount()
+  })
+
+  it('keeps same-IP normal SFTP sessions separate when usernames differ', async () => {
+    api.sftpConnList.mockResolvedValueOnce([
+      {
+        id: 'root@101.34.32.188:local:MTAxLjM0LjMyLjE4OA==:files-left',
+        isSuccess: true,
+        rootPath: '/root'
+      },
+      {
+        id: 'zhwysftp@101.34.32.188:local:MTAxLjM0LjMyLjE4OA==:files-right',
+        isSuccess: true,
+        rootPath: '/srv/chroot/upload'
+      }
+    ])
+
+    const wrapper = mountView()
+    eventBus.emit('assetInfoResult', { uuid: 'u1', ip: '101.34.32.188' })
+    await flushPromises()
+    await flushPromises()
+
+    const vm = wrapper.vm as any
+    const normalNodes = vm.treeData.filter((node: any) => String(node.rawId || '').includes('@101.34.32.188:local:'))
+    expect(normalNodes).toHaveLength(2)
+    expect(normalNodes.map((node: any) => node.title)).toEqual(expect.arrayContaining(['root@101.34.32.188', 'zhwysftp@101.34.32.188']))
+    expect(vm.leftSelectOptions.map((item: any) => item.label)).toEqual(expect.arrayContaining(['root@101.34.32.188', 'zhwysftp@101.34.32.188']))
+
+    wrapper.unmount()
+  })
+
+  it('allows opening the same normal SFTP host with a different username', async () => {
+    const wrapper = mountView()
+    await flushPromises()
+
+    const vm = wrapper.vm as any
+    vm.selectedLeftUuid = 'root@101.34.32.188:local:encoded:101.34.32.188:files-left'
+    api.connectAssetInfo.mockResolvedValueOnce(null)
+    api.sftpConnect.mockResolvedValueOnce({ status: 'connected' })
+
+    await vm.handleOpenSftpByAssetNode({
+      node: {
+        uuid: 'asset-y',
+        ip: '101.34.32.188',
+        username: 'zhwysftp',
+        organizationId: 'person'
+      },
+      side: 'right',
+      source: 'click'
+    })
+
+    expect(api.sftpConnect).toHaveBeenCalledWith(expect.objectContaining({ id: 'zhwysftp@101.34.32.188:local:encoded:101.34.32.188:files-right' }))
+
+    wrapper.unmount()
+  })
+
+  it('refreshAfterSelect prefers the fallback-aware refresh hook when the file panel exposes it', async () => {
+    const wrapper = mountView()
+    await flushPromises()
+
+    const vm = wrapper.vm as any
+    const refreshWithFallback = vi.fn().mockResolvedValue(undefined)
+    const refresh = vi.fn().mockResolvedValue(undefined)
+
+    vm.fsRefFor('conn-1')({ refreshWithFallback, refresh })
+    await vm.refreshAfterSelect('conn-1')
+
+    expect(refreshWithFallback).toHaveBeenCalled()
+    expect(refresh).not.toHaveBeenCalled()
+
     wrapper.unmount()
   })
 
