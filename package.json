@@ -143,7 +143,7 @@
     "@playwright/test": "^1.61.1",
     "@types/clone-deep": "^4.0.4",
     "@types/dompurify": "^3.2.0",
-    "@types/node": "^25.9.3",
+    "@types/node": "^26.0.0",
     "@types/ssh2": "^1.15.5",
     "@types/ws": "^8.5.11",
     "@vitejs/plugin-vue": "^6.0.7",
