@@ -67,7 +67,7 @@
         :model="formState"
       >
         <div
-          v-if="!unChange"
+          v-if="canEditProfile"
           class="action-buttons-container"
         >
           <a-button
@@ -609,6 +609,10 @@ const canResetPassword = computed(() => {
   return userInfo.value.registrationType !== 1
 })
 
+const canEditProfile = computed(() => {
+  return !unChange.value && userInfo.value.registrationType !== 1
+})
+
 const canEditEmail = computed(() => {
   return (
     userInfo.value.registrationType !== 2 &&
@@ -619,6 +623,7 @@ const canEditEmail = computed(() => {
 })
 
 const startEditing = () => {
+  if (!canEditProfile.value) return
   isEditing.value = true
 }
 
@@ -835,6 +840,10 @@ const validateSave = () => {
 }
 const handleSave = async () => {
   try {
+    if (!canEditProfile.value) {
+      cancelEditing()
+      return
+    }
     if (!validateSave()) return
     const response = (await updateUser({
       username: formState.username,
