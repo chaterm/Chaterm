@@ -212,6 +212,16 @@ describe('files.vue (enhanced)', () => {
       }
     })
 
+  const createDeferred = <T>() => {
+    let resolve!: (value: T) => void
+    let reject!: (reason?: unknown) => void
+    const promise = new Promise<T>((res, rej) => {
+      resolve = res
+      reject = rej
+    })
+    return { promise, resolve, reject }
+  }
+
   it('mount loads listing, sorts dirs/files, and inserts parent ".." when not root', async () => {
     api.sshSftpList.mockResolvedValueOnce([
       { name: 'b.txt', path: '/home/b.txt', isDir: false, mode: '0644', isLink: false, modTime: '', size: 2 },
@@ -1153,6 +1163,74 @@ describe('files.vue (enhanced)', () => {
       wrapper.unmount()
     })
 
+    it('falls back from a missing JumpServer user directory to the asset root and hides parent navigation', async () => {
+      api.sshSftpList
+        .mockResolvedValueOnce(["cannot open directory '/Default/host-1/home/deploy': No such file or directory"] as any)
+        .mockResolvedValueOnce([{ name: 'tmp', path: '/Default/host-1/tmp', isDir: true, mode: '0755', isLink: false, modTime: '', size: 0 }] as any)
+
+      const wrapper = mountView({
+        basePath: '/Default/host-1',
+        currentDirectoryInput: '/home/deploy',
+        fallbackPath: '/Default'
+      })
+      await flushPromises()
+      const vm = wrapper.vm as any
+
+      expect(api.sshSftpList).toHaveBeenNthCalledWith(1, { path: '/Default/host-1/home/deploy', id: 'localhost@127.0.0.1:local' })
+      expect(api.sshSftpList).toHaveBeenNthCalledWith(2, { path: '/Default/host-1', id: 'localhost@127.0.0.1:local' })
+      expect(vm.localCurrentDirectoryInput).toBe('/')
+      expect(vm.files.map((x: any) => x.name)).toEqual(['tmp'])
+
+      const before = api.sshSftpList.mock.calls.length
+      vm.rollback()
+      await flushPromises()
+      expect(api.sshSftpList.mock.calls.length).toBe(before)
+
+      wrapper.unmount()
+    })
+
+    it('treats JumpServer Operation failed on the initial user directory as unavailable and falls back to the asset root', async () => {
+      api.sshSftpList
+        .mockResolvedValueOnce(["cannot open directory '/Default/host-1/home/zhishang_hu': Operation failed"] as any)
+        .mockResolvedValueOnce([{ name: 'tmp', path: '/Default/host-1/tmp', isDir: true, mode: '0755', isLink: false, modTime: '', size: 0 }] as any)
+
+      const wrapper = mountView({
+        basePath: '/Default/host-1',
+        currentDirectoryInput: '/home/zhishang_hu',
+        fallbackPath: '/Default'
+      })
+      await flushPromises()
+      const vm = wrapper.vm as any
+
+      expect(api.sshSftpList).toHaveBeenNthCalledWith(1, { path: '/Default/host-1/home/zhishang_hu', id: 'localhost@127.0.0.1:local' })
+      expect(api.sshSftpList).toHaveBeenNthCalledWith(2, { path: '/Default/host-1', id: 'localhost@127.0.0.1:local' })
+      expect(vm.localCurrentDirectoryInput).toBe('/')
+      expect(vm.showErr).toBe(false)
+
+      wrapper.unmount()
+    })
+
+    it('falls back to the JumpServer rootPath when the asset root is also missing', async () => {
+      api.sshSftpList
+        .mockResolvedValueOnce(["cannot open directory '/Default/missing-host/home/deploy': No such file or directory"] as any)
+        .mockResolvedValueOnce(["cannot open directory '/Default/missing-host': No such file or directory"] as any)
+        .mockResolvedValueOnce([{ name: 'Default', path: '/Default', isDir: true, mode: '0755', isLink: false, modTime: '', size: 0 }] as any)
+
+      const wrapper = mountView({
+        basePath: '/Default/missing-host',
+        currentDirectoryInput: '/home/deploy',
+        fallbackPath: '/Default'
+      })
+      await flushPromises()
+      const vm = wrapper.vm as any
+
+      expect(api.sshSftpList).toHaveBeenNthCalledWith(3, { path: '/Default', id: 'localhost@127.0.0.1:local' })
+      expect(vm.basePath).toBe('')
+      expect(vm.localCurrentDirectoryInput).toBe('/Default')
+
+      wrapper.unmount()
+    })
+
     it('sortByName sorts case-insensitively and keeps equal names stable', async () => {
       api.sshSftpList.mockResolvedValueOnce([] as any)
       const wrapper = mountView()
@@ -1171,6 +1249,81 @@ describe('files.vue (enhanced)', () => {
   })
 
   describe('rowClick / refresh / rollback', () => {
+    it('reloads when currentDirectoryInput prop changes and ignores stale earlier failures', async () => {
+      const firstLoad = createDeferred<any>()
+      api.sshSftpList.mockImplementationOnce(() => firstLoad.promise)
+      api.sshSftpList.mockResolvedValueOnce([
+        { name: 'ok.txt', path: '/home/test_sftp/ok.txt', isDir: false, mode: '0644', isLink: false, modTime: '', size: 1 }
+      ] as any)
+
+      const wrapper = mountView({ currentDirectoryInput: '/home/zhishang_hu' })
+      await flushPromises()
+
+      await wrapper.setProps({ currentDirectoryInput: '/home/test_sftp' })
+      await flushPromises()
+
+      firstLoad.resolve(["cannot open directory '/home/zhishang_hu': JumpServer SFTP connection failed"] as any)
+      await flushPromises()
+
+      const vm = wrapper.vm as any
+      expect(api.sshSftpList).toHaveBeenNthCalledWith(1, { path: '/home/zhishang_hu', id: 'localhost@127.0.0.1:local' })
+      expect(api.sshSftpList).toHaveBeenNthCalledWith(2, { path: '/home/test_sftp', id: 'localhost@127.0.0.1:local' })
+      expect(vm.localCurrentDirectoryInput).toBe('/home/test_sftp')
+      expect(vm.showErr).toBe(false)
+      expect(vm.files.map((x: any) => x.name)).toContain('ok.txt')
+
+      wrapper.unmount()
+    })
+
+    it('shows an error when the user clicks into a forbidden directory after connection succeeds', async () => {
+      api.sshSftpList
+        .mockResolvedValueOnce([
+          { name: 'secret', path: '/Default/host-1/root/secret', isDir: true, mode: '0000', isLink: false, modTime: '', size: 0 }
+        ] as any)
+        .mockResolvedValueOnce(["cannot open directory '/Default/host-1/root/secret': Operation failed"] as any)
+
+      const wrapper = mountView({
+        basePath: '/Default/host-1',
+        currentDirectoryInput: '/root',
+        fallbackPath: '/Default'
+      })
+      await flushPromises()
+      const vm = wrapper.vm as any
+
+      vm.rowClick({ name: 'secret', path: '/Default/host-1/root/secret', isDir: true, isLink: false })
+      await flushPromises()
+
+      expect(vm.localCurrentDirectoryInput).toBe('/root/secret')
+      expect(vm.showErr).toBe(true)
+      expect(vm.errTips).toBe("cannot open directory '/root/secret': Operation failed")
+
+      wrapper.unmount()
+    })
+
+    it('shows an error when the user manually inputs a forbidden directory', async () => {
+      api.sshSftpList
+        .mockResolvedValueOnce([] as any)
+        .mockResolvedValueOnce(["cannot open directory '/Default/host-1/root/secret': Operation failed"] as any)
+
+      const wrapper = mountView({
+        basePath: '/Default/host-1',
+        currentDirectoryInput: '/root',
+        fallbackPath: '/Default'
+      })
+      await flushPromises()
+      const vm = wrapper.vm as any
+
+      vm.localCurrentDirectoryInput = '/root/secret'
+      vm.handleRefresh()
+      await flushPromises()
+
+      expect(vm.localCurrentDirectoryInput).toBe('/root/secret')
+      expect(vm.showErr).toBe(true)
+      expect(vm.errTips).toBe("cannot open directory '/root/secret': Operation failed")
+
+      wrapper.unmount()
+    })
+
     it('rowClick on directory loads new path; on file does nothing', async () => {
       api.sshSftpList.mockResolvedValueOnce([
         { name: 'sub', path: '/home/sub', isDir: true, mode: '0755', isLink: false, modTime: '', size: 0 },

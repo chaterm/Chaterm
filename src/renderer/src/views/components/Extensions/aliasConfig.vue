@@ -18,18 +18,32 @@
             </template>
           </a-input>
         </a-col>
-        <a-col :span="2">
-          <div
-            style="margin-left: 10px"
-            @click="handleAdd"
-          >
+        <a-col :span="14">
+          <div class="toolbar-actions">
             <a-button
               type="primary"
               size="small"
               class="workspace-button"
               :icon="h(PlusOutlined)"
+              @click="handleAdd"
             >
               {{ t('extensions.addCommand') }}
+            </a-button>
+            <a-button
+              size="small"
+              class="workspace-button workspace-button-secondary"
+              :icon="h(ImportOutlined)"
+              @click="openImport"
+            >
+              {{ t('extensions.importCommand') }}
+            </a-button>
+            <a-button
+              size="small"
+              class="workspace-button workspace-button-secondary"
+              :icon="h(ExportOutlined)"
+              @click="handleExport"
+            >
+              {{ t('extensions.exportCommand') }}
             </a-button>
           </div>
         </a-col>
@@ -96,12 +110,67 @@
         </template>
       </a-table>
     </a-card>
+
+    <a-modal
+      :open="importVisible"
+      :title="t('extensions.importCommand')"
+      :width="640"
+      :confirm-loading="importing"
+      :ok-text="t('extensions.import')"
+      :cancel-text="t('common.cancel')"
+      wrap-class-name="commandDialog alias-import-modal"
+      @ok="handleImport"
+      @cancel="closeImport"
+      @update:open="(v) => (importVisible = v)"
+    >
+      <div class="import-modal">
+        <div class="import-modal__toolbar">
+          <a-button
+            size="small"
+            :icon="h(ImportOutlined)"
+            @click="triggerFilePick"
+          >
+            {{ t('extensions.importFromFile') }}
+          </a-button>
+          <a-radio-group
+            v-model:value="importMode"
+            size="small"
+          >
+            <a-radio-button value="skip">{{ t('extensions.importSkip') }}</a-radio-button>
+            <a-radio-button value="overwrite">{{ t('extensions.importOverwrite') }}</a-radio-button>
+          </a-radio-group>
+        </div>
+        <a-textarea
+          v-model:value="importText"
+          :rows="12"
+          :placeholder="importPlaceholder"
+          :spellcheck="false"
+          class="import-modal__textarea"
+        />
+        <input
+          ref="fileInputRef"
+          type="file"
+          accept=".json,application/json"
+          style="display: none"
+          @change="handleFileChange"
+        />
+      </div>
+    </a-modal>
   </div>
 </template>
 
 <script setup lang="ts">
 import { ref, computed, onMounted, onBeforeUnmount, h } from 'vue'
-import { PlusOutlined, CloseOutlined, EditOutlined, CheckOutlined, CloseSquareOutlined, SearchOutlined } from '@ant-design/icons-vue'
+import {
+  PlusOutlined,
+  CloseOutlined,
+  EditOutlined,
+  CheckOutlined,
+  CloseSquareOutlined,
+  SearchOutlined,
+  ImportOutlined,
+  ExportOutlined
+} from '@ant-design/icons-vue'
 import '@xterm/xterm/css/xterm.css'
 import { cloneDeep } from 'lodash'
 import i18n from '@/locales'
@@ -128,6 +197,14 @@ const cloneRecord = ref({
   id: ''
 })
 const { t } = i18n.global
+
+const importVisible = ref(false)
+const importing = ref(false)
+const importText = ref('')
+const importMode = ref<'skip' | 'overwrite'>('skip')
+const fileInputRef = ref<HTMLInputElement | null>(null)
+
+const importPlaceholder = computed(() => '[\n  { "alias": "ll", "command": "ls -la" },\n  { "alias": "gs", "command": "git status" }\n]')
 
 const logger = createRendererLogger('extensions')
 
@@ -393,6 +470,168 @@ const handleAdd = () => {
 const aliasConfigRefresh = async () => {
   await aliasStore.refreshAliasesFromDB()
 }
+
+const openImport = () => {
+  importText.value = ''
+  importMode.value = 'skip'
+  importVisible.value = true
+}
+
+const closeImport = () => {
+  importVisible.value = false
+}
+
+const triggerFilePick = () => {
+  fileInputRef.value?.click()
+}
+
+const handleFileChange = async (event: Event) => {
+  const input = event.target as HTMLInputElement
+  const file = input.files?.[0]
+  if (!file) return
+  try {
+    importText.value = await file.text()
+  } catch (err) {
+    logger.error('Error reading import file', { error: err })
+    notification.error({
+      message: t('extensions.error'),
+      placement: 'topRight',
+      duration: 3
+    })
+  } finally {
+    // Reset so selecting the same file again still triggers change
+    input.value = ''
+  }
+}
+
+// Parse and validate the JSON payload into alias entries
+const parseImportText = (raw: string): { alias: string; command: string }[] => {
+  const parsed = JSON.parse(raw)
+  if (!Array.isArray(parsed)) {
+    throw new Error('Expected a JSON array')
+  }
+  return parsed.map((entry, index) => {
+    const alias = typeof entry?.alias === 'string' ? entry.alias.trim() : ''
+    const command = typeof entry?.command === 'string' ? entry.command.trim() : ''
+    if (!alias || !command) {
+      throw new Error(`Invalid entry at index ${index}: alias and command are required`)
+    }
+    return { alias, command }
+  })
+}
+
+const handleImport = async () => {
+  const raw = importText.value.trim()
+  if (!raw) {
+    notification.warning({
+      message: t('extensions.warning'),
+      description: t('extensions.importEmpty'),
+      placement: 'topRight',
+      duration: 2
+    })
+    return
+  }
+
+  let entries: { alias: string; command: string }[]
+  try {
+    entries = parseImportText(raw)
+  } catch (err) {
+    notification.error({
+      message: t('extensions.error'),
+      description: t('extensions.importParseError'),
+      placement: 'topRight',
+      duration: 3
+    })
+    logger.error('Error parsing import payload', { error: err })
+    return
+  }
+
+  if (entries.length === 0) {
+    notification.warning({
+      message: t('extensions.warning'),
+      description: t('extensions.importEmpty'),
+      placement: 'topRight',
+      duration: 2
+    })
+    return
+  }
+
+  importing.value = true
+  let added = 0
+  let skipped = 0
+  let failed = 0
+  // De-duplicate within the payload, last entry wins
+  const seen = new Map<string, string>()
+  for (const entry of entries) {
+    seen.set(entry.alias, entry.command)
+  }
+
+  try {
+    for (const [alias, command] of seen) {
+      try {
+        const existing = await commandStore.getByAlias(alias)
+        if (existing) {
+          if (importMode.value === 'skip') {
+            skipped++
+            continue
+          }
+          await commandStore.update({ id: existing.id, alias, command })
+        } else {
+          await commandStore.add({ alias, command })
+        }
+        added++
+      } catch (err) {
+        failed++
+        logger.error('Error importing alias entry', { error: err })
+      }
+    }
+
+    await handleTableChange()
+    await aliasConfigRefresh()
+    importVisible.value = false
+
+    notification.success({
+      message: t('extensions.success'),
+      description: t('extensions.importSummary', { added, skipped, failed }),
+      placement: 'topRight',
+      duration: 3
+    })
+  } finally {
+    importing.value = false
+  }
+}
+
+const handleExport = async () => {
+  try {
+    const items = await commandStore.getAll()
+    if (!items.length) {
+      notification.warning({
+        message: t('extensions.warning'),
+        description: t('extensions.exportEmpty'),
+        placement: 'topRight',
+        duration: 2
+      })
+      return
+    }
+    const payload = items.map((item) => ({ alias: item.alias, command: item.command }))
+    const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' })
+    const url = URL.createObjectURL(blob)
+    const link = document.createElement('a')
+    link.href = url
+    link.download = 'aliases.json'
+    document.body.appendChild(link)
+    link.click()
+    document.body.removeChild(link)
+    URL.revokeObjectURL(url)
+  } catch (err) {
+    logger.error('Error exporting aliases', { error: err })
+    notification.error({
+      message: t('extensions.error'),
+      placement: 'topRight',
+      duration: 3
+    })
+  }
+}
 </script>
 
 <style lang="less" scoped>
@@ -429,8 +668,10 @@ const aliasConfigRefresh = async () => {
 }
 
 .workspace-button {
+  box-sizing: border-box;
   font-size: 14px;
   height: 30px;
+  padding: 0 12px;
   display: flex;
   align-items: center;
   background-color: #1677ff;
@@ -444,6 +685,30 @@ const aliasConfigRefresh = async () => {
   &:active {
     background-color: rgb(130, 134, 155);
     border-color: rgb(130, 134, 155);
+  }
+}
+
+.toolbar-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-left: 10px;
+}
+
+.workspace-button-secondary {
+  background-color: transparent;
+  border-color: var(--border-color);
+  color: var(--text-color);
+
+  &:hover {
+    background-color: var(--hover-bg-color);
+    border-color: var(--border-color);
+    color: var(--text-color);
+  }
+
+  &:active {
+    background-color: var(--hover-bg-color);
+    border-color: var(--border-color);
   }
 }
 
@@ -532,5 +797,45 @@ const aliasConfigRefresh = async () => {
 
 .alias-config-table:deep(.ant-table-tbody > tr:hover > td) {
   background-color: var(--hover-bg-color) !important;
+}
+</style>
+
+<style lang="less">
+.alias-import-modal {
+  .import-modal__toolbar {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 8px;
+  }
+
+  .import-modal__textarea {
+    font-family: Menlo, Monaco, Consolas, 'Courier New', monospace;
+    white-space: pre;
+    background-color: var(--bg-color-secondary);
+    border-color: var(--border-color);
+    color: var(--text-color);
+
+    &::placeholder {
+      color: var(--text-color-tertiary);
+    }
+
+    &:hover,
+    &:focus {
+      border-color: var(--border-color);
+    }
+  }
+
+  .import-modal__toolbar .ant-radio-button-wrapper {
+    background-color: transparent;
+    border-color: var(--border-color);
+    color: var(--text-color);
+  }
+
+  .import-modal__toolbar .ant-radio-button-wrapper-checked {
+    background-color: #398bff;
+    border-color: #398bff;
+    color: #fff;
+  }
 }
 </style>
