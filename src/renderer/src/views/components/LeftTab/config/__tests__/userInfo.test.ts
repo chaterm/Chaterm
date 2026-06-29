@@ -853,6 +853,59 @@ describe('UserInfo Component', () => {
   })
 
   describe('Registration Type - Edit Button Visibility', () => {
+    it('should not allow profile editing for SSO users (registrationType === 1)', async () => {
+      vi.mocked(getUser).mockResolvedValue({
+        code: 200,
+        data: {
+          uid: 1001,
+          name: 'SSO User',
+          username: 'ssouser',
+          email: 'sso@example.com',
+          registrationType: 1
+        }
+      } as any)
+
+      wrapper = createWrapper()
+      await nextTick()
+      await nextTick()
+
+      const vm = wrapper.vm as any
+      expect(vm.canEditProfile).toBe(false)
+      expect(wrapper.find('.action-buttons-container').exists()).toBe(false)
+    })
+
+    it('should block profile startEditing and handleSave for SSO users', async () => {
+      vi.mocked(getUser).mockResolvedValue({
+        code: 200,
+        data: {
+          uid: 1001,
+          name: 'SSO User',
+          username: 'ssouser',
+          email: 'sso@example.com',
+          registrationType: 1
+        }
+      } as any)
+
+      wrapper = createWrapper()
+      await nextTick()
+      await nextTick()
+
+      const vm = wrapper.vm as any
+      vm.startEditing()
+      expect(vm.isEditing).toBe(false)
+
+      vm.isEditing = true
+      vm.formState.name = 'Updated Name'
+      vm.formState.username = 'updateduser'
+      vi.mocked(updateUser).mockClear()
+
+      await vm.handleSave()
+      await nextTick()
+
+      expect(vm.isEditing).toBe(false)
+      expect(vi.mocked(updateUser)).not.toHaveBeenCalled()
+    })
+
     it('should not allow mobile editing for mobile registered users (registrationType === 7)', async () => {
       vi.mocked(getUser).mockResolvedValue({
         code: 200,
