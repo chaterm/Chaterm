@@ -26,6 +26,11 @@ export interface JumpServerUser {
   username: string
 }
 
+const hasUserTableHeader = (line: string): boolean => {
+  const upperLine = line.toUpperCase()
+  return line.includes('ID') && ((upperLine.includes('NAME') && upperLine.includes('USERNAME')) || (line.includes('名称') && line.includes('用户名')))
+}
+
 function parseAssets(output: string): Asset[] {
   const assets: Asset[] = []
   const lines = output.split('\n')
@@ -130,7 +135,7 @@ export function parseJumpServerUsers(output: string): JumpServerUser[] {
 
   for (const line of lines) {
     // Detect user table header (ID | NAME | USERNAME)
-    if (line.includes('ID') && line.includes('NAME') && line.includes('USERNAME')) {
+    if (hasUserTableHeader(line)) {
       foundUserHeader = true
       continue
     }
@@ -142,7 +147,7 @@ export function parseJumpServerUsers(output: string): JumpServerUser[] {
 
     if (foundUserHeader) {
       // Stop parsing when we hit Tips or other non-table content
-      if (line.includes('Tips:') || line.includes('Back:') || line.includes('ID>')) {
+      if (line.includes('Tips:') || line.includes('提示：') || line.includes('Back:') || line.includes('返回：') || line.includes('ID>')) {
         break
       }
 
@@ -171,5 +176,5 @@ export function parseJumpServerUsers(output: string): JumpServerUser[] {
  * @returns true if user selection is required
  */
 export function hasUserSelectionPrompt(output: string): boolean {
-  return output.includes('account ID') && output.includes('ID') && output.includes('NAME') && output.includes('USERNAME')
+  return (/\baccount\s+id\b/i.test(output) || /账号\s*id/i.test(output)) && output.split('\n').some(hasUserTableHeader)
 }

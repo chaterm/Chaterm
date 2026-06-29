@@ -24,7 +24,7 @@ jobs:
         run: git config --system core.longpaths true
 
       - name: Checkout code
-        uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
         with:
           # Enable long paths for Windows (filenames > 260 chars)
           config: core.longpaths=true
@@ -58,7 +58,7 @@ jobs:
         shell: bash
 
       - name: Cache Playwright Browsers
-        uses: actions/cache@27d5ce7f107fe9357f9df03efb73ab90386fccae # v5.2.3
+        uses: actions/cache@2c8a9bd7457de244a408f35966fab2fb45fda9c8 # v5.2.3
         id: playwright-cache
         with:
           path: ${{ steps.playwright-path.outputs.path }}

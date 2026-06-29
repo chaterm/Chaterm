@@ -158,7 +158,8 @@ export const registerFileSystemHandlers = () => {
     return Array.from(sftpConnections.entries()).map(([key, sftpConn]) => ({
       id: key,
       isSuccess: sftpConn.isSuccess,
-      error: sftpConn.error
+      error: sftpConn.error,
+      rootPath: sftpConn.rootPath || ''
     }))
   })
   ipcMain.handle('app:get-path', async (_e, { name }: { name: 'home' | 'documents' | 'downloads' }) => {
@@ -485,6 +486,16 @@ const sftpStat = async (sftp: any, p: string): Promise<any> => {
 const sftpReaddir = async (sftp: any, p: string): Promise<any[]> => {
   return await new Promise<any[]>((resolve, reject) => {
     sftp.readdir(p, (err: any, list: any[]) => (err ? reject(err) : resolve(list || [])))
+  })
+}
+
+const sftpRealpath = async (sftp: any, p: string): Promise<string> => {
+  if (typeof sftp?.realpath !== 'function') return ''
+
+  return await new Promise<string>((resolve) => {
+    sftp.realpath(p, (err: any, resolvedPath: string) => {
+      resolve(err ? '' : String(resolvedPath || ''))
+    })
   })
 }
 
@@ -2349,8 +2360,13 @@ export const initSftpOnConnection = (conn: Client, connectionId: string): Promis
               error: `sftp readdir error: "${readDirErr.message}"`
             })
           } else {
-            sftpConnections.set(connectionId, { isSuccess: true, sftp })
-            connectionStatus.set(connectionId, { sftpAvailable: true })
+            void (async () => {
+              const rootPath = await sftpRealpath(sftp, '.')
+              sftpConnections.set(connectionId, { isSuccess: true, sftp, rootPath })
+              connectionStatus.set(connectionId, { sftpAvailable: true, sftpRootPath: rootPath })
+              resolve()
+            })()
+            return
           }
           resolve()
         })

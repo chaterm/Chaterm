@@ -49,6 +49,8 @@ import {
 } from './agent/core/storage/state'
 import { getTaskMetadata, saveTaskTitle, saveTaskFavorite, getTaskList } from './agent/core/storage/disk'
 import { createMainWindow, type WindowCreationResult } from './windowManager'
+import { registerWindowIpcHandlers } from './windowIpc'
+import { registerWindowMenu } from './windowMenu'
 import { registerUpdater } from './updater'
 import { setupPluginIpc } from './plugin/pluginIpc'
 import { telemetryService, checkIsFirstLaunch, getMacAddress } from './agent/services/telemetry/TelemetryService'
@@ -248,9 +250,9 @@ const bootstrapPreinstalledPlugins = async () => {
 let mainWindow: BrowserWindow
 let COOKIE_URL = 'http://localhost'
 let browserWindow: BrowserWindow | null = null
-let lastWidth: number = 1344 // Default window width
-let lastHeight: number = 756 // Default window height
+let browserWindowOwner: BrowserWindow | null = null
 let forceQuit = false
+const mainWindows = new Set<BrowserWindow>()
 
 let autoCompleteService: autoCompleteDatabaseService
 let chatermDbService: ChatermDatabaseService
@@ -278,6 +280,33 @@ initLogging()
 // Promise that resolves when the renderer page finishes loading.
 // Main-process initialization proceeds in parallel without waiting for this.
 let windowContentLoaded: Promise<void>
+
+const getPrimaryWindow = (): BrowserWindow | null => {
+  if (mainWindow && !mainWindow.isDestroyed()) {
+    return mainWindow
+  }
+
+  return [...mainWindows].find((window) => !window.isDestroyed()) ?? null
+}
+
+const getWindowFromSender = (sender: Electron.WebContents): BrowserWindow | null => {
+  const senderWindow = BrowserWindow.fromWebContents(sender)
+  if (senderWindow && !senderWindow.isDestroyed()) {
+    return senderWindow
+  }
+
+  return getPrimaryWindow()
+}
+
+const sendToRendererWindows = (channel: string, ...args: unknown[]): boolean => {
+  const windows = [...mainWindows].filter((window) => !window.isDestroyed())
+  for (const window of windows) {
+    if (!window.webContents.isDestroyed()) {
+      window.webContents.send(channel, ...args)
+    }
+  }
+  return windows.length > 0
+}
 
 const clearPendingExternalLoginState = async (): Promise<void> => {
   pendingExternalLoginState = null
@@ -330,25 +359,56 @@ const loadPendingExternalLoginStateFromCookie = async (): Promise<PendingExterna
   }
 }
 
-async function createWindow(): Promise<void> {
+async function createWindow(): Promise<WindowCreationResult> {
   const result: WindowCreationResult = await createMainWindow(
     (url: string) => {
       COOKIE_URL = url
     },
-    () => !forceQuit
+    () => !forceQuit && [...mainWindows].filter((window) => !window.isDestroyed()).length <= 1
   )
   mainWindow = result.window
+  mainWindows.add(result.window)
   windowContentLoaded = result.contentLoaded
   setMainWindowWebContents(mainWindow.webContents)
+  initializeStorageMain(mainWindow)
+
+  mainWindow.on('closed', () => {
+    mainWindows.delete(result.window)
+
+    if (mainWindow !== result.window) {
+      return
+    }
+
+    const nextWindow = [...mainWindows].find((window) => !window.isDestroyed())
+    if (nextWindow) {
+      mainWindow = nextWindow
+      setMainWindowWebContents(nextWindow.webContents)
+      initializeStorageMain(nextWindow)
+    } else {
+      setMainWindowWebContents(null)
+    }
+  })
 
   // Monitor renderer process crashes for audit logging
-  mainWindow.webContents.on('render-process-gone', (_event, details) => {
+  result.window.webContents.on('render-process-gone', (_event, details) => {
     logRendererCrash({
-      webContentsId: mainWindow.webContents.id,
+      webContentsId: result.window.webContents.id,
       reason: details.reason,
       exitCode: details.exitCode
     })
   })
+
+  result.window.webContents.on('will-navigate', (event, url) => {
+    const protocolPrefix = getProtocolPrefix()
+    const isExternal = !url.startsWith('http://localhost') && !url.startsWith('file://') && !url.startsWith(protocolPrefix)
+
+    if (isExternal) {
+      event.preventDefault()
+      shell.openExternal(url)
+    }
+  })
+
+  return result
 }
 
 // Send request to renderer process and wait for response
@@ -465,52 +525,21 @@ app.whenReady().then(async () => {
     }
   })
 
-  // Register window drag handler (register only once)
-  ipcMain.handle('custom-adsorption', (_, res) => {
-    const { appX, appY, width, height } = res
-
-    // Get screen dimensions
-    const { screen } = require('electron')
-    const primaryDisplay = screen.getPrimaryDisplay()
-    const { width: screenWidth, height: screenHeight } = primaryDisplay.workAreaSize
-
-    // Calculate boundary snapping
-    let finalX = Math.round(appX)
-    let finalY = Math.round(appY)
-
-    // Left and right boundary snapping
-    if (Math.abs(appX) < 20) {
-      finalX = 0
-    } else if (Math.abs(screenWidth - (appX + width)) < 20) {
-      finalX = Math.round(screenWidth - width)
-    }
-
-    // Top and bottom boundary snapping
-    if (Math.abs(appY) < 20) {
-      finalY = 0
-    } else if (Math.abs(screenHeight - (appY + height)) < 20) {
-      finalY = Math.round(screenHeight - height)
-    }
-
-    // Directly set window position, using smaller easing coefficient for smooth effect
-    const currentBounds = mainWindow.getBounds()
-    const newX = Math.round(currentBounds.x + (finalX - currentBounds.x) * 0.5)
-    const newY = Math.round(currentBounds.y + (finalY - currentBounds.y) * 0.5)
-
-    mainWindow.setBounds({
-      x: newX,
-      y: newY,
-      width: Math.round(width),
-      height: Math.round(height)
-    })
-  })
-
   app.on('browser-window-created', (_, _window) => {})
 
   // IPC test
   ipcMain.on('ping', () => logger.info('pong'))
   mark('chaterm/main/willSetupIPC')
   setupIPC()
+  registerWindowIpcHandlers({
+    createAppWindow: createWindow,
+    getFallbackWindow: getPrimaryWindow,
+    winReady,
+    mark,
+    isDev: is.dev,
+    collectAndLogTimeline
+  })
+  registerWindowMenu({ createAppWindow: createWindow })
   registerPerfIpcHandlers()
   mark('chaterm/main/didSetupIPC')
 
@@ -580,9 +609,11 @@ app.whenReady().then(async () => {
   app.on('activate', function () {
     // On macOS it's common to re-create a window in the app when the
     // dock icon is clicked and there are no other windows open.
-    if (mainWindow) {
-      mainWindow.show()
-    } else if (BrowserWindow.getAllWindows().length === 0) {
+    const targetWindow = getPrimaryWindow()
+    if (targetWindow) {
+      targetWindow.show()
+      targetWindow.focus()
+    } else {
       createWindow()
     }
   })
@@ -590,51 +621,46 @@ app.whenReady().then(async () => {
   try {
     // Create a message sender that routes messages to dedicated IPC channels
     const messageSender = (message) => {
-      if (mainWindow && !mainWindow.isDestroyed()) {
-        // Route commandGenerationResponse to its dedicated channel
-        if (message.type === 'commandGenerationResponse') {
-          mainWindow.webContents.send('command-generation-response', {
+      // Route commandGenerationResponse to its dedicated channel
+      if (message.type === 'commandGenerationResponse') {
+        return Promise.resolve(
+          sendToRendererWindows('command-generation-response', {
             command: message.command,
             error: message.error,
             tabId: message.tabId
           })
-          return Promise.resolve(true)
-        }
+        )
+      }
 
-        // Route explainCommandResponse to its dedicated channel
-        if (message.type === 'explainCommandResponse') {
-          mainWindow.webContents.send('command-explain-response', {
+      // Route explainCommandResponse to its dedicated channel
+      if (message.type === 'explainCommandResponse') {
+        return Promise.resolve(
+          sendToRendererWindows('command-explain-response', {
             explanation: message.explanation,
             error: message.error,
             tabId: message.tabId,
             commandMessageId: message.commandMessageId
           })
-          return Promise.resolve(true)
-        }
-
-        // Route mcpServersUpdate to its dedicated channel for backward compatibility
-        if (message.type === 'mcpServersUpdate') {
-          mainWindow.webContents.send('mcp:status-update', message.mcpServers)
-          return Promise.resolve(true)
-        }
-
-        // Route mcpServerUpdate (singular) to its dedicated channel for granular updates
-        if (message.type === 'mcpServerUpdate') {
-          mainWindow.webContents.send('mcp:server-update', message.mcpServer)
-          return Promise.resolve(true)
-        }
-
-        // Route mcpConfigFileChanged to its dedicated channel
-        if (message.type === 'mcpConfigFileChanged') {
-          mainWindow.webContents.send('mcp:config-file-changed', message.content)
-          return Promise.resolve(true)
-        }
-
-        // Default: send to the general channel for other message types
-        mainWindow.webContents.send('main-to-webview', message)
-        return Promise.resolve(true)
+        )
       }
-      return Promise.resolve(false)
+
+      // Route mcpServersUpdate to its dedicated channel for backward compatibility
+      if (message.type === 'mcpServersUpdate') {
+        return Promise.resolve(sendToRendererWindows('mcp:status-update', message.mcpServers))
+      }
+
+      // Route mcpServerUpdate (singular) to its dedicated channel for granular updates
+      if (message.type === 'mcpServerUpdate') {
+        return Promise.resolve(sendToRendererWindows('mcp:server-update', message.mcpServer))
+      }
+
+      // Route mcpConfigFileChanged to its dedicated channel
+      if (message.type === 'mcpConfigFileChanged') {
+        return Promise.resolve(sendToRendererWindows('mcp:config-file-changed', message.content))
+      }
+
+      // Default: send to the general channel for other message types
+      return Promise.resolve(sendToRendererWindows('main-to-webview', message))
     }
 
     mark('chaterm/main/willCreateController')
@@ -693,16 +719,6 @@ app.whenReady().then(async () => {
   } else {
     logger.warn('[Main Index] mainWindow or webContents not available when trying to schedule testRendererStorageFromMain.')
   }
-
-  mainWindow.webContents.on('will-navigate', (event, url) => {
-    const protocolPrefix = getProtocolPrefix()
-    const isExternal = !url.startsWith('http://localhost') && !url.startsWith('file://') && !url.startsWith(protocolPrefix)
-
-    if (isExternal) {
-      event.preventDefault()
-      shell.openExternal(url)
-    }
-  })
 
   setTimeout(initializeTelemetrySetting, 1000)
 
@@ -1182,9 +1198,12 @@ ipcMain.handle('saveCustomBackground', async (_, sourcePath: string) => {
   }
 })
 
-function createBrowserWindow(url: string): void {
+function createBrowserWindow(url: string, parentWindow?: BrowserWindow | null): void {
+  const ownerWindow = parentWindow && !parentWindow.isDestroyed() ? parentWindow : getPrimaryWindow()
+
   // If browser window already exists, focus it
   if (browserWindow && !browserWindow.isDestroyed()) {
+    browserWindowOwner = ownerWindow
     browserWindow.focus()
     browserWindow.loadURL(url)
     return
@@ -1194,7 +1213,7 @@ function createBrowserWindow(url: string): void {
   browserWindow = new BrowserWindow({
     width: 1024,
     height: 768,
-    parent: mainWindow,
+    ...(ownerWindow ? { parent: ownerWindow } : {}),
     webPreferences: {
       preload: join(__dirname, '../preload/browser-preload.js'),
       contextIsolation: true,
@@ -1202,6 +1221,7 @@ function createBrowserWindow(url: string): void {
       sandbox: false
     }
   })
+  browserWindowOwner = ownerWindow
 
   // Load specified URL
   browserWindow.loadURL(url)
@@ -1209,8 +1229,8 @@ function createBrowserWindow(url: string): void {
   // Listen for URL changes
   browserWindow.webContents.on('did-navigate', (_, url) => {
     logger.info('New window navigated to', { value: url })
-    if (mainWindow && !mainWindow.isDestroyed()) {
-      mainWindow.webContents.send('url-changed', url)
+    if (browserWindowOwner && !browserWindowOwner.isDestroyed()) {
+      browserWindowOwner.webContents.send('url-changed', url)
     }
 
     // Update navigation state
@@ -1218,8 +1238,8 @@ function createBrowserWindow(url: string): void {
   })
 
   browserWindow.webContents.on('did-navigate-in-page', (_, url) => {
-    if (mainWindow && !mainWindow.isDestroyed()) {
-      mainWindow.webContents.send('url-changed', url)
+    if (browserWindowOwner && !browserWindowOwner.isDestroyed()) {
+      browserWindowOwner.webContents.send('url-changed', url)
     }
 
     // Update navigation state
@@ -1229,15 +1249,16 @@ function createBrowserWindow(url: string): void {
   // Handle window close event
   browserWindow.on('closed', () => {
     browserWindow = null
+    browserWindowOwner = null
   })
 }
 
 function updateNavigationState(): void {
-  if (browserWindow && !browserWindow.isDestroyed() && mainWindow && !mainWindow.isDestroyed()) {
+  if (browserWindow && !browserWindow.isDestroyed() && browserWindowOwner && !browserWindowOwner.isDestroyed()) {
     const canGoBack = browserWindow.webContents.canGoBack()
     const canGoForward = browserWindow.webContents.canGoForward()
 
-    mainWindow.webContents.send('navigation-state-changed', {
+    browserWindowOwner.webContents.send('navigation-state-changed', {
       canGoBack,
       canGoForward
     })
@@ -1628,56 +1649,6 @@ function setupIPC(): void {
 
   // ==================== Original IPC Handlers ====================
 
-  ipcMain.handle('window:maximize', () => {
-    if (mainWindow && !mainWindow.isDestroyed()) {
-      mainWindow.maximize()
-    }
-  })
-
-  ipcMain.handle('window:unmaximize', () => {
-    if (mainWindow && !mainWindow.isDestroyed()) {
-      if (mainWindow.isMaximized()) {
-        mainWindow.unmaximize()
-        if (lastWidth && lastHeight) {
-          // Get the display where the current window is located
-          const { screen } = require('electron')
-          const currentDisplay = screen.getDisplayNearestPoint(mainWindow.getBounds())
-          const { width: screenWidth, height: screenHeight } = currentDisplay.workAreaSize
-
-          // Calculate the centered position of the window on the current display
-          const x = Math.floor((screenWidth - lastWidth) / 2) + currentDisplay.bounds.x
-          const y = Math.floor((screenHeight - lastHeight) / 2) + currentDisplay.bounds.y
-
-          mainWindow.setBounds({
-            x,
-            y,
-            width: lastWidth,
-            height: lastHeight
-          })
-        }
-      }
-    }
-  })
-
-  ipcMain.handle('window:is-maximized', () => {
-    if (mainWindow && !mainWindow.isDestroyed()) {
-      return mainWindow.isMaximized()
-    }
-    return false
-  })
-
-  ipcMain.handle('window:minimize', () => {
-    if (mainWindow && !mainWindow.isDestroyed()) {
-      mainWindow.minimize()
-    }
-  })
-
-  ipcMain.handle('window:close', () => {
-    if (mainWindow && !mainWindow.isDestroyed()) {
-      mainWindow.close()
-    }
-  })
-
   ipcMain.handle('cancel-task', async (_event, payload?: { tabId?: string }) => {
     logger.info('cancel-task', { value: payload })
     if (controller) {
@@ -1931,8 +1902,8 @@ function setupIPC(): void {
   })
 
   // Open browser window
-  ipcMain.on('open-browser-window', (_, url) => {
-    createBrowserWindow(url)
+  ipcMain.on('open-browser-window', (event, url) => {
+    createBrowserWindow(url, getWindowFromSender(event.sender))
   })
 
   ipcMain.handle('open-external-url', async (_, url: string) => {
@@ -1967,45 +1938,27 @@ function setupIPC(): void {
   })
 
   // Handle SPA route changes
-  ipcMain.on('spa-url-changed', (_, url) => {
-    if (mainWindow && !mainWindow.isDestroyed()) {
-      mainWindow.webContents.send('url-changed', url)
+  ipcMain.on('spa-url-changed', (event, url) => {
+    const targetWindow = getWindowFromSender(event.sender)
+    if (targetWindow) {
+      targetWindow.webContents.send('url-changed', url)
     }
   })
 
   ipcMain.handle('update-theme', (_, theme) => {
-    if (mainWindow && !mainWindow.isDestroyed()) {
-      // Notify renderer process that theme has been updated
-      const actualTheme = getActualTheme(theme)
-      mainWindow.webContents.send('theme-updated', actualTheme)
-      return true
-    }
-    return false
+    // Notify renderer processes that theme has been updated
+    const actualTheme = getActualTheme(theme)
+    return sendToRendererWindows('theme-updated', actualTheme)
   })
 
   // Add system theme change listener for Windows
   if (process.platform === 'win32') {
     const { nativeTheme } = require('electron')
     nativeTheme.on('updated', () => {
-      if (mainWindow && !mainWindow.isDestroyed()) {
-        // Check if current theme is auto mode
-        // We'll get this from the renderer process
-        mainWindow.webContents.send('system-theme-changed', nativeTheme.shouldUseDarkColors ? 'dark' : 'light')
-      }
+      // Check if current theme is auto mode. We'll get this from the renderer process.
+      sendToRendererWindows('system-theme-changed', nativeTheme.shouldUseDarkColors ? 'dark' : 'light')
     })
   }
-
-  ipcMain.handle('main-window-show', async () => {
-    mark('chaterm/main/willShowWindow')
-    await winReady
-    if (mainWindow && !mainWindow.isDestroyed() && !mainWindow.isVisible()) {
-      mainWindow.show()
-    }
-    mark('chaterm/main/didShowWindow')
-    if (is.dev) {
-      collectAndLogTimeline(mainWindow)
-    }
-  })
 
   // Security configuration handler
   ipcMain.handle('security-open-config', async () => {
@@ -2809,7 +2762,7 @@ ipcMain.handle('get-task-metadata', async (_event, { taskId }) => {
 ipcMain.handle('set-task-title', async (_event, { taskId, title }) => {
   try {
     await saveTaskTitle(taskId, title)
-    mainWindow?.webContents.send('main-to-webview', {
+    sendToRendererWindows('main-to-webview', {
       type: 'taskTitleUpdated',
       taskId,
       title
@@ -2823,7 +2776,7 @@ ipcMain.handle('set-task-title', async (_event, { taskId, title }) => {
 ipcMain.handle('set-task-favorite', async (_event, { taskId, favorite }) => {
   try {
     await saveTaskFavorite(taskId, favorite)
-    mainWindow?.webContents.send('main-to-webview', {
+    sendToRendererWindows('main-to-webview', {
       type: 'taskFavoriteUpdated',
       taskId,
       favorite
@@ -3470,10 +3423,10 @@ if (process.platform === 'linux') {
     // Listen for second instance startup
     app.on('second-instance', (_event, commandLine, _workingDirectory) => {
       // Someone is trying to run a second instance, we should focus on our window
-      const mainWindow = BrowserWindow.getAllWindows()[0]
-      if (mainWindow) {
-        if (mainWindow.isMinimized()) mainWindow.restore()
-        mainWindow.focus()
+      const targetWindow = getPrimaryWindow()
+      if (targetWindow) {
+        if (targetWindow.isMinimized()) targetWindow.restore()
+        targetWindow.focus()
       }
 
       // Handle protocol URL
@@ -3507,7 +3460,7 @@ const handleProtocolRedirect = async (url: string) => {
   const pendingState = (await loadPendingExternalLoginStateFromCookie()) ?? pendingExternalLoginState
 
   // Get main window
-  let targetWindow = BrowserWindow.getAllWindows()[0]
+  let targetWindow = getPrimaryWindow()
   if (pendingState) {
     const originalWindow = BrowserWindow.fromId(pendingState.windowId)
     if (originalWindow && !originalWindow.isDestroyed()) {
@@ -3651,7 +3604,7 @@ const handleProtocolRedirect = async (url: string) => {
 }
 
 const dispatchXshellWakeupToRenderer = (payload: XshellWakeupPayload) => {
-  const targetWindow = BrowserWindow.getAllWindows()[0]
+  const targetWindow = getPrimaryWindow()
   if (!targetWindow || targetWindow.isDestroyed()) {
     return
   }
@@ -3716,10 +3669,10 @@ if (process.platform === 'win32') {
   } else {
     app.on('second-instance', (_event, commandLine) => {
       // Someone is trying to run the second instance, we should focus on our window
-      const mainWindow = BrowserWindow.getAllWindows()[0]
-      if (mainWindow) {
-        if (mainWindow.isMinimized()) mainWindow.restore()
-        mainWindow.focus()
+      const targetWindow = getPrimaryWindow()
+      if (targetWindow) {
+        if (targetWindow.isMinimized()) targetWindow.restore()
+        targetWindow.focus()
       }
 
       // Handle fake xshell wakeup arguments first
@@ -3768,8 +3721,13 @@ ipcMain.handle('xshell-wakeup:consume-pending', async () => {
 })
 
 // Add IPC handler after creating Window function
-ipcMain.handle('open-external-login', async () => {
+ipcMain.handle('open-external-login', async (event) => {
   try {
+    const sourceWindow = getWindowFromSender(event.sender)
+    if (!sourceWindow) {
+      throw new Error('No available window for external login')
+    }
+
     // Generate a random state value for security verification
     const state = randomUUID()
     const now = Date.now()
@@ -3777,7 +3735,7 @@ ipcMain.handle('open-external-login', async () => {
       state,
       createdAt: now,
       expiresAt: now + EXTERNAL_LOGIN_STATE_TTL_MS,
-      windowId: mainWindow.id
+      windowId: sourceWindow.id
     }
     pendingExternalLoginState = nextPendingState
 

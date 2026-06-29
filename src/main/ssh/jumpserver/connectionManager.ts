@@ -56,6 +56,16 @@ const sftpAsync = (conn, connectionId) => {
         resolve()
       } else {
         logger.debug('Starting SFTP check', { event: 'jumpserver.sftp.start', connectionId })
+        const resolveSftpRootPath = async (): Promise<string> => {
+          if (typeof sftp?.realpath !== 'function') return ''
+
+          return await new Promise<string>((resolveRoot) => {
+            sftp.realpath('.', (realpathErr: any, resolvedPath: string) => {
+              resolveRoot(realpathErr ? '' : String(resolvedPath || ''))
+            })
+          })
+        }
+
         sftp.readdir('.', (readDirErr) => {
           if (readDirErr) {
             logger.debug('SFTP check failed', { event: 'jumpserver.sftp.failed', connectionId, error: readDirErr.message })
@@ -65,9 +75,14 @@ const sftpAsync = (conn, connectionId) => {
             })
             sftp.end()
           } else {
-            logger.debug('SFTP check success', { event: 'jumpserver.sftp.success', connectionId })
-            sftpConnections.set(connectionId, { isSuccess: true, sftp: sftp })
-            connectionStatus.set(connectionId, { sftpAvailable: true })
+            void (async () => {
+              const rootPath = await resolveSftpRootPath()
+              logger.debug('SFTP check success', { event: 'jumpserver.sftp.success', connectionId })
+              sftpConnections.set(connectionId, { isSuccess: true, sftp: sftp, rootPath })
+              connectionStatus.set(connectionId, { sftpAvailable: true, sftpRootPath: rootPath })
+              resolve()
+            })()
+            return
           }
           resolve()
         })
