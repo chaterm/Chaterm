@@ -193,7 +193,7 @@ export const registerFileSystemHandlers = () => {
             isDir: attrs.isDirectory(),
             isLink: attrs.isSymbolicLink(),
             mode: '0' + (attrs.mode & 0o777).toString(8),
-            modTime: new Date(attrs.mtime * 1000).toISOString().replace('T', ' ').slice(0, 19),
+            modTime: fmtTime(new Date(attrs.mtime * 1000)),
             size: attrs.size
           }
         })
@@ -215,7 +215,7 @@ export const registerFileSystemHandlers = () => {
             isDir: attrs.isDirectory(),
             isLink: attrs.isSymbolicLink(),
             mode: '0' + (attrs.mode & 0o777).toString(8),
-            modTime: new Date(attrs.mtime * 1000).toISOString().replace('T', ' ').slice(0, 19),
+            modTime: fmtTime(new Date(attrs.mtime * 1000)),
             size: attrs.size
           }
         })
