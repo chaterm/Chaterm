@@ -1,5 +1,6 @@
 import { ipcMain, app } from 'electron'
 import path from 'node:path'
+import { Readable } from 'node:stream'
 import { pipeline } from 'node:stream/promises'
 import { getSftpConnection, getUniqueRemoteName, pickReconnectConnectionInfo } from './sshHandle'
 import nodeFs from 'node:fs/promises'
@@ -248,6 +249,8 @@ export const registerFileSystemHandlers = () => {
   ipcMain.handle('ssh:sftp:upload-directory', (event, args) => handleDirectoryTransfer(event, args.id, args.localPath, args.remotePath))
 
   ipcMain.handle('ssh:sftp:download-file', (event, args) => handleStreamTransfer(event, args.id, args.remotePath, args.localPath, 'download'))
+
+  ipcMain.handle('ssh:sftp:write-file', (event, args) => writeRemoteFileBySftp(event, args))
 
   ipcMain.handle('ssh:sftp:download-directory', (event, args) => handleDirectoryDownload(event, args.id, args.remoteDir, args.localDir))
 
@@ -614,6 +617,61 @@ export interface TransferResult {
 }
 
 const errToMessage = (e: any) => (e as Error)?.message || e?.message || String(e)
+type WriteRemoteFileArgs = {
+  id: string
+  remotePath: string
+  content: string
+}
+
+type WriteRemoteFileResult = {
+  status: 'success' | 'error'
+  message?: string
+  remotePath?: string
+}
+
+const WRITE_FILE_CHUNK_SIZE = 64 * 1024
+
+function createUtf8TextReadStream(content: string) {
+  let offset = 0
+
+  return new Readable({
+    read() {
+      if (offset >= content.length) {
+        this.push(null)
+        return
+      }
+
+      let end = Math.min(offset + WRITE_FILE_CHUNK_SIZE, content.length)
+      if (end < content.length) {
+        const previousCode = content.charCodeAt(end - 1)
+        if (previousCode >= 0xd800 && previousCode <= 0xdbff) {
+          end -= 1
+        }
+      }
+      if (end <= offset) end = Math.min(offset + 1, content.length)
+
+      this.push(Buffer.from(content.slice(offset, end), 'utf8'))
+      offset = end
+    }
+  })
+}
+
+export async function writeRemoteFileBySftp(event: any, args: WriteRemoteFileArgs): Promise<WriteRemoteFileResult> {
+  const id = String(args?.id || '')
+  const remotePath = toPosix(String(args?.remotePath || ''))
+
+  if (!id || !remotePath) {
+    return { status: 'error', message: 'missing id or remotePath' }
+  }
+
+  try {
+    const sftp = await ensureSftpReady(event, id)
+    await pipeline(createUtf8TextReadStream(String(args?.content ?? '')), sftp.createWriteStream(remotePath, { flags: 'w' }))
+    return { status: 'success', remotePath }
+  } catch (e: any) {
+    return { status: 'error', message: errToMessage(e) }
+  }
+}
 
 const isPrematureStreamError = (e: any) => {
   const code = e?.code
