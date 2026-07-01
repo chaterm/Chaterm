@@ -123,6 +123,7 @@ type ApiStub = {
   getAppPath: ReturnType<typeof vi.fn>
   getCwd: ReturnType<typeof vi.fn>
   sshConnExec: ReturnType<typeof vi.fn>
+  writeRemoteFile: ReturnType<typeof vi.fn>
   connectAssetInfo: ReturnType<typeof vi.fn>
   sftpConnect: ReturnType<typeof vi.fn>
   sftpClose: ReturnType<typeof vi.fn>
@@ -135,6 +136,7 @@ const makeApi = (): ApiStub => ({
   getAppPath: vi.fn().mockResolvedValue('/home/test'),
   getCwd: vi.fn().mockResolvedValue({ success: false, cwd: null }),
   sshConnExec: vi.fn().mockResolvedValue({ stdout: '', stderr: '' }),
+  writeRemoteFile: vi.fn().mockResolvedValue({ status: 'success' }),
   connectAssetInfo: vi.fn().mockResolvedValue(null),
   sftpConnect: vi.fn().mockResolvedValue({ status: 'connected' }),
   sftpClose: vi.fn().mockResolvedValue(undefined),
@@ -550,12 +552,14 @@ describe('index.vue', () => {
     expect(editors[0].filePath).toBe('/tmp/a.txt')
     expect(editors[0].action).toBe('create')
     expect(editors[0].contentType).toBe('text')
+    expect(wrapper.find('.tree-container .editor-code').exists()).toBe(true)
 
     // Save success
     editors[0].fileChange = true
     editors[0].vimText = 'changed'
-    api.sshConnExec.mockResolvedValueOnce({ stdout: '', stderr: '' })
+    api.writeRemoteFile.mockResolvedValueOnce({ status: 'success' })
     await (wrapper.vm as any).handleSave({ key: editors[0].key, needClose: false })
+    expect(api.writeRemoteFile).toHaveBeenCalledWith({ id: 't1', remotePath: '/tmp/a.txt', content: 'changed' })
     expect(editors[0].saved).toBe(true)
     expect(editors[0].fileChange).toBe(false)
 
@@ -615,12 +619,12 @@ describe('index.vue', () => {
 
     // Re-add and test OK path => save invoked
     ;(wrapper.vm as any).openEditors.push({ ...ed })
-    api.sshConnExec.mockResolvedValueOnce({ stdout: '', stderr: '' })
+    api.writeRemoteFile.mockResolvedValueOnce({ status: 'success' })
     ;(wrapper.vm as any).closeVimEditor({ key: ed.key, editorType: ed.editorType })
     const cfg2 = (Modal.confirm as any).mock.calls.at(-1)[0]
     cfg2.onOk()
     await flushPromises()
-    expect(api.sshConnExec).toHaveBeenCalled()
+    expect(api.writeRemoteFile).toHaveBeenCalledWith({ id: 't1', remotePath: '/tmp/x.txt', content: 'x' })
     wrapper.unmount()
   })
 
