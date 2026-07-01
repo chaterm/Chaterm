@@ -13,8 +13,10 @@ const { monacoMocks } = vi.hoisted(() => {
   }
 
   const editorInstance = {
+    addAction: vi.fn(),
     onDidChangeModelContent: vi.fn(),
     onDidContentSizeChange: vi.fn(),
+    getAction: vi.fn(),
     getValue: vi.fn(() => ''),
     setValue: vi.fn(),
     getModel: vi.fn(() => model),
@@ -29,10 +31,15 @@ const { monacoMocks } = vi.hoisted(() => {
     executeEdits: vi.fn()
   }
 
+  const findAction = { run: vi.fn() }
+  const replaceAction = { run: vi.fn() }
+
   return {
     monacoMocks: {
       model,
-      editorInstance
+      editorInstance,
+      findAction,
+      replaceAction
     }
   }
 })
@@ -42,6 +49,13 @@ const { monacoMocks } = vi.hoisted(() => {
 // -----------------------------------------------------------------------------
 vi.mock('monaco-editor', () => {
   return {
+    KeyMod: {
+      CtrlCmd: 2048
+    },
+    KeyCode: {
+      KeyF: 36,
+      KeyR: 49
+    },
     Selection: class {
       constructor(
         public startLineNumber: number,
@@ -166,6 +180,15 @@ describe('monacoEditor background mode', () => {
     monacoMocks.model.getLineMaxColumn.mockImplementation((line: number) => line + 10)
     monacoMocks.editorInstance.onDidChangeModelContent.mockClear()
     monacoMocks.editorInstance.onDidContentSizeChange.mockClear()
+    monacoMocks.editorInstance.addAction.mockClear()
+    monacoMocks.editorInstance.getAction.mockReset()
+    monacoMocks.editorInstance.getAction.mockImplementation((id: string) => {
+      if (id === 'actions.find') return monacoMocks.findAction
+      if (id === 'editor.action.startFindReplaceAction') return monacoMocks.replaceAction
+      return null
+    })
+    monacoMocks.findAction.run.mockClear()
+    monacoMocks.replaceAction.run.mockClear()
     monacoMocks.editorInstance.getValue.mockReset()
     monacoMocks.editorInstance.getValue.mockReturnValue('')
     monacoMocks.editorInstance.setValue.mockClear()
@@ -219,6 +242,29 @@ describe('monacoEditor background mode', () => {
     MockMutationObserver.lastInstance?.trigger()
     await nextTick()
     expect(wrapper.classes()).not.toContain('with-custom-bg')
+  })
+  it('should register editor find and replace shortcuts', async () => {
+    mount(MonacoEditor, {
+      props: { modelValue: '' }
+    })
+
+    await flushPromises()
+
+    const findAction = monacoMocks.editorInstance.addAction.mock.calls.map((call) => call[0]).find((action) => action.id === 'chaterm.findInEditor')
+    const replaceAction = monacoMocks.editorInstance.addAction.mock.calls
+      .map((call) => call[0])
+      .find((action) => action.id === 'chaterm.replaceInEditor')
+
+    expect(findAction?.keybindings).toEqual([2048 | 36])
+    expect(replaceAction?.keybindings).toEqual([2048 | 49])
+
+    await findAction.run()
+    await replaceAction.run()
+
+    expect(monacoMocks.editorInstance.getAction).toHaveBeenCalledWith('actions.find')
+    expect(monacoMocks.editorInstance.getAction).toHaveBeenCalledWith('editor.action.startFindReplaceAction')
+    expect(monacoMocks.findAction.run).toHaveBeenCalled()
+    expect(monacoMocks.replaceAction.run).toHaveBeenCalled()
   })
 })
 
