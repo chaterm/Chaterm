@@ -1,6 +1,6 @@
 // fileTransfer.spec.ts
 // @vitest-environment jsdom
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
+import { describe, it, expect, vi, beforeAll, beforeEach, afterEach } from 'vitest'
 import { mount, flushPromises } from '@vue/test-utils'
 import { createI18n } from 'vue-i18n'
 
@@ -210,11 +210,24 @@ const stubs = {
 }
 
 describe('fileTransferProgress.vue', () => {
+  let Comp: any
+  let transferMod: any
+  const apiMock = {
+    onTransferProgress: vi.fn(),
+    cancelFileTask: vi.fn()
+  }
+
+  beforeAll(async () => {
+    ;(window as any).api = apiMock
+    transferMod = await import('../fileTransfer')
+    Comp = (await import('../fileTransferProgress.vue')).default
+  }, 30000)
+
   beforeEach(() => {
-    ;(window as any).api = {
-      onTransferProgress: vi.fn(),
-      cancelFileTask: vi.fn()
-    }
+    apiMock.onTransferProgress.mockReset()
+    apiMock.cancelFileTask.mockReset()
+    ;(window as any).api = apiMock
+    transferMod.transferTasks.value = {}
   })
 
   afterEach(() => {
@@ -222,13 +235,7 @@ describe('fileTransferProgress.vue', () => {
     delete (globalThis as any).api
   })
 
-  const importComp = async () => {
-    vi.resetModules()
-    const mod = await import('../fileTransfer')
-    mod.transferTasks.value = {}
-    const Comp = (await import('../fileTransferProgress.vue')).default
-    return { Comp, mod }
-  }
+  const importComp = async () => ({ Comp, mod: transferMod })
 
   const seedTask = (mod: any, overrides: Partial<any> = {}) => {
     const taskKey = overrides.taskKey ?? `t-${Math.random().toString(36).slice(2, 8)}`
