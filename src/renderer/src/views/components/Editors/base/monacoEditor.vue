@@ -82,6 +82,18 @@ const monacoVimInstance: any = null
 const hasCustomBg = ref(typeof document !== 'undefined' && !!document.body?.classList.contains('has-custom-bg'))
 let bgClassObserver: MutationObserver | null = null
 
+const layoutEditorSoon = (): void => {
+  const layout = () => editor?.layout()
+  if (typeof requestAnimationFrame !== 'function') {
+    layout()
+    return
+  }
+  requestAnimationFrame(() => {
+    layout()
+    requestAnimationFrame(layout)
+  })
+}
+
 // Global editor config store; use storeToRefs so config changes from settings trigger watch
 const editorConfigStore = useEditorConfigStore()
 const { config: storeConfig } = storeToRefs(editorConfigStore)
@@ -237,6 +249,8 @@ const createEditor = (): void => {
       emit('update:modelValue', value)
     }
   })
+
+  layoutEditorSoon()
 }
 
 onMounted(async () => {
@@ -267,6 +281,7 @@ watch(
   (newValue) => {
     if (editor && newValue !== editor.getValue()) {
       editor.setValue(newValue)
+      layoutEditorSoon()
     }
   }
 )
