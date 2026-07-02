@@ -2,6 +2,8 @@
   <div
     class="editor-container"
     @click="emit('focusEditor', editor.key)"
+    @focusin="setFileEditorFocused(true)"
+    @focusout="handleFileEditorFocusOut"
   >
     <DraggableResizable
       :x="editor.vimEditorX"
@@ -36,23 +38,21 @@
             </span>
           </div>
           <div class="toolbar-right">
-            <a-tooltip
-              v-if="showVimFullScreenEditor"
-              :title="t('common.fullscreen')"
-              @click="fullScreenVimEditor()"
-            >
-              <a-button class="toolbar-btn op-btn">
-                <span class="btn-icon"><FullscreenOutlined :style="{ fontSize: '18px' }" /></span>
-              </a-button>
-            </a-tooltip>
-
-            <a-tooltip
-              v-if="showVimFullScreenExitEditor"
-              :title="t('common.exitFullscreen')"
-              @click="exitFullScreenVimEditor()"
-            >
-              <a-button class="toolbar-btn op-btn">
-                <span class="btn-icon"><FullscreenExitOutlined :style="{ fontSize: '18px' }" /></span>
+            <a-tooltip :title="isFullscreen ? t('common.exitFullscreen') : t('common.fullscreen')">
+              <a-button
+                class="toolbar-btn op-btn fullscreen-toggle"
+                @click="toggleFullScreenVimEditor"
+              >
+                <span class="btn-icon">
+                  <FullscreenExitOutlined
+                    v-if="isFullscreen"
+                    :style="{ fontSize: '18px' }"
+                  />
+                  <FullscreenOutlined
+                    v-else
+                    :style="{ fontSize: '18px' }"
+                  />
+                </span>
               </a-button>
             </a-tooltip>
 
@@ -67,6 +67,7 @@
           </div>
         </div>
         <EditorCode
+          ref="editorCodeRef"
           :model-value="editor.vimText"
           :language="editor.contentType"
           :theme="currentTheme"
@@ -82,7 +83,7 @@ import EditorCode from '@views/components/Editors/base/monacoEditor.vue'
 import DraggableResizable from './dragResize.vue'
 import { FullscreenOutlined, FullscreenExitOutlined, CloseOutlined, SaveOutlined } from '@ant-design/icons-vue'
 import { useI18n } from 'vue-i18n'
-import { PropType, shallowRef, onBeforeUnmount, watch, computed } from 'vue'
+import { PropType, shallowRef, onBeforeUnmount, watch, ref, onMounted } from 'vue'
 import { getMonacoTheme } from '@/utils/themeUtils'
 
 export interface editorData {
@@ -107,8 +108,14 @@ export interface editorData {
   terminalId: string
   editorType: string
   userResized?: boolean
+  lastUserResized?: boolean
 }
 // Define properties
+type EditorCodeInstance = {
+  getEditor?: () => {
+    getAction?: (id: string) => { run?: () => unknown } | null
+  } | null
+}
 const props = defineProps({
   editor: {
     type: Object as PropType<editorData>,
@@ -123,6 +130,35 @@ const props = defineProps({
     default: null
   }
 })
+
+const editorCodeRef = ref<EditorCodeInstance | null>(null)
+let cleanupFileEditorReplace: (() => void) | undefined
+let themeObserver: MutationObserver | null = null
+
+const openEditorReplace = () => {
+  if (!props.isActive) return
+  editorCodeRef.value?.getEditor?.()?.getAction?.('editor.action.startFindReplaceAction')?.run?.()
+}
+
+onMounted(() => {
+  cleanupFileEditorReplace = window.api?.onFileEditorReplace?.(openEditorReplace)
+  themeObserver = new MutationObserver(() => {
+    currentTheme.value = getMonacoTheme()
+  })
+  themeObserver.observe(document.documentElement, { attributes: true, attributeFilter: ['class'] })
+})
+const setFileEditorFocused = (focused: boolean) => {
+  ;(window as any).electron?.ipcRenderer?.send('file-editor:focus-changed', focused)
+}
+
+const handleFileEditorFocusOut = (event: FocusEvent) => {
+  const current = event.currentTarget as HTMLElement | null
+  const next = event.relatedTarget as Node | null
+  if (current && next && current.contains(next)) {
+    return
+  }
+  setFileEditorFocused(false)
+}
 
 const handleKeydown = (e: KeyboardEvent) => {
   const isSaveShortcut = (e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 's'
@@ -147,6 +183,9 @@ watch(
 
 onBeforeUnmount(() => {
   window.removeEventListener('keydown', handleKeydown)
+  cleanupFileEditorReplace?.()
+  themeObserver?.disconnect()
+  setFileEditorFocused(false)
 })
 const { t } = useI18n()
 const editor = props.editor
@@ -163,13 +202,10 @@ const closeVimEditor = (key) => {
   emit('closeVimEditor', { key: key, editorType: props.editor.editorType })
 }
 
-const showVimFullScreenEditor = shallowRef(true)
-const showVimFullScreenExitEditor = shallowRef(false)
+const isFullscreen = shallowRef(false)
 
 // Set editor theme based on current theme
-const currentTheme = computed(() => {
-  return getMonacoTheme()
-})
+const currentTheme = ref(getMonacoTheme())
 
 const handleTextChange = (editor, newValue) => {
   editor.vimText = newValue
@@ -180,26 +216,47 @@ const handleTextChange = (editor, newValue) => {
     editor.fileChange = false
   }
 }
+const getFullscreenBounds = () => {
+  const rect = props.boundaryEl?.getBoundingClientRect()
+
+  return {
+    x: 0,
+    y: 0,
+    width: Math.round(rect?.width || window.innerWidth),
+    height: Math.round(rect?.height || window.innerHeight)
+  }
+}
+
 const fullScreenVimEditor = () => {
   editor.lastVimEditorX = editor.vimEditorX
   editor.lastVimEditorY = editor.vimEditorY
   editor.lastVimEditorHeight = editor.vimEditorHeight
   editor.lastVimEditorWidth = editor.vimEditorWidth
-  editor.vimEditorX = Math.round(window.innerWidth * 0.5) - Math.round(window.innerWidth * 0.85 * 0.5)
-  editor.vimEditorY = Math.round(window.innerHeight * 0.5) - Math.round(window.innerHeight * 0.85 * 0.5)
-  editor.vimEditorHeight = Math.round(window.innerHeight * 0.85)
-  editor.vimEditorWidth = Math.round(window.innerWidth * 0.85)
-  showVimFullScreenEditor.value = false
-  showVimFullScreenExitEditor.value = true
+  editor.lastUserResized = editor.userResized
+
+  const bounds = getFullscreenBounds()
+  editor.vimEditorX = bounds.x
+  editor.vimEditorY = bounds.y
+  editor.vimEditorHeight = bounds.height
+  editor.vimEditorWidth = bounds.width
+  editor.userResized = true
+  isFullscreen.value = true
 }
 const exitFullScreenVimEditor = () => {
   editor.vimEditorHeight = editor.lastVimEditorHeight
   editor.vimEditorWidth = editor.lastVimEditorWidth
   editor.vimEditorX = editor.lastVimEditorX
   editor.vimEditorY = editor.lastVimEditorY
+  editor.userResized = editor.lastUserResized
 
-  showVimFullScreenEditor.value = true
-  showVimFullScreenExitEditor.value = false
+  isFullscreen.value = false
+}
+const toggleFullScreenVimEditor = () => {
+  if (isFullscreen.value) {
+    exitFullScreenVimEditor()
+  } else {
+    fullScreenVimEditor()
+  }
 }
 
 function onDragStop(args: { x: number; y: number }, editor: editorData) {
@@ -313,6 +370,7 @@ const editorFilter = (action) => {
 .file-vim-content {
   background: var(--bg-color-vim-editor);
   padding: 4px;
+  box-sizing: border-box;
   border-radius: 8px;
   width: 1000px;
   box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);

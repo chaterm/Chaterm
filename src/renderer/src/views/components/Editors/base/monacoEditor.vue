@@ -114,6 +114,24 @@ const syncHasCustomBg = () => {
 }
 
 // Set different color config based on theme
+
+const registerEditorShortcuts = (): void => {
+  if (!editor) return
+
+  editor.addAction({
+    id: 'chaterm.findInEditor',
+    label: 'Find in Editor',
+    keybindings: [monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyF],
+    run: () => editor?.getAction('actions.find')?.run()
+  })
+
+  editor.addAction({
+    id: 'chaterm.replaceInEditor',
+    label: 'Replace in Editor',
+    keybindings: [monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyR],
+    run: () => editor?.getAction('editor.action.startFindReplaceAction')?.run()
+  })
+}
 const getThemeColors = (): monaco.editor.IColors => {
   if (props.theme === 'vs') {
     // Light theme config
@@ -201,6 +219,7 @@ const createEditor = (): void => {
   }
 
   editor = monaco.editor.create(editorContainer.value, finalOptions)
+  registerEditorShortcuts()
 
   // tabSize is model option: apply to model right after creation so indentation takes effect
   const model = editor.getModel()
@@ -359,5 +378,104 @@ onBeforeUnmount(() => {
 .monaco-editor-container.with-custom-bg :deep(.monaco-editor .minimap),
 .monaco-editor-container.with-custom-bg :deep(.monaco-editor .minimap-slider) {
   background-color: var(--bg-color) !important;
+}
+.monaco-editor-container :deep(.find-widget) {
+  color: var(--text-color) !important;
+  background-color: var(--bg-color-secondary) !important;
+  border-color: var(--border-color-light) !important;
+}
+
+.monaco-editor-container :deep(.find-widget .monaco-inputbox) {
+  color: var(--text-color) !important;
+  background-color: var(--bg-color) !important;
+  border: 1px solid var(--border-color-light) !important;
+}
+
+.monaco-editor-container :deep(.find-widget .monaco-inputbox.synthetic-focus) {
+  outline: none !important;
+  border-color: var(--border-color-light) !important;
+  box-shadow: none !important;
+}
+
+.monaco-editor-container :deep(.find-widget .monaco-inputbox .ibwrapper),
+.monaco-editor-container :deep(.find-widget .monaco-inputbox .input),
+.monaco-editor-container :deep(.find-widget .monaco-inputbox .mirror) {
+  color: var(--text-color) !important;
+  background-color: transparent !important;
+}
+
+.monaco-editor-container :deep(.find-widget.replaceToggled:not(.narrow-find-widget):not(.collapsed-find-widget)) {
+  width: min(520px, calc(100% - 32px)) !important;
+}
+
+.monaco-editor-container :deep(.find-widget > .replace-part > .monaco-findInput) {
+  min-width: 0;
+  flex: 1 1 auto;
+}
+
+.monaco-editor-container :deep(.find-widget > .replace-part .replace-actions) {
+  gap: 6px;
+  margin-left: 6px;
+}
+
+.monaco-editor-container :deep(.find-widget > .replace-part .replace-actions .button) {
+  width: auto;
+  min-width: 68px;
+  height: 22px;
+  padding: 0 10px;
+  border: 1px solid transparent;
+  border-radius: 3px;
+  box-sizing: border-box;
+  font-size: 0;
+  line-height: 22px;
+  color: var(--vscode-button-secondaryForeground, #ffffff);
+  background: var(--vscode-button-secondaryBackground, var(--button-bg-color));
+  outline: none !important;
+  box-shadow: none !important;
+}
+
+.monaco-editor-container :deep(.find-widget > .replace-part .replace-actions .button:focus),
+.monaco-editor-container :deep(.find-widget > .replace-part .replace-actions .button:focus-visible) {
+  border-color: transparent !important;
+  outline: none !important;
+  box-shadow: none !important;
+}
+
+.monaco-editor-container :deep(.find-widget > .replace-part .replace-actions .button::before) {
+  display: none;
+}
+
+.monaco-editor-container :deep(.find-widget > .replace-part .replace-actions .button::after) {
+  font-size: 12px;
+  line-height: 20px;
+  white-space: nowrap;
+}
+
+.monaco-editor-container :deep(.find-widget > .replace-part .replace-actions .button:first-child::after) {
+  content: 'Replace';
+}
+
+.monaco-editor-container :deep(.find-widget > .replace-part .replace-actions .button:last-child) {
+  min-width: 86px;
+}
+
+.monaco-editor-container :deep(.find-widget > .replace-part .replace-actions .button:last-child::after) {
+  content: 'Replace All';
+}
+
+.monaco-editor-container :deep(.find-widget > .replace-part .replace-actions .button:not(.disabled):hover) {
+  background: var(--vscode-button-secondaryHoverBackground, var(--button-hover-bg));
+}
+
+.monaco-editor-container :deep(.find-widget > .replace-part .replace-actions .button:not(.disabled):active) {
+  background: var(--vscode-button-secondaryHoverBackground, var(--button-hover-bg));
+  border-color: transparent;
+}
+
+.monaco-editor-container :deep(.find-widget > .replace-part .replace-actions .button.disabled) {
+  color: var(--text-color-tertiary) !important;
+  background: var(--bg-color-quaternary) !important;
+  border-color: var(--border-color-light) !important;
+  opacity: 0.75;
 }
 </style>

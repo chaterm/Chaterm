@@ -1,4 +1,5 @@
 import { mark as perfMark, reportPreloadMarksToMain } from './perf'
+import { isMonacoEditorShortcutTarget } from './shortcutGuards'
 import { contextBridge, ipcRenderer, webUtils } from 'electron'
 import { electronAPI } from '@electron-toolkit/preload'
 import type { WebviewMessage } from '../main/agent/shared/WebviewMessage'
@@ -80,7 +81,7 @@ window.addEventListener(
     // Only intercept shortcuts on Windows, keep default behavior on Mac
     // Don't intercept shortcuts in vim mode, let vim keep default behavior
     if (process.platform === 'win32' && e.ctrlKey && !isVimMode) {
-      if (e.key === 'f') {
+      if (e.key === 'f' && !isMonacoEditorShortcutTarget(e.target)) {
         e.preventDefault()
         e.stopPropagation()
         // Send to renderer process via postMessage
@@ -1359,6 +1360,12 @@ const api = {
   uploadFile: (opts: { id: string; remotePath: string; localPath: string }) => ipcRenderer.invoke('ssh:sftp:upload-file', opts),
   uploadDirectory: (opts: { id: string; localDir: string; remoteDir: string }) => ipcRenderer.invoke('ssh:sftp:upload-directory', opts),
   downloadFile: (opts: { id: string; remotePath: string; localPath: string }) => ipcRenderer.invoke('ssh:sftp:download-file', opts),
+  writeRemoteFile: (opts: { id: string; remotePath: string; content: string }) => ipcRenderer.invoke('ssh:sftp:write-file', opts),
+  onFileEditorReplace: (callback: () => void) => {
+    const listener = () => callback()
+    ipcRenderer.on('file-editor:replace', listener)
+    return () => ipcRenderer.removeListener('file-editor:replace', listener)
+  },
   cancelFileTask: (opts: { taskKey: string }) => ipcRenderer.invoke('ssh:sftp:cancel-task', opts),
   renameFile: (opts: { id: string; oldPath: string; newPath: string }) => ipcRenderer.invoke('ssh:sftp:rename-move', opts),
   deleteFile: (opts: { id: string; remotePath: string }) => ipcRenderer.invoke('ssh:sftp:delete-file', opts),

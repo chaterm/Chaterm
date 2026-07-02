@@ -3,6 +3,7 @@ import { join } from 'path'
 import { is } from '@electron-toolkit/utils'
 import { getBrandingConfig } from './config/branding'
 import { mark } from '@perf'
+import { shouldPreventReloadShortcut, shouldRequestFileEditorReplaceShortcut } from './windowShortcutGuards'
 /**
  * Result of creating the main window.
  * `window` is available immediately for IPC registration and other setup.
@@ -152,21 +153,19 @@ export async function createMainWindow(onCookieUrlChange?: (url: string) => void
   // Disable Command+R (macOS) / Ctrl+R (Windows/Linux) reload shortcut
   // while preserving Ctrl+R for terminal reverse history search (reverse-i-search)
   let isTerminalFocused = false
+  let isFileEditorFocused = false
   ipcMain.on('terminal:focus-changed', (_event, focused: boolean) => {
     isTerminalFocused = focused
   })
+  ipcMain.on('file-editor:focus-changed', (_event, focused: boolean) => {
+    isFileEditorFocused = focused
+  })
   mainWindow.webContents.on('before-input-event', (event, input) => {
-    if (input.type === 'keyDown' && (input.key === 'r' || input.key === 'R') && !input.alt && !input.shift) {
-      if (process.platform === 'darwin') {
-        // On macOS: block Cmd+R (reload), allow Ctrl+R (terminal reverse-i-search)
-        if (input.meta) {
-          event.preventDefault()
-        }
-      } else {
-        // On Windows/Linux: block Ctrl+R only when terminal is not focused
-        if (input.control && !isTerminalFocused) {
-          event.preventDefault()
-        }
+    const shortcutContext = { platform: process.platform, isTerminalFocused, isFileEditorFocused }
+    if (shouldPreventReloadShortcut(input, shortcutContext)) {
+      event.preventDefault()
+      if (shouldRequestFileEditorReplaceShortcut(input, shortcutContext)) {
+        mainWindow.webContents.send('file-editor:replace')
       }
     }
   })
