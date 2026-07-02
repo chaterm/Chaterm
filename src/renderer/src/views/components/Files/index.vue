@@ -2445,7 +2445,10 @@ const openFile = async (data) => {
       } as UnwrapRef<editorData>)
     } else if (existingEditor) {
       existingEditor.visible = true
-      existingEditor.vimText = data
+      existingEditor.vimText = stdout
+      existingEditor.originVimText = stdout
+      existingEditor.fileChange = false
+      existingEditor.saved = false
     }
   }
 }
