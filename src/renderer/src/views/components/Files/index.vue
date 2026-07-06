@@ -358,20 +358,21 @@
         </div>
       </div>
     </template>
-  </div>
 
-  <div
-    v-for="editor in openEditors"
-    v-show="editor?.visible"
-    :key="editor?.filePath"
-  >
-    <EditorCode
-      :editor="editor"
-      :is-active="editor.key === activeEditorKey"
-      @close-vim-editor="closeVimEditor"
-      @handle-save="handleSave"
-      @focus-editor="() => handleFocusEditor(editor.key)"
-    />
+    <div
+      v-for="editor in openEditors"
+      v-show="editor?.visible"
+      :key="editor?.filePath"
+    >
+      <EditorCode
+        :editor="editor"
+        :is-active="editor.key === activeEditorKey"
+        :boundary-el="fileElement || undefined"
+        @close-vim-editor="closeVimEditor"
+        @handle-save="handleSave"
+        @focus-editor="() => handleFocusEditor(editor.key)"
+      />
+    </div>
   </div>
   <a-modal
     v-model:open="addConnVisible"
@@ -2444,7 +2445,10 @@ const openFile = async (data) => {
       } as UnwrapRef<editorData>)
     } else if (existingEditor) {
       existingEditor.visible = true
-      existingEditor.vimText = data
+      existingEditor.vimText = stdout
+      existingEditor.originVimText = stdout
+      existingEditor.fileChange = false
+      existingEditor.saved = false
     }
   }
 }
@@ -2481,36 +2485,35 @@ const closeVimEditor = (data) => {
 const handleSave = async (data) => {
   const { key, needClose } = data
   const editor = openEditors.find((editor) => editor?.key === key)
-  if (!editor) return
-  let errMsg = ''
+  if (!editor || !editor.fileChange) return
 
-  if (editor?.fileChange) {
-    editor.loading = true
-    const { stderr } = await api.sshConnExec({
-      cmd: `cat <<'EOFChaterm:save' > ${editor.filePath}\n${editor?.vimText}\nEOFChaterm:save\n`,
-      id: editor?.terminalId
+  editor.loading = true
+  try {
+    const result = await api.writeRemoteFile({
+      id: editor.terminalId,
+      remotePath: editor.filePath,
+      content: editor.vimText || ''
     })
-    errMsg = stderr
 
-    if (errMsg !== '') {
-      message.error(`${t('common.saveFailed')}: ${errMsg}`)
-      editor.loading = false
-    } else {
-      message.success(t('common.saveSuccess'))
-      // Close
-      if (editor) {
-        if (needClose) {
-          const index = openEditors.indexOf(editor)
-          if (index !== -1) {
-            openEditors.splice(index, 1)
-          }
-        } else {
-          editor.loading = false
-          editor.saved = true
-          editor.fileChange = false
-        }
-      }
+    if (result?.status !== 'success') {
+      message.error(`${t('common.saveFailed')}: ${result?.message || 'SFTP write failed'}`)
+      return
     }
+
+    message.success(t('common.saveSuccess'))
+    if (needClose) {
+      const index = openEditors.indexOf(editor)
+      if (index !== -1) {
+        openEditors.splice(index, 1)
+      }
+    } else {
+      editor.saved = true
+      editor.fileChange = false
+    }
+  } catch (err: any) {
+    message.error(`${t('common.saveFailed')}: ${err?.message || err}`)
+  } finally {
+    editor.loading = false
   }
 }
 
@@ -2521,6 +2524,7 @@ defineExpose({
 
 <style lang="less" scoped>
 .tree-container {
+  position: relative;
   height: 100%;
   overflow-y: auto;
   overflow-x: auto;

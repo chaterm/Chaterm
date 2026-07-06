@@ -467,6 +467,8 @@ interface ApiType {
   sshSftpList: (opts: { id: string; path: string }) => Promise<any>
   sftpConnList: () => Promise<{ id: string; isSuccess: boolean; error?: string; rootPath?: string }[]>
   sshConnExec: (args: { id: string; cmd: string }) => Promise<any>
+  writeRemoteFile: (opts: { id: string; remotePath: string; content: string }) => Promise<{ status: string; message?: string; remotePath?: string }>
+  onFileEditorReplace: (callback: () => void) => () => void
   sendToMain: (message: WebviewMessage) => Promise<void | null>
   onMainMessage: (callback: (message: any) => void) => () => void
   onCommandGenerationResponse: (callback: (response: { command?: string; error?: string; tabId: string }) => void) => () => void
