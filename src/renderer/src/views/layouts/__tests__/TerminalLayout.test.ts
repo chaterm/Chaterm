@@ -472,6 +472,45 @@ describe('TerminalLayout - Preview Actions Layout', () => {
   })
 })
 
+describe('TerminalLayout - Clone/Split Bastion Source Tagging', () => {
+  it('tags clone requests on the resolved connection payload so sshConnect receives the clone source', () => {
+    const sourcePath = join(process.cwd(), 'src/renderer/src/views/layouts/TerminalLayout.vue')
+    const source = readFileSync(sourcePath, 'utf8')
+
+    expect(source).toContain("setDockPanelConnectionData(params, { ...existingConnectionData, source: 'clone' })")
+  })
+
+  it('tags split requests on the resolved connection payload so sshConnect receives the split source', () => {
+    const sourcePath = join(process.cwd(), 'src/renderer/src/views/layouts/TerminalLayout.vue')
+    const source = readFileSync(sourcePath, 'utf8')
+
+    expect(source).toContain("setDockPanelConnectionData(params, { ...existingConnectionData, source: 'split' })")
+  })
+
+  it('logs when the dock tab context menu is opened for a candidate clone source', () => {
+    const sourcePath = join(process.cwd(), 'src/renderer/src/views/layouts/TerminalLayout.vue')
+    const source = readFileSync(sourcePath, 'utf8')
+
+    expect(source).toContain('layout.terminal.tab_context_menu.opened')
+  })
+
+  it('logs when the dock tab clone action is clicked before createNewPanel runs', () => {
+    const sourcePath = join(process.cwd(), 'src/renderer/src/views/layouts/TerminalLayout.vue')
+    const source = readFileSync(sourcePath, 'utf8')
+
+    expect(source).toContain('layout.terminal.tab_context_menu.clone_clicked')
+  })
+
+  it('logs the dock panel param shape instead of raw params to avoid leaking credentials', () => {
+    const sourcePath = join(process.cwd(), 'src/renderer/src/views/layouts/TerminalLayout.vue')
+    const source = readFileSync(sourcePath, 'utf8')
+
+    expect(source).toContain('topLevelKeys')
+    expect(source).toContain('connectionDataLocation')
+    expect(source).toContain('connectDataKeys')
+  })
+})
+
 // ========== Tab Context Menu ==========
 describe('TerminalLayout - Tab Context Menu', () => {
   let mockDockApi: any
