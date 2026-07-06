@@ -473,41 +473,42 @@ describe('TerminalLayout - Preview Actions Layout', () => {
 })
 
 describe('TerminalLayout - Clone/Split Bastion Source Tagging', () => {
-  it('tags clone requests on the resolved connection payload so sshConnect receives the clone source', () => {
+  it('tags clone requests on the tab data payload so sshConnect receives the clone source', () => {
     const sourcePath = join(process.cwd(), 'src/renderer/src/views/layouts/TerminalLayout.vue')
     const source = readFileSync(sourcePath, 'utf8')
 
-    expect(source).toContain("setDockPanelConnectionData(params, { ...existingConnectionData, source: 'clone' })")
+    expect(source).toContain("params.data = { ...params.data, source: 'clone' }")
   })
 
-  it('tags split requests on the resolved connection payload so sshConnect receives the split source', () => {
+  it('tags split requests on the tab data payload so sshConnect receives the split source', () => {
     const sourcePath = join(process.cwd(), 'src/renderer/src/views/layouts/TerminalLayout.vue')
     const source = readFileSync(sourcePath, 'utf8')
 
-    expect(source).toContain("setDockPanelConnectionData(params, { ...existingConnectionData, source: 'split' })")
+    expect(source).toContain("params.data = { ...params.data, source: 'split' }")
   })
 
-  it('logs when the dock tab context menu is opened for a candidate clone source', () => {
+  it('logs when a clone or split source tag is applied for bastion reuse', () => {
     const sourcePath = join(process.cwd(), 'src/renderer/src/views/layouts/TerminalLayout.vue')
     const source = readFileSync(sourcePath, 'utf8')
 
-    expect(source).toContain('layout.terminal.tab_context_menu.opened')
+    expect(source).toContain('layout.terminal.clone_split_source_tagged')
   })
 
-  it('logs when the dock tab clone action is clicked before createNewPanel runs', () => {
+  it('warns when clone or split tagging cannot happen because panel data is missing', () => {
     const sourcePath = join(process.cwd(), 'src/renderer/src/views/layouts/TerminalLayout.vue')
     const source = readFileSync(sourcePath, 'utf8')
 
-    expect(source).toContain('layout.terminal.tab_context_menu.clone_clicked')
+    expect(source).toContain('layout.terminal.clone_split_source_missing_data')
   })
 
-  it('logs the dock panel param shape instead of raw params to avoid leaking credentials', () => {
+  it('logs safe metadata fields instead of raw connection objects to avoid leaking credentials', () => {
     const sourcePath = join(process.cwd(), 'src/renderer/src/views/layouts/TerminalLayout.vue')
     const source = readFileSync(sourcePath, 'utf8')
 
-    expect(source).toContain('topLevelKeys')
-    expect(source).toContain('connectionDataLocation')
-    expect(source).toContain('connectDataKeys')
+    expect(source).toContain('panelDirection')
+    expect(source).toContain('panelSource')
+    expect(source).toContain('nextPanelId')
+    expect(source).toContain('previousSource')
   })
 })
 
