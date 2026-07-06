@@ -472,6 +472,46 @@ describe('TerminalLayout - Preview Actions Layout', () => {
   })
 })
 
+describe('TerminalLayout - Clone/Split Bastion Source Tagging', () => {
+  it('tags clone requests on the tab data payload so sshConnect receives the clone source', () => {
+    const sourcePath = join(process.cwd(), 'src/renderer/src/views/layouts/TerminalLayout.vue')
+    const source = readFileSync(sourcePath, 'utf8')
+
+    expect(source).toContain("params.data = { ...params.data, source: 'clone' }")
+  })
+
+  it('tags split requests on the tab data payload so sshConnect receives the split source', () => {
+    const sourcePath = join(process.cwd(), 'src/renderer/src/views/layouts/TerminalLayout.vue')
+    const source = readFileSync(sourcePath, 'utf8')
+
+    expect(source).toContain("params.data = { ...params.data, source: 'split' }")
+  })
+
+  it('logs when a clone or split source tag is applied for bastion reuse', () => {
+    const sourcePath = join(process.cwd(), 'src/renderer/src/views/layouts/TerminalLayout.vue')
+    const source = readFileSync(sourcePath, 'utf8')
+
+    expect(source).toContain('layout.terminal.clone_split_source_tagged')
+  })
+
+  it('warns when clone or split tagging cannot happen because panel data is missing', () => {
+    const sourcePath = join(process.cwd(), 'src/renderer/src/views/layouts/TerminalLayout.vue')
+    const source = readFileSync(sourcePath, 'utf8')
+
+    expect(source).toContain('layout.terminal.clone_split_source_missing_data')
+  })
+
+  it('logs safe metadata fields instead of raw connection objects to avoid leaking credentials', () => {
+    const sourcePath = join(process.cwd(), 'src/renderer/src/views/layouts/TerminalLayout.vue')
+    const source = readFileSync(sourcePath, 'utf8')
+
+    expect(source).toContain('panelDirection')
+    expect(source).toContain('panelSource')
+    expect(source).toContain('nextPanelId')
+    expect(source).toContain('previousSource')
+  })
+})
+
 // ========== Tab Context Menu ==========
 describe('TerminalLayout - Tab Context Menu', () => {
   let mockDockApi: any

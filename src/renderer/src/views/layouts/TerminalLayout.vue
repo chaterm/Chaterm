@@ -3036,14 +3036,38 @@ const createNewPanel = (isClone: boolean, direction: 'left' | 'right' | 'above' 
 
   params.id = newIdV4
 
-  // Tag clone/split origin so bastion plugins (e.g. qizhi) can auto-apply the
-  // previously selected user instead of re-prompting for multi-user assets.
-  if (params.connectData) {
+  // Tag clone/split origin on the tab data consumed by sshConnect so bastion
+  // plugins (e.g. qizhi) can auto-apply the previous multi-user selection.
+  if (params.data) {
     if (isClone) {
-      params.connectData = { ...params.connectData, source: 'clone' }
+      params.data = { ...params.data, source: 'clone' }
+      logger.info('Tagged cloned terminal panel source for bastion reuse', {
+        event: 'layout.terminal.clone_split_source_tagged',
+        panelDirection: direction,
+        panelSource: 'clone',
+        panelId: targetPanelId,
+        nextPanelId: newId,
+        previousSource: typeof rawParams?.data?.source === 'string' ? rawParams.data.source : 'none'
+      })
     } else if (direction !== 'within') {
-      params.connectData = { ...params.connectData, source: 'split' }
+      params.data = { ...params.data, source: 'split' }
+      logger.info('Tagged split terminal panel source for bastion reuse', {
+        event: 'layout.terminal.clone_split_source_tagged',
+        panelDirection: direction,
+        panelSource: 'split',
+        panelId: targetPanelId,
+        nextPanelId: newId,
+        previousSource: typeof rawParams?.data?.source === 'string' ? rawParams.data.source : 'none'
+      })
     }
+  } else if (isClone || direction !== 'within') {
+    logger.warn('Clone/split terminal panel missing connection data for bastion reuse tagging', {
+      event: 'layout.terminal.clone_split_source_missing_data',
+      panelDirection: direction,
+      panelSource: isClone ? 'clone' : 'split',
+      panelId: targetPanelId,
+      nextPanelId: newId
+    })
   }
 
   dockApi.addPanel({
