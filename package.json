@@ -91,7 +91,7 @@
     "globby": "^16.2.0",
     "linkedom": "^0.18.12",
     "memfs": "^4.57.7",
-    "mermaid": "^11.15.0",
+    "mermaid": "^11.16.0",
     "monaco-editor": "^0.53.0",
     "mysql2": "^3.22.5",
     "node-pty": "^1.0.0",
