@@ -16,6 +16,7 @@ export const isSubmitting = ref(false)
 // Constants
 const OTP_TIMEOUT = 180000 // 180 seconds
 const MAX_OTP_ATTEMPTS = 3
+type MfaCancellationReason = 'user' | 'timeout' | 'max_attempts'
 
 let otpTimerInterval: NodeJS.Timeout | null = null
 
@@ -34,7 +35,7 @@ const startOtpTimer = (durationMs = OTP_TIMEOUT) => {
       }
       otpTimeRemaining.value = 0
       showOtpDialog.value = false
-      cancelOtp()
+      cancelOtp('timeout')
     } else {
       otpTimeRemaining.value = remaining
     }
@@ -111,7 +112,7 @@ export const handleOtpError = (data: any) => {
       if (otpAttempts.value >= MAX_OTP_ATTEMPTS) {
         logger.warn('Exceeded maximum attempts, closing dialog')
         showOtpDialog.value = false
-        cancelOtp()
+        cancelOtp('max_attempts')
       }
     }
   } else {
@@ -194,10 +195,42 @@ export const submitOtpCode = async () => {
 }
 
 // Cancel two-factor authentication
-export const cancelOtp = () => {
+export const cancelOtp = (reason: MfaCancellationReason = 'user') => {
   if (currentOtpId.value) {
+    const id = currentOtpId.value
     const api = (window as any).api
-    api.cancelKeyboardInteractive(currentOtpId.value)
+    logger.info('MFA cancellation requested', {
+      event: 'ssh.mfa.cancel.requested',
+      connectionId: id,
+      reason
+    })
+    void api
+      .disconnect({ id })
+      .then((result: { status?: string } | undefined) => {
+        const status = typeof result?.status === 'string' ? result.status : 'unknown'
+        const meta = {
+          event: 'ssh.mfa.cancel.disconnect.result',
+          connectionId: id,
+          reason,
+          status
+        }
+        if (status === 'error') {
+          logger.warn('MFA cancellation disconnect returned an error', meta)
+        } else {
+          logger.info('MFA cancellation disconnect completed', meta)
+        }
+      })
+      .catch((error: unknown) => {
+        logger.warn('Failed to disconnect cancelled MFA session', {
+          event: 'ssh.mfa.cancel.disconnect.failed',
+          connectionId: id,
+          reason,
+          errorName: error instanceof Error ? error.name : typeof error
+        })
+      })
+      .finally(() => {
+        api.cancelKeyboardInteractive(id)
+      })
     resetOtpDialog()
   }
 }
