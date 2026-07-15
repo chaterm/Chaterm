@@ -34,17 +34,52 @@ export async function connectBastionByType(sshType: string | undefined, connecti
   if (bastionCapability) {
     // Route to plugin-based bastion connection via capability registry
     bastionLogger.info('Routing to plugin-based bastion', { event: 'ssh.bastion.connect', sshType })
+    const requestedSessionId = typeof connectionInfo?.id === 'string' ? connectionInfo.id : ''
+    if (requestedSessionId) {
+      registerBastionSessionType(requestedSessionId, sshType)
+      bastionLogger.info('Registered pending bastion session', {
+        event: 'ssh.bastion.session.pending',
+        sshType,
+        sessionId: requestedSessionId
+      })
+    }
     try {
       const result = await bastionCapability.connect(connectionInfo, event)
       if (result?.status === 'connected') {
+        if (requestedSessionId && getBastionSessionType(requestedSessionId) !== sshType) {
+          bastionLogger.warn('Bastion connection completed after cancellation', {
+            event: 'ssh.bastion.connect.cancelled_late',
+            sshType,
+            sessionId: requestedSessionId
+          })
+          await bastionCapability.disconnect({ id: requestedSessionId })
+          return buildBastionError(BastionErrorCode.CONNECT_FAILED, 'Bastion connection cancelled')
+        }
         const sessionId = connectionInfo.id || result.sessionId
         if (sessionId) {
           registerBastionSessionType(sessionId, sshType!)
           bastionLogger.debug('Registered bastion session type', { event: 'ssh.bastion.session', sshType, sessionId })
         }
+      } else if (result?.status !== 'mfa_required' && requestedSessionId && getBastionSessionType(requestedSessionId) === sshType) {
+        deleteBastionSessionType(requestedSessionId)
+        bastionLogger.info('Removed pending bastion session after connect result', {
+          event: 'ssh.bastion.session.pending.cleared',
+          sshType,
+          sessionId: requestedSessionId,
+          status: typeof result?.status === 'string' ? result.status : 'unknown'
+        })
       }
       return result
     } catch (error: unknown) {
+      if (requestedSessionId && getBastionSessionType(requestedSessionId) === sshType) {
+        deleteBastionSessionType(requestedSessionId)
+      }
+      bastionLogger.warn('Bastion connection failed', {
+        event: 'ssh.bastion.connect.failed',
+        sshType,
+        sessionId: requestedSessionId || undefined,
+        errorName: error instanceof Error ? error.name : typeof error
+      })
       const errorMessage = error instanceof Error ? error.message : String(error)
       return buildBastionError(BastionErrorCode.CONNECT_FAILED, errorMessage)
     }
@@ -111,14 +146,35 @@ export async function disconnectBastionSession(id: string): Promise<{ status: st
 
   const capability = capabilityRegistry.getBastion(bastionType)
   if (!capability) {
+    bastionLogger.warn('Bastion disconnect capability unavailable', {
+      event: 'ssh.bastion.disconnect.capability_missing',
+      sshType: bastionType,
+      sessionId: id
+    })
     return { status: 'error', message: `${bastionType} capability not available` }
   }
 
+  bastionLogger.info('Bastion disconnect started', {
+    event: 'ssh.bastion.disconnect.start',
+    sshType: bastionType,
+    sessionId: id
+  })
+  deleteBastionSessionType(id)
   try {
     await capability.disconnect({ id })
-    deleteBastionSessionType(id)
+    bastionLogger.info('Bastion disconnect completed', {
+      event: 'ssh.bastion.disconnect.success',
+      sshType: bastionType,
+      sessionId: id
+    })
     return { status: 'success', message: `${bastionType} connection disconnected` }
   } catch (error: unknown) {
+    bastionLogger.warn('Bastion disconnect failed', {
+      event: 'ssh.bastion.disconnect.failed',
+      sshType: bastionType,
+      sessionId: id,
+      errorName: error instanceof Error ? error.name : typeof error
+    })
     return { status: 'error', message: error instanceof Error ? error.message : String(error) }
   }
 }
