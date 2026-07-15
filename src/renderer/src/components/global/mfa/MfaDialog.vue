@@ -7,7 +7,7 @@
     :keyboard="false"
     :footer="null"
     class="mfa-modal"
-    @cancel="cancelOtp"
+    @cancel="cancelOtp()"
   >
     <div class="mfa-content">
       <div class="otp-section">

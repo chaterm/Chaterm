@@ -150,6 +150,7 @@ import { LocalEchoController } from './utils/localEcho'
 import { resolveAliasExpansion, shouldSuppressCtrlVAfterNativePaste } from './utils/terminalInput'
 import { applyTerminalRuntimeConfig, TERMINAL_RUNTIME_CONFIG_CHANGED_EVENT, type TerminalRuntimeConfig } from '@/utils/terminalRuntimeConfig'
 import { createTerminalWriteQueue, type TerminalWriteQueue } from '@/utils/terminalWriteQueue'
+import { cancelConnectionOnUnmount, createConnectionCancellationGuard } from './utils/connectionCancellation'
 
 // Pre-compiled regex constants for checkFullScreenClear / checkHeavyUiStyle (avoid re-creation per call)
 const CLEAR_SCREEN_PATTERNS = [
@@ -417,6 +418,46 @@ const terminalContainer = ref<HTMLDivElement | null>(null)
 const contextmenu = ref()
 const cursorStartX = ref(0)
 const api = window.api as any
+const connectionCancellationGuard = createConnectionCancellationGuard()
+const cancelCurrentConnection = (connected = isConnected.value, stage = 'component_unmount') => {
+  const id = connectionId.value
+  logger.info('SSH connection cancellation requested', {
+    event: 'ssh.disconnect.renderer.requested',
+    connectionId: id || undefined,
+    stage,
+    hasConnectionId: Boolean(id),
+    isConnected: connected,
+    isConnecting: connectInProgress.value
+  })
+  cancelConnectionOnUnmount({
+    api,
+    id,
+    isConnected: connected,
+    isConnecting: connectInProgress.value,
+    onDisconnectResult: (result) => {
+      const status = typeof result?.status === 'string' ? result.status : 'unknown'
+      const meta = {
+        event: 'ssh.disconnect.renderer.result',
+        connectionId: id,
+        stage,
+        status
+      }
+      if (status === 'error') {
+        logger.warn('SSH connection cancellation returned an error', meta)
+      } else {
+        logger.info('SSH connection cancellation completed', meta)
+      }
+    },
+    onDisconnectError: (error) => {
+      logger.warn('Failed to cancel SSH connection during terminal cleanup', {
+        event: 'ssh.disconnect.renderer.failed',
+        connectionId: id,
+        stage,
+        errorName: error instanceof Error ? error.name : typeof error
+      })
+    }
+  })
+}
 const encoder = new TextEncoder()
 type TerminalWriteOptions = { isUserCall?: boolean; updateStateAfterWrite?: boolean; allowHighlightAfterWrite?: boolean }
 let cusWrite: ((data: string, options?: TerminalWriteOptions) => void) | null = null
@@ -1152,6 +1193,7 @@ const handlePinchZoomStatusChanged = async (enabled: boolean) => {
 }
 
 onBeforeUnmount(() => {
+  connectionCancellationGuard.cancel()
   manualDisconnectRequested.value = true
   localEcho.reset()
   localEcho.setTerminal(null)
@@ -1199,9 +1241,7 @@ onBeforeUnmount(() => {
 
   unregisterSshConnection(props.currentConnectionId)
 
-  if (isConnected.value) {
-    disconnectSSH()
-  }
+  cancelCurrentConnection()
 
   const viewport = terminalElement.value?.querySelector('.xterm-viewport')
   if (viewport) {
@@ -1705,6 +1745,9 @@ const connectSSH = async (_opts?: { isAutoReconnect?: boolean }) => {
             organizationUuid: fallbackOrgUuid,
             ip: props.connectData.ip || props.connectData.host
           })
+      if (connectionCancellationGuard.isCancelled()) {
+        return false
+      }
       const password = ref('')
       const privateKey = ref('')
       const passphrase = ref('')
@@ -1755,6 +1798,10 @@ const connectSSH = async (_opts?: { isAutoReconnect?: boolean }) => {
           port: connPort,
           username: connUsername
         })
+        if (connectionCancellationGuard.isCancelled()) {
+          cancelCurrentConnection(forkResult.status === 'connected', 'fork_connect_completed')
+          return false
+        }
         if (forkResult.status === 'connected') {
           disconnectedByNetwork.value = false
           waitingForNetworkRestore.value = false
@@ -1767,6 +1814,10 @@ const connectSSH = async (_opts?: { isAutoReconnect?: boolean }) => {
             terminal.value?.writeln(t('ssh.connectingTo', { ip: props.connectData.ip }))
           }
           await startShell()
+          if (connectionCancellationGuard.isCancelled()) {
+            cancelCurrentConnection(true, 'fork_shell_opened')
+            return false
+          }
           shellOpenedAt = Date.now()
           setupTerminalInput()
           // Single deferred resize after guard window to avoid rapid setWindow killing
@@ -1849,6 +1900,9 @@ const connectSSH = async (_opts?: { isAutoReconnect?: boolean }) => {
         }
 
         const { mark: perfMark } = await import('@/utils/perf')
+        if (connectionCancellationGuard.isCancelled()) {
+          return false
+        }
         perfMark('chaterm/terminal/willConnect')
         const result = await api.connect(connData)
         perfMark('chaterm/terminal/didConnect')
@@ -1856,6 +1910,10 @@ const connectSSH = async (_opts?: { isAutoReconnect?: boolean }) => {
         if (jumpServerStatusHandler) {
           jumpServerStatusHandler.cleanup()
           jumpServerStatusHandler = null
+        }
+        if (connectionCancellationGuard.isCancelled()) {
+          cancelCurrentConnection(result.status === 'connected', 'connect_completed')
+          return false
         }
 
         const isSwitchDevice = connAssetType?.startsWith('person-switch-') ?? false
@@ -1903,6 +1961,10 @@ const connectSSH = async (_opts?: { isAutoReconnect?: boolean }) => {
             terminal.value?.writeln(t('ssh.connectingTo', { ip: props.connectData.ip }))
           }
           await startShell()
+          if (connectionCancellationGuard.isCancelled()) {
+            cancelCurrentConnection(true, 'shell_opened')
+            return false
+          }
           shellOpenedAt = Date.now()
           setupTerminalInput()
           // Single deferred resize after guard window to avoid rapid setWindow killing the shell
