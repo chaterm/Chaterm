@@ -2688,8 +2688,8 @@ const setupTerminalInput = () => {
 
     // Macro recording: capture input for macro recorder
     const macroRecorder = useMacroRecorderStore()
-    if (macroRecorder.isRecording && macroRecorder.terminalId === connectionId.value) {
-      macroRecorder.appendInput(connectionId.value, data)
+    if (macroRecorder.isRecording && macroRecorder.terminalId === props.currentConnectionId) {
+      macroRecorder.appendInput(props.currentConnectionId, data)
       // Check if recording should auto-stop due to limits
       const limitCheck = macroRecorder.checkLimits()
       if (limitCheck.shouldStop) {

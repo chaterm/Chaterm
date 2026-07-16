@@ -194,7 +194,10 @@
                   :toggle-sidebar="toggleSideBar"
                   @open-user-tab="openUserTab"
                 />
-                <Snippets v-else-if="currentMenu == 'snippets'" />
+                <Snippets
+                  v-else-if="currentMenu == 'snippets'"
+                  :get-active-dock-terminal-tab-id="getActiveDockTerminalTabId"
+                />
                 <KnowledgeCenter v-else-if="currentMenu == 'knowledgecenter'" />
                 <K8sTerminal v-else-if="currentMenu == 'k8s-explorer' || currentMenu == 'kubernetes'" />
 
@@ -354,7 +357,7 @@ import AgentsSidebar from '@views/components/AgentsSidebar/index.vue'
 import TabsPanel from './tabsPanel.vue'
 import ExtensionViewHost from './ExtensionViewHost.vue'
 import EditorActions from './components/EditorActions.vue'
-import { getMenuForDockBackedUserTab } from './terminalLayoutNavigation'
+import { getDockTerminalTabId, getMenuForDockBackedUserTab } from './terminalLayoutNavigation'
 import { v4 as uuidv4 } from 'uuid'
 import { userInfoStore } from '@/store'
 import { aliasConfigStore } from '@/store/aliasConfigStore'
@@ -2590,6 +2593,8 @@ const hasPanels = computed(() => panelCount.value > 0)
 let dockApi: DockviewApi | null = null
 const dockApiInstance = ref<DockviewApi | null>(null)
 const isPreviewActionsVisible = ref(false)
+
+const getActiveDockTerminalTabId = (): string | null => getDockTerminalTabId(dockApi?.activePanel)
 
 const computePreviewActionsVisible = (): boolean => {
   const panel = dockApi?.activePanel

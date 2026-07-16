@@ -11,7 +11,7 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { ref } from 'vue'
-import { getMenuForDockBackedUserTab, isDockBackedUserTab } from '../terminalLayoutNavigation'
+import { getDockTerminalTabId, getMenuForDockBackedUserTab, isDockBackedUserTab } from '../terminalLayoutNavigation'
 
 // Mocks (required by AI Sidebar tests)
 vi.mock('@/services/userConfigStoreService', () => ({
@@ -57,6 +57,36 @@ type MockDockApi = {
     api: { close: () => void }
   } | null
 }
+
+describe('Dockview terminal targeting', () => {
+  it.each(['term', 'ssh'])('returns the active %s panel tab id', (type) => {
+    expect(getDockTerminalTabId({ params: { id: 'tab-1', type } })).toBe('tab-1')
+  })
+
+  it.each(['k8s', 'userConfig'])('ignores an active non-SSH %s panel', (type) => {
+    expect(getDockTerminalTabId({ params: { id: 'other-1', type, content: type } })).toBeNull()
+  })
+
+  it('lets snippets resolve Dockview activePanel at click time without caching active state', () => {
+    const layoutSource = readFileSync(join(process.cwd(), 'src/renderer/src/views/layouts/TerminalLayout.vue'), 'utf8')
+    const snippetsSource = readFileSync(join(process.cwd(), 'src/renderer/src/views/components/LeftTab/config/snippets.vue'), 'utf8')
+
+    expect(layoutSource).toContain(':get-active-dock-terminal-tab-id="getActiveDockTerminalTabId"')
+    expect(layoutSource).toContain('getDockTerminalTabId(dockApi?.activePanel)')
+    expect(layoutSource).not.toContain('activeDockTerminalTabId = ref')
+    expect(snippetsSource).toContain('props.getActiveDockTerminalTabId()')
+    expect(snippetsSource).toContain("eventBus.emit('autoExecuteCode', { command: data, tabId: dockTabId })")
+  })
+
+  it('uses the same Dockview tab id to bind and refocus macro recording', () => {
+    const snippetsSource = readFileSync(join(process.cwd(), 'src/renderer/src/views/components/LeftTab/config/snippets.vue'), 'utf8')
+    const sshSource = readFileSync(join(process.cwd(), 'src/renderer/src/views/components/Ssh/sshConnect.vue'), 'utf8')
+
+    expect(snippetsSource).toContain('macroRecorder.startRecording(dockTabId, selectedGroupUuid.value)')
+    expect(snippetsSource).toContain("eventBus.emit('focusActiveTerminal', dockTabId)")
+    expect(sshSource).toContain('macroRecorder.terminalId === props.currentConnectionId')
+  })
+})
 
 const createHandleCloseTabKeyDown = (dockApi: MockDockApi | null, isFocusInAiTabFn: (event?: KeyboardEvent) => boolean) => {
   return (event: KeyboardEvent) => {

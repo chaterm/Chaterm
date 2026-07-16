@@ -480,6 +480,9 @@ import { message } from 'ant-design-vue'
 
 const { t } = useI18n()
 const logger = createRendererLogger('config.snippets')
+const props = defineProps<{
+  getActiveDockTerminalTabId: () => string | null
+}>()
 
 // Macro recording state
 const macroRecorder = useMacroRecorderStore()
@@ -826,13 +829,20 @@ const handleRemoveGroupFromMenu = async () => {
   }
 }
 
-const runScript = (cmd: QuickCommand, autoExecute: boolean) => {
-  const terminal = {
-    write: (data: string) => {
-      inputManager.sendToActiveTerm(data)
-    }
+const runScript = async (cmd: QuickCommand, autoExecute: boolean) => {
+  const dockTabId = props.getActiveDockTerminalTabId()
+  if (!dockTabId) {
+    message.warning(t('macro.noActiveTerminal'))
+    return
   }
-  executeScript(cmd.snippet_content, terminal, autoExecute)
+
+  await executeScript(
+    cmd.snippet_content,
+    {
+      write: (data: string) => eventBus.emit('autoExecuteCode', { command: data, tabId: dockTabId })
+    },
+    autoExecute
+  )
 }
 
 const runScriptInAllTabs = (cmd: QuickCommand, autoExecute: boolean) => {
@@ -1000,19 +1010,19 @@ const handleDrop = async (e: DragEvent, targetIndex: number) => {
 
 // Macro recording functions
 const startMacroRecording = () => {
-  const activeTerm = inputManager.getActiveTerm()
-  if (!activeTerm.id) {
+  const dockTabId = props.getActiveDockTerminalTabId()
+  if (!dockTabId) {
     message.warning(t('macro.noActiveTerminal'))
     return
   }
 
-  const success = macroRecorder.startRecording(activeTerm.id, selectedGroupUuid.value)
+  const success = macroRecorder.startRecording(dockTabId, selectedGroupUuid.value)
   if (success) {
     message.success(t('macro.recordingStarted'))
   }
   // Refocus terminal after clicking the macro button
   nextTick(() => {
-    eventBus.emit('focusActiveTerminal')
+    eventBus.emit('focusActiveTerminal', dockTabId)
   })
 }
 
@@ -1022,6 +1032,7 @@ const stopMacroRecording = async () => {
     return
   }
 
+  const dockTabId = macroRecorder.terminalId
   const result = macroRecorder.stopRecording()
   if (result && result.content) {
     // Save directly without dialog
@@ -1040,7 +1051,9 @@ const stopMacroRecording = async () => {
   }
   // Refocus terminal after clicking the stop button
   nextTick(() => {
-    eventBus.emit('focusActiveTerminal')
+    if (dockTabId) {
+      eventBus.emit('focusActiveTerminal', dockTabId)
+    }
   })
 }
 
