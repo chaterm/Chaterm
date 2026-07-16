@@ -87,4 +87,25 @@ describe('buildProxyUrl property tests', () => {
     expect(parsed.username).toBe('')
     expect(parsed.password).toBe('')
   })
+
+  // Scheme must match the proxy type so the correct agent protocol is selected
+  test.prop({
+    host: fc.oneof(fc.domain(), fc.ipV4()),
+    port: fc.integer({ min: 1, max: 65535 })
+  })('derives URL scheme from proxy type', ({ host, port }) => {
+    const cases: Record<string, string> = {
+      HTTP: 'http:',
+      HTTPS: 'https:',
+      SOCKS4: 'socks4:',
+      SOCKS5: 'socks5:'
+    }
+
+    for (const [type, expectedProtocol] of Object.entries(cases)) {
+      const url = buildProxyUrl({ type, host, port })
+      const parsed = new URL(url)
+      expect(parsed.protocol).toBe(expectedProtocol)
+      expect(parsed.hostname).toBe(host)
+      expect(Number(parsed.port)).toBe(port)
+    }
+  })
 })
