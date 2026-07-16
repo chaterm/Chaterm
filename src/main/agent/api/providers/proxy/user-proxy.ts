@@ -14,7 +14,8 @@ import { ProxyConfig } from '@shared/Proxy'
 export function buildProxyUrl(config: ProxyConfig): string {
   const { host, port, enableProxyIdentity, username, password } = config
   const auth = enableProxyIdentity && username && password ? `${encodeURIComponent(username)}:${encodeURIComponent(password)}@` : ''
-  return `http://${auth}${host}:${port}`
+  const scheme = config.type === 'HTTPS' ? 'https' : 'http'
+  return `${scheme}://${auth}${host}:${port}`
 }
 
 /**
