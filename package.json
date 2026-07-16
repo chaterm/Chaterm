@@ -169,7 +169,7 @@
     "lint-staged": "^17.0.8",
     "marked": "^18.0.6",
     "prettier": "^3.9.5",
-    "typescript": "^5.8.3",
+    "typescript": "^7.0.2",
     "unplugin-auto-import": "^21.0.0",
     "unplugin-vue-components": "^32.1.0",
     "uuid": "^14.0.0",
