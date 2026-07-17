@@ -9,12 +9,29 @@ import type { Agent } from 'http'
 import { ProxyConfig } from '@shared/Proxy'
 
 /**
+ * Map proxy type to its URL scheme
+ */
+function proxyScheme(type?: string): string {
+  switch (type) {
+    case 'HTTPS':
+      return 'https'
+    case 'SOCKS4':
+      return 'socks4'
+    case 'SOCKS5':
+      return 'socks5'
+    case 'HTTP':
+    default:
+      return 'http'
+  }
+}
+
+/**
  * Build proxy URL from configuration
  */
 export function buildProxyUrl(config: ProxyConfig): string {
   const { host, port, enableProxyIdentity, username, password } = config
   const auth = enableProxyIdentity && username && password ? `${encodeURIComponent(username)}:${encodeURIComponent(password)}@` : ''
-  const scheme = config.type === 'HTTPS' ? 'https' : 'http'
+  const scheme = proxyScheme(config.type)
   return `${scheme}://${auth}${host}:${port}`
 }
 
