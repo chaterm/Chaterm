@@ -2,6 +2,22 @@
   "releaseNotesUrl": "https://github.com/chaterm/Chaterm/releases/tag/v",
   "versions": [
     {
+      "version": "0.12.2",
+      "date": "2026-07-23",
+      "highlights": {
+        "zh-CN": [
+          "连接体验优化：支持取消连接，并增强 MFA 与堡垒机复用处理",
+          "终端交互增强：分屏/克隆标签页支持保留来源标记，优化宏录制体验",
+          "稳定性修复：修复代理 URL 与 SOCKS4/SOCKS5 协议处理问题"
+        ],
+        "en-US": [
+          "Connection experience improved: added connection cancellation support and enhanced MFA and bastion reuse handling",
+          "Terminal interaction enhancements: split and cloned tabs now preserve source tags, with improved macro recording",
+          "Stability fixes: resolved proxy URL and SOCKS4/SOCKS5 handling issues"
+        ]
+      }
+    },
+    {
       "version": "0.12.1",
       "date": "2026-07-03",
       "highlights": {
