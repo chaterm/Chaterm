@@ -6,6 +6,7 @@ import { mark, reportMarksToMainAsync } from '@/utils/perf'
 
 const logger = createRendererLogger('router')
 let aiModelWarmupScheduled = false
+let lastClientActiveReportKey: string | null = null
 
 // 独立 axios 实例，仅用于启动时 token 验证，不挂任何全局 401 跳转拦截器
 const authCheckRequest = axios.create({ baseURL: config.api, timeout: 5000 })
@@ -55,6 +56,14 @@ async function verifyTokenWithServer(): Promise<'ok' | 'unauthorized' | 'network
     if (error?.response?.status === 401) return 'unauthorized'
     return 'network_error'
   }
+}
+
+function buildClientActiveReportKey(uid: number | string): string {
+  const date = new Date()
+  const year = date.getFullYear()
+  const month = `${date.getMonth() + 1}`.padStart(2, '0')
+  const day = `${date.getDate()}`.padStart(2, '0')
+  return `${String(uid)}:${year}-${month}-${day}`
 }
 
 export const beforeEach = async (to, _from, next) => {
@@ -151,6 +160,19 @@ export const beforeEach = async (to, _from, next) => {
           mark('chaterm/renderer/didScheduleDataSync')
           if (tokenStatus === 'ok') {
             scheduleAiModelWarmup()
+            const reportKey = buildClientActiveReportKey(userInfo.uid)
+            if (lastClientActiveReportKey !== reportKey) {
+              lastClientActiveReportKey = reportKey
+              api
+                .captureUsageStatsEvent({
+                  eventType: 'client_active',
+                  eventAt: new Date().toISOString()
+                })
+                .catch((error) => {
+                  lastClientActiveReportKey = null
+                  logger.warn('Failed to capture client active usage stats event', { error })
+                })
+            }
           }
           finish()
         } else {

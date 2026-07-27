@@ -116,6 +116,7 @@ import { connectAssetInfo } from '../../../storage/database'
 import { findWakeupConnectionInfoByHost } from '../../../ssh/agentHandle'
 import { getMessages, formatMessage, Messages } from './messages'
 import { decodeHtmlEntities } from '@utils/decodeHtmlEntities'
+import { classifyAgentCommand, enterpriseUsageStatsService } from '../../../services/enterpriseUsageStatsService'
 import { McpHub } from '@services/mcp/McpHub'
 import { SkillsManager } from '@services/skills'
 import { ChatermDatabaseService } from '../../../storage/db/chaterm.service'
@@ -656,9 +657,62 @@ export class Task {
     if (task) {
       // New task started
       telemetryService.captureTaskCreated(this.taskId, apiConfiguration.apiProvider)
+      this.captureAgentSessionStarted()
     } else {
       // Open task from history
       telemetryService.captureTaskRestarted(this.taskId, apiConfiguration.apiProvider)
+    }
+  }
+
+  private captureAgentSessionStarted(): void {
+    void (async () => {
+      const chatSettings = await getGlobalState('chatSettings')
+      if (chatSettings?.mode !== 'agent' && chatSettings?.mode !== 'cmd') {
+        return
+      }
+      await enterpriseUsageStatsService.captureEvent({
+        eventType: 'agent_session_started',
+        eventAt: new Date().toISOString()
+      })
+    })().catch((error) => {
+      logger.warn('Failed to capture agent session usage stats event', { error })
+    })
+  }
+
+  private captureExecuteCommandUsage(command: string): void {
+    const normalizedCommand = command.trim()
+    if (!normalizedCommand) {
+      return
+    }
+
+    void enterpriseUsageStatsService.captureEvent({
+      eventType: 'agent_command_executed',
+      eventAt: new Date().toISOString(),
+      commandCategory: classifyAgentCommand(normalizedCommand)
+    })
+  }
+
+  private captureAgentTargetConnected(): void {
+    void enterpriseUsageStatsService.captureEvent({
+      eventType: 'agent_ssh_connected',
+      eventAt: new Date().toISOString()
+    })
+  }
+
+  private captureTargetConnectionUsageIfNeeded(targetHosts?: string): void {
+    const hosts = (targetHosts || '')
+      .split(',')
+      .map((host) => host.trim())
+      .filter((host) => host.length > 0)
+
+    for (const host of hosts) {
+      const isLocal = this.isLocalHost(host)
+      const key = isLocal ? 'local:localhost' : `remote:${host}`
+      if (this.connectedHosts.has(key)) {
+        continue
+      }
+      this.connectedHosts.add(key)
+      this.captureAgentTargetConnected()
     }
   }
 
@@ -1079,6 +1133,13 @@ export class Task {
    */
   private async executeCommandInLocalHost(command: string, cwd?: string): Promise<string> {
     try {
+      const chatSettings = await getGlobalState('chatSettings')
+      const localConnectionId = 'local:localhost'
+      if ((chatSettings?.mode === 'agent' || chatSettings?.mode === 'cmd') && !this.connectedHosts.has(localConnectionId)) {
+        this.captureAgentTargetConnected()
+        this.connectedHosts.add(localConnectionId)
+      }
+
       const result = await this.localTerminalManager.executeCommand(command, cwd)
       if (result.success) {
         return result.output || ''
@@ -1293,6 +1354,10 @@ export class Task {
               partial: false
             }
           })
+        }
+
+        if (chatSettings?.mode === 'agent' || chatSettings?.mode === 'cmd') {
+          this.captureAgentTargetConnected()
         }
 
         // Mark this host as connected
@@ -3063,7 +3128,7 @@ export class Task {
           }
 
           // Unified user confirmation (including security confirmation and command execution confirmation)
-          const didApprove = await this.askApproval(toolDescription, 'command', command)
+          const didApprove = await this.askApproval(toolDescription, 'command', command, { command, targetHosts: ip, toolName: 'execute_command' })
           if (!didApprove) {
             if (needsSecurityApproval) {
               await this.say('error', formatMessage(this.messages.userRejectedCommand, { command }), false)
@@ -3109,7 +3174,7 @@ export class Task {
             didAutoApprove = true
           } else {
             this.showNotificationIfNeeded(`Chaterm wants to execute a command: ${command}`)
-            const didApprove = await this.askApproval(toolDescription, 'command', command)
+            const didApprove = await this.askApproval(toolDescription, 'command', command, { command, targetHosts: ip, toolName: 'execute_command' })
             logger.debug(`[Command Execution] User approval result: ${didApprove}`)
             if (!didApprove) {
               await this.saveCheckpoint()
@@ -3142,6 +3207,10 @@ export class Task {
         }
         if (timeoutId) {
           clearTimeout(timeoutId)
+        }
+
+        if (chatSettings?.mode === 'agent') {
+          this.captureExecuteCommandUsage(command!)
         }
 
         // Record tool call to active todo
@@ -3394,7 +3463,12 @@ export class Task {
     }
   }
 
-  private async askApproval(toolDescription: string, type: ChatermAsk, partialMessage?: string): Promise<boolean> {
+  private async askApproval(
+    toolDescription: string,
+    type: ChatermAsk,
+    partialMessage?: string,
+    usageMeta?: { command?: string; targetHosts?: string; toolName?: string }
+  ): Promise<boolean> {
     const { response, text, contentParts, toolResult } = await this.ask(type, partialMessage, false)
     const approved = response === 'yesButtonClicked' || response === 'autoApproveReadOnlyClicked'
 
@@ -3418,6 +3492,10 @@ export class Task {
         hosts: this.hosts,
         isError: toolResult.isError
       })
+      if ((usageMeta?.toolName ?? toolResult.toolName) === 'execute_command' && usageMeta?.command) {
+        this.captureTargetConnectionUsageIfNeeded(usageMeta.targetHosts)
+        this.captureExecuteCommandUsage(usageMeta.command)
+      }
       await this.saveUserMessage(toolResult.output, undefined, 'command_output')
       await this.saveCheckpoint()
     } else if (text) {
@@ -3571,7 +3649,7 @@ export class Task {
           await this.saveCheckpoint(true)
         }
 
-        const didApprove = await this.askApproval(toolDescription, 'command', command)
+        const didApprove = await this.askApproval(toolDescription, 'command', command, { command, targetHosts: ip, toolName: 'execute_command' })
         if (!didApprove) {
           await this.saveCheckpoint()
           return
@@ -4777,6 +4855,7 @@ export class Task {
               // If it's local host, directly get system information
               if (this.isLocalHost(host.host)) {
                 const localSystemInfo = await this.localTerminalManager.getSystemInfo()
+                this.captureTargetConnectionUsageIfNeeded(host.host)
                 systemInfoOutput = `OS_VERSION:${localSystemInfo.osVersion}
 DEFAULT_SHELL:${localSystemInfo.defaultShell}
 HOME_DIR:${localSystemInfo.homeDir}

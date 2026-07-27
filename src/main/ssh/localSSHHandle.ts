@@ -5,6 +5,7 @@ import * as path from 'path'
 import * as fs from 'fs'
 import { getUserConfig } from '../agent/core/storage/state'
 import { createTerminalOutputBuffer, type TerminalOutputBuffer } from '../services/terminalOutputBuffer'
+import { enterpriseUsageStatsService } from '../services/enterpriseUsageStatsService'
 const localLogger = createLogger('terminal')
 
 // Import language translations
@@ -389,6 +390,10 @@ export const registerLocalSSHHandlers = () => {
   ipcMain.handle('local:connect', async (_event, config: LocalTerminalConfig) => {
     try {
       await createTerminal(config)
+      void enterpriseUsageStatsService.captureEvent({
+        eventType: 'desktop_ssh_connected',
+        eventAt: new Date().toISOString()
+      })
       return { success: true, message: 'Local terminal connected successfully' }
     } catch (error: unknown) {
       localLogger.error('Local terminal connection failed', {
