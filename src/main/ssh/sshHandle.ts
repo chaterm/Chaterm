@@ -56,6 +56,7 @@ import { getAlgorithmsByAssetType } from './algorithms'
 import { connectBastionByType, shellBastionSession, resizeBastionSession, writeBastionSession, disconnectBastionSession } from './bastionPlugin'
 import { shouldSkipPostConnectProbe } from './postConnectProbePolicy'
 import { sftpConnectionInfoMap } from './sftpTransfer'
+import { enterpriseUsageStatsService } from '../services/enterpriseUsageStatsService'
 
 // Maximum buffer size before forcing an immediate flush (prevents unbounded growth during bulk output)
 const MAX_BUFFER_SIZE = 64 * 1024 // 64KB
@@ -1538,6 +1539,14 @@ export const cleanSftpConnection = (id) => {
   }
 }
 
+const captureDesktopSshConnected = (result: unknown): void => {
+  if ((result as { status?: string } | null)?.status !== 'connected') return
+  void enterpriseUsageStatsService.captureEvent({
+    eventType: 'desktop_ssh_connected',
+    eventAt: new Date().toISOString()
+  })
+}
+
 export const registerSSHHandlers = () => {
   // Handle connection
   ipcMain.handle('ssh:connect', async (_event, connectionInfo) => {
@@ -1560,6 +1569,7 @@ export const registerSSHHandlers = () => {
       // Route to JumpServer connection
       try {
         const result = await handleJumpServerConnection(connectionInfo, _event)
+        captureDesktopSshConnected(result)
         return result
       } catch (error: unknown) {
         logger.error('JumpServer connection request failed', {
@@ -1573,14 +1583,17 @@ export const registerSSHHandlers = () => {
 
     const bastionResult = await connectBastionByType(sshType, connectionInfo, _event)
     if (bastionResult !== null) {
+      captureDesktopSshConnected(bastionResult)
       return bastionResult
     }
 
     // Default to SSH connection when sshType is missing or explicitly 'ssh'
     const retryCount = 0
-    return new Promise((resolve, reject) => {
+    const result = await new Promise((resolve, reject) => {
       handleAttemptConnection(_event, connectionInfo, resolve, reject, retryCount)
     })
+    captureDesktopSshConnected(result)
+    return result
   })
 
   ipcMain.handle('ssh:tunnel:start', async (_event, payload: SshTunnelStartPayload) => {

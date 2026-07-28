@@ -57,6 +57,7 @@ import { telemetryService, checkIsFirstLaunch, getMacAddress } from './agent/ser
 import { envelopeEncryptionService } from './storage/data_sync/envelope_encryption/service'
 import { versionPromptService } from './version/versionPromptService'
 import { authFailureNotifier } from './services/authFailureNotifier'
+import { enterpriseUsageStatsService } from './services/enterpriseUsageStatsService'
 
 import * as fsSync from 'fs'
 import { createHash, createVerify, randomUUID } from 'crypto'
@@ -3142,6 +3143,10 @@ ipcMain.handle('capture-telemetry-event', async (_, { eventType, data }) => {
     logger.error('Failed to capture telemetry event', { error: error })
     return { success: false, error: error instanceof Error ? error.message : 'Unknown error' }
   }
+})
+
+ipcMain.handle('usage-stats:capture', async (_, payload) => {
+  return await enterpriseUsageStatsService.captureEvent(payload)
 })
 
 // Plugins

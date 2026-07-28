@@ -1322,6 +1322,13 @@ const api = {
       return Promise.reject(error)
     }
   },
+  captureUsageStatsEvent: async (payload: { eventType: 'client_active' | 'desktop_ssh_connected'; eventAt?: string }) => {
+    try {
+      return await ipcRenderer.invoke('usage-stats:capture', payload)
+    } catch (error) {
+      return Promise.reject(error)
+    }
+  },
   checkUpdate: () => ipcRenderer.invoke('update:checkUpdate'),
   download: () => ipcRenderer.invoke('update:download'),
   showOpenDialog: (options) => ipcRenderer.invoke('dialog:openFile', options),

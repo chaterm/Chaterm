@@ -500,6 +500,10 @@ interface ApiType {
   getAssetsInFolder: (data: { folderUuid: string }) => Promise<any>
   refreshOrganizationAssets: (data: { organizationUuid: string; jumpServerConfig: any }) => Promise<any>
   updateTheme: (params: any) => Promise<boolean>
+  captureUsageStatsEvent: (payload: {
+    eventType: 'client_active' | 'desktop_ssh_connected'
+    eventAt?: string
+  }) => Promise<{ success: boolean; skipped?: string; error?: string }>
   mainWindowShow: () => Promise<void>
   getVersionPrompt: () => Promise<{
     shouldShow: boolean
