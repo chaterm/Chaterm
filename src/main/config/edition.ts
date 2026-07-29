@@ -74,6 +74,18 @@ export function isGlobalEdition(): boolean {
   return getEdition() === 'global'
 }
 
+export function getDeployStatus(): number {
+  const raw = process.env.CHATERM_DEPLOY_STATUS
+  if (typeof raw === 'number' && Number.isFinite(raw)) return raw
+  if (typeof raw !== 'string') return 0
+  const parsed = Number.parseInt(raw.trim(), 10)
+  return Number.isFinite(parsed) ? parsed : 0
+}
+
+export function isEnterpriseDeployEnabled(): boolean {
+  return getDeployStatus() !== 0
+}
+
 /**
  * Initialize the userData path based on edition.
  * This function MUST be called at the very beginning of the app startup,

@@ -179,7 +179,7 @@ import { dataSyncService } from '@/services/dataSyncService'
 import { chatSyncService } from '@/services/chatSyncService'
 import { shortcutService } from '@/services/shortcutService'
 import { useI18n } from 'vue-i18n'
-import { getPrivacyPolicyUrl } from '@/utils/edition'
+import { getDeployStatus, getPrivacyPolicyUrl } from '@/utils/edition'
 import { getUserInfo, removeToken } from '@/utils/permission'
 import eventBus from '@/utils/eventBus'
 import type { TelemetrySetting } from '@shared/TelemetrySetting'
@@ -232,15 +232,7 @@ const telemetryPolicyEnabled = parsePolicyEnabled(import.meta.env.RENDERER_TELEM
 const dataSyncPolicyEnabled = parsePolicyEnabled(import.meta.env.RENDERER_DATA_SYNC_ENABLED)
 const telemetryPolicyHidden = computed(() => telemetryPolicyEnabled === false)
 const dataSyncPolicyHidden = computed(() => dataSyncPolicyEnabled === false)
-const parseDeployStatus = (raw: unknown): number => {
-  if (typeof raw !== 'string') return 0
-  const normalized = raw.trim()
-  if (!normalized) return 0
-  const parsed = Number(normalized)
-  if (!Number.isFinite(parsed)) return 0
-  return parsed
-}
-const deployStatus = computed(() => parseDeployStatus(import.meta.env.RENDERER_DEPLOY_STATUS))
+const deployStatus = computed(() => getDeployStatus())
 
 const secretPatterns = computed(() => [
   {

@@ -1,9 +1,11 @@
 import { ipcMain } from 'electron'
 // import { ipcMain, autoUpdater as nativeUpdater } from 'electron'
 import { autoUpdater } from 'electron-updater'
+import { isEnterpriseDeployEnabled } from './config/edition'
 const logger = createLogger('updater')
 
 export const registerUpdater = (targetWindow, setForceQuit: (value: boolean) => void) => {
+  const enterpriseUpdateDisabled = isEnterpriseDeployEnabled()
   // Status
   const status = {
     error: -1,
@@ -20,6 +22,11 @@ export const registerUpdater = (targetWindow, setForceQuit: (value: boolean) => 
    * Check for updates (connect to GitHub Releases)
    */
   ipcMain.handle('update:checkUpdate', async () => {
+    if (enterpriseUpdateDisabled) {
+      logger.info('Update check skipped for enterprise deployment')
+      return null
+    }
+
     try {
       const result = await autoUpdater.checkForUpdates()
       logger.info('Update check result', { version: result?.updateInfo?.version })
@@ -34,6 +41,11 @@ export const registerUpdater = (targetWindow, setForceQuit: (value: boolean) => 
    * Download update
    */
   ipcMain.handle('update:download', async () => {
+    if (enterpriseUpdateDisabled) {
+      logger.info('Update download skipped for enterprise deployment')
+      return null
+    }
+
     try {
       const result = await autoUpdater.downloadUpdate()
       logger.info('Download started')
@@ -45,6 +57,11 @@ export const registerUpdater = (targetWindow, setForceQuit: (value: boolean) => 
   })
 
   ipcMain.handle('update:quitAndInstall', async () => {
+    if (enterpriseUpdateDisabled) {
+      logger.info('Update install skipped for enterprise deployment')
+      return false
+    }
+
     if (process.platform === 'darwin') {
       setForceQuit(true)
 
