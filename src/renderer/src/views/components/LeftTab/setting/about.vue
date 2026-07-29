@@ -22,7 +22,10 @@
       <div v-else>
         <div class="about-title">{{ brandingConfig.displayName }}</div>
         <div class="about-description">{{ t('about.version') }} {{ appInfo.version }}</div>
-        <div class="about-update-btn-wrapper">
+        <div
+          v-if="!enterpriseUpdateDisabled"
+          class="about-update-btn-wrapper"
+        >
           <button
             class="about-update-btn"
             :disabled="btnDisabled"
@@ -74,6 +77,7 @@ import { Notice } from '../../Notice'
 import { FolderOpenOutlined, CommentOutlined, ExportOutlined } from '@ant-design/icons-vue'
 import i18n from '@/locales'
 import { getDefaultBrandingConfig, loadBrandingConfig } from '@/utils/branding'
+import { isEnterpriseDeployEnabled } from '@/utils/edition'
 
 const { t } = i18n.global
 const logger = createRendererLogger('settings.about')
@@ -105,12 +109,15 @@ const progress = ref(0)
 const btnText = ref(t('about.checkUpdate'))
 const btnDisabled = ref(false)
 const updateStatus = ref(0)
+const enterpriseUpdateDisabled = isEnterpriseDeployEnabled()
 
 onMounted(async () => {
   brandingConfig.value = await loadBrandingConfig()
 })
 
 const onCheckUpdate = async () => {
+  if (enterpriseUpdateDisabled) return
+
   btnDisabled.value = true
   try {
     const info = await handleCheckUpdate()
@@ -134,6 +141,8 @@ const onCheckUpdate = async () => {
 }
 
 const handleCheckUpdate = async () => {
+  if (enterpriseUpdateDisabled) return null
+
   if (updateStatus.value === 0 || updateStatus.value === 2) {
     btnText.value = t('about.checking')
     try {
@@ -185,6 +194,8 @@ const handleCheckUpdate = async () => {
               {
                 text: t('update.install'),
                 action: () => {
+                  if (enterpriseUpdateDisabled) return
+
                   api.quitAndInstall()
                   Notice.close('update-download-complete')
                 }
