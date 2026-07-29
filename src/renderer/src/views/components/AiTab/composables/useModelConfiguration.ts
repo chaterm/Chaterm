@@ -9,6 +9,7 @@ import { getUser } from '@api/user/user'
 import { focusChatInput } from './useTabManagement'
 import { useSessionState } from './useSessionState'
 import eventBus from '@/utils/eventBus'
+import { isEnterpriseDeployEnabled as isEnterpriseDeployEnabledFromEdition } from '@/utils/edition'
 
 interface ModelSelectOption {
   label: string
@@ -88,17 +89,8 @@ const ENTERPRISE_RUNTIME_SECRET_KEYS: SecretKey[] = [
 let enterpriseSyncTimer: ReturnType<typeof setInterval> | null = null
 let enterpriseSyncInFlight = false
 
-function parseDeployStatus(raw: unknown): number {
-  if (typeof raw !== 'string') return 0
-  const normalized = raw.trim()
-  if (!normalized) return 0
-  const parsed = Number(normalized)
-  if (!Number.isFinite(parsed)) return 0
-  return parsed
-}
-
 export function isEnterpriseDeployEnabled(): boolean {
-  return parseDeployStatus(import.meta.env.RENDERER_DEPLOY_STATUS) !== 0
+  return isEnterpriseDeployEnabledFromEdition()
 }
 
 function normalizeProvider(rawProvider: unknown): string {

@@ -67,6 +67,18 @@ export const isChineseEdition = (): boolean => APP_EDITION === 'cn'
  */
 export const isGlobalEdition = (): boolean => APP_EDITION === 'global'
 
+export const getDeployStatus = (): number => {
+  const raw = import.meta.env.RENDERER_DEPLOY_STATUS
+  if (typeof raw !== 'string') return 0
+  const normalized = raw.trim()
+  if (!normalized) return 0
+  const parsed = Number(normalized)
+  if (!Number.isFinite(parsed)) return 0
+  return parsed
+}
+
+export const isEnterpriseDeployEnabled = (): boolean => getDeployStatus() !== 0
+
 /**
  * Get default language based on edition
  */
