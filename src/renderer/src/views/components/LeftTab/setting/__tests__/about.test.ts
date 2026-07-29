@@ -90,8 +90,20 @@ const mockEditionConfig: {
 }
 
 vi.mock('@/utils/edition', () => {
+  const getDeployStatus = () => {
+    const raw = import.meta.env.RENDERER_DEPLOY_STATUS
+    if (typeof raw !== 'string') return 0
+    const normalized = raw.trim()
+    if (!normalized) return 0
+    const parsed = Number(normalized)
+    if (!Number.isFinite(parsed)) return 0
+    return parsed
+  }
+
   return {
-    getEditionConfig: () => mockEditionConfig
+    getEditionConfig: () => mockEditionConfig,
+    getDeployStatus,
+    isEnterpriseDeployEnabled: () => getDeployStatus() !== 0
   }
 })
 
@@ -177,6 +189,7 @@ describe('About Component', () => {
   afterEach(() => {
     wrapper?.unmount()
     vi.clearAllMocks()
+    vi.unstubAllEnvs()
     vi.restoreAllMocks()
   })
 
@@ -242,6 +255,16 @@ describe('About Component', () => {
       // Vue test utils may return empty string instead of undefined for disabled attribute
       const disabledAttr = button.attributes('disabled')
       expect(disabledAttr === undefined || disabledAttr === '').toBe(true)
+    })
+
+    it('should hide update button in enterprise deployment', async () => {
+      vi.stubEnv('RENDERER_DEPLOY_STATUS', '1')
+
+      wrapper = createWrapper()
+      await nextTick()
+
+      expect(wrapper.find('.about-update-btn-wrapper').exists()).toBe(false)
+      expect(wrapper.find('.about-update-btn').exists()).toBe(false)
     })
   })
 

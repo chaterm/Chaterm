@@ -324,7 +324,7 @@ import uploadIcon from '@/assets/icons/upload.svg'
 import imageIcon from '@/assets/icons/image.svg'
 import sendIcon from '@/assets/icons/send.svg'
 import stopIcon from '@/assets/icons/stop.svg'
-import { getAccountCenterUrl } from '@/utils/edition'
+import { getAccountCenterUrl, getDeployStatus } from '@/utils/edition'
 import { captureButtonClick } from '@/utils/telemetry'
 
 interface Props {
@@ -366,15 +366,7 @@ const isDatabaseWorkspace = computed(() => props.workspace === 'database')
 
 const { t } = useI18n()
 
-const parseDeployStatus = (raw: unknown): number => {
-  if (typeof raw !== 'string') return 0
-  const normalized = raw.trim()
-  if (!normalized) return 0
-  const parsed = Number(normalized)
-  if (!Number.isFinite(parsed)) return 0
-  return parsed
-}
-const deployStatus = parseDeployStatus(import.meta.env.RENDERER_DEPLOY_STATUS)
+const deployStatus = getDeployStatus()
 const showVoiceInput = deployStatus === 0
 
 const {

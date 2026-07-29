@@ -20,7 +20,7 @@
     </div>
     <div class="term_tab_Info">
       <div
-        v-if="isAvailable"
+        v-if="!enterpriseUpdateDisabled && isAvailable"
         class="update-badge"
         @click="toInstall"
       >
@@ -97,6 +97,7 @@ import { useI18n } from 'vue-i18n'
 import { ArrowDownOutlined, RightOutlined, RobotOutlined, CodeOutlined } from '@ant-design/icons-vue'
 import { useDeviceStore } from '@/store/useDeviceStore'
 import { userConfigStore } from '@/services/userConfigStoreService'
+import { isEnterpriseDeployEnabled } from '@/utils/edition'
 import TitleBar from './titleBar.vue'
 
 import eventBus from '@/utils/eventBus'
@@ -116,6 +117,7 @@ const isAgentsLeftSidebarCollapsed = ref(true)
 const isAvailable = ref(false)
 const currentMode = ref<'terminal' | 'agents'>('terminal')
 const emit = defineEmits(['toggle-sidebar', 'mode-change'])
+const enterpriseUpdateDisabled = isEnterpriseDeployEnabled()
 const nextMode = computed<'terminal' | 'agents'>(() => (currentMode.value === 'terminal' ? 'agents' : 'terminal'))
 const modeToggleTooltip = computed(() => (nextMode.value === 'terminal' ? t('common.agentsMode') : t('common.terminalMode')))
 const toggleSidebarRight = (params) => {
@@ -141,6 +143,8 @@ const switchIcon = (dir, value) => {
   }
 }
 const checkVersion = async () => {
+  if (enterpriseUpdateDisabled) return
+
   try {
     const info = await api.checkUpdate()
     logger.info('Update check result', { info: String(info) })
@@ -164,6 +168,8 @@ const checkVersion = async () => {
 }
 
 const toInstall = () => {
+  if (enterpriseUpdateDisabled) return
+
   api.quitAndInstall()
 }
 
