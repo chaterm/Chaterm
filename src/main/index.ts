@@ -76,7 +76,7 @@ import {
 import { getPluginDetailsByName, getLocalizedStrings, getUserLanguage } from './plugin/pluginDetails'
 import { capabilityRegistry } from './ssh/capabilityRegistry'
 import { getActualTheme, loadUserTheme } from './themeManager'
-import { getLoginBaseUrl, getEdition, getProtocolPrefix, getProtocolName } from './config/edition'
+import { getLoginBaseUrl, getEdition, getProtocolPrefix, getProtocolName, isEnterpriseDeployEnabled } from './config/edition'
 import { getBrandingConfig } from './config/branding'
 import { TelemetrySetting } from '@shared/TelemetrySetting'
 import { registerKnowledgeBaseHandlers, initKbSearchManager, closeKbSearchManager } from './services/knowledgebase'
@@ -113,13 +113,6 @@ const parsePolicyEnabled = (raw: unknown): boolean | null => {
   if (['1', 'true', 'yes', 'on'].includes(normalized)) return true
   if (['0', 'false', 'no', 'off'].includes(normalized)) return false
   return null
-}
-
-const parseDeployStatus = (raw: unknown): number => {
-  if (typeof raw === 'number' && Number.isFinite(raw)) return raw
-  if (typeof raw !== 'string') return 0
-  const parsed = Number.parseInt(raw.trim(), 10)
-  return Number.isFinite(parsed) ? parsed : 0
 }
 
 // This runtime flag controls whether the client must require and verify signed OAuth Deep Link callbacks.
@@ -196,7 +189,7 @@ const getPreinstalledPluginPackagePath = (plugin: PreinstalledPluginConfig): str
 }
 
 const bootstrapPreinstalledPlugins = async () => {
-  if (parseDeployStatus(process.env.CHATERM_DEPLOY_STATUS) === 0) {
+  if (!isEnterpriseDeployEnabled()) {
     return
   }
 

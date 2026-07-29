@@ -153,6 +153,7 @@ describe('Header Component', () => {
 
   afterEach(() => {
     wrapper?.unmount()
+    vi.unstubAllEnvs()
   })
 
   describe('Component Mounting', () => {
@@ -201,6 +202,17 @@ describe('Header Component', () => {
       await new Promise((resolve) => setTimeout(resolve, 100))
 
       expect(mockWindowApi.checkUpdate).toHaveBeenCalled()
+    })
+
+    it('should not check for updates in enterprise deployment', async () => {
+      vi.stubEnv('RENDERER_DEPLOY_STATUS', '1')
+
+      wrapper = createWrapper()
+
+      await wrapper.vm.$nextTick()
+      await new Promise((resolve) => setTimeout(resolve, 100))
+
+      expect(mockWindowApi.checkUpdate).not.toHaveBeenCalled()
     })
 
     it('should handle errors when fetching device information', async () => {
