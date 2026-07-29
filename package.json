@@ -92,7 +92,7 @@
     "linkedom": "^0.18.13",
     "memfs": "^4.57.7",
     "mermaid": "^11.16.0",
-    "monaco-editor": "^0.53.0",
+    "monaco-editor": "^0.56.0",
     "mysql2": "^3.22.5",
     "node-pty": "^1.0.0",
     "ollama": "^0.6.3",
