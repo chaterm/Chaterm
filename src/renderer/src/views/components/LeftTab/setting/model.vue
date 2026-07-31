@@ -563,29 +563,16 @@ import i18n from '@/locales'
 import { getUser } from '@api/user/user'
 import {
   isEnterpriseDeployEnabled,
+  isServerManagedModelType,
+  normalizeModelNames,
+  normalizeProvider,
+  normalizeUserModelOptions,
   syncEnterpriseStateFromUserData,
-  useModelConfiguration
+  useModelConfiguration,
+  type ModelOption
 } from '@views/components/AiTab/composables/useModelConfiguration'
 
 const logger = createRendererLogger('settings.model')
-
-// Define interface for model options
-interface ModelOption {
-  id: string
-  name: string
-  checked: boolean
-  type: string
-  apiProvider: string
-}
-
-// Define interface for default models from API
-interface DefaultModel {
-  id: string
-  name?: string
-  provider?: string
-
-  [key: string]: unknown
-}
 
 interface EnterpriseModelConfig {
   modelName: string
@@ -694,9 +681,7 @@ const normalizeEnterpriseModelConfigs = (configs: unknown): EnterpriseModelConfi
     .map((item) => {
       const config = item as Record<string, unknown>
       const modelName = String(config?.modelName || '').trim()
-      const provider = String(config?.provider || '')
-        .trim()
-        .toLowerCase()
+      const provider = normalizeProvider(config?.provider)
       if (!modelName || !provider) {
         return null
       }
@@ -1066,9 +1051,11 @@ const sortModelOptions = () => {
     if (aIsThinking && !bIsThinking) return -1
     if (!aIsThinking && bIsThinking) return 1
 
-    // First sort by model type: standard (built-in) first, custom (user-defined) last
-    if (a.type === 'standard' && b.type === 'custom') return -1
-    if (a.type === 'custom' && b.type === 'standard') return 1
+    // First sort by ownership: server-managed models first, user-defined models last
+    const aIsServerManaged = isServerManagedModelType(a.type)
+    const bIsServerManaged = isServerManagedModelType(b.type)
+    if (aIsServerManaged && !bIsServerManaged) return -1
+    if (!aIsServerManaged && bIsServerManaged) return 1
 
     // If types are the same, sort by name alphabetically
     return a.name.localeCompare(b.name)
@@ -1085,7 +1072,7 @@ const loadCachedModelOptions = async (customOnly = false): Promise<boolean> => {
   lockedModelNames.value = new Set(Array.isArray(cachedLockedModelNames) ? cachedLockedModelNames.map((name) => String(name)) : [])
 
   modelOptions.value = savedModelOptions
-    .filter((option) => !customOnly || option.type !== 'standard')
+    .filter((option) => !customOnly || !isServerManagedModelType(option.type))
     .map((option) => ({
       id: option.id || '',
       name: option.name || '',
@@ -1121,7 +1108,7 @@ const loadModelOptions = async () => {
       return
     }
 
-    let defaultModels: DefaultModel[] = []
+    let defaultModelOptions: ModelOption[] = []
     let subscriptionModelsList: string[] = []
     let enterpriseModelConfigs: EnterpriseModelConfig[] = []
     let enterprisePluginActive = false
@@ -1131,13 +1118,13 @@ const loadModelOptions = async () => {
       enterpriseModelConfigs = normalizeEnterpriseModelConfigs(userData.enterpriseModelConfigs)
       enterprisePluginActive =
         isEnterpriseDeployEnabled() && enterpriseModelConfigs.length > 0 && Boolean(await getGlobalState('enterpriseModelPluginActive'))
-      defaultModels = enterprisePluginActive ? [] : userData.models || []
-      subscriptionModelsList = enterprisePluginActive ? [] : (userData.subscriptionModels || []).map((m: unknown) => String(m))
+      defaultModelOptions = enterprisePluginActive ? [] : normalizeUserModelOptions(userData.models)
+      subscriptionModelsList = enterprisePluginActive ? [] : normalizeModelNames(userData.subscriptionModels || [])
       await updateGlobalState('defaultBaseUrl', userData.llmGatewayAddr)
       await storeSecret('defaultApiKey', userData.key)
     })
 
-    const availableSet = new Set(defaultModels.map((m) => String(m)))
+    const availableSet = new Set(defaultModelOptions.map((model) => model.name))
     const allKnownSet = new Set([...availableSet, ...subscriptionModelsList])
     const enterpriseModelNames = new Set(enterpriseModelConfigs.map((config) => config.modelName))
     lockedModelNames.value = new Set(enterprisePluginActive ? [] : subscriptionModelsList.filter((m) => !availableSet.has(m)))
@@ -1161,7 +1148,7 @@ const loadModelOptions = async () => {
       }
 
       const filteredOptions = savedModelOptions.filter((option) => {
-        if (option.type !== 'standard') return true
+        if (!isServerManagedModelType(option.type)) return true
         if (isEnterpriseModelOption(option)) return true
         if (enterprisePluginActive) {
           return !enterpriseModelNames.has(option.name)
@@ -1169,16 +1156,16 @@ const loadModelOptions = async () => {
         return allKnownSet.has(option.name)
       })
 
-      defaultModels.forEach((defaultModel) => {
-        const name = String(defaultModel)
+      defaultModelOptions.forEach((defaultModel) => {
+        const name = defaultModel.name
         const exists = filteredOptions.some((option) => option.name === name)
         if (!exists) {
           filteredOptions.push({
-            id: name,
-            name: name,
+            id: defaultModel.id || name,
+            name,
             checked: true,
-            type: 'standard',
-            apiProvider: 'default'
+            type: defaultModel.type || 'standard',
+            apiProvider: defaultModel.apiProvider || 'default'
           })
         }
       })

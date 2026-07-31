@@ -2,7 +2,7 @@ import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
 import fs from 'fs'
 import path from 'path'
 import os from 'os'
-import type { EmbeddingProvider } from '../types'
+import type { EmbeddingProvider, KbReranker } from '../types'
 import { createMockDatabase } from './mock-database'
 
 // Mock better-sqlite3 so KbSearchManager uses our MockDatabase
@@ -119,10 +119,11 @@ describe('KbSearchManager integration', () => {
 
     await manager.fullIndex()
 
-    const results = await manager.search('SSH keys configuration', { maxResults: 5, minScore: 0 })
+    const results = await manager.search('SSH keys configuration', { maxResults: 5 })
     expect(results.length).toBeGreaterThan(0)
     // SSH doc should be more relevant
     expect(results[0].path).toBe('ssh.md')
+    expect(results[0].scoreSource).toBe('rrf')
   })
 
   it('search returns empty when no chunks indexed', async () => {
@@ -136,7 +137,7 @@ describe('KbSearchManager integration', () => {
 
     await manager.fullIndex()
 
-    const results = await manager.search('ECONNREFUSED', { maxResults: 5, minScore: 0 })
+    const results = await manager.search('ECONNREFUSED', { maxResults: 5 })
     expect(results.length).toBeGreaterThan(0)
     expect(results[0].path).toBe('error.md')
   })
@@ -183,25 +184,91 @@ describe('KbSearchManager integration', () => {
     fs.writeFileSync(filePath, 'Version 1: Original content')
     await manager.fullIndex()
 
-    const results1 = await manager.search('Original content', { minScore: 0 })
+    const results1 = await manager.search('Original content')
     expect(results1.length).toBeGreaterThan(0)
 
     fs.writeFileSync(filePath, 'Version 2: Completely different text about networking')
     manager.onFileChanged('doc.md')
     await manager.flushNow()
 
-    const results2 = await manager.search('networking', { minScore: 0 })
+    const results2 = await manager.search('networking')
     expect(results2.length).toBeGreaterThan(0)
     expect(results2[0].snippet).toContain('networking')
   })
 
-  it('minScore filters low-relevance results', async () => {
+  it('searchVectorSimilarity preserves cosine threshold behavior', async () => {
     fs.writeFileSync(path.join(kbRoot, 'a.md'), 'SSH configuration guide for beginners')
 
     await manager.fullIndex()
 
-    const allResults = await manager.search('unrelated random query xyz', { minScore: 0 })
-    const filtered = await manager.search('unrelated random query xyz', { minScore: 0.99 })
+    const allResults = await manager.searchVectorSimilarity('unrelated random query xyz', { minScore: 0 })
+    const filtered = await manager.searchVectorSimilarity('unrelated random query xyz', { minScore: 0.99 })
     expect(filtered.length).toBeLessThanOrEqual(allResults.length)
+    expect(allResults.every((result) => result.scoreSource === 'vector')).toBe(true)
+  })
+
+  it('uses rerank scores and the internal relevance threshold before returning results', async () => {
+    fs.writeFileSync(path.join(kbRoot, 'ssh.md'), 'SSH key configuration and troubleshooting')
+    fs.writeFileSync(path.join(kbRoot, 'docker.md'), 'Docker container networking guide')
+    await manager.fullIndex()
+
+    const reranker: KbReranker = {
+      type: 'dedicated',
+      async rerank(_query, candidates) {
+        return candidates.map((candidate) => ({
+          index: candidate.index,
+          score: candidate.path === 'docker.md' ? 0.91 : 0.2
+        }))
+      }
+    }
+
+    const results = await manager.search('SSH configuration', {
+      maxResults: 5,
+      reranker
+    })
+
+    expect(results).toHaveLength(1)
+    expect(results[0]).toMatchObject({ path: 'docker.md', score: 0.91, scoreSource: 'dedicated-rerank' })
+  })
+
+  it('returns a single fallback result only when a valid low rerank score reaches 0.15', async () => {
+    fs.writeFileSync(path.join(kbRoot, 'a.md'), 'Alpha knowledge')
+    fs.writeFileSync(path.join(kbRoot, 'b.md'), 'Beta knowledge')
+    await manager.fullIndex()
+
+    const lowReranker: KbReranker = {
+      type: 'llm',
+      async rerank(_query, candidates) {
+        return candidates.map((candidate) => ({ index: candidate.index, score: candidate.index === 0 ? 0.2 : 0.1 }))
+      }
+    }
+
+    const kept = await manager.search('knowledge', { reranker: lowReranker })
+    expect(kept).toHaveLength(1)
+    expect(kept[0].score).toBe(0.2)
+
+    const irrelevantReranker: KbReranker = {
+      type: 'llm',
+      async rerank(_query, candidates) {
+        return candidates.map((candidate) => ({ index: candidate.index, score: 0.1 }))
+      }
+    }
+    await expect(manager.search('knowledge', { reranker: irrelevantReranker })).resolves.toEqual([])
+  })
+
+  it('falls back to RRF only for a technical rerank failure', async () => {
+    fs.writeFileSync(path.join(kbRoot, 'a.md'), 'SSH key configuration')
+    await manager.fullIndex()
+
+    const brokenReranker: KbReranker = {
+      type: 'dedicated',
+      async rerank() {
+        throw new Error('network failure')
+      }
+    }
+
+    const results = await manager.search('SSH key', { reranker: brokenReranker })
+    expect(results.length).toBeGreaterThan(0)
+    expect(results.every((result) => result.scoreSource === 'rrf')).toBe(true)
   })
 })

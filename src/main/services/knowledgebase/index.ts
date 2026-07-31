@@ -12,6 +12,7 @@ import type { KnowledgeBaseDefaultSeed } from './default-seeds'
 import { getKbCloudUsedBytes, KB_CLOUD_TOTAL_BYTES, getKbSyncLastResults } from './sync'
 import { KbSearchManager } from './search/index'
 import type { EmbeddingConfig } from './search/types'
+import { resolveKbRerankRuntime } from './rerank'
 import { createLogger } from '../logging'
 
 const kbLogger = createLogger('kb-search')
@@ -133,17 +134,12 @@ function readKbSearchPolicyFromEnv(): boolean | null {
   return null
 }
 
-function normalizeKbSearchOptions(opts?: { maxResults?: number; minScore?: number }): { maxResults: number; minScore?: number } {
+function normalizeKbSearchOptions(opts?: { maxResults?: number }): { maxResults: number } {
   const maxResultsRaw = opts?.maxResults
   const maxResults = typeof maxResultsRaw === 'number' && Number.isFinite(maxResultsRaw) ? Math.floor(maxResultsRaw) : 5
-  const normalized: { maxResults: number; minScore?: number } = {
+  return {
     maxResults: Math.min(Math.max(maxResults, 1), 20)
   }
-  const minScoreRaw = opts?.minScore
-  if (typeof minScoreRaw === 'number' && Number.isFinite(minScoreRaw)) {
-    normalized.minScore = Math.min(Math.max(minScoreRaw, 0), 1)
-  }
-  return normalized
 }
 
 function normalizeRelPath(relPath: string): string {
@@ -881,7 +877,7 @@ export function registerKnowledgeBaseHandlers(): void {
     }
   })
 
-  ipcMain.handle('kb:search', async (_evt, query: string, opts?: { maxResults?: number; minScore?: number }) => {
+  ipcMain.handle('kb:search', async (_evt, query: string, opts?: { maxResults?: number }) => {
     const mgr = getKbSearchManager()
     if (!mgr) return []
     if (typeof query !== 'string') return []
@@ -889,7 +885,11 @@ export function registerKnowledgeBaseHandlers(): void {
     if (!normalizedQuery) return []
     if (normalizedQuery.length > KB_SEARCH_QUERY_MAX_LEN) return []
     const normalizedOpts = normalizeKbSearchOptions(opts)
-    return mgr.search(normalizedQuery, normalizedOpts)
+    const runtime = await resolveKbRerankRuntime()
+    return mgr.search(normalizedQuery, {
+      ...normalizedOpts,
+      reranker: runtime.reranker
+    })
   })
 
   ipcMain.handle('kb:search-status', async () => {

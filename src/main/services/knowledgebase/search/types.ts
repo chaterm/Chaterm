@@ -20,7 +20,15 @@ export interface KbSearchResult {
   startLine: number
   endLine: number
   score: number
+  scoreSource: 'dedicated-rerank' | 'llm-rerank' | 'rrf' | 'vector'
   snippet: string
+}
+
+export interface KbSearchCandidate extends KbSearchResult {
+  id: string
+  rrfScore: number
+  vectorRank?: number
+  keywordRank?: number
 }
 
 export interface VectorHit {
@@ -57,9 +65,32 @@ export interface EmbeddingProvider {
 
 export interface SearchOptions {
   maxResults?: number
+  reranker?: KbReranker
+}
+
+export interface VectorSearchOptions {
+  maxResults?: number
   minScore?: number
-  vectorWeight?: number
-  textWeight?: number
+}
+
+export interface KbRerankCandidate {
+  index: number
+  id: string
+  path: string
+  startLine: number
+  endLine: number
+  text: string
+  retrievalScore: number
+}
+
+export interface KbRerankScore {
+  index: number
+  score: number
+}
+
+export interface KbReranker {
+  readonly type: 'dedicated' | 'llm'
+  rerank(query: string, candidates: KbRerankCandidate[]): Promise<KbRerankScore[]>
 }
 
 export interface SearchStatus {

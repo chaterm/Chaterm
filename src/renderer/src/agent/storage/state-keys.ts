@@ -103,6 +103,7 @@ export type GlobalStateKey =
   | 'messageFeedbacks'
   | 'userRules'
   | 'kbSearchEnabled'
+  | 'kbRerankConfig'
   | 'experienceExtractionEnabled'
   | 'commandOutputFilteringEnabled'
 

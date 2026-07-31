@@ -179,7 +179,8 @@ export async function getAllExtensionState() {
     defaultBaseUrl,
     defaultModelId,
     defaultApiKey,
-    defaultModelInfoMap
+    defaultModelInfoMap,
+    kbRerankConfig
   ] = await Promise.all([
     getGlobalState('apiProvider') as Promise<ApiProvider | undefined>,
     getGlobalState('apiModelId') as Promise<string | undefined>,
@@ -268,7 +269,8 @@ export async function getAllExtensionState() {
     getGlobalState('defaultBaseUrl') as Promise<string | undefined>,
     getGlobalState('defaultModelId') as Promise<string | undefined>,
     getSecret('defaultApiKey') as Promise<string | undefined>,
-    getGlobalState('defaultModelInfoMap') as Promise<Record<string, { contextWindow?: number; maxTokens?: number }> | undefined>
+    getGlobalState('defaultModelInfoMap') as Promise<Record<string, { contextWindow?: number; maxTokens?: number }> | undefined>,
+    getGlobalState('kbRerankConfig')
   ])
 
   let apiProvider: ApiProvider
@@ -402,7 +404,8 @@ export async function getAllExtensionState() {
     mcpMarketplaceEnabled,
     telemetrySetting: telemetrySetting || 'unset',
     //planActSeparateModelsSetting,
-    shellIntegrationTimeout: shellIntegrationTimeout || 4000
+    shellIntegrationTimeout: shellIntegrationTimeout || 4000,
+    kbRerankConfig
   }
 }
 

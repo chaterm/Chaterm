@@ -73,6 +73,35 @@
         <p class="setting-description">
           {{ $t('user.kbSearchEnabledDescribe') }}
         </p>
+
+        <div
+          v-if="kbSearchEnabled"
+          class="rerank-settings"
+          data-testid="kb-rerank-settings"
+        >
+          <a-form-item
+            :label="$t('user.kbRerankModel')"
+            :label-col="{ span: 24 }"
+            :wrapper-col="{ span: 24 }"
+          >
+            <a-select
+              v-model:value="kbRerankSelection"
+              size="small"
+              :placeholder="$t('user.kbRerankModelPlaceholder')"
+              data-testid="kb-rerank-model"
+              @change="saveKbRerankConfig"
+            >
+              <a-select-option value="off">{{ $t('user.kbRerankModeOff') }}</a-select-option>
+              <a-select-option
+                v-for="model in enabledRerankModels"
+                :key="model.value"
+                :value="model.value"
+              >
+                {{ model.label }}
+              </a-select-option>
+            </a-select>
+          </a-form-item>
+        </div>
       </div>
 
       <div class="setting-item">
@@ -282,6 +311,8 @@ import { notification } from 'ant-design-vue'
 import { updateGlobalState, getGlobalState } from '@renderer/agent/storage/state'
 import { AutoApprovalSettings, DEFAULT_AUTO_APPROVAL_SETTINGS } from '@/agent/storage/shared'
 import { ChatSettings, DEFAULT_CHAT_SETTINGS, ProxyConfig } from '@/agent/storage/shared'
+import type { ApiProvider } from '@shared/api'
+import { type KbRerankConfig, type KbRerankModelSelection } from '@shared/kb-rerank'
 import i18n from '@/locales'
 import eventBus from '@/utils/eventBus'
 
@@ -301,6 +332,50 @@ const customInstructions = ref('')
 const inputError = ref('')
 const needProxy = ref(false)
 const securityConfigLoading = ref(false) // Security config button loading state
+const kbRerankSelection = ref('off')
+
+interface RerankModelOption {
+  id: string
+  name: string
+  checked: boolean
+  type?: string
+  apiProvider: string
+}
+
+const modelOptions = ref<RerankModelOption[]>([])
+const validApiProviders = new Set<ApiProvider>(['anthropic', 'bedrock', 'litellm', 'deepseek', 'default', 'openai', 'ollama'])
+
+type LegacyKbRerankConfig = {
+  version?: number
+  mode?: string
+  model?: KbRerankModelSelection
+  llm?: {
+    provider?: ApiProvider
+    modelId?: string
+  }
+}
+
+const buildRerankSelectionValue = (provider: ApiProvider, modelId: string): string => JSON.stringify({ provider, modelId })
+
+const getModelTypeLabel = (type?: string): string => (type === 'rerank' ? ` · ${t('user.kbRerankModelTypeRerank')}` : '')
+
+const enabledRerankModels = computed(() => {
+  const seen = new Set<string>()
+  return modelOptions.value
+    .filter((model) => model.checked && validApiProviders.has(model.apiProvider as ApiProvider) && model.name.trim())
+    .map((model) => {
+      const provider = model.apiProvider as ApiProvider
+      return {
+        label: `${model.name} (${provider}${getModelTypeLabel(model.type)})`,
+        value: buildRerankSelectionValue(provider, model.name)
+      }
+    })
+    .filter((model) => {
+      if (seen.has(model.value)) return false
+      seen.add(model.value)
+      return true
+    })
+})
 const defaultProxyConfig: ProxyConfig = {
   type: 'SOCKS5',
   host: '',
@@ -321,6 +396,39 @@ const parseKbSearchPolicy = (): boolean | null => {
 }
 const kbSearchPolicyEnabled = parseKbSearchPolicy()
 const kbSearchPolicyHidden = computed(() => kbSearchPolicyEnabled === false)
+
+const parseKbRerankSelection = (): KbRerankConfig['model'] | undefined => {
+  if (kbRerankSelection.value === 'off') return undefined
+  try {
+    const parsed = JSON.parse(kbRerankSelection.value) as { provider?: unknown; modelId?: unknown }
+    if (!validApiProviders.has(parsed.provider as ApiProvider) || typeof parsed.modelId !== 'string' || !parsed.modelId.trim()) {
+      return undefined
+    }
+    const provider = parsed.provider as ApiProvider
+    const modelId = parsed.modelId.trim()
+    const selectedModel = modelOptions.value.find((model) => model.checked && model.apiProvider === provider && model.name === modelId)
+    return {
+      provider,
+      modelId,
+      modelType: selectedModel?.type
+    }
+  } catch {
+    return undefined
+  }
+}
+
+const buildKbRerankConfig = (): KbRerankConfig => {
+  const model = parseKbRerankSelection()
+  return model ? { version: 2, model } : { version: 2 }
+}
+
+const resolveSavedRerankSelection = (savedConfig: LegacyKbRerankConfig | undefined): string => {
+  const savedModel =
+    savedConfig?.version === 2 ? savedConfig.model : savedConfig?.mode === 'llm' || savedConfig?.mode === 'auto' ? savedConfig.llm : undefined
+  if (!savedModel?.provider || !savedModel.modelId || !validApiProviders.has(savedModel.provider)) return 'off'
+  const value = buildRerankSelectionValue(savedModel.provider, savedModel.modelId)
+  return enabledRerankModels.value.some((model) => model.value === value) ? value : 'off'
+}
 
 // Add specific watch for autoApprovalSettings.enabled
 watch(
@@ -410,6 +518,11 @@ const loadSavedConfig = async () => {
     // Load other configurations
     thinkingBudgetTokens.value = ((await getGlobalState('thinkingBudgetTokens')) as number) ?? 2048
     customInstructions.value = ((await getGlobalState('customInstructions')) as string) || ''
+
+    const savedModelOptions = await getGlobalState('modelOptions')
+    modelOptions.value = Array.isArray(savedModelOptions) ? (savedModelOptions as RerankModelOption[]) : []
+    const savedKbRerankConfig = (await getGlobalState('kbRerankConfig')) as LegacyKbRerankConfig | undefined
+    kbRerankSelection.value = resolveSavedRerankSelection(savedKbRerankConfig)
 
     const savedKbSearchEnabled = await getGlobalState('kbSearchEnabled')
     if (kbSearchPolicyEnabled === false) {
@@ -657,6 +770,19 @@ const handleKbSearchEnabledChange = async (checked: boolean) => {
   }
 }
 
+const saveKbRerankConfig = async () => {
+  const config = buildKbRerankConfig()
+  try {
+    await updateGlobalState('kbRerankConfig', config)
+  } catch (error) {
+    logger.error('Failed to save knowledge base rerank configuration', {
+      event: 'kb.rerank.config_save_failed',
+      errorName: error instanceof Error ? error.name : 'UnknownError'
+    })
+    notification.error({ message: t('user.error'), description: t('user.kbRerankSaveFailed') })
+  }
+}
+
 const handleExperienceExtractionEnabledChange = async (checked: boolean) => {
   try {
     await updateGlobalState('experienceExtractionEnabled', checked)
@@ -747,6 +873,17 @@ const openSecurityConfig = async () => {
   margin-top: 8px;
   font-size: 12px;
   color: var(--text-color);
+}
+
+.rerank-settings {
+  margin: 12px 0 0 22px;
+  padding: 12px;
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
+
+  :deep(.ant-form-item) {
+    margin-bottom: 10px;
+  }
 }
 
 // Unified component styles

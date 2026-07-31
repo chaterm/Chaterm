@@ -23,6 +23,12 @@ const { knowledgebaseMocks } = vi.hoisted(() => ({
   }
 }))
 
+const { rerankMocks } = vi.hoisted(() => ({
+  rerankMocks: {
+    resolveKbRerankRuntime: vi.fn(async () => ({}))
+  }
+}))
+
 vi.mock('electron', () => ({
   app: { getAppPath: () => '' },
   BrowserWindow: { fromWebContents: () => null },
@@ -62,6 +68,9 @@ vi.mock('@core/storage/state', () => ({
 vi.mock('../../../../services/knowledgebase', () => ({
   getKbSearchManager: knowledgebaseMocks.getKbSearchManager,
   getKnowledgeBaseRoot: knowledgebaseMocks.getKnowledgeBaseRoot
+}))
+vi.mock('../../../../services/knowledgebase/rerank', () => ({
+  resolveKbRerankRuntime: rerankMocks.resolveKbRerankRuntime
 }))
 vi.mock('../../../services/experience', () => ({
   createExperienceManager: experienceMocks.createExperienceManager
