@@ -3,6 +3,7 @@ import fs from 'fs'
 import path from 'path'
 import os from 'os'
 import type { EmbeddingProvider, KbReranker } from '../types'
+import { chunkText } from '../chunker'
 import { createMockDatabase } from './mock-database'
 
 // Mock better-sqlite3 so KbSearchManager uses our MockDatabase
@@ -140,6 +141,25 @@ describe('KbSearchManager integration', () => {
     const results = await manager.search('ECONNREFUSED', { maxResults: 5 })
     expect(results.length).toBeGreaterThan(0)
     expect(results[0].path).toBe('error.md')
+  })
+
+  it('merges five selected adjacent chunks into one result without duplicated overlap or backfill', async () => {
+    let lineCount = 1
+    let content = ''
+    while (chunkText(content).length < 5) {
+      content = Array.from({ length: lineCount }, (_, index) => `merge line ${String(index + 1).padStart(3, '0')} unique-${index}`).join('\n')
+      lineCount++
+    }
+    const chunks = chunkText(content)
+    expect(chunks).toHaveLength(5)
+    fs.writeFileSync(path.join(kbRoot, 'merged.md'), content)
+
+    await manager.fullIndex()
+    const results = await manager.search('merge', { maxResults: 5 })
+
+    expect(results).toHaveLength(1)
+    expect(results[0]).toMatchObject({ path: 'merged.md', startLine: 1, endLine: lineCount - 1, snippet: content })
+    expect(results[0]).not.toHaveProperty('chunkIndex')
   })
 
   it('onFileChanged + flushNow indexes new file', async () => {

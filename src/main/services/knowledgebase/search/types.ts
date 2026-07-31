@@ -1,6 +1,7 @@
 export interface KbChunk {
   id: string
   path: string
+  chunkIndex: number
   startLine: number
   endLine: number
   text: string
@@ -24,7 +25,11 @@ export interface KbSearchResult {
   snippet: string
 }
 
-export interface KbSearchCandidate extends KbSearchResult {
+export interface KbRankedChunk extends KbSearchResult {
+  chunkIndex: number
+}
+
+export interface KbSearchCandidate extends KbRankedChunk {
   id: string
   rrfScore: number
   vectorRank?: number
@@ -34,6 +39,7 @@ export interface KbSearchCandidate extends KbSearchResult {
 export interface VectorHit {
   id: string
   path: string
+  chunkIndex: number
   startLine: number
   endLine: number
   snippet: string
@@ -43,6 +49,7 @@ export interface VectorHit {
 export interface KeywordHit {
   id: string
   path: string
+  chunkIndex: number
   startLine: number
   endLine: number
   snippet: string

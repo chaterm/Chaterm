@@ -1,4 +1,4 @@
-import type { KbSearchCandidate, KbSearchResult, VectorHit, KeywordHit } from './types'
+import type { KbRankedChunk, KbSearchCandidate, KbSearchResult, VectorHit, KeywordHit } from './types'
 import { getDefaultLanguage } from '../../../config/edition'
 
 export const RRF_K = 60
@@ -64,6 +64,7 @@ export function fuseResultsWithRrf(vectorHits: VectorHit[], keywordHits: Keyword
       candidates.set(hit.id, {
         id: hit.id,
         path: hit.path,
+        chunkIndex: hit.chunkIndex,
         startLine: hit.startLine,
         endLine: hit.endLine,
         snippet: hit.snippet,
@@ -82,6 +83,7 @@ export function fuseResultsWithRrf(vectorHits: VectorHit[], keywordHits: Keyword
       candidates.set(hit.id, {
         id: hit.id,
         path: hit.path,
+        chunkIndex: hit.chunkIndex,
         startLine: hit.startLine,
         endLine: hit.endLine,
         snippet: hit.snippet,
@@ -137,7 +139,7 @@ function jaccardSimilarity(a: Set<string>, b: Set<string>): number {
   return intersection / (a.size + b.size - intersection)
 }
 
-export function applyMmr(results: KbSearchResult[], limit: number, lambda = MMR_LAMBDA): KbSearchResult[] {
+export function applyMmr<T extends KbSearchResult>(results: T[], limit: number, lambda = MMR_LAMBDA): T[] {
   if (limit <= 0 || results.length === 0) return []
 
   const maxScore = Math.max(...results.map((result) => result.score), Number.EPSILON)
@@ -146,7 +148,7 @@ export function applyMmr(results: KbSearchResult[], limit: number, lambda = MMR_
     relevance: result.score / maxScore,
     tokens: tokenizeForSimilarity(result.snippet)
   }))
-  const selected: Array<{ result: KbSearchResult; relevance: number; tokens: Set<string> }> = []
+  const selected: Array<{ result: T; relevance: number; tokens: Set<string> }> = []
 
   while (selected.length < limit && candidates.length > 0) {
     let bestIndex = 0
@@ -170,4 +172,88 @@ export function applyMmr(results: KbSearchResult[], limit: number, lambda = MMR_
   }
 
   return selected.map(({ result }) => result)
+}
+
+type RankedEntry = {
+  result: KbRankedChunk
+  relevanceOrder: number
+}
+
+function mergeSnippet(left: string, right: string): string {
+  if (!left) return right
+  if (!right || left.includes(right)) return left
+  if (right.includes(left)) return right
+
+  const maxOverlap = Math.min(left.length, right.length)
+  for (let overlap = maxOverlap; overlap > 0; overlap--) {
+    const leftStart = left.length - overlap
+    const startsAtLineBoundary = leftStart === 0 || left[leftStart - 1] === '\n'
+    const endsAtLineBoundary = overlap === right.length || right[overlap] === '\n'
+    if (startsAtLineBoundary && endsAtLineBoundary && left.endsWith(right.slice(0, overlap))) {
+      return left + right.slice(overlap)
+    }
+  }
+
+  return left.endsWith('\n') || right.startsWith('\n') ? left + right : `${left}\n${right}`
+}
+
+function mergeGroup(entries: RankedEntry[]): KbSearchResult {
+  let strongest = entries[0]
+  let snippet = entries[0].result.snippet
+  let startLine = entries[0].result.startLine
+  let endLine = entries[0].result.endLine
+
+  for (let index = 1; index < entries.length; index++) {
+    const entry = entries[index]
+    snippet = mergeSnippet(snippet, entry.result.snippet)
+    startLine = Math.min(startLine, entry.result.startLine)
+    endLine = Math.max(endLine, entry.result.endLine)
+    if (
+      entry.result.score > strongest.result.score ||
+      (entry.result.score === strongest.result.score && entry.relevanceOrder < strongest.relevanceOrder)
+    ) {
+      strongest = entry
+    }
+  }
+
+  return {
+    path: entries[0].result.path,
+    startLine,
+    endLine,
+    score: strongest.result.score,
+    scoreSource: strongest.result.scoreSource,
+    snippet
+  }
+}
+
+export function mergeAdjacentResults(results: KbRankedChunk[]): KbSearchResult[] {
+  if (results.length === 0) return []
+
+  const byPath = new Map<string, RankedEntry[]>()
+  results.forEach((result, relevanceOrder) => {
+    const entries = byPath.get(result.path) ?? []
+    entries.push({ result, relevanceOrder })
+    byPath.set(result.path, entries)
+  })
+
+  const groups: Array<{ entries: RankedEntry[]; relevanceOrder: number }> = []
+  for (const entries of byPath.values()) {
+    entries.sort((a, b) => a.result.chunkIndex - b.result.chunkIndex || a.relevanceOrder - b.relevanceOrder)
+    let current = [entries[0]]
+
+    for (let index = 1; index < entries.length; index++) {
+      const entry = entries[index]
+      const previous = current[current.length - 1]
+      if (entry.result.chunkIndex === previous.result.chunkIndex + 1) {
+        current.push(entry)
+      } else {
+        groups.push({ entries: current, relevanceOrder: Math.min(...current.map((item) => item.relevanceOrder)) })
+        current = [entry]
+      }
+    }
+
+    groups.push({ entries: current, relevanceOrder: Math.min(...current.map((item) => item.relevanceOrder)) })
+  }
+
+  return groups.sort((a, b) => a.relevanceOrder - b.relevanceOrder).map((group) => mergeGroup(group.entries))
 }
