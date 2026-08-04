@@ -2,19 +2,20 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { flushPromises, mount } from '@vue/test-utils'
 import AiSettings from '../ai.vue'
 
-const { mockGetGlobalState, mockUpdateGlobalState, mockOn, mockOff, mockEmit } = vi.hoisted(() => ({
+const { mockGetGlobalState, mockUpdateGlobalState, mockNotification, mockOn, mockOff, mockEmit } = vi.hoisted(() => ({
   mockGetGlobalState: vi.fn(),
   mockUpdateGlobalState: vi.fn(),
+  mockNotification: {
+    error: vi.fn(),
+    success: vi.fn()
+  },
   mockOn: vi.fn(),
   mockOff: vi.fn(),
   mockEmit: vi.fn()
 }))
 
 vi.mock('ant-design-vue', () => ({
-  notification: {
-    error: vi.fn(),
-    success: vi.fn()
-  }
+  notification: mockNotification
 }))
 
 vi.mock('@renderer/agent/storage/state', () => ({
@@ -101,6 +102,9 @@ describe('AI Settings Component', () => {
       if (key === 'reasoningEffort') return 'low'
       if (key === 'shellIntegrationTimeout') return 4
       if (key === 'needProxy') return false
+      if (key === 'modelOptions') {
+        return [{ id: 'chat-1', name: 'chat-model', checked: true, type: 'custom', apiProvider: 'default' }]
+      }
       return undefined
     })
     mockUpdateGlobalState.mockResolvedValue(undefined)
@@ -219,5 +223,69 @@ describe('AI Settings Component', () => {
       })
     )
     expect(mockEmit).toHaveBeenCalledWith('onboarding:autoApprovalEnabled')
+  })
+
+  it('restores legacy LLM rerank configuration as the single selected model', async () => {
+    mockGetGlobalState.mockImplementation(async (key: string) => {
+      if (key === 'kbSearchEnabled') return true
+      if (key === 'kbRerankConfig') {
+        return {
+          version: 1,
+          mode: 'auto',
+          threshold: 0.45,
+          dedicated: { baseUrl: 'https://rerank.example/v1', modelId: 'bge-reranker' },
+          llm: { provider: 'default', modelId: 'chat-model' }
+        }
+      }
+      if (key === 'modelOptions') {
+        return [{ id: 'chat-1', name: 'chat-model', checked: true, type: 'custom', apiProvider: 'default' }]
+      }
+      return undefined
+    })
+
+    const wrapper = mountComponent()
+    await flushPromises()
+    const vm = wrapper.vm as any
+
+    expect(vm.kbRerankSelection).toBe(JSON.stringify({ provider: 'default', modelId: 'chat-model' }))
+  })
+
+  it('saves a selected rerank model from the user model list', async () => {
+    mockGetGlobalState.mockImplementation(async (key: string) => {
+      if (key === 'kbSearchEnabled') return true
+      if (key === 'modelOptions') {
+        return [
+          { id: 'chat-1', name: 'chat-model', checked: true, type: 'custom', apiProvider: 'default' },
+          { id: 'rerank-1', name: 'bge-reranker', checked: true, type: 'rerank', apiProvider: 'default' }
+        ]
+      }
+      return undefined
+    })
+    const wrapper = mountComponent()
+    await flushPromises()
+    const vm = wrapper.vm as any
+    vm.kbRerankSelection = JSON.stringify({ provider: 'default', modelId: 'bge-reranker' })
+
+    await vm.saveKbRerankConfig()
+    await flushPromises()
+
+    expect(mockUpdateGlobalState).toHaveBeenCalledWith('kbRerankConfig', {
+      version: 2,
+      model: { provider: 'default', modelId: 'bge-reranker', modelType: 'rerank' }
+    })
+  })
+
+  it('saves off when rerank model is disabled', async () => {
+    const wrapper = mountComponent()
+    await flushPromises()
+    const vm = wrapper.vm as any
+    vm.kbRerankSelection = 'off'
+
+    await vm.saveKbRerankConfig()
+    await flushPromises()
+
+    expect(mockUpdateGlobalState).toHaveBeenCalledWith('kbRerankConfig', {
+      version: 2
+    })
   })
 })

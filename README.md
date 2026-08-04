@@ -95,6 +95,8 @@ There is a saying that every agent fails all the time, but Chaterm helps you fix
 
   Chaterm understands the current infrastructure context and accurately retrieves relevant knowledge to assist in task decision-making and execution.
 
+  Hybrid vector and keyword retrieval uses RRF fusion to combine both recall channels into a unified result ranking.
+
 - ⚡ **Agent Skill**
 
   Encapsulates complex maintenance processes into reusable AI skills, achieving structured and reliable automated execution.

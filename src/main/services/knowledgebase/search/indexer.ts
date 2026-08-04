@@ -78,7 +78,7 @@ export class KbIndexer {
 
     // Insert new chunks
     const insertChunk = this.db.prepare(
-      'INSERT INTO chunks (id, path, start_line, end_line, hash, model, text, embedding, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)'
+      'INSERT INTO chunks (id, path, chunk_index, start_line, end_line, hash, model, text, embedding, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)'
     )
     const insertFts = this.db.prepare('INSERT INTO chunks_fts (text, id, path, start_line, end_line) VALUES (?, ?, ?, ?, ?)')
 
@@ -87,7 +87,7 @@ export class KbIndexer {
         const chunk = rawChunks[i]
         const id = randomUUID()
         const embedding = embeddings[i]!
-        insertChunk.run(id, relPath, chunk.startLine, chunk.endLine, chunk.hash, model, chunk.text, JSON.stringify(embedding), now)
+        insertChunk.run(id, relPath, i, chunk.startLine, chunk.endLine, chunk.hash, model, chunk.text, JSON.stringify(embedding), now)
         insertFts.run(chunk.text, id, relPath, chunk.startLine, chunk.endLine)
       }
     })

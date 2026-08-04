@@ -85,6 +85,25 @@ describe('useModelConfiguration', () => {
       expect(hasUncheckedModel).toBe(false)
     })
 
+    it('filters rerank models out of the chat model dropdown', async () => {
+      vi.mocked(stateModule.getGlobalState).mockImplementation(async (key) => {
+        if (key === 'modelOptions') {
+          return [
+            { id: 'chat-1', name: 'chat-model', checked: true, type: 'chat', apiProvider: 'default' },
+            { id: 'rerank-1', name: 'bge-reranker', checked: true, type: 'rerank', apiProvider: 'default' }
+          ]
+        }
+        if (key === 'apiProvider') return 'default'
+        if (key === 'defaultModelId') return 'chat-model'
+        return null
+      })
+
+      const { initModel, AgentAiModelsOptions } = useModelConfiguration()
+      await initModel()
+
+      expect(AgentAiModelsOptions.value).toEqual([{ label: 'chat-model', value: 'chat-model' }])
+    })
+
     it('should use provider-specific model when current model is not set', async () => {
       vi.mocked(stateModule.getGlobalState).mockImplementation(async (key) => {
         if (key === 'modelOptions') return mockModelOptions
@@ -241,6 +260,31 @@ describe('useModelConfiguration', () => {
       expect(stateModule.updateGlobalState).toHaveBeenCalledWith('modelOptions', expect.any(Array))
       expect(stateModule.updateGlobalState).toHaveBeenCalledWith('defaultBaseUrl', 'https://api.example.com')
       expect(stateModule.storeSecret).toHaveBeenCalledWith('defaultApiKey', 'test-key')
+    })
+
+    it('preserves rerank model type returned by the user model list API', async () => {
+      vi.mocked(stateModule.getGlobalState).mockImplementation(async (key) => {
+        if (key === 'modelOptions') return []
+        return null
+      })
+      vi.mocked(getUser).mockResolvedValue({
+        data: {
+          models: [
+            { id: 'chat-1', name: 'chat-model', type: 'chat', provider: 'default' },
+            { id: 'rerank-1', name: 'bge-reranker', type: 'rerank', provider: 'default' }
+          ],
+          llmGatewayAddr: 'https://api.example.com',
+          key: 'test-key'
+        }
+      } as any)
+
+      const { initModelOptions } = useModelConfiguration()
+      await initModelOptions()
+
+      expect(stateModule.updateGlobalState).toHaveBeenCalledWith(
+        'modelOptions',
+        expect.arrayContaining([expect.objectContaining({ id: 'rerank-1', name: 'bge-reranker', type: 'rerank', apiProvider: 'default' })])
+      )
     })
 
     it('should not block model options update on gateway model info fetch', async () => {

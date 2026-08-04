@@ -15,7 +15,7 @@ export interface MockDb {
   exec(sql: string): void
   prepare(sql: string): MockStatement
   transaction<T>(fn: (...args: unknown[]) => T): (...args: unknown[]) => T
-  pragma(stmt: string): void
+  pragma(stmt: string): unknown
   close(): void
   _tables: { files: Row[]; chunks: Row[]; chunks_fts: Row[] }
 }
@@ -42,18 +42,19 @@ export function createMockDatabase(): MockDb {
         } else if (matchSql(sql, 'DELETE FROM files WHERE')) {
           tables.files = tables.files.filter((r) => r.path !== args[0])
         }
-        // INSERT INTO chunks (...) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+        // INSERT INTO chunks (...) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         else if (matchSql(sql, 'INSERT INTO chunks (')) {
           tables.chunks.push({
             id: args[0],
             path: args[1],
-            start_line: args[2],
-            end_line: args[3],
-            hash: args[4],
-            model: args[5],
-            text: args[6],
-            embedding: args[7],
-            updated_at: args[8]
+            chunk_index: args[2],
+            start_line: args[3],
+            end_line: args[4],
+            hash: args[5],
+            model: args[6],
+            text: args[7],
+            embedding: args[8],
+            updated_at: args[9]
           })
         }
         // INSERT INTO chunks_fts (...) VALUES (?, ?, ?, ?, ?)
@@ -128,10 +129,14 @@ export function createMockDatabase(): MockDb {
               return keywords.some((kw) => text.includes(kw))
             })
             .slice(0, limit)
-            .map((r) => ({
-              ...r,
-              rank: -1 // fake BM25 rank (negative = more relevant)
-            }))
+            .map((r) => {
+              const chunk = tables.chunks.find((candidate) => candidate.id === r.id)
+              return {
+                ...r,
+                chunk_index: chunk?.chunk_index,
+                rank: -1 // fake BM25 rank (negative = more relevant)
+              }
+            })
         }
         return []
       }
@@ -147,7 +152,8 @@ export function createMockDatabase(): MockDb {
       return fn
     },
     pragma(stmt: string) {
-      void stmt
+      if (stmt === 'table_info(chunks)') return [{ name: 'chunk_index' }]
+      return undefined
     },
     close() {
       // no-op: mock database has no external resources to release

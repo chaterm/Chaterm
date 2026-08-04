@@ -424,6 +424,11 @@ export default {
     kbSearchEnabled: KB_SEARCH_ENABLED_LABELS['en-US'],
     kbSearchEnabledDescribe:
       'Automatically search relevant knowledge base content when starting a new conversation, and allow AI to search the knowledge base during conversations',
+    kbRerankModeOff: 'Off',
+    kbRerankModel: 'Rerank model',
+    kbRerankModelPlaceholder: 'Select an enabled model',
+    kbRerankModelTypeRerank: 'rerank',
+    kbRerankSaveFailed: 'Failed to save rerank settings',
     experienceExtractionEnabled: 'Automatic Experience Capture',
     experienceExtractionEnabledDescribe:
       'After a task completes successfully, automatically capture reusable experience into the knowledge base and, together with knowledge base retrieval, significantly improve AI efficiency and stability on similar tasks.',

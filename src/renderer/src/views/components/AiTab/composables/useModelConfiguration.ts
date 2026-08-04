@@ -16,19 +16,12 @@ interface ModelSelectOption {
   value: string
 }
 
-interface ModelOption {
+export interface ModelOption {
   id: string
   name: string
   checked: boolean
   type: string
   apiProvider: string
-}
-
-interface DefaultModel {
-  id: string
-  name?: string
-  provider?: string
-  [key: string]: unknown
 }
 
 interface EnterpriseModelConfig {
@@ -93,13 +86,65 @@ export function isEnterpriseDeployEnabled(): boolean {
   return isEnterpriseDeployEnabledFromEdition()
 }
 
-function normalizeProvider(rawProvider: unknown): string {
+export function normalizeProvider(rawProvider: unknown): string {
   const provider = String(rawProvider || '')
     .trim()
     .toLowerCase()
   if (provider === 'openai-compatible') return 'openai'
   if (provider === 'anthropic-compatible') return 'anthropic'
   return provider || 'default'
+}
+
+export function normalizeModelName(rawModel: unknown): string {
+  if (typeof rawModel === 'string') return rawModel.trim()
+  if (!rawModel || typeof rawModel !== 'object') return ''
+  const model = rawModel as Record<string, unknown>
+  return String(model.name || model.modelName || model.modelId || model.id || '').trim()
+}
+
+export function normalizeModelType(rawType: unknown): string {
+  const type = String(rawType || 'standard')
+    .trim()
+    .toLowerCase()
+  if (type === 'reranker') return 'rerank'
+  return type || 'standard'
+}
+
+export function isServerManagedModelType(type: string | undefined): boolean {
+  return type === 'standard' || type === 'rerank'
+}
+
+export function normalizeUserModelOption(rawModel: unknown): ModelOption | null {
+  const name = normalizeModelName(rawModel)
+  if (!name) return null
+
+  if (typeof rawModel === 'string') {
+    return {
+      id: name,
+      name,
+      checked: true,
+      type: 'standard',
+      apiProvider: 'default'
+    }
+  }
+
+  const model = rawModel as Record<string, unknown>
+  return {
+    id: String(model.id || name),
+    name,
+    checked: true,
+    type: normalizeModelType(model.type || model.modelType),
+    apiProvider: normalizeProvider(model.apiProvider || model.provider)
+  }
+}
+
+export function normalizeUserModelOptions(rawModels: unknown): ModelOption[] {
+  if (!Array.isArray(rawModels)) return []
+  return rawModels.map(normalizeUserModelOption).filter((model): model is ModelOption => Boolean(model))
+}
+
+export function normalizeModelNames(rawModels: unknown[]): string[] {
+  return rawModels.map(normalizeModelName).filter(Boolean)
 }
 
 function isEnterpriseModelOption(model: Pick<ModelOption, 'id'> | undefined): boolean {
@@ -426,7 +471,7 @@ export const useModelConfiguration = createGlobalState(() => {
       })
       const lockedSet = new Set(lockedModels.value)
       AgentAiModelsOptions.value = modelOptions
-        .filter((item) => item.checked && !lockedSet.has(item.name))
+        .filter((item) => item.checked && item.type !== 'rerank' && !lockedSet.has(item.name))
         .map((item) => ({
           label: item.name,
           value: item.name
@@ -475,7 +520,7 @@ export const useModelConfiguration = createGlobalState(() => {
   const checkModelConfig = async (): Promise<{ success: boolean; message?: string; description?: string }> => {
     // Check if there are any available models
     const modelOptions = (await getGlobalState('modelOptions')) as ModelOption[]
-    const availableModels = modelOptions.filter((model) => model.checked)
+    const availableModels = modelOptions.filter((model) => model.checked && model.type !== 'rerank')
 
     if (availableModels.length === 0) {
       return {
@@ -578,14 +623,14 @@ export const useModelConfiguration = createGlobalState(() => {
       const enterpriseModelConfigs = await syncEnterpriseStateFromUserData(userData, { reloadPlugins: true })
       const enterprisePluginActive =
         isEnterpriseDeployEnabled() && enterpriseModelConfigs.length > 0 && Boolean(await getGlobalState('enterpriseModelPluginActive'))
-      const defaultModels: DefaultModel[] = enterprisePluginActive ? [] : (userData.models as DefaultModel[]) || []
-      const subscriptionModelsList = enterprisePluginActive ? [] : ((userData.subscriptionModels || []).map((m: unknown) => String(m)) as string[])
+      const defaultModelOptions = enterprisePluginActive ? [] : normalizeUserModelOptions(userData.models)
+      const subscriptionModelsList = enterprisePluginActive ? [] : normalizeModelNames(userData.subscriptionModels || [])
       const gatewayAddr = userData.llmGatewayAddr || ''
       const gatewayKey = userData.key || ''
       await updateGlobalState('defaultBaseUrl', gatewayAddr)
       await storeSecret('defaultApiKey', gatewayKey)
 
-      const availableSet = new Set(defaultModels.map((model) => String(model)))
+      const availableSet = new Set(defaultModelOptions.map((model) => model.name))
       allLockedNames.value = enterprisePluginActive ? [] : subscriptionModelsList.filter((model) => !availableSet.has(model))
       budgetResetAt.value = userData.budgetResetAt || ''
       subscription.value = userData.subscription || ''
@@ -596,13 +641,7 @@ export const useModelConfiguration = createGlobalState(() => {
         return
       }
 
-      const modelOptions: ModelOption[] = defaultModels.map((model) => ({
-        id: String(model) || '',
-        name: String(model) || '',
-        checked: true,
-        type: 'standard',
-        apiProvider: 'default'
-      }))
+      const modelOptions: ModelOption[] = defaultModelOptions
       const lockedModelOptions: ModelOption[] = allLockedNames.value.map((model) => ({
         id: model,
         name: model,
@@ -637,7 +676,7 @@ export const useModelConfiguration = createGlobalState(() => {
     const isSkippedLogin = localStorage.getItem('login-skipped') === 'true'
     if (isSkippedLogin) return
 
-    let serverModels: string[] = []
+    let serverModelOptions: ModelOption[] = []
     let subscriptionModelsList: string[] = []
     let enterpriseModelConfigs: EnterpriseModelConfig[] = []
     let gatewayAddr = ''
@@ -648,8 +687,8 @@ export const useModelConfiguration = createGlobalState(() => {
       enterpriseModelConfigs = await syncEnterpriseStateFromUserData(userData, { reloadPlugins: true })
       const enterprisePluginActive =
         isEnterpriseDeployEnabled() && enterpriseModelConfigs.length > 0 && Boolean(await getGlobalState('enterpriseModelPluginActive'))
-      serverModels = enterprisePluginActive ? [] : ((userData.models || []).map((model) => String(model)) as string[])
-      subscriptionModelsList = enterprisePluginActive ? [] : ((userData.subscriptionModels || []).map((m: unknown) => String(m)) as string[])
+      serverModelOptions = enterprisePluginActive ? [] : normalizeUserModelOptions(userData.models)
+      subscriptionModelsList = enterprisePluginActive ? [] : normalizeModelNames(userData.subscriptionModels || [])
       budgetResetAt.value = userData.budgetResetAt || ''
       subscription.value = userData.subscription || ''
       gatewayAddr = userData.llmGatewayAddr || ''
@@ -672,24 +711,24 @@ export const useModelConfiguration = createGlobalState(() => {
     // Refresh model context info asynchronously to avoid blocking model options refresh.
     refreshDefaultModelInfoMapInBackground(gatewayAddr, gatewayKey)
 
-    const availableSet = new Set(serverModels)
+    const availableSet = new Set(serverModelOptions.map((model) => model.name))
     const lockedFromServer = subscriptionModelsList.filter((m) => !availableSet.has(m))
     allLockedNames.value = lockedFromServer
     await updateGlobalState('defaultLockedModelNames', lockedFromServer)
 
     // Skip update if server returns empty list to avoid accidental clearing
-    if (enterpriseModelConfigs.length === 0 && serverModels.length === 0 && subscriptionModelsList.length === 0) {
+    if (enterpriseModelConfigs.length === 0 && serverModelOptions.length === 0 && subscriptionModelsList.length === 0) {
       lockedModels.value = []
       return
     }
 
     const savedModelOptions = ((await getGlobalState('modelOptions')) || []) as ModelOption[]
-    const allKnownSet = new Set([...serverModels, ...subscriptionModelsList])
+    const allKnownSet = new Set([...serverModelOptions.map((model) => model.name), ...subscriptionModelsList])
     const enterpriseModelNames = new Set(enterpriseModelConfigs.map((config) => config.modelName))
 
-    const existingStandard = savedModelOptions.filter((opt) => opt.type === 'standard' && !isEnterpriseModelOption(opt))
+    const existingStandard = savedModelOptions.filter((opt) => isServerManagedModelType(opt.type) && !isEnterpriseModelOption(opt))
     const existingEnterprise = savedModelOptions.filter((opt) => isEnterpriseModelOption(opt))
-    const existingCustom = savedModelOptions.filter((opt) => opt.type !== 'standard')
+    const existingCustom = savedModelOptions.filter((opt) => !isServerManagedModelType(opt.type))
 
     const retainedStandard = existingStandard
       .filter((opt) => {
@@ -702,21 +741,13 @@ export const useModelConfiguration = createGlobalState(() => {
         id: opt.id || opt.name,
         name: opt.name,
         checked: Boolean(opt.checked),
-        type: 'standard',
+        type: opt.type || 'standard',
         apiProvider: opt.apiProvider || 'default'
       }))
 
     const retainedNames = new Set(retainedStandard.map((opt) => opt.name))
 
-    const newAvailable = (enterpriseModelConfigs.length > 0 ? [] : serverModels)
-      .filter((name) => !retainedNames.has(name))
-      .map((name) => ({
-        id: name,
-        name,
-        checked: true,
-        type: 'standard',
-        apiProvider: 'default'
-      }))
+    const newAvailable = (enterpriseModelConfigs.length > 0 ? [] : serverModelOptions).filter((model) => !retainedNames.has(model.name))
 
     const allAddedNames = new Set([...retainedNames, ...newAvailable.map((o) => o.name)])
     const newLocked = (enterpriseModelConfigs.length > 0 ? [] : lockedFromServer)

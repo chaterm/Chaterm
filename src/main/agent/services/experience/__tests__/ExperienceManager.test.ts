@@ -76,7 +76,7 @@ describe('ExperienceManager', () => {
     return new ExperienceManager({
       kbRoot,
       kbSearchManager: {
-        search: async (query, opts) => (searchMock as any)(query, opts) as Promise<KbSearchResult[]>,
+        searchVectorSimilarity: async (query, opts) => (searchMock as any)(query, opts) as Promise<KbSearchResult[]>,
         onFileChanged: (relPath) => {
           ;(onFileChangedMock as any)(relPath)
         }

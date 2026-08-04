@@ -51,6 +51,7 @@ import { broadcastInteractionClosed } from '../../services/interaction-detector/
 import { getOffloadDir, shouldOffload, writeToolOutput } from '../offload'
 import { getKnowledgeBaseRoot, getKbSearchManager } from '../../../services/knowledgebase'
 import type { KbSearchResult } from '../../../services/knowledgebase/search/types'
+import { resolveKbRerankRuntime } from '../../../services/knowledgebase/rerank'
 import { webFetch } from '../../services/web-fetch'
 import { RtkOutputFilterService } from '../../services/rtk-output-filter'
 
@@ -5534,7 +5535,11 @@ USERNAME:${localSystemInfo.userName}`
         return
       }
 
-      const results = await mgr.search(query, { maxResults: Math.min(Math.max(maxResults, 1), 20) })
+      const rerankRuntime = await resolveKbRerankRuntime()
+      const results = await mgr.search(query, {
+        maxResults: Math.min(Math.max(maxResults, 1), 20),
+        reranker: rerankRuntime.reranker
+      })
 
       if (results.length === 0) {
         await this.pushToolResult(toolDescription, 'No relevant results found in the knowledge base.')
@@ -5599,7 +5604,10 @@ USERNAME:${localSystemInfo.userName}`
     if (!query) return null
 
     try {
-      const results = await mgr.search(query)
+      const rerankRuntime = await resolveKbRerankRuntime()
+      const results = await mgr.search(query, {
+        reranker: rerankRuntime.reranker
+      })
       if (results.length === 0) return null
 
       const locale = await this.getUserLocale()

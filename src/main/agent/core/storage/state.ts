@@ -6,6 +6,7 @@
 
 import type { BrowserWindow } from 'electron'
 import type { GlobalStateKey, SecretKey, ApiConfiguration } from './types'
+import { PROVIDER_MODEL_KEY_MAP, type ApiProvider } from '../../shared/api'
 const logger = createLogger('agent')
 
 export interface ModelOption {
@@ -239,6 +240,24 @@ export async function getModelOptions(excludeThinking = false): Promise<ModelOpt
     logger.error('Failed to get model options', { error: error })
     return []
   }
+}
+
+export function buildApiConfigurationForProviderModel(base: ApiConfiguration, provider: string, modelId: string): ApiConfiguration {
+  if (!provider?.trim() || !modelId?.trim()) return base
+  const modelKey = PROVIDER_MODEL_KEY_MAP[provider] || 'defaultModelId'
+  return {
+    ...base,
+    apiProvider: provider as ApiProvider,
+    [modelKey]: modelId
+  }
+}
+
+export async function buildApiConfigurationForModel(base: ApiConfiguration, modelName: string, excludeThinking = false): Promise<ApiConfiguration> {
+  if (!modelName?.trim()) return base
+  const modelOptions = await getModelOptions(excludeThinking)
+  const selectedModel = modelOptions.find((model) => model.name === modelName)
+  if (!selectedModel?.apiProvider) return base
+  return buildApiConfigurationForProviderModel(base, selectedModel.apiProvider, selectedModel.name)
 }
 
 // Test function

@@ -37,6 +37,7 @@ export type GlobalStateKey =
   | 'shellIntegrationTimeout'
   | 'mcpMarketplaceEnabled'
   | 'kbSearchEnabled'
+  | 'kbRerankConfig'
   | 'experienceExtractionEnabled'
   | 'commandOutputFilteringEnabled'
   | 'testGlobalKey' // For testing

@@ -66,6 +66,7 @@ describe('KbIndexer', () => {
     // Check chunks table
     const chunks = db.prepare('SELECT * FROM chunks WHERE path = ?').all('guide.md')
     expect(chunks.length).toBe(count)
+    expect(chunks.map((chunk) => chunk.chunk_index)).toEqual(chunks.map((_, index) => index))
 
     // Check FTS table
     const ftsCount = db.prepare('SELECT count(*) as cnt FROM chunks_fts WHERE path = ?').get('guide.md') as any

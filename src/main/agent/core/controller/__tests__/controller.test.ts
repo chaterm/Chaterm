@@ -64,13 +64,33 @@ vi.mock('@services/telemetry/TelemetryService', () => {
 })
 
 vi.mock('@core/storage/state', () => {
+  const modelKeyByProvider: Record<string, string> = {
+    default: 'defaultModelId',
+    anthropic: 'anthropicModelId',
+    litellm: 'liteLlmModelId',
+    openai: 'openAiModelId',
+    deepseek: 'apiModelId',
+    bedrock: 'apiModelId',
+    ollama: 'ollamaModelId'
+  }
+  const buildForProvider = (base: Record<string, unknown>, provider: string, modelId: string) => ({
+    ...base,
+    apiProvider: provider,
+    [modelKeyByProvider[provider] || 'defaultModelId']: modelId
+  })
   return {
     getAllExtensionState: mockGetAllExtensionState,
     getGlobalState: mockGetGlobalState,
     updateApiConfiguration: mockUpdateApiConfiguration,
     updateGlobalState: mockUpdateGlobalState,
     getUserConfig: mockGetUserConfig,
-    getModelOptions: mockGetModelOptions
+    getModelOptions: mockGetModelOptions,
+    buildApiConfigurationForProviderModel: buildForProvider,
+    buildApiConfigurationForModel: async (base: Record<string, unknown>, modelName: string) => {
+      const models = await mockGetModelOptions()
+      const selected = models.find((model) => model.name === modelName)
+      return selected?.apiProvider ? buildForProvider(base, selected.apiProvider, selected.name) : base
+    }
   }
 })
 

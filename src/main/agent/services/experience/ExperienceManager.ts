@@ -56,7 +56,7 @@ export interface ExperienceManagerOptions {
   completeWithLlm: ExperienceLlmCompletion
   kbRoot?: string
   kbSearchManager?: {
-    search(query: string, opts?: { maxResults?: number; minScore?: number }): Promise<KbSearchResult[]>
+    searchVectorSimilarity(query: string, opts?: { maxResults?: number; minScore?: number }): Promise<KbSearchResult[]>
     onFileChanged(relPath: string): void
   } | null
   now?: () => Date
@@ -334,7 +334,7 @@ export class ExperienceManager {
     if (!this.kbSearchManager) return null
 
     const query = [candidate.title, candidate.dedupeKey, candidate.keywords.join(' ')].filter(Boolean).join('\n')
-    const results = await this.kbSearchManager.search(query, { maxResults: 8, minScore: 0 })
+    const results = await this.kbSearchManager.searchVectorSimilarity(query, { maxResults: 8, minScore: 0 })
     const best = results.filter((result) => normalizeRelPath(result.path).startsWith(`${EXPERIENCE_DIR}/`)).sort((a, b) => b.score - a.score)[0]
 
     if (!best || best.score < SIMILARITY_THRESHOLD) {

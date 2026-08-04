@@ -1,5 +1,10 @@
-import type { KbSearchResult, VectorHit, KeywordHit } from './types'
+import type { KbRankedChunk, KbSearchCandidate, KbSearchResult, VectorHit, KeywordHit } from './types'
 import { getDefaultLanguage } from '../../../config/edition'
+
+export const RRF_K = 60
+export const RRF_VECTOR_WEIGHT = 0.7
+export const RRF_KEYWORD_WEIGHT = 0.3
+export const MMR_LAMBDA = 0.7
 
 export function cosineSimilarity(a: number[], b: number[]): number {
   let dot = 0
@@ -12,14 +17,6 @@ export function cosineSimilarity(a: number[], b: number[]): number {
   }
   if (normA === 0 || normB === 0) return 0
   return dot / (Math.sqrt(normA) * Math.sqrt(normB))
-}
-
-export function bm25RankToScore(rank: number): number {
-  if (rank < 0) {
-    const relevance = -rank
-    return relevance / (1 + relevance)
-  }
-  return 1 / (1 + rank)
 }
 
 const CJK_LOCALE_PREFIXES = ['zh', 'ja', 'ko']
@@ -51,65 +48,212 @@ export function buildFtsQuery(raw: string): string | null {
   return tokens.map((t) => `"${t}"`).join(' OR ')
 }
 
-interface MergeOptions {
-  vectorWeight: number
-  textWeight: number
-  minScore?: number
-  maxResults?: number
+function normalizeContentSignature(text: string): string {
+  return text.trim().toLowerCase().replace(/\s+/g, ' ')
 }
 
-export function mergeResults(vectorHits: VectorHit[], keywordHits: KeywordHit[], opts: MergeOptions): KbSearchResult[] {
-  const map = new Map<string, { path: string; startLine: number; endLine: number; snippet: string; vectorScore: number; textScore: number }>()
+export function fuseResultsWithRrf(vectorHits: VectorHit[], keywordHits: KeywordHit[]): KbSearchCandidate[] {
+  const vectorRanks = new Map<string, number>()
+  const keywordRanks = new Map<string, number>()
+  const candidates = new Map<string, Omit<KbSearchCandidate, 'score' | 'scoreSource' | 'rrfScore'>>()
 
-  for (const v of vectorHits) {
-    map.set(v.id, {
-      path: v.path,
-      startLine: v.startLine,
-      endLine: v.endLine,
-      snippet: v.snippet,
-      vectorScore: v.score,
-      textScore: 0
-    })
+  vectorHits.forEach((hit, index) => {
+    const rank = index + 1
+    if (!vectorRanks.has(hit.id)) vectorRanks.set(hit.id, rank)
+    if (!candidates.has(hit.id)) {
+      candidates.set(hit.id, {
+        id: hit.id,
+        path: hit.path,
+        chunkIndex: hit.chunkIndex,
+        startLine: hit.startLine,
+        endLine: hit.endLine,
+        snippet: hit.snippet,
+        vectorRank: rank
+      })
+    }
+  })
+
+  keywordHits.forEach((hit, index) => {
+    const rank = index + 1
+    if (!keywordRanks.has(hit.id)) keywordRanks.set(hit.id, rank)
+    const existing = candidates.get(hit.id)
+    if (existing) {
+      existing.keywordRank = rank
+    } else {
+      candidates.set(hit.id, {
+        id: hit.id,
+        path: hit.path,
+        chunkIndex: hit.chunkIndex,
+        startLine: hit.startLine,
+        endLine: hit.endLine,
+        snippet: hit.snippet,
+        keywordRank: rank
+      })
+    }
+  })
+
+  const fused = [...candidates.values()].map((candidate) => {
+    const vectorRank = vectorRanks.get(candidate.id)
+    const keywordRank = keywordRanks.get(candidate.id)
+    const rrfScore =
+      (vectorRank === undefined ? 0 : RRF_VECTOR_WEIGHT / (RRF_K + vectorRank)) +
+      (keywordRank === undefined ? 0 : RRF_KEYWORD_WEIGHT / (RRF_K + keywordRank))
+
+    return {
+      ...candidate,
+      vectorRank,
+      keywordRank,
+      score: rrfScore,
+      rrfScore,
+      scoreSource: 'rrf' as const
+    }
+  })
+
+  fused.sort((a, b) => b.rrfScore - a.rrfScore || a.path.localeCompare(b.path) || a.startLine - b.startLine || a.id.localeCompare(b.id))
+
+  const seenContent = new Set<string>()
+  return fused.filter((candidate) => {
+    const signature = normalizeContentSignature(candidate.snippet)
+    if (!signature) return true
+    if (seenContent.has(signature)) return false
+    seenContent.add(signature)
+    return true
+  })
+}
+
+function tokenizeForSimilarity(text: string): Set<string> {
+  const normalized = text.toLowerCase().trim()
+  if (!normalized) return new Set()
+  const tokens = CJK_RE.test(normalized)
+    ? [...getCjkSegmenter().segment(normalized)].filter((part) => part.isWordLike).map((part) => part.segment)
+    : (normalized.match(/[\p{L}\p{N}_-]+/gu) ?? [])
+  return new Set(tokens.filter(Boolean))
+}
+
+function jaccardSimilarity(a: Set<string>, b: Set<string>): number {
+  if (a.size === 0 || b.size === 0) return 0
+  let intersection = 0
+  for (const token of a) {
+    if (b.has(token)) intersection++
+  }
+  return intersection / (a.size + b.size - intersection)
+}
+
+export function applyMmr<T extends KbSearchResult>(results: T[], limit: number, lambda = MMR_LAMBDA): T[] {
+  if (limit <= 0 || results.length === 0) return []
+
+  const maxScore = Math.max(...results.map((result) => result.score), Number.EPSILON)
+  const candidates = results.map((result) => ({
+    result,
+    relevance: result.score / maxScore,
+    tokens: tokenizeForSimilarity(result.snippet)
+  }))
+  const selected: Array<{ result: T; relevance: number; tokens: Set<string> }> = []
+
+  while (selected.length < limit && candidates.length > 0) {
+    let bestIndex = 0
+    let bestScore = Number.NEGATIVE_INFINITY
+
+    for (let index = 0; index < candidates.length; index++) {
+      const candidate = candidates[index]
+      let redundancy = 0
+      for (const existing of selected) {
+        redundancy = Math.max(redundancy, jaccardSimilarity(candidate.tokens, existing.tokens))
+      }
+      const mmrScore = lambda * candidate.relevance - (1 - lambda) * redundancy
+      if (mmrScore > bestScore) {
+        bestScore = mmrScore
+        bestIndex = index
+      }
+    }
+
+    selected.push(candidates[bestIndex])
+    candidates.splice(bestIndex, 1)
   }
 
-  for (const k of keywordHits) {
-    const existing = map.get(k.id)
-    const textScore = bm25RankToScore(k.bm25Rank)
-    if (existing) {
-      existing.textScore = textScore
-    } else {
-      map.set(k.id, {
-        path: k.path,
-        startLine: k.startLine,
-        endLine: k.endLine,
-        snippet: k.snippet,
-        vectorScore: 0,
-        textScore
-      })
+  return selected.map(({ result }) => result)
+}
+
+type RankedEntry = {
+  result: KbRankedChunk
+  relevanceOrder: number
+}
+
+function mergeSnippet(left: string, right: string): string {
+  if (!left) return right
+  if (!right || left.includes(right)) return left
+  if (right.includes(left)) return right
+
+  const maxOverlap = Math.min(left.length, right.length)
+  for (let overlap = maxOverlap; overlap > 0; overlap--) {
+    const leftStart = left.length - overlap
+    const startsAtLineBoundary = leftStart === 0 || left[leftStart - 1] === '\n'
+    const endsAtLineBoundary = overlap === right.length || right[overlap] === '\n'
+    if (startsAtLineBoundary && endsAtLineBoundary && left.endsWith(right.slice(0, overlap))) {
+      return left + right.slice(overlap)
     }
   }
 
-  let results: KbSearchResult[] = []
-  for (const entry of map.values()) {
-    const score = opts.vectorWeight * entry.vectorScore + opts.textWeight * entry.textScore
-    results.push({
-      path: entry.path,
-      startLine: entry.startLine,
-      endLine: entry.endLine,
-      score,
-      snippet: entry.snippet
-    })
+  return left.endsWith('\n') || right.startsWith('\n') ? left + right : `${left}\n${right}`
+}
+
+function mergeGroup(entries: RankedEntry[]): KbSearchResult {
+  let strongest = entries[0]
+  let snippet = entries[0].result.snippet
+  let startLine = entries[0].result.startLine
+  let endLine = entries[0].result.endLine
+
+  for (let index = 1; index < entries.length; index++) {
+    const entry = entries[index]
+    snippet = mergeSnippet(snippet, entry.result.snippet)
+    startLine = Math.min(startLine, entry.result.startLine)
+    endLine = Math.max(endLine, entry.result.endLine)
+    if (
+      entry.result.score > strongest.result.score ||
+      (entry.result.score === strongest.result.score && entry.relevanceOrder < strongest.relevanceOrder)
+    ) {
+      strongest = entry
+    }
   }
 
-  if (opts.minScore !== undefined) {
-    results = results.filter((r) => r.score >= opts.minScore!)
+  return {
+    path: entries[0].result.path,
+    startLine,
+    endLine,
+    score: strongest.result.score,
+    scoreSource: strongest.result.scoreSource,
+    snippet
+  }
+}
+
+export function mergeAdjacentResults(results: KbRankedChunk[]): KbSearchResult[] {
+  if (results.length === 0) return []
+
+  const byPath = new Map<string, RankedEntry[]>()
+  results.forEach((result, relevanceOrder) => {
+    const entries = byPath.get(result.path) ?? []
+    entries.push({ result, relevanceOrder })
+    byPath.set(result.path, entries)
+  })
+
+  const groups: Array<{ entries: RankedEntry[]; relevanceOrder: number }> = []
+  for (const entries of byPath.values()) {
+    entries.sort((a, b) => a.result.chunkIndex - b.result.chunkIndex || a.relevanceOrder - b.relevanceOrder)
+    let current = [entries[0]]
+
+    for (let index = 1; index < entries.length; index++) {
+      const entry = entries[index]
+      const previous = current[current.length - 1]
+      if (entry.result.chunkIndex === previous.result.chunkIndex + 1) {
+        current.push(entry)
+      } else {
+        groups.push({ entries: current, relevanceOrder: Math.min(...current.map((item) => item.relevanceOrder)) })
+        current = [entry]
+      }
+    }
+
+    groups.push({ entries: current, relevanceOrder: Math.min(...current.map((item) => item.relevanceOrder)) })
   }
 
-  results.sort((a, b) => b.score - a.score)
-
-  if (opts.maxResults !== undefined) {
-    results = results.slice(0, opts.maxResults)
-  }
-
-  return results
+  return groups.sort((a, b) => a.relevanceOrder - b.relevanceOrder).map((group) => mergeGroup(group.entries))
 }

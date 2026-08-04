@@ -2,14 +2,29 @@ import path from 'path'
 import fs from 'fs'
 import Database from 'better-sqlite3'
 
-import type { EmbeddingProvider, EmbeddingConfig, KbSearchResult, SearchOptions, SearchStatus } from './types'
+import type {
+  EmbeddingProvider,
+  EmbeddingConfig,
+  KbRankedChunk,
+  KbSearchCandidate,
+  KbSearchResult,
+  KbRerankScore,
+  SearchOptions,
+  SearchStatus,
+  VectorSearchOptions
+} from './types'
 import { createEmbeddingProvider } from './embedding-provider'
 import { initSchema } from './schema'
 import { KbIndexer } from './indexer'
-import { cosineSimilarity, buildFtsQuery, mergeResults } from './searcher'
+import { applyMmr, cosineSimilarity, buildFtsQuery, fuseResultsWithRrf, mergeAdjacentResults } from './searcher'
 import { isIndexableFile } from './chunker'
+import { createLogger } from '../../logging'
 
 const DEBOUNCE_MS = 2000
+const RERANK_CANDIDATE_LIMIT = 15
+const DEFAULT_RERANK_THRESHOLD = 0.5
+const RERANK_FALLBACK_MIN_SCORE = 0.15
+const searchLogger = createLogger('kb-search')
 
 export class KbSearchManager {
   private db: Database.Database
@@ -123,12 +138,8 @@ export class KbSearchManager {
   /** Hybrid search: vector + FTS5 BM25 */
   async search(query: string, opts?: SearchOptions): Promise<KbSearchResult[]> {
     const maxResults = opts?.maxResults ?? 5
-    const minScore = opts?.minScore ?? 0.7
-    const vectorWeight = opts?.vectorWeight ?? 0.7
-    const textWeight = opts?.textWeight ?? 0.3
-
     const model = this.provider.model
-    const candidateLimit = maxResults * 3
+    const candidateLimit = RERANK_CANDIDATE_LIMIT
 
     // Vector search: in-memory cosine similarity
     let queryVec: number[]
@@ -141,21 +152,114 @@ export class KbSearchManager {
 
     const vectorHits = this.searchVector(queryVec, model, candidateLimit)
     const keywordHits = this.searchKeyword(query, candidateLimit)
+    const fused = fuseResultsWithRrf(vectorHits, keywordHits)
+    const reranker = opts?.reranker
+    const selectFinalResults = (results: KbRankedChunk[]) => mergeAdjacentResults(applyMmr(results, maxResults))
+    if (fused.length === 0) return []
 
-    return mergeResults(vectorHits, keywordHits, {
-      vectorWeight: queryVec.length > 0 ? vectorWeight : 0,
-      textWeight: queryVec.length > 0 ? textWeight : 1,
-      minScore,
-      maxResults
-    })
+    if (!reranker) {
+      return selectFinalResults(fused.map((candidate) => this.toSearchResult(candidate)))
+    }
+
+    const rerankCandidates = fused.slice(0, RERANK_CANDIDATE_LIMIT)
+    const fallbackResults = selectFinalResults(rerankCandidates.map((candidate) => this.toSearchResult(candidate)))
+
+    try {
+      const scores = await reranker.rerank(
+        query,
+        rerankCandidates.map((candidate, candidateIndex) => ({
+          index: candidateIndex,
+          id: candidate.id,
+          path: candidate.path,
+          startLine: candidate.startLine,
+          endLine: candidate.endLine,
+          text: candidate.snippet,
+          retrievalScore: candidate.rrfScore
+        }))
+      )
+      const ranked = this.applyRerankScores(rerankCandidates, scores, reranker.type)
+      if (ranked.length === 0) throw new Error('Reranker returned no valid scores')
+
+      const relevant = ranked.filter((result) => result.score >= DEFAULT_RERANK_THRESHOLD)
+      if (relevant.length > 0) {
+        return selectFinalResults(relevant)
+      }
+
+      return ranked[0].score >= RERANK_FALLBACK_MIN_SCORE ? mergeAdjacentResults([ranked[0]]) : []
+    } catch (error) {
+      searchLogger.warn('Knowledge base rerank failed', {
+        event: 'kb.search.rerank_failed',
+        rerankerType: reranker.type,
+        errorName: error instanceof Error ? error.name : 'UnknownError'
+      })
+      return fallbackResults
+    }
+  }
+
+  async searchVectorSimilarity(query: string, opts?: VectorSearchOptions): Promise<KbSearchResult[]> {
+    const maxResults = opts?.maxResults ?? 5
+    let queryVec: number[]
+    try {
+      queryVec = await this.provider.embedQuery(query)
+    } catch {
+      return []
+    }
+
+    return this.searchVector(queryVec, this.provider.model, maxResults)
+      .filter((hit) => opts?.minScore === undefined || hit.score >= opts.minScore)
+      .map((hit) => ({
+        path: hit.path,
+        startLine: hit.startLine,
+        endLine: hit.endLine,
+        snippet: hit.snippet,
+        score: hit.score,
+        scoreSource: 'vector' as const
+      }))
+  }
+
+  private applyRerankScores(candidates: KbSearchCandidate[], scores: KbRerankScore[], rerankerType: 'dedicated' | 'llm'): KbRankedChunk[] {
+    const scoreSource: KbSearchResult['scoreSource'] = rerankerType === 'dedicated' ? 'dedicated-rerank' : 'llm-rerank'
+    const byIndex = new Map<number, number>()
+    for (const item of scores) {
+      if (!Number.isInteger(item.index) || item.index < 0 || item.index >= candidates.length) continue
+      if (!Number.isFinite(item.score) || item.score < 0 || item.score > 1 || byIndex.has(item.index)) continue
+      byIndex.set(item.index, item.score)
+    }
+
+    return [...byIndex.entries()]
+      .map(([index, score]) => ({
+        index,
+        result: {
+          ...this.toSearchResult(candidates[index]),
+          score,
+          scoreSource
+        }
+      }))
+      .sort((a, b) => b.result.score - a.result.score || candidates[b.index].rrfScore - candidates[a.index].rrfScore)
+      .map(({ result }) => result)
+  }
+
+  private toSearchResult(candidate: KbSearchCandidate): KbRankedChunk {
+    return {
+      path: candidate.path,
+      chunkIndex: candidate.chunkIndex,
+      startLine: candidate.startLine,
+      endLine: candidate.endLine,
+      score: candidate.score,
+      scoreSource: candidate.scoreSource,
+      snippet: candidate.snippet
+    }
   }
 
   private searchVector(queryVec: number[], model: string, limit: number) {
     if (queryVec.length === 0) return []
 
-    const rows = this.db.prepare('SELECT id, path, start_line, end_line, text, embedding FROM chunks WHERE model = ?').all(model) as Array<{
+    const rows = this.db
+      .prepare('SELECT id, path, chunk_index, start_line, end_line, text, embedding FROM chunks WHERE model = ?')
+      .all(model) as Array<{
       id: string
       path: string
+      chunk_index: number
       start_line: number
       end_line: number
       text: string
@@ -167,6 +271,7 @@ export class KbSearchManager {
       return {
         id: row.id,
         path: row.path,
+        chunkIndex: row.chunk_index,
         startLine: row.start_line,
         endLine: row.end_line,
         snippet: row.text,
@@ -185,13 +290,23 @@ export class KbSearchManager {
     try {
       const rows = this.db
         .prepare(
-          `SELECT id, path, start_line, end_line, text, bm25(chunks_fts) AS rank
-           FROM chunks_fts WHERE chunks_fts MATCH ?
+          `SELECT
+             chunks_fts.id AS id,
+             chunks_fts.path AS path,
+             chunks.chunk_index AS chunk_index,
+             chunks_fts.start_line AS start_line,
+             chunks_fts.end_line AS end_line,
+             chunks_fts.text AS text,
+             bm25(chunks_fts) AS rank
+           FROM chunks_fts
+           INNER JOIN chunks ON chunks.id = chunks_fts.id
+           WHERE chunks_fts MATCH ?
            ORDER BY rank LIMIT ?`
         )
         .all(ftsQuery, limit) as Array<{
         id: string
         path: string
+        chunk_index: number
         start_line: number
         end_line: number
         text: string
@@ -201,6 +316,7 @@ export class KbSearchManager {
       return rows.map((row) => ({
         id: row.id,
         path: row.path,
+        chunkIndex: row.chunk_index,
         startLine: row.start_line,
         endLine: row.end_line,
         snippet: row.text,

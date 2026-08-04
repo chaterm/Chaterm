@@ -1,6 +1,7 @@
 export interface KbChunk {
   id: string
   path: string
+  chunkIndex: number
   startLine: number
   endLine: number
   text: string
@@ -20,12 +21,25 @@ export interface KbSearchResult {
   startLine: number
   endLine: number
   score: number
+  scoreSource: 'dedicated-rerank' | 'llm-rerank' | 'rrf' | 'vector'
   snippet: string
+}
+
+export interface KbRankedChunk extends KbSearchResult {
+  chunkIndex: number
+}
+
+export interface KbSearchCandidate extends KbRankedChunk {
+  id: string
+  rrfScore: number
+  vectorRank?: number
+  keywordRank?: number
 }
 
 export interface VectorHit {
   id: string
   path: string
+  chunkIndex: number
   startLine: number
   endLine: number
   snippet: string
@@ -35,6 +49,7 @@ export interface VectorHit {
 export interface KeywordHit {
   id: string
   path: string
+  chunkIndex: number
   startLine: number
   endLine: number
   snippet: string
@@ -57,9 +72,32 @@ export interface EmbeddingProvider {
 
 export interface SearchOptions {
   maxResults?: number
+  reranker?: KbReranker
+}
+
+export interface VectorSearchOptions {
+  maxResults?: number
   minScore?: number
-  vectorWeight?: number
-  textWeight?: number
+}
+
+export interface KbRerankCandidate {
+  index: number
+  id: string
+  path: string
+  startLine: number
+  endLine: number
+  text: string
+  retrievalScore: number
+}
+
+export interface KbRerankScore {
+  index: number
+  score: number
+}
+
+export interface KbReranker {
+  readonly type: 'dedicated' | 'llm'
+  rerank(query: string, candidates: KbRerankCandidate[]): Promise<KbRerankScore[]>
 }
 
 export interface SearchStatus {

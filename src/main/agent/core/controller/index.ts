@@ -29,11 +29,17 @@ import {
   setTaskWorkspace
 } from '../storage/disk'
 import { isValidCommand } from '../../../storage/db/commandValidation'
-import { getAllExtensionState, updateGlobalState, getUserConfig, getModelOptions } from '../storage/state'
+import {
+  buildApiConfigurationForModel,
+  buildApiConfigurationForProviderModel,
+  getAllExtensionState,
+  updateGlobalState,
+  getUserConfig
+} from '../storage/state'
 import { Task } from '../task'
 import type { TaskWorkspace } from '../task/tool-registry'
 import { hasValidDbContext, normaliseWorkspace, type DbTaskContext } from '../task/workspace'
-import { ApiConfiguration, ApiProvider, PROVIDER_MODEL_KEY_MAP } from '@shared/api'
+import { ApiConfiguration } from '@shared/api'
 import { TITLE_GENERATION_PROMPT, TITLE_GENERATION_PROMPT_CN } from '../prompts/system'
 import { DEFAULT_LANGUAGE_SETTINGS } from '@shared/Languages'
 import type { CommandGenerationContext } from '@shared/WebviewMessage'
@@ -118,33 +124,10 @@ export class Controller {
   }
 
   /**
-   * Build ApiConfiguration for a given model name (from model options). Includes thinking models.
-   * Returns base config unchanged if modelName is empty or not found.
-   */
-  private async buildApiConfigurationForModel(base: ApiConfiguration, modelName: string): Promise<ApiConfiguration> {
-    if (!modelName?.trim()) return base
-    const modelOptions = await getModelOptions(false)
-    const selectedModel = modelOptions.find((m) => m.name === modelName)
-    if (!selectedModel?.apiProvider) return base
-    const modelKey = PROVIDER_MODEL_KEY_MAP[selectedModel.apiProvider] || 'defaultModelId'
-    return {
-      ...base,
-      apiProvider: selectedModel.apiProvider as ApiProvider,
-      [modelKey]: selectedModel.name
-    }
-  }
-
-  /**
    * Build ApiConfiguration from task metadata model_usage entry (model_id + model_provider_id).
    */
   private buildApiConfigurationFromMetadata(base: ApiConfiguration, modelId: string, modelProviderId: string): ApiConfiguration {
-    if (!modelId?.trim() || !modelProviderId?.trim()) return base
-    const modelKey = PROVIDER_MODEL_KEY_MAP[modelProviderId] || 'defaultModelId'
-    return {
-      ...base,
-      apiProvider: modelProviderId as ApiProvider,
-      [modelKey]: modelId
-    }
+    return buildApiConfigurationForProviderModel(base, modelProviderId, modelId)
   }
 
   async initTask(
@@ -172,7 +155,7 @@ export class Controller {
 
     let resolvedApiConfiguration: ApiConfiguration
     if (modelName?.trim()) {
-      resolvedApiConfiguration = await this.buildApiConfigurationForModel(apiConfiguration, modelName)
+      resolvedApiConfiguration = await buildApiConfigurationForModel(apiConfiguration, modelName)
     } else if (resolvedTaskId) {
       const metadata = await getTaskMetadata(resolvedTaskId)
       const lastUsage = metadata?.model_usage?.length ? metadata.model_usage[metadata.model_usage.length - 1] : null
@@ -361,7 +344,7 @@ export class Controller {
             if (message.modelName?.trim() && message.modelName.trim() !== task.api.getModel().id) {
               const { apiConfiguration } = await getAllExtensionState()
               if (apiConfiguration) {
-                const perTabConfig = await this.buildApiConfigurationForModel(apiConfiguration, message.modelName)
+                const perTabConfig = await buildApiConfigurationForModel(apiConfiguration, message.modelName)
                 task.api = buildApiHandler(perTabConfig)
                 task.setApiProvider(perTabConfig.apiProvider)
               }
@@ -615,21 +598,7 @@ export class Controller {
       let commandApiConfiguration: ApiConfiguration
 
       if (modelName) {
-        // Get model options to find the selected model's provider (exclude thinking models)
-        const modelOptions = await getModelOptions(true)
-        const selectedModel = modelOptions.find((m) => m.name === modelName)
-
-        if (selectedModel && selectedModel.apiProvider) {
-          const modelKey = PROVIDER_MODEL_KEY_MAP[selectedModel.apiProvider] || 'defaultModelId'
-
-          commandApiConfiguration = {
-            ...apiConfiguration,
-            apiProvider: selectedModel.apiProvider as ApiProvider,
-            [modelKey]: selectedModel.name
-          }
-        } else {
-          commandApiConfiguration = apiConfiguration
-        }
+        commandApiConfiguration = await buildApiConfigurationForModel(apiConfiguration, modelName, true)
       } else {
         commandApiConfiguration = apiConfiguration
       }
