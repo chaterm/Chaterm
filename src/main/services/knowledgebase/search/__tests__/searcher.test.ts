@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest'
-import { applyMmr, buildFtsQuery, cosineSimilarity, fuseResultsWithRrf, mergeAdjacentResults, RRF_K } from '../searcher'
-import { chunkText } from '../chunker'
-import type { KbRankedChunk, KbSearchResult, KeywordHit, VectorHit } from '../types'
+import { applyMmr, buildFtsQuery, cosineSimilarity, fuseResultsWithRrf, mergeOverlappingResults, RRF_K } from '../searcher'
+import type { KbExpandedResult } from '../searcher'
+import type { KbSearchResult, KeywordHit, VectorHit } from '../types'
 
 describe('cosineSimilarity', () => {
   it('returns 1 for identical vectors', () => {
@@ -80,13 +80,57 @@ describe('buildFtsQuery', () => {
 
 describe('fuseResultsWithRrf', () => {
   const vectorHits: VectorHit[] = [
-    { id: 'c1', path: 'a.md', chunkIndex: 0, startLine: 1, endLine: 5, snippet: 'chunk1', score: 0.9 },
-    { id: 'c2', path: 'b.md', chunkIndex: 0, startLine: 1, endLine: 3, snippet: 'chunk2', score: 0.5 }
+    {
+      id: 'c1',
+      path: 'a.md',
+      chunkIndex: 0,
+      startLine: 1,
+      endLine: 5,
+      startOffset: 0,
+      endOffset: 6,
+      contextHeader: '# A',
+      snippet: 'chunk1',
+      score: 0.9
+    },
+    {
+      id: 'c2',
+      path: 'b.md',
+      chunkIndex: 0,
+      startLine: 1,
+      endLine: 3,
+      startOffset: 0,
+      endOffset: 6,
+      contextHeader: '',
+      snippet: 'chunk2',
+      score: 0.5
+    }
   ]
 
   const keywordHits: KeywordHit[] = [
-    { id: 'c1', path: 'a.md', chunkIndex: 0, startLine: 1, endLine: 5, snippet: 'chunk1', bm25Rank: -3 },
-    { id: 'c3', path: 'c.md', chunkIndex: 0, startLine: 1, endLine: 2, snippet: 'chunk3', bm25Rank: -1 }
+    {
+      id: 'c1',
+      path: 'a.md',
+      chunkIndex: 0,
+      startLine: 1,
+      endLine: 5,
+      startOffset: 0,
+      endOffset: 6,
+      contextHeader: '# A',
+      snippet: 'chunk1',
+      bm25Rank: -3
+    },
+    {
+      id: 'c3',
+      path: 'c.md',
+      chunkIndex: 0,
+      startLine: 1,
+      endLine: 2,
+      startOffset: 0,
+      endOffset: 6,
+      contextHeader: '',
+      snippet: 'chunk3',
+      bm25Rank: -1
+    }
   ]
 
   it('merges vector and keyword rankings by chunk id', () => {
@@ -124,7 +168,18 @@ describe('fuseResultsWithRrf', () => {
   it('deduplicates normalized identical content after id fusion', () => {
     const duplicateVectorHits: VectorHit[] = [
       ...vectorHits,
-      { id: 'c4', path: 'd.md', chunkIndex: 0, startLine: 2, endLine: 4, snippet: '  CHUNK1  ', score: 0.4 }
+      {
+        id: 'c4',
+        path: 'd.md',
+        chunkIndex: 0,
+        startLine: 2,
+        endLine: 4,
+        startOffset: 0,
+        endOffset: 10,
+        contextHeader: '',
+        snippet: '  CHUNK1  ',
+        score: 0.4
+      }
     ]
     const results = fuseResultsWithRrf(duplicateVectorHits, keywordHits)
     expect(results.filter((result) => result.snippet.trim().toLowerCase() === 'chunk1')).toHaveLength(1)
@@ -176,22 +231,23 @@ describe('applyMmr', () => {
   })
 })
 
-describe('mergeAdjacentResults', () => {
+describe('mergeOverlappingResults', () => {
   const result = (
     path: string,
-    chunkIndex: number,
     startLine: number,
     endLine: number,
+    startOffset: number,
+    endOffset: number,
     snippet: string,
     score = 0.5,
     scoreSource: KbSearchResult['scoreSource'] = 'rrf'
-  ): KbRankedChunk => ({ path, chunkIndex, startLine, endLine, snippet, score, scoreSource })
+  ): KbExpandedResult => ({ path, startLine, endLine, startOffset, endOffset, snippet, score, scoreSource })
 
-  it('merges out-of-order adjacent chunks and keeps the strongest score at the earliest relevance position', () => {
-    const merged = mergeAdjacentResults([
-      result('a.md', 1, 4, 6, 'shared\nend', 0.7, 'llm-rerank'),
-      result('b.md', 0, 1, 2, 'other document', 0.8),
-      result('a.md', 0, 1, 4, 'start\nshared', 0.9, 'dedicated-rerank')
+  it('merges out-of-order overlapping parents and keeps the strongest score', () => {
+    const merged = mergeOverlappingResults([
+      result('a.md', 4, 6, 6, 25, 'shared payload\nend', 0.7, 'llm-rerank'),
+      result('b.md', 1, 2, 0, 14, 'other document', 0.8),
+      result('a.md', 1, 4, 0, 20, 'start\nshared payload', 0.9, 'dedicated-rerank')
     ])
 
     expect(merged).toEqual([
@@ -199,7 +255,7 @@ describe('mergeAdjacentResults', () => {
         path: 'a.md',
         startLine: 1,
         endLine: 6,
-        snippet: 'start\nshared\nend',
+        snippet: 'start\nshared payload\nend',
         score: 0.9,
         scoreSource: 'dedicated-rerank'
       },
@@ -214,35 +270,30 @@ describe('mergeAdjacentResults', () => {
     ])
   })
 
-  it('handles containment produced by the current chunker when a short chunk precedes a long line', () => {
-    const source = `short\n${'x'.repeat(35)}`
-    const chunks = chunkText(source, { tokens: 10, overlap: 3 })
-    expect(chunks).toHaveLength(2)
-    expect(chunks[1].text).toContain(chunks[0].text)
-
-    const merged = mergeAdjacentResults(chunks.map((chunk, chunkIndex) => result('edge.md', chunkIndex, chunk.startLine, chunk.endLine, chunk.text)))
-
-    expect(merged).toHaveLength(1)
-    expect(merged[0].snippet).toBe(source)
-  })
-
-  it('joins adjacent chunks without overlap instead of removing a coincidental character match', () => {
-    const merged = mergeAdjacentResults([result('a.md', 0, 1, 2, 'complete block plus'), result('a.md', 1, 3, 4, 'separate tail')])
-
-    expect(merged).toHaveLength(1)
-    expect(merged[0].snippet).toBe('complete block plus\nseparate tail')
-  })
-
-  it('returns three merged passages from five selected chunks without backfilling', () => {
-    const merged = mergeAdjacentResults([
-      result('a.md', 0, 1, 2, 'a0'),
-      result('a.md', 1, 2, 3, 'a1'),
-      result('b.md', 0, 1, 2, 'b0'),
-      result('b.md', 1, 2, 3, 'b1'),
-      result('c.md', 0, 1, 2, 'c0')
+  it('collapses a contained duplicate parent result', () => {
+    const merged = mergeOverlappingResults([
+      result('a.md', 1, 10, 0, 100, 'complete parent content', 0.7),
+      result('a.md', 2, 5, 20, 50, 'contained child content', 0.9)
     ])
 
-    expect(merged).toHaveLength(3)
-    expect(merged.map((item) => item.path)).toEqual(['a.md', 'b.md', 'c.md'])
+    expect(merged).toHaveLength(1)
+    expect(merged[0].snippet).toBe('complete parent content')
+    expect(merged[0].score).toBe(0.9)
+  })
+
+  it('does not merge non-overlapping passages solely because they share a path', () => {
+    const merged = mergeOverlappingResults([result('a.md', 1, 2, 0, 20, 'complete block plus'), result('a.md', 3, 4, 21, 40, 'separate tail')])
+
+    expect(merged).toHaveLength(2)
+  })
+
+  it('finds real overlap after a synthetic repeated table header', () => {
+    const merged = mergeOverlappingResults([
+      result('table.md', 1, 4, 0, 40, '| A | B |\n| --- | --- |\nrow 1\nshared payload 1234'),
+      result('table.md', 3, 6, 20, 60, '| A | B |\n| --- | --- |\nshared payload 1234\nrow 2')
+    ])
+
+    expect(merged).toHaveLength(1)
+    expect(merged[0].snippet).toBe('| A | B |\n| --- | --- |\nrow 1\nshared payload 1234\nrow 2')
   })
 })

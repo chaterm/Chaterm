@@ -3,7 +3,6 @@ import fs from 'fs'
 import path from 'path'
 import os from 'os'
 import type { EmbeddingProvider, KbReranker } from '../types'
-import { chunkText } from '../chunker'
 import { createMockDatabase } from './mock-database'
 
 // Mock better-sqlite3 so KbSearchManager uses our MockDatabase
@@ -143,22 +142,20 @@ describe('KbSearchManager integration', () => {
     expect(results[0].path).toBe('error.md')
   })
 
-  it('merges five selected adjacent chunks into one result without duplicated overlap or backfill', async () => {
-    let lineCount = 1
-    let content = ''
-    while (chunkText(content).length < 5) {
-      content = Array.from({ length: lineCount }, (_, index) => `merge line ${String(index + 1).padStart(3, '0')} unique-${index}`).join('\n')
-      lineCount++
-    }
-    const chunks = chunkText(content)
-    expect(chunks).toHaveLength(5)
+  it('restores the full parent after child retrieval and removes overlapping parent duplicates', async () => {
+    const content = [
+      '# Parent restoration',
+      '',
+      'needle-only-in-the-opening-child',
+      ...Array.from({ length: 60 }, (_, index) => `parent line ${String(index + 1).padStart(3, '0')} preserves the surrounding explanation`)
+    ].join('\n')
     fs.writeFileSync(path.join(kbRoot, 'merged.md'), content)
 
     await manager.fullIndex()
-    const results = await manager.search('merge', { maxResults: 5 })
+    const results = await manager.search('needle-only-in-the-opening-child', { maxResults: 5 })
 
     expect(results).toHaveLength(1)
-    expect(results[0]).toMatchObject({ path: 'merged.md', startLine: 1, endLine: lineCount - 1, snippet: content })
+    expect(results[0]).toMatchObject({ path: 'merged.md', startLine: 1, endLine: 63, snippet: content })
     expect(results[0]).not.toHaveProperty('chunkIndex')
   })
 

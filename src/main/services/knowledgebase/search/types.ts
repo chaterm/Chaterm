@@ -2,8 +2,12 @@ export interface KbChunk {
   id: string
   path: string
   chunkIndex: number
+  parentId?: string
   startLine: number
   endLine: number
+  startOffset: number
+  endOffset: number
+  contextHeader: string
   text: string
   hash: string
   embedding: number[]
@@ -27,6 +31,10 @@ export interface KbSearchResult {
 
 export interface KbRankedChunk extends KbSearchResult {
   chunkIndex: number
+  parentId?: string
+  startOffset: number
+  endOffset: number
+  contextHeader: string
 }
 
 export interface KbSearchCandidate extends KbRankedChunk {
@@ -40,8 +48,12 @@ export interface VectorHit {
   id: string
   path: string
   chunkIndex: number
+  parentId?: string
   startLine: number
   endLine: number
+  startOffset: number
+  endOffset: number
+  contextHeader: string
   snippet: string
   score: number
 }
@@ -50,8 +62,12 @@ export interface KeywordHit {
   id: string
   path: string
   chunkIndex: number
+  parentId?: string
   startLine: number
   endLine: number
+  startOffset: number
+  endOffset: number
+  contextHeader: string
   snippet: string
   bm25Rank: number
 }
@@ -107,10 +123,28 @@ export interface SearchStatus {
   provider: string
 }
 
-/** Raw chunk before embedding (output of chunkText) */
+/** Child chunk before persistence and embedding. Offsets use Unicode code points. */
 export interface RawChunk {
+  parentIndex: number
   startLine: number
   endLine: number
+  startOffset: number
+  endOffset: number
+  contextHeader: string
   text: string
-  hash: string
+}
+
+/** Parent context chunk. Parent chunks are persisted but never embedded. */
+export interface RawParentChunk {
+  parentIndex: number
+  startLine: number
+  endLine: number
+  startOffset: number
+  endOffset: number
+  text: string
+}
+
+export interface ChunkedDocument {
+  parents: RawParentChunk[]
+  children: RawChunk[]
 }

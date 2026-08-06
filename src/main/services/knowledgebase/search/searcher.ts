@@ -1,4 +1,4 @@
-import type { KbRankedChunk, KbSearchCandidate, KbSearchResult, VectorHit, KeywordHit } from './types'
+import type { KbSearchCandidate, KbSearchResult, VectorHit, KeywordHit } from './types'
 import { getDefaultLanguage } from '../../../config/edition'
 
 export const RRF_K = 60
@@ -65,8 +65,12 @@ export function fuseResultsWithRrf(vectorHits: VectorHit[], keywordHits: Keyword
         id: hit.id,
         path: hit.path,
         chunkIndex: hit.chunkIndex,
+        parentId: hit.parentId,
         startLine: hit.startLine,
         endLine: hit.endLine,
+        startOffset: hit.startOffset,
+        endOffset: hit.endOffset,
+        contextHeader: hit.contextHeader,
         snippet: hit.snippet,
         vectorRank: rank
       })
@@ -84,8 +88,12 @@ export function fuseResultsWithRrf(vectorHits: VectorHit[], keywordHits: Keyword
         id: hit.id,
         path: hit.path,
         chunkIndex: hit.chunkIndex,
+        parentId: hit.parentId,
         startLine: hit.startLine,
         endLine: hit.endLine,
+        startOffset: hit.startOffset,
+        endOffset: hit.endOffset,
+        contextHeader: hit.contextHeader,
         snippet: hit.snippet,
         keywordRank: rank
       })
@@ -174,38 +182,61 @@ export function applyMmr<T extends KbSearchResult>(results: T[], limit: number, 
   return selected.map(({ result }) => result)
 }
 
-type RankedEntry = {
-  result: KbRankedChunk
+export interface KbExpandedResult extends KbSearchResult {
+  startOffset: number
+  endOffset: number
+}
+
+type ExpandedEntry = {
+  result: KbExpandedResult
   relevanceOrder: number
 }
 
-function mergeSnippet(left: string, right: string): string {
-  if (!left) return right
-  if (!right || left.includes(right)) return left
-  if (right.includes(left)) return right
+/** Merge overlapping parent passages using source ranges and verified text overlap. */
+export function mergeOverlappingResults(results: KbExpandedResult[]): KbSearchResult[] {
+  if (results.length === 0) return []
+  const byPath = new Map<string, ExpandedEntry[]>()
+  results.forEach((result, relevanceOrder) => {
+    const entries = byPath.get(result.path) ?? []
+    entries.push({ result, relevanceOrder })
+    byPath.set(result.path, entries)
+  })
 
-  const maxOverlap = Math.min(left.length, right.length)
-  for (let overlap = maxOverlap; overlap > 0; overlap--) {
-    const leftStart = left.length - overlap
-    const startsAtLineBoundary = leftStart === 0 || left[leftStart - 1] === '\n'
-    const endsAtLineBoundary = overlap === right.length || right[overlap] === '\n'
-    if (startsAtLineBoundary && endsAtLineBoundary && left.endsWith(right.slice(0, overlap))) {
-      return left + right.slice(overlap)
+  const groups: Array<{ entries: ExpandedEntry[]; relevanceOrder: number }> = []
+  for (const entries of byPath.values()) {
+    entries.sort((left, right) => left.result.startOffset - right.result.startOffset || left.result.endOffset - right.result.endOffset)
+    let current = [entries[0]]
+    let currentEnd = entries[0].result.endOffset
+    for (let index = 1; index < entries.length; index++) {
+      const entry = entries[index]
+      if (entry.result.startOffset <= currentEnd) {
+        current.push(entry)
+        currentEnd = Math.max(currentEnd, entry.result.endOffset)
+      } else {
+        groups.push({ entries: current, relevanceOrder: Math.min(...current.map((item) => item.relevanceOrder)) })
+        current = [entry]
+        currentEnd = entry.result.endOffset
+      }
     }
+    groups.push({ entries: current, relevanceOrder: Math.min(...current.map((item) => item.relevanceOrder)) })
   }
 
-  return left.endsWith('\n') || right.startsWith('\n') ? left + right : `${left}\n${right}`
+  return groups.sort((left, right) => left.relevanceOrder - right.relevanceOrder).map(({ entries }) => mergeExpandedGroup(entries))
 }
 
-function mergeGroup(entries: RankedEntry[]): KbSearchResult {
+function mergeExpandedGroup(entries: ExpandedEntry[]): KbSearchResult {
   let strongest = entries[0]
   let snippet = entries[0].result.snippet
   let startLine = entries[0].result.startLine
   let endLine = entries[0].result.endLine
+  let mergedEnd = entries[0].result.endOffset
 
   for (let index = 1; index < entries.length; index++) {
     const entry = entries[index]
-    snippet = mergeSnippet(snippet, entry.result.snippet)
+    if (entry.result.endOffset > mergedEnd) {
+      snippet = appendWithOverlap(snippet, entry.result.snippet, mergedEnd - entry.result.startOffset)
+      mergedEnd = entry.result.endOffset
+    }
     startLine = Math.min(startLine, entry.result.startLine)
     endLine = Math.max(endLine, entry.result.endLine)
     if (
@@ -226,34 +257,24 @@ function mergeGroup(entries: RankedEntry[]): KbSearchResult {
   }
 }
 
-export function mergeAdjacentResults(results: KbRankedChunk[]): KbSearchResult[] {
-  if (results.length === 0) return []
+function appendWithOverlap(accumulated: string, next: string, positionOverlap: number): string {
+  if (!accumulated) return next
+  if (!next) return accumulated
 
-  const byPath = new Map<string, RankedEntry[]>()
-  results.forEach((result, relevanceOrder) => {
-    const entries = byPath.get(result.path) ?? []
-    entries.push({ result, relevanceOrder })
-    byPath.set(result.path, entries)
-  })
+  const accumulatedRunes = Array.from(accumulated)
+  const nextRunes = Array.from(next)
+  const span = Math.max(0, positionOverlap)
+  const maximum = Math.min(accumulatedRunes.length, nextRunes.length, Math.max(span * 3, 400))
+  const headSlack = Math.max(span * 2, 320)
 
-  const groups: Array<{ entries: RankedEntry[]; relevanceOrder: number }> = []
-  for (const entries of byPath.values()) {
-    entries.sort((a, b) => a.result.chunkIndex - b.result.chunkIndex || a.relevanceOrder - b.relevanceOrder)
-    let current = [entries[0]]
-
-    for (let index = 1; index < entries.length; index++) {
-      const entry = entries[index]
-      const previous = current[current.length - 1]
-      if (entry.result.chunkIndex === previous.result.chunkIndex + 1) {
-        current.push(entry)
-      } else {
-        groups.push({ entries: current, relevanceOrder: Math.min(...current.map((item) => item.relevanceOrder)) })
-        current = [entry]
+  for (let length = maximum; length >= 12; length--) {
+    const needle = accumulatedRunes.slice(accumulatedRunes.length - length)
+    const maximumStart = Math.min(nextRunes.length - needle.length, headSlack)
+    for (let start = 0; start <= maximumStart; start++) {
+      if (needle.every((rune, offset) => rune === nextRunes[start + offset])) {
+        return accumulated + nextRunes.slice(start + length).join('')
       }
     }
-
-    groups.push({ entries: current, relevanceOrder: Math.min(...current.map((item) => item.relevanceOrder)) })
   }
-
-  return groups.sort((a, b) => a.relevanceOrder - b.relevanceOrder).map((group) => mergeGroup(group.entries))
+  return accumulated + next
 }

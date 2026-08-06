@@ -16,7 +16,7 @@ import type {
 import { createEmbeddingProvider } from './embedding-provider'
 import { initSchema } from './schema'
 import { KbIndexer } from './indexer'
-import { applyMmr, cosineSimilarity, buildFtsQuery, fuseResultsWithRrf, mergeAdjacentResults } from './searcher'
+import { applyMmr, cosineSimilarity, buildFtsQuery, fuseResultsWithRrf, mergeOverlappingResults } from './searcher'
 import { isIndexableFile } from './chunker'
 import { createLogger } from '../../logging'
 
@@ -154,7 +154,7 @@ export class KbSearchManager {
     const keywordHits = this.searchKeyword(query, candidateLimit)
     const fused = fuseResultsWithRrf(vectorHits, keywordHits)
     const reranker = opts?.reranker
-    const selectFinalResults = (results: KbRankedChunk[]) => mergeAdjacentResults(applyMmr(results, maxResults))
+    const selectFinalResults = (results: KbRankedChunk[]) => this.expandParentResults(applyMmr(results, maxResults))
     if (fused.length === 0) return []
 
     if (!reranker) {
@@ -173,7 +173,7 @@ export class KbSearchManager {
           path: candidate.path,
           startLine: candidate.startLine,
           endLine: candidate.endLine,
-          text: candidate.snippet,
+          text: [candidate.contextHeader, candidate.snippet].filter(Boolean).join('\n\n'),
           retrievalScore: candidate.rrfScore
         }))
       )
@@ -185,7 +185,7 @@ export class KbSearchManager {
         return selectFinalResults(relevant)
       }
 
-      return ranked[0].score >= RERANK_FALLBACK_MIN_SCORE ? mergeAdjacentResults([ranked[0]]) : []
+      return ranked[0].score >= RERANK_FALLBACK_MIN_SCORE ? this.expandParentResults([ranked[0]]) : []
     } catch (error) {
       searchLogger.warn('Knowledge base rerank failed', {
         event: 'kb.search.rerank_failed',
@@ -243,8 +243,12 @@ export class KbSearchManager {
     return {
       path: candidate.path,
       chunkIndex: candidate.chunkIndex,
+      parentId: candidate.parentId,
       startLine: candidate.startLine,
       endLine: candidate.endLine,
+      startOffset: candidate.startOffset,
+      endOffset: candidate.endOffset,
+      contextHeader: candidate.contextHeader,
       score: candidate.score,
       scoreSource: candidate.scoreSource,
       snippet: candidate.snippet
@@ -255,13 +259,19 @@ export class KbSearchManager {
     if (queryVec.length === 0) return []
 
     const rows = this.db
-      .prepare('SELECT id, path, chunk_index, start_line, end_line, text, embedding FROM chunks WHERE model = ?')
+      .prepare(
+        'SELECT id, path, chunk_index, parent_id, start_line, end_line, start_offset, end_offset, context_header, text, embedding FROM chunks WHERE model = ?'
+      )
       .all(model) as Array<{
       id: string
       path: string
       chunk_index: number
+      parent_id: string | null
       start_line: number
       end_line: number
+      start_offset: number
+      end_offset: number
+      context_header: string
       text: string
       embedding: string
     }>
@@ -272,8 +282,12 @@ export class KbSearchManager {
         id: row.id,
         path: row.path,
         chunkIndex: row.chunk_index,
+        parentId: row.parent_id ?? undefined,
         startLine: row.start_line,
         endLine: row.end_line,
+        startOffset: row.start_offset,
+        endOffset: row.end_offset,
+        contextHeader: row.context_header,
         snippet: row.text,
         score: cosineSimilarity(queryVec, vec)
       }
@@ -291,12 +305,16 @@ export class KbSearchManager {
       const rows = this.db
         .prepare(
           `SELECT
-             chunks_fts.id AS id,
-             chunks_fts.path AS path,
+             chunks.id AS id,
+             chunks.path AS path,
              chunks.chunk_index AS chunk_index,
-             chunks_fts.start_line AS start_line,
-             chunks_fts.end_line AS end_line,
-             chunks_fts.text AS text,
+             chunks.parent_id AS parent_id,
+             chunks.start_line AS start_line,
+             chunks.end_line AS end_line,
+             chunks.start_offset AS start_offset,
+             chunks.end_offset AS end_offset,
+             chunks.context_header AS context_header,
+             chunks.text AS text,
              bm25(chunks_fts) AS rank
            FROM chunks_fts
            INNER JOIN chunks ON chunks.id = chunks_fts.id
@@ -307,8 +325,12 @@ export class KbSearchManager {
         id: string
         path: string
         chunk_index: number
+        parent_id: string | null
         start_line: number
         end_line: number
+        start_offset: number
+        end_offset: number
+        context_header: string
         text: string
         rank: number
       }>
@@ -317,14 +339,74 @@ export class KbSearchManager {
         id: row.id,
         path: row.path,
         chunkIndex: row.chunk_index,
+        parentId: row.parent_id ?? undefined,
         startLine: row.start_line,
         endLine: row.end_line,
+        startOffset: row.start_offset,
+        endOffset: row.end_offset,
+        contextHeader: row.context_header,
         snippet: row.text,
         bm25Rank: row.rank
       }))
     } catch {
       return []
     }
+  }
+
+  private expandParentResults(results: KbRankedChunk[]): KbSearchResult[] {
+    if (results.length === 0) return []
+    const parentIds = [...new Set(results.map((result) => result.parentId).filter((id): id is string => !!id))]
+    const parentMap = new Map<
+      string,
+      { path: string; start_line: number; end_line: number; start_offset: number; end_offset: number; text: string }
+    >()
+
+    if (parentIds.length > 0) {
+      const placeholders = parentIds.map(() => '?').join(', ')
+      const rows = this.db
+        .prepare(
+          `SELECT id, path, start_line, end_line, start_offset, end_offset, text
+           FROM parent_chunks WHERE id IN (${placeholders})`
+        )
+        .all(...parentIds) as Array<{
+        id: string
+        path: string
+        start_line: number
+        end_line: number
+        start_offset: number
+        end_offset: number
+        text: string
+      }>
+      rows.forEach((row) => parentMap.set(row.id, row))
+    }
+
+    const expanded = results.map((result) => {
+      const parent = result.parentId ? parentMap.get(result.parentId) : undefined
+      if (!parent) {
+        return {
+          path: result.path,
+          startLine: result.startLine,
+          endLine: result.endLine,
+          startOffset: result.startOffset,
+          endOffset: result.endOffset,
+          score: result.score,
+          scoreSource: result.scoreSource,
+          snippet: result.snippet
+        }
+      }
+      return {
+        path: parent.path,
+        startLine: parent.start_line,
+        endLine: parent.end_line,
+        startOffset: parent.start_offset,
+        endOffset: parent.end_offset,
+        score: result.score,
+        scoreSource: result.scoreSource,
+        snippet: parent.text
+      }
+    })
+
+    return mergeOverlappingResults(expanded)
   }
 
   status(): SearchStatus {
