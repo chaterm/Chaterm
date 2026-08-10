@@ -166,7 +166,7 @@
     "husky": "^9.1.7",
     "jsdom": "^30.0.1",
     "less": "^4.6.7",
-    "lint-staged": "^17.1.0",
+    "lint-staged": "^17.3.0",
     "marked": "^18.0.7",
     "prettier": "^3.9.6",
     "typescript": "^5.8.3",
