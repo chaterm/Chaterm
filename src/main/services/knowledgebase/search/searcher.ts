@@ -6,6 +6,8 @@ export const RRF_VECTOR_WEIGHT = 0.7
 export const RRF_KEYWORD_WEIGHT = 0.3
 export const MMR_LAMBDA = 0.7
 
+const MAX_OVERLAP_SEARCH_RUNES = 512
+
 export function cosineSimilarity(a: number[], b: number[]): number {
   let dot = 0
   let normA = 0
@@ -280,16 +282,16 @@ function appendWithOverlap(accumulated: string, next: string, positionOverlap: n
   const accumulatedRunes = Array.from(accumulated)
   const nextRunes = Array.from(next)
   const span = Math.max(0, positionOverlap)
-  const maximum = Math.min(accumulatedRunes.length, nextRunes.length, Math.max(span * 3, 400))
-  const headSlack = Math.max(span * 2, 320)
+  const maximum = Math.min(accumulatedRunes.length, nextRunes.length, Math.max(span * 3, 400), MAX_OVERLAP_SEARCH_RUNES)
+  const headSlack = Math.min(Math.max(span * 2, 320), MAX_OVERLAP_SEARCH_RUNES)
+  const searchWindow = nextRunes.slice(0, headSlack + maximum).join('')
+  const headBoundary = nextRunes.slice(0, headSlack).join('').length
 
   for (let length = maximum; length >= 12; length--) {
-    const needle = accumulatedRunes.slice(accumulatedRunes.length - length)
-    const maximumStart = Math.min(nextRunes.length - needle.length, headSlack)
-    for (let start = 0; start <= maximumStart; start++) {
-      if (needle.every((rune, offset) => rune === nextRunes[start + offset])) {
-        return accumulated + nextRunes.slice(start + length).join('')
-      }
+    const needle = accumulatedRunes.slice(accumulatedRunes.length - length).join('')
+    const start = searchWindow.indexOf(needle)
+    if (start >= 0 && start <= headBoundary) {
+      return accumulated + next.slice(start + needle.length)
     }
   }
   return accumulated + next

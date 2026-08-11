@@ -329,4 +329,27 @@ describe('mergeOverlappingResults', () => {
     expect(merged).toHaveLength(1)
     expect(merged[0].snippet).toBe('| A | B |\n| --- | --- |\nrow 1\nshared payload 1234\nrow 2')
   })
+
+  it('preserves Unicode boundaries when overlap follows a synthetic prefix', () => {
+    const merged = mergeOverlappingResults([
+      result('unicode.md', 1, 4, 0, 40, 'intro 😀\nshared payload 1234🚀'),
+      result('unicode.md', 3, 6, 20, 60, '| A | B |\n| --- | --- |\nshared payload 1234🚀\ntail')
+    ])
+
+    expect(merged).toHaveLength(1)
+    expect(merged[0].snippet).toBe('intro 😀\nshared payload 1234🚀\ntail')
+  })
+
+  it('falls back for a large false overlap with a late mismatch', () => {
+    const size = 2048
+    const accumulated = `${'a'.repeat(size - 1)}x`
+    const next = 'a'.repeat(size)
+    const merged = mergeOverlappingResults([
+      result('pathological.md', 1, 10, 0, size, accumulated),
+      result('pathological.md', 2, 11, 96, size + 96, next)
+    ])
+
+    expect(merged).toHaveLength(1)
+    expect(merged[0].snippet).toBe(accumulated + next)
+  })
 })
