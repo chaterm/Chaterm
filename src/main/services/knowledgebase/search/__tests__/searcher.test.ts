@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest'
-import { applyMmr, buildFtsQuery, cosineSimilarity, fuseResultsWithRrf, mergeOverlappingResults, RRF_K } from '../searcher'
+import { applyMmr, buildFtsQuery, collapseResultsByParent, cosineSimilarity, fuseResultsWithRrf, mergeOverlappingResults, RRF_K } from '../searcher'
 import type { KbExpandedResult } from '../searcher'
-import type { KbSearchResult, KeywordHit, VectorHit } from '../types'
+import type { KbRankedChunk, KbSearchResult, KeywordHit, VectorHit } from '../types'
 
 describe('cosineSimilarity', () => {
   it('returns 1 for identical vectors', () => {
@@ -228,6 +228,39 @@ describe('applyMmr', () => {
     )
     expect(selected[0].score).toBe(0.9)
     expect(selected).toHaveLength(2)
+  })
+})
+
+describe('collapseResultsByParent', () => {
+  const result = (id: string, parentId: string | undefined, score: number): KbRankedChunk => ({
+    id,
+    path: `${id}.md`,
+    chunkIndex: 0,
+    parentId,
+    startLine: 1,
+    endLine: 1,
+    startOffset: 0,
+    endOffset: 10,
+    contextHeader: '',
+    snippet: id,
+    score,
+    scoreSource: 'llm-rerank'
+  })
+
+  it('keeps only the highest-scoring child for each parent', () => {
+    const collapsed = collapseResultsByParent([
+      result('parent-a-low', 'parent-a', 0.6),
+      result('parent-b', 'parent-b', 0.8),
+      result('parent-a-high', 'parent-a', 0.9)
+    ])
+
+    expect(collapsed.map((item) => item.id)).toEqual(['parent-a-high', 'parent-b'])
+  })
+
+  it('keeps chunks without parents independent by chunk id', () => {
+    const collapsed = collapseResultsByParent([result('orphan-a', undefined, 0.8), result('orphan-b', undefined, 0.7)])
+
+    expect(collapsed.map((item) => item.id)).toEqual(['orphan-a', 'orphan-b'])
   })
 })
 

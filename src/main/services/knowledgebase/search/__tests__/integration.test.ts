@@ -159,6 +159,58 @@ describe('KbSearchManager integration', () => {
     expect(results[0]).not.toHaveProperty('chunkIndex')
   })
 
+  it('applies maxResults after collapsing reranked children by parent', async () => {
+    const block = (prefix: string) => Array.from({ length: 30 }, (_, index) => `${prefix}_${index}`).join(' ')
+    fs.writeFileSync(path.join(kbRoot, 'many-children.txt'), [block('alpha'), block('beta'), block('gamma')].join('\n\n'))
+    fs.writeFileSync(path.join(kbRoot, 'orphan-b.txt'), 'bravo deployment reference with a distinct standalone answer')
+    fs.writeFileSync(path.join(kbRoot, 'orphan-c.txt'), 'charlie deployment reference with another standalone answer')
+    await manager.fullIndex()
+
+    const reranker: KbReranker = {
+      type: 'llm',
+      async rerank(_query, candidates) {
+        return candidates.map((candidate) => ({
+          index: candidate.index,
+          score: candidate.path === 'many-children.txt' ? 0.99 : candidate.path === 'orphan-b.txt' ? 0.7 : 0.6
+        }))
+      }
+    }
+
+    const results = await manager.search('deployment reference', { maxResults: 3, reranker })
+
+    expect(results).toHaveLength(3)
+    expect(new Set(results.map((result) => result.path))).toEqual(new Set(['many-children.txt', 'orphan-b.txt', 'orphan-c.txt']))
+  })
+
+  it('applies MMR to expanded parent content instead of the winning child snippet', async () => {
+    const tokens = (prefix: string, count: number) => Array.from({ length: count }, (_, index) => `${prefix}_${index}`).join(' ')
+    const sharedParentContext = tokens('shared_context', 120)
+    fs.writeFileSync(path.join(kbRoot, 'parent-a.txt'), `deployment alpha_focus ${tokens('alpha', 30)}\n\n${sharedParentContext}`)
+    fs.writeFileSync(path.join(kbRoot, 'parent-b.txt'), `deployment beta_focus ${tokens('beta', 30)}\n\n${sharedParentContext}`)
+    fs.writeFileSync(path.join(kbRoot, 'parent-c.txt'), `deployment gamma_focus ${tokens('gamma', 150)}`)
+    await manager.fullIndex()
+
+    const reranker: KbReranker = {
+      type: 'llm',
+      async rerank(_query, candidates) {
+        return candidates.map((candidate) => ({
+          index: candidate.index,
+          score: candidate.text.includes('alpha_focus')
+            ? 0.99
+            : candidate.text.includes('beta_focus')
+              ? 0.95
+              : candidate.text.includes('gamma_focus')
+                ? 0.7
+                : 0.4
+        }))
+      }
+    }
+
+    const results = await manager.search('deployment focus', { maxResults: 2, reranker })
+
+    expect(results.map((result) => result.path)).toEqual(['parent-a.txt', 'parent-c.txt'])
+  })
+
   it('onFileChanged + flushNow indexes new file', async () => {
     fs.writeFileSync(path.join(kbRoot, 'new.md'), 'Brand new content')
 

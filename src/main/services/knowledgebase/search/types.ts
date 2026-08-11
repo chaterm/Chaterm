@@ -30,6 +30,7 @@ export interface KbSearchResult {
 }
 
 export interface KbRankedChunk extends KbSearchResult {
+  id: string
   chunkIndex: number
   parentId?: string
   startOffset: number
@@ -38,7 +39,6 @@ export interface KbRankedChunk extends KbSearchResult {
 }
 
 export interface KbSearchCandidate extends KbRankedChunk {
-  id: string
   rrfScore: number
   vectorRank?: number
   keywordRank?: number

@@ -16,7 +16,8 @@ import type {
 import { createEmbeddingProvider } from './embedding-provider'
 import { initSchema } from './schema'
 import { KbIndexer } from './indexer'
-import { applyMmr, cosineSimilarity, buildFtsQuery, fuseResultsWithRrf, mergeOverlappingResults } from './searcher'
+import { applyMmr, collapseResultsByParent, cosineSimilarity, buildFtsQuery, fuseResultsWithRrf, mergeOverlappingResults } from './searcher'
+import type { KbExpandedResult } from './searcher'
 import { isIndexableFile } from './chunker'
 import { createLogger } from '../../logging'
 
@@ -154,7 +155,8 @@ export class KbSearchManager {
     const keywordHits = this.searchKeyword(query, candidateLimit)
     const fused = fuseResultsWithRrf(vectorHits, keywordHits)
     const reranker = opts?.reranker
-    const selectFinalResults = (results: KbRankedChunk[]) => this.expandParentResults(applyMmr(results, maxResults))
+    const selectFinalResults = (results: KbRankedChunk[]) =>
+      mergeOverlappingResults(applyMmr(this.expandParentResults(collapseResultsByParent(results)), maxResults))
     if (fused.length === 0) return []
 
     if (!reranker) {
@@ -185,7 +187,7 @@ export class KbSearchManager {
         return selectFinalResults(relevant)
       }
 
-      return ranked[0].score >= RERANK_FALLBACK_MIN_SCORE ? this.expandParentResults([ranked[0]]) : []
+      return ranked[0].score >= RERANK_FALLBACK_MIN_SCORE ? mergeOverlappingResults(this.expandParentResults([ranked[0]])) : []
     } catch (error) {
       searchLogger.warn('Knowledge base rerank failed', {
         event: 'kb.search.rerank_failed',
@@ -241,6 +243,7 @@ export class KbSearchManager {
 
   private toSearchResult(candidate: KbSearchCandidate): KbRankedChunk {
     return {
+      id: candidate.id,
       path: candidate.path,
       chunkIndex: candidate.chunkIndex,
       parentId: candidate.parentId,
@@ -353,7 +356,7 @@ export class KbSearchManager {
     }
   }
 
-  private expandParentResults(results: KbRankedChunk[]): KbSearchResult[] {
+  private expandParentResults(results: KbRankedChunk[]): KbExpandedResult[] {
     if (results.length === 0) return []
     const parentIds = [...new Set(results.map((result) => result.parentId).filter((id): id is string => !!id))]
     const parentMap = new Map<
@@ -406,7 +409,7 @@ export class KbSearchManager {
       }
     })
 
-    return mergeOverlappingResults(expanded)
+    return expanded
   }
 
   status(): SearchStatus {

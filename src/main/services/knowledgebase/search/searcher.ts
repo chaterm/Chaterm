@@ -1,4 +1,4 @@
-import type { KbSearchCandidate, KbSearchResult, VectorHit, KeywordHit } from './types'
+import type { KbRankedChunk, KbSearchCandidate, KbSearchResult, VectorHit, KeywordHit } from './types'
 import { getDefaultLanguage } from '../../../config/edition'
 
 export const RRF_K = 60
@@ -180,6 +180,22 @@ export function applyMmr<T extends KbSearchResult>(results: T[], limit: number, 
   }
 
   return selected.map(({ result }) => result)
+}
+
+export function collapseResultsByParent<T extends KbRankedChunk>(results: T[]): T[] {
+  const strongestByGroup = new Map<string, { result: T; index: number }>()
+
+  results.forEach((result, index) => {
+    const groupKey = result.parentId ? `parent:${result.parentId}` : `chunk:${result.id}`
+    const existing = strongestByGroup.get(groupKey)
+    if (!existing || result.score > existing.result.score) {
+      strongestByGroup.set(groupKey, { result, index })
+    }
+  })
+
+  return [...strongestByGroup.values()]
+    .sort((left, right) => right.result.score - left.result.score || left.index - right.index)
+    .map(({ result }) => result)
 }
 
 export interface KbExpandedResult extends KbSearchResult {
