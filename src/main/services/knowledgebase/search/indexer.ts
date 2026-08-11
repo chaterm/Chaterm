@@ -3,8 +3,8 @@ import path from 'path'
 import { randomUUID } from 'crypto'
 import type Database from 'better-sqlite3'
 import { createLogger } from '../../logging'
-import type { EmbeddingProvider } from './types'
-import { buildEmbeddingText, CHUNKING_SIGNATURE, chunkDocument, hashText, isIndexableFile } from './chunker'
+import type { DocumentChunker, EmbeddingProvider } from './types'
+import { buildEmbeddingText, CHUNKING_SIGNATURE, hashText, isIndexableFile } from './chunker'
 
 const logger = createLogger('kb-search-indexer')
 
@@ -12,7 +12,8 @@ export class KbIndexer {
   constructor(
     private db: Database.Database,
     private provider: EmbeddingProvider,
-    private kbRoot: string
+    private kbRoot: string,
+    private chunker: DocumentChunker
   ) {}
 
   async indexFile(relPath: string): Promise<number> {
@@ -34,7 +35,7 @@ export class KbIndexer {
       { hash: string; index_signature: string } | undefined
     if (existing?.hash === contentHash && existing.index_signature === indexSignature) return 0
 
-    const { parents, children } = chunkDocument(content, relPath)
+    const { parents, children } = await this.chunker.chunkDocument(content, relPath)
     const now = Date.now()
 
     let stat: fs.Stats

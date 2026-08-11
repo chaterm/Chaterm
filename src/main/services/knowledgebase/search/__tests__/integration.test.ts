@@ -2,7 +2,8 @@ import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
 import fs from 'fs'
 import path from 'path'
 import os from 'os'
-import type { EmbeddingProvider, KbReranker } from '../types'
+import type { DocumentChunker, EmbeddingProvider, KbReranker } from '../types'
+import { chunkDocument } from '../chunker'
 import { createMockDatabase } from './mock-database'
 
 // Mock better-sqlite3 so KbSearchManager uses our MockDatabase
@@ -56,6 +57,14 @@ describe('KbSearchManager integration', () => {
   let dbPath: string
   let kbRoot: string
   let manager: KbSearchManager
+  const chunker: DocumentChunker = {
+    async chunkDocument(content, relPath) {
+      return chunkDocument(content, relPath)
+    },
+    close() {
+      return undefined
+    }
+  }
 
   beforeEach(() => {
     tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'kb-search-integration-'))
@@ -64,7 +73,7 @@ describe('KbSearchManager integration', () => {
     fs.mkdirSync(kbRoot)
 
     const provider = createTestProvider()
-    manager = new KbSearchManager(dbPath, kbRoot, provider)
+    manager = new KbSearchManager(dbPath, kbRoot, provider, chunker)
   })
 
   afterEach(() => {

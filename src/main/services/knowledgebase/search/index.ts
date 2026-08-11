@@ -5,6 +5,7 @@ import Database from 'better-sqlite3'
 import type {
   EmbeddingProvider,
   EmbeddingConfig,
+  DocumentChunker,
   KbRankedChunk,
   KbSearchCandidate,
   KbSearchResult,
@@ -36,7 +37,12 @@ export class KbSearchManager {
   private pendingDeletes = new Set<string>()
   private debounceTimer: ReturnType<typeof setTimeout> | null = null
 
-  constructor(dbPath: string, kbRoot: string, provider: EmbeddingProvider) {
+  constructor(
+    dbPath: string,
+    kbRoot: string,
+    provider: EmbeddingProvider,
+    private chunker: DocumentChunker
+  ) {
     this.kbRoot = kbRoot
     this.provider = provider
 
@@ -51,14 +57,14 @@ export class KbSearchManager {
     this.db.pragma('busy_timeout = 5000')
     initSchema(this.db)
 
-    this.indexer = new KbIndexer(this.db, this.provider, this.kbRoot)
+    this.indexer = new KbIndexer(this.db, this.provider, this.kbRoot, this.chunker)
   }
 
   /** Factory: create from config */
-  static create(userId: string, dbDir: string, kbRoot: string, config: EmbeddingConfig): KbSearchManager {
+  static create(userId: string, dbDir: string, kbRoot: string, config: EmbeddingConfig, chunker: DocumentChunker): KbSearchManager {
     const dbPath = path.join(dbDir, userId, 'kb_search.db')
     const provider = createEmbeddingProvider(config)
-    return new KbSearchManager(dbPath, kbRoot, provider)
+    return new KbSearchManager(dbPath, kbRoot, provider, chunker)
   }
 
   /** Called by sync.ts watcher on add/change */
@@ -437,6 +443,7 @@ export class KbSearchManager {
       clearTimeout(this.debounceTimer)
       this.debounceTimer = null
     }
+    this.chunker.close()
     this.db.close()
   }
 }

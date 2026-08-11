@@ -4,8 +4,8 @@ import path from 'path'
 import os from 'os'
 import { initSchema } from '../schema'
 import { KbIndexer } from '../indexer'
-import { CHUNKING_SIGNATURE } from '../chunker'
-import type { EmbeddingProvider } from '../types'
+import { CHUNKING_SIGNATURE, chunkDocument } from '../chunker'
+import type { DocumentChunker, EmbeddingProvider } from '../types'
 import { createMockDatabase, type MockDb } from './mock-database'
 
 /** Mock embedding provider that returns deterministic vectors */
@@ -38,13 +38,21 @@ describe('KbIndexer', () => {
   let tmpDir: string
   let provider: EmbeddingProvider & { _callCount: number }
   let indexer: KbIndexer
+  const chunker: DocumentChunker = {
+    async chunkDocument(content, relPath) {
+      return chunkDocument(content, relPath)
+    },
+    close() {
+      return undefined
+    }
+  }
 
   beforeEach(() => {
     tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'kb-indexer-test-'))
     db = createMockDatabase()
     initSchema(db as any)
     provider = createMockProvider()
-    indexer = new KbIndexer(db as any, provider, tmpDir)
+    indexer = new KbIndexer(db as any, provider, tmpDir, chunker)
   })
 
   afterEach(() => {

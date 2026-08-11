@@ -148,3 +148,8 @@ export interface ChunkedDocument {
   parents: RawParentChunk[]
   children: RawChunk[]
 }
+
+export interface DocumentChunker {
+  chunkDocument(content: string, relPath: string): Promise<ChunkedDocument>
+  close(): void
+}
