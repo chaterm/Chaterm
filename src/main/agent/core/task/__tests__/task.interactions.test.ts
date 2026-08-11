@@ -264,15 +264,19 @@ describe('Task interaction-heavy branches', () => {
 
   it('handleKbSearchToolUse should send structured contentParts for kb results', async () => {
     knowledgebaseMocks.getKbSearchManager.mockReturnValue({
-      search: vi.fn().mockResolvedValue([
-        {
-          path: 'rss2.md',
-          startLine: 1,
-          endLine: 3,
-          score: 0.98,
-          snippet: 'rss snippet'
-        }
-      ])
+      search: vi.fn().mockImplementation(async (_query, options) => {
+        await options.onProgress({ phase: 'embedding', elapsedMs: 0 })
+        await options.onProgress({ phase: 'completed', elapsedMs: 12, resultCount: 1, candidateCount: 1 })
+        return [
+          {
+            path: 'rss2.md',
+            startLine: 1,
+            endLine: 3,
+            score: 0.98,
+            snippet: 'rss snippet'
+          }
+        ]
+      })
     })
 
     await task.handleKbSearchToolUse({
@@ -281,7 +285,7 @@ describe('Task interaction-heavy branches', () => {
       partial: false
     })
 
-    expect(task.say).toHaveBeenCalledWith('text', expect.stringContaining('rss2.md L1-3'), false, undefined, [
+    const expectedContentParts = [
       { type: 'text', text: '知识库检索:' },
       {
         type: 'chip',
@@ -295,27 +299,35 @@ describe('Task interaction-heavy branches', () => {
           endLine: 3
         }
       }
-    ])
+    ]
     expect(task.pushToolResult).toHaveBeenCalledWith('[mock-tool]', expect.stringContaining('Found 1 results:'))
     expect(task.saveCheckpoint).toHaveBeenCalledTimes(1)
+    const progressCalls = task.say.mock.calls.filter(([type]) => type === 'kb_search_progress')
+    expect(progressCalls.map(([, payload]) => JSON.parse(payload).phase)).toEqual(['embedding', 'completed'])
+    expect(progressCalls.map(([, , partial]) => partial)).toEqual([true, false])
+    expect(progressCalls.at(-1)?.[4]).toEqual(expectedContentParts)
   })
 
   it('performKbSearch should send structured contentParts for automatic kb context', async () => {
     knowledgebaseMocks.getKbSearchManager.mockReturnValue({
-      search: vi.fn().mockResolvedValue([
-        {
-          path: 'rss2.md',
-          startLine: 1,
-          endLine: 1,
-          score: 0.88,
-          snippet: 'rss snippet'
-        }
-      ])
+      search: vi.fn().mockImplementation(async (_query, options) => {
+        await options.onProgress({ phase: 'embedding', elapsedMs: 0 })
+        await options.onProgress({ phase: 'completed', elapsedMs: 8, resultCount: 1, candidateCount: 1 })
+        return [
+          {
+            path: 'rss2.md',
+            startLine: 1,
+            endLine: 1,
+            score: 0.88,
+            snippet: 'rss snippet'
+          }
+        ]
+      })
     })
 
     const result = await task.performKbSearch([{ type: 'text', text: 'How to configure rss?' }] as any)
 
-    expect(task.say).toHaveBeenCalledWith('text', expect.stringContaining('rss2.md L1-1'), false, undefined, [
+    const expectedContentParts = [
       { type: 'text', text: '知识库检索:' },
       {
         type: 'chip',
@@ -329,8 +341,12 @@ describe('Task interaction-heavy branches', () => {
           endLine: 1
         }
       }
-    ])
+    ]
     expect(result).toContain('<knowledge_base_context>')
     expect(result).toContain('[rss2.md:1-1]')
+    const progressCalls = task.say.mock.calls.filter(([type]) => type === 'kb_search_progress')
+    expect(progressCalls.map(([, payload]) => JSON.parse(payload).phase)).toEqual(['embedding', 'completed'])
+    expect(progressCalls.map(([, , partial]) => partial)).toEqual([true, false])
+    expect(progressCalls.at(-1)?.[4]).toEqual(expectedContentParts)
   })
 })

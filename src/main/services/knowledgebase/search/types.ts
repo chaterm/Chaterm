@@ -1,3 +1,5 @@
+import type { KbSearchProgress } from '../../../agent/shared/ExtensionMessage'
+
 export interface KbChunk {
   id: string
   path: string
@@ -89,6 +91,7 @@ export interface EmbeddingProvider {
 export interface SearchOptions {
   maxResults?: number
   reranker?: KbReranker
+  onProgress?: (progress: KbSearchProgress) => void | Promise<void>
 }
 
 export interface VectorSearchOptions {

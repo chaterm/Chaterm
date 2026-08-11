@@ -144,34 +144,93 @@ export class KbSearchManager {
 
   /** Hybrid search: vector + FTS5 BM25 */
   async search(query: string, opts?: SearchOptions): Promise<KbSearchResult[]> {
+    const startedAt = performance.now()
     const maxResults = opts?.maxResults ?? 5
     const model = this.provider.model
     const candidateLimit = RERANK_CANDIDATE_LIMIT
+    const reranker = opts?.reranker
+    let embeddingMs = 0
+    let retrievalMs = 0
+    let rerankMs = 0
+    let embeddingFallback = false
+
+    const elapsedMs = () => Math.round(performance.now() - startedAt)
+    const notifyProgress = async (progress: Omit<import('../../../agent/shared/ExtensionMessage').KbSearchProgress, 'elapsedMs'>) => {
+      try {
+        await opts?.onProgress?.({ ...progress, elapsedMs: elapsedMs() })
+      } catch {
+        // UI progress is best-effort and must not break retrieval.
+      }
+    }
+    const complete = async (results: KbSearchResult[], candidateCount: number, rerankFallback = false): Promise<KbSearchResult[]> => {
+      const totalMs = elapsedMs()
+      await notifyProgress({
+        phase: 'completed',
+        candidateCount,
+        resultCount: results.length,
+        rerankerType: reranker?.type,
+        embeddingMs,
+        retrievalMs,
+        rerankMs,
+        embeddingFallback,
+        rerankFallback
+      })
+      searchLogger.info('Knowledge base search completed', {
+        event: 'kb.search.completed',
+        provider: this.provider.id,
+        embeddingModel: model,
+        rerankerType: reranker?.type ?? 'none',
+        embeddingMs,
+        retrievalMs,
+        rerankMs,
+        totalMs,
+        candidateCount,
+        resultCount: results.length,
+        embeddingFallback,
+        rerankFallback
+      })
+      return results
+    }
 
     // Vector search: in-memory cosine similarity
+    await notifyProgress({ phase: 'embedding', rerankerType: reranker?.type })
+    const embeddingStartedAt = performance.now()
     let queryVec: number[]
     try {
       queryVec = await this.provider.embedQuery(query)
     } catch {
       // If embedding fails, fall back to keyword-only search
       queryVec = []
+      embeddingFallback = true
     }
+    embeddingMs = Math.round(performance.now() - embeddingStartedAt)
 
+    await notifyProgress({ phase: 'retrieving', rerankerType: reranker?.type, embeddingMs, embeddingFallback })
+    const retrievalStartedAt = performance.now()
     const vectorHits = this.searchVector(queryVec, model, candidateLimit)
     const keywordHits = this.searchKeyword(query, candidateLimit)
     const fused = fuseResultsWithRrf(vectorHits, keywordHits)
-    const reranker = opts?.reranker
+    retrievalMs = Math.round(performance.now() - retrievalStartedAt)
     const selectFinalResults = (results: KbRankedChunk[]) =>
       mergeOverlappingResults(applyMmr(this.expandParentResults(collapseResultsByParent(results)), maxResults))
-    if (fused.length === 0) return []
+    if (fused.length === 0) return complete([], 0)
 
     if (!reranker) {
-      return selectFinalResults(fused.map((candidate) => this.toSearchResult(candidate)))
+      return complete(selectFinalResults(fused.map((candidate) => this.toSearchResult(candidate))), fused.length)
     }
 
     const rerankCandidates = fused.slice(0, RERANK_CANDIDATE_LIMIT)
     const fallbackResults = selectFinalResults(rerankCandidates.map((candidate) => this.toSearchResult(candidate)))
 
+    await notifyProgress({
+      phase: 'reranking',
+      candidateCount: rerankCandidates.length,
+      rerankerType: reranker.type,
+      embeddingMs,
+      retrievalMs,
+      embeddingFallback
+    })
+    const rerankStartedAt = performance.now()
     try {
       const scores = await reranker.rerank(
         query,
@@ -185,22 +244,25 @@ export class KbSearchManager {
           retrievalScore: candidate.rrfScore
         }))
       )
+      rerankMs = Math.round(performance.now() - rerankStartedAt)
       const ranked = this.applyRerankScores(rerankCandidates, scores, reranker.type)
       if (ranked.length === 0) throw new Error('Reranker returned no valid scores')
 
       const relevant = ranked.filter((result) => result.score >= DEFAULT_RERANK_THRESHOLD)
       if (relevant.length > 0) {
-        return selectFinalResults(relevant)
+        return complete(selectFinalResults(relevant), rerankCandidates.length)
       }
 
-      return ranked[0].score >= RERANK_FALLBACK_MIN_SCORE ? mergeOverlappingResults(this.expandParentResults([ranked[0]])) : []
+      const results = ranked[0].score >= RERANK_FALLBACK_MIN_SCORE ? mergeOverlappingResults(this.expandParentResults([ranked[0]])) : []
+      return complete(results, rerankCandidates.length)
     } catch (error) {
+      rerankMs = Math.round(performance.now() - rerankStartedAt)
       searchLogger.warn('Knowledge base rerank failed', {
         event: 'kb.search.rerank_failed',
         rerankerType: reranker.type,
         errorName: error instanceof Error ? error.name : 'UnknownError'
       })
-      return fallbackResults
+      return complete(fallbackResults, rerankCandidates.length, true)
     }
   }
 
