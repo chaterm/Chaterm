@@ -97,6 +97,8 @@ There is a saying that every agent fails all the time, but Chaterm helps you fix
 
   Hybrid vector and keyword retrieval uses RRF fusion to combine both recall channels into a unified result ranking.
 
+  Retrieval progress shows the live embedding, hybrid search, and reranking stages. New configurations default to Qwen-Plus in the China edition and Gemini 2.5 Flash in the global edition for faster reranking.
+
 - ⚡ **Agent Skill**
 
   Encapsulates complex maintenance processes into reusable AI skills, achieving structured and reliable automated execution.

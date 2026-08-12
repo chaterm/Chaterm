@@ -111,6 +111,20 @@ export interface HostInfo {
   colorTag?: string
 }
 
+export interface KbSearchProgress {
+  phase: 'embedding' | 'retrieving' | 'reranking' | 'completed' | 'failed'
+  startedAt?: number
+  elapsedMs: number
+  candidateCount?: number
+  resultCount?: number
+  rerankerType?: 'dedicated' | 'llm'
+  embeddingMs?: number
+  retrievalMs?: number
+  rerankMs?: number
+  embeddingFallback?: boolean
+  rerankFallback?: boolean
+}
+
 export type ChatermAsk =
   | 'followup'
   | 'command'
@@ -154,6 +168,7 @@ export type ChatermSay =
   | 'skill_activated'
   | 'context_truncated'
   | 'db_query_result'
+  | 'kb_search_progress'
 
 export interface ChatermSayTool {
   tool: 'readFile' | 'listFilesTopLevel' | 'listFilesRecursive' | 'searchFiles'

@@ -66,6 +66,7 @@ export type ChatermSay =
   | 'db_query_result'
   | 'context_truncated'
   | 'skill_activated'
+  | 'kb_search_progress'
 
 export interface ChatermSayTool {
   tool: 'readFile' | 'listFilesTopLevel' | 'listFilesRecursive' | 'searchFiles'

@@ -114,9 +114,72 @@
         />
         <span class="skill-activated-text">Activated Skill: {{ props.content }}</span>
       </div>
+      <div
+        v-else-if="kbSearchProgress"
+        class="kb-search-progress"
+        data-testid="kb-search-progress"
+      >
+        <button
+          type="button"
+          class="kb-search-progress-header"
+          :class="{ toggleable: !props.partial }"
+          :disabled="props.partial"
+          :aria-expanded="kbSearchProgressExpanded"
+          @click="toggleKbSearchProgress"
+        >
+          <span
+            class="kb-search-progress-status"
+            :class="{ loading: props.partial, failed: kbSearchProgress.phase === 'failed' }"
+          >
+            {{ props.partial ? '' : kbSearchProgress.phase === 'failed' ? '!' : '✓' }}
+          </span>
+          <span>{{ kbSearchProgressTitle }}</span>
+          <CaretDownOutlined
+            v-if="!props.partial && kbSearchProgressExpanded"
+            class="kb-search-progress-toggle"
+          />
+          <CaretRightOutlined
+            v-else-if="!props.partial"
+            class="kb-search-progress-toggle"
+          />
+        </button>
+        <div
+          v-if="kbSearchProgressExpanded"
+          class="kb-search-progress-steps"
+        >
+          <div
+            v-for="step in kbSearchProgressSteps"
+            :key="step.key"
+            class="kb-search-progress-step"
+            :class="step.status"
+          >
+            <span class="kb-search-progress-dot">{{ step.status === 'completed' ? '✓' : '' }}</span>
+            <span class="kb-search-progress-label">{{ step.label }}</span>
+            <span
+              v-if="step.detail"
+              class="kb-search-progress-detail"
+              >{{ step.detail }}</span
+            >
+          </div>
+        </div>
+        <div
+          v-if="kbSearchProgressExpanded && kbSearchResults"
+          class="kb-search-result-list"
+        >
+          <button
+            v-for="item in kbSearchResults.items"
+            :key="`${item.relPath}:${item.startLine}-${item.endLine}`"
+            type="button"
+            class="kb-search-result-link"
+            @click="openKbSearchResult(item)"
+          >
+            {{ item.displayText }}
+          </button>
+        </div>
+      </div>
       <!-- Code content of command_output uses markdown rendering -->
       <div
-        v-if="props.say === 'command_output' && codeDetection.isCode"
+        v-else-if="props.say === 'command_output' && codeDetection.isCode"
         class="terminal-output-container"
       >
         <div
@@ -276,7 +339,9 @@
         </a-collapse>
       </template>
 
-      <div v-if="(normalContent || codeBlocks.length > 0 || kbSearchResults) && props.say !== 'skill_activated'">
+      <div
+        v-if="(normalContent || codeBlocks.length > 0 || kbSearchResults) && props.say !== 'skill_activated' && props.say !== 'kb_search_progress'"
+      >
         <template v-if="kbSearchResults">
           <div
             class="markdown-content"
@@ -404,6 +469,7 @@ import { extractFinalOutput, cleanAnsiEscapeSequences } from '@/utils/terminalOu
 import { userConfigStore as userConfigStoreService } from '@/services/userConfigStoreService'
 import { getCustomTheme, isDarkTheme } from '@/utils/themeUtils'
 import eventBus from '@/utils/eventBus'
+import type { KbSearchProgress } from '@shared/ExtensionMessage'
 import type { ContentPart, ContextDocRef } from '@shared/WebviewMessage'
 import TerminalOutputRenderer from '../format/terminalOutputRenderer.vue'
 
@@ -642,7 +708,7 @@ const isKbSearchDocPart = (part: ContentPart): part is Extract<ContentPart, { ty
 }
 
 const kbSearchResults = computed<null | { title: string; items: KbSearchResultItem[] }>(() => {
-  if (props.say !== 'text') return null
+  if (props.say !== 'text' && props.say !== 'kb_search_progress') return null
 
   const parts = props.messageContentParts || []
   const docParts = parts.filter(isKbSearchDocPart)
@@ -668,6 +734,135 @@ const kbSearchResults = computed<null | { title: string; items: KbSearchResultIt
     items
   }
 })
+
+const progressClock = ref(Date.now())
+let progressClockTimer: ReturnType<typeof setInterval> | undefined
+const validKbSearchPhases = new Set<KbSearchProgress['phase']>(['embedding', 'retrieving', 'reranking', 'completed', 'failed'])
+
+const kbSearchProgress = computed<KbSearchProgress | null>(() => {
+  if (props.say !== 'kb_search_progress') return null
+  try {
+    const value = JSON.parse(props.content) as Partial<KbSearchProgress>
+    if (!validKbSearchPhases.has(value.phase as KbSearchProgress['phase']) || !Number.isFinite(value.elapsedMs)) return null
+    return value as KbSearchProgress
+  } catch {
+    return null
+  }
+})
+
+const kbSearchProgressExpanded = ref(false)
+
+const toggleKbSearchProgress = () => {
+  if (props.partial) return
+  kbSearchProgressExpanded.value = !kbSearchProgressExpanded.value
+}
+
+const kbSearchElapsedMs = computed(() => {
+  const progress = kbSearchProgress.value
+  if (!progress) return 0
+  const liveElapsed = props.partial && progress.startedAt ? progressClock.value - progress.startedAt : 0
+  return Math.max(0, progress.elapsedMs, liveElapsed)
+})
+
+const formatProgressDuration = (durationMs: number): string => {
+  const seconds = durationMs / 1000
+  return seconds < 10 ? seconds.toFixed(1) : Math.round(seconds).toString()
+}
+
+const kbSearchProgressTitle = computed(() => {
+  const progress = kbSearchProgress.value
+  if (!progress) return ''
+  const seconds = formatProgressDuration(kbSearchElapsedMs.value)
+  if (progress.phase === 'failed') return t('ai.kbSearchProgressFailed', { seconds })
+  return props.partial ? t('ai.kbSearchProgressRunning', { seconds }) : t('ai.kbSearchProgressCompleted', { seconds })
+})
+
+type KbSearchProgressStep = {
+  key: string
+  label: string
+  detail?: string
+  status: 'pending' | 'active' | 'completed' | 'failed'
+}
+
+const kbSearchProgressSteps = computed<KbSearchProgressStep[]>(() => {
+  const progress = kbSearchProgress.value
+  if (!progress) return []
+
+  const phaseOrder: KbSearchProgress['phase'][] = ['embedding', 'retrieving', 'reranking', 'completed']
+  const activeIndex = phaseOrder.indexOf(progress.phase)
+  const statusFor = (phase: KbSearchProgress['phase']): KbSearchProgressStep['status'] => {
+    if (progress.phase === 'failed') return phase === 'completed' ? 'failed' : 'pending'
+    const stepIndex = phaseOrder.indexOf(phase)
+    if (progress.phase === 'completed' || stepIndex < activeIndex) return 'completed'
+    return stepIndex === activeIndex ? 'active' : 'pending'
+  }
+  const durationDetail = (durationMs?: number) =>
+    durationMs === undefined ? undefined : t('ai.kbSearchProgressDuration', { seconds: formatProgressDuration(durationMs) })
+
+  const steps: KbSearchProgressStep[] = [
+    {
+      key: 'embedding',
+      label: t('ai.kbSearchProgressEmbedding'),
+      detail: durationDetail(progress.embeddingMs),
+      status: statusFor('embedding')
+    },
+    {
+      key: 'retrieving',
+      label: t('ai.kbSearchProgressRetrieving'),
+      detail: durationDetail(progress.retrievalMs),
+      status: statusFor('retrieving')
+    }
+  ]
+
+  if (progress.rerankerType) {
+    steps.push({
+      key: 'reranking',
+      label: progress.rerankFallback ? t('ai.kbSearchProgressRerankFallback') : t('ai.kbSearchProgressReranking'),
+      detail:
+        progress.candidateCount === undefined
+          ? durationDetail(progress.rerankMs)
+          : t('ai.kbSearchProgressCandidates', { count: progress.candidateCount }),
+      status: statusFor('reranking')
+    })
+  }
+
+  steps.push({
+    key: 'completed',
+    label:
+      progress.phase === 'failed'
+        ? t('ai.kbSearchProgressFailedStep')
+        : progress.resultCount === undefined
+          ? t('ai.kbSearchProgressPreparing')
+          : t('ai.kbSearchProgressResults', { count: progress.resultCount }),
+    status: statusFor('completed')
+  })
+  return steps
+})
+
+const updateProgressClock = () => {
+  progressClock.value = Date.now()
+  if (progressClockTimer) {
+    clearInterval(progressClockTimer)
+    progressClockTimer = undefined
+  }
+  if (props.say === 'kb_search_progress' && props.partial) {
+    progressClockTimer = setInterval(() => {
+      progressClock.value = Date.now()
+    }, 1000)
+  }
+}
+
+watch(() => [props.say, props.partial, props.content], updateProgressClock, { immediate: true })
+
+watch(
+  () => [props.say, props.partial, kbSearchProgress.value?.startedAt],
+  () => {
+    if (props.say === 'kb_search_progress') {
+      kbSearchProgressExpanded.value = Boolean(props.partial)
+    }
+  },
+  { immediate: true }
+)
 
 const detectLanguage = (content: string): string => {
   if (!content) return 'shell'
@@ -912,6 +1107,13 @@ const processContent = async (content: string) => {
     codeBlocks.value = []
     codeEditors.value = []
     thinkingLoading.value = false
+    return
+  }
+
+  if (props.say === 'kb_search_progress') {
+    thinkingContent.value = ''
+    normalContent.value = ''
+    codeBlocks.value = []
     return
   }
 
@@ -1296,6 +1498,10 @@ watch(
 onBeforeUnmount(() => {
   themeObserver.disconnect()
   document.removeEventListener('keydown', handleSelectedTextCopy, true)
+
+  if (progressClockTimer) {
+    clearInterval(progressClockTimer)
+  }
 
   if (contentStableTimeout.value) {
     clearTimeout(contentStableTimeout.value)
@@ -3030,26 +3236,121 @@ body.has-custom-bg .monaco-editor .margin {
   font-weight: 500;
 }
 
-.kb-search-results {
-  margin: 4px 8px;
+.kb-search-progress {
+  margin: 6px 8px 10px;
+  color: var(--text-color);
+}
+
+.kb-search-progress-header {
+  display: flex;
+  align-items: center;
+  width: fit-content;
+  max-width: 100%;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  gap: 8px;
+  color: inherit;
+  font-size: 12px;
+  font-weight: 600;
+  text-align: left;
+}
+
+.kb-search-progress-header.toggleable {
+  cursor: pointer;
+}
+
+.kb-search-progress-toggle {
+  margin-left: auto;
+  color: var(--text-color-tertiary);
+  font-size: 11px;
+}
+
+.kb-search-progress-status,
+.kb-search-progress-dot {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+  width: 14px;
+  height: 14px;
+  border: 1px solid var(--text-color-tertiary);
+  border-radius: 50%;
+  color: var(--ant-primary-color, #1677ff);
+  font-size: 9px;
+  line-height: 1;
+}
+
+.kb-search-progress-status.loading,
+.kb-search-progress-step.active .kb-search-progress-dot {
+  border-color: var(--ant-primary-color, #1677ff);
+  border-right-color: transparent;
+  animation: kb-search-progress-spin 0.8s linear infinite;
+}
+
+.kb-search-progress-status.failed,
+.kb-search-progress-step.failed .kb-search-progress-dot {
+  border-color: #ff4d4f;
+  color: #ff4d4f;
+}
+
+.kb-search-progress-steps {
+  margin-top: 10px;
+  margin-left: 7px;
+}
+
+.kb-search-progress-step {
+  position: relative;
+  display: flex;
+  align-items: center;
+  min-height: 25px;
+  gap: 8px;
+  color: var(--text-color-tertiary);
+  font-size: 11px;
+}
+
+.kb-search-progress-step:not(:last-child)::after {
+  content: '';
+  position: absolute;
+  top: 22px;
+  bottom: -6px;
+  left: 7px;
+  width: 1px;
+  background: var(--border-color);
+}
+
+.kb-search-progress-step.completed,
+.kb-search-progress-step.active {
+  color: var(--text-color);
+}
+
+.kb-search-progress-step.completed .kb-search-progress-dot {
+  border-color: var(--ant-primary-color, #1677ff);
+}
+
+.kb-search-progress-label {
+  min-width: 0;
+}
+
+.kb-search-progress-detail {
+  margin-left: auto;
+  color: var(--text-color-tertiary);
+  white-space: nowrap;
+}
+
+@keyframes kb-search-progress-spin {
+  to {
+    transform: rotate(360deg);
+  }
 }
 
 .kb-search-result-list {
   display: flex;
   flex-direction: column;
   align-items: flex-start;
-  gap: 6px;
-  margin: 6px 8px 0;
-}
-
-.kb-search-result-link {
-  padding: 0;
-  border: none;
-  background: transparent;
-  color: var(--ant-primary-color, #1677ff);
-  cursor: pointer;
-  text-decoration: underline;
-  font: inherit;
+  gap: 4px;
+  margin: 6px 0 0 29px;
+  font-size: 11px;
 }
 
 .command-output::-webkit-scrollbar-thumb {

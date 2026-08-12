@@ -35,6 +35,7 @@ import {
   ExtensionMessage,
   HostInfo
 } from '@shared/ExtensionMessage'
+import type { KbSearchProgress } from '@shared/ExtensionMessage'
 import { DEFAULT_LANGUAGE_SETTINGS, getKbSearchEnabledLabel } from '@shared/Languages'
 import { ChatermAskResponse } from '@shared/WebviewMessage'
 import { calculateApiCostAnthropic } from '@utils/cost'
@@ -5319,10 +5320,9 @@ USERNAME:${localSystemInfo.userName}`
     return getKbSearchEnabledLabel(locale)
   }
 
-  private buildKbSearchUiMessage(results: KbSearchResult[], locale: string): { text: string; contentParts: ContentPart[] } {
+  private buildKbSearchContentParts(results: KbSearchResult[], locale: string): ContentPart[] {
     const kbLabel = this.getKbSearchLabel(locale)
     const kbRoot = getKnowledgeBaseRoot()
-    const text = `${kbLabel}:\n${results.map((r) => `  ${r.path} L${r.startLine}-${r.endLine}`).join('\n')}\n`
     const contentParts: ContentPart[] = [{ type: 'text', text: `${kbLabel}:` }]
 
     for (const result of results) {
@@ -5341,7 +5341,7 @@ USERNAME:${localSystemInfo.userName}`
       })
     }
 
-    return { text, contentParts }
+    return contentParts
   }
 
   // ---------------------------------------------------------------------------
@@ -5535,18 +5535,11 @@ USERNAME:${localSystemInfo.userName}`
         return
       }
 
-      const rerankRuntime = await resolveKbRerankRuntime()
-      const results = await mgr.search(query, {
-        maxResults: Math.min(Math.max(maxResults, 1), 20),
-        reranker: rerankRuntime.reranker
-      })
+      const results = await this.searchKnowledgeBase(query, mgr, Math.min(Math.max(maxResults, 1), 20))
 
       if (results.length === 0) {
         await this.pushToolResult(toolDescription, 'No relevant results found in the knowledge base.')
       } else {
-        const locale = await this.getUserLocale()
-        const uiMessage = this.buildKbSearchUiMessage(results, locale)
-        await this.say('text', uiMessage.text, false, undefined, uiMessage.contentParts)
         const formatted = results
           .map((r, i) => `[${i + 1}] ${r.path} (lines ${r.startLine}-${r.endLine}, score: ${r.score.toFixed(3)})\n${r.snippet}`)
           .join('\n\n---\n\n')
@@ -5558,6 +5551,46 @@ USERNAME:${localSystemInfo.userName}`
     } catch (error) {
       logger.error('[Task] kb_search failed', { error })
       await this.pushToolResult(toolDescription, `Knowledge base search failed: ${error instanceof Error ? error.message : String(error)}`)
+    }
+  }
+
+  private async searchKnowledgeBase(
+    query: string,
+    mgr: NonNullable<ReturnType<typeof getKbSearchManager>>,
+    maxResults?: number
+  ): Promise<KbSearchResult[]> {
+    const startedAt = Date.now()
+    let completedProgress: KbSearchProgress | undefined
+    const sendProgress = async (progress: KbSearchProgress, contentParts?: ContentPart[]): Promise<void> => {
+      const phaseComplete = progress.phase === 'completed' || progress.phase === 'failed'
+      await this.say(
+        'kb_search_progress',
+        JSON.stringify({ ...progress, startedAt, elapsedMs: Math.max(progress.elapsedMs, Date.now() - startedAt) }),
+        !phaseComplete,
+        undefined,
+        contentParts
+      )
+    }
+
+    try {
+      const rerankRuntime = await resolveKbRerankRuntime()
+      const results = await mgr.search(query, {
+        maxResults,
+        reranker: rerankRuntime.reranker,
+        onProgress: async (progress) => {
+          if (progress.phase === 'completed') {
+            completedProgress = progress
+            return
+          }
+          await sendProgress(progress)
+        }
+      })
+      const contentParts = results.length > 0 ? this.buildKbSearchContentParts(results, await this.getUserLocale()) : undefined
+      await sendProgress(completedProgress ?? { phase: 'completed', elapsedMs: Date.now() - startedAt, resultCount: results.length }, contentParts)
+      return results
+    } catch (error) {
+      await sendProgress({ phase: 'failed', elapsedMs: Date.now() - startedAt })
+      throw error
     }
   }
 
@@ -5604,15 +5637,8 @@ USERNAME:${localSystemInfo.userName}`
     if (!query) return null
 
     try {
-      const rerankRuntime = await resolveKbRerankRuntime()
-      const results = await mgr.search(query, {
-        reranker: rerankRuntime.reranker
-      })
+      const results = await this.searchKnowledgeBase(query, mgr)
       if (results.length === 0) return null
-
-      const locale = await this.getUserLocale()
-      const uiMessage = this.buildKbSearchUiMessage(results, locale)
-      await this.say('text', uiMessage.text, false, undefined, uiMessage.contentParts)
 
       const formatted = results.map((r) => `[${r.path}:${r.startLine}-${r.endLine}] (score: ${r.score.toFixed(3)})\n${r.snippet}`).join('\n\n---\n\n')
       return `\n\n<knowledge_base_context>\nThe following knowledge base documents may be relevant to your task:\n\n${formatted}\n</knowledge_base_context>`

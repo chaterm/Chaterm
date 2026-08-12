@@ -8,27 +8,35 @@ export function initSchema(db: Database.Database): void {
     );
 
     CREATE TABLE IF NOT EXISTS files (
-      path     TEXT PRIMARY KEY,
-      hash     TEXT NOT NULL,
-      mtime_ms INTEGER NOT NULL,
-      size     INTEGER NOT NULL
+      path            TEXT PRIMARY KEY,
+      hash            TEXT NOT NULL,
+      index_signature TEXT NOT NULL,
+      mtime_ms        INTEGER NOT NULL,
+      size            INTEGER NOT NULL
     );
 
     CREATE TABLE IF NOT EXISTS chunks (
-      id         TEXT PRIMARY KEY,
-      path       TEXT NOT NULL,
-      chunk_index INTEGER NOT NULL,
-      start_line INTEGER NOT NULL,
-      end_line   INTEGER NOT NULL,
-      hash       TEXT NOT NULL,
-      model      TEXT NOT NULL,
-      text       TEXT NOT NULL,
-      embedding  TEXT NOT NULL,
-      updated_at INTEGER NOT NULL
+      id             TEXT PRIMARY KEY,
+      path           TEXT NOT NULL,
+      chunk_index    INTEGER NOT NULL,
+      parent_id      TEXT,
+      start_line     INTEGER NOT NULL,
+      end_line       INTEGER NOT NULL,
+      start_offset   INTEGER NOT NULL,
+      end_offset     INTEGER NOT NULL,
+      context_header TEXT NOT NULL,
+      hash           TEXT NOT NULL,
+      model          TEXT NOT NULL,
+      text           TEXT NOT NULL,
+      embedding      TEXT NOT NULL,
+      updated_at     INTEGER NOT NULL
     );
-
-    CREATE INDEX IF NOT EXISTS idx_chunks_path ON chunks(path);
   `)
+
+  const fileColumns = db.pragma('table_info(files)') as Array<{ name: string }>
+  if (!fileColumns.some((column) => column.name === 'index_signature')) {
+    db.exec("ALTER TABLE files ADD COLUMN index_signature TEXT NOT NULL DEFAULT '';")
+  }
 
   const chunkColumns = db.pragma('table_info(chunks)') as Array<{ name: string }>
   if (!chunkColumns.some((column) => column.name === 'chunk_index')) {
@@ -51,8 +59,37 @@ export function initSchema(db: Database.Database): void {
     })()
   }
 
-  // FTS5 virtual table — separate exec because CREATE VIRTUAL TABLE
-  // cannot be combined with other statements in the same exec block
+  const migratedChunkColumns = db.pragma('table_info(chunks)') as Array<{ name: string }>
+  const addChunkColumn = (name: string, definition: string) => {
+    if (!migratedChunkColumns.some((column) => column.name === name)) {
+      db.exec(`ALTER TABLE chunks ADD COLUMN ${name} ${definition};`)
+    }
+  }
+  addChunkColumn('parent_id', 'TEXT')
+  addChunkColumn('start_offset', 'INTEGER NOT NULL DEFAULT 0')
+  addChunkColumn('end_offset', 'INTEGER NOT NULL DEFAULT 0')
+  addChunkColumn('context_header', "TEXT NOT NULL DEFAULT ''")
+
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS parent_chunks (
+      id           TEXT PRIMARY KEY,
+      path         TEXT NOT NULL,
+      parent_index INTEGER NOT NULL,
+      start_line   INTEGER NOT NULL,
+      end_line     INTEGER NOT NULL,
+      start_offset INTEGER NOT NULL,
+      end_offset   INTEGER NOT NULL,
+      text         TEXT NOT NULL,
+      updated_at   INTEGER NOT NULL
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_chunks_path ON chunks(path);
+    CREATE INDEX IF NOT EXISTS idx_chunks_parent_id ON chunks(parent_id);
+    CREATE INDEX IF NOT EXISTS idx_parent_chunks_path ON parent_chunks(path);
+  `)
+
+  // FTS5 stays child-only. Its text contains the filename and heading context;
+  // callers join back to chunks when they need the original source snippet.
   db.exec(`
     CREATE VIRTUAL TABLE IF NOT EXISTS chunks_fts USING fts5(
       text,

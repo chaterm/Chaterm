@@ -4,7 +4,8 @@ import { buildApiHandler, type ApiHandler } from '../../agent/api'
 import { createProxyAgent } from '../../agent/api/providers/proxy'
 import { buildApiConfigurationForProviderModel, getAllExtensionState, getModelOptions, type ModelOption } from '../../agent/core/storage/state'
 import type { ApiConfiguration, ApiProvider } from '../../agent/shared/api'
-import { DEFAULT_KB_RERANK_CONFIG, type KbRerankConfig, type KbRerankModelSelection } from '../../agent/shared/kb-rerank'
+import { getDefaultKbRerankConfig, type KbRerankConfig, type KbRerankEdition, type KbRerankModelSelection } from '../../agent/shared/kb-rerank'
+import { getEdition } from '../../config/edition'
 import type { KbRerankCandidate, KbReranker, KbRerankScore } from './search/types'
 
 const MAX_LLM_PASSAGE_CHARS = 800
@@ -238,8 +239,9 @@ function normalizeSelection(value: unknown): KbRerankModelSelection | undefined 
   }
 }
 
-function normalizeConfig(value: unknown): KbRerankConfig {
-  if (!value || typeof value !== 'object') return DEFAULT_KB_RERANK_CONFIG
+function normalizeConfig(value: unknown, edition: KbRerankEdition): KbRerankConfig {
+  if (value === undefined || value === null) return getDefaultKbRerankConfig(edition)
+  if (typeof value !== 'object') return { version: 2 }
 
   const raw = value as Partial<KbRerankConfig> & LegacyKbRerankConfigV1
   if (raw.version === 2) {
@@ -255,10 +257,10 @@ function normalizeConfig(value: unknown): KbRerankConfig {
       modelId: raw.llm.modelId,
       modelType: 'chat'
     })
-    return model ? { version: 2, model } : DEFAULT_KB_RERANK_CONFIG
+    return model ? { version: 2, model } : getDefaultKbRerankConfig(edition)
   }
 
-  return DEFAULT_KB_RERANK_CONFIG
+  return { version: 2 }
 }
 
 function resolveConfiguredModelType(selection: KbRerankModelSelection, modelOptions: ModelOption[]): string {
@@ -303,8 +305,13 @@ function getDedicatedProviderConfig(selection: KbRerankModelSelection, apiConfig
   }
 }
 
-export function createKbRerankRuntime(configValue: unknown, apiConfiguration: ApiConfiguration, modelOptions: ModelOption[] = []): KbRerankRuntime {
-  const config = normalizeConfig(configValue)
+export function createKbRerankRuntime(
+  configValue: unknown,
+  apiConfiguration: ApiConfiguration,
+  modelOptions: ModelOption[] = [],
+  edition: KbRerankEdition = getEdition()
+): KbRerankRuntime {
+  const config = normalizeConfig(configValue, edition)
   if (!config.model) return {}
 
   const modelType = resolveConfiguredModelType(config.model, modelOptions)

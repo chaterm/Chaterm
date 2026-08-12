@@ -4,7 +4,8 @@ import path from 'path'
 import os from 'os'
 import { initSchema } from '../schema'
 import { KbIndexer } from '../indexer'
-import type { EmbeddingProvider } from '../types'
+import { CHUNKING_SIGNATURE, chunkDocument } from '../chunker'
+import type { DocumentChunker, EmbeddingProvider } from '../types'
 import { createMockDatabase, type MockDb } from './mock-database'
 
 /** Mock embedding provider that returns deterministic vectors */
@@ -37,13 +38,21 @@ describe('KbIndexer', () => {
   let tmpDir: string
   let provider: EmbeddingProvider & { _callCount: number }
   let indexer: KbIndexer
+  const chunker: DocumentChunker = {
+    async chunkDocument(content, relPath) {
+      return chunkDocument(content, relPath)
+    },
+    close() {
+      return undefined
+    }
+  }
 
   beforeEach(() => {
     tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'kb-indexer-test-'))
     db = createMockDatabase()
     initSchema(db as any)
     provider = createMockProvider()
-    indexer = new KbIndexer(db as any, provider, tmpDir)
+    indexer = new KbIndexer(db as any, provider, tmpDir, chunker)
   })
 
   afterEach(() => {
@@ -94,6 +103,19 @@ describe('KbIndexer', () => {
     expect(provider._callCount).toBe(firstCallCount) // No new embedding calls
   })
 
+  it('re-indexes unchanged content when the chunking signature changes', async () => {
+    fs.writeFileSync(path.join(tmpDir, 'doc.md'), 'Hello world')
+    await indexer.indexFile('doc.md')
+    const originalChunkId = db._tables.chunks[0].id
+
+    db._tables.files[0].index_signature = 'obsolete-chunker'
+    const count = await indexer.indexFile('doc.md')
+
+    expect(count).toBe(1)
+    expect(db._tables.files[0].index_signature).toBe(`${CHUNKING_SIGNATURE}:${provider.model}`)
+    expect(db._tables.chunks[0].id).not.toBe(originalChunkId)
+  })
+
   it('re-indexes when content changes', async () => {
     const filePath = path.join(tmpDir, 'doc.md')
     fs.writeFileSync(filePath, 'Version 1')
@@ -127,7 +149,58 @@ describe('KbIndexer', () => {
     expect(provider._callCount).toBeGreaterThan(firstCallCount)
   })
 
-  it('removes file and cleans up chunks + FTS', async () => {
+  it('stores large retrieval parents separately while embedding only searchable children', async () => {
+    const body = Array.from({ length: 15 }, (_, index) => `Explanation line ${index + 1} keeps its section context.`).join('\n')
+    const content = `# Guide\n\n## Install\n${body}\n\n## Configure\n${body}\n\n## Troubleshoot\n${body}`
+    fs.writeFileSync(path.join(tmpDir, 'guide.md'), content)
+
+    const count = await indexer.indexFile('guide.md')
+
+    expect(count).toBeGreaterThan(1)
+    expect(db._tables.parent_chunks).toHaveLength(1)
+    expect(db._tables.parent_chunks[0].text).toBe(content)
+    expect(db._tables.chunks.every((chunk) => chunk.parent_id === db._tables.parent_chunks[0].id)).toBe(true)
+    expect(db._tables.chunks_fts).toHaveLength(count)
+    expect(db._tables.chunks_fts.some((chunk) => String(chunk.text).includes('guide.md'))).toBe(true)
+    expect(db._tables.chunks_fts.some((chunk) => String(chunk.text).includes('## Configure'))).toBe(true)
+  })
+
+  it('preserves the previous index when embedding the replacement fails', async () => {
+    const filePath = path.join(tmpDir, 'doc.md')
+    fs.writeFileSync(filePath, 'Stable indexed content')
+    await indexer.indexFile('doc.md')
+    const previousFile = { ...db._tables.files[0] }
+    const previousChunks = db._tables.chunks.map((chunk) => ({ ...chunk }))
+    const previousFts = db._tables.chunks_fts.map((chunk) => ({ ...chunk }))
+
+    fs.writeFileSync(filePath, 'Replacement content that cannot be embedded')
+    provider.embedBatch = async () => {
+      throw new Error('embedding unavailable')
+    }
+
+    await expect(indexer.indexFile('doc.md')).rejects.toThrow('embedding unavailable')
+    expect(db._tables.files).toEqual([previousFile])
+    expect(db._tables.chunks).toEqual(previousChunks)
+    expect(db._tables.chunks_fts).toEqual(previousFts)
+  })
+
+  it('clears stale chunks and parents when a previously indexed file becomes empty', async () => {
+    const filePath = path.join(tmpDir, 'doc.md')
+    const content = Array.from({ length: 30 }, (_, index) => `Line ${index + 1} has searchable content.`).join('\n')
+    fs.writeFileSync(filePath, content)
+    await indexer.indexFile('doc.md')
+    expect(db._tables.parent_chunks.length).toBeGreaterThan(0)
+
+    fs.writeFileSync(filePath, '')
+    await expect(indexer.indexFile('doc.md')).resolves.toBe(0)
+
+    expect(db._tables.files).toHaveLength(1)
+    expect(db._tables.chunks).toHaveLength(0)
+    expect(db._tables.chunks_fts).toHaveLength(0)
+    expect(db._tables.parent_chunks).toHaveLength(0)
+  })
+
+  it('removes file and cleans up chunks, FTS, and parents', async () => {
     const filePath = path.join(tmpDir, 'to-delete.md')
     fs.writeFileSync(filePath, 'Content to be deleted')
     await indexer.indexFile('to-delete.md')
@@ -143,6 +216,7 @@ describe('KbIndexer', () => {
     expect(db.prepare('SELECT count(*) as cnt FROM chunks_fts WHERE path = ?').get('to-delete.md')).toEqual({
       cnt: 0
     })
+    expect(db._tables.parent_chunks).toHaveLength(0)
   })
 
   it('indexes various file types', async () => {

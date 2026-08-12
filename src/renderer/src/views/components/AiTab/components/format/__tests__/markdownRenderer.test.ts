@@ -188,6 +188,78 @@ describe('markdownRenderer kb search results', () => {
     expect(wrapper.text()).toContain('Plain text message')
   })
 
+  it('renders live knowledge base search stages without exposing the JSON payload', async () => {
+    const payload = JSON.stringify({
+      phase: 'reranking',
+      startedAt: Date.now() - 1500,
+      elapsedMs: 1500,
+      candidateCount: 15,
+      rerankerType: 'llm',
+      embeddingMs: 120,
+      retrievalMs: 2
+    })
+    const wrapper = mount(MarkdownRenderer, {
+      ...globalMountOptions,
+      props: {
+        content: payload,
+        say: 'kb_search_progress',
+        partial: true
+      }
+    })
+
+    await flushPromises()
+
+    expect(wrapper.find('[data-testid="kb-search-progress"]').exists()).toBe(true)
+    expect(wrapper.findAll('.kb-search-progress-step')).toHaveLength(4)
+    expect(wrapper.findAll('.kb-search-progress-step.active')).toHaveLength(1)
+    expect(wrapper.find('.kb-search-progress-header').attributes('aria-expanded')).toBe('true')
+    expect(wrapper.text()).toContain('ai.kbSearchProgressRunning')
+    expect(wrapper.text()).not.toContain('"candidateCount"')
+
+    await wrapper.setProps({
+      partial: false,
+      messageContentParts: [
+        { type: 'text', text: '知识库检索:' },
+        {
+          type: 'chip',
+          chipType: 'doc',
+          ref: {
+            absPath: '/mock/knowledgebase/rss2.md',
+            relPath: 'rss2.md',
+            name: 'rss2.md',
+            type: 'file',
+            startLine: 1,
+            endLine: 3
+          }
+        }
+      ],
+      content: JSON.stringify({
+        phase: 'completed',
+        startedAt: Date.now() - 1800,
+        elapsedMs: 1800,
+        candidateCount: 15,
+        resultCount: 5,
+        rerankerType: 'llm',
+        embeddingMs: 120,
+        retrievalMs: 2,
+        rerankMs: 1600
+      })
+    })
+    await flushPromises()
+
+    expect(wrapper.text()).toContain('ai.kbSearchProgressCompleted')
+    expect(wrapper.find('.kb-search-progress-header').attributes('aria-expanded')).toBe('false')
+    expect(wrapper.find('.kb-search-progress-steps').exists()).toBe(false)
+    expect(wrapper.find('.kb-search-result-link').exists()).toBe(false)
+
+    await wrapper.find('.kb-search-progress-header').trigger('click')
+
+    expect(wrapper.find('.kb-search-progress-header').attributes('aria-expanded')).toBe('true')
+    expect(wrapper.findAll('.kb-search-progress-step.completed')).toHaveLength(4)
+    expect(wrapper.find('[data-testid="kb-search-progress"] .kb-search-result-link').text()).toBe('rss2.md L1-3')
+    wrapper.unmount()
+  })
+
   it('copies selected markdown text with keyboard shortcut', async () => {
     const content = 'Copy this text'
     const wrapper = mount(MarkdownRenderer, {
