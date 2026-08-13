@@ -53,7 +53,24 @@ const rendererAliases = {
   '@shared': resolve('src/main/agent/shared')
 }
 
+const nodeWorkerTestStubPlugin = () => ({
+  name: 'test:node-worker-stub',
+  enforce: 'pre' as const,
+  resolveId(id: string) {
+    if (id.endsWith('?nodeWorker')) return '\0test:node-worker-stub'
+  },
+  load(id: string) {
+    if (id !== '\0test:node-worker-stub') return
+    return `
+      export default function createNodeWorker() {
+        throw new Error('Node worker factories must be mocked before construction in unit tests')
+      }
+    `
+  }
+})
+
 const createMainProcessPlugins = () => [
+  nodeWorkerTestStubPlugin(),
   AutoImport({
     imports: [
       {
