@@ -3,6 +3,7 @@ import { createServer, type IncomingMessage, type ServerResponse } from 'node:ht
 import type { AddressInfo } from 'node:net'
 
 import type { ApiConfiguration } from '../../../agent/shared/api'
+import { getDefaultKbRerankConfig } from '../../../agent/shared/kb-rerank'
 import { buildApiConfigurationForProviderModel } from '../../../agent/core/storage/state'
 import {
   buildKbRerankUserPrompt,
@@ -205,8 +206,11 @@ describe('createKbRerankRuntime', () => {
   const chatModel = { id: 'chat-model', name: 'chat-model', checked: true, type: 'custom', apiProvider: 'default' }
   const rerankModel = { id: 'bge-reranker', name: 'bge-reranker', checked: true, type: 'rerank', apiProvider: 'default' }
 
-  it('keeps reranking off by default', () => {
-    expect(createKbRerankRuntime(undefined, apiConfiguration)).toEqual({})
+  it('uses the edition-specific fast LLM model by default', () => {
+    expect(getDefaultKbRerankConfig('cn').model?.modelId).toBe('Qwen-Plus')
+    expect(getDefaultKbRerankConfig('global').model?.modelId).toBe('gemini-2.5-flash')
+    expect(createKbRerankRuntime(undefined, apiConfiguration, [], 'cn').reranker?.type).toBe('llm')
+    expect(createKbRerankRuntime(undefined, apiConfiguration, [], 'global').reranker?.type).toBe('llm')
   })
 
   it('uses LLM prompt rerank when the selected model is not a rerank model', () => {

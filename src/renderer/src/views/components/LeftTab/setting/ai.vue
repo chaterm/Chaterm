@@ -312,9 +312,10 @@ import { updateGlobalState, getGlobalState } from '@renderer/agent/storage/state
 import { AutoApprovalSettings, DEFAULT_AUTO_APPROVAL_SETTINGS } from '@/agent/storage/shared'
 import { ChatSettings, DEFAULT_CHAT_SETTINGS, ProxyConfig } from '@/agent/storage/shared'
 import type { ApiProvider } from '@shared/api'
-import { type KbRerankConfig, type KbRerankModelSelection } from '@shared/kb-rerank'
+import { getDefaultKbRerankConfig, type KbRerankConfig, type KbRerankModelSelection } from '@shared/kb-rerank'
 import i18n from '@/locales'
 import eventBus from '@/utils/eventBus'
+import { APP_EDITION } from '@/utils/edition'
 
 const logger = createRendererLogger('settings.ai')
 const { t } = i18n.global
@@ -424,7 +425,13 @@ const buildKbRerankConfig = (): KbRerankConfig => {
 
 const resolveSavedRerankSelection = (savedConfig: LegacyKbRerankConfig | undefined): string => {
   const savedModel =
-    savedConfig?.version === 2 ? savedConfig.model : savedConfig?.mode === 'llm' || savedConfig?.mode === 'auto' ? savedConfig.llm : undefined
+    savedConfig === undefined
+      ? getDefaultKbRerankConfig(APP_EDITION).model
+      : savedConfig.version === 2
+        ? savedConfig.model
+        : savedConfig.mode === 'llm' || savedConfig.mode === 'auto'
+          ? savedConfig.llm
+          : undefined
   if (!savedModel?.provider || !savedModel.modelId || !validApiProviders.has(savedModel.provider)) return 'off'
   const value = buildRerankSelectionValue(savedModel.provider, savedModel.modelId)
   return enabledRerankModels.value.some((model) => model.value === value) ? value : 'off'

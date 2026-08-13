@@ -11,6 +11,7 @@ import { KB_DEFAULT_SEEDS, KB_DEFAULT_SEEDS_VERSION } from './default-seeds'
 import type { KnowledgeBaseDefaultSeed } from './default-seeds'
 import { getKbCloudUsedBytes, KB_CLOUD_TOTAL_BYTES, getKbSyncLastResults } from './sync'
 import { KbSearchManager } from './search/index'
+import { ChunkerWorkerClient } from './search/chunker-worker-client'
 import type { EmbeddingConfig } from './search/types'
 import { resolveKbRerankRuntime } from './rerank'
 import { createLogger } from '../logging'
@@ -929,9 +930,15 @@ export async function initKbSearchManager(userId: string, embeddingConfig: Embed
   try {
     const kbRoot = getKbRoot()
     const dbDir = path.join(app.getPath('userData'), 'chaterm_db')
-    kbSearchManagerInstance = KbSearchManager.create(userId, dbDir, kbRoot, embeddingConfig)
+    const chunker = new ChunkerWorkerClient()
+    try {
+      kbSearchManagerInstance = KbSearchManager.create(userId, dbDir, kbRoot, embeddingConfig, chunker)
+    } catch (error) {
+      chunker.close()
+      throw error
+    }
 
-    // Run full index in background (don't block startup)
+    // Start indexing without awaiting it; CPU-heavy chunking runs in its worker.
     kbSearchManagerInstance
       .fullIndex()
       .then((result) => {

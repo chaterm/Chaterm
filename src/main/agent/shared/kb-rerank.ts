@@ -11,6 +11,14 @@ export interface KbRerankConfig {
   model?: KbRerankModelSelection
 }
 
-export const DEFAULT_KB_RERANK_CONFIG: KbRerankConfig = {
-  version: 2
+export type KbRerankEdition = 'cn' | 'global'
+
+const DEFAULT_KB_RERANK_MODELS: Record<KbRerankEdition, KbRerankModelSelection> = {
+  cn: { provider: 'default', modelId: 'Qwen-Plus', modelType: 'standard' },
+  global: { provider: 'default', modelId: 'gemini-2.5-flash', modelType: 'standard' }
 }
+
+export const getDefaultKbRerankConfig = (edition: KbRerankEdition): KbRerankConfig => ({
+  version: 2,
+  model: { ...DEFAULT_KB_RERANK_MODELS[edition] }
+})
