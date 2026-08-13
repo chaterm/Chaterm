@@ -5,6 +5,7 @@ import Database from 'better-sqlite3'
 import type {
   EmbeddingProvider,
   EmbeddingConfig,
+  DocumentChunker,
   KbRankedChunk,
   KbSearchCandidate,
   KbSearchResult,
@@ -16,7 +17,8 @@ import type {
 import { createEmbeddingProvider } from './embedding-provider'
 import { initSchema } from './schema'
 import { KbIndexer } from './indexer'
-import { applyMmr, cosineSimilarity, buildFtsQuery, fuseResultsWithRrf, mergeAdjacentResults } from './searcher'
+import { applyMmr, collapseResultsByParent, cosineSimilarity, buildFtsQuery, fuseResultsWithRrf, mergeOverlappingResults } from './searcher'
+import type { KbExpandedResult } from './searcher'
 import { isIndexableFile } from './chunker'
 import { createLogger } from '../../logging'
 
@@ -35,7 +37,12 @@ export class KbSearchManager {
   private pendingDeletes = new Set<string>()
   private debounceTimer: ReturnType<typeof setTimeout> | null = null
 
-  constructor(dbPath: string, kbRoot: string, provider: EmbeddingProvider) {
+  constructor(
+    dbPath: string,
+    kbRoot: string,
+    provider: EmbeddingProvider,
+    private chunker: DocumentChunker
+  ) {
     this.kbRoot = kbRoot
     this.provider = provider
 
@@ -50,14 +57,14 @@ export class KbSearchManager {
     this.db.pragma('busy_timeout = 5000')
     initSchema(this.db)
 
-    this.indexer = new KbIndexer(this.db, this.provider, this.kbRoot)
+    this.indexer = new KbIndexer(this.db, this.provider, this.kbRoot, this.chunker)
   }
 
   /** Factory: create from config */
-  static create(userId: string, dbDir: string, kbRoot: string, config: EmbeddingConfig): KbSearchManager {
+  static create(userId: string, dbDir: string, kbRoot: string, config: EmbeddingConfig, chunker: DocumentChunker): KbSearchManager {
     const dbPath = path.join(dbDir, userId, 'kb_search.db')
     const provider = createEmbeddingProvider(config)
-    return new KbSearchManager(dbPath, kbRoot, provider)
+    return new KbSearchManager(dbPath, kbRoot, provider, chunker)
   }
 
   /** Called by sync.ts watcher on add/change */
@@ -137,33 +144,93 @@ export class KbSearchManager {
 
   /** Hybrid search: vector + FTS5 BM25 */
   async search(query: string, opts?: SearchOptions): Promise<KbSearchResult[]> {
+    const startedAt = performance.now()
     const maxResults = opts?.maxResults ?? 5
     const model = this.provider.model
     const candidateLimit = RERANK_CANDIDATE_LIMIT
+    const reranker = opts?.reranker
+    let embeddingMs = 0
+    let retrievalMs = 0
+    let rerankMs = 0
+    let embeddingFallback = false
+
+    const elapsedMs = () => Math.round(performance.now() - startedAt)
+    const notifyProgress = async (progress: Omit<import('../../../agent/shared/ExtensionMessage').KbSearchProgress, 'elapsedMs'>) => {
+      try {
+        await opts?.onProgress?.({ ...progress, elapsedMs: elapsedMs() })
+      } catch {
+        // UI progress is best-effort and must not break retrieval.
+      }
+    }
+    const complete = async (results: KbSearchResult[], candidateCount: number, rerankFallback = false): Promise<KbSearchResult[]> => {
+      const totalMs = elapsedMs()
+      await notifyProgress({
+        phase: 'completed',
+        candidateCount,
+        resultCount: results.length,
+        rerankerType: reranker?.type,
+        embeddingMs,
+        retrievalMs,
+        rerankMs,
+        embeddingFallback,
+        rerankFallback
+      })
+      searchLogger.info('Knowledge base search completed', {
+        event: 'kb.search.completed',
+        provider: this.provider.id,
+        embeddingModel: model,
+        rerankerType: reranker?.type ?? 'none',
+        embeddingMs,
+        retrievalMs,
+        rerankMs,
+        totalMs,
+        candidateCount,
+        resultCount: results.length,
+        embeddingFallback,
+        rerankFallback
+      })
+      return results
+    }
 
     // Vector search: in-memory cosine similarity
+    await notifyProgress({ phase: 'embedding', rerankerType: reranker?.type })
+    const embeddingStartedAt = performance.now()
     let queryVec: number[]
     try {
       queryVec = await this.provider.embedQuery(query)
     } catch {
       // If embedding fails, fall back to keyword-only search
       queryVec = []
+      embeddingFallback = true
     }
+    embeddingMs = Math.round(performance.now() - embeddingStartedAt)
 
+    await notifyProgress({ phase: 'retrieving', rerankerType: reranker?.type, embeddingMs, embeddingFallback })
+    const retrievalStartedAt = performance.now()
     const vectorHits = this.searchVector(queryVec, model, candidateLimit)
     const keywordHits = this.searchKeyword(query, candidateLimit)
     const fused = fuseResultsWithRrf(vectorHits, keywordHits)
-    const reranker = opts?.reranker
-    const selectFinalResults = (results: KbRankedChunk[]) => mergeAdjacentResults(applyMmr(results, maxResults))
-    if (fused.length === 0) return []
+    retrievalMs = Math.round(performance.now() - retrievalStartedAt)
+    const selectFinalResults = (results: KbRankedChunk[]) =>
+      mergeOverlappingResults(applyMmr(this.expandParentResults(collapseResultsByParent(results)), maxResults))
+    if (fused.length === 0) return complete([], 0)
 
     if (!reranker) {
-      return selectFinalResults(fused.map((candidate) => this.toSearchResult(candidate)))
+      return complete(selectFinalResults(fused.map((candidate) => this.toSearchResult(candidate))), fused.length)
     }
 
     const rerankCandidates = fused.slice(0, RERANK_CANDIDATE_LIMIT)
     const fallbackResults = selectFinalResults(rerankCandidates.map((candidate) => this.toSearchResult(candidate)))
 
+    await notifyProgress({
+      phase: 'reranking',
+      candidateCount: rerankCandidates.length,
+      rerankerType: reranker.type,
+      embeddingMs,
+      retrievalMs,
+      embeddingFallback
+    })
+    const rerankStartedAt = performance.now()
     try {
       const scores = await reranker.rerank(
         query,
@@ -173,26 +240,29 @@ export class KbSearchManager {
           path: candidate.path,
           startLine: candidate.startLine,
           endLine: candidate.endLine,
-          text: candidate.snippet,
+          text: [candidate.contextHeader, candidate.snippet].filter(Boolean).join('\n\n'),
           retrievalScore: candidate.rrfScore
         }))
       )
+      rerankMs = Math.round(performance.now() - rerankStartedAt)
       const ranked = this.applyRerankScores(rerankCandidates, scores, reranker.type)
       if (ranked.length === 0) throw new Error('Reranker returned no valid scores')
 
       const relevant = ranked.filter((result) => result.score >= DEFAULT_RERANK_THRESHOLD)
       if (relevant.length > 0) {
-        return selectFinalResults(relevant)
+        return complete(selectFinalResults(relevant), rerankCandidates.length)
       }
 
-      return ranked[0].score >= RERANK_FALLBACK_MIN_SCORE ? mergeAdjacentResults([ranked[0]]) : []
+      const results = ranked[0].score >= RERANK_FALLBACK_MIN_SCORE ? mergeOverlappingResults(this.expandParentResults([ranked[0]])) : []
+      return complete(results, rerankCandidates.length)
     } catch (error) {
+      rerankMs = Math.round(performance.now() - rerankStartedAt)
       searchLogger.warn('Knowledge base rerank failed', {
         event: 'kb.search.rerank_failed',
         rerankerType: reranker.type,
         errorName: error instanceof Error ? error.name : 'UnknownError'
       })
-      return fallbackResults
+      return complete(fallbackResults, rerankCandidates.length, true)
     }
   }
 
@@ -241,10 +311,15 @@ export class KbSearchManager {
 
   private toSearchResult(candidate: KbSearchCandidate): KbRankedChunk {
     return {
+      id: candidate.id,
       path: candidate.path,
       chunkIndex: candidate.chunkIndex,
+      parentId: candidate.parentId,
       startLine: candidate.startLine,
       endLine: candidate.endLine,
+      startOffset: candidate.startOffset,
+      endOffset: candidate.endOffset,
+      contextHeader: candidate.contextHeader,
       score: candidate.score,
       scoreSource: candidate.scoreSource,
       snippet: candidate.snippet
@@ -255,13 +330,19 @@ export class KbSearchManager {
     if (queryVec.length === 0) return []
 
     const rows = this.db
-      .prepare('SELECT id, path, chunk_index, start_line, end_line, text, embedding FROM chunks WHERE model = ?')
+      .prepare(
+        'SELECT id, path, chunk_index, parent_id, start_line, end_line, start_offset, end_offset, context_header, text, embedding FROM chunks WHERE model = ?'
+      )
       .all(model) as Array<{
       id: string
       path: string
       chunk_index: number
+      parent_id: string | null
       start_line: number
       end_line: number
+      start_offset: number
+      end_offset: number
+      context_header: string
       text: string
       embedding: string
     }>
@@ -272,8 +353,12 @@ export class KbSearchManager {
         id: row.id,
         path: row.path,
         chunkIndex: row.chunk_index,
+        parentId: row.parent_id ?? undefined,
         startLine: row.start_line,
         endLine: row.end_line,
+        startOffset: row.start_offset,
+        endOffset: row.end_offset,
+        contextHeader: row.context_header,
         snippet: row.text,
         score: cosineSimilarity(queryVec, vec)
       }
@@ -291,12 +376,16 @@ export class KbSearchManager {
       const rows = this.db
         .prepare(
           `SELECT
-             chunks_fts.id AS id,
-             chunks_fts.path AS path,
+             chunks.id AS id,
+             chunks.path AS path,
              chunks.chunk_index AS chunk_index,
-             chunks_fts.start_line AS start_line,
-             chunks_fts.end_line AS end_line,
-             chunks_fts.text AS text,
+             chunks.parent_id AS parent_id,
+             chunks.start_line AS start_line,
+             chunks.end_line AS end_line,
+             chunks.start_offset AS start_offset,
+             chunks.end_offset AS end_offset,
+             chunks.context_header AS context_header,
+             chunks.text AS text,
              bm25(chunks_fts) AS rank
            FROM chunks_fts
            INNER JOIN chunks ON chunks.id = chunks_fts.id
@@ -307,8 +396,12 @@ export class KbSearchManager {
         id: string
         path: string
         chunk_index: number
+        parent_id: string | null
         start_line: number
         end_line: number
+        start_offset: number
+        end_offset: number
+        context_header: string
         text: string
         rank: number
       }>
@@ -317,14 +410,74 @@ export class KbSearchManager {
         id: row.id,
         path: row.path,
         chunkIndex: row.chunk_index,
+        parentId: row.parent_id ?? undefined,
         startLine: row.start_line,
         endLine: row.end_line,
+        startOffset: row.start_offset,
+        endOffset: row.end_offset,
+        contextHeader: row.context_header,
         snippet: row.text,
         bm25Rank: row.rank
       }))
     } catch {
       return []
     }
+  }
+
+  private expandParentResults(results: KbRankedChunk[]): KbExpandedResult[] {
+    if (results.length === 0) return []
+    const parentIds = [...new Set(results.map((result) => result.parentId).filter((id): id is string => !!id))]
+    const parentMap = new Map<
+      string,
+      { path: string; start_line: number; end_line: number; start_offset: number; end_offset: number; text: string }
+    >()
+
+    if (parentIds.length > 0) {
+      const placeholders = parentIds.map(() => '?').join(', ')
+      const rows = this.db
+        .prepare(
+          `SELECT id, path, start_line, end_line, start_offset, end_offset, text
+           FROM parent_chunks WHERE id IN (${placeholders})`
+        )
+        .all(...parentIds) as Array<{
+        id: string
+        path: string
+        start_line: number
+        end_line: number
+        start_offset: number
+        end_offset: number
+        text: string
+      }>
+      rows.forEach((row) => parentMap.set(row.id, row))
+    }
+
+    const expanded = results.map((result) => {
+      const parent = result.parentId ? parentMap.get(result.parentId) : undefined
+      if (!parent) {
+        return {
+          path: result.path,
+          startLine: result.startLine,
+          endLine: result.endLine,
+          startOffset: result.startOffset,
+          endOffset: result.endOffset,
+          score: result.score,
+          scoreSource: result.scoreSource,
+          snippet: result.snippet
+        }
+      }
+      return {
+        path: parent.path,
+        startLine: parent.start_line,
+        endLine: parent.end_line,
+        startOffset: parent.start_offset,
+        endOffset: parent.end_offset,
+        score: result.score,
+        scoreSource: result.scoreSource,
+        snippet: parent.text
+      }
+    })
+
+    return expanded
   }
 
   status(): SearchStatus {
@@ -352,6 +505,7 @@ export class KbSearchManager {
       clearTimeout(this.debounceTimer)
       this.debounceTimer = null
     }
+    this.chunker.close()
     this.db.close()
   }
 }

@@ -1,9 +1,15 @@
+import type { KbSearchProgress } from '../../../agent/shared/ExtensionMessage'
+
 export interface KbChunk {
   id: string
   path: string
   chunkIndex: number
+  parentId?: string
   startLine: number
   endLine: number
+  startOffset: number
+  endOffset: number
+  contextHeader: string
   text: string
   hash: string
   embedding: number[]
@@ -26,11 +32,15 @@ export interface KbSearchResult {
 }
 
 export interface KbRankedChunk extends KbSearchResult {
+  id: string
   chunkIndex: number
+  parentId?: string
+  startOffset: number
+  endOffset: number
+  contextHeader: string
 }
 
 export interface KbSearchCandidate extends KbRankedChunk {
-  id: string
   rrfScore: number
   vectorRank?: number
   keywordRank?: number
@@ -40,8 +50,12 @@ export interface VectorHit {
   id: string
   path: string
   chunkIndex: number
+  parentId?: string
   startLine: number
   endLine: number
+  startOffset: number
+  endOffset: number
+  contextHeader: string
   snippet: string
   score: number
 }
@@ -50,8 +64,12 @@ export interface KeywordHit {
   id: string
   path: string
   chunkIndex: number
+  parentId?: string
   startLine: number
   endLine: number
+  startOffset: number
+  endOffset: number
+  contextHeader: string
   snippet: string
   bm25Rank: number
 }
@@ -73,6 +91,7 @@ export interface EmbeddingProvider {
 export interface SearchOptions {
   maxResults?: number
   reranker?: KbReranker
+  onProgress?: (progress: KbSearchProgress) => void | Promise<void>
 }
 
 export interface VectorSearchOptions {
@@ -107,10 +126,33 @@ export interface SearchStatus {
   provider: string
 }
 
-/** Raw chunk before embedding (output of chunkText) */
+/** Child chunk before persistence and embedding. Offsets use Unicode code points. */
 export interface RawChunk {
+  parentIndex: number
   startLine: number
   endLine: number
+  startOffset: number
+  endOffset: number
+  contextHeader: string
   text: string
-  hash: string
+}
+
+/** Parent context chunk. Parent chunks are persisted but never embedded. */
+export interface RawParentChunk {
+  parentIndex: number
+  startLine: number
+  endLine: number
+  startOffset: number
+  endOffset: number
+  text: string
+}
+
+export interface ChunkedDocument {
+  parents: RawParentChunk[]
+  children: RawChunk[]
+}
+
+export interface DocumentChunker {
+  chunkDocument(content: string, relPath: string): Promise<ChunkedDocument>
+  close(): void
 }

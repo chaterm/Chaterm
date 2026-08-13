@@ -2,8 +2,8 @@ import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
 import fs from 'fs'
 import path from 'path'
 import os from 'os'
-import type { EmbeddingProvider, KbReranker } from '../types'
-import { chunkText } from '../chunker'
+import type { DocumentChunker, EmbeddingProvider, KbReranker } from '../types'
+import { chunkDocument } from '../chunker'
 import { createMockDatabase } from './mock-database'
 
 // Mock better-sqlite3 so KbSearchManager uses our MockDatabase
@@ -57,6 +57,14 @@ describe('KbSearchManager integration', () => {
   let dbPath: string
   let kbRoot: string
   let manager: KbSearchManager
+  const chunker: DocumentChunker = {
+    async chunkDocument(content, relPath) {
+      return chunkDocument(content, relPath)
+    },
+    close() {
+      return undefined
+    }
+  }
 
   beforeEach(() => {
     tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'kb-search-integration-'))
@@ -65,7 +73,7 @@ describe('KbSearchManager integration', () => {
     fs.mkdirSync(kbRoot)
 
     const provider = createTestProvider()
-    manager = new KbSearchManager(dbPath, kbRoot, provider)
+    manager = new KbSearchManager(dbPath, kbRoot, provider, chunker)
   })
 
   afterEach(() => {
@@ -143,23 +151,73 @@ describe('KbSearchManager integration', () => {
     expect(results[0].path).toBe('error.md')
   })
 
-  it('merges five selected adjacent chunks into one result without duplicated overlap or backfill', async () => {
-    let lineCount = 1
-    let content = ''
-    while (chunkText(content).length < 5) {
-      content = Array.from({ length: lineCount }, (_, index) => `merge line ${String(index + 1).padStart(3, '0')} unique-${index}`).join('\n')
-      lineCount++
-    }
-    const chunks = chunkText(content)
-    expect(chunks).toHaveLength(5)
+  it('restores the full parent after child retrieval and removes overlapping parent duplicates', async () => {
+    const content = [
+      '# Parent restoration',
+      '',
+      'needle-only-in-the-opening-child',
+      ...Array.from({ length: 60 }, (_, index) => `parent line ${String(index + 1).padStart(3, '0')} preserves the surrounding explanation`)
+    ].join('\n')
     fs.writeFileSync(path.join(kbRoot, 'merged.md'), content)
 
     await manager.fullIndex()
-    const results = await manager.search('merge', { maxResults: 5 })
+    const results = await manager.search('needle-only-in-the-opening-child', { maxResults: 5 })
 
     expect(results).toHaveLength(1)
-    expect(results[0]).toMatchObject({ path: 'merged.md', startLine: 1, endLine: lineCount - 1, snippet: content })
+    expect(results[0]).toMatchObject({ path: 'merged.md', startLine: 1, endLine: 63, snippet: content })
     expect(results[0]).not.toHaveProperty('chunkIndex')
+  })
+
+  it('applies maxResults after collapsing reranked children by parent', async () => {
+    const block = (prefix: string) => Array.from({ length: 30 }, (_, index) => `${prefix}_${index}`).join(' ')
+    fs.writeFileSync(path.join(kbRoot, 'many-children.txt'), [block('alpha'), block('beta'), block('gamma')].join('\n\n'))
+    fs.writeFileSync(path.join(kbRoot, 'orphan-b.txt'), 'bravo deployment reference with a distinct standalone answer')
+    fs.writeFileSync(path.join(kbRoot, 'orphan-c.txt'), 'charlie deployment reference with another standalone answer')
+    await manager.fullIndex()
+
+    const reranker: KbReranker = {
+      type: 'llm',
+      async rerank(_query, candidates) {
+        return candidates.map((candidate) => ({
+          index: candidate.index,
+          score: candidate.path === 'many-children.txt' ? 0.99 : candidate.path === 'orphan-b.txt' ? 0.7 : 0.6
+        }))
+      }
+    }
+
+    const results = await manager.search('deployment reference', { maxResults: 3, reranker })
+
+    expect(results).toHaveLength(3)
+    expect(new Set(results.map((result) => result.path))).toEqual(new Set(['many-children.txt', 'orphan-b.txt', 'orphan-c.txt']))
+  })
+
+  it('applies MMR to expanded parent content instead of the winning child snippet', async () => {
+    const tokens = (prefix: string, count: number) => Array.from({ length: count }, (_, index) => `${prefix}_${index}`).join(' ')
+    const sharedParentContext = tokens('shared_context', 120)
+    fs.writeFileSync(path.join(kbRoot, 'parent-a.txt'), `deployment alpha_focus ${tokens('alpha', 30)}\n\n${sharedParentContext}`)
+    fs.writeFileSync(path.join(kbRoot, 'parent-b.txt'), `deployment beta_focus ${tokens('beta', 30)}\n\n${sharedParentContext}`)
+    fs.writeFileSync(path.join(kbRoot, 'parent-c.txt'), `deployment gamma_focus ${tokens('gamma', 150)}`)
+    await manager.fullIndex()
+
+    const reranker: KbReranker = {
+      type: 'llm',
+      async rerank(_query, candidates) {
+        return candidates.map((candidate) => ({
+          index: candidate.index,
+          score: candidate.text.includes('alpha_focus')
+            ? 0.99
+            : candidate.text.includes('beta_focus')
+              ? 0.95
+              : candidate.text.includes('gamma_focus')
+                ? 0.7
+                : 0.4
+        }))
+      }
+    }
+
+    const results = await manager.search('deployment focus', { maxResults: 2, reranker })
+
+    expect(results.map((result) => result.path)).toEqual(['parent-a.txt', 'parent-c.txt'])
   })
 
   it('onFileChanged + flushNow indexes new file', async () => {

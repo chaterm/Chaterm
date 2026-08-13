@@ -250,6 +250,21 @@ describe('AI Settings Component', () => {
     expect(vm.kbRerankSelection).toBe(JSON.stringify({ provider: 'default', modelId: 'chat-model' }))
   })
 
+  it('selects Qwen-Plus by default in the Chinese edition', async () => {
+    mockGetGlobalState.mockImplementation(async (key: string) => {
+      if (key === 'modelOptions') {
+        return [{ id: 'Qwen-Plus', name: 'Qwen-Plus', checked: true, type: 'standard', apiProvider: 'default' }]
+      }
+      if (key === 'kbSearchEnabled') return true
+      return undefined
+    })
+
+    const wrapper = mountComponent()
+    await flushPromises()
+
+    expect((wrapper.vm as any).kbRerankSelection).toBe(JSON.stringify({ provider: 'default', modelId: 'Qwen-Plus' }))
+  })
+
   it('saves a selected rerank model from the user model list', async () => {
     mockGetGlobalState.mockImplementation(async (key: string) => {
       if (key === 'kbSearchEnabled') return true

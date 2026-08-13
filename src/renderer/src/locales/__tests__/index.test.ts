@@ -5,6 +5,23 @@ vi.mock('@utils/edition', () => ({
   getDefaultLanguage: vi.fn(() => 'en-US')
 }))
 
+const expectedLocales = ['zh-CN', 'zh-TW', 'en-US', 'de-DE', 'fr-FR', 'it-IT', 'pt-PT', 'ru-RU', 'ja-JP', 'ko-KR', 'ar-AR']
+
+const kbSearchProgressKeys = [
+  'kbSearchProgressRunning',
+  'kbSearchProgressCompleted',
+  'kbSearchProgressFailed',
+  'kbSearchProgressEmbedding',
+  'kbSearchProgressRetrieving',
+  'kbSearchProgressReranking',
+  'kbSearchProgressRerankFallback',
+  'kbSearchProgressPreparing',
+  'kbSearchProgressFailedStep',
+  'kbSearchProgressResults',
+  'kbSearchProgressDuration',
+  'kbSearchProgressCandidates'
+] as const
+
 describe('i18n configuration - Arabic (ar-AR) locale support', () => {
   it('should register ar-AR in messages', async () => {
     const i18nModule = await import('../index')
@@ -41,11 +58,28 @@ describe('i18n configuration - Arabic (ar-AR) locale support', () => {
     const i18nModule = await import('../index')
     const i18n = i18nModule.default
 
-    const expectedLocales = ['zh-CN', 'zh-TW', 'en-US', 'de-DE', 'fr-FR', 'it-IT', 'pt-PT', 'ru-RU', 'ja-JP', 'ko-KR', 'ar-AR']
-
     const availableLocales = i18n.global.availableLocales
     for (const locale of expectedLocales) {
       expect(availableLocales).toContain(locale)
+    }
+  })
+
+  it('should localize knowledge base search progress in every supported locale', async () => {
+    const i18nModule = await import('../index')
+    const i18n = i18nModule.default
+
+    for (const locale of expectedLocales) {
+      const messages = i18n.global.getLocaleMessage(locale) as { ai: Record<string, string> }
+      for (const key of kbSearchProgressKeys) {
+        expect(messages.ai[key], `${locale}.${key}`).toBeTypeOf('string')
+        expect(messages.ai[key], `${locale}.${key}`).not.toBe('')
+      }
+      for (const key of ['kbSearchProgressRunning', 'kbSearchProgressCompleted', 'kbSearchProgressFailed', 'kbSearchProgressDuration']) {
+        expect(messages.ai[key], `${locale}.${key}`).toContain('{seconds}')
+      }
+      for (const key of ['kbSearchProgressResults', 'kbSearchProgressCandidates']) {
+        expect(messages.ai[key], `${locale}.${key}`).toContain('{count}')
+      }
     }
   })
 })

@@ -6,6 +6,14 @@ describe('initSchema', () => {
   it('backfills chunk indexes in file order without dropping cached embeddings', () => {
     const db = new Database(':memory:')
     db.exec(`
+      CREATE TABLE files (
+        path     TEXT PRIMARY KEY,
+        hash     TEXT NOT NULL,
+        mtime_ms INTEGER NOT NULL,
+        size     INTEGER NOT NULL
+      );
+      INSERT INTO files VALUES ('a.md', 'file-hash', 1, 10);
+
       CREATE TABLE chunks (
         id         TEXT PRIMARY KEY,
         path       TEXT NOT NULL,
@@ -47,6 +55,15 @@ describe('initSchema', () => {
       )
       .get('a1') as { chunk_index: number }
     expect(keywordHit.chunk_index).toBe(1)
+
+    const fileColumns = db.pragma('table_info(files)') as Array<{ name: string }>
+    const chunkColumns = db.pragma('table_info(chunks)') as Array<{ name: string }>
+    expect(fileColumns.map((column) => column.name)).toContain('index_signature')
+    expect(chunkColumns.map((column) => column.name)).toEqual(expect.arrayContaining(['parent_id', 'start_offset', 'end_offset', 'context_header']))
+    expect(db.prepare('SELECT index_signature FROM files WHERE path = ?').get('a.md')).toEqual({ index_signature: '' })
+
+    const parentTable = db.prepare("SELECT name FROM sqlite_master WHERE type = 'table' AND name = 'parent_chunks'").get()
+    expect(parentTable).toEqual({ name: 'parent_chunks' })
 
     db.close()
   })
