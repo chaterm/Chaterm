@@ -302,18 +302,44 @@ const DISALLOWED_KEYWORDS = new Set([
 function readExplainOptions(skel: string): { optionsText: string; rest: string } | null {
   const m = /^\s*explain\b/i.exec(skel)
   if (!m) return null
-  let i = m.index + m[0].length
-  // Skip whitespace + optional options clauses. We consume everything up to
-  // the first `select` keyword, treating the intermediate text as option text
-  // so that both `EXPLAIN ANALYZE SELECT` and `EXPLAIN (ANALYZE, BUFFERS)
-  // SELECT` feed `optionsText`.
-  const afterSelect = /\bselect\b/i.exec(skel.slice(i))
-  if (!afterSelect) {
-    return { optionsText: skel.slice(i), rest: '' }
+  const afterExplain = skel.slice(m.index + m[0].length)
+  const trimmed = afterExplain.trimStart()
+
+  // Check if the entire target query is parenthesized: EXPLAIN (SELECT 1) or EXPLAIN ((SELECT ...))
+  const outerRange = unwrapOuterParenthesesRange(trimmed)
+  if (outerRange) {
+    return { optionsText: '', rest: trimmed }
   }
-  const selectAt = i + afterSelect.index
-  const optionsText = skel.slice(i, selectAt)
-  const rest = skel.slice(selectAt)
+
+  // Check if there are options in parens followed by a query: EXPLAIN (ANALYZE) SELECT ...
+  if (trimmed.startsWith('(')) {
+    let depth = 0
+    let closeIdx = -1
+    for (let i = 0; i < trimmed.length; i++) {
+      if (trimmed[i] === '(') depth++
+      else if (trimmed[i] === ')') {
+        depth--
+        if (depth === 0) {
+          closeIdx = i
+          break
+        }
+      }
+    }
+    if (closeIdx !== -1 && closeIdx < trimmed.length - 1) {
+      const options = trimmed.slice(0, closeIdx + 1)
+      const rest = trimmed.slice(closeIdx + 1)
+      return { optionsText: options, rest: rest.trimStart() }
+    }
+  }
+
+  // Standard options without parens: EXPLAIN ANALYZE SELECT ... or EXPLAIN SELECT ...
+  const afterSelect = /\bselect\b/i.exec(afterExplain)
+  if (!afterSelect) {
+    return { optionsText: afterExplain, rest: '' }
+  }
+  const selectAt = afterSelect.index
+  const optionsText = afterExplain.slice(0, selectAt)
+  const rest = afterExplain.slice(selectAt)
   return { optionsText, rest }
 }
 
@@ -378,6 +404,8 @@ function extractCteBodies(skel: string): string[] {
   return bodies
 }
 
+const MAX_UNWRAP_DEPTH = 20
+
 /**
  * Safely find the indices of matched outer parentheses wrapping the whole skeleton.
  */
@@ -409,36 +437,21 @@ function unwrapOuterParenthesesRange(skel: string): { start: number; end: number
  * Iteratively unwrap all matching outer parentheses of a string.
  */
 function unwrapOuterParentheses(str: string): string {
-  let current = str.trim()
-  while (current.startsWith('(') && current.endsWith(')')) {
-    let depth = 0
-    let matchesOuter = false
-    for (let i = 0; i < current.length; i++) {
-      if (current[i] === '(') {
-        depth++
-      } else if (current[i] === ')') {
-        depth--
-        if (depth === 0) {
-          if (i === current.length - 1) {
-            matchesOuter = true
-          }
-          break
-        }
-      }
-    }
-    if (matchesOuter) {
-      current = current.slice(1, -1).trim()
-    } else {
-      break
-    }
+  let current = str
+  let iterations = 0
+  while (iterations < MAX_UNWRAP_DEPTH) {
+    const range = unwrapOuterParenthesesRange(current)
+    if (!range) break
+    current = current.slice(range.start + 1, range.end)
+    iterations++
   }
-  return current
+  return current.trim()
 }
 
 /**
  * Scan the skeleton and identify all top-level (paren depth 0) set operators (UNION, INTERSECT, EXCEPT).
  */
-function getTopLevelSetSplits(skel: string): { index: number; length: number }[] {
+function getTopLevelSetSplits(skel: string): { index: number; length: number }[] | null {
   let depth = 0
   const splits: { index: number; length: number }[] = []
   const lowerSkel = skel.toLowerCase()
@@ -448,6 +461,9 @@ function getTopLevelSetSplits(skel: string): { index: number; length: number }[]
       depth++
     } else if (char === ')') {
       depth--
+      if (depth < 0) {
+        return null
+      }
     } else if (depth === 0) {
       let opLength = 0
       if (lowerSkel.startsWith('union', i) && !/[a-z0-9_]/i.test(skel[i - 1] ?? '') && !/[a-z0-9_]/i.test(skel[i + 5] ?? '')) {
@@ -470,21 +486,25 @@ function getTopLevelSetSplits(skel: string): { index: number; length: number }[]
       }
     }
   }
+  if (depth !== 0) {
+    return null
+  }
   return splits
 }
 
 /**
- * Scan a CTE body for disallowed top-level statements. We look at the first
- * meaningful keyword inside the body; a SELECT / WITH / VALUES body is
- * allowed, everything else is rejected.
+ * Validate a CTE body with the read-only guard. A bare VALUES list is also
+ * accepted, because it is read-only. SHOW / DESC / DESCRIBE / EXPLAIN bodies
+ * are rejected.
  */
 function cteBodyIsSafe(body: string): boolean {
-  const inner = isReadOnlySql(body)
-  if (!inner.ok) return false
   const trimmed = unwrapOuterParentheses(body).toLowerCase()
   if (/^(show|desc|describe|explain)\b/.test(trimmed)) {
     return false
   }
+  if (/^values\b/.test(trimmed)) return true
+  const inner = isReadOnlySql(body)
+  if (!inner.ok) return false
   return true
 }
 
@@ -546,6 +566,13 @@ export function isReadOnlySql(sqlIn: string): GuardResult {
 
   // Check for top-level set operations
   const splits = getTopLevelSetSplits(currentSkel)
+  if (splits === null) {
+    return {
+      ok: false,
+      errorCode: 'E_NOT_WHITELISTED',
+      reason: 'SQL contains unbalanced parentheses.'
+    }
+  }
   if (splits.length > 0) {
     const segments: string[] = []
     let lastIndex = 0
@@ -696,11 +723,16 @@ export function isReadOnlySql(sqlIn: string): GuardResult {
         reason: 'EXPLAIN ANALYZE / ANALYSE is not allowed; it may execute the query.'
       }
     }
-    const inner = isReadOnlySql(explain.rest)
+    const explainTarget = unwrapOuterParentheses(explain.rest)
+    const inner = isReadOnlySql(explainTarget)
     if (!inner.ok) {
-      return inner
+      return {
+        ok: false,
+        errorCode: 'E_EXPLAIN_TARGET_NOT_SELECT',
+        reason: 'EXPLAIN must target a SELECT statement.'
+      }
     }
-    const targetTrimmed = trimStart(explain.rest).toLowerCase()
+    const targetTrimmed = trimStart(explainTarget).toLowerCase()
     if (/^(show|desc|describe)\b/i.test(targetTrimmed)) {
       return {
         ok: false,

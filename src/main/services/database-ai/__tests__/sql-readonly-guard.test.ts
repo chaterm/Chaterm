@@ -580,4 +580,21 @@ describe('isReadOnlySql - parenthesized and set queries', () => {
     expect(r.ok).toBe(false)
     if (!r.ok) expect(r.errorCode).toBe('E_EXPLAIN_TARGET_NOT_SELECT')
   })
+
+  it('rejects malicious EXPLAIN with set target containing DML: EXPLAIN ((SELECT 1) UNION (DELETE FROM users))', () => {
+    const r = isReadOnlySql('EXPLAIN ((SELECT 1) UNION (DELETE FROM users))')
+    expect(r.ok).toBe(false)
+    if (!r.ok) expect(r.errorCode).toBe('E_EXPLAIN_TARGET_NOT_SELECT')
+  })
+
+  it('allows read-only VALUES clause in CTE body: WITH v AS (VALUES (1), (2)) SELECT * FROM v', () => {
+    const r = isReadOnlySql('WITH v AS (VALUES (1), (2)) SELECT * FROM v')
+    expect(r.ok).toBe(true)
+  })
+
+  it('rejects unbalanced parentheses in set queries: (SELECT 1)) UNION (SELECT 2)', () => {
+    const r = isReadOnlySql('(SELECT 1)) UNION (SELECT 2)')
+    expect(r.ok).toBe(false)
+    if (!r.ok) expect(r.errorCode).toBe('E_NOT_WHITELISTED')
+  })
 })
