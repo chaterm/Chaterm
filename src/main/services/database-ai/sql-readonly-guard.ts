@@ -339,6 +339,14 @@ function readExplainOptions(skel: string): { optionsText: string; rest: string }
   }
   const selectAt = afterSelect.index
   const optionsText = afterExplain.slice(0, selectAt)
+  if (
+    tokens(optionsText).some((token) => {
+      const lower = token.toLowerCase()
+      return DISALLOWED_KEYWORDS.has(lower) && lower !== 'analyze' && lower !== 'analyse'
+    })
+  ) {
+    return null
+  }
   const rest = afterExplain.slice(selectAt)
   return { optionsText, rest }
 }
@@ -556,12 +564,14 @@ export function isReadOnlySql(sqlIn: string): GuardResult {
   let currentSkel = skel
   let currentSql = sqlIn
 
-  // Unwrap matched outer parentheses layers
-  while (true) {
+  // Unwrap matched outer parentheses layers up to MAX_UNWRAP_DEPTH
+  let unwrapIterations = 0
+  while (unwrapIterations < MAX_UNWRAP_DEPTH) {
     const range = unwrapOuterParenthesesRange(currentSkel)
     if (!range) break
     currentSkel = currentSkel.slice(range.start + 1, range.end)
     currentSql = currentSql.slice(range.start + 1, range.end)
+    unwrapIterations++
   }
 
   // Check for top-level set operations

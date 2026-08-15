@@ -597,4 +597,10 @@ describe('isReadOnlySql - parenthesized and set queries', () => {
     expect(r.ok).toBe(false)
     if (!r.ok) expect(r.errorCode).toBe('E_NOT_WHITELISTED')
   })
+
+  it('rejects EXPLAIN with DML preceding SELECT: EXPLAIN INSERT INTO audit SELECT * FROM source', () => {
+    const r = isReadOnlySql('EXPLAIN INSERT INTO audit SELECT * FROM source')
+    expect(r.ok).toBe(false)
+    if (!r.ok) expect(r.errorCode).toBe('E_EXPLAIN_TARGET_NOT_SELECT')
+  })
 })
