@@ -149,7 +149,12 @@ function stripCommentsAndLiterals(sqlIn: string): StripOutcome {
     if ((c === 'Q' || c === 'q') && n === "'") {
       const open = sql[i + 2]
       if (!open) return { skeleton: sql, hardFail: 'E_UNTERMINATED_LITERAL' }
-      const closeMap: Record<string, string> = { '[': ']', '(': ')', '{': '}', '<': '>' }
+      const closeMap: Record<string, string> = {
+        '[': ']',
+        '(': ')',
+        '{': '}',
+        '<': '>'
+      }
       const close = closeMap[open] ?? open
       const needle = `${close}'`
       const endIdx = sql.indexOf(needle, i + 3)
@@ -297,18 +302,52 @@ const DISALLOWED_KEYWORDS = new Set([
 function readExplainOptions(skel: string): { optionsText: string; rest: string } | null {
   const m = /^\s*explain\b/i.exec(skel)
   if (!m) return null
-  let i = m.index + m[0].length
-  // Skip whitespace + optional options clauses. We consume everything up to
-  // the first `select` keyword, treating the intermediate text as option text
-  // so that both `EXPLAIN ANALYZE SELECT` and `EXPLAIN (ANALYZE, BUFFERS)
-  // SELECT` feed `optionsText`.
-  const afterSelect = /\bselect\b/i.exec(skel.slice(i))
-  if (!afterSelect) {
-    return { optionsText: skel.slice(i), rest: '' }
+  const afterExplain = skel.slice(m.index + m[0].length)
+  const trimmed = afterExplain.trimStart()
+
+  // Check if the entire target query is parenthesized: EXPLAIN (SELECT 1) or EXPLAIN ((SELECT ...))
+  const outerRange = unwrapOuterParenthesesRange(trimmed)
+  if (outerRange) {
+    return { optionsText: '', rest: trimmed }
   }
-  const selectAt = i + afterSelect.index
-  const optionsText = skel.slice(i, selectAt)
-  const rest = skel.slice(selectAt)
+
+  // Check if there are options in parens followed by a query: EXPLAIN (ANALYZE) SELECT ...
+  if (trimmed.startsWith('(')) {
+    let depth = 0
+    let closeIdx = -1
+    for (let i = 0; i < trimmed.length; i++) {
+      if (trimmed[i] === '(') depth++
+      else if (trimmed[i] === ')') {
+        depth--
+        if (depth === 0) {
+          closeIdx = i
+          break
+        }
+      }
+    }
+    if (closeIdx !== -1 && closeIdx < trimmed.length - 1) {
+      const options = trimmed.slice(0, closeIdx + 1)
+      const rest = trimmed.slice(closeIdx + 1)
+      return { optionsText: options, rest: rest.trimStart() }
+    }
+  }
+
+  // Standard options without parens: EXPLAIN ANALYZE SELECT ... or EXPLAIN SELECT ...
+  const afterSelect = /\bselect\b/i.exec(afterExplain)
+  if (!afterSelect) {
+    return { optionsText: afterExplain, rest: '' }
+  }
+  const selectAt = afterSelect.index
+  const optionsText = afterExplain.slice(0, selectAt)
+  if (
+    tokens(optionsText).some((token) => {
+      const lower = token.toLowerCase()
+      return DISALLOWED_KEYWORDS.has(lower) && lower !== 'analyze' && lower !== 'analyse'
+    })
+  ) {
+    return null
+  }
+  const rest = afterExplain.slice(selectAt)
   return { optionsText, rest }
 }
 
@@ -373,21 +412,108 @@ function extractCteBodies(skel: string): string[] {
   return bodies
 }
 
+const MAX_UNWRAP_DEPTH = 20
+
 /**
- * Scan a CTE body for disallowed top-level statements. We look at the first
- * meaningful keyword inside the body; a SELECT / WITH / VALUES body is
- * allowed, everything else is rejected.
+ * Safely find the indices of matched outer parentheses wrapping the whole skeleton.
+ */
+function unwrapOuterParenthesesRange(skel: string): { start: number; end: number } | null {
+  const startMatch = /^\s*\(/.exec(skel)
+  if (!startMatch) return null
+  const startIdx = startMatch[0].length - 1
+
+  let depth = 0
+  for (let i = startIdx; i < skel.length; i++) {
+    if (skel[i] === '(') {
+      depth++
+    } else if (skel[i] === ')') {
+      depth--
+      if (depth === 0) {
+        const rest = skel.slice(i + 1)
+        if (rest.trim().length === 0) {
+          return { start: startIdx, end: i }
+        } else {
+          return null
+        }
+      }
+    }
+  }
+  return null
+}
+
+/**
+ * Iteratively unwrap all matching outer parentheses of a string.
+ */
+function unwrapOuterParentheses(str: string): string {
+  let current = str
+  let iterations = 0
+  while (iterations < MAX_UNWRAP_DEPTH) {
+    const range = unwrapOuterParenthesesRange(current)
+    if (!range) break
+    current = current.slice(range.start + 1, range.end)
+    iterations++
+  }
+  return current.trim()
+}
+
+/**
+ * Scan the skeleton and identify all top-level (paren depth 0) set operators (UNION, INTERSECT, EXCEPT).
+ */
+function getTopLevelSetSplits(skel: string): { index: number; length: number }[] | null {
+  let depth = 0
+  const splits: { index: number; length: number }[] = []
+  const lowerSkel = skel.toLowerCase()
+  for (let i = 0; i < skel.length; i++) {
+    const char = skel[i]
+    if (char === '(') {
+      depth++
+    } else if (char === ')') {
+      depth--
+      if (depth < 0) {
+        return null
+      }
+    } else if (depth === 0) {
+      let opLength = 0
+      if (lowerSkel.startsWith('union', i) && !/[a-z0-9_]/i.test(skel[i - 1] ?? '') && !/[a-z0-9_]/i.test(skel[i + 5] ?? '')) {
+        opLength = 5
+      } else if (lowerSkel.startsWith('intersect', i) && !/[a-z0-9_]/i.test(skel[i - 1] ?? '') && !/[a-z0-9_]/i.test(skel[i + 9] ?? '')) {
+        opLength = 9
+      } else if (lowerSkel.startsWith('except', i) && !/[a-z0-9_]/i.test(skel[i - 1] ?? '') && !/[a-z0-9_]/i.test(skel[i + 6] ?? '')) {
+        opLength = 6
+      }
+
+      if (opLength > 0) {
+        const remaining = skel.slice(i + opLength)
+        const modifierMatch = /^\s*(all|distinct)\b/i.exec(remaining)
+        let totalLength = opLength
+        if (modifierMatch) {
+          totalLength += modifierMatch[0].length
+        }
+        splits.push({ index: i, length: totalLength })
+        i += totalLength - 1
+      }
+    }
+  }
+  if (depth !== 0) {
+    return null
+  }
+  return splits
+}
+
+/**
+ * Validate a CTE body with the read-only guard. A bare VALUES list is also
+ * accepted, because it is read-only. SHOW / DESC / DESCRIBE / EXPLAIN bodies
+ * are rejected.
  */
 function cteBodyIsSafe(body: string): boolean {
-  const trimmed = trimStart(body).toLowerCase()
-  if (trimmed.startsWith('select')) return /^select\b/.test(trimmed)
-  if (trimmed.startsWith('values')) return /^values\b/.test(trimmed)
-  if (trimmed.startsWith('with')) return /^with\b/.test(trimmed)
-  if (trimmed.startsWith('(')) {
-    // Parenthesized sub-select; unwrap one level and recurse once.
-    return cteBodyIsSafe(body.replace(/^\s*\(/, '').replace(/\)\s*$/, ''))
+  const trimmed = unwrapOuterParentheses(body).toLowerCase()
+  if (/^(show|desc|describe|explain)\b/.test(trimmed)) {
+    return false
   }
-  return false
+  if (/^values\b/.test(trimmed)) return true
+  const inner = isReadOnlySql(body)
+  if (!inner.ok) return false
+  return true
 }
 
 // ---------------------------------------------------------------------------
@@ -401,7 +527,11 @@ function cteBodyIsSafe(body: string): boolean {
  */
 export function isReadOnlySql(sqlIn: string): GuardResult {
   if (!sqlIn || sqlIn.trim().length === 0) {
-    return { ok: false, errorCode: 'E_EMPTY_STATEMENT', reason: 'SQL is empty.' }
+    return {
+      ok: false,
+      errorCode: 'E_EMPTY_STATEMENT',
+      reason: 'SQL is empty.'
+    }
   }
   const stripped = stripCommentsAndLiterals(sqlIn)
   if (stripped.hardFail) {
@@ -414,15 +544,73 @@ export function isReadOnlySql(sqlIn: string): GuardResult {
           : 'SQL contains an unterminated string or comment.'
     }
   }
-  const skel = stripped.skeleton
+  let skel = stripped.skeleton
   if (hasExtraStatement(skel)) {
-    return { ok: false, errorCode: 'E_MULTIPLE_STATEMENTS', reason: 'Multiple statements are not allowed.' }
+    return {
+      ok: false,
+      errorCode: 'E_MULTIPLE_STATEMENTS',
+      reason: 'Multiple statements are not allowed.'
+    }
   }
   const trimmed = trimStart(skel)
   if (trimmed.length === 0) {
-    return { ok: false, errorCode: 'E_EMPTY_STATEMENT', reason: 'SQL is empty after stripping comments.' }
+    return {
+      ok: false,
+      errorCode: 'E_EMPTY_STATEMENT',
+      reason: 'SQL is empty after stripping comments.'
+    }
   }
-  const lower = trimmed.toLowerCase()
+
+  let currentSkel = skel
+  let currentSql = sqlIn
+
+  // Unwrap matched outer parentheses layers up to MAX_UNWRAP_DEPTH
+  let unwrapIterations = 0
+  while (unwrapIterations < MAX_UNWRAP_DEPTH) {
+    const range = unwrapOuterParenthesesRange(currentSkel)
+    if (!range) break
+    currentSkel = currentSkel.slice(range.start + 1, range.end)
+    currentSql = currentSql.slice(range.start + 1, range.end)
+    unwrapIterations++
+  }
+
+  // Check for top-level set operations
+  const splits = getTopLevelSetSplits(currentSkel)
+  if (splits === null) {
+    return {
+      ok: false,
+      errorCode: 'E_NOT_WHITELISTED',
+      reason: 'SQL contains unbalanced parentheses.'
+    }
+  }
+  if (splits.length > 0) {
+    const segments: string[] = []
+    let lastIndex = 0
+    for (const split of splits) {
+      segments.push(currentSql.slice(lastIndex, split.index))
+      lastIndex = split.index + split.length
+    }
+    segments.push(currentSql.slice(lastIndex))
+
+    for (const segment of segments) {
+      const res = isReadOnlySql(segment)
+      if (!res.ok) {
+        return res
+      }
+    }
+    return { ok: true, skeleton: skel }
+  }
+
+  skel = currentSkel
+  const trimmedUnwrapped = trimStart(skel)
+  if (trimmedUnwrapped.length === 0) {
+    return {
+      ok: false,
+      errorCode: 'E_EMPTY_STATEMENT',
+      reason: 'SQL is empty after stripping comments.'
+    }
+  }
+  const lower = trimmedUnwrapped.toLowerCase()
 
   // Whitelist branch: SELECT / WITH ... SELECT / SHOW / DESC(RIBE) / EXPLAIN.
   if (/^select\b/.test(lower)) {
@@ -432,6 +620,59 @@ export function isReadOnlySql(sqlIn: string): GuardResult {
     return { ok: true, skeleton: skel }
   }
   if (/^(desc|describe)\b/.test(lower)) {
+    return { ok: true, skeleton: skel }
+  }
+  if (/^pragma\b/.test(lower)) {
+    const pragmaTokens = tokens(skel)
+    if (pragmaTokens.length < 2) {
+      return {
+        ok: false,
+        errorCode: 'E_NOT_WHITELISTED',
+        reason: 'PRAGMA statement is incomplete.'
+      }
+    }
+    const firstTok = pragmaTokens[0].toLowerCase()
+    const secondTok = pragmaTokens[1].toLowerCase()
+
+    const allowedPragmas = new Set(['table_info', 'table_xinfo', 'index_info', 'index_list', 'foreign_key_list', 'database_list'])
+
+    if (firstTok !== 'pragma' || !allowedPragmas.has(secondTok)) {
+      return {
+        ok: false,
+        errorCode: 'E_NOT_WHITELISTED',
+        reason: 'This PRAGMA statement is not whitelisted or is not read-only.'
+      }
+    }
+
+    const forbiddenWords = new Set([...DISALLOWED_KEYWORDS, 'select', 'union', 'from', 'where', 'join', 'with', 'explain', 'as'])
+
+    const allowedPunctuation = new Set(['(', ')', ',', '.', ';'])
+
+    for (let i = 2; i < pragmaTokens.length; i++) {
+      const tok = pragmaTokens[i]
+      const tokLower = tok.toLowerCase()
+
+      if (/^[A-Za-z_][A-Za-z0-9_]*$/.test(tok)) {
+        if (forbiddenWords.has(tokLower)) {
+          return {
+            ok: false,
+            errorCode: 'E_NOT_WHITELISTED',
+            reason: `PRAGMA statement contains forbidden keyword: ${tok}.`
+          }
+        }
+      } else if (/^[0-9]+$/.test(tok)) {
+        continue
+      } else {
+        if (!allowedPunctuation.has(tok)) {
+          return {
+            ok: false,
+            errorCode: 'E_NOT_WHITELISTED',
+            reason: `PRAGMA statement contains forbidden character or operator: ${tok}.`
+          }
+        }
+      }
+    }
+
     return { ok: true, skeleton: skel }
   }
   if (/^with\b/.test(lower)) {
@@ -492,21 +733,24 @@ export function isReadOnlySql(sqlIn: string): GuardResult {
         reason: 'EXPLAIN ANALYZE / ANALYSE is not allowed; it may execute the query.'
       }
     }
-    // The target SQL must itself be a SELECT (or WITH ... SELECT).
-    const restLower = trimStart(explain.rest).toLowerCase()
-    if (/^select\b/.test(restLower) || /^with\b/.test(restLower)) {
-      // Recurse once into the target to reuse WITH validation.
-      if (/^with\b/.test(restLower)) {
-        const inner = isReadOnlySql(explain.rest)
-        if (!inner.ok) return inner
+    const explainTarget = unwrapOuterParentheses(explain.rest)
+    const inner = isReadOnlySql(explainTarget)
+    if (!inner.ok) {
+      return {
+        ok: false,
+        errorCode: 'E_EXPLAIN_TARGET_NOT_SELECT',
+        reason: 'EXPLAIN must target a SELECT statement.'
       }
-      return { ok: true, skeleton: skel }
     }
-    return {
-      ok: false,
-      errorCode: 'E_EXPLAIN_TARGET_NOT_SELECT',
-      reason: 'EXPLAIN must target a SELECT statement.'
+    const targetTrimmed = trimStart(explainTarget).toLowerCase()
+    if (/^(show|desc|describe)\b/i.test(targetTrimmed)) {
+      return {
+        ok: false,
+        errorCode: 'E_EXPLAIN_TARGET_NOT_SELECT',
+        reason: 'EXPLAIN must target a SELECT statement.'
+      }
     }
+    return { ok: true, skeleton: skel }
   }
 
   return {

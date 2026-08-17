@@ -403,3 +403,204 @@ describe('stripper internals', () => {
     expect(hasExtraStatement('SELECT 1;   ')).toBe(false)
   })
 })
+
+// ---------------------------------------------------------------------------
+// Read-only SQLite PRAGMA checks
+// ---------------------------------------------------------------------------
+describe('isReadOnlySql - SQLite PRAGMA support', () => {
+  it('allows read-only PRAGMA table_info with identifier', () => {
+    const r = isReadOnlySql('PRAGMA table_info(users);')
+    expect(r.ok).toBe(true)
+  })
+
+  it('allows read-only PRAGMA table_info with string literal', () => {
+    const r = isReadOnlySql("PRAGMA table_info('users')")
+    expect(r.ok).toBe(true)
+  })
+
+  it('allows read-only PRAGMA table_xinfo', () => {
+    const r = isReadOnlySql("PRAGMA table_xinfo('logs')")
+    expect(r.ok).toBe(true)
+  })
+
+  it('allows read-only PRAGMA index_info', () => {
+    const r = isReadOnlySql("PRAGMA index_info('idx_users_email')")
+    expect(r.ok).toBe(true)
+  })
+
+  it('allows read-only PRAGMA index_list', () => {
+    const r = isReadOnlySql("PRAGMA index_list('posts')")
+    expect(r.ok).toBe(true)
+  })
+
+  it('allows read-only PRAGMA foreign_key_list', () => {
+    const r = isReadOnlySql('PRAGMA foreign_key_list(comments)')
+    expect(r.ok).toBe(true)
+  })
+
+  it('allows read-only PRAGMA database_list', () => {
+    const r = isReadOnlySql('PRAGMA database_list;')
+    expect(r.ok).toBe(true)
+  })
+
+  it('allows case-insensitive PRAGMA statements', () => {
+    const r = isReadOnlySql('pragma Table_Info(Users)')
+    expect(r.ok).toBe(true)
+  })
+
+  it('rejects mutating or configuration PRAGMA journal_mode = WAL', () => {
+    const r = isReadOnlySql('PRAGMA journal_mode = WAL;')
+    expect(r.ok).toBe(false)
+    if (!r.ok) expect(r.errorCode).toBe('E_NOT_WHITELISTED')
+  })
+
+  it('rejects mutating or configuration PRAGMA foreign_keys = OFF', () => {
+    const r = isReadOnlySql('PRAGMA foreign_keys = OFF')
+    expect(r.ok).toBe(false)
+    if (!r.ok) expect(r.errorCode).toBe('E_NOT_WHITELISTED')
+  })
+
+  it('rejects mutating or configuration PRAGMA synchronous = 0', () => {
+    const r = isReadOnlySql('PRAGMA synchronous = 0;')
+    expect(r.ok).toBe(false)
+    if (!r.ok) expect(r.errorCode).toBe('E_NOT_WHITELISTED')
+  })
+
+  it('rejects PRAGMA table_info containing assignment operator', () => {
+    const r = isReadOnlySql("PRAGMA table_info = 'users'")
+    expect(r.ok).toBe(false)
+    if (!r.ok) expect(r.errorCode).toBe('E_NOT_WHITELISTED')
+  })
+
+  it('rejects incomplete PRAGMA statements', () => {
+    const r = isReadOnlySql('PRAGMA')
+    expect(r.ok).toBe(false)
+    if (!r.ok) expect(r.errorCode).toBe('E_NOT_WHITELISTED')
+  })
+
+  it('rejects non-whitelisted PRAGMAs', () => {
+    const r = isReadOnlySql('PRAGMA encoding')
+    expect(r.ok).toBe(false)
+    if (!r.ok) expect(r.errorCode).toBe('E_NOT_WHITELISTED')
+  })
+
+  it('rejects PRAGMAs containing forbidden SQL keywords', () => {
+    const r = isReadOnlySql('PRAGMA table_info(select)')
+    expect(r.ok).toBe(false)
+    if (!r.ok) expect(r.errorCode).toBe('E_NOT_WHITELISTED')
+  })
+
+  it('rejects PRAGMAs containing forbidden operators', () => {
+    const r = isReadOnlySql('PRAGMA table_info(users + 1)')
+    expect(r.ok).toBe(false)
+    if (!r.ok) expect(r.errorCode).toBe('E_NOT_WHITELISTED')
+  })
+})
+
+// ---------------------------------------------------------------------------
+// Parenthesized and Set Queries
+// ---------------------------------------------------------------------------
+describe('isReadOnlySql - parenthesized and set queries', () => {
+  it('allows simple parenthesized query: (SELECT 1)', () => {
+    const r = isReadOnlySql('(SELECT 1)')
+    expect(r.ok).toBe(true)
+  })
+
+  it('allows deeply nested parenthesized query: ((SELECT 1))', () => {
+    const r = isReadOnlySql('((SELECT 1))')
+    expect(r.ok).toBe(true)
+  })
+
+  it('allows parenthesized select with whitespace:  ( SELECT id FROM users )  ', () => {
+    const r = isReadOnlySql('  ( SELECT id FROM users )  ')
+    expect(r.ok).toBe(true)
+  })
+
+  it('allows set operation: (SELECT id FROM a) UNION ALL (SELECT id FROM b)', () => {
+    const r = isReadOnlySql('(SELECT id FROM a) UNION ALL (SELECT id FROM b)')
+    expect(r.ok).toBe(true)
+  })
+
+  it('allows set operation: (SELECT id FROM a) INTERSECT (SELECT id FROM b)', () => {
+    const r = isReadOnlySql('(SELECT id FROM a) INTERSECT (SELECT id FROM b)')
+    expect(r.ok).toBe(true)
+  })
+
+  it('allows set operation: (SELECT id FROM a) EXCEPT (SELECT id FROM b)', () => {
+    const r = isReadOnlySql('(SELECT id FROM a) EXCEPT (SELECT id FROM b)')
+    expect(r.ok).toBe(true)
+  })
+
+  it('allows set operation without outer parens: SELECT id FROM a UNION SELECT id FROM b', () => {
+    const r = isReadOnlySql('SELECT id FROM a UNION SELECT id FROM b')
+    expect(r.ok).toBe(true)
+  })
+
+  it('allows complex set nesting: (SELECT 1) UNION ALL ((SELECT 2) INTERSECT (SELECT 3))', () => {
+    const r = isReadOnlySql('(SELECT 1) UNION ALL ((SELECT 2) INTERSECT (SELECT 3))')
+    expect(r.ok).toBe(true)
+  })
+
+  it('allows EXPLAIN with parenthesized target: EXPLAIN (SELECT 1)', () => {
+    const r = isReadOnlySql('EXPLAIN (SELECT 1)')
+    expect(r.ok).toBe(true)
+  })
+
+  it('allows EXPLAIN with set target: EXPLAIN ((SELECT id FROM a) UNION (SELECT id FROM b))', () => {
+    const r = isReadOnlySql('EXPLAIN ((SELECT id FROM a) UNION (SELECT id FROM b))')
+    expect(r.ok).toBe(true)
+  })
+
+  it('rejects malicious enclosed query: (DELETE FROM users)', () => {
+    const r = isReadOnlySql('(DELETE FROM users)')
+    expect(r.ok).toBe(false)
+    if (!r.ok) expect(r.errorCode).toBe('E_NOT_WHITELISTED')
+  })
+
+  it('rejects malicious enclosed query: (DROP TABLE users)', () => {
+    const r = isReadOnlySql('(DROP TABLE users)')
+    expect(r.ok).toBe(false)
+    if (!r.ok) expect(r.errorCode).toBe('E_NOT_WHITELISTED')
+  })
+
+  it('rejects malicious set operation: (SELECT 1) UNION ALL (DELETE FROM users)', () => {
+    const r = isReadOnlySql('(SELECT 1) UNION ALL (DELETE FROM users)')
+    expect(r.ok).toBe(false)
+    if (!r.ok) expect(r.errorCode).toBe('E_NOT_WHITELISTED')
+  })
+
+  it('rejects malicious set operation: (DELETE FROM users) UNION ALL (SELECT 1)', () => {
+    const r = isReadOnlySql('(DELETE FROM users) UNION ALL (SELECT 1)')
+    expect(r.ok).toBe(false)
+    if (!r.ok) expect(r.errorCode).toBe('E_NOT_WHITELISTED')
+  })
+
+  it('rejects malicious EXPLAIN with parenthesized target: EXPLAIN (DELETE FROM users)', () => {
+    const r = isReadOnlySql('EXPLAIN (DELETE FROM users)')
+    expect(r.ok).toBe(false)
+    if (!r.ok) expect(r.errorCode).toBe('E_EXPLAIN_TARGET_NOT_SELECT')
+  })
+
+  it('rejects malicious EXPLAIN with set target containing DML: EXPLAIN ((SELECT 1) UNION (DELETE FROM users))', () => {
+    const r = isReadOnlySql('EXPLAIN ((SELECT 1) UNION (DELETE FROM users))')
+    expect(r.ok).toBe(false)
+    if (!r.ok) expect(r.errorCode).toBe('E_EXPLAIN_TARGET_NOT_SELECT')
+  })
+
+  it('allows read-only VALUES clause in CTE body: WITH v AS (VALUES (1), (2)) SELECT * FROM v', () => {
+    const r = isReadOnlySql('WITH v AS (VALUES (1), (2)) SELECT * FROM v')
+    expect(r.ok).toBe(true)
+  })
+
+  it('rejects unbalanced parentheses in set queries: (SELECT 1)) UNION (SELECT 2)', () => {
+    const r = isReadOnlySql('(SELECT 1)) UNION (SELECT 2)')
+    expect(r.ok).toBe(false)
+    if (!r.ok) expect(r.errorCode).toBe('E_NOT_WHITELISTED')
+  })
+
+  it('rejects EXPLAIN with DML preceding SELECT: EXPLAIN INSERT INTO audit SELECT * FROM source', () => {
+    const r = isReadOnlySql('EXPLAIN INSERT INTO audit SELECT * FROM source')
+    expect(r.ok).toBe(false)
+    if (!r.ok) expect(r.errorCode).toBe('E_EXPLAIN_TARGET_NOT_SELECT')
+  })
+})
