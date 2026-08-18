@@ -604,3 +604,71 @@ describe('isReadOnlySql - parenthesized and set queries', () => {
     if (!r.ok) expect(r.errorCode).toBe('E_EXPLAIN_TARGET_NOT_SELECT')
   })
 })
+
+// ---------------------------------------------------------------------------
+// Validation budget. MAX_UNWRAP_DEPTH only bounds consecutive parenthesis
+// unwrapping within one level; these cover the whole-validation budget that
+// bounds recursion through CTE bodies, set operands and EXPLAIN targets.
+//
+// Assertions are on error codes only, never on elapsed time: the same input
+// varied by ~500x run-to-run on the authoring machine, so a timing assertion
+// would be flaky in CI.
+// ---------------------------------------------------------------------------
+describe('isReadOnlySql - complexity budget', () => {
+  const nestedWith = (n: number): string => {
+    let s = 'SELECT 1'
+    for (let i = 0; i < n; i++) s = `WITH c${i} AS (${s}) SELECT * FROM c${i}`
+    return s
+  }
+  const nestedExplain = (n: number): string => 'EXPLAIN ('.repeat(n) + 'SELECT 1' + ')'.repeat(n)
+  const nestedUnion = (n: number): string => {
+    let s = 'SELECT 1'
+    for (let i = 0; i < n; i++) s = `(${s}) UNION ALL (SELECT ${i})`
+    return s
+  }
+
+  it('rejects deeply nested CTEs rather than blocking on them', () => {
+    const r = isReadOnlySql(nestedWith(400))
+    expect(r.ok).toBe(false)
+    if (!r.ok) expect(r.errorCode).toBe('E_COMPLEXITY_LIMIT')
+  })
+
+  it('rejects nested CTEs at 800 levels (~27KB, under the 50KB caller cap)', () => {
+    const r = isReadOnlySql(nestedWith(800))
+    expect(r.ok).toBe(false)
+    if (!r.ok) expect(r.errorCode).toBe('E_COMPLEXITY_LIMIT')
+  })
+
+  it('rejects deeply nested EXPLAIN targets', () => {
+    const r = isReadOnlySql(nestedExplain(400))
+    expect(r.ok).toBe(false)
+    if (!r.ok) expect(r.errorCode).toBe('E_COMPLEXITY_LIMIT')
+  })
+
+  it('rejects deeply nested set operations', () => {
+    const r = isReadOnlySql(nestedUnion(400))
+    expect(r.ok).toBe(false)
+    if (!r.ok) expect(r.errorCode).toBe('E_COMPLEXITY_LIMIT')
+  })
+
+  it('returns an error code rather than throwing on pathological nesting', () => {
+    expect(() => isReadOnlySql(nestedWith(2000))).not.toThrow()
+    expect(() => isReadOnlySql(nestedExplain(2000))).not.toThrow()
+  })
+
+  it('still allows realistic nesting well inside the budget', () => {
+    expect(isReadOnlySql(nestedWith(8)).ok).toBe(true)
+    expect(isReadOnlySql(nestedExplain(4)).ok).toBe(true)
+    expect(isReadOnlySql(nestedUnion(8)).ok).toBe(true)
+  })
+
+  it('allows a large but flat 50KB SELECT', () => {
+    const r = isReadOnlySql('SELECT ' + "'x',".repeat(12000) + '1')
+    expect(r.ok).toBe(true)
+  })
+
+  it('allows a long flat UNION chain', () => {
+    const r = isReadOnlySql('SELECT 1' + ' UNION SELECT 1'.repeat(3400))
+    expect(r.ok).toBe(true)
+  })
+})

@@ -33,6 +33,7 @@ export type GuardErrorCode =
   | 'E_EXPLAIN_ANALYZE'
   | 'E_EXPLAIN_TARGET_NOT_SELECT'
   | 'E_UNTERMINATED_LITERAL'
+  | 'E_COMPLEXITY_LIMIT'
 
 export type GuardResult = { ok: true; skeleton: string } | { ok: false; errorCode: GuardErrorCode; reason: string }
 
@@ -376,15 +377,17 @@ function extractCteBodies(skel: string): string[] {
   let i = m.index + m[0].length
   const bodies: string[] = []
   const len = skel.length
+  // Sticky so it matches at a position without slicing the remainder; slicing
+  // inside these per-character loops allocates O(L) per step and dominates the
+  // cost on deeply nested input.
+  const mainVerb = /\s*(select|insert|update|delete|merge)\b/iy
   while (i < len) {
     // Skip whitespace + CTE name + optional column list until the next `(`.
-    while (i < len && /[^(]/.test(skel[i])) {
+    while (i < len && skel[i] !== '(') {
       // Stop if we've already passed into the main SELECT body.
-      if (/select|insert|update|delete|merge/i.test(skel.slice(i, i + 6))) {
-        // Check word boundary: /select\b/ etc.
-        if (/^\s*(select|insert|update|delete|merge)\b/i.test(skel.slice(i))) {
-          return bodies
-        }
+      mainVerb.lastIndex = i
+      if (mainVerb.test(skel)) {
+        return bodies
       }
       i++
     }
@@ -402,9 +405,10 @@ function extractCteBodies(skel: string): string[] {
     const bodyEnd = i - 1
     if (bodyEnd > bodyStart) bodies.push(skel.slice(bodyStart, bodyEnd))
     // After the close paren, expect a comma (another CTE) or the final SELECT.
-    const after = skel.slice(i).trimStart()
-    if (after.startsWith(',')) {
-      i = skel.indexOf(',', i) + 1
+    let j = i
+    while (j < len && /\s/.test(skel[j])) j++
+    if (skel[j] === ',') {
+      i = j + 1
       continue
     }
     break
@@ -413,6 +417,37 @@ function extractCteBodies(skel: string): string[] {
 }
 
 const MAX_UNWRAP_DEPTH = 20
+
+// Validation budget. `MAX_UNWRAP_DEPTH` only bounds consecutive parenthesis
+// unwrapping within one level; these bound the whole validation, including the
+// recursive descent through CTE bodies, set-operation operands and EXPLAIN
+// targets. Without them a ~27KB input (well under the caller's 50KB cap) can
+// occupy the Electron main process for over a minute.
+const MAX_RECURSION_DEPTH = 32
+const MAX_TOTAL_WORK = 2_000_000
+
+interface Budget {
+  depth: number
+  remainingWork: number
+}
+
+function newBudget(): Budget {
+  return { depth: 0, remainingWork: MAX_TOTAL_WORK }
+}
+
+/** Charge one recursion level plus the text it will scan. */
+function spend(budget: Budget, textLength: number): boolean {
+  if (budget.depth >= MAX_RECURSION_DEPTH) return false
+  if (budget.remainingWork < textLength) return false
+  budget.remainingWork -= textLength
+  return true
+}
+
+const complexityLimit: GuardResult = {
+  ok: false,
+  errorCode: 'E_COMPLEXITY_LIMIT',
+  reason: 'SQL is too deeply nested or too complex to verify; please simplify it.'
+}
 
 /**
  * Safely find the indices of matched outer parentheses wrapping the whole skeleton.
@@ -429,12 +464,10 @@ function unwrapOuterParenthesesRange(skel: string): { start: number; end: number
     } else if (skel[i] === ')') {
       depth--
       if (depth === 0) {
-        const rest = skel.slice(i + 1)
-        if (rest.trim().length === 0) {
-          return { start: startIdx, end: i }
-        } else {
-          return null
+        for (let j = i + 1; j < skel.length; j++) {
+          if (!/\s/.test(skel[j])) return null
         }
+        return { start: startIdx, end: i }
       }
     }
   }
@@ -462,7 +495,11 @@ function unwrapOuterParentheses(str: string): string {
 function getTopLevelSetSplits(skel: string): { index: number; length: number }[] | null {
   let depth = 0
   const splits: { index: number; length: number }[] = []
-  const lowerSkel = skel.toLowerCase()
+  // Sticky matchers avoid a whole-string toLowerCase copy and avoid slicing the
+  // remainder to read the ALL / DISTINCT modifier.
+  const setOp = /(union|intersect|except)\b/iy
+  const modifier = /\s*(all|distinct)\b/iy
+  const wordChar = /[a-z0-9_]/i
   for (let i = 0; i < skel.length; i++) {
     const char = skel[i]
     if (char === '(') {
@@ -474,17 +511,15 @@ function getTopLevelSetSplits(skel: string): { index: number; length: number }[]
       }
     } else if (depth === 0) {
       let opLength = 0
-      if (lowerSkel.startsWith('union', i) && !/[a-z0-9_]/i.test(skel[i - 1] ?? '') && !/[a-z0-9_]/i.test(skel[i + 5] ?? '')) {
-        opLength = 5
-      } else if (lowerSkel.startsWith('intersect', i) && !/[a-z0-9_]/i.test(skel[i - 1] ?? '') && !/[a-z0-9_]/i.test(skel[i + 9] ?? '')) {
-        opLength = 9
-      } else if (lowerSkel.startsWith('except', i) && !/[a-z0-9_]/i.test(skel[i - 1] ?? '') && !/[a-z0-9_]/i.test(skel[i + 6] ?? '')) {
-        opLength = 6
+      if (!wordChar.test(skel[i - 1] ?? '')) {
+        setOp.lastIndex = i
+        const opMatch = setOp.exec(skel)
+        if (opMatch) opLength = opMatch[1].length
       }
 
       if (opLength > 0) {
-        const remaining = skel.slice(i + opLength)
-        const modifierMatch = /^\s*(all|distinct)\b/i.exec(remaining)
+        modifier.lastIndex = i + opLength
+        const modifierMatch = modifier.exec(skel)
         let totalLength = opLength
         if (modifierMatch) {
           totalLength += modifierMatch[0].length
@@ -505,14 +540,16 @@ function getTopLevelSetSplits(skel: string): { index: number; length: number }[]
  * accepted, because it is read-only. SHOW / DESC / DESCRIBE / EXPLAIN bodies
  * are rejected.
  */
-function cteBodyIsSafe(body: string): boolean {
+function cteBodyIsSafe(body: string, budget: Budget): boolean | 'limit' {
   const trimmed = unwrapOuterParentheses(body).toLowerCase()
   if (/^(show|desc|describe|explain)\b/.test(trimmed)) {
     return false
   }
   if (/^values\b/.test(trimmed)) return true
-  const inner = isReadOnlySql(body)
-  if (!inner.ok) return false
+  const inner = checkSkeleton(body, budget)
+  if (!inner.ok) {
+    return inner.errorCode === 'E_COMPLEXITY_LIMIT' ? 'limit' : false
+  }
   return true
 }
 
@@ -544,7 +581,26 @@ export function isReadOnlySql(sqlIn: string): GuardResult {
           : 'SQL contains an unterminated string or comment.'
     }
   }
-  let skel = stripped.skeleton
+  return checkSkeleton(stripped.skeleton, newBudget())
+}
+
+/**
+ * Recursive core. Operates on an already-stripped skeleton so nested levels do
+ * not re-run the stripper, and shares one budget across every recursion site
+ * (CTE bodies, set-operation operands, EXPLAIN targets).
+ */
+function checkSkeleton(skelIn: string, budget: Budget): GuardResult {
+  if (!spend(budget, skelIn.length)) return complexityLimit
+  budget.depth++
+  try {
+    return checkSkeletonInner(skelIn, budget)
+  } finally {
+    budget.depth--
+  }
+}
+
+function checkSkeletonInner(skelIn: string, budget: Budget): GuardResult {
+  let skel = skelIn
   if (hasExtraStatement(skel)) {
     return {
       ok: false,
@@ -562,7 +618,6 @@ export function isReadOnlySql(sqlIn: string): GuardResult {
   }
 
   let currentSkel = skel
-  let currentSql = sqlIn
 
   // Unwrap matched outer parentheses layers up to MAX_UNWRAP_DEPTH
   let unwrapIterations = 0
@@ -570,7 +625,6 @@ export function isReadOnlySql(sqlIn: string): GuardResult {
     const range = unwrapOuterParenthesesRange(currentSkel)
     if (!range) break
     currentSkel = currentSkel.slice(range.start + 1, range.end)
-    currentSql = currentSql.slice(range.start + 1, range.end)
     unwrapIterations++
   }
 
@@ -587,13 +641,20 @@ export function isReadOnlySql(sqlIn: string): GuardResult {
     const segments: string[] = []
     let lastIndex = 0
     for (const split of splits) {
-      segments.push(currentSql.slice(lastIndex, split.index))
+      segments.push(currentSkel.slice(lastIndex, split.index))
       lastIndex = split.index + split.length
     }
-    segments.push(currentSql.slice(lastIndex))
+    segments.push(currentSkel.slice(lastIndex))
 
     for (const segment of segments) {
-      const res = isReadOnlySql(segment)
+      if (segment.trim().length === 0) {
+        return {
+          ok: false,
+          errorCode: 'E_EMPTY_STATEMENT',
+          reason: 'SQL is empty after stripping comments.'
+        }
+      }
+      const res = checkSkeleton(segment, budget)
       if (!res.ok) {
         return res
       }
@@ -680,7 +741,9 @@ export function isReadOnlySql(sqlIn: string): GuardResult {
     // DML/DDL.
     const bodies = extractCteBodies(skel)
     for (const body of bodies) {
-      if (!cteBodyIsSafe(body)) {
+      const safe = cteBodyIsSafe(body, budget)
+      if (safe === 'limit') return complexityLimit
+      if (!safe) {
         return {
           ok: false,
           errorCode: 'E_WITH_CONTAINS_DML',
@@ -734,8 +797,9 @@ export function isReadOnlySql(sqlIn: string): GuardResult {
       }
     }
     const explainTarget = unwrapOuterParentheses(explain.rest)
-    const inner = isReadOnlySql(explainTarget)
+    const inner = checkSkeleton(explainTarget, budget)
     if (!inner.ok) {
+      if (inner.errorCode === 'E_COMPLEXITY_LIMIT') return complexityLimit
       return {
         ok: false,
         errorCode: 'E_EXPLAIN_TARGET_NOT_SELECT',
@@ -768,7 +832,7 @@ export const __testing = {
   stripCommentsAndLiterals,
   hasExtraStatement,
   extractCteBodies,
-  cteBodyIsSafe,
+  cteBodyIsSafe: (body: string) => cteBodyIsSafe(body, newBudget()) === true,
   readExplainOptions,
   explainOptionsContainAnalyze,
   tokens
