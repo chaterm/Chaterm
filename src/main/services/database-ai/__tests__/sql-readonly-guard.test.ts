@@ -672,3 +672,97 @@ describe('isReadOnlySql - complexity budget', () => {
     expect(r.ok).toBe(true)
   })
 })
+
+// ---------------------------------------------------------------------------
+// Write paths that open with a whitelisted keyword.
+//
+// These reach the database through execute_readonly_query, which has no
+// approval gate — execute_write_query is the tool that prompts. So a write
+// slipping past this guard also slips past user approval.
+// ---------------------------------------------------------------------------
+describe('isReadOnlySql - reject writes behind a read-only prefix', () => {
+  it('rejects a CTE followed by INSERT whose column list precedes SELECT', () => {
+    const r = isReadOnlySql('WITH a AS (SELECT 1) INSERT INTO t(x) SELECT * FROM a')
+    expect(r.ok).toBe(false)
+    if (!r.ok) expect(r.errorCode).toBe('E_NOT_WHITELISTED')
+  })
+
+  it('rejects a CTE followed by REPLACE whose column list precedes SELECT', () => {
+    const r = isReadOnlySql('WITH a AS (SELECT 1) REPLACE INTO t(x) SELECT * FROM a')
+    expect(r.ok).toBe(false)
+    if (!r.ok) expect(r.errorCode).toBe('E_NOT_WHITELISTED')
+  })
+
+  it('rejects a data-modifying CTE body hidden behind a column list', () => {
+    const r = isReadOnlySql('WITH a(values) AS (DELETE FROM t RETURNING 1) SELECT * FROM a')
+    expect(r.ok).toBe(false)
+    if (!r.ok) expect(r.errorCode).toBe('E_WITH_CONTAINS_DML')
+  })
+
+  it('rejects an INSERT CTE body hidden behind a column list', () => {
+    const r = isReadOnlySql('WITH a(x) AS (INSERT INTO t VALUES(1) RETURNING 1) SELECT * FROM a')
+    expect(r.ok).toBe(false)
+    if (!r.ok) expect(r.errorCode).toBe('E_WITH_CONTAINS_DML')
+  })
+
+  it('rejects MySQL SELECT ... INTO OUTFILE', () => {
+    const r = isReadOnlySql("SELECT * FROM t INTO OUTFILE '/tmp/x'")
+    expect(r.ok).toBe(false)
+    if (!r.ok) expect(r.errorCode).toBe('E_NOT_WHITELISTED')
+  })
+
+  it('rejects MySQL SELECT ... INTO DUMPFILE', () => {
+    const r = isReadOnlySql("SELECT * FROM t INTO DUMPFILE '/tmp/x'")
+    expect(r.ok).toBe(false)
+    if (!r.ok) expect(r.errorCode).toBe('E_NOT_WHITELISTED')
+  })
+
+  it('rejects SELECT ... INTO new_table (PG / MSSQL CTAS)', () => {
+    const r = isReadOnlySql('SELECT * INTO new_table FROM t')
+    expect(r.ok).toBe(false)
+    if (!r.ok) expect(r.errorCode).toBe('E_NOT_WHITELISTED')
+  })
+
+  it('rejects INTO OUTFILE in any set-operation operand', () => {
+    const r = isReadOnlySql("SELECT 1 UNION SELECT * FROM t INTO OUTFILE '/tmp/x'")
+    expect(r.ok).toBe(false)
+    if (!r.ok) expect(r.errorCode).toBe('E_NOT_WHITELISTED')
+  })
+
+  it('does not trip on a subquery that merely uses IN', () => {
+    const r = isReadOnlySql('SELECT * FROM (SELECT id FROM t) sub WHERE sub.id IN (SELECT 1)')
+    expect(r.ok).toBe(true)
+  })
+})
+
+// ---------------------------------------------------------------------------
+// CTE column lists. Taking the first parenthesis after the CTE name picks up
+// the column list rather than the body, which both hides a data-modifying body
+// from inspection and false-rejects standard SQL.
+// ---------------------------------------------------------------------------
+describe('isReadOnlySql - CTE column lists', () => {
+  it('allows the standard recursive CTE form with a column list', () => {
+    const r = isReadOnlySql('WITH RECURSIVE t(n) AS (SELECT 1 UNION ALL SELECT n+1 FROM t WHERE n<5) SELECT * FROM t')
+    expect(r.ok).toBe(true)
+  })
+
+  it('allows a single-column CTE column list', () => {
+    const r = isReadOnlySql('WITH a(x) AS (SELECT 1) SELECT * FROM a')
+    expect(r.ok).toBe(true)
+  })
+
+  it('allows a multi-column CTE column list with spacing', () => {
+    const r = isReadOnlySql('WITH a (x, y) AS (SELECT 1, 2) SELECT * FROM a')
+    expect(r.ok).toBe(true)
+  })
+
+  it('allows PG NOT MATERIALIZED between AS and the body', () => {
+    const r = isReadOnlySql('WITH a AS NOT MATERIALIZED (SELECT 1) SELECT * FROM a')
+    expect(r.ok).toBe(true)
+  })
+
+  it('allows multiple CTEs that each carry a column list', () => {
+    const r = isReadOnlySql('WITH a(x) AS (SELECT 1), b(y) AS (SELECT 2) SELECT * FROM a, b')
+    expect(r.ok).toBe(true)
+  })
+})

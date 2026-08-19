@@ -2,14 +2,14 @@
 // session (`execute_readonly_query`, `explain_plan`). Goal: allow only
 // verifiably read-only statements through a conservative whitelist. The
 // policy is "reject on ambiguity" — any construct we cannot statically prove
-// safe is rejected. See docs/database_ai.md §10.1.
+// safe is rejected.
 //
 // IMPORTANT: this is NOT a full SQL parser. It performs two passes:
 //
 //   1. Strip comments and string literals (including PG dollar-quoted, Oracle q-quoted,
 //      E'...' escape, MySQL backticks, block + line comments). Nested block
 //      comments are rejected because JavaScript regex cannot disambiguate
-//      them safely, and §10.1 requires conservative rejection.
+//      them safely, and the policy is to reject rather than guess.
 //
 //   2. On the resulting skeleton, perform token-level checks:
 //      - single statement (no `;` followed by non-whitespace)
@@ -54,7 +54,7 @@ function blankRange(src: string, start: number, end: number): string {
 
 /**
  * Detect whether we are at the start of a nested block comment opener inside
- * an already-open block comment. We reject these outright — see §10.1.
+ * an already-open block comment. We reject these outright.
  */
 function stripCommentsAndLiterals(sqlIn: string): StripOutcome {
   let sql = sqlIn
@@ -354,7 +354,7 @@ function readExplainOptions(skel: string): { optionsText: string; rest: string }
 
 /**
  * Detect ANALYZE / ANALYSE tokens anywhere in the EXPLAIN options block.
- * The §10.1 policy is: ANY form of ANALYZE in EXPLAIN is a hard reject
+ * The policy is: ANY form of ANALYZE in EXPLAIN is a hard reject
  * because PostgreSQL actually executes the query.
  */
 function explainOptionsContainAnalyze(optionsText: string): boolean {
@@ -366,54 +366,87 @@ function explainOptionsContainAnalyze(optionsText: string): boolean {
 // ---------------------------------------------------------------------------
 
 /**
- * Walk the skeleton starting at the `WITH` keyword and return the list of
- * CTE bodies (substrings between their outer parentheses). The walker
- * respects nested parentheses so a CTE containing a subquery is captured
- * whole.
+ * Walk the skeleton from the `WITH` keyword and return each CTE body plus the
+ * offset just past the last one, so the caller can check the main statement
+ * that follows.
+ *
+ * Follows the actual grammar of a CTE definition:
+ *
+ *   name [ ( col, ... ) ] AS [ NOT ] [ MATERIALIZED ] ( body )
+ *
+ * The optional column list matters: taking the first parenthesis after the CTE
+ * name picks up `(col, ...)` rather than the body, which both hides a
+ * data-modifying body from inspection and false-rejects the standard
+ * `WITH RECURSIVE t(n) AS (...)` form.
  */
-function extractCteBodies(skel: string): string[] {
+function extractCteBodies(skel: string): { bodies: string[]; tailStart: number } {
   const m = /\bwith\b(\s+recursive\b)?/i.exec(skel)
-  if (!m) return []
+  if (!m) return { bodies: [], tailStart: 0 }
   let i = m.index + m[0].length
   const bodies: string[] = []
   const len = skel.length
-  // Sticky so it matches at a position without slicing the remainder; slicing
-  // inside these per-character loops allocates O(L) per step and dominates the
-  // cost on deeply nested input.
-  const mainVerb = /\s*(select|insert|update|delete|merge)\b/iy
+  // Sticky matchers: they test at a position without slicing the remainder.
+  // Slicing inside these per-character loops allocates O(L) per step and
+  // dominates the cost on deeply nested input.
+  const asKeyword = /\s*\bas\b/iy
+  const materialized = /\s*(not\s+)?materialized\b/iy
+  const mainVerb = /\s*\b(select|insert|update|delete|merge|replace)\b/iy
+
   while (i < len) {
-    // Skip whitespace + CTE name + optional column list until the next `(`.
-    while (i < len && skel[i] !== '(') {
-      // Stop if we've already passed into the main SELECT body.
-      mainVerb.lastIndex = i
-      if (mainVerb.test(skel)) {
-        return bodies
-      }
-      i++
-    }
-    if (i >= len) break
-    // We're on an opening paren. Walk to the matching close.
-    let depth = 1
-    const bodyStart = i + 1
-    i++
-    while (i < len && depth > 0) {
+    // Find this CTE's `AS`, skipping the name and any column list. Bail out if
+    // a main statement verb appears first — that means the CTE list has ended.
+    let depth = 0
+    let asEnd = -1
+    while (i < len) {
       const ch = skel[i]
       if (ch === '(') depth++
       else if (ch === ')') depth--
+      else if (depth === 0) {
+        asKeyword.lastIndex = i
+        const asMatch = asKeyword.exec(skel)
+        if (asMatch) {
+          asEnd = i + asMatch[0].length
+          break
+        }
+        mainVerb.lastIndex = i
+        if (mainVerb.test(skel)) return { bodies, tailStart: i }
+      }
+      i++
+    }
+    if (asEnd === -1) break
+
+    // Skip PG's [NOT] MATERIALIZED between AS and the body.
+    i = asEnd
+    materialized.lastIndex = i
+    const matMatch = materialized.exec(skel)
+    if (matMatch) i += matMatch[0].length
+
+    while (i < len && /\s/.test(skel[i])) i++
+    if (skel[i] !== '(') break
+
+    // On the body's opening paren. Walk to its match.
+    let bodyDepth = 1
+    const bodyStart = i + 1
+    i++
+    while (i < len && bodyDepth > 0) {
+      const ch = skel[i]
+      if (ch === '(') bodyDepth++
+      else if (ch === ')') bodyDepth--
       i++
     }
     const bodyEnd = i - 1
     if (bodyEnd > bodyStart) bodies.push(skel.slice(bodyStart, bodyEnd))
-    // After the close paren, expect a comma (another CTE) or the final SELECT.
+
+    // A comma means another CTE follows; anything else ends the CTE list.
     let j = i
     while (j < len && /\s/.test(skel[j])) j++
     if (skel[j] === ',') {
       i = j + 1
       continue
     }
-    break
+    return { bodies, tailStart: j }
   }
-  return bodies
+  return { bodies, tailStart: i }
 }
 
 const MAX_UNWRAP_DEPTH = 20
@@ -487,6 +520,29 @@ function unwrapOuterParentheses(str: string): string {
     iterations++
   }
   return current.trim()
+}
+
+/**
+ * True when the skeleton has a top-level (paren depth 0) INTO / OUTFILE /
+ * DUMPFILE. A statement can start with SELECT and still write:
+ * MySQL `SELECT ... INTO OUTFILE '/path'` writes the server filesystem, and
+ * `SELECT ... INTO new_table` creates a table on PostgreSQL and SQL Server.
+ * Depth 0 only, so an INTO inside a subquery does not trip the check.
+ */
+function hasTopLevelInto(skel: string): boolean {
+  let depth = 0
+  const intoWord = /\b(into|outfile|dumpfile)\b/iy
+  const wordChar = /[a-z0-9_]/i
+  for (let i = 0; i < skel.length; i++) {
+    const ch = skel[i]
+    if (ch === '(') depth++
+    else if (ch === ')') depth--
+    else if (depth === 0 && !wordChar.test(skel[i - 1] ?? '')) {
+      intoWord.lastIndex = i
+      if (intoWord.test(skel)) return true
+    }
+  }
+  return false
 }
 
 /**
@@ -675,6 +731,14 @@ function checkSkeletonInner(skelIn: string, budget: Budget): GuardResult {
 
   // Whitelist branch: SELECT / WITH ... SELECT / SHOW / DESC(RIBE) / EXPLAIN.
   if (/^select\b/.test(lower)) {
+    // Runs after set-operation splitting, so each operand is checked on its own.
+    if (hasTopLevelInto(skel)) {
+      return {
+        ok: false,
+        errorCode: 'E_NOT_WHITELISTED',
+        reason: 'SELECT ... INTO / OUTFILE / DUMPFILE writes data and is not allowed.'
+      }
+    }
     return { ok: true, skeleton: skel }
   }
   if (/^show\b/.test(lower)) {
@@ -739,7 +803,7 @@ function checkSkeletonInner(skelIn: string, budget: Budget): GuardResult {
   if (/^with\b/.test(lower)) {
     // WITH must finish with a top-level SELECT and no CTE body may contain
     // DML/DDL.
-    const bodies = extractCteBodies(skel)
+    const { bodies, tailStart } = extractCteBodies(skel)
     for (const body of bodies) {
       const safe = cteBodyIsSafe(body, budget)
       if (safe === 'limit') return complexityLimit
@@ -764,20 +828,24 @@ function checkSkeletonInner(skelIn: string, budget: Budget): GuardResult {
         }
       }
     }
-    // After the last CTE, require the main statement to be SELECT.
-    const mainMatch = /\)\s*(,|(?:select)\b)/gi
-    // Find the final occurrence where a `)` is immediately followed by SELECT
-    // (potentially after whitespace). If the main statement starts with
-    // something else we reject.
-    const finalSelect = /\)\s*(?:select)\b/i.test(skel)
-    if (!finalSelect) {
+    // After the last CTE, require the main statement to be a SELECT or a
+    // parenthesized query. Anchored at the CTE list's end: testing the whole
+    // skeleton for `) SELECT` lets a column list such as `INSERT INTO t(x)
+    // SELECT ...` satisfy the check, which routes a write through the
+    // read-only tool and past its approval gate.
+    const tail = skel.slice(tailStart)
+    if (!/^\s*(select\b|\()/i.test(tail)) {
       return {
         ok: false,
         errorCode: 'E_NOT_WHITELISTED',
         reason: 'WITH clause must be followed by a SELECT statement.'
       }
     }
-    void mainMatch
+    const tailResult = checkSkeleton(tail, budget)
+    if (!tailResult.ok) {
+      if (tailResult.errorCode === 'E_COMPLEXITY_LIMIT') return complexityLimit
+      return tailResult
+    }
     return { ok: true, skeleton: skel }
   }
   if (/^explain\b/.test(lower)) {
