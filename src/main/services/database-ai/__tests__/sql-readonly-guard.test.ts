@@ -887,6 +887,53 @@ describe('isReadOnlySql - statement vs query position', () => {
 })
 
 // ---------------------------------------------------------------------------
+// EXPLAIN over a WITH target.
+//
+// The target boundary is found by scanning at paren depth 0. Keying on "the
+// first SELECT anywhere" puts the boundary inside the CTE body, which splits the
+// statement mid-parenthesis and false-rejects valid SQL.
+// ---------------------------------------------------------------------------
+describe('isReadOnlySql - EXPLAIN with a WITH target', () => {
+  it('allows EXPLAIN over a CTE query', () => {
+    const r = isReadOnlySql('EXPLAIN WITH c AS (SELECT 1) SELECT * FROM c')
+    expect(r.ok).toBe(true)
+  })
+
+  it('allows EXPLAIN over a recursive CTE with a column list', () => {
+    const r = isReadOnlySql('EXPLAIN WITH RECURSIVE t(n) AS (SELECT 1) SELECT * FROM t')
+    expect(r.ok).toBe(true)
+  })
+
+  it('allows EXPLAIN over multiple CTEs', () => {
+    const r = isReadOnlySql('EXPLAIN WITH a AS (SELECT 1), b AS (SELECT 2) SELECT * FROM a, b')
+    expect(r.ok).toBe(true)
+  })
+
+  it('allows PG options before a CTE target', () => {
+    const r = isReadOnlySql('EXPLAIN (FORMAT JSON) WITH c AS (SELECT 1) SELECT * FROM c')
+    expect(r.ok).toBe(true)
+  })
+
+  it('still rejects ANALYZE over a CTE target', () => {
+    const r = isReadOnlySql('EXPLAIN ANALYZE WITH c AS (SELECT 1) SELECT * FROM c')
+    expect(r.ok).toBe(false)
+    if (!r.ok) expect(r.errorCode).toBe('E_EXPLAIN_ANALYZE')
+  })
+
+  it('still rejects a data-modifying CTE body under EXPLAIN', () => {
+    const r = isReadOnlySql('EXPLAIN WITH x AS (DELETE FROM t RETURNING 1) SELECT * FROM x')
+    expect(r.ok).toBe(false)
+    if (!r.ok) expect(r.errorCode).toBe('E_EXPLAIN_TARGET_NOT_SELECT')
+  })
+
+  it('still rejects a write after the CTE list under EXPLAIN', () => {
+    const r = isReadOnlySql('EXPLAIN WITH a AS (SELECT 1) INSERT INTO t(x) SELECT * FROM a')
+    expect(r.ok).toBe(false)
+    if (!r.ok) expect(r.errorCode).toBe('E_EXPLAIN_TARGET_NOT_SELECT')
+  })
+})
+
+// ---------------------------------------------------------------------------
 // CTE column lists. Taking the first parenthesis after the CTE name picks up
 // the column list rather than the body, which both hides a data-modifying body
 // from inspection and false-rejects standard SQL.

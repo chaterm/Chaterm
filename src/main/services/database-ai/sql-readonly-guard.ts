@@ -316,9 +316,34 @@ const DISALLOWED_KEYWORDS = new Set([
 // ---------------------------------------------------------------------------
 
 /**
+ * Index of the first token that can begin an EXPLAIN target, scanning only at
+ * paren depth 0. Returns -1 when there is none.
+ *
+ * Depth matters: `EXPLAIN WITH c AS (SELECT 1) SELECT * FROM c` has its first
+ * `SELECT` inside the CTE body, so keying on "the first SELECT anywhere" splits
+ * the statement mid-parenthesis and false-rejects it. `WITH` counts as a target
+ * opener for the same reason.
+ */
+function findExplainTargetStart(text: string): number {
+  let depth = 0
+  const opener = /\b(select|with)\b/iy
+  const wordChar = /[a-z0-9_]/i
+  for (let i = 0; i < text.length; i++) {
+    const ch = text[i]
+    if (ch === '(') depth++
+    else if (ch === ')') depth--
+    else if (depth === 0 && !wordChar.test(text[i - 1] ?? '')) {
+      opener.lastIndex = i
+      if (opener.test(text)) return i
+    }
+  }
+  return -1
+}
+
+/**
  * Match any EXPLAIN options block, whether PostgreSQL `EXPLAIN (a, b, c)` or
  * MySQL `EXPLAIN FORMAT=JSON` / `EXPLAIN EXTENDED` / `EXPLAIN ANALYZE`.
- * Returns the substring between EXPLAIN and the first SELECT token so the
+ * Returns the substring between EXPLAIN and the start of its target so the
  * caller can look for forbidden options.
  */
 function readExplainOptions(skel: string): { optionsText: string; rest: string } | null {
@@ -355,11 +380,10 @@ function readExplainOptions(skel: string): { optionsText: string; rest: string }
   }
 
   // Standard options without parens: EXPLAIN ANALYZE SELECT ... or EXPLAIN SELECT ...
-  const afterSelect = /\bselect\b/i.exec(afterExplain)
-  if (!afterSelect) {
+  const selectAt = findExplainTargetStart(afterExplain)
+  if (selectAt === -1) {
     return { optionsText: afterExplain, rest: '' }
   }
-  const selectAt = afterSelect.index
   const optionsText = afterExplain.slice(0, selectAt)
   if (
     tokens(optionsText).some((token) => {
@@ -369,8 +393,7 @@ function readExplainOptions(skel: string): { optionsText: string; rest: string }
   ) {
     return null
   }
-  const rest = afterExplain.slice(selectAt)
-  return { optionsText, rest }
+  return { optionsText, rest: afterExplain.slice(selectAt) }
 }
 
 /**
