@@ -34,8 +34,17 @@ export type GuardErrorCode =
   | 'E_EXPLAIN_TARGET_NOT_SELECT'
   | 'E_UNTERMINATED_LITERAL'
   | 'E_COMPLEXITY_LIMIT'
+  | 'E_EXECUTABLE_COMMENT'
 
 export type GuardResult = { ok: true; skeleton: string } | { ok: false; errorCode: GuardErrorCode; reason: string }
+
+/**
+ * Engine the SQL will run against. Only used to gate dialect-specific syntax.
+ * Omitting it is safe but strict: PRAGMA is rejected when the dialect is
+ * unknown, so a caller that forgets to pass one fails closed rather than
+ * silently widening the whitelist.
+ */
+export type GuardDialect = 'mysql' | 'postgresql' | 'sqlite' | 'oracle'
 
 // ---------------------------------------------------------------------------
 // Stripper: replace comments + string literals with spaces, preserving length
@@ -50,6 +59,12 @@ interface StripOutcome {
 
 function blankRange(src: string, start: number, end: number): string {
   return src.slice(0, start) + ' '.repeat(end - start) + src.slice(end)
+}
+
+const STRIP_FAIL_REASONS: Partial<Record<GuardErrorCode, string>> = {
+  E_NESTED_BLOCK_COMMENT: 'Nested block comments are not supported; please simplify the SQL.',
+  E_EXECUTABLE_COMMENT: 'MySQL executable comments (/*! ... */) are not allowed; they execute as SQL.',
+  E_UNTERMINATED_LITERAL: 'SQL contains an unterminated string or comment.'
 }
 
 /**
@@ -75,6 +90,12 @@ function stripCommentsAndLiterals(sqlIn: string): StripOutcome {
 
     // Block comment: /* ... */ . Nested opens are rejected.
     if (c === '/' && n === '*') {
+      // MySQL executable comment: /*! ... */ and /*!50000 ... */ are executed
+      // by MySQL, not ignored. Blanking one would hide real SQL — including a
+      // `;` that `hasExtraStatement` would otherwise catch. Reject outright.
+      if (sql[i + 2] === '!') {
+        return { skeleton: sql, hardFail: 'E_EXECUTABLE_COMMENT' }
+      }
       let depth = 1
       let j = i + 2
       while (j < len - 1) {
@@ -596,13 +617,10 @@ function getTopLevelSetSplits(skel: string): { index: number; length: number }[]
  * accepted, because it is read-only. SHOW / DESC / DESCRIBE / EXPLAIN bodies
  * are rejected.
  */
-function cteBodyIsSafe(body: string, budget: Budget): boolean | 'limit' {
-  const trimmed = unwrapOuterParentheses(body).toLowerCase()
-  if (/^(show|desc|describe|explain)\b/.test(trimmed)) {
-    return false
-  }
-  if (/^values\b/.test(trimmed)) return true
-  const inner = checkSkeleton(body, budget)
+function cteBodyIsSafe(body: string, budget: Budget, dialect?: GuardDialect): boolean | 'limit' {
+  // A CTE body is a query expression, so the `query` position already rejects
+  // SHOW / DESC / DESCRIBE / EXPLAIN / PRAGMA and accepts a bare VALUES list.
+  const inner = checkSkeleton(body, budget, 'query', dialect)
   if (!inner.ok) {
     return inner.errorCode === 'E_COMPLEXITY_LIMIT' ? 'limit' : false
   }
@@ -618,7 +636,7 @@ function cteBodyIsSafe(body: string, budget: Budget): boolean | 'limit' {
  * read-only tool contract. The function is deliberately conservative:
  * anything it cannot statically prove safe is rejected.
  */
-export function isReadOnlySql(sqlIn: string): GuardResult {
+export function isReadOnlySql(sqlIn: string, dialect?: GuardDialect): GuardResult {
   if (!sqlIn || sqlIn.trim().length === 0) {
     return {
       ok: false,
@@ -631,31 +649,41 @@ export function isReadOnlySql(sqlIn: string): GuardResult {
     return {
       ok: false,
       errorCode: stripped.hardFail,
-      reason:
-        stripped.hardFail === 'E_NESTED_BLOCK_COMMENT'
-          ? 'Nested block comments are not supported; please simplify the SQL.'
-          : 'SQL contains an unterminated string or comment.'
+      reason: STRIP_FAIL_REASONS[stripped.hardFail] ?? 'SQL contains an unterminated string or comment.'
     }
   }
-  return checkSkeleton(stripped.skeleton, newBudget())
+  return checkSkeleton(stripped.skeleton, newBudget(), 'statement', dialect)
 }
+
+/**
+ * What grammar position we are validating.
+ *
+ * - `statement`: a whole statement. SELECT / WITH / SHOW / DESC / EXPLAIN /
+ *   PRAGMA are all legal here.
+ * - `query`: a query expression — the operand of a set operation, a CTE body,
+ *   or an EXPLAIN target. Only SELECT / WITH / VALUES / a parenthesized or set
+ *   query belong here. SHOW / DESC / PRAGMA / EXPLAIN do not: reusing the
+ *   statement whitelist for these positions accepts nonsense like
+ *   `SELECT 1 UNION SHOW TABLES` and defers the error to the database.
+ */
+type Position = 'statement' | 'query'
 
 /**
  * Recursive core. Operates on an already-stripped skeleton so nested levels do
  * not re-run the stripper, and shares one budget across every recursion site
  * (CTE bodies, set-operation operands, EXPLAIN targets).
  */
-function checkSkeleton(skelIn: string, budget: Budget): GuardResult {
+function checkSkeleton(skelIn: string, budget: Budget, position: Position = 'statement', dialect?: GuardDialect): GuardResult {
   if (!spend(budget, skelIn.length)) return complexityLimit
   budget.depth++
   try {
-    return checkSkeletonInner(skelIn, budget)
+    return checkSkeletonInner(skelIn, budget, position, dialect)
   } finally {
     budget.depth--
   }
 }
 
-function checkSkeletonInner(skelIn: string, budget: Budget): GuardResult {
+function checkSkeletonInner(skelIn: string, budget: Budget, position: Position, dialect?: GuardDialect): GuardResult {
   let skel = skelIn
   if (hasExtraStatement(skel)) {
     return {
@@ -684,8 +712,12 @@ function checkSkeletonInner(skelIn: string, budget: Budget): GuardResult {
     unwrapIterations++
   }
 
-  // Check for top-level set operations
-  const splits = getTopLevelSetSplits(currentSkel)
+  // Check for top-level set operations. An EXPLAIN prefix governs its whole
+  // target, set operators included, so `EXPLAIN SELECT a UNION SELECT b` must
+  // not be split here — that would leave `EXPLAIN SELECT a` as an operand.
+  // Let the EXPLAIN branch below take it and validate the target as a unit.
+  const isExplain = /^\s*explain\b/i.test(currentSkel)
+  const splits = isExplain ? [] : getTopLevelSetSplits(currentSkel)
   if (splits === null) {
     return {
       ok: false,
@@ -710,7 +742,8 @@ function checkSkeletonInner(skelIn: string, budget: Budget): GuardResult {
           reason: 'SQL is empty after stripping comments.'
         }
       }
-      const res = checkSkeleton(segment, budget)
+      // Operands of a set operation are query expressions, not statements.
+      const res = checkSkeleton(segment, budget, 'query', dialect)
       if (!res.ok) {
         return res
       }
@@ -741,6 +774,21 @@ function checkSkeletonInner(skelIn: string, budget: Budget): GuardResult {
     }
     return { ok: true, skeleton: skel }
   }
+  // A bare VALUES list is a query expression, and read-only.
+  if (position === 'query' && /^values\b/.test(lower)) {
+    return { ok: true, skeleton: skel }
+  }
+  // SHOW / DESC / PRAGMA / EXPLAIN are statements, not query expressions. In a
+  // query position they are grammatically wrong, so reject here rather than let
+  // the database raise the error later. WITH is handled below: it is legal in
+  // both positions, and its own branch enforces that it ends in a SELECT.
+  if (position === 'query' && !/^with\b/.test(lower)) {
+    return {
+      ok: false,
+      errorCode: 'E_NOT_WHITELISTED',
+      reason: 'Only a SELECT / WITH / VALUES query is allowed in this position.'
+    }
+  }
   if (/^show\b/.test(lower)) {
     return { ok: true, skeleton: skel }
   }
@@ -748,6 +796,16 @@ function checkSkeletonInner(skelIn: string, budget: Budget): GuardResult {
     return { ok: true, skeleton: skel }
   }
   if (/^pragma\b/.test(lower)) {
+    // PRAGMA is SQLite-only. Gate on dialect so the other engines do not get a
+    // wider whitelist than they can parse, and so a caller that omits the
+    // dialect fails closed.
+    if (dialect !== 'sqlite') {
+      return {
+        ok: false,
+        errorCode: 'E_NOT_WHITELISTED',
+        reason: 'PRAGMA is only allowed on SQLite connections.'
+      }
+    }
     const pragmaTokens = tokens(skel)
     if (pragmaTokens.length < 2) {
       return {
@@ -805,7 +863,7 @@ function checkSkeletonInner(skelIn: string, budget: Budget): GuardResult {
     // DML/DDL.
     const { bodies, tailStart } = extractCteBodies(skel)
     for (const body of bodies) {
-      const safe = cteBodyIsSafe(body, budget)
+      const safe = cteBodyIsSafe(body, budget, dialect)
       if (safe === 'limit') return complexityLimit
       if (!safe) {
         return {
@@ -841,7 +899,7 @@ function checkSkeletonInner(skelIn: string, budget: Budget): GuardResult {
         reason: 'WITH clause must be followed by a SELECT statement.'
       }
     }
-    const tailResult = checkSkeleton(tail, budget)
+    const tailResult = checkSkeleton(tail, budget, 'query', dialect)
     if (!tailResult.ok) {
       if (tailResult.errorCode === 'E_COMPLEXITY_LIMIT') return complexityLimit
       return tailResult
@@ -864,18 +922,12 @@ function checkSkeletonInner(skelIn: string, budget: Budget): GuardResult {
         reason: 'EXPLAIN ANALYZE / ANALYSE is not allowed; it may execute the query.'
       }
     }
+    // An EXPLAIN target is a query expression, so the `query` position rejects
+    // SHOW / DESC / DESCRIBE / PRAGMA / nested EXPLAIN targets for us.
     const explainTarget = unwrapOuterParentheses(explain.rest)
-    const inner = checkSkeleton(explainTarget, budget)
+    const inner = checkSkeleton(explainTarget, budget, 'query', dialect)
     if (!inner.ok) {
       if (inner.errorCode === 'E_COMPLEXITY_LIMIT') return complexityLimit
-      return {
-        ok: false,
-        errorCode: 'E_EXPLAIN_TARGET_NOT_SELECT',
-        reason: 'EXPLAIN must target a SELECT statement.'
-      }
-    }
-    const targetTrimmed = trimStart(explainTarget).toLowerCase()
-    if (/^(show|desc|describe)\b/i.test(targetTrimmed)) {
       return {
         ok: false,
         errorCode: 'E_EXPLAIN_TARGET_NOT_SELECT',
@@ -888,7 +940,7 @@ function checkSkeletonInner(skelIn: string, budget: Budget): GuardResult {
   return {
     ok: false,
     errorCode: 'E_NOT_WHITELISTED',
-    reason: 'Only read-only statements are allowed (SELECT / WITH / SHOW / DESC / EXPLAIN).'
+    reason: 'Only read-only statements are allowed (SELECT / WITH / SHOW / DESC / EXPLAIN, plus PRAGMA on SQLite).'
   }
 }
 

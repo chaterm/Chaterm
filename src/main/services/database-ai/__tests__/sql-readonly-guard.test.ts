@@ -316,6 +316,33 @@ describe('isReadOnlySql - malformed input', () => {
 })
 
 // ---------------------------------------------------------------------------
+// MySQL executable comments. MySQL runs /*! ... */ rather than ignoring it, so
+// blanking one as an ordinary comment hides real SQL — including a `;` that
+// hasExtraStatement would otherwise catch.
+// ---------------------------------------------------------------------------
+describe('isReadOnlySql - MySQL executable comments', () => {
+  it('rejects /*! ... */ hiding a second statement', () => {
+    const r = isReadOnlySql('SELECT 1 /*! ; DROP TABLE users */')
+    expect(r.ok).toBe(false)
+    if (!r.ok) expect(r.errorCode).toBe('E_EXECUTABLE_COMMENT')
+  })
+
+  it('rejects version-gated /*!NNNNN ... */', () => {
+    const r = isReadOnlySql('SELECT 1 /*!32302 UNION SELECT 2 */')
+    expect(r.ok).toBe(false)
+    if (!r.ok) expect(r.errorCode).toBe('E_EXECUTABLE_COMMENT')
+  })
+
+  it('still allows an ordinary block comment', () => {
+    expect(isReadOnlySql('SELECT /* drop table banned */ 1').ok).toBe(true)
+  })
+
+  it('still allows an Oracle optimizer hint', () => {
+    expect(isReadOnlySql('SELECT /*+ INDEX(t idx) */ 1 FROM t').ok).toBe(true)
+  })
+})
+
+// ---------------------------------------------------------------------------
 // Reason field does not echo raw SQL
 // ---------------------------------------------------------------------------
 describe('isReadOnlySql - reason hygiene', () => {
@@ -409,91 +436,133 @@ describe('stripper internals', () => {
 // ---------------------------------------------------------------------------
 describe('isReadOnlySql - SQLite PRAGMA support', () => {
   it('allows read-only PRAGMA table_info with identifier', () => {
-    const r = isReadOnlySql('PRAGMA table_info(users);')
+    const r = isReadOnlySql('PRAGMA table_info(users);', 'sqlite')
     expect(r.ok).toBe(true)
   })
 
   it('allows read-only PRAGMA table_info with string literal', () => {
-    const r = isReadOnlySql("PRAGMA table_info('users')")
+    const r = isReadOnlySql("PRAGMA table_info('users')", 'sqlite')
     expect(r.ok).toBe(true)
   })
 
   it('allows read-only PRAGMA table_xinfo', () => {
-    const r = isReadOnlySql("PRAGMA table_xinfo('logs')")
+    const r = isReadOnlySql("PRAGMA table_xinfo('logs')", 'sqlite')
     expect(r.ok).toBe(true)
   })
 
   it('allows read-only PRAGMA index_info', () => {
-    const r = isReadOnlySql("PRAGMA index_info('idx_users_email')")
+    const r = isReadOnlySql("PRAGMA index_info('idx_users_email')", 'sqlite')
     expect(r.ok).toBe(true)
   })
 
   it('allows read-only PRAGMA index_list', () => {
-    const r = isReadOnlySql("PRAGMA index_list('posts')")
+    const r = isReadOnlySql("PRAGMA index_list('posts')", 'sqlite')
     expect(r.ok).toBe(true)
   })
 
   it('allows read-only PRAGMA foreign_key_list', () => {
-    const r = isReadOnlySql('PRAGMA foreign_key_list(comments)')
+    const r = isReadOnlySql('PRAGMA foreign_key_list(comments)', 'sqlite')
     expect(r.ok).toBe(true)
   })
 
   it('allows read-only PRAGMA database_list', () => {
-    const r = isReadOnlySql('PRAGMA database_list;')
+    const r = isReadOnlySql('PRAGMA database_list;', 'sqlite')
     expect(r.ok).toBe(true)
   })
 
   it('allows case-insensitive PRAGMA statements', () => {
-    const r = isReadOnlySql('pragma Table_Info(Users)')
+    const r = isReadOnlySql('pragma Table_Info(Users)', 'sqlite')
     expect(r.ok).toBe(true)
   })
 
   it('rejects mutating or configuration PRAGMA journal_mode = WAL', () => {
-    const r = isReadOnlySql('PRAGMA journal_mode = WAL;')
+    const r = isReadOnlySql('PRAGMA journal_mode = WAL;', 'sqlite')
     expect(r.ok).toBe(false)
     if (!r.ok) expect(r.errorCode).toBe('E_NOT_WHITELISTED')
   })
 
   it('rejects mutating or configuration PRAGMA foreign_keys = OFF', () => {
-    const r = isReadOnlySql('PRAGMA foreign_keys = OFF')
+    const r = isReadOnlySql('PRAGMA foreign_keys = OFF', 'sqlite')
     expect(r.ok).toBe(false)
     if (!r.ok) expect(r.errorCode).toBe('E_NOT_WHITELISTED')
   })
 
   it('rejects mutating or configuration PRAGMA synchronous = 0', () => {
-    const r = isReadOnlySql('PRAGMA synchronous = 0;')
+    const r = isReadOnlySql('PRAGMA synchronous = 0;', 'sqlite')
     expect(r.ok).toBe(false)
     if (!r.ok) expect(r.errorCode).toBe('E_NOT_WHITELISTED')
   })
 
   it('rejects PRAGMA table_info containing assignment operator', () => {
-    const r = isReadOnlySql("PRAGMA table_info = 'users'")
+    const r = isReadOnlySql("PRAGMA table_info = 'users'", 'sqlite')
     expect(r.ok).toBe(false)
     if (!r.ok) expect(r.errorCode).toBe('E_NOT_WHITELISTED')
   })
 
   it('rejects incomplete PRAGMA statements', () => {
-    const r = isReadOnlySql('PRAGMA')
+    const r = isReadOnlySql('PRAGMA', 'sqlite')
     expect(r.ok).toBe(false)
     if (!r.ok) expect(r.errorCode).toBe('E_NOT_WHITELISTED')
   })
 
   it('rejects non-whitelisted PRAGMAs', () => {
-    const r = isReadOnlySql('PRAGMA encoding')
+    const r = isReadOnlySql('PRAGMA encoding', 'sqlite')
     expect(r.ok).toBe(false)
     if (!r.ok) expect(r.errorCode).toBe('E_NOT_WHITELISTED')
   })
 
   it('rejects PRAGMAs containing forbidden SQL keywords', () => {
-    const r = isReadOnlySql('PRAGMA table_info(select)')
+    const r = isReadOnlySql('PRAGMA table_info(select)', 'sqlite')
     expect(r.ok).toBe(false)
     if (!r.ok) expect(r.errorCode).toBe('E_NOT_WHITELISTED')
   })
 
   it('rejects PRAGMAs containing forbidden operators', () => {
-    const r = isReadOnlySql('PRAGMA table_info(users + 1)')
+    const r = isReadOnlySql('PRAGMA table_info(users + 1)', 'sqlite')
     expect(r.ok).toBe(false)
     if (!r.ok) expect(r.errorCode).toBe('E_NOT_WHITELISTED')
+  })
+})
+
+// ---------------------------------------------------------------------------
+// PRAGMA is SQLite-only syntax, so it is gated on dialect. Omitting the dialect
+// fails closed: a caller that forgets to pass one does not silently get the
+// wider whitelist.
+// ---------------------------------------------------------------------------
+describe('isReadOnlySql - PRAGMA dialect gating', () => {
+  it('rejects PRAGMA on MySQL', () => {
+    const r = isReadOnlySql('PRAGMA table_info(users)', 'mysql')
+    expect(r.ok).toBe(false)
+    if (!r.ok) expect(r.errorCode).toBe('E_NOT_WHITELISTED')
+  })
+
+  it('rejects PRAGMA on PostgreSQL', () => {
+    const r = isReadOnlySql('PRAGMA table_info(users)', 'postgresql')
+    expect(r.ok).toBe(false)
+    if (!r.ok) expect(r.errorCode).toBe('E_NOT_WHITELISTED')
+  })
+
+  it('rejects PRAGMA on Oracle', () => {
+    const r = isReadOnlySql('PRAGMA table_info(users)', 'oracle')
+    expect(r.ok).toBe(false)
+    if (!r.ok) expect(r.errorCode).toBe('E_NOT_WHITELISTED')
+  })
+
+  it('rejects PRAGMA when the dialect is omitted', () => {
+    const r = isReadOnlySql('PRAGMA table_info(users)')
+    expect(r.ok).toBe(false)
+    if (!r.ok) expect(r.errorCode).toBe('E_NOT_WHITELISTED')
+  })
+
+  it('allows a whitelisted PRAGMA on SQLite', () => {
+    expect(isReadOnlySql('PRAGMA table_info(users)', 'sqlite').ok).toBe(true)
+  })
+
+  it('does not change non-PRAGMA statements across dialects', () => {
+    for (const d of ['mysql', 'postgresql', 'sqlite', 'oracle'] as const) {
+      expect(isReadOnlySql('SELECT 1', d).ok).toBe(true)
+      expect(isReadOnlySql('DELETE FROM t', d).ok).toBe(false)
+    }
   })
 })
 
@@ -639,10 +708,13 @@ describe('isReadOnlySql - complexity budget', () => {
     if (!r.ok) expect(r.errorCode).toBe('E_COMPLEXITY_LIMIT')
   })
 
-  it('rejects deeply nested EXPLAIN targets', () => {
+  it('rejects deeply nested EXPLAIN, on grammar before the budget is reached', () => {
+    // EXPLAIN is not a query expression, so an EXPLAIN target that is itself an
+    // EXPLAIN is rejected on grammar. EXPLAIN targets still share the same
+    // budget, which the nested-CTE and set-operation cases above exercise.
     const r = isReadOnlySql(nestedExplain(400))
     expect(r.ok).toBe(false)
-    if (!r.ok) expect(r.errorCode).toBe('E_COMPLEXITY_LIMIT')
+    if (!r.ok) expect(r.errorCode).toBe('E_EXPLAIN_TARGET_NOT_SELECT')
   })
 
   it('rejects deeply nested set operations', () => {
@@ -658,8 +730,8 @@ describe('isReadOnlySql - complexity budget', () => {
 
   it('still allows realistic nesting well inside the budget', () => {
     expect(isReadOnlySql(nestedWith(8)).ok).toBe(true)
-    expect(isReadOnlySql(nestedExplain(4)).ok).toBe(true)
     expect(isReadOnlySql(nestedUnion(8)).ok).toBe(true)
+    expect(isReadOnlySql('EXPLAIN (SELECT 1)').ok).toBe(true)
   })
 
   it('allows a large but flat 50KB SELECT', () => {
@@ -731,6 +803,85 @@ describe('isReadOnlySql - reject writes behind a read-only prefix', () => {
 
   it('does not trip on a subquery that merely uses IN', () => {
     const r = isReadOnlySql('SELECT * FROM (SELECT id FROM t) sub WHERE sub.id IN (SELECT 1)')
+    expect(r.ok).toBe(true)
+  })
+})
+
+// ---------------------------------------------------------------------------
+// Statement vs query-expression position.
+//
+// A set-operation operand, a CTE body and an EXPLAIN target are query
+// expressions: only SELECT / WITH / VALUES belong there. Reusing the top-level
+// statement whitelist for those positions accepts nonsense and defers the error
+// to the database.
+// ---------------------------------------------------------------------------
+describe('isReadOnlySql - statement vs query position', () => {
+  it('rejects SHOW as a set-operation operand', () => {
+    const r = isReadOnlySql('SELECT 1 UNION SHOW TABLES')
+    expect(r.ok).toBe(false)
+    if (!r.ok) expect(r.errorCode).toBe('E_NOT_WHITELISTED')
+  })
+
+  it('rejects PRAGMA as a set-operation operand', () => {
+    const r = isReadOnlySql('SELECT 1 UNION PRAGMA table_info(users)')
+    expect(r.ok).toBe(false)
+    if (!r.ok) expect(r.errorCode).toBe('E_NOT_WHITELISTED')
+  })
+
+  it('rejects DESC as a set-operation operand', () => {
+    const r = isReadOnlySql('SELECT 1 UNION DESC t')
+    expect(r.ok).toBe(false)
+    if (!r.ok) expect(r.errorCode).toBe('E_NOT_WHITELISTED')
+  })
+
+  it('rejects EXPLAIN as a set-operation operand', () => {
+    const r = isReadOnlySql('SELECT 1 UNION EXPLAIN SELECT 2')
+    expect(r.ok).toBe(false)
+    if (!r.ok) expect(r.errorCode).toBe('E_NOT_WHITELISTED')
+  })
+
+  it('rejects PRAGMA as an EXPLAIN target', () => {
+    const r = isReadOnlySql('EXPLAIN (PRAGMA table_info(users))')
+    expect(r.ok).toBe(false)
+    if (!r.ok) expect(r.errorCode).toBe('E_EXPLAIN_TARGET_NOT_SELECT')
+  })
+
+  it('rejects PRAGMA as a CTE body', () => {
+    const r = isReadOnlySql('WITH x AS (PRAGMA table_info(users)) SELECT * FROM x')
+    expect(r.ok).toBe(false)
+    if (!r.ok) expect(r.errorCode).toBe('E_WITH_CONTAINS_DML')
+  })
+
+  it('rejects SHOW as a CTE body', () => {
+    const r = isReadOnlySql('WITH x AS (SHOW TABLES) SELECT * FROM x')
+    expect(r.ok).toBe(false)
+    if (!r.ok) expect(r.errorCode).toBe('E_WITH_CONTAINS_DML')
+  })
+
+  it('rejects a non-query statement after the CTE list', () => {
+    const r = isReadOnlySql('WITH a AS (SELECT 1) SHOW TABLES')
+    expect(r.ok).toBe(false)
+    if (!r.ok) expect(r.errorCode).toBe('E_NOT_WHITELISTED')
+  })
+
+  it('still allows SHOW / DESC / PRAGMA at the top level', () => {
+    expect(isReadOnlySql('SHOW TABLES').ok).toBe(true)
+    expect(isReadOnlySql('DESC t').ok).toBe(true)
+    expect(isReadOnlySql('PRAGMA table_info(users)', 'sqlite').ok).toBe(true)
+  })
+
+  it('rejects PRAGMA in a query position even on SQLite', () => {
+    expect(isReadOnlySql('SELECT 1 UNION PRAGMA table_info(users)', 'sqlite').ok).toBe(false)
+    expect(isReadOnlySql('WITH x AS (PRAGMA table_info(users)) SELECT * FROM x', 'sqlite').ok).toBe(false)
+  })
+
+  it('still allows a nested WITH as a CTE body', () => {
+    const r = isReadOnlySql('WITH b AS (WITH a AS (SELECT 1) SELECT * FROM a) SELECT * FROM b')
+    expect(r.ok).toBe(true)
+  })
+
+  it('does not split an EXPLAIN on its target set operators', () => {
+    const r = isReadOnlySql('EXPLAIN SELECT * FROM a UNION SELECT * FROM b')
     expect(r.ok).toBe(true)
   })
 })

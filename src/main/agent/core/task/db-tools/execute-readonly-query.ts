@@ -46,7 +46,7 @@ export async function runExecuteReadonlyQuery(
   const schemaOk = optionalStringParam(input.schema, 'schema')
   if (!schemaOk.ok) return schemaOk
 
-  const guard = isReadOnlySql(sqlParam.value)
+  const guard = isReadOnlySql(sqlParam.value, session.dbType)
   if (!guard.ok) {
     const errorCode = guard.errorCode === 'E_EXPLAIN_ANALYZE' ? 'E_EXPLAIN_ANALYZE' : 'E_SQL_NOT_READONLY'
     return { ok: false, errorCode, errorMessage: guard.reason }
