@@ -2,14 +2,14 @@
 // session (`execute_readonly_query`, `explain_plan`). Goal: allow only
 // verifiably read-only statements through a conservative whitelist. The
 // policy is "reject on ambiguity" — any construct we cannot statically prove
-// safe is rejected. See docs/database_ai.md §10.1.
+// safe is rejected.
 //
 // IMPORTANT: this is NOT a full SQL parser. It performs two passes:
 //
 //   1. Strip comments and string literals (including PG dollar-quoted, Oracle q-quoted,
 //      E'...' escape, MySQL backticks, block + line comments). Nested block
 //      comments are rejected because JavaScript regex cannot disambiguate
-//      them safely, and §10.1 requires conservative rejection.
+//      them safely, and the policy is to reject rather than guess.
 //
 //   2. On the resulting skeleton, perform token-level checks:
 //      - single statement (no `;` followed by non-whitespace)
@@ -33,8 +33,18 @@ export type GuardErrorCode =
   | 'E_EXPLAIN_ANALYZE'
   | 'E_EXPLAIN_TARGET_NOT_SELECT'
   | 'E_UNTERMINATED_LITERAL'
+  | 'E_COMPLEXITY_LIMIT'
+  | 'E_EXECUTABLE_COMMENT'
 
 export type GuardResult = { ok: true; skeleton: string } | { ok: false; errorCode: GuardErrorCode; reason: string }
+
+/**
+ * Engine the SQL will run against. Only used to gate dialect-specific syntax.
+ * Omitting it is safe but strict: PRAGMA is rejected when the dialect is
+ * unknown, so a caller that forgets to pass one fails closed rather than
+ * silently widening the whitelist.
+ */
+export type GuardDialect = 'mysql' | 'postgresql' | 'sqlite' | 'oracle'
 
 // ---------------------------------------------------------------------------
 // Stripper: replace comments + string literals with spaces, preserving length
@@ -51,9 +61,15 @@ function blankRange(src: string, start: number, end: number): string {
   return src.slice(0, start) + ' '.repeat(end - start) + src.slice(end)
 }
 
+const STRIP_FAIL_REASONS: Partial<Record<GuardErrorCode, string>> = {
+  E_NESTED_BLOCK_COMMENT: 'Nested block comments are not supported; please simplify the SQL.',
+  E_EXECUTABLE_COMMENT: 'MySQL executable comments (/*! ... */) are not allowed; they execute as SQL.',
+  E_UNTERMINATED_LITERAL: 'SQL contains an unterminated string or comment.'
+}
+
 /**
  * Detect whether we are at the start of a nested block comment opener inside
- * an already-open block comment. We reject these outright — see §10.1.
+ * an already-open block comment. We reject these outright.
  */
 function stripCommentsAndLiterals(sqlIn: string): StripOutcome {
   let sql = sqlIn
@@ -74,6 +90,12 @@ function stripCommentsAndLiterals(sqlIn: string): StripOutcome {
 
     // Block comment: /* ... */ . Nested opens are rejected.
     if (c === '/' && n === '*') {
+      // MySQL executable comment: /*! ... */ and /*!50000 ... */ are executed
+      // by MySQL, not ignored. Blanking one would hide real SQL — including a
+      // `;` that `hasExtraStatement` would otherwise catch. Reject outright.
+      if (sql[i + 2] === '!') {
+        return { skeleton: sql, hardFail: 'E_EXECUTABLE_COMMENT' }
+      }
       let depth = 1
       let j = i + 2
       while (j < len - 1) {
@@ -294,9 +316,34 @@ const DISALLOWED_KEYWORDS = new Set([
 // ---------------------------------------------------------------------------
 
 /**
+ * Index of the first token that can begin an EXPLAIN target, scanning only at
+ * paren depth 0. Returns -1 when there is none.
+ *
+ * Depth matters: `EXPLAIN WITH c AS (SELECT 1) SELECT * FROM c` has its first
+ * `SELECT` inside the CTE body, so keying on "the first SELECT anywhere" splits
+ * the statement mid-parenthesis and false-rejects it. `WITH` counts as a target
+ * opener for the same reason.
+ */
+function findExplainTargetStart(text: string): number {
+  let depth = 0
+  const opener = /\b(select|with)\b/iy
+  const wordChar = /[a-z0-9_]/i
+  for (let i = 0; i < text.length; i++) {
+    const ch = text[i]
+    if (ch === '(') depth++
+    else if (ch === ')') depth--
+    else if (depth === 0 && !wordChar.test(text[i - 1] ?? '')) {
+      opener.lastIndex = i
+      if (opener.test(text)) return i
+    }
+  }
+  return -1
+}
+
+/**
  * Match any EXPLAIN options block, whether PostgreSQL `EXPLAIN (a, b, c)` or
  * MySQL `EXPLAIN FORMAT=JSON` / `EXPLAIN EXTENDED` / `EXPLAIN ANALYZE`.
- * Returns the substring between EXPLAIN and the first SELECT token so the
+ * Returns the substring between EXPLAIN and the start of its target so the
  * caller can look for forbidden options.
  */
 function readExplainOptions(skel: string): { optionsText: string; rest: string } | null {
@@ -333,11 +380,10 @@ function readExplainOptions(skel: string): { optionsText: string; rest: string }
   }
 
   // Standard options without parens: EXPLAIN ANALYZE SELECT ... or EXPLAIN SELECT ...
-  const afterSelect = /\bselect\b/i.exec(afterExplain)
-  if (!afterSelect) {
+  const selectAt = findExplainTargetStart(afterExplain)
+  if (selectAt === -1) {
     return { optionsText: afterExplain, rest: '' }
   }
-  const selectAt = afterSelect.index
   const optionsText = afterExplain.slice(0, selectAt)
   if (
     tokens(optionsText).some((token) => {
@@ -347,13 +393,12 @@ function readExplainOptions(skel: string): { optionsText: string; rest: string }
   ) {
     return null
   }
-  const rest = afterExplain.slice(selectAt)
-  return { optionsText, rest }
+  return { optionsText, rest: afterExplain.slice(selectAt) }
 }
 
 /**
  * Detect ANALYZE / ANALYSE tokens anywhere in the EXPLAIN options block.
- * The §10.1 policy is: ANY form of ANALYZE in EXPLAIN is a hard reject
+ * The policy is: ANY form of ANALYZE in EXPLAIN is a hard reject
  * because PostgreSQL actually executes the query.
  */
 function explainOptionsContainAnalyze(optionsText: string): boolean {
@@ -365,54 +410,121 @@ function explainOptionsContainAnalyze(optionsText: string): boolean {
 // ---------------------------------------------------------------------------
 
 /**
- * Walk the skeleton starting at the `WITH` keyword and return the list of
- * CTE bodies (substrings between their outer parentheses). The walker
- * respects nested parentheses so a CTE containing a subquery is captured
- * whole.
+ * Walk the skeleton from the `WITH` keyword and return each CTE body plus the
+ * offset just past the last one, so the caller can check the main statement
+ * that follows.
+ *
+ * Follows the actual grammar of a CTE definition:
+ *
+ *   name [ ( col, ... ) ] AS [ NOT ] [ MATERIALIZED ] ( body )
+ *
+ * The optional column list matters: taking the first parenthesis after the CTE
+ * name picks up `(col, ...)` rather than the body, which both hides a
+ * data-modifying body from inspection and false-rejects the standard
+ * `WITH RECURSIVE t(n) AS (...)` form.
  */
-function extractCteBodies(skel: string): string[] {
+function extractCteBodies(skel: string): { bodies: string[]; tailStart: number } {
   const m = /\bwith\b(\s+recursive\b)?/i.exec(skel)
-  if (!m) return []
+  if (!m) return { bodies: [], tailStart: 0 }
   let i = m.index + m[0].length
   const bodies: string[] = []
   const len = skel.length
+  // Sticky matchers: they test at a position without slicing the remainder.
+  // Slicing inside these per-character loops allocates O(L) per step and
+  // dominates the cost on deeply nested input.
+  const asKeyword = /\s*\bas\b/iy
+  const materialized = /\s*(not\s+)?materialized\b/iy
+  const mainVerb = /\s*\b(select|insert|update|delete|merge|replace)\b/iy
+
   while (i < len) {
-    // Skip whitespace + CTE name + optional column list until the next `(`.
-    while (i < len && /[^(]/.test(skel[i])) {
-      // Stop if we've already passed into the main SELECT body.
-      if (/select|insert|update|delete|merge/i.test(skel.slice(i, i + 6))) {
-        // Check word boundary: /select\b/ etc.
-        if (/^\s*(select|insert|update|delete|merge)\b/i.test(skel.slice(i))) {
-          return bodies
-        }
-      }
-      i++
-    }
-    if (i >= len) break
-    // We're on an opening paren. Walk to the matching close.
-    let depth = 1
-    const bodyStart = i + 1
-    i++
-    while (i < len && depth > 0) {
+    // Find this CTE's `AS`, skipping the name and any column list. Bail out if
+    // a main statement verb appears first — that means the CTE list has ended.
+    let depth = 0
+    let asEnd = -1
+    while (i < len) {
       const ch = skel[i]
       if (ch === '(') depth++
       else if (ch === ')') depth--
+      else if (depth === 0) {
+        asKeyword.lastIndex = i
+        const asMatch = asKeyword.exec(skel)
+        if (asMatch) {
+          asEnd = i + asMatch[0].length
+          break
+        }
+        mainVerb.lastIndex = i
+        if (mainVerb.test(skel)) return { bodies, tailStart: i }
+      }
+      i++
+    }
+    if (asEnd === -1) break
+
+    // Skip PG's [NOT] MATERIALIZED between AS and the body.
+    i = asEnd
+    materialized.lastIndex = i
+    const matMatch = materialized.exec(skel)
+    if (matMatch) i += matMatch[0].length
+
+    while (i < len && /\s/.test(skel[i])) i++
+    if (skel[i] !== '(') break
+
+    // On the body's opening paren. Walk to its match.
+    let bodyDepth = 1
+    const bodyStart = i + 1
+    i++
+    while (i < len && bodyDepth > 0) {
+      const ch = skel[i]
+      if (ch === '(') bodyDepth++
+      else if (ch === ')') bodyDepth--
       i++
     }
     const bodyEnd = i - 1
     if (bodyEnd > bodyStart) bodies.push(skel.slice(bodyStart, bodyEnd))
-    // After the close paren, expect a comma (another CTE) or the final SELECT.
-    const after = skel.slice(i).trimStart()
-    if (after.startsWith(',')) {
-      i = skel.indexOf(',', i) + 1
+
+    // A comma means another CTE follows; anything else ends the CTE list.
+    let j = i
+    while (j < len && /\s/.test(skel[j])) j++
+    if (skel[j] === ',') {
+      i = j + 1
       continue
     }
-    break
+    return { bodies, tailStart: j }
   }
-  return bodies
+  return { bodies, tailStart: i }
 }
 
 const MAX_UNWRAP_DEPTH = 20
+
+// Validation budget. `MAX_UNWRAP_DEPTH` only bounds consecutive parenthesis
+// unwrapping within one level; these bound the whole validation, including the
+// recursive descent through CTE bodies, set-operation operands and EXPLAIN
+// targets. Without them a ~27KB input (well under the caller's 50KB cap) can
+// occupy the Electron main process for over a minute.
+const MAX_RECURSION_DEPTH = 32
+const MAX_TOTAL_WORK = 2_000_000
+
+interface Budget {
+  depth: number
+  remainingWork: number
+}
+
+function newBudget(): Budget {
+  return { depth: 0, remainingWork: MAX_TOTAL_WORK }
+}
+
+/** Charge one recursion level plus the text it will scan. */
+function spend(budget: Budget, textLength: number): boolean {
+  if (budget.depth >= MAX_RECURSION_DEPTH) return false
+  if (budget.remainingWork < textLength) return false
+  budget.remainingWork -= textLength
+  return true
+}
+
+const complexityLimit: GuardResult = {
+  ok: false,
+  errorCode: 'E_COMPLEXITY_LIMIT',
+  reason: 'SQL is too deeply nested or too complex to verify; please simplify it.'
+}
 
 /**
  * Safely find the indices of matched outer parentheses wrapping the whole skeleton.
@@ -429,12 +541,10 @@ function unwrapOuterParenthesesRange(skel: string): { start: number; end: number
     } else if (skel[i] === ')') {
       depth--
       if (depth === 0) {
-        const rest = skel.slice(i + 1)
-        if (rest.trim().length === 0) {
-          return { start: startIdx, end: i }
-        } else {
-          return null
+        for (let j = i + 1; j < skel.length; j++) {
+          if (!/\s/.test(skel[j])) return null
         }
+        return { start: startIdx, end: i }
       }
     }
   }
@@ -457,12 +567,39 @@ function unwrapOuterParentheses(str: string): string {
 }
 
 /**
+ * True when the skeleton has a top-level (paren depth 0) INTO / OUTFILE /
+ * DUMPFILE. A statement can start with SELECT and still write:
+ * MySQL `SELECT ... INTO OUTFILE '/path'` writes the server filesystem, and
+ * `SELECT ... INTO new_table` creates a table on PostgreSQL and SQL Server.
+ * Depth 0 only, so an INTO inside a subquery does not trip the check.
+ */
+function hasTopLevelInto(skel: string): boolean {
+  let depth = 0
+  const intoWord = /\b(into|outfile|dumpfile)\b/iy
+  const wordChar = /[a-z0-9_]/i
+  for (let i = 0; i < skel.length; i++) {
+    const ch = skel[i]
+    if (ch === '(') depth++
+    else if (ch === ')') depth--
+    else if (depth === 0 && !wordChar.test(skel[i - 1] ?? '')) {
+      intoWord.lastIndex = i
+      if (intoWord.test(skel)) return true
+    }
+  }
+  return false
+}
+
+/**
  * Scan the skeleton and identify all top-level (paren depth 0) set operators (UNION, INTERSECT, EXCEPT).
  */
 function getTopLevelSetSplits(skel: string): { index: number; length: number }[] | null {
   let depth = 0
   const splits: { index: number; length: number }[] = []
-  const lowerSkel = skel.toLowerCase()
+  // Sticky matchers avoid a whole-string toLowerCase copy and avoid slicing the
+  // remainder to read the ALL / DISTINCT modifier.
+  const setOp = /(union|intersect|except)\b/iy
+  const modifier = /\s*(all|distinct)\b/iy
+  const wordChar = /[a-z0-9_]/i
   for (let i = 0; i < skel.length; i++) {
     const char = skel[i]
     if (char === '(') {
@@ -474,17 +611,15 @@ function getTopLevelSetSplits(skel: string): { index: number; length: number }[]
       }
     } else if (depth === 0) {
       let opLength = 0
-      if (lowerSkel.startsWith('union', i) && !/[a-z0-9_]/i.test(skel[i - 1] ?? '') && !/[a-z0-9_]/i.test(skel[i + 5] ?? '')) {
-        opLength = 5
-      } else if (lowerSkel.startsWith('intersect', i) && !/[a-z0-9_]/i.test(skel[i - 1] ?? '') && !/[a-z0-9_]/i.test(skel[i + 9] ?? '')) {
-        opLength = 9
-      } else if (lowerSkel.startsWith('except', i) && !/[a-z0-9_]/i.test(skel[i - 1] ?? '') && !/[a-z0-9_]/i.test(skel[i + 6] ?? '')) {
-        opLength = 6
+      if (!wordChar.test(skel[i - 1] ?? '')) {
+        setOp.lastIndex = i
+        const opMatch = setOp.exec(skel)
+        if (opMatch) opLength = opMatch[1].length
       }
 
       if (opLength > 0) {
-        const remaining = skel.slice(i + opLength)
-        const modifierMatch = /^\s*(all|distinct)\b/i.exec(remaining)
+        modifier.lastIndex = i + opLength
+        const modifierMatch = modifier.exec(skel)
         let totalLength = opLength
         if (modifierMatch) {
           totalLength += modifierMatch[0].length
@@ -505,14 +640,13 @@ function getTopLevelSetSplits(skel: string): { index: number; length: number }[]
  * accepted, because it is read-only. SHOW / DESC / DESCRIBE / EXPLAIN bodies
  * are rejected.
  */
-function cteBodyIsSafe(body: string): boolean {
-  const trimmed = unwrapOuterParentheses(body).toLowerCase()
-  if (/^(show|desc|describe|explain)\b/.test(trimmed)) {
-    return false
+function cteBodyIsSafe(body: string, budget: Budget, dialect?: GuardDialect): boolean | 'limit' {
+  // A CTE body is a query expression, so the `query` position already rejects
+  // SHOW / DESC / DESCRIBE / EXPLAIN / PRAGMA and accepts a bare VALUES list.
+  const inner = checkSkeleton(body, budget, 'query', dialect)
+  if (!inner.ok) {
+    return inner.errorCode === 'E_COMPLEXITY_LIMIT' ? 'limit' : false
   }
-  if (/^values\b/.test(trimmed)) return true
-  const inner = isReadOnlySql(body)
-  if (!inner.ok) return false
   return true
 }
 
@@ -525,7 +659,7 @@ function cteBodyIsSafe(body: string): boolean {
  * read-only tool contract. The function is deliberately conservative:
  * anything it cannot statically prove safe is rejected.
  */
-export function isReadOnlySql(sqlIn: string): GuardResult {
+export function isReadOnlySql(sqlIn: string, dialect?: GuardDialect): GuardResult {
   if (!sqlIn || sqlIn.trim().length === 0) {
     return {
       ok: false,
@@ -538,13 +672,42 @@ export function isReadOnlySql(sqlIn: string): GuardResult {
     return {
       ok: false,
       errorCode: stripped.hardFail,
-      reason:
-        stripped.hardFail === 'E_NESTED_BLOCK_COMMENT'
-          ? 'Nested block comments are not supported; please simplify the SQL.'
-          : 'SQL contains an unterminated string or comment.'
+      reason: STRIP_FAIL_REASONS[stripped.hardFail] ?? 'SQL contains an unterminated string or comment.'
     }
   }
-  let skel = stripped.skeleton
+  return checkSkeleton(stripped.skeleton, newBudget(), 'statement', dialect)
+}
+
+/**
+ * What grammar position we are validating.
+ *
+ * - `statement`: a whole statement. SELECT / WITH / SHOW / DESC / EXPLAIN /
+ *   PRAGMA are all legal here.
+ * - `query`: a query expression — the operand of a set operation, a CTE body,
+ *   or an EXPLAIN target. Only SELECT / WITH / VALUES / a parenthesized or set
+ *   query belong here. SHOW / DESC / PRAGMA / EXPLAIN do not: reusing the
+ *   statement whitelist for these positions accepts nonsense like
+ *   `SELECT 1 UNION SHOW TABLES` and defers the error to the database.
+ */
+type Position = 'statement' | 'query'
+
+/**
+ * Recursive core. Operates on an already-stripped skeleton so nested levels do
+ * not re-run the stripper, and shares one budget across every recursion site
+ * (CTE bodies, set-operation operands, EXPLAIN targets).
+ */
+function checkSkeleton(skelIn: string, budget: Budget, position: Position = 'statement', dialect?: GuardDialect): GuardResult {
+  if (!spend(budget, skelIn.length)) return complexityLimit
+  budget.depth++
+  try {
+    return checkSkeletonInner(skelIn, budget, position, dialect)
+  } finally {
+    budget.depth--
+  }
+}
+
+function checkSkeletonInner(skelIn: string, budget: Budget, position: Position, dialect?: GuardDialect): GuardResult {
+  let skel = skelIn
   if (hasExtraStatement(skel)) {
     return {
       ok: false,
@@ -562,7 +725,6 @@ export function isReadOnlySql(sqlIn: string): GuardResult {
   }
 
   let currentSkel = skel
-  let currentSql = sqlIn
 
   // Unwrap matched outer parentheses layers up to MAX_UNWRAP_DEPTH
   let unwrapIterations = 0
@@ -570,12 +732,15 @@ export function isReadOnlySql(sqlIn: string): GuardResult {
     const range = unwrapOuterParenthesesRange(currentSkel)
     if (!range) break
     currentSkel = currentSkel.slice(range.start + 1, range.end)
-    currentSql = currentSql.slice(range.start + 1, range.end)
     unwrapIterations++
   }
 
-  // Check for top-level set operations
-  const splits = getTopLevelSetSplits(currentSkel)
+  // Check for top-level set operations. An EXPLAIN prefix governs its whole
+  // target, set operators included, so `EXPLAIN SELECT a UNION SELECT b` must
+  // not be split here — that would leave `EXPLAIN SELECT a` as an operand.
+  // Let the EXPLAIN branch below take it and validate the target as a unit.
+  const isExplain = /^\s*explain\b/i.test(currentSkel)
+  const splits = isExplain ? [] : getTopLevelSetSplits(currentSkel)
   if (splits === null) {
     return {
       ok: false,
@@ -587,13 +752,21 @@ export function isReadOnlySql(sqlIn: string): GuardResult {
     const segments: string[] = []
     let lastIndex = 0
     for (const split of splits) {
-      segments.push(currentSql.slice(lastIndex, split.index))
+      segments.push(currentSkel.slice(lastIndex, split.index))
       lastIndex = split.index + split.length
     }
-    segments.push(currentSql.slice(lastIndex))
+    segments.push(currentSkel.slice(lastIndex))
 
     for (const segment of segments) {
-      const res = isReadOnlySql(segment)
+      if (segment.trim().length === 0) {
+        return {
+          ok: false,
+          errorCode: 'E_EMPTY_STATEMENT',
+          reason: 'SQL is empty after stripping comments.'
+        }
+      }
+      // Operands of a set operation are query expressions, not statements.
+      const res = checkSkeleton(segment, budget, 'query', dialect)
       if (!res.ok) {
         return res
       }
@@ -614,7 +787,30 @@ export function isReadOnlySql(sqlIn: string): GuardResult {
 
   // Whitelist branch: SELECT / WITH ... SELECT / SHOW / DESC(RIBE) / EXPLAIN.
   if (/^select\b/.test(lower)) {
+    // Runs after set-operation splitting, so each operand is checked on its own.
+    if (hasTopLevelInto(skel)) {
+      return {
+        ok: false,
+        errorCode: 'E_NOT_WHITELISTED',
+        reason: 'SELECT ... INTO / OUTFILE / DUMPFILE writes data and is not allowed.'
+      }
+    }
     return { ok: true, skeleton: skel }
+  }
+  // A bare VALUES list is a query expression, and read-only.
+  if (position === 'query' && /^values\b/.test(lower)) {
+    return { ok: true, skeleton: skel }
+  }
+  // SHOW / DESC / PRAGMA / EXPLAIN are statements, not query expressions. In a
+  // query position they are grammatically wrong, so reject here rather than let
+  // the database raise the error later. WITH is handled below: it is legal in
+  // both positions, and its own branch enforces that it ends in a SELECT.
+  if (position === 'query' && !/^with\b/.test(lower)) {
+    return {
+      ok: false,
+      errorCode: 'E_NOT_WHITELISTED',
+      reason: 'Only a SELECT / WITH / VALUES query is allowed in this position.'
+    }
   }
   if (/^show\b/.test(lower)) {
     return { ok: true, skeleton: skel }
@@ -623,6 +819,16 @@ export function isReadOnlySql(sqlIn: string): GuardResult {
     return { ok: true, skeleton: skel }
   }
   if (/^pragma\b/.test(lower)) {
+    // PRAGMA is SQLite-only. Gate on dialect so the other engines do not get a
+    // wider whitelist than they can parse, and so a caller that omits the
+    // dialect fails closed.
+    if (dialect !== 'sqlite') {
+      return {
+        ok: false,
+        errorCode: 'E_NOT_WHITELISTED',
+        reason: 'PRAGMA is only allowed on SQLite connections.'
+      }
+    }
     const pragmaTokens = tokens(skel)
     if (pragmaTokens.length < 2) {
       return {
@@ -678,9 +884,11 @@ export function isReadOnlySql(sqlIn: string): GuardResult {
   if (/^with\b/.test(lower)) {
     // WITH must finish with a top-level SELECT and no CTE body may contain
     // DML/DDL.
-    const bodies = extractCteBodies(skel)
+    const { bodies, tailStart } = extractCteBodies(skel)
     for (const body of bodies) {
-      if (!cteBodyIsSafe(body)) {
+      const safe = cteBodyIsSafe(body, budget, dialect)
+      if (safe === 'limit') return complexityLimit
+      if (!safe) {
         return {
           ok: false,
           errorCode: 'E_WITH_CONTAINS_DML',
@@ -701,20 +909,24 @@ export function isReadOnlySql(sqlIn: string): GuardResult {
         }
       }
     }
-    // After the last CTE, require the main statement to be SELECT.
-    const mainMatch = /\)\s*(,|(?:select)\b)/gi
-    // Find the final occurrence where a `)` is immediately followed by SELECT
-    // (potentially after whitespace). If the main statement starts with
-    // something else we reject.
-    const finalSelect = /\)\s*(?:select)\b/i.test(skel)
-    if (!finalSelect) {
+    // After the last CTE, require the main statement to be a SELECT or a
+    // parenthesized query. Anchored at the CTE list's end: testing the whole
+    // skeleton for `) SELECT` lets a column list such as `INSERT INTO t(x)
+    // SELECT ...` satisfy the check, which routes a write through the
+    // read-only tool and past its approval gate.
+    const tail = skel.slice(tailStart)
+    if (!/^\s*(select\b|\()/i.test(tail)) {
       return {
         ok: false,
         errorCode: 'E_NOT_WHITELISTED',
         reason: 'WITH clause must be followed by a SELECT statement.'
       }
     }
-    void mainMatch
+    const tailResult = checkSkeleton(tail, budget, 'query', dialect)
+    if (!tailResult.ok) {
+      if (tailResult.errorCode === 'E_COMPLEXITY_LIMIT') return complexityLimit
+      return tailResult
+    }
     return { ok: true, skeleton: skel }
   }
   if (/^explain\b/.test(lower)) {
@@ -733,17 +945,12 @@ export function isReadOnlySql(sqlIn: string): GuardResult {
         reason: 'EXPLAIN ANALYZE / ANALYSE is not allowed; it may execute the query.'
       }
     }
+    // An EXPLAIN target is a query expression, so the `query` position rejects
+    // SHOW / DESC / DESCRIBE / PRAGMA / nested EXPLAIN targets for us.
     const explainTarget = unwrapOuterParentheses(explain.rest)
-    const inner = isReadOnlySql(explainTarget)
+    const inner = checkSkeleton(explainTarget, budget, 'query', dialect)
     if (!inner.ok) {
-      return {
-        ok: false,
-        errorCode: 'E_EXPLAIN_TARGET_NOT_SELECT',
-        reason: 'EXPLAIN must target a SELECT statement.'
-      }
-    }
-    const targetTrimmed = trimStart(explainTarget).toLowerCase()
-    if (/^(show|desc|describe)\b/i.test(targetTrimmed)) {
+      if (inner.errorCode === 'E_COMPLEXITY_LIMIT') return complexityLimit
       return {
         ok: false,
         errorCode: 'E_EXPLAIN_TARGET_NOT_SELECT',
@@ -756,7 +963,7 @@ export function isReadOnlySql(sqlIn: string): GuardResult {
   return {
     ok: false,
     errorCode: 'E_NOT_WHITELISTED',
-    reason: 'Only read-only statements are allowed (SELECT / WITH / SHOW / DESC / EXPLAIN).'
+    reason: 'Only read-only statements are allowed (SELECT / WITH / SHOW / DESC / EXPLAIN, plus PRAGMA on SQLite).'
   }
 }
 
@@ -768,7 +975,7 @@ export const __testing = {
   stripCommentsAndLiterals,
   hasExtraStatement,
   extractCteBodies,
-  cteBodyIsSafe,
+  cteBodyIsSafe: (body: string) => cteBodyIsSafe(body, newBudget()) === true,
   readExplainOptions,
   explainOptionsContainAnalyze,
   tokens
