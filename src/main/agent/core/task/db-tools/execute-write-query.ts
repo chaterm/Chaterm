@@ -56,12 +56,12 @@ export async function runExecuteWriteQuery(
   const schemaOk = optionalStringParam(input.schema, 'schema')
   if (!schemaOk.ok) return schemaOk
 
-  const guard = isReadOnlySql(sqlParam.value)
+  const guard = isReadOnlySql(sqlParam.value, session.dbType)
   if (guard.ok) {
     return {
       ok: false,
       errorCode: 'E_INVALID_PARAM',
-      errorMessage: 'SQL is read-only. Use execute_readonly_query for SELECT/SHOW/DESCRIBE/EXPLAIN.'
+      errorMessage: 'SQL is read-only. Use execute_readonly_query for SELECT/SHOW/DESCRIBE/EXPLAIN/PRAGMA.'
     }
   }
 
