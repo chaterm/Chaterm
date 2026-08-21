@@ -5,7 +5,7 @@
 //   - SQL size is capped at 50KB.
 //   - Result is bounded by maxRows=200 and timeoutMs=30s at the session layer.
 
-import { isReadOnlySql } from '../../../../services/database-ai/sql-readonly-guard'
+import { classifySql } from '../../../../services/database-ai/sql-readonly-guard'
 import type { DbAiActiveSession, DbToolResult } from './shared'
 import { optionalStringParam, requireStringParam, unexpectedError } from './shared'
 
@@ -46,10 +46,16 @@ export async function runExecuteReadonlyQuery(
   const schemaOk = optionalStringParam(input.schema, 'schema')
   if (!schemaOk.ok) return schemaOk
 
-  const guard = isReadOnlySql(sqlParam.value, session.dbType)
-  if (!guard.ok) {
-    const errorCode = guard.errorCode === 'E_EXPLAIN_ANALYZE' ? 'E_EXPLAIN_ANALYZE' : 'E_SQL_NOT_READONLY'
-    return { ok: false, errorCode, errorMessage: guard.reason }
+  const disposition = classifySql(sqlParam.value, session.dbType)
+  if (disposition.kind !== 'readonly') {
+    // Distinguish "this is a write" from "this could not be verified" so the
+    // caller does not read a syntax or complexity rejection as a hint to retry
+    // through the write tool.
+    if (disposition.kind === 'requires_approval') {
+      return { ok: false, errorCode: 'E_SQL_NOT_READONLY', errorMessage: 'SQL is not read-only. Use execute_write_query.' }
+    }
+    const errorCode = disposition.errorCode === 'E_EXPLAIN_ANALYZE' ? 'E_EXPLAIN_ANALYZE' : 'E_SQL_UNVERIFIABLE'
+    return { ok: false, errorCode, errorMessage: disposition.reason }
   }
 
   try {

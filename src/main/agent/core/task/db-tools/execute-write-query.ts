@@ -1,11 +1,13 @@
 // execute_write_query: run a write SQL statement after explicit user approval.
 //
 // Safety:
-//   - SQL must be non-read-only (SELECT/SHOW/etc should use execute_readonly_query).
+//   - SQL must classify as `requires_approval`. A statement that merely fails
+//     the read-only check is NOT sufficient: that set also contains syntax
+//     errors, multi-statement input and procedures we cannot bound.
 //   - SQL size is capped at 50KB.
 //   - Final execution approval is handled by Task.askApproval('command', sql).
 
-import { isReadOnlySql } from '../../../../services/database-ai/sql-readonly-guard'
+import { classifySql } from '../../../../services/database-ai/sql-readonly-guard'
 import type { DbAiActiveSession, DbToolResult } from './shared'
 import { optionalStringParam, requireStringParam, unexpectedError } from './shared'
 
@@ -56,12 +58,22 @@ export async function runExecuteWriteQuery(
   const schemaOk = optionalStringParam(input.schema, 'schema')
   if (!schemaOk.ok) return schemaOk
 
-  const guard = isReadOnlySql(sqlParam.value, session.dbType)
-  if (guard.ok) {
+  // Positive identification: execute only what classified as a recognized
+  // stateful statement. Anything else — read-only, unparseable, or a verb we
+  // cannot bound — is refused rather than handed to the driver.
+  const disposition = classifySql(sqlParam.value, session.dbType)
+  if (disposition.kind === 'readonly') {
     return {
       ok: false,
       errorCode: 'E_INVALID_PARAM',
       errorMessage: 'SQL is read-only. Use execute_readonly_query for SELECT/SHOW/DESCRIBE/EXPLAIN/PRAGMA.'
+    }
+  }
+  if (disposition.kind === 'reject') {
+    return {
+      ok: false,
+      errorCode: 'E_SQL_UNVERIFIABLE',
+      errorMessage: 'SQL could not be safely verified and was not executed. Submit a single, complete statement.'
     }
   }
 

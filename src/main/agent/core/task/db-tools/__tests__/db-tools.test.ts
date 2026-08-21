@@ -607,6 +607,61 @@ describe('runExplainPlan', () => {
     if (!r.ok) expect(r.errorCode).toBe('E_DRIVER_UNSUPPORTED')
   })
 
+  it('rejects input that already carries an EXPLAIN prefix', async () => {
+    // The tool adds its own prefix, so accepting these would emit
+    // `EXPLAIN EXPLAIN ...`.
+    const execute = vi.fn(async () => ({ columns: [], rows: [], rowCount: 0, truncated: false, durationMs: 0 }))
+    const session = makeSession({ dbType: 'mysql', execute } as MockOverrides)
+    for (const sql of ['EXPLAIN SELECT 1', 'EXPLAIN EXPLAIN SELECT 1', 'EXPLAIN (FORMAT JSON) SELECT 1', 'EXPLAIN FORMAT=JSON SELECT 1']) {
+      const r = await runExplainPlan(session, { sql })
+      expect(r.ok).toBe(false)
+      if (!r.ok) expect(r.errorCode).toBe('E_INVALID_PARAM')
+    }
+    expect(execute).not.toHaveBeenCalled()
+  })
+
+  it('rejects read-only statements that have no query plan', async () => {
+    // Legal for execute_readonly_query, but not a query expression.
+    const execute = vi.fn(async () => ({ columns: [], rows: [], rowCount: 0, truncated: false, durationMs: 0 }))
+    const session = makeSession({ dbType: 'mysql', execute } as MockOverrides)
+    for (const sql of ['SHOW TABLES', 'DESC users', 'DESCRIBE users']) {
+      const r = await runExplainPlan(session, { sql })
+      expect(r.ok).toBe(false)
+      if (!r.ok) expect(r.errorCode).toBe('E_INVALID_PARAM')
+    }
+    expect(execute).not.toHaveBeenCalled()
+  })
+
+  it('rejects PRAGMA even on SQLite, where it is read-only', async () => {
+    const execute = vi.fn(async () => ({ columns: [], rows: [], rowCount: 0, truncated: false, durationMs: 0 }))
+    const session = makeSession({ dbType: 'sqlite', databaseName: 'main', schemas: [], execute } as MockOverrides)
+    const r = await runExplainPlan(session, { sql: 'PRAGMA table_info(users)' })
+    expect(r.ok).toBe(false)
+    if (!r.ok) expect(r.errorCode).toBe('E_INVALID_PARAM')
+    expect(execute).not.toHaveBeenCalled()
+  })
+
+  it('rejects unverifiable SQL without calling the driver', async () => {
+    const execute = vi.fn(async () => ({ columns: [], rows: [], rowCount: 0, truncated: false, durationMs: 0 }))
+    const session = makeSession({ dbType: 'mysql', execute } as MockOverrides)
+    for (const sql of ['SELECT 1; DROP TABLE users', "SELECT 1 /*! INTO OUTFILE '/tmp/x' */"]) {
+      const r = await runExplainPlan(session, { sql })
+      expect(r.ok).toBe(false)
+      if (!r.ok) expect(r.errorCode).toBe('E_SQL_UNVERIFIABLE')
+    }
+    expect(execute).not.toHaveBeenCalled()
+  })
+
+  it('accepts WITH ... SELECT and set queries', async () => {
+    for (const sql of ['WITH c AS (SELECT 1) SELECT * FROM c', 'SELECT 1 UNION SELECT 2']) {
+      const execute = vi.fn(async () => ({ columns: ['QUERY PLAN'], rows: [{ 'QUERY PLAN': {} }], rowCount: 1, truncated: false, durationMs: 1 }))
+      const session = makeSession({ dbType: 'postgresql', execute } as MockOverrides)
+      const r = await runExplainPlan(session, { sql })
+      expect(r.ok).toBe(true)
+      expect(execute).toHaveBeenCalledTimes(1)
+    }
+  })
+
   it('rejects SQL exceeding the 50KB cap', async () => {
     const session = makeSession()
     const big = 'SELECT 1 -- ' + 'x'.repeat(51 * 1024)
@@ -644,6 +699,28 @@ describe('runExecuteReadonlyQuery', () => {
     const r = await runExecuteReadonlyQuery(session, { sql: "UPDATE users SET name='x'" })
     expect(r.ok).toBe(false)
     if (!r.ok) expect(r.errorCode).toBe('E_SQL_NOT_READONLY')
+  })
+
+  it('refuses locking reads without calling the driver', async () => {
+    const execute = vi.fn(async () => ({ columns: [], rows: [], rowCount: 0, truncated: false, durationMs: 0 }))
+    const session = makeSession({ dbType: 'mysql', execute } as MockOverrides)
+    for (const sql of ['SELECT * FROM t FOR UPDATE', 'SELECT * FROM t FOR SHARE', 'SELECT * FROM t LOCK IN SHARE MODE']) {
+      const r = await runExecuteReadonlyQuery(session, { sql })
+      expect(r.ok).toBe(false)
+      if (!r.ok) expect(r.errorCode).toBe('E_SQL_NOT_READONLY')
+    }
+    expect(execute).not.toHaveBeenCalled()
+  })
+
+  it('reports unverifiable SQL distinctly from write SQL', async () => {
+    const execute = vi.fn(async () => ({ columns: [], rows: [], rowCount: 0, truncated: false, durationMs: 0 }))
+    const session = makeSession({ dbType: 'mysql', execute } as MockOverrides)
+    for (const sql of ['SELECT 1; DROP TABLE users', "SELECT 1 /*! INTO OUTFILE '/tmp/x' */"]) {
+      const r = await runExecuteReadonlyQuery(session, { sql })
+      expect(r.ok).toBe(false)
+      if (!r.ok) expect(r.errorCode).toBe('E_SQL_UNVERIFIABLE')
+    }
+    expect(execute).not.toHaveBeenCalled()
   })
 })
 
@@ -694,6 +771,74 @@ describe('runExecuteWriteQuery', () => {
     const r = await runExecuteWriteQuery(session, { sql: 'SELECT 1' })
     expect(r.ok).toBe(false)
     if (!r.ok) expect(r.errorCode).toBe('E_INVALID_PARAM')
+  })
+
+  // A failed read-only guard is not proof of a write. These inputs must never
+  // reach the driver: the guard rejected them because it could not verify them,
+  // not because it recognized a write verb.
+  describe('fails closed on unverifiable SQL', () => {
+    const nestedWith = (n: number): string => {
+      let s = 'SELECT 1'
+      for (let i = 0; i < n; i++) s = `WITH c${i} AS (${s}) SELECT * FROM c${i}`
+      return s
+    }
+
+    const cases: Array<[string, string]> = [
+      ['multiple statements', 'SELECT 1; DROP TABLE users'],
+      ['MySQL executable comment', "SELECT 1 /*! INTO OUTFILE '/tmp/x' */"],
+      ['complexity limit', nestedWith(400)],
+      ['unterminated block comment', 'SELECT 1 /* unterminated'],
+      ['unterminated string literal', "UPDATE t SET a='unterminated"]
+    ]
+
+    for (const [label, sql] of cases) {
+      it(`refuses ${label} without calling the driver`, async () => {
+        const execute = vi.fn(async () => ({ columns: [], rows: [], rowCount: 0, truncated: false, durationMs: 0 }))
+        const session = makeSession({ dbType: 'mysql', execute } as MockOverrides)
+        const r = await runExecuteWriteQuery(session, { sql })
+        expect(r.ok).toBe(false)
+        if (!r.ok) {
+          expect(r.errorCode).toBe('E_SQL_UNVERIFIABLE')
+          // Error text must not echo the caller's SQL back to the model.
+          expect(r.errorMessage).not.toContain('DROP')
+          expect(r.errorMessage).not.toContain('OUTFILE')
+        }
+        expect(execute).not.toHaveBeenCalled()
+      })
+    }
+
+    it('accepts locking reads as approvable writes, not unverifiable SQL', async () => {
+      // Locking reads must stay executable through the approval path; refusing
+      // them here would make the product decision "reject" by accident.
+      for (const sql of ['SELECT * FROM t FOR UPDATE', 'SELECT * FROM t LOCK IN SHARE MODE']) {
+        const execute = vi.fn(async () => ({ columns: [], rows: [], rowCount: 1, truncated: false, durationMs: 2 }))
+        const session = makeSession({ dbType: 'mysql', execute } as MockOverrides)
+        const r = await runExecuteWriteQuery(session, { sql })
+        expect(r.ok).toBe(true)
+        expect(execute).toHaveBeenCalledTimes(1)
+      }
+    })
+
+    it('routes outfile / dumpfile identifier queries back to the readonly tool', async () => {
+      for (const sql of ['SELECT outfile FROM logs', 'SELECT * FROM outfile', 'SELECT t.outfile FROM logs t']) {
+        const execute = vi.fn(async () => ({ columns: [], rows: [], rowCount: 0, truncated: false, durationMs: 0 }))
+        const session = makeSession({ dbType: 'mysql', execute } as MockOverrides)
+        const r = await runExecuteWriteQuery(session, { sql })
+        expect(r.ok).toBe(false)
+        if (!r.ok) expect(r.errorCode).toBe('E_INVALID_PARAM')
+        expect(execute).not.toHaveBeenCalled()
+      }
+    })
+
+    it('still executes ordinary DML', async () => {
+      for (const sql of ['UPDATE t SET a=1', 'INSERT INTO t VALUES (1)', 'DELETE FROM t WHERE id=1']) {
+        const execute = vi.fn(async () => ({ columns: [], rows: [], rowCount: 1, truncated: false, durationMs: 3 }))
+        const session = makeSession({ dbType: 'mysql', execute } as MockOverrides)
+        const r = await runExecuteWriteQuery(session, { sql })
+        expect(r.ok).toBe(true)
+        expect(execute).toHaveBeenCalledTimes(1)
+      }
+    })
   })
 })
 

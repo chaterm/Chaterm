@@ -35,6 +35,7 @@ export type GuardErrorCode =
   | 'E_UNTERMINATED_LITERAL'
   | 'E_COMPLEXITY_LIMIT'
   | 'E_EXECUTABLE_COMMENT'
+  | 'E_LOCKING_READ'
 
 export type GuardResult = { ok: true; skeleton: string } | { ok: false; errorCode: GuardErrorCode; reason: string }
 
@@ -125,6 +126,7 @@ function stripCommentsAndLiterals(sqlIn: string): StripOutcome {
     // see keywords inside identifiers like `created_at`.
     if (c === '`') {
       let j = i + 1
+      let terminated = false
       while (j < len) {
         if (sql[j] === '`') {
           if (sql[j + 1] === '`') {
@@ -132,11 +134,12 @@ function stripCommentsAndLiterals(sqlIn: string): StripOutcome {
             continue
           }
           j++
+          terminated = true
           break
         }
         j++
       }
-      if (j > len) return { skeleton: sql, hardFail: 'E_UNTERMINATED_LITERAL' }
+      if (!terminated) return { skeleton: sql, hardFail: 'E_UNTERMINATED_LITERAL' }
       sql = blankRange(sql, i, j)
       i = j
       continue
@@ -147,6 +150,7 @@ function stripCommentsAndLiterals(sqlIn: string): StripOutcome {
     // reach the whitelist checks.
     if (c === '"') {
       let j = i + 1
+      let terminated = false
       while (j < len) {
         if (sql[j] === '"') {
           if (sql[j + 1] === '"') {
@@ -154,11 +158,12 @@ function stripCommentsAndLiterals(sqlIn: string): StripOutcome {
             continue
           }
           j++
+          terminated = true
           break
         }
         j++
       }
-      if (j > len) return { skeleton: sql, hardFail: 'E_UNTERMINATED_LITERAL' }
+      if (!terminated) return { skeleton: sql, hardFail: 'E_UNTERMINATED_LITERAL' }
       sql = blankRange(sql, i, j)
       i = j
       continue
@@ -191,6 +196,7 @@ function stripCommentsAndLiterals(sqlIn: string): StripOutcome {
     // escapes so we consume `\X` as a unit.
     if ((c === 'E' || c === 'e') && n === "'") {
       let j = i + 2
+      let terminated = false
       while (j < len) {
         if (sql[j] === '\\' && j + 1 < len) {
           j += 2
@@ -202,11 +208,12 @@ function stripCommentsAndLiterals(sqlIn: string): StripOutcome {
             continue
           }
           j++
+          terminated = true
           break
         }
         j++
       }
-      if (j > len) return { skeleton: sql, hardFail: 'E_UNTERMINATED_LITERAL' }
+      if (!terminated) return { skeleton: sql, hardFail: 'E_UNTERMINATED_LITERAL' }
       sql = blankRange(sql, i, j)
       i = j
       continue
@@ -215,6 +222,7 @@ function stripCommentsAndLiterals(sqlIn: string): StripOutcome {
     // Standard single-quoted string: '...' with '' as escape.
     if (c === "'") {
       let j = i + 1
+      let terminated = false
       while (j < len) {
         if (sql[j] === "'") {
           if (sql[j + 1] === "'") {
@@ -222,11 +230,12 @@ function stripCommentsAndLiterals(sqlIn: string): StripOutcome {
             continue
           }
           j++
+          terminated = true
           break
         }
         j++
       }
-      if (j > len) return { skeleton: sql, hardFail: 'E_UNTERMINATED_LITERAL' }
+      if (!terminated) return { skeleton: sql, hardFail: 'E_UNTERMINATED_LITERAL' }
       sql = blankRange(sql, i, j)
       i = j
       continue
@@ -567,15 +576,45 @@ function unwrapOuterParentheses(str: string): string {
 }
 
 /**
- * True when the skeleton has a top-level (paren depth 0) INTO / OUTFILE /
- * DUMPFILE. A statement can start with SELECT and still write:
+ * Locking reads. `SELECT ... FOR UPDATE` returns rows like any other SELECT but
+ * takes row locks that block other sessions, and those locks live until the
+ * transaction ends or the connection drops — the tool's 30s query timeout is
+ * not an upper bound on how long they are held. So these are not read-only.
+ *
+ * Matched at any paren depth, not just the top level: a lock taken inside a
+ * subquery or CTE body blocks exactly as much as one taken at the top. That
+ * makes this deliberately broader than `hasTopLevelInto()`, which only cares
+ * about depth 0 because `INTO` there is a different statement shape.
+ *
+ * Safe to run on the skeleton because the stripper has already blanked strings,
+ * comments and quoted identifiers, so `note = 'for update'` and a column named
+ * `for_update` cannot reach this. Word boundaries guard the rest.
+ *
+ * Covers the PostgreSQL strength variants (`FOR NO KEY UPDATE`, `FOR KEY
+ * SHARE`), MySQL's `LOCK IN SHARE MODE`, and trailing modifiers such as
+ * `NOWAIT` / `SKIP LOCKED` / `OF col` / `WAIT n`, which need no special casing
+ * because they follow the clause we already matched.
+ */
+const LOCKING_READ_RE = /\bfor\s+(?:no\s+key\s+)?update\b|\bfor\s+(?:key\s+)?share\b|\block\s+in\s+share\s+mode\b/i
+
+function hasLockingRead(skel: string): boolean {
+  return LOCKING_READ_RE.test(skel)
+}
+
+/**
+ * True when the skeleton has a top-level (paren depth 0) INTO, including its
+ * `INTO OUTFILE` / `INTO DUMPFILE` variants. A statement can start with SELECT
+ * and still write:
  * MySQL `SELECT ... INTO OUTFILE '/path'` writes the server filesystem, and
  * `SELECT ... INTO new_table` creates a table on PostgreSQL and SQL Server.
  * Depth 0 only, so an INTO inside a subquery does not trip the check.
  */
 function hasTopLevelInto(skel: string): boolean {
   let depth = 0
-  const intoWord = /\b(into|outfile|dumpfile)\b/iy
+  // Keyed on INTO alone. `OUTFILE` / `DUMPFILE` are only reachable as `INTO
+  // OUTFILE` / `INTO DUMPFILE`, so matching them independently costs no write
+  // detection and false-rejects them as ordinary column or table names.
+  const intoWord = /\binto\b/iy
   const wordChar = /[a-z0-9_]/i
   for (let i = 0; i < skel.length; i++) {
     const ch = skel[i]
@@ -655,17 +694,206 @@ function cteBodyIsSafe(body: string, budget: Budget, dialect?: GuardDialect): bo
 // ---------------------------------------------------------------------------
 
 /**
+ * Side-effect category of an approvable statement. Kept coarse on purpose: it
+ * exists to label the approval prompt and telemetry, not to decide safety.
+ */
+export type SqlOperation = 'dml' | 'ddl' | 'lock' | 'session' | 'other_stateful'
+
+/**
+ * Verbs we can name the side effect of. Membership means "may go to approval",
+ * NOT "is safe" — `DROP` is in here.
+ *
+ * This is an allow-list, and that is the whole point of the tri-state rewrite:
+ * a verb absent from these tables is rejected rather than executed. `CALL`,
+ * `BEGIN`, `DECLARE` and anything unrecognized therefore fail closed, because
+ * we cannot bound the side effects of a procedure body from text alone.
+ */
+const COMMON_APPROVAL_VERBS: ReadonlyMap<string, SqlOperation> = new Map([
+  ['insert', 'dml'],
+  ['update', 'dml'],
+  ['delete', 'dml'],
+  ['merge', 'dml'],
+  ['upsert', 'dml'],
+  ['create', 'ddl'],
+  ['alter', 'ddl'],
+  ['drop', 'ddl'],
+  ['truncate', 'ddl'],
+  ['comment', 'ddl'],
+  ['grant', 'session'],
+  ['revoke', 'session'],
+  ['set', 'session'],
+  ['commit', 'session'],
+  ['rollback', 'session'],
+  ['savepoint', 'session'],
+  ['lock', 'lock'],
+  ['unlock', 'lock']
+])
+
+/** Dialect-specific additions. Each entry is covered by a test. */
+const DIALECT_APPROVAL_VERBS: Readonly<Record<GuardDialect, ReadonlyMap<string, SqlOperation>>> = {
+  mysql: new Map([
+    ['replace', 'dml'],
+    ['load', 'dml'],
+    ['rename', 'ddl'],
+    ['analyze', 'other_stateful'],
+    ['optimize', 'other_stateful'],
+    ['repair', 'other_stateful']
+  ]),
+  postgresql: new Map([
+    ['copy', 'dml'],
+    ['do', 'other_stateful'],
+    ['refresh', 'other_stateful'],
+    ['vacuum', 'other_stateful'],
+    ['analyze', 'other_stateful'],
+    ['reindex', 'other_stateful'],
+    ['cluster', 'other_stateful']
+  ]),
+  sqlite: new Map([
+    ['replace', 'dml'],
+    ['attach', 'other_stateful'],
+    ['detach', 'other_stateful'],
+    ['vacuum', 'other_stateful'],
+    ['reindex', 'other_stateful'],
+    ['analyze', 'other_stateful']
+  ]),
+  oracle: new Map([['merge', 'dml']])
+}
+
+function approvalOperationFor(verb: string, dialect?: GuardDialect): SqlOperation | undefined {
+  const common = COMMON_APPROVAL_VERBS.get(verb)
+  if (common) return common
+  // No dialect means the caller did not tell us the engine. Staying on the
+  // common table keeps an unknown engine from widening the allow-list.
+  return dialect ? DIALECT_APPROVAL_VERBS[dialect].get(verb) : undefined
+}
+
+/**
+ * First verb of the statement that actually decides the side effect.
+ *
+ * For `WITH ... INSERT INTO t SELECT ...` that is `INSERT`, not `WITH`. Reading
+ * the leading word instead is how a data-modifying CTE reached the write tool
+ * looking like a read.
+ *
+ * Returns undefined when the CTE list is structurally incomplete, so the caller
+ * can reject rather than guess at a verb.
+ */
+function effectiveVerb(skel: string): string | undefined {
+  const head = trimStart(skel)
+  const first = /^([a-z_][a-z0-9_]*)/i.exec(head)
+  if (!first) return undefined
+  const verb = first[1].toLowerCase()
+  if (verb !== 'with') return verb
+
+  const { tailStart } = extractCteBodies(skel)
+  if (tailStart <= 0 || tailStart >= skel.length) return undefined
+  const tail = trimStart(skel.slice(tailStart))
+  const tailVerb = /^([a-z_][a-z0-9_]*)/i.exec(tail)
+  return tailVerb ? tailVerb[1].toLowerCase() : undefined
+}
+
+/**
+ * Three-state verdict. The two-state `GuardResult` cannot express the
+ * difference between "this is a write" and "this could not be verified", which
+ * is what let `execute_write_query` treat every guard failure as executable.
+ *
+ * - `readonly`: proven side-effect free within the limits of a text classifier.
+ * - `requires_approval`: a recognized stateful statement. Executable, but only
+ *   after the user sees it.
+ * - `reject`: not classifiable. No tool may run it.
+ */
+export type SqlDisposition =
+  | { kind: 'readonly'; skeleton: string }
+  | { kind: 'requires_approval'; operation: SqlOperation; skeleton: string }
+  | { kind: 'reject'; errorCode: GuardErrorCode; reason: string }
+
+/**
  * Determine whether the given SQL is safe to execute under the DB-AI
  * read-only tool contract. The function is deliberately conservative:
  * anything it cannot statically prove safe is rejected.
  */
-export function isReadOnlySql(sqlIn: string, dialect?: GuardDialect): GuardResult {
+export function classifySql(sqlIn: string, dialect?: GuardDialect): SqlDisposition {
   if (!sqlIn || sqlIn.trim().length === 0) {
+    return { kind: 'reject', errorCode: 'E_EMPTY_STATEMENT', reason: 'SQL is empty.' }
+  }
+  const stripped = stripCommentsAndLiterals(sqlIn)
+  if (stripped.hardFail) {
     return {
-      ok: false,
-      errorCode: 'E_EMPTY_STATEMENT',
-      reason: 'SQL is empty.'
+      kind: 'reject',
+      errorCode: stripped.hardFail,
+      reason: STRIP_FAIL_REASONS[stripped.hardFail] ?? 'SQL contains an unterminated string or comment.'
     }
+  }
+  const skeleton = stripped.skeleton
+
+  // Multi-statement input is rejected before anything else looks at a verb: the
+  // leading statement tells us nothing about what follows it.
+  if (hasExtraStatement(skeleton)) {
+    return { kind: 'reject', errorCode: 'E_MULTIPLE_STATEMENTS', reason: 'Multiple statements are not allowed.' }
+  }
+
+  // Checked once on the whole skeleton rather than per grammar position, so it
+  // catches locking reads wherever they sit: top level, a set operand, a CTE
+  // body or tail, a subquery, an EXPLAIN target. This does classify
+  // `EXPLAIN SELECT ... FOR UPDATE` as a lock, which takes none itself; that is
+  // the conservative side of the guard's reject-on-ambiguity policy.
+  if (hasLockingRead(skeleton)) {
+    return { kind: 'requires_approval', operation: 'lock', skeleton }
+  }
+
+  const readonly = checkSkeleton(skeleton, newBudget(), 'statement', dialect)
+  if (readonly.ok) return { kind: 'readonly', skeleton: readonly.skeleton }
+
+  // Structural failures are never re-read as writes. `E_NOT_WHITELISTED` is the
+  // one code that still conflates "known write verb" with "verb we do not
+  // recognize", so only it falls through to positive identification below.
+  if (readonly.errorCode !== 'E_NOT_WHITELISTED') {
+    return { kind: 'reject', errorCode: readonly.errorCode, reason: readonly.reason }
+  }
+
+  // `SELECT ... INTO table / OUTFILE / DUMPFILE` writes, but its verb is
+  // `select`, so the verb table alone would reject it. Named here explicitly
+  // rather than by adding `select` to the allow-list, which would hand every
+  // unclassifiable SELECT to the approval path.
+  if (hasTopLevelInto(skeleton)) {
+    return { kind: 'requires_approval', operation: 'dml', skeleton }
+  }
+
+  const verb = effectiveVerb(skeleton)
+  if (!verb) {
+    return {
+      kind: 'reject',
+      errorCode: 'E_NOT_WHITELISTED',
+      reason: 'SQL structure could not be parsed well enough to classify it.'
+    }
+  }
+  const operation = approvalOperationFor(verb, dialect)
+  if (operation) return { kind: 'requires_approval', operation, skeleton }
+
+  // Unknown verb. Includes CALL and anonymous PL/SQL blocks, whose side effects
+  // a text classifier cannot bound.
+  return {
+    kind: 'reject',
+    errorCode: 'E_NOT_WHITELISTED',
+    reason: 'SQL is neither a recognized read-only statement nor a recognized write statement.'
+  }
+}
+
+/**
+ * Whether `sql` is a query expression that a driver can produce a plan for.
+ *
+ * `explain_plan` prefixes EXPLAIN to the caller's SQL, so accepting a whole
+ * statement is wrong twice over: `SHOW TABLES` and `DESC users` are read-only
+ * but have no plan, and an input that already starts with EXPLAIN would be
+ * double-prefixed into a syntax error.
+ *
+ * Assumes the caller has already established the SQL is read-only; this only
+ * adds the query-expression and no-existing-prefix constraints. Validating at
+ * the `query` grammar position is what rejects SHOW / DESC / DESCRIBE / PRAGMA
+ * here while leaving them legal for `execute_readonly_query`.
+ */
+export function isExplainableQuery(sqlIn: string, dialect?: GuardDialect): GuardResult {
+  if (!sqlIn || sqlIn.trim().length === 0) {
+    return { ok: false, errorCode: 'E_EMPTY_STATEMENT', reason: 'SQL is empty.' }
   }
   const stripped = stripCommentsAndLiterals(sqlIn)
   if (stripped.hardFail) {
@@ -675,7 +903,37 @@ export function isReadOnlySql(sqlIn: string, dialect?: GuardDialect): GuardResul
       reason: STRIP_FAIL_REASONS[stripped.hardFail] ?? 'SQL contains an unterminated string or comment.'
     }
   }
-  return checkSkeleton(stripped.skeleton, newBudget(), 'statement', dialect)
+  if (/^\s*explain\b/i.test(stripped.skeleton)) {
+    return {
+      ok: false,
+      errorCode: 'E_EXPLAIN_TARGET_NOT_SELECT',
+      reason: 'SQL already begins with EXPLAIN; pass only the query to be explained.'
+    }
+  }
+  return checkSkeleton(stripped.skeleton, newBudget(), 'query', dialect)
+}
+
+/**
+ * Compatibility wrapper over `classifySql`, kept so `explain_plan` and existing
+ * callers need not change in lockstep.
+ *
+ * This is NOT a licence to infer writes from `!ok`: `requires_approval` and
+ * `reject` both collapse to `ok: false` here, which is precisely the ambiguity
+ * the tri-state classifier exists to remove. New callers should use
+ * `classifySql` directly.
+ */
+export function isReadOnlySql(sqlIn: string, dialect?: GuardDialect): GuardResult {
+  const d = classifySql(sqlIn, dialect)
+  if (d.kind === 'readonly') return { ok: true, skeleton: d.skeleton }
+  if (d.kind === 'reject') return { ok: false, errorCode: d.errorCode, reason: d.reason }
+  return {
+    ok: false,
+    errorCode: d.operation === 'lock' ? 'E_LOCKING_READ' : 'E_NOT_WHITELISTED',
+    reason:
+      d.operation === 'lock'
+        ? 'Locking reads (FOR UPDATE / FOR SHARE / LOCK IN SHARE MODE) hold locks and require approval.'
+        : 'SQL is not read-only.'
+  }
 }
 
 /**
