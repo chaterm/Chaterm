@@ -35,6 +35,7 @@ export type GuardErrorCode =
   | 'E_UNTERMINATED_LITERAL'
   | 'E_COMPLEXITY_LIMIT'
   | 'E_EXECUTABLE_COMMENT'
+  | 'E_LOCKING_READ'
 
 export type GuardResult = { ok: true; skeleton: string } | { ok: false; errorCode: GuardErrorCode; reason: string }
 
@@ -604,6 +605,32 @@ function unwrapOuterParentheses(str: string): string {
 }
 
 /**
+ * Locking reads. `SELECT ... FOR UPDATE` returns rows like any other SELECT but
+ * takes row locks that block other sessions, and those locks live until the
+ * transaction ends or the connection drops — the tool's 30s query timeout is
+ * not an upper bound on how long they are held. So these are not read-only.
+ *
+ * Matched at any paren depth, not just the top level: a lock taken inside a
+ * subquery or CTE body blocks exactly as much as one taken at the top. That
+ * makes this deliberately broader than `hasTopLevelInto()`, which only cares
+ * about depth 0 because `INTO` there is a different statement shape.
+ *
+ * Safe to run on the skeleton because the stripper has already blanked strings,
+ * comments and quoted identifiers, so `note = 'for update'` and a column named
+ * `for_update` cannot reach this. Word boundaries guard the rest.
+ *
+ * Covers the PostgreSQL strength variants (`FOR NO KEY UPDATE`, `FOR KEY
+ * SHARE`), MySQL's `LOCK IN SHARE MODE`, and trailing modifiers such as
+ * `NOWAIT` / `SKIP LOCKED` / `OF col` / `WAIT n`, which need no special casing
+ * because they follow the clause we already matched.
+ */
+const LOCKING_READ_RE = /\bfor\s+(?:no\s+key\s+)?update\b|\bfor\s+(?:key\s+)?share\b|\block\s+in\s+share\s+mode\b/i
+
+function hasLockingRead(skel: string): boolean {
+  return LOCKING_READ_RE.test(skel)
+}
+
+/**
  * True when the skeleton has a top-level (paren depth 0) INTO, including its
  * `INTO OUTFILE` / `INTO DUMPFILE` variants. A statement can start with SELECT
  * and still write:
@@ -714,6 +741,18 @@ export function isReadOnlySql(sqlIn: string, dialect?: GuardDialect): GuardResul
       ok: false,
       errorCode: stripped.hardFail,
       reason: STRIP_FAIL_REASONS[stripped.hardFail] ?? 'SQL contains an unterminated string or comment.'
+    }
+  }
+  // Checked once on the whole skeleton rather than per grammar position, so it
+  // catches locking reads wherever they sit: top level, a set operand, a CTE
+  // body or tail, a subquery, an EXPLAIN target. This does reject
+  // `EXPLAIN SELECT ... FOR UPDATE`, which takes no locks itself; that is the
+  // conservative side of the guard's reject-on-ambiguity policy.
+  if (hasLockingRead(stripped.skeleton)) {
+    return {
+      ok: false,
+      errorCode: 'E_LOCKING_READ',
+      reason: 'Locking reads (FOR UPDATE / FOR SHARE / LOCK IN SHARE MODE) hold locks and require approval.'
     }
   }
   return checkSkeleton(stripped.skeleton, newBudget(), 'statement', dialect)

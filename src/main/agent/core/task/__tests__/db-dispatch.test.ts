@@ -328,6 +328,17 @@ describe('Task.handleDbWriteToolUse - preflight before approval', () => {
     expect(executeQuery).toHaveBeenCalledTimes(1)
   })
 
+  it('prompts for a locking read instead of silently allowing or refusing it', async () => {
+    // Product decision: locking reads are approvable, not rejected. The prompt
+    // is what makes the lock the user's informed choice.
+    for (const sql of ['SELECT * FROM t FOR UPDATE', 'SELECT * FROM t LOCK IN SHARE MODE']) {
+      const { mockThis, executeQuery } = makeDbWriteThis()
+      await runWrite(mockThis, sql)
+      expect(mockThis.askApproval).toHaveBeenCalledTimes(1)
+      expect(executeQuery).toHaveBeenCalledTimes(1)
+    }
+  })
+
   it('prompts but does not execute when the user declines', async () => {
     const { mockThis, executeQuery } = makeDbWriteThis({ approve: false })
     await runWrite(mockThis, 'UPDATE t SET a=1')

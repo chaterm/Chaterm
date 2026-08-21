@@ -646,6 +646,17 @@ describe('runExecuteReadonlyQuery', () => {
     if (!r.ok) expect(r.errorCode).toBe('E_SQL_NOT_READONLY')
   })
 
+  it('refuses locking reads without calling the driver', async () => {
+    const execute = vi.fn(async () => ({ columns: [], rows: [], rowCount: 0, truncated: false, durationMs: 0 }))
+    const session = makeSession({ dbType: 'mysql', execute } as MockOverrides)
+    for (const sql of ['SELECT * FROM t FOR UPDATE', 'SELECT * FROM t FOR SHARE', 'SELECT * FROM t LOCK IN SHARE MODE']) {
+      const r = await runExecuteReadonlyQuery(session, { sql })
+      expect(r.ok).toBe(false)
+      if (!r.ok) expect(r.errorCode).toBe('E_SQL_NOT_READONLY')
+    }
+    expect(execute).not.toHaveBeenCalled()
+  })
+
   it('reports unverifiable SQL distinctly from write SQL', async () => {
     const execute = vi.fn(async () => ({ columns: [], rows: [], rowCount: 0, truncated: false, durationMs: 0 }))
     const session = makeSession({ dbType: 'mysql', execute } as MockOverrides)
@@ -740,6 +751,18 @@ describe('runExecuteWriteQuery', () => {
         expect(execute).not.toHaveBeenCalled()
       })
     }
+
+    it('accepts locking reads as approvable writes, not unverifiable SQL', async () => {
+      // Locking reads must stay executable through the approval path; refusing
+      // them here would make the product decision "reject" by accident.
+      for (const sql of ['SELECT * FROM t FOR UPDATE', 'SELECT * FROM t LOCK IN SHARE MODE']) {
+        const execute = vi.fn(async () => ({ columns: [], rows: [], rowCount: 1, truncated: false, durationMs: 2 }))
+        const session = makeSession({ dbType: 'mysql', execute } as MockOverrides)
+        const r = await runExecuteWriteQuery(session, { sql })
+        expect(r.ok).toBe(true)
+        expect(execute).toHaveBeenCalledTimes(1)
+      }
+    })
 
     it('routes outfile / dumpfile identifier queries back to the readonly tool', async () => {
       for (const sql of ['SELECT outfile FROM logs', 'SELECT * FROM outfile', 'SELECT t.outfile FROM logs t']) {

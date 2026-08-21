@@ -882,6 +882,65 @@ describe('isReadOnlySql - reject writes behind a read-only prefix', () => {
     expect(isReadOnlySql('SELECT * FROM intolerance', 'mysql').ok).toBe(true)
   })
 
+  // Locking reads return rows but hold locks until the transaction ends, so
+  // they are not read-only. Detected at any depth, unlike INTO.
+  it('rejects every locking-read form as non-read-only', () => {
+    const cases: Array<[string, GuardDialect]> = [
+      ['SELECT * FROM t FOR UPDATE', 'mysql'],
+      ['SELECT * FROM t FOR NO KEY UPDATE', 'postgresql'],
+      ['SELECT * FROM t FOR SHARE', 'mysql'],
+      ['SELECT * FROM t FOR KEY SHARE', 'postgresql'],
+      ['SELECT * FROM t LOCK IN SHARE MODE', 'mysql'],
+      ['SELECT * FROM t FOR UPDATE NOWAIT', 'mysql'],
+      ['SELECT * FROM t FOR UPDATE SKIP LOCKED', 'mysql'],
+      ['SELECT * FROM t FOR UPDATE OF c', 'oracle'],
+      ['SELECT * FROM t FOR UPDATE WAIT 5', 'oracle'],
+      ['SELECT * FROM t for update', 'mysql']
+    ]
+    for (const [sql, dialect] of cases) {
+      const r = isReadOnlySql(sql, dialect)
+      expect(r.ok).toBe(false)
+      if (!r.ok) expect(r.errorCode).toBe('E_LOCKING_READ')
+    }
+  })
+
+  it('rejects locking reads in every grammar position, including subqueries', () => {
+    const cases = [
+      'SELECT 1 UNION SELECT 2 FOR UPDATE',
+      'WITH c AS (SELECT 1) SELECT * FROM c FOR UPDATE',
+      'WITH c AS (SELECT 1 FOR UPDATE) SELECT * FROM c',
+      'SELECT * FROM (SELECT 1 FOR UPDATE) x',
+      'SELECT * FROM t WHERE id IN (SELECT id FROM u FOR UPDATE)',
+      'EXPLAIN SELECT * FROM t FOR UPDATE'
+    ]
+    for (const sql of cases) {
+      const r = isReadOnlySql(sql, 'mysql')
+      expect(r.ok).toBe(false)
+      // A lock inside a subquery blocks as much as one at the top level, so
+      // depth is deliberately not part of this check.
+      if (!r.ok) expect(r.errorCode).toBe('E_LOCKING_READ')
+    }
+  })
+
+  it('does not mistake identifiers or string contents for a lock clause', () => {
+    const cases: Array<[string, GuardDialect]> = [
+      ['SELECT * FROM t', 'mysql'],
+      ['SELECT for_update FROM t', 'mysql'],
+      ['SELECT update_for FROM t', 'mysql'],
+      ["SELECT * FROM t WHERE note = 'for update'", 'mysql'],
+      ["SELECT * FROM t WHERE note = 'lock in share mode'", 'mysql'],
+      ['SELECT `for update` FROM t', 'mysql'],
+      ['SELECT "for update" FROM t', 'postgresql'],
+      ['SELECT * FROM t -- for update', 'mysql'],
+      ['SELECT * FROM t /* for update */', 'mysql'],
+      ['SELECT share_price FROM t', 'mysql'],
+      ['SELECT * FROM t ORDER BY updated_at', 'mysql']
+    ]
+    for (const [sql, dialect] of cases) {
+      expect(isReadOnlySql(sql, dialect).ok).toBe(true)
+    }
+  })
+
   it('keeps ignoring INTO below the top level', () => {
     // Depth > 0 is out of scope by design; asserted so a future change to the
     // depth rule is a deliberate decision rather than a silent one.
@@ -1085,6 +1144,16 @@ describe('isUnverifiableRejection', () => {
       const r = isReadOnlySql(sql, 'mysql')
       expect(r.ok).toBe(false)
       if (!r.ok) expect(isUnverifiableRejection(r.errorCode)).toBe(true)
+    }
+  })
+
+  it('does not classify locking reads as unverifiable', () => {
+    // A locking read is understood, not unverifiable: it must reach the
+    // approval prompt rather than be refused outright by both tools.
+    for (const sql of ['SELECT * FROM t FOR UPDATE', 'SELECT * FROM t LOCK IN SHARE MODE']) {
+      const r = isReadOnlySql(sql, 'mysql')
+      expect(r.ok).toBe(false)
+      if (!r.ok) expect(isUnverifiableRejection(r.errorCode)).toBe(false)
     }
   })
 

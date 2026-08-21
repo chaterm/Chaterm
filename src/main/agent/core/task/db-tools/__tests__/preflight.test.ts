@@ -36,6 +36,12 @@ describe('preflightWriteSql', () => {
     }
   })
 
+  it('admits locking reads so they reach the approval prompt', () => {
+    for (const sql of ['SELECT * FROM t FOR UPDATE', 'SELECT * FROM t FOR SHARE', 'SELECT * FROM t LOCK IN SHARE MODE']) {
+      expect(preflightWriteSql(sql, 'mysql').ok).toBe(true)
+    }
+  })
+
   it('fails closed when the dialect is unknown', () => {
     // Guard behaviour is dialect-dependent, so guessing an engine here could
     // admit SQL the real engine treats differently.
