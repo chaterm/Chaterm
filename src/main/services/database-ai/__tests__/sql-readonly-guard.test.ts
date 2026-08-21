@@ -846,6 +846,48 @@ describe('isReadOnlySql - reject writes behind a read-only prefix', () => {
     if (!r.ok) expect(r.errorCode).toBe('E_NOT_WHITELISTED')
   })
 
+  // `outfile` / `dumpfile` are ordinary identifiers. Matching them
+  // independently of INTO rejected these queries, and the write tool then
+  // executed them because it read any guard failure as "this is a write".
+  it('allows outfile / dumpfile as ordinary identifiers', () => {
+    const cases = [
+      'SELECT outfile FROM logs',
+      'SELECT dumpfile FROM logs',
+      'SELECT * FROM outfile',
+      'SELECT x AS outfile FROM logs',
+      'SELECT t.outfile FROM logs t',
+      'SELECT outfile, dumpfile FROM logs',
+      'SELECT * FROM logs WHERE outfile IS NOT NULL'
+    ]
+    for (const sql of cases) {
+      expect(isReadOnlySql(sql, 'mysql').ok).toBe(true)
+    }
+  })
+
+  it('still rejects every SELECT ... INTO variant', () => {
+    const cases = [
+      'SELECT * INTO new_table FROM t',
+      "SELECT * FROM t INTO OUTFILE '/tmp/x'",
+      "SELECT * FROM t INTO DUMPFILE '/tmp/x'",
+      'SELECT a INTO @v FROM t',
+      "SELECT * FROM t INTO outfile '/tmp/x'"
+    ]
+    for (const sql of cases) {
+      expect(isReadOnlySql(sql, 'mysql').ok).toBe(false)
+    }
+  })
+
+  it('does not trip on identifiers that merely contain "into"', () => {
+    expect(isReadOnlySql('SELECT into_count FROM logs', 'mysql').ok).toBe(true)
+    expect(isReadOnlySql('SELECT * FROM intolerance', 'mysql').ok).toBe(true)
+  })
+
+  it('keeps ignoring INTO below the top level', () => {
+    // Depth > 0 is out of scope by design; asserted so a future change to the
+    // depth rule is a deliberate decision rather than a silent one.
+    expect(isReadOnlySql('SELECT * FROM (SELECT 1 INTO x) y', 'mysql').ok).toBe(true)
+  })
+
   it('does not trip on a subquery that merely uses IN', () => {
     const r = isReadOnlySql('SELECT * FROM (SELECT id FROM t) sub WHERE sub.id IN (SELECT 1)')
     expect(r.ok).toBe(true)

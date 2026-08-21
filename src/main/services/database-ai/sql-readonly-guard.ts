@@ -604,15 +604,19 @@ function unwrapOuterParentheses(str: string): string {
 }
 
 /**
- * True when the skeleton has a top-level (paren depth 0) INTO / OUTFILE /
- * DUMPFILE. A statement can start with SELECT and still write:
+ * True when the skeleton has a top-level (paren depth 0) INTO, including its
+ * `INTO OUTFILE` / `INTO DUMPFILE` variants. A statement can start with SELECT
+ * and still write:
  * MySQL `SELECT ... INTO OUTFILE '/path'` writes the server filesystem, and
  * `SELECT ... INTO new_table` creates a table on PostgreSQL and SQL Server.
  * Depth 0 only, so an INTO inside a subquery does not trip the check.
  */
 function hasTopLevelInto(skel: string): boolean {
   let depth = 0
-  const intoWord = /\b(into|outfile|dumpfile)\b/iy
+  // Keyed on INTO alone. `OUTFILE` / `DUMPFILE` are only reachable as `INTO
+  // OUTFILE` / `INTO DUMPFILE`, so matching them independently costs no write
+  // detection and false-rejects them as ordinary column or table names.
+  const intoWord = /\binto\b/iy
   const wordChar = /[a-z0-9_]/i
   for (let i = 0; i < skel.length; i++) {
     const ch = skel[i]

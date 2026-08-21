@@ -741,6 +741,17 @@ describe('runExecuteWriteQuery', () => {
       })
     }
 
+    it('routes outfile / dumpfile identifier queries back to the readonly tool', async () => {
+      for (const sql of ['SELECT outfile FROM logs', 'SELECT * FROM outfile', 'SELECT t.outfile FROM logs t']) {
+        const execute = vi.fn(async () => ({ columns: [], rows: [], rowCount: 0, truncated: false, durationMs: 0 }))
+        const session = makeSession({ dbType: 'mysql', execute } as MockOverrides)
+        const r = await runExecuteWriteQuery(session, { sql })
+        expect(r.ok).toBe(false)
+        if (!r.ok) expect(r.errorCode).toBe('E_INVALID_PARAM')
+        expect(execute).not.toHaveBeenCalled()
+      }
+    })
+
     it('still executes ordinary DML', async () => {
       for (const sql of ['UPDATE t SET a=1', 'INSERT INTO t VALUES (1)', 'DELETE FROM t WHERE id=1']) {
         const execute = vi.fn(async () => ({ columns: [], rows: [], rowCount: 1, truncated: false, durationMs: 3 }))
