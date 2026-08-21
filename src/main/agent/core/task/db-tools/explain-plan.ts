@@ -8,7 +8,7 @@
 //   - Engine-specific EXPLAIN flavour: PG `EXPLAIN (FORMAT JSON)`, MySQL
 //     `EXPLAIN FORMAT=JSON`.
 
-import { isReadOnlySql } from '../../../../services/database-ai/sql-readonly-guard'
+import { classifySql, isExplainableQuery } from '../../../../services/database-ai/sql-readonly-guard'
 import type { DbAiActiveSession, DbToolResult } from './shared'
 import { optionalStringParam, requireStringParam, unexpectedError } from './shared'
 
@@ -44,10 +44,25 @@ export async function runExplainPlan(session: DbAiActiveSession, input: ExplainP
   const schemaOk = optionalStringParam(input.schema, 'schema')
   if (!schemaOk.ok) return schemaOk
 
-  const guard = isReadOnlySql(sqlParam.value, session.dbType)
-  if (!guard.ok) {
-    const errorCode = guard.errorCode === 'E_EXPLAIN_ANALYZE' ? 'E_EXPLAIN_ANALYZE' : 'E_SQL_NOT_READONLY'
-    return { ok: false, errorCode, errorMessage: guard.reason }
+  // Two separate questions. First: may we run this at all?
+  const disposition = classifySql(sqlParam.value, session.dbType)
+  if (disposition.kind === 'requires_approval') {
+    return { ok: false, errorCode: 'E_SQL_NOT_READONLY', errorMessage: 'SQL is not read-only.' }
+  }
+  if (disposition.kind === 'reject') {
+    const errorCode = disposition.errorCode === 'E_EXPLAIN_ANALYZE' ? 'E_EXPLAIN_ANALYZE' : 'E_SQL_UNVERIFIABLE'
+    return { ok: false, errorCode, errorMessage: disposition.reason }
+  }
+
+  // Second: is it a shape EXPLAIN can be prefixed to? Read-only is not enough —
+  // SHOW / DESC have no plan, and an existing EXPLAIN would be doubled.
+  const explainable = isExplainableQuery(sqlParam.value, session.dbType)
+  if (!explainable.ok) {
+    return {
+      ok: false,
+      errorCode: 'E_INVALID_PARAM',
+      errorMessage: 'explain_plan accepts only a query expression (SELECT / WITH ... SELECT / UNION), without an EXPLAIN prefix.'
+    }
   }
 
   try {

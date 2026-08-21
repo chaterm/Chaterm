@@ -879,6 +879,41 @@ export function classifySql(sqlIn: string, dialect?: GuardDialect): SqlDispositi
 }
 
 /**
+ * Whether `sql` is a query expression that a driver can produce a plan for.
+ *
+ * `explain_plan` prefixes EXPLAIN to the caller's SQL, so accepting a whole
+ * statement is wrong twice over: `SHOW TABLES` and `DESC users` are read-only
+ * but have no plan, and an input that already starts with EXPLAIN would be
+ * double-prefixed into a syntax error.
+ *
+ * Assumes the caller has already established the SQL is read-only; this only
+ * adds the query-expression and no-existing-prefix constraints. Validating at
+ * the `query` grammar position is what rejects SHOW / DESC / DESCRIBE / PRAGMA
+ * here while leaving them legal for `execute_readonly_query`.
+ */
+export function isExplainableQuery(sqlIn: string, dialect?: GuardDialect): GuardResult {
+  if (!sqlIn || sqlIn.trim().length === 0) {
+    return { ok: false, errorCode: 'E_EMPTY_STATEMENT', reason: 'SQL is empty.' }
+  }
+  const stripped = stripCommentsAndLiterals(sqlIn)
+  if (stripped.hardFail) {
+    return {
+      ok: false,
+      errorCode: stripped.hardFail,
+      reason: STRIP_FAIL_REASONS[stripped.hardFail] ?? 'SQL contains an unterminated string or comment.'
+    }
+  }
+  if (/^\s*explain\b/i.test(stripped.skeleton)) {
+    return {
+      ok: false,
+      errorCode: 'E_EXPLAIN_TARGET_NOT_SELECT',
+      reason: 'SQL already begins with EXPLAIN; pass only the query to be explained.'
+    }
+  }
+  return checkSkeleton(stripped.skeleton, newBudget(), 'query', dialect)
+}
+
+/**
  * Compatibility wrapper over `classifySql`, kept so `explain_plan` and existing
  * callers need not change in lockstep.
  *

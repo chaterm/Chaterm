@@ -607,6 +607,61 @@ describe('runExplainPlan', () => {
     if (!r.ok) expect(r.errorCode).toBe('E_DRIVER_UNSUPPORTED')
   })
 
+  it('rejects input that already carries an EXPLAIN prefix', async () => {
+    // The tool adds its own prefix, so accepting these would emit
+    // `EXPLAIN EXPLAIN ...`.
+    const execute = vi.fn(async () => ({ columns: [], rows: [], rowCount: 0, truncated: false, durationMs: 0 }))
+    const session = makeSession({ dbType: 'mysql', execute } as MockOverrides)
+    for (const sql of ['EXPLAIN SELECT 1', 'EXPLAIN EXPLAIN SELECT 1', 'EXPLAIN (FORMAT JSON) SELECT 1', 'EXPLAIN FORMAT=JSON SELECT 1']) {
+      const r = await runExplainPlan(session, { sql })
+      expect(r.ok).toBe(false)
+      if (!r.ok) expect(r.errorCode).toBe('E_INVALID_PARAM')
+    }
+    expect(execute).not.toHaveBeenCalled()
+  })
+
+  it('rejects read-only statements that have no query plan', async () => {
+    // Legal for execute_readonly_query, but not a query expression.
+    const execute = vi.fn(async () => ({ columns: [], rows: [], rowCount: 0, truncated: false, durationMs: 0 }))
+    const session = makeSession({ dbType: 'mysql', execute } as MockOverrides)
+    for (const sql of ['SHOW TABLES', 'DESC users', 'DESCRIBE users']) {
+      const r = await runExplainPlan(session, { sql })
+      expect(r.ok).toBe(false)
+      if (!r.ok) expect(r.errorCode).toBe('E_INVALID_PARAM')
+    }
+    expect(execute).not.toHaveBeenCalled()
+  })
+
+  it('rejects PRAGMA even on SQLite, where it is read-only', async () => {
+    const execute = vi.fn(async () => ({ columns: [], rows: [], rowCount: 0, truncated: false, durationMs: 0 }))
+    const session = makeSession({ dbType: 'sqlite', databaseName: 'main', schemas: [], execute } as MockOverrides)
+    const r = await runExplainPlan(session, { sql: 'PRAGMA table_info(users)' })
+    expect(r.ok).toBe(false)
+    if (!r.ok) expect(r.errorCode).toBe('E_INVALID_PARAM')
+    expect(execute).not.toHaveBeenCalled()
+  })
+
+  it('rejects unverifiable SQL without calling the driver', async () => {
+    const execute = vi.fn(async () => ({ columns: [], rows: [], rowCount: 0, truncated: false, durationMs: 0 }))
+    const session = makeSession({ dbType: 'mysql', execute } as MockOverrides)
+    for (const sql of ['SELECT 1; DROP TABLE users', "SELECT 1 /*! INTO OUTFILE '/tmp/x' */"]) {
+      const r = await runExplainPlan(session, { sql })
+      expect(r.ok).toBe(false)
+      if (!r.ok) expect(r.errorCode).toBe('E_SQL_UNVERIFIABLE')
+    }
+    expect(execute).not.toHaveBeenCalled()
+  })
+
+  it('accepts WITH ... SELECT and set queries', async () => {
+    for (const sql of ['WITH c AS (SELECT 1) SELECT * FROM c', 'SELECT 1 UNION SELECT 2']) {
+      const execute = vi.fn(async () => ({ columns: ['QUERY PLAN'], rows: [{ 'QUERY PLAN': {} }], rowCount: 1, truncated: false, durationMs: 1 }))
+      const session = makeSession({ dbType: 'postgresql', execute } as MockOverrides)
+      const r = await runExplainPlan(session, { sql })
+      expect(r.ok).toBe(true)
+      expect(execute).toHaveBeenCalledTimes(1)
+    }
+  })
+
   it('rejects SQL exceeding the 50KB cap', async () => {
     const session = makeSession()
     const big = 'SELECT 1 -- ' + 'x'.repeat(51 * 1024)
