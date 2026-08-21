@@ -10,7 +10,7 @@
 // so a future caller that forgets to preflight still cannot execute
 // unverifiable SQL.
 
-import { isReadOnlySql, isUnverifiableRejection } from '../../../../services/database-ai/sql-readonly-guard'
+import { classifySql } from '../../../../services/database-ai/sql-readonly-guard'
 import type { GuardDialect } from '../../../../services/database-ai/sql-readonly-guard'
 import type { DbToolErrorCode } from './shared'
 
@@ -38,15 +38,15 @@ export function preflightWriteSql(sql: string, dialect: GuardDialect | undefined
     return { ok: false, errorCode: 'E_SQL_TOO_LARGE', errorMessage: 'SQL exceeds the 50KB safety limit.' }
   }
 
-  const guard = isReadOnlySql(sql, dialect)
-  if (guard.ok) {
+  const disposition = classifySql(sql, dialect)
+  if (disposition.kind === 'readonly') {
     return {
       ok: false,
       errorCode: 'E_INVALID_PARAM',
       errorMessage: 'SQL is read-only. Use execute_readonly_query for SELECT/SHOW/DESCRIBE/EXPLAIN/PRAGMA.'
     }
   }
-  if (isUnverifiableRejection(guard.errorCode)) {
+  if (disposition.kind === 'reject') {
     return {
       ok: false,
       errorCode: 'E_SQL_UNVERIFIABLE',

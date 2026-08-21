@@ -40,35 +40,6 @@ export type GuardErrorCode =
 export type GuardResult = { ok: true; skeleton: string } | { ok: false; errorCode: GuardErrorCode; reason: string }
 
 /**
- * Rejections that mean "this SQL could not be verified", as opposed to "this
- * SQL is a write". A caller must not infer a write from `!ok`: a failed guard
- * covers syntax errors, multi-statement input, executable comments and
- * complexity limits just as much as it covers DML.
- *
- * `E_NOT_WHITELISTED` is deliberately absent. It currently conflates "known
- * write verb" with "verb we do not recognize", so it cannot be classified
- * either way here; separating those two is the job of the positive
- * side-effect classification that replaces this predicate.
- */
-const UNVERIFIABLE_ERROR_CODES: ReadonlySet<GuardErrorCode> = new Set<GuardErrorCode>([
-  'E_EXECUTABLE_COMMENT',
-  'E_UNTERMINATED_LITERAL',
-  'E_NESTED_BLOCK_COMMENT',
-  'E_MULTIPLE_STATEMENTS',
-  'E_COMPLEXITY_LIMIT',
-  'E_EMPTY_STATEMENT'
-])
-
-/**
- * True when a guard rejection means the SQL could not be statically verified,
- * so no tool may execute it. Callers that route non-read-only SQL to a write
- * path must check this first and fail closed.
- */
-export function isUnverifiableRejection(errorCode: GuardErrorCode): boolean {
-  return UNVERIFIABLE_ERROR_CODES.has(errorCode)
-}
-
-/**
  * Engine the SQL will run against. Only used to gate dialect-specific syntax.
  * Omitting it is safe but strict: PRAGMA is rejected when the dialect is
  * unknown, so a caller that forgets to pass one fails closed rather than
@@ -723,39 +694,211 @@ function cteBodyIsSafe(body: string, budget: Budget, dialect?: GuardDialect): bo
 // ---------------------------------------------------------------------------
 
 /**
+ * Side-effect category of an approvable statement. Kept coarse on purpose: it
+ * exists to label the approval prompt and telemetry, not to decide safety.
+ */
+export type SqlOperation = 'dml' | 'ddl' | 'lock' | 'session' | 'other_stateful'
+
+/**
+ * Verbs we can name the side effect of. Membership means "may go to approval",
+ * NOT "is safe" — `DROP` is in here.
+ *
+ * This is an allow-list, and that is the whole point of the tri-state rewrite:
+ * a verb absent from these tables is rejected rather than executed. `CALL`,
+ * `BEGIN`, `DECLARE` and anything unrecognized therefore fail closed, because
+ * we cannot bound the side effects of a procedure body from text alone.
+ */
+const COMMON_APPROVAL_VERBS: ReadonlyMap<string, SqlOperation> = new Map([
+  ['insert', 'dml'],
+  ['update', 'dml'],
+  ['delete', 'dml'],
+  ['merge', 'dml'],
+  ['upsert', 'dml'],
+  ['create', 'ddl'],
+  ['alter', 'ddl'],
+  ['drop', 'ddl'],
+  ['truncate', 'ddl'],
+  ['comment', 'ddl'],
+  ['grant', 'session'],
+  ['revoke', 'session'],
+  ['set', 'session'],
+  ['commit', 'session'],
+  ['rollback', 'session'],
+  ['savepoint', 'session'],
+  ['lock', 'lock'],
+  ['unlock', 'lock']
+])
+
+/** Dialect-specific additions. Each entry is covered by a test. */
+const DIALECT_APPROVAL_VERBS: Readonly<Record<GuardDialect, ReadonlyMap<string, SqlOperation>>> = {
+  mysql: new Map([
+    ['replace', 'dml'],
+    ['load', 'dml'],
+    ['rename', 'ddl'],
+    ['analyze', 'other_stateful'],
+    ['optimize', 'other_stateful'],
+    ['repair', 'other_stateful']
+  ]),
+  postgresql: new Map([
+    ['copy', 'dml'],
+    ['do', 'other_stateful'],
+    ['refresh', 'other_stateful'],
+    ['vacuum', 'other_stateful'],
+    ['analyze', 'other_stateful'],
+    ['reindex', 'other_stateful'],
+    ['cluster', 'other_stateful']
+  ]),
+  sqlite: new Map([
+    ['replace', 'dml'],
+    ['attach', 'other_stateful'],
+    ['detach', 'other_stateful'],
+    ['vacuum', 'other_stateful'],
+    ['reindex', 'other_stateful'],
+    ['analyze', 'other_stateful']
+  ]),
+  oracle: new Map([['merge', 'dml']])
+}
+
+function approvalOperationFor(verb: string, dialect?: GuardDialect): SqlOperation | undefined {
+  const common = COMMON_APPROVAL_VERBS.get(verb)
+  if (common) return common
+  // No dialect means the caller did not tell us the engine. Staying on the
+  // common table keeps an unknown engine from widening the allow-list.
+  return dialect ? DIALECT_APPROVAL_VERBS[dialect].get(verb) : undefined
+}
+
+/**
+ * First verb of the statement that actually decides the side effect.
+ *
+ * For `WITH ... INSERT INTO t SELECT ...` that is `INSERT`, not `WITH`. Reading
+ * the leading word instead is how a data-modifying CTE reached the write tool
+ * looking like a read.
+ *
+ * Returns undefined when the CTE list is structurally incomplete, so the caller
+ * can reject rather than guess at a verb.
+ */
+function effectiveVerb(skel: string): string | undefined {
+  const head = trimStart(skel)
+  const first = /^([a-z_][a-z0-9_]*)/i.exec(head)
+  if (!first) return undefined
+  const verb = first[1].toLowerCase()
+  if (verb !== 'with') return verb
+
+  const { tailStart } = extractCteBodies(skel)
+  if (tailStart <= 0 || tailStart >= skel.length) return undefined
+  const tail = trimStart(skel.slice(tailStart))
+  const tailVerb = /^([a-z_][a-z0-9_]*)/i.exec(tail)
+  return tailVerb ? tailVerb[1].toLowerCase() : undefined
+}
+
+/**
+ * Three-state verdict. The two-state `GuardResult` cannot express the
+ * difference between "this is a write" and "this could not be verified", which
+ * is what let `execute_write_query` treat every guard failure as executable.
+ *
+ * - `readonly`: proven side-effect free within the limits of a text classifier.
+ * - `requires_approval`: a recognized stateful statement. Executable, but only
+ *   after the user sees it.
+ * - `reject`: not classifiable. No tool may run it.
+ */
+export type SqlDisposition =
+  | { kind: 'readonly'; skeleton: string }
+  | { kind: 'requires_approval'; operation: SqlOperation; skeleton: string }
+  | { kind: 'reject'; errorCode: GuardErrorCode; reason: string }
+
+/**
  * Determine whether the given SQL is safe to execute under the DB-AI
  * read-only tool contract. The function is deliberately conservative:
  * anything it cannot statically prove safe is rejected.
  */
-export function isReadOnlySql(sqlIn: string, dialect?: GuardDialect): GuardResult {
+export function classifySql(sqlIn: string, dialect?: GuardDialect): SqlDisposition {
   if (!sqlIn || sqlIn.trim().length === 0) {
-    return {
-      ok: false,
-      errorCode: 'E_EMPTY_STATEMENT',
-      reason: 'SQL is empty.'
-    }
+    return { kind: 'reject', errorCode: 'E_EMPTY_STATEMENT', reason: 'SQL is empty.' }
   }
   const stripped = stripCommentsAndLiterals(sqlIn)
   if (stripped.hardFail) {
     return {
-      ok: false,
+      kind: 'reject',
       errorCode: stripped.hardFail,
       reason: STRIP_FAIL_REASONS[stripped.hardFail] ?? 'SQL contains an unterminated string or comment.'
     }
   }
+  const skeleton = stripped.skeleton
+
+  // Multi-statement input is rejected before anything else looks at a verb: the
+  // leading statement tells us nothing about what follows it.
+  if (hasExtraStatement(skeleton)) {
+    return { kind: 'reject', errorCode: 'E_MULTIPLE_STATEMENTS', reason: 'Multiple statements are not allowed.' }
+  }
+
   // Checked once on the whole skeleton rather than per grammar position, so it
   // catches locking reads wherever they sit: top level, a set operand, a CTE
-  // body or tail, a subquery, an EXPLAIN target. This does reject
-  // `EXPLAIN SELECT ... FOR UPDATE`, which takes no locks itself; that is the
-  // conservative side of the guard's reject-on-ambiguity policy.
-  if (hasLockingRead(stripped.skeleton)) {
+  // body or tail, a subquery, an EXPLAIN target. This does classify
+  // `EXPLAIN SELECT ... FOR UPDATE` as a lock, which takes none itself; that is
+  // the conservative side of the guard's reject-on-ambiguity policy.
+  if (hasLockingRead(skeleton)) {
+    return { kind: 'requires_approval', operation: 'lock', skeleton }
+  }
+
+  const readonly = checkSkeleton(skeleton, newBudget(), 'statement', dialect)
+  if (readonly.ok) return { kind: 'readonly', skeleton: readonly.skeleton }
+
+  // Structural failures are never re-read as writes. `E_NOT_WHITELISTED` is the
+  // one code that still conflates "known write verb" with "verb we do not
+  // recognize", so only it falls through to positive identification below.
+  if (readonly.errorCode !== 'E_NOT_WHITELISTED') {
+    return { kind: 'reject', errorCode: readonly.errorCode, reason: readonly.reason }
+  }
+
+  // `SELECT ... INTO table / OUTFILE / DUMPFILE` writes, but its verb is
+  // `select`, so the verb table alone would reject it. Named here explicitly
+  // rather than by adding `select` to the allow-list, which would hand every
+  // unclassifiable SELECT to the approval path.
+  if (hasTopLevelInto(skeleton)) {
+    return { kind: 'requires_approval', operation: 'dml', skeleton }
+  }
+
+  const verb = effectiveVerb(skeleton)
+  if (!verb) {
     return {
-      ok: false,
-      errorCode: 'E_LOCKING_READ',
-      reason: 'Locking reads (FOR UPDATE / FOR SHARE / LOCK IN SHARE MODE) hold locks and require approval.'
+      kind: 'reject',
+      errorCode: 'E_NOT_WHITELISTED',
+      reason: 'SQL structure could not be parsed well enough to classify it.'
     }
   }
-  return checkSkeleton(stripped.skeleton, newBudget(), 'statement', dialect)
+  const operation = approvalOperationFor(verb, dialect)
+  if (operation) return { kind: 'requires_approval', operation, skeleton }
+
+  // Unknown verb. Includes CALL and anonymous PL/SQL blocks, whose side effects
+  // a text classifier cannot bound.
+  return {
+    kind: 'reject',
+    errorCode: 'E_NOT_WHITELISTED',
+    reason: 'SQL is neither a recognized read-only statement nor a recognized write statement.'
+  }
+}
+
+/**
+ * Compatibility wrapper over `classifySql`, kept so `explain_plan` and existing
+ * callers need not change in lockstep.
+ *
+ * This is NOT a licence to infer writes from `!ok`: `requires_approval` and
+ * `reject` both collapse to `ok: false` here, which is precisely the ambiguity
+ * the tri-state classifier exists to remove. New callers should use
+ * `classifySql` directly.
+ */
+export function isReadOnlySql(sqlIn: string, dialect?: GuardDialect): GuardResult {
+  const d = classifySql(sqlIn, dialect)
+  if (d.kind === 'readonly') return { ok: true, skeleton: d.skeleton }
+  if (d.kind === 'reject') return { ok: false, errorCode: d.errorCode, reason: d.reason }
+  return {
+    ok: false,
+    errorCode: d.operation === 'lock' ? 'E_LOCKING_READ' : 'E_NOT_WHITELISTED',
+    reason:
+      d.operation === 'lock'
+        ? 'Locking reads (FOR UPDATE / FOR SHARE / LOCK IN SHARE MODE) hold locks and require approval.'
+        : 'SQL is not read-only.'
+  }
 }
 
 /**

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
-import { isReadOnlySql, isUnverifiableRejection, __testing } from '../sql-readonly-guard'
-import type { GuardDialect } from '../sql-readonly-guard'
+import { classifySql, isReadOnlySql, __testing } from '../sql-readonly-guard'
+import type { GuardDialect, GuardErrorCode, SqlOperation } from '../sql-readonly-guard'
 
 // ---------------------------------------------------------------------------
 // Allow: canonical read-only statements (10+ cases)
@@ -1112,56 +1112,162 @@ describe('isReadOnlySql - CTE column lists', () => {
 })
 
 // ---------------------------------------------------------------------------
-// isUnverifiableRejection: separates "could not verify" from "is a write", so
-// callers cannot treat a failed guard as proof of a write statement.
+// classifySql: the tri-state verdict. Replaces the deny-list predicate, whose
+// weakness was that "not read-only" had to stand in for "is a write".
 // ---------------------------------------------------------------------------
-describe('isUnverifiableRejection', () => {
-  it('treats structural and complexity rejections as unverifiable', () => {
-    expect(isUnverifiableRejection('E_EXECUTABLE_COMMENT')).toBe(true)
-    expect(isUnverifiableRejection('E_UNTERMINATED_LITERAL')).toBe(true)
-    expect(isUnverifiableRejection('E_NESTED_BLOCK_COMMENT')).toBe(true)
-    expect(isUnverifiableRejection('E_MULTIPLE_STATEMENTS')).toBe(true)
-    expect(isUnverifiableRejection('E_COMPLEXITY_LIMIT')).toBe(true)
-    expect(isUnverifiableRejection('E_EMPTY_STATEMENT')).toBe(true)
-  })
+const nestedWith = (n: number): string => {
+  let s = 'SELECT 1'
+  for (let i = 0; i < n; i++) s = `WITH c${i} AS (${s}) SELECT * FROM c${i}`
+  return s
+}
 
-  it('does not treat write / grammar rejections as unverifiable', () => {
-    expect(isUnverifiableRejection('E_NOT_WHITELISTED')).toBe(false)
-    expect(isUnverifiableRejection('E_WITH_CONTAINS_DML')).toBe(false)
-    expect(isUnverifiableRejection('E_EXPLAIN_ANALYZE')).toBe(false)
-    expect(isUnverifiableRejection('E_EXPLAIN_TARGET_NOT_SELECT')).toBe(false)
-  })
-
-  it('classifies the guard rejection actually produced by unverifiable SQL', () => {
-    // Ties the predicate to real guard output rather than hand-written codes.
-    const nestedWith = (n: number): string => {
-      let s = 'SELECT 1'
-      for (let i = 0; i < n; i++) s = `WITH c${i} AS (${s}) SELECT * FROM c${i}`
-      return s
-    }
-    const unverifiable = ['SELECT 1; DROP TABLE users', "SELECT 1 /*! INTO OUTFILE '/tmp/x' */", 'SELECT 1 /* unterminated', nestedWith(400)]
-    for (const sql of unverifiable) {
-      const r = isReadOnlySql(sql, 'mysql')
-      expect(r.ok).toBe(false)
-      if (!r.ok) expect(isUnverifiableRejection(r.errorCode)).toBe(true)
+describe('classifySql - readonly', () => {
+  it('classifies proven read-only statements as readonly', () => {
+    const cases: Array<[string, GuardDialect]> = [
+      ['SELECT 1', 'mysql'],
+      ['WITH c AS (SELECT 1) SELECT * FROM c', 'mysql'],
+      ['SELECT 1 UNION SELECT 2', 'mysql'],
+      ['SELECT outfile FROM logs', 'mysql'],
+      ['SHOW TABLES', 'mysql'],
+      ['DESC users', 'mysql'],
+      ['EXPLAIN SELECT 1', 'mysql'],
+      ['PRAGMA table_info(users)', 'sqlite']
+    ]
+    for (const [sql, dialect] of cases) {
+      expect(classifySql(sql, dialect).kind).toBe('readonly')
     }
   })
+})
 
-  it('does not classify locking reads as unverifiable', () => {
-    // A locking read is understood, not unverifiable: it must reach the
-    // approval prompt rather than be refused outright by both tools.
-    for (const sql of ['SELECT * FROM t FOR UPDATE', 'SELECT * FROM t LOCK IN SHARE MODE']) {
-      const r = isReadOnlySql(sql, 'mysql')
-      expect(r.ok).toBe(false)
-      if (!r.ok) expect(isUnverifiableRejection(r.errorCode)).toBe(false)
+describe('classifySql - requires_approval', () => {
+  it('names the side effect of recognized stateful statements', () => {
+    const cases: Array<[string, GuardDialect, SqlOperation]> = [
+      ['INSERT INTO t VALUES (1)', 'mysql', 'dml'],
+      ['UPDATE t SET a=1', 'mysql', 'dml'],
+      ['DELETE FROM t', 'mysql', 'dml'],
+      ['CREATE TABLE t(id INT)', 'mysql', 'ddl'],
+      ['DROP TABLE t', 'mysql', 'ddl'],
+      ['TRUNCATE TABLE t', 'mysql', 'ddl'],
+      ['GRANT SELECT ON t TO u', 'mysql', 'session'],
+      ['SET autocommit=0', 'mysql', 'session'],
+      ['COMMIT', 'mysql', 'session'],
+      ['SELECT * FROM t FOR UPDATE', 'mysql', 'lock'],
+      ['SELECT * FROM t LOCK IN SHARE MODE', 'mysql', 'lock']
+    ]
+    for (const [sql, dialect, operation] of cases) {
+      const d = classifySql(sql, dialect)
+      expect(d.kind).toBe('requires_approval')
+      if (d.kind === 'requires_approval') expect(d.operation).toBe(operation)
     }
   })
 
-  it('does not classify ordinary write SQL as unverifiable', () => {
-    for (const sql of ['UPDATE t SET a=1', 'INSERT INTO t VALUES (1)', 'DELETE FROM t WHERE id=1', 'DROP TABLE t']) {
-      const r = isReadOnlySql(sql, 'mysql')
-      expect(r.ok).toBe(false)
-      if (!r.ok) expect(isUnverifiableRejection(r.errorCode)).toBe(false)
+  it('resolves the effective verb past a CTE list', () => {
+    // Reading the leading word would say WITH and look read-only.
+    const d = classifySql('WITH c AS (SELECT 1) INSERT INTO t SELECT * FROM c', 'mysql')
+    expect(d.kind).toBe('requires_approval')
+    if (d.kind === 'requires_approval') expect(d.operation).toBe('dml')
+  })
+
+  it('treats SELECT ... INTO as a write despite the SELECT verb', () => {
+    for (const sql of ['SELECT * INTO new_table FROM t', "SELECT * FROM t INTO OUTFILE '/tmp/x'", "SELECT * FROM t INTO DUMPFILE '/tmp/x'"]) {
+      const d = classifySql(sql, 'mysql')
+      expect(d.kind).toBe('requires_approval')
+      if (d.kind === 'requires_approval') expect(d.operation).toBe('dml')
     }
+  })
+
+  it('honours dialect-specific verbs', () => {
+    const cases: Array<[string, GuardDialect]> = [
+      ['REPLACE INTO t VALUES (1)', 'mysql'],
+      ['RENAME TABLE a TO b', 'mysql'],
+      ['OPTIMIZE TABLE t', 'mysql'],
+      ["COPY t FROM '/tmp/x'", 'postgresql'],
+      ['VACUUM', 'postgresql'],
+      ['REFRESH MATERIALIZED VIEW mv', 'postgresql'],
+      ['REINDEX INDEX i', 'postgresql'],
+      ["ATTACH DATABASE 'x' AS y", 'sqlite'],
+      ['DETACH DATABASE y', 'sqlite'],
+      ['MERGE INTO t USING s ON (1=1) WHEN MATCHED THEN UPDATE SET a=1', 'oracle']
+    ]
+    for (const [sql, dialect] of cases) {
+      expect(classifySql(sql, dialect).kind).toBe('requires_approval')
+    }
+  })
+
+  it('does not leak one dialect’s verbs into another', () => {
+    // VACUUM / COPY are not MySQL statements; admitting them would widen the
+    // allow-list beyond what the engine can actually parse.
+    expect(classifySql('VACUUM', 'mysql').kind).toBe('reject')
+    expect(classifySql("COPY t FROM '/tmp/x'", 'mysql').kind).toBe('reject')
+    expect(classifySql("ATTACH DATABASE 'x' AS y", 'mysql').kind).toBe('reject')
+  })
+
+  it('falls back to the common table when no dialect is supplied', () => {
+    expect(classifySql('UPDATE t SET a=1').kind).toBe('requires_approval')
+    // Dialect-only verbs must not be admitted without knowing the engine.
+    expect(classifySql('VACUUM').kind).toBe('reject')
+  })
+})
+
+describe('classifySql - reject', () => {
+  it('rejects unverifiable structure rather than guessing a verb', () => {
+    const cases: Array<[string, GuardErrorCode]> = [
+      ['SELECT 1; DROP TABLE users', 'E_MULTIPLE_STATEMENTS'],
+      ["SELECT 1 /*! INTO OUTFILE '/tmp/x' */", 'E_EXECUTABLE_COMMENT'],
+      ['SELECT 1 /* unterminated', 'E_UNTERMINATED_LITERAL'],
+      ["UPDATE t SET a='unterminated", 'E_UNTERMINATED_LITERAL'],
+      [nestedWith(400), 'E_COMPLEXITY_LIMIT'],
+      ['', 'E_EMPTY_STATEMENT'],
+      ['EXPLAIN ANALYZE SELECT 1', 'E_EXPLAIN_ANALYZE']
+    ]
+    for (const [sql, errorCode] of cases) {
+      const d = classifySql(sql, 'mysql')
+      expect(d.kind).toBe('reject')
+      if (d.kind === 'reject') expect(d.errorCode).toBe(errorCode)
+    }
+  })
+
+  it('rejects verbs whose side effects cannot be bounded from text', () => {
+    // The heart of the allow-list: unknown means refused, not executed.
+    for (const sql of ['CALL sp()', 'FROBNICATE t', 'EXEC sp_who']) {
+      expect(classifySql(sql, 'mysql').kind).toBe('reject')
+    }
+    expect(classifySql('BEGIN NULL; END;', 'oracle').kind).toBe('reject')
+  })
+
+  it('rejects grammatically wrong and dialect-mismatched statements', () => {
+    expect(classifySql('SELECT 1 UNION SHOW TABLES', 'mysql').kind).toBe('reject')
+    expect(classifySql('PRAGMA table_info(users)', 'mysql').kind).toBe('reject')
+    expect(classifySql('PRAGMA table_info(users)', 'postgresql').kind).toBe('reject')
+    expect(classifySql('PRAGMA journal_mode = WAL', 'sqlite').kind).toBe('reject')
+  })
+})
+
+describe('classifySql - flat vs nested complexity', () => {
+  it('admits legitimate flat multi-CTE and multi-UNION queries', () => {
+    const flatCte = 'WITH ' + Array.from({ length: 400 }, (_, i) => `c${i} AS (SELECT 1)`).join(', ') + ' SELECT 1'
+    const flatUnion = Array.from({ length: 400 }, () => 'SELECT 1').join(' UNION ')
+    expect(classifySql(flatCte, 'mysql').kind).toBe('readonly')
+    expect(classifySql(flatUnion, 'mysql').kind).toBe('readonly')
+  })
+})
+
+describe('isReadOnlySql - compatibility wrapper', () => {
+  it('reports readonly as ok and both other states as not ok', () => {
+    expect(isReadOnlySql('SELECT 1', 'mysql').ok).toBe(true)
+    expect(isReadOnlySql('UPDATE t SET a=1', 'mysql').ok).toBe(false)
+    expect(isReadOnlySql('CALL sp()', 'mysql').ok).toBe(false)
+  })
+
+  it('preserves the specific error code for rejections', () => {
+    const r = isReadOnlySql('SELECT 1; DROP TABLE users', 'mysql')
+    expect(r.ok).toBe(false)
+    if (!r.ok) expect(r.errorCode).toBe('E_MULTIPLE_STATEMENTS')
+  })
+
+  it('still surfaces locking reads as E_LOCKING_READ', () => {
+    const r = isReadOnlySql('SELECT * FROM t FOR UPDATE', 'mysql')
+    expect(r.ok).toBe(false)
+    if (!r.ok) expect(r.errorCode).toBe('E_LOCKING_READ')
   })
 })

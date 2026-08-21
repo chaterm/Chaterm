@@ -57,10 +57,18 @@ describe('preflightWriteSql', () => {
   })
 
   it('agrees with the write tool on dialect-specific verdicts', () => {
-    // PRAGMA is legal on SQLite and nonsense elsewhere; preflight must not be
-    // more permissive than the tool it gates.
-    expect(preflightWriteSql('PRAGMA table_info(users)', 'sqlite').ok).toBe(false)
-    expect(preflightWriteSql('PRAGMA table_info(users)', 'mysql').ok).toBe(true)
+    // PRAGMA is a read-only whitelisted statement on SQLite, so the write tool
+    // is the wrong tool for it.
+    const onSqlite = preflightWriteSql('PRAGMA table_info(users)', 'sqlite')
+    expect(onSqlite.ok).toBe(false)
+    if (!onSqlite.ok) expect(onSqlite.errorCode).toBe('E_INVALID_PARAM')
+
+    // On MySQL it is neither read-only nor a recognized MySQL verb, so it is
+    // refused outright instead of raising an approval prompt for a statement
+    // the engine would reject anyway.
+    const onMysql = preflightWriteSql('PRAGMA table_info(users)', 'mysql')
+    expect(onMysql.ok).toBe(false)
+    if (!onMysql.ok) expect(onMysql.errorCode).toBe('E_SQL_UNVERIFIABLE')
   })
 
   it('does not echo the caller SQL in error text', () => {
