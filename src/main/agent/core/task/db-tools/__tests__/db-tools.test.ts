@@ -645,6 +645,17 @@ describe('runExecuteReadonlyQuery', () => {
     expect(r.ok).toBe(false)
     if (!r.ok) expect(r.errorCode).toBe('E_SQL_NOT_READONLY')
   })
+
+  it('reports unverifiable SQL distinctly from write SQL', async () => {
+    const execute = vi.fn(async () => ({ columns: [], rows: [], rowCount: 0, truncated: false, durationMs: 0 }))
+    const session = makeSession({ dbType: 'mysql', execute } as MockOverrides)
+    for (const sql of ['SELECT 1; DROP TABLE users', "SELECT 1 /*! INTO OUTFILE '/tmp/x' */"]) {
+      const r = await runExecuteReadonlyQuery(session, { sql })
+      expect(r.ok).toBe(false)
+      if (!r.ok) expect(r.errorCode).toBe('E_SQL_UNVERIFIABLE')
+    }
+    expect(execute).not.toHaveBeenCalled()
+  })
 })
 
 describe('runExecuteWriteQuery', () => {
@@ -694,6 +705,51 @@ describe('runExecuteWriteQuery', () => {
     const r = await runExecuteWriteQuery(session, { sql: 'SELECT 1' })
     expect(r.ok).toBe(false)
     if (!r.ok) expect(r.errorCode).toBe('E_INVALID_PARAM')
+  })
+
+  // A failed read-only guard is not proof of a write. These inputs must never
+  // reach the driver: the guard rejected them because it could not verify them,
+  // not because it recognized a write verb.
+  describe('fails closed on unverifiable SQL', () => {
+    const nestedWith = (n: number): string => {
+      let s = 'SELECT 1'
+      for (let i = 0; i < n; i++) s = `WITH c${i} AS (${s}) SELECT * FROM c${i}`
+      return s
+    }
+
+    const cases: Array<[string, string]> = [
+      ['multiple statements', 'SELECT 1; DROP TABLE users'],
+      ['MySQL executable comment', "SELECT 1 /*! INTO OUTFILE '/tmp/x' */"],
+      ['complexity limit', nestedWith(400)],
+      ['unterminated block comment', 'SELECT 1 /* unterminated'],
+      ['unterminated string literal', "UPDATE t SET a='unterminated"]
+    ]
+
+    for (const [label, sql] of cases) {
+      it(`refuses ${label} without calling the driver`, async () => {
+        const execute = vi.fn(async () => ({ columns: [], rows: [], rowCount: 0, truncated: false, durationMs: 0 }))
+        const session = makeSession({ dbType: 'mysql', execute } as MockOverrides)
+        const r = await runExecuteWriteQuery(session, { sql })
+        expect(r.ok).toBe(false)
+        if (!r.ok) {
+          expect(r.errorCode).toBe('E_SQL_UNVERIFIABLE')
+          // Error text must not echo the caller's SQL back to the model.
+          expect(r.errorMessage).not.toContain('DROP')
+          expect(r.errorMessage).not.toContain('OUTFILE')
+        }
+        expect(execute).not.toHaveBeenCalled()
+      })
+    }
+
+    it('still executes ordinary DML', async () => {
+      for (const sql of ['UPDATE t SET a=1', 'INSERT INTO t VALUES (1)', 'DELETE FROM t WHERE id=1']) {
+        const execute = vi.fn(async () => ({ columns: [], rows: [], rowCount: 1, truncated: false, durationMs: 3 }))
+        const session = makeSession({ dbType: 'mysql', execute } as MockOverrides)
+        const r = await runExecuteWriteQuery(session, { sql })
+        expect(r.ok).toBe(true)
+        expect(execute).toHaveBeenCalledTimes(1)
+      }
+    })
   })
 })
 

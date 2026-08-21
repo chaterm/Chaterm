@@ -39,6 +39,35 @@ export type GuardErrorCode =
 export type GuardResult = { ok: true; skeleton: string } | { ok: false; errorCode: GuardErrorCode; reason: string }
 
 /**
+ * Rejections that mean "this SQL could not be verified", as opposed to "this
+ * SQL is a write". A caller must not infer a write from `!ok`: a failed guard
+ * covers syntax errors, multi-statement input, executable comments and
+ * complexity limits just as much as it covers DML.
+ *
+ * `E_NOT_WHITELISTED` is deliberately absent. It currently conflates "known
+ * write verb" with "verb we do not recognize", so it cannot be classified
+ * either way here; separating those two is the job of the positive
+ * side-effect classification that replaces this predicate.
+ */
+const UNVERIFIABLE_ERROR_CODES: ReadonlySet<GuardErrorCode> = new Set<GuardErrorCode>([
+  'E_EXECUTABLE_COMMENT',
+  'E_UNTERMINATED_LITERAL',
+  'E_NESTED_BLOCK_COMMENT',
+  'E_MULTIPLE_STATEMENTS',
+  'E_COMPLEXITY_LIMIT',
+  'E_EMPTY_STATEMENT'
+])
+
+/**
+ * True when a guard rejection means the SQL could not be statically verified,
+ * so no tool may execute it. Callers that route non-read-only SQL to a write
+ * path must check this first and fail closed.
+ */
+export function isUnverifiableRejection(errorCode: GuardErrorCode): boolean {
+  return UNVERIFIABLE_ERROR_CODES.has(errorCode)
+}
+
+/**
  * Engine the SQL will run against. Only used to gate dialect-specific syntax.
  * Omitting it is safe but strict: PRAGMA is rejected when the dialect is
  * unknown, so a caller that forgets to pass one fails closed rather than
@@ -125,6 +154,7 @@ function stripCommentsAndLiterals(sqlIn: string): StripOutcome {
     // see keywords inside identifiers like `created_at`.
     if (c === '`') {
       let j = i + 1
+      let terminated = false
       while (j < len) {
         if (sql[j] === '`') {
           if (sql[j + 1] === '`') {
@@ -132,11 +162,12 @@ function stripCommentsAndLiterals(sqlIn: string): StripOutcome {
             continue
           }
           j++
+          terminated = true
           break
         }
         j++
       }
-      if (j > len) return { skeleton: sql, hardFail: 'E_UNTERMINATED_LITERAL' }
+      if (!terminated) return { skeleton: sql, hardFail: 'E_UNTERMINATED_LITERAL' }
       sql = blankRange(sql, i, j)
       i = j
       continue
@@ -147,6 +178,7 @@ function stripCommentsAndLiterals(sqlIn: string): StripOutcome {
     // reach the whitelist checks.
     if (c === '"') {
       let j = i + 1
+      let terminated = false
       while (j < len) {
         if (sql[j] === '"') {
           if (sql[j + 1] === '"') {
@@ -154,11 +186,12 @@ function stripCommentsAndLiterals(sqlIn: string): StripOutcome {
             continue
           }
           j++
+          terminated = true
           break
         }
         j++
       }
-      if (j > len) return { skeleton: sql, hardFail: 'E_UNTERMINATED_LITERAL' }
+      if (!terminated) return { skeleton: sql, hardFail: 'E_UNTERMINATED_LITERAL' }
       sql = blankRange(sql, i, j)
       i = j
       continue
@@ -191,6 +224,7 @@ function stripCommentsAndLiterals(sqlIn: string): StripOutcome {
     // escapes so we consume `\X` as a unit.
     if ((c === 'E' || c === 'e') && n === "'") {
       let j = i + 2
+      let terminated = false
       while (j < len) {
         if (sql[j] === '\\' && j + 1 < len) {
           j += 2
@@ -202,11 +236,12 @@ function stripCommentsAndLiterals(sqlIn: string): StripOutcome {
             continue
           }
           j++
+          terminated = true
           break
         }
         j++
       }
-      if (j > len) return { skeleton: sql, hardFail: 'E_UNTERMINATED_LITERAL' }
+      if (!terminated) return { skeleton: sql, hardFail: 'E_UNTERMINATED_LITERAL' }
       sql = blankRange(sql, i, j)
       i = j
       continue
@@ -215,6 +250,7 @@ function stripCommentsAndLiterals(sqlIn: string): StripOutcome {
     // Standard single-quoted string: '...' with '' as escape.
     if (c === "'") {
       let j = i + 1
+      let terminated = false
       while (j < len) {
         if (sql[j] === "'") {
           if (sql[j + 1] === "'") {
@@ -222,11 +258,12 @@ function stripCommentsAndLiterals(sqlIn: string): StripOutcome {
             continue
           }
           j++
+          terminated = true
           break
         }
         j++
       }
-      if (j > len) return { skeleton: sql, hardFail: 'E_UNTERMINATED_LITERAL' }
+      if (!terminated) return { skeleton: sql, hardFail: 'E_UNTERMINATED_LITERAL' }
       sql = blankRange(sql, i, j)
       i = j
       continue

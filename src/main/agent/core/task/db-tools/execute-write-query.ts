@@ -5,7 +5,7 @@
 //   - SQL size is capped at 50KB.
 //   - Final execution approval is handled by Task.askApproval('command', sql).
 
-import { isReadOnlySql } from '../../../../services/database-ai/sql-readonly-guard'
+import { isReadOnlySql, isUnverifiableRejection } from '../../../../services/database-ai/sql-readonly-guard'
 import type { DbAiActiveSession, DbToolResult } from './shared'
 import { optionalStringParam, requireStringParam, unexpectedError } from './shared'
 
@@ -62,6 +62,16 @@ export async function runExecuteWriteQuery(
       ok: false,
       errorCode: 'E_INVALID_PARAM',
       errorMessage: 'SQL is read-only. Use execute_readonly_query for SELECT/SHOW/DESCRIBE/EXPLAIN/PRAGMA.'
+    }
+  }
+  // A failed read-only guard does not prove the SQL is a write. Multi-statement
+  // input, executable comments, unterminated literals and complexity-limit
+  // rejections all land here too, and none of them can be safely executed.
+  if (isUnverifiableRejection(guard.errorCode)) {
+    return {
+      ok: false,
+      errorCode: 'E_SQL_UNVERIFIABLE',
+      errorMessage: 'SQL could not be safely verified and was not executed. Submit a single, complete statement.'
     }
   }
 

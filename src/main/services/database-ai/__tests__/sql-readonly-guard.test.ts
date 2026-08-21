@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
-import { isReadOnlySql, __testing } from '../sql-readonly-guard'
+import { isReadOnlySql, isUnverifiableRejection, __testing } from '../sql-readonly-guard'
+import type { GuardDialect } from '../sql-readonly-guard'
 
 // ---------------------------------------------------------------------------
 // Allow: canonical read-only statements (10+ cases)
@@ -312,6 +313,50 @@ describe('isReadOnlySql - malformed input', () => {
   it('rejects unterminated dollar-quoted string', () => {
     const r = isReadOnlySql('SELECT $tag$ unterminated')
     expect(r.ok).toBe(false)
+  })
+
+  // Quote-delimited literals scan with `while (j < len)`, so an unterminated
+  // one exits at j === len. The reachable guard is "did we see the closing
+  // delimiter", not a bound comparison on j.
+  it('rejects every unterminated quote-delimited literal and identifier', () => {
+    const cases: Array<[string, GuardDialect]> = [
+      ["SELECT 'x", 'mysql'],
+      ['SELECT `x', 'mysql'],
+      ['SELECT "x', 'postgresql'],
+      ["SELECT E'x", 'postgresql'],
+      ["SELECT q'[x", 'oracle']
+    ]
+    for (const [sql, dialect] of cases) {
+      const r = isReadOnlySql(sql, dialect)
+      expect(r.ok).toBe(false)
+      if (!r.ok) expect(r.errorCode).toBe('E_UNTERMINATED_LITERAL')
+    }
+  })
+
+  it('does not let an unterminated literal hide a second statement', () => {
+    // Blanking from the opening quote to end-of-input removes the `;` before
+    // the single-statement check runs, which would let the read-only tool
+    // execute a smuggled statement.
+    for (const sql of ["SELECT 'x; DROP TABLE users", 'SELECT `x; DROP TABLE users', "SELECT * FROM t WHERE a='x; DELETE FROM t"]) {
+      const r = isReadOnlySql(sql, 'mysql')
+      expect(r.ok).toBe(false)
+    }
+  })
+
+  it('still accepts well-formed literals and escaped delimiters', () => {
+    const cases: Array<[string, GuardDialect]> = [
+      ["SELECT 'x'", 'mysql'],
+      ["SELECT 'it''s'", 'mysql'],
+      ['SELECT `a``b` FROM t', 'mysql'],
+      ['SELECT "a""b" FROM t', 'postgresql'],
+      ["SELECT E'it''s'", 'postgresql'],
+      ["SELECT q'[bracketed]' FROM dual", 'oracle'],
+      ["SELECT * FROM t WHERE note = 'has ; semicolon'", 'mysql'],
+      ["SELECT 'ends at very end'", 'mysql']
+    ]
+    for (const [sql, dialect] of cases) {
+      expect(isReadOnlySql(sql, dialect).ok).toBe(true)
+    }
   })
 })
 
@@ -962,5 +1007,50 @@ describe('isReadOnlySql - CTE column lists', () => {
   it('allows multiple CTEs that each carry a column list', () => {
     const r = isReadOnlySql('WITH a(x) AS (SELECT 1), b(y) AS (SELECT 2) SELECT * FROM a, b')
     expect(r.ok).toBe(true)
+  })
+})
+
+// ---------------------------------------------------------------------------
+// isUnverifiableRejection: separates "could not verify" from "is a write", so
+// callers cannot treat a failed guard as proof of a write statement.
+// ---------------------------------------------------------------------------
+describe('isUnverifiableRejection', () => {
+  it('treats structural and complexity rejections as unverifiable', () => {
+    expect(isUnverifiableRejection('E_EXECUTABLE_COMMENT')).toBe(true)
+    expect(isUnverifiableRejection('E_UNTERMINATED_LITERAL')).toBe(true)
+    expect(isUnverifiableRejection('E_NESTED_BLOCK_COMMENT')).toBe(true)
+    expect(isUnverifiableRejection('E_MULTIPLE_STATEMENTS')).toBe(true)
+    expect(isUnverifiableRejection('E_COMPLEXITY_LIMIT')).toBe(true)
+    expect(isUnverifiableRejection('E_EMPTY_STATEMENT')).toBe(true)
+  })
+
+  it('does not treat write / grammar rejections as unverifiable', () => {
+    expect(isUnverifiableRejection('E_NOT_WHITELISTED')).toBe(false)
+    expect(isUnverifiableRejection('E_WITH_CONTAINS_DML')).toBe(false)
+    expect(isUnverifiableRejection('E_EXPLAIN_ANALYZE')).toBe(false)
+    expect(isUnverifiableRejection('E_EXPLAIN_TARGET_NOT_SELECT')).toBe(false)
+  })
+
+  it('classifies the guard rejection actually produced by unverifiable SQL', () => {
+    // Ties the predicate to real guard output rather than hand-written codes.
+    const nestedWith = (n: number): string => {
+      let s = 'SELECT 1'
+      for (let i = 0; i < n; i++) s = `WITH c${i} AS (${s}) SELECT * FROM c${i}`
+      return s
+    }
+    const unverifiable = ['SELECT 1; DROP TABLE users', "SELECT 1 /*! INTO OUTFILE '/tmp/x' */", 'SELECT 1 /* unterminated', nestedWith(400)]
+    for (const sql of unverifiable) {
+      const r = isReadOnlySql(sql, 'mysql')
+      expect(r.ok).toBe(false)
+      if (!r.ok) expect(isUnverifiableRejection(r.errorCode)).toBe(true)
+    }
+  })
+
+  it('does not classify ordinary write SQL as unverifiable', () => {
+    for (const sql of ['UPDATE t SET a=1', 'INSERT INTO t VALUES (1)', 'DELETE FROM t WHERE id=1', 'DROP TABLE t']) {
+      const r = isReadOnlySql(sql, 'mysql')
+      expect(r.ok).toBe(false)
+      if (!r.ok) expect(isUnverifiableRejection(r.errorCode)).toBe(false)
+    }
   })
 })

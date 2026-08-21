@@ -5,7 +5,7 @@
 //   - SQL size is capped at 50KB.
 //   - Result is bounded by maxRows=200 and timeoutMs=30s at the session layer.
 
-import { isReadOnlySql } from '../../../../services/database-ai/sql-readonly-guard'
+import { isReadOnlySql, isUnverifiableRejection } from '../../../../services/database-ai/sql-readonly-guard'
 import type { DbAiActiveSession, DbToolResult } from './shared'
 import { optionalStringParam, requireStringParam, unexpectedError } from './shared'
 
@@ -48,7 +48,15 @@ export async function runExecuteReadonlyQuery(
 
   const guard = isReadOnlySql(sqlParam.value, session.dbType)
   if (!guard.ok) {
-    const errorCode = guard.errorCode === 'E_EXPLAIN_ANALYZE' ? 'E_EXPLAIN_ANALYZE' : 'E_SQL_NOT_READONLY'
+    // Distinguish "this is a write" from "this could not be verified" so the
+    // caller does not read a syntax or complexity rejection as a hint to retry
+    // through the write tool.
+    let errorCode: 'E_EXPLAIN_ANALYZE' | 'E_SQL_UNVERIFIABLE' | 'E_SQL_NOT_READONLY' = 'E_SQL_NOT_READONLY'
+    if (guard.errorCode === 'E_EXPLAIN_ANALYZE') {
+      errorCode = 'E_EXPLAIN_ANALYZE'
+    } else if (isUnverifiableRejection(guard.errorCode)) {
+      errorCode = 'E_SQL_UNVERIFIABLE'
+    }
     return { ok: false, errorCode, errorMessage: guard.reason }
   }
 
