@@ -77,6 +77,7 @@ import {
   runDescribeTable,
   runExecuteReadonlyQuery,
   runExecuteWriteQuery,
+  preflightWriteSql,
   runExplainPlan,
   runInspectIndexes,
   runListDatabases,
@@ -5475,6 +5476,18 @@ USERNAME:${localSystemInfo.userName}`
       const sql = (block.params.sql ?? '').trim()
       if (!sql) {
         await this.handleMissingParam('sql', toolDescription, 'execute_write_query')
+        return
+      }
+
+      // Classify before prompting. The approval dialog is the user's last look
+      // at this SQL, so it must not appear for input the tool will refuse
+      // anyway. Dialect comes from dbContext rather than a session so nothing
+      // connects before approval.
+      const preflight = preflightWriteSql(sql, this.dbContext.dbType)
+      if (!preflight.ok) {
+        await this.pushToolResult(toolDescription, this.responseFormatter.toolError(`${preflight.errorCode}: ${preflight.errorMessage}`))
+        this.didAlreadyUseTool = true
+        await this.saveCheckpoint()
         return
       }
 

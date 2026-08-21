@@ -240,3 +240,106 @@ describe('Task.buildSystemPrompt - workspace-aware system information suffix', (
     expect(prompt).not.toContain('## Host:')
   })
 })
+
+// ---------------------------------------------------------------------------
+// handleDbWriteToolUse - classification precedes the approval prompt
+//
+// The user's approval is the last human checkpoint before a write runs, so it
+// must only be requested for SQL that can actually execute. Asking first and
+// classifying second trains the user to click through prompts.
+// ---------------------------------------------------------------------------
+
+interface MockDbWriteThis {
+  workspace: 'server' | 'database'
+  dbContext?: { assetId: string; dbType: 'mysql' | 'postgresql' | 'sqlite' | 'oracle' }
+  didAlreadyUseTool: boolean
+  askApproval: ReturnType<typeof vi.fn>
+  getOrCreateDbAiSession: ReturnType<typeof vi.fn>
+  pushToolResult: ReturnType<typeof vi.fn>
+  say: ReturnType<typeof vi.fn>
+  saveCheckpoint: ReturnType<typeof vi.fn>
+  handleMissingParam: ReturnType<typeof vi.fn>
+  getToolDescription: ReturnType<typeof vi.fn>
+  responseFormatter: { toolError: (s: string) => string; toolResult: (s: string) => string }
+}
+
+function makeDbWriteThis(overrides: { approve?: boolean; executeQuery?: ReturnType<typeof vi.fn> } = {}) {
+  const executeQuery = overrides.executeQuery ?? vi.fn(async () => ({ columns: [], rows: [], rowCount: 1, truncated: false, durationMs: 2 }))
+  const mockThis: MockDbWriteThis = {
+    workspace: 'database',
+    dbContext: { assetId: 'a-1', dbType: 'mysql' },
+    didAlreadyUseTool: false,
+    askApproval: vi.fn(async () => overrides.approve ?? true),
+    getOrCreateDbAiSession: vi.fn(async () => ({ dbType: 'mysql', executeQuery })),
+    pushToolResult: vi.fn(async () => undefined),
+    say: vi.fn(async () => undefined),
+    saveCheckpoint: vi.fn(async () => undefined),
+    handleMissingParam: vi.fn(async () => undefined),
+    getToolDescription: vi.fn(() => 'execute_write_query'),
+    responseFormatter: { toolError: (s: string) => s, toolResult: (s: string) => s }
+  }
+  return { mockThis, executeQuery }
+}
+
+async function runWrite(mockThis: MockDbWriteThis, sql: string) {
+  await Task.prototype['handleDbWriteToolUse'].call(
+    mockThis as unknown as Task,
+    {
+      type: 'tool_use',
+      name: 'execute_write_query',
+      params: { sql },
+      partial: false
+    } as never
+  )
+}
+
+describe('Task.handleDbWriteToolUse - preflight before approval', () => {
+  it('does not prompt, connect, or execute for read-only SQL', async () => {
+    const { mockThis, executeQuery } = makeDbWriteThis()
+    await runWrite(mockThis, 'SELECT 1')
+    expect(mockThis.askApproval).not.toHaveBeenCalled()
+    expect(mockThis.getOrCreateDbAiSession).not.toHaveBeenCalled()
+    expect(executeQuery).not.toHaveBeenCalled()
+  })
+
+  it('does not prompt, connect, or execute for unverifiable SQL', async () => {
+    for (const sql of ['SELECT 1; DROP TABLE users', "SELECT 1 /*! INTO OUTFILE '/tmp/x' */"]) {
+      const { mockThis, executeQuery } = makeDbWriteThis()
+      await runWrite(mockThis, sql)
+      expect(mockThis.askApproval).not.toHaveBeenCalled()
+      expect(mockThis.getOrCreateDbAiSession).not.toHaveBeenCalled()
+      expect(executeQuery).not.toHaveBeenCalled()
+    }
+  })
+
+  it('does not prompt for SQL past the complexity budget', async () => {
+    let nested = 'SELECT 1'
+    for (let i = 0; i < 400; i++) nested = `WITH c${i} AS (${nested}) SELECT * FROM c${i}`
+    const { mockThis, executeQuery } = makeDbWriteThis()
+    await runWrite(mockThis, nested)
+    expect(mockThis.askApproval).not.toHaveBeenCalled()
+    expect(executeQuery).not.toHaveBeenCalled()
+  })
+
+  it('prompts once and executes for ordinary write SQL', async () => {
+    const { mockThis, executeQuery } = makeDbWriteThis()
+    await runWrite(mockThis, 'UPDATE t SET a=1')
+    expect(mockThis.askApproval).toHaveBeenCalledTimes(1)
+    expect(executeQuery).toHaveBeenCalledTimes(1)
+  })
+
+  it('prompts but does not execute when the user declines', async () => {
+    const { mockThis, executeQuery } = makeDbWriteThis({ approve: false })
+    await runWrite(mockThis, 'UPDATE t SET a=1')
+    expect(mockThis.askApproval).toHaveBeenCalledTimes(1)
+    expect(executeQuery).not.toHaveBeenCalled()
+  })
+
+  it('fails closed without prompting when dbContext carries no dialect', async () => {
+    const { mockThis, executeQuery } = makeDbWriteThis()
+    mockThis.dbContext = { assetId: 'a-1', dbType: undefined as never }
+    await runWrite(mockThis, 'UPDATE t SET a=1')
+    expect(mockThis.askApproval).not.toHaveBeenCalled()
+    expect(executeQuery).not.toHaveBeenCalled()
+  })
+})
