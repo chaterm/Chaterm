@@ -1,4 +1,4 @@
-export { getLocalAssetRouteLogic, recordConnectionLogic } from './assets.routes'
+export { getLocalAssetRouteLogic, recordConnectionLogic, removeConnectionHistoryLogic } from './assets.routes'
 
 export {
   updateLocalAssetLabelLogic,

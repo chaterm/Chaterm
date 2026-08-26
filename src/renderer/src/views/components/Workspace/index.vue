@@ -575,6 +575,14 @@
       {{ t('personal.copyPassword') }}
     </div>
     <div
+      v-if="contextMenuData.isRecentConnection"
+      class="context-menu-item"
+      @click="handleContextMenuAction('removeRecentConnection')"
+    >
+      <DeleteOutlined class="menu-icon" />
+      {{ t('personal.removeFromRecentConnections') }}
+    </div>
+    <div
       v-if="contextMenuData.favorite !== undefined"
       class="context-menu-item"
       @click="handleContextMenuAction('favorite')"
@@ -2111,6 +2119,32 @@ const handleRemoveFromFolder = async (dataRef: any) => {
   }
 }
 
+const handleRemoveRecentConnection = async (dataRef: any) => {
+  try {
+    const result = await window.api.removeConnectionHistory({
+      assetUuid: dataRef.uuid || undefined,
+      assetIp: dataRef.ip || undefined,
+      assetUsername: dataRef.username || '',
+      assetType: dataRef.asset_type,
+      organizationId: dataRef.organizationId
+    })
+
+    if (result && result.data && result.data.message === 'success') {
+      message.success(t('personal.recentConnectionRemoved'))
+      if (isPersonalWorkspace.value) {
+        getLocalAssetMenu()
+      } else {
+        getUserAssetMenu()
+      }
+    } else {
+      message.error(t('personal.recentConnectionRemoveFailed'))
+    }
+  } catch (error) {
+    logger.error('Failed to remove recent connection', { error: error })
+    message.error(t('personal.recentConnectionRemoveFailed'))
+  }
+}
+
 const handleCreateFolderFromMoveModal = () => {
   showCreateFolderModal.value = true
   showMoveToFolderModal.value = false
@@ -2119,6 +2153,7 @@ const handleCreateFolderFromMoveModal = () => {
 const hasContextMenu = (dataRef: any): boolean => {
   if (!dataRef) return false
   const hasDirectHostOption = canEditDirectHost(dataRef)
+  const hasRecentConnectionOption = dataRef.isRecentConnection === true
   const hasFavoriteOption = dataRef.favorite !== undefined
   const hasCommentOption = isOrganizationAsset(dataRef.asset_type) && !dataRef.key.startsWith('common_')
   const hasMoveOption = isOrganizationAsset(dataRef.asset_type) && !dataRef.key.startsWith('common_') && !dataRef.key.startsWith('folder_')
@@ -2129,6 +2164,7 @@ const hasContextMenu = (dataRef: any): boolean => {
 
   return (
     hasDirectHostOption ||
+    hasRecentConnectionOption ||
     hasFavoriteOption ||
     hasCommentOption ||
     hasMoveOption ||
@@ -2145,6 +2181,7 @@ const handleContextMenu = (event: MouseEvent, dataRef: any) => {
 
   // Check if the node has any available menu options
   const hasDirectHostOption = canEditDirectHost(dataRef)
+  const hasRecentConnectionOption = dataRef.isRecentConnection === true
   const hasFavoriteOption = dataRef.favorite !== undefined
   const hasCommentOption = isOrganizationAsset(dataRef.asset_type) && !dataRef.key.startsWith('common_')
   const hasMoveOption = isOrganizationAsset(dataRef.asset_type) && !dataRef.key.startsWith('common_') && !dataRef.key.startsWith('folder_')
@@ -2156,6 +2193,7 @@ const handleContextMenu = (event: MouseEvent, dataRef: any) => {
   // If no menu options are available, don't show the context menu
   if (
     !hasDirectHostOption &&
+    !hasRecentConnectionOption &&
     !hasFavoriteOption &&
     !hasCommentOption &&
     !hasMoveOption &&
@@ -2171,6 +2209,7 @@ const handleContextMenu = (event: MouseEvent, dataRef: any) => {
   const menuItemCount = [
     hasDirectHostOption,
     hasDirectHostOption,
+    hasRecentConnectionOption,
     hasFavoriteOption,
     hasCommentOption,
     hasMoveOption,
@@ -2291,6 +2330,9 @@ const handleContextMenuAction = async (action: string) => {
       break
     case 'copyPassword':
       await handleCopyPassword(contextMenuData.value)
+      break
+    case 'removeRecentConnection':
+      await handleRemoveRecentConnection(contextMenuData.value)
       break
     case 'favorite':
       handleFavoriteClick(contextMenuData.value)

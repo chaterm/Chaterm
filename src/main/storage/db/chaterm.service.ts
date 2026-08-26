@@ -27,7 +27,8 @@ import {
   updateOrganizationAssetLogic,
   deleteOrganizationAssetLogic,
   batchDeleteOrganizationAssetsLogic,
-  recordConnectionLogic
+  recordConnectionLogic,
+  removeConnectionHistoryLogic
 } from './chaterm/assets'
 import {
   deleteChatermHistoryByTaskIdLogic,
@@ -191,6 +192,16 @@ export class ChatermDatabaseService {
     organizationId?: string
   }): void {
     recordConnectionLogic(this.db, params)
+  }
+
+  removeConnectionHistory(params: {
+    assetUuid?: string
+    assetIp?: string
+    assetUsername?: string
+    assetType?: string
+    organizationId?: string
+  }): any {
+    return removeConnectionHistoryLogic(this.db, params)
   }
 
   updateLocalAssetLabel(uuid: string, label: string): any {
@@ -1266,8 +1277,7 @@ export class ChatermDatabaseService {
 
   getSyncCursorRevision(): number {
     const row = this.db.prepare('SELECT value FROM key_value_store WHERE key = ?').get(ChatermDatabaseService.SYNC_CURSOR_KEY) as
-      | { value: string }
-      | undefined
+      { value: string } | undefined
     return row ? Number(row.value) : 0
   }
 

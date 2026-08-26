@@ -17,7 +17,8 @@ const { mockEventBus, mockApi } = vi.hoisted(() => ({
       }
     })),
     getShellsLocal: vi.fn(async () => null),
-    getCustomFolders: vi.fn(async () => ({ data: [] }))
+    getCustomFolders: vi.fn(async () => ({ data: [] })),
+    removeConnectionHistory: vi.fn(async () => ({ data: { message: 'success', changes: 1 } }))
   }
 }))
 
@@ -95,6 +96,26 @@ describe('Workspace tree search rendering', () => {
     vm.enterpriseData = []
     await nextTick()
     expect(wrapper.findAll('.workspace-tree-stub')).toHaveLength(1)
+
+    const recentConnection = {
+      key: 'recent_uuid-123_10.0.0.1_root',
+      title: 'Recent host',
+      uuid: 'uuid-123',
+      ip: '10.0.0.1',
+      username: 'root',
+      asset_type: 'person',
+      organizationId: 'personal',
+      isRecentConnection: true
+    }
+    vm.contextMenuData = recentConnection
+    await vm.handleContextMenuAction('removeRecentConnection')
+    expect(mockApi.removeConnectionHistory).toHaveBeenCalledWith({
+      assetUuid: 'uuid-123',
+      assetIp: '10.0.0.1',
+      assetUsername: 'root',
+      assetType: 'person',
+      organizationId: 'personal'
+    })
 
     wrapper.unmount()
   })

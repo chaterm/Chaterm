@@ -130,6 +130,50 @@ describe('recordConnectionLogic', () => {
   })
 })
 
+describe('removeConnectionHistoryLogic', () => {
+  it('removes all history for an asset within its workspace', async () => {
+    const { removeConnectionHistoryLogic } = await import('../assets.routes')
+    const runFn = vi.fn(() => ({ changes: 2 }))
+    const prepareMock = vi.fn(() => ({ run: runFn }))
+    const mockDb = { prepare: prepareMock } as any
+
+    const result = removeConnectionHistoryLogic(mockDb, {
+      assetUuid: 'uuid-123',
+      assetIp: '10.0.0.1',
+      organizationId: 'personal'
+    })
+
+    expect(prepareMock).toHaveBeenCalledWith(expect.stringContaining('DELETE FROM t_connection_history'))
+    expect(runFn).toHaveBeenCalledWith('uuid-123', 'personal')
+    expect(result).toEqual({ data: { message: 'success', changes: 2 } })
+  })
+
+  it('falls back to the connection details when the asset uuid is unavailable', async () => {
+    const { removeConnectionHistoryLogic } = await import('../assets.routes')
+    const runFn = vi.fn(() => ({ changes: 1 }))
+    const prepareMock = vi.fn(() => ({ run: runFn }))
+    const mockDb = { prepare: prepareMock } as any
+
+    removeConnectionHistoryLogic(mockDb, {
+      assetIp: '10.0.0.2',
+      assetUsername: '',
+      assetType: 'shell',
+      organizationId: 'personal'
+    })
+
+    expect(runFn).toHaveBeenCalledWith('10.0.0.2', '', 'shell', 'personal')
+  })
+
+  it('rejects a removal request without an asset identifier', async () => {
+    const { removeConnectionHistoryLogic } = await import('../assets.routes')
+    const prepareMock = vi.fn()
+    const mockDb = { prepare: prepareMock } as any
+
+    expect(removeConnectionHistoryLogic(mockDb, {})).toEqual({ data: { message: 'failed', changes: 0 } })
+    expect(prepareMock).not.toHaveBeenCalled()
+  })
+})
+
 describe('getLocalAssetRouteLogic - recent connections', () => {
   let prepareMock: ReturnType<typeof vi.fn>
 
@@ -196,6 +240,7 @@ describe('getLocalAssetRouteLogic - recent connections', () => {
     expect(child.username).toBe('admin')
     expect(child.asset_type).toBe('person')
     expect(child.organizationId).toBe('personal')
+    expect(child.isRecentConnection).toBe(true)
   })
 
   it('should place recent connections before favorites', async () => {

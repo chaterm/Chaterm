@@ -2204,6 +2204,15 @@ ipcMain.handle('record-connection', async (_, data) => {
   }
 })
 
+ipcMain.handle('remove-connection-history', async (_, data) => {
+  try {
+    return chatermDbService.removeConnectionHistory(data)
+  } catch (error) {
+    logger.error('Remove connection history failed', { error: error })
+    return null
+  }
+})
+
 ipcMain.handle('asset-route-local-update', async (_, data) => {
   try {
     const { uuid, label } = data
