@@ -100,7 +100,7 @@
     "oracledb": "^7.0.1",
     "p-wait-for": "^6.0.0",
     "pg": "^8.22.0",
-    "pinia": "^3.0.1",
+    "pinia": "^4.0.3",
     "pinia-plugin-persistedstate": "^4.2.0",
     "posthog-node": "^5.46.0",
     "serialize-error": "^13.0.1",
