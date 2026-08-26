@@ -367,6 +367,7 @@ export async function getLocalAssetRouteLogic(db: Database, searchType: string, 
               children: recentAssets.map((item: any) => ({
                 key: `recent_${item.asset_uuid}_${item.asset_ip}_${item.asset_username || 'no_user'}`,
                 title: item.asset_label || item.asset_ip || '',
+                isRecentConnection: true,
                 ip: item.asset_ip || '',
                 uuid: item.asset_uuid || '',
                 port: item.asset_port || 22,
@@ -493,6 +494,7 @@ export async function getLocalAssetRouteLogic(db: Database, searchType: string, 
               children: recentAssets.map((item: any) => ({
                 key: `recent_${item.asset_uuid}_${item.asset_ip}_${item.asset_username || 'no_user'}`,
                 title: item.asset_label || item.asset_ip || '',
+                isRecentConnection: true,
                 ip: item.asset_ip || '',
                 uuid: item.asset_uuid || '',
                 port: item.asset_port || 22,
@@ -738,5 +740,62 @@ export function recordConnectionLogic(
     ).run()
   } catch (error) {
     logger.error('Failed to record connection history', { error: error })
+  }
+}
+
+export function removeConnectionHistoryLogic(
+  db: Database.Database,
+  params: {
+    assetUuid?: string
+    assetIp?: string
+    assetUsername?: string
+    assetType?: string
+    organizationId?: string
+  }
+): any {
+  try {
+    const conditions: string[] = []
+    const values: string[] = []
+
+    if (params.assetUuid) {
+      conditions.push('asset_uuid = ?')
+      values.push(params.assetUuid)
+    } else if (params.assetIp) {
+      conditions.push('asset_ip = ?')
+      values.push(params.assetIp)
+
+      if (params.assetUsername !== undefined) {
+        conditions.push("COALESCE(asset_username, '') = ?")
+        values.push(params.assetUsername)
+      }
+      if (params.assetType) {
+        conditions.push('asset_type = ?')
+        values.push(params.assetType)
+      }
+    } else {
+      return {
+        data: {
+          message: 'failed',
+          changes: 0
+        }
+      }
+    }
+
+    if (params.organizationId) {
+      conditions.push('organization_id = ?')
+      values.push(params.organizationId)
+    }
+
+    const result = db.prepare(`DELETE FROM t_connection_history WHERE ${conditions.join(' AND ')}`).run(...values)
+
+    return {
+      data: {
+        message: result.changes > 0 ? 'success' : 'failed',
+        changes: result.changes
+      }
+    }
+  } catch (error) {
+    logger.error('Failed to remove connection history', { error: error })
+    throw error
   }
 }

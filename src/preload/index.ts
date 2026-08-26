@@ -261,6 +261,20 @@ const recordConnection = async (data: {
   }
 }
 
+const removeConnectionHistory = async (data: {
+  assetUuid?: string
+  assetIp?: string
+  assetUsername?: string
+  assetType?: string
+  organizationId?: string
+}) => {
+  try {
+    return await ipcRenderer.invoke('remove-connection-history', data)
+  } catch (error) {
+    return Promise.reject(error)
+  }
+}
+
 const updateLocalAssetLabel = async (data: { uuid: string; label: string }) => {
   try {
     const result = await ipcRenderer.invoke('asset-route-local-update', data)
@@ -938,6 +952,7 @@ const api = {
   aiSuggestCommand,
   getLocalAssetRoute,
   recordConnection,
+  removeConnectionHistory,
   updateLocalAssetLabel,
   updateLocalAsseFavorite,
   getKeyChainSelect,

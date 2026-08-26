@@ -423,6 +423,13 @@ interface ApiType {
     assetType: string
     organizationId?: string
   }) => Promise<void>
+  removeConnectionHistory: (data: {
+    assetUuid?: string
+    assetIp?: string
+    assetUsername?: string
+    assetType?: string
+    organizationId?: string
+  }) => Promise<any>
   updateLocalAssetLabel: (data: { uuid: string; label: string }) => Promise<any>
   updateLocalAsseFavorite: (data: { uuid: string; status: number }) => Promise<any>
   chatermInsert: (data: { sql: string; params?: any[] }) => Promise<any>
