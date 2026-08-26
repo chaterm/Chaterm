@@ -91,6 +91,7 @@
         >
           <div v-show="company === 'personal_user_id'">
             <a-tree
+              v-if="assetTreeData.length > 0"
               v-model:selected-keys="selectedKeys"
               v-model:expanded-keys="expandedKeys"
               :tree-data="assetTreeData"
@@ -178,6 +179,7 @@
           </div>
           <div v-show="company !== 'personal_user_id'">
             <a-tree
+              v-if="enterpriseData.length > 0"
               v-model:selected-keys="selectedKeys"
               v-model:expanded-keys="expandedKeys"
               :tree-data="enterpriseData"
@@ -1013,6 +1015,8 @@ const getTopLevelKeys = (nodes: AssetNode[]): string[] => {
 let searchDebounceTimer: ReturnType<typeof setTimeout> | null = null
 
 const onSearchInput = () => {
+  searchValue.value = searchValue.value.trim()
+
   // Close context menu when searching
   contextMenuVisible.value = false
   contextMenuData.value = null
