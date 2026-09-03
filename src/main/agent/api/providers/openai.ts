@@ -5,7 +5,8 @@
 // Licensed under the Apache License, Version 2.0
 
 import { Anthropic } from '@anthropic-ai/sdk'
-import OpenAI, { AzureOpenAI } from 'openai'
+import OpenAI, { AzureOpenAI, type ClientOptions } from 'openai'
+import { fetch as undiciFetch, ProxyAgent as UndiciProxyAgent } from 'undici'
 import { withRetry } from '../retry'
 import { ApiHandlerOptions, azureOpenAiDefaultApiVersion, ModelInfo, openAiModelInfoSaneDefaults } from '@shared/api'
 import { ApiHandler } from '../index'
@@ -14,9 +15,26 @@ import { convertToResponsesInput } from '../transform/responses-format'
 import type { ApiStream } from '../transform/stream'
 import { convertToR1Format } from '../transform/r1-format'
 import type { ChatCompletionReasoningEffort } from 'openai/resources/chat/completions'
-import { checkProxyConnectivity, createProxyAgent } from './proxy/index'
-import type { Agent } from 'http'
+import { buildProxyUrl } from './proxy/user-proxy'
+import { checkProxyConnectivity } from './proxy/index'
 const logger = createLogger('agent')
+
+type OpenAiFetch = NonNullable<ClientOptions['fetch']>
+
+// OpenAI-compatible relays may reject the official SDK fingerprint headers
+// (especially User-Agent) at their WAF layer. Keep authentication and custom
+// headers intact while omitting the SDK-specific defaults.
+const OPENAI_SDK_FINGERPRINT_HEADERS: Record<string, null> = {
+  'User-Agent': null,
+  'X-Stainless-Arch': null,
+  'X-Stainless-Lang': null,
+  'X-Stainless-OS': null,
+  'X-Stainless-Package-Version': null,
+  'X-Stainless-Retry-Count': null,
+  'X-Stainless-Runtime': null,
+  'X-Stainless-Runtime-Version': null,
+  'X-Stainless-Timeout': null
+}
 
 function isAzureEndpoint(baseUrl: string | undefined): boolean {
   if (!baseUrl) return false
@@ -68,32 +86,41 @@ export class OpenAiHandler implements ApiHandler {
     this.options = options
     // Azure API shape slightly differs from the core API shape: https://github.com/openai/openai-node?tab=readme-ov-file#microsoft-azure-openai
     // Use azureApiVersion to determine if this is an Azure endpoint, since the URL may not always contain 'azure.com'
-    let httpAgent: Agent | undefined = undefined
-    if (this.options.needProxy !== false) {
-      const proxyConfig = this.options.proxyConfig
-      httpAgent = createProxyAgent(proxyConfig)
-    }
     const timeoutMs = this.options.requestTimeoutMs || 20000
+    const clientOptions: Pick<ClientOptions, 'baseURL' | 'defaultHeaders' | 'fetch' | 'fetchOptions' | 'timeout'> = {
+      baseURL: normalizeBaseUrl(this.options.openAiBaseUrl),
+      defaultHeaders: {
+        ...OPENAI_SDK_FINGERPRINT_HEADERS,
+        ...this.options.openAiHeaders
+      },
+      // Electron's global fetch can fail with AggregateError/EACCES for
+      // external HTTPS requests. Use the Node undici implementation for all
+      // OpenAI-compatible providers, and attach the configured dispatcher
+      // only when a user proxy is enabled.
+      fetch: undiciFetch as unknown as OpenAiFetch,
+      ...(this.options.needProxy !== false && this.options.proxyConfig
+        ? {
+            fetchOptions: {
+              dispatcher: new UndiciProxyAgent(buildProxyUrl(this.options.proxyConfig))
+            }
+          }
+        : {}),
+      timeout: timeoutMs
+    }
 
     if (
       this.options.azureApiVersion ||
       (isAzureEndpoint(this.options.openAiBaseUrl) && !this.options.openAiModelId?.toLowerCase().includes('deepseek'))
     ) {
       this.client = new AzureOpenAI({
-        baseURL: normalizeBaseUrl(this.options.openAiBaseUrl),
-        apiKey: this.options.openAiApiKey,
-        apiVersion: this.options.azureApiVersion || azureOpenAiDefaultApiVersion,
-        defaultHeaders: this.options.openAiHeaders,
-        ...(httpAgent && { fetchOptions: { agent: httpAgent } as any }),
-        timeout: timeoutMs
+        ...clientOptions,
+        apiKey: this.options.openAiApiKey ?? undefined,
+        apiVersion: this.options.azureApiVersion || azureOpenAiDefaultApiVersion
       })
     } else {
       this.client = new OpenAI({
-        baseURL: normalizeBaseUrl(this.options.openAiBaseUrl),
-        apiKey: this.options.openAiApiKey,
-        defaultHeaders: this.options.openAiHeaders,
-        ...(httpAgent && { fetchOptions: { agent: httpAgent } as any }),
-        timeout: timeoutMs
+        ...clientOptions,
+        apiKey: this.options.openAiApiKey ?? undefined
       })
     }
   }
@@ -228,8 +255,8 @@ export class OpenAiHandler implements ApiHandler {
   async validateApiKey(): Promise<{ isValid: boolean; error?: string }> {
     try {
       // Validate proxy
-      if (this.options.needProxy) {
-        await checkProxyConnectivity(this.options.proxyConfig!)
+      if (this.options.needProxy && this.options.proxyConfig) {
+        await checkProxyConnectivity(this.options.proxyConfig)
       }
 
       const useResponsesApi = this.options.openAiModelInfo?.apiFormat === 'responses'
