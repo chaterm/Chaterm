@@ -20,11 +20,13 @@ const logger = createLogger('agent')
 
 type OpenAiFetch = NonNullable<ClientOptions['fetch']>
 
-// OpenAI-compatible relays may reject the official SDK fingerprint headers
-// (especially User-Agent) at their WAF layer. Keep authentication and custom
-// headers intact while omitting the SDK-specific defaults.
+// OpenAI-compatible relays may reject the SDK's x-stainless-* telemetry headers
+// at their WAF layer. Keep authentication and custom headers intact while
+// omitting these SDK-specific defaults.
+// User-Agent is deliberately not stripped: undici's fetch re-adds its own
+// `user-agent: undici` when the header is absent, which is more likely to be
+// flagged by a WAF than the SDK's own `OpenAI/JS <version>`.
 const OPENAI_SDK_FINGERPRINT_HEADERS: Record<string, null> = {
-  'User-Agent': null,
   'X-Stainless-Arch': null,
   'X-Stainless-Lang': null,
   'X-Stainless-OS': null,
