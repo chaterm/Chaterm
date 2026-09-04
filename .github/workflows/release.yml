@@ -89,7 +89,7 @@ jobs:
 
       - name: Install dependencies
         run: npm ci --prefer-offline
-    
+
       - name: Install Electron binary
         if: runner.os == 'Windows'
         shell: pwsh
