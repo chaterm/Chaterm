@@ -89,7 +89,12 @@ jobs:
 
       - name: Install dependencies
         run: npm ci --prefer-offline
-
+    
+      - name: Install Electron binary
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: node node_modules/electron/install.js
+        
       - name: Build release packages
         shell: bash
         run: ${{ matrix.build_commands }}
