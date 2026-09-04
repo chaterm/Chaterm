@@ -2,6 +2,26 @@
   "releaseNotesUrl": "https://github.com/chaterm/Chaterm/releases/tag/v",
   "versions": [
     {
+      "version": "0.12.3",
+      "date": "2026-09-04",
+      "highlights": {
+        "zh-CN": [
+          "知识库升级：支持父子分块、混合检索与结果重排，并优化搜索性能",
+          "数据库 AI 安全增强：完善复杂 SQL 只读识别，无法验证的写操作默认拒绝",
+          "企业版增强：新增 Agent 使用统计，并支持关闭客户端自动更新",
+          "工作区优化：支持移除最近连接，修复空资产树和搜索问题",
+          "AI 与依赖升级：修复 OpenAI 兼容 API 问题，升级多项依赖"
+        ],
+        "en-US": [
+          "Knowledge base upgraded: added parent-child chunking, hybrid retrieval, reranking, and performance improvements",
+          "Database AI security improved: enhanced complex SQL read-only detection and failed closed on unverifiable writes",
+          "Enterprise edition enhanced: added Agent usage statistics and an option to disable client auto-updates",
+          "Workspace improved: remove recent connections and fix empty asset tree and search issues",
+          "AI and dependencies upgraded: fixed OpenAI-compatible API issues and updated key dependencies"
+        ]
+      }
+    },
+    {
       "version": "0.12.2",
       "date": "2026-07-23",
       "highlights": {
@@ -34,7 +54,8 @@
           "Enhanced audit and login safety with more accurate recent connections, preserved execution history, and stricter SSO account rules"
         ]
       }
-    },    {
+    },
+    {
       "version": "0.12.0",
       "date": "2026-06-11",
       "highlights": {
@@ -542,16 +563,28 @@
       "version": "0.6.2",
       "date": "2025-11-13",
       "highlights": {
-        "zh-CN": ["加强AI模型的选择和测试中的调试过程", "在选项卡菜单中增加了内部分屏显示的选项"],
-        "en-US": ["Enhance AI model selection and debugging process in tests", "Added the option for inner split-screen display within the tab menu"]
+        "zh-CN": [
+          "加强AI模型的选择和测试中的调试过程",
+          "在选项卡菜单中增加了内部分屏显示的选项"
+        ],
+        "en-US": [
+          "Enhance AI model selection and debugging process in tests",
+          "Added the option for inner split-screen display within the tab menu"
+        ]
       }
     },
     {
       "version": "0.6.1",
       "date": "2025-06-08",
       "highlights": {
-        "zh-CN": ["支持jms令牌", "添加了SSH连接身份"],
-        "en-US": ["Support jms token", "Added SSH connection identity"]
+        "zh-CN": [
+          "支持jms令牌",
+          "添加了SSH连接身份"
+        ],
+        "en-US": [
+          "Support jms token",
+          "Added SSH connection identity"
+        ]
       }
     }
   ]
