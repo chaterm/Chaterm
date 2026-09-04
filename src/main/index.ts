@@ -39,6 +39,7 @@ import { registerDbAiHandlers } from './database/dbAiHandle'
 import { autoCompleteDatabaseService, ChatermDatabaseService, setCurrentUserId } from './storage/database'
 import { getGuestUserId } from './storage/db/connection'
 import { Controller } from './agent/core/controller'
+import { closeAllDispatchers } from './agent/api/providers/proxy/index'
 import { executeRemoteCommand } from './agent/integrations/remote-terminal/example'
 import {
   initializeStorageMain,
@@ -773,6 +774,12 @@ app.on('before-quit', async () => {
     } catch (error) {
       logger.error('Error during chat sync scheduler disposal', { error: error })
     }
+  }
+  try {
+    await closeAllDispatchers()
+    logger.info('Proxy dispatchers closed successfully.')
+  } catch (error) {
+    logger.error('Error during proxy dispatcher disposal', { message: (error as Error)?.message })
   }
 })
 

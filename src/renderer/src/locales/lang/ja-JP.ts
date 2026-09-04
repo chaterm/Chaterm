@@ -437,6 +437,7 @@ export default {
     addProxy: 'プロキシを追加',
     enableProxy: 'プロキシを有効にする',
     proxyType: 'プロトコル',
+    proxyTypeUnsupported: 'サポート対象外',
     proxyHost: 'ホスト名',
     noProxyAdd: 'まだプロキシが追加されていません',
     proxyName: 'プロキシ名',

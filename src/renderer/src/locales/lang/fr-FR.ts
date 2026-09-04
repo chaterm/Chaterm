@@ -442,6 +442,7 @@ export default {
     addProxy: 'Ajouter un proxy',
     enableProxy: 'Activer le proxy',
     proxyType: 'Protocole du proxy',
+    proxyTypeUnsupported: 'non pris en charge',
     proxyHost: "Nom de l'hôte",
     noProxyAdd: 'Aucun proxy ajouté pour le moment',
     proxyName: 'Nom du proxy',

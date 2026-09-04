@@ -431,6 +431,7 @@ export default {
     addProxy: '添加代理',
     enableProxy: '開啟代理',
     proxyType: '協議',
+    proxyTypeUnsupported: '不支援',
     proxyHost: '主機名',
     noProxyAdd: '暫無已配置代理',
     proxyName: '代理名稱',

@@ -6,7 +6,7 @@
 
 import { Anthropic } from '@anthropic-ai/sdk'
 import OpenAI, { AzureOpenAI, type ClientOptions } from 'openai'
-import { fetch as undiciFetch, ProxyAgent as UndiciProxyAgent } from 'undici'
+import { fetch as undiciFetch } from 'undici'
 import { withRetry } from '../retry'
 import { ApiHandlerOptions, azureOpenAiDefaultApiVersion, ModelInfo, openAiModelInfoSaneDefaults } from '@shared/api'
 import { ApiHandler } from '../index'
@@ -15,8 +15,7 @@ import { convertToResponsesInput } from '../transform/responses-format'
 import type { ApiStream } from '../transform/stream'
 import { convertToR1Format } from '../transform/r1-format'
 import type { ChatCompletionReasoningEffort } from 'openai/resources/chat/completions'
-import { buildProxyUrl } from './proxy/user-proxy'
-import { checkProxyConnectivity } from './proxy/index'
+import { checkProxyConnectivity, getSharedDispatcher } from './proxy/index'
 const logger = createLogger('agent')
 
 type OpenAiFetch = NonNullable<ClientOptions['fetch']>
@@ -87,24 +86,17 @@ export class OpenAiHandler implements ApiHandler {
     // Azure API shape slightly differs from the core API shape: https://github.com/openai/openai-node?tab=readme-ov-file#microsoft-azure-openai
     // Use azureApiVersion to determine if this is an Azure endpoint, since the URL may not always contain 'azure.com'
     const timeoutMs = this.options.requestTimeoutMs || 20000
+    const dispatcher = this.options.needProxy !== false ? getSharedDispatcher(this.options.proxyConfig) : undefined
     const clientOptions: Pick<ClientOptions, 'baseURL' | 'defaultHeaders' | 'fetch' | 'fetchOptions' | 'timeout'> = {
       baseURL: normalizeBaseUrl(this.options.openAiBaseUrl),
       defaultHeaders: {
         ...OPENAI_SDK_FINGERPRINT_HEADERS,
         ...this.options.openAiHeaders
       },
-      // Electron's global fetch can fail with AggregateError/EACCES for
-      // external HTTPS requests. Use the Node undici implementation for all
-      // OpenAI-compatible providers, and attach the configured dispatcher
-      // only when a user proxy is enabled.
+      // undici v7's fetch only accepts dispatchers created by the same undici
+      // copy, so ProxyAgent and fetch must come from this package together.
       fetch: undiciFetch as unknown as OpenAiFetch,
-      ...(this.options.needProxy !== false && this.options.proxyConfig
-        ? {
-            fetchOptions: {
-              dispatcher: new UndiciProxyAgent(buildProxyUrl(this.options.proxyConfig))
-            }
-          }
-        : {}),
+      ...(dispatcher ? { fetchOptions: { dispatcher } } : {}),
       timeout: timeoutMs
     }
 

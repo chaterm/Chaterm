@@ -434,6 +434,7 @@ export default {
     addProxy: '프록시 추가',
     enableProxy: '프록시 활성화',
     proxyType: '프록시 프로토콜',
+    proxyTypeUnsupported: '지원되지 않음',
     proxyHost: '호스트 이름',
     noProxyAdd: '아직 프록시가 추가되지 않았습니다',
     proxyName: '프록시 이름',

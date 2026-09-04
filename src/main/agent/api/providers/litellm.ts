@@ -5,14 +5,15 @@
 // Licensed under the Apache License, Version 2.0
 
 import { Anthropic } from '@anthropic-ai/sdk'
-import OpenAI from 'openai'
+import OpenAI, { type ClientOptions } from 'openai'
+import { fetch as undiciFetch } from 'undici'
+import type { Dispatcher } from 'undici'
 import { ApiHandlerOptions, liteLlmDefaultModelId, liteLlmModelInfoSaneDefaults } from '@shared/api'
 import { ApiHandler } from '..'
 import { ApiStream } from '../transform/stream'
 import { convertToOpenAiMessages } from '../transform/openai-format'
 import { convertToGlmMessages } from '../transform/glm-format'
-import { createProxyAgent, checkProxyConnectivity, resolveSystemProxy, createProxyAgentFromString } from './proxy/index'
-import type { Agent } from 'http'
+import { checkProxyConnectivity, resolveSystemProxy, getSharedDispatcher, getSharedDispatcherFromString } from './proxy/index'
 const logger = createLogger('agent')
 
 /**
@@ -46,27 +47,30 @@ export class LiteLlmHandler implements ApiHandler {
    * @returns LiteLlmHandler
    */
   static createSync(options: ApiHandlerOptions): LiteLlmHandler {
-    let httpAgent: Agent | undefined = undefined
-
     // Only apply user-configured proxy immediately
-    if (options.needProxy !== false && options.proxyConfig) {
-      httpAgent = createProxyAgent(options.proxyConfig)
-    }
+    const dispatcher = options.needProxy !== false ? getSharedDispatcher(options.proxyConfig) : undefined
     // System proxy will be detected lazily on first request
 
-    return new LiteLlmHandler(options, httpAgent)
+    return new LiteLlmHandler(options, dispatcher)
   }
 
-  private constructor(options: ApiHandlerOptions, httpAgent?: Agent) {
+  private constructor(options: ApiHandlerOptions, dispatcher?: Dispatcher) {
     this.options = options
 
+    this.client = this.createClient(dispatcher)
+  }
+
+  private createClient(dispatcher?: Dispatcher): OpenAI {
     // Set timeout, default is 20 seconds, since it will retry 3 times internally, the actual timeout is 60 seconds
     const timeoutMs = this.options.requestTimeoutMs || 20000
 
-    this.client = new OpenAI({
+    return new OpenAI({
       baseURL: this.options.liteLlmBaseUrl || 'http://localhost:4000',
       apiKey: this.options.liteLlmApiKey || 'noop',
-      ...(httpAgent && { fetchOptions: { agent: httpAgent } as any }),
+      // undici v7's fetch only accepts dispatchers created by the same undici
+      // copy, so ProxyAgent and fetch must come from this package together.
+      fetch: undiciFetch as unknown as NonNullable<ClientOptions['fetch']>,
+      ...(dispatcher ? { fetchOptions: { dispatcher } } : {}),
       timeout: timeoutMs // Set timeout (milliseconds)
     })
   }
@@ -106,25 +110,19 @@ export class LiteLlmHandler implements ApiHandler {
         logger.info('[LiteLLM] System proxy changed', { event: 'litellm.proxy.changed', hasProxy: !!proxyString })
         this.currentProxyString = proxyString ?? null
 
-        // Unified proxy agent creation logic
-        let httpAgent: Agent | undefined = undefined
+        // Unified dispatcher creation logic
+        let dispatcher: Dispatcher | undefined = undefined
         if (proxyString) {
-          httpAgent = createProxyAgentFromString(proxyString)
-          if (!httpAgent) {
-            logger.warn(`[LiteLLM] Failed to create proxy agent, falling back to direct connection`)
+          dispatcher = getSharedDispatcherFromString(proxyString)
+          if (!dispatcher) {
+            logger.warn(`[LiteLLM] Failed to create proxy dispatcher, falling back to direct connection`)
           }
         }
 
         // Single client creation point
-        const timeoutMs = this.options.requestTimeoutMs || 20000
-        this.client = new OpenAI({
-          baseURL: this.options.liteLlmBaseUrl || 'http://localhost:4000',
-          apiKey: this.options.liteLlmApiKey || 'noop',
-          ...(httpAgent && { fetchOptions: { agent: httpAgent } as any }),
-          timeout: timeoutMs
-        })
+        this.client = this.createClient(dispatcher)
 
-        logger.info(`[LiteLLM] Client recreated with ${httpAgent ? 'system proxy' : 'direct connection'}`)
+        logger.info(`[LiteLLM] Client recreated with ${dispatcher ? 'system proxy' : 'direct connection'}`)
       }
       // If proxy hasn't changed, do nothing (performance optimization)
     } catch (error) {

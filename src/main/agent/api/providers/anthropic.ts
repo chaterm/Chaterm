@@ -1,13 +1,13 @@
 //  Copyright (c) 2025-present, chaterm.ai  All rights reserved.
 //  This source code is licensed under the GPL-3.0
 
-import { Anthropic } from '@anthropic-ai/sdk'
+import { Anthropic, type ClientOptions } from '@anthropic-ai/sdk'
 import { withRetry } from '../retry'
 import type { ApiHandler } from '../'
 import type { ApiStream } from '../transform/stream'
 import { ApiHandlerOptions, ModelInfo, anthropicModelInfoSaneDefaults } from '@shared/api'
-import { checkProxyConnectivity, createProxyAgent } from './proxy/index'
-import type { Agent } from 'http'
+import { fetch as undiciFetch } from 'undici'
+import { checkProxyConnectivity, getSharedDispatcher } from './proxy/index'
 
 const logger = createLogger('agent')
 
@@ -20,17 +20,17 @@ export class AnthropicHandler implements ApiHandler {
   constructor(options: ApiHandlerOptions) {
     this.options = options
 
-    let httpAgent: Agent | undefined = undefined
-    if (this.options.needProxy !== false) {
-      httpAgent = createProxyAgent(this.options.proxyConfig)
-    }
+    const dispatcher = this.options.needProxy !== false ? getSharedDispatcher(this.options.proxyConfig) : undefined
 
     const timeoutMs = this.options.requestTimeoutMs || 20000
 
     this.client = new Anthropic({
       apiKey: this.options.anthropicApiKey,
       baseURL: this.options.anthropicBaseUrl || undefined,
-      ...(httpAgent && { fetchOptions: { agent: httpAgent } as any }),
+      // undici v7's fetch only accepts dispatchers created by the same undici
+      // copy, so ProxyAgent and fetch must come from this package together.
+      fetch: undiciFetch as unknown as NonNullable<ClientOptions['fetch']>,
+      ...(dispatcher ? { fetchOptions: { dispatcher } } : {}),
       timeout: timeoutMs
     })
   }

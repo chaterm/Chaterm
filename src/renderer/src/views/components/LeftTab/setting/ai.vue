@@ -214,7 +214,12 @@
               >
                 <a-select-option value="HTTP">HTTP</a-select-option>
                 <a-select-option value="HTTPS">HTTPS</a-select-option>
-                <a-select-option value="SOCKS4">SOCKS4</a-select-option>
+                <a-select-option
+                  value="SOCKS4"
+                  disabled
+                >
+                  SOCKS4 ({{ $t('user.proxyTypeUnsupported') }})
+                </a-select-option>
                 <a-select-option value="SOCKS5">SOCKS5</a-select-option>
               </a-select>
             </a-form-item>

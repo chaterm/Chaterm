@@ -441,6 +441,7 @@ export default {
     addProxy: 'Proxy hinzufügen',
     enableProxy: 'Proxy aktivieren',
     proxyType: 'Proxy-Protokoll',
+    proxyTypeUnsupported: 'nicht unterstützt',
     proxyHost: 'Host-Name',
     noProxyAdd: 'Noch kein Proxy hinzugefügt',
     proxyName: 'Proxy-Name',
