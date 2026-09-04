@@ -7,7 +7,7 @@ import type { ApiHandler } from '../'
 import type { ApiStream } from '../transform/stream'
 import { ApiHandlerOptions, ModelInfo, anthropicModelInfoSaneDefaults } from '@shared/api'
 import { fetch as undiciFetch } from 'undici'
-import { checkProxyConnectivity, getSharedDispatcher } from './proxy/index'
+import { checkProxyConnectivity, getSharedDispatcher, shouldUseProxy } from './proxy/index'
 
 const logger = createLogger('agent')
 
@@ -20,7 +20,7 @@ export class AnthropicHandler implements ApiHandler {
   constructor(options: ApiHandlerOptions) {
     this.options = options
 
-    const dispatcher = this.options.needProxy !== false ? getSharedDispatcher(this.options.proxyConfig) : undefined
+    const dispatcher = shouldUseProxy(this.options) ? getSharedDispatcher(this.options.proxyConfig) : undefined
 
     const timeoutMs = this.options.requestTimeoutMs || 20000
 
@@ -180,8 +180,8 @@ export class AnthropicHandler implements ApiHandler {
       }
 
       // Validate proxy connectivity if enabled
-      if (this.options.needProxy) {
-        await checkProxyConnectivity(this.options.proxyConfig!)
+      if (shouldUseProxy(this.options)) {
+        await checkProxyConnectivity(this.options.proxyConfig)
       }
 
       const testSystemPrompt = "This is a connection test. Respond with only the word 'OK'."
@@ -201,10 +201,15 @@ export class AnthropicHandler implements ApiHandler {
 
       return { isValid: true }
     } catch (error) {
-      logger.error('Anthropic API validation failed', { error })
+      const errorMessage = error instanceof Error ? error.message : String(error)
+      logger.error('Anthropic API validation failed', {
+        event: 'anthropic.validate.failed',
+        message: errorMessage,
+        status: (error as { status?: number })?.status
+      })
       return {
         isValid: false,
-        error: `Validation failed: ${error instanceof Error ? error.message : String(error)}`
+        error: `Validation failed: ${errorMessage}`
       }
     }
   }

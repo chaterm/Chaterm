@@ -15,7 +15,7 @@ import { convertToResponsesInput } from '../transform/responses-format'
 import type { ApiStream } from '../transform/stream'
 import { convertToR1Format } from '../transform/r1-format'
 import type { ChatCompletionReasoningEffort } from 'openai/resources/chat/completions'
-import { checkProxyConnectivity, getSharedDispatcher } from './proxy/index'
+import { checkProxyConnectivity, getSharedDispatcher, shouldUseProxy } from './proxy/index'
 const logger = createLogger('agent')
 
 type OpenAiFetch = NonNullable<ClientOptions['fetch']>
@@ -88,7 +88,7 @@ export class OpenAiHandler implements ApiHandler {
     // Azure API shape slightly differs from the core API shape: https://github.com/openai/openai-node?tab=readme-ov-file#microsoft-azure-openai
     // Use azureApiVersion to determine if this is an Azure endpoint, since the URL may not always contain 'azure.com'
     const timeoutMs = this.options.requestTimeoutMs || 20000
-    const dispatcher = this.options.needProxy !== false ? getSharedDispatcher(this.options.proxyConfig) : undefined
+    const dispatcher = shouldUseProxy(this.options) ? getSharedDispatcher(this.options.proxyConfig) : undefined
     const clientOptions: Pick<ClientOptions, 'baseURL' | 'defaultHeaders' | 'fetch' | 'fetchOptions' | 'timeout'> = {
       baseURL: normalizeBaseUrl(this.options.openAiBaseUrl),
       defaultHeaders: {
@@ -249,7 +249,7 @@ export class OpenAiHandler implements ApiHandler {
   async validateApiKey(): Promise<{ isValid: boolean; error?: string }> {
     try {
       // Validate proxy
-      if (this.options.needProxy && this.options.proxyConfig) {
+      if (shouldUseProxy(this.options)) {
         await checkProxyConnectivity(this.options.proxyConfig)
       }
 
@@ -279,7 +279,11 @@ export class OpenAiHandler implements ApiHandler {
         })
         return { isValid: true }
       }
-      logger.error('OpenAI compatible configuration validation failed', { error: error })
+      logger.error('OpenAI compatible configuration validation failed', {
+        event: 'openai.validate.failed',
+        message: errorMessage,
+        status: (error as { status?: number })?.status
+      })
       return {
         isValid: false,
         error: `Validation failed:  ${errorMessage}`

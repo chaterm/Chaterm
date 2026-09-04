@@ -49,6 +49,17 @@ export function getSharedDispatcher(config?: ProxyConfig): Dispatcher | undefine
 }
 
 /**
+ * Single source of truth for "should this request go through the user proxy".
+ * Handlers used to decide this twice with different results: the constructor
+ * treated an undefined needProxy as opt-in while validateApiKey treated it as
+ * opt-out, so requests could be proxied without their proxy ever being
+ * connectivity-checked.
+ */
+export function shouldUseProxy(options: { needProxy?: boolean; proxyConfig?: ProxyConfig }): boolean {
+  return options.needProxy !== false && !!options.proxyConfig
+}
+
+/**
  * Get a dispatcher for an Electron system proxy string
  * (e.g. "PROXY 127.0.0.1:7890", "SOCKS5 127.0.0.1:1080").
  * Returns undefined when the string cannot be used, so callers fall back to a

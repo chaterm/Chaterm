@@ -12,7 +12,7 @@ export { resolveSystemProxy, createProxyAgentFromString } from './system-proxy'
 export { createProxyAgent } from './user-proxy'
 
 // undici dispatchers for AI SDK requests (undici fetch ignores `agent`)
-export { getSharedDispatcher, getSharedDispatcherFromString, closeAllDispatchers } from './undici-dispatcher'
+export { getSharedDispatcher, getSharedDispatcherFromString, closeAllDispatchers, shouldUseProxy } from './undici-dispatcher'
 
 // Proxy connectivity validation
 export { checkProxyConnectivity } from './connectivity'

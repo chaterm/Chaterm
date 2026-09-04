@@ -13,7 +13,7 @@ import { ApiHandler } from '..'
 import { ApiStream } from '../transform/stream'
 import { convertToOpenAiMessages } from '../transform/openai-format'
 import { convertToGlmMessages } from '../transform/glm-format'
-import { checkProxyConnectivity, resolveSystemProxy, getSharedDispatcher, getSharedDispatcherFromString } from './proxy/index'
+import { checkProxyConnectivity, resolveSystemProxy, getSharedDispatcher, getSharedDispatcherFromString, shouldUseProxy } from './proxy/index'
 const logger = createLogger('agent')
 
 /**
@@ -48,7 +48,7 @@ export class LiteLlmHandler implements ApiHandler {
    */
   static createSync(options: ApiHandlerOptions): LiteLlmHandler {
     // Only apply user-configured proxy immediately
-    const dispatcher = options.needProxy !== false ? getSharedDispatcher(options.proxyConfig) : undefined
+    const dispatcher = shouldUseProxy(options) ? getSharedDispatcher(options.proxyConfig) : undefined
     // System proxy will be detected lazily on first request
 
     return new LiteLlmHandler(options, dispatcher)
@@ -291,7 +291,7 @@ export class LiteLlmHandler implements ApiHandler {
   async validateApiKey(): Promise<{ isValid: boolean; error?: string }> {
     try {
       // Validate proxy if configured
-      if (this.options.needProxy && this.options.proxyConfig) {
+      if (shouldUseProxy(this.options)) {
         await checkProxyConnectivity(this.options.proxyConfig)
       }
 

@@ -13,7 +13,7 @@ import { calculateApiCostOpenAI } from '../../utils/cost'
 import { convertToOpenAiMessages } from '../transform/openai-format'
 import { ApiStream } from '../transform/stream'
 import { convertToR1Format } from '../transform/r1-format'
-import { checkProxyConnectivity, getSharedDispatcher } from './proxy/index'
+import { checkProxyConnectivity, getSharedDispatcher, shouldUseProxy } from './proxy/index'
 const logger = createLogger('agent')
 
 export class DeepSeekHandler implements ApiHandler {
@@ -24,12 +24,12 @@ export class DeepSeekHandler implements ApiHandler {
     this.options = options
 
     // Determine if a proxy is needed
-    const dispatcher = this.options.needProxy !== false ? getSharedDispatcher(this.options.proxyConfig) : undefined
+    const dispatcher = shouldUseProxy(this.options) ? getSharedDispatcher(this.options.proxyConfig) : undefined
     logger.info('Using DeepSeekHandler', {
       event: 'deepseek.init',
       baseURL: 'https://api.deepseek.com/v1',
       hasApiKey: !!this.options.deepSeekApiKey,
-      hasProxy: this.options.needProxy !== false
+      hasProxy: !!dispatcher
     })
     this.client = new OpenAI({
       baseURL: 'https://api.deepseek.com/v1',
@@ -48,8 +48,8 @@ export class DeepSeekHandler implements ApiHandler {
       const testMessage = [{ role: 'user', content: 'Connection test' }] as Anthropic.Messages.MessageParam[]
 
       // Validate proxy
-      if (this.options.needProxy) {
-        await checkProxyConnectivity(this.options.proxyConfig!)
+      if (shouldUseProxy(this.options)) {
+        await checkProxyConnectivity(this.options.proxyConfig)
       }
 
       const stream = this.createMessage(testSystemPrompt, testMessage)
@@ -66,11 +66,16 @@ export class DeepSeekHandler implements ApiHandler {
       }
       return { isValid: true }
     } catch (error) {
-      logger.error('DeepSeek configuration validation failed', { error: error })
+      const errorMessage = error instanceof Error ? error.message : String(error)
+      logger.error('DeepSeek configuration validation failed', {
+        event: 'deepseek.validate.failed',
+        message: errorMessage,
+        status: (error as { status?: number })?.status
+      })
 
       return {
         isValid: false,
-        error: `Validation failed: ${error instanceof Error ? error.message : String(error)}`
+        error: `Validation failed: ${errorMessage}`
       }
     }
   }

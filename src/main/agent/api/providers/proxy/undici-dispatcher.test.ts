@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it } from 'vitest'
 import type { ProxyConfig } from '@shared/Proxy'
-import { closeAllDispatchers, getSharedDispatcher, getSharedDispatcherFromString } from './undici-dispatcher'
+import { closeAllDispatchers, getSharedDispatcher, getSharedDispatcherFromString, shouldUseProxy } from './undici-dispatcher'
 
 const config = (type: string, port = 8118): ProxyConfig => ({ type, host: '127.0.0.1', port })
 
@@ -37,6 +37,26 @@ describe('getSharedDispatcher', () => {
     await closeAllDispatchers()
 
     expect(getSharedDispatcher(config('HTTP'))).not.toBe(first)
+  })
+})
+
+describe('shouldUseProxy', () => {
+  const proxyConfig = config('HTTP')
+
+  it('opts in when a proxy is configured and not explicitly disabled', () => {
+    expect(shouldUseProxy({ proxyConfig })).toBe(true)
+    expect(shouldUseProxy({ needProxy: true, proxyConfig })).toBe(true)
+  })
+
+  it('opts out when explicitly disabled', () => {
+    expect(shouldUseProxy({ needProxy: false, proxyConfig })).toBe(false)
+  })
+
+  // The old split logic would route requests through a proxy that was never
+  // connectivity-checked, or check a proxy that no request would use.
+  it('opts out when no proxy is configured, whatever needProxy says', () => {
+    expect(shouldUseProxy({})).toBe(false)
+    expect(shouldUseProxy({ needProxy: true })).toBe(false)
   })
 })
 
