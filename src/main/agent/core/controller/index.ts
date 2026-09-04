@@ -565,20 +565,32 @@ export class Controller {
   async validateApiKey(configuration: ApiConfiguration): Promise<{ isValid: boolean; error?: string }> {
     // For LiteLLM, use createSync for synchronous initialization
     let api: ApiHandler
-    if (configuration.apiProvider === 'litellm' || configuration.apiProvider === 'default') {
-      const { LiteLlmHandler } = await import('@api/providers/litellm')
-      const options =
-        configuration.apiProvider === 'default'
-          ? {
-              ...configuration,
-              liteLlmModelId: configuration.defaultModelId,
-              liteLlmBaseUrl: configuration.defaultBaseUrl,
-              liteLlmApiKey: configuration.defaultApiKey
-            }
-          : configuration
-      api = LiteLlmHandler.createSync(options)
-    } else {
-      api = buildApiHandler(configuration)
+    try {
+      if (configuration.apiProvider === 'litellm' || configuration.apiProvider === 'default') {
+        const { LiteLlmHandler } = await import('@api/providers/litellm')
+        const options =
+          configuration.apiProvider === 'default'
+            ? {
+                ...configuration,
+                liteLlmModelId: configuration.defaultModelId,
+                liteLlmBaseUrl: configuration.defaultBaseUrl,
+                liteLlmApiKey: configuration.defaultApiKey
+              }
+            : configuration
+        api = LiteLlmHandler.createSync(options)
+      } else {
+        api = buildApiHandler(configuration)
+      }
+    } catch (error) {
+      // Unusable configuration (e.g. an unsupported proxy type) fails while the
+      // handler is being constructed, before any request is sent.
+      const message = error instanceof Error ? error.message : String(error)
+      logger.error('Failed to build API handler for validation', {
+        event: 'agent.validate.build_failed',
+        provider: configuration.apiProvider,
+        message
+      })
+      return { isValid: false, error: message }
     }
     return await api.validateApiKey()
   }

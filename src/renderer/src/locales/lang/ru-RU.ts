@@ -441,6 +441,7 @@ export default {
     addProxy: 'Добавить прокси',
     enableProxy: 'Включить прокси',
     proxyType: 'Протокол прокси',
+    proxyTypeUnsupported: 'не поддерживается',
     proxyHost: 'Имя хоста',
     noProxyAdd: 'Прокси еще не добавлен',
     proxyName: 'Имя прокси',

@@ -437,6 +437,7 @@ export default {
     addProxy: 'إضافة الوكيل',
     enableProxy: 'تمكين الوكيل',
     proxyType: 'بروتوكول الوكيل',
+    proxyTypeUnsupported: 'غير مدعوم',
     proxyHost: 'اسم المضيف',
     noProxyAdd: 'لا يوجد وكيل مضاف بعد',
     proxyName: 'اسم الوكيل',

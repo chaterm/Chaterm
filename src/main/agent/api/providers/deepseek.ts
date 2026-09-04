@@ -5,15 +5,15 @@
 // Licensed under the Apache License, Version 2.0
 
 import { Anthropic } from '@anthropic-ai/sdk'
-import OpenAI from 'openai'
+import OpenAI, { type ClientOptions } from 'openai'
+import { fetch as undiciFetch } from 'undici'
 import { ApiHandler } from '../'
 import { ApiHandlerOptions, DeepSeekModelId, ModelInfo, deepSeekModels } from '@shared/api'
 import { calculateApiCostOpenAI } from '../../utils/cost'
 import { convertToOpenAiMessages } from '../transform/openai-format'
 import { ApiStream } from '../transform/stream'
 import { convertToR1Format } from '../transform/r1-format'
-import { Agent } from 'http'
-import { checkProxyConnectivity, createProxyAgent } from './proxy/index'
+import { checkProxyConnectivity, getSharedDispatcher, shouldUseProxy } from './proxy/index'
 const logger = createLogger('agent')
 
 export class DeepSeekHandler implements ApiHandler {
@@ -24,21 +24,20 @@ export class DeepSeekHandler implements ApiHandler {
     this.options = options
 
     // Determine if a proxy is needed
-    let httpAgent: Agent | undefined = undefined
-    if (this.options.needProxy !== false) {
-      const proxyConfig = this.options.proxyConfig
-      httpAgent = createProxyAgent(proxyConfig)
-    }
+    const dispatcher = shouldUseProxy(this.options) ? getSharedDispatcher(this.options.proxyConfig) : undefined
     logger.info('Using DeepSeekHandler', {
       event: 'deepseek.init',
       baseURL: 'https://api.deepseek.com/v1',
       hasApiKey: !!this.options.deepSeekApiKey,
-      hasProxy: this.options.needProxy !== false
+      hasProxy: !!dispatcher
     })
     this.client = new OpenAI({
       baseURL: 'https://api.deepseek.com/v1',
       apiKey: this.options.deepSeekApiKey,
-      ...(httpAgent && { fetchOptions: { agent: httpAgent } as any })
+      // undici v7's fetch only accepts dispatchers created by the same undici
+      // copy, so ProxyAgent and fetch must come from this package together.
+      fetch: undiciFetch as unknown as NonNullable<ClientOptions['fetch']>,
+      ...(dispatcher ? { fetchOptions: { dispatcher } } : {})
     })
   }
 
@@ -49,8 +48,8 @@ export class DeepSeekHandler implements ApiHandler {
       const testMessage = [{ role: 'user', content: 'Connection test' }] as Anthropic.Messages.MessageParam[]
 
       // Validate proxy
-      if (this.options.needProxy) {
-        await checkProxyConnectivity(this.options.proxyConfig!)
+      if (shouldUseProxy(this.options)) {
+        await checkProxyConnectivity(this.options.proxyConfig)
       }
 
       const stream = this.createMessage(testSystemPrompt, testMessage)
@@ -67,11 +66,16 @@ export class DeepSeekHandler implements ApiHandler {
       }
       return { isValid: true }
     } catch (error) {
-      logger.error('DeepSeek configuration validation failed', { error: error })
+      const errorMessage = error instanceof Error ? error.message : String(error)
+      logger.error('DeepSeek configuration validation failed', {
+        event: 'deepseek.validate.failed',
+        message: errorMessage,
+        status: (error as { status?: number })?.status
+      })
 
       return {
         isValid: false,
-        error: `Validation failed: ${error instanceof Error ? error.message : String(error)}`
+        error: `Validation failed: ${errorMessage}`
       }
     }
   }

@@ -14,7 +14,7 @@ import { ApiHandlerOptions, BedrockModelId, bedrockModels, ModelInfo } from '../
 import { calculateApiCostOpenAI } from '../../utils/cost'
 import { fromNodeProviderChain } from '@aws-sdk/credential-providers'
 import { NodeHttpHandler } from '@aws-sdk/node-http-handler'
-import { checkProxyConnectivity, createProxyAgent } from './proxy/index'
+import { checkProxyConnectivity, createProxyAgent, shouldUseProxy } from './proxy/index'
 import {
   BedrockRuntimeClient,
   BedrockRuntimeClientConfig,
@@ -252,7 +252,7 @@ export class AwsBedrockHandler implements ApiHandler {
       })
     }
 
-    if (this.options.needProxy !== false) {
+    if (shouldUseProxy(this.options)) {
       const proxyConfig = this.options.proxyConfig
 
       try {
@@ -745,8 +745,8 @@ ${combinedContent}
       const testMessages: Anthropic.Messages.MessageParam[] = [{ role: 'user', content: 'Connection test' }]
 
       // Validate proxy
-      if (this.options.needProxy) {
-        await checkProxyConnectivity(this.options.proxyConfig!)
+      if (shouldUseProxy(this.options)) {
+        await checkProxyConnectivity(this.options.proxyConfig)
       }
 
       const stream = this.createMessage(testSystemPrompt, testMessages)
@@ -766,10 +766,15 @@ ${combinedContent}
 
       return { isValid: true }
     } catch (error) {
-      logger.error('AWS Bedrock configuration validation failed', { error: error })
+      const errorMessage = error instanceof Error ? error.message : String(error)
+      logger.error('AWS Bedrock configuration validation failed', {
+        event: 'bedrock.validate.failed',
+        message: errorMessage,
+        status: (error as { status?: number })?.status
+      })
       return {
         isValid: false,
-        error: `Validation failed: ${error instanceof Error ? error.message : String(error)}`
+        error: `Validation failed: ${errorMessage}`
       }
     }
   }

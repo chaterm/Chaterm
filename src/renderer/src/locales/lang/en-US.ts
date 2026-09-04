@@ -443,6 +443,7 @@ export default {
     addProxy: 'Add Proxy',
     enableProxy: 'Enable Proxy',
     proxyType: 'Proxy Protocol',
+    proxyTypeUnsupported: 'not supported',
     proxyHost: 'Host Name',
     noProxyAdd: 'No proxy added yet',
     proxyName: 'Proxy Name',

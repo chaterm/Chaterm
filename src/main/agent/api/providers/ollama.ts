@@ -116,10 +116,15 @@ export class OllamaHandler implements ApiHandler {
 
       return { isValid: true }
     } catch (error) {
-      logger.error('Ollama configuration validation failed', { error: error })
+      const errorMessage = error instanceof Error ? error.message : String(error)
+      logger.error('Ollama configuration validation failed', {
+        event: 'ollama.validate.failed',
+        message: errorMessage,
+        status: (error as { status?: number })?.status
+      })
       return {
         isValid: false,
-        error: `Validation failed: ${error instanceof Error ? error.message : String(error)}`
+        error: `Validation failed: ${errorMessage}`
       }
     }
   }
