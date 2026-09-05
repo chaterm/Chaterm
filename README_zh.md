@@ -117,6 +117,10 @@ Chaterm 不仅仅是一个更智能的终端，它是一个基础设施代理。
 
   支持连接 MySQL、PostgreSQL、SQLite 和 Oracle，完成 schema 浏览、数据查询、DDL 查看、表格行编辑以及数据库上下文 AI 辅助。
 
+- ⚙️ **模型参数配置**
+
+  可在“设置 → 模型”中为每个模型配置上下文窗口和最大输出 tokens，配置会同时用于上下文管理和 API 请求。
+
 ![Preview image](resources/features.webp)
 
 ## 开发指南

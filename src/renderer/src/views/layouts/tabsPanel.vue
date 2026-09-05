@@ -99,7 +99,7 @@
   </div>
 </template>
 <script setup lang="ts">
-import { computed, ref, ComponentPublicInstance, onMounted, watch, nextTick } from 'vue'
+import { computed, ref, ComponentPublicInstance, onBeforeUnmount, onMounted, watch, nextTick } from 'vue'
 import { userConfigStore } from '@/store/userConfigStore'
 import 'splitpanes/dist/splitpanes.css'
 import UserInfo from '@views/components/LeftTab/config/userInfo.vue'
@@ -208,15 +208,17 @@ const setK8sConnectRef = (el: Element | ComponentPublicInstance | null, tabId: s
 const resizeTerm = (termid: string = '') => {
   if (termid) {
     setTimeout(() => {
-      if (termRefMap.value[termid]) {
-        termRefMap.value[termid].handleResize()
-      }
+      const instance = sshConnectRefMap.value[termid] || k8sConnectRefMap.value[termid] || termRefMap.value[termid]
+      instance?.handleResize?.()
     })
   } else {
-    const keys = Object.keys(termRefMap.value)
-    if (keys.length == 0) return
-    for (let i = 0; i < keys.length; i++) {
-      termRefMap.value[keys[i]].handleResize()
+    const instances = new Set<any>([
+      ...Object.values(sshConnectRefMap.value),
+      ...Object.values(k8sConnectRefMap.value),
+      ...Object.values(termRefMap.value)
+    ])
+    for (const instance of instances) {
+      instance?.handleResize?.()
     }
   }
 }
@@ -293,6 +295,8 @@ const hideContextMenu = () => {
   contextMenu.value.visible = false
 }
 
+let dimensionsDisposable: { dispose: () => void } | null = null
+
 watch(
   () => [isActive.value, localTab.value?.id],
   ([newIsActive, tabId]) => {
@@ -317,6 +321,21 @@ onMounted(() => {
   props.params?.api?.onDidActiveChange?.((event) => {
     isActive.value = event.isActive
   })
+
+  // Dockview panel dimensions can change after the outer split pane has
+  // finished its own layout pass. Ask the embedded terminal to fit against
+  // the final panel size so its xterm columns match the remote PTY.
+  const disposable = props.params?.api?.onDidDimensionsChange?.(() => {
+    nextTick(() => resizeTerm(localTab.value?.id))
+  })
+  if (disposable && typeof disposable.dispose === 'function') {
+    dimensionsDisposable = disposable
+  }
+})
+
+onBeforeUnmount(() => {
+  dimensionsDisposable?.dispose()
+  dimensionsDisposable = null
 })
 
 defineExpose({

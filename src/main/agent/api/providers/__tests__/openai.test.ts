@@ -208,6 +208,43 @@ describe('OpenAI compatible provider', () => {
     ])
   })
 
+  it('exposes configured context and output limits for custom models', () => {
+    const handler = buildApiHandler({
+      apiProvider: 'openai',
+      openAiBaseUrl: 'http://127.0.0.1:1',
+      openAiApiKey: 'openai-provider-test-key',
+      openAiModelId: 'claude-opus-5',
+      openAiModelInfo: {
+        supportsPromptCache: false,
+        contextWindow: 1_000_000,
+        maxTokens: 32_768,
+        apiFormat: 'chat-completions'
+      }
+    })
+
+    expect(handler.getModel().info).toMatchObject({
+      contextWindow: 1_000_000,
+      maxTokens: 32_768
+    })
+  })
+
+  it('uses configured limits for a LiteLLM-backed default model', () => {
+    const handler = buildApiHandler({
+      apiProvider: 'default',
+      defaultBaseUrl: 'http://127.0.0.1:1',
+      defaultApiKey: 'default-provider-test-key',
+      defaultModelId: 'claude-opus-5',
+      defaultModelInfoMap: {
+        'claude-opus-5': { contextWindow: 1_000_000, maxTokens: 32_768 }
+      }
+    })
+
+    expect(handler.getModel().info).toMatchObject({
+      contextWindow: 1_000_000,
+      maxTokens: 32_768
+    })
+  })
+
   it('uses the Azure client shape when an API version is configured', async () => {
     const { baseUrl, requests } = await startRelay()
 
