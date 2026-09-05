@@ -32,20 +32,24 @@ export interface ApiHandlerOptions {
   defaultApiKey?: string
   defaultModelInfoMap?: Record<string, { contextWindow?: number; maxTokens?: number }>
   openAiHeaders?: Record<string, string> // Custom headers for OpenAI requests
-  liteLlmModelInfo?: LiteLLMModelInfo
+  liteLlmModelInfo?: Partial<LiteLLMModelInfo>
+  bedrockModelInfo?: Partial<ModelInfo>
   deepSeekApiKey?: string
+  deepSeekModelInfo?: Partial<ModelInfo>
   anthropicApiKey?: string
   anthropicBaseUrl?: string
   anthropicModelId?: string
+  anthropicModelInfo?: Partial<ModelInfo>
   needProxy?: boolean
   proxyConfig?: ProxyConfig
   openAiBaseUrl?: string
   openAiApiKey?: string
   openAiModelId?: string
-  openAiModelInfo?: OpenAiCompatibleModelInfo
+  openAiModelInfo?: Partial<OpenAiCompatibleModelInfo>
   ollamaBaseUrl?: string
   ollamaModelId?: string
   ollamaApiOptionsCtxNum?: string
+  ollamaModelInfo?: Partial<OpenAiCompatibleModelInfo>
   azureApiVersion?: string
   o3MiniReasoningEffort?: string
 }

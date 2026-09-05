@@ -45,6 +45,17 @@ export const truncateText = (text: string, maxLength = 15): string => {
   return text.length > maxLength ? `${text.substring(0, maxLength)}...` : text
 }
 
+/** Format token counts using compact K/M units for context usage displays. */
+export const formatTokenCount = (tokens: number): string => {
+  if (tokens >= 1_000_000) {
+    return `${(tokens / 1_000_000).toFixed(1).replace(/\.0$/, '')}M`
+  }
+  if (tokens >= 1_000) {
+    return `${(tokens / 1_000).toFixed(1).replace(/\.0$/, '')}K`
+  }
+  return `${tokens}`
+}
+
 export const getChipLabel = (part: Extract<ContentPart, { type: 'chip' }>): string => {
   if (part.chipType === 'doc') {
     return part.ref.name || part.ref.absPath

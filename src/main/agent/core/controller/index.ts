@@ -33,6 +33,7 @@ import {
   buildApiConfigurationForModel,
   buildApiConfigurationForProviderModel,
   getAllExtensionState,
+  getModelOptions,
   updateGlobalState,
   getUserConfig
 } from '../storage/state'
@@ -126,8 +127,9 @@ export class Controller {
   /**
    * Build ApiConfiguration from task metadata model_usage entry (model_id + model_provider_id).
    */
-  private buildApiConfigurationFromMetadata(base: ApiConfiguration, modelId: string, modelProviderId: string): ApiConfiguration {
-    return buildApiConfigurationForProviderModel(base, modelProviderId, modelId)
+  private async buildApiConfigurationFromMetadata(base: ApiConfiguration, modelId: string, modelProviderId: string): Promise<ApiConfiguration> {
+    const modelOption = (await getModelOptions()).find((model) => model.name === modelId)
+    return buildApiConfigurationForProviderModel(base, modelProviderId, modelId, modelOption)
   }
 
   async initTask(
@@ -160,7 +162,7 @@ export class Controller {
       const metadata = await getTaskMetadata(resolvedTaskId)
       const lastUsage = metadata?.model_usage?.length ? metadata.model_usage[metadata.model_usage.length - 1] : null
       if (lastUsage?.model_id && lastUsage?.model_provider_id) {
-        resolvedApiConfiguration = this.buildApiConfigurationFromMetadata(apiConfiguration, lastUsage.model_id, lastUsage.model_provider_id)
+        resolvedApiConfiguration = await this.buildApiConfigurationFromMetadata(apiConfiguration, lastUsage.model_id, lastUsage.model_provider_id)
       } else {
         resolvedApiConfiguration = apiConfiguration
       }

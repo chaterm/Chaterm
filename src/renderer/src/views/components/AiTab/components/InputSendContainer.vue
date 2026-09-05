@@ -314,7 +314,7 @@ import { useUserInteractions } from '../composables/useUserInteractions'
 import { parseContextDragPayload, useEditableContent } from '../composables/useEditableContent'
 import { AiTypeOptions } from '../composables/useEventBusListeners'
 import { AI_TAB_DEFAULT_WORKSPACE, type AiTabWorkspace } from '../workspace'
-import { getImageMediaType } from '../utils'
+import { formatTokenCount, getImageMediaType } from '../utils'
 import eventBus from '@/utils/eventBus'
 import type { ChatermApiReqInfo, ChatermMessage as StateChatermMessage } from '@shared/ExtensionMessage'
 import type { ContentPart, ContextDocRef, ContextPastChatRef, ContextCommandRef, ContextSkillRef } from '@shared/WebviewMessage'
@@ -455,11 +455,7 @@ const contextUsageTrackColor = computed(() => {
 
 const contextUsageTooltip = computed(() => {
   const { used, contextWindow, percent } = contextUsage.value
-  const formatK = (n: number) => {
-    if (n >= 1000) return `${(n / 1000).toFixed(1)}K`
-    return `${n}`
-  }
-  return `${percent}% - ${formatK(used)} / ${formatK(contextWindow)} context used`
+  return `${percent}% - ${formatTokenCount(used)} / ${formatTokenCount(contextWindow)} context used`
 })
 
 // Local hosts state for edit mode

@@ -197,7 +197,7 @@ export class AwsBedrockHandler implements ApiHandler {
     }
 
     const id = modelId as BedrockModelId
-    return { id, info: bedrockModels[id] }
+    return { id, info: { ...bedrockModels[id], ...(this.options.bedrockModelInfo || {}) } }
   }
 
   // Default AWS region

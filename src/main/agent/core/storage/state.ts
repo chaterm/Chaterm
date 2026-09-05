@@ -5,8 +5,8 @@
 // Licensed under the Apache License, Version 2.0
 
 import type { BrowserWindow } from 'electron'
-import type { GlobalStateKey, SecretKey, ApiConfiguration } from './types'
-import { PROVIDER_MODEL_KEY_MAP, type ApiProvider } from '../../shared/api'
+import type { GlobalStateKey, SecretKey } from './types'
+import { PROVIDER_MODEL_KEY_MAP, type ApiProvider, type ApiConfiguration, type ModelInfo } from '../../shared/api'
 const logger = createLogger('agent')
 
 export interface ModelOption {
@@ -15,6 +15,8 @@ export interface ModelOption {
   checked: boolean
   type: string
   apiProvider: string
+  contextWindow?: number
+  maxTokens?: number
 }
 
 let mainWindow: BrowserWindow | null = null
@@ -242,14 +244,64 @@ export async function getModelOptions(excludeThinking = false): Promise<ModelOpt
   }
 }
 
-export function buildApiConfigurationForProviderModel(base: ApiConfiguration, provider: string, modelId: string): ApiConfiguration {
+type ModelLimits = Pick<ModelInfo, 'contextWindow' | 'maxTokens'>
+
+function hasModelLimits(limits?: ModelLimits): boolean {
+  return Boolean(limits?.contextWindow || limits?.maxTokens)
+}
+
+function applyModelLimits(base: ApiConfiguration, provider: string, modelId: string, limits?: ModelLimits): ApiConfiguration {
+  if (!hasModelLimits(limits)) return base
+
+  const modelInfo = {
+    ...(limits?.contextWindow ? { contextWindow: limits.contextWindow } : {}),
+    ...(limits?.maxTokens ? { maxTokens: limits.maxTokens } : {})
+  }
+
+  switch (provider) {
+    case 'default':
+      return {
+        ...base,
+        defaultModelInfoMap: {
+          ...(base.defaultModelInfoMap || {}),
+          [modelId]: { ...(base.defaultModelInfoMap?.[modelId] || {}), ...modelInfo }
+        }
+      }
+    case 'litellm':
+      return { ...base, liteLlmModelInfo: { ...(base.liteLlmModelInfo || {}), ...modelInfo } }
+    case 'openai':
+      return { ...base, openAiModelInfo: { ...(base.openAiModelInfo || {}), ...modelInfo } }
+    case 'anthropic':
+      return { ...base, anthropicModelInfo: { ...(base.anthropicModelInfo || {}), ...modelInfo } }
+    case 'bedrock':
+      return { ...base, bedrockModelInfo: { ...(base.bedrockModelInfo || {}), ...modelInfo } }
+    case 'deepseek':
+      return { ...base, deepSeekModelInfo: { ...(base.deepSeekModelInfo || {}), ...modelInfo } }
+    case 'ollama':
+      return {
+        ...base,
+        ollamaModelInfo: { ...(base.ollamaModelInfo || {}), ...modelInfo },
+        ...(limits?.contextWindow ? { ollamaApiOptionsCtxNum: String(limits.contextWindow) } : {})
+      }
+    default:
+      return base
+  }
+}
+
+export function buildApiConfigurationForProviderModel(
+  base: ApiConfiguration,
+  provider: string,
+  modelId: string,
+  limits?: ModelLimits
+): ApiConfiguration {
   if (!provider?.trim() || !modelId?.trim()) return base
   const modelKey = PROVIDER_MODEL_KEY_MAP[provider] || 'defaultModelId'
-  return {
+  const configuration = {
     ...base,
     apiProvider: provider as ApiProvider,
     [modelKey]: modelId
   }
+  return hasModelLimits(limits) ? applyModelLimits(configuration, provider, modelId, limits) : configuration
 }
 
 export async function buildApiConfigurationForModel(base: ApiConfiguration, modelName: string, excludeThinking = false): Promise<ApiConfiguration> {
@@ -257,7 +309,7 @@ export async function buildApiConfigurationForModel(base: ApiConfiguration, mode
   const modelOptions = await getModelOptions(excludeThinking)
   const selectedModel = modelOptions.find((model) => model.name === modelName)
   if (!selectedModel?.apiProvider) return base
-  return buildApiConfigurationForProviderModel(base, selectedModel.apiProvider, selectedModel.name)
+  return buildApiConfigurationForProviderModel(base, selectedModel.apiProvider, selectedModel.name, selectedModel)
 }
 
 // Test function

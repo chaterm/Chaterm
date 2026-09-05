@@ -42,7 +42,7 @@ export class AnthropicHandler implements ApiHandler {
       throw new Error('Anthropic model ID is not configured')
     }
 
-    const maxTokens = anthropicModelInfoSaneDefaults.maxTokens || 8192
+    const maxTokens = this.getModel().info.maxTokens || 8192
     const budgetTokens = this.options.thinkingBudgetTokens || 0
     const thinkingEnabled = budgetTokens > 0
 
@@ -166,7 +166,7 @@ export class AnthropicHandler implements ApiHandler {
     }
     return {
       id: modelId,
-      info: anthropicModelInfoSaneDefaults
+      info: { ...anthropicModelInfoSaneDefaults, ...(this.options.anthropicModelInfo || {}) }
     }
   }
 

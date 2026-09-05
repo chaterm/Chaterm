@@ -2,6 +2,7 @@
   <div>
     <div class="section-header">
       <h3>{{ $t('user.modelNames') }}</h3>
+      <p class="model-limits-hint">{{ $t('user.modelLimitsHint') }}</p>
     </div>
     <a-card
       class="settings-section model-names-card"
@@ -14,32 +15,93 @@
           class="model-item"
           :class="{ 'locked-model-item': isLockedModel(model.name) }"
         >
-          <a-checkbox
-            v-model:checked="model.checked"
-            @change="handleModelChange(model)"
-          >
-            <span class="model-label">
-              <LockOutlined
-                v-if="isLockedModel(model.name)"
-                class="locked-model-icon"
-              />
-              <img
-                v-if="model.name.endsWith('-Thinking')"
-                src="@/assets/icons/thinking.svg"
-                alt="Thinking"
-                class="thinking-icon"
-              />
-              {{ model.name.replace(/-Thinking$/, '') }}
+          <div class="model-item-row">
+            <a-checkbox
+              v-model:checked="model.checked"
+              @change="handleModelChange(model)"
+            >
+              <span class="model-label">
+                <LockOutlined
+                  v-if="isLockedModel(model.name)"
+                  class="locked-model-icon"
+                />
+                <img
+                  v-if="model.name.endsWith('-Thinking')"
+                  src="@/assets/icons/thinking.svg"
+                  alt="Thinking"
+                  class="thinking-icon"
+                />
+                {{ model.name.replace(/-Thinking$/, '') }}
+              </span>
+            </a-checkbox>
+            <span class="model-item-actions">
+              <a-button
+                v-if="!isLockedModel(model.name) && !enterpriseConfigLocked"
+                type="text"
+                class="configure-button"
+                :title="$t('user.modelLimits')"
+                @click="toggleModelLimits(model)"
+              >
+                <SettingOutlined />
+              </a-button>
+              <a-button
+                v-if="model.checked && model.type === 'custom' && !enterpriseConfigLocked"
+                type="text"
+                class="remove-button"
+                @click="removeModel(model)"
+              >
+                <span class="remove-icon">×</span>
+              </a-button>
             </span>
-          </a-checkbox>
-          <a-button
-            v-if="model.checked && model.type === 'custom' && !enterpriseConfigLocked"
-            type="text"
-            class="remove-button"
-            @click="removeModel(model)"
+          </div>
+          <div
+            v-if="editingModelId === model.id"
+            class="model-limits-editor"
           >
-            <span class="remove-icon">×</span>
-          </a-button>
+            <div class="model-limits-fields">
+              <a-form-item
+                :label="$t('user.contextWindow')"
+                :label-col="{ span: 24 }"
+                :wrapper-col="{ span: 24 }"
+              >
+                <a-input-number
+                  v-model:value="editingContextWindow"
+                  :min="1"
+                  :step="1000"
+                  :placeholder="$t('user.contextWindowPh')"
+                />
+              </a-form-item>
+              <a-form-item
+                :label="$t('user.maxOutputTokens')"
+                :label-col="{ span: 24 }"
+                :wrapper-col="{ span: 24 }"
+              >
+                <a-input-number
+                  v-model:value="editingMaxTokens"
+                  :min="1"
+                  :step="1000"
+                  :placeholder="$t('user.maxOutputTokensPh')"
+                />
+              </a-form-item>
+            </div>
+            <p class="setting-description-no-padding">
+              {{ $t('user.modelLimitsDescribe') }}
+            </p>
+            <div class="model-limits-actions">
+              <a-button
+                size="small"
+                @click="saveModelLimits(model)"
+              >
+                {{ $t('common.save') }}
+              </a-button>
+              <a-button
+                size="small"
+                @click="cancelModelLimits"
+              >
+                {{ $t('common.cancel') }}
+              </a-button>
+            </div>
+          </div>
         </div>
       </div>
     </a-card>
@@ -113,7 +175,7 @@
                     :loading="checkLoadingLiteLLM"
                     @click="() => handleCheck('litellm')"
                   >
-                    Check
+                    {{ $t('user.check') }}
                   </a-button>
                   <a-button
                     class="save-btn"
@@ -121,7 +183,7 @@
                     :disabled="enterpriseConfigLocked"
                     @click="() => handleSave('litellm')"
                   >
-                    Save
+                    {{ $t('common.save') }}
                   </a-button>
                 </div>
               </div>
@@ -211,7 +273,7 @@
                     :loading="checkLoadingOpenAI"
                     @click="() => handleCheck('openai')"
                   >
-                    Check
+                    {{ $t('user.check') }}
                   </a-button>
                   <a-button
                     class="save-btn"
@@ -219,7 +281,7 @@
                     :disabled="enterpriseConfigLocked"
                     @click="() => handleSave('openai')"
                   >
-                    Save
+                    {{ $t('common.save') }}
                   </a-button>
                 </div>
               </div>
@@ -337,7 +399,7 @@
                     :loading="checkLoadingBedrock"
                     @click="() => handleCheck('bedrock')"
                   >
-                    Check
+                    {{ $t('user.check') }}
                   </a-button>
                   <a-button
                     class="save-btn"
@@ -345,7 +407,7 @@
                     :disabled="enterpriseConfigLocked"
                     @click="() => handleSave('bedrock')"
                   >
-                    Save
+                    {{ $t('common.save') }}
                   </a-button>
                 </div>
               </div>
@@ -397,7 +459,7 @@
                     :loading="checkLoadingDeepSeek"
                     @click="() => handleCheck('deepseek')"
                   >
-                    Check
+                    {{ $t('user.check') }}
                   </a-button>
                   <a-button
                     class="save-btn"
@@ -405,7 +467,7 @@
                     :disabled="enterpriseConfigLocked"
                     @click="() => handleSave('deepseek')"
                   >
-                    Save
+                    {{ $t('common.save') }}
                   </a-button>
                 </div>
               </div>
@@ -473,7 +535,7 @@
                     :loading="checkLoadingAnthropic"
                     @click="() => handleCheck('anthropic')"
                   >
-                    Check
+                    {{ $t('user.check') }}
                   </a-button>
                   <a-button
                     class="save-btn"
@@ -481,7 +543,7 @@
                     :disabled="enterpriseConfigLocked"
                     @click="() => handleSave('anthropic')"
                   >
-                    Save
+                    {{ $t('common.save') }}
                   </a-button>
                 </div>
               </div>
@@ -533,7 +595,7 @@
                     :loading="checkLoadingOllama"
                     @click="() => handleCheck('ollama')"
                   >
-                    Check
+                    {{ $t('user.check') }}
                   </a-button>
                   <a-button
                     class="save-btn"
@@ -541,7 +603,7 @@
                     :disabled="enterpriseConfigLocked"
                     @click="() => handleSave('ollama')"
                   >
-                    Save
+                    {{ $t('common.save') }}
                   </a-button>
                 </div>
               </div>
@@ -556,7 +618,7 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 import { notification } from 'ant-design-vue'
-import { LockOutlined } from '@ant-design/icons-vue'
+import { LockOutlined, SettingOutlined } from '@ant-design/icons-vue'
 import { updateGlobalState, getGlobalState, getSecret, storeSecret, getAllExtensionState } from '@renderer/agent/storage/state'
 import eventBus from '@/utils/eventBus'
 import i18n from '@/locales'
@@ -640,6 +702,9 @@ const checkLoadingAnthropic = ref(false)
 const checkLoadingOpenAI = ref(false)
 const checkLoadingOllama = ref(false)
 const addModelSwitch = ref(false)
+const editingModelId = ref<string | null>(null)
+const editingContextWindow = ref<number | undefined>(undefined)
+const editingMaxTokens = ref<number | undefined>(undefined)
 
 // Computed URL preview for OpenAI base URL
 // Mirrors backend normalizeBaseUrl logic: auto-add /v1 unless URL has '#' or already contains /v1
@@ -1006,6 +1071,56 @@ const handleModelChange = (model) => {
   }
 }
 
+const toggleModelLimits = (model: ModelOption): void => {
+  if (editingModelId.value === model.id) {
+    cancelModelLimits()
+    return
+  }
+  editingModelId.value = model.id
+  editingContextWindow.value = model.contextWindow
+  editingMaxTokens.value = model.maxTokens
+}
+
+const cancelModelLimits = (): void => {
+  editingModelId.value = null
+  editingContextWindow.value = undefined
+  editingMaxTokens.value = undefined
+}
+
+const normalizeEditableLimit = (value: unknown): number | undefined => {
+  if (value === undefined || value === null || value === '') return undefined
+  const limit = Number(value)
+  return Number.isSafeInteger(limit) && limit > 0 ? limit : undefined
+}
+
+const normalizeStoredModelLimits = (value: unknown): Record<string, { contextWindow?: number; maxTokens?: number }> => {
+  if (!value || typeof value !== 'object') return {}
+
+  const limitsByModel: Record<string, { contextWindow?: number; maxTokens?: number }> = {}
+  for (const [modelName, rawLimits] of Object.entries(value as Record<string, unknown>)) {
+    if (!rawLimits || typeof rawLimits !== 'object') continue
+    const limits = rawLimits as Record<string, unknown>
+    const contextWindow = normalizeEditableLimit(limits.contextWindow)
+    const maxTokens = normalizeEditableLimit(limits.maxTokens)
+    if (contextWindow || maxTokens) {
+      limitsByModel[modelName] = {
+        ...(contextWindow ? { contextWindow } : {}),
+        ...(maxTokens ? { maxTokens } : {})
+      }
+    }
+  }
+  return limitsByModel
+}
+
+const saveModelLimits = async (model: ModelOption): Promise<void> => {
+  const contextWindow = normalizeEditableLimit(editingContextWindow.value)
+  const maxTokens = normalizeEditableLimit(editingMaxTokens.value)
+  model.contextWindow = contextWindow
+  model.maxTokens = maxTokens
+  await saveModelOptions()
+  cancelModelLimits()
+}
+
 const removeModel = (model) => {
   if (enterpriseConfigLocked.value) {
     return
@@ -1028,10 +1143,29 @@ const saveModelOptions = async () => {
       name: model.name,
       checked: Boolean(model.checked),
       type: model.type || 'standard',
-      apiProvider: model.apiProvider || 'default'
+      apiProvider: model.apiProvider || 'default',
+      ...(model.contextWindow ? { contextWindow: model.contextWindow } : {}),
+      ...(model.maxTokens ? { maxTokens: model.maxTokens } : {})
     }))
+    const modelLimits = Object.fromEntries(
+      modelOptions.value
+        .map((model) => {
+          const contextWindow = normalizeEditableLimit(model.contextWindow)
+          const maxTokens = normalizeEditableLimit(model.maxTokens)
+          if (!contextWindow && !maxTokens) return null
+          return [
+            model.name,
+            {
+              ...(contextWindow ? { contextWindow } : {}),
+              ...(maxTokens ? { maxTokens } : {})
+            }
+          ] as const
+        })
+        .filter((entry): entry is readonly [string, { contextWindow?: number; maxTokens?: number }] => Boolean(entry))
+    )
 
     await updateGlobalState('modelOptions', serializableModelOptions)
+    await updateGlobalState('modelLimits', modelLimits)
     eventBus.emit('SettingModelOptionsChanged')
   } catch (error) {
     logger.error('Failed to save model options', { error: error })
@@ -1063,12 +1197,17 @@ const sortModelOptions = () => {
 }
 
 const loadCachedModelOptions = async (customOnly = false): Promise<boolean> => {
-  const savedModelOptions = (await getGlobalState('modelOptions')) || []
+  const [rawSavedModelOptions, cachedLockedModelNames, rawPersistedModelLimits] = await Promise.all([
+    getGlobalState('modelOptions'),
+    getGlobalState('defaultLockedModelNames'),
+    getGlobalState('modelLimits')
+  ])
+  const savedModelOptions = rawSavedModelOptions || []
   if (!Array.isArray(savedModelOptions) || savedModelOptions.length === 0) {
     return false
   }
 
-  const cachedLockedModelNames = (await getGlobalState('defaultLockedModelNames')) || []
+  const persistedModelLimits = normalizeStoredModelLimits(rawPersistedModelLimits)
   lockedModelNames.value = new Set(Array.isArray(cachedLockedModelNames) ? cachedLockedModelNames.map((name) => String(name)) : [])
 
   modelOptions.value = savedModelOptions
@@ -1078,7 +1217,13 @@ const loadCachedModelOptions = async (customOnly = false): Promise<boolean> => {
       name: option.name || '',
       checked: Boolean(option.checked),
       type: option.type || (customOnly ? 'custom' : 'standard'),
-      apiProvider: option.apiProvider || 'default'
+      apiProvider: option.apiProvider || 'default',
+      ...(persistedModelLimits[option.name]?.contextWindow || option.contextWindow
+        ? { contextWindow: persistedModelLimits[option.name]?.contextWindow || option.contextWindow }
+        : {}),
+      ...(persistedModelLimits[option.name]?.maxTokens || option.maxTokens
+        ? { maxTokens: persistedModelLimits[option.name]?.maxTokens || option.maxTokens }
+        : {})
     }))
   sortModelOptions()
   return true
@@ -1140,7 +1285,9 @@ const loadModelOptions = async () => {
             name: option.name || '',
             checked: Boolean(option.checked),
             type: option.type || 'standard',
-            apiProvider: option.apiProvider || 'default'
+            apiProvider: option.apiProvider || 'default',
+            ...(option.contextWindow ? { contextWindow: option.contextWindow } : {}),
+            ...(option.maxTokens ? { maxTokens: option.maxTokens } : {})
           }))
         sortModelOptions()
         await saveModelOptions()
@@ -1165,7 +1312,9 @@ const loadModelOptions = async () => {
             name,
             checked: true,
             type: defaultModel.type || 'standard',
-            apiProvider: defaultModel.apiProvider || 'default'
+            apiProvider: defaultModel.apiProvider || 'default',
+            ...(defaultModel.contextWindow ? { contextWindow: defaultModel.contextWindow } : {}),
+            ...(defaultModel.maxTokens ? { maxTokens: defaultModel.maxTokens } : {})
           })
         }
       })
@@ -1190,7 +1339,9 @@ const loadModelOptions = async () => {
         name: option.name || '',
         checked: Boolean(option.checked),
         type: option.type || 'standard',
-        apiProvider: option.apiProvider || 'default'
+        apiProvider: option.apiProvider || 'default',
+        ...(option.contextWindow ? { contextWindow: option.contextWindow } : {}),
+        ...(option.maxTokens ? { maxTokens: option.maxTokens } : {})
       }))
 
       sortModelOptions()
@@ -1327,6 +1478,13 @@ const handleSave = async (provider) => {
     margin: 0;
     color: var(--text-color);
   }
+}
+
+.model-limits-hint {
+  margin: 6px 0 0;
+  color: var(--text-color-tertiary);
+  font-size: 12px;
+  font-weight: normal;
 }
 
 .setting-item {
@@ -1601,13 +1759,102 @@ const handleSave = async (provider) => {
 
 .model-item {
   display: flex;
-  justify-content: space-between;
-  align-items: center;
+  flex-direction: column;
+  align-items: stretch;
   padding: 4px 8px;
   border-radius: 4px;
   transition: background-color 0.2s;
-  height: 28px; /* Fixed height */
+  min-height: 28px;
   box-sizing: border-box;
+}
+
+.model-item-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  min-height: 20px;
+}
+
+.model-item-actions {
+  display: inline-flex;
+  align-items: center;
+}
+
+.configure-button {
+  padding: 0 4px;
+  color: var(--text-color-tertiary);
+  background: transparent !important;
+  border: none !important;
+  box-shadow: none !important;
+  height: 24px;
+  width: 24px;
+}
+
+.configure-button:hover {
+  color: var(--text-color-secondary);
+}
+
+.model-limits-editor {
+  margin: 8px 0 4px 24px;
+  padding: 10px;
+  border: 1px solid var(--text-color-quaternary);
+  border-radius: 6px;
+  background: var(--bg-color-secondary);
+}
+
+.model-limits-fields {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.model-limits-fields :deep(.ant-form-item) {
+  margin-bottom: 0;
+}
+
+.model-limits-fields :deep(.ant-input-number) {
+  width: 100%;
+  background-color: var(--input-number-bg) !important;
+  border: 1px solid var(--border-color) !important;
+  border-radius: 6px;
+  color: var(--text-color) !important;
+  transition: all 0.3s;
+}
+
+.model-limits-fields :deep(.ant-input-number:hover),
+.model-limits-fields :deep(.ant-input-number:focus),
+.model-limits-fields :deep(.ant-input-number-focused) {
+  background-color: var(--input-number-hover-bg) !important;
+  border-color: #1890ff !important;
+  box-shadow: 0 0 0 2px rgba(24, 144, 255, 0.2);
+}
+
+.model-limits-fields :deep(.ant-input-number-input) {
+  height: 32px;
+  padding: 4px 8px;
+  background-color: transparent !important;
+  color: var(--text-color) !important;
+}
+
+.model-limits-fields :deep(.ant-input-number-input::placeholder) {
+  color: var(--text-color-quaternary) !important;
+}
+
+.model-limits-fields :deep(.ant-input-number-handler-wrap) {
+  background-color: var(--input-number-hover-bg) !important;
+  border-inline-start: 1px solid var(--border-color);
+}
+
+.model-limits-fields :deep(.ant-input-number-handler) {
+  border-color: var(--border-color);
+  color: var(--text-color-secondary);
+}
+
+.model-limits-actions {
+  display: flex;
+  gap: 8px;
+  justify-content: flex-end;
+  margin-top: 8px;
 }
 
 .model-item:hover {
