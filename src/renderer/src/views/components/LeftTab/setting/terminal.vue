@@ -43,10 +43,12 @@
           :label="$t('user.fontFamily')"
           class="user_my-ant-form-item"
         >
-          <a-select
+          <a-auto-complete
             v-model:value="userConfig.fontFamily"
             class="font-family-select"
             :options="fontFamilyOptions"
+            :filter-option="filterFontOption"
+            :placeholder="$t('user.fontFamily')"
           />
         </a-form-item>
         <a-form-item
@@ -472,7 +474,7 @@ const userConfig = ref<{
   sshProxyConfigs: ProxyConfig[]
 }>({
   fontSize: 12,
-  fontFamily: 'Menlo, Monaco, "Courier New", Consolas, Courier, monospace',
+  fontFamily: 'Menlo',
   scrollBack: 1000,
   cursorStyle: 'block',
   cursorBlink: true,
@@ -489,25 +491,63 @@ const userConfig = ref<{
   sshProxyConfigs: []
 })
 
-const fontFamilyOptions = [
-  { value: 'Menlo, Monaco, "Courier New", Consolas, Courier, monospace', label: 'Menlo' },
-  { value: 'Monaco, "Courier New", Consolas, Courier, monospace', label: 'Monaco' },
-  { value: '"MesloLGS NF", "MesloLGS NF", "Courier New", Courier, monospace', label: 'Meslo Nerd Font' },
-  { value: '"Courier New", Courier, monospace', label: 'Courier New' },
-  { value: 'Consolas, "Courier New", Courier, monospace', label: 'Consolas' },
-  { value: 'Courier, monospace', label: 'Courier' },
-  { value: '"DejaVu Sans Mono", "Bitstream Vera Sans Mono", Monaco, "Courier New", Courier, monospace', label: 'DejaVu Sans Mono' },
-  { value: '"Fira Code", "Courier New", Courier, monospace', label: 'Fira Code' },
-  { value: '"JetBrains Mono", "Courier New", Courier, monospace', label: 'JetBrains Mono' },
-  { value: '"Source Code Pro", "Courier New", Courier, monospace', label: 'Source Code Pro' },
-  { value: '"Ubuntu Mono", "Courier New", Courier, monospace', label: 'Ubuntu Mono' },
-  { value: '"Liberation Mono", "Courier New", Courier, monospace', label: 'Liberation Mono' },
-  { value: '"SF Mono", Monaco, "Courier New", Courier, monospace', label: 'SF Mono' },
-  { value: '"Hack", "Courier New", Courier, monospace', label: 'Hack' },
-  { value: '"Inconsolata", "Courier New", Courier, monospace', label: 'Inconsolata' },
-  { value: '"Roboto Mono", "Courier New", Courier, monospace', label: 'Roboto Mono' },
-  { value: '"Maple Mono", "Courier New", Courier, monospace', label: 'Maple Mono' }
+interface FontFamilyOption {
+  value: string
+  label: string
+}
+
+const fontFamilyOptions: FontFamilyOption[] = [
+  { value: 'Menlo', label: 'Menlo' },
+  { value: 'Monaco', label: 'Monaco' },
+  { value: 'MesloLGS NF', label: 'Meslo Nerd Font' },
+  { value: 'Courier New', label: 'Courier New' },
+  { value: 'Consolas', label: 'Consolas' },
+  { value: 'Courier', label: 'Courier' },
+  { value: 'DejaVu Sans Mono', label: 'DejaVu Sans Mono' },
+  { value: 'Fira Code', label: 'Fira Code' },
+  { value: 'JetBrains Mono', label: 'JetBrains Mono' },
+  { value: 'Source Code Pro', label: 'Source Code Pro' },
+  { value: 'Ubuntu Mono', label: 'Ubuntu Mono' },
+  { value: 'Liberation Mono', label: 'Liberation Mono' },
+  { value: 'SF Mono', label: 'SF Mono' },
+  { value: 'Hack', label: 'Hack' },
+  { value: 'Inconsolata', label: 'Inconsolata' },
+  { value: 'Roboto Mono', label: 'Roboto Mono' },
+  { value: 'Maple Mono', label: 'Maple Mono' },
+  { value: 'Intel One Mono', label: 'Intel One Mono' }
 ]
+
+const legacyFontFamilyAliases: Record<string, string> = {
+  'Menlo, Monaco, "Courier New", Consolas, Courier, monospace': 'Menlo',
+  'Monaco, "Courier New", Consolas, Courier, monospace': 'Monaco',
+  '"MesloLGS NF", "MesloLGS NF", "Courier New", Courier, monospace': 'MesloLGS NF',
+  '"Courier New", Courier, monospace': 'Courier New',
+  'Consolas, "Courier New", Courier, monospace': 'Consolas',
+  'Courier, monospace': 'Courier',
+  '"DejaVu Sans Mono", "Bitstream Vera Sans Mono", Monaco, "Courier New", Courier, monospace': 'DejaVu Sans Mono',
+  '"Fira Code", "Courier New", Courier, monospace': 'Fira Code',
+  '"JetBrains Mono", "Courier New", Courier, monospace': 'JetBrains Mono',
+  '"Source Code Pro", "Courier New", Courier, monospace': 'Source Code Pro',
+  '"Ubuntu Mono", "Courier New", Courier, monospace': 'Ubuntu Mono',
+  '"Liberation Mono", "Courier New", Courier, monospace': 'Liberation Mono',
+  '"SF Mono", Monaco, "Courier New", Courier, monospace': 'SF Mono',
+  '"Hack", "Courier New", Courier, monospace': 'Hack',
+  '"Inconsolata", "Courier New", Courier, monospace': 'Inconsolata',
+  '"Roboto Mono", "Courier New", Courier, monospace': 'Roboto Mono',
+  '"Maple Mono", "Courier New", Courier, monospace': 'Maple Mono'
+}
+
+const filterFontOption = (inputValue: string, option?: FontFamilyOption): boolean => {
+  const keyword = inputValue.trim().toLowerCase()
+  if (!keyword) return true
+
+  return [option?.label, option?.value].some((text) => text?.toLowerCase().includes(keyword))
+}
+
+const normalizeFontFamily = (fontFamily: unknown): string => {
+  if (typeof fontFamily !== 'string' || !fontFamily.trim()) return 'Menlo'
+  return legacyFontFamilyAliases[fontFamily] || fontFamily
+}
 
 const cursorStyleOptions: Array<{ value: 'block' | 'bar' | 'underline'; label: string }> = [
   { value: 'block', label: t('user.cursorStyleBlock') },
@@ -575,12 +615,12 @@ const getDefaultFontFamily = async (): Promise<string> => {
   try {
     const platform = await api.getPlatform()
     if (platform === 'darwin') {
-      return '"SF Mono", Monaco, "Courier New", Courier, monospace'
+      return 'SF Mono'
     }
   } catch (error) {
     logger.warn('Failed to get platform, using default font', { error: error })
   }
-  return 'Menlo, Monaco, "Courier New", Consolas, Courier, monospace'
+  return 'Menlo'
 }
 
 // Load saved configuration
@@ -591,6 +631,7 @@ const loadSavedConfig = async () => {
       userConfig.value = {
         ...userConfig.value,
         ...savedConfig,
+        fontFamily: normalizeFontFamily(savedConfig.fontFamily),
         cursorStyle: (savedConfig.cursorStyle || 'block') as 'block' | 'bar' | 'underline',
         cursorBlink: savedConfig.cursorBlink !== false,
         lineHeight: typeof savedConfig.lineHeight === 'number' ? savedConfig.lineHeight : 1,
