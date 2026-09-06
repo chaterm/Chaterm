@@ -259,6 +259,7 @@
                               visibility: hasPanels ? 'visible' : 'hidden'
                             }"
                             @ready="onDockReady"
+                            @mouseover="showTabTitle"
                           />
                           <EditorActions
                             v-if="dockApiInstance"
@@ -2817,6 +2818,17 @@ const contextMenuRef = ref<HTMLElement | null>(null)
 
 const hideContextMenu = () => {
   contextMenu.value.visible = false
+}
+const showTabTitle = (event: MouseEvent) => {
+  const target = event.target
+  if (!(target instanceof Element)) return
+
+  const tabElement = target.closest<HTMLElement>('.dv-tab')
+  const titleElement = tabElement?.querySelector('.dv-default-tab-content')
+  if (tabElement && titleElement) {
+    // Keep the full, current title available on hover when the tab text is ellipsized.
+    tabElement.title = titleElement.textContent || ''
+  }
 }
 const setupTabContextMenu = () => {
   // Listen to dockview container
