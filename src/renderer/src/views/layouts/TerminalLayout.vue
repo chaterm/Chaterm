@@ -3784,7 +3784,8 @@ defineExpose({
 
 .dockview-theme-light .dv-tab,
 .dockview-theme-dark .dv-tab {
-  max-width: 180px;
+  /* Keep long names compact so more terminal tabs fit in the tab bar. */
+  max-width: 140px;
   min-width: 0;
 }
 
