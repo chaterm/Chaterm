@@ -421,6 +421,8 @@ export default {
     modelLimitsDescribe: 'حدد الحدود التي يدعمها هذا النموذج. اتركها فارغة لاستخدام الإعداد الافتراضي للمزود.',
     enableExtendedThinking: 'تمكين التفكير الموسع',
     enableExtendedThinkingDescribe: 'يمكن تمكين التفكير الموسع لحفظ النقاط المرجعية للمساحة العملية من خلال المهمة',
+    enableNotifications: 'إشعارات سطح المكتب',
+    enableNotificationsDescribe: 'إشعارك عندما يحتاج Chaterm إلى موافقة أو عند اكتمال مهمة',
     autoApproval: 'تأكيد تلقائي',
     autoApprovalDescribe: 'يمكن تمكين الوكيل لتنفيذ الأوامر دون الحاجة إلى التأكيد',
     autoExecuteReadOnlyCommands: 'تنفيذ الأوامر القرائية تلقائيا',

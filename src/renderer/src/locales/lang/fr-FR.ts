@@ -425,6 +425,8 @@ export default {
     modelLimitsDescribe: 'Définissez les limites prises en charge par ce modèle. Laissez vide pour utiliser la valeur par défaut du fournisseur.',
     enableExtendedThinking: 'Activer le raisonnement étendu',
     enableExtendedThinkingDescribe: "Des budgets plus élevés peuvent vous permettre d'atteindre un raisonnement plus complet et plus nuancé",
+    enableNotifications: 'Notifications de bureau',
+    enableNotificationsDescribe: 'Vous avertir lorsque Chaterm nécessite une approbation ou termine une tâche',
     autoApproval: 'Approbation automatique',
     autoApprovalDescribe: "Autoriser l'Agent à exécuter des outils sans demander de confirmation",
     autoExecuteReadOnlyCommands: 'Exécuter auto les commandes en lecture seule',

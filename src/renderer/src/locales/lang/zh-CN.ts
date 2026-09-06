@@ -418,6 +418,8 @@ export default {
     enableExtendedThinkingDescribe: '提高预算可实现更全面、更细致的推理',
     autoApproval: '开启自动执行',
     autoApprovalDescribe: '允许在不要求确认的情况下运行工具',
+    enableNotifications: '桌面通知',
+    enableNotificationsDescribe: '当 Chaterm 需要审批或任务完成时发送系统通知',
     autoExecuteReadOnlyCommands: '查询类命令自动执行',
     autoExecuteReadOnlyCommandsDescribe: '所有会话中的查询类命令（如 ls、cat、grep 等）将自动执行，无需人工确认',
     commandOutputFilteringEnabled: '命令输出过滤',

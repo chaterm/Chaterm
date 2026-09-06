@@ -418,6 +418,8 @@ export default {
     modelLimitsDescribe: '設定此模型實際支援的上限，留空則使用提供者預設值。',
     enableExtendedThinking: '開啟擴展思考',
     enableExtendedThinkingDescribe: '提高預算可實現更全面、更細緻的推理',
+    enableNotifications: '桌面通知',
+    enableNotificationsDescribe: '當 Chaterm 需要審批或任務完成時發送系統通知',
     autoApproval: '開啟自動執行',
     autoApprovalDescribe: '允許在不要求確認的情況下運行工具',
     autoExecuteReadOnlyCommands: '查詢類命令自動執行',

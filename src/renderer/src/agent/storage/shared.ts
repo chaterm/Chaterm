@@ -39,7 +39,7 @@ export interface AutoApprovalSettings {
 }
 
 export const DEFAULT_AUTO_APPROVAL_SETTINGS: AutoApprovalSettings = {
-  version: 1,
+  version: 3,
   enabled: false,
   actions: {
     readFiles: true,
@@ -53,7 +53,7 @@ export const DEFAULT_AUTO_APPROVAL_SETTINGS: AutoApprovalSettings = {
     autoExecuteReadOnlyCommands: false
   },
   maxRequests: 20,
-  enableNotifications: false,
+  enableNotifications: true,
   favorites: ['enableAutoApprove', 'readFiles']
 }
 

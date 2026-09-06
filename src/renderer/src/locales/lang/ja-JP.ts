@@ -421,6 +421,8 @@ export default {
     modelLimitsDescribe: 'モデルがサポートする上限を設定します。空欄の場合はプロバイダーの既定値を使用します。',
     enableExtendedThinking: '拡張思考を有効にする',
     enableExtendedThinkingDescribe: 'より高い予算により、より包括的で細かい推論が可能になります',
+    enableNotifications: 'デスクトップ通知',
+    enableNotificationsDescribe: 'Chaterm が承認を必要とするとき、またはタスクを完了したときに通知します',
     autoApproval: '自動承認',
     autoApprovalDescribe: '確認を求めずにツールを実行できるようにします',
     autoExecuteReadOnlyCommands: '読取専用コマンドを自動実行',

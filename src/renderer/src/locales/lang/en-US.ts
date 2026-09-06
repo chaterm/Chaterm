@@ -424,6 +424,8 @@ export default {
     enableExtendedThinkingDescribe: 'Higher budgets may allow you to achieve more comprehensive and nuanced reasoning',
     autoApproval: 'Auto Approval',
     autoApprovalDescribe: 'Allow Agent to run tools without asking for confirmation',
+    enableNotifications: 'Desktop notifications',
+    enableNotificationsDescribe: 'Notify you when Chaterm needs approval or finishes a task',
     autoExecuteReadOnlyCommands: 'Auto-execute read-only commands',
     autoExecuteReadOnlyCommandsDescribe: 'Read-only commands (e.g. ls, cat, grep) in all sessions will be auto-executed without confirmation',
     commandOutputFilteringEnabled: 'Command output filtering',

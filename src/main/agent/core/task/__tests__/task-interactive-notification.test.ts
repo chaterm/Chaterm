@@ -63,6 +63,7 @@ vi.mock('../../services/todo_tool_call_tracker', () => ({
 }))
 
 import { Task } from '../index'
+import { showSystemNotification } from '@integrations/notifications'
 
 describe('Task interactive command notification', () => {
   beforeEach(() => {
@@ -125,5 +126,23 @@ describe('Task interactive command notification', () => {
       (call) => call[0] === 'interactive_command_notification'
     )
     expect(interactiveCalls).toHaveLength(0)
+  })
+
+  it('notifies for manual approval when auto-approval is disabled', () => {
+    const task = Object.create((Task as unknown as { prototype: object }).prototype) as any
+    task.taskId = 'task-approval'
+    task.autoApprovalSettings = {
+      enabled: false,
+      enableNotifications: true
+    }
+    task.messages = { approvalRequiredNotification: 'Approval Required' }
+
+    task.showNotificationIfNeeded('Chaterm needs your approval: df -hT')
+
+    expect(showSystemNotification).toHaveBeenCalledWith({
+      subtitle: 'Approval Required',
+      message: 'df -hT',
+      taskId: 'task-approval'
+    })
   })
 })

@@ -597,7 +597,10 @@ export class Task {
     this.contextManager = new ContextManager()
     this.responseFormatter = getFormatResponse(DEFAULT_LANGUAGE_SETTINGS)
     this.customInstructions = customInstructions
-    this.autoApprovalSettings = autoApprovalSettings
+    this.autoApprovalSettings = {
+      ...autoApprovalSettings,
+      enableNotifications: autoApprovalSettings.enableNotifications !== false
+    }
     logger.debug('AutoApprovalSettings initialized', {
       event: 'agent.task.auto_approval.init',
       enabled: autoApprovalSettings.enabled
@@ -2027,6 +2030,12 @@ export class Task {
     return `${headPart}\n\n${formatMessage(this.messages.outputTruncatedLines, { count: truncatedLines })}\n\n${tailPart}`
   }
 
+  private summarizeNotification(text: string, maxLength = 140): string {
+    const normalized = text.replace(/\s+/g, ' ').trim()
+    if (normalized.length <= maxLength) return normalized
+    return `${normalized.slice(0, maxLength - 1)}…`
+  }
+
   /**
    * Execute command tool on local host
    */
@@ -2545,7 +2554,7 @@ export class Task {
   private async handleConsecutiveMistakes(userContent: UserContent): Promise<void> {
     if (this.consecutiveMistakeCount < 3) return
 
-    if (this.autoApprovalSettings.enabled && this.autoApprovalSettings.enableNotifications) {
+    if (this.autoApprovalSettings.enableNotifications) {
       showSystemNotification({
         subtitle: 'Error',
         message: 'Chaterm is having trouble. Would you like to continue the task?'
@@ -3176,7 +3185,6 @@ export class Task {
             this.consecutiveAutoApprovedRequestsCount++
             didAutoApprove = true
           } else {
-            this.showNotificationIfNeeded(`Chaterm wants to execute a command: ${command}`)
             const didApprove = await this.askApproval(toolDescription, 'command', command, { command, targetHosts: ip, toolName: 'execute_command' })
             logger.debug(`[Command Execution] User approval result: ${didApprove}`)
             if (!didApprove) {
@@ -3472,6 +3480,7 @@ export class Task {
     partialMessage?: string,
     usageMeta?: { command?: string; targetHosts?: string; toolName?: string }
   ): Promise<boolean> {
+    this.showNotificationIfNeeded(`Chaterm needs your approval: ${partialMessage || toolDescription}`)
     const { response, text, contentParts, toolResult } = await this.ask(type, partialMessage, false)
     const approved = response === 'yesButtonClicked' || response === 'autoApproveReadOnlyClicked'
 
@@ -3510,8 +3519,14 @@ export class Task {
   }
 
   private showNotificationIfNeeded(message: string): void {
-    if (this.autoApprovalSettings.enabled && this.autoApprovalSettings.enableNotifications) {
-      showSystemNotification({ subtitle: 'Approval Required', message })
+    // Treat a missing field as enabled for settings persisted before desktop
+    // notifications were introduced. An explicit false still disables them.
+    if (this.autoApprovalSettings?.enableNotifications !== false) {
+      showSystemNotification({
+        subtitle: this.messages?.approvalRequiredNotification || 'Approval Required',
+        message: this.summarizeNotification(message.replace(/^Chaterm needs your approval:\s*/i, '')),
+        taskId: this.taskId
+      })
     }
   }
 
@@ -3562,10 +3577,10 @@ export class Task {
       }
       this.consecutiveMistakeCount = 0
 
-      if (this.autoApprovalSettings.enabled && this.autoApprovalSettings.enableNotifications) {
+      if (this.autoApprovalSettings?.enableNotifications !== false) {
         showSystemNotification({
           subtitle: 'Chaterm has a question...',
-          message: question.replace(/\n/g, ' ')
+          message: this.summarizeNotification(question)
         })
       }
       // Store the number of options for telemetry
@@ -3638,10 +3653,6 @@ export class Task {
       }
       this.consecutiveMistakeCount = 0
 
-      if (this.autoApprovalSettings.enabled && this.autoApprovalSettings.enableNotifications) {
-        showSystemNotification({ subtitle: 'Task Completed', message: result.replace(/\n/g, ' ') })
-      }
-
       let commandResult: ToolResponse | undefined
       if (command) {
         if (lastMessage && lastMessage.ask !== 'command') {
@@ -3663,6 +3674,14 @@ export class Task {
         await this.say('completion_result', result, false)
         await this.saveCheckpoint(true)
         await addNewChangesFlagToLastCompletionResultMessage()
+      }
+
+      if (!command && this.autoApprovalSettings?.enableNotifications !== false) {
+        showSystemNotification({
+          subtitle: this.messages.taskCompletedNotification,
+          message: this.summarizeNotification(result),
+          taskId: this.taskId
+        })
       }
 
       telemetryService.captureTaskCompleted(this.taskId)
@@ -3734,10 +3753,10 @@ export class Task {
       }
       this.consecutiveMistakeCount = 0
 
-      if (this.autoApprovalSettings.enabled && this.autoApprovalSettings.enableNotifications) {
+      if (this.autoApprovalSettings.enableNotifications) {
         showSystemNotification({
           subtitle: 'Chaterm wants to condense the conversation...',
-          message: `Chaterm is suggesting to condense your conversation with: ${context}`
+          message: this.summarizeNotification(context)
         })
       }
 
@@ -3813,10 +3832,10 @@ export class Task {
 
       this.consecutiveMistakeCount = 0
 
-      if (this.autoApprovalSettings.enabled && this.autoApprovalSettings.enableNotifications) {
+      if (this.autoApprovalSettings.enableNotifications) {
         showSystemNotification({
           subtitle: 'Chaterm wants to create a github issue...',
-          message: `Chaterm is suggesting to create a github issue with the title: ${title}`
+          message: this.summarizeNotification(title || '')
         })
       }
 

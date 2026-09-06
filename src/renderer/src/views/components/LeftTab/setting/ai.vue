@@ -129,6 +129,15 @@
         </p>
       </div>
 
+      <div class="setting-item">
+        <a-checkbox v-model:checked="autoApprovalSettings.enableNotifications">
+          {{ $t('user.enableNotifications') }}
+        </a-checkbox>
+        <p class="setting-description">
+          {{ $t('user.enableNotificationsDescribe') }}
+        </p>
+      </div>
+
       <!-- Security Configuration -->
       <div class="setting-item">
         <div class="security-config-container">
@@ -573,14 +582,20 @@ const loadSavedConfig = async () => {
     needProxy.value = ((await getGlobalState('needProxy')) as boolean) || false
     proxyConfig.value = ((await getGlobalState('proxyConfig')) as ProxyConfig) || defaultProxyConfig
 
-    const savedAutoApprovalSettings = await getGlobalState('autoApprovalSettings')
+    const savedAutoApprovalSettings = (await getGlobalState('autoApprovalSettings')) as Partial<AutoApprovalSettings> | undefined
     if (savedAutoApprovalSettings) {
       autoApprovalSettings.value = {
         ...DEFAULT_AUTO_APPROVAL_SETTINGS,
         ...savedAutoApprovalSettings
       }
+      if ((savedAutoApprovalSettings.version || 1) < 3) {
+        autoApprovalSettings.value.version = 3
+        autoApprovalSettings.value.enableNotifications = true
+        await updateGlobalState('autoApprovalSettings', autoApprovalSettings.value)
+      }
     } else {
       autoApprovalSettings.value = DEFAULT_AUTO_APPROVAL_SETTINGS
+      await updateGlobalState('autoApprovalSettings', autoApprovalSettings.value)
     }
 
     const savedChatSettings = await getGlobalState('chatSettings')

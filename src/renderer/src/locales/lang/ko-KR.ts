@@ -419,6 +419,8 @@ export default {
     modelLimitsDescribe: '이 모델이 지원하는 제한을 설정합니다. 비워 두면 공급자의 기본값을 사용합니다.',
     enableExtendedThinking: '확장 사고 활성화',
     enableExtendedThinkingDescribe: '더 높은 예산은 더 체계적이고 세밀한 사고를 가능하게 할 수 있습니다',
+    enableNotifications: '데스크톱 알림',
+    enableNotificationsDescribe: 'Chaterm에서 승인이 필요하거나 작업이 완료되면 알려줍니다',
     autoApproval: '자동 승인',
     autoApprovalDescribe: 'Agent가 도구를 실행할 때 확인 없이 실행할 수 있도록 허용합니다',
     autoExecuteReadOnlyCommands: '읽기 전용 명령 자동 실행',
