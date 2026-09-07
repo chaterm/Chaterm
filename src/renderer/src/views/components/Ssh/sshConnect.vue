@@ -746,9 +746,6 @@ onMounted(async () => {
       // WebGL not available, fall back to default canvas renderer
     }
   }
-  termInstance.onResize((size) => {
-    resizeSSH(size.cols, size.rows)
-  })
   const textarea = termInstance?.element?.querySelector('.xterm-helper-textarea') as HTMLTextAreaElement | null
   if (textarea) {
     textareaCompositionListener = (e) => {
@@ -764,20 +761,15 @@ onMounted(async () => {
         key: e.data
       })
     }
-    textareaPasteListener = (e: ClipboardEvent) => {
+    textareaPasteListener = () => {
       pasteFlag.value = true
-      const text = e.clipboardData?.getData('text/plain') ?? ''
-      if (!text) {
-        return
-      }
-
-      e.preventDefault()
       lastNativePasteAt = Date.now()
-      sendDataAutoSwitchTerminal(text)
-      scheduleScrollToBottomAndFocus()
     }
     textarea.addEventListener('compositionend', textareaCompositionListener)
-    textarea.addEventListener('paste', textareaPasteListener)
+    // xterm already handles paste and emits normalized/bracketed text via
+    // onData. This listener only records paste state; writing here would send
+    // clipboard contents twice.
+    textarea.addEventListener('paste', textareaPasteListener, true)
   }
   const originalWrite = termInstance.write.bind(termInstance)
   terminalWriteQueue = createTerminalWriteQueue({
@@ -922,15 +914,9 @@ onMounted(async () => {
   }
   termInstance.write = cusWrite as any
   if (terminalContainer.value) {
-    resizeObserver = new ResizeObserver(
-      debounce(
-        () => {
-          handleResize()
-        },
-        30,
-        true
-      )
-    )
+    resizeObserver = new ResizeObserver(() => {
+      handleResize()
+    })
     resizeObserver.observe(terminalContainer.value)
   }
   window.addEventListener('resize', handleResize)
@@ -1233,7 +1219,7 @@ onBeforeUnmount(() => {
         textareaCompositionListener = null
       }
       if (textareaPasteListener) {
-        textarea.removeEventListener('paste', textareaPasteListener)
+        textarea.removeEventListener('paste', textareaPasteListener, true)
         textareaPasteListener = null
       }
     }
@@ -1445,40 +1431,14 @@ const createEditor = async (filePath, contentType) => {
   }
 }
 
-const debounce = (func, wait, immediate = false) => {
+const debounce = (func, wait) => {
   let timeout
-  let isFirstCall = true
-  let isDragging = false
-  let lastCallTime = 0
 
   return function executedFunction(...args) {
-    const now = Date.now()
-    const timeSinceLastCall = now - lastCallTime
-    lastCallTime = now
-    isDragging = timeSinceLastCall < 50
-    const later = () => {
-      clearTimeout(timeout)
-      timeout = null
-      if (!immediate) func(...args)
-      isDragging = false
-    }
-    const callNow = immediate && !timeout
     clearTimeout(timeout)
-    let dynamicWait
-    if (isDragging) {
-      dynamicWait = 5
-    } else if (isFirstCall) {
-      dynamicWait = 0
-    } else {
-      dynamicWait = wait
-    }
-
-    timeout = setTimeout(later, dynamicWait)
-
-    if (callNow) {
+    timeout = setTimeout(() => {
       func(...args)
-      isFirstCall = false
-    }
+    }, wait)
   }
 }
 
@@ -1728,7 +1688,7 @@ const connectSSH = async (_opts?: { isAutoReconnect?: boolean }) => {
           textareaCompositionListener = null
         }
         if (textareaPasteListener) {
-          textarea.removeEventListener('paste', textareaPasteListener)
+          textarea.removeEventListener('paste', textareaPasteListener, true)
           textareaPasteListener = null
         }
       }
@@ -2199,7 +2159,7 @@ const connectLocalSSH = async () => {
         textareaCompositionListener = null
       }
       if (textareaPasteListener) {
-        textarea.removeEventListener('paste', textareaPasteListener)
+        textarea.removeEventListener('paste', textareaPasteListener, true)
         textareaPasteListener = null
       }
     }

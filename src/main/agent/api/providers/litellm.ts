@@ -8,7 +8,7 @@ import { Anthropic } from '@anthropic-ai/sdk'
 import OpenAI, { type ClientOptions } from 'openai'
 import { fetch as undiciFetch } from 'undici'
 import type { Dispatcher } from 'undici'
-import { ApiHandlerOptions, liteLlmDefaultModelId, liteLlmModelInfoSaneDefaults } from '@shared/api'
+import { ApiHandlerOptions, liteLlmDefaultModelId, liteLlmModelInfoSaneDefaults, type ModelInfo } from '@shared/api'
 import { ApiHandler } from '..'
 import { ApiStream } from '../transform/stream'
 import { convertToOpenAiMessages } from '../transform/openai-format'
@@ -184,7 +184,8 @@ export class LiteLlmHandler implements ApiHandler {
       ...(supportsTemperature && { temperature }),
       stream: true,
       stream_options: { include_usage: true },
-      max_tokens: this.options.liteLlmModelInfo?.maxTokens || 8192
+      max_tokens:
+        this.options.liteLlmModelInfo?.maxTokens && this.options.liteLlmModelInfo.maxTokens > 0 ? this.options.liteLlmModelInfo.maxTokens : 8192
     }
 
     if (reasoningOn) {
@@ -281,10 +282,10 @@ export class LiteLlmHandler implements ApiHandler {
     }
   }
 
-  getModel() {
+  getModel(): { id: string; info: ModelInfo } {
     return {
       id: this.options.liteLlmModelId || liteLlmDefaultModelId,
-      info: this.options.liteLlmModelInfo || liteLlmModelInfoSaneDefaults
+      info: { ...liteLlmModelInfoSaneDefaults, ...(this.options.liteLlmModelInfo || {}) }
     }
   }
 

@@ -92,6 +92,7 @@ export type GlobalStateKey =
   | 'needProxy'
   | 'proxyConfig'
   | 'modelOptions'
+  | 'modelLimits'
   | 'enterpriseModelConfigs'
   | 'enterpriseModelConfigVersion'
   | 'enterpriseModelPluginActive'

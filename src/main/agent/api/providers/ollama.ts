@@ -29,12 +29,14 @@ export class OllamaHandler implements ApiHandler {
       })
 
       // Create the actual API request promise
+      const model = this.getModel()
       const apiPromise = this.client.chat({
-        model: this.getModel().id,
+        model: model.id,
         messages: ollamaMessages,
         stream: true,
         options: {
-          num_ctx: Number(this.options.ollamaApiOptionsCtxNum) || 32768
+          num_ctx: Number(this.options.ollamaApiOptionsCtxNum) || this.options.ollamaModelInfo?.contextWindow || 32768,
+          ...(model.info.maxTokens && model.info.maxTokens > 0 ? { num_predict: model.info.maxTokens } : {})
         }
       })
 
@@ -82,9 +84,15 @@ export class OllamaHandler implements ApiHandler {
   }
 
   getModel(): { id: string; info: ModelInfo } {
+    const configuredContextWindow = Number(this.options.ollamaApiOptionsCtxNum)
+    const modelContextWindow = configuredContextWindow > 0 ? configuredContextWindow : this.options.ollamaModelInfo?.contextWindow || 32768
     return {
       id: this.options.ollamaModelId || '',
-      info: openAiModelInfoSaneDefaults
+      info: {
+        ...openAiModelInfoSaneDefaults,
+        contextWindow: modelContextWindow,
+        ...(this.options.ollamaModelInfo || {})
+      }
     }
   }
 

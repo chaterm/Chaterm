@@ -311,6 +311,25 @@ export async function getAllExtensionState() {
   //   await updateGlobalState('planActSeparateModelsSetting', planActSeparateModelsSetting)
   // }
 
+  const savedAutoApprovalSettings = autoApprovalSettings as Partial<AutoApprovalSettings> | undefined
+  const resolvedAutoApprovalSettings: AutoApprovalSettings = {
+    ...DEFAULT_AUTO_APPROVAL_SETTINGS,
+    ...savedAutoApprovalSettings,
+    actions: {
+      ...DEFAULT_AUTO_APPROVAL_SETTINGS.actions,
+      ...(savedAutoApprovalSettings?.actions || {})
+    }
+  }
+
+  // Version 1 did not expose the desktop notification setting and defaulted it
+  // to false. Upgrade those settings once so manual approval notifications are
+  // enabled by default; later user changes are preserved.
+  if (!savedAutoApprovalSettings || (savedAutoApprovalSettings.version || 1) < 3) {
+    resolvedAutoApprovalSettings.version = 3
+    resolvedAutoApprovalSettings.enableNotifications = true
+    await updateGlobalState('autoApprovalSettings', resolvedAutoApprovalSettings)
+  }
+
   return {
     apiConfiguration: {
       apiProvider,
@@ -389,7 +408,7 @@ export async function getAllExtensionState() {
     //lastShownAnnouncementId,
     customInstructions,
     userRules,
-    autoApprovalSettings: autoApprovalSettings || DEFAULT_AUTO_APPROVAL_SETTINGS, // default value can be 0 or empty string
+    autoApprovalSettings: resolvedAutoApprovalSettings,
     //browserSettings: { ...DEFAULT_BROWSER_SETTINGS, ...browserSettings }, // this will ensure that older versions of browserSettings (e.g. before remoteBrowserEnabled was added) are merged with the default values (false for remoteBrowserEnabled)
     chatSettings: chatSettings || DEFAULT_CHAT_SETTINGS,
     userInfo,

@@ -115,6 +115,10 @@ There is a saying that every agent fails all the time, but Chaterm helps you fix
 
   Connect to MySQL, PostgreSQL, SQLite, and Oracle to browse schemas, query data, inspect DDL, edit table rows, and use database-aware AI assistance.
 
+- ⚙️ **Per-model limits**
+
+  Configure the context window and maximum output tokens for each custom model in Settings → Models. These limits are used for both context management and API requests.
+
 ![Preview image](resources/features.webp)
 
 ## Development Guide

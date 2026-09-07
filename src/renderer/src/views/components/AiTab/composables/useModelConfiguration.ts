@@ -22,7 +22,11 @@ export interface ModelOption {
   checked: boolean
   type: string
   apiProvider: string
+  contextWindow?: number
+  maxTokens?: number
 }
+
+type PersistedModelLimits = Record<string, Pick<ModelOption, 'contextWindow' | 'maxTokens'>>
 
 interface EnterpriseModelConfig {
   modelName: string
@@ -110,6 +114,51 @@ export function normalizeModelType(rawType: unknown): string {
   return type || 'standard'
 }
 
+function normalizeTokenLimit(value: unknown): number | undefined {
+  const limit = typeof value === 'number' ? value : Number(value)
+  return Number.isSafeInteger(limit) && limit > 0 ? limit : undefined
+}
+
+function normalizeModelLimits(rawModel: Record<string, unknown>): Pick<ModelOption, 'contextWindow' | 'maxTokens'> {
+  const modelInfo = rawModel.modelInfo && typeof rawModel.modelInfo === 'object' ? (rawModel.modelInfo as Record<string, unknown>) : undefined
+  const contextWindow = normalizeTokenLimit(
+    rawModel.contextWindow ?? rawModel.maxContextTokens ?? rawModel.max_input_tokens ?? modelInfo?.contextWindow ?? modelInfo?.max_input_tokens
+  )
+  const maxTokens = normalizeTokenLimit(
+    rawModel.maxTokens ?? rawModel.maxOutputTokens ?? rawModel.max_output_tokens ?? modelInfo?.maxTokens ?? modelInfo?.max_output_tokens
+  )
+
+  return {
+    ...(contextWindow ? { contextWindow } : {}),
+    ...(maxTokens ? { maxTokens } : {})
+  }
+}
+
+function normalizePersistedModelLimits(value: unknown): PersistedModelLimits {
+  if (!value || typeof value !== 'object') return {}
+
+  const normalized: PersistedModelLimits = {}
+  for (const [modelName, rawLimits] of Object.entries(value as Record<string, unknown>)) {
+    if (!rawLimits || typeof rawLimits !== 'object') continue
+    const limits = normalizeModelLimits(rawLimits as Record<string, unknown>)
+    if (limits.contextWindow || limits.maxTokens) {
+      normalized[modelName] = limits
+    }
+  }
+  return normalized
+}
+
+function applyPersistedModelLimits(model: ModelOption, persistedModelLimits: PersistedModelLimits): ModelOption {
+  const limits = persistedModelLimits[model.name]
+  if (!limits) return model
+
+  return {
+    ...model,
+    ...(limits.contextWindow ? { contextWindow: limits.contextWindow } : {}),
+    ...(limits.maxTokens ? { maxTokens: limits.maxTokens } : {})
+  }
+}
+
 export function isServerManagedModelType(type: string | undefined): boolean {
   return type === 'standard' || type === 'rerank'
 }
@@ -134,7 +183,8 @@ export function normalizeUserModelOption(rawModel: unknown): ModelOption | null 
     name,
     checked: true,
     type: normalizeModelType(model.type || model.modelType),
-    apiProvider: normalizeProvider(model.apiProvider || model.provider)
+    apiProvider: normalizeProvider(model.apiProvider || model.provider),
+    ...normalizeModelLimits(model)
   }
 }
 
@@ -361,11 +411,13 @@ async function fetchDefaultModelInfoMap(baseUrl: string, apiKey: string): Promis
       const maxOutputTokens = info.max_output_tokens
       if (maxInputTokens == null && maxOutputTokens == null) continue
       const entry: { contextWindow?: number; maxTokens?: number } = {}
-      if (typeof maxInputTokens === 'number' && maxInputTokens > 0) {
-        entry.contextWindow = maxInputTokens
+      const parsedMaxInputTokens = Number(maxInputTokens)
+      const parsedMaxOutputTokens = Number(maxOutputTokens)
+      if (Number.isSafeInteger(parsedMaxInputTokens) && parsedMaxInputTokens > 0) {
+        entry.contextWindow = parsedMaxInputTokens
       }
-      if (typeof maxOutputTokens === 'number' && maxOutputTokens > 0) {
-        entry.maxTokens = maxOutputTokens
+      if (Number.isSafeInteger(parsedMaxOutputTokens) && parsedMaxOutputTokens > 0) {
+        entry.maxTokens = parsedMaxOutputTokens
       }
       if (entry.contextWindow || entry.maxTokens) {
         map[name] = entry
@@ -620,10 +672,13 @@ export const useModelConfiguration = createGlobalState(() => {
       const res = await getUser({})
       logger.info('getUser response', { data: res })
       const userData = (res?.data || {}) as UserInfoPayload
+      const persistedModelLimits = normalizePersistedModelLimits(await getGlobalState('modelLimits'))
       const enterpriseModelConfigs = await syncEnterpriseStateFromUserData(userData, { reloadPlugins: true })
       const enterprisePluginActive =
         isEnterpriseDeployEnabled() && enterpriseModelConfigs.length > 0 && Boolean(await getGlobalState('enterpriseModelPluginActive'))
-      const defaultModelOptions = enterprisePluginActive ? [] : normalizeUserModelOptions(userData.models)
+      const defaultModelOptions = enterprisePluginActive
+        ? []
+        : normalizeUserModelOptions(userData.models).map((model) => applyPersistedModelLimits(model, persistedModelLimits))
       const subscriptionModelsList = enterprisePluginActive ? [] : normalizeModelNames(userData.subscriptionModels || [])
       const gatewayAddr = userData.llmGatewayAddr || ''
       const gatewayKey = userData.key || ''
@@ -642,20 +697,27 @@ export const useModelConfiguration = createGlobalState(() => {
       }
 
       const modelOptions: ModelOption[] = defaultModelOptions
-      const lockedModelOptions: ModelOption[] = allLockedNames.value.map((model) => ({
-        id: model,
-        name: model,
-        checked: true,
-        type: 'standard',
-        apiProvider: 'default'
-      }))
+      const lockedModelOptions: ModelOption[] = allLockedNames.value.map((model) =>
+        applyPersistedModelLimits(
+          {
+            id: model,
+            name: model,
+            checked: true,
+            type: 'standard',
+            apiProvider: 'default'
+          },
+          persistedModelLimits
+        )
+      )
 
       const serializableModelOptions = [...modelOptions, ...lockedModelOptions].map((model) => ({
         id: model.id,
         name: model.name,
         checked: Boolean(model.checked),
         type: model.type || 'standard',
-        apiProvider: model.apiProvider || 'default'
+        apiProvider: model.apiProvider || 'default',
+        ...(model.contextWindow ? { contextWindow: model.contextWindow } : {}),
+        ...(model.maxTokens ? { maxTokens: model.maxTokens } : {})
       }))
 
       await updateGlobalState('modelOptions', serializableModelOptions)
@@ -723,6 +785,7 @@ export const useModelConfiguration = createGlobalState(() => {
     }
 
     const savedModelOptions = ((await getGlobalState('modelOptions')) || []) as ModelOption[]
+    const persistedModelLimits = normalizePersistedModelLimits(await getGlobalState('modelLimits'))
     const allKnownSet = new Set([...serverModelOptions.map((model) => model.name), ...subscriptionModelsList])
     const enterpriseModelNames = new Set(enterpriseModelConfigs.map((config) => config.modelName))
 
@@ -737,30 +800,50 @@ export const useModelConfiguration = createGlobalState(() => {
         }
         return allKnownSet.has(opt.name)
       })
-      .map((opt) => ({
-        id: opt.id || opt.name,
-        name: opt.name,
-        checked: Boolean(opt.checked),
-        type: opt.type || 'standard',
-        apiProvider: opt.apiProvider || 'default'
-      }))
+      .map((opt) =>
+        applyPersistedModelLimits(
+          {
+            id: opt.id || opt.name,
+            name: opt.name,
+            checked: Boolean(opt.checked),
+            type: opt.type || 'standard',
+            apiProvider: opt.apiProvider || 'default',
+            ...(opt.contextWindow ? { contextWindow: opt.contextWindow } : {}),
+            ...(opt.maxTokens ? { maxTokens: opt.maxTokens } : {})
+          },
+          persistedModelLimits
+        )
+      )
 
     const retainedNames = new Set(retainedStandard.map((opt) => opt.name))
 
-    const newAvailable = (enterpriseModelConfigs.length > 0 ? [] : serverModelOptions).filter((model) => !retainedNames.has(model.name))
+    const newAvailable = (enterpriseModelConfigs.length > 0 ? [] : serverModelOptions)
+      .filter((model) => !retainedNames.has(model.name))
+      .map((model) => applyPersistedModelLimits(model, persistedModelLimits))
 
     const allAddedNames = new Set([...retainedNames, ...newAvailable.map((o) => o.name)])
     const newLocked = (enterpriseModelConfigs.length > 0 ? [] : lockedFromServer)
       .filter((name) => !allAddedNames.has(name))
-      .map((name) => ({
-        id: name,
-        name,
-        checked: true,
-        type: 'standard',
-        apiProvider: 'default'
-      }))
+      .map((name) =>
+        applyPersistedModelLimits(
+          {
+            id: name,
+            name,
+            checked: true,
+            type: 'standard',
+            apiProvider: 'default'
+          },
+          persistedModelLimits
+        )
+      )
 
-    const updatedOptions = [...retainedStandard, ...newAvailable, ...newLocked, ...existingEnterprise, ...existingCustom]
+    const updatedOptions = [
+      ...retainedStandard,
+      ...newAvailable,
+      ...newLocked,
+      ...existingEnterprise.map((model) => applyPersistedModelLimits(model, persistedModelLimits)),
+      ...existingCustom.map((model) => applyPersistedModelLimits(model, persistedModelLimits))
+    ]
     await updateGlobalState('modelOptions', updatedOptions)
 
     // Compute locked models filtered by checked state

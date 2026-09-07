@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
-import { isEnterpriseDeployEnabled, syncEnterpriseStateFromUserData, useModelConfiguration } from '../useModelConfiguration'
+import { isEnterpriseDeployEnabled, normalizeUserModelOption, syncEnterpriseStateFromUserData, useModelConfiguration } from '../useModelConfiguration'
 import * as stateModule from '@renderer/agent/storage/state'
 import { getUser } from '@api/user/user'
 import { ref } from 'vue'
@@ -49,6 +49,26 @@ describe('useModelConfiguration', () => {
 
   afterEach(() => {
     vi.unstubAllEnvs()
+  })
+
+  it('normalizes per-model context and output limits from model metadata', () => {
+    expect(
+      normalizeUserModelOption({
+        id: 'claude-opus-5',
+        name: 'claude-opus-5',
+        provider: 'openai-compatible',
+        contextWindow: '1000000',
+        maxOutputTokens: 32768
+      })
+    ).toEqual({
+      id: 'claude-opus-5',
+      name: 'claude-opus-5',
+      checked: true,
+      type: 'standard',
+      apiProvider: 'openai',
+      contextWindow: 1_000_000,
+      maxTokens: 32_768
+    })
   })
 
   describe('initModel', () => {
@@ -292,7 +312,7 @@ describe('useModelConfiguration', () => {
       global.fetch = vi.fn().mockResolvedValue({
         ok: true,
         json: vi.fn().mockResolvedValue({
-          data: [{ model_name: 'gpt-5', model_info: { max_input_tokens: 128000, max_output_tokens: 8192 } }]
+          data: [{ model_name: 'gpt-5', model_info: { max_input_tokens: '1000000', max_output_tokens: '32768' } }]
         })
       } as any)
 
@@ -501,6 +521,36 @@ describe('useModelConfiguration', () => {
       expect(stateModule.storeSecret).toHaveBeenCalledWith('defaultApiKey', 'server-key')
       // Verify UI options are updated (initModel was called)
       expect(AgentAiModelsOptions.value.map((o) => o.label)).toEqual(['claude-4', 'custom-x'])
+    })
+
+    it('restores persisted limits when refreshing server model options', async () => {
+      localStorage.removeItem('login-skipped')
+
+      let savedOptions: unknown = [{ id: 'c1', name: 'custom-x', checked: true, type: 'custom', apiProvider: 'openai' }]
+      vi.mocked(stateModule.getGlobalState).mockImplementation(async (key) => {
+        if (key === 'modelOptions') return savedOptions
+        if (key === 'modelLimits') return { 'custom-x': { contextWindow: 1_000_000, maxTokens: 32_768 } }
+        return null
+      })
+      vi.mocked(stateModule.updateGlobalState).mockImplementation(async (key, value) => {
+        if (key === 'modelOptions') savedOptions = value
+      })
+      vi.mocked(getUser).mockResolvedValue({
+        data: {
+          models: ['gpt-5'],
+          subscriptionModels: [],
+          llmGatewayAddr: 'https://api.example.com',
+          key: 'server-key'
+        }
+      } as any)
+
+      const { refreshModelOptions } = useModelConfiguration()
+      await refreshModelOptions()
+
+      expect(stateModule.updateGlobalState).toHaveBeenCalledWith(
+        'modelOptions',
+        expect.arrayContaining([expect.objectContaining({ name: 'custom-x', contextWindow: 1_000_000, maxTokens: 32_768 })])
+      )
     })
 
     it('does not update modelOptions when request fails', async () => {

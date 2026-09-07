@@ -259,6 +259,7 @@
                               visibility: hasPanels ? 'visible' : 'hidden'
                             }"
                             @ready="onDockReady"
+                            @mouseover="showTabTitle"
                           />
                           <EditorActions
                             v-if="dockApiInstance"
@@ -503,6 +504,7 @@ interface LeftSidebarState {
 const savedAiSidebarState = ref<AiSidebarState | null>(null)
 const aiTabRef = ref<InstanceType<typeof AiTab> | null>(null)
 useAiSidebarModelRefresh(showAiSidebar, aiTabRef)
+let removeNotificationClickListener: (() => void) | undefined
 
 const handleAiTabStateChanged = (state: Record<string, unknown>) => {
   savedAiSidebarState.value = state as unknown as AiSidebarState
@@ -823,6 +825,24 @@ const configLoaded = ref(false)
 
 onMounted(async () => {
   mark('chaterm/renderer/willInitTerminalLayout')
+  removeNotificationClickListener = window.api?.onMainMessage?.((message: { type?: string; taskId?: string }) => {
+    if (message?.type !== 'notificationClicked' || !message.taskId) return
+    const taskId = message.taskId
+
+    const openTask = async () => {
+      if (props.currentMode !== 'agents') {
+        eventBus.emit('switch-mode', 'agents')
+      }
+      for (let attempt = 0; attempt < 10 && !aiTabRef.value; attempt++) {
+        await new Promise((resolve) => setTimeout(resolve, 50))
+      }
+      const metadata = await window.api.getTaskMetadata(taskId)
+      const title = metadata.success && metadata.data?.title ? metadata.data.title : 'New Chat'
+      await handleConversationSelect({ id: taskId, title, ts: Date.now() })
+    }
+
+    openTask().catch((error) => logger.warn('Failed to open task from notification', { error }))
+  })
   const store = piniaUserConfigStore()
   mark('chaterm/renderer/willLoadShortcuts')
   await shortcutService.loadShortcuts()
@@ -2012,6 +2032,8 @@ const handleKbFileRenamed = (payload: { oldRelPath: string; newRelPath: string; 
 }
 
 onUnmounted(() => {
+  removeNotificationClickListener?.()
+  removeNotificationClickListener = undefined
   if (removeXshellWakeupListener) {
     removeXshellWakeupListener()
     removeXshellWakeupListener = null
@@ -2817,6 +2839,17 @@ const contextMenuRef = ref<HTMLElement | null>(null)
 
 const hideContextMenu = () => {
   contextMenu.value.visible = false
+}
+const showTabTitle = (event: MouseEvent) => {
+  const target = event.target
+  if (!(target instanceof Element)) return
+
+  const tabElement = target.closest<HTMLElement>('.dv-tab')
+  const titleElement = tabElement?.querySelector('.dv-default-tab-content')
+  if (tabElement && titleElement) {
+    // Keep the full, current title available on hover when the tab text is ellipsized.
+    tabElement.title = titleElement.textContent || ''
+  }
 }
 const setupTabContextMenu = () => {
   // Listen to dockview container
@@ -3772,7 +3805,8 @@ defineExpose({
 
 .dockview-theme-light .dv-tab,
 .dockview-theme-dark .dv-tab {
-  max-width: 180px;
+  /* Keep long names compact so more terminal tabs fit in the tab bar. */
+  max-width: 140px;
   min-width: 0;
 }
 

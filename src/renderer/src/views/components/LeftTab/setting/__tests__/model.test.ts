@@ -36,6 +36,9 @@ vi.mock('ant-design-vue', () => ({
 
 // Mock i18n
 const mockTranslations: Record<string, string> = {
+  'common.save': 'Save',
+  'common.cancel': 'Cancel',
+  'user.check': 'Check',
   'user.modelNames': 'Model Names',
   'user.addModel': 'Add Model',
   'user.apiConfiguration': 'API Configuration',
@@ -161,6 +164,10 @@ describe('Model Component', () => {
           'a-input-password': {
             template: '<input type="password" class="a-input-password" :value="value" @input="$emit(\'update:value\', $event.target.value)" />',
             props: ['value', 'placeholder']
+          },
+          'a-input-number': {
+            template: '<input class="a-input-number" :value="value" @input="$emit(\'update:value\', Number($event.target.value))" />',
+            props: ['value', 'placeholder', 'min', 'step']
           },
           'a-select': {
             template: '<select class="a-select" :value="value" @change="$emit(\'update:value\', $event.target.value)"><slot /></select>',
@@ -460,6 +467,49 @@ describe('Model Component', () => {
 
       const removeButton = wrapper.find('.remove-button')
       expect(removeButton.exists()).toBe(true)
+    })
+
+    it('should save context and output limits for a model', async () => {
+      const vm = wrapper.vm as any
+      const model = vm.modelOptions.find((item: any) => item.id === 'custom-1')
+      expect(model).toBeDefined()
+
+      vm.toggleModelLimits(model)
+      await nextTick()
+      expect(wrapper.find('.model-limits-actions').text()).toContain('Save')
+      expect(wrapper.find('.model-limits-actions').text()).toContain('Cancel')
+      vm.editingContextWindow = 1_000_000
+      vm.editingMaxTokens = 32_768
+      await vm.saveModelLimits(model)
+
+      expect(model.contextWindow).toBe(1_000_000)
+      expect(model.maxTokens).toBe(32_768)
+      expect(updateGlobalState).toHaveBeenCalledWith(
+        'modelOptions',
+        expect.arrayContaining([expect.objectContaining({ id: 'custom-1', contextWindow: 1_000_000, maxTokens: 32_768 })])
+      )
+      expect(updateGlobalState).toHaveBeenCalledWith('modelLimits', {
+        'custom-model': { contextWindow: 1_000_000, maxTokens: 32_768 }
+      })
+    })
+
+    it('restores persisted limits when model options do not contain them', async () => {
+      ;(getGlobalState as ReturnType<typeof vi.fn>).mockImplementation(async (key: string) => {
+        if (key === 'modelOptions') {
+          return [{ id: 'custom-1', name: 'custom-model', checked: true, type: 'custom', apiProvider: 'openai' }]
+        }
+        if (key === 'modelLimits') {
+          return { 'custom-model': { contextWindow: 1_000_000, maxTokens: 32_768 } }
+        }
+        return null
+      })
+      ;(getUser as ReturnType<typeof vi.fn>).mockResolvedValue({ data: { models: [] } })
+
+      wrapper = createWrapper()
+      await waitForMountedAsync()
+
+      const model = (wrapper.vm as any).modelOptions.find((item: any) => item.id === 'custom-1')
+      expect(model).toMatchObject({ contextWindow: 1_000_000, maxTokens: 32_768 })
     })
 
     it('should not display remove button for standard models', async () => {

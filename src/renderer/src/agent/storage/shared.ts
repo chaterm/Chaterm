@@ -39,7 +39,7 @@ export interface AutoApprovalSettings {
 }
 
 export const DEFAULT_AUTO_APPROVAL_SETTINGS: AutoApprovalSettings = {
-  version: 1,
+  version: 3,
   enabled: false,
   actions: {
     readFiles: true,
@@ -53,7 +53,7 @@ export const DEFAULT_AUTO_APPROVAL_SETTINGS: AutoApprovalSettings = {
     autoExecuteReadOnlyCommands: false
   },
   maxRequests: 20,
-  enableNotifications: false,
+  enableNotifications: true,
   favorites: ['enableAutoApprove', 'readFiles']
 }
 
@@ -88,21 +88,27 @@ export interface ApiHandlerOptions {
   liteLlmBaseUrl?: string
   liteLlmModelId?: string
   liteLlmApiKey?: string
+  liteLlmModelInfo?: Partial<OpenAiCompatibleModelInfo>
+  bedrockModelInfo?: Partial<ModelInfo>
   thinkingBudgetTokens?: number
   reasoningEffort?: string
   requestTimeoutMs?: number
   onRetryAttempt?: (attempt: number, maxRetries: number, delay: number, error: any) => void
   deepSeekApiKey?: string
+  deepSeekModelInfo?: Partial<ModelInfo>
   anthropicApiKey?: string
   anthropicBaseUrl?: string
   anthropicModelId?: string
+  anthropicModelInfo?: Partial<ModelInfo>
   openAiBaseUrl?: string
   openAiApiKey?: string
   openAiModelId?: string
-  openAiModelInfo?: OpenAiCompatibleModelInfo
+  openAiModelInfo?: Partial<OpenAiCompatibleModelInfo>
   ollamaModelId?: string
   ollamaBaseUrl?: string
   ollamaApiOptionsCtxNum?: string
+  ollamaModelInfo?: Partial<OpenAiCompatibleModelInfo>
+  defaultModelInfoMap?: Record<string, { contextWindow?: number; maxTokens?: number }>
   needProxy?: boolean
   proxyConfig?: ProxyConfig
   defaultBaseUrl?: string

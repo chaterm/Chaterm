@@ -67,6 +67,7 @@ describe('Terminal Settings Component', () => {
           'a-form': { template: '<form><slot /></form>' },
           'a-form-item': { template: '<div><slot name="label" /><slot /></div>' },
           'a-select': { template: '<div><slot /></div>' },
+          'a-auto-complete': { template: '<input />' },
           'a-select-option': { template: '<div><slot /></div>' },
           'a-input-number': { template: '<input />' },
           'a-switch': { template: '<button />' },
@@ -188,5 +189,29 @@ describe('Terminal Settings Component', () => {
     vm.handleLocalEchoEnabledChange(true)
 
     expect(vm.userConfig.localEchoEnabled).toBe(true)
+  })
+
+  it('supports Intel One Mono and arbitrary installed font family names', async () => {
+    mockGetConfig.mockResolvedValue({
+      fontSize: 12,
+      fontFamily: 'Intel One Mono',
+      scrollBack: 1000,
+      cursorStyle: 'block'
+    })
+
+    wrapper = createWrapper()
+    await nextTick()
+    await nextTick()
+
+    const vm = wrapper.vm as any
+    expect(vm.userConfig.fontFamily).toBe('Intel One Mono')
+    expect(vm.fontFamilyOptions).toContainEqual({ value: 'Intel One Mono', label: 'Intel One Mono' })
+    expect(vm.filterFontOption('intel', { value: 'Intel One Mono', label: 'Intel One Mono' })).toBe(true)
+    expect(vm.filterFontOption('custom', { value: 'Intel One Mono', label: 'Intel One Mono' })).toBe(false)
+
+    vi.mocked(userConfigStore.saveConfig).mockClear()
+    vm.userConfig.fontFamily = 'My Local Mono'
+    await vm.saveConfig()
+    expect(userConfigStore.saveConfig).toHaveBeenCalledWith(expect.objectContaining({ fontFamily: 'My Local Mono' }))
   })
 })

@@ -893,6 +893,25 @@ describe('TabsPanel Component', () => {
       expect(mockHandleResize2).toHaveBeenCalled()
     })
 
+    it('should resize SSH and K8s terminal refs when the sidebar changes size', async () => {
+      const sshHandleResize = vi.fn()
+      const k8sHandleResize = vi.fn()
+      wrapper = createWrapper({
+        organizationId: 'org-123',
+        ip: '192.168.1.1'
+      })
+
+      const vm = wrapper.vm as any
+      vm.sshConnectRefMap = { 'ssh-1': { handleResize: sshHandleResize } }
+      vm.k8sConnectRefMap = { 'k8s-1': { handleResize: k8sHandleResize } }
+
+      vm.resizeTerm()
+      await new Promise((resolve) => setTimeout(resolve, 10))
+
+      expect(sshHandleResize).toHaveBeenCalledTimes(1)
+      expect(k8sHandleResize).toHaveBeenCalledTimes(1)
+    })
+
     it('should handle resizeTerm gracefully when termRefMap is empty', () => {
       wrapper = createWrapper({
         organizationId: 'org-123',

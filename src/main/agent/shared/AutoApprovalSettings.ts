@@ -26,7 +26,7 @@ export interface AutoApprovalSettings {
 }
 
 export const DEFAULT_AUTO_APPROVAL_SETTINGS: AutoApprovalSettings = {
-  version: 1,
+  version: 3,
   enabled: false,
   actions: {
     readFiles: true,

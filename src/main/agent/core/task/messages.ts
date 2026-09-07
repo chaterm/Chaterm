@@ -40,6 +40,7 @@ export interface Messages {
   condenseNotification: string
   githubIssueNotification: string
   followupQuestionNotification: string
+  approvalRequiredNotification: string
 
   // Tool related messages
   toolExecutionFailed: string
@@ -177,6 +178,7 @@ export const messagesEN: Messages = {
   condenseNotification: 'Chaterm wants to condense the conversation...',
   githubIssueNotification: 'Chaterm wants to create a github issue...',
   followupQuestionNotification: 'Chaterm has a question...',
+  approvalRequiredNotification: 'Approval Required',
 
   // Tool related messages
   toolExecutionFailed: 'Error {{action}}',
@@ -318,6 +320,7 @@ export const messagesCN: Messages = {
   condenseNotification: 'Chaterm想要压缩对话...',
   githubIssueNotification: 'Chaterm想要创建github问题...',
   followupQuestionNotification: 'Chaterm有一个问题...',
+  approvalRequiredNotification: '需要审批',
 
   // 工具相关消息
   toolExecutionFailed: '执行{{action}}时出错',
