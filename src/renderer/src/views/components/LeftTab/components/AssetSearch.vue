@@ -4,6 +4,7 @@
       <a-input
         v-model:value="searchValue"
         :placeholder="t('common.search')"
+        :disabled="selectionDisabled"
         class="search-input"
         @input="handleSearch"
         @change="handleSearch"
@@ -12,7 +13,10 @@
           <search-outlined />
         </template>
       </a-input>
-      <div class="action-buttons">
+      <div
+        v-if="!selectionMode"
+        class="action-buttons"
+      >
         <a-button
           v-if="showNewButton"
           size="small"
@@ -72,7 +76,25 @@
           </template>
           {{ t('personal.export') }}
         </a-button>
+        <a-button
+          size="small"
+          class="action-button"
+          :disabled="batchDeleteDisabled"
+          @click="emit('batch-delete')"
+        >
+          <template #icon><DeleteOutlined /></template>
+          {{ t('personal.batchDelete') }}
+        </a-button>
       </div>
+      <a-button
+        v-else
+        size="small"
+        class="action-button"
+        :disabled="selectionDisabled"
+        @click="emit('cancel-selection')"
+      >
+        {{ t('common.cancel') }}
+      </a-button>
     </div>
 
     <input
@@ -87,7 +109,7 @@
 
 <script setup lang="ts">
 import { ref, watch, h } from 'vue'
-import { SearchOutlined, DatabaseOutlined, ImportOutlined, ExportOutlined, QuestionCircleOutlined } from '@ant-design/icons-vue'
+import { SearchOutlined, DatabaseOutlined, ImportOutlined, ExportOutlined, QuestionCircleOutlined, DeleteOutlined } from '@ant-design/icons-vue'
 import { message, Modal } from 'ant-design-vue'
 import i18n from '@/locales'
 
@@ -99,13 +121,19 @@ interface Props {
   placeholder?: string
   showNewButton?: boolean
   newButtonText?: string
+  selectionMode?: boolean
+  selectionDisabled?: boolean
+  batchDeleteDisabled?: boolean
 }
 
 const props = withDefaults(defineProps<Props>(), {
   modelValue: '',
   placeholder: '',
   showNewButton: true,
-  newButtonText: ''
+  newButtonText: '',
+  selectionMode: false,
+  selectionDisabled: false,
+  batchDeleteDisabled: false
 })
 
 const emit = defineEmits<{
@@ -115,6 +143,8 @@ const emit = defineEmits<{
   'import-assets': [assets: any[]]
   'import-file': [data: { file: File; type: string }]
   'export-assets': []
+  'batch-delete': []
+  'cancel-selection': []
 }>()
 
 const searchValue = ref(props.modelValue)
@@ -270,6 +300,7 @@ defineExpose({
 
 .search-wrapper {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   gap: 8px;
   width: 100%;
@@ -297,9 +328,11 @@ defineExpose({
 
 .action-buttons {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   gap: 8px;
   flex-shrink: 0;
+  max-width: 100%;
 }
 
 .action-button {
