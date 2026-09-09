@@ -1,5 +1,6 @@
 import Database from 'better-sqlite3'
 import { v4 as uuidv4 } from 'uuid'
+import type { BatchDeleteAssetsResult } from '../../../../shared/asset-types'
 const logger = createLogger('db')
 
 // Helper function to check if asset type is an organization type
@@ -300,38 +301,68 @@ export function createAssetLogic(db: Database.Database, params: any): any {
   }
 }
 
-export function deleteAssetLogic(db: Database.Database, uuid: string): any {
-  try {
-    const checkStmt = db.prepare(`
+function deleteAssetRecord(db: Database.Database, uuid: string): number {
+  const checkStmt = db.prepare(`
       SELECT asset_type FROM t_assets WHERE uuid = ?
     `)
-    const asset = checkStmt.get(uuid)
+  const asset = checkStmt.get(uuid) as { asset_type: string } | undefined
 
-    if (asset && isOrganizationType(asset.asset_type)) {
-      const deleteOrgAssetsStmt = db.prepare(`
+  if (asset && isOrganizationType(asset.asset_type)) {
+    const deleteOrgAssetsStmt = db.prepare(`
         DELETE FROM t_organization_assets
         WHERE organization_uuid = ?
       `)
-      deleteOrgAssetsStmt.run(uuid)
-    }
+    deleteOrgAssetsStmt.run(uuid)
+  }
 
-    const stmt = db.prepare(`
+  const stmt = db.prepare(`
         DELETE FROM t_assets
         WHERE uuid = ?
       `)
-    const result = stmt.run(uuid)
+  return stmt.run(uuid).changes
+}
 
-    if (result.changes > 0) {
+export function deleteAssetLogic(db: Database.Database, uuid: string): any {
+  try {
+    const changes = deleteAssetRecord(db, uuid)
+
+    if (changes > 0) {
       triggerIncrementalSync()
     }
 
     return {
       data: {
-        message: result.changes > 0 ? 'success' : 'failed'
+        message: changes > 0 ? 'success' : 'failed'
       }
     }
   } catch (error) {
     logger.error('Chaterm database delete asset error', { error: error })
+    throw error
+  }
+}
+
+export function batchDeleteAssetsLogic(db: Database.Database, uuids: string[]): BatchDeleteAssetsResult {
+  if (!Array.isArray(uuids) || uuids.length === 0 || uuids.some((uuid) => typeof uuid !== 'string' || !uuid.trim())) {
+    return { data: { message: 'failed', changes: 0, requested: 0, error: 'A non-empty array of UUIDs is required' } }
+  }
+
+  try {
+    const uniqueUuids = [...new Set(uuids)]
+    const changes = db.transaction(() => {
+      let deletedCount = 0
+      for (const uuid of uniqueUuids) {
+        deletedCount += deleteAssetRecord(db, uuid)
+      }
+      return deletedCount
+    })()
+
+    if (changes > 0) {
+      triggerIncrementalSync()
+    }
+
+    return { data: { message: 'success', changes, requested: uniqueUuids.length } }
+  } catch (error) {
+    logger.error('Chaterm database batch delete assets error', { error })
     throw error
   }
 }

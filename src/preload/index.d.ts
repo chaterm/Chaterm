@@ -2,6 +2,7 @@ import { ElectronAPI } from '@electron-toolkit/preload'
 import type { TaskMetadata } from '../main/agent/core/context/context-tracking/ContextTrackerTypes'
 import type { CommandGenerationContext, WebviewMessage } from '../main/agent/shared/WebviewMessage'
 import type { DbAiApi } from '../shared/db-ai-types'
+import type { BatchDeleteAssetsResult } from '../shared/asset-types'
 
 interface FigSuggestion {
   text: string
@@ -435,6 +436,7 @@ interface ApiType {
   chatermInsert: (data: { sql: string; params?: any[] }) => Promise<any>
   chatermUpdate: (data: { sql: string; params?: any[] }) => Promise<any>
   deleteAsset: (data: { uuid: string }) => Promise<any>
+  batchDeleteAssets: (data: { uuids: string[] }) => Promise<BatchDeleteAssetsResult | null>
   getKeyChainSelect: () => Promise<any>
   getPasswordChainSelect: () => Promise<any>
   getAssetGroup: () => Promise<any>
