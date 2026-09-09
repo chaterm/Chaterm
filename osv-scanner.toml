@@ -9,3 +9,9 @@ id = "GHSA-x4vx-rjvf-j5p4"
 # Chaterm does not use DOMPurify in IN_PLACE mode, nor does it sanitize
 # attacker-supplied live DOM nodes, so this vector is not reachable.
 reason = "No upstream fix available; IN_PLACE mode is not used in this project."
+
+[[IgnoredVulns]]
+id = "GHSA-vwc7-r8mq-g2x9"
+# adm-zip's vulnerable extractAllTo implementation follows destination symlinks.
+# Plugin archives are extracted entry-by-entry with validated paths instead.
+reason = "The vulnerable bulk extraction API is not used; plugin extraction validates and writes each entry safely."
