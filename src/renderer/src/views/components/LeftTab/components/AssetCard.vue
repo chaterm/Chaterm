@@ -5,12 +5,23 @@
   >
     <a-card
       class="asset-card"
+      :class="{ 'asset-card-selected': selected, 'asset-card-selecting': selectionMode }"
       :bordered="false"
       @contextmenu.prevent="handleContextMenu"
       @click="handleClick"
       @dblclick="handleDoubleClick"
     >
       <div class="asset-card-content">
+        <a-checkbox
+          v-if="selectionMode"
+          class="asset-checkbox"
+          :checked="selected"
+          :disabled="selectionDisabled || !asset.uuid"
+          :aria-label="asset.title"
+          @click.stop
+          @dblclick.stop
+          @change="handleSelect"
+        />
         <div class="asset-icon">
           <!-- Switch icon for network switches -->
           <ClusterOutlined
@@ -38,7 +49,10 @@
           </div>
           <div class="asset-type"> {{ t('personal.hostType') }}{{ asset.username ? ', ' + asset.username : '' }} </div>
         </div>
-        <div class="action-buttons">
+        <div
+          v-if="!selectionMode"
+          class="action-buttons"
+        >
           <div
             class="action-button edit-button"
             :title="t('common.edit')"
@@ -71,9 +85,16 @@ const { t } = i18n.global
 
 interface Props {
   asset: AssetNode
+  selectionMode?: boolean
+  selected?: boolean
+  selectionDisabled?: boolean
 }
 
-const props = defineProps<Props>()
+const props = withDefaults(defineProps<Props>(), {
+  selectionMode: false,
+  selected: false,
+  selectionDisabled: false
+})
 
 const emit = defineEmits<{
   click: [asset: AssetNode]
@@ -81,13 +102,25 @@ const emit = defineEmits<{
   edit: [asset: AssetNode]
   delete: [asset: AssetNode]
   'context-menu': [event: MouseEvent, asset: AssetNode]
+  select: [asset: AssetNode]
 }>()
 
+const handleSelect = () => {
+  if (props.selectionMode && !props.selectionDisabled && props.asset.uuid) {
+    emit('select', props.asset)
+  }
+}
+
 const handleClick = () => {
+  if (props.selectionMode) {
+    handleSelect()
+    return
+  }
   emit('click', props.asset)
 }
 
 const handleDoubleClick = () => {
+  if (props.selectionMode) return
   emit('double-click', props.asset)
 }
 
@@ -101,6 +134,7 @@ const handleDelete = () => {
 
 const handleContextMenu = (event: MouseEvent) => {
   event.preventDefault()
+  if (props.selectionMode) return
   emit('context-menu', event, props.asset)
 }
 </script>
@@ -127,6 +161,20 @@ const handleContextMenu = (event: MouseEvent) => {
   :deep(.ant-card-body) {
     padding: 8px 12px;
   }
+}
+
+.asset-card-selecting {
+  padding-right: 0;
+}
+
+.asset-card-selected {
+  outline: 1px solid var(--primary-color, #1677ff);
+  outline-offset: -1px;
+  background-color: var(--active-bg-color);
+}
+
+.asset-checkbox {
+  margin-right: 12px;
 }
 
 :global(body.has-custom-bg .asset-card) {

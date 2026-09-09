@@ -4,6 +4,7 @@ import { contextBridge, ipcRenderer, webUtils } from 'electron'
 import { electronAPI } from '@electron-toolkit/preload'
 import type { WebviewMessage } from '../main/agent/shared/WebviewMessage'
 import type { ChatermMessagesPage } from '../main/agent/shared/ExtensionMessage'
+import type { BatchDeleteAssetsResult } from '../shared/asset-types'
 import {
   DB_AI_IPC_CHANNELS,
   type DbAiCancelResult,
@@ -345,6 +346,10 @@ const deleteAsset = async (data: { uuid: string }) => {
   } catch (error) {
     return Promise.reject(error)
   }
+}
+
+const batchDeleteAssets = async (data: { uuids: string[] }): Promise<BatchDeleteAssetsResult | null> => {
+  return ipcRenderer.invoke('asset-batch-delete', data)
 }
 
 const createAsset = async (data: { form: Record<string, unknown> }) => {
@@ -984,6 +989,7 @@ const api = {
   chatermInsert,
   chatermUpdate,
   deleteAsset,
+  batchDeleteAssets,
   createAsset,
   createOrUpdateAsset,
   updateAsset,

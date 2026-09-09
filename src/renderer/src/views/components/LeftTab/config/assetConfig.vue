@@ -5,16 +5,26 @@
         <AssetSearch
           ref="assetSearchRef"
           v-model="searchValue"
+          :selection-mode="selectionMode"
+          :selection-disabled="batchDeleteLoading"
+          :batch-delete-disabled="hostConfigurations.length === 0"
           @search="handleSearch"
           @new-asset="openNewPanel"
           @import-assets="handleImportAssets"
           @import-file="handleImportFile"
           @export-assets="handleExportAssets"
+          @batch-delete="startBatchSelection"
+          @cancel-selection="cancelBatchSelection"
         />
         <AssetList
           :asset-groups="assetGroups"
           :search-value="searchValue"
           :wide-layout="!isRightSectionVisible"
+          :selection-mode="selectionMode"
+          :selected-uuids="selectedAssetUuids"
+          :selection-disabled="batchDeleteLoading"
+          @selection-change="handleSelectionChange"
+          @batch-delete="handleBatchDelete"
           @asset-click="handleAssetClick"
           @asset-double-click="handleAssetConnect"
           @asset-edit="handleAssetEdit"
@@ -177,6 +187,53 @@ const defaultGroups = ref(['development', 'production', 'staging', 'testing', 'd
 const contextMenuVisible = ref(false)
 const contextMenuPosition = reactive({ x: 0, y: 0 })
 const selectedAsset = ref<AssetNode | null>(null)
+const selectionMode = ref(false)
+const selectedAssetUuids = ref<string[]>([])
+const batchDeleteLoading = ref(false)
+const batchDeleteConfirmOpen = ref(false)
+
+const hostConfigurations = computed(() => {
+  const configurations = new Map<string, AssetNode>()
+  for (const group of assetGroups.value) {
+    for (const asset of group.children || []) {
+      if (asset.uuid) configurations.set(asset.uuid, asset)
+    }
+  }
+  return [...configurations.values()]
+})
+
+const selectedAssets = computed(() => {
+  const uuids = new Set(selectedAssetUuids.value)
+  return hostConfigurations.value.filter((asset) => asset.uuid && uuids.has(asset.uuid))
+})
+
+const startBatchSelection = () => {
+  if (batchDeleteLoading.value || hostConfigurations.value.length === 0) return
+  closeContextMenu()
+  selectedAssetUuids.value = []
+  selectionMode.value = true
+}
+
+const cancelBatchSelection = () => {
+  if (batchDeleteLoading.value) return
+  selectedAssetUuids.value = []
+  selectionMode.value = false
+}
+
+const handleSelectionChange = (uuids: string[]) => {
+  if (batchDeleteLoading.value || !selectionMode.value) return
+  const availableUuids = new Set(hostConfigurations.value.map((asset) => asset.uuid))
+  selectedAssetUuids.value = [...new Set(uuids)].filter((uuid) => availableUuids.has(uuid))
+}
+
+watch(searchValue, () => {
+  selectedAssetUuids.value = []
+})
+
+watch(hostConfigurations, (assets) => {
+  const availableUuids = new Set(assets.map((asset) => asset.uuid))
+  selectedAssetUuids.value = selectedAssetUuids.value.filter((uuid) => availableUuids.has(uuid))
+})
 
 // Build jump host options: only personal assets (asset_type === 'person') with a real uuid.
 const jumpHostOptions = computed(() => {
@@ -258,6 +315,7 @@ const handleShowAssetImportHelp = () => {
 }
 
 const handleAssetClick = (asset: AssetNode) => {
+  if (selectionMode.value) return
   logger.info('Asset clicked', { event: 'asset.click', uuid: asset.uuid, title: asset.title })
   if (onboardingStore.activeTour === 'addAndConnectHost' && onboardingStore.activeStepIndex >= 5) {
     handleAssetConnect(asset)
@@ -265,6 +323,7 @@ const handleAssetClick = (asset: AssetNode) => {
 }
 
 const handleAssetConnect = (asset: AssetNode) => {
+  if (selectionMode.value) return
   logger.info('Connecting to asset', { event: 'asset.connect', uuid: asset.uuid, title: asset.title })
   eventBus.emit('currentClickServer', asset)
   if (onboardingStore.activeTour === 'addAndConnectHost') {
@@ -274,7 +333,7 @@ const handleAssetConnect = (asset: AssetNode) => {
 }
 
 const handleAssetEdit = (asset: AssetNode) => {
-  if (!asset) return
+  if (!asset || selectionMode.value) return
   isEditMode.value = true
   editingAssetUUID.value = asset.uuid || null
 
@@ -393,6 +452,7 @@ const handleAssetRefresh = async (asset: AssetNode) => {
 
 const handleAssetContextMenu = (event: MouseEvent, asset: AssetNode) => {
   event.preventDefault()
+  if (selectionMode.value) return
   contextMenuPosition.x = event.clientX
   contextMenuPosition.y = event.clientY
   selectedAsset.value = asset
@@ -461,7 +521,7 @@ const handleContextMenuManageAssets = () => {
 }
 
 const handleAssetRemove = (asset: AssetNode) => {
-  if (!asset || !asset.uuid) return
+  if (!asset || !asset.uuid || selectionMode.value) return
   closeContextMenu()
   Modal.confirm({
     title: t('personal.deleteConfirm'),
@@ -483,6 +543,59 @@ const handleAssetRemove = (asset: AssetNode) => {
         }
       } catch (err: any) {
         message.error(t('personal.deleteError', { error: err.message || t('ssh.unknownError') }))
+      }
+    }
+  })
+}
+
+const handleBatchDelete = () => {
+  if (!selectionMode.value || batchDeleteLoading.value || batchDeleteConfirmOpen.value) return
+  const assets = [...selectedAssets.value]
+  const uuids = assets.flatMap((asset) => (asset.uuid ? [asset.uuid] : []))
+  if (uuids.length === 0) return
+
+  batchDeleteConfirmOpen.value = true
+  const confirm = Modal.confirm({
+    title: t('personal.deleteConfirm'),
+    content: h('div', [
+      h('p', t('personal.batchDeleteHostsConfirm', { count: uuids.length })),
+      ...(assets.some((asset) => isOrganizationAsset(asset.asset_type)) ? [h('p', t('personal.batchDeleteHostsBastionWarning'))] : []),
+      h(
+        'ul',
+        { style: 'max-height: 200px; overflow-y: auto; overflow-wrap: anywhere; padding-left: 20px;' },
+        assets.map((asset) => h('li', { key: asset.uuid }, asset.title))
+      )
+    ]),
+    okText: t('common.delete'),
+    okType: 'danger',
+    cancelText: t('common.cancel'),
+    maskClosable: true,
+    onCancel: () => {
+      batchDeleteConfirmOpen.value = false
+    },
+    onOk: async () => {
+      if (batchDeleteLoading.value) return
+      batchDeleteLoading.value = true
+      confirm.update({ cancelButtonProps: { disabled: true }, maskClosable: false, keyboard: false })
+      try {
+        const result = await window.api.batchDeleteAssets({ uuids })
+        if (result?.data.message !== 'success') {
+          message.error(t('personal.deleteFailure'))
+          return
+        }
+        message.success(t('personal.batchDeleteHostsSuccess', { count: result.data.changes }))
+        if (editingAssetUUID.value && uuids.includes(editingAssetUUID.value)) {
+          closeForm()
+        }
+        selectedAssetUuids.value = []
+        selectionMode.value = false
+        await getAssetList()
+        eventBus.emit('LocalAssetMenu')
+      } catch {
+        message.error(t('personal.deleteFailure'))
+      } finally {
+        batchDeleteLoading.value = false
+        batchDeleteConfirmOpen.value = false
       }
     }
   })

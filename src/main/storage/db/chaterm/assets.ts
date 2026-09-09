@@ -7,6 +7,7 @@ export {
   createAssetLogic,
   createOrUpdateAssetLogic,
   deleteAssetLogic,
+  batchDeleteAssetsLogic,
   updateAssetLogic
 } from './assets.mutations'
 
