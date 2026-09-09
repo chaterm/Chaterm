@@ -97,7 +97,20 @@ export function installPlugin(pluginFilePath: string, options?: InstallPluginOpt
 
     const tmpDir = fs.mkdtempSync(path.join(extRoot, 'tmp-'))
     const zip = new AdmZip(pluginFilePath)
-    zip.extractAllTo(tmpDir, true)
+    for (const entry of zip.getEntries()) {
+      const entryPath = path.resolve(tmpDir, entry.entryName)
+      if (!entryPath.startsWith(`${path.resolve(tmpDir)}${path.sep}`)) {
+        throw new Error('plugin package contains an invalid path')
+      }
+
+      if (entry.isDirectory) {
+        fs.mkdirSync(entryPath, { recursive: true })
+        continue
+      }
+
+      fs.mkdirSync(path.dirname(entryPath), { recursive: true })
+      fs.writeFileSync(entryPath, entry.getData())
+    }
 
     const manifestPath = path.join(tmpDir, 'plugin.json')
     if (!fs.existsSync(manifestPath)) {
