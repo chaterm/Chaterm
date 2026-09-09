@@ -9,6 +9,7 @@ import {
   createAssetLogic,
   createOrUpdateAssetLogic,
   deleteAssetLogic,
+  batchDeleteAssetsLogic,
   updateAssetLogic,
   connectAssetInfoLogic,
   getUserHostsLogic,
@@ -247,6 +248,10 @@ export class ChatermDatabaseService {
 
   deleteAsset(uuid: string): any {
     return deleteAssetLogic(this.db, uuid)
+  }
+
+  batchDeleteAssets(uuids: string[]) {
+    return batchDeleteAssetsLogic(this.db, uuids)
   }
 
   updateAsset(params: any): any {
