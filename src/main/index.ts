@@ -2283,6 +2283,15 @@ ipcMain.handle('asset-delete', async (_, data) => {
   }
 })
 
+ipcMain.handle('asset-batch-delete', async (_, data: { uuids: string[] }) => {
+  try {
+    return chatermDbService.batchDeleteAssets(data?.uuids)
+  } catch (error) {
+    logger.error('Chaterm batch delete assets failed', { error })
+    return null
+  }
+})
+
 ipcMain.handle('asset-create', async (_, data) => {
   try {
     const { form } = data
