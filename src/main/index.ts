@@ -72,7 +72,9 @@ import {
   PluginManifest,
   uninstallPlugin,
   getInstallHint,
-  getPluginCacheRoot
+  getPluginCacheRoot,
+  assertSafePluginPathSegment,
+  isPathInside
 } from './plugin/pluginManager'
 import { getPluginDetailsByName, getLocalizedStrings, getUserLanguage } from './plugin/pluginDetails'
 import { capabilityRegistry } from './ssh/capabilityRegistry'
@@ -3179,6 +3181,11 @@ const pluginInstallAbortControllers = new Map<string, AbortController>()
 
 async function installStorePluginFromBuffer(payload: { pluginId: string; version?: string; fileName?: string; data: ArrayBuffer }) {
   const { pluginId, version, fileName, data } = payload
+  // pluginId/version/fileName come from the renderer and are joined onto the cache root.
+  assertSafePluginPathSegment(pluginId, 'id')
+  if (version) {
+    assertSafePluginPathSegment(version, 'version')
+  }
   const installedPlugin = getInstalledPlugin(pluginId)
 
   try {
@@ -3190,8 +3197,11 @@ async function installStorePluginFromBuffer(payload: { pluginId: string; version
   const baseDir = path.join(getPluginCacheRoot(), pluginId, version || 'latest')
   await fsSync.promises.mkdir(baseDir, { recursive: true })
 
-  const finalFileName = fileName || `${pluginId}-${version || 'latest'}.chaterm`
+  const finalFileName = path.basename(fileName || `${pluginId}-${version || 'latest'}.chaterm`)
   const tmpFilePath = path.join(baseDir, finalFileName)
+  if (!isPathInside(tmpFilePath, baseDir)) {
+    throw new Error('invalid plugin package file name')
+  }
 
   const buffer = Buffer.from(data)
   await fsSync.promises.writeFile(tmpFilePath, buffer)
@@ -3362,9 +3372,9 @@ ipcMain.handle('plugins.listUi', async () => {
     const manifest = JSON.parse(fsSync.readFileSync(manifestPath, 'utf8')) as PluginManifest
 
     let iconUrl: string | null = null
-    if (manifest.icon) {
+    if (manifest.icon && typeof manifest.icon === 'string') {
       const iconFsPath = path.join(p.path, manifest.icon)
-      if (fsSync.existsSync(iconFsPath)) {
+      if (isPathInside(iconFsPath, p.path) && fsSync.existsSync(iconFsPath)) {
         iconUrl = pathToFileURL(iconFsPath).toString()
       }
     }

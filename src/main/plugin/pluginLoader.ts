@@ -1,6 +1,15 @@
 import * as fs from 'fs'
 import path from 'path'
-import { clearInstallHints, clearVersionProviders, listPlugins, PluginManifest, registerInstallHint, registerVersionProvider } from './pluginManager'
+import {
+  clearInstallHints,
+  clearVersionProviders,
+  isPathInside,
+  isTrustedPluginPath,
+  listPlugins,
+  PluginManifest,
+  registerInstallHint,
+  registerVersionProvider
+} from './pluginManager'
 import { BrowserWindow } from 'electron'
 import type { PluginHost, PluginHostModules, VersionProviderFn } from './pluginHost'
 import { PluginStorageContext } from './pluginGlobalState'
@@ -70,6 +79,17 @@ export async function loadAllPlugins() {
       continue
     }
 
+    // Refuse any registry path outside the plugins root before touching the filesystem.
+    if (!isTrustedPluginPath(p.path)) {
+      skippedCount++
+      logger.error('Refusing to load plugin outside plugins root', {
+        event: 'plugin.load.path.rejected',
+        pluginId: p.id,
+        pluginPath: p.path
+      })
+      continue
+    }
+
     const manifestPath = path.join(p.path, 'plugin.json')
     if (!fs.existsSync(manifestPath)) {
       skippedCount++
@@ -89,11 +109,44 @@ export async function loadAllPlugins() {
       continue
     }
 
-    const entry = path.join(p.path, manifest.main)
+    const entry = path.join(p.path, typeof manifest.main === 'string' ? manifest.main : '')
+    if (!isPathInside(entry, p.path)) {
+      failedCount++
+      logger.error('Plugin main entry escapes plugin directory', {
+        event: 'plugin.load.entry.rejected',
+        pluginId: p.id
+      })
+      continue
+    }
     if (!fs.existsSync(entry)) {
       failedCount++
       logger.error('Main entry not found for plugin', { pluginId: p.id })
       continue
+    }
+
+    let resolvedEntry: string
+    try {
+      resolvedEntry = require.resolve(entry)
+    } catch (e) {
+      failedCount++
+      logger.error('Plugin main entry could not be resolved', { pluginId: p.id, error: e })
+      continue
+    }
+    if (!isPathInside(resolvedEntry, p.path)) {
+      failedCount++
+      logger.error('Resolved plugin main entry escapes plugin directory', {
+        event: 'plugin.load.resolved-entry.rejected',
+        pluginId: p.id
+      })
+      continue
+    }
+
+    // Resolves a plugin-relative path, allowing the plugin directory itself
+    const resolvePluginPath = (relativePath: string): string | null => {
+      if (typeof relativePath !== 'string' || relativePath.length === 0) return null
+      const candidate = path.resolve(p.path, relativePath)
+      if (candidate === path.resolve(p.path)) return candidate
+      return isPathInside(candidate, p.path) ? candidate : null
     }
 
     const host: PluginHost = {
@@ -173,7 +226,9 @@ export async function loadAllPlugins() {
       },
 
       asAbsolutePath(relativePath: string) {
-        return path.join(p.path, relativePath)
+        const resolved = resolvePluginPath(relativePath)
+        if (!resolved) throw new Error('plugin path escapes plugin directory')
+        return resolved
       },
 
       async readFile(filePath: string) {
