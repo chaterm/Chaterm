@@ -147,9 +147,15 @@ export function useEventBusListeners(params: UseEventBusListenersParams) {
       return
     }
 
-    appendTextToInputParts(text, '\n', '\n')
-    await initAssetInfo()
+    // The suffix ends with a blank line on purpose. The caret is placed before
+    // the trailing newline (see placeCaretAtEnd), so a single newline would put
+    // it at the end of the appended text instead of on a fresh line below it.
+    appendTextToInputParts(text, '\n', '\n\n')
+    // Focus before the async host lookup: awaiting it first leaves a window
+    // where the user can start composing, and the selection reset inside
+    // focusChatInput would then abort that composition.
     focusChatInput()
+    await initAssetInfo()
   }
 
   const flushPendingChatToAiTexts = async () => {

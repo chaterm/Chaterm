@@ -592,6 +592,21 @@ function entryName(ent: any) {
   return ent?.filename ?? ent?.name
 }
 
+function safeDirectoryDownloadPath(root: string, parent: string, name: string): string {
+  if (!name || name === '.' || name === '..' || /[\\/\0]/.test(name) || path.isAbsolute(name)) {
+    throw new Error(`Unsafe remote filename rejected: ${JSON.stringify(name)}`)
+  }
+
+  const rootPath = path.resolve(root)
+  const targetPath = path.resolve(parent, name)
+  const relativePath = path.relative(rootPath, targetPath)
+  if (relativePath === '..' || relativePath.startsWith(`..${path.sep}`) || path.isAbsolute(relativePath)) {
+    throw new Error(`Remote filename escapes download root: ${JSON.stringify(name)}`)
+  }
+
+  return targetPath
+}
+
 export type TaskStatus = 'running' | 'success' | 'failed' | 'error'
 export type ErrorSide = 'from' | 'to' | 'remote' | 'local'
 export type TransferStatus = 'success' | 'cancelled' | 'skipped' | 'error'
@@ -2027,7 +2042,7 @@ export async function handleDirectoryDownload(event: any, id: string, remoteDir:
       if (!name) continue
 
       const rPath = path.posix.join(curFrom, name)
-      const lPath = path.join(curTo, name)
+      const lPath = safeDirectoryDownloadPath(finalLocalBase, curTo, name)
 
       if (isDirEntry(ent)) {
         await fs.promises.mkdir(lPath, { recursive: true })

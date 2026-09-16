@@ -1,6 +1,6 @@
 import { ipcMain } from 'electron'
 import { pluginCommands, treeProviders } from './pluginLoader'
-import { listPlugins } from './pluginManager'
+import { isPathInside, listPlugins } from './pluginManager'
 import * as fs from 'fs'
 import * as path from 'path'
 import { pathToFileURL } from 'url'
@@ -27,9 +27,9 @@ export function setupPluginIpc() {
           if (manifest.contributes?.views) {
             manifest.contributes.views.forEach((v: any) => {
               let iconPath = v.icon
-              if (iconPath && iconPath.includes('.')) {
+              if (iconPath && typeof iconPath === 'string' && iconPath.includes('.')) {
                 const fullIconPath = path.join(p.path, iconPath)
-                if (fs.existsSync(fullIconPath)) {
+                if (isPathInside(fullIconPath, p.path) && fs.existsSync(fullIconPath)) {
                   iconPath = pathToFileURL(fullIconPath).href
                 }
               }
