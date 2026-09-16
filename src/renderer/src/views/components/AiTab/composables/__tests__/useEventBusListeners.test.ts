@@ -101,7 +101,7 @@ describe('useEventBusListeners', () => {
     await nextTick()
     await nextTick()
 
-    expect(sessionState.chatInputParts.value).toEqual([{ type: 'text', text: 'Terminal output\n' }])
+    expect(sessionState.chatInputParts.value).toEqual([{ type: 'text', text: 'Terminal output\n\n' }])
     expect(getCurentTabAssetInfo).toHaveBeenCalled()
   })
 })

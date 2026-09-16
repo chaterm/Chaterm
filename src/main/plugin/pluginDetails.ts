@@ -1,7 +1,7 @@
 import * as fs from 'fs'
 import path from 'path'
 import { pathToFileURL } from 'url'
-import { listPlugins, PluginManifest } from './pluginManager'
+import { isPathInside, listPlugins, PluginManifest } from './pluginManager'
 import { getUserConfig } from '../agent/core/storage/state'
 const logger = createLogger('plugin')
 
@@ -144,9 +144,9 @@ export async function getPluginDetailsByName(pluginName: string): Promise<Plugin
   const basePath = record.path
 
   let iconUrl: string | null = null
-  if (manifest.icon) {
+  if (manifest.icon && typeof manifest.icon === 'string') {
     const iconFsPath = path.join(basePath, manifest.icon)
-    if (fs.existsSync(iconFsPath)) {
+    if (isPathInside(iconFsPath, basePath) && fs.existsSync(iconFsPath)) {
       iconUrl = pathToFileURL(iconFsPath).toString()
     }
   }
