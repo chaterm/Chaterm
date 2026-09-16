@@ -84,8 +84,9 @@ describe('pluginLoader async register', () => {
       "module.exports.register = async (host) => { await new Promise(r => setTimeout(r, 5)); host.registerInstallHint({ message: 'ok' }); }"
     )
 
-    const { listPlugins, registerInstallHint } = await import('./pluginManager')
+    const { listPlugins, registerInstallHint, isTrustedPluginPath } = await import('./pluginManager')
     vi.mocked(listPlugins).mockReturnValue([{ id: 'p1', displayName: 'p1', version: '1.0.0', path: root, enabled: true }])
+    vi.mocked(isTrustedPluginPath).mockReturnValue(true)
 
     const { loadAllPlugins } = await import('./pluginLoader')
     await loadAllPlugins()
