@@ -9,6 +9,15 @@ const { mockBrowserWindow } = vi.hoisted(() => ({
   }
 }))
 
+const pluginMocks = vi.hoisted(() => ({
+  listPlugins: vi.fn(),
+  clearVersionProviders: vi.fn(),
+  clearInstallHints: vi.fn(),
+  registerInstallHint: vi.fn(),
+  registerVersionProvider: vi.fn(),
+  isTrustedPluginPath: vi.fn(() => true)
+}))
+
 // Mock electron and all problematic transitive dependencies first
 vi.mock('electron', () => ({
   app: {
@@ -23,12 +32,12 @@ vi.mock('./pluginManager', async (importOriginal) => {
   const actual = (await importOriginal()) as Record<string, unknown>
   return {
     ...actual,
-    listPlugins: vi.fn(),
-    clearVersionProviders: vi.fn(),
-    clearInstallHints: vi.fn(),
-    registerInstallHint: vi.fn(),
-    registerVersionProvider: vi.fn(),
-    isTrustedPluginPath: vi.fn(() => true)
+    listPlugins: pluginMocks.listPlugins,
+    clearVersionProviders: pluginMocks.clearVersionProviders,
+    clearInstallHints: pluginMocks.clearInstallHints,
+    registerInstallHint: pluginMocks.registerInstallHint,
+    registerVersionProvider: pluginMocks.registerVersionProvider,
+    isTrustedPluginPath: pluginMocks.isTrustedPluginPath
   }
 })
 
@@ -66,6 +75,7 @@ const tmpDirs: string[] = []
 
 describe('pluginLoader async register', () => {
   beforeEach(() => {
+    vi.resetModules()
     vi.clearAllMocks()
   })
 
@@ -84,9 +94,9 @@ describe('pluginLoader async register', () => {
       "module.exports.register = async (host) => { await new Promise(r => setTimeout(r, 5)); host.registerInstallHint({ message: 'ok' }); }"
     )
 
-    const { listPlugins, registerInstallHint, isTrustedPluginPath } = await import('./pluginManager')
-    vi.mocked(listPlugins).mockReturnValue([{ id: 'p1', displayName: 'p1', version: '1.0.0', path: root, enabled: true }])
-    vi.mocked(isTrustedPluginPath).mockReturnValue(true)
+    const { registerInstallHint } = await import('./pluginManager')
+    pluginMocks.listPlugins.mockReturnValue([{ id: 'p1', displayName: 'p1', version: '1.0.0', path: root, enabled: true }])
+    pluginMocks.isTrustedPluginPath.mockReturnValue(true)
 
     const { loadAllPlugins } = await import('./pluginLoader')
     await loadAllPlugins()
@@ -100,9 +110,9 @@ describe('pluginLoader async register', () => {
     fs.writeFileSync(path.join(root, 'plugin.json'), JSON.stringify({ id: 'evil', displayName: 'evil', version: '1.0.0', main: 'index.js' }))
     fs.writeFileSync(path.join(root, 'index.js'), "module.exports.register = () => { throw new Error('should never run') }")
 
-    const { listPlugins, isTrustedPluginPath } = await import('./pluginManager')
-    vi.mocked(listPlugins).mockReturnValue([{ id: 'evil', displayName: 'evil', version: '1.0.0', path: root, enabled: true }])
-    vi.mocked(isTrustedPluginPath).mockReturnValue(false)
+    await import('./pluginManager')
+    pluginMocks.listPlugins.mockReturnValue([{ id: 'evil', displayName: 'evil', version: '1.0.0', path: root, enabled: true }])
+    pluginMocks.isTrustedPluginPath.mockReturnValue(false)
 
     const { loadAllPlugins } = await import('./pluginLoader')
     await expect(loadAllPlugins()).resolves.toBeUndefined()
@@ -114,10 +124,10 @@ describe('pluginLoader async register', () => {
     fs.writeFileSync(path.join(root, 'plugin.json'), JSON.stringify({ id: 'p2', displayName: 'p2', version: '1.0.0', main: '../outside.js' }))
     fs.writeFileSync(path.join(path.dirname(root), 'outside.js'), "module.exports.register = () => { throw new Error('should never run') }")
 
-    const { listPlugins, registerInstallHint, isTrustedPluginPath } = await import('./pluginManager')
-    vi.mocked(listPlugins).mockReturnValue([{ id: 'p2', displayName: 'p2', version: '1.0.0', path: root, enabled: true }])
+    const { registerInstallHint } = await import('./pluginManager')
+    pluginMocks.listPlugins.mockReturnValue([{ id: 'p2', displayName: 'p2', version: '1.0.0', path: root, enabled: true }])
     // Must be true, otherwise this asserts the registry-path gate instead of the entry gate.
-    vi.mocked(isTrustedPluginPath).mockReturnValue(true)
+    pluginMocks.isTrustedPluginPath.mockReturnValue(true)
 
     const { loadAllPlugins } = await import('./pluginLoader')
     await loadAllPlugins()
@@ -149,10 +159,10 @@ describe('pluginLoader async register', () => {
       }`
     )
 
-    const { listPlugins, registerInstallHint, isTrustedPluginPath } = await import('./pluginManager')
-    vi.mocked(listPlugins).mockReturnValue([{ id: 'p3', displayName: 'p3', version: '1.0.0', path: root, enabled: true }])
+    const { registerInstallHint } = await import('./pluginManager')
+    pluginMocks.listPlugins.mockReturnValue([{ id: 'p3', displayName: 'p3', version: '1.0.0', path: root, enabled: true }])
     // clearAllMocks() does not undo mockReturnValue from earlier tests, so set it explicitly.
-    vi.mocked(isTrustedPluginPath).mockReturnValue(true)
+    pluginMocks.isTrustedPluginPath.mockReturnValue(true)
 
     const { loadAllPlugins } = await import('./pluginLoader')
     await loadAllPlugins()
