@@ -1,4 +1,7 @@
 import { Writable } from 'node:stream'
+import fs from 'node:fs'
+import path from 'node:path'
+import os from 'node:os'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 const sshState = vi.hoisted(() => ({
@@ -160,5 +163,23 @@ describe('sftpTransfer root path', () => {
     const result = await listHandler({}, { path: '/tmp', id: 'remote-id' })
 
     expect(result[0].modTime).toBe('2024-06-01 08:00:00')
+  })
+
+  it('rejects remote traversal', async () => {
+    const { registerFileSystemHandlers } = await setupModule()
+    const { getSftpConnection } = await import('../sshHandle')
+    const parent = fs.mkdtempSync(path.join(os.tmpdir(), 'chaterm-sftp-download-'))
+    const canary = path.join(parent, 'canary.txt')
+    fs.writeFileSync(canary, 'ORIGINAL-CANARY')
+    const sftp = { readdir: vi.fn((_p: string, cb: any) => cb(null, [{ filename: '../canary.txt', attrs: { mode: 0o100644 } }])) }
+    vi.mocked(getSftpConnection).mockReturnValue(sftp)
+    registerFileSystemHandlers()
+    try {
+      const result = await sshState.ipcHandlers.get('ssh:sftp:download-directory')({}, { id: 'remote-id', remoteDir: '/remote', localDir: parent })
+      expect(result.status).toBe('error')
+      expect(fs.readFileSync(canary, 'utf8')).toBe('ORIGINAL-CANARY')
+    } finally {
+      fs.rmSync(parent, { recursive: true, force: true })
+    }
   })
 })
