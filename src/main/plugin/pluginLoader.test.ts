@@ -66,7 +66,7 @@ const tmpDirs: string[] = []
 
 describe('pluginLoader async register', () => {
   beforeEach(() => {
-    vi.resetModules()
+    vi.clearAllMocks()
   })
 
   afterEach(() => {
