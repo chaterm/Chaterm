@@ -124,6 +124,22 @@ export async function loadAllPlugins() {
       continue
     }
 
+    // The plugin directory itself must not be a symlink, otherwise a link planted inside
+    try {
+      if (fs.lstatSync(p.path).isSymbolicLink()) {
+        failedCount++
+        logger.error('Plugin directory is a symlink, refusing to load', {
+          event: 'plugin.load.symlink.rejected',
+          pluginId: p.id
+        })
+        continue
+      }
+    } catch (e) {
+      failedCount++
+      logger.error('Plugin directory could not be inspected', { pluginId: p.id, error: e })
+      continue
+    }
+
     let resolvedEntry: string
     try {
       resolvedEntry = require.resolve(entry)
@@ -132,7 +148,15 @@ export async function loadAllPlugins() {
       logger.error('Plugin main entry could not be resolved', { pluginId: p.id, error: e })
       continue
     }
-    if (!isPathInside(resolvedEntry, p.path)) {
+
+    // require.resolve() returns a realpath, so the containment check must compare
+    let realPluginRoot: string
+    try {
+      realPluginRoot = fs.realpathSync(p.path)
+    } catch {
+      realPluginRoot = path.resolve(p.path)
+    }
+    if (!isPathInside(resolvedEntry, realPluginRoot)) {
       failedCount++
       logger.error('Resolved plugin main entry escapes plugin directory', {
         event: 'plugin.load.resolved-entry.rejected',

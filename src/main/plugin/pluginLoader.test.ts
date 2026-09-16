@@ -135,6 +135,61 @@ describe('pluginLoader async register', () => {
     expect(registerInstallHint).not.toHaveBeenCalled()
   })
 
+  it('loads a plugin whose root is reached through a symlinked ancestor', async () => {
+    const base = fs.mkdtempSync(path.join(os.tmpdir(), 'plugin-symlink-'))
+    tmpDirs.push(base)
+    const realParent = path.join(base, 'real')
+    const root = path.join(realParent, 'p4')
+    fs.mkdirSync(root, { recursive: true })
+    fs.writeFileSync(path.join(root, 'plugin.json'), JSON.stringify({ id: 'p4', displayName: 'p4', version: '1.0.0', main: 'index.js' }))
+    fs.writeFileSync(path.join(root, 'index.js'), "module.exports.register = (host) => { host.registerInstallHint({ message: 'via-symlink' }) }")
+
+    const linkParent = path.join(base, 'link')
+    try {
+      fs.symlinkSync(realParent, linkParent, 'junction')
+    } catch {
+      // Unprivileged Windows runners may not be able to create links; the assertion below
+      // is only meaningful when the symlink exists.
+      return
+    }
+
+    const linkedRoot = path.join(linkParent, 'p4')
+
+    const { registerInstallHint } = await import('./pluginManager')
+    pluginMocks.listPlugins.mockReturnValue([{ id: 'p4', displayName: 'p4', version: '1.0.0', path: linkedRoot, enabled: true }])
+    pluginMocks.isTrustedPluginPath.mockReturnValue(true)
+
+    const { loadAllPlugins } = await import('./pluginLoader')
+    await loadAllPlugins()
+
+    expect(registerInstallHint).toHaveBeenCalledWith('p4', { message: 'via-symlink' })
+  })
+
+  it('refuses a plugin directory that is itself a symlink', async () => {
+    const base = fs.mkdtempSync(path.join(os.tmpdir(), 'plugin-linkroot-'))
+    tmpDirs.push(base)
+    const outside = path.join(base, 'outside')
+    fs.mkdirSync(outside, { recursive: true })
+    fs.writeFileSync(path.join(outside, 'plugin.json'), JSON.stringify({ id: 'p5', displayName: 'p5', version: '1.0.0', main: 'index.js' }))
+    fs.writeFileSync(path.join(outside, 'index.js'), "module.exports.register = (host) => { host.registerInstallHint({ message: 'escaped' }) }")
+
+    const linkedPluginDir = path.join(base, 'linked-plugin')
+    try {
+      fs.symlinkSync(outside, linkedPluginDir, 'junction')
+    } catch {
+      return
+    }
+
+    const { registerInstallHint } = await import('./pluginManager')
+    pluginMocks.listPlugins.mockReturnValue([{ id: 'p5', displayName: 'p5', version: '1.0.0', path: linkedPluginDir, enabled: true }])
+    pluginMocks.isTrustedPluginPath.mockReturnValue(true)
+
+    const { loadAllPlugins } = await import('./pluginLoader')
+    await loadAllPlugins()
+
+    expect(registerInstallHint).not.toHaveBeenCalled()
+  })
+
   it('resolves asAbsolutePath for the plugin root and rejects escapes', async () => {
     const root = fs.mkdtempSync(path.join(os.tmpdir(), 'plugin-abs-'))
     tmpDirs.push(root)
