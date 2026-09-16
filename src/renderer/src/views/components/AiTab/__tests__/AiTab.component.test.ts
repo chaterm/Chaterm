@@ -461,7 +461,7 @@ describe('AiTab Component - Browser Mode Integration', () => {
       // Wait for Vue reactivity and DOM update using polling
       let populateAttempts = 0
       const populateMaxAttempts = 30
-      const expected = `${terminalText}\n`
+      const expected = `${terminalText}\n\n`
       while (chatInputEl.innerText !== expected && populateAttempts < populateMaxAttempts) {
         await new Promise((resolve) => setTimeout(resolve, 100))
         populateAttempts++
@@ -496,7 +496,7 @@ describe('AiTab Component - Browser Mode Integration', () => {
       eventBus.emit('chatToAi', newText)
 
       // Wait for Vue reactivity and DOM update using polling
-      const expectedValue = `My existing question\n${newText}\n`
+      const expectedValue = `My existing question\n${newText}\n\n`
       let appendAttempts = 0
       const appendMaxAttempts = 30
       while (chatInputEl.innerText !== expectedValue && appendAttempts < appendMaxAttempts) {

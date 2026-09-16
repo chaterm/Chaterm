@@ -11,6 +11,7 @@ import { getGlobalState } from '@renderer/agent/storage/state'
 import { ChatermMessage } from '@/types/ChatermMessage'
 import { PROVIDER_MODEL_KEY_MAP } from './useModelConfiguration'
 import eventBus from '@/utils/eventBus'
+import { placeCaretAtEnd } from '@/utils/domUtils'
 import type { ChatermMessagesPage } from '@shared/ExtensionMessage'
 
 interface TabManagementOptions {
@@ -30,13 +31,7 @@ export const focusChatInput = () => {
     if (chatTextareaRef.value) {
       el.focus({ preventScroll: true })
 
-      const selection = window.getSelection()
-      if (!selection) return
-      const range = document.createRange()
-      range.selectNodeContents(el)
-      range.collapse(false)
-      selection.removeAllRanges()
-      selection.addRange(range)
+      placeCaretAtEnd(el)
 
       // Keep the visible viewport scrolled to the newest content.
       el.scrollTop = el.scrollHeight
