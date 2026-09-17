@@ -129,9 +129,8 @@
 <script setup lang="ts">
 import { ref, onMounted, nextTick, onBeforeUnmount, watch } from 'vue'
 import { SearchAddon } from '@xterm/addon-search'
+import type { IDisposable } from '@xterm/xterm'
 import { useI18n } from 'vue-i18n'
-
-const logger = createRendererLogger('ssh.search')
 
 const { t } = useI18n()
 const emit = defineEmits(['closeSearch'])
@@ -139,60 +138,49 @@ const searchTerm = ref('')
 const searchInput = ref<HTMLInputElement | null>(null)
 const searchResultsCount = ref(0)
 const currentResultIndex = ref(0)
-const searchResults = ref<any[]>([])
-let searchTimeout: NodeJS.Timeout | null = null
+
+// The addon only tracks and reports results when decorations are enabled, so
+// these options are what make `onDidChangeResults` fire at all. Fixed hex values
+// (the API requires #RRGGBB) chosen to stay legible on both light and dark
+// terminal themes.
+const SEARCH_DECORATIONS = {
+  matchBackground: '#623315',
+  matchOverviewRuler: '#d18616',
+  activeMatchBackground: '#9e6a03',
+  activeMatchColorOverviewRuler: '#f8c555'
+} as const
+
+const SEARCH_OPTIONS = {
+  caseSensitive: false,
+  decorations: SEARCH_DECORATIONS
+}
+
+let resultsListener: IDisposable | null = null
 
 const props = defineProps({
   searchAddon: {
     type: Object as () => SearchAddon | null,
     required: true
-  },
-  terminal: {
-    type: Object as () => any,
-    required: true
   }
 })
 
-// Debounced search function
-const debouncedSearch = (callback: () => void, delay: number = 150) => {
-  if (searchTimeout) {
-    clearTimeout(searchTimeout)
-  }
-  searchTimeout = setTimeout(callback, delay)
-}
-
+// Not gated on searchResultsCount: the count arrives asynchronously via
+// onDidChangeResults, so gating navigation on it would drop the first Enter.
 const findNext = () => {
-  if (props.searchAddon && searchTerm.value && searchResultsCount.value > 0) {
-    const result = props.searchAddon.findNext(searchTerm.value, {
-      caseSensitive: false
-    })
-    if (result) {
-      // If next match found, update index
-      if (currentResultIndex.value < searchResultsCount.value) {
-        currentResultIndex.value++
-      } else {
-        // If already at last, go back to first
-        currentResultIndex.value = 1
-      }
-    }
+  if (props.searchAddon && searchTerm.value) {
+    props.searchAddon.findNext(searchTerm.value, SEARCH_OPTIONS)
   }
 }
 
 const findPrevious = () => {
-  if (props.searchAddon && searchTerm.value && searchResultsCount.value > 0) {
-    const result = props.searchAddon.findPrevious(searchTerm.value, {
-      caseSensitive: false
-    })
-    if (result) {
-      // If previous match found, update index
-      if (currentResultIndex.value > 1) {
-        currentResultIndex.value--
-      } else {
-        // If already at first, jump to last
-        currentResultIndex.value = searchResultsCount.value
-      }
-    }
+  if (props.searchAddon && searchTerm.value) {
+    props.searchAddon.findPrevious(searchTerm.value, SEARCH_OPTIONS)
   }
+}
+
+const resetResults = () => {
+  searchResultsCount.value = 0
+  currentResultIndex.value = 0
 }
 
 const clearSearch = () => {
@@ -200,110 +188,43 @@ const clearSearch = () => {
   if (props.searchAddon) {
     props.searchAddon.clearDecorations()
   }
-  searchResultsCount.value = 0
-  currentResultIndex.value = 0
-  searchResults.value = []
+  resetResults()
 }
 
 const closeSearch = () => {
   if (props.searchAddon) {
     props.searchAddon.clearDecorations()
   }
-  if (searchTimeout) {
-    clearTimeout(searchTimeout)
-    searchTimeout = null
-  }
-  searchResultsCount.value = 0
-  currentResultIndex.value = 0
-  searchResults.value = []
+  resetResults()
   emit('closeSearch')
 }
 
 onMounted(() => {
+  // resultIndex is 0-based and -1 when the highlight threshold is exceeded.
+  resultsListener =
+    props.searchAddon?.onDidChangeResults(({ resultIndex, resultCount }) => {
+      searchResultsCount.value = resultCount
+      currentResultIndex.value = resultIndex >= 0 ? resultIndex + 1 : 0
+    }) ?? null
+
   nextTick(() => {
     searchInput.value?.focus()
   })
 })
 
 onBeforeUnmount(() => {
-  if (searchTimeout) {
-    clearTimeout(searchTimeout)
-  }
+  resultsListener?.dispose()
+  resultsListener = null
 })
 
-// Calculate actual match count
-const calculateMatches = () => {
-  if (!props.terminal || !searchTerm.value) {
-    searchResultsCount.value = 0
-    currentResultIndex.value = 0
-    return
-  }
-
-  try {
-    // Try to get match info from SearchAddon
-    if (props.searchAddon && (props.searchAddon as any)._searchResults) {
-      const results = (props.searchAddon as any)._searchResults
-      if (Array.isArray(results)) {
-        searchResultsCount.value = results.length
-        currentResultIndex.value = results.length > 0 ? 1 : 0
-        return
-      }
-    }
-
-    // Fallback method: manually calculate match count
-    const buffer = props.terminal._core._bufferService.buffer
-    const lines = buffer.lines
-    let totalMatches = 0
-    const searchLower = searchTerm.value.toLowerCase()
-
-    // Iterate through all visible lines
-    for (let i = 0; i < lines.length; i++) {
-      const line = lines.get(i).translateToString(true)
-      if (line.toLowerCase().includes(searchLower)) {
-        // Calculate number of matches in this line
-        const matches = (line.toLowerCase().match(new RegExp(searchLower.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'g')) || []).length
-        totalMatches += matches
-      }
-    }
-
-    searchResultsCount.value = totalMatches
-    currentResultIndex.value = totalMatches > 0 ? 1 : 0
-  } catch (error) {
-    logger.error('Error calculating match count', { error: error })
-    // If calculation fails, try to estimate from terminal content
-    try {
-      const terminalText = props.terminal.buffer.active.translateToString()
-      const searchLower = searchTerm.value.toLowerCase()
-      const matches = (terminalText.toLowerCase().match(new RegExp(searchLower.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'g')) || []).length
-      searchResultsCount.value = matches
-      currentResultIndex.value = matches > 0 ? 1 : 0
-    } catch (fallbackError) {
-      logger.error('Fallback calculation method also failed', {
-        error: fallbackError
-      })
-      searchResultsCount.value = 0
-      currentResultIndex.value = 0
-    }
-  }
-}
-
 watch(searchTerm, (newTerm) => {
-  if (props.searchAddon) {
-    if (newTerm) {
-      props.searchAddon.findNext(newTerm, {
-        incremental: true,
-        caseSensitive: false
-      })
-      // Use debounce to delay match count calculation
-      debouncedSearch(() => {
-        calculateMatches()
-      }, 200)
-    } else {
-      props.searchAddon.clearDecorations()
-      searchResultsCount.value = 0
-      currentResultIndex.value = 0
-      searchResults.value = []
-    }
+  if (!props.searchAddon) return
+
+  if (newTerm) {
+    props.searchAddon.findNext(newTerm, { ...SEARCH_OPTIONS, incremental: true })
+  } else {
+    props.searchAddon.clearDecorations()
+    resetResults()
   }
 })
 </script>
