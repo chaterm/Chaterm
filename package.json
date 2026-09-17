@@ -140,7 +140,7 @@
     "@electron-toolkit/tsconfig": "^2.0.0",
     "@eslint/eslintrc": "^3.3.7",
     "@eslint/js": "^9.39.2",
-    "@fast-check/vitest": "^0.4.1",
+    "@fast-check/vitest": "^0.5.0",
     "@playwright/test": "^1.63.0",
     "@types/clone-deep": "^4.0.4",
     "@types/dompurify": "^3.2.0",
