@@ -2733,10 +2733,11 @@ onUnmounted(() => {
     }
 
     // Host name text style - Display in one line, ellipsis displayed when exceeding the limit
+    // Must be shrinkable: the row also holds a fixed-width icon, so a non-shrinking
+    // box would overflow the parent and paint the ellipsis outside the clipped area.
     .hostname-text {
-      flex: 0 0 auto;
+      flex: 0 1 auto;
       min-width: 0;
-      max-width: 100%;
       overflow: hidden;
       text-overflow: ellipsis;
       white-space: nowrap;
@@ -3271,6 +3272,22 @@ onUnmounted(() => {
   :deep(.ant-tabs-tab-btn) {
     width: 100%;
     text-align: center;
+  }
+
+  // The overflow ("more") button is taller than the tab row by default, so when
+  // ant-design-vue transiently inserts it during a sidebar resize it grows the
+  // nav bar and shifts everything below down by ~7px for one frame. Cap its
+  // height so it can never stretch the flex line.
+  :deep(.ant-tabs-nav-operations) {
+    height: 31px;
+    max-height: 31px;
+    align-self: flex-start;
+  }
+
+  :deep(.ant-tabs-nav-more) {
+    height: 31px;
+    max-height: 31px;
+    padding: 0 8px;
   }
 }
 
