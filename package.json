@@ -99,7 +99,7 @@
     "openai": "^7.5.0",
     "oracledb": "^7.0.1",
     "p-wait-for": "^6.0.0",
-    "pg": "^8.22.0",
+    "pg": "^8.23.0",
     "pinia": "^3.0.1",
     "pinia-plugin-persistedstate": "^4.2.0",
     "posthog-node": "^5.51.6",
