@@ -3805,9 +3805,12 @@ defineExpose({
 
 .dockview-theme-light .dv-tab,
 .dockview-theme-dark .dv-tab {
-  /* Keep long names compact so more terminal tabs fit in the tab bar. */
-  max-width: 140px;
-  min-width: 0;
+  /* Size each tab to its own title instead of a fixed width, so short host
+     names stay narrow and long ones only truncate past the cap. The tab bar
+     scrolls horizontally once the tabs no longer fit. */
+  flex: 0 0 auto;
+  min-width: 0px;
+  max-width: 300px;
 }
 
 .dockview-theme-light .dv-default-tab,
