@@ -262,6 +262,21 @@ export function parseAssistantMessageV1(assistantMessage: string): AssistantMess
  *          Blocks that were not fully closed by the end of the input string will have their `partial` flag set to `true`.
  */
 export function parseAssistantMessageV2(assistantMessage: string): AssistantMessageContent[] {
+  // DeepSeek-compatible endpoints can leak DSML tool calls into the text stream.
+  // Recognize them here so they use the same registry, approval and dispatch path
+  // as XML calls. Never rewrite parameter values (commands/file contents).
+  const dsmlPrefix = '(?:｜｜DSML｜｜|\\|\\|DSML\\|\\|)'
+  const dsmlTags = new Map<number, RegExpMatchArray>()
+  for (const match of assistantMessage.matchAll(new RegExp(`<(/?)${dsmlPrefix}\\s+(calls|invoke|parameter)\\b([^>]*)>`, 'g'))) {
+    dsmlTags.set(match.index + match[0].length - 1, match)
+  }
+  const cleanText = (text: string): string =>
+    text
+      .replace(new RegExp(`</?${dsmlPrefix}\\s+calls\\s*>`, 'g'), '')
+      // Hold back incomplete DSML tags across streaming chunks.
+      .replace(/<\/?(?:[｜|]{1,2}(?:D(?:S(?:M(?:L[^>]*)?)?)?)?)?$/, '')
+      .trim()
+
   const contentBlocks: AssistantMessageContent[] = []
   let currentTextContentStart = 0 // Index where the current text block started
   let currentTextContent: TextContent | undefined = undefined
@@ -269,6 +284,7 @@ export function parseAssistantMessageV2(assistantMessage: string): AssistantMess
   let currentToolUse: ToolUse | undefined = undefined
   let currentParamValueStart = 0 // Index *after* the opening tag of the current param
   let currentParamName: ToolParamName | undefined = undefined
+  let isDsmlTool = false
 
   // Precompute tags for faster lookups
   const toolUseOpenTags = new Map<string, ToolUseName>()
@@ -283,12 +299,22 @@ export function parseAssistantMessageV2(assistantMessage: string): AssistantMess
   const len = assistantMessage.length
   for (let i = 0; i < len; i++) {
     const currentCharIndex = i
+    const dsmlTag = dsmlTags.get(i)
+    // Some responses omit the closing quote in name="limit> / name="offset>.
+    const dsmlName = dsmlTag?.[3].match(/^\s+name\s*=\s*["']([\w]+)(?:["'](?=\s|$)|$)/)?.[1]
+    if (dsmlTag?.[1] === '' && dsmlTag[2] === 'invoke' && toolUseNames.includes(dsmlName as ToolUseName)) {
+      toolUseOpenTags.set(dsmlTag[0], dsmlName as ToolUseName)
+    }
+    if (isDsmlTool && dsmlTag?.[1] === '' && dsmlTag[2] === 'parameter' && toolParamNames.includes(dsmlName as ToolParamName)) {
+      toolParamOpenTags.set(dsmlTag[0], dsmlName as ToolParamName)
+    }
 
     // --- State: Parsing a Tool Parameter ---
     if (currentToolUse && currentParamName) {
-      const closeTag = `</${currentParamName}>`
+      const closeTag = isDsmlTool ? (dsmlTag?.[1] === '/' && dsmlTag[2] === 'parameter' ? dsmlTag[0] : '') : `</${currentParamName}>`
       // Check if the string *ending* at index `i` matches the closing tag
       if (
+        closeTag &&
         currentCharIndex >= closeTag.length - 1 &&
         assistantMessage.startsWith(
           closeTag,
@@ -316,6 +342,7 @@ export function parseAssistantMessageV2(assistantMessage: string): AssistantMess
       // Check if starting a new parameter
       let startedNewParam = false
       for (const [tag, paramName] of toolParamOpenTags.entries()) {
+        if (isDsmlTool !== (tag !== `<${paramName}>`)) continue
         if (currentCharIndex >= tag.length - 1 && assistantMessage.startsWith(tag, currentCharIndex - tag.length + 1)) {
           currentParamName = paramName
           currentParamValueStart = currentCharIndex + 1 // Value starts after the tag
@@ -328,8 +355,12 @@ export function parseAssistantMessageV2(assistantMessage: string): AssistantMess
       }
 
       // Check if closing the current tool use
-      const toolCloseTag = `</${currentToolUse.name}>`
-      if (currentCharIndex >= toolCloseTag.length - 1 && assistantMessage.startsWith(toolCloseTag, currentCharIndex - toolCloseTag.length + 1)) {
+      const toolCloseTag = isDsmlTool ? (dsmlTag?.[1] === '/' && dsmlTag[2] === 'invoke' ? dsmlTag[0] : '') : `</${currentToolUse.name}>`
+      if (
+        toolCloseTag &&
+        currentCharIndex >= toolCloseTag.length - 1 &&
+        assistantMessage.startsWith(toolCloseTag, currentCharIndex - toolCloseTag.length + 1)
+      ) {
         // End of the tool use found
         // Special handling for content params *before* finalizing the tool
         const toolContentSlice = assistantMessage.slice(
@@ -383,18 +414,21 @@ export function parseAssistantMessageV2(assistantMessage: string): AssistantMess
               )
               .trim()
             currentTextContent.partial = false // Ended because tool started
+            currentTextContent.content = cleanText(currentTextContent.content)
             if (currentTextContent.content.length > 0) {
               contentBlocks.push(currentTextContent)
             }
             currentTextContent = undefined
           } else {
             // Check for any text between the last block and this tag
-            const potentialText = assistantMessage
-              .slice(
-                currentTextContentStart, // From where text *might* have started
-                currentCharIndex - tag.length + 1 // To before the tool tag starts
-              )
-              .trim()
+            const potentialText = cleanText(
+              assistantMessage
+                .slice(
+                  currentTextContentStart, // From where text *might* have started
+                  currentCharIndex - tag.length + 1 // To before the tool tag starts
+                )
+                .trim()
+            )
             if (potentialText.length > 0) {
               contentBlocks.push({
                 type: 'text',
@@ -403,6 +437,8 @@ export function parseAssistantMessageV2(assistantMessage: string): AssistantMess
               })
             }
           }
+
+          isDsmlTool = dsmlTag?.[2] === 'invoke'
 
           // Start the new tool use
           currentToolUse = {
@@ -463,6 +499,7 @@ export function parseAssistantMessageV2(assistantMessage: string): AssistantMess
       .slice(currentTextContentStart) // From text start to end of string
       .trim()
     // Text is partial because the loop finished
+    currentTextContent.content = cleanText(currentTextContent.content)
     if (currentTextContent.content.length > 0) {
       contentBlocks.push(currentTextContent)
     }

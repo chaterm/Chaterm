@@ -56,6 +56,56 @@ function getRegistryPath(): string {
   return path.join(getExtensionsRoot(), 'plugins.json')
 }
 
+const SAFE_PLUGIN_SEGMENT = /^[A-Za-z0-9][A-Za-z0-9._+-]*$/
+
+export function isSafePluginPathSegment(value: unknown): value is string {
+  if (typeof value !== 'string') return false
+  if (value.length === 0 || value.length > 128) return false
+  if (value === '.' || value === '..') return false
+  if (value.includes('..')) return false
+  return SAFE_PLUGIN_SEGMENT.test(value)
+}
+
+export function assertSafePluginPathSegment(value: unknown, field: string): string {
+  if (!isSafePluginPathSegment(value)) {
+    throw new Error(`invalid plugin ${field}`)
+  }
+  return value
+}
+
+/**
+ * Validates a manifest field that is later joined onto the plugin directory
+ */
+export function assertSafeRelativeEntry(value: unknown, field: string): string {
+  if (typeof value !== 'string' || value.length === 0 || value.length > 512) {
+    throw new Error(`invalid plugin ${field}`)
+  }
+  if (path.isAbsolute(value) || /^[A-Za-z]:/.test(value)) {
+    throw new Error(`invalid plugin ${field}`)
+  }
+  const segments = value.split(/[\\/]+/)
+  if (segments.some((segment) => segment === '..' || segment === '.' || segment.length === 0)) {
+    throw new Error(`invalid plugin ${field}`)
+  }
+  return value
+}
+
+/** True when `child` resolves strictly inside `parent`. */
+export function isPathInside(child: string, parent: string): boolean {
+  if (typeof child !== 'string' || child.length === 0) return false
+  const resolvedParent = path.resolve(parent)
+  const resolvedChild = path.resolve(child)
+  if (resolvedChild === resolvedParent) return false
+  const rel = path.relative(resolvedParent, resolvedChild)
+  if (rel.length === 0 || path.isAbsolute(rel)) return false
+  return rel.split(path.sep)[0] !== '..'
+}
+
+/** True when a registry record points at a directory inside the current plugins root. */
+export function isTrustedPluginPath(pluginPath: string): boolean {
+  return isPathInside(pluginPath, getExtensionsRoot())
+}
+
 export function getPluginCacheRoot(): string {
   return path.join(getExtensionsRoot(), '.cache')
 }
@@ -65,7 +115,26 @@ function readRegistry(): InstalledPlugin[] {
   if (!fs.existsSync(regPath)) return []
   try {
     const raw = fs.readFileSync(regPath, 'utf8')
-    return JSON.parse(raw) as InstalledPlugin[]
+    const parsed = JSON.parse(raw)
+    if (!Array.isArray(parsed)) return []
+    return (parsed as InstalledPlugin[]).filter((entry) => {
+      if (!entry || typeof entry !== 'object') return false
+      if (!isSafePluginPathSegment(entry.id) || !isSafePluginPathSegment(entry.version)) {
+        logger.warn('Dropping plugin registry entry with unsafe id/version', {
+          event: 'plugin.registry.entry.rejected',
+          pluginId: String(entry?.id)
+        })
+        return false
+      }
+      if (!isTrustedPluginPath(entry.path)) {
+        logger.warn('Dropping plugin registry entry outside plugins root', {
+          event: 'plugin.registry.entry.rejected',
+          pluginId: entry.id
+        })
+        return false
+      }
+      return true
+    })
   } catch {
     return []
   }
@@ -122,8 +191,20 @@ export function installPlugin(pluginFilePath: string, options?: InstallPluginOpt
       throw new Error('invalid plugin manifest')
     }
 
+    // id/version become a directory name; reject anything that is not a single inert segment.
+    assertSafePluginPathSegment(manifest.id, 'id')
+    assertSafePluginPathSegment(manifest.version, 'version')
+    assertSafeRelativeEntry(manifest.main, 'main')
+    if (manifest.icon !== undefined) {
+      assertSafeRelativeEntry(manifest.icon, 'icon')
+    }
+
     const finalDirName = `${manifest.id}-${manifest.version}`
     const finalDir = path.join(extRoot, finalDirName)
+    // Defence in depth: the resolved install dir must stay strictly inside the plugins root.
+    if (!isPathInside(finalDir, extRoot)) {
+      throw new Error('plugin install path escapes the plugins directory')
+    }
 
     if (fs.existsSync(finalDir)) {
       fs.rmSync(finalDir, { recursive: true, force: true })
@@ -170,8 +251,13 @@ export function uninstallPlugin(pluginId: string, options?: { force?: boolean })
   let removed = false
   for (const p of registry) {
     if (p.id === pluginId) {
-      if (fs.existsSync(p.path)) {
+      if (isTrustedPluginPath(p.path) && fs.existsSync(p.path)) {
         fs.rmSync(p.path, { recursive: true, force: true })
+      } else if (!isTrustedPluginPath(p.path)) {
+        logger.warn('Refusing to remove plugin path outside plugins root', {
+          event: 'plugin.uninstall.path.rejected',
+          pluginId
+        })
       }
       removed = true
     } else {

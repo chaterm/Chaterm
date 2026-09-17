@@ -64,8 +64,9 @@ export function createProxyAgentFromString(proxyString: string): Agent | undefin
 
     switch (type) {
       case 'PROXY':
-      case 'HTTPS':
         return new HttpsProxyAgent(`http://${host}:${port}`) as Agent
+      case 'HTTPS':
+        return new HttpsProxyAgent(`https://${host}:${port}`) as Agent
       case 'SOCKS4':
         return new SocksProxyAgent(`socks4://${host}:${port}`) as unknown as Agent
       case 'SOCKS5':
