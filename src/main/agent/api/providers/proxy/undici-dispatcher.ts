@@ -80,7 +80,8 @@ export function getSharedDispatcherFromString(proxyString: string): Dispatcher |
     return undefined
   }
 
-  const scheme = type === 'SOCKS5' ? 'socks5' : 'http'
+  // "HTTPS host:port" names a proxy that is itself reached over TLS
+  const scheme = type === 'SOCKS5' ? 'socks5' : type === 'HTTPS' ? 'https' : 'http'
   try {
     return getCachedDispatcher(`${scheme}://${host}:${port}`)
   } catch (error) {
