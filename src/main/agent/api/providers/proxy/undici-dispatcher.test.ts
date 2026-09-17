@@ -1,4 +1,6 @@
 import { afterEach, describe, expect, it } from 'vitest'
+import { createServer, type AddressInfo, type Server } from 'node:net'
+import { fetch } from 'undici'
 import type { ProxyConfig } from '@shared/Proxy'
 import { closeAllDispatchers, getSharedDispatcher, getSharedDispatcherFromString, shouldUseProxy } from './undici-dispatcher'
 
@@ -77,5 +79,41 @@ describe('getSharedDispatcherFromString', () => {
 
   it('falls back to direct connection for unparseable strings', () => {
     expect(getSharedDispatcherFromString('DIRECT')).toBeUndefined()
+  })
+})
+
+// Electron reports a TLS-speaking proxy as "HTTPS host:port", so the client
+// must open a TLS session to the proxy rather than send a plaintext request.
+describe('getSharedDispatcherFromString with an HTTPS system proxy', () => {
+  let server: Server | undefined
+
+  afterEach(async () => {
+    await closeAllDispatchers()
+    await new Promise<void>((done) => (server ? server.close(() => done()) : done()))
+    server = undefined
+  })
+
+  it('starts a TLS handshake with the proxy', async () => {
+    // undici keeps retrying a proxy that hangs up, so the request is aborted once the first bytes arrive.
+    const controller = new AbortController()
+    const firstByte = new Promise<number>((resolveByte) => {
+      server = createServer((socket) => {
+        socket.once('data', (chunk: Buffer) => {
+          resolveByte(chunk[0])
+          controller.abort()
+          socket.destroy()
+        })
+      })
+    })
+    await new Promise<void>((done) => server!.listen(0, '127.0.0.1', () => done()))
+    const { port } = server!.address() as AddressInfo
+
+    const dispatcher = getSharedDispatcherFromString(`HTTPS 127.0.0.1:${port}`)
+    expect(dispatcher).toBeDefined()
+    const request = fetch('http://example.invalid/', { dispatcher, signal: controller.signal }).catch(() => undefined)
+
+    // 0x16 is the TLS handshake record type; a plaintext proxy request starts with an ASCII verb.
+    expect(await firstByte).toBe(0x16)
+    await request
   })
 })
