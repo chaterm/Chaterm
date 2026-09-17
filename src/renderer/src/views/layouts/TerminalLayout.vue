@@ -2653,6 +2653,14 @@ const handleCloseTabKeyDown = (event: KeyboardEvent) => {
   const activePanel = dockApi.activePanel
   const params = activePanel.params as Record<string, any> | undefined
 
+  // On macOS Cmd+W is also the accelerator of the native "Close Window" menu item, which the
+  // main process turns into hide(). A closable panel exists here, so suppress the accelerator
+  // unconditionally before deferring to the terminal handler. preventDefault does not stop
+  // propagation, so the handler that owns the close still runs.
+  if (isMac) {
+    event.preventDefault()
+  }
+
   if (isFocusInTerminal(event) && params?.organizationId && params.organizationId !== '') {
     return
   }

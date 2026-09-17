@@ -179,6 +179,7 @@ const configStore = userConfigStore()
 const isTransparent = computed(() => !!configStore.getUserConfig.background.image)
 const hasCustomBg = (): boolean => isTransparent.value === true
 let viewportScrollbarHideTimer: number | null = null
+let registerInstanceTimer: ReturnType<typeof setTimeout> | null = null
 
 // Coalesced scrollToBottom: uses requestAnimationFrame for smooth alignment with browser repaint
 let scrollToBottomScheduled = false
@@ -934,7 +935,10 @@ onMounted(async () => {
   })
 
   nextTick(() => {
-    setTimeout(() => {
+    // Keep the handle so onBeforeUnmount can cancel it. Otherwise a tab closed before
+    // this fires registers an already-unmounted instance and leaves activeTermId dangling.
+    registerInstanceTimer = setTimeout(() => {
+      registerInstanceTimer = null
       handleResize()
       inputManager.registerInstances(
         {
@@ -1192,6 +1196,10 @@ onBeforeUnmount(() => {
   if (queryCommandDebounceTimer) {
     clearTimeout(queryCommandDebounceTimer)
     queryCommandDebounceTimer = null
+  }
+  if (registerInstanceTimer) {
+    clearTimeout(registerInstanceTimer)
+    registerInstanceTimer = null
   }
   window.removeEventListener('resize', handleResize)
   window.removeEventListener('wheel', handleWheel)
@@ -5246,7 +5254,11 @@ const handleGlobalKeyDown = (e: KeyboardEvent) => {
     contextmenu.value.hide()
   }
   const activeTerm = inputManager.getActiveTerm()
-  if (!activeTerm.id || !connectionId.value || activeTerm.id !== connectionId.value) return
+  // Real DOM focus is the ground truth: activeTermId can go stale when a terminal is
+  // unmounted, and relying on it alone silently drops shortcuts for the focused terminal.
+  const hasDomFocus = !!terminalContainer.value?.contains(document.activeElement)
+  if (!connectionId.value) return
+  if (!hasDomFocus && (!activeTerm.id || activeTerm.id !== connectionId.value)) return
 
   const isMac = navigator.platform.toUpperCase().indexOf('MAC') >= 0
 
