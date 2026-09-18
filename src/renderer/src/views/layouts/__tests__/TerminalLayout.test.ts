@@ -97,6 +97,7 @@ const createHandleCloseTabKeyDown = (dockApi: MockDockApi | null, isFocusInAiTab
     if (!dockApi || !dockApi.activePanel) return
     const activePanel = dockApi.activePanel
     const params = activePanel.params as Record<string, any> | undefined
+    if (isMac) event.preventDefault()
     if (isFocusInTerminal(event) && params?.organizationId && params.organizationId !== '') return
     const CLOSE_DEBOUNCE_TIME = 100
     const currentTime = Date.now()
@@ -389,6 +390,74 @@ describe('TerminalLayout - Close Tab Keyboard Shortcut', () => {
       const event = createMockEvent({ metaKey: true, key: 'w', target: targetInTerminal })
       handleCloseTabKeyDown(event)
       expect(mockDockApi.activePanel!.api.close).toHaveBeenCalled()
+    })
+  })
+
+  describe('macOS native accelerator guard', () => {
+    // On macOS Cmd+W is the accelerator of the native "Close Window" menu item, which the main
+    // process turns into hide(). When this handler defers the close to the SSH terminal handler
+    // it must still suppress the accelerator, otherwise a stale activeTermId in the terminal
+    // handler lets the key fall through and the whole window gets hidden.
+    it('suppresses the accelerator on Mac even when deferring the close to the SSH handler', () => {
+      Object.defineProperty(navigator, 'platform', {
+        writable: true,
+        configurable: true,
+        value: 'MacIntel'
+      })
+      mockDockApi.activePanel!.params = { organizationId: 'org-123' }
+      handleCloseTabKeyDown = createHandleCloseTabKeyDown(mockDockApi, mockIsFocusInAiTab)
+      const terminalContainer = document.createElement('div')
+      terminalContainer.className = 'terminal-container'
+      const targetInTerminal = document.createElement('div')
+      terminalContainer.appendChild(targetInTerminal)
+      const event = createMockEvent({ metaKey: true, key: 'w', target: targetInTerminal })
+      handleCloseTabKeyDown(event)
+      expect(mockDockApi.activePanel!.api.close).not.toHaveBeenCalled()
+      expect(event.preventDefault).toHaveBeenCalled()
+    })
+
+    it('does not suppress the accelerator when there is no closable panel', () => {
+      Object.defineProperty(navigator, 'platform', {
+        writable: true,
+        configurable: true,
+        value: 'MacIntel'
+      })
+      mockDockApi.activePanel = null
+      handleCloseTabKeyDown = createHandleCloseTabKeyDown(mockDockApi, mockIsFocusInAiTab)
+      const event = createMockEvent({ metaKey: true, key: 'w' })
+      handleCloseTabKeyDown(event)
+      expect(event.preventDefault).not.toHaveBeenCalled()
+    })
+
+    it('does not suppress the accelerator on Windows/Linux', () => {
+      Object.defineProperty(navigator, 'platform', {
+        writable: true,
+        configurable: true,
+        value: 'Win32'
+      })
+      handleCloseTabKeyDown = createHandleCloseTabKeyDown(mockDockApi, mockIsFocusInAiTab)
+      const event = createMockEvent({ metaKey: true, key: 'w' })
+      handleCloseTabKeyDown(event)
+      expect(event.preventDefault).not.toHaveBeenCalled()
+    })
+
+    it('keeps the layout handler and the SSH handler in sync with the shipped sources', () => {
+      // Windows checkouts land as CRLF, so normalize before matching multi-line snippets.
+      const readSource = (relativePath: string) => readFileSync(join(process.cwd(), relativePath), 'utf8').replace(/\r\n/g, '\n')
+      const layoutSource = readSource('src/renderer/src/views/layouts/TerminalLayout.vue')
+      const sshSource = readSource('src/renderer/src/views/components/Ssh/sshConnect.vue')
+
+      // Layout handler suppresses the macOS accelerator before deferring.
+      expect(layoutSource).toContain('if (isMac) {\n    event.preventDefault()\n  }')
+
+      // The delayed registration must be cancellable, otherwise a tab closed inside the 100ms
+      // window registers an unmounted instance and leaves activeTermId pointing at it.
+      expect(sshSource).toContain('registerInstanceTimer = setTimeout(')
+      expect(sshSource).toContain('if (registerInstanceTimer) {\n    clearTimeout(registerInstanceTimer)\n    registerInstanceTimer = null\n  }')
+
+      // The SSH shortcut guard must accept real DOM focus, not only activeTermId.
+      expect(sshSource).toContain('const hasDomFocus = !!terminalContainer.value?.contains(document.activeElement)')
+      expect(sshSource).toContain('if (!hasDomFocus && (!activeTerm.id || activeTerm.id !== connectionId.value)) return')
     })
   })
 

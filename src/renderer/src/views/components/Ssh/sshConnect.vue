@@ -8,7 +8,6 @@
     <SearchComp
       v-if="showSearch"
       :search-addon="searchAddon"
-      :terminal="terminal"
       @close-search="closeSearch"
     />
     <div
@@ -179,6 +178,7 @@ const configStore = userConfigStore()
 const isTransparent = computed(() => !!configStore.getUserConfig.background.image)
 const hasCustomBg = (): boolean => isTransparent.value === true
 let viewportScrollbarHideTimer: number | null = null
+let registerInstanceTimer: ReturnType<typeof setTimeout> | null = null
 
 // Coalesced scrollToBottom: uses requestAnimationFrame for smooth alignment with browser repaint
 let scrollToBottomScheduled = false
@@ -665,6 +665,11 @@ onMounted(async () => {
       fontFamily: config.fontFamily || 'Menlo, Monaco, "Courier New", Consolas, Courier, monospace',
       lineHeight: typeof config.lineHeight === 'number' ? config.lineHeight : 1,
       allowTransparency: true,
+      // Required by @xterm/addon-search: highlighting all matches goes through
+      // Terminal.registerDecoration, which is proposed API. Without this the
+      // addon throws before it can report result counts, so the search bar's
+      // match counter stays empty and its prev/next buttons stay disabled.
+      allowProposedApi: true,
       theme: getResolvedTerminalTheme(config.theme as ThemeId, { hasCustomBg: hasCustomBg() })
     })
   )
@@ -676,6 +681,21 @@ onMounted(async () => {
     }
   })
   perfMark('chaterm/terminal/didCreate')
+
+  // Escape maps to \x1b, so xterm handles it and then calls stopPropagation.
+  // That means the window-level keydown handler never sees Escape while the
+  // terminal has focus, and the search bar could not be closed after clicking
+  // back into the terminal. This hook runs before xterm processes the key, so
+  // it is the only place left to catch it. The key is swallowed rather than
+  // forwarded, so Escape closes the search bar without also reaching the shell.
+  termInstance.attachCustomKeyEventHandler((event: KeyboardEvent) => {
+    if (event.type === 'keydown' && event.key === 'Escape' && showSearch.value) {
+      closeSearch()
+      return false
+    }
+    return true
+  })
+
   termInstance?.onKey(handleKeyInput)
   termInstance?.onSelectionChange(() => {
     if (termInstance.hasSelection()) {
@@ -934,14 +954,11 @@ onMounted(async () => {
   })
 
   nextTick(() => {
-    setTimeout(() => {
+    // Keep the handle so onBeforeUnmount can cancel it. Otherwise a tab closed before
+    // this fires registers an already-unmounted instance and leaves activeTermId dangling.
+    registerInstanceTimer = setTimeout(() => {
+      registerInstanceTimer = null
       handleResize()
-      inputManager.registerInstances(
-        {
-          termOndata: handleExternalInput
-        },
-        connectionId.value
-      )
     }, 100)
     terminalContainerResize()
   })
@@ -1193,11 +1210,17 @@ onBeforeUnmount(() => {
     clearTimeout(queryCommandDebounceTimer)
     queryCommandDebounceTimer = null
   }
+  if (registerInstanceTimer) {
+    clearTimeout(registerInstanceTimer)
+    registerInstanceTimer = null
+  }
   window.removeEventListener('resize', handleResize)
   window.removeEventListener('wheel', handleWheel)
   window.removeEventListener('online', handleBrowserOnline)
   window.removeEventListener('offline', handleBrowserOffline)
-  inputManager.unregisterInstances(connectionId.value)
+  if (connectionId.value) {
+    inputManager.unregisterInstances(connectionId.value)
+  }
   if (resizeObserver) {
     resizeObserver.disconnect()
     resizeObserver = null
@@ -3017,12 +3040,21 @@ watch(
   { immediate: true }
 )
 
-// Reload OS info and re-register inputManager when connectionId changes (e.g., reconnect)
+// Reload OS info and (re-)register inputManager whenever connectionId changes.
+//
+// This watch owns registration outright. connectionId starts empty and is only
+// assigned once the connect flow resolves (after an IPC round trip on the SSH
+// path), so registering at mount time would key the instance on '' and leave
+// activeTermId permanently empty — silently disabling every shortcut guarded by
+// `activeTerm.id === connectionId.value` (search, close tab, clear, font size).
 watch(connectionId, (newId, oldId) => {
   cachedOsInfoLoaded.value = false
   cachedOsInfo.value = undefined
-  if (oldId && newId && oldId !== newId) {
+  if (oldId === newId) return
+  if (oldId) {
     inputManager.unregisterInstances(oldId)
+  }
+  if (newId) {
     inputManager.registerInstances(
       {
         termOndata: handleExternalInput
@@ -5246,7 +5278,11 @@ const handleGlobalKeyDown = (e: KeyboardEvent) => {
     contextmenu.value.hide()
   }
   const activeTerm = inputManager.getActiveTerm()
-  if (!activeTerm.id || !connectionId.value || activeTerm.id !== connectionId.value) return
+  // Real DOM focus is the ground truth: activeTermId can go stale when a terminal is
+  // unmounted, and relying on it alone silently drops shortcuts for the focused terminal.
+  const hasDomFocus = !!terminalContainer.value?.contains(document.activeElement)
+  if (!connectionId.value) return
+  if (!hasDomFocus && (!activeTerm.id || activeTerm.id !== connectionId.value)) return
 
   const isMac = navigator.platform.toUpperCase().indexOf('MAC') >= 0
 

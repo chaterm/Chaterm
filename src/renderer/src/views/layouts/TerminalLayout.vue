@@ -2653,6 +2653,14 @@ const handleCloseTabKeyDown = (event: KeyboardEvent) => {
   const activePanel = dockApi.activePanel
   const params = activePanel.params as Record<string, any> | undefined
 
+  // On macOS Cmd+W is also the accelerator of the native "Close Window" menu item, which the
+  // main process turns into hide(). A closable panel exists here, so suppress the accelerator
+  // unconditionally before deferring to the terminal handler. preventDefault does not stop
+  // propagation, so the handler that owns the close still runs.
+  if (isMac) {
+    event.preventDefault()
+  }
+
   if (isFocusInTerminal(event) && params?.organizationId && params.organizationId !== '') {
     return
   }
@@ -3805,9 +3813,12 @@ defineExpose({
 
 .dockview-theme-light .dv-tab,
 .dockview-theme-dark .dv-tab {
-  /* Keep long names compact so more terminal tabs fit in the tab bar. */
-  max-width: 140px;
-  min-width: 0;
+  /* Size each tab to its own title instead of a fixed width, so short host
+     names stay narrow and long ones only truncate past the cap. The tab bar
+     scrolls horizontally once the tabs no longer fit. */
+  flex: 0 0 auto;
+  min-width: 0px;
+  max-width: 300px;
 }
 
 .dockview-theme-light .dv-default-tab,
