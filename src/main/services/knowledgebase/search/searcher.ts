@@ -29,7 +29,7 @@ function getCjkSegmenter(): Intl.Segmenter {
   return cjkSegmenter
 }
 
-const CJK_RE = /[\u4e00-\u9fff\u3400-\u4dbf\u20000-\u2a6df\uf900-\ufaff\u3040-\u30ff\uac00-\ud7af]/
+const CJK_RE = /[\u3040-\u30ff\u3400-\u4dbf\u4e00-\u9fff\uac00-\ud7af\uf900-\ufaff\u{20000}-\u{2a6df}]/u
 
 function tokenizeCjk(raw: string): string[] {
   return [...getCjkSegmenter().segment(raw)]
