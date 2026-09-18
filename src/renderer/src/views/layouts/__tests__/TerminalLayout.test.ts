@@ -442,8 +442,10 @@ describe('TerminalLayout - Close Tab Keyboard Shortcut', () => {
     })
 
     it('keeps the layout handler and the SSH handler in sync with the shipped sources', () => {
-      const layoutSource = readFileSync(join(process.cwd(), 'src/renderer/src/views/layouts/TerminalLayout.vue'), 'utf8')
-      const sshSource = readFileSync(join(process.cwd(), 'src/renderer/src/views/components/Ssh/sshConnect.vue'), 'utf8')
+      // Windows checkouts land as CRLF, so normalize before matching multi-line snippets.
+      const readSource = (relativePath: string) => readFileSync(join(process.cwd(), relativePath), 'utf8').replace(/\r\n/g, '\n')
+      const layoutSource = readSource('src/renderer/src/views/layouts/TerminalLayout.vue')
+      const sshSource = readSource('src/renderer/src/views/components/Ssh/sshConnect.vue')
 
       // Layout handler suppresses the macOS accelerator before deferring.
       expect(layoutSource).toContain('if (isMac) {\n    event.preventDefault()\n  }')
