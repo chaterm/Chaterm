@@ -19,7 +19,9 @@ export interface PluginDetails {
 
 const pad2 = (n: number) => String(n).padStart(2, '0')
 export const fmtTime = (d: Date) =>
-  `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())} ${pad2(d.getHours())}:${pad2(d.getMinutes())}:${pad2(d.getSeconds())}`
+  isNaN(d.getTime())
+    ? ''
+    : `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())} ${pad2(d.getHours())}:${pad2(d.getMinutes())}:${pad2(d.getSeconds())}`
 
 function calcDirInfo(rootDir: string): { size: number; lastUpdated: number } {
   let totalSize = 0

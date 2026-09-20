@@ -51,4 +51,9 @@ describe('pluginDetails timestamp formatting', () => {
     expect(localStr).toContain(String(d.getFullYear()))
     expect(localStr).toContain(pad2(d.getHours()))
   })
+
+  it('fmtTime returns empty string for invalid dates', () => {
+    expect(fmtTime(new Date(NaN))).toBe('')
+    expect(fmtTime(new Date('not-a-date'))).toBe('')
+  })
 })
