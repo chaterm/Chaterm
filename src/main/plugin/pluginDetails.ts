@@ -17,6 +17,10 @@ export interface PluginDetails {
   size: number
 }
 
+const pad2 = (n: number) => String(n).padStart(2, '0')
+const fmtTime = (d: Date) =>
+  `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())} ${pad2(d.getHours())}:${pad2(d.getMinutes())}:${pad2(d.getSeconds())}`
+
 function calcDirInfo(rootDir: string): { size: number; lastUpdated: number } {
   let totalSize = 0
   let lastUpdated = 0
@@ -151,7 +155,7 @@ export async function getPluginDetailsByName(pluginName: string): Promise<Plugin
     }
   }
   const info = calcDirInfo(basePath)
-  const lastUpdatedStr = info.lastUpdated ? new Date(info.lastUpdated).toISOString().replace('T', ' ').substring(0, 19) : ''
+  const lastUpdatedStr = info.lastUpdated ? fmtTime(new Date(info.lastUpdated)) : ''
 
   const { name, description } = getLocalizedStrings(manifest, language)
   const readme = readReadme(basePath, language)
