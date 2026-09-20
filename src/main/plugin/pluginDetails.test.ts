@@ -1,4 +1,5 @@
 import { describe, it, expect } from 'vitest'
+import { fmtTime } from './pluginDetails'
 
 /**
  * Regression test for the plugin-detail timestamp bug.
@@ -11,8 +12,6 @@ import { describe, it, expect } from 'vitest'
  */
 
 const pad2 = (n: number) => String(n).padStart(2, '0')
-const fmtTime = (d: Date) =>
-  `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())} ${pad2(d.getHours())}:${pad2(d.getMinutes())}:${pad2(d.getSeconds())}`
 
 describe('pluginDetails timestamp formatting', () => {
   it('fmtTime returns local time, not UTC', () => {

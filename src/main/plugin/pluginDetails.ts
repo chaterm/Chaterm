@@ -18,7 +18,7 @@ export interface PluginDetails {
 }
 
 const pad2 = (n: number) => String(n).padStart(2, '0')
-const fmtTime = (d: Date) =>
+export const fmtTime = (d: Date) =>
   `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())} ${pad2(d.getHours())}:${pad2(d.getMinutes())}:${pad2(d.getSeconds())}`
 
 function calcDirInfo(rootDir: string): { size: number; lastUpdated: number } {
