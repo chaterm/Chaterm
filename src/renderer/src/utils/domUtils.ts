@@ -111,6 +111,51 @@ export function placeCaretAtEnd(el: HTMLElement): void {
 }
 
 /**
+ * Append plain text to the end of a contenteditable through the editing
+ * pipeline, so Blink records a native undo step for it.
+ *
+ * Mutating the bound state and letting a watcher re-render the editable is
+ * invisible to the undo stack: the `replaceChildren` that rebuilds the DOM
+ * detaches the nodes the earlier UndoSteps point at, so Cmd+Z stops working
+ * for the appended text *and* for everything typed before it.
+ *
+ * `insertText` has to run per line. Passing an embedded newline makes Blink
+ * split the block and emit a `<div>`, which the parts extractor does not read
+ * as a line break, so the newline would be silently dropped.
+ *
+ * A break that lands at the very end of the editable costs one newline less
+ * than it looks: Blink keeps a filler newline there so the final empty line
+ * stays visible, and that filler is a real text node the parts extractor
+ * reads. Emitting every break for a text ending in a newline would therefore
+ * leave one blank line too many, so the trailing one is dropped and the filler
+ * stands in for it. Blink cannot represent a single trailing newline this way
+ * (it is either doubled by the filler or absent), so a text ending in exactly
+ * one newline loses it; the callers here append either no suffix or a blank
+ * line, so neither hits that case.
+ *
+ * @param el - The contenteditable element to append into
+ * @param text - Plain text to append; CRLF is normalized to LF
+ * @returns true when the whole text went through the editing pipeline
+ */
+export function appendTextViaEditingPipeline(el: HTMLElement, text: string): boolean {
+  el.focus({ preventScroll: true })
+  placeCaretAtEnd(el)
+
+  const selection = window.getSelection()
+  if (!selection || selection.rangeCount === 0) return false
+  if (!el.contains(selection.getRangeAt(0).startContainer)) return false
+
+  const lines = text.replace(/\r\n/g, '\n').replace(/\n$/, '').split('\n')
+
+  return lines.every((line, index) => {
+    const textOk = line.length === 0 || document.execCommand('insertText', false, line)
+    if (!textOk) return false
+    if (index === lines.length - 1) return true
+    return document.execCommand('insertLineBreak')
+  })
+}
+
+/**
  * Check if the focus is currently within the AITab component
  * @param event - The keyboard event (optional, may have null target for synthetic events)
  * @returns true if focus is within AITab component, false otherwise
