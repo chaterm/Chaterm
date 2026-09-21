@@ -514,6 +514,10 @@ export function useEditableContent(options: UseEditableContentOptions) {
     }
 
     editableRef.value.replaceChildren(container)
+    // The nodes savedSelection pointed at are now detached. Keeping it would make
+    // restoreSelection re-apply a dead range (addRange silently no-ops), so callers
+    // would lose the caret instead of falling back to the live selection.
+    savedSelection.value = null
     updateEditableEmptyState(parts)
   }
 
@@ -532,6 +536,8 @@ export function useEditableContent(options: UseEditableContentOptions) {
     if (isEditableEmpty.value) {
       if (editableRef.value) {
         editableRef.value.innerHTML = ''
+        // Same reason as in renderFromParts: the saved range is now detached.
+        savedSelection.value = null
       }
       chatInputParts.value = []
     }
