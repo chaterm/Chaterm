@@ -709,47 +709,63 @@ const handleEditableDrop = async (e: DragEvent) => {
   })
 }
 
-const insertPlainTextAtCursor = (text: string) => {
-  if (!editableRef.value) return
-
-  editableRef.value.focus()
-  restoreSelection()
-
+// Resolve the range to insert at, preferring what the user currently sees.
+// savedSelection only refreshes on keyup/mouseup, so it can be stale (caret moved
+// by undo, or by a drag that ended outside the editable) or detached (a parts-driven
+// renderFromParts replaced the nodes it pointed at). Restoring it unconditionally
+// used to move the insertion away from the visible caret.
+const resolveInsertionRange = (): Range | null => {
+  const el = editableRef.value
   const selection = window.getSelection()
-  if (!selection) return
+  if (!el || !selection) return null
 
-  let range: Range | null = selection.rangeCount > 0 ? selection.getRangeAt(0) : null
-  if (!range || !editableRef.value.contains(range.startContainer)) {
-    moveCaretToEnd()
-    range = selection.rangeCount > 0 ? selection.getRangeAt(0) : null
-  }
+  const liveRange = selection.rangeCount > 0 ? selection.getRangeAt(0) : null
+  if (liveRange && el.contains(liveRange.startContainer)) return liveRange
+
+  // Focus is elsewhere (or the selection was dropped): fall back to savedSelection.
+  // addRange silently no-ops for a detached range, so re-read instead of trusting it.
+  restoreSelection()
+  const restored = selection.rangeCount > 0 ? selection.getRangeAt(0) : null
+  if (restored && el.contains(restored.startContainer)) return restored
+
+  moveCaretToEnd()
+  return selection.rangeCount > 0 ? selection.getRangeAt(0) : null
+}
+
+const insertPlainTextAtCursor = (text: string) => {
+  const el = editableRef.value
+  if (!el) return
+
+  el.focus()
+  const range = resolveInsertionRange()
   if (!range) return
 
-  const fragment = document.createDocumentFragment()
   const normalizedText = text.replace(/\r\n/g, '\n')
   const lines = normalizedText.split('\n')
-  lines.forEach((line, index) => {
-    fragment.appendChild(document.createTextNode(line))
-    if (index < lines.length - 1) {
-      fragment.appendChild(document.createElement('br'))
-    }
+
+  // Insert through the editing pipeline so Blink records an undo step. A raw
+  // Range mutation is invisible to the native undo stack, which left Cmd+Z
+  // replaying stale offsets against a DOM that had already changed.
+  // insertText must be called per line: passing an embedded newline makes Blink
+  // emit a <div> block, and extractContentParts only treats <br> and text nodes
+  // as newlines, so the line break would be silently dropped.
+  const inserted = lines.every((line, index) => {
+    const textOk = line.length === 0 || document.execCommand('insertText', false, line)
+    if (!textOk) return false
+    if (index === lines.length - 1) return true
+    return document.execCommand('insertLineBreak')
   })
 
-  const caretMarker = document.createTextNode('')
-  fragment.appendChild(caretMarker)
-
-  range.deleteContents()
-  range.insertNode(fragment)
-
-  const newRange = document.createRange()
-  newRange.setStart(caretMarker, 0)
-  newRange.collapse(true)
-  selection.removeAllRanges()
-  selection.addRange(newRange)
-  caretMarker.remove()
+  if (!inserted) {
+    // execCommand is deprecated; keep a direct-DOM fallback so paste still works
+    // if it ever stops being supported. Undo fidelity is lost on this path.
+    range.deleteContents()
+    range.insertNode(document.createTextNode(normalizedText))
+    range.collapse(false)
+    handleEditableInput()
+  }
 
   saveSelection()
-  handleEditableInput()
 }
 
 // Handle paste events:
