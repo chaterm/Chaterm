@@ -1,7 +1,7 @@
 import { onMounted, onUnmounted, watch } from 'vue'
 import eventBus from '@/utils/eventBus'
 import { useSessionState } from './useSessionState'
-import { focusChatInput } from './useTabManagement'
+import { appendTextToChatInput } from './useChatInputAppend'
 import { isFocusInAiTab } from '@/utils/domUtils'
 import type { AssetInfo, Host } from '../types'
 import type { ContentPart, ToolResultPayload } from '@shared/WebviewMessage'
@@ -62,7 +62,7 @@ interface TabInfo {
 export function useEventBusListeners(params: UseEventBusListenersParams) {
   const { t } = i18n.global
   const { sendMessageWithContent, initModel, getCurentTabAssetInfo, updateHosts, isAgentMode = false, workspace = AI_TAB_DEFAULT_WORKSPACE } = params
-  const { chatTabs, currentChatId, currentSession, autoUpdateHost, chatTypeValue, appendTextToInputParts } = useSessionState()
+  const { chatTabs, currentChatId, currentSession, autoUpdateHost, chatTypeValue } = useSessionState()
   const isDatabaseWorkspace = workspace === 'database'
   const pendingChatToAiTexts: string[] = []
 
@@ -150,11 +150,11 @@ export function useEventBusListeners(params: UseEventBusListenersParams) {
     // The suffix ends with a blank line on purpose. The caret is placed before
     // the trailing newline (see placeCaretAtEnd), so a single newline would put
     // it at the end of the appended text instead of on a fresh line below it.
-    appendTextToInputParts(text, '\n', '\n\n')
-    // Focus before the async host lookup: awaiting it first leaves a window
-    // where the user can start composing, and the selection reset inside
-    // focusChatInput would then abort that composition.
-    focusChatInput()
+    //
+    // Append before the async host lookup: awaiting it first leaves a window
+    // where the user can start composing, and the caret reset inside the append
+    // would then abort that composition.
+    await appendTextToChatInput(text, '\n', '\n\n')
     await initAssetInfo()
   }
 

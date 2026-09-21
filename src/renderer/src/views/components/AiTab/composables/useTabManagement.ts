@@ -11,7 +11,7 @@ import { getGlobalState } from '@renderer/agent/storage/state'
 import { ChatermMessage } from '@/types/ChatermMessage'
 import { PROVIDER_MODEL_KEY_MAP } from './useModelConfiguration'
 import eventBus from '@/utils/eventBus'
-import { placeCaretAtEnd } from '@/utils/domUtils'
+import { focusChatInput } from './useChatInputAppend'
 import type { ChatermMessagesPage } from '@shared/ExtensionMessage'
 
 interface TabManagementOptions {
@@ -21,23 +21,10 @@ interface TabManagementOptions {
   toggleSidebar: () => void
 }
 
-export const focusChatInput = () => {
-  const { chatTextareaRef } = useSessionState()
-
-  nextTick(() => {
-    const el = (chatTextareaRef.value as unknown as HTMLElement | null) ?? null
-    if (!el) return
-
-    if (chatTextareaRef.value) {
-      el.focus({ preventScroll: true })
-
-      placeCaretAtEnd(el)
-
-      // Keep the visible viewport scrolled to the newest content.
-      el.scrollTop = el.scrollHeight
-    }
-  })
-}
+// Re-exported so existing importers (and the tests that mock this module path)
+// keep working; the implementation lives in useChatInputAppend to keep it off
+// this module's dependency graph.
+export { focusChatInput }
 
 /**
  * Default localhost host configuration

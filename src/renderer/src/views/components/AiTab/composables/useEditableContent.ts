@@ -514,12 +514,57 @@ export function useEditableContent(options: UseEditableContentOptions) {
     }
 
     editableRef.value.replaceChildren(container)
+    // The nodes savedSelection pointed at are now detached. Keeping it would make
+    // restoreSelection re-apply a dead range (addRange silently no-ops), so callers
+    // would lose the caret instead of falling back to the live selection.
+    savedSelection.value = null
     updateEditableEmptyState(parts)
   }
 
   // ============================================================================
   // Sync & Insertion
   // ============================================================================
+
+  /**
+   * Deal with what an edit left behind once the editable is visually empty,
+   * without parking the caret on a line below the absolutely positioned
+   * placeholder.
+   *
+   * Blink leaves one of two things after a delete empties the element: a bogus
+   * <br> it owns, or - when the content ended in a blank line - its filler
+   * newline as a real text node, because select-all never reaches that filler.
+   *
+   * The <br> is Blink's own placeholder and is safe to drop by script. A text
+   * node is not. It is what the delete's UndoStep points at, so detaching it
+   * behind Blink's back makes Cmd+Z stop restoring the deleted content; left
+   * alone, Blink restores everything on the first Cmd+Z. Routing the removal
+   * through `execCommand('delete')` does not help either - Blink merges it with
+   * the delete that just ran and the original content becomes unreachable. So
+   * the filler stays, and only the caret moves in front of it, which is all the
+   * placeholder needs.
+   */
+  const clearResidualDom = () => {
+    const el = editableRef.value
+    if (!el || !el.hasChildNodes()) return
+
+    const firstTextNode = Array.from(el.childNodes).find((node) => node.nodeType === Node.TEXT_NODE)
+    if (!firstTextNode) {
+      el.innerHTML = ''
+      // Same reason as in renderFromParts: the saved range is now detached.
+      savedSelection.value = null
+      return
+    }
+
+    const selection = window.getSelection()
+    if (!selection) return
+
+    const range = document.createRange()
+    range.setStart(firstTextNode, 0)
+    range.collapse(true)
+    selection.removeAllRanges()
+    selection.addRange(range)
+    savedSelection.value = null
+  }
 
   const syncDraftPartsFromEditable = () => {
     const parts = extractContentParts()
@@ -530,9 +575,7 @@ export function useEditableContent(options: UseEditableContentOptions) {
     // This prevents the cursor from appearing below the placeholder after select-all delete,
     // and also prevents residual newlines from being preserved in chatInputParts.
     if (isEditableEmpty.value) {
-      if (editableRef.value) {
-        editableRef.value.innerHTML = ''
-      }
+      clearResidualDom()
       chatInputParts.value = []
     }
 

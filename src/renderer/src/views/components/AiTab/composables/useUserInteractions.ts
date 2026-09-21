@@ -1,6 +1,7 @@
-import { ref, nextTick } from 'vue'
+import { ref } from 'vue'
 import { notification } from 'ant-design-vue'
 import { useSessionState } from './useSessionState'
+import { appendTextToChatInput } from './useChatInputAppend'
 import type { ChatOption, DocOption } from '../types'
 import type { ImageContentPart } from '@shared/WebviewMessage'
 import i18n from '@/locales'
@@ -58,22 +59,24 @@ export interface UseUserInteractionsOptions {
 
 export function useUserInteractions(options: UseUserInteractionsOptions) {
   const { t } = i18n.global
-  const { chatInputParts, appendTextToInputParts } = useSessionState()
+  const { chatInputParts } = useSessionState()
   const { sendMessage, insertChipAtCursor, insertImagePart, getTaskId } = options
 
   const imageInputRef = ref<HTMLInputElement>()
   const autoSendAfterVoice = ref(false)
   const currentEditingId = ref<string | null>(null)
 
-  const handleTranscriptionComplete = (transcribedText: string) => {
-    appendTextToInputParts(transcribedText)
+  const handleTranscriptionComplete = async (transcribedText: string) => {
+    // Goes through the editing pipeline so the transcript lands on the native
+    // undo stack; see appendTextToChatInput.
+    await appendTextToChatInput(transcribedText)
 
     logger.debug('handleTranscriptionComplete', { autoSendAfterVoice: autoSendAfterVoice.value })
 
     if (autoSendAfterVoice.value) {
-      nextTick(() => {
-        sendMessage('send')
-      })
+      // The append already synced chatInputParts (execCommand fires `input`
+      // synchronously), so sendMessage sees the transcript without an extra tick.
+      sendMessage('send')
     }
   }
 

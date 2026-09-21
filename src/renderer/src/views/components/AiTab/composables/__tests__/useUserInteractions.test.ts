@@ -73,6 +73,9 @@ describe('useUserInteractions', () => {
 
     vi.mocked(useSessionState).mockReturnValue({
       chatInputParts,
+      // Unmounted editable: the append falls back to the parts write, then
+      // focusChatInput reads this ref.
+      chatTextareaRef: ref(null),
       appendTextToInputParts: mockAppendTextToInputParts
     } as any)
 
@@ -85,19 +88,19 @@ describe('useUserInteractions', () => {
   })
 
   describe('handleTranscriptionComplete', () => {
-    it('should append transcribed text to existing content', () => {
+    it('should append transcribed text to existing content', async () => {
       const { handleTranscriptionComplete } = useUserInteractions({ sendMessage: mockSendMessage })
 
       chatInputParts.value = [{ type: 'text', text: 'Hello' }]
-      handleTranscriptionComplete('world')
+      await handleTranscriptionComplete('world')
 
       expect(getText(chatInputParts.value)).toBe('Hello world')
     })
 
-    it('should set transcribed text when input is empty', () => {
+    it('should set transcribed text when input is empty', async () => {
       const { handleTranscriptionComplete } = useUserInteractions({ sendMessage: mockSendMessage })
 
-      handleTranscriptionComplete('Hello world')
+      await handleTranscriptionComplete('Hello world')
 
       expect(getText(chatInputParts.value ?? [])).toBe('Hello world')
     })
