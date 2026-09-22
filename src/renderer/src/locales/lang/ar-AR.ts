@@ -1263,6 +1263,8 @@ export default {
     searchChatPrevious: 'السابق (Shift+Enter)',
     searchChatNext: 'التالي (Enter)',
     noSearchMatches: 'لا توجد نتائج',
+    navRailLabel: 'مخطط المحادثة',
+    navRailUserTurn: 'رسالتك',
     exportedOn: 'تم التصدير في',
     maxHostsLimitReached: 'يمكنك اختيار حتى {max} مضيف',
     maxHostsLimit: 'تم الوصول إلى حد المضيفين',

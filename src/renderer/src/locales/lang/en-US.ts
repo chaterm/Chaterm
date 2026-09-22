@@ -1274,6 +1274,8 @@ export default {
     searchChatPrevious: 'Previous (Shift+Enter)',
     searchChatNext: 'Next (Enter)',
     noSearchMatches: 'No matches',
+    navRailLabel: 'Conversation outline',
+    navRailUserTurn: 'Your turn',
     exportedOn: 'Exported on',
     maxHostsLimitReached: 'You can select up to {max} hosts',
     maxHostsLimit: 'Maximum hosts limit reached',

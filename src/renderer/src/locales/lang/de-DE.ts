@@ -1282,6 +1282,8 @@ export default {
     searchChatPrevious: 'Vorheriges (Shift+Enter)',
     searchChatNext: 'Nachstes (Enter)',
     noSearchMatches: 'Keine Treffer',
+    navRailLabel: 'Konversationsubersicht',
+    navRailUserTurn: 'Ihre Eingabe',
     exportedOn: 'Exportiert am',
     maxHostsLimitReached: 'Sie können bis zu {max} Hosts auswählen',
     maxHostsLimit: 'Maximale Host-Limit erreicht',

@@ -1249,6 +1249,8 @@ export default {
     searchChatPrevious: '上一個 (Shift+Enter)',
     searchChatNext: '下一個 (Enter)',
     noSearchMatches: '無匹配結果',
+    navRailLabel: '會話導覽',
+    navRailUserTurn: '我的提問',
     exportedOn: '導出時間',
     maxHostsLimitReached: '最多只能選擇 {max} 台主機',
     maxHostsLimit: '主機數量已達上限',

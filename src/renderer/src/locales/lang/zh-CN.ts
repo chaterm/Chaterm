@@ -1252,6 +1252,8 @@ export default {
     searchChatPrevious: '上一个 (Shift+Enter)',
     searchChatNext: '下一个 (Enter)',
     noSearchMatches: '无匹配结果',
+    navRailLabel: '会话导航',
+    navRailUserTurn: '我的提问',
     exportedOn: '导出时间',
     maxHostsLimitReached: '最多只能选择 {max} 台主机',
     maxHostsLimit: '主机数量已达上限',
