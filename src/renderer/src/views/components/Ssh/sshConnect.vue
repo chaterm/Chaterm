@@ -1591,14 +1591,34 @@ const createEditor = async (filePath, contentType) => {
   }
 }
 
-const debounce = (func, wait) => {
+/**
+ * Leading + trailing throttle.
+ *
+ * A trailing-only debounce is wrong for resize: a ResizeObserver fires on every
+ * frame of a splitter drag, so each call cancels the previous timer and the work
+ * never runs until the drag ends. Running on the leading edge makes the terminal
+ * track the drag, and the trailing call guarantees a final exact fit.
+ */
+const throttle = (func, wait) => {
+  let lastRun = 0
   let timeout
 
-  return function executedFunction(...args) {
-    clearTimeout(timeout)
-    timeout = setTimeout(() => {
+  return function throttled(...args) {
+    const remaining = wait - (Date.now() - lastRun)
+    if (remaining <= 0) {
+      if (timeout) {
+        clearTimeout(timeout)
+        timeout = undefined
+      }
+      lastRun = Date.now()
       func(...args)
-    }, wait)
+    } else if (!timeout) {
+      timeout = setTimeout(() => {
+        timeout = undefined
+        lastRun = Date.now()
+        func(...args)
+      }, remaining)
+    }
   }
 }
 
@@ -1627,7 +1647,11 @@ const autoExecuteCode = (payload: { command: string; tabId: string }) => {
   if (payload.tabId !== props.currentConnectionId) return
   sendDataAutoSwitchTerminal(payload.command)
 }
-const handleResize = debounce(() => {
+// 60ms keeps the grid visibly following a drag (~16 fits/sec) while bounding the
+// pty resize IPC that every fit triggers.
+const RESIZE_THROTTLE_MS = 60
+
+const handleResize = throttle(() => {
   if (fitAddon.value && terminal.value && terminalElement.value) {
     try {
       const rect = terminalElement.value.getBoundingClientRect()
@@ -1645,7 +1669,7 @@ const handleResize = debounce(() => {
       logger.error('Failed to resize terminal', { error: error })
     }
   }
-}, 100)
+}, RESIZE_THROTTLE_MS)
 
 const emit = defineEmits(['connectSSH', 'disconnectSSH', 'closeTabInTerm', 'createNewTerm'])
 
