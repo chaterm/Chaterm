@@ -158,7 +158,7 @@
     "ant-design-vue": "^4.2.6",
     "cross-env": "^10.1.0",
     "electron": "^43.4.1",
-    "electron-builder": "^26.15.3",
+    "electron-builder": "^26.16.1",
     "electron-vite": "^5.0.0",
     "eslint": "^10.10.0",
     "eslint-plugin-vue": "^10.11.0",
