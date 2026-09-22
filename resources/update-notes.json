@@ -2,6 +2,26 @@
   "releaseNotesUrl": "https://github.com/chaterm/Chaterm/releases/tag/v",
   "versions": [
     {
+      "version": "0.12.4",
+      "date": "2026-09-22",
+      "highlights": {
+        "zh-CN": [
+          "资产管理：支持批量删除资产，优化工作区与终端标签展示",
+          "AI 优化：完善自动审批和模型限额，修复 DeepSeek 工具调用及输入框撤销问题",
+          "插件安全：加强插件安装校验，修复更新时间显示",
+          "终端连接：修复 macOS 搜索、系统代理和 SOCKS4 兼容性问题",
+          "稳定性改进：优化知识库 CJK 检测和 SFTP 下载范围"
+        ],
+        "en-US": [
+          "Asset management: added batch deletion and improved workspace and terminal tabs",
+          "AI improvements: refined auto-approval and model limits, and fixed DeepSeek tool calls and input undo",
+          "Plugin security: hardened plugin installation and fixed update-time display",
+          "Terminal connections: fixed macOS search, system proxy, and SOCKS4 compatibility issues",
+          "Stability improvements: refined CJK detection and SFTP download scope"
+        ]
+      }
+    },
+    {
       "version": "0.12.3",
       "date": "2026-09-04",
       "highlights": {
