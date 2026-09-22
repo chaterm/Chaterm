@@ -138,6 +138,7 @@ import {
 import { shouldSkipAssetLookup } from './utils/wakeupConnection'
 import { registerSshConnection, unregisterSshConnection } from './utils/sshConnectionRegistry'
 import { getLastNonEmptyLine, isTerminalPromptLine } from './utils/terminalPrompt'
+import { findBlockAt } from './utils/terminalBlocks'
 import { stripAnsiBasic, stripAnsiExtended } from './utils/ansiUtils'
 import { useDeviceStore } from '@/store/useDeviceStore'
 import { isFocusInAiTab } from '@/utils/domUtils'
@@ -590,6 +591,126 @@ const getLastContentColumn = (line: IBufferLine, cols: number): number => {
   return 0
 }
 
+// Command block selection: with nothing selected, a plain click inside one
+// command's output selects the whole block (its command row plus all of its
+// output); with anything selected, a plain click only dismisses that selection,
+// whether it came from a block click or from a drag. Native drag, double and
+// triple click keep their own behaviour -- see selectBlockAtPointer.
+const BLOCK_CLICK_DRAG_TOLERANCE_PX = 3
+let blockPointerDownAt: { x: number; y: number } | null = null
+// Whether anything was selected just before this click, captured in the mousedown
+// capture phase: xterm's own mousedown listener sits on a child element and drops
+// selectionEnd there, so by mouseup hasSelection() can no longer tell us.
+let hadSelectionAtPointerDown = false
+// Set only while select() is applying a block, so onSelectionChange can tell our
+// own selection apart from a user one.
+let applyingBlockSelection = false
+
+const resolveClickedBufferLine = (clientY: number): number | null => {
+  const termInstance = terminal.value
+  if (!termInstance) return null
+
+  const screen = terminalElement.value?.querySelector('.xterm-screen') as HTMLElement | null
+  if (!screen) return null
+
+  const cellHeight = (termInstance as any)?._core?._renderService?.dimensions?.css?.cell?.height
+  if (typeof cellHeight !== 'number' || cellHeight <= 0) return null
+
+  const offsetY = clientY - screen.getBoundingClientRect().top
+  if (offsetY < 0) return null
+
+  const row = Math.floor(offsetY / cellHeight)
+  if (row >= termInstance.rows) return null
+
+  return termInstance.buffer.active.viewportY + row
+}
+
+const selectBlockAtPointer = (clientY: number) => {
+  const termInstance = terminal.value
+  if (!termInstance) return
+  // Alternate-screen apps (vim, less, htop) own the whole viewport, so there are
+  // no command blocks to select there.
+  if (terminalMode.value !== 'none') return
+  if (!isThisTerminalActive()) return
+  // xterm has already produced a selection (drag, double or triple click), so
+  // leave it alone.
+  if (termInstance.hasSelection()) return
+
+  const clickedLine = resolveClickedBufferLine(clientY)
+  if (clickedLine === null) return
+
+  const buffer = termInstance.buffer.active
+  const cursorLine = buffer.baseY + buffer.cursorY
+  // Never select the row being typed on.
+  if (clickedLine === cursorLine) return
+
+  const block = findBlockAt({
+    clickedLine,
+    lineCount: buffer.length,
+    getLine: (y: number) => {
+      const line = buffer.getLine(y)
+      if (!line) return undefined
+      return { text: line.translateToString(true), isWrapped: line.isWrapped }
+    },
+    sessionPrompt: startStr.value || beginStr.value || undefined
+  })
+  if (!block) return
+
+  // A one-row block on the cursor row is the live prompt, which happens when the
+  // click landed on empty space below the last output.
+  if (block.startLine === block.endLine && block.startLine === cursorLine) return
+
+  const endLine = buffer.getLine(block.endLine)
+  if (!endLine) return
+
+  const endColumn = getLastContentColumn(endLine, termInstance.cols)
+  if (endColumn === 0) return
+
+  const length = (block.endLine - block.startLine) * termInstance.cols + endColumn
+  // select() fires onSelectionChange synchronously, so the flag has to be up
+  // before the call and down again right after it.
+  applyingBlockSelection = true
+  try {
+    termInstance.select(0, block.startLine, length)
+  } finally {
+    applyingBlockSelection = false
+  }
+}
+
+const handleTerminalPointerDown = (event: MouseEvent) => {
+  blockPointerDownAt = event.button === 0 ? { x: event.clientX, y: event.clientY } : null
+  hadSelectionAtPointerDown = terminal.value?.hasSelection() ?? false
+}
+
+const handleTerminalPointerUp = (event: MouseEvent) => {
+  const downAt = blockPointerDownAt
+  blockPointerDownAt = null
+
+  if (!downAt || event.button !== 0) return
+  // Ctrl/Cmd click opens links instead.
+  if (event.ctrlKey || event.metaKey || event.altKey || event.shiftKey) return
+  // Double and triple click select a word or a row natively.
+  if (event.detail > 1) return
+  if (Math.abs(event.clientX - downAt.x) > BLOCK_CLICK_DRAG_TOLERANCE_PX) return
+  if (Math.abs(event.clientY - downAt.y) > BLOCK_CLICK_DRAG_TOLERANCE_PX) return
+
+  const { clientY } = event
+  const hadSelection = hadSelectionAtPointerDown
+
+  // xterm clears its selection during its own mouseup handling, so both applying
+  // and clearing the selection have to happen after that completes.
+  setTimeout(() => {
+    // A click while anything is selected only dismisses that selection, whether
+    // it came from a block click or from a drag. Selecting a block takes a
+    // further click, so one click never both dismisses and selects.
+    if (hadSelection) {
+      terminal.value?.clearSelection()
+      return
+    }
+    selectBlockAtPointer(clientY)
+  }, 0)
+}
+
 const selectTerminalContent = () => {
   const termInstance = terminal.value
   if (!termInstance) return
@@ -700,7 +821,11 @@ onMounted(async () => {
   termInstance?.onSelectionChange(() => {
     if (termInstance.hasSelection()) {
       copyText.value = termInstance.getSelection()
-      if (copyText.value.trim()) {
+      // Block selection comes from a plain click, so auto-copying it would
+      // overwrite the clipboard on every click in the terminal. Drag and
+      // double/triple click still copy. copyText is set either way, so the
+      // Chat to AI button works for block selections too.
+      if (!applyingBlockSelection && copyText.value.trim()) {
         navigator.clipboard.writeText(copyText.value.trim()).catch(() => {
           logger.warn('Failed to copy to clipboard')
         })
@@ -731,6 +856,18 @@ onMounted(async () => {
   termInstance.focus()
 
   termInstance.registerLinkProvider(createCtrlLinkProvider(termInstance))
+
+  if (terminalElement.value) {
+    const blockClickTarget = terminalElement.value
+    // Capture phase: xterm's own mousedown listener is on a child element, so it
+    // would otherwise run first and drop the selection we need to read.
+    blockClickTarget.addEventListener('mousedown', handleTerminalPointerDown, true)
+    blockClickTarget.addEventListener('mouseup', handleTerminalPointerUp)
+    cleanupListeners.value.push(() => {
+      blockClickTarget.removeEventListener('mousedown', handleTerminalPointerDown, true)
+      blockClickTarget.removeEventListener('mouseup', handleTerminalPointerUp)
+    })
+  }
 
   // Ctrl key monitoring
   if (isMac) {
