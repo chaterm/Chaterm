@@ -570,12 +570,32 @@ const handleSelectAllShortcut = (e: KeyboardEvent): boolean => {
   return true
 }
 
+// xterm's own keyboard target is a hidden textarea inside the terminal, so being
+// a text field is not on its own enough to tell a real input apart from the
+// terminal having focus.
+const XTERM_TEXTAREA_CLASS = 'xterm-helper-textarea'
+
+// Text fields rendered inside the terminal container -- the AI command dialog,
+// the search bar -- must keep the native select-all, which covers only their own
+// value. Without this, containment alone would hand their Cmd/Ctrl+A to the
+// terminal and select the whole scrollback instead.
+const isForeignEditableTarget = (node: Node | null): boolean => {
+  if (!node || node.nodeType !== Node.ELEMENT_NODE) return false
+
+  const element = node as HTMLElement
+  if (element.classList.contains(XTERM_TEXTAREA_CLASS)) return false
+  if (element.tagName === 'INPUT' || element.tagName === 'TEXTAREA') return true
+
+  return !!element.closest('[contenteditable]:not([contenteditable="false"])')
+}
+
 const isTerminalKeyboardTarget = (e: KeyboardEvent): boolean => {
   const target = e.target as Node | null
   const activeElement = document.activeElement
   const container = terminalContainer.value || terminalElement.value?.closest('.terminal-container')
 
   if (!container) return false
+  if (isForeignEditableTarget(target) || isForeignEditableTarget(activeElement)) return false
   return (!!target && container.contains(target)) || (!!activeElement && container.contains(activeElement))
 }
 
