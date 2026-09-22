@@ -1273,6 +1273,8 @@ export default {
     searchChatPrevious: 'Предыдущий (Shift+Enter)',
     searchChatNext: 'Следующий (Enter)',
     noSearchMatches: 'Совпадений нет',
+    navRailLabel: 'Структура беседы',
+    navRailUserTurn: 'Ваш запрос',
     exportedOn: 'Экспортировано на',
     maxHostsLimitReached: 'Вы можете выбрать до {max} хостов',
     maxHostsLimit: 'Максимальное количество хостов достигнуто',

@@ -1136,31 +1136,6 @@ onMounted(async () => {
   })
   mark('chaterm/renderer/didInitTerminalLayout')
 })
-const timer = ref<number | null>(null)
-watch(mainTerminalSize, () => {
-  if (allTabs.value != null) {
-    if (timer.value) {
-      return
-    } else {
-      timer.value = window.setTimeout(() => {
-        allTabs.value?.resizeTerm()
-        timer.value = null
-      }, 200)
-    }
-  }
-})
-watch(leftPaneSize, () => {
-  if (allTabs.value != null) {
-    if (timer.value) {
-      return
-    } else {
-      timer.value = window.setTimeout(() => {
-        allTabs.value?.resizeTerm()
-        timer.value = null
-      }, 200)
-    }
-  }
-})
 watch(showAiSidebar, (newValue) => {
   if (headerRef.value) {
     headerRef.value.switchIcon('right', newValue)

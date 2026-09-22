@@ -1048,12 +1048,25 @@ describe('Terminal Focus IPC Notification', () => {
       return e.ctrlKey && !e.metaKey
     }
 
+    const XTERM_TEXTAREA_CLASS = 'xterm-helper-textarea'
+
+    const isForeignEditableTarget = (node: Node | null): boolean => {
+      if (!node || node.nodeType !== Node.ELEMENT_NODE) return false
+
+      const element = node as HTMLElement
+      if (element.classList.contains(XTERM_TEXTAREA_CLASS)) return false
+      if (element.tagName === 'INPUT' || element.tagName === 'TEXTAREA') return true
+
+      return !!element.closest('[contenteditable]:not([contenteditable="false"])')
+    }
+
     const isTerminalKeyboardTarget = (e: KeyboardEvent): boolean => {
       const target = e.target as Node | null
       const activeElement = document.activeElement
       const container = terminalContainer.value || terminalElement.value?.closest('.terminal-container')
 
       if (!container) return false
+      if (isForeignEditableTarget(target) || isForeignEditableTarget(activeElement)) return false
       return (!!target && container.contains(target)) || (!!activeElement && container.contains(activeElement))
     }
 
@@ -1283,9 +1296,12 @@ describe('Terminal Focus IPC Notification', () => {
       }
     }
 
+    // Mirrors the real focus target: xterm keeps a hidden helper textarea inside
+    // the terminal container and routes every keystroke through it.
     const mountTerminalKeyboardTarget = () => {
       const container = document.createElement('motion-div')
       const target = document.createElement('textarea')
+      target.classList.add('xterm-helper-textarea')
       container.appendChild(target)
       terminalContainer.value = container
       target.focus()
@@ -1472,6 +1488,67 @@ describe('Terminal Focus IPC Notification', () => {
         expect(preventDefault).not.toHaveBeenCalled()
         expect(termObj.select).not.toHaveBeenCalled()
         outsideTarget.remove()
+      })
+
+      it('handleSelectAllShortcut should leave Command+A to the AI command dialog textarea', () => {
+        isMac = true
+        const { container } = mountTerminalKeyboardTarget()
+        const dialogTextarea = document.createElement('textarea')
+        dialogTextarea.classList.add('command-textarea')
+        container.appendChild(dialogTextarea)
+        const termObj = new FakeTerminal(['user@host:/data$ ', 'output'])
+        terminal.value = termObj
+        const preventDefault = vi.fn()
+        const stopPropagation = vi.fn()
+
+        handleMetaKeyDown({
+          key: 'a',
+          metaKey: true,
+          target: dialogTextarea,
+          preventDefault,
+          stopPropagation
+        } as any)
+
+        expect(preventDefault).not.toHaveBeenCalled()
+        expect(stopPropagation).not.toHaveBeenCalled()
+        expect(termObj.select).not.toHaveBeenCalled()
+      })
+
+      it('handleSelectAllShortcut should leave Ctrl+A to the search input inside the container', () => {
+        isMac = false
+        const { container } = mountTerminalKeyboardTarget()
+        const searchInput = document.createElement('input')
+        searchInput.classList.add('search-input')
+        container.appendChild(searchInput)
+        const termObj = new FakeTerminal(['user@host:/data$ ', 'output'])
+        terminal.value = termObj
+        const preventDefault = vi.fn()
+        const stopPropagation = vi.fn()
+
+        handleCtrlKeyDown({
+          key: 'a',
+          ctrlKey: true,
+          target: searchInput,
+          preventDefault,
+          stopPropagation
+        } as any)
+
+        expect(preventDefault).not.toHaveBeenCalled()
+        expect(termObj.select).not.toHaveBeenCalled()
+      })
+
+      it('handleSelectAllShortcut should still select the terminal from the xterm helper textarea', () => {
+        isMac = true
+        const { target } = mountTerminalKeyboardTarget()
+        const termObj = new FakeTerminal(['user@host:/data$ ', 'output', '', '   '])
+        terminal.value = termObj
+        const preventDefault = vi.fn()
+        const stopPropagation = vi.fn()
+
+        handleMetaKeyDown({ key: 'a', metaKey: true, target, preventDefault, stopPropagation } as any)
+
+        expect(preventDefault).toHaveBeenCalled()
+        expect(termObj.select).toHaveBeenCalledWith(0, 0, 86)
       })
 
       it('createCtrlLinkProvider should not provide links when ctrl not pressed', () => {

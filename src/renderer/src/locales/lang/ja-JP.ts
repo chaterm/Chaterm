@@ -1265,6 +1265,8 @@ export default {
     searchChatPrevious: '前へ (Shift+Enter)',
     searchChatNext: '次へ (Enter)',
     noSearchMatches: '一致なし',
+    navRailLabel: '会話ナビゲーション',
+    navRailUserTurn: '自分の質問',
     exportedOn: 'エクスポート日時',
     maxHostsLimitReached: '{max} 台まで選択できます',
     maxHostsLimit: '最大ホスト数に達しました',

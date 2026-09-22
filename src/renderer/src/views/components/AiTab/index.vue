@@ -114,6 +114,12 @@
             @find-previous="findPreviousAiChatMatch"
             @close="closeAiChatSearch"
           />
+          <ChatNavRail
+            v-if="isNavRailVisible && tab.id === currentChatId"
+            :markers="navRailMarkers"
+            :active-pair-index="navRailActivePairIndex"
+            @jump="jumpToNavMarker"
+          />
           <div
             :ref="
               (el) => {
@@ -157,6 +163,7 @@
               >
                 <div
                   class="user-assistant-pair-message"
+                  :data-nav-ts="pair.user?.message.ts"
                   :style="getMessagePairStyle(pairIndex, getTabUserAssistantPairs(tab.id).length)"
                 >
                   <UserMessage
@@ -835,6 +842,7 @@ import { ref, computed, onMounted, onBeforeUnmount, watch, nextTick } from 'vue'
 import { useRouter } from 'vue-router'
 import { useAutoScroll } from './composables/useAutoScroll'
 import { useAiChatSearch } from './composables/useAiChatSearch'
+import { useChatNavRail } from './composables/useChatNavRail'
 import { useChatHistory } from './composables/useChatHistory'
 import { useChatMessages } from './composables/useChatMessages'
 import { useCommandInteraction } from './composables/useCommandInteraction'
@@ -856,6 +864,7 @@ import DatabasePicker from '@views/components/Database/components/DatabasePicker
 import SchemaPicker from '@views/components/Database/components/SchemaPicker.vue'
 import InputSendContainer from './components/InputSendContainer.vue'
 import AiChatSearchBar from './components/AiChatSearchBar.vue'
+import ChatNavRail from './components/ChatNavRail.vue'
 import MarkdownRenderer from './components/format/markdownRenderer.vue'
 import DbQueryResultCard from './components/DbQueryResultCard.vue'
 import TodoInlineDisplay from './components/todo/TodoInlineDisplay.vue'
@@ -1022,6 +1031,22 @@ const {
   findNext: findNextAiChatMatch,
   findPrevious: findPreviousAiChatMatch
 } = useAiChatSearch(chatResponse)
+
+// Read-only navigation rail for the current conversation
+const {
+  markers: navRailMarkers,
+  isVisible: isNavRailVisible,
+  activePairIndex: navRailActivePairIndex,
+  jumpTo: jumpToNavMarker
+} = useChatNavRail(chatContainer, () => (currentChatId.value ? getTabUserAssistantPairs(currentChatId.value) : []), {
+  getTaskId: () => currentChatId.value || null,
+  loadOlder: async (container) => {
+    const tabId = currentChatId.value
+    if (!tabId) return
+    await loadOlderHistoryForTab(tabId, { container })
+  },
+  hasOlder: () => (currentChatId.value ? getTabHasOlderHistory(currentChatId.value) : false)
+})
 
 // Message options management
 const { handleOptionSelect, getSelectedOption, handleCustomInputChange, getCustomInput, canSubmitOption, handleOptionSubmit } = useMessageOptions()

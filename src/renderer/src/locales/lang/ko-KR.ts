@@ -1258,6 +1258,8 @@ export default {
     searchChatPrevious: '이전 (Shift+Enter)',
     searchChatNext: '다음 (Enter)',
     noSearchMatches: '일치 항목 없음',
+    navRailLabel: '대화 내비게이션',
+    navRailUserTurn: '내 질문',
     exportedOn: '내보낸 시간',
     maxHostsLimitReached: '최대 {max} 호스트까지 선택할 수 있습니다',
     maxHostsLimit: '최대 호스트 수 제한 도달',
