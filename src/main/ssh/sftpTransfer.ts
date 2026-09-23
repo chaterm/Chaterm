@@ -1908,8 +1908,9 @@ export async function handleDirectoryDownload(event: any, id: string, remoteDir:
 
   const fromDir = toPosix(remoteDir)
   const toParent = path.resolve(localDir)
-  const dirName = path.posix.basename(fromDir)
-  const finalLocalBase = path.join(toParent, dirName)
+  // Preserve the original basename so toPosix cannot hide unsafe backslashes before validation.
+  const dirName = path.posix.basename(remoteDir)
+  let finalLocalBase = path.join(toParent, dirName)
 
   const nonce = `${Date.now().toString(36)}_${Math.random().toString(16).slice(2)}`
   const dirTaskKey = `${id}:dl-dir:${fromDir}:${finalLocalBase}:${nonce}`
@@ -1956,6 +1957,8 @@ export async function handleDirectoryDownload(event: any, id: string, remoteDir:
   })
 
   try {
+    // The top-level directory must pass the same checks as its entries before any local writes.
+    finalLocalBase = safeDirectoryDownloadPath(toParent, toParent, dirName)
     await fs.promises.mkdir(finalLocalBase, { recursive: true })
   } catch (e: any) {
     const msg = errToMessage(e)
