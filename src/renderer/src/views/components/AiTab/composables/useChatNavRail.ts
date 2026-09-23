@@ -24,8 +24,13 @@ const LABEL_MAX_LENGTH = 160
 const MIN_MARKERS = 2
 /** Distance from the container top that counts as "the turn you are reading". */
 const ACTIVE_LINE_OFFSET = 80
-/** Space kept above the target when jumping, so it is not flush against the edge. */
-const JUMP_TOP_PADDING = 12
+/**
+ * Space kept above the target when jumping. Zero on purpose: the user message is
+ * position:sticky with top 0, so a turn the reader scrolled to sits flush against
+ * the top edge. Any padding here would leave a jumped-to turn sitting lower than
+ * the same turn pinned by scrolling.
+ */
+const JUMP_TOP_PADDING = 0
 const RESIZE_DEBOUNCE_MS = 150
 /** Upper bound on pages fetched while walking back to a turn that is not loaded. */
 const MAX_JUMP_PAGES = 40
@@ -273,7 +278,8 @@ export function useChatNavRail(chatContainer: Ref<HTMLElement | null>, getPairs:
     let stableFrames = 0
     while (stableFrames < JUMP_STABLE_FRAMES) {
       const drift = target.getBoundingClientRect().top - container.getBoundingClientRect().top - JUMP_TOP_PADDING
-      // The first turn cannot take the padding: scrollTop 0 already is the top.
+      // Nothing left to correct with: the target sits above a container already
+      // scrolled to the very top, so stop instead of spinning until the deadline.
       if (container.scrollTop === 0 && drift < 0) break
       if (Math.abs(drift) <= 1) {
         stableFrames++
