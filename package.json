@@ -165,7 +165,7 @@
     "fast-check": "^4.10.0",
     "highlight.js": "^11.12.0",
     "husky": "^9.1.7",
-    "jsdom": "^30.0.1",
+    "jsdom": "^30.1.0",
     "less": "^4.9.0",
     "lint-staged": "^17.5.1",
     "marked": "^18.0.13",
