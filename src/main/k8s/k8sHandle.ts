@@ -5,6 +5,7 @@ import * as fs from 'fs'
 import * as path from 'path'
 import { spawnSync } from 'child_process'
 import { K8sManager, K8sProxyConfig } from '../services/k8s'
+import { createTemporaryKubeconfig, type TemporaryKubeconfig } from '../services/k8s/temporaryKubeconfig'
 import { ChatermDatabaseService } from '../storage/db/chaterm.service'
 import { registerK8sAgentHandlers } from '../agent/integrations/k8s/ipc-handlers'
 import { connectK8sAssetByIdentity, closeK8sSession, syncK8sAssetsFromBastion } from '../ssh/jumpserver/k8sNavigator'
@@ -22,6 +23,7 @@ interface K8sTerminalSession {
   isAlive: boolean
   namespace: string
   kubeconfigPath?: string
+  tempKubeconfig?: TemporaryKubeconfig
   outputBuffer: TerminalOutputBuffer
 }
 
@@ -132,125 +134,121 @@ const createK8sTerminal = async (config: K8sTerminalConfig): Promise<K8sTerminal
   const shell = getDefaultShell()
   const cwd = os.homedir()
   const env: Record<string, string> = { ...process.env } as Record<string, string>
+  let tempKubeconfig: TemporaryKubeconfig | undefined
 
   // Set up kubeconfig environment
   if (config.kubeconfigPath) {
     env.KUBECONFIG = config.kubeconfigPath
   } else if (config.kubeconfigContent) {
-    // Write content to a temp file
-    const tempDir = os.tmpdir()
-    const tempKubeconfigPath = path.join(tempDir, `kubeconfig-${config.id}.yaml`)
-    fs.writeFileSync(tempKubeconfigPath, config.kubeconfigContent, { encoding: 'utf-8' })
-    env.KUBECONFIG = tempKubeconfigPath
+    tempKubeconfig = createTemporaryKubeconfig(config.kubeconfigContent)
+    env.KUBECONFIG = tempKubeconfig.path
   }
 
-  const kubectlCommand = resolveKubectlCommand()
-  if (kubectlCommand !== 'kubectl') {
-    prependPathToEnv(env, path.dirname(kubectlCommand))
-  }
-  const kubectlCheck = runKubectl(kubectlCommand, ['version', '--client'], env)
-  if (!kubectlCheck.ok) {
-    logger.warn('kubectl preflight check failed before K8S terminal start', {
-      event: 'terminal.k8s.kubectl.preflight.failed',
-      terminalId: config.id,
-      clusterId: config.clusterId,
-      command: kubectlCommand,
-      status: kubectlCheck.status,
-      stderr: kubectlCheck.stderr,
-      error: kubectlCheck.error
-    })
-  }
-
-  if (config.contextName) {
-    const switchContextResult = runKubectl(kubectlCommand, ['config', 'use-context', config.contextName], env)
-    if (!switchContextResult.ok) {
-      logger.warn('Failed to switch kubectl context before terminal start', {
-        event: 'terminal.k8s.context.switch.failed',
+  try {
+    const kubectlCommand = resolveKubectlCommand()
+    if (kubectlCommand !== 'kubectl') {
+      prependPathToEnv(env, path.dirname(kubectlCommand))
+    }
+    const kubectlCheck = runKubectl(kubectlCommand, ['version', '--client'], env)
+    if (!kubectlCheck.ok) {
+      logger.warn('kubectl preflight check failed before K8S terminal start', {
+        event: 'terminal.k8s.kubectl.preflight.failed',
         terminalId: config.id,
         clusterId: config.clusterId,
         command: kubectlCommand,
-        contextName: config.contextName,
-        status: switchContextResult.status,
-        stderr: switchContextResult.stderr,
-        error: switchContextResult.error
+        status: kubectlCheck.status,
+        stderr: kubectlCheck.stderr,
+        error: kubectlCheck.error
       })
     }
-  }
 
-  if (config.namespace) {
-    const setNamespaceResult = runKubectl(kubectlCommand, ['config', 'set-context', '--current', `--namespace=${config.namespace}`], env)
-    if (!setNamespaceResult.ok) {
-      logger.warn('Failed to set kubectl namespace before terminal start', {
-        event: 'terminal.k8s.namespace.set.failed',
-        terminalId: config.id,
-        clusterId: config.clusterId,
-        command: kubectlCommand,
-        namespace: config.namespace,
-        status: setNamespaceResult.status,
-        stderr: setNamespaceResult.stderr,
-        error: setNamespaceResult.error
-      })
-    }
-  }
-
-  logger.info('Creating K8S terminal', {
-    event: 'terminal.k8s.connect.start',
-    terminalId: config.id,
-    clusterId: config.clusterId,
-    namespace: config.namespace
-  })
-
-  const ptyProcess = pty.spawn(shell, [], {
-    name: 'xterm-256color',
-    cols: config.cols || 80,
-    rows: config.rows || 24,
-    cwd,
-    env
-  })
-
-  const outputBuffer = createTerminalOutputBuffer({
-    send: (data) => sendToRenderer(`k8s:terminal:data:${config.id}`, data)
-  })
-  const terminal: K8sTerminalSession = {
-    id: config.id,
-    clusterId: config.clusterId,
-    pty: ptyProcess,
-    isAlive: true,
-    namespace: config.namespace || 'default',
-    kubeconfigPath: env.KUBECONFIG,
-    outputBuffer
-  }
-
-  ptyProcess.onData((data) => {
-    outputBuffer.push(data)
-  })
-
-  ptyProcess.onExit((exitCode) => {
-    logger.debug('K8S terminal exited', { event: 'terminal.k8s.exit', terminalId: config.id, exitCode: exitCode?.exitCode })
-    terminal.isAlive = false
-    outputBuffer.flush()
-    outputBuffer.dispose()
-    sendToRenderer(`k8s:terminal:exit:${config.id}`, exitCode)
-    terminalSessions.delete(config.id)
-
-    // Clean up temp kubeconfig file only if it was written to tmpdir
-    if (terminal.kubeconfigPath && terminal.kubeconfigPath.includes(os.tmpdir())) {
-      try {
-        fs.unlinkSync(terminal.kubeconfigPath)
-      } catch {
-        // Ignore cleanup errors
+    if (config.contextName) {
+      const switchContextResult = runKubectl(kubectlCommand, ['config', 'use-context', config.contextName], env)
+      if (!switchContextResult.ok) {
+        logger.warn('Failed to switch kubectl context before terminal start', {
+          event: 'terminal.k8s.context.switch.failed',
+          terminalId: config.id,
+          clusterId: config.clusterId,
+          command: kubectlCommand,
+          contextName: config.contextName,
+          status: switchContextResult.status,
+          stderr: switchContextResult.stderr,
+          error: switchContextResult.error
+        })
       }
     }
-  })
 
-  terminalSessions.set(config.id, terminal)
-  logger.info('K8S terminal created', {
-    event: 'terminal.k8s.connect.success',
-    terminalId: config.id,
-    clusterId: config.clusterId
-  })
+    if (config.namespace) {
+      const setNamespaceResult = runKubectl(kubectlCommand, ['config', 'set-context', '--current', `--namespace=${config.namespace}`], env)
+      if (!setNamespaceResult.ok) {
+        logger.warn('Failed to set kubectl namespace before terminal start', {
+          event: 'terminal.k8s.namespace.set.failed',
+          terminalId: config.id,
+          clusterId: config.clusterId,
+          command: kubectlCommand,
+          namespace: config.namespace,
+          status: setNamespaceResult.status,
+          stderr: setNamespaceResult.stderr,
+          error: setNamespaceResult.error
+        })
+      }
+    }
 
-  return terminal
+    logger.info('Creating K8S terminal', {
+      event: 'terminal.k8s.connect.start',
+      terminalId: config.id,
+      clusterId: config.clusterId,
+      namespace: config.namespace
+    })
+
+    const ptyProcess = pty.spawn(shell, [], {
+      name: 'xterm-256color',
+      cols: config.cols || 80,
+      rows: config.rows || 24,
+      cwd,
+      env
+    })
+
+    const outputBuffer = createTerminalOutputBuffer({
+      send: (data) => sendToRenderer(`k8s:terminal:data:${config.id}`, data)
+    })
+    const terminal: K8sTerminalSession = {
+      id: config.id,
+      clusterId: config.clusterId,
+      pty: ptyProcess,
+      isAlive: true,
+      namespace: config.namespace || 'default',
+      kubeconfigPath: env.KUBECONFIG,
+      tempKubeconfig,
+      outputBuffer
+    }
+
+    ptyProcess.onData((data) => {
+      outputBuffer.push(data)
+    })
+
+    ptyProcess.onExit((exitCode) => {
+      logger.debug('K8S terminal exited', { event: 'terminal.k8s.exit', terminalId: config.id, exitCode: exitCode?.exitCode })
+      terminal.isAlive = false
+      terminal.tempKubeconfig?.cleanup()
+      outputBuffer.flush()
+      outputBuffer.dispose()
+      sendToRenderer(`k8s:terminal:exit:${config.id}`, exitCode)
+      terminalSessions.delete(config.id)
+    })
+
+    terminalSessions.set(config.id, terminal)
+    logger.info('K8S terminal created', {
+      event: 'terminal.k8s.connect.success',
+      terminalId: config.id,
+      clusterId: config.clusterId
+    })
+
+    return terminal
+  } catch (error) {
+    tempKubeconfig?.cleanup()
+    throw error
+  }
 }
 
 /**
@@ -266,14 +264,8 @@ const closeK8sTerminal = (terminalId: string): { success: boolean; error?: strin
       terminal.isAlive = false
       terminalSessions.delete(terminalId)
 
-      // Clean up temp kubeconfig file
-      if (terminal.kubeconfigPath && terminal.kubeconfigPath.includes(os.tmpdir())) {
-        try {
-          fs.unlinkSync(terminal.kubeconfigPath)
-        } catch {
-          // Ignore cleanup errors
-        }
-      }
+      // Only remove credentials created by this session, never a user-supplied path.
+      terminal.tempKubeconfig?.cleanup()
 
       logger.info('K8S terminal closed', { event: 'terminal.k8s.disconnect.success', terminalId })
       return { success: true }

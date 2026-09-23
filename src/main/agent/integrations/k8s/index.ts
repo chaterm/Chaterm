@@ -11,11 +11,11 @@
  */
 
 import { K8sManager, K8sProxyConfig } from '../../../services/k8s'
+import { createTemporaryKubeconfig, type TemporaryKubeconfig } from '../../../services/k8s/temporaryKubeconfig'
 import { jumpserverK8sSessions } from '../../../ssh/jumpserver/state'
 import { connectK8sAssetByIdentity, closeK8sSession } from '../../../ssh/jumpserver/k8sNavigator'
 import { executeCommandOnJumpServerExec } from '../../../ssh/jumpserver/streamManager'
 import * as os from 'os'
-import * as path from 'path'
 import * as fs from 'fs'
 import * as pty from 'node-pty'
 
@@ -66,6 +66,7 @@ export class K8sAgentManager {
   private currentClusterId: string | null = null
   private currentContextName: string | null = null
   private kubeconfigPath: string | null = null
+  private tempKubeconfig: TemporaryKubeconfig | null = null
   private kubeconfigContent: string | null = null
   private kubeConfig: any = null
   // JumpServer mode
@@ -112,7 +113,7 @@ export class K8sAgentManager {
     }
   ): Promise<void> {
     // Invalidate all in-flight and queued JumpServer commands from previous cluster
-    this.clusterEpoch += 1
+    const clusterEpoch = ++this.clusterEpoch
 
     // Close previous agent session
     if (this.agentSessionId) {
@@ -156,9 +157,8 @@ export class K8sAgentManager {
     // Local mode: original kubeconfig handling
     if (kubeconfigContent) {
       this.kubeconfigContent = kubeconfigContent
-      const tempPath = path.join(os.tmpdir(), `kubeconfig-agent-${clusterId}.yaml`)
-      fs.writeFileSync(tempPath, kubeconfigContent, { encoding: 'utf-8' })
-      this.kubeconfigPath = tempPath
+      this.tempKubeconfig = createTemporaryKubeconfig(kubeconfigContent)
+      this.kubeconfigPath = this.tempKubeconfig.path
     } else if (kubeconfigPath) {
       if (fs.existsSync(kubeconfigPath)) {
         this.kubeconfigContent = fs.readFileSync(kubeconfigPath, { encoding: 'utf-8' })
@@ -168,7 +168,13 @@ export class K8sAgentManager {
       }
     }
 
-    await this.initKubeConfig()
+    try {
+      await this.initKubeConfig()
+    } catch (error) {
+      // Do not clean up a newer cluster if this initialization became stale while awaiting the client.
+      if (this.clusterEpoch === clusterEpoch) this.cleanup()
+      throw error
+    }
 
     logger.info('[K8s Agent] Local cluster configured', {
       clusterId,
@@ -655,13 +661,8 @@ export class K8sAgentManager {
   // ==================== Helper Methods ====================
 
   private cleanupKubeconfigTempFile(): void {
-    if (this.kubeconfigPath && this.kubeconfigPath.includes(os.tmpdir())) {
-      try {
-        fs.unlinkSync(this.kubeconfigPath)
-      } catch {
-        /* ignore */
-      }
-    }
+    this.tempKubeconfig?.cleanup()
+    this.tempKubeconfig = null
   }
 
   private async ensureAgentSession(expectedEpoch: number): Promise<any> {
