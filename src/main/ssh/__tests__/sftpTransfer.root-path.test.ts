@@ -12,7 +12,7 @@ const sshState = vi.hoisted(() => ({
 
 const originalTZ = process.env.TZ
 
-const setupModule = async () => {
+const setupModule = async (localPath: typeof path = path) => {
   vi.resetModules()
   sshState.sftpConnections.clear()
   sshState.connectionStatus.clear()
@@ -23,6 +23,8 @@ const setupModule = async () => {
     error: vi.fn(),
     debug: vi.fn()
   }))
+
+  vi.doMock('node:path', () => ({ default: localPath }))
 
   vi.doMock('electron', () => ({
     app: { getPath: vi.fn(() => '') },
@@ -77,6 +79,7 @@ describe('sftpTransfer root path', () => {
 
   afterEach(() => {
     vi.restoreAllMocks()
+    vi.doUnmock('node:path')
     delete (globalThis as any).createLogger
     if (originalTZ === undefined) {
       delete process.env.TZ
@@ -181,5 +184,63 @@ describe('sftpTransfer root path', () => {
     } finally {
       fs.rmSync(parent, { recursive: true, force: true })
     }
+  })
+
+  describe.each([
+    { platform: 'Windows', localPath: path.win32, parent: 'C:\\downloads\\selected' },
+    { platform: 'POSIX', localPath: path.posix, parent: '/downloads/selected' }
+  ])('directory download root on $platform', ({ localPath, parent }) => {
+    it.each([
+      '',
+      '/',
+      '/remote/.',
+      '/remote/..',
+      '/remote/../',
+      '/remote/bad\0name',
+      String.raw`/remote/..\outside`,
+      String.raw`/remote/....\something`
+    ])('rejects unsafe root %j before creating directories or reading remote entries', async (remoteDir) => {
+      const { registerFileSystemHandlers } = await setupModule(localPath)
+      const { getSftpConnection } = await import('../sshHandle')
+      const mkdir = vi.spyOn(fs.promises, 'mkdir').mockResolvedValue(undefined)
+      const sftp = { readdir: vi.fn((_p: string, cb: any) => cb(null, [])) }
+      const event = { sender: { send: vi.fn() } }
+      vi.mocked(getSftpConnection).mockReturnValue(sftp)
+      registerFileSystemHandlers()
+
+      const result = await sshState.ipcHandlers.get('ssh:sftp:download-directory')(event, {
+        id: 'remote-id',
+        remoteDir,
+        localDir: parent
+      })
+
+      expect(result).toMatchObject({ status: 'error', message: expect.stringContaining('Unsafe remote filename rejected'), errorSide: 'local' })
+      expect(mkdir).not.toHaveBeenCalled()
+      expect(sftp.readdir).not.toHaveBeenCalled()
+      expect(event.sender.send).toHaveBeenLastCalledWith(
+        'ssh:sftp:transfer-progress',
+        expect.objectContaining({ status: 'error', isGroup: true, message: result.message })
+      )
+    })
+
+    it.each(['/remote/reports', '/remote/reports/'])('downloads a safe root and its subdirectories from %s', async (remoteDir) => {
+      const { registerFileSystemHandlers } = await setupModule(localPath)
+      const { getSftpConnection } = await import('../sshHandle')
+      const mkdir = vi.spyOn(fs.promises, 'mkdir').mockResolvedValue(undefined)
+      const sftp = {
+        readdir: vi.fn((_p: string, cb: any) => cb(null, []))
+      }
+      sftp.readdir.mockImplementationOnce((_p: string, cb: any) => cb(null, [{ filename: 'nested', attrs: { isDirectory: () => true } }]))
+      vi.mocked(getSftpConnection).mockReturnValue(sftp)
+      registerFileSystemHandlers()
+
+      const result = await sshState.ipcHandlers.get('ssh:sftp:download-directory')({}, { id: 'remote-id', remoteDir, localDir: parent })
+
+      expect(result).toMatchObject({ status: 'success', localPath: localPath.join(parent, 'reports') })
+      expect(mkdir).toHaveBeenNthCalledWith(1, localPath.join(parent, 'reports'), { recursive: true })
+      expect(mkdir).toHaveBeenNthCalledWith(2, localPath.join(parent, 'reports', 'nested'), { recursive: true })
+      expect(sftp.readdir).toHaveBeenNthCalledWith(1, remoteDir, expect.any(Function))
+      expect(sftp.readdir).toHaveBeenNthCalledWith(2, '/remote/reports/nested', expect.any(Function))
+    })
   })
 })
