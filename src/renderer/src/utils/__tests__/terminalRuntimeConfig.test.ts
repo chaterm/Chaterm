@@ -67,7 +67,7 @@ describe('terminalRuntimeConfig', () => {
     expect(terminal.options).toEqual({
       scrollback: 8000,
       fontSize: 15,
-      fontFamily: 'Monaco',
+      fontFamily: 'Monaco, Menlo, "Courier New", Consolas, Courier, monospace',
       cursorStyle: 'underline',
       cursorBlink: false,
       lineHeight: 1.4
