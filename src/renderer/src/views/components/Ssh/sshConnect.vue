@@ -611,13 +611,26 @@ const getLastContentColumn = (line: IBufferLine, cols: number): number => {
   return 0
 }
 
-// Command block selection: with nothing selected, a plain click inside one
-// command's output selects the whole block (its command row plus all of its
-// output); with anything selected, a plain click only dismisses that selection,
-// whether it came from a block click or from a drag. Native drag, double and
-// triple click keep their own behaviour -- see selectBlockAtPointer.
+const isBlankAtColumn = (line: IBufferLine, column: number, cols: number): boolean => {
+  if (column >= Math.min(line.length, cols)) return true
+  const chars = line.getCell(column)?.getChars() ?? ''
+  // The right half of a wide character is a zero-width cell carrying no chars of
+  // its own, so it has to be read from the cell that owns it.
+  if (chars.length === 0 && column > 0) {
+    const owner = line.getCell(column - 1)
+    if ((owner?.getWidth() ?? 1) === 2) return (owner?.getChars() ?? '').trim().length === 0
+  }
+  return chars.trim().length === 0
+}
+
+// Command block selection: with nothing selected, a plain click on blank space
+// inside one command's output selects the whole block (its command row plus all
+// of its output); with anything selected, a plain click only dismisses that
+// selection, whether it came from a block click or from a drag. Native drag,
+// double and triple click keep their own behaviour -- see selectBlockAtPointer.
 const BLOCK_CLICK_DRAG_TOLERANCE_PX = 3
 let blockPointerDownAt: { x: number; y: number } | null = null
+let pendingBlockSelection: ReturnType<typeof setTimeout> | null = null
 // Whether anything was selected just before this click, captured in the mousedown
 // capture phase: xterm's own mousedown listener sits on a child element and drops
 // selectionEnd there, so by mouseup hasSelection() can no longer tell us.
@@ -626,26 +639,36 @@ let hadSelectionAtPointerDown = false
 // own selection apart from a user one.
 let applyingBlockSelection = false
 
-const resolveClickedBufferLine = (clientY: number): number | null => {
+const resolveClickedCell = (clientX: number, clientY: number): { line: number; column: number } | null => {
   const termInstance = terminal.value
   if (!termInstance) return null
 
   const screen = terminalElement.value?.querySelector('.xterm-screen') as HTMLElement | null
   if (!screen) return null
 
-  const cellHeight = (termInstance as any)?._core?._renderService?.dimensions?.css?.cell?.height
+  const cell = (termInstance as any)?._core?._renderService?.dimensions?.css?.cell
+  const cellHeight = cell?.height
+  const cellWidth = cell?.width
   if (typeof cellHeight !== 'number' || cellHeight <= 0) return null
+  if (typeof cellWidth !== 'number' || cellWidth <= 0) return null
 
-  const offsetY = clientY - screen.getBoundingClientRect().top
+  const rect = screen.getBoundingClientRect()
+  const offsetY = clientY - rect.top
   if (offsetY < 0) return null
 
   const row = Math.floor(offsetY / cellHeight)
   if (row >= termInstance.rows) return null
 
-  return termInstance.buffer.active.viewportY + row
+  // A click past the last column lands on the empty right margin of the row,
+  // which counts as blank rather than as a miss.
+  const offsetX = clientX - rect.left
+  if (offsetX < 0) return null
+  const column = Math.floor(offsetX / cellWidth)
+
+  return { line: termInstance.buffer.active.viewportY + row, column }
 }
 
-const selectBlockAtPointer = (clientY: number) => {
+const selectBlockAtPointer = (clientX: number, clientY: number) => {
   const termInstance = terminal.value
   if (!termInstance) return
   // Alternate-screen apps (vim, less, htop) own the whole viewport, so there are
@@ -656,10 +679,17 @@ const selectBlockAtPointer = (clientY: number) => {
   // leave it alone.
   if (termInstance.hasSelection()) return
 
-  const clickedLine = resolveClickedBufferLine(clientY)
-  if (clickedLine === null) return
+  const clicked = resolveClickedCell(clientX, clientY)
+  if (!clicked) return
+  const clickedLine = clicked.line
 
   const buffer = termInstance.buffer.active
+  // Only blank space selects a block. A click on a character belongs to xterm:
+  // that is where double click selects a word, and telling the two gestures apart
+  // by position rather than by time is what keeps a single click instant.
+  const hoveredLine = buffer.getLine(clickedLine)
+  if (hoveredLine && !isBlankAtColumn(hoveredLine, clicked.column, termInstance.cols)) return
+
   const cursorLine = buffer.baseY + buffer.cursorY
   // Never select the row being typed on.
   if (clickedLine === cursorLine) return
@@ -697,7 +727,16 @@ const selectBlockAtPointer = (clientY: number) => {
   }
 }
 
+const cancelPendingBlockSelection = () => {
+  if (pendingBlockSelection === null) return
+  clearTimeout(pendingBlockSelection)
+  pendingBlockSelection = null
+}
+
 const handleTerminalPointerDown = (event: MouseEvent) => {
+  // The second half of a double click, a triple click, or a drag started right
+  // after a click all land here before the pending selection fires.
+  cancelPendingBlockSelection()
   blockPointerDownAt = event.button === 0 ? { x: event.clientX, y: event.clientY } : null
   hadSelectionAtPointerDown = terminal.value?.hasSelection() ?? false
 }
@@ -714,20 +753,23 @@ const handleTerminalPointerUp = (event: MouseEvent) => {
   if (Math.abs(event.clientX - downAt.x) > BLOCK_CLICK_DRAG_TOLERANCE_PX) return
   if (Math.abs(event.clientY - downAt.y) > BLOCK_CLICK_DRAG_TOLERANCE_PX) return
 
-  const { clientY } = event
-  const hadSelection = hadSelectionAtPointerDown
+  const { clientX, clientY } = event
 
   // xterm clears its selection during its own mouseup handling, so both applying
-  // and clearing the selection have to happen after that completes.
-  setTimeout(() => {
-    // A click while anything is selected only dismisses that selection, whether
-    // it came from a block click or from a drag. Selecting a block takes a
-    // further click, so one click never both dismisses and selects.
-    if (hadSelection) {
-      terminal.value?.clearSelection()
-      return
-    }
-    selectBlockAtPointer(clientY)
+  // and clearing the selection have to happen after that completes -- hence the
+  // zero delay, which is not a settle window: selectBlockAtPointer only fires on
+  // blank space, so it never competes with double click for the same pixel.
+  // A click while anything is selected only dismisses that selection, whether it
+  // came from a block click or from a drag. Selecting a block takes a further
+  // click, so one click never both dismisses and selects.
+  if (hadSelectionAtPointerDown) {
+    setTimeout(() => terminal.value?.clearSelection(), 0)
+    return
+  }
+
+  pendingBlockSelection = setTimeout(() => {
+    pendingBlockSelection = null
+    selectBlockAtPointer(clientX, clientY)
   }, 0)
 }
 
@@ -886,6 +928,7 @@ onMounted(async () => {
     cleanupListeners.value.push(() => {
       blockClickTarget.removeEventListener('mousedown', handleTerminalPointerDown, true)
       blockClickTarget.removeEventListener('mouseup', handleTerminalPointerUp)
+      cancelPendingBlockSelection()
     })
   }
 
