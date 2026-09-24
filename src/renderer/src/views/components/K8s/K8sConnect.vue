@@ -28,6 +28,7 @@ import eventBus from '@/utils/eventBus'
 import { getLastNonEmptyLine, isTerminalPromptLine } from '@views/components/Ssh/utils/terminalPrompt'
 import { stripAnsiBasic } from '@views/components/Ssh/utils/ansiUtils'
 import { applyTerminalRuntimeConfig, TERMINAL_RUNTIME_CONFIG_CHANGED_EVENT, type TerminalRuntimeConfig } from '@/utils/terminalRuntimeConfig'
+import { resolveTerminalFontFamily } from '@/utils/terminalFontFamily'
 
 const logger = createRendererLogger('k8s.connect')
 const k8sStore = useK8sStore()
@@ -143,7 +144,7 @@ const initTerminal = async () => {
   userConfig = await serviceUserConfig.getConfig()
 
   const fontSize = userConfig?.fontSize || configStore.getUserConfig?.fontSize || 13
-  const fontFamily = userConfig?.fontFamily || 'Menlo, Monaco, "Courier New", monospace'
+  const fontFamily = resolveTerminalFontFamily(userConfig?.fontFamily)
 
   terminal.value = new Terminal({
     scrollback: userConfig?.scrollBack || 5000,
