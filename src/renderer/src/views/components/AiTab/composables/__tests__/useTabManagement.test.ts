@@ -583,14 +583,19 @@ describe('useTabManagement', () => {
     })
 
     it('should request the newest history page first and store paging state', async () => {
-      const mockMessages: ChatermMessage[] = Array.from({ length: 3 }, (_, index) => ({
-        ask: undefined,
-        say: 'text',
-        text: `Message ${index + 1}`,
-        type: 'say',
-        ts: 100 + index,
-        partial: false
-      }))
+      // The newest page carries a prompt of the user's own, so the restore settles
+      // on this page instead of reaching for older ones.
+      const mockMessages: ChatermMessage[] = [
+        { ask: undefined, say: 'user_feedback', text: 'Message 1', type: 'say', ts: 100, partial: false },
+        ...Array.from({ length: 2 }, (_, index) => ({
+          ask: undefined,
+          say: 'text' as const,
+          text: `Message ${index + 2}`,
+          type: 'say' as const,
+          ts: 101 + index,
+          partial: false
+        }))
+      ]
 
       mockChatermGetChatermMessagesPage.mockResolvedValue(
         createPageResult(mockMessages, {
@@ -635,8 +640,10 @@ describe('useTabManagement', () => {
     })
 
     it('should prepend older history pages when requested', async () => {
+      // A prompt of the user's own on the newest page keeps the restore to a single
+      // request, so the page below is the one loadOlderHistoryForTab pulls in.
       const firstPageMessages: ChatermMessage[] = [
-        { ask: undefined, say: 'text', text: 'Message 3', type: 'say', ts: 103, partial: false },
+        { ask: undefined, say: 'user_feedback', text: 'Message 3', type: 'say', ts: 103, partial: false },
         { ask: undefined, say: 'text', text: 'Message 4', type: 'say', ts: 104, partial: false }
       ]
       const olderPageMessages: ChatermMessage[] = [
@@ -703,6 +710,126 @@ describe('useTabManagement', () => {
         pageSize: 40
       })
       expect(scrollContainer.scrollTop).toBe(240)
+    })
+
+    it('should keep restoring older pages until the last prompt of the user is in', async () => {
+      const newestPageMessages: ChatermMessage[] = [
+        { ask: undefined, say: 'command', text: 'docker compose up', type: 'say', ts: 103, partial: false },
+        { ask: undefined, say: 'command_output', text: 'started', type: 'say', ts: 104, partial: false }
+      ]
+      const olderPageMessages: ChatermMessage[] = [
+        { ask: undefined, say: 'user_feedback', text: 'deploy langfuse', type: 'say', ts: 101, partial: false },
+        { ask: undefined, say: 'reasoning', text: 'thinking', type: 'say', ts: 102, partial: false }
+      ]
+
+      mockChatermGetChatermMessagesPage
+        .mockResolvedValueOnce(createPageResult(newestPageMessages, { nextCursor: 21, hasMore: true }))
+        .mockResolvedValueOnce(createPageResult(olderPageMessages, { nextCursor: 11, hasMore: true }))
+      mockGetTaskMetadata.mockResolvedValue({ success: true, data: {} })
+
+      const { restoreHistoryTab } = useTabManagement({
+        getCurentTabAssetInfo: mockGetCurentTabAssetInfo,
+        toggleSidebar: mockToggleSidebar
+      })
+
+      const history: HistoryItem = {
+        id: 'history-no-prompt-on-newest-page',
+        chatTitle: 'Long Turn',
+        chatContent: [],
+        isFavorite: false,
+        isEditing: false,
+        editingTitle: ''
+      }
+
+      await restoreHistoryTab(history)
+
+      expect(mockChatermGetChatermMessagesPage).toHaveBeenCalledTimes(2)
+      expect(mockChatermGetChatermMessagesPage).toHaveBeenNthCalledWith(2, {
+        taskId: 'history-no-prompt-on-newest-page',
+        limit: 40,
+        beforeCursor: 21
+      })
+
+      const mockState = vi.mocked(useSessionState)()
+      const restoredTab = mockState.chatTabs.value.find((t) => t.id === 'history-no-prompt-on-newest-page')
+      expect(restoredTab?.session.chatHistory.map((message) => message.content)).toEqual([
+        'deploy langfuse',
+        'thinking',
+        'docker compose up',
+        'started'
+      ])
+      // Paging state follows the oldest page that was pulled in.
+      expect(restoredTab?.session.historyPagination).toEqual({
+        beforeCursor: 11,
+        hasMoreBefore: true,
+        isLoadingBefore: false,
+        pageSize: 40
+      })
+    })
+
+    it('should treat pasted terminal output as agent output while restoring', async () => {
+      // A user_feedback holding pasted terminal output is re-attributed to the
+      // agent, so it must not end the search for the prompt of the user.
+      const newestPageMessages: ChatermMessage[] = [
+        { ask: undefined, say: 'user_feedback', text: 'Terminal output:\n```\ndocker ps\n```', type: 'say', ts: 103, partial: false }
+      ]
+      const olderPageMessages: ChatermMessage[] = [
+        { ask: undefined, say: 'user_feedback', text: 'how do I log in', type: 'say', ts: 101, partial: false }
+      ]
+
+      mockChatermGetChatermMessagesPage
+        .mockResolvedValueOnce(createPageResult(newestPageMessages, { nextCursor: 21, hasMore: true }))
+        .mockResolvedValueOnce(createPageResult(olderPageMessages, { nextCursor: 11, hasMore: true }))
+      mockGetTaskMetadata.mockResolvedValue({ success: true, data: {} })
+
+      const { restoreHistoryTab } = useTabManagement({
+        getCurentTabAssetInfo: mockGetCurentTabAssetInfo,
+        toggleSidebar: mockToggleSidebar
+      })
+
+      const history: HistoryItem = {
+        id: 'history-pasted-output',
+        chatTitle: 'Pasted Output',
+        chatContent: [],
+        isFavorite: false,
+        isEditing: false,
+        editingTitle: ''
+      }
+
+      await restoreHistoryTab(history)
+
+      expect(mockChatermGetChatermMessagesPage).toHaveBeenCalledTimes(2)
+      const mockState = vi.mocked(useSessionState)()
+      const restoredTab = mockState.chatTabs.value.find((t) => t.id === 'history-pasted-output')
+      expect(restoredTab?.session.chatHistory.map((message) => message.role)).toEqual(['user', 'assistant'])
+    })
+
+    it('should stop restoring extra pages once the page budget runs out', async () => {
+      const agentOnlyPage: ChatermMessage[] = [{ ask: undefined, say: 'command', text: 'uptime', type: 'say', ts: 100, partial: false }]
+
+      mockChatermGetChatermMessagesPage.mockResolvedValue(createPageResult(agentOnlyPage, { nextCursor: 21, hasMore: true }))
+      mockGetTaskMetadata.mockResolvedValue({ success: true, data: {} })
+
+      const { restoreHistoryTab } = useTabManagement({
+        getCurentTabAssetInfo: mockGetCurentTabAssetInfo,
+        toggleSidebar: mockToggleSidebar
+      })
+
+      const history: HistoryItem = {
+        id: 'history-agent-only',
+        chatTitle: 'Agent Only',
+        chatContent: [],
+        isFavorite: false,
+        isEditing: false,
+        editingTitle: ''
+      }
+
+      await restoreHistoryTab(history)
+
+      // One newest page plus the bounded extra pages, never an unbounded walk.
+      expect(mockChatermGetChatermMessagesPage).toHaveBeenCalledTimes(6)
+      const mockState = vi.mocked(useSessionState)()
+      expect(mockState.chatTabs.value.find((t) => t.id === 'history-agent-only')).toBeDefined()
     })
 
     it('should keep loading older history until the container becomes scrollable', async () => {

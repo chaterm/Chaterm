@@ -445,6 +445,15 @@ const leftMinSize = ref(0) // Left sidebar minimum size percentage
 const isDraggingLeftSplitter = ref(false) // Whether the left splitter is being dragged
 const savedLeftSidebarState = ref<LeftSidebarState | null>(null) // Saved left sidebar state
 const isQuickClosing = ref(false) // Flag to prevent resize events during quick close
+// Quick close only arms after the pointer leaves the close zone, so a drag that starts
+// on a collapsed splitter (which sits inside that zone) can open the sidebar
+const isLeftQuickCloseArmed = ref(false)
+// Width in px the user last dragged the sidebar to, per mode. Reopening uses it so the
+// sidebar comes back at the width the user chose instead of the default
+const rememberedLeftWidthPx = ref<{ terminal: number | null; agents: number | null }>({
+  terminal: null,
+  agents: null
+})
 interface SplitPaneItem {
   size: number
   tabs: TabItem[]
@@ -576,6 +585,15 @@ const restorePreviousFocus = () => {
 }
 
 // Left sidebar unified management functions
+// Both mode layouts stay mounted (the inactive one is only visibility:hidden), so an
+// unscoped '.left-sidebar-container' lookup can return the wrong layout's container.
+// Scope it to the active mode to get correct offsetWidth and left edge.
+const getLeftSidebarContainer = () => {
+  const modeSelector = props.currentMode === 'agents' ? '.agents-mode-layout' : '.terminal-mode-layout'
+  return (document.querySelector(`${modeSelector} .left-sidebar-container`) ||
+    document.querySelector('.left-sidebar-container')) as HTMLElement | null
+}
+
 const getLeftSidebarSize = () => {
   return props.currentMode === 'agents' ? agentsLeftPaneSize.value : leftPaneSize.value
 }
@@ -586,6 +604,35 @@ const setLeftSidebarSize = (size: number) => {
   } else {
     leftPaneSize.value = size
   }
+}
+
+const getModeKey = () => (props.currentMode === 'agents' ? 'agents' : 'terminal')
+
+// Record the width a drag settled on, so the next open reuses it
+const rememberLeftSidebarWidth = () => {
+  const size = getLeftSidebarSize()
+  if (size <= 0) return
+
+  const container = getLeftSidebarContainer()
+  if (!container || container.offsetWidth <= 0) return
+
+  // Reject only widths too small to be a deliberate choice. This floor must stay below
+  // MIN_LEFT_SIDEBAR_DRAG_WIDTH_PX: a drag that sticks on that floor lands within
+  // sub-pixel range of it, and comparing against it would discard the width
+  const widthPx = (size / 100) * container.offsetWidth
+  if (widthPx < LEFT_QUICK_CLOSE_THRESHOLD_PX) return
+
+  rememberedLeftWidthPx.value[getModeKey()] = widthPx
+}
+
+// Percentage the sidebar should open at: the remembered drag width when there is one,
+// otherwise the caller's default
+const getLeftSidebarOpenSize = (containerWidth: number, defaultSize: number) => {
+  const remembered = rememberedLeftWidthPx.value[getModeKey()]
+  if (remembered !== null && containerWidth > 0) {
+    return (remembered / containerWidth) * 100
+  }
+  return defaultSize
 }
 
 const handleDockviewTabsWheel = (event: WheelEvent) => {
@@ -618,6 +665,11 @@ const handleMouseDown = (e: MouseEvent) => {
   // Detect left sidebar splitter
   if (target.classList.contains('splitpanes__splitter') && target.closest('.left-sidebar-container')) {
     isDraggingLeftSplitter.value = true
+    // Arm quick close straight away when the drag starts outside the close zone, so an
+    // already-open sidebar can still be closed by dragging inward
+    const container = getLeftSidebarContainer()
+    const distFromLeft = container ? e.clientX - container.getBoundingClientRect().left : e.clientX
+    isLeftQuickCloseArmed.value = distFromLeft >= LEFT_QUICK_CLOSE_THRESHOLD_PX
   }
 }
 
@@ -672,9 +724,22 @@ const handleGlobalMouseMove = (e: MouseEvent) => {
 
   // Left sidebar sticky resistance and quick close logic
   if (isDraggingLeftSplitter.value && getLeftSidebarSize() > 0) {
-    const distFromLeft = e.clientX
-    const container = document.querySelector('.left-sidebar-container') as HTMLElement
+    const container = getLeftSidebarContainer()
     if (!container) return
+
+    // Measure from the sidebar container's own left edge, not the window edge:
+    // in terminal mode the container starts after the 40px icon rail
+    const distFromLeft = e.clientX - container.getBoundingClientRect().left
+
+    // Arm quick close only once the pointer has left the close zone. A collapsed
+    // splitter sits inside that zone, so dragging it out would otherwise trip the
+    // close path immediately and snap the sidebar shut again
+    if (!isLeftQuickCloseArmed.value) {
+      if (distFromLeft >= LEFT_QUICK_CLOSE_THRESHOLD_PX) {
+        isLeftQuickCloseArmed.value = true
+      }
+      return
+    }
 
     // Sticky resistance controlled by CSS min-width
     // Quick close: < 50px
@@ -696,6 +761,7 @@ const handleGlobalMouseMove = (e: MouseEvent) => {
         const iconKey = props.currentMode === 'agents' ? 'agentsLeft' : 'left'
         headerRef.value?.switchIcon(iconKey, false)
         isDraggingLeftSplitter.value = false
+        isLeftQuickCloseArmed.value = false
 
         // Reset flag
         setTimeout(() => {
@@ -708,8 +774,15 @@ const handleGlobalMouseMove = (e: MouseEvent) => {
 
 // Release mouse
 const handleGlobalMouseUp = () => {
+  // Remember the width only for a drag the user finished themselves. Quick close
+  // synthesizes a mouseup mid-collapse, and that width is not a deliberate choice
+  if (isDraggingLeftSplitter.value && !isQuickClosing.value) {
+    rememberLeftSidebarWidth()
+  }
+
   isDraggingSplitter.value = false
   isDraggingLeftSplitter.value = false
+  isLeftQuickCloseArmed.value = false
 }
 
 const focusRightSidebar = () => {
@@ -1158,8 +1231,12 @@ const ONBOARDING_AI_SIDEBAR_WIDTH_PX = 420
 const MIN_AI_SIDEBAR_WIDTH_PX = 320 // AI sidebar minimum usable width
 const SNAP_THRESHOLD_PX = 240 // Sticky resistance threshold
 // Left sidebar constants
-const MIN_LEFT_SIDEBAR_WIDTH_PX = 200 // Left sidebar minimum usable width
+const MIN_LEFT_SIDEBAR_WIDTH_PX = 200 // Left sidebar preferred width when opened without a remembered width
 const LEFT_QUICK_CLOSE_THRESHOLD_PX = 50 // Left sidebar quick close threshold
+// Narrowest width a drag can reach: below this the sidebar content is no longer usable.
+// The pane sticks here while the pointer keeps moving inward, and quick close still fires
+// once the pointer itself passes LEFT_QUICK_CLOSE_THRESHOLD_PX
+const MIN_LEFT_SIDEBAR_DRAG_WIDTH_PX = 120
 const currentMenu = ref('workspace')
 
 const isAiChatOnboardingActive = () => onboardingStore.activeTour === 'aiChat'
@@ -1202,15 +1279,18 @@ const ensureAiChatOnboardingSidebarWidth = (containerWidth: number) => {
 }
 
 const updatePaneSize = () => {
-  const container = document.querySelector('.splitpanes') as HTMLElement
+  const container = getLeftSidebarContainer()
   if (container) {
     // Only update left pane size if it's expanded and we're in terminal mode
     if (leftPaneSize.value > 0 && props.currentMode === 'terminal') {
       const containerWidth = container.offsetWidth
       const currentWidthPx = (leftPaneSize.value / 100) * containerWidth
-      // Only adjust if current width is significantly different from default
-      if (Math.abs(currentWidthPx - DEFAULT_WIDTH_PX) > 50) {
-        leftPaneSize.value = (DEFAULT_WIDTH_PX / containerWidth) * 100
+      // Hold the sidebar at its intended pixel width across window resizes: the width the
+      // user dragged to when there is one, otherwise the default
+      const targetWidthPx = rememberedLeftWidthPx.value.terminal ?? DEFAULT_WIDTH_PX
+      // Only adjust if current width is significantly different from the target
+      if (Math.abs(currentWidthPx - targetWidthPx) > 50) {
+        leftPaneSize.value = (targetWidthPx / containerWidth) * 100
       }
     }
     // Update AI sidebar min-size
@@ -1235,7 +1315,7 @@ watch(
 const updateAiSidebarMinSize = () => {
   // In Agents mode, AI sidebar uses different container and stricter minimum width
   if (props.currentMode === 'agents') {
-    const container = document.querySelector('.left-sidebar-container') as HTMLElement
+    const container = getLeftSidebarContainer()
     if (container) {
       const containerWidth = container.offsetWidth
       // In Agents mode, AI sidebar occupies right panel with stricter minimum width limit
@@ -1247,7 +1327,7 @@ const updateAiSidebarMinSize = () => {
   // Terminal mode logic
   // Use .left-sidebar-container width and leftPaneSize to calculate available width
   // This avoids issues where reading .main-split-container.offsetWidth returns stale values during resize events
-  const container = document.querySelector('.left-sidebar-container') as HTMLElement
+  const container = getLeftSidebarContainer()
   if (container) {
     const containerWidth = container.offsetWidth
     // Consider left sidebar width to calculate the actual width available for the main split container
@@ -1279,15 +1359,19 @@ const saveLeftSidebarState = () => {
 // Restore left sidebar state
 const restoreLeftSidebarState = () => {
   if (savedLeftSidebarState.value) {
-    const container = document.querySelector('.left-sidebar-container') as HTMLElement
+    const container = getLeftSidebarContainer()
     if (container && container.offsetWidth > 0) {
       const containerWidth = container.offsetWidth
       const minSizePercent = (MIN_LEFT_SIDEBAR_WIDTH_PX / containerWidth) * 100
 
-      // Ensure restored width is not less than minimum usable width
-      let restoredSize = savedLeftSidebarState.value.size
-      if ((restoredSize / 100) * containerWidth < MIN_LEFT_SIDEBAR_WIDTH_PX) {
-        restoredSize = minSizePercent
+      // Prefer the width the user dragged to; fall back to the saved size
+      let restoredSize = getLeftSidebarOpenSize(containerWidth, savedLeftSidebarState.value.size)
+
+      // A width the user chose by dragging is honoured down to the drag floor. Only a
+      // size with no deliberate width behind it gets raised to the preferred minimum
+      const floorPx = rememberedLeftWidthPx.value[getModeKey()] !== null ? MIN_LEFT_SIDEBAR_DRAG_WIDTH_PX : MIN_LEFT_SIDEBAR_WIDTH_PX
+      if ((restoredSize / 100) * containerWidth < floorPx) {
+        restoredSize = floorPx === MIN_LEFT_SIDEBAR_DRAG_WIDTH_PX ? (floorPx / containerWidth) * 100 : minSizePercent
       }
 
       setLeftSidebarSize(restoredSize)
@@ -1308,7 +1392,7 @@ const handleLeftPaneResize = (params: ResizeParams) => {
   // Signal resize to pause expensive chat observers
   signalResizeStart()
 
-  const container = document.querySelector('.left-sidebar-container') as HTMLElement
+  const container = getLeftSidebarContainer()
   const containerWidth = container ? container.offsetWidth : 1000
   const sizePx = (params.prevPane.size / 100) * containerWidth
 
@@ -1344,7 +1428,8 @@ const handleLeftPaneResize = (params: ResizeParams) => {
   if (showAiSidebar.value && aiSidebarSize.value > 0 && Math.abs(100 - newLeftSize) > 0.1 && props.currentMode === 'terminal') {
     // Calculate effective left sizes (clamped to minimum width constraint)
     // This prevents the AI sidebar from shrinking when the left sidebar is conceptually shrinking but physically stuck at min-width
-    const minLeftPct = (MIN_LEFT_SIDEBAR_WIDTH_PX / containerWidth) * 100
+    // Clamp at the drag floor, which is where the pane actually stops
+    const minLeftPct = (MIN_LEFT_SIDEBAR_DRAG_WIDTH_PX / containerWidth) * 100
     const effectiveOldLeft = Math.max(oldLeftSize, minLeftPct)
     const effectiveNewLeft = Math.max(newLeftSize, minLeftPct)
 
@@ -1459,7 +1544,7 @@ const toggleSideBar = (value: string) => {
           headerRef.value?.switchIcon(iconKey, false)
         } else {
           // Open sidebar
-          const leftContainer = document.querySelector('.left-sidebar-container') as HTMLElement
+          const leftContainer = getLeftSidebarContainer()
           const leftContainerWidth = leftContainer ? leftContainer.offsetWidth : containerWidth
           const minSizePercent = (MIN_LEFT_SIDEBAR_WIDTH_PX / leftContainerWidth) * 100
 
@@ -1474,7 +1559,7 @@ const toggleSideBar = (value: string) => {
               defaultSize = minSizePercent
             }
 
-            setLeftSidebarSize(defaultSize)
+            setLeftSidebarSize(getLeftSidebarOpenSize(leftContainerWidth, defaultSize))
             const iconKey = props.currentMode === 'agents' ? 'agentsLeft' : 'left'
             headerRef.value?.switchIcon(iconKey, true)
           }
@@ -1539,7 +1624,7 @@ const toggleMenu = function (params) {
   const expandFn = (dir) => {
     if (dir == 'left') {
       // Use unified function to set left sidebar size
-      const leftContainer = document.querySelector('.left-sidebar-container') as HTMLElement
+      const leftContainer = getLeftSidebarContainer()
       const leftContainerWidth = leftContainer ? leftContainer.offsetWidth : containerWidth
       const minSizePercent = (MIN_LEFT_SIDEBAR_WIDTH_PX / leftContainerWidth) * 100
       let defaultSize = (DEFAULT_WIDTH_PX / leftContainerWidth) * 100
@@ -1548,7 +1633,7 @@ const toggleMenu = function (params) {
         defaultSize = minSizePercent
       }
 
-      setLeftSidebarSize(defaultSize)
+      setLeftSidebarSize(getLeftSidebarOpenSize(leftContainerWidth, defaultSize))
       const iconKey = props.currentMode === 'agents' ? 'agentsLeft' : 'left'
       headerRef.value?.switchIcon(iconKey, true)
     } else {
@@ -2092,7 +2177,7 @@ async function showLeftMenuForOnboarding(menu: string) {
 
   if (getLeftSidebarSize() > 0) return
 
-  const leftContainer = document.querySelector('.left-sidebar-container') as HTMLElement | null
+  const leftContainer = getLeftSidebarContainer()
   const containerWidth = leftContainer?.offsetWidth || 1200
   const minSizePercent = (MIN_LEFT_SIDEBAR_WIDTH_PX / containerWidth) * 100
   let defaultSize = (DEFAULT_WIDTH_PX / containerWidth) * 100
@@ -2101,7 +2186,7 @@ async function showLeftMenuForOnboarding(menu: string) {
     defaultSize = minSizePercent
   }
 
-  setLeftSidebarSize(defaultSize)
+  setLeftSidebarSize(getLeftSidebarOpenSize(containerWidth, defaultSize))
   headerRef.value?.switchIcon(props.currentMode === 'agents' ? 'agentsLeft' : 'left', true)
 }
 
@@ -3394,9 +3479,11 @@ defineExpose({
         display: none;
       }
 
+      // min-width is the narrowest a drag can reach and must match
+      // MIN_LEFT_SIDEBAR_DRAG_WIDTH_PX; dragging further in triggers quick close
       .term_content_left {
         width: 250px;
-        min-width: 200px;
+        min-width: 120px;
 
         &.collapsed {
           min-width: 0 !important;
@@ -3404,7 +3491,7 @@ defineExpose({
       }
 
       .agents_content_left {
-        min-width: 200px;
+        min-width: 120px;
 
         &.collapsed {
           min-width: 0 !important;
