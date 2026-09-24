@@ -149,6 +149,7 @@ import { shouldAutoScrollAfterTerminalStateUpdate, shouldAutoScrollAfterTerminal
 import { LocalEchoController } from './utils/localEcho'
 import { resolveAliasExpansion, shouldSuppressCtrlVAfterNativePaste } from './utils/terminalInput'
 import { applyTerminalRuntimeConfig, TERMINAL_RUNTIME_CONFIG_CHANGED_EVENT, type TerminalRuntimeConfig } from '@/utils/terminalRuntimeConfig'
+import { resolveTerminalFontFamily } from '@/utils/terminalFontFamily'
 import { createTerminalWriteQueue, type TerminalWriteQueue } from '@/utils/terminalWriteQueue'
 import { cancelConnectionOnUnmount, createConnectionCancellationGuard } from './utils/connectionCancellation'
 
@@ -845,7 +846,7 @@ onMounted(async () => {
       cursorBlink: config.cursorBlink !== false,
       cursorStyle: config.cursorStyle,
       fontSize: config.fontSize || 12,
-      fontFamily: config.fontFamily || 'Menlo, Monaco, "Courier New", Consolas, Courier, monospace',
+      fontFamily: resolveTerminalFontFamily(config.fontFamily),
       lineHeight: typeof config.lineHeight === 'number' ? config.lineHeight : 1,
       allowTransparency: true,
       // Required by @xterm/addon-search: highlighting all matches goes through

@@ -1,4 +1,5 @@
 import type { UserConfig } from '@/services/userConfigStoreService'
+import { resolveTerminalFontFamily } from '@/utils/terminalFontFamily'
 
 export const TERMINAL_RUNTIME_CONFIG_CHANGED_EVENT = 'terminalRuntimeConfigChanged'
 
@@ -84,7 +85,7 @@ export const applyTerminalRuntimeConfig = (
     requiresResize = true
   }
   if (typeof config.fontFamily === 'string' && config.fontFamily.length > 0) {
-    terminal.options.fontFamily = config.fontFamily
+    terminal.options.fontFamily = resolveTerminalFontFamily(config.fontFamily)
     requiresResize = true
   }
   if (config.cursorStyle) {
