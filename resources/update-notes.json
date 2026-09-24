@@ -2,6 +2,22 @@
   "releaseNotesUrl": "https://github.com/chaterm/Chaterm/releases/tag/v",
   "versions": [
     {
+      "version": "0.12.5",
+      "date": "2026-09-24",
+      "highlights": {
+        "zh-CN": [
+          "AI 对话：新增会话导航，可快速定位历史提问",
+          "终端体验：支持点击选中命令块，优化分隔栏拖动与文本框全选",
+          "安全与兼容性：加强 K8s、SFTP 安全校验，修复终端字体显示问题"
+        ],
+        "en-US": [
+          "AI chat: added conversation navigation for quickly locating previous prompts",
+          "Terminal experience: added click-to-select command blocks and improved splitter dragging and text-field selection",
+          "Security and compatibility: strengthened K8s and SFTP validation and fixed terminal font rendering"
+        ]
+      }
+    },
+    {
       "version": "0.12.4",
       "date": "2026-09-22",
       "highlights": {
