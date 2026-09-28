@@ -779,13 +779,8 @@ ${combinedContent}
     }
   }
 
+  // No listing SDK is bundled, so return the built-in catalogue.
   async fetchModels(): Promise<{ models: string[]; error?: string }> {
-    try {
-      const models = Object.keys(bedrockModels).sort()
-      return { models }
-    } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : String(error)
-      return { models: [], error: `Failed to fetch models: ${errorMessage}` }
-    }
+    return { models: Object.keys(bedrockModels).sort() }
   }
 }
