@@ -243,4 +243,152 @@ describe('sftpTransfer root path', () => {
       expect(sftp.readdir).toHaveBeenNthCalledWith(2, '/remote/reports/nested', expect.any(Function))
     })
   })
+
+  describe.each([
+    { platform: 'Windows', localPath: path.win32, parent: 'C:\\downloads\\selected' },
+    { platform: 'POSIX', localPath: path.posix, parent: '/downloads/selected' }
+  ])('single-file download on $platform', ({ localPath, parent }) => {
+    it.each([
+      '../../EXISTING.txt',
+      String.raw`..\..\file.txt`,
+      '/outside.txt',
+      String.raw`C:\outside.txt`,
+      String.raw`\\server\share\file.txt`,
+      '.',
+      '..',
+      '',
+      'bad\0name'
+    ])('rejects SFTP entry %j before filesystem writes or remote reads', async (fileName) => {
+      const { registerFileSystemHandlers } = await setupModule(localPath)
+      const { getSftpConnection } = await import('../sshHandle')
+      const mkdir = vi.spyOn(fs.promises, 'mkdir').mockResolvedValue(undefined)
+      const writeFile = vi.spyOn(fs.promises, 'writeFile').mockResolvedValue(undefined)
+      const open = vi.spyOn(fs.promises, 'open')
+      const sftp = { stat: vi.fn((_p: string, cb: any) => cb(null, { size: 0 })) }
+      vi.mocked(getSftpConnection).mockReturnValue(sftp)
+      registerFileSystemHandlers()
+
+      const result = await sshState.ipcHandlers.get('ssh:sftp:download-file')(
+        {},
+        {
+          id: 'remote-id',
+          remotePath: `/share/${fileName}`,
+          localDir: parent,
+          fileName
+        }
+      )
+
+      expect(result).toMatchObject({ status: 'error', errorSide: 'local', message: expect.stringContaining('Unsafe remote filename rejected') })
+      expect(mkdir).not.toHaveBeenCalled()
+      expect(writeFile).not.toHaveBeenCalled()
+      expect(open).not.toHaveBeenCalled()
+      expect(sftp.stat).not.toHaveBeenCalled()
+    })
+
+    it('downloads an ordinary entry inside the selected directory', async () => {
+      const { registerFileSystemHandlers } = await setupModule(localPath)
+      const { getSftpConnection } = await import('../sshHandle')
+      const mkdir = vi.spyOn(fs.promises, 'mkdir').mockResolvedValue(undefined)
+      const writeFile = vi.spyOn(fs.promises, 'writeFile').mockResolvedValue(undefined)
+      const sftp = { stat: vi.fn((_p: string, cb: any) => cb(null, { size: 0 })) }
+      vi.mocked(getSftpConnection).mockReturnValue(sftp)
+      registerFileSystemHandlers()
+
+      const result = await sshState.ipcHandlers.get('ssh:sftp:download-file')(
+        {},
+        {
+          id: 'remote-id',
+          remotePath: '/share/报告 2026.txt',
+          localDir: parent,
+          fileName: '报告 2026.txt'
+        }
+      )
+
+      expect(result.status).toBe('success')
+      expect(mkdir).toHaveBeenCalledWith(parent, { recursive: true })
+      expect(writeFile).toHaveBeenCalledWith(localPath.join(parent, '报告 2026.txt'), Buffer.alloc(0))
+    })
+  })
+
+  it('preserves an existing file outside the drop directory when the server supplies traversal', async () => {
+    const { registerFileSystemHandlers } = await setupModule()
+    const { getSftpConnection } = await import('../sshHandle')
+    const root = fs.mkdtempSync(path.join(os.tmpdir(), 'chaterm-sftp-file-'))
+    const parent = path.join(root, 'selected', 'nested')
+    const canary = path.join(root, 'EXISTING.txt')
+    fs.mkdirSync(parent, { recursive: true })
+    fs.writeFileSync(canary, 'ORIGINAL')
+    // A zero-byte download would still truncate the existing file in the vulnerable implementation.
+    const sftp = { stat: vi.fn((_p: string, cb: any) => cb(null, { size: 0 })) }
+    vi.mocked(getSftpConnection).mockReturnValue(sftp)
+    registerFileSystemHandlers()
+    try {
+      const result = await sshState.ipcHandlers.get('ssh:sftp:download-file')(
+        {},
+        {
+          id: 'remote-id',
+          remotePath: '/share/../../EXISTING.txt',
+          localDir: parent,
+          fileName: '../../EXISTING.txt'
+        }
+      )
+      expect(result.status).toBe('error')
+      expect(fs.readFileSync(canary, 'utf8')).toBe('ORIGINAL')
+      expect(fs.readdirSync(parent)).toEqual([])
+    } finally {
+      fs.rmSync(root, { recursive: true, force: true })
+    }
+  })
+
+  it.each([{ localDir: '/selected' }, { fileName: 'file.txt' }, { localDir: '', fileName: 'file.txt' }])(
+    'does not fall back to localPath for an incomplete directory download: %j',
+    async (destination) => {
+      const { registerFileSystemHandlers } = await setupModule()
+      const { getSftpConnection } = await import('../sshHandle')
+      registerFileSystemHandlers()
+      const result = await sshState.ipcHandlers.get('ssh:sftp:download-file')(
+        {},
+        {
+          id: 'remote-id',
+          remotePath: '/share/file.txt',
+          localPath: '/outside.txt',
+          ...destination
+        }
+      )
+      expect(result).toMatchObject({ status: 'error', errorSide: 'local' })
+      expect(getSftpConnection).not.toHaveBeenCalled()
+    }
+  )
+
+  it('keeps the explicit save-dialog destination independent of the remote entry name', async () => {
+    const { registerFileSystemHandlers } = await setupModule()
+    const { getSftpConnection } = await import('../sshHandle')
+    const root = fs.mkdtempSync(path.join(os.tmpdir(), 'chaterm-sftp-save-'))
+    const destination = path.join(root, 'renamed.txt')
+    const content = Buffer.from('DOWNLOADED-CONTENT')
+    const sftp = {
+      stat: vi.fn((_p: string, cb: any) => cb(null, { size: content.length })),
+      open: vi.fn((_p: string, _flags: string, cb: any) => cb(null, Buffer.from('handle'))),
+      read: vi.fn((_handle: Buffer, buffer: Buffer, offset: number, length: number, position: number, cb: any) => {
+        cb(null, content.copy(buffer, offset, position, position + length))
+      }),
+      close: vi.fn((_handle: Buffer, cb: any) => cb(null))
+    }
+    vi.mocked(getSftpConnection).mockReturnValue(sftp)
+    registerFileSystemHandlers()
+    try {
+      const result = await sshState.ipcHandlers.get('ssh:sftp:download-file')(
+        {},
+        {
+          id: 'remote-id',
+          remotePath: '/share/../../remote.txt',
+          localPath: destination
+        }
+      )
+      expect(result.status).toBe('success')
+      expect(fs.readFileSync(destination, 'utf8')).toBe('DOWNLOADED-CONTENT')
+    } finally {
+      fs.rmSync(root, { recursive: true, force: true })
+    }
+  })
 })
