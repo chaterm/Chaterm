@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import type { WebviewMessage } from '@shared/WebviewMessage'
 
 /** Mock api handler shape used in tests; getModel is a vi.fn() so we can mockReturnValue. */
@@ -484,6 +484,81 @@ describe('Controller', () => {
     expect(result?.command).toBe('grep -R "TODO" .')
     expect(result?.explanation.endsWith('...')).toBe(true)
     expect((result?.explanation ?? '').length).toBeLessThanOrEqual(63)
+  })
+
+  describe('fetchProviderModels', () => {
+    const newController = () =>
+      new Controller(
+        async () => true,
+        async () => '/tmp/mcp_settings.json'
+      )
+
+    afterEach(() => {
+      vi.restoreAllMocks()
+    })
+
+    it('delegates to the provider handler built by buildApiHandler', async () => {
+      const fetchModels = vi.fn(async () => ({ models: ['claude-haiku-4', 'claude-sonnet-4'] }))
+      mockBuildApiHandler.mockReturnValueOnce({ createMessage: vi.fn(), getModel: vi.fn(), fetchModels } as never)
+      const configuration = { apiProvider: 'anthropic', anthropicApiKey: 'k' } as const
+
+      const result = await newController().fetchProviderModels(configuration)
+
+      expect(mockBuildApiHandler).toHaveBeenCalledWith(configuration)
+      expect(fetchModels).toHaveBeenCalledOnce()
+      expect(result).toEqual({ models: ['claude-haiku-4', 'claude-sonnet-4'] })
+    })
+
+    it('reports providers whose handler cannot list models', async () => {
+      mockBuildApiHandler.mockReturnValueOnce({ createMessage: vi.fn(), getModel: vi.fn() } as never)
+
+      const result = await newController().fetchProviderModels({ apiProvider: 'anthropic' })
+
+      expect(result).toEqual({ models: [], error: 'Model listing is not supported for this provider' })
+    })
+
+    it('returns the construction error when the handler cannot be built', async () => {
+      mockBuildApiHandler.mockImplementationOnce(() => {
+        throw new Error('Unsupported proxy type')
+      })
+
+      const result = await newController().fetchProviderModels({ apiProvider: 'openai' })
+
+      expect(result).toEqual({ models: [], error: 'Unsupported proxy type' })
+    })
+
+    it('maps default-provider fields onto a LiteLLM handler', async () => {
+      const { LiteLlmHandler } = await import('@api/providers/litellm')
+      const fetchModels = vi.fn(async () => ({ models: ['gpt-4'] }))
+      const createSync = vi.spyOn(LiteLlmHandler, 'createSync').mockReturnValue({ fetchModels } as never)
+
+      const result = await newController().fetchProviderModels({
+        apiProvider: 'default',
+        defaultModelId: 'gpt-4',
+        defaultBaseUrl: 'https://gateway.example.com',
+        defaultApiKey: 'gateway-key'
+      })
+
+      expect(createSync).toHaveBeenCalledWith(
+        expect.objectContaining({
+          liteLlmModelId: 'gpt-4',
+          liteLlmBaseUrl: 'https://gateway.example.com',
+          liteLlmApiKey: 'gateway-key'
+        })
+      )
+      expect(mockBuildApiHandler).not.toHaveBeenCalled()
+      expect(result).toEqual({ models: ['gpt-4'] })
+    })
+
+    it('passes a litellm configuration through unchanged', async () => {
+      const { LiteLlmHandler } = await import('@api/providers/litellm')
+      const createSync = vi.spyOn(LiteLlmHandler, 'createSync').mockReturnValue({ fetchModels: async () => ({ models: [] }) } as never)
+      const configuration = { apiProvider: 'litellm', liteLlmBaseUrl: 'http://localhost:4000', liteLlmApiKey: 'k' } as const
+
+      await newController().fetchProviderModels(configuration)
+
+      expect(createSync).toHaveBeenCalledWith(configuration)
+    })
   })
 
   describe('handleWebviewMessage(askResponse) model switching', () => {
