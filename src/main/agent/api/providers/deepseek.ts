@@ -170,4 +170,15 @@ export class DeepSeekHandler implements ApiHandler {
     const id = modelId as DeepSeekModelId
     return { id, info: { ...deepSeekModels[id], ...(this.options.deepSeekModelInfo || {}) } }
   }
+
+  async fetchModels(): Promise<{ models: string[]; error?: string }> {
+    try {
+      const response = await this.client.models.list()
+      const models = response.data.map((m) => m.id).sort()
+      return { models }
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : String(error)
+      return { models: [], error: `Failed to fetch models: ${errorMessage}` }
+    }
+  }
 }

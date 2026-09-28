@@ -1331,6 +1331,15 @@ const api = {
       return Promise.reject(error)
     }
   },
+
+  fetchProviderModels: async (configuration?: Record<string, unknown>) => {
+    try {
+      const result = await ipcRenderer.invoke('fetch-provider-models', configuration)
+      return result
+    } catch (error) {
+      return Promise.reject(error)
+    }
+  },
   // Telemetry events
   captureButtonClick: async (button: string, properties?: Record<string, unknown>) => {
     try {

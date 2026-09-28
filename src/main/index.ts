@@ -2853,6 +2853,16 @@ ipcMain.handle('validate-api-key', async (_, configuration) => {
   return { isValid: false, error: 'Controller not initialized' }
 })
 
+ipcMain.handle('fetch-provider-models', async (_, configuration) => {
+  if (controller) {
+    if (!configuration) {
+      return { models: [], error: 'No API configuration provided' }
+    }
+    return await controller.fetchProviderModels(configuration)
+  }
+  return { models: [], error: 'Controller not initialized' }
+})
+
 ipcMain.handle('refresh-organization-assets', async (event, data) => {
   try {
     const { organizationUuid, jumpServerConfig } = data
