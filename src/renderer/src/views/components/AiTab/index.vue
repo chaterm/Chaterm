@@ -9,51 +9,33 @@
       :key="tab.id"
     >
       <template #tab>
-        <a-dropdown :trigger="['contextmenu']">
-          <div
-            class="tab-title-container"
-            @contextmenu.prevent
+        <div
+          class="tab-title-container"
+          @contextmenu.prevent="showTabContextMenu($event, tab)"
+        >
+          <a-input
+            v-if="editingTabId === tab.id"
+            :ref="(el) => (renameInputRef = el as any)"
+            v-model:value="editingTitle"
+            size="small"
+            class="tab-title-input"
+            @keydown="(event) => handleRenameKeydown(event, tab.id)"
+            @blur="cancelTabRename"
+            @click.stop
+          />
+          <span
+            v-else
+            class="tab-title"
+            draggable="true"
+            @dragstart="handleTabDragStart($event, tab)"
           >
-            <a-input
-              v-if="editingTabId === tab.id"
-              :ref="(el) => (renameInputRef = el as any)"
-              v-model:value="editingTitle"
-              size="small"
-              class="tab-title-input"
-              @keydown="(event) => handleRenameKeydown(event, tab.id)"
-              @blur="cancelTabRename"
-              @click.stop
-            />
-            <span
-              v-else
-              class="tab-title"
-              draggable="true"
-              @dragstart="handleTabDragStart($event, tab)"
-            >
-              {{ tab.title }}
-            </span>
-            <CloseOutlined
-              class="tab-close-icon"
-              @click.stop="handleTabRemove(tab.id)"
-            />
-          </div>
-          <template #overlay>
-            <a-menu @click="({ key }) => handleTabMenuClick(key, tab)">
-              <a-menu-item key="rename">
-                {{ $t('ai.renameTab') }}
-              </a-menu-item>
-              <a-menu-item key="close">
-                {{ $t('ai.closeTab') }}
-              </a-menu-item>
-              <a-menu-item key="closeOthers">
-                {{ $t('ai.closeOtherTabs') }}
-              </a-menu-item>
-              <a-menu-item key="closeAll">
-                {{ $t('ai.closeAllTabs') }}
-              </a-menu-item>
-            </a-menu>
-          </template>
-        </a-dropdown>
+            {{ tab.title }}
+          </span>
+          <CloseOutlined
+            class="tab-close-icon"
+            @click.stop="handleTabRemove(tab.id)"
+          />
+        </div>
       </template>
       <!-- Use v-show instead of v-if to keep tab content in DOM and avoid re-rendering on tab switch -->
       <div
@@ -639,180 +621,176 @@
     </a-tab-pane>
     <template #rightExtra>
       <div class="right-extra-buttons">
-        <a-tooltip :title="$t('ai.newChat')">
+        <a-button
+          type="text"
+          class="action-icon-btn"
+          data-testid="new-tab-button"
+          @click="createNewEmptyTab"
+        >
+          <img
+            :src="plusIcon"
+            alt="plus"
+          />
+        </a-button>
+        <a-dropdown
+          :trigger="['click']"
+          transition-name="history-dropdown-motion"
+        >
           <a-button
             type="text"
             class="action-icon-btn"
-            data-testid="new-tab-button"
-            @click="createNewEmptyTab"
+            @click="refreshHistoryList"
           >
             <img
-              :src="plusIcon"
-              alt="plus"
+              :src="historyIcon"
+              alt="history"
             />
           </a-button>
-        </a-tooltip>
-        <a-tooltip :title="$t('ai.showChatHistory')">
-          <a-dropdown
-            :trigger="['click']"
-            transition-name="history-dropdown-motion"
-          >
-            <a-button
-              type="text"
-              class="action-icon-btn"
-              @click="refreshHistoryList"
-            >
-              <img
-                :src="historyIcon"
-                alt="history"
-              />
-            </a-button>
-            <template #overlay>
-              <a-menu class="history-dropdown-menu">
-                <div class="history-search-container">
-                  <a-input
-                    v-model:value="historySearchValue"
-                    :placeholder="$t('ai.searchHistoryPH')"
-                    size="small"
-                    class="history-search-input"
-                    allow-clear
-                  >
-                    <template #prefix>
-                      <SearchOutlined style="color: #666" />
-                    </template>
-                  </a-input>
-                  <a-tooltip :title="$t('ai.favorites')">
-                    <a-button
-                      size="small"
-                      class="favorites-button"
-                      type="text"
-                      @click="showOnlyFavorites = !showOnlyFavorites"
-                    >
-                      <template #icon>
-                        <StarFilled
-                          v-if="showOnlyFavorites"
-                          style="color: #faad14"
-                        />
-                        <StarOutlined
-                          v-else
-                          class="star-outline-icon"
-                        />
-                      </template>
-                    </a-button>
-                  </a-tooltip>
-                </div>
-                <div class="history-virtual-list-container">
-                  <template
-                    v-for="group in groupedPaginatedHistory"
-                    :key="group.dateLabel"
-                  >
-                    <div
-                      class="history-date-header"
-                      :class="{ 'favorite-header': group.dateLabel === favoriteLabel }"
-                    >
-                      <template v-if="group.dateLabel === favoriteLabel">
-                        <StarFilled style="color: #faad14; font-size: 12px" />
-                        <span>{{ $t('ai.favorite') }}</span>
-                      </template>
-                      <template v-else>
-                        {{ group.dateLabel }}
-                      </template>
-                    </div>
-                    <a-menu-item
-                      v-for="history in group.items"
-                      :key="history.id"
-                      class="history-menu-item"
-                      :class="{ 'favorite-item': history.isFavorite }"
-                      @click="!history.isEditing && restoreHistoryTab(history)"
-                    >
-                      <div class="history-item-content">
-                        <div
-                          v-if="!history.isEditing"
-                          class="history-title"
-                        >
-                          {{ history.chatTitle }}
-                        </div>
-                        <a-input
-                          v-else
-                          v-model:value="history.editingTitle"
-                          size="small"
-                          class="history-title-input"
-                          @press-enter="saveHistoryTitle(history)"
-                          @blur.stop="() => {}"
-                          @click.stop
-                        />
-                        <div class="menu-action-buttons">
-                          <template v-if="!history.isEditing">
-                            <a-button
-                              size="small"
-                              class="menu-action-btn favorite-btn"
-                              @click.stop="toggleFavorite(history)"
-                            >
-                              <template #icon>
-                                <template v-if="history.isFavorite">
-                                  <StarFilled style="color: #faad14" />
-                                </template>
-                                <template v-else>
-                                  <StarOutlined style="color: #999999" />
-                                </template>
-                              </template>
-                            </a-button>
-                            <a-button
-                              size="small"
-                              class="menu-action-btn"
-                              @click.stop="editHistory(history)"
-                            >
-                              <template #icon>
-                                <EditOutlined style="color: #999999" />
-                              </template>
-                            </a-button>
-                            <a-button
-                              size="small"
-                              class="menu-action-btn"
-                              @click.stop="deleteHistory(history)"
-                            >
-                              <template #icon>
-                                <DeleteOutlined style="color: #999999" />
-                              </template>
-                            </a-button>
-                          </template>
-                          <template v-else>
-                            <a-button
-                              size="small"
-                              class="menu-action-btn save-btn"
-                              @click.stop="saveHistoryTitle(history)"
-                            >
-                              <template #icon>
-                                <CheckOutlined style="color: #999999" />
-                              </template>
-                            </a-button>
-                            <a-button
-                              size="small"
-                              class="menu-action-btn cancel-btn"
-                              @click.stop.prevent="cancelEdit(history)"
-                            >
-                              <template #icon>
-                                <CloseOutlined style="color: #999999" />
-                              </template>
-                            </a-button>
-                          </template>
-                        </div>
-                      </div>
-                    </a-menu-item>
+          <template #overlay>
+            <a-menu class="history-dropdown-menu">
+              <div class="history-search-container">
+                <a-input
+                  v-model:value="historySearchValue"
+                  :placeholder="$t('ai.searchHistoryPH')"
+                  size="small"
+                  class="history-search-input"
+                  allow-clear
+                >
+                  <template #prefix>
+                    <SearchOutlined style="color: #666" />
                   </template>
-                  <div
-                    v-if="hasMoreHistory"
-                    class="history-load-more"
-                    @click="loadMoreHistory"
-                    @intersection="handleIntersection"
+                </a-input>
+                <a-tooltip :title="$t('ai.favorites')">
+                  <a-button
+                    size="small"
+                    class="favorites-button"
+                    type="text"
+                    @click="showOnlyFavorites = !showOnlyFavorites"
                   >
-                    {{ isLoadingMore ? $t('ai.loading') : $t('ai.loadMore') }}
+                    <template #icon>
+                      <StarFilled
+                        v-if="showOnlyFavorites"
+                        style="color: #faad14"
+                      />
+                      <StarOutlined
+                        v-else
+                        class="star-outline-icon"
+                      />
+                    </template>
+                  </a-button>
+                </a-tooltip>
+              </div>
+              <div class="history-virtual-list-container">
+                <template
+                  v-for="group in groupedPaginatedHistory"
+                  :key="group.dateLabel"
+                >
+                  <div
+                    class="history-date-header"
+                    :class="{ 'favorite-header': group.dateLabel === favoriteLabel }"
+                  >
+                    <template v-if="group.dateLabel === favoriteLabel">
+                      <StarFilled style="color: #faad14; font-size: 12px" />
+                      <span>{{ $t('ai.favorite') }}</span>
+                    </template>
+                    <template v-else>
+                      {{ group.dateLabel }}
+                    </template>
                   </div>
+                  <a-menu-item
+                    v-for="history in group.items"
+                    :key="history.id"
+                    class="history-menu-item"
+                    :class="{ 'favorite-item': history.isFavorite }"
+                    @click="!history.isEditing && restoreHistoryTab(history)"
+                  >
+                    <div class="history-item-content">
+                      <div
+                        v-if="!history.isEditing"
+                        class="history-title"
+                      >
+                        {{ history.chatTitle }}
+                      </div>
+                      <a-input
+                        v-else
+                        v-model:value="history.editingTitle"
+                        size="small"
+                        class="history-title-input"
+                        @press-enter="saveHistoryTitle(history)"
+                        @blur.stop="() => {}"
+                        @click.stop
+                      />
+                      <div class="menu-action-buttons">
+                        <template v-if="!history.isEditing">
+                          <a-button
+                            size="small"
+                            class="menu-action-btn favorite-btn"
+                            @click.stop="toggleFavorite(history)"
+                          >
+                            <template #icon>
+                              <template v-if="history.isFavorite">
+                                <StarFilled style="color: #faad14" />
+                              </template>
+                              <template v-else>
+                                <StarOutlined style="color: #999999" />
+                              </template>
+                            </template>
+                          </a-button>
+                          <a-button
+                            size="small"
+                            class="menu-action-btn"
+                            @click.stop="editHistory(history)"
+                          >
+                            <template #icon>
+                              <EditOutlined style="color: #999999" />
+                            </template>
+                          </a-button>
+                          <a-button
+                            size="small"
+                            class="menu-action-btn"
+                            @click.stop="deleteHistory(history)"
+                          >
+                            <template #icon>
+                              <DeleteOutlined style="color: #999999" />
+                            </template>
+                          </a-button>
+                        </template>
+                        <template v-else>
+                          <a-button
+                            size="small"
+                            class="menu-action-btn save-btn"
+                            @click.stop="saveHistoryTitle(history)"
+                          >
+                            <template #icon>
+                              <CheckOutlined style="color: #999999" />
+                            </template>
+                          </a-button>
+                          <a-button
+                            size="small"
+                            class="menu-action-btn cancel-btn"
+                            @click.stop.prevent="cancelEdit(history)"
+                          >
+                            <template #icon>
+                              <CloseOutlined style="color: #999999" />
+                            </template>
+                          </a-button>
+                        </template>
+                      </div>
+                    </div>
+                  </a-menu-item>
+                </template>
+                <div
+                  v-if="hasMoreHistory"
+                  class="history-load-more"
+                  @click="loadMoreHistory"
+                  @intersection="handleIntersection"
+                >
+                  {{ isLoadingMore ? $t('ai.loading') : $t('ai.loadMore') }}
                 </div>
-              </a-menu>
-            </template>
-          </a-dropdown>
-        </a-tooltip>
+              </div>
+            </a-menu>
+          </template>
+        </a-dropdown>
         <a-dropdown trigger="click">
           <a-button
             type="text"
@@ -833,6 +811,22 @@
           </template>
         </a-dropdown>
       </div>
+      <!-- Single shared tab context menu. v-contextmenu teleports to body, so it
+           matches the terminal's menu latency instead of a-dropdown's delayed hide. -->
+      <v-contextmenu ref="tabContextMenu">
+        <v-contextmenu-item @click="onTabMenuAction('rename')">
+          {{ $t('ai.renameTab') }}
+        </v-contextmenu-item>
+        <v-contextmenu-item @click="onTabMenuAction('close')">
+          {{ $t('ai.closeTab') }}
+        </v-contextmenu-item>
+        <v-contextmenu-item @click="onTabMenuAction('closeOthers')">
+          {{ $t('ai.closeOtherTabs') }}
+        </v-contextmenu-item>
+        <v-contextmenu-item @click="onTabMenuAction('closeAll')">
+          {{ $t('ai.closeAllTabs') }}
+        </v-contextmenu-item>
+      </v-contextmenu>
     </template>
   </a-tabs>
 </template>
@@ -850,7 +844,7 @@ import { useEventBusListeners } from './composables/useEventBusListeners'
 import { useHostState } from './composables/useHostState'
 import { useMessageOptions } from './composables/useMessageOptions'
 import { useModelConfiguration } from './composables/useModelConfiguration'
-import { useSessionState } from './composables/useSessionState'
+import { useSessionState, type ChatTab } from './composables/useSessionState'
 import { useStateSnapshot } from './composables/useStateSnapshot'
 import { useTabManagement } from './composables/useTabManagement'
 import { useTodo } from './composables/useTodo'
@@ -1157,6 +1151,32 @@ const {
   toggleSidebar: props.toggleSidebar
 })
 
+// Tab context menu. Uses v-contextmenu (the terminal's menu) because a-dropdown
+// defers its outside-click hide by a hardcoded 100ms.
+const tabContextMenu = ref<{ show: (e: MouseEvent) => void; hide?: () => void } | null>(null)
+const contextMenuTab = ref<ChatTab | null>(null)
+
+// v-contextmenu only wires up its own outside-click handler for elements bound via the
+// directive. This menu is opened imperatively, so dismissal is registered here.
+// Capture phase is required: ant's .ant-tabs-tab-btn calls stopPropagation() on click
+// (tabs/src/TabNavList/TabNode.js), so a bubble-phase listener never sees a click on a tab.
+const hideTabContextMenu = (event: Event) => {
+  // Clicks inside the menu are dismissed by the item's own hideOnClick.
+  if (event.target instanceof Element && event.target.closest('.v-contextmenu')) return
+  tabContextMenu.value?.hide?.()
+}
+
+const showTabContextMenu = (event: MouseEvent, tab: ChatTab) => {
+  contextMenuTab.value = tab
+  tabContextMenu.value?.show(event)
+}
+
+const onTabMenuAction = (key: string) => {
+  const tab = contextMenuTab.value
+  if (!tab) return
+  handleTabMenuClick(key, tab)
+}
+
 // Tab drag handler for context drag-and-drop
 const handleTabDragStart = (e: DragEvent, tab: { id: string; title: string }) => {
   if (!e.dataTransfer) return
@@ -1184,6 +1204,7 @@ const {
   cancelEdit,
   deleteHistory,
   toggleFavorite,
+  loadHistoryList,
   refreshHistoryList
 } = useChatHistory({ createNewEmptyTab, renameTab, workspace: props.workspace })
 
@@ -1367,16 +1388,25 @@ onMounted(async () => {
   initializeAutoScroll()
 
   window.addEventListener('keydown', handleAiChatSearchKeyDown)
+  window.addEventListener('click', hideTabContextMenu, true)
+  window.addEventListener('keydown', hideTabContextMenu, true)
 
   if (window.api?.onCommandExplainResponse) {
     unsubscribeExplainResponse = window.api.onCommandExplainResponse(handleExplainCommandResponse)
   }
+
+  // Warm the history list so the first dropdown open paints its items immediately
+  // instead of showing an empty menu while the IPC round trip completes.
+  void loadHistoryList()
+
   mark('chaterm/renderer/didInitAiTab')
 })
 
 onBeforeUnmount(() => {
   unsubscribeExplainResponse?.()
   window.removeEventListener('keydown', handleAiChatSearchKeyDown)
+  window.removeEventListener('click', hideTabContextMenu, true)
+  window.removeEventListener('keydown', hideTabContextMenu, true)
 })
 
 // Expose to parent component

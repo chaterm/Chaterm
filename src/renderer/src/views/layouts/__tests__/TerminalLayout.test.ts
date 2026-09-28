@@ -820,6 +820,9 @@ describe('TerminalLayout - AI Sidebar Sticky Logic (Core)', () => {
   const SNAP_THRESHOLD_PX = 200
   const DEFAULT_WIDTH_RIGHT_PX = 350
   const MIN_LEFT_SIDEBAR_WIDTH_PX = 200
+  const MIN_LEFT_SIDEBAR_DRAG_WIDTH_PX = 120
+  const LEFT_QUICK_CLOSE_THRESHOLD_PX = 50
+  const DEFAULT_WIDTH_PX = 250
 
   let aiSidebarSize: any
   let aiMinSize: any
@@ -833,12 +836,21 @@ describe('TerminalLayout - AI Sidebar Sticky Logic (Core)', () => {
   let savedLeftSidebarState: any
   let currentMenu: any
   let isQuickClosing: any
+  let isLeftQuickCloseArmed: any
   let updateAiSidebarMinSize: any
   let handleGlobalMouseMove: any
+  let handleLeftSplitterMouseDown: any
+  let getLeftSidebarContainer: any
   let getLeftSidebarSize: any
   let setLeftSidebarSize: any
   let saveLeftSidebarState: any
   let restoreLeftSidebarState: any
+  let rememberedLeftWidthPx: any
+  let getModeKey: any
+  let rememberLeftSidebarWidth: any
+  let getLeftSidebarOpenSize: any
+  let handleGlobalMouseUp: any
+  let updatePaneSize: any
 
   beforeEach(() => {
     vi.clearAllMocks()
@@ -854,11 +866,16 @@ describe('TerminalLayout - AI Sidebar Sticky Logic (Core)', () => {
     savedLeftSidebarState = ref(null)
     currentMenu = ref('workspace')
     isQuickClosing = ref(false)
+    isLeftQuickCloseArmed = ref(false)
+    rememberedLeftWidthPx = ref({ terminal: null, agents: null })
 
     global.document = {
       querySelector: vi.fn((selector: string) => {
         if (selector === '.main-split-container') return { offsetWidth: 800 }
-        if (selector === '.left-sidebar-container') return { offsetWidth: 1000 }
+        // Terminal mode container starts after the 40px icon rail
+        if (selector.includes('.left-sidebar-container')) {
+          return { offsetWidth: 1000, getBoundingClientRect: () => ({ left: 40, width: 1000 }) }
+        }
         if (selector === '.splitpanes') return mockContainer
         return null
       }),
@@ -909,9 +926,13 @@ describe('TerminalLayout - AI Sidebar Sticky Logic (Core)', () => {
         }
       }
       if (isDraggingLeftSplitter.value && getLeftSidebarSize() > 0) {
-        const distFromLeft = e.clientX
-        const container = global.document.querySelector('.left-sidebar-container') as HTMLElement
+        const container = getLeftSidebarContainer()
         if (!container) return
+        const distFromLeft = e.clientX - container.getBoundingClientRect().left
+        if (!isLeftQuickCloseArmed.value) {
+          if (distFromLeft >= 50) isLeftQuickCloseArmed.value = true
+          return
+        }
         if (distFromLeft < 50) {
           isQuickClosing.value = true
           const mouseUpEvent = new MouseEvent('mouseup', { bubbles: true, cancelable: true })
@@ -920,12 +941,26 @@ describe('TerminalLayout - AI Sidebar Sticky Logic (Core)', () => {
             saveLeftSidebarState()
             setLeftSidebarSize(0)
             isDraggingLeftSplitter.value = false
+            isLeftQuickCloseArmed.value = false
             global.window.setTimeout(() => {
               isQuickClosing.value = false
             }, 100)
           }, 10)
         }
       }
+    })
+
+    handleLeftSplitterMouseDown = vi.fn((e: MouseEvent) => {
+      isDraggingLeftSplitter.value = true
+      const container = getLeftSidebarContainer()
+      const distFromLeft = container ? e.clientX - container.getBoundingClientRect().left : e.clientX
+      isLeftQuickCloseArmed.value = distFromLeft >= 50
+    })
+
+    getLeftSidebarContainer = vi.fn(() => {
+      const modeSelector = currentMode.value === 'agents' ? '.agents-mode-layout' : '.terminal-mode-layout'
+      return (global.document.querySelector(`${modeSelector} .left-sidebar-container`) ||
+        global.document.querySelector('.left-sidebar-container')) as HTMLElement | null
     })
 
     getLeftSidebarSize = vi.fn(() => {
@@ -948,17 +983,60 @@ describe('TerminalLayout - AI Sidebar Sticky Logic (Core)', () => {
       }
     })
 
+    getModeKey = vi.fn(() => (currentMode.value === 'agents' ? 'agents' : 'terminal'))
+
+    rememberLeftSidebarWidth = vi.fn(() => {
+      const size = getLeftSidebarSize()
+      if (size <= 0) return
+      const container = getLeftSidebarContainer()
+      if (!container || container.offsetWidth <= 0) return
+      const widthPx = (size / 100) * container.offsetWidth
+      if (widthPx < LEFT_QUICK_CLOSE_THRESHOLD_PX) return
+      rememberedLeftWidthPx.value[getModeKey()] = widthPx
+    })
+
+    getLeftSidebarOpenSize = vi.fn((containerWidth: number, defaultSize: number) => {
+      const remembered = rememberedLeftWidthPx.value[getModeKey()]
+      if (remembered !== null && containerWidth > 0) {
+        return (remembered / containerWidth) * 100
+      }
+      return defaultSize
+    })
+
+    handleGlobalMouseUp = vi.fn(() => {
+      if (isDraggingLeftSplitter.value && !isQuickClosing.value) {
+        rememberLeftSidebarWidth()
+      }
+      isDraggingSplitter.value = false
+      isDraggingLeftSplitter.value = false
+      isLeftQuickCloseArmed.value = false
+    })
+
     restoreLeftSidebarState = vi.fn(() => {
-      const container = global.document.querySelector('.left-sidebar-container') as HTMLElement
+      const container = getLeftSidebarContainer()
       if (container && container.offsetWidth > 0) {
         const containerWidth = container.offsetWidth
         const minSizePercent = (MIN_LEFT_SIDEBAR_WIDTH_PX / containerWidth) * 100
-        let restoredSize = savedLeftSidebarState.value.size
-        if ((restoredSize / 100) * containerWidth < MIN_LEFT_SIDEBAR_WIDTH_PX) {
-          restoredSize = minSizePercent
+        let restoredSize = getLeftSidebarOpenSize(containerWidth, savedLeftSidebarState.value.size)
+        const floorPx = rememberedLeftWidthPx.value[getModeKey()] !== null ? MIN_LEFT_SIDEBAR_DRAG_WIDTH_PX : MIN_LEFT_SIDEBAR_WIDTH_PX
+        if ((restoredSize / 100) * containerWidth < floorPx) {
+          restoredSize = floorPx === MIN_LEFT_SIDEBAR_DRAG_WIDTH_PX ? (floorPx / containerWidth) * 100 : minSizePercent
         }
         setLeftSidebarSize(restoredSize)
         currentMenu.value = savedLeftSidebarState.value.currentMenu
+      }
+    })
+
+    updatePaneSize = vi.fn(() => {
+      const container = getLeftSidebarContainer()
+      if (!container) return
+      if (leftPaneSize.value > 0 && currentMode.value === 'terminal') {
+        const containerWidth = container.offsetWidth
+        const currentWidthPx = (leftPaneSize.value / 100) * containerWidth
+        const targetWidthPx = rememberedLeftWidthPx.value.terminal ?? DEFAULT_WIDTH_PX
+        if (Math.abs(currentWidthPx - targetWidthPx) > 50) {
+          leftPaneSize.value = (targetWidthPx / containerWidth) * 100
+        }
       }
     })
   })
@@ -1004,8 +1082,9 @@ describe('TerminalLayout - AI Sidebar Sticky Logic (Core)', () => {
   describe('Left Sidebar Core Features', () => {
     it('should trigger quick close when dragged near left edge', () => {
       currentMode.value = 'terminal'
-      isDraggingLeftSplitter.value = true
       leftPaneSize.value = 30
+      // Grab the splitter of an open sidebar, which sits outside the close zone
+      handleLeftSplitterMouseDown({ clientX: 340 } as MouseEvent)
       handleGlobalMouseMove({ clientX: 40 } as MouseEvent)
       expect(getLeftSidebarSize()).toBe(0)
       expect(saveLeftSidebarState).toHaveBeenCalled()
@@ -1017,6 +1096,47 @@ describe('TerminalLayout - AI Sidebar Sticky Logic (Core)', () => {
       savedLeftSidebarState.value = { size: 10, currentMenu: 'workspace', isExpanded: true }
       restoreLeftSidebarState()
       expect(getLeftSidebarSize()).toBe(20)
+    })
+
+    it('should not quick close while dragging a collapsed sidebar back open', () => {
+      currentMode.value = 'terminal'
+      leftPaneSize.value = 0
+      // A collapsed splitter sits at the container's left edge, inside the close zone
+      handleLeftSplitterMouseDown({ clientX: 40 } as MouseEvent)
+      expect(isLeftQuickCloseArmed.value).toBe(false)
+
+      // splitpanes reports a non-zero size as the drag starts moving outward
+      leftPaneSize.value = 15
+      handleGlobalMouseMove({ clientX: 45 } as MouseEvent)
+      handleGlobalMouseMove({ clientX: 60 } as MouseEvent)
+
+      expect(getLeftSidebarSize()).toBe(15)
+      expect(isQuickClosing.value).toBe(false)
+    })
+
+    it('should arm quick close once the pointer leaves the close zone', () => {
+      currentMode.value = 'terminal'
+      leftPaneSize.value = 0
+      handleLeftSplitterMouseDown({ clientX: 40 } as MouseEvent)
+
+      leftPaneSize.value = 20
+      // 140 is 100px past the container's left edge, so quick close arms
+      handleGlobalMouseMove({ clientX: 140 } as MouseEvent)
+      expect(isLeftQuickCloseArmed.value).toBe(true)
+
+      // Dragging back inward now collapses as intended
+      handleGlobalMouseMove({ clientX: 45 } as MouseEvent)
+      expect(getLeftSidebarSize()).toBe(0)
+    })
+
+    it('should measure the close zone from the container edge, not the window edge', () => {
+      currentMode.value = 'terminal'
+      leftPaneSize.value = 30
+      handleLeftSplitterMouseDown({ clientX: 340 } as MouseEvent)
+
+      // clientX 80 is only 40px past the container's left edge of 40, so it closes
+      handleGlobalMouseMove({ clientX: 80 } as MouseEvent)
+      expect(getLeftSidebarSize()).toBe(0)
     })
   })
 
@@ -1052,8 +1172,8 @@ describe('TerminalLayout - AI Sidebar Sticky Logic (Core)', () => {
       expect(showAiSidebar.value).toBe(false)
       expect(aiSidebarSize.value).toBe(0)
       expect(isQuickClosing.value).toBe(false)
-      isDraggingLeftSplitter.value = true
       leftPaneSize.value = 30
+      handleLeftSplitterMouseDown({ clientX: 340 } as MouseEvent)
       handleGlobalMouseMove({ clientX: 40 } as MouseEvent)
       expect(getLeftSidebarSize()).toBe(0)
       expect(isQuickClosing.value).toBe(false)
@@ -1141,8 +1261,8 @@ describe('TerminalLayout - AI Sidebar Sticky Logic (Core)', () => {
 
     it('should handle both sidebars being dragged independently', () => {
       currentMode.value = 'terminal'
-      isDraggingLeftSplitter.value = true
       leftPaneSize.value = 30
+      handleLeftSplitterMouseDown({ clientX: 340 } as MouseEvent)
       handleGlobalMouseMove({ clientX: 40 } as MouseEvent)
       expect(getLeftSidebarSize()).toBe(0)
       isDraggingLeftSplitter.value = false
@@ -1153,6 +1273,122 @@ describe('TerminalLayout - AI Sidebar Sticky Logic (Core)', () => {
       handleGlobalMouseMove({ clientX: 1160 } as MouseEvent)
       expect(showAiSidebar.value).toBe(false)
       expect(getLeftSidebarSize()).toBe(25)
+    })
+  })
+
+  describe('Remembered Left Sidebar Width', () => {
+    it('should remember the width a finished drag settled on', () => {
+      currentMode.value = 'terminal'
+      leftPaneSize.value = 15 // 150px of a 1000px container
+      isDraggingLeftSplitter.value = true
+      handleGlobalMouseUp()
+      expect(rememberedLeftWidthPx.value.terminal).toBe(150)
+      expect(isDraggingLeftSplitter.value).toBe(false)
+    })
+
+    it('should not remember the width when quick close synthesized the mouseup', () => {
+      currentMode.value = 'terminal'
+      rememberedLeftWidthPx.value.terminal = 120
+      leftPaneSize.value = 3 // mid-collapse width, not a deliberate choice
+      isDraggingLeftSplitter.value = true
+      isQuickClosing.value = true
+      handleGlobalMouseUp()
+      expect(rememberedLeftWidthPx.value.terminal).toBe(120)
+    })
+
+    it('should not remember a width too small to be a deliberate choice', () => {
+      currentMode.value = 'terminal'
+      leftPaneSize.value = 3 // 30px, under the 50px quick close threshold
+      isDraggingLeftSplitter.value = true
+      handleGlobalMouseUp()
+      expect(rememberedLeftWidthPx.value.terminal).toBeNull()
+    })
+
+    it('should remember a width that settled on the drag floor despite sub-pixel error', () => {
+      currentMode.value = 'terminal'
+      leftPaneSize.value = 11.998 // 119.98px, a hair under the 120px floor
+      isDraggingLeftSplitter.value = true
+      handleGlobalMouseUp()
+      expect(rememberedLeftWidthPx.value.terminal).toBeCloseTo(119.98, 2)
+    })
+
+    it('should normalize a remembered width just under the floor back up to it', () => {
+      currentMode.value = 'terminal'
+      rememberedLeftWidthPx.value.terminal = 119.98
+      savedLeftSidebarState.value = { size: 11.998, currentMenu: 'workspace', isExpanded: true }
+      restoreLeftSidebarState()
+      expect(leftPaneSize.value).toBe(12) // clamped to the 120px floor of 1000px
+    })
+
+    it('should reopen at the remembered width instead of the default', () => {
+      currentMode.value = 'terminal'
+      rememberedLeftWidthPx.value.terminal = 380
+      expect(getLeftSidebarOpenSize(1000, 25)).toBe(38)
+    })
+
+    it('should fall back to the default size with no remembered width', () => {
+      currentMode.value = 'terminal'
+      expect(getLeftSidebarOpenSize(1000, 25)).toBe(25)
+    })
+
+    it('should restore a remembered width narrower than the preferred minimum', () => {
+      currentMode.value = 'terminal'
+      rememberedLeftWidthPx.value.terminal = 150
+      savedLeftSidebarState.value = { size: 15, currentMenu: 'workspace', isExpanded: true }
+      restoreLeftSidebarState()
+      // 150px survives instead of being raised to the 200px preferred minimum
+      expect(leftPaneSize.value).toBe(15)
+    })
+
+    it('should raise a restored size with no remembered width to the preferred minimum', () => {
+      currentMode.value = 'terminal'
+      savedLeftSidebarState.value = { size: 12, currentMenu: 'workspace', isExpanded: true }
+      restoreLeftSidebarState()
+      expect(leftPaneSize.value).toBe(20) // 200px of 1000px
+    })
+
+    it('should prefer the remembered width over a stale saved size', () => {
+      currentMode.value = 'terminal'
+      rememberedLeftWidthPx.value.terminal = 160
+      savedLeftSidebarState.value = { size: 2, currentMenu: 'workspace', isExpanded: true }
+      restoreLeftSidebarState()
+      // 160px remembered wins over the 20px saved size, and stays above the 120px floor
+      expect(leftPaneSize.value).toBe(16)
+    })
+
+    it('should keep remembered widths independent per mode', () => {
+      currentMode.value = 'terminal'
+      leftPaneSize.value = 12
+      isDraggingLeftSplitter.value = true
+      handleGlobalMouseUp()
+
+      currentMode.value = 'agents'
+      agentsLeftPaneSize.value = 14
+      isDraggingLeftSplitter.value = true
+      handleGlobalMouseUp()
+
+      expect(rememberedLeftWidthPx.value.terminal).toBe(120)
+      expect(rememberedLeftWidthPx.value.agents).toBe(140)
+
+      currentMode.value = 'terminal'
+      expect(getLeftSidebarOpenSize(1000, 25)).toBeCloseTo(12, 6)
+      currentMode.value = 'agents'
+      expect(getLeftSidebarOpenSize(1000, 25)).toBeCloseTo(14, 6)
+    })
+
+    it('should hold the remembered width across a window resize', () => {
+      currentMode.value = 'terminal'
+      rememberedLeftWidthPx.value.terminal = 380
+      leftPaneSize.value = 25 // 250px, far enough from 380px to trip the adjustment
+      updatePaneSize()
+      expect(leftPaneSize.value).toBe(38)
+    })
+
+    it('should hold the default width across a window resize with no remembered width', () => {
+      currentMode.value = 'terminal'
+      leftPaneSize.value = 40 // 400px, far enough from the 250px default
+      updatePaneSize()
+      expect(leftPaneSize.value).toBe(25)
     })
   })
 

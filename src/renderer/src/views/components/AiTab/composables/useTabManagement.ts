@@ -42,6 +42,14 @@ const normalizeChatType = (mode?: string): 'agent' | 'cmd' => {
 
 const HISTORY_RESTORE_PAGE_SIZE = 40
 
+/**
+ * Extra pages restoreHistoryTab may pull when the newest page holds no prompt of
+ * the user's own. A turn that produced more than a page of tool output would
+ * otherwise reopen showing only agent output, with nothing to tell the user what
+ * they had asked for. Bounded so a pathological task cannot stall the open.
+ */
+const HISTORY_RESTORE_MAX_EXTRA_PAGES = 5
+
 const HISTORY_MESSAGE_TYPES = new Set([
   'followup',
   'command',
@@ -302,15 +310,39 @@ export function useTabManagement(options: TabManagementOptions) {
       // This avoids resumeTaskFromHistory rewriting DB rows (DELETE + INSERT
       // with new auto-increment ids) which invalidates pagination cursors.
 
-      const pageResult = await window.api.chatermGetChatermMessagesPage({
+      let pageResult = await window.api.chatermGetChatermMessagesPage({
         taskId: history.id,
         limit: HISTORY_RESTORE_PAGE_SIZE,
         beforeCursor: null
       })
 
-      const historyChatMessages = mapStoredMessagesToChatMessages(pageResult.messages, loadedHosts, {
+      let historyChatMessages = mapStoredMessagesToChatMessages(pageResult.messages, loadedHosts, {
         includesConversationStart: !pageResult.hasMore
       })
+
+      // Keep pulling older pages until the user's own last prompt is in. The role
+      // is only known after mapping: a user_feedback holding pasted terminal
+      // output is re-attributed to the agent, so the stored kind cannot decide it.
+      for (
+        let extraPage = 0;
+        extraPage < HISTORY_RESTORE_MAX_EXTRA_PAGES &&
+        pageResult.hasMore &&
+        pageResult.nextCursor != null &&
+        !historyChatMessages.some((message) => message.role === 'user');
+        extraPage++
+      ) {
+        pageResult = await window.api.chatermGetChatermMessagesPage({
+          taskId: history.id,
+          limit: HISTORY_RESTORE_PAGE_SIZE,
+          beforeCursor: pageResult.nextCursor
+        })
+        historyChatMessages = [
+          ...mapStoredMessagesToChatMessages(pageResult.messages, loadedHosts, {
+            includesConversationStart: !pageResult.hasMore
+          }),
+          ...historyChatMessages
+        ]
+      }
 
       const historySession: SessionState = {
         chatHistory: historyChatMessages,
