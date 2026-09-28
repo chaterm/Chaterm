@@ -5,6 +5,7 @@ import { electronAPI } from '@electron-toolkit/preload'
 import type { WebviewMessage } from '../main/agent/shared/WebviewMessage'
 import type { ChatermMessagesPage } from '../main/agent/shared/ExtensionMessage'
 import type { BatchDeleteAssetsResult } from '../shared/asset-types'
+import type { SftpDownloadFileArgs } from '../shared/sftp-types'
 import {
   DB_AI_IPC_CHANNELS,
   type DbAiCancelResult,
@@ -1396,7 +1397,7 @@ const api = {
   },
   uploadFile: (opts: { id: string; remotePath: string; localPath: string }) => ipcRenderer.invoke('ssh:sftp:upload-file', opts),
   uploadDirectory: (opts: { id: string; localDir: string; remoteDir: string }) => ipcRenderer.invoke('ssh:sftp:upload-directory', opts),
-  downloadFile: (opts: { id: string; remotePath: string; localPath: string }) => ipcRenderer.invoke('ssh:sftp:download-file', opts),
+  downloadFile: (opts: SftpDownloadFileArgs) => ipcRenderer.invoke('ssh:sftp:download-file', opts),
   writeRemoteFile: (opts: { id: string; remotePath: string; content: string }) => ipcRenderer.invoke('ssh:sftp:write-file', opts),
   onFileEditorReplace: (callback: () => void) => {
     const listener = () => callback()

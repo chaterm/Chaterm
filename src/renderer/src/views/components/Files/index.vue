@@ -2259,8 +2259,7 @@ const handleCrossTransfer = async (p: CrossTransferPayload) => {
         const res = await api.downloadDirectory({ id: p.fromUuid, remoteDir: p.srcPath, localDir: p.targetDir })
         notifyByStatus(res, 'download', p.toUuid)
       } else {
-        const localPath = joinPath(p.targetDir, p.name)
-        const res = await api.downloadFile({ id: p.fromUuid, remotePath: p.srcPath, localPath })
+        const res = await window.api.downloadFile({ id: p.fromUuid, remotePath: p.srcPath, localDir: p.targetDir, fileName: p.name })
         notifyByStatus(res, 'download', p.toUuid)
       }
       return
