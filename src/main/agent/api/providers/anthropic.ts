@@ -213,4 +213,15 @@ export class AnthropicHandler implements ApiHandler {
       }
     }
   }
+
+  async fetchModels(): Promise<{ models: string[]; error?: string }> {
+    try {
+      const response = await this.client.models.list()
+      const models = response.data.map((m) => m.id).sort()
+      return { models }
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : String(error)
+      return { models: [], error: `Failed to fetch models: ${errorMessage}` }
+    }
+  }
 }

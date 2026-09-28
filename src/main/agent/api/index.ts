@@ -19,6 +19,7 @@ export interface ApiHandler {
   getModel(): { id: string; info: ModelInfo }
   getApiStreamUsage?(): Promise<ApiStreamUsageChunk | undefined>
   validateApiKey(): Promise<{ isValid: boolean; error?: string }>
+  fetchModels?(): Promise<{ models: string[]; error?: string }>
 }
 
 export interface SingleCompletionHandler {

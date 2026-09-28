@@ -136,4 +136,15 @@ export class OllamaHandler implements ApiHandler {
       }
     }
   }
+
+  async fetchModels(): Promise<{ models: string[]; error?: string }> {
+    try {
+      const response = await this.client.list()
+      const models = response.models.map((m) => m.name).sort()
+      return { models }
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : String(error)
+      return { models: [], error: `Failed to fetch models: ${errorMessage}` }
+    }
+  }
 }
