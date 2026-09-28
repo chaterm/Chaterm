@@ -124,6 +124,7 @@ type ApiStub = {
   getCwd: ReturnType<typeof vi.fn>
   sshConnExec: ReturnType<typeof vi.fn>
   writeRemoteFile: ReturnType<typeof vi.fn>
+  downloadFile: ReturnType<typeof vi.fn>
   connectAssetInfo: ReturnType<typeof vi.fn>
   sftpConnect: ReturnType<typeof vi.fn>
   sftpClose: ReturnType<typeof vi.fn>
@@ -137,6 +138,7 @@ const makeApi = (): ApiStub => ({
   getCwd: vi.fn().mockResolvedValue({ success: false, cwd: null }),
   sshConnExec: vi.fn().mockResolvedValue({ stdout: '', stderr: '' }),
   writeRemoteFile: vi.fn().mockResolvedValue({ status: 'success' }),
+  downloadFile: vi.fn().mockResolvedValue({ status: 'success' }),
   connectAssetInfo: vi.fn().mockResolvedValue(null),
   sftpConnect: vi.fn().mockResolvedValue({ status: 'connected' }),
   sftpClose: vi.fn().mockResolvedValue(undefined),
@@ -223,6 +225,33 @@ describe('index.vue', () => {
     expect(wrapper.exists()).toBe(true)
     wrapper.unmount()
   })
+
+  it.each(['report.txt', '../../EXISTING.txt', String.raw`..\..\file.txt`])(
+    'passes the drop directory and original SFTP name separately for %j',
+    async (name) => {
+      const wrapper = mountView()
+      await flushPromises()
+      await (wrapper.vm as any).handleCrossTransfer({
+        kind: 'fs-item',
+        fromSide: 'left',
+        toSide: 'right',
+        fromUuid: 'remote-id',
+        toUuid: 'localhost@127.0.0.1:local:files',
+        srcPath: `/share/${name}`,
+        targetDir: 'C:\\downloads\\selected',
+        name,
+        isDir: false
+      })
+
+      expect(api.downloadFile).toHaveBeenCalledWith({
+        id: 'remote-id',
+        remotePath: `/share/${name}`,
+        localDir: 'C:\\downloads\\selected',
+        fileName: name
+      })
+      wrapper.unmount()
+    }
+  )
 
   it('assetInfoResult flow: triggers sftpConnList', async () => {
     api.sftpConnList.mockResolvedValueOnce([{ id: 'root@10.0.0.2:ssh:xx', isSuccess: true }])

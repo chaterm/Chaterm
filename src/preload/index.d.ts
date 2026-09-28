@@ -3,6 +3,7 @@ import type { TaskMetadata } from '../main/agent/core/context/context-tracking/C
 import type { CommandGenerationContext, WebviewMessage } from '../main/agent/shared/WebviewMessage'
 import type { DbAiApi } from '../shared/db-ai-types'
 import type { BatchDeleteAssetsResult } from '../shared/asset-types'
+import type { SftpDownloadFileArgs } from '../shared/sftp-types'
 
 interface FigSuggestion {
   text: string
@@ -477,6 +478,7 @@ interface ApiType {
   sftpConnList: () => Promise<{ id: string; isSuccess: boolean; error?: string; rootPath?: string }[]>
   sshConnExec: (args: { id: string; cmd: string }) => Promise<any>
   writeRemoteFile: (opts: { id: string; remotePath: string; content: string }) => Promise<{ status: string; message?: string; remotePath?: string }>
+  downloadFile: (opts: SftpDownloadFileArgs) => Promise<{ status: string; message?: string; remotePath?: string }>
   onFileEditorReplace: (callback: () => void) => () => void
   sendToMain: (message: WebviewMessage) => Promise<void | null>
   onMainMessage: (callback: (message: any) => void) => () => void

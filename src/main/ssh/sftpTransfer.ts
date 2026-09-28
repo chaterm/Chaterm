@@ -20,6 +20,7 @@ import { getConnectionPoolKey, createProxyCommandSocket } from './sshHandle'
 import { createProxySocket } from './proxy'
 import { getAlgorithmsByAssetType } from './algorithms'
 import { getPackageInfo } from './jumpserver/connectionManager'
+import type { SftpDownloadFileArgs } from '../../shared/sftp-types'
 const sftpLogger = createLogger('ssh')
 
 export type SftpConnectResult = { status: string; message: string }
@@ -248,7 +249,25 @@ export const registerFileSystemHandlers = () => {
 
   ipcMain.handle('ssh:sftp:upload-directory', (event, args) => handleDirectoryTransfer(event, args.id, args.localPath, args.remotePath))
 
-  ipcMain.handle('ssh:sftp:download-file', (event, args) => handleStreamTransfer(event, args.id, args.remotePath, args.localPath, 'download'))
+  ipcMain.handle('ssh:sftp:download-file', async (event, args: SftpDownloadFileArgs): Promise<TransferResult> => {
+    let localPath: string
+    try {
+      if ('localDir' in args || 'fileName' in args) {
+        // Validate the original entry name before normalization or any local filesystem writes.
+        if (typeof args.localDir !== 'string' || !args.localDir || typeof args.fileName !== 'string') {
+          throw new Error('Missing download directory or filename')
+        }
+        localPath = safeDirectoryDownloadPath(args.localDir, args.localDir, args.fileName)
+      } else {
+        // Preserve the explicit save-dialog destination; it need not match the remote filename.
+        if (typeof args.localPath !== 'string' || !args.localPath) throw new Error('Missing download path')
+        localPath = args.localPath
+      }
+    } catch (error) {
+      return { status: 'error', message: errToMessage(error), errorSide: 'local' }
+    }
+    return handleStreamTransfer(event, args.id, args.remotePath, localPath, 'download')
+  })
 
   ipcMain.handle('ssh:sftp:write-file', (event, args) => writeRemoteFileBySftp(event, args))
 
