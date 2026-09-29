@@ -25,7 +25,6 @@ interface AiPreferences {
     version?: number
     enabled?: boolean
     actions?: Record<string, boolean>
-    maxRequests?: number
     enableNotifications?: boolean
     favorites?: string[]
   }
@@ -94,7 +93,6 @@ async function buildAiPreferencesSnapshot(): Promise<AiPreferences> {
       version: aas.version,
       enabled: aas.enabled,
       actions: aas.actions ? { ...aas.actions } : undefined,
-      maxRequests: aas.maxRequests,
       enableNotifications: aas.enableNotifications,
       favorites: Array.isArray(aas.favorites) ? [...aas.favorites] : undefined
     }

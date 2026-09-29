@@ -11,7 +11,6 @@ export interface Messages {
   consecutiveMistakesError: string
   consecutiveMistakesErrorClaude: string
   consecutiveMistakesErrorOther: string
-  autoApprovalMaxRequests: string
 
   // Environment information
   currentTime: string
@@ -34,7 +33,6 @@ export interface Messages {
 
   // Notification messages
   errorNotification: string
-  maxRequestsNotification: string
   commandRunningNotification: string
   taskCompletedNotification: string
   condenseNotification: string
@@ -94,9 +92,6 @@ export interface Messages {
   outputTruncatedChars: string
   outputTruncatedLines: string
 
-  // Auto approval
-  autoApprovalMaxRequestsMessage: string
-
   // MCP related
   mcpToolApprovalPrompt?: string
   mcpToolCallFailed?: string
@@ -148,7 +143,6 @@ export const messagesEN: Messages = {
     'This may indicate a failure in his thought process or inability to use a tool properly, which can be mitigated with some user guidance (e.g. "Try breaking down the task into smaller steps").',
   consecutiveMistakesErrorOther:
     "Chaterm uses complex prompts and iterative task execution that may be challenging for less capable models. For best results, it's recommended to use Claude 3.7 Sonnet for its advanced agentic coding capabilities.",
-  autoApprovalMaxRequests: 'Chaterm has auto-approved {{count}} API requests. Would you like to reset the count and proceed with the task?',
 
   // Environment information
   currentTime: 'Current Time',
@@ -172,7 +166,6 @@ export const messagesEN: Messages = {
 
   // Notification messages
   errorNotification: 'Error',
-  maxRequestsNotification: 'Max Requests Reached',
   commandRunningNotification: 'Command is still running',
   taskCompletedNotification: 'Task Completed',
   condenseNotification: 'Chaterm wants to condense the conversation...',
@@ -235,9 +228,6 @@ export const messagesEN: Messages = {
   outputTruncatedChars: '[... Output truncated, omitted {{count}} characters ...]',
   outputTruncatedLines: '[... Output truncated, omitted {{count}} lines ...]',
 
-  // Auto approval
-  autoApprovalMaxRequestsMessage: 'Chaterm has auto-approved {{count}} API requests. Would you like to reset the count and proceed with the task?',
-
   // Response interruption
   responseInterruptedUserFeedback: '\n\n[Response interrupted by user feedback]',
   responseInterruptedToolUse:
@@ -291,7 +281,6 @@ export const messagesCN: Messages = {
   consecutiveMistakesErrorClaude: '这可能表明思维过程失败或无法正确使用工具，可以通过一些用户指导来缓解（例如"尝试将任务分解为更小的步骤"）。',
   consecutiveMistakesErrorOther:
     'Chaterm使用复杂的提示和迭代任务执行，这对于能力较弱的模型来说可能具有挑战性。为了获得最佳结果，建议使用Claude 3.7 Sonnet，因为它具有先进的代理编程能力。',
-  autoApprovalMaxRequests: 'Chaterm已自动批准了{{count}}个API请求。您是否希望重置计数并继续任务？',
 
   // 环境信息
   currentTime: '当前时间',
@@ -314,7 +303,6 @@ export const messagesCN: Messages = {
 
   // 通知消息
   errorNotification: '错误',
-  maxRequestsNotification: '已达到最大请求数',
   commandRunningNotification: '命令仍在运行',
   taskCompletedNotification: '任务完成',
   condenseNotification: 'Chaterm想要压缩对话...',
@@ -374,9 +362,6 @@ export const messagesCN: Messages = {
   // 输出截断
   outputTruncatedChars: '[... 输出已截断，省略了{{count}}个字符 ...]',
   outputTruncatedLines: '[... 输出已截断，省略了{{count}}行 ...]',
-
-  // 自动批准
-  autoApprovalMaxRequestsMessage: 'Chaterm已自动批准了{{count}}个API请求。您是否希望重置计数并继续任务？',
 
   // 响应中断
   responseInterruptedUserFeedback: '\n\n[回应被用户反馈中断]',
