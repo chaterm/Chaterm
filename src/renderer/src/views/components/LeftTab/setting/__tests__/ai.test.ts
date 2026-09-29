@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { flushPromises, mount } from '@vue/test-utils'
 import AiSettings from '../ai.vue'
+import { DEFAULT_AUTO_APPROVAL_SETTINGS } from '@/agent/storage/shared'
 
 const { mockGetGlobalState, mockUpdateGlobalState, mockNotification, mockOn, mockOff, mockEmit } = vi.hoisted(() => ({
   mockGetGlobalState: vi.fn(),
@@ -223,6 +224,82 @@ describe('AI Settings Component', () => {
       })
     )
     expect(mockEmit).toHaveBeenCalledWith('onboarding:autoApprovalEnabled')
+  })
+
+  it('keeps all-command approval enabled when the settings view is closed', async () => {
+    const wrapper = mountComponent()
+    await flushPromises()
+
+    const autoApprovalTarget = wrapper.find('[data-onboarding-id="settings-ai-auto-approval"]')
+    await autoApprovalTarget.find('input').setValue(true)
+    await flushPromises()
+
+    expect((wrapper.vm as any).autoApprovalSettings.actions.executeAllCommands).toBe(true)
+    wrapper.unmount()
+    await flushPromises()
+
+    const autoApprovalWrites = mockUpdateGlobalState.mock.calls.filter(([key]) => key === 'autoApprovalSettings')
+    const lastWrite = autoApprovalWrites.at(-1)?.[1]
+    expect(lastWrite).toEqual(
+      expect.objectContaining({
+        enabled: true,
+        actions: expect.objectContaining({
+          executeAllCommands: true
+        })
+      })
+    )
+  })
+
+  it.each([false, true])('does not rewrite loaded executeAllCommands=%s while initializing the view', async (executeAllCommands) => {
+    const getDefaultState = mockGetGlobalState.getMockImplementation()!
+    mockGetGlobalState.mockImplementation(async (key: string) => {
+      if (key === 'autoApprovalSettings') {
+        return {
+          version: 3,
+          enabled: true,
+          actions: {
+            ...DEFAULT_AUTO_APPROVAL_SETTINGS.actions,
+            executeAllCommands,
+            autoExecuteReadOnlyCommands: true
+          },
+          maxRequests: 20,
+          enableNotifications: true,
+          favorites: []
+        }
+      }
+      return getDefaultState(key)
+    })
+
+    const wrapper = mountComponent()
+    await flushPromises()
+
+    expect(mockUpdateGlobalState).not.toHaveBeenCalledWith('autoApprovalSettings', expect.anything())
+    wrapper.unmount()
+    await flushPromises()
+  })
+
+  it('preserves all-command approval when the read-only preference changes and does not mutate defaults', async () => {
+    const wrapper = mountComponent()
+    await flushPromises()
+    const autoApproval = wrapper.find('[data-onboarding-id="settings-ai-auto-approval"] input')
+    const readOnly = wrapper.findAll('.checkbox-stub').find((node) => node.text().includes('user.autoExecuteReadOnlyCommands'))!
+    await autoApproval.setValue(true)
+    await readOnly.find('input').setValue(true)
+    await flushPromises()
+
+    const writes = mockUpdateGlobalState.mock.calls.filter(([key]) => key === 'autoApprovalSettings')
+    expect(writes.at(-1)?.[1]).toMatchObject({
+      enabled: true,
+      actions: { executeAllCommands: true, autoExecuteReadOnlyCommands: true }
+    })
+    expect(DEFAULT_AUTO_APPROVAL_SETTINGS.enabled).toBe(false)
+    expect(DEFAULT_AUTO_APPROVAL_SETTINGS.actions.executeAllCommands).toBe(false)
+
+    await autoApproval.setValue(false)
+    await flushPromises()
+    expect((wrapper.vm as any).autoApprovalSettings.actions.executeAllCommands).toBe(false)
+    wrapper.unmount()
+    await flushPromises()
   })
 
   it('restores legacy LLM rerank configuration as the single selected model', async () => {

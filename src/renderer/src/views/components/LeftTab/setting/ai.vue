@@ -320,7 +320,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
+import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { notification } from 'ant-design-vue'
 import { updateGlobalState, getGlobalState } from '@renderer/agent/storage/state'
 import { AutoApprovalSettings, DEFAULT_AUTO_APPROVAL_SETTINGS } from '@/agent/storage/shared'
@@ -341,7 +341,9 @@ const shellIntegrationTimeout = ref(4)
 const kbSearchEnabled = ref(true)
 const experienceExtractionEnabled = ref(true)
 const commandOutputFilteringEnabled = ref(true)
-const autoApprovalSettings = ref<AutoApprovalSettings>(DEFAULT_AUTO_APPROVAL_SETTINGS)
+const autoApprovalSettings = ref<AutoApprovalSettings>(cloneAutoApprovalSettings(DEFAULT_AUTO_APPROVAL_SETTINGS))
+const isLoadingAutoApprovalSettings = ref(false)
+let autoApprovalSettingsWriteQueue: Promise<void> = Promise.resolve()
 const chatSettings = ref<ChatSettings>(DEFAULT_CHAT_SETTINGS)
 const customInstructions = ref('')
 const inputError = ref('')
@@ -401,6 +403,30 @@ const defaultProxyConfig: ProxyConfig = {
 }
 const proxyConfig = ref<ProxyConfig>(defaultProxyConfig)
 
+function cloneAutoApprovalSettings(settings: AutoApprovalSettings): AutoApprovalSettings {
+  return {
+    ...settings,
+    actions: { ...settings.actions },
+    favorites: [...(settings.favorites || [])]
+  }
+}
+
+const queueAutoApprovalSettingsWrite = (settings: AutoApprovalSettings): Promise<void> => {
+  const snapshot = cloneAutoApprovalSettings(settings)
+  autoApprovalSettingsWriteQueue = autoApprovalSettingsWriteQueue
+    .catch(() => undefined)
+    .then(() => updateGlobalState('autoApprovalSettings', snapshot))
+  return autoApprovalSettingsWriteQueue
+}
+
+const persistAutoApprovalSettings = (actionPatch: Partial<AutoApprovalSettings['actions']> = {}): Promise<void> => {
+  const settings = autoApprovalSettings.value
+  // Keep the value used by other watchers and the unmount save in sync with the persisted snapshot.
+  Object.assign(settings.actions, actionPatch)
+  settings.version = (settings.version || 1) + 1
+  return queueAutoApprovalSettingsWrite(settings)
+}
+
 const parseKbSearchPolicy = (): boolean | null => {
   const raw = import.meta.env.RENDERER_KB_SEARCH_ENABLED
   if (typeof raw !== 'string') return null
@@ -455,21 +481,9 @@ const resolveSavedRerankSelection = (savedConfig: LegacyKbRerankConfig | undefin
 watch(
   () => autoApprovalSettings.value.enabled,
   async (newValue) => {
+    if (isLoadingAutoApprovalSettings.value) return
     try {
-      // Create a clean object with only the necessary properties
-      const settingsToStore = {
-        version: (autoApprovalSettings.value.version || 1) + 1,
-        enabled: newValue,
-        actions: {
-          ...autoApprovalSettings.value.actions,
-          executeAllCommands: newValue // Set executeAllCommands based on toggle state
-        },
-        maxRequests: autoApprovalSettings.value.maxRequests,
-        enableNotifications: autoApprovalSettings.value.enableNotifications,
-        favorites: [...(autoApprovalSettings.value.favorites || [])]
-      }
-
-      await updateGlobalState('autoApprovalSettings', settingsToStore)
+      await persistAutoApprovalSettings({ executeAllCommands: newValue })
       if (newValue) {
         eventBus.emit('onboarding:autoApprovalEnabled')
       }
@@ -487,20 +501,9 @@ watch(
 watch(
   () => autoApprovalSettings.value.actions.autoExecuteReadOnlyCommands,
   async (newValue) => {
+    if (isLoadingAutoApprovalSettings.value) return
     try {
-      const settingsToStore = {
-        version: (autoApprovalSettings.value.version || 1) + 1,
-        enabled: autoApprovalSettings.value.enabled,
-        actions: {
-          ...autoApprovalSettings.value.actions,
-          autoExecuteReadOnlyCommands: newValue
-        },
-        maxRequests: autoApprovalSettings.value.maxRequests,
-        enableNotifications: autoApprovalSettings.value.enableNotifications,
-        favorites: [...(autoApprovalSettings.value.favorites || [])]
-      }
-
-      await updateGlobalState('autoApprovalSettings', settingsToStore)
+      await persistAutoApprovalSettings({ autoExecuteReadOnlyCommands: newValue })
       logger.info('Auto-execute read-only commands setting saved', { data: newValue })
     } catch (error) {
       logger.error('Failed to update auto-execute read-only commands setting', { error: error })
@@ -535,6 +538,7 @@ watch(
 
 // Load saved configuration
 const loadSavedConfig = async () => {
+  isLoadingAutoApprovalSettings.value = true
   try {
     // Load other configurations
     thinkingBudgetTokens.value = ((await getGlobalState('thinkingBudgetTokens')) as number) ?? 2048
@@ -586,7 +590,11 @@ const loadSavedConfig = async () => {
     if (savedAutoApprovalSettings) {
       autoApprovalSettings.value = {
         ...DEFAULT_AUTO_APPROVAL_SETTINGS,
-        ...savedAutoApprovalSettings
+        ...savedAutoApprovalSettings,
+        actions: {
+          ...DEFAULT_AUTO_APPROVAL_SETTINGS.actions,
+          ...(savedAutoApprovalSettings.actions || {})
+        }
       }
       if ((savedAutoApprovalSettings.version || 1) < 3) {
         autoApprovalSettings.value.version = 3
@@ -594,7 +602,7 @@ const loadSavedConfig = async () => {
         await updateGlobalState('autoApprovalSettings', autoApprovalSettings.value)
       }
     } else {
-      autoApprovalSettings.value = DEFAULT_AUTO_APPROVAL_SETTINGS
+      autoApprovalSettings.value = cloneAutoApprovalSettings(DEFAULT_AUTO_APPROVAL_SETTINGS)
       await updateGlobalState('autoApprovalSettings', autoApprovalSettings.value)
     }
 
@@ -616,6 +624,10 @@ const loadSavedConfig = async () => {
       message: t('user.loadConfigFailed'),
       description: t('user.loadConfigFailedDescription')
     })
+  } finally {
+    // Let watchers observe the loaded value while the guard is still active.
+    await nextTick()
+    isLoadingAutoApprovalSettings.value = false
   }
 }
 
@@ -625,15 +637,7 @@ const saveConfig = async () => {
     // Save other configurations
     await updateGlobalState('thinkingBudgetTokens', thinkingBudgetTokens.value)
     await updateGlobalState('customInstructions', customInstructions.value)
-    const settingsToSave: AutoApprovalSettings = {
-      version: autoApprovalSettings.value.version,
-      enabled: autoApprovalSettings.value.enabled,
-      actions: { ...autoApprovalSettings.value.actions },
-      maxRequests: autoApprovalSettings.value.maxRequests,
-      enableNotifications: autoApprovalSettings.value.enableNotifications,
-      favorites: [...(autoApprovalSettings.value.favorites || [])]
-    }
-    await updateGlobalState('autoApprovalSettings', settingsToSave)
+    await queueAutoApprovalSettingsWrite(autoApprovalSettings.value)
     const chatSettingsToSave: ChatSettings = {
       mode: chatSettings.value.mode
     }
