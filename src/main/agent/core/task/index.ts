@@ -3157,6 +3157,15 @@ export class Task {
           // In agent mode, continue executing subsequent logic
         }
 
+        // Refresh before each command so changing approval preferences also affects active tasks.
+        const latestAutoApprovalSettings: AutoApprovalSettings | undefined = await getGlobalState('autoApprovalSettings')
+        if (latestAutoApprovalSettings) {
+          this.autoApprovalSettings = {
+            ...this.autoApprovalSettings,
+            ...latestAutoApprovalSettings,
+            actions: { ...this.autoApprovalSettings.actions, ...latestAutoApprovalSettings.actions }
+          }
+        }
         const autoApproveResult = this.shouldAutoApproveTool(block.name)
         let [autoApproveSafe, autoApproveAll] = Array.isArray(autoApproveResult) ? autoApproveResult : [autoApproveResult, false]
 
@@ -3174,7 +3183,6 @@ export class Task {
           // Check if read-only commands can be auto-approved:
           // 1. Global setting: autoExecuteReadOnlyCommands enabled in preferences (read latest from global state)
           // 2. Session setting: user clicked "auto-approve read-only" button in this session
-          const latestAutoApprovalSettings = await getGlobalState('autoApprovalSettings')
           const globalAutoExecuteReadOnly = latestAutoApprovalSettings?.actions?.autoExecuteReadOnlyCommands ?? false
           if (!requiresApprovalPerLLM && (globalAutoExecuteReadOnly || this.readOnlyCommandsAutoApproved)) {
             // Auto-approve read-only command
