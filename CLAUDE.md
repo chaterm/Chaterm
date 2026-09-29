@@ -55,7 +55,7 @@ Before adding code in a file, read its exports, the immediate caller, and any ob
 1. **Minimize Change Scope:** Only modify files directly related to current requirements
 2. **Type Safety First:** Strict TypeScript, avoid `any`; new IPC channels must define types in `src/preload/index.d.ts`
 3. **Maintain Contract Stability:** Do not break existing IPC interfaces, Pinia Stores, or database table structures
-4. **Test Coverage:** Core logic changes require adding or updating unit tests
+4. **Test Coverage:** Core logic changes require adding or updating unit tests. The `codecov/patch` check (`target: auto` in `codecov.yml`) fails when the PR's changed lines are covered less than the base project coverage, so every new branch, including error paths and Vue template bindings, needs a test that executes it. Check locally with `npm run test:coverage` before pushing; do not add unreachable code (e.g. a `try/catch` around code that cannot throw) that tests cannot cover
 5. **No Emojis:** Prohibited in code, comments, logs, strings
 6. **English Comments:** All code comments must be in English
 7. **No Console Logging:** Use `createLogger(module)` from the project logger — never `console.*`
@@ -105,6 +105,7 @@ All user-facing text must be translated into all 11 locale files: `zh-CN` `zh-TW
 5. DB changes: migration file created
 6. New IPC channels: types defined in `src/preload/index.d.ts`
 7. No sensitive data committed
+8. Patch coverage of changed lines is at or above project coverage (`codecov/patch` must pass)
 
 ## Security
 

@@ -163,12 +163,22 @@
               :wrapper-col="{ span: 24 }"
             >
               <div class="model-input-container">
-                <a-input
+                <a-auto-complete
                   v-model:value="liteLlmModelId"
+                  :options="liteLlmModels.map((m) => ({ value: m }))"
+                  :filter-option="true"
                   size="small"
                   class="model-input"
                 />
                 <div class="button-group">
+                  <a-button
+                    class="fetch-btn"
+                    size="small"
+                    :loading="fetchLoadingLiteLLM"
+                    @click="() => handleFetchModels('litellm')"
+                  >
+                    {{ $t('user.fetchModels') }}
+                  </a-button>
                   <a-button
                     class="check-btn"
                     size="small"
@@ -261,12 +271,22 @@
               :wrapper-col="{ span: 24 }"
             >
               <div class="model-input-container">
-                <a-input
+                <a-auto-complete
                   v-model:value="openAiModelId"
+                  :options="openAiModels.map((m) => ({ value: m }))"
+                  :filter-option="true"
                   size="small"
                   class="model-input"
                 />
                 <div class="button-group">
+                  <a-button
+                    class="fetch-btn"
+                    size="small"
+                    :loading="fetchLoadingOpenAI"
+                    @click="() => handleFetchModels('openai')"
+                  >
+                    {{ $t('user.fetchModels') }}
+                  </a-button>
                   <a-button
                     class="check-btn"
                     size="small"
@@ -387,12 +407,22 @@
               :wrapper-col="{ span: 24 }"
             >
               <div class="model-input-container">
-                <a-input
+                <a-auto-complete
                   v-model:value="awsModelId"
                   size="small"
                   class="model-input"
+                  :filter-option="true"
+                  :options="bedrockModels.map((m) => ({ value: m }))"
                 />
                 <div class="button-group">
+                  <a-button
+                    class="fetch-btn"
+                    size="small"
+                    :loading="fetchLoadingBedrock"
+                    @click="() => handleFetchModels('bedrock')"
+                  >
+                    {{ $t('user.fetchModels') }}
+                  </a-button>
                   <a-button
                     class="check-btn"
                     size="small"
@@ -447,12 +477,22 @@
               :wrapper-col="{ span: 24 }"
             >
               <div class="model-input-container">
-                <a-input
+                <a-auto-complete
                   v-model:value="deepSeekModelId"
                   size="small"
+                  :filter-option="true"
                   class="model-input"
+                  :options="deepSeekModels.map((m) => ({ value: m }))"
                 />
                 <div class="button-group">
+                  <a-button
+                    class="fetch-btn"
+                    size="small"
+                    :loading="fetchLoadingDeepSeek"
+                    @click="() => handleFetchModels('deepseek')"
+                  >
+                    {{ $t('user.fetchModels') }}
+                  </a-button>
                   <a-button
                     class="check-btn"
                     size="small"
@@ -523,12 +563,22 @@
               :wrapper-col="{ span: 24 }"
             >
               <div class="model-input-container">
-                <a-input
+                <a-auto-complete
                   v-model:value="anthropicModelId"
+                  :filter-option="true"
                   size="small"
                   class="model-input"
+                  :options="anthropicModels.map((m) => ({ value: m }))"
                 />
                 <div class="button-group">
+                  <a-button
+                    class="fetch-btn"
+                    size="small"
+                    :loading="fetchLoadingAnthropic"
+                    @click="() => handleFetchModels('anthropic')"
+                  >
+                    {{ $t('user.fetchModels') }}
+                  </a-button>
                   <a-button
                     class="check-btn"
                     size="small"
@@ -583,12 +633,22 @@
               :wrapper-col="{ span: 24 }"
             >
               <div class="model-input-container">
-                <a-input
+                <a-auto-complete
                   v-model:value="ollamaModelId"
+                  :options="ollamaModels.map((m) => ({ value: m }))"
+                  :filter-option="true"
                   size="small"
                   class="model-input"
                 />
                 <div class="button-group">
+                  <a-button
+                    class="fetch-btn"
+                    size="small"
+                    :loading="fetchLoadingOllama"
+                    @click="() => handleFetchModels('ollama')"
+                  >
+                    {{ $t('user.fetchModels') }}
+                  </a-button>
                   <a-button
                     class="check-btn"
                     size="small"
@@ -701,6 +761,18 @@ const checkLoadingDeepSeek = ref(false)
 const checkLoadingAnthropic = ref(false)
 const checkLoadingOpenAI = ref(false)
 const checkLoadingOllama = ref(false)
+const fetchLoadingLiteLLM = ref(false)
+const fetchLoadingOpenAI = ref(false)
+const fetchLoadingOllama = ref(false)
+const fetchLoadingAnthropic = ref(false)
+const fetchLoadingDeepSeek = ref(false)
+const fetchLoadingBedrock = ref(false)
+const liteLlmModels = ref<string[]>([])
+const openAiModels = ref<string[]>([])
+const ollamaModels = ref<string[]>([])
+const anthropicModels = ref<string[]>([])
+const deepSeekModels = ref<string[]>([])
+const bedrockModels = ref<string[]>([])
 const addModelSwitch = ref(false)
 const editingModelId = ref<string | null>(null)
 const editingContextWindow = ref<number | undefined>(undefined)
@@ -1059,6 +1131,106 @@ const handleCheck = async (provider: string): Promise<void> => {
     checkLoadingAnthropic.value = false
     checkLoadingOpenAI.value = false
     checkLoadingOllama.value = false
+  }
+}
+
+const handleFetchModels = async (provider: string) => {
+  let fetchOptions: Record<string, unknown> = {}
+
+  switch (provider) {
+    case 'litellm':
+      fetchLoadingLiteLLM.value = true
+      fetchOptions = {
+        apiProvider: provider,
+        liteLlmBaseUrl: liteLlmBaseUrl.value,
+        liteLlmApiKey: liteLlmApiKey.value,
+        liteLlmModelId: liteLlmModelId.value
+      }
+      break
+    case 'openai':
+      fetchLoadingOpenAI.value = true
+      fetchOptions = {
+        apiProvider: provider,
+        openAiBaseUrl: openAiBaseUrl.value,
+        openAiApiKey: openAiApiKey.value,
+        openAiModelId: openAiModelId.value
+      }
+      break
+    case 'ollama':
+      fetchLoadingOllama.value = true
+      fetchOptions = {
+        apiProvider: provider,
+        ollamaBaseUrl: ollamaBaseUrl.value,
+        ollamaModelId: ollamaModelId.value
+      }
+      break
+    case 'anthropic':
+      fetchLoadingAnthropic.value = true
+      fetchOptions = {
+        apiProvider: provider,
+        anthropicApiKey: anthropicApiKey.value,
+        anthropicBaseUrl: anthropicBaseUrl.value,
+        anthropicModelId: anthropicModelId.value
+      }
+      break
+    case 'deepseek':
+      fetchLoadingDeepSeek.value = true
+      fetchOptions = {
+        apiProvider: provider,
+        deepSeekApiKey: deepSeekApiKey.value,
+        apiModelId: deepSeekModelId.value
+      }
+      break
+    case 'bedrock':
+      fetchLoadingBedrock.value = true
+      fetchOptions = {
+        apiProvider: provider,
+        awsAccessKey: awsAccessKey.value,
+        awsSecretKey: awsSecretKey.value,
+        awsRegion: awsRegion.value,
+        awsModelId: awsModelId.value
+      }
+      break
+  }
+
+  try {
+    const result = await (
+      window.api as unknown as {
+        fetchProviderModels: (config: unknown) => Promise<{ models: string[]; error?: string }>
+      }
+    ).fetchProviderModels(fetchOptions)
+
+    if (result.error) {
+      notification.error({
+        message: t('user.fetchModelsFailMessage'),
+        description: result.error,
+        duration: 3
+      })
+    } else {
+      if (provider === 'litellm') liteLlmModels.value = result.models
+      else if (provider === 'openai') openAiModels.value = result.models
+      else if (provider === 'ollama') ollamaModels.value = result.models
+      else if (provider === 'anthropic') anthropicModels.value = result.models
+      else if (provider === 'deepseek') deepSeekModels.value = result.models
+      else if (provider === 'bedrock') bedrockModels.value = result.models
+      notification.success({
+        message: t('user.fetchModelsSuccessMessage', { count: result.models.length }),
+        duration: 3
+      })
+    }
+  } catch (error) {
+    notification.error({
+      message: t('user.fetchModelsFailMessage'),
+      description: String(error),
+      duration: 3
+    })
+  } finally {
+    fetchLoadingLiteLLM.value = false
+    fetchLoadingOpenAI.value = false
+    fetchLoadingOllama.value = false
+    fetchLoadingAnthropic.value = false
+    fetchLoadingDeepSeek.value = false
+    fetchLoadingBedrock.value = false
   }
 }
 
@@ -1714,6 +1886,21 @@ const handleSave = async (provider) => {
       width: 100%;
     }
   }
+}
+
+.fetch-btn {
+  width: 90px;
+  background-color: var(--bg-color-octonary) !important;
+  color: var(--text-color) !important;
+  border: none !important;
+  box-shadow: none !important;
+  transition: background 0.2s;
+}
+
+.fetch-btn:hover,
+.fetch-btn:focus {
+  background-color: var(--bg-color-novenary) !important;
+  color: var(--text-color) !important;
 }
 
 .check-btn {

@@ -130,7 +130,8 @@ vi.mock('@api/user/user', () => ({
 
 // Mock window.api
 const mockWindowApi = {
-  validateApiKey: vi.fn()
+  validateApiKey: vi.fn(),
+  fetchProviderModels: vi.fn()
 }
 
 describe('Model Component', () => {
@@ -160,6 +161,11 @@ describe('Model Component', () => {
           'a-input': {
             template: '<input class="a-input" :value="value" @input="$emit(\'update:value\', $event.target.value)" />',
             props: ['value', 'placeholder', 'size', 'type']
+          },
+          'a-auto-complete': {
+            template:
+              '<div class="a-auto-complete" :data-options="(options || []).map((o) => o.value).join(\',\')" :data-filter-option="String(filterOption)"><input :value="value" @input="$emit(\'update:value\', $event.target.value)" /></div>',
+            props: ['value', 'options', 'filterOption', 'size']
           },
           'a-input-password': {
             template: '<input type="password" class="a-input-password" :value="value" @input="$emit(\'update:value\', $event.target.value)" />',
@@ -237,6 +243,7 @@ describe('Model Component', () => {
       }
     })
     mockWindowApi.validateApiKey.mockResolvedValue({ isValid: true })
+    mockWindowApi.fetchProviderModels.mockResolvedValue({ models: [] })
 
     // Clear console output for cleaner test results
     vi.spyOn(console, 'log').mockImplementation(() => {})
@@ -998,6 +1005,149 @@ describe('Model Component', () => {
       await nextTick()
 
       expect(vm.checkLoadingLiteLLM).toBe(false)
+    })
+  })
+
+  describe('Fetch Models', () => {
+    // Order matches the fetch buttons in the template.
+    const providers = [
+      {
+        provider: 'litellm',
+        fields: { liteLlmBaseUrl: 'https://litellm.example.com', liteLlmApiKey: 'k', liteLlmModelId: 'gpt-4' },
+        payload: { liteLlmBaseUrl: 'https://litellm.example.com', liteLlmApiKey: 'k', liteLlmModelId: 'gpt-4' },
+        modelsRef: 'liteLlmModels',
+        loadingRef: 'fetchLoadingLiteLLM'
+      },
+      {
+        provider: 'openai',
+        fields: { openAiBaseUrl: 'https://relay.example.com/v1', openAiApiKey: 'k', openAiModelId: 'gpt-5.5' },
+        payload: { openAiBaseUrl: 'https://relay.example.com/v1', openAiApiKey: 'k', openAiModelId: 'gpt-5.5' },
+        modelsRef: 'openAiModels',
+        loadingRef: 'fetchLoadingOpenAI'
+      },
+      {
+        provider: 'bedrock',
+        fields: { awsAccessKey: 'ak', awsSecretKey: 'sk', awsRegion: 'us-west-2', awsModelId: 'claude' },
+        payload: { awsAccessKey: 'ak', awsSecretKey: 'sk', awsRegion: 'us-west-2', awsModelId: 'claude' },
+        modelsRef: 'bedrockModels',
+        loadingRef: 'fetchLoadingBedrock'
+      },
+      {
+        provider: 'deepseek',
+        fields: { deepSeekApiKey: 'k', deepSeekModelId: 'deepseek-chat' },
+        payload: { deepSeekApiKey: 'k', apiModelId: 'deepseek-chat' },
+        modelsRef: 'deepSeekModels',
+        loadingRef: 'fetchLoadingDeepSeek'
+      },
+      {
+        provider: 'anthropic',
+        fields: { anthropicApiKey: 'k', anthropicBaseUrl: 'https://anthropic.example.com', anthropicModelId: 'claude-sonnet-4' },
+        payload: { anthropicApiKey: 'k', anthropicBaseUrl: 'https://anthropic.example.com', anthropicModelId: 'claude-sonnet-4' },
+        modelsRef: 'anthropicModels',
+        loadingRef: 'fetchLoadingAnthropic'
+      },
+      {
+        provider: 'ollama',
+        fields: { ollamaBaseUrl: 'http://localhost:11434', ollamaModelId: 'llama3' },
+        payload: { ollamaBaseUrl: 'http://localhost:11434', ollamaModelId: 'llama3' },
+        modelsRef: 'ollamaModels',
+        loadingRef: 'fetchLoadingOllama'
+      }
+    ] as const
+
+    beforeEach(async () => {
+      wrapper = createWrapper()
+      await waitForMountedAsync()
+    })
+
+    it.each(providers)('sends the $provider configuration and stores the returned models', async (p) => {
+      const vm = wrapper.vm as any
+      Object.assign(vm, p.fields)
+      mockWindowApi.fetchProviderModels.mockResolvedValue({ models: ['model-a', 'model-b'] })
+
+      await vm.handleFetchModels(p.provider)
+
+      expect(mockWindowApi.fetchProviderModels).toHaveBeenCalledWith({ apiProvider: p.provider, ...p.payload })
+      expect(vm[p.modelsRef]).toEqual(['model-a', 'model-b'])
+      expect(vm[p.loadingRef]).toBe(false)
+      expect(notification.success).toHaveBeenCalledWith({ message: 'user.fetchModelsSuccessMessage', duration: 3 })
+    })
+
+    it('shows the provider error and keeps the previous list', async () => {
+      const vm = wrapper.vm as any
+      vm.anthropicModels = ['kept']
+      mockWindowApi.fetchProviderModels.mockResolvedValue({ models: [], error: 'Model listing is not supported for this provider' })
+
+      await vm.handleFetchModels('anthropic')
+
+      expect(notification.error).toHaveBeenCalledWith({
+        message: 'user.fetchModelsFailMessage',
+        description: 'Model listing is not supported for this provider',
+        duration: 3
+      })
+      expect(vm.anthropicModels).toEqual(['kept'])
+      expect(vm.fetchLoadingAnthropic).toBe(false)
+    })
+
+    it('reports an IPC rejection and resets loading', async () => {
+      const vm = wrapper.vm as any
+      mockWindowApi.fetchProviderModels.mockRejectedValue(new Error('IPC failed'))
+
+      await vm.handleFetchModels('openai')
+
+      expect(notification.error).toHaveBeenCalledWith({
+        message: 'user.fetchModelsFailMessage',
+        description: expect.stringContaining('IPC failed'),
+        duration: 3
+      })
+      expect(vm.fetchLoadingOpenAI).toBe(false)
+    })
+
+    it('shows loading on the active provider while the request is pending', async () => {
+      const vm = wrapper.vm as any
+      let resolve!: (value: { models: string[] }) => void
+      mockWindowApi.fetchProviderModels.mockReturnValue(new Promise((r) => (resolve = r)))
+
+      const pending = vm.handleFetchModels('deepseek')
+      expect(vm.fetchLoadingDeepSeek).toBe(true)
+      expect(vm.fetchLoadingAnthropic).toBe(false)
+
+      resolve({ models: [] })
+      await pending
+      expect(vm.fetchLoadingDeepSeek).toBe(false)
+    })
+
+    it('renders a fetch button per provider that triggers its own fetch', async () => {
+      const vm = wrapper.vm as any
+      vm.addModelSwitch = true
+      await nextTick()
+
+      const buttons = wrapper.findAll('.fetch-btn')
+      expect(buttons).toHaveLength(providers.length)
+
+      for (const [index, p] of providers.entries()) {
+        mockWindowApi.fetchProviderModels.mockClear()
+        await buttons[index].trigger('click')
+        await flushPromises()
+        expect(mockWindowApi.fetchProviderModels).toHaveBeenCalledWith(expect.objectContaining({ apiProvider: p.provider }))
+      }
+    })
+
+    it('feeds each provider its own fetched models through a filterable auto-complete', async () => {
+      const vm = wrapper.vm as any
+      vm.addModelSwitch = true
+      for (const p of providers) {
+        mockWindowApi.fetchProviderModels.mockResolvedValueOnce({ models: [`${p.provider}-a`, `${p.provider}-b`] })
+        await vm.handleFetchModels(p.provider)
+      }
+      await nextTick()
+
+      const inputs = wrapper.findAll('.a-auto-complete')
+      expect(inputs).toHaveLength(providers.length)
+      providers.forEach((p, index) => {
+        expect(inputs[index].attributes('data-filter-option')).toBe('true')
+        expect(inputs[index].attributes('data-options')).toBe(`${p.provider}-a,${p.provider}-b`)
+      })
     })
   })
 

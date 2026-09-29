@@ -778,4 +778,9 @@ ${combinedContent}
       }
     }
   }
+
+  // No listing SDK is bundled, so return the built-in catalogue.
+  async fetchModels(): Promise<{ models: string[]; error?: string }> {
+    return { models: Object.keys(bedrockModels).sort() }
+  }
 }

@@ -564,6 +564,34 @@ export class Controller {
   }
   // updateTaskHistory removed - task metadata now persisted via agent_task_metadata_v1
 
+  async fetchProviderModels(configuration: ApiConfiguration): Promise<{ models: string[]; error?: string }> {
+    let api: ApiHandler
+    try {
+      if (configuration.apiProvider === 'litellm' || configuration.apiProvider === 'default') {
+        const { LiteLlmHandler } = await import('@api/providers/litellm')
+        const options =
+          configuration.apiProvider === 'default'
+            ? {
+                ...configuration,
+                liteLlmModelId: configuration.defaultModelId,
+                liteLlmBaseUrl: configuration.defaultBaseUrl,
+                liteLlmApiKey: configuration.defaultApiKey
+              }
+            : configuration
+        api = LiteLlmHandler.createSync(options)
+      } else {
+        api = buildApiHandler(configuration)
+      }
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error)
+      return { models: [], error: message }
+    }
+    if (!api.fetchModels) {
+      return { models: [], error: 'Model listing is not supported for this provider' }
+    }
+    return await api.fetchModels()
+  }
+
   async validateApiKey(configuration: ApiConfiguration): Promise<{ isValid: boolean; error?: string }> {
     // For LiteLLM, use createSync for synchronous initialization
     let api: ApiHandler
