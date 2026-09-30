@@ -484,13 +484,15 @@ const companyChange = (item) => {
   company.value = item.key
   // Reset tree-related state
   selectedKeys.value = []
-  expandedKeys.value = []
   searchValue.value = ''
   editingNode.value = null
   editingTitle.value = ''
   // Close context menu when changing workspace
   contextMenuVisible.value = false
   contextMenuData.value = null
+  // expandedKeys is intentionally left to the loader: clearing it here would
+  // collapse the incoming tree and then expand it again, which plays the
+  // expand animation on every tab switch.
   if (isPersonalWorkspace.value) {
     getLocalAssetMenu()
   } else {
@@ -521,9 +523,9 @@ const onTreeExpand = async (expandedKeys: any[]) => {
 const loadSavedExpandState = async () => {
   try {
     const config = await userConfigStore.getConfig()
-    if (config.workspaceExpandedKeys && config.workspaceExpandedKeys.length > 0) {
-      expandedKeys.value = config.workspaceExpandedKeys
-    }
+    // Always assign, including the empty case: expandedKeys is now only written
+    // here, so a missing saved value has to clear the previous state explicitly.
+    expandedKeys.value = config.workspaceExpandedKeys ? config.workspaceExpandedKeys.map((key) => String(key)) : []
     // Load display mode preference
     if (config.workspaceShowIpMode !== undefined) {
       showIpMode.value = config.workspaceShowIpMode
@@ -569,15 +571,15 @@ const getLocalAssetMenu = () => {
       if (res && res.data) {
         const data = res.data.routers || []
         originalTreeData.value = deepClone(data) as AssetNode[]
+        // Resolve the saved expand state before the tree data lands, so the tree
+        // renders already expanded instead of expanding after the fact.
+        await expandDefaultNodes()
         assetTreeData.value = deepClone(data) as AssetNode[]
         const localShell = await api.getShellsLocal()
         const isExist = assetTreeData.value.some((node) => node.key === 'localTerm')
         if (!isExist && localShell) {
           assetTreeData.value.push(localShell)
         }
-        setTimeout(async () => {
-          await expandDefaultNodes()
-        }, 200)
       }
     })
     .catch((err) => logger.error('Error get local asset menu', { error: err }))
@@ -586,14 +588,14 @@ const getLocalAssetMenu = () => {
 const getUserAssetMenu = () => {
   api
     .getLocalAssetRoute({ searchType: 'tree', params: ['organization'] })
-    .then((res) => {
+    .then(async (res) => {
       if (res && res.data) {
         const data = res.data.routers || []
         originalTreeData.value = deepClone(data) as AssetNode[]
+        // Resolve the saved expand state before the tree data lands, so the tree
+        // renders already expanded instead of expanding after the fact.
+        await expandDefaultNodes()
         enterpriseData.value = deepClone(data) as AssetNode[]
-        setTimeout(async () => {
-          await expandDefaultNodes()
-        }, 200)
       }
     })
     .catch((err) => logger.error('Error get user asset menu', { error: err }))

@@ -49,7 +49,6 @@ vi.mock('@core/storage/state', () => ({
           executeAllCommands: false,
           autoExecuteReadOnlyCommands: false
         },
-        maxRequests: 3,
         enableNotifications: false,
         favorites: []
       }
@@ -85,12 +84,10 @@ describe('Task interactive command notification', () => {
         executeAllCommands: false,
         autoExecuteReadOnlyCommands: false
       },
-      maxRequests: 3,
       enableNotifications: false,
       favorites: []
     }
     task.readOnlyCommandsAutoApproved = false
-    task.consecutiveAutoApprovedRequestsCount = 0
     task.consecutiveMistakeCount = 0
 
     task.getToolDescription = vi.fn(() => '[execute_command for test]')
