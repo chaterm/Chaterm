@@ -84,12 +84,14 @@ vi.mock('../../../storage/chat_sync/index', () => ({
 }))
 
 import { Task } from '../index'
+import { getGlobalState } from '@core/storage/state'
 
 describe('Task interaction-heavy branches', () => {
   let task: any
 
   beforeEach(() => {
     vi.clearAllMocks()
+    vi.mocked(getGlobalState).mockResolvedValue({})
     experienceMocks.createExperienceManager.mockReturnValue({
       extractFromCompletedTask: experienceMocks.extractFromCompletedTask
     })
@@ -261,6 +263,58 @@ describe('Task interaction-heavy branches', () => {
 
     expect(task.ask).toHaveBeenCalledWith('command', 'pwd', true)
   })
+
+  it.each([
+    { enabled: true, all: true, securityApproval: false, approves: false },
+    { enabled: false, all: false, securityApproval: false, approves: true },
+    { enabled: true, all: false, securityApproval: false, approves: true },
+    { enabled: true, all: true, securityApproval: true, approves: true }
+  ])(
+    'uses current preferences ($enabled, $all) while preserving security approval ($securityApproval)',
+    async ({ enabled, all, securityApproval, approves }) => {
+      task.autoApprovalSettings = {
+        enabled: true,
+        enableNotifications: false,
+        actions: {
+          executeSafeCommands: true,
+          executeAllCommands: !all
+        }
+      }
+      vi.mocked(getGlobalState).mockImplementation(async (key: string) => {
+        if (key === 'chatSettings') return { mode: 'agent' }
+        if (key === 'autoApprovalSettings') {
+          return {
+            enabled,
+            enableNotifications: false,
+            actions: {
+              executeSafeCommands: true,
+              executeAllCommands: all
+            }
+          }
+        }
+        return {}
+      })
+      task.shouldAutoApproveTool = Task.prototype.shouldAutoApproveTool.bind(task)
+      task.performCommandSecurityCheck.mockResolvedValue({
+        needsSecurityApproval: securityApproval,
+        securityMessage: 'Approval required by security configuration',
+        shouldReturn: false
+      })
+      task.consecutiveAutoApprovedRequestsCount = 0
+      task.captureExecuteCommandUsage = vi.fn()
+
+      await task.handleExecuteCommandToolUse({
+        name: 'execute_command',
+        params: { command: 'touch /tmp/chaterm-approval-test', ip: '127.0.0.1', requires_approval: 'true' },
+        partial: false
+      })
+
+      expect(task.handleToolError).not.toHaveBeenCalled()
+      expect(task.autoApprovalSettings.actions.executeAllCommands).toBe(all)
+      expect(task.askApproval).toHaveBeenCalledTimes(approves ? 1 : 0)
+      expect(task.executeCommandTool).toHaveBeenCalledWith('touch /tmp/chaterm-approval-test', '127.0.0.1')
+    }
+  )
 
   it('handleKbSearchToolUse should send structured contentParts for kb results', async () => {
     knowledgebaseMocks.getKbSearchManager.mockReturnValue({
