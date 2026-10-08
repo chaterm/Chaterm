@@ -1,8 +1,9 @@
 import axios from 'axios'
 import config from '@/config'
-import { getUserInfo, removeToken } from '@/utils/permission'
+import { getUserInfo, removeToken, setUserInfo } from '@/utils/permission'
 import { dataSyncService } from '@/services/dataSyncService'
 import { mark, reportMarksToMainAsync } from '@/utils/perf'
+import { getDevelopmentUserId, getSkipLoginUserId } from '@/utils/devUser'
 
 const logger = createRendererLogger('router')
 let aiModelWarmupScheduled = false
@@ -78,6 +79,21 @@ export const beforeEach = async (to, _from, next) => {
     next(location)
   }
 
+  // Dev-only auto skip: seed the guest session before routing so the login page never renders.
+  // An explicit visit to /login (e.g. logout) is left alone so the developer can still log in.
+  const developmentUserId = getDevelopmentUserId()
+  if (developmentUserId !== null && to.path !== '/login' && !localStorage.getItem('ctm-token')) {
+    localStorage.setItem('login-skipped', 'true')
+    localStorage.setItem('ctm-token', 'guest_token')
+    setUserInfo({
+      uid: developmentUserId,
+      username: 'guest',
+      name: 'Guest',
+      email: 'guest@chaterm.ai',
+      token: 'guest_token'
+    })
+  }
+
   const token = localStorage.getItem('ctm-token')
   const isSkippedLogin = localStorage.getItem('login-skipped') === 'true'
   const isDev = import.meta.env.MODE === 'development'
@@ -96,7 +112,7 @@ export const beforeEach = async (to, _from, next) => {
     try {
       const api = window.api as any
       mark('chaterm/renderer/willInitUserDatabase')
-      const dbResult = await api.initUserDatabase({ uid: 999999999 })
+      const dbResult = await api.initUserDatabase({ uid: getSkipLoginUserId() })
       mark('chaterm/renderer/didInitUserDatabase')
       logger.info('Database initialization result', { success: dbResult.success })
 

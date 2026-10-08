@@ -10,6 +10,8 @@ interface ImportMetaEnv {
   readonly RENDERER_TELEMETRY_ENABLED?: string
   /** Build-time policy switch for data sync settings in privacy page. */
   readonly RENDERER_DATA_SYNC_ENABLED?: string
+  /** Dev server only: automatically skip login and open this local user database. */
+  readonly RENDERER_DEV_USER_ID?: string
 }
 
 interface ImportMeta {
