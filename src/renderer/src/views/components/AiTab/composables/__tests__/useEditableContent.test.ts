@@ -100,27 +100,73 @@ describe('useEditableContent', () => {
     el.remove()
   })
 
-  it('should insert image at cursor with data attributes', () => {
-    const { editableRef, insertImageAtCursor } = setup()
+  it('should keep images in parts, ahead of text, without touching the editable DOM', () => {
+    const { editableRef, chatInputParts, appendImagePart, isSyncingFromEditable } = setup()
     const el = editableRef.value as HTMLDivElement
     el.textContent = 'hello'
+    chatInputParts.value = [{ type: 'text', text: 'hello' }]
+
+    appendImagePart({ type: 'image', mediaType: 'image/png', data: 'a' })
+    appendImagePart({ type: 'image', mediaType: 'image/jpeg', data: 'b' })
+
+    expect(chatInputParts.value).toEqual([
+      { type: 'image', mediaType: 'image/png', data: 'a' },
+      { type: 'image', mediaType: 'image/jpeg', data: 'b' },
+      { type: 'text', text: 'hello' }
+    ])
+    expect(isSyncingFromEditable.value).toBe(true)
+    expect(el.querySelector('img')).toBeNull()
+  })
+
+  it('should remove an image by index and ignore out-of-range indexes', () => {
+    const { chatInputParts, removeImagePart } = setup()
+    chatInputParts.value = [
+      { type: 'image', mediaType: 'image/png', data: 'a' },
+      { type: 'image', mediaType: 'image/png', data: 'b' },
+      { type: 'text', text: 'hi' }
+    ]
+
+    removeImagePart(5)
+    expect(chatInputParts.value).toHaveLength(3)
+
+    removeImagePart(0)
+    expect(chatInputParts.value).toEqual([
+      { type: 'image', mediaType: 'image/png', data: 'b' },
+      { type: 'text', text: 'hi' }
+    ])
+  })
+
+  it('should preserve images when syncing from the editable, including when text is cleared', () => {
+    const { editableRef, chatInputParts, syncDraftPartsFromEditable, isEditableEmpty } = setup()
+    const el = editableRef.value as HTMLDivElement
     document.body.appendChild(el)
+    const image = { type: 'image', mediaType: 'image/png', data: 'a' } as const
+    chatInputParts.value = [image]
 
-    window.getSelection()?.removeAllRanges()
+    el.textContent = 'typed'
+    syncDraftPartsFromEditable()
+    expect(chatInputParts.value).toEqual([image, { type: 'text', text: 'typed' }])
+    expect(isEditableEmpty.value).toBe(false)
 
-    insertImageAtCursor({
-      type: 'image',
-      mediaType: 'image/png',
-      data: 'base64data'
-    })
-
-    const imageWrapper = el.querySelector('.image-preview-wrapper') as HTMLElement | null
-    expect(imageWrapper).not.toBeNull()
-    expect(imageWrapper?.getAttribute('data-image-type')).toBe('true')
-    expect(imageWrapper?.getAttribute('data-media-type')).toBe('image/png')
-    expect(imageWrapper?.getAttribute('data-image-data')).toBe('base64data')
+    el.textContent = ''
+    syncDraftPartsFromEditable()
+    expect(chatInputParts.value).toEqual([image])
+    expect(isEditableEmpty.value).toBe(true)
 
     el.remove()
+  })
+
+  it('should not render image parts into the editable', () => {
+    const { editableRef, renderFromParts, isEditableEmpty } = setup()
+    renderFromParts([
+      { type: 'image', mediaType: 'image/png', data: 'a' },
+      { type: 'text', text: 'hello' }
+    ])
+
+    const el = editableRef.value as HTMLDivElement
+    expect(el.querySelector('img')).toBeNull()
+    expect(el.textContent).toBe('hello')
+    expect(isEditableEmpty.value).toBe(false)
   })
 
   it('should parse doc drag payload from text/html carrier', () => {

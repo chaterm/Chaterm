@@ -160,9 +160,10 @@ const localTab = computed(() => props.params.params as TabItem)
 const configStore = userConfigStore()
 const isTransparent = computed(() => !!configStore.getUserConfig.background.image)
 
-const closeTab = (value) => {
+const closeTab = () => {
   if (localTab.value?.closeCurrentPanel) {
-    localTab.value.closeCurrentPanel('panel_' + value)
+    // The bound callback owns the Dockview ID, which differs from the tab ID for clones.
+    localTab.value.closeCurrentPanel()
   }
 }
 
