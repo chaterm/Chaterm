@@ -343,41 +343,6 @@ export function useEditableContent(options: UseEditableContentOptions) {
   }
 
   // ============================================================================
-  // Image Element Creation
-  // ============================================================================
-
-  const createImageElement = (imagePart: ImageContentPart): HTMLElement => {
-    const wrapper = document.createElement('span')
-    wrapper.className = 'image-preview-wrapper'
-    wrapper.contentEditable = 'false'
-    wrapper.setAttribute('data-image-type', 'true')
-    wrapper.setAttribute('data-media-type', imagePart.mediaType)
-    wrapper.setAttribute('data-image-data', imagePart.data)
-
-    const img = document.createElement('img')
-    img.src = `data:${imagePart.mediaType};base64,${imagePart.data}`
-    img.className = 'image-preview-thumbnail'
-    img.alt = 'Uploaded image'
-
-    // Create remove button
-    const removeBtn = document.createElement('span')
-    removeBtn.className = 'image-remove'
-    removeBtn.setAttribute('data-image-remove', 'true')
-    removeBtn.textContent = '×'
-
-    wrapper.appendChild(img)
-    wrapper.appendChild(removeBtn)
-    return wrapper
-  }
-
-  const parseImageElement = (el: HTMLElement): ImageContentPart | null => {
-    const mediaType = el.dataset.mediaType as ImageContentPart['mediaType']
-    const data = el.dataset.imageData
-    if (!mediaType || !data) return null
-    return { type: 'image', mediaType, data }
-  }
-
-  // ============================================================================
   // Content Extraction
   // ============================================================================
 
@@ -444,15 +409,6 @@ export function useEditableContent(options: UseEditableContentOptions) {
       return
     }
 
-    // Handle image elements
-    if (el.dataset?.imageType) {
-      const imagePart = parseImageElement(el)
-      if (imagePart) {
-        parts.push(imagePart)
-      }
-      return
-    }
-
     if (el.tagName === 'BR') {
       parts.push({ type: 'text', text: '\n' })
       return
@@ -463,7 +419,11 @@ export function useEditableContent(options: UseEditableContentOptions) {
     }
   }
 
-  const extractContentParts = (): ContentPart[] => {
+  // Images are rendered in a strip above the editable, not inside it, so they only
+  // live in chatInputParts. Keep them first, followed by what the editable holds.
+  const getImageParts = (): ImageContentPart[] => chatInputParts.value.filter((part): part is ImageContentPart => part.type === 'image')
+
+  const extractEditableParts = (): ContentPart[] => {
     const parts: ContentPart[] = []
     if (!editableRef.value) return parts
 
@@ -472,6 +432,8 @@ export function useEditableContent(options: UseEditableContentOptions) {
     }
     return parts
   }
+
+  const extractContentParts = (): ContentPart[] => [...getImageParts(), ...extractEditableParts()]
 
   const extractPlainTextFromParts = (parts: ContentPart[]): string => {
     return parts
@@ -484,8 +446,10 @@ export function useEditableContent(options: UseEditableContentOptions) {
   // State Management
   // ============================================================================
 
+  // Reflects only what the editable shows, so the placeholder stays visible while
+  // images are attached but no text has been typed.
   const updateEditableEmptyState = (parts: ContentPart[]) => {
-    isEditableEmpty.value = parts.length === 0 || parts.every((part) => part.type === 'text' && part.text.trim() === '')
+    isEditableEmpty.value = parts.every((part) => part.type === 'image' || (part.type === 'text' && part.text.trim() === ''))
   }
 
   // ============================================================================
@@ -502,9 +466,8 @@ export function useEditableContent(options: UseEditableContentOptions) {
       if (part.type === 'text') {
         container.appendChild(document.createTextNode(part.text))
       } else if (part.type === 'image') {
-        const imageEl = createImageElement(part)
-        container.appendChild(imageEl)
-        container.appendChild(document.createTextNode(' '))
+        // Rendered by the image strip outside the editable.
+        continue
       } else {
         const label = getChipLabel(part)
         const chip = createChipElement(part.chipType, part.ref, label)
@@ -576,9 +539,15 @@ export function useEditableContent(options: UseEditableContentOptions) {
     // and also prevents residual newlines from being preserved in chatInputParts.
     if (isEditableEmpty.value) {
       clearResidualDom()
-      chatInputParts.value = []
+      chatInputParts.value = getImageParts()
     }
 
+    markSyncing()
+  }
+
+  // Parts changes made here already match the editable DOM; tell the parts watcher
+  // not to re-render, which would reset the caret.
+  const markSyncing = () => {
     isSyncingFromEditable.value = true
     nextTick(() => {
       isSyncingFromEditable.value = false
@@ -649,36 +618,20 @@ export function useEditableContent(options: UseEditableContentOptions) {
     syncDraftPartsFromEditable()
   }
 
-  const insertImageAtCursor = (imagePart: ImageContentPart) => {
-    if (!editableRef.value) return
-    restoreSelection()
+  const appendImagePart = (imagePart: ImageContentPart) => {
+    chatInputParts.value = [...getImageParts(), imagePart, ...chatInputParts.value.filter((part) => part.type !== 'image')]
+    markSyncing()
+  }
 
-    let range = getEditableRange()
-    if (!range) {
-      moveCaretToEnd()
-      range = getEditableRange()
-    }
-    if (!range) return
-
-    const selection = window.getSelection()
-    if (!selection) return
-
-    const imageEl = createImageElement(imagePart)
-    range.deleteContents()
-    range.insertNode(imageEl)
-
-    // Add spacer after image and move cursor after it
-    const spacer = document.createTextNode(' ')
-    imageEl.after(spacer)
-
-    const newRange = document.createRange()
-    newRange.setStart(spacer, 1)
-    newRange.collapse(true)
-    selection.removeAllRanges()
-    selection.addRange(newRange)
-
-    saveSelection()
-    syncDraftPartsFromEditable()
+  /**
+   * Remove an attached image by its position among the image parts.
+   */
+  const removeImagePart = (imageIndex: number) => {
+    const images = getImageParts()
+    if (imageIndex < 0 || imageIndex >= images.length) return
+    images.splice(imageIndex, 1)
+    chatInputParts.value = [...images, ...chatInputParts.value.filter((part) => part.type !== 'image')]
+    markSyncing()
   }
 
   /**
@@ -861,16 +814,6 @@ export function useEditableContent(options: UseEditableContentOptions) {
       return
     }
 
-    // Handle image removal
-    if (target?.dataset?.imageRemove) {
-      const wrapper = target.closest('.image-preview-wrapper')
-      if (wrapper) {
-        wrapper.remove()
-        syncDraftPartsFromEditable()
-      }
-      return
-    }
-
     const chip = target?.closest('.mention-chip') as HTMLElement | null
     if (!chip) return
 
@@ -914,14 +857,14 @@ export function useEditableContent(options: UseEditableContentOptions) {
     // Sync & insertion
     syncDraftPartsFromEditable,
     insertChipAtCursor,
-    insertImageAtCursor,
+    appendImagePart,
+    removeImagePart,
     insertCommandChip,
     insertCommandChipWithPath,
     insertSkillChip,
 
     // DOM creation (exposed for potential external use)
     createChipElement,
-    createImageElement,
     handleEditableKeyDown,
     handleEditableInput,
     handleEditableClick

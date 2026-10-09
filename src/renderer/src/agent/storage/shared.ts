@@ -33,7 +33,6 @@ export interface AutoApprovalSettings {
     autoExecuteReadOnlyCommands?: boolean // Auto-execute read-only commands (requires_approval=false) without user confirmation
   }
   // Global settings
-  maxRequests: number // Maximum number of auto-approved requests
   enableNotifications: boolean // Show notifications for approval and task completion
   favorites: string[] // IDs of actions favorited by the user for quick access
 }
@@ -52,7 +51,6 @@ export const DEFAULT_AUTO_APPROVAL_SETTINGS: AutoApprovalSettings = {
     useMcp: false,
     autoExecuteReadOnlyCommands: false
   },
-  maxRequests: 20,
   enableNotifications: true,
   favorites: ['enableAutoApprove', 'readFiles']
 }

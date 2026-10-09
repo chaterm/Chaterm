@@ -269,6 +269,7 @@ import type { MenuProps } from 'ant-design-vue'
 import { setUserInfo } from '@/utils/permission'
 import { message } from 'ant-design-vue'
 import { captureButtonClick, LoginFunnelEvents, LoginMethods, LoginFailureReasons } from '@/utils/telemetry'
+import { getSkipLoginUserId } from '@/utils/devUser'
 import { shortcutService } from '@/services/shortcutService'
 import config from '@renderer/config'
 import { sendEmailCode, emailLogin, userLogin, sendMobileCode as sendMobileCodeApi, mobileLogin } from '@/api/user/user'
@@ -589,7 +590,7 @@ const skipLogin = async () => {
     localStorage.setItem('login-skipped', 'true')
     localStorage.setItem('ctm-token', 'guest_token')
     const guestUserInfo = {
-      uid: 999999999,
+      uid: getSkipLoginUserId(),
       username: 'guest',
       name: 'Guest',
       email: 'guest@chaterm.ai',
@@ -597,7 +598,7 @@ const skipLogin = async () => {
     }
     setUserInfo(guestUserInfo)
     const api = window.api as any
-    const dbResult = await api.initUserDatabase({ uid: 999999999 })
+    const dbResult = await api.initUserDatabase({ uid: guestUserInfo.uid })
     if (!dbResult.success) {
       logger.error('Guest database init failed', { error: dbResult.error })
       message.error(t('login.initializationFailed'))

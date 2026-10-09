@@ -290,7 +290,6 @@ export class Task {
   private askResponsePayload?: { response: ChatermAskResponse; text?: string; contentParts?: ContentPart[]; toolResult?: ToolResultPayload }
   private nextUserInputContentParts?: ContentPart[]
   private lastMessageTs?: number
-  private consecutiveAutoApprovedRequestsCount: number = 0
   private consecutiveMistakeCount: number = 0
   private abort: boolean = false
   didFinishAbortingStream = false
@@ -2522,7 +2521,6 @@ export class Task {
 
     await this.recordModelUsage()
     await this.handleConsecutiveMistakes(userContent)
-    await this.handleAutoApprovalLimits()
 
     // Capture the index of the PREVIOUS (completed) api_req_started message
     // BEFORE prepareApiRequest creates a new one. The previous request carries
@@ -2576,26 +2574,6 @@ export class Task {
     }
 
     this.consecutiveMistakeCount = 0
-  }
-
-  private async handleAutoApprovalLimits(): Promise<void> {
-    if (!this.autoApprovalSettings.enabled || this.consecutiveAutoApprovedRequestsCount < this.autoApprovalSettings.maxRequests) {
-      return
-    }
-
-    if (this.autoApprovalSettings.enableNotifications) {
-      showSystemNotification({
-        subtitle: 'Max Requests Reached',
-        message: formatMessage(this.messages.autoApprovalMaxRequestsMessage, { count: this.autoApprovalSettings.maxRequests.toString() })
-      })
-    }
-
-    await this.ask(
-      'auto_approval_max_req_reached',
-      formatMessage(this.messages.autoApprovalMaxRequestsMessage, { count: this.autoApprovalSettings.maxRequests.toString() })
-    )
-
-    this.consecutiveAutoApprovedRequestsCount = 0
   }
 
   private async prepareApiRequest(userContent: UserContent): Promise<void> {
@@ -3177,7 +3155,6 @@ export class Task {
           // In auto-approval mode, commands without security risks execute directly
           this.removeLastPartialMessageIfExistsWithType('ask', 'command')
           await this.say('command', command, false)
-          this.consecutiveAutoApprovedRequestsCount++
           didAutoApprove = true
         } else if (!needsSecurityApproval) {
           // Check if read-only commands can be auto-approved:
@@ -3190,7 +3167,6 @@ export class Task {
             logger.info(`[Command Execution] Auto-approving read-only command (${reason} enabled)`)
             this.removeLastPartialMessageIfExistsWithType('ask', 'command')
             await this.say('command', command, false)
-            this.consecutiveAutoApprovedRequestsCount++
             didAutoApprove = true
           } else {
             const didApprove = await this.askApproval(toolDescription, 'command', command, { command, targetHosts: ip, toolName: 'execute_command' })

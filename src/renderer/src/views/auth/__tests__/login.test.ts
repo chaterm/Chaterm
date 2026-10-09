@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
-import { mount, VueWrapper } from '@vue/test-utils'
+import { flushPromises, mount, VueWrapper } from '@vue/test-utils'
 import { nextTick } from 'vue'
 import { createPinia, setActivePinia } from 'pinia'
 import { createI18n } from 'vue-i18n'
@@ -305,6 +305,7 @@ describe('Login Component', () => {
 
   afterEach(() => {
     wrapper?.unmount()
+    vi.unstubAllEnvs()
     vi.clearAllMocks()
     vi.restoreAllMocks()
     vi.clearAllTimers()
@@ -715,6 +716,25 @@ describe('Login Component', () => {
 
       expect(vi.mocked(message.error)).toHaveBeenCalledWith('Database initialization failed')
       expect(vi.mocked(mockRouter.replace)).not.toHaveBeenCalled()
+    })
+  })
+
+  describe('Development local user', () => {
+    it('opens the configured local database when skipping login manually', async () => {
+      vi.stubEnv('DEV', true)
+      vi.stubEnv('MODE', 'development.cn')
+      vi.stubEnv('RENDERER_DEV_USER_ID', '123456')
+      mockWindowApi.initUserDatabase.mockResolvedValue({ success: true })
+
+      wrapper = createWrapper()
+      await flushPromises()
+      expect(mockWindowApi.initUserDatabase).not.toHaveBeenCalled()
+
+      await (wrapper.vm as any).skipLogin()
+      await flushPromises()
+
+      expect(mockWindowApi.initUserDatabase).toHaveBeenCalledWith({ uid: 123456 })
+      expect(setUserInfo).toHaveBeenCalledWith(expect.objectContaining({ uid: 123456, token: 'guest_token' }))
     })
   })
 
