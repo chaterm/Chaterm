@@ -95,6 +95,7 @@ export default defineConfig(({ mode }) => {
   // Sourcemap: enabled in dev, disabled in production by default (use ENABLE_SOURCEMAP=true to override)
   const isDev = resolvedMode.startsWith('development')
   const enableSourcemap = isDev || process.env.ENABLE_SOURCEMAP === 'true'
+  const devUserId = isDev ? loadEnv(resolvedMode, resolve(), 'RENDERER_DEV_USER_ID').RENDERER_DEV_USER_ID || '' : ''
 
   return {
     main: {
@@ -236,7 +237,8 @@ export default defineConfig(({ mode }) => {
         },
         // Inject edition config to renderer process (single source of truth)
         __EDITION_CONFIG__: JSON.stringify(editionConfig),
-        'import.meta.env.RENDERER_APP_EDITION': JSON.stringify(edition)
+        'import.meta.env.RENDERER_APP_EDITION': JSON.stringify(edition),
+        'import.meta.env.RENDERER_DEV_USER_ID': JSON.stringify(devUserId)
       },
       css: {
         preprocessorOptions: {

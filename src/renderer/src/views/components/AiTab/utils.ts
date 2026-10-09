@@ -191,3 +191,33 @@ export const getImageMediaType = (relPath: string): 'image/jpeg' | 'image/png' |
       return 'image/png'
   }
 }
+
+const decodeImageToPngBlob = (dataUrl: string): Promise<Blob> => {
+  return new Promise((resolve, reject) => {
+    const img = new Image()
+    img.onload = () => {
+      const canvas = document.createElement('canvas')
+      canvas.width = img.naturalWidth
+      canvas.height = img.naturalHeight
+      const ctx = canvas.getContext('2d')
+      if (!ctx) {
+        reject(new Error('Canvas 2D context unavailable'))
+        return
+      }
+      ctx.drawImage(img, 0, 0)
+      canvas.toBlob((blob) => (blob ? resolve(blob) : reject(new Error('PNG encoding failed'))), 'image/png')
+    }
+    img.onerror = () => reject(new Error('Image decode failed'))
+    img.src = dataUrl
+  })
+}
+
+// Copy a base64 image to the system clipboard. Chromium only accepts image/png
+// on the async clipboard, so other formats are re-encoded through a canvas.
+export const copyImageToClipboard = async (mediaType: string, base64Data: string): Promise<void> => {
+  const pngBlob =
+    mediaType === 'image/png'
+      ? Promise.resolve(new Blob([Uint8Array.from(atob(base64Data), (c) => c.charCodeAt(0))], { type: 'image/png' }))
+      : decodeImageToPngBlob(`data:${mediaType};base64,${base64Data}`)
+  await navigator.clipboard.write([new ClipboardItem({ 'image/png': pngBlob })])
+}

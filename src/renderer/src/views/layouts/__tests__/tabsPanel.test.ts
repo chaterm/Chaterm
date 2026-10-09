@@ -682,7 +682,24 @@ describe('TabsPanel Component', () => {
       const vm = wrapper.vm as any
       vm.closeTab('test-close')
 
-      expect(closeCurrentPanel).toHaveBeenCalledWith('panel_test-close')
+      expect(closeCurrentPanel).toHaveBeenCalledWith()
+    })
+
+    it.each(['panel_new-tab', 'panel_source-tab_clone_123'])('closes only its bound panel %s on a terminal close event', async (panelId) => {
+      const otherPanelId = 'panel_other-tab'
+      const openPanels = new Set([otherPanelId, panelId])
+      const closeCurrentPanel = vi.fn((targetId = panelId) => openPanels.delete(targetId))
+      wrapper = createWrapper({
+        id: 'new-tab',
+        organizationId: 'org-123',
+        closeCurrentPanel
+      })
+
+      wrapper.findComponent({ name: 'SshConnect' }).vm.$emit('close-tab-in-term', 'new-tab')
+      await nextTick()
+
+      expect([...openPanels]).toEqual([otherPanelId])
+      expect(closeCurrentPanel).toHaveBeenCalledTimes(1)
     })
 
     it('should call closeCurrentPanel when uninstallPlugin is called', () => {

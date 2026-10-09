@@ -56,6 +56,61 @@
           <span class="processing-text">{{ $t('ai.processing') }}</span>
         </span>
       </div>
+      <a-image-preview-group
+        v-if="imageParts.length > 0"
+        :preview="{ getContainer: getPreviewContainer, onVisibleChange: handlePreviewVisibleChange }"
+      >
+        <!-- Copy sits in the preview toolbar next to zoom/close -->
+        <Teleport
+          v-if="previewToolbarEl"
+          :to="previewToolbarEl"
+        >
+          <li
+            class="ant-image-preview-operations-operation image-preview-copy"
+            role="button"
+            tabindex="0"
+            data-testid="ai-image-preview-copy"
+            :title="$t('ai.copyImage')"
+            :aria-label="$t('ai.copyImage')"
+            @click="handleCopyPreviewImage"
+            @keydown.enter.prevent="handleCopyPreviewImage"
+          >
+            <CopyOutlined class="ant-image-preview-operations-icon" />
+          </li>
+        </Teleport>
+        <div
+          class="image-attachments"
+          data-testid="ai-image-attachments"
+        >
+          <div
+            v-for="(image, index) in imageParts"
+            :key="index"
+            class="image-attachment"
+            data-testid="ai-image-attachment"
+          >
+            <a-image
+              :src="`data:${image.mediaType};base64,${image.data}`"
+              :alt="$t('ai.uploadedImage')"
+              :width="64"
+              :height="64"
+              class="image-attachment-thumbnail"
+            />
+            <div class="image-attachment-actions">
+              <a-tooltip :title="$t('ai.removeImage')">
+                <button
+                  type="button"
+                  class="image-attachment-action"
+                  data-testid="ai-image-remove"
+                  :aria-label="$t('ai.removeImage')"
+                  @click.stop="removeImagePart(index)"
+                >
+                  <CloseOutlined />
+                </button>
+              </a-tooltip>
+            </div>
+          </div>
+        </div>
+      </a-image-preview-group>
       <div class="chat-editable-wrapper">
         <div
           ref="editableRef"
@@ -302,7 +357,7 @@
 import { computed, ref, watch, provide, nextTick, onMounted, onBeforeUnmount } from 'vue'
 import type { CSSProperties } from 'vue'
 import { useI18n } from 'vue-i18n'
-import { notification } from 'ant-design-vue'
+import { message, notification } from 'ant-design-vue'
 import VoiceInput from '../components/voice/voiceInput.vue'
 import ContextSelectPopup from '../components/ContextSelectPopup.vue'
 import CommandSelectPopup from '../components/CommandSelectPopup.vue'
@@ -314,12 +369,12 @@ import { useUserInteractions } from '../composables/useUserInteractions'
 import { parseContextDragPayload, useEditableContent } from '../composables/useEditableContent'
 import { AiTypeOptions } from '../composables/useEventBusListeners'
 import { AI_TAB_DEFAULT_WORKSPACE, type AiTabWorkspace } from '../workspace'
-import { formatTokenCount, getImageMediaType } from '../utils'
+import { copyImageToClipboard, formatTokenCount, getImageMediaType } from '../utils'
 import eventBus from '@/utils/eventBus'
 import type { ChatermApiReqInfo, ChatermMessage as StateChatermMessage } from '@shared/ExtensionMessage'
-import type { ContentPart, ContextDocRef, ContextPastChatRef, ContextCommandRef, ContextSkillRef } from '@shared/WebviewMessage'
+import type { ContentPart, ContextDocRef, ContextPastChatRef, ContextCommandRef, ContextSkillRef, ImageContentPart } from '@shared/WebviewMessage'
 import type { HistoryItem, Host } from '../types'
-import { CloseOutlined, LaptopOutlined, LockOutlined } from '@ant-design/icons-vue'
+import { CloseOutlined, CopyOutlined, LaptopOutlined, LockOutlined } from '@ant-design/icons-vue'
 import uploadIcon from '@/assets/icons/upload.svg'
 import imageIcon from '@/assets/icons/image.svg'
 import sendIcon from '@/assets/icons/send.svg'
@@ -632,7 +687,8 @@ const {
   extractPlainTextFromParts,
   renderFromParts,
   insertChipAtCursor,
-  insertImageAtCursor,
+  appendImagePart,
+  removeImagePart,
   insertCommandChipWithPath,
   insertSkillChip,
   handleEditableKeyDown,
@@ -647,6 +703,40 @@ const {
   handleChipClick,
   shouldBlockEnterSend: () => props.interactionActive
 })
+
+const imageParts = computed(() => inputParts.value.filter((part): part is ImageContentPart => part.type === 'image'))
+
+// The preview mounts into a dedicated host so its toolbar can be styled and
+// extended without touching image previews elsewhere in the app.
+let previewHost: HTMLDivElement | null = null
+const getPreviewContainer = () => {
+  if (!previewHost) {
+    previewHost = document.createElement('div')
+    previewHost.className = 'ai-image-preview-host'
+    document.body.appendChild(previewHost)
+  }
+  return previewHost
+}
+const previewToolbarEl = ref<HTMLElement | null>(null)
+
+const handlePreviewVisibleChange = async (visible: boolean) => {
+  if (!visible) return
+  await nextTick()
+  previewToolbarEl.value = previewHost?.querySelector<HTMLElement>('.ant-image-preview-operations') ?? null
+}
+
+const handleCopyPreviewImage = async () => {
+  const src = previewHost?.querySelector<HTMLImageElement>('.ant-image-preview-img')?.getAttribute('src') ?? ''
+  const match = /^data:([^;]+);base64,(.+)$/.exec(src)
+  try {
+    if (!match) throw new Error('Preview image is not a base64 data URL')
+    await copyImageToClipboard(match[1], match[2])
+    message.success(t('ai.imageCopied'))
+  } catch (error) {
+    logger.error('Failed to copy image', { error: error instanceof Error ? error.message : String(error) })
+    message.error(t('ai.imageCopyFailed'))
+  }
+}
 
 const resolveKbAbsPath = async (relPath: string): Promise<string> => {
   // Normalize to POSIX-style paths to match KB root format.
@@ -677,7 +767,7 @@ const handleEditableDrop = async (e: DragEvent) => {
     try {
       const res = await window.api.kbReadFile(dragPayload.relPath, 'base64')
       const mediaType = getImageMediaType(dragPayload.relPath)
-      insertImageAtCursor({
+      appendImagePart({
         type: 'image',
         mediaType,
         data: res.content
@@ -956,7 +1046,7 @@ const {
 } = useUserInteractions({
   sendMessage: props.sendMessage,
   insertChipAtCursor,
-  insertImagePart: insertImageAtCursor,
+  insertImagePart: appendImagePart,
   getTaskId: () => currentChatId.value
 })
 void imageInputRef
@@ -1047,7 +1137,7 @@ onMounted(() => {
       insertChipAtCursor(chipType, ref as any, label)
     }
   })
-  setImageInsertHandler(insertImageAtCursor)
+  setImageInsertHandler(appendImagePart)
   // Set command chip insert handler with path support
   setCommandChipInsertHandler((command: string, label: string, path: string) => {
     removeTrailingSlashFromInputParts(inputParts)
@@ -1064,6 +1154,9 @@ onMounted(() => {
 })
 
 onBeforeUnmount(() => {
+  previewToolbarEl.value = null
+  previewHost?.remove()
+  previewHost = null
   setChipInsertHandler(() => {})
   setImageInsertHandler(() => {})
   setCommandChipInsertHandler(() => {})
@@ -1322,44 +1415,72 @@ onBeforeUnmount(() => {
     color: #ff4d4f;
   }
 
-  // Image preview styles
-  :deep(.image-preview-wrapper) {
+  // Attached images sit in a strip above the text, like Codex desktop.
+  .image-attachments {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    padding: 8px 12px 0;
+  }
+
+  .image-attachment {
+    position: relative;
+    width: 64px;
+    height: 64px;
+    border-radius: 8px;
+    border: 1px solid var(--border-color);
+    overflow: hidden;
+    background-color: var(--hover-bg-color);
+
+    :deep(.ant-image) {
+      display: block;
+      cursor: zoom-in;
+    }
+
+    :deep(.ant-image-img) {
+      width: 64px;
+      height: 64px;
+      object-fit: cover;
+    }
+
+    // Hide antd's "Preview" overlay; the thumbnail itself is the click target.
+    :deep(.ant-image-mask) {
+      display: none;
+    }
+
+    &:hover .image-attachment-actions,
+    &:focus-within .image-attachment-actions {
+      opacity: 1;
+    }
+  }
+
+  .image-attachment-actions {
+    position: absolute;
+    top: 4px;
+    right: 4px;
+    display: flex;
+    gap: 4px;
+    opacity: 0;
+    transition: opacity 0.15s ease;
+  }
+
+  .image-attachment-action {
     display: inline-flex;
     align-items: center;
-    position: relative;
-    margin: 2px 4px;
-    vertical-align: middle;
-  }
-
-  :deep(.image-preview-thumbnail) {
-    max-width: 120px;
-    max-height: 80px;
-    border-radius: 4px;
-    object-fit: cover;
-    border: 1px solid var(--border-color);
-  }
-
-  :deep(.image-remove) {
-    position: absolute;
-    top: -6px;
-    right: -6px;
-    width: 16px;
-    height: 16px;
+    justify-content: center;
+    width: 18px;
+    height: 18px;
+    padding: 0;
+    border: none;
     border-radius: 50%;
-    background-color: var(--bg-color-secondary);
-    border: 1px solid var(--border-color);
-    color: var(--text-color-tertiary);
-    font-size: 12px;
-    line-height: 14px;
-    text-align: center;
+    background-color: rgba(0, 0, 0, 0.65);
+    color: #fff;
+    font-size: 10px;
     cursor: pointer;
-    transition: all 0.2s ease;
-  }
 
-  :deep(.image-remove:hover) {
-    color: #ff4d4f;
-    border-color: #ff4d4f;
-    background-color: rgba(255, 77, 79, 0.1);
+    &:hover {
+      background-color: rgba(0, 0, 0, 0.85);
+    }
   }
 }
 
@@ -1631,5 +1752,18 @@ onBeforeUnmount(() => {
     background: var(--bg-color-secondary) !important;
     border-color: var(--border-color) !important;
   }
+}
+
+// Attached-image preview: antd renders close, zoomIn, zoomOut, rotateRight,
+// rotateLeft, flipX, flipY in that order and offers no prop to drop tools in v4.
+// Hide the rotate/flip ones; the teleported copy button is appended after them.
+.ai-image-preview-host .ant-image-preview-operations > .ant-image-preview-operations-operation:not(.image-preview-copy):nth-child(n + 4) {
+  display: none;
+}
+
+// The toolbar overlaps the header's -webkit-app-region: drag strip, where the OS
+// swallows clicks as window drags. Opt it out so the icons receive clicks.
+.ai-image-preview-host .ant-image-preview-operations {
+  -webkit-app-region: no-drag;
 }
 </style>
