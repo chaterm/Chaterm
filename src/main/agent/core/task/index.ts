@@ -121,6 +121,7 @@ import { getMessages, formatMessage, Messages } from './messages'
 import { decodeHtmlEntities } from '@utils/decodeHtmlEntities'
 import { classifyAgentCommand, enterpriseUsageStatsService } from '../../../services/enterpriseUsageStatsService'
 import { McpHub } from '@services/mcp/McpHub'
+import { canAutoExecuteCommand } from '../security/command-policy'
 import { SkillsManager } from '@services/skills'
 import { ChatermDatabaseService } from '../../../storage/db/chaterm.service'
 import type { McpTool } from '@shared/mcp'
@@ -3160,8 +3161,21 @@ export class Task {
           // Check if read-only commands can be auto-approved:
           // 1. Global setting: autoExecuteReadOnlyCommands enabled in preferences (read latest from global state)
           // 2. Session setting: user clicked "auto-approve read-only" button in this session
-          const globalAutoExecuteReadOnly = latestAutoApprovalSettings?.actions?.autoExecuteReadOnlyCommands ?? false
-          if (!requiresApprovalPerLLM && (globalAutoExecuteReadOnly || this.readOnlyCommandsAutoApproved)) {
+          const globalAutoExecuteReadOnly = latestAutoApprovalSettings?.actions?.autoExecuteReadOnlyCommands ?? true
+          if (
+            canAutoExecuteCommand(
+              {
+                ...this.autoApprovalSettings,
+                enabled: false,
+                actions: {
+                  ...this.autoApprovalSettings.actions,
+                  autoExecuteReadOnlyCommands: globalAutoExecuteReadOnly
+                }
+              },
+              requiresApprovalPerLLM,
+              this.readOnlyCommandsAutoApproved
+            )
+          ) {
             // Auto-approve read-only command
             const reason = globalAutoExecuteReadOnly ? 'global setting' : 'session auto-approval'
             logger.info(`[Command Execution] Auto-approving read-only command (${reason} enabled)`)

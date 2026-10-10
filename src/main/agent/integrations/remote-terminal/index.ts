@@ -43,6 +43,7 @@ import type { IpcMainInvokeEvent } from 'electron'
 import path from 'path'
 import fs from 'fs'
 import { randomUUID } from 'crypto'
+import type { ProxyConfig } from '../../../ssh/proxy'
 
 const appPath = app.getAppPath()
 const packagePath = path.join(appPath, 'package.json')
@@ -82,6 +83,7 @@ export interface RemoteTerminalProcessEvents extends Record<string, any[]> {
 }
 
 export interface ConnectionInfo {
+  proxyConfig?: ProxyConfig
   id?: string
   host?: string
   hostname?: string
@@ -906,7 +908,7 @@ export class RemoteTerminalManager {
   private nextTerminalId = 1
   private connectionInfo: ConnectionInfo | null = null
 
-  constructor() {
+  constructor(private readonly headless = false) {
     // Set default connection information
   }
 
@@ -976,7 +978,7 @@ export class RemoteTerminalManager {
 
       // Add connection ident
       let identToken = ''
-      const wc = webContents.getFocusedWebContents()
+      const wc = this.headless ? undefined : webContents.getFocusedWebContents()
       if (wc) {
         const connIdentToken = await wc.executeJavaScript(`localStorage.getItem('jms-token')`)
         identToken = connIdentToken ? `_t=${connIdentToken}` : ''
@@ -989,6 +991,8 @@ export class RemoteTerminalManager {
         const jumpServerSessionId = `jumpserver_${Date.now()}_${createSecureIdSegment()}`
         const assetUuid = this.connectionInfo.assetUuid || this.connectionInfo.id || jumpServerSessionId
         const jumpServerConnectionInfo = {
+          headless: this.headless,
+          proxyConfig: this.connectionInfo.proxyConfig,
           id: jumpServerSessionId,
           host: this.connectionInfo.asset_ip!,
           port: this.connectionInfo.port,
@@ -1023,6 +1027,7 @@ export class RemoteTerminalManager {
         }
         const targetAsset = this.connectionInfo.comment || this.connectionInfo.host
         const bastionConnectionInfo = {
+          headless: this.headless,
           id: bastionSessionId,
           host: bastionHost,
           port: this.connectionInfo.port || 22,
@@ -1035,7 +1040,7 @@ export class RemoteTerminalManager {
           targetAsset,
           needProxy: this.connectionInfo.needProxy || false,
           proxyName: this.connectionInfo.proxyName || '',
-          proxyConfig: this.connectionInfo.proxyName ? { name: this.connectionInfo.proxyName } : undefined,
+          proxyConfig: this.connectionInfo.proxyConfig ?? (this.connectionInfo.proxyName ? { name: this.connectionInfo.proxyName } : undefined),
           asset_type: this.connectionInfo.asset_type || `organization-${sshType}`,
           connIdentToken: identToken,
           ident: this.connectionInfo.ident,

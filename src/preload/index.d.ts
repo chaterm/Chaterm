@@ -4,6 +4,7 @@ import type { CommandGenerationContext, WebviewMessage } from '../main/agent/sha
 import type { DbAiApi } from '../shared/db-ai-types'
 import type { BatchDeleteAssetsResult } from '../shared/asset-types'
 import type { SftpDownloadFileArgs } from '../shared/sftp-types'
+import type { ExternalMcpStatus } from '../shared/external-mcp'
 
 interface FigSuggestion {
   text: string
@@ -558,6 +559,8 @@ interface ApiType {
   onMcpStatusUpdate: (callback: (servers: any[]) => void) => () => void
   onMcpServerUpdate: (callback: (server: any) => void) => () => void
   onMcpConfigFileChanged: (callback: (content: string) => void) => () => void
+  getExternalMcpStatus: () => Promise<ExternalMcpStatus>
+  setExternalMcpEnabled: (enabled: boolean) => Promise<ExternalMcpStatus>
 
   // Skills management
   getSkills: () => Promise<any[]>

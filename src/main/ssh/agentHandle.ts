@@ -2,6 +2,7 @@ import { ipcMain } from 'electron'
 import { Client, ConnectConfig } from 'ssh2'
 import { ConnectionInfo } from '../agent/integrations/remote-terminal'
 import { createProxySocket } from './proxy'
+import { executeSshCommand } from './structured-exec'
 import {
   createProxyCommandSocket,
   enrichConnectionCredentials,
@@ -89,7 +90,9 @@ export async function remoteSshConnect(connectionInfo: ConnectionInfo): Promise<
       return Promise.resolve({ error: errorMessage })
     }
   } else if (connectionInfo.needProxy) {
-    const cfg = await getUserConfigFromRenderer()
+    const cfg = connectionInfo.proxyConfig
+      ? { sshProxyConfigs: [{ ...connectionInfo.proxyConfig, name: connectionInfo.proxyName }] }
+      : await getUserConfigFromRenderer()
     if (connectionInfo.proxyName) {
       const proxyConfig = cfg.sshProxyConfigs.find((item) => item.name === connectionInfo.proxyName)
       sock = await createProxySocket(proxyConfig, connectionInfo.host || '', connectionInfo.port || 22)
@@ -121,6 +124,7 @@ export async function remoteSshConnect(connectionInfo: ConnectionInfo): Promise<
     conn.on('ready', () => {
       if (secondAuthTriggered) return
       remoteConnections.set(connectionId, conn)
+      conn.once('close', () => remoteConnections.delete(connectionId))
       logger.info('SSH connection successful', { event: 'ssh.connect', connectionId })
       safeResolve({ id: connectionId })
     })
@@ -148,6 +152,7 @@ export async function remoteSshConnect(connectionInfo: ConnectionInfo): Promise<
       port: normalizedPort,
       username,
       keepaliveInterval: 10000, // Keep connection alive
+      readyTimeout: 30000,
       tryKeyboard: true, // Disable keyboard-interactive
       algorithms: LEGACY_ALGORITHMS
     }
@@ -270,6 +275,12 @@ export async function remoteSshExec(
       }, timeoutMs)
     })
   })
+}
+
+export async function remoteSshExecStructured(sessionId: string, command: string, timeoutMs: number, signal: AbortSignal) {
+  const conn = remoteConnections.get(sessionId)
+  if (!conn) throw new Error('SSH connection is unavailable')
+  return executeSshCommand(conn, command, timeoutMs, signal)
 }
 
 // New: SSH command execution method supporting real-time streaming output
