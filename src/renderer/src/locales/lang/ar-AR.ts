@@ -892,6 +892,8 @@ export default {
     password: 'كلمة المرور',
     copyPassword: 'نسخ كلمة المرور',
     copyPasswordSuccess: 'تم نسخ كلمة المرور',
+    copySuccess: 'تم النسخ',
+    copyFailed: 'فشل النسخ',
     noPasswordToCopy: 'لا توجد كلمة مرور للنسخ',
     remoteHost: 'المضيف البعيد',
     port: 'المنفذ',

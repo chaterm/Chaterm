@@ -894,6 +894,8 @@ export default {
     password: 'パスワード',
     copyPassword: 'パスワードをコピー',
     copyPasswordSuccess: 'パスワードをコピーしました',
+    copySuccess: 'コピーしました',
+    copyFailed: 'コピーに失敗しました',
     noPasswordToCopy: 'コピーできるパスワードがありません',
     remoteHost: 'リモートホスト',
     port: 'ポート',

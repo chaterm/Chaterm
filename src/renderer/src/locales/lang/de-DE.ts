@@ -910,6 +910,8 @@ export default {
     password: 'Passwort',
     copyPassword: 'Passwort kopieren',
     copyPasswordSuccess: 'Passwort kopiert',
+    copySuccess: 'Kopiert',
+    copyFailed: 'Kopieren fehlgeschlagen',
     noPasswordToCopy: 'Kein Passwort zum Kopieren',
     remoteHost: 'Remote-Host',
     port: 'Port',

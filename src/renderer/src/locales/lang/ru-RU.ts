@@ -902,6 +902,8 @@ export default {
     password: 'Пароль',
     copyPassword: 'Копировать пароль',
     copyPasswordSuccess: 'Пароль скопирован',
+    copySuccess: 'Скопировано',
+    copyFailed: 'Ошибка копирования',
     noPasswordToCopy: 'Нет пароля для копирования',
     remoteHost: 'Удаленный хост',
     port: 'Порт',

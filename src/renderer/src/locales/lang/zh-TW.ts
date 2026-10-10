@@ -881,6 +881,8 @@ export default {
     password: '密碼',
     copyPassword: '複製密碼',
     copyPasswordSuccess: '密碼已複製',
+    copySuccess: '已複製',
+    copyFailed: '複製失敗',
     noPasswordToCopy: '暫無可複製的密碼',
     remoteHost: '連接IP或地址',
     port: '端口',
