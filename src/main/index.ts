@@ -59,6 +59,7 @@ import { envelopeEncryptionService } from './storage/data_sync/envelope_encrypti
 import { versionPromptService } from './version/versionPromptService'
 import { authFailureNotifier } from './services/authFailureNotifier'
 import { enterpriseUsageStatsService } from './services/enterpriseUsageStatsService'
+import { ExternalMcpServer } from './services/external-mcp/server'
 
 import * as fsSync from 'fs'
 import { createHash, createVerify, randomUUID } from 'crypto'
@@ -253,6 +254,7 @@ const mainWindows = new Set<BrowserWindow>()
 
 let autoCompleteService: autoCompleteDatabaseService
 let chatermDbService: ChatermDatabaseService
+const externalMcpServer = new ExternalMcpServer()
 let controller: Controller
 let dataSyncController: DataSyncController | null = null
 let chatSyncScheduler: import('./storage/chat_sync/services/ChatSyncScheduler').ChatSyncScheduler | null = null
@@ -667,6 +669,12 @@ app.whenReady().then(async () => {
     logger.error('Failed to initialize Controller', { error: error })
   }
 
+  try {
+    await externalMcpServer.start()
+  } catch (error) {
+    logger.error('Failed to initialize external MCP server', { event: 'external-mcp.init.error', error })
+  }
+
   // All IPC handlers and Controller are ready - release the main-window-show gate.
   // The renderer's first IPC call (main-window-show) awaits winReady, so there
   // is no race condition even though content may still be loading.
@@ -751,6 +759,11 @@ app.on('window-all-closed', () => {
 app.on('before-quit', async () => {
   forceQuit = true
   logger.info('Application is about to quit. Disposing resources...')
+  try {
+    await externalMcpServer.dispose()
+  } catch (error) {
+    logger.error('Error during external MCP disposal', { event: 'external-mcp.dispose.error', error })
+  }
   if (controller) {
     try {
       await controller.dispose()
@@ -844,6 +857,9 @@ export async function ensureMcpConfigFileExists(): Promise<string> {
 ipcMain.handle('mcp:get-config-path', async () => {
   return await ensureMcpConfigFileExists()
 })
+
+ipcMain.handle('mcp:external:status', () => externalMcpServer.status())
+ipcMain.handle('mcp:external:set-enabled', async (_event, enabled: boolean) => externalMcpServer.setEnabled(enabled === true))
 
 // Get initial MCP server list
 ipcMain.handle('mcp:get-servers', async () => {

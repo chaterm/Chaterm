@@ -559,6 +559,14 @@
     @click.stop
   >
     <div
+      v-if="isSecondLevel(contextMenuData)"
+      class="context-menu-item"
+      @click="handleContextMenuAction('copy')"
+    >
+      <CopyOutlined class="menu-icon" />
+      {{ t('common.copy') }}
+    </div>
+    <div
       v-if="canEditDirectHost(contextMenuData)"
       class="context-menu-item"
       @click="handleContextMenuAction('editHost')"
@@ -2154,6 +2162,7 @@ const handleCreateFolderFromMoveModal = () => {
 
 const hasContextMenu = (dataRef: any): boolean => {
   if (!dataRef) return false
+  const hasCopyOption = isSecondLevel(dataRef)
   const hasDirectHostOption = canEditDirectHost(dataRef)
   const hasRecentConnectionOption = dataRef.isRecentConnection === true
   const hasFavoriteOption = dataRef.favorite !== undefined
@@ -2165,6 +2174,7 @@ const hasContextMenu = (dataRef: any): boolean => {
   const hasDeleteFolderOption = dataRef.asset_type === 'custom_folder' && !dataRef.key.startsWith('common_')
 
   return (
+    hasCopyOption ||
     hasDirectHostOption ||
     hasRecentConnectionOption ||
     hasFavoriteOption ||
@@ -2182,6 +2192,7 @@ const handleContextMenu = (event: MouseEvent, dataRef: any) => {
   event.stopPropagation()
 
   // Check if the node has any available menu options
+  const hasCopyOption = isSecondLevel(dataRef)
   const hasDirectHostOption = canEditDirectHost(dataRef)
   const hasRecentConnectionOption = dataRef.isRecentConnection === true
   const hasFavoriteOption = dataRef.favorite !== undefined
@@ -2194,6 +2205,7 @@ const handleContextMenu = (event: MouseEvent, dataRef: any) => {
 
   // If no menu options are available, don't show the context menu
   if (
+    !hasCopyOption &&
     !hasDirectHostOption &&
     !hasRecentConnectionOption &&
     !hasFavoriteOption &&
@@ -2209,6 +2221,7 @@ const handleContextMenu = (event: MouseEvent, dataRef: any) => {
 
   // Calculate the number of menu items that will be shown
   const menuItemCount = [
+    hasCopyOption,
     hasDirectHostOption,
     hasDirectHostOption,
     hasRecentConnectionOption,
@@ -2317,6 +2330,17 @@ const handleCopyPassword = async (asset: any): Promise<void> => {
   }
 }
 
+// Copy exactly what the tree row shows: IP in IP mode, hostname otherwise
+const handleCopyDisplayText = async (asset: any): Promise<void> => {
+  try {
+    await copyToClipboard(getDisplayText(asset, asset.title))
+    message.success(t('personal.copySuccess'))
+  } catch {
+    logger.error('Failed to copy asset display text', { event: 'workspace.copyDisplayText.failed' })
+    message.error(t('personal.copyFailed'))
+  }
+}
+
 const handleEditDirectHost = async (asset: any): Promise<void> => {
   await eventBus.emitAsync('open-user-tab', 'assetConfig')
   await nextTick()
@@ -2327,6 +2351,9 @@ const handleContextMenuAction = async (action: string) => {
   if (!contextMenuData.value) return
 
   switch (action) {
+    case 'copy':
+      await handleCopyDisplayText(contextMenuData.value)
+      break
     case 'editHost':
       await handleEditDirectHost(contextMenuData.value)
       break

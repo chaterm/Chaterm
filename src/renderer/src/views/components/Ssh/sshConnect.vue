@@ -146,6 +146,7 @@ import { checkUserDevice } from '@api/user/user'
 import { keywordHighlightService } from '@/services/keywordHighlightService'
 import { useZmodem } from './utils/chatermZmodem'
 import { shouldAutoScrollAfterTerminalStateUpdate, shouldAutoScrollAfterTerminalWrite } from './utils/terminalScroll'
+import { alignPromptRedraw, createPtyResizeSync, type CursorAnchor, fitAndClearStaleSelection, fitKeepingCursorInLine } from './utils/terminalResize'
 import { LocalEchoController } from './utils/localEcho'
 import { resolveAliasExpansion, shouldSuppressCtrlVAfterNativePaste } from './utils/terminalInput'
 import { applyTerminalRuntimeConfig, TERMINAL_RUNTIME_CONFIG_CHANGED_EVENT, type TerminalRuntimeConfig } from '@/utils/terminalRuntimeConfig'
@@ -849,6 +850,11 @@ onMounted(async () => {
       fontFamily: resolveTerminalFontFamily(config.fontFamily),
       lineHeight: typeof config.lineHeight === 'number' ? config.lineHeight : 1,
       allowTransparency: true,
+      // By default xterm truncates the cursor's line on a width change and waits for
+      // the shell to redraw it. The pty only learns the settled size of a drag, and
+      // none at all when the drag ends at the starting width, so a long prompt would
+      // stay cut off. Reflow it like any other line instead.
+      reflowCursorLine: true,
       // Required by @xterm/addon-search: highlighting all matches goes through
       // Terminal.registerDecoration, which is proposed API. Without this the
       // addon throws before it can report result counts, so the search bar's
@@ -992,7 +998,38 @@ onMounted(async () => {
     // clipboard contents twice.
     textarea.addEventListener('paste', textareaPasteListener, true)
   }
-  const originalWrite = termInstance.write.bind(termInstance)
+  const xtermWrite = termInstance.write.bind(termInstance)
+  // Writes handed to xterm but not parsed yet; the buffer is only current at 0.
+  let unparsedWrites = 0
+  // Cursor offset carried between the fits of one drag; any output can move the
+  // cursor or rewrite its line, so it is only valid until the next write
+  let cursorAnchor: CursorAnchor | undefined
+  const originalWrite = (data: string, callback?: () => void) => {
+    if (unparsedWrites === 0 && Date.now() - ptyResizedAt < PROMPT_REDRAW_WINDOW_MS) {
+      data = alignPromptRedraw(termInstance, data) + data
+    }
+    cursorAnchor = undefined
+    unparsedWrites++
+    xtermWrite(data, () => {
+      unparsedWrites--
+      callback?.()
+    })
+  }
+  fitTerminal = (fit) => {
+    // Pending output moves the cursor itself; reading it now would be stale
+    if (unparsedWrites > 0 || terminalWriteQueue?.getPendingBytes()) {
+      fit()
+      return
+    }
+    cursorAnchor = fitKeepingCursorInLine(termInstance, fit, cursorAnchor)
+    if (!cursorAnchor) return
+    // Set the position directly: CUP cannot park the cursor past the last column,
+    // and a write would only land after the next fit has already read the cursor
+    const buffer = (termInstance as any)._core._bufferService.buffer
+    buffer.x = cursorAnchor.x
+    buffer.y = cursorAnchor.y
+    termInstance.refresh(cursorAnchor.y, cursorAnchor.y)
+  }
   terminalWriteQueue = createTerminalWriteQueue({
     write: originalWrite,
     maxBatchBytes: 64 * 1024,
@@ -1416,6 +1453,7 @@ onBeforeUnmount(() => {
     registerInstanceTimer = null
   }
   window.removeEventListener('resize', handleResize)
+  ptyResizeSync.cancel()
   window.removeEventListener('wheel', handleWheel)
   window.removeEventListener('online', handleBrowserOnline)
   window.removeEventListener('offline', handleBrowserOffline)
@@ -1711,22 +1749,34 @@ const autoExecuteCode = (payload: { command: string; tabId: string }) => {
   if (payload.tabId !== props.currentConnectionId) return
   sendDataAutoSwitchTerminal(payload.command)
 }
-// 60ms keeps the grid visibly following a drag (~16 fits/sec) while bounding the
-// pty resize IPC that every fit triggers.
+// 60ms keeps the grid visibly following a drag (~16 fits/sec).
 const RESIZE_THROTTLE_MS = 60
+// The pty only learns the size once the drag settles; see createPtyResizeSync.
+const PTY_RESIZE_DEBOUNCE_MS = 150
+// How long after a pty resize the shell's prompt redraw is expected to arrive.
+const PROMPT_REDRAW_WINDOW_MS = 1500
+let ptyResizedAt = 0
+// Set once the terminal is created; see fitKeepingCursorInLine.
+let fitTerminal: ((fit: () => void) => void) | null = null
+
+const ptyResizeSync = createPtyResizeSync((cols, rows) => {
+  ptyResizedAt = Date.now()
+  if (isLocalConnect.value) {
+    resizeLocalSSH(cols, rows)
+  } else {
+    resizeSSH(cols, rows)
+  }
+}, PTY_RESIZE_DEBOUNCE_MS)
 
 const handleResize = throttle(() => {
   if (fitAddon.value && terminal.value && terminalElement.value) {
     try {
       const rect = terminalElement.value.getBoundingClientRect()
       if (rect.width > 0 && rect.height > 0) {
-        fitAddon.value.fit()
+        const fit = fitAddon.value
+        fitAndClearStaleSelection(terminal.value, () => (fitTerminal ? fitTerminal(() => fit.fit()) : fit.fit()))
         const { cols, rows } = terminal.value
-        if (isLocalConnect.value) {
-          resizeLocalSSH(cols, rows)
-        } else {
-          resizeSSH(cols, rows)
-        }
+        ptyResizeSync.schedule(cols, rows)
         openEditors.forEach((ed) => resizeEditor(ed, rect))
       }
     } catch (error) {

@@ -903,6 +903,8 @@ export default {
     password: 'Password',
     copyPassword: 'Copy Password',
     copyPasswordSuccess: 'Password copied',
+    copySuccess: 'Copied',
+    copyFailed: 'Copy failed',
     noPasswordToCopy: 'No password to copy',
     remoteHost: 'Remote host',
     port: 'Port',
@@ -1712,6 +1714,12 @@ export default {
     milliseconds: 'milliseconds'
   },
   mcp: {
+    externalTitle: 'Expose Chaterm to coding agents',
+    externalDescription: 'Let coding agents use Chaterm-managed targets and SSH command execution through MCP',
+    externalEnabled: 'Enabled',
+    externalDisabled: 'Disabled',
+    endpoint: 'Endpoint',
+    copyExternalConfig: 'Copy Config',
     title: 'MCP',
     description: 'Manage MCP server connections to extend AI capabilities',
     serverList: 'MCP Servers',

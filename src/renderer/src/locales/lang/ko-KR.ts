@@ -887,6 +887,8 @@ export default {
     password: '비밀번호',
     copyPassword: '비밀번호 복사',
     copyPasswordSuccess: '비밀번호가 복사되었습니다',
+    copySuccess: '복사되었습니다',
+    copyFailed: '복사 실패',
     noPasswordToCopy: '복사할 비밀번호가 없습니다',
     remoteHost: '리모트 호스트',
     port: '포트',

@@ -119,4 +119,56 @@ describe('Workspace tree search rendering', () => {
 
     wrapper.unmount()
   })
+
+  it('copies the displayed hostname or IP from the context menu', async () => {
+    const writeText = vi.fn(async () => undefined)
+    Object.defineProperty(globalThis.navigator, 'clipboard', { value: { writeText }, configurable: true })
+
+    const wrapper = mount(Workspace, {
+      global: {
+        stubs: {
+          'a-tree': treeStub,
+          'a-tabs': true,
+          'a-tab-pane': true,
+          'a-input': true,
+          'a-button': true,
+          'a-tooltip': true,
+          'a-dropdown': true,
+          'a-menu': true,
+          'a-menu-item': true,
+          'a-popconfirm': true
+        }
+      }
+    })
+    await nextTick()
+
+    const vm = wrapper.vm as any
+    const host = { key: 'host', title: 'web-01', ip: '10.0.0.1' }
+
+    // Copy option is offered for host nodes but not for folders
+    expect(vm.hasContextMenu(host)).toBe(true)
+    vm.handleContextMenu(new MouseEvent('contextmenu', { clientX: 10, clientY: 10 }), host)
+    await nextTick()
+    // Host nodes without other options show only the copy item
+    const menuItems = wrapper.findAll('.context-menu-item')
+    expect(menuItems).toHaveLength(1)
+
+    await menuItems[0].trigger('click')
+    await nextTick()
+    expect(writeText).toHaveBeenLastCalledWith('web-01')
+
+    vm.showIpMode = true
+    vm.contextMenuData = host
+    await vm.handleContextMenuAction('copy')
+    expect(writeText).toHaveBeenLastCalledWith('10.0.0.1')
+
+    writeText.mockRejectedValueOnce(new Error('denied'))
+    vm.contextMenuData = host
+    await vm.handleContextMenuAction('copy')
+    expect(writeText).toHaveBeenCalledTimes(3)
+
+    expect(vm.hasContextMenu({ key: 'group', title: 'Group', children: [] })).toBe(false)
+
+    wrapper.unmount()
+  })
 })
