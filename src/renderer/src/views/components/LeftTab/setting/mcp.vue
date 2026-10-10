@@ -25,6 +25,58 @@
       </div>
     </a-card>
 
+    <a-card
+      class="mcp-toolbar-card external-mcp-card"
+      :bordered="false"
+      :style="transparentCardStyle"
+      :body-style="transparentCardBodyStyle"
+    >
+      <div class="external-mcp-header">
+        <div class="external-mcp-brand">
+          <div class="external-mcp-icon">
+            <ApiOutlined />
+          </div>
+          <div class="toolbar-info">
+            <div class="toolbar-title">{{ $t('mcp.externalTitle') }}</div>
+            <div class="toolbar-description">{{ $t('mcp.externalDescription') }}</div>
+          </div>
+        </div>
+        <div class="external-mcp-status-control">
+          <span
+            class="external-mcp-status"
+            :class="{ enabled: externalMcpEnabled }"
+          >
+            {{ $t(externalMcpEnabled ? 'mcp.externalEnabled' : 'mcp.externalDisabled') }}
+          </span>
+          <a-switch
+            v-model:checked="externalMcpEnabled"
+            :loading="externalMcpLoading"
+            @change="toggleExternalMcp"
+          />
+        </div>
+      </div>
+
+      <div
+        v-if="externalMcpStatus.endpoint"
+        class="external-mcp-body"
+      >
+        <div class="external-mcp-field-label">{{ $t('mcp.endpoint') }}</div>
+        <div class="external-mcp-endpoint-row">
+          <LinkOutlined class="external-mcp-endpoint-icon" />
+          <span class="external-mcp-endpoint">{{ externalMcpStatus.endpoint }}</span>
+          <a-button
+            type="text"
+            size="small"
+            class="external-mcp-copy"
+            @click="copyExternalConfig"
+          >
+            <CopyOutlined />
+            {{ $t('mcp.copyExternalConfig') }}
+          </a-button>
+        </div>
+      </div>
+    </a-card>
+
     <div class="server-list">
       <a-empty
         v-if="displayServers.length === 0"
@@ -230,8 +282,9 @@ import { Modal, notification } from 'ant-design-vue'
 import { mcpConfigService } from '@/services/mcpService'
 import { useI18n } from 'vue-i18n'
 import eventBus from '@/utils/eventBus'
-import { EditOutlined, PlusOutlined, DeleteOutlined, ExclamationCircleOutlined } from '@ant-design/icons-vue'
+import { ApiOutlined, CopyOutlined, DeleteOutlined, EditOutlined, ExclamationCircleOutlined, LinkOutlined, PlusOutlined } from '@ant-design/icons-vue'
 import type { McpServer } from '@shared/mcp'
+import type { ExternalMcpStatus } from '@common/external-mcp'
 
 const logger = createRendererLogger('settings.mcp')
 const { t } = useI18n()
@@ -270,6 +323,9 @@ const loadingServers = ref<Set<string>>(new Set())
 // Track tool enabled/disabled states
 // Key format: "serverName:toolName", Value: true (enabled) / false (disabled)
 const toolStates = ref<Record<string, boolean>>({})
+const externalMcpStatus = ref<ExternalMcpStatus>({ enabled: false, endpoint: null })
+const externalMcpEnabled = ref(false)
+const externalMcpLoading = ref(false)
 
 // Computed property that merges optimistic updates with server state
 const displayServers = computed(() => {
@@ -286,6 +342,41 @@ const displayServers = computed(() => {
 const openConfigInEditor = () => {
   // Emit event to open MCP config editor tab
   eventBus.emit('open-user-tab', 'mcpConfigEditor')
+}
+
+const loadExternalMcp = async () => {
+  if (!window.api.getExternalMcpStatus) return
+  externalMcpStatus.value = await window.api.getExternalMcpStatus()
+  externalMcpEnabled.value = externalMcpStatus.value.enabled
+}
+
+const toggleExternalMcp = async (enabled: boolean) => {
+  externalMcpLoading.value = true
+  try {
+    externalMcpStatus.value = await window.api.setExternalMcpEnabled(enabled)
+    externalMcpEnabled.value = externalMcpStatus.value.enabled
+  } catch (error) {
+    externalMcpEnabled.value = !enabled
+    logger.error('Failed to toggle external MCP', { error })
+  } finally {
+    externalMcpLoading.value = false
+  }
+}
+
+const copyExternalConfig = async () => {
+  if (!externalMcpStatus.value.endpoint) return
+  await navigator.clipboard.writeText(
+    JSON.stringify(
+      {
+        mcpServers: {
+          chaterm: { type: 'http', url: externalMcpStatus.value.endpoint }
+        }
+      },
+      null,
+      2
+    )
+  )
+  notification.success({ message: t('mcp.copied') })
 }
 
 // Get status badge color
@@ -392,6 +483,7 @@ const syncBackgroundState = () => {
 
 onMounted(async () => {
   logger.info('Mounting MCP component')
+  void loadExternalMcp().catch((error) => logger.error('Failed to load external MCP status', { error }))
   syncBackgroundState()
   if (typeof MutationObserver !== 'undefined' && document.body) {
     backgroundClassObserver = new MutationObserver(syncBackgroundState)
@@ -557,6 +649,142 @@ onBeforeUnmount(() => {
       &:active {
         transform: translateY(0);
       }
+    }
+  }
+}
+
+.external-mcp-card {
+  .external-mcp-header,
+  .external-mcp-brand,
+  .external-mcp-status-control,
+  .external-mcp-endpoint-row {
+    display: flex;
+    align-items: center;
+  }
+
+  .external-mcp-header {
+    justify-content: space-between;
+    gap: 16px;
+  }
+
+  .external-mcp-brand {
+    flex: 1;
+    min-width: 0;
+    gap: 12px;
+  }
+
+  .external-mcp-icon {
+    display: grid;
+    flex: 0 0 36px;
+    height: 36px;
+    place-items: center;
+    border-radius: 8px;
+    background: rgba(24, 144, 255, 0.12);
+    color: #1890ff;
+    font-size: 18px;
+  }
+
+  .toolbar-info {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+
+    .toolbar-title {
+      font-size: 16px;
+      font-weight: 600;
+      color: var(--text-color);
+      line-height: 1.4;
+    }
+
+    .toolbar-description {
+      font-size: 12px;
+      color: var(--text-color-secondary);
+      line-height: 1.5;
+      opacity: 0.8;
+    }
+  }
+
+  .external-mcp-status-control {
+    flex: 0 0 auto;
+    gap: 10px;
+  }
+
+  .external-mcp-status {
+    color: var(--text-color-secondary);
+    font-size: 12px;
+    white-space: nowrap;
+
+    &.enabled {
+      color: #52c41a;
+    }
+  }
+
+  .external-mcp-body {
+    margin-top: 16px;
+    padding-top: 16px;
+    border-top: 1px solid rgba(128, 128, 128, 0.15);
+  }
+
+  .external-mcp-field-label {
+    margin-bottom: 8px;
+    color: var(--text-color-secondary);
+    font-size: 12px;
+  }
+
+  .external-mcp-endpoint-row {
+    min-width: 0;
+    height: 36px;
+    padding: 0 4px 0 12px;
+    gap: 8px;
+    border: 1px solid rgba(128, 128, 128, 0.2);
+    border-radius: 6px;
+    background: var(--bg-color-secondary);
+  }
+
+  .external-mcp-endpoint-icon {
+    flex: 0 0 auto;
+    color: var(--text-color-secondary);
+    font-size: 13px;
+  }
+
+  .external-mcp-endpoint {
+    flex: 1;
+    min-width: 0;
+    overflow: hidden;
+    color: var(--text-color);
+    font-family: 'SFMono-Regular', Menlo, Consolas, monospace;
+    font-size: 12px;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    user-select: all;
+  }
+
+  .external-mcp-copy {
+    display: inline-flex;
+    flex: 0 0 auto;
+    align-items: center;
+    gap: 4px;
+    color: var(--text-color);
+    font-size: 12px;
+
+    &:hover {
+      background-color: var(--hover-bg-color);
+    }
+  }
+}
+
+@media (max-width: 600px) {
+  .external-mcp-card {
+    .external-mcp-header {
+      align-items: flex-start;
+      flex-direction: column;
+      gap: 12px;
+    }
+
+    .external-mcp-status-control {
+      align-self: flex-end;
     }
   }
 }

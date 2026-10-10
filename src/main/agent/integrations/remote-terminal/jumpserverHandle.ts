@@ -4,6 +4,7 @@ import net from 'net'
 import tls from 'tls'
 import { getUserConfigFromRenderer } from '../../../index'
 import { createProxySocket } from '../../../ssh/proxy'
+import type { ProxyConfig } from '../../../ssh/proxy'
 import { parseJumpServerUsers, hasUserSelectionPrompt } from '../../../ssh/jumpserver/parser'
 import { hasNoAssetsPrompt, createNoAssetsError } from '../../../ssh/jumpserver/navigator'
 import { handleJumpServerUserSelectionWithWindow } from '../../../ssh/jumpserver/userSelection'
@@ -184,6 +185,13 @@ const initializeJumpServerShell = (
 
       // Check if user selection is required
       if (hasUserSelectionPrompt(outputBuffer)) {
+        if (connectionInfo.headless) {
+          if (connectionTimeout) clearTimeout(connectionTimeout)
+          stream.end()
+          if (connectionSource === 'agent') conn.end()
+          reject(new Error('interactive_not_supported: JumpServer requires account selection'))
+          return
+        }
         logger.debug('Multi-user prompt detected', { event: 'remote-terminal.jumpserver.user.prompt', connectionId })
         connectionPhase = 'selectUser'
         const users = parseJumpServerUsers(outputBuffer)
@@ -275,7 +283,7 @@ const initializeJumpServerShell = (
         // Send MFA verification failure event to frontend
         const { BrowserWindow } = require('electron')
         const mainWindow = BrowserWindow.getAllWindows()[0]
-        if (mainWindow) {
+        if (mainWindow && !connectionInfo.headless) {
           mainWindow.webContents.send('ssh:keyboard-interactive-result', {
             id: connectionId,
             status: 'failed'
@@ -337,6 +345,8 @@ const initializeJumpServerShell = (
 
 // JumpServer connection handling - exported for use by other modules
 export const handleJumpServerConnection = async (connectionInfo: {
+  headless?: boolean
+  proxyConfig?: ProxyConfig
   id: string
   host: string
   port?: number
@@ -364,7 +374,9 @@ export const handleJumpServerConnection = async (connectionInfo: {
 
   let sock: net.Socket | tls.TLSSocket
   if (connectionInfo.needProxy) {
-    const cfg = await getUserConfigFromRenderer()
+    const cfg = connectionInfo.proxyConfig
+      ? { sshProxyConfigs: [{ ...connectionInfo.proxyConfig, name: connectionInfo.proxyName }] }
+      : await getUserConfigFromRenderer()
     if (connectionInfo.proxyName) {
       const proxyConfig = cfg.sshProxyConfigs.find((item) => item.name === connectionInfo.proxyName)
       sock = await createProxySocket(proxyConfig, connectionInfo.host || '', connectionInfo.port || 22)
@@ -489,6 +501,13 @@ export const handleJumpServerConnection = async (connectionInfo: {
 
     // Handle keyboard-interactive authentication for 2FA
     conn.on('keyboard-interactive', async (_name, _instructions, _instructionsLang, prompts, finish) => {
+      if (connectionInfo.headless) {
+        clearTimeout(connectionTimeout)
+        finish([])
+        conn.end()
+        reject(new Error('interactive_not_supported: JumpServer requires MFA'))
+        return
+      }
       try {
         logger.debug('Two-factor authentication required', { event: 'remote-terminal.jumpserver.2fa', connectionId })
 

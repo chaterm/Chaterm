@@ -49,7 +49,7 @@ export const DEFAULT_AUTO_APPROVAL_SETTINGS: AutoApprovalSettings = {
     executeAllCommands: false,
     useBrowser: false,
     useMcp: false,
-    autoExecuteReadOnlyCommands: false
+    autoExecuteReadOnlyCommands: true
   },
   enableNotifications: true,
   favorites: ['enableAutoApprove', 'readFiles']

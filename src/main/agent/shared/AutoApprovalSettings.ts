@@ -34,7 +34,7 @@ export const DEFAULT_AUTO_APPROVAL_SETTINGS: AutoApprovalSettings = {
     editFilesExternally: false,
     executeSafeCommands: true,
     executeAllCommands: true,
-    autoExecuteReadOnlyCommands: false
+    autoExecuteReadOnlyCommands: true
   },
   enableNotifications: true,
   favorites: ['enableAutoApprove', 'readFiles']

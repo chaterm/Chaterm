@@ -1165,6 +1165,8 @@ const api = {
     ipcRenderer.on('mcp:config-file-changed', listener)
     return () => ipcRenderer.removeListener('mcp:config-file-changed', listener)
   },
+  getExternalMcpStatus: () => ipcRenderer.invoke('mcp:external:status'),
+  setExternalMcpEnabled: (enabled: boolean) => ipcRenderer.invoke('mcp:external:set-enabled', enabled),
 
   // Skills management
   getSkills: () => ipcRenderer.invoke('skills:get-all'),

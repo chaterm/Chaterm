@@ -884,6 +884,8 @@ export default {
     password: '密码',
     copyPassword: '复制密码',
     copyPasswordSuccess: '密码已复制',
+    copySuccess: '已复制',
+    copyFailed: '复制失败',
     noPasswordToCopy: '暂无可复制的密码',
     remoteHost: '连接IP或地址',
     port: '端口',
@@ -1688,6 +1690,12 @@ export default {
     milliseconds: '毫秒数'
   },
   mcp: {
+    externalTitle: '将 Chaterm 提供给通用 Agent',
+    externalDescription: '通过 MCP 使用 Chaterm 管理的服务器和 SSH 命令执行能力',
+    externalEnabled: '已启用',
+    externalDisabled: '已停用',
+    endpoint: '连接地址',
+    copyExternalConfig: '复制配置',
     title: 'MCP',
     description: '管理 MCP 服务器连接，扩展 AI 能力',
     serverList: 'MCP 服务器',
