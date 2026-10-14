@@ -165,11 +165,8 @@ export class SecurityConfigManager {
    * Remove comments from JSON
    */
   private removeComments(jsonString: string): string {
-    // Remove single-line comments //
-    let cleaned = jsonString.replace(/\/\/.*$/gm, '')
-
-    // Remove multi-line comments /* */
-    cleaned = cleaned.replace(/\/\*[\s\S]*?\*\//g, '')
+    // Remove // and /* */ comments, leaving string literals untouched
+    let cleaned = jsonString.replace(/"(?:[^"\\]|\\.)*"|\/\/.*$|\/\*[\s\S]*?\*\//gm, (match) => (match[0] === '"' ? match : ''))
 
     // Remove empty lines
     cleaned = cleaned.replace(/^\s*[\r\n]/gm, '')
