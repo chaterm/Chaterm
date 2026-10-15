@@ -1,4 +1,4 @@
-import { Writable } from 'node:stream'
+import { PassThrough, Writable } from 'node:stream'
 import fs from 'node:fs'
 import path from 'node:path'
 import os from 'node:os'
@@ -184,6 +184,130 @@ describe('sftpTransfer root path', () => {
     } finally {
       fs.rmSync(parent, { recursive: true, force: true })
     }
+  })
+
+  describe('remote-to-remote directory transfer', () => {
+    const entry = (filename: string, isDirectory = false) => ({ filename, attrs: { isDirectory: () => isDirectory } })
+
+    const setupR2R = async (
+      tree: Record<string, ReturnType<typeof entry>[]>,
+      options: { fromDir?: string; toDir?: string; renamed?: string; localPath?: typeof path } = {}
+    ) => {
+      const { registerFileSystemHandlers } = await setupModule(options.localPath)
+      const { getSftpConnection, getUniqueRemoteName } = await import('../sshHandle')
+      const written: string[] = []
+      const created: string[] = []
+      const contents = new Map([['/dst/escaped.txt', 'ORIGINAL']])
+      const src = {
+        readdir: vi.fn((p: string, cb: any) => cb(null, tree[p] ?? [])),
+        stat: vi.fn((_p: string, cb: any) => cb(null, { size: 4 })),
+        createReadStream: vi.fn(() => {
+          const stream = new PassThrough()
+          process.nextTick(() => {
+            stream.emit('open')
+            stream.end('DATA')
+          })
+          return stream
+        })
+      }
+      const dst = {
+        mkdir: vi.fn((p: string, cb: any) => {
+          created.push(p)
+          cb(null)
+        }),
+        createWriteStream: vi.fn((p: string, opts: { flags: string }) => {
+          written.push(p)
+          const normalized = path.posix.normalize(p)
+          if (opts.flags === 'w') contents.set(normalized, '')
+          return new Writable({
+            write(chunk, _encoding, done) {
+              contents.set(normalized, (contents.get(normalized) ?? '') + chunk.toString())
+              done()
+            }
+          })
+        })
+      }
+      vi.mocked(getSftpConnection).mockImplementation((id: string) => (id === 'from-id' ? src : dst))
+      vi.mocked(getUniqueRemoteName).mockImplementation(async (_sftp, _dir, name) => options.renamed ?? name)
+      registerFileSystemHandlers()
+      const event = { sender: { send: vi.fn() } }
+      const result = await sshState.ipcHandlers.get('sftp:r2r:dir')(event, {
+        fromId: 'from-id',
+        toId: 'to-id',
+        fromDir: options.fromDir ?? '/src/data',
+        toDir: options.toDir ?? '/dst/parent'
+      })
+      return { result, written, created, contents, src, event, getUniqueRemoteName }
+    }
+
+    describe.each([false, true])('source entry isDirectory=%s', (isDirectory) => {
+      it.each(['../../escaped.txt', 'a/../../../escaped.txt', String.raw`..\..\escaped.txt`, '/absolute', '.', '..', 'bad\0name', ''])(
+        'rejects %j before reading file content or writing the entry',
+        async (name) => {
+          const { result, written, created, contents, src, event } = await setupR2R({ '/src/data': [entry(name, isDirectory)] })
+          expect(result).toMatchObject({ status: 'error', message: expect.stringContaining('Unsafe remote filename rejected') })
+          expect(written).toEqual([])
+          expect(created).toEqual(['/dst/parent/data'])
+          expect(contents.get('/dst/escaped.txt')).toBe('ORIGINAL')
+          expect(src.readdir).toHaveBeenCalledTimes(1)
+          expect(src.createReadStream).not.toHaveBeenCalled()
+          expect(event.sender.send).toHaveBeenLastCalledWith(
+            'ssh:sftp:transfer-progress',
+            expect.objectContaining({ isGroup: true, status: 'error' })
+          )
+        }
+      )
+    })
+
+    it.each(['../../../escaped.txt', String.raw`..\..\..\escaped.txt`])('rejects traversal inside a nested directory: %j', async (name) => {
+      const { result, written, created, contents } = await setupR2R({
+        '/src/data': [entry('nested', true)],
+        '/src/data/nested': [entry(name)]
+      })
+      expect(result.status).toBe('error')
+      expect(written).toEqual([])
+      expect(created).toEqual(['/dst/parent/data', '/dst/parent/data/nested'])
+      expect(contents.get('/dst/escaped.txt')).toBe('ORIGINAL')
+    })
+
+    it.each(['', '/', '/src/.', '/src/..', String.raw`/src/..\outside`, '/src/bad\0name'])(
+      'rejects an unsafe transfer root %j before touching the destination',
+      async (fromDir) => {
+        const { result, written, created, src, getUniqueRemoteName } = await setupR2R({}, { fromDir })
+        expect(result).toMatchObject({ status: 'error', message: expect.stringContaining('Unsafe remote filename rejected') })
+        expect(created).toEqual([])
+        expect(written).toEqual([])
+        expect(src.readdir).not.toHaveBeenCalled()
+        expect(getUniqueRemoteName).not.toHaveBeenCalled()
+      }
+    )
+
+    it('validates the automatically renamed root before creating it', async () => {
+      const { result, written, created } = await setupR2R({}, { renamed: '../outside' })
+      expect(result.status).toBe('error')
+      expect(created).toEqual([])
+      expect(written).toEqual([])
+    })
+
+    describe.each([
+      { platform: 'Windows', localPath: path.win32 },
+      { platform: 'POSIX', localPath: path.posix }
+    ])('remote paths on a $platform client', ({ localPath }) => {
+      it.each(['/dst/parent', 'relative/parent'])('copies normal entries under %s with root auto-renaming', async (toDir) => {
+        const { result, written, created, contents } = await setupR2R(
+          {
+            '/src/data': [entry('nested', true), entry('top.txt')],
+            '/src/data/nested': [entry('报告 2026.txt')]
+          },
+          { localPath, toDir, renamed: 'data.1' }
+        )
+        const root = path.posix.join(toDir, 'data.1')
+        expect(result).toMatchObject({ status: 'success', remotePath: root, totalFiles: 2 })
+        expect(created).toEqual([root, `${root}/nested`])
+        expect(written.sort()).toEqual([`${root}/nested/报告 2026.txt`, `${root}/top.txt`])
+        for (const file of written) expect(contents.get(file)).toBe('DATA')
+      })
+    })
   })
 
   describe.each([

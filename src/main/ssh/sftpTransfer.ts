@@ -626,6 +626,22 @@ function safeDirectoryDownloadPath(root: string, parent: string, name: string): 
   return targetPath
 }
 
+function safeRemoteTransferPath(root: string, parent: string, name: string): string {
+  // Reject backslashes before transferFileR2R can turn them into remote path separators.
+  if (typeof name !== 'string' || !name || name === '.' || name === '..' || /[\\/\0]/.test(name)) {
+    throw new Error(`Unsafe remote filename rejected: ${JSON.stringify(name)}`)
+  }
+
+  // Remote paths always use POSIX semantics, even on a Windows client. Preserve relative paths.
+  const targetPath = path.posix.join(parent, name)
+  const relativePath = path.posix.relative(root, targetPath)
+  if (relativePath === '..' || relativePath.startsWith('../') || path.posix.isAbsolute(relativePath)) {
+    throw new Error(`Remote filename escapes transfer root: ${JSON.stringify(name)}`)
+  }
+
+  return targetPath
+}
+
 export type TaskStatus = 'running' | 'success' | 'failed' | 'error'
 export type ErrorSide = 'from' | 'to' | 'remote' | 'local'
 export type TransferStatus = 'success' | 'cancelled' | 'skipped' | 'error'
@@ -1286,18 +1302,19 @@ export async function transferDirR2R(event: any, args: R2RDirArgs): Promise<Tran
   const autoRename = args.autoRename !== false
   const concurrency = args.concurrency ?? 3
 
-  const originalDirName = path.posix.basename(fromDir)
+  const originalDirName = path.posix.basename(args.fromDir)
   let finalDirName = originalDirName
+  let finalToBaseDir = toParent
   try {
+    finalToBaseDir = safeRemoteTransferPath(toParent, toParent, originalDirName)
     finalDirName = autoRename ? await getUniqueRemoteName(dstSftp, toParent, originalDirName, true) : originalDirName
+    finalToBaseDir = safeRemoteTransferPath(toParent, toParent, finalDirName)
   } catch (e: any) {
     const msg = errToMessage(e)
     sendGroup({ status: 'error', message: msg, bytes: 1, total: 1, stage: undefined, errorSide: 'to' })
     activeTasks.delete(dirTaskKey)
     return { status: 'error', message: msg, fromHost, toHost, errorSide: 'to' }
   }
-
-  const finalToBaseDir = path.posix.join(toParent, finalDirName)
 
   try {
     await sftpMkdirSafe(dstSftp, finalToBaseDir)
@@ -1374,10 +1391,8 @@ export async function transferDirR2R(event: any, args: R2RDirArgs): Promise<Tran
       }
 
       const name = entryName(ent)
-      if (!name) continue
-
+      const d = safeRemoteTransferPath(finalToBaseDir, curTo, name)
       const s = path.posix.join(curFrom, name)
-      const d = path.posix.join(curTo, name)
 
       if (isDirEntry(ent)) {
         await sftpMkdirSafe(dstSftp, d)
