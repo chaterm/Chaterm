@@ -171,4 +171,45 @@ describe('Workspace tree search rendering', () => {
 
     wrapper.unmount()
   })
+
+  it('remounts the tree on every search instead of letting vc-tree diff the new data', async () => {
+    const mounted = vi.fn()
+    const wrapper = mount(Workspace, {
+      global: {
+        stubs: {
+          'a-tree': { template: '<div class="workspace-tree-stub" />', mounted },
+          'a-tabs': true,
+          'a-tab-pane': true,
+          'a-input': true,
+          'a-button': true,
+          'a-tooltip': true,
+          'a-dropdown': true,
+          'a-menu': true,
+          'a-menu-item': true,
+          'a-popconfirm': true
+        }
+      }
+    })
+
+    await nextTick()
+    await new Promise((resolve) => setTimeout(resolve, 0))
+    await nextTick()
+    expect(mounted).toHaveBeenCalledTimes(1)
+
+    const vm = wrapper.vm as any
+    vm.searchValue = 'host'
+    vm.onSearchInput()
+    await new Promise((resolve) => setTimeout(resolve, 350))
+    await nextTick()
+    expect(mounted).toHaveBeenCalledTimes(2)
+
+    vm.searchValue = ''
+    vm.onSearchInput()
+    await new Promise((resolve) => setTimeout(resolve, 350))
+    await nextTick()
+    expect(mounted).toHaveBeenCalledTimes(3)
+    expect(vm.assetTreeData).toEqual([{ key: 'group', title: 'Group', children: [{ key: 'host', title: 'Host', ip: '10.0.0.1' }] }])
+
+    wrapper.unmount()
+  })
 })

@@ -1703,6 +1703,8 @@ export default {
     milliseconds: 'ملي ثانية'
   },
   mcp: {
+    installInstructions: 'تعليمات التثبيت',
+    copyInstallInstructions: 'نسخ تعليمات التثبيت',
     title: 'MCP',
     description: 'إدارة اتصالات الخوادم MCP لتوسيع قدرات الذكاء الاصطناعي',
     serverList: 'الخوادم MCP',

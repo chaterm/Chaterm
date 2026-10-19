@@ -1696,6 +1696,8 @@ export default {
     externalDisabled: '已停用',
     endpoint: '连接地址',
     copyExternalConfig: '复制配置',
+    installInstructions: '安装指令',
+    copyInstallInstructions: '复制安装指令',
     title: 'MCP',
     description: '管理 MCP 服务器连接，扩展 AI 能力',
     serverList: 'MCP 服务器',

@@ -1687,6 +1687,8 @@ export default {
     milliseconds: '毫秒數'
   },
   mcp: {
+    installInstructions: '安裝指令',
+    copyInstallInstructions: '複製安裝指令',
     title: 'MCP',
     description: '管理 MCP 服務器連接，擴展 AI 能力',
     serverList: 'MCP 服務器',

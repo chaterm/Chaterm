@@ -674,8 +674,11 @@ const selectBlockAtPointer = (clientX: number, clientY: number) => {
   const termInstance = terminal.value
   if (!termInstance) return
   // Alternate-screen apps (vim, less, htop) own the whole viewport, so there are
-  // no command blocks to select there.
-  if (terminalMode.value !== 'none') return
+  // no command blocks to select there. This reads xterm's own buffer rather than
+  // terminalMode: that heuristic can get stuck on 'alternate' after a pager that
+  // never switches screens (systemctl status runs `less -X`), which would disable
+  // block selection for the rest of the session.
+  if (termInstance.buffer.active.type === 'alternate') return
   if (!isThisTerminalActive()) return
   // xterm has already produced a selection (drag, double or triple click), so
   // leave it alone.

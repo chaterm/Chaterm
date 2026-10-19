@@ -92,6 +92,7 @@
           <div v-show="company === 'personal_user_id'">
             <a-tree
               v-if="assetTreeData.length > 0"
+              :key="treeRenderKey"
               v-model:selected-keys="selectedKeys"
               v-model:expanded-keys="expandedKeys"
               :tree-data="assetTreeData"
@@ -180,6 +181,7 @@
           <div v-show="company !== 'personal_user_id'">
             <a-tree
               v-if="enterpriseData.length > 0"
+              :key="treeRenderKey"
               v-model:selected-keys="selectedKeys"
               v-model:expanded-keys="expandedKeys"
               :tree-data="enterpriseData"
@@ -1031,6 +1033,11 @@ const getTopLevelKeys = (nodes: AssetNode[]): string[] => {
 }
 
 let searchDebounceTimer: ReturnType<typeof setTimeout> | null = null
+// Bumped on every search so a-tree remounts instead of diffing. vc-tree reads a
+// one-key change in expandedKeys as a user toggle and animates it with nodes from
+// the previous treeData; when the search also replaced treeData those nodes are
+// missing from keyEntities, getTreeNodeProps throws and the list stays frozen.
+const treeRenderKey = ref(0)
 
 const onSearchInput = () => {
   searchValue.value = searchValue.value.trim()
@@ -1045,6 +1052,7 @@ const onSearchInput = () => {
 
   searchDebounceTimer = setTimeout(() => {
     searchDebounceTimer = null
+    treeRenderKey.value++
     if (isPersonalWorkspace.value) {
       assetTreeData.value = filterTreeNodes(searchValue.value)
       expandedKeys.value = getTopLevelKeys(assetTreeData.value)

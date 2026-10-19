@@ -1706,6 +1706,8 @@ export default {
     milliseconds: 'ミリ秒数'
   },
   mcp: {
+    installInstructions: 'インストール手順',
+    copyInstallInstructions: 'インストール手順をコピー',
     title: 'MCP',
     description: 'MCP サーバー接続を管理し、AI 能力を拡張します',
     serverList: 'MCP サーバー',
