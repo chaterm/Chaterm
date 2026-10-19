@@ -1723,6 +1723,8 @@ export default {
     milliseconds: 'Millisekunden'
   },
   mcp: {
+    installInstructions: 'Installationsanleitung',
+    copyInstallInstructions: 'Installationsanleitung kopieren',
     title: 'MCP',
     description: 'MCP Server-Verbindungen verwalten, um AI-Fähigkeiten zu erweitern',
     serverList: 'MCP Server',

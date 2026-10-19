@@ -1720,6 +1720,8 @@ export default {
     externalDisabled: 'Disabled',
     endpoint: 'Endpoint',
     copyExternalConfig: 'Copy Config',
+    installInstructions: 'Install Instructions',
+    copyInstallInstructions: 'Copy install instructions',
     title: 'MCP',
     description: 'Manage MCP server connections to extend AI capabilities',
     serverList: 'MCP Servers',

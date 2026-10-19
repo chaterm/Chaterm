@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
-import { mount, VueWrapper } from '@vue/test-utils'
+import { mount, flushPromises, VueWrapper } from '@vue/test-utils'
 import { nextTick } from 'vue'
 import McpComponent from '../mcp.vue'
 import type { McpServer } from '@shared/mcp'
@@ -876,6 +876,51 @@ describe('McpComponent', () => {
 
       // Optimistic update should be cleared on error
       expect(vm.displayServers[0].disabled).toBe(false)
+    })
+  })
+
+  describe('Component Tests - External MCP Install Instructions', () => {
+    const endpoint = 'http://127.0.0.1:9728/mcp'
+    let writeText: ReturnType<typeof vi.fn>
+
+    beforeEach(() => {
+      ;(mockWindowApi as Record<string, unknown>).getExternalMcpStatus = vi.fn().mockResolvedValue({ enabled: true, endpoint })
+      writeText = vi.fn().mockResolvedValue(undefined)
+      Object.defineProperty(navigator, 'clipboard', { value: { writeText }, configurable: true })
+    })
+
+    afterEach(() => {
+      delete (mockWindowApi as Record<string, unknown>).getExternalMcpStatus
+    })
+
+    const mountWithEndpoint = async () => {
+      const wrapper = createWrapper()
+      await flushPromises()
+      return wrapper
+    }
+
+    it('should render install instructions with the current endpoint', async () => {
+      const wrapper = await mountWithEndpoint()
+
+      expect(wrapper.find('.external-mcp-install-header').text()).toContain('mcp.installInstructions')
+      const text = wrapper.find('.external-mcp-install-text').text()
+      expect(text).toContain('Install the Chaterm MCP server into your own MCP configuration.')
+      expect(text).toContain(`- URL: ${endpoint}`)
+      expect(text).toContain('call the chaterm_list_targets tool')
+    })
+
+    it('should copy the full instructions without propagating the click to the collapse header', async () => {
+      const wrapper = await mountWithEndpoint()
+      const headerClick = vi.fn()
+      wrapper.find('.external-mcp-install-header').element.parentElement!.addEventListener('click', headerClick)
+
+      await wrapper.find('.external-mcp-install-copy').trigger('click')
+      await flushPromises()
+
+      expect(writeText).toHaveBeenCalledWith(wrapper.find('.external-mcp-install-text').text())
+      expect(writeText.mock.calls[0][0]).toContain(`- URL: ${endpoint}`)
+      expect(notification.success).toHaveBeenCalledWith({ message: 'mcp.copied' })
+      expect(headerClick).not.toHaveBeenCalled()
     })
   })
 })

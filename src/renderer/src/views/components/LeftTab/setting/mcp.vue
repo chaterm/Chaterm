@@ -74,6 +74,29 @@
             {{ $t('mcp.copyExternalConfig') }}
           </a-button>
         </div>
+        <a-collapse
+          :bordered="false"
+          class="external-mcp-install"
+        >
+          <a-collapse-panel key="install">
+            <template #header>
+              <div class="external-mcp-install-header">
+                <span>{{ $t('mcp.installInstructions') }}</span>
+                <a-button
+                  type="text"
+                  size="small"
+                  class="external-mcp-install-copy"
+                  :title="$t('mcp.copyInstallInstructions')"
+                  :aria-label="$t('mcp.copyInstallInstructions')"
+                  @click.stop="copyInstallInstructions"
+                >
+                  <CopyOutlined />
+                </a-button>
+              </div>
+            </template>
+            <pre class="external-mcp-install-text">{{ installInstructions }}</pre>
+          </a-collapse-panel>
+        </a-collapse>
       </div>
     </a-card>
 
@@ -376,6 +399,30 @@ const copyExternalConfig = async () => {
       2
     )
   )
+  notification.success({ message: t('mcp.copied') })
+}
+
+// Prompt for coding agents; kept in English on purpose so every agent parses it the same way
+const installInstructions = computed(() =>
+  [
+    'Install the Chaterm MCP server into your own MCP configuration.',
+    '',
+    'Server',
+    '- Name: chaterm',
+    '- Transport: Streamable HTTP',
+    `- URL: ${externalMcpStatus.value.endpoint}`,
+    '- Local loopback only, no authentication.',
+    '',
+    'Steps',
+    "1. Determine which client you are, then register the server with that client's native mechanism. Prefer its official CLI when one exists.",
+    '2. Install at user (global) scope. Merge into the existing configuration; do not remove or modify other servers.',
+    '3. Tell me whether I need to restart or reload you for the server to load.',
+    '4. Once it is loaded, call the chaterm_list_targets tool and report the result to confirm the installation.'
+  ].join('\n')
+)
+
+const copyInstallInstructions = async () => {
+  await navigator.clipboard.writeText(installInstructions.value)
   notification.success({ message: t('mcp.copied') })
 }
 
@@ -772,6 +819,66 @@ onBeforeUnmount(() => {
     &:hover {
       background-color: var(--hover-bg-color);
     }
+  }
+
+  .external-mcp-install {
+    margin-top: 12px;
+    border: 1px solid rgba(128, 128, 128, 0.2);
+    border-radius: 6px;
+    background: var(--bg-color-secondary);
+
+    :deep(.ant-collapse-item) {
+      border-bottom: none;
+    }
+
+    :deep(.ant-collapse-header) {
+      align-items: center;
+      padding: 4px 4px 4px 12px;
+      color: var(--text-color);
+      font-size: 12px;
+    }
+
+    :deep(.ant-collapse-header-text) {
+      flex: 1;
+    }
+
+    :deep(.ant-collapse-content) {
+      border-top: 1px solid rgba(128, 128, 128, 0.15);
+      background: transparent;
+    }
+
+    :deep(.ant-collapse-content-box) {
+      padding: 0;
+    }
+  }
+
+  .external-mcp-install-header {
+    display: flex;
+    flex: 1;
+    align-items: center;
+    justify-content: space-between;
+  }
+
+  .external-mcp-install-copy {
+    color: var(--text-color-secondary);
+
+    &:hover {
+      color: var(--text-color);
+      background-color: var(--hover-bg-color);
+    }
+  }
+
+  .external-mcp-install-text {
+    margin: 0;
+    padding: 12px;
+    overflow-x: auto;
+    color: var(--text-color);
+    font-family: 'SFMono-Regular', Menlo, Consolas, monospace;
+    font-size: 12px;
+    line-height: 1.6;
+    white-space: pre-wrap;
+    word-break: break-word;
+    user-select: text;
   }
 }
 

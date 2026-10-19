@@ -1696,6 +1696,8 @@ export default {
     milliseconds: '밀리초'
   },
   mcp: {
+    installInstructions: '설치 안내',
+    copyInstallInstructions: '설치 안내 복사',
     title: 'MCP',
     description: 'MCP 서버 연결을 관리하여 AI 기능을 확장합니다',
     serverList: 'MCP 서버',
