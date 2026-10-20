@@ -270,6 +270,16 @@ export function parseAssistantMessageV2(assistantMessage: string): AssistantMess
   for (const match of assistantMessage.matchAll(new RegExp(`<(/?)${dsmlPrefix}\\s+(calls|invoke|parameter)\\b([^>]*)>`, 'g'))) {
     dsmlTags.set(match.index + match[0].length - 1, match)
   }
+  // Issue #2627: DeepSeek can replace the invoke opener with <tool_name>name</tool_name>.
+  // Require a following DSML parameter before treating this header as a tool, and
+  // match by position so standalone tool_name text elsewhere remains ordinary text.
+  const hybridToolTags = new Map<number, RegExpMatchArray>()
+  const hybridToolPattern = new RegExp(`<tool_name>\\s*(\\w+)\\s*</tool_name>(?=\\s*<${dsmlPrefix}\\s+parameter\\b[^>]*>)`, 'g')
+  for (const match of assistantMessage.matchAll(hybridToolPattern)) {
+    if (toolUseNames.includes(match[1] as ToolUseName)) {
+      hybridToolTags.set(match.index + match[0].length - 1, match)
+    }
+  }
   const cleanText = (text: string): string =>
     text
       .replace(new RegExp(`</?${dsmlPrefix}\\s+calls\\s*>`, 'g'), '')
@@ -403,7 +413,9 @@ export function parseAssistantMessageV2(assistantMessage: string): AssistantMess
     if (!currentToolUse) {
       // Check if starting a new tool use
       let startedNewTool = false
-      for (const [tag, toolName] of toolUseOpenTags.entries()) {
+      const hybridTool = hybridToolTags.get(i)
+      const openingTags = hybridTool ? ([[hybridTool[0], hybridTool[1] as ToolUseName]] as const) : toolUseOpenTags.entries()
+      for (const [tag, toolName] of openingTags) {
         if (currentCharIndex >= tag.length - 1 && assistantMessage.startsWith(tag, currentCharIndex - tag.length + 1)) {
           // End current text block if one was active
           if (currentTextContent) {
@@ -438,7 +450,7 @@ export function parseAssistantMessageV2(assistantMessage: string): AssistantMess
             }
           }
 
-          isDsmlTool = dsmlTag?.[2] === 'invoke'
+          isDsmlTool = !!hybridTool || dsmlTag?.[2] === 'invoke'
 
           // Start the new tool use
           currentToolUse = {
