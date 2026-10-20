@@ -17,6 +17,7 @@ import net from 'net'
 import tls from 'tls'
 import { randomUUID } from 'crypto'
 import { getUserConfigFromRenderer } from '../index'
+import { connectAssetInfo } from '../storage/database'
 const logger = createLogger('ssh')
 
 // Store SSH connections
@@ -67,7 +68,6 @@ export async function remoteSshConnect(connectionInfo: ConnectionInfo): Promise<
   if (connectionInfo.proxyCommand) {
     sock = await createProxyCommandSocket(connectionInfo.proxyCommand, connectionInfo.host || '', port || 22)
   } else if (connectionInfo.jumpHostUuid) {
-    const { connectAssetInfo } = require('../storage/database') as typeof import('../storage/database')
     const jumpAsset = await connectAssetInfo(connectionInfo.jumpHostUuid)
     if (!jumpAsset) {
       return Promise.resolve({ error: 'Jump host asset not found' })

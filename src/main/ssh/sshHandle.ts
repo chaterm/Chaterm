@@ -57,6 +57,7 @@ import { connectBastionByType, shellBastionSession, resizeBastionSession, writeB
 import { shouldSkipPostConnectProbe } from './postConnectProbePolicy'
 import { sftpConnectionInfoMap } from './sftpTransfer'
 import { enterpriseUsageStatsService } from '../services/enterpriseUsageStatsService'
+import { connectAssetInfo } from '../storage/database'
 
 // Maximum buffer size before forcing an immediate flush (prevents unbounded growth during bulk output)
 const MAX_BUFFER_SIZE = 64 * 1024 // 64KB
@@ -362,9 +363,7 @@ const startRemoteForwardTunnel = async (conn: Client, tunnel: ActiveSshTunnel): 
 }
 
 type SocksParseResult =
-  | { status: 'incomplete' }
-  | { status: 'error'; replyCode: number }
-  | { status: 'ok'; host: string; port: number; consumed: number }
+  { status: 'incomplete' } | { status: 'error'; replyCode: number } | { status: 'ok'; host: string; port: number; consumed: number }
 
 const formatIPv6FromBuffer = (buf: Buffer): string => {
   const blocks: string[] = []
@@ -1122,7 +1121,6 @@ export async function enrichConnectionCredentials(connectionInfo: Record<string,
   }
 
   try {
-    const { connectAssetInfo } = require('../storage/database') as typeof import('../storage/database')
     const organizationUuid = typeof connectionInfo.organizationUuid === 'string' ? connectionInfo.organizationUuid.trim() : undefined
     const ip =
       typeof connectionInfo.targetIp === 'string'
@@ -1359,7 +1357,6 @@ const handleAttemptConnection = async (event, connectionInfo, resolve, reject, r
         delete connectConfig.host
         delete connectConfig.port
       } else if (jumpHostUuid) {
-        const { connectAssetInfo } = require('../storage/database') as typeof import('../storage/database')
         const jumpAsset = await connectAssetInfo(jumpHostUuid)
         if (!jumpAsset) {
           throw new Error('Jump host asset not found')
