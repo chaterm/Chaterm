@@ -169,4 +169,67 @@ describe('parseAssistantMessageV2 DSML compatibility', () => {
     ])
     expect(parseAssistantMessageV2('<read_file><path>a')).toEqual([{ type: 'tool_use', name: 'read_file', params: { path: 'a' }, partial: true }])
   })
+
+  const malformedInvocation = `<execute_command">
+<command>uname -a</command>
+<interactive>false</interactive>
+<ip>69.12.64.21</ip>
+<requires_approval>false</requires_approval>
+</execute_command>`
+
+  it('parses mangled tool openers with stray attribute remnants', () => {
+    expect(parseAssistantMessageV2(malformedInvocation)).toEqual([
+      {
+        type: 'tool_use',
+        name: 'execute_command',
+        params: { command: 'uname -a', interactive: 'false', ip: '69.12.64.21', requires_approval: 'false' },
+        partial: false
+      }
+    ])
+    expect(parseAssistantMessageV2(`Plan first.\n${malformedInvocation}Done`)).toEqual([
+      { type: 'text', content: 'Plan first.', partial: false },
+      {
+        type: 'tool_use',
+        name: 'execute_command',
+        params: { command: 'uname -a', interactive: 'false', ip: '69.12.64.21', requires_approval: 'false' },
+        partial: false
+      },
+      { type: 'text', content: 'Done', partial: true }
+    ])
+  })
+
+  it('accepts DSML closers inside mangled-opener calls', () => {
+    const message = `<execute_command">
+<command>uname -a</command>
+</｜｜DSML｜｜ parameter>
+</｜｜DSML｜｜ invoke>`
+    expect(parseAssistantMessageV2(message)).toEqual([
+      { type: 'tool_use', name: 'execute_command', params: { command: 'uname -a' }, partial: false }
+    ])
+  })
+
+  it('accepts DSML parameters inside mangled-opener calls', () => {
+    const message = `<execute_command"><｜｜DSML｜｜ parameter name="command">uname -a</｜｜DSML｜｜ parameter></｜｜DSML｜｜ invoke>`
+    expect(parseAssistantMessageV2(message)).toEqual([
+      { type: 'tool_use', name: 'execute_command', params: { command: 'uname -a' }, partial: false }
+    ])
+  })
+
+  it('keeps streamed mangled-opener calls partial until the invoke closes', () => {
+    const message = '<execute_command"><command>uname -a</command></｜｜DSML｜｜ invoke>'
+    const openerEnd = message.indexOf('>') + 1
+    for (let end = 1; end <= message.length; end++) {
+      const blocks = parseAssistantMessageV2(message.slice(0, end))
+      const tools = blocks.filter((block) => block.type === 'tool_use')
+      expect(tools).toHaveLength(end < openerEnd ? 0 : 1)
+      if (tools.length > 0) {
+        expect(tools[0]).toMatchObject({ name: 'execute_command', partial: end < message.length })
+      }
+    }
+  })
+
+  it('keeps unregistered mangled tags as ordinary text', () => {
+    const message = '<div">hello</div">'
+    expect(parseAssistantMessageV2(message)).toEqual([{ type: 'text', content: message, partial: true }])
+  })
 })
