@@ -280,6 +280,18 @@ export function parseAssistantMessageV2(assistantMessage: string): AssistantMess
       hybridToolTags.set(match.index + match[0].length - 1, match)
     }
   }
+  // DeepSeek can also mangle the opener itself, merging the XML tag with DSML
+  // attribute remnants, e.g. `<execute_command">` (observed in issue reports).
+  // Only openers whose tag name is a registered tool are recognized, so
+  // ordinary text like `<div">` stays untouched. Parameters inside such a tool
+  // may use either XML or DSML style, so closers of both flavors are accepted.
+  const malformedToolTags = new Map<number, { tag: string; name: ToolUseName }>()
+  for (const match of assistantMessage.matchAll(/<(\w+)["'][^<>]*>/g)) {
+    const name = match[1] as ToolUseName
+    if (toolUseNames.includes(name)) {
+      malformedToolTags.set(match.index + match[0].length - 1, { tag: match[0], name })
+    }
+  }
   const cleanText = (text: string): string =>
     text
       .replace(new RegExp(`</?${dsmlPrefix}\\s+calls\\s*>`, 'g'), '')
@@ -295,6 +307,7 @@ export function parseAssistantMessageV2(assistantMessage: string): AssistantMess
   let currentParamValueStart = 0 // Index *after* the opening tag of the current param
   let currentParamName: ToolParamName | undefined = undefined
   let isDsmlTool = false
+  let lenientDsml = false
 
   // Precompute tags for faster lookups
   const toolUseOpenTags = new Map<string, ToolUseName>()
@@ -315,13 +328,20 @@ export function parseAssistantMessageV2(assistantMessage: string): AssistantMess
     if (dsmlTag?.[1] === '' && dsmlTag[2] === 'invoke' && toolUseNames.includes(dsmlName as ToolUseName)) {
       toolUseOpenTags.set(dsmlTag[0], dsmlName as ToolUseName)
     }
-    if (isDsmlTool && dsmlTag?.[1] === '' && dsmlTag[2] === 'parameter' && toolParamNames.includes(dsmlName as ToolParamName)) {
+    if ((isDsmlTool || lenientDsml) && dsmlTag?.[1] === '' && dsmlTag[2] === 'parameter' && toolParamNames.includes(dsmlName as ToolParamName)) {
       toolParamOpenTags.set(dsmlTag[0], dsmlName as ToolParamName)
     }
 
     // --- State: Parsing a Tool Parameter ---
     if (currentToolUse && currentParamName) {
-      const closeTag = isDsmlTool ? (dsmlTag?.[1] === '/' && dsmlTag[2] === 'parameter' ? dsmlTag[0] : '') : `</${currentParamName}>`
+      const dsmlParamClose = dsmlTag?.[1] === '/' && dsmlTag[2] === 'parameter' ? dsmlTag[0] : ''
+      // Lenient (mangled opener) tools accept both DSML and XML closers; pure
+      // DSML tools only accept DSML closers; XML tools only XML closers.
+      const closeTag = lenientDsml
+        ? (dsmlParamClose || `</${currentParamName}>`)
+        : isDsmlTool
+          ? dsmlParamClose
+          : `</${currentParamName}>`
       // Check if the string *ending* at index `i` matches the closing tag
       if (
         closeTag &&
@@ -352,7 +372,8 @@ export function parseAssistantMessageV2(assistantMessage: string): AssistantMess
       // Check if starting a new parameter
       let startedNewParam = false
       for (const [tag, paramName] of toolParamOpenTags.entries()) {
-        if (isDsmlTool !== (tag !== `<${paramName}>`)) continue
+        // Lenient tools accept both DSML and XML parameter openers.
+        if (!lenientDsml && isDsmlTool !== (tag !== `<${paramName}>`)) continue
         if (currentCharIndex >= tag.length - 1 && assistantMessage.startsWith(tag, currentCharIndex - tag.length + 1)) {
           currentParamName = paramName
           currentParamValueStart = currentCharIndex + 1 // Value starts after the tag
@@ -365,7 +386,11 @@ export function parseAssistantMessageV2(assistantMessage: string): AssistantMess
       }
 
       // Check if closing the current tool use
-      const toolCloseTag = isDsmlTool ? (dsmlTag?.[1] === '/' && dsmlTag[2] === 'invoke' ? dsmlTag[0] : '') : `</${currentToolUse.name}>`
+      const toolCloseTag = lenientDsml
+        ? (dsmlTag?.[1] === '/' && dsmlTag[2] === 'invoke' ? dsmlTag[0] : `</${currentToolUse.name}>`)
+        : isDsmlTool
+          ? (dsmlTag?.[1] === '/' && dsmlTag[2] === 'invoke' ? dsmlTag[0] : '')
+          : `</${currentToolUse.name}>`
       if (
         toolCloseTag &&
         currentCharIndex >= toolCloseTag.length - 1 &&
@@ -413,8 +438,13 @@ export function parseAssistantMessageV2(assistantMessage: string): AssistantMess
     if (!currentToolUse) {
       // Check if starting a new tool use
       let startedNewTool = false
+      const malformedTool = malformedToolTags.get(i)
       const hybridTool = hybridToolTags.get(i)
-      const openingTags = hybridTool ? ([[hybridTool[0], hybridTool[1] as ToolUseName]] as const) : toolUseOpenTags.entries()
+      const openingTags = malformedTool
+        ? ([[malformedTool.tag, malformedTool.name]] as const)
+        : hybridTool
+          ? ([[hybridTool[0], hybridTool[1] as ToolUseName]] as const)
+          : toolUseOpenTags.entries()
       for (const [tag, toolName] of openingTags) {
         if (currentCharIndex >= tag.length - 1 && assistantMessage.startsWith(tag, currentCharIndex - tag.length + 1)) {
           // End current text block if one was active
@@ -451,6 +481,7 @@ export function parseAssistantMessageV2(assistantMessage: string): AssistantMess
           }
 
           isDsmlTool = !!hybridTool || dsmlTag?.[2] === 'invoke'
+          lenientDsml = !!malformedTool
 
           // Start the new tool use
           currentToolUse = {
