@@ -262,6 +262,10 @@ export function parseAssistantMessageV1(assistantMessage: string): AssistantMess
  *          Blocks that were not fully closed by the end of the input string will have their `partial` flag set to `true`.
  */
 export function parseAssistantMessageV2(assistantMessage: string): AssistantMessageContent[] {
+  // GLM models wrap tool calls with <tool_call>/<tool_call>, strip them so
+  // the standard XML parser can find the actual tool tags directly.
+  assistantMessage = assistantMessage.replace(/<\/?tool_call>/g, '')
+
   // DeepSeek-compatible endpoints can leak DSML tool calls into the text stream.
   // Recognize them here so they use the same registry, approval and dispatch path
   // as XML calls. Never rewrite parameter values (commands/file contents).
@@ -337,11 +341,7 @@ export function parseAssistantMessageV2(assistantMessage: string): AssistantMess
       const dsmlParamClose = dsmlTag?.[1] === '/' && dsmlTag[2] === 'parameter' ? dsmlTag[0] : ''
       // Lenient (mangled opener) tools accept both DSML and XML closers; pure
       // DSML tools only accept DSML closers; XML tools only XML closers.
-      const closeTag = lenientDsml
-        ? (dsmlParamClose || `</${currentParamName}>`)
-        : isDsmlTool
-          ? dsmlParamClose
-          : `</${currentParamName}>`
+      const closeTag = lenientDsml ? dsmlParamClose || `</${currentParamName}>` : isDsmlTool ? dsmlParamClose : `</${currentParamName}>`
       // Check if the string *ending* at index `i` matches the closing tag
       if (
         closeTag &&
@@ -387,9 +387,13 @@ export function parseAssistantMessageV2(assistantMessage: string): AssistantMess
 
       // Check if closing the current tool use
       const toolCloseTag = lenientDsml
-        ? (dsmlTag?.[1] === '/' && dsmlTag[2] === 'invoke' ? dsmlTag[0] : `</${currentToolUse.name}>`)
+        ? dsmlTag?.[1] === '/' && dsmlTag[2] === 'invoke'
+          ? dsmlTag[0]
+          : `</${currentToolUse.name}>`
         : isDsmlTool
-          ? (dsmlTag?.[1] === '/' && dsmlTag[2] === 'invoke' ? dsmlTag[0] : '')
+          ? dsmlTag?.[1] === '/' && dsmlTag[2] === 'invoke'
+            ? dsmlTag[0]
+            : ''
           : `</${currentToolUse.name}>`
       if (
         toolCloseTag &&
