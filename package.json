@@ -95,7 +95,7 @@
     "monaco-editor": "^0.53.0",
     "mysql2": "^3.24.4",
     "node-pty": "^1.0.0",
-    "ollama": "^0.6.3",
+    "ollama": "^0.6.4",
     "openai": "^7.5.0",
     "oracledb": "^7.0.1",
     "p-wait-for": "^6.0.0",
