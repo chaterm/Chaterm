@@ -2,6 +2,26 @@
   "releaseNotesUrl": "https://github.com/chaterm/Chaterm/releases/tag/v",
   "versions": [
     {
+      "version": "0.12.6",
+      "date": "2026-10-22",
+      "highlights": {
+        "zh-CN": [
+          "MCP 扩展：支持外部 Agent 调用服务器与 SSH 执行能力，提供便捷接入指令",
+          "模型配置：支持获取模型列表，优化 DeepSeek、GLM 工具调用兼容性",
+          "AI 对话：新增图片附件预览，优化历史消息定位与自动审批设置",
+          "终端与资产：新增资产信息复制，修复分栏拖动、命令块选择及堡垒机搜索问题",
+          "安全与稳定性：加强 SFTP 传输路径校验，升级相关依赖"
+        ],
+        "en-US": [
+          "MCP integration: let external agents access managed servers and execute SSH commands, with easy setup instructions",
+          "Model configuration: added model list fetching and improved DeepSeek and GLM tool-call compatibility",
+          "AI chat: added image attachment previews and improved history navigation and auto-approval settings",
+          "Terminal and assets: added asset information copying and fixed splitter dragging, command block selection, and bastion search issues",
+          "Security and stability: strengthened SFTP transfer path validation and updated dependencies"
+        ]
+      }
+    },
+    {
       "version": "0.12.5",
       "date": "2026-09-24",
       "highlights": {
