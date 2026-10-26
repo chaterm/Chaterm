@@ -157,9 +157,13 @@
             >
               <Database />
             </div>
-            <!-- Normal splitpanes layout for all other menus -->
+            <!--
+              Keep the terminal workspace mounted while the database workspace is
+              visible. Dockview owns the server connection tabs, so unmounting it
+              here would dispose those tabs and their terminal components.
+            -->
             <splitpanes
-              v-else
+              v-show="currentMenu !== 'database'"
               class="left-sidebar-container"
               @resize="(params: ResizeParams) => handleLeftPaneResize(params)"
             >

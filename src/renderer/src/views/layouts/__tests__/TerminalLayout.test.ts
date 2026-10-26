@@ -1483,8 +1483,8 @@ describe('TerminalLayout - Database Workspace Mode', () => {
     expect(source).toMatch(/<Database\s*\/>/)
   })
 
-  it('renders the normal splitpanes layout when menu is not database', () => {
-    expect(source).toMatch(/v-else[\s\S]{0,200}class="left-sidebar-container"/)
+  it('keeps the terminal splitpanes mounted while the database workspace is visible', () => {
+    expect(source).toMatch(/v-show="currentMenu !== 'database'"[\s\S]{0,120}class="left-sidebar-container"/)
   })
 
   it('keeps the AI sidebar gated by the existing terminal-mode condition', () => {
