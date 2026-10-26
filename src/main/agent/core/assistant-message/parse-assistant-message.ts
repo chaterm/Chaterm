@@ -269,16 +269,20 @@ export function parseAssistantMessageV2(assistantMessage: string): AssistantMess
   // DeepSeek-compatible endpoints can leak DSML tool calls into the text stream.
   // Recognize them here so they use the same registry, approval and dispatch path
   // as XML calls. Never rewrite parameter values (commands/file contents).
-  const dsmlPrefix = '(?:｜｜DSML｜｜|\\|\\|DSML\\|\\|)'
+  // DeepSeek and compatible relays may render the marker with fullwidth bars,
+  // ASCII pipes, or spaces between the marker characters.
+  const dsmlPrefix = '(?:[｜|‖]\\s*)+DSML\\s*(?:[｜|‖]\\s*)+'
   const dsmlTags = new Map<number, RegExpMatchArray>()
-  for (const match of assistantMessage.matchAll(new RegExp(`<(/?)${dsmlPrefix}\\s+(calls|invoke|parameter)\\b([^>]*)>`, 'g'))) {
+  for (const match of assistantMessage.matchAll(
+    new RegExp(`<\\s*(/?)\\s*${dsmlPrefix}\\s*(calls|tool_calls|function_calls|invoke|parameter)\\b([^>]*)>`, 'gi')
+  )) {
     dsmlTags.set(match.index + match[0].length - 1, match)
   }
   // Issue #2627: DeepSeek can replace the invoke opener with <tool_name>name</tool_name>.
   // Require a following DSML parameter before treating this header as a tool, and
   // match by position so standalone tool_name text elsewhere remains ordinary text.
   const hybridToolTags = new Map<number, RegExpMatchArray>()
-  const hybridToolPattern = new RegExp(`<tool_name>\\s*(\\w+)\\s*</tool_name>(?=\\s*<${dsmlPrefix}\\s+parameter\\b[^>]*>)`, 'g')
+  const hybridToolPattern = new RegExp(`<tool_name>\\s*(\\w+)\\s*</tool_name>(?=\\s*<${dsmlPrefix}\\s*parameter\\b[^>]*>)`, 'gi')
   for (const match of assistantMessage.matchAll(hybridToolPattern)) {
     if (toolUseNames.includes(match[1] as ToolUseName)) {
       hybridToolTags.set(match.index + match[0].length - 1, match)
@@ -298,9 +302,9 @@ export function parseAssistantMessageV2(assistantMessage: string): AssistantMess
   }
   const cleanText = (text: string): string =>
     text
-      .replace(new RegExp(`</?${dsmlPrefix}\\s+calls\\s*>`, 'g'), '')
+      .replace(new RegExp(`<\\s*/?\\s*${dsmlPrefix}\\s*(?:calls|tool_calls|function_calls)\\s*>`, 'gi'), '')
       // Hold back incomplete DSML tags across streaming chunks.
-      .replace(/<\/?(?:[｜|]{1,2}(?:D(?:S(?:M(?:L[^>]*)?)?)?)?)?$/, '')
+      .replace(/<\/?\s*(?:(?:[｜|‖]\s*){0,8}(?:D(?:S(?:M(?:L[^>]*)?)?)?)?)?$/i, '')
       .trim()
 
   const contentBlocks: AssistantMessageContent[] = []
@@ -312,6 +316,7 @@ export function parseAssistantMessageV2(assistantMessage: string): AssistantMess
   let currentParamName: ToolParamName | undefined = undefined
   let isDsmlTool = false
   let lenientDsml = false
+  let isDsmlParam = false
 
   // Precompute tags for faster lookups
   const toolUseOpenTags = new Map<string, ToolUseName>()
@@ -332,16 +337,31 @@ export function parseAssistantMessageV2(assistantMessage: string): AssistantMess
     if (dsmlTag?.[1] === '' && dsmlTag[2] === 'invoke' && toolUseNames.includes(dsmlName as ToolUseName)) {
       toolUseOpenTags.set(dsmlTag[0], dsmlName as ToolUseName)
     }
-    if ((isDsmlTool || lenientDsml) && dsmlTag?.[1] === '' && dsmlTag[2] === 'parameter' && toolParamNames.includes(dsmlName as ToolParamName)) {
+    if (dsmlTag?.[1] === '' && dsmlTag[2] === 'parameter' && toolParamNames.includes(dsmlName as ToolParamName)) {
       toolParamOpenTags.set(dsmlTag[0], dsmlName as ToolParamName)
     }
 
     // --- State: Parsing a Tool Parameter ---
     if (currentToolUse && currentParamName) {
       const dsmlParamClose = dsmlTag?.[1] === '/' && dsmlTag[2] === 'parameter' ? dsmlTag[0] : ''
-      // Lenient (mangled opener) tools accept both DSML and XML closers; pure
-      // DSML tools only accept DSML closers; XML tools only XML closers.
-      const closeTag = lenientDsml ? dsmlParamClose || `</${currentParamName}>` : isDsmlTool ? dsmlParamClose : `</${currentParamName}>`
+      const xmlParamClose = `</${currentParamName}>`
+      let closeTag = ''
+      if (isDsmlParam) {
+        // DeepSeek can close a DSML parameter with an XML closer. Accept it only
+        // when the value has no matching XML opener, so literal XML is preserved.
+        if (dsmlParamClose) {
+          closeTag = dsmlParamClose
+        } else if (
+          assistantMessage.startsWith(xmlParamClose, currentCharIndex - xmlParamClose.length + 1) &&
+          !assistantMessage.slice(currentParamValueStart, currentCharIndex).includes(`<${currentParamName}>`)
+        ) {
+          closeTag = xmlParamClose
+        }
+      } else {
+        // XML parameters inside DSML or mangled-opener tools also accept DSML closers;
+        // XML parameters inside XML tools only accept XML closers.
+        closeTag = (isDsmlTool || lenientDsml) && dsmlParamClose ? dsmlParamClose : xmlParamClose
+      }
       // Check if the string *ending* at index `i` matches the closing tag
       if (
         closeTag &&
@@ -371,11 +391,12 @@ export function parseAssistantMessageV2(assistantMessage: string): AssistantMess
       // Ensure we are not inside a parameter already
       // Check if starting a new parameter
       let startedNewParam = false
+      // DeepSeek can mix XML and DSML parameters within one call, so both
+      // opener flavors are accepted here (outside of parameter values only).
       for (const [tag, paramName] of toolParamOpenTags.entries()) {
-        // Lenient tools accept both DSML and XML parameter openers.
-        if (!lenientDsml && isDsmlTool !== (tag !== `<${paramName}>`)) continue
         if (currentCharIndex >= tag.length - 1 && assistantMessage.startsWith(tag, currentCharIndex - tag.length + 1)) {
           currentParamName = paramName
+          isDsmlParam = tag !== `<${paramName}>`
           currentParamValueStart = currentCharIndex + 1 // Value starts after the tag
           startedNewParam = true
           break
@@ -386,15 +407,10 @@ export function parseAssistantMessageV2(assistantMessage: string): AssistantMess
       }
 
       // Check if closing the current tool use
-      const toolCloseTag = lenientDsml
-        ? dsmlTag?.[1] === '/' && dsmlTag[2] === 'invoke'
-          ? dsmlTag[0]
-          : `</${currentToolUse.name}>`
-        : isDsmlTool
-          ? dsmlTag?.[1] === '/' && dsmlTag[2] === 'invoke'
-            ? dsmlTag[0]
-            : ''
-          : `</${currentToolUse.name}>`
+      // DSML tools only close on a DSML invoke closer (stray XML closers inside
+      // mixed calls are skipped); XML and mangled-opener tools accept both.
+      const dsmlInvokeClose = dsmlTag?.[1] === '/' && dsmlTag[2] === 'invoke' ? dsmlTag[0] : ''
+      const toolCloseTag = isDsmlTool ? dsmlInvokeClose : dsmlInvokeClose || `</${currentToolUse.name}>`
       if (
         toolCloseTag &&
         currentCharIndex >= toolCloseTag.length - 1 &&
