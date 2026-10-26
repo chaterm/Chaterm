@@ -36,8 +36,31 @@ interface SqliteColumnRow {
 }
 
 const SQLITE_WORKER_SOURCE = `
-const { parentPort } = require('worker_threads')
+const { parentPort, workerData } = require('worker_threads')
+const path = require('path')
 let db = null
+
+// An eval worker resolves bare module names against the process working
+// directory, not against this bundle, so 'better-sqlite3' alone only works
+// when the cwd happens to contain node_modules (dev, tests). In a packaged app
+// the dependency lives in app.asar and electron-builder copies native packages
+// to app.asar.unpacked, so try that explicit path first.
+function loadBetterSqlite3() {
+  const candidates = []
+  if (workerData.resourcesPath) {
+    candidates.push(path.join(workerData.resourcesPath, 'app.asar.unpacked', 'node_modules', 'better-sqlite3'))
+  }
+  candidates.push('better-sqlite3')
+  let lastError = null
+  for (const candidate of candidates) {
+    try {
+      return require(candidate)
+    } catch (error) {
+      lastError = error
+    }
+  }
+  throw lastError || new Error('cannot load better-sqlite3')
+}
 
 function callWithParams(stmt, params, mode) {
   if (!Array.isArray(params) || params.length === 0) {
@@ -84,7 +107,7 @@ parentPort.on('message', (message) => {
     .then(() => {
       if (method === 'open') {
         closeDb()
-        const Database = require('better-sqlite3')
+        const Database = loadBetterSqlite3()
         const input = args[0] || {}
         db = new Database(input.filePath, {
           readonly: Boolean(input.readonly),
@@ -123,7 +146,10 @@ class SqliteWorkerConnection {
   private closed = false
 
   constructor() {
-    this.worker = new Worker(SQLITE_WORKER_SOURCE, { eval: true })
+    this.worker = new Worker(SQLITE_WORKER_SOURCE, {
+      eval: true,
+      workerData: { resourcesPath: process.resourcesPath }
+    })
     this.worker.on('message', (response: SqliteWorkerResponse) => this.handleResponse(response))
     this.worker.on('error', (error) => this.rejectAll(error instanceof Error ? error : new Error(String(error))))
     this.worker.on('exit', (code) => {
