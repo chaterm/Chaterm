@@ -159,7 +159,7 @@
     "cross-env": "^10.1.0",
     "electron": "^43.4.1",
     "electron-builder": "^26.18.0",
-    "electron-vite": "^5.0.0",
+    "electron-vite": "^6.0.0",
     "eslint": "^10.13.0",
     "eslint-plugin-vue": "^10.11.1",
     "fast-check": "^4.10.0",
