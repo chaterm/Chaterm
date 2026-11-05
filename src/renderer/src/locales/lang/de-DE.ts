@@ -1294,8 +1294,6 @@ export default {
     navRailLabel: 'Konversationsubersicht',
     navRailUserTurn: 'Ihre Eingabe',
     exportedOn: 'Exportiert am',
-    maxHostsLimitReached: 'Sie können bis zu {max} Hosts auswählen',
-    maxHostsLimit: 'Maximale Host-Limit erreicht',
     selectAll: 'Alle auswählen',
     deselectAll: 'Auswahl aufheben',
     clearSelection: 'Auswahl löschen',

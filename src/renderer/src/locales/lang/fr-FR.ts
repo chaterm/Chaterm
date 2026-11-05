@@ -1297,8 +1297,6 @@ export default {
     navRailLabel: 'Plan de la conversation',
     navRailUserTurn: 'Votre message',
     exportedOn: 'Exporté le',
-    maxHostsLimitReached: "Vous pouvez sélectionner jusqu'à {max} hôtes",
-    maxHostsLimit: "Limite de sélection d'hôtes atteinte",
     selectAll: 'Tout sélectionner',
     deselectAll: 'Tout désélectionner',
     clearSelection: 'Effacer',

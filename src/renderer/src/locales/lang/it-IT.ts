@@ -1287,8 +1287,6 @@ export default {
     navRailLabel: 'Struttura conversazione',
     navRailUserTurn: 'Il tuo messaggio',
     exportedOn: 'Esportato il',
-    maxHostsLimitReached: 'Puoi selezionare fino a {max} host',
-    maxHostsLimit: 'Limite host raggiunto',
     selectAll: 'Seleziona tutto',
     deselectAll: 'Deseleziona tutto',
     clearSelection: 'Cancella',

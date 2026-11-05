@@ -1264,8 +1264,6 @@ export default {
     navRailLabel: '会话导航',
     navRailUserTurn: '我的提问',
     exportedOn: '导出时间',
-    maxHostsLimitReached: '最多只能选择 {max} 台主机',
-    maxHostsLimit: '主机数量已达上限',
     selectAll: '全选',
     deselectAll: '取消全选',
     clearSelection: '清空',

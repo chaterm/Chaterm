@@ -292,26 +292,6 @@ describe('AiTab Component - Composable Integration Tests', () => {
       expect(hosts.value).toHaveLength(1)
       expect(hosts.value[0].host).toBe('new-server')
     })
-
-    it('should enforce max hosts limit in agent mode', () => {
-      const hosts = ref<Array<{ host: string; uuid: string; connection: string }>>([])
-      const maxHosts = 5
-
-      // Fill up to max
-      for (let i = 0; i < maxHosts; i++) {
-        hosts.value.push({
-          host: `server${i}`,
-          uuid: `uuid-${i}`,
-          connection: 'ssh'
-        })
-      }
-
-      // Try to add one more
-      const canAddMore = hosts.value.length < maxHosts
-
-      expect(hosts.value).toHaveLength(5)
-      expect(canAddMore).toBe(false)
-    })
   })
 
   describe('Message Options Integration', () => {

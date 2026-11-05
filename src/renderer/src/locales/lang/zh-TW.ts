@@ -1261,8 +1261,6 @@ export default {
     navRailLabel: '會話導覽',
     navRailUserTurn: '我的提問',
     exportedOn: '導出時間',
-    maxHostsLimitReached: '最多只能選擇 {max} 台主機',
-    maxHostsLimit: '主機數量已達上限',
     selectAll: '全選',
     deselectAll: '取消全選',
     clearSelection: '清空',
