@@ -40,4 +40,9 @@ describe('decodeHtmlEntities', () => {
     const output = decodeHtmlEntities(input)
     expect(output).toBe(input)
   })
+
+  it('leaves numeric entities beyond U+10FFFF untouched instead of throwing', () => {
+    expect(decodeHtmlEntities('nohup ./sync.sh &#20261107 nightly')).toBe('nohup ./sync.sh &#20261107 nightly')
+    expect(decodeHtmlEntities('printf "&#x110000;"')).toBe('printf "&#x110000;"')
+  })
 })
