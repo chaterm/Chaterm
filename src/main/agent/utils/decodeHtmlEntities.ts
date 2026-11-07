@@ -18,7 +18,6 @@ export const decodeHtmlEntities = (value: string): string => {
       const codePoint = Number.parseInt(entity.slice(1), 10)
       return codePoint <= 0x10ffff ? String.fromCodePoint(codePoint) : match
     }
-    const mapped = HTML_ENTITY_MAP[entity]
-    return mapped !== undefined ? mapped : match
+    return Object.prototype.hasOwnProperty.call(HTML_ENTITY_MAP, entity) ? HTML_ENTITY_MAP[entity] : match
   })
 }

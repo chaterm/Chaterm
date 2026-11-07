@@ -45,4 +45,8 @@ describe('decodeHtmlEntities', () => {
     expect(decodeHtmlEntities('nohup ./sync.sh &#20261107 nightly')).toBe('nohup ./sync.sh &#20261107 nightly')
     expect(decodeHtmlEntities('printf "&#x110000;"')).toBe('printf "&#x110000;"')
   })
+
+  it('leaves names inherited from Object.prototype untouched', () => {
+    expect(decodeHtmlEntities('echo &constructor; &toString')).toBe('echo &constructor; &toString')
+  })
 })
