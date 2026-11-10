@@ -1270,8 +1270,6 @@ export default {
     navRailLabel: '대화 내비게이션',
     navRailUserTurn: '내 질문',
     exportedOn: '내보낸 시간',
-    maxHostsLimitReached: '최대 {max} 호스트까지 선택할 수 있습니다',
-    maxHostsLimit: '최대 호스트 수 제한 도달',
     selectAll: '전체 선택',
     deselectAll: '전체 선택 해제',
     clearSelection: '선택 지우기',

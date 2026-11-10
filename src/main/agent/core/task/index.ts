@@ -1002,6 +1002,28 @@ export class Task {
   }
 
   /**
+   * Merge adjacent messages that share a role so the request strictly alternates
+   * user/assistant. Tool results, todo reminders and environment details are stored
+   * as separate user messages; some Anthropic-compatible gateways pad such runs with
+   * a synthetic assistant turn (e.g. "OK") instead of merging them like the official API.
+   */
+  private mergeConsecutiveSameRoleMessages(conversationHistory: Anthropic.MessageParam[]): Anthropic.MessageParam[] {
+    const toBlocks = (content: Anthropic.MessageParam['content']): Anthropic.ContentBlockParam[] =>
+      typeof content === 'string' ? [{ type: 'text', text: content }] : content
+
+    const merged: Anthropic.MessageParam[] = []
+    for (const message of conversationHistory) {
+      const last = merged.at(-1)
+      if (last && last.role === message.role) {
+        merged[merged.length - 1] = { ...last, content: [...toBlocks(last.content), ...toBlocks(message.content)] }
+      } else {
+        merged.push(message)
+      }
+    }
+    return merged
+  }
+
+  /**
    * Check if the given IP is a local host
    */
   private isLocalHost(ip?: string): boolean {
@@ -2421,6 +2443,7 @@ export class Task {
     // Normalize tool_result and legacy file_ref blocks into text-only content
     // so that downstream provider adapters see only supported block types.
     conversationHistory = this.normalizeToolResultsForApi(conversationHistory)
+    conversationHistory = this.mergeConsecutiveSameRoleMessages(conversationHistory)
 
     mark('chaterm/agent/willCallAPI')
     let stream = this.api.createMessage(systemPrompt, conversationHistory)
@@ -3205,14 +3228,12 @@ export class Task {
         }
 
         const ipList = ip!.split(',')
-        let uiResult = ''
         for (const singleIp of ipList) {
           const output = await this.executeCommandTool(command!, singleIp)
           await this.pushToolResult(toolDescription, output, {
             toolName: block.name,
             ip: singleIp
           })
-          uiResult += `\n\n# Executing result on ${singleIp}:\n${output}`
         }
         if (timeoutId) {
           clearTimeout(timeoutId)
@@ -3232,9 +3253,6 @@ export class Task {
           logger.error('Failed to track tool call', { error: error })
           // Don't affect main functionality, only log error
         }
-
-        // Add todo status update reminder (use UI-friendly formatted result)
-        await this.addTodoStatusUpdateReminder(uiResult)
 
         await this.saveCheckpoint()
       }

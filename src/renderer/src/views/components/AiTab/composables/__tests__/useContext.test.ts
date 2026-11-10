@@ -47,12 +47,7 @@ vi.mock('../useTabManagement', () => ({
 vi.mock('@/locales', () => ({
   default: {
     global: {
-      t: (key: string, params?: Record<string, unknown>) => {
-        if (key === 'ai.maxHostsLimitReached') {
-          return `Maximum of ${params?.max} hosts reached`
-        }
-        return key
-      }
+      t: (key: string) => key
     }
   }
 }))
@@ -186,7 +181,7 @@ describe('useContext', () => {
       expect(hosts.value[0].host).toBe('server1.example.com')
     })
 
-    it('should prevent adding more than max hosts', () => {
+    it('should add host when five hosts are already selected', () => {
       const { onHostClick } = useContext()
 
       const newHostOption: HostOption = {
@@ -200,7 +195,6 @@ describe('useContext', () => {
         level: 0
       }
 
-      // Fill up to max hosts (5)
       hosts.value = [
         { host: 'host1', uuid: 'uuid-1', connection: 'ssh' },
         { host: 'host2', uuid: 'uuid-2', connection: 'ssh' },
@@ -212,8 +206,9 @@ describe('useContext', () => {
 
       onHostClick(newHostOption)
 
-      expect(hosts.value).toHaveLength(5)
-      expect(vi.mocked(Notice.open)).toHaveBeenCalled()
+      expect(hosts.value).toHaveLength(6)
+      expect(hosts.value[5].uuid).toBe('uuid-new')
+      expect(vi.mocked(Notice.open)).not.toHaveBeenCalled()
     })
 
     it('should remove localhost when adding non-localhost', () => {
@@ -275,6 +270,43 @@ describe('useContext', () => {
           description: 'ai.switchNotSupportAgent'
         })
       )
+    })
+  })
+
+  describe('selectAllHosts', () => {
+    it('should select every visible host and keep existing selections', () => {
+      const { selectAllHosts, hostOptions } = useContext()
+
+      const options: HostOption[] = Array.from({ length: 8 }, (_, i) => ({
+        label: `server${i}.example.com`,
+        value: `host-${i}`,
+        key: `host-${i}`,
+        uuid: `uuid-${i}`,
+        connect: 'ssh',
+        type: 'personal',
+        selectable: true,
+        level: 0
+      }))
+      hostOptions.value = [
+        {
+          key: 'localhost',
+          label: '127.0.0.1',
+          value: 'localhost',
+          uuid: 'localhost',
+          connect: 'localhost',
+          isLocalHost: true,
+          type: 'personal',
+          selectable: true,
+          level: 0
+        },
+        ...options
+      ]
+      hosts.value = [{ host: 'server0.example.com', uuid: 'uuid-0', connection: 'ssh' }]
+
+      selectAllHosts()
+
+      expect(hosts.value.map((h) => h.uuid)).toEqual(options.map((o) => o.uuid))
+      expect(vi.mocked(Notice.open)).not.toHaveBeenCalled()
     })
   })
 

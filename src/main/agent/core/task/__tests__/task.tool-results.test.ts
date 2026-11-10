@@ -343,6 +343,74 @@ describe('Task tool result helpers', () => {
     expect((normalized[0].content[0] as any).text).toBe('')
   })
 
+  it('mergeConsecutiveSameRoleMessages should fold same-role runs into one message', () => {
+    const history = [
+      { role: 'user', content: 'task' },
+      { role: 'assistant', content: [{ type: 'text', text: 'running' }] },
+      { role: 'user', content: [{ type: 'text', text: 'tool result 1' }] },
+      { role: 'user', content: [{ type: 'text', text: 'tool result 2' }] },
+      { role: 'user', content: 'reminder' },
+      { role: 'assistant', content: 'partial' },
+      { role: 'assistant', content: [{ type: 'text', text: '[interrupted]' }] }
+    ]
+    const snapshot = structuredClone(history)
+
+    const merged = task.mergeConsecutiveSameRoleMessages(history)
+
+    expect(merged).toEqual([
+      { role: 'user', content: 'task' },
+      { role: 'assistant', content: [{ type: 'text', text: 'running' }] },
+      {
+        role: 'user',
+        content: [
+          { type: 'text', text: 'tool result 1' },
+          { type: 'text', text: 'tool result 2' },
+          { type: 'text', text: 'reminder' }
+        ]
+      },
+      {
+        role: 'assistant',
+        content: [
+          { type: 'text', text: 'partial' },
+          { type: 'text', text: '[interrupted]' }
+        ]
+      }
+    ])
+    expect(history).toEqual(snapshot)
+  })
+
+  it('attemptApiRequest should send strictly alternating roles', async () => {
+    const createMessage = vi.fn(async function* () {
+      yield { type: 'text', text: 'done' }
+    })
+    task.api = { createMessage, getModel: () => ({ id: 'm', info: { contextWindow: 200000 } }) }
+    task.buildSystemPrompt = vi.fn(async () => 'system')
+    task.getUserLocale = vi.fn(async () => 'en-US')
+    task.conversationHistoryDeletedRange = undefined
+    task.contextManager = {
+      setLanguage: vi.fn(),
+      needsTruncation: vi.fn(() => false),
+      getNewContextMessagesAndMetadata: vi.fn(async (history: unknown[]) => ({
+        truncatedConversationHistory: history,
+        updatedConversationHistoryDeletedRange: false
+      }))
+    }
+    task.apiConversationHistory = [
+      { role: 'user', content: [{ type: 'text', text: 'task' }] },
+      { role: 'assistant', content: [{ type: 'text', text: 'running' }] },
+      { role: 'user', content: [{ type: 'tool_result', content: JSON.stringify({ toolName: 'execute_command', result: 'ok' }) }] },
+      { role: 'user', content: [{ type: 'text', text: 'environment' }] }
+    ]
+
+    for await (const _chunk of task.attemptApiRequest(-1)) {
+      // drain the stream
+    }
+
+    const sent = (createMessage.mock.calls[0] as unknown[])[1] as Array<{ role: string; content: unknown[] }>
+    expect(sent.map((m) => m.role)).toEqual(['user', 'assistant', 'user'])
+    expect(sent[2].content).toHaveLength(2)
+  })
+
   it('getToolDescription should format known and unknown tool names', () => {
     expect(task.getToolDescription({ name: 'execute_command', params: { command: 'ls -al' } })).toBe("[execute_command 'ls -al']")
     expect(task.getToolDescription({ name: 'use_mcp_tool', params: { server_name: 's1', tool_name: 't1' } })).toBe('[use_mcp_tool - s1/t1]')

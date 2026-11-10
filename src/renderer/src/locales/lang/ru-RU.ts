@@ -1285,8 +1285,6 @@ export default {
     navRailLabel: 'Структура беседы',
     navRailUserTurn: 'Ваш запрос',
     exportedOn: 'Экспортировано на',
-    maxHostsLimitReached: 'Вы можете выбрать до {max} хостов',
-    maxHostsLimit: 'Максимальное количество хостов достигнуто',
     selectAll: 'Выбрать все',
     deselectAll: 'Снять выбор',
     clearSelection: 'Очистить',
