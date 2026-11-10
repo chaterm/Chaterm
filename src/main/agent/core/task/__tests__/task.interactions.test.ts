@@ -316,6 +316,22 @@ describe('Task interaction-heavy branches', () => {
     }
   )
 
+  it('handleToolUse should add a single todo reminder after execute_command runs on multiple hosts', async () => {
+    vi.mocked(getGlobalState).mockImplementation(async (key: string) => (key === 'chatSettings' ? { mode: 'agent' } : {}))
+    task.autoApprovalSettings = { enabled: true, enableNotifications: false, actions: { executeSafeCommands: true } }
+    task.shouldAutoApproveTool = vi.fn().mockReturnValue([true, true])
+    task.captureExecuteCommandUsage = vi.fn()
+
+    await task.handleToolUse({
+      name: 'execute_command',
+      params: { command: 'uptime', ip: '10.0.0.1,10.0.0.2', requires_approval: 'false' },
+      partial: false
+    })
+
+    expect(task.executeCommandTool).toHaveBeenCalledTimes(2)
+    expect(task.addTodoStatusUpdateReminder).toHaveBeenCalledTimes(1)
+  })
+
   it('handleKbSearchToolUse should send structured contentParts for kb results', async () => {
     knowledgebaseMocks.getKbSearchManager.mockReturnValue({
       search: vi.fn().mockImplementation(async (_query, options) => {
