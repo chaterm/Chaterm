@@ -17,7 +17,80 @@ const expectedRead = {
   partial: false
 }
 
+const issue2627Todos =
+  '[{"id":"t1","content":"确认 MetaTube 运行状态与配置","status":"in_progress","priority":"high"},{"id":"t2","content":"分析 MetaTube 日志中的数据库连接错误","status":"pending","priority":"high"},{"id":"t3","content":"检查 Emby 刮削调用链与 MediaWarp","status":"pending","priority":"medium"},{"id":"t4","content":"验证修复并给出结论","status":"pending","priority":"medium"}]'
+const issue2627Message = `<tool_name>todo_write</tool_name> <｜｜DSML｜｜ parameter name="todos">${issue2627Todos}</｜｜DSML｜｜ parameter> </｜｜DSML｜｜ invoke>`
+const expectedTodoWrite = { type: 'tool_use', name: 'todo_write', params: { todos: issue2627Todos }, partial: false }
+
 describe('parseAssistantMessageV2 DSML compatibility', () => {
+  it('parses the exact issue #2627 hybrid tool header and DSML parameters', () => {
+    expect(parseAssistantMessageV2(issue2627Message)).toEqual([expectedTodoWrite])
+  })
+
+  it.each(['｜｜DSML｜｜', '||DSML||'])('accepts hybrid %s calls with whitespace and multiple parameters', (marker) => {
+    const message = `<tool_name>\n read_file \n</tool_name>\n<${marker} parameter name="path">a.txt</${marker} parameter><${marker} parameter name="limit" string="false">200</${marker} parameter></${marker} invoke>`
+    expect(parseAssistantMessageV2(message)).toEqual([
+      { type: 'tool_use', name: 'read_file', params: { path: 'a.txt', limit: '200' }, partial: false }
+    ])
+  })
+
+  it('keeps hybrid calls partial at every streaming split until invoke closes', () => {
+    const parameterStart = issue2627Message.indexOf('>[') + 1
+    for (let end = 1; end <= issue2627Message.length; end++) {
+      const blocks = parseAssistantMessageV2(issue2627Message.slice(0, end))
+      const tools = blocks.filter((block) => block.type === 'tool_use')
+      expect(tools).toHaveLength(end < parameterStart ? 0 : 1)
+      if (tools.length > 0) {
+        expect(tools[0]).toMatchObject({ name: 'todo_write', partial: end < issue2627Message.length })
+        expect(blocks.some((block) => block.type === 'text')).toBe(false)
+      }
+    }
+  })
+
+  it('continues parsing hybrid, DSML and XML calls with surrounding text', () => {
+    expect(parseAssistantMessageV2(`Plan: ${issue2627Message}${issueMessage}<read_file><path>b.txt</path></read_file>Done`)).toEqual([
+      { type: 'text', content: 'Plan:', partial: false },
+      expectedTodoWrite,
+      { type: 'text', content: issueMessage.split('\n')[0], partial: false },
+      expectedRead,
+      { type: 'tool_use', name: 'read_file', params: { path: 'b.txt' }, partial: false },
+      { type: 'text', content: 'Done', partial: true }
+    ])
+  })
+
+  it('does not interpret standalone tool_name text or unregistered hybrid names as tools', () => {
+    for (const message of ['<tool_name>todo_write</tool_name>', issue2627Message.replace('todo_write', 'unknown_tool')]) {
+      expect(parseAssistantMessageV2(message)).toEqual([{ type: 'text', content: message, partial: true }])
+    }
+    const literalHeader = '<tool_name>todo_write</tool_name>'
+    expect(parseAssistantMessageV2(`${literalHeader} is a header. ${issue2627Message}${literalHeader}`)).toEqual([
+      { type: 'text', content: `${literalHeader} is a header.`, partial: false },
+      expectedTodoWrite,
+      { type: 'text', content: literalHeader, partial: true }
+    ])
+  })
+
+  it('parses consecutive hybrid calls without merging their parameters', () => {
+    expect(parseAssistantMessageV2(`${issue2627Message}${issue2627Message}`)).toEqual([expectedTodoWrite, expectedTodoWrite])
+  })
+
+  it('preserves hybrid-looking parameter contents and MCP tool_name parameters', () => {
+    expect(parseAssistantMessageV2(`<write_to_file><path>a.txt</path><content>${issue2627Message}</content></write_to_file>`)).toEqual([
+      { type: 'tool_use', name: 'write_to_file', params: { path: 'a.txt', content: issue2627Message }, partial: false }
+    ])
+    const content = '<tool_name>todo_write</tool_name><todos>[]</todos><read_file><path>example</path></read_file>'
+    expect(
+      parseAssistantMessageV2(
+        `<tool_name>write_to_file</tool_name><｜｜DSML｜｜ parameter name="path">a.txt</｜｜DSML｜｜ parameter><｜｜DSML｜｜ parameter name="content">${content}</｜｜DSML｜｜ parameter></｜｜DSML｜｜ invoke>`
+      )
+    ).toEqual([{ type: 'tool_use', name: 'write_to_file', params: { path: 'a.txt', content }, partial: false }])
+    expect(
+      parseAssistantMessageV2(
+        '<use_mcp_tool><server_name>test</server_name><tool_name>todo_write</tool_name><arguments>{}</arguments></use_mcp_tool>'
+      )
+    ).toEqual([{ type: 'tool_use', name: 'use_mcp_tool', params: { server_name: 'test', tool_name: 'todo_write', arguments: '{}' }, partial: false }])
+  })
+
   it('parses the exact issue #2556 response, including missing parameter quotes', () => {
     expect(parseAssistantMessageV2(issueMessage)).toEqual([{ type: 'text', content: issueMessage.split('\n')[0], partial: false }, expectedRead])
   })
@@ -28,6 +101,21 @@ describe('parseAssistantMessageV2 DSML compatibility', () => {
       .replace('name="limit>', 'name="limit" string="false">')
       .replace('name="offset>', 'name="offset">')
     expect(parseAssistantMessageV2(message)[1]).toEqual(expectedRead)
+  })
+
+  it('accepts DSML markers rendered with spaces between the bars', () => {
+    const message = issueMessage.replaceAll('｜｜DSML｜｜', '| DSML |')
+    expect(parseAssistantMessageV2(message)).toEqual([{ type: 'text', content: issueMessage.split('\n')[0], partial: false }, expectedRead])
+  })
+
+  it.each(['tool_calls', 'function_calls'])('strips the %s wrapper and parses the invoke block', (wrapper) => {
+    const message = issueMessage.replaceAll('calls', wrapper)
+    expect(parseAssistantMessageV2(message)).toEqual([{ type: 'text', content: issueMessage.split('\n')[0], partial: false }, expectedRead])
+  })
+
+  it('accepts unspaced and three-pipe DSML markers', () => {
+    const message = issueMessage.replaceAll('｜｜DSML｜｜ ', '|||DSML|||')
+    expect(parseAssistantMessageV2(message)).toEqual([{ type: 'text', content: issueMessage.split('\n')[0], partial: false }, expectedRead])
   })
 
   it('keeps streamed calls partial until the invoke closes and hides DSML text at every split', () => {
@@ -95,5 +183,112 @@ describe('parseAssistantMessageV2 DSML compatibility', () => {
       { type: 'text', content: 'Done', partial: true }
     ])
     expect(parseAssistantMessageV2('<read_file><path>a')).toEqual([{ type: 'tool_use', name: 'read_file', params: { path: 'a' }, partial: true }])
+  })
+
+  const malformedInvocation = `<execute_command">
+<command>uname -a</command>
+<interactive>false</interactive>
+<ip>69.12.64.21</ip>
+<requires_approval>false</requires_approval>
+</execute_command>`
+
+  it('parses mangled tool openers with stray attribute remnants', () => {
+    expect(parseAssistantMessageV2(malformedInvocation)).toEqual([
+      {
+        type: 'tool_use',
+        name: 'execute_command',
+        params: { command: 'uname -a', interactive: 'false', ip: '69.12.64.21', requires_approval: 'false' },
+        partial: false
+      }
+    ])
+    expect(parseAssistantMessageV2(`Plan first.\n${malformedInvocation}Done`)).toEqual([
+      { type: 'text', content: 'Plan first.', partial: false },
+      {
+        type: 'tool_use',
+        name: 'execute_command',
+        params: { command: 'uname -a', interactive: 'false', ip: '69.12.64.21', requires_approval: 'false' },
+        partial: false
+      },
+      { type: 'text', content: 'Done', partial: true }
+    ])
+  })
+
+  it('accepts DSML closers inside mangled-opener calls', () => {
+    const message = `<execute_command">
+<command>uname -a</command>
+</｜｜DSML｜｜ parameter>
+</｜｜DSML｜｜ invoke>`
+    expect(parseAssistantMessageV2(message)).toEqual([{ type: 'tool_use', name: 'execute_command', params: { command: 'uname -a' }, partial: false }])
+  })
+
+  it('accepts DSML parameters inside mangled-opener calls', () => {
+    const message = `<execute_command"><｜｜DSML｜｜ parameter name="command">uname -a</｜｜DSML｜｜ parameter></｜｜DSML｜｜ invoke>`
+    expect(parseAssistantMessageV2(message)).toEqual([{ type: 'tool_use', name: 'execute_command', params: { command: 'uname -a' }, partial: false }])
+  })
+
+  it('keeps streamed mangled-opener calls partial until the invoke closes', () => {
+    const message = '<execute_command"><command>uname -a</command></｜｜DSML｜｜ invoke>'
+    const openerEnd = message.indexOf('>') + 1
+    for (let end = 1; end <= message.length; end++) {
+      const blocks = parseAssistantMessageV2(message.slice(0, end))
+      const tools = blocks.filter((block) => block.type === 'tool_use')
+      expect(tools).toHaveLength(end < openerEnd ? 0 : 1)
+      if (tools.length > 0) {
+        expect(tools[0]).toMatchObject({ name: 'execute_command', partial: end < message.length })
+      }
+    }
+  })
+
+  it('keeps unregistered mangled tags as ordinary text', () => {
+    const message = '<div">hello</div">'
+    expect(parseAssistantMessageV2(message)).toEqual([{ type: 'text', content: message, partial: true }])
+  })
+
+  const executeParams = { ip: '10.0.0.1', command: 'cat /etc/nginx/conf.d/app.conf', requires_approval: 'false', interactive: 'false' }
+
+  it('accepts DSML parameters inside an XML tool opener', () => {
+    const message = `Plan first.\n\n<todo_write>\n<｜DSML｜ parameter name="todos">[{"id":"t1"}]</｜DSML｜ parameter>\n</｜DSML｜ invoke>\n</｜DSML｜ calls>`
+    expect(parseAssistantMessageV2(message)).toEqual([
+      { type: 'text', content: 'Plan first.', partial: false },
+      { type: 'tool_use', name: 'todo_write', params: { todos: '[{"id":"t1"}]' }, partial: false }
+    ])
+  })
+
+  it('accepts XML closers and XML parameters mixed into DSML calls', () => {
+    const message = `<｜DSML｜ calls>
+<｜DSML｜ invoke name="execute_command">
+<｜DSML｜ parameter name="ip">10.0.0.1</｜DSML｜ parameter>
+<｜DSML｜ parameter name="command">cat /etc/nginx/conf.d/app.conf</command>
+<requires_approval>false</requires_approval>
+<interactive>false</interactive>
+</execute_command>
+</｜DSML｜ parameter>
+</｜DSML｜ invoke>
+</｜DSML｜ calls>`
+    expect(parseAssistantMessageV2(message)).toEqual([{ type: 'tool_use', name: 'execute_command', params: executeParams, partial: false }])
+  })
+
+  it('accepts a DSML parameter whose opener lost its closing quote and XML closer', () => {
+    const message = `Use the shell.\n\n<｜DSML｜ calls>
+<｜DSML｜ invoke name="execute_command">
+<｜DSML｜ parameter name="ip>10.0.0.1</ip>
+<command>cat /etc/nginx/conf.d/app.conf</command>
+<requires_approval>false</requires_approval>
+<interactive>false</interactive>
+</execute_command>
+</｜DSML｜ parameter>
+</｜DSML｜ invoke>
+</｜DSML｜ calls>`
+    expect(parseAssistantMessageV2(message)).toEqual([
+      { type: 'text', content: 'Use the shell.', partial: false },
+      { type: 'tool_use', name: 'execute_command', params: executeParams, partial: false }
+    ])
+  })
+
+  it('keeps balanced XML text inside DSML parameters that are closed by an XML closer', () => {
+    const message = `<｜DSML｜ invoke name="write_to_file"><｜DSML｜ parameter name="path">a.txt</path><｜DSML｜ parameter name="content"><content>x</content></｜DSML｜ parameter></｜DSML｜ invoke>`
+    expect(parseAssistantMessageV2(message)).toEqual([
+      { type: 'tool_use', name: 'write_to_file', params: { path: 'a.txt', content: '<content>x</content>' }, partial: false }
+    ])
   })
 })

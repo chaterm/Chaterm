@@ -12,7 +12,6 @@ import { ApiHandlerOptions, DeepSeekModelId, ModelInfo, deepSeekModels } from '@
 import { calculateApiCostOpenAI } from '../../utils/cost'
 import { convertToOpenAiMessages } from '../transform/openai-format'
 import { ApiStream } from '../transform/stream'
-import { convertToR1Format } from '../transform/r1-format'
 import { checkProxyConnectivity, getSharedDispatcher, shouldUseProxy } from './proxy/index'
 const logger = createLogger('agent')
 
@@ -116,22 +115,19 @@ export class DeepSeekHandler implements ApiHandler {
   async *createMessage(systemPrompt: string, messages: Anthropic.Messages.MessageParam[]): ApiStream {
     const model = this.getModel()
 
-    const isDeepseekReasoner = model.id.includes('deepseek-reasoner')
-
-    let openAiMessages: OpenAI.Chat.ChatCompletionMessageParam[] = [{ role: 'system', content: systemPrompt }, ...convertToOpenAiMessages(messages)]
-
-    if (isDeepseekReasoner) {
-      openAiMessages = convertToR1Format([{ role: 'user', content: systemPrompt }, ...messages])
-    }
+    const openAiMessages: OpenAI.Chat.ChatCompletionMessageParam[] = [{ role: 'system', content: systemPrompt }, ...convertToOpenAiMessages(messages)]
 
     const stream = await this.client.chat.completions.create({
       model: model.id,
-      max_completion_tokens: model.info.maxTokens,
+      // DeepSeek API expects `max_tokens` (1-393216); it does not document
+      // the OpenAI `max_completion_tokens` alias.
+      // https://api-docs.deepseek.com/zh-cn/api/create-chat-completion
+      max_tokens: model.info.maxTokens,
       messages: openAiMessages,
       stream: true,
       stream_options: { include_usage: true },
-      // Only set temperature for non-reasoner models
-      ...(model.id === 'deepseek-reasoner' ? {} : { temperature: 0 })
+      // Ignored in thinking mode, keeps non-thinking mode deterministic
+      temperature: 0
     })
 
     for await (const chunk of stream) {
