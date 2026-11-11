@@ -98,7 +98,7 @@
     "ollama": "^0.6.4",
     "openai": "^7.47.0",
     "oracledb": "^7.0.1",
-    "p-wait-for": "^6.0.0",
+    "p-wait-for": "^7.0.0",
     "pg": "^8.23.1",
     "pinia": "^3.0.1",
     "pinia-plugin-persistedstate": "^4.2.0",
