@@ -696,6 +696,11 @@
     padding: 0 4px 0 4px !important;
   }
 
+  // Let the title wrapper shrink below its content width so long titles ellipsize
+  :deep(.ant-dropdown-menu-title-content) {
+    min-width: 0;
+  }
+
   .history-search-container {
     display: flex;
     gap: 10px;
@@ -843,6 +848,11 @@
   .menu-action-buttons {
     opacity: 0;
     transition: opacity 0.12s ease;
+  }
+
+  // Idle rows give the title the full width; the buttons take space only on hover
+  &:not(:hover) .history-title + .menu-action-buttons {
+    display: none;
   }
 
   &:hover {
