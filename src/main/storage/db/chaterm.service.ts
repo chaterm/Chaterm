@@ -39,6 +39,8 @@ import {
   getSavedChatermMessagesLogic,
   getSavedChatermMessagesPageLogic,
   saveChatermMessagesLogic,
+  forkTaskLogic,
+  type ForkTaskResult,
   getTaskMetadataLogic,
   saveTaskMetadataLogic,
   saveTaskTitleLogic,
@@ -308,6 +310,10 @@ export class ChatermDatabaseService {
 
   async saveChatermMessages(taskId: string, uiMessages: any[]): Promise<void> {
     return saveChatermMessagesLogic(this.db, taskId, uiMessages)
+  }
+
+  async forkTask(sourceTaskId: string, targetTaskId: string, cutoffTs?: number, title?: string): Promise<ForkTaskResult> {
+    return forkTaskLogic(this.db, sourceTaskId, targetTaskId, cutoffTs, title)
   }
 
   // Agent task metadata related methods

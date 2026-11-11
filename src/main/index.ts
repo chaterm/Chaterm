@@ -2765,6 +2765,17 @@ ipcMain.handle('agent-chaterm-messages-page', async (_, data) => {
   }
 })
 
+ipcMain.handle('agent-fork-task', async (_, data: { sourceTaskId: string; cutoffTs?: number; title?: string }) => {
+  try {
+    const targetTaskId = randomUUID()
+    const result = await chatermDbService.forkTask(data.sourceTaskId, targetTaskId, data.cutoffTs, data.title)
+    return { success: true, data: result }
+  } catch (error) {
+    logger.error('Chaterm fork task failed', { error: error instanceof Error ? error.message : String(error) })
+    return { success: false, error: { message: error instanceof Error ? error.message : 'Unknown error' } }
+  }
+})
+
 // This code is newly added to handle calls from the renderer process
 ipcMain.handle('execute-remote-command', async () => {
   logger.info('Received execute-remote-command IPC call') // Add log

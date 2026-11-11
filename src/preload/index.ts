@@ -730,6 +730,14 @@ const chatermGetChatermMessagesPage = async (data: {
   }
 }
 
+const forkTask = async (data: { sourceTaskId: string; cutoffTs?: number; title?: string }) => {
+  try {
+    return await ipcRenderer.invoke('agent-fork-task', data)
+  } catch (error) {
+    return Promise.reject(error)
+  }
+}
+
 const getPlatform = () => ipcRenderer.invoke('get-platform')
 const invokeCustomAdsorption = (data: { appX: number; appY: number }) => ipcRenderer.invoke('custom-adsorption', data)
 
@@ -1001,6 +1009,7 @@ const api = {
   connectAssetInfo,
   chatermGetChatermMessages,
   chatermGetChatermMessagesPage,
+  forkTask,
   getTaskMetadata,
   saveTaskTitle,
   saveTaskFavorite,

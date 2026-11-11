@@ -195,6 +195,16 @@
                         <div class="message-feedback">
                           <a-button
                             type="text"
+                            class="feedback-btn completion-action-btn"
+                            size="small"
+                            @click="handleCopyCompletion(message)"
+                          >
+                            <template #icon>
+                              <CopyOutlined />
+                            </template>
+                          </a-button>
+                          <a-button
+                            type="text"
                             class="feedback-btn like-btn"
                             size="small"
                             @click="handleFeedback(message, 'like')"
@@ -248,6 +258,19 @@
                                   alt="skills"
                                   class="custom-icon"
                                 />
+                              </template>
+                            </a-button>
+                          </a-tooltip>
+                          <a-tooltip :title="$t('ai.forkConversation')">
+                            <a-button
+                              type="text"
+                              class="feedback-btn completion-action-btn"
+                              size="small"
+                              :loading="forkingMessageId === message.id"
+                              @click="handleForkConversation(tab, message)"
+                            >
+                              <template #icon>
+                                <BranchesOutlined />
                               </template>
                             </a-button>
                           </a-tooltip>
@@ -847,6 +870,7 @@
 <script setup lang="ts">
 import { ref, computed, onMounted, onBeforeUnmount, watch, nextTick } from 'vue'
 import { useRouter } from 'vue-router'
+import { notification } from 'ant-design-vue'
 import { useAutoScroll } from './composables/useAutoScroll'
 import { useAiChatSearch } from './composables/useAiChatSearch'
 import { useChatNavRail } from './composables/useChatNavRail'
@@ -892,6 +916,7 @@ import {
   EllipsisOutlined,
   ExportOutlined,
   BookOutlined,
+  BranchesOutlined,
   LikeOutlined,
   PlayCircleOutlined,
   ReloadOutlined,
@@ -902,7 +927,7 @@ import {
 } from '@ant-design/icons-vue'
 import { isFocusInAiTab } from '@/utils/domUtils'
 import { getGlobalState } from '@renderer/agent/storage/state'
-import type { MessageContent } from './types'
+import type { ChatMessage, MessageContent } from './types'
 import i18n from '@/locales'
 import eventBus from '@/utils/eventBus'
 import { mark } from '@/utils/perf'
@@ -1124,6 +1149,52 @@ let unsubscribeExplainResponse: (() => void) | null = null
 
 // Export chat functionality
 const { exportChat } = useExportChat()
+
+const forkingMessageId = ref<string | null>(null)
+
+const getCompletionText = (message: ChatMessage): string => {
+  if (typeof message.content === 'string') return message.content
+  return message.content?.question || ''
+}
+
+const handleCopyCompletion = async (message: ChatMessage) => {
+  const content = getCompletionText(message)
+  if (!content) return
+  try {
+    await navigator.clipboard.writeText(content)
+    notification.success({ message: t('ai.copyCompletionSuccess'), duration: 2 })
+  } catch (error) {
+    notification.error({ message: t('ai.copyCompletionFailed'), duration: 2 })
+  }
+}
+
+const handleForkConversation = async (tab: ChatTab, message: ChatMessage) => {
+  if (typeof message.ts !== 'number' || forkingMessageId.value) return
+  forkingMessageId.value = message.id
+  try {
+    const result = await window.api.forkTask({ sourceTaskId: tab.id, cutoffTs: message.ts })
+    if (!result.success || !result.data) {
+      throw new Error(result.error?.message || 'Fork failed')
+    }
+    await restoreHistoryTab(
+      {
+        id: result.data.taskId,
+        chatTitle: result.data.title,
+        chatContent: []
+      },
+      { forceNewTab: true }
+    )
+    notification.success({ message: t('ai.forkConversationSuccess'), duration: 2 })
+  } catch (error) {
+    notification.error({
+      message: t('ai.forkConversationFailed'),
+      description: error instanceof Error ? error.message : String(error),
+      duration: 4
+    })
+  } finally {
+    forkingMessageId.value = null
+  }
+}
 
 // Interactive command input
 const {

@@ -1726,7 +1726,11 @@ export class Task {
     const lastMessage = this.chatermMessages.at(-1)
     // Check if updating previous partial message with same type AND same host
     const isUpdatingPreviousPartial =
-      lastMessage && lastMessage.partial && lastMessage.type === 'say' && lastMessage.say === type && this.isSameHost(lastMessage, hostInfo)
+      lastMessage &&
+      lastMessage.partial &&
+      lastMessage.type === 'say' &&
+      (lastMessage.say === type || (type === 'completion_result' && lastMessage.say === 'text')) &&
+      this.isSameHost(lastMessage, hostInfo)
     if (partial) {
       if (isUpdatingPreviousPartial) {
         lastMessage.text = text
@@ -4800,7 +4804,8 @@ export class Task {
       }
     }
 
-    await this.say('text', content, block.partial)
+    const isFinalTextBlock = !block.partial && this.currentStreamingContentIndex === this.assistantMessageContent.length - 1
+    await this.say(isFinalTextBlock ? 'completion_result' : 'text', content, block.partial)
 
     // If this is a complete text block and the last content block, wait for user input
     if (!block.partial && this.currentStreamingContentIndex === this.assistantMessageContent.length - 1) {

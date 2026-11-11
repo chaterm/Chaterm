@@ -619,6 +619,11 @@ interface ApiType {
     beforeCursor?: number | null
     limit?: number
   }) => Promise<import('../main/agent/shared/ExtensionMessage').ChatermMessagesPage>
+  forkTask: (data: { sourceTaskId: string; cutoffTs?: number; title?: string }) => Promise<{
+    success: boolean
+    data?: { taskId: string; title: string }
+    error?: { message: string }
+  }>
   getTaskMetadata: (taskId: string) => Promise<{
     success: boolean
     data?: TaskMetadata
