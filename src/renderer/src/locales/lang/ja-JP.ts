@@ -1277,8 +1277,6 @@ export default {
     navRailLabel: '会話ナビゲーション',
     navRailUserTurn: '自分の質問',
     exportedOn: 'エクスポート日時',
-    maxHostsLimitReached: '{max} 台まで選択できます',
-    maxHostsLimit: '最大ホスト数に達しました',
     selectAll: 'すべて選択',
     deselectAll: 'すべて選択解除',
     clearSelection: 'クリア',

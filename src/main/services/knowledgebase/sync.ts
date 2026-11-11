@@ -339,28 +339,27 @@ export async function runKbFullSync(): Promise<void> {
     for (const entry of Object.values(entriesMap)) {
       if (isKbSyncExcludedRelPath(entry.relPath)) continue
       const { absPath } = resolveKbPath(entry.relPath)
-      const exists = await pathExists(absPath)
-      const localMtimeMs = exists ? Math.floor((await fs.stat(absPath)).mtimeMs) : null
-      const decision = decideDownloadAction(entry, exists, localMtimeMs, toDeleteSet, lastEntriesMap.get(entry.relPath))
-
-      if (decision === 'skip') continue
+      const localStat = (await pathExists(absPath)) ? await fs.stat(absPath) : null
+      const localMtimeMs = localStat ? Math.floor(localStat.mtimeMs) : null
+      const decision = decideDownloadAction(entry, localStat !== null, localMtimeMs, toDeleteSet, lastEntriesMap.get(entry.relPath))
+      // Earlier clients wrote the base64 text itself to disk; such a copy has the base64 length of the cloud size.
+      const mayHoldBase64Text = decision === 'skip' && entry.size > 0 && localStat?.size === Math.ceil(entry.size / 3) * 4
+      if (decision === 'skip' && !mayHoldBase64Text) continue
       if (decision === 'download_and_restore') {
         toDeleteSet.delete(entry.relPath)
       }
 
       try {
+        // The server always returns file content base64-encoded.
         const fileRes = (await client.get('/kb/file', {
           params: { relPath: entry.relPath }
-        })) as { content?: string; encoding?: string } | undefined
+        })) as { content?: string } | undefined
         const content = fileRes?.content
-        const encoding = fileRes?.encoding ?? 'utf-8'
         if (content == null) continue
+        // Replace such a copy only when it is exactly the base64 text of the cloud file, so no local edit is lost.
+        if (mayHoldBase64Text && (await fs.readFile(absPath, 'utf-8')) !== content) continue
         await fs.mkdir(path.dirname(absPath), { recursive: true })
-        if (encoding === 'base64') {
-          await fs.writeFile(absPath, Buffer.from(content, 'base64'))
-        } else {
-          await fs.writeFile(absPath, content, 'utf-8')
-        }
+        await fs.writeFile(absPath, Buffer.from(content, 'base64'))
         logger.info('KB sync downloaded', { relPath: entry.relPath })
         downloadedRelPaths.add(entry.relPath)
       } catch (e: any) {

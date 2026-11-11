@@ -1275,8 +1275,6 @@ export default {
     navRailLabel: 'مخطط المحادثة',
     navRailUserTurn: 'رسالتك',
     exportedOn: 'تم التصدير في',
-    maxHostsLimitReached: 'يمكنك اختيار حتى {max} مضيف',
-    maxHostsLimit: 'تم الوصول إلى حد المضيفين',
     selectAll: 'اختيار الكل',
     deselectAll: 'إلغاء الاختيار الكلي',
     clearSelection: 'مسح الاختيار',

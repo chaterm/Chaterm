@@ -30,11 +30,6 @@ export interface UseContextOptions {
 }
 
 /**
- * Maximum number of target hosts allowed for batch execution
- */
-const MAX_TARGET_HOSTS = 5
-
-/**
  * Composable for context management (non-singleton)
  * Handles UI state for host/resource selection, search, and popup positioning
  * Each component instance gets its own UI state
@@ -268,15 +263,6 @@ export const useContext = (options: UseContextOptions = {}) => {
     return item.isLocalHost || item.label === '127.0.0.1'
   }
 
-  const warnMaxHostsLimit = () => {
-    Notice.open({
-      type: 'warning',
-      description: t('ai.maxHostsLimitReached', { max: MAX_TARGET_HOSTS }),
-      placement: 'bottomRight',
-      duration: 2
-    })
-  }
-
   const hostOptionToHost = (item: HostOption): Host => {
     return {
       host: item.label,
@@ -321,11 +307,6 @@ export const useContext = (options: UseContextOptions = {}) => {
           updatedHosts = updatedHosts.filter((h) => h.host !== '127.0.0.1')
         }
 
-        if (updatedHosts.length >= MAX_TARGET_HOSTS) {
-          warnMaxHostsLimit()
-          return
-        }
-
         hosts.value = [...updatedHosts, newHost]
       }
     }
@@ -344,11 +325,6 @@ export const useContext = (options: UseContextOptions = {}) => {
     const hasRemote = selectable.some((opt) => !isLocalhostHostOption(opt))
 
     for (const opt of selectable) {
-      if (newHosts.length >= MAX_TARGET_HOSTS) {
-        warnMaxHostsLimit()
-        break
-      }
-
       // Skip localhost if we have remote hosts
       if (hasRemote && isLocalhostHostOption(opt)) {
         continue
@@ -362,7 +338,7 @@ export const useContext = (options: UseContextOptions = {}) => {
     }
 
     // Merge with existing hosts (keeping already selected ones)
-    hosts.value = [...hosts.value, ...newHosts].slice(0, MAX_TARGET_HOSTS)
+    hosts.value = [...hosts.value, ...newHosts]
   }
 
   const clearAllHosts = () => {

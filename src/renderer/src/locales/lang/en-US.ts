@@ -1286,8 +1286,6 @@ export default {
     navRailLabel: 'Conversation outline',
     navRailUserTurn: 'Your turn',
     exportedOn: 'Exported on',
-    maxHostsLimitReached: 'You can select up to {max} hosts',
-    maxHostsLimit: 'Maximum hosts limit reached',
     selectAll: 'Select all',
     deselectAll: 'Deselect all',
     clearSelection: 'Clear',
