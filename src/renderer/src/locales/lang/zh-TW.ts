@@ -1857,7 +1857,7 @@ export default {
     switchToTerminal: '切換到終端',
     tuiDetected: '檢測到全螢幕程式，已自動送出 Ctrl+C 終止。如需繼續請重新執行命令',
     pagerMode: '翻頁瀏覽中',
-    longSilence: '命令長時間無回應，如需輸入請在此操作',
+    inputCommand: '輸入命令',
     serviceUnavailable: '檢測服務不可用，如需輸入請手動操作',
     mayNeedInput: '命令可能在等待輸入',
     sending: '發送中...',

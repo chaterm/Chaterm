@@ -55,8 +55,6 @@ const DEFAULT_CONFIG: Required<InteractionDetectorConfig> = {
   lineBufferMaxLength: 2048,
   maxLlmContextLength: 4000,
   maxNetworkFails: 3,
-  maxHashUnchangedCount: 3,
-  maxSilentTimeout: 30000,
   pagerObservationTimeout: 2000,
   userLocale: 'en-US',
   tuiCancelSilenceMs: 1500,
@@ -1114,19 +1112,8 @@ export class InteractionDetector extends EventEmitter {
       const silentDuration = Date.now() - this.lastHashChangeTime
       this.debug('hash-unchanged', { silentDuration, unchangedCount: this.hashUnchangedCount })
 
-      if (silentDuration >= this.config.maxSilentTimeout || this.hashUnchangedCount >= this.config.maxHashUnchangedCount) {
-        // Force popup manual input after long silence
-        this.debug('long-silence-popup', { silentDuration, unchangedCount: this.hashUnchangedCount })
-        this.pause()
-        this.emitInteractionNeeded({
-          commandId: this.commandId,
-          interactionType: 'freeform',
-          promptHint: this.getLocalizedMessage('longSilence')
-        })
-        return
-      }
-
-      // Apply backoff
+      // Silence alone is not evidence of a prompt: the output was already checked and the
+      // running status keeps manual input available, so keep polling with backoff
       this.applyBackoff()
       this.resetTimer()
       return
@@ -1403,6 +1390,13 @@ export class InteractionDetector extends EventEmitter {
     }
 
     this.emit('interaction-needed', enrichedRequest)
+
+    // Free-text prompts are answered in a non-modal input bar, so keep watching the output for
+    // later prompts instead of pausing until a reply; the reported output is not re-checked
+    if (request.interactionType === 'freeform') {
+      this.lastOutputHash = this.hashOutput(output)
+      this.resume()
+    }
   }
 
   private debug(message: string, data?: Record<string, unknown>): void {
@@ -1448,10 +1442,6 @@ export class InteractionDetector extends EventEmitter {
       pagerMode: {
         zh: '翻页浏览中',
         en: 'Paging mode'
-      },
-      longSilence: {
-        zh: '命令长时间无响应，如需输入请在此操作',
-        en: 'Command silent for too long, enter input here if needed'
       },
       serviceUnavailable: {
         zh: '检测服务不可用，如需输入请手动操作',

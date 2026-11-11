@@ -489,9 +489,101 @@ describe('Task tool result helpers', () => {
     expect(response).toContain('filtered command output')
     expect(response).not.toContain('raw command output')
     expect(sayCalls.filter((call) => call.type === 'command_output').map((call) => call.text)).toEqual([
+      '',
       'raw command output\n',
       'raw command output\n'
     ])
+  })
+
+  it('executeLocalCommandTool should open the output block first and record the run time even without output', async () => {
+    const commandProcess = new EventEmitter() as EventEmitter & { stdin: null; kill: ReturnType<typeof vi.fn> }
+    commandProcess.stdin = null
+    commandProcess.kill = vi.fn()
+
+    task.messages = { ...task.messages, commandExecutedOutput: 'Command executed.' }
+    task.buildHostInfo = vi.fn(() => ({ hostId: '127.0.0.1', hostName: '127.0.0.1' }))
+    const order: string[] = []
+    task.localTerminalManager = {
+      createTerminal: vi.fn(async () => ({ id: 1 })),
+      runCommand: vi.fn(() => {
+        order.push('run')
+        setTimeout(() => commandProcess.emit('completed', { code: 0, output: '' }), 1200)
+        return commandProcess
+      })
+    }
+
+    const sayCalls: Array<{ type: string; text?: string; partial?: boolean }> = []
+    task.say = vi.fn(async (type: string, text?: string, partial?: boolean) => {
+      order.push(`say:${partial}`)
+      sayCalls.push({ type, text, partial })
+      task.chatermMessages.push({ ts: Date.now(), type: 'say', say: type, text, partial })
+    })
+
+    await task.executeLocalCommandTool('sleep 1')
+
+    expect(order.slice(0, 2)).toEqual(['say:true', 'run'])
+    expect(sayCalls.at(-1)).toEqual({ type: 'command_output', text: '', partial: false })
+    // The real say updates the last command_output in place; this mock appends, so look up the timed one
+    const timed = task.chatermMessages.filter((m: { commandDurationMs?: number }) => m.commandDurationMs !== undefined)
+    expect(timed).toHaveLength(1)
+    expect(timed[0].say).toBe('command_output')
+    expect(timed[0].commandDurationMs).toBeGreaterThanOrEqual(1000)
+    expect(timed[0].commandDurationMs).toBeLessThan(3000)
+  })
+
+  it('executeCommandTool should time a remote command from the opened output block', async () => {
+    const remoteProcess = Object.assign(new EventEmitter(), {
+      then: (resolve: () => void) =>
+        setTimeout(() => {
+          remoteProcess.emit('completed')
+          resolve()
+        }, 1200)
+    })
+    task.messages = { ...task.messages, commandExecutedOutput: 'Command executed.' }
+    task.buildHostInfo = vi.fn(() => ({ hostId: '10.0.0.1', hostName: '10.0.0.1' }))
+    task.connectTerminal = vi.fn(async () => ({ terminal: { show: vi.fn() } }))
+    task.getUserLocale = vi.fn(async () => 'en-US')
+    task.createInteractionLlmCaller = vi.fn(() => undefined)
+    task.remoteTerminalManager = { runCommand: vi.fn(() => remoteProcess) }
+
+    const sayCalls: Array<{ text?: string; partial?: boolean }> = []
+    task.say = vi.fn(async (type: string, text?: string, partial?: boolean) => {
+      sayCalls.push({ text, partial })
+      task.chatermMessages.push({ ts: Date.now(), type: 'say', say: type, text, partial })
+    })
+
+    await task.executeCommandTool('sleep 1', '10.0.0.1')
+
+    expect(sayCalls).toEqual([
+      { text: '', partial: true },
+      { text: '', partial: false }
+    ])
+    expect(task.say.mock.invocationCallOrder[0]).toBeLessThan(task.remoteTerminalManager.runCommand.mock.invocationCallOrder[0])
+    expect(task.chatermMessages[0].commandDurationMs).toBeGreaterThanOrEqual(1000)
+  })
+
+  it('openCommandOutput should still return a start time when the block cannot be opened', async () => {
+    task.say = vi.fn(async () => {
+      throw new Error('Chaterm instance aborted')
+    })
+    const before = Date.now()
+
+    const startedAt = await task.openCommandOutput({ hostId: '10.0.0.1' })
+
+    expect(startedAt).toBeGreaterThanOrEqual(before)
+  })
+
+  it('say should keep an empty command_output so the output block can open', async () => {
+    const realSay = Object.getPrototypeOf(task).say
+    const handlePartial = vi.fn(async () => {})
+    const result = await realSay.call({ abort: false, handleSayPartialMessage: handlePartial }, 'command_output', '', true, undefined)
+
+    expect(result).toBeUndefined()
+    expect(handlePartial).toHaveBeenCalledWith('command_output', '', true, undefined, undefined)
+
+    handlePartial.mockClear()
+    await realSay.call({ abort: false, handleSayPartialMessage: handlePartial }, 'text', '', true)
+    expect(handlePartial).not.toHaveBeenCalled()
   })
 
   it('executeLocalCommandTool should skip rtk filtering when command output filtering is disabled', async () => {

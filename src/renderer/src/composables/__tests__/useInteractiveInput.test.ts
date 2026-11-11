@@ -1,4 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { defineComponent, h } from 'vue'
+import { mount } from '@vue/test-utils'
 import { useInteractiveInput } from '@/composables/useInteractiveInput'
 
 type InteractionType = 'confirm' | 'password' | 'enter' | 'freeform' | 'select' | 'pager'
@@ -251,6 +253,65 @@ describe('useInteractiveInput', () => {
       expect(hook.interactionStates.value.get('cmd:cmd-orphan')?.commandId).toBe('cmd-orphan')
       // But not by inferred taskId
       expect(hook.getInteractionStateForTab('cmd-orphan')).toBeUndefined()
+    })
+  })
+
+  describe('running command status', () => {
+    const mountHook = () => {
+      let hook!: ReturnType<typeof useInteractiveInput>
+      const wrapper = mount(
+        defineComponent({
+          setup() {
+            hook = useInteractiveInput()
+            return () => h('div')
+          }
+        })
+      )
+      const emitActivity = vi.mocked(globalThis.window.api.onCommandActivity).mock.calls[0][0]
+      return { hook, wrapper, emitActivity }
+    }
+
+    const activity = (overrides: Record<string, unknown> = {}) => ({
+      commandId: 'cmd-1',
+      taskId: 'tab-a',
+      startedAt: 1000,
+      lastOutputAt: null,
+      running: true,
+      ...overrides
+    })
+
+    beforeEach(() => {
+      globalThis.window.api.onCommandActivity = vi.fn(() => vi.fn())
+    })
+
+    it('tracks the running command per tab and ignores a stale end event', () => {
+      const { hook, wrapper, emitActivity } = mountHook()
+
+      emitActivity(activity())
+      emitActivity(activity({ lastOutputAt: 2000 }))
+      expect(hook.getRunningCommandForTab('tab-a')).toEqual(activity({ lastOutputAt: 2000 }))
+
+      // A previous command ending must not clear the newer one
+      emitActivity(activity({ commandId: 'cmd-0', running: false }))
+      expect(hook.getRunningCommandForTab('tab-a')?.commandId).toBe('cmd-1')
+
+      emitActivity(activity({ running: false }))
+      expect(hook.getRunningCommandForTab('tab-a')).toBeUndefined()
+
+      emitActivity(activity({ taskId: undefined }))
+      expect(hook.getRunningCommandForTab('tab-a')).toBeUndefined()
+
+      wrapper.unmount()
+    })
+
+    it('removes the activity listener on unmount', () => {
+      const cleanup = vi.fn()
+      globalThis.window.api.onCommandActivity = vi.fn(() => cleanup)
+      const { wrapper } = mountHook()
+
+      wrapper.unmount()
+
+      expect(cleanup).toHaveBeenCalled()
     })
   })
 })

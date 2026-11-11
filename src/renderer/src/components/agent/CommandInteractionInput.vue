@@ -335,33 +335,6 @@
           </div>
         </template>
       </div>
-
-      <!-- Freeform type -->
-      <div
-        v-else
-        class="freeform-group"
-      >
-        <a-input
-          ref="freeformInputRef"
-          v-model:value="inputValue"
-          size="small"
-          :placeholder="t('interaction.inputPlaceholder')"
-          class="interaction-input"
-          @press-enter="handleSubmit(inputValue, true)"
-        >
-          <template #prefix>
-            <QuestionCircleOutlined class="input-icon" />
-          </template>
-        </a-input>
-        <a-button
-          type="primary"
-          size="small"
-          class="action-btn"
-          @click="handleSubmit(inputValue, true)"
-        >
-          {{ t('interaction.send') }}
-        </a-button>
-      </div>
     </div>
 
     <!-- Error message display -->
@@ -414,7 +387,6 @@
 import { ref, nextTick, onMounted, watch, computed } from 'vue'
 import { useI18n } from 'vue-i18n'
 import {
-  QuestionCircleOutlined,
   LockOutlined,
   DownOutlined,
   EnterOutlined,
@@ -512,7 +484,6 @@ const exitButtonTooltip = computed(() => {
 // Refs
 const passwordInputRef = ref<any>(null)
 const manualInputRef = ref<any>(null)
-const freeformInputRef = ref<any>(null)
 
 // Watch for visibility changes to focus input
 watch(
@@ -548,8 +519,6 @@ onMounted(() => {
 function focusInput(): void {
   if (props.interactionType === 'password' && passwordInputRef.value) {
     passwordInputRef.value.focus()
-  } else if (props.interactionType === 'freeform' && freeformInputRef.value) {
-    freeformInputRef.value.focus()
   } else if (isManualMode.value && manualInputRef.value) {
     manualInputRef.value.focus()
   }
@@ -705,8 +674,7 @@ function switchToOptions(): void {
   margin-right: 4px;
 }
 
-.input-group,
-.freeform-group {
+.input-group {
   display: flex;
   gap: 10px;
   align-items: center; /* Critical for vertical alignment */

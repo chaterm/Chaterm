@@ -1890,7 +1890,7 @@ export default {
     switchToTerminal: 'Switch to terminal',
     tuiDetected: 'Full-screen program detected; Ctrl+C was sent to stop it. Re-run the command if needed.',
     pagerMode: 'Paging mode',
-    longSilence: 'Command silent for too long, enter input here if needed',
+    inputCommand: 'Send input',
     serviceUnavailable: 'Detection service unavailable, enter input manually if needed',
     mayNeedInput: 'Command may be waiting for input',
     sending: 'Sending...',

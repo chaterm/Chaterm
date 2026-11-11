@@ -214,6 +214,22 @@ export interface InteractionRequest {
 }
 
 /**
+ * Running status of a remote command, broadcast on start, on output (throttled) and on end
+ */
+export interface CommandActivity {
+  /** Unique command identifier */
+  commandId: string
+  /** Task identifier this command belongs to */
+  taskId?: string
+  /** Epoch ms when the command was sent */
+  startedAt: number
+  /** Epoch ms of the latest output, null before any output */
+  lastOutputAt: number | null
+  /** False once the command has ended */
+  running: boolean
+}
+
+/**
  * Response from user interaction
  */
 export interface InteractionResponse {
@@ -1151,6 +1167,12 @@ interface ApiType {
    * Returns cleanup function to remove listener
    */
   onAlternateScreenEntered: (callback: (data: { commandId: string; taskId?: string; message: string }) => void) => () => void
+
+  /**
+   * Listen for remote command running status (start, output activity, end)
+   * Returns cleanup function to remove listener
+   */
+  onCommandActivity: (callback: (activity: CommandActivity) => void) => () => void
 
   /**
    * Submit user interaction response

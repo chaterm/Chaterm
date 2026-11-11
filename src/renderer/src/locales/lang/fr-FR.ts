@@ -1916,7 +1916,7 @@ export default {
     manual: 'Entrée manuelle',
     switchToTerminal: 'Basculer vers le terminal',
     pagerMode: 'Mode pagination',
-    longSilence: 'La commande ne répond pas depuis longtemps. Entrez ici si nécessaire',
+    inputCommand: "Envoyer l'entrée",
     serviceUnavailable: 'Service de détection non disponible. Entrez manuellement si nécessaire',
     mayNeedInput: 'La commande attend peut-être une entrée',
     sending: 'Envoi en cours...',

@@ -1692,7 +1692,8 @@ export class Task {
       throw new Error('Chaterm instance aborted')
     }
     const hasContentParts = (contentParts?.length ?? 0) > 0
-    if ((text === undefined || text === '') && !hasContentParts) {
+    // An empty command_output still opens and finalizes the OUTPUT block that shows the run time
+    if ((text === undefined || text === '') && !hasContentParts && type !== 'command_output') {
       // logger.warn('Chaterm say called with empty text, ignoring')
       return
     }
@@ -2061,6 +2062,30 @@ export class Task {
   /**
    * Execute command tool on local host
    */
+  /**
+   * Open the OUTPUT block before the command runs so its run time is visible even without output.
+   * Returns the start time used for the duration recorded by finalizeCommandOutput.
+   */
+  private async openCommandOutput(hostInfo?: HostInfo): Promise<number> {
+    try {
+      await this.say('command_output', '', true, hostInfo)
+    } catch (error) {
+      logger.error('Error while opening command output', { error: error })
+    }
+    return Date.now()
+  }
+
+  /**
+   * Finalize the OUTPUT block of the command that just finished, recording its run time
+   */
+  private async finalizeCommandOutput(startedAt: number, endedAt: number, hostInfo?: HostInfo): Promise<void> {
+    const lastMessage = this.chatermMessages.at(-1)
+    if (lastMessage?.say === 'command_output') {
+      lastMessage.commandDurationMs = endedAt - startedAt
+      await this.say('command_output', lastMessage.text, false, hostInfo)
+    }
+  }
+
   async executeLocalCommandTool(command: string): Promise<ToolResponse> {
     let result = ''
     let chunkTimer: NodeJS.Timeout | null = null
@@ -2070,6 +2095,7 @@ export class Task {
 
     try {
       const terminal = await this.localTerminalManager.createTerminal()
+      const startedAt = await this.openCommandOutput(hostInfo)
       const process = this.localTerminalManager.runCommand(terminal, command)
 
       // Store the current running process so it can receive interactive input
@@ -2163,6 +2189,7 @@ export class Task {
         }
         checkCompletion()
       })
+      const endedAt = Date.now()
 
       // Wait for a short delay to ensure all messages are sent to the webview
       // This delay allows time for non-awaited promises to be created and
@@ -2170,10 +2197,7 @@ export class Task {
       // the correct order of messages
       await new Promise((resolve) => setTimeout(resolve, 100))
 
-      const lastMessage = this.chatermMessages.at(-1)
-      if (lastMessage?.say === 'command_output') {
-        await this.say('command_output', lastMessage.text, false, hostInfo)
-      }
+      await this.finalizeCommandOutput(startedAt, endedAt, hostInfo)
 
       if (completed) {
         const modelOutput = await this.filterCommandOutputForModel(command, result)
@@ -2220,6 +2244,7 @@ export class Task {
       }
       terminalInfo.terminal.show()
       const userLocale = await this.getUserLocale()
+      const startedAt = await this.openCommandOutput(hostInfo)
       const process = this.remoteTerminalManager.runCommand(terminalInfo, command, undefined, {
         taskId: this.taskId,
         enableInteraction: true,
@@ -2308,6 +2333,7 @@ export class Task {
         taskId: this.taskId
       })
       await process
+      const endedAt = Date.now()
       logger.debug('Command process completed', {
         event: 'agent.task.execute_command.complete',
         taskId: this.taskId
@@ -2319,10 +2345,7 @@ export class Task {
       // the correct order of messages
       await new Promise((resolve) => setTimeout(resolve, 100))
 
-      const lastMessage = this.chatermMessages.at(-1)
-      if (lastMessage?.say === 'command_output') {
-        await this.say('command_output', lastMessage.text, false, hostInfo)
-      }
+      await this.finalizeCommandOutput(startedAt, endedAt, hostInfo)
       result = result.trim()
 
       if (completed) {

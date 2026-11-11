@@ -70,6 +70,22 @@ export interface InteractionRequest {
 }
 
 /**
+ * Running status of a remote command, broadcast on start, on output (throttled) and on end
+ */
+export interface CommandActivity {
+  /** Unique command identifier */
+  commandId: string
+  /** Task identifier this command belongs to */
+  taskId?: string
+  /** Epoch ms when the command was sent */
+  startedAt: number
+  /** Epoch ms of the latest output, null before any output */
+  lastOutputAt: number | null
+  /** False once the command has ended */
+  running: boolean
+}
+
+/**
  * Response from user interaction
  */
 export interface InteractionResponse {
@@ -159,10 +175,6 @@ export interface InteractionDetectorConfig {
   maxLlmContextLength?: number
   /** Maximum network failures before degrading */
   maxNetworkFails?: number
-  /** Maximum hash unchanged count before forcing popup */
-  maxHashUnchangedCount?: number
-  /** Maximum silent timeout (ms) */
-  maxSilentTimeout?: number
   /** Pager observation window timeout (ms) */
   pagerObservationTimeout?: number
   /** User locale for LLM prompts */

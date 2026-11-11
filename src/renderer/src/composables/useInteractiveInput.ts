@@ -6,7 +6,7 @@
  */
 
 import { ref, onMounted, onUnmounted } from 'vue'
-import type { InteractionRequest, InteractionResponse, InteractionType, InteractionSubmitResult } from '../../../preload/index.d'
+import type { CommandActivity, InteractionRequest, InteractionResponse, InteractionType, InteractionSubmitResult } from '../../../preload/index.d'
 
 const logger = createRendererLogger('composable.interactiveInput')
 
@@ -72,6 +72,9 @@ export function useInteractiveInput() {
 
   // Reverse index: commandId -> key in interactionStates
   const commandIdToKey = ref<Map<string, string>>(new Map())
+
+  // Running remote commands keyed by taskId
+  const runningCommands = ref<Map<string, CommandActivity>>(new Map())
 
   // Backward-compatible single state ref (returns first visible state or initial)
   const interactionState = ref<InteractionState>(createInitialState())
@@ -221,6 +224,18 @@ export function useInteractiveInput() {
   function handleAlternateScreenEntered(data: { commandId: string; taskId?: string; message: string }): void {
     logger.info('Alternate screen entered', { commandId: data.commandId })
     handleTuiStateChange(data, true)
+  }
+
+  /**
+   * Handle command running status from main process
+   */
+  function handleCommandActivity(activity: CommandActivity): void {
+    if (!activity.taskId) return
+    if (activity.running) {
+      runningCommands.value.set(activity.taskId, activity)
+    } else if (runningCommands.value.get(activity.taskId)?.commandId === activity.commandId) {
+      runningCommands.value.delete(activity.taskId)
+    }
   }
 
   /**
@@ -443,6 +458,13 @@ export function useInteractiveInput() {
   }
 
   /**
+   * Get the running remote command for a specific tab/task
+   */
+  function getRunningCommandForTab(tabId: string): CommandActivity | undefined {
+    return runningCommands.value.get(tabId)
+  }
+
+  /**
    * Check if any interaction is active
    */
   function hasActiveInteraction(): boolean {
@@ -477,6 +499,10 @@ export function useInteractiveInput() {
       const cleanupAlternateScreen = window.api.onAlternateScreenEntered(handleAlternateScreenEntered)
       cleanupFunctions.push(cleanupAlternateScreen)
 
+      // Listen for running status of remote commands
+      const cleanupActivity = window.api.onCommandActivity(handleCommandActivity)
+      cleanupFunctions.push(cleanupActivity)
+
       logger.info('IPC listeners registered')
     }
   })
@@ -505,6 +531,7 @@ export function useInteractiveInput() {
 
     // Helpers
     getInteractionStateForTab,
+    getRunningCommandForTab,
     hasActiveInteraction
   }
 }

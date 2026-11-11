@@ -1894,7 +1894,7 @@ export default {
     switchToTerminal: 'Zum Terminal wechseln',
     tuiDetected: 'Vollbildprogramm erkannt; Ctrl+C wurde zum Beenden gesendet. Bei Bedarf den Befehl erneut ausführen.',
     pagerMode: 'Seitenmodus',
-    longSilence: 'Befehl antwortet lange nicht. Bei Bedarf hier eingeben',
+    inputCommand: 'Eingabe senden',
     serviceUnavailable: 'Erkennungsdienst nicht verfügbar. Bei Bedarf manuell eingeben',
     mayNeedInput: 'Befehl wartet möglicherweise auf Eingabe',
     sending: 'Senden...',

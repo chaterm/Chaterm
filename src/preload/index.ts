@@ -1891,6 +1891,15 @@ const api = {
   },
 
   /**
+   * Listen for remote command running status (start, output activity, end)
+   */
+  onCommandActivity: (callback: (activity: import('./index.d').CommandActivity) => void) => {
+    const listener = (_event: any, activity: import('./index.d').CommandActivity) => callback(activity)
+    ipcRenderer.on('command-activity', listener)
+    return () => ipcRenderer.removeListener('command-activity', listener)
+  },
+
+  /**
    * Submit user interaction response
    */
   submitInteraction: (response: import('./index.d').InteractionResponse) => ipcRenderer.invoke('submit-interaction', response),

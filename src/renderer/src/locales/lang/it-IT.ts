@@ -1908,7 +1908,7 @@ export default {
     manual: 'Inserimento manuale',
     switchToTerminal: 'Passa al terminale',
     pagerMode: 'Modalità paginazione',
-    longSilence: 'Il comando non risponde da tempo. Inserisci qui se necessario',
+    inputCommand: 'Invia input',
     serviceUnavailable: 'Servizio di rilevamento non disponibile. Inserisci manualmente se necessario',
     mayNeedInput: 'Il comando potrebbe attendere input',
     sending: 'Invio in corso...',

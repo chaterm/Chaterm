@@ -283,6 +283,9 @@
                         :host-id="message.hostId"
                         :host-name="message.hostName"
                         :color-tag="message.colorTag"
+                        :command-started-at="message.ts"
+                        :command-duration-ms="message.commandDurationMs"
+                        :command-running="tab.session.responseLoading"
                         :explanation="message.explanation"
                         :explanation-loading="explainLoadingMessageId === message.id"
                         @explain-command="(cmd: string) => handleExplainCommand(message.id, cmd, tab.id)"
@@ -556,10 +559,10 @@
               {{ $t('ai.retry') }}
             </a-button>
           </div>
-          <!-- Interactive command input component -->
+          <!-- Interactive command input component (typed prompts; free text goes to CommandInputBar) -->
           <CommandInteractionInput
             v-if="getInteractionStateForTab(tab.id)"
-            :visible="getInteractionStateForTab(tab.id)?.visible ?? false"
+            :visible="isTypedInteractionVisible(tab.id)"
             :command-id="getInteractionStateForTab(tab.id)?.commandId || ''"
             :interaction-type="getInteractionStateForTab(tab.id)?.interactionType || 'freeform'"
             :prompt-hint="getInteractionStateForTab(tab.id)?.promptHint || ''"
@@ -607,6 +610,16 @@
               @update:model-value="(v: string) => emit('db-schema-change', v)"
             />
           </div>
+          <CommandInputBar
+            v-if="getCommandInputBarProps(tab.id)"
+            :key="getCommandInputBarProps(tab.id)?.commandId"
+            :command-id="getCommandInputBarProps(tab.id)?.commandId ?? ''"
+            :started-at="getCommandInputBarProps(tab.id)?.startedAt ?? 0"
+            :last-output-at="getCommandInputBarProps(tab.id)?.lastOutputAt ?? null"
+            :force-visible="getCommandInputBarProps(tab.id)?.forceVisible ?? false"
+            @submit="(commandId: string, input: string) => submitInteraction(commandId, input, true, 'freeform')"
+            @cancel="cancelInteraction"
+          />
           <InputSendContainer
             :is-active-tab="tab.id === currentChatId"
             :send-message="sendMessage"
@@ -864,6 +877,7 @@ import DbQueryResultCard from './components/DbQueryResultCard.vue'
 import TodoInlineDisplay from './components/todo/TodoInlineDisplay.vue'
 import UserMessage from './components/message/UserMessage.vue'
 import CommandInteractionInput from '@/components/agent/CommandInteractionInput.vue'
+import CommandInputBar from '@/components/agent/CommandInputBar.vue'
 import { useInteractiveInput } from '@/composables/useInteractiveInput'
 import {
   CheckCircleFilled,
@@ -1114,6 +1128,7 @@ const { exportChat } = useExportChat()
 // Interactive command input
 const {
   getInteractionStateForTab,
+  getRunningCommandForTab,
   submitInteraction,
   cancelInteraction,
   dismissInteraction,
@@ -1121,6 +1136,25 @@ const {
   unsuppressInteraction,
   clearError
 } = useInteractiveInput()
+
+// Free-text prompts are answered in CommandInputBar; the panel only handles typed prompts
+const isTypedInteractionVisible = (tabId: string): boolean => {
+  const state = getInteractionStateForTab(tabId)
+  return !!state?.visible && state.interactionType !== 'freeform'
+}
+
+const getCommandInputBarProps = (tabId: string) => {
+  const running = getRunningCommandForTab(tabId)
+  const state = getInteractionStateForTab(tabId)
+  const freeformVisible = !!state?.visible && state.interactionType === 'freeform'
+  if (isTypedInteractionVisible(tabId) || (!running && !freeformVisible)) return undefined
+  return {
+    commandId: running?.commandId ?? state!.commandId,
+    startedAt: running?.startedAt ?? 0,
+    lastOutputAt: running?.lastOutputAt ?? null,
+    forceVisible: freeformVisible
+  }
+}
 
 const interruptAndSendIfBusy = async (sendType: string) => {
   if (!currentSession.value) {

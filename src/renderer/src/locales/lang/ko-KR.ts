@@ -1866,7 +1866,7 @@ export default {
     switchToTerminal: '터미널로 전환',
     tuiDetected: '전체 화면 프로그램이 감지되어 Ctrl+C를 자동 전송해 종료했습니다. 필요하면 명령을 다시 실행하세요.',
     pagerMode: '페이지 모드',
-    longSilence: '명령이 오랫동안 응답하지 않습니다. 필요한 경우 여기에 입력하세요',
+    inputCommand: '입력 전송',
     serviceUnavailable: '감지 서비스를 사용할 수 없습니다. 필요한 경우 수동으로 입력하세요',
     mayNeedInput: '명령이 입력을 기다리고 있을 수 있습니다',
     sending: '전송 중...',

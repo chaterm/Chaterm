@@ -633,6 +633,10 @@ export function useChatMessages(
           newAssistantMessage.mcpToolCall = partial.mcpToolCall
         }
 
+        if (partial.commandDurationMs !== undefined) {
+          newAssistantMessage.commandDurationMs = partial.commandDurationMs
+        }
+
         if (partial.type === 'say' && partial.say === 'command') {
           session.isExecutingCommand = true
         }
@@ -652,6 +656,10 @@ export function useChatMessages(
 
         if (partial.mcpToolCall) {
           lastMessageInChat.mcpToolCall = partial.mcpToolCall
+        }
+
+        if (partial.commandDurationMs !== undefined) {
+          lastMessageInChat.commandDurationMs = partial.commandDurationMs
         }
 
         // Update host info for existing message

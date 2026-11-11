@@ -28,6 +28,11 @@
           ></span>
           <span class="host-name">{{ props.hostName || props.hostId }}</span>
         </span>
+        <span
+          v-if="durationText"
+          class="output-duration"
+          >{{ durationText }}</span
+        >
       </div>
       <div class="output-controls">
         <span class="output-lines">{{ outputLines }} {{ outputLines === 1 ? 'line' : 'lines' }}</span>
@@ -75,7 +80,45 @@ const props = defineProps<{
   hostId?: string
   hostName?: string
   colorTag?: string
+  // Command run time: final duration once finished, otherwise counted from startedAt while running
+  startedAt?: number
+  durationMs?: number
+  running?: boolean
 }>()
+
+const now = ref(Date.now())
+let durationTicker: ReturnType<typeof setInterval> | undefined
+
+const isTicking = computed(() => props.durationMs === undefined && !!props.running && !!props.startedAt)
+
+watch(
+  isTicking,
+  (ticking) => {
+    clearInterval(durationTicker)
+    durationTicker = undefined
+    if (ticking) {
+      now.value = Date.now()
+      durationTicker = setInterval(() => {
+        now.value = Date.now()
+      }, 1000)
+    }
+  },
+  { immediate: true }
+)
+
+const formatDuration = (ms: number): string => {
+  const totalSeconds = Math.floor(ms / 1000)
+  const hours = Math.floor(totalSeconds / 3600)
+  const minutes = Math.floor((totalSeconds % 3600) / 60)
+  const seconds = String(totalSeconds % 60).padStart(2, '0')
+  return hours > 0 ? `${hours}:${String(minutes).padStart(2, '0')}:${seconds}` : `${minutes}:${seconds}`
+}
+
+const durationText = computed(() => {
+  if (props.durationMs !== undefined) return formatDuration(props.durationMs)
+  if (isTicking.value) return formatDuration(Math.max(0, now.value - props.startedAt!))
+  return ''
+})
 
 const terminalContainer = ref<HTMLElement | null>(null)
 const isExpanded = ref(true) // Terminal output expanded by default
@@ -3411,6 +3454,7 @@ onBeforeUnmount(() => {
     terminal.dispose()
   }
   window.removeEventListener('resize', handleResize)
+  clearInterval(durationTicker)
 })
 
 // Simple ls list (column aligned) highlight, preserve spaces
@@ -3516,6 +3560,13 @@ const highlightSimpleLsColumnsPreserveSpacing = (line: string): string => {
 .output-lines {
   font-size: 10px;
   color: #7e8ba3;
+}
+
+.output-duration {
+  margin-left: 4px;
+  font-size: 10px;
+  color: #7e8ba3;
+  font-variant-numeric: tabular-nums;
 }
 
 .copy-button-header {

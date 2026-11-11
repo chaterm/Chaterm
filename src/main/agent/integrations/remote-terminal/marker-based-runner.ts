@@ -57,6 +57,12 @@ export interface MarkerRunnerConfig {
   cleanupInteractionDetector: () => void
   /** Called on timeout (optional, for custom timeout handling) */
   onTimeout?: () => void
+  /** How long to wait for the end marker after sending Ctrl+C on timeout (default: 10000) */
+  interruptGraceMs?: number
+  /** Called when the command did not stop after Ctrl+C, before completion callbacks */
+  onInterruptFailed?: () => void
+  /** Stops tracking silently; the caller is responsible for completion events */
+  signal?: AbortSignal
 }
 
 /**
@@ -77,7 +83,8 @@ export interface MarkerRunnerResult {
  * - Command echo filtering
  * - Start/end marker detection
  * - Exit code extraction
- * - Timeout handling
+ * - Timeout handling (Ctrl+C, then wait for the end marker)
+ * - Stream close and abort handling
  * - Interaction detector integration
  */
 export function runMarkerBasedCommand(config: MarkerRunnerConfig): Promise<MarkerRunnerResult> {
@@ -99,7 +106,10 @@ export function runMarkerBasedCommand(config: MarkerRunnerConfig): Promise<Marke
     onContinue,
     onExitCode,
     cleanupInteractionDetector,
-    onTimeout
+    onTimeout,
+    interruptGraceMs = 10000,
+    onInterruptFailed,
+    signal
   } = config
 
   return new Promise((resolve) => {
@@ -108,10 +118,17 @@ export function runMarkerBasedCommand(config: MarkerRunnerConfig): Promise<Marke
     let commandCompleted = false
     let commandEchoFiltered = false
     let exitCode = 0
+    let timedOut = false
+
+    if (signal?.aborted) {
+      resolve({ completed: false, exitCode, timedOut })
+      return
+    }
 
     // Timers
     let halfLineTimer: NodeJS.Timeout | null = null
     let commandTimeout: NodeJS.Timeout | null = null
+    let interruptTimer: NodeJS.Timeout | null = null
 
     const clearHalfLineTimer = () => {
       if (halfLineTimer) {
@@ -130,20 +147,32 @@ export function runMarkerBasedCommand(config: MarkerRunnerConfig): Promise<Marke
     const cleanup = () => {
       clearHalfLineTimer()
       clearCommandTimeout()
+      if (interruptTimer) {
+        clearTimeout(interruptTimer)
+        interruptTimer = null
+      }
       stream.removeListener('data', dataHandler)
+      stream.removeListener('close', closeHandler)
+      signal?.removeEventListener('abort', abortHandler)
     }
 
-    const complete = (isTimeout: boolean) => {
+    // 'end': end marker received; 'lost': stream closed or Ctrl+C ignored; 'aborted': caller stopped tracking
+    const complete = (reason: 'end' | 'lost' | 'aborted') => {
       if (commandCompleted) return
       commandCompleted = true
       cleanup()
+      if (reason === 'aborted') {
+        resolve({ completed: false, exitCode, timedOut })
+        return
+      }
       cleanupInteractionDetector()
-      onCompleted()
-      if (!isTimeout) {
+      // Report the exit code before completion so the caller can still append it to the output
+      if (reason === 'end') {
         onExitCode?.(exitCode)
       }
+      onCompleted()
       onContinue()
-      resolve({ completed: true, exitCode, timedOut: isTimeout })
+      resolve({ completed: true, exitCode, timedOut })
     }
 
     const scheduleHalfLineRelease = () => {
@@ -204,7 +233,7 @@ export function runMarkerBasedCommand(config: MarkerRunnerConfig): Promise<Marke
           }
         }
 
-        complete(false)
+        complete('end')
         return
       }
 
@@ -258,8 +287,21 @@ export function runMarkerBasedCommand(config: MarkerRunnerConfig): Promise<Marke
       }
     }
 
-    // Attach data handler
+    const closeHandler = () => {
+      logger.warn('Stream closed before end marker', { event: 'remote-terminal.marker.closed', logPrefix })
+      onLine('Connection closed before the command finished.')
+      complete('lost')
+    }
+
+    const abortHandler = () => {
+      logger.debug('Marker tracking aborted', { event: 'remote-terminal.marker.aborted', logPrefix })
+      complete('aborted')
+    }
+
+    // Attach handlers
     stream.on('data', dataHandler)
+    stream.on('close', closeHandler)
+    signal?.addEventListener('abort', abortHandler, { once: true })
 
     // Send command
     logger.debug('Sending wrapped command', { event: 'remote-terminal.marker.command.send', logPrefix })
@@ -267,23 +309,27 @@ export function runMarkerBasedCommand(config: MarkerRunnerConfig): Promise<Marke
     // (bash HISTCONTROL=ignorespace, zsh HIST_IGNORE_SPACE)
     stream.write(` ${wrappedCommand}\r`)
 
-    // Set up timeout
+    // On timeout, interrupt the command and keep waiting for the end marker so the shell is left idle
     commandTimeout = setTimeout(() => {
-      if (!commandCompleted) {
-        logger.warn('Command execution timeout, forcing completion', { event: 'remote-terminal.marker.timeout', logPrefix, timeoutMs })
+      if (commandCompleted) return
+      timedOut = true
+      logger.warn('Command execution timeout, sending Ctrl+C', { event: 'remote-terminal.marker.timeout', logPrefix, timeoutMs })
 
-        if (onTimeout) {
-          onTimeout()
-        } else {
-          const timeoutMinutes = Math.max(1, Math.round(timeoutMs / 60000))
-          const timeoutMessage = `Command execution timed out after ${timeoutMinutes} minute${timeoutMinutes > 1 ? 's' : ''}.`
-          const timeoutResolution = 'Chaterm stopped waiting for a response from the server.'
-          onLine(timeoutMessage)
-          onLine(timeoutResolution)
-        }
-
-        complete(true)
+      if (onTimeout) {
+        onTimeout()
+      } else {
+        const timeoutMinutes = Math.max(1, Math.round(timeoutMs / 60000))
+        onLine(`Command execution timed out after ${timeoutMinutes} minute${timeoutMinutes > 1 ? 's' : ''}.`)
+        onLine('Chaterm sent Ctrl+C to stop it.')
       }
+      stream.write('\x03')
+
+      interruptTimer = setTimeout(() => {
+        logger.warn('Command did not stop after Ctrl+C', { event: 'remote-terminal.marker.interrupt.failed', logPrefix, interruptGraceMs })
+        onLine('The command did not stop after Ctrl+C and may still be running on the server.')
+        onInterruptFailed?.()
+        complete('lost')
+      }, interruptGraceMs)
     }, timeoutMs)
   })
 }

@@ -52,6 +52,7 @@ vi.mock('../../../services/interaction-detector/ipc-handlers', () => ({
   broadcastInteractionClosed: vi.fn(),
   broadcastTuiDetected: vi.fn(),
   broadcastAlternateScreenEntered: vi.fn(),
+  broadcastCommandActivity: vi.fn(),
   generateCommandId: () => 'cmd-1'
 }))
 

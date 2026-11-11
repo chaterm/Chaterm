@@ -1866,7 +1866,7 @@ export default {
     switchToTerminal: '切换到终端',
     tuiDetected: '检测到全屏程序，已自动发送 Ctrl+C 终止。如需继续请重新执行命令',
     pagerMode: '翻页浏览中',
-    longSilence: '命令长时间无响应，如需输入请在此操作',
+    inputCommand: '输入命令',
     serviceUnavailable: '检测服务不可用，如需输入请手动操作',
     mayNeedInput: '命令可能在等待输入',
     sending: '发送中...',

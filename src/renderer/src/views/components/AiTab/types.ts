@@ -43,6 +43,8 @@ export interface ChatMessage {
   hostName?: string
   colorTag?: string
   hosts?: Host[]
+  // Command execution time, set when a command_output message is finalized
+  commandDurationMs?: number
   // AI explanation for command (inline, not in history)
   explanation?: string
 }
