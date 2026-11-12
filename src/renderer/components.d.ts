@@ -73,7 +73,6 @@ declare module 'vue' {
     CommandDialog: typeof import('./src/components/global/CommandDialog.vue')['default']
     CommandInputBar: typeof import('./src/components/agent/CommandInputBar.vue')['default']
     CommandInteractionInput: typeof import('./src/components/agent/CommandInteractionInput.vue')['default']
-    CommandRunningStatus: typeof import('./src/components/agent/CommandRunningStatus.vue')['default']
     MfaDialog: typeof import('./src/components/global/mfa/MfaDialog.vue')['default']
     OnboardingGuide: typeof import('./src/components/global/onboarding/OnboardingGuide.vue')['default']
     OnboardingSpotlight: typeof import('./src/components/global/onboarding/OnboardingSpotlight.vue')['default']
