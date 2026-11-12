@@ -1404,7 +1404,10 @@ export default {
     downloading: '更新をダウンロード中',
     complete: 'ダウンロードが完了しました、インストールしますか？',
     install: 'インストール',
-    clickUpdate: '再起動して更新'
+    clickUpdate: '再起動して更新',
+    cardTitle: '利用可能なアップデート',
+    cardReady: 'Chaterm v{version} の準備ができました。',
+    releaseNotes: 'リリースノート'
   },
   versionPrompt: {
     highlights: '新機能',

@@ -1424,7 +1424,10 @@ export default {
     downloading: 'Téléchargement de la mise à jour',
     complete: 'Téléchargement complet, installer maintenant ?',
     install: 'Installer',
-    clickUpdate: 'Cliquer sur Redémarrer pour mettre à jour'
+    clickUpdate: 'Cliquer sur Redémarrer pour mettre à jour',
+    cardTitle: 'Mise à jour disponible',
+    cardReady: 'Chaterm v{version} est prêt.',
+    releaseNotes: 'Notes de version'
   },
   versionPrompt: {
     highlights: "Qu'est-ce qui est nouveau",

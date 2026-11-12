@@ -1419,7 +1419,10 @@ export default {
     downloading: 'Downloading update',
     complete: 'Download complete, install now?',
     install: 'Install',
-    clickUpdate: 'Click Restart to update'
+    clickUpdate: 'Click Restart to update',
+    cardTitle: 'Update available',
+    cardReady: 'Chaterm v{version} is ready.',
+    releaseNotes: 'Release notes'
   },
   versionPrompt: {
     highlights: "What's new",

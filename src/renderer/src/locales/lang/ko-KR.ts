@@ -1397,7 +1397,10 @@ export default {
     downloading: '업데이트 다운로드 중',
     complete: '다운로드 완료, 설치하시겠습니까?',
     install: '설치',
-    clickUpdate: '클릭하여 업데이트'
+    clickUpdate: '클릭하여 업데이트',
+    cardTitle: '사용 가능한 업데이트',
+    cardReady: 'Chaterm v{version} 준비가 완료되었습니다.',
+    releaseNotes: '릴리스 노트'
   },
   versionPrompt: {
     highlights: '새로운 기능',

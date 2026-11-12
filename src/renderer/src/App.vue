@@ -6,6 +6,7 @@
     ></div>
     <router-view></router-view>
     <VersionPromptModal :store="promptStore" />
+    <UpdateCard />
     <MfaDialog />
     <UserSelectionDialog />
     <OnboardingSpotlight />
@@ -20,6 +21,7 @@ import { OnboardingSpotlight } from './components/global/onboarding'
 import { useNotificationListener } from './composables/useNotificationListener'
 import { useBackgroundManager } from './composables/useBackgroundManager'
 import VersionPromptModal from './components/global/version-prompt/VersionPromptModal.vue'
+import UpdateCard from './components/global/update-card/UpdateCard.vue'
 import { useVersionPrompt } from './composables/useVersionPrompt'
 import { dataSyncService } from './services/dataSyncService'
 import { removeToken } from './utils/permission'

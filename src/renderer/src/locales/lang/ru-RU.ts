@@ -1412,7 +1412,10 @@ export default {
     downloading: 'Скачивание обновления',
     complete: 'Скачивание завершено, установить сейчас?',
     install: 'Установить',
-    clickUpdate: 'Нажмите Restart для обновления'
+    clickUpdate: 'Нажмите Restart для обновления',
+    cardTitle: 'Доступно обновление',
+    cardReady: 'Chaterm v{version} готов.',
+    releaseNotes: 'Примечания к выпуску'
   },
   versionPrompt: {
     highlights: 'Что нового',

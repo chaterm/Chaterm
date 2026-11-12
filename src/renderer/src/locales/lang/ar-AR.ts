@@ -1402,7 +1402,10 @@ export default {
     downloading: 'جاري التحميل',
     complete: 'تم التحميل بنجاح, هل تريد التثبيت الآن؟',
     install: 'تثبيت',
-    clickUpdate: 'اضغط على إعادة التشغيل للتحديث'
+    clickUpdate: 'اضغط على إعادة التشغيل للتحديث',
+    cardTitle: 'تحديث متاح',
+    cardReady: 'Chaterm v{version} جاهز.',
+    releaseNotes: 'ملاحظات الإصدار'
   },
   versionPrompt: {
     highlights: 'ما الجديد',

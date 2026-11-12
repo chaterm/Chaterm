@@ -1397,7 +1397,10 @@ export default {
     downloading: '正在下载更新',
     complete: '已下载完毕，是否立即安装',
     install: '安装',
-    clickUpdate: '点击重启以更新'
+    clickUpdate: '点击重启以更新',
+    cardTitle: '可用更新',
+    cardReady: 'Chaterm v{version} 已准备就绪。',
+    releaseNotes: '发行说明'
   },
   versionPrompt: {
     highlights: '更新亮点',
