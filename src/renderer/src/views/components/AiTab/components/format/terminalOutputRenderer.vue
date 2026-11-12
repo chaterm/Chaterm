@@ -125,6 +125,12 @@ const isExpanded = ref(true) // Terminal output expanded by default
 const outputLines = ref(0)
 const isCollapsible = computed(() => outputLines.value > 10)
 
+// xterm's horizontal scrollbar is part of the viewport and consumes vertical
+// space when output is wider than the card. Keep this in one place so every
+// height calculation leaves the same amount of room for it.
+const TERMINAL_HORIZONTAL_SCROLLBAR_HEIGHT = 8
+const TERMINAL_BOTTOM_BUFFER = 14 + TERMINAL_HORIZONTAL_SCROLLBAR_HEIGHT
+
 let terminal: Terminal | null = null
 let lastContent: string = ''
 
@@ -856,7 +862,7 @@ const adjustTerminalHeight = () => {
     const styles = window.getComputedStyle(terminalContainer.value)
     const paddingTop = parseFloat(styles.paddingTop) || 0
     const paddingBottom = parseFloat(styles.paddingBottom) || 0
-    const newHeight = rowsToShow * rowHeight + paddingTop + paddingBottom + 14
+    const newHeight = rowsToShow * rowHeight + paddingTop + paddingBottom + TERMINAL_BOTTOM_BUFFER
     terminalContainer.value.style.height = `${newHeight}px`
   }
 }
@@ -3339,7 +3345,7 @@ const writeToTerminal = (content: string) => {
         const paddingBottom = parseFloat(styles.paddingBottom) || 0
 
         // Directly calculate height based on line count to ensure all content can be displayed
-        const newHeight = rowsToShow * rowHeight + paddingTop + paddingBottom + 20
+        const newHeight = rowsToShow * rowHeight + paddingTop + paddingBottom + TERMINAL_BOTTOM_BUFFER
         terminalContainer.value.style.height = `${newHeight}px`
       })
     }
