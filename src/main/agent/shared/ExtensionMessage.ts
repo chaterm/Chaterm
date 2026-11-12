@@ -96,6 +96,8 @@ export interface ChatermMessage {
   hostName?: string
   colorTag?: string
   hosts?: Host[]
+  // Command execution time, set when a command_output message is finalized
+  commandDurationMs?: number
 }
 
 export interface ChatermMessagesPage {

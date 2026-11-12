@@ -1424,7 +1424,10 @@ export default {
     downloading: 'Téléchargement de la mise à jour',
     complete: 'Téléchargement complet, installer maintenant ?',
     install: 'Installer',
-    clickUpdate: 'Cliquer sur Redémarrer pour mettre à jour'
+    clickUpdate: 'Cliquer sur Redémarrer pour mettre à jour',
+    cardTitle: 'Mise à jour disponible',
+    cardReady: 'Chaterm v{version} est prêt.',
+    releaseNotes: 'Notes de version'
   },
   versionPrompt: {
     highlights: "Qu'est-ce qui est nouveau",
@@ -1916,7 +1919,7 @@ export default {
     manual: 'Entrée manuelle',
     switchToTerminal: 'Basculer vers le terminal',
     pagerMode: 'Mode pagination',
-    longSilence: 'La commande ne répond pas depuis longtemps. Entrez ici si nécessaire',
+    inputCommand: "Envoyer l'entrée",
     serviceUnavailable: 'Service de détection non disponible. Entrez manuellement si nécessaire',
     mayNeedInput: 'La commande attend peut-être une entrée',
     sending: 'Envoi en cours...',

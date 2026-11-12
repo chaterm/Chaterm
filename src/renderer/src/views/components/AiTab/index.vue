@@ -195,6 +195,16 @@
                         <div class="message-feedback">
                           <a-button
                             type="text"
+                            class="feedback-btn completion-action-btn"
+                            size="small"
+                            @click="handleCopyCompletion(message)"
+                          >
+                            <template #icon>
+                              <CopyOutlined />
+                            </template>
+                          </a-button>
+                          <a-button
+                            type="text"
                             class="feedback-btn like-btn"
                             size="small"
                             @click="handleFeedback(message, 'like')"
@@ -251,6 +261,19 @@
                               </template>
                             </a-button>
                           </a-tooltip>
+                          <a-tooltip :title="$t('ai.forkConversation')">
+                            <a-button
+                              type="text"
+                              class="feedback-btn completion-action-btn"
+                              size="small"
+                              :loading="forkingMessageId === message.id"
+                              @click="handleForkConversation(tab, message)"
+                            >
+                              <template #icon>
+                                <BranchesOutlined />
+                              </template>
+                            </a-button>
+                          </a-tooltip>
                         </div>
                       </div>
                       <MarkdownRenderer
@@ -283,6 +306,9 @@
                         :host-id="message.hostId"
                         :host-name="message.hostName"
                         :color-tag="message.colorTag"
+                        :command-started-at="message.ts"
+                        :command-duration-ms="message.commandDurationMs"
+                        :command-running="tab.session.responseLoading"
                         :explanation="message.explanation"
                         :explanation-loading="explainLoadingMessageId === message.id"
                         @explain-command="(cmd: string) => handleExplainCommand(message.id, cmd, tab.id)"
@@ -556,10 +582,10 @@
               {{ $t('ai.retry') }}
             </a-button>
           </div>
-          <!-- Interactive command input component -->
+          <!-- Interactive command input component (typed prompts; free text goes to CommandInputBar) -->
           <CommandInteractionInput
             v-if="getInteractionStateForTab(tab.id)"
-            :visible="getInteractionStateForTab(tab.id)?.visible ?? false"
+            :visible="isTypedInteractionVisible(tab.id)"
             :command-id="getInteractionStateForTab(tab.id)?.commandId || ''"
             :interaction-type="getInteractionStateForTab(tab.id)?.interactionType || 'freeform'"
             :prompt-hint="getInteractionStateForTab(tab.id)?.promptHint || ''"
@@ -607,6 +633,16 @@
               @update:model-value="(v: string) => emit('db-schema-change', v)"
             />
           </div>
+          <CommandInputBar
+            v-if="getCommandInputBarProps(tab.id)"
+            :key="getCommandInputBarProps(tab.id)?.commandId"
+            :command-id="getCommandInputBarProps(tab.id)?.commandId ?? ''"
+            :started-at="getCommandInputBarProps(tab.id)?.startedAt ?? 0"
+            :last-output-at="getCommandInputBarProps(tab.id)?.lastOutputAt ?? null"
+            :force-visible="getCommandInputBarProps(tab.id)?.forceVisible ?? false"
+            @submit="(commandId: string, input: string) => submitInteraction(commandId, input, true, 'freeform')"
+            @cancel="cancelInteraction"
+          />
           <InputSendContainer
             :is-active-tab="tab.id === currentChatId"
             :send-message="sendMessage"
@@ -834,6 +870,7 @@
 <script setup lang="ts">
 import { ref, computed, onMounted, onBeforeUnmount, watch, nextTick } from 'vue'
 import { useRouter } from 'vue-router'
+import { notification } from 'ant-design-vue'
 import { useAutoScroll } from './composables/useAutoScroll'
 import { useAiChatSearch } from './composables/useAiChatSearch'
 import { useChatNavRail } from './composables/useChatNavRail'
@@ -864,6 +901,7 @@ import DbQueryResultCard from './components/DbQueryResultCard.vue'
 import TodoInlineDisplay from './components/todo/TodoInlineDisplay.vue'
 import UserMessage from './components/message/UserMessage.vue'
 import CommandInteractionInput from '@/components/agent/CommandInteractionInput.vue'
+import CommandInputBar from '@/components/agent/CommandInputBar.vue'
 import { useInteractiveInput } from '@/composables/useInteractiveInput'
 import {
   CheckCircleFilled,
@@ -878,6 +916,7 @@ import {
   EllipsisOutlined,
   ExportOutlined,
   BookOutlined,
+  BranchesOutlined,
   LikeOutlined,
   PlayCircleOutlined,
   ReloadOutlined,
@@ -888,7 +927,7 @@ import {
 } from '@ant-design/icons-vue'
 import { isFocusInAiTab } from '@/utils/domUtils'
 import { getGlobalState } from '@renderer/agent/storage/state'
-import type { MessageContent } from './types'
+import type { ChatMessage, MessageContent } from './types'
 import i18n from '@/locales'
 import eventBus from '@/utils/eventBus'
 import { mark } from '@/utils/perf'
@@ -1111,9 +1150,56 @@ let unsubscribeExplainResponse: (() => void) | null = null
 // Export chat functionality
 const { exportChat } = useExportChat()
 
+const forkingMessageId = ref<string | null>(null)
+
+const getCompletionText = (message: ChatMessage): string => {
+  if (typeof message.content === 'string') return message.content
+  return message.content?.question || ''
+}
+
+const handleCopyCompletion = async (message: ChatMessage) => {
+  const content = getCompletionText(message)
+  if (!content) return
+  try {
+    await navigator.clipboard.writeText(content)
+    notification.success({ message: t('ai.copyCompletionSuccess'), duration: 2 })
+  } catch (error) {
+    notification.error({ message: t('ai.copyCompletionFailed'), duration: 2 })
+  }
+}
+
+const handleForkConversation = async (tab: ChatTab, message: ChatMessage) => {
+  if (typeof message.ts !== 'number' || forkingMessageId.value) return
+  forkingMessageId.value = message.id
+  try {
+    const result = await window.api.forkTask({ sourceTaskId: tab.id, cutoffTs: message.ts })
+    if (!result.success || !result.data) {
+      throw new Error(result.error?.message || 'Fork failed')
+    }
+    await restoreHistoryTab(
+      {
+        id: result.data.taskId,
+        chatTitle: result.data.title,
+        chatContent: []
+      },
+      { forceNewTab: true }
+    )
+    notification.success({ message: t('ai.forkConversationSuccess'), duration: 2 })
+  } catch (error) {
+    notification.error({
+      message: t('ai.forkConversationFailed'),
+      description: error instanceof Error ? error.message : String(error),
+      duration: 4
+    })
+  } finally {
+    forkingMessageId.value = null
+  }
+}
+
 // Interactive command input
 const {
   getInteractionStateForTab,
+  getRunningCommandForTab,
   submitInteraction,
   cancelInteraction,
   dismissInteraction,
@@ -1121,6 +1207,25 @@ const {
   unsuppressInteraction,
   clearError
 } = useInteractiveInput()
+
+// Free-text prompts are answered in CommandInputBar; the panel only handles typed prompts
+const isTypedInteractionVisible = (tabId: string): boolean => {
+  const state = getInteractionStateForTab(tabId)
+  return !!state?.visible && state.interactionType !== 'freeform'
+}
+
+const getCommandInputBarProps = (tabId: string) => {
+  const running = getRunningCommandForTab(tabId)
+  const state = getInteractionStateForTab(tabId)
+  const freeformVisible = !!state?.visible && state.interactionType === 'freeform'
+  if (isTypedInteractionVisible(tabId) || (!running && !freeformVisible)) return undefined
+  return {
+    commandId: running?.commandId ?? state!.commandId,
+    startedAt: running?.startedAt ?? 0,
+    lastOutputAt: running?.lastOutputAt ?? null,
+    forceVisible: freeformVisible
+  }
+}
 
 const interruptAndSendIfBusy = async (sendType: string) => {
   if (!currentSession.value) {

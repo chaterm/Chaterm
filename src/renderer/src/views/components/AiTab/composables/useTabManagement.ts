@@ -212,6 +212,20 @@ export function useTabManagement(options: TabManagementOptions) {
 
       const messageKind = item.ask ?? item.say
       if (!isDuplicate && messageKind && HISTORY_MESSAGE_TYPES.has(messageKind)) {
+        // A plain-text answer is followed by an empty ask completion marker.
+        // Render the answer itself as the completion block and do not restore a
+        // second empty assistant message.
+        if (item.ask === 'completion_result' && !item.text) {
+          const previousMessage = historyChatMessages.at(-1)
+          if (previousMessage?.role === 'assistant') {
+            previousMessage.say = 'completion_result'
+            previousMessage.ask = undefined
+            previousMessage.type = 'say'
+            lastItem = item
+            return
+          }
+        }
+
         const isConversationStartUserMessage = !!options?.includesConversationStart && index === 0 && item.type === 'say' && item.say === 'text'
         const role: 'assistant' | 'user' = item.say === 'user_feedback' || isConversationStartUserMessage ? 'user' : 'assistant'
 
@@ -222,7 +236,7 @@ export function useTabManagement(options: TabManagementOptions) {
           contentParts: item.contentParts,
           type: item.type,
           ask: item.ask,
-          say: item.say,
+          say: item.ask === 'completion_result' ? 'completion_result' : item.say,
           ts: item.ts,
           hosts: item.hosts && item.hosts.length > 0 ? item.hosts : fallbackHosts
         }

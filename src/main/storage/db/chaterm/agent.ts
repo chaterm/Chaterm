@@ -280,6 +280,98 @@ export async function saveChatermMessagesLogic(db: Database.Database, taskId: st
   }
 }
 
+export interface ForkTaskResult {
+  taskId: string
+  title: string
+}
+
+/**
+ * Copy a conversation into a new task, stopping at the selected completion
+ * boundary. The boundary is also normalised so a plain-text response that was
+ * followed by an ask completion marker is rendered as a completed task in the
+ * fork.
+ */
+export async function forkTaskLogic(
+  db: Database.Database,
+  sourceTaskId: string,
+  targetTaskId: string,
+  cutoffTs?: number,
+  title?: string
+): Promise<ForkTaskResult> {
+  if (!sourceTaskId || !targetTaskId || sourceTaskId === targetTaskId) {
+    throw new Error('Invalid fork task identifiers')
+  }
+
+  const sourceMessages = await getSavedChatermMessagesLogic(db, sourceTaskId)
+  const sourceApiHistory = await getApiConversationHistoryLogic(db, sourceTaskId)
+  if (sourceMessages.length === 0 && sourceApiHistory.length === 0) {
+    throw new Error('Source task has no conversation history')
+  }
+
+  const existingTarget = db.prepare('SELECT 1 FROM agent_task_metadata_v1 WHERE task_id = ? LIMIT 1').get(targetTaskId)
+  if (existingTarget) {
+    throw new Error('Fork target already exists')
+  }
+
+  const hasCutoff = typeof cutoffTs === 'number' && Number.isFinite(cutoffTs)
+  const messagesAtBoundary = hasCutoff ? sourceMessages.filter((message) => message.ts <= cutoffTs!) : sourceMessages
+  if (hasCutoff && messagesAtBoundary.length === 0) {
+    throw new Error('Fork boundary was not found')
+  }
+
+  const boundaryApiIndex = [...messagesAtBoundary]
+    .reverse()
+    .find((message) => typeof message.conversationHistoryIndex === 'number')?.conversationHistoryIndex
+
+  const forkMessages = messagesAtBoundary.map((message) => ({ ...message }))
+  const boundaryMessage = forkMessages.at(-1)
+
+  // The renderer receives ask completion_result as a stop signal after a
+  // plain-text say message. Keep one visible completion message in persisted
+  // history, and avoid restoring an empty duplicate ask row.
+  if (boundaryMessage?.ask === 'completion_result' && !boundaryMessage.text) {
+    forkMessages.pop()
+    const previousMessage = forkMessages.at(-1)
+    if (previousMessage && (previousMessage.say === 'text' || previousMessage.say === 'completion_result')) {
+      previousMessage.say = 'completion_result'
+      previousMessage.ask = undefined
+    }
+  } else if (boundaryMessage?.say === 'text' && boundaryMessage.text) {
+    boundaryMessage.say = 'completion_result'
+  }
+
+  let forkApiHistory = typeof boundaryApiIndex === 'number' ? sourceApiHistory.slice(0, boundaryApiIndex) : sourceApiHistory
+  const completionMessage = forkMessages.at(-1)
+  if (completionMessage?.say === 'completion_result' && completionMessage.text && forkApiHistory.at(-1)?.role !== 'assistant') {
+    forkApiHistory = [
+      ...forkApiHistory,
+      {
+        role: 'assistant',
+        content: [{ type: 'text', text: completionMessage.text }]
+      }
+    ]
+  }
+
+  const sourceMetadata = await getTaskMetadataLogic(db, sourceTaskId)
+  const sourceTitle = typeof sourceMetadata.title === 'string' && sourceMetadata.title.trim() ? sourceMetadata.title.trim() : 'New chat'
+  const forkTitle = title?.trim() || `${sourceTitle} (Fork)`
+
+  await saveTaskMetadataLogic(db, targetTaskId, {
+    ...sourceMetadata,
+    title: forkTitle,
+    favorite: false
+  })
+  await saveChatermMessagesLogic(db, targetTaskId, forkMessages)
+  await saveApiConversationHistoryLogic(db, targetTaskId, forkApiHistory)
+
+  const contextHistory = await getContextHistoryLogic(db, sourceTaskId)
+  if (contextHistory !== null && contextHistory !== undefined) {
+    await saveContextHistoryLogic(db, targetTaskId, contextHistory)
+  }
+
+  return { taskId: targetTaskId, title: forkTitle }
+}
+
 // Agent task metadata related methods
 export async function getTaskMetadataLogic(db: Database.Database, taskId: string): Promise<any> {
   try {

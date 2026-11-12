@@ -10,7 +10,7 @@
  */
 
 import { ipcMain, webContents } from 'electron'
-import type { InteractionRequest, InteractionResponse, InteractionSubmitResult } from './types'
+import type { CommandActivity, InteractionRequest, InteractionResponse, InteractionSubmitResult } from './types'
 import { Task, type CommandContext } from '../../core/task'
 const logger = createLogger('agent')
 
@@ -84,6 +84,15 @@ export function broadcastTuiDetected(commandId: string, message: string, taskId?
  */
 export function broadcastAlternateScreenEntered(commandId: string, message: string, taskId?: string): void {
   broadcast('alternate-screen-entered', { commandId, taskId, message })
+}
+
+/**
+ * Broadcast command running status. Sent on every output burst, so it is not logged.
+ */
+export function broadcastCommandActivity(activity: CommandActivity): void {
+  for (const wc of webContents.getAllWebContents()) {
+    wc.send('command-activity', activity)
+  }
 }
 
 /**

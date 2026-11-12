@@ -71,6 +71,7 @@ declare module 'vue' {
     ATypographyText: typeof import('ant-design-vue/es')['TypographyText']
     AWatermark: typeof import('ant-design-vue/es')['Watermark']
     CommandDialog: typeof import('./src/components/global/CommandDialog.vue')['default']
+    CommandInputBar: typeof import('./src/components/agent/CommandInputBar.vue')['default']
     CommandInteractionInput: typeof import('./src/components/agent/CommandInteractionInput.vue')['default']
     MfaDialog: typeof import('./src/components/global/mfa/MfaDialog.vue')['default']
     OnboardingGuide: typeof import('./src/components/global/onboarding/OnboardingGuide.vue')['default']
@@ -78,6 +79,7 @@ declare module 'vue' {
     OtpInput: typeof import('./src/components/global/mfa/OtpInput.vue')['default']
     RouterLink: typeof import('vue-router')['RouterLink']
     RouterView: typeof import('vue-router')['RouterView']
+    UpdateCard: typeof import('./src/components/global/update-card/UpdateCard.vue')['default']
     UserSelectionDialog: typeof import('./src/components/global/user-selection/UserSelectionDialog.vue')['default']
     VersionPromptModal: typeof import('./src/components/global/version-prompt/VersionPromptModal.vue')['default']
   }

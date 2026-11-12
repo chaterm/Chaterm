@@ -184,28 +184,35 @@ describe('runMarkerBasedCommand', () => {
     expect(lines).toContain('partial output')
   })
 
-  it('handles timeout correctly', async () => {
+  it('sends Ctrl+C on timeout and completes when the end marker follows', async () => {
     const stream = createMockStream()
-    const onLine = vi.fn()
     const onTimeout = vi.fn()
     const onCompleted = vi.fn()
+    const onExitCode = vi.fn()
+    const onInterruptFailed = vi.fn()
 
-    const config = createConfig(stream, { onLine, onTimeout, onCompleted, timeoutMs: 1000 })
+    const config = createConfig(stream, { onTimeout, onCompleted, onExitCode, onInterruptFailed, timeoutMs: 1000 })
 
     const resultPromise = runMarkerBasedCommand(config)
 
     stream.emitData('===CHATERM_START===\n')
     stream.emitData('some output\n')
-    // Don't send end marker - let it timeout
 
-    // Advance time past timeout
-    await vi.advanceTimersByTimeAsync(1500)
+    await vi.advanceTimersByTimeAsync(1000)
+
+    expect(onTimeout).toHaveBeenCalled()
+    expect(stream.write).toHaveBeenLastCalledWith('\x03')
+    expect(onCompleted).not.toHaveBeenCalled()
+
+    // The wrapper traps INT, so the interrupted command still reports its end marker
+    stream.emitData('^C===CHATERM_END===:130\n')
 
     const result = await resultPromise
 
-    expect(result.timedOut).toBe(true)
-    expect(onTimeout).toHaveBeenCalled()
-    expect(onCompleted).toHaveBeenCalled()
+    expect(result).toEqual({ completed: true, exitCode: 130, timedOut: true })
+    expect(onExitCode).toHaveBeenCalledWith(130)
+    expect(onCompleted).toHaveBeenCalledTimes(1)
+    expect(onInterruptFailed).not.toHaveBeenCalled()
   })
 
   it('sends default timeout message when onTimeout is not provided', async () => {
@@ -213,17 +220,139 @@ describe('runMarkerBasedCommand', () => {
     const lines: string[] = []
     const onLine = vi.fn((line: string) => lines.push(line))
 
-    const config = createConfig(stream, { onLine, timeoutMs: 60000 })
+    const config = createConfig(stream, { onLine, timeoutMs: 120000 })
 
     const resultPromise = runMarkerBasedCommand(config)
 
     stream.emitData('===CHATERM_START===\n')
 
-    await vi.advanceTimersByTimeAsync(61000)
+    await vi.advanceTimersByTimeAsync(120000)
+
+    expect(lines).toEqual(['Command execution timed out after 2 minutes.', 'Chaterm sent Ctrl+C to stop it.'])
+
+    stream.emitData('===CHATERM_END===:130\n')
+    await resultPromise
+  })
+
+  it('reports an interrupt failure when Ctrl+C does not stop the command', async () => {
+    const stream = createMockStream()
+    const lines: string[] = []
+    const onLine = vi.fn((line: string) => lines.push(line))
+    const onExitCode = vi.fn()
+    const calls: string[] = []
+    const onInterruptFailed = vi.fn(() => calls.push('interrupt-failed'))
+    const onCompleted = vi.fn(() => calls.push('completed'))
+
+    const config = createConfig(stream, { onLine, onExitCode, onInterruptFailed, onCompleted, timeoutMs: 60000, interruptGraceMs: 1000 })
+
+    const resultPromise = runMarkerBasedCommand(config)
+
+    stream.emitData('===CHATERM_START===\n')
+
+    await vi.advanceTimersByTimeAsync(60000 + 999)
+    expect(onInterruptFailed).not.toHaveBeenCalled()
+
+    await vi.advanceTimersByTimeAsync(1)
+
+    const result = await resultPromise
+
+    expect(result).toEqual({ completed: true, exitCode: 0, timedOut: true })
+    expect(lines).toEqual([
+      'Command execution timed out after 1 minute.',
+      'Chaterm sent Ctrl+C to stop it.',
+      'The command did not stop after Ctrl+C and may still be running on the server.'
+    ])
+    expect(calls).toEqual(['interrupt-failed', 'completed'])
+    expect(onExitCode).not.toHaveBeenCalled()
+  })
+
+  it('completes without an exit code when the stream closes before the end marker', async () => {
+    const stream = createMockStream()
+    const lines: string[] = []
+    const onLine = vi.fn((line: string) => lines.push(line))
+    const onExitCode = vi.fn()
+    const onCompleted = vi.fn()
+    const onContinue = vi.fn()
+
+    const config = createConfig(stream, { onLine, onExitCode, onCompleted, onContinue })
+
+    const resultPromise = runMarkerBasedCommand(config)
+
+    stream.emitData('===CHATERM_START===\n')
+    stream.emitData('partial\n')
+    stream.emit('close')
+
+    const result = await resultPromise
+
+    expect(result).toEqual({ completed: true, exitCode: 0, timedOut: false })
+    expect(lines).toEqual(['partial', 'Connection closed before the command finished.'])
+    expect(onExitCode).not.toHaveBeenCalled()
+    expect(onCompleted).toHaveBeenCalledTimes(1)
+    expect(onContinue).toHaveBeenCalledTimes(1)
+    expect(stream.listenerCount('close')).toBe(0)
+  })
+
+  it('stops tracking silently when aborted', async () => {
+    const stream = createMockStream()
+    const controller = new AbortController()
+    const onLine = vi.fn()
+    const onCompleted = vi.fn()
+    const onContinue = vi.fn()
+    const cleanupInteractionDetector = vi.fn()
+
+    const config = createConfig(stream, { onLine, onCompleted, onContinue, cleanupInteractionDetector, signal: controller.signal })
+
+    const resultPromise = runMarkerBasedCommand(config)
+
+    stream.emitData('===CHATERM_START===\n')
+    controller.abort()
+
+    const result = await resultPromise
+
+    stream.emitData('late output\n')
+    await vi.advanceTimersByTimeAsync(10 * 60 * 1000)
+
+    expect(result).toEqual({ completed: false, exitCode: 0, timedOut: false })
+    expect(onLine).not.toHaveBeenCalled()
+    expect(onCompleted).not.toHaveBeenCalled()
+    expect(onContinue).not.toHaveBeenCalled()
+    expect(cleanupInteractionDetector).not.toHaveBeenCalled()
+    expect(stream.listenerCount('data')).toBe(0)
+    expect(stream.listenerCount('close')).toBe(0)
+  })
+
+  it('does not send the command when already aborted', async () => {
+    const stream = createMockStream()
+    const controller = new AbortController()
+    controller.abort()
+
+    const result = await runMarkerBasedCommand(createConfig(stream, { signal: controller.signal }))
+
+    expect(result).toEqual({ completed: false, exitCode: 0, timedOut: false })
+    expect(stream.write).not.toHaveBeenCalled()
+    expect(stream.listenerCount('data')).toBe(0)
+  })
+
+  it('reports the exit code before completion callbacks', async () => {
+    const stream = createMockStream()
+    const calls: string[] = []
+
+    const config = createConfig(stream, {
+      onExitCode: () => calls.push('exitCode'),
+      onCompleted: () => calls.push('completed'),
+      onContinue: () => calls.push('continue')
+    })
+
+    const resultPromise = runMarkerBasedCommand(config)
+
+    stream.emitData('===CHATERM_START===\n')
+    stream.emitData('===CHATERM_END===:1\n')
 
     await resultPromise
 
-    expect(lines.some((l) => l.includes('timed out'))).toBe(true)
+    expect(calls).toEqual(['exitCode', 'completed', 'continue'])
+    expect(stream.listenerCount('data')).toBe(0)
+    expect(stream.listenerCount('close')).toBe(0)
   })
 
   it('ignores end marker before start marker (command echo)', async () => {

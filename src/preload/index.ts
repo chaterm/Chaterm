@@ -730,6 +730,14 @@ const chatermGetChatermMessagesPage = async (data: {
   }
 }
 
+const forkTask = async (data: { sourceTaskId: string; cutoffTs?: number; title?: string }) => {
+  try {
+    return await ipcRenderer.invoke('agent-fork-task', data)
+  } catch (error) {
+    return Promise.reject(error)
+  }
+}
+
 const getPlatform = () => ipcRenderer.invoke('get-platform')
 const invokeCustomAdsorption = (data: { appX: number; appY: number }) => ipcRenderer.invoke('custom-adsorption', data)
 
@@ -1001,6 +1009,7 @@ const api = {
   connectAssetInfo,
   chatermGetChatermMessages,
   chatermGetChatermMessagesPage,
+  forkTask,
   getTaskMetadata,
   saveTaskTitle,
   saveTaskFavorite,
@@ -1888,6 +1897,15 @@ const api = {
     const listener = (_event: any, data: { commandId: string; taskId?: string; message: string }) => callback(data)
     ipcRenderer.on('alternate-screen-entered', listener)
     return () => ipcRenderer.removeListener('alternate-screen-entered', listener)
+  },
+
+  /**
+   * Listen for remote command running status (start, output activity, end)
+   */
+  onCommandActivity: (callback: (activity: import('./index.d').CommandActivity) => void) => {
+    const listener = (_event: any, activity: import('./index.d').CommandActivity) => callback(activity)
+    ipcRenderer.on('command-activity', listener)
+    return () => ipcRenderer.removeListener('command-activity', listener)
   },
 
   /**

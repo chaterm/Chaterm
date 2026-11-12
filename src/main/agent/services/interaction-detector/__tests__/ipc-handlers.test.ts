@@ -58,4 +58,17 @@ describe('interaction-detector ipc-handlers', () => {
     expect(onResume).toHaveBeenCalled()
     expect(result.success).toBe(false)
   })
+
+  it('sends command activity to every window', async () => {
+    const windows = [{ send: vi.fn() }, { send: vi.fn() }]
+    webContentsMock.getAllWebContents.mockReturnValue(windows as any)
+    const activity = { commandId: 'cmd-1', taskId: 'task-1', startedAt: 1, lastOutputAt: null, running: true }
+
+    const { broadcastCommandActivity } = await import('../ipc-handlers')
+    broadcastCommandActivity(activity)
+
+    for (const wc of windows) {
+      expect(wc.send).toHaveBeenCalledWith('command-activity', activity)
+    }
+  })
 })

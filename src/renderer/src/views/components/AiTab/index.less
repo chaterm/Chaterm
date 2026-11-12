@@ -389,6 +389,21 @@
         }
       }
 
+      .completion-action-btn {
+        .anticon {
+          color: var(--text-color-tertiary);
+        }
+
+        &:hover .anticon {
+          color: var(--text-color-secondary);
+        }
+
+        &[disabled] .anticon {
+          color: var(--text-color-tertiary);
+          opacity: 0.5;
+        }
+      }
+
       .summarize-btn {
         .anticon {
           color: var(--text-color-tertiary);

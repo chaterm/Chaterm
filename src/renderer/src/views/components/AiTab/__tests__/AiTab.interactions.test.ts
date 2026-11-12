@@ -44,7 +44,21 @@ vi.mock('../components/format/markdownRenderer.vue', () => ({ default: defineCom
 vi.mock('../components/DbQueryResultCard.vue', () => ({ default: defineComponent({ setup: () => () => h('div') }) }))
 vi.mock('../components/todo/TodoInlineDisplay.vue', () => ({ default: defineComponent({ setup: () => () => h('div') }) }))
 vi.mock('../components/message/UserMessage.vue', () => ({ default: defineComponent({ setup: () => () => h('div') }) }))
-vi.mock('@/components/agent/CommandInteractionInput.vue', () => ({ default: defineComponent({ setup: () => () => h('div') }) }))
+vi.mock('@/components/agent/CommandInteractionInput.vue', () => ({
+  default: defineComponent({
+    name: 'CommandInteractionInput',
+    props: { visible: Boolean },
+    setup: () => () => h('div')
+  })
+}))
+vi.mock('@/components/agent/CommandInputBar.vue', () => ({
+  default: defineComponent({
+    name: 'CommandInputBar',
+    props: { commandId: String, startedAt: Number, lastOutputAt: Number, forceVisible: Boolean },
+    emits: ['submit', 'cancel'],
+    setup: () => () => h('div', { class: 'command-input-bar-stub' })
+  })
+}))
 vi.mock('@views/components/Database/components/ConnectionPicker.vue', () => ({ default: defineComponent({ setup: () => () => h('div') }) }))
 vi.mock('@views/components/Database/components/DatabasePicker.vue', () => ({ default: defineComponent({ setup: () => () => h('div') }) }))
 vi.mock('@views/components/Database/components/SchemaPicker.vue', () => ({ default: defineComponent({ setup: () => () => h('div') }) }))
@@ -328,8 +342,15 @@ const createMockState = () => {
     markLatestMessageWithTodoUpdate: vi.fn(),
     clearTodoState: vi.fn()
   }
+  const runningCommands = ref(
+    new Map<string, { commandId: string; taskId: string; startedAt: number; lastOutputAt: number | null; running: boolean }>()
+  )
+  const interactionStates = ref(new Map<string, { visible: boolean; commandId: string; interactionType: string }>())
   const interactiveInput = {
-    getInteractionStateForTab: vi.fn(),
+    runningCommands,
+    interactionStates,
+    getInteractionStateForTab: vi.fn((tabId: string) => interactionStates.value.get(tabId)),
+    getRunningCommandForTab: vi.fn((tabId: string) => runningCommands.value.get(tabId)),
     submitInteraction: vi.fn(),
     cancelInteraction: vi.fn(),
     dismissInteraction: vi.fn(),
@@ -377,8 +398,7 @@ const globalStubs = {
   MarkdownRenderer: childStub,
   DbQueryResultCard: childStub,
   TodoInlineDisplay: childStub,
-  UserMessage: childStub,
-  CommandInteractionInput: childStub
+  UserMessage: childStub
 }
 
 describe('AiTab changed interactions', () => {
@@ -405,6 +425,42 @@ describe('AiTab changed interactions', () => {
   afterEach(() => {
     wrapper.unmount()
     document.body.replaceChildren()
+  })
+
+  it('mounts the command input bar while a command runs and wires its actions', async () => {
+    const { interactiveInput } = mocks.state
+    expect(wrapper.find('.command-input-bar-stub').exists()).toBe(false)
+
+    interactiveInput.runningCommands.value.set('tab-1', { commandId: 'cmd-1', taskId: 'tab-1', startedAt: 1000, lastOutputAt: 2000, running: true })
+    await nextTick()
+
+    const bar = wrapper.getComponent({ name: 'CommandInputBar' })
+    expect(bar.props()).toEqual({ commandId: 'cmd-1', startedAt: 1000, lastOutputAt: 2000, forceVisible: false })
+    bar.vm.$emit('submit', 'cmd-1', 'yes')
+    bar.vm.$emit('cancel', 'cmd-1')
+    expect(interactiveInput.submitInteraction).toHaveBeenCalledWith('cmd-1', 'yes', true, 'freeform')
+    expect(interactiveInput.cancelInteraction).toHaveBeenCalledWith('cmd-1')
+  })
+
+  it('answers free-text prompts in the bar and typed prompts in the interaction panel', async () => {
+    const { interactiveInput } = mocks.state
+    const panel = () => wrapper.getComponent({ name: 'CommandInteractionInput' })
+
+    // A free-text prompt without a tracked command still gets the bar, shown at once
+    interactiveInput.interactionStates.value.set('tab-1', { visible: true, commandId: 'cmd-2', interactionType: 'freeform' })
+    await nextTick()
+    expect(wrapper.getComponent({ name: 'CommandInputBar' }).props()).toEqual({
+      commandId: 'cmd-2',
+      startedAt: 0,
+      lastOutputAt: null,
+      forceVisible: true
+    })
+    expect(panel().props('visible')).toBe(false)
+
+    interactiveInput.interactionStates.value.set('tab-1', { visible: true, commandId: 'cmd-2', interactionType: 'password' })
+    await nextTick()
+    expect(wrapper.find('.command-input-bar-stub').exists()).toBe(false)
+    expect(panel().props('visible')).toBe(true)
   })
 
   it('warms history on mount and wires up the new-tab and refresh buttons', async () => {

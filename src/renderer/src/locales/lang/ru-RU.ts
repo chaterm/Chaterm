@@ -1412,7 +1412,10 @@ export default {
     downloading: 'Скачивание обновления',
     complete: 'Скачивание завершено, установить сейчас?',
     install: 'Установить',
-    clickUpdate: 'Нажмите Restart для обновления'
+    clickUpdate: 'Нажмите Restart для обновления',
+    cardTitle: 'Доступно обновление',
+    cardReady: 'Chaterm v{version} готов.',
+    releaseNotes: 'Примечания к выпуску'
   },
   versionPrompt: {
     highlights: 'Что нового',
@@ -1903,7 +1906,7 @@ export default {
     manual: 'Ручной ввод',
     switchToTerminal: 'Переключиться на терминал',
     pagerMode: 'Режим пагинации',
-    longSilence: 'Команда долго не отвечает. Введите здесь при необходимости',
+    inputCommand: 'Отправить ввод',
     serviceUnavailable: 'Служба обнаружения недоступна. Введите вручную при необходимости',
     mayNeedInput: 'Команда может ожидать ввода',
     sending: 'Отправка...',

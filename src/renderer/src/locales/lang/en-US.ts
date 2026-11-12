@@ -1155,6 +1155,12 @@ export default {
     loadMore: 'load more',
     historyLoadHint: 'Older messages are available. Scroll up to load them.',
     copyToClipboard: 'Copy to clipboard',
+    copyCompletion: 'Copy completion',
+    copyCompletionSuccess: 'Completion copied',
+    copyCompletionFailed: 'Failed to copy completion',
+    forkConversation: 'Fork conversation from here',
+    forkConversationSuccess: 'Forked conversation created',
+    forkConversationFailed: 'Failed to create forked conversation',
     retry: 'Retry',
     taskCompleted: 'Task Completed',
     kbSearchProgressRunning: 'Searching knowledge base · {seconds}s',
@@ -1413,7 +1419,10 @@ export default {
     downloading: 'Downloading update',
     complete: 'Download complete, install now?',
     install: 'Install',
-    clickUpdate: 'Click Restart to update'
+    clickUpdate: 'Click Restart to update',
+    cardTitle: 'Update available',
+    cardReady: 'Chaterm v{version} is ready.',
+    releaseNotes: 'Release notes'
   },
   versionPrompt: {
     highlights: "What's new",
@@ -1890,7 +1899,7 @@ export default {
     switchToTerminal: 'Switch to terminal',
     tuiDetected: 'Full-screen program detected; Ctrl+C was sent to stop it. Re-run the command if needed.',
     pagerMode: 'Paging mode',
-    longSilence: 'Command silent for too long, enter input here if needed',
+    inputCommand: 'Send input',
     serviceUnavailable: 'Detection service unavailable, enter input manually if needed',
     mayNeedInput: 'Command may be waiting for input',
     sending: 'Sending...',

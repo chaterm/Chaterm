@@ -1388,7 +1388,10 @@ export default {
     downloading: '正在下載更新',
     complete: '已下載完畢，是否立即安裝',
     install: '安裝',
-    clickUpdate: '點擊重啟以更新'
+    clickUpdate: '點擊重啟以更新',
+    cardTitle: '可用更新',
+    cardReady: 'Chaterm v{version} 已準備就緒。',
+    releaseNotes: '發行說明'
   },
   versionPrompt: {
     highlights: '更新亮點',
@@ -1857,7 +1860,7 @@ export default {
     switchToTerminal: '切換到終端',
     tuiDetected: '檢測到全螢幕程式，已自動送出 Ctrl+C 終止。如需繼續請重新執行命令',
     pagerMode: '翻頁瀏覽中',
-    longSilence: '命令長時間無回應，如需輸入請在此操作',
+    inputCommand: '輸入命令',
     serviceUnavailable: '檢測服務不可用，如需輸入請手動操作',
     mayNeedInput: '命令可能在等待輸入',
     sending: '發送中...',

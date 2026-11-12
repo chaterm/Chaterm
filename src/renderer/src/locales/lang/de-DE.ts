@@ -1421,7 +1421,10 @@ export default {
     downloading: 'Update herunterladen',
     complete: 'Update heruntergeladen, jetzt installieren?',
     install: 'Installieren',
-    clickUpdate: 'Klicken Sie auf Neustart, um das Update zu installieren'
+    clickUpdate: 'Klicken Sie auf Neustart, um das Update zu installieren',
+    cardTitle: 'Update verfügbar',
+    cardReady: 'Chaterm v{version} ist bereit.',
+    releaseNotes: 'Versionshinweise'
   },
   versionPrompt: {
     highlights: 'Was ist neu',
@@ -1894,7 +1897,7 @@ export default {
     switchToTerminal: 'Zum Terminal wechseln',
     tuiDetected: 'Vollbildprogramm erkannt; Ctrl+C wurde zum Beenden gesendet. Bei Bedarf den Befehl erneut ausführen.',
     pagerMode: 'Seitenmodus',
-    longSilence: 'Befehl antwortet lange nicht. Bei Bedarf hier eingeben',
+    inputCommand: 'Eingabe senden',
     serviceUnavailable: 'Erkennungsdienst nicht verfügbar. Bei Bedarf manuell eingeben',
     mayNeedInput: 'Befehl wartet möglicherweise auf Eingabe',
     sending: 'Senden...',

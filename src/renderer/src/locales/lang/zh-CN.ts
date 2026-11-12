@@ -1133,6 +1133,12 @@ export default {
     loadMore: '加载',
     historyLoadHint: '还有更早历史消息，向上滚动可继续加载',
     copyToClipboard: '已复制到剪贴板',
+    copyCompletion: '复制完成内容',
+    copyCompletionSuccess: '完成内容已复制',
+    copyCompletionFailed: '复制完成内容失败',
+    forkConversation: '分支到新聊天',
+    forkConversationSuccess: '已创建分叉对话',
+    forkConversationFailed: '创建分叉对话失败',
     retry: '重试',
     taskCompleted: '任务已完成',
     kbSearchProgressRunning: '正在检索知识库 · {seconds}秒',
@@ -1391,7 +1397,10 @@ export default {
     downloading: '正在下载更新',
     complete: '已下载完毕，是否立即安装',
     install: '安装',
-    clickUpdate: '点击重启以更新'
+    clickUpdate: '点击重启以更新',
+    cardTitle: '可用更新',
+    cardReady: 'Chaterm v{version} 已准备就绪。',
+    releaseNotes: '发行说明'
   },
   versionPrompt: {
     highlights: '更新亮点',
@@ -1866,7 +1875,7 @@ export default {
     switchToTerminal: '切换到终端',
     tuiDetected: '检测到全屏程序，已自动发送 Ctrl+C 终止。如需继续请重新执行命令',
     pagerMode: '翻页浏览中',
-    longSilence: '命令长时间无响应，如需输入请在此操作',
+    inputCommand: '输入命令',
     serviceUnavailable: '检测服务不可用，如需输入请手动操作',
     mayNeedInput: '命令可能在等待输入',
     sending: '发送中...',

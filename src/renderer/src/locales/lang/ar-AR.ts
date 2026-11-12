@@ -1402,7 +1402,10 @@ export default {
     downloading: 'جاري التحميل',
     complete: 'تم التحميل بنجاح, هل تريد التثبيت الآن؟',
     install: 'تثبيت',
-    clickUpdate: 'اضغط على إعادة التشغيل للتحديث'
+    clickUpdate: 'اضغط على إعادة التشغيل للتحديث',
+    cardTitle: 'تحديث متاح',
+    cardReady: 'Chaterm v{version} جاهز.',
+    releaseNotes: 'ملاحظات الإصدار'
   },
   versionPrompt: {
     highlights: 'ما الجديد',
@@ -1873,7 +1876,7 @@ export default {
     switchToTerminal: 'تبديل إلى الترمينال',
     tuiDetected: 'تم الكشف عن برنامج كامل الشاشة; Ctrl+C تم إرساله لإيقافه. أعد تشغيل الأمر إذا كان ذلك ضروري.',
     pagerMode: 'وضع التنقل',
-    longSilence: 'الأمر ساكت لفترة طويلة, أدخل الإدخال هنا إذا كان ذلك ضروري',
+    inputCommand: 'إرسال الإدخال',
     serviceUnavailable: 'خدمة الكشف غير متاحة, أدخل الإدخال يدويا إذا كان ذلك ضروري',
     mayNeedInput: 'الأمر قد ينتظر الإدخال',
     sending: 'جاري الإرسال...',

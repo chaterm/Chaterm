@@ -557,6 +557,15 @@ export function useChatMessages(
 
       if (partial.type === 'ask' && partial.ask === 'completion_result') {
         session.responseLoading = false
+        // Plain-text completions are persisted as `say: text` followed by an
+        // empty `ask: completion_result` stop marker. Promote the visible
+        // answer to the same completion presentation used by attempt_completion.
+        const lastMessage = session.chatHistory.at(-1)
+        if (lastMessage?.role === 'assistant' && lastMessage.say !== 'completion_result') {
+          lastMessage.say = 'completion_result'
+          lastMessage.type = 'say'
+          lastMessage.ask = undefined
+        }
         if (isActiveTab) {
           scrollToBottom()
         }
@@ -633,6 +642,10 @@ export function useChatMessages(
           newAssistantMessage.mcpToolCall = partial.mcpToolCall
         }
 
+        if (partial.commandDurationMs !== undefined) {
+          newAssistantMessage.commandDurationMs = partial.commandDurationMs
+        }
+
         if (partial.type === 'say' && partial.say === 'command') {
           session.isExecutingCommand = true
         }
@@ -652,6 +665,10 @@ export function useChatMessages(
 
         if (partial.mcpToolCall) {
           lastMessageInChat.mcpToolCall = partial.mcpToolCall
+        }
+
+        if (partial.commandDurationMs !== undefined) {
+          lastMessageInChat.commandDurationMs = partial.commandDurationMs
         }
 
         // Update host info for existing message

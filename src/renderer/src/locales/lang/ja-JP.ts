@@ -1404,7 +1404,10 @@ export default {
     downloading: '更新をダウンロード中',
     complete: 'ダウンロードが完了しました、インストールしますか？',
     install: 'インストール',
-    clickUpdate: '再起動して更新'
+    clickUpdate: '再起動して更新',
+    cardTitle: '利用可能なアップデート',
+    cardReady: 'Chaterm v{version} の準備ができました。',
+    releaseNotes: 'リリースノート'
   },
   versionPrompt: {
     highlights: '新機能',
@@ -1876,7 +1879,7 @@ export default {
     switchToTerminal: 'ターミナルに切り替え',
     tuiDetected: 'フルスクリーンプログラムを検出しました。Ctrl+C を送信して停止しました。必要なら再実行してください。',
     pagerMode: 'ページング中',
-    longSilence: 'コマンドが長時間無応答です。入力が必要な場合はここで操作してください',
+    inputCommand: '入力を送信',
     serviceUnavailable: '検出サービスが利用できません。必要に応じて手動で入力してください',
     mayNeedInput: 'コマンドが入力待ちの可能性があります',
     sending: '送信中...',

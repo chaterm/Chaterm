@@ -34,6 +34,7 @@ import {
   broadcastInteractionClosed,
   broadcastTuiDetected,
   broadcastAlternateScreenEntered,
+  broadcastCommandActivity,
   generateCommandId
 } from '../../services/interaction-detector/ipc-handlers'
 
@@ -75,6 +76,9 @@ export interface RemoteTerminalProcessEvents extends Record<string, any[]> {
   continue: []
   completed: []
   error: [error: Error]
+  exitCode: [code: number]
+  /** The command ignored Ctrl+C after a timeout; the shell session is no longer usable */
+  'interrupt-failed': []
   no_shell_integration: []
   // Interaction detection events
   'interaction-needed': [request: InteractionRequest]
@@ -272,14 +276,21 @@ export class RemoteTerminalProcess extends BrownEventEmitter<RemoteTerminalProce
   isHot: boolean = false
   private pendingOutputTimer: NodeJS.Timeout | null = null
   private readonly PENDING_OUTPUT_DELAY = 150 // 150ms delay
-  private readonly JUMPSERVER_COMMAND_TIMEOUT = 5 * 60 * 1000 // five-minute safeguard
+  private readonly JUMPSERVER_COMMAND_TIMEOUT = 30 * 60 * 1000 // same safeguard as the SSH exec path
+  private readonly ACTIVITY_BROADCAST_INTERVAL = 1000
   private sessionId: string = ''
   private sshType: string = ''
+  // Lets forceTerminate stop a marker-based run that is still waiting for its end marker
+  private markerAbort: AbortController | null = null
 
   // Interaction detection
   private interactionDetector: InteractionDetector | null = null
   private commandId: string = ''
   private taskId: string = ''
+  private commandStartedAt = 0
+  private lastOutputAt: number | null = null
+  private lastActivityBroadcastAt = 0
+  private activityBroadcastTimer: NodeJS.Timeout | null = null
 
   constructor() {
     super()
@@ -320,6 +331,9 @@ export class RemoteTerminalProcess extends BrownEventEmitter<RemoteTerminalProce
       onResume: () => detector.resume(),
       onInteractionSubmitted: () => detector.onInteractionSubmitted()
     })
+
+    this.commandStartedAt = Date.now()
+    this.broadcastActivity(true)
 
     // Set up detector event handlers
     detector.on('interaction-needed', (request: InteractionRequest) => {
@@ -417,9 +431,51 @@ export class RemoteTerminalProcess extends BrownEventEmitter<RemoteTerminalProce
     if (this.interactionDetector) {
       unregisterCommandContext(this.commandId)
       broadcastInteractionClosed(this.commandId)
+      this.broadcastActivity(false)
       this.interactionDetector.dispose()
       this.interactionDetector = null
     }
+  }
+
+  /**
+   * Feed command output to the interaction detector and the running-status broadcast
+   */
+  private onCommandOutput(chunk: string): void {
+    if (!this.interactionDetector) return
+    this.interactionDetector.onOutput(chunk)
+    this.lastOutputAt = Date.now()
+    const wait = this.lastActivityBroadcastAt + this.ACTIVITY_BROADCAST_INTERVAL - this.lastOutputAt
+    if (wait <= 0) {
+      this.broadcastActivity(true)
+    } else if (!this.activityBroadcastTimer) {
+      // Trailing broadcast so the last output of a burst is never lost to throttling
+      this.activityBroadcastTimer = setTimeout(() => this.broadcastActivity(true), wait)
+    }
+  }
+
+  private broadcastActivity(running: boolean): void {
+    if (this.activityBroadcastTimer) {
+      clearTimeout(this.activityBroadcastTimer)
+      this.activityBroadcastTimer = null
+    }
+    this.lastActivityBroadcastAt = Date.now()
+    broadcastCommandActivity({
+      commandId: this.commandId,
+      taskId: this.taskId,
+      startedAt: this.commandStartedAt,
+      lastOutputAt: this.lastOutputAt,
+      running
+    })
+  }
+
+  /**
+   * Append a non-zero exit code to the output, matching the SSH exec path
+   */
+  private reportExitCode(code: number): void {
+    if (code !== 0) {
+      this.emit('line', `[Exit Code: ${code}]`)
+    }
+    this.emit('exitCode', code)
   }
 
   /**
@@ -428,6 +484,7 @@ export class RemoteTerminalProcess extends BrownEventEmitter<RemoteTerminalProce
    */
   forceTerminate(): void {
     logger.debug('Force terminate called', { event: 'remote-terminal.process.force.terminate', commandId: this.commandId })
+    this.markerAbort?.abort()
     this.cleanupInteractionDetector()
     this.emit('completed')
     this.emit('continue')
@@ -489,8 +546,10 @@ export class RemoteTerminalProcess extends BrownEventEmitter<RemoteTerminalProce
       ].join('\n')
     }
 
-    // Build complete wrapped command with markers
-    const wrappedCommand = `bash -l -c 'echo "${startMarker}"; ${commandToExecute}; EXIT_CODE=$?; echo "${endMarker}:$EXIT_CODE"'`
+    // Build complete wrapped command with markers. The command runs in a subshell so that
+    // exit, set -e and exec only end the subshell; the wrapper traps Ctrl+C with a no-op (the
+    // subshell restores the default) so an interrupted command still reports its end marker.
+    const wrappedCommand = `bash -l -c 'trap ":" INT; echo "${startMarker}"; ( trap - INT; ${commandToExecute} ); EXIT_CODE=$?; echo "${endMarker}:$EXIT_CODE"'`
 
     return {
       wrappedCommand,
@@ -503,6 +562,7 @@ export class RemoteTerminalProcess extends BrownEventEmitter<RemoteTerminalProce
     this.sessionId = sessionId
     const resolvedType = sshType || 'ssh'
     this.sshType = resolvedType
+    this.markerAbort = new AbortController()
     try {
       if (resolvedType === 'jumpserver') {
         await this.runJumpServerCommand(sessionId, command, cwd)
@@ -662,9 +722,7 @@ export class RemoteTerminalProcess extends BrownEventEmitter<RemoteTerminalProce
       this.fullOutput += chunk
 
       // Feed data to interaction detector
-      if (this.interactionDetector) {
-        this.interactionDetector.onOutput(chunk)
-      }
+      this.onCommandOutput(chunk)
 
       if (!this.isListening) return
 
@@ -771,10 +829,12 @@ export class RemoteTerminalProcess extends BrownEventEmitter<RemoteTerminalProce
       renderForDisplay: processAnsiCodes,
       shouldFilterEcho: isCommandEcho,
       onLine: (line) => this.emit('line', line),
-      onDetectorOutput: (chunk) => this.interactionDetector?.onOutput(chunk),
+      onDetectorOutput: (chunk) => this.onCommandOutput(chunk),
       onCompleted: () => this.emit('completed'),
       onContinue: () => this.emit('continue'),
-      onExitCode: (code) => this.emit('exitCode', code),
+      onExitCode: (code) => this.reportExitCode(code),
+      onInterruptFailed: () => this.emit('interrupt-failed'),
+      signal: this.markerAbort?.signal,
       cleanupInteractionDetector: () => this.cleanupInteractionDetector()
     })
   }
@@ -822,10 +882,12 @@ export class RemoteTerminalProcess extends BrownEventEmitter<RemoteTerminalProce
       renderForDisplay: stripAnsiSimple, // Bastion uses simple strip instead of HTML conversion
       shouldFilterEcho: isBastionCommandEcho,
       onLine: (line) => this.emit('line', line),
-      onDetectorOutput: (chunk) => this.interactionDetector?.onOutput(chunk),
+      onDetectorOutput: (chunk) => this.onCommandOutput(chunk),
       onCompleted: () => this.emit('completed'),
       onContinue: () => this.emit('continue'),
-      onExitCode: (code) => this.emit('exitCode', code),
+      onExitCode: (code) => this.reportExitCode(code),
+      onInterruptFailed: () => this.emit('interrupt-failed'),
+      signal: this.markerAbort?.signal,
       cleanupInteractionDetector: () => this.cleanupInteractionDetector()
     })
   }
@@ -877,10 +939,12 @@ export class RemoteTerminalProcess extends BrownEventEmitter<RemoteTerminalProce
       renderForDisplay: stripAnsiSimple,
       shouldFilterEcho: isWakeupCommandEcho,
       onLine: (line) => this.emit('line', line),
-      onDetectorOutput: (chunk) => this.interactionDetector?.onOutput(chunk),
+      onDetectorOutput: (chunk) => this.onCommandOutput(chunk),
       onCompleted: () => this.emit('completed'),
       onContinue: () => this.emit('continue'),
-      onExitCode: (code) => this.emit('exitCode', code),
+      onExitCode: (code) => this.reportExitCode(code),
+      onInterruptFailed: () => this.emit('interrupt-failed'),
+      signal: this.markerAbort?.signal,
       cleanupInteractionDetector: () => this.cleanupInteractionDetector()
     })
   }
@@ -1122,6 +1186,11 @@ export class RemoteTerminalManager {
         terminalId: terminalInfo.id,
         error: error
       })
+    })
+    // The shell is still occupied by a command that ignored Ctrl+C; drop the session so the
+    // next command reconnects instead of being typed into it
+    process.once('interrupt-failed', () => {
+      void this.disconnectTerminal(terminalInfo.id)
     })
     const promise = new Promise<void>((resolve, reject) => {
       process.once('continue', () => {

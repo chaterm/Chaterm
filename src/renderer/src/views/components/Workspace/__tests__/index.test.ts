@@ -1,6 +1,7 @@
 import { mount } from '@vue/test-utils'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { nextTick } from 'vue'
+import { Modal } from 'ant-design-vue'
 import Workspace from '../index.vue'
 
 const { mockEventBus, mockApi } = vi.hoisted(() => ({
@@ -18,7 +19,8 @@ const { mockEventBus, mockApi } = vi.hoisted(() => ({
     })),
     getShellsLocal: vi.fn(async () => null),
     getCustomFolders: vi.fn(async () => ({ data: [] })),
-    removeConnectionHistory: vi.fn(async () => ({ data: { message: 'success', changes: 1 } }))
+    removeConnectionHistory: vi.fn(async () => ({ data: { message: 'success', changes: 1 } })),
+    deleteAsset: vi.fn(async () => ({ data: { message: 'success' } }))
   }
 }))
 
@@ -169,6 +171,57 @@ describe('Workspace tree search rendering', () => {
 
     expect(vm.hasContextMenu({ key: 'group', title: 'Group', children: [] })).toBe(false)
 
+    wrapper.unmount()
+  })
+
+  it('offers direct hosts a delete action and deletes after confirmation', async () => {
+    const wrapper = mount(Workspace, {
+      global: {
+        stubs: {
+          'a-tree': treeStub,
+          'a-tabs': true,
+          'a-tab-pane': true,
+          'a-input': true,
+          'a-button': true,
+          'a-tooltip': true,
+          'a-dropdown': true,
+          'a-menu': true,
+          'a-menu-item': true,
+          'a-popconfirm': true
+        }
+      }
+    })
+    await nextTick()
+
+    const directHost = {
+      key: 'host-1',
+      title: 'web-01',
+      uuid: 'asset-1',
+      ip: '10.0.0.1',
+      asset_type: 'person',
+      organizationId: 'personal'
+    }
+    const vm = wrapper.vm as any
+    let confirmOptions: any
+    const confirmSpy = vi.spyOn(Modal, 'confirm').mockImplementation((options: any) => {
+      confirmOptions = options
+      return {} as any
+    })
+
+    vm.handleContextMenu(new MouseEvent('contextmenu', { clientX: 10, clientY: 10 }), directHost)
+    await nextTick()
+    const menuItems = wrapper.findAll('.context-menu-item')
+    expect(menuItems).toHaveLength(5)
+    expect(menuItems.some((item) => /删除|Delete/.test(item.text()))).toBe(true)
+
+    vm.contextMenuData = directHost
+    await vm.handleContextMenuAction('deleteHost')
+    expect(confirmSpy).toHaveBeenCalledOnce()
+    await confirmOptions.onOk()
+
+    expect(mockApi.deleteAsset).toHaveBeenCalledWith({ uuid: 'asset-1' })
+    expect(mockEventBus.emit).toHaveBeenCalledWith('LocalAssetMenu')
+    confirmSpy.mockRestore()
     wrapper.unmount()
   })
 

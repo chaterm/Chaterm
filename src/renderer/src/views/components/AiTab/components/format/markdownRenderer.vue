@@ -228,6 +228,9 @@
         :host-id="props.hostId"
         :host-name="props.hostName"
         :color-tag="props.colorTag"
+        :started-at="props.commandStartedAt"
+        :duration-ms="props.commandDurationMs"
+        :running="props.partial && props.commandRunning"
       />
       <div
         v-else-if="props.say === 'search_result'"
@@ -631,6 +634,10 @@ const props = defineProps<{
   hostId?: string
   hostName?: string
   colorTag?: string
+  // Command run time shown in the OUTPUT header
+  commandStartedAt?: number
+  commandDurationMs?: number
+  commandRunning?: boolean
   // AI explanation for command (inline, not in history)
   explanation?: string
   explanationLoading?: boolean

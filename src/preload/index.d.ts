@@ -214,6 +214,22 @@ export interface InteractionRequest {
 }
 
 /**
+ * Running status of a remote command, broadcast on start, on output (throttled) and on end
+ */
+export interface CommandActivity {
+  /** Unique command identifier */
+  commandId: string
+  /** Task identifier this command belongs to */
+  taskId?: string
+  /** Epoch ms when the command was sent */
+  startedAt: number
+  /** Epoch ms of the latest output, null before any output */
+  lastOutputAt: number | null
+  /** False once the command has ended */
+  running: boolean
+}
+
+/**
  * Response from user interaction
  */
 export interface InteractionResponse {
@@ -526,6 +542,10 @@ interface ApiType {
     isFirstInstall: boolean
   }>
   dismissVersionPrompt: () => Promise<void>
+  checkUpdate: () => Promise<{ isUpdateAvailable: boolean; updateInfo?: { version: string } } | null>
+  download: () => Promise<unknown>
+  autoUpdate: (callback: (params: { status?: number; version?: string; progress?: number }) => void) => void
+  quitAndInstall: () => Promise<unknown>
   getReleaseNotes: (version?: string) => Promise<{
     version: string
     date?: string
@@ -603,6 +623,11 @@ interface ApiType {
     beforeCursor?: number | null
     limit?: number
   }) => Promise<import('../main/agent/shared/ExtensionMessage').ChatermMessagesPage>
+  forkTask: (data: { sourceTaskId: string; cutoffTs?: number; title?: string }) => Promise<{
+    success: boolean
+    data?: { taskId: string; title: string }
+    error?: { message: string }
+  }>
   getTaskMetadata: (taskId: string) => Promise<{
     success: boolean
     data?: TaskMetadata
@@ -1151,6 +1176,12 @@ interface ApiType {
    * Returns cleanup function to remove listener
    */
   onAlternateScreenEntered: (callback: (data: { commandId: string; taskId?: string; message: string }) => void) => () => void
+
+  /**
+   * Listen for remote command running status (start, output activity, end)
+   * Returns cleanup function to remove listener
+   */
+  onCommandActivity: (callback: (activity: CommandActivity) => void) => () => void
 
   /**
    * Submit user interaction response
