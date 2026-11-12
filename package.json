@@ -75,7 +75,7 @@
     "adm-zip": "^0.6.1",
     "axios": "^1.21.0",
     "better-sqlite3": "^13.0.3",
-    "chokidar": "^5.0.0",
+    "chokidar": "^6.0.0",
     "clone-deep": "^4.0.1",
     "crypto-js": "^4.2.0",
     "diff": "^9.0.0",
