@@ -676,6 +676,11 @@ export default {
     noModelsConfigured: 'モデルが設定されていません。設定でモデルを設定してください',
     selectModel: 'モデルを選択'
   },
+  quickJump: {
+    placeholder: 'ホスト、タブ、スニペット、知識ベースを検索',
+    hosts: 'ホスト',
+    tabs: 'タブ'
+  },
   shortcuts: {
     actions: {
       openSettings: '設定を開く',
@@ -689,7 +694,7 @@ export default {
       searchHost: 'ホストを検索',
       newTab: '新しいタブ',
       openFileManager: 'ファイルマネージャーを開く',
-      clearTerminal: 'ターミナルをクリア',
+      quickJump: 'クイックジャンプ',
       fontSizeIncrease: 'フォントサイズを増やす',
       fontSizeDecrease: 'フォントサイズを減らす',
       toggleLayout: 'レイアウトを切り替え(ターミナル/エージェント)',
@@ -703,7 +708,6 @@ export default {
       openSettings: '設定を開く',
       openCommandDialog: 'インラインコマンドジェネレーターを開く',
       openFileManager: 'ファイルマネージャーを開く',
-      clearTerminal: 'ターミナルをクリア',
       toggleLayout: 'レイアウトを切り替え(ターミナル/エージェント)'
     }
   },
@@ -759,7 +763,7 @@ export default {
         },
         aiToggle: {
           title: '右側 AI チャット入口',
-          description: 'ここをクリックするか Command/Ctrl + L を使うと、ターミナル右側の AI チャットバーを開けます。'
+          description: 'ここをクリックするか Command/Alt + L を使うと、ターミナル右側の AI チャットバーを開けます。'
         },
         aiSidebar: {
           title: '右側 AI サイドバー',
@@ -837,7 +841,7 @@ export default {
       aiChat: {
         sidebar: {
           title: '右側 AI バーを開く',
-          description: '右上入口をクリックするか Command/Ctrl + L を使用します。左側モジュールバーの AI アイコンからも開けます。'
+          description: '右上入口をクリックするか Command/Alt + L を使用します。左側モジュールバーの AI アイコンからも開けます。'
         },
         sidebarOverview: {
           title: '右側 AI サイドバー',

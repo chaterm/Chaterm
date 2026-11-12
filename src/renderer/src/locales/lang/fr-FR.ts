@@ -686,6 +686,11 @@ export default {
     noModelsConfigured: 'Aucun modèle configuré. Veuillez configurer les modèles dans les paramètres',
     selectModel: 'Sélectionner un modèle'
   },
+  quickJump: {
+    placeholder: 'Rechercher hôtes, onglets, snippets, base de connaissances',
+    hosts: 'Hôtes',
+    tabs: 'Onglets'
+  },
   shortcuts: {
     actions: {
       openSettings: 'Ouvrir les paramètres',
@@ -699,7 +704,7 @@ export default {
       searchHost: 'Rechercher un hôte',
       newTab: 'Nouvel onglet',
       openFileManager: 'Ouvrir le gestionnaire de fichiers',
-      clearTerminal: 'Effacer le terminal',
+      quickJump: 'Accès rapide',
       fontSizeIncrease: 'Augmenter la taille de la police',
       fontSizeDecrease: 'Diminuer la taille de la police',
       toggleLayout: 'Basculer la disposition (Terminal/Agents)',
@@ -713,7 +718,6 @@ export default {
       openSettings: 'Ouvrir les paramètres',
       openCommandDialog: 'Générateur de commande en ligne',
       openFileManager: 'Ouvrir le gestionnaire de fichiers',
-      clearTerminal: 'Effacer le terminal',
       toggleLayout: 'Basculer la disposition (Terminal/Agents)'
     }
   },
@@ -770,7 +774,7 @@ export default {
         },
         aiToggle: {
           title: 'Entrée du chat IA à droite',
-          description: 'Cliquez ici ou utilisez Command/Ctrl + L pour ouvrir la barre de chat IA à droite du terminal.'
+          description: 'Cliquez ici ou utilisez Command/Alt + L pour ouvrir la barre de chat IA à droite du terminal.'
         },
         aiSidebar: {
           title: 'Barre latérale IA droite',
@@ -851,7 +855,7 @@ export default {
       aiChat: {
         sidebar: {
           title: 'Ouvrir la barre IA droite',
-          description: "Cliquez en haut à droite ou utilisez Command/Ctrl + L; l'icône IA de la barre de modules gauche l'ouvre aussi."
+          description: "Cliquez en haut à droite ou utilisez Command/Alt + L; l'icône IA de la barre de modules gauche l'ouvre aussi."
         },
         sidebarOverview: {
           title: 'Barre latérale IA droite',

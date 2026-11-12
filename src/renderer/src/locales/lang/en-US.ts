@@ -684,6 +684,11 @@ export default {
     noModelsConfigured: 'No models configured. Please configure models in settings',
     selectModel: 'Select Model'
   },
+  quickJump: {
+    placeholder: 'Search hosts, tabs, snippets, knowledge base',
+    hosts: 'Hosts',
+    tabs: 'Tabs'
+  },
   shortcuts: {
     actions: {
       openSettings: 'Open Settings',
@@ -697,7 +702,7 @@ export default {
       searchHost: 'Search Host',
       newTab: 'New Tab',
       openFileManager: 'Open File Manager',
-      clearTerminal: 'Clear Terminal',
+      quickJump: 'Quick Jump',
       fontSizeIncrease: 'Font Size Increase',
       fontSizeDecrease: 'Font Size Decrease',
       toggleLayout: 'Toggle Layout (Terminal/Agents)',
@@ -711,7 +716,6 @@ export default {
       openSettings: 'Open Settings',
       openCommandDialog: 'Inline Command Generator',
       openFileManager: 'Open File Manager',
-      clearTerminal: 'Clear Terminal',
       toggleLayout: 'Toggle Layout (Terminal/Agents)'
     }
   },
@@ -767,7 +771,7 @@ export default {
         },
         aiToggle: {
           title: 'Right AI chat entry',
-          description: 'Click here, or press Command/Ctrl + L, to open the AI sidebar for terminal workflows.'
+          description: 'Click here, or press Command/Alt + L, to open the AI sidebar for terminal workflows.'
         },
         aiSidebar: {
           title: 'Right AI sidebar',
@@ -847,7 +851,7 @@ export default {
         sidebar: {
           title: 'Open the right AI sidebar',
           description:
-            'Click the top-right entry, or press Command/Ctrl + L, to open the AI sidebar. The AI icon in the left module rail opens it too.'
+            'Click the top-right entry, or press Command/Alt + L, to open the AI sidebar. The AI icon in the left module rail opens it too.'
         },
         sidebarOverview: {
           title: 'Right AI sidebar',

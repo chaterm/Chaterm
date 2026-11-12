@@ -675,6 +675,11 @@ export default {
     noModelsConfigured: 'لا يوجد نماذج مكونة. الرجاء تكوين النماذج في الإعدادات',
     selectModel: 'اختر النموذج'
   },
+  quickJump: {
+    placeholder: 'ابحث في المضيفات والتبويبات والأوامر السريعة وقاعدة المعرفة',
+    hosts: 'المضيفات',
+    tabs: 'التبويبات'
+  },
   shortcuts: {
     actions: {
       openSettings: 'فتح الإعدادات',
@@ -688,7 +693,7 @@ export default {
       searchHost: 'بحث المضيف',
       newTab: 'التبويب الجديد',
       openFileManager: 'فتح مدير الملفات',
-      clearTerminal: 'مسح التبويب',
+      quickJump: 'القفز السريع',
       fontSizeIncrease: 'زيادة الحجم الخط',
       fontSizeDecrease: 'تقليل الحجم الخط',
       toggleLayout: 'تبديل التخطيط (التبويب/الأجهزة)',
@@ -702,7 +707,6 @@ export default {
       openSettings: 'فتح الإعدادات',
       openCommandDialog: 'مولد الأوامر المضمن',
       openFileManager: 'فتح مدير الملفات',
-      clearTerminal: 'مسح التبويب',
       toggleLayout: 'تبديل التخطيط (التبويب/الأجهزة)'
     }
   },
@@ -758,7 +762,7 @@ export default {
         },
         aiToggle: {
           title: 'مدخل محادثة AI الأيمن',
-          description: 'انقر هنا أو استخدم Command/Ctrl + L لفتح شريط محادثة AI يمين الطرفية.'
+          description: 'انقر هنا أو استخدم Command/Alt + L لفتح شريط محادثة AI يمين الطرفية.'
         },
         aiSidebar: {
           title: 'الشريط الجانبي AI الأيمن',
@@ -836,7 +840,7 @@ export default {
       aiChat: {
         sidebar: {
           title: 'فتح شريط AI الأيمن',
-          description: 'انقر المدخل أعلى اليمين أو استخدم Command/Ctrl + L؛ كما يمكن لأيقونة AI في شريط الوحدات الأيسر فتحه.'
+          description: 'انقر المدخل أعلى اليمين أو استخدم Command/Alt + L؛ كما يمكن لأيقونة AI في شريط الوحدات الأيسر فتحه.'
         },
         sidebarOverview: {
           title: 'الشريط الجانبي AI الأيمن',

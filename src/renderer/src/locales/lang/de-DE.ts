@@ -687,6 +687,11 @@ export default {
     noModelsConfigured: 'Keine Modelle konfiguriert. Bitte konfigurieren Sie Modelle in den Einstellungen',
     selectModel: 'Modell auswählen'
   },
+  quickJump: {
+    placeholder: 'Hosts, Tabs, Snippets, Wissensdatenbank durchsuchen',
+    hosts: 'Hosts',
+    tabs: 'Tabs'
+  },
   shortcuts: {
     actions: {
       openSettings: 'Einstellungen öffnen',
@@ -700,7 +705,7 @@ export default {
       searchHost: 'Host suchen',
       newTab: 'Neuer Tab',
       openFileManager: 'Dateimanager öffnen',
-      clearTerminal: 'Terminal leeren',
+      quickJump: 'Schnellsprung',
       fontSizeIncrease: 'Schriftgröße erhöhen',
       fontSizeDecrease: 'Schriftgröße verringern',
       toggleLayout: 'Layout umschalten (Terminal/Agents)',
@@ -714,7 +719,6 @@ export default {
       openSettings: 'Einstellungen öffnen',
       openCommandDialog: 'Inline-Befehl-Generator öffnen',
       openFileManager: 'Dateimanager öffnen',
-      clearTerminal: 'Terminal leeren',
       toggleLayout: 'Layout umschalten (Terminal/Agents)'
     }
   },
@@ -770,7 +774,7 @@ export default {
         },
         aiToggle: {
           title: 'Rechter AI-Chat-Einstieg',
-          description: 'Klicken Sie hier oder verwenden Sie Command/Ctrl + L, um die AI-Chat-Leiste rechts vom Terminal zu öffnen.'
+          description: 'Klicken Sie hier oder verwenden Sie Command/Alt + L, um die AI-Chat-Leiste rechts vom Terminal zu öffnen.'
         },
         aiSidebar: {
           title: 'Rechte AI-Seitenleiste',
@@ -852,7 +856,7 @@ export default {
       aiChat: {
         sidebar: {
           title: 'Rechte AI-Leiste öffnen',
-          description: 'Klicken Sie oben rechts oder verwenden Sie Command/Ctrl + L; auch das AI-Symbol in der linken Modulleiste öffnet sie.'
+          description: 'Klicken Sie oben rechts oder verwenden Sie Command/Alt + L; auch das AI-Symbol in der linken Modulleiste öffnet sie.'
         },
         sidebarOverview: {
           title: 'Rechte AI-Seitenleiste',

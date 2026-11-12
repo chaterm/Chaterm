@@ -685,6 +685,11 @@ export default {
     noModelsConfigured: 'Nessun modello configurato. Per favore, configura i modelli in impostazioni',
     selectModel: 'Seleziona modello'
   },
+  quickJump: {
+    placeholder: 'Cerca host, tab, snippets, base di conoscenza',
+    hosts: 'Host',
+    tabs: 'Tab'
+  },
   shortcuts: {
     actions: {
       openSettings: 'Apri impostazioni',
@@ -698,7 +703,7 @@ export default {
       searchHost: 'Cerca host',
       newTab: 'Nuovo Tab',
       openFileManager: 'Apri gestore file',
-      clearTerminal: 'Cancella terminale',
+      quickJump: 'Salto rapido',
       fontSizeIncrease: 'Aumenta dimensione font',
       fontSizeDecrease: 'Diminuisci dimensione font',
       toggleLayout: 'Attiva layout (Terminal/Agents)',
@@ -712,7 +717,6 @@ export default {
       openSettings: 'Apri impostazioni',
       openCommandDialog: 'Apri generatore comando inline',
       openFileManager: 'Apri gestore file',
-      clearTerminal: 'Cancella terminale',
       toggleLayout: 'Attiva layout (Terminal/Agents)'
     }
   },
@@ -768,7 +772,7 @@ export default {
         },
         aiToggle: {
           title: 'Ingresso chat AI a destra',
-          description: 'Fai clic qui o usa Command/Ctrl + L per aprire la barra chat AI a destra del terminale.'
+          description: 'Fai clic qui o usa Command/Alt + L per aprire la barra chat AI a destra del terminale.'
         },
         aiSidebar: {
           title: 'Barra laterale AI destra',
@@ -848,7 +852,7 @@ export default {
       aiChat: {
         sidebar: {
           title: 'Apri barra AI destra',
-          description: "Fai clic in alto a destra o usa Command/Ctrl + L; anche l'icona AI nella barra moduli sinistra la apre."
+          description: "Fai clic in alto a destra o usa Command/Alt + L; anche l'icona AI nella barra moduli sinistra la apre."
         },
         sidebarOverview: {
           title: 'Barra laterale AI destra',

@@ -684,6 +684,11 @@ export default {
     noModelsConfigured: 'Нет настроенных моделей. Пожалуйста, настройте модели в настройках',
     selectModel: 'Выбрать модель'
   },
+  quickJump: {
+    placeholder: 'Поиск хостов, вкладок, фрагментов, базы знаний',
+    hosts: 'Хосты',
+    tabs: 'Вкладки'
+  },
   shortcuts: {
     actions: {
       openSettings: 'Открыть настройки',
@@ -697,7 +702,7 @@ export default {
       searchHost: 'Поиск хоста',
       newTab: 'Новая вкладка',
       openFileManager: 'Открыть менеджер файлов',
-      clearTerminal: 'Очистить терминал',
+      quickJump: 'Быстрый переход',
       fontSizeIncrease: 'Увеличить размер шрифта',
       fontSizeDecrease: 'Уменьшить размер шрифта',
       toggleLayout: 'Переключить макет (терминал/агенты)',
@@ -711,7 +716,6 @@ export default {
       openSettings: 'Открыть настройки',
       openCommandDialog: 'Генератор встроенных команд',
       openFileManager: 'Открыть менеджер файлов',
-      clearTerminal: 'Очистить терминал',
       toggleLayout: 'Переключить макет (терминал/агенты)'
     }
   },
@@ -767,7 +771,7 @@ export default {
         },
         aiToggle: {
           title: 'Вход в правый чат AI',
-          description: 'Нажмите здесь или используйте Command/Ctrl + L, чтобы открыть чат AI справа от терминала.'
+          description: 'Нажмите здесь или используйте Command/Alt + L, чтобы открыть чат AI справа от терминала.'
         },
         aiSidebar: {
           title: 'Правая боковая панель AI',
@@ -846,7 +850,7 @@ export default {
       aiChat: {
         sidebar: {
           title: 'Открыть правую панель AI',
-          description: 'Нажмите вход справа вверху или используйте Command/Ctrl + L; значок AI на левой панели модулей тоже открывает ее.'
+          description: 'Нажмите вход справа вверху или используйте Command/Alt + L; значок AI на левой панели модулей тоже открывает ее.'
         },
         sidebarOverview: {
           title: 'Правая боковая панель AI',
