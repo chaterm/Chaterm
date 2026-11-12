@@ -585,6 +585,14 @@
       {{ t('personal.copyPassword') }}
     </div>
     <div
+      v-if="canEditDirectHost(contextMenuData)"
+      class="context-menu-item"
+      @click="handleContextMenuAction('deleteHost')"
+    >
+      <DeleteOutlined class="menu-icon" />
+      {{ t('common.delete') }}
+    </div>
+    <div
       v-if="contextMenuData.isRecentConnection"
       class="context-menu-item"
       @click="handleContextMenuAction('removeRecentConnection')"
@@ -2202,6 +2210,7 @@ const handleContextMenu = (event: MouseEvent, dataRef: any) => {
   // Check if the node has any available menu options
   const hasCopyOption = isSecondLevel(dataRef)
   const hasDirectHostOption = canEditDirectHost(dataRef)
+  const hasDeleteHostOption = canEditDirectHost(dataRef)
   const hasRecentConnectionOption = dataRef.isRecentConnection === true
   const hasFavoriteOption = dataRef.favorite !== undefined
   const hasCommentOption = isOrganizationAsset(dataRef.asset_type) && !dataRef.key.startsWith('common_')
@@ -2231,7 +2240,7 @@ const handleContextMenu = (event: MouseEvent, dataRef: any) => {
   const menuItemCount = [
     hasCopyOption,
     hasDirectHostOption,
-    hasDirectHostOption,
+    hasDeleteHostOption,
     hasRecentConnectionOption,
     hasFavoriteOption,
     hasCommentOption,
@@ -2338,6 +2347,32 @@ const handleCopyPassword = async (asset: any): Promise<void> => {
   }
 }
 
+const handleDeleteDirectHost = (asset: any): void => {
+  if (!asset?.uuid) return
+
+  Modal.confirm({
+    title: t('personal.deleteConfirm'),
+    content: t('personal.deleteConfirmContent', { name: asset.title }),
+    okText: t('common.delete'),
+    okType: 'danger',
+    cancelText: t('common.cancel'),
+    maskClosable: true,
+    onOk: async () => {
+      try {
+        const result = await window.api.deleteAsset({ uuid: asset.uuid })
+        if (result?.data?.message === 'success') {
+          message.success(t('personal.deleteSuccess', { name: asset.title }))
+          eventBus.emit('LocalAssetMenu')
+        } else {
+          message.error(t('personal.deleteFailure'))
+        }
+      } catch (error: any) {
+        message.error(t('personal.deleteError', { error: error?.message || t('ssh.unknownError') }))
+      }
+    }
+  })
+}
+
 // Copy exactly what the tree row shows: IP in IP mode, hostname otherwise
 const handleCopyDisplayText = async (asset: any): Promise<void> => {
   try {
@@ -2367,6 +2402,9 @@ const handleContextMenuAction = async (action: string) => {
       break
     case 'copyPassword':
       await handleCopyPassword(contextMenuData.value)
+      break
+    case 'deleteHost':
+      handleDeleteDirectHost(contextMenuData.value)
       break
     case 'removeRecentConnection':
       await handleRemoveRecentConnection(contextMenuData.value)
