@@ -32,7 +32,8 @@ export function useStateSnapshot(emit: (event: 'state-changed', ...args: any[]) 
           buttonsDisabled: tab.session.buttonsDisabled,
           isExecutingCommand: tab.session.isExecutingCommand,
           showRetryButton: tab.session.showRetryButton,
-          shouldStickToBottom: tab.session.shouldStickToBottom
+          shouldStickToBottom: tab.session.shouldStickToBottom,
+          messageQueue: [...tab.session.messageQueue]
         }
       }))
     }
@@ -72,7 +73,8 @@ export function useStateSnapshot(emit: (event: 'state-changed', ...args: any[]) 
             lastStreamMessage: null,
             lastPartialMessage: null,
             lastStateChatermMessages: null,
-            shouldStickToBottom: savedTab.session.shouldStickToBottom ?? true
+            shouldStickToBottom: savedTab.session.shouldStickToBottom ?? true,
+            messageQueue: savedTab.session.messageQueue ? [...savedTab.session.messageQueue] : []
           }
         }))
       }

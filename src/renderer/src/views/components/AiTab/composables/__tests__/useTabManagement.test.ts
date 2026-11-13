@@ -168,7 +168,8 @@ describe('useTabManagement', () => {
     lastPartialMessage: null,
     lastStateChatermMessages: null,
     shouldStickToBottom: true,
-    isCancelled: false
+    isCancelled: false,
+    messageQueue: []
   })
 
   const createMockTab = (id: string) => ({

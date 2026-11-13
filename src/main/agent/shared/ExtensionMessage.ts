@@ -20,6 +20,7 @@ export interface ExtensionMessage {
     | 'taskDeleted'
     | 'mcpServersUpdate'
     | 'notification'
+    | 'userMessageInjected'
 
   text?: string
   state?: ExtensionState
@@ -28,6 +29,8 @@ export interface ExtensionMessage {
   // For command generation response
   command?: string
   tabId?: string
+  // For userMessageInjected: id of the renderer queue item the main process has consumed
+  queuedMessageId?: string
   // For explain command response
   explanation?: string
   commandMessageId?: string

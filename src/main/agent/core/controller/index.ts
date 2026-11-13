@@ -383,6 +383,17 @@ export class Controller {
           }
         }
         break
+      case 'injectUserMessage':
+        if (!targetTask || !message.queuedMessageId) {
+          logger.warn('Ignoring injectUserMessage without a running task', {
+            event: 'agent.controller.inject_user_message.ignored',
+            taskId: targetTaskId,
+            hasQueuedMessageId: !!message.queuedMessageId
+          })
+          break
+        }
+        await targetTask.injectUserMessage(message.queuedMessageId, message.text ?? '', message.contentParts)
+        break
       case 'showTaskWithId':
         this.showTaskWithId(message.text!, message.hosts || [])
         break

@@ -643,6 +643,13 @@
             :submit-input="(commandId: string, input: string) => submitInteraction(commandId, input, true, 'freeform')"
             @cancel="cancelInteraction"
           />
+          <MessageQueuePanel
+            :items="tab.session.messageQueue"
+            @send-now="messageQueue.sendNow"
+            @remove="messageQueue.remove"
+            @edit="messageQueue.edit"
+            @move="messageQueue.move"
+          />
           <InputSendContainer
             :is-active-tab="tab.id === currentChatId"
             :send-message="sendMessage"
@@ -894,6 +901,7 @@ import ConnectionPicker from '@views/components/Database/components/ConnectionPi
 import DatabasePicker from '@views/components/Database/components/DatabasePicker.vue'
 import SchemaPicker from '@views/components/Database/components/SchemaPicker.vue'
 import InputSendContainer from './components/InputSendContainer.vue'
+import MessageQueuePanel from './components/MessageQueuePanel.vue'
 import AiChatSearchBar from './components/AiChatSearchBar.vue'
 import ChatNavRail from './components/ChatNavRail.vue'
 import MarkdownRenderer from './components/format/markdownRenderer.vue'
@@ -1089,6 +1097,7 @@ const {
   markdownRendererRefs,
   sendMessage,
   sendMessageWithContent,
+  messageQueue,
   setMarkdownRendererRef,
   formatParamValue,
   handleFeedback,

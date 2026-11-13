@@ -3,6 +3,7 @@ import { ref } from 'vue'
 import { useChatMessages } from '../useChatMessages'
 import { useSessionState } from '../useSessionState'
 import type { ChatMessage, Host } from '../../types'
+import type { QueuedMessage } from '../useSessionState'
 import type { ExtensionMessage } from '@shared/ExtensionMessage'
 import type { Todo } from '@/types/todo'
 import eventBus from '@/utils/eventBus'
@@ -84,7 +85,8 @@ describe('useChatMessages', () => {
     lastPartialMessage: null,
     lastStateChatermMessages: null,
     shouldStickToBottom: true,
-    isCancelled: false
+    isCancelled: false,
+    messageQueue: [] as QueuedMessage[]
   })
 
   const createMockTab = (id: string, session = createMockSession()) => ({
@@ -356,6 +358,47 @@ describe('useChatMessages', () => {
   })
 
   describe('sendMessage', () => {
+    const createHook = () =>
+      useChatMessages(mockScrollToBottom, mockClearTodoState, mockMarkLatestMessageWithTodoUpdate, mockCurrentTodos, mockCheckModelConfig)
+
+    it('queues the message instead of sending it while the agent is running', async () => {
+      mockTab.session.responseLoading = true
+      const { sendMessage } = createHook()
+      const mockState = vi.mocked(useSessionState)()
+      mockState.chatInputParts.value = [{ type: 'text', text: 'next step' }]
+
+      await sendMessage('send')
+
+      expect(mockSendToMain).not.toHaveBeenCalled()
+      expect(mockState.chatInputParts.value).toEqual([])
+      expect(mockTab.session.messageQueue).toHaveLength(1)
+      expect(mockTab.session.messageQueue[0]).toMatchObject({ content: 'next step', injecting: false })
+      expect(mockTab.session.chatHistory).toHaveLength(0)
+    })
+
+    it('keeps the todo list while a message is only queued', async () => {
+      mockTab.session.responseLoading = true
+      mockCurrentTodos.value = [{ id: 't1' }]
+      const { sendMessage } = createHook()
+      vi.mocked(useSessionState)().chatInputParts.value = [{ type: 'text', text: 'next step' }]
+
+      await sendMessage('send')
+
+      expect(mockClearTodoState).not.toHaveBeenCalled()
+    })
+
+    it('does not queue command approvals while the agent is running', async () => {
+      mockTab.session.responseLoading = true
+      mockTab.session.chatHistory.push({ id: 'u1', role: 'user', content: 'hi' } as ChatMessage)
+      const { sendMessage } = createHook()
+      vi.mocked(useSessionState)().chatInputParts.value = [{ type: 'text', text: 'ls' }]
+
+      await sendMessage('commandSend')
+
+      expect(mockTab.session.messageQueue).toHaveLength(0)
+      expect(mockSendToMain).toHaveBeenCalled()
+    })
+
     it('should return error when model config check fails', async () => {
       const { notification } = await import('ant-design-vue')
       const eventBus = (await import('@/utils/eventBus')).default
@@ -982,6 +1025,63 @@ describe('useChatMessages', () => {
         expect(session.chatHistory[0]).toMatchObject({ say: 'command_output', type: 'say' })
         expect(session.responseLoading).toBe(false)
       })
+    })
+
+    it('sends the next queued message when the turn completes', async () => {
+      mockTab.session.responseLoading = true
+      mockTab.session.chatHistory.push({ id: 'u1', role: 'user', content: 'first' } as ChatMessage)
+      mockTab.session.messageQueue.push({ id: 'q1', content: 'second', contentParts: [{ type: 'text', text: 'second' }], injecting: false })
+      const { processMainMessage } = useChatMessages(
+        mockScrollToBottom,
+        mockClearTodoState,
+        mockMarkLatestMessageWithTodoUpdate,
+        mockCurrentTodos,
+        mockCheckModelConfig
+      )
+
+      await processMainMessage({
+        type: 'partialMessage',
+        tabId: 'test-tab-1',
+        partialMessage: { text: 'done', type: 'ask', ask: 'completion_result', partial: false, ts: 100 }
+      } as ExtensionMessage)
+
+      expect(mockSendToMain).toHaveBeenCalledWith(expect.objectContaining({ type: 'askResponse', text: 'second', tabId: 'test-tab-1' }))
+      expect(mockTab.session.messageQueue).toHaveLength(0)
+      expect(mockTab.session.responseLoading).toBe(true)
+    })
+
+    it('adds a confirmed injected message to the chat history', async () => {
+      mockTab.session.responseLoading = true
+      mockTab.session.messageQueue.push({ id: 'q1', content: 'also check disk', contentParts: [], injecting: true })
+      const { processMainMessage } = useChatMessages(
+        mockScrollToBottom,
+        mockClearTodoState,
+        mockMarkLatestMessageWithTodoUpdate,
+        mockCurrentTodos,
+        mockCheckModelConfig
+      )
+
+      await processMainMessage({ type: 'userMessageInjected', tabId: 'test-tab-1', queuedMessageId: 'q1' } as ExtensionMessage)
+
+      expect(mockTab.session.messageQueue).toHaveLength(0)
+      expect(mockTab.session.chatHistory).toHaveLength(1)
+      expect(mockTab.session.chatHistory[0]).toMatchObject({ role: 'user', content: 'also check disk' })
+    })
+
+    it('ignores an injected confirmation without a queued message id', async () => {
+      mockTab.session.messageQueue.push({ id: 'q1', content: 'keep me', contentParts: [], injecting: true })
+      const { processMainMessage } = useChatMessages(
+        mockScrollToBottom,
+        mockClearTodoState,
+        mockMarkLatestMessageWithTodoUpdate,
+        mockCurrentTodos,
+        mockCheckModelConfig
+      )
+
+      await processMainMessage({ type: 'userMessageInjected', tabId: 'test-tab-1' } as ExtensionMessage)
+
+      expect(mockTab.session.messageQueue).toHaveLength(1)
+      expect(mockTab.session.chatHistory).toHaveLength(0)
     })
 
     it('should handle api_req_failed message', async () => {

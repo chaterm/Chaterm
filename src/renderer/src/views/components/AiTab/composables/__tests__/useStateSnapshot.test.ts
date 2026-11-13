@@ -21,7 +21,8 @@ describe('useStateSnapshot', () => {
     lastPartialMessage: null,
     lastStateChatermMessages: null,
     shouldStickToBottom: true,
-    isCancelled: false
+    isCancelled: false,
+    messageQueue: []
   })
 
   const createMockTab = (id: string) => ({
@@ -91,6 +92,18 @@ describe('useStateSnapshot', () => {
 
       expect(state.chatTabs[0].session.responseLoading).toBe(true)
       expect(state.chatTabs[0].session.showSendButton).toBe(false)
+    })
+
+    it('should snapshot the message queue as an independent copy', () => {
+      const mockState = vi.mocked(useSessionState)()
+      mockState.chatTabs.value[0].session.messageQueue = [{ id: 'q1', content: 'later', contentParts: [], injecting: false }]
+
+      const { getCurrentState } = useStateSnapshot(mockEmit)
+      const state = getCurrentState()
+      state.chatTabs[0].session.messageQueue.push({ id: 'q2', content: 'extra', contentParts: [], injecting: false })
+
+      expect(state.chatTabs[0].session.messageQueue[0].id).toBe('q1')
+      expect(mockState.chatTabs.value[0].session.messageQueue).toHaveLength(1)
     })
 
     it('should clone arrays and objects', () => {
@@ -181,6 +194,24 @@ describe('useStateSnapshot', () => {
       expect(mockState.chatTabs.value[0].title).toBe('Restored Tab')
       expect(mockState.chatTabs.value[0].modelValue).toBe('gpt-4')
       expect(mockState.currentChatId.value).toBe('tab-2')
+    })
+
+    it('should restore the message queue and default it to empty', () => {
+      const mockState = vi.mocked(useSessionState)()
+      const baseTab = { title: 'Tab', hosts: [], chatType: 'agent', autoUpdateHost: true, inputValue: '' }
+      const queued = { id: 'q1', content: 'later', contentParts: [], injecting: false }
+
+      const { restoreState } = useStateSnapshot(mockEmit)
+      restoreState({
+        currentChatId: 'with-queue',
+        chatTabs: [
+          { ...baseTab, id: 'with-queue', session: { chatHistory: [], messageQueue: [queued] } },
+          { ...baseTab, id: 'without-queue', session: { chatHistory: [] } }
+        ]
+      })
+
+      expect(mockState.chatTabs.value[0].session.messageQueue).toEqual([queued])
+      expect(mockState.chatTabs.value[1].session.messageQueue).toEqual([])
     })
 
     it('should handle null state', () => {

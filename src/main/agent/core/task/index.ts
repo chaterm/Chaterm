@@ -290,6 +290,10 @@ export class Task {
   private commandSecurityManager: CommandSecurityManager
   private askResponsePayload?: { response: ChatermAskResponse; text?: string; contentParts?: ContentPart[]; toolResult?: ToolResultPayload }
   private nextUserInputContentParts?: ContentPart[]
+  // Messages the user chose to send immediately while the agent is running.
+  // They are merged into the next LLM request, or answer a pending completion ask.
+  private pendingInjectedMessages: { id: string; text: string; contentParts?: ContentPart[] }[] = []
+  private isAwaitingCompletionAsk = false
   private lastMessageTs?: number
   private consecutiveMistakeCount: number = 0
   private abort: boolean = false
@@ -1564,9 +1568,17 @@ export class Task {
       await this.postStateToWebview()
     }
 
-    await pWaitFor(() => this.askResponsePayload !== undefined || this.lastMessageTs !== askTsRef.value, {
-      interval: 100
-    })
+    if (type === 'completion_result') {
+      this.isAwaitingCompletionAsk = true
+      await this.deliverNextInjectedMessageAsReply()
+    }
+    try {
+      await pWaitFor(() => this.askResponsePayload !== undefined || this.lastMessageTs !== askTsRef.value, {
+        interval: 100
+      })
+    } finally {
+      this.isAwaitingCompletionAsk = false
+    }
 
     if (this.lastMessageTs !== askTsRef.value) {
       throw new Error('Current ask promise was ignored')
@@ -1659,6 +1671,51 @@ export class Task {
         })
       }
     }
+  }
+
+  /**
+   * Queue a user message to be sent with the next LLM request without interrupting the run.
+   * When the agent is already waiting on a completion ask, the message answers it directly.
+   */
+  async injectUserMessage(id: string, text: string, contentParts?: ContentPart[]): Promise<void> {
+    this.pendingInjectedMessages.push({ id, text, contentParts })
+    if (this.isAwaitingCompletionAsk) {
+      await this.deliverNextInjectedMessageAsReply()
+    }
+  }
+
+  private async deliverNextInjectedMessageAsReply(): Promise<void> {
+    if (this.askResponsePayload) return
+    const next = this.pendingInjectedMessages.shift()
+    if (!next) return
+    this.setNextUserInputContentParts(next.contentParts)
+    this.askResponsePayload = { response: 'messageResponse', text: next.text, contentParts: next.contentParts }
+    Task.clearCommandContextsForTask(this.taskId)
+    await this.clearTodos('new_user_input')
+    await this.postMessageToWebview({ type: 'userMessageInjected', queuedMessageId: next.id })
+  }
+
+  /**
+   * Fold pending injected messages into the user content of the upcoming LLM request.
+   */
+  private async drainInjectedMessages(userContent: UserContent): Promise<void> {
+    if (this.pendingInjectedMessages.length === 0) return
+    const drained = this.pendingInjectedMessages
+    this.pendingInjectedMessages = []
+
+    const mergedParts: ContentPart[] = [...(this.consumeNextUserInputContentParts() ?? [])]
+    for (const message of drained) {
+      await this.saveUserMessage(message.text, message.contentParts)
+      userContent.push({
+        type: 'text',
+        text: formatMessage(this.messages.userInjectedMessage, { message: message.text })
+      })
+      if (message.contentParts) {
+        mergedParts.push(...message.contentParts)
+      }
+      await this.postMessageToWebview({ type: 'userMessageInjected', queuedMessageId: message.id })
+    }
+    this.setNextUserInputContentParts(mergedParts)
   }
 
   async handleWebviewAskResponse(
@@ -1979,6 +2036,7 @@ export class Task {
 
   async abortTask() {
     this.abort = true // will stop any autonomously running promises
+    this.pendingInjectedMessages = []
     this.remoteTerminalManager.disposeAll()
     // Clean up command contexts to prevent stale IPC references
     Task.clearCommandContextsForTask(this.taskId)
@@ -1992,6 +2050,7 @@ export class Task {
 
   async gracefulAbortTask() {
     this.gracefulCancel = true
+    this.pendingInjectedMessages = []
     // Don't set abort = true, so the main loop continues
     // Just stop the current process
     if (this.currentRunningProcess) {
@@ -2568,6 +2627,8 @@ export class Task {
     // that were accumulated during the previous assistant turn into the
     // API conversation history as dedicated tool_result messages.
     await this.flushPendingToolResults()
+
+    await this.drainInjectedMessages(userContent)
 
     // Check if user input needs todo creation (for subsequent conversations)
     await this.checkUserContentForTodo(userContent)

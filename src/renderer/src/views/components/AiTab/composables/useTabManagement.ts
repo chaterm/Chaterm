@@ -372,6 +372,7 @@ export function useTabManagement(options: TabManagementOptions) {
         lastStateChatermMessages: null,
         shouldStickToBottom: true,
         isCancelled: false,
+        messageQueue: [],
         historyPagination: createHistoryPaginationState(pageResult)
       }
 

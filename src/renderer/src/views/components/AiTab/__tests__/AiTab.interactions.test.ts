@@ -178,7 +178,8 @@ const createSession = (): ChatTab['session'] => ({
   lastPartialMessage: null,
   lastStateChatermMessages: null,
   shouldStickToBottom: true,
-  isCancelled: false
+  isCancelled: false,
+  messageQueue: []
 })
 
 const createMockState = () => {
@@ -290,6 +291,7 @@ const createMockState = () => {
     markdownRendererRefs: ref({}),
     sendMessage: vi.fn(),
     sendMessageWithContent: vi.fn(),
+    messageQueue: { sendNow: vi.fn(), remove: vi.fn(), edit: vi.fn(), move: vi.fn() },
     setMarkdownRendererRef: vi.fn(),
     formatParamValue: vi.fn((value: unknown) => value),
     handleFeedback: vi.fn(),
