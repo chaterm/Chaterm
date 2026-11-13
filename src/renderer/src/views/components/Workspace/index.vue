@@ -26,6 +26,7 @@
             :placeholder="t('common.search')"
             allow-clear
             @input="onSearchInput"
+            @keydown="handleSearchKeydown"
           >
             <template #suffix>
               <search-outlined />
@@ -93,6 +94,7 @@
             <a-tree
               v-if="assetTreeData.length > 0"
               :key="treeRenderKey"
+              ref="personalTreeRef"
               v-model:selected-keys="selectedKeys"
               v-model:expanded-keys="expandedKeys"
               :tree-data="assetTreeData"
@@ -182,6 +184,7 @@
             <a-tree
               v-if="enterpriseData.length > 0"
               :key="treeRenderKey"
+              ref="enterpriseTreeRef"
               v-model:selected-keys="selectedKeys"
               v-model:expanded-keys="expandedKeys"
               :tree-data="enterpriseData"
@@ -706,6 +709,8 @@ const selectedKeys = ref<string[]>([])
 const expandedKeys = ref<string[]>([])
 const searchValue = ref('')
 const searchInputRef = ref()
+const personalTreeRef = ref()
+const enterpriseTreeRef = ref()
 const editingNode = ref(null)
 const editingTitle = ref('')
 const refreshingNode = ref(null)
@@ -1058,17 +1063,31 @@ const onSearchInput = () => {
     clearTimeout(searchDebounceTimer)
   }
 
-  searchDebounceTimer = setTimeout(() => {
-    searchDebounceTimer = null
-    treeRenderKey.value++
-    if (isPersonalWorkspace.value) {
-      assetTreeData.value = filterTreeNodes(searchValue.value)
-      expandedKeys.value = getTopLevelKeys(assetTreeData.value)
-    } else {
-      enterpriseData.value = filterTreeNodes(searchValue.value)
-      expandedKeys.value = getTopLevelKeys(enterpriseData.value)
-    }
-  }, 300)
+  searchDebounceTimer = setTimeout(applySearch, 300)
+}
+
+const applySearch = () => {
+  searchDebounceTimer = null
+  treeRenderKey.value++
+  if (isPersonalWorkspace.value) {
+    assetTreeData.value = filterTreeNodes(searchValue.value)
+    expandedKeys.value = getTopLevelKeys(assetTreeData.value)
+  } else {
+    enterpriseData.value = filterTreeNodes(searchValue.value)
+    expandedKeys.value = getTopLevelKeys(enterpriseData.value)
+  }
+  // Highlight the first match so Enter connects right after typing a query
+  if (searchValue.value) {
+    const [firstHost] = getVisibleHosts()
+    selectedKeys.value = firstHost ? [firstHost.key] : []
+  }
+}
+
+// Apply a search that is still waiting on its debounce timer
+const flushPendingSearch = () => {
+  if (searchDebounceTimer === null) return
+  clearTimeout(searchDebounceTimer)
+  applySearch()
 }
 
 const focusSearchInput = async () => {
@@ -1104,6 +1123,51 @@ const focusSearchInput = async () => {
   }
 
   await attemptFocus()
+}
+
+// Host rows currently shown in the active tree, in display order. Hosts inside a
+// collapsed folder are not rendered, so they are skipped.
+const getVisibleHosts = (): AssetNode[] => {
+  const hosts: AssetNode[] = []
+  const walk = (nodes: AssetNode[]) => {
+    for (const node of nodes) {
+      if (node.children === undefined) {
+        hosts.push(node)
+      } else if (expandedKeys.value.includes(node.key)) {
+        walk(node.children)
+      }
+    }
+  }
+  walk(isPersonalWorkspace.value ? assetTreeData.value : enterpriseData.value)
+  return hosts
+}
+
+const moveHostSelection = async (step: 1 | -1) => {
+  const hosts = getVisibleHosts()
+  if (hosts.length === 0) return
+  const index = hosts.findIndex((host) => host.key === selectedKeys.value[0])
+  const next = index < 0 ? (step === 1 ? 0 : hosts.length - 1) : (index + step + hosts.length) % hosts.length
+  selectedKeys.value = [hosts[next].key]
+  await nextTick()
+  const treeRef = isPersonalWorkspace.value ? personalTreeRef.value : enterpriseTreeRef.value
+  treeRef?.scrollTo({ key: hosts[next].key })
+}
+
+const connectSelectedHost = () => {
+  const host = getVisibleHosts().find((item) => item.key === selectedKeys.value[0])
+  if (host) clickServer(host)
+}
+
+const handleSearchKeydown = (event: KeyboardEvent) => {
+  if (event.isComposing || event.keyCode === 229) return
+  if (event.key !== 'ArrowDown' && event.key !== 'ArrowUp' && event.key !== 'Enter') return
+  event.preventDefault()
+  flushPendingSearch()
+  if (event.key === 'Enter') {
+    connectSelectedHost()
+  } else {
+    void moveHostSelection(event.key === 'ArrowDown' ? 1 : -1)
+  }
 }
 
 const handleSelect = (_, { selected, selectedNodes }) => {
