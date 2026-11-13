@@ -326,7 +326,7 @@
             @click="handleSendClick('send')"
           >
             <img
-              v-if="responseLoading"
+              v-if="responseLoading && !shouldQueueOnSend()"
               :src="stopIcon"
               alt="stop"
               class="interrupt-icon"
@@ -606,10 +606,17 @@ const hasSendableContent = () => {
   )
 }
 
+// While the agent runs, typed content is queued instead of interrupting it
+const shouldQueueOnSend = () => props.mode !== 'edit' && hasSendableContent()
+
 // Send click handler supporting both modes (defined before useEditableContent for dependency)
 const handleSendClick = async (type: string) => {
   if (responseLoading.value) {
-    props.handleInterrupt()
+    if (shouldQueueOnSend()) {
+      props.sendMessage(type)
+    } else {
+      props.handleInterrupt()
+    }
     return
   }
 
