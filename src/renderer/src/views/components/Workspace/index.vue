@@ -247,6 +247,7 @@
                     <span class="hostname-text">{{ getDisplayText(dataRef, title) }}</span>
                     <div class="comment-edit-container">
                       <a-input
+                        ref="commentInputRef"
                         v-model:value="editingComment"
                         :placeholder="t('personal.commentPlaceholder')"
                         size="small"
@@ -711,6 +712,7 @@ const editingTitle = ref('')
 const refreshingNode = ref(null)
 const editingComment = ref('')
 const commentNode = ref(null)
+const commentInputRef = ref()
 const showCreateFolderModal = ref(false)
 const showEditFolderModal = ref(false)
 const showMoveToFolderModal = ref(false)
@@ -1953,9 +1955,11 @@ const handleRefresh = async (dataRef: any) => {
   }
 }
 
-const handleCommentClick = (dataRef: any) => {
+const handleCommentClick = async (dataRef: any) => {
   commentNode.value = dataRef.key
   editingComment.value = dataRef.comment || ''
+  await nextTick()
+  commentInputRef.value?.focus()
 }
 
 const saveComment = async (dataRef: any) => {
@@ -2415,7 +2419,7 @@ const handleContextMenuAction = async (action: string) => {
       handleFavoriteClick(contextMenuData.value)
       break
     case 'comment':
-      handleCommentClick(contextMenuData.value)
+      await handleCommentClick(contextMenuData.value)
       break
     case 'move':
       handleMoveToFolder(contextMenuData.value)

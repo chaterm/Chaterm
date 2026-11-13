@@ -518,6 +518,57 @@ describe('getLocalAssetRouteLogic - recent connections', () => {
     expect(recentRouter).toBeDefined()
     expect(recentRouter.children[0].title).toBe('renamed-org-host')
   })
+
+  it('should carry the organization asset comment on recent connections', async () => {
+    const recentSql: string[] = []
+    const commentPrepareMock = vi.fn((sql: string) => {
+      if (sql.includes('PRAGMA table_info')) {
+        return { all: () => [{ name: 'comment' }] }
+      }
+      if (sql.includes('SELECT name FROM sqlite_master') && sql.includes('t_custom_folders')) {
+        return { get: () => ({ name: 't_custom_folders' }) }
+      }
+      if (sql.includes('SELECT name FROM sqlite_master') && sql.includes('t_asset_folder_mapping')) {
+        return { get: () => ({ name: 't_asset_folder_mapping' }) }
+      }
+      if (sql.includes('t_connection_history') && sql.includes("organization_id = 'personal'")) {
+        return { all: () => [] }
+      }
+      if (sql.includes('t_connection_history') && sql.includes("organization_id != 'personal'")) {
+        recentSql.push(sql)
+        return {
+          all: () => [
+            {
+              asset_uuid: 'org-child-uuid',
+              asset_ip: '10.0.0.9',
+              asset_label: 'org-host',
+              comment: 'gpu node',
+              asset_port: 22,
+              asset_username: 'admin',
+              asset_type: 'organization',
+              organization_id: 'org-uuid',
+              last_connected: '2026-04-20 10:00:00'
+            }
+          ]
+        }
+      }
+      if (sql.includes('favorite = 1')) {
+        return { all: () => [] }
+      }
+      return { all: () => [], get: () => undefined, run: () => ({ changes: 0 }) }
+    })
+
+    const { getLocalAssetRouteLogic } = await import('../assets.routes')
+    const mockDb = { prepare: commentPrepareMock } as any
+
+    const result = await getLocalAssetRouteLogic(mockDb, 'tree', ['organization'])
+
+    const recentRouter = result.data.routers.find((r: any) => r.key === 'recent_connections')
+    expect(recentRouter.children[0].comment).toBe('gpu node')
+    expect(recentSql).toHaveLength(1)
+    expect(recentSql[0]).toContain('oa.comment')
+  })
+
   it('should gracefully handle t_connection_history table not existing', async () => {
     const errorPrepareMock = vi.fn((sql: string) => {
       if (sql.includes('PRAGMA table_info')) {

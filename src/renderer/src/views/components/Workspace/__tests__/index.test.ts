@@ -270,6 +270,49 @@ describe('Workspace tree search rendering', () => {
     }
   })
 
+  it('focuses the comment input when a bastion host starts editing its comment', async () => {
+    const focus = vi.fn()
+    const wrapper = mount(Workspace, {
+      global: {
+        stubs: {
+          'a-tree': {
+            props: ['treeData'],
+            template:
+              '<div class="slot-tree"><div v-for="node in treeData" :key="node.key"><slot name="title" :title="node.title" :data-ref="node" /></div></div>'
+          },
+          'a-input': {
+            props: ['value'],
+            template: '<input class="input-stub" :value="value" />',
+            setup: (_: unknown, { expose }: { expose: (api: Record<string, unknown>) => void }) => expose({ focus })
+          },
+          'a-tabs': true,
+          'a-tab-pane': true,
+          'a-button': true,
+          'a-tooltip': true,
+          'a-dropdown': true,
+          'a-menu': true,
+          'a-menu-item': true,
+          'a-popconfirm': true
+        }
+      }
+    })
+    await nextTick()
+    const vm = wrapper.vm as any
+    const bastionHost = { key: 'org_10.0.0.9_host', title: 'host', ip: '10.0.0.9', comment: 'gpu node', organizationId: 'org-uuid' }
+    vm.enterpriseData = [bastionHost]
+    await nextTick()
+
+    vm.contextMenuData = bastionHost
+    await vm.handleContextMenuAction('comment')
+    await nextTick()
+    expect(vm.commentNode).toBe('org_10.0.0.9_host')
+    expect(vm.editingComment).toBe('gpu node')
+    expect(wrapper.find('.comment-edit-container .input-stub').exists()).toBe(true)
+    expect(focus).toHaveBeenCalledOnce()
+
+    wrapper.unmount()
+  })
+
   it('remounts the tree on every search instead of letting vc-tree diff the new data', async () => {
     const mounted = vi.fn()
     const wrapper = mount(Workspace, {
