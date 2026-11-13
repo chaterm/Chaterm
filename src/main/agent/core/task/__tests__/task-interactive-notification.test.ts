@@ -89,6 +89,7 @@ describe('Task interactive command notification', () => {
     }
     task.readOnlyCommandsAutoApproved = false
     task.consecutiveMistakeCount = 0
+    task.hostColorMap = new Map()
 
     task.getToolDescription = vi.fn(() => '[execute_command for test]')
     task.performCommandSecurityCheck = vi.fn(async () => ({

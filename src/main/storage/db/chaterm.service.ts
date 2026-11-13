@@ -1,7 +1,7 @@
 import Database from 'better-sqlite3'
 import type { Anthropic } from '@anthropic-ai/sdk'
 import { initChatermDatabase, getCurrentUserId } from './connection'
-import { getMcpTarget, listMcpTargets } from './chaterm/mcp-targets'
+import { findMcpTargetsByHost, getMcpTarget, listMcpTargets } from './chaterm/mcp-targets'
 import {
   getLocalAssetRouteLogic,
   updateLocalAssetLabelLogic,
@@ -278,6 +278,10 @@ export class ChatermDatabaseService {
 
   getMcpTarget(targetId: string) {
     return getMcpTarget(this.db, targetId)
+  }
+
+  findMcpTargetsByHost(host: string) {
+    return findMcpTargetsByHost(this.db, host)
   }
 
   // Transaction handling

@@ -77,6 +77,7 @@ export const toolParamNames = [
   'max_results',
   'extract_mode',
   'max_chars',
+  'search',
   'database',
   'schema',
   'table',

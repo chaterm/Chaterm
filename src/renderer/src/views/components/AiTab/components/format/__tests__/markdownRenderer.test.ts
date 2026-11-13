@@ -354,3 +354,28 @@ describe('markdownRenderer code output run time', () => {
     wrapper.unmount()
   })
 })
+
+describe('markdownRenderer command card host tag', () => {
+  it('shows the target host on the command card header', async () => {
+    const wrapper = mount(MarkdownRenderer, {
+      ...globalMountOptions,
+      props: { content: 'uptime', ask: 'command', hostId: '10.0.0.2', hostName: '10.0.0.2', colorTag: '#10B981' }
+    })
+    await flushPromises()
+
+    expect(wrapper.find('.command-header-inner .host-name').text()).toBe('10.0.0.2')
+    wrapper.unmount()
+  })
+
+  it('shows no host tag when the command has no target host', async () => {
+    const wrapper = mount(MarkdownRenderer, {
+      ...globalMountOptions,
+      props: { content: 'uptime', ask: 'command' }
+    })
+    await flushPromises()
+
+    expect(wrapper.find('.command-header-inner').exists()).toBe(true)
+    expect(wrapper.find('.host-tag').exists()).toBe(false)
+    wrapper.unmount()
+  })
+})

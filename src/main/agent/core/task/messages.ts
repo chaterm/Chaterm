@@ -208,7 +208,7 @@ export const messagesEN: Messages = {
   // System information titles
   systemInformationTitle: 'SYSTEM INFORMATION',
   noHostsConfigured:
-    'No host has been added to the current conversation context. You can still answer questions, but cannot execute commands on any server. The user can use @host to add a host to the conversation.',
+    'No host has been added to the current conversation context. You can still answer questions. To run commands you need a host: the user can use @host to add one, or in agent mode you can find a managed host with list_hosts when the task really requires it.',
   unableToRetrieve: 'Unable to retrieve',
   unknown: 'Unknown',
 
@@ -344,7 +344,8 @@ export const messagesCN: Messages = {
 
   // 系统信息标题
   systemInformationTitle: '系统信息',
-  noHostsConfigured: '当前对话上下文中未添加任何主机。你仍然可以回答问题，但无法在任何服务器上执行命令。用户可通过 @host 将主机添加到对话中。',
+  noHostsConfigured:
+    '当前对话上下文中未添加任何主机。你仍然可以回答问题。执行命令需要主机：用户可通过 @host 将主机添加到对话中；在 agent 模式下，任务确实需要时也可以用 list_hosts 查找受管主机。',
   unableToRetrieve: '无法获取',
   unknown: '未知',
 
