@@ -406,6 +406,53 @@ describe('useTabManagement', () => {
       expect(restoredTab!.session.chatHistory.map((m) => m.say)).toEqual([undefined, 'api_req_started', 'context_truncated'])
     })
 
+    describe('empty completion_result stop marker', () => {
+      const restoreWith = async (previous: Record<string, unknown>) => {
+        mockGetTaskMetadata.mockResolvedValue({ success: true, data: {} })
+        mockChatermGetChatermMessagesPage.mockResolvedValue(
+          createPageResult(
+            [
+              { ask: undefined, say: 'text', text: 'Run it', type: 'say', ts: 99, partial: false },
+              { ask: undefined, type: 'say', ts: 100, partial: false, ...previous },
+              { ask: 'completion_result', say: undefined, text: '', type: 'ask', ts: 101, partial: false }
+            ],
+            { nextCursor: null, hasMore: false }
+          )
+        )
+
+        const { restoreHistoryTab } = useTabManagement({
+          getCurentTabAssetInfo: mockGetCurentTabAssetInfo,
+          toggleSidebar: mockToggleSidebar
+        })
+        await restoreHistoryTab({
+          id: 'history-marker',
+          chatTitle: 'Marker',
+          chatContent: [],
+          isFavorite: false,
+          isEditing: false,
+          editingTitle: ''
+        })
+        return vi
+          .mocked(useSessionState)()
+          .chatTabs.value.find((tab) => tab.id === 'history-marker')!.session.chatHistory
+      }
+
+      it('renders the preceding plain-text answer as the completion block', async () => {
+        const history = await restoreWith({ say: 'text', text: 'All done' })
+
+        const answer = history.find((message) => message.content === 'All done')
+        expect(answer).toMatchObject({ say: 'completion_result', type: 'say' })
+        expect(history.filter((message) => message.say === 'completion_result')).toHaveLength(1)
+      })
+
+      it('keeps command output as terminal output', async () => {
+        const history = await restoreWith({ say: 'command_output', text: 'total 0' })
+
+        const output = history.find((message) => message.content === 'total 0')
+        expect(output).toMatchObject({ say: 'command_output', type: 'say' })
+      })
+    })
+
     it('should keep a paged text message as assistant when the chunk starts mid-conversation', async () => {
       mockGetTaskMetadata.mockResolvedValue({ success: true, data: {} })
       mockChatermGetChatermMessagesPage.mockResolvedValue(

@@ -217,7 +217,7 @@ export function useTabManagement(options: TabManagementOptions) {
         // second empty assistant message.
         if (item.ask === 'completion_result' && !item.text) {
           const previousMessage = historyChatMessages.at(-1)
-          if (previousMessage?.role === 'assistant') {
+          if (previousMessage?.role === 'assistant' && (previousMessage.say === 'text' || previousMessage.say === 'completion_result')) {
             previousMessage.say = 'completion_result'
             previousMessage.ask = undefined
             previousMessage.type = 'say'
