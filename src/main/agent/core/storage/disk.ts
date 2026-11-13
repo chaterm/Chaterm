@@ -9,6 +9,7 @@ import { ChatermMessage } from '../../shared/ExtensionMessage'
 import { TaskMetadata, TaskListItem } from '../context/context-tracking/ContextTrackerTypes'
 import { ChatermDatabaseService } from '../../../storage/database'
 import { ChatSnapshotStore } from '../../../storage/chat_sync/core/ChatSnapshotStore'
+import type { ForkTaskResult } from '../../../storage/db/chaterm/agent'
 import { execa } from 'execa'
 import * as path from 'path'
 import fs from 'fs/promises'
@@ -62,6 +63,18 @@ export async function ensureTaskExists(taskId: string): Promise<string> {
     logger.error('Failed to check task existence in DB', { error: error })
     return ''
   }
+}
+
+/**
+ * Copy a conversation up to a completion boundary into a new task. Unlike the other writers here,
+ * failures propagate so the caller never reports a fork that was not stored.
+ */
+export async function forkTask(sourceTaskId: string, targetTaskId: string, cutoffTs?: number, title?: string): Promise<ForkTaskResult> {
+  const dbService = await ChatermDatabaseService.getInstance()
+  const payload = await dbService.buildForkTask(sourceTaskId, targetTaskId, cutoffTs, title)
+  const store = await getOrInitSnapshotStore()
+  await store.forkTask(payload)
+  return { taskId: payload.taskId, title: payload.title }
 }
 
 export async function deleteChatermHistoryByTaskId(taskId: string): Promise<void> {

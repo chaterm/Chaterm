@@ -66,6 +66,7 @@ import copySvg from '@/assets/icons/copy.svg'
 import { message } from 'ant-design-vue'
 import i18n from '@/locales'
 import { extractFinalOutput } from '@/utils/terminalOutputExtractor'
+import { useCommandDuration } from '../../composables/useCommandDuration'
 import { getResolvedTerminalTheme } from '@/themes/terminalTheme'
 import { userConfigStore } from '@/store/userConfigStore'
 import type { ThemeId } from '../../../../../../../shared/themes/types'
@@ -86,39 +87,7 @@ const props = defineProps<{
   running?: boolean
 }>()
 
-const now = ref(Date.now())
-let durationTicker: ReturnType<typeof setInterval> | undefined
-
-const isTicking = computed(() => props.durationMs === undefined && !!props.running && !!props.startedAt)
-
-watch(
-  isTicking,
-  (ticking) => {
-    clearInterval(durationTicker)
-    durationTicker = undefined
-    if (ticking) {
-      now.value = Date.now()
-      durationTicker = setInterval(() => {
-        now.value = Date.now()
-      }, 1000)
-    }
-  },
-  { immediate: true }
-)
-
-const formatDuration = (ms: number): string => {
-  const totalSeconds = Math.floor(ms / 1000)
-  const hours = Math.floor(totalSeconds / 3600)
-  const minutes = Math.floor((totalSeconds % 3600) / 60)
-  const seconds = String(totalSeconds % 60).padStart(2, '0')
-  return hours > 0 ? `${hours}:${String(minutes).padStart(2, '0')}:${seconds}` : `${minutes}:${seconds}`
-}
-
-const durationText = computed(() => {
-  if (props.durationMs !== undefined) return formatDuration(props.durationMs)
-  if (isTicking.value) return formatDuration(Math.max(0, now.value - props.startedAt!))
-  return ''
-})
+const durationText = useCommandDuration(() => ({ startedAt: props.startedAt, durationMs: props.durationMs, running: props.running }))
 
 const terminalContainer = ref<HTMLElement | null>(null)
 const isExpanded = ref(true) // Terminal output expanded by default
@@ -3460,7 +3429,6 @@ onBeforeUnmount(() => {
     terminal.dispose()
   }
   window.removeEventListener('resize', handleResize)
-  clearInterval(durationTicker)
 })
 
 // Simple ls list (column aligned) highlight, preserve spaces

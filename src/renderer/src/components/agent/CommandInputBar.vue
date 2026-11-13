@@ -28,12 +28,21 @@
         Ctrl + C
       </a-button>
     </a-tooltip>
+    <div
+      v-if="errorMessage"
+      class="submit-error"
+      role="alert"
+    >
+      {{ errorMessage }}
+    </div>
   </div>
 </template>
 
 <script setup lang="ts">
 import { nextTick, onUnmounted, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
+import { getInteractionErrorMessage } from '@/composables/useInteractiveInput'
+import type { InteractionSubmitResult } from '../../../../preload/index.d'
 
 // Same delay as the former long-silence prompt: show the bar once the command has been quiet this long
 const REVEAL_AFTER_SILENCE_MS = 30000
@@ -44,16 +53,19 @@ const props = defineProps<{
   lastOutputAt: number | null
   /** Detection found a prompt: show the bar now and focus the input */
   forceVisible?: boolean
+  /** Sends the typed input to the command and resolves with the outcome */
+  submitInput: (commandId: string, input: string) => Promise<InteractionSubmitResult>
 }>()
 
 const emit = defineEmits<{
-  submit: [commandId: string, input: string]
   cancel: [commandId: string]
 }>()
 
 const { t } = useI18n()
 
 const inputValue = ref('')
+const errorMessage = ref('')
+const submitting = ref(false)
 const inputRef = ref<{ focus: () => void } | null>(null)
 // Once shown, the bar stays until the command ends so typing is never interrupted
 const revealed = ref(false)
@@ -90,15 +102,28 @@ watch(
 
 onUnmounted(stopTicker)
 
-function submit(): void {
-  emit('submit', props.commandId, inputValue.value)
-  inputValue.value = ''
+// The text stays in the input when sending fails, so the user can retry
+async function submit(): Promise<void> {
+  if (submitting.value) return
+  submitting.value = true
+  errorMessage.value = ''
+  try {
+    const result = await props.submitInput(props.commandId, inputValue.value)
+    if (result.success) {
+      inputValue.value = ''
+    } else {
+      errorMessage.value = getInteractionErrorMessage(result.code, result.error)
+    }
+  } finally {
+    submitting.value = false
+  }
 }
 </script>
 
 <style scoped>
 .command-input-bar {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   gap: 8px;
   width: calc(100% - 16px);
@@ -143,5 +168,11 @@ function submit(): void {
 
 .interrupt-btn {
   font-family: monospace;
+}
+
+.submit-error {
+  flex-basis: 100%;
+  font-size: 12px;
+  color: var(--error-color, #ff4d4f);
 }
 </style>

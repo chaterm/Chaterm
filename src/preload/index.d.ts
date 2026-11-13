@@ -544,7 +544,7 @@ interface ApiType {
   dismissVersionPrompt: () => Promise<void>
   checkUpdate: () => Promise<{ isUpdateAvailable: boolean; updateInfo?: { version: string } } | null>
   download: () => Promise<unknown>
-  autoUpdate: (callback: (params: { status?: number; version?: string; progress?: number }) => void) => void
+  autoUpdate: (callback: (params: { status?: number; version?: string; progress?: number }) => void) => () => void
   quitAndInstall: () => Promise<unknown>
   getReleaseNotes: (version?: string) => Promise<{
     version: string

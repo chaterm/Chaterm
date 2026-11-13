@@ -573,6 +573,30 @@ describe('Task tool result helpers', () => {
     expect(startedAt).toBeGreaterThanOrEqual(before)
   })
 
+  it('openCommandOutput should rethrow once the task is aborted so the command is not started', async () => {
+    task.abort = true
+    task.say = vi.fn(async () => {
+      throw new Error('Chaterm instance aborted')
+    })
+
+    await expect(task.openCommandOutput({ hostId: '10.0.0.1' })).rejects.toThrow('Chaterm instance aborted')
+  })
+
+  it('executeLocalCommandTool should not start the command when the task was aborted before the output block opened', async () => {
+    task.abort = true
+    task.buildHostInfo = vi.fn(() => ({ hostId: '127.0.0.1', hostName: '127.0.0.1' }))
+    const runCommand = vi.fn()
+    task.localTerminalManager = { createTerminal: vi.fn(async () => ({ id: 1 })), runCommand }
+    task.say = vi.fn(async () => {
+      throw new Error('Chaterm instance aborted')
+    })
+
+    const response = await task.executeLocalCommandTool('sleep 1')
+
+    expect(runCommand).not.toHaveBeenCalled()
+    expect(response).toContain('Local command execution failed')
+  })
+
   it('say should keep an empty command_output so the output block can open', async () => {
     const realSay = Object.getPrototypeOf(task).say
     const handlePartial = vi.fn(async () => {})

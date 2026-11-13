@@ -1378,7 +1378,11 @@ const api = {
     ipcRenderer.invoke('agent:stage-chat-attachment', payload) as Promise<{ mode: 'as_is'; refPath: string } | { mode: 'offload'; refPath: string }>,
   getHomePath: () => ipcRenderer.invoke('app:getHomePath'),
   autoUpdate: (update) => {
-    ipcRenderer.on('update:autoUpdate', (_event, params) => update(params))
+    const listener = (_event: Electron.IpcRendererEvent, params: Parameters<typeof update>[0]) => update(params)
+    ipcRenderer.on('update:autoUpdate', listener)
+    return () => {
+      ipcRenderer.removeListener('update:autoUpdate', listener)
+    }
   },
   quitAndInstall: () => ipcRenderer.invoke('update:quitAndInstall'),
   getVersionPrompt: () => ipcRenderer.invoke('version:operation', 'getPrompt'),

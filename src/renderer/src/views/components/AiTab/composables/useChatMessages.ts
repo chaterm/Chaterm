@@ -560,8 +560,9 @@ export function useChatMessages(
         // Plain-text completions are persisted as `say: text` followed by an
         // empty `ask: completion_result` stop marker. Promote the visible
         // answer to the same completion presentation used by attempt_completion.
+        // Other assistant messages (e.g. command output) keep their own rendering.
         const lastMessage = session.chatHistory.at(-1)
-        if (lastMessage?.role === 'assistant' && lastMessage.say !== 'completion_result') {
+        if (lastMessage?.role === 'assistant' && lastMessage.say === 'text') {
           lastMessage.say = 'completion_result'
           lastMessage.type = 'say'
           lastMessage.ask = undefined

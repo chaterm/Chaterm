@@ -175,18 +175,22 @@ export function runMarkerBasedCommand(config: MarkerRunnerConfig): Promise<Marke
       resolve({ completed: true, exitCode, timedOut })
     }
 
+    const releaseLineBuffer = () => {
+      if (lineBuffer && commandStarted && !commandCompleted && isListening()) {
+        const cleanLine = stripForDetect(lineBuffer).trim()
+        // Don't release if it looks like a marker
+        if (cleanLine && !cleanLine.includes('===CHATERM_')) {
+          onLine(renderForDisplay(lineBuffer))
+          onDetectorOutput?.(lineBuffer + '\n')
+        }
+        lineBuffer = ''
+      }
+    }
+
     const scheduleHalfLineRelease = () => {
       clearHalfLineTimer()
       halfLineTimer = setTimeout(() => {
-        if (lineBuffer && commandStarted && !commandCompleted && isListening()) {
-          const cleanLine = stripForDetect(lineBuffer).trim()
-          // Don't release if it looks like a marker
-          if (cleanLine && !cleanLine.includes('===CHATERM_')) {
-            onLine(renderForDisplay(lineBuffer))
-            onDetectorOutput?.(lineBuffer + '\n')
-          }
-          lineBuffer = ''
-        }
+        releaseLineBuffer()
         halfLineTimer = null
       }, halfLineTimeoutMs)
     }
@@ -289,6 +293,8 @@ export function runMarkerBasedCommand(config: MarkerRunnerConfig): Promise<Marke
 
     const closeHandler = () => {
       logger.warn('Stream closed before end marker', { event: 'remote-terminal.marker.closed', logPrefix })
+      // Output still waiting for a newline would otherwise be dropped with the half-line timer
+      releaseLineBuffer()
       onLine('Connection closed before the command finished.')
       complete('lost')
     }
