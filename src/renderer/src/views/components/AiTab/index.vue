@@ -640,7 +640,7 @@
             :started-at="getCommandInputBarProps(tab.id)?.startedAt ?? 0"
             :last-output-at="getCommandInputBarProps(tab.id)?.lastOutputAt ?? null"
             :force-visible="getCommandInputBarProps(tab.id)?.forceVisible ?? false"
-            @submit="(commandId: string, input: string) => submitInteraction(commandId, input, true, 'freeform')"
+            :submit-input="(commandId: string, input: string) => submitInteraction(commandId, input, true, 'freeform')"
             @cancel="cancelInteraction"
           />
           <InputSendContainer

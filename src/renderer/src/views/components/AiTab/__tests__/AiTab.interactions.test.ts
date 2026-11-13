@@ -55,8 +55,8 @@ vi.mock('@/components/agent/CommandInteractionInput.vue', () => ({
 vi.mock('@/components/agent/CommandInputBar.vue', () => ({
   default: defineComponent({
     name: 'CommandInputBar',
-    props: { commandId: String, startedAt: Number, lastOutputAt: Number, forceVisible: Boolean },
-    emits: ['submit', 'cancel'],
+    props: { commandId: String, startedAt: Number, lastOutputAt: Number, forceVisible: Boolean, submitInput: Function },
+    emits: ['cancel'],
     setup: () => () => h('div', { class: 'command-input-bar-stub' })
   })
 }))
@@ -437,8 +437,10 @@ describe('AiTab changed interactions', () => {
     await nextTick()
 
     const bar = wrapper.getComponent({ name: 'CommandInputBar' })
-    expect(bar.props()).toEqual({ commandId: 'cmd-1', startedAt: 1000, lastOutputAt: 2000, forceVisible: false })
-    bar.vm.$emit('submit', 'cmd-1', 'yes')
+    const { submitInput, ...barProps } = bar.props() as Record<string, unknown> & { submitInput: (id: string, input: string) => Promise<unknown> }
+    expect(barProps).toEqual({ commandId: 'cmd-1', startedAt: 1000, lastOutputAt: 2000, forceVisible: false })
+    interactiveInput.submitInteraction.mockResolvedValueOnce({ success: true })
+    await expect(submitInput('cmd-1', 'yes')).resolves.toEqual({ success: true })
     bar.vm.$emit('cancel', 'cmd-1')
     expect(interactiveInput.submitInteraction).toHaveBeenCalledWith('cmd-1', 'yes', true, 'freeform')
     expect(interactiveInput.cancelInteraction).toHaveBeenCalledWith('cmd-1')
@@ -536,7 +538,8 @@ describe('AiTab changed interactions', () => {
       commandId: 'cmd-2',
       startedAt: 0,
       lastOutputAt: null,
-      forceVisible: true
+      forceVisible: true,
+      submitInput: expect.any(Function)
     })
     expect(panel().props('visible')).toBe(false)
 
