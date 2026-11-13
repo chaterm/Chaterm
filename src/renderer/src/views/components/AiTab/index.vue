@@ -640,7 +640,7 @@
             :started-at="getCommandInputBarProps(tab.id)?.startedAt ?? 0"
             :last-output-at="getCommandInputBarProps(tab.id)?.lastOutputAt ?? null"
             :force-visible="getCommandInputBarProps(tab.id)?.forceVisible ?? false"
-            @submit="(commandId: string, input: string) => submitInteraction(commandId, input, true, 'freeform')"
+            :submit-input="(commandId: string, input: string) => submitInteraction(commandId, input, true, 'freeform')"
             @cancel="cancelInteraction"
           />
           <InputSendContainer
@@ -1176,7 +1176,7 @@ const handleForkConversation = async (tab: ChatTab, message: ChatMessage) => {
     if (!result.success || !result.data) {
       throw new Error(result.error?.message || 'Fork failed')
     }
-    await restoreHistoryTab(
+    const opened = await restoreHistoryTab(
       {
         id: result.data.taskId,
         chatTitle: result.data.title,
@@ -1184,6 +1184,9 @@ const handleForkConversation = async (tab: ChatTab, message: ChatMessage) => {
       },
       { forceNewTab: true }
     )
+    if (!opened) {
+      throw new Error('Forked conversation could not be opened')
+    }
     notification.success({ message: t('ai.forkConversationSuccess'), duration: 2 })
   } catch (error) {
     notification.error({

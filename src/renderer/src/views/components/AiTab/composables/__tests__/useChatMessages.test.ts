@@ -1003,6 +1003,47 @@ describe('useChatMessages', () => {
       expect(session.responseLoading).toBe(false)
     })
 
+    describe('empty completion_result stop marker', () => {
+      const stopMarker: ExtensionMessage = {
+        type: 'partialMessage',
+        tabId: 'test-tab-1',
+        partialMessage: { text: '', type: 'ask', ask: 'completion_result', partial: false, ts: 200 }
+      }
+
+      const setup = () => {
+        const { processMainMessage } = useChatMessages(
+          mockScrollToBottom,
+          mockClearTodoState,
+          mockMarkLatestMessageWithTodoUpdate,
+          mockCurrentTodos,
+          mockCheckModelConfig
+        )
+        const session = vi.mocked(useSessionState)().currentSession.value!
+        return { processMainMessage, session }
+      }
+
+      it('promotes the preceding plain-text answer to the completion presentation', async () => {
+        const { processMainMessage, session } = setup()
+        session.chatHistory.push({ id: 'a1', role: 'assistant', content: 'All done', type: 'say', say: 'text', ts: 100 })
+
+        await processMainMessage(stopMarker)
+
+        expect(session.chatHistory).toHaveLength(1)
+        expect(session.chatHistory[0]).toMatchObject({ say: 'completion_result', type: 'say', ask: undefined })
+        expect(session.responseLoading).toBe(false)
+      })
+
+      it('keeps command output as terminal output instead of turning it into a completion', async () => {
+        const { processMainMessage, session } = setup()
+        session.chatHistory.push({ id: 'o1', role: 'assistant', content: 'total 0', type: 'say', say: 'command_output', ts: 100 })
+
+        await processMainMessage(stopMarker)
+
+        expect(session.chatHistory[0]).toMatchObject({ say: 'command_output', type: 'say' })
+        expect(session.responseLoading).toBe(false)
+      })
+    })
+
     it('should handle api_req_failed message', async () => {
       const { processMainMessage } = useChatMessages(
         mockScrollToBottom,

@@ -335,8 +335,9 @@ describe('useTabManagement', () => {
         editingTitle: ''
       }
 
-      await restoreHistoryTab(history)
+      const opened = await restoreHistoryTab(history)
 
+      expect(opened).toBe(true)
       expect(mockState.currentChatId.value).toBe('tab-1')
       expect(mockState.chatTabs.value.length).toBe(1) // No new tab created
     })
@@ -403,6 +404,53 @@ describe('useTabManagement', () => {
       expect(restoredTab!.chatType).toBe('cmd')
       expect(restoredTab!.modelValue).toBe('gpt-4')
       expect(restoredTab!.session.chatHistory.map((m) => m.say)).toEqual([undefined, 'api_req_started', 'context_truncated'])
+    })
+
+    describe('empty completion_result stop marker', () => {
+      const restoreWith = async (previous: Record<string, unknown>) => {
+        mockGetTaskMetadata.mockResolvedValue({ success: true, data: {} })
+        mockChatermGetChatermMessagesPage.mockResolvedValue(
+          createPageResult(
+            [
+              { ask: undefined, say: 'text', text: 'Run it', type: 'say', ts: 99, partial: false },
+              { ask: undefined, type: 'say', ts: 100, partial: false, ...previous },
+              { ask: 'completion_result', say: undefined, text: '', type: 'ask', ts: 101, partial: false }
+            ],
+            { nextCursor: null, hasMore: false }
+          )
+        )
+
+        const { restoreHistoryTab } = useTabManagement({
+          getCurentTabAssetInfo: mockGetCurentTabAssetInfo,
+          toggleSidebar: mockToggleSidebar
+        })
+        await restoreHistoryTab({
+          id: 'history-marker',
+          chatTitle: 'Marker',
+          chatContent: [],
+          isFavorite: false,
+          isEditing: false,
+          editingTitle: ''
+        })
+        return vi
+          .mocked(useSessionState)()
+          .chatTabs.value.find((tab) => tab.id === 'history-marker')!.session.chatHistory
+      }
+
+      it('renders the preceding plain-text answer as the completion block', async () => {
+        const history = await restoreWith({ say: 'text', text: 'All done' })
+
+        const answer = history.find((message) => message.content === 'All done')
+        expect(answer).toMatchObject({ say: 'completion_result', type: 'say' })
+        expect(history.filter((message) => message.say === 'completion_result')).toHaveLength(1)
+      })
+
+      it('keeps command output as terminal output', async () => {
+        const history = await restoreWith({ say: 'command_output', text: 'total 0' })
+
+        const output = history.find((message) => message.content === 'total 0')
+        expect(output).toMatchObject({ say: 'command_output', type: 'say' })
+      })
     })
 
     it('should keep a paged text message as assistant when the chunk starts mid-conversation', async () => {
@@ -506,11 +554,38 @@ describe('useTabManagement', () => {
         editingTitle: ''
       }
 
-      await restoreHistoryTab(history, { forceNewTab: true })
+      const opened = await restoreHistoryTab(history, { forceNewTab: true })
 
+      expect(opened).toBe(true)
       expect(mockState.chatTabs.value.length).toBe(2)
       expect(mockState.chatTabs.value.some((tab) => tab.id === 'history-3')).toBe(true)
       expect(mockState.chatTabs.value[0].id).not.toBe('history-3')
+    })
+
+    it('should report failure and open no tab when the history cannot be loaded', async () => {
+      mockChatermGetChatermMessagesPage.mockRejectedValue(new Error('db unavailable'))
+      mockGetTaskMetadata.mockResolvedValue({ success: true, data: {} })
+
+      const { restoreHistoryTab } = useTabManagement({
+        getCurentTabAssetInfo: mockGetCurentTabAssetInfo,
+        toggleSidebar: mockToggleSidebar
+      })
+
+      const mockState = vi.mocked(useSessionState)()
+      const tabCount = mockState.chatTabs.value.length
+
+      const opened = await restoreHistoryTab({
+        id: 'history-broken',
+        chatTitle: 'Broken',
+        chatContent: [],
+        isFavorite: false,
+        isEditing: false,
+        editingTitle: ''
+      })
+
+      expect(opened).toBe(false)
+      expect(mockState.chatTabs.value.length).toBe(tabCount)
+      expect(mockState.chatTabs.value.some((tab) => tab.id === 'history-broken')).toBe(false)
     })
 
     it('should NOT send showTaskWithId message on history restore (deferred to askResponse)', async () => {

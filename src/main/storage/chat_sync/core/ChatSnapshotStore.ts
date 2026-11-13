@@ -18,6 +18,7 @@
 
 import type { ChatermDatabaseService } from '../../db/chaterm.service'
 import type { TaskSnapshotTables, TaskSnapshot } from '../models/ChatSyncTypes'
+import type { ForkTaskPayload } from '../../db/chaterm/agent'
 import { SCHEMA_VERSION } from '../models/ChatSyncTypes'
 const logger = createLogger('chat-sync')
 
@@ -78,48 +79,52 @@ export class ChatSnapshotStore {
     const db = dbService.getDb()
 
     db.transaction(() => {
-      // Business write: delegate to existing logic but inline for transactional safety
-      const deleteStmt = db.prepare('DELETE FROM agent_api_conversation_history_v1 WHERE task_id = ?')
-      deleteStmt.run(taskId)
+      this._writeApiConversationHistory(db, taskId, apiConversationHistory)
 
-      const insertStmt = db.prepare(`
+      // Sync state: increment local_change_seq and mark pending
+      this._markDirtyInTransaction(db, taskId)
+    })()
+  }
+
+  private _writeApiConversationHistory(db: ReturnType<ChatermDatabaseService['getDb']>, taskId: string, apiConversationHistory: any[]): void {
+    // Business write: delegate to existing logic but inline for transactional safety
+    const deleteStmt = db.prepare('DELETE FROM agent_api_conversation_history_v1 WHERE task_id = ?')
+    deleteStmt.run(taskId)
+
+    const insertStmt = db.prepare(`
         INSERT INTO agent_api_conversation_history_v1
         (task_id, ts, role, content_type, content_data, tool_use_id, sequence_order, message_index)
         VALUES (?, ?, ?, ?, ?, ?, ?, ?)
       `)
 
-      let sequenceOrder = 0
-      let messageIndex = 0
-      const now = Date.now()
+    let sequenceOrder = 0
+    let messageIndex = 0
+    const now = Date.now()
 
-      for (const message of apiConversationHistory) {
-        if (Array.isArray(message.content)) {
-          for (const content of message.content) {
-            const contentType = content.type
-            let contentData = {}
-            let toolUseId = null
+    for (const message of apiConversationHistory) {
+      if (Array.isArray(message.content)) {
+        for (const content of message.content) {
+          const contentType = content.type
+          let contentData = {}
+          let toolUseId = null
 
-            if (content.type === 'text') {
-              contentData = { text: content.text }
-            } else if (content.type === 'tool_use') {
-              contentData = { name: content.name, input: content.input }
-              toolUseId = content.id
-            } else if (content.type === 'tool_result') {
-              contentData = { content: content.content, is_error: content.is_error }
-              toolUseId = content.tool_use_id
-            }
-
-            insertStmt.run(taskId, now, message.role, contentType, JSON.stringify(contentData), toolUseId, sequenceOrder++, messageIndex)
+          if (content.type === 'text') {
+            contentData = { text: content.text }
+          } else if (content.type === 'tool_use') {
+            contentData = { name: content.name, input: content.input }
+            toolUseId = content.id
+          } else if (content.type === 'tool_result') {
+            contentData = { content: content.content, is_error: content.is_error }
+            toolUseId = content.tool_use_id
           }
-        } else {
-          insertStmt.run(taskId, now, message.role, 'text', JSON.stringify({ text: message.content }), null, sequenceOrder++, messageIndex)
-        }
-        messageIndex++
-      }
 
-      // Sync state: increment local_change_seq and mark pending
-      this._markDirtyInTransaction(db, taskId)
-    })()
+          insertStmt.run(taskId, now, message.role, contentType, JSON.stringify(contentData), toolUseId, sequenceOrder++, messageIndex)
+        }
+      } else {
+        insertStmt.run(taskId, now, message.role, 'text', JSON.stringify({ text: message.content }), null, sequenceOrder++, messageIndex)
+      }
+      messageIndex++
+    }
   }
 
   /**
@@ -130,10 +135,16 @@ export class ChatSnapshotStore {
     const db = dbService.getDb()
 
     db.transaction(() => {
-      const deleteStmt = db.prepare('DELETE FROM agent_ui_messages_v1 WHERE task_id = ?')
-      deleteStmt.run(taskId)
+      this._writeChatermMessages(db, taskId, uiMessages)
+      this._markDirtyInTransaction(db, taskId)
+    })()
+  }
 
-      const insertStmt = db.prepare(`
+  private _writeChatermMessages(db: ReturnType<ChatermDatabaseService['getDb']>, taskId: string, uiMessages: any[]): void {
+    const deleteStmt = db.prepare('DELETE FROM agent_ui_messages_v1 WHERE task_id = ?')
+    deleteStmt.run(taskId)
+
+    const insertStmt = db.prepare(`
         INSERT INTO agent_ui_messages_v1
         (task_id, ts, type, ask_type, say_type, text, content_parts, reasoning, images, partial,
          last_checkpoint_hash, is_checkpoint_checked_out, is_operation_outside_workspace,
@@ -142,32 +153,29 @@ export class ChatSnapshotStore {
         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
       `)
 
-      for (const message of uiMessages) {
-        const hostsStr = message.hosts && message.hosts.length > 0 ? JSON.stringify(message.hosts) : null
+    for (const message of uiMessages) {
+      const hostsStr = message.hosts && message.hosts.length > 0 ? JSON.stringify(message.hosts) : null
 
-        insertStmt.run(
-          taskId,
-          message.ts,
-          message.type,
-          message.ask || null,
-          message.say || null,
-          message.text ?? null,
-          message.contentParts ? JSON.stringify(message.contentParts) : null,
-          message.reasoning || null,
-          message.images ? JSON.stringify(message.images) : null,
-          message.partial ? 1 : 0,
-          message.lastCheckpointHash || null,
-          message.isCheckpointCheckedOut ? 1 : 0,
-          message.isOperationOutsideWorkspace ? 1 : 0,
-          message.conversationHistoryIndex || null,
-          message.conversationHistoryDeletedRange ? JSON.stringify(message.conversationHistoryDeletedRange) : null,
-          message.mcpToolCall ? JSON.stringify(message.mcpToolCall) : null,
-          hostsStr
-        )
-      }
-
-      this._markDirtyInTransaction(db, taskId)
-    })()
+      insertStmt.run(
+        taskId,
+        message.ts,
+        message.type,
+        message.ask || null,
+        message.say || null,
+        message.text ?? null,
+        message.contentParts ? JSON.stringify(message.contentParts) : null,
+        message.reasoning || null,
+        message.images ? JSON.stringify(message.images) : null,
+        message.partial ? 1 : 0,
+        message.lastCheckpointHash || null,
+        message.isCheckpointCheckedOut ? 1 : 0,
+        message.isOperationOutsideWorkspace ? 1 : 0,
+        message.conversationHistoryIndex || null,
+        message.conversationHistoryDeletedRange ? JSON.stringify(message.conversationHistoryDeletedRange) : null,
+        message.mcpToolCall ? JSON.stringify(message.mcpToolCall) : null,
+        hostsStr
+      )
+    }
   }
 
   /**
@@ -177,6 +185,13 @@ export class ChatSnapshotStore {
     const dbService = this.ensureInitialized()
     const db = dbService.getDb()
 
+    db.transaction(() => {
+      this._writeTaskMetadata(db, taskId, metadata)
+      this._markDirtyInTransaction(db, taskId)
+    })()
+  }
+
+  private _writeTaskMetadata(db: ReturnType<ChatermDatabaseService['getDb']>, taskId: string, metadata: any): void {
     // workspace / db_context: only touch the columns when the caller
     // explicitly provided them. This keeps partial patches (e.g. updating
     // hosts or todos only) from clobbering the DB-AI workspace assignment.
@@ -186,8 +201,7 @@ export class ChatSnapshotStore {
     const dbContextValue =
       dbContextProvided && metadata.db_context !== undefined && metadata.db_context !== null ? JSON.stringify(metadata.db_context) : null
 
-    db.transaction(() => {
-      const upsertStmt = db.prepare(`
+    const upsertStmt = db.prepare(`
         INSERT INTO agent_task_metadata_v1
           (task_id, files_in_context, model_usage, hosts, todos, experience_ledger, title, favorite, workspace, db_context)
         VALUES (?, ?, ?, ?, ?, ?, ?, ?, COALESCE(?, 'server'), ?)
@@ -203,23 +217,20 @@ export class ChatSnapshotStore {
           db_context = CASE WHEN ? = 1 THEN excluded.db_context ELSE agent_task_metadata_v1.db_context END
       `)
 
-      upsertStmt.run(
-        taskId,
-        JSON.stringify(metadata.files_in_context || []),
-        JSON.stringify(metadata.model_usage || []),
-        JSON.stringify(metadata.hosts || []),
-        JSON.stringify(metadata.todos || []),
-        JSON.stringify(metadata.experience_ledger || []),
-        metadata.title !== undefined ? metadata.title : null,
-        metadata.favorite !== undefined ? (metadata.favorite ? 1 : 0) : null,
-        workspaceValue,
-        dbContextValue,
-        workspaceProvided,
-        dbContextProvided
-      )
-
-      this._markDirtyInTransaction(db, taskId)
-    })()
+    upsertStmt.run(
+      taskId,
+      JSON.stringify(metadata.files_in_context || []),
+      JSON.stringify(metadata.model_usage || []),
+      JSON.stringify(metadata.hosts || []),
+      JSON.stringify(metadata.todos || []),
+      JSON.stringify(metadata.experience_ledger || []),
+      metadata.title !== undefined ? metadata.title : null,
+      metadata.favorite !== undefined ? (metadata.favorite ? 1 : 0) : null,
+      workspaceValue,
+      dbContextValue,
+      workspaceProvided,
+      dbContextProvided
+    )
   }
 
   /**
@@ -255,20 +266,43 @@ export class ChatSnapshotStore {
   async saveContextHistory(taskId: string, contextHistory: any): Promise<void> {
     const dbService = this.ensureInitialized()
     const db = dbService.getDb()
-    const jsonDataString = JSON.stringify(contextHistory)
 
     db.transaction(() => {
-      db.prepare(
-        `
+      this._writeContextHistory(db, taskId, contextHistory)
+      this._markDirtyInTransaction(db, taskId)
+    })()
+  }
+
+  private _writeContextHistory(db: ReturnType<ChatermDatabaseService['getDb']>, taskId: string, contextHistory: any): void {
+    const jsonDataString = JSON.stringify(contextHistory)
+
+    db.prepare(
+      `
         INSERT INTO agent_context_history_v1 (task_id, context_history_data, updated_at)
         VALUES (?, ?, strftime('%s', 'now'))
         ON CONFLICT(task_id) DO UPDATE SET
           context_history_data = excluded.context_history_data,
           updated_at = strftime('%s', 'now')
       `
-      ).run(taskId, jsonDataString)
+    ).run(taskId, jsonDataString)
+  }
 
-      this._markDirtyInTransaction(db, taskId)
+  /**
+   * Create a forked task from an assembled payload. All four tables are written in one transaction,
+   * so a failure leaves no partial task behind, and the task is marked dirty once so it syncs.
+   */
+  async forkTask(payload: ForkTaskPayload): Promise<void> {
+    const dbService = this.ensureInitialized()
+    const db = dbService.getDb()
+
+    db.transaction(() => {
+      this._writeTaskMetadata(db, payload.taskId, payload.metadata)
+      this._writeChatermMessages(db, payload.taskId, payload.messages)
+      this._writeApiConversationHistory(db, payload.taskId, payload.apiHistory)
+      if (payload.contextHistory !== null) {
+        this._writeContextHistory(db, payload.taskId, payload.contextHistory)
+      }
+      this._markDirtyInTransaction(db, payload.taskId)
     })()
   }
 
@@ -549,8 +583,7 @@ export class ChatSnapshotStore {
    */
   private _markDirtyInTransaction(db: ReturnType<ChatermDatabaseService['getDb']>, taskId: string): void {
     const existing = db.prepare('SELECT local_change_seq FROM agent_chat_sync_task_state WHERE task_id = ?').get(taskId) as
-      | { local_change_seq: number }
-      | undefined
+      { local_change_seq: number } | undefined
 
     const now = Math.floor(Date.now() / 1000)
 

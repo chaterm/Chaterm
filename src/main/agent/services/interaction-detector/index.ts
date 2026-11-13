@@ -1189,6 +1189,8 @@ export class InteractionDetector extends EventEmitter {
           promptHint: this.getLocalizedMessage('serviceUnavailable')
         })
       } else {
+        // The output was not actually checked, so let the next timeout retry instead of treating it as unchanged
+        this.lastOutputHash = ''
         this.applyBackoff()
         this.resetTimer()
       }

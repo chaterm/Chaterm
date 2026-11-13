@@ -48,7 +48,7 @@ import {
   updateGlobalState,
   getAllExtensionState
 } from './agent/core/storage/state'
-import { getTaskMetadata, saveTaskTitle, saveTaskFavorite, getTaskList } from './agent/core/storage/disk'
+import { getTaskMetadata, saveTaskTitle, saveTaskFavorite, getTaskList, forkTask } from './agent/core/storage/disk'
 import { createMainWindow, type WindowCreationResult } from './windowManager'
 import { registerWindowIpcHandlers } from './windowIpc'
 import { registerWindowMenu } from './windowMenu'
@@ -2768,7 +2768,7 @@ ipcMain.handle('agent-chaterm-messages-page', async (_, data) => {
 ipcMain.handle('agent-fork-task', async (_, data: { sourceTaskId: string; cutoffTs?: number; title?: string }) => {
   try {
     const targetTaskId = randomUUID()
-    const result = await chatermDbService.forkTask(data.sourceTaskId, targetTaskId, data.cutoffTs, data.title)
+    const result = await forkTask(data.sourceTaskId, targetTaskId, data.cutoffTs, data.title)
     return { success: true, data: result }
   } catch (error) {
     logger.error('Chaterm fork task failed', { error: error instanceof Error ? error.message : String(error) })

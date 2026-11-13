@@ -27,6 +27,23 @@ describe('InteractionDetector silence', () => {
     detector.dispose()
   })
 
+  it('retries unchanged output after a network failure until the manual-input fallback appears', async () => {
+    const detector = new InteractionDetector('fuser -m /mnt/data', 'cmd_network')
+    const llmCaller = vi.fn().mockRejectedValue(new Error('network unreachable'))
+    detector.setLlmCaller(llmCaller)
+    const requests: Array<{ interactionType: string }> = []
+    detector.on('interaction-needed', (req) => requests.push(req))
+
+    detector.onOutput('scanning mounts\n')
+    await vi.advanceTimersByTimeAsync(10 * 60 * 1000)
+
+    // Each failed check is retried on the same output until maxNetworkFails is reached
+    expect(llmCaller).toHaveBeenCalledTimes(3)
+    expect(requests.map((r) => r.interactionType)).toEqual(['freeform'])
+
+    detector.dispose()
+  })
+
   it('keeps detecting after a free-text prompt without re-checking the same output', async () => {
     const detector = new InteractionDetector('./setup.sh', 'cmd_freeform')
     const llmCaller = vi

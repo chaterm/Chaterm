@@ -2210,6 +2210,7 @@ const handleContextMenu = (event: MouseEvent, dataRef: any) => {
   // Check if the node has any available menu options
   const hasCopyOption = isSecondLevel(dataRef)
   const hasDirectHostOption = canEditDirectHost(dataRef)
+  const hasCopyPasswordOption = canEditDirectHost(dataRef)
   const hasDeleteHostOption = canEditDirectHost(dataRef)
   const hasRecentConnectionOption = dataRef.isRecentConnection === true
   const hasFavoriteOption = dataRef.favorite !== undefined
@@ -2240,6 +2241,7 @@ const handleContextMenu = (event: MouseEvent, dataRef: any) => {
   const menuItemCount = [
     hasCopyOption,
     hasDirectHostOption,
+    hasCopyPasswordOption,
     hasDeleteHostOption,
     hasRecentConnectionOption,
     hasFavoriteOption,

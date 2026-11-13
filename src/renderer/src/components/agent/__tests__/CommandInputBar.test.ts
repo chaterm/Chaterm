@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
-import { mount } from '@vue/test-utils'
+import { flushPromises, mount } from '@vue/test-utils'
 import { nextTick } from 'vue'
 import { createI18n } from 'vue-i18n'
 import CommandInputBar from '../CommandInputBar.vue'
@@ -44,15 +44,19 @@ describe('CommandInputBar', () => {
     vi.useFakeTimers()
     vi.setSystemTime(NOW)
     focus.mockClear()
+    submitInput.mockReset()
+    submitInput.mockResolvedValue({ success: true })
   })
 
   afterEach(() => {
     vi.useRealTimers()
   })
 
+  const submitInput = vi.fn()
+
   const mountBar = (props: { startedAt: number; lastOutputAt: number | null; forceVisible?: boolean }) =>
     mount(CommandInputBar, {
-      props: { commandId: 'cmd-1', ...props },
+      props: { commandId: 'cmd-1', submitInput, ...props },
       global: { plugins: [i18n], stubs }
     })
 
@@ -94,13 +98,64 @@ describe('CommandInputBar', () => {
 
     await wrapper.get('.mock-input').setValue('yes')
     await wrapper.get('.submit-btn').trigger('click')
+    await flushPromises()
+    expect((wrapper.get('.mock-input').element as HTMLInputElement).value).toBe('')
+
     await wrapper.get('.mock-input').setValue('next')
     await wrapper.get('.mock-input').trigger('keyup.enter')
+    await flushPromises()
 
-    expect(wrapper.emitted('submit')).toEqual([
+    expect(submitInput.mock.calls).toEqual([
       ['cmd-1', 'yes'],
       ['cmd-1', 'next']
     ])
+    expect((wrapper.get('.mock-input').element as HTMLInputElement).value).toBe('')
+    expect(wrapper.find('.submit-error').exists()).toBe(false)
+  })
+
+  it('keeps the typed input and shows the error when sending fails, then clears after a retry succeeds', async () => {
+    submitInput.mockResolvedValueOnce({ success: false, code: 'closed' })
+    const wrapper = mountBar({ startedAt: NOW, lastOutputAt: null, forceVisible: true })
+
+    await wrapper.get('.mock-input').setValue('yes')
+    await wrapper.get('.mock-input').trigger('keyup.enter')
+    await flushPromises()
+
+    expect((wrapper.get('.mock-input').element as HTMLInputElement).value).toBe('yes')
+    expect(wrapper.get('.submit-error').text()).toBe('Connection closed, command may have ended')
+
+    await wrapper.get('.submit-btn').trigger('click')
+    await flushPromises()
+
+    expect(submitInput).toHaveBeenCalledTimes(2)
+    expect(submitInput).toHaveBeenLastCalledWith('cmd-1', 'yes')
+    expect((wrapper.get('.mock-input').element as HTMLInputElement).value).toBe('')
+    expect(wrapper.find('.submit-error').exists()).toBe(false)
+  })
+
+  it('falls back to the reported error text for failures without a known code', async () => {
+    submitInput.mockResolvedValueOnce({ success: false, error: 'Command context not found' })
+    const wrapper = mountBar({ startedAt: NOW, lastOutputAt: null, forceVisible: true })
+
+    await wrapper.get('.mock-input').setValue('yes')
+    await wrapper.get('.submit-btn').trigger('click')
+    await flushPromises()
+
+    expect(wrapper.get('.submit-error').text()).toBe('Command context not found')
+  })
+
+  it('ignores a second submit while the first is still in flight', async () => {
+    let resolveSubmit: (value: { success: boolean }) => void = () => {}
+    submitInput.mockReturnValueOnce(new Promise((resolve) => (resolveSubmit = resolve)))
+    const wrapper = mountBar({ startedAt: NOW, lastOutputAt: null, forceVisible: true })
+
+    await wrapper.get('.mock-input').setValue('yes')
+    await wrapper.get('.submit-btn').trigger('click')
+    await wrapper.get('.submit-btn').trigger('click')
+    expect(submitInput).toHaveBeenCalledTimes(1)
+
+    resolveSubmit({ success: true })
+    await flushPromises()
     expect((wrapper.get('.mock-input').element as HTMLInputElement).value).toBe('')
   })
 
