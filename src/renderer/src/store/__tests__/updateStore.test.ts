@@ -18,6 +18,7 @@ const mockApi = {
 describe('updateStore', () => {
   let store: ReturnType<typeof useUpdateStore>
   let emit: (params: { status?: number; version?: string }) => void
+  let removeListener: ReturnType<typeof vi.fn>
 
   beforeEach(() => {
     vi.useFakeTimers()
@@ -26,8 +27,10 @@ describe('updateStore', () => {
     ;(globalThis as any).createRendererLogger = () => ({ info: vi.fn(), warn: vi.fn(), error: vi.fn(), debug: vi.fn() })
     ;(window as any).api = mockApi
     isEnterpriseDeployEnabled.mockReturnValue(false)
+    removeListener = vi.fn()
     mockApi.autoUpdate.mockImplementation((cb) => {
       emit = cb
+      return removeListener
     })
     mockApi.checkUpdate.mockResolvedValue({ isUpdateAvailable: false, updateInfo: { version: '0.12.6' } })
     mockApi.download.mockResolvedValue([])
@@ -150,6 +153,17 @@ describe('updateStore', () => {
 
     store.start()
     expect(mockApi.autoUpdate).toHaveBeenCalledTimes(2)
+  })
+
+  it('stop removes the update listener so a stopped store ignores later events', () => {
+    store.start()
+    expect(removeListener).not.toHaveBeenCalled()
+
+    store.stop()
+    expect(removeListener).toHaveBeenCalledTimes(1)
+
+    store.stop()
+    expect(removeListener).toHaveBeenCalledTimes(1)
   })
 
   it('stop is safe when never started', () => {
