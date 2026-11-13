@@ -157,6 +157,14 @@ describe('Task dispatch and state flow', () => {
     expect(task.addTodoStatusUpdateReminder).toHaveBeenCalledWith('')
   })
 
+  it('handleToolUse should dispatch list_hosts', async () => {
+    task.handleListHostsToolUse = vi.fn().mockResolvedValue(undefined)
+
+    await task.handleToolUse({ name: 'list_hosts', params: { search: 'web' }, partial: false })
+
+    expect(task.handleListHostsToolUse).toHaveBeenCalledTimes(1)
+  })
+
   it('handleToolUse should not append todo reminder for ask_followup_question', async () => {
     await task.handleToolUse({
       name: 'ask_followup_question',

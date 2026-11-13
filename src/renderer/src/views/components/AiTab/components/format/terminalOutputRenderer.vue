@@ -18,16 +18,11 @@
           <CaretRightOutlined v-else />
         </a-button>
         <span class="output-title">OUTPUT</span>
-        <span
-          v-if="props.hostName || props.hostId"
-          class="host-tag"
-        >
-          <span
-            class="host-color-dot"
-            :style="{ backgroundColor: props.colorTag || '#888' }"
-          ></span>
-          <span class="host-name">{{ props.hostName || props.hostId }}</span>
-        </span>
+        <HostTag
+          :host-id="props.hostId"
+          :host-name="props.hostName"
+          :color-tag="props.colorTag"
+        />
         <span
           v-if="durationText"
           class="output-duration"
@@ -67,6 +62,7 @@ import { message } from 'ant-design-vue'
 import i18n from '@/locales'
 import { extractFinalOutput } from '@/utils/terminalOutputExtractor'
 import { useCommandDuration } from '../../composables/useCommandDuration'
+import HostTag from './HostTag.vue'
 import { getResolvedTerminalTheme } from '@/themes/terminalTheme'
 import { userConfigStore } from '@/store/userConfigStore'
 import type { ThemeId } from '../../../../../../../shared/themes/types'
@@ -3497,32 +3493,6 @@ const highlightSimpleLsColumnsPreserveSpacing = (line: string): string => {
 .output-title {
   font-weight: 500;
   color: #7e8ba3;
-}
-
-.host-tag {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  margin-left: 8px;
-  padding: 1px 6px;
-  background: rgba(0, 0, 0, 0.1);
-  border-radius: 3px;
-}
-
-.host-color-dot {
-  width: 8px;
-  height: 8px;
-  border-radius: 50%;
-  flex-shrink: 0;
-}
-
-.host-name {
-  font-size: 10px;
-  color: #7e8ba3;
-  max-width: 150px;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
 }
 
 .output-controls {

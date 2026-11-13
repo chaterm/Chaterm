@@ -34,7 +34,7 @@ import type { TaskWorkspace, ToolUseName } from '../tool-registry'
 // Reference lists (pinned by the Phase 3 whitelist decision)
 // ---------------------------------------------------------------------------
 
-const SERVER_ONLY_TOOLS: readonly ToolUseName[] = ['execute_command', 'write_to_file', 'read_file', 'glob_search', 'grep_search']
+const SERVER_ONLY_TOOLS: readonly ToolUseName[] = ['execute_command', 'write_to_file', 'read_file', 'glob_search', 'grep_search', 'list_hosts']
 
 const COMMON_TOOLS: readonly ToolUseName[] = [
   'ask_followup_question',

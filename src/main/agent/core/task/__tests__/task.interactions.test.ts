@@ -84,6 +84,8 @@ vi.mock('../../../storage/chat_sync/index', () => ({
 }))
 
 import { Task } from '../index'
+import { HostResolutionError } from '../host-resolver'
+import { ChatermDatabaseService } from '@storage/db/chaterm.service'
 import { getGlobalState } from '@core/storage/state'
 
 describe('Task interaction-heavy branches', () => {
@@ -97,6 +99,7 @@ describe('Task interaction-heavy branches', () => {
     })
     task = Object.create((Task as unknown as { prototype: object }).prototype) as any
     task.taskId = 'task-interactions'
+    task.hostColorMap = new Map()
     task.apiConversationHistory = [{ role: 'user', content: 'Fix SSH timeout on bastion' }]
     task.chatermMessages = []
     task.userMessageContent = []
@@ -332,6 +335,81 @@ describe('Task interaction-heavy branches', () => {
     expect(task.addTodoStatusUpdateReminder).toHaveBeenCalledTimes(1)
   })
 
+  describe('command card target host', () => {
+    const hostInfo = expect.objectContaining({ hostId: '10.0.0.2', hostName: '10.0.0.2', colorTag: expect.any(String) })
+    const block = (requiresApproval: string) => ({
+      name: 'execute_command',
+      params: { command: 'uptime', ip: '10.0.0.2', requires_approval: requiresApproval },
+      partial: false
+    })
+
+    beforeEach(() => {
+      task.captureExecuteCommandUsage = vi.fn()
+    })
+
+    it('names the host on an auto-approved command in agent mode', async () => {
+      vi.mocked(getGlobalState).mockImplementation(async (key: string) => (key === 'chatSettings' ? { mode: 'agent' } : {}))
+      task.autoApprovalSettings = { enabled: true, enableNotifications: false, actions: { executeSafeCommands: true } }
+      task.shouldAutoApproveTool = vi.fn().mockReturnValue([true, true])
+
+      await task.handleExecuteCommandToolUse(block('false'))
+
+      expect(task.say).toHaveBeenCalledWith('command', 'uptime', false, hostInfo)
+    })
+
+    it('names the host on a read-only command that runs without approval', async () => {
+      vi.mocked(getGlobalState).mockImplementation(async (key: string) => (key === 'chatSettings' ? { mode: 'agent' } : {}))
+
+      await task.handleExecuteCommandToolUse(block('false'))
+
+      expect(task.askApproval).not.toHaveBeenCalled()
+      expect(task.say).toHaveBeenCalledWith('command', 'uptime', false, hostInfo)
+    })
+
+    it('names the host on the approval card in agent mode', async () => {
+      vi.mocked(getGlobalState).mockImplementation(async (key: string) => (key === 'chatSettings' ? { mode: 'agent' } : {}))
+
+      await task.handleExecuteCommandToolUse(block('true'))
+
+      expect(task.askApproval).toHaveBeenCalledWith(
+        '[mock-tool]',
+        'command',
+        'uptime',
+        { command: 'uptime', targetHosts: '10.0.0.2', toolName: 'execute_command' },
+        hostInfo
+      )
+    })
+
+    it('names the host on the security approval card in agent mode', async () => {
+      vi.mocked(getGlobalState).mockImplementation(async (key: string) => (key === 'chatSettings' ? { mode: 'agent' } : {}))
+      task.performCommandSecurityCheck.mockResolvedValue({ needsSecurityApproval: true, securityMessage: 'risky', shouldReturn: false })
+
+      await task.handleExecuteCommandToolUse(block('false'))
+
+      expect(task.askApproval).toHaveBeenCalledWith(
+        '[mock-tool]',
+        'command',
+        'uptime',
+        { command: 'uptime', targetHosts: '10.0.0.2', toolName: 'execute_command' },
+        hostInfo
+      )
+    })
+
+    it('leaves the cmd mode card without a host', async () => {
+      vi.mocked(getGlobalState).mockImplementation(async (key: string) => (key === 'chatSettings' ? { mode: 'cmd' } : {}))
+
+      await task.handleExecuteCommandToolUse(block('false'))
+
+      expect(task.askApproval).toHaveBeenCalledWith(
+        '[mock-tool]',
+        'command',
+        'uptime',
+        { command: 'uptime', targetHosts: '10.0.0.2', toolName: 'execute_command' },
+        undefined
+      )
+    })
+  })
+
   it('handleKbSearchToolUse should send structured contentParts for kb results', async () => {
     knowledgebaseMocks.getKbSearchManager.mockReturnValue({
       search: vi.fn().mockImplementation(async (_query, options) => {
@@ -418,5 +496,217 @@ describe('Task interaction-heavy branches', () => {
     expect(progressCalls.map(([, payload]) => JSON.parse(payload).phase)).toEqual(['embedding', 'completed'])
     expect(progressCalls.map(([, , partial]) => partial)).toEqual([true, false])
     expect(progressCalls.at(-1)?.[4]).toEqual(expectedContentParts)
+  })
+})
+
+describe('Task access to hosts that were not @-selected', () => {
+  let task: any
+  const managed = (overrides: Record<string, unknown> = {}) => ({
+    target_id: 'asset-9',
+    name: 'db',
+    host: '10.0.0.9',
+    port: 22,
+    connection_type: 'ssh',
+    group: null,
+    ...overrides
+  })
+  const useManaged = (targets: unknown[]) => {
+    const dbService = { findMcpTargetsByHost: vi.fn(() => targets), listMcpTargets: vi.fn(() => targets) }
+    vi.mocked(ChatermDatabaseService.getInstance).mockResolvedValue(dbService as any)
+    return dbService
+  }
+
+  beforeEach(() => {
+    vi.clearAllMocks()
+    vi.mocked(getGlobalState).mockResolvedValue({})
+    task = Object.create((Task as unknown as { prototype: object }).prototype) as any
+    task.taskId = 'task-host-access'
+    task.hosts = [{ host: '10.0.0.1', uuid: 'asset-1', connection: 'ssh' }]
+    task.hostColorMap = new Map()
+    task.chatermMessages = []
+    task.say = vi.fn().mockResolvedValue(undefined)
+    task.ask = vi.fn().mockResolvedValue({ response: 'yesButtonClicked' })
+    task.abortTask = vi.fn().mockResolvedValue(undefined)
+    task.pushToolResult = vi.fn().mockResolvedValue(undefined)
+    task.saveCheckpoint = vi.fn().mockResolvedValue(undefined)
+    task.handleToolError = vi.fn().mockResolvedValue(undefined)
+    task.getToolDescription = vi.fn(() => '[mock-tool]')
+    task.isK8sHost = vi.fn().mockReturnValue(false)
+    task.messages = { sshConnectionFailed: 'failed: {host}' }
+    task.responseFormatter = { toolError: (msg: string) => `[ERROR] ${msg}` }
+  })
+
+  describe('resolveTargetHost', () => {
+    it('uses the @-selected host without querying managed hosts', async () => {
+      const dbService = useManaged([])
+      await expect(task.resolveTargetHost('10.0.0.1')).resolves.toBe(task.hosts[0])
+      expect(dbService.findMcpTargetsByHost).not.toHaveBeenCalled()
+    })
+
+    it('defaults to the first @-selected host when no address is given', async () => {
+      await expect(task.resolveTargetHost(undefined)).resolves.toBe(task.hosts[0])
+      task.hosts = undefined
+      await expect(task.resolveTargetHost(undefined)).resolves.toBeUndefined()
+    })
+
+    it('resolves any other address to the managed host it names', async () => {
+      const dbService = useManaged([managed({ connection_type: 'jumpserver' })])
+      await expect(task.resolveTargetHost(' 10.0.0.9 ')).resolves.toEqual({ host: '10.0.0.9', uuid: 'asset-9', connection: 'jumpserver' })
+      expect(dbService.findMcpTargetsByHost).toHaveBeenCalledWith('10.0.0.9')
+    })
+
+    it('looks up managed hosts when the task has no @-selected hosts at all', async () => {
+      task.hosts = undefined
+      useManaged([managed()])
+      await expect(task.resolveTargetHost('10.0.0.9')).resolves.toMatchObject({ uuid: 'asset-9' })
+    })
+
+    it('rejects an address that no managed host uses and one that several share', async () => {
+      useManaged([])
+      await expect(task.resolveTargetHost('10.9.9.9')).rejects.toBeInstanceOf(HostResolutionError)
+      useManaged([managed(), managed({ target_id: 'asset-10', group: 'bastion' })])
+      await expect(task.resolveTargetHost('10.0.0.9')).rejects.toThrow(/matches 2 managed hosts/)
+    })
+  })
+
+  describe('executeCommandTool', () => {
+    it('reports an unresolvable host to the model and keeps the task running', async () => {
+      task.connectTerminal = vi.fn().mockRejectedValue(new HostResolutionError('Host "10.9.9.9" is not managed'))
+
+      const result = await task.executeCommandTool('uptime', '10.9.9.9')
+
+      expect(result).toBe('[ERROR] Host "10.9.9.9" is not managed')
+      expect(task.ask).not.toHaveBeenCalled()
+      expect(task.abortTask).not.toHaveBeenCalled()
+    })
+
+    it('still aborts the task when connecting to a resolved host fails', async () => {
+      task.connectTerminal = vi.fn().mockRejectedValue(new Error('auth failed'))
+
+      const result = await task.executeCommandTool('uptime', '10.0.0.1')
+
+      expect(task.ask).toHaveBeenCalledWith('ssh_con_failed', 'auth failed', false)
+      expect(task.abortTask).toHaveBeenCalled()
+      expect(result).toBe('SSH connection failed: auth failed')
+    })
+  })
+
+  describe('executeCommandInRemoteServer', () => {
+    it('rethrows an unresolvable host for the calling tool to report', async () => {
+      const error = new HostResolutionError('Host "10.9.9.9" is not managed')
+      task.connectTerminal = vi.fn().mockRejectedValue(error)
+
+      await expect(task.executeCommandInRemoteServer('ls', '10.9.9.9')).rejects.toBe(error)
+      expect(task.ask).not.toHaveBeenCalled()
+      expect(task.abortTask).not.toHaveBeenCalled()
+    })
+
+    it('still aborts the task when connecting to a resolved host fails', async () => {
+      task.connectTerminal = vi.fn().mockRejectedValue(new Error('auth failed'))
+
+      await expect(task.executeCommandInRemoteServer('ls', '10.0.0.1')).rejects.toThrow('auth failed')
+      expect(task.ask).toHaveBeenCalledWith('ssh_con_failed', 'auth failed', false)
+      expect(task.abortTask).toHaveBeenCalled()
+    })
+
+    it('returns empty output in cmd mode instead of aborting', async () => {
+      vi.mocked(getGlobalState).mockResolvedValue({ mode: 'cmd' })
+      task.connectTerminal = vi.fn().mockRejectedValue(new Error('auth failed'))
+
+      await expect(task.executeCommandInRemoteServer('ls', '10.0.0.1')).resolves.toBe('')
+      expect(task.abortTask).not.toHaveBeenCalled()
+    })
+  })
+
+  describe('handleListHostsToolUse', () => {
+    const run = (params: Record<string, string>) => task.handleListHostsToolUse({ name: 'list_hosts', params, partial: false })
+
+    it('lists managed hosts to the user and the model', async () => {
+      const dbService = useManaged([managed({ group: 'prod' })])
+
+      await run({ search: 'db', limit: '500', offset: '-3' })
+
+      expect(dbService.listMcpTargets).toHaveBeenCalledWith('db', 200, 0)
+      const summary = task.pushToolResult.mock.calls[0][1] as string
+      expect(summary).toContain('- host: 10.0.0.9 | name: db | port: 22 | type: ssh | group: prod')
+      expect(task.say).toHaveBeenCalledWith('search_result', summary, false)
+      expect(task.saveCheckpoint).toHaveBeenCalled()
+    })
+
+    it('applies defaults when no filter is given', async () => {
+      const dbService = useManaged([])
+
+      await run({})
+
+      expect(dbService.listMcpTargets).toHaveBeenCalledWith('', 50, 0)
+      expect(task.pushToolResult).toHaveBeenCalledWith('[mock-tool]', 'No managed hosts found.')
+    })
+
+    it('reports a failed lookup as a tool error', async () => {
+      const failure = new Error('database locked')
+      vi.mocked(ChatermDatabaseService.getInstance).mockRejectedValue(failure)
+
+      await run({})
+
+      expect(task.handleToolError).toHaveBeenCalledWith('[mock-tool]', 'listing hosts', failure)
+      expect(task.saveCheckpoint).toHaveBeenCalled()
+    })
+  })
+
+  describe('ask with host info', () => {
+    const hostInfo = { hostId: '10.0.0.9', hostName: '10.0.0.9', colorTag: '#3B82F6' }
+
+    beforeEach(() => {
+      task.ask = (Task as unknown as { prototype: { ask: unknown } }).prototype.ask
+      task.addToChatermMessages = vi.fn(async (message: any) => {
+        task.chatermMessages.push(message)
+        task.askResponsePayload = { response: 'yesButtonClicked' }
+      })
+      task.postStateToWebview = vi.fn().mockResolvedValue(undefined)
+      task.postMessageToWebview = vi.fn().mockResolvedValue(undefined)
+      task.saveChatermMessagesAndUpdateHistory = vi.fn().mockResolvedValue(undefined)
+    })
+
+    it('stores the host on a directly asked message', async () => {
+      await task.ask('command', 'uptime', undefined, undefined, hostInfo)
+      expect(task.addToChatermMessages).toHaveBeenCalledWith(expect.objectContaining({ ask: 'command', ...hostInfo }))
+    })
+
+    it('carries the host through an ask that completes a partial message', async () => {
+      await task.ask('command', 'uptime', false, undefined, hostInfo)
+      expect(task.addToChatermMessages).toHaveBeenCalledWith(expect.objectContaining({ ask: 'command', text: 'uptime', ...hostInfo }))
+    })
+
+    it('stores no host fields when none is given', async () => {
+      await task.ask('command', 'uptime')
+      expect(task.addToChatermMessages.mock.calls[0][0]).not.toHaveProperty('hostId')
+    })
+
+    it.each([
+      { label: 'with a host', info: hostInfo, expected: hostInfo },
+      { label: 'without a host', info: undefined, expected: {} }
+    ])('adds a new partial and a new completed ask $label', async ({ info, expected }) => {
+      const askTsRef = { value: 0 }
+
+      await task.handleAskPartialMessage('command', askTsRef, 'up', true, undefined, info)
+      expect(task.addToChatermMessages).toHaveBeenLastCalledWith(expect.objectContaining({ partial: true, ...expected }))
+
+      task.chatermMessages = []
+      await task.handleAskPartialMessage('command', askTsRef, 'uptime', false, undefined, info)
+      expect(task.addToChatermMessages).toHaveBeenLastCalledWith(expect.objectContaining({ text: 'uptime', ...expected }))
+      expect(task.postMessageToWebview).toHaveBeenLastCalledWith({ type: 'partialMessage', partialMessage: expect.objectContaining(expected) })
+    })
+
+    it('puts the host on a partial ask that is updated and then completed', async () => {
+      const askTsRef = { value: 0 }
+      task.chatermMessages = [{ ts: 7, type: 'ask', ask: 'command', text: 'up', partial: true }]
+
+      await task.handleAskPartialMessage('command', askTsRef, 'upt', true, undefined, hostInfo)
+      expect(task.chatermMessages[0]).toMatchObject({ text: 'upt', partial: true, ...hostInfo })
+
+      await task.handleAskPartialMessage('command', askTsRef, 'uptime', false, undefined, hostInfo)
+      expect(task.chatermMessages[0]).toMatchObject({ text: 'uptime', partial: false, ...hostInfo })
+      expect(task.saveChatermMessagesAndUpdateHistory).toHaveBeenCalled()
+    })
   })
 })

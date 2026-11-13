@@ -30,6 +30,11 @@
             >
               <div class="output-title-section">
                 <span class="output-title">{{ isSqlCommand ? 'SQL' : 'Command' }}</span>
+                <HostTag
+                  :host-id="props.hostId"
+                  :host-name="props.hostName"
+                  :color-tag="props.colorTag"
+                />
                 <a-tooltip
                   :title="t('ai.explainCommand')"
                   placement="top"
@@ -481,6 +486,7 @@ import eventBus from '@/utils/eventBus'
 import type { KbSearchProgress } from '@shared/ExtensionMessage'
 import type { ContentPart, ContextDocRef } from '@shared/WebviewMessage'
 import TerminalOutputRenderer from '../format/terminalOutputRenderer.vue'
+import HostTag from './HostTag.vue'
 
 const logger = createRendererLogger('ai.markdown')
 

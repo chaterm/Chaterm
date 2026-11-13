@@ -90,6 +90,12 @@ const toolMetadataInternal = [
     category: 'server'
   },
   {
+    name: 'list_hosts',
+    allowedIn: ['server'],
+    paramNames: ['search', 'limit', 'offset'],
+    category: 'server'
+  },
+  {
     name: 'ask_followup_question',
     allowedIn: ['server', 'database'],
     paramNames: ['question', 'options', 'response'],
