@@ -1,6 +1,7 @@
 import { computed, defineComponent, h, mergeProps, ref, nextTick } from 'vue'
 import { mount, flushPromises, type VueWrapper } from '@vue/test-utils'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { notification } from 'ant-design-vue'
 import AiTab from '../index.vue'
 import type { ChatTab } from '../composables/useSessionState'
 import type { HistoryItem } from '../types'
@@ -66,6 +67,7 @@ vi.mock('@ant-design/icons-vue', () => {
   const Icon = defineComponent({ setup: () => () => h('span') })
   return {
     BookOutlined: Icon,
+    BranchesOutlined: Icon,
     CheckCircleFilled: Icon,
     CheckCircleOutlined: Icon,
     CheckOutlined: Icon,
@@ -204,7 +206,7 @@ const createMockState = () => {
     messageFeedbacks: ref({}),
     buttonsDisabled: ref(false),
     shouldStickToBottom: ref(true),
-    getTabUserAssistantPairs: vi.fn(() => []),
+    getTabUserAssistantPairs: vi.fn((): unknown[] => []),
     getTabHasOlderHistory: vi.fn(() => false),
     getTabChatTypeValue: vi.fn(() => 'agent'),
     getTabLastChatMessageId: vi.fn(() => ''),
@@ -440,6 +442,87 @@ describe('AiTab changed interactions', () => {
     bar.vm.$emit('cancel', 'cmd-1')
     expect(interactiveInput.submitInteraction).toHaveBeenCalledWith('cmd-1', 'yes', true, 'freeform')
     expect(interactiveInput.cancelInteraction).toHaveBeenCalledWith('cmd-1')
+  })
+
+  describe('forking a conversation from a completion', () => {
+    const forkTask = vi.fn()
+    let notifySuccess: ReturnType<typeof vi.spyOn>
+    let notifyError: ReturnType<typeof vi.spyOn>
+
+    const renderCompletion = async () => {
+      mocks.state.session.isEmptyTab.mockReturnValue(false)
+      mocks.state.session.getTabUserAssistantPairs.mockReturnValue([
+        {
+          user: { message: { id: 'user-1', role: 'user', content: 'check disk', ts: 1000 }, historyIndex: 0 },
+          assistants: [{ message: { id: 'done-1', role: 'assistant', content: 'All good', say: 'completion_result', ts: 2000 }, historyIndex: 1 }]
+        }
+      ])
+      // The mocked state is not reactive, so mount again to render the configured messages
+      wrapper.unmount()
+      wrapper = mount(AiTab, {
+        attachTo: document.body,
+        props: { toggleSidebar: vi.fn() },
+        global: { stubs: globalStubs, mocks: { $t: (key: string) => key } }
+      })
+      await flushPromises()
+      await nextTick()
+    }
+
+    const clickFork = async () => {
+      const actions = wrapper.findAll('.completion-action-btn')
+      await actions[actions.length - 1].trigger('click')
+      await flushPromises()
+    }
+
+    beforeEach(() => {
+      forkTask.mockReset()
+      ;(window as unknown as { api: Record<string, unknown> }).api.forkTask = forkTask
+      notifySuccess = vi.spyOn(notification, 'success').mockImplementation(() => undefined)
+      notifyError = vi.spyOn(notification, 'error').mockImplementation(() => undefined)
+    })
+
+    afterEach(() => {
+      notifySuccess.mockRestore()
+      notifyError.mockRestore()
+    })
+
+    it('opens the forked tab and reports success only after it was restored', async () => {
+      forkTask.mockResolvedValue({ success: true, data: { taskId: 'fork-1', title: 'Chat 1 (Fork)' } })
+      mocks.state.tabManagement.restoreHistoryTab.mockResolvedValue(true)
+      await renderCompletion()
+
+      await clickFork()
+
+      expect(forkTask).toHaveBeenCalledExactlyOnceWith({ sourceTaskId: 'tab-1', cutoffTs: 2000 })
+      expect(mocks.state.tabManagement.restoreHistoryTab).toHaveBeenCalledExactlyOnceWith(
+        { id: 'fork-1', chatTitle: 'Chat 1 (Fork)', chatContent: [] },
+        { forceNewTab: true }
+      )
+      expect(notifySuccess).toHaveBeenCalledTimes(1)
+      expect(notifyError).not.toHaveBeenCalled()
+    })
+
+    it('reports a failure instead of success when the forked tab could not be opened', async () => {
+      forkTask.mockResolvedValue({ success: true, data: { taskId: 'fork-2', title: 'Chat 1 (Fork)' } })
+      mocks.state.tabManagement.restoreHistoryTab.mockResolvedValue(false)
+      await renderCompletion()
+
+      await clickFork()
+
+      expect(notifySuccess).not.toHaveBeenCalled()
+      expect(notifyError).toHaveBeenCalledTimes(1)
+    })
+
+    it('reports the reason when the fork itself fails', async () => {
+      forkTask.mockResolvedValue({ success: false, error: { message: 'Fork boundary was not found' } })
+      await renderCompletion()
+
+      await clickFork()
+
+      expect(mocks.state.tabManagement.restoreHistoryTab).not.toHaveBeenCalled()
+      expect(notifySuccess).not.toHaveBeenCalled()
+      expect(notifyError).toHaveBeenCalledWith(expect.objectContaining({ description: 'Fork boundary was not found' }))
+    })
   })
 
   it('answers free-text prompts in the bar and typed prompts in the interaction panel', async () => {

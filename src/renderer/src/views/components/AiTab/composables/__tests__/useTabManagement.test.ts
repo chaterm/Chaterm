@@ -335,8 +335,9 @@ describe('useTabManagement', () => {
         editingTitle: ''
       }
 
-      await restoreHistoryTab(history)
+      const opened = await restoreHistoryTab(history)
 
+      expect(opened).toBe(true)
       expect(mockState.currentChatId.value).toBe('tab-1')
       expect(mockState.chatTabs.value.length).toBe(1) // No new tab created
     })
@@ -506,11 +507,38 @@ describe('useTabManagement', () => {
         editingTitle: ''
       }
 
-      await restoreHistoryTab(history, { forceNewTab: true })
+      const opened = await restoreHistoryTab(history, { forceNewTab: true })
 
+      expect(opened).toBe(true)
       expect(mockState.chatTabs.value.length).toBe(2)
       expect(mockState.chatTabs.value.some((tab) => tab.id === 'history-3')).toBe(true)
       expect(mockState.chatTabs.value[0].id).not.toBe('history-3')
+    })
+
+    it('should report failure and open no tab when the history cannot be loaded', async () => {
+      mockChatermGetChatermMessagesPage.mockRejectedValue(new Error('db unavailable'))
+      mockGetTaskMetadata.mockResolvedValue({ success: true, data: {} })
+
+      const { restoreHistoryTab } = useTabManagement({
+        getCurentTabAssetInfo: mockGetCurentTabAssetInfo,
+        toggleSidebar: mockToggleSidebar
+      })
+
+      const mockState = vi.mocked(useSessionState)()
+      const tabCount = mockState.chatTabs.value.length
+
+      const opened = await restoreHistoryTab({
+        id: 'history-broken',
+        chatTitle: 'Broken',
+        chatContent: [],
+        isFavorite: false,
+        isEditing: false,
+        editingTitle: ''
+      })
+
+      expect(opened).toBe(false)
+      expect(mockState.chatTabs.value.length).toBe(tabCount)
+      expect(mockState.chatTabs.value.some((tab) => tab.id === 'history-broken')).toBe(false)
     })
 
     it('should NOT send showTaskWithId message on history restore (deferred to askResponse)', async () => {

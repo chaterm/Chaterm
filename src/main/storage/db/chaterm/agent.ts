@@ -286,20 +286,47 @@ export interface ForkTaskResult {
 }
 
 /**
- * Copy a conversation into a new task, stopping at the selected completion
- * boundary. The boundary is also normalised so a plain-text response that was
- * followed by an ask completion marker is rendered as a completed task in the
- * fork.
+ * Everything a forked task consists of, assembled in memory so it can be written in one transaction
  */
-export async function forkTaskLogic(
+export interface ForkTaskPayload extends ForkTaskResult {
+  metadata: any
+  messages: ChatermMessage[]
+  apiHistory: any[]
+  contextHistory: any | null
+}
+
+/**
+ * The stored truncation notice replaces the first assistant message once the context window is
+ * condensed. Its timestamp is not the moment the summary was produced: it can be the start time of
+ * the request before it. The summary is therefore kept only when a request that started after that
+ * timestamp is part of the fork; otherwise it may summarise turns beyond the selected boundary.
+ */
+function contextHistoryAtBoundary(contextHistory: any, messagesAtBoundary: ChatermMessage[], hasCutoff: boolean): any | null {
+  if (contextHistory === null || contextHistory === undefined) return null
+  if (!hasCutoff) return contextHistory
+
+  const notice = contextHistory.version === 2 ? contextHistory.truncationNotice : null
+  if (!notice) return null
+  return messagesAtBoundary.some((message) => message.say === 'api_req_started' && message.ts > notice.timestamp) ? contextHistory : null
+}
+
+/**
+ * Read a conversation and assemble the payload of the new task that copies it up to the selected
+ * completion boundary. The boundary is also normalised so a plain-text response that was followed
+ * by an ask completion marker is rendered as a completed task in the fork.
+ */
+export async function buildForkTaskLogic(
   db: Database.Database,
   sourceTaskId: string,
   targetTaskId: string,
   cutoffTs?: number,
   title?: string
-): Promise<ForkTaskResult> {
+): Promise<ForkTaskPayload> {
   if (!sourceTaskId || !targetTaskId || sourceTaskId === targetTaskId) {
     throw new Error('Invalid fork task identifiers')
+  }
+  if (cutoffTs !== undefined && !Number.isFinite(cutoffTs)) {
+    throw new Error('Invalid fork boundary')
   }
 
   const sourceMessages = await getSavedChatermMessagesLogic(db, sourceTaskId)
@@ -313,7 +340,7 @@ export async function forkTaskLogic(
     throw new Error('Fork target already exists')
   }
 
-  const hasCutoff = typeof cutoffTs === 'number' && Number.isFinite(cutoffTs)
+  const hasCutoff = cutoffTs !== undefined
   const messagesAtBoundary = hasCutoff ? sourceMessages.filter((message) => message.ts <= cutoffTs!) : sourceMessages
   if (hasCutoff && messagesAtBoundary.length === 0) {
     throw new Error('Fork boundary was not found')
@@ -322,6 +349,10 @@ export async function forkTaskLogic(
   const boundaryApiIndex = [...messagesAtBoundary]
     .reverse()
     .find((message) => typeof message.conversationHistoryIndex === 'number')?.conversationHistoryIndex
+  // Without a position in the API history the whole history would be copied, past the selected boundary
+  if (hasCutoff && typeof boundaryApiIndex !== 'number') {
+    throw new Error('Fork boundary has no API history position')
+  }
 
   const forkMessages = messagesAtBoundary.map((message) => ({ ...message }))
   const boundaryMessage = forkMessages.at(-1)
@@ -355,21 +386,17 @@ export async function forkTaskLogic(
   const sourceMetadata = await getTaskMetadataLogic(db, sourceTaskId)
   const sourceTitle = typeof sourceMetadata.title === 'string' && sourceMetadata.title.trim() ? sourceMetadata.title.trim() : 'New chat'
   const forkTitle = title?.trim() || `${sourceTitle} (Fork)`
+  // The hosts chosen when the boundary message was sent, not the ones the source task ended up with
+  const boundaryHosts = [...forkMessages].reverse().find((message) => message.hosts && message.hosts.length > 0)?.hosts ?? []
 
-  await saveTaskMetadataLogic(db, targetTaskId, {
-    ...sourceMetadata,
+  return {
+    taskId: targetTaskId,
     title: forkTitle,
-    favorite: false
-  })
-  await saveChatermMessagesLogic(db, targetTaskId, forkMessages)
-  await saveApiConversationHistoryLogic(db, targetTaskId, forkApiHistory)
-
-  const contextHistory = await getContextHistoryLogic(db, sourceTaskId)
-  if (contextHistory !== null && contextHistory !== undefined) {
-    await saveContextHistoryLogic(db, targetTaskId, contextHistory)
+    metadata: { ...sourceMetadata, hosts: boundaryHosts, title: forkTitle, favorite: false },
+    messages: forkMessages,
+    apiHistory: forkApiHistory,
+    contextHistory: contextHistoryAtBoundary(await getContextHistoryLogic(db, sourceTaskId), messagesAtBoundary, hasCutoff)
   }
-
-  return { taskId: targetTaskId, title: forkTitle }
 }
 
 // Agent task metadata related methods
