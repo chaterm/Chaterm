@@ -123,6 +123,7 @@ export interface Messages {
 
   // User feedback
   userProvidedFeedback: string
+  userInjectedMessage: string
 
   // User custom instructions
   userCustomInstructionsTitle: string
@@ -250,6 +251,8 @@ export const messagesEN: Messages = {
 
   // User feedback
   userProvidedFeedback: 'The user provided the following feedback:\n<feedback>\n{{feedback}}\n</feedback>',
+  userInjectedMessage:
+    'The user sent a new message while you were working. Take it into account and continue:\n<user_message>\n{{message}}\n</user_message>',
 
   // User custom instructions
   userCustomInstructionsTitle: "USER'S CUSTOM INSTRUCTIONS",
@@ -383,6 +386,7 @@ export const messagesCN: Messages = {
 
   // 用户反馈
   userProvidedFeedback: '用户提供了以下反馈：\n<feedback>\n{{feedback}}\n</feedback>',
+  userInjectedMessage: '你工作期间用户发来了一条新消息，请结合它继续处理：\n<user_message>\n{{message}}\n</user_message>',
 
   // 用户自定义指令
   userCustomInstructionsTitle: '用户自定义指令',

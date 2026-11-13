@@ -167,6 +167,7 @@ vi.mock('@core/task', () => {
       clearTodos = vi.fn(async () => undefined)
       reloadSecurityConfig = vi.fn(async () => undefined)
       handleWebviewAskResponse = vi.fn(async () => undefined)
+      injectUserMessage = vi.fn(async () => undefined)
     }
   }
 })
@@ -336,6 +337,65 @@ describe('Controller', () => {
 
     expect(clearTodosSpy).toHaveBeenCalledWith('new_user_input')
     expect(handleResponseSpy).toHaveBeenCalledWith('messageResponse', 'response text', undefined, undefined, undefined)
+  })
+
+  describe('handleWebviewMessage(injectUserMessage)', () => {
+    const createController = () =>
+      new Controller(
+        async () => true,
+        async () => '/tmp/mcp_settings.json'
+      )
+
+    it('hands the queued message to the running task', async () => {
+      const controller = createController()
+      await controller.initTask([createMockHost('1')], 'task 1', 'task-1')
+      const task = controller.getAllTasks().find((t) => t.taskId === 'task-1')!
+      const injectSpy = vi.spyOn(task, 'injectUserMessage').mockResolvedValue(undefined)
+      const contentParts = [{ type: 'text' as const, text: 'also check disk' }]
+
+      await controller.handleWebviewMessage({
+        type: 'injectUserMessage',
+        taskId: 'task-1',
+        queuedMessageId: 'q1',
+        text: 'also check disk',
+        contentParts
+      } as WebviewMessage)
+
+      expect(injectSpy).toHaveBeenCalledWith('q1', 'also check disk', contentParts)
+    })
+
+    it('injects an empty text when the message only carries content parts', async () => {
+      const controller = createController()
+      await controller.initTask([createMockHost('1')], 'task 1', 'task-1')
+      const task = controller.getAllTasks().find((t) => t.taskId === 'task-1')!
+      const injectSpy = vi.spyOn(task, 'injectUserMessage').mockResolvedValue(undefined)
+
+      await controller.handleWebviewMessage({ type: 'injectUserMessage', taskId: 'task-1', queuedMessageId: 'q1' } as WebviewMessage)
+
+      expect(injectSpy).toHaveBeenCalledWith('q1', '', undefined)
+    })
+
+    it('ignores the message when no task is running for the tab', async () => {
+      const controller = createController()
+      await controller.initTask([createMockHost('1')], 'task 1', 'task-1')
+      const task = controller.getAllTasks().find((t) => t.taskId === 'task-1')!
+      const injectSpy = vi.spyOn(task, 'injectUserMessage')
+
+      await controller.handleWebviewMessage({ type: 'injectUserMessage', taskId: 'other-task', queuedMessageId: 'q1', text: 'x' } as WebviewMessage)
+
+      expect(injectSpy).not.toHaveBeenCalled()
+    })
+
+    it('ignores the message without a queued message id', async () => {
+      const controller = createController()
+      await controller.initTask([createMockHost('1')], 'task 1', 'task-1')
+      const task = controller.getAllTasks().find((t) => t.taskId === 'task-1')!
+      const injectSpy = vi.spyOn(task, 'injectUserMessage')
+
+      await controller.handleWebviewMessage({ type: 'injectUserMessage', taskId: 'task-1', text: 'x' } as WebviewMessage)
+
+      expect(injectSpy).not.toHaveBeenCalled()
+    })
   })
 
   it('handleWebviewMessage(askResponse) should forward command tool result to task', async () => {

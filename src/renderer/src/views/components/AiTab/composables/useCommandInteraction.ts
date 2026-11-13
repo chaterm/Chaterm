@@ -286,6 +286,9 @@ export function useCommandInteraction(params: CommandInteractionOptions) {
     const wasExecutingCommand = session.isExecutingCommand
     session.isExecutingCommand = false
     session.isCancelled = true
+    session.messageQueue.forEach((item) => {
+      item.injecting = false
+    })
 
     const lastMessageIndex = filteredChatHistory.value.length - 1
     if (lastMessageIndex >= 0 && params.markdownRendererRefs.value[lastMessageIndex]) {

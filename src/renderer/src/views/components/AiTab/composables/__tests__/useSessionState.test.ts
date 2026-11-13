@@ -29,6 +29,7 @@ describe('useSessionState', () => {
         lastStateChatermMessages: null,
         shouldStickToBottom: true,
         isCancelled: false,
+        messageQueue: [],
         historyPagination: {
           beforeCursor: null,
           hasMoreBefore: false,

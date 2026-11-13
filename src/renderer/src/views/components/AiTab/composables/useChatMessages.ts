@@ -11,6 +11,7 @@ import type { ContentPart, ToolResultPayload, WebviewMessage } from '@shared/Web
 import { createNewMessage, parseMessageContent, pickHostInfo, isSwitchAssetType } from '../utils'
 import { Notice } from '@/views/components/Notice'
 import { useSessionState } from './useSessionState'
+import { useMessageQueue } from './useMessageQueue'
 import { getGlobalState, updateGlobalState } from '@renderer/agent/storage/state'
 import i18n from '@/locales'
 import { AI_TAB_DEFAULT_WORKSPACE, type AiTabWorkspace } from '../workspace'
@@ -341,6 +342,12 @@ export function useChatMessages(
     //   return 'ASSET_ERROR'
     // }
 
+    if (sendType === 'send' && currentSession.value?.responseLoading) {
+      chatInputParts.value = []
+      messageQueue.enqueue(userContent, contentParts)
+      return
+    }
+
     if (sendType === 'send' && currentTodos.value.length > 0) {
       if (currentSession.value) {
         clearTodoState(currentSession.value.chatHistory)
@@ -410,6 +417,8 @@ export function useChatMessages(
 
     return
   }
+
+  const messageQueue = useMessageQueue({ sendMessageWithContent, clearTodoState, currentTodos, scrollToBottom })
 
   const handleModelApiReqFailed = (message: any, targetTab: ChatTab) => {
     const session = targetTab.session
@@ -570,6 +579,7 @@ export function useChatMessages(
         if (isActiveTab) {
           scrollToBottom()
         }
+        await messageQueue.drainNext(targetTabId)
         return
       }
 
@@ -723,6 +733,10 @@ export function useChatMessages(
         isWaitingForUserResponse
       ) {
         session.responseLoading = false
+      }
+    } else if (message?.type === 'userMessageInjected') {
+      if (message.queuedMessageId) {
+        messageQueue.handleInjected(targetTabId, message.queuedMessageId)
       }
     } else if (message?.type === 'todoUpdated') {
       logger.info('Received todoUpdated message', { data: message })
@@ -926,6 +940,7 @@ export function useChatMessages(
     sendMessageToMain,
     sendMessage,
     sendMessageWithContent,
+    messageQueue,
     handleIncomingMainMessage,
     processMainMessage,
     handleModelApiReqFailed,

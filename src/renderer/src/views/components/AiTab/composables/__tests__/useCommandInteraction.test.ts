@@ -71,7 +71,8 @@ describe('useCommandInteraction', () => {
     lastPartialMessage: null,
     lastStateChatermMessages: null,
     shouldStickToBottom: true,
-    isCancelled: false
+    isCancelled: false,
+    messageQueue: []
   })
 
   beforeEach(() => {
@@ -565,6 +566,27 @@ describe('useCommandInteraction', () => {
       expect(session.showSendButton).toBe(true)
       expect(session.isCancelled).toBe(true)
       expect(mockCancelTask).toHaveBeenCalledWith('test-tab-1')
+    })
+
+    it('should return injecting queued messages to the queue when cancelling', async () => {
+      const { handleCancel } = useCommandInteraction({
+        getCurentTabAssetInfo: mockGetCurentTabAssetInfo,
+        markdownRendererRefs: mockMarkdownRendererRefs,
+        currentTodos: mockCurrentTodos,
+        clearTodoState: mockClearTodoState,
+        scrollToBottom: mockScrollToBottom
+      })
+
+      const session = vi.mocked(useSessionState)().currentSession.value!
+      session.messageQueue = [
+        { id: 'q1', content: 'merged soon', contentParts: [], injecting: true },
+        { id: 'q2', content: 'waiting', contentParts: [], injecting: false }
+      ]
+
+      await handleCancel()
+
+      expect(session.messageQueue.map((item) => item.injecting)).toEqual([false, false])
+      expect(session.messageQueue).toHaveLength(2)
     })
 
     it('should gracefully cancel when command is executing', async () => {

@@ -73,6 +73,7 @@ export type WebviewMessageType =
   | 'condense'
   | 'telemetrySetting'
   | 'askResponse'
+  | 'injectUserMessage'
   | 'deleteTaskWithId'
   | 'showTaskWithId'
   | 'taskFeedback'
@@ -104,6 +105,7 @@ export interface WebviewMessage {
   changeType?: 'created' | 'updated' | 'completed' | 'progress'
   triggerReason?: 'agent_update' | 'user_request' | 'auto_progress'
   truncateAtMessageTs?: number // For truncate and resend
+  queuedMessageId?: string // For injectUserMessage, echoed back in userMessageInjected
 
   // DB-AI workspace fields (Stage 2 of #18). Populated by the renderer on
   // `newTask` when the AiTab is mounted in the Database workspace so the
@@ -129,6 +131,7 @@ export const WebviewMessageSchema = z
     tabId: z.string().optional(),
     taskId: z.string().optional(),
     text: z.string().optional(),
+    queuedMessageId: z.string().optional(),
     toolResult: z
       .object({
         output: z.string(),
