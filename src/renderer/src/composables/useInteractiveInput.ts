@@ -265,7 +265,8 @@ export function useInteractiveInput() {
     appendNewline: boolean,
     interactionType: InteractionType
   ): Promise<InteractionSubmitResult> {
-    const shouldCloseImmediately = interactionType !== 'pager'
+    // Pager stays open for continuous paging; free text stays open until the send succeeds so a failed send can be retried
+    const shouldCloseImmediately = interactionType !== 'pager' && interactionType !== 'freeform'
 
     const key = commandIdToKey.value.get(commandId)
     const state = key ? interactionStates.value.get(key) : undefined
@@ -300,7 +301,7 @@ export function useInteractiveInput() {
           if (result.success) {
             // Hide interaction on success
             // For pager, keep visible for continuous mode unless quit
-            if (input === 'q') {
+            if (interactionType === 'freeform' || input === 'q') {
               state.visible = false
             }
             state.errorMessage = ''
