@@ -893,6 +893,8 @@ export default {
     name: '名前',
     password: 'パスワード',
     copyPassword: 'パスワードをコピー',
+    copyIp: 'IPをコピー',
+    copyHostname: 'ホスト名をコピー',
     copyPasswordSuccess: 'パスワードをコピーしました',
     copySuccess: 'コピーしました',
     copyFailed: 'コピーに失敗しました',

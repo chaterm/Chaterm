@@ -169,6 +169,30 @@
                       />
                     </a-tooltip>
                   </span>
+                  <span
+                    v-else-if="editingNode === dataRef.key"
+                    class="title-with-icon"
+                  >
+                    <laptop-outlined class="computer-icon" />
+                    <div class="edit-container">
+                      <a-input
+                        ref="renameInputRef"
+                        v-model:value="editingTitle"
+                        size="small"
+                        :aria-label="t('common.rename')"
+                        @keydown.enter="saveRename(dataRef)"
+                        @keydown.esc="cancelRename"
+                      />
+                      <CheckOutlined
+                        class="confirm-icon"
+                        @click="saveRename(dataRef)"
+                      />
+                      <CloseOutlined
+                        class="cancel-icon"
+                        @click="cancelRename"
+                      />
+                    </div>
+                  </span>
                   <MoreOutlined
                     v-if="hasContextMenu(dataRef)"
                     class="more-icon"
@@ -247,6 +271,7 @@
                     <span class="hostname-text">{{ getDisplayText(dataRef, title) }}</span>
                     <div class="comment-edit-container">
                       <a-input
+                        ref="commentInputRef"
                         v-model:value="editingComment"
                         :placeholder="t('personal.commentPlaceholder')"
                         size="small"
@@ -566,15 +591,15 @@
       @click="handleContextMenuAction('copy')"
     >
       <CopyOutlined class="menu-icon" />
-      {{ t('common.copy') }}
+      {{ isShowingIp(contextMenuData) ? t('personal.copyIp') : t('personal.copyHostname') }}
     </div>
     <div
       v-if="canEditDirectHost(contextMenuData)"
       class="context-menu-item"
-      @click="handleContextMenuAction('editHost')"
+      @click="handleContextMenuAction('rename')"
     >
       <EditOutlined class="menu-icon" />
-      {{ t('personal.editHost') }}
+      {{ t('common.rename') }}
     </div>
     <div
       v-if="canEditDirectHost(contextMenuData)"
@@ -711,6 +736,8 @@ const editingTitle = ref('')
 const refreshingNode = ref(null)
 const editingComment = ref('')
 const commentNode = ref(null)
+const renameInputRef = ref()
+const commentInputRef = ref()
 const showCreateFolderModal = ref(false)
 const showEditFolderModal = ref(false)
 const showMoveToFolderModal = ref(false)
@@ -1901,8 +1928,10 @@ const toggleDisplayMode = async () => {
   }
 }
 
+const isShowingIp = (dataRef: any): boolean => showIpMode.value && !!dataRef?.ip
+
 const getDisplayText = (dataRef: any, title: string): string => {
-  if (showIpMode.value && dataRef.ip) {
+  if (isShowingIp(dataRef)) {
     return dataRef.ip
   }
   return title
@@ -1953,9 +1982,11 @@ const handleRefresh = async (dataRef: any) => {
   }
 }
 
-const handleCommentClick = (dataRef: any) => {
+const handleCommentClick = async (dataRef: any) => {
   commentNode.value = dataRef.key
   editingComment.value = dataRef.comment || ''
+  await nextTick()
+  commentInputRef.value?.focus()
 }
 
 const saveComment = async (dataRef: any) => {
@@ -2386,10 +2417,38 @@ const handleCopyDisplayText = async (asset: any): Promise<void> => {
   }
 }
 
-const handleEditDirectHost = async (asset: any): Promise<void> => {
-  await eventBus.emitAsync('open-user-tab', 'assetConfig')
+const handleRenameClick = async (asset: any): Promise<void> => {
+  editingNode.value = asset.key
+  editingTitle.value = asset.title
   await nextTick()
-  eventBus.emit('assetConfig:editAsset', { uuid: asset.uuid, asset })
+  renameInputRef.value?.focus()
+  renameInputRef.value?.select()
+}
+
+const cancelRename = (): void => {
+  editingNode.value = null
+  editingTitle.value = ''
+}
+
+const saveRename = async (asset: any): Promise<void> => {
+  const label = editingTitle.value.trim()
+  if (!label || label === asset.title) {
+    cancelRename()
+    return
+  }
+
+  try {
+    const result = await window.api.updateLocalAssetLabel({ uuid: asset.uuid, label })
+    if (result?.data?.message !== 'success') {
+      message.error(t('personal.saveError'))
+      return
+    }
+    cancelRename()
+    eventBus.emit('LocalAssetMenu')
+  } catch {
+    logger.error('Failed to rename host', { event: 'workspace.rename.failed' })
+    message.error(t('personal.saveError'))
+  }
 }
 
 const handleContextMenuAction = async (action: string) => {
@@ -2399,8 +2458,8 @@ const handleContextMenuAction = async (action: string) => {
     case 'copy':
       await handleCopyDisplayText(contextMenuData.value)
       break
-    case 'editHost':
-      await handleEditDirectHost(contextMenuData.value)
+    case 'rename':
+      await handleRenameClick(contextMenuData.value)
       break
     case 'copyPassword':
       await handleCopyPassword(contextMenuData.value)
@@ -2415,7 +2474,7 @@ const handleContextMenuAction = async (action: string) => {
       handleFavoriteClick(contextMenuData.value)
       break
     case 'comment':
-      handleCommentClick(contextMenuData.value)
+      await handleCommentClick(contextMenuData.value)
       break
     case 'move':
       handleMoveToFolder(contextMenuData.value)
@@ -2980,14 +3039,29 @@ onUnmounted(() => {
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    margin-left: 10px;
+    margin-left: 6px;
     cursor: pointer;
-    color: #1890ff;
-    min-width: 10px;
+    color: #52c41a;
+    min-width: 14px;
     height: 24px;
     flex-shrink: 0;
     &:hover {
-      color: #40a9ff;
+      color: #73d13d;
+    }
+  }
+
+  .cancel-icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    margin-left: 2px;
+    cursor: pointer;
+    color: #ff4d4f;
+    min-width: 14px;
+    height: 24px;
+    flex-shrink: 0;
+    &:hover {
+      color: #ff7875;
     }
   }
 }

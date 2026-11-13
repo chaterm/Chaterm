@@ -880,6 +880,8 @@ export default {
     name: '名稱',
     password: '密碼',
     copyPassword: '複製密碼',
+    copyIp: '複製IP',
+    copyHostname: '複製主機名',
     copyPasswordSuccess: '密碼已複製',
     copySuccess: '已複製',
     copyFailed: '複製失敗',

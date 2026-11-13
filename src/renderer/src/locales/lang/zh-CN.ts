@@ -883,6 +883,8 @@ export default {
     name: '名称',
     password: '密码',
     copyPassword: '复制密码',
+    copyIp: '复制IP',
+    copyHostname: '复制主机名',
     copyPasswordSuccess: '密码已复制',
     copySuccess: '已复制',
     copyFailed: '复制失败',
