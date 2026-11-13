@@ -292,6 +292,40 @@ describe('runMarkerBasedCommand', () => {
     expect(stream.listenerCount('close')).toBe(0)
   })
 
+  it('flushes output still waiting for a newline when the stream closes', async () => {
+    const stream = createMockStream()
+    const lines: string[] = []
+    const onLine = vi.fn((line: string) => lines.push(line))
+    const onDetectorOutput = vi.fn()
+
+    const resultPromise = runMarkerBasedCommand(createConfig(stream, { onLine, onDetectorOutput }))
+
+    stream.emitData('===CHATERM_START===\n')
+    stream.emitData('last words without newline')
+    stream.emit('close')
+
+    await resultPromise
+
+    expect(lines).toEqual(['last words without newline', 'Connection closed before the command finished.'])
+    expect(onDetectorOutput).toHaveBeenCalledWith('last words without newline\n')
+  })
+
+  it('does not flush marker text left in the buffer when the stream closes', async () => {
+    const stream = createMockStream()
+    const lines: string[] = []
+    const onLine = vi.fn((line: string) => lines.push(line))
+
+    const resultPromise = runMarkerBasedCommand(createConfig(stream, { onLine }))
+
+    stream.emitData('===CHATERM_START===\n')
+    stream.emitData('===CHATERM_PARTIAL')
+    stream.emit('close')
+
+    await resultPromise
+
+    expect(lines).toEqual(['Connection closed before the command finished.'])
+  })
+
   it('stops tracking silently when aborted', async () => {
     const stream = createMockStream()
     const controller = new AbortController()
