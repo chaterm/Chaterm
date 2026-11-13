@@ -571,6 +571,44 @@ describe('useChatMessages', () => {
       expect(session.responseLoading).toBe(true)
     })
 
+    it('should stamp the user message with its send time', async () => {
+      vi.useFakeTimers()
+      vi.setSystemTime(new Date(1_700_000_000_000))
+      const { sendMessageWithContent } = useChatMessages(
+        mockScrollToBottom,
+        mockClearTodoState,
+        mockMarkLatestMessageWithTodoUpdate,
+        mockCurrentTodos,
+        mockCheckModelConfig
+      )
+
+      const mockState = vi.mocked(useSessionState)()
+      const session = mockState.currentSession.value!
+
+      await sendMessageWithContent('first', 'send')
+      vi.setSystemTime(new Date(1_700_000_005_000))
+      await sendMessageWithContent('second', 'send')
+
+      expect(session.chatHistory.map((m) => m.ts)).toEqual([1_700_000_000_000, 1_700_000_005_000])
+    })
+
+    it('should leave the command output message unstamped', async () => {
+      const { sendMessageWithContent } = useChatMessages(
+        mockScrollToBottom,
+        mockClearTodoState,
+        mockMarkLatestMessageWithTodoUpdate,
+        mockCurrentTodos,
+        mockCheckModelConfig
+      )
+
+      const mockState = vi.mocked(useSessionState)()
+      const session = mockState.currentSession.value!
+
+      await sendMessageWithContent('ls -la', 'commandSend')
+
+      expect(session.chatHistory[0].ts).toBe(0)
+    })
+
     it('should mark message as assistant for commandSend type', async () => {
       const { sendMessageWithContent } = useChatMessages(
         mockScrollToBottom,
@@ -805,6 +843,28 @@ describe('useChatMessages', () => {
 
       expect(consoleSpy).toHaveBeenCalledWith('[ai.chatMessages] Ignoring message for deleted tab', { detail: 'non-existent-tab' })
       consoleSpy.mockRestore()
+    })
+
+    it('should replace the send time of a user message with the stored timestamp on state', async () => {
+      const { processMainMessage } = useChatMessages(
+        mockScrollToBottom,
+        mockClearTodoState,
+        mockMarkLatestMessageWithTodoUpdate,
+        mockCurrentTodos,
+        mockCheckModelConfig
+      )
+
+      const mockState = vi.mocked(useSessionState)()
+      const session = mockState.currentSession.value!
+      session.chatHistory.push({ id: 'user-1', role: 'user', content: 'hello', type: 'message', ask: '', say: '', ts: 1000 })
+
+      await processMainMessage({
+        type: 'state',
+        tabId: 'test-tab-1',
+        state: { chatermMessages: [{ ts: 1004, type: 'say', say: 'text', text: 'hello' }] }
+      } as any)
+
+      expect(session.chatHistory[0].ts).toBe(1004)
     })
 
     it('should add partial message to chat history', async () => {
