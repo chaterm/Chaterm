@@ -716,6 +716,7 @@ export default {
     hints: {
       sendOrToggleAi: 'Mit AI chatten',
       toggleLeftSidebar: 'Asset List',
+      quickJump: 'Schnellsprung',
       openSettings: 'Einstellungen öffnen',
       openCommandDialog: 'Inline-Befehl-Generator öffnen',
       openFileManager: 'Dateimanager öffnen',

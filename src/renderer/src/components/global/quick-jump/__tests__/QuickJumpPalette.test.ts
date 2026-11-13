@@ -79,7 +79,12 @@ describe('QuickJumpPalette', () => {
     }))
     api.userSnippetOperation.mockResolvedValue({ data: { snippets: [{ uuid: 's1', snippet_name: 'disk usage', snippet_content: 'df -h' }] } })
     api.kbListDir.mockImplementation(async (relDir: string) =>
-      relDir === '' ? [{ name: 'ops', relPath: 'ops', type: 'dir' }] : [{ name: 'runbook.md', relPath: 'ops/runbook.md', type: 'file' }]
+      relDir === ''
+        ? [
+            { name: 'ops', relPath: 'ops', type: 'dir' },
+            { name: 'guide.md', relPath: 'guide.md', type: 'file' }
+          ]
+        : [{ name: 'runbook.md', relPath: 'ops/runbook.md', type: 'file' }]
     )
     ;(window as any).api = api
   })
@@ -150,8 +155,10 @@ describe('QuickJumpPalette', () => {
     await press('ArrowRight')
     expect(activeRowId()).toBe('tab:panel_1')
     await press('ArrowLeft')
-    expect(rowIds()).not.toContain('tab:panel_1')
+    expect(rowIds()).toContain('tab:panel_1')
     expect(activeRowId()).toBe('group:tabs')
+    await press('ArrowLeft')
+    expect(rowIds()).not.toContain('tab:panel_1')
   })
 
   it('does not toggle anything when ArrowLeft or ArrowRight is pressed without a highlight', async () => {
@@ -209,6 +216,7 @@ describe('QuickJumpPalette', () => {
     await mountPalette()
 
     await wrapper!.find('[data-row-id="group:knowledge"]').trigger('click')
+    await wrapper!.find('[data-row-id="kbdir:ops"]').trigger('click')
     await wrapper!.find('[data-row-id="kb:ops/runbook.md"]').trigger('click')
 
     expect(eventBus.emit).toHaveBeenCalledWith('openUserTab', {
@@ -218,6 +226,84 @@ describe('QuickJumpPalette', () => {
       props: { relPath: 'ops/runbook.md' }
     })
     expect(wrapper!.emitted('update:visible')![0]).toEqual([false])
+  })
+
+  it('shows the knowledge base like its list: folders first, closed, then files, with icons and depth', async () => {
+    await mountPalette()
+
+    await wrapper!.find('[data-row-id="group:knowledge"]').trigger('click')
+    expect(rowIds().filter((id) => id!.startsWith('kb'))).toEqual(['kbdir:ops', 'kb:guide.md'])
+    const folder = wrapper!.find('[data-row-id="kbdir:ops"]')
+    expect(folder.attributes('aria-expanded')).toBe('false')
+    expect(folder.attributes('aria-level')).toBe('2')
+    expect(folder.find('.anticon-caret-right').exists()).toBe(true)
+    expect(folder.find('.anticon-folder').exists()).toBe(true)
+    const topFile = wrapper!.find('[data-row-id="kb:guide.md"]')
+    expect(topFile.find('.anticon-file').exists()).toBe(true)
+    expect(topFile.find('.quick-jump-subtitle').exists()).toBe(false)
+
+    await folder.trigger('click')
+    const opened = wrapper!.find('[data-row-id="kbdir:ops"]')
+    expect(opened.attributes('aria-expanded')).toBe('true')
+    expect(opened.find('.anticon-caret-down').exists()).toBe(true)
+    expect(opened.find('.anticon-folder-open').exists()).toBe(true)
+    const nested = wrapper!.find('[data-row-id="kb:ops/runbook.md"]')
+    expect(nested.attributes('aria-level')).toBe('3')
+    expect(nested.attributes('style')).toContain('--depth: 1')
+    expect(rowIds().filter((id) => id!.startsWith('kb'))).toEqual(['kbdir:ops', 'kb:ops/runbook.md', 'kb:guide.md'])
+  })
+
+  it('opens and closes folders with the keyboard and walks back up with the left arrow', async () => {
+    await mountPalette()
+    await wrapper!.find('[data-row-id="group:knowledge"]').trigger('click')
+    expect(activeRowId()).toBe('group:knowledge')
+
+    await press('ArrowDown')
+    expect(activeRowId()).toBe('kbdir:ops')
+    await press('ArrowRight')
+    expect(rowIds()).toContain('kb:ops/runbook.md')
+    expect(activeRowId()).toBe('kbdir:ops')
+
+    await press('ArrowDown')
+    expect(activeRowId()).toBe('kb:ops/runbook.md')
+    await press('ArrowLeft')
+    expect(activeRowId()).toBe('kbdir:ops')
+    expect(rowIds()).toContain('kb:ops/runbook.md')
+
+    await press('ArrowLeft')
+    expect(rowIds()).not.toContain('kb:ops/runbook.md')
+    await press('ArrowLeft')
+    expect(activeRowId()).toBe('group:knowledge')
+
+    await press('ArrowDown')
+    await press('ArrowDown')
+    expect(activeRowId()).toBe('kb:guide.md')
+    await press('ArrowLeft')
+    expect(activeRowId()).toBe('group:knowledge')
+
+    await press('ArrowDown')
+    await press('Enter')
+    expect(rowIds()).toContain('kb:ops/runbook.md')
+    await press('Enter')
+    expect(rowIds()).not.toContain('kb:ops/runbook.md')
+  })
+
+  it('opens the folders above a matching file on its own while searching', async () => {
+    await mountPalette()
+
+    await wrapper!.find('.quick-jump-input').setValue('runbook')
+    await flushPromises()
+
+    const knowledge = rowIds().filter((id) => id!.startsWith('kb') || id === 'group:knowledge')
+    expect(knowledge).toEqual(['group:knowledge', 'kbdir:ops', 'kb:ops/runbook.md'])
+    const folder = wrapper!.find('[data-row-id="kbdir:ops"]')
+    expect(folder.attributes('aria-expanded')).toBeUndefined()
+    expect(folder.find('.anticon-folder-open').exists()).toBe(true)
+    expect(folder.find('.anticon-caret-down').exists()).toBe(false)
+
+    await folder.trigger('click')
+    expect(rowIds()).toContain('kb:ops/runbook.md')
+    expect(activeRowId()).toBe('kb:ops/runbook.md')
   })
 
   it('searches every host, with recent ones first, and keeps the horizontal arrows for the caret', async () => {

@@ -699,6 +699,7 @@ export default {
     hints: {
       sendOrToggleAi: 'AI와 대화',
       toggleLeftSidebar: '자산 목록',
+      quickJump: '빠른 이동',
       openSettings: '설정 열기',
       openCommandDialog: '인라인 명령 생성기 열기',
       openFileManager: '파일 관리자 열기',

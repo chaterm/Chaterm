@@ -4,7 +4,10 @@ import {
   QUICK_JUMP_RECENT_LIMIT,
   buildQuickJumpRows,
   collectHosts,
-  collectKnowledgeFiles,
+  collectKnowledgeTree,
+  isCollapsibleRow,
+  parentRowId,
+  type QuickJumpKnowledgeNode,
   collectRecentHosts,
   findDefaultRowId,
   isSelectableRow,
@@ -30,7 +33,16 @@ const recentRouter = (children: QuickJumpHostNode[]): QuickJumpHostNode => ({
   children: children.map((child) => ({ ...child, isRecentConnection: true }))
 })
 
-const emptySources = (): QuickJumpSources => ({ hostTrees: [], tabs: [], snippets: [], knowledgeFiles: [] })
+const file = (relPath: string): QuickJumpKnowledgeNode => ({ name: relPath.split('/').pop()!, relPath, type: 'file' })
+const dir = (relPath: string, children: QuickJumpKnowledgeNode[] = []): QuickJumpKnowledgeNode => ({
+  name: relPath.split('/').pop()!,
+  relPath,
+  type: 'dir',
+  children
+})
+const rowIdsOf = (rows: QuickJumpRow[]) => rows.map((row) => row.id)
+
+const emptySources = (): QuickJumpSources => ({ hostTrees: [], tabs: [], snippets: [], knowledgeTree: [] })
 const expanded = (...groups: QuickJumpGroupKey[]) => new Set<QuickJumpGroupKey>(groups)
 const itemTitles = (rows: QuickJumpRow[]) => rows.filter((row) => row.kind === 'item').map((row) => (row.kind === 'item' ? row.item.title : ''))
 const headerGroups = (rows: QuickJumpRow[]) => rows.filter((row) => row.kind === 'header').map((row) => row.group)
@@ -96,7 +108,7 @@ describe('buildQuickJumpRows without a query', () => {
       hostTrees: [[recentRouter([host({ title: 'prod', ip: '10.0.0.5', username: 'root' })])]],
       tabs: [{ id: 'panel_1', title: 'prod', subtitle: '10.0.0.5' }],
       snippets: [{ uuid: 's1', snippet_name: 'disk', snippet_content: '\n  df -h\nfree -m' }],
-      knowledgeFiles: [{ name: 'a.md', relPath: 'ops/a.md' }]
+      knowledgeTree: [dir('ops', [file('ops/a.md')])]
     }
 
     const rows = buildQuickJumpRows('', sources, expanded('recent'))
@@ -120,10 +132,7 @@ describe('buildQuickJumpRows without a query', () => {
         { id: 'panel_2', title: 'settings' }
       ],
       snippets: [{ uuid: 's1', snippet_name: 'disk', snippet_content: '\n  df -h\nfree -m' }],
-      knowledgeFiles: [
-        { name: 'a.md', relPath: 'ops/a.md' },
-        { name: 'root.md', relPath: 'root.md' }
-      ]
+      knowledgeTree: [dir('ops', [file('ops/a.md')]), file('root.md')]
     }
 
     const rows = buildQuickJumpRows('', sources, expanded('tabs', 'snippets', 'knowledge'))
@@ -133,7 +142,6 @@ describe('buildQuickJumpRows without a query', () => {
       ['prod', '10.0.0.5', 'switchTab'],
       ['settings', '', 'switchTab'],
       ['disk', 'df -h', 'runSnippet'],
-      ['a.md', 'ops', 'openKnowledge'],
       ['root.md', '', 'openKnowledge']
     ])
   })
@@ -187,10 +195,7 @@ describe('buildQuickJumpRows with a query', () => {
       { id: 'p2', title: 'logs' }
     ],
     snippets: [{ uuid: 's1', snippet_name: 'restart', snippet_content: 'systemctl restart web' }],
-    knowledgeFiles: [
-      { name: 'web.md', relPath: 'guides/web.md' },
-      { name: 'db.md', relPath: 'guides/db.md' }
-    ]
+    knowledgeTree: [dir('guides', [file('guides/web.md'), file('guides/db.md')])]
   }
 
   it('lists matching hosts, recently connected first, and expands every group', () => {
@@ -208,9 +213,9 @@ describe('buildQuickJumpRows with a query', () => {
     expect(itemTitles(buildQuickJumpRows('storage', sources, expanded()))).toEqual(['db'])
   })
 
-  it('matches snippets on content and knowledge files on their path', () => {
+  it('matches snippets on content and knowledge files on their name', () => {
     expect(itemTitles(buildQuickJumpRows('systemctl', sources, expanded()))).toEqual(['restart'])
-    expect(itemTitles(buildQuickJumpRows('guides/db', sources, expanded()))).toEqual(['db.md'])
+    expect(itemTitles(buildQuickJumpRows('db.md', sources, expanded()))).toEqual(['db.md'])
   })
 
   it('treats a whitespace-only query as empty', () => {
@@ -228,7 +233,13 @@ describe('buildQuickJumpRows with a query', () => {
 describe('row selection', () => {
   const rows: QuickJumpRow[] = [
     { kind: 'header', id: 'group:recent', group: 'recent', collapsible: true, expanded: true },
-    { kind: 'item', id: 'recent:a', group: 'recent', item: { id: 'recent:a', title: 'a', subtitle: '', action: { type: 'switchTab', tabId: 'a' } } },
+    {
+      kind: 'item',
+      id: 'recent:a',
+      group: 'recent',
+      depth: 0,
+      item: { id: 'recent:a', title: 'a', subtitle: '', action: { type: 'switchTab', tabId: 'a' } }
+    },
     { kind: 'header', id: 'group:tabs', group: 'tabs', collapsible: true, expanded: false }
   ]
   const searchHeader: QuickJumpRow = { kind: 'header', id: 'group:hosts', group: 'hosts', collapsible: false, expanded: true }
@@ -260,11 +271,12 @@ describe('row selection', () => {
   })
 })
 
-describe('collectKnowledgeFiles', () => {
-  it('walks directories recursively and returns files only', async () => {
-    const tree: Record<string, Array<{ name: string; relPath: string; type: 'file' | 'dir' }>> = {
+describe('collectKnowledgeTree', () => {
+  it('keeps the listing order and nests the children of every folder', async () => {
+    const listing: Record<string, Array<{ name: string; relPath: string; type: 'file' | 'dir' }>> = {
       '': [
         { name: 'ops', relPath: 'ops', type: 'dir' },
+        { name: 'empty', relPath: 'empty', type: 'dir' },
         { name: 'readme.md', relPath: 'readme.md', type: 'file' }
       ],
       ops: [
@@ -273,11 +285,111 @@ describe('collectKnowledgeFiles', () => {
       ],
       'ops/deep': [{ name: 'b.md', relPath: 'ops/deep/b.md', type: 'file' }]
     }
-    const listDir = vi.fn(async (relDir: string) => tree[relDir] || [])
+    const listDir = vi.fn(async (relDir: string) => listing[relDir] || [])
 
-    const files = await collectKnowledgeFiles(listDir)
+    const tree = await collectKnowledgeTree(listDir)
 
-    expect(files.map((file) => file.relPath).sort()).toEqual(['ops/a.md', 'ops/deep/b.md', 'readme.md'])
-    expect(listDir).toHaveBeenCalledTimes(3)
+    expect(tree).toEqual([
+      {
+        name: 'ops',
+        relPath: 'ops',
+        type: 'dir',
+        children: [
+          { name: 'deep', relPath: 'ops/deep', type: 'dir', children: [{ name: 'b.md', relPath: 'ops/deep/b.md', type: 'file' }] },
+          { name: 'a.md', relPath: 'ops/a.md', type: 'file' }
+        ]
+      },
+      { name: 'empty', relPath: 'empty', type: 'dir', children: [] },
+      { name: 'readme.md', relPath: 'readme.md', type: 'file' }
+    ])
+    expect(listDir).toHaveBeenCalledTimes(4)
+  })
+})
+
+describe('knowledge rows as a tree', () => {
+  const tree = [
+    dir('commands', [dir('commands/sub', [file('commands/sub/deep.md')]), file('commands/a.md')]),
+    dir('empty'),
+    file('guide.md'),
+    file('notes.md')
+  ]
+  const sources: QuickJumpSources = { ...emptySources(), knowledgeTree: tree }
+  const rows = (query: string, expandedDirs: string[] = []) =>
+    buildQuickJumpRows(query, sources, expanded('knowledge'), new Set(expandedDirs)).filter((row) => row.group === 'knowledge')
+
+  it('lists top-level folders and files in the listing order, with folders collapsed', () => {
+    const list = rows('')
+
+    expect(rowIdsOf(list)).toEqual(['group:knowledge', 'kbdir:commands', 'kbdir:empty', 'kb:guide.md', 'kb:notes.md'])
+    expect(list.filter((row) => row.kind === 'dir').map((row) => row.kind === 'dir' && [row.expanded, row.collapsible, row.depth])).toEqual([
+      [false, true, 0],
+      [false, true, 0]
+    ])
+  })
+
+  it('shows the children of an opened folder one level deeper', () => {
+    const list = rows('', ['commands'])
+
+    expect(rowIdsOf(list)).toEqual([
+      'group:knowledge',
+      'kbdir:commands',
+      'kbdir:commands/sub',
+      'kb:commands/a.md',
+      'kbdir:empty',
+      'kb:guide.md',
+      'kb:notes.md'
+    ])
+    expect(list.map((row) => (row.kind === 'header' ? -1 : row.depth))).toEqual([-1, 0, 1, 1, 0, 0, 0])
+    expect(list.find((row) => row.id === 'kbdir:commands')).toMatchObject({ expanded: true })
+  })
+
+  it('opens the ancestors of a match by itself and keeps only the matching branch', () => {
+    const list = rows('deep')
+
+    expect(rowIdsOf(list)).toEqual(['group:knowledge', 'kbdir:commands', 'kbdir:commands/sub', 'kb:commands/sub/deep.md'])
+    const forced = list.filter((row) => row.kind === 'dir')
+    expect(forced.every((row) => row.kind === 'dir' && row.expanded && !row.collapsible)).toBe(true)
+  })
+
+  it('keeps the whole subtree of a folder that matches, but leaves it closed until opened', () => {
+    expect(rowIdsOf(rows('commands'))).toEqual(['group:knowledge', 'kbdir:commands'])
+    expect(rowIdsOf(rows('commands', ['commands']))).toEqual(['group:knowledge', 'kbdir:commands', 'kbdir:commands/sub', 'kb:commands/a.md'])
+  })
+
+  it('caps a search but not the opened tree', () => {
+    const many = Array.from({ length: QUICK_JUMP_GROUP_LIMIT + 10 }, (_, i) => file(`f${i}.md`))
+    const big: QuickJumpSources = { ...emptySources(), knowledgeTree: many }
+
+    const browsed = buildQuickJumpRows('', big, expanded('knowledge'))
+    const searched = buildQuickJumpRows('f', big, expanded())
+
+    expect(browsed.filter((row) => row.kind === 'item')).toHaveLength(QUICK_JUMP_GROUP_LIMIT + 10)
+    expect(searched.filter((row) => row.kind === 'item')).toHaveLength(QUICK_JUMP_GROUP_LIMIT)
+  })
+
+  it('resolves the row that holds a folder, a nested file and a top-level file', () => {
+    const list = rows('', ['commands'])
+    const byId = (id: string) => list.find((row) => row.id === id)!
+
+    expect(parentRowId(byId('kbdir:commands'))).toBe('group:knowledge')
+    expect(parentRowId(byId('kbdir:commands/sub'))).toBe('kbdir:commands')
+    expect(parentRowId(byId('kb:commands/a.md'))).toBe('kbdir:commands')
+    expect(parentRowId(byId('kb:guide.md'))).toBe('group:knowledge')
+    expect(parentRowId(byId('group:knowledge'))).toBe('group:knowledge')
+  })
+
+  it('resolves the group header for rows that are not part of the knowledge base', () => {
+    const tabRow = buildQuickJumpRows('', { ...emptySources(), tabs: [{ id: 't1', title: 'x' }] }, expanded('tabs'))[1]
+
+    expect(parentRowId(tabRow)).toBe('group:tabs')
+  })
+
+  it('only treats rows that can be opened or closed as collapsible', () => {
+    const list = rows('deep')
+
+    expect(isCollapsibleRow(list.find((row) => row.id === 'group:knowledge')!)).toBe(false)
+    expect(isCollapsibleRow(list.find((row) => row.id === 'kbdir:commands')!)).toBe(false)
+    expect(isCollapsibleRow(list.find((row) => row.id === 'kb:commands/sub/deep.md')!)).toBe(false)
+    expect(isCollapsibleRow(rows('')[1])).toBe(true)
   })
 })

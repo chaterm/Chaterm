@@ -705,6 +705,7 @@ export default {
     hints: {
       sendOrToggleAi: 'AIとチャット',
       toggleLeftSidebar: '資産リスト',
+      quickJump: 'クイックジャンプ',
       openSettings: '設定を開く',
       openCommandDialog: 'インラインコマンドジェネレーターを開く',
       openFileManager: 'ファイルマネージャーを開く',

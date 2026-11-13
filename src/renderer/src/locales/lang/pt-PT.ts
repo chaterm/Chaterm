@@ -712,6 +712,7 @@ export default {
     hints: {
       sendOrToggleAi: 'Chat com IA',
       toggleLeftSidebar: 'Lista de ativos',
+      quickJump: 'Salto rápido',
       openSettings: 'Abrir configurações',
       openCommandDialog: 'Gerador de comando inline',
       openFileManager: 'Abrir gerenciador de arquivos',

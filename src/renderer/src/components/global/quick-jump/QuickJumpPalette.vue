@@ -28,12 +28,14 @@
             class="quick-jump-row"
             :class="{
               'is-header': row.kind === 'header',
-              'is-collapsible': row.kind === 'header' && row.collapsible,
+              'is-tree': isTreeRow(row),
+              'is-collapsible': isCollapsibleRow(row),
               'is-active': row.id === activeId
             }"
+            :style="row.kind === 'header' ? undefined : { '--depth': row.depth }"
             role="treeitem"
-            :aria-level="row.kind === 'header' ? 1 : 2"
-            :aria-expanded="row.kind === 'header' && row.collapsible ? row.expanded : undefined"
+            :aria-level="row.kind === 'header' ? 1 : row.depth + 2"
+            :aria-expanded="isCollapsibleRow(row) ? row.expanded : undefined"
             :aria-selected="row.id === activeId"
             :data-row-id="row.id"
             @mousemove="handleRowMouseMove($event, row)"
@@ -47,7 +49,27 @@
               />
               <span class="quick-jump-group-title">{{ groupTitle(row.group) }}</span>
             </template>
+            <template v-else-if="row.kind === 'dir'">
+              <component
+                :is="row.expanded ? CaretDownFilled : CaretRightFilled"
+                v-if="row.collapsible"
+                class="quick-jump-switcher"
+              />
+              <span
+                v-else
+                class="quick-jump-switcher"
+              ></span>
+              <component
+                :is="row.expanded ? FolderOpenOutlined : FolderOutlined"
+                class="quick-jump-node-icon"
+              />
+              <span class="quick-jump-title">{{ row.title }}</span>
+            </template>
             <template v-else>
+              <template v-if="isTreeRow(row)">
+                <span class="quick-jump-switcher"></span>
+                <FileOutlined class="quick-jump-node-icon" />
+              </template>
               <span class="quick-jump-title">{{ row.item.title }}</span>
               <span
                 v-if="row.item.subtitle"
@@ -66,18 +88,28 @@
 import { computed, nextTick, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { message } from 'ant-design-vue'
-import { DownOutlined, RightOutlined } from '@ant-design/icons-vue'
+import {
+  CaretDownFilled,
+  CaretRightFilled,
+  DownOutlined,
+  FileOutlined,
+  FolderOpenOutlined,
+  FolderOutlined,
+  RightOutlined
+} from '@ant-design/icons-vue'
 import eventBus from '@/utils/eventBus'
 import { executeScript } from '@views/components/Ssh/utils/commandScript'
 import {
   buildQuickJumpRows,
-  collectKnowledgeFiles,
+  collectKnowledgeTree,
   findDefaultRowId,
+  isCollapsibleRow,
   isSelectableRow,
   moveRowId,
+  parentRowId,
   type QuickJumpGroupKey,
   type QuickJumpHostNode,
-  type QuickJumpKnowledgeFile,
+  type QuickJumpKnowledgeNode,
   type QuickJumpRow,
   type QuickJumpSnippet,
   type QuickJumpTab
@@ -110,17 +142,21 @@ const expandedGroups = ref<Set<QuickJumpGroupKey>>(new Set(['recent']))
 const activeId = ref<string | null>(null)
 const hostTrees = ref<QuickJumpHostNode[][]>([])
 const snippets = ref<QuickJumpSnippet[]>([])
-const knowledgeFiles = ref<QuickJumpKnowledgeFile[]>([])
+const knowledgeTree = ref<QuickJumpKnowledgeNode[]>([])
+const expandedKnowledgeDirs = ref<Set<string>>(new Set())
 const inputRef = ref<HTMLInputElement | null>(null)
 const listRef = ref<HTMLElement | null>(null)
 
 const rows = computed(() =>
   buildQuickJumpRows(
     query.value,
-    { hostTrees: hostTrees.value, tabs: props.tabs, snippets: snippets.value, knowledgeFiles: knowledgeFiles.value },
-    expandedGroups.value
+    { hostTrees: hostTrees.value, tabs: props.tabs, snippets: snippets.value, knowledgeTree: knowledgeTree.value },
+    expandedGroups.value,
+    expandedKnowledgeDirs.value
   )
 )
+
+const isTreeRow = (row: QuickJumpRow): boolean => row.kind === 'dir' || (row.kind === 'item' && row.group === 'knowledge')
 
 const groupTitle = (group: QuickJumpGroupKey): string => {
   switch (group) {
@@ -165,9 +201,9 @@ const loadSources = (): void => {
     .catch((error) => logger.error('Failed to load snippets', { error }))
 
   if (knowledgeEnabled) {
-    collectKnowledgeFiles((relDir) => api.kbListDir(relDir))
-      .then((files) => {
-        if (isCurrent()) knowledgeFiles.value = files
+    collectKnowledgeTree((relDir) => api.kbListDir(relDir))
+      .then((tree) => {
+        if (isCurrent()) knowledgeTree.value = tree
       })
       .catch((error) => logger.error('Failed to load knowledge files', { error }))
   }
@@ -177,7 +213,7 @@ const resetSources = (): void => {
   loadToken++
   hostTrees.value = []
   snippets.value = []
-  knowledgeFiles.value = []
+  knowledgeTree.value = []
 }
 
 watch(
@@ -189,6 +225,7 @@ watch(
     }
     query.value = ''
     expandedGroups.value = new Set(['recent'])
+    expandedKnowledgeDirs.value = new Set()
     activeId.value = null
     highlightMoved = false
     loadSources()
@@ -223,21 +260,30 @@ const close = (refocusTerminal: boolean): void => {
   }
 }
 
-const setGroupExpanded = (group: QuickJumpGroupKey, expanded: boolean): void => {
-  const next = new Set(expandedGroups.value)
-  if (expanded) {
-    next.add(group)
+const withMember = <T,>(set: ReadonlySet<T>, value: T, present: boolean): Set<T> => {
+  const next = new Set(set)
+  if (present) {
+    next.add(value)
   } else {
-    next.delete(group)
+    next.delete(value)
   }
-  expandedGroups.value = next
+  return next
+}
+
+const setExpanded = (row: Extract<QuickJumpRow, { collapsible: boolean }>, expanded: boolean): void => {
+  if (row.kind === 'header') {
+    expandedGroups.value = withMember(expandedGroups.value, row.group, expanded)
+  } else {
+    expandedKnowledgeDirs.value = withMember(expandedKnowledgeDirs.value, row.relPath, expanded)
+  }
 }
 
 const activate = (row: QuickJumpRow): void => {
+  if (!isSelectableRow(row)) return
   highlightMoved = true
   activeId.value = row.id
-  if (row.kind === 'header') {
-    if (row.collapsible) setGroupExpanded(row.group, !row.expanded)
+  if (row.kind !== 'item') {
+    if (isCollapsibleRow(row)) setExpanded(row, !row.expanded)
     return
   }
 
@@ -312,12 +358,13 @@ const handleKeydown = (event: KeyboardEvent): void => {
       // While searching the arrows keep moving the caret in the input.
       if (searching || !activeRow) break
       event.preventDefault()
+      highlightMoved = true
       if (event.key === 'ArrowRight') {
-        if (activeRow.kind === 'header' && activeRow.collapsible) setGroupExpanded(activeRow.group, true)
-      } else {
-        highlightMoved = true
-        setGroupExpanded(activeRow.group, false)
-        activeId.value = `group:${activeRow.group}`
+        if (isCollapsibleRow(activeRow) && !activeRow.expanded) setExpanded(activeRow, true)
+      } else if (isCollapsibleRow(activeRow) && activeRow.expanded) {
+        setExpanded(activeRow, false)
+      } else if (activeRow.kind !== 'header') {
+        activeId.value = parentRowId(activeRow)
       }
       break
     }
@@ -390,9 +437,34 @@ const handleKeydown = (event: KeyboardEvent): void => {
     }
   }
 
+  // Folder and file rows follow the knowledge base list: caret, icon, name, indented by depth.
+  &.is-tree {
+    align-items: center;
+    padding-left: calc(10px + var(--depth, 0) * 16px);
+
+    .quick-jump-title {
+      flex: 1;
+      max-width: none;
+      min-width: 0;
+    }
+  }
+
   &.is-active {
     background: var(--active-bg-color);
   }
+}
+
+.quick-jump-switcher {
+  flex-shrink: 0;
+  width: 16px;
+  text-align: center;
+  color: var(--text-color-tertiary);
+  font-size: 10px;
+}
+
+.quick-jump-node-icon {
+  flex-shrink: 0;
+  font-size: 14px;
 }
 
 .quick-jump-chevron {

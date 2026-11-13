@@ -35,6 +35,11 @@ export interface QuickJumpKnowledgeFile {
   relPath: string
 }
 
+export interface QuickJumpKnowledgeNode extends QuickJumpKnowledgeFile {
+  type: 'file' | 'dir'
+  children?: QuickJumpKnowledgeNode[]
+}
+
 export type QuickJumpAction =
   | { type: 'connect'; node: QuickJumpHostNode }
   | { type: 'switchTab'; tabId: string }
@@ -50,13 +55,14 @@ export interface QuickJumpItem {
 
 export type QuickJumpRow =
   | { kind: 'header'; id: string; group: QuickJumpGroupKey; collapsible: boolean; expanded: boolean }
-  | { kind: 'item'; id: string; group: QuickJumpGroupKey; item: QuickJumpItem }
+  | { kind: 'dir'; id: string; group: QuickJumpGroupKey; relPath: string; title: string; depth: number; collapsible: boolean; expanded: boolean }
+  | { kind: 'item'; id: string; group: QuickJumpGroupKey; depth: number; item: QuickJumpItem }
 
 export interface QuickJumpSources {
   hostTrees: QuickJumpHostNode[][]
   tabs: QuickJumpTab[]
   snippets: QuickJumpSnippet[]
-  knowledgeFiles: QuickJumpKnowledgeFile[]
+  knowledgeTree: QuickJumpKnowledgeNode[]
 }
 
 const RECENT_ROUTER_KEY = 'recent_connections'
@@ -131,6 +137,48 @@ const parentDir = (relPath: string): string => {
   return index < 0 ? '' : relPath.slice(0, index)
 }
 
+const nameMatches = (node: QuickJumpKnowledgeNode, needle: string): boolean => node.name.toLowerCase().includes(needle)
+
+const hasMatchingDescendant = (node: QuickJumpKnowledgeNode, needle: string): boolean =>
+  (node.children || []).some((child) => nameMatches(child, needle) || hasMatchingDescendant(child, needle))
+
+// Same shape as the knowledge base list: folders first as returned by the listing, a hit keeps its
+// ancestors, and a hit folder keeps its whole subtree. Ancestors of a hit open by themselves.
+const buildKnowledgeRows = (
+  nodes: QuickJumpKnowledgeNode[],
+  needle: string,
+  expandedDirs: ReadonlySet<string>,
+  depth: number,
+  insideHit: boolean,
+  rows: QuickJumpRow[]
+): void => {
+  for (const node of nodes) {
+    const selfHit = needle === '' || nameMatches(node, needle)
+    const keep = insideHit || selfHit || hasMatchingDescendant(node, needle)
+    if (!keep) continue
+
+    if (node.type === 'file') {
+      const item: QuickJumpItem = { id: `kb:${node.relPath}`, title: node.name, subtitle: '', action: { type: 'openKnowledge', file: node } }
+      rows.push({ kind: 'item', id: item.id, group: 'knowledge', depth, item })
+      continue
+    }
+
+    const forced = needle !== '' && hasMatchingDescendant(node, needle)
+    const expanded = forced || expandedDirs.has(node.relPath)
+    rows.push({
+      kind: 'dir',
+      id: `kbdir:${node.relPath}`,
+      group: 'knowledge',
+      relPath: node.relPath,
+      title: node.name,
+      depth,
+      collapsible: !forced,
+      expanded
+    })
+    if (expanded) buildKnowledgeRows(node.children || [], needle, expandedDirs, depth + 1, insideHit || selfHit, rows)
+  }
+}
+
 const toHostItem = (node: QuickJumpHostNode, prefix: string): QuickJumpItem => ({
   id: `${prefix}:${hostIdentity(node)}`,
   title: node.title,
@@ -138,12 +186,20 @@ const toHostItem = (node: QuickJumpHostNode, prefix: string): QuickJumpItem => (
   action: { type: 'connect', node }
 })
 
-export const buildQuickJumpRows = (query: string, sources: QuickJumpSources, expandedGroups: ReadonlySet<QuickJumpGroupKey>): QuickJumpRow[] => {
+const itemRows = (group: QuickJumpGroupKey, items: QuickJumpItem[]): QuickJumpRow[] =>
+  items.map((item) => ({ kind: 'item', id: item.id, group, depth: 0, item }))
+
+export const buildQuickJumpRows = (
+  query: string,
+  sources: QuickJumpSources,
+  expandedGroups: ReadonlySet<QuickJumpGroupKey>,
+  expandedKnowledgeDirs: ReadonlySet<string> = new Set()
+): QuickJumpRow[] => {
   const needle = query.trim().toLowerCase()
   const searching = needle !== ''
 
   const recentHosts = collectRecentHosts(sources.hostTrees)
-  const groups = new Map<QuickJumpGroupKey, QuickJumpItem[]>()
+  const bodies = new Map<QuickJumpGroupKey, QuickJumpRow[]>()
 
   if (searching) {
     // Recently connected hosts rank first, most recent first.
@@ -151,58 +207,76 @@ export const buildQuickJumpRows = (query: string, sources: QuickJumpSources, exp
     const matched = collectHosts(sources.hostTrees)
       .filter((node) => hostMatches(node, needle))
       .sort((a, b) => (recentRank.get(hostIdentity(a)) ?? Infinity) - (recentRank.get(hostIdentity(b)) ?? Infinity))
-    groups.set(
+    bodies.set(
       'hosts',
-      matched.map((node) => toHostItem(node, 'host'))
+      itemRows(
+        'hosts',
+        matched.map((node) => toHostItem(node, 'host'))
+      )
     )
   } else {
-    groups.set(
+    bodies.set(
       'recent',
-      recentHosts.slice(0, QUICK_JUMP_RECENT_LIMIT).map((node) => toHostItem(node, 'recent'))
+      itemRows(
+        'recent',
+        recentHosts.slice(0, QUICK_JUMP_RECENT_LIMIT).map((node) => toHostItem(node, 'recent'))
+      )
     )
   }
 
-  groups.set(
+  bodies.set(
     'tabs',
-    sources.tabs
-      .filter((tab) => !searching || tab.title.toLowerCase().includes(needle))
-      .map((tab) => ({ id: `tab:${tab.id}`, title: tab.title, subtitle: tab.subtitle || '', action: { type: 'switchTab', tabId: tab.id } }))
+    itemRows(
+      'tabs',
+      sources.tabs
+        .filter((tab) => !searching || tab.title.toLowerCase().includes(needle))
+        .map((tab) => ({ id: `tab:${tab.id}`, title: tab.title, subtitle: tab.subtitle || '', action: { type: 'switchTab', tabId: tab.id } }))
+    )
   )
-  groups.set(
+  bodies.set(
     'snippets',
-    sources.snippets
-      .filter((snippet) => !searching || [snippet.snippet_name, snippet.snippet_content].some((value) => value.toLowerCase().includes(needle)))
-      .map((snippet) => ({
-        id: `snippet:${snippet.uuid}`,
-        title: snippet.snippet_name,
-        subtitle: firstContentLine(snippet.snippet_content),
-        action: { type: 'runSnippet', snippet }
-      }))
+    itemRows(
+      'snippets',
+      sources.snippets
+        .filter((snippet) => !searching || [snippet.snippet_name, snippet.snippet_content].some((value) => value.toLowerCase().includes(needle)))
+        .map((snippet) => ({
+          id: `snippet:${snippet.uuid}`,
+          title: snippet.snippet_name,
+          subtitle: firstContentLine(snippet.snippet_content),
+          action: { type: 'runSnippet', snippet }
+        }))
+    )
   )
-  groups.set(
-    'knowledge',
-    sources.knowledgeFiles
-      .filter((file) => !searching || file.relPath.toLowerCase().includes(needle))
-      .map((file) => ({ id: `kb:${file.relPath}`, title: file.name, subtitle: parentDir(file.relPath), action: { type: 'openKnowledge', file } }))
-  )
+  const knowledgeRows: QuickJumpRow[] = []
+  buildKnowledgeRows(sources.knowledgeTree, needle, expandedKnowledgeDirs, 0, false, knowledgeRows)
+  bodies.set('knowledge', knowledgeRows)
 
   const order: QuickJumpGroupKey[] = searching ? ['hosts', 'tabs', 'snippets', 'knowledge'] : ['recent', 'tabs', 'snippets', 'knowledge']
   const rows: QuickJumpRow[] = []
   for (const group of order) {
-    const items = groups.get(group) || []
-    if (items.length === 0) continue
+    const body = bodies.get(group) || []
+    if (body.length === 0) continue
     const expanded = searching || expandedGroups.has(group)
     rows.push({ kind: 'header', id: `group:${group}`, group, collapsible: !searching, expanded })
-    if (!expanded) continue
-    for (const item of items.slice(0, QUICK_JUMP_GROUP_LIMIT)) {
-      rows.push({ kind: 'item', id: item.id, group, item })
-    }
+    // An opened knowledge folder lists everything in it, like the knowledge base list does.
+    const limit = group === 'knowledge' && !searching ? Infinity : QUICK_JUMP_GROUP_LIMIT
+    if (expanded) rows.push(...body.slice(0, limit))
   }
   return rows
 }
 
-// Headers of a search result are plain section labels, so they cannot hold the highlight.
+// Headers and folders that a search opened by itself are plain labels, so they cannot hold the highlight.
 export const isSelectableRow = (row: QuickJumpRow): boolean => row.kind === 'item' || row.collapsible
+
+export const isCollapsibleRow = (row: QuickJumpRow): row is Extract<QuickJumpRow, { collapsible: boolean }> => row.kind !== 'item' && row.collapsible
+
+// The row that holds this one: its folder, or the group header when it sits at the top level.
+export const parentRowId = (row: QuickJumpRow): string => {
+  const relPath =
+    row.kind === 'dir' ? row.relPath : row.kind === 'item' && row.item.action.type === 'openKnowledge' ? row.item.action.file.relPath : ''
+  const dir = relPath ? parentDir(relPath) : ''
+  return dir ? `kbdir:${dir}` : `group:${row.group}`
+}
 
 export const findDefaultRowId = (rows: QuickJumpRow[]): string | null => {
   const firstItem = rows.find((row) => row.kind === 'item')
@@ -217,16 +291,16 @@ export const moveRowId = (rows: QuickJumpRow[], currentId: string | null, step: 
   return selectable[(index + step + selectable.length) % selectable.length].id
 }
 
-export const collectKnowledgeFiles = async (
+export const collectKnowledgeTree = async (
   listDir: (relDir: string) => Promise<Array<{ name: string; relPath: string; type: 'file' | 'dir' }>>,
   relDir = ''
-): Promise<QuickJumpKnowledgeFile[]> => {
+): Promise<QuickJumpKnowledgeNode[]> => {
   const entries = await listDir(relDir)
-  const nested = await Promise.all(
+  return Promise.all(
     entries.map(async (entry) => {
-      if (entry.type === 'dir') return collectKnowledgeFiles(listDir, entry.relPath)
-      return [{ name: entry.name, relPath: entry.relPath }]
+      const node: QuickJumpKnowledgeNode = { name: entry.name, relPath: entry.relPath, type: entry.type }
+      if (entry.type === 'dir') node.children = await collectKnowledgeTree(listDir, entry.relPath)
+      return node
     })
   )
-  return nested.flat()
 }

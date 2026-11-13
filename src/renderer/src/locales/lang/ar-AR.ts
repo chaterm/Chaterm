@@ -704,6 +704,7 @@ export default {
     hints: {
       sendOrToggleAi: 'الدردشة مع الذكاء الاصطناعي',
       toggleLeftSidebar: 'قائمة الأصول',
+      quickJump: 'القفز السريع',
       openSettings: 'فتح الإعدادات',
       openCommandDialog: 'مولد الأوامر المضمن',
       openFileManager: 'فتح مدير الملفات',

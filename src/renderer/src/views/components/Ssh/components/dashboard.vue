@@ -73,7 +73,7 @@ const getCurrentShortcut = (actionId: string): string => {
 
 // Get shortcuts to display
 const shortcuts = computed(() => {
-  const targetIds = ['sendOrToggleAi', 'toggleLeftSidebar', 'openSettings', 'openCommandDialog', 'toggleLayout']
+  const targetIds = ['sendOrToggleAi', 'toggleLeftSidebar', 'quickJump', 'openSettings', 'openCommandDialog', 'toggleLayout']
   return targetIds
     .map((id) => {
       const action = shortcutActions.find((a) => a.id === id)

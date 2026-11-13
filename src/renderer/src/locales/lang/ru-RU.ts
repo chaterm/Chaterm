@@ -713,6 +713,7 @@ export default {
     hints: {
       sendOrToggleAi: 'Чат с ИИ',
       toggleLeftSidebar: 'Список активов',
+      quickJump: 'Быстрый переход',
       openSettings: 'Открыть настройки',
       openCommandDialog: 'Генератор встроенных команд',
       openFileManager: 'Открыть менеджер файлов',

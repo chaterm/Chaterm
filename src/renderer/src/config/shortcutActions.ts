@@ -9,6 +9,7 @@ import type { ShortcutAction } from '@/services/shortcutService'
 export const shortcutHintKeys = {
   sendOrToggleAi: 'sendOrToggleAi',
   toggleLeftSidebar: 'toggleLeftSidebar',
+  quickJump: 'quickJump',
   openSettings: 'openSettings',
   openCommandDialog: 'openCommandDialog',
   openFileManager: 'openFileManager',

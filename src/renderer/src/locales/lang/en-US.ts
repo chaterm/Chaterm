@@ -713,6 +713,7 @@ export default {
     hints: {
       sendOrToggleAi: 'Chat With AI',
       toggleLeftSidebar: 'Asset List',
+      quickJump: 'Quick Jump',
       openSettings: 'Open Settings',
       openCommandDialog: 'Inline Command Generator',
       openFileManager: 'Open File Manager',

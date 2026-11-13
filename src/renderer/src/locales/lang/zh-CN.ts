@@ -697,6 +697,7 @@ export default {
     hints: {
       sendOrToggleAi: '与AI对话',
       toggleLeftSidebar: '资产列表',
+      quickJump: '快速跳转',
       openSettings: '打开设置',
       openCommandDialog: '内联命令生成',
       openFileManager: '打开文件管理',
