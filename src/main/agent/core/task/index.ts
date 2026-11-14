@@ -2074,6 +2074,8 @@ export class Task {
     try {
       await this.say('command_output', '', true, hostInfo)
     } catch (error) {
+      // A cancelled task must not go on to start the command; only display failures are tolerated
+      if (this.abort) throw error
       logger.error('Error while opening command output', { error: error })
     }
     return Date.now()

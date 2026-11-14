@@ -1168,6 +1168,12 @@ export default {
     loadMore: 'Mehr laden',
     historyLoadHint: 'Es gibt ältere Nachrichten. Scrollen Sie nach oben, um sie zu laden.',
     copyToClipboard: 'In die Zwischenablage kopieren',
+    copyCompletion: 'Abschluss kopieren',
+    copyCompletionSuccess: 'Abschluss kopiert',
+    copyCompletionFailed: 'Abschluss konnte nicht kopiert werden',
+    forkConversation: 'Unterhaltung ab hier verzweigen',
+    forkConversationSuccess: 'Verzweigte Unterhaltung erstellt',
+    forkConversationFailed: 'Verzweigte Unterhaltung konnte nicht erstellt werden',
     retry: 'Wiederholen',
     taskCompleted: 'Aufgabe erfolgreich abgeschlossen',
     kbSearchProgressRunning: 'Wissensdatenbank wird durchsucht · {seconds} s',
@@ -1427,7 +1433,10 @@ export default {
     downloading: 'Update herunterladen',
     complete: 'Update heruntergeladen, jetzt installieren?',
     install: 'Installieren',
-    clickUpdate: 'Klicken Sie auf Neustart, um das Update zu installieren'
+    clickUpdate: 'Klicken Sie auf Neustart, um das Update zu installieren',
+    cardTitle: 'Update verfügbar',
+    cardReady: 'Chaterm v{version} ist bereit.',
+    releaseNotes: 'Versionshinweise'
   },
   versionPrompt: {
     highlights: 'Was ist neu',

@@ -1171,6 +1171,12 @@ export default {
     loadMore: 'Charger plus',
     historyLoadHint: 'Des messages plus anciens sont disponibles. Faites défiler vers le haut pour les charger.',
     copyToClipboard: 'Copier dans le presse-papiers',
+    copyCompletion: 'Copier le résultat',
+    copyCompletionSuccess: 'Résultat copié',
+    copyCompletionFailed: 'Échec de la copie du résultat',
+    forkConversation: "Créer une branche de la conversation à partir d'ici",
+    forkConversationSuccess: 'Conversation en branche créée',
+    forkConversationFailed: 'Échec de la création de la conversation en branche',
     retry: 'Réessayer',
     taskCompleted: 'Tâche terminée',
     kbSearchProgressRunning: 'Recherche dans la base de connaissances · {seconds} s',
@@ -1430,7 +1436,10 @@ export default {
     downloading: 'Téléchargement de la mise à jour',
     complete: 'Téléchargement complet, installer maintenant ?',
     install: 'Installer',
-    clickUpdate: 'Cliquer sur Redémarrer pour mettre à jour'
+    clickUpdate: 'Cliquer sur Redémarrer pour mettre à jour',
+    cardTitle: 'Mise à jour disponible',
+    cardReady: 'Chaterm v{version} est prêt.',
+    releaseNotes: 'Notes de version'
   },
   versionPrompt: {
     highlights: "Qu'est-ce qui est nouveau",

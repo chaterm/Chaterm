@@ -1135,6 +1135,12 @@ export default {
     loadMore: '載入更多',
     historyLoadHint: '還有更早的歷史訊息，向上捲動可繼續載入',
     copyToClipboard: '已複製到剪貼板',
+    copyCompletion: '複製完成內容',
+    copyCompletionSuccess: '完成內容已複製',
+    copyCompletionFailed: '複製完成內容失敗',
+    forkConversation: '分支到新聊天',
+    forkConversationSuccess: '已建立分叉對話',
+    forkConversationFailed: '建立分叉對話失敗',
     retry: '重試',
     taskCompleted: '任務已完成',
     kbSearchProgressRunning: '正在檢索知識庫 · {seconds}秒',
@@ -1394,7 +1400,10 @@ export default {
     downloading: '正在下載更新',
     complete: '已下載完畢，是否立即安裝',
     install: '安裝',
-    clickUpdate: '點擊重啟以更新'
+    clickUpdate: '點擊重啟以更新',
+    cardTitle: '可用更新',
+    cardReady: 'Chaterm v{version} 已準備就緒。',
+    releaseNotes: '發行說明'
   },
   versionPrompt: {
     highlights: '更新亮點',

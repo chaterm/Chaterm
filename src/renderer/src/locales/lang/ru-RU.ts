@@ -1159,6 +1159,12 @@ export default {
     loadMore: 'Загрузить больше',
     historyLoadHint: 'Доступны более старые сообщения. Прокрутите вверх, чтобы загрузить их.',
     copyToClipboard: 'Копировать в буфер обмена',
+    copyCompletion: 'Копировать результат',
+    copyCompletionSuccess: 'Результат скопирован',
+    copyCompletionFailed: 'Не удалось скопировать результат',
+    forkConversation: 'Создать ответвление беседы отсюда',
+    forkConversationSuccess: 'Ответвление беседы создано',
+    forkConversationFailed: 'Не удалось создать ответвление беседы',
     retry: 'Повторить',
     taskCompleted: 'Задача выполнена',
     kbSearchProgressRunning: 'Поиск в базе знаний · {seconds} с',
@@ -1418,7 +1424,10 @@ export default {
     downloading: 'Скачивание обновления',
     complete: 'Скачивание завершено, установить сейчас?',
     install: 'Установить',
-    clickUpdate: 'Нажмите Restart для обновления'
+    clickUpdate: 'Нажмите Restart для обновления',
+    cardTitle: 'Доступно обновление',
+    cardReady: 'Chaterm v{version} готов.',
+    releaseNotes: 'Примечания к выпуску'
   },
   versionPrompt: {
     highlights: 'Что нового',

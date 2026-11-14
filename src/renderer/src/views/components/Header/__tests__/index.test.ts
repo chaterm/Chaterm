@@ -81,6 +81,7 @@ vi.mock('@ant-design/icons-vue', () => ({
 import { userConfigStore } from '@/services/userConfigStoreService'
 import eventBus from '@/utils/eventBus'
 import { useDeviceStore } from '@/store/useDeviceStore'
+import { useUpdateStore } from '@/store/updateStore'
 
 describe('Header Component', () => {
   let wrapper: VueWrapper<any>
@@ -153,6 +154,7 @@ describe('Header Component', () => {
 
   afterEach(() => {
     wrapper?.unmount()
+    useUpdateStore().stop()
     vi.unstubAllEnvs()
   })
 
@@ -195,13 +197,15 @@ describe('Header Component', () => {
       expect(userConfigStore.getConfig).toHaveBeenCalled()
     })
 
-    it('should check for updates on mount', async () => {
+    it('should start the update store on mount', async () => {
+      const startSpy = vi.spyOn(useUpdateStore(), 'start')
+
       wrapper = createWrapper()
 
       await wrapper.vm.$nextTick()
       await new Promise((resolve) => setTimeout(resolve, 100))
 
-      expect(mockWindowApi.checkUpdate).toHaveBeenCalled()
+      expect(startSpy).toHaveBeenCalled()
     })
 
     it('should not check for updates in enterprise deployment', async () => {
@@ -348,70 +352,25 @@ describe('Header Component', () => {
       expect(updateBadge.exists()).toBe(false)
     })
 
-    it('should show update badge when update is available', async () => {
-      // Simulate update available
-      mockWindowApi.checkUpdate.mockResolvedValue({ isUpdateAvailable: true })
-      mockWindowApi.autoUpdate.mockImplementation((callback) => {
-        // Simulate status 4 (update ready)
-        callback({ status: 4 })
-        return () => {} // Return cleanup function
-      })
+    it('should show update badge when the update is ready', async () => {
+      useUpdateStore().phase = 'ready'
 
       wrapper = createWrapper()
 
       await wrapper.vm.$nextTick()
-      await new Promise((resolve) => setTimeout(resolve, 200))
 
-      const updateBadge = wrapper.find('.update-badge')
-      expect(updateBadge.exists()).toBe(true)
+      expect(wrapper.find('.update-badge').exists()).toBe(true)
     })
 
     it('should call quitAndInstall when update badge is clicked', async () => {
-      // First make update available
-      mockWindowApi.checkUpdate.mockResolvedValue({ isUpdateAvailable: true })
-      mockWindowApi.autoUpdate.mockImplementation((callback) => {
-        callback({ status: 4 })
-        return () => {} // Return cleanup function
-      })
+      useUpdateStore().phase = 'ready'
 
       wrapper = createWrapper()
 
       await wrapper.vm.$nextTick()
-      await new Promise((resolve) => setTimeout(resolve, 200))
+      await wrapper.find('.update-badge').trigger('click')
 
-      const updateBadge = wrapper.find('.update-badge')
-      if (updateBadge.exists()) {
-        await updateBadge.trigger('click')
-        expect(mockWindowApi.quitAndInstall).toHaveBeenCalled()
-      }
-    })
-
-    it('should start download when update is available', async () => {
-      mockWindowApi.checkUpdate.mockResolvedValue({ isUpdateAvailable: true })
-      mockWindowApi.autoUpdate.mockImplementation((callback) => {
-        callback({ status: 0 })
-        return () => {} // Return cleanup function
-      })
-
-      wrapper = createWrapper()
-
-      await wrapper.vm.$nextTick()
-      await new Promise((resolve) => setTimeout(resolve, 100))
-
-      expect(mockWindowApi.download).toHaveBeenCalled()
-    })
-
-    it('should handle update check errors', async () => {
-      const consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
-      mockWindowApi.checkUpdate.mockRejectedValue(new Error('Update check failed'))
-
-      wrapper = createWrapper()
-
-      await wrapper.vm.$nextTick()
-      await new Promise((resolve) => setTimeout(resolve, 100))
-
-      expect(consoleErrorSpy).toHaveBeenCalled()
-      consoleErrorSpy.mockRestore()
+      expect(mockWindowApi.quitAndInstall).toHaveBeenCalled()
     })
   })
 

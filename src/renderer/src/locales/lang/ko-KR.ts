@@ -1144,6 +1144,12 @@ export default {
     loadMore: '더 로드',
     historyLoadHint: '더 이전 메시지가 있습니다. 위로 스크롤하면 계속 불러올 수 있습니다.',
     copyToClipboard: '클립보드에 복사',
+    copyCompletion: '완료 내용 복사',
+    copyCompletionSuccess: '완료 내용이 복사되었습니다',
+    copyCompletionFailed: '완료 내용 복사에 실패했습니다',
+    forkConversation: '여기서 대화 분기',
+    forkConversationSuccess: '분기된 대화가 생성되었습니다',
+    forkConversationFailed: '분기된 대화 생성에 실패했습니다',
     retry: '다시 시도',
     taskCompleted: '작업 완료',
     kbSearchProgressRunning: '지식 베이스 검색 중 · {seconds}초',
@@ -1403,7 +1409,10 @@ export default {
     downloading: '업데이트 다운로드 중',
     complete: '다운로드 완료, 설치하시겠습니까?',
     install: '설치',
-    clickUpdate: '클릭하여 업데이트'
+    clickUpdate: '클릭하여 업데이트',
+    cardTitle: '사용 가능한 업데이트',
+    cardReady: 'Chaterm v{version} 준비가 완료되었습니다.',
+    releaseNotes: '릴리스 노트'
   },
   versionPrompt: {
     highlights: '새로운 기능',

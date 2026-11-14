@@ -1161,6 +1161,12 @@ export default {
     loadMore: 'Carica di più',
     historyLoadHint: "Sono disponibili messaggi più vecchi. Scorri verso l'alto per caricarli.",
     copyToClipboard: 'Copia nel Clipboard',
+    copyCompletion: 'Copia risultato',
+    copyCompletionSuccess: 'Risultato copiato',
+    copyCompletionFailed: 'Impossibile copiare il risultato',
+    forkConversation: 'Crea un ramo della conversazione da qui',
+    forkConversationSuccess: 'Ramo della conversazione creato',
+    forkConversationFailed: 'Impossibile creare il ramo della conversazione',
     retry: 'Riprova',
     taskCompleted: 'Task Completato',
     kbSearchProgressRunning: 'Ricerca nella base di conoscenza · {seconds}s',
@@ -1420,7 +1426,10 @@ export default {
     downloading: 'Downloading aggiornamento',
     complete: 'Download completato, installare ora?',
     install: 'Installa',
-    clickUpdate: 'Clicca Restart per aggiornare'
+    clickUpdate: 'Clicca Restart per aggiornare',
+    cardTitle: 'Aggiornamento disponibile',
+    cardReady: 'Chaterm v{version} è pronto.',
+    releaseNotes: 'Note di rilascio'
   },
   versionPrompt: {
     highlights: "Cosa c'è di nuovo",

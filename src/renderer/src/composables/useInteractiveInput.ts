@@ -64,6 +64,24 @@ function createInitialState(): InteractionState {
 }
 
 /**
+ * Get the display message for a failed interaction submission
+ */
+export function getInteractionErrorMessage(code?: string, fallbackError?: string): string {
+  switch (code) {
+    case 'timeout':
+      return 'Connection timeout, please try again'
+    case 'closed':
+      return 'Connection closed, command may have ended'
+    case 'not-writable':
+      return 'Cannot send input, connection is not writable'
+    case 'write-failed':
+      return fallbackError || 'Failed to send input'
+    default:
+      return fallbackError || 'Unknown error occurred'
+  }
+}
+
+/**
  * useInteractiveInput composable
  */
 export function useInteractiveInput() {
@@ -288,7 +306,7 @@ export function useInteractiveInput() {
             state.errorMessage = ''
           } else {
             // Set error message for UI display
-            state.errorMessage = getErrorMessage(result.code, result.error)
+            state.errorMessage = getInteractionErrorMessage(result.code, result.error)
           }
         }
         syncLegacyState()
@@ -308,24 +326,6 @@ export function useInteractiveInput() {
       }
 
       return { success: false, error: String(error) }
-    }
-  }
-
-  /**
-   * Get localized error message based on error code
-   */
-  function getErrorMessage(code?: string, fallbackError?: string): string {
-    switch (code) {
-      case 'timeout':
-        return 'Connection timeout, please try again'
-      case 'closed':
-        return 'Connection closed, command may have ended'
-      case 'not-writable':
-        return 'Cannot send input, connection is not writable'
-      case 'write-failed':
-        return fallbackError || 'Failed to send input'
-      default:
-        return fallbackError || 'Unknown error occurred'
     }
   }
 

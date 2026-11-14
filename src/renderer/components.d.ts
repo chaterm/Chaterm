@@ -80,6 +80,7 @@ declare module 'vue' {
     QuickJumpPalette: typeof import('./src/components/global/quick-jump/QuickJumpPalette.vue')['default']
     RouterLink: typeof import('vue-router')['RouterLink']
     RouterView: typeof import('vue-router')['RouterView']
+    UpdateCard: typeof import('./src/components/global/update-card/UpdateCard.vue')['default']
     UserSelectionDialog: typeof import('./src/components/global/user-selection/UserSelectionDialog.vue')['default']
     VersionPromptModal: typeof import('./src/components/global/version-prompt/VersionPromptModal.vue')['default']
   }

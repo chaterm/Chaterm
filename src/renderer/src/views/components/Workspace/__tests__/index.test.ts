@@ -225,6 +225,51 @@ describe('Workspace tree search rendering', () => {
     wrapper.unmount()
   })
 
+  it('counts every rendered direct host item when flipping the context menu above the cursor', async () => {
+    const wrapper = mount(Workspace, {
+      global: {
+        stubs: {
+          'a-tree': treeStub,
+          'a-tabs': true,
+          'a-tab-pane': true,
+          'a-input': true,
+          'a-button': true,
+          'a-tooltip': true,
+          'a-dropdown': true,
+          'a-menu': true,
+          'a-menu-item': true,
+          'a-popconfirm': true
+        }
+      }
+    })
+    await nextTick()
+
+    const directHost = {
+      key: 'host-1',
+      title: 'web-01',
+      uuid: 'asset-1',
+      ip: '10.0.0.1',
+      asset_type: 'person',
+      organizationId: 'personal'
+    }
+    const vm = wrapper.vm as any
+    const originalHeight = window.innerHeight
+    // 180 + (6 + 5 * 25) overflows a 300px viewport, while 180 + (6 + 4 * 25) would still fit
+    Object.defineProperty(window, 'innerHeight', { value: 300, configurable: true, writable: true })
+
+    try {
+      vm.handleContextMenu(new MouseEvent('contextmenu', { clientX: 10, clientY: 180 }), directHost)
+      await nextTick()
+
+      const renderedItems = wrapper.findAll('.context-menu-item').length
+      expect(renderedItems).toBe(5)
+      expect(vm.contextMenuStyle.top).toBe(`${180 - (6 + renderedItems * 25)}px`)
+    } finally {
+      Object.defineProperty(window, 'innerHeight', { value: originalHeight, configurable: true, writable: true })
+      wrapper.unmount()
+    }
+  })
+
   it('remounts the tree on every search instead of letting vc-tree diff the new data', async () => {
     const mounted = vi.fn()
     const wrapper = mount(Workspace, {

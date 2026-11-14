@@ -20,9 +20,9 @@
     </div>
     <div class="term_tab_Info">
       <div
-        v-if="!enterpriseUpdateDisabled && isAvailable"
+        v-if="!enterpriseUpdateDisabled && updateStore.phase === 'ready'"
         class="update-badge"
-        @click="toInstall"
+        @click="updateStore.install"
       >
         <div class="update-icon">
           <ArrowDownOutlined />
@@ -96,6 +96,7 @@ import { ref, onMounted, getCurrentInstance, computed } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { ArrowDownOutlined, RightOutlined, RobotOutlined, CodeOutlined } from '@ant-design/icons-vue'
 import { useDeviceStore } from '@/store/useDeviceStore'
+import { useUpdateStore } from '@/store/updateStore'
 import { userConfigStore } from '@/services/userConfigStoreService'
 import { isEnterpriseDeployEnabled } from '@/utils/edition'
 import TitleBar from './titleBar.vue'
@@ -108,13 +109,13 @@ const logger = createRendererLogger('header')
 
 const platform = ref<string>('')
 const deviceStore = useDeviceStore()
+const updateStore = useUpdateStore()
 const instance = getCurrentInstance()!
 const { appContext } = instance
 
 const isLeftSidebarCollapsed = ref(true)
 const isRightSidebarCollapsed = ref(false)
 const isAgentsLeftSidebarCollapsed = ref(true)
-const isAvailable = ref(false)
 const currentMode = ref<'terminal' | 'agents'>('terminal')
 const emit = defineEmits(['toggle-sidebar', 'mode-change'])
 const enterpriseUpdateDisabled = isEnterpriseDeployEnabled()
@@ -142,37 +143,6 @@ const switchIcon = (dir, value) => {
     isAgentsLeftSidebarCollapsed.value = value
   }
 }
-const checkVersion = async () => {
-  if (enterpriseUpdateDisabled) return
-
-  try {
-    const info = await api.checkUpdate()
-    logger.info('Update check result', { info: String(info) })
-
-    // Check if update is available based on the actual response structure
-    if (info && (info.isUpdateAvailable || info.updateInfo)) {
-      logger.info('Update available, starting download')
-      api.download()
-      api.autoUpdate((params) => {
-        logger.info('Update status', { status: params.status })
-        if (params.status == 4) {
-          isAvailable.value = true
-        }
-      })
-    } else {
-      logger.info('No update available')
-    }
-  } catch (error) {
-    logger.error('Failed to check for updates', { error: error })
-  }
-}
-
-const toInstall = () => {
-  if (enterpriseUpdateDisabled) return
-
-  api.quitAndInstall()
-}
-
 const handleModeChange = async (mode: 'terminal' | 'agents') => {
   currentMode.value = mode
   emit('mode-change', mode)
@@ -218,7 +188,7 @@ onMounted(async () => {
   eventBus.on('updateRightIcon', (value: boolean) => {
     isRightSidebarCollapsed.value = value
   })
-  checkVersion()
+  updateStore.start()
 })
 </script>
 <style lang="less">

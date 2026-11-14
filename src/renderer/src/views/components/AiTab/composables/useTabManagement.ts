@@ -217,7 +217,7 @@ export function useTabManagement(options: TabManagementOptions) {
         // second empty assistant message.
         if (item.ask === 'completion_result' && !item.text) {
           const previousMessage = historyChatMessages.at(-1)
-          if (previousMessage?.role === 'assistant') {
+          if (previousMessage?.role === 'assistant' && (previousMessage.say === 'text' || previousMessage.say === 'completion_result')) {
             previousMessage.say = 'completion_result'
             previousMessage.ask = undefined
             previousMessage.type = 'say'
@@ -280,14 +280,15 @@ export function useTabManagement(options: TabManagementOptions) {
     pageSize: HISTORY_RESTORE_PAGE_SIZE
   })
 
-  const restoreHistoryTab = async (history: HistoryItem, options?: { forceNewTab?: boolean }) => {
+  // Resolves to whether the history tab is open and selected afterwards
+  const restoreHistoryTab = async (history: HistoryItem, options?: { forceNewTab?: boolean }): Promise<boolean> => {
     try {
       const restoreStartTime = performance.now()
 
       const existingTabIndex = chatTabs.value.findIndex((tab) => tab.id === history.id)
       if (existingTabIndex !== -1) {
         currentChatId.value = history.id
-        return
+        return true
       }
 
       let loadedHosts: Host[] = []
@@ -410,8 +411,10 @@ export function useTabManagement(options: TabManagementOptions) {
       }
 
       focusChatInput()
+      return true
     } catch (err) {
       logger.error('Failed to restore history tab', { error: err })
+      return false
     }
   }
 

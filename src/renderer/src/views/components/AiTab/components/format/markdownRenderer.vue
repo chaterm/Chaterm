@@ -199,6 +199,11 @@
               <CaretRightOutlined v-else />
             </a-button>
             <span class="output-title">OUTPUT</span>
+            <span
+              v-if="commandDurationText"
+              class="output-duration"
+              >{{ commandDurationText }}</span
+            >
           </div>
           <div class="output-controls">
             <span class="output-lines">{{ props.content.split('\n').length }} {{ props.content.split('\n').length === 1 ? 'line' : 'lines' }}</span>
@@ -469,6 +474,7 @@ import skillsIconSvg from '@/assets/icons/skills.svg'
 import { message } from 'ant-design-vue'
 import i18n from '@/locales'
 import { extractFinalOutput, cleanAnsiEscapeSequences } from '@/utils/terminalOutputExtractor'
+import { useCommandDuration } from '../../composables/useCommandDuration'
 import { userConfigStore as userConfigStoreService } from '@/services/userConfigStoreService'
 import { getCustomTheme, isDarkTheme } from '@/utils/themeUtils'
 import eventBus from '@/utils/eventBus'
@@ -642,6 +648,12 @@ const props = defineProps<{
   explanation?: string
   explanationLoading?: boolean
 }>()
+
+const commandDurationText = useCommandDuration(() => ({
+  startedAt: props.commandStartedAt,
+  durationMs: props.commandDurationMs,
+  running: props.partial && props.commandRunning
+}))
 
 const emit = defineEmits<{
   (e: 'explain-command', command: string): void
@@ -2626,6 +2638,13 @@ body.has-custom-bg .monaco-editor .margin {
   margin-right: 6px;
   font-size: 12px;
   vertical-align: -1px;
+}
+
+.output-duration {
+  margin-left: 4px;
+  font-size: 10px;
+  color: #7e8ba3;
+  font-variant-numeric: tabular-nums;
 }
 
 .output-controls {

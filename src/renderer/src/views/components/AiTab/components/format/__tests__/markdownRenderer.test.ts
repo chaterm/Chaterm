@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { mount, flushPromises } from '@vue/test-utils'
 import { nextTick } from 'vue'
 import MarkdownRenderer from '../markdownRenderer.vue'
@@ -299,6 +299,58 @@ describe('markdownRenderer kb search results', () => {
     expect(event.defaultPrevented).toBe(true)
     expect(clipboardWriteText).toHaveBeenCalledWith(content)
 
+    wrapper.unmount()
+  })
+})
+
+describe('markdownRenderer code output run time', () => {
+  const NOW = 1_800_000_000_000
+  const codeOutput = 'def main():\n    print("hi")\n\nmain()\n'
+
+  beforeEach(() => {
+    vi.clearAllMocks()
+    vi.useFakeTimers()
+    vi.setSystemTime(NOW)
+  })
+
+  afterEach(() => {
+    vi.useRealTimers()
+  })
+
+  const mountCodeOutput = (extraProps: Record<string, unknown>) =>
+    mount(MarkdownRenderer, {
+      ...globalMountOptions,
+      props: { content: codeOutput, say: 'command_output', ...extraProps }
+    })
+
+  it('shows the final duration in the OUTPUT header of code output', async () => {
+    const wrapper = mountCodeOutput({ commandStartedAt: NOW - 65_000, commandDurationMs: 3_725_000 })
+    await nextTick()
+
+    expect(wrapper.find('.terminal-output-renderer').exists()).toBe(false)
+    expect(wrapper.get('.terminal-output-header .output-title-section').text()).toContain('OUTPUT')
+    expect(wrapper.get('.output-duration').text()).toBe('1:02:05')
+    wrapper.unmount()
+  })
+
+  it('counts up while a streaming command is still running and stops once unmounted', async () => {
+    const wrapper = mountCodeOutput({ commandStartedAt: NOW - 65_000, commandRunning: true, partial: true })
+    await nextTick()
+    expect(wrapper.get('.output-duration').text()).toBe('1:05')
+
+    await vi.advanceTimersByTimeAsync(2000)
+    expect(wrapper.get('.output-duration').text()).toBe('1:07')
+
+    wrapper.unmount()
+    expect(vi.getTimerCount()).toBe(0)
+  })
+
+  it('shows no time when the command has neither a duration nor is running', async () => {
+    const wrapper = mountCodeOutput({ commandStartedAt: NOW - 65_000 })
+    await nextTick()
+
+    expect(wrapper.find('.terminal-output-header').exists()).toBe(true)
+    expect(wrapper.find('.output-duration').exists()).toBe(false)
     wrapper.unmount()
   })
 })

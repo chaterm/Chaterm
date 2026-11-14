@@ -1149,6 +1149,12 @@ export default {
     loadMore: 'تحميل المزيد',
     historyLoadHint: 'توجد رسائل أقدم. مرر للأعلى لمتابعة تحميلها.',
     copyToClipboard: 'نسخ إلى الحافظة',
+    copyCompletion: 'نسخ المحتوى المكتمل',
+    copyCompletionSuccess: 'تم نسخ المحتوى المكتمل',
+    copyCompletionFailed: 'فشل نسخ المحتوى المكتمل',
+    forkConversation: 'تفريع المحادثة من هنا',
+    forkConversationSuccess: 'تم إنشاء محادثة متفرعة',
+    forkConversationFailed: 'فشل إنشاء المحادثة المتفرعة',
     retry: 'إعادة المحاولة',
     taskCompleted: 'تم إنجاز المهمة',
     kbSearchProgressRunning: 'جارٍ البحث في قاعدة المعرفة · {seconds} ث',
@@ -1408,7 +1414,10 @@ export default {
     downloading: 'جاري التحميل',
     complete: 'تم التحميل بنجاح, هل تريد التثبيت الآن؟',
     install: 'تثبيت',
-    clickUpdate: 'اضغط على إعادة التشغيل للتحديث'
+    clickUpdate: 'اضغط على إعادة التشغيل للتحديث',
+    cardTitle: 'تحديث متاح',
+    cardReady: 'Chaterm v{version} جاهز.',
+    releaseNotes: 'ملاحظات الإصدار'
   },
   versionPrompt: {
     highlights: 'ما الجديد',

@@ -1151,6 +1151,12 @@ export default {
     loadMore: 'さらに読み込む',
     historyLoadHint: 'さらに古いメッセージがあります。上にスクロールして読み込めます。',
     copyToClipboard: 'クリップボードにコピー',
+    copyCompletion: '完了内容をコピー',
+    copyCompletionSuccess: '完了内容をコピーしました',
+    copyCompletionFailed: '完了内容のコピーに失敗しました',
+    forkConversation: 'ここから会話を分岐',
+    forkConversationSuccess: '分岐した会話を作成しました',
+    forkConversationFailed: '分岐した会話の作成に失敗しました',
     retry: '再試行',
     taskCompleted: 'タスク完了',
     kbSearchProgressRunning: 'ナレッジベースを検索中 · {seconds}秒',
@@ -1410,7 +1416,10 @@ export default {
     downloading: '更新をダウンロード中',
     complete: 'ダウンロードが完了しました、インストールしますか？',
     install: 'インストール',
-    clickUpdate: '再起動して更新'
+    clickUpdate: '再起動して更新',
+    cardTitle: '利用可能なアップデート',
+    cardReady: 'Chaterm v{version} の準備ができました。',
+    releaseNotes: 'リリースノート'
   },
   versionPrompt: {
     highlights: '新機能',
