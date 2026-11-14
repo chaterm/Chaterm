@@ -46,191 +46,74 @@ describe('useMessageOptions', () => {
     } as any)
   })
 
-  describe('handleOptionSelect', () => {
-    it('should store the selected option for a message', () => {
-      const { handleOptionSelect, getSelectedOption } = useMessageOptions()
-      const message: ChatMessage = {
-        id: 'msg-1',
-        role: 'assistant',
-        content: { question: 'Test', options: ['Option 1', 'Option 2'] }
-      }
-
-      handleOptionSelect(message, 'Option 1')
-
-      expect(getSelectedOption(message)).toBe('Option 1')
-    })
-
-    it('should update the selected option when called multiple times', () => {
-      const { handleOptionSelect, getSelectedOption } = useMessageOptions()
-      const message: ChatMessage = {
-        id: 'msg-1',
-        role: 'assistant',
-        content: { question: 'Test', options: ['Option 1', 'Option 2'] }
-      }
-
-      handleOptionSelect(message, 'Option 1')
-      expect(getSelectedOption(message)).toBe('Option 1')
-
-      handleOptionSelect(message, 'Option 2')
-      expect(getSelectedOption(message)).toBe('Option 2')
-    })
+  const makeMessage = (overrides: Partial<ChatMessage> = {}): ChatMessage => ({
+    id: 'msg-1',
+    role: 'assistant',
+    content: { question: 'Test', options: ['Option 1', 'Option 2'] },
+    ask: 'followup',
+    ...overrides
   })
 
-  describe('getSelectedOption', () => {
-    it('should return empty string when no option is selected', () => {
-      const { getSelectedOption } = useMessageOptions()
-      const message: ChatMessage = {
-        id: 'msg-1',
-        role: 'assistant',
-        content: { question: 'Test', options: ['Option 1', 'Option 2'] }
-      }
-
-      expect(getSelectedOption(message)).toBe('')
-    })
-  })
-
-  describe('handleCustomInputChange', () => {
-    it('should store the custom input for a message', () => {
-      const { handleCustomInputChange, getCustomInput } = useMessageOptions()
-      const message: ChatMessage = {
-        id: 'msg-1',
-        role: 'assistant',
-        content: { question: 'Test', options: ['Option 1', 'Option 2'] }
-      }
-
-      handleCustomInputChange(message, 'Custom value')
-
-      expect(getCustomInput(message)).toBe('Custom value')
-    })
-
-    it('should update the custom input when called multiple times', () => {
-      const { handleCustomInputChange, getCustomInput } = useMessageOptions()
-      const message: ChatMessage = {
-        id: 'msg-1',
-        role: 'assistant',
-        content: { question: 'Test', options: ['Option 1', 'Option 2'] }
-      }
-
-      handleCustomInputChange(message, 'First value')
-      expect(getCustomInput(message)).toBe('First value')
-
-      handleCustomInputChange(message, 'Second value')
-      expect(getCustomInput(message)).toBe('Second value')
-    })
-  })
-
-  describe('getCustomInput', () => {
+  describe('custom input state', () => {
     it('should return empty string when no custom input is set', () => {
-      const { getCustomInput } = useMessageOptions()
-      const message: ChatMessage = {
-        id: 'msg-1',
-        role: 'assistant',
-        content: { question: 'Test', options: ['Option 1', 'Option 2'] }
-      }
+      const { getCustomInput, hasCustomInput } = useMessageOptions()
+      const message = makeMessage()
 
       expect(getCustomInput(message)).toBe('')
-    })
-  })
-
-  describe('canSubmitOption', () => {
-    it('should return false when no option is selected', () => {
-      const { canSubmitOption } = useMessageOptions()
-      const message: ChatMessage = {
-        id: 'msg-1',
-        role: 'assistant',
-        content: { question: 'Test', options: ['Option 1', 'Option 2'] }
-      }
-
-      expect(canSubmitOption(message)).toBe(false)
+      expect(hasCustomInput(message)).toBe(false)
     })
 
-    it('should return true when a preset option is selected', () => {
-      const { handleOptionSelect, canSubmitOption } = useMessageOptions()
-      const message: ChatMessage = {
-        id: 'msg-1',
-        role: 'assistant',
-        content: { question: 'Test', options: ['Option 1', 'Option 2'] }
-      }
+    it('should store and update the custom input per message', () => {
+      const { handleCustomInputChange, getCustomInput } = useMessageOptions()
+      const first = makeMessage()
+      const second = makeMessage({ id: 'msg-2' })
 
-      handleOptionSelect(message, 'Option 1')
+      handleCustomInputChange(first, 'First value')
+      handleCustomInputChange(second, 'Other')
+      handleCustomInputChange(first, 'Second value')
 
-      expect(canSubmitOption(message)).toBe(true)
+      expect(getCustomInput(first)).toBe('Second value')
+      expect(getCustomInput(second)).toBe('Other')
     })
 
-    it('should return false when custom option is selected but no input is provided', () => {
-      const { handleOptionSelect, canSubmitOption } = useMessageOptions()
-      const message: ChatMessage = {
-        id: 'msg-1',
-        role: 'assistant',
-        content: { question: 'Test', options: ['Option 1', 'Option 2'] }
-      }
+    it('should treat whitespace-only input as empty', () => {
+      const { handleCustomInputChange, hasCustomInput } = useMessageOptions()
+      const message = makeMessage()
 
-      handleOptionSelect(message, '__custom__')
-
-      expect(canSubmitOption(message)).toBe(false)
-    })
-
-    it('should return false when custom option has only whitespace', () => {
-      const { handleOptionSelect, handleCustomInputChange, canSubmitOption } = useMessageOptions()
-      const message: ChatMessage = {
-        id: 'msg-1',
-        role: 'assistant',
-        content: { question: 'Test', options: ['Option 1', 'Option 2'] }
-      }
-
-      handleOptionSelect(message, '__custom__')
       handleCustomInputChange(message, '   ')
+      expect(hasCustomInput(message)).toBe(false)
 
-      expect(canSubmitOption(message)).toBe(false)
-    })
-
-    it('should return true when custom option is selected with valid input', () => {
-      const { handleOptionSelect, handleCustomInputChange, canSubmitOption } = useMessageOptions()
-      const message: ChatMessage = {
-        id: 'msg-1',
-        role: 'assistant',
-        content: { question: 'Test', options: ['Option 1', 'Option 2'] }
-      }
-
-      handleOptionSelect(message, '__custom__')
-      handleCustomInputChange(message, 'Custom value')
-
-      expect(canSubmitOption(message)).toBe(true)
+      handleCustomInputChange(message, ' a ')
+      expect(hasCustomInput(message)).toBe(true)
     })
   })
 
-  describe('handleOptionSubmit', () => {
-    it('should not send message when no option is selected', async () => {
-      const { handleOptionSubmit } = useMessageOptions()
-      const message: ChatMessage = {
-        id: 'msg-1',
-        role: 'assistant',
-        content: { question: 'Test', options: ['Option 1', 'Option 2'] },
-        ask: 'followup'
-      }
+  describe('isOptionAnswered', () => {
+    it('should be false for an untouched message', () => {
+      const { isOptionAnswered } = useMessageOptions()
 
-      await handleOptionSubmit(message)
-
-      expect(mockSendToMain).not.toHaveBeenCalled()
+      expect(isOptionAnswered(makeMessage())).toBe(false)
     })
 
-    it('should send message with preset option', async () => {
-      const { handleOptionSelect, handleOptionSubmit } = useMessageOptions()
-      const message: ChatMessage = {
-        id: 'msg-1',
-        role: 'assistant',
-        content: { question: 'Test', options: ['Option 1', 'Option 2'] },
-        ask: 'followup'
-      }
+    it('should be true once an option is selected or the question is skipped', () => {
+      const { isOptionAnswered } = useMessageOptions()
 
-      handleOptionSelect(message, 'Option 1')
+      expect(isOptionAnswered(makeMessage({ selectedOption: 'Option 1' }))).toBe(true)
+      expect(isOptionAnswered(makeMessage({ skipped: true }))).toBe(true)
+    })
+  })
+
+  describe('handleOptionChoose', () => {
+    it('should send a preset option immediately and mark the message answered', async () => {
+      const { handleOptionChoose } = useMessageOptions()
+      const message = makeMessage()
       mockSendToMain.mockResolvedValue({ success: true })
 
-      await handleOptionSubmit(message)
+      await handleOptionChoose(message, 'Option 1')
 
       expect(mockSendToMain).toHaveBeenCalledWith({
         type: 'askResponse',
-        askResponse: 'messageResponse',
+        askResponse: 'optionResponse',
         text: 'Option 1',
         tabId: 'test-tab-id',
         taskId: 'test-tab-id'
@@ -239,41 +122,48 @@ describe('useMessageOptions', () => {
       expect(mockSession.responseLoading).toBe(true)
     })
 
-    it('should send message with custom input', async () => {
-      const { handleOptionSelect, handleCustomInputChange, handleOptionSubmit } = useMessageOptions()
-      const message: ChatMessage = {
-        id: 'msg-1',
-        role: 'assistant',
-        content: { question: 'Test', options: ['Option 1', 'Option 2'] },
-        ask: 'followup'
-      }
+    it('should ignore a second choice on an answered message', async () => {
+      const { handleOptionChoose } = useMessageOptions()
+      const message = makeMessage({ selectedOption: 'Option 1' })
 
-      handleOptionSelect(message, '__custom__')
-      handleCustomInputChange(message, 'Custom value')
-      mockSendToMain.mockResolvedValue({ success: true })
+      await handleOptionChoose(message, 'Option 2')
 
-      await handleOptionSubmit(message)
-
-      expect(mockSendToMain).toHaveBeenCalledWith({
-        type: 'askResponse',
-        askResponse: 'messageResponse',
-        text: 'Custom value',
-        tabId: 'test-tab-id',
-        taskId: 'test-tab-id'
-      })
-      expect(message.selectedOption).toBe('Custom value')
+      expect(mockSendToMain).not.toHaveBeenCalled()
+      expect(message.selectedOption).toBe('Option 1')
     })
 
-    it('should trim whitespace from custom input', async () => {
-      const { handleOptionSelect, handleCustomInputChange, handleOptionSubmit } = useMessageOptions()
-      const message: ChatMessage = {
-        id: 'msg-1',
-        role: 'assistant',
-        content: { question: 'Test', options: ['Option 1', 'Option 2'] },
-        ask: 'followup'
-      }
+    it('should not send when the session is not available', async () => {
+      vi.mocked(useSessionState).mockReturnValue({
+        currentSession: { value: null },
+        attachTabContext: mockAttachTabContext
+      } as any)
+      const { handleOptionChoose } = useMessageOptions()
+      const message = makeMessage()
 
-      handleOptionSelect(message, '__custom__')
+      await handleOptionChoose(message, 'Option 1')
+
+      expect(mockSendToMain).not.toHaveBeenCalled()
+      expect(message.selectedOption).toBeUndefined()
+    })
+
+    it('should reopen the question and log an error when sending fails', async () => {
+      const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
+      const { handleOptionChoose, isOptionAnswered } = useMessageOptions()
+      const message = makeMessage()
+      mockSendToMain.mockRejectedValue(new Error('Network error'))
+
+      await handleOptionChoose(message, 'Option 1')
+
+      expect(isOptionAnswered(message)).toBe(false)
+      expect(consoleSpy).toHaveBeenCalledWith('[ai.messageOptions] Failed to send message to main process', { error: expect.any(Error) })
+      consoleSpy.mockRestore()
+    })
+  })
+
+  describe('handleOptionSubmit', () => {
+    it('should send the trimmed custom input', async () => {
+      const { handleCustomInputChange, handleOptionSubmit } = useMessageOptions()
+      const message = makeMessage()
       handleCustomInputChange(message, '  Custom value  ')
       mockSendToMain.mockResolvedValue({ success: true })
 
@@ -281,67 +171,139 @@ describe('useMessageOptions', () => {
 
       expect(mockSendToMain).toHaveBeenCalledWith({
         type: 'askResponse',
-        askResponse: 'messageResponse',
+        askResponse: 'optionResponse',
         text: 'Custom value',
         tabId: 'test-tab-id',
         taskId: 'test-tab-id'
       })
+      expect(message.selectedOption).toBe('Custom value')
     })
 
-    it('should not send message when custom input is empty after trim', async () => {
-      const { handleOptionSelect, handleCustomInputChange, handleOptionSubmit } = useMessageOptions()
-      const message: ChatMessage = {
-        id: 'msg-1',
-        role: 'assistant',
-        content: { question: 'Test', options: ['Option 1', 'Option 2'] },
-        ask: 'followup'
-      }
-
-      handleOptionSelect(message, '__custom__')
+    it('should not send when the custom input is empty after trim', async () => {
+      const { handleCustomInputChange, handleOptionSubmit } = useMessageOptions()
+      const message = makeMessage()
       handleCustomInputChange(message, '   ')
 
       await handleOptionSubmit(message)
 
       expect(mockSendToMain).not.toHaveBeenCalled()
     })
+  })
 
-    it('should handle error when sending message fails', async () => {
+  describe('handleOptionSkip', () => {
+    it('should send a no-button response and mark the message skipped', async () => {
+      const { handleOptionSkip } = useMessageOptions()
+      const message = makeMessage()
+      mockSendToMain.mockResolvedValue({ success: true })
+
+      await handleOptionSkip(message)
+
+      expect(mockSendToMain).toHaveBeenCalledWith({
+        type: 'askResponse',
+        askResponse: 'noButtonClicked',
+        text: '',
+        tabId: 'test-tab-id',
+        taskId: 'test-tab-id'
+      })
+      expect(message.skipped).toBe(true)
+      expect(mockSession.responseLoading).toBe(true)
+    })
+
+    it('should reopen the question when sending fails', async () => {
       const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
-      const { handleOptionSelect, handleOptionSubmit } = useMessageOptions()
-      const message: ChatMessage = {
-        id: 'msg-1',
-        role: 'assistant',
-        content: { question: 'Test', options: ['Option 1', 'Option 2'] },
-        ask: 'followup'
-      }
-
-      handleOptionSelect(message, 'Option 1')
+      const { handleOptionSkip, isOptionAnswered } = useMessageOptions()
+      const message = makeMessage()
       mockSendToMain.mockRejectedValue(new Error('Network error'))
 
-      await handleOptionSubmit(message)
+      await handleOptionSkip(message)
 
-      expect(consoleSpy).toHaveBeenCalledWith('[ai.messageOptions] Failed to send message to main process', { error: expect.any(Error) })
+      expect(isOptionAnswered(message)).toBe(false)
       consoleSpy.mockRestore()
     })
 
-    it('should not send message when session is not available', async () => {
+    it('should ignore a skip on an answered message', async () => {
+      const { handleOptionSkip } = useMessageOptions()
+
+      await handleOptionSkip(makeMessage({ selectedOption: 'Option 1' }))
+
+      expect(mockSendToMain).not.toHaveBeenCalled()
+    })
+
+    it('should not send when the session is not available', async () => {
       vi.mocked(useSessionState).mockReturnValue({
         currentSession: { value: null },
         attachTabContext: mockAttachTabContext
       } as any)
+      const { handleOptionSkip } = useMessageOptions()
+      const message = makeMessage()
 
-      const { handleOptionSelect, handleOptionSubmit } = useMessageOptions()
-      const message: ChatMessage = {
-        id: 'msg-1',
-        role: 'assistant',
-        content: { question: 'Test', options: ['Option 1', 'Option 2'] },
-        ask: 'followup'
-      }
+      await handleOptionSkip(message)
 
-      handleOptionSelect(message, 'Option 1')
+      expect(mockSendToMain).not.toHaveBeenCalled()
+      expect(message.skipped).toBeUndefined()
+    })
+  })
 
-      await handleOptionSubmit(message)
+  describe('handleCustomInputKeydown', () => {
+    const keydown = (init: KeyboardEventInit) => new KeyboardEvent('keydown', { cancelable: true, ...init })
 
+    it('should submit on Enter and suppress the newline', async () => {
+      const { handleCustomInputChange, handleCustomInputKeydown } = useMessageOptions()
+      const message = makeMessage()
+      handleCustomInputChange(message, 'Custom value')
+      mockSendToMain.mockResolvedValue({ success: true })
+      const event = keydown({ key: 'Enter' })
+
+      handleCustomInputKeydown(message, event)
+      await vi.waitFor(() => expect(mockSendToMain).toHaveBeenCalled())
+
+      expect(event.defaultPrevented).toBe(true)
+      expect(mockSendToMain).toHaveBeenCalledWith(expect.objectContaining({ askResponse: 'optionResponse', text: 'Custom value' }))
+    })
+
+    it('should leave Shift+Enter to insert a newline', () => {
+      const { handleCustomInputChange, handleCustomInputKeydown } = useMessageOptions()
+      const message = makeMessage()
+      handleCustomInputChange(message, 'Custom value')
+      const event = keydown({ key: 'Enter', shiftKey: true })
+
+      handleCustomInputKeydown(message, event)
+
+      expect(event.defaultPrevented).toBe(false)
+      expect(mockSendToMain).not.toHaveBeenCalled()
+    })
+
+    it('should not submit while an IME composition is active', () => {
+      const { handleCustomInputChange, handleCustomInputKeydown } = useMessageOptions()
+      const message = makeMessage()
+      handleCustomInputChange(message, 'ni')
+      const event = keydown({ key: 'Enter', isComposing: true })
+
+      handleCustomInputKeydown(message, event)
+
+      expect(event.defaultPrevented).toBe(false)
+      expect(mockSendToMain).not.toHaveBeenCalled()
+    })
+
+    it('should ignore other keys', () => {
+      const { handleCustomInputChange, handleCustomInputKeydown } = useMessageOptions()
+      const message = makeMessage()
+      handleCustomInputChange(message, 'Custom value')
+      const event = keydown({ key: 'a' })
+
+      handleCustomInputKeydown(message, event)
+
+      expect(event.defaultPrevented).toBe(false)
+      expect(mockSendToMain).not.toHaveBeenCalled()
+    })
+
+    it('should swallow Enter on an empty input without sending', () => {
+      const { handleCustomInputKeydown } = useMessageOptions()
+      const event = keydown({ key: 'Enter' })
+
+      handleCustomInputKeydown(makeMessage(), event)
+
+      expect(event.defaultPrevented).toBe(true)
       expect(mockSendToMain).not.toHaveBeenCalled()
     })
   })

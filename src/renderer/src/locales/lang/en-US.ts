@@ -1207,6 +1207,7 @@ export default {
     explainCommandLoading: 'Explaining…',
     enterCustomOption: 'Enter your answer...',
     submit: 'Submit',
+    skip: 'Skip',
     startVoiceInput: 'Start Voice Input',
     stopRecording: 'Stop Voice Recording',
     startRecording: 'Start Voice Recording',

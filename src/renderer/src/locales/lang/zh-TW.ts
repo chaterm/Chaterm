@@ -1176,6 +1176,7 @@ export default {
     explainCommandLoading: '正在解讀…',
     enterCustomOption: '請輸入您的答案...',
     submit: '提交',
+    skip: '跳過',
     startVoiceInput: '開始語音輸入',
     stopRecording: '停止語音錄製',
     startRecording: '開始語音錄制',

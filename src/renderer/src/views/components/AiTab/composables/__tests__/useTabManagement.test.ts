@@ -405,6 +405,40 @@ describe('useTabManagement', () => {
       expect(restoredTab!.session.chatHistory.map((m) => m.say)).toEqual([undefined, 'api_req_started', 'context_truncated'])
     })
 
+    it('should restore the recorded answer of a follow-up question', async () => {
+      mockGetTaskMetadata.mockResolvedValue({ success: true, data: {} })
+      const followup = (record: Record<string, unknown>, ts: number): ChatermMessage => ({
+        ask: 'followup',
+        say: undefined,
+        text: JSON.stringify({ question: 'Continue?', options: ['Yes', 'No'], ...record }),
+        type: 'ask',
+        ts,
+        partial: false
+      })
+      mockChatermGetChatermMessagesPage.mockResolvedValue(createPageResult([followup({ selected: 'Yes' }, 100), followup({ skipped: true }, 101)]))
+
+      const { restoreHistoryTab } = useTabManagement({
+        getCurentTabAssetInfo: mockGetCurentTabAssetInfo,
+        toggleSidebar: mockToggleSidebar
+      })
+      const mockState = vi.mocked(useSessionState)()
+
+      await restoreHistoryTab({
+        id: 'history-answers',
+        chatTitle: 'Answers',
+        chatContent: [],
+        isFavorite: false,
+        isEditing: false,
+        editingTitle: ''
+      })
+
+      const restored = mockState.chatTabs.value.find((t) => t.id === 'history-answers')!.session.chatHistory
+      expect(restored.map((m) => [m.selectedOption, m.skipped])).toEqual([
+        ['Yes', undefined],
+        [undefined, true]
+      ])
+    })
+
     it('should keep a paged text message as assistant when the chunk starts mid-conversation', async () => {
       mockGetTaskMetadata.mockResolvedValue({ success: true, data: {} })
       mockChatermGetChatermMessagesPage.mockResolvedValue(

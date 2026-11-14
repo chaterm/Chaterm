@@ -1190,6 +1190,7 @@ export default {
     explainCommandLoading: 'يتم التفسير...',
     enterCustomOption: 'أدخل إجابتك...',
     submit: 'إرسال',
+    skip: 'تخطي',
     startVoiceInput: 'بدء الإدخال الصوتي',
     stopRecording: 'إيقاف التسجيل الصوتي',
     startRecording: 'بدء التسجيل الصوتي',

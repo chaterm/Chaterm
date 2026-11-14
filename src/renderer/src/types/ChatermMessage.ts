@@ -79,9 +79,11 @@ export interface ChatermSayTool {
 }
 
 export interface ChatermAskQuestion {
+  title?: string
   question: string
   options?: string[]
   selected?: string
+  skipped?: boolean
 }
 
 export interface ChatermAskMcpToolCall {

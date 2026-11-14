@@ -256,6 +256,7 @@ export function useTabManagement(options: TabManagementOptions) {
             if (item.ask === 'followup') {
               message.content = contentJson
               message.selectedOption = contentJson?.selected
+              message.skipped = contentJson?.skipped
             } else {
               message.content = contentJson?.question
             }

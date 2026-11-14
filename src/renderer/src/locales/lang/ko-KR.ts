@@ -1185,6 +1185,7 @@ export default {
     explainCommandLoading: '해설 중…',
     enterCustomOption: '답변을 입력해주세요...',
     submit: '제출',
+    skip: '건너뛰기',
     startVoiceInput: '음성 입력 시작',
     stopRecording: '음성 녹음 중지',
     startRecording: '음성 녹음 시작',

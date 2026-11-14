@@ -135,10 +135,12 @@ Best practices:
 ## ask_followup_question
 Description: Ask the user a question to gather additional information needed to complete the task. This tool should be used when you encounter ambiguities, need clarification, or require more details to proceed effectively. It allows for interactive problem-solving by enabling direct communication with the user. Use this tool judiciously to maintain a balance between gathering necessary information and avoiding excessive back-and-forth.
 Parameters:
+- title: (required) A short heading for the question, at most 20 characters, that names what is being asked (e.g. "Deployment target"). Do not repeat the question text.
 - question: (required) The question to ask the user. This should be a clear, specific question that addresses the information you need.
 - options: (optional) An array of 2-5 options for the user to choose from. Each option should be a string describing a possible answer. You may not always need to provide options, but it may be helpful in many cases where it can save the user from having to type out a response manually.
 Usage:
 <ask_followup_question>
+<title>Short heading here</title>
 <question>Your question here</question>
 <options>
 Array of options here (optional), e.g. ["Option 1", "Option 2", "Option 3"]
@@ -576,10 +578,12 @@ export const SYSTEM_PROMPT_CN = `你是 Chaterm，一位拥有 20 年经验的�
 ## ask_followup_question
 描述：向用户提问以收集完成任务所需的附加信息。当遇到歧义、需要澄清或需要更多详细信息才能有效进行时，应使用此工具。它通过启用与用户的直接交流来支持交互式问题解决。明智地使用此工具，在收集必要信息和避免过度来回之间保持平衡。
 参数：
+- title: (必需) 问题的简短标题，不超过 20 个字，概括所问内容（例如“部署目标”），不要重复问题正文。
 - question: (必需) 要向用户提出的问题。这应该是一个清晰、具体的问题，解决你需要的信息。
 - options: (可选) 2-5个选项的数组供用户选择。每个选项应该是描述可能答案的字符串。你可能并不总是需要提供选项，但在许多情况下这可能很有帮助，可以节省用户手动输入响应的时间。
 用法：
 <ask_followup_question>
+<title>简短标题</title>
 <question>你的问题</question>
 <options>
 选项数组（可选），例如 ["选项1", "选项2", "选项3"]

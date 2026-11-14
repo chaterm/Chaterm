@@ -1209,6 +1209,7 @@ export default {
     explainCommandLoading: 'Wird erklärt…',
     enterCustomOption: 'Bitte geben Sie Ihre Antwort ein...',
     submit: 'Absenden',
+    skip: 'Überspringen',
     startVoiceInput: 'Sprachinput starten',
     stopRecording: 'Sprachaufzeichnung stoppen',
     startRecording: 'Sprachaufzeichnung starten',

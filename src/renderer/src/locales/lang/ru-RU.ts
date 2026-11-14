@@ -1200,6 +1200,7 @@ export default {
     explainCommandLoading: 'Объясняю…',
     enterCustomOption: 'Пожалуйста, введите ваш ответ...',
     submit: 'Отправить',
+    skip: 'Пропустить',
     startVoiceInput: 'Начать голосовой ввод',
     stopRecording: 'Остановить запись голоса',
     startRecording: 'Начать запись',

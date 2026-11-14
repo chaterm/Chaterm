@@ -3596,12 +3596,23 @@ export class Task {
     await this.pushToolResult(toolDescription, this.responseFormatter.toolError(errorString))
   }
 
+  /** Persist the user's answer on the question record so it stays visible in the conversation. */
+  private async recordFollowupAnswer(question: ChatermAskQuestion, answer: Pick<ChatermAskQuestion, 'selected' | 'skipped'>): Promise<void> {
+    const lastFollowupMessage = findLast(this.chatermMessages, (m) => m.ask === 'followup')
+    if (!lastFollowupMessage) return
+
+    lastFollowupMessage.text = JSON.stringify({ ...question, ...answer } as ChatermAskQuestion)
+    await this.saveChatermMessagesAndUpdateHistory()
+  }
+
   private async handleAskFollowupQuestionToolUse(block: ToolUse): Promise<void> {
     const toolDescription = this.getToolDescription(block)
+    const title: string | undefined = block.params.title
     const question: string | undefined = block.params.question
     const optionsRaw: string | undefined = block.params.options
 
     const sharedMessage: ChatermAskQuestion = {
+      title: this.removeClosingTag(block.partial, 'title', title),
       question: this.removeClosingTag(block.partial, 'question', question),
       options: parsePartialArrayString(this.removeClosingTag(block.partial, 'options', optionsRaw))
     }
@@ -3629,21 +3640,29 @@ export class Task {
       // Store the number of options for telemetry
       const options = parsePartialArrayString(optionsRaw || '[]')
 
-      const { text, contentParts } = await this.ask('followup', JSON.stringify(sharedMessage), false)
+      const { response, text, contentParts } = await this.ask('followup', JSON.stringify(sharedMessage), false)
 
-      if (optionsRaw && text && parsePartialArrayString(optionsRaw).includes(text)) {
-        const lastFollowupMessage = findLast(this.chatermMessages, (m) => m.ask === 'followup')
-        if (lastFollowupMessage) {
-          lastFollowupMessage.text = JSON.stringify({
-            ...sharedMessage,
-            selected: text
-          } as ChatermAskQuestion)
-          await this.saveChatermMessagesAndUpdateHistory()
-          telemetryService.captureOptionSelected(this.taskId, options.length, 'act')
-        }
+      if (response === 'noButtonClicked') {
+        await this.recordFollowupAnswer(sharedMessage, { skipped: true })
+        telemetryService.captureOptionsIgnored(this.taskId, options.length, 'act')
+        await this.pushToolResult(
+          toolDescription,
+          this.responseFormatter.toolResult(`<answer>\n${this.responseFormatter.questionSkipped()}\n</answer>`)
+        )
+        await this.saveCheckpoint()
+        return
+      }
+
+      const isPresetOption = !!optionsRaw && !!text && parsePartialArrayString(optionsRaw).includes(text)
+      if (response === 'optionResponse' || isPresetOption) {
+        await this.recordFollowupAnswer(sharedMessage, { selected: text })
+      } else {
+        await this.saveUserMessage(text ?? '', contentParts)
+      }
+      if (isPresetOption) {
+        telemetryService.captureOptionSelected(this.taskId, options.length, 'act')
       } else {
         telemetryService.captureOptionsIgnored(this.taskId, options.length, 'act')
-        await this.saveUserMessage(text ?? '', contentParts)
       }
 
       await this.pushToolResult(toolDescription, this.responseFormatter.toolResult(`<answer>\n${text}\n</answer>`))

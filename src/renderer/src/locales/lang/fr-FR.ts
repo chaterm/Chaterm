@@ -1212,6 +1212,7 @@ export default {
     explainCommandLoading: 'Explication en cours…',
     enterCustomOption: 'Entrez votre réponse...',
     submit: 'Soumettre',
+    skip: 'Passer',
     startVoiceInput: 'Commencer la voix',
     stopRecording: 'Arrêter la voix',
     startRecording: 'Commencer la voix',

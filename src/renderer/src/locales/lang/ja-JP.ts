@@ -1192,6 +1192,7 @@ export default {
     explainCommandLoading: '解説中…',
     enterCustomOption: '答えを入力してください...',
     submit: '送信',
+    skip: 'スキップ',
     startVoiceInput: '音声入力を開始',
     stopRecording: '音声録音を停止',
     startRecording: '音声録音を開始',

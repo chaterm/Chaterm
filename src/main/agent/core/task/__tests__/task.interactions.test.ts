@@ -139,6 +139,7 @@ describe('Task interaction-heavy branches', () => {
     task.responseFormatter = {
       toolError: (msg: string) => `[ERROR] ${msg}`,
       toolDenied: () => 'The user denied this operation.',
+      questionSkipped: () => 'The user skipped this question.',
       toolResult: (msg: string) => msg,
       toolAlreadyUsed: (name: string) => `Tool [${name}] was already used.`,
       missingToolParameterError: (param: string) => `Missing parameter: ${param}`,
@@ -157,6 +158,96 @@ describe('Task interaction-heavy branches', () => {
 
     expect(task.ask).toHaveBeenCalledWith('followup', expect.any(String), true)
     expect(task.pushToolResult).not.toHaveBeenCalled()
+  })
+
+  it('handleAskFollowupQuestionToolUse should send the title with the question', async () => {
+    task.ask = vi.fn().mockResolvedValue({ response: 'messageResponse', text: 'free text', contentParts: [] })
+
+    await task.handleAskFollowupQuestionToolUse({
+      name: 'ask_followup_question',
+      params: { title: 'Next step', question: 'Choose', options: '["A","B"]' },
+      partial: false
+    })
+
+    expect(task.ask).toHaveBeenCalledWith('followup', JSON.stringify({ title: 'Next step', question: 'Choose', options: ['A', 'B'] }), false)
+  })
+
+  it('handleAskFollowupQuestionToolUse should keep a custom card answer on the question record', async () => {
+    const question = JSON.stringify({ title: 'Next step', question: 'Choose', options: ['A', 'B'] })
+    task.chatermMessages = [{ ask: 'followup', text: question }]
+    task.ask = vi.fn().mockResolvedValue({ response: 'optionResponse', text: 'my own plan', contentParts: [] })
+
+    await task.handleAskFollowupQuestionToolUse({
+      name: 'ask_followup_question',
+      params: { title: 'Next step', question: 'Choose', options: '["A","B"]' },
+      partial: false
+    })
+
+    expect(JSON.parse(task.chatermMessages[0].text)).toEqual({ title: 'Next step', question: 'Choose', options: ['A', 'B'], selected: 'my own plan' })
+    expect(task.saveChatermMessagesAndUpdateHistory).toHaveBeenCalledTimes(1)
+    expect(task.saveUserMessage).not.toHaveBeenCalled()
+    expect(telemetryMocks.captureOptionsIgnored).toHaveBeenCalledWith('task-interactions', 2, 'act')
+    expect(task.pushToolResult).toHaveBeenCalledExactlyOnceWith('[mock-tool]', '<answer>\nmy own plan\n</answer>')
+  })
+
+  it('handleAskFollowupQuestionToolUse should save a typed answer as a user message', async () => {
+    const question = JSON.stringify({ question: 'Choose', options: ['A', 'B'] })
+    task.chatermMessages = [{ ask: 'followup', text: question }]
+    task.ask = vi.fn().mockResolvedValue({ response: 'messageResponse', text: 'typed in the chat box', contentParts: [] })
+
+    await task.handleAskFollowupQuestionToolUse({
+      name: 'ask_followup_question',
+      params: { question: 'Choose', options: '["A","B"]' },
+      partial: false
+    })
+
+    expect(task.saveUserMessage).toHaveBeenCalledWith('typed in the chat box', [])
+    expect(task.chatermMessages[0].text).toBe(question)
+    expect(telemetryMocks.captureOptionsIgnored).toHaveBeenCalled()
+  })
+
+  it('handleAskFollowupQuestionToolUse should record the skip on the question', async () => {
+    const question = JSON.stringify({ title: 'Backup', question: 'Choose', options: ['A', 'B'] })
+    task.chatermMessages = [{ ask: 'followup', text: question }]
+    task.ask = vi.fn().mockResolvedValue({ response: 'noButtonClicked', text: '' })
+
+    await task.handleAskFollowupQuestionToolUse({
+      name: 'ask_followup_question',
+      params: { title: 'Backup', question: 'Choose', options: '["A","B"]' },
+      partial: false
+    })
+
+    expect(JSON.parse(task.chatermMessages[0].text)).toEqual({ title: 'Backup', question: 'Choose', options: ['A', 'B'], skipped: true })
+  })
+
+  it('handleAskFollowupQuestionToolUse should still answer when no question record exists', async () => {
+    task.chatermMessages = []
+    task.ask = vi.fn().mockResolvedValue({ response: 'optionResponse', text: 'A', contentParts: [] })
+
+    await task.handleAskFollowupQuestionToolUse({
+      name: 'ask_followup_question',
+      params: { question: 'Choose', options: '["A","B"]' },
+      partial: false
+    })
+
+    expect(task.saveChatermMessagesAndUpdateHistory).not.toHaveBeenCalled()
+    expect(task.pushToolResult).toHaveBeenCalledExactlyOnceWith('[mock-tool]', '<answer>\nA\n</answer>')
+  })
+
+  it('handleAskFollowupQuestionToolUse should report a skipped question without saving a user message', async () => {
+    task.ask = vi.fn().mockResolvedValue({ response: 'noButtonClicked', text: '' })
+
+    await task.handleAskFollowupQuestionToolUse({
+      name: 'ask_followup_question',
+      params: { title: 'Next step', question: 'Choose', options: '["A","B"]' },
+      partial: false
+    })
+
+    expect(telemetryMocks.captureOptionsIgnored).toHaveBeenCalledWith('task-interactions', 2, 'act')
+    expect(telemetryMocks.captureOptionSelected).not.toHaveBeenCalled()
+    expect(task.saveUserMessage).not.toHaveBeenCalled()
+    expect(task.pushToolResult).toHaveBeenCalledExactlyOnceWith('[mock-tool]', '<answer>\nThe user skipped this question.\n</answer>')
+    expect(task.saveCheckpoint).toHaveBeenCalledTimes(1)
   })
 
   it('handleAskFollowupQuestionToolUse should handle missing question', async () => {

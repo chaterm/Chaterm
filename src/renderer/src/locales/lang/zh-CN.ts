@@ -1185,6 +1185,7 @@ export default {
     explainCommandLoading: '正在解读…',
     enterCustomOption: '请输入您的答案...',
     submit: '提交',
+    skip: '跳过',
     startVoiceInput: '开始语音输入',
     stopRecording: '停止语音录制',
     startRecording: '开始语音录制',

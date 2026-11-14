@@ -1203,6 +1203,7 @@ export default {
     explainCommandLoading: 'A explicar…',
     enterCustomOption: 'Digite sua resposta...',
     submit: 'Enviar',
+    skip: 'Saltar',
     startVoiceInput: 'Iniciar entrada de voz',
     stopRecording: 'Parar gravação de voz',
     startRecording: 'Iniciar gravação de voz',
