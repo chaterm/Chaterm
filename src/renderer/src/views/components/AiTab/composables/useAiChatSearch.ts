@@ -1,73 +1,44 @@
 import { ref, watch, onBeforeUnmount, type Ref } from 'vue'
 import { useSessionState } from './useSessionState'
+import {
+  type MonacoMatch,
+  type TerminalMatch,
+  findMonacoMatches,
+  paintMonacoMatches,
+  clearMonacoMatches,
+  findTerminalMatches,
+  decorateTerminalMatch,
+  clearTerminalMatches,
+  expandCollapsedAncestors,
+  revealMonacoMatch,
+  revealTerminalMatch
+} from './aiChatSearchTargets'
 
 const MARK_CLASS = 'ai-chat-search-highlight'
 const MARK_CLASS_ACTIVE = 'ai-chat-search-highlight-active'
-const CONTAINER_HIGHLIGHT_CLASS = 'ai-chat-search-container-highlight'
-const CONTAINER_HIGHLIGHT_ACTIVE_CLASS = 'ai-chat-search-container-highlight-active'
 const SEARCH_DEBOUNCE_MS = 200
+// Opening a folded region animates its height, so reveal only after it settles.
+const EXPAND_SETTLE_MS = 300
+// Monaco and xterm paint their decorations on the next frame.
+const DECORATION_RENDER_MS = 50
 
-/** A match that lives inside a normal DOM text node and can be wrapped with <mark>. */
+/** A match that lives inside a normal DOM text node and is wrapped with <mark>. */
 interface TextNodeMatch {
   type: 'textNode'
-  markElement?: HTMLElement
+  markElement: HTMLElement
 }
 
-/** A match that lives inside a special container (Monaco / xterm) that cannot be DOM-modified. */
-interface ContainerMatch {
-  type: 'container'
-  container: HTMLElement
-  /** Number of occurrences of the search term inside this container. */
-  count: number
-}
+type SearchMatch = TextNodeMatch | MonacoMatch | TerminalMatch
 
-type SearchMatch = TextNodeMatch | ContainerMatch
-
-/**
- * Extract plain text from a special container (Monaco editor or xterm terminal).
- * Monaco renders text into .view-lines > .view-line elements.
- * xterm renders text into .xterm-rows > div elements.
- * Falls back to textContent for unknown container types.
- */
-function getContainerText(container: HTMLElement): string {
-  // Monaco: read from .view-lines
-  const viewLines = container.querySelector('.view-lines')
-  if (viewLines) {
-    return viewLines.textContent || ''
-  }
-  // xterm: read from .xterm-rows
-  const xtermRows = container.querySelector('.xterm-rows')
-  if (xtermRows) {
-    const lines: string[] = []
-    xtermRows.querySelectorAll(':scope > div').forEach((row) => {
-      lines.push(row.textContent || '')
-    })
-    return lines.join('\n')
-  }
-  return container.textContent || ''
-}
-
-/**
- * Count occurrences of a search term (case-insensitive) in text.
- */
-function countOccurrences(text: string, term: string): number {
-  const lowerText = text.toLowerCase()
-  const lowerTerm = term.toLowerCase()
-  let count = 0
-  let idx = 0
-  while (true) {
-    idx = lowerText.indexOf(lowerTerm, idx)
-    if (idx === -1) break
-    count++
-    idx++
-  }
-  return count
-}
+const isMonacoMatch = (match: SearchMatch): match is MonacoMatch => match.type === 'monaco'
+const isTerminalMatch = (match: SearchMatch): match is TerminalMatch => match.type === 'terminal'
+const anchorOf = (match: SearchMatch): HTMLElement => (match.type === 'textNode' ? match.markElement : match.container)
 
 /**
  * Composable for AI chat content search.
- * Uses TreeWalker to find text matches in normal DOM and also searches
- * inside Monaco editor / xterm terminal containers via their rendered text.
+ * Text in the normal DOM is wrapped with <mark>; Monaco editors and xterm outputs are
+ * searched through their own model and buffer and highlighted with decorations, so
+ * every match gets the same current / other distinction.
  */
 export function useAiChatSearch(chatResponseRef: Ref<HTMLElement | null>) {
   const { shouldStickToBottom } = useSessionState()
@@ -76,29 +47,34 @@ export function useAiChatSearch(chatResponseRef: Ref<HTMLElement | null>) {
   const searchTerm = ref('')
   const matchCount = ref(0)
   const currentMatchIndex = ref(0)
+  // Bumped on every openSearch so an already open bar can take focus again.
+  const searchFocusToken = ref(0)
 
   let matches: SearchMatch[] = []
+  let activeMatch: SearchMatch | null = null
   let debounceTimer: ReturnType<typeof setTimeout> | null = null
+  let revealTimer: ReturnType<typeof setTimeout> | null = null
 
   /**
-   * Clear all highlight marks and container highlights from the DOM.
+   * Remove every highlight: <mark> wrappers, Monaco and xterm decorations.
    */
   function clearHighlights(root: HTMLElement | null) {
+    if (revealTimer) {
+      clearTimeout(revealTimer)
+      revealTimer = null
+    }
+    clearMonacoMatches(matches.filter(isMonacoMatch))
+    clearTerminalMatches(matches.filter(isTerminalMatch))
+    matches = []
+    activeMatch = null
     if (!root) return
-    // Remove <mark> elements for normal text matches
-    const marks = root.querySelectorAll(`mark.${MARK_CLASS}`)
-    marks.forEach((mark) => {
+    root.querySelectorAll(`mark.${MARK_CLASS}`).forEach((mark) => {
       const parent = mark.parentNode
       if (parent) {
         parent.replaceChild(document.createTextNode(mark.textContent || ''), mark)
         parent.normalize()
       }
     })
-    // Remove container highlight classes
-    root.querySelectorAll(`.${CONTAINER_HIGHLIGHT_CLASS}`).forEach((el) => {
-      el.classList.remove(CONTAINER_HIGHLIGHT_CLASS, CONTAINER_HIGHLIGHT_ACTIVE_CLASS)
-    })
-    matches = []
   }
 
   /**
@@ -118,7 +94,7 @@ export function useAiChatSearch(chatResponseRef: Ref<HTMLElement | null>) {
         if (parent.tagName === 'MARK' && parent.classList.contains(MARK_CLASS)) {
           return NodeFilter.FILTER_REJECT
         }
-        // Skip special containers (Monaco / xterm) - handled separately
+        // Skip special containers (Monaco / xterm) - handled through their own APIs
         if (parent.closest('.monaco-container') || parent.closest('.monaco-wrapper') || parent.closest('.terminal-output')) {
           return NodeFilter.FILTER_REJECT
         }
@@ -144,35 +120,6 @@ export function useAiChatSearch(chatResponseRef: Ref<HTMLElement | null>) {
   }
 
   /**
-   * Find matches inside special containers (Monaco editors, xterm terminals).
-   * Returns ContainerMatch entries for containers that have matches.
-   */
-  function findContainerMatches(root: HTMLElement, term: string): ContainerMatch[] {
-    const containerMatches: ContainerMatch[] = []
-    if (!term) return containerMatches
-
-    // Search Monaco editors
-    root.querySelectorAll('.monaco-container').forEach((el) => {
-      const text = getContainerText(el as HTMLElement)
-      const count = countOccurrences(text, term)
-      if (count > 0) {
-        containerMatches.push({ type: 'container', container: el as HTMLElement, count })
-      }
-    })
-
-    // Search xterm terminal outputs
-    root.querySelectorAll('.terminal-output').forEach((el) => {
-      const text = getContainerText(el as HTMLElement)
-      const count = countOccurrences(text, term)
-      if (count > 0) {
-        containerMatches.push({ type: 'container', container: el as HTMLElement, count })
-      }
-    })
-
-    return containerMatches
-  }
-
-  /**
    * Wrap matched ranges with <mark> elements.
    * Processes in reverse order to avoid invalidating earlier ranges.
    */
@@ -180,11 +127,10 @@ export function useAiChatSearch(chatResponseRef: Ref<HTMLElement | null>) {
     const textMatches: TextNodeMatch[] = []
     // Process in reverse order to preserve earlier range positions
     for (let i = ranges.length - 1; i >= 0; i--) {
-      const range = ranges[i]
       try {
         const mark = document.createElement('mark')
         mark.className = MARK_CLASS
-        range.surroundContents(mark)
+        ranges[i].surroundContents(mark)
         textMatches.unshift({ type: 'textNode', markElement: mark })
       } catch {
         // surroundContents can fail if range crosses element boundaries; skip this match
@@ -194,63 +140,51 @@ export function useAiChatSearch(chatResponseRef: Ref<HTMLElement | null>) {
   }
 
   /**
-   * Build the flat matches array by interleaving text node matches and container matches
-   * in document order. Container matches expand into N entries (one per occurrence) so
-   * that match count and navigation indices are correct.
+   * Merge the matches of every kind into document order. The sort is stable, so
+   * matches inside one editor or terminal keep their in-content order.
    */
-  function buildMatchList(textMatches: TextNodeMatch[], containerMatches: ContainerMatch[]): SearchMatch[] {
-    const allItems: Array<{ element: HTMLElement; match: SearchMatch; expandCount: number }> = []
-
-    for (const tm of textMatches) {
-      if (tm.markElement) {
-        allItems.push({ element: tm.markElement, match: tm, expandCount: 1 })
-      }
-    }
-
-    for (const cm of containerMatches) {
-      // Add highlight class to the container
-      cm.container.classList.add(CONTAINER_HIGHLIGHT_CLASS)
-      // Expand into N entries for navigation
-      for (let i = 0; i < cm.count; i++) {
-        allItems.push({ element: cm.container, match: cm, expandCount: 1 })
-      }
-    }
-
-    // Sort by document position
-    allItems.sort((a, b) => {
-      const pos = a.element.compareDocumentPosition(b.element)
+  function buildMatchList(...groups: SearchMatch[][]): SearchMatch[] {
+    return groups.flat().sort((a, b) => {
+      const pos = anchorOf(a).compareDocumentPosition(anchorOf(b))
       if (pos & Node.DOCUMENT_POSITION_FOLLOWING) return -1
       if (pos & Node.DOCUMENT_POSITION_PRECEDING) return 1
       return 0
     })
+  }
 
-    return allItems.map((item) => item.match)
+  function reveal(match: SearchMatch) {
+    if (match.type === 'textNode') {
+      match.markElement.scrollIntoView({ behavior: 'smooth', block: 'center' })
+    } else if (match.type === 'monaco') {
+      revealMonacoMatch(match)
+    } else {
+      revealTerminalMatch(match)
+    }
   }
 
   /**
-   * Set the active highlight on the match at the given index (0-based).
+   * Make the match at the given index (0-based) the current one: open any folded
+   * region around it, switch the highlight to it and scroll it into view.
    */
   function setActiveHighlight(index: number) {
-    // Remove active class from all marks and containers
-    const root = chatResponseRef.value
-    if (root) {
-      root.querySelectorAll(`mark.${MARK_CLASS_ACTIVE}`).forEach((el) => {
-        el.classList.remove(MARK_CLASS_ACTIVE)
-      })
-      root.querySelectorAll(`.${CONTAINER_HIGHLIGHT_ACTIVE_CLASS}`).forEach((el) => {
-        el.classList.remove(CONTAINER_HIGHLIGHT_ACTIVE_CLASS)
-      })
-    }
+    if (revealTimer) clearTimeout(revealTimer)
 
-    if (index >= 0 && index < matches.length) {
-      const match = matches[index]
-      if (match.type === 'textNode' && match.markElement) {
-        match.markElement.classList.add(MARK_CLASS_ACTIVE)
-        match.markElement.scrollIntoView({ behavior: 'smooth', block: 'center' })
-      } else if (match.type === 'container') {
-        match.container.classList.add(CONTAINER_HIGHLIGHT_ACTIVE_CLASS)
-        match.container.scrollIntoView({ behavior: 'smooth', block: 'center' })
-      }
+    const previous = activeMatch
+    const match = matches[index]
+    activeMatch = match
+    if (previous?.type === 'textNode') previous.markElement.classList.remove(MARK_CLASS_ACTIVE)
+
+    const expanded = expandCollapsedAncestors(anchorOf(match), chatResponseRef.value)
+
+    if (match.type === 'textNode') match.markElement.classList.add(MARK_CLASS_ACTIVE)
+    paintMonacoMatches(matches.filter(isMonacoMatch), isMonacoMatch(match) ? match : null)
+    if (previous && isTerminalMatch(previous)) decorateTerminalMatch(previous, false)
+    if (isTerminalMatch(match)) decorateTerminalMatch(match, true)
+
+    if (expanded || match.type !== 'textNode') {
+      revealTimer = setTimeout(() => reveal(match), expanded ? EXPAND_SETTLE_MS : DECORATION_RENDER_MS)
+    } else {
+      reveal(match)
     }
   }
 
@@ -259,32 +193,21 @@ export function useAiChatSearch(chatResponseRef: Ref<HTMLElement | null>) {
    */
   function executeSearch() {
     const root = chatResponseRef.value
-    if (!root) {
-      matchCount.value = 0
-      currentMatchIndex.value = 0
-      matches = []
-      return
-    }
-
     clearHighlights(root)
 
     const term = searchTerm.value.trim()
-    if (!term) {
+    if (!root || !term) {
       matchCount.value = 0
       currentMatchIndex.value = 0
-      matches = []
       return
     }
 
-    // Find matches in normal text nodes
-    const ranges = findTextNodeMatches(root, term)
-    const textMatches = highlightRanges(ranges)
+    const textMatches = highlightRanges(findTextNodeMatches(root, term))
+    const monacoMatches = findMonacoMatches(root, term)
+    const terminalMatches = findTerminalMatches(root, term)
+    terminalMatches.forEach((match) => decorateTerminalMatch(match, false))
 
-    // Find matches in special containers (Monaco / xterm)
-    const containerMatches = findContainerMatches(root, term)
-
-    // Build ordered match list
-    matches = buildMatchList(textMatches, containerMatches)
+    matches = buildMatchList(textMatches, monacoMatches, terminalMatches)
     matchCount.value = matches.length
 
     if (matches.length > 0) {
@@ -320,12 +243,12 @@ export function useAiChatSearch(chatResponseRef: Ref<HTMLElement | null>) {
     matchCount.value = 0
     currentMatchIndex.value = 0
     clearHighlights(chatResponseRef.value)
-    matches = []
   }
 
   function openSearch() {
     isSearchOpen.value = true
     shouldStickToBottom.value = false
+    searchFocusToken.value++
   }
 
   function closeSearch() {
@@ -363,6 +286,7 @@ export function useAiChatSearch(chatResponseRef: Ref<HTMLElement | null>) {
     searchTerm,
     matchCount,
     currentMatchIndex,
+    searchFocusToken,
     openSearch,
     closeSearch,
     findNext,
