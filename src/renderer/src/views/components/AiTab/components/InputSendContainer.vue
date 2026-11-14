@@ -392,7 +392,7 @@ interface Props {
   mode?: 'create' | 'edit'
   initialContentParts?: ContentPart[]
   onConfirmEdit?: (contentParts: ContentPart[], hosts: Host[]) => void
-  openHistoryTab?: (history: HistoryItem, options?: { forceNewTab?: boolean }) => Promise<void>
+  openHistoryTab?: (history: HistoryItem, options?: { forceNewTab?: boolean }) => Promise<boolean>
   messageHosts?: Host[]
   /**
    * AiTab workspace — when `'database'` the agent/cmd mode selector is

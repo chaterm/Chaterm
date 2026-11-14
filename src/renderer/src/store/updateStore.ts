@@ -11,6 +11,7 @@ const DISMISSED_VERSION_KEY = 'update-card-dismissed-version'
 type UpdatePhase = 'idle' | 'downloading' | 'ready'
 
 let recheckTimer: ReturnType<typeof setInterval> | undefined
+let removeUpdateListener: (() => void) | undefined
 let listenerRegistered = false
 
 export const useUpdateStore = defineStore('update', {
@@ -25,7 +26,7 @@ export const useUpdateStore = defineStore('update', {
       if (isEnterpriseDeployEnabled() || listenerRegistered) return
       listenerRegistered = true
 
-      window.api.autoUpdate((params: { status?: number; version?: string }) => {
+      removeUpdateListener = window.api.autoUpdate((params: { status?: number; version?: string }) => {
         if (params?.status === STATUS_DOWNLOADED) {
           this.phase = 'ready'
           this.version = params.version || this.version
@@ -68,6 +69,8 @@ export const useUpdateStore = defineStore('update', {
     stop(): void {
       if (recheckTimer) clearInterval(recheckTimer)
       recheckTimer = undefined
+      removeUpdateListener?.()
+      removeUpdateListener = undefined
       listenerRegistered = false
     }
   }
