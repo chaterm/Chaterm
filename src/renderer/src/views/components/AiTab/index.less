@@ -1553,28 +1553,19 @@
   }
 }
 
-// AI Chat search highlight styles
-mark.ai-chat-search-highlight {
+// AI Chat search highlight styles. The marks and Monaco spans are created at runtime
+// and carry no scope attribute, so every rule has to go through :deep().
+:deep(mark.ai-chat-search-highlight),
+:deep(.ai-chat-search-monaco-match) {
   background-color: rgba(255, 213, 0, 0.4);
   color: inherit;
   border-radius: 2px;
   padding: 0;
-
-  &.ai-chat-search-highlight-active {
-    background-color: rgba(255, 140, 0, 0.6);
-    outline: 2px solid rgba(255, 140, 0, 0.8);
-    outline-offset: 1px;
-  }
 }
 
-// Highlight for special containers (Monaco editor / xterm terminal) that contain search matches
-.ai-chat-search-container-highlight {
-  outline: 2px solid rgba(255, 213, 0, 0.6);
-  outline-offset: -2px;
-  border-radius: 6px;
-
-  &.ai-chat-search-container-highlight-active {
-    outline-color: rgba(255, 140, 0, 0.8);
-    outline-width: 3px;
-  }
+:deep(mark.ai-chat-search-highlight.ai-chat-search-highlight-active),
+:deep(.ai-chat-search-monaco-match.ai-chat-search-monaco-match-active) {
+  background-color: rgba(255, 140, 0, 0.6);
+  outline: 2px solid rgba(255, 140, 0, 0.8);
+  outline-offset: 1px;
 }

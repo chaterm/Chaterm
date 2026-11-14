@@ -26,34 +26,12 @@
         @keydown.enter.prevent="findNext"
         @keydown.esc.prevent="closeSearch"
       />
-      <div
-        v-if="searchTerm && searchResultsCount > 0"
-        class="search-results"
-      >
-        <span class="results-text">{{ currentResultIndex }}/{{ searchResultsCount }}</span>
-      </div>
-      <button
-        v-if="searchTerm"
-        class="clear-button"
-        :title="t('common.clear')"
-        @click="clearSearch"
-      >
-        <svg
-          width="12"
-          height="12"
-          viewBox="0 0 24 24"
-          fill="none"
-          xmlns="http://www.w3.org/2000/svg"
-        >
-          <path
-            d="M18 6L6 18M6 6L18 18"
-            stroke="currentColor"
-            stroke-width="2"
-            stroke-linecap="round"
-            stroke-linejoin="round"
-          />
-        </svg>
-      </button>
+    </div>
+    <div
+      v-if="searchTerm && searchResultsCount > 0"
+      class="search-results"
+    >
+      <span class="results-text">{{ currentResultIndex }}/{{ searchResultsCount }}</span>
     </div>
     <div class="search-controls">
       <button
@@ -183,14 +161,6 @@ const resetResults = () => {
   currentResultIndex.value = 0
 }
 
-const clearSearch = () => {
-  searchTerm.value = ''
-  if (props.searchAddon) {
-    props.searchAddon.clearDecorations()
-  }
-  resetResults()
-}
-
 const closeSearch = () => {
   if (props.searchAddon) {
     props.searchAddon.clearDecorations()
@@ -245,7 +215,7 @@ watch(searchTerm, (newTerm) => {
   box-shadow:
     0 4px 16px rgba(0, 0, 0, 0.2),
     0 2px 8px rgba(0, 0, 0, 0.1);
-  min-width: 280px;
+  min-width: 340px;
   max-width: 400px;
   transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
   animation: slideIn 0.3s cubic-bezier(0.4, 0, 0.2, 1);
@@ -321,58 +291,23 @@ watch(searchTerm, (newTerm) => {
 }
 
 .search-results {
-  position: absolute;
-  right: 28px;
-  top: 50%;
-  transform: translateY(-50%);
+  flex-shrink: 0;
+  margin-right: 4px;
   background: var(--bg-color-quaternary);
   border-radius: 4px;
   padding: 1px 6px;
   font-size: 10px;
   color: var(--text-color-secondary);
-  pointer-events: none;
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
   font-weight: 500;
   backdrop-filter: blur(10px);
   border: 1px solid var(--border-color-light);
+  white-space: nowrap;
 
   .results-text {
     font-size: 10px;
     font-weight: 600;
     letter-spacing: 0.3px;
-  }
-}
-
-.clear-button {
-  position: absolute;
-  right: 6px;
-  top: 50%;
-  transform: translateY(-50%);
-  background: transparent;
-  border: none;
-  color: var(--text-color-tertiary);
-  cursor: pointer;
-  width: 18px;
-  height: 18px;
-  border-radius: 3px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
-  z-index: 2;
-
-  &:hover {
-    background: var(--hover-bg-color);
-    color: var(--text-color);
-  }
-
-  &:active {
-    transform: translateY(-50%) scale(0.95);
-  }
-
-  svg {
-    width: 12px;
-    height: 12px;
   }
 }
 

@@ -228,6 +228,7 @@ const createMockState = () => {
     searchTerm: ref(''),
     matchCount: ref(0),
     currentMatchIndex: ref(0),
+    searchFocusToken: ref(0),
     openSearch: vi.fn(),
     closeSearch: vi.fn(),
     findNext: vi.fn(),
@@ -658,6 +659,55 @@ describe('AiTab changed interactions', () => {
     expect(mocks.contextMenuHide).toHaveBeenCalledTimes(1)
     window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }))
     expect(mocks.contextMenuHide).toHaveBeenCalledTimes(2)
+  })
+
+  describe('find shortcut', () => {
+    const pressFind = (target: EventTarget = window) => {
+      const event = new KeyboardEvent('keydown', { key: 'f', metaKey: true, ctrlKey: true, bubbles: true, cancelable: true })
+      target.dispatchEvent(event)
+      return event
+    }
+
+    it('opens the chat search and keeps the event from reaching the focused element', () => {
+      const reachedTarget = vi.fn()
+      document.body.addEventListener('keydown', reachedTarget)
+
+      const event = pressFind(document.body)
+
+      expect(mocks.state.aiChatSearch.openSearch).toHaveBeenCalledTimes(1)
+      expect(event.defaultPrevented).toBe(true)
+      expect(reachedTarget).not.toHaveBeenCalled()
+      document.body.removeEventListener('keydown', reachedTarget)
+    })
+
+    it('hands the focus token to the search bar of a conversation with messages', async () => {
+      wrapper.unmount()
+      mocks.state.session.isEmptyTab.mockReturnValue(false)
+      mocks.state.aiChatSearch.isSearchOpen.value = true
+      mocks.state.aiChatSearch.searchFocusToken.value = 3
+      wrapper = mount(AiTab, {
+        attachTo: document.body,
+        props: { toggleSidebar: vi.fn() },
+        global: { stubs: globalStubs, mocks: { $t: (key: string) => key } }
+      })
+      await flushPromises()
+
+      expect(wrapper.find('[focus-token="3"]').exists()).toBe(true)
+    })
+
+    it('ignores other keys', () => {
+      window.dispatchEvent(new KeyboardEvent('keydown', { key: 'g', metaKey: true, ctrlKey: true }))
+
+      expect(mocks.state.aiChatSearch.openSearch).not.toHaveBeenCalled()
+    })
+
+    it('stops responding once unmounted', () => {
+      wrapper.unmount()
+
+      pressFind()
+
+      expect(mocks.state.aiChatSearch.openSearch).not.toHaveBeenCalled()
+    })
   })
 
   it('removes window listeners and unsubscribes when unmounted', () => {

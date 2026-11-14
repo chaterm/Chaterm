@@ -29,7 +29,7 @@ const i18n = createI18n({
   messages: {
     'en-US': {
       term: { searchPlaceholder: 'Search', searchPrevious: 'Previous', searchNext: 'Next' },
-      common: { clear: 'Clear', close: 'Close' }
+      common: { close: 'Close' }
     }
   }
 })
@@ -76,6 +76,20 @@ describe('searchComp', () => {
     await wrapper.vm.$nextTick()
 
     expect(wrapper.find('.results-text').text()).toBe('3/3')
+
+    wrapper.unmount()
+  })
+
+  it('places the result counter after the input instead of overlaying it, with no clear button', async () => {
+    const wrapper = mountSearch(searchAddon)
+
+    await wrapper.find('input.search-input').setValue('error')
+    searchAddon.emitResults(0, 3)
+    await wrapper.vm.$nextTick()
+
+    expect(wrapper.find('.search-input-container .search-results').exists()).toBe(false)
+    expect(wrapper.find('.search-results').exists()).toBe(true)
+    expect(wrapper.find('.clear-button').exists()).toBe(false)
 
     wrapper.unmount()
   })

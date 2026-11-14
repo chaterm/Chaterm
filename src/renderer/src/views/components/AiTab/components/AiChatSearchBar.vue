@@ -28,40 +28,18 @@
         @keydown.shift.enter.prevent="$emit('findPrevious')"
         @keydown.esc.prevent="$emit('close')"
       />
-      <div
-        v-if="searchTerm && matchCount > 0"
-        class="search-results"
-      >
-        <span class="results-text">{{ currentMatchIndex }}/{{ matchCount }}</span>
-      </div>
-      <div
-        v-if="searchTerm && matchCount === 0"
-        class="search-results no-results"
-      >
-        <span class="results-text">{{ t('ai.noSearchMatches') }}</span>
-      </div>
-      <button
-        v-if="searchTerm"
-        class="clear-button"
-        :title="t('common.clear')"
-        @click="handleClear"
-      >
-        <svg
-          width="12"
-          height="12"
-          viewBox="0 0 24 24"
-          fill="none"
-          xmlns="http://www.w3.org/2000/svg"
-        >
-          <path
-            d="M18 6L6 18M6 6L18 18"
-            stroke="currentColor"
-            stroke-width="2"
-            stroke-linecap="round"
-            stroke-linejoin="round"
-          />
-        </svg>
-      </button>
+    </div>
+    <div
+      v-if="searchTerm && matchCount > 0"
+      class="search-results"
+    >
+      <span class="results-text">{{ currentMatchIndex }}/{{ matchCount }}</span>
+    </div>
+    <div
+      v-if="searchTerm && matchCount === 0"
+      class="search-results no-results"
+    >
+      <span class="results-text">{{ t('ai.noSearchMatches') }}</span>
     </div>
     <div class="search-controls">
       <button
@@ -135,16 +113,17 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, nextTick } from 'vue'
+import { ref, onMounted, nextTick, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 
 const { t } = useI18n()
 const searchInput = ref<HTMLInputElement | null>(null)
 
-defineProps<{
+const props = defineProps<{
   searchTerm: string
   matchCount: number
   currentMatchIndex: number
+  focusToken: number
 }>()
 
 const emit = defineEmits<{
@@ -158,18 +137,20 @@ const handleInput = (e: Event) => {
   emit('update:searchTerm', (e.target as HTMLInputElement).value)
 }
 
-const handleClear = () => {
-  emit('update:searchTerm', '')
-  nextTick(() => {
-    searchInput.value?.focus()
-  })
-}
-
 onMounted(() => {
   nextTick(() => {
     searchInput.value?.focus()
   })
 })
+
+// The shortcut pressed while the bar is already open refocuses it and selects the term.
+watch(
+  () => props.focusToken,
+  () => {
+    searchInput.value?.focus()
+    searchInput.value?.select()
+  }
+)
 </script>
 
 <style scoped lang="less">
@@ -188,8 +169,8 @@ onMounted(() => {
   box-shadow:
     0 4px 16px rgba(0, 0, 0, 0.2),
     0 2px 8px rgba(0, 0, 0, 0.1);
-  min-width: 280px;
-  max-width: 400px;
+  min-width: min(340px, calc(100% - 24px));
+  max-width: min(400px, calc(100% - 24px));
   transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
   animation: slideIn 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 
@@ -260,16 +241,13 @@ onMounted(() => {
 }
 
 .search-results {
-  position: absolute;
-  right: 28px;
-  top: 50%;
-  transform: translateY(-50%);
+  flex-shrink: 0;
+  margin-right: 4px;
   background: var(--bg-color-quaternary);
   border-radius: 4px;
   padding: 1px 6px;
   font-size: 10px;
   color: var(--text-color-secondary);
-  pointer-events: none;
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
   font-weight: 500;
   backdrop-filter: blur(10px);
@@ -284,39 +262,6 @@ onMounted(() => {
 
   &.no-results {
     color: var(--text-color-tertiary);
-  }
-}
-
-.clear-button {
-  position: absolute;
-  right: 6px;
-  top: 50%;
-  transform: translateY(-50%);
-  background: transparent;
-  border: none;
-  color: var(--text-color-tertiary);
-  cursor: pointer;
-  width: 18px;
-  height: 18px;
-  border-radius: 3px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
-  z-index: 2;
-
-  &:hover {
-    background: var(--hover-bg-color);
-    color: var(--text-color);
-  }
-
-  &:active {
-    transform: translateY(-50%) scale(0.95);
-  }
-
-  svg {
-    width: 12px;
-    height: 12px;
   }
 }
 
