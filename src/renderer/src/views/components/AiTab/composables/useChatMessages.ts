@@ -11,6 +11,7 @@ import type { ContentPart, ToolResultPayload, WebviewMessage } from '@shared/Web
 import { createNewMessage, parseMessageContent, pickHostInfo, isSwitchAssetType } from '../utils'
 import { Notice } from '@/views/components/Notice'
 import { useSessionState } from './useSessionState'
+import { reconcileUserTurnTimestamps } from './useChatNavRail'
 import { getGlobalState, updateGlobalState } from '@renderer/agent/storage/state'
 import i18n from '@/locales'
 import { AI_TAB_DEFAULT_WORKSPACE, type AiTabWorkspace } from '../workspace'
@@ -372,6 +373,9 @@ export function useChatMessages(
     session.isCancelled = false
     // Strip Vue proxies before IPC to avoid structured clone failures.
     contentParts = contentParts ? contentParts.map((part) => (isProxy(part) ? (toRaw(part) as ContentPart) : part)) : undefined
+    // The main process stamps the persisted turn no earlier than this; the state
+    // message that follows swaps it for the stored timestamp.
+    const sentAt = Date.now()
     const sendResult = await sendMessageToMain(userContent, sendType, tabId, truncateAtMessageTs, contentParts, overrideHosts, toolResult)
     if (sendResult === 'BLOCKED') {
       return
@@ -385,7 +389,7 @@ export function useChatMessages(
       type: 'message',
       ask: '',
       say: '',
-      ts: 0
+      ts: sentAt
     }
 
     // Set hosts: use overrideHosts if provided, otherwise use targetTab.hosts
@@ -398,6 +402,7 @@ export function useChatMessages(
     if (sendType === 'commandSend') {
       userMessage.role = 'assistant'
       userMessage.say = 'command_output'
+      userMessage.ts = 0
     }
 
     session.chatHistory.push(userMessage)
@@ -710,6 +715,7 @@ export function useChatMessages(
       // partialMessage overwrites lastStreamMessage during streaming.
       if (chatermMessages.length > 0) {
         session.lastStateChatermMessages = chatermMessages
+        reconcileUserTurnTimestamps(session.chatHistory, chatermMessages)
       }
       const isWaitingForUserResponse =
         lastStateChatermMessages?.type === 'ask' ||
