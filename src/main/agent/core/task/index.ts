@@ -116,6 +116,15 @@ import {
 
 import { getGlobalState, getUserConfig } from '@core/storage/state'
 import { connectAssetInfo } from '../../../storage/database'
+import {
+  HostResolutionError,
+  LIST_HOSTS_DEFAULT_LIMIT,
+  LIST_HOSTS_MAX_LIMIT,
+  formatManagedHosts,
+  parseBoundedInt,
+  pickManagedTarget,
+  targetToHost
+} from './host-resolver'
 import { findWakeupConnectionInfoByHost } from '../../../ssh/agentHandle'
 import { getMessages, formatMessage, Messages } from './messages'
 import { decodeHtmlEntities } from '@utils/decodeHtmlEntities'
@@ -1249,6 +1258,8 @@ export class Task {
         })
       })
     } catch (err) {
+      // The named host is unknown or ambiguous: let the calling tool report it to the model.
+      if (err instanceof HostResolutionError) throw err
       // Check if we're in chat or cmd mode, if so return empty string
       const chatSettings = await getGlobalState('chatSettings')
       if (chatSettings?.mode === 'chat' || chatSettings?.mode === 'cmd') {
@@ -1292,13 +1303,20 @@ export class Task {
     return message?.hostId === hostInfo.hostId
   }
 
+  /**
+   * Resolve the host a tool call targets. Hosts the user @-selected win; any other address must
+   * map to exactly one asset Chaterm manages, otherwise a HostResolutionError is thrown.
+   */
+  private async resolveTargetHost(ip?: string): Promise<Host | undefined> {
+    const selected = ip ? this.hosts?.find((host) => host.host === ip) : this.hosts?.[0]
+    if (selected || !ip) return selected
+    const dbService = await ChatermDatabaseService.getInstance()
+    return targetToHost(pickManagedTarget(ip.trim(), dbService.findMcpTargetsByHost(ip.trim())))
+  }
+
   private async connectTerminal(ip?: string) {
-    if (!this.hosts) {
-      logger.debug('Terminal UUID is not set', { event: 'agent.task.terminal.uuid.missing' })
-      return
-    }
     let terminalInfo: RemoteTerminalInfo | null = null
-    const targetHost = ip ? this.hosts.find((host) => host.host === ip) : this.hosts[0]
+    const targetHost = await this.resolveTargetHost(ip)
     if (!targetHost || !targetHost.uuid) {
       logger.debug('Terminal UUID is not set', { event: 'agent.task.terminal.uuid.missing' })
       return
@@ -1527,7 +1545,8 @@ export class Task {
     type: ChatermAsk,
     text?: string,
     partial?: boolean,
-    mcpToolCall?: { serverName: string; toolName: string; arguments: Record<string, unknown> }
+    mcpToolCall?: { serverName: string; toolName: string; arguments: Record<string, unknown> },
+    hostInfo?: HostInfo
   ): Promise<{
     response: ChatermAskResponse
     text?: string
@@ -1548,7 +1567,7 @@ export class Task {
     this.lastMessageTs = askTsRef.value
 
     if (partial !== undefined) {
-      await this.handleAskPartialMessage(type, askTsRef, text, partial, mcpToolCall)
+      await this.handleAskPartialMessage(type, askTsRef, text, partial, mcpToolCall, hostInfo)
       if (partial) {
         throw new Error('Current ask promise was ignored')
       }
@@ -1559,7 +1578,8 @@ export class Task {
         type: 'ask',
         ask: type,
         text,
-        mcpToolCall
+        mcpToolCall,
+        ...(hostInfo ?? {})
       })
       await this.postStateToWebview()
     }
@@ -1591,7 +1611,8 @@ export class Task {
     },
     text?: string,
     isPartial?: boolean,
-    mcpToolCall?: { serverName: string; toolName: string; arguments: Record<string, unknown> }
+    mcpToolCall?: { serverName: string; toolName: string; arguments: Record<string, unknown> },
+    hostInfo?: HostInfo
   ): Promise<void> {
     const lastMessage = this.chatermMessages.at(-1)
     const isUpdatingPreviousPartial = lastMessage && lastMessage.partial && lastMessage.type === 'ask' && lastMessage.ask === type
@@ -1605,6 +1626,7 @@ export class Task {
         if (mcpToolCall) {
           lastMessage.mcpToolCall = mcpToolCall
         }
+        Object.assign(lastMessage, hostInfo)
         await this.postMessageToWebview({
           type: 'partialMessage',
           partialMessage: lastMessage
@@ -1619,7 +1641,8 @@ export class Task {
           ask: type,
           text,
           partial: isPartial,
-          mcpToolCall
+          mcpToolCall,
+          ...(hostInfo ?? {})
         })
         await this.postStateToWebview()
       }
@@ -1636,6 +1659,7 @@ export class Task {
         if (mcpToolCall) {
           lastMessage.mcpToolCall = mcpToolCall
         }
+        Object.assign(lastMessage, hostInfo)
         await this.saveChatermMessagesAndUpdateHistory()
         await this.postMessageToWebview({
           type: 'partialMessage',
@@ -1650,7 +1674,8 @@ export class Task {
           type: 'ask',
           ask: type,
           text,
-          mcpToolCall
+          mcpToolCall,
+          ...(hostInfo ?? {})
         }
         await this.addToChatermMessages(newMessage)
         await this.postMessageToWebview({
@@ -2363,6 +2388,10 @@ export class Task {
         }${this.messages.commandUpdateFuture}`
       }
     } catch (err) {
+      // The named host is unknown or ambiguous: report it to the model and keep the task running.
+      if (err instanceof HostResolutionError) {
+        return this.responseFormatter.toolError(err.message)
+      }
       // Clear the current running process reference on error
       this.currentRunningProcess = null
 
@@ -3162,6 +3191,8 @@ export class Task {
         this.consecutiveMistakeCount = 0
         let didAutoApprove = false
         const chatSettings = await getGlobalState('chatSettings')
+        // The command card names the target host so the user knows where an approved command will run.
+        const hostInfo = chatSettings?.mode === 'agent' ? this.buildHostInfo(ip) : undefined
 
         if (chatSettings?.mode === 'cmd' || needsSecurityApproval) {
           // If security confirmation needed, show security warning first
@@ -3171,7 +3202,13 @@ export class Task {
           }
 
           // Unified user confirmation (including security confirmation and command execution confirmation)
-          const didApprove = await this.askApproval(toolDescription, 'command', command, { command, targetHosts: ip, toolName: 'execute_command' })
+          const didApprove = await this.askApproval(
+            toolDescription,
+            'command',
+            command,
+            { command, targetHosts: ip, toolName: 'execute_command' },
+            hostInfo
+          )
           if (!didApprove) {
             if (needsSecurityApproval) {
               await this.say('error', formatMessage(this.messages.userRejectedCommand, { command }), false)
@@ -3207,7 +3244,7 @@ export class Task {
         ) {
           // In auto-approval mode, commands without security risks execute directly
           this.removeLastPartialMessageIfExistsWithType('ask', 'command')
-          await this.say('command', command, false)
+          await this.say('command', command, false, hostInfo)
           didAutoApprove = true
         } else if (!needsSecurityApproval) {
           // Check if read-only commands can be auto-approved:
@@ -3232,10 +3269,16 @@ export class Task {
             const reason = globalAutoExecuteReadOnly ? 'global setting' : 'session auto-approval'
             logger.info(`[Command Execution] Auto-approving read-only command (${reason} enabled)`)
             this.removeLastPartialMessageIfExistsWithType('ask', 'command')
-            await this.say('command', command, false)
+            await this.say('command', command, false, hostInfo)
             didAutoApprove = true
           } else {
-            const didApprove = await this.askApproval(toolDescription, 'command', command, { command, targetHosts: ip, toolName: 'execute_command' })
+            const didApprove = await this.askApproval(
+              toolDescription,
+              'command',
+              command,
+              { command, targetHosts: ip, toolName: 'execute_command' },
+              hostInfo
+            )
             logger.debug(`[Command Execution] User approval result: ${didApprove}`)
             if (!didApprove) {
               await this.saveCheckpoint()
@@ -3523,10 +3566,11 @@ export class Task {
     toolDescription: string,
     type: ChatermAsk,
     partialMessage?: string,
-    usageMeta?: { command?: string; targetHosts?: string; toolName?: string }
+    usageMeta?: { command?: string; targetHosts?: string; toolName?: string },
+    hostInfo?: HostInfo
   ): Promise<boolean> {
     this.showNotificationIfNeeded(`Chaterm needs your approval: ${partialMessage || toolDescription}`)
-    const { response, text, contentParts, toolResult } = await this.ask(type, partialMessage, false)
+    const { response, text, contentParts, toolResult } = await this.ask(type, partialMessage, false, undefined, hostInfo)
     const approved = response === 'yesButtonClicked' || response === 'autoApproveReadOnlyClicked'
 
     // If user clicked "auto-approve read-only" button, enable session-level auto-approval for subsequent read-only commands
@@ -4015,6 +4059,9 @@ export class Task {
         break
       case 'grep_search':
         await this.handleGrepSearchToolUse(block)
+        break
+      case 'list_hosts':
+        await this.handleListHostsToolUse(block)
         break
       case 'read_file':
         await this.handleReadFileToolUse(block)
@@ -5593,6 +5640,23 @@ USERNAME:${localSystemInfo.userName}`
         this.dbAiSession = undefined
       }
       await this.pushToolResult(toolDescription, this.responseFormatter.toolError(`E_UNEXPECTED: ${err?.code ?? 'driver error'}`))
+    }
+  }
+
+  private async handleListHostsToolUse(block: ToolUse): Promise<void> {
+    const toolDescription = this.getToolDescription(block)
+    try {
+      const search = block.params.search ?? ''
+      const limit = parseBoundedInt(block.params.limit, LIST_HOSTS_DEFAULT_LIMIT, 1, LIST_HOSTS_MAX_LIMIT)
+      const offset = parseBoundedInt(block.params.offset, 0, 0, Number.MAX_SAFE_INTEGER)
+      const dbService = await ChatermDatabaseService.getInstance()
+      const summary = formatManagedHosts(dbService.listMcpTargets(search, limit, offset), limit, offset)
+      await this.say('search_result', summary, false)
+      await this.pushToolResult(toolDescription, summary)
+      await this.saveCheckpoint()
+    } catch (error) {
+      await this.handleToolError(toolDescription, 'listing hosts', error as Error)
+      await this.saveCheckpoint()
     }
   }
 

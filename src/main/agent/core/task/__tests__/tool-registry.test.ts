@@ -16,6 +16,7 @@ const expectedVisibility: Record<ToolUseName, readonly TaskWorkspace[]> = {
   read_file: ['server'],
   glob_search: ['server'],
   grep_search: ['server'],
+  list_hosts: ['server'],
   ask_followup_question: ['server', 'database'],
   attempt_completion: ['server', 'database'],
   new_task: ['server', 'database'],
@@ -44,7 +45,7 @@ const expectedVisibility: Record<ToolUseName, readonly TaskWorkspace[]> = {
   suggest_indexes: ['database']
 }
 
-const serverOnlyTools: readonly ToolUseName[] = ['execute_command', 'write_to_file', 'read_file', 'glob_search', 'grep_search']
+const serverOnlyTools: readonly ToolUseName[] = ['execute_command', 'write_to_file', 'read_file', 'glob_search', 'grep_search', 'list_hosts']
 
 const commonTools: readonly ToolUseName[] = [
   'ask_followup_question',
@@ -88,8 +89,8 @@ describe('ToolRegistry - metadata and name list', () => {
     expect([...toolUseNames]).toEqual(toolMetadata.map((m) => m.name))
   })
 
-  it('registers 19 pre-existing + 11 DB-AI tools = 30 total', () => {
-    expect(toolMetadata).toHaveLength(30)
+  it('registers 20 pre-existing + 11 DB-AI tools = 31 total', () => {
+    expect(toolMetadata).toHaveLength(31)
   })
 
   it('has no duplicate tool names', () => {
@@ -116,9 +117,9 @@ describe('ToolRegistry - per-tool whitelist (table 2.1)', () => {
 })
 
 describe('ToolRegistry - getAllowedTools()', () => {
-  it('returns all 19 server+common tools for workspace=server (DB tools hidden)', () => {
+  it('returns all 20 server+common tools for workspace=server (DB tools hidden)', () => {
     const serverTools = getAllowedTools('server')
-    expect(serverTools).toHaveLength(19)
+    expect(serverTools).toHaveLength(20)
     const names = new Set(serverTools.map((m) => m.name))
     for (const name of [...serverOnlyTools, ...commonTools]) {
       expect(names.has(name)).toBe(true)
