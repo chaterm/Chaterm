@@ -665,6 +665,11 @@ export default {
     noModelsConfigured: '未配置模型，請前往設置配置模型',
     selectModel: '選擇模型'
   },
+  quickJump: {
+    placeholder: '搜尋主機、標籤頁、快捷命令、知識庫',
+    hosts: '主機',
+    tabs: '標籤頁'
+  },
   shortcuts: {
     actions: {
       openSettings: '打開設置',
@@ -678,7 +683,7 @@ export default {
       searchHost: '搜尋主機',
       newTab: '新Tab頁',
       openFileManager: '打開文件管理',
-      clearTerminal: '清屏',
+      quickJump: '快速跳轉',
       fontSizeIncrease: '字體放大',
       fontSizeDecrease: '字體縮小',
       toggleLayout: '切換布局（Terminal/Agents）',
@@ -689,10 +694,10 @@ export default {
     hints: {
       sendOrToggleAi: '與AI對話',
       toggleLeftSidebar: '資產列表',
+      quickJump: '快速跳轉',
       openSettings: '打開設置',
       openCommandDialog: '內聯命令生成',
       openFileManager: '打開文件管理',
-      clearTerminal: '清屏',
       toggleLayout: '切換布局（Terminal/Agents）'
     }
   },
@@ -747,7 +752,7 @@ export default {
         },
         aiToggle: {
           title: '右側 AI 對話入口',
-          description: '點擊這裡，或使用 Command/Ctrl + L，開啟終端右側的 AI 對話欄。'
+          description: '點擊這裡，或使用 Command/Alt + L，開啟終端右側的 AI 對話欄。'
         },
         aiSidebar: {
           title: '右側 AI 側邊欄',
@@ -825,7 +830,7 @@ export default {
       aiChat: {
         sidebar: {
           title: '開啟右側 AI 欄',
-          description: '點擊右上角入口，或使用 Command/Ctrl + L 開啟右側 AI 欄；左側模組切換欄的 AI 圖示也能開啟它。'
+          description: '點擊右上角入口，或使用 Command/Alt + L 開啟右側 AI 欄；左側模組切換欄的 AI 圖示也能開啟它。'
         },
         sidebarOverview: {
           title: '右側 AI 側邊欄',
@@ -1177,6 +1182,7 @@ export default {
     explainCommandLoading: '正在解讀…',
     enterCustomOption: '請輸入您的答案...',
     submit: '提交',
+    skip: '跳過',
     startVoiceInput: '開始語音輸入',
     stopRecording: '停止語音錄製',
     startRecording: '開始語音錄制',

@@ -44,6 +44,9 @@ Output a structured summary with clear sections. Be concise but retain all actio
 
   toolDenied: () => `The user denied this operation.`,
 
+  questionSkipped: () =>
+    `The user skipped this question. Do not ask the same question again; continue with your best judgment, and only ask again if you are truly blocked.`,
+
   toolError: (error?: string) => `The tool execution failed with the following error:\n<error>\n${error}\n</error>`,
 
   chatermIgnoreError: (path: string) =>
@@ -249,6 +252,8 @@ export const formatResponseCN = {
     `用户已接受你生成的压缩对话摘要。该摘要涵盖了已被截断的历史对话中的重要细节。\n<explicit_instructions type="condense_response">至关重要的是，你只需询问用户下一步想要处理什么。你不应该主动采取任何行动或对继续工作做出任何假设。例如，你不应该建议文件更改或尝试读取任何文件。\n在询问用户下一步工作时，你可以引用刚刚生成的摘要中的信息。但在此回复中，你不应该引用摘要之外的信息。保持此回复简洁。</explicit_instructions>`,
 
   toolDenied: () => `用户拒绝了此操作。`,
+
+  questionSkipped: () => `用户跳过了这个问题。不要再重复提出同一个问题，请根据你的最佳判断继续；只有确实无法继续时才再次询问。`,
 
   toolError: (error?: string) => `工具执行失败，错误信息如下：\n<error>\n${error}\n</error>`,
 

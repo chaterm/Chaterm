@@ -670,6 +670,11 @@ export default {
     noModelsConfigured: '모델이 구성되지 않았습니다. 설정에서 모델을 구성하세요',
     selectModel: '모델 선택'
   },
+  quickJump: {
+    placeholder: '호스트, 탭, 스니펫, 지식 베이스 검색',
+    hosts: '호스트',
+    tabs: '탭'
+  },
   shortcuts: {
     actions: {
       openSettings: '설정 열기',
@@ -683,7 +688,7 @@ export default {
       searchHost: '호스트 검색',
       newTab: '새 탭',
       openFileManager: '파일 관리자 열기',
-      clearTerminal: '터미널 지우기',
+      quickJump: '빠른 이동',
       fontSizeIncrease: '글꼴 크기 증가',
       fontSizeDecrease: '글꼴 크기 감소',
       toggleLayout: '레이아웃 토글 (터미널/에이전트)',
@@ -694,10 +699,10 @@ export default {
     hints: {
       sendOrToggleAi: 'AI와 대화',
       toggleLeftSidebar: '자산 목록',
+      quickJump: '빠른 이동',
       openSettings: '설정 열기',
       openCommandDialog: '인라인 명령 생성기 열기',
       openFileManager: '파일 관리자 열기',
-      clearTerminal: '터미널 지우기',
       toggleLayout: '레이아웃 토글 (터미널/에이전트)'
     }
   },
@@ -753,7 +758,7 @@ export default {
         },
         aiToggle: {
           title: '오른쪽 AI 대화 진입점',
-          description: '여기를 클릭하거나 Command/Ctrl + L을 사용해 터미널 오른쪽 AI 대화 바를 엽니다.'
+          description: '여기를 클릭하거나 Command/Alt + L을 사용해 터미널 오른쪽 AI 대화 바를 엽니다.'
         },
         aiSidebar: {
           title: '오른쪽 AI 사이드바',
@@ -831,7 +836,7 @@ export default {
       aiChat: {
         sidebar: {
           title: '오른쪽 AI 바 열기',
-          description: '오른쪽 위 진입점을 클릭하거나 Command/Ctrl + L을 사용합니다. 왼쪽 모듈 전환 바의 AI 아이콘으로도 열 수 있습니다.'
+          description: '오른쪽 위 진입점을 클릭하거나 Command/Alt + L을 사용합니다. 왼쪽 모듈 전환 바의 AI 아이콘으로도 열 수 있습니다.'
         },
         sidebarOverview: {
           title: '오른쪽 AI 사이드바',
@@ -1186,6 +1191,7 @@ export default {
     explainCommandLoading: '해설 중…',
     enterCustomOption: '답변을 입력해주세요...',
     submit: '제출',
+    skip: '건너뛰기',
     startVoiceInput: '음성 입력 시작',
     stopRecording: '음성 녹음 중지',
     startRecording: '음성 녹음 시작',

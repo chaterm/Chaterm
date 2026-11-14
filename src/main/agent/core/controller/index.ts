@@ -360,7 +360,7 @@ export class Controller {
             if (task.workspace === 'database' && hasValidDbContext(message.dbContext)) {
               task.updateDbContext(message.dbContext as DbTaskContext)
             }
-            if (message.askResponse === 'messageResponse') {
+            if (message.askResponse === 'messageResponse' || message.askResponse === 'optionResponse') {
               // Clean up all command contexts for this task and broadcast close events
               logger.debug('Cleaning command contexts before handling messageResponse', {
                 event: 'agent.controller.message_response.cleanup.start',

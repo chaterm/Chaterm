@@ -683,6 +683,11 @@ export default {
     noModelsConfigured: 'Nenhum modelo configurado. Por favor, configure modelos em configurações',
     selectModel: 'Selecionar Modelo'
   },
+  quickJump: {
+    placeholder: 'Pesquisar hosts, abas, snippets, base de conhecimento',
+    hosts: 'Hosts',
+    tabs: 'Abas'
+  },
   shortcuts: {
     actions: {
       openSettings: 'Abrir Configurações',
@@ -696,7 +701,7 @@ export default {
       searchHost: 'Pesquisar host',
       newTab: 'Nova aba',
       openFileManager: 'Abrir gerenciador de arquivos',
-      clearTerminal: 'Limpar terminal',
+      quickJump: 'Salto rápido',
       fontSizeIncrease: 'Aumentar tamanho da fonte',
       fontSizeDecrease: 'Diminuir tamanho da fonte',
       toggleLayout: 'Alternar layout (terminal/agents)',
@@ -707,10 +712,10 @@ export default {
     hints: {
       sendOrToggleAi: 'Chat com IA',
       toggleLeftSidebar: 'Lista de ativos',
+      quickJump: 'Salto rápido',
       openSettings: 'Abrir configurações',
       openCommandDialog: 'Gerador de comando inline',
       openFileManager: 'Abrir gerenciador de arquivos',
-      clearTerminal: 'Limpar terminal',
       toggleLayout: 'Alternar layout (terminal/agents)'
     }
   },
@@ -767,7 +772,7 @@ export default {
         },
         aiToggle: {
           title: 'Entrada da conversa IA à direita',
-          description: 'Clique aqui ou use Command/Ctrl + L para abrir a barra de conversa IA à direita do terminal.'
+          description: 'Clique aqui ou use Command/Alt + L para abrir a barra de conversa IA à direita do terminal.'
         },
         aiSidebar: {
           title: 'Barra lateral IA direita',
@@ -848,7 +853,7 @@ export default {
       aiChat: {
         sidebar: {
           title: 'Abrir barra IA direita',
-          description: 'Clique na entrada no canto superior direito ou use Command/Ctrl + L; o ícone IA na barra de módulos esquerda também a abre.'
+          description: 'Clique na entrada no canto superior direito ou use Command/Alt + L; o ícone IA na barra de módulos esquerda também a abre.'
         },
         sidebarOverview: {
           title: 'Barra lateral IA direita',
@@ -1204,6 +1209,7 @@ export default {
     explainCommandLoading: 'A explicar…',
     enterCustomOption: 'Digite sua resposta...',
     submit: 'Enviar',
+    skip: 'Saltar',
     startVoiceInput: 'Iniciar entrada de voz',
     stopRecording: 'Parar gravação de voz',
     startRecording: 'Iniciar gravação de voz',

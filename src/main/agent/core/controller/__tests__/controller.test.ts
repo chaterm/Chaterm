@@ -338,6 +338,29 @@ describe('Controller', () => {
     expect(handleResponseSpy).toHaveBeenCalledWith('messageResponse', 'response text', undefined, undefined, undefined)
   })
 
+  it('handleWebviewMessage(askResponse) should clear per-turn state for a card option answer', async () => {
+    const controller = new Controller(
+      async () => true,
+      async () => '/tmp/mcp_settings.json'
+    )
+
+    await controller.initTask([createMockHost('1')], 'task 1', 'task-1')
+
+    const task = controller.getAllTasks().find((t) => t.taskId === 'task-1')!
+    const clearTodosSpy = vi.spyOn(task, 'clearTodos')
+    const handleResponseSpy = vi.spyOn(task, 'handleWebviewAskResponse')
+
+    await controller.handleWebviewMessage({
+      type: 'askResponse',
+      taskId: 'task-1',
+      askResponse: 'optionResponse',
+      text: 'Plan A'
+    } as WebviewMessage)
+
+    expect(clearTodosSpy).toHaveBeenCalledWith('new_user_input')
+    expect(handleResponseSpy).toHaveBeenCalledWith('optionResponse', 'Plan A', undefined, undefined, undefined)
+  })
+
   it('handleWebviewMessage(askResponse) should forward command tool result to task', async () => {
     const controller = new Controller(
       async () => true,

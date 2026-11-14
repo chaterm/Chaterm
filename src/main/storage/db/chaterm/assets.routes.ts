@@ -373,7 +373,8 @@ export async function getLocalAssetRouteLogic(db: Database, searchType: string, 
                 port: item.asset_port || 22,
                 username: item.asset_username || '',
                 asset_type: item.asset_type || 'person',
-                organizationId: item.organization_id || 'personal'
+                organizationId: item.organization_id || 'personal',
+                lastConnected: item.last_connected || ''
               }))
             })
           }
@@ -500,7 +501,8 @@ export async function getLocalAssetRouteLogic(db: Database, searchType: string, 
                 port: item.asset_port || 22,
                 username: item.asset_username || '',
                 asset_type: item.asset_type || 'organization',
-                organizationId: item.organization_id || ''
+                organizationId: item.organization_id || '',
+                lastConnected: item.last_connected || ''
               }))
             })
           }

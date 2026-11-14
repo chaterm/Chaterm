@@ -311,3 +311,230 @@ describe('Workspace tree search rendering', () => {
     wrapper.unmount()
   })
 })
+
+describe('Workspace search keyboard navigation', () => {
+  // The auto stub swallows onKeydown as a prop; a real input forwards it the way vc-input does
+  const searchInputStub = {
+    emits: ['keydown'],
+    template: '<input class="search-input-stub" @keydown="$emit(\'keydown\', $event)" />'
+  }
+  const scrollSpy = vi.fn()
+  const scrollableTreeStub = {
+    props: ['treeData'],
+    template: '<div class="workspace-tree-stub" />',
+    methods: {
+      scrollTo(arg: unknown) {
+        const keys = (this as any).treeData.map((node: any) => node.key)
+        scrollSpy(keys, arg)
+      }
+    }
+  }
+
+  const hostTree = () => [
+    { key: 'recent_connections', title: 'Recent', children: [{ key: 'recent_a', title: 'web-01', ip: '10.0.0.1' }] },
+    {
+      key: 'g1',
+      title: 'Group',
+      children: [
+        { key: 'a', title: 'web-01', ip: '10.0.0.1' },
+        { key: 'b', title: 'web-02', ip: '10.0.0.2' }
+      ]
+    }
+  ]
+
+  const mountWorkspace = async () => {
+    const wrapper = mount(Workspace, {
+      global: {
+        stubs: {
+          'a-tree': scrollableTreeStub,
+          'a-tabs': true,
+          'a-tab-pane': true,
+          'a-input': searchInputStub,
+          'a-button': true,
+          'a-tooltip': true,
+          'a-dropdown': true,
+          'a-menu': true,
+          'a-menu-item': true,
+          'a-popconfirm': true
+        }
+      }
+    })
+    await nextTick()
+    await new Promise((resolve) => setTimeout(resolve, 0))
+    await nextTick()
+    return wrapper
+  }
+
+  const press = async (wrapper: ReturnType<typeof mount>, key: string, init: KeyboardEventInit = {}) => {
+    const event = new KeyboardEvent('keydown', { key, cancelable: true, bubbles: true, ...init })
+    wrapper.find('.search-input-stub').element.dispatchEvent(event)
+    await nextTick()
+    return event
+  }
+
+  const search = async (wrapper: ReturnType<typeof mount>, value: string) => {
+    const vm = wrapper.vm as any
+    vm.searchValue = value
+    vm.onSearchInput()
+    await new Promise((resolve) => setTimeout(resolve, 350))
+    await nextTick()
+  }
+
+  beforeEach(() => {
+    vi.clearAllMocks()
+    ;(window as any).api = mockApi
+  })
+
+  it('highlights the first match after a search and moves with the arrow keys', async () => {
+    const wrapper = await mountWorkspace()
+    const vm = wrapper.vm as any
+    vm.originalTreeData = hostTree()
+
+    await search(wrapper, 'web')
+    expect(vm.selectedKeys).toEqual(['recent_a'])
+
+    const down = await press(wrapper, 'ArrowDown')
+    expect(down.defaultPrevented).toBe(true)
+    expect(vm.selectedKeys).toEqual(['a'])
+    expect(scrollSpy).toHaveBeenLastCalledWith(['recent_connections', 'g1'], { key: 'a' })
+
+    await press(wrapper, 'ArrowDown')
+    expect(vm.selectedKeys).toEqual(['b'])
+
+    await press(wrapper, 'ArrowDown')
+    expect(vm.selectedKeys).toEqual(['recent_a'])
+
+    await press(wrapper, 'ArrowUp')
+    expect(vm.selectedKeys).toEqual(['b'])
+
+    wrapper.unmount()
+  })
+
+  it('starts from the first or last host when nothing is highlighted', async () => {
+    const wrapper = await mountWorkspace()
+    const vm = wrapper.vm as any
+    vm.originalTreeData = hostTree()
+    await search(wrapper, 'web')
+
+    vm.selectedKeys = []
+    await press(wrapper, 'ArrowDown')
+    expect(vm.selectedKeys).toEqual(['recent_a'])
+
+    vm.selectedKeys = []
+    await press(wrapper, 'ArrowUp')
+    expect(vm.selectedKeys).toEqual(['b'])
+
+    wrapper.unmount()
+  })
+
+  it('skips hosts inside collapsed folders', async () => {
+    const wrapper = await mountWorkspace()
+    const vm = wrapper.vm as any
+    vm.originalTreeData = hostTree()
+    await search(wrapper, 'web')
+
+    vm.expandedKeys = ['recent_connections']
+    vm.selectedKeys = ['recent_a']
+    await press(wrapper, 'ArrowDown')
+    expect(vm.selectedKeys).toEqual(['recent_a'])
+
+    wrapper.unmount()
+  })
+
+  it('connects the highlighted host on Enter', async () => {
+    const wrapper = await mountWorkspace()
+    const vm = wrapper.vm as any
+    vm.originalTreeData = hostTree()
+    await search(wrapper, 'web-02')
+    expect(vm.selectedKeys).toEqual(['b'])
+
+    const enter = await press(wrapper, 'Enter')
+    expect(enter.defaultPrevented).toBe(true)
+    expect(wrapper.emitted('currentClickServer')).toHaveLength(1)
+    expect(wrapper.emitted('currentClickServer')![0][0]).toMatchObject({ key: 'b', ip: '10.0.0.2' })
+
+    wrapper.unmount()
+  })
+
+  it('does not connect on Enter when the highlighted host is not visible', async () => {
+    const wrapper = await mountWorkspace()
+    const vm = wrapper.vm as any
+    vm.originalTreeData = hostTree()
+    await search(wrapper, 'web')
+
+    vm.selectedKeys = ['missing']
+    await press(wrapper, 'Enter')
+    expect(wrapper.emitted('currentClickServer')).toBeUndefined()
+
+    wrapper.unmount()
+  })
+
+  it('applies a search still waiting on its debounce before handling the key', async () => {
+    const wrapper = await mountWorkspace()
+    const vm = wrapper.vm as any
+    vm.originalTreeData = hostTree()
+
+    vm.searchValue = 'web-02'
+    vm.onSearchInput()
+    await press(wrapper, 'Enter')
+
+    expect(wrapper.emitted('currentClickServer')![0][0]).toMatchObject({ key: 'b' })
+    await new Promise((resolve) => setTimeout(resolve, 350))
+    expect(vm.assetTreeData).toHaveLength(1)
+
+    wrapper.unmount()
+  })
+
+  it('clears the highlight when a search matches nothing and keeps it when the search is cleared', async () => {
+    const wrapper = await mountWorkspace()
+    const vm = wrapper.vm as any
+    vm.originalTreeData = hostTree()
+
+    await search(wrapper, 'no-such-host')
+    expect(vm.selectedKeys).toEqual([])
+    await press(wrapper, 'ArrowDown')
+    expect(vm.selectedKeys).toEqual([])
+    await press(wrapper, 'Enter')
+    expect(wrapper.emitted('currentClickServer')).toBeUndefined()
+
+    vm.selectedKeys = ['b']
+    await search(wrapper, '')
+    expect(vm.selectedKeys).toEqual(['b'])
+
+    wrapper.unmount()
+  })
+
+  it('navigates the enterprise tree when the enterprise workspace is active', async () => {
+    const wrapper = await mountWorkspace()
+    const vm = wrapper.vm as any
+    vm.company = 'remote'
+    vm.originalTreeData = hostTree()
+    await search(wrapper, 'web-0')
+    expect(vm.selectedKeys).toEqual(['recent_a'])
+
+    await press(wrapper, 'ArrowDown')
+    expect(vm.selectedKeys).toEqual(['a'])
+    expect(scrollSpy).toHaveBeenLastCalledWith(['recent_connections', 'g1'], { key: 'a' })
+
+    wrapper.unmount()
+  })
+
+  it('ignores IME composition and unrelated keys', async () => {
+    const wrapper = await mountWorkspace()
+    const vm = wrapper.vm as any
+    vm.originalTreeData = hostTree()
+    await search(wrapper, 'web')
+
+    const composing = await press(wrapper, 'Enter', { isComposing: true })
+    expect(composing.defaultPrevented).toBe(false)
+    const imeKey = await press(wrapper, 'ArrowDown', { keyCode: 229 })
+    expect(imeKey.defaultPrevented).toBe(false)
+    const letter = await press(wrapper, 'a')
+    expect(letter.defaultPrevented).toBe(false)
+
+    expect(vm.selectedKeys).toEqual(['recent_a'])
+    expect(wrapper.emitted('currentClickServer')).toBeUndefined()
+
+    wrapper.unmount()
+  })
+})

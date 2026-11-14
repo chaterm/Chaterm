@@ -77,6 +77,7 @@ declare module 'vue' {
     OnboardingGuide: typeof import('./src/components/global/onboarding/OnboardingGuide.vue')['default']
     OnboardingSpotlight: typeof import('./src/components/global/onboarding/OnboardingSpotlight.vue')['default']
     OtpInput: typeof import('./src/components/global/mfa/OtpInput.vue')['default']
+    QuickJumpPalette: typeof import('./src/components/global/quick-jump/QuickJumpPalette.vue')['default']
     RouterLink: typeof import('vue-router')['RouterLink']
     RouterView: typeof import('vue-router')['RouterView']
     UpdateCard: typeof import('./src/components/global/update-card/UpdateCard.vue')['default']

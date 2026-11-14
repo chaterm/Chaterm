@@ -241,6 +241,7 @@ describe('getLocalAssetRouteLogic - recent connections', () => {
     expect(child.asset_type).toBe('person')
     expect(child.organizationId).toBe('personal')
     expect(child.isRecentConnection).toBe(true)
+    expect(child.lastConnected).toBe('2026-04-20 10:00:00')
   })
 
   it('should place recent connections before favorites', async () => {
@@ -517,6 +518,7 @@ describe('getLocalAssetRouteLogic - recent connections', () => {
     const recentRouter = result.data.routers.find((r: any) => r.key === 'recent_connections')
     expect(recentRouter).toBeDefined()
     expect(recentRouter.children[0].title).toBe('renamed-org-host')
+    expect(recentRouter.children[0].lastConnected).toBe('2026-04-20 10:00:00')
   })
   it('should gracefully handle t_connection_history table not existing', async () => {
     const errorPrepareMock = vi.fn((sql: string) => {

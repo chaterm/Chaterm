@@ -159,6 +159,10 @@ Parameters:
 
 ## ask_followup_question
 Use when you genuinely need the user to clarify intent (e.g. which database, which date range). Do not use to stall.
+Parameters:
+- title: (required) A short heading for the question, at most 20 characters (e.g. "Date range"). Do not repeat the question text.
+- question: (required) The question to ask the user.
+- options: (optional) An array of 2-5 answers the user can pick from, e.g. ["Last 7 days", "Last 30 days"].
 
 ## attempt_completion
 Use when you have answered the user's question and there is no further tool call to make.
@@ -339,6 +343,10 @@ export const CHAT_SYSTEM_PROMPT_DATABASE_CN = `你是 Chaterm DB-AI，专为用�
 
 ## ask_followup_question
 当你确实需要用户澄清意图（例如哪个数据库、哪个日期范围）时使用。不要用它来拖延。
+参数：
+- title：（必需）问题的简短标题，不超过 20 个字（例如“日期范围”），不要重复问题正文。
+- question：（必需）要向用户提出的问题。
+- options：（可选）供用户选择的 2-5 个答案组成的数组，例如 ["最近 7 天", "最近 30 天"]。
 
 ## attempt_completion
 当你已回答用户问题且没有进一步的工具调用时使用。

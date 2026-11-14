@@ -295,72 +295,35 @@ describe('AiTab Component - Composable Integration Tests', () => {
   })
 
   describe('Message Options Integration', () => {
-    it('should handle option selection', () => {
-      const { handleOptionSelect, getSelectedOption } = useMessageOptions()
-
-      const message = {
-        id: 'msg-1',
-        role: 'assistant' as const,
-        content: {
-          question: 'Choose an option',
-          options: ['Option A', 'Option B', 'Option C']
-        },
-        ask: 'followup' as const
-      }
-
-      // Select option
-      handleOptionSelect(message, 'Option A')
-
-      expect(getSelectedOption(message)).toBe('Option A')
+    const makeMessage = () => ({
+      id: 'msg-1',
+      role: 'assistant' as const,
+      content: {
+        title: 'Choice',
+        question: 'Enter your choice',
+        options: ['Option A', 'Option B']
+      },
+      ask: 'followup' as const
     })
 
     it('should handle custom input', () => {
-      const { handleOptionSelect, handleCustomInputChange, getCustomInput } = useMessageOptions()
+      const { handleCustomInputChange, getCustomInput, hasCustomInput } = useMessageOptions()
+      const message = makeMessage()
 
-      const message = {
-        id: 'msg-1',
-        role: 'assistant' as const,
-        content: {
-          question: 'Enter your choice',
-          options: ['Option A', 'Option B']
-        },
-        ask: 'followup' as const
-      }
+      expect(hasCustomInput(message)).toBe(false)
 
-      // Select custom option
-      handleOptionSelect(message, '__custom__')
       handleCustomInputChange(message, 'My custom answer')
 
       expect(getCustomInput(message)).toBe('My custom answer')
+      expect(hasCustomInput(message)).toBe(true)
     })
 
-    it('should validate option submission readiness', () => {
-      const { handleOptionSelect, handleCustomInputChange, canSubmitOption } = useMessageOptions()
+    it('should report a message as answered after a selection or a skip', () => {
+      const { isOptionAnswered } = useMessageOptions()
 
-      const message = {
-        id: 'msg-1',
-        role: 'assistant' as const,
-        content: {
-          question: 'Question',
-          options: ['Option A', 'Option B']
-        },
-        ask: 'followup' as const
-      }
-
-      // No option selected
-      expect(canSubmitOption(message)).toBe(false)
-
-      // Preset option selected
-      handleOptionSelect(message, 'Option A')
-      expect(canSubmitOption(message)).toBe(true)
-
-      // Custom option selected but empty
-      handleOptionSelect(message, '__custom__')
-      expect(canSubmitOption(message)).toBe(false)
-
-      // Custom option with value
-      handleCustomInputChange(message, 'Custom answer')
-      expect(canSubmitOption(message)).toBe(true)
+      expect(isOptionAnswered(makeMessage())).toBe(false)
+      expect(isOptionAnswered({ ...makeMessage(), selectedOption: 'Option A' })).toBe(true)
+      expect(isOptionAnswered({ ...makeMessage(), skipped: true })).toBe(true)
     })
   })
 
@@ -829,42 +792,18 @@ describe('AiTab Component - Composable Integration Tests', () => {
         expect(shouldShowCustomInput).toBe(false)
       })
 
-      it('should show submit button after option selection', () => {
-        const { handleOptionSelect, getSelectedOption } = useMessageOptions()
-
-        const message = {
+      it('should treat a selected or skipped question as answered', () => {
+        const { isOptionAnswered } = useMessageOptions()
+        const base = {
           id: 'msg-1',
           role: 'assistant' as const,
-          content: {
-            question: 'Select',
-            options: ['A', 'B']
-          },
+          content: { question: 'Select', options: ['A', 'B'] },
           ask: 'followup' as const
         }
 
-        // Before selection
-        expect(getSelectedOption(message)).toBe('')
-
-        // After selection
-        handleOptionSelect(message, 'A')
-        const shouldShowSubmit = getSelectedOption(message) !== ''
-        expect(shouldShowSubmit).toBe(true)
-      })
-
-      it('should not show submit button when option already submitted', () => {
-        const message = {
-          id: 'msg-1',
-          role: 'assistant' as const,
-          content: {
-            question: 'Select',
-            options: ['A', 'B']
-          },
-          ask: 'followup' as const,
-          selectedOption: 'A' // Already submitted
-        }
-
-        const shouldShowSubmit = !message.selectedOption
-        expect(shouldShowSubmit).toBe(false)
+        expect(isOptionAnswered(base)).toBe(false)
+        expect(isOptionAnswered({ ...base, selectedOption: 'A' })).toBe(true)
+        expect(isOptionAnswered({ ...base, skipped: true })).toBe(true)
       })
     })
 
