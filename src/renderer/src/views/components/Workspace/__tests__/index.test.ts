@@ -1,7 +1,7 @@
 import { mount } from '@vue/test-utils'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { nextTick } from 'vue'
-import { Modal } from 'ant-design-vue'
+import { Modal, message } from 'ant-design-vue'
 import Workspace from '../index.vue'
 
 const { mockEventBus, mockApi } = vi.hoisted(() => ({
@@ -20,7 +20,9 @@ const { mockEventBus, mockApi } = vi.hoisted(() => ({
     getShellsLocal: vi.fn(async () => null),
     getCustomFolders: vi.fn(async () => ({ data: [] })),
     removeConnectionHistory: vi.fn(async () => ({ data: { message: 'success', changes: 1 } })),
-    deleteAsset: vi.fn(async () => ({ data: { message: 'success' } }))
+    deleteAsset: vi.fn(async () => ({ data: { message: 'success' } })),
+    updateLocalAssetLabel: vi.fn(async () => ({ data: { message: 'success' } })),
+    updateOrganizationAssetComment: vi.fn(async () => ({ data: { message: 'success' } }))
   }
 }))
 
@@ -159,10 +161,26 @@ describe('Workspace tree search rendering', () => {
     await nextTick()
     expect(writeText).toHaveBeenLastCalledWith('web-01')
 
+    expect(menuItems[0].text()).toMatch(/复制主机名|Copy Hostname/)
+
     vm.showIpMode = true
-    vm.contextMenuData = host
+    vm.handleContextMenu(new MouseEvent('contextmenu', { clientX: 10, clientY: 10 }), host)
+    await nextTick()
+    expect(wrapper.find('.context-menu-item').text()).toMatch(/复制IP|Copy IP/)
     await vm.handleContextMenuAction('copy')
     expect(writeText).toHaveBeenLastCalledWith('10.0.0.1')
+
+    // IP mode falls back to the hostname for hosts without an IP
+    const hostWithoutIp = { key: 'host-no-ip', title: 'web-02' }
+    vm.handleContextMenu(new MouseEvent('contextmenu', { clientX: 10, clientY: 10 }), hostWithoutIp)
+    await nextTick()
+    expect(wrapper.find('.context-menu-item').text()).toMatch(/复制主机名|Copy Hostname/)
+
+    // Folder nodes get no copy item
+    const folder = { key: 'folder_1', title: 'Folder', asset_type: 'custom_folder', children: [] }
+    vm.handleContextMenu(new MouseEvent('contextmenu', { clientX: 10, clientY: 10 }), folder)
+    await nextTick()
+    expect(wrapper.findAll('.context-menu-item').some((item) => /复制|Copy/.test(item.text()))).toBe(false)
 
     writeText.mockRejectedValueOnce(new Error('denied'))
     vm.contextMenuData = host
@@ -213,6 +231,7 @@ describe('Workspace tree search rendering', () => {
     const menuItems = wrapper.findAll('.context-menu-item')
     expect(menuItems).toHaveLength(5)
     expect(menuItems.some((item) => /删除|Delete/.test(item.text()))).toBe(true)
+    expect(menuItems.some((item) => /重命名|Rename/.test(item.text()))).toBe(true)
 
     vm.contextMenuData = directHost
     await vm.handleContextMenuAction('deleteHost')
@@ -270,6 +289,157 @@ describe('Workspace tree search rendering', () => {
     }
   })
 
+  describe('inline editing', () => {
+    const focus = vi.fn()
+    const select = vi.fn()
+    const inputStub = {
+      props: ['value'],
+      template: '<input class="input-stub" :value="value" @input="$emit(\'update:value\', $event.target.value)" />',
+      setup: (_: unknown, { expose }: { expose: (api: Record<string, unknown>) => void }) => expose({ focus, select })
+    }
+    const slotTreeStub = {
+      props: ['treeData'],
+      template:
+        '<div class="slot-tree"><div v-for="node in treeData" :key="node.key"><slot name="title" :title="node.title" :data-ref="node" /></div></div>'
+    }
+    const mountWorkspace = () =>
+      mount(Workspace, {
+        global: {
+          stubs: {
+            'a-tree': slotTreeStub,
+            'a-input': inputStub,
+            'a-tabs': true,
+            'a-tab-pane': true,
+            'a-button': true,
+            'a-tooltip': true,
+            'a-dropdown': true,
+            'a-menu': true,
+            'a-menu-item': true,
+            'a-popconfirm': true
+          }
+        }
+      })
+    const directHost = {
+      key: 'host-1',
+      title: 'web-01',
+      uuid: 'asset-1',
+      ip: '10.0.0.1',
+      asset_type: 'person',
+      organizationId: 'personal'
+    }
+
+    beforeEach(() => {
+      focus.mockClear()
+      select.mockClear()
+    })
+
+    it('renames a direct host inline and refreshes the asset menu', async () => {
+      const wrapper = mountWorkspace()
+      // Let the initial asset load settle so it cannot overwrite the tree below
+      await new Promise((resolve) => setTimeout(resolve, 0))
+      await nextTick()
+      const vm = wrapper.vm as any
+      vm.assetTreeData = [directHost]
+      await nextTick()
+
+      vm.handleContextMenu(new MouseEvent('contextmenu', { clientX: 10, clientY: 10 }), directHost)
+      await nextTick()
+      const renameItem = wrapper.findAll('.context-menu-item').find((item) => /重命名|Rename/.test(item.text()))
+      await renameItem!.trigger('click')
+      await nextTick()
+      expect(vm.editingNode).toBe('host-1')
+      expect(vm.editingTitle).toBe('web-01')
+      expect(focus).toHaveBeenCalledOnce()
+      expect(select).toHaveBeenCalledOnce()
+      expect(wrapper.find('.edit-container').exists()).toBe(true)
+
+      // Enter with an unchanged name leaves edit mode without saving
+      await wrapper.find('.edit-container .input-stub').trigger('keydown', { key: 'Enter' })
+      await nextTick()
+      expect(vm.editingNode).toBeNull()
+      expect(mockApi.updateLocalAssetLabel).not.toHaveBeenCalled()
+
+      // Escape cancels
+      vm.contextMenuData = directHost
+      await vm.handleContextMenuAction('rename')
+      await nextTick()
+      await wrapper.find('.edit-container .input-stub').setValue('web-02')
+      await wrapper.find('.edit-container .input-stub').trigger('keydown', { key: 'Escape' })
+      await nextTick()
+      expect(vm.editingNode).toBeNull()
+      expect(mockApi.updateLocalAssetLabel).not.toHaveBeenCalled()
+
+      // The confirm icon saves the trimmed name and reloads the tree
+      vm.contextMenuData = directHost
+      await vm.handleContextMenuAction('rename')
+      await nextTick()
+      await wrapper.find('.edit-container .input-stub').setValue('  web-02  ')
+      await wrapper.find('.edit-container .confirm-icon').trigger('click')
+      await nextTick()
+      expect(mockApi.updateLocalAssetLabel).toHaveBeenCalledWith({ uuid: 'asset-1', label: 'web-02' })
+      expect(mockEventBus.emit).toHaveBeenCalledWith('LocalAssetMenu')
+      expect(vm.editingNode).toBeNull()
+
+      // The cancel icon leaves edit mode
+      vm.contextMenuData = directHost
+      await vm.handleContextMenuAction('rename')
+      await nextTick()
+      await wrapper.find('.edit-container .cancel-icon').trigger('click')
+      expect(vm.editingNode).toBeNull()
+
+      wrapper.unmount()
+    })
+
+    it('keeps the rename input open and reports a failed save', async () => {
+      const errorSpy = vi.spyOn(message, 'error').mockImplementation((() => undefined) as any)
+      const wrapper = mountWorkspace()
+      await nextTick()
+      const vm = wrapper.vm as any
+
+      // A blank name cancels without calling the API
+      vm.editingNode = 'host-1'
+      vm.editingTitle = '   '
+      await vm.saveRename(directHost)
+      expect(vm.editingNode).toBeNull()
+      expect(mockApi.updateLocalAssetLabel).not.toHaveBeenCalled()
+
+      mockApi.updateLocalAssetLabel.mockResolvedValueOnce({ data: { message: 'failed' } } as any)
+      vm.editingNode = 'host-1'
+      vm.editingTitle = 'web-02'
+      await vm.saveRename(directHost)
+      expect(errorSpy).toHaveBeenCalledTimes(1)
+      expect(vm.editingNode).toBe('host-1')
+
+      mockApi.updateLocalAssetLabel.mockRejectedValueOnce(new Error('db locked'))
+      await vm.saveRename(directHost)
+      expect(errorSpy).toHaveBeenCalledTimes(2)
+      expect(vm.editingNode).toBe('host-1')
+      expect(mockEventBus.emit).not.toHaveBeenCalledWith('LocalAssetMenu')
+
+      errorSpy.mockRestore()
+      wrapper.unmount()
+    })
+
+    it('focuses the comment input when a bastion host starts editing its comment', async () => {
+      const wrapper = mountWorkspace()
+      await nextTick()
+      const vm = wrapper.vm as any
+      const bastionHost = { key: 'org_10.0.0.9_host', title: 'host', ip: '10.0.0.9', comment: 'gpu node', organizationId: 'org-uuid' }
+      vm.enterpriseData = [bastionHost]
+      await nextTick()
+
+      vm.contextMenuData = bastionHost
+      await vm.handleContextMenuAction('comment')
+      await nextTick()
+      expect(vm.commentNode).toBe('org_10.0.0.9_host')
+      expect(vm.editingComment).toBe('gpu node')
+      expect(wrapper.find('.comment-edit-container .input-stub').exists()).toBe(true)
+      expect(focus).toHaveBeenCalledOnce()
+
+      wrapper.unmount()
+    })
+  })
+
   it('remounts the tree on every search instead of letting vc-tree diff the new data', async () => {
     const mounted = vi.fn()
     const wrapper = mount(Workspace, {
@@ -307,6 +477,233 @@ describe('Workspace tree search rendering', () => {
     await nextTick()
     expect(mounted).toHaveBeenCalledTimes(3)
     expect(vm.assetTreeData).toEqual([{ key: 'group', title: 'Group', children: [{ key: 'host', title: 'Host', ip: '10.0.0.1' }] }])
+
+    wrapper.unmount()
+  })
+})
+
+describe('Workspace search keyboard navigation', () => {
+  // The auto stub swallows onKeydown as a prop; a real input forwards it the way vc-input does
+  const searchInputStub = {
+    emits: ['keydown'],
+    template: '<input class="search-input-stub" @keydown="$emit(\'keydown\', $event)" />'
+  }
+  const scrollSpy = vi.fn()
+  const scrollableTreeStub = {
+    props: ['treeData'],
+    template: '<div class="workspace-tree-stub" />',
+    methods: {
+      scrollTo(arg: unknown) {
+        const keys = (this as any).treeData.map((node: any) => node.key)
+        scrollSpy(keys, arg)
+      }
+    }
+  }
+
+  const hostTree = () => [
+    { key: 'recent_connections', title: 'Recent', children: [{ key: 'recent_a', title: 'web-01', ip: '10.0.0.1' }] },
+    {
+      key: 'g1',
+      title: 'Group',
+      children: [
+        { key: 'a', title: 'web-01', ip: '10.0.0.1' },
+        { key: 'b', title: 'web-02', ip: '10.0.0.2' }
+      ]
+    }
+  ]
+
+  const mountWorkspace = async () => {
+    const wrapper = mount(Workspace, {
+      global: {
+        stubs: {
+          'a-tree': scrollableTreeStub,
+          'a-tabs': true,
+          'a-tab-pane': true,
+          'a-input': searchInputStub,
+          'a-button': true,
+          'a-tooltip': true,
+          'a-dropdown': true,
+          'a-menu': true,
+          'a-menu-item': true,
+          'a-popconfirm': true
+        }
+      }
+    })
+    await nextTick()
+    await new Promise((resolve) => setTimeout(resolve, 0))
+    await nextTick()
+    return wrapper
+  }
+
+  const press = async (wrapper: ReturnType<typeof mount>, key: string, init: KeyboardEventInit = {}) => {
+    const event = new KeyboardEvent('keydown', { key, cancelable: true, bubbles: true, ...init })
+    wrapper.find('.search-input-stub').element.dispatchEvent(event)
+    await nextTick()
+    return event
+  }
+
+  const search = async (wrapper: ReturnType<typeof mount>, value: string) => {
+    const vm = wrapper.vm as any
+    vm.searchValue = value
+    vm.onSearchInput()
+    await new Promise((resolve) => setTimeout(resolve, 350))
+    await nextTick()
+  }
+
+  beforeEach(() => {
+    vi.clearAllMocks()
+    ;(window as any).api = mockApi
+  })
+
+  it('highlights the first match after a search and moves with the arrow keys', async () => {
+    const wrapper = await mountWorkspace()
+    const vm = wrapper.vm as any
+    vm.originalTreeData = hostTree()
+
+    await search(wrapper, 'web')
+    expect(vm.selectedKeys).toEqual(['recent_a'])
+
+    const down = await press(wrapper, 'ArrowDown')
+    expect(down.defaultPrevented).toBe(true)
+    expect(vm.selectedKeys).toEqual(['a'])
+    expect(scrollSpy).toHaveBeenLastCalledWith(['recent_connections', 'g1'], { key: 'a' })
+
+    await press(wrapper, 'ArrowDown')
+    expect(vm.selectedKeys).toEqual(['b'])
+
+    await press(wrapper, 'ArrowDown')
+    expect(vm.selectedKeys).toEqual(['recent_a'])
+
+    await press(wrapper, 'ArrowUp')
+    expect(vm.selectedKeys).toEqual(['b'])
+
+    wrapper.unmount()
+  })
+
+  it('starts from the first or last host when nothing is highlighted', async () => {
+    const wrapper = await mountWorkspace()
+    const vm = wrapper.vm as any
+    vm.originalTreeData = hostTree()
+    await search(wrapper, 'web')
+
+    vm.selectedKeys = []
+    await press(wrapper, 'ArrowDown')
+    expect(vm.selectedKeys).toEqual(['recent_a'])
+
+    vm.selectedKeys = []
+    await press(wrapper, 'ArrowUp')
+    expect(vm.selectedKeys).toEqual(['b'])
+
+    wrapper.unmount()
+  })
+
+  it('skips hosts inside collapsed folders', async () => {
+    const wrapper = await mountWorkspace()
+    const vm = wrapper.vm as any
+    vm.originalTreeData = hostTree()
+    await search(wrapper, 'web')
+
+    vm.expandedKeys = ['recent_connections']
+    vm.selectedKeys = ['recent_a']
+    await press(wrapper, 'ArrowDown')
+    expect(vm.selectedKeys).toEqual(['recent_a'])
+
+    wrapper.unmount()
+  })
+
+  it('connects the highlighted host on Enter', async () => {
+    const wrapper = await mountWorkspace()
+    const vm = wrapper.vm as any
+    vm.originalTreeData = hostTree()
+    await search(wrapper, 'web-02')
+    expect(vm.selectedKeys).toEqual(['b'])
+
+    const enter = await press(wrapper, 'Enter')
+    expect(enter.defaultPrevented).toBe(true)
+    expect(wrapper.emitted('currentClickServer')).toHaveLength(1)
+    expect(wrapper.emitted('currentClickServer')![0][0]).toMatchObject({ key: 'b', ip: '10.0.0.2' })
+
+    wrapper.unmount()
+  })
+
+  it('does not connect on Enter when the highlighted host is not visible', async () => {
+    const wrapper = await mountWorkspace()
+    const vm = wrapper.vm as any
+    vm.originalTreeData = hostTree()
+    await search(wrapper, 'web')
+
+    vm.selectedKeys = ['missing']
+    await press(wrapper, 'Enter')
+    expect(wrapper.emitted('currentClickServer')).toBeUndefined()
+
+    wrapper.unmount()
+  })
+
+  it('applies a search still waiting on its debounce before handling the key', async () => {
+    const wrapper = await mountWorkspace()
+    const vm = wrapper.vm as any
+    vm.originalTreeData = hostTree()
+
+    vm.searchValue = 'web-02'
+    vm.onSearchInput()
+    await press(wrapper, 'Enter')
+
+    expect(wrapper.emitted('currentClickServer')![0][0]).toMatchObject({ key: 'b' })
+    await new Promise((resolve) => setTimeout(resolve, 350))
+    expect(vm.assetTreeData).toHaveLength(1)
+
+    wrapper.unmount()
+  })
+
+  it('clears the highlight when a search matches nothing and keeps it when the search is cleared', async () => {
+    const wrapper = await mountWorkspace()
+    const vm = wrapper.vm as any
+    vm.originalTreeData = hostTree()
+
+    await search(wrapper, 'no-such-host')
+    expect(vm.selectedKeys).toEqual([])
+    await press(wrapper, 'ArrowDown')
+    expect(vm.selectedKeys).toEqual([])
+    await press(wrapper, 'Enter')
+    expect(wrapper.emitted('currentClickServer')).toBeUndefined()
+
+    vm.selectedKeys = ['b']
+    await search(wrapper, '')
+    expect(vm.selectedKeys).toEqual(['b'])
+
+    wrapper.unmount()
+  })
+
+  it('navigates the enterprise tree when the enterprise workspace is active', async () => {
+    const wrapper = await mountWorkspace()
+    const vm = wrapper.vm as any
+    vm.company = 'remote'
+    vm.originalTreeData = hostTree()
+    await search(wrapper, 'web-0')
+    expect(vm.selectedKeys).toEqual(['recent_a'])
+
+    await press(wrapper, 'ArrowDown')
+    expect(vm.selectedKeys).toEqual(['a'])
+    expect(scrollSpy).toHaveBeenLastCalledWith(['recent_connections', 'g1'], { key: 'a' })
+
+    wrapper.unmount()
+  })
+
+  it('ignores IME composition and unrelated keys', async () => {
+    const wrapper = await mountWorkspace()
+    const vm = wrapper.vm as any
+    vm.originalTreeData = hostTree()
+    await search(wrapper, 'web')
+
+    const composing = await press(wrapper, 'Enter', { isComposing: true })
+    expect(composing.defaultPrevented).toBe(false)
+    const imeKey = await press(wrapper, 'ArrowDown', { keyCode: 229 })
+    expect(imeKey.defaultPrevented).toBe(false)
+    const letter = await press(wrapper, 'a')
+    expect(letter.defaultPrevented).toBe(false)
+
+    expect(vm.selectedKeys).toEqual(['recent_a'])
+    expect(wrapper.emitted('currentClickServer')).toBeUndefined()
 
     wrapper.unmount()
   })

@@ -314,4 +314,102 @@ describe('useInteractiveInput', () => {
       expect(cleanup).toHaveBeenCalled()
     })
   })
+
+  describe('submitInteraction visibility', () => {
+    const mountWithInteraction = (interactionType: InteractionType) => {
+      let hook!: ReturnType<typeof useInteractiveInput>
+      const wrapper = mount({
+        setup() {
+          hook = useInteractiveInput()
+          return () => h('div')
+        }
+      })
+      const emitNeeded = vi.mocked(globalThis.window.api.onInteractionNeeded).mock.calls[0][0]
+      emitNeeded({ commandId: 'cmd-1', taskId: 'tab-a', interactionType, promptHint: 'Name:' })
+      return { hook, wrapper, state: () => hook.getInteractionStateForTab('tab-a')! }
+    }
+
+    beforeEach(() => {
+      globalThis.window.api.onCommandActivity = vi.fn(() => vi.fn())
+    })
+
+    it('keeps free text visible while the send is pending and closes it once the send succeeds', async () => {
+      const deferred = createDeferred<InteractionSubmitResult>()
+      vi.mocked(globalThis.window.api.submitInteraction).mockReturnValue(deferred.promise)
+      const { hook, wrapper, state } = mountWithInteraction('freeform')
+
+      const pending = hook.submitInteraction('cmd-1', 'yes', true, 'freeform')
+
+      expect(state().visible).toBe(true)
+      expect(state().isSubmitting).toBe(true)
+
+      deferred.resolve({ success: true })
+      await pending
+
+      expect(state().visible).toBe(false)
+      expect(state().isSubmitting).toBe(false)
+      expect(state().errorMessage).toBe('')
+      wrapper.unmount()
+    })
+
+    it('keeps free text visible with the failure reason when the send fails, and closes it after a successful retry', async () => {
+      const submitMock = vi.mocked(globalThis.window.api.submitInteraction)
+      submitMock.mockResolvedValueOnce({ success: false, code: 'closed' })
+      const { hook, wrapper, state } = mountWithInteraction('freeform')
+
+      await hook.submitInteraction('cmd-1', 'yes', true, 'freeform')
+
+      expect(state().visible).toBe(true)
+      expect(state().isSubmitting).toBe(false)
+      expect(state().errorMessage).toBe('Connection closed, command may have ended')
+
+      submitMock.mockResolvedValueOnce({ success: true })
+      await hook.submitInteraction('cmd-1', 'yes', true, 'freeform')
+
+      expect(state().visible).toBe(false)
+      expect(state().errorMessage).toBe('')
+      wrapper.unmount()
+    })
+
+    it('keeps free text visible with the error when the send throws', async () => {
+      vi.mocked(globalThis.window.api.submitInteraction).mockRejectedValue(new Error('ipc down'))
+      const { hook, wrapper, state } = mountWithInteraction('freeform')
+
+      const result = await hook.submitInteraction('cmd-1', 'yes', true, 'freeform')
+
+      expect(result.success).toBe(false)
+      expect(state().visible).toBe(true)
+      expect(state().isSubmitting).toBe(false)
+      expect(state().errorMessage).toBe('Error: ipc down')
+      wrapper.unmount()
+    })
+
+    it('still closes typed prompts as soon as they are submitted', async () => {
+      const deferred = createDeferred<InteractionSubmitResult>()
+      vi.mocked(globalThis.window.api.submitInteraction).mockReturnValue(deferred.promise)
+      const { hook, wrapper, state } = mountWithInteraction('confirm')
+
+      const pending = hook.submitInteraction('cmd-1', 'y', true, 'confirm')
+      expect(state().visible).toBe(false)
+
+      deferred.resolve({ success: false, code: 'timeout' })
+      await pending
+
+      expect(state().visible).toBe(false)
+      expect(state().errorMessage).toBe('')
+      wrapper.unmount()
+    })
+
+    it('keeps the pager open for continuous paging and closes it on quit', async () => {
+      vi.mocked(globalThis.window.api.submitInteraction).mockResolvedValue({ success: true })
+      const { hook, wrapper, state } = mountWithInteraction('pager')
+
+      await hook.submitInteraction('cmd-1', ' ', false, 'pager')
+      expect(state().visible).toBe(true)
+
+      await hook.submitInteraction('cmd-1', 'q', false, 'pager')
+      expect(state().visible).toBe(false)
+      wrapper.unmount()
+    })
+  })
 })

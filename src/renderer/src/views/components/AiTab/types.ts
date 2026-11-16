@@ -3,6 +3,7 @@ import type { ContentPart, ContextRefs, Host } from '@shared/WebviewMessage'
 export type { Host }
 
 export interface MessageContent {
+  title?: string
   question: string
   options?: string[]
   selected?: string
@@ -29,6 +30,7 @@ export interface ChatMessage {
   action?: 'approved' | 'rejected'
   ts?: number
   selectedOption?: string
+  skipped?: boolean
   partial?: boolean
   actioned?: boolean
   // Todo related properties

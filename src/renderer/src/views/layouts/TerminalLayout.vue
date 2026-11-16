@@ -331,6 +331,12 @@
         </div>
       </div>
     </div>
+    <QuickJumpPalette
+      v-model:visible="isQuickJumpVisible"
+      :tabs="quickJumpTabs"
+      :active-terminal-tab-id="quickJumpTerminalTabId"
+      @select-tab="switchTab"
+    />
   </a-watermark>
 </template>
 <script setup lang="ts">
@@ -373,6 +379,8 @@ import { getActualTheme, initializeThemeFromDatabase } from '@/utils/themeUtils'
 import { componentInstances, inputManager, isGlobalInput, isShowCommandBar } from '@renderer/views/components/Ssh/utils/termInputManager'
 import { getSshConnectionId } from '@renderer/views/components/Ssh/utils/sshConnectionRegistry'
 import { shortcutService } from '@/services/shortcutService'
+import QuickJumpPalette from '@/components/global/quick-jump/QuickJumpPalette.vue'
+import type { QuickJumpTab } from '@/components/global/quick-jump/quickJumpItems'
 import { captureExtensionUsage, ExtensionNames, ExtensionStatus } from '@/utils/telemetry'
 import Dashboard from '@renderer/views/components/Ssh/components/dashboard.vue'
 import { useAiSidebarModelRefresh } from './composables/useAiSidebarModelRefresh'
@@ -1157,6 +1165,7 @@ onMounted(async () => {
   eventBus.on('kbFileRenamed', handleKbFileRenamed)
   eventBus.on('openKbPreview', handleOpenKbPreview)
   eventBus.on('searchHost', handleSearchHost)
+  eventBus.on('toggleQuickJump', toggleQuickJump)
   eventBus.on('save-state-before-switch', () => {
     // Save AI state before layout switch (unified since same aiTabRef)
     if (aiTabRef.value) {
@@ -1599,6 +1608,24 @@ const handleSearchHost = () => {
       eventBus.emit('focusHostSearch')
     }, delay)
   })
+}
+
+const isQuickJumpVisible = ref(false)
+const quickJumpTabs = ref<QuickJumpTab[]>([])
+const quickJumpTerminalTabId = ref<string | null>(null)
+
+const toggleQuickJump = () => {
+  if (isQuickJumpVisible.value) {
+    isQuickJumpVisible.value = false
+    return
+  }
+  quickJumpTerminalTabId.value = getActiveDockTerminalTabId()
+  quickJumpTabs.value = (dockApi?.panels ?? []).map((panel) => ({
+    id: panel.id,
+    title: panel.api.title || panel.params?.title || panel.id,
+    subtitle: panel.params?.ip || panel.params?.data?.ip || ''
+  }))
+  isQuickJumpVisible.value = true
 }
 
 const toggleMenu = function (params) {
@@ -2140,6 +2167,7 @@ onUnmounted(() => {
   eventBus.off('kbFileRenamed', handleKbFileRenamed)
   eventBus.off('openKbPreview', handleOpenKbPreview)
   eventBus.off('searchHost', handleSearchHost)
+  eventBus.off('toggleQuickJump', toggleQuickJump)
 })
 
 interface OpenUserTabObject {

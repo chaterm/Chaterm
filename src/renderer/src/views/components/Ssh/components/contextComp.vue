@@ -45,7 +45,6 @@
     </v-contextmenu-item>
     <v-contextmenu-item @click="onContextMenuAction('clearTerm')">
       {{ $t('common.clearTerm') }}
-      <span class="shortcut-key">{{ clearTermShortcut }}</span>
     </v-contextmenu-item>
 
     <!-- Divider -->
@@ -99,14 +98,7 @@ import { ref, onMounted } from 'vue'
 import { isGlobalInput } from '../utils/termInputManager'
 
 const logger = createRendererLogger('ssh.context')
-import {
-  getCopyShortcut,
-  getPasteShortcut,
-  getCloseShortcut,
-  getSearchShortcut,
-  getClearTermShortcut,
-  getFileManagerShortcut
-} from '@/utils/shortcuts'
+import { getCopyShortcut, getPasteShortcut, getCloseShortcut, getSearchShortcut, getFileManagerShortcut } from '@/utils/shortcuts'
 import eventBus from '@/utils/eventBus'
 import { getNewTabShortcut } from '@/utils/shortcuts'
 import { shortcutService } from '@/services/shortcutService'
@@ -117,7 +109,6 @@ const pasteShortcut = ref('')
 const closeShortcut = ref('')
 const searchShortcut = ref('')
 const newTerminalShortcut = ref('')
-const clearTermShortcut = ref('')
 const fileManagerShortcut = ref('')
 const disconnectShortcut = ref('Ctrl+D')
 const reconnectShortcut = ref('Enter')
@@ -231,7 +222,6 @@ onMounted(async () => {
     closeShortcut.value = await getCloseShortcut()
     searchShortcut.value = await getSearchShortcut()
     newTerminalShortcut.value = await getNewTabShortcut()
-    clearTermShortcut.value = await getClearTermShortcut()
     fileManagerShortcut.value = await getFileManagerShortcut()
 
     // Get shortcuts from shortcutService to ensure consistency with settings
@@ -250,14 +240,10 @@ onMounted(async () => {
 
       // Update other shortcuts to ensure consistency
       const newTabShortcut = shortcuts.newTab
-      const clearTerminalShortcut = shortcuts.clearTerminal
       const openFileManagerShortcut = shortcuts.openFileManager
 
       if (newTabShortcut) {
         newTerminalShortcut.value = shortcutService.formatShortcut(newTabShortcut, 'newTab')
-      }
-      if (clearTerminalShortcut) {
-        clearTermShortcut.value = shortcutService.formatShortcut(clearTerminalShortcut, 'clearTerminal')
       }
       if (openFileManagerShortcut) {
         fileManagerShortcut.value = shortcutService.formatShortcut(openFileManagerShortcut, 'openFileManager')
@@ -271,7 +257,6 @@ onMounted(async () => {
     closeShortcut.value = 'Ctrl+W'
     searchShortcut.value = 'Ctrl+F'
     newTerminalShortcut.value = 'Ctrl+N'
-    clearTermShortcut.value = 'Ctrl+P'
     fileManagerShortcut.value = 'Ctrl+M'
     fontsizeLargenShortcut.value = 'Ctrl+='
     fontsizeSmallerShortcut.value = 'Ctrl+-'
