@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { mount } from '@vue/test-utils'
 import TerminalOutputRenderer from '../terminalOutputRenderer.vue'
+import { getTerminalOutput } from '../../../composables/terminalOutputRegistry'
 
 vi.mock('@xterm/xterm', () => ({
   Terminal: class {
@@ -65,6 +66,17 @@ describe('TerminalOutputRenderer run time', () => {
     const wrapper = mountOutput({ startedAt: NOW - 65_000, running: false })
     expect(wrapper.find('.output-duration').exists()).toBe(false)
     expect(vi.getTimerCount()).toBe(0)
+  })
+
+  it('registers its terminal for chat search while mounted', () => {
+    const wrapper = mountOutput({})
+    const element = wrapper.get('.terminal-output').element as HTMLElement
+
+    expect(getTerminalOutput(element)).toBeDefined()
+
+    wrapper.unmount()
+
+    expect(getTerminalOutput(element)).toBeUndefined()
   })
 
   it('stops counting when unmounted', () => {

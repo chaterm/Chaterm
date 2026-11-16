@@ -16,6 +16,10 @@ export interface ShortcutAction {
   }
 }
 
+// Defaults shipped by earlier versions. A saved value equal to one of them was never
+// customized, so it is replaced by the current default on load.
+const LEGACY_DEFAULT_SHORTCUTS: { actionId: string; isMac: boolean; key: string }[] = [{ actionId: 'sendOrToggleAi', isMac: false, key: 'Ctrl+L' }]
+
 export interface ParsedShortcut {
   ctrlKey: boolean
   shiftKey: boolean
@@ -95,8 +99,29 @@ export class ShortcutService {
           defaultShortcuts[action.id] = isMac ? action.defaultKey.mac : action.defaultKey.other
         })
 
-        this.currentShortcuts = { ...defaultShortcuts, ...config.shortcuts }
+        // Ids that no longer map to a registered action (e.g. removed shortcuts) would
+        // otherwise keep their key occupied in conflict checks.
+        const saved: ShortcutConfig = {}
+        let changed = false
+        Object.entries(config.shortcuts).forEach(([actionId, shortcutKey]) => {
+          if (!defaultShortcuts[actionId]) {
+            changed = true
+            return
+          }
+          const legacy = LEGACY_DEFAULT_SHORTCUTS.find((item) => item.actionId === actionId && item.isMac === isMac && item.key === shortcutKey)
+          if (legacy) {
+            changed = true
+            return
+          }
+          saved[actionId] = shortcutKey
+        })
+
+        this.currentShortcuts = { ...defaultShortcuts, ...saved }
         this.bindShortcuts()
+
+        if (changed) {
+          await userConfigStore.saveConfig({ shortcuts: this.currentShortcuts })
+        }
       }
     } catch (error) {
       logger.error('Failed to load shortcuts', { error: error })

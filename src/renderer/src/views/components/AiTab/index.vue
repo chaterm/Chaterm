@@ -91,6 +91,7 @@
             :search-term="aiChatSearchTerm"
             :match-count="aiChatMatchCount"
             :current-match-index="aiChatCurrentMatchIndex"
+            :focus-token="aiChatSearchFocusToken"
             @update:search-term="aiChatSearchTerm = $event"
             @find-next="findNextAiChatMatch"
             @find-previous="findPreviousAiChatMatch"
@@ -276,6 +277,12 @@
                           </a-tooltip>
                         </div>
                       </div>
+                      <div
+                        v-if="typeof message.content === 'object' && (message.content as MessageContent).title"
+                        class="followup-title"
+                      >
+                        {{ (message.content as MessageContent).title }}
+                      </div>
                       <MarkdownRenderer
                         v-if="typeof message.content === 'object' && 'question' in message.content"
                         :ref="(el) => tab.id === currentChatId && setMarkdownRendererRef(el, historyIndex)"
@@ -349,60 +356,13 @@
                       </div>
 
                       <div class="message-actions">
-                        <template v-if="typeof message.content === 'object' && 'options' in message.content && isLastMessage(tab.id, message.id)">
-                          <div class="options-container">
-                            <!-- Display original options as radio buttons -->
-                            <div class="options-radio-group">
-                              <a-radio-group
-                                :value="getSelectedOption(message)"
-                                @change="(e) => handleOptionSelect(message, e.target.value)"
-                              >
-                                <a-radio
-                                  v-for="(option, optionIndex) in (message.content as MessageContent).options"
-                                  :key="`option-${optionIndex}-${option}`"
-                                  :value="option"
-                                  class="option-radio"
-                                >
-                                  {{ option }}
-                                </a-radio>
-                                <!-- Add custom input option when there are more than 1 options -->
-                                <div
-                                  v-if="(message.content as MessageContent).options && (message.content as MessageContent).options!.length > 1"
-                                  class="option-radio custom-option"
-                                >
-                                  <a-radio
-                                    value="__custom__"
-                                    class="custom-radio"
-                                  />
-                                  <a-textarea
-                                    :value="getCustomInput(message)"
-                                    :placeholder="$t('ai.enterCustomOption')"
-                                    :auto-size="{ minRows: 1, maxRows: 4 }"
-                                    class="custom-input"
-                                    @input="(e) => handleCustomInputChange(message, (e.target as HTMLInputElement).value || '')"
-                                    @focus="() => handleOptionSelect(message, '__custom__')"
-                                  />
-                                </div>
-                              </a-radio-group>
-                            </div>
-
-                            <!-- Submit button - shown after selecting any option -->
-                            <div
-                              v-if="(message.content as MessageContent).options && !message.selectedOption && getSelectedOption(message)"
-                              class="submit-button-container"
-                            >
-                              <a-button
-                                type="primary"
-                                size="small"
-                                :disabled="!canSubmitOption(message)"
-                                class="submit-option-btn"
-                                @click="handleOptionSubmit(message)"
-                              >
-                                {{ $t('ai.submit') }}
-                              </a-button>
-                            </div>
-                          </div>
-                        </template>
+                        <div
+                          v-if="message.ask === 'followup' && isOptionAnswered(message)"
+                          class="followup-answer"
+                          :class="{ 'is-skipped': message.skipped }"
+                        >
+                          {{ message.skipped ? $t('ai.skip') : message.selectedOption }}
+                        </div>
                         <!-- Inline approval buttons for Agent mode: attach to the pending command message -->
                         <template
                           v-if="
@@ -642,6 +602,11 @@
             :force-visible="getCommandInputBarProps(tab.id)?.forceVisible ?? false"
             :submit-input="(commandId: string, input: string) => submitInteraction(commandId, input, true, 'freeform')"
             @cancel="cancelInteraction"
+          />
+          <FollowupOptions
+            v-if="getPendingFollowup(tab.id)"
+            :key="getPendingFollowup(tab.id)?.id"
+            :message="getPendingFollowup(tab.id)!"
           />
           <InputSendContainer
             :is-active-tab="tab.id === currentChatId"
@@ -900,6 +865,7 @@ import MarkdownRenderer from './components/format/markdownRenderer.vue'
 import DbQueryResultCard from './components/DbQueryResultCard.vue'
 import TodoInlineDisplay from './components/todo/TodoInlineDisplay.vue'
 import UserMessage from './components/message/UserMessage.vue'
+import FollowupOptions from './components/FollowupOptions.vue'
 import CommandInteractionInput from '@/components/agent/CommandInteractionInput.vue'
 import CommandInputBar from '@/components/agent/CommandInputBar.vue'
 import { useInteractiveInput } from '@/composables/useInteractiveInput'
@@ -1059,6 +1025,7 @@ const {
   searchTerm: aiChatSearchTerm,
   matchCount: aiChatMatchCount,
   currentMatchIndex: aiChatCurrentMatchIndex,
+  searchFocusToken: aiChatSearchFocusToken,
   openSearch: openAiChatSearch,
   closeSearch: closeAiChatSearch,
   findNext: findNextAiChatMatch,
@@ -1082,7 +1049,14 @@ const {
 })
 
 // Message options management
-const { handleOptionSelect, getSelectedOption, handleCustomInputChange, getCustomInput, canSubmitOption, handleOptionSubmit } = useMessageOptions()
+const { isOptionAnswered } = useMessageOptions()
+
+// The newest message of a tab, when it is a follow-up question with options still waiting for an answer
+const getPendingFollowup = (tabId: string): ChatMessage | undefined => {
+  const message = chatTabs.value.find((t) => t.id === tabId)?.session.chatHistory.at(-1)
+  if (message?.ask !== 'followup' || typeof message.content !== 'object' || isOptionAnswered(message)) return undefined
+  return (message.content as MessageContent).options?.length ? message : undefined
+}
 
 // Message management
 const {
@@ -1468,7 +1442,8 @@ useWatchers({
   updateHostsForCommandMode
 })
 
-// Keyboard handler for Ctrl+F / Cmd+F search in AI chat
+// Keyboard handler for Ctrl+F / Cmd+F search in AI chat. Registered in the capture
+// phase so a focused Monaco editor never opens its own find widget next to this bar.
 const handleAiChatSearchKeyDown = (e: KeyboardEvent) => {
   if (!isFocusInAiTab(e)) return
   const isMac = navigator.platform.toUpperCase().indexOf('MAC') >= 0
@@ -1495,7 +1470,7 @@ onMounted(async () => {
 
   initializeAutoScroll()
 
-  window.addEventListener('keydown', handleAiChatSearchKeyDown)
+  window.addEventListener('keydown', handleAiChatSearchKeyDown, true)
   window.addEventListener('click', hideTabContextMenu, true)
   window.addEventListener('keydown', hideTabContextMenu, true)
 
@@ -1512,7 +1487,7 @@ onMounted(async () => {
 
 onBeforeUnmount(() => {
   unsubscribeExplainResponse?.()
-  window.removeEventListener('keydown', handleAiChatSearchKeyDown)
+  window.removeEventListener('keydown', handleAiChatSearchKeyDown, true)
   window.removeEventListener('click', hideTabContextMenu, true)
   window.removeEventListener('keydown', hideTabContextMenu, true)
 })

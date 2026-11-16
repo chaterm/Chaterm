@@ -98,7 +98,7 @@ const toolMetadataInternal = [
   {
     name: 'ask_followup_question',
     allowedIn: ['server', 'database'],
-    paramNames: ['question', 'options', 'response'],
+    paramNames: ['title', 'question', 'options', 'response'],
     category: 'common'
   },
   {

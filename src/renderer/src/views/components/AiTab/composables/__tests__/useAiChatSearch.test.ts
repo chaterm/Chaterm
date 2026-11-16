@@ -1,14 +1,43 @@
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
-import { ref, nextTick, effectScope, type Ref } from 'vue'
+import { describe, it, expect, vi, beforeEach, afterEach, type Mock } from 'vitest'
+import { ref, nextTick, effectScope, defineComponent, h, type Ref } from 'vue'
+import { mount } from '@vue/test-utils'
 import { useAiChatSearch } from '../useAiChatSearch'
+import { registerTerminalOutput } from '../terminalOutputRegistry'
+import { createFakeEditor, createFakeTerminal } from './aiChatSearchFakes'
 
 const shouldStickToBottom = ref(true)
+const mocks = vi.hoisted(() => ({ editors: [] as unknown[] }))
 
 vi.mock('../useSessionState', () => ({
   useSessionState: () => ({
     shouldStickToBottom
   })
 }))
+
+vi.mock('monaco-editor', () => ({
+  editor: { getEditors: () => mocks.editors }
+}))
+
+/**
+ * Add a Monaco editor (fake model) or an xterm output (fake buffer) under parent.
+ */
+function addMonaco(parent: HTMLElement, lines: string[]) {
+  const el = document.createElement('div')
+  el.className = 'monaco-container'
+  parent.appendChild(el)
+  const editor = createFakeEditor(el, lines)
+  mocks.editors.push(editor)
+  return { el, editor }
+}
+
+function addTerminal(parent: HTMLElement, lines: string[]) {
+  const el = document.createElement('div')
+  el.className = 'terminal-output'
+  parent.appendChild(el)
+  const terminal = createFakeTerminal(lines)
+  registerTerminalOutput(el, terminal as never)
+  return { el, terminal }
+}
 
 /**
  * Helper: create a DOM container with text content for search testing.
@@ -29,6 +58,8 @@ function waitForDebounce(): Promise<void> {
 
 describe('useAiChatSearch', () => {
   let container: HTMLElement
+  let monaco: ReturnType<typeof addMonaco>
+  let terminalOutput: ReturnType<typeof addTerminal>
   let containerRef: Ref<HTMLElement | null>
   let scope: ReturnType<typeof effectScope>
 
@@ -41,10 +72,12 @@ describe('useAiChatSearch', () => {
   let findNext: ReturnType<typeof useAiChatSearch>['findNext']
   let findPrevious: ReturnType<typeof useAiChatSearch>['findPrevious']
   let clearSearch: ReturnType<typeof useAiChatSearch>['clearSearch']
+  let searchFocusToken: ReturnType<typeof useAiChatSearch>['searchFocusToken']
 
   function initComposable(refOverride: Ref<HTMLElement | null> = containerRef) {
     scope = effectScope()
     const result = scope.run(() => useAiChatSearch(refOverride))!
+    searchFocusToken = result.searchFocusToken
     isSearchOpen = result.isSearchOpen
     searchTerm = result.searchTerm
     matchCount = result.matchCount
@@ -70,12 +103,10 @@ describe('useAiChatSearch', () => {
     // jsdom does not implement scrollIntoView
     Element.prototype.scrollIntoView = vi.fn()
 
-    container = createChatContainer(
-      '<p>Hello world, hello Vue. This is a test.</p>' +
-        '<p>Another hello here.</p>' +
-        '<div class="monaco-container"><div class="view-lines">hello inside monaco</div></div>' +
-        '<div class="terminal-output"><div class="xterm-rows"><div>hello in terminal</div></div></div>'
-    )
+    mocks.editors = []
+    container = createChatContainer('<p>Hello world, hello Vue. This is a test.</p><p>Another hello here.</p>')
+    monaco = addMonaco(container, ['hello inside monaco'])
+    terminalOutput = addTerminal(container, ['hello in terminal'])
     containerRef = ref<HTMLElement | null>(container)
     initComposable()
   })
@@ -143,9 +174,14 @@ describe('useAiChatSearch', () => {
       expect(matchCount.value).toBe(5)
     })
 
-    it('should find matches inside .monaco-container via container search', async () => {
+    it('should find matches inside a Monaco editor through its model', async () => {
       await triggerSearch('monaco')
-      // "monaco" appears once inside .monaco-container
+      // "monaco" appears once in the editor model
+      expect(matchCount.value).toBe(1)
+    })
+
+    it('should find matches in the xterm buffer', async () => {
+      await triggerSearch('terminal')
       expect(matchCount.value).toBe(1)
     })
 
@@ -188,11 +224,11 @@ describe('useAiChatSearch', () => {
       expect(activeMarks.length).toBe(1)
     })
 
-    it('should add highlight class to containers with matches', async () => {
+    it('should decorate the Monaco and xterm matches', async () => {
       await triggerSearch('hello')
-      const highlightedContainers = container.querySelectorAll('.ai-chat-search-container-highlight')
-      // monaco-container and terminal-output both contain "hello"
-      expect(highlightedContainers.length).toBe(2)
+
+      expect(monaco.editor.collection.set).toHaveBeenCalled()
+      expect(terminalOutput.terminal.decorations).toHaveLength(1)
     })
 
     it('should restore original text after clearSearch', async () => {
@@ -209,11 +245,12 @@ describe('useAiChatSearch', () => {
     it('should clear old highlights before new search', async () => {
       await triggerSearch('hello')
       expect(container.querySelectorAll('mark.ai-chat-search-highlight').length).toBe(3)
-      expect(container.querySelectorAll('.ai-chat-search-container-highlight').length).toBe(2)
+      expect(terminalOutput.terminal.decorations).toHaveLength(1)
 
       await triggerSearch('test')
       expect(container.querySelectorAll('mark.ai-chat-search-highlight').length).toBe(1)
-      expect(container.querySelectorAll('.ai-chat-search-container-highlight').length).toBe(0)
+      expect(monaco.editor.collection.clear).toHaveBeenCalled()
+      expect(terminalOutput.terminal.decorations[0].dispose).toHaveBeenCalled()
     })
 
     it('should find multiple matches within the same text node', async () => {
@@ -359,29 +396,22 @@ describe('useAiChatSearch', () => {
       el.remove()
     })
 
-    it('should find matches inside .monaco-wrapper via container search', async () => {
-      const el = createChatContainer(
-        '<p>hello outside</p><div class="monaco-wrapper"><div class="monaco-container"><div class="view-lines">hello inside</div></div></div>'
-      )
+    it('should not count the rendered text of Monaco and xterm a second time', async () => {
+      const el = createChatContainer('<p>hello outside</p>')
+      const wrapper = document.createElement('div')
+      wrapper.className = 'monaco-wrapper'
+      el.appendChild(wrapper)
+      const inEditor = addMonaco(wrapper, ['hello inside'])
+      inEditor.el.innerHTML = '<div class="view-lines">hello inside</div>'
+      const inTerminal = addTerminal(el, ['hello in output'])
+      inTerminal.el.innerHTML = '<div class="xterm-rows"><div>hello in output</div></div>'
       scope.stop()
       initComposable(ref<HTMLElement | null>(el))
 
       await triggerSearch('hello')
-      // 1 normal text match + 1 container match
-      expect(matchCount.value).toBe(2)
-      el.remove()
-    })
 
-    it('should find matches inside .terminal-output', async () => {
-      const el = createChatContainer(
-        '<p>hello outside</p><div class="terminal-output"><div class="xterm-rows"><div>hello in output</div></div></div>'
-      )
-      scope.stop()
-      initComposable(ref<HTMLElement | null>(el))
-
-      await triggerSearch('hello')
-      // 1 normal text match + 1 container match
-      expect(matchCount.value).toBe(2)
+      // 1 text match + 1 editor match + 1 terminal match
+      expect(matchCount.value).toBe(3)
       el.remove()
     })
 
@@ -425,6 +455,213 @@ describe('useAiChatSearch', () => {
 
       await triggerSearch('hello')
       expect(matchCount.value).toBe(5)
+    })
+  })
+
+  // ---------- Current match in Monaco and xterm ----------
+
+  describe('current match in Monaco and xterm', () => {
+    const lastPainted = () => monaco.editor.collection.set.mock.calls.at(-1)![0][0].options.inlineClassName as string
+
+    it('gives the Monaco match the active class only while it is the current one', async () => {
+      await triggerSearch('hello')
+      expect(lastPainted()).not.toContain('ai-chat-search-monaco-match-active')
+
+      findNext()
+      findNext()
+      findNext() // 4th match: the Monaco one
+      expect(lastPainted()).toContain('ai-chat-search-monaco-match-active')
+
+      findNext() // 5th match: xterm
+      expect(lastPainted()).not.toContain('ai-chat-search-monaco-match-active')
+    })
+
+    it('recolors the xterm match when it becomes current and when it stops being current', async () => {
+      await triggerSearch('hello')
+      const decorations = terminalOutput.terminal.decorations
+      const normalColor = decorations[0].options.backgroundColor
+
+      for (let i = 0; i < 4; i++) findNext() // 5th match: xterm
+      expect(decorations.at(-1)!.options.backgroundColor).not.toBe(normalColor)
+
+      findNext() // wraps to the first match
+      expect(decorations.at(-1)!.options.backgroundColor).toBe(normalColor)
+    })
+  })
+
+  // ---------- Folded regions ----------
+
+  describe('folded regions', () => {
+    let headerClick: Mock
+
+    function useFoldedContainer() {
+      const el = createChatContainer(
+        '<p>needle one</p><div class="ant-collapse-item"><div class="ant-collapse-header"></div><div><p class="folded">needle two</p></div></div>'
+      )
+      headerClick = vi.fn()
+      el.querySelector('.ant-collapse-header')!.addEventListener('click', headerClick)
+      scope.stop()
+      initComposable(ref<HTMLElement | null>(el))
+      return el
+    }
+
+    afterEach(() => {
+      vi.useRealTimers()
+    })
+
+    it('opens the fold when navigation reaches a match inside it', async () => {
+      const el = useFoldedContainer()
+      await triggerSearch('needle')
+      expect(headerClick).not.toHaveBeenCalled()
+
+      findNext()
+
+      expect(headerClick).toHaveBeenCalledTimes(1)
+      el.remove()
+    })
+
+    it('opens the fold when the first match is already inside it', async () => {
+      const el = useFoldedContainer()
+      el.querySelector('p')!.textContent = 'nothing'
+
+      await triggerSearch('needle')
+
+      expect(headerClick).toHaveBeenCalledTimes(1)
+      el.remove()
+    })
+
+    it('waits for the fold animation before scrolling to the match', async () => {
+      const el = useFoldedContainer()
+      el.querySelector('p')!.textContent = 'nothing'
+      vi.useFakeTimers()
+      const scroll = vi.mocked(Element.prototype.scrollIntoView)
+      scroll.mockClear()
+
+      searchTerm.value = 'needle'
+      await nextTick()
+      vi.advanceTimersByTime(200)
+      expect(scroll).not.toHaveBeenCalled()
+
+      vi.advanceTimersByTime(299)
+      expect(scroll).not.toHaveBeenCalled()
+      vi.advanceTimersByTime(1)
+      expect(scroll).toHaveBeenCalledTimes(1)
+      el.remove()
+    })
+  })
+
+  // ---------- Scrolling to the current match ----------
+
+  describe('scrolling to the current match', () => {
+    afterEach(() => {
+      vi.useRealTimers()
+    })
+
+    async function searchWithFakeTimers(term: string) {
+      vi.useFakeTimers()
+      searchTerm.value = term
+      await nextTick()
+      vi.advanceTimersByTime(200)
+    }
+
+    it('scrolls a text match into view right away', async () => {
+      await triggerSearch('Another')
+
+      const mark = container.querySelector('mark.ai-chat-search-highlight-active')!
+      expect(mark.scrollIntoView).toHaveBeenCalledWith({ behavior: 'smooth', block: 'center' })
+    })
+
+    it('reveals a Monaco match once its decoration has rendered', async () => {
+      await searchWithFakeTimers('monaco')
+      expect(monaco.editor.revealRangeInCenterIfOutsideViewport).not.toHaveBeenCalled()
+
+      vi.advanceTimersByTime(50)
+
+      expect(monaco.editor.revealRangeInCenterIfOutsideViewport).toHaveBeenCalledTimes(1)
+    })
+
+    it('reveals an xterm match once its decoration has rendered', async () => {
+      const spy = (terminalOutput.el.scrollIntoView = vi.fn())
+      await searchWithFakeTimers('terminal')
+      expect(spy).not.toHaveBeenCalled()
+
+      vi.advanceTimersByTime(50)
+
+      expect(spy).toHaveBeenCalledTimes(1)
+    })
+
+    it('drops a pending reveal when another match becomes current', async () => {
+      await searchWithFakeTimers('hello')
+      for (let i = 0; i < 3; i++) findNext() // 4th match: Monaco, reveal pending
+      const spy = (terminalOutput.el.scrollIntoView = vi.fn())
+      findNext() // 5th match: xterm
+
+      vi.advanceTimersByTime(50)
+
+      expect(monaco.editor.revealRangeInCenterIfOutsideViewport).not.toHaveBeenCalled()
+      expect(spy).toHaveBeenCalledTimes(1)
+    })
+
+    it('drops a pending reveal when the highlights are cleared', async () => {
+      await searchWithFakeTimers('monaco')
+
+      clearSearch()
+      vi.advanceTimersByTime(50)
+
+      expect(monaco.editor.revealRangeInCenterIfOutsideViewport).not.toHaveBeenCalled()
+    })
+  })
+
+  // ---------- Focus token and unmount ----------
+
+  describe('search bar focus', () => {
+    it('bumps the focus token on every openSearch so an open bar can refocus', () => {
+      const before = searchFocusToken.value
+
+      openSearch()
+      openSearch()
+
+      expect(searchFocusToken.value).toBe(before + 2)
+    })
+  })
+
+  describe('unmount', () => {
+    // Mounts a throwaway component so onBeforeUnmount has a real instance to run on.
+    function mountWithSearch() {
+      let api!: ReturnType<typeof useAiChatSearch>
+      const wrapper = mount(
+        defineComponent({
+          setup() {
+            api = useAiChatSearch(containerRef)
+            return () => h('div')
+          }
+        })
+      )
+      return { api, wrapper }
+    }
+
+    it('removes every highlight when the component using the search goes away', async () => {
+      const { api, wrapper } = mountWithSearch()
+      api.searchTerm.value = 'hello'
+      await waitForDebounce()
+      expect(api.matchCount.value).toBe(5)
+
+      wrapper.unmount()
+
+      expect(container.querySelectorAll('mark.ai-chat-search-highlight').length).toBe(0)
+      expect(monaco.editor.collection.clear).toHaveBeenCalled()
+      expect(terminalOutput.terminal.decorations[0].dispose).toHaveBeenCalled()
+    })
+
+    it('cancels a search that has not run yet', async () => {
+      const { api, wrapper } = mountWithSearch()
+      api.searchTerm.value = 'hello'
+      await nextTick()
+
+      wrapper.unmount()
+      await waitForDebounce()
+
+      expect(container.querySelectorAll('mark.ai-chat-search-highlight').length).toBe(0)
     })
   })
 })

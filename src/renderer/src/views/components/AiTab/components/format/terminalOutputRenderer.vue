@@ -65,6 +65,7 @@ import { useCommandDuration } from '../../composables/useCommandDuration'
 import HostTag from './HostTag.vue'
 import { getResolvedTerminalTheme } from '@/themes/terminalTheme'
 import { userConfigStore } from '@/store/userConfigStore'
+import { registerTerminalOutput, unregisterTerminalOutput } from '../../composables/terminalOutputRegistry'
 import type { ThemeId } from '../../../../../../../shared/themes/types'
 import '@xterm/xterm/css/xterm.css'
 
@@ -858,6 +859,7 @@ const initTerminal = async () => {
   })
 
   terminal.open(terminalContainer.value)
+  registerTerminalOutput(terminalContainer.value, terminal)
 
   terminal.options.cursorBlink = false
   terminal.options.cursorStyle = 'block'
@@ -3422,6 +3424,8 @@ onMounted(async () => {
 onBeforeUnmount(() => {
   document.removeEventListener('keydown', handleCopyKeydown, true)
   if (terminal) {
+    // The terminal only exists once it was opened on this element.
+    unregisterTerminalOutput(terminalContainer.value!)
     terminal.dispose()
   }
   window.removeEventListener('resize', handleResize)
