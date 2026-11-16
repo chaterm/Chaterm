@@ -12,6 +12,18 @@ export interface HistoryPaginationState {
 }
 
 /**
+ * A user message waiting for the running agent turn to finish.
+ * `injecting` marks a message already handed to the main process, which merges it
+ * into the next LLM request and confirms with `userMessageInjected`.
+ */
+export interface QueuedMessage {
+  id: string
+  content: string
+  contentParts: ContentPart[]
+  injecting: boolean
+}
+
+/**
  * Session state interface
  * Defines the session state structure for each Tab
  */
@@ -28,6 +40,7 @@ export interface SessionState {
   lastStateChatermMessages: unknown[] | null // Cached chatermMessages from last state message, survives partialMessage overwrites
   shouldStickToBottom: boolean // Whether should stick to bottom
   isCancelled: boolean // Whether the current task has been cancelled/interrupted
+  messageQueue: QueuedMessage[] // Messages queued while the agent is running
   historyPagination?: HistoryPaginationState
 }
 
@@ -95,6 +108,7 @@ export const useSessionState = createGlobalState(() => {
     lastStateChatermMessages: null,
     shouldStickToBottom: true,
     isCancelled: false,
+    messageQueue: [],
     historyPagination: {
       beforeCursor: null,
       hasMoreBefore: false,
