@@ -83,6 +83,35 @@ export function isStoredUserTurn(item: StoredNavMessage, index: number): boolean
   return index === 0 && item.type === 'say' && item.say === 'text'
 }
 
+/**
+ * A prompt sent from this window is rendered with the time it was sent, before the
+ * main process has persisted it under its own timestamp. Once the stored
+ * conversation arrives, point each such message at the first stored user turn
+ * saved at or after its send time, so the id used for jumping, truncating and
+ * forking matches what a reload would produce.
+ */
+export function reconcileUserTurnTimestamps(history: ChatMessage[], stored: StoredNavMessage[]): void {
+  const localUserMessages = history.filter((message) => message.role === 'user' && message.ts)
+  if (localUserMessages.length === 0) return
+
+  const storedUserTs: number[] = []
+  stored.forEach((item, index) => {
+    if (typeof item.ts === 'number' && isStoredUserTurn(item, index)) storedUserTs.push(item.ts)
+  })
+
+  const confirmedTs = new Set(storedUserTs)
+  const takenTs = new Set(localUserMessages.map((message) => message.ts as number))
+  const unclaimed = storedUserTs.filter((ts) => !takenTs.has(ts))
+
+  let next = 0
+  for (const message of localUserMessages) {
+    if (confirmedTs.has(message.ts as number)) continue
+    while (next < unclaimed.length && unclaimed[next] < (message.ts as number)) next++
+    if (next >= unclaimed.length) return
+    message.ts = unclaimed[next++]
+  }
+}
+
 /** Pull the user turns out of a full stored conversation, oldest first. */
 export function buildStoredNavNodes(messages: StoredNavMessage[]): ChatNavNode[] {
   const nodes: ChatNavNode[] = []
