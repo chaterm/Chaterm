@@ -912,6 +912,8 @@ export default {
     name: 'Nom',
     password: 'Mot de passe',
     copyPassword: 'Copier le mot de passe',
+    copyIp: "Copier l'IP",
+    copyHostname: "Copier le nom d'hôte",
     copyPasswordSuccess: 'Mot de passe copié',
     copySuccess: 'Copié',
     copyFailed: 'Copie échouée',

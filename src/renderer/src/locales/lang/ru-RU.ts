@@ -906,6 +906,8 @@ export default {
     name: 'Имя',
     password: 'Пароль',
     copyPassword: 'Копировать пароль',
+    copyIp: 'Копировать IP',
+    copyHostname: 'Копировать имя хоста',
     copyPasswordSuccess: 'Пароль скопирован',
     copySuccess: 'Скопировано',
     copyFailed: 'Ошибка копирования',

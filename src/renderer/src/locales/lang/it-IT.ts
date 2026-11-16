@@ -908,6 +908,8 @@ export default {
     name: 'Nome',
     password: 'Password',
     copyPassword: 'Copia password',
+    copyIp: 'Copia IP',
+    copyHostname: 'Copia nome host',
     copyPasswordSuccess: 'Password copiata',
     copySuccess: 'Copiato',
     copyFailed: 'Copia fallita',
