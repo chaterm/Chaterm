@@ -1,27 +1,20 @@
 import { ref } from 'vue'
 import type { ChatMessage } from '../types'
 import type { WebviewMessage } from '@shared/WebviewMessage'
-import { useSessionState } from './useSessionState'
+import { useSessionState, type SessionState } from './useSessionState'
 
 const logger = createRendererLogger('ai.messageOptions')
 
 /**
- * Composable for message option interaction functionality
- * Handles AI-provided option selection and custom input
+ * Composable for follow-up question interaction.
+ * A preset option is sent as soon as it is clicked; a custom answer is typed
+ * into the input row and sent with Enter (Shift+Enter inserts a newline) or the
+ * submit button. The same button reads "skip" while the input is empty.
  */
 export function useMessageOptions() {
   const { currentSession, attachTabContext } = useSessionState()
-  const messageOptionSelections = ref<Record<string, string>>({})
 
   const messageCustomInputs = ref<Record<string, string>>({})
-
-  const handleOptionSelect = (message: ChatMessage, value: string) => {
-    messageOptionSelections.value[message.id] = value
-  }
-
-  const getSelectedOption = (message: ChatMessage): string => {
-    return messageOptionSelections.value[message.id] || ''
-  }
 
   const handleCustomInputChange = (message: ChatMessage, value: string) => {
     messageCustomInputs.value[message.id] = value
@@ -31,46 +24,17 @@ export function useMessageOptions() {
     return messageCustomInputs.value[message.id] || ''
   }
 
-  /**
-   * Determine if option can be submitted
-   * Rules:
-   * 1. If a preset option is selected, can submit directly
-   * 2. If custom option is selected, need to check input content is not empty
-   */
-  const canSubmitOption = (message: ChatMessage): boolean => {
-    const selected = messageOptionSelections.value[message.id]
-
-    if (!selected) {
-      return false
-    }
-
-    if (selected !== '__custom__') {
-      return true
-    }
-
-    const customInput = messageCustomInputs.value[message.id] || ''
-    return customInput.trim().length > 0
+  const hasCustomInput = (message: ChatMessage): boolean => {
+    return getCustomInput(message).trim().length > 0
   }
 
-  const handleOptionChoose = async (message: ChatMessage, option?: string) => {
-    const session = currentSession.value
-    if (!session) return
+  const isOptionAnswered = (message: ChatMessage): boolean => {
+    return !!message.selectedOption || !!message.skipped
+  }
 
+  const sendFollowupResponse = async (session: SessionState, message: ChatMessage, askResponse: WebviewMessage['askResponse'], text: string) => {
     try {
-      if (option) {
-        message.selectedOption = option
-      }
-      let messageRsp: WebviewMessage = {
-        type: 'askResponse',
-        askResponse: 'yesButtonClicked',
-        text: ''
-      }
-      switch (message.ask) {
-        case 'followup':
-          messageRsp.askResponse = 'messageResponse'
-          messageRsp.text = option || ''
-          break
-      }
+      const messageRsp: WebviewMessage = { type: 'askResponse', askResponse, text }
       logger.info('Send message to main process', { data: messageRsp })
 
       const response = await window.api.sendToMain(attachTabContext(messageRsp))
@@ -78,33 +42,52 @@ export function useMessageOptions() {
 
       session.responseLoading = true
     } catch (error) {
+      // The answer never reached the agent, so reopen the question
+      message.selectedOption = undefined
+      message.skipped = undefined
       logger.error('Failed to send message to main process', { error: error })
     }
   }
 
+  const handleOptionChoose = async (message: ChatMessage, option: string) => {
+    const session = currentSession.value
+    if (!session || isOptionAnswered(message)) return
+
+    message.selectedOption = option
+    await sendFollowupResponse(session, message, 'optionResponse', option)
+  }
+
   const handleOptionSubmit = async (message: ChatMessage) => {
-    const selected = messageOptionSelections.value[message.id]
-    if (!selected) {
-      return
-    }
+    const content = getCustomInput(message).trim()
+    if (!content) return
 
-    const content = selected === '__custom__' ? messageCustomInputs.value[message.id] : selected
+    await handleOptionChoose(message, content)
+  }
 
-    if (!content || content.trim().length === 0) {
-      return
-    }
+  const handleOptionSkip = async (message: ChatMessage) => {
+    const session = currentSession.value
+    if (!session || isOptionAnswered(message)) return
 
-    await handleOptionChoose(message, content.trim())
+    message.skipped = true
+    await sendFollowupResponse(session, message, 'noButtonClicked', '')
+  }
+
+  const handleCustomInputKeydown = (message: ChatMessage, e: KeyboardEvent) => {
+    if (e.key !== 'Enter' || e.shiftKey || e.isComposing) return
+
+    e.preventDefault()
+    handleOptionSubmit(message)
   }
 
   return {
-    messageOptionSelections,
     messageCustomInputs,
-    handleOptionSelect,
-    getSelectedOption,
     handleCustomInputChange,
     getCustomInput,
-    canSubmitOption,
-    handleOptionSubmit
+    hasCustomInput,
+    isOptionAnswered,
+    handleOptionChoose,
+    handleOptionSubmit,
+    handleOptionSkip,
+    handleCustomInputKeydown
   }
 }

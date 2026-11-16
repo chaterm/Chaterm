@@ -115,7 +115,7 @@ export interface WebviewMessage {
   dbContext?: DbTaskContext
 }
 
-export type ChatermAskResponse = 'yesButtonClicked' | 'noButtonClicked' | 'messageResponse' | 'autoApproveReadOnlyClicked'
+export type ChatermAskResponse = 'yesButtonClicked' | 'noButtonClicked' | 'messageResponse' | 'optionResponse' | 'autoApproveReadOnlyClicked'
 
 export type ChatermCheckpointRestore = 'task' | 'workspace' | 'taskAndWorkspace'
 

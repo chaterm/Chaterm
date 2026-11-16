@@ -427,6 +427,14 @@
     }
   }
 
+  .followup-title {
+    margin-bottom: 4px;
+    color: var(--text-color);
+    font-size: 13px;
+    font-weight: 600;
+    line-height: 1.5;
+  }
+
   .message-actions {
     display: flex;
     flex-direction: column;
@@ -477,119 +485,21 @@
           }
         }
       }
+    }
 
-      .options-radio-group {
-        width: 100%;
+    .followup-answer {
+      margin-top: 4px;
+      padding: 2px 0 2px 10px;
+      border-left: 2px solid var(--button-bg-color);
+      color: var(--text-color);
+      font-size: 12px;
+      line-height: 1.5;
+      white-space: pre-wrap;
+      word-break: break-word;
 
-        .ant-radio-group {
-          width: 100%;
-          display: flex;
-          flex-direction: column;
-          gap: 8px;
-        }
-
-        .option-radio {
-          width: 100%;
-          padding: 8px 12px;
-          margin: 0;
-          background-color: var(--bg-color-tertiary);
-          border: 1px solid var(--bg-color-quaternary);
-          border-radius: 6px;
-          color: var(--text-color);
-          transition: all 0.2s ease;
-
-          &:hover {
-            background-color: var(--bg-color-quaternary);
-            border-color: var(--bg-color-novenary);
-          }
-
-          .ant-radio {
-            margin-right: 8px;
-          }
-
-          .ant-radio-checked .ant-radio-inner {
-            background-color: var(--button-bg-color);
-            border-color: var(--button-bg-color);
-          }
-
-          &.custom-option {
-            border-style: dashed;
-            border-color: var(--bg-color-novenary);
-            display: flex;
-            align-items: flex-start;
-            gap: 8px;
-            padding: 8px 12px;
-
-            .custom-radio {
-              margin: 0;
-              margin-top: 2px; // Fine-tune alignment to first line of input text
-              flex-shrink: 0; // Prevent radio button from being compressed
-            }
-
-            .custom-input {
-              flex: 1;
-              background-color: transparent;
-              border: none;
-              color: var(--text-color);
-              padding: 0;
-              min-height: 20px; // Set min height to match other options
-
-              &:focus {
-                border: none;
-                box-shadow: none;
-                background-color: var(--hover-bg-color);
-              }
-
-              &::placeholder {
-                color: var(--text-color-tertiary);
-              }
-
-              :deep(.ant-input) {
-                background-color: transparent !important;
-                border: none !important;
-                box-shadow: none !important;
-                padding: 2px 0 !important;
-                color: var(--text-color) !important;
-                line-height: 1.4 !important;
-                min-height: 20px !important;
-                resize: none !important;
-              }
-
-              // Ensure consistent height for single line
-              :deep(textarea) {
-                line-height: 1.4 !important;
-                min-height: 20px !important;
-              }
-            }
-          }
-        }
-      }
-
-      .submit-button-container {
-        margin-top: 12px;
-        display: flex;
-        justify-content: flex-end;
-
-        .submit-option-btn {
-          background-color: var(--button-bg-color);
-          border-color: var(--button-bg-color);
-          color: white;
-          border-radius: 6px;
-          font-size: 12px;
-          height: 32px;
-          padding: 0 16px;
-
-          &:hover:not(:disabled) {
-            background-color: var(--button-hover-bg);
-            border-color: var(--button-hover-bg);
-          }
-
-          &:disabled {
-            background-color: var(--bg-color-quaternary);
-            border-color: var(--bg-color-quaternary);
-            color: var(--text-color-tertiary);
-          }
-        }
+      &.is-skipped {
+        border-left-color: var(--bg-color-quaternary);
+        color: var(--text-color-tertiary);
       }
     }
 

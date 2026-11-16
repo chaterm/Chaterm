@@ -487,7 +487,7 @@ const shortcutKey = computed(() => {
     return shortcutService.formatShortcut(shortcuts['sendOrToggleAi'])
   }
   const isMac = navigator.platform.toUpperCase().indexOf('MAC') >= 0
-  return isMac ? '⌘L' : 'Ctrl+L'
+  return isMac ? '⌘L' : 'Alt+L'
 })
 const activeEditorKey = ref(null)
 const handleFocusEditor = (editor) => {
@@ -1334,13 +1334,6 @@ onMounted(async () => {
   }
   window.addEventListener('message', handlePostMessage)
 
-  eventBus.on('clearCurrentTerminal', () => {
-    const activeTerm = inputManager.getActiveTerm()
-    if (activeTerm.id && connectionId.value && activeTerm.id === connectionId.value) {
-      contextAct('clearTerm')
-    }
-  })
-
   // Listen for font size change events
   eventBus.on('fontSizeIncrease', () => {
     const activeTerm = inputManager.getActiveTerm()
@@ -1373,7 +1366,6 @@ onMounted(async () => {
     eventBus.off('pinchZoomStatusChanged', handlePinchZoomStatusChanged)
     eventBus.off('localEchoSettingChanged', handleLocalEchoSettingChanged)
     eventBus.off(TERMINAL_RUNTIME_CONFIG_CHANGED_EVENT, handleTerminalRuntimeConfigChanged)
-    eventBus.off('clearCurrentTerminal')
     eventBus.off('fontSizeIncrease')
     eventBus.off('fontSizeDecrease')
     eventBus.off('triggerAiSuggest')

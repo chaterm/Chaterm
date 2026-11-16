@@ -9,10 +9,10 @@ import type { ShortcutAction } from '@/services/shortcutService'
 export const shortcutHintKeys = {
   sendOrToggleAi: 'sendOrToggleAi',
   toggleLeftSidebar: 'toggleLeftSidebar',
+  quickJump: 'quickJump',
   openSettings: 'openSettings',
   openCommandDialog: 'openCommandDialog',
   openFileManager: 'openFileManager',
-  clearTerminal: 'clearTerminal',
   toggleLayout: 'toggleLayout'
 } as const
 
@@ -50,7 +50,7 @@ export const shortcutActions: Omit<ShortcutAction, 'name'>[] = [
     nameKey: 'shortcuts.actions.sendOrToggleAi',
     defaultKey: {
       mac: 'Command+L',
-      other: 'Ctrl+L'
+      other: 'Alt+L'
     },
     handler: () => {
       eventBus.emit('sendOrToggleAiFromTerminal')
@@ -134,14 +134,14 @@ export const shortcutActions: Omit<ShortcutAction, 'name'>[] = [
     }
   },
   {
-    id: 'clearTerminal',
-    nameKey: 'shortcuts.actions.clearTerminal',
+    id: 'quickJump',
+    nameKey: 'shortcuts.actions.quickJump',
     defaultKey: {
       mac: 'Command+P',
       other: 'Ctrl+P'
     },
     handler: () => {
-      eventBus.emit('clearCurrentTerminal')
+      eventBus.emit('toggleQuickJump')
     }
   },
   {

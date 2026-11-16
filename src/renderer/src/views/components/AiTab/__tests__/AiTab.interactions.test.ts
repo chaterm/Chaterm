@@ -1,10 +1,10 @@
-import { computed, defineComponent, h, mergeProps, ref, nextTick } from 'vue'
+import { computed, defineComponent, h, mergeProps, reactive, ref, nextTick } from 'vue'
 import { mount, flushPromises, type VueWrapper } from '@vue/test-utils'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { notification } from 'ant-design-vue'
 import AiTab from '../index.vue'
 import type { ChatTab } from '../composables/useSessionState'
-import type { HistoryItem } from '../types'
+import type { ChatMessage, HistoryItem } from '../types'
 
 const mocks = vi.hoisted(() => ({
   state: {} as ReturnType<typeof createMockState>,
@@ -136,6 +136,24 @@ const inputStub = defineComponent({
           })
         )
       ])
+  }
+})
+const textareaStub = defineComponent({
+  inheritAttrs: false,
+  props: ['value', 'placeholder', 'disabled'],
+  emits: ['input', 'keydown'],
+  setup(props, { attrs, emit }) {
+    return () =>
+      h(
+        'textarea',
+        mergeProps(attrs, {
+          value: props.value,
+          placeholder: props.placeholder,
+          disabled: props.disabled,
+          onInput: (event: Event) => emit('input', event),
+          onKeydown: (event: KeyboardEvent) => emit('keydown', event)
+        })
+      )
   }
 })
 const buttonStub = defineComponent({
@@ -309,13 +327,17 @@ const createMockState = () => {
     handleRetry: vi.fn()
   }
   const hostState = { updateHosts: vi.fn(), updateHostsForCommandMode: vi.fn(), getCurentTabAssetInfo: vi.fn() }
+  const customInput = ref('')
   const messageOptions = {
-    handleOptionSelect: vi.fn(),
-    getSelectedOption: vi.fn(),
+    customInput,
     handleCustomInputChange: vi.fn(),
-    getCustomInput: vi.fn(),
-    canSubmitOption: vi.fn(),
-    handleOptionSubmit: vi.fn()
+    getCustomInput: vi.fn(() => customInput.value),
+    hasCustomInput: vi.fn(() => customInput.value.trim().length > 0),
+    isOptionAnswered: vi.fn((message: ChatMessage) => !!message.selectedOption || !!message.skipped),
+    handleOptionChoose: vi.fn(),
+    handleOptionSubmit: vi.fn(),
+    handleOptionSkip: vi.fn(),
+    handleCustomInputKeydown: vi.fn()
   }
   const modelConfiguration = {
     hasAvailableModels: ref(true),
@@ -384,6 +406,7 @@ const globalStubs = {
   'a-tabs': tabsStub,
   'a-tab-pane': tabPaneStub,
   'a-input': inputStub,
+  'a-textarea': textareaStub,
   'a-button': buttonStub,
   'a-dropdown': dropdownStub,
   'a-menu': menuStub,
@@ -427,6 +450,152 @@ describe('AiTab changed interactions', () => {
   afterEach(() => {
     wrapper.unmount()
     document.body.replaceChildren()
+  })
+
+  describe('follow-up question card', () => {
+    const mountFollowup = async (content: Record<string, unknown>, overrides: Partial<ChatMessage> = {}, isLast = true) => {
+      const message = reactive({
+        id: 'followup-1',
+        role: 'assistant',
+        ask: 'followup',
+        content,
+        ...overrides
+      }) as ChatMessage
+      const later = { id: 'later', role: 'assistant', content: 'moved on', ask: '', say: 'text' } as ChatMessage
+      mocks.state.session.chatTabs.value[0].session.chatHistory = isLast ? [message] : [message, later]
+      mocks.state.session.getTabUserAssistantPairs.mockReturnValue([
+        { user: { message: { id: 'user-1', role: 'user', content: 'hi', ts: 1 } }, assistants: [{ message, historyIndex: 0 }] }
+      ] as never)
+      mocks.state.session.isEmptyTab.mockReturnValue(false)
+      wrapper.unmount()
+      wrapper = mount(AiTab, {
+        attachTo: document.body,
+        props: { toggleSidebar: vi.fn() },
+        global: { stubs: globalStubs, mocks: { $t: (key: string) => key } }
+      })
+      await flushPromises()
+      await nextTick()
+      return message
+    }
+
+    it('docks the card above the input box, below the question', async () => {
+      await mountFollowup({ title: 'Next step', question: 'How to proceed?', options: ['Read only'] })
+
+      expect(wrapper.find('.message-actions .followup-options').exists()).toBe(false)
+      expect(wrapper.find('.bottom-container .followup-options').exists()).toBe(true)
+    })
+
+    it('renders the title, numbered options and a skip button', async () => {
+      await mountFollowup({ title: 'Next step', question: 'How to proceed?', options: ['Read only', 'Plan A'] })
+
+      expect(wrapper.get('.followup-title').text()).toBe('Next step')
+      const options = wrapper.findAll('.followup-option')
+      expect(options.map((o) => o.get('.followup-option-index').text())).toEqual(['1', '2'])
+      expect(options.map((o) => o.get('.followup-option-label').text())).toEqual(['Read only', 'Plan A'])
+      expect(wrapper.get('.followup-skip-btn').text()).toBe('ai.skip')
+      expect(wrapper.find('.followup-custom button:not(.followup-skip-btn)').exists()).toBe(false)
+    })
+
+    it('answers immediately when an option is clicked', async () => {
+      const message = await mountFollowup({ question: 'How to proceed?', options: ['Read only', 'Plan A'] })
+
+      await wrapper.findAll('.followup-option')[1].trigger('click')
+
+      expect(mocks.state.messageOptions.handleOptionChoose).toHaveBeenCalledExactlyOnceWith(message, 'Plan A')
+      expect(wrapper.find('.followup-title').exists()).toBe(false)
+    })
+
+    it('swaps skip for submit once a custom answer is typed', async () => {
+      const message = await mountFollowup({ question: 'How to proceed?', options: ['Read only', 'Plan A'] })
+      const { messageOptions } = mocks.state
+
+      await wrapper.get('.followup-skip-btn').trigger('click')
+      expect(messageOptions.handleOptionSkip).toHaveBeenCalledExactlyOnceWith(message)
+
+      messageOptions.customInput.value = 'my own plan'
+      await nextTick()
+      expect(wrapper.find('.followup-skip-btn').exists()).toBe(false)
+      const submit = wrapper.get('.followup-custom .followup-action-btn')
+      expect(submit.text()).toBe('ai.submit')
+
+      await submit.trigger('click')
+      expect(messageOptions.handleOptionSubmit).toHaveBeenCalledExactlyOnceWith(message)
+    })
+
+    it('forwards typing and key presses of the custom answer', async () => {
+      const message = await mountFollowup({ question: 'How to proceed?', options: ['Read only', 'Plan A'] })
+      const { messageOptions } = mocks.state
+      const textarea = wrapper.get('.followup-custom textarea')
+
+      await textarea.setValue('typed answer')
+      expect(messageOptions.handleCustomInputChange).toHaveBeenCalledWith(message, 'typed answer')
+
+      await textarea.trigger('keydown', { key: 'Enter' })
+      expect(messageOptions.handleCustomInputKeydown).toHaveBeenCalledWith(message, expect.objectContaining({ key: 'Enter' }))
+    })
+
+    it('replaces the card with the recorded answer once answered', async () => {
+      await mountFollowup({ question: 'How to proceed?', options: ['Read only', 'Plan A'] }, { selectedOption: 'Plan A' })
+
+      expect(wrapper.find('.followup-options').exists()).toBe(false)
+      const answer = wrapper.get('.followup-answer')
+      expect(answer.text()).toBe('Plan A')
+      expect(answer.classes('is-skipped')).toBe(false)
+    })
+
+    it('records a skipped question with the skip label', async () => {
+      await mountFollowup({ question: 'How to proceed?', options: ['Read only', 'Plan A'] }, { skipped: true })
+
+      expect(wrapper.find('.followup-options').exists()).toBe(false)
+      const answer = wrapper.get('.followup-answer')
+      expect(answer.text()).toBe('ai.skip')
+      expect(answer.classes('is-skipped')).toBe(true)
+    })
+
+    it('keeps the recorded answer after the question is no longer the last message', async () => {
+      await mountFollowup({ title: 'Next step', question: 'How to proceed?', options: ['Read only', 'Plan A'] }, { selectedOption: 'Plan A' }, false)
+
+      expect(wrapper.get('.followup-title').text()).toBe('Next step')
+      expect(wrapper.get('.followup-answer').text()).toBe('Plan A')
+    })
+
+    it('shows no answer record while the question is unanswered', async () => {
+      await mountFollowup({ question: 'How to proceed?', options: ['Read only', 'Plan A'] })
+
+      expect(wrapper.find('.followup-answer').exists()).toBe(false)
+    })
+
+    it('shows no answer record for other ask types', async () => {
+      await mountFollowup({ question: 'Run it?', options: ['Yes', 'No'] }, { ask: 'command', selectedOption: 'Yes' })
+
+      expect(wrapper.find('.followup-answer').exists()).toBe(false)
+    })
+
+    it('locks the card while the question is still streaming', async () => {
+      await mountFollowup({ question: 'How to proceed?', options: ['Read only'] }, { partial: true })
+
+      expect(wrapper.get('.followup-option').attributes('disabled')).toBeDefined()
+      expect(wrapper.get('.followup-skip-btn').attributes('disabled')).toBeDefined()
+    })
+
+    it('hides the options once the question is no longer the last message', async () => {
+      await mountFollowup({ title: 'Next step', question: 'How to proceed?', options: ['Read only'] }, {}, false)
+
+      expect(wrapper.find('.followup-options').exists()).toBe(false)
+      expect(wrapper.get('.followup-title').text()).toBe('Next step')
+    })
+
+    it('renders no card while the question content is still plain text', async () => {
+      await mountFollowup({ question: 'How to proceed?', options: ['Read only'] }, { content: 'raw text' as never })
+
+      expect(wrapper.find('.followup-options').exists()).toBe(false)
+    })
+
+    it('renders no card for a question without options', async () => {
+      await mountFollowup({ question: 'How to proceed?', options: [] })
+
+      expect(wrapper.find('.followup-options').exists()).toBe(false)
+    })
   })
 
   it('mounts the command input bar while a command runs and wires its actions', async () => {
