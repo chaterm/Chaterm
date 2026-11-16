@@ -165,6 +165,7 @@
             <splitpanes
               v-show="currentMenu !== 'database'"
               class="left-sidebar-container"
+              :class="{ 'is-ai-squeezing': isSqueezingLeftByAi }"
               @resize="(params: ResizeParams) => handleLeftPaneResize(params)"
             >
               <pane
@@ -219,7 +220,7 @@
                   <!-- Main terminal area (including vertical split) -->
                   <pane
                     :size="mainTerminalSize"
-                    :min-size="30"
+                    :min-size="MAIN_TERMINAL_MIN_SIZE"
                   >
                     <!-- Vertical split container, only affects main terminal area -->
                     <splitpanes
@@ -369,6 +370,7 @@ import TabsPanel from './tabsPanel.vue'
 import ExtensionViewHost from './ExtensionViewHost.vue'
 import EditorActions from './components/EditorActions.vue'
 import { getDockTerminalTabId, getMenuForDockBackedUserTab } from './terminalLayoutNavigation'
+import { getSqueezedLeftSidebarWidthPx } from './aiSidebarSqueeze'
 import { v4 as uuidv4 } from 'uuid'
 import { userInfoStore } from '@/store'
 import { aliasConfigStore } from '@/store/aliasConfigStore'
@@ -452,6 +454,9 @@ const currentTheme = ref('dark')
 const aiSidebarSize = ref(0)
 const aiMinSize = ref(0) // AI sidebar minimum size percentage
 const isDraggingSplitter = ref(false) // Whether the splitter is being dragged
+// True while an AI sidebar drag is shrinking the left sidebar, so its width follows the
+// pointer without the pane width transition
+const isSqueezingLeftByAi = ref(false)
 // Left sidebar state variables
 const leftMinSize = ref(0) // Left sidebar minimum size percentage
 const isDraggingLeftSplitter = ref(false) // Whether the left splitter is being dragged
@@ -685,6 +690,40 @@ const handleMouseDown = (e: MouseEvent) => {
   }
 }
 
+// While the AI sidebar is dragged wider and the main terminal pane already sits at its
+// min-size, shrink the open left sidebar so the splitter keeps following the pointer.
+// Once the left sidebar would drop below its drag floor it collapses. Pane min/max sizes
+// stay as they are; only the left sidebar width changes during the drag
+const squeezeLeftSidebarForAiDrag = (pointerX: number) => {
+  if (props.currentMode !== 'terminal' || leftPaneSize.value <= 0) return
+
+  const container = getLeftSidebarContainer()
+  if (!container || container.offsetWidth <= 0) return
+
+  const containerWidth = container.offsetWidth
+  const nextWidthPx = getSqueezedLeftSidebarWidthPx({
+    pointerX,
+    containerLeft: container.getBoundingClientRect().left,
+    containerWidth,
+    leftWidthPx: (leftPaneSize.value / 100) * containerWidth,
+    mainMinSizePercent: MAIN_TERMINAL_MIN_SIZE,
+    leftMinWidthPx: MIN_LEFT_SIDEBAR_DRAG_WIDTH_PX,
+    resistancePx: LEFT_SQUEEZE_RESISTANCE_PX
+  })
+  if (nextWidthPx === null) return
+
+  if (!isSqueezingLeftByAi.value) {
+    // Keep the pre-drag width so reopening the sidebar restores it
+    saveLeftSidebarState()
+    isSqueezingLeftByAi.value = true
+  }
+
+  leftPaneSize.value = (nextWidthPx / containerWidth) * 100
+  if (nextWidthPx === 0) {
+    headerRef.value?.switchIcon('left', false)
+  }
+}
+
 // Global mouse move listener
 const handleGlobalMouseMove = (e: MouseEvent) => {
   // Skip if already quick closing
@@ -698,6 +737,8 @@ const handleGlobalMouseMove = (e: MouseEvent) => {
     if (props.currentMode === 'agents') {
       return
     }
+
+    squeezeLeftSidebarForAiDrag(e.clientX)
 
     const distFromRight = window.innerWidth - e.clientX
     // Close threshold: 50px (only in Terminal mode)
@@ -793,6 +834,7 @@ const handleGlobalMouseUp = () => {
   }
 
   isDraggingSplitter.value = false
+  isSqueezingLeftByAi.value = false
   isDraggingLeftSplitter.value = false
   isLeftQuickCloseArmed.value = false
 }
@@ -1250,6 +1292,11 @@ const LEFT_QUICK_CLOSE_THRESHOLD_PX = 50 // Left sidebar quick close threshold
 // The pane sticks here while the pointer keeps moving inward, and quick close still fires
 // once the pointer itself passes LEFT_QUICK_CLOSE_THRESHOLD_PX
 const MIN_LEFT_SIDEBAR_DRAG_WIDTH_PX = 120
+// Main terminal pane min-size (percent of the main split area)
+const MAIN_TERMINAL_MIN_SIZE = 30
+// Pointer travel the left sidebar resists at its min width before an AI sidebar drag
+// collapses it. Half the min width, matching VS Code's sash snap point
+const LEFT_SQUEEZE_RESISTANCE_PX = MIN_LEFT_SIDEBAR_DRAG_WIDTH_PX / 2
 const currentMenu = ref('workspace')
 
 const isAiChatOnboardingActive = () => onboardingStore.activeTour === 'aiChat'
@@ -3727,6 +3774,11 @@ defineExpose({
 .splitpanes__splitter {
   background-color: var(--border-color);
   position: relative;
+}
+
+// Let the left sidebar follow the pointer while an AI sidebar drag squeezes it
+.left-sidebar-container.is-ai-squeezing > .splitpanes__pane {
+  transition: none;
 }
 
 .splitpanes__splitter:before {
