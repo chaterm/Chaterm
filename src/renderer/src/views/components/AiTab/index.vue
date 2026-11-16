@@ -91,6 +91,7 @@
             :search-term="aiChatSearchTerm"
             :match-count="aiChatMatchCount"
             :current-match-index="aiChatCurrentMatchIndex"
+            :focus-token="aiChatSearchFocusToken"
             @update:search-term="aiChatSearchTerm = $event"
             @find-next="findNextAiChatMatch"
             @find-previous="findPreviousAiChatMatch"
@@ -1024,6 +1025,7 @@ const {
   searchTerm: aiChatSearchTerm,
   matchCount: aiChatMatchCount,
   currentMatchIndex: aiChatCurrentMatchIndex,
+  searchFocusToken: aiChatSearchFocusToken,
   openSearch: openAiChatSearch,
   closeSearch: closeAiChatSearch,
   findNext: findNextAiChatMatch,
@@ -1440,7 +1442,8 @@ useWatchers({
   updateHostsForCommandMode
 })
 
-// Keyboard handler for Ctrl+F / Cmd+F search in AI chat
+// Keyboard handler for Ctrl+F / Cmd+F search in AI chat. Registered in the capture
+// phase so a focused Monaco editor never opens its own find widget next to this bar.
 const handleAiChatSearchKeyDown = (e: KeyboardEvent) => {
   if (!isFocusInAiTab(e)) return
   const isMac = navigator.platform.toUpperCase().indexOf('MAC') >= 0
@@ -1467,7 +1470,7 @@ onMounted(async () => {
 
   initializeAutoScroll()
 
-  window.addEventListener('keydown', handleAiChatSearchKeyDown)
+  window.addEventListener('keydown', handleAiChatSearchKeyDown, true)
   window.addEventListener('click', hideTabContextMenu, true)
   window.addEventListener('keydown', hideTabContextMenu, true)
 
@@ -1484,7 +1487,7 @@ onMounted(async () => {
 
 onBeforeUnmount(() => {
   unsubscribeExplainResponse?.()
-  window.removeEventListener('keydown', handleAiChatSearchKeyDown)
+  window.removeEventListener('keydown', handleAiChatSearchKeyDown, true)
   window.removeEventListener('click', hideTabContextMenu, true)
   window.removeEventListener('keydown', hideTabContextMenu, true)
 })
