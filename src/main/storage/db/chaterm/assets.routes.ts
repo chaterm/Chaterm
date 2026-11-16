@@ -470,6 +470,7 @@ export async function getLocalAssetRouteLogic(db: Database, searchType: string, 
             SELECT h.asset_uuid,
                    oa.host as asset_ip,
                    oa.hostname as asset_label,
+                   oa.comment,
                    h.asset_port,
                    h.asset_username,
                    a.asset_type,
@@ -480,7 +481,7 @@ export async function getLocalAssetRouteLogic(db: Database, searchType: string, 
             JOIN t_assets a ON a.uuid = oa.organization_uuid
             WHERE h.organization_id != 'personal'
               AND a.asset_type IN (${orgTypePlaceholders})
-            GROUP BY h.asset_uuid, oa.host, oa.hostname, h.asset_port, h.asset_username, a.asset_type, oa.organization_uuid
+            GROUP BY h.asset_uuid, oa.host, oa.hostname, oa.comment, h.asset_port, h.asset_username, a.asset_type, oa.organization_uuid
             ORDER BY last_connected DESC
             LIMIT 10
           `)
@@ -497,6 +498,7 @@ export async function getLocalAssetRouteLogic(db: Database, searchType: string, 
                 isRecentConnection: true,
                 ip: item.asset_ip || '',
                 uuid: item.asset_uuid || '',
+                comment: item.comment,
                 port: item.asset_port || 22,
                 username: item.asset_username || '',
                 asset_type: item.asset_type || 'organization',

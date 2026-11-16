@@ -886,6 +886,8 @@ export default {
     name: '이름',
     password: '비밀번호',
     copyPassword: '비밀번호 복사',
+    copyIp: 'IP 복사',
+    copyHostname: '호스트 이름 복사',
     copyPasswordSuccess: '비밀번호가 복사되었습니다',
     copySuccess: '복사되었습니다',
     copyFailed: '복사 실패',

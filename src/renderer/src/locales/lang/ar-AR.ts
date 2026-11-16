@@ -891,6 +891,8 @@ export default {
     name: 'الاسم',
     password: 'كلمة المرور',
     copyPassword: 'نسخ كلمة المرور',
+    copyIp: 'نسخ عنوان IP',
+    copyHostname: 'نسخ اسم المضيف',
     copyPasswordSuccess: 'تم نسخ كلمة المرور',
     copySuccess: 'تم النسخ',
     copyFailed: 'فشل النسخ',
