@@ -5,6 +5,7 @@ import {
   isStoredUserTurn,
   buildStoredNavNodes,
   buildNavNodes,
+  reconcileUserTurnTimestamps,
   resolveActivePairIndex
 } from '../useChatNavRail'
 import type { UserAssistantPair } from '../useSessionState'
@@ -88,6 +89,59 @@ describe('isStoredUserTurn', () => {
     expect(isStoredUserTurn({ type: 'say', say: 'command', text: 'ls -al' }, 2)).toBe(false)
     expect(isStoredUserTurn({ type: 'say', say: 'command_output', text: 'total 0' }, 2)).toBe(false)
     expect(isStoredUserTurn({ type: 'say', say: 'reasoning', text: 'thinking' }, 2)).toBe(false)
+  })
+})
+
+describe('reconcileUserTurnTimestamps', () => {
+  const stored = (ts: number, say = 'user_feedback', text = 'q') => ({ ts, type: 'say', say, text })
+  const assistant = (id: string) => msg({ id, role: 'assistant', ts: 0 })
+
+  it('swaps the send time for the stored timestamp', () => {
+    const history = [msg({ id: 'u1', ts: 1000 })]
+    reconcileUserTurnTimestamps(history, [stored(1003)])
+    expect(history[0].ts).toBe(1003)
+  })
+
+  it('assigns several unsaved prompts in order', () => {
+    const history = [msg({ id: 'u1', ts: 1000 }), assistant('a1'), msg({ id: 'u2', ts: 2000 })]
+    reconcileUserTurnTimestamps(history, [stored(1002), stored(1500, 'text'), stored(2004)])
+    expect(history.map((m) => m.ts)).toEqual([1002, 0, 2004])
+  })
+
+  it('leaves a prompt that already carries its stored timestamp alone', () => {
+    const history = [msg({ id: 'u1', ts: 500 }), msg({ id: 'u2', ts: 1000 })]
+    reconcileUserTurnTimestamps(history, [stored(500), stored(1001)])
+    expect(history.map((m) => m.ts)).toEqual([500, 1001])
+  })
+
+  it('ignores stored turns saved before the prompt was sent', () => {
+    const history = [msg({ id: 'u2', ts: 1000 })]
+    reconcileUserTurnTimestamps(history, [stored(100), stored(1001)])
+    expect(history[0].ts).toBe(1001)
+  })
+
+  it('keeps the send time until the turn has been persisted', () => {
+    const history = [msg({ id: 'u1', ts: 1000 }), msg({ id: 'u2', ts: 2000 })]
+    reconcileUserTurnTimestamps(history, [stored(1002)])
+    expect(history.map((m) => m.ts)).toEqual([1002, 2000])
+  })
+
+  it('does not treat terminal output or assistant text as a user turn', () => {
+    const history = [msg({ id: 'u1', ts: 1000 })]
+    reconcileUserTurnTimestamps(history, [
+      stored(900),
+      { ts: 1001, type: 'say', say: 'text', text: 'assistant reply' },
+      stored(1002, 'user_feedback', 'Terminal output:\n```\nls\n```'),
+      { type: 'say', say: 'user_feedback', text: 'no timestamp' },
+      stored(1003)
+    ])
+    expect(history[0].ts).toBe(1003)
+  })
+
+  it('does nothing without a timestamped local user prompt', () => {
+    const history = [assistant('a1'), msg({ id: 'u1', ts: 0 })]
+    reconcileUserTurnTimestamps(history, [stored(1001)])
+    expect(history.map((m) => m.ts)).toEqual([0, 0])
   })
 })
 
