@@ -156,14 +156,14 @@ export class ExternalMcpServer {
           try {
             elicitation = await server.server.elicitInput({
               mode: 'form',
-              message: `Approve command on ${target.name}: ${command}\n\nReason: ${decision.reason}`,
-              requestedSchema: { type: 'object', properties: { approve: { type: 'boolean', title: 'Approve command' } }, required: ['approve'] }
+              message: `Approve command\nTarget: ${target.name}\nCommand: ${command}`,
+              requestedSchema: { type: 'object', properties: {} }
             })
           } catch {
             return this.toolError('approval_unavailable', 'This MCP client does not support approval prompts')
           }
-          if (elicitation.action !== 'accept' || elicitation.content?.approve !== true)
-            return this.toolError('approval_denied', 'User denied command execution')
+          if (elicitation.action === 'cancel') return this.toolError('approval_cancelled', 'Approval prompt was cancelled by the client')
+          if (elicitation.action !== 'accept') return this.toolError('approval_denied', 'User denied command execution')
         }
         const info = await connectAssetInfo(target_id)
         if (!info) return this.toolError('invalid_target', 'Target credentials are unavailable')
