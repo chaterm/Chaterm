@@ -2,6 +2,26 @@
   "releaseNotesUrl": "https://github.com/chaterm/Chaterm/releases/tag/v",
   "versions": [
     {
+      "version": "0.13.0",
+      "date": "2026-11-17",
+      "highlights": {
+        "zh-CN": [
+          "AI 对话：新增会话分支与追问面板，Agent 运行中输入的消息自动排队发送",
+          "快捷跳转：新增 Ctrl+K 命令面板，知识库以目录树展示，Ctrl+L 归还终端清屏",
+          "资产管理：支持直连主机重命名与删除，资产搜索框可直接回车连接，优化堡垒机备注展示",
+          "Agent 能力：支持访问未 @ 选中的受管主机与多目标主机选择，优化 DeepSeek、OpenAI 工具调用兼容性",
+          "稳定性改进：修复命令执行中断与卡死、输入丢失、终端滚动条遮挡、数据库分栏等问题"
+        ],
+        "en-US": [
+          "AI chat: added conversation branching and a follow-up panel, and queued messages typed while the agent is running",
+          "Quick jump: added a Ctrl+K command palette, showed the knowledge base as a folder tree, and returned Ctrl+L to terminal clearing",
+          "Asset management: added renaming and deleting direct hosts, connecting from the asset search box with the keyboard, and improved bastion remarks",
+          "Agent capabilities: allowed reaching managed hosts that were not @-selected and selecting any number of target hosts, and improved DeepSeek and OpenAI tool-call compatibility",
+          "Stability improvements: fixed stuck and aborted command runs, lost typed input, terminal scrollbar overlap, and database split-pane layout issues"
+        ]
+      }
+    },
+    {
       "version": "0.12.6",
       "date": "2026-10-22",
       "highlights": {
