@@ -20,12 +20,21 @@ vi.mock('../execution-service', () => ({
   }
 }))
 
+vi.mock('../../../agent/core/storage/state', () => ({
+  getGlobalState: vi.fn().mockResolvedValue({ enabled: false })
+}))
+
+vi.mock('../../../storage/database', () => ({
+  connectAssetInfo: vi.fn().mockResolvedValue(null)
+}))
+
 import { createServer, type Server } from 'node:http'
 import { mkdtempSync, readFileSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { Client } from '@modelcontextprotocol/sdk/client/index.js'
 import { StreamableHTTPClientTransport } from '@modelcontextprotocol/sdk/client/streamableHttp.js'
+import { ElicitRequestSchema } from '@modelcontextprotocol/sdk/types.js'
 import { ExternalMcpServer } from '../server'
 
 describe('ExternalMcpServer', () => {
@@ -36,7 +45,8 @@ describe('ExternalMcpServer', () => {
       async () =>
         ({
           listMcpTargets: () => [{ target_id: 'asset-1', name: 'test', host: '127.0.0.1', port: 22, connection_type: 'ssh', group: null }],
-          getMcpTarget: () => null
+          getMcpTarget: (id: string) =>
+            id === 'asset-1' ? { target_id: 'asset-1', name: 'test', host: '127.0.0.1', port: 22, connection_type: 'ssh', group: null } : null
         }) as any,
       '/tmp/chaterm-external-mcp-test/external-mcp.json'
     )
@@ -71,6 +81,46 @@ describe('ExternalMcpServer', () => {
   it('reports no endpoint once disabled', async () => {
     await server.setEnabled(true)
     expect(await server.setEnabled(false)).toEqual({ enabled: false, endpoint: null })
+  })
+
+  describe('chaterm_exec approval elicitation', () => {
+    const callExec = async (client: Client) => {
+      const result = await client.callTool({
+        name: 'chaterm_exec',
+        arguments: { target_id: 'asset-1', command: 'echo hi', requires_approval: true }
+      })
+      return (result.content as Array<{ text: string }>)[0].text
+    }
+
+    const connectWithElicitation = async (respond: () => { action: 'accept' | 'decline' | 'cancel' }) => {
+      await server.setEnabled(true)
+      const client = new Client({ name: 'test-client', version: '1.0.0' }, { capabilities: { elicitation: {} } })
+      await client.connect(new StreamableHTTPClientTransport(new URL(server.status().endpoint!)))
+      client.setRequestHandler(ElicitRequestSchema, () => respond())
+      return client
+    }
+
+    it('accept proceeds past the prompt (no approve field required)', async () => {
+      const client = await connectWithElicitation(() => ({ action: 'accept' }))
+      // connectAssetInfo returns null, so an accepted prompt reaches invalid_target
+      expect(await callExec(client)).toContain('invalid_target')
+      await client.close()
+      await server.dispose()
+    })
+
+    it('decline returns approval_denied', async () => {
+      const client = await connectWithElicitation(() => ({ action: 'decline' }))
+      expect(await callExec(client)).toContain('approval_denied')
+      await client.close()
+      await server.dispose()
+    })
+
+    it('cancel returns approval_cancelled', async () => {
+      const client = await connectWithElicitation(() => ({ action: 'cancel' }))
+      expect(await callExec(client)).toContain('approval_cancelled')
+      await client.close()
+      await server.dispose()
+    })
   })
 
   describe('port selection', () => {
