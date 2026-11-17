@@ -2,6 +2,28 @@
   "releaseNotesUrl": "https://github.com/chaterm/Chaterm/releases/tag/v",
   "versions": [
     {
+      "version": "0.13.0",
+      "date": "2026-11-17",
+      "highlights": {
+        "zh-CN": [
+          "支持创建对话分支，在任意 AI 回复处复制对话到新标签页继续追问",
+          "支持消息排队，Agent 运行期间输入的消息自动排队，并按顺序发送",
+          "支持快捷跳转，按下 Ctrl/Command+P 弹出搜索框，直接跳转到主机、知识库和快捷命令",
+          "支持 Agent 自由连接主机，在需要时，即使没有 @ 主机，Agent 也能找到并连接 Chaterm 托管的主机",
+          "修复若干前端 UI 问题",
+          "修复命令执行中断或卡死、输入丢失、终端滚动条遮挡及数据库分栏布局异常"
+        ],
+        "en-US": [
+          "Create conversation branches by copying a conversation from any AI response into a new tab and continuing with follow-up questions",
+          "Queue messages entered while the agent is running and send them in order",
+          "Use Ctrl+P or Command+P for quick navigation, then jump directly to hosts, knowledge bases, and shortcut commands",
+          "Let the agent connect to hosts as needed, including Chaterm-managed hosts that were not @-mentioned",
+          "Fix several frontend UI issues",
+          "Fix interrupted or stuck command execution, lost input, terminal scrollbar overlap, and database split-pane layout issues"
+        ]
+      }
+    },
+    {
       "version": "0.12.6",
       "date": "2026-10-22",
       "highlights": {
