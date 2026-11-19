@@ -449,13 +449,15 @@ app.whenReady().then(async () => {
   mark('chaterm/main/appReady')
 
   // [Security] Verify ffmpeg.dll integrity asynchronously (Windows Only)
+  // Expected hash is computed at build time from node_modules/electron/dist/ffmpeg.dll
+  // and injected via electron-vite `define`. Empty hash disables the check.
   let ffmpegVerification: Promise<void> | null = null
-  if (process.platform === 'win32' && process.env.IS_DEV !== 'true') {
+  const expectedFfmpegHash = process.env.CHATERM_FFMPEG_HASH
+  if (process.platform === 'win32' && process.env.IS_DEV !== 'true' && expectedFfmpegHash) {
     ffmpegVerification = (async () => {
       try {
         const crypto = require('crypto')
         const ffmpegPath = path.join(path.dirname(process.execPath), 'ffmpeg.dll')
-        const KNOWN_HASH = '31F21B81D743DCD2DC16190B246854E6B86211D2DC2F26B84B96E02DFA43D798'
 
         try {
           await fs.access(ffmpegPath)
@@ -468,8 +470,8 @@ app.whenReady().then(async () => {
         const buffer = await fs.readFile(ffmpegPath)
         const hash = crypto.createHash('sha256').update(buffer).digest('hex').toUpperCase()
 
-        if (hash !== KNOWN_HASH) {
-          logger.error(`[Security] CRITICAL: ffmpeg.dll hash mismatch! Expected: ${KNOWN_HASH}, Actual: ${hash}`)
+        if (hash !== expectedFfmpegHash) {
+          logger.error(`[Security] CRITICAL: ffmpeg.dll hash mismatch! Expected: ${expectedFfmpegHash}, Actual: ${hash}`)
           const { dialog } = require('electron')
           dialog.showErrorBox(
             'Security Error',

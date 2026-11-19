@@ -1,11 +1,15 @@
 import { resolve } from 'path'
 import { readFileSync } from 'fs'
+import { createRequire } from 'module'
 import { defineConfig, externalizeDepsPlugin, loadEnv } from 'electron-vite'
 import vue from '@vitejs/plugin-vue'
 import Components from 'unplugin-vue-components/vite'
 import { AntDesignVueResolver } from 'unplugin-vue-components/resolvers'
 import AutoImport from 'unplugin-auto-import/vite'
 import pkg from './package.json'
+
+const require = createRequire(import.meta.url)
+const { computeFfmpegHash } = require('./scripts/compute-ffmpeg-hash.js') as { computeFfmpegHash: () => string }
 
 const publicDir = resolve('resources')
 const envDir = resolve('build')
@@ -136,7 +140,11 @@ export default defineConfig(({ mode }) => {
         'process.env.CHATERM_ENTERPRISE_STATS_ENABLED': JSON.stringify(env.RENDERER_ENTERPRISE_STATS_ENABLED || ''),
         'process.env.CHATERM_OAUTH_DEEPLINK_SIGNATURE_ENABLED': JSON.stringify(env.RENDERER_OAUTH_DEEPLINK_SIGNATURE_ENABLED || ''),
         'process.env.CHATERM_DEPLOY_STATUS': JSON.stringify(env.RENDERER_DEPLOY_STATUS || '0'),
-        'process.env.CHATERM_PREINSTALLED_PLUGINS': JSON.stringify(env.RENDERER_PREINSTALLED_PLUGINS || '')
+        'process.env.CHATERM_PREINSTALLED_PLUGINS': JSON.stringify(env.RENDERER_PREINSTALLED_PLUGINS || ''),
+        // SHA256 of Electron's bundled ffmpeg.dll, computed at build time.
+        // Used by main process to detect post-install DLL replacement on Windows.
+        // Empty string on non-Windows or when DLL is missing (disables runtime check).
+        'process.env.CHATERM_FFMPEG_HASH': JSON.stringify(computeFfmpegHash())
       },
       build: {
         sourcemap: enableSourcemap,
