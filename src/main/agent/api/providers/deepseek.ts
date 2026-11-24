@@ -21,7 +21,7 @@ const logger = createLogger('agent')
 const NATIVE_TOOL_INSTRUCTION = `
 # Native tool calling
 
-Native functions are available for every Chaterm tool documented above. Call the function whose name matches the tool you need and pass its parameters as a JSON object. Do not write XML or DSML tool markup in message content. When the task is complete, call the attempt_completion function.
+Native functions are available for every Chaterm tool documented above. Call exactly one function per turn: the one whose name matches the tool you need, with its parameters as a JSON object. Do not write XML or DSML tool markup in message content. When the task is complete, call the attempt_completion function.
 `
 
 interface NativeToolCall {
@@ -197,6 +197,13 @@ export class DeepSeekHandler implements ApiHandler {
     const model = this.getModel()
     const nativeTools = this.options.useNativeTools === true
     const tools = nativeTools ? buildNativeTools(this.options.workspace ?? 'server') : undefined
+    if (nativeTools) {
+      logger.info('DeepSeek native tool calling enabled', {
+        event: 'deepseek.native_tools.enabled',
+        workspace: this.options.workspace ?? 'server',
+        toolCount: tools?.length ?? 0
+      })
+    }
     const effectiveSystemPrompt = nativeTools ? `${systemPrompt}\n\n${NATIVE_TOOL_INSTRUCTION}` : systemPrompt
 
     const openAiMessages: OpenAI.Chat.ChatCompletionMessageParam[] = [
