@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { parseAssistantMessageV2 } from './parse-assistant-message'
+import { encodeNativeParam } from '../../shared/native-tools'
 
 const issueMessage = `The service list was offloaded. Let me read it to understand the topology.
 <｜｜DSML｜｜ calls>
@@ -289,6 +290,19 @@ describe('parseAssistantMessageV2 DSML compatibility', () => {
     const message = `<｜DSML｜ invoke name="write_to_file"><｜DSML｜ parameter name="path">a.txt</path><｜DSML｜ parameter name="content"><content>x</content></｜DSML｜ parameter></｜DSML｜ invoke>`
     expect(parseAssistantMessageV2(message)).toEqual([
       { type: 'tool_use', name: 'write_to_file', params: { path: 'a.txt', content: '<content>x</content>' }, partial: false }
+    ])
+  })
+
+  it('decodes base64 parameter values produced by native tool calls', () => {
+    const command = `printf "<&>" && echo 'done'`
+    const message = `<execute_command><command>${encodeNativeParam(command)}</command><interactive>${encodeNativeParam('false')}</interactive></execute_command>`
+    expect(parseAssistantMessageV2(message)).toEqual([
+      {
+        type: 'tool_use',
+        name: 'execute_command',
+        params: { command, interactive: 'false' },
+        partial: false
+      }
     ])
   })
 })

@@ -5,6 +5,7 @@
 // Licensed under the Apache License, Version 2.0
 
 import { AssistantMessageContent, TextContent, ToolUse, ToolParamName, toolParamNames, toolUseNames, ToolUseName } from '.' // Assuming types are defined in index.ts or a similar file
+import { decodeNativeParam } from '../../shared/native-tools'
 
 /**
  * @description **Version 1**
@@ -565,6 +566,16 @@ export function parseAssistantMessageV2(assistantMessage: string): AssistantMess
     currentTextContent.content = cleanText(currentTextContent.content)
     if (currentTextContent.content.length > 0) {
       contentBlocks.push(currentTextContent)
+    }
+  }
+
+  // Native tool calls are bridged into XML with base64 parameter values so
+  // commands and file contents survive transport unchanged.
+  for (const block of contentBlocks) {
+    if (block.type !== 'tool_use') continue
+    for (const key of Object.keys(block.params) as ToolParamName[]) {
+      const value = block.params[key]
+      if (value !== undefined) block.params[key] = decodeNativeParam(value)
     }
   }
 

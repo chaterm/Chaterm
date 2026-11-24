@@ -13,7 +13,88 @@ import { calculateApiCostOpenAI } from '../../utils/cost'
 import { convertToOpenAiMessages } from '../transform/openai-format'
 import { ApiStream } from '../transform/stream'
 import { checkProxyConnectivity, getSharedDispatcher, shouldUseProxy } from './proxy/index'
+import { getToolMetadata, registeredToolNames } from '../../core/task/tool-registry'
+import type { ToolUseName } from '../../core/assistant-message'
+import { encodeNativeParam } from '../../shared/native-tools'
 const logger = createLogger('agent')
+
+const NATIVE_TOOL_INSTRUCTION = `
+# Native tool calling
+
+Native functions are available for every Chaterm tool documented above. Call the function whose name matches the tool you need and pass its parameters as a JSON object. Do not write XML or DSML tool markup in message content. When the task is complete, call the attempt_completion function.
+`
+
+interface NativeToolCall {
+  id: string
+  name: string
+  arguments: string
+}
+
+/**
+ * Build native function schemas from the tool registry. Descriptions live in
+ * the system prompt; the schema only needs to expose the accepted parameter
+ * names so the model can produce structured arguments.
+ */
+export function buildNativeTools(workspace: 'server' | 'database' = 'server'): OpenAI.Chat.ChatCompletionTool[] {
+  return registeredToolNames
+    .filter((name) => {
+      const metadata = getToolMetadata(name)
+      return !metadata || metadata.allowedIn.includes(workspace)
+    })
+    .map((name) => {
+      const metadata = getToolMetadata(name)
+      const properties: Record<string, { type: 'string' }> = {}
+      for (const param of metadata?.paramNames ?? []) {
+        properties[param] = { type: 'string' }
+      }
+      return {
+        type: 'function' as const,
+        function: {
+          name,
+          description: `Chaterm tool "${name}". Use the parameter names documented in the system prompt.`,
+          parameters: {
+            type: 'object',
+            properties,
+            additionalProperties: true
+          }
+        }
+      }
+    })
+}
+
+/**
+ * Convert one native tool call into Chaterm's XML tool syntax. Parameter values
+ * are base64 encoded so commands, file contents and JSON strings cannot break
+ * the XML framing; the parser decodes them again.
+ */
+export function buildNativeToolXml(call: NativeToolCall | undefined): string {
+  if (!call?.name) return ''
+  const metadata = getToolMetadata(call.name as ToolUseName)
+  if (!metadata) return ''
+
+  let args: Record<string, unknown>
+  try {
+    args = JSON.parse(call.arguments || '{}')
+  } catch {
+    return ''
+  }
+  if (!args || typeof args !== 'object' || Array.isArray(args)) return ''
+
+  const parts: string[] = []
+  for (const param of metadata.paramNames) {
+    const value = args[param]
+    if (value === undefined || value === null) continue
+    const text = typeof value === 'string' ? value : JSON.stringify(value)
+    if (text === undefined) continue
+    parts.push(`<${param}>${encodeNativeParam(text)}</${param}>`)
+  }
+
+  // The model supplied arguments but none of them belong to this tool; let the
+  // task retry instead of executing the tool with no parameters.
+  if (parts.length === 0 && Object.keys(args).length > 0) return ''
+
+  return `<${call.name}>${parts.join('')}</${call.name}>`
+}
 
 export class DeepSeekHandler implements ApiHandler {
   private options: ApiHandlerOptions
@@ -114,8 +195,14 @@ export class DeepSeekHandler implements ApiHandler {
 
   async *createMessage(systemPrompt: string, messages: Anthropic.Messages.MessageParam[]): ApiStream {
     const model = this.getModel()
+    const nativeTools = this.options.useNativeTools === true
+    const tools = nativeTools ? buildNativeTools(this.options.workspace ?? 'server') : undefined
+    const effectiveSystemPrompt = nativeTools ? `${systemPrompt}\n\n${NATIVE_TOOL_INSTRUCTION}` : systemPrompt
 
-    const openAiMessages: OpenAI.Chat.ChatCompletionMessageParam[] = [{ role: 'system', content: systemPrompt }, ...convertToOpenAiMessages(messages)]
+    const openAiMessages: OpenAI.Chat.ChatCompletionMessageParam[] = [
+      { role: 'system', content: effectiveSystemPrompt },
+      ...convertToOpenAiMessages(messages)
+    ]
 
     const stream = await this.client.chat.completions.create({
       model: model.id,
@@ -127,8 +214,13 @@ export class DeepSeekHandler implements ApiHandler {
       stream: true,
       stream_options: { include_usage: true },
       // Ignored in thinking mode, keeps non-thinking mode deterministic
-      temperature: 0
+      temperature: 0,
+      // Thinking mode rejects tool_choice "required"; "auto" lets the model
+      // choose a tool while keeping its reasoning context.
+      ...(nativeTools && tools ? { tools, tool_choice: 'auto' as const } : {})
     })
+
+    const pendingToolCalls = new Map<number, NativeToolCall>()
 
     for await (const chunk of stream) {
       const delta = chunk.choices[0]?.delta
@@ -146,8 +238,36 @@ export class DeepSeekHandler implements ApiHandler {
         }
       }
 
+      if (nativeTools && delta?.tool_calls) {
+        for (const toolCall of delta.tool_calls) {
+          const index = toolCall.index ?? 0
+          const current = pendingToolCalls.get(index) ?? { id: '', name: '', arguments: '' }
+          if (toolCall.id) current.id = toolCall.id
+          if (toolCall.function?.name) current.name += toolCall.function.name
+          if (toolCall.function?.arguments) current.arguments += toolCall.function.arguments
+          pendingToolCalls.set(index, current)
+        }
+      }
+
       if (chunk.usage) {
         yield* this.yieldUsage(model.info, chunk.usage)
+      }
+    }
+
+    if (nativeTools && pendingToolCalls.size > 0) {
+      const calls = [...pendingToolCalls.values()]
+      if (calls.length > 1) {
+        logger.warn('DeepSeek returned multiple native tool calls; using the first', {
+          event: 'deepseek.native_tools.multiple_calls',
+          count: calls.length
+        })
+      }
+      const toolXml = buildNativeToolXml(calls[0])
+      if (toolXml) {
+        yield {
+          type: 'text',
+          text: toolXml
+        }
       }
     }
   }

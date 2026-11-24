@@ -152,7 +152,7 @@ export class Controller {
     if (resolvedTaskId) {
       await this.clearTask(resolvedTaskId)
     }
-    const { apiConfiguration, userRules, autoApprovalSettings } = await getAllExtensionState()
+    const { apiConfiguration, userRules, autoApprovalSettings, chatSettings } = await getAllExtensionState()
     const customInstructions = this.formatUserRulesToInstructions(userRules)
 
     let resolvedApiConfiguration: ApiConfiguration
@@ -193,6 +193,14 @@ export class Controller {
     } else {
       resolvedWorkspace = normaliseWorkspace(workspace)
       resolvedDbContext = resolvedWorkspace === 'database' && hasValidDbContext(dbContext) ? dbContext : undefined
+    }
+
+    // Native tool calling is only used by the autonomous Agent mode. Command
+    // and Chat modes keep the prompt-level XML path.
+    resolvedApiConfiguration = {
+      ...resolvedApiConfiguration,
+      useNativeTools: chatSettings?.mode === 'agent',
+      workspace: resolvedWorkspace
     }
 
     // Guard: a database-workspace new task must carry a valid dbContext.
