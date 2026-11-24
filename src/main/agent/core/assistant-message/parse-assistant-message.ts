@@ -583,7 +583,7 @@ export function parseAssistantMessageV2(assistantMessage: string): AssistantMess
  * markup residue (for example `</execute_command>` or a stream cut in the
  * middle of a tag) must not be treated as a final answer.
  */
-function hasUsableTextContent(content: string): boolean {
+export function hasUsableTextContent(content: string): boolean {
   return content.replace(/<[^>]*>?/g, '').trim().length > 0
 }
 

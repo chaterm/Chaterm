@@ -183,6 +183,22 @@ describe('Task dispatch and state flow', () => {
     expect(result).toBe(false)
   })
 
+  it('drops assistant history that contains only malformed markup', () => {
+    const history = [
+      { role: 'user', content: [{ type: 'text', text: 'go' }] },
+      { role: 'assistant', content: [{ type: 'text', text: '</execute_command>' }] },
+      { role: 'assistant', content: [{ type: 'text', text: '</execute_comman' }] },
+      { role: 'assistant', content: [{ type: 'tool_use', id: 'tool-1', name: 'execute_command', input: {} }] },
+      { role: 'assistant', content: [{ type: 'text', text: 'real answer' }] },
+      { role: 'user', content: [{ type: 'text', text: 'next' }] }
+    ]
+
+    const filtered = task.dropNonActionableAssistantMessages(history)
+
+    expect(filtered).toHaveLength(4)
+    expect(filtered.map((message: any) => message.content)).toContainEqual([{ type: 'text', text: 'real answer' }])
+  })
+
   it('processAssistantResponse should use empty response handler for markup residue', async () => {
     task.assistantMessageContent = []
     const result = await task.processAssistantResponse('</execute_command>')

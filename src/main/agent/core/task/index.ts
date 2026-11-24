@@ -72,6 +72,7 @@ interface MessageUpdater {
 import {
   AssistantMessageContent,
   hasUsableAssistantContent,
+  hasUsableTextContent,
   parseAssistantMessageV2,
   ToolParamName,
   ToolUseName,
@@ -953,6 +954,22 @@ export class Task {
     }
 
     return value
+  }
+
+  /**
+   * Remove assistant turns that contain no actionable text or tool use.
+   *
+   * Older tasks may already have a malformed DSML closer (for example
+   * `</execute_command>`) persisted as an assistant message. Sending it back to
+   * the model reinforces the same malformed output on the next retry, so drop
+   * those turns before building the API request.
+   */
+  private dropNonActionableAssistantMessages(conversationHistory: Anthropic.MessageParam[]): Anthropic.MessageParam[] {
+    return conversationHistory.filter((message) => {
+      if (message.role !== 'assistant') return true
+      if (typeof message.content === 'string') return hasUsableTextContent(message.content)
+      return message.content.some((block) => block.type === 'tool_use' || (block.type === 'text' && hasUsableTextContent(block.text)))
+    })
   }
 
   private normalizeToolResultsForApi(conversationHistory: Anthropic.MessageParam[]): Anthropic.MessageParam[] {
@@ -2564,6 +2581,10 @@ export class Task {
       conversationHistory = this.contextManager.filterConversationHistoryByTimestamp(conversationHistory, this.chatermMessages, this.summarizeUpToTs)
       this.summarizeUpToTs = undefined
     }
+
+    // Drop assistant turns that only contain malformed markup so the model does
+    // not keep imitating its own broken output.
+    conversationHistory = this.dropNonActionableAssistantMessages(conversationHistory)
 
     // Normalize tool_result and legacy file_ref blocks into text-only content
     // so that downstream provider adapters see only supported block types.
