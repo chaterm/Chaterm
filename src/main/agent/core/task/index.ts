@@ -69,7 +69,15 @@ interface MessageUpdater {
   updateApiReqMsg: (cancelReason?: ChatermApiReqCancelReason, streamingFailedMessage?: string) => void
 }
 
-import { AssistantMessageContent, parseAssistantMessageV2, ToolParamName, ToolUseName, TextContent, ToolUse } from '@core/assistant-message'
+import {
+  AssistantMessageContent,
+  hasUsableAssistantContent,
+  parseAssistantMessageV2,
+  ToolParamName,
+  ToolUseName,
+  TextContent,
+  ToolUse
+} from '@core/assistant-message'
 import { isToolAllowed, type TaskWorkspace } from './tool-registry'
 import { DEFAULT_WORKSPACE, hasValidDbContext, normaliseWorkspace, type DbTaskContext } from './workspace'
 import {
@@ -3100,7 +3108,7 @@ export class Task {
   }
 
   private async processAssistantResponse(assistantMessage: string): Promise<boolean> {
-    if (assistantMessage.length === 0) {
+    if (assistantMessage.length === 0 || !hasUsableAssistantContent(this.assistantMessageContent)) {
       return await this.handleEmptyAssistantResponse()
     }
     // telemetryService.captureConversationTurnEvent(this.taskId, await getGlobalState('apiProvider'), this.api.getModel().id, 'assistant')

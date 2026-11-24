@@ -59,6 +59,7 @@ describe('Task dispatch and state flow', () => {
     task = Object.create((Task as unknown as { prototype: object }).prototype) as any
     task.taskId = 'task-test'
     task.userMessageContent = []
+    task.assistantMessageContent = []
     task.chatermMessages = []
     task.pendingToolResults = []
     task.userMessageContentReady = true
@@ -182,7 +183,16 @@ describe('Task dispatch and state flow', () => {
     expect(result).toBe(false)
   })
 
+  it('processAssistantResponse should use empty response handler for markup residue', async () => {
+    task.assistantMessageContent = []
+    const result = await task.processAssistantResponse('</execute_command>')
+
+    expect(task.handleEmptyAssistantResponse).toHaveBeenCalledTimes(1)
+    expect(result).toBe(false)
+  })
+
   it('processAssistantResponse should save message and recurse for non-empty response', async () => {
+    task.assistantMessageContent = [{ type: 'text', content: 'assistant text', partial: false }]
     const result = await task.processAssistantResponse('assistant text')
 
     expect(task.addToApiConversationHistory).toHaveBeenCalledWith({

@@ -300,9 +300,15 @@ export function parseAssistantMessageV2(assistantMessage: string): AssistantMess
       malformedToolTags.set(match.index + match[0].length - 1, { tag: match[0], name })
     }
   }
+  // A closing tag that reaches the text state has no matching opener, because
+  // real tool closers are consumed by the tool-state parser. DeepSeek sometimes
+  // emits only the closer (e.g. a lone `</execute_command>`); leaving it as text
+  // makes the task treat the turn as a final answer.
+  const strayToolCloseTag = new RegExp(`<\\s*/\\s*(?:${toolUseNames.join('|')})\\s*>`, 'gi')
   const cleanText = (text: string): string =>
     text
       .replace(new RegExp(`<\\s*/?\\s*${dsmlPrefix}\\s*(?:calls|tool_calls|function_calls)\\s*>`, 'gi'), '')
+      .replace(strayToolCloseTag, '')
       // Hold back incomplete DSML tags across streaming chunks.
       .replace(/<\/?\s*(?:(?:[｜|‖]\s*){0,8}(?:D(?:S(?:M(?:L[^>]*)?)?)?)?)?$/i, '')
       .trim()
@@ -569,4 +575,15 @@ export function parseAssistantMessageV2(assistantMessage: string): AssistantMess
   }
 
   return contentBlocks
+}
+
+/**
+ * True when a parsed turn contains something the agent can act on.
+ *
+ * A turn that only produced markup residue (for example a stray
+ * `</execute_command>` with no opener) must be treated as an empty response so
+ * the task loop retries instead of silently completing with an empty result.
+ */
+export function hasUsableAssistantContent(blocks: AssistantMessageContent[]): boolean {
+  return blocks.some((block) => block.type === 'tool_use' || (block.type === 'text' && block.content.trim().length > 0))
 }
