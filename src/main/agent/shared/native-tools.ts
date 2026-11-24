@@ -12,6 +12,13 @@
  */
 export const NATIVE_PARAM_PREFIX = '__chaterm_native_b64__'
 
+/**
+ * Message-level marker emitted by the native-tool bridge. The parser only
+ * decodes prefixed parameters when this marker is present, so an ordinary XML
+ * reply that happens to contain the prefix is preserved verbatim.
+ */
+export const NATIVE_MESSAGE_MARKER = '<!--chaterm-native-tool-->'
+
 export function encodeNativeParam(value: string): string {
   return `${NATIVE_PARAM_PREFIX}${Buffer.from(value, 'utf8').toString('base64')}`
 }

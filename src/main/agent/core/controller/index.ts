@@ -352,9 +352,13 @@ export class Controller {
               askResponse: message.askResponse
             })
             if (message.modelName?.trim() && message.modelName.trim() !== task.api.getModel().id) {
-              const { apiConfiguration } = await getAllExtensionState()
+              const { apiConfiguration, chatSettings } = await getAllExtensionState()
               if (apiConfiguration) {
-                const perTabConfig = await buildApiConfigurationForModel(apiConfiguration, message.modelName)
+                const perTabConfig = {
+                  ...(await buildApiConfigurationForModel(apiConfiguration, message.modelName)),
+                  useNativeTools: chatSettings?.mode === 'agent',
+                  workspace: task.workspace
+                }
                 task.api = buildApiHandler(perTabConfig)
                 task.setApiProvider(perTabConfig.apiProvider)
               }

@@ -9,6 +9,7 @@ vi.mock('openai', () => ({
 }))
 
 import { parseAssistantMessageV2 } from '../../../core/assistant-message'
+import { NATIVE_MESSAGE_MARKER } from '../../../shared/native-tools'
 import { DeepSeekHandler, buildNativeToolXml, buildNativeTools } from '../deepseek'
 
 function streamEvents() {
@@ -120,7 +121,7 @@ describe('DeepSeek native tool calls', () => {
 
     expect(xml).toContain('<command>')
     expect(xml).not.toContain('not_a_param')
-    expect(parseAssistantMessageV2(xml)).toEqual([
+    expect(parseAssistantMessageV2(`${NATIVE_MESSAGE_MARKER}${xml}`)).toEqual([
       {
         type: 'tool_use',
         name: 'execute_command',

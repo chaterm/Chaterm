@@ -15,7 +15,7 @@ import { ApiStream } from '../transform/stream'
 import { checkProxyConnectivity, getSharedDispatcher, shouldUseProxy } from './proxy/index'
 import { getToolMetadata, registeredToolNames } from '../../core/task/tool-registry'
 import type { ToolUseName } from '../../core/assistant-message'
-import { encodeNativeParam } from '../../shared/native-tools'
+import { encodeNativeParam, NATIVE_MESSAGE_MARKER } from '../../shared/native-tools'
 const logger = createLogger('agent')
 
 const NATIVE_TOOL_INSTRUCTION = `
@@ -273,7 +273,7 @@ export class DeepSeekHandler implements ApiHandler {
       if (toolXml) {
         yield {
           type: 'text',
-          text: toolXml
+          text: `${NATIVE_MESSAGE_MARKER}${toolXml}`
         }
       }
     }
