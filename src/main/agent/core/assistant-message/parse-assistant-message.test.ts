@@ -324,4 +324,9 @@ describe('parseAssistantMessageV2 stray closing tags', () => {
     expect(hasUsableAssistantContent(parseAssistantMessageV2('x < 5 and y > 2'))).toBe(true)
     expect(hasUsableAssistantContent(parseAssistantMessageV2('<div>'))).toBe(true)
   })
+
+  it('treats bare DSML closers as unusable', () => {
+    expect(parseAssistantMessageV2('</parameter>\n</invoke>')).toEqual([])
+    expect(hasUsableAssistantContent(parseAssistantMessageV2('</parameter>\n</invoke>'))).toBe(false)
+  })
 })

@@ -8,6 +8,9 @@ import { AssistantMessageContent, TextContent, ToolUse, ToolParamName, toolParam
 
 const DSML_PREFIX = '(?:[｜|‖]\\s*)+DSML\\s*(?:[｜|‖]\\s*)+'
 const DSML_MARKUP_TAG = new RegExp(`<\\s*/?\\s*${DSML_PREFIX}\\s*(?:calls|tool_calls|function_calls|invoke|parameter)\\b[^<>]*>?`, 'gi')
+// DeepSeek sometimes drops the DSML special token itself and leaves only the
+// XML-looking closer, e.g. "</parameter>\n</invoke>".
+const BARE_DSML_CLOSE_TAG = /<\s*\/\s*(?:invoke|parameter)\s*>/gi
 const MARKDOWN_CODE_SEGMENT = /(```[\s\S]*?```|`[^`\n]*`)/g
 
 // `toolUseNames` is initialized by the barrel module after this file loads, so
@@ -22,7 +25,7 @@ const toolMarkupTag = (): RegExp => new RegExp(`<\\s*/?\\s*(?:${toolUseNames.joi
 function stripStrayToolClosers(text: string): string {
   return text
     .split(MARKDOWN_CODE_SEGMENT)
-    .map((part, index) => (index % 2 === 1 ? part : part.replace(strayToolCloseTag(), '')))
+    .map((part, index) => (index % 2 === 1 ? part : part.replace(strayToolCloseTag(), '').replace(BARE_DSML_CLOSE_TAG, '')))
     .join('')
 }
 
@@ -603,7 +606,7 @@ export function parseAssistantMessageV2(assistantMessage: string): AssistantMess
  * the middle of a tool tag) must not be treated as a final answer.
  */
 export function hasUsableTextContent(content: string): boolean {
-  const stripped = content.replace(toolMarkupTag(), '').replace(DSML_MARKUP_TAG, '').trim()
+  const stripped = content.replace(toolMarkupTag(), '').replace(DSML_MARKUP_TAG, '').replace(BARE_DSML_CLOSE_TAG, '').trim()
   if (stripped.length === 0) return false
 
   const truncated = stripped.match(/^<\/?([a-z_]+)$/i)
