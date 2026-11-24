@@ -292,3 +292,49 @@ describe('parseAssistantMessageV2 DSML compatibility', () => {
     ])
   })
 })
+
+describe('official DSML output parser port', () => {
+  it('converts a standard DSML tool-call block and preserves surrounding text', () => {
+    const message = `Before.
+
+<｜DSML｜tool_calls>
+<｜DSML｜invoke name="execute_command">
+<｜DSML｜parameter name="command" string="true">printf "<&>"</｜DSML｜parameter>
+<｜DSML｜parameter name="ip" string="true">10.0.0.1</｜DSML｜parameter>
+</｜DSML｜invoke>
+</｜DSML｜tool_calls>
+
+After.`
+
+    const blocks = parseAssistantMessageV2(message)
+    expect(blocks).toContainEqual({
+      type: 'tool_use',
+      name: 'execute_command',
+      params: { command: 'printf "<&>"', ip: '10.0.0.1' },
+      partial: false
+    })
+    const text = blocks
+      .filter((block) => block.type === 'text')
+      .map((block) => block.content)
+      .join('')
+    expect(text).toContain('Before.')
+    expect(text).toContain('After.')
+  })
+
+  it('converts multiple invokes in one tool-call block', () => {
+    const message = `<｜DSML｜tool_calls>
+<｜DSML｜invoke name="read_file">
+<｜DSML｜parameter name="path" string="true">a.txt</｜DSML｜parameter>
+</｜DSML｜invoke>
+<｜DSML｜invoke name="read_file">
+<｜DSML｜parameter name="path" string="true">b.txt</｜DSML｜parameter>
+</｜DSML｜invoke>
+</｜DSML｜tool_calls>`
+
+    const tools = parseAssistantMessageV2(message).filter((block) => block.type === 'tool_use')
+    expect(tools).toEqual([
+      { type: 'tool_use', name: 'read_file', params: { path: 'a.txt' }, partial: false },
+      { type: 'tool_use', name: 'read_file', params: { path: 'b.txt' }, partial: false }
+    ])
+  })
+})
