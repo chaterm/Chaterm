@@ -72,7 +72,6 @@ interface MessageUpdater {
 import {
   AssistantMessageContent,
   hasUsableAssistantContent,
-  hasUsableTextContent,
   parseAssistantMessageV2,
   ToolParamName,
   ToolUseName,
@@ -965,10 +964,16 @@ export class Task {
    * those turns before building the API request.
    */
   private dropNonActionableAssistantMessages(conversationHistory: Anthropic.MessageParam[]): Anthropic.MessageParam[] {
+    const hasUsableHistoryText = (text: string): boolean => {
+      // Fast path: without markup there is nothing to classify.
+      if (!/[<｜|]/.test(text)) return true
+      return hasUsableAssistantContent(parseAssistantMessageV2(text))
+    }
+
     return conversationHistory.filter((message) => {
       if (message.role !== 'assistant') return true
-      if (typeof message.content === 'string') return hasUsableTextContent(message.content)
-      return message.content.some((block) => block.type === 'tool_use' || (block.type === 'text' && hasUsableTextContent(block.text)))
+      if (typeof message.content === 'string') return hasUsableHistoryText(message.content)
+      return message.content.some((block) => block.type === 'tool_use' || (block.type === 'text' && hasUsableHistoryText(block.text)))
     })
   }
 
@@ -3123,7 +3128,7 @@ export class Task {
       block.partial = false
     })
 
-    if (partialBlocks.length > 0) {
+    if (partialBlocks.length > 0 && hasUsableAssistantContent(this.assistantMessageContent)) {
       this.presentAssistantMessage()
     }
   }

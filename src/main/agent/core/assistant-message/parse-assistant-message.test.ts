@@ -312,4 +312,16 @@ describe('parseAssistantMessageV2 stray closing tags', () => {
     expect(hasUsableAssistantContent(parseAssistantMessageV2('</｜｜DSML｜｜ invoke>'))).toBe(false)
     expect(hasUsableAssistantContent(parseAssistantMessageV2('Use <div> here'))).toBe(true)
   })
+
+  it('preserves tool closers inside Markdown code', () => {
+    expect(parseAssistantMessageV2('To close it, write `</execute_command>`.')).toMatchObject([
+      { type: 'text', content: 'To close it, write `</execute_command>`.' }
+    ])
+    expect(parseAssistantMessageV2('```xml\n</execute_command>\n```')).toMatchObject([{ type: 'text', content: '```xml\n</execute_command>\n```' }])
+  })
+
+  it('keeps ordinary angle-bracket text substantive', () => {
+    expect(hasUsableAssistantContent(parseAssistantMessageV2('x < 5 and y > 2'))).toBe(true)
+    expect(hasUsableAssistantContent(parseAssistantMessageV2('<div>'))).toBe(true)
+  })
 })

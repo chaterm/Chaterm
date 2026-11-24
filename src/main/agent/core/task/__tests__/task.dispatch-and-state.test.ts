@@ -189,14 +189,34 @@ describe('Task dispatch and state flow', () => {
       { role: 'assistant', content: [{ type: 'text', text: '</execute_command>' }] },
       { role: 'assistant', content: [{ type: 'text', text: '</execute_comman' }] },
       { role: 'assistant', content: [{ type: 'tool_use', id: 'tool-1', name: 'execute_command', input: {} }] },
+      { role: 'assistant', content: [{ type: 'text', text: '<todo_read></todo_read>' }] },
       { role: 'assistant', content: [{ type: 'text', text: 'real answer' }] },
       { role: 'user', content: [{ type: 'text', text: 'next' }] }
     ]
 
     const filtered = task.dropNonActionableAssistantMessages(history)
 
-    expect(filtered).toHaveLength(4)
+    expect(filtered).toHaveLength(5)
     expect(filtered.map((message: any) => message.content)).toContainEqual([{ type: 'text', text: 'real answer' }])
+    expect(filtered.map((message: any) => message.content)).toContainEqual([{ type: 'text', text: '<todo_read></todo_read>' }])
+  })
+
+  it('finalizePartialBlocks skips turns with only markup residue', () => {
+    task.assistantMessageContent = [{ type: 'text', content: '</execute_command>', partial: true }]
+    task.presentAssistantMessage = vi.fn()
+
+    task.finalizePartialBlocks()
+
+    expect(task.presentAssistantMessage).not.toHaveBeenCalled()
+  })
+
+  it('finalizePartialBlocks presents turns with a tool call', () => {
+    task.assistantMessageContent = [{ type: 'tool_use', name: 'execute_command', params: {}, partial: true }]
+    task.presentAssistantMessage = vi.fn()
+
+    task.finalizePartialBlocks()
+
+    expect(task.presentAssistantMessage).toHaveBeenCalledTimes(1)
   })
 
   it('processAssistantResponse should use empty response handler for markup residue', async () => {
