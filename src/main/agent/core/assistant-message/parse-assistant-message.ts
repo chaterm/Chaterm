@@ -5,6 +5,7 @@
 // Licensed under the Apache License, Version 2.0
 
 import { AssistantMessageContent, TextContent, ToolUse, ToolParamName, toolParamNames, toolUseNames, ToolUseName } from '.' // Assuming types are defined in index.ts or a similar file
+import { convertDsmlToolCalls, decodeDsmlParam, DSML_MESSAGE_MARKER } from './dsml-output-parser'
 
 /**
  * @description **Version 1**
@@ -265,6 +266,14 @@ export function parseAssistantMessageV2(assistantMessage: string): AssistantMess
   // GLM models wrap tool calls with <tool_call>/<tool_call>, strip them so
   // the standard XML parser can find the actual tool tags directly.
   assistantMessage = assistantMessage.replace(/<\/?tool_call>/g, '')
+
+  // Normalize standard DeepSeek DSML tool-call blocks with the text-mode port
+  // of the official state machine before the generic XML parser runs.
+  assistantMessage = convertDsmlToolCalls(assistantMessage, toolUseNames, toolParamNames).text
+  const dsmlBridge = assistantMessage.includes(DSML_MESSAGE_MARKER)
+  if (dsmlBridge) {
+    assistantMessage = assistantMessage.split(DSML_MESSAGE_MARKER).join('')
+  }
 
   // DeepSeek-compatible endpoints can leak DSML tool calls into the text stream.
   // Recognize them here so they use the same registry, approval and dispatch path
@@ -565,6 +574,16 @@ export function parseAssistantMessageV2(assistantMessage: string): AssistantMess
     currentTextContent.content = cleanText(currentTextContent.content)
     if (currentTextContent.content.length > 0) {
       contentBlocks.push(currentTextContent)
+    }
+  }
+
+  if (dsmlBridge) {
+    for (const block of contentBlocks) {
+      if (block.type !== 'tool_use') continue
+      for (const key of Object.keys(block.params) as ToolParamName[]) {
+        const value = block.params[key]
+        if (value !== undefined) block.params[key] = decodeDsmlParam(value)
+      }
     }
   }
 
