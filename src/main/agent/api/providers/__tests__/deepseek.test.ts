@@ -68,14 +68,16 @@ describe('DeepSeek native tool calls', () => {
 
     const request = createMock.mock.calls[0][0]
     expect(request.tools?.length).toBeGreaterThan(0)
-    expect(request.tool_choice).toBe('auto')
+    expect(request.tool_choice).toBe('required')
+    expect(request.thinking).toEqual({ type: 'disabled' })
     expect(request.messages[0].content).toContain('Native tool calling')
 
     const text = chunks
       .filter((chunk) => chunk.type === 'text')
       .map((chunk) => chunk.text)
       .join('')
-    expect(text).toContain('Checking.')
+    expect(text).not.toContain('Checking.')
+    expect(text).toContain(NATIVE_MESSAGE_MARKER)
 
     const blocks = parseAssistantMessageV2(text)
     expect(blocks).toContainEqual({

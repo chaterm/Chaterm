@@ -222,16 +222,21 @@ export class DeepSeekHandler implements ApiHandler {
       stream_options: { include_usage: true },
       // Ignored in thinking mode, keeps non-thinking mode deterministic
       temperature: 0,
-      // Thinking mode rejects tool_choice "required"; "auto" lets the model
-      // choose a tool while keeping its reasoning context.
-      ...(nativeTools && tools ? { tools, tool_choice: 'auto' as const } : {})
+      // Thinking mode rejects tool_choice "required", so the native path
+      // disables thinking and forces exactly one function call per turn. This
+      // prevents the model from falling back to its XML/DSML habit and ending
+      // the task with a text-only turn.
+      ...(nativeTools && tools ? { tools, tool_choice: 'required' as const, thinking: { type: 'disabled' as const } } : {})
     })
 
     const pendingToolCalls = new Map<number, NativeToolCall>()
 
     for await (const chunk of stream) {
       const delta = chunk.choices[0]?.delta
-      if (delta?.content) {
+      // In native mode only structured tool calls reach the agent. Suppress
+      // free-form content so a model that still writes XML/DSML cannot leak it
+      // into the parser or be mistaken for a final answer.
+      if (delta?.content && !nativeTools) {
         yield {
           type: 'text',
           text: delta.content
