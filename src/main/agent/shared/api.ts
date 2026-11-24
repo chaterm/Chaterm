@@ -11,6 +11,10 @@ export type ApiProvider = 'anthropic' | 'bedrock' | 'litellm' | 'deepseek' | 'de
 export interface ApiHandlerOptions {
   apiModelId?: string
   taskId?: string // Used to identify the task in API requests
+  /** Use the provider's native tool-calling API instead of prompt-level XML tools. */
+  useNativeTools?: boolean
+  /** Workspace of the current task, used to filter the native tool list. */
+  workspace?: 'server' | 'database'
   awsAccessKey?: string
   awsSecretKey?: string
   awsSessionToken?: string

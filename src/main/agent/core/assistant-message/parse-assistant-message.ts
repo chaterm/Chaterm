@@ -5,6 +5,7 @@
 // Licensed under the Apache License, Version 2.0
 
 import { AssistantMessageContent, TextContent, ToolUse, ToolParamName, toolParamNames, toolUseNames, ToolUseName } from '.' // Assuming types are defined in index.ts or a similar file
+import { decodeNativeParam, NATIVE_MESSAGE_MARKER } from '../../shared/native-tools'
 
 /**
  * @description **Version 1**
@@ -265,6 +266,14 @@ export function parseAssistantMessageV2(assistantMessage: string): AssistantMess
   // GLM models wrap tool calls with <tool_call>/<tool_call>, strip them so
   // the standard XML parser can find the actual tool tags directly.
   assistantMessage = assistantMessage.replace(/<\/?tool_call>/g, '')
+
+  // Native tool calls are bridged into XML by the provider. Only that bridge
+  // marks the message, so ordinary XML values that resemble the encoding are
+  // never decoded by accident.
+  const nativeBridge = assistantMessage.includes(NATIVE_MESSAGE_MARKER)
+  if (nativeBridge) {
+    assistantMessage = assistantMessage.split(NATIVE_MESSAGE_MARKER).join('')
+  }
 
   // DeepSeek-compatible endpoints can leak DSML tool calls into the text stream.
   // Recognize them here so they use the same registry, approval and dispatch path
@@ -565,6 +574,18 @@ export function parseAssistantMessageV2(assistantMessage: string): AssistantMess
     currentTextContent.content = cleanText(currentTextContent.content)
     if (currentTextContent.content.length > 0) {
       contentBlocks.push(currentTextContent)
+    }
+  }
+
+  // Native tool calls are bridged into XML with base64 parameter values so
+  // commands and file contents survive transport unchanged.
+  if (nativeBridge) {
+    for (const block of contentBlocks) {
+      if (block.type !== 'tool_use') continue
+      for (const key of Object.keys(block.params) as ToolParamName[]) {
+        const value = block.params[key]
+        if (value !== undefined) block.params[key] = decodeNativeParam(value)
+      }
     }
   }
 
