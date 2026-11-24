@@ -306,4 +306,10 @@ describe('parseAssistantMessageV2 stray closing tags', () => {
     expect(hasUsableAssistantContent(parseAssistantMessageV2('</execute_command>'))).toBe(false)
     expect(hasUsableAssistantContent(parseAssistantMessageV2('</execute_command>\nWorking on it.'))).toBe(true)
   })
+
+  it('treats truncated or DSML-only markup as unusable', () => {
+    expect(hasUsableAssistantContent(parseAssistantMessageV2('</execute_comman'))).toBe(false)
+    expect(hasUsableAssistantContent(parseAssistantMessageV2('</｜｜DSML｜｜ invoke>'))).toBe(false)
+    expect(hasUsableAssistantContent(parseAssistantMessageV2('Use <div> here'))).toBe(true)
+  })
 })

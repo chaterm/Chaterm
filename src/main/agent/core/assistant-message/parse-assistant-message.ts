@@ -578,12 +578,22 @@ export function parseAssistantMessageV2(assistantMessage: string): AssistantMess
 }
 
 /**
+ * True when a text block still has something the agent can act on after
+ * removing complete or truncated tag-like markup. A turn that only contains
+ * markup residue (for example `</execute_command>` or a stream cut in the
+ * middle of a tag) must not be treated as a final answer.
+ */
+function hasUsableTextContent(content: string): boolean {
+  return content.replace(/<[^>]*>?/g, '').trim().length > 0
+}
+
+/**
  * True when a parsed turn contains something the agent can act on.
  *
- * A turn that only produced markup residue (for example a stray
- * `</execute_command>` with no opener) must be treated as an empty response so
- * the task loop retries instead of silently completing with an empty result.
+ * A turn that only produced markup residue must be treated as an empty
+ * response so the task loop retries instead of silently completing with an
+ * empty result.
  */
 export function hasUsableAssistantContent(blocks: AssistantMessageContent[]): boolean {
-  return blocks.some((block) => block.type === 'tool_use' || (block.type === 'text' && block.content.trim().length > 0))
+  return blocks.some((block) => block.type === 'tool_use' || (block.type === 'text' && hasUsableTextContent(block.content)))
 }
