@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { parseAssistantMessageV2 } from './parse-assistant-message'
+import { hasUsableAssistantContent, parseAssistantMessageV2 } from './parse-assistant-message'
 
 const issueMessage = `The service list was offloaded. Let me read it to understand the topology.
 <｜｜DSML｜｜ calls>
@@ -290,5 +290,43 @@ describe('parseAssistantMessageV2 DSML compatibility', () => {
     expect(parseAssistantMessageV2(message)).toEqual([
       { type: 'tool_use', name: 'write_to_file', params: { path: 'a.txt', content: '<content>x</content>' }, partial: false }
     ])
+  })
+})
+
+describe('parseAssistantMessageV2 stray closing tags', () => {
+  it('returns no content for a lone tool closing tag', () => {
+    expect(parseAssistantMessageV2('</execute_command>')).toEqual([])
+  })
+
+  it('strips a stray closer while keeping surrounding prose', () => {
+    expect(parseAssistantMessageV2('Done.\n</execute_command>')).toMatchObject([{ type: 'text', content: 'Done.' }])
+  })
+
+  it('treats a turn containing only markup residue as unusable', () => {
+    expect(hasUsableAssistantContent(parseAssistantMessageV2('</execute_command>'))).toBe(false)
+    expect(hasUsableAssistantContent(parseAssistantMessageV2('</execute_command>\nWorking on it.'))).toBe(true)
+  })
+
+  it('treats truncated or DSML-only markup as unusable', () => {
+    expect(hasUsableAssistantContent(parseAssistantMessageV2('</execute_comman'))).toBe(false)
+    expect(hasUsableAssistantContent(parseAssistantMessageV2('</｜｜DSML｜｜ invoke>'))).toBe(false)
+    expect(hasUsableAssistantContent(parseAssistantMessageV2('Use <div> here'))).toBe(true)
+  })
+
+  it('preserves tool closers inside Markdown code', () => {
+    expect(parseAssistantMessageV2('To close it, write `</execute_command>`.')).toMatchObject([
+      { type: 'text', content: 'To close it, write `</execute_command>`.' }
+    ])
+    expect(parseAssistantMessageV2('```xml\n</execute_command>\n```')).toMatchObject([{ type: 'text', content: '```xml\n</execute_command>\n```' }])
+  })
+
+  it('keeps ordinary angle-bracket text substantive', () => {
+    expect(hasUsableAssistantContent(parseAssistantMessageV2('x < 5 and y > 2'))).toBe(true)
+    expect(hasUsableAssistantContent(parseAssistantMessageV2('<div>'))).toBe(true)
+  })
+
+  it('treats bare DSML closers as unusable', () => {
+    expect(parseAssistantMessageV2('</parameter>\n</invoke>')).toEqual([])
+    expect(hasUsableAssistantContent(parseAssistantMessageV2('</parameter>\n</invoke>'))).toBe(false)
   })
 })

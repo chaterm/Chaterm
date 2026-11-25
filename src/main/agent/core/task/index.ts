@@ -69,7 +69,15 @@ interface MessageUpdater {
   updateApiReqMsg: (cancelReason?: ChatermApiReqCancelReason, streamingFailedMessage?: string) => void
 }
 
-import { AssistantMessageContent, parseAssistantMessageV2, ToolParamName, ToolUseName, TextContent, ToolUse } from '@core/assistant-message'
+import {
+  AssistantMessageContent,
+  hasUsableAssistantContent,
+  parseAssistantMessageV2,
+  ToolParamName,
+  ToolUseName,
+  TextContent,
+  ToolUse
+} from '@core/assistant-message'
 import { isToolAllowed, type TaskWorkspace } from './tool-registry'
 import { DEFAULT_WORKSPACE, hasValidDbContext, normaliseWorkspace, type DbTaskContext } from './workspace'
 import {
@@ -945,6 +953,28 @@ export class Task {
     }
 
     return value
+  }
+
+  /**
+   * Remove assistant turns that contain no actionable text or tool use.
+   *
+   * Older tasks may already have a malformed DSML closer (for example
+   * `</execute_command>`) persisted as an assistant message. Sending it back to
+   * the model reinforces the same malformed output on the next retry, so drop
+   * those turns before building the API request.
+   */
+  private dropNonActionableAssistantMessages(conversationHistory: Anthropic.MessageParam[]): Anthropic.MessageParam[] {
+    const hasUsableHistoryText = (text: string): boolean => {
+      // Fast path: without markup there is nothing to classify.
+      if (!/[<｜|]/.test(text)) return true
+      return hasUsableAssistantContent(parseAssistantMessageV2(text))
+    }
+
+    return conversationHistory.filter((message) => {
+      if (message.role !== 'assistant') return true
+      if (typeof message.content === 'string') return hasUsableHistoryText(message.content)
+      return message.content.some((block) => block.type === 'tool_use' || (block.type === 'text' && hasUsableHistoryText(block.text)))
+    })
   }
 
   private normalizeToolResultsForApi(conversationHistory: Anthropic.MessageParam[]): Anthropic.MessageParam[] {
@@ -2557,6 +2587,10 @@ export class Task {
       this.summarizeUpToTs = undefined
     }
 
+    // Drop assistant turns that only contain malformed markup so the model does
+    // not keep imitating its own broken output.
+    conversationHistory = this.dropNonActionableAssistantMessages(conversationHistory)
+
     // Normalize tool_result and legacy file_ref blocks into text-only content
     // so that downstream provider adapters see only supported block types.
     conversationHistory = this.normalizeToolResultsForApi(conversationHistory)
@@ -3094,13 +3128,13 @@ export class Task {
       block.partial = false
     })
 
-    if (partialBlocks.length > 0) {
+    if (partialBlocks.length > 0 && hasUsableAssistantContent(this.assistantMessageContent)) {
       this.presentAssistantMessage()
     }
   }
 
   private async processAssistantResponse(assistantMessage: string): Promise<boolean> {
-    if (assistantMessage.length === 0) {
+    if (assistantMessage.length === 0 || !hasUsableAssistantContent(this.assistantMessageContent)) {
       return await this.handleEmptyAssistantResponse()
     }
     // telemetryService.captureConversationTurnEvent(this.taskId, await getGlobalState('apiProvider'), this.api.getModel().id, 'assistant')

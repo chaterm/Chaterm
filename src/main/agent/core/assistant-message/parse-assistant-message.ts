@@ -6,6 +6,29 @@
 
 import { AssistantMessageContent, TextContent, ToolUse, ToolParamName, toolParamNames, toolUseNames, ToolUseName } from '.' // Assuming types are defined in index.ts or a similar file
 
+const DSML_PREFIX = '(?:[｜|‖]\\s*)+DSML\\s*(?:[｜|‖]\\s*)+'
+const DSML_MARKUP_TAG = new RegExp(`<\\s*/?\\s*${DSML_PREFIX}\\s*(?:calls|tool_calls|function_calls|invoke|parameter)\\b[^<>]*>?`, 'gi')
+// DeepSeek sometimes drops the DSML special token itself and leaves only the
+// XML-looking closer, e.g. "</parameter>\n</invoke>".
+const BARE_DSML_CLOSE_TAG = /<\s*\/\s*(?:invoke|parameter)\s*>/gi
+const MARKDOWN_CODE_SEGMENT = /(```[\s\S]*?```|`[^`\n]*`)/g
+
+// `toolUseNames` is initialized by the barrel module after this file loads, so
+// these patterns are built lazily instead of at module scope.
+const strayToolCloseTag = (): RegExp => new RegExp(`<\\s*/\\s*(?:${toolUseNames.join('|')})\\s*>`, 'gi')
+const toolMarkupTag = (): RegExp => new RegExp(`<\\s*/?\\s*(?:${toolUseNames.join('|')})(?:\\s[^<>]*|["'][^<>]*)?>?`, 'gi')
+
+/**
+ * Remove stray registered-tool closers outside Markdown code. A closer inside a
+ * code span or fence is documentation, not protocol residue.
+ */
+function stripStrayToolClosers(text: string): string {
+  return text
+    .split(MARKDOWN_CODE_SEGMENT)
+    .map((part, index) => (index % 2 === 1 ? part : part.replace(strayToolCloseTag(), '').replace(BARE_DSML_CLOSE_TAG, '')))
+    .join('')
+}
+
 /**
  * @description **Version 1**
  * Parses an assistant message string potentially containing mixed text and tool usage blocks
@@ -271,7 +294,7 @@ export function parseAssistantMessageV2(assistantMessage: string): AssistantMess
   // as XML calls. Never rewrite parameter values (commands/file contents).
   // DeepSeek and compatible relays may render the marker with fullwidth bars,
   // ASCII pipes, or spaces between the marker characters.
-  const dsmlPrefix = '(?:[｜|‖]\\s*)+DSML\\s*(?:[｜|‖]\\s*)+'
+  const dsmlPrefix = DSML_PREFIX
   const dsmlTags = new Map<number, RegExpMatchArray>()
   for (const match of assistantMessage.matchAll(
     new RegExp(`<\\s*(/?)\\s*${dsmlPrefix}\\s*(calls|tool_calls|function_calls|invoke|parameter)\\b([^>]*)>`, 'gi')
@@ -300,8 +323,12 @@ export function parseAssistantMessageV2(assistantMessage: string): AssistantMess
       malformedToolTags.set(match.index + match[0].length - 1, { tag: match[0], name })
     }
   }
+  // A closing tag that reaches the text state has no matching opener, because
+  // real tool closers are consumed by the tool-state parser. DeepSeek sometimes
+  // emits only the closer (e.g. a lone `</execute_command>`); leaving it as text
+  // makes the task treat the turn as a final answer.
   const cleanText = (text: string): string =>
-    text
+    stripStrayToolClosers(text)
       .replace(new RegExp(`<\\s*/?\\s*${dsmlPrefix}\\s*(?:calls|tool_calls|function_calls)\\s*>`, 'gi'), '')
       // Hold back incomplete DSML tags across streaming chunks.
       .replace(/<\/?\s*(?:(?:[｜|‖]\s*){0,8}(?:D(?:S(?:M(?:L[^>]*)?)?)?)?)?$/i, '')
@@ -569,4 +596,32 @@ export function parseAssistantMessageV2(assistantMessage: string): AssistantMess
   }
 
   return contentBlocks
+}
+
+/**
+ * True when a text block still has something the agent can act on after
+ * removing recognized Chaterm/DSML protocol markup. Ordinary angle-bracket
+ * text (comparisons, HTML examples) stays substantive. A turn that only
+ * contains markup residue (for example `</execute_command>` or a stream cut in
+ * the middle of a tool tag) must not be treated as a final answer.
+ */
+export function hasUsableTextContent(content: string): boolean {
+  const stripped = content.replace(toolMarkupTag(), '').replace(DSML_MARKUP_TAG, '').replace(BARE_DSML_CLOSE_TAG, '').trim()
+  if (stripped.length === 0) return false
+
+  const truncated = stripped.match(/^<\/?([a-z_]+)$/i)
+  if (truncated && toolUseNames.some((name) => name.startsWith(truncated[1]))) return false
+
+  return true
+}
+
+/**
+ * True when a parsed turn contains something the agent can act on.
+ *
+ * A turn that only produced markup residue must be treated as an empty
+ * response so the task loop retries instead of silently completing with an
+ * empty result.
+ */
+export function hasUsableAssistantContent(blocks: AssistantMessageContent[]): boolean {
+  return blocks.some((block) => block.type === 'tool_use' || (block.type === 'text' && hasUsableTextContent(block.content)))
 }
